@@ -8,6 +8,7 @@ export const user = sqliteTable("user", {
   email: text("email").notNull().unique(),
   emailVerified: integer("email_verified", { mode: "boolean" }).notNull().default(false),
   image: text("image"),
+  isAdmin: integer("is_admin", { mode: "boolean" }).notNull().default(false),
   createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
@@ -375,6 +376,32 @@ export const castle = sqliteTable(
   },
   (table) => [
     index("castle_child_idx").on(table.childId),
+  ]
+);
+
+// ── Feedback (Send a Raven) ─────────────────────────────────
+
+export const feedback = sqliteTable(
+  "feedback",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
+    category: text("category", { enum: ["bug", "idea", "praise", "other"] }).notNull(),
+    message: text("message").notNull(),
+    pageUrl: text("page_url"),
+    userAgent: text("user_agent"),
+    viewport: text("viewport"),
+    appVersion: text("app_version"),
+    status: text("status", { enum: ["new", "triaged", "resolved", "archived"] })
+      .notNull()
+      .default("new"),
+    adminNotes: text("admin_notes"),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+  },
+  (table) => [
+    index("feedback_user_idx").on(table.userId),
+    index("feedback_status_idx").on(table.status, table.createdAt),
   ]
 );
 

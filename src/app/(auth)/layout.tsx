@@ -43,7 +43,11 @@ export default function AuthLayout({
         <div className="p-6">{children}</div>
       </div>
 
-      <p className="mt-8 text-center text-xs text-muted-foreground/40">
+      <p className="mt-8 text-center text-xs text-muted-foreground/60">
+        <a href="/privacy" className="hover:underline">Privacy</a>
+        {" · "}
+        <a href="/terms" className="hover:underline">Terms</a>
+        <span className="mx-2 opacity-50">·</span>
         &copy; {new Date().getFullYear()} Kingdoms &amp; Crowns
       </p>
     </div>

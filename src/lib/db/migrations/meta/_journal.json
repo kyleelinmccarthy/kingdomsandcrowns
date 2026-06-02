@@ -36,6 +36,20 @@
       "when": 1774284689495,
       "tag": "0004_windy_alex_wilder",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1780404163645,
+      "tag": "0005_flawless_plazm",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1780407142248,
+      "tag": "0006_curious_tombstone",
+      "breakpoints": true
     }
   ]
 }
