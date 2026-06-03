@@ -30,6 +30,11 @@ export function Dialog({
     <dialog
       ref={ref}
       onClose={onClose}
+      // Native <dialog> registers backdrop clicks on the element itself; close
+      // when the click lands outside the inner content.
+      onClick={(e) => {
+        if (e.target === ref.current) onClose();
+      }}
       className={cn(
         "backdrop:bg-black/60 rounded-md border-2 border-[var(--gold-border)] p-0 m-auto",
         "bg-[linear-gradient(180deg,rgba(17,26,46,0.95)_0%,rgba(13,21,37,0.98)_40%,rgba(10,16,30,1)_100%)]",
@@ -39,7 +44,24 @@ export function Dialog({
         className,
       )}
     >
-      <div className="p-6">{children}</div>
+      <div className="relative p-6">
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close"
+          className={cn(
+            "absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full",
+            "text-muted-foreground transition-colors hover:bg-white/10 hover:text-foreground",
+            "focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--gold-border)]",
+          )}
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        </button>
+        {children}
+      </div>
     </dialog>
   );
 }

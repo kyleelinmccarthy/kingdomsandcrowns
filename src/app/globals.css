@@ -165,6 +165,18 @@ body {
     font-weight: 600;
     letter-spacing: 0.04em;
   }
+  /* Browser autofill (esp. password fields) paints a light background that
+     overrides our dark bg-input. Pin it back to the theme colors. */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus,
+  input:-webkit-autofill:active {
+    -webkit-text-fill-color: var(--foreground);
+    caret-color: var(--foreground);
+    -webkit-box-shadow: 0 0 0 1000px var(--input) inset;
+    box-shadow: 0 0 0 1000px var(--input) inset;
+    transition: background-color 9999s ease-in-out 0s;
+  }
 }
 
 /* ──────────────────────────────────────────────────────────
