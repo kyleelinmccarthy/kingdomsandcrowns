@@ -5,8 +5,29 @@ import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { tryLinkChildForUser, tryLinkChildByUserId } from "@/lib/auth/child-link";
 
+// better-auth only trusts the single host in BETTER_AUTH_URL by default, which
+// rejects requests whose Origin is a different host (e.g. www vs apex) with
+// "Invalid origin". Trust both the apex and www variants of the configured URL,
+// plus localhost for dev.
+function buildTrustedOrigins(): string[] {
+  const origins = new Set<string>(["http://localhost:3000"]);
+  const baseUrl = process.env.BETTER_AUTH_URL;
+  if (baseUrl) {
+    try {
+      const url = new URL(baseUrl);
+      const host = url.host.replace(/^www\./, "");
+      origins.add(`${url.protocol}//${host}`);
+      origins.add(`${url.protocol}//www.${host}`);
+    } catch {
+      origins.add(baseUrl);
+    }
+  }
+  return [...origins];
+}
+
 export const auth = betterAuth({
   appName: "Kingdoms & Crowns",
+  trustedOrigins: buildTrustedOrigins(),
   database: drizzleAdapter(db, {
     provider: "sqlite",
     schema,

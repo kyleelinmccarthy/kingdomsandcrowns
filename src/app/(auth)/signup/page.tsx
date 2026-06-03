@@ -165,8 +165,23 @@ function SignupForm() {
           className="w-full"
           disabled={loading}
           onClick={async () => {
+            setError("");
             setLoading(true);
-            await signIn.social({ provider: "google", callbackURL: redirectTo });
+            // On success the better-auth redirect plugin navigates to Google, so
+            // we intentionally leave `loading` true. Only surface/reset on error,
+            // otherwise a rejected request (e.g. origin not trusted) silently
+            // freezes the button with no feedback.
+            const { error: socialError } = await signIn.social({
+              provider: "google",
+              callbackURL: redirectTo,
+            });
+            if (socialError) {
+              setError(
+                socialError.message ||
+                  "The Google gateway turned us away. Try again, adventurer!",
+              );
+              setLoading(false);
+            }
           }}
         >
           <svg className="mr-2 size-4" viewBox="0 0 24 24">

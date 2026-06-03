@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Feather, LogOut, Settings, User } from "lucide-react";
 import {
   DropdownMenu,
@@ -18,12 +17,47 @@ import { signOut } from "@/lib/auth/client";
 
 export function UserMenu({ userName }: { userName: string }) {
   const [ravenOpen, setRavenOpen] = useState(false);
-  const router = useRouter();
+  const [signingOut, setSigningOut] = useState(false);
 
   async function handleSignOut() {
-    await signOut();
-    router.push("/login");
-    router.refresh();
+    if (signingOut) return;
+    setSigningOut(true);
+
+    // better-auth's client signOut can be rejected (415/500) when the POST
+    // carries no JSON body — which leaves the session cookie intact. Treat any
+    // failure as "retry with an explicit body" so we never navigate away while
+    // still signed in (the original bug: it ignored the error and left).
+    let cleared = false;
+    try {
+      const res = await signOut();
+      cleared = !res?.error;
+    } catch {
+      cleared = false;
+    }
+    if (!cleared) {
+      try {
+        const res = await fetch("/api/auth/sign-out", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: "{}",
+        });
+        cleared = res.ok;
+      } catch {
+        cleared = false;
+      }
+    }
+
+    if (!cleared) {
+      // Couldn't reach the server — keep the user where they are rather than
+      // dropping them on /login while their session is still live.
+      setSigningOut(false);
+      window.alert("Could not leave the realm right now. Please try again.");
+      return;
+    }
+
+    // Hard navigation (not router.push) so the cleared cookies and better-auth's
+    // cached session state are fully reset on the next load.
+    window.location.href = "/login";
   }
 
   return (
@@ -57,11 +91,12 @@ export function UserMenu({ userName }: { userName: string }) {
           <DropdownMenuSeparator />
           <DropdownMenuItem
             variant="destructive"
+            disabled={signingOut}
             onClick={handleSignOut}
             className="flex items-center gap-2"
           >
             <LogOut className="size-4" />
-            Leave the Realm
+            {signingOut ? "Departing..." : "Leave the Realm"}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
