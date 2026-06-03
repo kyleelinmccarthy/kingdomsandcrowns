@@ -11,7 +11,13 @@ import { Avatar } from "@/components/avatar";
 import { AvatarCustomizer } from "@/components/avatar-customizer";
 import { FamilySetup } from "./family-setup";
 import { ChildLoginAccess } from "./child-login-access";
+import { AgeInput, type AgeMode } from "./age-input";
 import { createChild, updateChild, deleteChild } from "@/lib/actions/children";
+import {
+  setChildEmail,
+  setChildAuthMethod,
+  recordChildConsent,
+} from "@/lib/actions/child-auth";
 import { createSubject, updateSubject, deleteSubject } from "@/lib/actions/subjects";
 import { toggleLeaderboardVisibility } from "@/lib/actions/leaderboard";
 import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
@@ -34,7 +40,8 @@ type Subject = {
 type Child = {
   id: string;
   displayName: string;
-  birthYear: number;
+  birthYear: number | null;
+  grade?: string | null;
   ageMode: string;
   avatarConfig: string | null;
   currentXp: number;
@@ -146,7 +153,13 @@ function ChildSummaryCard({
           <div>
             <p className="font-medium">{child.displayName}</p>
             <p className="text-sm text-muted-foreground">
-              {child.ageMode} &middot; Born {child.birthYear} &middot; {child.subjects.length} disciplines
+              {child.ageMode} &middot;{" "}
+              {child.grade
+                ? `Grade ${child.grade}`
+                : child.birthYear
+                  ? `Born ${child.birthYear}`
+                  : "Age not set"}{" "}
+              &middot; {child.subjects.length} disciplines
             </p>
           </div>
         </div>
@@ -209,11 +222,17 @@ function ChildDetail({ child, isChildView = false }: { child: Child; isChildView
 function ChildInfoEditor({ child }: { child: Child }) {
   const router = useRouter();
   const [name, setName] = useState(child.displayName);
-  const [birthYear, setBirthYear] = useState(child.birthYear.toString());
+  const [ageMode, setAgeMode] = useState<AgeMode>(child.grade ? "grade" : "birthYear");
+  const [birthYear, setBirthYear] = useState(child.birthYear?.toString() ?? "");
+  const [grade, setGrade] = useState(child.grade ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const hasChanges = name !== child.displayName || birthYear !== child.birthYear.toString();
+  const ageChanged =
+    ageMode === "grade"
+      ? grade !== (child.grade ?? "")
+      : birthYear !== (child.birthYear?.toString() ?? "");
+  const hasChanges = name !== child.displayName || ageChanged;
 
   async function handleSave() {
     setSaving(true);
@@ -221,7 +240,9 @@ function ChildInfoEditor({ child }: { child: Child }) {
     try {
       await updateChild(child.id, {
         displayName: name !== child.displayName ? name : undefined,
-        birthYear: birthYear !== child.birthYear.toString() ? parseInt(birthYear) : undefined,
+        birthYear:
+          ageMode === "birthYear" && ageChanged && birthYear ? parseInt(birthYear) : undefined,
+        grade: ageMode === "grade" && ageChanged && grade ? grade : undefined,
       });
       router.refresh();
     } catch (err) {
@@ -246,17 +267,15 @@ function ChildInfoEditor({ child }: { child: Child }) {
             onChange={(e) => setName(e.target.value)}
           />
         </div>
-        <div className="space-y-1">
-          <Label htmlFor={`year-${child.id}`} className="text-xs">Year of Origin</Label>
-          <Input
-            id={`year-${child.id}`}
-            type="number"
-            value={birthYear}
-            onChange={(e) => setBirthYear(e.target.value)}
-            min={2000}
-            max={new Date().getFullYear()}
-          />
-        </div>
+        <AgeInput
+          idPrefix={`age-${child.id}`}
+          mode={ageMode}
+          onModeChange={setAgeMode}
+          birthYear={birthYear}
+          onBirthYearChange={setBirthYear}
+          grade={grade}
+          onGradeChange={setGrade}
+        />
       </div>
       {hasChanges && (
         <Button size="sm" onClick={handleSave} disabled={saving}>
@@ -458,24 +477,83 @@ function AvatarSection({ child }: { child: Child }) {
 function AddChildDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const router = useRouter();
   const [name, setName] = useState("");
+  const [ageMode, setAgeMode] = useState<AgeMode>("birthYear");
   const [birthYear, setBirthYear] = useState("");
+  const [grade, setGrade] = useState("");
   const [pin, setPin] = useState("");
+  const [email, setEmail] = useState("");
+  const [emailEnabled, setEmailEnabled] = useState(false);
+  const [googleEnabled, setGoogleEnabled] = useState(false);
+  const [consent, setConsent] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  const wantsSelfService = emailEnabled || googleEnabled;
+
+  function reset() {
+    setName("");
+    setAgeMode("birthYear");
+    setBirthYear("");
+    setGrade("");
+    setPin("");
+    setEmail("");
+    setEmailEnabled(false);
+    setGoogleEnabled(false);
+    setConsent(false);
+    setError("");
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setSaving(true);
     setError("");
+
+    if (ageMode === "birthYear" && !birthYear) {
+      setError("Enter a birth year, or switch to grade.");
+      return;
+    }
+    if (ageMode === "grade" && !grade) {
+      setError("Choose a grade, or switch to birth year.");
+      return;
+    }
+    if (!pin && !email.trim()) {
+      setError("Set at least one way to sign in: a PIN, an email, or both.");
+      return;
+    }
+    if (pin && !/^\d{4,6}$/.test(pin)) {
+      setError("A PIN must be 4–6 digits.");
+      return;
+    }
+    if (wantsSelfService && !email.trim()) {
+      setError("Add an email to enable email or Google sign-in.");
+      return;
+    }
+    if (wantsSelfService && !consent) {
+      setError("Please give parental consent to enable self-service sign-in.");
+      return;
+    }
+
+    setSaving(true);
     try {
-      await createChild({
+      const { id } = await createChild({
         displayName: name,
-        birthYear: parseInt(birthYear),
-        pin,
+        birthYear: ageMode === "birthYear" ? parseInt(birthYear) : undefined,
+        grade: ageMode === "grade" ? grade : undefined,
+        pin: pin || undefined,
       });
-      setName("");
-      setBirthYear("");
-      setPin("");
+
+      if (email.trim()) {
+        await setChildEmail(id, email.trim());
+        if (wantsSelfService) {
+          const methods: ("email" | "google")[] = [];
+          if (emailEnabled) methods.push("email");
+          if (googleEnabled) methods.push("google");
+          await recordChildConsent(id, methods);
+          if (emailEnabled) await setChildAuthMethod(id, "email", true);
+          if (googleEnabled) await setChildAuthMethod(id, "google", true);
+        }
+      }
+
+      reset();
       onClose();
       router.refresh();
     } catch (err) {
@@ -504,33 +582,87 @@ function AddChildDialog({ open, onClose }: { open: boolean; onClose: () => void 
             required
           />
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="birthYear">Year of Origin</Label>
-          <Input
-            id="birthYear"
-            type="number"
-            value={birthYear}
-            onChange={(e) => setBirthYear(e.target.value)}
-            placeholder="2016"
-            min={2000}
-            max={new Date().getFullYear()}
-            required
-          />
+        <AgeInput
+          mode={ageMode}
+          onModeChange={setAgeMode}
+          birthYear={birthYear}
+          onBirthYearChange={setBirthYear}
+          grade={grade}
+          onGradeChange={setGrade}
+        />
+
+        <div className="rounded-lg border border-gold-dim bg-muted/20 p-3 space-y-3">
+          <p className="text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">Set at least one way to sign in.</span>{" "}
+            A PIN works on a shared device; an email lets the hero sign in on their own. You can do both.
+          </p>
+          <div className="space-y-2">
+            <Label htmlFor="pin">Secret PIN (4–6 digits)</Label>
+            <Input
+              id="pin"
+              type="password"
+              inputMode="numeric"
+              value={pin}
+              onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+              placeholder="1234"
+              maxLength={6}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="childEmail">Email</Label>
+            <Input
+              id="childEmail"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="hero@example.com"
+            />
+          </div>
+          {email.trim() && (
+            <>
+              <div className="flex flex-wrap gap-4">
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={emailEnabled}
+                    onChange={(e) => setEmailEnabled(e.target.checked)}
+                  />
+                  Email + password
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={googleEnabled}
+                    onChange={(e) => setGoogleEnabled(e.target.checked)}
+                  />
+                  Google (if a gmail)
+                </label>
+              </div>
+              {wantsSelfService && (
+                <label className="flex items-start gap-2 text-xs text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={consent}
+                    onChange={(e) => setConsent(e.target.checked)}
+                    className="mt-0.5"
+                  />
+                  <span>
+                    I authorize this hero to use self-service login (email / Google) and
+                    consent to data collection for this parent-managed profile.
+                  </span>
+                </label>
+              )}
+            </>
+          )}
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="pin">Secret Rune Code (4-6 digits)</Label>
-          <Input
-            id="pin"
-            type="password"
-            value={pin}
-            onChange={(e) => setPin(e.target.value)}
-            placeholder="1234"
-            pattern="\d{4,6}"
-            minLength={4}
-            maxLength={6}
-            required
-          />
-        </div>
+
+        <p className="text-xs text-muted-foreground">
+          After you summon this hero, open their card to{" "}
+          <span className="text-foreground">send a login invite</span>. Kids sign in at{" "}
+          <span className="font-mono text-[var(--gold-bright)]">/play</span> with your family code, or
+          with the email login you set up.
+        </p>
+
         <DialogFooter>
           <Button type="button" variant="outline" onClick={onClose}>Withdraw</Button>
           <Button type="submit" disabled={saving}>

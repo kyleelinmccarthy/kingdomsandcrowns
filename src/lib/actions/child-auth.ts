@@ -10,6 +10,7 @@ import { requireChildAccess, requireFamilyAccess, type FamilyAccess } from "@/li
 import { hashPin } from "@/lib/utils/pin";
 import { sanitizeEmail } from "@/lib/utils/sanitize";
 import { sendEmail, appBaseUrl } from "@/lib/email";
+import { brandedEmail } from "@/lib/email-template";
 import { generateLoginCode } from "@/lib/auth/child-login";
 
 const CONSENT_VERSION = "2026-06-01";
@@ -168,20 +169,15 @@ export async function recordChildConsent(childId: string, methods: LoginMethod[]
   });
 }
 
-export async function sendChildLoginSetup(childId: string) {
-  const { access } = await requireChildAccess(childId, { write: true });
-  assertCanManageLogin(access);
-
-  const rows = await db
-    .select()
-    .from(schema.child)
-    .where(eq(schema.child.id, childId))
-    .limit(1);
-  const child = rows[0];
-  if (!child) throw new Error("Hero not found.");
-  if (!child.email) throw new Error("Set the hero's email first.");
-  if (!child.emailLoginEnabled) throw new Error("Enable email login first.");
-
+/**
+ * Mint a fresh password-setup link for an email-login hero, superseding any
+ * prior pending links. Shared by the setup email and the starting-quest invite.
+ */
+async function createChildSetupLink(
+  childId: string,
+  email: string,
+  createdByUserId: string
+): Promise<{ token: string; link: string }> {
   const now = new Date();
   const token = nanoid(32);
   const expiresAt = new Date(now.getTime() + SETUP_LINK_TTL_DAYS * 24 * 60 * 60 * 1000);
@@ -201,33 +197,139 @@ export async function sendChildLoginSetup(childId: string) {
     id: nanoid(),
     token,
     childId,
-    email: child.email,
+    email,
     purpose: "set_password",
     status: "pending",
     expiresAt,
-    createdByUserId: access.userId,
+    createdByUserId,
     createdAt: now,
   });
 
-  const link = `${appBaseUrl()}/child-setup/${token}`;
+  return { token, link: `${appBaseUrl()}/child-setup/${token}` };
+}
+
+export async function sendChildLoginSetup(childId: string) {
+  const { access } = await requireChildAccess(childId, { write: true });
+  assertCanManageLogin(access);
+
+  const rows = await db
+    .select()
+    .from(schema.child)
+    .where(eq(schema.child.id, childId))
+    .limit(1);
+  const child = rows[0];
+  if (!child) throw new Error("Hero not found.");
+  if (!child.email) throw new Error("Set the hero's email first.");
+  if (!child.emailLoginEnabled) throw new Error("Enable email login first.");
+
+  const { token, link } = await createChildSetupLink(childId, child.email, access.userId);
+
+  const { html, text } = brandedEmail({
+    preheader: "Create your password and claim your hero.",
+    heading: "Set up your hero login",
+    greeting: `Hail, ${child.displayName}!`,
+    paragraphs: [
+      "A grown-up set up a login for you on Kingdoms & Crowns. Create your secret passphrase to claim your hero and begin your quests.",
+      `This magic link expires in ${SETUP_LINK_TTL_DAYS} days.`,
+    ],
+    button: { label: "Create my password", url: link },
+    afterButton: [`If the button doesn't work, paste this into your browser: ${link}`],
+  });
+
   const emailSent = await sendEmail({
     to: child.email,
-    subject: `Set up your Kingdoms & Crowns hero login`,
-    text: [
-      `Hi ${child.displayName},`,
-      ``,
-      `A grown-up set up a login for you on Kingdoms & Crowns.`,
-      `Create your password here:`,
-      link,
-      ``,
-      `This link expires in ${SETUP_LINK_TTL_DAYS} days.`,
-    ].join("\n"),
+    subject: "Set up your Kingdoms & Crowns hero login",
+    text,
+    html,
   }).catch((err) => {
     console.error("[child-auth] setup email failed:", err);
     return false;
   });
 
   return { token, link, emailSent };
+}
+
+/**
+ * Send a hero a fun "your quest awaits" invitation to log in. Adapts the link
+ * and instructions to how the hero actually signs in:
+ *  - email login, not yet claimed  → password-setup link (/child-setup/[token])
+ *  - email login, already claimed   → sign-in page (/login)
+ *  - PIN only                       → family-code play page (/play?code=…)
+ * Requires an email on file to send to.
+ */
+export async function sendChildQuestInvite(childId: string) {
+  const { access } = await requireChildAccess(childId, { write: true });
+  assertCanManageLogin(access);
+
+  const rows = await db
+    .select()
+    .from(schema.child)
+    .where(eq(schema.child.id, childId))
+    .limit(1);
+  const child = rows[0];
+  if (!child) throw new Error("Hero not found.");
+  if (!child.email) {
+    throw new Error("Add the hero's email first so we know where to send the invite.");
+  }
+  if (!child.pinEnabled && !child.emailLoginEnabled) {
+    throw new Error("Give the hero a PIN or enable email login before inviting them.");
+  }
+
+  const base = appBaseUrl();
+  let button: { label: string; url: string };
+  const paragraphs: string[] = [
+    "Your adventure on Kingdoms & Crowns is ready! Quests, XP, and glory await — tap below to enter the realm.",
+  ];
+  const afterButton: string[] = [];
+
+  if (child.emailLoginEnabled && !child.authUserId) {
+    // Email hero who hasn't claimed their account yet → setup link.
+    const { link } = await createChildSetupLink(childId, child.email, access.userId);
+    button = { label: "Begin your quest", url: link };
+    paragraphs.push(
+      `First, create your secret passphrase. This magic link expires in ${SETUP_LINK_TTL_DAYS} days.`
+    );
+    afterButton.push(`If the button doesn't work, paste this into your browser: ${link}`);
+  } else if (child.emailLoginEnabled && child.authUserId) {
+    // Email hero who already has a login → sign-in page.
+    button = { label: "Begin your quest", url: `${base}/login` };
+    paragraphs.push(`Sign in with your email (${child.email}) and your secret passphrase.`);
+  } else {
+    // PIN-only hero → family-code play page.
+    const fam = (
+      await db
+        .select({ loginCode: schema.family.loginCode })
+        .from(schema.family)
+        .where(eq(schema.family.id, child.familyId))
+        .limit(1)
+    )[0];
+    const code = fam?.loginCode ?? "";
+    const url = code ? `${base}/play?code=${encodeURIComponent(code)}` : `${base}/play`;
+    button = { label: "Begin your quest", url };
+    paragraphs.push("Tap your hero, then enter your secret PIN to start playing.");
+    if (code) afterButton.push(`Your family code: ${code}`);
+  }
+
+  const { html, text } = brandedEmail({
+    preheader: "Your quest awaits — enter the realm!",
+    heading: "A quest awaits, hero!",
+    greeting: `Hail, ${child.displayName}!`,
+    paragraphs,
+    button,
+    afterButton,
+  });
+
+  const emailSent = await sendEmail({
+    to: child.email,
+    subject: `${child.displayName}, your quest on Kingdoms & Crowns awaits!`,
+    text,
+    html,
+  }).catch((err) => {
+    console.error("[child-auth] quest invite email failed:", err);
+    return false;
+  });
+
+  return { link: button.url, emailSent };
 }
 
 /** Invitee-side: preview a setup token for the landing page (no auth). */

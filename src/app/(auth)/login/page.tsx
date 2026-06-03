@@ -157,7 +157,7 @@ function LoginForm() {
           Continue with Google
         </Button>
       </div>
-      <div className="mt-4 text-center">
+      <div className="mt-4 space-y-1 text-center">
         <p className="text-sm text-muted-foreground">
           New to these lands?{" "}
           <Link
@@ -165,6 +165,12 @@ function LoginForm() {
             className="font-medium text-primary hover:underline"
           >
             Start your journey
+          </Link>
+        </p>
+        <p className="text-xs text-muted-foreground">
+          Are you a kid?{" "}
+          <Link href="/play" className="text-[var(--gold-bright)] hover:underline">
+            Play here →
           </Link>
         </p>
       </div>

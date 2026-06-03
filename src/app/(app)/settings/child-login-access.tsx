@@ -10,7 +10,7 @@ import {
   setChildAuthMethod,
   setChildPin,
   recordChildConsent,
-  sendChildLoginSetup,
+  sendChildQuestInvite,
 } from "@/lib/actions/child-auth";
 
 type Props = {
@@ -32,7 +32,8 @@ export function ChildLoginAccess({ child }: Props) {
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [setupLink, setSetupLink] = useState<string | null>(null);
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const [inviteSent, setInviteSent] = useState(false);
 
   const emailDirty = email !== (child.email ?? "");
 
@@ -158,30 +159,47 @@ export function ChildLoginAccess({ child }: Props) {
         </label>
       </div>
 
-      {child.emailLoginEnabled && child.email && !child.authUserId && (
-        <div className="space-y-1">
+      {child.authUserId && (
+        <p className="text-xs text-muted-foreground">✓ This hero has set up their own login.</p>
+      )}
+
+      {/* Invite / starting-quest email */}
+      {child.email && (child.pinEnabled || child.emailLoginEnabled) && (
+        <div className="space-y-1 border-t pt-4">
           <Button
             size="sm"
             variant="outline"
             disabled={busy}
             onClick={() =>
               run(async () => {
-                const res = await sendChildLoginSetup(child.id);
-                if (!res.emailSent) setSetupLink(res.link);
+                setInviteLink(null);
+                setInviteSent(false);
+                const res = await sendChildQuestInvite(child.id);
+                if (res.emailSent) setInviteSent(true);
+                else setInviteLink(res.link);
               })
             }
           >
-            Send login setup email
+            ✉️ Send starting-quest email
           </Button>
-          {setupLink && (
+          <p className="text-xs text-muted-foreground">
+            Emails {child.email} a branded invite with a link to{" "}
+            {child.emailLoginEnabled
+              ? child.authUserId
+                ? "sign in"
+                : "set up their login"
+              : "play with the family code"}
+            .
+          </p>
+          {inviteSent && (
+            <p className="text-xs text-[var(--gold-bright)]">✓ Quest invite sent!</p>
+          )}
+          {inviteLink && (
             <p className="break-all text-xs text-[var(--gold-bright)]">
-              Email not configured — share this link: {setupLink}
+              Email not configured — share this link: {inviteLink}
             </p>
           )}
         </div>
-      )}
-      {child.authUserId && (
-        <p className="text-xs text-muted-foreground">✓ This hero has set up their own login.</p>
       )}
     </div>
   );

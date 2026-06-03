@@ -14,7 +14,7 @@ export default async function PlayPage({
         <img src="/crown.svg" alt="" className="mx-auto mb-2 h-14 w-14" />
         <h1 className="page-title text-3xl">Play as a Hero</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Enter your family code and tap your hero.
+          Your grown-up sets up your hero. Enter your family code and tap your hero to begin.
         </p>
       </div>
 

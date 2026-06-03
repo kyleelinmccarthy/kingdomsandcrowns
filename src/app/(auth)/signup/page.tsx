@@ -29,14 +29,22 @@ function SignupForm() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [consent, setConsent] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [showPassphraseInfo, setShowPassphraseInfo] = useState(false);
+
+  const CONSENT_REQUIRED =
+    "Please confirm you're a parent or guardian and agree to the Terms & Privacy Policy.";
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
 
+    if (!consent) {
+      setError(CONSENT_REQUIRED);
+      return;
+    }
     if (password !== confirmPassword) {
       setError("The passphrases do not match. Speak them again with care!");
       return;
@@ -63,9 +71,9 @@ function SignupForm() {
   return (
     <>
       <div className="mb-6 text-center">
-        <h2 className="text-lg font-semibold">Begin Your Legend</h2>
+        <h2 className="text-lg font-semibold">Create your Parent Account</h2>
         <p className="mt-1 text-sm font-serif text-muted-foreground">
-          Forge your oath and join the realm
+          Kingdoms &amp; Crowns is for parents &amp; guardians — set up your family, then add your heroes.
         </p>
       </div>
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -146,7 +154,26 @@ function SignupForm() {
             minLength={8}
           />
         </div>
-        <Button type="submit" className="w-full" disabled={loading}>
+        <label className="flex items-start gap-2 text-xs text-muted-foreground">
+          <input
+            type="checkbox"
+            checked={consent}
+            onChange={(e) => setConsent(e.target.checked)}
+            className="mt-0.5"
+          />
+          <span>
+            I am a parent or guardian (18+) and I agree to the{" "}
+            <Link href="/terms" className="text-primary hover:underline">
+              Terms
+            </Link>{" "}
+            and{" "}
+            <Link href="/privacy" className="text-primary hover:underline">
+              Privacy Policy
+            </Link>
+            .
+          </span>
+        </label>
+        <Button type="submit" className="w-full" disabled={loading || !consent}>
           {loading ? "Forging your legend..." : "Begin the Adventure"}
         </Button>
       </form>
@@ -166,6 +193,10 @@ function SignupForm() {
           disabled={loading}
           onClick={async () => {
             setError("");
+            if (!consent) {
+              setError(CONSENT_REQUIRED);
+              return;
+            }
             setLoading(true);
             // On success the better-auth redirect plugin navigates to Google, so
             // we intentionally leave `loading` true. Only surface/reset on error,
@@ -205,7 +236,7 @@ function SignupForm() {
           Continue with Google
         </Button>
       </div>
-      <div className="mt-4 text-center">
+      <div className="mt-4 space-y-1 text-center">
         <p className="text-sm text-muted-foreground">
           Already have an account?{" "}
           <Link
@@ -214,6 +245,13 @@ function SignupForm() {
           >
             Return to the gates
           </Link>
+        </p>
+        <p className="text-xs text-muted-foreground">
+          Setting up for a child? Kids sign in at{" "}
+          <Link href="/play" className="text-[var(--gold-bright)] hover:underline">
+            Play
+          </Link>{" "}
+          — you&apos;ll add them from your account.
         </p>
       </div>
     </>

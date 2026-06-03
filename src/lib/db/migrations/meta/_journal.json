@@ -64,6 +64,13 @@
       "when": 1780446502877,
       "tag": "0008_spicy_banshee",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1780507524579,
+      "tag": "0009_aromatic_sersi",
+      "breakpoints": true
     }
   ]
 }

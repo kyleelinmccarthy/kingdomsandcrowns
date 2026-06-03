@@ -15,6 +15,7 @@ import {
 } from "@/lib/auth/access";
 import { sanitizeEmail } from "@/lib/utils/sanitize";
 import { sendEmail, appBaseUrl } from "@/lib/email";
+import { brandedEmail } from "@/lib/email-template";
 
 const INVITE_TTL_DAYS = 7;
 const INVITABLE_ROLES: MemberRole[] = ["co_parent", "teacher", "tutor", "guardian"];
@@ -165,20 +166,24 @@ export async function inviteGuardian(data: {
   });
 
   const link = `${appBaseUrl()}/invite/${token}`;
+  const roleLabel = data.role.replace("_", " ");
+  const permLabel = data.permission === "view" ? "view only" : "can edit";
+  const { html, text } = brandedEmail({
+    preheader: `Join ${access.familyName} on Kingdoms & Crowns.`,
+    heading: `You're invited to ${access.familyName}`,
+    paragraphs: [
+      "You've been invited to help guide a family's learning journey on Kingdoms & Crowns.",
+      `Role: ${roleLabel} (${permLabel}).`,
+      `This invitation expires in ${INVITE_TTL_DAYS} days.`,
+    ],
+    button: { label: "Accept your invitation", url: link },
+    afterButton: [`If the button doesn't work, paste this into your browser: ${link}`],
+  });
   const emailSent = await sendEmail({
     to: email,
     subject: `You've been invited to join ${access.familyName} on Kingdoms & Crowns`,
-    text: [
-      `You've been invited to help track a family's learning journey on Kingdoms & Crowns.`,
-      ``,
-      `Family: ${access.familyName}`,
-      `Your role: ${data.role.replace("_", " ")} (${data.permission === "view" ? "view only" : "can edit"})`,
-      ``,
-      `Accept your invitation:`,
-      link,
-      ``,
-      `This invitation expires in ${INVITE_TTL_DAYS} days.`,
-    ].join("\n"),
+    text,
+    html,
   }).catch((err) => {
     console.error("[guardians] invite email failed:", err);
     return false;
@@ -230,10 +235,21 @@ export async function resendInvite(inviteId: string) {
     .where(eq(schema.familyInvite.id, inviteId));
 
   const link = `${appBaseUrl()}/invite/${token}`;
+  const { html, text } = brandedEmail({
+    preheader: `Your invitation to ${access.familyName} is still waiting.`,
+    heading: `A reminder from ${access.familyName}`,
+    paragraphs: [
+      `Your invitation to join ${access.familyName} on Kingdoms & Crowns is still waiting for you.`,
+      `This invitation expires in ${INVITE_TTL_DAYS} days.`,
+    ],
+    button: { label: "Accept your invitation", url: link },
+    afterButton: [`If the button doesn't work, paste this into your browser: ${link}`],
+  });
   const emailSent = await sendEmail({
     to: invite.email,
     subject: `Reminder: your invitation to ${access.familyName} on Kingdoms & Crowns`,
-    text: [`Accept your invitation:`, link].join("\n"),
+    text,
+    html,
   }).catch(() => false);
 
   return { token, link, emailSent };

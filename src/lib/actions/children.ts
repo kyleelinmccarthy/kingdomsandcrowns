@@ -11,7 +11,30 @@ import {
 } from "@/lib/auth/access";
 import { sanitizeName } from "@/lib/utils/sanitize";
 import { hashPin } from "@/lib/utils/pin";
-import { deriveAgeMode } from "@/lib/utils/age-mode";
+import {
+  deriveAgeMode,
+  ageModeFromGrade,
+  isValidGrade,
+  type AgeMode,
+} from "@/lib/utils/age-mode";
+
+/**
+ * Resolve age inputs into the stored fields. The parent provides EITHER a birth
+ * year or a grade; ageMode is derived from whichever is present.
+ */
+function resolveAge(
+  birthYear?: number,
+  grade?: string
+): { birthYear: number | null; grade: string | null; ageMode: AgeMode } {
+  if (grade) {
+    if (!isValidGrade(grade)) throw new Error("Please choose a valid grade.");
+    return { birthYear: null, grade, ageMode: ageModeFromGrade(grade) };
+  }
+  if (birthYear) {
+    return { birthYear, grade: null, ageMode: deriveAgeMode(birthYear) };
+  }
+  throw new Error("Add a birth year or a grade for this hero.");
+}
 
 export async function getChildren() {
   const access = await requireFamilyAccess();
@@ -34,8 +57,9 @@ export async function getChild(childId: string) {
 
 export async function createChild(data: {
   displayName: string;
-  birthYear: number;
-  pin: string;
+  birthYear?: number; // provide birthYear OR grade
+  grade?: string;
+  pin?: string; // optional — an email-only hero may have no PIN
 }) {
   const access = await requireFamilyAccess({ write: true });
   if (access.scope === "specific") {
@@ -47,15 +71,18 @@ export async function createChild(data: {
   const name = sanitizeName(data.displayName);
   if (!name) throw new Error("Name is required");
 
-  const pinHash = await hashPin(data.pin);
-  const ageMode = deriveAgeMode(data.birthYear);
+  const { birthYear, grade, ageMode } = resolveAge(data.birthYear, data.grade);
+
+  const pinHash = data.pin ? await hashPin(data.pin) : null;
 
   await db.insert(schema.child).values({
     id,
     familyId,
     displayName: name,
     pinHash,
-    birthYear: data.birthYear,
+    pinEnabled: !!data.pin,
+    birthYear,
+    grade,
     ageMode,
     currentXp: 0,
     currentStreak: 0,
@@ -95,13 +122,23 @@ export async function createChild(data: {
 export async function updateChild(childId: string, data: {
   displayName?: string;
   birthYear?: number;
+  grade?: string;
 }) {
   const { familyId } = await requireChildAccess(childId, { write: true });
   const updates: Record<string, unknown> = { updatedAt: new Date() };
   if (data.displayName) updates.displayName = sanitizeName(data.displayName);
-  if (data.birthYear) {
-    updates.birthYear = data.birthYear;
-    updates.ageMode = deriveAgeMode(data.birthYear);
+  // Grade takes precedence if provided; otherwise birth year. Setting one clears
+  // the other so age data stays consistent.
+  if (data.grade) {
+    const { birthYear, grade, ageMode } = resolveAge(undefined, data.grade);
+    updates.birthYear = birthYear;
+    updates.grade = grade;
+    updates.ageMode = ageMode;
+  } else if (data.birthYear) {
+    const { birthYear, grade, ageMode } = resolveAge(data.birthYear, undefined);
+    updates.birthYear = birthYear;
+    updates.grade = grade;
+    updates.ageMode = ageMode;
   }
 
   await db

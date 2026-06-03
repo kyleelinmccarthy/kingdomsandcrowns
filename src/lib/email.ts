@@ -7,6 +7,8 @@ export async function sendEmail(args: {
   to: string;
   subject: string;
   text: string;
+  /** Optional branded HTML body. The plain `text` is always sent as a fallback. */
+  html?: string;
   replyTo?: string;
 }): Promise<boolean> {
   const apiKey = process.env.RESEND_API_KEY;
@@ -27,6 +29,7 @@ export async function sendEmail(args: {
       to: args.to,
       subject: args.subject,
       text: args.text,
+      html: args.html ?? undefined,
       reply_to: args.replyTo ?? undefined,
     }),
   });

@@ -8,6 +8,7 @@ import { getSession, requireSession } from "@/lib/auth/session";
 import { sanitizeText } from "@/lib/utils/sanitize";
 import { isAdminUser } from "@/lib/admin";
 import { sendEmail } from "@/lib/email";
+import { brandedEmail } from "@/lib/email-template";
 
 const CATEGORIES = ["bug", "idea", "praise", "other"] as const;
 type Category = (typeof CATEGORIES)[number];
@@ -107,19 +108,23 @@ async function notifyAdminByEmail(args: {
   if (!to) return;
 
   const subject = `[K&C ${args.category}] ${args.message.slice(0, 60)}`;
-  const lines = [
-    `Category: ${args.category}`,
-    `From: ${args.userName ?? "(anonymous)"} <${args.userEmail ?? "no-email"}>`,
-    `Page: ${args.pageUrl ?? "(unknown)"}`,
-    `ID: ${args.id}`,
-    "",
-    args.message,
-  ];
+  const { html, text } = brandedEmail({
+    preheader: `New ${args.category} feedback from a hero.`,
+    heading: `A raven arrives: ${args.category}`,
+    paragraphs: [
+      `From: ${args.userName ?? "(anonymous)"} <${args.userEmail ?? "no-email"}>`,
+      `Page: ${args.pageUrl ?? "(unknown)"}`,
+      `ID: ${args.id}`,
+      args.message,
+    ],
+    footnote: "Sent by the Kingdoms & Crowns “Send a Raven” feedback feature.",
+  });
 
   await sendEmail({
     to,
     subject,
-    text: lines.join("\n"),
+    text,
+    html,
     replyTo: args.userEmail ?? undefined,
   });
 }

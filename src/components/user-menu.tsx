@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Feather, LogOut, Settings, User } from "lucide-react";
+import { ChevronDown, Feather, LogOut, Settings, User } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,6 +12,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Tooltip } from "@/components/ui/tooltip";
 import { SendRavenDialog } from "@/components/send-raven";
 import { signOut } from "@/lib/auth/client";
 
@@ -63,30 +64,39 @@ export function UserMenu({ userName }: { userName: string }) {
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger className="user-medallion">
-          <span className="medallion-icon">
-            <User className="size-4" />
-          </span>
-          <span className="medallion-label">{userName}</span>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48">
+        <Tooltip content="Your menu — account settings, send us a raven, and sign out.">
+          <DropdownMenuTrigger className="user-medallion" aria-label="Open your account menu">
+            <span className="medallion-icon">
+              <User className="size-4" />
+            </span>
+            <span className="medallion-label">{userName}</span>
+            <ChevronDown className="size-3.5 opacity-70" aria-hidden="true" />
+          </DropdownMenuTrigger>
+        </Tooltip>
+        <DropdownMenuContent align="end" className="w-60">
           <DropdownMenuGroup>
             <DropdownMenuLabel className="tracking-wide" style={{ fontFamily: "var(--font-farro), sans-serif" }}>{userName}</DropdownMenuLabel>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <DropdownMenuItem
-            render={<Link href="/settings" />}
-            className="flex items-center gap-2"
+            onClick={() => setRavenOpen(true)}
+            className="flex items-start gap-2"
           >
-            <Settings className="size-4" />
-            Settings
+            <Feather className="size-4 mt-0.5 shrink-0" />
+            <span className="flex flex-col">
+              <span>Send a Raven</span>
+              <span className="text-xs text-muted-foreground">Report a bug, share an idea, or say hello.</span>
+            </span>
           </DropdownMenuItem>
           <DropdownMenuItem
-            onClick={() => setRavenOpen(true)}
-            className="flex items-center gap-2"
+            render={<Link href="/settings" />}
+            className="flex items-start gap-2"
           >
-            <Feather className="size-4" />
-            Send a Raven
+            <Settings className="size-4 mt-0.5 shrink-0" />
+            <span className="flex flex-col">
+              <span>Settings</span>
+              <span className="text-xs text-muted-foreground">Manage your family, guardians, and account.</span>
+            </span>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
@@ -95,7 +105,7 @@ export function UserMenu({ userName }: { userName: string }) {
             onClick={handleSignOut}
             className="flex items-center gap-2"
           >
-            <LogOut className="size-4" />
+            <LogOut className="size-4 shrink-0" />
             {signingOut ? "Departing..." : "Leave the Realm"}
           </DropdownMenuItem>
         </DropdownMenuContent>

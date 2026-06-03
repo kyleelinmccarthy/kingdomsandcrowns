@@ -170,7 +170,10 @@ export const child = sqliteTable(
     displayName: text("display_name").notNull(),
     // Nullable: a hero may authenticate by email/Google only (no PIN).
     pinHash: text("pin_hash"),
-    birthYear: integer("birth_year").notNull(),
+    // Age band is derived from EITHER birthYear or grade (whichever the parent
+    // provided); both inputs are nullable, ageMode is always set.
+    birthYear: integer("birth_year"),
+    grade: text("grade"), // "K", "1".."12" when the parent chose grade
     ageMode: text("age_mode", { enum: ["elementary", "middle", "high"] }).notNull(),
     avatarConfig: text("avatar_config"), // JSON blob
     currentXp: integer("current_xp").notNull().default(0),
