@@ -2,19 +2,9 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
-  // Canonicalize on the apex domain (matches BETTER_AUTH_URL). Redirect all
-  // www traffic to the bare domain so auth origins, cookies, and OAuth
-  // callbacks all live on a single host.
-  async redirects() {
-    return [
-      {
-        source: "/:path*",
-        has: [{ type: "host", value: "www.kingdomsandcrowns.com" }],
-        destination: "https://kingdomsandcrowns.com/:path*",
-        permanent: true,
-      },
-    ];
-  },
+  // Canonical host is www.kingdomsandcrowns.com (matches BETTER_AUTH_URL).
+  // Vercel handles the apex -> www redirect at the domain level, so no
+  // www<->apex redirect lives here (one would fight Vercel and loop).
   async headers() {
     return [
       {
