@@ -658,9 +658,9 @@ function AddChildDialog({ open, onClose }: { open: boolean; onClose: () => void 
 
         <p className="text-xs text-muted-foreground">
           After you summon this hero, open their card to{" "}
-          <span className="text-foreground">send a login invite</span>. Kids sign in at{" "}
-          <span className="font-mono text-[var(--gold-bright)]">/play</span> with your family code, or
-          with the email login you set up.
+          <span className="text-foreground">send a login invite</span>. Kids sign in on the{" "}
+          <span className="text-[var(--gold-bright)]">Young Hero</span> login with your family code,
+          or with the email login you set up.
         </p>
 
         <DialogFooter>

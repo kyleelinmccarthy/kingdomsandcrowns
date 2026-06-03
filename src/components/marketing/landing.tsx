@@ -84,7 +84,7 @@ export function Landing() {
         </div>
         <p className="mt-4 text-xs text-muted-foreground">
           Already set up by a grown-up?{" "}
-          <Link href="/play" className="text-[var(--gold-bright)] hover:underline">
+          <Link href="/login?mode=kid" className="text-[var(--gold-bright)] hover:underline">
             Kids enter your family code here →
           </Link>
         </p>

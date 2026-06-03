@@ -8,7 +8,7 @@ const publicPaths = [
   "/privacy",
   "/api/auth",
   "/api/demo",
-  "/play", // child PIN sign-in landing
+  "/play", // legacy kid login URL — redirects to /login?mode=kid
   "/child-setup", // child email set-password (tokenized)
   "/api/child-auth", // child auth endpoints
 ];

@@ -24,8 +24,8 @@ export function FamilyLoginCode({ code }: { code: string | null }) {
     <GameFrame title="Family Login Code" icon="🔑">
       <div className="space-y-3">
         <p className="text-xs text-muted-foreground">
-          Heroes use this code at <span className="font-medium">/play</span> to find the family
-          and sign in with their PIN on their own device. Keep it within the family.
+          Heroes use this code on the <span className="font-medium">Young Hero</span> login to find
+          the family and sign in with their PIN on their own device. Keep it within the family.
         </p>
         <div className="flex items-center gap-3">
           <span className="rounded-md border border-gold-dim bg-muted/40 px-4 py-2 font-mono text-xl tracking-[0.3em]">

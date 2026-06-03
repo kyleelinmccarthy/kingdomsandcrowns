@@ -247,9 +247,9 @@ function SignupForm() {
           </Link>
         </p>
         <p className="text-xs text-muted-foreground">
-          Setting up for a child? Kids sign in at{" "}
-          <Link href="/play" className="text-[var(--gold-bright)] hover:underline">
-            Play
+          Setting up for a child? Kids sign in as a{" "}
+          <Link href="/login?mode=kid" className="text-[var(--gold-bright)] hover:underline">
+            Young Hero
           </Link>{" "}
           — you&apos;ll add them from your account.
         </p>

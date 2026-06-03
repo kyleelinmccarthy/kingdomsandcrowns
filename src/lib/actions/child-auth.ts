@@ -254,7 +254,7 @@ export async function sendChildLoginSetup(childId: string) {
  * and instructions to how the hero actually signs in:
  *  - email login, not yet claimed  → password-setup link (/child-setup/[token])
  *  - email login, already claimed   → sign-in page (/login)
- *  - PIN only                       → family-code play page (/play?code=…)
+ *  - PIN only                       → family-code hero login (/login?mode=kid&code=…)
  * Requires an email on file to send to.
  */
 export async function sendChildQuestInvite(childId: string) {
@@ -304,7 +304,9 @@ export async function sendChildQuestInvite(childId: string) {
         .limit(1)
     )[0];
     const code = fam?.loginCode ?? "";
-    const url = code ? `${base}/play?code=${encodeURIComponent(code)}` : `${base}/play`;
+    const url = code
+      ? `${base}/login?mode=kid&code=${encodeURIComponent(code)}`
+      : `${base}/login?mode=kid`;
     button = { label: "Begin your quest", url };
     paragraphs.push("Tap your hero, then enter your secret PIN to start playing.");
     if (code) afterButton.push(`Your family code: ${code}`);
