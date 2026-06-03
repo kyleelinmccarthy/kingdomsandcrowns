@@ -303,10 +303,16 @@ export async function sendChildQuestInvite(childId: string) {
         .where(eq(schema.family.id, child.familyId))
         .limit(1)
     )[0];
-    const code = fam?.loginCode ?? "";
-    const url = code
-      ? `${base}/login?mode=kid&code=${encodeURIComponent(code)}`
-      : `${base}/login?mode=kid`;
+    let code = fam?.loginCode ?? "";
+    if (!code) {
+      // PIN-only invite is useless without a code — mint one now.
+      code = generateLoginCode();
+      await db
+        .update(schema.family)
+        .set({ loginCode: code, updatedAt: new Date() })
+        .where(eq(schema.family.id, child.familyId));
+    }
+    const url = `${base}/login?mode=kid&code=${encodeURIComponent(code)}`;
     button = { label: "Begin your quest", url };
     paragraphs.push("Tap your hero, then enter your secret PIN to start playing.");
     if (code) afterButton.push(`Your family code: ${code}`);
@@ -439,4 +445,26 @@ export async function regenerateFamilyLoginCode() {
     .set({ loginCode: code, updatedAt: new Date() })
     .where(eq(schema.family.id, access.familyId));
   return { code };
+}
+
+/**
+ * Return the family's login code, generating and persisting one if it doesn't
+ * exist yet. Used wherever a code is expected to "just be there" (the Settings
+ * panel, PIN-only quest invites) so a parent never has to manually generate it.
+ */
+export async function ensureFamilyLoginCode(): Promise<string> {
+  const access = await requireFamilyAccess({ write: true });
+  const rows = await db
+    .select({ loginCode: schema.family.loginCode })
+    .from(schema.family)
+    .where(eq(schema.family.id, access.familyId))
+    .limit(1);
+  const existing = rows[0]?.loginCode;
+  if (existing) return existing;
+  const code = generateLoginCode();
+  await db
+    .update(schema.family)
+    .set({ loginCode: code, updatedAt: new Date() })
+    .where(eq(schema.family.id, access.familyId));
+  return code;
 }

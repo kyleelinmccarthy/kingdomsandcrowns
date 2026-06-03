@@ -7,7 +7,7 @@ import { getSubjects } from "@/lib/actions/subjects";
 import { getChildBadges } from "@/lib/actions/badges";
 import { getChildAvatarUnlocks } from "@/lib/actions/avatar";
 import { getFamilyMembers } from "@/lib/actions/guardians";
-import { getFamilyLoginCode } from "@/lib/actions/child-auth";
+import { ensureFamilyLoginCode } from "@/lib/actions/child-auth";
 import { getActor } from "@/lib/auth/actor";
 import { FamilySetup } from "./family-setup";
 import { ChildList } from "./child-list";
@@ -43,7 +43,10 @@ export default async function SettingsPage() {
   // Adult-only management data.
   const families = !isChildView ? await getFamilies() : [];
   const guardianData = family && !isChildView ? await getFamilyMembers() : null;
-  const loginCode = family && !isChildView ? await getFamilyLoginCode() : null;
+  const loginCode =
+    family && !isChildView && guardianData?.canManage
+      ? await ensureFamilyLoginCode()
+      : null;
 
   // Fetch subjects, badges, and avatar unlocks for each visible child.
   const childrenWithSubjects = await Promise.all(
@@ -53,8 +56,10 @@ export default async function SettingsPage() {
         getChildBadges(child.id),
         getChildAvatarUnlocks(child.id),
       ]);
+      const { pinHash: _pinHash, ...rest } = child;
       return {
-        ...child,
+        ...rest,
+        hasPin: !!_pinHash,
         subjects,
         earnedBadgeIds: earnedBadges.map((b) => b.badge.id),
         questUnlockedItems: avatarUnlocks.map((u) => u.itemId),

@@ -13,6 +13,7 @@ import {
   isLockedOut,
   recordPinFailure,
   clearPinAttempts,
+  resolveFamilyForPinLogin,
 } from "@/lib/auth/child-login";
 
 async function clientIp(): Promise<string> {
@@ -30,6 +31,7 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}));
   const childId = typeof body.childId === "string" ? body.childId : "";
   const pin = typeof body.pin === "string" ? body.pin : "";
+  const familyCode = typeof body.familyCode === "string" ? body.familyCode : undefined;
   if (!childId || !pin) {
     return NextResponse.json({ error: GENERIC_ERROR }, { status: 400 });
   }
@@ -41,6 +43,12 @@ export async function POST(request: NextRequest) {
       { status: 429 }
     );
   }
+
+  // Which family is this login surface allowed to touch? A valid family code
+  // (standalone device) or the signed-in adult's active family (hand-off). The
+  // hero MUST belong to it — otherwise a known childId + PIN could be used from
+  // another family's device or code to impersonate that hero.
+  const familyId = await resolveFamilyForPinLogin(familyCode);
 
   const rows = await db
     .select({
@@ -55,7 +63,11 @@ export async function POST(request: NextRequest) {
   const child = rows[0];
 
   const ok =
-    child && child.pinEnabled && child.pinHash
+    child &&
+    familyId !== null &&
+    child.familyId === familyId &&
+    child.pinEnabled &&
+    child.pinHash
       ? await verifyPin(pin, child.pinHash)
       : false;
 

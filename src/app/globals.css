@@ -170,11 +170,18 @@ body {
   input:-webkit-autofill,
   input:-webkit-autofill:hover,
   input:-webkit-autofill:focus,
-  input:-webkit-autofill:active {
-    -webkit-text-fill-color: var(--foreground);
+  input:-webkit-autofill:active,
+  input:autofill,
+  input:autofill:hover,
+  input:autofill:focus,
+  input:autofill:active {
+    /* !important so the dark mask beats Tailwind's focus-visible:ring
+       box-shadow, which lives in a later cascade layer and would
+       otherwise expose the white autofill background while focused. */
+    -webkit-text-fill-color: var(--foreground) !important;
     caret-color: var(--foreground);
-    -webkit-box-shadow: 0 0 0 1000px var(--input) inset;
-    box-shadow: 0 0 0 1000px var(--input) inset;
+    -webkit-box-shadow: 0 0 0 1000px var(--input) inset !important;
+    box-shadow: 0 0 0 1000px var(--input) inset !important;
     transition: background-color 9999s ease-in-out 0s;
   }
 }

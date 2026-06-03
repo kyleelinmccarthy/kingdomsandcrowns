@@ -44,7 +44,9 @@ export function HeroLogin({
       const data = await res.json();
       setHeroes(data.heroes ?? []);
       if ((data.heroes ?? []).length === 0 && familyCode) {
-        setError("No heroes found for that family code.");
+        setError(
+          "No heroes for that code. Check the code with a grown-up, or ask them to set a PIN in Settings."
+        );
       }
     } finally {
       setLoading(false);
@@ -65,7 +67,9 @@ export function HeroLogin({
       const res = await fetch("/api/child-auth/pin-login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ childId: selected.childId, pin }),
+        // Send the family code (standalone) so the server can confirm this hero
+        // belongs to it; hand-off mode omits it and resolves via the adult session.
+        body: JSON.stringify({ childId: selected.childId, pin, familyCode: code || undefined }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -107,7 +111,8 @@ export function HeroLogin({
             required
           />
           <p className="text-xs text-muted-foreground">
-            Ask a grown-up for your family&apos;s code, or sign in with email instead.
+            Enter your family code, pick your hero, then type your PIN. Ask a grown-up for the code,
+            or sign in with email instead.
           </p>
         </div>
         <Button type="submit" className="w-full" disabled={loading}>
@@ -123,7 +128,9 @@ export function HeroLogin({
         <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</div>
       )}
       {heroes && heroes.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No heroes here yet.</p>
+        <p className="text-sm text-muted-foreground">
+          No heroes have a PIN yet — a grown-up can add one in Settings.
+        </p>
       ) : (
         <div className="grid grid-cols-3 gap-3">
           {heroes?.map((h) => (

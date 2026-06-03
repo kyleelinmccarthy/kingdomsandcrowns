@@ -17,6 +17,7 @@ import {
   setChildEmail,
   setChildAuthMethod,
   recordChildConsent,
+  sendChildQuestInvite,
 } from "@/lib/actions/child-auth";
 import { createSubject, updateSubject, deleteSubject } from "@/lib/actions/subjects";
 import { toggleLeaderboardVisibility } from "@/lib/actions/leaderboard";
@@ -49,6 +50,7 @@ type Child = {
   showOnLeaderboard: boolean;
   email?: string | null;
   pinEnabled?: boolean;
+  hasPin?: boolean;
   emailLoginEnabled?: boolean;
   googleLoginEnabled?: boolean;
   authUserId?: string | null;
@@ -481,6 +483,7 @@ function AddChildDialog({ open, onClose }: { open: boolean; onClose: () => void 
   const [birthYear, setBirthYear] = useState("");
   const [grade, setGrade] = useState("");
   const [pin, setPin] = useState("");
+  const [skipPin, setSkipPin] = useState(false);
   const [email, setEmail] = useState("");
   const [emailEnabled, setEmailEnabled] = useState(false);
   const [googleEnabled, setGoogleEnabled] = useState(false);
@@ -496,6 +499,7 @@ function AddChildDialog({ open, onClose }: { open: boolean; onClose: () => void 
     setBirthYear("");
     setGrade("");
     setPin("");
+    setSkipPin(false);
     setEmail("");
     setEmailEnabled(false);
     setGoogleEnabled(false);
@@ -515,13 +519,22 @@ function AddChildDialog({ open, onClose }: { open: boolean; onClose: () => void 
       setError("Choose a grade, or switch to birth year.");
       return;
     }
-    if (!pin && !email.trim()) {
-      setError("Set at least one way to sign in: a PIN, an email, or both.");
-      return;
-    }
-    if (pin && !/^\d{4,6}$/.test(pin)) {
-      setError("A PIN must be 4–6 digits.");
-      return;
+    if (!skipPin) {
+      // Default path: every hero gets a PIN as their always-works way in.
+      if (!/^\d{4,6}$/.test(pin)) {
+        setError("Set a 4–6 digit PIN, or tick “skip the PIN” to use email/Google only.");
+        return;
+      }
+    } else {
+      // Opted out of a PIN — they must have a working self-service method instead.
+      if (!email.trim()) {
+        setError("Add an email so this hero can sign in with email or Google.");
+        return;
+      }
+      if (!wantsSelfService) {
+        setError("Turn on Email or Google sign-in, or add a PIN instead.");
+        return;
+      }
     }
     if (wantsSelfService && !email.trim()) {
       setError("Add an email to enable email or Google sign-in.");
@@ -538,7 +551,7 @@ function AddChildDialog({ open, onClose }: { open: boolean; onClose: () => void 
         displayName: name,
         birthYear: ageMode === "birthYear" ? parseInt(birthYear) : undefined,
         grade: ageMode === "grade" ? grade : undefined,
-        pin: pin || undefined,
+        pin: skipPin ? undefined : pin || undefined,
       });
 
       if (email.trim()) {
@@ -550,6 +563,18 @@ function AddChildDialog({ open, onClose }: { open: boolean; onClose: () => void 
           await recordChildConsent(id, methods);
           if (emailEnabled) await setChildAuthMethod(id, "email", true);
           if (googleEnabled) await setChildAuthMethod(id, "google", true);
+        }
+
+        // Auto-send the starting-quest invite so the parent doesn't have to
+        // hunt for a second button. Only sendable when the hero can actually
+        // sign in (PIN or email login) — google-only heroes have no invite path.
+        if (pin || emailEnabled) {
+          await sendChildQuestInvite(id).catch((err) => {
+            // Don't fail the whole summon if the email bounces — the hero is
+            // created and the per-card "Send starting-quest email" button
+            // remains as a manual fallback.
+            console.error("[child-list] auto invite failed:", err);
+          });
         }
       }
 
@@ -593,41 +618,73 @@ function AddChildDialog({ open, onClose }: { open: boolean; onClose: () => void 
 
         <div className="rounded-lg border border-gold-dim bg-muted/20 p-3 space-y-3">
           <p className="text-xs text-muted-foreground">
-            <span className="font-medium text-foreground">Set at least one way to sign in.</span>{" "}
-            A PIN works on a shared device; an email lets the hero sign in on their own. You can do both.
+            <span className="font-medium text-foreground">How this hero signs in.</span> By default
+            every hero gets a <span className="text-foreground">secret PIN</span> — they pick their
+            character on the <span className="text-[var(--gold-bright)]">Young Hero</span> login,
+            enter your family code, and type the PIN. Works on any device, and stays as a backup even
+            if you add email or Google below.
           </p>
-          <div className="space-y-2">
-            <Label htmlFor="pin">Secret PIN (4–6 digits)</Label>
-            <Input
-              id="pin"
-              type="password"
-              inputMode="numeric"
-              value={pin}
-              onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
-              placeholder="1234"
-              maxLength={6}
+
+          {!skipPin && (
+            <div className="space-y-2">
+              <Label htmlFor="pin">Secret PIN (4–6 digits)</Label>
+              <Input
+                id="pin"
+                type="password"
+                inputMode="numeric"
+                value={pin}
+                onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
+                placeholder="1234"
+                maxLength={6}
+              />
+            </div>
+          )}
+
+          <label className="flex items-start gap-2 text-xs text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={skipPin}
+              onChange={(e) => setSkipPin(e.target.checked)}
+              className="mt-0.5"
             />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="childEmail">Email</Label>
+            <span>
+              This hero will only sign in with email/Google — skip the PIN.{" "}
+              <span className="text-foreground">(Older kids with their own device.)</span>
+            </span>
+          </label>
+
+          <div className="space-y-2 border-t border-gold-dim/50 pt-3">
+            <p className="text-xs font-medium text-foreground">
+              Optional — let an older hero sign in on their own
+            </p>
+            <Label htmlFor="childEmail" className="text-xs text-muted-foreground">
+              Hero&apos;s email
+            </Label>
             <Input
               id="childEmail"
+              name="childEmail"
               type="email"
+              autoComplete="off"
+              data-1p-ignore
+              data-lpignore="true"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="hero@example.com"
             />
-          </div>
-          {email.trim() && (
-            <>
-              <div className="flex flex-wrap gap-4">
+            {email.trim() && (
+              <>
                 <label className="flex items-center gap-2 text-sm">
                   <input
                     type="checkbox"
                     checked={emailEnabled}
                     onChange={(e) => setEmailEnabled(e.target.checked)}
                   />
-                  Email + password
+                  <span>
+                    Email + password{" "}
+                    <span className="text-xs text-muted-foreground">
+                      — signs in with their own password
+                    </span>
+                  </span>
                 </label>
                 <label className="flex items-center gap-2 text-sm">
                   <input
@@ -635,32 +692,40 @@ function AddChildDialog({ open, onClose }: { open: boolean; onClose: () => void 
                     checked={googleEnabled}
                     onChange={(e) => setGoogleEnabled(e.target.checked)}
                   />
-                  Google (if a gmail)
-                </label>
-              </div>
-              {wantsSelfService && (
-                <label className="flex items-start gap-2 text-xs text-muted-foreground">
-                  <input
-                    type="checkbox"
-                    checked={consent}
-                    onChange={(e) => setConsent(e.target.checked)}
-                    className="mt-0.5"
-                  />
                   <span>
-                    I authorize this hero to use self-service login (email / Google) and
-                    consent to data collection for this parent-managed profile.
+                    Google{" "}
+                    <span className="text-xs text-muted-foreground">
+                      — one tap, needs a Gmail address
+                    </span>
                   </span>
                 </label>
-              )}
-            </>
-          )}
+                {wantsSelfService && (
+                  <label className="flex items-start gap-2 text-xs text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      checked={consent}
+                      onChange={(e) => setConsent(e.target.checked)}
+                      className="mt-0.5"
+                    />
+                    <span>
+                      I authorize this hero to use self-service login (email / Google) and
+                      consent to data collection for this parent-managed profile.
+                    </span>
+                  </label>
+                )}
+              </>
+            )}
+          </div>
         </div>
 
         <p className="text-xs text-muted-foreground">
-          After you summon this hero, open their card to{" "}
-          <span className="text-foreground">send a login invite</span>. Kids sign in on the{" "}
-          <span className="text-[var(--gold-bright)]">Young Hero</span> login with your family code,
-          or with the email login you set up.
+          Your <span className="text-foreground">family code</span> is ready in Settings — share it,
+          and heroes sign in with it plus their PIN.{" "}
+          {email.trim() ? (
+            <>Open this hero&apos;s card afterward to email a starting-quest invite to {email.trim()}.</>
+          ) : (
+            <>Open a hero&apos;s card any time to add an email or change how they sign in.</>
+          )}
         </p>
 
         <DialogFooter>

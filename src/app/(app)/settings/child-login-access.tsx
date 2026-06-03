@@ -19,6 +19,7 @@ type Props = {
     displayName: string;
     email?: string | null;
     pinEnabled?: boolean;
+    hasPin?: boolean;
     emailLoginEnabled?: boolean;
     googleLoginEnabled?: boolean;
     authUserId?: string | null;
@@ -68,20 +69,37 @@ export function ChildLoginAccess({ child }: Props) {
         <div className="rounded-md bg-destructive/10 p-2 text-sm text-destructive">{error}</div>
       )}
 
-      {/* PIN */}
+      {/* Family Code + PIN */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <Label className="text-xs">Secret PIN (4–6 digits)</Label>
+          <Label className="text-xs font-medium">Family Code + PIN</Label>
           <label className="flex items-center gap-1 text-xs text-muted-foreground">
             <input
               type="checkbox"
               checked={child.pinEnabled ?? true}
-              disabled={busy}
+              disabled={busy || !child.hasPin}
               onChange={(e) => run(() => setChildAuthMethod(child.id, "pin", e.target.checked))}
             />
             PIN login enabled
           </label>
         </div>
+        <p className="text-xs text-muted-foreground">
+          The default way in. On the Young Hero login this hero enters your family code, taps their
+          character, and types this PIN — on any device.
+        </p>
+        {!child.hasPin ? (
+          <div className="rounded-md bg-destructive/10 p-2 text-xs text-destructive">
+            ⚠ No PIN yet — this hero won&apos;t appear on the Family Code login. Set one below so they
+            always have a way in.
+          </div>
+        ) : (
+          !child.pinEnabled && (
+            <div className="rounded-md bg-muted/40 p-2 text-xs text-muted-foreground">
+              PIN login is turned off — this hero won&apos;t appear on the Family Code login until you
+              re-enable it.
+            </div>
+          )
+        )}
         <div className="flex gap-2">
           <Input
             type="password"
@@ -106,9 +124,18 @@ export function ChildLoginAccess({ child }: Props) {
         </div>
       </div>
 
+      {/* Self-service login (optional) */}
+      <div className="space-y-1 border-t pt-4">
+        <Label className="text-xs font-medium">Sign in on their own (optional)</Label>
+        <p className="text-xs text-muted-foreground">
+          For an older hero with their own device — they sign in directly, no family code needed. The
+          PIN above still works as a backup.
+        </p>
+      </div>
+
       {/* Email */}
       <div className="space-y-2">
-        <Label className="text-xs">Email (for the hero&apos;s own login)</Label>
+        <Label className="text-xs text-muted-foreground">Hero&apos;s email</Label>
         <div className="flex gap-2">
           <Input
             type="email"
@@ -134,11 +161,11 @@ export function ChildLoginAccess({ child }: Props) {
         />
         <span>
           I authorize this hero to use self-service login (email / Google) and consent to data
-          collection for this parent-managed profile.
+          collection for this parent-managed profile. Required before either method can be turned on.
         </span>
       </label>
 
-      <div className="flex flex-wrap gap-4">
+      <div className="space-y-2">
         <label className="flex items-center gap-2 text-sm">
           <input
             type="checkbox"
@@ -146,7 +173,10 @@ export function ChildLoginAccess({ child }: Props) {
             disabled={busy || !child.email}
             onChange={(e) => toggleSelfService("email", e.target.checked)}
           />
-          Email + password
+          <span>
+            Email + password{" "}
+            <span className="text-xs text-muted-foreground">— signs in with their own password</span>
+          </span>
         </label>
         <label className="flex items-center gap-2 text-sm">
           <input
@@ -155,8 +185,14 @@ export function ChildLoginAccess({ child }: Props) {
             disabled={busy || !child.email}
             onChange={(e) => toggleSelfService("google", e.target.checked)}
           />
-          Google (if a gmail)
+          <span>
+            Google{" "}
+            <span className="text-xs text-muted-foreground">— one tap, needs a Gmail address</span>
+          </span>
         </label>
+        {!child.email && (
+          <p className="text-xs text-muted-foreground">Add an email above to enable these.</p>
+        )}
       </div>
 
       {child.authUserId && (
