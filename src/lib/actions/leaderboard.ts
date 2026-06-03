@@ -1,23 +1,16 @@
 "use server";
 
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
-import { requireSession, requireParentUserId } from "@/lib/auth/session";
-
-async function getFamilyIdForUser() {
-  const parentUserId = await requireParentUserId();
-  const rows = await db
-    .select({ id: schema.family.id })
-    .from(schema.family)
-    .where(eq(schema.family.parentUserId, parentUserId))
-    .limit(1);
-  if (!rows[0]) throw new Error("No family found.");
-  return rows[0].id;
-}
+import { requireSession } from "@/lib/auth/session";
+import { requireFamilyAccess, requireChildAccess, accessibleChildIds } from "@/lib/auth/access";
+import { requireAdultActor } from "@/lib/auth/actor";
 
 export async function getFamilyLeaderboard() {
-  const familyId = await getFamilyIdForUser();
+  const access = await requireFamilyAccess();
+  const childIds = await accessibleChildIds(access);
+  if (childIds.length === 0) return [];
 
   const children = await db
     .select({
@@ -32,7 +25,7 @@ export async function getFamilyLeaderboard() {
       )`,
     })
     .from(schema.child)
-    .where(eq(schema.child.familyId, familyId))
+    .where(inArray(schema.child.id, childIds))
     .orderBy(desc(schema.child.currentXp));
 
   return children;
@@ -143,7 +136,8 @@ export async function getCommunityLeaderboardAll(): Promise<CommunityLeaderboard
 }
 
 export async function toggleLeaderboardVisibility(childId: string, visible: boolean) {
-  const familyId = await getFamilyIdForUser();
+  await requireAdultActor(); // public visibility is a grown-up decision
+  const { familyId } = await requireChildAccess(childId, { write: true });
   await db
     .update(schema.child)
     .set({ showOnLeaderboard: visible, updatedAt: new Date() })

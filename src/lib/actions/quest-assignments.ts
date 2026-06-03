@@ -6,8 +6,11 @@ import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { createActivity } from "@/lib/actions/activities";
 import { getScheduledDates } from "@/lib/utils/schedule";
+import { requireChildAccess, requireAssignmentAccess } from "@/lib/auth/access";
+import { requireAdultActor } from "@/lib/auth/actor";
 
 export async function getAssignmentsForDate(childId: string, date: string) {
+  await requireChildAccess(childId);
   return db
     .select({
       assignment: schema.questAssignment,
@@ -30,6 +33,7 @@ export async function getAssignmentsForDateRange(
   startDate: string,
   endDate: string
 ) {
+  await requireChildAccess(childId);
   return db
     .select({
       assignment: schema.questAssignment,
@@ -53,6 +57,8 @@ export async function createAssignment(data: {
   childId: string;
   date: string;
 }) {
+  await requireAdultActor(); // assigning quests is a grown-up action
+  await requireChildAccess(data.childId, { write: true });
   const id = nanoid();
   const now = new Date();
   await db.insert(schema.questAssignment).values({
@@ -77,6 +83,8 @@ export async function generateAssignmentsFromSchedules(
   startDate: string,
   endDate: string
 ): Promise<number> {
+  await requireAdultActor(); // generating assignments is a grown-up action
+  await requireChildAccess(childId, { write: true });
   // Get all active quests with schedules for this child
   const questsWithSchedules = await db
     .select({
@@ -162,6 +170,7 @@ export async function completeAssignment(
     source?: "manual" | "timer";
   } = {}
 ) {
+  await requireAssignmentAccess(assignmentId, { write: true });
   // Get the assignment to find quest/child details
   const rows = await db
     .select({
@@ -244,6 +253,7 @@ export async function completeAssignment(
 }
 
 export async function skipAssignment(assignmentId: string, notes?: string) {
+  await requireAssignmentAccess(assignmentId, { write: true });
   const now = new Date();
   await db
     .update(schema.questAssignment)
@@ -256,6 +266,7 @@ export async function skipAssignment(assignmentId: string, notes?: string) {
 }
 
 export async function deleteAssignment(assignmentId: string) {
+  await requireAssignmentAccess(assignmentId, { write: true });
   await db
     .delete(schema.questAssignment)
     .where(eq(schema.questAssignment.id, assignmentId));
@@ -263,6 +274,7 @@ export async function deleteAssignment(assignmentId: string) {
 
 /** Fetch completed assignments that had quest rewards attached */
 export async function getEarnedQuestRewards(childId: string, limit = 10) {
+  await requireChildAccess(childId);
   const hasReward = sql`(${schema.quest.rewardXp} IS NOT NULL OR ${schema.quest.rewardDescription} IS NOT NULL OR ${schema.quest.rewardAvatarItem} IS NOT NULL)`;
 
   return db

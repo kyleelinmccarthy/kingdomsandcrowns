@@ -55,37 +55,216 @@ export const verification = sqliteTable("verification", {
 
 // ── App domain tables ─────────────────────────────────────────
 
-export const family = sqliteTable("family", {
-  id: text("id").primaryKey(),
-  parentUserId: text("parent_user_id")
-    .notNull()
-    .unique()
-    .references(() => user.id, { onDelete: "cascade" }),
-  familyName: text("family_name").notNull(),
-  timezone: text("timezone").notNull().default("America/Denver"),
-  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
-  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
-});
+export const family = sqliteTable(
+  "family",
+  {
+    id: text("id").primaryKey(),
+    // Denormalized "creator/owner" pointer. Access authority lives in `familyMember`;
+    // this is kept only for convenience (e.g. last-owner reasoning) and is nullable.
+    parentUserId: text("parent_user_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    familyName: text("family_name").notNull(),
+    timezone: text("timezone").notNull().default("America/Denver"),
+    // Short human-typeable code used by children to identify their family when
+    // logging in by PIN on a standalone device. Nullable; generated on demand.
+    loginCode: text("login_code"),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+  },
+  (table) => [uniqueIndex("family_login_code_idx").on(table.loginCode)]
+);
 
-export const child = sqliteTable("child", {
-  id: text("id").primaryKey(),
-  familyId: text("family_id")
-    .notNull()
-    .references(() => family.id, { onDelete: "cascade" }),
-  displayName: text("display_name").notNull(),
-  pinHash: text("pin_hash").notNull(),
-  birthYear: integer("birth_year").notNull(),
-  ageMode: text("age_mode", { enum: ["elementary", "middle", "high"] }).notNull(),
-  avatarConfig: text("avatar_config"), // JSON blob
-  currentXp: integer("current_xp").notNull().default(0),
-  bonusXp: integer("bonus_xp").notNull().default(0),
-  currentStreak: integer("current_streak").notNull().default(0),
-  longestStreak: integer("longest_streak").notNull().default(0),
-  showOnLeaderboard: integer("show_on_leaderboard", { mode: "boolean" }).notNull().default(false),
-  lastActiveDate: text("last_active_date"), // ISO date YYYY-MM-DD
-  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
-  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
-});
+// ── Family membership & access ────────────────────────────────
+// Many-to-many link between adult users and families. This is the source of
+// truth for who may view/manage a family and its children.
+
+export const familyMember = sqliteTable(
+  "family_member",
+  {
+    id: text("id").primaryKey(),
+    familyId: text("family_id")
+      .notNull()
+      .references(() => family.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    role: text("role", {
+      enum: ["owner", "co_parent", "teacher", "tutor", "guardian"],
+    }).notNull(),
+    permission: text("permission", { enum: ["edit", "view"] }).notNull(),
+    scope: text("scope", { enum: ["all", "specific"] }).notNull().default("all"),
+    status: text("status", { enum: ["pending", "active"] }).notNull().default("active"),
+    invitedByUserId: text("invited_by_user_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("family_member_unique_idx").on(table.familyId, table.userId),
+    index("family_member_user_idx").on(table.userId),
+    index("family_member_family_idx").on(table.familyId),
+  ]
+);
+
+// Per-child scope rows — only present when familyMember.scope === "specific".
+export const familyMemberChild = sqliteTable(
+  "family_member_child",
+  {
+    id: text("id").primaryKey(),
+    familyMemberId: text("family_member_id")
+      .notNull()
+      .references(() => familyMember.id, { onDelete: "cascade" }),
+    childId: text("child_id")
+      .notNull()
+      .references(() => child.id, { onDelete: "cascade" }),
+  },
+  (table) => [
+    uniqueIndex("family_member_child_unique_idx").on(table.familyMemberId, table.childId),
+    index("family_member_child_child_idx").on(table.childId),
+  ]
+);
+
+// Pending email invitations to join a family.
+export const familyInvite = sqliteTable(
+  "family_invite",
+  {
+    id: text("id").primaryKey(),
+    token: text("token").notNull().unique(),
+    familyId: text("family_id")
+      .notNull()
+      .references(() => family.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    role: text("role", {
+      enum: ["owner", "co_parent", "teacher", "tutor", "guardian"],
+    }).notNull(),
+    permission: text("permission", { enum: ["edit", "view"] }).notNull(),
+    scope: text("scope", { enum: ["all", "specific"] }).notNull().default("all"),
+    childIds: text("child_ids"), // JSON array of child ids when scope === "specific"
+    invitedByUserId: text("invited_by_user_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    status: text("status", {
+      enum: ["pending", "accepted", "revoked", "expired"],
+    })
+      .notNull()
+      .default("pending"),
+    expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+    acceptedAt: integer("accepted_at", { mode: "timestamp" }),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  },
+  (table) => [
+    index("family_invite_email_idx").on(table.email),
+    index("family_invite_family_idx").on(table.familyId),
+  ]
+);
+
+export const child = sqliteTable(
+  "child",
+  {
+    id: text("id").primaryKey(),
+    familyId: text("family_id")
+      .notNull()
+      .references(() => family.id, { onDelete: "cascade" }),
+    displayName: text("display_name").notNull(),
+    // Nullable: a hero may authenticate by email/Google only (no PIN).
+    pinHash: text("pin_hash"),
+    birthYear: integer("birth_year").notNull(),
+    ageMode: text("age_mode", { enum: ["elementary", "middle", "high"] }).notNull(),
+    avatarConfig: text("avatar_config"), // JSON blob
+    currentXp: integer("current_xp").notNull().default(0),
+    bonusXp: integer("bonus_xp").notNull().default(0),
+    currentStreak: integer("current_streak").notNull().default(0),
+    longestStreak: integer("longest_streak").notNull().default(0),
+    showOnLeaderboard: integer("show_on_leaderboard", { mode: "boolean" }).notNull().default(false),
+    lastActiveDate: text("last_active_date"), // ISO date YYYY-MM-DD
+    // ── Child authentication (parent-provisioned) ──────────────
+    // Email/Google heroes are real Better Auth users linked here.
+    email: text("email"),
+    authUserId: text("auth_user_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    pinEnabled: integer("pin_enabled", { mode: "boolean" }).notNull().default(true),
+    emailLoginEnabled: integer("email_login_enabled", { mode: "boolean" }).notNull().default(false),
+    googleLoginEnabled: integer("google_login_enabled", { mode: "boolean" }).notNull().default(false),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+  },
+  (table) => [
+    index("child_email_idx").on(table.email),
+    uniqueIndex("child_auth_user_idx").on(table.authUserId),
+  ]
+);
+
+// Parental consent events for a child's self-service login. Append-only history
+// (never overwritten) so consent changes remain auditable.
+export const childConsent = sqliteTable(
+  "child_consent",
+  {
+    id: text("id").primaryKey(),
+    childId: text("child_id")
+      .notNull()
+      .references(() => child.id, { onDelete: "cascade" }),
+    consentedByUserId: text("consented_by_user_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    methods: text("methods").notNull(), // JSON array, e.g. ["email","google"]
+    consentVersion: text("consent_version").notNull(),
+    ipAddress: text("ip_address"),
+    consentedAt: integer("consented_at", { mode: "timestamp" }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  },
+  (table) => [index("child_consent_child_idx").on(table.childId)]
+);
+
+// Anti-hijack token a parent generates so only a parent-provisioned email can
+// claim a child profile (set a password / link an account).
+export const childLoginLink = sqliteTable(
+  "child_login_link",
+  {
+    id: text("id").primaryKey(),
+    token: text("token").notNull().unique(),
+    childId: text("child_id")
+      .notNull()
+      .references(() => child.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    purpose: text("purpose", { enum: ["set_password", "claim"] }).notNull(),
+    status: text("status", {
+      enum: ["pending", "accepted", "revoked", "expired"],
+    })
+      .notNull()
+      .default("pending"),
+    expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+    acceptedAt: integer("accepted_at", { mode: "timestamp" }),
+    createdByUserId: text("created_by_user_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  },
+  (table) => [
+    index("child_login_link_token_idx").on(table.token),
+    index("child_login_link_child_idx").on(table.childId),
+  ]
+);
+
+// PIN brute-force throttling, keyed by (child, ip).
+export const childPinAttempt = sqliteTable(
+  "child_pin_attempt",
+  {
+    id: text("id").primaryKey(),
+    childId: text("child_id")
+      .notNull()
+      .references(() => child.id, { onDelete: "cascade" }),
+    ipAddress: text("ip_address").notNull(),
+    failedCount: integer("failed_count").notNull().default(0),
+    lockedUntil: integer("locked_until", { mode: "timestamp" }),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("child_pin_attempt_unique_idx").on(table.childId, table.ipAddress),
+  ]
+);
 
 export const subject = sqliteTable(
   "subject",

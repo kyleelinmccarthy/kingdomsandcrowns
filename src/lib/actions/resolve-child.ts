@@ -1,43 +1,38 @@
 "use server";
 
 import { eq } from "drizzle-orm";
-import { getDemoPersona, isChildPersona, getChildIdForPersona } from "@/lib/auth/session";
+import { getActor } from "@/lib/auth/actor";
 import { getChildren } from "@/lib/actions/children";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 
 /**
  * Resolves which child to display data for.
- * - Child persona: forces their own child record
- * - Parent persona: uses selectedChildId from query, falls back to first child
+ * - Child actor (PIN, email/Google, or demo child persona): forces their own
+ *   child record and isChildView = true.
+ * - Adult actor: uses selectedChildId from query, falls back to first child.
  *
  * Returns { child, allChildren, isChildView }
  */
 export async function resolveActiveChild(selectedChildId?: string) {
-  const isDemoMode = process.env.DEMO_MODE === "true";
+  const actor = await getActor();
 
-  if (isDemoMode) {
-    const persona = await getDemoPersona();
-    if (isChildPersona(persona)) {
-      const childId = getChildIdForPersona(persona)!;
-      // Query child directly — child personas don't own a family,
-      // so we can't go through getFamilyIdForUser().
-      const rows = await db
-        .select()
-        .from(schema.child)
-        .where(eq(schema.child.id, childId))
-        .limit(1);
-      const child = rows[0] ?? null;
-      return { child, allChildren: child ? [child] : [], isChildView: true };
-    }
+  if (actor?.kind === "child") {
+    const rows = await db
+      .select()
+      .from(schema.child)
+      .where(eq(schema.child.id, actor.childId))
+      .limit(1);
+    const child = rows[0] ?? null;
+    return { child, allChildren: child ? [child] : [], isChildView: true };
   }
 
-  // Parent view
+  // Adult view
   let allChildren;
   try {
     allChildren = await getChildren();
   } catch {
-    // No family exists yet
+    // No family / no access yet
     return { child: null, allChildren: [], isChildView: false };
   }
   if (allChildren.length === 0) {

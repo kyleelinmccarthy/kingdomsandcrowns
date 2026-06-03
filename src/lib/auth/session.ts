@@ -1,6 +1,9 @@
 import { headers, cookies } from "next/headers";
+import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import type { Session } from "@/lib/auth";
+import { db } from "@/lib/db";
+import * as schema from "@/lib/db/schema";
 
 export type DemoPersona = "parent" | "lily" | "lucas";
 
@@ -99,6 +102,13 @@ export function getChildIdForPersona(persona: DemoPersona): string | null {
 export async function requireParentUserId(): Promise<string> {
   if (isDemoMode()) return "demo-user";
   const session = await requireSession();
+  // A child-linked account is not a parent.
+  const linked = await db
+    .select({ id: schema.child.id })
+    .from(schema.child)
+    .where(eq(schema.child.authUserId, session.user.id))
+    .limit(1);
+  if (linked[0]) throw new Error("This action is for grown-ups.");
   return session.user.id;
 }
 

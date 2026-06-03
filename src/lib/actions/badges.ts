@@ -4,12 +4,14 @@ import { eq, and, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { nanoid } from "nanoid";
+import { requireChildAccess } from "@/lib/auth/access";
 
 export async function getBadges() {
   return db.select().from(schema.badge);
 }
 
 export async function getChildBadges(childId: string) {
+  await requireChildAccess(childId);
   return db
     .select({
       id: schema.childBadge.id,
@@ -29,6 +31,9 @@ export async function getChildBadges(childId: string) {
 }
 
 export async function checkAndAwardBadges(childId: string) {
+  // Read-level: badge evaluation runs automatically on page load, so even a
+  // view-only guardian viewing this child triggers (idempotent) awarding.
+  await requireChildAccess(childId);
   const child = await db
     .select()
     .from(schema.child)

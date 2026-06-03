@@ -4,7 +4,7 @@ import { eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
-import { requireParentUserId } from "@/lib/auth/session";
+import { requireChildAccess } from "@/lib/auth/access";
 import {
   isValidAvatarConfig,
   isUnlocked,
@@ -19,23 +19,12 @@ import {
   type AvatarConfig,
 } from "@/lib/utils/avatar-catalog";
 
-async function getFamilyIdForUser() {
-  const parentUserId = await requireParentUserId();
-  const rows = await db
-    .select({ id: schema.family.id })
-    .from(schema.family)
-    .where(eq(schema.family.parentUserId, parentUserId))
-    .limit(1);
-  if (!rows[0]) throw new Error("No family found.");
-  return rows[0].id;
-}
-
 export async function updateAvatarConfig(childId: string, config: AvatarConfig) {
   if (!isValidAvatarConfig(config)) {
     throw new Error("Invalid avatar configuration.");
   }
 
-  const familyId = await getFamilyIdForUser();
+  const { familyId } = await requireChildAccess(childId, { write: true });
 
   // Fetch child to check level and badges for unlock validation
   const childRows = await db
@@ -98,6 +87,7 @@ export async function updateAvatarConfig(childId: string, config: AvatarConfig) 
 }
 
 export async function getChildAvatarUnlocks(childId: string) {
+  await requireChildAccess(childId);
   return db
     .select({
       itemId: schema.childAvatarUnlock.itemId,

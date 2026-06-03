@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { getAssignmentsForDateRange } from "@/lib/actions/quest-assignments";
 import { formatLearningLog } from "@/lib/utils/learning-log-format";
+import { requireChildAccess } from "@/lib/auth/access";
 
 export async function generateLearningLog(
   childId: string,
@@ -13,6 +14,7 @@ export async function generateLearningLog(
   startDate: string,
   endDate: string
 ) {
+  // getAssignmentsForDateRange enforces child access.
   const assignments = await getAssignmentsForDateRange(childId, startDate, endDate);
 
   // Fetch actual durations from activity_log for completed assignments
@@ -53,6 +55,7 @@ export async function generateLearningLog(
 }
 
 export async function getSavedLog(childId: string, startDate: string) {
+  await requireChildAccess(childId);
   const rows = await db
     .select()
     .from(schema.weeklySummary)
@@ -73,6 +76,7 @@ export async function saveLearningLog(
   generatedText: string,
   editedText: string
 ) {
+  await requireChildAccess(childId, { write: true });
   const now = new Date();
   const existing = await getSavedLog(childId, startDate);
 
@@ -104,6 +108,14 @@ export async function saveLearningLog(
 }
 
 export async function markLogCopied(summaryId: string) {
+  const rows = await db
+    .select({ childId: schema.weeklySummary.childId })
+    .from(schema.weeklySummary)
+    .where(eq(schema.weeklySummary.id, summaryId))
+    .limit(1);
+  if (!rows[0]) throw new Error("Chronicle not found.");
+  await requireChildAccess(rows[0].childId, { write: true });
+
   await db
     .update(schema.weeklySummary)
     .set({ copiedAt: new Date() })

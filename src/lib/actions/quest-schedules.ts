@@ -4,8 +4,10 @@ import { nanoid } from "nanoid";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
+import { requireQuestAccess } from "@/lib/auth/access";
 
 export async function getSchedule(questId: string) {
+  await requireQuestAccess(questId);
   const rows = await db
     .select()
     .from(schema.questSchedule)
@@ -23,6 +25,7 @@ export async function upsertSchedule(
     endDate?: string;
   }
 ) {
+  await requireQuestAccess(questId, { write: true });
   const existing = await getSchedule(questId);
 
   if (existing) {
@@ -52,6 +55,7 @@ export async function upsertSchedule(
 }
 
 export async function deleteSchedule(questId: string) {
+  await requireQuestAccess(questId, { write: true });
   await db
     .delete(schema.questSchedule)
     .where(eq(schema.questSchedule.questId, questId));

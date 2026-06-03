@@ -6,8 +6,10 @@ import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { sanitizeName, sanitizeText } from "@/lib/utils/sanitize";
 import { formatDate } from "@/lib/utils/dates";
+import { requireChildAccess, requireActivityAccess } from "@/lib/auth/access";
 
 export async function getActivities(childId: string, date?: string) {
+  await requireChildAccess(childId);
   const targetDate = date ?? formatDate(new Date());
   return db
     .select()
@@ -22,6 +24,7 @@ export async function getActivities(childId: string, date?: string) {
 }
 
 export async function getRecentActivities(childId: string, limit = 20) {
+  await requireChildAccess(childId);
   return db
     .select()
     .from(schema.activityLog)
@@ -31,6 +34,7 @@ export async function getRecentActivities(childId: string, limit = 20) {
 }
 
 export async function getActivityStats(childId: string, startDate: string, endDate: string) {
+  await requireChildAccess(childId);
   const rows = await db
     .select({
       subjectId: schema.activityLog.subjectId,
@@ -50,6 +54,7 @@ export async function getActivityStats(childId: string, startDate: string, endDa
 }
 
 export async function getWeeklyDayCounts(childId: string, startDate: string, endDate: string) {
+  await requireChildAccess(childId);
   const rows = await db
     .select({
       date: schema.activityLog.date,
@@ -78,6 +83,7 @@ export async function createActivity(data: {
   endedAt?: Date;
   source?: "manual" | "timer";
 }) {
+  await requireChildAccess(data.childId, { write: true });
   const id = nanoid();
   const title = sanitizeName(data.title);
   if (!title) throw new Error("Title is required");
@@ -112,6 +118,7 @@ export async function createActivity(data: {
 }
 
 export async function deleteActivity(activityId: string) {
+  await requireActivityAccess(activityId, { write: true });
   const rows = await db
     .select({ childId: schema.activityLog.childId })
     .from(schema.activityLog)

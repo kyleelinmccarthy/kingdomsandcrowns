@@ -4,8 +4,10 @@ import { nanoid } from "nanoid";
 import { eq, and } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
+import { requireQuestAccess, requireReminderAccess } from "@/lib/auth/access";
 
 export async function getReminders(questId: string) {
+  await requireQuestAccess(questId);
   return db
     .select()
     .from(schema.questReminder)
@@ -21,6 +23,7 @@ export async function upsertReminder(
     enabled?: boolean;
   }
 ) {
+  await requireQuestAccess(questId, { write: true });
   // Check if a reminder of this type already exists for this quest
   const existing = await db
     .select()
@@ -59,6 +62,7 @@ export async function upsertReminder(
 }
 
 export async function deleteReminder(reminderId: string) {
+  await requireReminderAccess(reminderId, { write: true });
   await db
     .delete(schema.questReminder)
     .where(eq(schema.questReminder.id, reminderId));

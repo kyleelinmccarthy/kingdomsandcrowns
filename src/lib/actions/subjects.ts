@@ -5,8 +5,10 @@ import { eq, and } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { sanitizeName } from "@/lib/utils/sanitize";
+import { requireChildAccess, requireSubjectAccess } from "@/lib/auth/access";
 
 export async function getSubjects(childId: string) {
+  await requireChildAccess(childId);
   return db
     .select()
     .from(schema.subject)
@@ -18,6 +20,7 @@ export async function createSubject(childId: string, data: {
   color?: string;
   icon?: string;
 }) {
+  await requireChildAccess(childId, { write: true });
   const id = nanoid();
   const name = sanitizeName(data.name);
   if (!name) throw new Error("Subject name is required");
@@ -51,6 +54,7 @@ export async function updateSubject(subjectId: string, data: {
   icon?: string;
   isActive?: boolean;
 }) {
+  await requireSubjectAccess(subjectId, { write: true });
   const updates: Record<string, unknown> = {};
   if (data.name) updates.name = sanitizeName(data.name);
   if (data.color) updates.color = data.color;
@@ -64,6 +68,7 @@ export async function updateSubject(subjectId: string, data: {
 }
 
 export async function deleteSubject(subjectId: string) {
+  await requireSubjectAccess(subjectId, { write: true });
   // Soft delete — deactivate
   await db
     .update(schema.subject)

@@ -10,6 +10,7 @@ import { Dialog, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui
 import { Avatar } from "@/components/avatar";
 import { AvatarCustomizer } from "@/components/avatar-customizer";
 import { FamilySetup } from "./family-setup";
+import { ChildLoginAccess } from "./child-login-access";
 import { createChild, updateChild, deleteChild } from "@/lib/actions/children";
 import { createSubject, updateSubject, deleteSubject } from "@/lib/actions/subjects";
 import { toggleLeaderboardVisibility } from "@/lib/actions/leaderboard";
@@ -39,6 +40,11 @@ type Child = {
   currentXp: number;
   currentStreak: number;
   showOnLeaderboard: boolean;
+  email?: string | null;
+  pinEnabled?: boolean;
+  emailLoginEnabled?: boolean;
+  googleLoginEnabled?: boolean;
+  authUserId?: string | null;
   subjects: Subject[];
   earnedBadgeIds?: string[];
   questUnlockedItems?: string[];
@@ -179,7 +185,10 @@ function ChildDetail({ child, isChildView = false }: { child: Child; isChildView
         <AvatarSection child={child} />
         {!isChildView && <ChildInfoEditor child={child} />}
         {!isChildView && <SubjectManager childId={child.id} subjects={child.subjects} />}
-        <LeaderboardToggle childId={child.id} enabled={child.showOnLeaderboard} />
+        {!isChildView && <ChildLoginAccess child={child} />}
+        {!isChildView && (
+          <LeaderboardToggle childId={child.id} enabled={child.showOnLeaderboard} />
+        )}
         {!isChildView && (
           <div className="border-t pt-4">
             <Button

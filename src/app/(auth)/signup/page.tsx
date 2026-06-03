@@ -1,15 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { signUp, signIn } from "@/lib/auth/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+function safeRedirect(value: string | null): string {
+  if (value && value.startsWith("/") && !value.startsWith("//")) return value;
+  return "/tavern";
+}
+
 export default function SignupPage() {
+  return (
+    <Suspense>
+      <SignupForm />
+    </Suspense>
+  );
+}
+
+function SignupForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const redirectTo = safeRedirect(searchParams.get("redirect"));
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -33,7 +48,7 @@ export default function SignupPage() {
       name,
       email,
       password,
-      callbackURL: "/tavern",
+      callbackURL: redirectTo,
     });
 
     if (signUpError) {
@@ -42,7 +57,7 @@ export default function SignupPage() {
       return;
     }
 
-    router.push("/tavern");
+    router.push(redirectTo);
   }
 
   return (
@@ -151,7 +166,7 @@ export default function SignupPage() {
           disabled={loading}
           onClick={async () => {
             setLoading(true);
-            await signIn.social({ provider: "google", callbackURL: "/tavern" });
+            await signIn.social({ provider: "google", callbackURL: redirectTo });
           }}
         >
           <svg className="mr-2 size-4" viewBox="0 0 24 24">
@@ -178,7 +193,10 @@ export default function SignupPage() {
       <div className="mt-4 text-center">
         <p className="text-sm text-muted-foreground">
           Already have an account?{" "}
-          <Link href="/login" className="font-medium text-primary hover:underline">
+          <Link
+            href={`/login?redirect=${encodeURIComponent(redirectTo)}`}
+            className="font-medium text-primary hover:underline"
+          >
             Return to the gates
           </Link>
         </p>

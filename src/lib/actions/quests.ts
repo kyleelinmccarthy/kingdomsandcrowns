@@ -5,8 +5,10 @@ import { eq, and } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { sanitizeName, sanitizeText } from "@/lib/utils/sanitize";
+import { requireChildAccess, requireQuestAccess } from "@/lib/auth/access";
 
 export async function getQuests(childId: string) {
+  await requireChildAccess(childId);
   return db
     .select()
     .from(schema.quest)
@@ -14,6 +16,11 @@ export async function getQuests(childId: string) {
 }
 
 export async function getQuest(questId: string) {
+  try {
+    await requireQuestAccess(questId);
+  } catch {
+    return null;
+  }
   const rows = await db
     .select()
     .from(schema.quest)
@@ -32,6 +39,7 @@ export async function createQuest(data: {
   rewardDescription?: string;
   rewardAvatarItem?: string; // JSON: { category, itemId }
 }) {
+  await requireChildAccess(data.childId, { write: true });
   const id = nanoid();
   const title = sanitizeName(data.title);
   if (!title) throw new Error("Quest title is required");
@@ -75,6 +83,7 @@ export async function updateQuest(
     rewardAvatarItem?: string | null;
   }
 ) {
+  await requireQuestAccess(questId, { write: true });
   const updates: Record<string, unknown> = { updatedAt: new Date() };
   if (data.title) updates.title = sanitizeName(data.title);
   if (data.description !== undefined)
@@ -94,6 +103,7 @@ export async function updateQuest(
 }
 
 export async function deleteQuest(questId: string) {
+  await requireQuestAccess(questId, { write: true });
   await db
     .update(schema.quest)
     .set({ isActive: false, updatedAt: new Date() })

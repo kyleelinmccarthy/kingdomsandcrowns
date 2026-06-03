@@ -7,6 +7,7 @@ import * as schema from "@/lib/db/schema";
 import { getSession, requireSession } from "@/lib/auth/session";
 import { sanitizeText } from "@/lib/utils/sanitize";
 import { isAdminUser } from "@/lib/admin";
+import { sendEmail } from "@/lib/email";
 
 const CATEGORIES = ["bug", "idea", "praise", "other"] as const;
 type Category = (typeof CATEGORIES)[number];
@@ -102,10 +103,8 @@ async function notifyAdminByEmail(args: {
   userEmail: string | null;
   userName: string | null;
 }) {
-  const apiKey = process.env.RESEND_API_KEY;
   const to = process.env.FEEDBACK_NOTIFY_EMAIL;
-  const from = process.env.FEEDBACK_FROM_EMAIL ?? "raven@kingdomsandcrowns.com";
-  if (!apiKey || !to) return;
+  if (!to) return;
 
   const subject = `[K&C ${args.category}] ${args.message.slice(0, 60)}`;
   const lines = [
@@ -117,23 +116,10 @@ async function notifyAdminByEmail(args: {
     args.message,
   ];
 
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from,
-      to,
-      subject,
-      text: lines.join("\n"),
-      reply_to: args.userEmail ?? undefined,
-    }),
+  await sendEmail({
+    to,
+    subject,
+    text: lines.join("\n"),
+    replyTo: args.userEmail ?? undefined,
   });
-
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new Error(`Resend ${res.status}: ${body.slice(0, 200)}`);
-  }
 }

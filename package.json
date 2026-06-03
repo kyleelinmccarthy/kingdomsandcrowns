@@ -15,7 +15,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:seed-demo": "npx tsx src/lib/db/seed-demo.ts",
     "db:seed-badges": "npx tsx src/lib/db/seed-badges.ts",
-    "db:make-admin": "npx tsx src/lib/db/make-admin.ts"
+    "db:make-admin": "npx tsx src/lib/db/make-admin.ts",
+    "db:backfill-members": "npx tsx src/lib/db/backfill-members.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.3.0",

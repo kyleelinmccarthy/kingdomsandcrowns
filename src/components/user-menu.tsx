@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Feather, Settings, User } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Feather, LogOut, Settings, User } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,9 +14,17 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { SendRavenDialog } from "@/components/send-raven";
+import { signOut } from "@/lib/auth/client";
 
 export function UserMenu({ userName }: { userName: string }) {
   const [ravenOpen, setRavenOpen] = useState(false);
+  const router = useRouter();
+
+  async function handleSignOut() {
+    await signOut();
+    router.push("/login");
+    router.refresh();
+  }
 
   return (
     <>
@@ -44,6 +53,15 @@ export function UserMenu({ userName }: { userName: string }) {
           >
             <Feather className="size-4" />
             Send a Raven
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            variant="destructive"
+            onClick={handleSignOut}
+            className="flex items-center gap-2"
+          >
+            <LogOut className="size-4" />
+            Leave the Realm
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

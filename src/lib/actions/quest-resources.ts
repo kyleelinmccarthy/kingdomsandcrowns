@@ -5,8 +5,14 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { sanitizeName, sanitizeText } from "@/lib/utils/sanitize";
+import {
+  requireQuestAccess,
+  requireSubjectAccess,
+  requireResourceAccess,
+} from "@/lib/auth/access";
 
 export async function getQuestResources(questId: string) {
+  await requireQuestAccess(questId);
   return db
     .select()
     .from(schema.questResource)
@@ -14,6 +20,7 @@ export async function getQuestResources(questId: string) {
 }
 
 export async function getSubjectResources(subjectId: string) {
+  await requireSubjectAccess(subjectId);
   return db
     .select()
     .from(schema.questResource)
@@ -34,6 +41,8 @@ export async function createResource(data: {
   if (data.questId && data.subjectId) {
     throw new Error("Resource cannot belong to both a quest and a subject");
   }
+  if (data.questId) await requireQuestAccess(data.questId, { write: true });
+  else await requireSubjectAccess(data.subjectId!, { write: true });
 
   const title = sanitizeName(data.title);
   if (!title) throw new Error("Resource title is required");
@@ -74,6 +83,7 @@ export async function updateResource(
     details?: string;
   }
 ) {
+  await requireResourceAccess(resourceId, { write: true });
   const updates: Record<string, unknown> = {};
   if (data.title) updates.title = sanitizeName(data.title);
   if (data.type) updates.type = data.type;
@@ -88,6 +98,7 @@ export async function updateResource(
 }
 
 export async function deleteResource(resourceId: string) {
+  await requireResourceAccess(resourceId, { write: true });
   await db
     .delete(schema.questResource)
     .where(eq(schema.questResource.id, resourceId));

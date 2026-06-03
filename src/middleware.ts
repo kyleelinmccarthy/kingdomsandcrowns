@@ -1,6 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const publicPaths = ["/login", "/signup", "/forgot-password", "/terms", "/privacy", "/api/auth", "/api/demo"];
+const publicPaths = [
+  "/login",
+  "/signup",
+  "/forgot-password",
+  "/terms",
+  "/privacy",
+  "/api/auth",
+  "/api/demo",
+  "/play", // child PIN sign-in landing
+  "/child-setup", // child email set-password (tokenized)
+  "/api/child-auth", // child auth endpoints
+];
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -10,10 +21,14 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Check for Better Auth session cookie
+  // Check for an auth session cookie — Better Auth (adult/email child) OR the
+  // signed PIN child-session. Presence-only here; full verification happens
+  // server-side in getActor(). A forged cookie passes here but fails getActor.
   const sessionToken =
     request.cookies.get("better-auth.session_token")?.value ||
-    request.cookies.get("__Secure-better-auth.session_token")?.value;
+    request.cookies.get("__Secure-better-auth.session_token")?.value ||
+    request.cookies.get("kc_child_session")?.value ||
+    request.cookies.get("__Secure-kc_child_session")?.value;
 
   // In demo mode, allow all requests (session is mocked server-side)
   if (process.env.DEMO_MODE === "true") {
