@@ -34,129 +34,109 @@ export async function checkAndAwardBadges(childId: string) {
   // Read-level: badge evaluation runs automatically on page load, so even a
   // view-only guardian viewing this child triggers (idempotent) awarding.
   await requireChildAccess(childId);
-  const child = await db
-    .select()
-    .from(schema.child)
-    .where(eq(schema.child.id, childId))
-    .limit(1);
+
+  // All badge metrics are independent reads — fetch them in a single parallel
+  // batch instead of ~14 sequential round-trips (each one a network hop to the
+  // remote DB). The same-table scalar aggregates are folded into one query.
+  const [
+    child,
+    scalars,
+    subjectCounts,
+    questsCompleted,
+    maxDailyActivities,
+    maxDailySubjectsResult,
+    subjectMinutesResult,
+    dailyMinutesResult,
+    existing,
+    allBadges,
+  ] = await Promise.all([
+    db.select().from(schema.child).where(eq(schema.child.id, childId)).limit(1),
+    // Whole-table scalar metrics over this child's activity log.
+    db
+      .select({
+        totalActivities: sql<number>`count(*)`,
+        totalMinutes: sql<number>`coalesce(sum(${schema.activityLog.durationMinutes}), 0)`,
+        longestSession: sql<number>`coalesce(max(${schema.activityLog.durationMinutes}), 0)`,
+        timerActivities: sql<number>`coalesce(sum(case when ${schema.activityLog.source} = 'timer' then 1 else 0 end), 0)`,
+        distinctDays: sql<number>`count(distinct ${schema.activityLog.date})`,
+        distinctWeeks: sql<number>`count(distinct strftime('%Y-%W', ${schema.activityLog.date}))`,
+      })
+      .from(schema.activityLog)
+      .where(eq(schema.activityLog.childId, childId)),
+    // Per-subject activity counts for subject badges
+    db
+      .select({
+        subjectId: schema.activityLog.subjectId,
+        count: sql<number>`count(*)`,
+      })
+      .from(schema.activityLog)
+      .where(eq(schema.activityLog.childId, childId))
+      .groupBy(schema.activityLog.subjectId),
+    // Quest assignments completed
+    db
+      .select({ count: sql<number>`count(*)` })
+      .from(schema.questAssignment)
+      .where(
+        and(
+          eq(schema.questAssignment.childId, childId),
+          eq(schema.questAssignment.status, "completed"),
+        ),
+      ),
+    // Max activities in a single day (for dailyActivities badges)
+    db
+      .select({ count: sql<number>`count(*)` })
+      .from(schema.activityLog)
+      .where(eq(schema.activityLog.childId, childId))
+      .groupBy(schema.activityLog.date)
+      .orderBy(sql`count(*) desc`)
+      .limit(1),
+    // Max subjects studied in a single day
+    db
+      .select({ count: sql<number>`count(distinct ${schema.activityLog.subjectId})` })
+      .from(schema.activityLog)
+      .where(eq(schema.activityLog.childId, childId))
+      .groupBy(schema.activityLog.date)
+      .orderBy(sql`count(distinct ${schema.activityLog.subjectId}) desc`)
+      .limit(1),
+    // Most minutes logged in a single subject
+    db
+      .select({ total: sql<number>`coalesce(sum(${schema.activityLog.durationMinutes}), 0)` })
+      .from(schema.activityLog)
+      .where(eq(schema.activityLog.childId, childId))
+      .groupBy(schema.activityLog.subjectId)
+      .orderBy(sql`sum(${schema.activityLog.durationMinutes}) desc`)
+      .limit(1),
+    // Most minutes logged in a single day
+    db
+      .select({ total: sql<number>`coalesce(sum(${schema.activityLog.durationMinutes}), 0)` })
+      .from(schema.activityLog)
+      .where(eq(schema.activityLog.childId, childId))
+      .groupBy(schema.activityLog.date)
+      .orderBy(sql`sum(${schema.activityLog.durationMinutes}) desc`)
+      .limit(1),
+    // Badges already earned
+    db
+      .select({ badgeId: schema.childBadge.badgeId })
+      .from(schema.childBadge)
+      .where(eq(schema.childBadge.childId, childId)),
+    db.select().from(schema.badge),
+  ]);
+
   if (!child[0]) return [];
 
-  const totalActivities = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(schema.activityLog)
-    .where(eq(schema.activityLog.childId, childId));
-
-  // Per-subject activity counts for subject badges
-  const subjectCounts = await db
-    .select({
-      subjectId: schema.activityLog.subjectId,
-      count: sql<number>`count(*)`,
-    })
-    .from(schema.activityLog)
-    .where(eq(schema.activityLog.childId, childId))
-    .groupBy(schema.activityLog.subjectId);
-
-  // Quest assignments completed
-  const questsCompleted = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(schema.questAssignment)
-    .where(
-      and(
-        eq(schema.questAssignment.childId, childId),
-        eq(schema.questAssignment.status, "completed"),
-      )
-    );
-
-  // Max activities in a single day (for dailyActivities badges)
-  const maxDailyActivities = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(schema.activityLog)
-    .where(eq(schema.activityLog.childId, childId))
-    .groupBy(schema.activityLog.date)
-    .orderBy(sql`count(*) desc`)
-    .limit(1);
-
-  // ── Education-focused metrics ──────────────────────────────
-
-  // Total study minutes across all activities
-  const totalMinutesResult = await db
-    .select({ total: sql<number>`coalesce(sum(${schema.activityLog.durationMinutes}), 0)` })
-    .from(schema.activityLog)
-    .where(eq(schema.activityLog.childId, childId));
-  const totalMinutes = totalMinutesResult[0]?.total ?? 0;
-
-  // Longest single session
-  const longestSessionResult = await db
-    .select({ max: sql<number>`coalesce(max(${schema.activityLog.durationMinutes}), 0)` })
-    .from(schema.activityLog)
-    .where(eq(schema.activityLog.childId, childId));
-  const longestSession = longestSessionResult[0]?.max ?? 0;
-
-  // Activities logged with the timer
-  const timerActivitiesResult = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(schema.activityLog)
-    .where(
-      and(
-        eq(schema.activityLog.childId, childId),
-        eq(schema.activityLog.source, "timer"),
-      )
-    );
-  const timerActivities = timerActivitiesResult[0]?.count ?? 0;
-
-  // Distinct days with at least one activity
-  const distinctDaysResult = await db
-    .select({ count: sql<number>`count(distinct ${schema.activityLog.date})` })
-    .from(schema.activityLog)
-    .where(eq(schema.activityLog.childId, childId));
-  const distinctDays = distinctDaysResult[0]?.count ?? 0;
-
-  // Distinct weeks (ISO week) with at least one activity
-  const distinctWeeksResult = await db
-    .select({ count: sql<number>`count(distinct strftime('%Y-%W', ${schema.activityLog.date}))` })
-    .from(schema.activityLog)
-    .where(eq(schema.activityLog.childId, childId));
-  const distinctWeeks = distinctWeeksResult[0]?.count ?? 0;
-
-  // Max subjects studied in a single day
-  const maxDailySubjectsResult = await db
-    .select({ count: sql<number>`count(distinct ${schema.activityLog.subjectId})` })
-    .from(schema.activityLog)
-    .where(eq(schema.activityLog.childId, childId))
-    .groupBy(schema.activityLog.date)
-    .orderBy(sql`count(distinct ${schema.activityLog.subjectId}) desc`)
-    .limit(1);
+  const totalActivities = scalars[0]?.totalActivities ?? 0;
+  const totalMinutes = scalars[0]?.totalMinutes ?? 0;
+  const longestSession = scalars[0]?.longestSession ?? 0;
+  const timerActivities = scalars[0]?.timerActivities ?? 0;
+  const distinctDays = scalars[0]?.distinctDays ?? 0;
+  const distinctWeeks = scalars[0]?.distinctWeeks ?? 0;
   const maxDailySubjects = maxDailySubjectsResult[0]?.count ?? 0;
-
-  // Most minutes logged in a single subject
-  const subjectMinutesResult = await db
-    .select({ total: sql<number>`coalesce(sum(${schema.activityLog.durationMinutes}), 0)` })
-    .from(schema.activityLog)
-    .where(eq(schema.activityLog.childId, childId))
-    .groupBy(schema.activityLog.subjectId)
-    .orderBy(sql`sum(${schema.activityLog.durationMinutes}) desc`)
-    .limit(1);
   const maxSubjectMinutes = subjectMinutesResult[0]?.total ?? 0;
-
-  // Most minutes logged in a single day
-  const dailyMinutesResult = await db
-    .select({ total: sql<number>`coalesce(sum(${schema.activityLog.durationMinutes}), 0)` })
-    .from(schema.activityLog)
-    .where(eq(schema.activityLog.childId, childId))
-    .groupBy(schema.activityLog.date)
-    .orderBy(sql`sum(${schema.activityLog.durationMinutes}) desc`)
-    .limit(1);
   const maxDailyMinutes = dailyMinutesResult[0]?.total ?? 0;
 
   // ── Evaluate badges ───────────────────────────────────────
 
-  const existing = await db
-    .select({ badgeId: schema.childBadge.badgeId })
-    .from(schema.childBadge)
-    .where(eq(schema.childBadge.childId, childId));
   const earnedIds = new Set(existing.map((e) => e.badgeId));
-
-  const allBadges = await db.select().from(schema.badge);
   const newlyEarned: string[] = [];
 
   const level = Math.floor(child[0].currentXp / 100) + 1;
@@ -172,7 +152,7 @@ export async function checkAndAwardBadges(childId: string) {
       earned = true;
     }
     // Volume criteria (works for both "volume" and "special" categories)
-    if (criteria.totalActivities && totalActivities[0].count >= criteria.totalActivities) {
+    if (criteria.totalActivities && totalActivities >= criteria.totalActivities) {
       earned = true;
     }
     // Subject-specific criteria: any single subject with >= N activities

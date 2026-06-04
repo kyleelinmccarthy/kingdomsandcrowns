@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { sanitizeName, sanitizeText } from "@/lib/utils/sanitize";
 import { formatDate } from "@/lib/utils/dates";
+import { computeStreak } from "@/lib/utils/streak";
 import { requireChildAccess, requireActivityAccess } from "@/lib/auth/access";
 
 export async function getActivities(childId: string, date?: string) {
@@ -133,46 +134,43 @@ export async function deleteActivity(activityId: string) {
 }
 
 async function updateStreakAndXp(childId: string) {
-  // Calculate current streak
   const today = new Date();
-  let streak = 0;
-  let checkDate = new Date(today);
+  // Look back at most a year (the streak cap) and derive the streak from the
+  // distinct active days in memory — one query instead of up to 365.
+  const windowStart = new Date(today);
+  windowStart.setDate(windowStart.getDate() - 365);
 
-  for (let i = 0; i < 365; i++) {
-    const dateStr = formatDate(checkDate);
-    const count = await db
+  const [activeDays, totalCount, childRow] = await Promise.all([
+    db
+      .select({ date: schema.activityLog.date })
+      .from(schema.activityLog)
+      .where(
+        and(
+          eq(schema.activityLog.childId, childId),
+          gte(schema.activityLog.date, formatDate(windowStart)),
+        ),
+      )
+      .groupBy(schema.activityLog.date),
+    // Count total activities for XP (10 XP per activity)
+    db
       .select({ count: sql<number>`count(*)` })
       .from(schema.activityLog)
-      .where(and(eq(schema.activityLog.childId, childId), eq(schema.activityLog.date, dateStr)));
+      .where(eq(schema.activityLog.childId, childId)),
+    // Current child data (longest streak + bonus XP from quest rewards)
+    db
+      .select({
+        longestStreak: schema.child.longestStreak,
+        bonusXp: schema.child.bonusXp,
+      })
+      .from(schema.child)
+      .where(eq(schema.child.id, childId))
+      .limit(1),
+  ]);
 
-    if (count[0].count > 0) {
-      streak++;
-      checkDate.setDate(checkDate.getDate() - 1);
-    } else {
-      // Allow today to not have activities yet
-      if (i === 0) {
-        checkDate.setDate(checkDate.getDate() - 1);
-        continue;
-      }
-      break;
-    }
-  }
-
-  // Count total activities for XP (10 XP per activity)
-  const totalCount = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(schema.activityLog)
-    .where(eq(schema.activityLog.childId, childId));
-
-  // Get current child data (longest streak + bonus XP from quest rewards)
-  const childRow = await db
-    .select({
-      longestStreak: schema.child.longestStreak,
-      bonusXp: schema.child.bonusXp,
-    })
-    .from(schema.child)
-    .where(eq(schema.child.id, childId))
-    .limit(1);
+  const streak = computeStreak(
+    activeDays.map((row) => row.date),
+    today,
+  );
 
   const longestStreak = Math.max(streak, childRow[0]?.longestStreak ?? 0);
   const bonusXp = childRow[0]?.bonusXp ?? 0;

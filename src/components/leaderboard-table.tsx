@@ -138,7 +138,10 @@ export function CombinedLeaderboardTable({
 
   return (
     <GameFrame title="Community Hall" icon="🏛️">
-      <div className="space-y-1">
+      {/* Six columns can't fit narrow phones — allow horizontal scroll while
+          keeping a min-width so the columns stay aligned and legible. */}
+      <div className="-mx-1 overflow-x-auto px-1">
+        <div className="min-w-[30rem] space-y-1">
         {/* Header */}
         <div className="flex items-center gap-3 px-3 py-1.5 text-xs font-medium text-muted-foreground">
           <span className="w-8 text-center">Rank</span>
@@ -214,6 +217,7 @@ export function CombinedLeaderboardTable({
             </div>
           );
         })}
+        </div>
       </div>
     </GameFrame>
   );

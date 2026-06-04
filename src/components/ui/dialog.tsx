@@ -40,7 +40,7 @@ export function Dialog({
         "bg-[linear-gradient(180deg,rgba(17,26,46,0.95)_0%,rgba(13,21,37,0.98)_40%,rgba(10,16,30,1)_100%)]",
         "text-foreground",
         "shadow-[inset_0_1px_0_rgba(201,168,76,0.1),inset_0_0_30px_rgba(0,0,0,0.3),0_0_40px_-10px_rgba(201,168,76,0.15),0_8px_30px_rgba(0,0,0,0.5)]",
-        "max-w-lg w-[calc(100%-2rem)] open:animate-in open:fade-in open:zoom-in-95",
+        "max-w-lg w-[calc(100%-2rem)] max-h-[calc(100svh-2rem)] overflow-y-auto open:animate-in open:fade-in open:zoom-in-95",
         className,
       )}
     >

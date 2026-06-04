@@ -12,6 +12,13 @@ vi.mock("@/components/user-menu", () => ({
   ),
 }));
 
+// QuestHelper renders its own guide listing every destination, which would
+// duplicate the medallion labels. It is tested separately; mock it here so the
+// GameNavBar assertions target only the nav medallions.
+vi.mock("@/components/quest-helper", () => ({
+  QuestHelper: () => <div data-testid="quest-helper">Help</div>,
+}));
+
 afterEach(cleanup);
 
 describe("GameBanner", () => {
@@ -47,6 +54,23 @@ describe("GameNavBar", () => {
   it("renders user menu with userName", () => {
     render(<GameNavBar userName="Jane Doe" />);
     expect(screen.getByTestId("user-menu")).toHaveTextContent("Jane Doe");
+  });
+
+  it("renders the Help control alongside the destinations", () => {
+    render(<GameNavBar userName="Test" />);
+    expect(screen.getByText("Help")).toBeInTheDocument();
+  });
+
+  it("shows the parent-only Quest Giver in the parent view", () => {
+    render(<GameNavBar userName="Parent" />);
+    expect(screen.getByText("Quest Giver")).toBeInTheDocument();
+    expect(screen.getByText("Ranks")).toBeInTheDocument();
+  });
+
+  it("hides parent-only destinations in the child view", () => {
+    render(<GameNavBar userName="Hero" isChildView />);
+    expect(screen.queryByText("Quest Giver")).not.toBeInTheDocument();
+    expect(screen.getByText("Ranks")).toBeInTheDocument();
   });
 
   it("highlights active route", () => {
