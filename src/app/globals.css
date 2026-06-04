@@ -369,6 +369,31 @@ body {
   align-items: center;
   gap: 0.25rem;
 }
+/* Separates parent tools from the hero-facing pages */
+.game-navbar-divider {
+  display: flex;
+  align-items: center;
+  align-self: stretch;
+  margin: 0 0.35rem;
+  padding-left: 0.75rem;
+  border-left: 1px solid var(--gold-border);
+}
+.game-navbar-divider-label {
+  font-family: var(--font-farro), sans-serif;
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+@media (max-width: 640px) {
+  .game-navbar-divider {
+    margin: 0 0.2rem;
+    padding-left: 0.4rem;
+  }
+  .game-navbar-divider-label { font-size: 0.5rem; }
+}
 /* User medallion — dropdown trigger styled like a nav medallion */
 .user-medallion {
   display: flex;

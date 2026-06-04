@@ -21,12 +21,12 @@ export default async function ManageQuestsPage({
   if (isChildView) {
     return (
       <div className="space-y-6">
-        <h1 className="page-title text-4xl">Quest Planner</h1>
+        <h1 className="page-title text-4xl">Quest Giver</h1>
         <GameFrame>
           <div className="py-4 text-center">
             <p className="text-4xl">🔒</p>
             <p className="mt-3 text-muted-foreground">
-              Only parents may access the quest planner.
+              Only parents may access the Quest Giver.
             </p>
           </div>
         </GameFrame>
@@ -38,7 +38,7 @@ export default async function ManageQuestsPage({
   if (!family) {
     return (
       <div className="space-y-6">
-        <h1 className="page-title text-4xl">Quest Planner</h1>
+        <h1 className="page-title text-4xl">Quest Giver</h1>
         <GameFrame>
           <div className="py-4 text-center">
             <p className="text-4xl">📜</p>
@@ -54,7 +54,7 @@ export default async function ManageQuestsPage({
   if (!activeChild) {
     return (
       <div className="space-y-6">
-        <h1 className="page-title text-4xl">Quest Planner</h1>
+        <h1 className="page-title text-4xl">Quest Giver</h1>
         <GameFrame>
           <div className="py-4 text-center">
             <p className="text-4xl">👤</p>
@@ -79,7 +79,7 @@ export default async function ManageQuestsPage({
     <div className="space-y-6">
       <div className="page-banner flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="page-title text-4xl">Quest Planner</h1>
+          <h1 className="page-title text-4xl">Quest Giver</h1>
           <p className="mt-1 text-muted-foreground">
             Plan and manage {activeChild.displayName}&apos;s quest scrolls.
           </p>

@@ -5,8 +5,8 @@ import { usePathname } from "next/navigation";
 
 const parentLinks = [
   { href: "/tavern", label: "Tavern", icon: "🏘️" },
+  { href: "/scrolls", label: "Quest Giver", icon: "🧙" },
   { href: "/quests", label: "Quest Log", icon: "📜" },
-  { href: "/scrolls", label: "Planner", icon: "📖" },
   { href: "/loot", label: "Treasure Chest", icon: "💎" },
   { href: "/castle", label: "Castle", icon: "🏰" },
 ];

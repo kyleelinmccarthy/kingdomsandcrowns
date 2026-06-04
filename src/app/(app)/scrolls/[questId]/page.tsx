@@ -57,7 +57,7 @@ export default async function QuestDetailPage({
           href={`/scrolls?child=${quest.childId}`}
           className="text-sm text-muted-foreground hover:text-primary"
         >
-          &larr; Back to Quest Planner
+          &larr; Back to Quest Giver
         </Link>
         <h1 className="page-title mt-2 text-4xl">{quest.title}</h1>
         <div className="mt-1 flex items-center gap-2 text-muted-foreground">

@@ -1,51 +1,13 @@
 "use client";
 
+import { Fragment } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { UserMenu } from "@/components/user-menu";
+import { QuestHelper } from "@/components/quest-helper";
+import { navItemsFor } from "@/components/nav-items";
 import { Tooltip, TooltipProvider } from "@/components/ui/tooltip";
-
-const MAIN_NAV: {
-  href: string;
-  label: string;
-  icon: string;
-  description: string;
-  parentOnly?: boolean;
-}[] = [
-  {
-    href: "/tavern",
-    label: "Tavern",
-    icon: "🏘️",
-    description: "Your home base — see your heroes, today's quests, and what's happening in your kingdom.",
-  },
-  {
-    href: "/quests",
-    label: "Quest Log",
-    icon: "📜",
-    description: "Your tasks and chores. Complete quests to earn XP and rewards.",
-  },
-  {
-    href: "/scrolls",
-    label: "Planner",
-    icon: "📖",
-    description: "Plan ahead — create quest templates and schedules for your heroes.",
-    parentOnly: true,
-  },
-  {
-    href: "/loot",
-    label: "Loot",
-    icon: "💎",
-    description: "Your treasure chest — the rewards and achievements you've earned from quests.",
-  },
-  {
-    href: "/leaderboard",
-    label: "Ranks",
-    icon: "🏆",
-    description: "The Hall of Legends — see how heroes stack up on family and community leaderboards.",
-  },
-];
-
 
 function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(href + "/");
@@ -100,9 +62,7 @@ export function GameBanner() {
 export function GameNavBar({ userName, isChildView }: { userName: string; isChildView?: boolean }) {
   const pathname = usePathname();
 
-  const navItems = isChildView
-    ? MAIN_NAV.filter((item) => !item.parentOnly)
-    : MAIN_NAV;
+  const navItems = navItemsFor(isChildView);
 
   return (
     <TooltipProvider>
@@ -114,19 +74,34 @@ export function GameNavBar({ userName, isChildView }: { userName: string; isChil
           <div className="game-navbar-corner game-navbar-corner--br" />
 
           <div className="game-navbar-main">
-            {navItems.map((item) => (
-              <NavMedallion
-                key={item.href}
-                href={item.href}
-                icon={item.icon}
-                label={item.label}
-                description={item.description}
-                active={isActive(pathname, item.href)}
-              />
-            ))}
+            {navItems.map((item, index) => {
+              // In the parent view, mark where the hero-facing pages begin so it's
+              // clear those tabs show what the kids see (not parent tools).
+              const showHeroDivider =
+                !isChildView &&
+                item.heroView &&
+                !navItems[index - 1]?.heroView;
+              return (
+                <Fragment key={item.href}>
+                  {showHeroDivider && (
+                    <span className="game-navbar-divider" aria-hidden="true">
+                      <span className="game-navbar-divider-label">Hero&apos;s View</span>
+                    </span>
+                  )}
+                  <NavMedallion
+                    href={item.href}
+                    icon={item.icon}
+                    label={item.label}
+                    description={item.description}
+                    active={isActive(pathname, item.href)}
+                  />
+                </Fragment>
+              );
+            })}
           </div>
 
           <div className="game-navbar-end">
+            <QuestHelper isChildView={isChildView} />
             <UserMenu userName={userName} />
           </div>
         </div>
