@@ -27,8 +27,12 @@ type Props = {
 
 export function ChildLoginAccess({ child }: Props) {
   const router = useRouter();
+  // Enabling email/Google login requires recorded consent, so an already-enabled
+  // self-service method means consent is on file. Reflect that so the box doesn't
+  // appear unchecked (and reset on every refresh) after the parent has authorized.
+  const consentOnFile = !!child.emailLoginEnabled || !!child.googleLoginEnabled;
   const [email, setEmail] = useState(child.email ?? "");
-  const [consent, setConsent] = useState(false);
+  const [consent, setConsent] = useState(consentOnFile);
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -159,6 +163,9 @@ export function ChildLoginAccess({ child }: Props) {
         <span>
           I authorize this hero to use self-service login (email / Google) and consent to data
           collection for this parent-managed profile. Required before either method can be turned on.
+          {consentOnFile && (
+            <span className="ml-1 text-[var(--gold-bright)]">✓ on file</span>
+          )}
         </span>
       </label>
 

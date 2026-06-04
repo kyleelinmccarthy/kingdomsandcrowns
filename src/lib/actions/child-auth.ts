@@ -271,8 +271,8 @@ export async function sendChildQuestInvite(childId: string) {
   if (!child.email) {
     throw new Error("Add the hero's email first so we know where to send the invite.");
   }
-  if (!child.pinEnabled && !child.emailLoginEnabled) {
-    throw new Error("Give the hero a PIN or enable email login before inviting them.");
+  if (!child.pinEnabled && !child.emailLoginEnabled && !child.googleLoginEnabled) {
+    throw new Error("Give the hero a PIN, email, or Google login before inviting them.");
   }
 
   const base = appBaseUrl();
@@ -294,6 +294,11 @@ export async function sendChildQuestInvite(childId: string) {
     // Email hero who already has a login → sign-in page.
     button = { label: "Begin your quest", url: `${base}/login` };
     paragraphs.push(`Sign in with your email (${child.email}) and your secret passphrase.`);
+  } else if (child.googleLoginEnabled) {
+    // Google hero → sign-in page; Google handles the credential, no password
+    // setup needed (the Better Auth user is created on first Google sign-in).
+    button = { label: "Begin your quest", url: `${base}/login` };
+    paragraphs.push(`Sign in with Google using your email (${child.email}).`);
   } else {
     // PIN-only hero → family-code play page.
     const fam = (

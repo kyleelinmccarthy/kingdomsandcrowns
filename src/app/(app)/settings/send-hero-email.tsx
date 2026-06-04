@@ -15,7 +15,9 @@ type HeroEmailChild = {
   id: string;
   displayName: string;
   email?: string | null;
+  pinEnabled?: boolean;
   emailLoginEnabled?: boolean;
+  googleLoginEnabled?: boolean;
   authUserId?: string | null;
 };
 
@@ -28,16 +30,18 @@ function isGmail(email: string) {
 
 /**
  * One clear way to email a hero their sign-in / starting-quest invite.
- * - Hero already has an email on file → sends immediately.
- * - No email yet → reveals an inline field. On send we save the email to the
- *   hero's account AND enable a self-service login so the invite is usable:
- *   email + password (a "set your password" link) for everyone, plus Google
- *   one-tap when it's a Gmail address. Enabling self-service requires the
- *   parent's consent, so the prompt includes the consent check.
  *
- * `compact` trims the helper copy for the list card; the expanded panel uses
- * the full version. Stops click propagation so it can live inside a clickable
- * hero card without toggling it.
+ * - Hero already has an email AND a usable login (PIN, email, or Google)
+ *   → sends immediately.
+ * - Otherwise → reveals an inline prompt that collects whatever is missing
+ *   (the email, and/or parental consent), turns it into a real login
+ *   (email + password for everyone, plus Google one-tap for Gmail), then sends.
+ *
+ * This guarantees we never call the server action in a state it would reject
+ * (which in prod surfaces only as an opaque 500).
+ *
+ * `compact` trims the helper copy for the list card. Stops click propagation so
+ * it can live inside a clickable hero card without toggling it.
  */
 export function SendHeroEmailButton({
   child,
@@ -56,7 +60,10 @@ export function SendHeroEmailButton({
   const [link, setLink] = useState<string | null>(null);
 
   const hasEmail = !!child.email;
-  const gmail = isGmail(email);
+  const hasLoginMethod =
+    !!child.pinEnabled || !!child.emailLoginEnabled || !!child.googleLoginEnabled;
+  const canSendNow = hasEmail && hasLoginMethod;
+  const needsEmail = !hasEmail;
 
   function reset() {
     setError(null);
@@ -64,14 +71,17 @@ export function SendHeroEmailButton({
     setLink(null);
   }
 
-  // Send to a hero who already has an email + a login method on file.
-  async function sendExisting() {
+  function applyResult(res: { emailSent: boolean; link: string }) {
+    if (res.emailSent) setSent(true);
+    else setLink(res.link);
+  }
+
+  // Hero already has an email + a login method → just send.
+  async function sendNow() {
     setBusy(true);
     reset();
     try {
-      const res = await sendChildQuestInvite(child.id);
-      if (res.emailSent) setSent(true);
-      else setLink(res.link);
+      applyResult(await sendChildQuestInvite(child.id));
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't send the email.");
@@ -80,10 +90,11 @@ export function SendHeroEmailButton({
     }
   }
 
-  // Save a brand-new email, turn it into a real login, then send the invite.
+  // Collect what's missing (email and/or consent), turn it into a real login,
+  // then send the invite.
   async function saveAndSend() {
-    const clean = email.trim();
-    if (!clean) return;
+    const targetEmail = (needsEmail ? email.trim() : child.email) ?? "";
+    if (!targetEmail) return;
     if (!consent) {
       setError("Please tick the consent box so this hero can sign in with their email.");
       return;
@@ -91,19 +102,18 @@ export function SendHeroEmailButton({
     setBusy(true);
     reset();
     try {
+      const gmail = isGmail(targetEmail);
       const methods: ("email" | "google")[] = ["email"];
-      if (isGmail(clean)) methods.push("google");
+      if (gmail) methods.push("google");
 
-      await setChildEmail(child.id, clean);
+      if (needsEmail) await setChildEmail(child.id, targetEmail);
       await recordChildConsent(child.id, methods);
       // email + password for everyone (the invite becomes a set-password link),
       // plus Google one-tap when it's a Gmail address.
       await setChildAuthMethod(child.id, "email", true);
-      if (isGmail(clean)) await setChildAuthMethod(child.id, "google", true);
+      if (gmail) await setChildAuthMethod(child.id, "google", true);
 
-      const res = await sendChildQuestInvite(child.id);
-      if (res.emailSent) setSent(true);
-      else setLink(res.link);
+      applyResult(await sendChildQuestInvite(child.id));
       setPrompting(false);
       setEmail("");
       setConsent(false);
@@ -117,34 +127,42 @@ export function SendHeroEmailButton({
 
   function handleTrigger() {
     reset();
-    if (hasEmail) {
-      void sendExisting();
+    if (canSendNow) {
+      void sendNow();
     } else {
       setPrompting((p) => !p);
     }
   }
 
+  const triggerLabel = canSendNow
+    ? "Send sign-in email"
+    : hasEmail
+      ? "Set up sign-in & email this hero"
+      : "Email this hero";
+
   return (
-    <div onClick={(e) => e.stopPropagation()} className="space-y-1">
-      <Button size="sm" variant="outline" disabled={busy} onClick={handleTrigger}>
-        ✉️ {hasEmail ? "Send sign-in email" : "Email this hero"}
+    <div onClick={(e) => e.stopPropagation()} className="space-y-1.5">
+      <Button size="sm" disabled={busy} onClick={handleTrigger}>
+        ✉️ {busy ? "Sending…" : triggerLabel}
       </Button>
 
-      {!compact && hasEmail && (
+      {!compact && canSendNow && (
         <p className="text-xs text-muted-foreground">
           Emails {child.email} a branded invite with a link to{" "}
           {child.emailLoginEnabled
             ? child.authUserId
               ? "sign in"
               : "set up their login"
-            : "play with the family code"}
+            : child.googleLoginEnabled
+              ? "sign in with Google"
+              : "play with the family code"}
           .
         </p>
       )}
 
-      {prompting && !hasEmail && (
+      {prompting && !canSendNow && (
         <div className="space-y-2 pt-1">
-          <div className="flex gap-2">
+          {needsEmail && (
             <Input
               type="email"
               autoFocus
@@ -155,10 +173,7 @@ export function SendHeroEmailButton({
                 if (e.key === "Enter" && email.trim() && consent && !busy) saveAndSend();
               }}
             />
-            <Button size="sm" disabled={busy || !email.trim() || !consent} onClick={saveAndSend}>
-              Send
-            </Button>
-          </div>
+          )}
           <label className="flex items-start gap-2 text-xs text-muted-foreground">
             <input
               type="checkbox"
@@ -171,9 +186,20 @@ export function SendHeroEmailButton({
               collection for this parent-managed profile.
             </span>
           </label>
+          <Button
+            size="sm"
+            disabled={busy || (needsEmail && !email.trim()) || !consent}
+            onClick={saveAndSend}
+          >
+            {busy ? "Sending…" : "Save & send invite"}
+          </Button>
           <p className="text-xs text-muted-foreground">
-            Saves this email to {child.displayName} and emails them a link to set a password
-            {gmail ? " — or sign in with Google, since it's a Gmail address" : ""}.
+            {hasEmail ? `${child.displayName} has` : "Saves this email and gives them"} a way to sign
+            in: a link to set a password
+            {isGmail(needsEmail ? email : child.email ?? "")
+              ? " — or sign in with Google, since it's a Gmail address"
+              : ""}
+            .
           </p>
         </div>
       )}
