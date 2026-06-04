@@ -5,10 +5,11 @@ import { eq, asc } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { sanitizeName } from "@/lib/utils/sanitize";
-import { requireFamilyAccess } from "@/lib/auth/access";
+import { requireFamilyAccess, requireFamilyReadAccess } from "@/lib/auth/access";
 
 export async function getSchoolBreaks(familyId: string) {
-  await requireFamilyAccess({ familyId });
+  // Read-only: also viewable by a hero in their own chronicle (Long Rest view).
+  await requireFamilyReadAccess(familyId);
   return db
     .select()
     .from(schema.schoolBreak)

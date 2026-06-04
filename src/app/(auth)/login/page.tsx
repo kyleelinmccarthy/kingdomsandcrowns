@@ -30,9 +30,16 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const redirectTo = safeRedirect(searchParams.get("redirect"));
   const prefillCode = searchParams.get("code") ?? "";
-  // A family code (or ?mode=kid) means a kid arrived here — start on the Young Hero tab.
+  // An email-login hero arrives with ?method=email — start them on the kid
+  // Email tab rather than the parent tab.
+  const initialKidMethod: KidMethod =
+    searchParams.get("method") === "email" ? "email" : "pin";
+  // A family code, ?mode=kid, or the kid email link means a kid arrived here —
+  // start on the Young Hero tab.
   const initialMode: Mode =
-    searchParams.get("mode") === "kid" || prefillCode ? "kid" : "parent";
+    searchParams.get("mode") === "kid" || prefillCode || initialKidMethod === "email"
+      ? "kid"
+      : "parent";
 
   const [mode, setMode] = useState<Mode>(initialMode);
 
@@ -49,7 +56,11 @@ function LoginForm() {
       {mode === "parent" ? (
         <ParentPanel redirectTo={redirectTo} />
       ) : (
-        <KidPanel redirectTo={redirectTo} prefillCode={prefillCode} />
+        <KidPanel
+          redirectTo={redirectTo}
+          prefillCode={prefillCode}
+          initialMethod={initialKidMethod}
+        />
       )}
     </>
   );
@@ -83,11 +94,13 @@ function ParentPanel({ redirectTo }: { redirectTo: string }) {
 function KidPanel({
   redirectTo,
   prefillCode,
+  initialMethod = "pin",
 }: {
   redirectTo: string;
   prefillCode: string;
+  initialMethod?: KidMethod;
 }) {
-  const [method, setMethod] = useState<KidMethod>("pin");
+  const [method, setMethod] = useState<KidMethod>(initialMethod);
 
   return (
     <>

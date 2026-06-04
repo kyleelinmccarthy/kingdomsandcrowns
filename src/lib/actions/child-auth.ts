@@ -291,13 +291,15 @@ export async function sendChildQuestInvite(childId: string) {
     );
     afterButton.push(`If the button doesn't work, paste this into your browser: ${link}`);
   } else if (child.emailLoginEnabled && child.authUserId) {
-    // Email hero who already has a login → sign-in page.
-    button = { label: "Begin your quest", url: `${base}/login` };
+    // Email hero who already has a login → kid email sign-in tab (not the
+    // parent tab that /login defaults to).
+    button = { label: "Begin your quest", url: `${base}/login?mode=kid&method=email` };
     paragraphs.push(`Sign in with your email (${child.email}) and your secret passphrase.`);
   } else if (child.googleLoginEnabled) {
-    // Google hero → sign-in page; Google handles the credential, no password
-    // setup needed (the Better Auth user is created on first Google sign-in).
-    button = { label: "Begin your quest", url: `${base}/login` };
+    // Google hero → kid email sign-in tab; Google handles the credential, no
+    // password setup needed (the Better Auth user is created on first Google
+    // sign-in).
+    button = { label: "Begin your quest", url: `${base}/login?mode=kid&method=email` };
     paragraphs.push(`Sign in with Google using your email (${child.email}).`);
   } else {
     // PIN-only hero → family-code play page.

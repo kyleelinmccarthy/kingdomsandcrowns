@@ -215,6 +215,24 @@ export async function requireFamilyAccess(opts?: {
 }
 
 /**
+ * Read-only family gate that also admits a child reading their OWN family's
+ * data. Use for family-scoped data a hero legitimately views about themselves
+ * (e.g. school breaks shown in their chronicle). Writes must still go through
+ * requireFamilyAccess({ write: true }), which never admits a child.
+ */
+export async function requireFamilyReadAccess(familyId: string): Promise<FamilyAccess> {
+  const actor = await getActor();
+  if (!actor) throw new Error("Unauthorized");
+  if (actor.kind === "child") {
+    if (actor.familyId !== familyId) {
+      throw new Error("This hero can only act for themselves.");
+    }
+    return childSelfAccess(actor);
+  }
+  return requireFamilyAccess({ familyId });
+}
+
+/**
  * Child-level gate. Verifies the child belongs to a family the user can access
  * and, for scoped members, that the child is within their scope.
  */

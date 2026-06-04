@@ -5,7 +5,6 @@ import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
 import { requireFamilyAccess, requireChildAccess, accessibleChildIds } from "@/lib/auth/access";
-import { requireAdultActor } from "@/lib/auth/actor";
 
 export async function getFamilyLeaderboard() {
   const access = await requireFamilyAccess();
@@ -136,7 +135,11 @@ export async function getCommunityLeaderboardAll(): Promise<CommunityLeaderboard
 }
 
 export async function toggleLeaderboardVisibility(childId: string, visible: boolean) {
-  await requireAdultActor(); // public visibility is a grown-up decision
+  // The "Your Visibility" control is a child-facing opt-in/out (shown only in
+  // the hero's own view), so a hero must be able to set it for themselves.
+  // requireChildAccess admits both an in-scope adult and the child acting on
+  // their own profile. (No requireAdultActor: that gate made this child-only
+  // toggle unusable.)
   const { familyId } = await requireChildAccess(childId, { write: true });
   await db
     .update(schema.child)

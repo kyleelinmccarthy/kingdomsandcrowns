@@ -7,7 +7,6 @@ import * as schema from "@/lib/db/schema";
 import { createActivity } from "@/lib/actions/activities";
 import { getScheduledDates } from "@/lib/utils/schedule";
 import { requireChildAccess, requireAssignmentAccess } from "@/lib/auth/access";
-import { requireAdultActor } from "@/lib/auth/actor";
 
 export async function getAssignmentsForDate(childId: string, date: string) {
   await requireChildAccess(childId);
@@ -57,7 +56,11 @@ export async function createAssignment(data: {
   childId: string;
   date: string;
 }) {
-  await requireAdultActor(); // assigning quests is a grown-up action
+  // Lazily materializing a quest into a today-assignment is the heart of the
+  // "Start a Quest" flow that heroes use themselves, so a child must be able to
+  // create one for their own quests. requireChildAccess authorizes both an
+  // in-scope adult and the child acting on their own profile. (No
+  // requireAdultActor: that gate crashed the child's start-quest action.)
   await requireChildAccess(data.childId, { write: true });
   const id = nanoid();
   const now = new Date();
@@ -83,7 +86,12 @@ export async function generateAssignmentsFromSchedules(
   startDate: string,
   endDate: string
 ): Promise<number> {
-  await requireAdultActor(); // generating assignments is a grown-up action
+  // Idempotent housekeeping that materializes the parent-defined recurring
+  // schedules into today's assignments. It runs on page load for child-facing
+  // pages (tavern, quests), so a child viewing their own data must be allowed
+  // to trigger it — requireChildAccess covers both in-scope adults and the
+  // child acting on their own profile. (No requireAdultActor: that gate crashed
+  // the tavern/quests pages for any logged-in hero.)
   await requireChildAccess(childId, { write: true });
   // Get all active quests with schedules for this child
   const questsWithSchedules = await db

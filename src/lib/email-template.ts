@@ -122,7 +122,7 @@ ${preheaderHtml}
         <!-- Brand header -->
         <tr>
           <td align="center" style="padding-bottom:22px;">
-            <div style="font-size:42px;line-height:1;">&#128081;</div>
+            <img src="${base}/crown-email.png" width="84" height="66" alt="Kingdoms &amp; Crowns" style="display:block;margin:0 auto;border:0;outline:none;text-decoration:none;width:84px;height:66px;" />
             <div style="font-family:${SERIF};font-size:26px;font-weight:bold;letter-spacing:1px;color:${C.goldBright};padding-top:8px;">Kingdoms &amp; Crowns</div>
             <div style="font-family:${SERIF};font-size:11px;letter-spacing:3px;text-transform:uppercase;color:${C.creamDim};padding-top:6px;">Be the Hero of Homeschool</div>
           </td>

@@ -107,7 +107,7 @@ export function ChildLoginAccess({ child }: Props) {
             inputMode="numeric"
             value={pin}
             onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))}
-            placeholder="Set / reset PIN"
+            placeholder="Set / reset PIN — 4 to 6 digits"
             maxLength={6}
           />
           <Button
@@ -123,6 +123,9 @@ export function ChildLoginAccess({ child }: Props) {
             Save PIN
           </Button>
         </div>
+        <p className="text-xs text-muted-foreground">
+          Numbers only, 4 to 6 digits.
+        </p>
       </div>
 
       {/* Self-service login (optional) */}
