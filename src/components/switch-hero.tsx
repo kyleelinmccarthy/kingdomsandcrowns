@@ -33,7 +33,7 @@ export function SwitchHero({ isChildView }: { isChildView: boolean }) {
         onClick={leave}
         disabled={leaving}
         className={cn(
-          "fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-full border-2 border-dashed",
+          "fixed bottom-28 right-4 z-50 flex items-center gap-2 rounded-full border-2 border-dashed sm:bottom-4",
           "border-amber-500/50 bg-amber-500/10 px-4 py-2 text-sm font-medium shadow-lg backdrop-blur-sm",
           "text-amber-700 transition-all hover:scale-105 hover:bg-amber-500/20 dark:text-amber-300",
         )}
@@ -48,7 +48,7 @@ export function SwitchHero({ isChildView }: { isChildView: boolean }) {
       <button
         onClick={() => setOpen(true)}
         className={cn(
-          "fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-full border-2 border-dashed",
+          "fixed bottom-28 right-4 z-50 flex items-center gap-2 rounded-full border-2 border-dashed sm:bottom-4",
           "border-amber-500/50 bg-amber-500/10 px-4 py-2 text-sm font-medium shadow-lg backdrop-blur-sm",
           "text-amber-700 transition-all hover:scale-105 hover:bg-amber-500/20 dark:text-amber-300",
         )}
