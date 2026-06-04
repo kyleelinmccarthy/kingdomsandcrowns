@@ -11,6 +11,7 @@ import { Avatar } from "@/components/avatar";
 import { AvatarCustomizer } from "@/components/avatar-customizer";
 import { FamilySetup } from "./family-setup";
 import { ChildLoginAccess } from "./child-login-access";
+import { SendHeroEmailButton } from "./send-hero-email";
 import { AgeInput, type AgeMode } from "./age-input";
 import { createChild, updateChild, deleteChild } from "@/lib/actions/children";
 import {
@@ -112,6 +113,7 @@ export function ChildList({
                   key={child.id}
                   child={child}
                   expanded={expandedId === child.id}
+                  isChildView={isChildView}
                   onToggle={() => setExpandedId(expandedId === child.id ? null : child.id)}
                 />
               ))}
@@ -132,10 +134,12 @@ export function ChildList({
 function ChildSummaryCard({
   child,
   expanded,
+  isChildView = false,
   onToggle,
 }: {
   child: Child;
   expanded: boolean;
+  isChildView?: boolean;
   onToggle: () => void;
 }) {
   return (
@@ -175,6 +179,11 @@ function ChildSummaryCard({
           <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
         </svg>
       </div>
+      {!isChildView && (
+        <div className="border-t border-gold-dim px-3 py-2">
+          <SendHeroEmailButton child={child} compact />
+        </div>
+      )}
     </div>
   );
 }
@@ -197,6 +206,11 @@ function ChildDetail({ child, isChildView = false }: { child: Child; isChildView
   return (
     <GameFrame title={`${child.displayName}'s Chronicle`} icon="📖">
       <div className="space-y-6">
+        {!isChildView && (
+          <div className="rounded-lg border border-gold-dim bg-muted/20 p-3">
+            <SendHeroEmailButton child={child} />
+          </div>
+        )}
         <AvatarSection child={child} />
         {!isChildView && <ChildInfoEditor child={child} />}
         {!isChildView && <SubjectManager childId={child.id} subjects={child.subjects} />}

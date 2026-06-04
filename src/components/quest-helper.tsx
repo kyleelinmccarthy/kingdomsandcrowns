@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Feather } from "lucide-react";
+import { Feather, Settings, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -64,14 +64,56 @@ export function QuestHelper({ isChildView }: { isChildView?: boolean }) {
             </ul>
           </div>
 
+          <div className="space-y-2">
+            <h3 className="flex items-center gap-2 text-sm font-semibold tracking-wide text-[var(--gold-bright)]">
+              <User className="size-4" aria-hidden="true" />
+              Your account menu
+            </h3>
+            <p className="text-xs text-muted-foreground">
+              Tap the medallion with your name (the{" "}
+              <User className="inline size-3 align-text-bottom" aria-hidden="true" /> icon in the
+              corner) to open your account menu. You&apos;ll find these inside:
+            </p>
+            <ul className="space-y-2 pt-1">
+              <li className="flex items-start gap-3">
+                <span
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--gold-border)] bg-black/30"
+                  aria-hidden="true"
+                >
+                  <Feather className="size-4" />
+                </span>
+                <span className="flex flex-col">
+                  <span className="text-sm font-semibold text-foreground">Send a Raven</span>
+                  <span className="text-xs text-muted-foreground">
+                    Report a bug, share an idea, or just say hello — your message flies straight to
+                    the keepers of the kingdom.
+                  </span>
+                </span>
+              </li>
+              <li className="flex items-start gap-3">
+                <span
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--gold-border)] bg-black/30"
+                  aria-hidden="true"
+                >
+                  <Settings className="size-4" />
+                </span>
+                <span className="flex flex-col">
+                  <span className="text-sm font-semibold text-foreground">Settings</span>
+                  <span className="text-xs text-muted-foreground">
+                    Manage your family, guardians, and account.
+                  </span>
+                </span>
+              </li>
+            </ul>
+          </div>
+
           <div className="space-y-2 rounded-md border border-[var(--gold-border)]/40 bg-[var(--gold-border)]/5 p-3">
             <h3 className="flex items-center gap-2 text-sm font-semibold tracking-wide text-[var(--gold-bright)]">
               <Feather className="size-4" aria-hidden="true" />
               Found a bug or have an idea?
             </h3>
             <p className="text-xs text-muted-foreground">
-              Send us a raven! Whether something&apos;s broken, you have a wish for the realm, or
-              you just want to say hello — your message flies straight to the keepers of the kingdom.
+              You can send a raven straight from here, too:
             </p>
             <Button
               type="button"
