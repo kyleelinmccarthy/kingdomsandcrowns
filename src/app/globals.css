@@ -252,6 +252,19 @@ body {
   }
 }
 
+/* Navigation loading indicator — gentle pulse while a page streams in. */
+.loading-crown {
+  display: inline-block;
+  animation: loading-pulse 1.2s ease-in-out infinite;
+}
+@keyframes loading-pulse {
+  0%, 100% { opacity: 0.45; transform: translateY(0) scale(1); }
+  50% { opacity: 1; transform: translateY(-4px) scale(1.06); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .loading-crown { animation: none; }
+}
+
 /* ──────────────────────────────────────────────────────────
    Game Banner — ornate top header with site name
    ────────────────────────────────────────────────────────── */

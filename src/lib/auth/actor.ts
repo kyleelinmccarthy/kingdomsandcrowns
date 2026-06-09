@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { headers, cookies } from "next/headers";
 import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
@@ -42,7 +43,7 @@ async function childActorById(childId: string): Promise<Actor> {
  *   3. Better Auth session → linked child profile ? child : adult
  *   4. null
  */
-export async function getActor(): Promise<Actor> {
+export const getActor = cache(async function getActor(): Promise<Actor> {
   // 1. Demo mode
   if (isDemoMode()) {
     const persona = await getDemoPersona();
@@ -87,7 +88,7 @@ export async function getActor(): Promise<Actor> {
 
   // 4. Unauthenticated
   return null;
-}
+});
 
 export async function requireActor(): Promise<NonNullable<Actor>> {
   const actor = await getActor();

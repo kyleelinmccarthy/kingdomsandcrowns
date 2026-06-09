@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { and, eq, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
@@ -118,8 +119,14 @@ async function demoAccess(): Promise<FamilyAccess> {
   };
 }
 
-/** All active memberships for a user, joined to their family, newest first. */
-export async function getMemberships(userId: string): Promise<FamilyAccess[]> {
+/**
+ * All active memberships for a user, joined to their family, newest first.
+ * Memoized per request — requireFamilyAccess and getActiveFamilyId both need it,
+ * and requireChildAccess fans out to requireFamilyAccess once per action call.
+ */
+export const getMemberships = cache(async function getMemberships(
+  userId: string,
+): Promise<FamilyAccess[]> {
   const rows = await db
     .select({
       memberId: schema.familyMember.id,
@@ -167,7 +174,20 @@ export async function getMemberships(userId: string): Promise<FamilyAccess[]> {
       };
     })
   );
-}
+});
+
+/** A child's owning family id. Memoized per request — requireChildAccess is
+ *  invoked once per data action, repeatedly with the same childId on a page. */
+const getChildFamilyId = cache(async function getChildFamilyId(
+  childId: string,
+): Promise<string | null> {
+  const rows = await db
+    .select({ familyId: schema.child.familyId })
+    .from(schema.child)
+    .where(eq(schema.child.id, childId))
+    .limit(1);
+  return rows[0]?.familyId ?? null;
+});
 
 /**
  * Resolve which family is "active" for the current request.
@@ -252,13 +272,8 @@ export async function requireChildAccess(
   }
 
   // Adult: verify the child belongs to a family the user can access (+ scope).
-  const rows = await db
-    .select({ familyId: schema.child.familyId })
-    .from(schema.child)
-    .where(eq(schema.child.id, childId))
-    .limit(1);
-  if (!rows[0]) throw new Error("Child not found.");
-  const familyId = rows[0].familyId;
+  const familyId = await getChildFamilyId(childId);
+  if (!familyId) throw new Error("Child not found.");
 
   const access = await requireFamilyAccess({ familyId, write: opts?.write });
 

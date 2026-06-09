@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { headers, cookies } from "next/headers";
 import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
@@ -112,7 +113,10 @@ export async function requireParentUserId(): Promise<string> {
   return session.user.id;
 }
 
-export async function getSession() {
+// Memoized per request: getSession is consulted by the layout, the page, and
+// every access gate. cache() collapses those into a single resolution per
+// render instead of one remote round-trip per caller.
+export const getSession = cache(async function getSession() {
   if (isDemoMode()) {
     const persona = await getDemoPersona();
     return demoPersonas[persona];
@@ -121,7 +125,7 @@ export async function getSession() {
     headers: await headers(),
   });
   return session;
-}
+});
 
 export async function requireSession() {
   const session = await getSession();
