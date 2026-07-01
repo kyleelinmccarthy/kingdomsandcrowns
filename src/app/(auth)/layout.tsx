@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function AuthLayout({
   children,
 }: {
@@ -18,8 +20,8 @@ export default function AuthLayout({
       <div className="pointer-events-none absolute -right-32 -bottom-32 size-96 rounded-full bg-[#7c3aed]/[0.06] blur-3xl" />
       <div className="pointer-events-none absolute top-1/2 left-1/2 size-64 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#3ecfff]/[0.03] blur-3xl" />
 
-      {/* Brand header */}
-      <div className="mb-6 text-center">
+      {/* Brand header — also links back to the marketing landing page */}
+      <Link href="/" className="mb-6 block text-center transition-opacity hover:opacity-90">
         <img src="/crown.svg" alt="Kingdoms & Crowns crown" className="mx-auto mb-2 h-16 w-16" />
         <h1 className="page-title text-5xl" style={{ fontFamily: "var(--font-brand)" }}>
           Kingdoms & Crowns
@@ -27,7 +29,7 @@ export default function AuthLayout({
         <p className="game-banner-subtitle mt-2">
           Be the Hero of Homeschool
         </p>
-      </div>
+      </Link>
 
       <div className="auth-frame relative w-full max-w-md">
         {/* Corner ornaments on auth card */}
