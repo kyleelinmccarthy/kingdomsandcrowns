@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { GameIcon, type GameIconName } from "@/components/game-icon";
@@ -56,6 +57,21 @@ export function DemoPersonaSwitcher({ current }: { current: DemoPersona }) {
               )}
             </button>
           ))}
+
+          {/* Return to the marketing landing page. `?preview` forces the landing
+              to render even though the demo actor is always signed in. */}
+          <div className="my-1 h-px bg-amber-500/20" aria-hidden="true" />
+          <Link
+            href="/?preview"
+            onClick={() => setOpen(false)}
+            className={cn(
+              "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+              "text-muted-foreground hover:bg-muted hover:text-foreground",
+            )}
+          >
+            <GameIcon name="door" className="size-4" />
+            <span>Landing page</span>
+          </Link>
         </div>
       )}
 

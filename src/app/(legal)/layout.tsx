@@ -11,10 +11,10 @@ export default function LegalLayout({ children }: { children: React.ReactNode })
           </Link>
           <nav className="flex items-center gap-4 text-sm">
             <Link href="/privacy" className="hover:underline">
-              Privacy
+              Privacy Policy
             </Link>
             <Link href="/terms" className="hover:underline">
-              Terms
+              Terms of Service
             </Link>
             <Link href="/login" className="hover:underline">
               Sign in
@@ -27,7 +27,7 @@ export default function LegalLayout({ children }: { children: React.ReactNode })
       </main>
       <footer className="border-t">
         <div className="mx-auto max-w-3xl px-6 py-6 text-xs text-muted-foreground">
-          &copy; {new Date().getFullYear()} Kingdoms &amp; Crowns
+          &copy; {new Date().getFullYear()} Kingdoms &amp; Crowns. All Rights Reserved.
         </div>
       </footer>
     </div>

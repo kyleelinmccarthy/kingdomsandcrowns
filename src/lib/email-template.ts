@@ -146,11 +146,11 @@ ${preheaderHtml}
               footnote
             )}</p>
             <p style="margin:0;font-family:${SERIF};font-size:12px;color:${C.creamDim};">
-              <a href="${base}/privacy" style="color:${C.cyan};text-decoration:none;">Privacy</a>
+              <a href="${base}/privacy" style="color:${C.cyan};text-decoration:none;">Privacy Policy</a>
               &nbsp;&middot;&nbsp;
-              <a href="${base}/terms" style="color:${C.cyan};text-decoration:none;">Terms</a>
+              <a href="${base}/terms" style="color:${C.cyan};text-decoration:none;">Terms of Service</a>
               &nbsp;&middot;&nbsp;
-              &copy; ${year} Kingdoms &amp; Crowns
+              &copy; ${year} Kingdoms &amp; Crowns. All Rights Reserved.
             </p>
           </td>
         </tr>

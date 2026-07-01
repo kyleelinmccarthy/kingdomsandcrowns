@@ -44,11 +44,11 @@ export default function AuthLayout({
       </div>
 
       <p className="mt-8 text-center text-xs text-muted-foreground/60">
-        <a href="/privacy" className="hover:underline">Privacy</a>
-        {" · "}
-        <a href="/terms" className="hover:underline">Terms</a>
+        <a href="/privacy" className="text-[var(--gold-bright)] underline underline-offset-2 hover:no-underline">Privacy Policy</a>
         <span className="mx-2 opacity-50">·</span>
-        &copy; {new Date().getFullYear()} Kingdoms &amp; Crowns
+        <a href="/terms" className="text-[var(--gold-bright)] underline underline-offset-2 hover:no-underline">Terms of Service</a>
+        <span className="mx-2 opacity-50">·</span>
+        &copy; {new Date().getFullYear()} Kingdoms &amp; Crowns. All Rights Reserved.
       </p>
     </div>
   );

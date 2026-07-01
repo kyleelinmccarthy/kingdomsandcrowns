@@ -43,8 +43,12 @@ export type WalkthroughStep = {
 // at a 1280×800 viewport, so every card shares a 16:10 aspect ratio.
 const SHOT_W = 1280;
 const SHOT_H = 800;
+// Screenshots live in a versioned folder (see scripts/capture-screens.mjs). The
+// version is part of the path so re-captures get a fresh URL and never serve a
+// stale, cached optimized image. Bump SCREENS_REV when re-running the capture.
+export const SCREENS_REV = "r2";
 const shot = (name: string, alt: string, w = SHOT_W, h = SHOT_H) => ({
-  src: `/marketing/screens/${name}.jpg`,
+  src: `/marketing/screens/${SCREENS_REV}/${name}.jpg`,
   alt,
   width: w,
   height: h,

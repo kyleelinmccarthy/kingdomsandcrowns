@@ -29,7 +29,10 @@ const EXECUTABLE =
   "/home/kylee/.cache/ms-playwright/chromium_headless_shell-1223/chrome-headless-shell-linux64/chrome-headless-shell";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const OUT_DIR = path.join(__dirname, "..", "public", "marketing", "screens");
+// Keep this in sync with SCREENS_REV in walkthrough-data.ts — the version is
+// part of the path so re-captures always land on a fresh, un-cached URL.
+const SCREENS_REV = "r2";
+const OUT_DIR = path.join(__dirname, "..", "public", "marketing", "screens", SCREENS_REV);
 fs.mkdirSync(OUT_DIR, { recursive: true });
 
 const VIEWPORT = { width: 1280, height: 800 };
