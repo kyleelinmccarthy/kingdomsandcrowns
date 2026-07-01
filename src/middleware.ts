@@ -6,6 +6,7 @@ const publicPaths = [
   "/forgot-password",
   "/terms",
   "/privacy",
+  "/how-it-works",
   "/api/auth",
   "/api/demo",
   "/play", // legacy kid login URL — redirects to /login?mode=kid
