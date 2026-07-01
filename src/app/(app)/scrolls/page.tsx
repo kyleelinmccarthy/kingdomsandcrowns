@@ -8,6 +8,7 @@ import { getChildAvatarUnlocks } from "@/lib/actions/avatar";
 import { ChildSelector } from "@/components/child-selector";
 import { GameFrame } from "@/components/game-frame";
 import { QuestTemplateList } from "@/components/quest-template-list";
+import { GameIcon } from "@/components/game-icon";
 
 export default async function ManageQuestsPage({
   searchParams,
@@ -24,7 +25,7 @@ export default async function ManageQuestsPage({
         <h1 className="page-title text-4xl">Quest Giver</h1>
         <GameFrame>
           <div className="py-4 text-center">
-            <p className="text-4xl">🔒</p>
+            <GameIcon name="lock" className="mx-auto size-10 text-[var(--gold-bright)]" />
             <p className="mt-3 text-muted-foreground">
               Only parents may access the Quest Giver.
             </p>
@@ -41,7 +42,7 @@ export default async function ManageQuestsPage({
         <h1 className="page-title text-4xl">Quest Giver</h1>
         <GameFrame>
           <div className="py-4 text-center">
-            <p className="text-4xl">📜</p>
+            <GameIcon name="scroll" className="mx-auto size-10 text-[var(--gold-bright)]" />
             <p className="mt-3 text-muted-foreground">
               <Link href="/settings" className="text-primary hover:underline">Set up your family</Link> before creating quests.
             </p>
@@ -57,7 +58,7 @@ export default async function ManageQuestsPage({
         <h1 className="page-title text-4xl">Quest Giver</h1>
         <GameFrame>
           <div className="py-4 text-center">
-            <p className="text-4xl">👤</p>
+            <GameIcon name="person" className="mx-auto size-10 text-[var(--gold-bright)]" />
             <p className="mt-3 text-muted-foreground">
               <Link href="/settings" className="text-primary hover:underline">Summon a hero</Link> to create quests for.
             </p>

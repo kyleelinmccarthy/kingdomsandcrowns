@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { GameFrame } from "@/components/game-frame";
+import { GameIcon } from "@/components/game-icon";
 import { initializeCastle, upgradeCastle, renameCastle } from "@/lib/actions/castle";
 import type { CastleType } from "@/lib/utils/avatar-catalog";
 
@@ -76,7 +77,7 @@ export function CastleActions({
 
   if (!castle) {
     return (
-      <GameFrame title="Claim Your Castle" icon="🏗️">
+      <GameFrame title="Claim Your Castle" icon={<GameIcon name="stoneTower" className="size-5 text-[var(--gold-bright)]" />}>
         <div className="py-4 text-center">
           <p className="text-sm text-muted-foreground mb-4">
             {isChildView
@@ -95,7 +96,7 @@ export function CastleActions({
   return (
     <div className="space-y-4">
       {/* Rename */}
-      <GameFrame title="Castle Name" icon="✏️">
+      <GameFrame title="Castle Name" icon={<GameIcon name="pencil" className="size-5 text-[var(--gold-bright)]" />}>
         <div className="flex items-center gap-3">
           {editingName ? (
             <>
@@ -127,7 +128,7 @@ export function CastleActions({
 
       {/* Available Upgrades */}
       {availableUpgrades.length > 0 && (
-        <GameFrame title="Available Upgrades" icon="⬆️">
+        <GameFrame title="Available Upgrades" icon={<GameIcon name="upgrade" className="size-5 text-[var(--gold-bright)]" />}>
           <div className="grid gap-3 sm:grid-cols-2">
             {availableUpgrades.map((upgrade) => (
               <div

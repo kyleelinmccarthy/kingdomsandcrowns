@@ -10,6 +10,7 @@ import {
   recordChildConsent,
   sendChildQuestInvite,
 } from "@/lib/actions/child-auth";
+import { GameIcon } from "@/components/game-icon";
 
 type HeroEmailChild = {
   id: string;
@@ -143,7 +144,8 @@ export function SendHeroEmailButton({
   return (
     <div onClick={(e) => e.stopPropagation()} className="space-y-1.5">
       <Button size="sm" disabled={busy} onClick={handleTrigger}>
-        ✉️ {busy ? "Sending…" : triggerLabel}
+        <GameIcon name="mail" className="size-4 text-[var(--gold-bright)]" />
+        {busy ? "Sending…" : triggerLabel}
       </Button>
 
       {!compact && canSendNow && (
@@ -205,7 +207,12 @@ export function SendHeroEmailButton({
       )}
 
       {error && <p className="text-xs text-destructive">{error}</p>}
-      {sent && <p className="text-xs text-[var(--gold-bright)]">✓ Email sent!</p>}
+      {sent && (
+        <p className="flex items-center gap-1 text-xs text-[var(--gold-bright)]">
+          <GameIcon name="check" className="size-4 shrink-0" />
+          Email sent!
+        </p>
+      )}
       {link && (
         <p className="break-all text-xs text-[var(--gold-bright)]">
           Email not configured — share this link: {link}

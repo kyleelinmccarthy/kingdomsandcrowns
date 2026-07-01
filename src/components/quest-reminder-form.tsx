@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { GameFrame } from "@/components/game-frame";
+import { GameIcon } from "@/components/game-icon";
 import { upsertReminder, deleteReminder } from "@/lib/actions/quest-reminders";
 
 type Reminder = {
@@ -73,7 +74,7 @@ export function QuestReminderForm({
   };
 
   return (
-    <GameFrame title="Reminders" icon="🔔">
+    <GameFrame title="Reminders" icon={<GameIcon name="bell" className="size-5 text-[var(--gold-bright)]" />}>
       <div className="space-y-4">
         {error && (
           <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</div>
@@ -87,9 +88,10 @@ export function QuestReminderForm({
                 className="flex items-center justify-between rounded-md border border-border/50 bg-card/50 px-3 py-2"
               >
                 <div className="flex items-center gap-2">
-                  <span className={r.enabled ? "text-primary" : "text-muted-foreground"}>
-                    {r.enabled ? "🔔" : "🔕"}
-                  </span>
+                  <GameIcon
+                    name={r.enabled ? "bell" : "bellOff"}
+                    className={`size-4 ${r.enabled ? "text-[var(--gold-bright)]" : "text-muted-foreground"}`}
+                  />
                   <span className={r.enabled ? "" : "text-muted-foreground line-through"}>
                     {typeLabels[r.type] ?? r.type}
                     {r.timeOfDay && ` at ${r.timeOfDay}`}

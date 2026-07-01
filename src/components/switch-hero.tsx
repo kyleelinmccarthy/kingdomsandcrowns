@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { HeroLogin } from "@/components/hero-login";
+import { GameIcon } from "@/components/game-icon";
 
 /**
  * Floating control for shared-device hero hand-off (production, non-demo).
@@ -38,7 +39,14 @@ export function SwitchHero({ isChildView }: { isChildView: boolean }) {
           "text-amber-700 transition-all hover:scale-105 hover:bg-amber-500/20 dark:text-amber-300",
         )}
       >
-        {leaving ? "Leaving..." : "🚪 Leave (switch hero)"}
+        {leaving ? (
+          "Leaving..."
+        ) : (
+          <>
+            <GameIcon name="door" className="size-4 text-[var(--gold-bright)]" />
+            Leave (switch hero)
+          </>
+        )}
       </button>
     );
   }
@@ -53,7 +61,8 @@ export function SwitchHero({ isChildView }: { isChildView: boolean }) {
           "text-amber-700 transition-all hover:scale-105 hover:bg-amber-500/20 dark:text-amber-300",
         )}
       >
-        ⚔️ Play as a hero
+        <GameIcon name="swords" className="size-4 text-[var(--gold-bright)]" />
+        Play as a hero
       </button>
       <Dialog open={open} onClose={() => setOpen(false)}>
         <DialogHeader>

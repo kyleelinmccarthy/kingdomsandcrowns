@@ -2,7 +2,7 @@ import { cn } from "@/lib/utils";
 
 type GameFrameProps = {
   title?: string;
-  icon?: string;
+  icon?: React.ReactNode;
   action?: React.ReactNode;
   className?: string;
   style?: React.CSSProperties;

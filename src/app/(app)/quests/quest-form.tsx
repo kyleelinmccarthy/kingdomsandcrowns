@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { GameFrame } from "@/components/game-frame";
+import { GameIcon } from "@/components/game-icon";
 import { createAssignment, completeAssignment } from "@/lib/actions/quest-assignments";
 import { useQuestTimer } from "@/hooks/use-quest-timer";
 import { formatDate } from "@/lib/utils/dates";
@@ -111,7 +112,7 @@ export function QuestForm({
 
   if (quests.length === 0) {
     return (
-      <GameFrame title="Start a Quest" icon="⚔️">
+      <GameFrame title="Start a Quest" icon={<GameIcon name="swords" className="size-5 text-[var(--gold-bright)]" />}>
         <div className="py-3 text-center text-sm text-muted-foreground">
           No quests have been forged yet. Ask your parent to create some!
         </div>
@@ -120,7 +121,7 @@ export function QuestForm({
   }
 
   return (
-    <GameFrame title="Start a Quest" icon="⚔️">
+    <GameFrame title="Start a Quest" icon={<GameIcon name="swords" className="size-5 text-[var(--gold-bright)]" />}>
       <div>
         {error && (
           <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</div>
@@ -204,7 +205,7 @@ export function QuestForm({
               "Starting..."
             ) : (
               <>
-                <span role="img" aria-hidden="true">&#9202;</span>
+                <GameIcon name="timer" className="size-4 text-[var(--gold-bright)]" />
                 Start Timer
               </>
             )}
@@ -225,12 +226,12 @@ export function QuestForm({
               "Saving..."
             ) : showDuration ? (
               <>
-                <span role="img" aria-hidden="true">&#10003;</span>
+                <GameIcon name="check" className="size-4 text-[var(--gold-bright)]" />
                 Submit
               </>
             ) : (
               <>
-                <span role="img" aria-hidden="true">&#10003;</span>
+                <GameIcon name="check" className="size-4 text-[var(--gold-bright)]" />
                 Quick Complete
               </>
             )}

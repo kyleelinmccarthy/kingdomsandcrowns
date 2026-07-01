@@ -7,6 +7,7 @@ import { Select } from "@/components/ui/select";
 import { LeaderboardTable, CombinedLeaderboardTable } from "@/components/leaderboard-table";
 import { getCommunityLeaderboard, getCommunityLeaderboardAll, toggleLeaderboardVisibility } from "@/lib/actions/leaderboard";
 import type { CommunityLeaderboardEntry, CommunityLeaderboardAllEntry, LeaderboardCategory } from "@/lib/actions/leaderboard";
+import { GameIcon } from "@/components/game-icon";
 
 type FamilyEntry = {
   id: string;
@@ -116,7 +117,7 @@ export function LeaderboardTabs({
       {tab === "family" && (
         <LeaderboardTable
           title="Guild Ranks"
-          icon="⚔️"
+          icon={<GameIcon name="swords" className="size-4 text-[var(--gold-bright)]" />}
           entries={familyEntries}
           valueLabel="XP"
           highlightId={currentChildId}
@@ -180,7 +181,7 @@ export function LeaderboardTabs({
             ) : (
               <LeaderboardTable
                 title="Community Hall"
-                icon="🏛️"
+                icon={<GameIcon name="temple" className="size-4 text-[var(--gold-bright)]" />}
                 entries={communityData}
                 valueLabel={CATEGORY_LABELS[categoryView].valueLabel}
                 emptyMessage="No champions have entered the Hall of Legends yet. Opt in from Settings to appear here!"

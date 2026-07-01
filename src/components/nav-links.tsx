@@ -2,20 +2,21 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { GameIcon, type GameIconName } from "@/components/game-icon";
 
-const parentLinks = [
-  { href: "/tavern", label: "Tavern", icon: "🏘️" },
-  { href: "/scrolls", label: "Quest Giver", icon: "🧙" },
-  { href: "/quests", label: "Quest Log", icon: "📜" },
-  { href: "/loot", label: "Treasure Chest", icon: "💎" },
-  { href: "/castle", label: "Castle", icon: "🏰" },
+const parentLinks: { href: string; label: string; icon: GameIconName }[] = [
+  { href: "/tavern", label: "Tavern", icon: "tavern" },
+  { href: "/scrolls", label: "Quest Giver", icon: "mage" },
+  { href: "/quests", label: "Quest Log", icon: "scroll" },
+  { href: "/loot", label: "Treasure Chest", icon: "gem" },
+  { href: "/castle", label: "Castle", icon: "castle" },
 ];
 
-const childLinks = [
-  { href: "/tavern", label: "My Tavern", icon: "🏘️" },
-  { href: "/quests", label: "My Quests", icon: "⚔️" },
-  { href: "/loot", label: "My Trophies", icon: "🏆" },
-  { href: "/castle", label: "My Castle", icon: "🏰" },
+const childLinks: { href: string; label: string; icon: GameIconName }[] = [
+  { href: "/tavern", label: "My Tavern", icon: "tavern" },
+  { href: "/quests", label: "My Quests", icon: "swords" },
+  { href: "/loot", label: "My Trophies", icon: "trophy" },
+  { href: "/castle", label: "My Castle", icon: "castle" },
 ];
 
 export function NavLinks({ isChild }: { isChild?: boolean } = {}) {
@@ -32,7 +33,7 @@ export function NavLinks({ isChild }: { isChild?: boolean } = {}) {
             href={link.href}
             className={`nav-link ${isActive ? "nav-link--active" : "nav-link--inactive"}`}
           >
-            <span className="text-base" role="img" aria-hidden="true">{link.icon}</span>
+            <GameIcon name={link.icon} className="size-4 text-[var(--gold-bright)]" />
             <span className="hidden sm:inline">{link.label}</span>
           </Link>
         );

@@ -3,12 +3,13 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { GameIcon, type GameIconName } from "@/components/game-icon";
 import type { DemoPersona } from "@/lib/auth/session";
 
-const personas: { id: DemoPersona; label: string; emoji: string }[] = [
-  { id: "parent", label: "Parent", emoji: "👤" },
-  { id: "lily", label: "Lily", emoji: "🌸" },
-  { id: "lucas", label: "Lucas", emoji: "⚔️" },
+const personas: { id: DemoPersona; label: string; icon: GameIconName }[] = [
+  { id: "parent", label: "Parent", icon: "person" },
+  { id: "lily", label: "Emma", icon: "flower" },
+  { id: "lucas", label: "Noah", icon: "swords" },
 ];
 
 export function DemoPersonaSwitcher({ current }: { current: DemoPersona }) {
@@ -48,7 +49,7 @@ export function DemoPersonaSwitcher({ current }: { current: DemoPersona }) {
                   : "text-muted-foreground hover:bg-muted hover:text-foreground",
               )}
             >
-              <span>{p.emoji}</span>
+              <GameIcon name={p.icon} className="size-4" />
               <span>{p.label}</span>
               {current === p.id && (
                 <span className="ml-auto text-xs opacity-70">active</span>
@@ -66,7 +67,7 @@ export function DemoPersonaSwitcher({ current }: { current: DemoPersona }) {
           "text-amber-700 dark:text-amber-300",
         )}
       >
-        <span>{currentPersona.emoji}</span>
+        <GameIcon name={currentPersona.icon} className="size-4" />
         <span>Guise: {currentPersona.label}</span>
         <svg
           className={cn(

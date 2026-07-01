@@ -11,6 +11,7 @@ import {
   setChildPin,
   recordChildConsent,
 } from "@/lib/actions/child-auth";
+import { GameIcon } from "@/components/game-icon";
 
 type Props = {
   child: {
@@ -203,7 +204,10 @@ export function ChildLoginAccess({ child }: Props) {
       </div>
 
       {child.authUserId && (
-        <p className="text-xs text-muted-foreground">✓ This hero has set up their own login.</p>
+        <p className="flex items-center gap-1 text-xs text-muted-foreground">
+          <GameIcon name="check" className="size-4 shrink-0 text-[var(--gold-bright)]" />
+          This hero has set up their own login.
+        </p>
       )}
     </div>
   );

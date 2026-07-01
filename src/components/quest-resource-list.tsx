@@ -4,15 +4,16 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { GameFrame } from "@/components/game-frame";
+import { GameIcon, type GameIconName } from "@/components/game-icon";
 import { QuestResourceForm } from "./quest-resource-form";
 import { deleteResource } from "@/lib/actions/quest-resources";
 
-const TYPE_ICONS: Record<string, string> = {
-  link: "🔗",
-  textbook: "📚",
-  video: "🎬",
-  document: "📄",
-  other: "📦",
+const TYPE_ICONS: Record<string, GameIconName> = {
+  link: "link",
+  textbook: "book",
+  video: "video",
+  document: "document",
+  other: "box",
 };
 
 type Resource = {
@@ -45,7 +46,7 @@ export function QuestResourceList({
     <>
       <GameFrame
         title="Resources"
-        icon="📦"
+        icon={<GameIcon name="box" className="size-5 text-[var(--gold-bright)]" />}
         action={<Button size="sm" onClick={() => setShowAdd(true)}>Add Resource</Button>}
       >
         {resources.length === 0 ? (
@@ -61,7 +62,7 @@ export function QuestResourceList({
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span>{TYPE_ICONS[r.type] ?? "📦"}</span>
+                    <GameIcon name={TYPE_ICONS[r.type] ?? "box"} className="size-4 text-[var(--gold-bright)]" />
                     {r.url ? (
                       <a
                         href={r.url}

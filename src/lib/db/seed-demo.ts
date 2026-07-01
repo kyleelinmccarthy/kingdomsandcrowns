@@ -40,7 +40,7 @@ async function seed() {
   const userId = "demo-user";
   await db.insert(schema.user).values({
     id: userId,
-    name: "Demo User - Parent",
+    name: "Jordan",
     email: "demo@kingdomsandcrowns.local",
     emailVerified: true,
     createdAt: now,
@@ -58,10 +58,26 @@ async function seed() {
     updatedAt: now,
   }).onConflictDoNothing();
 
+  // A pending guardian invitation, so the /invite flow (and the marketing
+  // "invited guardian" walkthrough) always has a valid link to render.
+  await db.insert(schema.familyInvite).values({
+    id: "demo-invite",
+    token: "demo-invite-token",
+    familyId,
+    email: "coach@kingdomsandcrowns.local",
+    role: "co_parent",
+    permission: "edit",
+    scope: "all",
+    invitedByUserId: userId,
+    status: "pending",
+    expiresAt: new Date(now.getTime() + 1000 * 60 * 60 * 24 * 30), // 30 days out
+    createdAt: now,
+  }).onConflictDoNothing();
+
   // Children
   const children = [
     {
-      id: "demo-child-1", displayName: "Lily", birthYear: 2015, ageMode: "elementary" as const,
+      id: "demo-child-1", displayName: "Emma", birthYear: 2015, ageMode: "elementary" as const,
       currentXp: 320, currentStreak: 5, longestStreak: 12, showOnLeaderboard: true,
       avatarConfig: JSON.stringify({
         skinTone: "medium-light", hairStyle: "long", hairColor: "#d4a843",
@@ -69,7 +85,7 @@ async function seed() {
       }),
     },
     {
-      id: "demo-child-2", displayName: "Lucas", birthYear: 2018, ageMode: "elementary" as const,
+      id: "demo-child-2", displayName: "Noah", birthYear: 2018, ageMode: "elementary" as const,
       currentXp: 580, currentStreak: 8, longestStreak: 15, showOnLeaderboard: true,
       avatarConfig: JSON.stringify({
         skinTone: "medium", hairStyle: "spiky", hairColor: "#4a3728",
@@ -285,12 +301,12 @@ async function seed() {
 
   // Per-child quest title & resource overrides
   const questOverrides: Record<string, Record<number, { title: string; resources?: typeof questDefs[number]["resources"] }>> = {
-    "demo-child-1": { // Lily
+    "demo-child-1": { // Emma
       0: { title: "ST Math Lesson", resources: [{ type: "textbook" as const, title: "ST Math", details: "Current lesson + practice set" }] },
       2: { title: "Science Worksheet" },
       3: { title: "Language Arts Worksheets", resources: [{ type: "textbook" as const, title: "Language Arts Worksheets", details: "Current worksheet" }] },
     },
-    "demo-child-2": { // Lucas
+    "demo-child-2": { // Noah
       0: { title: "Imagine Learning Math Lesson", resources: [{ type: "textbook" as const, title: "Imagine Learning Math", details: "Current lesson + practice set" }] },
       2: { title: "Marine Biology Workbook" },
       3: { title: "Imagine Learning Reading", resources: [{ type: "textbook" as const, title: "Imagine Learning Reading", details: "Current lesson" }] },
@@ -361,7 +377,7 @@ async function seed() {
   console.log("Demo data seeded successfully!");
   console.log("  - 1 user (demo@kingdomsandcrowns.local)");
   console.log("  - 1 family");
-  console.log("  - 2 children (Lily, Lucas)");
+  console.log("  - 2 children (Emma, Noah)");
   console.log("  - 5 subjects each");
   console.log("  - 14 days of activity logs");
   console.log("  - 11 badges (streak, volume, subject, special)");

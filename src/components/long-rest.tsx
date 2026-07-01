@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { GameFrame } from "@/components/game-frame";
+import { GameIcon } from "@/components/game-icon";
 import { saveLearningLog, markLogCopied } from "@/lib/actions/chronicles";
 import { createSchoolBreak, deleteSchoolBreak } from "@/lib/actions/school-breaks";
 
@@ -159,7 +160,7 @@ export function LongRest({
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
       {/* Learning log — main panel (2/3 width on desktop) */}
-      <GameFrame title="Learning Log" icon="📜" className="lg:col-span-2">
+      <GameFrame title="Learning Log" icon={<GameIcon name="scroll" className="size-5 text-[var(--gold-bright)]" />} className="lg:col-span-2">
         <div className="space-y-4">
           <textarea
             value={text}
@@ -185,7 +186,7 @@ export function LongRest({
 
       {/* Sidebar — week nav + school calendar (1/3 width on desktop) */}
       <div className="space-y-6">
-        <GameFrame title="Week" icon="📅">
+        <GameFrame title="Week" icon={<GameIcon name="calendar" className="size-5 text-[var(--gold-bright)]" />}>
           <div className="space-y-4">
             <div className="text-center">
               <h3 className="text-xl font-bold" style={{ fontFamily: "var(--font-brand)" }}>
@@ -213,7 +214,7 @@ export function LongRest({
 
         {/* School calendar — parent only */}
         {!isChildView && (
-          <GameFrame title="School Calendar" icon="🗓️">
+          <GameFrame title="School Calendar" icon={<GameIcon name="calendar" className="size-5 text-[var(--gold-bright)]" />}>
             <div className="space-y-3">
               {breaks.length === 0 && !showBreakForm && (
                 <p className="text-sm text-muted-foreground">

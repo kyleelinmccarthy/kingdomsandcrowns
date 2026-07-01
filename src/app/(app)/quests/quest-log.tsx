@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { deleteActivity } from "@/lib/actions/activities";
+import { GameIcon } from "@/components/game-icon";
 import { useState } from "react";
 
 type Activity = {
@@ -44,7 +45,7 @@ export function QuestLog({
   if (activities.length === 0) {
     return (
       <div className="py-6 text-center">
-        <p className="text-3xl">📜</p>
+        <GameIcon name="scroll" className="mx-auto size-8 text-[var(--gold-bright)]" />
         <p className="mt-2 text-sm text-muted-foreground">No quests chronicled yet. The adventure beckons, brave one!</p>
       </div>
     );
@@ -63,7 +64,7 @@ export function QuestLog({
       {Array.from(grouped.entries()).map(([date, dayActivities]) => (
         <div key={date}>
           <h3 className="mb-2 flex items-center gap-2 text-sm font-bold" style={{ color: "var(--gold-bright)" }}>
-            <span role="img" aria-hidden="true">📅</span>
+            <GameIcon name="calendar" className="size-4 text-[var(--gold-bright)]" />
             {date}
           </h3>
           <div className="space-y-2">

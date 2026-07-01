@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { completeAssignment, skipAssignment } from "@/lib/actions/quest-assignments";
 import { useQuestTimer, formatElapsed } from "@/hooks/use-quest-timer";
+import { GameIcon } from "@/components/game-icon";
 import { getRewardItemLabel } from "@/lib/utils/avatar-catalog";
 
 type AssignmentWithDetails = {
@@ -131,12 +132,12 @@ export function QuestAssignmentCard({
               )}
               {quest.rewardDescription && (
                 <span className="inline-flex items-center gap-0.5 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
-                  <span aria-hidden="true">🎁</span> {quest.rewardDescription.length > 30 ? quest.rewardDescription.slice(0, 30) + "..." : quest.rewardDescription}
+                  <GameIcon name="gift" className="size-4 text-[var(--gold-bright)]" /> {quest.rewardDescription.length > 30 ? quest.rewardDescription.slice(0, 30) + "..." : quest.rewardDescription}
                 </span>
               )}
               {quest.rewardAvatarItem && (
                 <span className="inline-flex items-center gap-0.5 rounded-full bg-purple-500/10 px-2 py-0.5 text-[10px] font-medium text-purple-400">
-                  <span aria-hidden="true">🔓</span> {getRewardItemLabel(quest.rewardAvatarItem)}
+                  <GameIcon name="unlock" className="size-4 text-[var(--gold-bright)]" /> {getRewardItemLabel(quest.rewardAvatarItem)}
                 </span>
               )}
             </div>

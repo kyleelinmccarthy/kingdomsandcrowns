@@ -18,6 +18,7 @@ import { QuestAssignmentCard } from "@/components/quest-assignment-card";
 import { QuestForm } from "../quests/quest-form";
 import { QuestLog } from "../quests/quest-log";
 import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
+import { GameIcon, BADGE_ICONS } from "@/components/game-icon";
 
 export default async function TavernPage({
   searchParams,
@@ -35,7 +36,7 @@ export default async function TavernPage({
         <div className="hud-empty">
           <GameFrame>
             <div className="py-8 text-center">
-              <p className="text-5xl">🏰</p>
+              <GameIcon name="castle" className="mx-auto size-10 text-[var(--gold-bright)] drop-shadow-[0_0_6px_var(--glow-gold)]" />
               <p className="mt-4 text-lg font-medium">Hail, traveler! Welcome to Kingdoms & Crowns!</p>
               <p className="mt-2 text-sm text-muted-foreground">
                 <Link href="/settings" className="text-primary hover:underline">
@@ -55,7 +56,7 @@ export default async function TavernPage({
       <div className="hud-empty">
         <GameFrame>
           <div className="py-8 text-center">
-            <p className="text-5xl">👤</p>
+            <GameIcon name="person" className="mx-auto size-10 text-[var(--gold-bright)]" />
             <p className="mt-4 text-lg font-medium">No heroes have joined the ranks yet</p>
             <p className="mt-2 text-sm text-muted-foreground">
               <Link href="/settings" className="text-primary hover:underline">
@@ -94,15 +95,6 @@ export default async function TavernPage({
   const earnedBadgeIdList = earnedBadges.map((b) => b.badge.id);
   const questUnlockedItemIds = avatarUnlocks.map((u) => u.itemId);
 
-  const iconMap: Record<string, string> = {
-    flame: "🔥", bee: "🐝", medal: "🏅", star: "⭐", trophy: "🏆", crown: "👑",
-    "fire-ring": "🔥", "fire-crown": "🔥", diamond: "💎", gem: "💎",
-    scroll: "📜", book: "📚", shield: "🛡️", sword: "⚔️",
-    compass: "🧭", map: "🗺️", lightning: "⚡", sunrise: "🌅", moon: "🌙",
-    hourglass: "⏳", clock: "🕐", infinity: "♾️", brain: "🧠",
-    telescope: "🔭", timer: "⏱️", calendar: "📅", scales: "⚖️", sun: "☀️",
-  };
-
   return (
     <div className="hud-layout">
       <TimerCleanup pendingAssignmentIds={pendingIds} />
@@ -128,7 +120,7 @@ export default async function TavernPage({
         {/* LEFT: Recent Adventures (quest log) */}
         <GameFrame
           title="Recent Adventures"
-          icon="📖"
+          icon={<GameIcon name="book" className="size-4 text-[var(--gold-bright)]" />}
           className="hud-panel-left"
           action={
             <Link href="/quests" className="text-xs font-medium text-primary hover:underline">
@@ -214,7 +206,7 @@ export default async function TavernPage({
       <div className="hud-row-bottom">
 
         {/* LEFT: Hero's Path — gamification progression info */}
-        <GameFrame title="Hero's Path" icon="🎮" className="hud-panel-profile">
+        <GameFrame title="Hero's Path" icon={<GameIcon name="journey" className="size-4 text-[var(--gold-bright)]" />} className="hud-panel-profile">
           <div className="space-y-4">
             {/* How XP works */}
             <div className="hud-gamify-section">
@@ -287,7 +279,7 @@ export default async function TavernPage({
         <div className="hud-panel-loot space-y-4">
           <GameFrame
             title={`Treasure Chest (${earnedBadges.length})`}
-            icon="💎"
+            icon={<GameIcon name="gem" className="size-4 text-[var(--gold-bright)]" />}
             action={
               <Link
                 href={`/loot${isChildView ? "" : `?child=${activeChild.id}`}`}
@@ -299,14 +291,14 @@ export default async function TavernPage({
           >
             {earnedBadges.length === 0 ? (
               <div className="py-4 text-center">
-                <p className="text-3xl">🗝️</p>
+                <GameIcon name="key" className="mx-auto size-8 text-[var(--gold-bright)]" />
                 <p className="mt-2 text-sm text-muted-foreground">No treasures yet. Keep questing!</p>
               </div>
             ) : (
               <div className="hud-loot-grid">
                 {earnedBadges.slice(-8).map((b) => (
                   <div key={b.id} className="hud-loot-item">
-                    <span className="hud-loot-icon">{iconMap[b.badge.icon] ?? "🏅"}</span>
+                    <span className="hud-loot-icon size-7"><GameIcon name={BADGE_ICONS[b.badge.icon] ?? "medal"} className="size-full text-[var(--gold-bright)]" /></span>
                     <p className="text-xs font-medium">{b.badge.name}</p>
                     <p className="text-[10px] text-muted-foreground">+{b.badge.xpReward} XP</p>
                   </div>
@@ -318,7 +310,7 @@ export default async function TavernPage({
           {allBadges.filter((b) => !earnedIds.has(b.id)).length > 0 && (
             <GameFrame
               title={`Sealed Relics (${allBadges.filter((b) => !earnedIds.has(b.id)).length})`}
-              icon="🔒"
+              icon={<GameIcon name="lock" className="size-4 text-[var(--gold-bright)]" />}
               action={
                 <Link
                   href={`/loot${isChildView ? "" : `?child=${activeChild.id}`}`}
@@ -334,7 +326,7 @@ export default async function TavernPage({
                   .slice(0, 8)
                   .map((badge) => (
                     <div key={badge.id} className="hud-loot-item hud-loot-item--locked">
-                      <span className="hud-loot-icon">{iconMap[badge.icon] ?? "🏅"}</span>
+                      <span className="hud-loot-icon size-7"><GameIcon name={BADGE_ICONS[badge.icon] ?? "medal"} className="size-full text-[var(--gold-bright)]" /></span>
                       <p className="text-xs font-medium">{badge.name}</p>
                       <p className="text-[10px] text-muted-foreground">{badge.description}</p>
                     </div>
@@ -358,7 +350,7 @@ function UnlockMilestone({
   const unlocked = current >= level;
   return (
     <div className={`flex items-start gap-2 text-xs ${unlocked ? "" : "opacity-50"}`}>
-      <span className="mt-0.5">{unlocked ? "✅" : "🔒"}</span>
+      <GameIcon name={unlocked ? "check" : "lock"} className="mt-0.5 size-4 shrink-0 text-[var(--gold-bright)]" />
       <div>
         <span className="font-medium">Level {level}:</span>{" "}
         <span className="text-muted-foreground">{items}</span>

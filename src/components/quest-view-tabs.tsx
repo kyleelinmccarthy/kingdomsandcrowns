@@ -2,10 +2,11 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { GameIcon } from "@/components/game-icon";
 
 const TABS = [
-  { value: "today", label: "Today", icon: "⚔️" },
-  { value: "adventure", label: "Complete Adventure", icon: "🏕️" },
+  { value: "today", label: "Today", icon: "swords" },
+  { value: "adventure", label: "Complete Adventure", icon: "campfire" },
 ] as const;
 
 export function QuestViewTabs({ active }: { active: "today" | "adventure" }) {
@@ -36,7 +37,7 @@ export function QuestViewTabs({ active }: { active: "today" | "adventure" }) {
               : "text-muted-foreground hover:text-foreground"
           )}
         >
-          <span role="img" aria-hidden="true">{tab.icon}</span>
+          <GameIcon name={tab.icon} className="size-4 text-[var(--gold-bright)]" />
           {tab.label}
         </button>
       ))}

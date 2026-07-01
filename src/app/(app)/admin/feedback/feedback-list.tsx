@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { updateFeedbackStatus } from "@/lib/actions/feedback";
 import { Button } from "@/components/ui/button";
+import { GameIcon, type GameIconName } from "@/components/game-icon";
 
 type FeedbackItem = {
   id: string;
@@ -30,10 +31,17 @@ const STATUS_COLORS: Record<Status, string> = {
 };
 
 const CATEGORY_LABEL: Record<string, string> = {
-  bug: "🐛 Bug",
-  idea: "💡 Idea",
-  praise: "⭐ Praise",
-  other: "✉️ Other",
+  bug: "Bug",
+  idea: "Idea",
+  praise: "Praise",
+  other: "Other",
+};
+
+const CATEGORY_ICON: Record<string, GameIconName> = {
+  bug: "bug",
+  idea: "idea",
+  praise: "star",
+  other: "mail",
 };
 
 export function FeedbackList({ items }: { items: FeedbackItem[] }) {
@@ -124,7 +132,15 @@ function FeedbackCard({ item }: { item: FeedbackItem }) {
     <li className="rounded-lg border bg-card p-4">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2 text-sm">
-          <span className="font-medium">{CATEGORY_LABEL[item.category] ?? item.category}</span>
+          <span className="flex items-center gap-1 font-medium">
+            {CATEGORY_ICON[item.category] && (
+              <GameIcon
+                name={CATEGORY_ICON[item.category]}
+                className="size-4 text-[var(--gold-bright)]"
+              />
+            )}
+            {CATEGORY_LABEL[item.category] ?? item.category}
+          </span>
           <span
             className={`rounded-full border px-2 py-0.5 text-xs capitalize ${STATUS_COLORS[statusKey]}`}
           >

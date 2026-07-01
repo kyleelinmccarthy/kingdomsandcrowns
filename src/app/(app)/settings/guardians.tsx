@@ -14,6 +14,7 @@ import {
   resendInvite,
   removeMember,
 } from "@/lib/actions/guardians";
+import { GameIcon } from "@/components/game-icon";
 
 type Role = "owner" | "co_parent" | "teacher" | "tutor" | "guardian";
 type Permission = "edit" | "view";
@@ -69,7 +70,7 @@ export function GuardiansManager({
   return (
     <GameFrame
       title="Guardians & Mentors"
-      icon="🛡️"
+      icon={<GameIcon name="shield" className="size-4 text-[var(--gold-bright)]" />}
       action={
         canManage ? (
           <Button size="sm" onClick={() => setShowInvite(true)}>

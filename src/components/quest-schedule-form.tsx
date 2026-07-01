@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { GameFrame } from "@/components/game-frame";
+import { GameIcon } from "@/components/game-icon";
 import { upsertSchedule, deleteSchedule } from "@/lib/actions/quest-schedules";
 
 const DAYS = [
@@ -79,7 +80,7 @@ export function QuestScheduleForm({
   }
 
   return (
-    <GameFrame title="Schedule" icon="📅">
+    <GameFrame title="Schedule" icon={<GameIcon name="calendar" className="size-5 text-[var(--gold-bright)]" />}>
       <div className="space-y-4">
         {error && (
           <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</div>

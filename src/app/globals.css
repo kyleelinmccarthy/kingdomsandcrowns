@@ -65,7 +65,7 @@
   --popover: #111a2e;
   --popover-foreground: #c8bfa8;
 
-  --primary: #3ecfff;
+  --primary: #2ea6d4;
   --primary-foreground: #080c18;
 
   --secondary: #152035;
@@ -125,7 +125,7 @@
   --card-foreground: #c8bfa8;
   --popover: #111a2e;
   --popover-foreground: #c8bfa8;
-  --primary: #3ecfff;
+  --primary: #2ea6d4;
   --primary-foreground: #080c18;
   --secondary: #152035;
   --secondary-foreground: #c8bfa8;
@@ -189,11 +189,13 @@ body {
 /* ──────────────────────────────────────────────────────────
    Dark scrollbar
    ────────────────────────────────────────────────────────── */
-::-webkit-scrollbar { width: 8px; height: 8px; }
+html { scrollbar-color: var(--border) var(--background); }
+::-webkit-scrollbar { width: 14px; height: 14px; }
 ::-webkit-scrollbar-track { background: var(--background); }
 ::-webkit-scrollbar-thumb {
   background: var(--border);
-  border-radius: 4px;
+  border-radius: 7px;
+  border: 2px solid var(--background);
 }
 ::-webkit-scrollbar-thumb:hover { background: var(--gold-dim); }
 

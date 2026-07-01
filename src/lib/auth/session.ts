@@ -22,7 +22,7 @@ const demoPersonas: Record<DemoPersona, Session> = {
     },
     user: {
       id: "demo-user",
-      name: "Demo User - Parent",
+      name: "Jordan",
       email: "demo@kingdomsandcrowns.local",
       emailVerified: true,
       image: null,
@@ -43,7 +43,7 @@ const demoPersonas: Record<DemoPersona, Session> = {
     },
     user: {
       id: "demo-child-1",
-      name: "Demo User - Lily",
+      name: "Demo User - Emma",
       email: "lily@kingdomsandcrowns.local",
       emailVerified: true,
       image: null,
@@ -64,7 +64,7 @@ const demoPersonas: Record<DemoPersona, Session> = {
     },
     user: {
       id: "demo-child-2",
-      name: "Demo User - Lucas",
+      name: "Demo User - Noah",
       email: "lucas@kingdomsandcrowns.local",
       emailVerified: true,
       image: null,

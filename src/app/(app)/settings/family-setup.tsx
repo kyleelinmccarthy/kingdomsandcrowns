@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { GameFrame } from "@/components/game-frame";
 import { createFamily, updateFamily } from "@/lib/actions/family";
+import { GameIcon } from "@/components/game-icon";
 
 type Family = {
   id: string;
@@ -40,7 +41,7 @@ export function FamilySetup({ family, isChildView = false }: { family: Family; i
   }
 
   return (
-    <GameFrame title={family ? "Family Crest" : "Found Your Family"} icon="📜">
+    <GameFrame title={family ? "Family Crest" : "Found Your Family"} icon={<GameIcon name="scroll" className="size-4 text-[var(--gold-bright)]" />}>
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
           <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</div>

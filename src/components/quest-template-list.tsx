@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { GameFrame } from "@/components/game-frame";
+import { GameIcon } from "@/components/game-icon";
 import { QuestTemplateForm } from "./quest-template-form";
 import { deleteQuest } from "@/lib/actions/quests";
 
@@ -58,7 +59,7 @@ export function QuestTemplateList({
     <>
       <GameFrame
         title="Assigned Quests"
-        icon="📜"
+        icon={<GameIcon name="scroll" className="size-5 text-[var(--gold-bright)]" />}
         action={<Button size="sm" onClick={() => setShowAdd(true)}>New Quest</Button>}
       >
         {quests.length === 0 ? (

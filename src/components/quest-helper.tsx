@@ -7,6 +7,7 @@ import { Dialog, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip } from "@/components/ui/tooltip";
 import { SendRavenDialog } from "@/components/send-raven";
 import { navItemsFor } from "@/components/nav-items";
+import { GameIcon } from "@/components/game-icon";
 
 export function QuestHelper({ isChildView }: { isChildView?: boolean }) {
   const [open, setOpen] = useState(false);
@@ -27,8 +28,8 @@ export function QuestHelper({ isChildView }: { isChildView?: boolean }) {
           aria-label="Open the guide — how to get around and how to send a raven"
           className="medallion"
         >
-          <span className="medallion-icon" role="img" aria-hidden="true">
-            🧭
+          <span className="medallion-icon" aria-hidden="true">
+            <GameIcon name="compass" className="size-5 text-[var(--gold-bright)]" />
           </span>
           <span className="medallion-label">Help</span>
         </button>
@@ -49,11 +50,10 @@ export function QuestHelper({ isChildView }: { isChildView?: boolean }) {
               {navItems.map((item) => (
                 <li key={item.href} className="flex items-start gap-3">
                   <span
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--gold-border)] bg-black/30 text-base"
-                    role="img"
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--gold-border)] bg-black/30"
                     aria-hidden="true"
                   >
-                    {item.icon}
+                    <GameIcon name={item.icon} className="size-5 text-[var(--gold-bright)]" />
                   </span>
                   <span className="flex flex-col">
                     <span className="text-sm font-semibold text-foreground">{item.label}</span>

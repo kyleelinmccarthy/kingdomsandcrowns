@@ -4,6 +4,7 @@ import { resolveActiveChild } from "@/lib/actions/resolve-child";
 import { getCastle } from "@/lib/actions/castle";
 import { ChildSelector } from "@/components/child-selector";
 import { GameFrame } from "@/components/game-frame";
+import { GameIcon, CASTLE_ICONS } from "@/components/game-icon";
 import { CASTLE_TYPES } from "@/lib/utils/avatar-catalog";
 import { CastleActions } from "./castle-actions";
 
@@ -24,7 +25,7 @@ export default async function CastlePage({
         </h1>
         <GameFrame>
           <div className="py-8 text-center">
-            <p className="text-5xl">🏰</p>
+            <GameIcon name="castle" className="mx-auto size-10 text-[var(--gold-bright)] drop-shadow-[0_0_6px_var(--glow-gold)]" />
             <p className="mt-4 text-lg font-medium">No heroes found</p>
             <p className="mt-2 text-sm text-muted-foreground">
               <Link href="/settings" className="text-primary hover:underline">
@@ -61,7 +62,7 @@ export default async function CastlePage({
 
         <GameFrame>
           <div className="py-12 text-center">
-            <p className="text-6xl">🏰</p>
+            <GameIcon name="castle" className="mx-auto size-16 text-[var(--gold-bright)] drop-shadow-[0_0_6px_var(--glow-gold)]" />
             <p className="mt-4 text-xl font-bold font-brand" style={{ color: "var(--gold-bright)" }}>
               Castle Locked
             </p>
@@ -82,7 +83,7 @@ export default async function CastlePage({
               <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Castle Upgrades</p>
               {CASTLE_TYPES.map((ct) => (
                 <div key={ct.id} className={`flex items-center gap-2 text-xs ${level >= ct.levelRequired ? "" : "opacity-40"}`}>
-                  <span>{level >= ct.levelRequired ? "✅" : "🔒"}</span>
+                  <GameIcon name={level >= ct.levelRequired ? "check" : "lock"} className="size-4 text-[var(--gold-bright)]" />
                   <span className="font-medium">Lv.{ct.levelRequired}:</span>
                   <span className="text-muted-foreground">{ct.label} — {ct.description}</span>
                 </div>
@@ -102,17 +103,6 @@ export default async function CastlePage({
   const availableUpgrades = CASTLE_TYPES.filter(
     (t) => level >= t.levelRequired && t.id !== castle?.type
   );
-
-  const castleEmoji: Record<string, string> = {
-    campsite: "⛺",
-    cottage: "🏡",
-    watchtower: "🗼",
-    keep: "🏯",
-    manor: "🏛️",
-    castle: "🏰",
-    fortress: "🏰",
-    citadel: "🏰",
-  };
 
   return (
     <div className="space-y-6">
@@ -135,7 +125,7 @@ export default async function CastlePage({
       {/* Castle Display */}
       <GameFrame>
         <div className="py-8 text-center">
-          <p className="text-7xl">{castleEmoji[castle?.type ?? "campsite"] ?? "🏰"}</p>
+          <GameIcon name={CASTLE_ICONS[castle?.type ?? "campsite"] ?? "castle"} className="mx-auto size-24 text-[var(--gold-bright)] drop-shadow-[0_0_12px_var(--glow-gold)]" />
           <p className="mt-4 text-2xl font-bold font-brand" style={{ color: "var(--gold-bright)" }}>
             {castle?.name ?? `${activeChild.displayName}'s Castle`}
           </p>
@@ -155,11 +145,11 @@ export default async function CastlePage({
 
       {/* Future upgrades */}
       {CASTLE_TYPES.filter((t) => level < t.levelRequired).length > 0 && (
-        <GameFrame title="Future Upgrades" icon="🔮">
+        <GameFrame title="Future Upgrades" icon={<GameIcon name="crystalBall" className="size-5 text-[var(--gold-bright)]" />}>
           <div className="space-y-2">
             {CASTLE_TYPES.filter((t) => level < t.levelRequired).map((ct) => (
               <div key={ct.id} className="flex items-center gap-2 text-xs opacity-50">
-                <span>🔒</span>
+                <GameIcon name="lock" className="size-4 text-[var(--gold-bright)]" />
                 <span className="font-medium">Level {ct.levelRequired}:</span>
                 <span className="text-muted-foreground">{ct.label} — {ct.description}</span>
               </div>

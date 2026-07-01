@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { UserMenu } from "@/components/user-menu";
 import { QuestHelper } from "@/components/quest-helper";
+import { GameIcon, type GameIconName } from "@/components/game-icon";
 import { navItemsFor } from "@/components/nav-items";
 import { Tooltip, TooltipProvider } from "@/components/ui/tooltip";
 
@@ -21,7 +22,7 @@ function NavMedallion({
   active,
 }: {
   href: string;
-  icon: string;
+  icon: GameIconName;
   label: string;
   description: string;
   active: boolean;
@@ -37,7 +38,7 @@ function NavMedallion({
         )}
       >
         <span className="medallion-icon" role="img" aria-hidden="true">
-          {icon}
+          <GameIcon name={icon} className="size-5 text-[var(--gold-bright)]" />
         </span>
         <span className="medallion-label">{label}</span>
       </Link>

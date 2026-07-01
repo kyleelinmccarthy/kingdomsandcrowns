@@ -11,6 +11,7 @@ import { GameFrame } from "@/components/game-frame";
 import { QuestResourceList } from "@/components/quest-resource-list";
 import { QuestScheduleForm } from "@/components/quest-schedule-form";
 import { QuestReminderForm } from "@/components/quest-reminder-form";
+import { GameIcon } from "@/components/game-icon";
 
 export default async function QuestDetailPage({
   params,
@@ -31,7 +32,7 @@ export default async function QuestDetailPage({
         <h1 className="page-title text-4xl">Quest Details</h1>
         <GameFrame>
           <div className="py-4 text-center">
-            <p className="text-4xl">🔒</p>
+            <GameIcon name="lock" className="mx-auto size-10 text-[var(--gold-bright)]" />
             <p className="mt-3 text-muted-foreground">
               Only parents may view quest configurations.
             </p>

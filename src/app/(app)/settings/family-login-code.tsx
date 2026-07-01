@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { GameFrame } from "@/components/game-frame";
 import { regenerateFamilyLoginCode } from "@/lib/actions/child-auth";
+import { GameIcon } from "@/components/game-icon";
 
 export function FamilyLoginCode({ code }: { code: string | null }) {
   const router = useRouter();
@@ -21,7 +22,7 @@ export function FamilyLoginCode({ code }: { code: string | null }) {
   }
 
   return (
-    <GameFrame title="Family Login Code" icon="🔑">
+    <GameFrame title="Family Login Code" icon={<GameIcon name="key" className="size-4 text-[var(--gold-bright)]" />}>
       <div className="space-y-3">
         <p className="text-xs text-muted-foreground">
           Your family&apos;s key. On the <span className="font-medium">Young Hero</span> login a hero

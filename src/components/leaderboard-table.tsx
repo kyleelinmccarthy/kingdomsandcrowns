@@ -4,6 +4,7 @@ import { Avatar } from "@/components/avatar";
 import { GameFrame } from "@/components/game-frame";
 import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
 import type { CommunityLeaderboardAllEntry } from "@/lib/actions/leaderboard";
+import { GameIcon, type GameIconName } from "@/components/game-icon";
 
 type LeaderboardEntry = {
   displayName: string;
@@ -14,17 +15,17 @@ type LeaderboardEntry = {
 
 type LeaderboardTableProps = {
   title: string;
-  icon: string;
+  icon: React.ReactNode;
   entries: LeaderboardEntry[];
   valueLabel: string;
   highlightId?: string;
   emptyMessage: string;
 };
 
-const RANK_STYLES: Record<number, { accent: string; title: string; emoji: string }> = {
-  1: { accent: "var(--gold-bright)", title: "Champion", emoji: "👑" },
-  2: { accent: "#a0a0b0", title: "Knight Commander", emoji: "🥈" },
-  3: { accent: "#cd7f32", title: "Sentinel", emoji: "🥉" },
+const RANK_STYLES: Record<number, { accent: string; title: string; icon: GameIconName; iconClass: string }> = {
+  1: { accent: "var(--gold-bright)", title: "Champion", icon: "crown", iconClass: "text-[var(--gold-bright)]" },
+  2: { accent: "#a0a0b0", title: "Knight Commander", icon: "medalSilver", iconClass: "text-[#a0a0b0]" },
+  3: { accent: "#cd7f32", title: "Sentinel", icon: "medalBronze", iconClass: "text-[#cd7f32]" },
 };
 
 export function LeaderboardTable({
@@ -39,7 +40,7 @@ export function LeaderboardTable({
     return (
       <GameFrame title={title} icon={icon}>
         <div className="py-8 text-center">
-          <p className="text-4xl">🏛️</p>
+          <GameIcon name="temple" className="mx-auto size-10 text-[var(--gold-bright)]" />
           <p className="mt-3 text-sm text-muted-foreground">{emptyMessage}</p>
         </div>
       </GameFrame>
@@ -78,8 +79,8 @@ export function LeaderboardTable({
               {/* Rank */}
               <div className="flex w-8 items-center justify-center">
                 {style ? (
-                  <span className="text-lg" title={style.title}>
-                    {style.emoji}
+                  <span title={style.title} aria-label={style.title}>
+                    <GameIcon name={style.icon} className={`size-5 ${style.iconClass}`} />
                   </span>
                 ) : (
                   <span className="text-sm font-medium text-muted-foreground">{rank}</span>
@@ -127,9 +128,9 @@ export function CombinedLeaderboardTable({
 }: CombinedLeaderboardTableProps) {
   if (entries.length === 0) {
     return (
-      <GameFrame title="Community Hall" icon="🏛️">
+      <GameFrame title="Community Hall" icon={<GameIcon name="temple" className="size-4 text-[var(--gold-bright)]" />}>
         <div className="py-8 text-center">
-          <p className="text-4xl">🏛️</p>
+          <GameIcon name="temple" className="mx-auto size-10 text-[var(--gold-bright)]" />
           <p className="mt-3 text-sm text-muted-foreground">{emptyMessage}</p>
         </div>
       </GameFrame>
@@ -137,7 +138,7 @@ export function CombinedLeaderboardTable({
   }
 
   return (
-    <GameFrame title="Community Hall" icon="🏛️">
+    <GameFrame title="Community Hall" icon={<GameIcon name="temple" className="size-4 text-[var(--gold-bright)]" />}>
       {/* Six columns can't fit narrow phones — allow horizontal scroll while
           keeping a min-width so the columns stay aligned and legible. */}
       <div className="-mx-1 overflow-x-auto px-1">
@@ -169,8 +170,8 @@ export function CombinedLeaderboardTable({
               {/* Rank */}
               <div className="flex w-8 items-center justify-center">
                 {style ? (
-                  <span className="text-lg" title={style.title}>
-                    {style.emoji}
+                  <span title={style.title} aria-label={style.title}>
+                    <GameIcon name={style.icon} className={`size-5 ${style.iconClass}`} />
                   </span>
                 ) : (
                   <span className="text-sm font-medium text-muted-foreground">{rank}</span>

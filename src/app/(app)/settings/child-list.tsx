@@ -13,6 +13,7 @@ import { FamilySetup } from "./family-setup";
 import { ChildLoginAccess } from "./child-login-access";
 import { SendHeroEmailButton } from "./send-hero-email";
 import { AgeInput, type AgeMode } from "./age-input";
+import { GameIcon } from "@/components/game-icon";
 import { createChild, updateChild, deleteChild } from "@/lib/actions/children";
 import {
   setChildEmail,
@@ -101,7 +102,7 @@ export function ChildList({
 
         <GameFrame
           title="Heroes"
-          icon="⚔️"
+          icon={<GameIcon name="swords" className="size-4 text-[var(--gold-bright)]" />}
           action={!isChildView ? <Button size="sm" onClick={() => setShowAdd(true)}>Recruit Hero</Button> : undefined}
         >
           {visibleChildren.length === 0 ? (
@@ -204,7 +205,7 @@ function ChildDetail({ child, isChildView = false }: { child: Child; isChildView
   }
 
   return (
-    <GameFrame title={`${child.displayName}'s Chronicle`} icon="📖">
+    <GameFrame title={`${child.displayName}'s Chronicle`} icon={<GameIcon name="book" className="size-4 text-[var(--gold-bright)]" />}>
       <div className="space-y-6">
         {!isChildView && (
           <div className="rounded-lg border border-gold-dim bg-muted/20 p-3">

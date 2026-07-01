@@ -4,6 +4,7 @@ import { resolveActiveChild } from "@/lib/actions/resolve-child";
 import { getFamilyLeaderboard, getCommunityLeaderboard, getCommunityLeaderboardAll } from "@/lib/actions/leaderboard";
 import { LeaderboardTabs } from "@/components/leaderboard-tabs";
 import { GameFrame } from "@/components/game-frame";
+import { GameIcon } from "@/components/game-icon";
 
 export default async function LeaderboardPage({
   searchParams,
@@ -20,7 +21,7 @@ export default async function LeaderboardPage({
         <h1 className="page-title text-4xl">Hall of Legends</h1>
         <GameFrame>
           <div className="py-4 text-center">
-            <p className="text-4xl">👤</p>
+            <GameIcon name="person" className="mx-auto size-10 text-[var(--gold-bright)]" />
             <p className="mt-3 text-muted-foreground">
               <Link href="/settings" className="text-primary hover:underline">Summon a hero</Link> to enter the Hall of Legends.
             </p>

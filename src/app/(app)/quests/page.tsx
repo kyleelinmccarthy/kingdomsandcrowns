@@ -11,6 +11,7 @@ import { getSchoolBreaks } from "@/lib/actions/school-breaks";
 import { formatDate, getWeekStartDate } from "@/lib/utils/dates";
 import { ChildSelector } from "@/components/child-selector";
 import { GameFrame } from "@/components/game-frame";
+import { GameIcon } from "@/components/game-icon";
 import { QuestAssignmentCard } from "@/components/quest-assignment-card";
 import { QuestViewTabs } from "@/components/quest-view-tabs";
 import { LongRest } from "@/components/long-rest";
@@ -37,7 +38,7 @@ export default async function QuestsPage({
           <h1 className="page-title text-4xl">Quest Log</h1>
           <GameFrame>
             <div className="py-4 text-center">
-              <p className="text-4xl">📜</p>
+              <GameIcon name="scroll" className="mx-auto size-10 text-[var(--gold-bright)]" />
               <p className="mt-3 text-muted-foreground">
                 <Link href="/settings" className="text-primary hover:underline">Set up your family</Link> before quests can be undertaken.
               </p>
@@ -54,7 +55,7 @@ export default async function QuestsPage({
         <h1 className="page-title text-4xl">Quest Log</h1>
         <GameFrame>
           <div className="py-4 text-center">
-            <p className="text-4xl">👤</p>
+            <GameIcon name="person" className="mx-auto size-10 text-[var(--gold-bright)]" />
             <p className="mt-3 text-muted-foreground">
               <Link href="/settings" className="text-primary hover:underline">Summon a hero</Link> to embark upon quests.
             </p>
@@ -124,7 +125,7 @@ async function TodayView({ childId, isChildView }: { childId: string; isChildVie
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {todayAssignments.length > 0 && (
-          <GameFrame title={isChildView ? "Today's Quests" : "Assigned Quests"} icon="⚔️">
+          <GameFrame title={isChildView ? "Today's Quests" : "Assigned Quests"} icon={<GameIcon name="swords" className="size-5 text-[var(--gold-bright)]" />}>
             <div className="space-y-2">
               {todayAssignments.map((a) => (
                 <QuestAssignmentCard key={a.assignment.id} data={a} isChildView={isChildView} />
@@ -136,7 +137,7 @@ async function TodayView({ childId, isChildView }: { childId: string; isChildVie
         <QuestForm childId={childId} subjects={subjects} quests={quests} todayAssignments={todayAssignments} />
       </div>
 
-      <GameFrame title={isChildView ? "Adventure Log" : "Recent Adventures"} icon="📖">
+      <GameFrame title={isChildView ? "Adventure Log" : "Recent Adventures"} icon={<GameIcon name="book" className="size-5 text-[var(--gold-bright)]" />}>
         <QuestLog
           activities={activities.filter(
             (a) => !todayAssignmentIds.has(a.questAssignmentId ?? "")
