@@ -25,6 +25,22 @@ function buildTrustedOrigins(): string[] {
   return [...origins];
 }
 
+// Pin the Google OAuth redirect_uri to the canonical host in BETTER_AUTH_URL.
+// better-auth otherwise derives it per-request from the incoming Host header, so
+// when the site is reached on both the apex and www hosts (the reason we trust
+// both origins above), the authorize step and the token-exchange step can send
+// Google two different redirect_uri values. Google then rejects the code
+// exchange and better-auth bounces the user to /?error=invalid_code. A fixed
+// value is used for BOTH steps (better-auth prefers a configured provider
+// redirectURI over the per-request one), so they always agree with each other
+// and with the URI registered in the Google Cloud console. Returns undefined
+// when BETTER_AUTH_URL is unset, leaving better-auth's default behavior intact.
+function googleRedirectURI(): string | undefined {
+  const baseUrl = process.env.BETTER_AUTH_URL;
+  if (!baseUrl) return undefined;
+  return `${baseUrl.replace(/\/$/, "")}/api/auth/callback/google`;
+}
+
 export const auth = betterAuth({
   appName: "Kingdoms & Crowns",
   trustedOrigins: buildTrustedOrigins(),
@@ -41,6 +57,7 @@ export const auth = betterAuth({
     google: {
       clientId: process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      redirectURI: googleRedirectURI(),
     },
   },
   session: {
