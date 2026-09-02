@@ -244,7 +244,11 @@ export async function approveUpkeep(assignmentId: string) {
   });
 }
 
-/** Sends the task back with a reason. Nothing posts. */
+/**
+ * Sends the task back with a reason. If it was only `awaiting_approval`,
+ * nothing posts. If it had already been completed and paid, this reverses
+ * the wages and revokes the XP, same as `uncompleteUpkeep`.
+ */
 export async function rejectUpkeep(assignmentId: string, reason: string) {
   await requireAdultActor();
   await requireUpkeepAssignmentAccess(assignmentId, { write: true });
