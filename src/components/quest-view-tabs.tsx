@@ -4,12 +4,23 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { GameIcon } from "@/components/game-icon";
 
-const TABS = [
+const SCHOOL_TABS = [
   { value: "today", label: "Today", icon: "swords" },
   { value: "adventure", label: "Complete Adventure", icon: "campfire" },
 ] as const;
 
-export function QuestViewTabs({ active }: { active: "today" | "adventure" }) {
+const UPKEEP_TAB = { value: "upkeep", label: "Upkeep", icon: "tavern" } as const;
+
+export type QuestView = "today" | "adventure" | "upkeep";
+
+export function QuestViewTabs({
+  active,
+  showUpkeep = false,
+}: {
+  active: QuestView;
+  /** Upkeep is an optional module — the tab does not exist until it is on. */
+  showUpkeep?: boolean;
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -26,7 +37,7 @@ export function QuestViewTabs({ active }: { active: "today" | "adventure" }) {
 
   return (
     <div className="flex gap-1 rounded-lg bg-muted/50 p-1">
-      {TABS.map((tab) => (
+      {[...SCHOOL_TABS, ...(showUpkeep ? [UPKEEP_TAB] : [])].map((tab) => (
         <button
           key={tab.value}
           onClick={() => switchTab(tab.value)}

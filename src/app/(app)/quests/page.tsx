@@ -10,7 +10,7 @@ import { getScheduleBlocks } from "@/lib/actions/student-schedule";
 import { getSchoolingModeForDate } from "@/lib/actions/schooling-mode";
 import { generateLearningLog, getSavedLog } from "@/lib/actions/chronicles";
 import { getSchoolBreaks } from "@/lib/actions/school-breaks";
-import { formatDate, getWeekStartDate } from "@/lib/utils/dates";
+import { addDays, formatDate, getWeekStartDate } from "@/lib/utils/dates";
 import { weekdayOfDate, currentTimeOfDay } from "@/lib/utils/schedule-days";
 import { getStructuredCardLock } from "@/lib/utils/quest-ordering";
 import { ChildSelector } from "@/components/child-selector";
@@ -21,6 +21,13 @@ import { TodaySchedule } from "@/components/today-schedule";
 import { QuestViewTabs } from "@/components/quest-view-tabs";
 import { LongRest } from "@/components/long-rest";
 import { TimerCleanup } from "@/components/timer-cleanup";
+import { loadUpkeepContext } from "@/lib/services/upkeep-context";
+import {
+  generateUpkeepAssignments,
+  getUpkeepAssignmentsForDate,
+  getOutstandingUpkeepAssignments,
+} from "@/lib/actions/upkeep-assignments";
+import { UpkeepTodayList } from "@/components/upkeep-today-list";
 import { QuestForm } from "./quest-form";
 import { QuestLog } from "./quest-log";
 
@@ -33,7 +40,8 @@ export default async function QuestsPage({
   const { child: selectedChildId, week, view } = await searchParams;
   const { child: activeChild, allChildren, isChildView } = await resolveActiveChild(selectedChildId);
 
-  const activeView = view === "adventure" ? "adventure" : "today";
+  const activeView =
+    view === "adventure" ? "adventure" : view === "upkeep" ? "upkeep" : "today";
 
   if (!isChildView) {
     const family = await getFamily();
@@ -70,6 +78,23 @@ export default async function QuestsPage({
     );
   }
 
+  const upkeepContext = await loadUpkeepContext(activeChild.id);
+  const showUpkeep = Boolean(upkeepContext?.enabled);
+
+  const todayDate = formatDate(new Date());
+  let upkeepToday: Awaited<ReturnType<typeof getUpkeepAssignmentsForDate>> = [];
+  let upkeepOutstanding: Awaited<ReturnType<typeof getOutstandingUpkeepAssignments>> = [];
+
+  if (showUpkeep) {
+    // Same idempotent on-load housekeeping quests use. Generates a fortnight
+    // ahead so a weekly chore is visible before its day arrives.
+    await generateUpkeepAssignments(activeChild.id, todayDate, addDays(todayDate, 14));
+    [upkeepToday, upkeepOutstanding] = await Promise.all([
+      getUpkeepAssignmentsForDate(activeChild.id, todayDate),
+      getOutstandingUpkeepAssignments(activeChild.id, todayDate),
+    ]);
+  }
+
   return (
     <div className="space-y-6">
       <div className="page-banner relative flex flex-col items-center gap-4 text-center">
@@ -93,7 +118,16 @@ export default async function QuestsPage({
         )}
       </div>
 
-      <QuestViewTabs active={activeView} />
+      <QuestViewTabs active={activeView} showUpkeep={showUpkeep} />
+
+      {activeView === "upkeep" && showUpkeep && (
+        <UpkeepTodayList
+          today={upkeepToday}
+          outstanding={upkeepOutstanding}
+          isChildView={isChildView}
+          todayDate={todayDate}
+        />
+      )}
 
       {activeView === "today" ? (
         <TodayView
@@ -101,7 +135,7 @@ export default async function QuestsPage({
           isChildView={isChildView}
           allowChildSkip={isChildView && activeChild.skipQuestsEnabled}
         />
-      ) : (
+      ) : activeView === "adventure" ? (
         <AdventureView
           childId={activeChild.id}
           childName={activeChild.displayName}
@@ -109,7 +143,7 @@ export default async function QuestsPage({
           isChildView={isChildView}
           week={week}
         />
-      )}
+      ) : null}
     </div>
   );
 }
