@@ -34,9 +34,11 @@ import { AgeInput, type AgeMode } from "./age-input";
 import { GameIcon } from "@/components/game-icon";
 import { SeasonPanel } from "./season-panel";
 import { LearningProfilePanel } from "./learning-profile-panel";
+import { RealmSettingsPanel } from "./realm-settings-panel";
 import { crownById } from "@/lib/utils/crown-catalog";
 import type { SeasonRecord } from "@/lib/utils/seasons";
 import type { LearningProfile } from "@/lib/utils/learning-profile";
+import type { RealmSettings } from "@/lib/utils/realm-settings";
 import {
   createChild,
   updateChild,
@@ -108,6 +110,8 @@ type Child = {
   questUnlockedItems?: string[];
   seasons?: { open: SeasonRecord | null; history: SeasonRecord[] };
   learningProfile?: LearningProfile | null;
+  realmSettings?: RealmSettings | null;
+  realmPlay?: { date: string; balance: number; spent: number } | null;
 };
 
 const SUBJECT_COLORS = [
@@ -452,6 +456,9 @@ function ChildDetail({ child, isChildView = false }: { child: Child; isChildView
         )}
         {!isChildView && child.learningProfile && (
           <LearningProfilePanel childId={child.id} profile={child.learningProfile} />
+        )}
+        {!isChildView && child.realmSettings && child.realmPlay && (
+          <RealmSettingsPanel childId={child.id} settings={child.realmSettings} summary={child.realmPlay} />
         )}
         {!isChildView && (
           <div className="border-t pt-4">
