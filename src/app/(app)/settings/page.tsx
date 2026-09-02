@@ -8,6 +8,7 @@ import { getSubjects } from "@/lib/actions/subjects";
 import { getChildBadges } from "@/lib/actions/badges";
 import { getChildAvatarUnlocks } from "@/lib/actions/avatar";
 import { getSeasons } from "@/lib/actions/seasons";
+import { getLearningProfile } from "@/lib/actions/learning-profile";
 import { getFamilyMembers } from "@/lib/actions/guardians";
 import { ensureFamilyLoginCode } from "@/lib/actions/child-auth";
 import { getActor } from "@/lib/auth/actor";
@@ -62,11 +63,12 @@ export default async function SettingsPage() {
   // Fetch subjects, badges, and avatar unlocks for each visible child.
   const childrenWithSubjects = await Promise.all(
     children.map(async (child) => {
-      const [subjects, earnedBadges, avatarUnlocks, seasons] = await Promise.all([
+      const [subjects, earnedBadges, avatarUnlocks, seasons, learningProfile] = await Promise.all([
         getSubjects(child.id),
         getChildBadges(child.id),
         getChildAvatarUnlocks(child.id),
         getSeasons(child.id),
+        isChildView ? null : getLearningProfile(child.id),
       ]);
       const { pinHash: _pinHash, ...rest } = child;
       return {
@@ -76,6 +78,7 @@ export default async function SettingsPage() {
         earnedBadgeIds: earnedBadges.map((b) => b.badge.id),
         questUnlockedItems: avatarUnlocks.map((u) => u.itemId),
         seasons,
+        learningProfile,
       };
     })
   );

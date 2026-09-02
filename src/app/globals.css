@@ -211,6 +211,29 @@ html { scrollbar-color: var(--border) var(--background); }
     linear-gradient(180deg, #080c18 0%, #0a1220 50%, #080c18 100%);
 }
 
+/* ── Reading support (learning profile) ──────────────────────
+   Set as data attributes on .game-shell for the signed-in hero. The reading
+   font replaces every face, decorative headings included: a gothic title is
+   the hardest thing on the page for a reader who needs Lexend. */
+.game-shell[data-reading-font="on"] {
+  --font-sans: var(--font-lexend);
+  --font-serif: var(--font-lexend);
+  --font-brand: var(--font-lexend);
+  font-family: var(--font-lexend), ui-sans-serif, system-ui, sans-serif;
+}
+.game-shell[data-reading-font="on"] :is(h1, h2, h3, h4, button, [role="button"], input, select, textarea, .page-title) {
+  font-family: var(--font-lexend), ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: 0.01em;
+}
+.game-shell[data-larger-text="on"] {
+  zoom: 1.125;
+}
+.game-shell[data-extra-spacing="on"] {
+  line-height: 1.75;
+  letter-spacing: 0.03em;
+  word-spacing: 0.08em;
+}
+
 /* Animated background orbs */
 .game-shell-orb {
   position: fixed;

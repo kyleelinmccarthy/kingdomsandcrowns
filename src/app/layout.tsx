@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Farro, Balthazar, Cinzel, Quintessential, Grenze_Gotisch } from "next/font/google";
+import { Farro, Balthazar, Cinzel, Quintessential, Grenze_Gotisch, Lexend } from "next/font/google";
 import "./globals.css";
 
 const farro = Farro({
@@ -32,6 +32,12 @@ const grenzeGotisch = Grenze_Gotisch({
   weight: ["400", "500", "600", "700"],
 });
 
+const lexend = Lexend({
+  variable: "--font-lexend",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+});
+
 export const metadata: Metadata = {
   title: "Kingdoms & Crowns — Be the Hero of Homeschool",
   description:
@@ -49,7 +55,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <body
-        className={`${farro.variable} ${balthazar.variable} ${quintessential.variable} ${cinzel.variable} ${grenzeGotisch.variable} antialiased`}
+        className={`${farro.variable} ${balthazar.variable} ${quintessential.variable} ${cinzel.variable} ${grenzeGotisch.variable} ${lexend.variable} antialiased`}
       >
         {children}
       </body>

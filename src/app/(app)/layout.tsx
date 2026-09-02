@@ -4,6 +4,7 @@ import { getSession, getDemoPersona } from "@/lib/auth/session";
 import { getActor } from "@/lib/auth/actor";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
+import { profileFromRow, readingAttributes } from "@/lib/utils/learning-profile";
 import { GameBanner, GameNavBar } from "@/components/game-nav";
 import { DemoPersonaSwitcher } from "@/components/demo-persona-switcher";
 import { SwitchHero } from "@/components/switch-hero";
@@ -27,6 +28,7 @@ export default async function AppLayout({
   const isChildView = actor.kind === "child";
 
   let userName = "Adventurer";
+  let readingAttrs: Record<string, "on"> = {};
   if (actor.kind === "child") {
     const rows = await db
       .select({ displayName: schema.child.displayName })
@@ -34,6 +36,13 @@ export default async function AppLayout({
       .where(eq(schema.child.id, actor.childId))
       .limit(1);
     userName = rows[0]?.displayName ?? "Hero";
+
+    const profileRows = await db
+      .select()
+      .from(schema.learningProfile)
+      .where(eq(schema.learningProfile.childId, actor.childId))
+      .limit(1);
+    readingAttrs = readingAttributes(profileFromRow(profileRows[0] ?? null));
   } else {
     const session = await getSession();
     userName = session?.user.name ?? "Adventurer";
@@ -56,7 +65,7 @@ export default async function AppLayout({
 
   return (
     <ParentAlertsProvider initialAlerts={initialAlerts} enabled={!isChildView}>
-      <div className="game-shell relative flex min-h-svh flex-col overflow-hidden">
+      <div className="game-shell relative flex min-h-svh flex-col overflow-hidden" {...readingAttrs}>
         {/* Background orbs */}
         <div className="game-shell-orb game-shell-orb--1" />
         <div className="game-shell-orb game-shell-orb--2" />
