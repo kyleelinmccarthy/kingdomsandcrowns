@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { resolve } from "node:path";
 
 /**
@@ -51,7 +51,11 @@ const FORBIDDEN = [
 function stripComments(source: string): string {
   return source
     .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/\/\/.*$/gm, "");
+    // The negative lookbehind keeps a `//` preceded by `:` intact, so a
+    // scheme-relative or absolute URL inside a string literal (e.g.
+    // "http://api.example.com") survives instead of swallowing the rest of
+    // its line — including any real violation sitting after it.
+    .replace(/(?<!:)\/\/.*$/gm, "");
 }
 
 describe("upkeep isolation from school state", () => {
@@ -63,10 +67,19 @@ describe("upkeep isolation from school state", () => {
     });
   }
 
-  it("covers every upkeep module that exists", () => {
-    // Guards against the list above going stale as modules are added.
-    for (const path of UPKEEP_MODULES) {
-      expect(() => readFileSync(resolve(process.cwd(), path), "utf8")).not.toThrow();
+  it("scans every upkeep module on disk — a new one must be added to the list", () => {
+    // The hardcoded list above is what actually gets scanned, so a new upkeep
+    // module that nobody adds to it would be silently unprotected. This finds
+    // them on disk instead, so forgetting shows up as a failing test.
+    const discovered: string[] = [];
+    for (const dir of ["src/lib/actions", "src/lib/services"]) {
+      for (const file of readdirSync(resolve(process.cwd(), dir))) {
+        if (!file.endsWith(".ts") || file.endsWith(".test.ts")) continue;
+        if (file.startsWith("upkeep-") || file === "wages.ts") {
+          discovered.push(`${dir}/${file}`);
+        }
+      }
     }
+    expect(discovered.sort()).toEqual([...UPKEEP_MODULES].sort());
   });
 });
