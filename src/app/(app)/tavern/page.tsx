@@ -13,6 +13,7 @@ import { getChildAvatarUnlocks } from "@/lib/actions/avatar";
 import { formatDate } from "@/lib/utils/dates";
 import { weekdayOfDate, currentTimeOfDay } from "@/lib/utils/schedule-days";
 import { getStructuredCardLock } from "@/lib/utils/quest-ordering";
+import { levelFromXp } from "@/lib/utils/level";
 import { ChildSelector } from "@/components/child-selector";
 import { GameFrame } from "@/components/game-frame";
 import { Avatar } from "@/components/avatar";
@@ -121,7 +122,7 @@ export default async function TavernPage({
     todaysBlocks,
   });
 
-  const level = Math.floor(activeChild.currentXp / 100) + 1;
+  const level = levelFromXp(activeChild.currentXp);
   const xpInLevel = activeChild.currentXp % 100;
   const earnedIds = new Set(earnedBadges.map((b) => b.badge.id));
   const earnedBadgeIdList = earnedBadges.map((b) => b.badge.id);

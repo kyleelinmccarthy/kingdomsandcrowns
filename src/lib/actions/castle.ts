@@ -7,6 +7,7 @@ import * as schema from "@/lib/db/schema";
 import { requireChildAccess } from "@/lib/auth/access";
 import { nanoid } from "nanoid";
 import { CASTLE_TYPES } from "@/lib/utils/avatar-catalog";
+import { levelFromXp } from "@/lib/utils/level";
 
 export async function getCastle(childId: string) {
   await requireChildAccess(childId);
@@ -32,7 +33,7 @@ async function loadOwnedChild(childId: string) {
 export async function initializeCastle(childId: string) {
   const child = await loadOwnedChild(childId);
 
-  const level = Math.floor(child.currentXp / 100) + 1;
+  const level = levelFromXp(child.currentXp);
   if (level < 50) throw new Error("Must be level 50 to unlock a castle.");
 
   // Check if castle already exists
@@ -61,7 +62,7 @@ export async function initializeCastle(childId: string) {
 export async function upgradeCastle(childId: string, newType: string) {
   const child = await loadOwnedChild(childId);
 
-  const level = Math.floor(child.currentXp / 100) + 1;
+  const level = levelFromXp(child.currentXp);
 
   const castleType = CASTLE_TYPES.find((t) => t.id === newType);
   if (!castleType) throw new Error("Invalid castle type.");

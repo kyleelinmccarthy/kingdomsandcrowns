@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireActor } from "@/lib/auth/actor";
 import { resolveActiveChild } from "@/lib/actions/resolve-child";
 import { getCastle } from "@/lib/actions/castle";
+import { levelFromXp } from "@/lib/utils/level";
 import { ChildSelector } from "@/components/child-selector";
 import { GameFrame } from "@/components/game-frame";
 import { GameIcon, CASTLE_ICONS } from "@/components/game-icon";
@@ -39,7 +40,7 @@ export default async function CastlePage({
     );
   }
 
-  const level = Math.floor(activeChild.currentXp / 100) + 1;
+  const level = levelFromXp(activeChild.currentXp);
   const castle = await getCastle(activeChild.id);
 
   // Castle not yet unlocked

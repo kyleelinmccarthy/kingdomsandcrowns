@@ -4,6 +4,7 @@ import { getFamily } from "@/lib/actions/family";
 import { resolveActiveChild } from "@/lib/actions/resolve-child";
 import { getBadges, getChildBadges, checkAndAwardBadges } from "@/lib/actions/badges";
 import { getEarnedQuestRewards } from "@/lib/actions/quest-assignments";
+import { levelFromXp } from "@/lib/utils/level";
 import { ChildSelector } from "@/components/child-selector";
 import { GameFrame } from "@/components/game-frame";
 import { Avatar } from "@/components/avatar";
@@ -65,7 +66,7 @@ export default async function LootPage({
   const earnedIds = new Set(earnedBadges.map((b) => b.badge.id));
 
   const xp = activeChild.currentXp;
-  const level = Math.floor(xp / 100) + 1;
+  const level = levelFromXp(xp);
   const xpInLevel = xp % 100;
 
   return (

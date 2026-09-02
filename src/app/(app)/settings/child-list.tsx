@@ -52,6 +52,7 @@ import { setSkipQuestsEnabled } from "@/lib/actions/quest-assignments";
 import { setSchoolingMode, setSchoolingModeOverride } from "@/lib/actions/schooling-mode";
 import { parseSchoolingModeOverrides, type SchoolingMode } from "@/lib/utils/schooling-mode";
 import { DAYS_OF_WEEK, DAY_LABELS, type DayOfWeek } from "@/lib/utils/schedule-days";
+import { levelFromXp } from "@/lib/utils/level";
 import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
 
 type Family = {
@@ -816,7 +817,7 @@ function SortableSubjectRow({
 
 function AvatarSection({ child }: { child: Child }) {
   const [showCustomizer, setShowCustomizer] = useState(false);
-  const level = Math.floor(child.currentXp / 100) + 1;
+  const level = levelFromXp(child.currentXp);
   const config = child.avatarConfig ? (JSON.parse(child.avatarConfig) as AvatarConfig) : null;
 
   return (

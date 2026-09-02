@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { nanoid } from "nanoid";
 import { requireChildAccess } from "@/lib/auth/access";
+import { levelFromXp } from "@/lib/utils/level";
 
 export async function getBadges() {
   return db.select().from(schema.badge);
@@ -139,7 +140,7 @@ export async function checkAndAwardBadges(childId: string) {
   const earnedIds = new Set(existing.map((e) => e.badgeId));
   const newlyEarned: string[] = [];
 
-  const level = Math.floor(child[0].currentXp / 100) + 1;
+  const level = levelFromXp(child[0].currentXp);
 
   for (const badge of allBadges) {
     if (earnedIds.has(badge.id)) continue;

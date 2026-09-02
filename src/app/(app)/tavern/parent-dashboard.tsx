@@ -13,6 +13,7 @@ import {
   earliestStartTimeByDayAndSubject,
   sortUpcomingBySchedule,
 } from "@/lib/utils/quest-ordering";
+import { levelFromXp } from "@/lib/utils/level";
 import { GameFrame } from "@/components/game-frame";
 import { ParentAlertsPanel } from "@/components/parent-alerts";
 import { ScheduleGapNotice } from "@/components/schedule-gap-notice";
@@ -159,7 +160,7 @@ function ChildSummaryCard({
   child: ChildRow;
   todayAssignments: Awaited<ReturnType<typeof getAssignmentsForDate>>;
 }) {
-  const level = Math.floor(child.currentXp / 100) + 1;
+  const level = levelFromXp(child.currentXp);
   const xpInLevel = child.currentXp % 100;
   const completed = todayAssignments.filter((a) => a.assignment.status === "completed").length;
   const total = todayAssignments.length;

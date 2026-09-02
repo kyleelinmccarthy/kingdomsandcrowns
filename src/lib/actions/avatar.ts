@@ -18,6 +18,7 @@ import {
   BACKGROUNDS,
   type AvatarConfig,
 } from "@/lib/utils/avatar-catalog";
+import { levelFromXp } from "@/lib/utils/level";
 
 export async function updateAvatarConfig(childId: string, config: AvatarConfig) {
   if (!isValidAvatarConfig(config)) {
@@ -36,7 +37,7 @@ export async function updateAvatarConfig(childId: string, config: AvatarConfig) 
   const child = childRows[0];
   if (!child) throw new Error("Child not found.");
 
-  const level = Math.floor(child.currentXp / 100) + 1;
+  const level = levelFromXp(child.currentXp);
 
   const earnedBadges = await db
     .select({ badgeId: schema.childBadge.badgeId })
