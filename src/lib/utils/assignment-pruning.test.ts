@@ -7,8 +7,8 @@ const SCHOOL_DAYS = ["mon", "tue", "wed", "thu", "fri"];
 // 2026-03-02 is a Monday.
 function row(overrides: Partial<PendingAssignmentRow> & { id: string; date: string }): PendingAssignmentRow {
   return {
-    questId: "quest-1",
-    questIsActive: true,
+    sourceId: "quest-1",
+    sourceIsActive: true,
     schedule: {
       frequency: "weekly",
       daysOfWeek: MON_WED,
@@ -30,8 +30,8 @@ describe("findStaleAssignmentIds", () => {
 
   it("drops every row of a removed quest, scheduled or not", () => {
     const rows = [
-      row({ id: "a", date: "2026-03-02", questIsActive: false }),
-      row({ id: "b", date: "2026-03-04", questIsActive: false, schedule: null }),
+      row({ id: "a", date: "2026-03-02", sourceIsActive: false }),
+      row({ id: "b", date: "2026-03-04", sourceIsActive: false, schedule: null }),
     ];
     expect(findStaleAssignmentIds(rows, range)).toEqual(["a", "b"]);
   });
@@ -121,9 +121,9 @@ describe("findStaleAssignmentIds", () => {
 
   it("computes each quest's scheduled dates once, then applies them per row", () => {
     const rows = [
-      row({ id: "a", questId: "q1", date: "2026-03-02" }),
-      row({ id: "b", questId: "q1", date: "2026-03-03" }), // Tue — not in Mon/Wed
-      row({ id: "c", questId: "q2", date: "2026-03-04" }),
+      row({ id: "a", sourceId: "q1", date: "2026-03-02" }),
+      row({ id: "b", sourceId: "q1", date: "2026-03-03" }), // Tue — not in Mon/Wed
+      row({ id: "c", sourceId: "q2", date: "2026-03-04" }),
     ];
     expect(findStaleAssignmentIds(rows, range)).toEqual(["b"]);
   });

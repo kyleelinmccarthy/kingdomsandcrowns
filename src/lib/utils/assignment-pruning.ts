@@ -10,51 +10,48 @@ export type PruneSchedule = {
 
 export type PendingAssignmentRow = {
   id: string;
-  questId: string;
+  sourceId: string;
   date: string; // ISO YYYY-MM-DD
-  questIsActive: boolean;
+  sourceIsActive: boolean;
   /** The quest's schedule as it stands *now*, or null when the quest has none. */
   schedule: PruneSchedule | null;
 };
 
 /**
  * Decides which already-materialized `pending` assignments no longer belong to
- * the plan, so removing a quest — or its repeat — actually clears it out of
- * Today's Quests and Upcoming Quests instead of leaving orphan rows behind.
+ * the plan, so removing the thing that generated them — or its repeat —
+ * actually clears it out of the day's list instead of leaving orphan rows.
  *
- * Only `pending` rows should ever be handed in: completed/skipped assignments
- * are the child's history (the learning log reads them back) and must survive
- * a quest being retired.
+ * Shared by quests and upkeep tasks: `sourceId` is whichever template owns the
+ * assignment. Only `pending` rows should ever be handed in — completed rows are
+ * the child's history and must survive a template being retired.
  *
  * Three rules, in order:
- *  - The quest was removed (soft-deleted) → every pending row is stale.
- *  - The quest still has a schedule → a pending row is stale unless the
- *    schedule, as it reads today, still calls for that date. This is what
- *    prunes the leftovers when a repeat is narrowed (e.g. Mon/Wed → Tue) or
- *    given an end date.
- *  - The quest has no schedule → keep. Unscheduled quests are one-off/bonus
- *    quests whose assignments are created ad hoc by "Start a Quest", and
- *    those are never the scheduler's to delete. Callers that *just* deleted a
- *    schedule prune that quest's rows directly instead.
+ *  - The source was removed (soft-deleted) -> every pending row is stale.
+ *  - The source still has a schedule -> a pending row is stale unless the
+ *    schedule, as it reads today, still calls for that date. This prunes
+ *    leftovers when a repeat is narrowed or given an end date.
+ *  - The source has no schedule -> keep. Unscheduled templates produce ad hoc
+ *    assignments that are never the scheduler's to delete.
  */
 export function findStaleAssignmentIds(
   rows: PendingAssignmentRow[],
   opts: { rangeStart: string; rangeEnd: string; schoolDays: string[] | null }
 ): string[] {
-  const scheduledDatesByQuestId = new Map<string, Set<string>>();
+  const scheduledDatesBySourceId = new Map<string, Set<string>>();
   const stale: string[] = [];
 
   for (const row of rows) {
-    if (!row.questIsActive) {
+    if (!row.sourceIsActive) {
       stale.push(row.id);
       continue;
     }
     if (!row.schedule) continue;
 
-    let dates = scheduledDatesByQuestId.get(row.questId);
+    let dates = scheduledDatesBySourceId.get(row.sourceId);
     if (!dates) {
       dates = new Set(scheduledDatesForRange(row.schedule, opts));
-      scheduledDatesByQuestId.set(row.questId, dates);
+      scheduledDatesBySourceId.set(row.sourceId, dates);
     }
     if (!dates.has(row.date)) stale.push(row.id);
   }

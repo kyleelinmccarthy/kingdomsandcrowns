@@ -44,9 +44,9 @@ async function loadPendingRows(where: SQL | undefined): Promise<PendingAssignmen
 
   return rows.map((r) => ({
     id: r.id,
-    questId: r.questId,
+    sourceId: r.questId,
     date: r.date,
-    questIsActive: r.questIsActive,
+    sourceIsActive: r.questIsActive,
     schedule: r.scheduleId
       ? {
           frequency: r.frequency!,
