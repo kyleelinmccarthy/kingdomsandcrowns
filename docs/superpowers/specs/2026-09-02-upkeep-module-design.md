@@ -305,8 +305,8 @@ child logged schoolwork.
 
 ### Leaderboard
 
-`LeaderboardCategory` gains one member, `upkeep`, labelled **"Hearth & Hold"**,
-ranking by `child.upkeepXp`. The community query filters to `upkeepXp > 0` so
+`LeaderboardCategory` gains one member, `upkeep`, labelled **"Steward's Renown"**
+with a value label of **"Renown"**, ranking by `child.upkeepXp`. The community query filters to `upkeepXp > 0` so
 families who never enabled the module do not pad the board with zeroes. It joins
 the existing `CATEGORY_LABELS` map and the combined "all" view.
 
@@ -404,7 +404,7 @@ gold pieces for a hero viewing their own chest, dollars for a parent.
 **`/settings`.** Family section gains the Upkeep master toggle and the
 "require approval" toggle. The child list gains a per-child Upkeep toggle.
 
-**`/leaderboard` — Ranks.** The new "Hearth & Hold" category.
+**`/leaderboard` — Ranks.** The new "Steward's Renown" category.
 
 **`nav-items.ts`.** Quest Log's description currently reads "Your tasks and
 chores." — reword so it does not promise chores to families with the module off.
