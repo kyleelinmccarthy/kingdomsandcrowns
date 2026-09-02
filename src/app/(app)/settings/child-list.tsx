@@ -31,6 +31,7 @@ import { FamilySetup } from "./family-setup";
 import { ChildLoginAccess } from "./child-login-access";
 import { SendHeroEmailButton } from "./send-hero-email";
 import { AgeInput, type AgeMode } from "./age-input";
+import { ChildUpkeepToggle } from "./child-upkeep-toggle";
 import { GameIcon } from "@/components/game-icon";
 import {
   createChild,
@@ -100,6 +101,7 @@ type Child = {
   subjects: Subject[];
   earnedBadgeIds?: string[];
   questUnlockedItems?: string[];
+  upkeepEnabled?: boolean;
 };
 
 const SUBJECT_COLORS = [
@@ -126,12 +128,14 @@ export function ChildList({
   banished = [],
   isChildView = false,
   currentChildId = null,
+  familyUpkeepEnabled = false,
 }: {
   family: Family;
   kids: Child[];
   banished?: BanishedHero[];
   isChildView?: boolean;
   currentChildId?: string | null;
+  familyUpkeepEnabled?: boolean;
 }) {
   const [showAdd, setShowAdd] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(
@@ -175,7 +179,11 @@ export function ChildList({
       </div>
 
       {expandedChild && (
-        <ChildDetail child={expandedChild} isChildView={isChildView} />
+        <ChildDetail
+          child={expandedChild}
+          isChildView={isChildView}
+          familyUpkeepEnabled={familyUpkeepEnabled}
+        />
       )}
 
       {!isChildView && banished.length > 0 && <BanishedHeroes heroes={banished} />}
@@ -382,7 +390,15 @@ function ChildSummaryCard({
   );
 }
 
-function ChildDetail({ child, isChildView = false }: { child: Child; isChildView?: boolean }) {
+function ChildDetail({
+  child,
+  isChildView = false,
+  familyUpkeepEnabled = false,
+}: {
+  child: Child;
+  isChildView?: boolean;
+  familyUpkeepEnabled?: boolean;
+}) {
   const router = useRouter();
   const [confirmBanish, setConfirmBanish] = useState(false);
   const [banishing, setBanishing] = useState(false);
@@ -427,6 +443,13 @@ function ChildDetail({ child, isChildView = false }: { child: Child; isChildView
           <SkipQuestsToggle
             childId={child.id}
             enabled={child.skipQuestsEnabled ?? false}
+          />
+        )}
+        {!isChildView && (
+          <ChildUpkeepToggle
+            childId={child.id}
+            enabled={child.upkeepEnabled ?? false}
+            familyDisabled={!familyUpkeepEnabled}
           />
         )}
         {!isChildView && (
