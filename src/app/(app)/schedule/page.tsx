@@ -8,11 +8,13 @@ import {
   getScheduleSelfManage,
   getStreakOptionalDays,
 } from "@/lib/actions/student-schedule";
+import { getRecessBlocks } from "@/lib/actions/recess-blocks";
 import { ChildSelector } from "@/components/child-selector";
 import { GameFrame } from "@/components/game-frame";
 import { GameIcon } from "@/components/game-icon";
 import { StudentScheduleEditor } from "@/components/student-schedule-editor";
 import { ScheduleGapNotice } from "@/components/schedule-gap-notice";
+import { RecessBlocksPanel } from "@/components/recess-blocks-panel";
 import { getSubjectScheduleGaps } from "@/lib/actions/schedule-gaps";
 
 export default async function SchedulePage({
@@ -40,7 +42,7 @@ export default async function SchedulePage({
     );
   }
 
-  const [subjects, schoolDays, optionalDays, blocks, selfManageEnabled, scheduleGaps] =
+  const [subjects, schoolDays, optionalDays, blocks, selfManageEnabled, scheduleGaps, recessBlocks] =
     await Promise.all([
       getSubjects(activeChild.id),
       getSchoolDays(activeChild.id),
@@ -48,6 +50,7 @@ export default async function SchedulePage({
       getScheduleBlocks(activeChild.id),
       getScheduleSelfManage(activeChild.id),
       getSubjectScheduleGaps(activeChild.id),
+      isChildView ? [] : getRecessBlocks(activeChild.id),
     ]);
 
   const canEdit = !isChildView || selfManageEnabled;
@@ -101,6 +104,8 @@ export default async function SchedulePage({
           canEdit={canEdit}
         />
       )}
+
+      {!isChildView && <RecessBlocksPanel childId={activeChild.id} blocks={recessBlocks} />}
     </div>
   );
 }
