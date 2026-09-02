@@ -8,7 +8,6 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { updateRealmSettings } from "@/lib/actions/realm-settings";
 import { grantRealmMinutes } from "@/lib/actions/realm-play";
-import { localDateOf } from "@/lib/utils/schedule-days";
 import {
   DAILY_CAP_RANGE,
   EARNED_MINUTES_RANGE,
@@ -145,7 +144,7 @@ export function RealmSettingsPanel({
         </div>
         <div className="flex gap-2">
           {[15, 30].map((m) => (
-            <Button key={m} size="sm" variant="outline" className="!border-[var(--gold-border)]" disabled={busy} onClick={() => run(() => grantRealmMinutes(childId, localDateOf(new Date()), m))}>
+            <Button key={m} size="sm" variant="outline" className="!border-[var(--gold-border)]" disabled={busy} onClick={() => run(() => grantRealmMinutes(childId, summary.date, m))}>
               Grant {m}
             </Button>
           ))}

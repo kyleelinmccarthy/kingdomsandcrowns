@@ -135,16 +135,18 @@ export async function updateChild(
     updates.ageMode = ageMode;
   }
 
+  // Sync the season before updating the child row: if the sync throws, the
+  // grade stays untouched instead of leaving grade and season disagreeing.
+  let seasonTransition: TransitionPlan | null = null;
+  if (data.grade) {
+    seasonTransition = await syncSeasonForGrade(childId, data.grade, today ?? formatDate(new Date()));
+  }
+
   await db
     .update(schema.child)
     .set(updates)
     .where(and(eq(schema.child.id, childId), eq(schema.child.familyId, familyId)));
 
-  // Changing the grade is what opens, completes, or corrects a season.
-  let seasonTransition: TransitionPlan | null = null;
-  if (data.grade) {
-    seasonTransition = await syncSeasonForGrade(childId, data.grade, today ?? formatDate(new Date()));
-  }
   return { seasonTransition };
 }
 

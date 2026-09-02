@@ -108,7 +108,7 @@ describe("computeRealmAccess", () => {
     const both = { ...settings, accessMode: "both" as const };
     expect(computeRealmAccess({ ...base, settings: both, ledgerToday: [] })).toEqual({ allowed: false, reason: "no_minutes" });
   });
-  it("denies with school_hours when only off-hours access is on", () => {
+  it("reports the mode's own reason instead of school_hours during school time", () => {
     const r = computeRealmAccess({
       ...base,
       settings: { ...settings, accessMode: "scheduled", offHoursEnabled: true },

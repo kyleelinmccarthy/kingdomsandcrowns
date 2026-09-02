@@ -14,7 +14,7 @@ import { getRealmPlaySummary } from "@/lib/actions/realm-play";
 import { getFamilyMembers } from "@/lib/actions/guardians";
 import { ensureFamilyLoginCode } from "@/lib/actions/child-auth";
 import { getActor } from "@/lib/auth/actor";
-import { formatDate } from "@/lib/utils/dates";
+import { formatDate, todayInTimeZone } from "@/lib/utils/dates";
 import { FamilySetup } from "./family-setup";
 import { ChildList } from "./child-list";
 import { GuardiansManager } from "./guardians";
@@ -46,6 +46,10 @@ export default async function SettingsPage() {
 
   const children = allChildren;
 
+  // The Realm summary must read as "today" in the family's own time zone —
+  // the server's UTC date can already be tomorrow (or still yesterday) there.
+  const familyToday = family ? todayInTimeZone(family.timezone, new Date()) : formatDate(new Date());
+
   // Adult-only management data.
   const families = !isChildView ? await getFamilies() : [];
   // Soft-deleted heroes a parent can summon back (never shown to a child).
@@ -73,7 +77,7 @@ export default async function SettingsPage() {
         getSeasons(child.id),
         isChildView ? null : getLearningProfile(child.id),
         isChildView ? null : getRealmSettings(child.id),
-        isChildView ? null : getRealmPlaySummary(child.id, formatDate(new Date())),
+        isChildView ? null : getRealmPlaySummary(child.id, familyToday),
       ]);
       const { pinHash: _pinHash, ...rest } = child;
       return {

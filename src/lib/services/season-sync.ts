@@ -1,4 +1,4 @@
-import { and, eq, gte } from "drizzle-orm";
+import { and, eq, gt } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
@@ -23,11 +23,17 @@ async function loadSeasonState(childId: string) {
   return { open, previousCompleted: completed[0] ?? null, count: rows.length };
 }
 
+/**
+ * Activity on the very day a season opens belongs to the correction window:
+ * a typo grade bump fixed the same day must never count as a finished grade
+ * (that would mint a crown for it and make the promotion unreversible), so
+ * the boundary day itself is excluded — strictly after startDate.
+ */
 async function hasActivitySince(childId: string, startDate: string): Promise<boolean> {
   const rows = await db
     .select({ id: schema.activityLog.id })
     .from(schema.activityLog)
-    .where(and(eq(schema.activityLog.childId, childId), gte(schema.activityLog.date, startDate)))
+    .where(and(eq(schema.activityLog.childId, childId), gt(schema.activityLog.date, startDate)))
     .limit(1);
   return rows.length > 0;
 }

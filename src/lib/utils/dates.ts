@@ -21,3 +21,20 @@ export function formatDate(date: Date): string {
 export function toISODate(date: Date): string {
   return formatDate(date);
 }
+
+/**
+ * Today's date (YYYY-MM-DD) as it reads in a given IANA time zone, not the
+ * server's UTC date. Falls back to the UTC date if the time zone is invalid.
+ */
+export function todayInTimeZone(timeZone: string, now: Date = new Date()): string {
+  try {
+    return new Intl.DateTimeFormat("en-CA", {
+      timeZone,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(now);
+  } catch {
+    return formatDate(now);
+  }
+}

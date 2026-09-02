@@ -63,5 +63,21 @@ export async function grantEarnedMinutesForCompletion(
   const settings = await loadRealmSettings(childId);
   const earns = settings.accessMode === "earned" || settings.accessMode === "both";
   if (!settings.enabled || !earns || settings.earnedMinutesPerQuest <= 0) return;
+
+  // Minutes are earned once per quest: a quest revised back to pending and
+  // finished again must not bank a second grant.
+  const existing = await db
+    .select({ id: schema.realmPlayLedger.id })
+    .from(schema.realmPlayLedger)
+    .where(
+      and(
+        eq(schema.realmPlayLedger.childId, childId),
+        eq(schema.realmPlayLedger.kind, "earned"),
+        eq(schema.realmPlayLedger.sourceAssignmentId, assignmentId)
+      )
+    )
+    .limit(1);
+  if (existing.length > 0) return;
+
   await appendLedger(childId, date, "earned", settings.earnedMinutesPerQuest, assignmentId);
 }

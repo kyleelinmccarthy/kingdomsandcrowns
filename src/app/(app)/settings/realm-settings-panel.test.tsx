@@ -38,7 +38,7 @@ describe("RealmSettingsPanel", () => {
     const user = userEvent.setup();
     render(<RealmSettingsPanel childId="c1" settings={DEFAULT_REALM_SETTINGS} summary={summary} />);
     await user.click(screen.getByRole("button", { name: /grant 15/i }));
-    expect(grantRealmMinutes).toHaveBeenCalledWith("c1", expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/), 15);
+    expect(grantRealmMinutes).toHaveBeenCalledWith("c1", "2026-09-02", 15);
   });
 
   it("shows today's balance and spent minutes", () => {
