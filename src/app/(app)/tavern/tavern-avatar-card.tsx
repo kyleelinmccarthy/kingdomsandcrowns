@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Avatar } from "@/components/avatar";
 import { AvatarCustomizer } from "@/components/avatar-customizer";
 import { GameFrame } from "@/components/game-frame";
+import { GameIcon } from "@/components/game-icon";
 import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
 
 export function TavernAvatarCard({
@@ -14,6 +15,7 @@ export function TavernAvatarCard({
   xpInLevel,
   earnedBadgeIds = [],
   questUnlockedItems = [],
+  crownCount = 0,
 }: {
   childId: string;
   childName: string;
@@ -22,6 +24,7 @@ export function TavernAvatarCard({
   xpInLevel: number;
   earnedBadgeIds?: string[];
   questUnlockedItems?: string[];
+  crownCount?: number;
 }) {
   const [showCustomizer, setShowCustomizer] = useState(false);
   const config = avatarConfig ? (JSON.parse(avatarConfig) as AvatarConfig) : null;
@@ -42,6 +45,12 @@ export function TavernAvatarCard({
             {childName}
           </p>
           <p className="text-sm text-muted-foreground">Level {level} Champion</p>
+          {crownCount > 0 && (
+            <p className="text-xs text-[var(--gold-bright)]">
+              <GameIcon name="crown" className="mr-1 inline size-3.5" />
+              {crownCount} {crownCount === 1 ? "Crown" : "Crowns"}
+            </p>
+          )}
           <div className="mt-3 flex items-center gap-4">
             <div className="level-badge">{level}</div>
             <div className="text-left">

@@ -211,6 +211,7 @@ export default async function TavernPage({
               xpInLevel={xpInLevel}
               earnedBadgeIds={earnedBadgeIdList}
               questUnlockedItems={questUnlockedItemIds}
+              crownCount={crownCount}
             />
           ) : (
             <GameFrame className="hud-character-frame" borderless>
