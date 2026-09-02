@@ -4,9 +4,11 @@ import { getFamily } from "@/lib/actions/family";
 import { resolveActiveChild } from "@/lib/actions/resolve-child";
 import { getBadges, getChildBadges, checkAndAwardBadges } from "@/lib/actions/badges";
 import { getEarnedQuestRewards } from "@/lib/actions/quest-assignments";
+import { getSeasons } from "@/lib/actions/seasons";
 import { levelFromXp } from "@/lib/utils/level";
 import { ChildSelector } from "@/components/child-selector";
 import { GameFrame } from "@/components/game-frame";
+import { CrownsPanel } from "@/components/crowns-panel";
 import { Avatar } from "@/components/avatar";
 import { getRewardItemLabel, type AvatarConfig } from "@/lib/utils/avatar-catalog";
 import { GameIcon, BADGE_ICONS } from "@/components/game-icon";
@@ -57,10 +59,11 @@ export default async function LootPage({
 
   await checkAndAwardBadges(activeChild.id);
 
-  const [allBadges, earnedBadges, questRewards] = await Promise.all([
+  const [allBadges, earnedBadges, questRewards, seasons] = await Promise.all([
     getBadges(),
     getChildBadges(activeChild.id),
     getEarnedQuestRewards(activeChild.id),
+    getSeasons(activeChild.id),
   ]);
 
   const earnedIds = new Set(earnedBadges.map((b) => b.badge.id));
@@ -132,6 +135,8 @@ export default async function LootPage({
           </div>
         </GameFrame>
       </div>
+
+      <CrownsPanel history={seasons.history} />
 
       {/* Claimed treasures — earned badges + completed quest bounties */}
       <GameFrame title={`Claimed Treasures (${earnedBadges.length + questRewards.length})`} icon={<GameIcon name="trophy" className="size-4 text-[var(--gold-bright)]" />}>

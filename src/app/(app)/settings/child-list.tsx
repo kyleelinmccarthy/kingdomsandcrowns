@@ -32,6 +32,9 @@ import { ChildLoginAccess } from "./child-login-access";
 import { SendHeroEmailButton } from "./send-hero-email";
 import { AgeInput, type AgeMode } from "./age-input";
 import { GameIcon } from "@/components/game-icon";
+import { SeasonPanel } from "./season-panel";
+import { crownById } from "@/lib/utils/crown-catalog";
+import type { SeasonRecord } from "@/lib/utils/seasons";
 import {
   createChild,
   updateChild,
@@ -51,7 +54,7 @@ import { setScheduleSelfManage } from "@/lib/actions/student-schedule";
 import { setSkipQuestsEnabled } from "@/lib/actions/quest-assignments";
 import { setSchoolingMode, setSchoolingModeOverride } from "@/lib/actions/schooling-mode";
 import { parseSchoolingModeOverrides, type SchoolingMode } from "@/lib/utils/schooling-mode";
-import { DAYS_OF_WEEK, DAY_LABELS, type DayOfWeek } from "@/lib/utils/schedule-days";
+import { DAYS_OF_WEEK, DAY_LABELS, type DayOfWeek, localDateOf } from "@/lib/utils/schedule-days";
 import { levelFromXp } from "@/lib/utils/level";
 import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
 
@@ -101,6 +104,7 @@ type Child = {
   subjects: Subject[];
   earnedBadgeIds?: string[];
   questUnlockedItems?: string[];
+  seasons?: { open: SeasonRecord | null; history: SeasonRecord[] };
 };
 
 const SUBJECT_COLORS = [
@@ -412,6 +416,12 @@ function ChildDetail({ child, isChildView = false }: { child: Child; isChildView
           </div>
         )}
         <AvatarSection child={child} />
+        <SeasonPanel
+          displayName={child.displayName}
+          hasGrade={!!child.grade}
+          open={child.seasons?.open ?? null}
+          history={child.seasons?.history ?? []}
+        />
         {!isChildView && <ChildInfoEditor child={child} />}
         {!isChildView && <SubjectManager childId={child.id} subjects={child.subjects} />}
         {!isChildView && <ChildLoginAccess child={child} />}
@@ -496,6 +506,7 @@ function ChildInfoEditor({ child }: { child: Child }) {
   const [grade, setGrade] = useState(child.grade ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [crownNotice, setCrownNotice] = useState("");
 
   const ageChanged =
     ageMode === "grade"
@@ -507,12 +518,20 @@ function ChildInfoEditor({ child }: { child: Child }) {
     setSaving(true);
     setError("");
     try {
-      await updateChild(child.id, {
-        displayName: name !== child.displayName ? name : undefined,
-        birthYear:
-          ageMode === "birthYear" && ageChanged && birthYear ? parseInt(birthYear) : undefined,
-        grade: ageMode === "grade" && ageChanged && grade ? grade : undefined,
-      });
+      const result = await updateChild(
+        child.id,
+        {
+          displayName: name !== child.displayName ? name : undefined,
+          birthYear:
+            ageMode === "birthYear" && ageChanged && birthYear ? parseInt(birthYear) : undefined,
+          grade: ageMode === "grade" && ageChanged && grade ? grade : undefined,
+        },
+        localDateOf(new Date())
+      );
+      const plan = result?.seasonTransition;
+      if (plan?.type === "complete_and_open") {
+        setCrownNotice(`${child.displayName} finished the season and earned the ${crownById(plan.crownId)?.label ?? "crown"}!`);
+      }
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "The enchantment failed");
@@ -526,6 +545,11 @@ function ChildInfoEditor({ child }: { child: Child }) {
       <h4 className="text-sm font-medium">Hero Details</h4>
       {error && (
         <div className="rounded-md bg-destructive/10 p-2 text-sm text-destructive">{error}</div>
+      )}
+      {crownNotice && (
+        <div className="rounded-md border border-[var(--gold-border)] bg-muted/30 p-2 text-sm">
+          <GameIcon name="crown" className="mr-1 inline size-4 text-[var(--gold-bright)]" /> {crownNotice}
+        </div>
       )}
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-1">

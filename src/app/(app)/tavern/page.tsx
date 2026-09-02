@@ -10,6 +10,7 @@ import { getScheduleBlocks } from "@/lib/actions/student-schedule";
 import { getSchoolingModeForDate } from "@/lib/actions/schooling-mode";
 import { getBadges, getChildBadges, checkAndAwardBadges } from "@/lib/actions/badges";
 import { getChildAvatarUnlocks } from "@/lib/actions/avatar";
+import { getSeasons } from "@/lib/actions/seasons";
 import { formatDate } from "@/lib/utils/dates";
 import { weekdayOfDate, currentTimeOfDay } from "@/lib/utils/schedule-days";
 import { getStructuredCardLock } from "@/lib/utils/quest-ordering";
@@ -86,7 +87,7 @@ export default async function TavernPage({
   const today = formatDate(new Date());
   await generateAssignmentsFromSchedules(activeChild.id, today, today);
 
-  const [subjects, recentActivities, allBadges, earnedBadges, todayAssignments, quests, avatarUnlocks, allBlocks, latestStatusByQuestId, schoolingMode] = await Promise.all([
+  const [subjects, recentActivities, allBadges, earnedBadges, todayAssignments, quests, avatarUnlocks, allBlocks, latestStatusByQuestId, schoolingMode, seasons] = await Promise.all([
     getSubjects(activeChild.id),
     getRecentActivities(activeChild.id, 50),
     getBadges(),
@@ -97,6 +98,7 @@ export default async function TavernPage({
     getScheduleBlocks(activeChild.id),
     getLatestAssignmentStatusByQuest(activeChild.id),
     getSchoolingModeForDate(activeChild.id, today),
+    getSeasons(activeChild.id),
   ]);
 
   const todaysBlocks = allBlocks.filter((b) => b.dayOfWeek === weekdayOfDate(today));
@@ -124,6 +126,7 @@ export default async function TavernPage({
 
   const level = levelFromXp(activeChild.currentXp);
   const xpInLevel = activeChild.currentXp % 100;
+  const crownCount = seasons.history.filter((s) => s.crownId).length;
   const earnedIds = new Set(earnedBadges.map((b) => b.badge.id));
   const earnedBadgeIdList = earnedBadges.map((b) => b.badge.id);
   const questUnlockedItemIds = avatarUnlocks.map((u) => u.itemId);
@@ -227,6 +230,12 @@ export default async function TavernPage({
                 <p className="text-sm text-muted-foreground">
                   Level {level} Champion
                 </p>
+                {crownCount > 0 && (
+                  <p className="text-xs text-[var(--gold-bright)]">
+                    <GameIcon name="crown" className="mr-1 inline size-3.5" />
+                    {crownCount} {crownCount === 1 ? "Crown" : "Crowns"}
+                  </p>
+                )}
 
                 {/* Level badge + XP bar */}
                 <div className="mt-3 flex items-center gap-4">
