@@ -4,11 +4,14 @@ import { nanoid } from "nanoid";
 import { and, asc, desc, eq, gte, lt, lte } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
-import { requireChildAccess } from "@/lib/auth/access";
-import { loadUpkeepContext } from "@/lib/services/upkeep-context";
+import { requireChildAccess, requireUpkeepAssignmentAccess } from "@/lib/auth/access";
+import { assertUpkeepEnabled, loadUpkeepContext } from "@/lib/services/upkeep-context";
 import { pruneStaleUpkeepAssignmentsInRange } from "@/lib/services/upkeep-assignment-sync";
 import { assignmentKey, planUpkeepAssignments } from "@/lib/utils/upkeep-planning";
 import { addDays } from "@/lib/utils/dates";
+import { getActor, requireAdultActor } from "@/lib/auth/actor";
+import { applyUpkeepTransition } from "@/lib/services/upkeep-transitions";
+import { sanitizeText } from "@/lib/utils/sanitize";
 
 /** How far back the "still owing" list looks. Beyond this, a missed chore is history. */
 const OUTSTANDING_LOOKBACK_DAYS = 30;
@@ -194,4 +197,84 @@ export async function getUpkeepAwaitingApproval(childId: string) {
       )
     )
     .orderBy(desc(schema.upkeepTaskAssignment.date));
+}
+
+/** Identifies the acting user, including a PIN hero who has no `user` row. */
+async function actingUserId(): Promise<string> {
+  const actor = await getActor();
+  if (!actor) throw new Error("Unauthorized");
+  return actor.kind === "child" ? `child:${actor.childId}` : actor.userId;
+}
+
+/**
+ * A hero (or a parent) marks a task done. Where the family requires approval,
+ * a hero's claim lands in `awaiting_approval` and no wages post; a parent
+ * marking it done completes it outright, since they are the approver.
+ */
+export async function markUpkeepDone(assignmentId: string, notes?: string) {
+  await requireUpkeepAssignmentAccess(assignmentId, { write: true });
+  const rows = await db
+    .select({ childId: schema.upkeepTaskAssignment.childId })
+    .from(schema.upkeepTaskAssignment)
+    .where(eq(schema.upkeepTaskAssignment.id, assignmentId))
+    .limit(1);
+  if (!rows[0]) throw new Error("Upkeep assignment not found.");
+
+  const context = await assertUpkeepEnabled(rows[0].childId);
+  const actor = await getActor();
+  const isChild = actor?.kind === "child";
+
+  await applyUpkeepTransition({
+    assignmentId,
+    next: context.requiresApproval && isChild ? "awaiting_approval" : "completed",
+    actorUserId: await actingUserId(),
+    notes: notes ? sanitizeText(notes, 2000) : undefined,
+    statusReason: null,
+  });
+}
+
+/** A grown-up confirms a hero's claim; wages and XP post here. */
+export async function approveUpkeep(assignmentId: string) {
+  await requireAdultActor();
+  await requireUpkeepAssignmentAccess(assignmentId, { write: true });
+  await applyUpkeepTransition({
+    assignmentId,
+    next: "completed",
+    actorUserId: await actingUserId(),
+  });
+}
+
+/** Sends the task back with a reason. Nothing posts. */
+export async function rejectUpkeep(assignmentId: string, reason: string) {
+  await requireAdultActor();
+  await requireUpkeepAssignmentAccess(assignmentId, { write: true });
+  await applyUpkeepTransition({
+    assignmentId,
+    next: "pending",
+    actorUserId: await actingUserId(),
+    statusReason: sanitizeText(reason, 500),
+  });
+}
+
+/** Parent-only: retires a task for the day without claiming it was done. */
+export async function excuseUpkeep(assignmentId: string, reason: string) {
+  await requireAdultActor();
+  await requireUpkeepAssignmentAccess(assignmentId, { write: true });
+  await applyUpkeepTransition({
+    assignmentId,
+    next: "excused",
+    actorUserId: await actingUserId(),
+    statusReason: sanitizeText(reason, 500),
+  });
+}
+
+/** Parent-only: undoes a completion, reversing any wages and XP it granted. */
+export async function uncompleteUpkeep(assignmentId: string) {
+  await requireAdultActor();
+  await requireUpkeepAssignmentAccess(assignmentId, { write: true });
+  await applyUpkeepTransition({
+    assignmentId,
+    next: "pending",
+    actorUserId: await actingUserId(),
+  });
 }
