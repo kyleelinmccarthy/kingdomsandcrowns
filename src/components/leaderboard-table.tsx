@@ -151,6 +151,7 @@ export function CombinedLeaderboardTable({
           <span className="w-16 text-right">Quest Streak</span>
           <span className="w-16 text-right">Best Streak</span>
           <span className="w-16 text-right">Trophies</span>
+          <span className="w-16 text-right">Renown</span>
         </div>
 
         {entries.map((entry, i) => {
@@ -213,6 +214,11 @@ export function CombinedLeaderboardTable({
               <div className="w-16 text-right">
                 <span className="text-sm text-muted-foreground">
                   {entry.badges}
+                </span>
+              </div>
+              <div className="w-16 text-right">
+                <span className="text-sm text-muted-foreground">
+                  {entry.upkeepXp}
                 </span>
               </div>
             </div>

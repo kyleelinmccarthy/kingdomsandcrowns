@@ -1,6 +1,6 @@
 "use server";
 
-import { eq, and, desc, sql, inArray, isNull } from "drizzle-orm";
+import { eq, and, desc, sql, inArray, isNull, gt } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
@@ -22,6 +22,7 @@ export async function getFamilyLeaderboard() {
       badgeCount: sql<number>`(
         SELECT count(*) FROM child_badge WHERE child_badge.child_id = ${schema.child.id}
       )`,
+      upkeepXp: schema.child.upkeepXp,
     })
     .from(schema.child)
     .where(and(inArray(schema.child.id, childIds), isNull(schema.child.banishedAt)))
@@ -30,7 +31,7 @@ export async function getFamilyLeaderboard() {
   return children;
 }
 
-export type LeaderboardCategory = "xp" | "streak" | "longestStreak" | "badges";
+export type LeaderboardCategory = "xp" | "streak" | "longestStreak" | "badges" | "upkeep";
 
 export type CommunityLeaderboardEntry = {
   displayName: string;
@@ -51,7 +52,9 @@ export async function getCommunityLeaderboard(
         ? schema.child.currentStreak
         : category === "longestStreak"
           ? schema.child.longestStreak
-          : null;
+          : category === "upkeep"
+            ? schema.child.upkeepXp
+            : null;
 
   if (category === "badges") {
     const rows = await db
@@ -75,6 +78,12 @@ export async function getCommunityLeaderboard(
     }));
   }
 
+  // Chore XP is ranked separately from school XP so that doing chores can
+  // never inflate — or be crowded out of — the school standings. Only heroes
+  // who have actually earned any appear at all.
+  const categoryFilter =
+    category === "upkeep" ? [gt(schema.child.upkeepXp, 0)] : [];
+
   const rows = await db
     .select({
       displayName: schema.child.displayName,
@@ -82,7 +91,13 @@ export async function getCommunityLeaderboard(
       value: orderColumn!,
     })
     .from(schema.child)
-    .where(and(eq(schema.child.showOnLeaderboard, true), isNull(schema.child.banishedAt)))
+    .where(
+      and(
+        eq(schema.child.showOnLeaderboard, true),
+        isNull(schema.child.banishedAt),
+        ...categoryFilter
+      )
+    )
     .orderBy(desc(orderColumn!))
     .limit(50);
 
@@ -101,6 +116,7 @@ export type CommunityLeaderboardAllEntry = {
   streak: number;
   longestStreak: number;
   badges: number;
+  upkeepXp: number;
   rank: number;
 };
 
@@ -115,6 +131,7 @@ export async function getCommunityLeaderboardAll(): Promise<CommunityLeaderboard
       streak: schema.child.currentStreak,
       longestStreak: schema.child.longestStreak,
       badges: sql<number>`count(${schema.childBadge.id})`,
+      upkeepXp: schema.child.upkeepXp,
     })
     .from(schema.child)
     .leftJoin(schema.childBadge, eq(schema.child.id, schema.childBadge.childId))
@@ -130,6 +147,7 @@ export async function getCommunityLeaderboardAll(): Promise<CommunityLeaderboard
     streak: row.streak,
     longestStreak: row.longestStreak,
     badges: row.badges,
+    upkeepXp: row.upkeepXp,
     rank: i + 1,
   }));
 }
