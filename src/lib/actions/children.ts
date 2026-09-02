@@ -13,6 +13,9 @@ import {
 import { sanitizeName } from "@/lib/utils/sanitize";
 import { hashPin } from "@/lib/utils/pin";
 import { resolveAge } from "@/lib/utils/age-mode";
+import { formatDate } from "@/lib/utils/dates";
+import { syncSeasonForGrade } from "@/lib/services/season-sync";
+import type { TransitionPlan } from "@/lib/utils/seasons";
 
 export async function getChildren() {
   const access = await requireFamilyAccess();
@@ -104,14 +107,17 @@ export async function createChild(data: {
     });
   }
 
+  // A hero with a grade starts their first season the day they're summoned.
+  if (grade) await syncSeasonForGrade(id, grade, formatDate(now));
+
   return { id, displayName: name };
 }
 
-export async function updateChild(childId: string, data: {
-  displayName?: string;
-  birthYear?: number;
-  grade?: string;
-}) {
+export async function updateChild(
+  childId: string,
+  data: { displayName?: string; birthYear?: number; grade?: string },
+  today?: string
+): Promise<{ seasonTransition: TransitionPlan | null }> {
   const { familyId } = await requireChildAccess(childId, { write: true });
   const updates: Record<string, unknown> = { updatedAt: new Date() };
   if (data.displayName) updates.displayName = sanitizeName(data.displayName);
@@ -133,6 +139,13 @@ export async function updateChild(childId: string, data: {
     .update(schema.child)
     .set(updates)
     .where(and(eq(schema.child.id, childId), eq(schema.child.familyId, familyId)));
+
+  // Changing the grade is what opens, completes, or corrects a season.
+  let seasonTransition: TransitionPlan | null = null;
+  if (data.grade) {
+    seasonTransition = await syncSeasonForGrade(childId, data.grade, today ?? formatDate(new Date()));
+  }
+  return { seasonTransition };
 }
 
 /**
