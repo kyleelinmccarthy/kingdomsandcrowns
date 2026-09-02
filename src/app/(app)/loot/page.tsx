@@ -9,6 +9,9 @@ import { GameFrame } from "@/components/game-frame";
 import { Avatar } from "@/components/avatar";
 import { getRewardItemLabel, type AvatarConfig } from "@/lib/utils/avatar-catalog";
 import { GameIcon, BADGE_ICONS } from "@/components/game-icon";
+import { loadUpkeepContext } from "@/lib/services/upkeep-context";
+import { getWageBalance } from "@/lib/actions/wages";
+import { WagesPanel } from "@/components/wages-panel";
 
 export default async function LootPage({
   searchParams,
@@ -62,6 +65,9 @@ export default async function LootPage({
     getEarnedQuestRewards(activeChild.id),
   ]);
 
+  const upkeepContext = await loadUpkeepContext(activeChild.id);
+  const wageBalance = upkeepContext?.enabled ? await getWageBalance(activeChild.id) : null;
+
   const earnedIds = new Set(earnedBadges.map((b) => b.badge.id));
 
   const xp = activeChild.currentXp;
@@ -85,6 +91,10 @@ export default async function LootPage({
           <ChildSelector kids={allChildren} selectedId={activeChild.id} />
         )}
       </div>
+
+      {wageBalance !== null && (
+        <WagesPanel balanceCents={wageBalance} isChildView={isChildView} />
+      )}
 
       {/* Hero Stats — Level, XP, Streaks */}
       <div className="grid gap-4 sm:grid-cols-3">

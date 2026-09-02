@@ -16,6 +16,11 @@ import { buildBlockDaysBySubject } from "@/lib/utils/schedule-gaps";
 import { loadUpkeepContext } from "@/lib/services/upkeep-context";
 import { getUpkeepTasks } from "@/lib/actions/upkeep-tasks";
 import { UpkeepTaskList } from "@/components/upkeep-task-list";
+import { formatDate } from "@/lib/utils/dates";
+import { getWageBalance, getWageLedger } from "@/lib/actions/wages";
+import { getUpkeepAwaitingApproval } from "@/lib/actions/upkeep-assignments";
+import { StewardsLedger } from "@/components/stewards-ledger";
+import { UpkeepApprovalQueue } from "@/components/upkeep-approval-queue";
 
 export default async function ManageQuestsPage({
   searchParams,
@@ -92,7 +97,17 @@ export default async function ManageQuestsPage({
   const blockDaysBySubject = buildBlockDaysBySubject(blocks);
 
   const upkeepContext = await loadUpkeepContext(activeChild.id);
-  const upkeepTasks = upkeepContext?.enabled ? await getUpkeepTasks(activeChild.id) : [];
+  const upkeepEnabled = Boolean(upkeepContext?.enabled);
+  const todayDate = formatDate(new Date());
+
+  const [upkeepTasks, wageBalance, wageLedger, awaitingApproval] = upkeepEnabled
+    ? await Promise.all([
+        getUpkeepTasks(activeChild.id),
+        getWageBalance(activeChild.id),
+        getWageLedger(activeChild.id),
+        getUpkeepAwaitingApproval(activeChild.id),
+      ])
+    : [[], 0, [], []];
 
   return (
     <div className="space-y-6">
@@ -121,7 +136,7 @@ export default async function ManageQuestsPage({
         blockDaysBySubject={blockDaysBySubject}
       />
 
-      {upkeepContext?.enabled && (
+      {upkeepEnabled && (
         <section className="space-y-4">
           <h2 className="page-title text-2xl">Upkeep</h2>
           <p className="text-sm text-muted-foreground">
@@ -129,6 +144,17 @@ export default async function ManageQuestsPage({
             schedule, and be required or merely welcome.
           </p>
           <UpkeepTaskList childId={activeChild.id} tasks={upkeepTasks} />
+
+          <UpkeepApprovalQueue rows={awaitingApproval} today={todayDate} />
+
+          <div className="space-y-3">
+            <h3 className="page-title text-xl">Steward&apos;s Ledger</h3>
+            <StewardsLedger
+              childId={activeChild.id}
+              balanceCents={wageBalance}
+              entries={wageLedger}
+            />
+          </div>
         </section>
       )}
     </div>
