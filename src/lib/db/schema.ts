@@ -1,4 +1,5 @@
 import { sqliteTable, text, integer, uniqueIndex, index } from "drizzle-orm/sqlite-core";
+import { sql } from "drizzle-orm";
 
 // ── Auth tables (managed by Better Auth) ──────────────────────
 
@@ -624,6 +625,146 @@ export const castle = sqliteTable(
   (table) => [
     index("castle_child_idx").on(table.childId),
   ]
+);
+
+// ── The Realm: seasons and crowns ───────────────────────────
+
+/**
+ * A season is a hero's time in one grade. It opens when the hero gets a grade
+ * and completes when a grown-up moves them up a grade — that promotion is the
+ * signal that the grade is done, so no one has to "end" anything by hand. The
+ * crown for a completed season is chosen by ordinal (first season, second...),
+ * which is stored rather than derived so a tier never changes after the fact.
+ */
+export const season = sqliteTable(
+  "season",
+  {
+    id: text("id").primaryKey(),
+    childId: text("child_id")
+      .notNull()
+      .references(() => child.id, { onDelete: "cascade" }),
+    grade: text("grade").notNull(), // "K", "1".."12"
+    ordinal: integer("ordinal").notNull(),
+    startDate: text("start_date").notNull(), // ISO YYYY-MM-DD
+    endDate: text("end_date"), // ISO YYYY-MM-DD, set on completion
+    completedAt: integer("completed_at", { mode: "timestamp" }), // null = open
+    crownId: text("crown_id"), // crown-catalog id, minted on completion
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+  },
+  (table) => [
+    index("season_child_idx").on(table.childId),
+    // At most one open season per hero.
+    uniqueIndex("season_open_unique_idx")
+      .on(table.childId)
+      .where(sql`${table.completedAt} IS NULL`),
+  ]
+);
+
+// ── The Realm: parent-controlled settings ───────────────────
+
+export const realmSettings = sqliteTable(
+  "realm_settings",
+  {
+    id: text("id").primaryKey(),
+    childId: text("child_id")
+      .notNull()
+      .unique()
+      .references(() => child.id, { onDelete: "cascade" }),
+    enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+    // earned: minutes come from completed quests; scheduled: recess blocks;
+    // both: either opens the Realm.
+    accessMode: text("access_mode", { enum: ["earned", "scheduled", "both"] })
+      .notNull()
+      .default("earned"),
+    earnedMinutesPerQuest: integer("earned_minutes_per_quest").notNull().default(5),
+    // Play allowed outside school hours and on non-school days.
+    offHoursEnabled: integer("off_hours_enabled", { mode: "boolean" }).notNull().default(false),
+    // Hard screen-time ceiling per local day, whatever the mode.
+    dailyCapMinutes: integer("daily_cap_minutes").notNull().default(30),
+    toneMode: text("tone_mode", { enum: ["gentle", "monsters"] }).notNull().default("gentle"),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+  }
+);
+
+/**
+ * Scheduled recess. Its own table, not a subject-less schedule_block: thirteen
+ * files assume a schedule block has a subject, and a break must not ripple
+ * through all of them.
+ */
+export const recessBlock = sqliteTable(
+  "recess_block",
+  {
+    id: text("id").primaryKey(),
+    childId: text("child_id")
+      .notNull()
+      .references(() => child.id, { onDelete: "cascade" }),
+    dayOfWeek: text("day_of_week", {
+      enum: ["mon", "tue", "wed", "thu", "fri", "sat", "sun"],
+    }).notNull(),
+    startTime: text("start_time").notNull(), // "HH:mm"
+    endTime: text("end_time").notNull(), // "HH:mm"
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+  },
+  (table) => [index("recess_block_child_day_idx").on(table.childId, table.dayOfWeek)]
+);
+
+// ── The Realm: learning profile ─────────────────────────────
+
+/**
+ * Accommodation toggles only. Presets in the UI pre-fill these; the preset
+ * name is never stored and no column names a diagnosis. A child's record
+ * should describe what helps them, not label them.
+ */
+export const learningProfile = sqliteTable(
+  "learning_profile",
+  {
+    id: text("id").primaryKey(),
+    childId: text("child_id")
+      .notNull()
+      .unique()
+      .references(() => child.id, { onDelete: "cascade" }),
+    readingFont: integer("reading_font", { mode: "boolean" }).notNull().default(false),
+    largerText: integer("larger_text", { mode: "boolean" }).notNull().default(false),
+    extraSpacing: integer("extra_spacing", { mode: "boolean" }).notNull().default(false),
+    readAloud: integer("read_aloud", { mode: "boolean" }).notNull().default(false),
+    untimed: integer("untimed", { mode: "boolean" }).notNull().default(false),
+    sessionMinutes: integer("session_minutes"), // null = no break suggestion
+    fewerChoices: integer("fewer_choices", { mode: "boolean" }).notNull().default(false),
+    reducedMotion: integer("reduced_motion", { mode: "boolean" }).notNull().default(false),
+    lowStimulus: integer("low_stimulus", { mode: "boolean" }).notNull().default(false),
+    predictableRoutine: integer("predictable_routine", { mode: "boolean" }).notNull().default(false),
+    soundEnabled: integer("sound_enabled", { mode: "boolean" }).notNull().default(true),
+    inputMode: text("input_mode", { enum: ["auto", "touch", "keyboard"] }).notNull().default("auto"),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+  }
+);
+
+// ── The Realm: play-time ledger ─────────────────────────────
+
+/**
+ * Append-only. A day's balance is earned + granted − spent, recomputed from
+ * rows every time, the same discipline XP follows. Nothing here is updated
+ * or deleted by the app.
+ */
+export const realmPlayLedger = sqliteTable(
+  "realm_play_ledger",
+  {
+    id: text("id").primaryKey(),
+    childId: text("child_id")
+      .notNull()
+      .references(() => child.id, { onDelete: "cascade" }),
+    date: text("date").notNull(), // hero's local ISO day
+    kind: text("kind", { enum: ["earned", "granted", "spent"] }).notNull(),
+    minutes: integer("minutes").notNull(),
+    // No FK: assignments can be deleted and the minutes must survive.
+    sourceAssignmentId: text("source_assignment_id"),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  },
+  (table) => [index("realm_play_ledger_child_date_idx").on(table.childId, table.date)]
 );
 
 // ── Feedback (Send a Raven) ─────────────────────────────────
