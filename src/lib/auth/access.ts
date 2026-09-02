@@ -394,6 +394,34 @@ export async function requireScheduleBlockAccess(
   return requireChildAccess(rows[0].childId, opts);
 }
 
+/** Resolve access via an upkeep-task id (looks up the owning child). */
+export async function requireUpkeepTaskAccess(
+  taskId: string,
+  opts?: { write?: boolean }
+) {
+  const rows = await db
+    .select({ childId: schema.upkeepTask.childId })
+    .from(schema.upkeepTask)
+    .where(eq(schema.upkeepTask.id, taskId))
+    .limit(1);
+  if (!rows[0]) throw new Error("Upkeep task not found.");
+  return requireChildAccess(rows[0].childId, opts);
+}
+
+/** Resolve access via an upkeep-assignment id (looks up the owning child). */
+export async function requireUpkeepAssignmentAccess(
+  assignmentId: string,
+  opts?: { write?: boolean }
+) {
+  const rows = await db
+    .select({ childId: schema.upkeepTaskAssignment.childId })
+    .from(schema.upkeepTaskAssignment)
+    .where(eq(schema.upkeepTaskAssignment.id, assignmentId))
+    .limit(1);
+  if (!rows[0]) throw new Error("Upkeep assignment not found.");
+  return requireChildAccess(rows[0].childId, opts);
+}
+
 /**
  * True when the resolved access belongs to a child acting for themself
  * (see childSelfAccess) rather than an adult family member.
