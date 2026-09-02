@@ -13,6 +13,9 @@ import { GameFrame } from "@/components/game-frame";
 import { QuestTemplateList } from "@/components/quest-template-list";
 import { GameIcon } from "@/components/game-icon";
 import { buildBlockDaysBySubject } from "@/lib/utils/schedule-gaps";
+import { loadUpkeepContext } from "@/lib/services/upkeep-context";
+import { getUpkeepTasks } from "@/lib/actions/upkeep-tasks";
+import { UpkeepTaskList } from "@/components/upkeep-task-list";
 
 export default async function ManageQuestsPage({
   searchParams,
@@ -88,6 +91,9 @@ export default async function ManageQuestsPage({
   // up front when a repeat is pointed at a day with no class time for it.
   const blockDaysBySubject = buildBlockDaysBySubject(blocks);
 
+  const upkeepContext = await loadUpkeepContext(activeChild.id);
+  const upkeepTasks = upkeepContext?.enabled ? await getUpkeepTasks(activeChild.id) : [];
+
   return (
     <div className="space-y-6">
       <div className="page-banner flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -114,6 +120,17 @@ export default async function ManageQuestsPage({
         assignmentStatusByQuest={assignmentStatusByQuest}
         blockDaysBySubject={blockDaysBySubject}
       />
+
+      {upkeepContext?.enabled && (
+        <section className="space-y-4">
+          <h2 className="page-title text-2xl">Upkeep</h2>
+          <p className="text-sm text-muted-foreground">
+            Chores for {activeChild.displayName}. A task can be worth wages, repeat on a
+            schedule, and be required or merely welcome.
+          </p>
+          <UpkeepTaskList childId={activeChild.id} tasks={upkeepTasks} />
+        </section>
+      )}
     </div>
   );
 }
