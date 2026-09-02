@@ -10,8 +10,8 @@ Put in place everything the three.js Realm will read from, without any 3D: a sea
 record per hero, per-hero Realm settings a parent controls, scheduled recess blocks, a learning
 profile of accommodation toggles, an append-only play-time ledger with the access rules that read
 it, and a single tested level formula. When this slice ships, a parent can fully configure the
-Realm for each hero, begin and end seasons, and see earned crowns, even though the Realm itself
-does not exist yet.
+Realm for each hero, and seasons and crowns track themselves from the grade the parent already
+sets, even though the Realm itself does not exist yet.
 
 ## Non-goals
 
@@ -19,6 +19,13 @@ No 3D, spells, drill content, mounts, or the heartbeat that spends play minutes.
 existing schedule blocks, quests, or XP rules beyond extracting the level formula.
 
 ## A. Seasons and Crowns
+
+### Principle
+
+A season is the hero's time in one grade, and completing the grade is what earns the crown.
+The parent never manages seasons. Their two inputs are the ones they already give: the hero's
+grade, and whether the Realm is enabled. Advancing the grade is the completion signal, because
+promoting a hero is how a homeschool parent says "this grade is done."
 
 ### Data
 
@@ -28,19 +35,18 @@ New table `season`:
 |---|---|---|
 | `id` | text PK | nanoid |
 | `childId` | text FK child, cascade | |
-| `grade` | text | `"K"`, `"1"`..`"12"`, snapshot at start |
+| `grade` | text | `"K"`, `"1"`..`"12"` |
 | `ordinal` | integer | 1 for the hero's first season, 2 for the second, and so on |
 | `startDate` | text | ISO `YYYY-MM-DD` |
-| `endDate` | text, nullable | ISO date, set on end |
+| `endDate` | text, nullable | ISO date, set on completion |
 | `completedAt` | integer timestamp, nullable | null means the season is open |
-| `crownId` | text, nullable | catalog id minted on a qualifying end |
+| `crownId` | text, nullable | catalog id minted on completion |
 | `createdAt`, `updatedAt` | integer timestamp | |
 
 Indexes: `season_child_idx` on `childId`; partial unique index `season_open_unique_idx` on
 `childId` where `completed_at IS NULL`, so a hero has at most one open season.
 
-`ordinal` is stored, not derived, so a crown's tier never changes if history rows are later
-removed. On begin, ordinal = (count of this hero's seasons) + 1.
+`ordinal` is stored so a crown's tier never changes after the fact.
 
 ### Crown catalog
 
@@ -52,38 +58,73 @@ returns the tier for that ordinal, clamping ordinals above 13 to the final tier.
 ### Rules (`src/lib/utils/seasons.ts`)
 
 - `seasonLabel(startDate)` → `"2026–27"` style label from the start year.
-- `MIN_ACTIVE_DAYS_FOR_CROWN = 20`.
-- `seasonQualifiesForCrown(activeDayCount)` → boolean.
 - `nextOrdinal(existingSeasonCount)` → number.
-- `crownForOrdinal` re-exported for convenience.
+- `compareGrades(a, b)` → negative, zero, positive, with `"K"` below `"1"`.
+- `planSeasonTransition(input)` decides what a grade change means. Pure, exhaustive, tested first.
+
+```ts
+type SeasonLike = { id: string; grade: string; ordinal: number; startDate: string };
+type TransitionInput = {
+  openSeason: SeasonLike | null;
+  previousCompleted: SeasonLike | null;   // most recently completed season, if any
+  openSeasonHasActivity: boolean;         // any activity_log row dated within the open season
+  newGrade: string;
+  today: string;                          // ISO date
+};
+type TransitionPlan =
+  | { type: "noop" }
+  | { type: "open"; grade: string; ordinal: number; startDate: string }
+  | { type: "relabel"; seasonId: string; grade: string }
+  | { type: "complete_and_open"; completeId: string; endDate: string; crownId: string;
+      open: { grade: string; ordinal: number; startDate: string } }
+  | { type: "reopen_previous"; deleteId: string; reopenId: string; grade: string };
+```
+
+Decision table:
+
+| Situation | Plan |
+|---|---|
+| No open season | `open` at `newGrade`, ordinal = count + 1, start = today |
+| Same grade | `noop` |
+| Higher grade, open season has activity | `complete_and_open`: end today, crown = `crownForOrdinal(ordinal)`, new season at `newGrade` with ordinal + 1 |
+| Higher grade, open season has no activity | `relabel` the open season (a typo fixed is not a completed grade) |
+| Lower grade, open season has no activity, a previous completed season exists | `reopen_previous`: delete the empty open season, reopen the previous one at `newGrade`, withdraw its crown |
+| Lower grade, otherwise | `relabel` the open season (a correction) |
+
+Skipping grades (3 to 5) follows the same rows; the crown ordinal counts seasons, not grades.
+A hero with only a birth year has no grade and therefore no season.
+
+### Service (`src/lib/services/season-sync.ts`)
+
+`syncSeasonForGrade(childId, newGrade, today)`: loads the open and most recently completed
+seasons, checks for activity in the open season's window (`activity_log.date >= startDate`),
+calls `planSeasonTransition`, applies the plan in one transaction, and returns it. Called from
+`createChild` (when a grade is given) and `updateChild` (when `grade` changes). `today` comes
+from the caller the way the quest pages already pass the browser's date, falling back to the
+server date.
+
+`ensureSeason(childId)`: for existing heroes with a grade and no season rows, opens one with
+`startDate` = the hero's `createdAt` date. Called lazily by `getSeasons`, so no data migration.
 
 ### Actions (`src/lib/actions/seasons.ts`)
 
-- `getSeasons(childId)` — all seasons newest first, plus the open one. Child may read own.
-- `beginSeason(childId, { grade, startDate })` — parent only. Rejects if a season is open.
-  Validates grade with `isValidGrade` and date format. Updates `child.grade` and `child.ageMode`
-  through `resolveAge`, which moves from the children action file into `src/lib/utils/age-mode.ts`
-  (it is pure, and `"use server"` files may only export async functions); the children action
-  imports it from there. Inserts the season.
-- `endSeason(childId, { endDate })` — parent only. Rejects if no season is open or if
-  `endDate < startDate`. Counts distinct `activity_log.date` values within
-  `[startDate, endDate]`. If qualified, sets `crownId = crownForOrdinal(ordinal).id`. Sets
-  `endDate`, `completedAt`. Returns `{ crownId | null, activeDays }` so the UI can explain.
-- `previewSeasonEnd(childId, endDate)` — read-only: returns `activeDays` and whether it qualifies,
-  used by the End the Season confirmation.
+- `getSeasons(childId)` — runs `ensureSeason`, then returns `{ open, history }` newest first.
+  Child may read own.
 
-Revalidates `/settings`, `/loot`, `/tavern`.
+`updateChild` and `createChild` in `children.ts` gain one call each to the service. `resolveAge`
+moves from `children.ts` into `src/lib/utils/age-mode.ts` (pure; `"use server"` files may only
+export async functions).
 
 ### UI
 
-- **Season panel** (`src/app/(app)/settings/season-panel.tsx`), parent-only, inside the hero's
-  Chronicle: shows the open season (grade, label, start date, active days so far) with an
-  "End the Season" button that opens a confirm dialog stating whether a crown will be earned and
-  why. When no season is open, shows "Begin the Season" with grade (pre-filled from the child)
-  and start date (defaults to today). Below, a compact history list of past seasons with crown
-  icon or "no crown".
+- **Season panel** (`src/app/(app)/settings/season-panel.tsx`), read-only, in the hero's
+  Chronicle: the open season (grade, label, since date) and a history list with crown icon per
+  completed season. When the hero has no grade: "Set a grade to begin the season." Copy explains
+  that moving the hero up a grade completes the season and earns the crown.
+- **Grade editor** (existing `ChildInfoEditor`): after a save that advanced the grade, the
+  Chronicle shows a one-time celebratory notice naming the crown earned.
 - **Crowns panel** on `/loot` (`src/components/crowns-panel.tsx`): earned crowns with tier label
-  and season label. Empty state copy invites the parent to begin a season.
+  and season label. Empty state: "Finish this grade to earn your first crown."
 - **Tavern HUD**: crown count beside level, only when greater than zero.
 
 ## B. Realm Settings and Learning Profile
@@ -263,7 +304,6 @@ Behavior is unchanged; the existing tests must stay green.
 | Action | Parent | Child (own id) |
 |---|---|---|
 | get* (all domains) | yes | yes |
-| beginSeason, endSeason | yes | no |
 | updateRealmSettings, grantRealmMinutes | yes | no |
 | updateLearningProfile, applyLearningPreset | yes | no |
 | addRecessBlock, removeRecessBlock | yes | no |
@@ -274,8 +314,9 @@ rejection already used by `setSkipQuestsEnabled`.
 
 ## Error handling
 
-- Actions throw `Error` with player-facing medieval copy, matching the repo (for example
-  "A season is already underway for this hero.").
+- Actions throw `Error` with player-facing medieval copy, matching the repo.
+- Season sync applies its plan in a transaction; a failure leaves the grade change unapplied too,
+  so grade and season never disagree.
 - Lazy get-or-create for settings and profile uses insert with `onConflictDoNothing` then select,
   so two concurrent first reads cannot create two rows.
 - Ledger inserts validate minutes as positive integers; anything else is rejected before the DB.
@@ -286,7 +327,8 @@ rejection already used by `setSkipQuestsEnabled`.
 Tests are written before implementation for every util:
 
 - `level.test.ts`: boundaries at 0, 99, 100, negative, NaN.
-- `seasons.test.ts`: label, qualification threshold, ordinal, crown clamping.
+- `seasons.test.ts`: label, ordinal, grade comparison including K, crown clamping, and one case per
+  row of the transition decision table (including grade skips and a birth-year-only hero).
 - `learning-profile.test.ts`: defaults, each preset's toggles, merge does not clear unrelated
   toggles, row parsing with missing columns, reading attributes.
 - `recess-blocks.test.ts`: conflict with class block, conflict with recess block, identical range
@@ -295,7 +337,7 @@ Tests are written before implementation for every util:
   `both` mode combining recess and earned, remaining-minutes math, off-hours with no class blocks.
 
 Component tests (Testing Library, jsdom, following `student-schedule-editor.test.tsx`):
-- Season panel: begin form shown when no open season; end dialog shows crown outcome text.
+- Season panel: "set a grade" copy when the hero has no grade; history renders crowns.
 - Learning profile panel: clicking a preset calls the action with the preset id; toggles render
   from the profile.
 - Realm settings panel: access mode switch shows and hides the earned-minutes field.
@@ -325,6 +367,9 @@ src/lib/actions/learning-profile.ts
 src/lib/actions/recess-blocks.ts
 src/lib/actions/realm-play.ts
 src/lib/services/realm-play.ts
+src/lib/services/season-sync.ts
+src/lib/utils/age-mode.ts (resolveAge moves here)
+src/lib/actions/children.ts (calls season sync on create/update)
 src/app/(app)/settings/season-panel.tsx (+test)
 src/app/(app)/settings/realm-settings-panel.tsx (+test)
 src/app/(app)/settings/learning-profile-panel.tsx (+test)

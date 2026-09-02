@@ -39,6 +39,7 @@ database. That costs no tokens, is perfectly consistent, and cannot be prompt-in
 | Accommodations | Toggles only, presets as shortcuts, no diagnosis label ever stored |
 | Devices | Tablets and laptops, touch first. Low-poly budget for integrated GPUs |
 | Spells | Combos of catalog parts (element, form, modifier). Unlocked through the existing free/level/badge/quest pattern plus drill mastery. No AI generation |
+| Seasons and crowns | A season is the hero's time in one grade. Advancing the grade completes the season and mints the crown automatically. Parents only set the grade and the Realm on/off switch |
 | Code principles | Rules in pure functions under `src/lib/utils/` with colocated tests written first. Server actions stay thin. One file per domain. Existing medieval vocabulary |
 
 ## Slices (each is its own spec, plan, and TDD cycle)
