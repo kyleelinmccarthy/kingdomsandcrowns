@@ -13,7 +13,7 @@ export type PendingAssignmentRow = {
   sourceId: string;
   date: string; // ISO YYYY-MM-DD
   sourceIsActive: boolean;
-  /** The quest's schedule as it stands *now*, or null when the quest has none. */
+  /** The source's schedule as it stands *now*, or null when it has none. */
   schedule: PruneSchedule | null;
 };
 
