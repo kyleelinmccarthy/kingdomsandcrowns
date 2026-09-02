@@ -15,6 +15,13 @@ type TaskRow = {
   valueCents: number | null;
   isRequired: boolean;
   rewardXp: number | null;
+  schedule: {
+    frequency: "once" | "daily" | "weekly" | "monthly";
+    daysOfWeek: string | null;
+    intervalWeeks: number | null;
+    startDate: string;
+    endDate: string | null;
+  } | null;
 };
 
 export function UpkeepTaskList({

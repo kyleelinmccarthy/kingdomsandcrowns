@@ -1,7 +1,7 @@
 "use server";
 
 import { nanoid } from "nanoid";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { sanitizeName, sanitizeText } from "@/lib/utils/sanitize";
@@ -11,13 +11,18 @@ import { requireAdultActor } from "@/lib/auth/actor";
 import { assertUpkeepEnabled } from "@/lib/services/upkeep-context";
 import { clearPendingUpkeepAssignmentsForTask } from "@/lib/services/upkeep-assignment-sync";
 
-/** Active task templates for a hero, flagged with whether each one repeats. */
+/** Active task templates for a hero, each joined to its current schedule (if any). */
 export async function getUpkeepTasks(childId: string) {
   await requireChildAccess(childId);
   const rows = await db
     .select({
       task: schema.upkeepTask,
-      hasSchedule: sql<boolean>`${schema.upkeepTaskSchedule.id} is not null`,
+      scheduleId: schema.upkeepTaskSchedule.id,
+      frequency: schema.upkeepTaskSchedule.frequency,
+      daysOfWeek: schema.upkeepTaskSchedule.daysOfWeek,
+      intervalWeeks: schema.upkeepTaskSchedule.intervalWeeks,
+      startDate: schema.upkeepTaskSchedule.startDate,
+      endDate: schema.upkeepTaskSchedule.endDate,
     })
     .from(schema.upkeepTask)
     .leftJoin(
@@ -31,7 +36,29 @@ export async function getUpkeepTasks(childId: string) {
       )
     )
     .orderBy(schema.upkeepTask.sortOrder);
-  return rows.map((r) => ({ ...r.task, hasSchedule: r.hasSchedule }));
+  return rows.map((r) => ({
+    ...r.task,
+    schedule: r.scheduleId
+      ? {
+          frequency: r.frequency!,
+          daysOfWeek: r.daysOfWeek,
+          intervalWeeks: r.intervalWeeks,
+          startDate: r.startDate!,
+          endDate: r.endDate,
+        }
+      : null,
+  }));
+}
+
+/** Owning child id for a task — needed before the upkeep-enabled gate. */
+async function taskChildId(taskId: string): Promise<string> {
+  const rows = await db
+    .select({ childId: schema.upkeepTask.childId })
+    .from(schema.upkeepTask)
+    .where(eq(schema.upkeepTask.id, taskId))
+    .limit(1);
+  if (!rows[0]) throw new Error("Upkeep task not found.");
+  return rows[0].childId;
 }
 
 export async function getUpkeepTask(taskId: string) {
@@ -51,7 +78,7 @@ export async function getUpkeepTask(taskId: string) {
 export async function createUpkeepTask(data: {
   childId: string;
   title: string;
-  description?: string;
+  description?: string | null;
   valueCents?: number | null;
   isRequired?: boolean;
   rewardXp?: number | null;
@@ -138,6 +165,7 @@ export async function updateUpkeepTask(
 ) {
   await requireAdultActor();
   await requireUpkeepTaskAccess(taskId, { write: true });
+  await assertUpkeepEnabled(await taskChildId(taskId));
 
   const updates: Record<string, unknown> = { updatedAt: new Date() };
   if (data.title) updates.title = sanitizeName(data.title);
@@ -174,6 +202,7 @@ export async function updateUpkeepTask(
 export async function deleteUpkeepTask(taskId: string) {
   await requireAdultActor();
   await requireUpkeepTaskAccess(taskId, { write: true });
+  await assertUpkeepEnabled(await taskChildId(taskId));
 
   await db
     .update(schema.upkeepTask)

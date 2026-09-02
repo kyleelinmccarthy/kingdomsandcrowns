@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
@@ -16,8 +17,13 @@ export type UpkeepContext = {
  * Reads both upkeep toggles in one round-trip. Returns null when the child
  * does not exist. Callers must have authorized the child already — this does
  * no access checking of its own.
+ *
+ * Memoized per request — this runs on every /quests, /scrolls and /loot
+ * render for every family (enabled or not), and twice on /quests since
+ * generateUpkeepAssignments calls it again. Wrapped exactly as getActor /
+ * getMemberships are in src/lib/auth/access.ts.
  */
-export async function loadUpkeepContext(
+export const loadUpkeepContext = cache(async function loadUpkeepContext(
   childId: string
 ): Promise<UpkeepContext | null> {
   const rows = await db
@@ -45,7 +51,7 @@ export async function loadUpkeepContext(
     ),
     requiresApproval: row.requiresApproval,
   };
-}
+});
 
 /**
  * Gate every upkeep mutation goes through. A stale client — a tab left open

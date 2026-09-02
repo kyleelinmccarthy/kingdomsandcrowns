@@ -40,9 +40,6 @@ export default async function QuestsPage({
   const { child: selectedChildId, week, view } = await searchParams;
   const { child: activeChild, allChildren, isChildView } = await resolveActiveChild(selectedChildId);
 
-  const activeView =
-    view === "adventure" ? "adventure" : view === "upkeep" ? "upkeep" : "today";
-
   if (!isChildView) {
     const family = await getFamily();
     if (!family) {
@@ -80,6 +77,12 @@ export default async function QuestsPage({
 
   const upkeepContext = await loadUpkeepContext(activeChild.id);
   const showUpkeep = Boolean(upkeepContext?.enabled);
+
+  // A stale bookmark or a family that has since turned Upkeep off must not be
+  // able to land on a tab that no longer exists — fall back to Today rather
+  // than rendering the banner and tabs over an empty view.
+  const activeView =
+    view === "adventure" ? "adventure" : view === "upkeep" && showUpkeep ? "upkeep" : "today";
 
   const todayDate = formatDate(new Date());
   let upkeepToday: Awaited<ReturnType<typeof getUpkeepAssignmentsForDate>> = [];

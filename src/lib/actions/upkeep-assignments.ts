@@ -206,6 +206,17 @@ async function actingUserId(): Promise<string> {
   return actor.kind === "child" ? `child:${actor.childId}` : actor.userId;
 }
 
+/** Owning child id for an assignment — needed before the upkeep-enabled gate. */
+async function assignmentChildId(assignmentId: string): Promise<string> {
+  const rows = await db
+    .select({ childId: schema.upkeepTaskAssignment.childId })
+    .from(schema.upkeepTaskAssignment)
+    .where(eq(schema.upkeepTaskAssignment.id, assignmentId))
+    .limit(1);
+  if (!rows[0]) throw new Error("Upkeep assignment not found.");
+  return rows[0].childId;
+}
+
 /**
  * A hero (or a parent) marks a task done. Where the family requires approval,
  * a hero's claim lands in `awaiting_approval` and no wages post; a parent
@@ -213,14 +224,8 @@ async function actingUserId(): Promise<string> {
  */
 export async function markUpkeepDone(assignmentId: string, notes?: string) {
   await requireUpkeepAssignmentAccess(assignmentId, { write: true });
-  const rows = await db
-    .select({ childId: schema.upkeepTaskAssignment.childId })
-    .from(schema.upkeepTaskAssignment)
-    .where(eq(schema.upkeepTaskAssignment.id, assignmentId))
-    .limit(1);
-  if (!rows[0]) throw new Error("Upkeep assignment not found.");
 
-  const context = await assertUpkeepEnabled(rows[0].childId);
+  const context = await assertUpkeepEnabled(await assignmentChildId(assignmentId));
   const actor = await getActor();
   const isChild = actor?.kind === "child";
 
@@ -237,6 +242,7 @@ export async function markUpkeepDone(assignmentId: string, notes?: string) {
 export async function approveUpkeep(assignmentId: string) {
   await requireAdultActor();
   await requireUpkeepAssignmentAccess(assignmentId, { write: true });
+  await assertUpkeepEnabled(await assignmentChildId(assignmentId));
   await applyUpkeepTransition({
     assignmentId,
     next: "completed",
@@ -252,6 +258,7 @@ export async function approveUpkeep(assignmentId: string) {
 export async function rejectUpkeep(assignmentId: string, reason: string) {
   await requireAdultActor();
   await requireUpkeepAssignmentAccess(assignmentId, { write: true });
+  await assertUpkeepEnabled(await assignmentChildId(assignmentId));
   await applyUpkeepTransition({
     assignmentId,
     next: "pending",
@@ -264,6 +271,7 @@ export async function rejectUpkeep(assignmentId: string, reason: string) {
 export async function excuseUpkeep(assignmentId: string, reason: string) {
   await requireAdultActor();
   await requireUpkeepAssignmentAccess(assignmentId, { write: true });
+  await assertUpkeepEnabled(await assignmentChildId(assignmentId));
   await applyUpkeepTransition({
     assignmentId,
     next: "excused",
@@ -276,6 +284,7 @@ export async function excuseUpkeep(assignmentId: string, reason: string) {
 export async function uncompleteUpkeep(assignmentId: string) {
   await requireAdultActor();
   await requireUpkeepAssignmentAccess(assignmentId, { write: true });
+  await assertUpkeepEnabled(await assignmentChildId(assignmentId));
   await applyUpkeepTransition({
     assignmentId,
     next: "pending",

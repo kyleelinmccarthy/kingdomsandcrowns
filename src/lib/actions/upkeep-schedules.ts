@@ -7,10 +7,22 @@ import * as schema from "@/lib/db/schema";
 import { formatDate } from "@/lib/utils/dates";
 import { requireChildAccess, requireUpkeepTaskAccess } from "@/lib/auth/access";
 import { requireAdultActor } from "@/lib/auth/actor";
+import { assertUpkeepEnabled } from "@/lib/services/upkeep-context";
 import {
   clearPendingUpkeepAssignmentsForTask,
   syncPendingUpkeepAssignmentsToSchedule,
 } from "@/lib/services/upkeep-assignment-sync";
+
+/** Owning child id for a task — needed before the upkeep-enabled gate. */
+async function taskChildId(taskId: string): Promise<string> {
+  const rows = await db
+    .select({ childId: schema.upkeepTask.childId })
+    .from(schema.upkeepTask)
+    .where(eq(schema.upkeepTask.id, taskId))
+    .limit(1);
+  if (!rows[0]) throw new Error("Upkeep task not found.");
+  return rows[0].childId;
+}
 
 export async function getUpkeepSchedulesForChild(childId: string) {
   await requireChildAccess(childId);
@@ -47,6 +59,7 @@ export async function upsertUpkeepSchedule(
 ) {
   await requireAdultActor();
   await requireUpkeepTaskAccess(taskId, { write: true });
+  await assertUpkeepEnabled(await taskChildId(taskId));
 
   const existing = await db
     .select({ id: schema.upkeepTaskSchedule.id })
@@ -87,6 +100,7 @@ export async function upsertUpkeepSchedule(
 export async function deleteUpkeepSchedule(taskId: string) {
   await requireAdultActor();
   await requireUpkeepTaskAccess(taskId, { write: true });
+  await assertUpkeepEnabled(await taskChildId(taskId));
   await db
     .delete(schema.upkeepTaskSchedule)
     .where(eq(schema.upkeepTaskSchedule.taskId, taskId));

@@ -55,6 +55,7 @@ export function UpkeepTaskCard({
   const [pending, startTransition] = useTransition();
   const [reason, setReason] = useState("");
   const [showReason, setShowReason] = useState(false);
+  const [notes, setNotes] = useState("");
 
   const { assignment, task } = data;
   const status = deriveUpkeepStatus(assignment, task, today);
@@ -72,6 +73,7 @@ export function UpkeepTaskCard({
       await action();
       setShowReason(false);
       setReason("");
+      setNotes("");
       router.refresh();
     });
   }
@@ -102,6 +104,9 @@ export function UpkeepTaskCard({
           {assignment.statusReason && (
             <p className="mt-2 text-sm text-muted-foreground">{assignment.statusReason}</p>
           )}
+          {assignment.notes && (
+            <p className="mt-2 text-sm text-muted-foreground">Note: {assignment.notes}</p>
+          )}
         </div>
 
         {wages && (
@@ -112,9 +117,24 @@ export function UpkeepTaskCard({
         )}
       </div>
 
+      {isOpen && (
+        <div className="mt-3">
+          <Input
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Add a note (optional)"
+            aria-label="Notes"
+          />
+        </div>
+      )}
+
       <div className="mt-3 flex flex-wrap gap-2">
         {isOpen && (
-          <Button size="sm" disabled={pending} onClick={() => run(() => markUpkeepDone(assignment.id))}>
+          <Button
+            size="sm"
+            disabled={pending}
+            onClick={() => run(() => markUpkeepDone(assignment.id, notes.trim() || undefined))}
+          >
             Mark done
           </Button>
         )}

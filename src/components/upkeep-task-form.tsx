@@ -21,6 +21,13 @@ type ExistingTask = {
   valueCents: number | null;
   isRequired: boolean;
   rewardXp: number | null;
+  schedule: {
+    frequency: "once" | "daily" | "weekly" | "monthly";
+    daysOfWeek: string | null;
+    intervalWeeks: number | null;
+    startDate: string;
+    endDate: string | null;
+  } | null;
 };
 
 export function UpkeepTaskForm({
@@ -44,8 +51,17 @@ export function UpkeepTaskForm({
   );
   const [isRequired, setIsRequired] = useState(task?.isRequired ?? true);
   const [rewardXp, setRewardXp] = useState(task?.rewardXp?.toString() ?? "");
-  const [frequency, setFrequency] = useState<"once" | "daily" | "weekly" | "monthly">("daily");
-  const [daysOfWeek, setDaysOfWeek] = useState<string[]>([]);
+  const [frequency, setFrequency] = useState<"once" | "daily" | "weekly" | "monthly">(
+    task?.schedule?.frequency ?? "daily"
+  );
+  const [daysOfWeek, setDaysOfWeek] = useState<string[]>(
+    task?.schedule?.daysOfWeek ? JSON.parse(task.schedule.daysOfWeek) : []
+  );
+  const [intervalWeeks, setIntervalWeeks] = useState(task?.schedule?.intervalWeeks ?? 1);
+  const [startDate, setStartDate] = useState(
+    task?.schedule?.startDate ?? formatDate(new Date())
+  );
+  const [endDate, setEndDate] = useState(task?.schedule?.endDate ?? "");
 
   function toggleDay(day: string) {
     setDaysOfWeek((prev) =>
@@ -72,32 +88,49 @@ export function UpkeepTaskForm({
       }
     }
 
+    // An empty box means no XP reward. A non-numeric value would otherwise
+    // become NaN and flow silently into the child's XP column.
+    let rewardXpValue: number | null = null;
+    if (rewardXp.trim()) {
+      const parsed = Number(rewardXp.trim());
+      if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed < 0) {
+        setError("Enter a whole number for Reward XP");
+        return;
+      }
+      rewardXpValue = parsed;
+    }
+
+    if (frequency === "weekly" && daysOfWeek.length === 0) {
+      setError("Pick at least one day for the task to repeat on");
+      return;
+    }
+
     startTransition(async () => {
       try {
         const payload = {
           title,
-          description: description.trim() || undefined,
+          description: description.trim() || null,
           valueCents,
           isRequired,
-          rewardXp: rewardXp.trim() ? parseInt(rewardXp, 10) : null,
+          rewardXp: rewardXpValue,
+        };
+
+        const schedulePayload = {
+          frequency,
+          daysOfWeek: frequency === "weekly" ? daysOfWeek : undefined,
+          intervalWeeks: frequency === "weekly" ? intervalWeeks : undefined,
+          startDate,
+          endDate: frequency === "once" ? undefined : endDate || undefined,
         };
 
         if (task) {
           await updateUpkeepTask(task.id, payload);
-          await upsertUpkeepSchedule(task.id, {
-            frequency,
-            daysOfWeek: frequency === "weekly" ? daysOfWeek : undefined,
-            startDate: formatDate(new Date()),
-          });
+          await upsertUpkeepSchedule(task.id, schedulePayload);
         } else {
           await createUpkeepTask({
             childId,
             ...payload,
-            schedule: {
-              frequency,
-              daysOfWeek: frequency === "weekly" ? daysOfWeek : undefined,
-              startDate: formatDate(new Date()),
-            },
+            schedule: schedulePayload,
           });
         }
         onDone();
@@ -165,20 +198,61 @@ export function UpkeepTaskForm({
       </div>
 
       {frequency === "weekly" && (
-        <div className="flex flex-wrap gap-2">
-          {WEEKDAYS.map((day) => (
-            <Button
-              key={day}
-              type="button"
-              size="sm"
-              variant={daysOfWeek.includes(day) ? "default" : "outline"}
-              onClick={() => toggleDay(day)}
-            >
-              {day}
-            </Button>
-          ))}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <Label htmlFor="upkeep-interval">Repeat every</Label>
+            <Input
+              id="upkeep-interval"
+              type="number"
+              value={intervalWeeks}
+              onChange={(e) => setIntervalWeeks(Math.max(1, parseInt(e.target.value) || 1))}
+              min={1}
+              max={12}
+              className="w-16"
+            />
+            <span className="text-sm text-muted-foreground">
+              week{intervalWeeks === 1 ? "" : "s"}
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {WEEKDAYS.map((day) => (
+              <Button
+                key={day}
+                type="button"
+                size="sm"
+                variant={daysOfWeek.includes(day) ? "default" : "outline"}
+                onClick={() => toggleDay(day)}
+              >
+                {day}
+              </Button>
+            ))}
+          </div>
         </div>
       )}
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <Label htmlFor="upkeep-start">{frequency === "once" ? "Date" : "Start Date"}</Label>
+          <Input
+            id="upkeep-start"
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            required
+          />
+        </div>
+        {frequency !== "once" && (
+          <div>
+            <Label htmlFor="upkeep-end">End Date (optional)</Label>
+            <Input
+              id="upkeep-end"
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+            />
+          </div>
+        )}
+      </div>
 
       <div className="flex items-center justify-between">
         <Label htmlFor="upkeep-required">Required</Label>

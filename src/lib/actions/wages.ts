@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { requireChildAccess } from "@/lib/auth/access";
 import { getActor, requireAdultActor } from "@/lib/auth/actor";
+import { assertUpkeepEnabled } from "@/lib/services/upkeep-context";
 import { parseDollarsToCents, sumCents } from "@/lib/utils/wages";
 import { sanitizeText } from "@/lib/utils/sanitize";
 import { formatDate } from "@/lib/utils/dates";
@@ -43,6 +44,7 @@ export async function recordWagePayout(
 ) {
   await requireAdultActor();
   await requireChildAccess(childId, { write: true });
+  await assertUpkeepEnabled(childId);
 
   const cents = parseDollarsToCents(amount);
   if (cents === 0) throw new Error("Enter an amount greater than zero");
