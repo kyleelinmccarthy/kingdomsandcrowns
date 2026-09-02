@@ -233,8 +233,10 @@ resolveUpkeepTransition(prevStatus, nextStatus)
 Wages and XP are credited **only** on a transition into `completed` from a
 non-`completed` status, and reversed only on a transition out of `completed`.
 This is the one guard against double-paying, and it is unit-testable with no
-database. `computeAssignmentNet(entries)` in the wages module is a second,
-belt-and-braces check that an assignment's ledger net is 0 before posting.
+database. `sumCents(entries)` in the wages module is a second, belt-and-braces
+check that an assignment's ledger net is 0 before posting. The same function
+computes a child's balance — a balance and an assignment's net are the same
+summation over different rows, so there is one implementation, not two.
 
 XP revocation clamps at zero (`max(0, upkeepXp - rewardXp)`), matching how
 [quest-assignments.ts](../../../src/lib/actions/quest-assignments.ts) already
@@ -334,8 +336,9 @@ the module disabled.
 
 | Module | Responsibility |
 |---|---|
-| `src/lib/utils/wages.ts` | `formatWagesAsCoin`, `formatWagesAsDollars`, `parseDollarsToCents`, `computeBalance`, `computeAssignmentNet` |
-| `src/lib/utils/upkeep-status.ts` | `deriveUpkeepStatus(assignment, today)`, `resolveUpkeepTransition(prev, next)`, `summarizeUpkeepDay(assignments, today)` |
+| `src/lib/utils/wages.ts` | `formatWagesAsCoin`, `formatWagesAsDollars`, `parseDollarsToCents`, `sumCents` |
+| `src/lib/utils/upkeep-status.ts` | `deriveUpkeepStatus`, `resolveUpkeepTransition`, `summarizeUpkeepDay` |
+| `src/lib/utils/upkeep-planning.ts` | `planUpkeepAssignments` — which (task, date) rows generation should insert |
 | `src/lib/utils/upkeep-enabled.ts` | `isUpkeepEnabled(family, child)` |
 | `src/lib/utils/schedule.ts` | **unchanged**, reused with `schoolDays: null` |
 | `src/lib/utils/assignment-pruning.ts` | `questId` → `sourceId` rename so both domains share it |
@@ -415,9 +418,8 @@ Written before their implementation, in this order.
 
 **`wages.test.ts`** — every row of the §3 formatting table; parse accepts
 `"12.50"`, `"12"`, `".50"`, `"$12.50"` and rejects `""`, `"abc"`, negatives;
-`computeBalance` over mixed earned/payout/reversal entries; balance may go
-negative when a parent overpays; `computeAssignmentNet` returns 0 for an
-earned+reversal pair.
+`sumCents` over mixed earned/payout/reversal entries; balance may go negative
+when a parent overpays; `sumCents` returns 0 for an earned+reversal pair.
 
 **`upkeep-status.test.ts`** — a required past pending task is missed; an
 optional past pending task is not; a past `completed`, `excused` or
