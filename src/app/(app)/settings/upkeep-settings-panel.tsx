@@ -22,18 +22,18 @@ export function UpkeepSettingsPanel({
 
   function toggleEnabled() {
     const next = !enabled;
-    setEnabled(next);
     startTransition(async () => {
       await setFamilyUpkeepEnabled(next);
+      setEnabled(next);
       router.refresh();
     });
   }
 
   function toggleApproval() {
     const next = !requiresApproval;
-    setRequiresApproval(next);
     startTransition(async () => {
       await setFamilyUpkeepRequiresApproval(next);
+      setRequiresApproval(next);
       router.refresh();
     });
   }

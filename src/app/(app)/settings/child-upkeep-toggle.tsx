@@ -33,9 +33,9 @@ export function ChildUpkeepToggle({
         checked={enabled}
         onCheckedChange={() => {
           const next = !enabled;
-          setEnabled(next);
           startTransition(async () => {
             await setChildUpkeepEnabled(childId, next);
+            setEnabled(next);
             router.refresh();
           });
         }}

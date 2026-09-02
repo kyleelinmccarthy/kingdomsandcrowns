@@ -139,7 +139,7 @@ export function CombinedLeaderboardTable({
 
   return (
     <GameFrame title="Community Hall" icon={<GameIcon name="temple" className="size-4 text-[var(--gold-bright)]" />}>
-      {/* Six columns can't fit narrow phones — allow horizontal scroll while
+      {/* Seven columns can't fit narrow phones — allow horizontal scroll while
           keeping a min-width so the columns stay aligned and legible. */}
       <div className="-mx-1 overflow-x-auto px-1">
         <div className="min-w-[30rem] space-y-1">
