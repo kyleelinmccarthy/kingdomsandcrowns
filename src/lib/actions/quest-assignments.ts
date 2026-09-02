@@ -14,6 +14,7 @@ import { weekdayOfDate } from "@/lib/utils/schedule-days";
 import { getNextStructuredQuest } from "@/lib/utils/quest-ordering";
 import { pruneStaleAssignmentsInRange } from "@/lib/services/quest-assignment-sync";
 import { recordQuestAlert } from "@/lib/services/parent-alerts";
+import { grantEarnedMinutesForCompletion } from "@/lib/services/realm-play";
 
 /**
  * A removed quest keeps its finished assignments — they're the hero's history
@@ -431,6 +432,10 @@ export async function completeAssignment(
       })
       .onConflictDoNothing();
   }
+
+  // Finishing a quest can earn Realm play minutes; the service decides based
+  // on the hero's Realm settings.
+  await grantEarnedMinutesForCompletion(row.assignment.childId, assignmentId, row.assignment.date);
 
   return { activityId };
 }
