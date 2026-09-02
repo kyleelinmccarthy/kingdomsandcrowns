@@ -12,30 +12,7 @@ import {
 } from "@/lib/auth/access";
 import { sanitizeName } from "@/lib/utils/sanitize";
 import { hashPin } from "@/lib/utils/pin";
-import {
-  deriveAgeMode,
-  ageModeFromGrade,
-  isValidGrade,
-  type AgeMode,
-} from "@/lib/utils/age-mode";
-
-/**
- * Resolve age inputs into the stored fields. The parent provides EITHER a birth
- * year or a grade; ageMode is derived from whichever is present.
- */
-function resolveAge(
-  birthYear?: number,
-  grade?: string
-): { birthYear: number | null; grade: string | null; ageMode: AgeMode } {
-  if (grade) {
-    if (!isValidGrade(grade)) throw new Error("Please choose a valid grade.");
-    return { birthYear: null, grade, ageMode: ageModeFromGrade(grade) };
-  }
-  if (birthYear) {
-    return { birthYear, grade: null, ageMode: deriveAgeMode(birthYear) };
-  }
-  throw new Error("Add a birth year or a grade for this hero.");
-}
+import { resolveAge } from "@/lib/utils/age-mode";
 
 export async function getChildren() {
   const access = await requireFamilyAccess();

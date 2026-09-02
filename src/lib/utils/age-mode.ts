@@ -41,3 +41,33 @@ export function ageModeFromGrade(grade: string): AgeMode {
   if (n <= 8) return "middle";
   return "high";
 }
+
+/** Kindergarten sorts before "1"; everything else is its number. */
+export function gradeIndex(grade: string): number {
+  if (grade === "K") return 0;
+  const n = parseInt(grade, 10);
+  return Number.isFinite(n) ? n : 0;
+}
+
+/** Negative when a is the lower grade, zero when equal, positive when higher. */
+export function compareGrades(a: string, b: string): number {
+  return gradeIndex(a) - gradeIndex(b);
+}
+
+/**
+ * Resolve age inputs into the stored fields. The parent provides EITHER a birth
+ * year or a grade; ageMode is derived from whichever is present.
+ */
+export function resolveAge(
+  birthYear?: number,
+  grade?: string
+): { birthYear: number | null; grade: string | null; ageMode: AgeMode } {
+  if (grade) {
+    if (!isValidGrade(grade)) throw new Error("Please choose a valid grade.");
+    return { birthYear: null, grade, ageMode: ageModeFromGrade(grade) };
+  }
+  if (birthYear) {
+    return { birthYear, grade: null, ageMode: deriveAgeMode(birthYear) };
+  }
+  throw new Error("Add a birth year or a grade for this hero.");
+}
