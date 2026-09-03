@@ -310,6 +310,12 @@ export const subject = sqliteTable(
     isDefault: integer("is_default", { mode: "boolean" }).notNull().default(false),
     isRequired: integer("is_required", { mode: "boolean" }).notNull().default(false),
     isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+    // Which school of magic this discipline feeds in the Realm's spellbook.
+    // Set by name when the subject is created; a grown-up can change it, so a
+    // family decides where "Latin" or "Piano" counts.
+    spellSchool: text("spell_school", { enum: ["element", "form", "modifier", "none"] })
+      .notNull()
+      .default("none"),
     sortOrder: integer("sort_order").notNull().default(0),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   },
@@ -765,6 +771,36 @@ export const realmPlayLedger = sqliteTable(
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   },
   (table) => [index("realm_play_ledger_child_date_idx").on(table.childId, table.date)]
+);
+
+// ── The Realm: spellbook ────────────────────────────────────
+
+/**
+ * One named spell in one page (slot) of a hero's spellbook. Parts are catalog
+ * ids, never copied in: the catalog is the source of truth for what a part
+ * does, and which parts a hero may use is decided at save time from their
+ * level, badges, quest rewards, and schoolwork.
+ */
+export const spell = sqliteTable(
+  "spell",
+  {
+    id: text("id").primaryKey(),
+    childId: text("child_id")
+      .notNull()
+      .references(() => child.id, { onDelete: "cascade" }),
+    slot: integer("slot").notNull(), // 1-based page number
+    elementId: text("element_id").notNull(),
+    formId: text("form_id").notNull(),
+    modifierId: text("modifier_id"), // null = no modifier
+    adjective: text("adjective").notNull(), // word-bank pick
+    noun: text("noun").notNull(), // word-bank pick
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("spell_child_slot_idx").on(table.childId, table.slot),
+    index("spell_child_idx").on(table.childId),
+  ]
 );
 
 // ── Feedback (Send a Raven) ─────────────────────────────────
