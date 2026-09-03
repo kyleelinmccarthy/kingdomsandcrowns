@@ -599,13 +599,13 @@ export function QuestTemplateForm({
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="reward-avatar">Avatar Item Unlock</Label>
+                  <Label htmlFor="reward-avatar">Item Unlock</Label>
                   <Select
                     id="reward-avatar"
                     value={rewardAvatarItem}
                     onChange={(e) => setRewardAvatarItem(e.target.value)}
                   >
-                    <option value="">No avatar reward</option>
+                    <option value="">No item reward</option>
                     {ALL_AVATAR_REWARD_OPTIONS.map(({ category, item }) => {
                       const jsonVal = JSON.stringify({ category, itemId: item.id });
                       const alreadyUnlocked = childUnlockedItems.includes(item.id);
@@ -634,7 +634,7 @@ export function QuestTemplateForm({
                       );
                     })}
                   </Select>
-                  <p className="text-[10px] text-muted-foreground">Unlock a special avatar item when this quest is completed</p>
+                  <p className="text-[10px] text-muted-foreground">Unlock a special avatar item or spell part when this quest is completed</p>
                 </div>
               </div>
             )}

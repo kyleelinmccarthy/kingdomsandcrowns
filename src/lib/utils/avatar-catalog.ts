@@ -1,3 +1,5 @@
+import { SPELL_ELEMENTS, SPELL_FORMS, SPELL_MODIFIERS, SPELL_CATEGORY } from "./spell-catalog";
+
 // ── Avatar configuration types ───────────────────────────────
 
 export type AvatarConfig = {
@@ -562,6 +564,17 @@ export function getQuestUnlockableItems(): { category: string; item: AvatarItem 
   for (const item of HAIR_STYLES) {
     if (item.unlock.type === "quest") items.push({ category: "hairStyle", item });
   }
+  // Spell parts a grown-up may award. Stored in the same unlock table as
+  // avatar items, under their own categories, so the reward flow is shared.
+  for (const part of SPELL_ELEMENTS) {
+    if (part.unlock.type === "quest") items.push({ category: SPELL_CATEGORY.element, item: { id: part.id, label: part.label, unlock: { type: "quest" } } });
+  }
+  for (const part of SPELL_FORMS) {
+    if (part.unlock.type === "quest") items.push({ category: SPELL_CATEGORY.form, item: { id: part.id, label: part.label, unlock: { type: "quest" } } });
+  }
+  for (const part of SPELL_MODIFIERS) {
+    if (part.unlock.type === "quest") items.push({ category: SPELL_CATEGORY.modifier, item: { id: part.id, label: part.label, unlock: { type: "quest" } } });
+  }
   return items;
 }
 
@@ -574,9 +587,14 @@ const CATEGORY_LABELS: Record<string, string> = {
   companion: "Companion",
   background: "Crest",
   hairStyle: "Hair Style",
+  spellElement: "Spell Element",
+  spellForm: "Spell Form",
+  spellModifier: "Spell Modifier",
 };
 
-const CATEGORY_ITEMS: Record<string, AvatarItem[]> = {
+// Label-only: only `id` and `label` are read from these lists, so avatar
+// items and spell parts (which don't share the AvatarItem shape) both fit.
+const CATEGORY_ITEMS: Record<string, { id: string; label: string }[]> = {
   outfit: OUTFITS,
   legwear: LEGWEAR,
   boots: BOOTS,
@@ -584,6 +602,9 @@ const CATEGORY_ITEMS: Record<string, AvatarItem[]> = {
   companion: COMPANIONS,
   background: BACKGROUNDS,
   hairStyle: HAIR_STYLES,
+  spellElement: SPELL_ELEMENTS,
+  spellForm: SPELL_FORMS,
+  spellModifier: SPELL_MODIFIERS,
 };
 
 export function getCategoryLabel(category: string): string {
