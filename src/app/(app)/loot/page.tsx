@@ -5,6 +5,8 @@ import { resolveActiveChild } from "@/lib/actions/resolve-child";
 import { getBadges, getChildBadges, checkAndAwardBadges } from "@/lib/actions/badges";
 import { getEarnedQuestRewards } from "@/lib/actions/quest-assignments";
 import { getSeasons } from "@/lib/actions/seasons";
+import { getSpellbook } from "@/lib/actions/spells";
+import { SPELL_PART_COUNT } from "@/lib/utils/spell-catalog";
 import { levelFromXp } from "@/lib/utils/level";
 import { ChildSelector } from "@/components/child-selector";
 import { GameFrame } from "@/components/game-frame";
@@ -59,11 +61,12 @@ export default async function LootPage({
 
   await checkAndAwardBadges(activeChild.id);
 
-  const [allBadges, earnedBadges, questRewards, seasons] = await Promise.all([
+  const [allBadges, earnedBadges, questRewards, seasons, spellbook] = await Promise.all([
     getBadges(),
     getChildBadges(activeChild.id),
     getEarnedQuestRewards(activeChild.id),
     getSeasons(activeChild.id),
+    getSpellbook(activeChild.id),
   ]);
 
   const earnedIds = new Set(earnedBadges.map((b) => b.badge.id));
@@ -135,6 +138,17 @@ export default async function LootPage({
           </div>
         </GameFrame>
       </div>
+
+      <GameFrame title="Spellbook" icon={<GameIcon name="crystalBall" className="size-4 text-[var(--gold-bright)]" />}>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm">
+            {spellbook.spells.length} {spellbook.spells.length === 1 ? "spell" : "spells"} kept &middot; {spellbook.unlocked.length} of {SPELL_PART_COUNT} parts unlocked
+          </p>
+          <Link href={isChildView ? "/spellbook" : `/spellbook?child=${activeChild.id}`} className="text-sm font-medium text-primary hover:underline">
+            Open the Spellbook →
+          </Link>
+        </div>
+      </GameFrame>
 
       <CrownsPanel history={seasons.history} />
 

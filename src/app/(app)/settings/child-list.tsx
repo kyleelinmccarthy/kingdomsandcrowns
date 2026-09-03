@@ -59,6 +59,7 @@ import { setSkipQuestsEnabled } from "@/lib/actions/quest-assignments";
 import { setSchoolingMode, setSchoolingModeOverride } from "@/lib/actions/schooling-mode";
 import { parseSchoolingModeOverrides, type SchoolingMode } from "@/lib/utils/schooling-mode";
 import { DAYS_OF_WEEK, DAY_LABELS, type DayOfWeek, localDateOf } from "@/lib/utils/schedule-days";
+import { SCHOOL_LABELS, SUBJECT_SCHOOLS, type SubjectSchool } from "@/lib/utils/spell-schools";
 import { levelFromXp } from "@/lib/utils/level";
 import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
 
@@ -75,6 +76,7 @@ type Subject = {
   icon: string | null;
   isRequired: boolean;
   isActive: boolean;
+  spellSchool: SubjectSchool;
 };
 
 export type BanishedHero = {
@@ -601,6 +603,7 @@ function SubjectManager({ childId, subjects }: { childId: string; subjects: Subj
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
   const [editColor, setEditColor] = useState("");
+  const [editSchool, setEditSchool] = useState<SubjectSchool>("none");
   const [orderedSubjects, setOrderedSubjects] = useState(subjects);
   const [reorderError, setReorderError] = useState("");
 
@@ -631,6 +634,7 @@ function SubjectManager({ childId, subjects }: { childId: string; subjects: Subj
     await updateSubject(subjectId, {
       name: editName || undefined,
       color: editColor || undefined,
+      spellSchool: editSchool,
     });
     setEditingId(null);
     router.refresh();
@@ -645,6 +649,7 @@ function SubjectManager({ childId, subjects }: { childId: string; subjects: Subj
     setEditingId(subject.id);
     setEditName(subject.name);
     setEditColor(subject.color ?? "#6b7280");
+    setEditSchool(subject.spellSchool ?? "none");
   }
 
   async function handleDragEnd(event: DragEndEvent) {
@@ -675,6 +680,10 @@ function SubjectManager({ childId, subjects }: { childId: string; subjects: Subj
           {showAdd ? "Withdraw" : "+ Add Discipline"}
         </Button>
       </div>
+
+      <p className="text-xs text-muted-foreground">
+        Quests logged in a discipline unlock spell parts from its school of magic.
+      </p>
 
       {showAdd && (
         <form onSubmit={handleAddSubject} className="flex items-end gap-2 rounded-lg border bg-muted/30 p-3">
@@ -729,8 +738,10 @@ function SubjectManager({ childId, subjects }: { childId: string; subjects: Subj
                 editing={editingId === subject.id}
                 editName={editName}
                 editColor={editColor}
+                editSchool={editSchool}
                 onEditNameChange={setEditName}
                 onEditColorChange={setEditColor}
+                onEditSchoolChange={setEditSchool}
                 onStartEdit={() => startEdit(subject)}
                 onCancelEdit={() => setEditingId(null)}
                 onSaveEdit={() => handleUpdateSubject(subject.id)}
@@ -749,8 +760,10 @@ function SortableSubjectRow({
   editing,
   editName,
   editColor,
+  editSchool,
   onEditNameChange,
   onEditColorChange,
+  onEditSchoolChange,
   onStartEdit,
   onCancelEdit,
   onSaveEdit,
@@ -760,8 +773,10 @@ function SortableSubjectRow({
   editing: boolean;
   editName: string;
   editColor: string;
+  editSchool: SubjectSchool;
   onEditNameChange: (value: string) => void;
   onEditColorChange: (value: string) => void;
+  onEditSchoolChange: (value: SubjectSchool) => void;
   onStartEdit: () => void;
   onCancelEdit: () => void;
   onSaveEdit: () => void;
@@ -824,6 +839,16 @@ function SortableSubjectRow({
               />
             ))}
           </div>
+          <Select
+            aria-label="School of magic"
+            value={editSchool}
+            onChange={(e) => onEditSchoolChange(e.target.value as SubjectSchool)}
+            className="h-7 w-44 text-xs"
+          >
+            {SUBJECT_SCHOOLS.map((s) => (
+              <option key={s} value={s}>{SCHOOL_LABELS[s]}</option>
+            ))}
+          </Select>
           <Button size="xs" onClick={onSaveEdit}>Save</Button>
           <Button size="xs" variant="ghost" onClick={onCancelEdit}>Withdraw</Button>
         </>
@@ -834,6 +859,9 @@ function SortableSubjectRow({
             style={{ backgroundColor: subject.color ?? "#6b7280" }}
           />
           <span className="flex-1 text-sm">{subject.name}</span>
+          {subject.spellSchool && subject.spellSchool !== "none" && (
+            <span className="text-xs text-muted-foreground">{SCHOOL_LABELS[subject.spellSchool]}</span>
+          )}
           {subject.isRequired && (
             <span className="text-xs text-muted-foreground">sacred</span>
           )}
