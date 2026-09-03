@@ -49,6 +49,12 @@ export const MAIN_NAV: NavItem[] = [
     icon: "calendar",
     description: "The weekly schedule — classes for each day of the week and which days are school days.",
   },
+  {
+    href: "/spellbook",
+    label: "Spellbook",
+    icon: "crystalBall",
+    description: "Your book of spells — assemble what you've unlocked and name your magic.",
+  },
 ];
 
 export function navItemsFor(isChildView?: boolean): NavItem[] {
