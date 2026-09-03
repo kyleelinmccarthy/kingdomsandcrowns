@@ -16,6 +16,7 @@ import { resolveAge } from "@/lib/utils/age-mode";
 import { formatDate } from "@/lib/utils/dates";
 import { syncSeasonForGrade } from "@/lib/services/season-sync";
 import type { TransitionPlan } from "@/lib/utils/seasons";
+import { defaultSchoolForSubject } from "@/lib/utils/spell-schools";
 
 export async function getChildren() {
   const access = await requireFamilyAccess();
@@ -102,6 +103,7 @@ export async function createChild(data: {
       isDefault: true,
       isRequired: s.isRequired,
       isActive: true,
+      spellSchool: defaultSchoolForSubject(s.name),
       sortOrder: i,
       createdAt: now,
     });

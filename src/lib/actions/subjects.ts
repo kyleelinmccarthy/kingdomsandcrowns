@@ -1,11 +1,18 @@
 "use server";
 
 import { nanoid } from "nanoid";
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { sanitizeName } from "@/lib/utils/sanitize";
 import { requireChildAccess, requireSubjectAccess } from "@/lib/auth/access";
+import {
+  defaultSchoolForSubject,
+  emptySchoolCounts,
+  isSubjectSchool,
+  type SpellSchool,
+  type SubjectSchool,
+} from "@/lib/utils/spell-schools";
 
 export async function getSubjects(childId: string) {
   await requireChildAccess(childId);
@@ -20,6 +27,7 @@ export async function createSubject(childId: string, data: {
   name: string;
   color?: string;
   icon?: string;
+  spellSchool?: SubjectSchool;
 }) {
   await requireChildAccess(childId, { write: true });
   const id = nanoid();
@@ -42,6 +50,7 @@ export async function createSubject(childId: string, data: {
     isDefault: false,
     isRequired: false,
     isActive: true,
+    spellSchool: data.spellSchool && isSubjectSchool(data.spellSchool) ? data.spellSchool : defaultSchoolForSubject(name),
     sortOrder: maxSort + 1,
     createdAt: new Date(),
   });
@@ -54,6 +63,7 @@ export async function updateSubject(subjectId: string, data: {
   color?: string;
   icon?: string;
   isActive?: boolean;
+  spellSchool?: SubjectSchool;
 }) {
   await requireSubjectAccess(subjectId, { write: true });
   const updates: Record<string, unknown> = {};
@@ -61,6 +71,10 @@ export async function updateSubject(subjectId: string, data: {
   if (data.color) updates.color = data.color;
   if (data.icon) updates.icon = data.icon;
   if (data.isActive !== undefined) updates.isActive = data.isActive;
+  if (data.spellSchool !== undefined) {
+    if (!isSubjectSchool(data.spellSchool)) throw new Error("Choose a school of magic from the list.");
+    updates.spellSchool = data.spellSchool;
+  }
 
   await db
     .update(schema.subject)
@@ -101,4 +115,24 @@ export async function deleteSubject(subjectId: string) {
     .update(schema.subject)
     .set({ isActive: false })
     .where(eq(schema.subject.id, subjectId));
+}
+
+/**
+ * All-time activity counts per school of magic. What a hero has logged in
+ * their element, form, and modifier disciplines is what unlocks spell parts.
+ * A hero may read their own.
+ */
+export async function getSchoolCounts(childId: string): Promise<Record<SpellSchool, number>> {
+  await requireChildAccess(childId);
+  const rows = await db
+    .select({ school: schema.subject.spellSchool, count: sql<number>`count(*)` })
+    .from(schema.activityLog)
+    .innerJoin(schema.subject, eq(schema.activityLog.subjectId, schema.subject.id))
+    .where(eq(schema.activityLog.childId, childId))
+    .groupBy(schema.subject.spellSchool);
+  const counts = emptySchoolCounts();
+  for (const row of rows) {
+    if (row.school !== "none") counts[row.school] = Number(row.count);
+  }
+  return counts;
 }

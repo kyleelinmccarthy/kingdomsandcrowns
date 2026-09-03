@@ -17,7 +17,8 @@
     "db:seed-badges": "npx tsx src/lib/db/seed-badges.ts",
     "db:make-admin": "npx tsx src/lib/db/make-admin.ts",
     "db:backfill-members": "npx tsx src/lib/db/backfill-members.ts",
-    "db:backfill-streaks": "npx tsx src/lib/db/backfill-streaks.ts"
+    "db:backfill-streaks": "npx tsx src/lib/db/backfill-streaks.ts",
+    "db:backfill-spell-schools": "npx tsx src/lib/db/backfill-spell-schools.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.3.0",
