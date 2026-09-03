@@ -54,7 +54,7 @@ export default async function SpellbookPage({ searchParams }: { searchParams: Pr
         <div>
           <h1 className="page-title text-4xl">{isChildView ? "My Spellbook" : `${activeChild.displayName}'s Spellbook`}</h1>
           <p className="mt-1 text-muted-foreground">
-            {book.unlocked.length} of {SPELL_PART_COUNT} parts unlocked &middot; {book.spells.length} of {book.slots} pages filled. Quests you log open more.
+            {book.unlocked.length} of {SPELL_PART_COUNT} parts unlocked &middot; {book.spells.filter((s) => s.slot <= book.slots).length} of {book.slots} pages filled. Quests you log open more.
           </p>
         </div>
         {!isChildView && allChildren.length > 1 && <ChildSelector kids={allChildren} selectedId={activeChild.id} />}

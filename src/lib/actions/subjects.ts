@@ -5,7 +5,7 @@ import { eq, and, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { sanitizeName } from "@/lib/utils/sanitize";
-import { requireChildAccess, requireSubjectAccess } from "@/lib/auth/access";
+import { requireChildAccess, requireSubjectAccess, isChildActor } from "@/lib/auth/access";
 import {
   defaultSchoolForSubject,
   emptySchoolCounts,
@@ -65,13 +65,16 @@ export async function updateSubject(subjectId: string, data: {
   isActive?: boolean;
   spellSchool?: SubjectSchool;
 }) {
-  await requireSubjectAccess(subjectId, { write: true });
+  const { access } = await requireSubjectAccess(subjectId, { write: true });
   const updates: Record<string, unknown> = {};
   if (data.name) updates.name = sanitizeName(data.name);
   if (data.color) updates.color = data.color;
   if (data.icon) updates.icon = data.icon;
   if (data.isActive !== undefined) updates.isActive = data.isActive;
   if (data.spellSchool !== undefined) {
+    // The school decides how fast spell parts unlock, so it stays a
+    // grown-up's call — unlike name/color, which a hero may edit freely.
+    if (isChildActor(access)) throw new Error("Only a grown-up can choose a discipline's school of magic.");
     if (!isSubjectSchool(data.spellSchool)) throw new Error("Choose a school of magic from the list.");
     updates.spellSchool = data.spellSchool;
   }

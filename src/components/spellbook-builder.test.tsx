@@ -76,4 +76,20 @@ describe("SpellbookBuilder", () => {
     await user.click(screen.getByRole("button", { name: "Clear page 1" }));
     expect(clearSpell).toHaveBeenCalledWith("c1", 1);
   });
+
+  it("renders an orphan page beyond the hero's slots as disabled but clearable", async () => {
+    const user = userEvent.setup();
+    const shrunkBook: Spellbook = {
+      ...book,
+      spells: [...book.spells, { id: "s5", slot: 5, elementId: "ember", formId: "bolt", modifierId: null, adjective: "Ember", noun: "Bolt" }],
+    };
+    render(<SpellbookBuilder childId="c1" heroName="Lily" book={shrunkBook} canEdit={true} />);
+
+    const page5 = screen.getByRole("button", { name: "Page 5" });
+    expect(page5).toBeDisabled();
+    expect(page5).toHaveTextContent("Beyond your pages");
+
+    await user.click(screen.getByRole("button", { name: "Clear page 5" }));
+    expect(clearSpell).toHaveBeenCalledWith("c1", 5);
+  });
 });

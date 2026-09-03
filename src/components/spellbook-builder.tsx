@@ -43,6 +43,11 @@ export function SpellbookBuilder({ childId, heroName, book, canEdit }: Props) {
   const firstElement = SPELL_ELEMENTS.find((p) => unlocked.has(p.id))?.id ?? null;
   const firstForm = SPELL_FORMS.find((p) => unlocked.has(p.id))?.id ?? null;
   const firstEmpty = Array.from({ length: book.slots }, (_, i) => i + 1).find((n) => !spellsBySlot.has(n)) ?? 1;
+  // XP reversal can drop a hero's level (and so their slot count) below a
+  // page they'd already filled. Keep rendering those orphan pages — just not
+  // selectable for building — so the spell stays visible and clearable.
+  const highestFilledSlot = book.spells.reduce((max, s) => Math.max(max, s.slot), 0);
+  const pageCount = Math.max(book.slots, highestFilledSlot);
 
   const [slot, setSlot] = useState(firstEmpty);
   const [draft, setDraft] = useState<Draft>(() => draftFromSpell(spellsBySlot.get(firstEmpty), firstElement, firstForm));
@@ -95,19 +100,22 @@ export function SpellbookBuilder({ childId, heroName, book, canEdit }: Props) {
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
       <GameFrame title={`${heroName}'s Pages`} icon={<GameIcon name="book" className="size-4 text-[var(--gold-bright)]" />}>
         <ul className="space-y-2">
-          {Array.from({ length: book.slots }, (_, i) => i + 1).map((n) => {
+          {Array.from({ length: pageCount }, (_, i) => i + 1).map((n) => {
             const spell = spellsBySlot.get(n);
             const spellParts = spell ? { elementId: spell.elementId, formId: spell.formId, modifierId: spell.modifierId } : null;
+            const beyondPages = n > book.slots;
             return (
               <li key={n} className="flex items-start gap-2">
                 <button
                   type="button"
                   aria-label={`Page ${n}`}
                   aria-pressed={slot === n}
+                  aria-disabled={beyondPages}
+                  disabled={beyondPages}
                   onClick={() => choosePage(n)}
-                  className={`flex-1 rounded-lg border px-3 py-2 text-left ${slot === n ? "border-[var(--gold-border)] bg-muted/40" : "border-gold-dim bg-muted/20"}`}
+                  className={`flex-1 rounded-lg border px-3 py-2 text-left ${slot === n ? "border-[var(--gold-border)] bg-muted/40" : "border-gold-dim bg-muted/20"} ${beyondPages ? "opacity-60" : ""}`}
                 >
-                  <p className="text-xs text-muted-foreground">Page {n}</p>
+                  <p className="text-xs text-muted-foreground">{beyondPages ? "Beyond your pages" : `Page ${n}`}</p>
                   {spell && spellParts ? (
                     <>
                       <p className="font-medium" style={{ color: findElement(spell.elementId)?.color }}>
@@ -169,7 +177,7 @@ export function SpellbookBuilder({ childId, heroName, book, canEdit }: Props) {
                   {names.adjectives.map((w) => (
                     <button key={w} type="button" aria-label={`Adjective ${w}`} aria-pressed={draft.adjective === w} disabled={!canEdit}
                       onClick={() => setDraft((d) => ({ ...d, adjective: w }))}
-                      className={`rounded-full border px-2.5 py-1 text-xs ${draft.adjective === w ? "border-[var(--gold-border)] bg-muted/40" : "border-gold-dim"}`}>
+                      className={`rounded-full border px-3 py-1.5 text-sm ${draft.adjective === w ? "border-[var(--gold-border)] bg-muted/40" : "border-gold-dim"}`}>
                       {w}
                     </button>
                   ))}
@@ -178,7 +186,7 @@ export function SpellbookBuilder({ childId, heroName, book, canEdit }: Props) {
                   {names.nouns.map((w) => (
                     <button key={w} type="button" aria-label={`Noun ${w}`} aria-pressed={draft.noun === w} disabled={!canEdit}
                       onClick={() => setDraft((d) => ({ ...d, noun: w }))}
-                      className={`rounded-full border px-2.5 py-1 text-xs ${draft.noun === w ? "border-[var(--gold-border)] bg-muted/40" : "border-gold-dim"}`}>
+                      className={`rounded-full border px-3 py-1.5 text-sm ${draft.noun === w ? "border-[var(--gold-border)] bg-muted/40" : "border-gold-dim"}`}>
                       {w}
                     </button>
                   ))}

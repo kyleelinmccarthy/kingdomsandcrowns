@@ -74,6 +74,9 @@ export default async function LootPage({
   const xp = activeChild.currentXp;
   const level = levelFromXp(xp);
   const xpInLevel = xp % 100;
+  // XP reversal can lower a hero's slot count below a page they'd already
+  // filled; only count spells still within their current pages as "kept".
+  const spellsKept = spellbook.spells.filter((s) => s.slot <= spellbook.slots).length;
 
   return (
     <div className="space-y-6">
@@ -142,7 +145,7 @@ export default async function LootPage({
       <GameFrame title="Spellbook" icon={<GameIcon name="crystalBall" className="size-4 text-[var(--gold-bright)]" />}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm">
-            {spellbook.spells.length} {spellbook.spells.length === 1 ? "spell" : "spells"} kept &middot; {spellbook.unlocked.length} of {SPELL_PART_COUNT} parts unlocked
+            {spellsKept} {spellsKept === 1 ? "spell" : "spells"} kept &middot; {spellbook.unlocked.length} of {SPELL_PART_COUNT} parts unlocked
           </p>
           <Link href={isChildView ? "/spellbook" : `/spellbook?child=${activeChild.id}`} className="text-sm font-medium text-primary hover:underline">
             Open the Spellbook →

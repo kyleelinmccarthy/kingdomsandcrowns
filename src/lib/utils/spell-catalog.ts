@@ -238,11 +238,17 @@ const MODIFIER_PHRASES: Record<string, string> = {
   quicken: "is cast in a flash",
 };
 
+/** "An" before a vowel sound, "A" otherwise — used for the form label. */
+function article(word: string): string {
+  return /^[aeiou]/i.test(word) ? "An" : "A";
+}
+
 export function describeSpell(parts: SpellParts): string {
   const found = lookup(parts);
   if (!found) return "";
   const { element, form, modifier } = found;
-  let sentence = `A ${form.label.toLowerCase()} of ${element.label.toLowerCase()}`;
+  const formLabel = form.label.toLowerCase();
+  let sentence = `${article(formLabel)} ${formLabel} of ${element.label.toLowerCase()}`;
   if (modifier) sentence += ` that ${MODIFIER_PHRASES[modifier.id]}`;
   sentence += ".";
   if (element.onHit?.kind === "chilled") sentence += " It chills.";

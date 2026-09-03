@@ -134,4 +134,13 @@ describe("describeSpell", () => {
   it("is empty for unknown ids", () => {
     expect(describeSpell({ elementId: "lava", formId: "bolt", modifierId: null })).toBe("");
   });
+  it("uses 'An' before a vowel-leading form label", () => {
+    expect(describeSpell({ elementId: "tide", formId: "orb", modifierId: null })).toBe("An orb of tide.");
+    expect(describeSpell({ elementId: "ember", formId: "aura", modifierId: "mend" })).toBe("An aura of ember that mends the caster.");
+  });
+  it("has a phrase for every modifier", () => {
+    for (const m of SPELL_MODIFIERS) {
+      expect(describeSpell({ elementId: "ember", formId: "bolt", modifierId: m.id })).not.toContain("undefined");
+    }
+  });
 });
