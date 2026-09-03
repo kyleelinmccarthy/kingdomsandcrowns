@@ -1,0 +1,1 @@
+ALTER TABLE `child` ADD `upkeep_requires_approval` integer;

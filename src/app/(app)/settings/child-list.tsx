@@ -102,6 +102,7 @@ type Child = {
   earnedBadgeIds?: string[];
   questUnlockedItems?: string[];
   upkeepEnabled?: boolean;
+  upkeepRequiresApproval?: boolean | null;
 };
 
 const SUBJECT_COLORS = [
@@ -129,6 +130,7 @@ export function ChildList({
   isChildView = false,
   currentChildId = null,
   familyUpkeepEnabled = false,
+  familyRequiresApproval = false,
 }: {
   family: Family;
   kids: Child[];
@@ -136,6 +138,7 @@ export function ChildList({
   isChildView?: boolean;
   currentChildId?: string | null;
   familyUpkeepEnabled?: boolean;
+  familyRequiresApproval?: boolean;
 }) {
   const [showAdd, setShowAdd] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(
@@ -183,6 +186,7 @@ export function ChildList({
           child={expandedChild}
           isChildView={isChildView}
           familyUpkeepEnabled={familyUpkeepEnabled}
+          familyRequiresApproval={familyRequiresApproval}
         />
       )}
 
@@ -394,10 +398,12 @@ function ChildDetail({
   child,
   isChildView = false,
   familyUpkeepEnabled = false,
+  familyRequiresApproval = false,
 }: {
   child: Child;
   isChildView?: boolean;
   familyUpkeepEnabled?: boolean;
+  familyRequiresApproval?: boolean;
 }) {
   const router = useRouter();
   const [confirmBanish, setConfirmBanish] = useState(false);
@@ -450,6 +456,8 @@ function ChildDetail({
             childId={child.id}
             enabled={child.upkeepEnabled ?? false}
             familyDisabled={!familyUpkeepEnabled}
+            requiresApproval={child.upkeepRequiresApproval ?? null}
+            familyRequiresApproval={familyRequiresApproval}
           />
         )}
         {!isChildView && (

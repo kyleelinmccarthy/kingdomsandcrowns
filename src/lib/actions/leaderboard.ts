@@ -5,6 +5,23 @@ import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { requireSession } from "@/lib/auth/session";
 import { requireFamilyAccess, requireChildAccess, accessibleChildIds } from "@/lib/auth/access";
+import {
+  LEADERBOARD_CATEGORIES,
+  type LeaderboardCategory,
+  type RankColumn,
+} from "@/lib/utils/leaderboard-categories";
+
+/**
+ * The one place a category's configured column name becomes a Drizzle column.
+ * Which column each category ranks by — and which needs the positive-only
+ * filter — is declared and tested in the pure config module.
+ */
+const RANK_COLUMNS = {
+  currentXp: schema.child.currentXp,
+  currentStreak: schema.child.currentStreak,
+  longestStreak: schema.child.longestStreak,
+  upkeepXp: schema.child.upkeepXp,
+} satisfies Record<RankColumn, unknown>;
 
 export async function getFamilyLeaderboard() {
   const access = await requireFamilyAccess();
@@ -31,7 +48,7 @@ export async function getFamilyLeaderboard() {
   return children;
 }
 
-export type LeaderboardCategory = "xp" | "streak" | "longestStreak" | "badges" | "upkeep";
+export type { LeaderboardCategory } from "@/lib/utils/leaderboard-categories";
 
 export type CommunityLeaderboardEntry = {
   displayName: string;
@@ -45,16 +62,8 @@ export async function getCommunityLeaderboard(
 ): Promise<CommunityLeaderboardEntry[]> {
   await requireSession();
 
-  const orderColumn =
-    category === "xp"
-      ? schema.child.currentXp
-      : category === "streak"
-        ? schema.child.currentStreak
-        : category === "longestStreak"
-          ? schema.child.longestStreak
-          : category === "upkeep"
-            ? schema.child.upkeepXp
-            : null;
+  const config = LEADERBOARD_CATEGORIES[category];
+  const orderColumn = config.rankBy ? RANK_COLUMNS[config.rankBy] : null;
 
   if (category === "badges") {
     const rows = await db
@@ -82,7 +91,7 @@ export async function getCommunityLeaderboard(
   // never inflate — or be crowded out of — the school standings. Only heroes
   // who have actually earned any appear at all.
   const categoryFilter =
-    category === "upkeep" ? [gt(schema.child.upkeepXp, 0)] : [];
+    config.onlyPositive && config.rankBy ? [gt(RANK_COLUMNS[config.rankBy], 0)] : [];
 
   const rows = await db
     .select({

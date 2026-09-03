@@ -233,6 +233,13 @@ export const child = sqliteTable(
     // activities.ts recomputes currentXp as (activity count x 10) + bonusXp
     // whenever schoolwork is logged, which would silently erase it.
     upkeepXp: integer("upkeep_xp").notNull().default(0),
+    // Per-hero override of the family's "confirm completed chores" setting.
+    // Nullable on purpose: null means "inherit", which is a real third state.
+    // A parent who has made no choice for this hero should keep following the
+    // family default as it changes, rather than being frozen at whatever it
+    // happened to be the day the hero was added. A six-year-old's work usually
+    // wants checking; a fourteen-year-old's usually does not.
+    upkeepRequiresApproval: integer("upkeep_requires_approval", { mode: "boolean" }),
     // Soft delete ("banished"). Non-null hides the hero everywhere — lists,
     // logins, leaderboards — but keeps every row intact so a parent can
     // restore them. Permanent removal is a separate, explicit action.

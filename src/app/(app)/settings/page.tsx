@@ -117,6 +117,7 @@ export default async function SettingsPage() {
             isChildView={isChildView}
             currentChildId={currentChildId}
             familyUpkeepEnabled={family.upkeepEnabled}
+            familyRequiresApproval={family.upkeepRequiresApproval}
           />
           {guardianData && (
             <GuardiansManager

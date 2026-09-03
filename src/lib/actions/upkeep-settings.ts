@@ -42,3 +42,19 @@ export async function setChildUpkeepEnabled(childId: string, enabled: boolean) {
     .set({ upkeepEnabled: enabled, updatedAt: new Date() })
     .where(eq(schema.child.id, childId));
 }
+
+/**
+ * Per-hero override of the family's confirmation setting.
+ *
+ * `null` clears the override and returns this hero to following the family
+ * default — which is a distinct choice from setting it to the same value the
+ * family currently has, because the family default can change later.
+ */
+export async function setChildUpkeepApproval(childId: string, value: boolean | null) {
+  await requireAdultActor();
+  await requireChildAccess(childId, { write: true });
+  await db
+    .update(schema.child)
+    .set({ upkeepRequiresApproval: value, updatedAt: new Date() })
+    .where(eq(schema.child.id, childId));
+}

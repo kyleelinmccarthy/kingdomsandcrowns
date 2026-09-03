@@ -8,6 +8,7 @@ import { requireChildAccess, requireUpkeepAssignmentAccess } from "@/lib/auth/ac
 import { assertUpkeepEnabled, loadUpkeepContext } from "@/lib/services/upkeep-context";
 import { pruneStaleUpkeepAssignmentsInRange } from "@/lib/services/upkeep-assignment-sync";
 import { assignmentKey, planUpkeepAssignments } from "@/lib/utils/upkeep-planning";
+import { clampGenerationRange } from "@/lib/utils/generation-range";
 import { addDays } from "@/lib/utils/dates";
 import { getActor, requireAdultActor } from "@/lib/auth/actor";
 import { applyUpkeepTransition } from "@/lib/services/upkeep-transitions";
@@ -34,6 +35,11 @@ export async function generateUpkeepAssignments(
 
   const context = await loadUpkeepContext(childId);
   if (!context?.enabled) return 0;
+
+  // Bound the window before anything materializes rows. A hero can trigger
+  // generation for their own profile, so an unbounded range is a way to write
+  // tens of thousands of rows with one request.
+  ({ startDate, endDate } = clampGenerationRange(startDate, endDate));
 
   // Generation only ever adds rows, so a retired task or a narrowed repeat
   // would otherwise leave the days it had already planned sitting in the list.

@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { createActivity, deleteActivity } from "@/lib/actions/activities";
 import { getScheduledDates } from "@/lib/utils/schedule";
+import { clampGenerationRange } from "@/lib/utils/generation-range";
 import { getSchoolDays, getScheduleBlocks } from "@/lib/actions/student-schedule";
 import { getSchoolingModeForDate } from "@/lib/actions/schooling-mode";
 import { requireChildAccess, requireAssignmentAccess, isChildActor } from "@/lib/auth/access";
@@ -198,6 +199,12 @@ export async function generateAssignmentsFromSchedules(
   // child acting on their own profile. (No requireAdultActor: that gate crashed
   // the tavern/quests pages for any logged-in hero.)
   await requireChildAccess(childId, { write: true });
+
+  // Bound the window before anything materializes rows. A hero can trigger
+  // generation for their own profile, so an unbounded range is a way to write
+  // tens of thousands of rows with one request.
+  ({ startDate, endDate } = clampGenerationRange(startDate, endDate));
+
   const schoolDays = await getSchoolDays(childId);
 
   // Generation only ever adds rows, so retiring a quest or its repeat used to

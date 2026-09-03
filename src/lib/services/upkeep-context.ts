@@ -3,14 +3,23 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { isUpkeepEnabled } from "@/lib/utils/upkeep-enabled";
+import { resolveRequiresApproval } from "@/lib/utils/upkeep-approval";
 
 export type UpkeepContext = {
   childId: string;
   familyId: string;
   /** Both toggles agree the module is on for this hero. */
   enabled: boolean;
-  /** Family setting: a hero's completion waits for a grown-up to confirm. */
+  /**
+   * Whether this hero's completion waits for a grown-up to confirm — the
+   * family default, unless this hero carries an override. Already resolved,
+   * so callers never re-derive it.
+   */
   requiresApproval: boolean;
+  /** The family default on its own, for settings copy that explains "Inherit". */
+  familyRequiresApproval: boolean;
+  /** This hero's override as stored; null means inherit. */
+  childRequiresApproval: boolean | null;
 };
 
 /**
@@ -33,6 +42,7 @@ export const loadUpkeepContext = cache(async function loadUpkeepContext(
       childEnabled: schema.child.upkeepEnabled,
       familyEnabled: schema.family.upkeepEnabled,
       requiresApproval: schema.family.upkeepRequiresApproval,
+      childRequiresApproval: schema.child.upkeepRequiresApproval,
     })
     .from(schema.child)
     .innerJoin(schema.family, eq(schema.child.familyId, schema.family.id))
@@ -49,7 +59,9 @@ export const loadUpkeepContext = cache(async function loadUpkeepContext(
       { upkeepEnabled: row.familyEnabled },
       { upkeepEnabled: row.childEnabled }
     ),
-    requiresApproval: row.requiresApproval,
+    requiresApproval: resolveRequiresApproval(row.requiresApproval, row.childRequiresApproval),
+    familyRequiresApproval: row.requiresApproval,
+    childRequiresApproval: row.childRequiresApproval,
   };
 });
 
