@@ -106,10 +106,17 @@ clock, so a parent travelling does not see a different default than the child.
 
 ## 5. Backfill
 
-Only two stored columns are derived from an instant and therefore wrong:
+Three stored columns are derived from an instant:
 
 - `activity_log.date`
 - `child.last_active_date`
+- `wage_ledger_entry.date` — written correctly from `todayInZone` in
+  `src/lib/actions/wages.ts`, and requires **no backfill**: the Upkeep feature
+  that writes it has never shipped, so no row predates the fix and there is no
+  historical wage data to correct.
+
+The backfill script therefore only touches the first two — the ones with
+pre-fix rows to correct.
 
 **Everything else is left alone, deliberately.** `quest_assignment.date`,
 `upkeep_task_assignment.date`, `weekly_summary.week_start_date` and
