@@ -1672,7 +1672,7 @@ html { scrollbar-color: var(--border) var(--background); }
 @media (prefers-reduced-motion: reduce) { .deed-sparkle { animation: none; } }
 
 /* ── The Realm ──────────────────────────────────────────────── */
-.realm-root { position: fixed; inset: 0; background: #0a1220; }
+.realm-root { position: fixed; inset: 0; z-index: 45; background: #0a1220; }
 .realm-hud { position: absolute; top: 0.75rem; left: 0.75rem; right: 0.75rem; z-index: 20; pointer-events: none; color: #fff; font-family: var(--font-farro), ui-sans-serif, system-ui, sans-serif; }
 .realm-hud > * { pointer-events: auto; }
 .realm-hud-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; }

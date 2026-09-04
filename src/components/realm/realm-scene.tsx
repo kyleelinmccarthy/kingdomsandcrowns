@@ -64,7 +64,8 @@ function World({ layout, textures, settings, axisRef }: Props) {
           hero.current = setTarget(hero.current, { x: e.point.x, z: e.point.z }, layout.colliders);
         }}
       >
-        <planeGeometry args={[WORLD_SIZE, WORLD_SIZE]} />
+        {/* Visual only: the ground plane is drawn larger than the playable world so its edge never shows past the backdrop. */}
+        <planeGeometry args={[WORLD_SIZE * 3, WORLD_SIZE * 3]} />
         <meshStandardMaterial color={ground} />
       </mesh>
       {layout.props.map((prop) => (

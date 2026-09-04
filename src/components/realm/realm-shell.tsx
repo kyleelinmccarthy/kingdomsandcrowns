@@ -16,7 +16,7 @@ import { RealmGate } from "./realm-gate";
 import { RealmClosed } from "./realm-closed";
 import { TouchStick } from "./touch-stick";
 import { useRealmInput } from "./use-realm-input";
-import { usePlayClock } from "./use-play-clock";
+import { usePlayClock, type CloseReason } from "./use-play-clock";
 
 const RealmScene = dynamic(() => import("./realm-scene"), { ssr: false, loading: () => <p className="p-6 text-center text-muted-foreground">Opening the Realm…</p> });
 
@@ -71,8 +71,8 @@ export function RealmShell({ bundle, childId, isChildView }: { bundle: RealmBund
 
   useEffect(() => () => disposeSpriteTextures(), []);
 
-  const onClose = useCallback(() => {
-    setPhase({ kind: "closed", body: gateCopy({ allowed: false, reason: "cap_reached" })!.body });
+  const onClose = useCallback((reason: CloseReason) => {
+    setPhase({ kind: "closed", body: gateCopy({ allowed: false, reason })!.body });
   }, []);
 
   if (phase.kind === "checking") return <p className="p-6 text-center text-muted-foreground">Checking the gate…</p>;
@@ -110,10 +110,11 @@ function RealmOpen({
   isTouch: boolean;
   minutes: number;
   note: string | null;
-  onClose: () => void;
+  onClose: (reason: CloseReason) => void;
 }) {
   const [textures, setTextures] = useState<SpriteTextures | null>(null);
   const [spriteError, setSpriteError] = useState("");
+  const [retryKey, setRetryKey] = useState(0);
   const layout = useMemo(() => buildWorldLayout({ castleType: bundle.castleType, builtBuildingIds: bundle.builtBuildingIds }), [bundle.castleType, bundle.builtBuildingIds]);
   const settings = renderSettingsFor(bundle.profile, isTouch);
   const { axisRef, setStick } = useRealmInput();
@@ -124,7 +125,7 @@ function RealmOpen({
 
   return (
     <div className="realm-root">
-      <SpriteSource config={config} onReady={onReady} onError={onError} />
+      <SpriteSource key={retryKey} config={config} onReady={onReady} onError={onError} />
       {textures && <RealmScene layout={layout} textures={textures} settings={settings} axisRef={axisRef} />}
       <RealmHud
         heroName={bundle.heroName}
@@ -136,6 +137,7 @@ function RealmOpen({
         onRetry={() => {
           setSpriteError("");
           clock.clearError();
+          setRetryKey((k) => k + 1);
         }}
       />
       {settings.showStick && <TouchStick onChange={setStick} />}

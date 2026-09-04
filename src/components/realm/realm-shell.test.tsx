@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { RealmShell } from "./realm-shell";
 import { DEFAULT_LEARNING_PROFILE } from "@/lib/utils/learning-profile";
 import { DEFAULT_AVATAR } from "@/lib/utils/avatar-catalog";
@@ -11,14 +12,24 @@ vi.mock("@/lib/actions/realm-play", () => ({
   recordRealmPlay: (...a: unknown[]) => recordRealmPlay(...a),
 }));
 vi.mock("./realm-scene", () => ({ default: () => <div data-testid="scene" /> }));
+// A module-level switch: when armed, the next SpriteSource mount reports an
+// error (as if the sprite rasterizer failed) instead of success, then
+// disarms itself. Only the retry test arms it, so every other test (and the
+// remount that "Try again" triggers) sees the ordinary success path.
+let failNextSpriteMount = false;
 vi.mock("./sprite-source", async () => {
   const React = await import("react");
   return {
-    SpriteSource: ({ onReady }: { onReady: (t: unknown) => void }) => {
-      // Report readiness after mount, the way the real component does, so no parent state is set during render.
+    SpriteSource: ({ onReady, onError }: { onReady: (t: unknown) => void; onError: (e: Error) => void }) => {
+      // Report readiness (or failure) after mount, the way the real component does, so no parent state is set during render.
       React.useEffect(() => {
-        onReady({ hero: {}, companion: null });
-      }, [onReady]);
+        if (failNextSpriteMount) {
+          failNextSpriteMount = false;
+          onError(new Error("boom"));
+        } else {
+          onReady({ hero: {}, companion: null });
+        }
+      }, [onReady, onError]);
       return null;
     },
   };
@@ -33,7 +44,10 @@ const bundle = {
   settings: { enabled: true, toneMode: "gentle" as const },
 };
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  failNextSpriteMount = false;
+});
 afterEach(cleanup);
 
 describe("RealmShell", () => {
@@ -64,5 +78,16 @@ describe("RealmShell", () => {
     getRealmAccess.mockResolvedValue({ allowed: false, reason: "disabled" });
     render(<RealmShell bundle={{ ...bundle, settings: { enabled: false, toneMode: "gentle" } }} childId="c1" isChildView={true} />);
     expect(await screen.findByText("The Realm is closed for this hero.")).toBeInTheDocument();
+  });
+
+  it("retries loading the sprite after an error", async () => {
+    failNextSpriteMount = true;
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    const user = userEvent.setup();
+    render(<RealmShell bundle={bundle} childId="c1" isChildView={true} />);
+    expect(await screen.findByText("boom")).toBeInTheDocument();
+    expect(screen.queryByTestId("scene")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByTestId("scene")).toBeInTheDocument();
   });
 });

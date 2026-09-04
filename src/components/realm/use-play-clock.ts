@@ -3,7 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { getRealmAccess, recordRealmPlay } from "@/lib/actions/realm-play";
 import { applyAccess, startClock, tickClock, type PlayClock } from "@/lib/realm/play-clock";
+import type { AccessDenied } from "@/lib/utils/realm-access";
 import { currentTimeOfDay, localDateOf } from "@/lib/utils/schedule-days";
+
+/** Why the Realm closed, in the gate's own vocabulary. `AccessDenied` already is that reason union. */
+export type CloseReason = AccessDenied;
 
 /**
  * Ticks the pure clock once a second, writes a minute to the ledger every 60
@@ -19,7 +23,7 @@ export function usePlayClock({
   enabled: boolean;
   childId: string;
   initialMinutes: number;
-  onClose: () => void;
+  onClose: (reason: CloseReason) => void;
 }) {
   const [clock, setClock] = useState<PlayClock>(() => startClock(initialMinutes));
   const [warning, setWarning] = useState(false);
@@ -37,7 +41,7 @@ export function usePlayClock({
       clockRef.current = ticked.clock;
       setClock(ticked.clock);
       if (ticked.event === "warn") setWarning(true);
-      if (ticked.event === "close") closeRef.current();
+      if (ticked.event === "close") closeRef.current("no_minutes");
       if (ticked.event !== "record" || recording) return;
       recording = true;
       try {
@@ -49,7 +53,7 @@ export function usePlayClock({
         setClock(applied.clock);
         setError("");
         if (applied.event === "warn") setWarning(true);
-        if (applied.event === "close") closeRef.current();
+        if (applied.event === "close") closeRef.current(access.allowed ? "no_minutes" : access.reason);
       } catch (err) {
         // The minute is not re-charged: the clock already moved on. Next minute tries again.
         setError(err instanceof Error ? err.message : "The Realm lost track of time for a moment.");
