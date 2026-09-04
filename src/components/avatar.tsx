@@ -1755,3 +1755,76 @@ function lighten(hex: string, amount: number): string {
   const [r, g, b] = hexToRgb(hex);
   return rgbToHex(r + (255 - r) * amount, g + (255 - g) * amount, b + (255 - b) * amount);
 }
+
+// ── Realm figures ────────────────────────────────────────────
+// The Realm draws the hero and companion as separate sprites, so each gets
+// its own SVG: the hero without the crest (a shield behind a walking figure
+// looks wrong), the companion alone so it can trail behind.
+
+export function AvatarFigure({
+  config,
+  size = "xl",
+  className = "",
+}: {
+  config: AvatarConfig;
+  size?: keyof typeof SIZE_MAP;
+  className?: string;
+}) {
+  const px = SIZE_MAP[size];
+  const c = normalizeAvatarConfig(config as unknown as Record<string, unknown>);
+  const skinHex = SKIN_TONES.find((s) => s.id === c.skinTone)?.hex ?? "#d4956b";
+  return (
+    <svg
+      width={px}
+      height={px}
+      viewBox="0 0 36 48"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      style={{ imageRendering: "pixelated" }}
+      aria-hidden="true"
+      data-figure="hero"
+    >
+      <g transform="translate(0, 8)">
+        <BodyLayer outfit={c.outfit} outfitColor={c.outfitColor} />
+        <ArmsLayer skinHex={skinHex} />
+        <LegsLayer legwear={c.legwear} legwearColor={c.legwearColor} />
+        <BootsLayer boots={c.boots} color={c.bootsColor} />
+        <HeadLayer skinHex={skinHex} />
+        <HairLayer style={c.hairStyle} color={c.hairColor} />
+        <AccessoryLayer accessory={c.accessory} color={c.accessoryColor} />
+      </g>
+    </svg>
+  );
+}
+
+export function CompanionFigure({
+  companion,
+  color,
+  size = "xl",
+  className = "",
+}: {
+  companion: string | null;
+  color: string;
+  size?: keyof typeof SIZE_MAP;
+  className?: string;
+}) {
+  const px = SIZE_MAP[size];
+  return (
+    <svg
+      width={px}
+      height={px}
+      viewBox="0 0 36 48"
+      xmlns="http://www.w3.org/2000/svg"
+      className={className}
+      style={{ imageRendering: "pixelated" }}
+      aria-hidden="true"
+      data-figure="companion"
+    >
+      <g transform="translate(0, 8)">
+        <g transform="translate(4, 8)">
+          <CompanionLayer companion={companion} color={color} />
+        </g>
+      </g>
+    </svg>
+  );
+}
