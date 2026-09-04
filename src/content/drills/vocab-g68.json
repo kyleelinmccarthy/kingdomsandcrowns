@@ -1,0 +1,490 @@
+{
+  "poolId": "vocab-g68",
+  "band": "g68",
+  "items": [
+    {
+      "id": "vocab-g68-abundant",
+      "prompt": "Which word means \"existing in large amounts\"?",
+      "answer": "abundant",
+      "distractors": [
+        "credible",
+        "tentative",
+        "arbitrary"
+      ],
+      "level": 0
+    },
+    {
+      "id": "vocab-g68-benefit",
+      "prompt": "Which word means \"something that helps or improves a situation\"?",
+      "answer": "benefit",
+      "distractors": [
+        "constraint",
+        "consequence",
+        "controversy"
+      ],
+      "level": 0
+    },
+    {
+      "id": "vocab-g68-evidence",
+      "prompt": "Which word means \"facts or information that show something is true\"?",
+      "answer": "evidence",
+      "distractors": [
+        "perspective",
+        "criteria",
+        "component"
+      ],
+      "level": 0
+    },
+    {
+      "id": "vocab-g68-generate",
+      "prompt": "Which word means \"to produce or create something\"?",
+      "answer": "generate",
+      "distractors": [
+        "inhibit",
+        "mitigate",
+        "escalate"
+      ],
+      "level": 0
+    },
+    {
+      "id": "vocab-g68-contrast",
+      "prompt": "Which word means \"a clear difference between two things\"?",
+      "answer": "contrast",
+      "distractors": [
+        "hypothesis",
+        "consequence",
+        "component"
+      ],
+      "level": 1
+    },
+    {
+      "id": "vocab-g68-significant",
+      "prompt": "Which word means \"important enough to notice or matter\"?",
+      "answer": "significant",
+      "distractors": [
+        "arbitrary",
+        "tentative",
+        "vulnerable"
+      ],
+      "level": 1
+    },
+    {
+      "id": "vocab-g68-authentic",
+      "prompt": "Which word means \"genuine and not a copy\"?",
+      "answer": "authentic",
+      "distractors": [
+        "vague",
+        "plausible",
+        "legitimate"
+      ],
+      "level": 1
+    },
+    {
+      "id": "vocab-g68-justify",
+      "prompt": "Which word means \"to give good reasons for something\"?",
+      "answer": "justify",
+      "distractors": [
+        "fluctuate",
+        "escalate",
+        "accumulate"
+      ],
+      "level": 1
+    },
+    {
+      "id": "vocab-g68-credible",
+      "prompt": "Which word means \"able to be believed or trusted\"?",
+      "answer": "credible",
+      "distractors": [
+        "arbitrary",
+        "vague",
+        "tentative"
+      ],
+      "level": 1
+    },
+    {
+      "id": "vocab-g68-component",
+      "prompt": "Which word means \"one part of a larger whole\"?",
+      "answer": "component",
+      "distractors": [
+        "criteria",
+        "consequence",
+        "perspective"
+      ],
+      "level": 1
+    },
+    {
+      "id": "vocab-g68-analyze",
+      "prompt": "Which word means \"to study something closely to understand it\"?",
+      "answer": "analyze",
+      "distractors": [
+        "advocate",
+        "sustain",
+        "reinforce"
+      ],
+      "level": 2
+    },
+    {
+      "id": "vocab-g68-hypothesis",
+      "prompt": "Which word means \"an idea proposed as a possible explanation, to be tested\"?",
+      "answer": "hypothesis",
+      "distractors": [
+        "consequence",
+        "criteria",
+        "controversy"
+      ],
+      "level": 2
+    },
+    {
+      "id": "vocab-g68-infer",
+      "prompt": "Which word means \"to figure something out using clues rather than being told directly\"?",
+      "answer": "infer",
+      "distractors": [
+        "justify",
+        "escalate",
+        "advocate"
+      ],
+      "level": 2
+    },
+    {
+      "id": "vocab-g68-perspective",
+      "prompt": "Which word means \"a particular way of viewing or thinking about something\"?",
+      "answer": "perspective",
+      "distractors": [
+        "consequence",
+        "constraint",
+        "criteria"
+      ],
+      "level": 2
+    },
+    {
+      "id": "vocab-g68-transform",
+      "prompt": "Which word means \"to change completely in form or appearance\"?",
+      "answer": "transform",
+      "distractors": [
+        "sustain",
+        "reinforce",
+        "inhibit"
+      ],
+      "level": 2
+    },
+    {
+      "id": "vocab-g68-anticipate",
+      "prompt": "Which word means \"to expect something before it happens\"?",
+      "answer": "anticipate",
+      "distractors": [
+        "deduce",
+        "elaborate",
+        "integrate"
+      ],
+      "level": 2
+    },
+    {
+      "id": "vocab-g68-comprehend",
+      "prompt": "Which word means \"to fully understand something\"?",
+      "answer": "comprehend",
+      "distractors": [
+        "fluctuate",
+        "escalate",
+        "accumulate"
+      ],
+      "level": 2
+    },
+    {
+      "id": "vocab-g68-consequence",
+      "prompt": "Which word means \"a result that follows an action\"?",
+      "answer": "consequence",
+      "distractors": [
+        "component",
+        "criteria",
+        "perspective"
+      ],
+      "level": 2
+    },
+    {
+      "id": "vocab-g68-controversy",
+      "prompt": "Which word means \"a public disagreement about an issue\"?",
+      "answer": "controversy",
+      "distractors": [
+        "hypothesis",
+        "component",
+        "criteria"
+      ],
+      "level": 2
+    },
+    {
+      "id": "vocab-g68-criteria",
+      "prompt": "Which word means \"standards used to judge or decide something\"?",
+      "answer": "criteria",
+      "distractors": [
+        "consequence",
+        "perspective",
+        "component"
+      ],
+      "level": 2
+    },
+    {
+      "id": "vocab-g68-deduce",
+      "prompt": "Which word means \"to reach a conclusion using logic\"?",
+      "answer": "deduce",
+      "distractors": [
+        "anticipate",
+        "elaborate",
+        "integrate"
+      ],
+      "level": 2
+    },
+    {
+      "id": "vocab-g68-dominant",
+      "prompt": "Which word means \"having the most power or influence\"?",
+      "answer": "dominant",
+      "distractors": [
+        "tentative",
+        "vulnerable",
+        "arbitrary"
+      ],
+      "level": 2
+    },
+    {
+      "id": "vocab-g68-elaborate",
+      "prompt": "Which word means \"to explain something in more detail\"?",
+      "answer": "elaborate",
+      "distractors": [
+        "deduce",
+        "anticipate",
+        "integrate"
+      ],
+      "level": 2
+    },
+    {
+      "id": "vocab-g68-emphasize",
+      "prompt": "Which word means \"to give special importance to something\"?",
+      "answer": "emphasize",
+      "distractors": [
+        "mitigate",
+        "inhibit",
+        "fluctuate"
+      ],
+      "level": 2
+    },
+    {
+      "id": "vocab-g68-integrate",
+      "prompt": "Which word means \"to combine parts into a whole\"?",
+      "answer": "integrate",
+      "distractors": [
+        "deduce",
+        "elaborate",
+        "anticipate"
+      ],
+      "level": 2
+    },
+    {
+      "id": "vocab-g68-accumulate",
+      "prompt": "Which word means \"to gather or pile up over time\"?",
+      "answer": "accumulate",
+      "distractors": [
+        "justify",
+        "comprehend",
+        "generate"
+      ],
+      "level": 3
+    },
+    {
+      "id": "vocab-g68-advocate",
+      "prompt": "Which word means \"to publicly support an idea or cause\"?",
+      "answer": "advocate",
+      "distractors": [
+        "infer",
+        "analyze",
+        "sustain"
+      ],
+      "level": 3
+    },
+    {
+      "id": "vocab-g68-vague",
+      "prompt": "Which word means \"having more than one possible meaning\"?",
+      "answer": "vague",
+      "distractors": [
+        "credible",
+        "authentic",
+        "legitimate"
+      ],
+      "level": 3
+    },
+    {
+      "id": "vocab-g68-arbitrary",
+      "prompt": "Which word means \"based on random choice rather than reason\"?",
+      "answer": "arbitrary",
+      "distractors": [
+        "abundant",
+        "significant",
+        "credible"
+      ],
+      "level": 3
+    },
+    {
+      "id": "vocab-g68-constraint",
+      "prompt": "Which word means \"a limit that restricts what you can do\"?",
+      "answer": "constraint",
+      "distractors": [
+        "benefit",
+        "perspective",
+        "evidence"
+      ],
+      "level": 3
+    },
+    {
+      "id": "vocab-g68-escalate",
+      "prompt": "Which word means \"to become more serious or intense\"?",
+      "answer": "escalate",
+      "distractors": [
+        "justify",
+        "comprehend",
+        "generate"
+      ],
+      "level": 3
+    },
+    {
+      "id": "vocab-g68-facilitate",
+      "prompt": "Which word means \"to make an action or process easier\"?",
+      "answer": "facilitate",
+      "distractors": [
+        "inhibit",
+        "mitigate",
+        "escalate"
+      ],
+      "level": 3
+    },
+    {
+      "id": "vocab-g68-fluctuate",
+      "prompt": "Which word means \"to change often, going up and down\"?",
+      "answer": "fluctuate",
+      "distractors": [
+        "comprehend",
+        "justify",
+        "accumulate"
+      ],
+      "level": 3
+    },
+    {
+      "id": "vocab-g68-implement",
+      "prompt": "Which word means \"to put a plan into action\"?",
+      "answer": "implement",
+      "distractors": [
+        "inhibit",
+        "mitigate",
+        "escalate"
+      ],
+      "level": 3
+    },
+    {
+      "id": "vocab-g68-innovate",
+      "prompt": "Which word means \"to introduce new ideas or methods\"?",
+      "answer": "innovate",
+      "distractors": [
+        "reinforce",
+        "sustain",
+        "inhibit"
+      ],
+      "level": 3
+    },
+    {
+      "id": "vocab-g68-unavoidable",
+      "prompt": "Which word means \"certain to happen and impossible to avoid\"?",
+      "answer": "unavoidable",
+      "distractors": [
+        "plausible",
+        "tentative",
+        "vulnerable"
+      ],
+      "level": 4
+    },
+    {
+      "id": "vocab-g68-inhibit",
+      "prompt": "Which word means \"to slow down or prevent something\"?",
+      "answer": "inhibit",
+      "distractors": [
+        "facilitate",
+        "implement",
+        "reinforce"
+      ],
+      "level": 4
+    },
+    {
+      "id": "vocab-g68-legitimate",
+      "prompt": "Which word means \"allowed according to rules or law\"?",
+      "answer": "legitimate",
+      "distractors": [
+        "vague",
+        "plausible",
+        "tentative"
+      ],
+      "level": 4
+    },
+    {
+      "id": "vocab-g68-mitigate",
+      "prompt": "Which word means \"to make something less severe\"?",
+      "answer": "mitigate",
+      "distractors": [
+        "facilitate",
+        "implement",
+        "reinforce"
+      ],
+      "level": 4
+    },
+    {
+      "id": "vocab-g68-plausible",
+      "prompt": "Which word means \"seeming reasonable or probable\"?",
+      "answer": "plausible",
+      "distractors": [
+        "vague",
+        "legitimate",
+        "tentative"
+      ],
+      "level": 4
+    },
+    {
+      "id": "vocab-g68-reinforce",
+      "prompt": "Which word means \"to strengthen or support something\"?",
+      "answer": "reinforce",
+      "distractors": [
+        "inhibit",
+        "mitigate",
+        "facilitate"
+      ],
+      "level": 4
+    },
+    {
+      "id": "vocab-g68-sustain",
+      "prompt": "Which word means \"to keep something going over time\"?",
+      "answer": "sustain",
+      "distractors": [
+        "advocate",
+        "analyze",
+        "innovate"
+      ],
+      "level": 4
+    },
+    {
+      "id": "vocab-g68-tentative",
+      "prompt": "Which word means \"not certain or fixed; provisional\"?",
+      "answer": "tentative",
+      "distractors": [
+        "dominant",
+        "vulnerable",
+        "abundant"
+      ],
+      "level": 4
+    },
+    {
+      "id": "vocab-g68-vulnerable",
+      "prompt": "Which word means \"easily hurt or affected by something\"?",
+      "answer": "vulnerable",
+      "distractors": [
+        "dominant",
+        "tentative",
+        "abundant"
+      ],
+      "level": 4
+    }
+  ]
+}

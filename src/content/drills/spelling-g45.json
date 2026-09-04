@@ -1,0 +1,558 @@
+{
+  "poolId": "spelling-g45",
+  "band": "g45",
+  "items": [
+    {
+      "id": "spell-g45-weird",
+      "prompt": "Which is spelled correctly?",
+      "answer": "weird",
+      "distractors": [
+        "wierd",
+        "weerd",
+        "werid"
+      ],
+      "readAloud": "weird",
+      "level": 0
+    },
+    {
+      "id": "spell-g45-yacht",
+      "prompt": "Which is spelled correctly?",
+      "answer": "yacht",
+      "distractors": [
+        "yaht",
+        "yott",
+        "yatch"
+      ],
+      "readAloud": "yacht",
+      "level": 0
+    },
+    {
+      "id": "spell-g45-height",
+      "prompt": "Which is spelled correctly?",
+      "answer": "height",
+      "distractors": [
+        "heighth",
+        "hight",
+        "heigth"
+      ],
+      "readAloud": "height",
+      "level": 0
+    },
+    {
+      "id": "spell-g45-business",
+      "prompt": "Which is spelled correctly?",
+      "answer": "business",
+      "distractors": [
+        "buisness",
+        "bussiness",
+        "busness"
+      ],
+      "readAloud": "business",
+      "level": 0
+    },
+    {
+      "id": "spell-g45-license",
+      "prompt": "Which is spelled correctly?",
+      "answer": "license",
+      "distractors": [
+        "lisence",
+        "liscense",
+        "licens"
+      ],
+      "readAloud": "license",
+      "level": 0
+    },
+    {
+      "id": "spell-g45-separate",
+      "prompt": "Which is spelled correctly?",
+      "answer": "separate",
+      "distractors": [
+        "seperate",
+        "separrate",
+        "seprate"
+      ],
+      "readAloud": "separate",
+      "level": 1
+    },
+    {
+      "id": "spell-g45-receive",
+      "prompt": "Which is spelled correctly?",
+      "answer": "receive",
+      "distractors": [
+        "recieve",
+        "receve",
+        "receeve"
+      ],
+      "readAloud": "receive",
+      "level": 1
+    },
+    {
+      "id": "spell-g45-believe",
+      "prompt": "Which is spelled correctly?",
+      "answer": "believe",
+      "distractors": [
+        "beleive",
+        "belive",
+        "beleve"
+      ],
+      "readAloud": "believe",
+      "level": 1
+    },
+    {
+      "id": "spell-g45-decision",
+      "prompt": "Which is spelled correctly?",
+      "answer": "decision",
+      "distractors": [
+        "desicion",
+        "decission",
+        "decison"
+      ],
+      "readAloud": "decision",
+      "level": 1
+    },
+    {
+      "id": "spell-g45-familiar",
+      "prompt": "Which is spelled correctly?",
+      "answer": "familiar",
+      "distractors": [
+        "familliar",
+        "familier",
+        "famillar"
+      ],
+      "readAloud": "familiar",
+      "level": 1
+    },
+    {
+      "id": "spell-g45-library",
+      "prompt": "Which is spelled correctly?",
+      "answer": "library",
+      "distractors": [
+        "libary",
+        "libraty",
+        "librery"
+      ],
+      "readAloud": "library",
+      "level": 1
+    },
+    {
+      "id": "spell-g45-medicine",
+      "prompt": "Which is spelled correctly?",
+      "answer": "medicine",
+      "distractors": [
+        "medecine",
+        "medicin",
+        "medicien"
+      ],
+      "readAloud": "medicine",
+      "level": 1
+    },
+    {
+      "id": "spell-g45-neighbor",
+      "prompt": "Which is spelled correctly?",
+      "answer": "neighbor",
+      "distractors": [
+        "nieghbor",
+        "neighber",
+        "neghbor"
+      ],
+      "readAloud": "neighbor",
+      "level": 1
+    },
+    {
+      "id": "spell-g45-opposite",
+      "prompt": "Which is spelled correctly?",
+      "answer": "opposite",
+      "distractors": [
+        "oppisite",
+        "opposit",
+        "oposite"
+      ],
+      "readAloud": "opposite",
+      "level": 1
+    },
+    {
+      "id": "spell-g45-calendar",
+      "prompt": "Which is spelled correctly?",
+      "answer": "calendar",
+      "distractors": [
+        "calender",
+        "calandar",
+        "calendear"
+      ],
+      "readAloud": "calendar",
+      "level": 1
+    },
+    {
+      "id": "spell-g45-necessary",
+      "prompt": "Which is spelled correctly?",
+      "answer": "necessary",
+      "distractors": [
+        "neccessary",
+        "necesary",
+        "neccesary"
+      ],
+      "readAloud": "necessary",
+      "level": 2
+    },
+    {
+      "id": "spell-g45-government",
+      "prompt": "Which is spelled correctly?",
+      "answer": "government",
+      "distractors": [
+        "goverment",
+        "governmant",
+        "governement"
+      ],
+      "readAloud": "government",
+      "level": 2
+    },
+    {
+      "id": "spell-g45-exercise",
+      "prompt": "Which is spelled correctly?",
+      "answer": "exercise",
+      "distractors": [
+        "excercise",
+        "exersize",
+        "exercize"
+      ],
+      "readAloud": "exercise",
+      "level": 2
+    },
+    {
+      "id": "spell-g45-knowledge",
+      "prompt": "Which is spelled correctly?",
+      "answer": "knowledge",
+      "distractors": [
+        "knowlege",
+        "knollege",
+        "knowledg"
+      ],
+      "readAloud": "knowledge",
+      "level": 2
+    },
+    {
+      "id": "spell-g45-language",
+      "prompt": "Which is spelled correctly?",
+      "answer": "language",
+      "distractors": [
+        "langauge",
+        "languege",
+        "langugae"
+      ],
+      "readAloud": "language",
+      "level": 2
+    },
+    {
+      "id": "spell-g45-occasion",
+      "prompt": "Which is spelled correctly?",
+      "answer": "occasion",
+      "distractors": [
+        "ocasion",
+        "occassion",
+        "occaision"
+      ],
+      "readAloud": "occasion",
+      "level": 2
+    },
+    {
+      "id": "spell-g45-particular",
+      "prompt": "Which is spelled correctly?",
+      "answer": "particular",
+      "distractors": [
+        "particuler",
+        "perticular",
+        "particulr"
+      ],
+      "readAloud": "particular",
+      "level": 2
+    },
+    {
+      "id": "spell-g45-possession",
+      "prompt": "Which is spelled correctly?",
+      "answer": "possession",
+      "distractors": [
+        "posession",
+        "possesion",
+        "posssession"
+      ],
+      "readAloud": "possession",
+      "level": 2
+    },
+    {
+      "id": "spell-g45-recommend",
+      "prompt": "Which is spelled correctly?",
+      "answer": "recommend",
+      "distractors": [
+        "recomend",
+        "reccommend",
+        "recommand"
+      ],
+      "readAloud": "recommend",
+      "level": 2
+    },
+    {
+      "id": "spell-g45-rhythm",
+      "prompt": "Which is spelled correctly?",
+      "answer": "rhythm",
+      "distractors": [
+        "rythm",
+        "rhythem",
+        "rhythim"
+      ],
+      "readAloud": "rhythm",
+      "level": 2
+    },
+    {
+      "id": "spell-g45-scissors",
+      "prompt": "Which is spelled correctly?",
+      "answer": "scissors",
+      "distractors": [
+        "scisors",
+        "scissers",
+        "scissores"
+      ],
+      "readAloud": "scissors",
+      "level": 2
+    },
+    {
+      "id": "spell-g45-temperature",
+      "prompt": "Which is spelled correctly?",
+      "answer": "temperature",
+      "distractors": [
+        "temperture",
+        "tempature",
+        "temperatur"
+      ],
+      "readAloud": "temperature",
+      "level": 2
+    },
+    {
+      "id": "spell-g45-vegetable",
+      "prompt": "Which is spelled correctly?",
+      "answer": "vegetable",
+      "distractors": [
+        "vegtable",
+        "vegetible",
+        "vegatable"
+      ],
+      "readAloud": "vegetable",
+      "level": 2
+    },
+    {
+      "id": "spell-g45-achieve",
+      "prompt": "Which is spelled correctly?",
+      "answer": "achieve",
+      "distractors": [
+        "acheive",
+        "achive",
+        "acheeve"
+      ],
+      "readAloud": "achieve",
+      "level": 2
+    },
+    {
+      "id": "spell-g45-existence",
+      "prompt": "Which is spelled correctly?",
+      "answer": "existence",
+      "distractors": [
+        "existance",
+        "existense",
+        "exsistence"
+      ],
+      "readAloud": "existence",
+      "level": 2
+    },
+    {
+      "id": "spell-g45-foreign",
+      "prompt": "Which is spelled correctly?",
+      "answer": "foreign",
+      "distractors": [
+        "foriegn",
+        "foreighn",
+        "forein"
+      ],
+      "readAloud": "foreign",
+      "level": 2
+    },
+    {
+      "id": "spell-g45-definitely",
+      "prompt": "Which is spelled correctly?",
+      "answer": "definitely",
+      "distractors": [
+        "definately",
+        "definitly",
+        "defenitely"
+      ],
+      "readAloud": "definitely",
+      "level": 3
+    },
+    {
+      "id": "spell-g45-environment",
+      "prompt": "Which is spelled correctly?",
+      "answer": "environment",
+      "distractors": [
+        "enviroment",
+        "enviornment",
+        "envirnment"
+      ],
+      "readAloud": "environment",
+      "level": 3
+    },
+    {
+      "id": "spell-g45-immediately",
+      "prompt": "Which is spelled correctly?",
+      "answer": "immediately",
+      "distractors": [
+        "imediately",
+        "immediatly",
+        "immeadiately"
+      ],
+      "readAloud": "immediately",
+      "level": 3
+    },
+    {
+      "id": "spell-g45-interrupt",
+      "prompt": "Which is spelled correctly?",
+      "answer": "interrupt",
+      "distractors": [
+        "interupt",
+        "interrup",
+        "enterrupt"
+      ],
+      "readAloud": "interrupt",
+      "level": 3
+    },
+    {
+      "id": "spell-g45-conscience",
+      "prompt": "Which is spelled correctly?",
+      "answer": "conscience",
+      "distractors": [
+        "concience",
+        "conscence",
+        "consciense"
+      ],
+      "readAloud": "conscience",
+      "level": 3
+    },
+    {
+      "id": "spell-g45-embarrass",
+      "prompt": "Which is spelled correctly?",
+      "answer": "embarrass",
+      "distractors": [
+        "embarass",
+        "embarras",
+        "emberrass"
+      ],
+      "readAloud": "embarrass",
+      "level": 3
+    },
+    {
+      "id": "spell-g45-guarantee",
+      "prompt": "Which is spelled correctly?",
+      "answer": "guarantee",
+      "distractors": [
+        "garantee",
+        "guarentee",
+        "guarrantee"
+      ],
+      "readAloud": "guarantee",
+      "level": 3
+    },
+    {
+      "id": "spell-g45-harass",
+      "prompt": "Which is spelled correctly?",
+      "answer": "harass",
+      "distractors": [
+        "harrass",
+        "haras",
+        "harress"
+      ],
+      "readAloud": "harass",
+      "level": 3
+    },
+    {
+      "id": "spell-g45-humorous",
+      "prompt": "Which is spelled correctly?",
+      "answer": "humorous",
+      "distractors": [
+        "humerous",
+        "humorus",
+        "humourus"
+      ],
+      "readAloud": "humorous",
+      "level": 3
+    },
+    {
+      "id": "spell-g45-character",
+      "prompt": "Which is spelled correctly?",
+      "answer": "character",
+      "distractors": [
+        "charecter",
+        "charactor",
+        "charater"
+      ],
+      "readAloud": "character",
+      "level": 3
+    },
+    {
+      "id": "spell-g45-cemetery",
+      "prompt": "Which is spelled correctly?",
+      "answer": "cemetery",
+      "distractors": [
+        "cemetary",
+        "semetery",
+        "cemetry"
+      ],
+      "readAloud": "cemetery",
+      "level": 4
+    },
+    {
+      "id": "spell-g45-independent",
+      "prompt": "Which is spelled correctly?",
+      "answer": "independent",
+      "distractors": [
+        "independant",
+        "indipendent",
+        "independdent"
+      ],
+      "readAloud": "independent",
+      "level": 4
+    },
+    {
+      "id": "spell-g45-disappear",
+      "prompt": "Which is spelled correctly?",
+      "answer": "disappear",
+      "distractors": [
+        "dissapear",
+        "disapear",
+        "dissappear"
+      ],
+      "readAloud": "disappear",
+      "level": 4
+    },
+    {
+      "id": "spell-g45-especially",
+      "prompt": "Which is spelled correctly?",
+      "answer": "especially",
+      "distractors": [
+        "espeshally",
+        "expecially",
+        "especialy"
+      ],
+      "readAloud": "especially",
+      "level": 4
+    },
+    {
+      "id": "spell-g45-grammar",
+      "prompt": "Which is spelled correctly?",
+      "answer": "grammar",
+      "distractors": [
+        "grammer",
+        "gramar",
+        "grammear"
+      ],
+      "readAloud": "grammar",
+      "level": 4
+    }
+  ]
+}

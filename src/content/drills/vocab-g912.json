@@ -1,0 +1,490 @@
+{
+  "poolId": "vocab-g912",
+  "band": "g912",
+  "items": [
+    {
+      "id": "vocab-g912-candid",
+      "prompt": "Which word means \"honest and straightforward\"?",
+      "answer": "candid",
+      "distractors": [
+        "mundane",
+        "dogmatic",
+        "innate"
+      ],
+      "level": 0
+    },
+    {
+      "id": "vocab-g912-feasible",
+      "prompt": "Which word means \"possible to do successfully\"?",
+      "answer": "feasible",
+      "distractors": [
+        "ephemeral",
+        "obsolete",
+        "extraneous"
+      ],
+      "level": 0
+    },
+    {
+      "id": "vocab-g912-resilient",
+      "prompt": "Which word means \"able to recover quickly from difficulties\"?",
+      "answer": "resilient",
+      "distractors": [
+        "fastidious",
+        "novice",
+        "skeptical"
+      ],
+      "level": 0
+    },
+    {
+      "id": "vocab-g912-discern",
+      "prompt": "Which word means \"to perceive or recognize something clearly\"?",
+      "answer": "discern",
+      "distractors": [
+        "digress",
+        "conundrum",
+        "deference"
+      ],
+      "level": 0
+    },
+    {
+      "id": "vocab-g912-impartial",
+      "prompt": "Which word means \"not favoring one side; fair\"?",
+      "answer": "impartial",
+      "distractors": [
+        "indignant",
+        "infamous",
+        "ambivalent"
+      ],
+      "level": 0
+    },
+    {
+      "id": "vocab-g912-benevolent",
+      "prompt": "Which word means \"kind and generous\"?",
+      "answer": "benevolent",
+      "distractors": [
+        "austere",
+        "dogmatic",
+        "indignant"
+      ],
+      "level": 1
+    },
+    {
+      "id": "vocab-g912-diligent",
+      "prompt": "Which word means \"showing careful and persistent effort\"?",
+      "answer": "diligent",
+      "distractors": [
+        "mundane",
+        "novice",
+        "volatile"
+      ],
+      "level": 1
+    },
+    {
+      "id": "vocab-g912-eloquent",
+      "prompt": "Which word means \"fluent and persuasive in speaking or writing\"?",
+      "answer": "eloquent",
+      "distractors": [
+        "succinct",
+        "articulate",
+        "cogent"
+      ],
+      "level": 1
+    },
+    {
+      "id": "vocab-g912-meticulous",
+      "prompt": "Which word means \"extremely careful about details\"?",
+      "answer": "meticulous",
+      "distractors": [
+        "ambivalent",
+        "mundane",
+        "novice"
+      ],
+      "level": 1
+    },
+    {
+      "id": "vocab-g912-pragmatic",
+      "prompt": "Which word means \"dealing with things sensibly and practically\"?",
+      "answer": "pragmatic",
+      "distractors": [
+        "dogmatic",
+        "enigmatic",
+        "ephemeral"
+      ],
+      "level": 1
+    },
+    {
+      "id": "vocab-g912-aesthetic",
+      "prompt": "Which word means \"concerned with beauty or artistic taste\"?",
+      "answer": "aesthetic",
+      "distractors": [
+        "empirical",
+        "prudent",
+        "innate"
+      ],
+      "level": 1
+    },
+    {
+      "id": "vocab-g912-austere",
+      "prompt": "Which word means \"plain and severe in appearance or manner\"?",
+      "answer": "austere",
+      "distractors": [
+        "mundane",
+        "benevolent",
+        "lucid"
+      ],
+      "level": 1
+    },
+    {
+      "id": "vocab-g912-lucid",
+      "prompt": "Which word means \"easy to understand; clearly expressed\"?",
+      "answer": "lucid",
+      "distractors": [
+        "enigmatic",
+        "ambiguous",
+        "extraneous"
+      ],
+      "level": 1
+    },
+    {
+      "id": "vocab-g912-mundane",
+      "prompt": "Which word means \"ordinary and not exciting\"?",
+      "answer": "mundane",
+      "distractors": [
+        "eloquent",
+        "cogent",
+        "resilient"
+      ],
+      "level": 1
+    },
+    {
+      "id": "vocab-g912-ambiguous",
+      "prompt": "Which word means \"having more than one possible interpretation\"?",
+      "answer": "ambiguous",
+      "distractors": [
+        "lucid",
+        "cogent",
+        "articulate"
+      ],
+      "level": 2
+    },
+    {
+      "id": "vocab-g912-inevitable",
+      "prompt": "Which word means \"certain to happen and impossible to avoid\"?",
+      "answer": "inevitable",
+      "distractors": [
+        "feasible",
+        "obsolete",
+        "novice"
+      ],
+      "level": 2
+    },
+    {
+      "id": "vocab-g912-adversity",
+      "prompt": "Which word means \"a difficult or unfortunate situation\"?",
+      "answer": "adversity",
+      "distractors": [
+        "autonomy",
+        "deference",
+        "conundrum"
+      ],
+      "level": 2
+    },
+    {
+      "id": "vocab-g912-altruistic",
+      "prompt": "Which word means \"unselfishly concerned for the welfare of others\"?",
+      "answer": "altruistic",
+      "distractors": [
+        "dogmatic",
+        "indignant",
+        "austere"
+      ],
+      "level": 2
+    },
+    {
+      "id": "vocab-g912-arduous",
+      "prompt": "Which word means \"requiring great effort; difficult\"?",
+      "answer": "arduous",
+      "distractors": [
+        "mundane",
+        "feasible",
+        "candid"
+      ],
+      "level": 2
+    },
+    {
+      "id": "vocab-g912-astute",
+      "prompt": "Which word means \"having sharp judgment; shrewd\"?",
+      "answer": "astute",
+      "distractors": [
+        "novice",
+        "impartial",
+        "mundane"
+      ],
+      "level": 2
+    },
+    {
+      "id": "vocab-g912-autonomy",
+      "prompt": "Which word means \"the right to govern or act independently\"?",
+      "answer": "autonomy",
+      "distractors": [
+        "deference",
+        "adversity",
+        "conundrum"
+      ],
+      "level": 2
+    },
+    {
+      "id": "vocab-g912-cogent",
+      "prompt": "Which word means \"clear, logical, and convincing\"?",
+      "answer": "cogent",
+      "distractors": [
+        "ambiguous",
+        "enigmatic",
+        "dogmatic"
+      ],
+      "level": 2
+    },
+    {
+      "id": "vocab-g912-deference",
+      "prompt": "Which word means \"respect and submission to another's wishes\"?",
+      "answer": "deference",
+      "distractors": [
+        "indignant",
+        "autonomy",
+        "astute"
+      ],
+      "level": 2
+    },
+    {
+      "id": "vocab-g912-dogmatic",
+      "prompt": "Which word means \"asserting opinions as if they are certainly true\"?",
+      "answer": "dogmatic",
+      "distractors": [
+        "impartial",
+        "skeptical",
+        "prudent"
+      ],
+      "level": 2
+    },
+    {
+      "id": "vocab-g912-empirical",
+      "prompt": "Which word means \"based on observation or experiment rather than theory\"?",
+      "answer": "empirical",
+      "distractors": [
+        "dogmatic",
+        "ambiguous",
+        "aesthetic"
+      ],
+      "level": 2
+    },
+    {
+      "id": "vocab-g912-imperative",
+      "prompt": "Which word means \"extremely important or urgent\"?",
+      "answer": "imperative",
+      "distractors": [
+        "mundane",
+        "obsolete",
+        "extraneous"
+      ],
+      "level": 2
+    },
+    {
+      "id": "vocab-g912-indignant",
+      "prompt": "Which word means \"feeling angry because of something unfair\"?",
+      "answer": "indignant",
+      "distractors": [
+        "benevolent",
+        "impartial",
+        "austere"
+      ],
+      "level": 2
+    },
+    {
+      "id": "vocab-g912-innate",
+      "prompt": "Which word means \"present from birth; natural rather than learned\"?",
+      "answer": "innate",
+      "distractors": [
+        "obsolete",
+        "extraneous",
+        "ephemeral"
+      ],
+      "level": 2
+    },
+    {
+      "id": "vocab-g912-prudent",
+      "prompt": "Which word means \"acting with care and good judgment\"?",
+      "answer": "prudent",
+      "distractors": [
+        "arduous",
+        "dogmatic",
+        "novice"
+      ],
+      "level": 2
+    },
+    {
+      "id": "vocab-g912-ambivalent",
+      "prompt": "Which word means \"having mixed or conflicting feelings\"?",
+      "answer": "ambivalent",
+      "distractors": [
+        "astute",
+        "candid",
+        "resilient"
+      ],
+      "level": 3
+    },
+    {
+      "id": "vocab-g912-conundrum",
+      "prompt": "Which word means \"a confusing and difficult problem\"?",
+      "answer": "conundrum",
+      "distractors": [
+        "paradox",
+        "deference",
+        "adversity"
+      ],
+      "level": 3
+    },
+    {
+      "id": "vocab-g912-enigmatic",
+      "prompt": "Which word means \"mysterious and difficult to understand\"?",
+      "answer": "enigmatic",
+      "distractors": [
+        "lucid",
+        "candid",
+        "succinct"
+      ],
+      "level": 3
+    },
+    {
+      "id": "vocab-g912-ephemeral",
+      "prompt": "Which word means \"lasting for a very short time\"?",
+      "answer": "ephemeral",
+      "distractors": [
+        "innate",
+        "obsolete",
+        "tenacious"
+      ],
+      "level": 3
+    },
+    {
+      "id": "vocab-g912-extraneous",
+      "prompt": "Which word means \"not relevant to the matter at hand\"?",
+      "answer": "extraneous",
+      "distractors": [
+        "imperative",
+        "innate",
+        "cogent"
+      ],
+      "level": 3
+    },
+    {
+      "id": "vocab-g912-fastidious",
+      "prompt": "Which word means \"very attentive to detail and hard to please\"?",
+      "answer": "fastidious",
+      "distractors": [
+        "mundane",
+        "impartial",
+        "novice"
+      ],
+      "level": 3
+    },
+    {
+      "id": "vocab-g912-infamous",
+      "prompt": "Which word means \"well known for a bad reason\"?",
+      "answer": "infamous",
+      "distractors": [
+        "benevolent",
+        "impartial",
+        "candid"
+      ],
+      "level": 3
+    },
+    {
+      "id": "vocab-g912-novice",
+      "prompt": "Which word means \"a person new to a skill or activity\"?",
+      "answer": "novice",
+      "distractors": [
+        "astute",
+        "meticulous",
+        "resilient"
+      ],
+      "level": 3
+    },
+    {
+      "id": "vocab-g912-skeptical",
+      "prompt": "Which word means \"having doubts about something's truth\"?",
+      "answer": "skeptical",
+      "distractors": [
+        "dogmatic",
+        "candid",
+        "benevolent"
+      ],
+      "level": 3
+    },
+    {
+      "id": "vocab-g912-obsolete",
+      "prompt": "Which word means \"no longer in use; outdated\"?",
+      "answer": "obsolete",
+      "distractors": [
+        "ephemeral",
+        "imperative",
+        "feasible"
+      ],
+      "level": 4
+    },
+    {
+      "id": "vocab-g912-paradox",
+      "prompt": "Which word means \"a statement that seems contradictory but may be true\"?",
+      "answer": "paradox",
+      "distractors": [
+        "conundrum",
+        "adversity",
+        "autonomy"
+      ],
+      "level": 4
+    },
+    {
+      "id": "vocab-g912-articulate",
+      "prompt": "Which word means \"able to express thoughts clearly and effectively\"?",
+      "answer": "articulate",
+      "distractors": [
+        "mundane",
+        "fastidious",
+        "novice"
+      ],
+      "level": 4
+    },
+    {
+      "id": "vocab-g912-succinct",
+      "prompt": "Which word means \"expressed clearly in few words\"?",
+      "answer": "succinct",
+      "distractors": [
+        "eloquent",
+        "enigmatic",
+        "ambiguous"
+      ],
+      "level": 4
+    },
+    {
+      "id": "vocab-g912-tenacious",
+      "prompt": "Which word means \"holding firmly to a purpose; persistent\"?",
+      "answer": "tenacious",
+      "distractors": [
+        "ambivalent",
+        "novice",
+        "austere"
+      ],
+      "level": 4
+    },
+    {
+      "id": "vocab-g912-volatile",
+      "prompt": "Which word means \"likely to change suddenly and unpredictably\"?",
+      "answer": "volatile",
+      "distractors": [
+        "resilient",
+        "prudent",
+        "lucid"
+      ],
+      "level": 4
+    }
+  ]
+}

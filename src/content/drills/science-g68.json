@@ -1,0 +1,501 @@
+{
+  "poolId": "science-g68",
+  "band": "g68",
+  "items": [
+    {
+      "id": "sci-g68-cell-basic-unit",
+      "prompt": "What is the basic unit of structure and function in all living things?",
+      "answer": "The cell",
+      "distractors": [
+        "The tissue",
+        "The organ",
+        "The atom"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g68-eukaryotic",
+      "prompt": "What type of cell has a nucleus enclosed in a membrane?",
+      "answer": "A eukaryotic cell",
+      "distractors": [
+        "A prokaryotic cell",
+        "A bacterial cell",
+        "A viral cell"
+      ],
+      "level": 3
+    },
+    {
+      "id": "sci-g68-prokaryotic",
+      "prompt": "What type of cell does NOT have a nucleus enclosed in a membrane?",
+      "answer": "A prokaryotic cell",
+      "distractors": [
+        "A eukaryotic cell",
+        "A plant cell",
+        "An animal cell"
+      ],
+      "level": 3
+    },
+    {
+      "id": "sci-g68-nucleus",
+      "prompt": "What part of the cell controls its activities and contains DNA?",
+      "answer": "The nucleus",
+      "distractors": [
+        "The mitochondria",
+        "The cell membrane",
+        "The cytoplasm"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g68-mitochondria",
+      "prompt": "What part of the cell is often called the 'powerhouse' because it produces energy?",
+      "answer": "The mitochondria",
+      "distractors": [
+        "The nucleus",
+        "The cell wall",
+        "The ribosome"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g68-cell-membrane",
+      "prompt": "What structure surrounds and protects a cell, controlling what enters and exits?",
+      "answer": "The cell membrane",
+      "distractors": [
+        "The nucleus",
+        "The mitochondria",
+        "The chloroplast"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g68-cell-wall",
+      "prompt": "What rigid structure surrounds plant cells but is not found in animal cells?",
+      "answer": "The cell wall",
+      "distractors": [
+        "The cell membrane",
+        "The nucleus",
+        "The mitochondria"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g68-chloroplasts",
+      "prompt": "What green structures in plant cells capture sunlight for photosynthesis?",
+      "answer": "Chloroplasts",
+      "distractors": [
+        "Mitochondria",
+        "Ribosomes",
+        "Vacuoles"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g68-tissue",
+      "prompt": "What do we call a group of similar cells working together?",
+      "answer": "Tissue",
+      "distractors": [
+        "An organ",
+        "An organism",
+        "A molecule"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g68-photosynthesis-def",
+      "prompt": "What is photosynthesis?",
+      "answer": "The process plants use to make food from sunlight, water, and carbon dioxide",
+      "distractors": [
+        "The process animals use to digest food",
+        "The process cells divide to make new cells",
+        "The process rocks form underground"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g68-photosynthesis-co2",
+      "prompt": "What gas do plants take in for photosynthesis?",
+      "answer": "Carbon dioxide",
+      "distractors": [
+        "Oxygen",
+        "Nitrogen",
+        "Hydrogen"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g68-photosynthesis-o2",
+      "prompt": "What gas do plants release as a result of photosynthesis?",
+      "answer": "Oxygen",
+      "distractors": [
+        "Carbon dioxide",
+        "Nitrogen",
+        "Helium"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g68-photosynthesis-glucose",
+      "prompt": "What substance do plants produce during photosynthesis to store energy?",
+      "answer": "Glucose (sugar)",
+      "distractors": [
+        "Water only",
+        "Salt",
+        "Protein only"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g68-chlorophyll",
+      "prompt": "What do plants need to absorb sunlight for photosynthesis?",
+      "answer": "Chlorophyll",
+      "distractors": [
+        "Nitrogen",
+        "Bark",
+        "Pollen"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g68-photosynthesis-location",
+      "prompt": "Where in the plant cell does photosynthesis take place?",
+      "answer": "In the chloroplasts",
+      "distractors": [
+        "In the mitochondria",
+        "In the nucleus",
+        "In the cell wall"
+      ],
+      "level": 3
+    },
+    {
+      "id": "sci-g68-water-absorption",
+      "prompt": "What do plant roots absorb from soil that is needed for photosynthesis?",
+      "answer": "Water",
+      "distractors": [
+        "Oxygen only",
+        "Carbon dioxide",
+        "Sunlight"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g68-photosynthesis-importance",
+      "prompt": "Why is photosynthesis important for most life on Earth?",
+      "answer": "It produces the oxygen most living things need to breathe",
+      "distractors": [
+        "It produces the carbon dioxide animals need",
+        "It creates soil for plants to grow in",
+        "It makes rain fall from clouds"
+      ],
+      "level": 3
+    },
+    {
+      "id": "sci-g68-tectonic-plates",
+      "prompt": "What are the large pieces of Earth's crust called that move slowly over time?",
+      "answer": "Tectonic plates",
+      "distractors": [
+        "Continents only",
+        "Ocean currents",
+        "Magma chambers"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g68-convergent",
+      "prompt": "What is it called when two tectonic plates push against each other?",
+      "answer": "A convergent boundary",
+      "distractors": [
+        "A divergent boundary",
+        "A transform boundary",
+        "A subduction current"
+      ],
+      "level": 3
+    },
+    {
+      "id": "sci-g68-divergent",
+      "prompt": "What is it called when two tectonic plates pull apart from each other?",
+      "answer": "A divergent boundary",
+      "distractors": [
+        "A convergent boundary",
+        "A transform boundary",
+        "A fault line only"
+      ],
+      "level": 3
+    },
+    {
+      "id": "sci-g68-transform-boundary",
+      "prompt": "What is it called when two tectonic plates slide past each other?",
+      "answer": "A transform boundary",
+      "distractors": [
+        "A convergent boundary",
+        "A divergent boundary",
+        "A subduction zone"
+      ],
+      "level": 4
+    },
+    {
+      "id": "sci-g68-mountains-form",
+      "prompt": "What often forms when tectonic plates collide and push land upward?",
+      "answer": "Mountains",
+      "distractors": [
+        "Oceans",
+        "Deserts",
+        "Rivers"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g68-earthquake",
+      "prompt": "What natural event is often caused by tectonic plates suddenly shifting?",
+      "answer": "An earthquake",
+      "distractors": [
+        "A hurricane",
+        "A tornado",
+        "A flood"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g68-volcano",
+      "prompt": "What can form at plate boundaries where magma rises to the surface?",
+      "answer": "A volcano",
+      "distractors": [
+        "A glacier",
+        "A canyon",
+        "A coral reef"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g68-mantle",
+      "prompt": "What layer of the Earth do tectonic plates float on top of?",
+      "answer": "The mantle",
+      "distractors": [
+        "The core",
+        "The crust",
+        "The atmosphere"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g68-continental-drift",
+      "prompt": "What theory explains that Earth's continents were once joined together and have slowly drifted apart?",
+      "answer": "Continental drift",
+      "distractors": [
+        "Plate collision theory",
+        "The rock cycle",
+        "The water cycle"
+      ],
+      "level": 3
+    },
+    {
+      "id": "sci-g68-force-def",
+      "prompt": "What is a push or pull on an object called?",
+      "answer": "A force",
+      "distractors": [
+        "Energy",
+        "Mass",
+        "Velocity"
+      ],
+      "level": 0
+    },
+    {
+      "id": "sci-g68-gravity",
+      "prompt": "What force pulls objects toward the center of the Earth?",
+      "answer": "Gravity",
+      "distractors": [
+        "Friction",
+        "Magnetism",
+        "Momentum"
+      ],
+      "level": 0
+    },
+    {
+      "id": "sci-g68-friction",
+      "prompt": "What force acts between two surfaces to slow or stop motion?",
+      "answer": "Friction",
+      "distractors": [
+        "Gravity",
+        "Momentum",
+        "Inertia"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g68-law-of-inertia",
+      "prompt": "What is Newton's first law of motion also called?",
+      "answer": "The law of inertia",
+      "distractors": [
+        "The law of gravity",
+        "The law of friction",
+        "The law of energy"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g68-newton-first-rest",
+      "prompt": "According to Newton's first law, what happens to an object at rest unless a force acts on it?",
+      "answer": "It stays at rest",
+      "distractors": [
+        "It starts moving on its own",
+        "It speeds up on its own",
+        "It disappears"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g68-newton-second",
+      "prompt": "What does Newton's second law of motion relate force to?",
+      "answer": "An object's mass and acceleration",
+      "distractors": [
+        "An object's color and shape",
+        "An object's temperature only",
+        "An object's age"
+      ],
+      "level": 3
+    },
+    {
+      "id": "sci-g68-newton-third",
+      "prompt": "According to Newton's third law, for every action there is what?",
+      "answer": "An equal and opposite reaction",
+      "distractors": [
+        "A doubled reaction",
+        "No reaction at all",
+        "A delayed reaction"
+      ],
+      "level": 3
+    },
+    {
+      "id": "sci-g68-mass",
+      "prompt": "What do we call the measure of how much matter is in an object?",
+      "answer": "Mass",
+      "distractors": [
+        "Weight only",
+        "Volume",
+        "Density"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g68-velocity",
+      "prompt": "What do we call the speed of an object in a certain direction?",
+      "answer": "Velocity",
+      "distractors": [
+        "Mass",
+        "Force",
+        "Friction"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g68-atom",
+      "prompt": "What do we call the smallest unit of an element that still has its properties?",
+      "answer": "An atom",
+      "distractors": [
+        "A molecule",
+        "A cell",
+        "A compound"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g68-element",
+      "prompt": "What is a substance made of only one type of atom called?",
+      "answer": "An element",
+      "distractors": [
+        "A compound",
+        "A mixture",
+        "A solution"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g68-compound",
+      "prompt": "What is a substance made of two or more elements chemically combined called?",
+      "answer": "A compound",
+      "distractors": [
+        "An element",
+        "A mixture",
+        "An atom"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g68-periodic-table",
+      "prompt": "What chart organizes all known chemical elements by their properties?",
+      "answer": "The periodic table",
+      "distractors": [
+        "The food chain chart",
+        "The rock cycle chart",
+        "The water cycle chart"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g68-electron",
+      "prompt": "What tiny negatively charged particle orbits the nucleus of an atom?",
+      "answer": "An electron",
+      "distractors": [
+        "A proton",
+        "A neutron",
+        "A molecule"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g68-proton",
+      "prompt": "What positively charged particle is found in the nucleus of an atom?",
+      "answer": "A proton",
+      "distractors": [
+        "An electron",
+        "A neutron",
+        "An ion"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g68-neutron",
+      "prompt": "What particle with no electric charge is found in the nucleus of an atom?",
+      "answer": "A neutron",
+      "distractors": [
+        "A proton",
+        "An electron",
+        "An isotope"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g68-symbol-oxygen",
+      "prompt": "What is the chemical symbol for oxygen?",
+      "answer": "O",
+      "distractors": [
+        "Ox",
+        "O2",
+        "Og"
+      ],
+      "level": 0
+    },
+    {
+      "id": "sci-g68-symbol-gold",
+      "prompt": "What is the chemical symbol for gold?",
+      "answer": "Au",
+      "distractors": [
+        "Go",
+        "Gd",
+        "Gl"
+      ],
+      "level": 4
+    },
+    {
+      "id": "sci-g68-symbol-water",
+      "prompt": "What is the chemical formula for water, a compound made of hydrogen and oxygen?",
+      "answer": "H2O",
+      "distractors": [
+        "CO2",
+        "O2",
+        "H2"
+      ],
+      "level": 1
+    }
+  ]
+}

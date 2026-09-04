@@ -1,0 +1,714 @@
+{
+  "poolId": "sight-words-g23",
+  "band": "g23",
+  "items": [
+    {
+      "id": "sight-g23-us",
+      "prompt": "Which word is \"us\"?",
+      "answer": "us",
+      "distractors": [
+        "use",
+        "our",
+        "up"
+      ],
+      "readAloud": "us",
+      "level": 0
+    },
+    {
+      "id": "sight-g23-buy",
+      "prompt": "Which word is \"buy\"?",
+      "answer": "buy",
+      "distractors": [
+        "by",
+        "but",
+        "boy"
+      ],
+      "readAloud": "buy",
+      "level": 0
+    },
+    {
+      "id": "sight-g23-both",
+      "prompt": "Which word is \"both\"?",
+      "answer": "both",
+      "distractors": [
+        "bath",
+        "boat",
+        "that"
+      ],
+      "readAloud": "both",
+      "level": 0
+    },
+    {
+      "id": "sight-g23-been",
+      "prompt": "Which word is \"been\"?",
+      "answer": "been",
+      "distractors": [
+        "bean",
+        "begin",
+        "seen"
+      ],
+      "readAloud": "been",
+      "level": 0
+    },
+    {
+      "id": "sight-g23-made",
+      "prompt": "Which word is \"made\"?",
+      "answer": "made",
+      "distractors": [
+        "mad",
+        "maid",
+        "mode"
+      ],
+      "readAloud": "made",
+      "level": 0
+    },
+    {
+      "id": "sight-g23-read",
+      "prompt": "Which word is \"read\"?",
+      "answer": "read",
+      "distractors": [
+        "road",
+        "red",
+        "real"
+      ],
+      "readAloud": "read",
+      "level": 0
+    },
+    {
+      "id": "sight-g23-always",
+      "prompt": "Which word is \"always\"?",
+      "answer": "always",
+      "distractors": [
+        "almost",
+        "already",
+        "away"
+      ],
+      "readAloud": "always",
+      "level": 1
+    },
+    {
+      "id": "sight-g23-before",
+      "prompt": "Which word is \"before\"?",
+      "answer": "before",
+      "distractors": [
+        "begin",
+        "began",
+        "behind"
+      ],
+      "readAloud": "before",
+      "level": 1
+    },
+    {
+      "id": "sight-g23-call",
+      "prompt": "Which word is \"call\"?",
+      "answer": "call",
+      "distractors": [
+        "cell",
+        "coal",
+        "tall"
+      ],
+      "readAloud": "call",
+      "level": 1
+    },
+    {
+      "id": "sight-g23-first",
+      "prompt": "Which word is \"first\"?",
+      "answer": "first",
+      "distractors": [
+        "fast",
+        "fist",
+        "forest"
+      ],
+      "readAloud": "first",
+      "level": 1
+    },
+    {
+      "id": "sight-g23-five",
+      "prompt": "Which word is \"five\"?",
+      "answer": "five",
+      "distractors": [
+        "fine",
+        "give",
+        "dive"
+      ],
+      "readAloud": "five",
+      "level": 1
+    },
+    {
+      "id": "sight-g23-found",
+      "prompt": "Which word is \"found\"?",
+      "answer": "found",
+      "distractors": [
+        "fond",
+        "sound",
+        "round"
+      ],
+      "readAloud": "found",
+      "level": 1
+    },
+    {
+      "id": "sight-g23-gave",
+      "prompt": "Which word is \"gave\"?",
+      "answer": "gave",
+      "distractors": [
+        "give",
+        "have",
+        "cave"
+      ],
+      "readAloud": "gave",
+      "level": 1
+    },
+    {
+      "id": "sight-g23-many",
+      "prompt": "Which word is \"many\"?",
+      "answer": "many",
+      "distractors": [
+        "may",
+        "mainly",
+        "money"
+      ],
+      "readAloud": "many",
+      "level": 1
+    },
+    {
+      "id": "sight-g23-right",
+      "prompt": "Which word is \"right\"?",
+      "answer": "right",
+      "distractors": [
+        "night",
+        "light",
+        "write"
+      ],
+      "readAloud": "right",
+      "level": 1
+    },
+    {
+      "id": "sight-g23-sing",
+      "prompt": "Which word is \"sing\"?",
+      "answer": "sing",
+      "distractors": [
+        "sting",
+        "sign",
+        "sang"
+      ],
+      "readAloud": "sing",
+      "level": 1
+    },
+    {
+      "id": "sight-g23-their",
+      "prompt": "Which word is \"their\"?",
+      "answer": "their",
+      "distractors": [
+        "there",
+        "these",
+        "them"
+      ],
+      "readAloud": "their",
+      "level": 1
+    },
+    {
+      "id": "sight-g23-use",
+      "prompt": "Which word is \"use\"?",
+      "answer": "use",
+      "distractors": [
+        "us",
+        "used",
+        "sue"
+      ],
+      "readAloud": "use",
+      "level": 1
+    },
+    {
+      "id": "sight-g23-around",
+      "prompt": "Which word is \"around\"?",
+      "answer": "around",
+      "distractors": [
+        "round",
+        "aground",
+        "arouse"
+      ],
+      "readAloud": "around",
+      "level": 2
+    },
+    {
+      "id": "sight-g23-because",
+      "prompt": "Which word is \"because\"?",
+      "answer": "because",
+      "distractors": [
+        "become",
+        "beside",
+        "before"
+      ],
+      "readAloud": "because",
+      "level": 2
+    },
+    {
+      "id": "sight-g23-green",
+      "prompt": "Which word is \"green\"?",
+      "answer": "green",
+      "distractors": [
+        "grin",
+        "grew",
+        "screen"
+      ],
+      "readAloud": "green",
+      "level": 2
+    },
+    {
+      "id": "sight-g23-sleep",
+      "prompt": "Which word is \"sleep\"?",
+      "answer": "sleep",
+      "distractors": [
+        "sleeve",
+        "steep",
+        "sheep"
+      ],
+      "readAloud": "sleep",
+      "level": 2
+    },
+    {
+      "id": "sight-g23-these",
+      "prompt": "Which word is \"these\"?",
+      "answer": "these",
+      "distractors": [
+        "those",
+        "there",
+        "them"
+      ],
+      "readAloud": "these",
+      "level": 2
+    },
+    {
+      "id": "sight-g23-those",
+      "prompt": "Which word is \"those\"?",
+      "answer": "those",
+      "distractors": [
+        "these",
+        "there",
+        "close"
+      ],
+      "readAloud": "those",
+      "level": 2
+    },
+    {
+      "id": "sight-g23-upon",
+      "prompt": "Which word is \"upon\"?",
+      "answer": "upon",
+      "distractors": [
+        "open",
+        "up",
+        "unto"
+      ],
+      "readAloud": "upon",
+      "level": 2
+    },
+    {
+      "id": "sight-g23-very",
+      "prompt": "Which word is \"very\"?",
+      "answer": "very",
+      "distractors": [
+        "vary",
+        "every",
+        "verb"
+      ],
+      "readAloud": "very",
+      "level": 2
+    },
+    {
+      "id": "sight-g23-which",
+      "prompt": "Which word is \"which\"?",
+      "answer": "which",
+      "distractors": [
+        "while",
+        "witch",
+        "watch"
+      ],
+      "readAloud": "which",
+      "level": 2
+    },
+    {
+      "id": "sight-g23-work",
+      "prompt": "Which word is \"work\"?",
+      "answer": "work",
+      "distractors": [
+        "word",
+        "worm",
+        "walk"
+      ],
+      "readAloud": "work",
+      "level": 2
+    },
+    {
+      "id": "sight-g23-would",
+      "prompt": "Which word is \"would\"?",
+      "answer": "would",
+      "distractors": [
+        "could",
+        "wound",
+        "world"
+      ],
+      "readAloud": "would",
+      "level": 2
+    },
+    {
+      "id": "sight-g23-write",
+      "prompt": "Which word is \"write\"?",
+      "answer": "write",
+      "distractors": [
+        "right",
+        "wrote",
+        "white"
+      ],
+      "readAloud": "write",
+      "level": 2
+    },
+    {
+      "id": "sight-g23-your",
+      "prompt": "Which word is \"your\"?",
+      "answer": "your",
+      "distractors": [
+        "you're",
+        "you",
+        "yard"
+      ],
+      "readAloud": "your",
+      "level": 2
+    },
+    {
+      "id": "sight-g23-about",
+      "prompt": "Which word is \"about\"?",
+      "answer": "about",
+      "distractors": [
+        "above",
+        "around",
+        "again"
+      ],
+      "readAloud": "about",
+      "level": 2
+    },
+    {
+      "id": "sight-g23-carry",
+      "prompt": "Which word is \"carry\"?",
+      "answer": "carry",
+      "distractors": [
+        "curry",
+        "cart",
+        "carrot"
+      ],
+      "readAloud": "carry",
+      "level": 2
+    },
+    {
+      "id": "sight-g23-clean",
+      "prompt": "Which word is \"clean\"?",
+      "answer": "clean",
+      "distractors": [
+        "clear",
+        "clan",
+        "climb"
+      ],
+      "readAloud": "clean",
+      "level": 2
+    },
+    {
+      "id": "sight-g23-draw",
+      "prompt": "Which word is \"draw\"?",
+      "answer": "draw",
+      "distractors": [
+        "drew",
+        "drawn",
+        "dawn"
+      ],
+      "readAloud": "draw",
+      "level": 2
+    },
+    {
+      "id": "sight-g23-drink",
+      "prompt": "Which word is \"drink\"?",
+      "answer": "drink",
+      "distractors": [
+        "drank",
+        "drift",
+        "brink"
+      ],
+      "readAloud": "drink",
+      "level": 2
+    },
+    {
+      "id": "sight-g23-fall",
+      "prompt": "Which word is \"fall\"?",
+      "answer": "fall",
+      "distractors": [
+        "full",
+        "feel",
+        "fail"
+      ],
+      "readAloud": "fall",
+      "level": 2
+    },
+    {
+      "id": "sight-g23-grow",
+      "prompt": "Which word is \"grow\"?",
+      "answer": "grow",
+      "distractors": [
+        "glow",
+        "grew",
+        "crow"
+      ],
+      "readAloud": "grow",
+      "level": 2
+    },
+    {
+      "id": "sight-g23-hold",
+      "prompt": "Which word is \"hold\"?",
+      "answer": "hold",
+      "distractors": [
+        "held",
+        "hole",
+        "cold"
+      ],
+      "readAloud": "hold",
+      "level": 2
+    },
+    {
+      "id": "sight-g23-keep",
+      "prompt": "Which word is \"keep\"?",
+      "answer": "keep",
+      "distractors": [
+        "deep",
+        "kept",
+        "peep"
+      ],
+      "readAloud": "keep",
+      "level": 2
+    },
+    {
+      "id": "sight-g23-light",
+      "prompt": "Which word is \"light\"?",
+      "answer": "light",
+      "distractors": [
+        "night",
+        "fight",
+        "lit"
+      ],
+      "readAloud": "light",
+      "level": 2
+    },
+    {
+      "id": "sight-g23-better",
+      "prompt": "Which word is \"better\"?",
+      "answer": "better",
+      "distractors": [
+        "butter",
+        "batter",
+        "bitter"
+      ],
+      "readAloud": "better",
+      "level": 3
+    },
+    {
+      "id": "sight-g23-bring",
+      "prompt": "Which word is \"bring\"?",
+      "answer": "bring",
+      "distractors": [
+        "brink",
+        "bright",
+        "being"
+      ],
+      "readAloud": "bring",
+      "level": 3
+    },
+    {
+      "id": "sight-g23-eight",
+      "prompt": "Which word is \"eight\"?",
+      "answer": "eight",
+      "distractors": [
+        "eighth",
+        "eating",
+        "height"
+      ],
+      "readAloud": "eight",
+      "level": 3
+    },
+    {
+      "id": "sight-g23-laugh",
+      "prompt": "Which word is \"laugh\"?",
+      "answer": "laugh",
+      "distractors": [
+        "laff",
+        "light",
+        "leaf"
+      ],
+      "readAloud": "laugh",
+      "level": 3
+    },
+    {
+      "id": "sight-g23-long",
+      "prompt": "Which word is \"long\"?",
+      "answer": "long",
+      "distractors": [
+        "lung",
+        "wrong",
+        "along"
+      ],
+      "readAloud": "long",
+      "level": 3
+    },
+    {
+      "id": "sight-g23-much",
+      "prompt": "Which word is \"much\"?",
+      "answer": "much",
+      "distractors": [
+        "match",
+        "mulch",
+        "munch"
+      ],
+      "readAloud": "much",
+      "level": 3
+    },
+    {
+      "id": "sight-g23-never",
+      "prompt": "Which word is \"never\"?",
+      "answer": "never",
+      "distractors": [
+        "ever",
+        "neither",
+        "sever"
+      ],
+      "readAloud": "never",
+      "level": 3
+    },
+    {
+      "id": "sight-g23-only",
+      "prompt": "Which word is \"only\"?",
+      "answer": "only",
+      "distractors": [
+        "onto",
+        "own",
+        "one"
+      ],
+      "readAloud": "only",
+      "level": 3
+    },
+    {
+      "id": "sight-g23-seven",
+      "prompt": "Which word is \"seven\"?",
+      "answer": "seven",
+      "distractors": [
+        "several",
+        "even",
+        "sever"
+      ],
+      "readAloud": "seven",
+      "level": 3
+    },
+    {
+      "id": "sight-g23-shall",
+      "prompt": "Which word is \"shall\"?",
+      "answer": "shall",
+      "distractors": [
+        "small",
+        "shale",
+        "shell"
+      ],
+      "readAloud": "shall",
+      "level": 3
+    },
+    {
+      "id": "sight-g23-show",
+      "prompt": "Which word is \"show\"?",
+      "answer": "show",
+      "distractors": [
+        "shoe",
+        "snow",
+        "shown"
+      ],
+      "readAloud": "show",
+      "level": 3
+    },
+    {
+      "id": "sight-g23-small",
+      "prompt": "Which word is \"small\"?",
+      "answer": "small",
+      "distractors": [
+        "shall",
+        "smell",
+        "smile"
+      ],
+      "readAloud": "small",
+      "level": 3
+    },
+    {
+      "id": "sight-g23-start",
+      "prompt": "Which word is \"start\"?",
+      "answer": "start",
+      "distractors": [
+        "stare",
+        "star",
+        "smart"
+      ],
+      "readAloud": "start",
+      "level": 4
+    },
+    {
+      "id": "sight-g23-today",
+      "prompt": "Which word is \"today\"?",
+      "answer": "today",
+      "distractors": [
+        "toady",
+        "tidy",
+        "tooth"
+      ],
+      "readAloud": "today",
+      "level": 4
+    },
+    {
+      "id": "sight-g23-together",
+      "prompt": "Which word is \"together\"?",
+      "answer": "together",
+      "distractors": [
+        "altogether",
+        "toggle",
+        "target"
+      ],
+      "readAloud": "together",
+      "level": 4
+    },
+    {
+      "id": "sight-g23-try",
+      "prompt": "Which word is \"try\"?",
+      "answer": "try",
+      "distractors": [
+        "tray",
+        "toy",
+        "tie"
+      ],
+      "readAloud": "try",
+      "level": 4
+    },
+    {
+      "id": "sight-g23-warm",
+      "prompt": "Which word is \"warm\"?",
+      "answer": "warm",
+      "distractors": [
+        "worm",
+        "ward",
+        "warn"
+      ],
+      "readAloud": "warm",
+      "level": 4
+    },
+    {
+      "id": "sight-g23-myself",
+      "prompt": "Which word is \"myself\"?",
+      "answer": "myself",
+      "distractors": [
+        "himself",
+        "yourself",
+        "mystery"
+      ],
+      "readAloud": "myself",
+      "level": 4
+    }
+  ]
+}

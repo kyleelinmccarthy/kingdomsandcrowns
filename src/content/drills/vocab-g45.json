@@ -1,0 +1,490 @@
+{
+  "poolId": "vocab-g45",
+  "band": "g45",
+  "items": [
+    {
+      "id": "vocab-g45-expand",
+      "prompt": "Which word means \"to make something bigger\"?",
+      "answer": "expand",
+      "distractors": [
+        "shrink",
+        "wander",
+        "mumble"
+      ],
+      "level": 1
+    },
+    {
+      "id": "vocab-g45-ancient",
+      "prompt": "Which word means \"very old, from long ago\"?",
+      "answer": "ancient",
+      "distractors": [
+        "fragile",
+        "curious",
+        "brief"
+      ],
+      "level": 1
+    },
+    {
+      "id": "vocab-g45-observe",
+      "prompt": "Which word means \"to watch something carefully\"?",
+      "answer": "observe",
+      "distractors": [
+        "yield",
+        "plunge",
+        "isolate"
+      ],
+      "level": 1
+    },
+    {
+      "id": "vocab-g45-predict",
+      "prompt": "Which word means \"to say what will happen before it does\"?",
+      "answer": "predict",
+      "distractors": [
+        "absorb",
+        "collide",
+        "tremble"
+      ],
+      "level": 2
+    },
+    {
+      "id": "vocab-g45-fragile",
+      "prompt": "Which word means \"easily broken\"?",
+      "answer": "fragile",
+      "distractors": [
+        "massive",
+        "generous",
+        "furious"
+      ],
+      "level": 1
+    },
+    {
+      "id": "vocab-g45-generous",
+      "prompt": "Which word means \"willing to give and share\"?",
+      "answer": "generous",
+      "distractors": [
+        "reluctant",
+        "hollow",
+        "scarce"
+      ],
+      "level": 1
+    },
+    {
+      "id": "vocab-g45-hesitate",
+      "prompt": "Which word means \"to pause because you are unsure\"?",
+      "answer": "hesitate",
+      "distractors": [
+        "rescue",
+        "locate",
+        "expand"
+      ],
+      "level": 2
+    },
+    {
+      "id": "vocab-g45-imitate",
+      "prompt": "Which word means \"to copy how someone else acts\"?",
+      "answer": "imitate",
+      "distractors": [
+        "permit",
+        "vanish",
+        "assist"
+      ],
+      "level": 2
+    },
+    {
+      "id": "vocab-g45-rapid",
+      "prompt": "Which word means \"very fast\"?",
+      "answer": "rapid",
+      "distractors": [
+        "weary",
+        "hollow",
+        "scarce"
+      ],
+      "level": 0
+    },
+    {
+      "id": "vocab-g45-brief",
+      "prompt": "Which word means \"short in time or length\"?",
+      "answer": "brief",
+      "distractors": [
+        "enormous",
+        "gigantic",
+        "vast"
+      ],
+      "level": 0
+    },
+    {
+      "id": "vocab-g45-enormous",
+      "prompt": "Which word means \"extremely large\"?",
+      "answer": "enormous",
+      "distractors": [
+        "drowsy",
+        "curious",
+        "reluctant"
+      ],
+      "level": 1
+    },
+    {
+      "id": "vocab-g45-cautious",
+      "prompt": "Which word means \"careful to avoid danger\"?",
+      "answer": "cautious",
+      "distractors": [
+        "delighted",
+        "vanish",
+        "summit"
+      ],
+      "level": 2
+    },
+    {
+      "id": "vocab-g45-curious",
+      "prompt": "Which word means \"eager to learn or know something\"?",
+      "answer": "curious",
+      "distractors": [
+        "exhausted",
+        "hollow",
+        "obstacle"
+      ],
+      "level": 0
+    },
+    {
+      "id": "vocab-g45-delighted",
+      "prompt": "Which word means \"very pleased and happy\"?",
+      "answer": "delighted",
+      "distractors": [
+        "furious",
+        "nervous",
+        "weary"
+      ],
+      "level": 1
+    },
+    {
+      "id": "vocab-g45-exhausted",
+      "prompt": "Which word means \"extremely tired\"?",
+      "answer": "exhausted",
+      "distractors": [
+        "curious",
+        "generous",
+        "sturdy"
+      ],
+      "level": 1
+    },
+    {
+      "id": "vocab-g45-furious",
+      "prompt": "Which word means \"extremely angry\"?",
+      "answer": "furious",
+      "distractors": [
+        "delighted",
+        "drowsy",
+        "cautious"
+      ],
+      "level": 1
+    },
+    {
+      "id": "vocab-g45-gigantic",
+      "prompt": "Which word means \"huge in size\"?",
+      "answer": "gigantic",
+      "distractors": [
+        "scarce",
+        "brief",
+        "isolate"
+      ],
+      "level": 1
+    },
+    {
+      "id": "vocab-g45-glimpse",
+      "prompt": "Which word means \"a very quick look at something\"?",
+      "answer": "glimpse",
+      "distractors": [
+        "journey",
+        "obstacle",
+        "summit"
+      ],
+      "level": 2
+    },
+    {
+      "id": "vocab-g45-hollow",
+      "prompt": "Which word means \"having empty space inside\"?",
+      "answer": "hollow",
+      "distractors": [
+        "massive",
+        "rapid",
+        "generous"
+      ],
+      "level": 2
+    },
+    {
+      "id": "vocab-g45-isolate",
+      "prompt": "Which word means \"to keep something separate from others\"?",
+      "answer": "isolate",
+      "distractors": [
+        "assist",
+        "blend",
+        "collide"
+      ],
+      "level": 4
+    },
+    {
+      "id": "vocab-g45-journey",
+      "prompt": "Which word means \"a long trip from one place to another\"?",
+      "answer": "journey",
+      "distractors": [
+        "glimpse",
+        "obstacle",
+        "yield"
+      ],
+      "level": 1
+    },
+    {
+      "id": "vocab-g45-locate",
+      "prompt": "Which word means \"to find the exact place of something\"?",
+      "answer": "locate",
+      "distractors": [
+        "mumble",
+        "tremble",
+        "wander"
+      ],
+      "level": 2
+    },
+    {
+      "id": "vocab-g45-massive",
+      "prompt": "Which word means \"very large and heavy\"?",
+      "answer": "massive",
+      "distractors": [
+        "scarce",
+        "curious",
+        "weary"
+      ],
+      "level": 1
+    },
+    {
+      "id": "vocab-g45-mumble",
+      "prompt": "Which word means \"to speak quietly and unclearly\"?",
+      "answer": "mumble",
+      "distractors": [
+        "predict",
+        "assist",
+        "rescue"
+      ],
+      "level": 2
+    },
+    {
+      "id": "vocab-g45-nervous",
+      "prompt": "Which word means \"worried or afraid about what might happen\"?",
+      "answer": "nervous",
+      "distractors": [
+        "delighted",
+        "sturdy",
+        "vast"
+      ],
+      "level": 1
+    },
+    {
+      "id": "vocab-g45-obstacle",
+      "prompt": "Which word means \"something that blocks your way\"?",
+      "answer": "obstacle",
+      "distractors": [
+        "glimpse",
+        "summit",
+        "journey"
+      ],
+      "level": 3
+    },
+    {
+      "id": "vocab-g45-permit",
+      "prompt": "Which word means \"to allow something to happen\"?",
+      "answer": "permit",
+      "distractors": [
+        "isolate",
+        "vanish",
+        "collide"
+      ],
+      "level": 2
+    },
+    {
+      "id": "vocab-g45-plunge",
+      "prompt": "Which word means \"to jump or fall suddenly into something\"?",
+      "answer": "plunge",
+      "distractors": [
+        "hesitate",
+        "observe",
+        "absorb"
+      ],
+      "level": 3
+    },
+    {
+      "id": "vocab-g45-reluctant",
+      "prompt": "Which word means \"not willing to do something\"?",
+      "answer": "reluctant",
+      "distractors": [
+        "generous",
+        "curious",
+        "sturdy"
+      ],
+      "level": 3
+    },
+    {
+      "id": "vocab-g45-rescue",
+      "prompt": "Which word means \"to save someone from danger\"?",
+      "answer": "rescue",
+      "distractors": [
+        "hesitate",
+        "mumble",
+        "locate"
+      ],
+      "level": 1
+    },
+    {
+      "id": "vocab-g45-scarce",
+      "prompt": "Which word means \"hard to find because there is very little\"?",
+      "answer": "scarce",
+      "distractors": [
+        "massive",
+        "gigantic",
+        "rapid"
+      ],
+      "level": 3
+    },
+    {
+      "id": "vocab-g45-sturdy",
+      "prompt": "Which word means \"strongly built and not easily damaged\"?",
+      "answer": "sturdy",
+      "distractors": [
+        "fragile",
+        "hollow",
+        "weary"
+      ],
+      "level": 2
+    },
+    {
+      "id": "vocab-g45-summit",
+      "prompt": "Which word means \"the highest point of a mountain\"?",
+      "answer": "summit",
+      "distractors": [
+        "glimpse",
+        "obstacle",
+        "journey"
+      ],
+      "level": 2
+    },
+    {
+      "id": "vocab-g45-tremble",
+      "prompt": "Which word means \"to shake because of fear or cold\"?",
+      "answer": "tremble",
+      "distractors": [
+        "predict",
+        "locate",
+        "blend"
+      ],
+      "level": 2
+    },
+    {
+      "id": "vocab-g45-vanish",
+      "prompt": "Which word means \"to disappear suddenly\"?",
+      "answer": "vanish",
+      "distractors": [
+        "permit",
+        "assist",
+        "cautious"
+      ],
+      "level": 1
+    },
+    {
+      "id": "vocab-g45-vast",
+      "prompt": "Which word means \"extremely large in area\"?",
+      "answer": "vast",
+      "distractors": [
+        "scarce",
+        "brief",
+        "drowsy"
+      ],
+      "level": 2
+    },
+    {
+      "id": "vocab-g45-weary",
+      "prompt": "Which word means \"very tired\"?",
+      "answer": "weary",
+      "distractors": [
+        "furious",
+        "curious",
+        "generous"
+      ],
+      "level": 1
+    },
+    {
+      "id": "vocab-g45-wander",
+      "prompt": "Which word means \"to walk around without a clear direction\"?",
+      "answer": "wander",
+      "distractors": [
+        "locate",
+        "expand",
+        "collide"
+      ],
+      "level": 2
+    },
+    {
+      "id": "vocab-g45-yield",
+      "prompt": "Which word means \"to give way or produce a result\"?",
+      "answer": "yield",
+      "distractors": [
+        "observe",
+        "journey",
+        "isolate"
+      ],
+      "level": 4
+    },
+    {
+      "id": "vocab-g45-absorb",
+      "prompt": "Which word means \"to soak up a liquid\"?",
+      "answer": "absorb",
+      "distractors": [
+        "predict",
+        "collide",
+        "tremble"
+      ],
+      "level": 2
+    },
+    {
+      "id": "vocab-g45-assist",
+      "prompt": "Which word means \"to help someone do something\"?",
+      "answer": "assist",
+      "distractors": [
+        "imitate",
+        "vanish",
+        "permit"
+      ],
+      "level": 0
+    },
+    {
+      "id": "vocab-g45-blend",
+      "prompt": "Which word means \"to mix things together smoothly\"?",
+      "answer": "blend",
+      "distractors": [
+        "isolate",
+        "collide",
+        "wander"
+      ],
+      "level": 2
+    },
+    {
+      "id": "vocab-g45-collide",
+      "prompt": "Which word means \"to crash into something\"?",
+      "answer": "collide",
+      "distractors": [
+        "blend",
+        "absorb",
+        "plunge"
+      ],
+      "level": 2
+    },
+    {
+      "id": "vocab-g45-drowsy",
+      "prompt": "Which word means \"sleepy and wanting to rest\"?",
+      "answer": "drowsy",
+      "distractors": [
+        "furious",
+        "cautious",
+        "enormous"
+      ],
+      "level": 1
+    }
+  ]
+}

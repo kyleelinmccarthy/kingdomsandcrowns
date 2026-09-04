@@ -1,0 +1,558 @@
+{
+  "poolId": "spelling-g23",
+  "band": "g23",
+  "items": [
+    {
+      "id": "spell-g23-friend",
+      "prompt": "Which is spelled correctly?",
+      "answer": "friend",
+      "distractors": [
+        "freind",
+        "frend",
+        "firend"
+      ],
+      "readAloud": "friend",
+      "level": 1
+    },
+    {
+      "id": "spell-g23-because",
+      "prompt": "Which is spelled correctly?",
+      "answer": "because",
+      "distractors": [
+        "becuase",
+        "becaus",
+        "becouse"
+      ],
+      "readAloud": "because",
+      "level": 1
+    },
+    {
+      "id": "spell-g23-school",
+      "prompt": "Which is spelled correctly?",
+      "answer": "school",
+      "distractors": [
+        "shcool",
+        "scool",
+        "schoool"
+      ],
+      "readAloud": "school",
+      "level": 0
+    },
+    {
+      "id": "spell-g23-people",
+      "prompt": "Which is spelled correctly?",
+      "answer": "people",
+      "distractors": [
+        "peaple",
+        "poeple",
+        "peple"
+      ],
+      "readAloud": "people",
+      "level": 1
+    },
+    {
+      "id": "spell-g23-again",
+      "prompt": "Which is spelled correctly?",
+      "answer": "again",
+      "distractors": [
+        "agian",
+        "agin",
+        "agane"
+      ],
+      "readAloud": "again",
+      "level": 0
+    },
+    {
+      "id": "spell-g23-animal",
+      "prompt": "Which is spelled correctly?",
+      "answer": "animal",
+      "distractors": [
+        "aminal",
+        "animel",
+        "annimal"
+      ],
+      "readAloud": "animal",
+      "level": 1
+    },
+    {
+      "id": "spell-g23-beautiful",
+      "prompt": "Which is spelled correctly?",
+      "answer": "beautiful",
+      "distractors": [
+        "beutiful",
+        "beautifull",
+        "butiful"
+      ],
+      "readAloud": "beautiful",
+      "level": 3
+    },
+    {
+      "id": "spell-g23-enough",
+      "prompt": "Which is spelled correctly?",
+      "answer": "enough",
+      "distractors": [
+        "enuff",
+        "enogh",
+        "enouph"
+      ],
+      "readAloud": "enough",
+      "level": 2
+    },
+    {
+      "id": "spell-g23-favorite",
+      "prompt": "Which is spelled correctly?",
+      "answer": "favorite",
+      "distractors": [
+        "favorate",
+        "favroite",
+        "faviorite"
+      ],
+      "readAloud": "favorite",
+      "level": 2
+    },
+    {
+      "id": "spell-g23-minute",
+      "prompt": "Which is spelled correctly?",
+      "answer": "minute",
+      "distractors": [
+        "minit",
+        "minuite",
+        "minnute"
+      ],
+      "readAloud": "minute",
+      "level": 2
+    },
+    {
+      "id": "spell-g23-wednesday",
+      "prompt": "Which is spelled correctly?",
+      "answer": "Wednesday",
+      "distractors": [
+        "Wensday",
+        "Wednessday",
+        "Wedsday"
+      ],
+      "readAloud": "Wednesday",
+      "level": 3
+    },
+    {
+      "id": "spell-g23-february",
+      "prompt": "Which is spelled correctly?",
+      "answer": "February",
+      "distractors": [
+        "Febuary",
+        "Feburary",
+        "Febraury"
+      ],
+      "readAloud": "February",
+      "level": 4
+    },
+    {
+      "id": "spell-g23-together",
+      "prompt": "Which is spelled correctly?",
+      "answer": "together",
+      "distractors": [
+        "togther",
+        "togeather",
+        "togethor"
+      ],
+      "readAloud": "together",
+      "level": 1
+    },
+    {
+      "id": "spell-g23-tomorrow",
+      "prompt": "Which is spelled correctly?",
+      "answer": "tomorrow",
+      "distractors": [
+        "tommorrow",
+        "tomorow",
+        "tommorow"
+      ],
+      "readAloud": "tomorrow",
+      "level": 2
+    },
+    {
+      "id": "spell-g23-thought",
+      "prompt": "Which is spelled correctly?",
+      "answer": "thought",
+      "distractors": [
+        "thawt",
+        "thourght",
+        "thout"
+      ],
+      "readAloud": "thought",
+      "level": 3
+    },
+    {
+      "id": "spell-g23-through",
+      "prompt": "Which is spelled correctly?",
+      "answer": "through",
+      "distractors": [
+        "throught",
+        "thru",
+        "throu"
+      ],
+      "readAloud": "through",
+      "level": 3
+    },
+    {
+      "id": "spell-g23-write",
+      "prompt": "Which is spelled correctly?",
+      "answer": "write",
+      "distractors": [
+        "wirte",
+        "wrtie",
+        "writr"
+      ],
+      "readAloud": "write",
+      "level": 1
+    },
+    {
+      "id": "spell-g23-listen",
+      "prompt": "Which is spelled correctly?",
+      "answer": "listen",
+      "distractors": [
+        "liston",
+        "lisen",
+        "listin"
+      ],
+      "readAloud": "listen",
+      "level": 1
+    },
+    {
+      "id": "spell-g23-laugh",
+      "prompt": "Which is spelled correctly?",
+      "answer": "laugh",
+      "distractors": [
+        "laff",
+        "lauph",
+        "laugth"
+      ],
+      "readAloud": "laugh",
+      "level": 2
+    },
+    {
+      "id": "spell-g23-caught",
+      "prompt": "Which is spelled correctly?",
+      "answer": "caught",
+      "distractors": [
+        "cought",
+        "caugth",
+        "cauth"
+      ],
+      "readAloud": "caught",
+      "level": 3
+    },
+    {
+      "id": "spell-g23-happy",
+      "prompt": "Which is spelled correctly?",
+      "answer": "happy",
+      "distractors": [
+        "hapy",
+        "happi",
+        "happay"
+      ],
+      "readAloud": "happy",
+      "level": 0
+    },
+    {
+      "id": "spell-g23-funny",
+      "prompt": "Which is spelled correctly?",
+      "answer": "funny",
+      "distractors": [
+        "funy",
+        "funney",
+        "phunny"
+      ],
+      "readAloud": "funny",
+      "level": 0
+    },
+    {
+      "id": "spell-g23-family",
+      "prompt": "Which is spelled correctly?",
+      "answer": "family",
+      "distractors": [
+        "familly",
+        "famly",
+        "famiy"
+      ],
+      "readAloud": "family",
+      "level": 1
+    },
+    {
+      "id": "spell-g23-different",
+      "prompt": "Which is spelled correctly?",
+      "answer": "different",
+      "distractors": [
+        "diffrent",
+        "differant",
+        "diferent"
+      ],
+      "readAloud": "different",
+      "level": 2
+    },
+    {
+      "id": "spell-g23-important",
+      "prompt": "Which is spelled correctly?",
+      "answer": "important",
+      "distractors": [
+        "importent",
+        "imporant",
+        "importaint"
+      ],
+      "readAloud": "important",
+      "level": 2
+    },
+    {
+      "id": "spell-g23-morning",
+      "prompt": "Which is spelled correctly?",
+      "answer": "morning",
+      "distractors": [
+        "morming",
+        "mornning",
+        "mornign"
+      ],
+      "readAloud": "morning",
+      "level": 1
+    },
+    {
+      "id": "spell-g23-birthday",
+      "prompt": "Which is spelled correctly?",
+      "answer": "birthday",
+      "distractors": [
+        "brithday",
+        "birthdy",
+        "birtday"
+      ],
+      "readAloud": "birthday",
+      "level": 1
+    },
+    {
+      "id": "spell-g23-surprise",
+      "prompt": "Which is spelled correctly?",
+      "answer": "surprise",
+      "distractors": [
+        "suprise",
+        "surprize",
+        "surprice"
+      ],
+      "readAloud": "surprise",
+      "level": 3
+    },
+    {
+      "id": "spell-g23-guess",
+      "prompt": "Which is spelled correctly?",
+      "answer": "guess",
+      "distractors": [
+        "gues",
+        "guiess",
+        "gess"
+      ],
+      "readAloud": "guess",
+      "level": 1
+    },
+    {
+      "id": "spell-g23-guest",
+      "prompt": "Which is spelled correctly?",
+      "answer": "guest",
+      "distractors": [
+        "gest",
+        "guesst",
+        "geust"
+      ],
+      "readAloud": "guest",
+      "level": 2
+    },
+    {
+      "id": "spell-g23-sandwich",
+      "prompt": "Which is spelled correctly?",
+      "answer": "sandwich",
+      "distractors": [
+        "sandwitch",
+        "sandwhich",
+        "sanwich"
+      ],
+      "readAloud": "sandwich",
+      "level": 2
+    },
+    {
+      "id": "spell-g23-breakfast",
+      "prompt": "Which is spelled correctly?",
+      "answer": "breakfast",
+      "distractors": [
+        "brakfast",
+        "breakfest",
+        "breckfast"
+      ],
+      "readAloud": "breakfast",
+      "level": 2
+    },
+    {
+      "id": "spell-g23-remember",
+      "prompt": "Which is spelled correctly?",
+      "answer": "remember",
+      "distractors": [
+        "remeber",
+        "rember",
+        "remmember"
+      ],
+      "readAloud": "remember",
+      "level": 1
+    },
+    {
+      "id": "spell-g23-picture",
+      "prompt": "Which is spelled correctly?",
+      "answer": "picture",
+      "distractors": [
+        "pichure",
+        "pictur",
+        "piture"
+      ],
+      "readAloud": "picture",
+      "level": 1
+    },
+    {
+      "id": "spell-g23-color",
+      "prompt": "Which is spelled correctly?",
+      "answer": "color",
+      "distractors": [
+        "collor",
+        "colr",
+        "coler"
+      ],
+      "readAloud": "color",
+      "level": 0
+    },
+    {
+      "id": "spell-g23-cousin",
+      "prompt": "Which is spelled correctly?",
+      "answer": "cousin",
+      "distractors": [
+        "cousen",
+        "couzin",
+        "cosin"
+      ],
+      "readAloud": "cousin",
+      "level": 2
+    },
+    {
+      "id": "spell-g23-decide",
+      "prompt": "Which is spelled correctly?",
+      "answer": "decide",
+      "distractors": [
+        "decid",
+        "deside",
+        "decyde"
+      ],
+      "readAloud": "decide",
+      "level": 2
+    },
+    {
+      "id": "spell-g23-early",
+      "prompt": "Which is spelled correctly?",
+      "answer": "early",
+      "distractors": [
+        "erly",
+        "earley",
+        "earlly"
+      ],
+      "readAloud": "early",
+      "level": 1
+    },
+    {
+      "id": "spell-g23-earth",
+      "prompt": "Which is spelled correctly?",
+      "answer": "earth",
+      "distractors": [
+        "erth",
+        "eartth",
+        "earht"
+      ],
+      "readAloud": "earth",
+      "level": 0
+    },
+    {
+      "id": "spell-g23-empty",
+      "prompt": "Which is spelled correctly?",
+      "answer": "empty",
+      "distractors": [
+        "emty",
+        "empdy",
+        "empitty"
+      ],
+      "readAloud": "empty",
+      "level": 1
+    },
+    {
+      "id": "spell-g23-everyone",
+      "prompt": "Which is spelled correctly?",
+      "answer": "everyone",
+      "distractors": [
+        "everone",
+        "everyoen",
+        "evryone"
+      ],
+      "readAloud": "everyone",
+      "level": 2
+    },
+    {
+      "id": "spell-g23-example",
+      "prompt": "Which is spelled correctly?",
+      "answer": "example",
+      "distractors": [
+        "exampel",
+        "exmaple",
+        "examle"
+      ],
+      "readAloud": "example",
+      "level": 3
+    },
+    {
+      "id": "spell-g23-finally",
+      "prompt": "Which is spelled correctly?",
+      "answer": "finally",
+      "distractors": [
+        "finaly",
+        "finnally",
+        "finalley"
+      ],
+      "readAloud": "finally",
+      "level": 2
+    },
+    {
+      "id": "spell-g23-group",
+      "prompt": "Which is spelled correctly?",
+      "answer": "group",
+      "distractors": [
+        "goup",
+        "groupe",
+        "grup"
+      ],
+      "readAloud": "group",
+      "level": 0
+    },
+    {
+      "id": "spell-g23-guard",
+      "prompt": "Which is spelled correctly?",
+      "answer": "guard",
+      "distractors": [
+        "gaurd",
+        "guardd",
+        "gard"
+      ],
+      "readAloud": "guard",
+      "level": 3
+    },
+    {
+      "id": "spell-g23-heard",
+      "prompt": "Which is spelled correctly?",
+      "answer": "heard",
+      "distractors": [
+        "heared",
+        "herad",
+        "haerd"
+      ],
+      "readAloud": "heard",
+      "level": 1
+    }
+  ]
+}

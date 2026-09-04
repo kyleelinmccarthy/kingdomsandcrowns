@@ -1,0 +1,786 @@
+{
+  "poolId": "sight-words-k1",
+  "band": "k1",
+  "items": [
+    {
+      "id": "sight-k1-a",
+      "prompt": "Which word is \"a\"?",
+      "answer": "a",
+      "distractors": [
+        "an",
+        "at",
+        "as"
+      ],
+      "readAloud": "a",
+      "level": 0
+    },
+    {
+      "id": "sight-k1-i",
+      "prompt": "Which word is \"I\"?",
+      "answer": "I",
+      "distractors": [
+        "in",
+        "is",
+        "it"
+      ],
+      "readAloud": "I",
+      "level": 0
+    },
+    {
+      "id": "sight-k1-the",
+      "prompt": "Which word is \"the\"?",
+      "answer": "the",
+      "distractors": [
+        "they",
+        "then",
+        "this"
+      ],
+      "readAloud": "the",
+      "level": 0
+    },
+    {
+      "id": "sight-k1-and",
+      "prompt": "Which word is \"and\"?",
+      "answer": "and",
+      "distractors": [
+        "an",
+        "any",
+        "add"
+      ],
+      "readAloud": "and",
+      "level": 0
+    },
+    {
+      "id": "sight-k1-to",
+      "prompt": "Which word is \"to\"?",
+      "answer": "to",
+      "distractors": [
+        "too",
+        "two",
+        "do"
+      ],
+      "readAloud": "to",
+      "level": 0
+    },
+    {
+      "id": "sight-k1-in",
+      "prompt": "Which word is \"in\"?",
+      "answer": "in",
+      "distractors": [
+        "is",
+        "it",
+        "on"
+      ],
+      "readAloud": "in",
+      "level": 0
+    },
+    {
+      "id": "sight-k1-is",
+      "prompt": "Which word is \"is\"?",
+      "answer": "is",
+      "distractors": [
+        "it",
+        "in",
+        "as"
+      ],
+      "readAloud": "is",
+      "level": 0
+    },
+    {
+      "id": "sight-k1-you",
+      "prompt": "Which word is \"you\"?",
+      "answer": "you",
+      "distractors": [
+        "your",
+        "yes",
+        "yet"
+      ],
+      "readAloud": "you",
+      "level": 1
+    },
+    {
+      "id": "sight-k1-he",
+      "prompt": "Which word is \"he\"?",
+      "answer": "he",
+      "distractors": [
+        "be",
+        "we",
+        "she"
+      ],
+      "readAloud": "he",
+      "level": 1
+    },
+    {
+      "id": "sight-k1-was",
+      "prompt": "Which word is \"was\"?",
+      "answer": "was",
+      "distractors": [
+        "saw",
+        "want",
+        "were"
+      ],
+      "readAloud": "was",
+      "level": 1
+    },
+    {
+      "id": "sight-k1-my",
+      "prompt": "Which word is \"my\"?",
+      "answer": "my",
+      "distractors": [
+        "by",
+        "may",
+        "me"
+      ],
+      "readAloud": "my",
+      "level": 1
+    },
+    {
+      "id": "sight-k1-for",
+      "prompt": "Which word is \"for\"?",
+      "answer": "for",
+      "distractors": [
+        "from",
+        "far",
+        "four"
+      ],
+      "readAloud": "for",
+      "level": 1
+    },
+    {
+      "id": "sight-k1-are",
+      "prompt": "Which word is \"are\"?",
+      "answer": "are",
+      "distractors": [
+        "art",
+        "arm",
+        "our"
+      ],
+      "readAloud": "are",
+      "level": 1
+    },
+    {
+      "id": "sight-k1-but",
+      "prompt": "Which word is \"but\"?",
+      "answer": "but",
+      "distractors": [
+        "put",
+        "bet",
+        "bat"
+      ],
+      "readAloud": "but",
+      "level": 1
+    },
+    {
+      "id": "sight-k1-this",
+      "prompt": "Which word is \"this\"?",
+      "answer": "this",
+      "distractors": [
+        "that",
+        "these",
+        "with"
+      ],
+      "readAloud": "this",
+      "level": 1
+    },
+    {
+      "id": "sight-k1-out",
+      "prompt": "Which word is \"out\"?",
+      "answer": "out",
+      "distractors": [
+        "our",
+        "or",
+        "about"
+      ],
+      "readAloud": "out",
+      "level": 1
+    },
+    {
+      "id": "sight-k1-be",
+      "prompt": "Which word is \"be\"?",
+      "answer": "be",
+      "distractors": [
+        "he",
+        "me",
+        "by"
+      ],
+      "readAloud": "be",
+      "level": 1
+    },
+    {
+      "id": "sight-k1-on",
+      "prompt": "Which word is \"on\"?",
+      "answer": "on",
+      "distractors": [
+        "no",
+        "an",
+        "one"
+      ],
+      "readAloud": "on",
+      "level": 1
+    },
+    {
+      "id": "sight-k1-we",
+      "prompt": "Which word is \"we\"?",
+      "answer": "we",
+      "distractors": [
+        "me",
+        "he",
+        "be"
+      ],
+      "readAloud": "we",
+      "level": 1
+    },
+    {
+      "id": "sight-k1-it",
+      "prompt": "Which word is \"it\"?",
+      "answer": "it",
+      "distractors": [
+        "is",
+        "in",
+        "at"
+      ],
+      "readAloud": "it",
+      "level": 1
+    },
+    {
+      "id": "sight-k1-have",
+      "prompt": "Which word is \"have\"?",
+      "answer": "have",
+      "distractors": [
+        "gave",
+        "give",
+        "had"
+      ],
+      "readAloud": "have",
+      "level": 2
+    },
+    {
+      "id": "sight-k1-am",
+      "prompt": "Which word is \"am\"?",
+      "answer": "am",
+      "distractors": [
+        "an",
+        "at",
+        "arm"
+      ],
+      "readAloud": "am",
+      "level": 2
+    },
+    {
+      "id": "sight-k1-do",
+      "prompt": "Which word is \"do\"?",
+      "answer": "do",
+      "distractors": [
+        "did",
+        "does",
+        "go"
+      ],
+      "readAloud": "do",
+      "level": 2
+    },
+    {
+      "id": "sight-k1-did",
+      "prompt": "Which word is \"did\"?",
+      "answer": "did",
+      "distractors": [
+        "do",
+        "does",
+        "had"
+      ],
+      "readAloud": "did",
+      "level": 2
+    },
+    {
+      "id": "sight-k1-so",
+      "prompt": "Which word is \"so\"?",
+      "answer": "so",
+      "distractors": [
+        "see",
+        "she",
+        "sew"
+      ],
+      "readAloud": "so",
+      "level": 2
+    },
+    {
+      "id": "sight-k1-get",
+      "prompt": "Which word is \"get\"?",
+      "answer": "get",
+      "distractors": [
+        "got",
+        "let",
+        "yet"
+      ],
+      "readAloud": "get",
+      "level": 2
+    },
+    {
+      "id": "sight-k1-like",
+      "prompt": "Which word is \"like\"?",
+      "answer": "like",
+      "distractors": [
+        "life",
+        "line",
+        "look"
+      ],
+      "readAloud": "like",
+      "level": 2
+    },
+    {
+      "id": "sight-k1-him",
+      "prompt": "Which word is \"him\"?",
+      "answer": "him",
+      "distractors": [
+        "his",
+        "hen",
+        "ham"
+      ],
+      "readAloud": "him",
+      "level": 2
+    },
+    {
+      "id": "sight-k1-her",
+      "prompt": "Which word is \"her\"?",
+      "answer": "her",
+      "distractors": [
+        "here",
+        "hen",
+        "were"
+      ],
+      "readAloud": "her",
+      "level": 2
+    },
+    {
+      "id": "sight-k1-into",
+      "prompt": "Which word is \"into\"?",
+      "answer": "into",
+      "distractors": [
+        "onto",
+        "inside",
+        "unto"
+      ],
+      "readAloud": "into",
+      "level": 2
+    },
+    {
+      "id": "sight-k1-over",
+      "prompt": "Which word is \"over\"?",
+      "answer": "over",
+      "distractors": [
+        "oven",
+        "ever",
+        "other"
+      ],
+      "readAloud": "over",
+      "level": 2
+    },
+    {
+      "id": "sight-k1-take",
+      "prompt": "Which word is \"take\"?",
+      "answer": "take",
+      "distractors": [
+        "talk",
+        "time",
+        "tale"
+      ],
+      "readAloud": "take",
+      "level": 2
+    },
+    {
+      "id": "sight-k1-know",
+      "prompt": "Which word is \"know\"?",
+      "answer": "know",
+      "distractors": [
+        "knew",
+        "now",
+        "snow"
+      ],
+      "readAloud": "know",
+      "level": 2
+    },
+    {
+      "id": "sight-k1-ask",
+      "prompt": "Which word is \"ask\"?",
+      "answer": "ask",
+      "distractors": [
+        "asks",
+        "task",
+        "act"
+      ],
+      "readAloud": "ask",
+      "level": 2
+    },
+    {
+      "id": "sight-k1-had",
+      "prompt": "Which word is \"had\"?",
+      "answer": "had",
+      "distractors": [
+        "has",
+        "and",
+        "hat"
+      ],
+      "readAloud": "had",
+      "level": 2
+    },
+    {
+      "id": "sight-k1-has",
+      "prompt": "Which word is \"has\"?",
+      "answer": "has",
+      "distractors": [
+        "had",
+        "his",
+        "as"
+      ],
+      "readAloud": "has",
+      "level": 2
+    },
+    {
+      "id": "sight-k1-his",
+      "prompt": "Which word is \"his\"?",
+      "answer": "his",
+      "distractors": [
+        "has",
+        "him",
+        "is"
+      ],
+      "readAloud": "his",
+      "level": 2
+    },
+    {
+      "id": "sight-k1-how",
+      "prompt": "Which word is \"how\"?",
+      "answer": "how",
+      "distractors": [
+        "now",
+        "who",
+        "hot"
+      ],
+      "readAloud": "how",
+      "level": 2
+    },
+    {
+      "id": "sight-k1-just",
+      "prompt": "Which word is \"just\"?",
+      "answer": "just",
+      "distractors": [
+        "must",
+        "jump",
+        "gust"
+      ],
+      "readAloud": "just",
+      "level": 2
+    },
+    {
+      "id": "sight-k1-let",
+      "prompt": "Which word is \"let\"?",
+      "answer": "let",
+      "distractors": [
+        "left",
+        "lit",
+        "get"
+      ],
+      "readAloud": "let",
+      "level": 2
+    },
+    {
+      "id": "sight-k1-look",
+      "prompt": "Which word is \"look\"?",
+      "answer": "look",
+      "distractors": [
+        "book",
+        "took",
+        "like"
+      ],
+      "readAloud": "look",
+      "level": 2
+    },
+    {
+      "id": "sight-k1-there",
+      "prompt": "Which word is \"there\"?",
+      "answer": "there",
+      "distractors": [
+        "their",
+        "these",
+        "where"
+      ],
+      "readAloud": "there",
+      "level": 2
+    },
+    {
+      "id": "sight-k1-what",
+      "prompt": "Which word is \"what\"?",
+      "answer": "what",
+      "distractors": [
+        "want",
+        "when",
+        "that"
+      ],
+      "readAloud": "what",
+      "level": 2
+    },
+    {
+      "id": "sight-k1-of",
+      "prompt": "Which word is \"of\"?",
+      "answer": "of",
+      "distractors": [
+        "off",
+        "on",
+        "if"
+      ],
+      "readAloud": "of",
+      "level": 2
+    },
+    {
+      "id": "sight-k1-said",
+      "prompt": "Which word is \"said\"?",
+      "answer": "said",
+      "distractors": [
+        "say",
+        "sad",
+        "side"
+      ],
+      "readAloud": "said",
+      "level": 2
+    },
+    {
+      "id": "sight-k1-from",
+      "prompt": "Which word is \"from\"?",
+      "answer": "from",
+      "distractors": [
+        "form",
+        "for",
+        "front"
+      ],
+      "readAloud": "from",
+      "level": 3
+    },
+    {
+      "id": "sight-k1-give",
+      "prompt": "Which word is \"give\"?",
+      "answer": "give",
+      "distractors": [
+        "gave",
+        "live",
+        "gift"
+      ],
+      "readAloud": "give",
+      "level": 3
+    },
+    {
+      "id": "sight-k1-may",
+      "prompt": "Which word is \"may\"?",
+      "answer": "may",
+      "distractors": [
+        "way",
+        "my",
+        "day"
+      ],
+      "readAloud": "may",
+      "level": 3
+    },
+    {
+      "id": "sight-k1-old",
+      "prompt": "Which word is \"old\"?",
+      "answer": "old",
+      "distractors": [
+        "odd",
+        "cold",
+        "hold"
+      ],
+      "readAloud": "old",
+      "level": 3
+    },
+    {
+      "id": "sight-k1-open",
+      "prompt": "Which word is \"open\"?",
+      "answer": "open",
+      "distractors": [
+        "oven",
+        "even",
+        "often"
+      ],
+      "readAloud": "open",
+      "level": 3
+    },
+    {
+      "id": "sight-k1-put",
+      "prompt": "Which word is \"put\"?",
+      "answer": "put",
+      "distractors": [
+        "pat",
+        "pet",
+        "but"
+      ],
+      "readAloud": "put",
+      "level": 3
+    },
+    {
+      "id": "sight-k1-some",
+      "prompt": "Which word is \"some\"?",
+      "answer": "some",
+      "distractors": [
+        "same",
+        "come",
+        "sum"
+      ],
+      "readAloud": "some",
+      "level": 3
+    },
+    {
+      "id": "sight-k1-stop",
+      "prompt": "Which word is \"stop\"?",
+      "answer": "stop",
+      "distractors": [
+        "step",
+        "shop",
+        "stove"
+      ],
+      "readAloud": "stop",
+      "level": 3
+    },
+    {
+      "id": "sight-k1-then",
+      "prompt": "Which word is \"then\"?",
+      "answer": "then",
+      "distractors": [
+        "them",
+        "than",
+        "when"
+      ],
+      "readAloud": "then",
+      "level": 3
+    },
+    {
+      "id": "sight-k1-think",
+      "prompt": "Which word is \"think\"?",
+      "answer": "think",
+      "distractors": [
+        "thank",
+        "thick",
+        "thin"
+      ],
+      "readAloud": "think",
+      "level": 3
+    },
+    {
+      "id": "sight-k1-walk",
+      "prompt": "Which word is \"walk\"?",
+      "answer": "walk",
+      "distractors": [
+        "work",
+        "talk",
+        "wall"
+      ],
+      "readAloud": "walk",
+      "level": 3
+    },
+    {
+      "id": "sight-k1-were",
+      "prompt": "Which word is \"were\"?",
+      "answer": "were",
+      "distractors": [
+        "where",
+        "there",
+        "wear"
+      ],
+      "readAloud": "were",
+      "level": 3
+    },
+    {
+      "id": "sight-k1-when",
+      "prompt": "Which word is \"when\"?",
+      "answer": "when",
+      "distractors": [
+        "then",
+        "went",
+        "where"
+      ],
+      "readAloud": "when",
+      "level": 3
+    },
+    {
+      "id": "sight-k1-could",
+      "prompt": "Which word is \"could\"?",
+      "answer": "could",
+      "distractors": [
+        "would",
+        "should",
+        "cloud"
+      ],
+      "readAloud": "could",
+      "level": 4
+    },
+    {
+      "id": "sight-k1-every",
+      "prompt": "Which word is \"every\"?",
+      "answer": "every",
+      "distractors": [
+        "ever",
+        "very",
+        "avery"
+      ],
+      "readAloud": "every",
+      "level": 4
+    },
+    {
+      "id": "sight-k1-going",
+      "prompt": "Which word is \"going\"?",
+      "answer": "going",
+      "distractors": [
+        "gone",
+        "doing",
+        "gong"
+      ],
+      "readAloud": "going",
+      "level": 4
+    },
+    {
+      "id": "sight-k1-once",
+      "prompt": "Which word is \"once\"?",
+      "answer": "once",
+      "distractors": [
+        "one",
+        "ounce",
+        "orange"
+      ],
+      "readAloud": "once",
+      "level": 4
+    },
+    {
+      "id": "sight-k1-live",
+      "prompt": "Which word is \"live\"?",
+      "answer": "live",
+      "distractors": [
+        "life",
+        "love",
+        "give"
+      ],
+      "readAloud": "live",
+      "level": 4
+    },
+    {
+      "id": "sight-k1-round",
+      "prompt": "Which word is \"round\"?",
+      "answer": "round",
+      "distractors": [
+        "found",
+        "sound",
+        "ground"
+      ],
+      "readAloud": "round",
+      "level": 4
+    },
+    {
+      "id": "sight-k1-thank",
+      "prompt": "Which word is \"thank\"?",
+      "answer": "thank",
+      "distractors": [
+        "think",
+        "than",
+        "that"
+      ],
+      "readAloud": "thank",
+      "level": 4
+    }
+  ]
+}

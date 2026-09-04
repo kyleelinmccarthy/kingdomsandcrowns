@@ -1,0 +1,501 @@
+{
+  "poolId": "science-g23",
+  "band": "g23",
+  "items": [
+    {
+      "id": "sci-g23-cycle-butterfly",
+      "prompt": "What is the correct order of a butterfly's life cycle?",
+      "answer": "Egg, caterpillar, chrysalis, butterfly",
+      "distractors": [
+        "Egg, butterfly, caterpillar, chrysalis",
+        "Caterpillar, egg, butterfly, chrysalis",
+        "Chrysalis, egg, caterpillar, butterfly"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g23-cycle-frog",
+      "prompt": "What is a young frog called before it grows legs?",
+      "answer": "A tadpole",
+      "distractors": [
+        "A caterpillar",
+        "A larva beetle",
+        "A cub"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g23-cycle-frog-order",
+      "prompt": "What is the correct order of a frog's life cycle?",
+      "answer": "Egg, tadpole, froglet, frog",
+      "distractors": [
+        "Egg, frog, tadpole, froglet",
+        "Tadpole, egg, froglet, frog",
+        "Froglet, tadpole, egg, frog"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g23-cycle-plant",
+      "prompt": "What is the first stage of a plant's life cycle?",
+      "answer": "A seed",
+      "distractors": [
+        "A flower",
+        "A root",
+        "A leaf"
+      ],
+      "level": 0
+    },
+    {
+      "id": "sci-g23-cycle-plant-order",
+      "prompt": "What is the correct order of a plant's life cycle?",
+      "answer": "Seed, sprout, adult plant, flower",
+      "distractors": [
+        "Flower, seed, sprout, adult plant",
+        "Sprout, flower, seed, adult plant",
+        "Adult plant, seed, flower, sprout"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g23-cycle-egg",
+      "prompt": "Which animals hatch from eggs?",
+      "answer": "Birds",
+      "distractors": [
+        "Dogs",
+        "Cats",
+        "Horses"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g23-cycle-metamorphosis",
+      "prompt": "What is it called when an animal changes shape completely as it grows, like a caterpillar into a butterfly?",
+      "answer": "Metamorphosis",
+      "distractors": [
+        "Hibernation",
+        "Migration",
+        "Pollination"
+      ],
+      "level": 3
+    },
+    {
+      "id": "sci-g23-habitat-def",
+      "prompt": "What is a habitat?",
+      "answer": "The natural home of a plant or animal",
+      "distractors": [
+        "A type of food animals eat",
+        "A tool scientists use",
+        "A kind of weather"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g23-habitat-desert",
+      "prompt": "Which habitat is very dry with little rain?",
+      "answer": "A desert",
+      "distractors": [
+        "A rainforest",
+        "A wetland",
+        "An ocean"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g23-habitat-ocean",
+      "prompt": "Which habitat is made of salt water?",
+      "answer": "An ocean",
+      "distractors": [
+        "A pond",
+        "A forest",
+        "A desert"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g23-habitat-forest",
+      "prompt": "Which habitat has many trees?",
+      "answer": "A forest",
+      "distractors": [
+        "A desert",
+        "An ocean",
+        "An arctic tundra"
+      ],
+      "level": 0
+    },
+    {
+      "id": "sci-g23-habitat-polar",
+      "prompt": "Which habitat is extremely cold with ice and snow?",
+      "answer": "The Arctic",
+      "distractors": [
+        "The desert",
+        "A rainforest",
+        "A grassland"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g23-habitat-adapt",
+      "prompt": "What does it mean when an animal is adapted to its habitat?",
+      "answer": "It has features that help it survive there",
+      "distractors": [
+        "It can live anywhere on Earth",
+        "It never needs food or water",
+        "It cannot move from place to place"
+      ],
+      "level": 3
+    },
+    {
+      "id": "sci-g23-habitat-camel",
+      "prompt": "How are camels adapted to live in the desert?",
+      "answer": "They can store fat and go a long time without water",
+      "distractors": [
+        "They have thick fur to stay warm in snow",
+        "They breathe underwater with gills",
+        "They fly to find water"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g23-habitat-polarbear",
+      "prompt": "How is a polar bear adapted to its cold habitat?",
+      "answer": "Thick fur and fat keep it warm",
+      "distractors": [
+        "Thin skin lets heat escape quickly",
+        "Gills let it breathe underwater",
+        "Feathers keep it warm"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g23-matter-solid",
+      "prompt": "Which state of matter has a shape that does not change on its own?",
+      "answer": "Solid",
+      "distractors": [
+        "Liquid",
+        "Gas",
+        "Plasma"
+      ],
+      "level": 0
+    },
+    {
+      "id": "sci-g23-matter-liquid",
+      "prompt": "Which state of matter takes the shape of its container?",
+      "answer": "Liquid",
+      "distractors": [
+        "Solid",
+        "Gas",
+        "Plasma"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g23-matter-gas",
+      "prompt": "Which state of matter spreads out to fill any space?",
+      "answer": "Gas",
+      "distractors": [
+        "Solid",
+        "Liquid",
+        "Plasma"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g23-matter-melt",
+      "prompt": "What happens to ice when it melts?",
+      "answer": "It changes from a solid to a liquid",
+      "distractors": [
+        "It changes from a gas to a solid",
+        "It disappears completely",
+        "It changes color only"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g23-matter-freeze",
+      "prompt": "What happens to water when it freezes?",
+      "answer": "It changes from a liquid to a solid",
+      "distractors": [
+        "It changes from a gas to a liquid",
+        "It turns into steam",
+        "It disappears completely"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g23-matter-boil",
+      "prompt": "What happens to water when it boils?",
+      "answer": "It changes from a liquid to a gas",
+      "distractors": [
+        "It changes from a solid to a liquid",
+        "It turns into ice",
+        "It becomes heavier"
+      ],
+      "level": 3
+    },
+    {
+      "id": "sci-g23-matter-example-solid",
+      "prompt": "Which of these is a solid?",
+      "answer": "A rock",
+      "distractors": [
+        "Juice",
+        "Steam",
+        "Air"
+      ],
+      "level": 0
+    },
+    {
+      "id": "sci-g23-matter-example-gas",
+      "prompt": "Which of these is a gas?",
+      "answer": "Air",
+      "distractors": [
+        "A rock",
+        "Juice",
+        "Ice"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g23-machine-lever",
+      "prompt": "Which simple machine is a bar that pivots on a fixed point to lift things?",
+      "answer": "A lever",
+      "distractors": [
+        "A wheel and axle",
+        "A pulley",
+        "A screw"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g23-machine-wheel",
+      "prompt": "Which simple machine helps things roll and move easily?",
+      "answer": "A wheel and axle",
+      "distractors": [
+        "A lever",
+        "An inclined plane",
+        "A wedge"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g23-machine-pulley",
+      "prompt": "Which simple machine uses a wheel and rope to lift things?",
+      "answer": "A pulley",
+      "distractors": [
+        "A lever",
+        "A screw",
+        "A wedge"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g23-machine-ramp",
+      "prompt": "Which simple machine is a flat, slanted surface used to move things up or down?",
+      "answer": "An inclined plane",
+      "distractors": [
+        "A wedge",
+        "A screw",
+        "A lever"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g23-machine-wedge",
+      "prompt": "Which simple machine is used to split or cut things apart, like an axe?",
+      "answer": "A wedge",
+      "distractors": [
+        "A lever",
+        "A pulley",
+        "A wheel and axle"
+      ],
+      "level": 3
+    },
+    {
+      "id": "sci-g23-machine-screw",
+      "prompt": "Which simple machine is a spiral ramp wrapped around a pole?",
+      "answer": "A screw",
+      "distractors": [
+        "A wedge",
+        "A lever",
+        "A pulley"
+      ],
+      "level": 3
+    },
+    {
+      "id": "sci-g23-machine-seesaw",
+      "prompt": "A seesaw on a playground is an example of which simple machine?",
+      "answer": "A lever",
+      "distractors": [
+        "A pulley",
+        "A screw",
+        "A wedge"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g23-machine-flagpole",
+      "prompt": "Raising a flag with a rope over a wheel uses which simple machine?",
+      "answer": "A pulley",
+      "distractors": [
+        "A lever",
+        "A wedge",
+        "An inclined plane"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g23-moon-light",
+      "prompt": "Why does the Moon appear to glow at night?",
+      "answer": "It reflects light from the Sun",
+      "distractors": [
+        "It makes its own light",
+        "It reflects light from Earth's cities",
+        "It is on fire"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g23-moon-orbit",
+      "prompt": "What does the Moon do around Earth?",
+      "answer": "It orbits, or travels around, Earth",
+      "distractors": [
+        "It stays perfectly still",
+        "It orbits the Sun instead of Earth",
+        "It spins away from Earth every year"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g23-moon-phases",
+      "prompt": "What do we call the changing shapes of the Moon we see each month?",
+      "answer": "Moon phases",
+      "distractors": [
+        "Moon eclipses",
+        "Moon orbits",
+        "Moon seasons"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g23-moon-fullmoon",
+      "prompt": "What is it called when we can see the whole lit-up side of the Moon?",
+      "answer": "A full moon",
+      "distractors": [
+        "A new moon",
+        "A half moon",
+        "A blue moon"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g23-moon-newmoon",
+      "prompt": "What is it called when the Moon looks completely dark to us?",
+      "answer": "A new moon",
+      "distractors": [
+        "A full moon",
+        "A half moon",
+        "A harvest moon"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g23-moon-surface",
+      "prompt": "What covers much of the Moon's surface?",
+      "answer": "Craters and dust",
+      "distractors": [
+        "Oceans and rivers",
+        "Forests and grass",
+        "Ice caps only"
+      ],
+      "level": 3
+    },
+    {
+      "id": "sci-g23-moon-atmosphere",
+      "prompt": "Does the Moon have air for people to breathe?",
+      "answer": "No, it has almost no atmosphere",
+      "distractors": [
+        "Yes, it has air just like Earth",
+        "Yes, but only at night",
+        "No one has ever studied this"
+      ],
+      "level": 4
+    },
+    {
+      "id": "sci-g23-moon-astronaut",
+      "prompt": "What do astronauts wear to survive on the Moon?",
+      "answer": "A spacesuit",
+      "distractors": [
+        "A raincoat",
+        "A winter coat",
+        "Regular clothes"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g23-moon-distance",
+      "prompt": "Compared to the Sun, how far is the Moon from Earth?",
+      "answer": "The Moon is much closer to Earth than the Sun is",
+      "distractors": [
+        "The Moon is farther from Earth than the Sun is",
+        "The Moon and Sun are the same distance",
+        "The Moon is inside Earth"
+      ],
+      "level": 3
+    },
+    {
+      "id": "sci-g23-moon-tides",
+      "prompt": "What does the Moon's gravity help cause on Earth?",
+      "answer": "Ocean tides",
+      "distractors": [
+        "Earthquakes",
+        "Volcanoes",
+        "Rainstorms"
+      ],
+      "level": 4
+    },
+    {
+      "id": "sci-g23-habitat-migration",
+      "prompt": "What is it called when animals travel to a new place with the seasons?",
+      "answer": "Migration",
+      "distractors": [
+        "Hibernation",
+        "Metamorphosis",
+        "Pollination"
+      ],
+      "level": 3
+    },
+    {
+      "id": "sci-g23-habitat-hibernation",
+      "prompt": "What is it called when an animal sleeps through the winter to save energy?",
+      "answer": "Hibernation",
+      "distractors": [
+        "Migration",
+        "Metamorphosis",
+        "Camouflage"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g23-matter-shape",
+      "prompt": "Which state of matter has no shape of its own and no fixed volume?",
+      "answer": "Gas",
+      "distractors": [
+        "Solid",
+        "Liquid",
+        "Plasma"
+      ],
+      "level": 3
+    },
+    {
+      "id": "sci-g23-cycle-seed-dispersal",
+      "prompt": "How do many plants spread their seeds to new places?",
+      "answer": "Wind, water, and animals carry the seeds",
+      "distractors": [
+        "Seeds cannot move once they form",
+        "Seeds only spread underground",
+        "Seeds spread by making sounds"
+      ],
+      "level": 3
+    }
+  ]
+}

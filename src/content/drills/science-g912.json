@@ -1,0 +1,501 @@
+{
+  "poolId": "science-g912",
+  "band": "g912",
+  "items": [
+    {
+      "id": "sci-g912-dna",
+      "prompt": "What molecule carries genetic information in living things?",
+      "answer": "DNA",
+      "distractors": [
+        "RNA only",
+        "ATP",
+        "Glucose"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g912-gene",
+      "prompt": "What do we call a segment of DNA that codes for a specific trait?",
+      "answer": "A gene",
+      "distractors": [
+        "A chromosome",
+        "A protein",
+        "An enzyme"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g912-chromosomes",
+      "prompt": "What structures in the nucleus contain tightly coiled DNA?",
+      "answer": "Chromosomes",
+      "distractors": [
+        "Ribosomes",
+        "Mitochondria",
+        "Vacuoles"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g912-chromosome-count",
+      "prompt": "How many chromosomes do typical human body cells have?",
+      "answer": "46",
+      "distractors": [
+        "23",
+        "92",
+        "64"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g912-alleles",
+      "prompt": "What do we call the different forms of a gene, such as one for brown eyes versus blue eyes?",
+      "answer": "Alleles",
+      "distractors": [
+        "Genomes",
+        "Genotypes",
+        "Mutations"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g912-genotype",
+      "prompt": "What term describes an organism's actual genetic makeup?",
+      "answer": "Genotype",
+      "distractors": [
+        "Phenotype",
+        "Allele",
+        "Chromosome"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g912-phenotype",
+      "prompt": "What term describes an organism's observable physical traits?",
+      "answer": "Phenotype",
+      "distractors": [
+        "Genotype",
+        "Genome",
+        "Allele"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g912-mutation",
+      "prompt": "What is it called when an offspring inherits a trait different from either parent due to a change in DNA?",
+      "answer": "A mutation",
+      "distractors": [
+        "A phenotype",
+        "A genotype",
+        "An allele"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g912-mendel",
+      "prompt": "Who is credited as the father of genetics for his experiments with pea plants?",
+      "answer": "Gregor Mendel",
+      "distractors": [
+        "Charles Darwin",
+        "Louis Pasteur",
+        "Isaac Newton"
+      ],
+      "level": 3
+    },
+    {
+      "id": "sci-g912-reactants",
+      "prompt": "What do we call the starting substances in a chemical reaction?",
+      "answer": "Reactants",
+      "distractors": [
+        "Products",
+        "Catalysts",
+        "Solutions"
+      ],
+      "level": 0
+    },
+    {
+      "id": "sci-g912-products",
+      "prompt": "What do we call the new substances formed by a chemical reaction?",
+      "answer": "Products",
+      "distractors": [
+        "Reactants",
+        "Catalysts",
+        "Mixtures"
+      ],
+      "level": 0
+    },
+    {
+      "id": "sci-g912-conservation-mass",
+      "prompt": "What law states that matter is neither created nor destroyed in a chemical reaction?",
+      "answer": "The law of conservation of mass",
+      "distractors": [
+        "The law of conservation of energy",
+        "Newton's first law",
+        "The law of definite proportions"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g912-catalyst",
+      "prompt": "What is a substance that speeds up a chemical reaction without being used up?",
+      "answer": "A catalyst",
+      "distractors": [
+        "A reactant",
+        "A product",
+        "A solvent"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g912-exothermic",
+      "prompt": "What type of reaction releases energy, often as heat?",
+      "answer": "An exothermic reaction",
+      "distractors": [
+        "An endothermic reaction",
+        "A physical reaction",
+        "A nuclear reaction"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g912-endothermic",
+      "prompt": "What type of reaction absorbs energy from its surroundings?",
+      "answer": "An endothermic reaction",
+      "distractors": [
+        "An exothermic reaction",
+        "A physical reaction",
+        "A combustion reaction"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g912-gas-sign",
+      "prompt": "What sign of a chemical reaction is bubbling or fizzing?",
+      "answer": "The release of a gas",
+      "distractors": [
+        "A change in temperature only",
+        "A change in shape only",
+        "A change in size only"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g912-combustion",
+      "prompt": "What do we call a reaction where a substance combines with oxygen and releases energy, such as burning wood?",
+      "answer": "Combustion",
+      "distractors": [
+        "Synthesis",
+        "Decomposition",
+        "Neutralization"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g912-neutralization",
+      "prompt": "What do we call a reaction where an acid and a base combine to form water and a salt?",
+      "answer": "Neutralization",
+      "distractors": [
+        "Combustion",
+        "Decomposition",
+        "Oxidation"
+      ],
+      "level": 3
+    },
+    {
+      "id": "sci-g912-newton-first-motion",
+      "prompt": "What does Newton's first law state about an object in motion with no outside force?",
+      "answer": "It stays in motion at a constant velocity",
+      "distractors": [
+        "It gradually slows down on its own",
+        "It speeds up on its own",
+        "It changes direction on its own"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g912-law-of-inertia",
+      "prompt": "What is another name for Newton's first law of motion?",
+      "answer": "The law of inertia",
+      "distractors": [
+        "The law of acceleration",
+        "The law of reaction",
+        "The law of gravity"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g912-f-equals-ma",
+      "prompt": "What does Newton's second law state, expressed as F = ma?",
+      "answer": "Force equals mass times acceleration",
+      "distractors": [
+        "Force equals mass divided by acceleration",
+        "Force equals mass plus acceleration",
+        "Force equals mass minus velocity"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g912-double-force",
+      "prompt": "According to Newton's second law, if you double the force on an object with the same mass, what happens to its acceleration?",
+      "answer": "The acceleration doubles",
+      "distractors": [
+        "The acceleration is cut in half",
+        "The acceleration stays the same",
+        "The acceleration becomes zero"
+      ],
+      "level": 3
+    },
+    {
+      "id": "sci-g912-newton-third-law",
+      "prompt": "What does Newton's third law state?",
+      "answer": "For every action, there is an equal and opposite reaction",
+      "distractors": [
+        "Objects in motion stay in motion",
+        "Force equals mass times acceleration",
+        "Energy cannot be created or destroyed"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g912-wall-push",
+      "prompt": "When you push on a wall, the wall pushes back on you. Which law of motion explains this?",
+      "answer": "Newton's third law",
+      "distractors": [
+        "Newton's first law",
+        "Newton's second law",
+        "The law of conservation of energy"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g912-inertia-term",
+      "prompt": "What term describes an object's resistance to a change in its motion?",
+      "answer": "Inertia",
+      "distractors": [
+        "Momentum",
+        "Velocity",
+        "Acceleration"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g912-momentum",
+      "prompt": "What do we call the product of an object's mass and velocity?",
+      "answer": "Momentum",
+      "distractors": [
+        "Inertia",
+        "Force",
+        "Acceleration"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g912-momentum-conserved",
+      "prompt": "What happens to the total momentum of a closed system during a collision?",
+      "answer": "It is conserved (stays the same)",
+      "distractors": [
+        "It always increases",
+        "It always decreases to zero",
+        "It doubles"
+      ],
+      "level": 4
+    },
+    {
+      "id": "sci-g912-conservation-energy",
+      "prompt": "What law states that energy cannot be created or destroyed, only transformed?",
+      "answer": "The law of conservation of energy",
+      "distractors": [
+        "Newton's first law",
+        "The law of definite proportions",
+        "The law of gravity"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g912-potential-energy",
+      "prompt": "What do we call energy that is stored and has the potential to do work, such as a ball held above the ground?",
+      "answer": "Potential energy",
+      "distractors": [
+        "Kinetic energy",
+        "Thermal energy",
+        "Chemical energy"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g912-kinetic-energy",
+      "prompt": "What do we call the energy of motion?",
+      "answer": "Kinetic energy",
+      "distractors": [
+        "Potential energy",
+        "Nuclear energy",
+        "Electrical energy"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g912-conduction",
+      "prompt": "What type of energy transfer occurs when heat moves through direct contact between materials?",
+      "answer": "Conduction",
+      "distractors": [
+        "Convection",
+        "Radiation",
+        "Reflection"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g912-convection",
+      "prompt": "What type of energy transfer occurs when heat moves through the movement of fluids like air or water?",
+      "answer": "Convection",
+      "distractors": [
+        "Conduction",
+        "Radiation",
+        "Reflection"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g912-radiation",
+      "prompt": "What type of energy transfer occurs when heat moves as electromagnetic waves, such as from the Sun?",
+      "answer": "Radiation",
+      "distractors": [
+        "Conduction",
+        "Convection",
+        "Absorption"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g912-chemical-energy",
+      "prompt": "What do we call energy stored in the bonds of chemical compounds, such as in food or fuel?",
+      "answer": "Chemical energy",
+      "distractors": [
+        "Kinetic energy",
+        "Nuclear energy",
+        "Thermal energy"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g912-nuclear-energy",
+      "prompt": "What do we call energy released from splitting or combining atomic nuclei?",
+      "answer": "Nuclear energy",
+      "distractors": [
+        "Chemical energy",
+        "Mechanical energy",
+        "Radiant energy"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g912-pendulum",
+      "prompt": "As a pendulum swings, its energy constantly changes between what two forms?",
+      "answer": "Potential energy and kinetic energy",
+      "distractors": [
+        "Chemical energy and nuclear energy",
+        "Thermal energy and radiant energy",
+        "Electrical energy and sound energy"
+      ],
+      "level": 3
+    },
+    {
+      "id": "sci-g912-first-step",
+      "prompt": "What is the first step of the scientific method, usually involving asking a question?",
+      "answer": "Making an observation and asking a question",
+      "distractors": [
+        "Forming a conclusion",
+        "Publishing the results",
+        "Running the final experiment"
+      ],
+      "level": 0
+    },
+    {
+      "id": "sci-g912-hypothesis",
+      "prompt": "What do we call a testable explanation for an observation, proposed before an experiment?",
+      "answer": "A hypothesis",
+      "distractors": [
+        "A theory",
+        "A law",
+        "A conclusion"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g912-independent-variable",
+      "prompt": "What is the variable that a scientist deliberately changes in an experiment called?",
+      "answer": "The independent variable",
+      "distractors": [
+        "The dependent variable",
+        "The control variable",
+        "The constant"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g912-dependent-variable",
+      "prompt": "What is the variable that is measured and may change as a result of the experiment called?",
+      "answer": "The dependent variable",
+      "distractors": [
+        "The independent variable",
+        "The control variable",
+        "The hypothesis"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g912-controlled-variables",
+      "prompt": "What do we call the factors in an experiment that are kept the same so they do not affect the results?",
+      "answer": "Controlled variables",
+      "distractors": [
+        "Independent variables",
+        "Dependent variables",
+        "Conclusions"
+      ],
+      "level": 3
+    },
+    {
+      "id": "sci-g912-control-group",
+      "prompt": "What is a group in an experiment that does not receive the treatment being tested, used for comparison?",
+      "answer": "The control group",
+      "distractors": [
+        "The experimental group",
+        "The variable group",
+        "The hypothesis group"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g912-repeat-experiments",
+      "prompt": "Why do scientists repeat experiments multiple times?",
+      "answer": "To check that the results are consistent and reliable",
+      "distractors": [
+        "To make the experiment take longer",
+        "To use up extra materials",
+        "To confuse other scientists"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g912-scientific-theory",
+      "prompt": "What do we call a well-tested explanation for a wide range of observations, supported by extensive evidence?",
+      "answer": "A scientific theory",
+      "distractors": [
+        "A hypothesis",
+        "A guess",
+        "A law of nature only"
+      ],
+      "level": 3
+    },
+    {
+      "id": "sci-g912-peer-review",
+      "prompt": "What is it called when other scientists check and repeat a study to confirm its results?",
+      "answer": "Peer review and replication",
+      "distractors": [
+        "Plagiarism",
+        "Bias",
+        "Speculation"
+      ],
+      "level": 4
+    }
+  ]
+}

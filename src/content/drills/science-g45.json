@@ -1,0 +1,501 @@
+{
+  "poolId": "science-g45",
+  "band": "g45",
+  "items": [
+    {
+      "id": "sci-g45-ecosystem-def",
+      "prompt": "What do we call a community of living things interacting with their environment?",
+      "answer": "An ecosystem",
+      "distractors": [
+        "A habitat only",
+        "A food chain",
+        "A biome map"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g45-food-chain",
+      "prompt": "What is a food chain?",
+      "answer": "The order in which energy passes from one living thing to another",
+      "distractors": [
+        "A chain used to catch fish",
+        "A list of foods animals dislike",
+        "The path an animal migrates each year"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g45-producers",
+      "prompt": "What are organisms called that make their own food using sunlight?",
+      "answer": "Producers",
+      "distractors": [
+        "Consumers",
+        "Decomposers",
+        "Predators"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g45-consumers",
+      "prompt": "What are organisms called that eat other living things for energy?",
+      "answer": "Consumers",
+      "distractors": [
+        "Producers",
+        "Decomposers",
+        "Prey"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g45-decomposers",
+      "prompt": "What are organisms called that break down dead plants and animals?",
+      "answer": "Decomposers",
+      "distractors": [
+        "Producers",
+        "Consumers",
+        "Predators"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g45-predator",
+      "prompt": "What do we call an animal that hunts and eats other animals?",
+      "answer": "A predator",
+      "distractors": [
+        "A producer",
+        "A decomposer",
+        "A pollinator"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g45-prey",
+      "prompt": "What do we call an animal that is hunted and eaten by another animal?",
+      "answer": "Prey",
+      "distractors": [
+        "A predator",
+        "A producer",
+        "A decomposer"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g45-food-web",
+      "prompt": "What is a food web?",
+      "answer": "A network of connected food chains in an ecosystem",
+      "distractors": [
+        "A spider's web found in a garden",
+        "A map of rivers and lakes",
+        "A list of endangered animals"
+      ],
+      "level": 3
+    },
+    {
+      "id": "sci-g45-evaporation",
+      "prompt": "What is the process called when the Sun heats water and turns it into vapor?",
+      "answer": "Evaporation",
+      "distractors": [
+        "Condensation",
+        "Precipitation",
+        "Collection"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g45-condensation",
+      "prompt": "What is it called when water vapor cools and forms clouds?",
+      "answer": "Condensation",
+      "distractors": [
+        "Evaporation",
+        "Precipitation",
+        "Runoff"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g45-precipitation",
+      "prompt": "What is it called when water falls from clouds as rain, snow, or hail?",
+      "answer": "Precipitation",
+      "distractors": [
+        "Evaporation",
+        "Condensation",
+        "Transpiration"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g45-runoff",
+      "prompt": "What is it called when rain and melted snow flow across land into rivers and lakes?",
+      "answer": "Runoff",
+      "distractors": [
+        "Evaporation",
+        "Condensation",
+        "Precipitation"
+      ],
+      "level": 3
+    },
+    {
+      "id": "sci-g45-transpiration",
+      "prompt": "What is the process called when water is released into the air from plant leaves?",
+      "answer": "Transpiration",
+      "distractors": [
+        "Evaporation",
+        "Condensation",
+        "Precipitation"
+      ],
+      "level": 4
+    },
+    {
+      "id": "sci-g45-sun-powers-cycle",
+      "prompt": "What powers the water cycle by heating water on Earth's surface?",
+      "answer": "The Sun",
+      "distractors": [
+        "The Moon",
+        "Wind alone",
+        "Ocean currents alone"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g45-oceans-collect",
+      "prompt": "Where does most of Earth's water collect after precipitation?",
+      "answer": "Oceans",
+      "distractors": [
+        "Deserts",
+        "Mountains only",
+        "The atmosphere only"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g45-water-cycle-name",
+      "prompt": "What do we call the continuous movement of water through evaporation, condensation, and precipitation?",
+      "answer": "The water cycle",
+      "distractors": [
+        "The rock cycle",
+        "The carbon cycle",
+        "The food cycle"
+      ],
+      "level": 0
+    },
+    {
+      "id": "sci-g45-circuit",
+      "prompt": "What do we call a complete path that electricity can flow through?",
+      "answer": "A circuit",
+      "distractors": [
+        "A conductor",
+        "An insulator",
+        "A battery"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g45-conductor",
+      "prompt": "What material allows electricity to flow through it easily?",
+      "answer": "A conductor, like copper",
+      "distractors": [
+        "An insulator, like rubber",
+        "A magnet",
+        "A battery"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g45-insulator",
+      "prompt": "What material blocks the flow of electricity?",
+      "answer": "An insulator, like rubber",
+      "distractors": [
+        "A conductor, like copper",
+        "A magnet",
+        "A wire"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g45-battery",
+      "prompt": "What provides the electrical energy in a simple flashlight circuit?",
+      "answer": "A battery",
+      "distractors": [
+        "A magnet",
+        "An insulator",
+        "A switch alone"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g45-switch",
+      "prompt": "What is used to open or close a circuit to turn a light on or off?",
+      "answer": "A switch",
+      "distractors": [
+        "A battery",
+        "A conductor",
+        "An insulator"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g45-circuit-break",
+      "prompt": "What happens if there is a break in a circuit?",
+      "answer": "Electricity stops flowing",
+      "distractors": [
+        "Electricity flows faster",
+        "The circuit becomes a magnet",
+        "Nothing changes"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g45-static-electricity",
+      "prompt": "What is static electricity?",
+      "answer": "A buildup of electric charge on an object's surface",
+      "distractors": [
+        "Electricity that flows through wires only",
+        "A type of magnet",
+        "Electricity made only by batteries"
+      ],
+      "level": 3
+    },
+    {
+      "id": "sci-g45-copper-conductor",
+      "prompt": "Which of these is a good conductor of electricity?",
+      "answer": "Copper wire",
+      "distractors": [
+        "Rubber",
+        "Plastic",
+        "Wood"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g45-mercury-closest",
+      "prompt": "Which planet is closest to the Sun?",
+      "answer": "Mercury",
+      "distractors": [
+        "Venus",
+        "Earth",
+        "Mars"
+      ],
+      "level": 0
+    },
+    {
+      "id": "sci-g45-mars-red",
+      "prompt": "Which planet is known as the Red Planet?",
+      "answer": "Mars",
+      "distractors": [
+        "Venus",
+        "Jupiter",
+        "Saturn"
+      ],
+      "level": 0
+    },
+    {
+      "id": "sci-g45-jupiter-largest",
+      "prompt": "Which planet is the largest in the solar system?",
+      "answer": "Jupiter",
+      "distractors": [
+        "Saturn",
+        "Earth",
+        "Neptune"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g45-saturn-rings",
+      "prompt": "Which planet has a famous system of rings easily seen from Earth?",
+      "answer": "Saturn",
+      "distractors": [
+        "Jupiter",
+        "Uranus",
+        "Mars"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g45-earth-humans",
+      "prompt": "Which planet do humans live on?",
+      "answer": "Earth",
+      "distractors": [
+        "Mars",
+        "Venus",
+        "Mercury"
+      ],
+      "level": 0
+    },
+    {
+      "id": "sci-g45-sun-center",
+      "prompt": "What is at the center of our solar system?",
+      "answer": "The Sun",
+      "distractors": [
+        "Earth",
+        "The Moon",
+        "Jupiter"
+      ],
+      "level": 0
+    },
+    {
+      "id": "sci-g45-planet-order",
+      "prompt": "What is the order of the first four planets from the Sun?",
+      "answer": "Mercury, Venus, Earth, Mars",
+      "distractors": [
+        "Venus, Mercury, Mars, Earth",
+        "Earth, Mercury, Venus, Mars",
+        "Mars, Earth, Venus, Mercury"
+      ],
+      "level": 3
+    },
+    {
+      "id": "sci-g45-comet",
+      "prompt": "What do we call a large object made of ice and dust that orbits the Sun with a glowing tail?",
+      "answer": "A comet",
+      "distractors": [
+        "An asteroid",
+        "A planet",
+        "A star"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g45-asteroids",
+      "prompt": "What do we call rocky objects that orbit the Sun, many found in the asteroid belt?",
+      "answer": "Asteroids",
+      "distractors": [
+        "Comets",
+        "Moons",
+        "Stars"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g45-rock-types",
+      "prompt": "What are the three main types of rock?",
+      "answer": "Igneous, sedimentary, and metamorphic",
+      "distractors": [
+        "Igneous, mineral, and crystal",
+        "Sedimentary, volcanic, and metal",
+        "Metamorphic, granite, and quartz"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g45-igneous",
+      "prompt": "Which type of rock forms when melted rock cools and hardens?",
+      "answer": "Igneous rock",
+      "distractors": [
+        "Sedimentary rock",
+        "Metamorphic rock",
+        "Mineral rock"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g45-sedimentary",
+      "prompt": "Which type of rock forms from layers of sediment pressed together over time?",
+      "answer": "Sedimentary rock",
+      "distractors": [
+        "Igneous rock",
+        "Metamorphic rock",
+        "Crystal rock"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g45-metamorphic",
+      "prompt": "Which type of rock forms when heat and pressure change existing rock?",
+      "answer": "Metamorphic rock",
+      "distractors": [
+        "Igneous rock",
+        "Sedimentary rock",
+        "Mineral rock"
+      ],
+      "level": 3
+    },
+    {
+      "id": "sci-g45-mineral-def",
+      "prompt": "What is a mineral?",
+      "answer": "A natural, non-living solid with a specific crystal structure",
+      "distractors": [
+        "Any rock found near water",
+        "A living organism found underground",
+        "A type of soil"
+      ],
+      "level": 3
+    },
+    {
+      "id": "sci-g45-diamond-hardest",
+      "prompt": "What is the hardest natural mineral on Earth?",
+      "answer": "Diamond",
+      "distractors": [
+        "Quartz",
+        "Gold",
+        "Limestone"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g45-mohs-scale",
+      "prompt": "What tool do scientists often use to test how hard a mineral is?",
+      "answer": "The Mohs hardness scale",
+      "distractors": [
+        "A thermometer",
+        "A microscope alone",
+        "A magnet"
+      ],
+      "level": 4
+    },
+    {
+      "id": "sci-g45-soil-minerals",
+      "prompt": "What is soil partly made of that comes from broken-down rock?",
+      "answer": "Minerals",
+      "distractors": [
+        "Only water",
+        "Only air",
+        "Only plastic"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g45-atmosphere",
+      "prompt": "What do we call the layer of gases surrounding Earth?",
+      "answer": "The atmosphere",
+      "distractors": [
+        "The ecosystem",
+        "The crust",
+        "The core"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-g45-co2-for-plants",
+      "prompt": "What is the main gas that plants use to make food?",
+      "answer": "Carbon dioxide",
+      "distractors": [
+        "Oxygen",
+        "Nitrogen",
+        "Hydrogen"
+      ],
+      "level": 3
+    },
+    {
+      "id": "sci-g45-oxygen-release",
+      "prompt": "What gas do plants release that animals need to breathe?",
+      "answer": "Oxygen",
+      "distractors": [
+        "Carbon dioxide",
+        "Nitrogen",
+        "Helium"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-g45-crust",
+      "prompt": "What do we call the layer of rock that forms Earth's outer shell?",
+      "answer": "The crust",
+      "distractors": [
+        "The core",
+        "The mantle",
+        "The atmosphere"
+      ],
+      "level": 2
+    }
+  ]
+}

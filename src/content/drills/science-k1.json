@@ -1,0 +1,490 @@
+{
+  "poolId": "science-k1",
+  "band": "k1",
+  "items": [
+    {
+      "id": "sci-k1-living-dog",
+      "prompt": "Which of these is a living thing?",
+      "answer": "A dog",
+      "distractors": [
+        "A rock",
+        "A chair",
+        "A cloud"
+      ],
+      "level": 0
+    },
+    {
+      "id": "sci-k1-living-tree",
+      "prompt": "Which of these is a living thing?",
+      "answer": "A tree",
+      "distractors": [
+        "A car",
+        "A book",
+        "A shoe"
+      ],
+      "level": 0
+    },
+    {
+      "id": "sci-k1-nonliving-rock",
+      "prompt": "Which of these is non-living?",
+      "answer": "A rock",
+      "distractors": [
+        "A cat",
+        "A bird",
+        "A flower"
+      ],
+      "level": 0
+    },
+    {
+      "id": "sci-k1-nonliving-chair",
+      "prompt": "Which of these is non-living?",
+      "answer": "A chair",
+      "distractors": [
+        "A fish",
+        "A frog",
+        "A tree"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-k1-living-need",
+      "prompt": "What do living things need to grow?",
+      "answer": "Food and water",
+      "distractors": [
+        "Electricity",
+        "Gasoline",
+        "Paint"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-k1-grow-change",
+      "prompt": "Which of these can grow and change?",
+      "answer": "A plant",
+      "distractors": [
+        "A rock",
+        "A toy",
+        "A table"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-k1-sense-eyes",
+      "prompt": "Which body part do you use to see?",
+      "answer": "Eyes",
+      "distractors": [
+        "Ears",
+        "Nose",
+        "Hands"
+      ],
+      "level": 0
+    },
+    {
+      "id": "sci-k1-sense-ears",
+      "prompt": "Which body part do you use to hear?",
+      "answer": "Ears",
+      "distractors": [
+        "Eyes",
+        "Nose",
+        "Tongue"
+      ],
+      "level": 0
+    },
+    {
+      "id": "sci-k1-sense-nose",
+      "prompt": "Which body part do you use to smell?",
+      "answer": "Nose",
+      "distractors": [
+        "Ears",
+        "Eyes",
+        "Tongue"
+      ],
+      "level": 0
+    },
+    {
+      "id": "sci-k1-sense-tongue",
+      "prompt": "Which body part do you use to taste?",
+      "answer": "Tongue",
+      "distractors": [
+        "Nose",
+        "Ears",
+        "Hands"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-k1-sense-hands",
+      "prompt": "Which body part do you use to touch and feel?",
+      "answer": "Hands",
+      "distractors": [
+        "Eyes",
+        "Ears",
+        "Nose"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-k1-sense-count",
+      "prompt": "How many senses do people have?",
+      "answer": "Five",
+      "distractors": [
+        "Two",
+        "Three",
+        "Ten"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-k1-sense-hearing-music",
+      "prompt": "Which sense helps you hear music?",
+      "answer": "Hearing",
+      "distractors": [
+        "Sight",
+        "Smell",
+        "Taste"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-k1-sense-smell-flower",
+      "prompt": "Which sense helps you know a flower smells sweet?",
+      "answer": "Smell",
+      "distractors": [
+        "Sight",
+        "Hearing",
+        "Touch"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-k1-weather-rain",
+      "prompt": "What falls from clouds when it rains?",
+      "answer": "Water",
+      "distractors": [
+        "Sand",
+        "Leaves",
+        "Rocks"
+      ],
+      "level": 0
+    },
+    {
+      "id": "sci-k1-weather-snow",
+      "prompt": "What do we call frozen rain that falls in winter?",
+      "answer": "Snow",
+      "distractors": [
+        "Fog",
+        "Wind",
+        "Rain"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-k1-weather-sun",
+      "prompt": "What is the bright light in the sky during the day?",
+      "answer": "The Sun",
+      "distractors": [
+        "The Moon",
+        "A star",
+        "A cloud"
+      ],
+      "level": 0
+    },
+    {
+      "id": "sci-k1-season-spring",
+      "prompt": "What season comes after winter?",
+      "answer": "Spring",
+      "distractors": [
+        "Summer",
+        "Fall",
+        "Winter"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-k1-season-summer",
+      "prompt": "What season is usually the hottest?",
+      "answer": "Summer",
+      "distractors": [
+        "Winter",
+        "Fall",
+        "Spring"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-k1-weather-wind",
+      "prompt": "What do you call moving air outside?",
+      "answer": "Wind",
+      "distractors": [
+        "Rain",
+        "Snow",
+        "Sunshine"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-k1-weather-raincoat",
+      "prompt": "What should you wear on a rainy day?",
+      "answer": "A raincoat",
+      "distractors": [
+        "Sunglasses",
+        "Shorts",
+        "A swimsuit"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-k1-season-fall",
+      "prompt": "What season do leaves usually fall from trees?",
+      "answer": "Fall",
+      "distractors": [
+        "Spring",
+        "Summer",
+        "Winter"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-k1-night-moon",
+      "prompt": "What do we see in the sky at night?",
+      "answer": "The Moon",
+      "distractors": [
+        "The Sun",
+        "A rainbow",
+        "A cloud"
+      ],
+      "level": 0
+    },
+    {
+      "id": "sci-k1-day-sun",
+      "prompt": "What lights up the sky during the day?",
+      "answer": "The Sun",
+      "distractors": [
+        "The Moon",
+        "Stars",
+        "A lamp"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-k1-night-sleep",
+      "prompt": "When do most people sleep?",
+      "answer": "At night",
+      "distractors": [
+        "In the morning",
+        "At noon",
+        "During lunch"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-k1-day-morning",
+      "prompt": "What do we call the time when the sun rises?",
+      "answer": "Morning",
+      "distractors": [
+        "Night",
+        "Noon",
+        "Evening"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-k1-night-why-dark",
+      "prompt": "Why does it get dark at night?",
+      "answer": "The Sun is not shining on that part of Earth",
+      "distractors": [
+        "The Moon covers the Sun",
+        "The Earth stops spinning",
+        "All the stars go out"
+      ],
+      "level": 4
+    },
+    {
+      "id": "sci-k1-night-stars",
+      "prompt": "What can you see in the night sky besides the Moon?",
+      "answer": "Stars",
+      "distractors": [
+        "Rainbows",
+        "Clouds only",
+        "The Sun"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-k1-animal-need",
+      "prompt": "What do animals need to stay alive?",
+      "answer": "Food and water",
+      "distractors": [
+        "Toys",
+        "Money",
+        "Television"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-k1-animal-nest",
+      "prompt": "Where do many birds build homes for their babies?",
+      "answer": "In nests",
+      "distractors": [
+        "In caves",
+        "In rivers",
+        "In cars"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-k1-animal-shelter",
+      "prompt": "What do animals need for shelter?",
+      "answer": "A safe place to live",
+      "distractors": [
+        "A television",
+        "A car",
+        "A phone"
+      ],
+      "level": 3
+    },
+    {
+      "id": "sci-k1-animal-baby-care",
+      "prompt": "What do baby animals need from their parents?",
+      "answer": "Care and protection",
+      "distractors": [
+        "Money",
+        "Books",
+        "Shoes"
+      ],
+      "level": 4
+    },
+    {
+      "id": "sci-k1-fish-breathe",
+      "prompt": "What does a fish need to breathe in water?",
+      "answer": "Water passing over its gills",
+      "distractors": [
+        "Air only, like a person",
+        "Dirt",
+        "Sunlight only"
+      ],
+      "level": 3
+    },
+    {
+      "id": "sci-k1-animal-food-energy",
+      "prompt": "What do most animals eat to get energy?",
+      "answer": "Food",
+      "distractors": [
+        "Rocks",
+        "Plastic",
+        "Metal"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-k1-living-butterfly",
+      "prompt": "Which of these is a living thing?",
+      "answer": "A butterfly",
+      "distractors": [
+        "A kite",
+        "A balloon",
+        "A bicycle"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-k1-season-winter",
+      "prompt": "Which season is usually cold with snow?",
+      "answer": "Winter",
+      "distractors": [
+        "Summer",
+        "Spring",
+        "Fall"
+      ],
+      "level": 1
+    },
+    {
+      "id": "sci-k1-plant-need",
+      "prompt": "What do plants need to grow well?",
+      "answer": "Sunlight and water",
+      "distractors": [
+        "Ice and rocks",
+        "Paint and glue",
+        "Sand and metal"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-k1-bird-feathers",
+      "prompt": "What covers a bird's body to help keep it warm?",
+      "answer": "Feathers",
+      "distractors": [
+        "Fur",
+        "Scales",
+        "Shells"
+      ],
+      "level": 3
+    },
+    {
+      "id": "sci-k1-dog-fur",
+      "prompt": "What covers a dog's body to help keep it warm?",
+      "answer": "Fur",
+      "distractors": [
+        "Feathers",
+        "Scales",
+        "Shells"
+      ],
+      "level": 3
+    },
+    {
+      "id": "sci-k1-fish-scales",
+      "prompt": "What covers a fish's body?",
+      "answer": "Scales",
+      "distractors": [
+        "Fur",
+        "Feathers",
+        "Shells"
+      ],
+      "level": 4
+    },
+    {
+      "id": "sci-k1-sense-loud-soft",
+      "prompt": "Which sense do you use to know if music is loud or soft?",
+      "answer": "Hearing",
+      "distractors": [
+        "Taste",
+        "Smell",
+        "Touch"
+      ],
+      "level": 3
+    },
+    {
+      "id": "sci-k1-weather-rain-drops",
+      "prompt": "What do we call water that falls from the sky as tiny drops?",
+      "answer": "Rain",
+      "distractors": [
+        "Snow",
+        "Wind",
+        "Fog"
+      ],
+      "level": 2
+    },
+    {
+      "id": "sci-k1-water-freeze",
+      "prompt": "What happens to water when it gets very cold?",
+      "answer": "It freezes into ice",
+      "distractors": [
+        "It turns into sand",
+        "It disappears forever",
+        "It turns into rock"
+      ],
+      "level": 4
+    },
+    {
+      "id": "sci-k1-seasons-word",
+      "prompt": "What do we call the four times of year?",
+      "answer": "Seasons",
+      "distractors": [
+        "Months",
+        "Weeks",
+        "Days"
+      ],
+      "level": 3
+    }
+  ]
+}
