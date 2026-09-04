@@ -35,8 +35,10 @@ describe("usePlayClock", () => {
     expect(onClose).toHaveBeenCalledWith("school_hours");
   });
 
-  it("sets an error and does not retry the same minute when recording fails", async () => {
-    recordRealmPlay.mockRejectedValue(new Error("The ledger is unreachable."));
+  it("carries a failed minute into the next record", async () => {
+    recordRealmPlay.mockRejectedValueOnce(new Error("The ledger is unreachable."));
+    recordRealmPlay.mockResolvedValueOnce(undefined);
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 1, source: "earned" });
     const onClose = vi.fn();
 
     const { result } = renderHook(() => usePlayClock({ enabled: true, childId: "c1", initialMinutes: 3, onClose }));
@@ -46,16 +48,17 @@ describe("usePlayClock", () => {
     });
 
     expect(recordRealmPlay).toHaveBeenCalledTimes(1);
+    expect(recordRealmPlay).toHaveBeenNthCalledWith(1, "c1", expect.any(String), 1);
     expect(result.current.error).toBe("The ledger is unreachable.");
-    expect(result.current.warning).toBe(false);
     expect(getRealmAccess).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
 
-    // A few more visible seconds pass without crossing another 60-second
-    // boundary: the failed minute is not retried until the next one lapses.
+    // The next 60-second boundary retries the failed minute along with the new one.
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(5_000);
+      await vi.advanceTimersByTimeAsync(60_000);
     });
-    expect(recordRealmPlay).toHaveBeenCalledTimes(1);
+    expect(recordRealmPlay).toHaveBeenCalledTimes(2);
+    expect(recordRealmPlay).toHaveBeenNthCalledWith(2, "c1", expect.any(String), 2);
+    expect(result.current.error).toBe("");
   });
 });

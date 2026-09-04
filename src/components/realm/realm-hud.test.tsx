@@ -23,4 +23,33 @@ describe("RealmHud", () => {
     render(<RealmHud heroName="Lily" minutesRemaining={3} warning={false} preview={null} hudScale={1.25} error="" onRetry={() => {}} />);
     expect(screen.getByRole("link", { name: "Leave the Realm" })).toHaveAttribute("href", "/tavern");
   });
+  it("shows the selector only in the preview HUD", () => {
+    render(
+      <RealmHud
+        heroName="Lily"
+        minutesRemaining={null}
+        warning={false}
+        preview={{ note: null }}
+        hudScale={1}
+        error=""
+        selector={<span>picker</span>}
+        onRetry={() => {}}
+      />
+    );
+    expect(screen.getByText("picker")).toBeInTheDocument();
+    cleanup();
+    render(
+      <RealmHud
+        heroName="Lily"
+        minutesRemaining={3}
+        warning={false}
+        preview={null}
+        hudScale={1}
+        error=""
+        selector={<span>picker</span>}
+        onRetry={() => {}}
+      />
+    );
+    expect(screen.queryByText("picker")).not.toBeInTheDocument();
+  });
 });

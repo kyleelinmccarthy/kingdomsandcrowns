@@ -5,10 +5,10 @@ import type { Vec2 } from "@/lib/realm/layout";
 import { screenToWorldAxis } from "@/lib/realm/input-mapping";
 
 const KEYS: Record<string, { x: number; y: number }> = {
-  w: { x: 0, y: 1 }, ArrowUp: { x: 0, y: 1 },
-  s: { x: 0, y: -1 }, ArrowDown: { x: 0, y: -1 },
-  a: { x: -1, y: 0 }, ArrowLeft: { x: -1, y: 0 },
-  d: { x: 1, y: 0 }, ArrowRight: { x: 1, y: 0 },
+  KeyW: { x: 0, y: 1 }, ArrowUp: { x: 0, y: 1 },
+  KeyS: { x: 0, y: -1 }, ArrowDown: { x: 0, y: -1 },
+  KeyA: { x: -1, y: 0 }, ArrowLeft: { x: -1, y: 0 },
+  KeyD: { x: 1, y: 0 }, ArrowRight: { x: 1, y: 0 },
 };
 
 /**
@@ -32,21 +32,32 @@ export function useRealmInput() {
 
   useEffect(() => {
     function down(e: KeyboardEvent) {
-      if (!(e.key in KEYS)) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (!(e.code in KEYS)) return;
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       e.preventDefault();
-      keys.current.add(e.key);
+      keys.current.add(e.code);
       recompute();
     }
     function up(e: KeyboardEvent) {
-      keys.current.delete(e.key);
+      keys.current.delete(e.code);
+      recompute();
+    }
+    // A held key that never sees its keyup (alt-tab, a browser shortcut that
+    // steals focus, the tab going to the background) must not stick forever.
+    function clear() {
+      keys.current.clear();
       recompute();
     }
     window.addEventListener("keydown", down);
     window.addEventListener("keyup", up);
+    window.addEventListener("blur", clear);
+    document.addEventListener("visibilitychange", clear);
     return () => {
       window.removeEventListener("keydown", down);
       window.removeEventListener("keyup", up);
+      window.removeEventListener("blur", clear);
+      document.removeEventListener("visibilitychange", clear);
     };
   }, [recompute]);
 

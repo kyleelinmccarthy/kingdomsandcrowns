@@ -234,6 +234,22 @@ html { scrollbar-color: var(--border) var(--background); }
   word-spacing: 0.08em;
 }
 
+/* `.realm-root` portals past `.game-shell` (see realm-shell.tsx), so it
+   carries its own copies of the reading-font and extra-spacing rules rather
+   than inheriting them from that ancestor. No `data-larger-text` rule here:
+   `hudScale` already covers larger text for the Realm's own HUD. */
+.realm-root[data-reading-font="on"] {
+  --font-sans: var(--font-lexend);
+  --font-serif: var(--font-lexend);
+  --font-brand: var(--font-lexend);
+  font-family: var(--font-lexend), ui-sans-serif, system-ui, sans-serif;
+}
+.realm-root[data-extra-spacing="on"] {
+  line-height: 1.75;
+  letter-spacing: 0.03em;
+  word-spacing: 0.08em;
+}
+
 /* Animated background orbs */
 .game-shell-orb {
   position: fixed;
@@ -1673,9 +1689,10 @@ html { scrollbar-color: var(--border) var(--background); }
 
 /* ── The Realm ──────────────────────────────────────────────── */
 .realm-root { position: fixed; inset: 0; z-index: 45; background: #0a1220; }
-.realm-hud { position: absolute; top: 0.75rem; left: 0.75rem; right: 0.75rem; z-index: 20; pointer-events: none; color: #fff; font-family: var(--font-farro), ui-sans-serif, system-ui, sans-serif; }
+.realm-hud { position: absolute; top: 0.75rem; left: 0.75rem; right: 0.75rem; z-index: 20; pointer-events: none; color: #fff; font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif; }
 .realm-hud > * { pointer-events: auto; }
 .realm-hud-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; }
+.realm-hud-row > * { pointer-events: auto; }
 .realm-hud-name { font-weight: 700; }
 .realm-hud-minutes, .realm-hud-badge { border-radius: 9999px; padding: 0.15rem 0.6rem; background: rgba(201, 168, 76, 0.2); color: var(--gold-bright); font-size: 0.85em; }
 .realm-hud-leave { margin-left: auto; color: var(--gold-bright); text-decoration: underline; font-size: 0.85em; }

@@ -1,4 +1,4 @@
-import { CanvasTexture, NearestFilter, SRGBColorSpace } from "three";
+import type { CanvasTexture } from "three";
 import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
 
 /** 36×48 SVG units → 216×288 px: crisp at the tabletop zoom, small enough to rasterize in a few ms. */
@@ -16,6 +16,7 @@ export function spriteKey(config: AvatarConfig): string {
 
 /** Serializes an inline <svg> and draws it onto a canvas with smoothing off, so pixel art stays pixel art. */
 export async function svgElementToTexture(svg: SVGSVGElement, scale = SPRITE_SCALE): Promise<CanvasTexture> {
+  const { CanvasTexture, NearestFilter, SRGBColorSpace } = await import("three");
   const clone = svg.cloneNode(true) as SVGSVGElement;
   clone.setAttribute("width", String(SVG_W * scale));
   clone.setAttribute("height", String(SVG_H * scale));

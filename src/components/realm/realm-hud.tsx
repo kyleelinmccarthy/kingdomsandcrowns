@@ -10,6 +10,7 @@ export function RealmHud({
   preview,
   hudScale,
   error,
+  selector,
   onRetry,
 }: {
   heroName: string;
@@ -18,6 +19,7 @@ export function RealmHud({
   preview: { note: string | null } | null;
   hudScale: number;
   error: string;
+  selector?: React.ReactNode;
   onRetry: () => void;
 }) {
   return (
@@ -26,6 +28,7 @@ export function RealmHud({
         <span className="realm-hud-name">{heroName}</span>
         {minutesRemaining !== null && <span className="realm-hud-minutes">{minutesRemaining} min left</span>}
         {preview && <span className="realm-hud-badge">Previewing {heroName}&apos;s Realm</span>}
+        {preview && selector}
         <Link href="/tavern" className="realm-hud-leave">Leave the Realm</Link>
       </div>
       {preview?.note && <p className="realm-hud-note">{preview.note}</p>}

@@ -54,9 +54,13 @@ export default async function RealmPage({ searchParams }: { searchParams: Promis
           <h1 className="page-title text-4xl">{isChildView ? "My Realm" : `${activeChild.displayName}'s Realm`}</h1>
           <p className="mt-1 text-muted-foreground">Walk the grounds, visit what your deeds have raised, and keep your companion close.</p>
         </div>
-        {!isChildView && allChildren.length > 1 && <ChildSelector kids={allChildren} selectedId={activeChild.id} />}
       </div>
-      <RealmShell bundle={bundle} childId={activeChild.id} isChildView={isChildView} />
+      <RealmShell
+        bundle={bundle}
+        childId={activeChild.id}
+        isChildView={isChildView}
+        selector={!isChildView && allChildren.length > 1 ? <ChildSelector kids={allChildren} selectedId={activeChild.id} /> : undefined}
+      />
     </div>
   );
 }

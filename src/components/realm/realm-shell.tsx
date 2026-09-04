@@ -10,6 +10,7 @@ import { renderSettingsFor } from "@/lib/realm/render-settings";
 import { gateCopy, type GateCopy } from "@/lib/realm/play-clock";
 import { disposeSpriteTextures } from "@/lib/realm/sprite-texture";
 import { DEFAULT_AVATAR } from "@/lib/utils/avatar-catalog";
+import { readingAttributes } from "@/lib/utils/learning-profile";
 import { currentTimeOfDay, localDateOf } from "@/lib/utils/schedule-days";
 import { SpriteSource, type SpriteTextures } from "./sprite-source";
 import { RealmHud } from "./realm-hud";
@@ -34,7 +35,17 @@ function webglSupported(): boolean {
   return canvas.getContext("webgl2") !== null || canvas.getContext("webgl") !== null;
 }
 
-export function RealmShell({ bundle, childId, isChildView }: { bundle: RealmBundle; childId: string; isChildView: boolean }) {
+export function RealmShell({
+  bundle,
+  childId,
+  isChildView,
+  selector,
+}: {
+  bundle: RealmBundle;
+  childId: string;
+  isChildView: boolean;
+  selector?: React.ReactNode;
+}) {
   const [phase, setPhase] = useState<Phase>({ kind: "checking" });
   const [isTouch, setIsTouch] = useState(false);
 
@@ -92,6 +103,7 @@ export function RealmShell({ bundle, childId, isChildView }: { bundle: RealmBund
       minutes={phase.minutes}
       note={phase.note}
       onClose={onClose}
+      selector={selector}
     />
   );
 }
@@ -104,6 +116,7 @@ function RealmOpen({
   minutes,
   note,
   onClose,
+  selector,
 }: {
   bundle: RealmBundle;
   childId: string;
@@ -112,6 +125,7 @@ function RealmOpen({
   minutes: number;
   note: string | null;
   onClose: (reason: CloseReason) => void;
+  selector?: React.ReactNode;
 }) {
   const [textures, setTextures] = useState<SpriteTextures | null>(null);
   const [spriteError, setSpriteError] = useState("");
@@ -119,17 +133,15 @@ function RealmOpen({
   // `.game-content` (the page's <main>) is `position: relative; z-index: 10`,
   // which traps `.realm-root`'s z-index inside its own stacking context —
   // the app banner (30) and bottom nav (40) would sit on top of the world
-  // no matter how high `.realm-root`'s z-index goes. Portal past it into
-  // `.game-shell`, which is `position: relative` with no z-index of its own
-  // (not a stacking context), so `.realm-root { z-index: 45 }` is compared
-  // against the banner and nav directly. `.game-shell` still wraps the
-  // `[data-reading-font|larger-text|extra-spacing]` scoping attributes, so
-  // the HUD keeps those styles. Resolved once, client-side only: this
-  // component never renders during SSR (it mounts after the client-side
-  // access check resolves).
-  const [portalTarget] = useState<Element | null>(() =>
-    typeof document === "undefined" ? null : (document.querySelector(".game-shell") ?? document.body)
-  );
+  // no matter how high `.realm-root`'s z-index goes. Portal all the way to
+  // `document.body`, which has no z-index of its own (not a stacking
+  // context), so `.realm-root { z-index: 45 }` is compared against the
+  // banner and nav directly. `.realm-root` no longer sits inside
+  // `.game-shell`, so it carries its own `readingAttributes` below instead of
+  // relying on that ancestor's scoping. Resolved once, client-side only:
+  // this component never renders during SSR (it mounts after the
+  // client-side access check resolves).
+  const [portalTarget] = useState<Element | null>(() => (typeof document === "undefined" ? null : document.body));
   const layout = useMemo(() => buildWorldLayout({ castleType: bundle.castleType, builtBuildingIds: bundle.builtBuildingIds }), [bundle.castleType, bundle.builtBuildingIds]);
   const settings = renderSettingsFor(bundle.profile, isTouch);
   const { axisRef, setStick } = useRealmInput();
@@ -141,7 +153,7 @@ function RealmOpen({
   if (!portalTarget) return null;
 
   return createPortal(
-    <div className="realm-root">
+    <div className="realm-root" {...readingAttributes(bundle.profile)}>
       <SpriteSource key={retryKey} config={config} onReady={onReady} onError={onError} />
       {textures && <RealmScene layout={layout} textures={textures} settings={settings} axisRef={axisRef} />}
       <RealmHud
@@ -151,6 +163,7 @@ function RealmOpen({
         preview={isChildView ? null : { note }}
         hudScale={settings.hudScale}
         error={spriteError || clock.error}
+        selector={selector}
         onRetry={() => {
           setSpriteError("");
           clock.clearError();

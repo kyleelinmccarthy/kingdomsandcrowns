@@ -90,4 +90,17 @@ describe("RealmShell", () => {
     await user.click(screen.getByRole("button", { name: "Try again" }));
     expect(await screen.findByTestId("scene")).toBeInTheDocument();
   });
+
+  it("carries the reading font attribute onto the realm root", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    render(
+      <RealmShell
+        bundle={{ ...bundle, profile: { ...DEFAULT_LEARNING_PROFILE, readingFont: true } }}
+        childId="c1"
+        isChildView={true}
+      />
+    );
+    expect(await screen.findByTestId("scene")).toBeInTheDocument();
+    expect(document.querySelector(".realm-root")).toHaveAttribute("data-reading-font", "on");
+  });
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { getRealmAccess, recordRealmPlay } from "@/lib/actions/realm-play";
 import { applyAccess, startClock, tickClock, type PlayClock } from "@/lib/realm/play-clock";
 import type { AccessDenied } from "@/lib/utils/realm-access";
@@ -31,38 +31,60 @@ export function usePlayClock({
   const clockRef = useRef(clock);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
+  // Minutes recorded locally but not yet confirmed by the server. A failed
+  // record is retried with the next minute's record (or on Try again); a
+  // lost response can double-charge one minute, which is rarer than the free
+  // minute the old behaviour handed out.
+  const pendingRef = useRef(0);
+  const recordingRef = useRef(false);
 
-  useEffect(() => {
-    if (!enabled) return;
-    let recording = false;
-    const id = setInterval(async () => {
-      const visible = typeof document === "undefined" || document.visibilityState === "visible";
-      const ticked = tickClock(clockRef.current, 1, visible);
-      clockRef.current = ticked.clock;
-      setClock(ticked.clock);
-      if (ticked.event === "warn") setWarning(true);
-      if (ticked.event === "close") closeRef.current("no_minutes");
-      if (ticked.event !== "record" || recording) return;
-      recording = true;
+  const settle = useCallback(
+    async (minutes: number) => {
+      recordingRef.current = true;
       try {
         const date = localDateOf(new Date());
-        await recordRealmPlay(childId, date, ticked.records);
+        await recordRealmPlay(childId, date, minutes);
+        pendingRef.current = 0;
         const access = await getRealmAccess(childId, date, currentTimeOfDay());
         const applied = applyAccess(clockRef.current, access);
         clockRef.current = applied.clock;
         setClock(applied.clock);
         setError("");
         if (applied.event === "warn") setWarning(true);
+        if (applied.clock.minutesRemaining > 1) setWarning(false);
         if (applied.event === "close") closeRef.current(access.allowed ? "no_minutes" : access.reason);
       } catch (err) {
-        // The minute is not re-charged: the clock already moved on. Next minute tries again.
+        // pendingRef is left as-is: the failed minutes carry into the next record.
         setError(err instanceof Error ? err.message : "The Realm lost track of time for a moment.");
       } finally {
-        recording = false;
+        recordingRef.current = false;
       }
+    },
+    [childId]
+  );
+
+  useEffect(() => {
+    if (!enabled) return;
+    const id = setInterval(() => {
+      const visible = typeof document === "undefined" || document.visibilityState === "visible";
+      const ticked = tickClock(clockRef.current, 1, visible);
+      clockRef.current = ticked.clock;
+      setClock(ticked.clock);
+      if (ticked.event === "warn") setWarning(true);
+      if (ticked.event === "close") closeRef.current("no_minutes");
+      if (ticked.event !== "record") return;
+      pendingRef.current += ticked.records;
+      if (recordingRef.current) return;
+      void settle(Math.min(pendingRef.current, 30));
     }, 1000);
     return () => clearInterval(id);
-  }, [enabled, childId]);
+  }, [enabled, settle]);
 
-  return { minutesRemaining: clock.minutesRemaining, warning, error, clearError: () => setError("") };
+  const flushPending = useCallback(async () => {
+    if (pendingRef.current > 0 && !recordingRef.current) {
+      await settle(Math.min(pendingRef.current, 30));
+    }
+  }, [settle]);
+
+  return { minutesRemaining: clock.minutesRemaining, warning, error, clearError: () => setError(""), flushPending };
 }
