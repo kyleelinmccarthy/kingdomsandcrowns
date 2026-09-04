@@ -39,21 +39,43 @@ describe("tickClock", () => {
     expect(r.records).toBe(2);
     expect(r.event).toBe("record");
     expect(r.clock.secondsThisMinute).toBe(5);
+    expect(r.clock.minutesRemaining).toBe(8);
+  });
+  it("decrements minutes and closes when they hit zero", () => {
+    // 1 minute remaining, tick 125 seconds (crosses 2 boundaries = 2 minutes spent)
+    const r1 = tickClock(startClock(1), 125, true);
+    expect(r1.records).toBe(2);
+    expect(r1.event).toBe("record");
+    expect(r1.clock.minutesRemaining).toBe(0);
+    expect(r1.clock.warned).toBe(false);
+    expect(r1.clock.closed).toBe(false);
+    // Next tick should close because minutesRemaining <= 0
+    const r2 = tickClock(r1.clock, 1, true);
+    expect(r2.event).toBe("close");
+    expect(r2.clock.closed).toBe(true);
   });
   it("warning is not lost behind a record", () => {
-    // Start with 1 minute left and 59 seconds already counted
-    const clock = { minutesRemaining: 1, secondsThisMinute: 59, warned: false, closed: false };
-    // Tick 1 second: crosses the 60-second boundary, emits "record", doesn't warn yet
-    const r1 = tickClock(clock, 1, true);
-    expect(r1.event).toBe("record");
-    expect(r1.records).toBe(1);
-    expect(r1.clock.warned).toBe(false);
-    expect(r1.clock.secondsThisMinute).toBe(0);
-    // Tick 1 more second: now we warn
-    const r2 = tickClock(r1.clock, 1, true);
-    expect(r2.event).toBe("warn");
-    expect(r2.records).toBe(0);
-    expect(r2.clock.warned).toBe(true);
+    // Case 1: With 1 minute remaining, a record drops to 0, so next tick closes rather than warns.
+    const clock1 = { minutesRemaining: 1, secondsThisMinute: 59, warned: false, closed: false };
+    const r1a = tickClock(clock1, 1, true);
+    expect(r1a.event).toBe("record");
+    expect(r1a.records).toBe(1);
+    expect(r1a.clock.minutesRemaining).toBe(0);
+    expect(r1a.clock.warned).toBe(false);
+    const r1b = tickClock(r1a.clock, 1, true);
+    expect(r1b.event).toBe("close");
+    expect(r1b.clock.closed).toBe(true);
+
+    // Case 2: With 2 minutes remaining, a record leaves 1 minute, so next tick warns.
+    const clock2 = { minutesRemaining: 2, secondsThisMinute: 59, warned: false, closed: false };
+    const r2a = tickClock(clock2, 1, true);
+    expect(r2a.event).toBe("record");
+    expect(r2a.records).toBe(1);
+    expect(r2a.clock.minutesRemaining).toBe(1);
+    expect(r2a.clock.warned).toBe(false);
+    const r2b = tickClock(r2a.clock, 1, true);
+    expect(r2b.event).toBe("warn");
+    expect(r2b.clock.warned).toBe(true);
   });
 });
 

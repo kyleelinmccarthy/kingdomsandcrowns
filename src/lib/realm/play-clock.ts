@@ -17,7 +17,8 @@ export function startClock(minutesRemaining: number): PlayClock {
  * Only visible seconds count, so a tab left open in the background never
  * spends a hero's minutes. A record is emitted every 60 such seconds; the
  * caller writes it to the ledger and refreshes access. The `records` field
- * counts how many 60-second boundaries were crossed in this tick.
+ * counts how many 60-second boundaries were crossed in this tick. Minutes
+ * are decremented locally; the next tick closes if they hit 0.
  */
 export function tickClock(clock: PlayClock, elapsedSeconds: number, visible: boolean): { clock: PlayClock; event: ClockEvent; records: number } {
   if (clock.closed) return { clock, event: null, records: 0 };
@@ -32,13 +33,16 @@ export function tickClock(clock: PlayClock, elapsedSeconds: number, visible: boo
     seconds = seconds % 60;
     event = "record";
   }
+  // Decrement minutes based on records and clamp to 0.
+  const minutesRemaining = Math.max(0, clock.minutesRemaining - records);
   let warned = clock.warned;
   // Warn only when actually emitting the "warn" event, not when recording.
-  if (!warned && clock.minutesRemaining <= 1 && !event) {
+  // Use the decremented minutesRemaining for the warn check.
+  if (!warned && minutesRemaining <= 1 && !event) {
     event = "warn";
     warned = true;
   }
-  return { clock: { ...clock, secondsThisMinute: seconds, warned }, event, records };
+  return { clock: { ...clock, secondsThisMinute: seconds, minutesRemaining, warned }, event, records };
 }
 
 /** A fresh access check replaces the remaining minutes and may warn or close. */
