@@ -13,4 +13,14 @@ describe("screenToWorldAxis", () => {
   it("keeps zero at zero", () => {
     expect(screenToWorldAxis({ x: 0, y: 0 })).toEqual({ x: 0, z: 0 });
   });
+  it("clamps inputs longer than 1 to unit length", () => {
+    const clamped = screenToWorldAxis({ x: 1, y: 1 });
+    const magnitude = Math.hypot(clamped.x, clamped.z);
+    expect(magnitude).toBeCloseTo(1, 5);
+  });
+  it("preserves magnitude for inputs shorter than 1", () => {
+    const result = screenToWorldAxis({ x: 0.5, y: 0 });
+    const magnitude = Math.hypot(result.x, result.z);
+    expect(magnitude).toBeCloseTo(0.5, 5);
+  });
 });
