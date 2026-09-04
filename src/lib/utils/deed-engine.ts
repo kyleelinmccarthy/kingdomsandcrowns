@@ -67,11 +67,13 @@ function drawPool(items: PoolItem[], level: number, count: number, rng: Rng): Qu
   return [...near, ...far].slice(0, count).map((i) => poolQuestion(i, rng));
 }
 
-function drawGenerated(skill: Skill, level: number, count: number, rng: Rng): Question[] {
+function drawGenerated(skill: Skill, level: number, count: number, rng: Rng, exclude: Set<string> = new Set()): Question[] {
   if (skill.source.kind !== "generator") return [];
   const generator = GENERATORS[skill.source.generatorId];
   const out: Question[] = [];
-  const seen = new Set<string>();
+  // Seed "seen" from exclude so an id already used elsewhere in the run (a
+  // review miss, in particular) is skipped like any other duplicate.
+  const seen = new Set<string>(exclude);
   let guard = 0;
   while (out.length < count && guard < count * 20) {
     guard += 1;
@@ -104,7 +106,7 @@ export function buildDeedRun(input: BuildRunInput): BuiltRun {
   const perSkill = skills.map((_, i) => Math.floor(fresh / skills.length) + (i < fresh % skills.length ? 1 : 0));
   const bySkill = skills.map((skill, i) => {
     const level = masteryBySkill[skill.id] ?? 0;
-    if (skill.source.kind === "generator") return drawGenerated(skill, level, perSkill[i], rng);
+    if (skill.source.kind === "generator") return drawGenerated(skill, level, perSkill[i], rng, reviewIds);
     const items = poolItems.filter((p) => p.skillId === skill.id && !reviewIds.has(p.id));
     return drawPool(items, level, perSkill[i], rng);
   });
@@ -116,7 +118,7 @@ export function buildDeedRun(input: BuildRunInput): BuiltRun {
       if (questions.length >= fresh) break;
       const have = new Set(questions.map((q) => q.id));
       const extra = skill.source.kind === "generator"
-        ? drawGenerated(skill, masteryBySkill[skill.id] ?? 0, fresh - questions.length + have.size, rng).filter((q) => !have.has(q.id))
+        ? drawGenerated(skill, masteryBySkill[skill.id] ?? 0, fresh - questions.length + have.size, rng, new Set([...have, ...reviewIds])).filter((q) => !have.has(q.id))
         : drawPool(poolItems.filter((p) => p.skillId === skill.id && !have.has(p.id) && !reviewIds.has(p.id)), masteryBySkill[skill.id] ?? 0, fresh - questions.length, rng);
       questions = [...questions, ...extra].slice(0, fresh);
     }

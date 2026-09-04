@@ -73,6 +73,20 @@ describe("buildDeedRun", () => {
   it("returns no questions when no skill or items exist", () => {
     expect(buildDeedRun(input({ poolItems: [] })).questions).toHaveLength(0);
   });
+  it("never re-draws a review question from a generator skill", () => {
+    const misses: Question[] = [
+      { id: "add-10:1+1", skillId: "add-10", prompt: "What is 1 + 1?", choices: ["2", "3", "4", "5"], answer: "2" },
+      { id: "add-10:2+2", skillId: "add-10", prompt: "What is 2 + 2?", choices: ["4", "3", "5", "6"], answer: "4" },
+    ];
+    for (let seed = 1; seed <= 50; seed++) {
+      const run = buildDeedRun(input({ deed: deedMath, band: "k1", poolItems: [], masteryBySkill: {}, recentMisses: misses, seed }));
+      const ids = run.questions.map((q) => q.id);
+      expect(run.questions).toHaveLength(8);
+      expect(new Set(ids).size).toBe(ids.length);
+      expect(ids.filter((id) => id === "add-10:1+1")).toHaveLength(1);
+      expect(ids.filter((id) => id === "add-10:2+2")).toHaveLength(1);
+    }
+  });
 });
 
 describe("grading and client shape", () => {
