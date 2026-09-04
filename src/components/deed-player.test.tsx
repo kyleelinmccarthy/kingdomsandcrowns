@@ -18,6 +18,7 @@ const run: RunStart = {
     { id: "q1", skillId: "sight-g23", prompt: 'Which word is "because"?', choices: ["because", "become", "beside", "before"], readAloud: "because" },
     { id: "q2", skillId: "sight-g23", prompt: 'Which word is "again"?', choices: ["again", "against"] },
   ],
+  responses: [null, null],
 };
 const profile = { fewerChoices: false, predictableRoutine: false, untimed: true, readAloud: false };
 const summary = { correctCount: 1, total: 2, flawless: false, masteryChanges: ["Sight words: getting stronger"], building: { label: "Village Well", done: 1, total: 5, complete: false } };
@@ -61,5 +62,12 @@ describe("DeedPlayer", () => {
   it("hides the speaker when the browser cannot speak", () => {
     render(<DeedPlayer childId="c1" run={run} profile={profile} calm={false} onFinished={() => {}} />);
     expect(screen.queryByRole("button", { name: "Read aloud" })).not.toBeInTheDocument();
+  });
+
+  it("resumes at the first unanswered question instead of replaying from the start", () => {
+    const resumed: RunStart = { ...run, responses: ["because", null] };
+    render(<DeedPlayer childId="c1" run={resumed} profile={profile} calm={false} onFinished={() => {}} />);
+    expect(screen.getByText('Which word is "again"?')).toBeInTheDocument();
+    expect(screen.getByLabelText("Question 2 of 2")).toBeInTheDocument();
   });
 });

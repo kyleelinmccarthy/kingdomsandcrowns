@@ -34,7 +34,7 @@ export type DeedsOverview = {
   enabled: boolean; band: ContentBand; bandLabel: string; tone: "gentle" | "monsters";
   buildings: BuildingOverview[]; mastery: MasteryRow[];
 };
-export type RunStart = { runId: string; deed: { id: string; title: string; story: string }; questions: ClientQuestion[] };
+export type RunStart = { runId: string; deed: { id: string; title: string; story: string }; questions: ClientQuestion[]; responses: (string | null)[] };
 export type AnswerResult = { correct: boolean; answer: string };
 export type RunSummary = {
   correctCount: number; total: number; flawless: boolean; masteryChanges: string[];
@@ -77,11 +77,19 @@ async function loadRecentMisses(childId: string): Promise<Question[]> {
     .orderBy(desc(schema.deedRun.completedAt))
     .limit(5);
   const misses: Question[] = [];
+  const seen = new Set<string>();
   for (const run of runs) {
     try {
       const qs = JSON.parse(run.questions) as Question[];
       const rs = JSON.parse(run.responses) as (string | null)[];
-      qs.forEach((q, i) => { if (rs[i] !== null && rs[i] !== undefined && !gradeAnswer(q, rs[i]!)) misses.push(q); });
+      // Runs are newest first, so the first time an id is seen is its newest miss; a
+      // question missed again in an older run is not pushed a second time.
+      qs.forEach((q, i) => {
+        if (rs[i] !== null && rs[i] !== undefined && !gradeAnswer(q, rs[i]!) && !seen.has(q.id)) {
+          seen.add(q.id);
+          misses.push(q);
+        }
+      });
     } catch { /* a malformed old run is skipped, never fatal */ }
   }
   return misses.slice(0, 5);
@@ -131,7 +139,8 @@ export async function startDeedRun(childId: string, deedId: string): Promise<Run
     .limit(1);
   if (open[0]) {
     const qs = JSON.parse(open[0].questions) as Question[];
-    return { runId: open[0].id, deed: { id: deed.id, title: deed.title, story }, questions: qs.map(toClientQuestion) };
+    const responses = JSON.parse(open[0].responses) as (string | null)[];
+    return { runId: open[0].id, deed: { id: deed.id, title: deed.title, story }, questions: qs.map(toClientQuestion), responses };
   }
 
   const skills = chooseSkills(deed, hero.band);
@@ -165,7 +174,10 @@ export async function startDeedRun(childId: string, deedId: string): Promise<Run
     masteryStart: JSON.stringify(masteryStart), correctCount: 0, flawless: false,
     startedAt: now, completedAt: null, createdAt: now, updatedAt: now,
   });
-  return { runId, deed: { id: deed.id, title: deed.title, story }, questions: built.questions.map(toClientQuestion) };
+  return {
+    runId, deed: { id: deed.id, title: deed.title, story },
+    questions: built.questions.map(toClientQuestion), responses: built.questions.map(() => null),
+  };
 }
 
 async function loadRun(runId: string) {
@@ -236,7 +248,7 @@ export async function completeDeedRun(runId: string): Promise<RunSummary> {
 
   const deed = findDeed(run.deedId);
   const building = deed ? findBuilding(deed.buildingId) : null;
-  let progress = { done: 0, total: 5, complete: false };
+  let progress = { done: 0, total: building?.deedsToBuild ?? 0, complete: false };
   if (building) {
     // Insert-first, then an unconditional atomic increment: two completions of the
     // same building racing each other can't both read deedsDone=0 and both write 1,
@@ -255,6 +267,7 @@ export async function completeDeedRun(runId: string): Promise<RunSummary> {
       .where(and(eq(schema.kingdomProgress.childId, run.childId), eq(schema.kingdomProgress.buildingId, building.id)))
       .limit(1);
     const row = rows[0];
+    if (!row) throw new Error("Hero not found.");
     progress = buildingProgress(row.deedsDone, building);
     if (progress.complete && row.completedAt === null) {
       await db.update(schema.kingdomProgress)

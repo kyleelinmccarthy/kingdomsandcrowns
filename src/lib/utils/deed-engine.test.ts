@@ -52,6 +52,16 @@ describe("buildDeedRun", () => {
     expect(run.questions.filter((q) => q.id.startsWith("miss-"))).toHaveLength(2);
     expect(run.questions).toHaveLength(8);
   });
+  it("dedupes recent misses with the same id into a single review question", () => {
+    const misses: Question[] = [
+      { id: "miss-dup", skillId: "sight-g23", prompt: "Miss", choices: ["x", "y", "z", "w"], answer: "x" },
+      { id: "miss-dup", skillId: "sight-g23", prompt: "Miss", choices: ["x", "y", "z", "w"], answer: "x" },
+    ];
+    const run = buildDeedRun(input({ recentMisses: misses }));
+    expect(run.questions.filter((q) => q.id === "miss-dup")).toHaveLength(1);
+    expect(run.questions).toHaveLength(8);
+    expect(new Set(run.questions.map((q) => q.id)).size).toBe(8);
+  });
   it("ignores misses from other skills", () => {
     const misses: Question[] = [{ id: "miss-other", skillId: "mul-facts", prompt: "6 × 7", choices: ["42", "41", "43", "40"], answer: "42" }];
     expect(buildDeedRun(input({ recentMisses: misses })).questions.some((q) => q.id === "miss-other")).toBe(false);

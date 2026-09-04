@@ -59,8 +59,14 @@ export function numericDistractors(answer: number, rng: Rng, min = -Infinity): s
   return out.map(String);
 }
 
-function makeQuestion(skillId: string, key: string, prompt: string, answer: string, distractors: string[], rng: Rng): Question {
-  return { id: `${skillId}:${key}`, skillId, prompt, choices: shuffle([answer, ...distractors], rng), answer };
+function makeQuestion(skillId: string, key: string, prompt: string, answer: string, distractors: string[], rng: Rng, spoken?: string): Question {
+  return { id: `${skillId}:${key}`, skillId, prompt, choices: shuffle([answer, ...distractors], rng), answer, ...(spoken ? { readAloud: spoken } : {}) };
+}
+
+/** A signed integer spoken as words never contains a bare "-", so read-aloud text
+ * built from it can never collide into an awkward "- -" run. */
+function speakInt(n: number): string {
+  return n < 0 ? `negative ${Math.abs(n)}` : String(n);
 }
 
 export type Generator = (level: number, rng: Rng, skillId: string) => Question;
@@ -80,21 +86,21 @@ const add: Generator = (level, rng, skillId) => {
   const max = (ADD_MAX[skillId] ?? ADD_MAX["add-20"])[L(level)];
   const a = randInt(rng, 0, max);
   const b = randInt(rng, 0, max - a);
-  return makeQuestion(skillId, `${a}+${b}`, `What is ${a} + ${b}?`, String(a + b), numericDistractors(a + b, rng, 0), rng);
+  return makeQuestion(skillId, `${a}+${b}`, `What is ${a} + ${b}?`, String(a + b), numericDistractors(a + b, rng, 0), rng, `What is ${a} plus ${b}?`);
 };
 
 const sub: Generator = (level, rng, skillId) => {
   const max = (SUB_MAX[skillId] ?? SUB_MAX["sub-20"])[L(level)];
   const a = randInt(rng, 0, max);
   const b = randInt(rng, 0, a);
-  return makeQuestion(skillId, `${a}-${b}`, `What is ${a} - ${b}?`, String(a - b), numericDistractors(a - b, rng, 0), rng);
+  return makeQuestion(skillId, `${a}-${b}`, `What is ${a} - ${b}?`, String(a - b), numericDistractors(a - b, rng, 0), rng, `What is ${a} minus ${b}?`);
 };
 
 const mul: Generator = (level, rng, skillId) => {
   const max = FACT_MAX[L(level)];
   const a = randInt(rng, 0, max);
   const b = randInt(rng, 0, max);
-  return makeQuestion(skillId, `${a}x${b}`, `What is ${a} × ${b}?`, String(a * b), numericDistractors(a * b, rng, 0), rng);
+  return makeQuestion(skillId, `${a}x${b}`, `What is ${a} × ${b}?`, String(a * b), numericDistractors(a * b, rng, 0), rng, `What is ${a} times ${b}?`);
 };
 
 const div: Generator = (level, rng, skillId) => {
@@ -102,7 +108,7 @@ const div: Generator = (level, rng, skillId) => {
   const b = randInt(rng, 1, max);
   const q = randInt(rng, 0, 12);
   const a = b * q;
-  return makeQuestion(skillId, `${a}/${b}`, `What is ${a} ÷ ${b}?`, String(q), numericDistractors(q, rng, 0), rng);
+  return makeQuestion(skillId, `${a}/${b}`, `What is ${a} ÷ ${b}?`, String(q), numericDistractors(q, rng, 0), rng, `What is ${a} divided by ${b}?`);
 };
 
 const placeValue: Generator = (level, rng, skillId) => {
@@ -145,7 +151,11 @@ const integerOps: Generator = (level, rng, skillId) => {
   const b = randInt(rng, -max, max);
   const op = lvl >= 3 && rng() < 0.34 ? "×" : rng() < 0.5 ? "+" : "-";
   const answer = op === "+" ? a + b : op === "-" ? a - b : a * b;
-  return makeQuestion(skillId, `${a}${op}${b}`, `What is ${a} ${op} ${b}?`, String(answer), numericDistractors(answer, rng), rng);
+  const opWord = op === "+" ? "plus" : op === "-" ? "minus" : "times";
+  return makeQuestion(
+    skillId, `${a}${op}${b}`, `What is ${a} ${op} ${b}?`, String(answer), numericDistractors(answer, rng), rng,
+    `What is ${speakInt(a)} ${opWord} ${speakInt(b)}?`,
+  );
 };
 
 const percentOf: Generator = (level, rng, skillId) => {
@@ -162,7 +172,7 @@ const percentOf: Generator = (level, rng, skillId) => {
     n = randInt(rng, 1, Math.floor(baseMax / step)) * step;
   }
   const answer = (p * n) / 100;
-  return makeQuestion(skillId, `${p}%${n}`, `What is ${p}% of ${n}?`, String(answer), numericDistractors(answer, rng, 0), rng);
+  return makeQuestion(skillId, `${p}%${n}`, `What is ${p}% of ${n}?`, String(answer), numericDistractors(answer, rng, 0), rng, `What is ${p} percent of ${n}?`);
 };
 
 function gcd(a: number, b: number): number {
@@ -174,18 +184,21 @@ const oneStepEq: Generator = (level, rng, skillId) => {
   const kind = lvl === 0 ? "add" : lvl === 1 ? "sub" : lvl === 2 ? "mul" : (["add", "sub", "mul"] as const)[randInt(rng, 0, 2)];
   const span = lvl >= 3 ? 20 : 10;
   const x = lvl >= 3 ? randInt(rng, -span, span) : randInt(rng, 0, span);
-  let prompt: string, key: string;
+  let prompt: string, key: string, spoken: string;
   if (kind === "add") {
     const a = randInt(rng, 1, span);
     prompt = `Solve for x: x + ${a} = ${x + a}`; key = `x+${a}=${x + a}`;
+    spoken = `Solve for x: x plus ${a} equals ${speakInt(x + a)}`;
   } else if (kind === "sub") {
     const a = randInt(rng, 1, span);
     prompt = `Solve for x: x - ${a} = ${x - a}`; key = `x-${a}=${x - a}`;
+    spoken = `Solve for x: x minus ${a} equals ${speakInt(x - a)}`;
   } else {
     const a = lvl >= 3 ? randInt(rng, 2, 9) * (rng() < 0.3 ? -1 : 1) : randInt(rng, 2, 9);
     prompt = `Solve for x: ${a}x = ${a * x}`; key = `${a}x=${a * x}`;
+    spoken = `Solve for x: ${speakInt(a)} x equals ${speakInt(a * x)}`;
   }
-  return makeQuestion(skillId, key, prompt, String(x), numericDistractors(x, rng), rng);
+  return makeQuestion(skillId, key, prompt, String(x), numericDistractors(x, rng), rng, spoken);
 };
 
 export const GENERATORS: Record<string, Generator> = {

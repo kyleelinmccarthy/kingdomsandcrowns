@@ -23,7 +23,7 @@ const overview: DeedsOverview = {
 };
 const profile = { fewerChoices: false, predictableRoutine: false, untimed: true, readAloud: false };
 
-beforeEach(() => { vi.clearAllMocks(); startDeedRun.mockResolvedValue({ runId: "r1", deed: { id: "bridge-planks", title: "Planks for the Bridge", story: "Measure." }, questions: [{ id: "q", skillId: "add-20", prompt: "What is 1 + 1?", choices: ["2", "3", "4", "5"] }] }); });
+beforeEach(() => { vi.clearAllMocks(); startDeedRun.mockResolvedValue({ runId: "r1", deed: { id: "bridge-planks", title: "Planks for the Bridge", story: "Measure." }, questions: [{ id: "q", skillId: "add-20", prompt: "What is 1 + 1?", choices: ["2", "3", "4", "5"] }], responses: [null] }); });
 afterEach(cleanup);
 
 describe("DeedPicker", () => {

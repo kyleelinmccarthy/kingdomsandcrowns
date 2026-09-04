@@ -122,6 +122,20 @@ describe("percent-of", () => {
   });
 });
 
+describe("read-aloud", () => {
+  it("never speaks raw math symbols, across every generator and level", () => {
+    for (const [name, generator] of Object.entries(GENERATORS)) {
+      for (const lvl of LEVELS) {
+        for (let seed = 1; seed <= 10; seed++) {
+          const q = generator(lvl, seededRng(seed), name);
+          if (!q.readAloud) continue;
+          for (const bad of ["×", "÷", "%", "- -"]) expect(q.readAloud).not.toContain(bad);
+        }
+      }
+    }
+  });
+});
+
 describe("one-step-eq", () => {
   it("has an integer solution that satisfies the equation", () => {
     for (const lvl of LEVELS) for (const seed of SEEDS) {

@@ -33,7 +33,12 @@ export function DeedPlayer({
   calm: boolean;
   onFinished: () => void;
 }) {
-  const [index, setIndex] = useState(0);
+  // A resumed run continues at the first unanswered question rather than replaying
+  // from the start; a run with nothing left unanswered opens on the last question.
+  const [index, setIndex] = useState(() => {
+    const firstUnanswered = run.responses.findIndex((r) => r === null);
+    return firstUnanswered === -1 ? run.questions.length - 1 : firstUnanswered;
+  });
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -48,6 +53,9 @@ export function DeedPlayer({
   // Read-aloud is a side effect, not state: the profile asks for it, the effect obeys.
   useEffect(() => {
     if (profile.readAloud && question) speak(question.readAloud ?? question.prompt);
+    return () => {
+      if (canSpeak()) window.speechSynthesis.cancel();
+    };
   }, [profile.readAloud, question]);
 
   // A soft elapsed-time chip when the hero hasn't asked for untimed play.

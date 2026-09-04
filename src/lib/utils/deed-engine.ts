@@ -97,7 +97,15 @@ export function buildDeedRun(input: BuildRunInput): BuiltRun {
   const skillIds = skills.map((s) => s.id);
   if (skills.length === 0) return { skillIds: [], questions: [] };
 
-  const review = recentMisses.filter((m) => skillIds.includes(m.skillId)).slice(0, MAX_REVIEW);
+  // A miss that recurs across runs (or a caller that hands back duplicates) is one
+  // review question, not one per occurrence; the first occurrence wins.
+  const seenMissIds = new Set<string>();
+  const dedupedMisses = recentMisses.filter((m) => {
+    if (seenMissIds.has(m.id)) return false;
+    seenMissIds.add(m.id);
+    return true;
+  });
+  const review = dedupedMisses.filter((m) => skillIds.includes(m.skillId)).slice(0, MAX_REVIEW);
   const reviewIds = new Set(review.map((m) => m.id));
   const target = deed.questionCount;
   const fresh = Math.max(0, target - review.length);
