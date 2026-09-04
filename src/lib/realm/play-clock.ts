@@ -16,24 +16,29 @@ export function startClock(minutesRemaining: number): PlayClock {
 /**
  * Only visible seconds count, so a tab left open in the background never
  * spends a hero's minutes. A record is emitted every 60 such seconds; the
- * caller writes it to the ledger and refreshes access.
+ * caller writes it to the ledger and refreshes access. The `records` field
+ * counts how many 60-second boundaries were crossed in this tick.
  */
-export function tickClock(clock: PlayClock, elapsedSeconds: number, visible: boolean): { clock: PlayClock; event: ClockEvent } {
-  if (clock.closed) return { clock, event: null };
-  if (clock.minutesRemaining <= 0) return { clock: { ...clock, closed: true }, event: "close" };
-  if (!visible) return { clock, event: null };
+export function tickClock(clock: PlayClock, elapsedSeconds: number, visible: boolean): { clock: PlayClock; event: ClockEvent; records: number } {
+  if (clock.closed) return { clock, event: null, records: 0 };
+  if (clock.minutesRemaining <= 0) return { clock: { ...clock, closed: true }, event: "close", records: 0 };
+  if (!visible) return { clock, event: null, records: 0 };
   let seconds = clock.secondsThisMinute + elapsedSeconds;
+  let records = 0;
   let event: ClockEvent = null;
+  // Count how many complete 60-second boundaries are crossed.
   if (seconds >= 60) {
-    seconds -= 60;
+    records = Math.floor(seconds / 60);
+    seconds = seconds % 60;
     event = "record";
   }
   let warned = clock.warned;
-  if (!warned && clock.minutesRemaining <= 1) {
+  // Warn only when actually emitting the "warn" event, not when recording.
+  if (!warned && clock.minutesRemaining <= 1 && !event) {
+    event = "warn";
     warned = true;
-    if (!event) event = "warn";
   }
-  return { clock: { ...clock, secondsThisMinute: seconds, warned }, event };
+  return { clock: { ...clock, secondsThisMinute: seconds, warned }, event, records };
 }
 
 /** A fresh access check replaces the remaining minutes and may warn or close. */
@@ -49,8 +54,6 @@ export function applyAccess(clock: PlayClock, result: AccessResult): { clock: Pl
 export type GateCopy = { title: string; body: string };
 
 /** Why the gate is shut, in the hero's own terms. Null when it is open. */
-export function gateCopy(result: Extract<AccessResult, { allowed: true }>, next?: { recessStart?: string }): null;
-export function gateCopy(result: Extract<AccessResult, { allowed: false }>, next?: { recessStart?: string }): GateCopy;
 export function gateCopy(result: AccessResult, next?: { recessStart?: string }): GateCopy | null {
   if (result.allowed) return null;
   switch (result.reason) {
