@@ -33,7 +33,10 @@ const db = drizzle(client, { schema });
 const dryRun = process.argv.includes("--dry-run");
 
 async function main() {
-  const today = new Date();
+  // A single UTC snapshot for the whole run, not a per-family timezone: this
+  // script sweeps every family in one pass, so there is no single "today" to
+  // resolve per child. computeStreak takes an ISO date string.
+  const today = new Date().toISOString().slice(0, 10);
 
   // Three whole-table reads instead of a few queries per hero — this usually
   // runs against a remote database, where round-trips dominate.

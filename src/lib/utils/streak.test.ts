@@ -1,16 +1,15 @@
 import { describe, it, expect } from "vitest";
 import { computeStreak, computeLongestStreak } from "./streak";
-import { formatDate } from "./dates";
+import { addDays } from "./dates";
 
-// Helper: a date N days before the given anchor.
-function daysBefore(anchor: Date, n: number): string {
-  const d = new Date(anchor);
-  d.setDate(d.getDate() - n);
-  return formatDate(d);
+// Helper: a date N days before the given anchor (ISO date strings throughout —
+// computeStreak takes `today` as a string, not a Date).
+function daysBefore(anchor: string, n: number): string {
+  return addDays(anchor, -n);
 }
 
 describe("computeStreak", () => {
-  const today = new Date("2026-06-04T12:00:00Z");
+  const today = "2026-06-04";
 
   it("returns 0 when there are no active days", () => {
     expect(computeStreak([], today)).toBe(0);
@@ -51,7 +50,7 @@ describe("computeStreak", () => {
   describe("with non-school days", () => {
     // 2026-06-04 is a Thursday; 2026-05-30/31 are Sat/Sun.
     const monFri = ["mon", "tue", "wed", "thu", "fri"];
-    const monday = new Date("2026-06-01T12:00:00Z");
+    const monday = "2026-06-01";
 
     it("does not reset the streak over a weekend", () => {
       // Logged Thu + Fri, nothing over the weekend, now it's Monday.
@@ -129,6 +128,19 @@ describe("computeStreak", () => {
     // A full year-plus of consecutive days — should not exceed the 365 cap.
     const dates = Array.from({ length: 400 }, (_, n) => daysBefore(today, n));
     expect(computeStreak(dates, today)).toBe(365);
+  });
+
+  it("does not skip the DST fall-back day when walking backwards", () => {
+    // 2026-11-01 is the US fall-back. A local-stepping, UTC-formatting cursor
+    // skips it entirely, silently dropping a day from every streak.
+    const dates = ["2026-11-05", "2026-11-04", "2026-11-03", "2026-11-02", "2026-11-01", "2026-10-31"];
+    expect(computeStreak(dates, "2026-11-05")).toBe(6);
+  });
+
+  it("does not skip the DST spring-forward day when walking backwards", () => {
+    // 2026-03-08 is the US spring-forward.
+    const dates = ["2026-03-10", "2026-03-09", "2026-03-08", "2026-03-07", "2026-03-06"];
+    expect(computeStreak(dates, "2026-03-10")).toBe(5);
   });
 });
 

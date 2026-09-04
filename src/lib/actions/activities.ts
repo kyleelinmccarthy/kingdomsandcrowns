@@ -263,7 +263,7 @@ async function updateStreakAndXp(childId: string) {
   // not reset the streak.
   const streak = computeStreak(
     activeDays.map((row) => row.date),
-    new Date(`${todayIso}T00:00:00Z`),
+    todayIso,
     {
       schoolDays: parseSchoolDays(childRow[0]?.schoolDays),
       optionalDays: parseStreakOptionalDays(childRow[0]?.streakOptionalDays),
