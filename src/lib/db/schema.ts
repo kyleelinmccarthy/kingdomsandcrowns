@@ -803,6 +803,101 @@ export const spell = sqliteTable(
   ]
 );
 
+// ── The Realm: drill bank and deeds ─────────────────────────────
+
+/**
+ * One practice item from a seeded pool (sight words, spelling, vocabulary,
+ * science facts). Math is generated at run time and never stored. Rows are
+ * upserted from src/content/drills/*.json by the seed script, keyed by the
+ * item id, so content edits propagate without a migration.
+ */
+export const drillItem = sqliteTable(
+  "drill_item",
+  {
+    id: text("id").primaryKey(), // the JSON item id, e.g. "sight-g23-because"
+    poolId: text("pool_id").notNull(),
+    skillId: text("skill_id").notNull(),
+    band: text("band", { enum: ["k1", "g23", "g45", "g68", "g912"] }).notNull(),
+    prompt: text("prompt").notNull(),
+    answer: text("answer").notNull(),
+    distractors: text("distractors").notNull(), // JSON array of 3 strings
+    readAloud: text("read_aloud"),
+    level: integer("level").notNull().default(2), // 0–4
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+  },
+  (table) => [index("drill_item_pool_idx").on(table.poolId)]
+);
+
+/**
+ * A hero's rung on one skill's ladder. Low mastery never locks anything; it
+ * only picks easier questions, so a hard week costs nothing but practice.
+ */
+export const skillMastery = sqliteTable(
+  "skill_mastery",
+  {
+    id: text("id").primaryKey(),
+    childId: text("child_id")
+      .notNull()
+      .references(() => child.id, { onDelete: "cascade" }),
+    skillId: text("skill_id").notNull(),
+    level: integer("level").notNull().default(0), // 0–4
+    recentResults: text("recent_results").notNull().default("[]"), // JSON booleans, newest last, max 10
+    correctTotal: integer("correct_total").notNull().default(0),
+    attemptTotal: integer("attempt_total").notNull().default(0),
+    lastPracticedAt: integer("last_practiced_at", { mode: "timestamp" }),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+  },
+  (table) => [uniqueIndex("skill_mastery_child_skill_idx").on(table.childId, table.skillId)]
+);
+
+/**
+ * One play of a deed. The questions (with answers) live here so grading is
+ * server-side; the client only ever sees prompts and choices. Runs are the
+ * Realm's own record and never touch the learning log or XP.
+ */
+export const deedRun = sqliteTable(
+  "deed_run",
+  {
+    id: text("id").primaryKey(),
+    childId: text("child_id")
+      .notNull()
+      .references(() => child.id, { onDelete: "cascade" }),
+    deedId: text("deed_id").notNull(),
+    skillIds: text("skill_ids").notNull(), // JSON string[]
+    band: text("band", { enum: ["k1", "g23", "g45", "g68", "g912"] }).notNull(),
+    questions: text("questions").notNull(), // JSON Question[] incl. answers — server-side only
+    responses: text("responses").notNull().default("[]"), // JSON (string | null)[]
+    // Mastery levels per skill when the run began, so the results screen can
+    // say what changed without a second table.
+    masteryStart: text("mastery_start").notNull().default("{}"), // JSON Record<skillId, level>
+    correctCount: integer("correct_count").notNull().default(0),
+    flawless: integer("flawless", { mode: "boolean" }).notNull().default(false),
+    startedAt: integer("started_at", { mode: "timestamp" }).notNull(),
+    completedAt: integer("completed_at", { mode: "timestamp" }),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+  },
+  (table) => [index("deed_run_child_completed_idx").on(table.childId, table.completedAt)]
+);
+
+/** How far a hero has raised each kingdom building. Cumulative across seasons. */
+export const kingdomProgress = sqliteTable(
+  "kingdom_progress",
+  {
+    id: text("id").primaryKey(),
+    childId: text("child_id")
+      .notNull()
+      .references(() => child.id, { onDelete: "cascade" }),
+    buildingId: text("building_id").notNull(),
+    deedsDone: integer("deeds_done").notNull().default(0),
+    completedAt: integer("completed_at", { mode: "timestamp" }),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+  },
+  (table) => [uniqueIndex("kingdom_progress_child_building_idx").on(table.childId, table.buildingId)]
+);
+
 // ── Feedback (Send a Raven) ─────────────────────────────────
 
 export const feedback = sqliteTable(
