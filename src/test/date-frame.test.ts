@@ -27,8 +27,16 @@ const DATE_MODULE = "src/lib/utils/dates.ts";
  * directly, so a UTC snapshot there is the same bug this feature removes
  * everywhere else, just relocated into a maintenance script. It now resolves
  * each family's "today" via `todayInZone` and is not exempted here.
+ *
+ * `scripts/backfill-timezone-dates.ts` writes `activity_log.date` and
+ * `child.last_active_date`, both family-visible, so it is not exempted
+ * either — it resolves each row's date via `correctedDate`/`todayInZone`
+ * rather than deriving one from UTC directly.
  */
 const SCRIPT_EXCLUSIONS = ["src/lib/db/seed-demo.ts"];
+
+/** Directories walked for forbidden UTC-date derivation. */
+const SCAN_DIRS = ["src", "scripts"];
 
 /**
  * Patterns that turn a value into a calendar date string.
@@ -71,7 +79,7 @@ function sourceFiles(dir: string, found: string[] = []): string[] {
 }
 
 describe("calendar dates are never derived from UTC", () => {
-  const files = sourceFiles("src").filter(
+  const files = SCAN_DIRS.flatMap((dir) => sourceFiles(dir)).filter(
     (f) => f !== DATE_MODULE && !SCRIPT_EXCLUSIONS.includes(f)
   );
 

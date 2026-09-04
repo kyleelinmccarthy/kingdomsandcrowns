@@ -139,6 +139,7 @@ export default async function QuestsPage({
           childId={activeChild.id}
           isChildView={isChildView}
           allowChildSkip={isChildView && activeChild.skipQuestsEnabled}
+          timeZone={timeZone}
         />
       ) : activeView === "adventure" ? (
         <AdventureView
@@ -158,13 +159,15 @@ async function TodayView({
   childId,
   isChildView,
   allowChildSkip,
+  timeZone,
 }: {
   childId: string;
   isChildView: boolean;
   /** Parent-granted: this hero may skip their own quests (a grown-up is alerted either way). */
   allowChildSkip: boolean;
+  timeZone: string;
 }) {
-  const today = todayInZone(await getFamilyTimezone());
+  const today = todayInZone(timeZone);
   await generateAssignmentsFromSchedules(childId, today, today);
 
   const [subjects, activities, todayAssignments, quests, allBlocks, latestStatusByQuestId, schoolingMode] = await Promise.all([
@@ -240,6 +243,7 @@ async function TodayView({
           nowTime={currentTimeOfDay()}
           latestStatusByQuestId={latestStatusByQuestId}
           today={today}
+          timeZone={timeZone}
           initialSchoolingMode={schoolingMode}
           isChildView={isChildView}
         />

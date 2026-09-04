@@ -83,7 +83,8 @@ export default async function TavernPage({
 
   await checkAndAwardBadges(activeChild.id);
 
-  const today = todayInZone(await getFamilyTimezone());
+  const timeZone = await getFamilyTimezone();
+  const today = todayInZone(timeZone);
   await generateAssignmentsFromSchedules(activeChild.id, today, today);
 
   const [subjects, recentActivities, allBadges, earnedBadges, todayAssignments, quests, avatarUnlocks, allBlocks, latestStatusByQuestId, schoolingMode] = await Promise.all([
@@ -270,6 +271,7 @@ export default async function TavernPage({
             nowTime={currentTimeOfDay()}
             latestStatusByQuestId={latestStatusByQuestId}
             today={today}
+            timeZone={timeZone}
             initialSchoolingMode={schoolingMode}
             isChildView={isChildView}
           />
