@@ -1,0 +1,144 @@
+"use client";
+
+import dynamic from "next/dynamic";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { RealmBundle } from "@/lib/actions/realm";
+import { getRealmAccess } from "@/lib/actions/realm-play";
+import { buildWorldLayout } from "@/lib/realm/layout";
+import { renderSettingsFor } from "@/lib/realm/render-settings";
+import { gateCopy, type GateCopy } from "@/lib/realm/play-clock";
+import { disposeSpriteTextures } from "@/lib/realm/sprite-texture";
+import { DEFAULT_AVATAR } from "@/lib/utils/avatar-catalog";
+import { currentTimeOfDay, localDateOf } from "@/lib/utils/schedule-days";
+import { SpriteSource, type SpriteTextures } from "./sprite-source";
+import { RealmHud } from "./realm-hud";
+import { RealmGate } from "./realm-gate";
+import { RealmClosed } from "./realm-closed";
+import { TouchStick } from "./touch-stick";
+import { useRealmInput } from "./use-realm-input";
+import { usePlayClock } from "./use-play-clock";
+
+const RealmScene = dynamic(() => import("./realm-scene"), { ssr: false, loading: () => <p className="p-6 text-center text-muted-foreground">Opening the Realm…</p> });
+
+type Phase = { kind: "checking" } | { kind: "gated"; copy: GateCopy } | { kind: "open"; minutes: number; note: string | null } | { kind: "closed"; body: string } | { kind: "unsupported" };
+
+const UNSUPPORTED = "This device can't open the Realm yet. Try a newer browser or another device.";
+
+/** True unless the browser clearly has WebGL support and refuses a context (jsdom has neither, and passes). */
+function webglSupported(): boolean {
+  if (typeof document === "undefined") return true;
+  const hasApi = typeof window.WebGL2RenderingContext !== "undefined" || typeof window.WebGLRenderingContext !== "undefined";
+  if (!hasApi) return true;
+  const canvas = document.createElement("canvas");
+  return canvas.getContext("webgl2") !== null || canvas.getContext("webgl") !== null;
+}
+
+export function RealmShell({ bundle, childId, isChildView }: { bundle: RealmBundle; childId: string; isChildView: boolean }) {
+  const [phase, setPhase] = useState<Phase>({ kind: "checking" });
+  const [isTouch, setIsTouch] = useState(false);
+
+  // The access check is async, so the state updates below are not synchronous effect writes.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const touch = typeof navigator !== "undefined" && navigator.maxTouchPoints > 0;
+      const result = await getRealmAccess(childId, localDateOf(new Date()), currentTimeOfDay());
+      if (cancelled) return;
+      setIsTouch(touch);
+      if (!webglSupported()) {
+        setPhase({ kind: "unsupported" });
+        return;
+      }
+      const copy = gateCopy(result);
+      if (!isChildView) {
+        // Parents look, never spend: the gate becomes an information line.
+        setPhase({ kind: "open", minutes: 0, note: copy ? `Closed for ${bundle.heroName}: ${copy.title}` : null });
+        return;
+      }
+      // `copy` is non-null exactly when access is denied.
+      if (copy) {
+        setPhase({ kind: "gated", copy });
+        return;
+      }
+      setPhase({ kind: "open", minutes: result.allowed ? result.minutesRemaining : 0, note: null });
+    })().catch((err: unknown) => {
+      if (!cancelled) setPhase({ kind: "gated", copy: { title: "The Realm is out of reach right now.", body: err instanceof Error ? err.message : "Try again in a moment." } });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [childId, isChildView, bundle.heroName]);
+
+  useEffect(() => () => disposeSpriteTextures(), []);
+
+  const onClose = useCallback(() => {
+    setPhase({ kind: "closed", body: gateCopy({ allowed: false, reason: "cap_reached" })!.body });
+  }, []);
+
+  if (phase.kind === "checking") return <p className="p-6 text-center text-muted-foreground">Checking the gate…</p>;
+  if (phase.kind === "unsupported") return <p className="p-6 text-center text-muted-foreground">{UNSUPPORTED}</p>;
+  if (phase.kind === "gated") return <RealmGate copy={phase.copy} heroName={bundle.heroName} />;
+  if (phase.kind === "closed") return <RealmClosed heroName={bundle.heroName} body={phase.body} />;
+
+  // The open world is its own component so the play clock mounts with the real
+  // minute count, not a placeholder from before the access check resolved.
+  return (
+    <RealmOpen
+      bundle={bundle}
+      childId={childId}
+      isChildView={isChildView}
+      isTouch={isTouch}
+      minutes={phase.minutes}
+      note={phase.note}
+      onClose={onClose}
+    />
+  );
+}
+
+function RealmOpen({
+  bundle,
+  childId,
+  isChildView,
+  isTouch,
+  minutes,
+  note,
+  onClose,
+}: {
+  bundle: RealmBundle;
+  childId: string;
+  isChildView: boolean;
+  isTouch: boolean;
+  minutes: number;
+  note: string | null;
+  onClose: () => void;
+}) {
+  const [textures, setTextures] = useState<SpriteTextures | null>(null);
+  const [spriteError, setSpriteError] = useState("");
+  const layout = useMemo(() => buildWorldLayout({ castleType: bundle.castleType, builtBuildingIds: bundle.builtBuildingIds }), [bundle.castleType, bundle.builtBuildingIds]);
+  const settings = renderSettingsFor(bundle.profile, isTouch);
+  const { axisRef, setStick } = useRealmInput();
+  const config = bundle.avatarConfig ?? DEFAULT_AVATAR;
+  const clock = usePlayClock({ enabled: isChildView, childId, initialMinutes: minutes, onClose });
+  const onReady = useCallback((t: SpriteTextures) => setTextures(t), []);
+  const onError = useCallback((e: Error) => setSpriteError(e.message), []);
+
+  return (
+    <div className="realm-root">
+      <SpriteSource config={config} onReady={onReady} onError={onError} />
+      {textures && <RealmScene layout={layout} textures={textures} settings={settings} axisRef={axisRef} />}
+      <RealmHud
+        heroName={bundle.heroName}
+        minutesRemaining={isChildView ? clock.minutesRemaining : null}
+        warning={clock.warning}
+        preview={isChildView ? null : { note }}
+        hudScale={settings.hudScale}
+        error={spriteError || clock.error}
+        onRetry={() => {
+          setSpriteError("");
+          clock.clearError();
+        }}
+      />
+      {settings.showStick && <TouchStick onChange={setStick} />}
+    </div>
+  );
+}
