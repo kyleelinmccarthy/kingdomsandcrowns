@@ -16,7 +16,8 @@ import { buildBlockDaysBySubject } from "@/lib/utils/schedule-gaps";
 import { loadUpkeepContext } from "@/lib/services/upkeep-context";
 import { getUpkeepTasks } from "@/lib/actions/upkeep-tasks";
 import { UpkeepTaskList } from "@/components/upkeep-task-list";
-import { formatDate } from "@/lib/utils/dates";
+import { todayInZone } from "@/lib/utils/dates";
+import { getFamilyTimezone } from "@/lib/services/family-timezone";
 import { getWageBalance, getWageLedger } from "@/lib/actions/wages";
 import { getUpkeepAwaitingApproval } from "@/lib/actions/upkeep-assignments";
 import { StewardsLedger } from "@/components/stewards-ledger";
@@ -98,7 +99,7 @@ export default async function ManageQuestsPage({
 
   const upkeepContext = await loadUpkeepContext(activeChild.id);
   const upkeepEnabled = Boolean(upkeepContext?.enabled);
-  const todayDate = formatDate(new Date());
+  const todayDate = todayInZone(await getFamilyTimezone());
 
   const [upkeepTasks, wageBalance, wageLedger, awaitingApproval] = upkeepEnabled
     ? await Promise.all([

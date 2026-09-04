@@ -4,12 +4,13 @@ import { nanoid } from "nanoid";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
-import { formatDate } from "@/lib/utils/dates";
+import { todayInZone } from "@/lib/utils/dates";
 import { requireChildAccess, requireQuestAccess } from "@/lib/auth/access";
 import {
   clearPendingAssignmentsForQuest,
   syncPendingAssignmentsToSchedule,
 } from "@/lib/services/quest-assignment-sync";
+import { getTimezoneForChild } from "@/lib/services/family-timezone";
 
 export async function getSchedulesForChild(childId: string) {
   await requireChildAccess(childId);
@@ -41,7 +42,7 @@ export async function upsertSchedule(
     endDate?: string;
   }
 ) {
-  await requireQuestAccess(questId, { write: true });
+  const { childId } = await requireQuestAccess(questId, { write: true });
   const existing = await getSchedule(questId);
 
   const values = {
@@ -61,7 +62,7 @@ export async function upsertSchedule(
     // leaves behind assignment rows the old pattern already generated. Drop
     // the ones the schedule no longer calls for so the hero isn't still shown
     // quests on days that were just un-scheduled.
-    await syncPendingAssignmentsToSchedule(questId, formatDate(new Date()));
+    await syncPendingAssignmentsToSchedule(questId, todayInZone(await getTimezoneForChild(childId)));
     return { id: existing.id };
   }
 
@@ -76,7 +77,7 @@ export async function upsertSchedule(
 }
 
 export async function deleteSchedule(questId: string) {
-  await requireQuestAccess(questId, { write: true });
+  const { childId } = await requireQuestAccess(questId, { write: true });
   await db
     .delete(schema.questSchedule)
     .where(eq(schema.questSchedule.questId, questId));
@@ -85,5 +86,5 @@ export async function deleteSchedule(questId: string) {
   // planned — otherwise the assignments generated from the old repeat keep
   // showing in Today's Quests and Upcoming Quests with nothing left to
   // explain them. Past completed/skipped work is untouched.
-  await clearPendingAssignmentsForQuest(questId, formatDate(new Date()));
+  await clearPendingAssignmentsForQuest(questId, todayInZone(await getTimezoneForChild(childId)));
 }

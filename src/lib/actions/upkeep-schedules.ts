@@ -4,7 +4,7 @@ import { nanoid } from "nanoid";
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
-import { formatDate } from "@/lib/utils/dates";
+import { todayInZone } from "@/lib/utils/dates";
 import { requireChildAccess, requireUpkeepTaskAccess } from "@/lib/auth/access";
 import { requireAdultActor } from "@/lib/auth/actor";
 import { assertUpkeepEnabled } from "@/lib/services/upkeep-context";
@@ -12,6 +12,7 @@ import {
   clearPendingUpkeepAssignmentsForTask,
   syncPendingUpkeepAssignmentsToSchedule,
 } from "@/lib/services/upkeep-assignment-sync";
+import { getTimezoneForChild } from "@/lib/services/family-timezone";
 
 /** Owning child id for a task — needed before the upkeep-enabled gate. */
 async function taskChildId(taskId: string): Promise<string> {
@@ -59,7 +60,8 @@ export async function upsertUpkeepSchedule(
 ) {
   await requireAdultActor();
   await requireUpkeepTaskAccess(taskId, { write: true });
-  await assertUpkeepEnabled(await taskChildId(taskId));
+  const childId = await taskChildId(taskId);
+  await assertUpkeepEnabled(childId);
 
   const existing = await db
     .select({ id: schema.upkeepTaskSchedule.id })
@@ -83,7 +85,7 @@ export async function upsertUpkeepSchedule(
       .where(eq(schema.upkeepTaskSchedule.id, existing[0].id));
     // Narrowing a repeat leaves rows the old pattern already generated. Drop
     // the days the schedule no longer calls for.
-    await syncPendingUpkeepAssignmentsToSchedule(taskId, formatDate(new Date()));
+    await syncPendingUpkeepAssignmentsToSchedule(taskId, todayInZone(await getTimezoneForChild(childId)));
     return { id: existing[0].id };
   }
 
@@ -100,11 +102,12 @@ export async function upsertUpkeepSchedule(
 export async function deleteUpkeepSchedule(taskId: string) {
   await requireAdultActor();
   await requireUpkeepTaskAccess(taskId, { write: true });
-  await assertUpkeepEnabled(await taskChildId(taskId));
+  const childId = await taskChildId(taskId);
+  await assertUpkeepEnabled(childId);
   await db
     .delete(schema.upkeepTaskSchedule)
     .where(eq(schema.upkeepTaskSchedule.taskId, taskId));
 
   // Turning the repeat off has to retract the days it already planned.
-  await clearPendingUpkeepAssignmentsForTask(taskId, formatDate(new Date()));
+  await clearPendingUpkeepAssignmentsForTask(taskId, todayInZone(await getTimezoneForChild(childId)));
 }

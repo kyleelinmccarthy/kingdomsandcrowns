@@ -5,14 +5,15 @@ import { eq, and, desc, sql, gte, lte } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { sanitizeName, sanitizeText } from "@/lib/utils/sanitize";
-import { formatDate } from "@/lib/utils/dates";
+import { addDays, todayInZone } from "@/lib/utils/dates";
 import { computeStreak } from "@/lib/utils/streak";
 import { parseSchoolDays, parseStreakOptionalDays } from "@/lib/utils/schedule-days";
 import { requireChildAccess, requireActivityAccess } from "@/lib/auth/access";
+import { getTimezoneForChild } from "@/lib/services/family-timezone";
 
 export async function getActivities(childId: string, date?: string) {
   await requireChildAccess(childId);
-  const targetDate = date ?? formatDate(new Date());
+  const targetDate = date ?? todayInZone(await getTimezoneForChild(childId));
   return db
     .select()
     .from(schema.activityLog)
@@ -90,6 +91,7 @@ export async function createActivity(data: {
   const title = sanitizeName(data.title);
   if (!title) throw new Error("Title is required");
   const now = new Date();
+  const timeZone = await getTimezoneForChild(data.childId);
 
   // If timer timestamps provided, compute duration from them
   const durationMinutes =
@@ -105,7 +107,7 @@ export async function createActivity(data: {
     id,
     childId: data.childId,
     subjectId: data.subjectId,
-    date: data.date ?? formatDate(now),
+    date: data.date ?? todayInZone(timeZone),
     title,
     description: data.description ? sanitizeText(data.description) : null,
     durationMinutes,
@@ -208,11 +210,11 @@ export async function deleteActivity(activityId: string) {
 }
 
 async function updateStreakAndXp(childId: string) {
-  const today = new Date();
+  const timeZone = await getTimezoneForChild(childId);
+  const todayIso = todayInZone(timeZone);
   // Look back at most a year (the streak cap) and derive the streak from the
   // distinct active days in memory — one query instead of up to 365.
-  const windowStart = new Date(today);
-  windowStart.setDate(windowStart.getDate() - 365);
+  const windowStartIso = addDays(todayIso, -365);
 
   const [activeDays, totalCount, childRow, breaks] = await Promise.all([
     db
@@ -221,7 +223,7 @@ async function updateStreakAndXp(childId: string) {
       .where(
         and(
           eq(schema.activityLog.childId, childId),
-          gte(schema.activityLog.date, formatDate(windowStart)),
+          gte(schema.activityLog.date, windowStartIso),
         ),
       )
       .groupBy(schema.activityLog.date),
@@ -252,7 +254,7 @@ async function updateStreakAndXp(childId: string) {
       .where(
         and(
           eq(schema.child.id, childId),
-          gte(schema.schoolBreak.endDate, formatDate(windowStart)),
+          gte(schema.schoolBreak.endDate, windowStartIso),
         ),
       ),
   ]);
@@ -261,7 +263,7 @@ async function updateStreakAndXp(childId: string) {
   // not reset the streak.
   const streak = computeStreak(
     activeDays.map((row) => row.date),
-    today,
+    new Date(`${todayIso}T00:00:00Z`),
     {
       schoolDays: parseSchoolDays(childRow[0]?.schoolDays),
       optionalDays: parseStreakOptionalDays(childRow[0]?.streakOptionalDays),
@@ -279,7 +281,7 @@ async function updateStreakAndXp(childId: string) {
       currentStreak: streak,
       longestStreak,
       currentXp: xp,
-      lastActiveDate: formatDate(today),
+      lastActiveDate: todayIso,
       updatedAt: new Date(),
     })
     .where(eq(schema.child.id, childId));

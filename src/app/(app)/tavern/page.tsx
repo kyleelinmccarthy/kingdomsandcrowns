@@ -10,7 +10,8 @@ import { getScheduleBlocks } from "@/lib/actions/student-schedule";
 import { getSchoolingModeForDate } from "@/lib/actions/schooling-mode";
 import { getBadges, getChildBadges, checkAndAwardBadges } from "@/lib/actions/badges";
 import { getChildAvatarUnlocks } from "@/lib/actions/avatar";
-import { formatDate } from "@/lib/utils/dates";
+import { todayInZone } from "@/lib/utils/dates";
+import { getFamilyTimezone } from "@/lib/services/family-timezone";
 import { weekdayOfDate, currentTimeOfDay } from "@/lib/utils/schedule-days";
 import { getStructuredCardLock } from "@/lib/utils/quest-ordering";
 import { ChildSelector } from "@/components/child-selector";
@@ -82,7 +83,7 @@ export default async function TavernPage({
 
   await checkAndAwardBadges(activeChild.id);
 
-  const today = formatDate(new Date());
+  const today = todayInZone(await getFamilyTimezone());
   await generateAssignmentsFromSchedules(activeChild.id, today, today);
 
   const [subjects, recentActivities, allBadges, earnedBadges, todayAssignments, quests, avatarUnlocks, allBlocks, latestStatusByQuestId, schoolingMode] = await Promise.all([

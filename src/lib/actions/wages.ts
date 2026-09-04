@@ -9,7 +9,8 @@ import { getActor, requireAdultActor } from "@/lib/auth/actor";
 import { assertUpkeepEnabled } from "@/lib/services/upkeep-context";
 import { parseDollarsToCents, sumCents } from "@/lib/utils/wages";
 import { sanitizeText } from "@/lib/utils/sanitize";
-import { formatDate } from "@/lib/utils/dates";
+import { todayInZone } from "@/lib/utils/dates";
+import { getTimezoneForChild } from "@/lib/services/family-timezone";
 
 /** What a hero is currently owed, in cents. Negative if a parent overpaid. */
 export async function getWageBalance(childId: string): Promise<number> {
@@ -50,6 +51,7 @@ export async function recordWagePayout(
   if (cents === 0) throw new Error("Enter an amount greater than zero");
 
   const actor = await getActor();
+  const timeZone = await getTimezoneForChild(childId);
   await db.insert(schema.wageLedgerEntry).values({
     id: nanoid(),
     childId,
@@ -57,7 +59,7 @@ export async function recordWagePayout(
     amountCents: -cents,
     taskAssignmentId: null,
     taskTitle: null,
-    date: formatDate(new Date()),
+    date: todayInZone(timeZone),
     note: note ? sanitizeText(note, 500) : null,
     createdByUserId: actor?.kind === "adult" ? actor.userId : null,
     createdAt: new Date(),

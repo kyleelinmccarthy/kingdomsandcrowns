@@ -8,6 +8,25 @@ import { getActiveFamilyId } from "@/lib/auth/access";
 export const DEFAULT_TIMEZONE = "America/Denver";
 
 /**
+ * A stored timezone is only usable if Intl accepts it.
+ *
+ * `family.timezone` comes from a free-text settings field, so an invalid value
+ * like "Denver" is reachable — and Intl.DateTimeFormat throws RangeError on it.
+ * Falling back keeps every page rendering with a slightly-wrong date instead of
+ * crashing outright, which is the better failure for something a parent typed
+ * months ago and cannot see is broken.
+ */
+export function usableTimeZone(stored: string | null | undefined): string {
+  if (!stored) return DEFAULT_TIMEZONE;
+  try {
+    new Intl.DateTimeFormat("en-CA", { timeZone: stored });
+    return stored;
+  } catch {
+    return DEFAULT_TIMEZONE;
+  }
+}
+
+/**
  * The active family's timezone — the authority for every "what day is it?"
  * in the app.
  *
@@ -29,7 +48,7 @@ export const getFamilyTimezone = cache(async function getFamilyTimezone(): Promi
     .where(eq(schema.family.id, familyId))
     .limit(1);
 
-  return rows[0]?.timezone || DEFAULT_TIMEZONE;
+  return usableTimeZone(rows[0]?.timezone);
 });
 
 /**
@@ -49,5 +68,5 @@ export const getTimezoneForChild = cache(async function getTimezoneForChild(
     .where(eq(schema.child.id, childId))
     .limit(1);
 
-  return rows[0]?.timezone || DEFAULT_TIMEZONE;
+  return usableTimeZone(rows[0]?.timezone);
 });

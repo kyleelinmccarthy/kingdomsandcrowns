@@ -10,7 +10,8 @@ import { getScheduleBlocks } from "@/lib/actions/student-schedule";
 import { getSchoolingModeForDate } from "@/lib/actions/schooling-mode";
 import { generateLearningLog, getSavedLog } from "@/lib/actions/chronicles";
 import { getSchoolBreaks } from "@/lib/actions/school-breaks";
-import { addDays, formatDate, getWeekStartDate } from "@/lib/utils/dates";
+import { addDays, getWeekStartDate, todayInZone } from "@/lib/utils/dates";
+import { getFamilyTimezone } from "@/lib/services/family-timezone";
 import { weekdayOfDate, currentTimeOfDay } from "@/lib/utils/schedule-days";
 import { getStructuredCardLock } from "@/lib/utils/quest-ordering";
 import { ChildSelector } from "@/components/child-selector";
@@ -84,7 +85,7 @@ export default async function QuestsPage({
   const activeView =
     view === "adventure" ? "adventure" : view === "upkeep" && showUpkeep ? "upkeep" : "today";
 
-  const todayDate = formatDate(new Date());
+  const todayDate = todayInZone(await getFamilyTimezone());
   let upkeepToday: Awaited<ReturnType<typeof getUpkeepAssignmentsForDate>> = [];
   let upkeepOutstanding: Awaited<ReturnType<typeof getOutstandingUpkeepAssignments>> = [];
 
@@ -161,7 +162,7 @@ async function TodayView({
   /** Parent-granted: this hero may skip their own quests (a grown-up is alerted either way). */
   allowChildSkip: boolean;
 }) {
-  const today = formatDate(new Date());
+  const today = todayInZone(await getFamilyTimezone());
   await generateAssignmentsFromSchedules(childId, today, today);
 
   const [subjects, activities, todayAssignments, quests, allBlocks, latestStatusByQuestId, schoolingMode] = await Promise.all([

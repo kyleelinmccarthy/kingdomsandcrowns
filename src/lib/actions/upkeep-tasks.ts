@@ -5,11 +5,12 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { sanitizeName, sanitizeText } from "@/lib/utils/sanitize";
-import { formatDate } from "@/lib/utils/dates";
+import { todayInZone } from "@/lib/utils/dates";
 import { requireChildAccess, requireUpkeepTaskAccess } from "@/lib/auth/access";
 import { requireAdultActor } from "@/lib/auth/actor";
 import { assertUpkeepEnabled } from "@/lib/services/upkeep-context";
 import { clearPendingUpkeepAssignmentsForTask } from "@/lib/services/upkeep-assignment-sync";
+import { getTimezoneForChild } from "@/lib/services/family-timezone";
 
 /** Active task templates for a hero, each joined to its current schedule (if any). */
 export async function getUpkeepTasks(childId: string) {
@@ -202,12 +203,14 @@ export async function updateUpkeepTask(
 export async function deleteUpkeepTask(taskId: string) {
   await requireAdultActor();
   await requireUpkeepTaskAccess(taskId, { write: true });
-  await assertUpkeepEnabled(await taskChildId(taskId));
+  const childId = await taskChildId(taskId);
+  await assertUpkeepEnabled(childId);
 
   await db
     .update(schema.upkeepTask)
     .set({ isActive: false, updatedAt: new Date() })
     .where(eq(schema.upkeepTask.id, taskId));
 
-  await clearPendingUpkeepAssignmentsForTask(taskId, formatDate(new Date()));
+  const timeZone = await getTimezoneForChild(childId);
+  await clearPendingUpkeepAssignmentsForTask(taskId, todayInZone(timeZone));
 }
