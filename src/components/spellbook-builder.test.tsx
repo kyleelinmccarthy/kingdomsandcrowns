@@ -39,7 +39,7 @@ describe("SpellbookBuilder", () => {
     renderBuilder();
     const stone = screen.getByRole("button", { name: "Element Stone" });
     expect(stone).toBeDisabled();
-    expect(screen.getByText("Log 5 more Reading quests.")).toBeInTheDocument();
+    expect(screen.getByText("5 more Reading quests or deeds to go.")).toBeInTheDocument();
   });
 
   it("offers the word bank for the chosen parts", async () => {

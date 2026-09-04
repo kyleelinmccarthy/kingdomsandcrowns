@@ -1,7 +1,7 @@
 "use server";
 
 import { nanoid } from "nanoid";
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, isNotNull } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { sanitizeName } from "@/lib/utils/sanitize";
@@ -13,6 +13,7 @@ import {
   type SpellSchool,
   type SubjectSchool,
 } from "@/lib/utils/spell-schools";
+import { findSkill, AREA_SCHOOL } from "@/lib/utils/skills";
 
 export async function getSubjects(childId: string) {
   await requireChildAccess(childId);
@@ -136,6 +137,19 @@ export async function getSchoolCounts(childId: string): Promise<Record<SpellScho
   const counts = emptySchoolCounts();
   for (const row of rows) {
     if (row.school !== "none") counts[row.school] = Number(row.count);
+  }
+
+  // Completed deeds count too — practice in the Realm and logged schoolwork
+  // pull spell parts open together. A run's school is its first skill's area.
+  const runs = await db
+    .select({ skillIds: schema.deedRun.skillIds })
+    .from(schema.deedRun)
+    .where(and(eq(schema.deedRun.childId, childId), isNotNull(schema.deedRun.completedAt)));
+  for (const run of runs) {
+    let first: string | undefined;
+    try { first = (JSON.parse(run.skillIds) as string[])[0]; } catch { first = undefined; }
+    const skill = first ? findSkill(first) : null;
+    if (skill) counts[AREA_SCHOOL[skill.area]] += 1;
   }
   return counts;
 }

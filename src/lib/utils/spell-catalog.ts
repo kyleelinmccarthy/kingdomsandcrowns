@@ -175,7 +175,7 @@ export function spellUnlockHint(
         return `Ask a grown-up to point a discipline at the ${SCHOOL_LABELS[unlock.school]}.`;
       }
       const remaining = unlock.count - ctx.schoolCounts[unlock.school];
-      return `Log ${remaining} more ${joinNames(names)} quests.`;
+      return `${remaining} more ${joinNames(names)} quests or deeds to go.`;
     }
   }
 }
