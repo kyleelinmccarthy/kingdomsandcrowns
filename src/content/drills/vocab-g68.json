@@ -301,7 +301,7 @@
     },
     {
       "id": "vocab-g68-vague",
-      "prompt": "Which word means \"having more than one possible meaning\"?",
+      "prompt": "Which word means \"unclear or not stated in enough detail\"?",
       "answer": "vague",
       "distractors": [
         "credible",

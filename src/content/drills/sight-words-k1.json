@@ -55,9 +55,9 @@
       "prompt": "Which word is \"to\"?",
       "answer": "to",
       "distractors": [
-        "too",
-        "two",
-        "do"
+        "do",
+        "go",
+        "top"
       ],
       "readAloud": "to",
       "level": 0
@@ -295,9 +295,9 @@
       "prompt": "Which word is \"so\"?",
       "answer": "so",
       "distractors": [
+        "no",
         "see",
-        "she",
-        "sew"
+        "sun"
       ],
       "readAloud": "so",
       "level": 2
@@ -621,7 +621,7 @@
       "distractors": [
         "same",
         "come",
-        "sum"
+        "home"
       ],
       "readAloud": "some",
       "level": 3
@@ -717,7 +717,7 @@
       "distractors": [
         "ever",
         "very",
-        "avery"
+        "over"
       ],
       "readAloud": "every",
       "level": 4

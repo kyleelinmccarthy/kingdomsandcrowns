@@ -169,7 +169,7 @@
     },
     {
       "id": "sci-k1-weather-snow",
-      "prompt": "What do we call frozen rain that falls in winter?",
+      "prompt": "What do we call the soft white flakes that fall from the sky in winter?",
       "answer": "Snow",
       "distractors": [
         "Fog",
@@ -184,7 +184,7 @@
       "answer": "The Sun",
       "distractors": [
         "The Moon",
-        "A star",
+        "A streetlight",
         "A cloud"
       ],
       "level": 0

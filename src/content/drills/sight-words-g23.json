@@ -225,7 +225,7 @@
       "distractors": [
         "round",
         "aground",
-        "arouse"
+        "aloud"
       ],
       "readAloud": "around",
       "level": 2
@@ -535,7 +535,7 @@
       "prompt": "Which word is \"laugh\"?",
       "answer": "laugh",
       "distractors": [
-        "laff",
+        "cough",
         "light",
         "leaf"
       ],
