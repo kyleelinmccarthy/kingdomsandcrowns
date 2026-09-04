@@ -71,7 +71,7 @@ function sourceFiles(dir: string, found: string[] = []): string[] {
     const rel = join(dir, entry);
     if (statSync(resolve(process.cwd(), rel)).isDirectory()) {
       sourceFiles(rel, found);
-    } else if (/\.tsx?$/.test(entry) && !/\.test\.tsx?$/.test(entry)) {
+    } else if (/\.(m|c)?[jt]sx?$/.test(entry) && !/\.test\.(m|c)?[jt]sx?$/.test(entry)) {
       found.push(rel);
     }
   }

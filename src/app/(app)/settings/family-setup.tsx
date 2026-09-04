@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
+import { isRecognizedTimeZone, timezoneOptions } from "@/lib/utils/timezone-options";
+
 import { GameFrame } from "@/components/game-frame";
 import { createFamily, updateFamily } from "@/lib/actions/family";
 import { GameIcon } from "@/components/game-icon";
@@ -59,13 +62,32 @@ export function FamilySetup({ family, isChildView = false }: { family: Family; i
         </div>
         <div className="space-y-2">
           <Label htmlFor="timezone">Realm Timezone</Label>
-          <Input
+          <Select
             id="timezone"
             value={timezone}
             onChange={(e) => setTimezone(e.target.value)}
-            placeholder="America/Denver"
             disabled={isChildView}
-          />
+          >
+            {timezoneOptions(timezone).map((group) => (
+              <optgroup key={group.region} label={group.region}>
+                {group.zones.map((zone) => (
+                  <option key={zone} value={zone}>
+                    {zone}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </Select>
+          {timezone && !isRecognizedTimeZone(timezone) ? (
+            <p className="text-xs text-destructive">
+              &ldquo;{timezone}&rdquo; isn&apos;t a timezone we recognize, so days are
+              falling back to America/Denver. Choose one below to fix it.
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Governs which day quests, chores and streaks belong to.
+            </p>
+          )}
         </div>
         {!isChildView && (
           <Button type="submit" disabled={saving}>

@@ -80,3 +80,20 @@ export const getTimezoneForChild = cache(async function getTimezoneForChild(
 
   return usableTimeZone(rows[0]?.timezone);
 });
+
+/**
+ * Rejects a timezone that Intl does not recognize, for the WRITE path.
+ *
+ * Deliberately harsher than `usableTimeZone`: a bad value already sitting in
+ * the database must still render something, but a bad value arriving now
+ * should never be stored in the first place. The field was free text once, so
+ * "Denver" is a real thing families have saved.
+ */
+export function assertValidTimeZone(zone: string | null | undefined): void {
+  if (!zone) throw new Error("Choose a timezone for your realm.");
+  try {
+    new Intl.DateTimeFormat("en-CA", { timeZone: zone });
+  } catch {
+    throw new Error(`"${zone}" is not a timezone the realm recognizes.`);
+  }
+}
