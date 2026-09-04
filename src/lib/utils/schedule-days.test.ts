@@ -4,7 +4,6 @@ import {
   timeRangesConflict,
   findSlotConflict,
   weekdayOfDate,
-  addDaysToDate,
   defaultRepeatDaysForStartDate,
   syncRepeatDaysWithStartDate,
   parseSchoolDays,
@@ -132,20 +131,6 @@ describe("weekdayOfDate", () => {
 
   it("maps a known Sunday correctly", () => {
     expect(weekdayOfDate("2026-03-08")).toBe("sun");
-  });
-});
-
-describe("addDaysToDate", () => {
-  it("adds days within a month", () => {
-    expect(addDaysToDate("2026-03-01", 3)).toBe("2026-03-04");
-  });
-
-  it("crosses a month boundary", () => {
-    expect(addDaysToDate("2026-02-27", 3)).toBe("2026-03-02");
-  });
-
-  it("supports negative offsets", () => {
-    expect(addDaysToDate("2026-03-02", -1)).toBe("2026-03-01");
   });
 });
 

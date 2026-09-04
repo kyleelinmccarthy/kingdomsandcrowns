@@ -134,13 +134,6 @@ export function todayDayOfWeek(): DayOfWeek {
   return JS_DAY_ORDER[new Date().getDay()];
 }
 
-/** Adds (or subtracts, if negative) whole days to an ISO "YYYY-MM-DD" date. */
-export function addDaysToDate(isoDate: string, days: number): string {
-  const d = new Date(`${isoDate}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().slice(0, 10);
-}
-
 /** The default weekly repeat days for a fresh schedule: just the start date's weekday, if it's a school day. */
 export function defaultRepeatDaysForStartDate(startDate: string, schoolDays: string[]): DayOfWeek[] {
   const wd = weekdayOfDate(startDate);

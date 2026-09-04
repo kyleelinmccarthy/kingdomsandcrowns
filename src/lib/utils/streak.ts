@@ -1,5 +1,5 @@
 import { addDays } from "./dates";
-import { addDaysToDate, weekdayOfDate } from "./schedule-days";
+import { weekdayOfDate } from "./schedule-days";
 
 /** An inclusive ISO ("YYYY-MM-DD") date range that isn't a school day, e.g. a break. */
 export type DateRange = { startDate: string; endDate: string };
@@ -127,7 +127,7 @@ function gapIsAllDaysOff(
   optionalDaySet: Set<string>,
   breaks: readonly DateRange[]
 ): boolean {
-  for (let day = addDaysToDate(from, 1); day < to; day = addDaysToDate(day, 1)) {
+  for (let day = addDays(from, 1); day < to; day = addDays(day, 1)) {
     if (!isDayOff(day, schoolDaySet, optionalDaySet, breaks)) return false;
   }
   return true;
