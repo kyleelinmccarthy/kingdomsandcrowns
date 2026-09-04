@@ -168,6 +168,7 @@ function RealmOpen({
           setSpriteError("");
           clock.clearError();
           setRetryKey((k) => k + 1);
+          void clock.flushPending();
         }}
       />
       {settings.showStick && <TouchStick onChange={setStick} />}

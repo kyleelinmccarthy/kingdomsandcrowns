@@ -39,12 +39,16 @@ export function usePlayClock({
   const recordingRef = useRef(false);
 
   const settle = useCallback(
-    async (minutes: number) => {
+    async () => {
       recordingRef.current = true;
+      const sent = Math.min(pendingRef.current, 30);
       try {
         const date = localDateOf(new Date());
-        await recordRealmPlay(childId, date, minutes);
-        pendingRef.current = 0;
+        await recordRealmPlay(childId, date, sent);
+        // Only the minutes actually sent are cleared: more may have accrued
+        // locally while this round-trip was in flight, and those stay
+        // pending for the next record.
+        pendingRef.current -= sent;
         const access = await getRealmAccess(childId, date, currentTimeOfDay());
         const applied = applyAccess(clockRef.current, access);
         clockRef.current = applied.clock;
@@ -75,14 +79,14 @@ export function usePlayClock({
       if (ticked.event !== "record") return;
       pendingRef.current += ticked.records;
       if (recordingRef.current) return;
-      void settle(Math.min(pendingRef.current, 30));
+      void settle();
     }, 1000);
     return () => clearInterval(id);
   }, [enabled, settle]);
 
   const flushPending = useCallback(async () => {
     if (pendingRef.current > 0 && !recordingRef.current) {
-      await settle(Math.min(pendingRef.current, 30));
+      await settle();
     }
   }, [settle]);
 

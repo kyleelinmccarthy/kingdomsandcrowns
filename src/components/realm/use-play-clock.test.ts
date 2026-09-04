@@ -61,4 +61,27 @@ describe("usePlayClock", () => {
     expect(recordRealmPlay).toHaveBeenNthCalledWith(2, "c1", expect.any(String), 2);
     expect(result.current.error).toBe("");
   });
+
+  it("flushPending retries a failed minute immediately, without waiting for the next boundary", async () => {
+    recordRealmPlay.mockRejectedValueOnce(new Error("The ledger is unreachable."));
+    recordRealmPlay.mockResolvedValueOnce(undefined);
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 5, source: "earned" });
+    const onClose = vi.fn();
+
+    const { result } = renderHook(() => usePlayClock({ enabled: true, childId: "c1", initialMinutes: 3, onClose }));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+    expect(recordRealmPlay).toHaveBeenCalledTimes(1);
+    expect(result.current.error).toBe("The ledger is unreachable.");
+
+    await act(async () => {
+      await result.current.flushPending();
+    });
+
+    expect(recordRealmPlay).toHaveBeenCalledTimes(2);
+    expect(recordRealmPlay).toHaveBeenNthCalledWith(2, "c1", expect.any(String), 1);
+    expect(result.current.error).toBe("");
+  });
 });

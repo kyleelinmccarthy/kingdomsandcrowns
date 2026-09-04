@@ -12,6 +12,26 @@ vi.mock("@/lib/actions/realm-play", () => ({
   recordRealmPlay: (...a: unknown[]) => recordRealmPlay(...a),
 }));
 vi.mock("./realm-scene", () => ({ default: () => <div data-testid="scene" /> }));
+// The real hook, with `flushPending` wrapped so tests can assert it was
+// called on retry without duplicating use-play-clock.test.ts's own coverage
+// of what flushPending actually does.
+let flushPendingCalls = 0;
+vi.mock("./use-play-clock", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./use-play-clock")>();
+  return {
+    ...actual,
+    usePlayClock: (...args: Parameters<typeof actual.usePlayClock>) => {
+      const hook = actual.usePlayClock(...args);
+      return {
+        ...hook,
+        flushPending: () => {
+          flushPendingCalls += 1;
+          return hook.flushPending();
+        },
+      };
+    },
+  };
+});
 // A module-level switch: when armed, the next SpriteSource mount reports an
 // error (as if the sprite rasterizer failed) instead of success, then
 // disarms itself. Only the retry test arms it, so every other test (and the
@@ -47,6 +67,7 @@ const bundle = {
 beforeEach(() => {
   vi.clearAllMocks();
   failNextSpriteMount = false;
+  flushPendingCalls = 0;
 });
 afterEach(cleanup);
 
@@ -89,6 +110,7 @@ describe("RealmShell", () => {
     expect(screen.queryByTestId("scene")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Try again" }));
     expect(await screen.findByTestId("scene")).toBeInTheDocument();
+    expect(flushPendingCalls).toBe(1);
   });
 
   it("carries the reading font attribute onto the realm root", async () => {
