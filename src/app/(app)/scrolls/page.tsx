@@ -99,7 +99,8 @@ export default async function ManageQuestsPage({
 
   const upkeepContext = await loadUpkeepContext(activeChild.id);
   const upkeepEnabled = Boolean(upkeepContext?.enabled);
-  const todayDate = todayInZone(await getFamilyTimezone());
+  const timeZone = await getFamilyTimezone();
+  const todayDate = todayInZone(timeZone);
 
   const [upkeepTasks, wageBalance, wageLedger, awaitingApproval] = upkeepEnabled
     ? await Promise.all([
@@ -135,6 +136,7 @@ export default async function ManageQuestsPage({
         schoolDays={schoolDays}
         assignmentStatusByQuest={assignmentStatusByQuest}
         blockDaysBySubject={blockDaysBySubject}
+        timeZone={timeZone}
       />
 
       {upkeepEnabled && (
@@ -144,7 +146,7 @@ export default async function ManageQuestsPage({
             Chores for {activeChild.displayName}. A task can be worth wages, repeat on a
             schedule, and be required or merely welcome.
           </p>
-          <UpkeepTaskList childId={activeChild.id} tasks={upkeepTasks} />
+          <UpkeepTaskList childId={activeChild.id} tasks={upkeepTasks} timeZone={timeZone} />
 
           <UpkeepApprovalQueue rows={awaitingApproval} today={todayDate} />
 

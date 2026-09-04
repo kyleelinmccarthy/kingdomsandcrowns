@@ -27,9 +27,12 @@ type TaskRow = {
 export function UpkeepTaskList({
   childId,
   tasks,
+  timeZone,
 }: {
   childId: string;
   tasks: TaskRow[];
+  /** The family's IANA timezone; forwarded to UpkeepTaskForm for its default date. */
+  timeZone: string;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState<TaskRow | null>(null);
@@ -58,6 +61,7 @@ export function UpkeepTaskList({
               setCreating(false);
               setEditing(null);
             }}
+            timeZone={timeZone}
           />
         </GameFrame>
       )}

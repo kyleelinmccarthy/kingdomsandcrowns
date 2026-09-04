@@ -19,6 +19,7 @@ import {
 } from "@/lib/utils/schedule-days";
 import { ANYTIME_DESCRIPTION } from "@/lib/utils/schedule-summary";
 import { findMissingScheduleDays, formatDayList } from "@/lib/utils/schedule-gaps";
+import { todayInZone } from "@/lib/utils/dates";
 
 type Subject = { id: string; name: string; color: string | null };
 
@@ -72,6 +73,7 @@ export function QuestTemplateForm({
   assignedAvatarItems = [],
   schoolDays,
   blockDaysBySubject = {},
+  timeZone,
 }: {
   childId: string;
   subjects: Subject[];
@@ -94,6 +96,8 @@ export function QuestTemplateForm({
    * the form say so before the quest is saved.
    */
   blockDaysBySubject?: Record<string, string[]>;
+  /** The family's IANA timezone — the authority for what day it is when defaulting dates. */
+  timeZone: string;
 }) {
   const router = useRouter();
   const isEditing = !!quest;
@@ -115,7 +119,7 @@ export function QuestTemplateForm({
     quest?.includeInLearningLog ?? true
   );
   const [requireNotes, setRequireNotes] = useState(quest?.requireNotes ?? false);
-  const defaultRepeatStartDate = schedule?.startDate ?? new Date().toISOString().slice(0, 10);
+  const defaultRepeatStartDate = schedule?.startDate ?? todayInZone(timeZone);
   const [availability, setAvailability] = useState<Availability>(
     isEditing ? (schedule ? "scheduled" : "anytime") : null
   );
@@ -138,7 +142,7 @@ export function QuestTemplateForm({
   // the last quest that was created or cancelled.
   useEffect(() => {
     if (!open || isEditing) return;
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayInZone(timeZone);
     setTitle("");
     setSubjectId(sortedSubjects[0]?.id ?? "");
     setDescription("");

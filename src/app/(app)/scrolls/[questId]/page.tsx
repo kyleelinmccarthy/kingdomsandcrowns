@@ -13,6 +13,7 @@ import { QuestResourceList } from "@/components/quest-resource-list";
 import { QuestScheduleForm } from "@/components/quest-schedule-form";
 import { QuestReminderForm } from "@/components/quest-reminder-form";
 import { GameIcon } from "@/components/game-icon";
+import { getFamilyTimezone } from "@/lib/services/family-timezone";
 
 export default async function QuestDetailPage({
   params,
@@ -43,12 +44,13 @@ export default async function QuestDetailPage({
     );
   }
 
-  const [subjects, resources, schedule, reminders, schoolDays] = await Promise.all([
+  const [subjects, resources, schedule, reminders, schoolDays, timeZone] = await Promise.all([
     getSubjects(quest.childId),
     getQuestResources(questId),
     getSchedule(questId),
     getReminders(questId),
     getSchoolDays(quest.childId),
+    getFamilyTimezone(),
   ]);
 
   const subject = subjects.find((s) => s.id === quest.subjectId);
@@ -82,7 +84,7 @@ export default async function QuestDetailPage({
         )}
       </div>
 
-      <QuestScheduleForm questId={questId} schedule={schedule} schoolDays={schoolDays} />
+      <QuestScheduleForm questId={questId} schedule={schedule} schoolDays={schoolDays} timeZone={timeZone} />
       <QuestResourceList resources={resources} questId={questId} />
       <QuestReminderForm questId={questId} reminders={reminders} />
     </div>

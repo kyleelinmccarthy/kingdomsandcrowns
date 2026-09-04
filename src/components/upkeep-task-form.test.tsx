@@ -20,7 +20,7 @@ afterEach(() => {
 describe("UpkeepTaskForm", () => {
   it("converts the typed dollar amount to whole cents", async () => {
     const user = userEvent.setup();
-    render(<UpkeepTaskForm childId="c1" task={null} onDone={vi.fn()} />);
+    render(<UpkeepTaskForm childId="c1" task={null} onDone={vi.fn()} timeZone="America/Denver" />);
 
     await user.type(screen.getByLabelText(/title/i), "Dishes");
     await user.type(screen.getByLabelText(/worth/i), "2.50");
@@ -33,7 +33,7 @@ describe("UpkeepTaskForm", () => {
 
   it("sends a null value when no amount is given", async () => {
     const user = userEvent.setup();
-    render(<UpkeepTaskForm childId="c1" task={null} onDone={vi.fn()} />);
+    render(<UpkeepTaskForm childId="c1" task={null} onDone={vi.fn()} timeZone="America/Denver" />);
 
     await user.type(screen.getByLabelText(/title/i), "Tidy the hall");
     await user.click(screen.getByRole("button", { name: /save/i }));
@@ -45,7 +45,7 @@ describe("UpkeepTaskForm", () => {
 
   it("shows an error and does not submit an unparseable amount", async () => {
     const user = userEvent.setup();
-    render(<UpkeepTaskForm childId="c1" task={null} onDone={vi.fn()} />);
+    render(<UpkeepTaskForm childId="c1" task={null} onDone={vi.fn()} timeZone="America/Denver" />);
 
     await user.type(screen.getByLabelText(/title/i), "Dishes");
     await user.type(screen.getByLabelText(/worth/i), "lots");
@@ -57,7 +57,7 @@ describe("UpkeepTaskForm", () => {
 
   it("defaults a task to required", async () => {
     const user = userEvent.setup();
-    render(<UpkeepTaskForm childId="c1" task={null} onDone={vi.fn()} />);
+    render(<UpkeepTaskForm childId="c1" task={null} onDone={vi.fn()} timeZone="America/Denver" />);
 
     await user.type(screen.getByLabelText(/title/i), "Dishes");
     await user.click(screen.getByRole("button", { name: /save/i }));

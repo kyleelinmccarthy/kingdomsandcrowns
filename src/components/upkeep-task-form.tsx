@@ -10,7 +10,7 @@ import { Switch } from "@/components/ui/switch";
 import { createUpkeepTask, updateUpkeepTask } from "@/lib/actions/upkeep-tasks";
 import { upsertUpkeepSchedule } from "@/lib/actions/upkeep-schedules";
 import { parseDollarsToCents } from "@/lib/utils/wages";
-import { formatDate } from "@/lib/utils/dates";
+import { todayInZone } from "@/lib/utils/dates";
 
 const WEEKDAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
 
@@ -34,10 +34,13 @@ export function UpkeepTaskForm({
   childId,
   task,
   onDone,
+  timeZone,
 }: {
   childId: string;
   task: ExistingTask | null;
   onDone: () => void;
+  /** The family's IANA timezone — the authority for what day it is when no schedule is set yet. */
+  timeZone: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -59,7 +62,7 @@ export function UpkeepTaskForm({
   );
   const [intervalWeeks, setIntervalWeeks] = useState(task?.schedule?.intervalWeeks ?? 1);
   const [startDate, setStartDate] = useState(
-    task?.schedule?.startDate ?? formatDate(new Date())
+    task?.schedule?.startDate ?? todayInZone(timeZone)
   );
   const [endDate, setEndDate] = useState(task?.schedule?.endDate ?? "");
 

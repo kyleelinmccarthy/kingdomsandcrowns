@@ -49,6 +49,7 @@ export function QuestTemplateList({
   schoolDays,
   assignmentStatusByQuest = {},
   blockDaysBySubject = {},
+  timeZone,
 }: {
   childId: string;
   quests: Quest[];
@@ -59,6 +60,8 @@ export function QuestTemplateList({
   assignmentStatusByQuest?: Record<string, AssignmentStatus>;
   /** Weekdays each discipline has class time on, keyed by subject id. */
   blockDaysBySubject?: Record<string, string[]>;
+  /** The family's IANA timezone; forwarded to QuestTemplateForm for its default dates. */
+  timeZone: string;
 }) {
   const router = useRouter();
   const [showAdd, setShowAdd] = useState(false);
@@ -261,6 +264,7 @@ export function QuestTemplateList({
         assignedAvatarItems={assignedAvatarItems}
         schoolDays={schoolDays}
         blockDaysBySubject={blockDaysBySubject}
+        timeZone={timeZone}
       />
 
       {editingQuest && (
@@ -275,6 +279,7 @@ export function QuestTemplateList({
           assignedAvatarItems={assignedAvatarItems}
           schoolDays={schoolDays}
           blockDaysBySubject={blockDaysBySubject}
+          timeZone={timeZone}
         />
       )}
     </>

@@ -85,7 +85,8 @@ export default async function QuestsPage({
   const activeView =
     view === "adventure" ? "adventure" : view === "upkeep" && showUpkeep ? "upkeep" : "today";
 
-  const todayDate = todayInZone(await getFamilyTimezone());
+  const timeZone = await getFamilyTimezone();
+  const todayDate = todayInZone(timeZone);
   let upkeepToday: Awaited<ReturnType<typeof getUpkeepAssignmentsForDate>> = [];
   let upkeepOutstanding: Awaited<ReturnType<typeof getOutstandingUpkeepAssignments>> = [];
 
@@ -146,6 +147,7 @@ export default async function QuestsPage({
           familyId={activeChild.familyId}
           isChildView={isChildView}
           week={week}
+          timeZone={timeZone}
         />
       ) : null}
     </div>
@@ -261,19 +263,17 @@ async function AdventureView({
   familyId,
   isChildView,
   week,
+  timeZone,
 }: {
   childId: string;
   childName: string;
   familyId: string;
   isChildView: boolean;
   week?: string;
+  timeZone: string;
 }) {
   const weekStart = week ?? getWeekStartDate();
-  const weekEnd = (() => {
-    const d = new Date(weekStart + "T12:00:00");
-    d.setDate(d.getDate() + 6);
-    return d.toISOString().split("T")[0];
-  })();
+  const weekEnd = addDays(weekStart, 6);
 
   const [logText, savedLog, breaks] = await Promise.all([
     generateLearningLog(childId, childName, weekStart, weekEnd),
@@ -292,6 +292,7 @@ async function AdventureView({
       breaks={breaks}
       familyId={familyId}
       isChildView={isChildView}
+      timeZone={timeZone}
     />
   );
 }

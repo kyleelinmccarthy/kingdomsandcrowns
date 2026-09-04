@@ -15,6 +15,7 @@ import {
   syncRepeatDaysWithStartDate,
 } from "@/lib/utils/schedule-days";
 import { ANYTIME_DESCRIPTION, describeSchedule } from "@/lib/utils/schedule-summary";
+import { todayInZone } from "@/lib/utils/dates";
 
 type Frequency = "once" | "daily" | "weekly" | "monthly";
 
@@ -36,14 +37,17 @@ export function QuestScheduleForm({
   questId,
   schedule,
   schoolDays,
+  timeZone,
 }: {
   questId: string;
   schedule: ScheduleData | null;
   /** Weekday codes this child attends school on; constrains which repeat days can be picked */
   schoolDays: string[];
+  /** The family's IANA timezone — the authority for what day it is when no schedule is set yet. */
+  timeZone: string;
 }) {
   const router = useRouter();
-  const defaultStartDate = schedule?.startDate ?? new Date().toISOString().slice(0, 10);
+  const defaultStartDate = schedule?.startDate ?? todayInZone(timeZone);
 
   const [frequency, setFrequency] = useState<Frequency>((schedule?.frequency as Frequency) ?? "weekly");
   const [daysOfWeek, setDaysOfWeek] = useState<string[]>(
