@@ -15,6 +15,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:seed-demo": "npx tsx src/lib/db/seed-demo.ts",
     "db:seed-badges": "npx tsx src/lib/db/seed-badges.ts",
+    "db:seed-drills": "npx tsx src/lib/db/seed-drills.ts",
     "db:make-admin": "npx tsx src/lib/db/make-admin.ts",
     "db:backfill-members": "npx tsx src/lib/db/backfill-members.ts",
     "db:backfill-streaks": "npx tsx src/lib/db/backfill-streaks.ts",

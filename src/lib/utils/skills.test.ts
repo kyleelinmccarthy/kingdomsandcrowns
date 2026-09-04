@@ -1,0 +1,26 @@
+import { describe, it, expect } from "vitest";
+import fs from "node:fs";
+import path from "node:path";
+import { SKILLS, skillsFor, findSkill, skillForPool, AREA_SCHOOL } from "./skills";
+import { GENERATORS } from "./drill-generators";
+
+describe("SKILLS", () => {
+  it("has unique ids and resolvable sources", () => {
+    const ids = SKILLS.map((s) => s.id);
+    expect(new Set(ids).size).toBe(ids.length);
+    for (const s of SKILLS) {
+      if (s.source.kind === "generator") expect(GENERATORS[s.source.generatorId]).toBeTypeOf("function");
+      else expect(fs.existsSync(path.join(__dirname, "../../content/drills", `${s.source.poolId}.json`))).toBe(true);
+    }
+  });
+  it("maps every area to a school", () => {
+    expect(AREA_SCHOOL).toEqual({ reading: "element", language: "element", math: "form", science: "modifier" });
+  });
+  it("finds skills by area and band, and pools by id", () => {
+    expect(skillsFor("math", "g23").map((s) => s.id).sort()).toEqual(["add-100", "add-20", "sub-20"]);
+    expect(skillsFor("language", "k1")).toEqual([]);
+    expect(findSkill("mul-facts")?.label).toBe("Multiplication facts");
+    expect(findSkill("nope")).toBeNull();
+    expect(skillForPool("vocab-g68")?.id).toBe("vocab-g68");
+  });
+});
