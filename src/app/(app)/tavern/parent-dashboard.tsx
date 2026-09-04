@@ -7,6 +7,7 @@ import {
 } from "@/lib/actions/quest-assignments";
 import { getScheduleBlocks } from "@/lib/actions/student-schedule";
 import { getSubjectScheduleGaps } from "@/lib/actions/schedule-gaps";
+import { getMakeupView } from "@/lib/actions/makeup";
 import { formatDate } from "@/lib/utils/dates";
 import { formatTimeOfDay, weekdayOfDate } from "@/lib/utils/schedule-days";
 import {
@@ -35,17 +36,22 @@ export async function ParentDashboard({ allChildren }: { allChildren: ChildRow[]
 
   const perChild = await Promise.all(
     allChildren.map(async (child) => {
-      const [todayAssignments, upcoming, blocks, scheduleGaps] = await Promise.all([
+      const [todayAssignments, upcoming, blocks, scheduleGaps, makeup] = await Promise.all([
         getAssignmentsForDate(child.id, today),
         getAssignmentsForDateRange(child.id, today, weekOut),
         getScheduleBlocks(child.id),
         getSubjectScheduleGaps(child.id),
+        getMakeupView(child.id, today),
       ]);
       return {
         child,
         todayAssignments,
         upcoming,
         scheduleGaps,
+        // Work still owed from earlier days. Shown to a grown-up whatever the
+        // hero's own catch-up setting says — that setting governs the hero's
+        // board, not whether their parent gets to know they're behind.
+        makeupCount: makeup.assignments.length,
         startTimes: earliestStartTimeByDayAndSubject(blocks),
       };
     })
@@ -104,8 +110,13 @@ export async function ParentDashboard({ allChildren }: { allChildren: ChildRow[]
           "--dash-cols-xl": Math.min(perChild.length, 3),
         } as CSSProperties}
       >
-        {perChild.map(({ child, todayAssignments }) => (
-          <ChildSummaryCard key={child.id} child={child} todayAssignments={todayAssignments} />
+        {perChild.map(({ child, todayAssignments, makeupCount }) => (
+          <ChildSummaryCard
+            key={child.id}
+            child={child}
+            todayAssignments={todayAssignments}
+            makeupCount={makeupCount}
+          />
         ))}
       </div>
 
@@ -154,10 +165,12 @@ function QuicklinkCard({
 }
 
 function ChildSummaryCard({
-  child, todayAssignments,
+  child, todayAssignments, makeupCount,
 }: {
   child: ChildRow;
   todayAssignments: Awaited<ReturnType<typeof getAssignmentsForDate>>;
+  /** Quests still owed from earlier days. */
+  makeupCount: number;
 }) {
   const level = Math.floor(child.currentXp / 100) + 1;
   const xpInLevel = child.currentXp % 100;
@@ -180,9 +193,15 @@ function ChildSummaryCard({
           <div className="xp-bar-track mt-1">
             <div className="xp-bar-fill" style={{ width: `${xpInLevel}%` }} />
           </div>
-          <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
             <span style={{ color: "var(--streak)" }}>{child.currentStreak} day streak</span>
             <span>{total === 0 ? "No quests today" : `${completed}/${total} today`}</span>
+            {makeupCount > 0 && (
+              <span className="inline-flex items-center gap-1 text-[var(--gold-bright)]">
+                <GameIcon name="calendar" className="size-3 shrink-0" />
+                {makeupCount} to catch up
+              </span>
+            )}
           </div>
         </div>
       </div>

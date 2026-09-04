@@ -214,6 +214,21 @@ export const child = sqliteTable(
     // Sparse JSON map of weekday -> mode, e.g. {"fri":"unstructured"}. Only days
     // with an explicit override are present; absent days fall back to schoolingMode.
     schoolingModeOverrides: text("schooling_mode_overrides"),
+    // ── Catch-up ─────────────────────────────────────────────────
+    // What happens to work a hero didn't finish on the day it was set.
+    //   "always"      — it follows them until it's done or a grown-up excuses it.
+    //   "makeup_days" — it only resurfaces on the weekdays listed in makeupDays
+    //                   (plus any one-off date in makeupDay).
+    //   "off"         — it never resurfaces on its own; only a one-off make-up
+    //                   day a parent marks brings it back.
+    // A missed quest is never *lost* under any of these: it stays on its own
+    // day's record, and a grown-up can always reopen it.
+    makeupMode: text("makeup_mode", { enum: ["always", "makeup_days", "off"] })
+      .notNull()
+      .default("always"),
+    // JSON array of weekday codes ("mon".."sun") that are catch-up days. Only
+    // read when makeupMode === "makeup_days"; null/absent means no weekday is.
+    makeupDays: text("makeup_days"),
     // Soft delete ("banished"). Non-null hides the hero everywhere — lists,
     // logins, leaderboards — but keeps every row intact so a parent can
     // restore them. Permanent removal is a separate, explicit action.
@@ -601,6 +616,31 @@ export const schoolBreak = sqliteTable(
   },
   (table) => [
     index("school_break_family_idx").on(table.familyId),
+  ]
+);
+
+/**
+ * A specific date a parent has declared a catch-up day for one hero: whatever
+ * they left unfinished over the preceding days comes back onto that day's
+ * board, whatever their standing makeupMode says.
+ *
+ * Per-child rather than per-family on purpose — one sibling being behind is
+ * not a reason to hand the other a pile of old work.
+ */
+export const makeupDay = sqliteTable(
+  "makeup_day",
+  {
+    id: text("id").primaryKey(),
+    childId: text("child_id")
+      .notNull()
+      .references(() => child.id, { onDelete: "cascade" }),
+    date: text("date").notNull(), // ISO YYYY-MM-DD
+    note: text("note"), // why the day was set aside, for the grown-ups
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("makeup_day_child_date_idx").on(table.childId, table.date),
+    index("makeup_day_child_idx").on(table.childId),
   ]
 );
 

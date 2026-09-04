@@ -8,6 +8,7 @@ import { getAssignmentsForDate, generateAssignmentsFromSchedules, getLatestAssig
 import { getQuests } from "@/lib/actions/quests";
 import { getScheduleBlocks } from "@/lib/actions/student-schedule";
 import { getSchoolingModeForDate } from "@/lib/actions/schooling-mode";
+import { getMakeupView } from "@/lib/actions/makeup";
 import { generateLearningLog, getSavedLog } from "@/lib/actions/chronicles";
 import { getSchoolBreaks } from "@/lib/actions/school-breaks";
 import { formatDate, getWeekStartDate } from "@/lib/utils/dates";
@@ -18,6 +19,7 @@ import { GameFrame } from "@/components/game-frame";
 import { GameIcon } from "@/components/game-icon";
 import { QuestAssignmentCard } from "@/components/quest-assignment-card";
 import { TodaySchedule } from "@/components/today-schedule";
+import { MakeupQuests } from "@/components/makeup-quests";
 import { QuestViewTabs } from "@/components/quest-view-tabs";
 import { LongRest } from "@/components/long-rest";
 import { TimerCleanup } from "@/components/timer-cleanup";
@@ -127,7 +129,7 @@ async function TodayView({
   const today = formatDate(new Date());
   await generateAssignmentsFromSchedules(childId, today, today);
 
-  const [subjects, activities, todayAssignments, quests, allBlocks, latestStatusByQuestId, schoolingMode] = await Promise.all([
+  const [subjects, activities, todayAssignments, quests, allBlocks, latestStatusByQuestId, schoolingMode, makeup] = await Promise.all([
     getSubjects(childId),
     getRecentActivities(childId, 50),
     getAssignmentsForDate(childId, today),
@@ -135,14 +137,25 @@ async function TodayView({
     getScheduleBlocks(childId),
     getLatestAssignmentStatusByQuest(childId),
     getSchoolingModeForDate(childId, today),
+    getMakeupView(childId, today),
   ]);
+
+  // A hero only sees carried-over work on a day their parent has made a
+  // catch-up day. A grown-up always sees what's outstanding — knowing their
+  // hero is behind must not depend on a setting about the hero's own board.
+  const makeupAssignments = !isChildView || makeup.isMakeupDay ? makeup.assignments : [];
 
   const todayWeekday = weekdayOfDate(today);
   const todaysBlocks = allBlocks.filter((b) => b.dayOfWeek === todayWeekday);
 
-  const pendingIds = todayAssignments
-    .filter((a) => a.assignment.status === "pending")
-    .map((a) => a.assignment.id);
+  // TimerCleanup wipes any stored timer whose assignment isn't in this list, so
+  // catch-up cards — which can run a timer just like today's — have to be in it.
+  const pendingIds = [
+    ...todayAssignments
+      .filter((a) => a.assignment.status === "pending")
+      .map((a) => a.assignment.id),
+    ...makeupAssignments.map((a) => a.assignment.id),
+  ];
 
   const todayAssignmentIds = new Set(todayAssignments.map((a) => a.assignment.id));
 
@@ -204,6 +217,14 @@ async function TodayView({
           isChildView={isChildView}
         />
       </div>
+
+      <MakeupQuests
+        assignments={makeupAssignments}
+        today={today}
+        isChildView={isChildView}
+        allowChildSkip={allowChildSkip}
+        reason={makeup.reason}
+      />
 
       <GameFrame title={isChildView ? "Adventure Log" : "Recent Adventures"} icon={<GameIcon name="book" className="size-5 text-[var(--gold-bright)]" />}>
         <QuestLog

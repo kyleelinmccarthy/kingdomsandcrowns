@@ -50,7 +50,19 @@ import { toggleLeaderboardVisibility } from "@/lib/actions/leaderboard";
 import { setScheduleSelfManage } from "@/lib/actions/student-schedule";
 import { setSkipQuestsEnabled } from "@/lib/actions/quest-assignments";
 import { setSchoolingMode, setSchoolingModeOverride } from "@/lib/actions/schooling-mode";
+import {
+  addMakeupDay,
+  removeMakeupDay,
+  setMakeupMode,
+  setMakeupWeekdays,
+} from "@/lib/actions/makeup";
 import { parseSchoolingModeOverrides, type SchoolingMode } from "@/lib/utils/schooling-mode";
+import {
+  MAKEUP_LOOKBACK_DAYS,
+  parseMakeupDays,
+  parseMakeupMode,
+  type MakeupMode,
+} from "@/lib/utils/makeup";
 import { DAYS_OF_WEEK, DAY_LABELS, type DayOfWeek } from "@/lib/utils/schedule-days";
 import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
 
@@ -67,6 +79,12 @@ type Subject = {
   icon: string | null;
   isRequired: boolean;
   isActive: boolean;
+};
+
+export type MakeupDayRow = {
+  id: string;
+  date: string;
+  note: string | null;
 };
 
 export type BanishedHero = {
@@ -91,6 +109,9 @@ type Child = {
   skipQuestsEnabled?: boolean;
   schoolingMode?: string;
   schoolingModeOverrides?: string | null;
+  makeupMode?: string;
+  makeupDays?: string | null;
+  makeupDayDates?: MakeupDayRow[];
   email?: string | null;
   pinEnabled?: boolean;
   hasPin?: boolean;
@@ -434,6 +455,14 @@ function ChildDetail({ child, isChildView = false }: { child: Child; isChildView
             childId={child.id}
             mode={(child.schoolingMode as SchoolingMode) ?? "unstructured"}
             overridesJson={child.schoolingModeOverrides ?? null}
+          />
+        )}
+        {!isChildView && (
+          <MakeupSettings
+            childId={child.id}
+            mode={parseMakeupMode(child.makeupMode)}
+            weekdaysJson={child.makeupDays ?? null}
+            markedDays={child.makeupDayDates ?? []}
           />
         )}
         {!isChildView && (
@@ -1306,6 +1335,198 @@ function SchoolingModeSettings({
     </div>
   );
 }
+
+/**
+ * Catch-up: what happens to a quest a hero didn't finish on the day it was set.
+ *
+ * Two dials, because families run this two different ways. Some want missed
+ * work to simply follow the hero until it's done; others keep the weekday board
+ * clean and set aside a Friday (or one particular date) to clear the backlog.
+ * Either way the escape hatch is the same and it's already in the app: a
+ * grown-up marks a missed quest "Not Needed" — an ordinary skip — and it stops
+ * following the hero.
+ */
+function MakeupSettings({
+  childId,
+  mode,
+  weekdaysJson,
+  markedDays,
+}: {
+  childId: string;
+  mode: MakeupMode;
+  weekdaysJson: string | null;
+  markedDays: MakeupDayRow[];
+}) {
+  const router = useRouter();
+  const [saving, setSaving] = useState(false);
+  const [makeupMode, setLocalMode] = useState<MakeupMode>(mode);
+  const [weekdays, setWeekdays] = useState<DayOfWeek[]>(parseMakeupDays(weekdaysJson));
+  const [newDate, setNewDate] = useState("");
+  const [newNote, setNewNote] = useState("");
+  const [error, setError] = useState("");
+
+  async function run(work: () => Promise<void>) {
+    setSaving(true);
+    setError("");
+    try {
+      await work();
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not save that.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleModeChange(next: MakeupMode) {
+    await run(async () => {
+      await setMakeupMode(childId, next);
+      setLocalMode(next);
+    });
+  }
+
+  async function handleWeekdayToggle(day: DayOfWeek) {
+    const next = weekdays.includes(day) ? weekdays.filter((d) => d !== day) : [...weekdays, day];
+    await run(async () => {
+      await setMakeupWeekdays(childId, next);
+      setWeekdays(next);
+    });
+  }
+
+  async function handleAddDay() {
+    if (!newDate) return;
+    await run(async () => {
+      await addMakeupDay(childId, newDate, newNote.trim() || undefined);
+      setNewDate("");
+      setNewNote("");
+    });
+  }
+
+  async function handleRemoveDay(id: string) {
+    await run(() => removeMakeupDay(id));
+  }
+
+  return (
+    <div className="space-y-2">
+      <h4 className="text-sm font-medium">Missed Quests</h4>
+      {error && <p className="text-xs text-destructive">{error}</p>}
+      <div className="flex items-center justify-between gap-3 rounded-lg border border-gold-dim bg-muted/30 px-3 py-2.5">
+        <div>
+          <p className="text-sm">{MODE_BLURB[makeupMode]}</p>
+          <p className="text-xs text-muted-foreground">
+            Unfinished quests from the last {MAKEUP_LOOKBACK_DAYS} days. Marking one
+            &ldquo;Not Needed&rdquo; takes it off this hero&rsquo;s list for good — nothing is
+            ever deleted, and their day&rsquo;s record keeps it either way.
+          </p>
+        </div>
+        <Select
+          value={makeupMode}
+          onChange={(e) => handleModeChange(e.target.value as MakeupMode)}
+          disabled={saving}
+          className="w-44 shrink-0"
+        >
+          <option value="always">Every day</option>
+          <option value="makeup_days">Make-up days only</option>
+          <option value="off">Never</option>
+        </Select>
+      </div>
+
+      {makeupMode === "makeup_days" && (
+        <div className="rounded-lg border border-gold-dim bg-muted/20 px-3 py-2.5">
+          <p className="mb-2 text-xs text-muted-foreground">
+            Which weekdays are catch-up days?
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {DAYS_OF_WEEK.map((day) => {
+              const on = weekdays.includes(day);
+              return (
+                <Button
+                  key={day}
+                  size="sm"
+                  variant={on ? "default" : "outline"}
+                  className={on ? undefined : "!border-[var(--gold-border)]"}
+                  onClick={() => handleWeekdayToggle(day)}
+                  disabled={saving}
+                  aria-pressed={on}
+                >
+                  {DAY_LABELS[day]}
+                </Button>
+              );
+            })}
+          </div>
+          {weekdays.length === 0 && (
+            <p className="mt-2 text-xs text-muted-foreground">
+              No catch-up weekday chosen yet, so missed quests only appear on the
+              one-off days below.
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* One-off make-up days. These work whatever the setting above says —
+          a date a parent picks on purpose is more specific than a standing rule,
+          so it brings the backlog back even when catch-up is set to Never. */}
+      <div className="rounded-lg border border-gold-dim bg-muted/20 px-3 py-2.5">
+        <p className="text-xs text-muted-foreground">
+          Make-up days — one-off dates when unfinished quests come back, whatever
+          the setting above says.
+        </p>
+        {markedDays.length > 0 && (
+          <div className="mt-2 divide-y divide-[var(--gold-dim)]">
+            {markedDays.map((d) => (
+              <div key={d.id} className="flex items-center justify-between gap-3 py-1.5">
+                <div className="min-w-0">
+                  <p className="text-sm">{d.date}</p>
+                  {d.note && <p className="truncate text-xs text-muted-foreground">{d.note}</p>}
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => handleRemoveDay(d.id)}
+                  disabled={saving}
+                  className="shrink-0 text-muted-foreground"
+                >
+                  Remove
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="mt-2 flex flex-wrap items-end gap-2">
+          <div className="space-y-1">
+            <Label htmlFor={`makeup-date-${childId}`} className="text-xs">Date</Label>
+            <Input
+              id={`makeup-date-${childId}`}
+              type="date"
+              value={newDate}
+              onChange={(e) => setNewDate(e.target.value)}
+              className="h-9 w-44"
+            />
+          </div>
+          <div className="min-w-40 flex-1 space-y-1">
+            <Label htmlFor={`makeup-note-${childId}`} className="text-xs">Note (optional)</Label>
+            <Input
+              id={`makeup-note-${childId}`}
+              value={newNote}
+              onChange={(e) => setNewNote(e.target.value)}
+              placeholder="e.g. Catch-up Friday"
+              className="h-9"
+            />
+          </div>
+          <Button size="sm" onClick={handleAddDay} disabled={saving || !newDate}>
+            {saving ? "Saving..." : "Add Make-Up Day"}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const MODE_BLURB: Record<MakeupMode, string> = {
+  always: "Missed quests follow this hero until they're done or you say they aren't needed.",
+  makeup_days: "Missed quests only come back on the catch-up days below.",
+  off: "Missed quests stay on their own day — only a make-up day below brings them back.",
+};
 
 function LeaderboardToggle({ childId, enabled }: { childId: string; enabled: boolean }) {
   const router = useRouter();

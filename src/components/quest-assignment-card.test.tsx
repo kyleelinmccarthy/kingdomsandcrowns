@@ -425,6 +425,52 @@ describe("QuestAssignmentCard", () => {
     expect(reviseAssignment).toHaveBeenCalledWith("qa1", "pending", undefined);
   });
 
+  describe("catch-up cards", () => {
+    it("says which day the work was owed from", () => {
+      render(
+        <QuestAssignmentCard data={baseData} isChildView={true} missedFrom="Yesterday" />
+      );
+      expect(screen.getByText(/From Yesterday/)).toBeInTheDocument();
+    });
+
+    it("offers a grown-up's skip as \"Not Needed\" — that's what excusing missed work is", async () => {
+      const user = userEvent.setup();
+      render(
+        <QuestAssignmentCard data={baseData} isChildView={false} missedFrom="Monday" />
+      );
+      await user.click(screen.getByText("Not Needed"));
+      await user.type(screen.getByLabelText("Reason for skipping"), "we covered it in the car");
+      await user.click(screen.getByText("Mark Not Needed"));
+      expect(skipAssignment).toHaveBeenCalledWith("qa1", "we covered it in the car");
+    });
+
+    it("hands a hero back a quest they got stuck on", () => {
+      const stuck = {
+        ...baseData,
+        assignment: { id: "qa1", status: "stuck", notes: null, statusReason: "step 3" },
+      };
+      render(<QuestAssignmentCard data={stuck} isChildView={true} missedFrom="Monday" />);
+      expect(screen.getByText("Start")).toBeInTheDocument();
+      expect(screen.getByText("Quick Complete")).toBeInTheDocument();
+      // Already stuck — saying so again would tell a grown-up nothing new.
+      expect(screen.queryByText("I'm Stuck")).not.toBeInTheDocument();
+    });
+
+    it("leaves a stuck quest on its own day alone", () => {
+      const stuck = {
+        ...baseData,
+        assignment: { id: "qa1", status: "stuck", notes: null, statusReason: "step 3" },
+      };
+      render(<QuestAssignmentCard data={stuck} isChildView={true} />);
+      expect(screen.queryByText("Start")).not.toBeInTheDocument();
+    });
+
+    it("shows no missed-day chip on an ordinary card", () => {
+      render(<QuestAssignmentCard data={baseData} isChildView={true} />);
+      expect(screen.queryByText(/^From /)).not.toBeInTheDocument();
+    });
+  });
+
   it("renders subject color dot", () => {
     const { container } = render(<QuestAssignmentCard data={baseData} isChildView={false} />);
     const dot = container.querySelector(".rounded-full");

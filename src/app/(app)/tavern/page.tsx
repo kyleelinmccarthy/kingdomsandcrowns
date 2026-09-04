@@ -8,6 +8,7 @@ import { getAssignmentsForDate, generateAssignmentsFromSchedules, getLatestAssig
 import { getQuests } from "@/lib/actions/quests";
 import { getScheduleBlocks } from "@/lib/actions/student-schedule";
 import { getSchoolingModeForDate } from "@/lib/actions/schooling-mode";
+import { getMakeupView } from "@/lib/actions/makeup";
 import { getBadges, getChildBadges, checkAndAwardBadges } from "@/lib/actions/badges";
 import { getChildAvatarUnlocks } from "@/lib/actions/avatar";
 import { formatDate } from "@/lib/utils/dates";
@@ -23,6 +24,7 @@ import { QuestForm } from "../quests/quest-form";
 import { QuestLog } from "../quests/quest-log";
 import { QuestAssignmentCard } from "@/components/quest-assignment-card";
 import { TodaySchedule } from "@/components/today-schedule";
+import { MakeupQuests } from "@/components/makeup-quests";
 import { GameIcon, BADGE_ICONS } from "@/components/game-icon";
 import { ParentDashboard } from "./parent-dashboard";
 
@@ -85,7 +87,7 @@ export default async function TavernPage({
   const today = formatDate(new Date());
   await generateAssignmentsFromSchedules(activeChild.id, today, today);
 
-  const [subjects, recentActivities, allBadges, earnedBadges, todayAssignments, quests, avatarUnlocks, allBlocks, latestStatusByQuestId, schoolingMode] = await Promise.all([
+  const [subjects, recentActivities, allBadges, earnedBadges, todayAssignments, quests, avatarUnlocks, allBlocks, latestStatusByQuestId, schoolingMode, makeup] = await Promise.all([
     getSubjects(activeChild.id),
     getRecentActivities(activeChild.id, 50),
     getBadges(),
@@ -96,13 +98,23 @@ export default async function TavernPage({
     getScheduleBlocks(activeChild.id),
     getLatestAssignmentStatusByQuest(activeChild.id),
     getSchoolingModeForDate(activeChild.id, today),
+    getMakeupView(activeChild.id, today),
   ]);
+
+  // A hero only sees carried-over work on a day their parent has made a
+  // catch-up day; a grown-up always sees what's still owed.
+  const makeupAssignments = !isChildView || makeup.isMakeupDay ? makeup.assignments : [];
 
   const todaysBlocks = allBlocks.filter((b) => b.dayOfWeek === weekdayOfDate(today));
 
-  const pendingIds = todayAssignments
-    .filter((a) => a.assignment.status === "pending")
-    .map((a) => a.assignment.id);
+  // TimerCleanup wipes any stored timer whose assignment isn't in this list, so
+  // catch-up cards — which can run a timer just like today's — have to be in it.
+  const pendingIds = [
+    ...todayAssignments
+      .filter((a) => a.assignment.status === "pending")
+      .map((a) => a.assignment.id),
+    ...makeupAssignments.map((a) => a.assignment.id),
+  ];
 
   // On a structured day a hero works the schedule in order, so every assigned
   // quest but the next one is shown locked rather than with its own Start /
@@ -274,6 +286,14 @@ export default async function TavernPage({
           />
         </div>
       </div>
+
+      <MakeupQuests
+        assignments={makeupAssignments}
+        today={today}
+        isChildView={isChildView}
+        allowChildSkip={allowChildSkip}
+        reason={makeup.reason}
+      />
 
       {/* ═══ ROW 2: Hero's Path (gamification info) + Loot ═══ */}
       <div className="hud-row-bottom">

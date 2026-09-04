@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { createActivity, deleteActivity } from "@/lib/actions/activities";
 import { getScheduledDates } from "@/lib/utils/schedule";
+import { formatDate } from "@/lib/utils/dates";
 import { getSchoolDays, getScheduleBlocks } from "@/lib/actions/student-schedule";
 import { getSchoolingModeForDate } from "@/lib/actions/schooling-mode";
 import { requireChildAccess, requireAssignmentAccess, isChildActor } from "@/lib/auth/access";
@@ -116,6 +117,12 @@ async function assertQuestUnlockedInStructuredMode(
   isChild: boolean
 ) {
   if (!isChild) return;
+  // The queue orders *today*. Catch-up work carries its own, older date and is
+  // offered in its own panel, outside today's schedule — holding it to the
+  // order of a day that is over would refuse the very quest the catch-up list
+  // just presented, and would make a hero clear last Monday in Monday's order
+  // before touching last Tuesday.
+  if (date !== formatDate(new Date())) return;
   const effectiveMode = await getSchoolingModeForDate(childId, date);
   if (effectiveMode !== "structured") return;
 
@@ -366,6 +373,15 @@ export async function completeAssignment(
     throw new Error("Scribe's Notes are required to complete this quest");
   }
 
+  // Catch-up work is chronicled on the day it was actually done, not the day it
+  // was set. The assignment keeps its own date — the learning log reads the
+  // plan back day by day, and last Monday's record should show Monday's work
+  // finished — but the activity log is the record of effort, and it feeds the
+  // streak. A hero who sits down and clears three missed quests has done a day's questing
+  // today, and their streak has to say so.
+  const today = formatDate(new Date());
+  const chronicleDate = row.assignment.date < today ? today : row.assignment.date;
+
   // Create the activity log entry (this also updates XP/streak)
   const { id: activityId } = await createActivity({
     childId: row.assignment.childId,
@@ -373,7 +389,7 @@ export async function completeAssignment(
     title: activityData.title ?? row.quest.title,
     description: activityData.description,
     durationMinutes: activityData.durationMinutes,
-    date: row.assignment.date,
+    date: chronicleDate,
     startedAt: activityData.startedAt,
     endedAt: activityData.endedAt,
     source: activityData.source,
