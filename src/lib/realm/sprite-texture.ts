@@ -8,7 +8,9 @@ const SVG_H = 48;
 
 /** The fields that change the drawn figure. The crest never appears on a sprite, so it is excluded. */
 export function spriteKey(config: AvatarConfig): string {
-  const { background: _bg, backgroundColor: _bgColor, ...visual } = config;
+  const visual: Record<string, unknown> = { ...config };
+  delete visual.background;
+  delete visual.backgroundColor;
   return JSON.stringify(visual, Object.keys(visual).sort());
 }
 

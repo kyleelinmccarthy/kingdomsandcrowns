@@ -42,14 +42,14 @@ describe("svgElementToTexture", () => {
       }
     }
 
-    (globalThis.Image as any) = MockImage;
+    globalThis.Image = MockImage as unknown as typeof Image;
 
     // Mock canvas context
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(
       {
         imageSmoothingEnabled: true,
         drawImage: mockDrawImage,
-      } as any
+      } as unknown as CanvasRenderingContext2D
     );
   });
 
@@ -80,7 +80,7 @@ describe("svgElementToTexture", () => {
 
     await svgElementToTexture(svg);
 
-    const ctx = (HTMLCanvasElement.prototype.getContext as any).mock.results[0].value;
+    const ctx = (HTMLCanvasElement.prototype.getContext as unknown as ReturnType<typeof vi.spyOn>).mock.results[0].value as unknown as CanvasRenderingContext2D;
     expect(ctx.imageSmoothingEnabled).toBe(false);
   });
 
@@ -113,7 +113,7 @@ describe("svgElementToTexture", () => {
       }
     }
 
-    (globalThis.Image as any) = FailImage;
+    globalThis.Image = FailImage as unknown as typeof Image;
 
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     svg.setAttribute("viewBox", "0 0 36 48");
