@@ -1,6 +1,6 @@
 "use server";
 
-import { and, desc, eq, inArray, isNotNull, isNull, gt } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull, gt, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
@@ -195,6 +195,15 @@ export async function answerDeedQuestion(runId: string, index: number, answer: s
     .where(eq(schema.deedRun.id, runId));
 
   // Mastery moves on every answer, not at the end, so an abandoned run still taught something.
+  // Insert-first (same pattern as loadRealmSettings): the row always exists before we
+  // read it, so two first answers to one skill racing each other can't both see "no
+  // row" and both fall into an insert — one insert wins, onConflictDoNothing no-ops
+  // the other, and both then land on the same unconditional update below.
+  await db.insert(schema.skillMastery).values({
+    id: nanoid(), childId: run.childId, skillId: question.skillId, level: 0,
+    recentResults: "[]", correctTotal: 0, attemptTotal: 0,
+    lastPracticedAt: null, createdAt: now, updatedAt: now,
+  }).onConflictDoNothing();
   const existing = await db
     .select()
     .from(schema.skillMastery)
@@ -204,19 +213,11 @@ export async function answerDeedQuestion(runId: string, index: number, answer: s
     { level: existing[0]?.level ?? 0, recentResults: parseRecentResults(existing[0]?.recentResults ?? null) },
     correct,
   );
-  if (existing[0]) {
-    await db.update(schema.skillMastery).set({
-      level: state.level, recentResults: JSON.stringify(state.recentResults),
-      correctTotal: existing[0].correctTotal + (correct ? 1 : 0), attemptTotal: existing[0].attemptTotal + 1,
-      lastPracticedAt: now, updatedAt: now,
-    }).where(eq(schema.skillMastery.id, existing[0].id));
-  } else {
-    await db.insert(schema.skillMastery).values({
-      id: nanoid(), childId: run.childId, skillId: question.skillId, level: state.level,
-      recentResults: JSON.stringify(state.recentResults), correctTotal: correct ? 1 : 0, attemptTotal: 1,
-      lastPracticedAt: now, createdAt: now, updatedAt: now,
-    }).onConflictDoNothing();
-  }
+  await db.update(schema.skillMastery).set({
+    level: state.level, recentResults: JSON.stringify(state.recentResults),
+    correctTotal: (existing[0]?.correctTotal ?? 0) + (correct ? 1 : 0), attemptTotal: (existing[0]?.attemptTotal ?? 0) + 1,
+    lastPracticedAt: now, updatedAt: now,
+  }).where(and(eq(schema.skillMastery.childId, run.childId), eq(schema.skillMastery.skillId, question.skillId)));
   return { correct, answer: question.answer };
 }
 
@@ -237,22 +238,28 @@ export async function completeDeedRun(runId: string): Promise<RunSummary> {
   const building = deed ? findBuilding(deed.buildingId) : null;
   let progress = { done: 0, total: 5, complete: false };
   if (building) {
-    const existing = await db
+    // Insert-first, then an unconditional atomic increment: two completions of the
+    // same building racing each other can't both read deedsDone=0 and both write 1,
+    // losing a deed. The insert only ever seeds a fresh row (onConflictDoNothing),
+    // so the +1 below always applies to whatever is already there.
+    await db.insert(schema.kingdomProgress).values({
+      id: nanoid(), childId: run.childId, buildingId: building.id, deedsDone: 0,
+      completedAt: null, createdAt: now, updatedAt: now,
+    }).onConflictDoNothing();
+    await db.update(schema.kingdomProgress)
+      .set({ deedsDone: sql`${schema.kingdomProgress.deedsDone} + 1`, updatedAt: now })
+      .where(and(eq(schema.kingdomProgress.childId, run.childId), eq(schema.kingdomProgress.buildingId, building.id)));
+    const rows = await db
       .select()
       .from(schema.kingdomProgress)
       .where(and(eq(schema.kingdomProgress.childId, run.childId), eq(schema.kingdomProgress.buildingId, building.id)))
       .limit(1);
-    const deedsDone = (existing[0]?.deedsDone ?? 0) + 1;
-    progress = buildingProgress(deedsDone, building);
-    if (existing[0]) {
+    const row = rows[0];
+    progress = buildingProgress(row.deedsDone, building);
+    if (progress.complete && row.completedAt === null) {
       await db.update(schema.kingdomProgress)
-        .set({ deedsDone, completedAt: existing[0].completedAt ?? (progress.complete ? now : null), updatedAt: now })
-        .where(eq(schema.kingdomProgress.id, existing[0].id));
-    } else {
-      await db.insert(schema.kingdomProgress).values({
-        id: nanoid(), childId: run.childId, buildingId: building.id, deedsDone,
-        completedAt: progress.complete ? now : null, createdAt: now, updatedAt: now,
-      }).onConflictDoNothing();
+        .set({ completedAt: now })
+        .where(eq(schema.kingdomProgress.id, row.id));
     }
   }
 
