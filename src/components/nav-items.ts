@@ -19,6 +19,12 @@ export const MAIN_NAV: NavItem[] = [
     description: "Your home base — see your heroes, today's quests, and what's happening in your kingdom.",
   },
   {
+    href: "/deeds",
+    label: "Deeds",
+    icon: "map",
+    description: "Help the folk of your kingdom — each deed raises a building and strengthens your magic.",
+  },
+  {
     href: "/loot",
     label: "Loot",
     icon: "gem",

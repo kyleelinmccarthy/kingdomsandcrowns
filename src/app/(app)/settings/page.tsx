@@ -11,6 +11,7 @@ import { getSeasons } from "@/lib/actions/seasons";
 import { getLearningProfile } from "@/lib/actions/learning-profile";
 import { getRealmSettings } from "@/lib/actions/realm-settings";
 import { getRealmPlaySummary } from "@/lib/actions/realm-play";
+import { getMasteryOverview } from "@/lib/actions/deeds";
 import { getFamilyMembers } from "@/lib/actions/guardians";
 import { ensureFamilyLoginCode } from "@/lib/actions/child-auth";
 import { getActor } from "@/lib/auth/actor";
@@ -70,7 +71,7 @@ export default async function SettingsPage() {
   // Fetch subjects, badges, and avatar unlocks for each visible child.
   const childrenWithSubjects = await Promise.all(
     children.map(async (child) => {
-      const [subjects, earnedBadges, avatarUnlocks, seasons, learningProfile, realmSettings, realmPlay] = await Promise.all([
+      const [subjects, earnedBadges, avatarUnlocks, seasons, learningProfile, realmSettings, realmPlay, mastery] = await Promise.all([
         getSubjects(child.id),
         getChildBadges(child.id),
         getChildAvatarUnlocks(child.id),
@@ -78,6 +79,7 @@ export default async function SettingsPage() {
         isChildView ? null : getLearningProfile(child.id),
         isChildView ? null : getRealmSettings(child.id),
         isChildView ? null : getRealmPlaySummary(child.id, familyToday),
+        isChildView ? null : getMasteryOverview(child.id),
       ]);
       const { pinHash: _pinHash, ...rest } = child;
       return {
@@ -90,6 +92,7 @@ export default async function SettingsPage() {
         learningProfile,
         realmSettings,
         realmPlay,
+        mastery,
       };
     })
   );
