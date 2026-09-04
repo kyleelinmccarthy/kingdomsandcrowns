@@ -1,6 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { createPortal } from "react-dom";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { RealmBundle } from "@/lib/actions/realm";
 import { getRealmAccess } from "@/lib/actions/realm-play";
@@ -115,6 +116,20 @@ function RealmOpen({
   const [textures, setTextures] = useState<SpriteTextures | null>(null);
   const [spriteError, setSpriteError] = useState("");
   const [retryKey, setRetryKey] = useState(0);
+  // `.game-content` (the page's <main>) is `position: relative; z-index: 10`,
+  // which traps `.realm-root`'s z-index inside its own stacking context —
+  // the app banner (30) and bottom nav (40) would sit on top of the world
+  // no matter how high `.realm-root`'s z-index goes. Portal past it into
+  // `.game-shell`, which is `position: relative` with no z-index of its own
+  // (not a stacking context), so `.realm-root { z-index: 45 }` is compared
+  // against the banner and nav directly. `.game-shell` still wraps the
+  // `[data-reading-font|larger-text|extra-spacing]` scoping attributes, so
+  // the HUD keeps those styles. Resolved once, client-side only: this
+  // component never renders during SSR (it mounts after the client-side
+  // access check resolves).
+  const [portalTarget] = useState<Element | null>(() =>
+    typeof document === "undefined" ? null : (document.querySelector(".game-shell") ?? document.body)
+  );
   const layout = useMemo(() => buildWorldLayout({ castleType: bundle.castleType, builtBuildingIds: bundle.builtBuildingIds }), [bundle.castleType, bundle.builtBuildingIds]);
   const settings = renderSettingsFor(bundle.profile, isTouch);
   const { axisRef, setStick } = useRealmInput();
@@ -123,7 +138,9 @@ function RealmOpen({
   const onReady = useCallback((t: SpriteTextures) => setTextures(t), []);
   const onError = useCallback((e: Error) => setSpriteError(e.message), []);
 
-  return (
+  if (!portalTarget) return null;
+
+  return createPortal(
     <div className="realm-root">
       <SpriteSource key={retryKey} config={config} onReady={onReady} onError={onError} />
       {textures && <RealmScene layout={layout} textures={textures} settings={settings} axisRef={axisRef} />}
@@ -141,6 +158,7 @@ function RealmOpen({
         }}
       />
       {settings.showStick && <TouchStick onChange={setStick} />}
-    </div>
+    </div>,
+    portalTarget
   );
 }
