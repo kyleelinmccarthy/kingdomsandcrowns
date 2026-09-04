@@ -16,18 +16,19 @@ import { join, resolve } from "node:path";
 const DATE_MODULE = "src/lib/utils/dates.ts";
 
 /**
- * Standalone maintenance scripts, run manually via `npx tsx <path>` and
- * imported by no application code — not part of any request path, so no
- * family's browser ever renders a date either one computes.
+ * `src/lib/db/seed-demo.ts` is a standalone script, run manually via `npx tsx
+ * src/lib/db/seed-demo.ts` and imported by no application code — it seeds
+ * local demo data only, not part of any request path, so no family's browser
+ * ever renders a date it computes. Its `isoDate()` helper is excluded rather
+ * than migrated to `addDays`/`todayInZone` for that reason.
  *
- * - `src/lib/db/seed-demo.ts`: seeds local demo data. Its `isoDate()` helper
- *   is excluded rather than migrated to `addDays`/`todayInZone`.
- * - `src/lib/db/backfill-streaks.ts`: one-off streak repair. It documents
- *   in-file why UTC is deliberate here (a single snapshot for a whole-table
- *   sweep across every family in one run, not a per-family "today"), so this
- *   is a documented design choice, not a missed call site.
+ * `src/lib/db/backfill-streaks.ts` was considered for the same treatment and
+ * rejected: it writes `current_streak`/`longest_streak`, which a family sees
+ * directly, so a UTC snapshot there is the same bug this feature removes
+ * everywhere else, just relocated into a maintenance script. It now resolves
+ * each family's "today" via `todayInZone` and is not exempted here.
  */
-const SCRIPT_EXCLUSIONS = ["src/lib/db/seed-demo.ts", "src/lib/db/backfill-streaks.ts"];
+const SCRIPT_EXCLUSIONS = ["src/lib/db/seed-demo.ts"];
 
 /**
  * Patterns that turn a value into a calendar date string.
@@ -41,11 +42,20 @@ const FORBIDDEN: { pattern: RegExp; why: string }[] = [
   { pattern: /toISOString\(\)\s*\.\s*split\(\s*["'`]T["'`]\s*\)\s*\[\s*0\s*\]/, why: "derives a calendar date from UTC" },
 ];
 
-/** Strips comments so prose explaining a construct is not mistaken for using it. */
+/**
+ * Strips comments so prose explaining a construct is not mistaken for using
+ * it. A `//` only starts a line comment when it opens the line or follows
+ * whitespace — not when it's part of a URL, e.g. `https://x.com` (preceded
+ * by `:`) or a protocol-relative/query-string one like `"//cdn.example.com"`
+ * or `"?next=//example.com"` (preceded by a quote). Treating those as
+ * comment starts would eat the rest of the line — including a real
+ * violation later on that same line — which is the dangerous direction for
+ * a guard to be wrong in.
+ */
 function stripComments(source: string): string {
   return source
     .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/(?<!:)\/\/.*$/gm, "");
+    .replace(/(^|\s)\/\/.*$/gm, "$1");
 }
 
 function sourceFiles(dir: string, found: string[] = []): string[] {
