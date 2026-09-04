@@ -462,7 +462,9 @@ const fractionsCompare: Generator = (level, rng, skillId) => {
   const lvl = L(level);
   const fractions = new Map<string, number>(); // "n/d" -> value
   const denomMax = [6, 10, 10, 8, 12][lvl];
-  const sameDenominator = lvl <= 1 ? randInt(rng, 2, denomMax) : null;
+  // Same-denominator rounds need a denominator of at least 5 so four distinct
+  // fractions exist; smaller ones would spin forever looking for a fourth.
+  const sameDenominator = lvl <= 1 ? randInt(rng, 5, denomMax) : null;
   while (fractions.size < 4) {
     const d = sameDenominator ?? randInt(rng, 2, denomMax);
     const n = randInt(rng, 1, d - 1);
