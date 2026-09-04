@@ -43,10 +43,15 @@ export type StreakOptions = {
  * string with UTC `toISOString`, a mixed frame that silently skipped the US
  * DST fall-back day (e.g. 2026-11-01) once a year for every DST-observing
  * family.
+ *
+ * `today` is required, not defaulted: this is a pure utility with no access
+ * to a family's timezone, so any default it invented here would necessarily
+ * be wrong for someone. Callers resolve "what day is it?" themselves (via
+ * `todayInZone`) and pass the answer in.
  */
 export function computeStreak(
   activeDates: Iterable<string>,
-  today: string = new Date().toISOString().slice(0, 10),
+  today: string,
   options: StreakOptions = {}
 ): number {
   const active = new Set(activeDates);
