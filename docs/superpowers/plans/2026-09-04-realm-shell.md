@@ -257,7 +257,8 @@ const wall: Prop = { id: "wall", kind: "building", label: "Wall", position: { x:
 function run(state: HeroState, input: { axis: { x: number; z: number } }, seconds: number, colliders: Prop[] = []) {
   let s = state;
   const dt = 1 / 60;
-  for (let t = 0; t < seconds; t += dt) s = stepHero(s, input, dt, colliders);
+  // Integer step count: accumulating 1/60 in floating point can run one extra frame.
+  for (let i = 0; i < Math.round(seconds * 60); i++) s = stepHero(s, input, dt, colliders);
   return s;
 }
 
@@ -1527,12 +1528,18 @@ vi.mock("@/lib/actions/realm-play", () => ({
   recordRealmPlay: (...a: unknown[]) => recordRealmPlay(...a),
 }));
 vi.mock("./realm-scene", () => ({ default: () => <div data-testid="scene" /> }));
-vi.mock("./sprite-source", () => ({
-  SpriteSource: ({ onReady }: { onReady: (t: unknown) => void }) => {
-    onReady({ hero: {}, companion: null });
-    return null;
-  },
-}));
+vi.mock("./sprite-source", async () => {
+  const React = await import("react");
+  return {
+    SpriteSource: ({ onReady }: { onReady: (t: unknown) => void }) => {
+      // Report readiness after mount, the way the real component does, so no parent state is set during render.
+      React.useEffect(() => {
+        onReady({ hero: {}, companion: null });
+      }, [onReady]);
+      return null;
+    },
+  };
+});
 
 const bundle = {
   heroName: "Lily",
@@ -1731,13 +1738,7 @@ function webglSupported(): boolean {
 
 export function RealmShell({ bundle, childId, isChildView }: { bundle: RealmBundle; childId: string; isChildView: boolean }) {
   const [phase, setPhase] = useState<Phase>({ kind: "checking" });
-  const [textures, setTextures] = useState<SpriteTextures | null>(null);
-  const [spriteError, setSpriteError] = useState("");
   const [isTouch, setIsTouch] = useState(false);
-  const layout = useMemo(() => buildWorldLayout({ castleType: bundle.castleType, builtBuildingIds: bundle.builtBuildingIds }), [bundle.castleType, bundle.builtBuildingIds]);
-  const settings = renderSettingsFor(bundle.profile, isTouch);
-  const { axisRef, setStick } = useRealmInput();
-  const config = bundle.avatarConfig ?? DEFAULT_AVATAR;
 
   // The access check is async, so the state updates below are not synchronous effect writes.
   useEffect(() => {
@@ -1777,20 +1778,52 @@ export function RealmShell({ bundle, childId, isChildView }: { bundle: RealmBund
     setPhase({ kind: "closed", body: gateCopy({ allowed: false, reason: "cap_reached" })!.body });
   }, []);
 
-  const clock = usePlayClock({
-    enabled: isChildView && phase.kind === "open",
-    childId,
-    initialMinutes: phase.kind === "open" ? phase.minutes : 0,
-    onClose,
-  });
-
-  const onReady = useCallback((t: SpriteTextures) => setTextures(t), []);
-  const onError = useCallback((e: Error) => setSpriteError(e.message), []);
-
   if (phase.kind === "checking") return <p className="p-6 text-center text-muted-foreground">Checking the gate…</p>;
   if (phase.kind === "unsupported") return <p className="p-6 text-center text-muted-foreground">{UNSUPPORTED}</p>;
   if (phase.kind === "gated") return <RealmGate copy={phase.copy} heroName={bundle.heroName} />;
   if (phase.kind === "closed") return <RealmClosed heroName={bundle.heroName} body={phase.body} />;
+
+  // The open world is its own component so the play clock mounts with the real
+  // minute count, not a placeholder from before the access check resolved.
+  return (
+    <RealmOpen
+      bundle={bundle}
+      childId={childId}
+      isChildView={isChildView}
+      isTouch={isTouch}
+      minutes={phase.minutes}
+      note={phase.note}
+      onClose={onClose}
+    />
+  );
+}
+
+function RealmOpen({
+  bundle,
+  childId,
+  isChildView,
+  isTouch,
+  minutes,
+  note,
+  onClose,
+}: {
+  bundle: RealmBundle;
+  childId: string;
+  isChildView: boolean;
+  isTouch: boolean;
+  minutes: number;
+  note: string | null;
+  onClose: () => void;
+}) {
+  const [textures, setTextures] = useState<SpriteTextures | null>(null);
+  const [spriteError, setSpriteError] = useState("");
+  const layout = useMemo(() => buildWorldLayout({ castleType: bundle.castleType, builtBuildingIds: bundle.builtBuildingIds }), [bundle.castleType, bundle.builtBuildingIds]);
+  const settings = renderSettingsFor(bundle.profile, isTouch);
+  const { axisRef, setStick } = useRealmInput();
+  const config = bundle.avatarConfig ?? DEFAULT_AVATAR;
+  const clock = usePlayClock({ enabled: isChildView, childId, initialMinutes: minutes, onClose });
+  const onReady = useCallback((t: SpriteTextures) => setTextures(t), []);
+  const onError = useCallback((e: Error) => setSpriteError(e.message), []);
 
   return (
     <div className="realm-root">
@@ -1800,7 +1833,7 @@ export function RealmShell({ bundle, childId, isChildView }: { bundle: RealmBund
         heroName={bundle.heroName}
         minutesRemaining={isChildView ? clock.minutesRemaining : null}
         warning={clock.warning}
-        preview={isChildView ? null : { note: phase.note }}
+        preview={isChildView ? null : { note }}
         hudScale={settings.hudScale}
         error={spriteError || clock.error}
         onRetry={() => {
