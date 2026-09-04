@@ -64,3 +64,75 @@ describe("addDays", () => {
     expect(addDays("2026-03-16", 0)).toBe("2026-03-16");
   });
 });
+
+import { todayInZone, weekStartOf, weekEndOf } from "./dates";
+
+describe("todayInZone", () => {
+  it("gives the local day, not the UTC day, for an evening instant", () => {
+    // 02:00 UTC on the 3rd is 20:00 on the 2nd in Denver. This exact case is
+    // the bug: work logged after 5pm was being filed under tomorrow.
+    const instant = new Date("2026-09-03T02:00:00Z");
+    expect(todayInZone("America/Denver", instant)).toBe("2026-09-02");
+  });
+
+  it("gives the next day for a zone ahead of UTC at the same instant", () => {
+    const instant = new Date("2026-09-02T20:00:00Z");
+    expect(todayInZone("Pacific/Auckland", instant)).toBe("2026-09-03");
+  });
+
+  it("is the identity for UTC itself", () => {
+    expect(todayInZone("UTC", new Date("2026-09-02T23:59:59Z"))).toBe("2026-09-02");
+  });
+
+  it("handles the spring-forward transition", () => {
+    // 2026-03-08 is when America/Denver jumps from MST to MDT at 02:00 local.
+    expect(todayInZone("America/Denver", new Date("2026-03-08T09:30:00Z"))).toBe("2026-03-08");
+    expect(todayInZone("America/Denver", new Date("2026-03-08T06:30:00Z"))).toBe("2026-03-07");
+  });
+
+  it("handles the fall-back transition", () => {
+    // 2026-11-01, MDT -> MST at 02:00 local.
+    expect(todayInZone("America/Denver", new Date("2026-11-01T07:30:00Z"))).toBe("2026-11-01");
+    expect(todayInZone("America/Denver", new Date("2026-11-01T05:30:00Z"))).toBe("2026-10-31");
+  });
+
+  it("handles a leap day", () => {
+    expect(todayInZone("America/Denver", new Date("2028-02-29T18:00:00Z"))).toBe("2028-02-29");
+  });
+
+  it("pads single-digit months and days", () => {
+    expect(todayInZone("UTC", new Date("2026-01-05T12:00:00Z"))).toBe("2026-01-05");
+  });
+});
+
+describe("weekStartOf / weekEndOf", () => {
+  it("returns the Monday and Sunday bracketing a midweek date", () => {
+    // 2026-09-02 is a Wednesday.
+    expect(weekStartOf("2026-09-02")).toBe("2026-08-31");
+    expect(weekEndOf("2026-09-02")).toBe("2026-09-06");
+  });
+
+  it("treats Monday as the first day of its own week", () => {
+    expect(weekStartOf("2026-08-31")).toBe("2026-08-31");
+    expect(weekEndOf("2026-08-31")).toBe("2026-09-06");
+  });
+
+  it("treats Sunday as the LAST day of the preceding week, not the first of the next", () => {
+    // The single most common off-by-one in week maths.
+    expect(weekStartOf("2026-09-06")).toBe("2026-08-31");
+    expect(weekEndOf("2026-09-06")).toBe("2026-09-06");
+  });
+
+  it("crosses a month boundary", () => {
+    expect(weekStartOf("2026-10-01")).toBe("2026-09-28");
+  });
+
+  it("crosses a year boundary", () => {
+    expect(weekStartOf("2027-01-01")).toBe("2026-12-28");
+  });
+
+  it("is a pure function of the date string, with no dependence on the host clock", () => {
+    // Kind 2: same input, same output, regardless of where this runs.
+    expect(weekStartOf("2026-09-02")).toBe(weekStartOf("2026-09-02"));
+  });
+});
