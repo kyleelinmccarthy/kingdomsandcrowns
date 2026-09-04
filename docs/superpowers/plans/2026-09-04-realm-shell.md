@@ -1677,7 +1677,7 @@ export function usePlayClock({
       recording = true;
       try {
         const date = localDateOf(new Date());
-        await recordRealmPlay(childId, date, 1);
+        await recordRealmPlay(childId, date, ticked.records);
         const access = await getRealmAccess(childId, date, currentTimeOfDay());
         const applied = applyAccess(clockRef.current, access);
         clockRef.current = applied.clock;
