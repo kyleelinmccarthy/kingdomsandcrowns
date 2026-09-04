@@ -1665,3 +1665,8 @@ html { scrollbar-color: var(--border) var(--background); }
   font-style: italic;
   color: var(--muted-foreground);
 }
+
+/* Deed player — brief flash on a correct choice, skipped in calm mode */
+.deed-sparkle { animation: deed-sparkle 400ms ease-out; }
+@keyframes deed-sparkle { from { box-shadow: 0 0 0 0 var(--glow-gold); } to { box-shadow: 0 0 12px 4px transparent; } }
+@media (prefers-reduced-motion: reduce) { .deed-sparkle { animation: none; } }
