@@ -50,6 +50,12 @@ export const MAIN_NAV: NavItem[] = [
     description: "The Hall of Legends — see how heroes stack up on family and community leaderboards.",
   },
   {
+    href: "/realm",
+    label: "Realm",
+    icon: "castle",
+    description: "Walk your kingdom — the castle, the buildings your deeds raised, and your companion at your side.",
+  },
+  {
     href: "/schedule",
     label: "Schedule",
     icon: "calendar",
