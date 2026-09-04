@@ -10,7 +10,7 @@ import { getScheduleBlocks } from "@/lib/actions/student-schedule";
 import { getSchoolingModeForDate } from "@/lib/actions/schooling-mode";
 import { generateLearningLog, getSavedLog } from "@/lib/actions/chronicles";
 import { getSchoolBreaks } from "@/lib/actions/school-breaks";
-import { addDays, getWeekStartDate, todayInZone } from "@/lib/utils/dates";
+import { addDays, todayInZone, weekStartOf } from "@/lib/utils/dates";
 import { getFamilyTimezone } from "@/lib/services/family-timezone";
 import { weekdayOfDate, currentTimeOfDay } from "@/lib/utils/schedule-days";
 import { getStructuredCardLock } from "@/lib/utils/quest-ordering";
@@ -272,7 +272,7 @@ async function AdventureView({
   week?: string;
   timeZone: string;
 }) {
-  const weekStart = week ?? getWeekStartDate();
+  const weekStart = week ?? weekStartOf(todayInZone(timeZone));
   const weekEnd = addDays(weekStart, 6);
 
   const [logText, savedLog, breaks] = await Promise.all([
