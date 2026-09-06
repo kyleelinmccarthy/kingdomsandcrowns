@@ -84,4 +84,27 @@ describe("usePlayClock", () => {
     expect(recordRealmPlay).toHaveBeenNthCalledWith(2, "c1", expect.any(String), 1);
     expect(result.current.error).toBe("");
   });
+
+  it("counts nothing while paused and refreshes access once when unpaused", async () => {
+    recordRealmPlay.mockResolvedValue(undefined);
+    getRealmAccess.mockResolvedValue({ allowed: false, reason: "school_hours" });
+    const onClose = vi.fn();
+    const { result, rerender } = renderHook(({ paused }) => usePlayClock({ enabled: true, childId: "c1", initialMinutes: 1, onClose, paused }), { initialProps: { paused: true } });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(120_000);
+    });
+    expect(recordRealmPlay).not.toHaveBeenCalled();
+    expect(getRealmAccess).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+    expect(result.current.warning).toBe(false);
+    expect(result.current.minutesRemaining).toBe(1);
+
+    rerender({ paused: false });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_000);
+    });
+    expect(getRealmAccess).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledWith("school_hours");
+  });
 });

@@ -15,7 +15,7 @@ const KEYS: Record<string, { x: number; y: number }> = {
  * Keyboard and stick are folded into one world-space axis kept in a ref, so
  * the render loop reads it every frame without a React re-render per keypress.
  */
-export function useRealmInput() {
+export function useRealmInput({ enabled = true }: { enabled?: boolean } = {}) {
   const axisRef = useRef<Vec2>({ x: 0, z: 0 });
   const keys = useRef(new Set<string>());
   const stick = useRef({ x: 0, y: 0 });
@@ -31,6 +31,12 @@ export function useRealmInput() {
   }, []);
 
   useEffect(() => {
+    if (!enabled) {
+      keys.current.clear();
+      stick.current = { x: 0, y: 0 };
+      recompute();
+      return;
+    }
     function down(e: KeyboardEvent) {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (!(e.code in KEYS)) return;
@@ -59,7 +65,7 @@ export function useRealmInput() {
       window.removeEventListener("blur", clear);
       document.removeEventListener("visibilitychange", clear);
     };
-  }, [recompute]);
+  }, [recompute, enabled]);
 
   const setStick = useCallback((screen: { x: number; y: number }) => {
     stick.current = screen;

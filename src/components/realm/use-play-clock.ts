@@ -19,11 +19,13 @@ export function usePlayClock({
   childId,
   initialMinutes,
   onClose,
+  paused = false,
 }: {
   enabled: boolean;
   childId: string;
   initialMinutes: number;
   onClose: (reason: CloseReason) => void;
+  paused?: boolean;
 }) {
   const [clock, setClock] = useState<PlayClock>(() => startClock(initialMinutes));
   const [warning, setWarning] = useState(false);
@@ -37,6 +39,28 @@ export function usePlayClock({
   // minute the old behaviour handed out.
   const pendingRef = useRef(0);
   const recordingRef = useRef(false);
+  const pausedRef = useRef(paused);
+  const refreshOnResumeRef = useRef(false);
+  // Refs change in an effect, never during render (the React Compiler rejects render-time ref writes).
+  useEffect(() => {
+    if (pausedRef.current && !paused) refreshOnResumeRef.current = true; // leaving a pause: check the gate on the next tick
+    pausedRef.current = paused;
+  }, [paused]);
+
+  const refresh = useCallback(async () => {
+    try {
+      const date = localDateOf(new Date());
+      const access = await getRealmAccess(childId, date, currentTimeOfDay());
+      const applied = applyAccess(clockRef.current, access);
+      clockRef.current = applied.clock;
+      setClock(applied.clock);
+      if (applied.event === "warn") setWarning(true);
+      if (applied.clock.minutesRemaining > 1) setWarning(false);
+      if (applied.event === "close") closeRef.current(access.allowed ? "no_minutes" : access.reason);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "The Realm lost track of time for a moment.");
+    }
+  }, [childId]);
 
   const settle = useCallback(
     async () => {
@@ -70,6 +94,12 @@ export function usePlayClock({
   useEffect(() => {
     if (!enabled) return;
     const id = setInterval(() => {
+      if (pausedRef.current) return; // a deed is running: no seconds, no records, no warnings
+      if (refreshOnResumeRef.current) {
+        refreshOnResumeRef.current = false;
+        void refresh();
+        return;
+      }
       const visible = typeof document === "undefined" || document.visibilityState === "visible";
       const ticked = tickClock(clockRef.current, 1, visible);
       clockRef.current = ticked.clock;
@@ -82,7 +112,7 @@ export function usePlayClock({
       void settle();
     }, 1000);
     return () => clearInterval(id);
-  }, [enabled, settle]);
+  }, [enabled, settle, refresh]);
 
   const flushPending = useCallback(async () => {
     if (pendingRef.current > 0 && !recordingRef.current) {

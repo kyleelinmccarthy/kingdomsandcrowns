@@ -39,4 +39,17 @@ describe("useRealmInput", () => {
 
     expect(result.current.axisRef.current).toEqual({ x: 0, z: 0 });
   });
+
+  it("ignores keys and clears held ones while disabled", () => {
+    const { result, rerender } = renderHook(({ enabled }) => useRealmInput({ enabled }), { initialProps: { enabled: true } });
+    keydown({ code: "KeyD" });
+    expect(result.current.axisRef.current.x).not.toBe(0);
+    rerender({ enabled: false });
+    expect(result.current.axisRef.current).toEqual({ x: 0, z: 0 });
+    keydown({ code: "KeyD" });
+    expect(result.current.axisRef.current).toEqual({ x: 0, z: 0 });
+    rerender({ enabled: true });
+    keydown({ code: "KeyD" });
+    expect(result.current.axisRef.current.x).not.toBe(0);
+  });
 });
