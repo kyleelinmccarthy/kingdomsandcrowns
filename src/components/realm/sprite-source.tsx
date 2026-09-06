@@ -9,6 +9,8 @@ import { getCachedTexture, setCachedTexture, spriteKey, svgElementToTexture } fr
 
 export type SpriteTextures = { hero: THREE.CanvasTexture; companion: THREE.CanvasTexture | null; villagers: Record<string, THREE.CanvasTexture> };
 
+const NO_VILLAGERS: Villager[] = [];
+
 async function textureFor(key: string, svg: SVGSVGElement): Promise<THREE.CanvasTexture> {
   const cached = getCachedTexture(key);
   if (cached) return cached;
@@ -24,11 +26,12 @@ async function textureFor(key: string, svg: SVGSVGElement): Promise<THREE.Canvas
  */
 export function SpriteSource({
   config,
-  villagers = [],
+  villagers = NO_VILLAGERS,
   onReady,
   onError,
 }: {
   config: AvatarConfig;
+  /** Villagers to rasterize. Must be a stable array (e.g. the module constant VILLAGERS). */
   villagers?: Villager[];
   onReady: (textures: SpriteTextures) => void;
   onError: (error: Error) => void;

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
-import { render, cleanup, waitFor } from "@testing-library/react";
+import { render, cleanup, waitFor, act } from "@testing-library/react";
 import { SpriteSource } from "./sprite-source";
 import { DEFAULT_AVATAR } from "@/lib/utils/avatar-catalog";
 import { VILLAGERS } from "@/lib/realm/villagers";
@@ -39,5 +39,16 @@ describe("SpriteSource", () => {
     render(<SpriteSource config={DEFAULT_AVATAR} villagers={[VILLAGERS[0]]} onReady={onReady} onError={() => {}} />);
     await waitFor(() => expect(onReady).toHaveBeenCalledTimes(2));
     expect(svgElementToTexture).toHaveBeenCalledTimes(2); // hero + villager once; second mount hits the cache
+  });
+
+  it("does not re-run the effect when parent re-renders with the same config", async () => {
+    const onReady = vi.fn();
+    const onError = vi.fn();
+    const { rerender } = render(<SpriteSource config={DEFAULT_AVATAR} onReady={onReady} onError={onError} />);
+    await waitFor(() => expect(onReady).toHaveBeenCalledTimes(1));
+    await act(async () => {
+      rerender(<SpriteSource config={DEFAULT_AVATAR} onReady={onReady} onError={onError} />);
+    });
+    await waitFor(() => expect(onReady).toHaveBeenCalledTimes(1));
   });
 });
