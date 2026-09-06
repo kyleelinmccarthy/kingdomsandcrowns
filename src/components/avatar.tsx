@@ -3,6 +3,7 @@ import {
   SKIN_TONES,
   normalizeAvatarConfig,
 } from "@/lib/utils/avatar-catalog";
+import { villagerAvatar, type Villager } from "@/lib/realm/villagers";
 
 type AvatarProps = {
   config: AvatarConfig | null;
@@ -1765,10 +1766,14 @@ export function AvatarFigure({
   config,
   size = "xl",
   className = "",
+  figure = "hero",
+  figureId,
 }: {
   config: AvatarConfig;
   size?: keyof typeof SIZE_MAP;
   className?: string;
+  figure?: "hero" | "villager";
+  figureId?: string;
 }) {
   const px = SIZE_MAP[size];
   const c = normalizeAvatarConfig(config as unknown as Record<string, unknown>);
@@ -1782,7 +1787,8 @@ export function AvatarFigure({
       className={className}
       style={{ imageRendering: "pixelated" }}
       aria-hidden="true"
-      data-figure="hero"
+      data-figure={figure}
+      data-figure-id={figureId}
     >
       <g transform="translate(0, 8)">
         <BodyLayer outfit={c.outfit} outfitColor={c.outfitColor} />
@@ -1827,4 +1833,8 @@ export function CompanionFigure({
       </g>
     </svg>
   );
+}
+
+export function VillagerFigure({ villager, size = "xl", className = "" }: { villager: Villager; size?: keyof typeof SIZE_MAP; className?: string }) {
+  return <AvatarFigure config={villagerAvatar(villager)} size={size} className={className} figure="villager" figureId={villager.id} />;
 }

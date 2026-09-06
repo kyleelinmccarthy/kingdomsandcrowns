@@ -1,7 +1,8 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { render, cleanup } from "@testing-library/react";
-import { Avatar, AvatarFigure, CompanionFigure } from "./avatar";
+import { Avatar, AvatarFigure, CompanionFigure, VillagerFigure } from "./avatar";
 import { DEFAULT_AVATAR } from "@/lib/utils/avatar-catalog";
+import { VILLAGERS } from "@/lib/realm/villagers";
 
 afterEach(cleanup);
 const SHAPES = "rect,path,circle,polygon,ellipse,line";
@@ -26,5 +27,17 @@ describe("CompanionFigure", () => {
     cleanup();
     const none = render(<CompanionFigure companion={null} color="#f0a050" />).container;
     expect(none.querySelectorAll(SHAPES).length).toBe(0);
+  });
+});
+
+describe("VillagerFigure", () => {
+  it("draws a villager with its own figure attributes and no companion", () => {
+    const v = VILLAGERS[0];
+    const { container } = render(<VillagerFigure villager={v} />);
+    const svg = container.querySelector('svg[data-figure="villager"]')!;
+    expect(svg).not.toBeNull();
+    expect(svg.getAttribute("data-figure-id")).toBe(v.id);
+    expect(container.querySelector('svg[data-figure="companion"]')).toBeNull();
+    expect(svg.querySelectorAll(SHAPES).length).toBeGreaterThan(0);
   });
 });
