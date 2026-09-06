@@ -168,10 +168,12 @@ function RealmOpen({
   useEffect(() => {
     if (panelOpen) return;
     function onKey(e: KeyboardEvent) {
-      if ((e.key === "Enter" || e.key === " ") && reachId && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLButtonElement)) {
-        e.preventDefault();
-        setOpenVillagerId(reachId);
-      }
+      if (e.key !== "Enter" && e.key !== " ") return;
+      if (!reachId) return;
+      const t = e.target;
+      if (t instanceof Element && t.closest("a, button, input, textarea, select, [role='dialog']")) return;
+      e.preventDefault();
+      setOpenVillagerId(reachId);
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

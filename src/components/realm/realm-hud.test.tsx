@@ -72,4 +72,27 @@ describe("RealmHud", () => {
     fireEvent.click(screen.getByRole("button", { name: "Wake the villagers" }));
     expect(onKingdomRetry).toHaveBeenCalled();
   });
+
+  it("logs no console errors when a preview selector is shown", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    render(
+      <RealmHud
+        heroName="Lily"
+        minutesRemaining={null}
+        warning={false}
+        preview={{ note: null }}
+        hudScale={1}
+        error=""
+        selector={<span>picker</span>}
+        onRetry={() => {}}
+        paused={false}
+        toast={null}
+        kingdomError=""
+        onKingdomRetry={() => {}}
+      />
+    );
+    const keyWarning = spy.mock.calls.some((args) => typeof args[0] === "string" && args[0].includes('unique "key"'));
+    expect(keyWarning).toBe(false);
+    spy.mockRestore();
+  });
 });

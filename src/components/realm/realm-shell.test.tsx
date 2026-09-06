@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
-import { render, screen, cleanup, act, waitFor } from "@testing-library/react";
+import { render, screen, cleanup, act, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { RealmShell } from "./realm-shell";
 import { DEFAULT_LEARNING_PROFILE } from "@/lib/utils/learning-profile";
@@ -195,5 +195,29 @@ describe("RealmShell", () => {
     await waitFor(() => expect(screen.queryByText("The villagers are resting. Try again.")).not.toBeInTheDocument());
     const layout = sceneProps.layout as { props: { id: string; tag?: string }[] };
     expect(layout.props.find((p) => p.id === "well")!.tag).toBe("4 of 5");
+  });
+
+  it("opens the site card with Enter when a villager is in reach", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    render(<RealmShell bundle={bundle} childId="c1" isChildView={true} />);
+    expect(await screen.findByTestId("scene")).toBeInTheDocument();
+    await act(async () => {
+      (sceneProps.onReachChange as (id: string | null) => void)("bram");
+    });
+    fireEvent.keyDown(document.body, { key: "Enter" });
+    expect(await screen.findByRole("dialog", { name: "Old Bram" })).toBeInTheDocument();
+  });
+
+  it("does not open the site card when Enter is pressed on the Leave the Realm link", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    render(<RealmShell bundle={bundle} childId="c1" isChildView={true} />);
+    expect(await screen.findByTestId("scene")).toBeInTheDocument();
+    await act(async () => {
+      (sceneProps.onReachChange as (id: string | null) => void)("bram");
+    });
+    const link = screen.getByRole("link", { name: "Leave the Realm" });
+    link.focus();
+    fireEvent.keyDown(link, { key: "Enter" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 });

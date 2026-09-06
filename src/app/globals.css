@@ -1696,6 +1696,7 @@ html { scrollbar-color: var(--border) var(--background); }
 .realm-hud-name { font-weight: 700; }
 .realm-hud-minutes, .realm-hud-badge { border-radius: 9999px; padding: 0.15rem 0.6rem; background: rgba(201, 168, 76, 0.2); color: var(--gold-bright); font-size: 0.85em; }
 .realm-hud-leave { margin-left: auto; color: var(--gold-bright); text-decoration: underline; font-size: 0.85em; }
+.realm-hud-selector { display: contents; }
 .realm-hud-note, .realm-hud-banner, .realm-hud-error { margin-top: 0.5rem; border-radius: 0.5rem; padding: 0.4rem 0.75rem; background: rgba(0, 0, 0, 0.45); font-size: 0.9em; }
 .realm-hud-banner { border: 1px solid var(--gold-border); }
 .realm-hud-toast { margin-top: 0.5rem; border-radius: 0.5rem; padding: 0.4rem 0.75rem; background: rgba(201, 168, 76, 0.25); border: 1px solid var(--gold-border); color: var(--gold-bright); font-weight: 700; font-size: 0.95em; animation: realm-toast-in 300ms ease-out; }

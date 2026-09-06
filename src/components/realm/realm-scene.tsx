@@ -44,6 +44,7 @@ function World({ layout, textures, settings, axisRef, interactive, reachId, onRe
   const reachRef = useRef<string | null>(null);
   const buildingMeshes = useRef(new Map<string, THREE.Mesh>());
   const rising = useRef<{ id: string; startedAt: number } | null>(null);
+  const wasInteractive = useRef(interactive);
 
   // A completed building scales up from the ground once; with motion off it simply appears.
   useEffect(() => {
@@ -53,8 +54,16 @@ function World({ layout, textures, settings, axisRef, interactive, reachId, onRe
 
   useFrame((state, delta) => {
     const dt = Math.min(delta, 0.05); // a tab that was hidden must not teleport the hero on return
-    hero.current = stepHero(hero.current, { axis: axisRef.current ?? { x: 0, z: 0 } }, dt, layout.colliders);
-    companion.current = stepCompanion(companion.current, hero.current, dt);
+    if (interactive) {
+      hero.current = stepHero(hero.current, { axis: axisRef.current ?? { x: 0, z: 0 } }, dt, layout.colliders);
+      companion.current = stepCompanion(companion.current, hero.current, dt);
+    } else if (wasInteractive.current) {
+      // A pointerdown that reached the ground before a panel opened this frame
+      // can leave a stale walk target; drop it once so the hero doesn't creep
+      // toward it while the panel is up.
+      hero.current = { ...hero.current, target: null };
+    }
+    wasInteractive.current = interactive;
     camTarget.current = followCamera(camTarget.current, hero.current.position, dt, { reducedMotion: !settings.motion });
     const bob = settings.motion ? Math.sin(state.clock.elapsedTime * 3) * 0.05 : 0;
     const p = hero.current.position;
@@ -152,7 +161,14 @@ function World({ layout, textures, settings, axisRef, interactive, reachId, onRe
       })}
       {reachVillager && reachPlacement && interactive && (
         <Html position={[reachPlacement.position.x, SPRITE_H + 0.9, reachPlacement.position.z]} center zIndexRange={[15, 0]}>
-          <div className="realm-bubble" role="group" aria-label={reachVillager.name}>
+          <div
+            className="realm-bubble"
+            role="group"
+            aria-label={reachVillager.name}
+            onPointerDown={(e) => e.stopPropagation()}
+            onPointerUp={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+          >
             <p className="realm-bubble-text">{reachVillager.greeting}</p>
             <button type="button" className="realm-bubble-talk" onClick={() => onTalk(reachVillager.id)}>Talk</button>
           </div>

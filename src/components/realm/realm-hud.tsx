@@ -36,7 +36,7 @@ export function RealmHud({
         <span className="realm-hud-name">{heroName}</span>
         {minutesRemaining !== null && <span className="realm-hud-minutes">{minutesRemaining} min left{paused ? " · paused" : ""}</span>}
         {preview && <span className="realm-hud-badge">Previewing {heroName}&apos;s Realm</span>}
-        {preview && selector}
+        {preview && <span className="realm-hud-selector">{selector}</span>}
         <Link href="/tavern" className="realm-hud-leave">Leave the Realm</Link>
       </div>
       {preview?.note && <p className="realm-hud-note">{preview.note}</p>}
