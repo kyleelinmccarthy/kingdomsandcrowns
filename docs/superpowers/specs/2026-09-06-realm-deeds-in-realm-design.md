@@ -191,7 +191,7 @@ Deed stories come from `deedStory(deed, tone)`.
 - `use-play-clock.test.ts`: paused ticks record nothing and never warn or close; unpausing triggers one access refresh; a denied refresh closes with its reason.
 - `site-card.test.tsx`: lists deeds with tone-aware stories, progress text, Begin calls `onBegin`, preview hides Begin, Escape closes.
 - `realm-shell.test.tsx` (scene mocked): reach change shows the bubble; Talk opens the card; Begin mounts `DeedPlayer` (actions mocked) and pauses the clock; Done applies the reducer and shows the rise toast; keyboard input ignored while open.
-- `deeds.test.ts` (actions): `startDeedRun` refuses a parent in the realm context and allows one in the page context.
+- `startDeedRun`'s realm-context guard: the repo has no action-level test harness, so it is exercised by the parent-preview browser pass (no Begin button, no run started).
 - Final browser pass: hero with minutes walks to the well, Talk, Begin, answer all, Done, the well rises and the toast shows; parent preview shows the card without Begin.
 
 ## E. Plan shape
