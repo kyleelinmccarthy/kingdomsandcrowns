@@ -7,6 +7,7 @@ import type { RealmBundle } from "@/lib/actions/realm";
 import { getRealmAccess } from "@/lib/actions/realm-play";
 import { buildWorldLayout } from "@/lib/realm/layout";
 import { renderSettingsFor } from "@/lib/realm/render-settings";
+import { VILLAGERS } from "@/lib/realm/villagers";
 import { gateCopy, type GateCopy } from "@/lib/realm/play-clock";
 import { disposeSpriteTextures } from "@/lib/realm/sprite-texture";
 import { DEFAULT_AVATAR } from "@/lib/utils/avatar-catalog";
@@ -154,8 +155,20 @@ function RealmOpen({
 
   return createPortal(
     <div className="realm-root" {...readingAttributes(bundle.profile)}>
-      <SpriteSource key={retryKey} config={config} onReady={onReady} onError={onError} />
-      {textures && <RealmScene layout={layout} textures={textures} settings={settings} axisRef={axisRef} />}
+      <SpriteSource key={retryKey} config={config} villagers={VILLAGERS} onReady={onReady} onError={onError} />
+      {textures && (
+        <RealmScene
+          layout={layout}
+          textures={textures}
+          settings={settings}
+          axisRef={axisRef}
+          interactive={true}
+          reachId={null}
+          onReachChange={() => {}}
+          onTalk={() => {}}
+          risingId={null}
+        />
+      )}
       <RealmHud
         heroName={bundle.heroName}
         minutesRemaining={isChildView ? clock.minutesRemaining : null}

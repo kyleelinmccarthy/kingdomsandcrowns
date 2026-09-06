@@ -1,22 +1,39 @@
 "use client";
 
 import "@react-three/fiber";
-import { useRef, type RefObject } from "react";
+import { useEffect, useRef, type RefObject } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Html, OrthographicCamera } from "@react-three/drei";
 import type * as THREE from "three";
-import { WORLD_SIZE, type WorldLayout, type Vec2 } from "@/lib/realm/layout";
+import { WORLD_SIZE, type Prop, type WorldLayout, type Vec2 } from "@/lib/realm/layout";
 import { setTarget, stepCompanion, stepHero, type CompanionState, type HeroState } from "@/lib/realm/movement";
 import { CAMERA_OFFSET, CAMERA_ZOOM, followCamera } from "@/lib/realm/camera";
+import { nearestVillager, villagerById } from "@/lib/realm/villagers";
 import type { RenderSettings } from "@/lib/realm/render-settings";
 import type { SpriteTextures } from "./sprite-source";
 
-type Props = { layout: WorldLayout; textures: SpriteTextures; settings: RenderSettings; axisRef: RefObject<Vec2> };
+export type RealmSceneProps = {
+  layout: WorldLayout;
+  textures: SpriteTextures;
+  settings: RenderSettings;
+  axisRef: RefObject<Vec2>;
+  interactive: boolean; // false while a panel is open: ground taps are ignored
+  reachId: string | null; // the villager the hero can talk to, as the shell last heard it
+  onReachChange: (id: string | null) => void;
+  onTalk: (villagerId: string) => void;
+  risingId: string | null; // a building that just completed; the scene tweens it up once
+};
 
 const SPRITE_W = 1.5;
 const SPRITE_H = 2;
+export const RISE_MS = 900;
+const CALM_FOUNDATION = "#5a5750";
 
-function World({ layout, textures, settings, axisRef }: Props) {
+function easeOut(t: number): number {
+  return 1 - (1 - t) * (1 - t);
+}
+
+function World({ layout, textures, settings, axisRef, interactive, reachId, onReachChange, onTalk, risingId }: RealmSceneProps) {
   // Per-frame state lives in refs: nothing here re-renders React sixty times a second.
   const hero = useRef<HeroState>({ position: layout.spawn, facing: "s", target: null });
   const companion = useRef<CompanionState>({ position: { x: layout.spawn.x, z: layout.spawn.z + 1.2 } });
@@ -24,6 +41,15 @@ function World({ layout, textures, settings, axisRef }: Props) {
   const heroSprite = useRef<THREE.Sprite>(null);
   const companionSprite = useRef<THREE.Sprite>(null);
   const camera = useRef<THREE.OrthographicCamera>(null);
+  const reachRef = useRef<string | null>(null);
+  const buildingMeshes = useRef(new Map<string, THREE.Mesh>());
+  const rising = useRef<{ id: string; startedAt: number } | null>(null);
+
+  // A completed building scales up from the ground once; with motion off it simply appears.
+  useEffect(() => {
+    if (!risingId) return;
+    rising.current = settings.motion ? { id: risingId, startedAt: performance.now() } : null;
+  }, [risingId, settings.motion]);
 
   useFrame((state, delta) => {
     const dt = Math.min(delta, 0.05); // a tab that was hidden must not teleport the hero on return
@@ -46,10 +72,30 @@ function World({ layout, textures, settings, axisRef }: Props) {
       camera.current.position.set(t.x + CAMERA_OFFSET.x, CAMERA_OFFSET.y, t.z + CAMERA_OFFSET.z);
       camera.current.lookAt(t.x, 0, t.z);
     }
+    // Reach is reported only when it changes, and outside the frame loop, so React never sets state mid-render.
+    const near = nearestVillager(p, layout.villagers);
+    if (near !== reachRef.current) {
+      reachRef.current = near;
+      queueMicrotask(() => onReachChange(near));
+    }
+    const r = rising.current;
+    if (r) {
+      const mesh = buildingMeshes.current.get(r.id);
+      const k = Math.min(1, (performance.now() - r.startedAt) / RISE_MS);
+      const s = 0.1 + 0.9 * easeOut(k);
+      if (mesh) {
+        mesh.scale.y = s;
+        mesh.position.y = (mesh.userData.h as number) * (s - 1) / 2; // keep the base on the ground while it grows
+      }
+      if (k >= 1) rising.current = null;
+    }
   });
 
   const ground = settings.calmPalette ? "#3b4a3f" : "#2e5a3a";
   const sky = settings.calmPalette ? "#101820" : "#0a1220";
+  const colorFor = (prop: Prop) => (prop.kind === "foundation" && settings.calmPalette ? CALM_FOUNDATION : prop.color);
+  const reachVillager = reachId ? villagerById(reachId) : null;
+  const reachPlacement = reachId ? layout.villagers.find((v) => v.id === reachId) ?? null : null;
 
   return (
     <>
@@ -61,6 +107,7 @@ function World({ layout, textures, settings, axisRef }: Props) {
         rotation={[-Math.PI / 2, 0, 0]}
         onPointerDown={(e) => {
           e.stopPropagation();
+          if (!interactive) return;
           hero.current = setTarget(hero.current, { x: e.point.x, z: e.point.z }, layout.colliders);
         }}
       >
@@ -68,19 +115,49 @@ function World({ layout, textures, settings, axisRef }: Props) {
         <planeGeometry args={[WORLD_SIZE * 3, WORLD_SIZE * 3]} />
         <meshStandardMaterial color={ground} />
       </mesh>
-      {layout.props.map((prop) => (
+      {layout.props.filter((prop) => prop.kind !== "villager").map((prop) => (
         <group key={prop.id} position={[prop.position.x, prop.size.h / 2, prop.position.z]}>
-          <mesh>
+          <mesh
+            ref={(mesh) => {
+              if (prop.kind !== "building") return;
+              if (mesh) {
+                mesh.userData.h = prop.size.h;
+                buildingMeshes.current.set(prop.id, mesh);
+              } else {
+                buildingMeshes.current.delete(prop.id);
+              }
+            }}
+          >
             <boxGeometry args={[prop.size.w, prop.size.h, prop.size.d]} />
-            <meshStandardMaterial color={prop.color} />
+            <meshStandardMaterial color={colorFor(prop)} />
           </mesh>
           {prop.kind !== "path" && (
             <Html position={[0, prop.size.h / 2 + 0.6, 0]} center zIndexRange={[10, 0]}>
-              <span className="realm-label">{prop.label}</span>
+              <span className="realm-label">
+                {prop.label}
+                {prop.tag && <span className="realm-label-tag">{prop.tag}</span>}
+              </span>
             </Html>
           )}
         </group>
       ))}
+      {layout.villagers.map((v) => {
+        const texture = textures.villagers[v.id];
+        if (!texture) return null;
+        return (
+          <sprite key={v.id} position={[v.position.x, SPRITE_H / 2, v.position.z]} scale={[SPRITE_W, SPRITE_H, 1]}>
+            <spriteMaterial map={texture} transparent alphaTest={0.1} />
+          </sprite>
+        );
+      })}
+      {reachVillager && reachPlacement && interactive && (
+        <Html position={[reachPlacement.position.x, SPRITE_H + 0.9, reachPlacement.position.z]} center zIndexRange={[15, 0]}>
+          <div className="realm-bubble" role="group" aria-label={reachVillager.name}>
+            <p className="realm-bubble-text">{reachVillager.greeting}</p>
+            <button type="button" className="realm-bubble-talk" onClick={() => onTalk(reachVillager.id)}>Talk</button>
+          </div>
+        </Html>
+      )}
       <sprite ref={heroSprite} position={[layout.spawn.x, SPRITE_H / 2, layout.spawn.z]} scale={[SPRITE_W, SPRITE_H, 1]}>
         <spriteMaterial map={textures.hero} transparent alphaTest={0.1} />
       </sprite>
@@ -93,7 +170,7 @@ function World({ layout, textures, settings, axisRef }: Props) {
   );
 }
 
-export default function RealmScene(props: Props) {
+export default function RealmScene(props: RealmSceneProps) {
   return (
     <Canvas dpr={[1, 1.5]} gl={{ antialias: false, powerPreference: "high-performance" }} style={{ position: "absolute", inset: 0 }}>
       <World {...props} />
