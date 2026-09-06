@@ -38,6 +38,14 @@ export function DeedPanel({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const panel = useRef<HTMLDivElement>(null);
+  const runDialog = useRef<HTMLDivElement>(null);
+
+  // The site card focuses itself on mount, but it unmounts once a run starts;
+  // without this the run dialog is never focused and Tab/Escape do nothing
+  // until the hero clicks something.
+  useEffect(() => {
+    if (run) runDialog.current?.focus();
+  }, [run]);
 
   // Keep Tab inside the panel while it is open; the world's controls are disabled meanwhile.
   useEffect(() => {
@@ -76,12 +84,12 @@ export function DeedPanel({
   return (
     <div ref={panel} className="realm-overlay">
       {run ? (
-        <div className="realm-panel" role="dialog" aria-modal="true" aria-label={run.deed.title} tabIndex={-1} onKeyDown={(e) => { if (e.key === "Escape") { e.stopPropagation(); onClose(); } }}>
+        <div ref={runDialog} className="realm-panel" role="dialog" aria-modal="true" aria-label={run.deed.title} tabIndex={-1} onKeyDown={(e) => { if (e.key === "Escape") { e.stopPropagation(); onClose(); } }}>
           <div className="realm-panel-head">
             <span className="text-sm text-muted-foreground">{villager.name}</span>
             <Button size="sm" variant="ghost" className="ml-auto" onClick={onClose}>Leave the deed</Button>
           </div>
-          <DeedPlayer childId={childId} run={run} profile={profile} calm={calm} onFinished={(summary) => onFinished(building.id, summary.building)} />
+          <DeedPlayer childId={childId} run={run} profile={profile} calm={calm} doneLabel="Back to the Realm" onFinished={(summary) => onFinished(building.id, summary.building)} />
         </div>
       ) : (
         <SiteCard villager={villager} building={building} preview={preview} busy={busy} error={error} onBegin={begin} onClose={onClose} />

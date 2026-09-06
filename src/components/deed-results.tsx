@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { GameIcon } from "@/components/game-icon";
 import type { RunSummary } from "@/lib/actions/deeds";
 
-export function DeedResults({ summary, deedTitle, onDone }: { summary: RunSummary; deedTitle: string; onDone: () => void }) {
+export function DeedResults({ summary, deedTitle, onDone, doneLabel = "Back to deeds" }: { summary: RunSummary; deedTitle: string; onDone: () => void; doneLabel?: string }) {
   return (
     <div className="space-y-4 text-center">
       <GameIcon name={summary.flawless ? "star" : "check"} className="mx-auto size-10 text-[var(--gold-bright)]" />
@@ -18,7 +18,7 @@ export function DeedResults({ summary, deedTitle, onDone }: { summary: RunSummar
           ? `${summary.building.label} is built!`
           : `${summary.building.label}: ${summary.building.done} of ${summary.building.total} deeds`}
       </p>
-      <Button onClick={onDone}>Back to deeds</Button>
+      <Button onClick={onDone}>{doneLabel}</Button>
     </div>
   );
 }

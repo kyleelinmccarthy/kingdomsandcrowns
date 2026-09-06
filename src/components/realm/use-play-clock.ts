@@ -54,6 +54,7 @@ export function usePlayClock({
       const applied = applyAccess(clockRef.current, access);
       clockRef.current = applied.clock;
       setClock(applied.clock);
+      setError("");
       if (applied.event === "warn") setWarning(true);
       if (applied.clock.minutesRemaining > 1) setWarning(false);
       if (applied.event === "close") closeRef.current(access.allowed ? "no_minutes" : access.reason);

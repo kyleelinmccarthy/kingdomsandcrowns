@@ -39,6 +39,17 @@ describe("DeedPanel", () => {
     expect(onFinished).toHaveBeenCalledWith("well", { label: "Village Well", done: 5, total: 5, complete: true });
   });
 
+  it("focuses the run dialog once a deed starts, so Escape works without a click first", async () => {
+    startDeedRun.mockResolvedValue({ runId: "r1", deed: { id: "well-stones", title: "Count the Well Stones", story: "Dry again." }, questions: [], responses: [] });
+    const onClose = vi.fn();
+    render(<DeedPanel childId="c1" villager={VILLAGERS[0]} building={building} profile={DEFAULT_LEARNING_PROFILE} calm={false} preview={false} onFinished={() => {}} onClose={onClose} />);
+    fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" }));
+    expect(await screen.findByText("Playing Count the Well Stones")).toBeInTheDocument();
+    expect(document.activeElement).toBe(screen.getByRole("dialog"));
+    fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+    expect(onClose).toHaveBeenCalled();
+  });
+
   it("shows a start failure in the card with the card still open", async () => {
     startDeedRun.mockRejectedValue(new Error("No deeds are ready for this hero yet."));
     render(<DeedPanel childId="c1" villager={VILLAGERS[0]} building={building} profile={DEFAULT_LEARNING_PROFILE} calm={false} preview={false} onFinished={() => {}} onClose={() => {}} />);
