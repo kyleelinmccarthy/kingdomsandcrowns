@@ -22,13 +22,8 @@ import {
 } from "@/lib/utils/deed-engine";
 import { masteryChangeCopy, masteryLabel, parseRecentResults, recordResult } from "@/lib/utils/mastery";
 import type { Question } from "@/lib/utils/drill-generators";
-import type { GameIconName } from "@/components/game-icon";
-
-export type BuildingOverview = {
-  id: string; label: string; description: string; icon: GameIconName;
-  done: number; total: number; complete: boolean;
-  deeds: { id: string; title: string; story: string; area: SkillArea }[];
-};
+import type { BuildingOverview } from "@/lib/services/deeds";
+export type { BuildingOverview };
 export type MasteryRow = { skillId: string; label: string; area: SkillArea; level: number; levelLabel: string; lastPracticedAt: string | null };
 export type DeedsOverview = {
   enabled: boolean; band: ContentBand; bandLabel: string; tone: "gentle" | "monsters";
