@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, act, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { RealmShell } from "./realm-shell";
 import { DEFAULT_LEARNING_PROFILE } from "@/lib/utils/learning-profile";
@@ -11,7 +11,25 @@ vi.mock("@/lib/actions/realm-play", () => ({
   getRealmAccess: (...a: unknown[]) => getRealmAccess(...a),
   recordRealmPlay: (...a: unknown[]) => recordRealmPlay(...a),
 }));
-vi.mock("./realm-scene", () => ({ default: () => <div data-testid="scene" /> }));
+let sceneProps: Record<string, unknown> = {};
+vi.mock("./realm-scene", () => ({
+  default: (props: Record<string, unknown>) => {
+    sceneProps = props;
+    return <div data-testid="scene" data-interactive={String(props.interactive)} data-rising={String(props.risingId ?? "")} />;
+  },
+}));
+const startDeedRun = vi.fn();
+const getRealmKingdom = vi.fn();
+vi.mock("@/lib/actions/deeds", () => ({ startDeedRun: (...a: unknown[]) => startDeedRun(...a), answerDeedQuestion: vi.fn(), completeDeedRun: vi.fn() }));
+vi.mock("@/lib/actions/realm", () => ({ getRealmKingdom: (...a: unknown[]) => getRealmKingdom(...a) }));
+vi.mock("@/components/deed-player", () => ({
+  DeedPlayer: ({ run, onFinished }: { run: { deed: { title: string } }; onFinished: (s: unknown) => void }) => (
+    <div>
+      <p>Playing {run.deed.title}</p>
+      <button type="button" onClick={() => onFinished({ correctCount: 8, total: 8, flawless: true, masteryChanges: [], building: { label: "Village Well", done: 5, total: 5, complete: true } })}>finish</button>
+    </div>
+  ),
+}));
 // The real hook, with `flushPending` wrapped so tests can assert it was
 // called on retry without duplicating use-play-clock.test.ts's own coverage
 // of what flushPending actually does.
@@ -55,14 +73,11 @@ vi.mock("./sprite-source", async () => {
   };
 });
 
-const bundle = {
-  heroName: "Lily",
-  avatarConfig: DEFAULT_AVATAR,
-  castleType: "campsite",
-  kingdom: { tone: "gentle" as const, buildings: [] },
-  profile: DEFAULT_LEARNING_PROFILE,
-  settings: { enabled: true, toneMode: "gentle" as const },
+const well = {
+  id: "well", label: "Village Well", description: "Clean water for every doorstep.", icon: "box" as const, done: 4, total: 5, complete: false,
+  deeds: [{ id: "well-stones", title: "Count the Well Stones", story: "Old Bram's bucket keeps coming up dry.", area: "math" as const }],
 };
+const bundle = { heroName: "Lily", avatarConfig: DEFAULT_AVATAR, castleType: "campsite", kingdom: { tone: "gentle" as const, buildings: [well] }, profile: DEFAULT_LEARNING_PROFILE, settings: { enabled: true, toneMode: "gentle" as const } };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -124,5 +139,61 @@ describe("RealmShell", () => {
     );
     expect(await screen.findByTestId("scene")).toBeInTheDocument();
     expect(document.querySelector(".realm-root")).toHaveAttribute("data-reading-font", "on");
+  });
+
+  it("opens the site card from a villager in reach, pauses the clock, and raises the building on completion", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    startDeedRun.mockResolvedValue({ runId: "r1", deed: { id: "well-stones", title: "Count the Well Stones", story: "Dry again." }, questions: [], responses: [] });
+    const user = userEvent.setup();
+    render(<RealmShell bundle={bundle} childId="c1" isChildView={true} />);
+    expect(await screen.findByTestId("scene")).toBeInTheDocument();
+    await act(async () => {
+      (sceneProps.onReachChange as (id: string | null) => void)("bram");
+    });
+    await act(async () => {
+      (sceneProps.onTalk as (id: string) => void)("bram");
+    });
+    expect(await screen.findByRole("dialog", { name: "Old Bram" })).toBeInTheDocument();
+    expect(screen.getByText("4 of 5")).toBeInTheDocument();
+    expect(screen.getByTestId("scene")).toHaveAttribute("data-interactive", "false");
+    expect(screen.getByText("12 min left · paused")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Begin Count the Well Stones" }));
+    expect(await screen.findByText("Playing Count the Well Stones")).toBeInTheDocument();
+    expect(startDeedRun).toHaveBeenCalledWith("c1", "well-stones", "realm");
+    await user.click(screen.getByRole("button", { name: "finish" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByTestId("scene")).toHaveAttribute("data-interactive", "true");
+    expect(screen.getByTestId("scene")).toHaveAttribute("data-rising", "well");
+    expect(screen.getByRole("status")).toHaveTextContent("The Village Well stands.");
+    expect(screen.getByText("12 min left")).toBeInTheDocument();
+    const layout = sceneProps.layout as { props: { id: string; kind: string; tag?: string }[] };
+    expect(layout.props.find((p) => p.id === "well")).toMatchObject({ kind: "building", tag: "Built" });
+  });
+
+  it("lets a parent read a site card without a Begin button", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 5, source: "earned" });
+    render(<RealmShell bundle={bundle} childId="c1" isChildView={false} />);
+    expect(await screen.findByTestId("scene")).toBeInTheDocument();
+    await act(async () => {
+      (sceneProps.onReachChange as (id: string | null) => void)("bram");
+      (sceneProps.onTalk as (id: string) => void)("bram");
+    });
+    expect(await screen.findByRole("dialog", { name: "Old Bram" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Begin / })).not.toBeInTheDocument();
+    expect(screen.getByText("Deeds are for the hero to play.")).toBeInTheDocument();
+    expect(startDeedRun).not.toHaveBeenCalled();
+  });
+
+  it("opens the world without villagers when the kingdom failed to load, and retries from the HUD", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 5, source: "earned" });
+    getRealmKingdom.mockResolvedValue({ tone: "gentle", buildings: [well] });
+    const user = userEvent.setup();
+    render(<RealmShell bundle={{ ...bundle, kingdom: { tone: "gentle", buildings: [] }, kingdomError: "The villagers are resting. Try again." }} childId="c1" isChildView={true} />);
+    expect(await screen.findByTestId("scene")).toBeInTheDocument();
+    expect(screen.getByText("The villagers are resting. Try again.")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Wake the villagers" }));
+    await waitFor(() => expect(screen.queryByText("The villagers are resting. Try again.")).not.toBeInTheDocument());
+    const layout = sceneProps.layout as { props: { id: string; tag?: string }[] };
+    expect(layout.props.find((p) => p.id === "well")!.tag).toBe("4 of 5");
   });
 });

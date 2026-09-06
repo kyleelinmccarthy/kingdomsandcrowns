@@ -12,6 +12,10 @@ export function RealmHud({
   error,
   selector,
   onRetry,
+  paused,
+  toast,
+  kingdomError,
+  onKingdomRetry,
 }: {
   heroName: string;
   minutesRemaining: number | null; // null hides the counter (parent preview)
@@ -21,12 +25,16 @@ export function RealmHud({
   error: string;
   selector?: React.ReactNode;
   onRetry: () => void;
+  paused: boolean;
+  toast: string | null;
+  kingdomError: string;
+  onKingdomRetry: () => void;
 }) {
   return (
     <div className="realm-hud" style={{ fontSize: `${hudScale}em` }}>
       <div className="realm-hud-row">
         <span className="realm-hud-name">{heroName}</span>
-        {minutesRemaining !== null && <span className="realm-hud-minutes">{minutesRemaining} min left</span>}
+        {minutesRemaining !== null && <span className="realm-hud-minutes">{minutesRemaining} min left{paused ? " · paused" : ""}</span>}
         {preview && <span className="realm-hud-badge">Previewing {heroName}&apos;s Realm</span>}
         {preview && selector}
         <Link href="/tavern" className="realm-hud-leave">Leave the Realm</Link>
@@ -38,6 +46,12 @@ export function RealmHud({
           {error} <Button size="xs" variant="ghost" onClick={onRetry}>Try again</Button>
         </p>
       )}
+      {kingdomError && (
+        <p className="realm-hud-error">
+          {kingdomError} <Button size="xs" variant="ghost" onClick={onKingdomRetry}>Wake the villagers</Button>
+        </p>
+      )}
+      {toast && <p className="realm-hud-toast" role="status">{toast}</p>}
     </div>
   );
 }
