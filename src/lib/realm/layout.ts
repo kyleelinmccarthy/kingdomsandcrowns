@@ -75,7 +75,8 @@ export function buildingFootprint(id: string): { w: number; d: number; h: number
   return id === "watchtower" ? WATCHTOWER_SIZE : BUILDING_SIZE;
 }
 
-export function buildWorldLayout(input: { castleType: string; buildings: SiteProgress[] }): WorldLayout {
+export function buildWorldLayout(input: { castleType: string; buildings: SiteProgress[]; villagers?: boolean }): WorldLayout {
+  const showVillagers = input.villagers ?? true;
   const castleSize = CASTLE_FOOTPRINTS[input.castleType] ?? CASTLE_FOOTPRINTS.campsite;
   const props: Prop[] = [
     { id: "castle", kind: "castle", label: "Castle", position: CASTLE_POSITION, size: castleSize, color: CASTLE_COLOR, solid: true },
@@ -96,15 +97,17 @@ export function buildWorldLayout(input: { castleType: string; buildings: SitePro
     const footprint = buildingFootprint(building.id);
     const p = progress.get(building.id) ?? { id: building.id, done: 0, total: building.deedsToBuild, complete: false };
     if (p.complete) {
-      props.push({ id: building.id, kind: "building", label: building.label, tag: "Built", position: slot, size: footprint, color: BUILDING_COLORS[building.id] ?? "#888888", solid: true });
+      props.push({ id: building.id, kind: "building", label: building.label, tag: showVillagers ? "Built" : undefined, position: slot, size: footprint, color: BUILDING_COLORS[building.id] ?? "#888888", solid: true });
     } else {
-      props.push({ id: building.id, kind: "foundation", label: building.label, tag: `${p.done} of ${p.total}`, position: slot, size: { ...footprint, h: FOUNDATION_H }, color: FOUNDATION_COLOR, solid: false });
+      props.push({ id: building.id, kind: "foundation", label: building.label, tag: showVillagers ? `${p.done} of ${p.total}` : undefined, position: slot, size: { ...footprint, h: FOUNDATION_H }, color: FOUNDATION_COLOR, solid: false });
     }
-    const villager = VILLAGERS.find((v) => v.buildingId === building.id);
-    if (villager) {
-      const position = villagerPosition(slot, footprint);
-      villagers.push({ id: villager.id, buildingId: building.id, position });
-      props.push({ id: `villager-${villager.id}`, kind: "villager", label: villager.name, position, size: VILLAGER_SIZE, color: "#000000", solid: false });
+    if (showVillagers) {
+      const villager = VILLAGERS.find((v) => v.buildingId === building.id);
+      if (villager) {
+        const position = villagerPosition(slot, footprint);
+        villagers.push({ id: villager.id, buildingId: building.id, position });
+        props.push({ id: `villager-${villager.id}`, kind: "villager", label: villager.name, position, size: VILLAGER_SIZE, color: "#000000", solid: false });
+      }
     }
   }
 

@@ -60,6 +60,19 @@ describe("buildWorldLayout", () => {
     expect(REACH).toBeGreaterThan(0);
   });
 
+  it("omits villagers and site tags when villagers is false", () => {
+    const layout = buildWorldLayout({
+      castleType: "keep",
+      buildings: [{ id: "well", done: 5, total: 5, complete: true }],
+      villagers: false,
+    });
+    expect(layout.villagers.length).toBe(0);
+    expect(layout.props.some((p) => p.kind === "villager")).toBe(false);
+    const sites = layout.props.filter((p) => p.kind === "building" || p.kind === "foundation");
+    expect(sites.length).toBeGreaterThan(0);
+    expect(sites.every((p) => p.tag === undefined)).toBe(true);
+  });
+
   it("lays a walkable path from the gate to the castle and keeps it out of the colliders", () => {
     const layout = buildWorldLayout({ ...none, castleType: "castle" });
     const path = layout.props.filter((p) => p.kind === "path");

@@ -6,7 +6,7 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { Html, OrthographicCamera } from "@react-three/drei";
 import type * as THREE from "three";
 import { WORLD_SIZE, type Prop, type WorldLayout, type Vec2 } from "@/lib/realm/layout";
-import { setTarget, stepCompanion, stepHero, type CompanionState, type HeroState } from "@/lib/realm/movement";
+import { setTarget, stepCompanion, stepHero, unstickHero, type CompanionState, type HeroState } from "@/lib/realm/movement";
 import { CAMERA_OFFSET, CAMERA_ZOOM, followCamera } from "@/lib/realm/camera";
 import { nearestVillager, villagerById } from "@/lib/realm/villagers";
 import type { RenderSettings } from "@/lib/realm/render-settings";
@@ -51,6 +51,12 @@ function World({ layout, textures, settings, axisRef, interactive, reachId, onRe
     if (!risingId) return;
     rising.current = settings.motion ? { id: risingId, startedAt: performance.now() } : null;
   }, [risingId, settings.motion]);
+
+  // A foundation the hero was standing on can become a solid building between
+  // frames; step them out rather than leaving them entombed inside it.
+  useEffect(() => {
+    hero.current = unstickHero(hero.current, layout.colliders);
+  }, [layout.colliders]);
 
   useFrame((state, delta) => {
     const dt = Math.min(delta, 0.05); // a tab that was hidden must not teleport the hero on return

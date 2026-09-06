@@ -79,6 +79,13 @@ export function stepHero(state: HeroState, input: MoveInput, dt: number, collide
   return { position, facing, target };
 }
 
+/** If the hero stands inside a solid prop (a foundation that just became a building), step them out to just south of it. */
+export function unstickHero(state: HeroState, colliders: Prop[]): HeroState {
+  const inside = colliders.find((c) => blocked(state.position, c));
+  if (!inside) return state;
+  return { ...state, target: null, position: { x: state.position.x, z: inside.position.z + inside.size.d / 2 + HERO_RADIUS + 0.1 } };
+}
+
 /** The companion eases toward a spot behind the hero and never crowds them. */
 export function stepCompanion(companion: CompanionState, hero: HeroState, dt: number): CompanionState {
   const f = FACING_VEC[hero.facing];

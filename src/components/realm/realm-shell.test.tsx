@@ -141,6 +141,19 @@ describe("RealmShell", () => {
     expect(document.querySelector(".realm-root")).toHaveAttribute("data-reading-font", "on");
   });
 
+  it("carries the larger-text attribute onto the realm root", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    render(
+      <RealmShell
+        bundle={{ ...bundle, profile: { ...DEFAULT_LEARNING_PROFILE, largerText: true } }}
+        childId="c1"
+        isChildView={true}
+      />
+    );
+    expect(await screen.findByTestId("scene")).toBeInTheDocument();
+    expect(document.querySelector(".realm-root")).toHaveAttribute("data-larger-text", "on");
+  });
+
   it("opens the site card from a villager in reach, pauses the clock, and raises the building on completion", async () => {
     getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
     startDeedRun.mockResolvedValue({ runId: "r1", deed: { id: "well-stones", title: "Count the Well Stones", story: "Dry again." }, questions: [], responses: [] });
@@ -195,6 +208,36 @@ describe("RealmShell", () => {
     await waitFor(() => expect(screen.queryByText("The villagers are resting. Try again.")).not.toBeInTheDocument());
     const layout = sceneProps.layout as { props: { id: string; tag?: string }[] };
     expect(layout.props.find((p) => p.id === "well")!.tag).toBe("4 of 5");
+  });
+
+  it("has no villagers and ignores Talk while the kingdom failed to load", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    render(<RealmShell bundle={{ ...bundle, kingdom: { tone: "gentle", buildings: [] }, kingdomError: "The villagers are resting. Try again." }} childId="c1" isChildView={true} />);
+    expect(await screen.findByTestId("scene")).toBeInTheDocument();
+    const layout = sceneProps.layout as { villagers: unknown[] };
+    expect(layout.villagers.length).toBe(0);
+    await act(async () => {
+      (sceneProps.onTalk as (id: string) => void)("bram");
+    });
+    expect(screen.getByTestId("scene")).toHaveAttribute("data-interactive", "true");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.queryByText(/· paused/)).not.toBeInTheDocument();
+  });
+
+  it("returns focus to the realm root when the panel closes", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    render(<RealmShell bundle={bundle} childId="c1" isChildView={true} />);
+    expect(await screen.findByTestId("scene")).toBeInTheDocument();
+    await act(async () => {
+      (sceneProps.onReachChange as (id: string | null) => void)("bram");
+    });
+    await act(async () => {
+      (sceneProps.onTalk as (id: string) => void)("bram");
+    });
+    const dialog = await screen.findByRole("dialog", { name: "Old Bram" });
+    fireEvent.keyDown(dialog, { key: "Escape" });
+    // The scene mock renders no bubble, so the root is the focus fallback.
+    await waitFor(() => expect(document.activeElement).toBe(document.querySelector(".realm-root")));
   });
 
   it("opens the site card with Enter when a villager is in reach", async () => {

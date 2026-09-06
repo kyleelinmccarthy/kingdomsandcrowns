@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { stepHero, setTarget, stepCompanion, HERO_SPEED, ARRIVE_RADIUS, HERO_RADIUS, COMPANION_MIN_GAP, type HeroState } from "./movement";
+import { stepHero, setTarget, stepCompanion, unstickHero, HERO_SPEED, ARRIVE_RADIUS, HERO_RADIUS, COMPANION_MIN_GAP, type HeroState } from "./movement";
 import { WORLD_SIZE, type Prop } from "./layout";
 
 const idle: HeroState = { position: { x: 0, z: 0 }, facing: "s", target: null };
@@ -64,6 +64,19 @@ describe("colliders and bounds", () => {
   it("drops a target it cannot reach", () => {
     const s = run(setTarget({ ...idle, position: { x: 0, z: 0 } }, { x: 6, z: 0 }, [wall]), noInput, 3, [wall]);
     expect(s.target).toBeNull();
+  });
+});
+
+describe("unstickHero", () => {
+  const box: Prop = { id: "well", kind: "building", label: "Well", position: { x: -5, z: 8 }, size: { w: 3, d: 3, h: 2.5 }, color: "#000", solid: true };
+  it("steps a hero out of a solid prop it stands inside, to just south of it", () => {
+    const inside: HeroState = { position: { x: -5, z: 8 }, facing: "n", target: { x: 1, z: 1 } };
+    const s = unstickHero(inside, [box]);
+    expect(s.position).toEqual({ x: -5, z: 8 + 1.5 + HERO_RADIUS + 0.1 });
+    expect(s.target).toBeNull();
+  });
+  it("returns the same state object when the hero is outside every collider", () => {
+    expect(unstickHero(idle, [box])).toBe(idle);
   });
 });
 

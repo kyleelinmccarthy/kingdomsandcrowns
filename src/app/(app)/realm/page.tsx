@@ -56,6 +56,7 @@ export default async function RealmPage({ searchParams }: { searchParams: Promis
         </div>
       </div>
       <RealmShell
+        key={activeChild.id}
         bundle={bundle}
         childId={activeChild.id}
         isChildView={isChildView}

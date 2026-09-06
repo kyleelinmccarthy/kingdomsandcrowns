@@ -17,7 +17,7 @@ const building = {
 describe("SiteCard", () => {
   it("shows the villager, progress, and each deed with a Begin button", () => {
     const onBegin = vi.fn();
-    render(<SiteCard villager={VILLAGERS[0]} building={building} preview={false} busy={false} error="" onBegin={onBegin} onClose={() => {}} />);
+    render(<SiteCard villager={VILLAGERS[0]} building={building} preview={false} busy={false} error="" onBegin={onBegin} onClearError={() => {}} onClose={() => {}} />);
     expect(screen.getByRole("dialog", { name: "Old Bram" })).toBeInTheDocument();
     expect(screen.getByText("2 of 5")).toBeInTheDocument();
     expect(screen.getByText("Old Bram's bucket keeps coming up dry.")).toBeInTheDocument();
@@ -26,24 +26,37 @@ describe("SiteCard", () => {
   });
 
   it("says Built for a complete site and still lists its deeds", () => {
-    render(<SiteCard villager={VILLAGERS[0]} building={{ ...building, done: 5, complete: true }} preview={false} busy={false} error="" onBegin={() => {}} onClose={() => {}} />);
+    render(<SiteCard villager={VILLAGERS[0]} building={{ ...building, done: 5, complete: true }} preview={false} busy={false} error="" onBegin={() => {}} onClearError={() => {}} onClose={() => {}} />);
     expect(screen.getByText("Built")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /^Begin / }).length).toBe(2);
   });
 
   it("hides Begin in preview and explains why", () => {
-    render(<SiteCard villager={VILLAGERS[0]} building={building} preview={true} busy={false} error="" onBegin={() => {}} onClose={() => {}} />);
+    render(<SiteCard villager={VILLAGERS[0]} building={building} preview={true} busy={false} error="" onBegin={() => {}} onClearError={() => {}} onClose={() => {}} />);
     expect(screen.queryByRole("button", { name: /^Begin / })).not.toBeInTheDocument();
     expect(screen.getByText("Deeds are for the hero to play.")).toBeInTheDocument();
   });
 
-  it("closes on the Close button and on Escape, and shows an error with retry", () => {
+  it("closes on the Close button and on Escape", () => {
     const onClose = vi.fn();
     const onBegin = vi.fn();
-    render(<SiteCard villager={VILLAGERS[0]} building={building} preview={false} busy={false} error="No deeds are ready for this hero yet." onBegin={onBegin} onClose={onClose} />);
-    expect(screen.getByText("No deeds are ready for this hero yet.")).toBeInTheDocument();
+    render(<SiteCard villager={VILLAGERS[0]} building={building} preview={false} busy={false} error="" onBegin={onBegin} onClearError={() => {}} onClose={onClose} />);
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
     expect(onClose).toHaveBeenCalledTimes(2);
+  });
+
+  it("shows an error with a Try again control that clears it", () => {
+    const onClearError = vi.fn();
+    const { rerender } = render(
+      <SiteCard villager={VILLAGERS[0]} building={building} preview={false} busy={false} error="No deeds are ready for this hero yet." onBegin={() => {}} onClearError={onClearError} onClose={() => {}} />
+    );
+    expect(screen.getByText("No deeds are ready for this hero yet.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(onClearError).toHaveBeenCalledTimes(1);
+    // The button only clears the caller's `error` state; re-render with it emptied,
+    // as the real DeedPanel does once `onClearError` runs.
+    rerender(<SiteCard villager={VILLAGERS[0]} building={building} preview={false} busy={false} error="" onBegin={() => {}} onClearError={onClearError} onClose={() => {}} />);
+    expect(screen.queryByText("No deeds are ready for this hero yet.")).not.toBeInTheDocument();
   });
 });

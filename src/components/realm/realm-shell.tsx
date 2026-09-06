@@ -141,6 +141,7 @@ function RealmOpen({
   const [openVillagerId, setOpenVillagerId] = useState<string | null>(null);
   const [risingId, setRisingId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
   // `.game-content` (the page's <main>) is `position: relative; z-index: 10`,
   // which traps `.realm-root`'s z-index inside its own stacking context —
   // the app banner (30) and bottom nav (40) would sit on top of the world
@@ -153,16 +154,35 @@ function RealmOpen({
   // this component never renders during SSR (it mounts after the
   // client-side access check resolves).
   const [portalTarget] = useState<Element | null>(() => (typeof document === "undefined" ? null : document.body));
-  const layout = useMemo(() => buildWorldLayout({ castleType: bundle.castleType, buildings: kingdom.buildings }), [bundle.castleType, kingdom.buildings]);
+  const layout = useMemo(
+    () => buildWorldLayout({ castleType: bundle.castleType, buildings: kingdom.buildings, villagers: !kingdomError }),
+    [bundle.castleType, kingdom.buildings, kingdomError]
+  );
   const settings = renderSettingsFor(bundle.profile, isTouch);
-  const panelOpen = openVillagerId !== null;
+  // Computed before `panelOpen` so a Talk whose building data never loaded (or has since
+  // gone missing) cannot pause the world behind a panel that has nothing to show.
+  const openVillager = openVillagerId ? villagerById(openVillagerId) : null;
+  const openBuilding = openVillager ? kingdom.buildings.find((b) => b.id === openVillager.buildingId) ?? null : null;
+  const panelOpen = openVillager !== null && openBuilding !== null;
   const { axisRef, setStick } = useRealmInput({ enabled: !panelOpen });
   const config = bundle.avatarConfig ?? DEFAULT_AVATAR;
   const clock = usePlayClock({ enabled: isChildView, childId, initialMinutes: minutes, onClose, paused: panelOpen });
   const onReady = useCallback((t: SpriteTextures) => setTextures(t), []);
   const onError = useCallback((e: Error) => setSpriteError(e.message), []);
   const onReachChange = useCallback((id: string | null) => setReachId(id), []);
-  const onTalk = useCallback((id: string) => setOpenVillagerId(id), []);
+
+  // The latest kingdom, readable from event handlers without a stale closure and without side effects in an updater.
+  const kingdomRef = useRef(kingdom);
+  useEffect(() => {
+    kingdomRef.current = kingdom;
+  }, [kingdom]);
+
+  const onTalk = useCallback((id: string) => {
+    const villager = villagerById(id);
+    if (!villager) return;
+    if (!kingdomRef.current.buildings.some((b) => b.id === villager.buildingId)) return; // no data for this site yet
+    setOpenVillagerId(id);
+  }, []);
 
   // Enter or Space talks to the villager in reach when no panel is open.
   useEffect(() => {
@@ -186,11 +206,19 @@ function RealmOpen({
     return () => clearTimeout(id);
   }, [toast]);
 
-  // The latest kingdom, readable from event handlers without a stale closure and without side effects in an updater.
-  const kingdomRef = useRef(kingdom);
-  useEffect(() => {
-    kingdomRef.current = kingdom;
-  }, [kingdom]);
+  // The panel can close via Close/Escape or a finished deed; either way, focus lands back
+  // on the Talk bubble if the hero is still in reach of it, otherwise on the world itself
+  // so keyboard input keeps working instead of falling into the page body.
+  const returnFocus = useCallback(() => {
+    requestAnimationFrame(() => {
+      (document.querySelector<HTMLElement>(".realm-bubble-talk") ?? rootRef.current)?.focus();
+    });
+  }, []);
+
+  const onPanelClose = useCallback(() => {
+    setOpenVillagerId(null);
+    returnFocus();
+  }, [returnFocus]);
 
   const onDeedFinished = useCallback((buildingId: string, result: { done: number; total: number; complete: boolean }) => {
     const applied = applyDeedResult(kingdomRef.current, buildingId, result);
@@ -202,7 +230,8 @@ function RealmOpen({
       setToast(`The ${label} stands.`);
     }
     setOpenVillagerId(null);
-  }, []);
+    returnFocus();
+  }, [returnFocus]);
 
   const onKingdomRetry = useCallback(() => {
     getRealmKingdom(childId)
@@ -213,14 +242,12 @@ function RealmOpen({
       .catch(() => setKingdomError(VILLAGERS_RESTING));
   }, [childId]);
 
-  const openVillager = openVillagerId ? villagerById(openVillagerId) : null;
-  const openBuilding = openVillager ? kingdom.buildings.find((b) => b.id === openVillager.buildingId) ?? null : null;
   const calm = bundle.profile.reducedMotion || bundle.profile.lowStimulus;
 
   if (!portalTarget) return null;
 
   return createPortal(
-    <div className="realm-root" {...readingAttributes(bundle.profile)}>
+    <div ref={rootRef} className="realm-root" tabIndex={-1} {...readingAttributes(bundle.profile)}>
       <SpriteSource key={retryKey} config={config} villagers={VILLAGERS} onReady={onReady} onError={onError} />
       {textures && (
         <RealmScene
@@ -245,6 +272,7 @@ function RealmOpen({
         selector={selector}
         paused={panelOpen}
         toast={toast}
+        calm={!settings.motion || settings.calmPalette}
         kingdomError={kingdomError}
         onKingdomRetry={onKingdomRetry}
         onRetry={() => {
@@ -264,7 +292,7 @@ function RealmOpen({
           calm={calm}
           preview={!isChildView}
           onFinished={onDeedFinished}
-          onClose={() => setOpenVillagerId(null)}
+          onClose={onPanelClose}
         />
       )}
     </div>,

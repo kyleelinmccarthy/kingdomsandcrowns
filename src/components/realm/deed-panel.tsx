@@ -57,10 +57,15 @@ export function DeedPanel({
       if (items.length === 0) return;
       const first = items[0];
       const last = items[items.length - 1];
-      if (e.shiftKey && document.activeElement === first) {
+      // Right after opening, focus sits on the dialog container itself (tabIndex={-1},
+      // not one of `items`), so neither branch below would match it: Shift+Tab could
+      // escape the trap backward. Treat that focus position the same as "on first item".
+      const dialog = root.querySelector('[role="dialog"]');
+      const onFirst = document.activeElement === first || document.activeElement === dialog;
+      if (e.shiftKey && onFirst) {
         e.preventDefault();
         last.focus();
-      } else if (!e.shiftKey && document.activeElement === last) {
+      } else if (!e.shiftKey && (document.activeElement === last || document.activeElement === dialog)) {
         e.preventDefault();
         first.focus();
       }
@@ -92,7 +97,7 @@ export function DeedPanel({
           <DeedPlayer childId={childId} run={run} profile={profile} calm={calm} doneLabel="Back to the Realm" onFinished={(summary) => onFinished(building.id, summary.building)} />
         </div>
       ) : (
-        <SiteCard villager={villager} building={building} preview={preview} busy={busy} error={error} onBegin={begin} onClose={onClose} />
+        <SiteCard villager={villager} building={building} preview={preview} busy={busy} error={error} onBegin={begin} onClearError={() => setError("")} onClose={onClose} />
       )}
     </div>
   );

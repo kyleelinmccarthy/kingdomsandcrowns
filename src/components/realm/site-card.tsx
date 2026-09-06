@@ -15,6 +15,7 @@ export function SiteCard({
   busy,
   error,
   onBegin,
+  onClearError,
   onClose,
 }: {
   villager: Villager;
@@ -23,6 +24,7 @@ export function SiteCard({
   busy: boolean;
   error: string;
   onBegin: (deedId: string) => void;
+  onClearError: () => void;
   onClose: () => void;
 }) {
   const panel = useRef<HTMLDivElement>(null);
@@ -62,7 +64,9 @@ export function SiteCard({
       </div>
       <div className="xp-bar-track"><div className="xp-bar-fill" style={{ width: `${(building.done / building.total) * 100}%` }} /></div>
       {error && (
-        <p className="rounded-md bg-destructive/10 p-2 text-sm text-destructive">{error}</p>
+        <p className="rounded-md bg-destructive/10 p-2 text-sm text-destructive">
+          {error} <Button size="xs" variant="ghost" onClick={onClearError}>Try again</Button>
+        </p>
       )}
       <ul className="realm-panel-deeds">
         {building.deeds.map((d) => (

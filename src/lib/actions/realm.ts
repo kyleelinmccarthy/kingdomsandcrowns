@@ -41,7 +41,10 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
     db.select({ type: schema.castle.type }).from(schema.castle).where(eq(schema.castle.childId, childId)).limit(1),
     db.select().from(schema.learningProfile).where(eq(schema.learningProfile.childId, childId)).limit(1),
     loadRealmSettings(childId),
-    loadKingdomState(childId).then((kingdom) => ({ kingdom, error: undefined as string | undefined })).catch(() => ({ kingdom: { tone: "gentle" as const, buildings: [] }, error: VILLAGERS_RESTING })),
+    loadKingdomState(childId).then((kingdom) => ({ kingdom, error: undefined as string | undefined })).catch((err: unknown) => {
+      console.error("Realm kingdom failed to load", err);
+      return { kingdom: { tone: "gentle" as const, buildings: [] }, error: VILLAGERS_RESTING };
+    }),
   ]);
   const child = childRows[0];
   if (!child) throw new Error("Hero not found.");

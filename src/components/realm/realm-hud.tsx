@@ -14,6 +14,7 @@ export function RealmHud({
   onRetry,
   paused,
   toast,
+  calm,
   kingdomError,
   onKingdomRetry,
 }: {
@@ -27,6 +28,7 @@ export function RealmHud({
   onRetry: () => void;
   paused: boolean;
   toast: string | null;
+  calm: boolean;
   kingdomError: string;
   onKingdomRetry: () => void;
 }) {
@@ -51,7 +53,7 @@ export function RealmHud({
           {kingdomError} <Button size="xs" variant="ghost" onClick={onKingdomRetry}>Wake the villagers</Button>
         </p>
       )}
-      {toast && <p className="realm-hud-toast" role="status">{toast}</p>}
+      {toast && <p className={calm ? "realm-hud-toast realm-hud-toast--plain" : "realm-hud-toast"} role="status">{toast}</p>}
     </div>
   );
 }
