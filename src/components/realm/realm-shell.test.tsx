@@ -59,7 +59,7 @@ const bundle = {
   heroName: "Lily",
   avatarConfig: DEFAULT_AVATAR,
   castleType: "campsite",
-  builtBuildingIds: [],
+  kingdom: { tone: "gentle" as const, buildings: [] },
   profile: DEFAULT_LEARNING_PROFILE,
   settings: { enabled: true, toneMode: "gentle" as const },
 };

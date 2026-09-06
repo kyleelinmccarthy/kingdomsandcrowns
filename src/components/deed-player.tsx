@@ -31,7 +31,7 @@ export function DeedPlayer({
   run: RunStart;
   profile: ProfileLike;
   calm: boolean;
-  onFinished: () => void;
+  onFinished: (summary: RunSummary) => void;
 }) {
   // A resumed run continues at the first unanswered question rather than replaying
   // from the start; a run with nothing left unanswered opens on the last question.
@@ -98,7 +98,7 @@ export function DeedPlayer({
   if (summary) {
     return (
       <GameFrame title={run.deed.title} icon={<GameIcon name="map" className="size-4 text-[var(--gold-bright)]" />}>
-        <DeedResults summary={summary} deedTitle={run.deed.title} onDone={onFinished} />
+        <DeedResults summary={summary} deedTitle={run.deed.title} onDone={() => onFinished(summary)} />
       </GameFrame>
     );
   }

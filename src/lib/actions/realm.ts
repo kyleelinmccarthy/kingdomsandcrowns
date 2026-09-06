@@ -1,10 +1,12 @@
 "use server";
 
-import { and, eq, isNotNull } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { requireChildAccess } from "@/lib/auth/access";
 import { loadRealmSettings } from "@/lib/services/realm-play";
+import { loadKingdomOverview } from "@/lib/services/deeds";
+import type { KingdomState } from "@/lib/realm/kingdom-state";
 import { profileFromRow, type LearningProfile } from "@/lib/utils/learning-profile";
 import { isValidAvatarConfig, normalizeAvatarConfig, type AvatarConfig } from "@/lib/utils/avatar-catalog";
 
@@ -12,20 +14,34 @@ export type RealmBundle = {
   heroName: string;
   avatarConfig: AvatarConfig | null;
   castleType: string;
-  builtBuildingIds: string[];
+  kingdom: KingdomState;
+  kingdomError?: string; // set when the kingdom could not load; the world still opens, without villagers
   profile: LearningProfile;
   settings: { enabled: boolean; toneMode: "gentle" | "monsters" };
 };
 
+const VILLAGERS_RESTING = "The villagers are resting. Try again.";
+
+async function loadKingdomState(childId: string): Promise<KingdomState> {
+  const overview = await loadKingdomOverview(childId);
+  return { tone: overview.tone, buildings: overview.buildings };
+}
+
+/** The kingdom alone, for the HUD's retry after a failed bundle load. */
+export async function getRealmKingdom(childId: string): Promise<KingdomState> {
+  await requireChildAccess(childId);
+  return loadKingdomState(childId);
+}
+
 /** Everything the Realm page needs, in one round of parallel reads. A hero may read their own. */
 export async function getRealmBundle(childId: string): Promise<RealmBundle> {
   await requireChildAccess(childId);
-  const [childRows, castleRows, progressRows, profileRows, settings] = await Promise.all([
+  const [childRows, castleRows, profileRows, settings, kingdomResult] = await Promise.all([
     db.select({ displayName: schema.child.displayName, avatarConfig: schema.child.avatarConfig }).from(schema.child).where(eq(schema.child.id, childId)).limit(1),
     db.select({ type: schema.castle.type }).from(schema.castle).where(eq(schema.castle.childId, childId)).limit(1),
-    db.select({ buildingId: schema.kingdomProgress.buildingId }).from(schema.kingdomProgress).where(and(eq(schema.kingdomProgress.childId, childId), isNotNull(schema.kingdomProgress.completedAt))),
     db.select().from(schema.learningProfile).where(eq(schema.learningProfile.childId, childId)).limit(1),
     loadRealmSettings(childId),
+    loadKingdomState(childId).then((kingdom) => ({ kingdom, error: undefined as string | undefined })).catch(() => ({ kingdom: { tone: "gentle" as const, buildings: [] }, error: VILLAGERS_RESTING })),
   ]);
   const child = childRows[0];
   if (!child) throw new Error("Hero not found.");
@@ -45,7 +61,8 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
     heroName: child.displayName,
     avatarConfig,
     castleType: castleRows[0]?.type ?? "campsite",
-    builtBuildingIds: progressRows.map((p) => p.buildingId),
+    kingdom: kingdomResult.kingdom,
+    ...(kingdomResult.error ? { kingdomError: kingdomResult.error } : {}),
     profile: profileFromRow(profileRows[0] ?? null),
     settings: { enabled: settings.enabled, toneMode: settings.toneMode },
   };

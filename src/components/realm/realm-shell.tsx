@@ -142,10 +142,7 @@ function RealmOpen({
   // this component never renders during SSR (it mounts after the
   // client-side access check resolves).
   const [portalTarget] = useState<Element | null>(() => (typeof document === "undefined" ? null : document.body));
-  const layout = useMemo(
-    () => buildWorldLayout({ castleType: bundle.castleType, buildings: bundle.builtBuildingIds.map((id) => ({ id, done: 0, total: 0, complete: true })) }),
-    [bundle.castleType, bundle.builtBuildingIds]
-  );
+  const layout = useMemo(() => buildWorldLayout({ castleType: bundle.castleType, buildings: bundle.kingdom.buildings }), [bundle.castleType, bundle.kingdom.buildings]);
   const settings = renderSettingsFor(bundle.profile, isTouch);
   const { axisRef, setStick } = useRealmInput();
   const config = bundle.avatarConfig ?? DEFAULT_AVATAR;

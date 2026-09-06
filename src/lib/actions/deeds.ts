@@ -5,13 +5,12 @@ import { nanoid } from "nanoid";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
-import { requireChildAccess } from "@/lib/auth/access";
-import { loadRealmSettings } from "@/lib/services/realm-play";
+import { isChildActor, requireChildAccess } from "@/lib/auth/access";
 import { profileFromRow } from "@/lib/utils/learning-profile";
-import { bandForHero, BAND_LABELS, type ContentBand } from "@/lib/utils/content-bands";
+import { BAND_LABELS, type ContentBand } from "@/lib/utils/content-bands";
 import { findSkill, type SkillArea } from "@/lib/utils/skills";
-import { BUILDINGS, buildingProgress, findBuilding } from "@/lib/utils/kingdom";
-import { deedsForBuilding, deedStory, findDeed } from "@/lib/utils/deeds";
+import { buildingProgress, findBuilding } from "@/lib/utils/kingdom";
+import { deedStory, findDeed } from "@/lib/utils/deeds";
 import {
   buildDeedRun,
   chooseSkills,
@@ -22,7 +21,7 @@ import {
 } from "@/lib/utils/deed-engine";
 import { masteryChangeCopy, masteryLabel, parseRecentResults, recordResult } from "@/lib/utils/mastery";
 import type { Question } from "@/lib/utils/drill-generators";
-import type { BuildingOverview } from "@/lib/services/deeds";
+import { loadHeroBand, loadKingdomOverview, type BuildingOverview } from "@/lib/services/deeds";
 export type { BuildingOverview };
 export type MasteryRow = { skillId: string; label: string; area: SkillArea; level: number; levelLabel: string; lastPracticedAt: string | null };
 export type DeedsOverview = {
@@ -38,17 +37,6 @@ export type RunSummary = {
 
 const CLOSED = "The Realm is closed for this hero. A grown-up can open it in the Chronicle.";
 const RESUME_WINDOW_MS = 60 * 60 * 1000;
-
-async function loadHero(childId: string) {
-  const rows = await db
-    .select({ grade: schema.child.grade, ageMode: schema.child.ageMode })
-    .from(schema.child)
-    .where(eq(schema.child.id, childId))
-    .limit(1);
-  if (!rows[0]) throw new Error("Hero not found.");
-  const settings = await loadRealmSettings(childId);
-  return { band: bandForHero(rows[0].grade, rows[0].ageMode), enabled: settings.enabled, tone: settings.toneMode };
-}
 
 async function loadMasteryRows(childId: string) {
   return db.select().from(schema.skillMastery).where(eq(schema.skillMastery.childId, childId));
@@ -93,22 +81,10 @@ async function loadRecentMisses(childId: string): Promise<Question[]> {
 /** A hero may see their own deeds; a closed Realm shows as such rather than throwing. */
 export async function getDeedsOverview(childId: string): Promise<DeedsOverview> {
   await requireChildAccess(childId);
-  const hero = await loadHero(childId);
-  const [progress, mastery] = await Promise.all([
-    db.select().from(schema.kingdomProgress).where(eq(schema.kingdomProgress.childId, childId)),
-    loadMasteryRows(childId),
-  ]);
-  const doneBy = new Map(progress.map((p) => [p.buildingId, p.deedsDone]));
-  const buildings: BuildingOverview[] = BUILDINGS.map((b) => {
-    const { done, total, complete } = buildingProgress(doneBy.get(b.id) ?? 0, b);
-    return {
-      id: b.id, label: b.label, description: b.description, icon: b.icon, done, total, complete,
-      deeds: deedsForBuilding(b.id).map((d) => ({ id: d.id, title: d.title, story: deedStory(d, hero.tone), area: d.area })),
-    };
-  });
+  const [kingdom, mastery] = await Promise.all([loadKingdomOverview(childId), loadMasteryRows(childId)]);
   return {
-    enabled: hero.enabled, band: hero.band, bandLabel: BAND_LABELS[hero.band], tone: hero.tone,
-    buildings, mastery: mastery.map(masteryRow).filter((m): m is MasteryRow => m !== null),
+    enabled: kingdom.enabled, band: kingdom.band, bandLabel: BAND_LABELS[kingdom.band], tone: kingdom.tone,
+    buildings: kingdom.buildings, mastery: mastery.map(masteryRow).filter((m): m is MasteryRow => m !== null),
   };
 }
 
@@ -117,11 +93,15 @@ export async function getMasteryOverview(childId: string): Promise<MasteryRow[]>
   return (await loadMasteryRows(childId)).map(masteryRow).filter((m): m is MasteryRow => m !== null);
 }
 
-export async function startDeedRun(childId: string, deedId: string): Promise<RunStart> {
-  await requireChildAccess(childId, { write: true });
+const HERO_ONLY = "Deeds are for the hero to play.";
+
+export async function startDeedRun(childId: string, deedId: string, context: "page" | "realm" = "page"): Promise<RunStart> {
+  const { access } = await requireChildAccess(childId, { write: true });
+  // In the world, only the hero plays; a parent previewing the Realm reads stories but never starts a run.
+  if (context === "realm" && !isChildActor(access)) throw new Error(HERO_ONLY);
   const deed = findDeed(deedId);
   if (!deed) throw new Error("That deed is not in the chronicle.");
-  const hero = await loadHero(childId);
+  const hero = await loadHeroBand(childId);
   if (!hero.enabled) throw new Error(CLOSED);
   const story = deedStory(deed, hero.tone);
 
