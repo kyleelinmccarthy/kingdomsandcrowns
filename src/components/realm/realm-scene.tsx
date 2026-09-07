@@ -10,6 +10,11 @@ import { setTarget, stepCompanion, stepHero, unstickHero, type CompanionState, t
 import { CAMERA_OFFSET, CAMERA_ZOOM, followCamera } from "@/lib/realm/camera";
 import { nearestVillager, villagerById } from "@/lib/realm/villagers";
 import type { RenderSettings } from "@/lib/realm/render-settings";
+import type { SpellDefinition } from "@/lib/utils/spell-catalog";
+import type { CastRequest } from "./use-realm-input";
+import type { TroubleSkin } from "@/lib/realm/spells/troubles";
+import { stepSpellSim, useSpellSimRef, type SpellEvent } from "./use-spell-sim";
+import { SpellLayer } from "./spell-layer";
 import type { SpriteTextures } from "./sprite-source";
 
 export type RealmSceneProps = {
@@ -22,6 +27,13 @@ export type RealmSceneProps = {
   onReachChange: (id: string | null) => void;
   onTalk: (villagerId: string) => void;
   risingId: string | null; // a building that just completed; the scene tweens it up once
+  selectedSpell: SpellDefinition | null;
+  selectedSlot: number | null;
+  castRef: RefObject<CastRequest | null>;
+  troubleSkin: TroubleSkin;
+  spellsEnabled: boolean; // false for parents: the sim still steps, but never casts
+  onSpellEvent: (e: SpellEvent) => void;
+  seed: number;
 };
 
 const SPRITE_W = 1.5;
@@ -33,7 +45,7 @@ function easeOut(t: number): number {
   return 1 - (1 - t) * (1 - t);
 }
 
-function World({ layout, textures, settings, axisRef, interactive, reachId, onReachChange, onTalk, risingId }: RealmSceneProps) {
+function World({ layout, textures, settings, axisRef, interactive, reachId, onReachChange, onTalk, risingId, selectedSpell, selectedSlot, castRef, spellsEnabled, onSpellEvent, seed }: RealmSceneProps) {
   // Per-frame state lives in refs: nothing here re-renders React sixty times a second.
   const hero = useRef<HeroState>({ position: layout.spawn, facing: "s", target: null });
   const companion = useRef<CompanionState>({ position: { x: layout.spawn.x, z: layout.spawn.z + 1.2 } });
@@ -45,6 +57,10 @@ function World({ layout, textures, settings, axisRef, interactive, reachId, onRe
   const buildingMeshes = useRef(new Map<string, THREE.Mesh>());
   const rising = useRef<{ id: string; startedAt: number } | null>(null);
   const wasInteractive = useRef(interactive);
+  const simRef = useSpellSimRef();
+  const dazzledRef = useRef(false);
+  const castingRef = useRef(false);
+  const wasFrozen = useRef(false);
 
   // A completed building scales up from the ground once; with motion off it simply appears.
   useEffect(() => {
@@ -61,8 +77,21 @@ function World({ layout, textures, settings, axisRef, interactive, reachId, onRe
   useFrame((state, delta) => {
     const dt = Math.min(delta, 0.05); // a tab that was hidden must not teleport the hero on return
     if (interactive) {
-      hero.current = stepHero(hero.current, { axis: axisRef.current ?? { x: 0, z: 0 } }, dt, layout.colliders);
+      const frozen = dazzledRef.current || castingRef.current;
+      if (frozen && !wasFrozen.current) hero.current = { ...hero.current, target: null };
+      wasFrozen.current = frozen;
+      hero.current = stepHero(hero.current, { axis: frozen ? { x: 0, z: 0 } : axisRef.current ?? { x: 0, z: 0 } }, dt, layout.colliders);
       companion.current = stepCompanion(companion.current, hero.current, dt);
+      const request = castRef.current;
+      castRef.current = null;
+      const stepped = stepSpellSim(
+        simRef.current,
+        { layout, hero: hero.current.position, dt, selectedSpell: spellsEnabled ? selectedSpell : null, selectedSlot: spellsEnabled ? selectedSlot : null, castRequest: spellsEnabled ? request : null, lowStimulus: settings.calmPalette, reducedMotion: !settings.motion, seed },
+        (e) => queueMicrotask(() => onSpellEvent(e))
+      );
+      simRef.current = stepped.sim;
+      dazzledRef.current = stepped.dazzled;
+      castingRef.current = stepped.casting;
     } else if (wasInteractive.current) {
       // A pointerdown that reached the ground before a panel opened this frame
       // can leave a stale walk target; drop it once so the hero doesn't creep
@@ -123,6 +152,10 @@ function World({ layout, textures, settings, axisRef, interactive, reachId, onRe
         onPointerDown={(e) => {
           e.stopPropagation();
           if (!interactive) return;
+          if (selectedSpell) {
+            castRef.current = { target: { x: e.point.x, z: e.point.z } };
+            return;
+          }
           hero.current = setTarget(hero.current, { x: e.point.x, z: e.point.z }, layout.colliders);
         }}
       >
@@ -165,6 +198,7 @@ function World({ layout, textures, settings, axisRef, interactive, reachId, onRe
           </sprite>
         );
       })}
+      <SpellLayer sim={simRef} textures={textures} calm={settings.calmPalette} motion={settings.motion} />
       {reachVillager && reachPlacement && interactive && (
         <Html position={[reachPlacement.position.x, SPRITE_H + 0.9, reachPlacement.position.z]} center zIndexRange={[15, 0]}>
           <div

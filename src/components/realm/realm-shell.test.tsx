@@ -15,7 +15,7 @@ let sceneProps: Record<string, unknown> = {};
 vi.mock("./realm-scene", () => ({
   default: (props: Record<string, unknown>) => {
     sceneProps = props;
-    return <div data-testid="scene" data-interactive={String(props.interactive)} data-rising={String(props.risingId ?? "")} />;
+    return <div data-testid="scene" data-interactive={String(props.interactive)} data-rising={String(props.risingId ?? "")} data-spells={String(props.spellsEnabled)} />;
   },
 }));
 const startDeedRun = vi.fn();
@@ -262,5 +262,59 @@ describe("RealmShell", () => {
     link.focus();
     fireEvent.keyDown(link, { key: "Enter" });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  const pages = [{ id: "p0", slot: 0, elementId: "ember", formId: "bolt", modifierId: null, adjective: "Ember", noun: "Bolt" }];
+
+  it("shows the spell bar for a hero, hides it while a panel is open, and never for a parent", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    render(<RealmShell bundle={{ ...bundle, spellbook: { spells: pages, slots: 4 } }} childId="c1" isChildView={true} />);
+    expect(await screen.findByTestId("scene")).toBeInTheDocument();
+    expect(screen.getByRole("toolbar", { name: "Spellbook" })).toBeInTheDocument();
+    expect(screen.getByRole("progressbar", { name: "Mana" })).toBeInTheDocument();
+    expect(screen.getByText("Cleared: 0")).toBeInTheDocument();
+    await act(async () => {
+      (sceneProps.onReachChange as (id: string | null) => void)("bram");
+      (sceneProps.onTalk as (id: string) => void)("bram");
+    });
+    expect(await screen.findByRole("dialog", { name: "Old Bram" })).toBeInTheDocument();
+    expect(screen.queryByRole("toolbar", { name: "Spellbook" })).not.toBeInTheDocument();
+    cleanup();
+    render(<RealmShell bundle={{ ...bundle, spellbook: { spells: pages, slots: 4 } }} childId="c1" isChildView={false} />);
+    expect(await screen.findByTestId("scene")).toBeInTheDocument();
+    expect(screen.queryByRole("toolbar", { name: "Spellbook" })).not.toBeInTheDocument();
+    expect(screen.getByTestId("scene")).toHaveAttribute("data-spells", "false");
+  });
+
+  it("selects a page, passes the resolved spell to the scene, and reflects scene events in the HUD", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    const user = userEvent.setup();
+    render(<RealmShell bundle={{ ...bundle, spellbook: { spells: pages, slots: 4 } }} childId="c1" isChildView={true} />);
+    await screen.findByTestId("scene");
+    expect(sceneProps.selectedSpell).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Ember Bolt, 10 mana" }));
+    expect((sceneProps.selectedSpell as { manaCost: number }).manaCost).toBe(10);
+    await act(async () => {
+      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "mana", current: 61 });
+      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "cleared", troubleKind: "fog", count: 1 });
+    });
+    expect(screen.getByRole("progressbar", { name: "Mana" })).toHaveAttribute("aria-valuenow", "61");
+    expect(screen.getByText("Cleared: 1")).toBeInTheDocument();
+    expect(screen.getByText("The fog thins.")).toBeInTheDocument();
+    await act(async () => {
+      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "refused" });
+    });
+    expect(screen.getByText("Not enough mana yet.")).toBeInTheDocument();
+  });
+
+  it("uses monsters copy when the kingdom tone is monsters", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    render(<RealmShell bundle={{ ...bundle, kingdom: { ...bundle.kingdom, tone: "monsters" }, spellbook: { spells: pages, slots: 4 } }} childId="c1" isChildView={true} />);
+    await screen.findByTestId("scene");
+    expect(sceneProps.troubleSkin).toBe("monsters");
+    await act(async () => {
+      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "cleared", troubleKind: "fog", count: 1 });
+    });
+    expect(screen.getByText("The mist-wisp scatters!")).toBeInTheDocument();
   });
 });

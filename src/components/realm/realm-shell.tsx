@@ -11,6 +11,9 @@ import { renderSettingsFor } from "@/lib/realm/render-settings";
 import { VILLAGERS, villagerById } from "@/lib/realm/villagers";
 import { gateCopy, type GateCopy } from "@/lib/realm/play-clock";
 import { disposeSpriteTextures } from "@/lib/realm/sprite-texture";
+import { resolvePages } from "@/lib/realm/spells/pages";
+import { TROUBLE_COPY, type TroubleSkin } from "@/lib/realm/spells/troubles";
+import { MANA_MAX } from "@/lib/realm/spells/mana";
 import { DEFAULT_AVATAR } from "@/lib/utils/avatar-catalog";
 import { readingAttributes } from "@/lib/utils/learning-profile";
 import { currentTimeOfDay, localDateOf } from "@/lib/utils/schedule-days";
@@ -20,10 +23,14 @@ import { RealmGate } from "./realm-gate";
 import { RealmClosed } from "./realm-closed";
 import { DeedPanel } from "./deed-panel";
 import { TouchStick } from "./touch-stick";
+import { SpellBar } from "./spell-bar";
 import { useRealmInput } from "./use-realm-input";
 import { usePlayClock, type CloseReason } from "./use-play-clock";
+import type { SpellEvent } from "./use-spell-sim";
 
 const VILLAGERS_RESTING = "The villagers are resting. Try again.";
+const NOT_ENOUGH_MANA = "Not enough mana yet.";
+const LOST_FOCUS = "You lost focus for a moment.";
 
 const RealmScene = dynamic(() => import("./realm-scene"), { ssr: false, loading: () => <p className="p-6 text-center text-muted-foreground">Opening the Realm…</p> });
 
@@ -141,6 +148,11 @@ function RealmOpen({
   const [openVillagerId, setOpenVillagerId] = useState<string | null>(null);
   const [risingId, setRisingId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
+  const [mana, setMana] = useState(MANA_MAX);
+  const [cleared, setCleared] = useState(0);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [seed] = useState(() => Date.now() >>> 0);
   const rootRef = useRef<HTMLDivElement>(null);
   // `.game-content` (the page's <main>) is `position: relative; z-index: 10`,
   // which traps `.realm-root`'s z-index inside its own stacking context —
@@ -164,7 +176,10 @@ function RealmOpen({
   const openVillager = openVillagerId ? villagerById(openVillagerId) : null;
   const openBuilding = openVillager ? kingdom.buildings.find((b) => b.id === openVillager.buildingId) ?? null : null;
   const panelOpen = openVillager !== null && openBuilding !== null;
-  const { axisRef, setStick } = useRealmInput({ enabled: !panelOpen });
+  const pages = useMemo(() => resolvePages(bundle.spellbook.spells, bundle.spellbook.slots), [bundle.spellbook]);
+  const selectedSpell = selectedSlot === null ? null : pages.find((p) => p.slot === selectedSlot)?.spell ?? null;
+  const troubleSkin: TroubleSkin = kingdom.tone === "monsters" ? "monsters" : "gentle";
+  const { axisRef, setStick, castRef } = useRealmInput({ enabled: !panelOpen, castEnabled: isChildView && !panelOpen && selectedSpell !== null });
   const config = bundle.avatarConfig ?? DEFAULT_AVATAR;
   const clock = usePlayClock({ enabled: isChildView, childId, initialMinutes: minutes, onClose, paused: panelOpen });
   const onReady = useCallback((t: SpriteTextures) => setTextures(t), []);
@@ -189,6 +204,7 @@ function RealmOpen({
     if (panelOpen) return;
     function onKey(e: KeyboardEvent) {
       if (e.key !== "Enter" && e.key !== " ") return;
+      if (e.key === " " && selectedSlot !== null) return; // a page is selected: Space casts, it does not talk
       if (!reachId) return;
       const t = e.target;
       if (t instanceof Element && t.closest("a, button, input, textarea, select, [role='dialog']")) return;
@@ -197,7 +213,7 @@ function RealmOpen({
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [panelOpen, reachId]);
+  }, [panelOpen, reachId, selectedSlot]);
 
   // The rise toast clears itself; the timer is the only place that clears it.
   useEffect(() => {
@@ -205,6 +221,24 @@ function RealmOpen({
     const id = setTimeout(() => setToast(null), 4000);
     return () => clearTimeout(id);
   }, [toast]);
+
+  // A spell notice (a clear, a refusal, lost focus) clears itself the same way.
+  useEffect(() => {
+    if (!notice) return;
+    const id = setTimeout(() => setNotice(null), 2000);
+    return () => clearTimeout(id);
+  }, [notice]);
+
+  const onSpellEvent = useCallback((e: SpellEvent) => {
+    if (!isChildView) return;
+    switch (e.kind) {
+      case "mana": setMana(e.current); break;
+      case "cleared": setCleared(e.count); setNotice(TROUBLE_COPY[e.troubleKind][troubleSkin]); break;
+      case "refused": setNotice(NOT_ENOUGH_MANA); break;
+      case "focusLost": setNotice(LOST_FOCUS); break;
+      case "castState": break;
+    }
+  }, [isChildView, troubleSkin]);
 
   // The panel can close via Close/Escape or a finished deed; either way, focus lands back
   // on the Talk bubble if the hero is still in reach of it, otherwise on the world itself
@@ -248,7 +282,7 @@ function RealmOpen({
 
   return createPortal(
     <div ref={rootRef} className="realm-root" tabIndex={-1} {...readingAttributes(bundle.profile)}>
-      <SpriteSource key={retryKey} config={config} villagers={VILLAGERS} onReady={onReady} onError={onError} />
+      <SpriteSource key={retryKey} config={config} villagers={VILLAGERS} troubleSkin={troubleSkin} onReady={onReady} onError={onError} />
       {textures && (
         <RealmScene
           layout={layout}
@@ -260,6 +294,13 @@ function RealmOpen({
           onReachChange={onReachChange}
           onTalk={onTalk}
           risingId={risingId}
+          selectedSpell={selectedSpell}
+          selectedSlot={selectedSlot}
+          castRef={castRef}
+          troubleSkin={troubleSkin}
+          spellsEnabled={isChildView}
+          onSpellEvent={onSpellEvent}
+          seed={seed}
         />
       )}
       <RealmHud
@@ -275,9 +316,9 @@ function RealmOpen({
         calm={!settings.motion || settings.calmPalette}
         kingdomError={kingdomError}
         onKingdomRetry={onKingdomRetry}
-        mana={null}
-        cleared={null}
-        notice={null}
+        mana={isChildView ? mana : null}
+        cleared={isChildView ? cleared : null}
+        notice={notice}
         onRetry={() => {
           setSpriteError("");
           clock.clearError();
@@ -286,6 +327,9 @@ function RealmOpen({
         }}
       />
       {settings.showStick && !panelOpen && <TouchStick onChange={setStick} />}
+      {isChildView && !panelOpen && pages.length > 0 && (
+        <SpellBar pages={pages} selectedSlot={selectedSlot} mana={mana} fewerChoices={bundle.profile.fewerChoices} onSelect={setSelectedSlot} />
+      )}
       {openVillager && openBuilding && (
         <DeedPanel
           childId={childId}
