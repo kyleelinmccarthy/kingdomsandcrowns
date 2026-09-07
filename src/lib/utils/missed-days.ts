@@ -1,0 +1,72 @@
+import { addDaysToDate } from "./schedule-days";
+import { isDayOff, type StreakOptions } from "./streak";
+
+/**
+ * How far back a grown-up's missed-day list reaches.
+ *
+ * Deliberately longer than the hero-facing catch-up window
+ * (`MAKEUP_LOOKBACK_DAYS`, 7 days): a parent needs to see far enough back to
+ * find the day that cost a streak, while a hero should never be handed a month
+ * of backlog.
+ */
+export const MISSED_DAYS_WINDOW = 30;
+
+/** Statuses that mean the work on that day is still owed. */
+const UNFINISHED = new Set(["pending", "stuck"]);
+
+export type MissedDay = {
+  date: string;
+  /** Assignments still owed on that day. */
+  unfinishedCount: number;
+  /** True when nothing at all was logged that day. */
+  empty: boolean;
+  /** True for the one day that terminates the current streak. */
+  brokeStreak: boolean;
+};
+
+export type MissedDaysInput = StreakOptions & {
+  today: string;
+  windowDays?: number;
+  activeDates: Iterable<string>;
+  assignments: readonly { date: string; status: string }[];
+};
+
+/**
+ * The days a grown-up may still want to do something about: required school
+ * days, inside the window, that either logged nothing or left work owed.
+ *
+ * Day-off-ness is asked of `isDayOff` — the streak's own rule — so excusing a
+ * day removes it from this list by the same act that repairs the streak.
+ *
+ * `brokeStreak` marks the newest empty day, which is by construction the date
+ * where `computeStreak` stops counting.
+ */
+export function selectMissedDays(input: MissedDaysInput): MissedDay[] {
+  const { today, windowDays = MISSED_DAYS_WINDOW, assignments } = input;
+  const active = new Set(input.activeDates);
+
+  const unfinishedByDate = new Map<string, number>();
+  for (const a of assignments) {
+    if (!UNFINISHED.has(a.status)) continue;
+    unfinishedByDate.set(a.date, (unfinishedByDate.get(a.date) ?? 0) + 1);
+  }
+
+  const days: MissedDay[] = [];
+  let breakerFound = false;
+
+  for (let i = 1; i <= windowDays; i++) {
+    const date = addDaysToDate(today, -i);
+    if (isDayOff(date, input)) continue;
+
+    const empty = !active.has(date);
+    const unfinishedCount = unfinishedByDate.get(date) ?? 0;
+    if (!empty && unfinishedCount === 0) continue;
+
+    const brokeStreak = empty && !breakerFound;
+    if (brokeStreak) breakerFound = true;
+
+    days.push({ date, unfinishedCount, empty, brokeStreak });
+  }
+
+  return days;
+}
