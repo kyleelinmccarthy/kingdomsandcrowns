@@ -60,7 +60,7 @@ function World({ layout, textures, settings, axisRef, interactive, reachId, onRe
   const simRef = useSpellSimRef();
   const dazzledRef = useRef(false);
   const castingRef = useRef(false);
-  const wasFrozen = useRef(false);
+  const frozenRef = useRef(false); // dazzled or mid-cast; read by onPointerDown too
 
   // A completed building scales up from the ground once; with motion off it simply appears.
   useEffect(() => {
@@ -76,14 +76,19 @@ function World({ layout, textures, settings, axisRef, interactive, reachId, onRe
 
   useFrame((state, delta) => {
     const dt = Math.min(delta, 0.05); // a tab that was hidden must not teleport the hero on return
+    // Read and clear unconditionally: a cast request queued an instant before a
+    // panel opened this frame must not fire later, once the world is interactive again.
+    const request = castRef.current;
+    castRef.current = null;
     if (interactive) {
       const frozen = dazzledRef.current || castingRef.current;
-      if (frozen && !wasFrozen.current) hero.current = { ...hero.current, target: null };
-      wasFrozen.current = frozen;
+      frozenRef.current = frozen;
+      // While frozen, a walk target (from a tap that landed the same frame the
+      // freeze began, or one queued moments earlier) is dropped every frame,
+      // not just on the transition into frozen.
+      if (frozen && hero.current.target) hero.current = { ...hero.current, target: null };
       hero.current = stepHero(hero.current, { axis: frozen ? { x: 0, z: 0 } : axisRef.current ?? { x: 0, z: 0 } }, dt, layout.colliders);
       companion.current = stepCompanion(companion.current, hero.current, dt);
-      const request = castRef.current;
-      castRef.current = null;
       const stepped = stepSpellSim(
         simRef.current,
         { layout, hero: hero.current.position, dt, selectedSpell: spellsEnabled ? selectedSpell : null, selectedSlot: spellsEnabled ? selectedSlot : null, castRequest: spellsEnabled ? request : null, lowStimulus: settings.calmPalette, reducedMotion: !settings.motion, seed },
@@ -156,6 +161,7 @@ function World({ layout, textures, settings, axisRef, interactive, reachId, onRe
             castRef.current = { target: { x: e.point.x, z: e.point.z } };
             return;
           }
+          if (frozenRef.current) return; // dazzled or mid-cast: a tap must not queue a walk target
           hero.current = setTarget(hero.current, { x: e.point.x, z: e.point.z }, layout.colliders);
         }}
       >
