@@ -8,6 +8,8 @@ import {
 import { getScheduleBlocks } from "@/lib/actions/student-schedule";
 import { getSubjectScheduleGaps } from "@/lib/actions/schedule-gaps";
 import { getMakeupView } from "@/lib/actions/makeup";
+import { getMissedDaysView } from "@/lib/actions/excused-days";
+import { MissedDays } from "@/components/missed-days";
 import { formatDate } from "@/lib/utils/dates";
 import { formatTimeOfDay, weekdayOfDate } from "@/lib/utils/schedule-days";
 import {
@@ -36,12 +38,13 @@ export async function ParentDashboard({ allChildren }: { allChildren: ChildRow[]
 
   const perChild = await Promise.all(
     allChildren.map(async (child) => {
-      const [todayAssignments, upcoming, blocks, scheduleGaps, makeup] = await Promise.all([
+      const [todayAssignments, upcoming, blocks, scheduleGaps, makeup, missedDays] = await Promise.all([
         getAssignmentsForDate(child.id, today),
         getAssignmentsForDateRange(child.id, today, weekOut),
         getScheduleBlocks(child.id),
         getSubjectScheduleGaps(child.id),
         getMakeupView(child.id, today),
+        getMissedDaysView(child.id, today),
       ]);
       return {
         child,
@@ -52,6 +55,7 @@ export async function ParentDashboard({ allChildren }: { allChildren: ChildRow[]
         // hero's own catch-up setting says — that setting governs the hero's
         // board, not whether their parent gets to know they're behind.
         makeupCount: makeup.assignments.length,
+        missedDays,
         startTimes: earliestStartTimeByDayAndSubject(blocks),
       };
     })
@@ -119,6 +123,20 @@ export async function ParentDashboard({ allChildren }: { allChildren: ChildRow[]
           />
         ))}
       </div>
+
+      {/* Days that didn't go to plan, per hero. Only a grown-up ever reaches
+          this screen, so there is no child-view branch here. */}
+      {perChild.map(({ child, missedDays }) => (
+        <MissedDays
+          key={child.id}
+          childId={child.id}
+          childName={allChildren.length > 1 ? child.displayName : ""}
+          today={today}
+          missed={missedDays.missed}
+          canEdit={missedDays.canEdit}
+          writableChildCount={allChildren.length}
+        />
+      ))}
 
       <GameFrame title="Upcoming Quests" icon={<GameIcon name="scroll" className="size-4 text-[var(--gold-bright)]" />}>
         {upcomingCombined.length === 0 ? (

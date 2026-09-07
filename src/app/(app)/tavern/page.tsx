@@ -9,6 +9,8 @@ import { getQuests } from "@/lib/actions/quests";
 import { getScheduleBlocks } from "@/lib/actions/student-schedule";
 import { getSchoolingModeForDate } from "@/lib/actions/schooling-mode";
 import { getMakeupView } from "@/lib/actions/makeup";
+import { formatMissedDate } from "@/lib/utils/makeup";
+import { getMissedDaysView } from "@/lib/actions/excused-days";
 import { getBadges, getChildBadges, checkAndAwardBadges } from "@/lib/actions/badges";
 import { getChildAvatarUnlocks } from "@/lib/actions/avatar";
 import { formatDate } from "@/lib/utils/dates";
@@ -25,6 +27,7 @@ import { QuestLog } from "../quests/quest-log";
 import { QuestAssignmentCard } from "@/components/quest-assignment-card";
 import { TodaySchedule } from "@/components/today-schedule";
 import { MakeupQuests } from "@/components/makeup-quests";
+import { MissedDays } from "@/components/missed-days";
 import { GameIcon, BADGE_ICONS } from "@/components/game-icon";
 import { ParentDashboard } from "./parent-dashboard";
 
@@ -87,7 +90,7 @@ export default async function TavernPage({
   const today = formatDate(new Date());
   await generateAssignmentsFromSchedules(activeChild.id, today, today);
 
-  const [subjects, recentActivities, allBadges, earnedBadges, todayAssignments, quests, avatarUnlocks, allBlocks, latestStatusByQuestId, schoolingMode, makeup] = await Promise.all([
+  const [subjects, recentActivities, allBadges, earnedBadges, todayAssignments, quests, avatarUnlocks, allBlocks, latestStatusByQuestId, schoolingMode, makeup, missedDays] = await Promise.all([
     getSubjects(activeChild.id),
     getRecentActivities(activeChild.id, 50),
     getBadges(),
@@ -99,11 +102,16 @@ export default async function TavernPage({
     getLatestAssignmentStatusByQuest(activeChild.id),
     getSchoolingModeForDate(activeChild.id, today),
     getMakeupView(activeChild.id, today),
+    getMissedDaysView(activeChild.id, today),
   ]);
 
   // A hero only sees carried-over work on a day their parent has made a
   // catch-up day; a grown-up always sees what's still owed.
   const makeupAssignments = !isChildView || makeup.isMakeupDay ? makeup.assignments : [];
+
+  // The day that ended the current streak, if it is inside the window a
+  // grown-up can still act on.
+  const streakBreakDate = missedDays.missed.find((d) => d.brokeStreak)?.date ?? null;
 
   const todaysBlocks = allBlocks.filter((b) => b.dayOfWeek === weekdayOfDate(today));
 
@@ -256,6 +264,18 @@ export default async function TavernPage({
                     <p className="text-2xl font-bold" style={{ color: "var(--streak)" }}>{activeChild.currentStreak}</p>
                     <p className="text-xs text-muted-foreground">day streak</p>
                   </div>
+                  {/* Say why the streak is short, where a grown-up will actually
+                      wonder about it. The fix is the panel further down. */}
+                  {!isChildView && streakBreakDate && (
+                    <p className="self-center text-left text-xs text-muted-foreground">
+                      Streak broke on{" "}
+                      <span style={{ color: "var(--streak)" }}>
+                        {formatMissedDate(streakBreakDate, today)}
+                      </span>
+                      <br />
+                      Excuse that day below to restore it.
+                    </p>
+                  )}
                   <div>
                     <p className="text-2xl font-bold" style={{ color: "var(--xp)" }}>{activeChild.currentXp}</p>
                     <p className="text-xs text-muted-foreground">total XP</p>
@@ -294,6 +314,19 @@ export default async function TavernPage({
         allowChildSkip={allowChildSkip}
         reason={makeup.reason}
       />
+
+      {/* Grown-ups only: the ledger of days that didn't go to plan, and the one
+          place a broken streak can be put right. A hero never sees it. */}
+      {!isChildView && (
+        <MissedDays
+          childId={activeChild.id}
+          childName={activeChild.displayName}
+          today={today}
+          missed={missedDays.missed}
+          canEdit={missedDays.canEdit}
+          writableChildCount={allChildren.length}
+        />
+      )}
 
       {/* ═══ ROW 2: Hero's Path (gamification info) + Loot ═══ */}
       <div className="hud-row-bottom">
