@@ -142,15 +142,10 @@ export function stepTroubles(troubles: Trouble[], hero: Vec2, dt: number, collid
     const speed = SPEED[t.kind] * speedFactor(statuses, opts.now);
     let next: Trouble = { ...t, statuses };
     if (speed > 0) {
-      const approaching = t.kind === "shadow-blob" && !opts.lowStimulus && dist(t.position, hero) <= BLOB_SENSE;
-      // Low stimulus keeps a blob from wandering too, not just from approaching: it should simply sit still
-      // rather than drift, since a wandering blob happens to move identically to an approaching one whenever
-      // its drift already points toward the hero.
-      const wandering = !approaching && !(t.kind === "shadow-blob" && opts.lowStimulus) && !(t.kind === "fog" && opts.reducedMotion);
-      if (approaching) {
+      if (t.kind === "shadow-blob" && !opts.lowStimulus && dist(t.position, hero) <= BLOB_SENSE) {
         const dir = unit({ x: hero.x - t.position.x, z: hero.z - t.position.z });
         next = { ...next, position: moveWithin(next, { x: dir.x * speed * dt, z: dir.z * speed * dt }, colliders) };
-      } else if (wandering) {
+      } else if (!(t.kind === "fog" && opts.reducedMotion)) {
         let drift = t.drift;
         if (dist(t.position, t.origin) > WANDER) drift = unit({ x: t.origin.x - t.position.x, z: t.origin.z - t.position.z });
         next = { ...next, drift, position: moveWithin(next, { x: drift.x * speed * dt, z: drift.z * speed * dt }, colliders) };

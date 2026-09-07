@@ -76,13 +76,18 @@ describe("stepTroubles", () => {
   });
 
   it("makes a blob approach a hero within six units, but not under low stimulus", () => {
-    const blob = troubleAt("shadow-blob", 0, 0);
+    // Drift runs perpendicular (+z) to the hero direction (+x) so wander and approach land in
+    // visibly different places, rather than coincidentally overlapping.
+    const blob = troubleAt("shadow-blob", 0, 0, { drift: { x: 0, z: 1 } });
     const near = stepTroubles([blob], { x: 4, z: 0 }, 1, [], noOpts).troubles[0];
     expect(near.position.x).toBeCloseTo(1.8, 5);
+    expect(near.position.z).toBeCloseTo(0, 5);
     const calm = stepTroubles([blob], { x: 4, z: 0 }, 1, [], { ...noOpts, lowStimulus: true }).troubles[0];
-    expect(calm.position.x).not.toBeCloseTo(1.8, 5);
+    expect(calm.position.x).toBeCloseTo(0, 5);
+    expect(calm.position.z).toBeCloseTo(1.8, 5);
     // With the hero far off to the west, the blob wanders along its own drift (+x) instead of approaching.
-    const farHero = stepTroubles([blob], { x: -20, z: 0 }, 1, [], noOpts).troubles[0];
+    const wanderer = troubleAt("shadow-blob", 0, 0);
+    const farHero = stepTroubles([wanderer], { x: -20, z: 0 }, 1, [], noOpts).troubles[0];
     expect(farHero.position.x).toBeCloseTo(1.8, 5);
   });
 
