@@ -65,7 +65,7 @@ vi.mock("./sprite-source", async () => {
           failNextSpriteMount = false;
           onError(new Error("boom"));
         } else {
-          onReady({ hero: {}, companion: null, villagers: {} });
+          onReady({ hero: {}, companion: null, villagers: {}, troubles: {} });
         }
       }, [onReady, onError]);
       return null;
@@ -77,7 +77,7 @@ const well = {
   id: "well", label: "Village Well", description: "Clean water for every doorstep.", icon: "box" as const, done: 4, total: 5, complete: false,
   deeds: [{ id: "well-stones", title: "Count the Well Stones", story: "Old Bram's bucket keeps coming up dry.", area: "math" as const }],
 };
-const bundle = { heroName: "Lily", avatarConfig: DEFAULT_AVATAR, castleType: "campsite", kingdom: { tone: "gentle" as const, buildings: [well] }, profile: DEFAULT_LEARNING_PROFILE, settings: { enabled: true, toneMode: "gentle" as const } };
+const bundle = { heroName: "Lily", avatarConfig: DEFAULT_AVATAR, castleType: "campsite", kingdom: { tone: "gentle" as const, buildings: [well] }, profile: DEFAULT_LEARNING_PROFILE, settings: { enabled: true, toneMode: "gentle" as const }, spellbook: { spells: [], slots: 4 } };
 
 beforeEach(() => {
   vi.clearAllMocks();

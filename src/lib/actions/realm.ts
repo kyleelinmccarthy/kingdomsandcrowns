@@ -6,6 +6,7 @@ import * as schema from "@/lib/db/schema";
 import { requireChildAccess } from "@/lib/auth/access";
 import { loadRealmSettings } from "@/lib/services/realm-play";
 import { loadKingdomOverview } from "@/lib/services/deeds";
+import { loadSpellbookPages, type SpellPage } from "@/lib/services/spells";
 import type { KingdomState } from "@/lib/realm/kingdom-state";
 import { profileFromRow, type LearningProfile } from "@/lib/utils/learning-profile";
 import { isValidAvatarConfig, normalizeAvatarConfig, type AvatarConfig } from "@/lib/utils/avatar-catalog";
@@ -18,6 +19,7 @@ export type RealmBundle = {
   kingdomError?: string; // set when the kingdom could not load; the world still opens, without villagers
   profile: LearningProfile;
   settings: { enabled: boolean; toneMode: "gentle" | "monsters" };
+  spellbook: { spells: SpellPage[]; slots: number };
 };
 
 const VILLAGERS_RESTING = "The villagers are resting. Try again.";
@@ -36,7 +38,7 @@ export async function getRealmKingdom(childId: string): Promise<KingdomState> {
 /** Everything the Realm page needs, in one round of parallel reads. A hero may read their own. */
 export async function getRealmBundle(childId: string): Promise<RealmBundle> {
   await requireChildAccess(childId);
-  const [childRows, castleRows, profileRows, settings, kingdomResult] = await Promise.all([
+  const [childRows, castleRows, profileRows, settings, kingdomResult, spellbook] = await Promise.all([
     db.select({ displayName: schema.child.displayName, avatarConfig: schema.child.avatarConfig }).from(schema.child).where(eq(schema.child.id, childId)).limit(1),
     db.select({ type: schema.castle.type }).from(schema.castle).where(eq(schema.castle.childId, childId)).limit(1),
     db.select().from(schema.learningProfile).where(eq(schema.learningProfile.childId, childId)).limit(1),
@@ -45,6 +47,7 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
       console.error("Realm kingdom failed to load", err);
       return { kingdom: { tone: "gentle" as const, buildings: [] }, error: VILLAGERS_RESTING };
     }),
+    loadSpellbookPages(childId),
   ]);
   const child = childRows[0];
   if (!child) throw new Error("Hero not found.");
@@ -68,5 +71,6 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
     ...(kingdomResult.error ? { kingdomError: kingdomResult.error } : {}),
     profile: profileFromRow(profileRows[0] ?? null),
     settings: { enabled: settings.enabled, toneMode: settings.toneMode },
+    spellbook: { spells: spellbook.spells, slots: spellbook.slots },
   };
 }

@@ -8,6 +8,7 @@ import * as schema from "@/lib/db/schema";
 import { requireChildAccess } from "@/lib/auth/access";
 import { levelFromXp } from "@/lib/utils/level";
 import { spellSlots } from "@/lib/utils/spell-slots";
+import { toPage, loadSpellbookPages } from "@/lib/services/spells";
 import {
   resolveSpell,
   unlockedPartIds,
@@ -42,17 +43,7 @@ export type Spellbook = {
 
 const SPELL_CATEGORIES = Object.values(SPELL_CATEGORY);
 
-function toRecord(row: typeof schema.spell.$inferSelect): SpellRecord {
-  return {
-    id: row.id,
-    slot: row.slot,
-    elementId: row.elementId,
-    formId: row.formId,
-    modifierId: row.modifierId,
-    adjective: row.adjective,
-    noun: row.noun,
-  };
-}
+const toRecord = toPage;
 
 /** Everything the unlock rules need about one hero, loaded in parallel. */
 async function loadUnlockContext(childId: string) {
@@ -88,13 +79,13 @@ async function loadUnlockContext(childId: string) {
 /** A hero may read their own spellbook. */
 export async function getSpellbook(childId: string): Promise<Spellbook> {
   await requireChildAccess(childId);
-  const [{ level, ctx, subjectNamesBySchool }, rows] = await Promise.all([
+  const [{ level, ctx, subjectNamesBySchool }, spellbook] = await Promise.all([
     loadUnlockContext(childId),
-    db.select().from(schema.spell).where(eq(schema.spell.childId, childId)).orderBy(schema.spell.slot),
+    loadSpellbookPages(childId),
   ]);
   return {
-    spells: rows.map(toRecord),
-    slots: spellSlots(level),
+    spells: spellbook.spells,
+    slots: spellbook.slots,
     level,
     unlocked: [...unlockedPartIds(ctx)],
     schoolCounts: ctx.schoolCounts,

@@ -51,4 +51,13 @@ describe("SpriteSource", () => {
     });
     await waitFor(() => expect(onReady).toHaveBeenCalledTimes(1));
   });
+
+  it("rasterizes the three trouble figures for the requested skin", async () => {
+    const onReady = vi.fn();
+    render(<SpriteSource config={DEFAULT_AVATAR} troubleSkin="monsters" onReady={onReady} onError={() => {}} />);
+    await waitFor(() => expect(onReady).toHaveBeenCalledTimes(1));
+    const textures = onReady.mock.calls[0][0];
+    expect(Object.keys(textures.troubles).sort()).toEqual(["cursed-stone", "fog", "shadow-blob"]);
+    expect(textures.troubles.fog).toMatchObject({ id: "fog:monsters" });
+  });
 });
