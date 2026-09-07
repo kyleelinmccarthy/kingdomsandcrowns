@@ -244,6 +244,36 @@ see the panel.
 (badge plus reason) and, for a grown-up, an "Undo" that returns it to `pending`.
 A card whose `originalDate` is set shows "moved from <weekday>".
 
+## Who sees what
+
+The tavern and quest screens are shared by four kinds of actor. Every surface
+below is specified for all four, so no one lands on a control they cannot use or
+a screen that reads like an accusation.
+
+| Actor | Missed Days panel | Excuse / Move controls | Excused card | Moved card |
+|---|---|---|---|---|
+| Hero on own profile (`isChildActor`) | hidden | hidden | "Excused — sick day", neutral tone, no undo | "Moved to Thursday" |
+| Adult, `permission: "edit"` | visible | enabled | badge + reason + Undo | "moved from Monday" + Move again |
+| Adult, `permission: "view"` | visible, read-only | hidden | badge + reason, no Undo | "moved from Monday" |
+| Adult, `scope: "specific"` | only heroes in scope | enabled, in-scope heroes only | as edit/view above | as edit/view above |
+
+Three consequences that the implementation must honour:
+
+- **"Apply to all heroes" means all heroes the actor can write to.** An adult
+  scoped to one hero excusing a day with the checkbox ticked affects that hero
+  only. The checkbox is hidden outright when the actor can write to exactly one
+  hero, rather than shown as a no-op.
+- **A hero is never told they missed a day.** The panel is the grown-ups'
+  accounting. What a hero sees is the existing catch-up list, and an excused day
+  simply removes work from it. No "you broke your streak" messaging anywhere.
+- **A read-only guardian sees the same facts, not the same buttons.** They are
+  a real audience for "was anything missed this week", and hiding the panel from
+  them would make the app look broken rather than restricted. Server actions
+  enforce this independently of the UI via `requireChildAccess(id, { write: true })`.
+
+Streak repair is actor-independent: `recomputeFamilyStreaks` runs on the family
+whose calendar changed, whoever triggered it.
+
 ## Ripple effects
 
 - `UNFINISHED_STATUSES` in `src/lib/utils/makeup.ts` stays `{pending, stuck}`.
@@ -276,6 +306,10 @@ Test-driven, following the existing suite's structure.
   `selectMakeupAssignments`.
 - `missed-days.test.tsx` — panel renders rows, marks the streak-breaking day,
   and wires the two actions.
+- Actor coverage, asserted rather than assumed: the panel is absent for a hero,
+  read-only for a view-permission adult, and the "apply to all" checkbox is
+  hidden when the actor can write to only one hero. `excused-days.test.ts`
+  covers the server-side half — a hero and a view-only adult are both refused.
 
 ## Production repair
 
