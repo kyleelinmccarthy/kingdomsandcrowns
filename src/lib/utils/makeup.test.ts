@@ -137,6 +137,14 @@ describe("selectMakeupAssignments", () => {
     expect(dates(selectMakeupAssignments(rows, TODAY))).toEqual(["2026-09-03", "2026-09-01"]);
   });
 
+  // Excusing a day must take its work off the hero's catch-up list. That falls
+  // out of "excused" not being an unfinished status, which this pins down.
+  it("never resurfaces excused work", () => {
+    const rows = [item("2026-09-01", "excused"), item("2026-09-01", "pending")];
+    expect(dates(selectMakeupAssignments(rows, TODAY))).toEqual(["2026-09-01"]);
+    expect(selectMakeupAssignments(rows, TODAY)).toHaveLength(1);
+  });
+
   it("never includes today's own quests — today's board already shows them", () => {
     expect(dates(selectMakeupAssignments([item(TODAY, "pending")], TODAY))).toEqual([]);
   });

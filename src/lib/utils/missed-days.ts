@@ -1,5 +1,30 @@
-import { addDaysToDate } from "./schedule-days";
+import { addDaysToDate, weekdayOfDate } from "./schedule-days";
 import { isDayOff, type StreakOptions } from "./streak";
+
+const WEEKDAY_NAMES: Record<string, string> = {
+  mon: "Monday",
+  tue: "Tuesday",
+  wed: "Wednesday",
+  thu: "Thursday",
+  fri: "Friday",
+  sat: "Saturday",
+  sun: "Sunday",
+};
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/**
+ * How a moved quest names the day it came from: "Monday, Aug 31".
+ *
+ * Takes no "today" on purpose — a moved card can sit weeks away from the day
+ * it was set for, where "Yesterday"-style relative wording would mislead.
+ */
+export function formatMovedFrom(isoDate: string): string {
+  const [, month, day] = isoDate.split("-");
+  const monthName = MONTHS[Number(month) - 1];
+  if (!monthName) return isoDate;
+  return `${WEEKDAY_NAMES[weekdayOfDate(isoDate)]}, ${monthName} ${Number(day)}`;
+}
 
 /**
  * How far back a grown-up's missed-day list reaches.

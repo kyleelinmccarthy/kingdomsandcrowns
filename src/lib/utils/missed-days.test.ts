@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { selectMissedDays } from "./missed-days";
+import { selectMissedDays, formatMovedFrom } from "./missed-days";
 
 const schoolDays = ["mon", "tue", "wed", "thu", "fri"];
 // 2026-09-07 is a Monday.
@@ -66,5 +66,16 @@ describe("selectMissedDays", () => {
   it("honours the window bound", () => {
     const result = selectMissedDays({ ...base, windowDays: 3 });
     expect(result.every((d) => d.date >= "2026-09-04")).toBe(true);
+  });
+});
+
+describe("formatMovedFrom", () => {
+  it("names the weekday and date", () => {
+    expect(formatMovedFrom("2026-08-31")).toBe("Monday, Aug 31");
+    expect(formatMovedFrom("2026-09-04")).toBe("Friday, Sep 4");
+  });
+
+  it("falls back to the raw date when the month is nonsense", () => {
+    expect(formatMovedFrom("2026-13-01")).toBe("2026-13-01");
   });
 });

@@ -476,4 +476,49 @@ describe("QuestAssignmentCard", () => {
     const dot = container.querySelector(".rounded-full");
     expect(dot).toHaveStyle({ backgroundColor: "#ef4444" });
   });
+
+  describe("excused work", () => {
+    const excused = {
+      ...baseData,
+      assignment: { id: "qa1", status: "excused", notes: null, statusReason: "Sick day" },
+    };
+
+    it("reads as excused to a hero, with nothing to undo", () => {
+      render(<QuestAssignmentCard data={excused} isChildView={true} />);
+      expect(screen.getByText(/excused/i)).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /undo/i })).not.toBeInTheDocument();
+    });
+
+    it("lets a grown-up put it back on the list", () => {
+      render(<QuestAssignmentCard data={excused} isChildView={false} />);
+      expect(screen.getByRole("button", { name: /undo excuse/i })).toBeInTheDocument();
+    });
+
+    it("is never startable", () => {
+      render(<QuestAssignmentCard data={excused} isChildView={true} />);
+      expect(screen.queryByText("Start")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("moved work", () => {
+    it("says which day it came from", () => {
+      const moved = {
+        ...baseData,
+        assignment: {
+          id: "qa1",
+          status: "pending",
+          notes: null,
+          statusReason: null,
+          originalDate: "2026-08-31",
+        },
+      };
+      render(<QuestAssignmentCard data={moved} isChildView={true} />);
+      expect(screen.getByText(/moved from Monday, Aug 31/i)).toBeInTheDocument();
+    });
+
+    it("says nothing on a card that was never moved", () => {
+      render(<QuestAssignmentCard data={baseData} isChildView={true} />);
+      expect(screen.queryByText(/moved from/i)).not.toBeInTheDocument();
+    });
+  });
 });

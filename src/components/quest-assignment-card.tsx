@@ -13,6 +13,7 @@ import {
 } from "@/lib/actions/quest-assignments";
 import { useQuestTimer, formatElapsed } from "@/hooks/use-quest-timer";
 import { GameIcon } from "@/components/game-icon";
+import { formatMovedFrom } from "@/lib/utils/missed-days";
 import { getRewardItemLabel } from "@/lib/utils/avatar-catalog";
 
 type AssignmentWithDetails = {
@@ -23,6 +24,8 @@ type AssignmentWithDetails = {
     notes: string | null;
     /** Why the quest was skipped or set aside. Never Scribe's Notes. */
     statusReason: string | null;
+    /** Set when a grown-up moved this quest off the day it was first set for. */
+    originalDate?: string | null;
   };
   quest: {
     id: string;
@@ -103,6 +106,7 @@ export function QuestAssignmentCard({
   // to have turned skipping on, and in structured mode it has to be their turn.
   const canSkip = !isChildView || (allowChildSkip && !lockedByOrder);
   const isMakeup = !!missedFrom;
+  const isExcused = assignment.status === "excused";
   // Work still owed. On a catch-up card that includes a quest the hero got
   // stuck on: the day that stalled them is over, and coming back to it — with
   // the grown-up who was alerted — is the point of the catch-up list.
@@ -332,6 +336,18 @@ export function QuestAssignmentCard({
               Skipped{assignment.statusReason ? `: ${assignment.statusReason}` : ""}
             </span>
           )}
+          {/* An excused day is not a failure and must never read as one — a
+              grown-up decided this day did not count. */}
+          {isExcused && (
+            <span className="text-xs text-muted-foreground">
+              Excused{assignment.statusReason ? `: ${assignment.statusReason}` : ""}
+            </span>
+          )}
+          {assignment.originalDate && (
+            <p className="text-xs text-muted-foreground">
+              Moved from {formatMovedFrom(assignment.originalDate)}
+            </p>
+          )}
           {isStuck && (
             <p className="flex items-start gap-1 text-xs wrap-anywhere text-[var(--gold-bright)]">
               <GameIcon name="idea" className="mt-0.5 size-3 shrink-0 text-[var(--gold-bright)]" />
@@ -398,6 +414,16 @@ export function QuestAssignmentCard({
           <div className="flex flex-wrap gap-1 sm:ml-auto">
             <Button size="sm" variant="ghost" onClick={() => handleRevise("pending")} disabled={acting} className="text-muted-foreground">
               Undo Skip
+            </Button>
+          </div>
+        )}
+
+        {/* Putting one quest back on the list without un-excusing the whole day
+            — the rest of that day stays excused. */}
+        {isExcused && !isChildView && (
+          <div className="flex flex-wrap gap-1 sm:ml-auto">
+            <Button size="sm" variant="ghost" onClick={() => handleRevise("pending")} disabled={acting} className="text-muted-foreground">
+              Undo Excuse
             </Button>
           </div>
         )}
