@@ -560,11 +560,21 @@ export const questAssignment = sqliteTable(
       .notNull()
       .references(() => child.id, { onDelete: "cascade" }),
     date: text("date").notNull(), // ISO YYYY-MM-DD
+    // Set the first time this assignment is moved to another day, and never
+    // overwritten after — a quest moved twice still points at the day it was
+    // originally set for.
+    originalDate: text("original_date"),
     // "stuck" is a hero's own escape hatch: work they could not finish but had
     // to move past. It resolves the day the way "skipped" does — the structured
     // queue advances, the learning log leaves it out — but it says "I need
     // help", not "I chose not to", and it always raises a parentAlert.
-    status: text("status", { enum: ["pending", "completed", "skipped", "stuck"] })
+    //
+    // "excused" is a grown-up saying the day itself did not count — a sick day,
+    // an appointment. Deliberately distinct from "skipped", which is a decision
+    // about one quest rather than about the whole day.
+    status: text("status", {
+      enum: ["pending", "completed", "skipped", "stuck", "excused"],
+    })
       .notNull()
       .default("pending"),
     activityLogId: text("activity_log_id")
@@ -641,6 +651,36 @@ export const makeupDay = sqliteTable(
   (table) => [
     uniqueIndex("makeup_day_child_date_idx").on(table.childId, table.date),
     index("makeup_day_child_idx").on(table.childId),
+  ]
+);
+
+/**
+ * A date a grown-up has excused for one hero after the fact — a sick day, an
+ * appointment, a family day, a holiday nobody had entered yet.
+ *
+ * An excused date is skipped by the streak exactly the way a school break is:
+ * it neither extends a streak nor breaks one. Per-child rather than per-family
+ * because the ordinary case is one hero out and the other not; "apply to all"
+ * is a convenience in the UI that writes one row per hero.
+ */
+export const excusedDay = sqliteTable(
+  "excused_day",
+  {
+    id: text("id").primaryKey(),
+    childId: text("child_id")
+      .notNull()
+      .references(() => child.id, { onDelete: "cascade" }),
+    date: text("date").notNull(), // ISO YYYY-MM-DD
+    reason: text("reason", {
+      enum: ["sick", "appointment", "family", "holiday", "other"],
+    }).notNull(),
+    note: text("note"),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("excused_day_child_date_idx").on(table.childId, table.date),
+    index("excused_day_child_idx").on(table.childId),
   ]
 );
 
