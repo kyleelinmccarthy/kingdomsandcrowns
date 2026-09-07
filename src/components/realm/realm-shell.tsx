@@ -275,6 +275,9 @@ function RealmOpen({
         calm={!settings.motion || settings.calmPalette}
         kingdomError={kingdomError}
         onKingdomRetry={onKingdomRetry}
+        mana={null}
+        cleared={null}
+        notice={null}
         onRetry={() => {
           setSpriteError("");
           clock.clearError();

@@ -1726,3 +1726,17 @@ html { scrollbar-color: var(--border) var(--background); }
 .realm-panel-deeds { display: flex; flex-direction: column; gap: 0.5rem; list-style: none; margin: 0; padding: 0; }
 .realm-panel-deed { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem; border-radius: 0.5rem; border: 1px solid var(--gold-dim); padding: 0.5rem 0.75rem; }
 .realm-panel button { min-height: 44px; }
+.realm-spellbar { position: absolute; left: 50%; bottom: 1.25rem; z-index: 20; display: flex; gap: 0.4rem; transform: translateX(-50%); max-width: calc(100vw - 2rem); overflow-x: auto; padding: 0.3rem; border-radius: 9999px; background: rgba(0, 0, 0, 0.5); font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif; }
+.realm-spell { position: relative; display: flex; align-items: center; gap: 0.35rem; min-height: 44px; min-width: 44px; padding: 0 0.7rem; border-radius: 9999px; border: 2px solid transparent; background: rgba(255, 255, 255, 0.08); color: #fff; font-size: 12px; white-space: nowrap; cursor: pointer; }
+.realm-spell--selected { background: rgba(201, 168, 76, 0.3); box-shadow: 0 0 0 2px var(--gold-bright); }
+.realm-spell--dim { opacity: 0.55; }
+.realm-spell:disabled { opacity: 0.35; cursor: default; }
+.realm-spell-key { font-size: 10px; color: var(--gold-bright); }
+.realm-spell-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 9999px; }
+.realm-spell-cost { font-weight: 700; color: var(--gold-bright); }
+.realm-hud-mana { position: relative; display: inline-block; min-width: 7rem; height: 1.3em; border-radius: 9999px; overflow: hidden; background: rgba(0, 0, 0, 0.45); border: 1px solid rgba(59, 130, 246, 0.6); }
+.realm-hud-mana-fill { position: absolute; inset: 0 auto 0 0; background: rgba(59, 130, 246, 0.6); }
+.realm-hud-mana-text { position: relative; padding: 0 0.6rem; font-size: 0.8em; line-height: 1.3em; }
+.realm-hud-cleared { border-radius: 9999px; padding: 0.15rem 0.6rem; background: rgba(74, 222, 128, 0.2); color: #bbf7d0; font-size: 0.85em; }
+.realm-hud-notice { margin-top: 0.5rem; border-radius: 0.5rem; padding: 0.4rem 0.75rem; background: rgba(0, 0, 0, 0.45); font-size: 0.9em; }
+@media (max-width: 640px) { .realm-spell-name { display: none; } }

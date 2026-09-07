@@ -52,4 +52,16 @@ describe("useRealmInput", () => {
     keydown({ code: "KeyD" });
     expect(result.current.axisRef.current.x).not.toBe(0);
   });
+
+  it("turns Space into a nearest-target cast request only while casting is enabled", () => {
+    const { result, rerender } = renderHook(({ castEnabled }) => useRealmInput({ castEnabled }), { initialProps: { castEnabled: false } });
+    window.dispatchEvent(new KeyboardEvent("keydown", { code: "Space", key: " " }));
+    expect(result.current.castRef.current).toBeNull();
+    rerender({ castEnabled: true });
+    window.dispatchEvent(new KeyboardEvent("keydown", { code: "Space", key: " " }));
+    expect(result.current.castRef.current).toEqual({ nearest: true });
+    result.current.castRef.current = null;
+    result.current.requestCast({ target: { x: 1, z: 2 } });
+    expect(result.current.castRef.current).toEqual({ target: { x: 1, z: 2 } });
+  });
 });

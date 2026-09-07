@@ -11,12 +11,15 @@ const KEYS: Record<string, { x: number; y: number }> = {
   KeyD: { x: 1, y: 0 }, ArrowRight: { x: 1, y: 0 },
 };
 
+export type CastRequest = { target: Vec2 } | { nearest: true };
+
 /**
  * Keyboard and stick are folded into one world-space axis kept in a ref, so
  * the render loop reads it every frame without a React re-render per keypress.
  */
-export function useRealmInput({ enabled = true }: { enabled?: boolean } = {}) {
+export function useRealmInput({ enabled = true, castEnabled = false }: { enabled?: boolean; castEnabled?: boolean } = {}) {
   const axisRef = useRef<Vec2>({ x: 0, z: 0 });
+  const castRef = useRef<CastRequest | null>(null);
   const keys = useRef(new Set<string>());
   const stick = useRef({ x: 0, y: 0 });
 
@@ -37,6 +40,14 @@ export function useRealmInput({ enabled = true }: { enabled?: boolean } = {}) {
       recompute();
       return;
     }
+    function castKey(e: KeyboardEvent) {
+      if (!castEnabled || e.code !== "Space") return;
+      const t = e.target;
+      if (t instanceof Element && t.closest("a, button, input, textarea, select, [role='dialog']")) return;
+      e.preventDefault();
+      castRef.current = { nearest: true };
+    }
+    window.addEventListener("keydown", castKey);
     function down(e: KeyboardEvent) {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (!(e.code in KEYS)) return;
@@ -60,17 +71,22 @@ export function useRealmInput({ enabled = true }: { enabled?: boolean } = {}) {
     window.addEventListener("blur", clear);
     document.addEventListener("visibilitychange", clear);
     return () => {
+      window.removeEventListener("keydown", castKey);
       window.removeEventListener("keydown", down);
       window.removeEventListener("keyup", up);
       window.removeEventListener("blur", clear);
       document.removeEventListener("visibilitychange", clear);
     };
-  }, [recompute, enabled]);
+  }, [recompute, enabled, castEnabled]);
 
   const setStick = useCallback((screen: { x: number; y: number }) => {
     stick.current = screen;
     recompute();
   }, [recompute]);
 
-  return { axisRef, setStick };
+  const requestCast = useCallback((req: CastRequest) => {
+    castRef.current = req;
+  }, []);
+
+  return { axisRef, setStick, castRef, requestCast };
 }
