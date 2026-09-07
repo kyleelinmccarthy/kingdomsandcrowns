@@ -15,7 +15,15 @@ import {
   selectMissedDays,
   type MissedDay,
 } from "@/lib/utils/missed-days";
-import { EXCUSE_REASONS, type ExcuseReason } from "@/lib/utils/excused-days";
+import {
+  EXCUSE_REASONS,
+  collisionKey,
+  partitionMovable,
+  type ExcuseReason,
+} from "@/lib/utils/excused-days";
+
+/** What a move actually managed to do, so the panel can say so. */
+type MoveResult = { moved: number; blocked: number };
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -75,11 +83,12 @@ export async function getMissedDaysView(
 
   const windowStart = addDaysToDate(today, -MISSED_DAYS_WINDOW);
 
-  const [childRow, activeDays, assignments, breaks, excused] = await Promise.all([
+  const [childRow, activeDays, assignments, breaks, excused, firstActivity] = await Promise.all([
     db
       .select({
         schoolDays: schema.child.schoolDays,
         streakOptionalDays: schema.child.streakOptionalDays,
+        createdAt: schema.child.createdAt,
       })
       .from(schema.child)
       .where(eq(schema.child.id, childId))
@@ -129,10 +138,27 @@ export async function getMissedDaysView(
         and(eq(schema.excusedDay.childId, childId), gte(schema.excusedDay.date, windowStart))
       )
       .orderBy(asc(schema.excusedDay.date)),
+    // The hero's very first logged activity, whenever that was — the floor for
+    // "missed". Unbounded on purpose: it is one indexed row, and clamping it to
+    // the window would make a long-established hero look brand new.
+    db
+      .select({ date: schema.activityLog.date })
+      .from(schema.activityLog)
+      .where(eq(schema.activityLog.childId, childId))
+      .orderBy(asc(schema.activityLog.date))
+      .limit(1),
   ]);
+
+  // A hero cannot have missed a day that fell before they started. Their first
+  // activity is the honest floor; a hero who has never logged anything falls
+  // back to the day they were created.
+  const notBefore =
+    firstActivity[0]?.date ??
+    (childRow[0]?.createdAt ? formatDate(childRow[0].createdAt) : null);
 
   const missed = selectMissedDays({
     today,
+    notBefore,
     activeDates: activeDays.map((r) => r.date),
     assignments,
     schoolDays: parseSchoolDays(childRow[0]?.schoolDays),
@@ -257,8 +283,8 @@ export async function unexcuseDay(childId: string, date: string): Promise<void> 
 export async function moveAssignmentsToDate(
   assignmentIds: string[],
   targetDate: string
-): Promise<void> {
-  if (assignmentIds.length === 0) return;
+): Promise<MoveResult> {
+  if (assignmentIds.length === 0) return { moved: 0, blocked: 0 };
   assertIsoDate(targetDate);
   if (targetDate < formatDate(new Date())) {
     throw new Error("Pick today or a later day to move this work to.");
@@ -266,7 +292,11 @@ export async function moveAssignmentsToDate(
 
   // Authorize every hero these assignments belong to, not just the first.
   const rows = await db
-    .select({ id: schema.questAssignment.id, childId: schema.questAssignment.childId })
+    .select({
+      id: schema.questAssignment.id,
+      childId: schema.questAssignment.childId,
+      questId: schema.questAssignment.questId,
+    })
     .from(schema.questAssignment)
     .where(
       and(
@@ -274,11 +304,31 @@ export async function moveAssignmentsToDate(
         inArray(schema.questAssignment.status, [...UNFINISHED])
       )
     );
-  if (rows.length === 0) return;
+  if (rows.length === 0) return { moved: 0, blocked: 0 };
 
-  for (const childId of new Set(rows.map((r) => r.childId))) {
+  const childIds = [...new Set(rows.map((r) => r.childId))];
+  for (const childId of childIds) {
     await requireParent(childId);
   }
+
+  // What the target day already holds for these heroes. A quest may only be
+  // assigned to a hero once per day (UNIQUE child_id, quest_id, date), so
+  // anything already there is work that does not need carrying over.
+  const onTarget = await db
+    .select({
+      childId: schema.questAssignment.childId,
+      questId: schema.questAssignment.questId,
+    })
+    .from(schema.questAssignment)
+    .where(
+      and(
+        inArray(schema.questAssignment.childId, childIds),
+        eq(schema.questAssignment.date, targetDate)
+      )
+    );
+
+  const { movable, blocked } = partitionMovable(rows, onTarget.map(collisionKey));
+  if (movable.length === 0) return { moved: 0, blocked: blocked.length };
 
   await db
     .update(schema.questAssignment)
@@ -290,9 +340,11 @@ export async function moveAssignmentsToDate(
     .where(
       inArray(
         schema.questAssignment.id,
-        rows.map((r) => r.id)
+        movable.map((r) => r.id)
       )
     );
+
+  return { moved: movable.length, blocked: blocked.length };
 }
 
 /** Move a whole day's unfinished work to another date. */
@@ -300,7 +352,7 @@ export async function moveDayToDate(
   childId: string,
   fromDate: string,
   targetDate: string
-): Promise<void> {
+): Promise<MoveResult> {
   await requireParent(childId);
   assertIsoDate(fromDate);
 
@@ -315,7 +367,7 @@ export async function moveDayToDate(
       )
     );
 
-  await moveAssignmentsToDate(
+  return moveAssignmentsToDate(
     rows.map((r) => r.id),
     targetDate
   );

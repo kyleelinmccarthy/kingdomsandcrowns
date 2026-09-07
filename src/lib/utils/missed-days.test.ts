@@ -67,6 +67,23 @@ describe("selectMissedDays", () => {
     const result = selectMissedDays({ ...base, windowDays: 3 });
     expect(result.every((d) => d.date >= "2026-09-04")).toBe(true);
   });
+
+  // A hero cannot have missed a day that fell before they started. Without
+  // this, a family that joins today is handed a month of invented backlog.
+  it("never reaches back before the hero's history begins", () => {
+    const result = selectMissedDays({
+      ...base,
+      activeDates: ["2026-09-04"],
+      notBefore: "2026-09-02",
+    });
+    const dates = result.map((d) => d.date);
+    expect(dates).toContain("2026-09-03");
+    expect(dates.every((d) => d >= "2026-09-02")).toBe(true);
+  });
+
+  it("reports nothing when the hero started today", () => {
+    expect(selectMissedDays({ ...base, notBefore: "2026-09-07" })).toEqual([]);
+  });
 });
 
 describe("formatMovedFrom", () => {

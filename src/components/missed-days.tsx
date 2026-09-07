@@ -7,12 +7,12 @@ import { GameIcon } from "@/components/game-icon";
 import { Button } from "@/components/ui/button";
 import { excuseDay, moveDayToDate } from "@/lib/actions/excused-days";
 import { formatMissedDate } from "@/lib/utils/makeup";
+import { formatMovedFrom, type MissedDay } from "@/lib/utils/missed-days";
 import {
   EXCUSE_REASONS,
   EXCUSE_REASON_LABELS,
   type ExcuseReason,
 } from "@/lib/utils/excused-days";
-import type { MissedDay } from "@/lib/utils/missed-days";
 
 /**
  * The grown-ups' account of days that did not go to plan: a school day with
@@ -93,14 +93,24 @@ function MissedDayRow({
   const [target, setTarget] = useState(today);
   const [acting, setActing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const canApplyToAll = writableChildCount > 1;
 
-  async function run(fn: () => Promise<void>) {
+  async function run(fn: () => Promise<{ moved: number; blocked: number } | void>) {
     setActing(true);
     setError(null);
+    setNotice(null);
     try {
-      await fn();
+      const result = await fn();
+      // A quest already on the target day cannot be moved onto it twice, so it
+      // stays put. Say so — silently moving three of four is worse than saying
+      // which one stayed and why.
+      if (result && result.blocked > 0) {
+        setNotice(
+          `${result.moved} moved. ${result.blocked} stayed put — that day already has ${result.blocked === 1 ? "that quest" : "those quests"}.`
+        );
+      }
       setMode("idle");
       router.refresh();
     } catch (e) {
@@ -117,7 +127,10 @@ function MissedDayRow({
       }`}
     >
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <span className="font-semibold">{formatMissedDate(day.date, today)}</span>
+        {/* "Yesterday" / "Monday" while that still reads unambiguously, then a
+            named date — over a 30-day window a bare weekday would repeat four
+            times and a raw ISO string reads like a serial number. */}
+        <span className="font-semibold">{dayLabel(day.date, today)}</span>
         <span className="text-xs text-muted-foreground">{describe(day)}</span>
         {canEdit && mode === "idle" && (
           <div className="flex flex-wrap gap-1 sm:ml-auto">
@@ -218,8 +231,19 @@ function MissedDayRow({
       )}
 
       {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
+      {notice && <p className="mt-2 text-xs text-muted-foreground">{notice}</p>}
     </div>
   );
+}
+
+/**
+ * `formatMissedDate` only names days inside the last six — beyond that it hands
+ * back the raw ISO date, which is most of a 30-day window. Fall through to the
+ * named form there.
+ */
+function dayLabel(date: string, today: string): string {
+  const relative = formatMissedDate(date, today);
+  return relative === date ? formatMovedFrom(date) : relative;
 }
 
 function describe(day: MissedDay): string {

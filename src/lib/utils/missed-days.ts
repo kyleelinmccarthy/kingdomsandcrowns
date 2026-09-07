@@ -52,6 +52,15 @@ export type MissedDay = {
 export type MissedDaysInput = StreakOptions & {
   today: string;
   windowDays?: number;
+  /**
+   * The earliest date this hero can be said to have missed anything — their
+   * first logged activity, or the day they were created if they have none.
+   *
+   * Without it, every school day between the start of the window and the day a
+   * family joined is reported as missed, which is how a brand-new family gets
+   * handed a month of backlog they were never asked for.
+   */
+  notBefore?: string | null;
   activeDates: Iterable<string>;
   assignments: readonly { date: string; status: string }[];
 };
@@ -67,7 +76,7 @@ export type MissedDaysInput = StreakOptions & {
  * where `computeStreak` stops counting.
  */
 export function selectMissedDays(input: MissedDaysInput): MissedDay[] {
-  const { today, windowDays = MISSED_DAYS_WINDOW, assignments } = input;
+  const { today, windowDays = MISSED_DAYS_WINDOW, assignments, notBefore } = input;
   const active = new Set(input.activeDates);
 
   const unfinishedByDate = new Map<string, number>();
@@ -81,6 +90,7 @@ export function selectMissedDays(input: MissedDaysInput): MissedDay[] {
 
   for (let i = 1; i <= windowDays; i++) {
     const date = addDaysToDate(today, -i);
+    if (notBefore && date < notBefore) break;
     if (isDayOff(date, input)) continue;
 
     const empty = !active.has(date);

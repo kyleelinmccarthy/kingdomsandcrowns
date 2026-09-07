@@ -264,18 +264,6 @@ export default async function TavernPage({
                     <p className="text-2xl font-bold" style={{ color: "var(--streak)" }}>{activeChild.currentStreak}</p>
                     <p className="text-xs text-muted-foreground">day streak</p>
                   </div>
-                  {/* Say why the streak is short, where a grown-up will actually
-                      wonder about it. The fix is the panel further down. */}
-                  {!isChildView && streakBreakDate && (
-                    <p className="self-center text-left text-xs text-muted-foreground">
-                      Streak broke on{" "}
-                      <span style={{ color: "var(--streak)" }}>
-                        {formatMissedDate(streakBreakDate, today)}
-                      </span>
-                      <br />
-                      Excuse that day below to restore it.
-                    </p>
-                  )}
                   <div>
                     <p className="text-2xl font-bold" style={{ color: "var(--xp)" }}>{activeChild.currentXp}</p>
                     <p className="text-xs text-muted-foreground">total XP</p>
@@ -285,6 +273,19 @@ export default async function TavernPage({
                     <p className="text-xs text-muted-foreground">best streak</p>
                   </div>
                 </div>
+
+                {/* Say why the streak is short, where a grown-up will actually
+                    wonder about it — under the figures rather than wedged
+                    between them. The fix is the panel further down the page. */}
+                {!isChildView && streakBreakDate && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Streak broke on{" "}
+                    <span style={{ color: "var(--streak)" }}>
+                      {formatMissedDate(streakBreakDate, today)}
+                    </span>{" "}
+                    — excuse that day below to restore it.
+                  </p>
+                )}
               </div>
             </GameFrame>
           )}
