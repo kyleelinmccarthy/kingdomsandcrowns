@@ -19,6 +19,12 @@ export type StreakOptions = {
   optionalDays?: readonly string[] | null;
   /** School breaks/holidays, skipped the same way non-school weekdays are. */
   breaks?: readonly DateRange[] | null;
+  /**
+   * Dates a grown-up excused after the fact — a sick day, an appointment, a
+   * holiday nobody had entered yet. Skipped exactly like a break: an empty one
+   * never resets the streak, and activity logged on one still counts toward it.
+   */
+  excusedDates?: readonly string[] | null;
 };
 
 /**
@@ -43,9 +49,6 @@ export function computeStreak(
   options: StreakOptions = {}
 ): number {
   const active = new Set(activeDates);
-  const schoolDaySet = options.schoolDays?.length ? new Set(options.schoolDays) : null;
-  const optionalDaySet = new Set(options.optionalDays ?? []);
-  const breaks = options.breaks ?? [];
   let streak = 0;
   const cursor = new Date(today);
 
@@ -53,7 +56,7 @@ export function computeStreak(
     const dateStr = formatDate(cursor);
     if (active.has(dateStr)) {
       streak++;
-    } else if (i !== 0 && !isDayOff(dateStr, schoolDaySet, optionalDaySet, breaks)) {
+    } else if (i !== 0 && !isDayOff(dateStr, options)) {
       // A school day with nothing logged ends the streak. (i === 0 is today,
       // which may simply not have an activity logged yet.)
       break;
@@ -66,18 +69,17 @@ export function computeStreak(
 
 /**
  * True when nothing is expected on this date — not a school day, marked
- * optional, or inside a break.
+ * optional, inside a break, or excused after the fact.
+ *
+ * Exported because the missed-days panel must ask exactly the question the
+ * streak asks. Two copies of this rule is how the two would drift apart.
  */
-function isDayOff(
-  isoDate: string,
-  schoolDaySet: Set<string> | null,
-  optionalDaySet: Set<string>,
-  breaks: readonly DateRange[]
-): boolean {
+export function isDayOff(isoDate: string, options: StreakOptions): boolean {
   const weekday = weekdayOfDate(isoDate);
-  if (schoolDaySet && !schoolDaySet.has(weekday)) return true;
-  if (optionalDaySet.has(weekday)) return true;
-  return breaks.some((b) => isoDate >= b.startDate && isoDate <= b.endDate);
+  if (options.schoolDays?.length && !options.schoolDays.includes(weekday)) return true;
+  if (options.optionalDays?.includes(weekday)) return true;
+  if (options.excusedDates?.includes(isoDate)) return true;
+  return (options.breaks ?? []).some((b) => isoDate >= b.startDate && isoDate <= b.endDate);
 }
 
 /**
@@ -90,9 +92,6 @@ export function computeLongestStreak(
   activeDates: Iterable<string>,
   options: StreakOptions = {}
 ): number {
-  const schoolDaySet = options.schoolDays?.length ? new Set(options.schoolDays) : null;
-  const optionalDaySet = new Set(options.optionalDays ?? []);
-  const breaks = options.breaks ?? [];
   const sorted = [...new Set(activeDates)].sort();
 
   let longest = 0;
@@ -100,7 +99,7 @@ export function computeLongestStreak(
   let previous: string | null = null;
 
   for (const date of sorted) {
-    run = previous !== null && gapIsAllDaysOff(previous, date, schoolDaySet, optionalDaySet, breaks) ? run + 1 : 1;
+    run = previous !== null && gapIsAllDaysOff(previous, date, options) ? run + 1 : 1;
     if (run > longest) longest = run;
     previous = date;
   }
@@ -109,15 +108,9 @@ export function computeLongestStreak(
 }
 
 /** True when every day strictly between two active dates is a day off. */
-function gapIsAllDaysOff(
-  from: string,
-  to: string,
-  schoolDaySet: Set<string> | null,
-  optionalDaySet: Set<string>,
-  breaks: readonly DateRange[]
-): boolean {
+function gapIsAllDaysOff(from: string, to: string, options: StreakOptions): boolean {
   for (let day = addDaysToDate(from, 1); day < to; day = addDaysToDate(day, 1)) {
-    if (!isDayOff(day, schoolDaySet, optionalDaySet, breaks)) return false;
+    if (!isDayOff(day, options)) return false;
   }
   return true;
 }
