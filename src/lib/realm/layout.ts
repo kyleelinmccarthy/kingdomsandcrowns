@@ -5,7 +5,7 @@ import { VILLAGERS, villagerPosition } from "./villagers";
 export const WORLD_SIZE = 40;
 
 export type Vec2 = { x: number; z: number };
-export type PropKind = "castle" | "building" | "foundation" | "path" | "villager";
+export type PropKind = "castle" | "building" | "foundation" | "path" | "villager" | "barrier";
 
 export type Prop = {
   id: string;
