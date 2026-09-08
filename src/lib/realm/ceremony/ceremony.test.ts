@@ -132,6 +132,19 @@ describe("stepCeremony", () => {
     const r = run(s, (GATHER_MS + HAIL_MS) / 1000 + 2 * DT, layout.colliders, true);
     expect(r.entered).toEqual(["hail", "done"]);
   });
+  it("turns to face the walk direction as stepHero computes it, then faces north once gathered", () => {
+    let s = startCeremony(layout, { x: 6, z: 12 }, false);
+    let facedWest = false;
+    let seconds = 0;
+    while (s.step === "walk" && seconds < WALK_TIMEOUT_MS / 1000) {
+      s = stepCeremony(s, DT, layout.colliders, false).state;
+      if (s.heroFacing === "w") facedWest = true;
+      seconds += DT;
+    }
+    expect(s.step).toBe("gather");
+    expect(facedWest).toBe(true);
+    expect(s.heroFacing).toBe("n");
+  });
   it("proceeds to gather after the safety net when the hero cannot reach the mark", () => {
     const wall: Prop = { id: "wall", kind: "barrier", label: "", position: { x: 0, z: 0 }, size: { w: WORLD_SIZE, d: 1, h: 1 }, color: "#000000", solid: true };
     const r = run(startCeremony(layout, SPAWN, false), WALK_TIMEOUT_MS / 1000 + 1, [...layout.colliders, wall]);

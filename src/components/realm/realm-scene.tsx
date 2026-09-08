@@ -101,7 +101,7 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
     const request = castRef.current;
     castRef.current = null;
     if (ceremonyActive && !ceremonyRef.current) {
-      const started = startCeremony(layout, hero.current.position, !settings.motion);
+      const started = startCeremony(layout, hero.current.position, !settings.motion, hero.current.facing);
       ceremonyRef.current = started;
       const first = started.step;
       queueMicrotask(() => onCeremonyEvent({ kind: "step", step: first }));
@@ -122,7 +122,7 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
       ceremonyRef.current = r.state;
       const entered = r.entered;
       if (entered) queueMicrotask(() => onCeremonyEvent({ kind: "step", step: entered }));
-      hero.current = { ...hero.current, position: r.state.hero, target: null, facing: "n" };
+      hero.current = { ...hero.current, position: r.state.hero, target: null, facing: r.state.heroFacing };
       companion.current = stepCompanion(companion.current, hero.current, dt);
       for (const [id, sprite] of villagerSprites.current) {
         const v = r.state.villagers[id];

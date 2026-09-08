@@ -45,7 +45,7 @@ export function CrownCard({
   }
 
   return (
-    <GameFrame className="crown-card">
+    <GameFrame>
       <div className="flex flex-wrap items-center gap-4">
         <span style={{ color }}>
           <GameIcon name={crown?.icon ?? "crown"} className="size-10 drop-shadow-[0_0_6px_var(--glow-gold)]" />

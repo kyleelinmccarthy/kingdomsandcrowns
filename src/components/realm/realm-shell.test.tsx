@@ -459,6 +459,9 @@ describe("RealmShell crown ceremony", () => {
     expect(screen.getByText("Hail, Lily, Copper Circlet!")).toBeInTheDocument();
     expect(screen.getByText("Season 1 complete")).toBeInTheDocument();
     step("done");
+    // Skip is gone the instant "done" is emitted (ceremonyStage moves straight to
+    // "finishing"), not only once the record request settles.
+    expect(screen.queryByRole("button", { name: "Skip" })).not.toBeInTheDocument();
     await waitFor(() => expect(markCeremonySeen).toHaveBeenCalledWith("c1", "s1"));
     await waitFor(() => expect(screen.getByTestId("scene").dataset.interactive).toBe("true"));
     expect(screen.getByTestId("scene").dataset.ceremony).toBe("false");
@@ -488,6 +491,20 @@ describe("RealmShell crown ceremony", () => {
     expect(screen.getByTestId("scene").dataset.ceremony).toBe("false");
     expect(screen.getByText("Copper Circlet")).toBeInTheDocument();
     expect(spriteSourceProps.crown).toEqual(crownRequest);
+  });
+
+  it("disables Ride while the ceremony runs and enables it once done", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    markCeremonySeen.mockResolvedValue(undefined);
+    const riderCeremonyBundle = { ...ceremonyBundle, avatarConfig: { ...DEFAULT_AVATAR, mount: "pony" } };
+    render(<RealmShell bundle={riderCeremonyBundle} childId="c1" isChildView={true} />);
+    await screen.findByTestId("scene");
+    expect(screen.getByRole("button", { name: "Ride" })).toBeDisabled();
+    step("gather");
+    step("hail");
+    step("done");
+    await waitFor(() => expect(markCeremonySeen).toHaveBeenCalledWith("c1", "s1"));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Ride" })).toBeEnabled());
   });
 
   it("raises the skip flag from the Skip button and from Escape", async () => {

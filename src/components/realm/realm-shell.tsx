@@ -220,7 +220,13 @@ function RealmOpen({
   );
   const onReady = useCallback((t: SpriteTextures) => {
     setTextures(t);
-    setCeremonyStage((s) => (s === "waiting" ? "running" : s)); // a sprite retry after the ceremony must not replay it
+    // a sprite retry after the ceremony must not replay it; dismount so the mount sprite
+    // doesn't follow the hero through the ceremony (the crown would overlap it).
+    setCeremonyStage((s) => {
+      if (s !== "waiting") return s;
+      setRiding(false);
+      return "running";
+    });
   }, []);
   const onError = useCallback((e: Error) => setSpriteError(e.message), []);
   const onReachChange = useCallback((id: string | null) => setReachId(id), []);
@@ -343,13 +349,14 @@ function RealmOpen({
   }, [returnFocus]);
 
   const onKingdomRetry = useCallback(() => {
+    if (ceremonyRunning) return; // the plaza is mid-ceremony; villagers stand at their sites, not their buildings
     getRealmKingdom(childId)
       .then((k) => {
         setKingdom(k);
         setKingdomError("");
       })
       .catch(() => setKingdomError(VILLAGERS_RESTING));
-  }, [childId]);
+  }, [childId, ceremonyRunning]);
 
   const ceremonyCrown = useMemo(() => {
     if (!ceremonyPending) return null;
@@ -391,7 +398,7 @@ function RealmOpen({
   const calm = bundle.profile.reducedMotion || bundle.profile.lowStimulus;
   const hudRecess = isChildView ? hudRecessFor(recess, recessActive) : null;
   const hudRide = isChildView
-    ? (canRide ? { riding, disabled: false, onToggle: onToggleRide } : null)
+    ? (canRide ? { riding, disabled: ceremonyRunning, onToggle: onToggleRide } : null)
     : (mountItem && bundle.mounts.unlocked.includes(mountItem.id) ? { riding: false, disabled: true, onToggle: () => {} } : null);
 
   if (!portalTarget) return null;
@@ -445,7 +452,7 @@ function RealmOpen({
         recess={hudRecess}
         ride={hudRide}
         crown={crown}
-        ceremony={ceremonyRunning ? { onSkip } : null}
+        ceremony={ceremonyStage === "running" ? { onSkip } : null}
         ceremonyError={ceremonyError}
         onCeremonyRetry={recordCeremony}
         onRetry={() => {

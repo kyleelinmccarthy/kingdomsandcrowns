@@ -1,5 +1,5 @@
 import { BUILDING_SLOTS, type Prop, type Vec2, type WorldLayout } from "../layout";
-import { ARRIVE_RADIUS, HERO_SPEED, stepHero } from "../movement";
+import { ARRIVE_RADIUS, HERO_SPEED, stepHero, type Facing } from "../movement";
 import { VILLAGERS } from "../villagers";
 
 /**
@@ -14,6 +14,7 @@ export type CeremonyState = {
   step: CeremonyStep;
   elapsed: number; // ms inside the current step
   hero: Vec2;
+  heroFacing: Facing;
   villagers: Record<string, Vec2>;
   crownY: number;
   skipped: boolean;
@@ -71,14 +72,14 @@ function marksFor(marks: CeremonyMarks, ids: string[]): Record<string, Vec2> {
   return Object.fromEntries(ids.map((id) => [id, marks.villagers[id]]));
 }
 
-export function startCeremony(layout: WorldLayout, hero: Vec2, reducedMotion: boolean): CeremonyState {
+export function startCeremony(layout: WorldLayout, hero: Vec2, reducedMotion: boolean, facing: Facing = "n"): CeremonyState {
   const marks = ceremonyMarks(layout);
   const ids = layout.villagers.map((v) => v.id);
   if (reducedMotion) {
-    return { step: "gather", elapsed: 0, hero: marks.hero, villagers: marksFor(marks, ids), crownY: CROWN_LOW, skipped: false, marks };
+    return { step: "gather", elapsed: 0, hero: marks.hero, heroFacing: "n", villagers: marksFor(marks, ids), crownY: CROWN_LOW, skipped: false, marks };
   }
   const villagers = Object.fromEntries(layout.villagers.map((v) => [v.id, v.position]));
-  return { step: "walk", elapsed: 0, hero, villagers, crownY: CROWN_HIGH, skipped: false, marks };
+  return { step: "walk", elapsed: 0, hero, heroFacing: facing, villagers, crownY: CROWN_HIGH, skipped: false, marks };
 }
 
 /**
@@ -91,9 +92,10 @@ export function startCeremony(layout: WorldLayout, hero: Vec2, reducedMotion: bo
  * their path to an x-then-z corner would be as likely to walk them into a building as around
  * one; the slide alone (plus the WALK_TIMEOUT_MS safety net) is what the brief specifies for them.
  */
-function walk(from: Vec2, mark: Vec2, speed: number, dt: number, colliders: Prop[], squareCorners: boolean): Vec2 {
+function walk(from: Vec2, mark: Vec2, speed: number, dt: number, colliders: Prop[], squareCorners: boolean, facing: Facing = "n"): { position: Vec2; facing: Facing } {
   const waypoint = squareCorners && Math.abs(from.x - mark.x) > ARRIVE_RADIUS ? { x: mark.x, z: from.z } : mark;
-  return stepHero({ position: from, facing: "n", target: waypoint, mounted: false }, { axis: { x: 0, z: 0 } }, dt, colliders, speed).position;
+  const stepped = stepHero({ position: from, facing, target: waypoint, mounted: false }, { axis: { x: 0, z: 0 } }, dt, colliders, speed);
+  return { position: stepped.position, facing: stepped.facing };
 }
 
 function enter(state: CeremonyState, step: CeremonyStep): { state: CeremonyState; entered: CeremonyStep } {
@@ -105,12 +107,12 @@ export function stepCeremony(state: CeremonyState, dt: number, colliders: Prop[]
   const elapsed = state.elapsed + dt * 1000;
   switch (state.step) {
     case "walk": {
-      const hero = walk(state.hero, state.marks.hero, HERO_SPEED, dt, colliders, false);
+      const heroStep = walk(state.hero, state.marks.hero, HERO_SPEED, dt, colliders, false, state.heroFacing);
       const villagers: Record<string, Vec2> = {};
-      for (const [id, p] of Object.entries(state.villagers)) villagers[id] = walk(p, state.marks.villagers[id], VILLAGER_SPEED, dt, colliders, true);
-      const arrived = dist(hero, state.marks.hero) <= MARK_RADIUS && Object.entries(villagers).every(([id, p]) => dist(p, state.marks.villagers[id]) <= MARK_RADIUS);
-      const moved = { ...state, hero, villagers, elapsed };
-      if (arrived || elapsed >= WALK_TIMEOUT_MS) return enter(moved, "gather");
+      for (const [id, p] of Object.entries(state.villagers)) villagers[id] = walk(p, state.marks.villagers[id], VILLAGER_SPEED, dt, colliders, true).position;
+      const arrived = dist(heroStep.position, state.marks.hero) <= MARK_RADIUS && Object.entries(villagers).every(([id, p]) => dist(p, state.marks.villagers[id]) <= MARK_RADIUS);
+      const moved = { ...state, hero: heroStep.position, heroFacing: heroStep.facing, villagers, elapsed };
+      if (arrived || elapsed >= WALK_TIMEOUT_MS) return enter({ ...moved, heroFacing: "n" }, "gather");
       return { state: moved, entered: null };
     }
     case "gather":
@@ -130,7 +132,7 @@ export function stepCeremony(state: CeremonyState, dt: number, colliders: Prop[]
 /** Straight to the hail: everyone at their marks, the crown down. Nothing changes once hailing or done. */
 export function skipCeremony(state: CeremonyState): CeremonyState {
   if (state.step === "hail" || state.step === "done") return state;
-  return { ...state, step: "hail", elapsed: 0, hero: state.marks.hero, villagers: marksFor(state.marks, Object.keys(state.villagers)), crownY: CROWN_LOW, skipped: true };
+  return { ...state, step: "hail", elapsed: 0, hero: state.marks.hero, heroFacing: "n", villagers: marksFor(state.marks, Object.keys(state.villagers)), crownY: CROWN_LOW, skipped: true };
 }
 
 export function ceremonyNotice(step: CeremonyStep, heroName: string, crownLabel: string): string | null {
