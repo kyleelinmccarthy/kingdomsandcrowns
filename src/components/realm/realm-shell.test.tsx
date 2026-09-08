@@ -381,4 +381,16 @@ describe("RealmShell", () => {
     expect(await screen.findByTestId("scene")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Ride" })).not.toBeInTheDocument();
   });
+
+  it("dismounts with M even while focus is still on the HUD's Ride button", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    const user = userEvent.setup();
+    const riderBundle = { ...bundle, avatarConfig: { ...DEFAULT_AVATAR, mount: "pony" }, spellbook: { spells: pages, slots: 4 } };
+    render(<RealmShell bundle={riderBundle} childId="c1" isChildView={true} />);
+    expect(await screen.findByTestId("scene")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Ride" }));
+    expect(screen.getByTestId("scene")).toHaveAttribute("data-riding", "true");
+    fireEvent.keyDown(screen.getByRole("button", { name: "Dismount" }), { code: "KeyM", key: "m" });
+    await waitFor(() => expect(screen.getByTestId("scene")).toHaveAttribute("data-riding", "false"));
+  });
 });

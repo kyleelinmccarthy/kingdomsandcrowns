@@ -227,7 +227,8 @@ function RealmOpen({
       const t = e.target;
       const onInteractiveElement = t instanceof Element && t.closest("a, button, input, textarea, select, [role='dialog']");
       if (e.code === "KeyM" && !e.repeat) {
-        if (onInteractiveElement) return;
+        const inHud = t instanceof Element && t.closest(".realm-hud");
+        if (onInteractiveElement && !inHud) return;
         e.preventDefault();
         onToggleRide();
         return;

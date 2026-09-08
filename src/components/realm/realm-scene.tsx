@@ -133,7 +133,7 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
         material.map = wantMap;
         material.needsUpdate = true;
       }
-      heroSprite.current.position.set(p.x, (riding ? 1.6 : SPRITE_H / 2) + bob, p.z);
+      heroSprite.current.position.set(p.x, (riding ? 1.2 : SPRITE_H / 2) + bob, p.z);
       heroSprite.current.scale.set(flip, SPRITE_H, 1);
       if (mountSprite.current) {
         mountSprite.current.visible = riding;
