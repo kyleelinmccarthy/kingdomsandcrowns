@@ -39,11 +39,11 @@ export const MOUNTS: MountItem[];
 | goat | Goat | 4.8 | level 3 |
 | stag | Stag | 5.5 | level 8 |
 | boar | Boar | 5.2 | badge `badge-streak-7` (Week Warrior) |
-| wolf | Wolf | 5.8 | level 15 |
-| griffin | Griffin | 6.5 | quest |
-| dragon | Dragon | 7 | quest |
+| direwolf | Direwolf | 5.8 | level 15 |
+| gryphon | Gryphon | 6.5 | quest |
+| wyrm | Wyrm | 7 | quest |
 
-Walking stays `HERO_SPEED = 3.5`. Mount ids are disjoint from companion ids (test). `findMount(id)`.
+Walking stays `HERO_SPEED = 3.5`. Mount ids are disjoint from companion ids (the unlock table is keyed by item id alone; `wolf`, `griffin`, and `dragon` are companions, hence the names above). `findMount(id)`.
 
 ### Avatar config
 `AvatarConfig` gains `mount: string | null` and `mountColor: string` (default `"#8b5e3c"`); `DEFAULT_AVATAR.mount = null`; `normalizeAvatarConfig` fills both like `companion`/`companionColor`; `isValidAvatarConfig` accepts null or a catalog mount id. The existing avatar save path stores it. `spriteKey` keeps mount fields (they change the drawn figure).
@@ -55,7 +55,7 @@ The avatar-unlock category `mount` joins the quest-reward flow: `getRewardableIt
 `MountFigure({ mount, color, size? })` draws a saddled animal on the 36×48 canvas with `data-figure="mount"` and `data-figure-id={mount}` (eight small pixel figures). `AvatarFigure` gains `mounted?: boolean`: when true the layers render in a group translated up by 8 units with the legs and boots omitted, so the rider sits on the saddle. `SpriteSource` rasterises the mount texture keyed `mount:{id}:{color}` and reports `SpriteTextures.mount: CanvasTexture | null` and `SpriteTextures.heroMounted: CanvasTexture | null` (the rider variant, key `spriteKey(config) + ":mounted"`).
 
 ### Loot and Chronicle
-Loot shows "Mounts: n of 8" (unlocked count) next to the spell-part count. The Chronicle hero card shows the equipped mount's label under the companion.
+Loot shows "Mounts: n of 8" (unlocked count) next to the spell-part count. The Chronicle hero card shows "Rides: {label}" under the avatar when a mount is equipped. The "Recess!" toast is triggered by a `recessStart` event the recess simulation emits on the frame recess becomes active.
 
 ### Bundle
 `RealmBundle.mounts: { unlocked: string[] }`, computed server-side from the same unlock context the spellbook uses (level, badges, unlock table). The equipped mount is `avatarConfig.mount`; it rides only when its id is in `unlocked` (a removed reward rides as none).
