@@ -1727,7 +1727,7 @@ html { scrollbar-color: var(--border) var(--background); }
 .realm-panel-deed { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem; border-radius: 0.5rem; border: 1px solid var(--gold-dim); padding: 0.5rem 0.75rem; }
 .realm-panel button { min-height: 44px; }
 .realm-spellbar { position: absolute; left: 50%; bottom: 1.25rem; z-index: 20; display: flex; gap: 0.4rem; transform: translateX(-50%); max-width: calc(100vw - 2rem); overflow-x: auto; padding: 0.3rem; border-radius: 9999px; background: rgba(0, 0, 0, 0.5); font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif; }
-.realm-spellbar--raised { bottom: 9.5rem; }
+.realm-spellbar.realm-spellbar--raised { bottom: 9.5rem; }
 .realm-spell { position: relative; display: flex; align-items: center; gap: 0.35rem; min-height: 44px; min-width: 44px; padding: 0 0.7rem; border-radius: 9999px; border: 2px solid transparent; background: rgba(255, 255, 255, 0.08); color: #fff; font-size: 1em; white-space: nowrap; cursor: pointer; }
 .realm-spell--selected { background: rgba(201, 168, 76, 0.3); box-shadow: 0 0 0 2px var(--gold-bright); }
 .realm-spell--dim { opacity: 0.55; }
