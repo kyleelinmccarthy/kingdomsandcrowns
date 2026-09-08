@@ -64,4 +64,43 @@ describe("useRealmInput", () => {
     result.current.requestCast({ target: { x: 1, z: 2 } });
     expect(result.current.castRef.current).toEqual({ target: { x: 1, z: 2 } });
   });
+
+  it("casts on Space from a focused spell-bar button, but not from a button elsewhere", () => {
+    const { result } = renderHook(() => useRealmInput({ castEnabled: true }));
+
+    const bar = document.createElement("div");
+    bar.className = "realm-spellbar";
+    const barButton = document.createElement("button");
+    bar.appendChild(barButton);
+    document.body.appendChild(bar);
+
+    const outsideButton = document.createElement("button");
+    document.body.appendChild(outsideButton);
+
+    let event = new KeyboardEvent("keydown", { code: "Space", key: " ", cancelable: true });
+    act(() => {
+      Object.defineProperty(event, "target", { value: outsideButton });
+      window.dispatchEvent(event);
+    });
+    expect(result.current.castRef.current).toBeNull();
+
+    event = new KeyboardEvent("keydown", { code: "Space", key: " ", cancelable: true });
+    act(() => {
+      Object.defineProperty(event, "target", { value: barButton });
+      window.dispatchEvent(event);
+    });
+    expect(result.current.castRef.current).toEqual({ nearest: true });
+    expect(event.defaultPrevented).toBe(true);
+
+    bar.remove();
+    outsideButton.remove();
+  });
+
+  it("ignores a repeated Space from key-repeat", () => {
+    const { result } = renderHook(() => useRealmInput({ castEnabled: true }));
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent("keydown", { code: "Space", key: " ", repeat: true }));
+    });
+    expect(result.current.castRef.current).toBeNull();
+  });
 });

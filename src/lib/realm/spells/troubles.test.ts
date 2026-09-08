@@ -4,7 +4,7 @@ import { HERO_RADIUS } from "../movement";
 import { resolveSpell } from "@/lib/utils/spell-catalog";
 import {
   spawnTroubles, stepTroubles, hitTrouble, applyHit, startTally, recordClear, speedFactor,
-  MAX_TROUBLES, LOW_STIMULUS_MAX, RESPAWN_MS, TROUBLE_RADIUS, TROUBLE_COPY, PUSHBACK, type Trouble,
+  MAX_TROUBLES, LOW_STIMULUS_MAX, RESPAWN_MS, TROUBLE_RADIUS, TROUBLE_COPY, PUSHBACK, RETREAT_MS, type Trouble,
 } from "./troubles";
 
 const layout = buildWorldLayout({ castleType: "keep", buildings: [{ id: "well", done: 5, total: 5, complete: true }] });
@@ -13,7 +13,7 @@ const bolt = resolveSpell({ elementId: "ember", formId: "bolt", modifierId: null
 const frostBolt = resolveSpell({ elementId: "frost", formId: "bolt", modifierId: "slow" })!;
 
 function troubleAt(kind: Trouble["kind"], x: number, z: number, extra: Partial<Trouble> = {}): Trouble {
-  return { id: `t-${kind}`, kind, siteId: "mill", position: { x, z }, origin: { x, z }, drift: { x: 1, z: 0 }, hitsLeft: kind === "cursed-stone" ? 2 : 1, statuses: [], spawnedAt: 0, ...extra };
+  return { id: `t-${kind}`, kind, siteId: "mill", position: { x, z }, origin: { x, z }, drift: { x: 1, z: 0 }, hitsLeft: kind === "cursed-stone" ? 2 : 1, statuses: [], spawnedAt: 0, retreatUntil: 0, ...extra };
 }
 
 describe("spawnTroubles", () => {
@@ -55,6 +55,23 @@ describe("spawnTroubles", () => {
     const later = spawnTroubles({ seed: 1, now: RESPAWN_MS, layout, troubles: cleared, clearedSites: { mill: 0 }, lowStimulus: false });
     expect(later.some((t) => t.siteId === "mill")).toBe(true);
     expect(later.length).toBe(MAX_TROUBLES);
+  });
+
+  it("drops a trouble once its site finishes building, and drops any trouble sitting inside a collider", () => {
+    const spawned = spawnTroubles({ seed: 7, now: 0, layout, troubles: [], clearedSites: {}, lowStimulus: false });
+    expect(spawned.some((t) => t.siteId === "mill")).toBe(true);
+    const millBuilt = buildWorldLayout({
+      castleType: "keep",
+      buildings: [{ id: "well", done: 5, total: 5, complete: true }, { id: "mill", done: 3, total: 3, complete: true }],
+    });
+    const afterBuilt = spawnTroubles({ seed: 7, now: 0, layout: millBuilt, troubles: spawned, clearedSites: {}, lowStimulus: false });
+    expect(afterBuilt.some((t) => t.siteId === "mill")).toBe(false);
+
+    // A trouble sitting inside a collider (the castle) is dropped even though its site is still a foundation.
+    const castle = layout.colliders.find((c) => c.id === "castle")!;
+    const stray = troubleAt("fog", castle.position.x, castle.position.z, { id: "stray" });
+    const filtered = spawnTroubles({ seed: 7, now: 0, layout, troubles: [stray], clearedSites: {}, lowStimulus: false });
+    expect(filtered.some((t) => t.id === "stray")).toBe(false);
   });
 });
 
@@ -120,6 +137,49 @@ describe("stepTroubles", () => {
     expect(stepTroubles([blob], hero, 0.016, [], { ...noOpts, shielded: true }).focusLost).toBe(false);
     expect(stepTroubles([blob], hero, 0.016, [], { ...noOpts, dazzled: true }).focusLost).toBe(false);
     expect(HERO_RADIUS).toBeGreaterThan(0);
+  });
+
+  it("sets a 4-second retreat window on contact and does not re-approach until it passes", () => {
+    const blob = troubleAt("shadow-blob", 0.5, 0);
+    const hero = { x: 0, z: 0 };
+    const contacted = stepTroubles([blob], hero, 0.016, [], { ...noOpts, now: 1000 }).troubles[0];
+    expect(contacted.retreatUntil).toBe(1000 + RETREAT_MS);
+
+    // Drift runs perpendicular (+z) to the hero direction (+x) so wandering and approaching are distinguishable.
+    const retreating = troubleAt("shadow-blob", 0, 0, { drift: { x: 0, z: 1 }, retreatUntil: 500 });
+    const heroNear = { x: 4, z: 0 };
+    const stillRetreating = stepTroubles([retreating], heroNear, 1, [], { ...noOpts, now: 100 }).troubles[0];
+    expect(stillRetreating.position.x).toBeCloseTo(0, 5);
+    expect(stillRetreating.position.z).toBeCloseTo(1.8, 5);
+    const windowPassed = stepTroubles([retreating], heroNear, 1, [], { ...noOpts, now: 500 }).troubles[0];
+    expect(windowPassed.position.x).toBeCloseTo(1.8, 5);
+    expect(windowPassed.position.z).toBeCloseTo(0, 5);
+  });
+
+  it("pushes back a shielded or dazzled contact just like an unshielded one", () => {
+    const blob = troubleAt("shadow-blob", 0.5, 0);
+    const hero = { x: 0, z: 0 };
+    const shielded = stepTroubles([blob], hero, 0.016, [], { ...noOpts, shielded: true }).troubles[0];
+    expect(Math.hypot(shielded.position.x, shielded.position.z)).toBeCloseTo(0.5 + PUSHBACK, 1);
+    const dazzled = stepTroubles([blob], hero, 0.016, [], { ...noOpts, dazzled: true }).troubles[0];
+    expect(Math.hypot(dazzled.position.x, dazzled.position.z)).toBeCloseTo(0.5 + PUSHBACK, 1);
+  });
+
+  it("shortens the pushback to half, then a quarter, when the full distance would land inside a collider", () => {
+    const blob = troubleAt("shadow-blob", 0.5, 0);
+    const hero = { x: 0, z: 0 };
+    // Away from the hero is +x. A wall centered exactly where the full PUSHBACK would land blocks it,
+    // so the blob falls back to half that distance instead. dt: 0 keeps the blob from also drifting
+    // toward the hero this frame, so the pushback math stays exact.
+    const wallAtFullPush = { id: "w", kind: "building" as const, label: "W", position: { x: 0.5 + PUSHBACK, z: 0 }, size: { w: 1, d: 1, h: 1 }, color: "#000", solid: true };
+    const halved = stepTroubles([blob], hero, 0, [wallAtFullPush], noOpts).troubles[0];
+    expect(halved.position).toEqual({ x: 0.5 + PUSHBACK / 2, z: 0 });
+
+    // A wall spanning both the full- and half-pushback spots (but not the quarter one), centered
+    // between them and just wide enough to cover both, forces the shortest fallback.
+    const wallAtBoth = { id: "w2", kind: "building" as const, label: "W2", position: { x: 0.5 + PUSHBACK * 0.75, z: 0 }, size: { w: 1.6, d: 1, h: 1 }, color: "#000", solid: true };
+    const quartered = stepTroubles([blob], hero, 0, [wallAtBoth], noOpts).troubles[0];
+    expect(quartered.position).toEqual({ x: 0.5 + PUSHBACK / 4, z: 0 });
   });
 });
 

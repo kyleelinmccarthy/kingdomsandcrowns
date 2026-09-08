@@ -13,17 +13,22 @@ export function SpellBar({
   mana,
   fewerChoices,
   onSelect,
+  raised,
+  hudScale,
 }: {
   pages: SpellPageView[];
   selectedSlot: number | null;
   mana: number;
   fewerChoices: boolean;
   onSelect: (slot: number | null) => void;
+  raised: boolean;
+  hudScale: number;
 }) {
   const shown = fewerChoices ? pages.slice(0, FEWER) : pages;
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
+      if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
       const t = e.target;
       if (t instanceof Element && t.closest("input, textarea, select, [role='dialog']")) return;
       if (e.key === "Escape") {
@@ -42,7 +47,12 @@ export function SpellBar({
   }, [shown, selectedSlot, onSelect]);
 
   return (
-    <div className="realm-spellbar" role="toolbar" aria-label="Spellbook">
+    <div
+      className={`realm-spellbar${raised ? " realm-spellbar--raised" : ""}`}
+      style={{ fontSize: `${12 * hudScale}px` }}
+      role="toolbar"
+      aria-label="Spellbook"
+    >
       {shown.map((page, i) => {
         const selected = page.slot === selectedSlot;
         const affordable = page.spell ? mana >= page.spell.manaCost : false;

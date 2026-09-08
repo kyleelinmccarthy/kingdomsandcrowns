@@ -16,6 +16,7 @@ export type Trouble = {
   hitsLeft: number;
   statuses: TroubleStatus[];
   spawnedAt: number;
+  retreatUntil: number; // simulation-clock ms; a blob that just made contact wanders instead of approaching until this passes
 };
 export type TroubleCopy = { gentleName: string; monstersName: string; gentle: string; monsters: string };
 
@@ -32,6 +33,7 @@ export const RESPAWN_MS = 20_000;
 export const BLOB_SENSE = 6;
 export const FOCUS_RADIUS = HERO_RADIUS + 0.5;
 export const PUSHBACK = 4;
+export const RETREAT_MS = 4000;
 const WANDER = 3;
 const KIND_ORDER: TroubleKind[] = ["fog", "cursed-stone", "shadow-blob"];
 const HITS: Record<TroubleKind, number> = { fog: 1, "cursed-stone": 2, "shadow-blob": 1 };
@@ -78,7 +80,8 @@ export function spawnTroubles(input: SpawnInput): Trouble[] {
   const cap = input.lowStimulus ? LOW_STIMULUS_MAX : MAX_TROUBLES;
   const sites = input.layout.props.filter((p) => p.kind === "foundation");
   const paths = input.layout.props.filter((p) => p.kind === "path");
-  const result = input.troubles.slice();
+  const siteIds = new Set(sites.map((s) => s.id));
+  const result = input.troubles.filter((t) => siteIds.has(t.siteId) && !input.layout.colliders.some((c) => insideProp(t.position, c, TROUBLE_RADIUS)));
   sites.forEach((site, index) => {
     if (result.length >= cap) return;
     if (result.some((t) => t.siteId === site.id)) return;
@@ -106,6 +109,7 @@ export function spawnTroubles(input: SpawnInput): Trouble[] {
         hitsLeft: HITS[kind],
         statuses: [],
         spawnedAt: input.now,
+        retreatUntil: 0,
       });
       return;
     }
@@ -134,6 +138,17 @@ function moveWithin(t: Trouble, delta: Vec2, colliders: Prop[]): Vec2 {
   return next;
 }
 
+/** Valid at PUSHBACK, then half, then a quarter of it; the first one inside the world and outside every collider wins. */
+function pushback(position: Vec2, away: Vec2, colliders: Prop[]): Vec2 {
+  for (const dist of [PUSHBACK, PUSHBACK / 2, PUSHBACK / 4]) {
+    const candidate = { x: position.x + away.x * dist, z: position.z + away.z * dist };
+    if (Math.abs(candidate.x) > LIMIT || Math.abs(candidate.z) > LIMIT) continue;
+    if (colliders.some((c) => insideProp(candidate, c, TROUBLE_RADIUS))) continue;
+    return candidate;
+  }
+  return position;
+}
+
 /** One frame for every trouble. Fog wanders, stones sit, blobs wander until the hero is close, then approach. */
 export function stepTroubles(troubles: Trouble[], hero: Vec2, dt: number, colliders: Prop[], opts: StepOptions): { troubles: Trouble[]; focusLost: boolean } {
   let focusLost = false;
@@ -142,7 +157,7 @@ export function stepTroubles(troubles: Trouble[], hero: Vec2, dt: number, collid
     const speed = SPEED[t.kind] * speedFactor(statuses, opts.now);
     let next: Trouble = { ...t, statuses };
     if (speed > 0) {
-      if (t.kind === "shadow-blob" && !opts.lowStimulus && dist(t.position, hero) <= BLOB_SENSE) {
+      if (t.kind === "shadow-blob" && !opts.lowStimulus && opts.now >= t.retreatUntil && dist(t.position, hero) <= BLOB_SENSE) {
         const dir = unit({ x: hero.x - t.position.x, z: hero.z - t.position.z });
         next = { ...next, position: moveWithin(next, { x: dir.x * speed * dt, z: dir.z * speed * dt }, colliders) };
       } else if (!(t.kind === "fog" && opts.reducedMotion)) {
@@ -151,10 +166,10 @@ export function stepTroubles(troubles: Trouble[], hero: Vec2, dt: number, collid
         next = { ...next, drift, position: moveWithin(next, { x: drift.x * speed * dt, z: drift.z * speed * dt }, colliders) };
       }
     }
-    if (next.kind === "shadow-blob" && !opts.shielded && !opts.dazzled && !focusLost && dist(next.position, hero) <= FOCUS_RADIUS) {
-      focusLost = true;
+    if (next.kind === "shadow-blob" && opts.now >= next.retreatUntil && dist(next.position, hero) <= FOCUS_RADIUS) {
       const away = unit({ x: next.position.x - hero.x, z: next.position.z - hero.z });
-      next = { ...next, position: { x: next.position.x + away.x * PUSHBACK, z: next.position.z + away.z * PUSHBACK } };
+      next = { ...next, retreatUntil: opts.now + RETREAT_MS, position: pushback(next.position, away, colliders) };
+      if (!opts.shielded && !opts.dazzled) focusLost = true;
     }
     return next;
   });

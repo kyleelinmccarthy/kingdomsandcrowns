@@ -1,7 +1,7 @@
 "use client";
 
 import "@react-three/fiber";
-import { useEffect, useRef, type RefObject } from "react";
+import { memo, useEffect, useRef, type RefObject } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Html, OrthographicCamera } from "@react-three/drei";
 import type * as THREE from "three";
@@ -45,7 +45,7 @@ function easeOut(t: number): number {
   return 1 - (1 - t) * (1 - t);
 }
 
-function World({ layout, textures, settings, axisRef, interactive, reachId, onReachChange, onTalk, risingId, selectedSpell, selectedSlot, castRef, spellsEnabled, onSpellEvent, seed }: RealmSceneProps) {
+const World = memo(function World({ layout, textures, settings, axisRef, interactive, reachId, onReachChange, onTalk, risingId, selectedSpell, selectedSlot, castRef, spellsEnabled, onSpellEvent, seed }: RealmSceneProps) {
   // Per-frame state lives in refs: nothing here re-renders React sixty times a second.
   const hero = useRef<HeroState>({ position: layout.spawn, facing: "s", target: null });
   const companion = useRef<CompanionState>({ position: { x: layout.spawn.x, z: layout.spawn.z + 1.2 } });
@@ -230,7 +230,7 @@ function World({ layout, textures, settings, axisRef, interactive, reachId, onRe
       )}
     </>
   );
-}
+});
 
 export default function RealmScene(props: RealmSceneProps) {
   return (

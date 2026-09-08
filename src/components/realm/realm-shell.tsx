@@ -170,7 +170,7 @@ function RealmOpen({
     () => buildWorldLayout({ castleType: bundle.castleType, buildings: kingdom.buildings, villagers: !kingdomError }),
     [bundle.castleType, kingdom.buildings, kingdomError]
   );
-  const settings = renderSettingsFor(bundle.profile, isTouch);
+  const settings = useMemo(() => renderSettingsFor(bundle.profile, isTouch), [bundle.profile, isTouch]);
   // Computed before `panelOpen` so a Talk whose building data never loaded (or has since
   // gone missing) cannot pause the world behind a panel that has nothing to show.
   const openVillager = openVillagerId ? villagerById(openVillagerId) : null;
@@ -328,7 +328,15 @@ function RealmOpen({
       />
       {settings.showStick && !panelOpen && <TouchStick onChange={setStick} />}
       {isChildView && !panelOpen && pages.length > 0 && (
-        <SpellBar pages={pages} selectedSlot={selectedSlot} mana={mana} fewerChoices={bundle.profile.fewerChoices} onSelect={setSelectedSlot} />
+        <SpellBar
+          pages={pages}
+          selectedSlot={selectedSlot}
+          mana={mana}
+          fewerChoices={bundle.profile.fewerChoices}
+          onSelect={setSelectedSlot}
+          raised={settings.showStick}
+          hudScale={settings.hudScale}
+        />
       )}
       {openVillager && openBuilding && (
         <DeedPanel

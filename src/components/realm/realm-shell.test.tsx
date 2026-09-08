@@ -307,6 +307,22 @@ describe("RealmShell", () => {
     expect(screen.getByText("Not enough mana yet.")).toBeInTheDocument();
   });
 
+  it("keeps the scene's settings and layout referentially stable across mana regen re-renders", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    render(<RealmShell bundle={{ ...bundle, spellbook: { spells: pages, slots: 4 } }} childId="c1" isChildView={true} />);
+    await screen.findByTestId("scene");
+    const layout = sceneProps.layout;
+    const settings = sceneProps.settings;
+    await act(async () => {
+      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "mana", current: 90 });
+      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "mana", current: 80 });
+      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "mana", current: 70 });
+    });
+    expect(screen.getByRole("progressbar", { name: "Mana" })).toHaveAttribute("aria-valuenow", "70");
+    expect(sceneProps.settings).toBe(settings);
+    expect(sceneProps.layout).toBe(layout);
+  });
+
   it("uses monsters copy when the kingdom tone is monsters", async () => {
     getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
     render(<RealmShell bundle={{ ...bundle, kingdom: { ...bundle.kingdom, tone: "monsters" }, spellbook: { spells: pages, slots: 4 } }} childId="c1" isChildView={true} />);

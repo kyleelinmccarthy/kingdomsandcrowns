@@ -17,7 +17,7 @@ const aura = resolveSpell({ elementId: "light", formId: "aura", modifierId: null
 const sprite = resolveSpell({ elementId: "gale", formId: "sprite", modifierId: null })!;
 
 function trouble(id: string, x: number, z: number): Trouble {
-  return { id, kind: "fog", siteId: "s", position: { x, z }, origin: { x, z }, drift: { x: 1, z: 0 }, hitsLeft: 1, statuses: [], spawnedAt: 0 };
+  return { id, kind: "fog", siteId: "s", position: { x, z }, origin: { x, z }, drift: { x: 1, z: 0 }, hitsLeft: 1, statuses: [], spawnedAt: 0, retreatUntil: 0 };
 }
 
 function run(effects: SpellEffect[], troubles: Trouble[], seconds: number, colliders = [] as Parameters<typeof stepEffects>[3], step = 1 / 60) {

@@ -1,7 +1,7 @@
 "use client";
 
 import "@react-three/fiber";
-import { useRef, type RefObject } from "react";
+import { useMemo, useRef, type RefObject } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import type { SpellSim } from "./use-spell-sim";
@@ -27,6 +27,9 @@ export function SpellLayer({ sim, textures, calm, motion }: { sim: RefObject<Spe
   const burstPoints = useRef<(THREE.Object3D | null)[]>([]);
   const bursts = useRef<(Burst | null)[]>(new Array<Burst | null>(BURST_POOL).fill(null));
   const lastEffectIds = useRef<Set<string>>(new Set());
+  // Created once: a fresh Float32Array per pooled burst on every render would allocate
+  // sixty times a second whenever something upstream re-renders this subtree.
+  const buffers = useMemo(() => Array.from({ length: BURST_POOL }, () => new Float32Array(BURST_PARTICLES * 3)), []);
   // Colours are set in place on the pooled materials; the calm palette pulls them 40 percent toward grey.
   const tint = (material: THREE.MeshStandardMaterial, hex: string) => {
     material.color.set(hex);
@@ -156,7 +159,7 @@ export function SpellLayer({ sim, textures, calm, motion }: { sim: RefObject<Spe
       {Array.from({ length: BURST_POOL }, (_, i) => (
         <points key={`b${i}`} ref={(el) => { burstPoints.current[i] = el; }} visible={false}>
           <bufferGeometry>
-            <bufferAttribute attach="attributes-position" args={[new Float32Array(BURST_PARTICLES * 3), 3]} />
+            <bufferAttribute attach="attributes-position" args={[buffers[i], 3]} />
           </bufferGeometry>
           <pointsMaterial size={0.18} transparent sizeAttenuation />
         </points>

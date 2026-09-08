@@ -41,9 +41,9 @@ export function useRealmInput({ enabled = true, castEnabled = false }: { enabled
       return;
     }
     function castKey(e: KeyboardEvent) {
-      if (!castEnabled || e.code !== "Space") return;
+      if (!castEnabled || e.code !== "Space" || e.repeat) return;
       const t = e.target;
-      if (t instanceof Element && t.closest("a, button, input, textarea, select, [role='dialog']")) return;
+      if (t instanceof Element && !t.closest(".realm-spellbar") && t.closest("a, button, input, textarea, select, [role='dialog']")) return;
       e.preventDefault();
       castRef.current = { nearest: true };
     }

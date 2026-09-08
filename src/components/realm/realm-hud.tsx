@@ -68,7 +68,7 @@ export function RealmHud({
         </p>
       )}
       {toast && <p className={calm ? "realm-hud-toast realm-hud-toast--plain" : "realm-hud-toast"} role="status">{toast}</p>}
-      {notice && <p className="realm-hud-notice" aria-live="polite">{notice}</p>}
+      <p className="realm-hud-notice" aria-live="polite">{notice ?? ""}</p>
     </div>
   );
 }
