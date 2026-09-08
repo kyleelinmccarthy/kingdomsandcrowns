@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { formatDate } from "@/lib/utils/dates";
 import { planSeasonTransition, type TransitionPlan } from "@/lib/utils/seasons";
+import { normalizeAvatarConfig } from "@/lib/utils/avatar-catalog";
 
 /**
  * Keeps a hero's seasons in step with their grade. Plain module, not a
@@ -82,11 +83,25 @@ async function applyPlan(childId: string, plan: TransitionPlan): Promise<void> {
       return;
     case "reopen_previous":
       await db.transaction(async (tx) => {
+        // Read the crown this correction is about to un-mint before clearing it, so a
+        // hero already wearing it can be un-costumed in the same transaction below.
+        const reopenRows = await tx.select({ crownId: schema.season.crownId }).from(schema.season).where(eq(schema.season.id, plan.reopenId)).limit(1);
+        const unmintedCrownId = reopenRows[0]?.crownId ?? null;
         await tx.delete(schema.season).where(eq(schema.season.id, plan.deleteId));
         await tx
           .update(schema.season)
-          .set({ grade: plan.grade, endDate: null, completedAt: null, crownId: null, updatedAt: now })
+          .set({ grade: plan.grade, endDate: null, completedAt: null, crownId: null, ceremonySeenAt: null, updatedAt: now })
           .where(eq(schema.season.id, plan.reopenId));
+        if (!unmintedCrownId) return;
+        const childRows = await tx.select({ avatarConfig: schema.child.avatarConfig }).from(schema.child).where(eq(schema.child.id, childId)).limit(1);
+        const raw = childRows[0]?.avatarConfig;
+        if (!raw) return;
+        const config = normalizeAvatarConfig(JSON.parse(raw));
+        if (config.crown !== unmintedCrownId) return;
+        await tx
+          .update(schema.child)
+          .set({ avatarConfig: JSON.stringify({ ...config, crown: null }), updatedAt: now })
+          .where(eq(schema.child.id, childId));
       });
       return;
     case "pause":
