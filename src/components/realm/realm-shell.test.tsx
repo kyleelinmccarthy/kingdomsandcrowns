@@ -362,6 +362,16 @@ describe("RealmShell", () => {
     expect(screen.getByTestId("scene")).toHaveAttribute("data-recess", "false");
   });
 
+  it("shows the running lap time while recess is active", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 20, source: "recess" });
+    render(<RealmShell bundle={bundle} childId="c1" isChildView={true} />);
+    expect(await screen.findByTestId("scene")).toBeInTheDocument();
+    await act(async () => {
+      (sceneProps.onRecessEvent as (e: unknown) => void)({ kind: "lapTick", lapMs: 12_000 });
+    });
+    expect(screen.getByText(/12\.0 s/)).toBeInTheDocument();
+  });
+
   it("rides an unlocked equipped mount, blocks casting while riding, and hides the button otherwise", async () => {
     getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
     const user = userEvent.setup();
@@ -392,5 +402,33 @@ describe("RealmShell", () => {
     expect(screen.getByTestId("scene")).toHaveAttribute("data-riding", "true");
     fireEvent.keyDown(screen.getByRole("button", { name: "Dismount" }), { code: "KeyM", key: "m" });
     await waitFor(() => expect(screen.getByTestId("scene")).toHaveAttribute("data-riding", "false"));
+  });
+
+  it("dismounts with M even while focus is still on the spell bar (any button, not just the HUD)", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    const user = userEvent.setup();
+    const riderBundle = { ...bundle, avatarConfig: { ...DEFAULT_AVATAR, mount: "pony" }, spellbook: { spells: pages, slots: 4 } };
+    render(<RealmShell bundle={riderBundle} childId="c1" isChildView={true} />);
+    expect(await screen.findByTestId("scene")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Ride" }));
+    expect(screen.getByTestId("scene")).toHaveAttribute("data-riding", "true");
+    const spellBarButton = screen.getByRole("button", { name: "Ember Bolt, 10 mana" });
+    await user.click(spellBarButton);
+    expect(screen.getByText("Dismount to cast.")).toBeInTheDocument();
+    expect(spellBarButton).toHaveFocus();
+    fireEvent.keyDown(spellBarButton, { code: "KeyM", key: "m" });
+    await waitFor(() => expect(screen.getByTestId("scene")).toHaveAttribute("data-riding", "false"));
+  });
+
+  it("ignores M with a modifier chord (leaves riding unchanged)", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    const user = userEvent.setup();
+    const riderBundle = { ...bundle, avatarConfig: { ...DEFAULT_AVATAR, mount: "pony" }, spellbook: { spells: pages, slots: 4 } };
+    render(<RealmShell bundle={riderBundle} childId="c1" isChildView={true} />);
+    expect(await screen.findByTestId("scene")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Ride" }));
+    expect(screen.getByTestId("scene")).toHaveAttribute("data-riding", "true");
+    fireEvent.keyDown(document.body, { code: "KeyM", key: "m", metaKey: true });
+    expect(screen.getByTestId("scene")).toHaveAttribute("data-riding", "true");
   });
 });

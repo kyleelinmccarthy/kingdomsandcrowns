@@ -15,6 +15,7 @@ import { resolvePages } from "@/lib/realm/spells/pages";
 import { TROUBLE_COPY, type TroubleSkin } from "@/lib/realm/spells/troubles";
 import { MANA_MAX } from "@/lib/realm/spells/mana";
 import { formatLap } from "@/lib/realm/recess/recess";
+import { hudRecessFor } from "@/lib/realm/recess/hud";
 import { HERO_SPEED } from "@/lib/realm/movement";
 import { DEFAULT_AVATAR, findMount } from "@/lib/utils/avatar-catalog";
 import { readingAttributes } from "@/lib/utils/learning-profile";
@@ -195,8 +196,8 @@ function RealmOpen({
   const canRide = mountItem !== null && bundle.mounts.unlocked.includes(mountItem.id) && isChildView;
   const mountSpeed = mountItem?.speed ?? HERO_SPEED;
   const mountTexture = useMemo(
-    () => (mountItem && bundle.avatarConfig ? { id: mountItem.id, color: bundle.avatarConfig.mountColor } : null),
-    [mountItem, bundle.avatarConfig]
+    () => (canRide && mountItem && bundle.avatarConfig ? { id: mountItem.id, color: bundle.avatarConfig.mountColor } : null),
+    [canRide, mountItem, bundle.avatarConfig]
   );
   const onReady = useCallback((t: SpriteTextures) => setTextures(t), []);
   const onError = useCallback((e: Error) => setSpriteError(e.message), []);
@@ -227,8 +228,9 @@ function RealmOpen({
       const t = e.target;
       const onInteractiveElement = t instanceof Element && t.closest("a, button, input, textarea, select, [role='dialog']");
       if (e.code === "KeyM" && !e.repeat) {
-        const inHud = t instanceof Element && t.closest(".realm-hud");
-        if (onInteractiveElement && !inHud) return;
+        if (e.ctrlKey || e.metaKey || e.altKey) return;
+        const inTextControlOrDialog = t instanceof Element && t.closest("input, textarea, select, [role='dialog']");
+        if (inTextControlOrDialog) return;
         e.preventDefault();
         onToggleRide();
         return;
@@ -316,7 +318,7 @@ function RealmOpen({
   }, [childId]);
 
   const calm = bundle.profile.reducedMotion || bundle.profile.lowStimulus;
-  const hudRecess = isChildView && (recessActive || recess.laps > 0 || recess.gleams > 0) ? recess : null;
+  const hudRecess = isChildView ? hudRecessFor(recess, recessActive) : null;
   const hudRide = isChildView
     ? (canRide ? { riding, disabled: false, onToggle: onToggleRide } : null)
     : (mountItem && bundle.mounts.unlocked.includes(mountItem.id) ? { riding: false, disabled: true, onToggle: () => {} } : null);

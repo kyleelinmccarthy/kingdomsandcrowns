@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildWorldLayout, SPAWN } from "../layout";
+import { buildWorldLayout, SPAWN, type WorldLayout } from "../layout";
 import {
   startRecess, setRecessActive, spawnGleams, stepRecess, formatLap,
   GLEAM_COUNT, GLEAM_COUNT_LOW, GLEAM_RADIUS, GLEAM_RESPAWN_MS, LAP_WAYPOINTS, LAP_START, WAYPOINT_RADIUS,
@@ -41,6 +41,32 @@ describe("gleams", () => {
     expect(later.gleams.length).toBe(GLEAM_COUNT);
     const replacement = later.gleams.find((g) => g.slot === target.slot)!;
     expect(replacement.position).not.toEqual(target.position);
+  });
+
+  it("never spawns a gleam on an unfinished building's foundation", () => {
+    // `layout` above only marks "well" complete: the mill is a foundation prop, not a collider.
+    const mill = layout.props.find((p) => p.id === "mill")!;
+    expect(mill.kind).toBe("foundation");
+    expect(mill.solid).toBe(false);
+    const spawned = spawnGleams({ seed: 5, now: 0, layout, state: active, lowStimulus: false });
+    for (const g of spawned.gleams) {
+      const inside = Math.abs(g.position.x - mill.position.x) < mill.size.w / 2 + 1 && Math.abs(g.position.z - mill.position.z) < mill.size.d / 2 + 1;
+      expect(inside).toBe(false);
+    }
+  });
+
+  it("bumps slotSpawns even when every attempt in a slot fails, so a dead slot tries new points next frame", () => {
+    const blockedLayout: WorldLayout = {
+      props: [{ id: "wall", kind: "barrier", label: "Wall", position: { x: 0, z: 0 }, size: { w: 60, d: 60, h: 1 }, color: "#000000", solid: true }],
+      spawn: SPAWN,
+      colliders: [],
+      villagers: [],
+    };
+    blockedLayout.colliders = blockedLayout.props;
+    const result = spawnGleams({ seed: 5, now: 0, layout: blockedLayout, state: active, lowStimulus: false });
+    expect(result.gleams.length).toBe(0);
+    expect(result.slotSpawns[0]).toBe(1);
+    expect(result.slotSpawns[GLEAM_COUNT - 1]).toBe(1);
   });
 });
 

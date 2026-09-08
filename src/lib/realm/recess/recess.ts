@@ -63,6 +63,9 @@ export type SpawnGleamsInput = { seed: number; now: number; layout: WorldLayout;
 export function spawnGleams(input: SpawnGleamsInput): RecessState {
   if (!input.state.active) return input.state;
   const count = input.lowStimulus ? GLEAM_COUNT_LOW : GLEAM_COUNT;
+  // Foundations are walkable but should stay clear of gleams too: a half-built
+  // site is still a site. Built solids off the whole obstacle list.
+  const obstacles = input.layout.props.filter((p) => p.solid || p.kind === "foundation");
   const paths = input.layout.props.filter((p) => p.kind === "path");
   const gleams = input.state.gleams.slice();
   const slotSpawns = { ...input.state.slotSpawns };
@@ -74,14 +77,16 @@ export function spawnGleams(input: SpawnGleamsInput): RecessState {
     const rng = seededRng((input.seed + slot * 7919 + spawns * 104729) >>> 0);
     for (let attempt = 0; attempt < 20; attempt++) {
       const p = { x: (rng() * 2 - 1) * LIMIT, z: (rng() * 2 - 1) * LIMIT };
-      if (input.layout.colliders.some((c) => insideProp(p, c, CLEAR_COLLIDER))) continue;
+      if (obstacles.some((c) => insideProp(p, c, CLEAR_COLLIDER))) continue;
       if (input.layout.villagers.some((v) => dist(p, v.position) < CLEAR_VILLAGER)) continue;
       if (paths.some((t) => dist(p, t.position) < CLEAR_PATH)) continue;
       if (dist(p, SPAWN) < CLEAR_SPAWN) continue;
       gleams.push({ id: `gleam-${slot}-${spawns}`, slot, position: p, spawnedAt: input.now });
-      slotSpawns[slot] = spawns + 1;
       break;
     }
+    // Bump even on total failure, so a dead slot's next attempt (next frame)
+    // uses a fresh seed instead of retrying the exact same 20 dead points.
+    slotSpawns[slot] = spawns + 1;
   }
   return { ...input.state, gleams, slotSpawns };
 }
