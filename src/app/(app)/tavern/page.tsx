@@ -20,6 +20,7 @@ import { ChildSelector } from "@/components/child-selector";
 import { GameFrame } from "@/components/game-frame";
 import { Avatar } from "@/components/avatar";
 import { TavernAvatarCard } from "./tavern-avatar-card";
+import { CrownCard } from "@/components/crown-card";
 import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
 import { TimerCleanup } from "@/components/timer-cleanup";
 import { QuestForm } from "../quests/quest-form";
@@ -155,6 +156,10 @@ export default async function TavernPage({
           </div>
         )}
       </div>
+
+      {seasons.pending && (
+        <CrownCard childId={activeChild.id} childName={activeChild.displayName} season={seasons.pending} isChildView={isChildView} />
+      )}
 
       {/* ═══ ROW 1: Assigned Quests | Character | Quest Form ═══ */}
       <div className="hud-row-main">

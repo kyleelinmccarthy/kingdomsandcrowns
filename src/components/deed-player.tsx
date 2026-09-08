@@ -7,18 +7,9 @@ import { GameIcon } from "@/components/game-icon";
 import { DeedResults } from "@/components/deed-results";
 import { answerDeedQuestion, completeDeedRun, type RunStart, type RunSummary } from "@/lib/actions/deeds";
 import type { ProfileLike } from "@/lib/utils/deed-engine";
+import { canSpeak, speak } from "@/lib/utils/speech";
 
 type Feedback = { correct: boolean; answer: string };
-
-function canSpeak(): boolean {
-  return typeof window !== "undefined" && "speechSynthesis" in window && !!window.speechSynthesis;
-}
-
-function speak(text: string) {
-  if (!canSpeak()) return;
-  window.speechSynthesis.cancel();
-  window.speechSynthesis.speak(new SpeechSynthesisUtterance(text));
-}
 
 export function DeedPlayer({
   childId,

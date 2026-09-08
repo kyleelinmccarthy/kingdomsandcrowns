@@ -1,9 +1,9 @@
 import { GameFrame } from "@/components/game-frame";
 import { GameIcon } from "@/components/game-icon";
 import { CrownBadge } from "@/components/crown-badge";
-import { seasonLabel, type SeasonRecord } from "@/lib/utils/seasons";
+import { seasonLabel, gradeName, type SeasonWithCeremony } from "@/lib/utils/seasons";
 
-export function CrownsPanel({ history }: { history: SeasonRecord[] }) {
+export function CrownsPanel({ history }: { history: SeasonWithCeremony[] }) {
   const earned = history.filter((s) => s.crownId);
   return (
     <GameFrame
@@ -23,8 +23,9 @@ export function CrownsPanel({ history }: { history: SeasonRecord[] }) {
               <div>
                 <p className="text-sm font-medium">{seasonLabel(s.startDate)}</p>
                 <p className="text-xs text-muted-foreground">
-                  {s.grade === "K" ? "Kindergarten" : `Grade ${s.grade}`} &middot; Season {s.ordinal}
+                  {gradeName(s.grade)} &middot; Season {s.ordinal}
                 </p>
+                <p className="text-xs text-muted-foreground">{s.ceremonySeenAt ? "Ceremony held" : "Ceremony awaits"}</p>
               </div>
             </li>
           ))}

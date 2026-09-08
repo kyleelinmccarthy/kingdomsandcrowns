@@ -3,11 +3,14 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
-import { requireChildAccess } from "@/lib/auth/access";
+import { requireChildAccess, isChildActor } from "@/lib/auth/access";
 import { loadRealmSettings } from "@/lib/services/realm-play";
 import { loadKingdomOverview } from "@/lib/services/deeds";
 import { loadSpellbookPages, type SpellPage } from "@/lib/services/spells";
 import { loadUnlockedMountIds } from "@/lib/services/mounts";
+import { loadSeasons } from "@/lib/services/crowns";
+import { bannerCount, pendingCeremony, seasonLabel } from "@/lib/utils/seasons";
+import { crownById, type CrownTier } from "@/lib/utils/crown-catalog";
 import type { KingdomState } from "@/lib/realm/kingdom-state";
 import { profileFromRow, type LearningProfile } from "@/lib/utils/learning-profile";
 import { isValidAvatarConfig, normalizeAvatarConfig, type AvatarConfig } from "@/lib/utils/avatar-catalog";
@@ -22,6 +25,10 @@ export type RealmBundle = {
   settings: { enabled: boolean; toneMode: "gentle" | "monsters" };
   spellbook: { spells: SpellPage[]; slots: number };
   mounts: { unlocked: string[] };
+  /** The crown ceremony waiting for the hero; always null for a parent's preview. */
+  ceremony: { seasonId: string; crownId: string; ordinal: number; grade: string; seasonLabel: string } | null;
+  banners: number; // completed seasons, capped; one castle banner each
+  wornCrown: CrownTier | null; // the crown on the hero's avatar, if any
 };
 
 const VILLAGERS_RESTING = "The villagers are resting. Try again.";
@@ -39,8 +46,8 @@ export async function getRealmKingdom(childId: string): Promise<KingdomState> {
 
 /** Everything the Realm page needs, in one round of parallel reads. A hero may read their own. */
 export async function getRealmBundle(childId: string): Promise<RealmBundle> {
-  await requireChildAccess(childId);
-  const [childRows, castleRows, profileRows, settings, kingdomResult, spellbook, mounts] = await Promise.all([
+  const { access } = await requireChildAccess(childId);
+  const [childRows, castleRows, profileRows, settings, kingdomResult, spellbook, mounts, seasons] = await Promise.all([
     db.select({ displayName: schema.child.displayName, avatarConfig: schema.child.avatarConfig }).from(schema.child).where(eq(schema.child.id, childId)).limit(1),
     db.select({ type: schema.castle.type }).from(schema.castle).where(eq(schema.castle.childId, childId)).limit(1),
     db.select().from(schema.learningProfile).where(eq(schema.learningProfile.childId, childId)).limit(1),
@@ -51,6 +58,7 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
     }),
     loadSpellbookPages(childId),
     loadUnlockedMountIds(childId),
+    loadSeasons(childId),
   ]);
   const child = childRows[0];
   if (!child) throw new Error("Hero not found.");
@@ -66,6 +74,12 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
     }
   }
 
+  const pending = isChildActor(access) ? pendingCeremony(seasons) : null;
+  const ceremony = pending && pending.crownId
+    ? { seasonId: pending.id, crownId: pending.crownId, ordinal: pending.ordinal, grade: pending.grade, seasonLabel: seasonLabel(pending.startDate) }
+    : null;
+  const wornCrown = avatarConfig?.crown ? crownById(avatarConfig.crown) : null;
+
   return {
     heroName: child.displayName,
     avatarConfig,
@@ -76,5 +90,8 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
     settings: { enabled: settings.enabled, toneMode: settings.toneMode },
     spellbook: { spells: spellbook.spells, slots: spellbook.slots },
     mounts: { unlocked: mounts },
+    ceremony,
+    banners: bannerCount(seasons),
+    wornCrown,
   };
 }

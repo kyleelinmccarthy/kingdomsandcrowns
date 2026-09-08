@@ -42,11 +42,9 @@ export type RealmSceneProps = {
   mountSpeed: number;
   recessActive: boolean;
   onRecessEvent: (e: RecessSimEvent) => void;
-  // Optional until Task 5 wires the shell to these; the scene simply never starts a
-  // ceremony when they're omitted, so callers that predate the ceremony still typecheck.
-  ceremonyActive?: boolean; // true while the shell wants the ceremony running; the scene starts it once
-  ceremonySkipRef?: RefObject<boolean>; // the shell sets it; the scene reads and clears it
-  onCeremonyEvent?: (e: CeremonyEvent) => void;
+  ceremonyActive: boolean; // true while the shell wants the ceremony running; the scene starts it once
+  ceremonySkipRef: RefObject<boolean>; // the shell sets it; the scene reads and clears it
+  onCeremonyEvent: (e: CeremonyEvent) => void;
 };
 
 const SPRITE_W = 1.5;
@@ -58,7 +56,7 @@ function easeOut(t: number): number {
   return 1 - (1 - t) * (1 - t);
 }
 
-const World = memo(function World({ layout, textures, settings, axisRef, interactive, reachId, onReachChange, onTalk, risingId, selectedSpell, selectedSlot, castRef, spellsEnabled, onSpellEvent, seed, riding, mountSpeed, recessActive, onRecessEvent, ceremonyActive = false, ceremonySkipRef, onCeremonyEvent = () => {} }: RealmSceneProps) {
+const World = memo(function World({ layout, textures, settings, axisRef, interactive, reachId, onReachChange, onTalk, risingId, selectedSpell, selectedSlot, castRef, spellsEnabled, onSpellEvent, seed, riding, mountSpeed, recessActive, onRecessEvent, ceremonyActive, ceremonySkipRef, onCeremonyEvent }: RealmSceneProps) {
   // Per-frame state lives in refs: nothing here re-renders React sixty times a second.
   const hero = useRef<HeroState>({ position: layout.spawn, facing: "s", target: null, mounted: false });
   const companion = useRef<CompanionState>({ position: { x: layout.spawn.x, z: layout.spawn.z + 1.2 } });
@@ -112,7 +110,7 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
     if (ceremony && ceremony.step !== "done") {
       // The ceremony drives the hero and the villagers; input, spells and recess wait.
       let s = ceremony;
-      if (ceremonySkipRef?.current) {
+      if (ceremonySkipRef.current) {
         ceremonySkipRef.current = false;
         const skipped = skipCeremony(s);
         if (skipped !== s) {

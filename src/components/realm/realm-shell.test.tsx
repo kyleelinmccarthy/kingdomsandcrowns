@@ -15,13 +15,15 @@ let sceneProps: Record<string, unknown> = {};
 vi.mock("./realm-scene", () => ({
   default: (props: Record<string, unknown>) => {
     sceneProps = props;
-    return <div data-testid="scene" data-interactive={String(props.interactive)} data-rising={String(props.risingId ?? "")} data-spells={String(props.spellsEnabled)} data-riding={String(props.riding)} data-recess={String(props.recessActive)} />;
+    return <div data-testid="scene" data-interactive={String(props.interactive)} data-rising={String(props.risingId ?? "")} data-spells={String(props.spellsEnabled)} data-riding={String(props.riding)} data-recess={String(props.recessActive)} data-ceremony={String(props.ceremonyActive)} />;
   },
 }));
 const startDeedRun = vi.fn();
 const getRealmKingdom = vi.fn();
 vi.mock("@/lib/actions/deeds", () => ({ startDeedRun: (...a: unknown[]) => startDeedRun(...a), answerDeedQuestion: vi.fn(), completeDeedRun: vi.fn() }));
 vi.mock("@/lib/actions/realm", () => ({ getRealmKingdom: (...a: unknown[]) => getRealmKingdom(...a) }));
+const markCeremonySeen = vi.fn();
+vi.mock("@/lib/actions/seasons", () => ({ markCeremonySeen: (...a: unknown[]) => markCeremonySeen(...a) }));
 vi.mock("@/components/deed-player", () => ({
   DeedPlayer: ({ run, onFinished }: { run: { deed: { title: string } }; onFinished: (s: unknown) => void }) => (
     <div>
@@ -65,7 +67,7 @@ vi.mock("./sprite-source", async () => {
           failNextSpriteMount = false;
           onError(new Error("boom"));
         } else {
-          onReady({ hero: {}, companion: null, villagers: {}, troubles: {}, mount: null, heroMounted: null, gleam: null, banner: null });
+          onReady({ hero: {}, companion: null, villagers: {}, troubles: {}, mount: null, heroMounted: null, gleam: null, banner: null, crown: null, castleBanner: null });
         }
       }, [onReady, onError]);
       return null;
@@ -77,7 +79,7 @@ const well = {
   id: "well", label: "Village Well", description: "Clean water for every doorstep.", icon: "box" as const, done: 4, total: 5, complete: false,
   deeds: [{ id: "well-stones", title: "Count the Well Stones", story: "Old Bram's bucket keeps coming up dry.", area: "math" as const }],
 };
-const bundle = { heroName: "Lily", avatarConfig: DEFAULT_AVATAR, castleType: "campsite", kingdom: { tone: "gentle" as const, buildings: [well] }, profile: DEFAULT_LEARNING_PROFILE, settings: { enabled: true, toneMode: "gentle" as const }, spellbook: { spells: [], slots: 4 }, mounts: { unlocked: ["pony"] } };
+const bundle = { heroName: "Lily", avatarConfig: DEFAULT_AVATAR, castleType: "campsite", kingdom: { tone: "gentle" as const, buildings: [well] }, profile: DEFAULT_LEARNING_PROFILE, settings: { enabled: true, toneMode: "gentle" as const }, spellbook: { spells: [], slots: 4 }, mounts: { unlocked: ["pony"] }, ceremony: null, banners: 0, wornCrown: null };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -430,5 +432,72 @@ describe("RealmShell", () => {
     expect(screen.getByTestId("scene")).toHaveAttribute("data-riding", "true");
     fireEvent.keyDown(document.body, { code: "KeyM", key: "m", metaKey: true });
     expect(screen.getByTestId("scene")).toHaveAttribute("data-riding", "true");
+  });
+});
+
+describe("RealmShell crown ceremony", () => {
+  const ceremonyBundle = { ...bundle, ceremony: { seasonId: "s1", crownId: "crown-copper", ordinal: 1, grade: "3", seasonLabel: "2025–26" }, banners: 1 };
+  const step = (s: string) => act(() => { (sceneProps.onCeremonyEvent as (e: unknown) => void)({ kind: "step", step: s }); });
+
+  it("holds the ceremony for the hero, then records it and restores play", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    markCeremonySeen.mockResolvedValue(undefined);
+    render(<RealmShell bundle={ceremonyBundle} childId="c1" isChildView={true} />);
+    const scene = await screen.findByTestId("scene");
+    expect(scene.dataset.ceremony).toBe("true");
+    expect(scene.dataset.interactive).toBe("false");
+    expect(screen.getByText("12 min left · paused")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Skip" })).toBeInTheDocument();
+    expect(screen.queryByText("Copper Circlet")).not.toBeInTheDocument();
+    step("gather");
+    expect(screen.getByText("The people of the Realm gather.")).toBeInTheDocument();
+    step("hail");
+    expect(screen.getByText("Hail, Lily, Copper Circlet!")).toBeInTheDocument();
+    expect(screen.getByText("Season 1 complete")).toBeInTheDocument();
+    step("done");
+    await waitFor(() => expect(markCeremonySeen).toHaveBeenCalledWith("c1", "s1"));
+    await waitFor(() => expect(screen.getByTestId("scene").dataset.interactive).toBe("true"));
+    expect(screen.getByTestId("scene").dataset.ceremony).toBe("false");
+    expect(screen.getByText("Copper Circlet")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Skip" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Hail, Lily, Copper Circlet!")).not.toBeInTheDocument();
+  });
+
+  it("raises the skip flag from the Skip button and from Escape", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    render(<RealmShell bundle={ceremonyBundle} childId="c1" isChildView={true} />);
+    await screen.findByTestId("scene");
+    const skipRef = sceneProps.ceremonySkipRef as { current: boolean };
+    expect(skipRef.current).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "Skip" }));
+    expect(skipRef.current).toBe(true);
+    skipRef.current = false;
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(skipRef.current).toBe(true);
+  });
+
+  it("restores play and offers a retry when the ceremony cannot be recorded", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    markCeremonySeen.mockRejectedValueOnce(new Error("offline")).mockResolvedValueOnce(undefined);
+    render(<RealmShell bundle={ceremonyBundle} childId="c1" isChildView={true} />);
+    await screen.findByTestId("scene");
+    step("done");
+    expect(await screen.findByText(/The crown could not be recorded\./)).toBeInTheDocument();
+    expect(screen.getByTestId("scene").dataset.interactive).toBe("true");
+    expect(screen.queryByText("Copper Circlet")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    await waitFor(() => expect(markCeremonySeen).toHaveBeenCalledTimes(2));
+    expect(await screen.findByText("Copper Circlet")).toBeInTheDocument();
+    expect(screen.queryByText(/could not be recorded/)).not.toBeInTheDocument();
+  });
+
+  it("never holds a ceremony for a parent, and shows a worn crown as a badge", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 0, source: "earned" });
+    render(<RealmShell bundle={{ ...ceremonyBundle, wornCrown: { ordinal: 1, id: "crown-copper", label: "Copper Circlet", description: "", icon: "crown", color: "#b87333" } }} childId="c1" isChildView={false} />);
+    const scene = await screen.findByTestId("scene");
+    expect(scene.dataset.ceremony).toBe("false");
+    expect(scene.dataset.interactive).toBe("true");
+    expect(screen.queryByRole("button", { name: "Skip" })).not.toBeInTheDocument();
+    expect(screen.getByText("Copper Circlet")).toBeInTheDocument();
   });
 });

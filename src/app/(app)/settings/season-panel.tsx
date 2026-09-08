@@ -1,10 +1,6 @@
 import { CrownBadge } from "@/components/crown-badge";
 import { GameIcon } from "@/components/game-icon";
-import { seasonLabel, type SeasonRecord } from "@/lib/utils/seasons";
-
-function gradeName(grade: string) {
-  return grade === "K" ? "Kindergarten" : `Grade ${grade}`;
-}
+import { seasonLabel, gradeName, type SeasonRecord } from "@/lib/utils/seasons";
 
 /**
  * Read-only. Seasons open, complete, and correct themselves from the grade a
@@ -25,7 +21,9 @@ export function SeasonPanel({
     <div className="space-y-2">
       <h4 className="text-sm font-medium">Seasons &amp; Crowns</h4>
       <div className="rounded-lg border border-gold-dim bg-muted/30 px-3 py-2.5 text-sm">
-        {!hasGrade ? (
+        {!hasGrade && open ? (
+          <p className="text-muted-foreground">No grade set: the season is paused.</p>
+        ) : !hasGrade ? (
           <p className="text-muted-foreground">
             Set a grade to begin the season. Each grade is one season, and finishing it earns a crown.
           </p>

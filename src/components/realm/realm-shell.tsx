@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getRealmKingdom, type RealmBundle } from "@/lib/actions/realm";
 import { getRealmAccess } from "@/lib/actions/realm-play";
+import { markCeremonySeen } from "@/lib/actions/seasons";
 import { buildWorldLayout } from "@/lib/realm/layout";
 import { applyDeedResult, type KingdomState } from "@/lib/realm/kingdom-state";
 import { renderSettingsFor } from "@/lib/realm/render-settings";
@@ -17,9 +18,12 @@ import { MANA_MAX } from "@/lib/realm/spells/mana";
 import { formatLap } from "@/lib/realm/recess/recess";
 import { hudRecessFor } from "@/lib/realm/recess/hud";
 import { HERO_SPEED } from "@/lib/realm/movement";
+import { ceremonyNotice, type CeremonyEvent } from "@/lib/realm/ceremony/ceremony";
 import { DEFAULT_AVATAR, findMount } from "@/lib/utils/avatar-catalog";
 import { readingAttributes } from "@/lib/utils/learning-profile";
 import { currentTimeOfDay, localDateOf } from "@/lib/utils/schedule-days";
+import { crownById, CROWNS } from "@/lib/utils/crown-catalog";
+import { speak } from "@/lib/utils/speech";
 import { SpriteSource, type SpriteTextures } from "./sprite-source";
 import { RealmHud } from "./realm-hud";
 import { RealmGate } from "./realm-gate";
@@ -35,6 +39,7 @@ import type { RecessSimEvent } from "./use-recess-sim";
 const VILLAGERS_RESTING = "The villagers are resting. Try again.";
 const NOT_ENOUGH_MANA = "Not enough mana yet.";
 const LOST_FOCUS = "You lost focus for a moment.";
+const CEREMONY_FAILED = "The crown could not be recorded.";
 
 const RealmScene = dynamic(() => import("./realm-scene"), { ssr: false, loading: () => <p className="p-6 text-center text-muted-foreground">Opening the Realm…</p> });
 
@@ -162,6 +167,14 @@ function RealmOpen({
   const [riding, setRiding] = useState(false);
   const [recess, setRecess] = useState<{ gleams: number; laps: number; bestLapMs: number | null; lapMs: number | null }>({ gleams: 0, laps: 0, bestLapMs: null, lapMs: null });
   const [seed] = useState(() => Date.now() >>> 0);
+  // The ceremony waits for textures ("waiting"), plays ("running"), records itself ("finishing"), then is over ("done").
+  const ceremonyPending = isChildView ? bundle.ceremony : null;
+  const [ceremonyStage, setCeremonyStage] = useState<"waiting" | "running" | "finishing" | "done">(ceremonyPending ? "waiting" : "done");
+  const [ceremonyNoticeText, setCeremonyNoticeText] = useState<string | null>(null);
+  const [ceremonyError, setCeremonyError] = useState("");
+  const [crown, setCrown] = useState<{ label: string; color: string } | null>(bundle.wornCrown ? { label: bundle.wornCrown.label, color: bundle.wornCrown.color } : null);
+  const ceremonySkipRef = useRef(false);
+  const ceremonyRunning = ceremonyStage === "running" || ceremonyStage === "finishing";
   const rootRef = useRef<HTMLDivElement>(null);
   // `.game-content` (the page's <main>) is `position: relative; z-index: 10`,
   // which traps `.realm-root`'s z-index inside its own stacking context —
@@ -176,8 +189,8 @@ function RealmOpen({
   // client-side access check resolves).
   const [portalTarget] = useState<Element | null>(() => (typeof document === "undefined" ? null : document.body));
   const layout = useMemo(
-    () => buildWorldLayout({ castleType: bundle.castleType, buildings: kingdom.buildings, villagers: !kingdomError }),
-    [bundle.castleType, kingdom.buildings, kingdomError]
+    () => buildWorldLayout({ castleType: bundle.castleType, buildings: kingdom.buildings, villagers: !kingdomError, banners: bundle.banners }),
+    [bundle.castleType, kingdom.buildings, kingdomError, bundle.banners]
   );
   const settings = useMemo(() => renderSettingsFor(bundle.profile, isTouch), [bundle.profile, isTouch]);
   // Computed before `panelOpen` so a Talk whose building data never loaded (or has since
@@ -188,9 +201,9 @@ function RealmOpen({
   const pages = useMemo(() => resolvePages(bundle.spellbook.spells, bundle.spellbook.slots), [bundle.spellbook]);
   const selectedSpell = selectedSlot === null ? null : pages.find((p) => p.slot === selectedSlot)?.spell ?? null;
   const troubleSkin: TroubleSkin = kingdom.tone === "monsters" ? "monsters" : "gentle";
-  const { axisRef, setStick, castRef } = useRealmInput({ enabled: !panelOpen, castEnabled: isChildView && !panelOpen && !riding && selectedSpell !== null });
+  const { axisRef, setStick, castRef } = useRealmInput({ enabled: !panelOpen && !ceremonyRunning, castEnabled: isChildView && !panelOpen && !ceremonyRunning && !riding && selectedSpell !== null });
   const config = bundle.avatarConfig ?? DEFAULT_AVATAR;
-  const clock = usePlayClock({ enabled: isChildView, childId, initialMinutes: minutes, onClose, paused: panelOpen, initialSource: source });
+  const clock = usePlayClock({ enabled: isChildView, childId, initialMinutes: minutes, onClose, paused: panelOpen || ceremonyRunning, initialSource: source });
   const recessActive = isChildView && clock.source === "recess";
   const mountItem = bundle.avatarConfig?.mount ? findMount(bundle.avatarConfig.mount) : null;
   const canRide = mountItem !== null && bundle.mounts.unlocked.includes(mountItem.id) && isChildView;
@@ -199,7 +212,14 @@ function RealmOpen({
     () => (canRide && mountItem && bundle.avatarConfig ? { id: mountItem.id, color: bundle.avatarConfig.mountColor } : null),
     [canRide, mountItem, bundle.avatarConfig]
   );
-  const onReady = useCallback((t: SpriteTextures) => setTextures(t), []);
+  const crownSprite = useMemo(
+    () => (ceremonyPending ? { id: ceremonyPending.crownId, color: crownById(ceremonyPending.crownId)?.color ?? CROWNS[0].color } : null),
+    [ceremonyPending]
+  );
+  const onReady = useCallback((t: SpriteTextures) => {
+    setTextures(t);
+    setCeremonyStage((s) => (s === "waiting" ? "running" : s)); // a sprite retry after the ceremony must not replay it
+  }, []);
   const onError = useCallback((e: Error) => setSpriteError(e.message), []);
   const onReachChange = useCallback((id: string | null) => setReachId(id), []);
   const onToggleRide = useCallback(() => {
@@ -223,7 +243,7 @@ function RealmOpen({
 
   // Enter or Space talks to the villager in reach when no panel is open; M mounts or dismounts.
   useEffect(() => {
-    if (panelOpen) return;
+    if (panelOpen || ceremonyRunning) return;
     function onKey(e: KeyboardEvent) {
       const t = e.target;
       const onInteractiveElement = t instanceof Element && t.closest("a, button, input, textarea, select, [role='dialog']");
@@ -244,7 +264,19 @@ function RealmOpen({
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [panelOpen, reachId, selectedSlot, onToggleRide]);
+  }, [panelOpen, ceremonyRunning, reachId, selectedSlot, onToggleRide]);
+
+  // Escape skips the ceremony; nothing else listens for it while the ceremony runs (the deed panel cannot open).
+  useEffect(() => {
+    if (!ceremonyRunning) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      ceremonySkipRef.current = true;
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [ceremonyRunning]);
 
   // The rise toast clears itself; the timer is the only place that clears it.
   useEffect(() => {
@@ -317,6 +349,43 @@ function RealmOpen({
       .catch(() => setKingdomError(VILLAGERS_RESTING));
   }, [childId]);
 
+  const ceremonyCrown = useMemo(() => {
+    if (!ceremonyPending) return null;
+    const tier = crownById(ceremonyPending.crownId);
+    return { label: tier?.label ?? "Crown", color: tier?.color ?? CROWNS[0].color };
+  }, [ceremonyPending]);
+
+  const recordCeremony = useCallback(() => {
+    if (!ceremonyPending || !ceremonyCrown) return;
+    setCeremonyStage("finishing");
+    markCeremonySeen(childId, ceremonyPending.seasonId)
+      .then(() => {
+        setCrown(ceremonyCrown);
+        setCeremonyError("");
+      })
+      .catch(() => setCeremonyError(CEREMONY_FAILED))
+      .finally(() => {
+        // Play resumes whether or not the record landed; the card and the next visit offer the ceremony again.
+        setCeremonyStage("done");
+        setCeremonyNoticeText(null);
+      });
+  }, [childId, ceremonyPending, ceremonyCrown]);
+
+  const onCeremonyEvent = useCallback((e: CeremonyEvent) => {
+    if (!ceremonyPending || !ceremonyCrown) return;
+    const text = ceremonyNotice(e.step, bundle.heroName, ceremonyCrown.label);
+    if (text) {
+      setCeremonyNoticeText(text);
+      if (bundle.profile.readAloud) speak(text);
+    }
+    if (e.step === "hail") setToast(`Season ${ceremonyPending.ordinal} complete`);
+    if (e.step === "done") recordCeremony();
+  }, [ceremonyPending, ceremonyCrown, bundle.heroName, bundle.profile.readAloud, recordCeremony]);
+
+  const onSkip = useCallback(() => {
+    ceremonySkipRef.current = true;
+  }, []);
+
   const calm = bundle.profile.reducedMotion || bundle.profile.lowStimulus;
   const hudRecess = isChildView ? hudRecessFor(recess, recessActive) : null;
   const hudRide = isChildView
@@ -327,14 +396,14 @@ function RealmOpen({
 
   return createPortal(
     <div ref={rootRef} className="realm-root" tabIndex={-1} {...readingAttributes(bundle.profile)}>
-      <SpriteSource key={retryKey} config={config} villagers={VILLAGERS} troubleSkin={troubleSkin} mount={mountTexture} recess={isChildView} onReady={onReady} onError={onError} />
+      <SpriteSource key={retryKey} config={config} villagers={VILLAGERS} troubleSkin={troubleSkin} mount={mountTexture} recess={isChildView} crown={crownSprite} castleBanner={bundle.banners > 0} onReady={onReady} onError={onError} />
       {textures && (
         <RealmScene
           layout={layout}
           textures={textures}
           settings={settings}
           axisRef={axisRef}
-          interactive={!panelOpen}
+          interactive={!panelOpen && !ceremonyRunning}
           reachId={reachId}
           onReachChange={onReachChange}
           onTalk={onTalk}
@@ -350,6 +419,9 @@ function RealmOpen({
           mountSpeed={mountSpeed}
           recessActive={recessActive}
           onRecessEvent={onRecessEvent}
+          ceremonyActive={ceremonyStage === "running"}
+          ceremonySkipRef={ceremonySkipRef}
+          onCeremonyEvent={onCeremonyEvent}
         />
       )}
       <RealmHud
@@ -360,16 +432,20 @@ function RealmOpen({
         hudScale={settings.hudScale}
         error={spriteError || clock.error}
         selector={selector}
-        paused={panelOpen}
+        paused={panelOpen || ceremonyRunning}
         toast={toast}
         calm={!settings.motion || settings.calmPalette}
         kingdomError={kingdomError}
         onKingdomRetry={onKingdomRetry}
         mana={isChildView ? mana : null}
         cleared={isChildView ? cleared : null}
-        notice={notice}
+        notice={ceremonyNoticeText ?? notice}
         recess={hudRecess}
         ride={hudRide}
+        crown={crown}
+        ceremony={ceremonyRunning ? { onSkip } : null}
+        ceremonyError={ceremonyError}
+        onCeremonyRetry={recordCeremony}
         onRetry={() => {
           setSpriteError("");
           clock.clearError();
@@ -377,8 +453,8 @@ function RealmOpen({
           void clock.flushPending();
         }}
       />
-      {settings.showStick && !panelOpen && <TouchStick onChange={setStick} />}
-      {isChildView && !panelOpen && pages.length > 0 && (
+      {settings.showStick && !panelOpen && !ceremonyRunning && <TouchStick onChange={setStick} />}
+      {isChildView && !panelOpen && !ceremonyRunning && pages.length > 0 && (
         <SpellBar
           pages={pages}
           selectedSlot={selectedSlot}
