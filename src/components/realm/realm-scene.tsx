@@ -47,7 +47,7 @@ function easeOut(t: number): number {
 
 const World = memo(function World({ layout, textures, settings, axisRef, interactive, reachId, onReachChange, onTalk, risingId, selectedSpell, selectedSlot, castRef, spellsEnabled, onSpellEvent, seed }: RealmSceneProps) {
   // Per-frame state lives in refs: nothing here re-renders React sixty times a second.
-  const hero = useRef<HeroState>({ position: layout.spawn, facing: "s", target: null });
+  const hero = useRef<HeroState>({ position: layout.spawn, facing: "s", target: null, mounted: false });
   const companion = useRef<CompanionState>({ position: { x: layout.spawn.x, z: layout.spawn.z + 1.2 } });
   const camTarget = useRef<Vec2>({ ...layout.spawn });
   const heroSprite = useRef<THREE.Sprite>(null);

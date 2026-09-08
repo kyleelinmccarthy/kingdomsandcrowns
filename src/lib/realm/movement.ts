@@ -5,9 +5,10 @@ export const ARRIVE_RADIUS = 0.25;
 export const HERO_RADIUS = 0.45;
 export const COMPANION_GAP = 1.2;
 export const COMPANION_MIN_GAP = 0.8;
+export const COMPANION_GAP_MOUNTED = 2.0;
 
 export type Facing = "n" | "s" | "e" | "w";
-export type HeroState = { position: Vec2; facing: Facing; target: Vec2 | null };
+export type HeroState = { position: Vec2; facing: Facing; target: Vec2 | null; mounted: boolean };
 export type MoveInput = { axis: Vec2 }; // −1..1 per axis; zero when idle
 export type CompanionState = { position: Vec2 };
 
@@ -44,21 +45,21 @@ export function setTarget(state: HeroState, target: Vec2, colliders: Prop[]): He
  * applied one axis at a time and a blocked axis is simply cancelled, which is
  * what makes the hero slide along walls instead of sticking to them.
  */
-export function stepHero(state: HeroState, input: MoveInput, dt: number, colliders: Prop[]): HeroState {
+export function stepHero(state: HeroState, input: MoveInput, dt: number, colliders: Prop[], speed: number = HERO_SPEED): HeroState {
   let vx = 0;
   let vz = 0;
   let target = state.target;
   const len = Math.hypot(input.axis.x, input.axis.z);
   if (len > 0.01) {
-    vx = (input.axis.x / len) * HERO_SPEED;
-    vz = (input.axis.z / len) * HERO_SPEED;
+    vx = (input.axis.x / len) * speed;
+    vz = (input.axis.z / len) * speed;
     target = null;
   } else if (target) {
     const dx = target.x - state.position.x;
     const dz = target.z - state.position.z;
     const dist = Math.hypot(dx, dz);
     if (dist <= ARRIVE_RADIUS) return { ...state, target: null };
-    const step = Math.min(dist, HERO_SPEED * dt) / dt;
+    const step = Math.min(dist, speed * dt) / dt;
     vx = (dx / dist) * step;
     vz = (dz / dist) * step;
   } else {
@@ -76,7 +77,7 @@ export function stepHero(state: HeroState, input: MoveInput, dt: number, collide
   const facing = facingFrom(position.x - state.position.x, position.z - state.position.z, state.facing);
   // A target the hero cannot make progress toward is dropped, so a tap behind a wall doesn't pin them.
   if (target && !moved) target = null;
-  return { position, facing, target };
+  return { position, facing, target, mounted: state.mounted };
 }
 
 /** If the hero stands inside a solid prop (a foundation that just became a building), step them out to just south of it. */
@@ -86,16 +87,29 @@ export function unstickHero(state: HeroState, colliders: Prop[]): HeroState {
   return { ...state, target: null, position: { x: state.position.x, z: inside.position.z + inside.size.d / 2 + HERO_RADIUS + 0.1 } };
 }
 
+/** Riding is a flag on the hero; a mount's speed is passed to stepHero by the scene. Mounting drops any walk target. */
+export function setMounted(state: HeroState, mounted: boolean): HeroState {
+  if (state.mounted === mounted) return state;
+  return { ...state, mounted, target: null };
+}
+
+export function toggleMount(state: HeroState, canRide: boolean): HeroState {
+  if (!canRide) return state;
+  return setMounted(state, !state.mounted);
+}
+
 /** The companion eases toward a spot behind the hero and never crowds them. */
-export function stepCompanion(companion: CompanionState, hero: HeroState, dt: number): CompanionState {
+export function stepCompanion(companion: CompanionState, hero: HeroState, dt: number, opts: { gap?: number; speed?: number } = {}): CompanionState {
+  const gap = opts.gap ?? COMPANION_GAP;
+  const speed = opts.speed ?? HERO_SPEED;
   const f = FACING_VEC[hero.facing];
-  const goal = { x: hero.position.x - f.x * COMPANION_GAP, z: hero.position.z - f.z * COMPANION_GAP };
+  const goal = { x: hero.position.x - f.x * gap, z: hero.position.z - f.z * gap };
   const dx = goal.x - companion.position.x;
   const dz = goal.z - companion.position.z;
   const dist = Math.hypot(dx, dz);
   let next = companion.position;
   if (dist > 0.001) {
-    const step = Math.min(dist, HERO_SPEED * 0.9 * dt);
+    const step = Math.min(dist, speed * 0.9 * dt);
     next = { x: companion.position.x + (dx / dist) * step, z: companion.position.z + (dz / dist) * step };
   }
   const hx = next.x - hero.position.x;
