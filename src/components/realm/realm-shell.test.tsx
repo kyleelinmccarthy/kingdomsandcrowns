@@ -15,7 +15,7 @@ let sceneProps: Record<string, unknown> = {};
 vi.mock("./realm-scene", () => ({
   default: (props: Record<string, unknown>) => {
     sceneProps = props;
-    return <div data-testid="scene" data-interactive={String(props.interactive)} data-rising={String(props.risingId ?? "")} data-spells={String(props.spellsEnabled)} />;
+    return <div data-testid="scene" data-interactive={String(props.interactive)} data-rising={String(props.risingId ?? "")} data-spells={String(props.spellsEnabled)} data-riding={String(props.riding)} data-recess={String(props.recessActive)} />;
   },
 }));
 const startDeedRun = vi.fn();
@@ -77,7 +77,7 @@ const well = {
   id: "well", label: "Village Well", description: "Clean water for every doorstep.", icon: "box" as const, done: 4, total: 5, complete: false,
   deeds: [{ id: "well-stones", title: "Count the Well Stones", story: "Old Bram's bucket keeps coming up dry.", area: "math" as const }],
 };
-const bundle = { heroName: "Lily", avatarConfig: DEFAULT_AVATAR, castleType: "campsite", kingdom: { tone: "gentle" as const, buildings: [well] }, profile: DEFAULT_LEARNING_PROFILE, settings: { enabled: true, toneMode: "gentle" as const }, spellbook: { spells: [], slots: 4 } };
+const bundle = { heroName: "Lily", avatarConfig: DEFAULT_AVATAR, castleType: "campsite", kingdom: { tone: "gentle" as const, buildings: [well] }, profile: DEFAULT_LEARNING_PROFILE, settings: { enabled: true, toneMode: "gentle" as const }, spellbook: { spells: [], slots: 4 }, mounts: { unlocked: ["pony"] } };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -332,5 +332,53 @@ describe("RealmShell", () => {
       (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "cleared", troubleKind: "fog", count: 1 });
     });
     expect(screen.getByText("The mist-wisp scatters!")).toBeInTheDocument();
+  });
+
+  it("turns recess on only for a hero whose access source is recess, with a toast", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 20, source: "recess" });
+    render(<RealmShell bundle={bundle} childId="c1" isChildView={true} />);
+    expect(await screen.findByTestId("scene")).toBeInTheDocument();
+    expect(screen.getByTestId("scene")).toHaveAttribute("data-recess", "true");
+    expect(screen.getByText("Gleams: 0")).toBeInTheDocument();
+    await act(async () => {
+      (sceneProps.onRecessEvent as (e: unknown) => void)({ kind: "recessStart" });
+    });
+    expect(screen.getByRole("status")).toHaveTextContent("Recess!");
+    await act(async () => {
+      (sceneProps.onRecessEvent as (e: unknown) => void)({ kind: "gleam", count: 1 });
+    });
+    expect(screen.getByText("A gleam! 1 so far.")).toBeInTheDocument();
+    expect(screen.getByText("Gleams: 1")).toBeInTheDocument();
+    cleanup();
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 20, source: "earned" });
+    render(<RealmShell bundle={bundle} childId="c1" isChildView={true} />);
+    expect(await screen.findByTestId("scene")).toBeInTheDocument();
+    expect(screen.getByTestId("scene")).toHaveAttribute("data-recess", "false");
+    expect(screen.queryByText(/Gleams:/)).not.toBeInTheDocument();
+    cleanup();
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 20, source: "recess" });
+    render(<RealmShell bundle={bundle} childId="c1" isChildView={false} />);
+    expect(await screen.findByTestId("scene")).toBeInTheDocument();
+    expect(screen.getByTestId("scene")).toHaveAttribute("data-recess", "false");
+  });
+
+  it("rides an unlocked equipped mount, blocks casting while riding, and hides the button otherwise", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    const user = userEvent.setup();
+    const riderBundle = { ...bundle, avatarConfig: { ...DEFAULT_AVATAR, mount: "pony" }, spellbook: { spells: pages, slots: 4 } };
+    render(<RealmShell bundle={riderBundle} childId="c1" isChildView={true} />);
+    expect(await screen.findByTestId("scene")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Ride" }));
+    expect(screen.getByTestId("scene")).toHaveAttribute("data-riding", "true");
+    expect((sceneProps.mountSpeed as number)).toBe(4.5);
+    await user.click(screen.getByRole("button", { name: "Ember Bolt, 10 mana" }));
+    expect(screen.getByText("Dismount to cast.")).toBeInTheDocument();
+    expect(sceneProps.selectedSpell).toBeNull();
+    fireEvent.keyDown(document.body, { code: "KeyM", key: "m" });
+    await waitFor(() => expect(screen.getByTestId("scene")).toHaveAttribute("data-riding", "false"));
+    cleanup();
+    render(<RealmShell bundle={{ ...riderBundle, mounts: { unlocked: [] } }} childId="c1" isChildView={true} />);
+    expect(await screen.findByTestId("scene")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Ride" })).not.toBeInTheDocument();
   });
 });

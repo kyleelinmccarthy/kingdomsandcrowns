@@ -6,7 +6,7 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { Html, OrthographicCamera } from "@react-three/drei";
 import type * as THREE from "three";
 import { WORLD_SIZE, type Prop, type WorldLayout, type Vec2 } from "@/lib/realm/layout";
-import { setTarget, stepCompanion, stepHero, unstickHero, type CompanionState, type HeroState } from "@/lib/realm/movement";
+import { setTarget, stepCompanion, stepHero, unstickHero, setMounted, HERO_SPEED, COMPANION_GAP_MOUNTED, type CompanionState, type HeroState } from "@/lib/realm/movement";
 import { CAMERA_OFFSET, CAMERA_ZOOM, followCamera } from "@/lib/realm/camera";
 import { nearestVillager, villagerById } from "@/lib/realm/villagers";
 import type { RenderSettings } from "@/lib/realm/render-settings";
@@ -14,7 +14,9 @@ import type { SpellDefinition } from "@/lib/utils/spell-catalog";
 import type { CastRequest } from "./use-realm-input";
 import type { TroubleSkin } from "@/lib/realm/spells/troubles";
 import { stepSpellSim, useSpellSimRef, type SpellEvent } from "./use-spell-sim";
+import { stepRecessSim, useRecessSimRef, type RecessSimEvent } from "./use-recess-sim";
 import { SpellLayer } from "./spell-layer";
+import { RecessLayer } from "./recess-layer";
 import type { SpriteTextures } from "./sprite-source";
 
 export type RealmSceneProps = {
@@ -34,6 +36,10 @@ export type RealmSceneProps = {
   spellsEnabled: boolean; // false for parents: the sim still steps, but never casts
   onSpellEvent: (e: SpellEvent) => void;
   seed: number;
+  riding: boolean;
+  mountSpeed: number;
+  recessActive: boolean;
+  onRecessEvent: (e: RecessSimEvent) => void;
 };
 
 const SPRITE_W = 1.5;
@@ -45,19 +51,21 @@ function easeOut(t: number): number {
   return 1 - (1 - t) * (1 - t);
 }
 
-const World = memo(function World({ layout, textures, settings, axisRef, interactive, reachId, onReachChange, onTalk, risingId, selectedSpell, selectedSlot, castRef, spellsEnabled, onSpellEvent, seed }: RealmSceneProps) {
+const World = memo(function World({ layout, textures, settings, axisRef, interactive, reachId, onReachChange, onTalk, risingId, selectedSpell, selectedSlot, castRef, spellsEnabled, onSpellEvent, seed, riding, mountSpeed, recessActive, onRecessEvent }: RealmSceneProps) {
   // Per-frame state lives in refs: nothing here re-renders React sixty times a second.
   const hero = useRef<HeroState>({ position: layout.spawn, facing: "s", target: null, mounted: false });
   const companion = useRef<CompanionState>({ position: { x: layout.spawn.x, z: layout.spawn.z + 1.2 } });
   const camTarget = useRef<Vec2>({ ...layout.spawn });
   const heroSprite = useRef<THREE.Sprite>(null);
   const companionSprite = useRef<THREE.Sprite>(null);
+  const mountSprite = useRef<THREE.Sprite>(null);
   const camera = useRef<THREE.OrthographicCamera>(null);
   const reachRef = useRef<string | null>(null);
   const buildingMeshes = useRef(new Map<string, THREE.Mesh>());
   const rising = useRef<{ id: string; startedAt: number } | null>(null);
   const wasInteractive = useRef(interactive);
   const simRef = useSpellSimRef();
+  const recessRef = useRecessSimRef();
   const dazzledRef = useRef(false);
   const castingRef = useRef(false);
   const frozenRef = useRef(false); // dazzled or mid-cast; read by onPointerDown too
@@ -74,6 +82,11 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
     hero.current = unstickHero(hero.current, layout.colliders);
   }, [layout.colliders]);
 
+  // Mounting/dismounting drops any walk target; the flag itself only ever changes here.
+  useEffect(() => {
+    hero.current = setMounted(hero.current, riding);
+  }, [riding]);
+
   useFrame((state, delta) => {
     const dt = Math.min(delta, 0.05); // a tab that was hidden must not teleport the hero on return
     // Read and clear unconditionally: a cast request queued an instant before a
@@ -87,8 +100,8 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
       // freeze began, or one queued moments earlier) is dropped every frame,
       // not just on the transition into frozen.
       if (frozen && hero.current.target) hero.current = { ...hero.current, target: null };
-      hero.current = stepHero(hero.current, { axis: frozen ? { x: 0, z: 0 } : axisRef.current ?? { x: 0, z: 0 } }, dt, layout.colliders);
-      companion.current = stepCompanion(companion.current, hero.current, dt);
+      hero.current = stepHero(hero.current, { axis: frozen ? { x: 0, z: 0 } : axisRef.current ?? { x: 0, z: 0 } }, dt, layout.colliders, riding ? mountSpeed : HERO_SPEED);
+      companion.current = stepCompanion(companion.current, hero.current, dt, riding ? { gap: COMPANION_GAP_MOUNTED, speed: mountSpeed + 0.5 } : undefined);
       const stepped = stepSpellSim(
         simRef.current,
         { layout, hero: hero.current.position, dt, selectedSpell: spellsEnabled ? selectedSpell : null, selectedSlot: spellsEnabled ? selectedSlot : null, castRequest: spellsEnabled ? request : null, lowStimulus: settings.calmPalette, reducedMotion: !settings.motion, seed },
@@ -97,6 +110,11 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
       simRef.current = stepped.sim;
       dazzledRef.current = stepped.dazzled;
       castingRef.current = stepped.casting;
+      recessRef.current = stepRecessSim(
+        recessRef.current,
+        { layout, hero: hero.current.position, dt, active: recessActive, lowStimulus: settings.calmPalette, seed },
+        (e) => queueMicrotask(() => onRecessEvent(e))
+      );
     } else if (wasInteractive.current) {
       // A pointerdown that reached the ground before a panel opened this frame
       // can leave a stale walk target; drop it once so the hero doesn't creep
@@ -108,8 +126,20 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
     const bob = settings.motion ? Math.sin(state.clock.elapsedTime * 3) * 0.05 : 0;
     const p = hero.current.position;
     if (heroSprite.current) {
-      heroSprite.current.position.set(p.x, SPRITE_H / 2 + bob, p.z);
-      heroSprite.current.scale.set(hero.current.facing === "w" ? -SPRITE_W : SPRITE_W, SPRITE_H, 1);
+      const flip = hero.current.facing === "w" ? -SPRITE_W : SPRITE_W;
+      const material = heroSprite.current.material as THREE.SpriteMaterial;
+      const wantMap = riding ? textures.heroMounted ?? textures.hero : textures.hero;
+      if (material.map !== wantMap) {
+        material.map = wantMap;
+        material.needsUpdate = true;
+      }
+      heroSprite.current.position.set(p.x, (riding ? 1.6 : SPRITE_H / 2) + bob, p.z);
+      heroSprite.current.scale.set(flip, SPRITE_H, 1);
+      if (mountSprite.current) {
+        mountSprite.current.visible = riding;
+        mountSprite.current.position.set(p.x, 0.7 + bob, p.z);
+        mountSprite.current.scale.set(flip, SPRITE_H, 1);
+      }
     }
     const c = companion.current.position;
     if (companionSprite.current) {
@@ -205,6 +235,7 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
         );
       })}
       <SpellLayer sim={simRef} textures={textures} calm={settings.calmPalette} motion={settings.motion} />
+      <RecessLayer sim={recessRef} textures={textures} calm={settings.calmPalette} motion={settings.motion} />
       {reachVillager && reachPlacement && interactive && (
         <Html position={[reachPlacement.position.x, SPRITE_H + 0.9, reachPlacement.position.z]} center zIndexRange={[15, 0]}>
           <div
@@ -219,6 +250,11 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
             <button type="button" className="realm-bubble-talk" onClick={() => onTalk(reachVillager.id)}>Talk</button>
           </div>
         </Html>
+      )}
+      {textures.mount && (
+        <sprite ref={mountSprite} visible={false} scale={[SPRITE_W, SPRITE_H, 1]}>
+          <spriteMaterial map={textures.mount} transparent alphaTest={0.1} />
+        </sprite>
       )}
       <sprite ref={heroSprite} position={[layout.spawn.x, SPRITE_H / 2, layout.spawn.z]} scale={[SPRITE_W, SPRITE_H, 1]}>
         <spriteMaterial map={textures.hero} transparent alphaTest={0.1} />

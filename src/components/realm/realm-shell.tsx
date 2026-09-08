@@ -14,7 +14,9 @@ import { disposeSpriteTextures } from "@/lib/realm/sprite-texture";
 import { resolvePages } from "@/lib/realm/spells/pages";
 import { TROUBLE_COPY, type TroubleSkin } from "@/lib/realm/spells/troubles";
 import { MANA_MAX } from "@/lib/realm/spells/mana";
-import { DEFAULT_AVATAR } from "@/lib/utils/avatar-catalog";
+import { formatLap } from "@/lib/realm/recess/recess";
+import { HERO_SPEED } from "@/lib/realm/movement";
+import { DEFAULT_AVATAR, findMount } from "@/lib/utils/avatar-catalog";
 import { readingAttributes } from "@/lib/utils/learning-profile";
 import { currentTimeOfDay, localDateOf } from "@/lib/utils/schedule-days";
 import { SpriteSource, type SpriteTextures } from "./sprite-source";
@@ -25,8 +27,9 @@ import { DeedPanel } from "./deed-panel";
 import { TouchStick } from "./touch-stick";
 import { SpellBar } from "./spell-bar";
 import { useRealmInput } from "./use-realm-input";
-import { usePlayClock, type CloseReason } from "./use-play-clock";
+import { usePlayClock, type AccessSource, type CloseReason } from "./use-play-clock";
 import type { SpellEvent } from "./use-spell-sim";
+import type { RecessSimEvent } from "./use-recess-sim";
 
 const VILLAGERS_RESTING = "The villagers are resting. Try again.";
 const NOT_ENOUGH_MANA = "Not enough mana yet.";
@@ -34,7 +37,7 @@ const LOST_FOCUS = "You lost focus for a moment.";
 
 const RealmScene = dynamic(() => import("./realm-scene"), { ssr: false, loading: () => <p className="p-6 text-center text-muted-foreground">Opening the Realm…</p> });
 
-type Phase = { kind: "checking" } | { kind: "gated"; copy: GateCopy } | { kind: "open"; minutes: number; note: string | null } | { kind: "closed"; body: string } | { kind: "unsupported" };
+type Phase = { kind: "checking" } | { kind: "gated"; copy: GateCopy } | { kind: "open"; minutes: number; note: string | null; source: AccessSource | null } | { kind: "closed"; body: string } | { kind: "unsupported" };
 
 const UNSUPPORTED = "This device can't open the Realm yet. Try a newer browser or another device.";
 
@@ -76,7 +79,7 @@ export function RealmShell({
       const copy = gateCopy(result);
       if (!isChildView) {
         // Parents look, never spend: the gate becomes an information line.
-        setPhase({ kind: "open", minutes: 0, note: copy ? `Closed for ${bundle.heroName}: ${copy.title}` : null });
+        setPhase({ kind: "open", minutes: 0, note: copy ? `Closed for ${bundle.heroName}: ${copy.title}` : null, source: null });
         return;
       }
       // `copy` is non-null exactly when access is denied.
@@ -84,7 +87,7 @@ export function RealmShell({
         setPhase({ kind: "gated", copy });
         return;
       }
-      setPhase({ kind: "open", minutes: result.allowed ? result.minutesRemaining : 0, note: null });
+      setPhase({ kind: "open", minutes: result.allowed ? result.minutesRemaining : 0, note: null, source: result.allowed ? result.source : null });
     })().catch((err: unknown) => {
       if (!cancelled) setPhase({ kind: "gated", copy: { title: "The Realm is out of reach right now.", body: err instanceof Error ? err.message : "Try again in a moment." } });
     });
@@ -114,6 +117,7 @@ export function RealmShell({
       isTouch={isTouch}
       minutes={phase.minutes}
       note={phase.note}
+      source={phase.source}
       onClose={onClose}
       selector={selector}
     />
@@ -127,6 +131,7 @@ function RealmOpen({
   isTouch,
   minutes,
   note,
+  source,
   onClose,
   selector,
 }: {
@@ -136,6 +141,7 @@ function RealmOpen({
   isTouch: boolean;
   minutes: number;
   note: string | null;
+  source: AccessSource | null;
   onClose: (reason: CloseReason) => void;
   selector?: React.ReactNode;
 }) {
@@ -152,6 +158,8 @@ function RealmOpen({
   const [mana, setMana] = useState(MANA_MAX);
   const [cleared, setCleared] = useState(0);
   const [notice, setNotice] = useState<string | null>(null);
+  const [riding, setRiding] = useState(false);
+  const [recess, setRecess] = useState<{ gleams: number; laps: number; bestLapMs: number | null; lapMs: number | null }>({ gleams: 0, laps: 0, bestLapMs: null, lapMs: null });
   const [seed] = useState(() => Date.now() >>> 0);
   const rootRef = useRef<HTMLDivElement>(null);
   // `.game-content` (the page's <main>) is `position: relative; z-index: 10`,
@@ -179,12 +187,25 @@ function RealmOpen({
   const pages = useMemo(() => resolvePages(bundle.spellbook.spells, bundle.spellbook.slots), [bundle.spellbook]);
   const selectedSpell = selectedSlot === null ? null : pages.find((p) => p.slot === selectedSlot)?.spell ?? null;
   const troubleSkin: TroubleSkin = kingdom.tone === "monsters" ? "monsters" : "gentle";
-  const { axisRef, setStick, castRef } = useRealmInput({ enabled: !panelOpen, castEnabled: isChildView && !panelOpen && selectedSpell !== null });
+  const { axisRef, setStick, castRef } = useRealmInput({ enabled: !panelOpen, castEnabled: isChildView && !panelOpen && !riding && selectedSpell !== null });
   const config = bundle.avatarConfig ?? DEFAULT_AVATAR;
-  const clock = usePlayClock({ enabled: isChildView, childId, initialMinutes: minutes, onClose, paused: panelOpen });
+  const clock = usePlayClock({ enabled: isChildView, childId, initialMinutes: minutes, onClose, paused: panelOpen, initialSource: source });
+  const recessActive = isChildView && clock.source === "recess";
+  const mountItem = bundle.avatarConfig?.mount ? findMount(bundle.avatarConfig.mount) : null;
+  const canRide = mountItem !== null && bundle.mounts.unlocked.includes(mountItem.id) && isChildView;
+  const mountSpeed = mountItem?.speed ?? HERO_SPEED;
+  const mountTexture = useMemo(
+    () => (mountItem && bundle.avatarConfig ? { id: mountItem.id, color: bundle.avatarConfig.mountColor } : null),
+    [mountItem, bundle.avatarConfig]
+  );
   const onReady = useCallback((t: SpriteTextures) => setTextures(t), []);
   const onError = useCallback((e: Error) => setSpriteError(e.message), []);
   const onReachChange = useCallback((id: string | null) => setReachId(id), []);
+  const onToggleRide = useCallback(() => {
+    if (!canRide) return;
+    setRiding((r) => !r);
+    setSelectedSlot(null);
+  }, [canRide]);
 
   // The latest kingdom, readable from event handlers without a stale closure and without side effects in an updater.
   const kingdomRef = useRef(kingdom);
@@ -199,21 +220,28 @@ function RealmOpen({
     setOpenVillagerId(id);
   }, []);
 
-  // Enter or Space talks to the villager in reach when no panel is open.
+  // Enter or Space talks to the villager in reach when no panel is open; M mounts or dismounts.
   useEffect(() => {
     if (panelOpen) return;
     function onKey(e: KeyboardEvent) {
+      const t = e.target;
+      const onInteractiveElement = t instanceof Element && t.closest("a, button, input, textarea, select, [role='dialog']");
+      if (e.code === "KeyM" && !e.repeat) {
+        if (onInteractiveElement) return;
+        e.preventDefault();
+        onToggleRide();
+        return;
+      }
       if (e.key !== "Enter" && e.key !== " ") return;
       if (e.key === " " && selectedSlot !== null) return; // a page is selected: Space casts, it does not talk
       if (!reachId) return;
-      const t = e.target;
-      if (t instanceof Element && t.closest("a, button, input, textarea, select, [role='dialog']")) return;
+      if (onInteractiveElement) return;
       e.preventDefault();
       setOpenVillagerId(reachId);
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [panelOpen, reachId, selectedSlot]);
+  }, [panelOpen, reachId, selectedSlot, onToggleRide]);
 
   // The rise toast clears itself; the timer is the only place that clears it.
   useEffect(() => {
@@ -239,6 +267,16 @@ function RealmOpen({
       case "castState": break;
     }
   }, [isChildView, troubleSkin]);
+
+  const onRecessEvent = useCallback((e: RecessSimEvent) => {
+    if (!isChildView) return;
+    switch (e.kind) {
+      case "recessStart": setToast("Recess!"); break;
+      case "gleam": setRecess((r) => ({ ...r, gleams: e.count })); setNotice(`A gleam! ${e.count} so far.`); break;
+      case "lap": setRecess((r) => ({ ...r, laps: e.laps, bestLapMs: e.best ? e.lapMs : r.bestLapMs, lapMs: null })); setNotice(`Lap done: ${formatLap(e.lapMs)} s!`); break;
+      case "lapTick": if (!settings.calmPalette) setRecess((r) => ({ ...r, lapMs: e.lapMs })); break;
+    }
+  }, [isChildView, settings.calmPalette]);
 
   // The panel can close via Close/Escape or a finished deed; either way, focus lands back
   // on the Talk bubble if the hero is still in reach of it, otherwise on the world itself
@@ -277,12 +315,16 @@ function RealmOpen({
   }, [childId]);
 
   const calm = bundle.profile.reducedMotion || bundle.profile.lowStimulus;
+  const hudRecess = isChildView && (recessActive || recess.laps > 0 || recess.gleams > 0) ? recess : null;
+  const hudRide = isChildView
+    ? (canRide ? { riding, disabled: false, onToggle: onToggleRide } : null)
+    : (mountItem && bundle.mounts.unlocked.includes(mountItem.id) ? { riding: false, disabled: true, onToggle: () => {} } : null);
 
   if (!portalTarget) return null;
 
   return createPortal(
     <div ref={rootRef} className="realm-root" tabIndex={-1} {...readingAttributes(bundle.profile)}>
-      <SpriteSource key={retryKey} config={config} villagers={VILLAGERS} troubleSkin={troubleSkin} onReady={onReady} onError={onError} />
+      <SpriteSource key={retryKey} config={config} villagers={VILLAGERS} troubleSkin={troubleSkin} mount={mountTexture} recess={isChildView} onReady={onReady} onError={onError} />
       {textures && (
         <RealmScene
           layout={layout}
@@ -301,6 +343,10 @@ function RealmOpen({
           spellsEnabled={isChildView}
           onSpellEvent={onSpellEvent}
           seed={seed}
+          riding={riding}
+          mountSpeed={mountSpeed}
+          recessActive={recessActive}
+          onRecessEvent={onRecessEvent}
         />
       )}
       <RealmHud
@@ -319,6 +365,8 @@ function RealmOpen({
         mana={isChildView ? mana : null}
         cleared={isChildView ? cleared : null}
         notice={notice}
+        recess={hudRecess}
+        ride={hudRide}
         onRetry={() => {
           setSpriteError("");
           clock.clearError();
@@ -333,7 +381,13 @@ function RealmOpen({
           selectedSlot={selectedSlot}
           mana={mana}
           fewerChoices={bundle.profile.fewerChoices}
-          onSelect={setSelectedSlot}
+          onSelect={(slot) => {
+            if (riding && slot !== null) {
+              setNotice("Dismount to cast.");
+              return;
+            }
+            setSelectedSlot(slot);
+          }}
           raised={settings.showStick}
           hudScale={settings.hudScale}
         />

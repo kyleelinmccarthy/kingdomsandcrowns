@@ -9,6 +9,9 @@ import { currentTimeOfDay, localDateOf } from "@/lib/utils/schedule-days";
 /** Why the Realm closed, in the gate's own vocabulary. `AccessDenied` already is that reason union. */
 export type CloseReason = AccessDenied;
 
+/** Why access is currently granted, in the gate's own vocabulary. */
+export type AccessSource = "off_hours" | "recess" | "earned";
+
 /**
  * Ticks the pure clock once a second, writes a minute to the ledger every 60
  * visible seconds, and refreshes access after each write. State updates happen
@@ -20,16 +23,19 @@ export function usePlayClock({
   initialMinutes,
   onClose,
   paused = false,
+  initialSource = null,
 }: {
   enabled: boolean;
   childId: string;
   initialMinutes: number;
   onClose: (reason: CloseReason) => void;
   paused?: boolean;
+  initialSource?: AccessSource | null;
 }) {
   const [clock, setClock] = useState<PlayClock>(() => startClock(initialMinutes));
   const [warning, setWarning] = useState(false);
   const [error, setError] = useState("");
+  const [source, setSource] = useState<AccessSource | null>(initialSource ?? null);
   const clockRef = useRef(clock);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
@@ -55,6 +61,7 @@ export function usePlayClock({
       clockRef.current = applied.clock;
       setClock(applied.clock);
       setError("");
+      if (access.allowed) setSource(access.source);
       if (applied.event === "warn") setWarning(true);
       if (applied.clock.minutesRemaining > 1) setWarning(false);
       if (applied.event === "close") closeRef.current(access.allowed ? "no_minutes" : access.reason);
@@ -79,6 +86,7 @@ export function usePlayClock({
         clockRef.current = applied.clock;
         setClock(applied.clock);
         setError("");
+        if (access.allowed) setSource(access.source);
         if (applied.event === "warn") setWarning(true);
         if (applied.clock.minutesRemaining > 1) setWarning(false);
         if (applied.event === "close") closeRef.current(access.allowed ? "no_minutes" : access.reason);
@@ -121,5 +129,5 @@ export function usePlayClock({
     }
   }, [settle]);
 
-  return { minutesRemaining: clock.minutesRemaining, warning, error, clearError: () => setError(""), flushPending };
+  return { minutesRemaining: clock.minutesRemaining, warning, error, clearError: () => setError(""), flushPending, source };
 }

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { MANA_MAX } from "@/lib/realm/spells/mana";
+import { formatLap } from "@/lib/realm/recess/recess";
 
 export function RealmHud({
   heroName,
@@ -21,6 +22,8 @@ export function RealmHud({
   mana,
   cleared,
   notice,
+  recess,
+  ride,
 }: {
   heroName: string;
   minutesRemaining: number | null; // null hides the counter (parent preview)
@@ -38,6 +41,8 @@ export function RealmHud({
   mana: number | null;
   cleared: number | null;
   notice: string | null;
+  recess: { gleams: number; laps: number; bestLapMs: number | null; lapMs: number | null } | null;
+  ride: { riding: boolean; disabled: boolean; onToggle: () => void } | null;
 }) {
   return (
     <div className="realm-hud" style={{ fontSize: `${hudScale}em` }}>
@@ -51,6 +56,19 @@ export function RealmHud({
           </span>
         )}
         {cleared !== null && <span className="realm-hud-cleared">Cleared: {cleared}</span>}
+        {recess && <span className="realm-hud-cleared">Gleams: {recess.gleams}</span>}
+        {recess && (
+          <span className="realm-hud-cleared">
+            Laps: {recess.laps}
+            {recess.bestLapMs !== null && ` · Best ${formatLap(recess.bestLapMs)} s`}
+            {recess.lapMs !== null && ` · ${formatLap(recess.lapMs)} s`}
+          </span>
+        )}
+        {ride && (
+          <Button size="sm" variant="outline" className="realm-hud-ride" disabled={ride.disabled} onClick={ride.onToggle}>
+            {ride.riding ? "Dismount" : "Ride"}
+          </Button>
+        )}
         {preview && <span className="realm-hud-badge">Previewing {heroName}&apos;s Realm</span>}
         {preview && <span className="realm-hud-selector">{selector}</span>}
         <Link href="/tavern" className="realm-hud-leave">Leave the Realm</Link>
