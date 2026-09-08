@@ -1,37 +1,31 @@
 "use server";
 
-import { desc, eq } from "drizzle-orm";
-import { db } from "@/lib/db";
-import * as schema from "@/lib/db/schema";
+import { revalidatePath } from "next/cache";
 import { requireChildAccess } from "@/lib/auth/access";
 import { ensureSeason } from "@/lib/services/season-sync";
-import type { SeasonRecord } from "@/lib/utils/seasons";
+import { loadSeasons, markCeremonySeen as markSeen } from "@/lib/services/crowns";
+import { pendingCeremony, type SeasonWithCeremony } from "@/lib/utils/seasons";
 
-function toRecord(row: typeof schema.season.$inferSelect): SeasonRecord {
+/** The open season, completed history (newest first), and the ceremony waiting to be held, if any. A hero may read their own. */
+export async function getSeasons(
+  childId: string
+): Promise<{ open: SeasonWithCeremony | null; history: SeasonWithCeremony[]; pending: SeasonWithCeremony | null }> {
+  await requireChildAccess(childId);
+  await ensureSeason(childId);
+  const seasons = await loadSeasons(childId);
   return {
-    id: row.id,
-    grade: row.grade,
-    ordinal: row.ordinal,
-    startDate: row.startDate,
-    endDate: row.endDate,
-    crownId: row.crownId,
+    open: seasons.find((s) => s.completedAt === null) ?? null,
+    history: seasons.filter((s) => s.completedAt !== null),
+    pending: pendingCeremony(seasons),
   };
 }
 
-/** The open season plus completed history, newest first. A hero may read their own. */
-export async function getSeasons(
-  childId: string
-): Promise<{ open: SeasonRecord | null; history: SeasonRecord[] }> {
-  await requireChildAccess(childId);
-  await ensureSeason(childId);
-  const rows = await db
-    .select()
-    .from(schema.season)
-    .where(eq(schema.season.childId, childId))
-    .orderBy(desc(schema.season.ordinal));
-  const openRow = rows.find((r) => r.completedAt === null);
-  return {
-    open: openRow ? toRecord(openRow) : null,
-    history: rows.filter((r) => r.completedAt !== null).map(toRecord),
-  };
+/** The hero has seen the ceremony (or a family member dismissed the card). Hero or parent. */
+export async function markCeremonySeen(childId: string, seasonId: string): Promise<void> {
+  await requireChildAccess(childId, { write: true });
+  await markSeen(childId, seasonId);
+  revalidatePath("/tavern");
+  revalidatePath("/loot");
+  revalidatePath("/realm");
+  revalidatePath("/settings");
 }

@@ -169,6 +169,13 @@
       "when": 1788485651683,
       "tag": "0023_blushing_menace",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "6",
+      "when": 1788893401616,
+      "tag": "0024_hot_glorian",
+      "breakpoints": true
     }
   ]
 }

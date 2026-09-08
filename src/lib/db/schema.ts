@@ -655,6 +655,7 @@ export const season = sqliteTable(
     endDate: text("end_date"), // ISO YYYY-MM-DD, set on completion
     completedAt: integer("completed_at", { mode: "timestamp" }), // null = open
     crownId: text("crown_id"), // crown-catalog id, minted on completion
+    ceremonySeenAt: integer("ceremony_seen_at", { mode: "timestamp" }), // null until the hero has seen (or a family member has dismissed) the crown ceremony
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   },

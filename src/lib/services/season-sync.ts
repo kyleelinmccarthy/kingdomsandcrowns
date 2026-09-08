@@ -89,13 +89,19 @@ async function applyPlan(childId: string, plan: TransitionPlan): Promise<void> {
           .where(eq(schema.season.id, plan.reopenId));
       });
       return;
+    case "pause":
+      // Kept as-is: an open season without a grade simply waits for one.
+      return;
+    case "delete_open":
+      await db.delete(schema.season).where(eq(schema.season.id, plan.seasonId));
+      return;
   }
 }
 
-/** Called whenever a hero's grade is set. `today` is the caller's local ISO date. */
+/** Called whenever a hero's grade is set or cleared (`newGrade` null). `today` is the caller's local ISO date. */
 export async function syncSeasonForGrade(
   childId: string,
-  newGrade: string,
+  newGrade: string | null,
   today: string
 ): Promise<TransitionPlan> {
   const date = ISO_DATE.test(today) ? today : formatDate(new Date());

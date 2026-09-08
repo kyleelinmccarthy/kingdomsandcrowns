@@ -139,9 +139,13 @@ export async function updateChild(
 
   // Sync the season before updating the child row: if the sync throws, the
   // grade stays untouched instead of leaving grade and season disagreeing.
+  // A birth year replaces the grade (resolveAge clears it), so the season
+  // hears about the cleared grade too: paused if it has work, dropped if not.
   let seasonTransition: TransitionPlan | null = null;
   if (data.grade) {
     seasonTransition = await syncSeasonForGrade(childId, data.grade, today ?? formatDate(new Date()));
+  } else if (data.birthYear) {
+    seasonTransition = await syncSeasonForGrade(childId, null, today ?? formatDate(new Date()));
   }
 
   await db
