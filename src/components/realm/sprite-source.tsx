@@ -9,6 +9,7 @@ import { getCachedTexture, setCachedTexture, spriteKey, svgElementToTexture } fr
 import { TroubleFigure, TROUBLE_KINDS } from "@/components/realm/trouble-figures";
 import type { TroubleKind, TroubleSkin } from "@/lib/realm/spells/troubles";
 import { GleamFigure, BannerFigure } from "@/components/realm/recess-figures";
+import { CrownFigure, CastleBannerFigure } from "@/components/realm/ceremony-figures";
 
 export type SpriteTextures = {
   hero: THREE.CanvasTexture;
@@ -19,6 +20,8 @@ export type SpriteTextures = {
   heroMounted: THREE.CanvasTexture | null;
   gleam: THREE.CanvasTexture | null;
   banner: THREE.CanvasTexture | null;
+  crown: THREE.CanvasTexture | null;
+  castleBanner: THREE.CanvasTexture | null;
 };
 
 const NO_VILLAGERS: Villager[] = [];
@@ -42,6 +45,8 @@ export function SpriteSource({
   troubleSkin = null,
   mount = null,
   recess = false,
+  crown = null,
+  castleBanner = false,
   onReady,
   onError,
 }: {
@@ -54,6 +59,10 @@ export function SpriteSource({
   mount?: { id: string; color: string } | null;
   /** When true, also rasterizes the recess gleam and start banner. */
   recess?: boolean;
+  /** When set, also rasterizes the ceremony crown. Must be a stable (memoised) object. */
+  crown?: { id: string; color: string } | null;
+  /** When true, also rasterizes the white pennant the castle banners are tinted from. */
+  castleBanner?: boolean;
   onReady: (textures: SpriteTextures) => void;
   onError: (error: Error) => void;
 }) {
@@ -99,14 +108,24 @@ export function SpriteSource({
         if (gleamSvg) gleam = await textureFor("gleam", gleamSvg);
         if (bannerSvg) banner = await textureFor("banner", bannerSvg);
       }
-      if (!cancelled) onReady({ hero, companion, villagers: villagerTextures, troubles: troubleTextures, mount: mountTexture, heroMounted, gleam, banner });
+      let crownTexture: THREE.CanvasTexture | null = null;
+      if (crown) {
+        const svg = root.querySelector<SVGSVGElement>(`svg[data-figure="crown"][data-figure-id="${crown.id}"]`);
+        if (svg) crownTexture = await textureFor(`crown:${crown.id}`, svg);
+      }
+      let castleBannerTexture: THREE.CanvasTexture | null = null;
+      if (castleBanner) {
+        const svg = root.querySelector<SVGSVGElement>('svg[data-figure="castle-banner"]');
+        if (svg) castleBannerTexture = await textureFor("castle-banner", svg);
+      }
+      if (!cancelled) onReady({ hero, companion, villagers: villagerTextures, troubles: troubleTextures, mount: mountTexture, heroMounted, gleam, banner, crown: crownTexture, castleBanner: castleBannerTexture });
     })().catch((err: unknown) => {
       if (!cancelled) onError(err instanceof Error ? err : new Error(String(err)));
     });
     return () => {
       cancelled = true;
     };
-  }, [config, villagers, troubleSkin, mount, recess, onReady, onError]);
+  }, [config, villagers, troubleSkin, mount, recess, crown, castleBanner, onReady, onError]);
 
   return (
     <div ref={host} style={{ position: "absolute", left: -9999, top: -9999, width: 1, height: 1, overflow: "hidden" }} aria-hidden="true">
@@ -118,6 +137,8 @@ export function SpriteSource({
       {mount && <AvatarFigure config={config} size="xl" mounted />}
       {recess && <GleamFigure />}
       {recess && <BannerFigure />}
+      {crown && <CrownFigure id={crown.id} color={crown.color} />}
+      {castleBanner && <CastleBannerFigure />}
     </div>
   );
 }

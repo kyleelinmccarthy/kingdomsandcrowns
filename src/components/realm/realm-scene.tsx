@@ -17,6 +17,8 @@ import { stepSpellSim, useSpellSimRef, type SpellEvent } from "./use-spell-sim";
 import { stepRecessSim, useRecessSimRef, type RecessSimEvent } from "./use-recess-sim";
 import { SpellLayer } from "./spell-layer";
 import { RecessLayer } from "./recess-layer";
+import { CeremonyLayer } from "./ceremony-layer";
+import { startCeremony, stepCeremony, skipCeremony, type CeremonyEvent, type CeremonyState } from "@/lib/realm/ceremony/ceremony";
 import type { SpriteTextures } from "./sprite-source";
 
 export type RealmSceneProps = {
@@ -40,6 +42,11 @@ export type RealmSceneProps = {
   mountSpeed: number;
   recessActive: boolean;
   onRecessEvent: (e: RecessSimEvent) => void;
+  // Optional until Task 5 wires the shell to these; the scene simply never starts a
+  // ceremony when they're omitted, so callers that predate the ceremony still typecheck.
+  ceremonyActive?: boolean; // true while the shell wants the ceremony running; the scene starts it once
+  ceremonySkipRef?: RefObject<boolean>; // the shell sets it; the scene reads and clears it
+  onCeremonyEvent?: (e: CeremonyEvent) => void;
 };
 
 const SPRITE_W = 1.5;
@@ -51,7 +58,7 @@ function easeOut(t: number): number {
   return 1 - (1 - t) * (1 - t);
 }
 
-const World = memo(function World({ layout, textures, settings, axisRef, interactive, reachId, onReachChange, onTalk, risingId, selectedSpell, selectedSlot, castRef, spellsEnabled, onSpellEvent, seed, riding, mountSpeed, recessActive, onRecessEvent }: RealmSceneProps) {
+const World = memo(function World({ layout, textures, settings, axisRef, interactive, reachId, onReachChange, onTalk, risingId, selectedSpell, selectedSlot, castRef, spellsEnabled, onSpellEvent, seed, riding, mountSpeed, recessActive, onRecessEvent, ceremonyActive = false, ceremonySkipRef, onCeremonyEvent = () => {} }: RealmSceneProps) {
   // Per-frame state lives in refs: nothing here re-renders React sixty times a second.
   const hero = useRef<HeroState>({ position: layout.spawn, facing: "s", target: null, mounted: false });
   const companion = useRef<CompanionState>({ position: { x: layout.spawn.x, z: layout.spawn.z + 1.2 } });
@@ -69,6 +76,8 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
   const dazzledRef = useRef(false);
   const castingRef = useRef(false);
   const frozenRef = useRef(false); // dazzled or mid-cast; read by onPointerDown too
+  const ceremonyRef = useRef<CeremonyState | null>(null);
+  const villagerSprites = useRef(new Map<string, THREE.Sprite>());
 
   // A completed building scales up from the ground once; with motion off it simply appears.
   useEffect(() => {
@@ -93,7 +102,39 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
     // panel opened this frame must not fire later, once the world is interactive again.
     const request = castRef.current;
     castRef.current = null;
-    if (interactive) {
+    if (ceremonyActive && !ceremonyRef.current) {
+      const started = startCeremony(layout, hero.current.position, !settings.motion);
+      ceremonyRef.current = started;
+      const first = started.step;
+      queueMicrotask(() => onCeremonyEvent({ kind: "step", step: first }));
+    }
+    const ceremony = ceremonyRef.current;
+    if (ceremony && ceremony.step !== "done") {
+      // The ceremony drives the hero and the villagers; input, spells and recess wait.
+      let s = ceremony;
+      if (ceremonySkipRef?.current) {
+        ceremonySkipRef.current = false;
+        const skipped = skipCeremony(s);
+        if (skipped !== s) {
+          s = skipped;
+          queueMicrotask(() => onCeremonyEvent({ kind: "step", step: "hail" }));
+        }
+      }
+      const r = stepCeremony(s, dt, layout.colliders, !settings.motion);
+      ceremonyRef.current = r.state;
+      const entered = r.entered;
+      if (entered) queueMicrotask(() => onCeremonyEvent({ kind: "step", step: entered }));
+      hero.current = { ...hero.current, position: r.state.hero, target: null, facing: "n" };
+      companion.current = stepCompanion(companion.current, hero.current, dt);
+      for (const [id, sprite] of villagerSprites.current) {
+        const v = r.state.villagers[id];
+        if (v) sprite.position.set(v.x, SPRITE_H / 2, v.z);
+      }
+      if (r.state.step === "done") {
+        // The people return to their sites, where Talk expects them.
+        for (const v of layout.villagers) villagerSprites.current.get(v.id)?.position.set(v.position.x, SPRITE_H / 2, v.position.z);
+      }
+    } else if (interactive) {
       const frozen = dazzledRef.current || castingRef.current;
       frozenRef.current = frozen;
       // While frozen, a walk target (from a tap that landed the same frame the
@@ -199,7 +240,7 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
         <planeGeometry args={[WORLD_SIZE * 3, WORLD_SIZE * 3]} />
         <meshStandardMaterial color={ground} />
       </mesh>
-      {layout.props.filter((prop) => prop.kind !== "villager").map((prop) => (
+      {layout.props.filter((prop) => prop.kind !== "villager" && prop.kind !== "banner").map((prop) => (
         <group key={prop.id} position={[prop.position.x, prop.size.h / 2, prop.position.z]}>
           <mesh
             ref={(mesh) => {
@@ -229,13 +270,35 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
         const texture = textures.villagers[v.id];
         if (!texture) return null;
         return (
-          <sprite key={v.id} position={[v.position.x, SPRITE_H / 2, v.position.z]} scale={[SPRITE_W, SPRITE_H, 1]}>
+          <sprite
+            key={v.id}
+            ref={(el) => {
+              if (el) villagerSprites.current.set(v.id, el);
+              else villagerSprites.current.delete(v.id);
+            }}
+            position={[v.position.x, SPRITE_H / 2, v.position.z]}
+            scale={[SPRITE_W, SPRITE_H, 1]}
+          >
             <spriteMaterial map={texture} transparent alphaTest={0.1} />
           </sprite>
         );
       })}
+      {layout.props.filter((prop) => prop.kind === "banner").map((prop) => (
+        <group key={prop.id} position={[prop.position.x, 0, prop.position.z]}>
+          <mesh position={[0, prop.size.h / 2, 0]}>
+            <boxGeometry args={[0.12, prop.size.h, 0.12]} />
+            <meshStandardMaterial color="#6b4226" />
+          </mesh>
+          {textures.castleBanner && (
+            <sprite position={[0.4, prop.size.h - 0.1, 0]} scale={[0.9, 0.7, 1]}>
+              <spriteMaterial map={textures.castleBanner} color={prop.color} transparent alphaTest={0.1} />
+            </sprite>
+          )}
+        </group>
+      ))}
       <SpellLayer sim={simRef} textures={textures} calm={settings.calmPalette} motion={settings.motion} />
       <RecessLayer sim={recessRef} textures={textures} calm={settings.calmPalette} motion={settings.motion} />
+      <CeremonyLayer sim={ceremonyRef} heroRef={hero} textures={textures} calm={settings.calmPalette} motion={settings.motion} />
       {reachVillager && reachPlacement && interactive && (
         <Html position={[reachPlacement.position.x, SPRITE_H + 0.9, reachPlacement.position.z]} center zIndexRange={[15, 0]}>
           <div

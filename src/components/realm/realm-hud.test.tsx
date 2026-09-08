@@ -142,4 +142,22 @@ describe("RealmHud", () => {
     expect(screen.getByRole("button", { name: "Dismount" })).toBeDisabled();
     expect(screen.queryByText(/Gleams:/)).not.toBeInTheDocument();
   });
+
+  it("shows the worn crown and the ceremony's Skip button", () => {
+    const onSkip = vi.fn();
+    render(<RealmHud heroName="Lily" minutesRemaining={7} warning={false} preview={null} hudScale={1} error="" onRetry={() => {}} paused={true} toast={null} calm={false} kingdomError="" onKingdomRetry={() => {}} mana={null} cleared={null} notice={null} recess={null} ride={null} crown={{ label: "Copper Circlet", color: "#b87333" }} ceremony={{ onSkip }} />);
+    expect(screen.getByText("Copper Circlet")).toBeInTheDocument();
+    const skip = screen.getByRole("button", { name: "Skip" });
+    expect(skip.className).toContain("realm-hud-skip");
+    fireEvent.click(skip);
+    expect(onSkip).toHaveBeenCalledTimes(1);
+  });
+  it("offers a retry when the ceremony could not be recorded", () => {
+    const onCeremonyRetry = vi.fn();
+    render(<RealmHud heroName="Lily" minutesRemaining={7} warning={false} preview={null} hudScale={1} error="" onRetry={() => {}} paused={false} toast={null} calm={false} kingdomError="" onKingdomRetry={() => {}} mana={null} cleared={null} notice={null} recess={null} ride={null} ceremonyError="The crown could not be recorded." onCeremonyRetry={onCeremonyRetry} />);
+    expect(screen.getByText(/The crown could not be recorded\./)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(onCeremonyRetry).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: "Skip" })).not.toBeInTheDocument();
+  });
 });
