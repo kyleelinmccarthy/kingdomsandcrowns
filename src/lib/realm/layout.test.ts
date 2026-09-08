@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { buildWorldLayout, buildingFootprint, CASTLE_FOOTPRINTS, BUILDING_SLOTS, WORLD_SIZE, CASTLE_POSITION, SPAWN, FOUNDATION_COLOR } from "./layout";
+import { buildWorldLayout, buildingFootprint, CASTLE_FOOTPRINTS, BUILDING_SLOTS, WORLD_SIZE, CASTLE_POSITION, SPAWN, FOUNDATION_COLOR, BANNER_SIZE, BANNER_MARGIN } from "./layout";
 import { BUILDINGS } from "@/lib/utils/kingdom";
 import { REACH, VILLAGER_OFFSET } from "./villagers";
+import { crownForOrdinal } from "@/lib/utils/crown-catalog";
 
 const none = { castleType: "campsite", buildings: [] };
 
@@ -95,5 +96,26 @@ describe("buildWorldLayout", () => {
       expect(Math.abs(slot.x)).toBeLessThan(WORLD_SIZE / 2 - 2);
       expect(Math.abs(slot.z)).toBeLessThan(WORLD_SIZE / 2 - 2);
     }
+  });
+});
+
+describe("castle banners", () => {
+  it("raises one pole per completed season in tier colours, just outside the castle, capped at eight", () => {
+    const three = buildWorldLayout({ ...none, castleType: "keep", banners: 3 });
+    const banners = three.props.filter((p) => p.kind === "banner");
+    expect(banners.map((b) => b.color)).toEqual([crownForOrdinal(1).color, crownForOrdinal(2).color, crownForOrdinal(3).color]);
+    expect(banners.map((b) => b.id)).toEqual(["banner-1", "banner-2", "banner-3"]);
+    expect(banners.every((b) => !b.solid && b.label === "" && b.size.h === BANNER_SIZE.h)).toBe(true);
+    const castle = three.props.find((p) => p.kind === "castle")!;
+    for (const b of banners) {
+      const outside = Math.max(Math.abs(b.position.x - castle.position.x) - castle.size.w / 2, Math.abs(b.position.z - castle.position.z) - castle.size.d / 2);
+      expect(outside).toBeCloseTo(BANNER_MARGIN, 5);
+    }
+    expect(banners[0].position.x).toBeLessThan(castle.position.x); // the first pole stands on the west side
+    expect(banners[0].position.z).toBeGreaterThan(castle.position.z); // toward the south-west corner
+    expect(three.colliders.some((c) => c.kind === "banner")).toBe(false);
+    expect(buildWorldLayout({ ...none, banners: 12 }).props.filter((p) => p.kind === "banner").length).toBe(8);
+    expect(buildWorldLayout({ ...none, banners: -1 }).props.filter((p) => p.kind === "banner").length).toBe(0);
+    expect(buildWorldLayout(none).props.filter((p) => p.kind === "banner").length).toBe(0);
   });
 });

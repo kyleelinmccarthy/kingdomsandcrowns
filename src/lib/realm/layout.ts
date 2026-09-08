@@ -1,11 +1,13 @@
 import { BUILDINGS } from "@/lib/utils/kingdom";
+import { crownForOrdinal } from "@/lib/utils/crown-catalog";
+import { BANNER_CAP } from "@/lib/utils/seasons";
 import { VILLAGERS, villagerPosition } from "./villagers";
 
 /** Units are abstract; the camera zoom maps them to pixels. The ground is WORLD_SIZE² centered on the origin. */
 export const WORLD_SIZE = 40;
 
 export type Vec2 = { x: number; z: number };
-export type PropKind = "castle" | "building" | "foundation" | "path" | "villager" | "barrier";
+export type PropKind = "castle" | "building" | "foundation" | "path" | "villager" | "barrier" | "banner";
 
 export type Prop = {
   id: string;
@@ -71,11 +73,22 @@ export const FOUNDATION_COLOR = "#6b665a";
 const FOUNDATION_H = 0.2;
 const VILLAGER_SIZE = { w: 0.9, d: 0.9, h: 1.8 };
 
+export const BANNER_SIZE = { w: 0.4, d: 0.4, h: 1.6 };
+/** How far outside the castle footprint a banner pole stands. */
+export const BANNER_MARGIN = 0.6;
+/** Eight poles, two per side, clockwise from the south-west corner: west side, north, east, south. Factors of the half-footprint. */
+const BANNER_POLES: Vec2[] = [
+  { x: -1, z: 1 / 3 }, { x: -1, z: -1 / 3 },
+  { x: -1 / 3, z: -1 }, { x: 1 / 3, z: -1 },
+  { x: 1, z: -1 / 3 }, { x: 1, z: 1 / 3 },
+  { x: 1 / 3, z: 1 }, { x: -1 / 3, z: 1 },
+];
+
 export function buildingFootprint(id: string): { w: number; d: number; h: number } {
   return id === "watchtower" ? WATCHTOWER_SIZE : BUILDING_SIZE;
 }
 
-export function buildWorldLayout(input: { castleType: string; buildings: SiteProgress[]; villagers?: boolean }): WorldLayout {
+export function buildWorldLayout(input: { castleType: string; buildings: SiteProgress[]; villagers?: boolean; banners?: number }): WorldLayout {
   const showVillagers = input.villagers ?? true;
   const castleSize = CASTLE_FOOTPRINTS[input.castleType] ?? CASTLE_FOOTPRINTS.campsite;
   const props: Prop[] = [
@@ -86,6 +99,19 @@ export function buildWorldLayout(input: { castleType: string; buildings: SitePro
   const castleSouth = CASTLE_POSITION.z + castleSize.d / 2 + 1;
   for (let z = GATE_Z; z >= castleSouth; z -= 2) {
     props.push({ id: `path-${z}`, kind: "path", label: "Path", position: { x: 0, z }, size: { w: 2, d: 2, h: 0.05 }, color: PATH_COLOR, solid: false });
+  }
+
+  // One banner per completed season, in that season's crown colour, on fixed poles around the castle.
+  const banners = Math.min(BANNER_CAP, Math.max(0, Math.floor(input.banners ?? 0)));
+  for (let i = 0; i < banners; i++) {
+    const pole = BANNER_POLES[i];
+    const halfW = castleSize.w / 2;
+    const halfD = castleSize.d / 2;
+    const position = {
+      x: CASTLE_POSITION.x + (Math.abs(pole.x) === 1 ? pole.x * (halfW + BANNER_MARGIN) : pole.x * halfW),
+      z: CASTLE_POSITION.z + (Math.abs(pole.z) === 1 ? pole.z * (halfD + BANNER_MARGIN) : pole.z * halfD),
+    };
+    props.push({ id: `banner-${i + 1}`, kind: "banner", label: "", position, size: BANNER_SIZE, color: crownForOrdinal(i + 1).color, solid: false });
   }
 
   // Every building has a site: the building once complete, a foundation until then. Missing progress means none yet.
