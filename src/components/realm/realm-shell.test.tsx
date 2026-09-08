@@ -57,10 +57,13 @@ vi.mock("./use-play-clock", async (importOriginal) => {
 // disarms itself. Only the retry test arms it, so every other test (and the
 // remount that "Try again" triggers) sees the ordinary success path.
 let failNextSpriteMount = false;
+let spriteSourceProps: Record<string, unknown> = {};
 vi.mock("./sprite-source", async () => {
   const React = await import("react");
   return {
-    SpriteSource: ({ onReady, onError }: { onReady: (t: unknown) => void; onError: (e: Error) => void }) => {
+    SpriteSource: (props: Record<string, unknown> & { onReady: (t: unknown) => void; onError: (e: Error) => void }) => {
+      spriteSourceProps = props;
+      const { onReady, onError } = props;
       // Report readiness (or failure) after mount, the way the real component does, so no parent state is set during render.
       React.useEffect(() => {
         if (failNextSpriteMount) {
@@ -85,6 +88,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   failNextSpriteMount = false;
   flushPendingCalls = 0;
+  spriteSourceProps = {};
 });
 afterEach(cleanup);
 
@@ -461,6 +465,29 @@ describe("RealmShell crown ceremony", () => {
     expect(screen.getByText("Copper Circlet")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Skip" })).not.toBeInTheDocument();
     expect(screen.queryByText("Hail, Lily, Copper Circlet!")).not.toBeInTheDocument();
+  });
+
+  it("keeps the crown after the record request revalidates the bundle, and never restarts the ceremony", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    markCeremonySeen.mockResolvedValue(undefined);
+    const { rerender } = render(<RealmShell bundle={ceremonyBundle} childId="c1" isChildView={true} />);
+    const scene = await screen.findByTestId("scene");
+    expect(scene.dataset.ceremony).toBe("true");
+    const crownRequest = spriteSourceProps.crown;
+    expect(crownRequest).toEqual({ id: "crown-copper", color: "#b87333" });
+    step("gather");
+    step("hail");
+    step("done");
+    await waitFor(() => expect(markCeremonySeen).toHaveBeenCalledWith("c1", "s1"));
+    await waitFor(() => expect(screen.getByText("Copper Circlet")).toBeInTheDocument());
+    expect(screen.getByTestId("scene").dataset.ceremony).toBe("false");
+    // A server action revalidating the Realm route (as markCeremonySeen used to) would
+    // deliver a fresh bundle whose ceremony is null. That must not restart the ceremony
+    // or drop the crown sprite request.
+    rerender(<RealmShell bundle={{ ...ceremonyBundle, ceremony: null }} childId="c1" isChildView={true} />);
+    expect(screen.getByTestId("scene").dataset.ceremony).toBe("false");
+    expect(screen.getByText("Copper Circlet")).toBeInTheDocument();
+    expect(spriteSourceProps.crown).toEqual(crownRequest);
   });
 
   it("raises the skip flag from the Skip button and from Escape", async () => {

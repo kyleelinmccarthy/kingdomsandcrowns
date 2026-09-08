@@ -26,6 +26,8 @@ export async function markCeremonySeen(childId: string, seasonId: string): Promi
   await markSeen(childId, seasonId);
   revalidatePath("/tavern");
   revalidatePath("/loot");
-  revalidatePath("/realm");
+  // Not "/realm": the Realm page is dynamic (it reads cookies) so the next navigation
+  // reads fresh anyway, and revalidating it here would re-render the open Realm mid-visit
+  // with a refreshed bundle whose `ceremony` is now null, unmounting the crown sprite.
   revalidatePath("/settings");
 }

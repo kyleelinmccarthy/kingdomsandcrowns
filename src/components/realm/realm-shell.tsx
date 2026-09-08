@@ -168,7 +168,9 @@ function RealmOpen({
   const [recess, setRecess] = useState<{ gleams: number; laps: number; bestLapMs: number | null; lapMs: number | null }>({ gleams: 0, laps: 0, bestLapMs: null, lapMs: null });
   const [seed] = useState(() => Date.now() >>> 0);
   // The ceremony waits for textures ("waiting"), plays ("running"), records itself ("finishing"), then is over ("done").
-  const ceremonyPending = isChildView ? bundle.ceremony : null;
+  // Snapshotted once: a bundle refresh from any source (e.g. router revalidation after
+  // markCeremonySeen) must not change the ceremony mid-visit and unmount the crown sprite.
+  const [ceremonyPending] = useState(() => (isChildView ? bundle.ceremony : null));
   const [ceremonyStage, setCeremonyStage] = useState<"waiting" | "running" | "finishing" | "done">(ceremonyPending ? "waiting" : "done");
   const [ceremonyNoticeText, setCeremonyNoticeText] = useState<string | null>(null);
   const [ceremonyError, setCeremonyError] = useState("");
