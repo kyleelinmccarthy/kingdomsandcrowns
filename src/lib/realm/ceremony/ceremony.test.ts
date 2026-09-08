@@ -75,6 +75,15 @@ describe("startCeremony", () => {
 });
 
 describe("stepCeremony", () => {
+  it("leaves every position finite on a zero-dt frame at the start of a fresh walk (R3F's first useFrame delta can be 0)", () => {
+    const r = stepCeremony(startCeremony(layout, SPAWN, false), 0, layout.colliders, false);
+    expect(Number.isFinite(r.state.hero.x)).toBe(true);
+    expect(Number.isFinite(r.state.hero.z)).toBe(true);
+    for (const p of Object.values(r.state.villagers)) {
+      expect(Number.isFinite(p.x)).toBe(true);
+      expect(Number.isFinite(p.z)).toBe(true);
+    }
+  });
   it("walks everyone to their marks well inside the safety net, then gathers", () => {
     let s = startCeremony(layout, SPAWN, false);
     let seconds = 0;

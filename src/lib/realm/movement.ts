@@ -46,6 +46,7 @@ export function setTarget(state: HeroState, target: Vec2, colliders: Prop[]): He
  * what makes the hero slide along walls instead of sticking to them.
  */
 export function stepHero(state: HeroState, input: MoveInput, dt: number, colliders: Prop[], speed: number = HERO_SPEED): HeroState {
+  if (dt <= 0) return state; // a zero-length frame (R3F's first useFrame delta can be 0) moves nobody
   let vx = 0;
   let vz = 0;
   let target = state.target;

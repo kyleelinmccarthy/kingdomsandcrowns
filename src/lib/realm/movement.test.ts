@@ -37,6 +37,13 @@ describe("stepHero with axis input", () => {
   it("is unchanged with no input and no target", () => {
     expect(stepHero(idle, noInput, 1 / 60, [])).toBe(idle);
   });
+  it("moves nobody on a zero-length frame, even with a target set (R3F's first useFrame delta can be 0)", () => {
+    const withTarget = setTarget(idle, { x: 4, z: 0 }, []);
+    const stepped = stepHero(withTarget, noInput, 0, []);
+    expect(stepped).toEqual(withTarget);
+    expect(Number.isFinite(stepped.position.x)).toBe(true);
+    expect(Number.isFinite(stepped.position.z)).toBe(true);
+  });
 });
 
 describe("targets", () => {
