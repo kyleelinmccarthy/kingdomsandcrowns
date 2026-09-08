@@ -3,6 +3,7 @@ import { render, cleanup } from "@testing-library/react";
 import { Avatar, AvatarFigure, CompanionFigure, VillagerFigure, MountFigure } from "./avatar";
 import { DEFAULT_AVATAR, MOUNTS } from "@/lib/utils/avatar-catalog";
 import { VILLAGERS } from "@/lib/realm/villagers";
+import { crownById } from "@/lib/utils/crown-catalog";
 
 afterEach(cleanup);
 const SHAPES = "rect,path,circle,polygon,ellipse,line";
@@ -107,5 +108,22 @@ describe("MountFigure and the mounted rider", () => {
       }
       cleanup();
     }
+  });
+});
+
+describe("CrownLayer", () => {
+  it("draws no crown by default and a tier-coloured circlet when one is worn, in both the figure and the full avatar", () => {
+    const { container: bare } = render(<AvatarFigure config={DEFAULT_AVATAR} />);
+    expect(bare.querySelector('[data-layer="crown"]')).toBeNull();
+    const { container } = render(<AvatarFigure config={{ ...DEFAULT_AVATAR, crown: "crown-silver" }} />);
+    const layer = container.querySelector('[data-layer="crown"]')!;
+    expect(layer.getAttribute("data-crown")).toBe("crown-silver");
+    expect(layer.querySelector("rect")!.getAttribute("fill")).toBe(crownById("crown-silver")!.color);
+    const { container: full } = render(<Avatar config={{ ...DEFAULT_AVATAR, crown: "crown-copper" }} name="Lily" />);
+    expect(full.querySelector('[data-layer="crown"]')!.querySelector("rect")!.getAttribute("fill")).toBe("#b87333");
+  });
+  it("draws nothing for a crown id the catalog does not know", () => {
+    const { container } = render(<AvatarFigure config={{ ...DEFAULT_AVATAR, crown: "crown-of-lies" }} />);
+    expect(container.querySelector('[data-layer="crown"]')).toBeNull();
   });
 });

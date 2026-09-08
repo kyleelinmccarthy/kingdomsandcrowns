@@ -21,3 +21,23 @@ describe("AvatarCustomizer mount tab", () => {
     expect(screen.getByText("Coat")).toBeInTheDocument();
   });
 });
+
+describe("AvatarCustomizer crown tab", () => {
+  const copper = { id: "crown-copper", label: "Copper Circlet", color: "#b87333", seasonLabel: "2024–25" };
+  it("explains when no crown has been earned", () => {
+    render(<AvatarCustomizer childId="c1" childName="Lily" currentConfig={DEFAULT_AVATAR} level={1} earnedBadgeIds={[]} questUnlockedItems={[]} crowns={[]} open={true} onClose={() => {}} />);
+    fireEvent.click(screen.getByRole("button", { name: "Crown" }));
+    expect(screen.getByText("Finish a season to earn your first crown.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "None" })).not.toBeInTheDocument();
+  });
+  it("lists earned crowns only, with None, and selects one", () => {
+    render(<AvatarCustomizer childId="c1" childName="Lily" currentConfig={DEFAULT_AVATAR} level={1} earnedBadgeIds={[]} questUnlockedItems={[]} crowns={[copper]} open={true} onClose={() => {}} />);
+    fireEvent.click(screen.getByRole("button", { name: "Crown" }));
+    const chip = screen.getByRole("button", { name: /Copper Circlet/ });
+    expect(chip.textContent).toContain("2024–25");
+    expect(screen.queryByRole("button", { name: /Iron Crown/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "None" })).toBeInTheDocument();
+    fireEvent.click(chip);
+    expect(chip.getAttribute("aria-pressed")).toBe("true");
+  });
+});

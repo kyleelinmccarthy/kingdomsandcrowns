@@ -6,6 +6,7 @@ import { AvatarCustomizer } from "@/components/avatar-customizer";
 import { GameFrame } from "@/components/game-frame";
 import { GameIcon } from "@/components/game-icon";
 import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
+import type { CrownChoice } from "@/lib/utils/seasons";
 
 export function TavernAvatarCard({
   childId,
@@ -16,6 +17,7 @@ export function TavernAvatarCard({
   earnedBadgeIds = [],
   questUnlockedItems = [],
   crownCount = 0,
+  crowns = [],
 }: {
   childId: string;
   childName: string;
@@ -25,6 +27,7 @@ export function TavernAvatarCard({
   earnedBadgeIds?: string[];
   questUnlockedItems?: string[];
   crownCount?: number;
+  crowns?: CrownChoice[];
 }) {
   const [showCustomizer, setShowCustomizer] = useState(false);
   const config = avatarConfig ? (JSON.parse(avatarConfig) as AvatarConfig) : null;
@@ -71,6 +74,7 @@ export function TavernAvatarCard({
         level={level}
         earnedBadgeIds={earnedBadgeIds}
         questUnlockedItems={questUnlockedItems}
+        crowns={crowns}
         open={showCustomizer}
         onClose={() => setShowCustomizer(false)}
       />

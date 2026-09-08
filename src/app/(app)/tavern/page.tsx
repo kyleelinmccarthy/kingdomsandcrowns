@@ -11,6 +11,7 @@ import { getSchoolingModeForDate } from "@/lib/actions/schooling-mode";
 import { getBadges, getChildBadges, checkAndAwardBadges } from "@/lib/actions/badges";
 import { getChildAvatarUnlocks } from "@/lib/actions/avatar";
 import { getSeasons } from "@/lib/actions/seasons";
+import { crownChoices } from "@/lib/utils/seasons";
 import { formatDate } from "@/lib/utils/dates";
 import { weekdayOfDate, currentTimeOfDay } from "@/lib/utils/schedule-days";
 import { getStructuredCardLock } from "@/lib/utils/quest-ordering";
@@ -212,6 +213,7 @@ export default async function TavernPage({
               earnedBadgeIds={earnedBadgeIdList}
               questUnlockedItems={questUnlockedItemIds}
               crownCount={crownCount}
+              crowns={crownChoices(seasons.history)}
             />
           ) : (
             <GameFrame className="hud-character-frame" borderless>

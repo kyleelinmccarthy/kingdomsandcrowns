@@ -20,6 +20,8 @@ import {
   type AvatarConfig,
 } from "@/lib/utils/avatar-catalog";
 import { levelFromXp } from "@/lib/utils/level";
+import { loadSeasons } from "@/lib/services/crowns";
+import { wearableCrownIds } from "@/lib/utils/seasons";
 
 export async function updateAvatarConfig(childId: string, config: AvatarConfig) {
   if (!isValidAvatarConfig(config)) {
@@ -74,6 +76,12 @@ export async function updateAvatarConfig(childId: string, config: AvatarConfig) 
     if (!isUnlocked(item!, level, earnedBadgeIds, questUnlockedItems)) {
       throw new Error(`Item "${item!.label}" is locked.`);
     }
+  }
+
+  // A crown is earned by finishing a season, never by level or badge.
+  if (config.crown) {
+    const wearable = wearableCrownIds(await loadSeasons(childId));
+    if (!wearable.has(config.crown)) throw new Error("That crown is not yours yet.");
   }
 
   await db

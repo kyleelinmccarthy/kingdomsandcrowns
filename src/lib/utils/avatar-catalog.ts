@@ -1,4 +1,5 @@
 import { SPELL_ELEMENTS, SPELL_FORMS, SPELL_MODIFIERS, SPELL_CATEGORY } from "./spell-catalog";
+import { CROWNS } from "./crown-catalog";
 
 // ── Avatar configuration types ───────────────────────────────
 
@@ -18,6 +19,7 @@ export type AvatarConfig = {
   companionColor: string;
   mount: string | null;
   mountColor: string;
+  crown: string | null; // a crown-catalog id the hero has earned, or null
   background: string;
   backgroundColor: string;
 };
@@ -58,6 +60,7 @@ export const DEFAULT_AVATAR: AvatarConfig = {
   companionColor: "#f0a050",
   mount: null,
   mountColor: "#8b5e3c",
+  crown: null,
   background: "shield",
   backgroundColor: "#3b82f6",
 };
@@ -83,6 +86,7 @@ export function normalizeAvatarConfig(raw: Record<string, unknown>): AvatarConfi
     companionColor: (raw.companionColor as string) ?? DEFAULT_AVATAR.companionColor,
     mount: (raw.mount as string) ?? null,
     mountColor: (raw.mountColor as string) ?? DEFAULT_AVATAR.mountColor,
+    crown: (raw.crown as string) ?? null,
     background: (raw.background as string) ?? DEFAULT_AVATAR.background,
     backgroundColor: (raw.backgroundColor as string) ?? DEFAULT_AVATAR.backgroundColor,
   };
@@ -687,6 +691,7 @@ export function isValidAvatarConfig(config: unknown): config is AvatarConfig {
     c.companionColor === undefined || isHex(c.companionColor);
   const validMount = c.mount === null || c.mount === undefined || MOUNTS.some((m) => m.id === c.mount);
   const validMountColor = c.mountColor === undefined || isHex(c.mountColor);
+  const validCrown = c.crown === null || c.crown === undefined || CROWNS.some((k) => k.id === c.crown);
   const validBackground = BACKGROUNDS.some((b) => b.id === c.background);
   const validBackgroundColor = isHex(c.backgroundColor);
 
@@ -706,6 +711,7 @@ export function isValidAvatarConfig(config: unknown): config is AvatarConfig {
     validCompanionColor &&
     validMount &&
     validMountColor &&
+    validCrown &&
     validBackground &&
     validBackgroundColor
   );

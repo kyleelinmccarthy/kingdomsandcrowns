@@ -37,7 +37,7 @@ import { LearningProfilePanel } from "./learning-profile-panel";
 import { RealmSettingsPanel } from "./realm-settings-panel";
 import { MasteryPanel } from "./mastery-panel";
 import { crownById } from "@/lib/utils/crown-catalog";
-import type { SeasonRecord } from "@/lib/utils/seasons";
+import { crownChoices, type SeasonWithCeremony } from "@/lib/utils/seasons";
 import type { LearningProfile } from "@/lib/utils/learning-profile";
 import type { RealmSettings } from "@/lib/utils/realm-settings";
 import type { MasteryRow } from "@/lib/actions/deeds";
@@ -112,7 +112,7 @@ type Child = {
   subjects: Subject[];
   earnedBadgeIds?: string[];
   questUnlockedItems?: string[];
-  seasons?: { open: SeasonRecord | null; history: SeasonRecord[] };
+  seasons?: { open: SeasonWithCeremony | null; history: SeasonWithCeremony[] };
   learningProfile?: LearningProfile | null;
   realmSettings?: RealmSettings | null;
   realmPlay?: { date: string; balance: number; spent: number } | null;
@@ -918,6 +918,7 @@ function AvatarSection({ child }: { child: Child }) {
         level={level}
         earnedBadgeIds={child.earnedBadgeIds ?? []}
         questUnlockedItems={child.questUnlockedItems ?? []}
+        crowns={crownChoices(child.seasons?.history ?? [])}
         open={showCustomizer}
         onClose={() => setShowCustomizer(false)}
       />

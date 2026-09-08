@@ -78,3 +78,13 @@ describe("mounts", () => {
     expect(isValidAvatarConfig({ ...DEFAULT_AVATAR, mount: null })).toBe(true);
   });
 });
+
+describe("worn crown", () => {
+  it("normalises and validates the crown field", () => {
+    expect(normalizeAvatarConfig({}).crown).toBeNull();
+    expect(DEFAULT_AVATAR.crown).toBeNull();
+    expect(isValidAvatarConfig({ ...DEFAULT_AVATAR, crown: "crown-copper" })).toBe(true);
+    expect(isValidAvatarConfig({ ...DEFAULT_AVATAR, crown: "crown-of-lies" })).toBe(false);
+    expect(isValidAvatarConfig({ ...DEFAULT_AVATAR, crown: null })).toBe(true);
+  });
+});

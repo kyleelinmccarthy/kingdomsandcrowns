@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { Dialog, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/avatar";
+import { GameIcon } from "@/components/game-icon";
 import { updateAvatarConfig } from "@/lib/actions/avatar";
+import type { CrownChoice } from "@/lib/utils/seasons";
 import {
   DEFAULT_AVATAR,
   SKIN_TONES,
@@ -33,7 +35,7 @@ import {
   type ColorOption,
 } from "@/lib/utils/avatar-catalog";
 
-type Tab = "skin" | "hair" | "outfit" | "legwear" | "boots" | "accessory" | "companion" | "mount" | "background";
+type Tab = "skin" | "hair" | "outfit" | "legwear" | "boots" | "accessory" | "companion" | "mount" | "background" | "crown";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "skin", label: "Skin" },
@@ -45,6 +47,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "background", label: "Crest" },
   { id: "companion", label: "Pet" },
   { id: "mount", label: "Mount" },
+  { id: "crown", label: "Crown" },
 ];
 
 function randomAvatarConfig(
@@ -88,6 +91,7 @@ function randomAvatarConfig(
       : DEFAULT_AVATAR.companionColor,
     mount: DEFAULT_AVATAR.mount,
     mountColor: DEFAULT_AVATAR.mountColor,
+    crown: null,
     background: pick(BACKGROUNDS).id,
     backgroundColor: pickColor(BACKGROUND_COLORS).hex,
   };
@@ -100,6 +104,7 @@ type AvatarCustomizerProps = {
   level: number;
   earnedBadgeIds: string[];
   questUnlockedItems?: string[];
+  crowns?: CrownChoice[];
   open: boolean;
   onClose: () => void;
 };
@@ -111,6 +116,7 @@ export function AvatarCustomizer({
   level,
   earnedBadgeIds,
   questUnlockedItems = [],
+  crowns = [],
   open,
   onClose,
 }: AvatarCustomizerProps) {
@@ -300,6 +306,27 @@ export function AvatarCustomizer({
               questUnlockedItems={questUnlockedSet}
             />
           )}
+
+          {tab === "crown" && (
+            crowns.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Finish a season to earn your first crown.</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                <button type="button" onClick={() => update({ crown: null })} className={chipClass(config.crown === null)} aria-pressed={config.crown === null}>
+                  None
+                </button>
+                {crowns.map((c) => (
+                  <button key={c.id} type="button" onClick={() => update({ crown: c.id })} className={chipClass(config.crown === c.id)} aria-pressed={config.crown === c.id} title={c.label}>
+                    <span className="inline-flex items-center gap-1.5">
+                      <span style={{ color: c.color }}><GameIcon name="crown" className="size-4" /></span>
+                      {c.label}
+                      <span className="text-[10px] opacity-70">{c.seasonLabel}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )
+          )}
         </div>
 
         {/* Fixed color picker — always visible below items */}
@@ -383,6 +410,16 @@ export function AvatarCustomizer({
 
 // ── Reusable sub-components ──────────────────────────────────
 
+function chipClass(selected: boolean, unlocked = true): string {
+  return `rounded-lg border px-3 py-2 text-xs font-medium transition-all ${
+    selected
+      ? "border-[var(--gold-border)] bg-[rgba(201,168,76,0.1)] text-[var(--gold-bright)] shadow-[0_0_8px_-2px_var(--glow-gold)]"
+      : unlocked
+        ? "border-border text-muted-foreground hover:bg-[rgba(201,168,76,0.06)] hover:border-[var(--gold-dim)]"
+        : "border-dashed border-border text-muted-foreground/50 cursor-not-allowed"
+  }`;
+}
+
 function ItemGrid({
   items,
   selected,
@@ -408,13 +445,7 @@ function ItemGrid({
             key={item.id}
             onClick={() => unlocked && onSelect(item.id)}
             disabled={!unlocked}
-            className={`rounded-lg border px-3 py-2 text-xs font-medium transition-all ${
-              selected === item.id
-                ? "border-[var(--gold-border)] bg-[rgba(201,168,76,0.1)] text-[var(--gold-bright)] shadow-[0_0_8px_-2px_var(--glow-gold)]"
-                : unlocked
-                  ? "border-border text-muted-foreground hover:bg-[rgba(201,168,76,0.06)] hover:border-[var(--gold-dim)]"
-                  : "border-dashed border-border text-muted-foreground/50 cursor-not-allowed"
-            }`}
+            className={chipClass(selected === item.id, unlocked)}
             title={unlocked ? item.label : desc ?? undefined}
           >
             {item.label}
@@ -447,11 +478,7 @@ function NullableItemGrid({
     <div className="flex flex-wrap gap-2">
       <button
         onClick={() => onSelect(null)}
-        className={`rounded-lg border px-3 py-2 text-xs font-medium transition-all ${
-          selected === null || selected === undefined
-            ? "border-[var(--gold-border)] bg-[rgba(201,168,76,0.1)] text-[var(--gold-bright)] shadow-[0_0_8px_-2px_var(--glow-gold)]"
-            : "border-border text-muted-foreground hover:bg-[rgba(201,168,76,0.06)] hover:border-[var(--gold-dim)]"
-        }`}
+        className={chipClass(selected === null || selected === undefined)}
       >
         None
       </button>
@@ -463,13 +490,7 @@ function NullableItemGrid({
             key={item.id}
             onClick={() => unlocked && onSelect(item.id)}
             disabled={!unlocked}
-            className={`relative rounded-lg border px-3 py-2 text-xs font-medium transition-all ${
-              selected === item.id
-                ? "border-[var(--gold-border)] bg-[rgba(201,168,76,0.1)] text-[var(--gold-bright)] shadow-[0_0_8px_-2px_var(--glow-gold)]"
-                : unlocked
-                  ? "border-border text-muted-foreground hover:bg-[rgba(201,168,76,0.06)] hover:border-[var(--gold-dim)]"
-                  : "border-dashed border-border text-muted-foreground/50 cursor-not-allowed"
-            }`}
+            className={chipClass(selected === item.id, unlocked)}
             title={unlocked ? item.label : desc ?? undefined}
           >
             {item.label}

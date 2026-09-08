@@ -4,6 +4,7 @@ import {
   normalizeAvatarConfig,
 } from "@/lib/utils/avatar-catalog";
 import { villagerAvatar, type Villager } from "@/lib/realm/villagers";
+import { crownById } from "@/lib/utils/crown-catalog";
 
 type AvatarProps = {
   config: AvatarConfig | null;
@@ -45,6 +46,7 @@ export function Avatar({ config, name, size = "md", className = "" }: AvatarProp
         <HeadLayer skinHex={skinHex} />
         <HairLayer style={c.hairStyle} color={c.hairColor} />
         <AccessoryLayer accessory={c.accessory} color={c.accessoryColor} />
+        <CrownLayer crown={c.crown} />
         <g transform="translate(4, 8)">
           <CompanionLayer companion={c.companion ?? null} color={c.companionColor} />
         </g>
@@ -1418,6 +1420,24 @@ function AccessoryLayer({ accessory, color }: { accessory: string | null; color:
   }
 }
 
+/** The worn crown, above the hair, in its tier's colour. Sits on the 36×48 canvas like every other head layer. */
+function CrownLayer({ crown }: { crown: string | null }) {
+  if (!crown) return null;
+  const tier = crownById(crown);
+  if (!tier) return null;
+  const color = tier.color;
+  return (
+    <g data-layer="crown" data-crown={tier.id}>
+      <rect x="10" y="4" width="12" height="2" fill={color} />
+      <rect x="10" y="6" width="12" height="1" fill={darken(color, 0.25)} />
+      <rect x="10" y="2" width="2" height="2" fill={color} />
+      <rect x="15" y="1" width="2" height="3" fill={color} />
+      <rect x="20" y="2" width="2" height="2" fill={color} />
+      <rect x="16" y="2" width="1" height="1" fill={lighten(color, 0.3)} />
+    </g>
+  );
+}
+
 // ── Companions ──────────────────────────────────────────────
 
 function CompanionLayer({ companion, color }: { companion: string | null; color: string }) {
@@ -1802,6 +1822,7 @@ export function AvatarFigure({
         <HeadLayer skinHex={skinHex} />
         <HairLayer style={c.hairStyle} color={c.hairColor} />
         <AccessoryLayer accessory={c.accessory} color={c.accessoryColor} />
+        <CrownLayer crown={c.crown} />
       </g>
     </svg>
   );
