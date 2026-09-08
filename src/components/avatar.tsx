@@ -1900,8 +1900,8 @@ function MountLayer({ mount, color }: { mount: string; color: string }) {
         <g>
           <rect x="8" y="28" width="19" height="12" fill={color} />
           <rect x="23" y="20" width="9" height="10" fill={color} />
-          <rect x="27" y="12" width="2" height="9" fill={lo} />
-          <rect x="31" y="12" width="2" height="9" fill={lo} />
+          <rect x="19" y="18" width="3" height="6" fill={lo} />
+          <rect x="32" y="18" width="2" height="6" fill={lo} />
           <rect x="29" y="23" width="2" height="3" fill={hi} />
           <rect x="28" y="26" width="1" height="1" fill={eye} />
           <rect x="4" y="30" width="3" height="11" fill={lo} />
@@ -1917,8 +1917,8 @@ function MountLayer({ mount, color }: { mount: string; color: string }) {
         <g>
           <rect x="9" y="30" width="17" height="10" fill={color} />
           <rect x="24" y="22" width="8" height="8" fill={color} />
-          <path d="M25 22 L23 15 L26 21 Z" fill="#e8e4d8" />
-          <path d="M30 22 L32 15 L29 21 Z" fill="#e8e4d8" />
+          <path d="M25 22 L22 18 L26 20 Z" fill="#e8e4d8" />
+          <path d="M30 22 L33 18 L29 20 Z" fill="#e8e4d8" />
           <rect x="24" y="27" width="2" height="3" fill="#e8e4d8" />
           <rect x="29" y="24" width="2" height="3" fill={hi} />
           <rect x="28" y="26" width="1" height="1" fill={eye} />
@@ -1933,12 +1933,10 @@ function MountLayer({ mount, color }: { mount: string; color: string }) {
         <g>
           <rect x="8" y="30" width="18" height="10" fill={color} />
           <rect x="23" y="20" width="8" height="9" fill={color} />
-          <rect x="24" y="10" width="2" height="10" fill="#8b7355" />
-          <rect x="20" y="10" width="4" height="2" fill="#8b7355" />
-          <rect x="18" y="8" width="2" height="4" fill="#8b7355" />
-          <rect x="29" y="10" width="2" height="10" fill="#8b7355" />
-          <rect x="29" y="10" width="4" height="2" fill="#8b7355" />
-          <rect x="33" y="8" width="2" height="4" fill="#8b7355" />
+          <rect x="20" y="18" width="3" height="3" fill="#8b7355" />
+          <rect x="16" y="18" width="3" height="2" fill="#8b7355" />
+          <rect x="31" y="18" width="3" height="3" fill="#8b7355" />
+          <rect x="33" y="18" width="1" height="2" fill="#8b7355" />
           <rect x="28" y="23" width="2" height="3" fill={hi} />
           <rect x="27" y="25" width="1" height="1" fill={eye} />
           <rect x="4" y="32" width="3" height="10" fill={lo} />
@@ -1953,8 +1951,8 @@ function MountLayer({ mount, color }: { mount: string; color: string }) {
         <g>
           <rect x="8" y="30" width="20" height="11" fill={color} />
           <rect x="25" y="26" width="9" height="9" fill={color} />
-          <rect x="32" y="30" width="3" height="2" fill="#f5f0e0" />
-          <rect x="32" y="33" width="3" height="2" fill="#f5f0e0" />
+          <rect x="31" y="30" width="3" height="2" fill="#f5f0e0" />
+          <rect x="31" y="33" width="3" height="2" fill="#f5f0e0" />
           <rect x="12" y="27" width="2" height="3" fill={lo} />
           <rect x="16" y="26" width="2" height="3" fill={lo} />
           <rect x="20" y="27" width="2" height="3" fill={lo} />
@@ -1972,7 +1970,7 @@ function MountLayer({ mount, color }: { mount: string; color: string }) {
         <g>
           <rect x="8" y="30" width="18" height="10" fill={color} />
           <rect x="22" y="24" width="12" height="7" fill={color} />
-          <rect x="33" y="26" width="3" height="2" fill={lo} />
+          <rect x="32" y="26" width="2" height="2" fill={lo} />
           <path d="M23 24 L22 18 L26 23 Z" fill={color} />
           <path d="M28 24 L30 18 L31 23 Z" fill={color} />
           <rect x="30" y="26" width="2" height="2" fill={hi} />
@@ -1992,7 +1990,7 @@ function MountLayer({ mount, color }: { mount: string; color: string }) {
           <path d="M29 22 L34 24 L29 26 Z" fill="#e8b923" />
           <rect x="30" y="23" width="1" height="1" fill={eye} />
           <path d="M10 22 L2 26 L10 32 Z" fill={lo} />
-          <path d="M26 20 L34 16 L26 26 Z" fill={lo} />
+          <path d="M26 20 L34 24 L26 30 Z" fill={lo} />
           <rect x="12" y="40" width="3" height="6" fill="#e8b923" />
           <rect x="21" y="40" width="3" height="6" fill="#e8b923" />
           <rect x="9" y="25" width="14" height="3" fill={saddle} />
@@ -2005,8 +2003,8 @@ function MountLayer({ mount, color }: { mount: string; color: string }) {
           <rect x="16" y="28" width="12" height="8" fill={color} />
           <rect x="24" y="20" width="9" height="9" fill={color} />
           <path d="M20 28 L18 22 L22 27 Z" fill={lo} />
-          <path d="M27 20 L26 15 L29 19 Z" fill={lo} />
-          <path d="M31 20 L33 15 L32 19 Z" fill={lo} />
+          <path d="M27 20 L23 18 L29 19 Z" fill={lo} />
+          <path d="M31 20 L34 18 L32 19 Z" fill={lo} />
           <rect x="30" y="23" width="2" height="2" fill={hi} />
           <rect x="29" y="24" width="1" height="1" fill={eye} />
           <path d="M4 38 L2 44 L8 40 Z" fill={lo} />
