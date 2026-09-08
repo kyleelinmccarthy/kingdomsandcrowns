@@ -53,8 +53,11 @@ export function ceremonyMarks(layout: WorldLayout): CeremonyMarks {
   const villagers: Record<string, Vec2> = {};
   // Ordered west to east by each villager's own building, not by catalog order: BUILDING_SLOTS
   // alternates sides of the path, so a declaration-order walk would send every other villager
-  // clear across the map to their mark, straight into another building's collider.
-  const westToEast = [...VILLAGERS].sort((a, b) => BUILDING_SLOTS[a.buildingId].x - BUILDING_SLOTS[b.buildingId].x);
+  // clear across the map to their mark, straight into another building's collider. A villager
+  // whose building has no slot (shouldn't happen, but the catalog isn't guaranteed to line up
+  // with BUILDING_SLOTS forever) falls back to the centre rather than throwing.
+  const slotX = (buildingId: string) => BUILDING_SLOTS[buildingId]?.x ?? 0;
+  const westToEast = [...VILLAGERS].sort((a, b) => slotX(a.buildingId) - slotX(b.buildingId));
   westToEast.forEach((v, i) => {
     // Angles from west (π) to east (0) through the south, so the ring opens toward the castle
     // and each villager's mark sits on the same side as the building they're walking from.
@@ -79,14 +82,17 @@ export function startCeremony(layout: WorldLayout, hero: Vec2, reducedMotion: bo
 }
 
 /**
- * One walker's frame toward a mark, with the hero's own axis-cancel slide along walls.
- * A walker whose mark is far off to one side squares the corner instead of cutting a
- * diagonal: it closes the x gap first (at its current z), then the z gap at the mark's
- * x, so a building sitting between a distant villager and the plaza never catches it
- * mid-diagonal the way a straight line to the mark can.
+ * One walker's frame toward a mark, using stepHero's own axis-cancel slide along walls.
+ * A villager (`squareCorners`) whose mark is far off to one side squares the corner instead
+ * of cutting a diagonal: it closes the x gap first (at its current z), then the z gap at the
+ * mark's x, so a building sitting between a distant villager and the plaza never catches it
+ * mid-diagonal the way a straight line to the mark can. The hero walks the brief's direct
+ * line instead — the player can start the ceremony from anywhere on the ground, so pinning
+ * their path to an x-then-z corner would be as likely to walk them into a building as around
+ * one; the slide alone (plus the WALK_TIMEOUT_MS safety net) is what the brief specifies for them.
  */
-function walk(from: Vec2, mark: Vec2, speed: number, dt: number, colliders: Prop[]): Vec2 {
-  const waypoint = Math.abs(from.x - mark.x) > ARRIVE_RADIUS ? { x: mark.x, z: from.z } : mark;
+function walk(from: Vec2, mark: Vec2, speed: number, dt: number, colliders: Prop[], squareCorners: boolean): Vec2 {
+  const waypoint = squareCorners && Math.abs(from.x - mark.x) > ARRIVE_RADIUS ? { x: mark.x, z: from.z } : mark;
   return stepHero({ position: from, facing: "n", target: waypoint, mounted: false }, { axis: { x: 0, z: 0 } }, dt, colliders, speed).position;
 }
 
@@ -99,9 +105,9 @@ export function stepCeremony(state: CeremonyState, dt: number, colliders: Prop[]
   const elapsed = state.elapsed + dt * 1000;
   switch (state.step) {
     case "walk": {
-      const hero = walk(state.hero, state.marks.hero, HERO_SPEED, dt, colliders);
+      const hero = walk(state.hero, state.marks.hero, HERO_SPEED, dt, colliders, false);
       const villagers: Record<string, Vec2> = {};
-      for (const [id, p] of Object.entries(state.villagers)) villagers[id] = walk(p, state.marks.villagers[id], VILLAGER_SPEED, dt, colliders);
+      for (const [id, p] of Object.entries(state.villagers)) villagers[id] = walk(p, state.marks.villagers[id], VILLAGER_SPEED, dt, colliders, true);
       const arrived = dist(hero, state.marks.hero) <= MARK_RADIUS && Object.entries(villagers).every(([id, p]) => dist(p, state.marks.villagers[id]) <= MARK_RADIUS);
       const moved = { ...state, hero, villagers, elapsed };
       if (arrived || elapsed >= WALK_TIMEOUT_MS) return enter(moved, "gather");

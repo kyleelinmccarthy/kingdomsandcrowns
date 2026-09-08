@@ -84,8 +84,23 @@ describe("stepCeremony", () => {
     }
     expect(s.step).toBe("gather");
     expect(seconds).toBeLessThan(15);
+    // Well short of WALK_TIMEOUT_MS: it was arrival, not the safety net, that ended the walk.
+    expect(seconds).toBeLessThan(WALK_TIMEOUT_MS / 1000);
     expect(dist(s.hero, s.marks.hero)).toBeLessThanOrEqual(MARK_RADIUS);
     for (const [id, p] of Object.entries(s.villagers)) expect(dist(p, s.marks.villagers[id])).toBeLessThanOrEqual(MARK_RADIUS);
+  });
+  it("walks the hero to the mark from off the path, without the villagers' corner-squaring waypoint", () => {
+    // startCeremony takes wherever the player actually stands, not just SPAWN (which happens
+    // to share the mark's x for every fixture above). A hero off the path still arrives.
+    let s = startCeremony(layout, { x: 6, z: 12 }, false);
+    let seconds = 0;
+    while (s.step === "walk" && seconds < WALK_TIMEOUT_MS / 1000) {
+      s = stepCeremony(s, DT, layout.colliders, false).state;
+      seconds += DT;
+    }
+    expect(s.step).toBe("gather");
+    expect(seconds).toBeLessThan(15);
+    expect(dist(s.hero, s.marks.hero)).toBeLessThanOrEqual(MARK_RADIUS);
   });
   it("gathers, lowers the crown with an ease-out, hails, and finishes on the clock", () => {
     const start = startCeremony(layout, SPAWN, false);
