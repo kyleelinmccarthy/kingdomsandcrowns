@@ -6,13 +6,14 @@ import { getBadges, getChildBadges, checkAndAwardBadges } from "@/lib/actions/ba
 import { getEarnedQuestRewards } from "@/lib/actions/quest-assignments";
 import { getSeasons } from "@/lib/actions/seasons";
 import { getSpellbook } from "@/lib/actions/spells";
+import { getChildAvatarUnlocks } from "@/lib/actions/avatar";
 import { SPELL_PART_COUNT } from "@/lib/utils/spell-catalog";
 import { levelFromXp } from "@/lib/utils/level";
 import { ChildSelector } from "@/components/child-selector";
 import { GameFrame } from "@/components/game-frame";
 import { CrownsPanel } from "@/components/crowns-panel";
 import { Avatar } from "@/components/avatar";
-import { getRewardItemLabel, type AvatarConfig } from "@/lib/utils/avatar-catalog";
+import { getRewardItemLabel, MOUNTS, isUnlocked, type AvatarConfig } from "@/lib/utils/avatar-catalog";
 import { GameIcon, BADGE_ICONS } from "@/components/game-icon";
 
 export default async function LootPage({
@@ -61,12 +62,13 @@ export default async function LootPage({
 
   await checkAndAwardBadges(activeChild.id);
 
-  const [allBadges, earnedBadges, questRewards, seasons, spellbook] = await Promise.all([
+  const [allBadges, earnedBadges, questRewards, seasons, spellbook, avatarUnlocks] = await Promise.all([
     getBadges(),
     getChildBadges(activeChild.id),
     getEarnedQuestRewards(activeChild.id),
     getSeasons(activeChild.id),
     getSpellbook(activeChild.id),
+    getChildAvatarUnlocks(activeChild.id),
   ]);
 
   const earnedIds = new Set(earnedBadges.map((b) => b.badge.id));
@@ -74,6 +76,8 @@ export default async function LootPage({
   const xp = activeChild.currentXp;
   const level = levelFromXp(xp);
   const xpInLevel = xp % 100;
+  const questUnlockedSet = new Set(avatarUnlocks.map((u) => u.itemId));
+  const mountsUnlocked = MOUNTS.filter((m) => isUnlocked(m, level, [...earnedIds], questUnlockedSet)).length;
   // XP reversal can lower a hero's slot count below a page they'd already
   // filled; only count spells still within their current pages as "kept".
   const spellsKept = spellbook.spells.filter((s) => s.slot <= spellbook.slots).length;
@@ -145,7 +149,7 @@ export default async function LootPage({
       <GameFrame title="Spellbook" icon={<GameIcon name="crystalBall" className="size-4 text-[var(--gold-bright)]" />}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm">
-            {spellsKept} {spellsKept === 1 ? "spell" : "spells"} kept &middot; {spellbook.unlocked.length} of {SPELL_PART_COUNT} parts unlocked
+            {spellsKept} {spellsKept === 1 ? "spell" : "spells"} kept &middot; {spellbook.unlocked.length} of {SPELL_PART_COUNT} parts unlocked &middot; Mounts: {mountsUnlocked} of {MOUNTS.length}
           </p>
           <Link href={isChildView ? "/spellbook" : `/spellbook?child=${activeChild.id}`} className="text-sm font-medium text-primary hover:underline">
             Open the Spellbook →

@@ -1,5 +1,15 @@
 import { describe, it, expect } from "vitest";
-import { getQuestUnlockableItems, getRewardItemLabel, getCategoryLabel } from "./avatar-catalog";
+import {
+  getQuestUnlockableItems,
+  getRewardItemLabel,
+  getCategoryLabel,
+  MOUNTS,
+  COMPANIONS,
+  findMount,
+  normalizeAvatarConfig,
+  isValidAvatarConfig,
+  DEFAULT_AVATAR,
+} from "./avatar-catalog";
 import { SPELL_ELEMENTS, SPELL_FORMS, SPELL_MODIFIERS } from "./spell-catalog";
 
 describe("quest-unlockable items", () => {
@@ -39,5 +49,32 @@ describe("reward labels", () => {
   });
   it("still labels avatar items", () => {
     expect(getRewardItemLabel(JSON.stringify({ category: "accessory", itemId: "wings" }))).toMatch(/^Flair: /);
+  });
+});
+
+describe("mounts", () => {
+  it("has eight mounts with unique ids that never collide with companion ids", () => {
+    expect(MOUNTS.length).toBe(8);
+    const ids = MOUNTS.map((m) => m.id);
+    expect(new Set(ids).size).toBe(8);
+    const companionIds = new Set(COMPANIONS.map((c) => c.id));
+    for (const id of ids) expect(companionIds.has(id)).toBe(false);
+    expect(findMount("pony")).toMatchObject({ label: "Pony", speed: 4.5, unlock: { type: "free" } });
+    expect(findMount("nope")).toBeNull();
+    for (const m of MOUNTS) expect(m.speed).toBeGreaterThan(3.5);
+  });
+  it("lists the quest mounts under the mount category and labels them", () => {
+    const entries = getQuestUnlockableItems().filter((e) => e.category === "mount").map((e) => e.item.id).sort();
+    expect(entries).toEqual(["gryphon", "wyrm"]);
+    expect(getRewardItemLabel(JSON.stringify({ category: "mount", itemId: "pony" }))).toBe("Mount: Pony");
+    expect(getCategoryLabel("mount")).toBe("Mount");
+  });
+  it("normalises and validates the mount fields", () => {
+    const bare = normalizeAvatarConfig({});
+    expect(bare.mount).toBeNull();
+    expect(bare.mountColor).toBe("#8b5e3c");
+    expect(isValidAvatarConfig({ ...DEFAULT_AVATAR, mount: "pony", mountColor: "#123456" })).toBe(true);
+    expect(isValidAvatarConfig({ ...DEFAULT_AVATAR, mount: "nope" })).toBe(false);
+    expect(isValidAvatarConfig({ ...DEFAULT_AVATAR, mount: null })).toBe(true);
   });
 });

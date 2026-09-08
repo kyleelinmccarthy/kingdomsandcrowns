@@ -16,6 +16,8 @@ export type AvatarConfig = {
   accessoryColor: string;
   companion: string | null;
   companionColor: string;
+  mount: string | null;
+  mountColor: string;
   background: string;
   backgroundColor: string;
 };
@@ -54,6 +56,8 @@ export const DEFAULT_AVATAR: AvatarConfig = {
   accessoryColor: "#d4a843",
   companion: null,
   companionColor: "#f0a050",
+  mount: null,
+  mountColor: "#8b5e3c",
   background: "shield",
   backgroundColor: "#3b82f6",
 };
@@ -77,6 +81,8 @@ export function normalizeAvatarConfig(raw: Record<string, unknown>): AvatarConfi
     accessoryColor: (raw.accessoryColor as string) ?? DEFAULT_AVATAR.accessoryColor,
     companion: (raw.companion as string) ?? null,
     companionColor: (raw.companionColor as string) ?? DEFAULT_AVATAR.companionColor,
+    mount: (raw.mount as string) ?? null,
+    mountColor: (raw.mountColor as string) ?? DEFAULT_AVATAR.mountColor,
     background: (raw.background as string) ?? DEFAULT_AVATAR.background,
     backgroundColor: (raw.backgroundColor as string) ?? DEFAULT_AVATAR.backgroundColor,
   };
@@ -288,6 +294,28 @@ export const COMPANIONS: AvatarItem[] = [
   { id: "baby-dragon", label: "Baby Dragon", unlock: { type: "quest" } },
   { id: "pegasus", label: "Pegasus", unlock: { type: "quest" } },
 ];
+
+// ── Mounts ───────────────────────────────────────────────────
+
+/** A mount carries the hero through the Realm faster than walking (HERO_SPEED 3.5). Ids never overlap companion ids. */
+export type MountItem = AvatarItem & { speed: number };
+
+export const MOUNTS: MountItem[] = [
+  { id: "pony", label: "Pony", speed: 4.5, unlock: { type: "free" } },
+  { id: "donkey", label: "Donkey", speed: 4.2, unlock: { type: "free" } },
+  { id: "goat", label: "Goat", speed: 4.8, unlock: { type: "level", level: 3 } },
+  { id: "stag", label: "Stag", speed: 5.5, unlock: { type: "level", level: 8 } },
+  { id: "boar", label: "Boar", speed: 5.2, unlock: { type: "badge", badgeId: "badge-streak-7", badgeName: "Week Warrior" } },
+  { id: "direwolf", label: "Direwolf", speed: 5.8, unlock: { type: "level", level: 15 } },
+  { id: "gryphon", label: "Gryphon", speed: 6.5, unlock: { type: "quest" } },
+  { id: "wyrm", label: "Wyrm", speed: 7, unlock: { type: "quest" } },
+];
+
+export const MOUNT_COLORS: ColorOption[] = SHARED_COLORS;
+
+export function findMount(id: string): MountItem | null {
+  return MOUNTS.find((m) => m.id === id) ?? null;
+}
 
 // ── Boot & Accessory colors (shared palette) ────────────────
 
@@ -558,6 +586,9 @@ export function getQuestUnlockableItems(): { category: string; item: AvatarItem 
   for (const item of COMPANIONS) {
     if (item.unlock.type === "quest") items.push({ category: "companion", item });
   }
+  for (const item of MOUNTS) {
+    if (item.unlock.type === "quest") items.push({ category: "mount", item });
+  }
   for (const item of BACKGROUNDS) {
     if (item.unlock.type === "quest") items.push({ category: "background", item });
   }
@@ -585,6 +616,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   boots: "Boots",
   accessory: "Flair",
   companion: "Companion",
+  mount: "Mount",
   background: "Crest",
   hairStyle: "Hair Style",
   spellElement: "Spell Element",
@@ -600,6 +632,7 @@ const CATEGORY_ITEMS: Record<string, { id: string; label: string }[]> = {
   boots: BOOTS,
   accessory: ACCESSORIES,
   companion: COMPANIONS,
+  mount: MOUNTS,
   background: BACKGROUNDS,
   hairStyle: HAIR_STYLES,
   spellElement: SPELL_ELEMENTS,
@@ -652,6 +685,8 @@ export function isValidAvatarConfig(config: unknown): config is AvatarConfig {
     c.companion === null || c.companion === undefined || COMPANIONS.some((comp) => comp.id === c.companion);
   const validCompanionColor =
     c.companionColor === undefined || isHex(c.companionColor);
+  const validMount = c.mount === null || c.mount === undefined || MOUNTS.some((m) => m.id === c.mount);
+  const validMountColor = c.mountColor === undefined || isHex(c.mountColor);
   const validBackground = BACKGROUNDS.some((b) => b.id === c.background);
   const validBackgroundColor = isHex(c.backgroundColor);
 
@@ -669,6 +704,8 @@ export function isValidAvatarConfig(config: unknown): config is AvatarConfig {
     validAccessoryColor &&
     validCompanion &&
     validCompanionColor &&
+    validMount &&
+    validMountColor &&
     validBackground &&
     validBackgroundColor
   );

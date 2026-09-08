@@ -15,6 +15,7 @@ import {
   BOOTS,
   ACCESSORIES,
   COMPANIONS,
+  MOUNTS,
   BACKGROUNDS,
   type AvatarConfig,
 } from "@/lib/utils/avatar-catalog";
@@ -66,8 +67,9 @@ export async function updateAvatarConfig(childId: string, config: AvatarConfig) 
   const compItem = config.companion
     ? COMPANIONS.find((c) => c.id === config.companion)
     : null;
+  const mountItem = config.mount ? MOUNTS.find((m) => m.id === config.mount) : null;
 
-  const items = [skinItem, hairItem, outfitItem, legwearItem, bootsItem, bgItem, accItem, compItem].filter(Boolean);
+  const items = [skinItem, hairItem, outfitItem, legwearItem, bootsItem, bgItem, accItem, compItem, mountItem].filter(Boolean);
   for (const item of items) {
     if (!isUnlocked(item!, level, earnedBadgeIds, questUnlockedItems)) {
       throw new Error(`Item "${item!.label}" is locked.`);

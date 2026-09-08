@@ -83,6 +83,8 @@ function randomAvatarConfig(
     companionColor: companionPalette.length > 0
       ? companionPalette[Math.floor(Math.random() * companionPalette.length)].hex
       : DEFAULT_AVATAR.companionColor,
+    mount: DEFAULT_AVATAR.mount,
+    mountColor: DEFAULT_AVATAR.mountColor,
     background: pick(BACKGROUNDS).id,
     backgroundColor: pickColor(BACKGROUND_COLORS).hex,
   };

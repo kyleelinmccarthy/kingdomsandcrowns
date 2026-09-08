@@ -63,7 +63,7 @@ import { parseSchoolingModeOverrides, type SchoolingMode } from "@/lib/utils/sch
 import { DAYS_OF_WEEK, DAY_LABELS, type DayOfWeek, localDateOf } from "@/lib/utils/schedule-days";
 import { SCHOOL_LABELS, SUBJECT_SCHOOLS, type SubjectSchool } from "@/lib/utils/spell-schools";
 import { levelFromXp } from "@/lib/utils/level";
-import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
+import { findMount, type AvatarConfig } from "@/lib/utils/avatar-catalog";
 
 type Family = {
   id: string;
@@ -902,6 +902,7 @@ function AvatarSection({ child }: { child: Child }) {
           <Avatar config={config} name={child.displayName} size="lg" />
         </button>
         <div className="space-y-1">
+          {config?.mount && <p className="text-xs text-muted-foreground">Rides: {findMount(config.mount)?.label ?? config.mount}</p>}
           <p className="text-sm text-muted-foreground">
             {config ? "Tap the avatar or button below to change your hero's look." : "No hero look created yet."}
           </p>
