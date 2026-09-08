@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { render, cleanup } from "@testing-library/react";
-import { Avatar, AvatarFigure, CompanionFigure, VillagerFigure } from "./avatar";
-import { DEFAULT_AVATAR } from "@/lib/utils/avatar-catalog";
+import { Avatar, AvatarFigure, CompanionFigure, VillagerFigure, MountFigure } from "./avatar";
+import { DEFAULT_AVATAR, MOUNTS } from "@/lib/utils/avatar-catalog";
 import { VILLAGERS } from "@/lib/realm/villagers";
 
 afterEach(cleanup);
@@ -39,5 +39,25 @@ describe("VillagerFigure", () => {
     expect(svg.getAttribute("data-figure-id")).toBe(v.id);
     expect(container.querySelector('svg[data-figure="companion"]')).toBeNull();
     expect(svg.querySelectorAll(SHAPES).length).toBeGreaterThan(0);
+  });
+});
+
+describe("MountFigure and the mounted rider", () => {
+  it("draws every mount with figure attributes", () => {
+    for (const m of MOUNTS) {
+      const { container } = render(<MountFigure mount={m.id} color="#8b5e3c" />);
+      const svg = container.querySelector('svg[data-figure="mount"]')!;
+      expect(svg.getAttribute("data-figure-id")).toBe(m.id);
+      expect(svg.getAttribute("viewBox")).toBe("0 0 36 48");
+      expect(svg.querySelectorAll("rect,path,circle,polygon,ellipse").length).toBeGreaterThan(2);
+      cleanup();
+    }
+  });
+  it("draws the mounted rider without legs or boots, shifted up", () => {
+    const walking = render(<AvatarFigure config={config} />).container.querySelectorAll(SHAPES).length;
+    cleanup();
+    const riding = render(<AvatarFigure config={config} mounted />).container;
+    expect(riding.querySelector('svg[data-figure="hero"]')!.getAttribute("data-mounted")).toBe("true");
+    expect(riding.querySelectorAll(SHAPES).length).toBeLessThan(walking);
   });
 });

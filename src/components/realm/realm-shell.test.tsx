@@ -65,7 +65,7 @@ vi.mock("./sprite-source", async () => {
           failNextSpriteMount = false;
           onError(new Error("boom"));
         } else {
-          onReady({ hero: {}, companion: null, villagers: {}, troubles: {} });
+          onReady({ hero: {}, companion: null, villagers: {}, troubles: {}, mount: null, heroMounted: null, gleam: null, banner: null });
         }
       }, [onReady, onError]);
       return null;

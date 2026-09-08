@@ -20,6 +20,8 @@ import {
   ACCESSORIES,
   ACCESSORY_COLORS,
   COMPANIONS,
+  MOUNTS,
+  MOUNT_COLORS,
   BACKGROUNDS,
   BACKGROUND_COLORS,
   getCompanionColors,
@@ -31,7 +33,7 @@ import {
   type ColorOption,
 } from "@/lib/utils/avatar-catalog";
 
-type Tab = "skin" | "hair" | "outfit" | "legwear" | "boots" | "accessory" | "companion" | "background";
+type Tab = "skin" | "hair" | "outfit" | "legwear" | "boots" | "accessory" | "companion" | "mount" | "background";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "skin", label: "Skin" },
@@ -42,6 +44,7 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "accessory", label: "Flair" },
   { id: "background", label: "Crest" },
   { id: "companion", label: "Pet" },
+  { id: "mount", label: "Mount" },
 ];
 
 function randomAvatarConfig(
@@ -276,6 +279,17 @@ export function AvatarCustomizer({
             />
           )}
 
+          {tab === "mount" && (
+            <NullableItemGrid
+              items={MOUNTS}
+              selected={config.mount}
+              onSelect={(id) => update({ mount: id })}
+              level={level}
+              earnedBadgeIds={earnedBadgeIds}
+              questUnlockedItems={questUnlockedSet}
+            />
+          )}
+
           {tab === "background" && (
             <ItemGrid
               items={BACKGROUNDS}
@@ -323,6 +337,12 @@ export function AvatarCustomizer({
           <div className="mt-3 border-t border-[var(--gold-dim)] pt-3 space-y-1">
             <p className="text-xs font-medium text-muted-foreground">Coat</p>
             <ColorGrid colors={getCompanionColors(config.companion)} selected={config.companionColor} onSelect={(hex) => update({ companionColor: hex })} />
+          </div>
+        )}
+        {tab === "mount" && config.mount && (
+          <div className="mt-3 border-t border-[var(--gold-dim)] pt-3 space-y-1">
+            <p className="text-xs font-medium text-muted-foreground">Coat</p>
+            <ColorGrid colors={MOUNT_COLORS} selected={config.mountColor} onSelect={(hex) => update({ mountColor: hex })} />
           </div>
         )}
         {tab === "background" && (
@@ -454,7 +474,7 @@ function NullableItemGrid({
           >
             {item.label}
             {!unlocked && (
-              <span className="ml-1 text-[10px] opacity-60">🔒</span>
+              <span className="ml-1 text-[10px] opacity-60">🔒 {desc}</span>
             )}
           </button>
         );

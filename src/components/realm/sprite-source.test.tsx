@@ -60,4 +60,16 @@ describe("SpriteSource", () => {
     expect(Object.keys(textures.troubles).sort()).toEqual(["cursed-stone", "fog", "shadow-blob"]);
     expect(textures.troubles.fog).toMatchObject({ id: "fog:monsters" });
   });
+
+  it("rasterizes the mount, the mounted rider, and the recess figures when asked", async () => {
+    const onReady = vi.fn();
+    render(<SpriteSource config={DEFAULT_AVATAR} mount={{ id: "pony", color: "#8b5e3c" }} recess onReady={onReady} onError={() => {}} />);
+    await waitFor(() => expect(onReady).toHaveBeenCalledTimes(1));
+    const t = onReady.mock.calls[0][0];
+    expect(t.mount).toMatchObject({ id: "pony" });
+    expect(t.heroMounted).toMatchObject({ id: "hero" });
+    expect(t.gleam).toMatchObject({ id: "gleam" });
+    expect(t.banner).toMatchObject({ id: "banner" });
+    expect(svgElementToTexture).toHaveBeenCalledTimes(5); // hero, rider, mount, gleam, banner
+  });
 });

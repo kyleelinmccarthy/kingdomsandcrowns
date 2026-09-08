@@ -2,18 +2,23 @@
 
 import { useEffect, useRef } from "react";
 import type * as THREE from "three";
-import { AvatarFigure, CompanionFigure, VillagerFigure } from "@/components/avatar";
+import { AvatarFigure, CompanionFigure, VillagerFigure, MountFigure } from "@/components/avatar";
 import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
 import { villagerAvatar, type Villager } from "@/lib/realm/villagers";
 import { getCachedTexture, setCachedTexture, spriteKey, svgElementToTexture } from "@/lib/realm/sprite-texture";
 import { TroubleFigure, TROUBLE_KINDS } from "@/components/realm/trouble-figures";
 import type { TroubleKind, TroubleSkin } from "@/lib/realm/spells/troubles";
+import { GleamFigure, BannerFigure } from "@/components/realm/recess-figures";
 
 export type SpriteTextures = {
   hero: THREE.CanvasTexture;
   companion: THREE.CanvasTexture | null;
   villagers: Record<string, THREE.CanvasTexture>;
   troubles: Partial<Record<TroubleKind, THREE.CanvasTexture>>;
+  mount: THREE.CanvasTexture | null;
+  heroMounted: THREE.CanvasTexture | null;
+  gleam: THREE.CanvasTexture | null;
+  banner: THREE.CanvasTexture | null;
 };
 
 const NO_VILLAGERS: Villager[] = [];
@@ -35,6 +40,8 @@ export function SpriteSource({
   config,
   villagers = NO_VILLAGERS,
   troubleSkin = null,
+  mount = null,
+  recess = false,
   onReady,
   onError,
 }: {
@@ -43,6 +50,10 @@ export function SpriteSource({
   villagers?: Villager[];
   /** When set, also rasterizes the three trouble figures in this skin. */
   troubleSkin?: TroubleSkin | null;
+  /** When set, also rasterizes the mount and the mounted rider. Must be a stable (memoised) object. */
+  mount?: { id: string; color: string } | null;
+  /** When true, also rasterizes the recess gleam and start banner. */
+  recess?: boolean;
   onReady: (textures: SpriteTextures) => void;
   onError: (error: Error) => void;
 }) {
@@ -51,7 +62,7 @@ export function SpriteSource({
   useEffect(() => {
     let cancelled = false;
     const root = host.current;
-    const heroSvg = root?.querySelector<SVGSVGElement>('svg[data-figure="hero"]');
+    const heroSvg = root?.querySelector<SVGSVGElement>('svg[data-figure="hero"]:not([data-mounted])');
     if (!root || !heroSvg) return;
     const key = spriteKey(config);
     (async () => {
@@ -72,14 +83,30 @@ export function SpriteSource({
           if (svg) troubleTextures[kind] = await textureFor(`trouble:${kind}:${troubleSkin}`, svg);
         }
       }
-      if (!cancelled) onReady({ hero, companion, villagers: villagerTextures, troubles: troubleTextures });
+      let mountTexture: THREE.CanvasTexture | null = null;
+      let heroMounted: THREE.CanvasTexture | null = null;
+      if (mount) {
+        const mountSvg = root.querySelector<SVGSVGElement>(`svg[data-figure="mount"][data-figure-id="${mount.id}"]`);
+        const riderSvg = root.querySelector<SVGSVGElement>('svg[data-figure="hero"][data-mounted="true"]');
+        if (mountSvg) mountTexture = await textureFor(`mount:${mount.id}:${mount.color}`, mountSvg);
+        if (riderSvg) heroMounted = await textureFor(`${key}:mounted`, riderSvg);
+      }
+      let gleam: THREE.CanvasTexture | null = null;
+      let banner: THREE.CanvasTexture | null = null;
+      if (recess) {
+        const gleamSvg = root.querySelector<SVGSVGElement>('svg[data-figure="gleam"]');
+        const bannerSvg = root.querySelector<SVGSVGElement>('svg[data-figure="banner"]');
+        if (gleamSvg) gleam = await textureFor("gleam", gleamSvg);
+        if (bannerSvg) banner = await textureFor("banner", bannerSvg);
+      }
+      if (!cancelled) onReady({ hero, companion, villagers: villagerTextures, troubles: troubleTextures, mount: mountTexture, heroMounted, gleam, banner });
     })().catch((err: unknown) => {
       if (!cancelled) onError(err instanceof Error ? err : new Error(String(err)));
     });
     return () => {
       cancelled = true;
     };
-  }, [config, villagers, troubleSkin, onReady, onError]);
+  }, [config, villagers, troubleSkin, mount, recess, onReady, onError]);
 
   return (
     <div ref={host} style={{ position: "absolute", left: -9999, top: -9999, width: 1, height: 1, overflow: "hidden" }} aria-hidden="true">
@@ -87,6 +114,10 @@ export function SpriteSource({
       {config.companion && <CompanionFigure companion={config.companion} color={config.companionColor} size="xl" />}
       {villagers.map((v) => <VillagerFigure key={v.id} villager={v} size="xl" />)}
       {troubleSkin && TROUBLE_KINDS.map((kind) => <TroubleFigure key={kind} kind={kind} skin={troubleSkin} />)}
+      {mount && <MountFigure mount={mount.id} color={mount.color} size="xl" />}
+      {mount && <AvatarFigure config={config} size="xl" mounted />}
+      {recess && <GleamFigure />}
+      {recess && <BannerFigure />}
     </div>
   );
 }
