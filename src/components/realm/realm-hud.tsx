@@ -29,6 +29,7 @@ export function RealmHud({
   ceremony = null,
   ceremonyError = "",
   onCeremonyRetry = () => {},
+  help = null,
 }: {
   heroName: string;
   minutesRemaining: number | null; // null hides the counter (parent preview)
@@ -52,6 +53,7 @@ export function RealmHud({
   ceremony?: { onSkip: () => void } | null; // non-null while the ceremony plays
   ceremonyError?: string;
   onCeremonyRetry?: () => void;
+  help?: { onOpen: () => void; disabled: boolean } | null;
 }) {
   return (
     <div className="realm-hud" style={{ fontSize: `${hudScale}em` }}>
@@ -85,6 +87,9 @@ export function RealmHud({
         )}
         {ceremony && (
           <Button size="sm" variant="outline" className="realm-hud-skip" onClick={ceremony.onSkip}>Skip</Button>
+        )}
+        {help && (
+          <Button size="sm" variant="outline" className="realm-hud-help" aria-label="How to play" disabled={help.disabled} onClick={help.onOpen}>?</Button>
         )}
         {preview && <span className="realm-hud-badge">Previewing {heroName}&apos;s Realm</span>}
         {preview && <span className="realm-hud-selector">{selector}</span>}

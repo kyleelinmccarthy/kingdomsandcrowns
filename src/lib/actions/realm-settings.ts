@@ -25,3 +25,20 @@ export async function updateRealmSettings(childId: string, patch: Partial<RealmS
     .where(eq(schema.realmSettings.childId, childId));
   revalidatePath("/settings");
 }
+
+/** The hero has seen the how-to-play card (or a grown-up closed it for them). Hero or parent. */
+export async function markRealmHelpSeen(childId: string): Promise<void> {
+  await requireChildAccess(childId, { write: true });
+  await loadRealmSettings(childId);
+  const now = new Date();
+  await db.update(schema.realmSettings).set({ helpSeenAt: now, updatedAt: now }).where(eq(schema.realmSettings.childId, childId));
+}
+
+/** Shows the card again on the hero's next visit. Grown-ups only. */
+export async function resetRealmHelp(childId: string): Promise<void> {
+  const { access } = await requireChildAccess(childId, { write: true });
+  if (isChildActor(access)) throw new Error("Only a grown-up can change Realm settings.");
+  await loadRealmSettings(childId);
+  await db.update(schema.realmSettings).set({ helpSeenAt: null, updatedAt: new Date() }).where(eq(schema.realmSettings.childId, childId));
+  revalidatePath("/settings");
+}

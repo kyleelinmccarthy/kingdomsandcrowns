@@ -24,6 +24,8 @@ vi.mock("@/lib/actions/deeds", () => ({ startDeedRun: (...a: unknown[]) => start
 vi.mock("@/lib/actions/realm", () => ({ getRealmKingdom: (...a: unknown[]) => getRealmKingdom(...a) }));
 const markCeremonySeen = vi.fn();
 vi.mock("@/lib/actions/seasons", () => ({ markCeremonySeen: (...a: unknown[]) => markCeremonySeen(...a) }));
+const markRealmHelpSeen = vi.fn();
+vi.mock("@/lib/actions/realm-settings", () => ({ markRealmHelpSeen: (...a: unknown[]) => markRealmHelpSeen(...a) }));
 vi.mock("@/components/deed-player", () => ({
   DeedPlayer: ({ run, onFinished }: { run: { deed: { title: string } }; onFinished: (s: unknown) => void }) => (
     <div>
@@ -573,5 +575,69 @@ describe("RealmShell spell bar", () => {
     await screen.findByTestId("scene");
     fireEvent.click(screen.getByRole("button", { name: "Ember Bolt, 10 mana" }));
     expect(screen.getByText("Tap where the spell should go.")).toBeInTheDocument();
+  });
+});
+
+describe("RealmShell help card", () => {
+  const ceremony = { seasonId: "s1", crownId: "crown-copper", ordinal: 1, grade: "3", seasonLabel: "2025–26" };
+
+  it("opens the card on a first visit, records it on close, and only then starts a pending ceremony", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    markRealmHelpSeen.mockResolvedValue(undefined);
+    render(<RealmShell bundle={{ ...bundle, helpSeen: false, ceremony, banners: 1 }} childId="c1" isChildView={true} />);
+    const scene = await screen.findByTestId("scene");
+    expect(screen.getByRole("dialog", { name: "How to play" })).toBeInTheDocument();
+    expect(scene.dataset.ceremony).toBe("false");
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("dialog", { name: "How to play" })).not.toBeInTheDocument();
+    await waitFor(() => expect(markRealmHelpSeen).toHaveBeenCalledWith("c1"));
+    expect(screen.getByTestId("scene").dataset.ceremony).toBe("true");
+  });
+
+  it("closes the card even when the record fails", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    markRealmHelpSeen.mockRejectedValueOnce(new Error("offline"));
+    render(<RealmShell bundle={{ ...bundle, helpSeen: false }} childId="c1" isChildView={true} />);
+    await screen.findByTestId("scene");
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("dialog", { name: "How to play" })).not.toBeInTheDocument();
+    await waitFor(() => expect(markRealmHelpSeen).toHaveBeenCalledTimes(1));
+    expect(screen.getByTestId("scene").dataset.interactive).toBe("true");
+  });
+
+  it("never opens by itself for a parent, but the ? button opens it and Escape closes it", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 0, source: "earned" });
+    render(<RealmShell bundle={{ ...bundle, helpSeen: false }} childId="c1" isChildView={false} />);
+    await screen.findByTestId("scene");
+    expect(screen.queryByRole("dialog", { name: "How to play" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "How to play" }));
+    const dialog = screen.getByRole("dialog", { name: "How to play" });
+    fireEvent.keyDown(dialog, { key: "Escape" });
+    expect(screen.queryByRole("dialog", { name: "How to play" })).not.toBeInTheDocument();
+    expect(markRealmHelpSeen).not.toHaveBeenCalled();
+  });
+
+  it("lets Escape close the card before it skips a running ceremony", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    render(<RealmShell bundle={{ ...bundle, ceremony, banners: 1 }} childId="c1" isChildView={true} />);
+    await screen.findByTestId("scene");
+    fireEvent.click(screen.getByRole("button", { name: "How to play" }));
+    const skipRef = sceneProps.ceremonySkipRef as { current: boolean };
+    fireEvent.keyDown(screen.getByRole("dialog", { name: "How to play" }), { key: "Escape" });
+    expect(screen.queryByRole("dialog", { name: "How to play" })).not.toBeInTheDocument();
+    expect(skipRef.current).toBe(false);
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(skipRef.current).toBe(true);
+  });
+
+  it("suppresses the browser menu over the world and focuses the world on open", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    render(<RealmShell bundle={bundle} childId="c1" isChildView={true} />);
+    await screen.findByTestId("scene");
+    const root = document.querySelector<HTMLElement>(".realm-root")!;
+    await waitFor(() => expect(document.activeElement).toBe(root));
+    const menu = new MouseEvent("contextmenu", { bubbles: true, cancelable: true });
+    root.dispatchEvent(menu);
+    expect(menu.defaultPrevented).toBe(true);
   });
 });

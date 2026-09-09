@@ -4,7 +4,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { requireChildAccess, isChildActor } from "@/lib/auth/access";
-import { loadRealmSettings } from "@/lib/services/realm-play";
+import { loadRealmSettings, loadRealmFlags } from "@/lib/services/realm-play";
 import { loadKingdomOverview } from "@/lib/services/deeds";
 import { loadSpellbookPages, ensureStarterSpell, type SpellPage } from "@/lib/services/spells";
 import { loadUnlockedMountIds } from "@/lib/services/mounts";
@@ -29,6 +29,7 @@ export type RealmBundle = {
   ceremony: { seasonId: string; crownId: string; ordinal: number; grade: string; seasonLabel: string } | null;
   banners: number; // completed seasons, capped; one castle banner each
   wornCrown: CrownTier | null; // the crown on the hero's avatar, if any
+  helpSeen: boolean; // false until the hero has seen the how-to-play card
 };
 
 const VILLAGERS_RESTING = "The villagers are resting. Try again.";
@@ -48,7 +49,7 @@ export async function getRealmKingdom(childId: string): Promise<KingdomState> {
 export async function getRealmBundle(childId: string): Promise<RealmBundle> {
   const { access } = await requireChildAccess(childId);
   await ensureStarterSpell(childId).catch((err: unknown) => console.error("Starter spell failed", err));
-  const [childRows, castleRows, profileRows, settings, kingdomResult, spellbook, mounts, seasons] = await Promise.all([
+  const [childRows, castleRows, profileRows, settings, kingdomResult, spellbook, mounts, seasons, flags] = await Promise.all([
     db.select({ displayName: schema.child.displayName, avatarConfig: schema.child.avatarConfig }).from(schema.child).where(eq(schema.child.id, childId)).limit(1),
     db.select({ type: schema.castle.type }).from(schema.castle).where(eq(schema.castle.childId, childId)).limit(1),
     db.select().from(schema.learningProfile).where(eq(schema.learningProfile.childId, childId)).limit(1),
@@ -60,6 +61,7 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
     loadSpellbookPages(childId),
     loadUnlockedMountIds(childId),
     loadSeasons(childId),
+    loadRealmFlags(childId),
   ]);
   const child = childRows[0];
   if (!child) throw new Error("Hero not found.");
@@ -94,5 +96,6 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
     ceremony,
     banners: bannerCount(seasons),
     wornCrown,
+    helpSeen: flags.helpSeenAt !== null,
   };
 }

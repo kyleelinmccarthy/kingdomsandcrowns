@@ -225,6 +225,7 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
         rotation={[-Math.PI / 2, 0, 0]}
         onPointerDown={(e) => {
           e.stopPropagation();
+          if (e.button !== 0 && e.button !== 2) return; // left and right buttons walk or cast; the wheel does nothing
           if (!interactive) return;
           if (selectedSpell) {
             castRef.current = { target: { x: e.point.x, z: e.point.z } };

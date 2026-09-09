@@ -166,4 +166,16 @@ describe("RealmHud", () => {
     expect(screen.getByText("You're looking at Lily's grounds. Spells, side quests and recess are theirs to play.")).toBeInTheDocument();
     expect(screen.getByText("Closed for Lily: it's school time.")).toBeInTheDocument();
   });
+
+  it("offers How to play as a 44px button and disables it while a panel is open", () => {
+    const onOpen = vi.fn();
+    render(<RealmHud heroName="Lily" minutesRemaining={7} warning={false} preview={null} hudScale={1} error="" onRetry={() => {}} paused={false} toast={null} calm={false} kingdomError="" onKingdomRetry={() => {}} mana={null} cleared={null} notice={null} recess={null} ride={null} help={{ onOpen, disabled: false }} />);
+    const button = screen.getByRole("button", { name: "How to play" });
+    expect(button.className).toContain("realm-hud-help");
+    fireEvent.click(button);
+    expect(onOpen).toHaveBeenCalledTimes(1);
+    cleanup();
+    render(<RealmHud heroName="Lily" minutesRemaining={7} warning={false} preview={null} hudScale={1} error="" onRetry={() => {}} paused={true} toast={null} calm={false} kingdomError="" onKingdomRetry={() => {}} mana={null} cleared={null} notice={null} recess={null} ride={null} help={{ onOpen, disabled: true }} />);
+    expect(screen.getByRole("button", { name: "How to play" })).toBeDisabled();
+  });
 });

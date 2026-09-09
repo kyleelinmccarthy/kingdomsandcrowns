@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { updateRealmSettings } from "@/lib/actions/realm-settings";
+import { updateRealmSettings, resetRealmHelp } from "@/lib/actions/realm-settings";
 import { grantRealmMinutes } from "@/lib/actions/realm-play";
 import {
   DAILY_CAP_RANGE,
@@ -149,6 +149,16 @@ export function RealmSettingsPanel({
             </Button>
           ))}
         </div>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gold-dim bg-muted/30 px-3 py-2.5">
+        <div>
+          <p className="text-sm">The how-to-play card</p>
+          <p className="text-xs text-muted-foreground">Heroes see it once, on their first visit. The ? button in the Realm opens it any time.</p>
+        </div>
+        <Button size="sm" variant="outline" className="!border-[var(--gold-border)]" disabled={busy} onClick={() => run(() => resetRealmHelp(childId))}>
+          Show the how-to-play card again
+        </Button>
       </div>
     </div>
   );

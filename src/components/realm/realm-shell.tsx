@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getRealmKingdom, type RealmBundle } from "@/lib/actions/realm";
 import { getRealmAccess } from "@/lib/actions/realm-play";
 import { markCeremonySeen } from "@/lib/actions/seasons";
+import { markRealmHelpSeen } from "@/lib/actions/realm-settings";
 import { buildWorldLayout } from "@/lib/realm/layout";
 import { applyDeedResult, type KingdomState } from "@/lib/realm/kingdom-state";
 import { renderSettingsFor } from "@/lib/realm/render-settings";
@@ -27,6 +28,7 @@ import { speak } from "@/lib/utils/speech";
 import { SIDE_QUESTS_LOWER } from "@/lib/utils/side-quest-copy";
 import { SpriteSource, type SpriteTextures } from "./sprite-source";
 import { RealmHud } from "./realm-hud";
+import { RealmHelp } from "./realm-help";
 import { RealmGate } from "./realm-gate";
 import { RealmClosed } from "./realm-closed";
 import { DeedPanel } from "./deed-panel";
@@ -180,6 +182,14 @@ function RealmOpen({
   const [crown, setCrown] = useState<{ label: string; color: string } | null>(bundle.wornCrown ? { label: bundle.wornCrown.label, color: bundle.wornCrown.color } : null);
   const ceremonySkipRef = useRef(false);
   const ceremonyRunning = ceremonyStage === "running" || ceremonyStage === "finishing";
+  const [helpOpen, setHelpOpen] = useState(false);
+  // A first visit shows the card once, before anything else; the record is sent once.
+  const helpPending = useRef(isChildView && !bundle.helpSeen);
+  const helpMarked = useRef(bundle.helpSeen);
+  const ceremonyStageRef = useRef(ceremonyStage);
+  useEffect(() => {
+    ceremonyStageRef.current = ceremonyStage;
+  }, [ceremonyStage]);
   const rootRef = useRef<HTMLDivElement>(null);
   // `.game-content` (the page's <main>) is `position: relative; z-index: 10`,
   // which traps `.realm-root`'s z-index inside its own stacking context —
@@ -207,9 +217,9 @@ function RealmOpen({
   const castHintShown = useRef(false);
   const selectedSpell = selectedSlot === null ? null : pages.find((p) => p.slot === selectedSlot)?.spell ?? null;
   const troubleSkin: TroubleSkin = kingdom.tone === "monsters" ? "monsters" : "gentle";
-  const { axisRef, setStick, castRef } = useRealmInput({ enabled: !panelOpen && !ceremonyRunning, castEnabled: isChildView && !panelOpen && !ceremonyRunning && !riding && selectedSpell !== null });
+  const { axisRef, setStick, castRef } = useRealmInput({ enabled: !panelOpen && !ceremonyRunning && !helpOpen, castEnabled: isChildView && !panelOpen && !ceremonyRunning && !helpOpen && !riding && selectedSpell !== null });
   const config = bundle.avatarConfig ?? DEFAULT_AVATAR;
-  const clock = usePlayClock({ enabled: isChildView, childId, initialMinutes: minutes, onClose, paused: panelOpen || ceremonyRunning, initialSource: source });
+  const clock = usePlayClock({ enabled: isChildView, childId, initialMinutes: minutes, onClose, paused: panelOpen || ceremonyRunning || helpOpen, initialSource: source });
   const recessActive = isChildView && clock.source === "recess";
   const mountItem = bundle.avatarConfig?.mount ? findMount(bundle.avatarConfig.mount) : null;
   const canRide = mountItem !== null && bundle.mounts.unlocked.includes(mountItem.id) && isChildView;
@@ -222,16 +232,20 @@ function RealmOpen({
     () => (ceremonyPending ? { id: ceremonyPending.crownId, color: crownById(ceremonyPending.crownId)?.color ?? CROWNS[0].color } : null),
     [ceremonyPending]
   );
+  const beginCeremonyIfWaiting = useCallback(() => {
+    if (ceremonyStageRef.current !== "waiting") return; // a sprite retry after the ceremony must not replay it
+    setRiding(false); // the mount sprite would overlap the crown
+    setCeremonyStage("running");
+  }, []);
   const onReady = useCallback((t: SpriteTextures) => {
     setTextures(t);
-    // a sprite retry after the ceremony must not replay it; dismount so the mount sprite
-    // doesn't follow the hero through the ceremony (the crown would overlap it).
-    setCeremonyStage((s) => {
-      if (s !== "waiting") return s;
-      setRiding(false);
-      return "running";
-    });
-  }, []);
+    if (helpPending.current) {
+      helpPending.current = false;
+      setHelpOpen(true); // the ceremony waits behind the card
+      return;
+    }
+    beginCeremonyIfWaiting();
+  }, [beginCeremonyIfWaiting]);
   const onError = useCallback((e: Error) => setSpriteError(e.message), []);
   const onReachChange = useCallback((id: string | null) => setReachId(id), []);
   const onToggleRide = useCallback(() => {
@@ -270,7 +284,7 @@ function RealmOpen({
 
   // Enter or Space talks to the villager in reach when no panel is open; M mounts or dismounts.
   useEffect(() => {
-    if (panelOpen || ceremonyRunning) return;
+    if (panelOpen || ceremonyRunning || helpOpen) return;
     function onKey(e: KeyboardEvent) {
       const t = e.target;
       const onInteractiveElement = t instanceof Element && t.closest("a, button, input, textarea, select, [role='dialog']");
@@ -291,11 +305,12 @@ function RealmOpen({
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [panelOpen, ceremonyRunning, reachId, selectedSlot, onToggleRide]);
+  }, [panelOpen, ceremonyRunning, helpOpen, reachId, selectedSlot, onToggleRide]);
 
   // Escape skips the ceremony; nothing else listens for it while the ceremony runs (the deed panel cannot open).
+  // While the help card is open, its own Escape handler closes the card first (it stops propagation).
   useEffect(() => {
-    if (!ceremonyRunning) return;
+    if (!ceremonyRunning || helpOpen) return;
     function onKey(e: KeyboardEvent) {
       if (e.key !== "Escape") return;
       e.preventDefault();
@@ -303,7 +318,7 @@ function RealmOpen({
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [ceremonyRunning]);
+  }, [ceremonyRunning, helpOpen]);
 
   // The rise toast clears itself; the timer is the only place that clears it.
   useEffect(() => {
@@ -348,6 +363,24 @@ function RealmOpen({
       (document.querySelector<HTMLElement>(".realm-bubble-talk") ?? rootRef.current)?.focus();
     });
   }, []);
+
+  const openHelp = useCallback(() => setHelpOpen(true), []);
+  const onHelpClose = useCallback(() => {
+    setHelpOpen(false);
+    // Only a hero's own visit records "seen": a parent opening the card from the
+    // ? button is just reading it, not marking anything on the hero's behalf.
+    if (isChildView && !helpMarked.current) {
+      helpMarked.current = true;
+      markRealmHelpSeen(childId).catch(() => {}); // the next visit simply shows the card again
+    }
+    beginCeremonyIfWaiting();
+    returnFocus();
+  }, [childId, isChildView, beginCeremonyIfWaiting, returnFocus]);
+
+  // Focus the world once it opens (it never moves focus while the card is showing).
+  useEffect(() => {
+    if (textures && !helpOpen) rootRef.current?.focus();
+  }, [textures, helpOpen]);
 
   const onPanelClose = useCallback(() => {
     setOpenVillagerId(null);
@@ -423,7 +456,13 @@ function RealmOpen({
   if (!portalTarget) return null;
 
   return createPortal(
-    <div ref={rootRef} className={`realm-root${selectedSpell ? " realm-root--aiming" : ""}`} tabIndex={-1} {...readingAttributes(bundle.profile)}>
+    <div
+      ref={rootRef}
+      className={`realm-root${selectedSpell ? " realm-root--aiming" : ""}`}
+      tabIndex={-1}
+      onContextMenu={(e) => e.preventDefault()}
+      {...readingAttributes(bundle.profile)}
+    >
       <SpriteSource key={retryKey} config={config} villagers={VILLAGERS} troubleSkin={troubleSkin} mount={mountTexture} recess={isChildView} crown={crownSprite} castleBanner={bundle.banners > 0} onReady={onReady} onError={onError} />
       {textures && (
         <RealmScene
@@ -431,7 +470,7 @@ function RealmOpen({
           textures={textures}
           settings={settings}
           axisRef={axisRef}
-          interactive={!panelOpen && !ceremonyRunning}
+          interactive={!panelOpen && !ceremonyRunning && !helpOpen}
           reachId={reachId}
           onReachChange={onReachChange}
           onTalk={onTalk}
@@ -460,7 +499,7 @@ function RealmOpen({
         hudScale={settings.hudScale}
         error={spriteError || clock.error}
         selector={selector}
-        paused={panelOpen || ceremonyRunning}
+        paused={panelOpen || ceremonyRunning || helpOpen}
         toast={toast}
         calm={!settings.motion || settings.calmPalette}
         kingdomError={kingdomError}
@@ -480,9 +519,10 @@ function RealmOpen({
           setRetryKey((k) => k + 1);
           void clock.flushPending();
         }}
+        help={{ onOpen: openHelp, disabled: panelOpen || helpOpen }}
       />
-      {settings.showStick && !panelOpen && !ceremonyRunning && <TouchStick onChange={setStick} />}
-      {isChildView && !panelOpen && !ceremonyRunning && (
+      {settings.showStick && !panelOpen && !ceremonyRunning && !helpOpen && <TouchStick onChange={setStick} />}
+      {isChildView && !panelOpen && !ceremonyRunning && !helpOpen && (
         <SpellBar
           pages={pages}
           selectedSlot={selectedSlot}
@@ -505,6 +545,7 @@ function RealmOpen({
           onClose={onPanelClose}
         />
       )}
+      {helpOpen && <RealmHelp touch={settings.showStick} ceremony={ceremonyRunning} readAloud={bundle.profile.readAloud} onClose={onHelpClose} />}
     </div>,
     portalTarget
   );
