@@ -309,6 +309,7 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
             </group>
           );
         }
+        if (prop.kind === "decor") return null; // a decor figure that failed to rasterise never falls back to a box
         // No texture for this prop (a barrier, or a figure that failed to draw): the slice 4 box.
         return (
           <group key={prop.id} position={[prop.position.x, 0, prop.position.z]}>
@@ -316,7 +317,7 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
               <boxGeometry args={[prop.size.w, prop.size.h, prop.size.d]} />
               <meshStandardMaterial color={colorFor(prop)} />
             </mesh>
-            {prop.kind !== "decor" && prop.kind !== "barrier" && <PropLabel prop={prop} y={prop.size.h + 0.6} />}
+            {prop.kind !== "barrier" && <PropLabel prop={prop} y={prop.size.h + 0.6} />}
           </group>
         );
       })}

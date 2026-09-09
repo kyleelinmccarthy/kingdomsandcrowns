@@ -210,11 +210,11 @@ function RealmOpen({
   // this component never renders during SSR (it mounts after the
   // client-side access check resolves).
   const [portalTarget] = useState<Element | null>(() => (typeof document === "undefined" ? null : document.body));
-  const layout = useMemo(
-    () => buildWorldLayout({ castleType: bundle.castleType, buildings: kingdom.buildings, villagers: !kingdomError, banners: bundle.banners }),
-    [bundle.castleType, kingdom.buildings, kingdomError, bundle.banners]
-  );
   const settings = useMemo(() => renderSettingsFor(bundle.profile, isTouch), [bundle.profile, isTouch]);
+  const layout = useMemo(
+    () => buildWorldLayout({ castleType: bundle.castleType, buildings: kingdom.buildings, villagers: !kingdomError, banners: bundle.banners, decor: !settings.calmPalette }),
+    [bundle.castleType, kingdom.buildings, kingdomError, bundle.banners, settings.calmPalette]
+  );
   // Which world figures to rasterise; keyed by a string so a building completing is the only thing that changes it.
   const builtKey = kingdom.buildings.filter((b) => b.complete).map((b) => b.id).sort().join(",");
   const world = useMemo(

@@ -341,6 +341,23 @@ describe("RealmShell", () => {
     expect(sceneProps.layout).toBe(layout);
   });
 
+  it("skips decorations under low-stimulus, in both the layout and the requested world texture set", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    render(<RealmShell bundle={{ ...bundle, profile: { ...DEFAULT_LEARNING_PROFILE, lowStimulus: true } }} childId="c1" isChildView={true} />);
+    await screen.findByTestId("scene");
+    const layout = sceneProps.layout as { props: { kind: string }[] };
+    expect(layout.props.some((p) => p.kind === "decor")).toBe(false);
+    expect((spriteSourceProps.world as { decor: boolean }).decor).toBe(false);
+  });
+
+  it("places twelve decorations by default", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    render(<RealmShell bundle={bundle} childId="c1" isChildView={true} />);
+    await screen.findByTestId("scene");
+    const layout = sceneProps.layout as { props: { kind: string }[] };
+    expect(layout.props.filter((p) => p.kind === "decor")).toHaveLength(12);
+  });
+
   it("uses monsters copy when the kingdom tone is monsters", async () => {
     getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
     render(<RealmShell bundle={{ ...bundle, kingdom: { ...bundle.kingdom, tone: "monsters" }, spellbook: { spells: pages, slots: 4 } }} childId="c1" isChildView={true} />);
