@@ -25,6 +25,17 @@ export async function loadRealmSettings(childId: string): Promise<RealmSettings>
   return settingsFromRow(rows[0] ?? null);
 }
 
+/** The two slice-8 timestamps on realm_settings; the row is created if missing. */
+export async function loadRealmFlags(childId: string): Promise<{ helpSeenAt: Date | null; starterSpellAt: Date | null }> {
+  await loadRealmSettings(childId);
+  const rows = await db
+    .select({ helpSeenAt: schema.realmSettings.helpSeenAt, starterSpellAt: schema.realmSettings.starterSpellAt })
+    .from(schema.realmSettings)
+    .where(eq(schema.realmSettings.childId, childId))
+    .limit(1);
+  return { helpSeenAt: rows[0]?.helpSeenAt ?? null, starterSpellAt: rows[0]?.starterSpellAt ?? null };
+}
+
 export async function loadLedger(childId: string, date: string): Promise<LedgerRow[]> {
   return db
     .select({ kind: schema.realmPlayLedger.kind, minutes: schema.realmPlayLedger.minutes })

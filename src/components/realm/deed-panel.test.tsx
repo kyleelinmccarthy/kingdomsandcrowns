@@ -51,10 +51,10 @@ describe("DeedPanel", () => {
   });
 
   it("shows a start failure in the card with the card still open", async () => {
-    startDeedRun.mockRejectedValue(new Error("No deeds are ready for this hero yet."));
+    startDeedRun.mockRejectedValue(new Error("No side quests are ready for this hero yet."));
     render(<DeedPanel childId="c1" villager={VILLAGERS[0]} building={building} profile={DEFAULT_LEARNING_PROFILE} calm={false} preview={false} onFinished={() => {}} onClose={() => {}} />);
     fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" }));
-    expect(await screen.findByText("No deeds are ready for this hero yet.")).toBeInTheDocument();
+    expect(await screen.findByText("No side quests are ready for this hero yet.")).toBeInTheDocument();
     expect(screen.getByRole("dialog")).toBeInTheDocument();
   });
 

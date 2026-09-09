@@ -82,7 +82,7 @@ const well = {
   id: "well", label: "Village Well", description: "Clean water for every doorstep.", icon: "box" as const, done: 4, total: 5, complete: false,
   deeds: [{ id: "well-stones", title: "Count the Well Stones", story: "Old Bram's bucket keeps coming up dry.", area: "math" as const }],
 };
-const bundle = { heroName: "Lily", avatarConfig: DEFAULT_AVATAR, castleType: "campsite", kingdom: { tone: "gentle" as const, buildings: [well] }, profile: DEFAULT_LEARNING_PROFILE, settings: { enabled: true, toneMode: "gentle" as const }, spellbook: { spells: [], slots: 4 }, mounts: { unlocked: ["pony"] }, ceremony: null, banners: 0, wornCrown: null };
+const bundle = { heroName: "Lily", avatarConfig: DEFAULT_AVATAR, castleType: "campsite", kingdom: { tone: "gentle" as const, buildings: [well] }, profile: DEFAULT_LEARNING_PROFILE, settings: { enabled: true, toneMode: "gentle" as const }, spellbook: { spells: [], slots: 4 }, mounts: { unlocked: ["pony"] }, ceremony: null, banners: 0, wornCrown: null, helpSeen: true };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -270,7 +270,7 @@ describe("RealmShell", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  const pages = [{ id: "p0", slot: 0, elementId: "ember", formId: "bolt", modifierId: null, adjective: "Ember", noun: "Bolt" }];
+  const pages = [{ id: "p0", slot: 1, elementId: "ember", formId: "bolt", modifierId: null, adjective: "Ember", noun: "Bolt" }];
 
   it("shows the spell bar for a hero, hides it while a panel is open, and never for a parent", async () => {
     getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
@@ -543,5 +543,35 @@ describe("RealmShell crown ceremony", () => {
     expect(scene.dataset.interactive).toBe("true");
     expect(screen.queryByRole("button", { name: "Skip" })).not.toBeInTheDocument();
     expect(screen.getByText("Copper Circlet")).toBeInTheDocument();
+  });
+});
+
+describe("RealmShell spell bar", () => {
+  it("always shows the hero's book, with empty pages for open slots, and never shows a parent one", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    render(<RealmShell bundle={bundle} childId="c1" isChildView={true} />);
+    await screen.findByTestId("scene");
+    expect(screen.getByRole("toolbar", { name: "Spellbook" })).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /^Empty page \d$/ })).toHaveLength(4);
+    cleanup();
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 0, source: "earned" });
+    render(<RealmShell bundle={bundle} childId="c1" isChildView={false} />);
+    await screen.findByTestId("scene");
+    expect(screen.queryByRole("toolbar", { name: "Spellbook" })).not.toBeInTheDocument();
+  });
+
+  it("explains casting the first time a page is picked, in the words the input mode needs", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    const spell = { id: "s1", slot: 1, elementId: "ember", formId: "bolt", modifierId: null, adjective: "Ember", noun: "Bolt" };
+    render(<RealmShell bundle={{ ...bundle, spellbook: { spells: [spell], slots: 4 } }} childId="c1" isChildView={true} />);
+    await screen.findByTestId("scene");
+    fireEvent.click(screen.getByRole("button", { name: "Ember Bolt, 10 mana" }));
+    expect(screen.getByText("Tap or click where the spell should go, or press Space to aim at the nearest trouble.")).toBeInTheDocument();
+    expect(document.querySelector(".realm-root")?.className).toContain("realm-root--aiming");
+    cleanup();
+    render(<RealmShell bundle={{ ...bundle, spellbook: { spells: [spell], slots: 4 }, profile: { ...DEFAULT_LEARNING_PROFILE, inputMode: "touch" as const } }} childId="c1" isChildView={true} />);
+    await screen.findByTestId("scene");
+    fireEvent.click(screen.getByRole("button", { name: "Ember Bolt, 10 mana" }));
+    expect(screen.getByText("Tap where the spell should go.")).toBeInTheDocument();
   });
 });

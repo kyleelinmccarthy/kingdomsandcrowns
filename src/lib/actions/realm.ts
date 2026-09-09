@@ -6,7 +6,7 @@ import * as schema from "@/lib/db/schema";
 import { requireChildAccess, isChildActor } from "@/lib/auth/access";
 import { loadRealmSettings } from "@/lib/services/realm-play";
 import { loadKingdomOverview } from "@/lib/services/deeds";
-import { loadSpellbookPages, type SpellPage } from "@/lib/services/spells";
+import { loadSpellbookPages, ensureStarterSpell, type SpellPage } from "@/lib/services/spells";
 import { loadUnlockedMountIds } from "@/lib/services/mounts";
 import { loadSeasons } from "@/lib/services/crowns";
 import { bannerCount, pendingCeremony, seasonLabel } from "@/lib/utils/seasons";
@@ -47,6 +47,7 @@ export async function getRealmKingdom(childId: string): Promise<KingdomState> {
 /** Everything the Realm page needs, in one round of parallel reads. A hero may read their own. */
 export async function getRealmBundle(childId: string): Promise<RealmBundle> {
   const { access } = await requireChildAccess(childId);
+  await ensureStarterSpell(childId).catch((err: unknown) => console.error("Starter spell failed", err));
   const [childRows, castleRows, profileRows, settings, kingdomResult, spellbook, mounts, seasons] = await Promise.all([
     db.select({ displayName: schema.child.displayName, avatarConfig: schema.child.avatarConfig }).from(schema.child).where(eq(schema.child.id, childId)).limit(1),
     db.select({ type: schema.castle.type }).from(schema.castle).where(eq(schema.castle.childId, childId)).limit(1),

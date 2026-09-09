@@ -1,19 +1,19 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
 import { SpellBar } from "./spell-bar";
-import { resolvePages, FADED_PAGE } from "@/lib/realm/spells/pages";
+import { resolvePages, withEmptyPages, FADED_PAGE } from "@/lib/realm/spells/pages";
 
 afterEach(cleanup);
 const page = (slot: number, elementId = "ember", formId = "bolt") => ({ id: `s${slot}`, slot, elementId, formId, modifierId: null, adjective: "Ember", noun: "Bolt" });
-// Slots 3-5 use distinct forms (not the default "bolt") so their mana costs
-// don't collide with slot 0's "Ember Bolt, 10 mana" — the fixture's adjective
+// Slots 4-6 use distinct forms (not the default "bolt") so their mana costs
+// don't collide with slot 1's "Ember Bolt, 10 mana" — the fixture's adjective
 // and noun are hardcoded to "Ember"/"Bolt" regardless of element/form, so any
 // two pages sharing a form would render an identical, ambiguous button label.
-const pages = resolvePages([page(0), page(1, "tide", "orb"), page(2, "nope"), page(3, "ember", "burst"), page(4, "ember", "wall"), page(5, "ember", "sprite")], 12);
+const pages = resolvePages([page(1), page(2, "tide", "orb"), page(3, "nope"), page(4, "ember", "burst"), page(5, "ember", "wall"), page(6, "ember", "sprite")], 12);
 
 describe("SpellBar", () => {
   it("lists pages with names and costs, marks the selected one, and dims what the hero cannot afford", () => {
-    render(<SpellBar pages={pages} selectedSlot={1} mana={12} fewerChoices={false} onSelect={() => {}} raised={false} hudScale={1} />);
+    render(<SpellBar pages={pages} selectedSlot={2} mana={12} fewerChoices={false} onSelect={() => {}} raised={false} hudScale={1} />);
     const orb = screen.getByRole("button", { name: "Ember Bolt, 15 mana" });
     expect(orb).toHaveAttribute("aria-pressed", "true");
     expect(orb.className).toContain("realm-spell--dim");
@@ -23,9 +23,9 @@ describe("SpellBar", () => {
 
   it("selects on tap, deselects on a second tap, and keeps faded pages unselectable", () => {
     const onSelect = vi.fn();
-    render(<SpellBar pages={pages} selectedSlot={0} mana={100} fewerChoices={false} onSelect={onSelect} raised={false} hudScale={1} />);
+    render(<SpellBar pages={pages} selectedSlot={1} mana={100} fewerChoices={false} onSelect={onSelect} raised={false} hudScale={1} />);
     fireEvent.click(screen.getByRole("button", { name: "Ember Bolt, 15 mana" }));
-    expect(onSelect).toHaveBeenLastCalledWith(1);
+    expect(onSelect).toHaveBeenLastCalledWith(2);
     fireEvent.click(screen.getByRole("button", { name: "Ember Bolt, 10 mana" }));
     expect(onSelect).toHaveBeenLastCalledWith(null);
     const faded = screen.getByRole("button", { name: FADED_PAGE });
@@ -36,7 +36,7 @@ describe("SpellBar", () => {
     const onSelect = vi.fn();
     render(<SpellBar pages={pages} selectedSlot={null} mana={100} fewerChoices={false} onSelect={onSelect} raised={false} hudScale={1} />);
     fireEvent.keyDown(window, { key: "2" });
-    expect(onSelect).toHaveBeenLastCalledWith(1);
+    expect(onSelect).toHaveBeenLastCalledWith(2);
     fireEvent.keyDown(window, { key: "3" }); // faded page: ignored
     expect(onSelect).toHaveBeenCalledTimes(1);
     fireEvent.keyDown(window, { key: "Escape" });
@@ -51,7 +51,7 @@ describe("SpellBar", () => {
     fireEvent.keyDown(window, { key: "2", ctrlKey: true });
     expect(onSelect).not.toHaveBeenCalled();
     fireEvent.keyDown(window, { key: "2" });
-    expect(onSelect).toHaveBeenLastCalledWith(1);
+    expect(onSelect).toHaveBeenLastCalledWith(2);
   });
 
   it("shows only four pages under fewer choices", () => {
@@ -67,5 +67,27 @@ describe("SpellBar", () => {
   it("scales the toolbar font size with hudScale", () => {
     render(<SpellBar pages={pages} selectedSlot={null} mana={100} fewerChoices={false} onSelect={() => {}} raised={false} hudScale={1.25} />);
     expect(screen.getByRole("toolbar", { name: "Spellbook" })).toHaveStyle({ fontSize: "15px" });
+  });
+
+  it("shows an empty page as a dashed chip that opens the Spellbook hint, and skips it for keys", () => {
+    const onSelect = vi.fn();
+    const withEmpties = withEmptyPages(resolvePages([page(2, "tide", "orb")], 3), 3);
+    render(<SpellBar pages={withEmpties} selectedSlot={null} mana={100} fewerChoices={false} onSelect={onSelect} raised={false} hudScale={1} />);
+    const empty = screen.getByRole("button", { name: "Empty page 1" });
+    expect(empty.className).toContain("realm-spell--empty");
+    expect(empty).toHaveAttribute("aria-disabled", "true");
+    expect(empty).toHaveAttribute("title", "Make a spell in your Spellbook");
+    fireEvent.keyDown(window, { key: "1" });
+    expect(onSelect).not.toHaveBeenCalled();
+    fireEvent.click(empty);
+    const hint = screen.getByRole("dialog", { name: "Empty page" });
+    expect(hint.textContent).toContain("Your spellbook has room. Make a spell to fill this page.");
+    expect(screen.getByRole("link", { name: "Open the Spellbook" })).toHaveAttribute("href", "/spellbook");
+    fireEvent.keyDown(hint, { key: "Escape" });
+    expect(screen.queryByRole("dialog", { name: "Empty page" })).not.toBeInTheDocument();
+    expect(onSelect).not.toHaveBeenCalled();
+    fireEvent.click(empty);
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("dialog", { name: "Empty page" })).not.toBeInTheDocument();
   });
 });

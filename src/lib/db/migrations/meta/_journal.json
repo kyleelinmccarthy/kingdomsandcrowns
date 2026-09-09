@@ -176,6 +176,13 @@
       "when": 1788893401616,
       "tag": "0024_hot_glorian",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "6",
+      "when": 1788962823568,
+      "tag": "0025_worried_tyrannus",
+      "breakpoints": true
     }
   ]
 }

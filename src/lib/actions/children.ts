@@ -15,6 +15,7 @@ import { hashPin } from "@/lib/utils/pin";
 import { resolveAge } from "@/lib/utils/age-mode";
 import { formatDate } from "@/lib/utils/dates";
 import { syncSeasonForGrade } from "@/lib/services/season-sync";
+import { ensureStarterSpell } from "@/lib/services/spells";
 import type { TransitionPlan } from "@/lib/utils/seasons";
 import { defaultSchoolForSubject } from "@/lib/utils/spell-schools";
 
@@ -111,6 +112,7 @@ export async function createChild(data: {
 
   // A hero with a grade starts their first season the day they're summoned.
   if (grade) await syncSeasonForGrade(id, grade, formatDate(now));
+  await ensureStarterSpell(id);
 
   return { id, displayName: name };
 }

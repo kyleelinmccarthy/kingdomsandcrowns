@@ -690,6 +690,9 @@ export const realmSettings = sqliteTable(
     // Hard screen-time ceiling per local day, whatever the mode.
     dailyCapMinutes: integer("daily_cap_minutes").notNull().default(30),
     toneMode: text("tone_mode", { enum: ["gentle", "monsters"] }).notNull().default("gentle"),
+    // Slice 8: when the hero first saw the how-to-play card, and when the starter spell was seeded (or found unnecessary).
+    helpSeenAt: integer("help_seen_at", { mode: "timestamp" }),
+    starterSpellAt: integer("starter_spell_at", { mode: "timestamp" }),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   }

@@ -12,7 +12,7 @@ import { renderSettingsFor } from "@/lib/realm/render-settings";
 import { VILLAGERS, villagerById } from "@/lib/realm/villagers";
 import { gateCopy, type GateCopy } from "@/lib/realm/play-clock";
 import { disposeSpriteTextures } from "@/lib/realm/sprite-texture";
-import { resolvePages } from "@/lib/realm/spells/pages";
+import { resolvePages, withEmptyPages } from "@/lib/realm/spells/pages";
 import { TROUBLE_COPY, type TroubleSkin } from "@/lib/realm/spells/troubles";
 import { MANA_MAX } from "@/lib/realm/spells/mana";
 import { formatLap } from "@/lib/realm/recess/recess";
@@ -41,6 +41,8 @@ const VILLAGERS_RESTING = "The villagers are resting. Try again.";
 const NOT_ENOUGH_MANA = "Not enough mana yet.";
 const LOST_FOCUS = "You lost focus for a moment.";
 const CEREMONY_FAILED = "The crown could not be recorded.";
+const CAST_HINT = "Tap or click where the spell should go, or press Space to aim at the nearest trouble.";
+const CAST_HINT_TOUCH = "Tap where the spell should go.";
 
 const RealmScene = dynamic(() => import("./realm-scene"), { ssr: false, loading: () => <p className="p-6 text-center text-muted-foreground">Opening the Realm…</p> });
 
@@ -201,7 +203,8 @@ function RealmOpen({
   const openVillager = openVillagerId ? villagerById(openVillagerId) : null;
   const openBuilding = openVillager ? kingdom.buildings.find((b) => b.id === openVillager.buildingId) ?? null : null;
   const panelOpen = openVillager !== null && openBuilding !== null;
-  const pages = useMemo(() => resolvePages(bundle.spellbook.spells, bundle.spellbook.slots), [bundle.spellbook]);
+  const pages = useMemo(() => withEmptyPages(resolvePages(bundle.spellbook.spells, bundle.spellbook.slots), bundle.spellbook.slots), [bundle.spellbook]);
+  const castHintShown = useRef(false);
   const selectedSpell = selectedSlot === null ? null : pages.find((p) => p.slot === selectedSlot)?.spell ?? null;
   const troubleSkin: TroubleSkin = kingdom.tone === "monsters" ? "monsters" : "gentle";
   const { axisRef, setStick, castRef } = useRealmInput({ enabled: !panelOpen && !ceremonyRunning, castEnabled: isChildView && !panelOpen && !ceremonyRunning && !riding && selectedSpell !== null });
@@ -405,7 +408,7 @@ function RealmOpen({
   if (!portalTarget) return null;
 
   return createPortal(
-    <div ref={rootRef} className="realm-root" tabIndex={-1} {...readingAttributes(bundle.profile)}>
+    <div ref={rootRef} className={`realm-root${selectedSpell ? " realm-root--aiming" : ""}`} tabIndex={-1} {...readingAttributes(bundle.profile)}>
       <SpriteSource key={retryKey} config={config} villagers={VILLAGERS} troubleSkin={troubleSkin} mount={mountTexture} recess={isChildView} crown={crownSprite} castleBanner={bundle.banners > 0} onReady={onReady} onError={onError} />
       {textures && (
         <RealmScene
@@ -464,7 +467,7 @@ function RealmOpen({
         }}
       />
       {settings.showStick && !panelOpen && !ceremonyRunning && <TouchStick onChange={setStick} />}
-      {isChildView && !panelOpen && !ceremonyRunning && pages.length > 0 && (
+      {isChildView && !panelOpen && !ceremonyRunning && (
         <SpellBar
           pages={pages}
           selectedSlot={selectedSlot}
@@ -476,6 +479,10 @@ function RealmOpen({
               return;
             }
             setSelectedSlot(slot);
+            if (slot !== null && !castHintShown.current) {
+              castHintShown.current = true; // once per visit; the toast holds four seconds
+              setToast(settings.showStick ? CAST_HINT_TOUCH : CAST_HINT);
+            }
           }}
           raised={settings.showStick}
           hudScale={settings.hudScale}

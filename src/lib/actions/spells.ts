@@ -8,7 +8,7 @@ import * as schema from "@/lib/db/schema";
 import { requireChildAccess } from "@/lib/auth/access";
 import { levelFromXp } from "@/lib/utils/level";
 import { spellSlots } from "@/lib/utils/spell-slots";
-import { toPage, loadSpellbookPages } from "@/lib/services/spells";
+import { toPage, loadSpellbookPages, ensureStarterSpell } from "@/lib/services/spells";
 import {
   resolveSpell,
   unlockedPartIds,
@@ -79,6 +79,7 @@ async function loadUnlockContext(childId: string) {
 /** A hero may read their own spellbook. */
 export async function getSpellbook(childId: string): Promise<Spellbook> {
   await requireChildAccess(childId);
+  await ensureStarterSpell(childId).catch((err: unknown) => console.error("Starter spell failed", err));
   const [{ level, ctx, subjectNamesBySchool }, spellbook] = await Promise.all([
     loadUnlockContext(childId),
     loadSpellbookPages(childId),

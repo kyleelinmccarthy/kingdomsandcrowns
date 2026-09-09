@@ -11,6 +11,7 @@ import { BAND_LABELS, type ContentBand } from "@/lib/utils/content-bands";
 import { findSkill, type SkillArea } from "@/lib/utils/skills";
 import { buildingProgress, findBuilding } from "@/lib/utils/kingdom";
 import { deedStory, findDeed } from "@/lib/utils/deeds";
+import { SIDE_QUEST_LOWER, SIDE_QUESTS_LOWER } from "@/lib/utils/side-quest-copy";
 import {
   buildDeedRun,
   chooseSkills,
@@ -99,7 +100,7 @@ export async function startDeedRun(childId: string, deedId: string, context: "pa
   // In the world, only the hero plays; a parent previewing the Realm reads stories but never starts a run.
   if (context === "realm" && !isChildActor(access)) throw new Error(HERO_ONLY);
   const deed = findDeed(deedId);
-  if (!deed) throw new Error("That deed is not in the chronicle.");
+  if (!deed) throw new Error(`That ${SIDE_QUEST_LOWER} is not in the chronicle.`);
   const hero = await loadHeroBand(childId);
   if (!hero.enabled) throw new Error(CLOSED);
   const story = deedStory(deed, hero.tone);
@@ -136,7 +137,7 @@ export async function startDeedRun(childId: string, deedId: string, context: "pa
   }));
 
   const built = buildDeedRun({ deed, band: hero.band, masteryBySkill, profile, seed: Date.now() >>> 0, poolItems, recentMisses });
-  if (built.questions.length === 0) throw new Error("No deeds are ready for this hero yet.");
+  if (built.questions.length === 0) throw new Error(`No ${SIDE_QUESTS_LOWER} are ready for this hero yet.`);
 
   const now = new Date();
   const runId = nanoid();
@@ -156,7 +157,7 @@ export async function startDeedRun(childId: string, deedId: string, context: "pa
 
 async function loadRun(runId: string) {
   const rows = await db.select().from(schema.deedRun).where(eq(schema.deedRun.id, runId)).limit(1);
-  if (!rows[0]) throw new Error("That deed is not in the chronicle.");
+  if (!rows[0]) throw new Error(`That ${SIDE_QUEST_LOWER} is not in the chronicle.`);
   await requireChildAccess(rows[0].childId, { write: true });
   return rows[0];
 }

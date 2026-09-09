@@ -49,15 +49,15 @@ describe("SiteCard", () => {
   it("shows an error with a Try again control that clears it", () => {
     const onClearError = vi.fn();
     const { rerender } = render(
-      <SiteCard villager={VILLAGERS[0]} building={building} preview={false} busy={false} error="No deeds are ready for this hero yet." onBegin={() => {}} onClearError={onClearError} onClose={() => {}} />
+      <SiteCard villager={VILLAGERS[0]} building={building} preview={false} busy={false} error="No side quests are ready for this hero yet." onBegin={() => {}} onClearError={onClearError} onClose={() => {}} />
     );
-    expect(screen.getByText("No deeds are ready for this hero yet.")).toBeInTheDocument();
+    expect(screen.getByText("No side quests are ready for this hero yet.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     expect(onClearError).toHaveBeenCalledTimes(1);
     // The button only clears the caller's `error` state; re-render with it emptied,
     // as the real DeedPanel does once `onClearError` runs.
     rerender(<SiteCard villager={VILLAGERS[0]} building={building} preview={false} busy={false} error="" onBegin={() => {}} onClearError={onClearError} onClose={() => {}} />);
-    expect(screen.queryByText("No deeds are ready for this hero yet.")).not.toBeInTheDocument();
+    expect(screen.queryByText("No side quests are ready for this hero yet.")).not.toBeInTheDocument();
   });
 
   it("shows each side quest's subject", () => {
