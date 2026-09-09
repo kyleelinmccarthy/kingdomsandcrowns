@@ -80,7 +80,7 @@ vi.mock("./sprite-source", async () => {
           holdNextSpriteMount = false;
           heldOnReady = onReady;
         } else {
-          onReady({ hero: {}, companion: null, villagers: {}, troubles: {}, mount: null, heroMounted: null, gleam: null, banner: null, crown: null, castleBanner: null });
+          onReady({ hero: {}, companion: null, villagers: {}, troubles: {}, mount: null, heroMounted: null, gleam: null, banner: null, crown: null, castleBanner: null, world: {}, tiles: null });
         }
       }, [onReady, onError]);
       return null;
@@ -649,7 +649,7 @@ describe("RealmShell help card", () => {
     fireEvent.click(helpButton);
     expect(screen.getByRole("dialog", { name: "How to play" })).toBeInTheDocument();
     await act(async () => {
-      heldOnReady?.({ hero: {}, companion: null, villagers: {}, troubles: {}, mount: null, heroMounted: null, gleam: null, banner: null, crown: null, castleBanner: null });
+      heldOnReady?.({ hero: {}, companion: null, villagers: {}, troubles: {}, mount: null, heroMounted: null, gleam: null, banner: null, crown: null, castleBanner: null, world: {}, tiles: null });
     });
     expect(screen.getByTestId("scene").dataset.ceremony).toBe("false");
     fireEvent.click(screen.getByRole("button", { name: "Close" }));

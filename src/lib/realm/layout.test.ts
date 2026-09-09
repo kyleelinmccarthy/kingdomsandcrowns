@@ -165,3 +165,10 @@ describe("decorations", () => {
     expect(spriteSizeFor(rock)).toEqual({ w: 0.9, h: 0.9 });
   });
 });
+
+describe("castle tier on the layout", () => {
+  it("carries the castle type so the scene can pick its figure", () => {
+    expect(buildWorldLayout({ ...none, castleType: "keep" }).castleType).toBe("keep");
+    expect(buildWorldLayout({ ...none, castleType: "moon-base" }).castleType).toBe("campsite");
+  });
+});

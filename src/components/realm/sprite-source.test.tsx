@@ -11,10 +11,14 @@ vi.mock("@/lib/realm/sprite-texture", async (importOriginal) => {
   return { ...actual, svgElementToTexture: (...a: unknown[]) => svgElementToTexture(...a) };
 });
 
+const tileToTexture = vi.fn();
+vi.mock("@/lib/realm/tile-texture", () => ({ tileToTexture: (...a: unknown[]) => tileToTexture(...a) }));
+
 beforeEach(() => {
   vi.clearAllMocks();
   disposeSpriteTextures();
   svgElementToTexture.mockImplementation(async (svg: SVGSVGElement) => ({ id: svg.getAttribute("data-figure-id") ?? svg.getAttribute("data-figure"), dispose: () => {} }));
+  tileToTexture.mockImplementation(async (tile: string[][]) => ({ id: `tile:${tile.length}`, repeat: { set: vi.fn() }, dispose: () => {} }));
 });
 afterEach(cleanup);
 
@@ -71,5 +75,31 @@ describe("SpriteSource", () => {
     expect(t.gleam).toMatchObject({ id: "gleam" });
     expect(t.banner).toMatchObject({ id: "banner" });
     expect(svgElementToTexture).toHaveBeenCalledTimes(5); // hero, rider, mount, gleam, banner
+  });
+
+  it("rasterizes the world set at its own scales and paints the two tiles", async () => {
+    const onReady = vi.fn();
+    render(<SpriteSource config={DEFAULT_AVATAR} world={{ castleType: "keep", buildingIds: ["well", "mill"], decor: true }} onReady={onReady} onError={() => {}} />);
+    await waitFor(() => expect(onReady).toHaveBeenCalledTimes(1));
+    const textures = onReady.mock.calls[0][0];
+    expect(textures.world["castle:keep"].id).toBe("keep");
+    expect(textures.world["building:well"].id).toBe("well");
+    expect(textures.world["building:mill"].id).toBe("mill");
+    expect(textures.world.foundation.id).toBe("foundation");
+    expect(textures.world["decor:oak"].id).toBe("oak");
+    expect(textures.tiles.grass).toBeTruthy();
+    expect(textures.tiles.cobble).toBeTruthy();
+    const scaleOf = (figure: string) => svgElementToTexture.mock.calls.find((c) => (c[0] as SVGSVGElement).getAttribute("data-figure") === figure)?.[1];
+    expect(scaleOf("castle")).toBe(8);
+    expect(scaleOf("building")).toBe(6);
+    expect(scaleOf("foundation")).toBe(4);
+    expect(scaleOf("decor")).toBe(4);
+  });
+
+  it("skips decorations when the world asks for none", async () => {
+    const onReady = vi.fn();
+    render(<SpriteSource config={DEFAULT_AVATAR} world={{ castleType: "campsite", buildingIds: [], decor: false }} onReady={onReady} onError={() => {}} />);
+    await waitFor(() => expect(onReady).toHaveBeenCalledTimes(1));
+    expect(Object.keys(onReady.mock.calls[0][0].world).some((k) => k.startsWith("decor:"))).toBe(false);
   });
 });

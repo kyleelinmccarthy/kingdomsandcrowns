@@ -5,7 +5,7 @@ import { memo, useEffect, useRef, type RefObject } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Html, OrthographicCamera } from "@react-three/drei";
 import type * as THREE from "three";
-import { WORLD_SIZE, type Prop, type WorldLayout, type Vec2 } from "@/lib/realm/layout";
+import { WORLD_SIZE, spriteSizeFor, type Prop, type WorldLayout, type Vec2 } from "@/lib/realm/layout";
 import { setTarget, stepCompanion, stepHero, unstickHero, setMounted, HERO_SPEED, COMPANION_GAP_MOUNTED, type CompanionState, type HeroState } from "@/lib/realm/movement";
 import { CAMERA_OFFSET, CAMERA_ZOOM, followCamera } from "@/lib/realm/camera";
 import { nearestVillager, villagerById } from "@/lib/realm/villagers";
@@ -51,9 +51,21 @@ const SPRITE_W = 1.5;
 const SPRITE_H = 2;
 export const RISE_MS = 900;
 const CALM_FOUNDATION = "#5a5750";
+const CALM_TINT = "#a9aaa4";
 
 function easeOut(t: number): number {
   return 1 - (1 - t) * (1 - t);
+}
+
+function PropLabel({ prop, y }: { prop: Prop; y: number }) {
+  return (
+    <Html position={[0, y, 0]} center zIndexRange={[10, 0]}>
+      <span className="realm-label">
+        {prop.label}
+        {prop.tag && <span className="realm-label-tag">{prop.tag}</span>}
+      </span>
+    </Html>
+  );
 }
 
 const World = memo(function World({ layout, textures, settings, axisRef, interactive, reachId, onReachChange, onTalk, risingId, selectedSpell, selectedSlot, castRef, spellsEnabled, onSpellEvent, seed, riding, mountSpeed, recessActive, onRecessEvent, ceremonyActive, ceremonySkipRef, onCeremonyEvent }: RealmSceneProps) {
@@ -66,7 +78,7 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
   const mountSprite = useRef<THREE.Sprite>(null);
   const camera = useRef<THREE.OrthographicCamera>(null);
   const reachRef = useRef<string | null>(null);
-  const buildingMeshes = useRef(new Map<string, THREE.Mesh>());
+  const buildingObjects = useRef(new Map<string, THREE.Object3D>()); // a sprite, or the fallback box mesh when its texture is missing
   const rising = useRef<{ id: string; startedAt: number } | null>(null);
   const wasInteractive = useRef(interactive);
   const simRef = useSpellSimRef();
@@ -198,12 +210,18 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
     }
     const r = rising.current;
     if (r) {
-      const mesh = buildingMeshes.current.get(r.id);
+      const obj = buildingObjects.current.get(r.id);
       const k = Math.min(1, (performance.now() - r.startedAt) / RISE_MS);
       const s = 0.1 + 0.9 * easeOut(k);
-      if (mesh) {
-        mesh.scale.y = s;
-        mesh.position.y = (mesh.userData.h as number) * (s - 1) / 2; // keep the base on the ground while it grows
+      if (obj) {
+        if (obj.userData.box) {
+          obj.scale.y = s;
+          obj.position.y = ((obj.userData.boxH as number) * s) / 2; // the box's centre rises with it, base on the ground
+        } else {
+          const h = obj.userData.h as number;
+          obj.scale.y = h * s;
+          obj.position.y = (h * s) / 2;
+        }
       }
       if (k >= 1) rising.current = null;
     }
@@ -214,6 +232,15 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
   const colorFor = (prop: Prop) => (prop.kind === "foundation" && settings.calmPalette ? CALM_FOUNDATION : prop.color);
   const reachVillager = reachId ? villagerById(reachId) : null;
   const reachPlacement = reachId ? layout.villagers.find((v) => v.id === reachId) ?? null : null;
+  const tint = settings.calmPalette ? CALM_TINT : "#ffffff";
+  const worldTex = (key: string): THREE.CanvasTexture | undefined => textures.world[key];
+  const spriteFor = (prop: Prop): THREE.CanvasTexture | undefined => {
+    if (prop.kind === "castle") return worldTex(`castle:${layout.castleType}`);
+    if (prop.kind === "building") return worldTex(`building:${prop.id}`);
+    if (prop.kind === "decor") return worldTex(`decor:${prop.variant ?? ""}`);
+    return undefined;
+  };
+  const standing = layout.props.filter((p) => p.kind === "castle" || p.kind === "building" || p.kind === "decor" || p.kind === "barrier");
 
   return (
     <>
@@ -237,34 +264,62 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
       >
         {/* Visual only: the ground plane is drawn larger than the playable world so its edge never shows past the backdrop. */}
         <planeGeometry args={[WORLD_SIZE * 3, WORLD_SIZE * 3]} />
-        <meshStandardMaterial color={ground} />
+        {textures.tiles ? <meshStandardMaterial map={textures.tiles.grass} color={tint} /> : <meshStandardMaterial color={ground} />}
       </mesh>
-      {layout.props.filter((prop) => prop.kind !== "villager" && prop.kind !== "banner").map((prop) => (
-        <group key={prop.id} position={[prop.position.x, prop.size.h / 2, prop.position.z]}>
-          <mesh
-            ref={(mesh) => {
-              if (prop.kind !== "building") return;
-              if (mesh) {
-                mesh.userData.h = prop.size.h;
-                buildingMeshes.current.set(prop.id, mesh);
-              } else {
-                buildingMeshes.current.delete(prop.id);
-              }
-            }}
-          >
-            <boxGeometry args={[prop.size.w, prop.size.h, prop.size.d]} />
-            <meshStandardMaterial color={colorFor(prop)} />
+      {layout.props.filter((p) => p.kind === "path").map((prop) => (
+        <mesh key={prop.id} position={[prop.position.x, 0.03, prop.position.z]} rotation={[-Math.PI / 2, 0, 0]}>
+          <planeGeometry args={[prop.size.w, prop.size.d]} />
+          {textures.tiles ? <meshStandardMaterial map={textures.tiles.cobble} color={tint} /> : <meshStandardMaterial color={prop.color} />}
+        </mesh>
+      ))}
+      {layout.props.filter((p) => p.kind === "foundation").map((prop) => (
+        <group key={prop.id} position={[prop.position.x, 0, prop.position.z]}>
+          <mesh position={[0, 0.04, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <planeGeometry args={[prop.size.w, prop.size.d]} />
+            {worldTex("foundation") ? (
+              <meshStandardMaterial map={worldTex("foundation")} color={tint} transparent alphaTest={0.1} />
+            ) : (
+              <meshStandardMaterial color={colorFor(prop)} />
+            )}
           </mesh>
-          {prop.kind !== "path" && (
-            <Html position={[0, prop.size.h / 2 + 0.6, 0]} center zIndexRange={[10, 0]}>
-              <span className="realm-label">
-                {prop.label}
-                {prop.tag && <span className="realm-label-tag">{prop.tag}</span>}
-              </span>
-            </Html>
-          )}
+          <PropLabel prop={prop} y={0.8} />
         </group>
       ))}
+      {standing.map((prop) => {
+        const texture = spriteFor(prop);
+        const { w, h } = spriteSizeFor(prop);
+        const register = (obj: THREE.Object3D | null) => {
+          if (prop.kind !== "building") return;
+          if (obj) {
+            obj.userData.h = h;
+            obj.userData.box = !texture;
+            obj.userData.boxH = prop.size.h;
+            buildingObjects.current.set(prop.id, obj);
+          } else {
+            buildingObjects.current.delete(prop.id);
+          }
+        };
+        if (texture) {
+          return (
+            <group key={prop.id} position={[prop.position.x, 0, prop.position.z]}>
+              <sprite ref={register} position={[0, h / 2, 0]} scale={[w, h, 1]}>
+                <spriteMaterial map={texture} color={tint} transparent alphaTest={0.1} />
+              </sprite>
+              {prop.kind !== "decor" && <PropLabel prop={prop} y={h + 0.4} />}
+            </group>
+          );
+        }
+        // No texture for this prop (a barrier, or a figure that failed to draw): the slice 4 box.
+        return (
+          <group key={prop.id} position={[prop.position.x, 0, prop.position.z]}>
+            <mesh ref={register} position={[0, prop.size.h / 2, 0]}>
+              <boxGeometry args={[prop.size.w, prop.size.h, prop.size.d]} />
+              <meshStandardMaterial color={colorFor(prop)} />
+            </mesh>
+            {prop.kind !== "decor" && prop.kind !== "barrier" && <PropLabel prop={prop} y={prop.size.h + 0.6} />}
+          </group>
+        );
+      })}
       {layout.villagers.map((v) => {
         const texture = textures.villagers[v.id];
         if (!texture) return null;

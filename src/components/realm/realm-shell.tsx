@@ -215,6 +215,12 @@ function RealmOpen({
     [bundle.castleType, kingdom.buildings, kingdomError, bundle.banners]
   );
   const settings = useMemo(() => renderSettingsFor(bundle.profile, isTouch), [bundle.profile, isTouch]);
+  // Which world figures to rasterise; keyed by a string so a building completing is the only thing that changes it.
+  const builtKey = kingdom.buildings.filter((b) => b.complete).map((b) => b.id).sort().join(",");
+  const world = useMemo(
+    () => ({ castleType: bundle.castleType, buildingIds: builtKey ? builtKey.split(",") : [], decor: !settings.calmPalette }),
+    [bundle.castleType, builtKey, settings.calmPalette]
+  );
   // Computed before `panelOpen` so a Talk whose building data never loaded (or has since
   // gone missing) cannot pause the world behind a panel that has nothing to show.
   const openVillager = openVillagerId ? villagerById(openVillagerId) : null;
@@ -471,7 +477,7 @@ function RealmOpen({
       onContextMenu={(e) => e.preventDefault()}
       {...readingAttributes(bundle.profile)}
     >
-      <SpriteSource key={retryKey} config={config} villagers={VILLAGERS} troubleSkin={troubleSkin} mount={mountTexture} recess={isChildView} crown={crownSprite} castleBanner={bundle.banners > 0} onReady={onReady} onError={onError} />
+      <SpriteSource key={retryKey} config={config} villagers={VILLAGERS} troubleSkin={troubleSkin} mount={mountTexture} recess={isChildView} crown={crownSprite} castleBanner={bundle.banners > 0} world={world} onReady={onReady} onError={onError} />
       {textures && (
         <RealmScene
           layout={layout}

@@ -61,6 +61,7 @@ describe("gleams", () => {
       spawn: SPAWN,
       colliders: [],
       villagers: [],
+      castleType: "campsite",
     };
     blockedLayout.colliders = blockedLayout.props;
     const result = spawnGleams({ seed: 5, now: 0, layout: blockedLayout, state: active, lowStimulus: false });

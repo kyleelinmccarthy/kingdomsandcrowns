@@ -25,7 +25,7 @@ export type Prop = {
 export type SiteProgress = { id: string; done: number; total: number; complete: boolean };
 export type VillagerPlacement = { id: string; buildingId: string; position: Vec2 };
 
-export type WorldLayout = { props: Prop[]; spawn: Vec2; colliders: Prop[]; villagers: VillagerPlacement[] };
+export type WorldLayout = { props: Prop[]; spawn: Vec2; colliders: Prop[]; villagers: VillagerPlacement[]; castleType: string };
 
 export const CASTLE_POSITION: Vec2 = { x: 0, z: -14 };
 export const SPAWN: Vec2 = { x: 0, z: 15 };
@@ -122,7 +122,8 @@ export function buildingFootprint(id: string): { w: number; d: number; h: number
 
 export function buildWorldLayout(input: { castleType: string; buildings: SiteProgress[]; villagers?: boolean; banners?: number; decor?: boolean }): WorldLayout {
   const showVillagers = input.villagers ?? true;
-  const castleSize = CASTLE_FOOTPRINTS[input.castleType] ?? CASTLE_FOOTPRINTS.campsite;
+  const castleType = input.castleType in CASTLE_FOOTPRINTS ? input.castleType : "campsite";
+  const castleSize = CASTLE_FOOTPRINTS[castleType];
   const props: Prop[] = [
     { id: "castle", kind: "castle", label: "Castle", position: CASTLE_POSITION, size: castleSize, color: CASTLE_COLOR, solid: true },
   ];
@@ -175,5 +176,5 @@ export function buildWorldLayout(input: { castleType: string; buildings: SitePro
     });
   }
 
-  return { props, spawn: SPAWN, colliders: props.filter((p) => p.solid), villagers };
+  return { props, spawn: SPAWN, colliders: props.filter((p) => p.solid), villagers, castleType };
 }

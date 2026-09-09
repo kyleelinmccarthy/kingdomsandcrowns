@@ -10,6 +10,10 @@ import { TroubleFigure, TROUBLE_KINDS } from "@/components/realm/trouble-figures
 import type { TroubleKind, TroubleSkin } from "@/lib/realm/spells/troubles";
 import { GleamFigure, BannerFigure } from "@/components/realm/recess-figures";
 import { CrownFigure, CastleBannerFigure } from "@/components/realm/ceremony-figures";
+import { CastleFigure, BuildingFigure, FoundationFigure, DecorFigure, DECOR_KINDS, WORLD_SPRITE_SCALE } from "@/components/realm/world-figures";
+import { grassTile, cobbleTile, type Tile } from "@/lib/realm/tiles";
+import { tileToTexture } from "@/lib/realm/tile-texture";
+import { WORLD_SIZE } from "@/lib/realm/layout";
 
 export type SpriteTextures = {
   hero: THREE.CanvasTexture;
@@ -22,14 +26,28 @@ export type SpriteTextures = {
   banner: THREE.CanvasTexture | null;
   crown: THREE.CanvasTexture | null;
   castleBanner: THREE.CanvasTexture | null;
+  world: Record<string, THREE.CanvasTexture>;
+  tiles: { grass: THREE.CanvasTexture; cobble: THREE.CanvasTexture } | null;
 };
 
 const NO_VILLAGERS: Villager[] = [];
 
-async function textureFor(key: string, svg: SVGSVGElement): Promise<THREE.CanvasTexture> {
+/** A grass tile spans two world units; the ground plane is WORLD_SIZE * 3 across. */
+const GRASS_REPEAT = (WORLD_SIZE * 3) / 2;
+
+async function textureFor(key: string, svg: SVGSVGElement, scale?: number): Promise<THREE.CanvasTexture> {
   const cached = getCachedTexture(key);
   if (cached) return cached;
-  const texture = await svgElementToTexture(svg);
+  const texture = await svgElementToTexture(svg, scale);
+  setCachedTexture(key, texture);
+  return texture;
+}
+
+async function tileTexture(key: string, tile: Tile, repeat: number): Promise<THREE.CanvasTexture> {
+  const cached = getCachedTexture(key);
+  if (cached) return cached;
+  const texture = await tileToTexture(tile);
+  texture.repeat.set(repeat, repeat);
   setCachedTexture(key, texture);
   return texture;
 }
@@ -47,6 +65,7 @@ export function SpriteSource({
   recess = false,
   crown = null,
   castleBanner = false,
+  world = null,
   onReady,
   onError,
 }: {
@@ -63,6 +82,8 @@ export function SpriteSource({
   crown?: { id: string; color: string } | null;
   /** When true, also rasterizes the white pennant the castle banners are tinted from. */
   castleBanner?: boolean;
+  /** When set, rasterizes the castle, the built buildings, the foundation, and (optionally) the decorations, and paints the ground tiles. Must be a stable (memoised) object. */
+  world?: { castleType: string; buildingIds: string[]; decor: boolean } | null;
   onReady: (textures: SpriteTextures) => void;
   onError: (error: Error) => void;
 }) {
@@ -118,14 +139,33 @@ export function SpriteSource({
         const svg = root.querySelector<SVGSVGElement>('svg[data-figure="castle-banner"]');
         if (svg) castleBannerTexture = await textureFor("castle-banner", svg);
       }
-      if (!cancelled) onReady({ hero, companion, villagers: villagerTextures, troubles: troubleTextures, mount: mountTexture, heroMounted, gleam, banner, crown: crownTexture, castleBanner: castleBannerTexture });
+      const worldTextures: Record<string, THREE.CanvasTexture> = {};
+      let tiles: SpriteTextures["tiles"] = null;
+      if (world) {
+        const castleSvg = root.querySelector<SVGSVGElement>(`svg[data-figure="castle"][data-figure-id="${world.castleType}"]`);
+        if (castleSvg) worldTextures[`castle:${world.castleType}`] = await textureFor(`castle:${world.castleType}`, castleSvg, WORLD_SPRITE_SCALE.castle);
+        for (const id of world.buildingIds) {
+          const svg = root.querySelector<SVGSVGElement>(`svg[data-figure="building"][data-figure-id="${id}"]`);
+          if (svg) worldTextures[`building:${id}`] = await textureFor(`building:${id}`, svg, WORLD_SPRITE_SCALE.building);
+        }
+        const foundationSvg = root.querySelector<SVGSVGElement>('svg[data-figure="foundation"]');
+        if (foundationSvg) worldTextures.foundation = await textureFor("foundation", foundationSvg, WORLD_SPRITE_SCALE.foundation);
+        if (world.decor) {
+          for (const kind of DECOR_KINDS) {
+            const svg = root.querySelector<SVGSVGElement>(`svg[data-figure="decor"][data-figure-id="${kind}"]`);
+            if (svg) worldTextures[`decor:${kind}`] = await textureFor(`decor:${kind}`, svg, WORLD_SPRITE_SCALE.decor);
+          }
+        }
+        tiles = { grass: await tileTexture("tile:grass", grassTile(7), GRASS_REPEAT), cobble: await tileTexture("tile:cobble", cobbleTile(11), 1) };
+      }
+      if (!cancelled) onReady({ hero, companion, villagers: villagerTextures, troubles: troubleTextures, mount: mountTexture, heroMounted, gleam, banner, crown: crownTexture, castleBanner: castleBannerTexture, world: worldTextures, tiles });
     })().catch((err: unknown) => {
       if (!cancelled) onError(err instanceof Error ? err : new Error(String(err)));
     });
     return () => {
       cancelled = true;
     };
-  }, [config, villagers, troubleSkin, mount, recess, crown, castleBanner, onReady, onError]);
+  }, [config, villagers, troubleSkin, mount, recess, crown, castleBanner, world, onReady, onError]);
 
   return (
     <div ref={host} style={{ position: "absolute", left: -9999, top: -9999, width: 1, height: 1, overflow: "hidden" }} aria-hidden="true">
@@ -139,6 +179,10 @@ export function SpriteSource({
       {recess && <BannerFigure />}
       {crown && <CrownFigure id={crown.id} color={crown.color} />}
       {castleBanner && <CastleBannerFigure />}
+      {world && <CastleFigure tier={world.castleType} />}
+      {world && world.buildingIds.map((id) => <BuildingFigure key={id} id={id} />)}
+      {world && <FoundationFigure />}
+      {world?.decor && DECOR_KINDS.map((kind) => <DecorFigure key={kind} kind={kind} />)}
     </div>
   );
 }
