@@ -14,6 +14,7 @@ import { CastleFigure, BuildingFigure, FoundationFigure, DecorFigure, DECOR_KIND
 import { grassTile, cobbleTile, type Tile } from "@/lib/realm/tiles";
 import { tileToTexture } from "@/lib/realm/tile-texture";
 import { WORLD_SIZE } from "@/lib/realm/layout";
+import { BUILDINGS } from "@/lib/utils/kingdom";
 
 export type SpriteTextures = {
   hero: THREE.CanvasTexture;
@@ -82,8 +83,8 @@ export function SpriteSource({
   crown?: { id: string; color: string } | null;
   /** When true, also rasterizes the white pennant the castle banners are tinted from. */
   castleBanner?: boolean;
-  /** When set, rasterizes the castle, the built buildings, the foundation, and (optionally) the decorations, and paints the ground tiles. Must be a stable (memoised) object. */
-  world?: { castleType: string; buildingIds: string[]; decor: boolean } | null;
+  /** When set, rasterizes the castle, every kingdom building, the foundation, and (optionally) the decorations, and paints the ground tiles. Must be a stable (memoised) object. */
+  world?: { castleType: string; decor: boolean } | null;
   onReady: (textures: SpriteTextures) => void;
   onError: (error: Error) => void;
 }) {
@@ -144,9 +145,9 @@ export function SpriteSource({
       if (world) {
         const castleSvg = root.querySelector<SVGSVGElement>(`svg[data-figure="castle"][data-figure-id="${world.castleType}"]`);
         if (castleSvg) worldTextures[`castle:${world.castleType}`] = await textureFor(`castle:${world.castleType}`, castleSvg, WORLD_SPRITE_SCALE.castle);
-        for (const id of world.buildingIds) {
-          const svg = root.querySelector<SVGSVGElement>(`svg[data-figure="building"][data-figure-id="${id}"]`);
-          if (svg) worldTextures[`building:${id}`] = await textureFor(`building:${id}`, svg, WORLD_SPRITE_SCALE.building);
+        for (const building of BUILDINGS) {
+          const svg = root.querySelector<SVGSVGElement>(`svg[data-figure="building"][data-figure-id="${building.id}"]`);
+          if (svg) worldTextures[`building:${building.id}`] = await textureFor(`building:${building.id}`, svg, WORLD_SPRITE_SCALE.building);
         }
         const foundationSvg = root.querySelector<SVGSVGElement>('svg[data-figure="foundation"]');
         if (foundationSvg) worldTextures.foundation = await textureFor("foundation", foundationSvg, WORLD_SPRITE_SCALE.foundation);
@@ -180,7 +181,7 @@ export function SpriteSource({
       {crown && <CrownFigure id={crown.id} color={crown.color} />}
       {castleBanner && <CastleBannerFigure />}
       {world && <CastleFigure tier={world.castleType} />}
-      {world && world.buildingIds.map((id) => <BuildingFigure key={id} id={id} />)}
+      {world && BUILDINGS.map((building) => <BuildingFigure key={building.id} id={building.id} />)}
       {world && <FoundationFigure />}
       {world?.decor && DECOR_KINDS.map((kind) => <DecorFigure key={kind} kind={kind} />)}
     </div>

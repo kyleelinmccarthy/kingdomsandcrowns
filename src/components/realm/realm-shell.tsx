@@ -215,11 +215,13 @@ function RealmOpen({
     () => buildWorldLayout({ castleType: bundle.castleType, buildings: kingdom.buildings, villagers: !kingdomError, banners: bundle.banners, decor: !settings.calmPalette }),
     [bundle.castleType, kingdom.buildings, kingdomError, bundle.banners, settings.calmPalette]
   );
-  // Which world figures to rasterise; keyed by a string so a building completing is the only thing that changes it.
-  const builtKey = kingdom.buildings.filter((b) => b.complete).map((b) => b.id).sort().join(",");
+  // All eight kingdom buildings are rasterised up front (see SpriteSource), so this only
+  // changes with the castle tier or the calm-palette decor toggle — never mid-visit as
+  // buildings complete, which is what keeps a completing building's rise on its sprite
+  // the whole way up instead of swapping from a fallback box partway through.
   const world = useMemo(
-    () => ({ castleType: bundle.castleType, buildingIds: builtKey ? builtKey.split(",") : [], decor: !settings.calmPalette }),
-    [bundle.castleType, builtKey, settings.calmPalette]
+    () => ({ castleType: bundle.castleType, decor: !settings.calmPalette }),
+    [bundle.castleType, settings.calmPalette]
   );
   // Computed before `panelOpen` so a Talk whose building data never loaded (or has since
   // gone missing) cannot pause the world behind a panel that has nothing to show.
@@ -391,9 +393,16 @@ function RealmOpen({
     returnFocus();
   }, [childId, isChildView, beginCeremonyIfWaiting, returnFocus]);
 
-  // Focus the world once it opens (it never moves focus while the card is showing).
+  // Focus the world once it opens (it never moves focus while the card is showing). Keyed on
+  // the first `textures` arrival only: `world` (see above) no longer changes mid-visit, so a
+  // later `onReady` is a sprite retry, and re-focusing then would yank focus away from
+  // whatever the hero is doing while the help card is closed.
+  const focusedOnce = useRef(false);
   useEffect(() => {
-    if (textures && !helpOpen) rootRef.current?.focus();
+    if (textures && !helpOpen && !focusedOnce.current) {
+      focusedOnce.current = true;
+      rootRef.current?.focus();
+    }
   }, [textures, helpOpen]);
 
   const onPanelClose = useCallback(() => {

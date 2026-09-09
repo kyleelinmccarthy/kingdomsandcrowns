@@ -4,6 +4,7 @@ import { SpriteSource } from "./sprite-source";
 import { DEFAULT_AVATAR } from "@/lib/utils/avatar-catalog";
 import { VILLAGERS } from "@/lib/realm/villagers";
 import { disposeSpriteTextures } from "@/lib/realm/sprite-texture";
+import { BUILDINGS } from "@/lib/utils/kingdom";
 
 const svgElementToTexture = vi.fn();
 vi.mock("@/lib/realm/sprite-texture", async (importOriginal) => {
@@ -79,12 +80,15 @@ describe("SpriteSource", () => {
 
   it("rasterizes the world set at its own scales and paints the two tiles", async () => {
     const onReady = vi.fn();
-    render(<SpriteSource config={DEFAULT_AVATAR} world={{ castleType: "keep", buildingIds: ["well", "mill"], decor: true }} onReady={onReady} onError={() => {}} />);
+    render(<SpriteSource config={DEFAULT_AVATAR} world={{ castleType: "keep", decor: true }} onReady={onReady} onError={() => {}} />);
     await waitFor(() => expect(onReady).toHaveBeenCalledTimes(1));
     const textures = onReady.mock.calls[0][0];
     expect(textures.world["castle:keep"].id).toBe("keep");
-    expect(textures.world["building:well"].id).toBe("well");
-    expect(textures.world["building:mill"].id).toBe("mill");
+    // All eight kingdom buildings are rasterised up front, not just the completed ones,
+    // so a building's rise tween is never mid-visit swapped from a fallback box.
+    for (const building of BUILDINGS) {
+      expect(textures.world[`building:${building.id}`].id).toBe(building.id);
+    }
     expect(textures.world.foundation.id).toBe("foundation");
     expect(textures.world["decor:oak"].id).toBe("oak");
     expect(textures.tiles.grass).toBeTruthy();
@@ -98,7 +102,7 @@ describe("SpriteSource", () => {
 
   it("skips decorations when the world asks for none", async () => {
     const onReady = vi.fn();
-    render(<SpriteSource config={DEFAULT_AVATAR} world={{ castleType: "campsite", buildingIds: [], decor: false }} onReady={onReady} onError={() => {}} />);
+    render(<SpriteSource config={DEFAULT_AVATAR} world={{ castleType: "campsite", decor: false }} onReady={onReady} onError={() => {}} />);
     await waitFor(() => expect(onReady).toHaveBeenCalledTimes(1));
     expect(Object.keys(onReady.mock.calls[0][0].world).some((k) => k.startsWith("decor:"))).toBe(false);
   });

@@ -272,19 +272,22 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
           {textures.tiles ? <meshStandardMaterial map={textures.tiles.cobble} color={tint} /> : <meshStandardMaterial color={prop.color} />}
         </mesh>
       ))}
-      {layout.props.filter((p) => p.kind === "foundation").map((prop) => (
-        <group key={prop.id} position={[prop.position.x, 0, prop.position.z]}>
-          <mesh position={[0, 0.04, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-            <planeGeometry args={[prop.size.w, prop.size.d]} />
-            {worldTex("foundation") ? (
-              <meshStandardMaterial map={worldTex("foundation")} color={tint} transparent alphaTest={0.1} />
-            ) : (
-              <meshStandardMaterial color={colorFor(prop)} />
-            )}
-          </mesh>
-          <PropLabel prop={prop} y={0.8} />
-        </group>
-      ))}
+      {layout.props.filter((p) => p.kind === "foundation").map((prop) => {
+        const foundationTex = worldTex("foundation");
+        return (
+          <group key={prop.id} position={[prop.position.x, 0, prop.position.z]}>
+            <mesh position={[0, 0.04, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+              <planeGeometry args={[prop.size.w, prop.size.d]} />
+              {foundationTex ? (
+                <meshStandardMaterial map={foundationTex} color={tint} transparent alphaTest={0.1} />
+              ) : (
+                <meshStandardMaterial color={colorFor(prop)} />
+              )}
+            </mesh>
+            <PropLabel prop={prop} y={0.8} />
+          </group>
+        );
+      })}
       {standing.map((prop) => {
         const texture = spriteFor(prop);
         const { w, h } = spriteSizeFor(prop);
