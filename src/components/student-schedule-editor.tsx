@@ -308,11 +308,14 @@ function DayRow({
         isSchoolDay ? "border-gold-dim bg-secondary/30" : "border-border/40 bg-muted/10"
       }`}
     >
-      <div className="flex items-center justify-between">
+      {/* Wraps rather than squeezes: the toggle beside it is a fixed width, and
+          a flex row that can't wrap pays for that by crushing the day name down
+          to one letter per line on a phone. */}
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
         <button
           type="button"
           onClick={onToggleExpanded}
-          className="flex min-w-0 items-center gap-2 text-left"
+          className="flex min-w-0 grow basis-40 flex-wrap items-center gap-x-2 gap-y-1 text-left"
           aria-expanded={expanded}
         >
           <svg
@@ -326,9 +329,9 @@ function DayRow({
           >
             <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
           </svg>
-          <h4 className="text-base font-medium">{DAY_LABELS[day]}</h4>
+          <h4 className="shrink-0 text-base font-medium">{DAY_LABELS[day]}</h4>
           {isSchoolDay && (
-            <span className="text-xs text-muted-foreground">
+            <span className="shrink-0 text-xs whitespace-nowrap text-muted-foreground">
               ({blocks.length} class{blocks.length === 1 ? "" : "es"})
             </span>
           )}
@@ -339,9 +342,9 @@ function DayRow({
           )}
         </button>
         {canEdit ? (
-          <label className="flex cursor-pointer items-center gap-2.5 select-none">
+          <label className="flex shrink-0 cursor-pointer items-center gap-2.5 select-none">
             <span
-              className={`text-sm font-medium ${isSchoolDay ? "text-foreground" : "text-muted-foreground"}`}
+              className={`text-sm font-medium whitespace-nowrap ${isSchoolDay ? "text-foreground" : "text-muted-foreground"}`}
             >
               {isSchoolDay ? "School Day" : "Day Off"}
             </span>
@@ -353,7 +356,7 @@ function DayRow({
           </label>
         ) : (
           <span
-            className={`rounded-full px-2.5 py-1 text-xs font-medium ${
+            className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium whitespace-nowrap ${
               isSchoolDay ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
             }`}
           >
@@ -406,19 +409,24 @@ function DayRow({
                 key={slot.key}
                 className="rounded-md border border-border/30 bg-background/40 px-3 py-2"
               >
-                <div className="flex items-center gap-3">
+                {/* The clock time and the controls drop to their own line on a
+                    phone. Side by side they're wide enough, and fixed enough,
+                    to leave the subject column a single character wide. */}
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
                   {/* Every subject in the slot on one line — this is one class
                       period that happens to cover more than one discipline. */}
                   <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1">
                     {slot.blocks.map((block) => {
                       const subject = subjects.find((sub) => sub.id === block.subjectId);
                       return (
-                        <span key={block.id} className="flex items-center gap-1.5">
+                        <span key={block.id} className="flex min-w-0 items-center gap-1.5">
                           <span
                             className="size-3 shrink-0 rounded-full"
                             style={{ backgroundColor: subject?.color ?? "#6b7280" }}
                           />
-                          <span className="text-sm">{subject?.name ?? "Unknown"}</span>
+                          <span className="min-w-0 text-sm break-words">
+                            {subject?.name ?? "Unknown"}
+                          </span>
                           {canEdit && slot.blocks.length > 1 && (
                             <Button
                               size="xs"
@@ -435,54 +443,56 @@ function DayRow({
                       );
                     })}
                   </div>
-                  <span className="shrink-0 text-xs text-muted-foreground">
-                    {formatTimeOfDay(slot.startTime)}&ndash;{formatTimeOfDay(slot.endTime)}
-                  </span>
-                  {canEdit && (
-                    <>
-                      <Button
-                        size="xs"
-                        variant="ghost"
-                        className="text-muted-foreground hover:text-foreground"
-                        onClick={() => startAdding(slot.key)}
-                        aria-label={`Add a subject to the ${formatTimeOfDay(slot.startTime)} slot on ${DAY_LABELS[day]}`}
-                        title="Add another subject to this time slot"
-                      >
-                        +
-                      </Button>
-                      <Button
-                        size="xs"
-                        variant="ghost"
-                        className="text-muted-foreground hover:text-foreground"
-                        onClick={() => startEditing(slot.key)}
-                        aria-label={`Edit the ${formatTimeOfDay(slot.startTime)} slot on ${DAY_LABELS[day]}`}
-                      >
-                        <svg
-                          className="size-3.5"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          strokeWidth={2}
+                  <div className="flex shrink-0 items-center justify-between gap-1 sm:justify-end sm:gap-2">
+                    <span className="shrink-0 text-xs whitespace-nowrap text-muted-foreground">
+                      {formatTimeOfDay(slot.startTime)}&ndash;{formatTimeOfDay(slot.endTime)}
+                    </span>
+                    {canEdit && (
+                      <>
+                        <Button
+                          size="xs"
+                          variant="ghost"
+                          className="text-muted-foreground hover:text-foreground"
+                          onClick={() => startAdding(slot.key)}
+                          aria-label={`Add a subject to the ${formatTimeOfDay(slot.startTime)} slot on ${DAY_LABELS[day]}`}
+                          title="Add another subject to this time slot"
                         >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"
-                          />
-                        </svg>
-                      </Button>
-                      <Button
-                        size="xs"
-                        variant="ghost"
-                        className="text-muted-foreground hover:text-destructive"
-                        onClick={() => slot.blocks.forEach((block) => handleRemove(block.id))}
-                        aria-label={`Remove the ${formatTimeOfDay(slot.startTime)} slot from ${DAY_LABELS[day]}`}
-                        title={slot.blocks.length > 1 ? "Remove this whole time slot" : "Remove this class"}
-                      >
-                        ×
-                      </Button>
-                    </>
-                  )}
+                          +
+                        </Button>
+                        <Button
+                          size="xs"
+                          variant="ghost"
+                          className="text-muted-foreground hover:text-foreground"
+                          onClick={() => startEditing(slot.key)}
+                          aria-label={`Edit the ${formatTimeOfDay(slot.startTime)} slot on ${DAY_LABELS[day]}`}
+                        >
+                          <svg
+                            className="size-3.5"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={2}
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"
+                            />
+                          </svg>
+                        </Button>
+                        <Button
+                          size="xs"
+                          variant="ghost"
+                          className="text-muted-foreground hover:text-destructive"
+                          onClick={() => slot.blocks.forEach((block) => handleRemove(block.id))}
+                          aria-label={`Remove the ${formatTimeOfDay(slot.startTime)} slot from ${DAY_LABELS[day]}`}
+                          title={slot.blocks.length > 1 ? "Remove this whole time slot" : "Remove this class"}
+                        >
+                          ×
+                        </Button>
+                      </>
+                    )}
+                  </div>
                 </div>
                 {/* Adding to a slot only ever needs the subject — the time is
                     already decided by the slot it's joining, so there's nothing

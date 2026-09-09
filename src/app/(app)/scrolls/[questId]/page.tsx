@@ -63,14 +63,14 @@ export default async function QuestDetailPage({
           &larr; Back to Quest Giver
         </Link>
         <h1 className="page-title mt-2 text-4xl">{quest.title}</h1>
-        <div className="mt-1 flex items-center gap-2 text-muted-foreground">
+        <div className="mt-1 flex flex-wrap items-center gap-2 text-muted-foreground">
           {subject && (
             <>
               <span
-                className="inline-block h-3 w-3 rounded-full"
+                className="inline-block h-3 w-3 shrink-0 rounded-full"
                 style={{ backgroundColor: subject.color ?? "#6b7280" }}
               />
-              <span>{subject.name}</span>
+              <span className="break-words">{subject.name}</span>
             </>
           )}
           {quest.estimatedMinutes && (

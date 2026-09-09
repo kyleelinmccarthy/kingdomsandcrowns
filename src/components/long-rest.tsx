@@ -3,12 +3,10 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { GameFrame } from "@/components/game-frame";
 import { GameIcon } from "@/components/game-icon";
 import { saveLearningLog, markLogCopied } from "@/lib/actions/chronicles";
-import { createSchoolBreak, deleteSchoolBreak } from "@/lib/actions/school-breaks";
+import { SchoolCalendar } from "@/components/school-calendar";
 
 type SchoolBreak = {
   id: string;
@@ -66,6 +64,7 @@ export function LongRest({
   breaks,
   familyId,
   isChildView,
+  today,
 }: {
   generatedText: string;
   savedEditedText: string | null;
@@ -75,6 +74,8 @@ export function LongRest({
   breaks: SchoolBreak[];
   familyId: string;
   isChildView: boolean;
+  /** Server's calendar date; the calendar panel corrects it to the browser's. */
+  today: string;
 }) {
   const [text, setText] = useState(savedEditedText ?? generatedText);
   const [copied, setCopied] = useState(false);
@@ -128,32 +129,6 @@ export function LongRest({
   }
 
   const isEmpty = generatedText.includes("No assignments recorded");
-
-  // ── School Break Manager (parent only) ──
-
-  const [showBreakForm, setShowBreakForm] = useState(false);
-  const [breakName, setBreakName] = useState("");
-  const [breakStart, setBreakStart] = useState("");
-  const [breakEnd, setBreakEnd] = useState("");
-
-  function handleAddBreak() {
-    if (!breakName.trim() || !breakStart || !breakEnd) return;
-    startTransition(async () => {
-      await createSchoolBreak(familyId, breakName.trim(), breakStart, breakEnd);
-      setBreakName("");
-      setBreakStart("");
-      setBreakEnd("");
-      setShowBreakForm(false);
-      router.refresh();
-    });
-  }
-
-  function handleDeleteBreak(breakId: string) {
-    startTransition(async () => {
-      await deleteSchoolBreak(breakId);
-      router.refresh();
-    });
-  }
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
@@ -210,92 +185,15 @@ export function LongRest({
           </div>
         </GameFrame>
 
-        {/* School calendar — parent only */}
-        {!isChildView && (
-          <GameFrame title="School Calendar" icon={<GameIcon name="calendar" className="size-5 text-[var(--gold-bright)]" />}>
-            <div className="space-y-3">
-              {breaks.length === 0 && !showBreakForm && (
-                <p className="text-sm text-muted-foreground">
-                  No breaks configured. Week navigation will skip break weeks automatically.
-                </p>
-              )}
-
-              {breaks.map((b) => (
-                <div key={b.id} className="flex items-center gap-2 text-sm">
-                  <span className="flex-1">
-                    <span className="font-medium">{b.name}</span>
-                    <span className="text-muted-foreground">
-                      {" "}({formatBreakDate(b.startDate)} – {formatBreakDate(b.endDate)})
-                    </span>
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="icon-xs"
-                    onClick={() => handleDeleteBreak(b.id)}
-                    disabled={isPending}
-                    aria-label={`Remove ${b.name}`}
-                  >
-                    &times;
-                  </Button>
-                </div>
-              ))}
-
-              {showBreakForm ? (
-                <div className="space-y-2 rounded-lg border border-input p-3">
-                  <div>
-                    <Label htmlFor="break-name">Break Name</Label>
-                    <Input
-                      id="break-name"
-                      value={breakName}
-                      onChange={(e) => setBreakName(e.target.value)}
-                      placeholder="e.g. Winter Break"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="break-start">Start</Label>
-                    <Input
-                      id="break-start"
-                      type="date"
-                      value={breakStart}
-                      onChange={(e) => setBreakStart(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="break-end">End</Label>
-                    <Input
-                      id="break-end"
-                      type="date"
-                      value={breakEnd}
-                      onChange={(e) => setBreakEnd(e.target.value)}
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      onClick={handleAddBreak}
-                      disabled={isPending || !breakName.trim() || !breakStart || !breakEnd}
-                    >
-                      Add Break
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={() => setShowBreakForm(false)}>
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                <Button variant="outline" size="xs" onClick={() => setShowBreakForm(true)}>
-                  + Add Break
-                </Button>
-              )}
-            </div>
-          </GameFrame>
-        )}
+        {/* The family's days off — the same manager the Schedule page shows,
+            here because a week that reads empty is often a week that was off. */}
+        <SchoolCalendar
+          familyId={familyId}
+          breaks={breaks}
+          today={today}
+          canEdit={!isChildView}
+        />
       </div>
     </div>
   );
-}
-
-function formatBreakDate(iso: string): string {
-  const d = new Date(iso + "T12:00:00");
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }

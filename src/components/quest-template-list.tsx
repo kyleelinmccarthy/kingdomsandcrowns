@@ -159,9 +159,12 @@ export function QuestTemplateList({
                     {subjectQuests.map((q) => (
                       <div
                         key={q.id}
-                        className="flex items-center justify-between rounded-md border border-border/50 bg-card/50 px-3 py-2"
+                        className="flex flex-wrap items-center justify-between rounded-md border border-border/50 bg-card/50 px-3 py-2"
                       >
-                        <div className="min-w-0 flex-1">
+                        {/* basis, not flex-1's zero: a zero basis gives the row
+                            no reason to wrap, so the title column is what gets
+                            crushed on a phone instead. */}
+                        <div className="min-w-0 grow basis-56">
                           <Link
                             href={`/scrolls/${q.id}`}
                             className="font-medium text-foreground hover:text-primary"
@@ -234,7 +237,7 @@ export function QuestTemplateList({
                             </p>
                           )}
                         </div>
-                        <div className="ml-2 flex shrink-0 gap-1">
+                        <div className="mt-2 ml-auto flex shrink-0 gap-1 sm:mt-0 sm:ml-2">
                           <Button size="sm" variant="outline" className="!border-[var(--gold-border)] hover:!border-[var(--gold-bright)]" onClick={() => setEditingQuest(q)}>
                             Edit
                           </Button>

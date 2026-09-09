@@ -85,14 +85,14 @@ export function QuestReminderForm({
             {reminders.map((r) => (
               <div
                 key={r.id}
-                className="flex items-center justify-between rounded-md border border-border/50 bg-card/50 px-3 py-2"
+                className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border/50 bg-card/50 px-3 py-2"
               >
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <GameIcon
                     name={r.enabled ? "bell" : "bellOff"}
-                    className={`size-4 ${r.enabled ? "text-[var(--gold-bright)]" : "text-muted-foreground"}`}
+                    className={`size-4 shrink-0 ${r.enabled ? "text-[var(--gold-bright)]" : "text-muted-foreground"}`}
                   />
-                  <span className={r.enabled ? "" : "text-muted-foreground line-through"}>
+                  <span className={`break-words ${r.enabled ? "" : "text-muted-foreground line-through"}`}>
                     {typeLabels[r.type] ?? r.type}
                     {r.timeOfDay && ` at ${r.timeOfDay}`}
                   </span>
@@ -100,7 +100,7 @@ export function QuestReminderForm({
                     ({r.channel})
                   </span>
                 </div>
-                <div className="flex gap-1">
+                <div className="flex shrink-0 gap-1">
                   <Button size="sm" variant="ghost" onClick={() => handleToggle(r)}>
                     {r.enabled ? "Disable" : "Enable"}
                   </Button>

@@ -112,6 +112,8 @@ export const HAIR_STYLES: AvatarItem[] = [
   { id: "long", label: "Long", unlock: { type: "free" } },
   { id: "spiky", label: "Spiky", unlock: { type: "free" } },
   { id: "curly", label: "Curly", unlock: { type: "free" } },
+  { id: "cropped", label: "Cropped", unlock: { type: "free" } },
+  { id: "shag", label: "Shag", unlock: { type: "free" } },
   { id: "braided", label: "Braided", unlock: { type: "level", level: 3 } },
   { id: "mohawk", label: "Mohawk", unlock: { type: "level", level: 3 } },
   { id: "ponytail", label: "Ponytail", unlock: { type: "level", level: 5 } },
@@ -239,6 +241,7 @@ export const BOOTS: AvatarItem[] = [
 export const ACCESSORIES: AvatarItem[] = [
   { id: "bandana", label: "Bandana", unlock: { type: "level", level: 3 } },
   { id: "glasses", label: "Glasses", unlock: { type: "level", level: 5 } },
+  { id: "hood", label: "Hood", unlock: { type: "level", level: 6 } },
   { id: "crown", label: "Crown", unlock: { type: "level", level: 8 } },
   { id: "necklace", label: "Necklace", unlock: { type: "level", level: 10 } },
   { id: "cape-pin", label: "Cape Pin", unlock: { type: "level", level: 12 } },
