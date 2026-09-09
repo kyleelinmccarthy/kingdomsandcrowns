@@ -93,7 +93,8 @@ export async function getMasteryOverview(childId: string): Promise<MasteryRow[]>
   return (await loadMasteryRows(childId)).map(masteryRow).filter((m): m is MasteryRow => m !== null);
 }
 
-const HERO_ONLY = "Deeds are for the hero to play.";
+// Sentence case here (not the SIDE_QUESTS title-case noun): this reads as a plain sentence, not an error code.
+const HERO_ONLY = "Side quests are for the hero to play.";
 
 export async function startDeedRun(childId: string, deedId: string, context: "page" | "realm" = "page"): Promise<RunStart> {
   const { access } = await requireChildAccess(childId, { write: true });
@@ -164,10 +165,10 @@ async function loadRun(runId: string) {
 
 export async function answerDeedQuestion(runId: string, index: number, answer: string): Promise<AnswerResult> {
   const run = await loadRun(runId);
-  if (run.completedAt) throw new Error("That deed has already been finished.");
+  if (run.completedAt) throw new Error(`That ${SIDE_QUEST_LOWER} has already been finished.`);
   const questions = JSON.parse(run.questions) as Question[];
   const responses = JSON.parse(run.responses) as (string | null)[];
-  if (!Number.isInteger(index) || index < 0 || index >= questions.length) throw new Error("That question is not in this deed.");
+  if (!Number.isInteger(index) || index < 0 || index >= questions.length) throw new Error(`That question is not in this ${SIDE_QUEST_LOWER}.`);
   const question = questions[index];
   // A repeat answer to the same question (double tap, retry) is not re-graded.
   if (responses[index] !== null && responses[index] !== undefined) {
@@ -210,11 +211,11 @@ export async function answerDeedQuestion(runId: string, index: number, answer: s
 
 export async function completeDeedRun(runId: string): Promise<RunSummary> {
   const run = await loadRun(runId);
-  if (run.completedAt) throw new Error("That deed has already been finished.");
+  if (run.completedAt) throw new Error(`That ${SIDE_QUEST_LOWER} has already been finished.`);
   const questions = JSON.parse(run.questions) as Question[];
   const responses = JSON.parse(run.responses) as (string | null)[];
   if (responses.length !== questions.length || responses.some((r) => r === null || r === undefined)) {
-    throw new Error("Answer every question before finishing the deed.");
+    throw new Error(`Answer every question before finishing the ${SIDE_QUEST_LOWER}.`);
   }
   const correctCount = questions.filter((q, i) => gradeAnswer(q, responses[i]!)).length;
   const flawless = correctCount === questions.length;
