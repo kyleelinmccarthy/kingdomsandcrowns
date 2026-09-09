@@ -44,8 +44,10 @@ describe("DeedPicker", () => {
 
   it("shows each side quest's subject and filters by it", async () => {
     render(<DeedPicker childId="c1" overview={overview} profile={profile} calm={false} />);
-    expect(screen.getAllByLabelText("Subject: Math")).toHaveLength(2);
-    expect(screen.getByLabelText("Subject: Reading")).toBeInTheDocument();
+    // SubjectChip names itself with sr-only text combined with the visible label rather
+    // than an aria-label on a plain span, so it's queried by its own data-subject attribute.
+    expect(document.querySelectorAll('[data-subject="math"]')).toHaveLength(2);
+    expect(document.querySelector('[data-subject="reading"]')).toHaveTextContent("Subject: Reading");
     await userEvent.click(screen.getByRole("button", { name: "Reading", pressed: false }));
     expect(screen.queryByText("Grain Mill")).not.toBeInTheDocument();
     expect(screen.getByText("Village Well")).toBeInTheDocument();

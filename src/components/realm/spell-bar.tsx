@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { GameIcon } from "@/components/game-icon";
 import type { SpellPageView } from "@/lib/realm/spells/pages";
 
@@ -27,13 +27,32 @@ export function SpellBar({
   raised: boolean;
   hudScale: number;
 }) {
-  const shown = fewerChoices ? pages.slice(0, FEWER) : pages;
+  // Under fewer-choices, show the first four pages that hold a saved spell (never hide one
+  // behind an "Empty" chip just because it lives past page four), padding with empty pages
+  // only when fewer than four saved pages exist.
+  const shown = useMemo(() => {
+    if (!fewerChoices) return pages;
+    const withSpell = pages.filter((p) => !p.empty);
+    const chosen = withSpell.slice(0, FEWER);
+    if (chosen.length < FEWER) {
+      const empties = pages.filter((p) => p.empty);
+      chosen.push(...empties.slice(0, FEWER - chosen.length));
+      chosen.sort((a, b) => a.slot - b.slot); // padding can interleave with saved pages; keep book order
+    }
+    return chosen;
+  }, [fewerChoices, pages]);
   const [hint, setHint] = useState(false);
   const hintPanel = useRef<HTMLDivElement>(null);
+  const hintOpener = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     if (hint) hintPanel.current?.focus();
   }, [hint]);
+
+  const closeHint = () => {
+    setHint(false);
+    hintOpener.current?.focus();
+  };
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -73,7 +92,10 @@ export function SpellBar({
                 aria-disabled="true"
                 aria-label={`Empty page ${i + 1}`}
                 title={EMPTY_TITLE}
-                onClick={() => setHint(true)}
+                onClick={(e) => {
+                  hintOpener.current = e.currentTarget;
+                  setHint(true);
+                }}
               >
                 <span className="realm-spell-key">{i + 1}</span>
                 <span className="realm-spell-name">{page.name}</span>
@@ -114,14 +136,14 @@ export function SpellBar({
           onKeyDown={(e) => {
             if (e.key === "Escape") {
               e.stopPropagation();
-              setHint(false);
+              closeHint();
             }
           }}
         >
           <p className="realm-spell-hint-text">{EMPTY_HINT}</p>
           <div className="realm-spell-hint-actions">
             <Link href="/spellbook" className="realm-spell-hint-link">Open the Spellbook</Link>
-            <button type="button" className="realm-spell-hint-close" onClick={() => setHint(false)}>Close</button>
+            <button type="button" className="realm-spell-hint-close" onClick={closeHint}>Close</button>
           </div>
         </div>
       )}

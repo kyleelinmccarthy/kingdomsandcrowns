@@ -62,7 +62,9 @@ describe("SiteCard", () => {
 
   it("shows each side quest's subject", () => {
     render(<SiteCard villager={VILLAGERS[0]} building={building} preview={false} busy={false} error="" onBegin={() => {}} onClearError={() => {}} onClose={() => {}} />);
-    expect(screen.getByLabelText("Subject: Math")).toBeInTheDocument();
-    expect(screen.getByLabelText("Subject: Reading")).toBeInTheDocument();
+    // SubjectChip names itself with sr-only text combined with the visible label rather
+    // than an aria-label on a plain span, so it's queried by its own data-subject attribute.
+    expect(document.querySelector('[data-subject="math"]')).toHaveTextContent("Subject: Math");
+    expect(document.querySelector('[data-subject="reading"]')).toHaveTextContent("Subject: Reading");
   });
 });

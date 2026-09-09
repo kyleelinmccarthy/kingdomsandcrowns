@@ -59,6 +59,27 @@ describe("SpellBar", () => {
     expect(screen.getAllByRole("button").length).toBe(4);
   });
 
+  it("under fewer choices, shows the first four saved-spell pages even when they land past page four, never an Empty chip in their place", () => {
+    const onSelect = vi.fn();
+    const sixPages = withEmptyPages(
+      resolvePages([page(1), page(2, "tide", "orb"), page(5, "ember", "wall"), page(6, "ember", "sprite")], 6),
+      6
+    );
+    render(<SpellBar pages={sixPages} selectedSlot={null} mana={100} fewerChoices={true} onSelect={onSelect} raised={false} hudScale={1} />);
+    const buttons = screen.getAllByRole("button");
+    expect(buttons.length).toBe(4);
+    expect(buttons.some((b) => b.className.includes("realm-spell--empty"))).toBe(false);
+    // Number keys 1-4 map to pages 1, 2, 5, 6 in that order.
+    fireEvent.keyDown(window, { key: "1" });
+    expect(onSelect).toHaveBeenLastCalledWith(1);
+    fireEvent.keyDown(window, { key: "2" });
+    expect(onSelect).toHaveBeenLastCalledWith(2);
+    fireEvent.keyDown(window, { key: "3" });
+    expect(onSelect).toHaveBeenLastCalledWith(5);
+    fireEvent.keyDown(window, { key: "4" });
+    expect(onSelect).toHaveBeenLastCalledWith(6);
+  });
+
   it("adds the raised class to clear the touch stick", () => {
     render(<SpellBar pages={pages} selectedSlot={null} mana={100} fewerChoices={false} onSelect={() => {}} raised={true} hudScale={1} />);
     expect(screen.getByRole("toolbar", { name: "Spellbook" }).className).toContain("realm-spellbar--raised");
@@ -89,5 +110,17 @@ describe("SpellBar", () => {
     fireEvent.click(empty);
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     expect(screen.queryByRole("dialog", { name: "Empty page" })).not.toBeInTheDocument();
+  });
+
+  it("returns focus to the empty page button that opened the hint, on both Close and Escape", () => {
+    const withEmpties = withEmptyPages(resolvePages([page(2, "tide", "orb")], 3), 3);
+    render(<SpellBar pages={withEmpties} selectedSlot={null} mana={100} fewerChoices={false} onSelect={() => {}} raised={false} hudScale={1} />);
+    const empty = screen.getByRole("button", { name: "Empty page 1" });
+    fireEvent.click(empty);
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(empty).toHaveFocus();
+    fireEvent.click(empty);
+    fireEvent.keyDown(screen.getByRole("dialog", { name: "Empty page" }), { key: "Escape" });
+    expect(empty).toHaveFocus();
   });
 });

@@ -6,6 +6,8 @@ import { levelFromXp } from "@/lib/utils/level";
 import { spellSlots } from "@/lib/utils/spell-slots";
 import { loadRealmFlags } from "./realm-play";
 
+type RealmFlags = Awaited<ReturnType<typeof loadRealmFlags>>;
+
 /** One saved page of a hero's spellbook: catalog ids plus the chosen name. */
 export type SpellPage = {
   id: string;
@@ -43,10 +45,15 @@ export function starterSpellDecision(hasSpells: boolean, starterSpellAt: Date | 
   return hasSpells ? "mark" : "seed";
 }
 
-export async function ensureStarterSpell(childId: string): Promise<StarterDecision> {
+/**
+ * Also returns the flags it read (with `starterSpellAt` reflecting any update just made),
+ * so a caller that needs both the decision and the flags (`getRealmBundle`, for `helpSeen`)
+ * does not have to pay a second `loadRealmFlags` round trip right after this one.
+ */
+export async function ensureStarterSpell(childId: string): Promise<{ decision: StarterDecision; flags: RealmFlags }> {
   const flags = await loadRealmFlags(childId);
   // Already decided: skip the spell-table query entirely on the (steady-state) common path.
-  if (flags.starterSpellAt) return starterSpellDecision(false, flags.starterSpellAt);
+  if (flags.starterSpellAt) return { decision: starterSpellDecision(false, flags.starterSpellAt), flags };
   const existing = await db.select({ id: schema.spell.id }).from(schema.spell).where(eq(schema.spell.childId, childId)).limit(1);
   const decision = starterSpellDecision(existing.length > 0, flags.starterSpellAt);
   const now = new Date();
@@ -54,5 +61,5 @@ export async function ensureStarterSpell(childId: string): Promise<StarterDecisi
     await db.insert(schema.spell).values({ id: nanoid(), childId, ...STARTER_SPELL, createdAt: now, updatedAt: now }).onConflictDoNothing();
   }
   await db.update(schema.realmSettings).set({ starterSpellAt: now, updatedAt: now }).where(eq(schema.realmSettings.childId, childId));
-  return decision;
+  return { decision, flags: { ...flags, starterSpellAt: now } };
 }
