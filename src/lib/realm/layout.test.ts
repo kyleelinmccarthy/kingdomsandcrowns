@@ -1,8 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { buildWorldLayout, buildingFootprint, CASTLE_FOOTPRINTS, BUILDING_SLOTS, WORLD_SIZE, CASTLE_POSITION, SPAWN, FOUNDATION_COLOR, BANNER_SIZE, BANNER_MARGIN } from "./layout";
+import { buildWorldLayout, buildingFootprint, CASTLE_FOOTPRINTS, BUILDING_SLOTS, WORLD_SIZE, CASTLE_POSITION, SPAWN, FOUNDATION_COLOR, BANNER_SIZE, BANNER_MARGIN, DECOR_SPOTS, spriteSizeFor } from "./layout";
 import { BUILDINGS } from "@/lib/utils/kingdom";
 import { REACH, VILLAGER_OFFSET } from "./villagers";
 import { crownForOrdinal } from "@/lib/utils/crown-catalog";
+import { LAP_WAYPOINTS } from "./recess/recess";
 
 const none = { castleType: "campsite", buildings: [] };
 
@@ -117,5 +118,50 @@ describe("castle banners", () => {
     expect(buildWorldLayout({ ...none, banners: 12 }).props.filter((p) => p.kind === "banner").length).toBe(8);
     expect(buildWorldLayout({ ...none, banners: -1 }).props.filter((p) => p.kind === "banner").length).toBe(0);
     expect(buildWorldLayout(none).props.filter((p) => p.kind === "banner").length).toBe(0);
+  });
+});
+
+describe("decorations", () => {
+  const allBuilt = BUILDINGS.map((b) => ({ id: b.id, done: b.deedsToBuild, total: b.deedsToBuild, complete: true }));
+  const dist = (a: { x: number; z: number }, b: { x: number; z: number }) => Math.hypot(a.x - b.x, a.z - b.z);
+
+  it("places twelve fixed, non-solid decorations, or none when asked", () => {
+    const layout = buildWorldLayout({ castleType: "citadel", buildings: allBuilt });
+    const decor = layout.props.filter((p) => p.kind === "decor");
+    expect(decor).toHaveLength(12);
+    expect(decor.every((d) => !d.solid && d.label === "" && d.variant)).toBe(true);
+    expect(layout.colliders.some((c) => c.kind === "decor")).toBe(false);
+    expect(buildWorldLayout({ castleType: "citadel", buildings: allBuilt, decor: false }).props.some((p) => p.kind === "decor")).toBe(false);
+  });
+
+  it("keeps every decoration clear of the path, the sites, the lap ring, the ceremony plaza and the world's edge", () => {
+    const layout = buildWorldLayout({ castleType: "citadel", buildings: allBuilt });
+    const sites = layout.props.filter((p) => p.kind === "castle" || p.kind === "building" || p.kind === "foundation");
+    const castle = layout.props.find((p) => p.kind === "castle")!;
+    const south = castle.position.z + castle.size.d / 2;
+    for (const spot of DECOR_SPOTS) {
+      expect(Math.abs(spot.x)).toBeGreaterThanOrEqual(3.5);
+      expect(Math.abs(spot.x)).toBeLessThanOrEqual(WORLD_SIZE / 2 - 2);
+      expect(Math.abs(spot.z)).toBeLessThanOrEqual(WORLD_SIZE / 2 - 2);
+      for (const s of sites) {
+        const inside = Math.abs(spot.x - s.position.x) < s.size.w / 2 + 2 && Math.abs(spot.z - s.position.z) < s.size.d / 2 + 2;
+        expect(inside).toBe(false);
+      }
+      for (const w of LAP_WAYPOINTS) expect(dist(spot, w)).toBeGreaterThanOrEqual(2);
+      const inPlaza = Math.abs(spot.x) <= 4.5 && spot.z >= south && spot.z <= south + 8;
+      expect(inPlaza).toBe(false);
+    }
+  });
+
+  it("sizes sprites from footprints", () => {
+    const layout = buildWorldLayout({ castleType: "keep", buildings: allBuilt });
+    const castle = layout.props.find((p) => p.kind === "castle")!;
+    expect(spriteSizeFor(castle)).toEqual({ w: CASTLE_FOOTPRINTS.keep.w + 1, h: CASTLE_FOOTPRINTS.keep.h + 1.5 });
+    const well = layout.props.find((p) => p.id === "well")!;
+    expect(spriteSizeFor(well)).toEqual({ w: 3.5, h: 3.5 });
+    const oak = layout.props.find((p) => p.kind === "decor" && p.variant === "oak")!;
+    expect(spriteSizeFor(oak)).toEqual({ w: 1.2, h: 1.6 });
+    const rock = layout.props.find((p) => p.kind === "decor" && p.variant === "rock")!;
+    expect(spriteSizeFor(rock)).toEqual({ w: 0.9, h: 0.9 });
   });
 });

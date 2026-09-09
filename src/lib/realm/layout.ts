@@ -7,13 +7,14 @@ import { VILLAGERS, villagerPosition } from "./villagers";
 export const WORLD_SIZE = 40;
 
 export type Vec2 = { x: number; z: number };
-export type PropKind = "castle" | "building" | "foundation" | "path" | "villager" | "barrier" | "banner";
+export type PropKind = "castle" | "building" | "foundation" | "path" | "villager" | "barrier" | "banner" | "decor";
 
 export type Prop = {
   id: string;
   kind: PropKind;
   label: string;
   tag?: string; // a second line under the label: "Built" or "2 of 5"
+  variant?: string; // decor kind (oak, pine, bush, rock, fence, lantern)
   position: Vec2; // center
   size: { w: number; d: number; h: number }; // footprint width (x), depth (z), height (y)
   color: string;
@@ -84,11 +85,42 @@ const BANNER_POLES: Vec2[] = [
   { x: 1 / 3, z: 1 }, { x: -1 / 3, z: 1 },
 ];
 
+const DECOR_SIZE = { w: 0.9, d: 0.9, h: 1.4 };
+/** Twelve fixed spots clear of the path corridor, every site (padded 2), the lap ring, and the ceremony plaza. */
+export const DECOR_SPOTS: { kind: string; x: number; z: number }[] = [
+  { kind: "oak", x: -15, z: 14 },
+  { kind: "pine", x: 15, z: 14 },
+  { kind: "bush", x: -4, z: 13 },
+  { kind: "rock", x: 4.5, z: 12.5 },
+  { kind: "fence", x: -16, z: 6 },
+  { kind: "lantern", x: 16, z: 5 },
+  { kind: "oak", x: -16, z: -4 },
+  { kind: "pine", x: 16, z: -4 },
+  { kind: "bush", x: -13.5, z: -14.5 },
+  { kind: "rock", x: 14, z: -15 },
+  { kind: "pine", x: -16, z: -18 },
+  { kind: "oak", x: 16, z: -18 },
+];
+
+/** Billboard size for a prop drawn as a sprite: a little wider than its footprint and taller than its box, so roofs show. */
+export function spriteSizeFor(prop: Prop): { w: number; h: number } {
+  switch (prop.kind) {
+    case "castle":
+      return { w: prop.size.w + 1, h: prop.size.h + 1.5 };
+    case "building":
+      return { w: prop.size.w + 0.5, h: prop.size.h + 1 };
+    case "decor":
+      return prop.variant === "oak" || prop.variant === "pine" ? { w: 1.2, h: 1.6 } : { w: 0.9, h: 0.9 };
+    default:
+      return { w: prop.size.w, h: prop.size.h };
+  }
+}
+
 export function buildingFootprint(id: string): { w: number; d: number; h: number } {
   return id === "watchtower" ? WATCHTOWER_SIZE : BUILDING_SIZE;
 }
 
-export function buildWorldLayout(input: { castleType: string; buildings: SiteProgress[]; villagers?: boolean; banners?: number }): WorldLayout {
+export function buildWorldLayout(input: { castleType: string; buildings: SiteProgress[]; villagers?: boolean; banners?: number; decor?: boolean }): WorldLayout {
   const showVillagers = input.villagers ?? true;
   const castleSize = CASTLE_FOOTPRINTS[input.castleType] ?? CASTLE_FOOTPRINTS.campsite;
   const props: Prop[] = [
@@ -135,6 +167,12 @@ export function buildWorldLayout(input: { castleType: string; buildings: SitePro
         props.push({ id: `villager-${villager.id}`, kind: "villager", label: villager.name, position, size: VILLAGER_SIZE, color: "#000000", solid: false });
       }
     }
+  }
+
+  if (input.decor ?? true) {
+    DECOR_SPOTS.forEach((spot, i) => {
+      props.push({ id: `decor-${i + 1}`, kind: "decor", label: "", variant: spot.kind, position: { x: spot.x, z: spot.z }, size: DECOR_SIZE, color: "#2f7a3d", solid: false });
+    });
   }
 
   return { props, spawn: SPAWN, colliders: props.filter((p) => p.solid), villagers };

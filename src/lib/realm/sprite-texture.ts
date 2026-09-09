@@ -17,9 +17,12 @@ export function spriteKey(config: AvatarConfig): string {
 /** Serializes an inline <svg> and draws it onto a canvas with smoothing off, so pixel art stays pixel art. */
 export async function svgElementToTexture(svg: SVGSVGElement, scale = SPRITE_SCALE): Promise<CanvasTexture> {
   const { CanvasTexture, NearestFilter, SRGBColorSpace } = await import("three");
+  const [, , vw, vh] = (svg.getAttribute("viewBox") ?? `0 0 ${SVG_W} ${SVG_H}`).split(/\s+/).map(Number);
+  const width = (Number.isFinite(vw) && vw > 0 ? vw : SVG_W) * scale;
+  const height = (Number.isFinite(vh) && vh > 0 ? vh : SVG_H) * scale;
   const clone = svg.cloneNode(true) as SVGSVGElement;
-  clone.setAttribute("width", String(SVG_W * scale));
-  clone.setAttribute("height", String(SVG_H * scale));
+  clone.setAttribute("width", String(width));
+  clone.setAttribute("height", String(height));
   clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
   const markup = new XMLSerializer().serializeToString(clone);
   const url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(markup)}`;
@@ -30,8 +33,8 @@ export async function svgElementToTexture(svg: SVGSVGElement, scale = SPRITE_SCA
     img.src = url;
   });
   const canvas = document.createElement("canvas");
-  canvas.width = SVG_W * scale;
-  canvas.height = SVG_H * scale;
+  canvas.width = width;
+  canvas.height = height;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("The hero's picture could not be drawn.");
   ctx.imageSmoothingEnabled = false;
