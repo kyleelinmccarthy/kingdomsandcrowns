@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Linked worktrees under .claude/ carry their own .next output; never lint them.
+    ".claude/**",
   ]),
 ]);
 
