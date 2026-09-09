@@ -256,6 +256,7 @@ async function AdventureView({
       breaks={breaks}
       familyId={familyId}
       isChildView={isChildView}
+      today={formatDate(new Date())}
     />
   );
 }

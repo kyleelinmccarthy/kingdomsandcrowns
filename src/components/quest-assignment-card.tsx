@@ -252,7 +252,10 @@ export function QuestAssignmentCard({
           style={{ backgroundColor: subject.color ?? "#6b7280" }}
         />
 
-        <div className="min-w-0 flex-1">
+        {/* A real flex-basis, not flex-1's zero: with a zero basis the row never
+            has a reason to wrap, so the buttons keep their width and the title
+            is what gives — down to one word, then one letter, per line. */}
+        <div className="min-w-0 grow basis-56">
           <div className="flex flex-wrap items-center gap-2">
             <span className={`break-words font-medium ${isCompleted ? "line-through text-muted-foreground" : ""}`}>
               {quest.title}
@@ -318,7 +321,7 @@ export function QuestAssignmentCard({
 
         {/* Timer running actions */}
         {isPending && isTimerRunning && (
-          <div className="flex shrink-0 gap-1">
+          <div className="flex flex-wrap gap-1 sm:ml-auto">
             {isPaused ? (
               <Button size="sm" variant="outline" onClick={resumeTimer} disabled={acting}>
                 Resume
@@ -339,7 +342,7 @@ export function QuestAssignmentCard({
 
         {/* Locked behind an earlier quest in structured mode */}
         {isPending && !isTimerRunning && lockedByOrder && (
-          <div className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+          <div className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground sm:ml-auto">
             <GameIcon name="lock" className="size-3.5 shrink-0" />
             <span>Complete &quot;{structuredNext.title}&quot; first</span>
           </div>
@@ -348,7 +351,7 @@ export function QuestAssignmentCard({
         {/* A finished quest is still the hero's to annotate — and, for a
             grown-up, still theirs to correct when it wasn't really done. */}
         {isCompleted && !showNotesEdit && !showRevise && (
-          <div className="flex shrink-0 gap-1">
+          <div className="flex flex-wrap gap-1 sm:ml-auto">
             <Button size="sm" variant="ghost" onClick={openNotesEdit} disabled={acting} className="text-muted-foreground">
               {assignment.notes ? "Edit Notes" : "Add Notes"}
             </Button>
@@ -362,7 +365,7 @@ export function QuestAssignmentCard({
 
         {/* A grown-up can undo a skip they (or the hero) made */}
         {isSkipped && !isChildView && (
-          <div className="flex shrink-0 gap-1">
+          <div className="flex flex-wrap gap-1 sm:ml-auto">
             <Button size="sm" variant="ghost" onClick={() => handleRevise("pending")} disabled={acting} className="text-muted-foreground">
               Undo Skip
             </Button>
@@ -372,7 +375,7 @@ export function QuestAssignmentCard({
         {/* A stuck quest is waiting on a grown-up: help and finish it, set it
             aside for today, or put it back on the hero's list. */}
         {isStuck && !isChildView && !showQuickComplete && !showSkip && (
-          <div className="flex shrink-0 flex-wrap gap-1">
+          <div className="flex flex-wrap gap-1 sm:ml-auto">
             <Button size="sm" variant="outline" onClick={openQuickComplete} disabled={acting} className="!border-[var(--gold-bright)]">
               Mark Done
             </Button>
@@ -387,7 +390,7 @@ export function QuestAssignmentCard({
 
         {/* Idle pending actions */}
         {isPending && !isTimerRunning && !showQuickComplete && !lockedByOrder && (
-          <div className="flex shrink-0 gap-1">
+          <div className="flex flex-wrap gap-1 sm:ml-auto">
             {isChildView ? (
               <>
                 <Button size="sm" onClick={handleStart} disabled={acting || hasOtherTimer}>

@@ -12,8 +12,11 @@ import { ChildSelector } from "@/components/child-selector";
 import { GameFrame } from "@/components/game-frame";
 import { GameIcon } from "@/components/game-icon";
 import { StudentScheduleEditor } from "@/components/student-schedule-editor";
+import { SchoolCalendar } from "@/components/school-calendar";
 import { ScheduleGapNotice } from "@/components/schedule-gap-notice";
 import { getSubjectScheduleGaps } from "@/lib/actions/schedule-gaps";
+import { getSchoolBreaks } from "@/lib/actions/school-breaks";
+import { formatDate } from "@/lib/utils/dates";
 
 export default async function SchedulePage({
   searchParams,
@@ -40,7 +43,7 @@ export default async function SchedulePage({
     );
   }
 
-  const [subjects, schoolDays, optionalDays, blocks, selfManageEnabled, scheduleGaps] =
+  const [subjects, schoolDays, optionalDays, blocks, selfManageEnabled, scheduleGaps, breaks] =
     await Promise.all([
       getSubjects(activeChild.id),
       getSchoolDays(activeChild.id),
@@ -48,6 +51,7 @@ export default async function SchedulePage({
       getScheduleBlocks(activeChild.id),
       getScheduleSelfManage(activeChild.id),
       getSubjectScheduleGaps(activeChild.id),
+      getSchoolBreaks(activeChild.familyId),
     ]);
 
   const canEdit = !isChildView || selfManageEnabled;
@@ -74,6 +78,19 @@ export default async function SchedulePage({
           come up. Named here because this page is where the gap gets closed. */}
       {!isChildView && (
         <ScheduleGapNotice heroes={[{ gaps: scheduleGaps }]} showFixLink={false} />
+      )}
+
+      {/* The year of days off, alongside the week that repeats. A parent looking
+          for "today is a holiday" looks at the schedule, not the chronicle. A
+          hero sees the same calendar read-only, and only once it has something
+          on it — it's how they know a quiet day isn't costing them a streak. */}
+      {(!isChildView || breaks.length > 0) && (
+        <SchoolCalendar
+          familyId={activeChild.familyId}
+          breaks={breaks}
+          today={formatDate(new Date())}
+          canEdit={!isChildView}
+        />
       )}
 
       {subjects.length === 0 ? (

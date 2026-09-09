@@ -154,7 +154,7 @@ function MemberRow({
   }
 
   return (
-    <div className="flex items-center justify-between gap-2 rounded-md border border-gold-dim bg-muted/30 px-3 py-2">
+    <div className="flex flex-col gap-2 rounded-md border border-gold-dim bg-muted/30 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
         <p className="truncate text-sm">
           {member.name}{" "}
@@ -170,7 +170,7 @@ function MemberRow({
         <Button
           size="xs"
           variant="ghost"
-          className="text-muted-foreground hover:text-destructive"
+          className="self-end text-muted-foreground hover:text-destructive sm:self-auto"
           onClick={handleRemove}
           disabled={busy}
         >
@@ -207,7 +207,7 @@ function InviteRow({ invite, canManage }: { invite: Invite; canManage: boolean }
   }
 
   return (
-    <div className="flex items-center justify-between gap-2 rounded-md border border-gold-dim bg-muted/20 px-3 py-2">
+    <div className="flex flex-col gap-2 rounded-md border border-gold-dim bg-muted/20 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
         <p className="truncate text-sm">{invite.email}</p>
         <p className="text-xs text-muted-foreground">
@@ -221,7 +221,7 @@ function InviteRow({ invite, canManage }: { invite: Invite; canManage: boolean }
         )}
       </div>
       {canManage && (
-        <div className="flex shrink-0 gap-1">
+        <div className="flex shrink-0 gap-1 self-end sm:self-auto">
           <Button size="xs" variant="ghost" onClick={handleResend} disabled={busy}>
             Resend
           </Button>

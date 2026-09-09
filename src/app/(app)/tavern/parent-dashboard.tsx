@@ -118,12 +118,12 @@ export async function ParentDashboard({ allChildren }: { allChildren: ChildRow[]
         ) : (
           <div className="space-y-2">
             {upcomingCombined.map((a) => (
-              <div key={a.assignment.id} className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 text-sm">
-                <span className="break-words">
+              <div key={a.assignment.id} className="flex flex-wrap items-center justify-between gap-x-2 text-sm">
+                <span className="min-w-0 grow basis-48">
                   <span className="font-medium">{a.childName}</span> — {a.quest.title}
                   <span className="text-muted-foreground"> ({a.subject.name})</span>
                 </span>
-                <span className="shrink-0 pl-2 text-right text-xs text-muted-foreground">
+                <span className="ml-auto shrink-0 pl-2 text-right text-xs text-muted-foreground">
                   {a.assignment.date}
                   {a.startTime ? ` · ${formatTimeOfDay(a.startTime)}` : ""}
                 </span>

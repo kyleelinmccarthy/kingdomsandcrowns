@@ -343,14 +343,14 @@ function ChildSummaryCard({
       }`}
       onClick={onToggle}
     >
-      <div className="flex items-center justify-between p-3">
-        <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between gap-2 p-3">
+        <div className="flex min-w-0 items-center gap-3">
           <Avatar
             config={child.avatarConfig ? JSON.parse(child.avatarConfig) as AvatarConfig : null}
             name={child.displayName}
             size="sm"
           />
-          <div>
+          <div className="min-w-0">
             <p className="font-medium">{child.displayName}</p>
             <p className="text-sm text-muted-foreground">
               {child.ageMode} &middot;{" "}
@@ -631,16 +631,16 @@ function SubjectManager({ childId, subjects }: { childId: string; subjects: Subj
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h4 className="text-sm font-medium">Disciplines & Studies</h4>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h4 className="text-sm font-medium">Disciplines &amp; Studies</h4>
         <Button size="xs" variant="outline" onClick={() => setShowAdd(!showAdd)}>
           {showAdd ? "Withdraw" : "+ Add Discipline"}
         </Button>
       </div>
 
       {showAdd && (
-        <form onSubmit={handleAddSubject} className="flex items-end gap-2 rounded-lg border bg-muted/30 p-3">
-          <div className="flex-1 space-y-1">
+        <form onSubmit={handleAddSubject} className="flex flex-col gap-3 rounded-lg border bg-muted/30 p-3 sm:flex-row sm:items-end sm:gap-2">
+          <div className="min-w-0 grow space-y-1">
             <Label className="text-xs">Name</Label>
             <Input
               value={newName}
@@ -651,7 +651,7 @@ function SubjectManager({ childId, subjects }: { childId: string; subjects: Subj
           </div>
           <div className="space-y-1">
             <Label className="text-xs">Color</Label>
-            <div className="flex flex-wrap gap-1 max-w-48">
+            <div className="flex max-w-48 flex-wrap gap-1">
               {SUBJECT_COLORS.map((c) => (
                 <button
                   key={c.value}
@@ -668,7 +668,7 @@ function SubjectManager({ childId, subjects }: { childId: string; subjects: Subj
               ))}
             </div>
           </div>
-          <Button size="sm" type="submit" disabled={adding}>
+          <Button size="sm" type="submit" disabled={adding} className="self-start sm:self-auto">
             {adding ? "..." : "Add"}
           </Button>
         </form>
@@ -1136,8 +1136,8 @@ function ScheduleSelfManageToggle({ childId, enabled }: { childId: string; enabl
   return (
     <div className="space-y-2">
       <h4 className="text-sm font-medium">Schedule Management</h4>
-      <div className="flex items-center justify-between rounded-lg border border-gold-dim bg-muted/30 px-3 py-2.5">
-        <div>
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gold-dim bg-muted/30 px-3 py-2.5">
+        <div className="min-w-0 grow basis-56">
           <p className="text-sm">
             {selfManage
               ? "This hero can edit their own weekly schedule."
@@ -1180,8 +1180,8 @@ function SkipQuestsToggle({ childId, enabled }: { childId: string; enabled: bool
   return (
     <div className="space-y-2">
       <h4 className="text-sm font-medium">Skipping Quests</h4>
-      <div className="flex items-center justify-between rounded-lg border border-gold-dim bg-muted/30 px-3 py-2.5">
-        <div>
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gold-dim bg-muted/30 px-3 py-2.5">
+        <div className="min-w-0 grow basis-56">
           <p className="text-sm">
             {canSkip
               ? "This hero can skip their own quests."
@@ -1258,8 +1258,8 @@ function SchoolingModeSettings({
   return (
     <div className="space-y-2">
       <h4 className="text-sm font-medium">Schooling Style</h4>
-      <div className="flex items-center justify-between rounded-lg border border-gold-dim bg-muted/30 px-3 py-2.5">
-        <div>
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gold-dim bg-muted/30 px-3 py-2.5">
+        <div className="min-w-0 grow basis-56">
           <p className="text-sm">
             {schoolingMode === "structured"
               ? "Quests are served one at a time, in schedule order."
@@ -1326,8 +1326,8 @@ function LeaderboardToggle({ childId, enabled }: { childId: string; enabled: boo
   return (
     <div className="space-y-2">
       <h4 className="text-sm font-medium">Hall of Legends</h4>
-      <div className="flex items-center justify-between rounded-lg border border-gold-dim bg-muted/30 px-3 py-2.5">
-        <div>
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gold-dim bg-muted/30 px-3 py-2.5">
+        <div className="min-w-0 grow basis-56">
           <p className="text-sm">
             {visible ? "This hero appears in the Community Hall." : "This hero is hidden from the Community Hall."}
           </p>

@@ -313,6 +313,8 @@ export function QuestForm({
 
         {activeQuest && (
           <div className="space-y-2 rounded-md border border-border/30 bg-card/30 px-4 py-3">
+            {/* Wraps: the title, the estimate and the schedule note are three
+                independent runs of text, and on a phone they don't fit abreast. */}
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               {activeSubject && (
                 <span
@@ -321,7 +323,7 @@ export function QuestForm({
                 />
               )}
               <span
-                className="break-words text-base font-bold"
+                className="min-w-0 text-base font-bold break-words"
                 style={{
                   color:
                     activeStatus === "upcoming" || activeStatus === "past"
@@ -332,7 +334,7 @@ export function QuestForm({
                 {activeQuest.title}
               </span>
               {activeQuest.estimatedMinutes && (
-                <span className="text-sm text-muted-foreground">
+                <span className="shrink-0 text-sm whitespace-nowrap text-muted-foreground">
                   ~{activeQuest.estimatedMinutes}min
                 </span>
               )}
@@ -373,7 +375,7 @@ export function QuestForm({
                   className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-border/20 bg-card/10 px-3 py-2 opacity-50"
                 >
                   <GameIcon name="lock" className="size-3.5 shrink-0 text-muted-foreground" />
-                  <span className="break-words text-sm">
+                  <span className="min-w-0 text-sm break-words">
                     {q.title}{sub ? ` (${sub.name})` : ""}
                   </span>
                   <span className="text-xs text-muted-foreground sm:ml-auto">
