@@ -72,7 +72,7 @@ The Side Quests page gets a frame under the banner titled "How side quests make 
 - "Reading and Language side quests unlock Elements: Ember, Tide, Stone and more."
 - "Science side quests unlock Modifiers."
 
-Each line links to the Spellbook (`/spellbook`, or `/spellbook?child=` for a parent). A pure helper `schoolLines(): { school: SpellSchool; areas: SkillArea[]; examples: string[] }[]` in `src/lib/utils/spell-schools.ts` (or next to `AREA_SCHOOL`) produces the data; the copy is assembled in the component. The Spellbook builder's sealed-part hints gain the same subject phrasing ("Finish 5 more math side quests to unseal Burst" where the count and school already exist).
+Each line links to the Spellbook (`/spellbook`, or `/spellbook?child=` for a parent). A pure helper `schoolLines(): { school: SpellSchool; areas: SkillArea[]; examples: string[] }[]` in `src/lib/utils/skills.ts`, next to `AREA_SCHOOL`, produces the data; the copy is assembled in the component. The Spellbook builder's sealed-part hints gain the same subject phrasing ("Finish 5 more math side quests to unseal Burst" where the count and school already exist).
 
 ### 3.4 Parent preview
 
