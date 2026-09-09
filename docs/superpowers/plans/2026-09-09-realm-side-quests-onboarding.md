@@ -372,7 +372,7 @@ map over `visible` instead of `buildings`, and put `<SubjectChip area={d.area} /
 
 `src/app/(app)/settings/realm-settings-panel.tsx:63`: "The 3D world where quests become deeds and seasons earn crowns." → "The 3D world where side quests raise a kingdom and seasons earn crowns." (The spec placed this line in the marketing walkthrough; it lives here. The walkthrough's "heroic deeds" line uses the ordinary word and stays.)
 
-`src/lib/utils/spell-catalog.ts:178`: "quests or deeds to go." → "quests or side quests to go." (update any test asserting the old sentence).
+`src/lib/utils/spell-catalog.ts:178`: "quests or deeds to go." → "quests or side quests to go." (update any test asserting the old sentence). Ruling: the builder's sealed-part hint already names the family's subjects ("3 more Math quests or side quests to go."), so only the noun changes; the spec's example sentence is not adopted verbatim.
 
 Then run `grep -rn "deed" src/app src/components --include=*.tsx | grep -vi "deedId\|deed_run\|deedRun\|DeedP\|DeedR\|deeds\.\|deedsOverview\|DeedsOverview\|startDeedRun\|completeDeedRun\|answerDeed\|getDeeds\|import\|deed-\|@/lib/utils/deeds\|deedsToBuild\|deedsDone\|deed\.area\|deed\.title\|deed\.story\|deed\.id\|heroic deeds"` and rebuild any remaining visible string from the copy table.
 
