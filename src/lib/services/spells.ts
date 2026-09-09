@@ -45,9 +45,10 @@ export function starterSpellDecision(hasSpells: boolean, starterSpellAt: Date | 
 
 export async function ensureStarterSpell(childId: string): Promise<StarterDecision> {
   const flags = await loadRealmFlags(childId);
+  // Already decided: skip the spell-table query entirely on the (steady-state) common path.
+  if (flags.starterSpellAt) return starterSpellDecision(false, flags.starterSpellAt);
   const existing = await db.select({ id: schema.spell.id }).from(schema.spell).where(eq(schema.spell.childId, childId)).limit(1);
   const decision = starterSpellDecision(existing.length > 0, flags.starterSpellAt);
-  if (decision === "none") return decision;
   const now = new Date();
   if (decision === "seed") {
     await db.insert(schema.spell).values({ id: nanoid(), childId, ...STARTER_SPELL, createdAt: now, updatedAt: now }).onConflictDoNothing();

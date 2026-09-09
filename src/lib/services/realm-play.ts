@@ -25,14 +25,22 @@ export async function loadRealmSettings(childId: string): Promise<RealmSettings>
   return settingsFromRow(rows[0] ?? null);
 }
 
-/** The two slice-8 timestamps on realm_settings; the row is created if missing. */
+/**
+ * The two slice-8 timestamps on realm_settings; the row is created if missing.
+ * One select in steady state: the insert-if-missing path only runs (and only
+ * re-selects) the first time a hero's row doesn't exist yet.
+ */
 export async function loadRealmFlags(childId: string): Promise<{ helpSeenAt: Date | null; starterSpellAt: Date | null }> {
-  await loadRealmSettings(childId);
-  const rows = await db
-    .select({ helpSeenAt: schema.realmSettings.helpSeenAt, starterSpellAt: schema.realmSettings.starterSpellAt })
-    .from(schema.realmSettings)
-    .where(eq(schema.realmSettings.childId, childId))
-    .limit(1);
+  const cols = { helpSeenAt: schema.realmSettings.helpSeenAt, starterSpellAt: schema.realmSettings.starterSpellAt };
+  let rows = await db.select(cols).from(schema.realmSettings).where(eq(schema.realmSettings.childId, childId)).limit(1);
+  if (!rows[0]) {
+    const now = new Date();
+    await db
+      .insert(schema.realmSettings)
+      .values({ id: nanoid(), childId, createdAt: now, updatedAt: now })
+      .onConflictDoNothing();
+    rows = await db.select(cols).from(schema.realmSettings).where(eq(schema.realmSettings.childId, childId)).limit(1);
+  }
   return { helpSeenAt: rows[0]?.helpSeenAt ?? null, starterSpellAt: rows[0]?.starterSpellAt ?? null };
 }
 

@@ -11,4 +11,10 @@ describe("starterSpellDecision", () => {
   it("is Ember Bolt on page one", () => {
     expect(STARTER_SPELL).toEqual({ slot: 1, elementId: "ember", formId: "bolt", modifierId: null, adjective: "Ember", noun: "Bolt" });
   });
+
+  it("ignores hasSpells once starterSpellAt is set, so ensureStarterSpell can short-circuit before querying the spell table", () => {
+    const seenAt = new Date("2026-09-01");
+    expect(starterSpellDecision(false, seenAt)).toBe(starterSpellDecision(true, seenAt));
+    expect(starterSpellDecision(false, seenAt)).toBe("none");
+  });
 });

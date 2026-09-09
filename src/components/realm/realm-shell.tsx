@@ -239,6 +239,21 @@ function RealmOpen({
     setRiding((r) => !r);
     setSelectedSlot(null);
   }, [canRide]);
+  // Stable across renders so the bar's window key listener isn't torn down and re-added every render.
+  const onSelectSpell = useCallback(
+    (slot: number | null) => {
+      if (riding && slot !== null) {
+        setNotice("Dismount to cast.");
+        return;
+      }
+      setSelectedSlot(slot);
+      if (slot !== null && !castHintShown.current) {
+        castHintShown.current = true; // once per visit; the toast holds four seconds
+        setToast(settings.showStick ? CAST_HINT_TOUCH : CAST_HINT);
+      }
+    },
+    [riding, settings.showStick]
+  );
 
   // The latest kingdom, readable from event handlers without a stale closure and without side effects in an updater.
   const kingdomRef = useRef(kingdom);
@@ -473,17 +488,7 @@ function RealmOpen({
           selectedSlot={selectedSlot}
           mana={mana}
           fewerChoices={bundle.profile.fewerChoices}
-          onSelect={(slot) => {
-            if (riding && slot !== null) {
-              setNotice("Dismount to cast.");
-              return;
-            }
-            setSelectedSlot(slot);
-            if (slot !== null && !castHintShown.current) {
-              castHintShown.current = true; // once per visit; the toast holds four seconds
-              setToast(settings.showStick ? CAST_HINT_TOUCH : CAST_HINT);
-            }
-          }}
+          onSelect={onSelectSpell}
           raised={settings.showStick}
           hudScale={settings.hudScale}
         />
