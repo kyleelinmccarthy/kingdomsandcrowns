@@ -52,7 +52,7 @@ export default async function RealmPage({ searchParams }: { searchParams: Promis
       <div className="page-banner flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="page-title text-4xl">{isChildView ? "My Realm" : `${activeChild.displayName}'s Realm`}</h1>
-          <p className="mt-1 text-muted-foreground">Walk the grounds, visit what your deeds have raised, and keep your companion close.</p>
+          <p className="mt-1 text-muted-foreground">Walk the grounds, visit what your side quests have raised, and keep your companion close.</p>
         </div>
       </div>
       <RealmShell

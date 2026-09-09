@@ -8,8 +8,10 @@ import { ChildSelector } from "@/components/child-selector";
 import { GameFrame } from "@/components/game-frame";
 import { GameIcon } from "@/components/game-icon";
 import { DeedPicker } from "@/components/deed-picker";
+import { SideQuestMagic } from "@/components/side-quest-magic";
+import { SIDE_QUESTS, SIDE_QUESTS_LOWER } from "@/lib/utils/side-quest-copy";
 
-export default async function DeedsPage({ searchParams }: { searchParams: Promise<{ child?: string }> }) {
+export default async function SideQuestsPage({ searchParams }: { searchParams: Promise<{ child?: string }> }) {
   await requireActor();
   const { child: selectedChildId } = await searchParams;
   const { child: activeChild, allChildren, isChildView } = await resolveActiveChild(selectedChildId);
@@ -17,7 +19,7 @@ export default async function DeedsPage({ searchParams }: { searchParams: Promis
   if (!isChildView && !(await getFamily())) {
     return (
       <div className="space-y-6">
-        <h1 className="page-title text-4xl">Deeds</h1>
+        <h1 className="page-title text-4xl">{SIDE_QUESTS}</h1>
         <GameFrame>
           <div className="py-4 text-center">
             <GameIcon name="map" className="mx-auto size-10 text-[var(--gold-bright)]" />
@@ -33,12 +35,12 @@ export default async function DeedsPage({ searchParams }: { searchParams: Promis
   if (!activeChild) {
     return (
       <div className="space-y-6">
-        <h1 className="page-title text-4xl">Deeds</h1>
+        <h1 className="page-title text-4xl">{SIDE_QUESTS}</h1>
         <GameFrame>
           <div className="py-4 text-center">
             <GameIcon name="person" className="mx-auto size-10 text-[var(--gold-bright)]" />
             <p className="mt-3 text-muted-foreground">
-              <Link href="/settings" className="text-primary hover:underline">Summon a hero</Link> to take up deeds.
+              <Link href="/settings" className="text-primary hover:underline">Summon a hero</Link> to take up {SIDE_QUESTS_LOWER}.
             </p>
           </div>
         </GameFrame>
@@ -53,11 +55,12 @@ export default async function DeedsPage({ searchParams }: { searchParams: Promis
     <div className="space-y-6">
       <div className="page-banner flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="page-title text-4xl">{isChildView ? "My Deeds" : `${activeChild.displayName}'s Deeds`}</h1>
-          <p className="mt-1 text-muted-foreground">Help the folk of the kingdom. Each deed raises a building and strengthens your magic. &middot; {overview.bandLabel}</p>
+          <h1 className="page-title text-4xl">{isChildView ? `My ${SIDE_QUESTS}` : `${activeChild.displayName}'s ${SIDE_QUESTS}`}</h1>
+          <p className="mt-1 text-muted-foreground">Help the folk of the kingdom. Each side quest raises a building and strengthens your magic. &middot; {overview.bandLabel}</p>
         </div>
         {!isChildView && allChildren.length > 1 && <ChildSelector kids={allChildren} selectedId={activeChild.id} />}
       </div>
+      <SideQuestMagic spellbookHref={isChildView ? "/spellbook" : `/spellbook?child=${activeChild.id}`} />
       {overview.enabled ? (
         <DeedPicker childId={activeChild.id} overview={overview} profile={profile} calm={calm} />
       ) : (

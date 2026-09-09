@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { GameIcon } from "@/components/game-icon";
 import { DeedPlayer } from "@/components/deed-player";
+import { SubjectChip } from "@/components/subject-chip";
 import { startDeedRun, type DeedsOverview, type RunStart } from "@/lib/actions/deeds";
+import { AREA_LABELS, type SkillArea } from "@/lib/utils/skills";
 import type { ProfileLike } from "@/lib/utils/deed-engine";
 
 export function DeedPicker({ childId, overview, profile, calm }: { childId: string; overview: DeedsOverview; profile: ProfileLike; calm: boolean }) {
@@ -13,10 +15,14 @@ export function DeedPicker({ childId, overview, profile, calm }: { childId: stri
   const [run, setRun] = useState<RunStart | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [area, setArea] = useState<SkillArea | "all">("all");
 
   // Work in progress leads, untouched buildings follow, finished ones rest at the end.
   const rank = (b: DeedsOverview["buildings"][number]) => (b.complete ? 2 : b.done > 0 ? 0 : 1);
   const buildings = [...overview.buildings].sort((a, b) => rank(a) - rank(b));
+  const visible = buildings
+    .map((b) => ({ ...b, deeds: b.deeds.filter((d) => area === "all" || d.area === area) }))
+    .filter((b) => b.deeds.length > 0);
 
   async function begin(deedId: string) {
     setBusy(true);
@@ -37,7 +43,15 @@ export function DeedPicker({ childId, overview, profile, calm }: { childId: stri
   return (
     <div className="space-y-4">
       {error && <div className="rounded-md bg-destructive/10 p-2 text-sm text-destructive">{error}</div>}
-      {buildings.map((b) => (
+      <div className="flex flex-wrap gap-2" role="group" aria-label="Subject">
+        {(["all", "math", "reading", "language", "science"] as const).map((a) => (
+          <button key={a} type="button" aria-pressed={area === a} onClick={() => setArea(a)}
+            className={`rounded-full border px-3 py-1 text-xs font-medium ${area === a ? "border-[var(--gold-border)] bg-[rgba(201,168,76,0.15)] text-[var(--gold-bright)]" : "border-border text-muted-foreground"}`}>
+            {a === "all" ? "All" : AREA_LABELS[a].label}
+          </button>
+        ))}
+      </div>
+      {visible.map((b) => (
         <section key={b.id} className="rounded-lg border border-gold-dim bg-muted/20 p-4">
           <div className="flex items-center gap-3">
             <GameIcon name={b.icon} className="size-6 text-[var(--gold-bright)]" />
@@ -56,7 +70,7 @@ export function DeedPicker({ childId, overview, profile, calm }: { childId: stri
             {b.deeds.map((d) => (
               <li key={d.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-gold-dim px-3 py-2">
                 <div className="min-w-0">
-                  <p className="text-sm font-medium">{d.title}</p>
+                  <p className="flex items-center gap-2 text-sm font-medium">{d.title} <SubjectChip area={d.area} /></p>
                   <p className="text-xs text-muted-foreground">{d.story}</p>
                 </div>
                 <Button size="sm" aria-label={`Begin ${d.title}`} disabled={busy} onClick={() => begin(d.id)}>Begin</Button>

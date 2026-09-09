@@ -58,13 +58,13 @@ describe("DeedPanel", () => {
     expect(screen.getByRole("dialog")).toBeInTheDocument();
   });
 
-  it("offers Leave the deed while playing and closes on it", async () => {
+  it("offers Leave the side quest while playing and closes on it", async () => {
     startDeedRun.mockResolvedValue({ runId: "r1", deed: { id: "well-stones", title: "Count the Well Stones", story: "Dry again." }, questions: [], responses: [] });
     const onClose = vi.fn();
     render(<DeedPanel childId="c1" villager={VILLAGERS[0]} building={building} profile={DEFAULT_LEARNING_PROFILE} calm={false} preview={false} onFinished={() => {}} onClose={onClose} />);
     fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" }));
     await screen.findByText("Playing Count the Well Stones");
-    fireEvent.click(screen.getByRole("button", { name: "Leave the deed" }));
+    fireEvent.click(screen.getByRole("button", { name: "Leave the side quest" }));
     expect(onClose).toHaveBeenCalled();
   });
 });

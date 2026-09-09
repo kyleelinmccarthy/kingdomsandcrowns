@@ -199,7 +199,7 @@ describe("RealmShell", () => {
     });
     expect(await screen.findByRole("dialog", { name: "Old Bram" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Begin / })).not.toBeInTheDocument();
-    expect(screen.getByText("Deeds are for the hero to play.")).toBeInTheDocument();
+    expect(screen.getByText("Side quests are for the hero to play.")).toBeInTheDocument();
     expect(startDeedRun).not.toHaveBeenCalled();
   });
 

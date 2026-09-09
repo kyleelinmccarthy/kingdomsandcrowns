@@ -80,8 +80,8 @@ describe("spellUnlockHint", () => {
   });
   it("counts remaining quests in the hero's own disciplines", () => {
     const ctx = { ...fresh, schoolCounts: { element: 3, form: 0, modifier: 0 } };
-    expect(spellUnlockHint({ type: "school", school: "element", count: 15 }, ctx, subjects)).toBe("12 more Reading or History quests or deeds to go.");
-    expect(spellUnlockHint({ type: "school", school: "form", count: 5 }, ctx, subjects)).toBe("5 more Math quests or deeds to go.");
+    expect(spellUnlockHint({ type: "school", school: "element", count: 15 }, ctx, subjects)).toBe("12 more Reading or History quests or side quests to go.");
+    expect(spellUnlockHint({ type: "school", school: "form", count: 5 }, ctx, subjects)).toBe("5 more Math quests or side quests to go.");
   });
   it("asks for a discipline when none feeds the school", () => {
     expect(spellUnlockHint({ type: "school", school: "modifier", count: 5 }, fresh, subjects)).toBe(

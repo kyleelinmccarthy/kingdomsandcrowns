@@ -13,7 +13,7 @@ vi.mock("@/lib/actions/deeds", () => ({
 
 const run: RunStart = {
   runId: "r1",
-  deed: { id: "well-signs", title: "Signs for the Well", story: "Help the sign-painter." },
+  deed: { id: "well-signs", title: "Signs for the Well", story: "Help the sign-painter.", area: "reading" },
   questions: [
     { id: "q1", skillId: "sight-g23", prompt: 'Which word is "because"?', choices: ["because", "become", "beside", "before"], readAloud: "because" },
     { id: "q2", skillId: "sight-g23", prompt: 'Which word is "again"?', choices: ["again", "against"] },
@@ -51,11 +51,11 @@ describe("DeedPlayer", () => {
     expect(screen.getByText('Which word is "again"?')).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /^(again|against)$/ })).toHaveLength(2);
     await user.click(screen.getByRole("button", { name: "again" }));
-    await user.click(await screen.findByRole("button", { name: "Finish deed" }));
+    await user.click(await screen.findByRole("button", { name: "Finish side quest" }));
     expect(completeDeedRun).toHaveBeenCalledWith("r1");
     expect(await screen.findByText(/1 of 2/)).toBeInTheDocument();
     expect(screen.getByText("Sight words: getting stronger")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Back to deeds" }));
+    await user.click(screen.getByRole("button", { name: "Back to side quests" }));
     expect(onFinished).toHaveBeenCalled();
   });
 

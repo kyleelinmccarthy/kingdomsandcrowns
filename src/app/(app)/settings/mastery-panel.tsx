@@ -1,4 +1,5 @@
 import type { MasteryRow } from "@/lib/actions/deeds";
+import { SIDE_QUESTS, SIDE_QUESTS_LOWER } from "@/lib/utils/side-quest-copy";
 
 const AREA_LABELS: Record<string, string> = { math: "Math", reading: "Reading", language: "Language", science: "Science" };
 
@@ -6,12 +7,12 @@ export function MasteryPanel({ mastery }: { mastery: MasteryRow[] }) {
   const areas = ["math", "reading", "language", "science"].filter((a) => mastery.some((m) => m.area === a));
   return (
     <div className="space-y-2">
-      <h4 className="text-sm font-medium">Deeds &amp; Mastery</h4>
+      <h4 className="text-sm font-medium">{SIDE_QUESTS} &amp; Mastery</h4>
       <p className="text-xs text-muted-foreground">
-        Deeds are practice inside the Realm. They never appear in the learning log or count as school time.
+        {SIDE_QUESTS} are practice inside the Realm. They never appear in the learning log or count as school time.
       </p>
       {mastery.length === 0 ? (
-        <p className="rounded-lg border border-gold-dim bg-muted/30 px-3 py-2.5 text-sm text-muted-foreground">No deeds yet.</p>
+        <p className="rounded-lg border border-gold-dim bg-muted/30 px-3 py-2.5 text-sm text-muted-foreground">No {SIDE_QUESTS_LOWER} yet.</p>
       ) : (
         areas.map((area) => (
           <div key={area} className="rounded-lg border border-gold-dim bg-muted/30 px-3 py-2.5">

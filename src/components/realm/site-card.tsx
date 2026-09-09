@@ -3,10 +3,12 @@
 import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { GameIcon } from "@/components/game-icon";
+import { SubjectChip } from "@/components/subject-chip";
 import type { BuildingOverview } from "@/lib/services/deeds";
 import type { Villager } from "@/lib/realm/villagers";
 
-export const HERO_ONLY = "Deeds are for the hero to play.";
+// Sentence case here (not the SIDE_QUESTS title-case noun): this reads as a plain sentence, not a heading.
+export const HERO_ONLY = "Side quests are for the hero to play.";
 
 export function SiteCard({
   villager,
@@ -72,7 +74,7 @@ export function SiteCard({
         {building.deeds.map((d) => (
           <li key={d.id} className="realm-panel-deed">
             <div className="min-w-0">
-              <p className="text-sm font-medium">{d.title}</p>
+              <p className="flex items-center gap-2 text-sm font-medium">{d.title} <SubjectChip area={d.area} /></p>
               <p className="text-xs text-muted-foreground">{d.story}</p>
             </div>
             {preview ? null : (

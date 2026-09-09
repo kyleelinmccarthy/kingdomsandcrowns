@@ -160,4 +160,10 @@ describe("RealmHud", () => {
     expect(onCeremonyRetry).toHaveBeenCalledTimes(1);
     expect(screen.queryByRole("button", { name: "Skip" })).not.toBeInTheDocument();
   });
+
+  it("tells a parent what the preview leaves out, then the closed reason", () => {
+    render(<RealmHud heroName="Lily" minutesRemaining={null} warning={false} preview={{ intro: "You're looking at Lily's grounds. Spells, side quests and recess are theirs to play.", note: "Closed for Lily: it's school time." }} hudScale={1} error="" onRetry={() => {}} paused={false} toast={null} calm={false} kingdomError="" onKingdomRetry={() => {}} mana={null} cleared={null} notice={null} recess={null} ride={null} />);
+    expect(screen.getByText("You're looking at Lily's grounds. Spells, side quests and recess are theirs to play.")).toBeInTheDocument();
+    expect(screen.getByText("Closed for Lily: it's school time.")).toBeInTheDocument();
+  });
 });

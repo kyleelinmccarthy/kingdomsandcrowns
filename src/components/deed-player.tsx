@@ -5,9 +5,11 @@ import { Button } from "@/components/ui/button";
 import { GameFrame } from "@/components/game-frame";
 import { GameIcon } from "@/components/game-icon";
 import { DeedResults } from "@/components/deed-results";
+import { SubjectChip } from "@/components/subject-chip";
 import { answerDeedQuestion, completeDeedRun, type RunStart, type RunSummary } from "@/lib/actions/deeds";
 import type { ProfileLike } from "@/lib/utils/deed-engine";
 import { canSpeak, speak } from "@/lib/utils/speech";
+import { SIDE_QUEST_LOWER } from "@/lib/utils/side-quest-copy";
 
 type Feedback = { correct: boolean; answer: string };
 
@@ -91,7 +93,7 @@ export function DeedPlayer({
   if (summary) {
     return (
       <GameFrame title={run.deed.title} icon={<GameIcon name="map" className="size-4 text-[var(--gold-bright)]" />}>
-        <DeedResults summary={summary} deedTitle={run.deed.title} doneLabel={doneLabel} onDone={() => onFinished(summary)} />
+        <DeedResults summary={summary} deedTitle={run.deed.title} area={run.deed.area} doneLabel={doneLabel} onDone={() => onFinished(summary)} />
       </GameFrame>
     );
   }
@@ -105,7 +107,7 @@ export function DeedPlayer({
       action={!profile.untimed ? <span className="text-xs text-muted-foreground">{minutes} min</span> : undefined}
     >
       <div className="space-y-5">
-        <p className="text-sm text-muted-foreground">{run.deed.story}</p>
+        <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground"><SubjectChip area={run.deed.area} /> {run.deed.story}</p>
         <div className="flex items-center gap-1" aria-label={`Question ${index + 1} of ${run.questions.length}`} role="img">
           {run.questions.map((q, i) => (
             <span key={q.id} className={`size-2 rounded-full ${i < index ? "bg-[var(--gold-bright)]" : i === index ? "bg-primary" : "bg-muted"}`} />
@@ -140,8 +142,8 @@ export function DeedPlayer({
         {feedback && (
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p className="text-sm">{feedback.correct ? "That's it!" : `Not quite. The answer was ${feedback.answer}.`}</p>
-            <Button aria-label={isLast ? "Finish deed" : "Next question"} disabled={busy} onClick={next}>
-              {isLast ? "Finish deed" : "Next"}
+            <Button aria-label={isLast ? `Finish ${SIDE_QUEST_LOWER}` : "Next question"} disabled={busy} onClick={next}>
+              {isLast ? `Finish ${SIDE_QUEST_LOWER}` : "Next"}
             </Button>
           </div>
         )}

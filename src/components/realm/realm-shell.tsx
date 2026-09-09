@@ -24,6 +24,7 @@ import { readingAttributes } from "@/lib/utils/learning-profile";
 import { currentTimeOfDay, localDateOf } from "@/lib/utils/schedule-days";
 import { crownById, CROWNS } from "@/lib/utils/crown-catalog";
 import { speak } from "@/lib/utils/speech";
+import { SIDE_QUESTS_LOWER } from "@/lib/utils/side-quest-copy";
 import { SpriteSource, type SpriteTextures } from "./sprite-source";
 import { RealmHud } from "./realm-hud";
 import { RealmGate } from "./realm-gate";
@@ -437,7 +438,7 @@ function RealmOpen({
         heroName={bundle.heroName}
         minutesRemaining={isChildView ? clock.minutesRemaining : null}
         warning={clock.warning}
-        preview={isChildView ? null : { note }}
+        preview={isChildView ? null : { intro: `You're looking at ${bundle.heroName}'s grounds. Spells, ${SIDE_QUESTS_LOWER} and recess are theirs to play.`, note }}
         hudScale={settings.hudScale}
         error={spriteError || clock.error}
         selector={selector}

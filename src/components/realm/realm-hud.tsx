@@ -33,7 +33,7 @@ export function RealmHud({
   heroName: string;
   minutesRemaining: number | null; // null hides the counter (parent preview)
   warning: boolean;
-  preview: { note: string | null } | null;
+  preview: { intro?: string; note: string | null } | null;
   hudScale: number;
   error: string;
   selector?: React.ReactNode;
@@ -90,6 +90,7 @@ export function RealmHud({
         {preview && <span className="realm-hud-selector">{selector}</span>}
         <Link href="/tavern" className="realm-hud-leave">Leave the Realm</Link>
       </div>
+      {preview?.intro && <p className="realm-hud-note">{preview.intro}</p>}
       {preview?.note && <p className="realm-hud-note">{preview.note}</p>}
       {warning && minutesRemaining !== null && <p className="realm-hud-banner">One minute left in the Realm today.</p>}
       {error && (

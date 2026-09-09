@@ -27,7 +27,7 @@ export type DeedsOverview = {
   enabled: boolean; band: ContentBand; bandLabel: string; tone: "gentle" | "monsters";
   buildings: BuildingOverview[]; mastery: MasteryRow[];
 };
-export type RunStart = { runId: string; deed: { id: string; title: string; story: string }; questions: ClientQuestion[]; responses: (string | null)[] };
+export type RunStart = { runId: string; deed: { id: string; title: string; story: string; area: SkillArea }; questions: ClientQuestion[]; responses: (string | null)[] };
 export type AnswerResult = { correct: boolean; answer: string };
 export type RunSummary = {
   correctCount: number; total: number; flawless: boolean; masteryChanges: string[];
@@ -114,7 +114,7 @@ export async function startDeedRun(childId: string, deedId: string, context: "pa
   if (open[0]) {
     const qs = JSON.parse(open[0].questions) as Question[];
     const responses = JSON.parse(open[0].responses) as (string | null)[];
-    return { runId: open[0].id, deed: { id: deed.id, title: deed.title, story }, questions: qs.map(toClientQuestion), responses };
+    return { runId: open[0].id, deed: { id: deed.id, title: deed.title, story, area: deed.area }, questions: qs.map(toClientQuestion), responses };
   }
 
   const skills = chooseSkills(deed, hero.band);
@@ -149,7 +149,7 @@ export async function startDeedRun(childId: string, deedId: string, context: "pa
     startedAt: now, completedAt: null, createdAt: now, updatedAt: now,
   });
   return {
-    runId, deed: { id: deed.id, title: deed.title, story },
+    runId, deed: { id: deed.id, title: deed.title, story, area: deed.area },
     questions: built.questions.map(toClientQuestion), responses: built.questions.map(() => null),
   };
 }
@@ -261,7 +261,7 @@ export async function completeDeedRun(runId: string): Promise<RunSummary> {
     if (copy) masteryChanges.push(copy);
   }
 
-  revalidatePath("/deeds");
+  revalidatePath("/side-quests");
   revalidatePath("/spellbook");
   revalidatePath("/loot");
   return {

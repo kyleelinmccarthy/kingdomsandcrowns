@@ -7,6 +7,7 @@ import { startDeedRun, type RunStart, type RunSummary } from "@/lib/actions/deed
 import type { BuildingOverview } from "@/lib/services/deeds";
 import type { Villager } from "@/lib/realm/villagers";
 import type { ProfileLike } from "@/lib/utils/deed-engine";
+import { SIDE_QUEST_LOWER } from "@/lib/utils/side-quest-copy";
 import { SiteCard } from "./site-card";
 
 /**
@@ -92,7 +93,7 @@ export function DeedPanel({
         <div ref={runDialog} className="realm-panel" role="dialog" aria-modal="true" aria-label={run.deed.title} tabIndex={-1} onKeyDown={(e) => { if (e.key === "Escape") { e.stopPropagation(); onClose(); } }}>
           <div className="realm-panel-head">
             <span className="text-sm text-muted-foreground">{villager.name}</span>
-            <Button size="sm" variant="ghost" className="ml-auto" onClick={onClose}>Leave the deed</Button>
+            <Button size="sm" variant="ghost" className="ml-auto" onClick={onClose}>Leave the {SIDE_QUEST_LOWER}</Button>
           </div>
           <DeedPlayer childId={childId} run={run} profile={profile} calm={calm} doneLabel="Back to the Realm" onFinished={(summary) => onFinished(building.id, summary.building)} />
         </div>

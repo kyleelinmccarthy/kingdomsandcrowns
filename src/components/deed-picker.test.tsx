@@ -23,7 +23,7 @@ const overview: DeedsOverview = {
 };
 const profile = { fewerChoices: false, predictableRoutine: false, untimed: true, readAloud: false };
 
-beforeEach(() => { vi.clearAllMocks(); startDeedRun.mockResolvedValue({ runId: "r1", deed: { id: "bridge-planks", title: "Planks for the Bridge", story: "Measure." }, questions: [{ id: "q", skillId: "add-20", prompt: "What is 1 + 1?", choices: ["2", "3", "4", "5"] }], responses: [null] }); });
+beforeEach(() => { vi.clearAllMocks(); startDeedRun.mockResolvedValue({ runId: "r1", deed: { id: "bridge-planks", title: "Planks for the Bridge", story: "Measure.", area: "math" }, questions: [{ id: "q", skillId: "add-20", prompt: "What is 1 + 1?", choices: ["2", "3", "4", "5"] }], responses: [null] }); });
 afterEach(cleanup);
 
 describe("DeedPicker", () => {
@@ -40,5 +40,17 @@ describe("DeedPicker", () => {
     await user.click(screen.getByRole("button", { name: "Begin Planks for the Bridge" }));
     expect(startDeedRun).toHaveBeenCalledWith("c1", "bridge-planks");
     expect(await screen.findByText("What is 1 + 1?")).toBeInTheDocument();
+  });
+
+  it("shows each side quest's subject and filters by it", async () => {
+    render(<DeedPicker childId="c1" overview={overview} profile={profile} calm={false} />);
+    expect(screen.getAllByLabelText("Subject: Math")).toHaveLength(2);
+    expect(screen.getByLabelText("Subject: Reading")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Reading", pressed: false }));
+    expect(screen.queryByText("Grain Mill")).not.toBeInTheDocument();
+    expect(screen.getByText("Village Well")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "All", pressed: false }));
+    expect(screen.getByText("Grain Mill")).toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/deed/i);
   });
 });

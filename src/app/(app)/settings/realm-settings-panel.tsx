@@ -60,7 +60,7 @@ export function RealmSettingsPanel({
       <div className="flex items-center justify-between rounded-lg border border-gold-dim bg-muted/30 px-3 py-2.5">
         <div>
           <p className="text-sm">{settings.enabled ? "The Realm is open to this hero." : "The Realm is closed to this hero."}</p>
-          <p className="text-xs text-muted-foreground">The 3D world where quests become deeds and seasons earn crowns.</p>
+          <p className="text-xs text-muted-foreground">The 3D world where side quests raise a kingdom and seasons earn crowns.</p>
         </div>
         <Switch aria-label="Realm enabled" checked={settings.enabled} disabled={busy} onCheckedChange={() => save({ enabled: !settings.enabled })} />
       </div>

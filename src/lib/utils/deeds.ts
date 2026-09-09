@@ -1,3 +1,4 @@
+// "Deed" in code is "side quest" on screen. Identifiers are not renamed; copy comes from side-quest-copy.ts.
 import type { SkillArea } from "./skills";
 
 export type Deed = {

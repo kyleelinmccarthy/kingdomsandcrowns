@@ -34,7 +34,7 @@ describe("SiteCard", () => {
   it("hides Begin in preview and explains why", () => {
     render(<SiteCard villager={VILLAGERS[0]} building={building} preview={true} busy={false} error="" onBegin={() => {}} onClearError={() => {}} onClose={() => {}} />);
     expect(screen.queryByRole("button", { name: /^Begin / })).not.toBeInTheDocument();
-    expect(screen.getByText("Deeds are for the hero to play.")).toBeInTheDocument();
+    expect(screen.getByText("Side quests are for the hero to play.")).toBeInTheDocument();
   });
 
   it("closes on the Close button and on Escape", () => {
@@ -58,5 +58,11 @@ describe("SiteCard", () => {
     // as the real DeedPanel does once `onClearError` runs.
     rerender(<SiteCard villager={VILLAGERS[0]} building={building} preview={false} busy={false} error="" onBegin={() => {}} onClearError={onClearError} onClose={() => {}} />);
     expect(screen.queryByText("No deeds are ready for this hero yet.")).not.toBeInTheDocument();
+  });
+
+  it("shows each side quest's subject", () => {
+    render(<SiteCard villager={VILLAGERS[0]} building={building} preview={false} busy={false} error="" onBegin={() => {}} onClearError={() => {}} onClose={() => {}} />);
+    expect(screen.getByLabelText("Subject: Math")).toBeInTheDocument();
+    expect(screen.getByLabelText("Subject: Reading")).toBeInTheDocument();
   });
 });

@@ -1,4 +1,5 @@
 import type { GameIconName } from "@/components/game-icon";
+import { SIDE_QUESTS } from "@/lib/utils/side-quest-copy";
 
 export type NavItem = {
   href: string;
@@ -17,12 +18,6 @@ export const MAIN_NAV: NavItem[] = [
     label: "Tavern",
     icon: "tavern",
     description: "Your home base — see your heroes, today's quests, and what's happening in your kingdom.",
-  },
-  {
-    href: "/deeds",
-    label: "Deeds",
-    icon: "map",
-    description: "Help the folk of your kingdom — each deed raises a building and strengthens your magic.",
   },
   {
     href: "/loot",
@@ -53,13 +48,19 @@ export const MAIN_NAV: NavItem[] = [
     href: "/realm",
     label: "Realm",
     icon: "castle",
-    description: "Walk your kingdom — the castle, the buildings your deeds raised, and your companion at your side.",
+    description: "Walk your kingdom — the castle, the buildings your side quests raised, and your companion at your side.",
   },
   {
     href: "/schedule",
     label: "Schedule",
     icon: "calendar",
     description: "The weekly schedule — classes for each day of the week and which days are school days.",
+  },
+  {
+    href: "/side-quests",
+    label: SIDE_QUESTS,
+    icon: "map",
+    description: "Help the folk of your kingdom. Each side quest raises a building and strengthens your magic.",
   },
   {
     href: "/spellbook",

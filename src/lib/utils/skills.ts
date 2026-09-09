@@ -15,6 +15,22 @@ export const AREA_SCHOOL: Record<SkillArea, SpellSchool> = {
   science: "modifier",
 };
 
+/** What a child sees on a side quest: the subject's name and chip colour. */
+export const AREA_LABELS: Record<SkillArea, { label: string; color: string }> = {
+  math: { label: "Math", color: "#3b82f6" },
+  reading: { label: "Reading", color: "#22c55e" },
+  language: { label: "Language", color: "#a855f7" },
+  science: { label: "Science", color: "#f97316" },
+};
+
+const SCHOOL_ORDER: SpellSchool[] = ["form", "element", "modifier"];
+
+/** Which subjects feed each spell school, for the "How side quests make magic" lines. */
+export function schoolLines(): { school: SpellSchool; areas: SkillArea[] }[] {
+  const areas = Object.keys(AREA_SCHOOL) as SkillArea[];
+  return SCHOOL_ORDER.map((school) => ({ school, areas: areas.filter((a) => AREA_SCHOOL[a] === school) }));
+}
+
 const gen = (generatorId: string): SkillSource => ({ kind: "generator", generatorId });
 const pool = (poolId: string): SkillSource => ({ kind: "pool", poolId });
 
