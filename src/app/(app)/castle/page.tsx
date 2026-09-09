@@ -82,10 +82,10 @@ export default async function CastlePage({
             <div className="mt-6 text-left max-w-sm mx-auto space-y-2">
               <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">Castle Upgrades</p>
               {CASTLE_TYPES.map((ct) => (
-                <div key={ct.id} className={`flex items-center gap-2 text-xs ${level >= ct.levelRequired ? "" : "opacity-40"}`}>
-                  <GameIcon name={level >= ct.levelRequired ? "check" : "lock"} className="size-4 text-[var(--gold-bright)]" />
-                  <span className="font-medium">Lv.{ct.levelRequired}:</span>
-                  <span className="text-muted-foreground">{ct.label} — {ct.description}</span>
+                <div key={ct.id} className={`flex flex-wrap items-center gap-x-2 gap-y-1 text-xs ${level >= ct.levelRequired ? "" : "opacity-40"}`}>
+                  <GameIcon name={level >= ct.levelRequired ? "check" : "lock"} className="size-4 shrink-0 text-[var(--gold-bright)]" />
+                  <span className="shrink-0 font-medium">Lv.{ct.levelRequired}:</span>
+                  <span className="break-words text-muted-foreground">{ct.label} — {ct.description}</span>
                 </div>
               ))}
             </div>
@@ -148,10 +148,10 @@ export default async function CastlePage({
         <GameFrame title="Future Upgrades" icon={<GameIcon name="crystalBall" className="size-5 text-[var(--gold-bright)]" />}>
           <div className="space-y-2">
             {CASTLE_TYPES.filter((t) => level < t.levelRequired).map((ct) => (
-              <div key={ct.id} className="flex items-center gap-2 text-xs opacity-50">
-                <GameIcon name="lock" className="size-4 text-[var(--gold-bright)]" />
-                <span className="font-medium">Level {ct.levelRequired}:</span>
-                <span className="text-muted-foreground">{ct.label} — {ct.description}</span>
+              <div key={ct.id} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs opacity-50">
+                <GameIcon name="lock" className="size-4 shrink-0 text-[var(--gold-bright)]" />
+                <span className="shrink-0 font-medium">Level {ct.levelRequired}:</span>
+                <span className="break-words text-muted-foreground">{ct.label} — {ct.description}</span>
               </div>
             ))}
           </div>

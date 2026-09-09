@@ -14,6 +14,7 @@ import {
 import { useQuestTimer, formatElapsed } from "@/hooks/use-quest-timer";
 import { GameIcon } from "@/components/game-icon";
 import { getRewardItemLabel } from "@/lib/utils/avatar-catalog";
+import { hasMeaningfulNotes } from "@/lib/utils/sanitize";
 
 type AssignmentWithDetails = {
   assignment: {
@@ -104,7 +105,7 @@ export function QuestAssignmentCard({
   const parsedDuration = parseInt(manualDuration, 10);
   const isDurationValid =
     manualDuration.trim() !== "" && Number.isFinite(parsedDuration) && parsedDuration >= 1 && parsedDuration <= 480;
-  const hasRequiredNotes = !quest.requireNotes || notes.trim() !== "";
+  const hasRequiredNotes = !quest.requireNotes || hasMeaningfulNotes(notes);
 
   function openQuickComplete() {
     setManualDuration(quest.estimatedMinutes ? String(quest.estimatedMinutes) : "");
@@ -141,7 +142,7 @@ export function QuestAssignmentCard({
   // Scribe's Notes after the fact: a hero often only knows what to write once
   // the quest is behind them, so a finished card stays annotatable.
   async function handleSaveNotes() {
-    if (quest.requireNotes && notesDraft.trim() === "") return;
+    if (quest.requireNotes && !hasMeaningfulNotes(notesDraft)) return;
     setActing(true);
     setError("");
     try {
@@ -477,7 +478,7 @@ export function QuestAssignmentCard({
             <Button
               size="sm"
               onClick={handleSaveNotes}
-              disabled={acting || (quest.requireNotes && notesDraft.trim() === "")}
+              disabled={acting || (quest.requireNotes && !hasMeaningfulNotes(notesDraft))}
             >
               {acting ? "Saving..." : "Save Notes"}
             </Button>

@@ -8,7 +8,10 @@ import { Label } from "@/components/ui/label";
 import { GameFrame } from "@/components/game-frame";
 import { GameIcon } from "@/components/game-icon";
 import { saveLearningLog, markLogCopied } from "@/lib/actions/chronicles";
-import { createSchoolBreak, deleteSchoolBreak } from "@/lib/actions/school-breaks";
+import { createSchoolBreak, deleteSchoolBreak, bulkCreateSchoolBreaks } from "@/lib/actions/school-breaks";
+import { getDefaultUSSchoolHolidays } from "@/lib/utils/school-holidays";
+
+type BatchBreakRow = { name: string; startDate: string; endDate: string };
 
 type SchoolBreak = {
   id: string;
@@ -131,19 +134,28 @@ export function LongRest({
 
   // ── School Break Manager (parent only) ──
 
-  const [showBreakForm, setShowBreakForm] = useState(false);
+  const [activeForm, setActiveForm] = useState<"none" | "single" | "preset" | "bulk">("none");
   const [breakName, setBreakName] = useState("");
   const [breakStart, setBreakStart] = useState("");
   const [breakEnd, setBreakEnd] = useState("");
+  const [singleDay, setSingleDay] = useState(false);
+  const [batchRows, setBatchRows] = useState<BatchBreakRow[]>([]);
+
+  function closeAllForms() {
+    setActiveForm("none");
+    setBreakName("");
+    setBreakStart("");
+    setBreakEnd("");
+    setSingleDay(false);
+    setBatchRows([]);
+  }
 
   function handleAddBreak() {
-    if (!breakName.trim() || !breakStart || !breakEnd) return;
+    const end = singleDay ? breakStart : breakEnd;
+    if (!breakName.trim() || !breakStart || !end) return;
     startTransition(async () => {
-      await createSchoolBreak(familyId, breakName.trim(), breakStart, breakEnd);
-      setBreakName("");
-      setBreakStart("");
-      setBreakEnd("");
-      setShowBreakForm(false);
+      await createSchoolBreak(familyId, breakName.trim(), breakStart, end);
+      closeAllForms();
       router.refresh();
     });
   }
@@ -151,6 +163,42 @@ export function LongRest({
   function handleDeleteBreak(breakId: string) {
     startTransition(async () => {
       await deleteSchoolBreak(breakId);
+      router.refresh();
+    });
+  }
+
+  function openPresetHolidays() {
+    setBatchRows(getDefaultUSSchoolHolidays());
+    setActiveForm("preset");
+  }
+
+  function openBulkEntry() {
+    setBatchRows([
+      { name: "", startDate: "", endDate: "" },
+      { name: "", startDate: "", endDate: "" },
+      { name: "", startDate: "", endDate: "" },
+    ]);
+    setActiveForm("bulk");
+  }
+
+  function updateBatchRow(index: number, field: keyof BatchBreakRow, value: string) {
+    setBatchRows((rows) => rows.map((r, i) => (i === index ? { ...r, [field]: value } : r)));
+  }
+
+  function removeBatchRow(index: number) {
+    setBatchRows((rows) => rows.filter((_, i) => i !== index));
+  }
+
+  function addBlankBatchRow() {
+    setBatchRows((rows) => [...rows, { name: "", startDate: "", endDate: "" }]);
+  }
+
+  function handleSubmitBatch() {
+    const valid = batchRows.filter((r) => r.name.trim() && r.startDate && r.endDate);
+    if (valid.length === 0) return;
+    startTransition(async () => {
+      await bulkCreateSchoolBreaks(familyId, valid);
+      closeAllForms();
       router.refresh();
     });
   }
@@ -214,7 +262,7 @@ export function LongRest({
         {!isChildView && (
           <GameFrame title="School Calendar" icon={<GameIcon name="calendar" className="size-5 text-[var(--gold-bright)]" />}>
             <div className="space-y-3">
-              {breaks.length === 0 && !showBreakForm && (
+              {breaks.length === 0 && activeForm === "none" && (
                 <p className="text-sm text-muted-foreground">
                   No breaks configured. Week navigation will skip break weeks automatically.
                 </p>
@@ -222,7 +270,7 @@ export function LongRest({
 
               {breaks.map((b) => (
                 <div key={b.id} className="flex items-center gap-2 text-sm">
-                  <span className="flex-1">
+                  <span className="min-w-0 flex-1 break-words">
                     <span className="font-medium">{b.name}</span>
                     <span className="text-muted-foreground">
                       {" "}({formatBreakDate(b.startDate)} – {formatBreakDate(b.endDate)})
@@ -231,6 +279,7 @@ export function LongRest({
                   <Button
                     variant="ghost"
                     size="icon-xs"
+                    className="shrink-0"
                     onClick={() => handleDeleteBreak(b.id)}
                     disabled={isPending}
                     aria-label={`Remove ${b.name}`}
@@ -240,7 +289,7 @@ export function LongRest({
                 </div>
               ))}
 
-              {showBreakForm ? (
+              {activeForm === "single" && (
                 <div className="space-y-2 rounded-lg border border-input p-3">
                   <div>
                     <Label htmlFor="break-name">Break Name</Label>
@@ -252,7 +301,7 @@ export function LongRest({
                     />
                   </div>
                   <div>
-                    <Label htmlFor="break-start">Start</Label>
+                    <Label htmlFor="break-start">{singleDay ? "Date" : "Start"}</Label>
                     <Input
                       id="break-start"
                       type="date"
@@ -260,32 +309,116 @@ export function LongRest({
                       onChange={(e) => setBreakStart(e.target.value)}
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="break-end">End</Label>
-                    <Input
-                      id="break-end"
-                      type="date"
-                      value={breakEnd}
-                      onChange={(e) => setBreakEnd(e.target.value)}
+                  {!singleDay && (
+                    <div>
+                      <Label htmlFor="break-end">End</Label>
+                      <Input
+                        id="break-end"
+                        type="date"
+                        value={breakEnd}
+                        onChange={(e) => setBreakEnd(e.target.value)}
+                      />
+                    </div>
+                  )}
+                  <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <input
+                      type="checkbox"
+                      checked={singleDay}
+                      onChange={(e) => setSingleDay(e.target.checked)}
                     />
-                  </div>
+                    Single day
+                  </label>
                   <div className="flex gap-2">
                     <Button
                       size="sm"
                       onClick={handleAddBreak}
-                      disabled={isPending || !breakName.trim() || !breakStart || !breakEnd}
+                      disabled={isPending || !breakName.trim() || !breakStart || (!singleDay && !breakEnd)}
                     >
                       Add Break
                     </Button>
-                    <Button variant="ghost" size="sm" onClick={() => setShowBreakForm(false)}>
+                    <Button variant="ghost" size="sm" onClick={closeAllForms}>
                       Cancel
                     </Button>
                   </div>
                 </div>
-              ) : (
-                <Button variant="outline" size="xs" onClick={() => setShowBreakForm(true)}>
-                  + Add Break
-                </Button>
+              )}
+
+              {(activeForm === "preset" || activeForm === "bulk") && (
+                <div className="space-y-2 rounded-lg border border-input p-3">
+                  {activeForm === "preset" && (
+                    <p className="text-sm text-muted-foreground">
+                      Review and adjust these before adding — dates are estimates.
+                    </p>
+                  )}
+                  <div className="space-y-3">
+                    {batchRows.map((row, i) => (
+                      <div key={i} className="space-y-1 border-b border-input pb-2 last:border-b-0">
+                        <div className="flex items-center gap-2">
+                          <Input
+                            value={row.name}
+                            onChange={(e) => updateBatchRow(i, "name", e.target.value)}
+                            placeholder="Break name"
+                            className="flex-1"
+                          />
+                          <Button
+                            variant="ghost"
+                            size="icon-xs"
+                            className="shrink-0"
+                            onClick={() => removeBatchRow(i)}
+                            aria-label={`Remove ${row.name || "row"}`}
+                          >
+                            &times;
+                          </Button>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="date"
+                            value={row.startDate}
+                            onChange={(e) => updateBatchRow(i, "startDate", e.target.value)}
+                          />
+                          <span className="text-muted-foreground">–</span>
+                          <Input
+                            type="date"
+                            value={row.endDate}
+                            onChange={(e) => updateBatchRow(i, "endDate", e.target.value)}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {activeForm === "bulk" && (
+                    <Button variant="ghost" size="xs" onClick={addBlankBatchRow}>
+                      + Add another row
+                    </Button>
+                  )}
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      onClick={handleSubmitBatch}
+                      disabled={isPending || batchRows.every((r) => !r.name.trim() || !r.startDate || !r.endDate)}
+                    >
+                      Add {batchRows.filter((r) => r.name.trim() && r.startDate && r.endDate).length} Holiday
+                      {batchRows.filter((r) => r.name.trim() && r.startDate && r.endDate).length === 1 ? "" : "s"}
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={closeAllForms}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {activeForm === "none" && (
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="outline" size="xs" onClick={() => setActiveForm("single")}>
+                    + Add Break
+                  </Button>
+                  <Button variant="outline" size="xs" onClick={openPresetHolidays}>
+                    + Add Common Holidays
+                  </Button>
+                  <Button variant="outline" size="xs" onClick={openBulkEntry}>
+                    + Add Several
+                  </Button>
+                </div>
               )}
             </div>
           </GameFrame>

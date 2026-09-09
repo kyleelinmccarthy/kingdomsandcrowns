@@ -97,12 +97,14 @@ export default async function QuestsPage({
 
       {activeView === "today" ? (
         <TodayView
+          key={activeChild.id}
           childId={activeChild.id}
           isChildView={isChildView}
           allowChildSkip={isChildView && activeChild.skipQuestsEnabled}
         />
       ) : (
         <AdventureView
+          key={activeChild.id}
           childId={activeChild.id}
           childName={activeChild.displayName}
           familyId={activeChild.familyId}

@@ -9,7 +9,7 @@ import { getScheduledDates } from "@/lib/utils/schedule";
 import { getSchoolDays, getScheduleBlocks } from "@/lib/actions/student-schedule";
 import { getSchoolingModeForDate } from "@/lib/actions/schooling-mode";
 import { requireChildAccess, requireAssignmentAccess, isChildActor } from "@/lib/auth/access";
-import { sanitizeText } from "@/lib/utils/sanitize";
+import { hasMeaningfulNotes, sanitizeText } from "@/lib/utils/sanitize";
 import { weekdayOfDate } from "@/lib/utils/schedule-days";
 import { getNextStructuredQuest } from "@/lib/utils/quest-ordering";
 import { pruneStaleAssignmentsInRange } from "@/lib/services/quest-assignment-sync";
@@ -362,8 +362,8 @@ export async function completeAssignment(
   );
 
   const notes = activityData.description ? sanitizeText(activityData.description) : "";
-  if (row.quest.requireNotes && !notes) {
-    throw new Error("Scribe's Notes are required to complete this quest");
+  if (row.quest.requireNotes && !hasMeaningfulNotes(notes)) {
+    throw new Error("Scribe's Notes are required to complete this quest — describe what was done");
   }
 
   // Create the activity log entry (this also updates XP/streak)
@@ -467,8 +467,8 @@ export async function updateAssignmentNotes(assignmentId: string, notes: string)
 
   const note = notes ? sanitizeText(notes) : "";
   // Editing must not be a way to strip notes a quest insists on having.
-  if (!note && row.requireNotes) {
-    throw new Error("Scribe's Notes are required for this quest");
+  if (!hasMeaningfulNotes(note) && row.requireNotes) {
+    throw new Error("Scribe's Notes are required for this quest — describe what was done");
   }
 
   const now = new Date();

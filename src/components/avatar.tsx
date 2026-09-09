@@ -116,6 +116,7 @@ function BackgroundLayer({ bg, bgColor }: { bg: string; bgColor: string }) {
       const o = bgColor;
       return (
         <g>
+          <ellipse cx="18" cy="24" rx="17" ry="23" fill={fill} stroke={stroke} strokeWidth="0.5" />
           {/* Outer flame */}
           <rect x="13" y="0" width="1" height="1" fill={o} opacity="0.30" />
           <rect x="22" y="2" width="1" height="1" fill={o} opacity="0.25" />
@@ -945,9 +946,33 @@ function HairLayer({ style, color }: { style: string; color: string }) {
       return (
         <g>
           <rect x="10" y="6" width="12" height="4" fill={color} />
-          <rect x="9" y="8" width="2" height="10" fill={color} />
-          <rect x="21" y="8" width="2" height="10" fill={color} />
+          <rect x="9" y="8" width="2" height="20" fill={color} />
+          <rect x="21" y="8" width="2" height="20" fill={color} />
+          <rect x="9" y="27" width="2" height="2" fill={color} />
+          <rect x="21" y="27" width="2" height="2" fill={color} />
           <rect x="13" y="6" width="2" height="1" fill={lighter} />
+        </g>
+      );
+    case "cropped":
+      return (
+        <g>
+          <rect x="10" y="6" width="12" height="4" fill={color} />
+          <rect x="9" y="8" width="2" height="7" fill={color} />
+          <rect x="21" y="8" width="2" height="7" fill={color} />
+          <rect x="9" y="14" width="3" height="2" fill={color} />
+          <rect x="20" y="14" width="3" height="2" fill={color} />
+          <rect x="11" y="6" width="3" height="1" fill={lighter} />
+        </g>
+      );
+    case "shag":
+      return (
+        <g>
+          <rect x="10" y="6" width="12" height="4" fill={color} />
+          <rect x="9" y="8" width="2" height="12" fill={color} />
+          <rect x="21" y="8" width="2" height="12" fill={color} />
+          <rect x="11" y="5" width="4" height="2" fill={color} />
+          <rect x="17" y="5" width="4" height="2" fill={color} />
+          <rect x="14" y="6" width="2" height="1" fill={lighter} />
         </g>
       );
     case "spiky":
@@ -1179,9 +1204,11 @@ function HairLayer({ style, color }: { style: string; color: string }) {
     default: // short
       return (
         <g>
-          <rect x="10" y="6" width="12" height="4" fill={color} />
-          <rect x="9" y="8" width="2" height="4" fill={color} />
-          <rect x="21" y="8" width="2" height="4" fill={color} />
+          <rect x="10" y="6" width="12" height="3" fill={color} />
+          <rect x="9" y="8" width="2" height="3" fill={color} />
+          <rect x="21" y="8" width="2" height="3" fill={color} />
+          <rect x="12" y="5" width="2" height="1" fill={color} />
+          <rect x="18" y="5" width="2" height="1" fill={color} />
           <rect x="14" y="6" width="3" height="1" fill={lighter} />
         </g>
       );
@@ -1256,6 +1283,17 @@ function AccessoryLayer({ accessory, color }: { accessory: string | null; color:
           <rect x="23" y="9" width="2" height="2" fill={color} />
           <rect x="13" y="7" width="1" height="1" fill="#ffffff" opacity="0.3" />
           <rect x="17" y="7" width="1" height="1" fill="#ffffff" opacity="0.3" />
+        </g>
+      );
+    case "hood":
+      return (
+        <g>
+          <rect x="15" y="3" width="3" height="2" fill={color} />
+          <rect x="9" y="5" width="14" height="4" fill={color} />
+          <rect x="8" y="8" width="3" height="11" fill={color} />
+          <rect x="21" y="8" width="3" height="11" fill={color} />
+          <rect x="11" y="6" width="3" height="1" fill={hi} opacity="0.4" />
+          <rect x="12" y="8" width="8" height="1" fill={lo} opacity="0.3" />
         </g>
       );
     case "necklace":
@@ -1702,12 +1740,16 @@ function CompanionLayer({ companion, color }: { companion: string | null; color:
       return (
         <g>
           <rect x="25" y="25" width="4" height="3" fill={color} />
-          <rect x="25" y="23" width="3" height="2" fill={color} />
-          <rect x="25" y="22" width="1" height="1" fill={hi} />
-          <rect x="27" y="22" width="1" height="1" fill={hi} />
+          <rect x="26" y="26" width="2" height="1" fill={lighten(color, 0.3)} opacity="0.8" />
+          <rect x="25" y="22" width="3" height="2" fill={color} />
+          <rect x="24" y="23" width="1" height="1" fill={lighten(color, 0.15)} />
+          <rect x="25" y="21" width="1" height="1" fill="#d4a843" />
+          <rect x="27" y="21" width="1" height="1" fill="#d4a843" />
           <rect x="26" y="23" width="1" height="1" fill={eye} />
+          <rect x="28" y="22" width="1" height="1" fill={lo} />
           <rect x="29" y="24" width="1" height="2" fill={hi} opacity="0.6" />
           <rect x="30" y="25" width="1" height="1" fill={hi} opacity="0.4" />
+          <rect x="29" y="26" width="1" height="1" fill={lo} opacity="0.5" />
         </g>
       );
     case "pegasus":

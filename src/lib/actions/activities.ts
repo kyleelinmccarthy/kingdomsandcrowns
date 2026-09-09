@@ -4,7 +4,7 @@ import { nanoid } from "nanoid";
 import { eq, and, desc, sql, gte, lte } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
-import { sanitizeName, sanitizeText } from "@/lib/utils/sanitize";
+import { hasMeaningfulNotes, sanitizeName, sanitizeText } from "@/lib/utils/sanitize";
 import { formatDate } from "@/lib/utils/dates";
 import { computeStreak } from "@/lib/utils/streak";
 import { parseSchoolDays, parseStreakOptionalDays } from "@/lib/utils/schedule-days";
@@ -174,8 +174,8 @@ export async function updateActivity(
           .limit(1);
 
   // Editing must not be a way to strip notes a quest insists on having.
-  if (notes === null && linked[0]?.requireNotes) {
-    throw new Error("Scribe's Notes are required for this quest");
+  if (notes !== undefined && !hasMeaningfulNotes(notes) && linked[0]?.requireNotes) {
+    throw new Error("Scribe's Notes are required for this quest — describe what was done");
   }
 
   const now = new Date();

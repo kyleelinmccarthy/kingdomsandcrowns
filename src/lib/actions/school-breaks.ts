@@ -42,6 +42,34 @@ export async function createSchoolBreak(
   return { id };
 }
 
+/** Adds several breaks at once, e.g. a preset holiday calendar or a batch of manual entries. */
+export async function bulkCreateSchoolBreaks(
+  familyId: string,
+  breaks: { name: string; startDate: string; endDate: string }[]
+) {
+  await requireFamilyAccess({ familyId, write: true });
+  if (breaks.length === 0) return { ids: [] };
+
+  const now = new Date();
+  const rows = breaks.map((b) => {
+    const cleanName = sanitizeName(b.name);
+    if (!cleanName) throw new Error("Break name is required");
+    if (b.startDate > b.endDate) throw new Error(`"${cleanName}": start date must be before end date`);
+    return {
+      id: nanoid(),
+      familyId,
+      name: cleanName,
+      startDate: b.startDate,
+      endDate: b.endDate,
+      createdAt: now,
+      updatedAt: now,
+    };
+  });
+
+  await db.insert(schema.schoolBreak).values(rows);
+  return { ids: rows.map((r) => r.id) };
+}
+
 export async function deleteSchoolBreak(breakId: string) {
   const rows = await db
     .select({ familyId: schema.schoolBreak.familyId })

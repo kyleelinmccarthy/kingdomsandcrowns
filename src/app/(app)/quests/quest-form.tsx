@@ -17,6 +17,7 @@ import {
 import { useQuestTimer } from "@/hooks/use-quest-timer";
 import { useBrowserToday } from "@/hooks/use-browser-today";
 import { formatTimeOfDay } from "@/lib/utils/schedule-days";
+import { hasMeaningfulNotes } from "@/lib/utils/sanitize";
 import {
   earliestBlockBySubject,
   blockStatus,
@@ -202,7 +203,7 @@ export function QuestForm({
   const isDurationValid =
     manualDuration.trim() !== "" && Number.isFinite(parsedDuration) && parsedDuration >= 1 && parsedDuration <= 480;
   const notesRequired = !!activeQuest?.requireNotes;
-  const hasRequiredNotes = !notesRequired || description.trim() !== "";
+  const hasRequiredNotes = !notesRequired || hasMeaningfulNotes(description);
 
   async function handleQuickComplete() {
     if (!activeQuestId || !activeQuest || !isDurationValid || !hasRequiredNotes) return;
@@ -312,7 +313,7 @@ export function QuestForm({
 
         {activeQuest && (
           <div className="space-y-2 rounded-md border border-border/30 bg-card/30 px-4 py-3">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               {activeSubject && (
                 <span
                   className="inline-block h-3 w-3 shrink-0 rounded-full"
@@ -320,7 +321,7 @@ export function QuestForm({
                 />
               )}
               <span
-                className="text-base font-bold"
+                className="break-words text-base font-bold"
                 style={{
                   color:
                     activeStatus === "upcoming" || activeStatus === "past"
@@ -369,13 +370,13 @@ export function QuestForm({
               return (
                 <div
                   key={q.id}
-                  className="flex items-center gap-2 rounded-md border border-border/20 bg-card/10 px-3 py-2 opacity-50"
+                  className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md border border-border/20 bg-card/10 px-3 py-2 opacity-50"
                 >
                   <GameIcon name="lock" className="size-3.5 shrink-0 text-muted-foreground" />
-                  <span className="text-sm">
+                  <span className="break-words text-sm">
                     {q.title}{sub ? ` (${sub.name})` : ""}
                   </span>
-                  <span className="ml-auto text-xs text-muted-foreground">
+                  <span className="text-xs text-muted-foreground sm:ml-auto">
                     Complete &quot;{nextQuest?.title}&quot; to unlock
                   </span>
                 </div>

@@ -140,6 +140,19 @@ describe("QuestAssignmentCard", () => {
     expect(screen.getByText("Submit")).not.toBeDisabled();
   });
 
+  it("does not let punctuation-only or whitespace-only text satisfy required Scribe's Notes", async () => {
+    const user = userEvent.setup();
+    const data = { ...baseData, quest: { ...baseData.quest, requireNotes: true } };
+    render(<QuestAssignmentCard data={data} isChildView={true} />);
+    await user.click(screen.getByText("Quick Complete"));
+    const notes = screen.getByLabelText("Scribe's Notes");
+    for (const bypass of ["'", ".", "   ", "..."]) {
+      await user.clear(notes);
+      await user.type(notes, bypass);
+      expect(screen.getByText("Submit")).toBeDisabled();
+    }
+  });
+
   it("locks a hero out of quests that are not next in structured mode", () => {
     render(
       <QuestAssignmentCard
