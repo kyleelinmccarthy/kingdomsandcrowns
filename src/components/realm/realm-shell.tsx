@@ -190,6 +190,13 @@ function RealmOpen({
   useEffect(() => {
     ceremonyStageRef.current = ceremonyStage;
   }, [ceremonyStage]);
+  // Mirrored into a ref (rather than a dependency of `onReady`) so a manually opened card
+  // — a returning hero clicking "How to play" before textures finish loading — also holds
+  // the ceremony, without giving `onReady` a changing identity that would re-fire SpriteSource's effect.
+  const helpOpenRef = useRef(helpOpen);
+  useEffect(() => {
+    helpOpenRef.current = helpOpen;
+  }, [helpOpen]);
   const rootRef = useRef<HTMLDivElement>(null);
   // `.game-content` (the page's <main>) is `position: relative; z-index: 10`,
   // which traps `.realm-root`'s z-index inside its own stacking context —
@@ -244,6 +251,7 @@ function RealmOpen({
       setHelpOpen(true); // the ceremony waits behind the card
       return;
     }
+    if (helpOpenRef.current) return; // a manually opened card holds the ceremony too; onHelpClose starts it
     beginCeremonyIfWaiting();
   }, [beginCeremonyIfWaiting]);
   const onError = useCallback((e: Error) => setSpriteError(e.message), []);

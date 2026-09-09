@@ -59,6 +59,11 @@ vi.mock("./use-play-clock", async (importOriginal) => {
 // disarms itself. Only the retry test arms it, so every other test (and the
 // remount that "Try again" triggers) sees the ordinary success path.
 let failNextSpriteMount = false;
+// A second module-level switch: when armed, the next SpriteSource mount captures
+// `onReady` into `heldOnReady` instead of calling it, so a test can open the help
+// card first and only then let textures "finish loading" by invoking it manually.
+let holdNextSpriteMount = false;
+let heldOnReady: ((t: unknown) => void) | null = null;
 let spriteSourceProps: Record<string, unknown> = {};
 vi.mock("./sprite-source", async () => {
   const React = await import("react");
@@ -71,6 +76,9 @@ vi.mock("./sprite-source", async () => {
         if (failNextSpriteMount) {
           failNextSpriteMount = false;
           onError(new Error("boom"));
+        } else if (holdNextSpriteMount) {
+          holdNextSpriteMount = false;
+          heldOnReady = onReady;
         } else {
           onReady({ hero: {}, companion: null, villagers: {}, troubles: {}, mount: null, heroMounted: null, gleam: null, banner: null, crown: null, castleBanner: null });
         }
@@ -89,6 +97,8 @@ const bundle = { heroName: "Lily", avatarConfig: DEFAULT_AVATAR, castleType: "ca
 beforeEach(() => {
   vi.clearAllMocks();
   failNextSpriteMount = false;
+  holdNextSpriteMount = false;
+  heldOnReady = null;
   flushPendingCalls = 0;
   spriteSourceProps = {};
 });
@@ -628,6 +638,22 @@ describe("RealmShell help card", () => {
     expect(skipRef.current).toBe(false);
     fireEvent.keyDown(window, { key: "Escape" });
     expect(skipRef.current).toBe(true);
+  });
+
+  it("holds a pending ceremony under a manually opened card, even if textures finish loading while it's open", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    holdNextSpriteMount = true;
+    render(<RealmShell bundle={{ ...bundle, ceremony, banners: 1 }} childId="c1" isChildView={true} />);
+    const helpButton = await screen.findByRole("button", { name: "How to play" });
+    expect(screen.queryByTestId("scene")).not.toBeInTheDocument();
+    fireEvent.click(helpButton);
+    expect(screen.getByRole("dialog", { name: "How to play" })).toBeInTheDocument();
+    await act(async () => {
+      heldOnReady?.({ hero: {}, companion: null, villagers: {}, troubles: {}, mount: null, heroMounted: null, gleam: null, banner: null, crown: null, castleBanner: null });
+    });
+    expect(screen.getByTestId("scene").dataset.ceremony).toBe("false");
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(screen.getByTestId("scene").dataset.ceremony).toBe("true");
   });
 
   it("suppresses the browser menu over the world and focuses the world on open", async () => {
