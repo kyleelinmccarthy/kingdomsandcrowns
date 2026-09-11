@@ -622,6 +622,7 @@ function RealmOpen({
           onSelect={onSelectSpell}
           raised={settings.showStick}
           hudScale={settings.hudScale}
+          refused={refusedAt !== 0}
         />
       )}
       {openVillager && openBuilding && (

@@ -18,6 +18,7 @@ export function SpellBar({
   onSelect,
   raised,
   hudScale,
+  refused = false,
 }: {
   pages: SpellPageView[];
   selectedSlot: number | null;
@@ -26,6 +27,9 @@ export function SpellBar({
   onSelect: (slot: number | null) => void;
   raised: boolean;
   hudScale: number;
+  // True for the 600 ms after a cast the hero could not pay for (§3.7). It shakes the
+  // slot that was selected — never the whole bar — so the cue points at the cost.
+  refused?: boolean;
 }) {
   // Under fewer-choices, show the first four pages that hold a saved spell (never hide one
   // behind an "Empty" chip just because it lives past page four), padding with empty pages
@@ -109,7 +113,7 @@ export function SpellBar({
             <button
               key={page.slot}
               type="button"
-              className={`realm-spell${selected ? " realm-spell--selected" : ""}${page.spell && !affordable ? " realm-spell--dim" : ""}`}
+              className={`realm-spell${selected ? " realm-spell--selected" : ""}${page.spell && !affordable ? " realm-spell--dim" : ""}${selected && refused ? " realm-spell--refused" : ""}`}
               style={{ borderColor: page.color }}
               aria-pressed={selected}
               aria-label={label}

@@ -1756,6 +1756,17 @@ html { scrollbar-color: var(--border) var(--background); }
 .realm-spell { position: relative; display: flex; align-items: center; gap: 0.35rem; min-height: 44px; min-width: 44px; padding: 0 0.7rem; border-radius: 9999px; border: 2px solid transparent; background: rgba(255, 255, 255, 0.08); color: #fff; font-size: 1em; white-space: nowrap; cursor: pointer; }
 .realm-spell--selected { background: rgba(201, 168, 76, 0.3); box-shadow: 0 0 0 2px var(--gold-bright); }
 .realm-spell--dim { opacity: 0.55; }
+/* §3.7: a refused cast shakes the SELECTED slot — three cycles of 4px — while the pips
+   flash red. The red is the cue and the shake is the decoration, so reduce-motion drops
+   the shake and keeps the red (§6's motion table). The slot is not translated for any
+   other reason, so this keyframe needs no centring transform, unlike the pip strip's. */
+.realm-spell--refused { animation: realm-slot-refused 200ms ease-in-out 3; }
+@keyframes realm-slot-refused {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+@media (prefers-reduced-motion: reduce) { .realm-spell--refused { animation: none; } }
 .realm-spell:disabled { opacity: 0.35; cursor: default; }
 .realm-spell-key { font-size: 0.85em; color: var(--gold-bright); }
 .realm-spell-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 9999px; }

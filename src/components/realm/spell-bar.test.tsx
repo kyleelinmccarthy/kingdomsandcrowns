@@ -123,4 +123,18 @@ describe("SpellBar", () => {
     fireEvent.keyDown(screen.getByRole("dialog", { name: "Empty page" }), { key: "Escape" });
     expect(empty).toHaveFocus();
   });
+
+  it("marks only the selected slot refused, so the shake lands on the spell that cost too much", () => {
+    render(<SpellBar pages={pages} selectedSlot={2} mana={4} fewerChoices={false} onSelect={() => {}} raised={false} hudScale={1} refused={true} />);
+    expect(screen.getByRole("button", { name: "Ember Bolt, 15 mana" }).className).toContain("realm-spell--refused");
+    expect(screen.getByRole("button", { name: "Ember Bolt, 10 mana" }).className).not.toContain("realm-spell--refused");
+    cleanup();
+    render(<SpellBar pages={pages} selectedSlot={2} mana={4} fewerChoices={false} onSelect={() => {}} raised={false} hudScale={1} refused={false} />);
+    expect(screen.getByRole("button", { name: "Ember Bolt, 15 mana" }).className).not.toContain("realm-spell--refused");
+    cleanup();
+    // A refusal with nothing selected — Space aimed at a trouble with no page picked —
+    // marks no slot at all; the pip strip still carries the red on its own.
+    render(<SpellBar pages={pages} selectedSlot={null} mana={4} fewerChoices={false} onSelect={() => {}} raised={false} hudScale={1} refused={true} />);
+    expect(document.querySelectorAll(".realm-spell--refused")).toHaveLength(0);
+  });
 });

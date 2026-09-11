@@ -384,6 +384,25 @@ describe("RealmShell", () => {
     expect(document.querySelector(".realm-mana-pips")).not.toHaveClass("realm-mana-pips--refused");
   });
 
+  it("shakes the slot the hero actually picked, for the same 600 ms as the pips", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    const user = userEvent.setup();
+    render(<RealmShell bundle={{ ...bundle, spellbook: { spells: pages, slots: 4 } }} childId="c1" isChildView={true} />);
+    await screen.findByTestId("scene");
+    await user.click(screen.getByRole("button", { name: "Ember Bolt, 10 mana" }));
+    await act(async () => {
+      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "refused" });
+    });
+    expect(screen.getByRole("button", { name: "Ember Bolt, 10 mana" }).className).toContain("realm-spell--refused");
+    expect(document.querySelector(".realm-mana-pips")).toHaveClass("realm-mana-pips--refused");
+    // One window, one state: both cues clear together when `refusedAt` resets.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 650));
+    });
+    expect(screen.getByRole("button", { name: "Ember Bolt, 10 mana" }).className).not.toContain("realm-spell--refused");
+    expect(document.querySelector(".realm-mana-pips")).not.toHaveClass("realm-mana-pips--refused");
+  });
+
   it("says what a cleared trouble did without keeping a score of it", async () => {
     getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
     render(<RealmShell bundle={{ ...bundle, spellbook: { spells: pages, slots: 4 } }} childId="c1" isChildView={true} />);
