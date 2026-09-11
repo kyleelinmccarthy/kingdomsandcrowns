@@ -13,6 +13,30 @@ export function startClock(minutesRemaining: number): PlayClock {
   return { minutesRemaining: Math.max(0, Math.floor(minutesRemaining)), secondsThisMinute: 0, warned: false, closed: false };
 }
 
+/** At or above this many seconds into the current minute, the minute is charged. */
+export const ROUND_UP_SECONDS = 30;
+
+/**
+ * Whole minutes to write when a visit ends: the records still pending, plus
+ * the minute in progress rounded half-up. `flushPending` alone only rescues
+ * whole minutes that were mid-flight or had failed to record — normally zero.
+ * The free play came from `secondsThisMinute`, 0-59 seconds of real, visible,
+ * already-played time thrown away on every unmount; a child who bounced out
+ * every 50 seconds played forever for nothing.
+ *
+ * A child who leaves at 5 seconds is charged nothing; one who leaves at 50 is
+ * charged the minute they played, so the leak is capped at 29 seconds a visit
+ * instead of 59 and cannot be farmed. Clamped to the minutes the hero actually
+ * has left and to the ledger's 30-minute ceiling, so `recordRealmPlay`'s
+ * `assertMinutes(minutes, 30)` is never made to throw. A 0 is simply not sent:
+ * `recordRealmPlay` rejects `minutes < 1`.
+ */
+export function minutesToSettle(clock: PlayClock, pending: number): number {
+  if (clock.closed) return 0; // the gate already charged and shut
+  const owed = pending + (clock.secondsThisMinute >= ROUND_UP_SECONDS ? 1 : 0);
+  return Math.max(0, Math.min(owed, clock.minutesRemaining, 30));
+}
+
 /**
  * Only visible seconds count, so a tab left open in the background never
  * spends a hero's minutes. A record is emitted every 60 such seconds; the

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { startClock, tickClock, applyAccess, gateCopy } from "./play-clock";
+import { startClock, tickClock, applyAccess, gateCopy, minutesToSettle, ROUND_UP_SECONDS, type PlayClock } from "./play-clock";
 
 function tickFor(clock: ReturnType<typeof startClock>, seconds: number, visible = true) {
   const events: string[] = [];
@@ -100,5 +100,44 @@ describe("gateCopy", () => {
   });
   it("has nothing to say when access is allowed", () => {
     expect(gateCopy({ allowed: true, minutesRemaining: 5, source: "earned" })).toBeNull();
+  });
+});
+
+describe("minutesToSettle", () => {
+  const at = (secondsThisMinute: number, minutesRemaining = 10, closed = false): PlayClock => ({
+    minutesRemaining,
+    secondsThisMinute,
+    warned: false,
+    closed,
+  });
+
+  it("charges nothing once the gate has closed", () => {
+    expect(minutesToSettle(at(59, 10, true), 3)).toBe(0);
+    expect(minutesToSettle(at(0, 0, true), 0)).toBe(0);
+  });
+
+  it("rounds the minute in progress half-up", () => {
+    expect(ROUND_UP_SECONDS).toBe(30);
+    expect(minutesToSettle(at(0), 0)).toBe(0);
+    expect(minutesToSettle(at(29), 0)).toBe(0);
+    expect(minutesToSettle(at(ROUND_UP_SECONDS), 0)).toBe(1);
+    expect(minutesToSettle(at(45), 0)).toBe(1);
+    expect(minutesToSettle(at(59), 0)).toBe(1);
+  });
+
+  it("adds the records still pending", () => {
+    expect(minutesToSettle(at(5), 2)).toBe(2);
+    expect(minutesToSettle(at(45), 2)).toBe(3);
+  });
+
+  it("never charges more minutes than the hero has left", () => {
+    expect(minutesToSettle(at(45, 0), 0)).toBe(0);
+    expect(minutesToSettle(at(45, 1), 0)).toBe(1);
+    expect(minutesToSettle(at(45, 2), 4)).toBe(2);
+  });
+
+  it("clamps to the ledger's 30-minute ceiling", () => {
+    expect(minutesToSettle(at(45, 60), 40)).toBe(30);
+    expect(minutesToSettle(at(5, 60), 30)).toBe(30);
   });
 });
