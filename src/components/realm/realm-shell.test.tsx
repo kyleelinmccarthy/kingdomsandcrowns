@@ -127,7 +127,10 @@ describe("RealmShell", () => {
     render(<RealmShell bundle={bundle} childId="c1" isChildView={false} />);
     expect(await screen.findByTestId("scene")).toBeInTheDocument();
     expect(screen.getByText("Previewing Lily's Realm")).toBeInTheDocument();
-    expect(screen.getByText("Closed for Lily: It's school time.")).toBeInTheDocument();
+    // The intro and the gate note are one message in the problem lane now (§3.17).
+    expect(screen.getByTestId("realm-problem")).toHaveTextContent(
+      "You're looking at Lily's grounds. Spells, side quests and recess are theirs to play. Closed for Lily: It's school time."
+    );
     expect(recordRealmPlay).not.toHaveBeenCalled();
   });
 
@@ -208,7 +211,7 @@ describe("RealmShell", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(screen.getByTestId("scene")).toHaveAttribute("data-interactive", "true");
     expect(screen.getByTestId("scene")).toHaveAttribute("data-rising", "well");
-    expect(screen.getByRole("status")).toHaveTextContent("The Village Well stands.");
+    expect(screen.getByTestId("realm-speech")).toHaveTextContent("The Village Well stands.");
     expect(screen.getByText("12 min left")).toBeInTheDocument();
     const layout = sceneProps.layout as { props: { id: string; kind: string; tag?: string }[] };
     expect(layout.props.find((p) => p.id === "well")).toMatchObject({ kind: "building", tag: "Built" });
@@ -331,11 +334,23 @@ describe("RealmShell", () => {
     });
     expect(screen.getByRole("progressbar", { name: "Mana" })).toHaveAttribute("aria-valuenow", "61");
     expect(screen.getByText("Cleared: 1")).toBeInTheDocument();
-    expect(screen.getByText("The fog thins.")).toBeInTheDocument();
+    // The cast hint took the speech lane when the page was selected and holds it for its
+    // four seconds; "The fog thins." is held in `notice`, not destroyed (§3.6). The cleared
+    // copy is proved on its own by task 10's `says what a cleared trouble did` case, which
+    // never selects a page.
+    expect(screen.getByTestId("realm-speech")).toHaveTextContent(
+      "Tap or click where the spell should go, or press Space to aim at the nearest trouble."
+    );
     await act(async () => {
       (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "refused" });
     });
-    expect(screen.getByText("Not enough mana yet.")).toBeInTheDocument();
+    // Same lane, same holder — and this is the priority rule stated outright. The refusal's
+    // own copy is proved on its own by the new `shows a problem and a speech message at the
+    // same time, one in each lane` case in edit (f) below, which raises no toast.
+    expect(screen.queryByText("Not enough mana yet.")).not.toBeInTheDocument();
+    expect(screen.getByTestId("realm-speech")).toHaveTextContent(
+      "Tap or click where the spell should go, or press Space to aim at the nearest trouble."
+    );
   });
 
   it("keeps the scene's settings and layout referentially stable across mana regen re-renders", async () => {
@@ -391,11 +406,13 @@ describe("RealmShell", () => {
     await act(async () => {
       (sceneProps.onRecessEvent as (e: unknown) => void)({ kind: "recessStart" });
     });
-    expect(screen.getByRole("status")).toHaveTextContent("Recess!");
+    expect(screen.getByTestId("realm-speech")).toHaveTextContent("Recess!");
     await act(async () => {
       (sceneProps.onRecessEvent as (e: unknown) => void)({ kind: "gleam", count: 1 });
     });
-    expect(screen.getByText("A gleam! 1 so far.")).toBeInTheDocument();
+    // "Recess!" still owns the lane — the gleam notice is held beneath it. The tally is
+    // the assertion that matters here, and the gleam's own copy is proved by the case below.
+    expect(screen.getByTestId("realm-speech")).toHaveTextContent("Recess!");
     expect(screen.getByText("Gleams: 1")).toBeInTheDocument();
     cleanup();
     getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 20, source: "earned" });
@@ -408,6 +425,17 @@ describe("RealmShell", () => {
     render(<RealmShell bundle={bundle} childId="c1" isChildView={false} />);
     expect(await screen.findByTestId("scene")).toBeInTheDocument();
     expect(screen.getByTestId("scene")).toHaveAttribute("data-recess", "false");
+  });
+
+  it("says what a gleam did when no toast is holding the speech lane", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 20, source: "recess" });
+    render(<RealmShell bundle={bundle} childId="c1" isChildView={true} />);
+    expect(await screen.findByTestId("scene")).toBeInTheDocument();
+    // No `recessStart` here, so nothing has raised a toast and the notice takes the lane.
+    await act(async () => {
+      (sceneProps.onRecessEvent as (e: unknown) => void)({ kind: "gleam", count: 1 });
+    });
+    expect(screen.getByTestId("realm-speech")).toHaveTextContent("A gleam! 1 so far.");
   });
 
   it("shows the running lap time while recess is active", async () => {
@@ -479,6 +507,61 @@ describe("RealmShell", () => {
     fireEvent.keyDown(document.body, { code: "KeyM", key: "m", metaKey: true });
     expect(screen.getByTestId("scene")).toHaveAttribute("data-riding", "true");
   });
+
+  it("sets the Realm's layout custom properties from the hero's settings", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    render(<RealmShell bundle={bundle} childId="c1" isChildView={true} />);
+    await screen.findByTestId("scene");
+    const root = document.querySelector<HTMLElement>(".realm-root")!;
+    expect(root.style.getPropertyValue("--realm-hud-scale")).toBe("1");
+    expect(root.style.getPropertyValue("--realm-bar-bottom")).toBe("1.25rem");
+    cleanup();
+    render(
+      <RealmShell
+        bundle={{ ...bundle, profile: { ...DEFAULT_LEARNING_PROFILE, largerText: true, inputMode: "touch" as const } }}
+        childId="c1"
+        isChildView={true}
+      />
+    );
+    await screen.findByTestId("scene");
+    const raised = document.querySelector<HTMLElement>(".realm-root")!;
+    expect(raised.style.getPropertyValue("--realm-hud-scale")).toBe("1.25");
+    expect(raised.style.getPropertyValue("--realm-bar-bottom")).toBe("9.5rem");
+  });
+
+  it("shows a problem and a speech message at the same time, one in each lane", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    render(
+      <RealmShell
+        bundle={{ ...bundle, kingdom: { tone: "gentle", buildings: [] }, kingdomError: "The villagers are resting. Try again.", spellbook: { spells: pages, slots: 4 } }}
+        childId="c1"
+        isChildView={true}
+      />
+    );
+    await screen.findByTestId("scene");
+    await act(async () => {
+      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "refused" });
+    });
+    expect(screen.getByTestId("realm-problem")).toHaveTextContent("The villagers are resting. Try again.");
+    expect(screen.getByRole("button", { name: "Wake the villagers" })).toBeInTheDocument();
+    expect(screen.getByTestId("realm-speech")).toHaveTextContent("Not enough mana yet.");
+  });
+
+  it("puts the HUD zones and the lanes ahead of the world in the tab order", async () => {
+    // §6: "The eight plates sit in DOM order after the HUD zones." Task 15 mounts those
+    // plates in drei <Html> portals, which drei appends inside the Canvas wrapper — so the
+    // only way the plates can follow the HUD is for the HUD to precede the scene here.
+    // Paint order is unaffected: .realm-hud is z-index 20 and .realm-messages 21, while the
+    // Canvas div is z-index auto and every <Html> in the scene is pinned below 20 by its
+    // own zIndexRange (realm-scene.tsx uses [10, 0] and [15, 0] today).
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    render(<RealmShell bundle={bundle} childId="c1" isChildView={true} />);
+    const scene = await screen.findByTestId("scene");
+    const hud = document.querySelector(".realm-hud")!;
+    const messages = screen.getByTestId("realm-messages");
+    expect(hud.compareDocumentPosition(scene) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(messages.compareDocumentPosition(scene) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
 });
 
 describe("RealmShell crown ceremony", () => {
@@ -498,8 +581,9 @@ describe("RealmShell crown ceremony", () => {
     step("gather");
     expect(screen.getByText("The people of the Realm gather.")).toBeInTheDocument();
     step("hail");
-    expect(screen.getByText("Hail, Lily, Copper Circlet!")).toBeInTheDocument();
-    expect(screen.getByText("Season 1 complete")).toBeInTheDocument();
+    expect(screen.getByTestId("realm-speech")).toHaveTextContent("Hail, Lily, Copper Circlet!");
+    // The season toast is held, not destroyed: the ceremony owns the speech lane while it plays.
+    expect(screen.queryByText("Season 1 complete")).not.toBeInTheDocument();
     step("done");
     // Skip is gone the instant "done" is emitted (ceremonyStage moves straight to
     // "finishing"), not only once the record request settles.
@@ -510,6 +594,23 @@ describe("RealmShell crown ceremony", () => {
     expect(screen.getByText("Copper Circlet")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Skip" })).not.toBeInTheDocument();
     expect(screen.queryByText("Hail, Lily, Copper Circlet!")).not.toBeInTheDocument();
+    // …and the toast that lost the lane appears the moment the ceremony clears it.
+    expect(screen.getByTestId("realm-speech")).toHaveTextContent("Season 1 complete");
+  });
+
+  it("never lets a spell notice erase the crowning line", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    markCeremonySeen.mockResolvedValue(undefined);
+    render(<RealmShell bundle={ceremonyBundle} childId="c1" isChildView={true} />);
+    await screen.findByTestId("scene");
+    step("hail");
+    await act(async () => {
+      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "refused" });
+    });
+    // ceremonyNotice and notice are two separate props on RealmMessages: the picker
+    // chooses, the loser is simply not shown rather than overwritten (§3.6, §5).
+    expect(screen.getByTestId("realm-speech")).toHaveTextContent("Hail, Lily, Copper Circlet!");
+    expect(screen.queryByText("Not enough mana yet.")).not.toBeInTheDocument();
   });
 
   it("keeps the crown after the record request revalidates the bundle, and never restarts the ceremony", async () => {

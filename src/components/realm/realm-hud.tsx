@@ -9,50 +9,30 @@ import { formatLap } from "@/lib/realm/recess/recess";
 export function RealmHud({
   heroName,
   minutesRemaining,
-  warning,
   preview,
   hudScale,
-  error,
   selector,
-  onRetry,
   paused,
-  toast,
-  calm,
-  kingdomError,
-  onKingdomRetry,
   mana,
   cleared,
-  notice,
   recess,
   ride,
   crown = null,
   ceremony = null,
-  ceremonyError = "",
-  onCeremonyRetry = () => {},
   help = null,
 }: {
   heroName: string;
   minutesRemaining: number | null; // null hides the counter (parent preview)
-  warning: boolean;
-  preview: { intro?: string; note: string | null } | null;
+  preview: boolean; // the badge and the hero selector; the parent's intro line is a problem-lane message now
   hudScale: number;
-  error: string;
   selector?: React.ReactNode;
-  onRetry: () => void;
   paused: boolean;
-  toast: string | null;
-  calm: boolean;
-  kingdomError: string;
-  onKingdomRetry: () => void;
   mana: number | null;
   cleared: number | null;
-  notice: string | null;
   recess: { gleams: number; laps: number; bestLapMs: number | null; lapMs: number | null } | null;
   ride: { riding: boolean; disabled: boolean; onToggle: () => void } | null;
   crown?: { label: string; color: string } | null; // the hero's crown for the session, as a badge
   ceremony?: { onSkip: () => void } | null; // non-null while the ceremony plays
-  ceremonyError?: string;
-  onCeremonyRetry?: () => void;
   help?: { onOpen: () => void; disabled: boolean } | null;
 }) {
   return (
@@ -95,26 +75,6 @@ export function RealmHud({
         {preview && <span className="realm-hud-selector">{selector}</span>}
         <Link href="/tavern" className="realm-hud-leave">Leave the Realm</Link>
       </div>
-      {preview?.intro && <p className="realm-hud-note">{preview.intro}</p>}
-      {preview?.note && <p className="realm-hud-note">{preview.note}</p>}
-      {warning && minutesRemaining !== null && <p className="realm-hud-banner">One minute left in the Realm today.</p>}
-      {error && (
-        <p className="realm-hud-error">
-          {error} <Button size="xs" variant="ghost" onClick={onRetry}>Try again</Button>
-        </p>
-      )}
-      {kingdomError && (
-        <p className="realm-hud-error">
-          {kingdomError} <Button size="xs" variant="ghost" onClick={onKingdomRetry}>Wake the villagers</Button>
-        </p>
-      )}
-      {ceremonyError && (
-        <p className="realm-hud-error">
-          {ceremonyError} <Button size="xs" variant="ghost" onClick={onCeremonyRetry}>Try again</Button>
-        </p>
-      )}
-      {toast && <p className={calm ? "realm-hud-toast realm-hud-toast--plain" : "realm-hud-toast"} role="status">{toast}</p>}
-      <p className="realm-hud-notice" aria-live="polite">{notice ?? ""}</p>
     </div>
   );
 }

@@ -18,6 +18,7 @@ import { TROUBLE_COPY, type TroubleSkin } from "@/lib/realm/spells/troubles";
 import { MANA_MAX } from "@/lib/realm/spells/mana";
 import { formatLap } from "@/lib/realm/recess/recess";
 import { hudRecessFor } from "@/lib/realm/recess/hud";
+import { pickProblem, pickSpeech, type MessageInput } from "@/lib/realm/messages";
 import { HERO_SPEED } from "@/lib/realm/movement";
 import { ceremonyNotice, type CeremonyEvent } from "@/lib/realm/ceremony/ceremony";
 import { DEFAULT_AVATAR, findMount } from "@/lib/utils/avatar-catalog";
@@ -28,6 +29,7 @@ import { speak } from "@/lib/utils/speech";
 import { SIDE_QUESTS_LOWER } from "@/lib/utils/side-quest-copy";
 import { SpriteSource, type SpriteTextures } from "./sprite-source";
 import { RealmHud } from "./realm-hud";
+import { RealmMessages } from "./realm-messages";
 import { RealmHelp } from "./realm-help";
 import { RealmGate } from "./realm-gate";
 import { RealmClosed } from "./realm-closed";
@@ -198,6 +200,8 @@ function RealmOpen({
     helpOpenRef.current = helpOpen;
   }, [helpOpen]);
   const rootRef = useRef<HTMLDivElement>(null);
+  // Held here, rendered by RealmMessages, written per frame by the scene (task 16).
+  const arrowRef = useRef<HTMLDivElement>(null);
   // `.game-content` (the page's <main>) is `position: relative; z-index: 10`,
   // which traps `.realm-root`'s z-index inside its own stacking context —
   // the app banner (30) and bottom nav (40) would sit on top of the world
@@ -494,6 +498,27 @@ function RealmOpen({
     ? (canRide ? { riding, disabled: ceremonyRunning, onToggle: onToggleRide } : null)
     : (mountItem && bundle.mounts.unlocked.includes(mountItem.id) ? { riding: false, disabled: true, onToggle: () => {} } : null);
 
+  // The parent's intro carries the gate note as one message in the problem lane (§3.17).
+  const previewText = isChildView
+    ? null
+    : `You're looking at ${bundle.heroName}'s grounds. Spells, ${SIDE_QUESTS_LOWER} and recess are theirs to play.${note ? ` ${note}` : ""}`;
+  // Two lanes, one message each, and `ceremonyNoticeText` and `notice` stay two states:
+  // a spell notice fired during the ceremony loses the lane, it does not erase the
+  // crowning line, and the crown does not erase "Not enough mana yet." (§3.6, §5).
+  const messageInput: MessageInput = {
+    spriteError: spriteError || clock.error,
+    kingdomError,
+    ceremonyError,
+    lastMinute: isChildView && clock.warning,
+    preview: previewText,
+    ceremonyNotice: ceremonyNoticeText,
+    toast,
+    notice,
+    calm,
+  };
+  const problem = pickProblem(messageInput);
+  const speech = pickSpeech(messageInput);
+
   if (!portalTarget) return null;
 
   return createPortal(
@@ -501,10 +526,47 @@ function RealmOpen({
       ref={rootRef}
       className={`realm-root${selectedSpell ? " realm-root--aiming" : ""}`}
       tabIndex={-1}
+      style={{ "--realm-hud-scale": String(settings.hudScale), "--realm-bar-bottom": settings.showStick ? "9.5rem" : "1.25rem" } as React.CSSProperties}
       onContextMenu={(e) => e.preventDefault()}
       {...readingAttributes(bundle.profile)}
     >
       <SpriteSource key={retryKey} config={config} villagers={VILLAGERS} troubleSkin={troubleSkin} mount={mountTexture} recess={isChildView} crown={crownSprite} castleBanner={bundle.banners > 0} world={world} onReady={onReady} onError={onError} />
+      <RealmHud
+        heroName={bundle.heroName}
+        minutesRemaining={isChildView ? clock.minutesRemaining : null}
+        preview={!isChildView}
+        hudScale={settings.hudScale}
+        selector={selector}
+        paused={panelOpen || ceremonyRunning || helpOpen}
+        mana={isChildView ? mana : null}
+        cleared={isChildView ? cleared : null}
+        recess={hudRecess}
+        ride={hudRide}
+        crown={crown}
+        ceremony={ceremonyStage === "running" ? { onSkip } : null}
+        help={{ onOpen: openHelp, disabled: panelOpen || helpOpen }}
+      />
+      <RealmMessages
+        problem={problem}
+        speech={speech}
+        arrowRef={arrowRef}
+        hudScale={settings.hudScale}
+        onAction={() => {
+          if (!problem) return;
+          if (problem.kind === "spriteError") {
+            setSpriteError("");
+            clock.clearError();
+            setRetryKey((k) => k + 1);
+            void clock.flushPending();
+            return;
+          }
+          if (problem.kind === "kingdomError") {
+            onKingdomRetry();
+            return;
+          }
+          if (problem.kind === "ceremonyError") recordCeremony();
+        }}
+      />
       {textures && (
         <RealmScene
           layout={layout}
@@ -532,36 +594,6 @@ function RealmOpen({
           onCeremonyEvent={onCeremonyEvent}
         />
       )}
-      <RealmHud
-        heroName={bundle.heroName}
-        minutesRemaining={isChildView ? clock.minutesRemaining : null}
-        warning={clock.warning}
-        preview={isChildView ? null : { intro: `You're looking at ${bundle.heroName}'s grounds. Spells, ${SIDE_QUESTS_LOWER} and recess are theirs to play.`, note }}
-        hudScale={settings.hudScale}
-        error={spriteError || clock.error}
-        selector={selector}
-        paused={panelOpen || ceremonyRunning || helpOpen}
-        toast={toast}
-        calm={!settings.motion || settings.calmPalette}
-        kingdomError={kingdomError}
-        onKingdomRetry={onKingdomRetry}
-        mana={isChildView ? mana : null}
-        cleared={isChildView ? cleared : null}
-        notice={ceremonyNoticeText ?? notice}
-        recess={hudRecess}
-        ride={hudRide}
-        crown={crown}
-        ceremony={ceremonyStage === "running" ? { onSkip } : null}
-        ceremonyError={ceremonyError}
-        onCeremonyRetry={recordCeremony}
-        onRetry={() => {
-          setSpriteError("");
-          clock.clearError();
-          setRetryKey((k) => k + 1);
-          void clock.flushPending();
-        }}
-        help={{ onOpen: openHelp, disabled: panelOpen || helpOpen }}
-      />
       {settings.showStick && !panelOpen && !ceremonyRunning && !helpOpen && <TouchStick onChange={setStick} />}
       {isChildView && !panelOpen && !ceremonyRunning && !helpOpen && (
         <SpellBar

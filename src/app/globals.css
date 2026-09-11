@@ -1730,12 +1730,7 @@ html { scrollbar-color: var(--border) var(--background); }
    triangle on the container here: task 16's rule cannot unset it, and the arrow would
    grow a second, unrotated head. */
 .realm-edge-arrow { position: absolute; left: 0; top: 0; pointer-events: none; }
-.realm-hud-note, .realm-hud-banner, .realm-hud-error { margin-top: 0.5rem; border-radius: 0.5rem; padding: 0.4rem 0.75rem; background: rgba(0, 0, 0, 0.45); font-size: 0.9em; }
-.realm-hud-banner { border: 1px solid var(--gold-border); }
-.realm-hud-toast { margin-top: 0.5rem; border-radius: 0.5rem; padding: 0.4rem 0.75rem; background: rgba(201, 168, 76, 0.25); border: 1px solid var(--gold-border); color: var(--gold-bright); font-weight: 700; font-size: 0.95em; animation: realm-toast-in 300ms ease-out; }
 @keyframes realm-toast-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
-@media (prefers-reduced-motion: reduce) { .realm-hud-toast { animation: none; } }
-.realm-hud-toast--plain { animation: none; background: rgba(0, 0, 0, 0.45); color: #fff; font-weight: 500; }
 .realm-label { white-space: nowrap; border-radius: 9999px; padding: 0.1rem 0.5rem; background: rgba(0, 0, 0, 0.55); color: #fff; font-size: 11px; pointer-events: none; }
 .realm-label-tag { display: block; font-size: 10px; color: var(--gold-bright); }
 .realm-bubble { display: flex; flex-direction: column; align-items: center; gap: 0.4rem; max-width: 16rem; border-radius: 0.75rem; padding: 0.5rem 0.75rem; background: rgba(0, 0, 0, 0.7); color: #fff; font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif; font-size: 12px; text-align: center; pointer-events: auto; }
@@ -1782,6 +1777,4 @@ html { scrollbar-color: var(--border) var(--background); }
 .realm-hud-skip { min-height: 44px; min-width: 44px; }
 .realm-hud .realm-hud-skip { font-size: 0.9em; }
 .realm-hud-crown { display: inline-flex; align-items: center; gap: 0.3rem; font-weight: 700; }
-.realm-hud-notice { margin-top: 0.5rem; border-radius: 0.5rem; padding: 0.4rem 0.75rem; background: rgba(0, 0, 0, 0.45); font-size: 0.9em; }
-.realm-hud-notice:empty { display: none; }
 @media (max-width: 640px) { .realm-spell-name { display: none; } .realm-spellbar { bottom: 6.5rem; } }
