@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getRealmAccess, recordRealmPlay } from "@/lib/actions/realm-play";
-import { applyAccess, minutesToSettle, ROUND_UP_SECONDS, startClock, tickClock, type PlayClock } from "@/lib/realm/play-clock";
+import { applyAccess, minutesToSettle, startClock, tickClock, type PlayClock } from "@/lib/realm/play-clock";
 import type { AccessDenied } from "@/lib/utils/realm-access";
 import { currentTimeOfDay, localDateOf } from "@/lib/utils/schedule-days";
 
@@ -81,25 +81,27 @@ export function usePlayClock({
     async (minutes: number) => {
       const sent = Math.min(minutes, 30);
       if (sent < 1) return;
-      // Captured before the round trip: if the minute in progress was already
-      // at or past the rounding threshold, `minutesToSettle` folded it into
-      // `sent` as the rounded-up remainder. Once that succeeds, those seconds
-      // have been paid for and must be zeroed so they cannot also cross their
-      // natural 60-second boundary and bill a second minute for the same
-      // stretch of play. A remainder short of the threshold was never part of
-      // `sent` — it stays on the clock so `tickClock` keeps counting it
-      // toward its own boundary, uncharged.
-      const chargedRemainder = clockRef.current.secondsThisMinute >= ROUND_UP_SECONDS;
       recordingRef.current = true;
       try {
         const date = localDateOf(new Date());
         await recordRealmPlay(childId, date, sent);
-        // Only the minutes actually sent are cleared: more may have accrued
-        // locally while this round-trip was in flight, and those stay
-        // pending for the next record. A rounded-up remainder is not a
-        // pending record, so this floors at 0 rather than going negative.
-        pendingRef.current = Math.max(0, pendingRef.current - sent);
-        if (chargedRemainder) clockRef.current = { ...clockRef.current, secondsThisMinute: 0 };
+        // Unbilled time is `pending` whole minutes plus the seconds of the
+        // minute in progress — `pending * 60 + secondsThisMinute` seconds
+        // total — and a successful send pays for `sent * 60` of it. Both
+        // sides are re-read from the live refs, not a pre-await snapshot:
+        // `tickClock` keeps running during this round trip (only the next
+        // `settle` call is held off by `recordingRef`), so more seconds, and
+        // even a whole rolled-over minute added to `pendingRef`, may have
+        // accrued while this was in flight. Recomputing the delta from the
+        // live totals — rather than separately subtracting `sent` from
+        // `pendingRef` and zeroing `secondsThisMinute` — is what keeps a
+        // minute that rolls over mid-flight from being charged twice: once
+        // as this remainder's round-up, once again as the fresh `pending`
+        // increment the roll-over produced.
+        const unbilled = pendingRef.current * 60 + clockRef.current.secondsThisMinute;
+        const remaining = Math.max(0, unbilled - sent * 60);
+        pendingRef.current = Math.floor(remaining / 60);
+        clockRef.current = { ...clockRef.current, secondsThisMinute: remaining % 60 };
         const access = await getRealmAccess(childId, date, currentTimeOfDay());
         const applied = applyAccess(clockRef.current, access);
         clockRef.current = applied.clock;
@@ -110,9 +112,9 @@ export function usePlayClock({
         if (applied.clock.minutesRemaining > 1) setWarning(false);
         if (applied.event === "close") closeRef.current(access.allowed ? "no_minutes" : access.reason);
       } catch (err) {
-        // pendingRef and the clock's seconds are left as-is: the failed minutes
-        // carry into the next record, and an uncharged remainder is not zeroed
-        // just because a send was attempted.
+        // pendingRef and the clock's seconds are left exactly as they were:
+        // the failed minutes carry into the next record, and an unbilled
+        // remainder is not touched just because a send was attempted.
         setError(err instanceof Error ? err.message : "The Realm lost track of time for a moment.");
       } finally {
         recordingRef.current = false;
