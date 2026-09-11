@@ -1778,3 +1778,29 @@ html { scrollbar-color: var(--border) var(--background); }
 .realm-hud .realm-hud-skip { font-size: 0.9em; }
 .realm-hud-crown { display: inline-flex; align-items: center; gap: 0.3rem; font-weight: 700; }
 @media (max-width: 640px) { .realm-spell-name { display: none; } .realm-spellbar { bottom: 6.5rem; } }
+
+/* ── Slice 1's interim tenants: the mana strip and the mount button ─────────── */
+/* Both sit over the 3D world beside the ability bar, so both take their size and
+   their footing from .realm-root's custom properties rather than from a literal. */
+.realm-mana-pips { position: absolute; left: 50%; bottom: calc(var(--realm-bar-bottom) + 3.6rem); z-index: 20; display: flex; align-items: center; gap: 0.3rem; padding: 0.25rem 0.7rem; border-radius: 9999px; background: rgba(0, 0, 0, 0.5); color: #fff; font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif; font-size: calc(12px * var(--realm-hud-scale)); text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8); pointer-events: none; transform: translateX(-50%); }
+.realm-pip { width: calc(8px * var(--realm-hud-scale)); height: calc(8px * var(--realm-hud-scale)); border-radius: 9999px; background: rgba(255, 255, 255, 0.22); }
+.realm-pip--on { background: var(--gold-bright); }
+/* Progress is gold; mana is the spell bar's blue, so the two pip rows never read as one scale. */
+.realm-mana-pips .realm-pip--on { background: rgba(96, 165, 250, 0.95); }
+.realm-mana-bar { position: relative; display: inline-block; width: 6rem; height: calc(4px * var(--realm-hud-scale)); border-radius: 9999px; background: rgba(255, 255, 255, 0.2); overflow: hidden; }
+.realm-mana-fill { position: absolute; inset: 0 auto 0 0; background: rgba(96, 165, 250, 0.95); }
+/* The refusal: red pips for the whole 600 ms window, and a 3-cycle 4px shake on top of
+   them under motion. The red is the cue; the shake is the decoration — which is what
+   makes reduced motion a substitution rather than a silence. The keyframes carry the
+   centring translate, or the shake would throw the strip half a screen to the right. */
+.realm-mana-pips--refused .realm-pip, .realm-mana-pips--refused .realm-mana-fill { background: #ef4444; transition: none; }
+.realm-mana-pips--refused { animation: realm-mana-refused 200ms ease-in-out 3; }
+@keyframes realm-mana-refused {
+  0%, 100% { transform: translateX(-50%); }
+  25% { transform: translateX(calc(-50% - 4px)); }
+  75% { transform: translateX(calc(-50% + 4px)); }
+}
+@media (prefers-reduced-motion: reduce) { .realm-mana-pips--refused { animation: none; } }
+.realm-mount-button { position: absolute; right: 1.25rem; bottom: var(--realm-bar-bottom); z-index: 21; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.05rem; min-width: var(--realm-touch); min-height: var(--realm-touch); padding: 0 0.5rem; border-radius: 9999px; border: 1px solid var(--gold-border); background: rgba(201, 168, 76, 0.25); color: var(--gold-bright); font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif; font-size: calc(12px * var(--realm-hud-scale)); font-weight: 700; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8); cursor: pointer; pointer-events: auto; }
+.realm-mount-button:disabled { opacity: 0.5; cursor: default; }
+.realm-mount-key { font-weight: 500; font-size: calc(10px * var(--realm-hud-scale)); color: rgba(255, 255, 255, 0.8); }
