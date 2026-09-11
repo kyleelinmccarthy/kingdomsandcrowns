@@ -113,3 +113,27 @@ export function RealmManaPips({ mana, surfaces, refused }: { mana: number | null
     </div>
   );
 }
+
+/**
+ * Ride, as a round 56px button at the bottom-right beside the ability bar —
+ * the exact place slice 3's mount slot will occupy, so nothing moves twice
+ * (D6.3). Deleting it outright would leave a touch hero with no way to mount
+ * at all, since `M` is the only other way in. `ride.disabled` is what a
+ * parent's preview and a running ceremony both use; the button stays visible
+ * either way, because a control that vanishes teaches nothing.
+ */
+export function RealmMountButton({ ride, showStick }: { ride: { riding: boolean; disabled: boolean; onToggle: () => void } | null; showStick: boolean }) {
+  if (!ride) return null;
+  return (
+    <button
+      type="button"
+      className="realm-mount-button"
+      aria-label={ride.riding ? "Get off your mount" : "Ride your mount"}
+      disabled={ride.disabled}
+      onClick={ride.onToggle}
+    >
+      {ride.riding ? "Dismount" : "Ride"}
+      {!showStick && <span className="realm-mount-key" aria-hidden="true">M</span>}
+    </button>
+  );
+}

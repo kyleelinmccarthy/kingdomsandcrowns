@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
-import { RealmHud, RealmManaPips } from "./realm-hud";
+import { RealmHud, RealmManaPips, RealmMountButton } from "./realm-hud";
 import { surfacesFor } from "@/lib/realm/depth";
 import { DEFAULT_LEARNING_PROFILE } from "@/lib/utils/learning-profile";
 
@@ -156,5 +156,33 @@ describe("RealmManaPips", () => {
   it("marks the strip refused so the red flash has something to hang on", () => {
     render(<RealmManaPips mana={4} surfaces={simple} refused={true} />);
     expect(screen.getByRole("img", { name: "Mana 4 of 100." })).toHaveClass("realm-mana-pips--refused");
+  });
+});
+
+describe("RealmMountButton", () => {
+  it("offers a round Ride button with the M keycap for a keyboard hero", () => {
+    const onToggle = vi.fn();
+    render(<RealmMountButton ride={{ riding: false, disabled: false, onToggle }} showStick={false} />);
+    const button = screen.getByRole("button", { name: "Ride your mount" });
+    expect(button).toHaveClass("realm-mount-button");
+    expect(button).toHaveTextContent("Ride");
+    expect(button.querySelector(".realm-mount-key")).toHaveTextContent("M");
+    fireEvent.click(button);
+    expect(onToggle).toHaveBeenCalledTimes(1);
+  });
+
+  it("says Dismount while riding, and drops the keycap on a touch device", () => {
+    render(<RealmMountButton ride={{ riding: true, disabled: false, onToggle: () => {} }} showStick={true} />);
+    const button = screen.getByRole("button", { name: "Get off your mount" });
+    expect(button).toHaveTextContent("Dismount");
+    expect(button.querySelector(".realm-mount-key")).toBeNull();
+  });
+
+  it("renders disabled for a parent, and nothing at all for a hero with no mount", () => {
+    render(<RealmMountButton ride={{ riding: false, disabled: true, onToggle: () => {} }} showStick={false} />);
+    expect(screen.getByRole("button", { name: "Ride your mount" })).toBeDisabled();
+    cleanup();
+    const { container } = render(<RealmMountButton ride={null} showStick={false} />);
+    expect(container).toBeEmptyDOMElement();
   });
 });
