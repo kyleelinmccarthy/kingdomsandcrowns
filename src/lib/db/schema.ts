@@ -693,6 +693,9 @@ export const realmSettings = sqliteTable(
     // Slice 8: when the hero first saw the how-to-play card, and when the starter spell was seeded (or found unnecessary).
     helpSeenAt: integer("help_seen_at", { mode: "timestamp" }),
     starterSpellAt: integer("starter_spell_at", { mode: "timestamp" }),
+    // Slice 1 of the presentation overhaul: how much the Realm shows.
+    // 'auto' follows the tutorial; a hero or a grown-up can pin it either way.
+    depthOverride: text("depth_override", { enum: ["auto", "simple", "full"] }).notNull().default("auto"),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   }
