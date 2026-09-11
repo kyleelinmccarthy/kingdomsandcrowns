@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildWorldLayout, buildingFootprint, CASTLE_FOOTPRINTS, BUILDING_SLOTS, WORLD_SIZE, CASTLE_POSITION, SPAWN, FOUNDATION_COLOR, BANNER_SIZE, BANNER_MARGIN, DECOR_SPOTS, spriteSizeFor } from "./layout";
+import { buildWorldLayout, buildingFootprint, CASTLE_FOOTPRINTS, BUILDING_SLOTS, WORLD_SIZE, CASTLE_POSITION, SPAWN, FOUNDATION_COLOR, BANNER_SIZE, BANNER_MARGIN, DECOR_SPOTS, spriteSizeFor, type Prop } from "./layout";
 import { BUILDINGS } from "@/lib/utils/kingdom";
 import { REACH, VILLAGER_OFFSET } from "./villagers";
 import { crownForOrdinal } from "@/lib/utils/crown-catalog";
@@ -170,5 +170,58 @@ describe("castle tier on the layout", () => {
   it("carries the castle type so the scene can pick its figure", () => {
     expect(buildWorldLayout({ ...none, castleType: "keep" }).castleType).toBe("keep");
     expect(buildWorldLayout({ ...none, castleType: "moon-base" }).castleType).toBe("campsite");
+  });
+});
+
+describe("objective focus and villager status", () => {
+  // The five fields §3.14(a) freezes: spawnTroubles, the gleam placement and the ceremony read only these.
+  const strip = (p: Prop) => ({ id: p.id, kind: p.kind, position: p.position, size: p.size, solid: p.solid });
+  const mixed = [
+    { id: "well", done: 5, total: 5, complete: true },
+    { id: "mill", done: 2, total: 5, complete: false },
+    { id: "bridge", done: 1, total: 5, complete: false },
+    { id: "chapel", done: 0, total: 5, complete: false },
+  ];
+
+  it("adds nothing to the village: with and without objectiveIds every prop and every collider is identical", () => {
+    const plain = buildWorldLayout({ castleType: "keep", buildings: mixed, banners: 3 });
+    const marked = buildWorldLayout({ castleType: "keep", buildings: mixed, banners: 3, objectiveIds: ["mill", "bridge", "well"] });
+    expect(marked.props.map(strip)).toEqual(plain.props.map(strip));
+    expect(marked.colliders).toEqual(plain.colliders);
+    expect(marked.props.length).toBe(plain.props.length);
+    expect(marked.spawn).toEqual(plain.spawn);
+    // spawnTroubles filters kind === "foundation": same foundations, same order, same count.
+    expect(marked.props.filter((p) => p.kind === "foundation").map((p) => p.id)).toEqual(plain.props.filter((p) => p.kind === "foundation").map((p) => p.id));
+    expect(marked.villagers.map((v) => v.position)).toEqual(plain.villagers.map((v) => v.position));
+  });
+
+  it("marks the first objective, tracks the rest, calls a raised site done, and leaves everything else unmarked", () => {
+    const layout = buildWorldLayout({ castleType: "keep", buildings: mixed, objectiveIds: ["mill", "bridge"] });
+    const site = (id: string) => layout.props.find((p) => p.id === id)!;
+    const villager = (buildingId: string) => layout.villagers.find((v) => v.buildingId === buildingId)!;
+    expect(site("mill").focus).toBe("objective");
+    expect(villager("mill").status).toBe("objective");
+    expect(site("bridge").focus).toBe("tracked");
+    expect(villager("bridge").status).toBe("work");
+    expect(site("well").focus).toBe("done");
+    expect(villager("well").status).toBe("built");
+    expect(site("chapel").focus).toBeUndefined();
+    expect(villager("chapel").status).toBe("work");
+    // Only sites are ever marked: never the castle, a path tile, a banner, a villager prop or a decoration.
+    expect(layout.props.filter((p) => p.focus !== undefined).map((p) => p.kind).sort()).toEqual(["building", "foundation", "foundation"]);
+    expect(buildWorldLayout(none).props.every((p) => p.focus === undefined)).toBe(true);
+    expect(buildWorldLayout({ ...none, objectiveIds: ["nope"] }).props.some((p) => p.focus === "objective")).toBe(false);
+    // A raised site is never a quest, whatever the caller asks for.
+    const built = buildWorldLayout({ castleType: "keep", buildings: [{ id: "well", done: 5, total: 5, complete: true }], objectiveIds: ["well"] });
+    expect(built.props.find((p) => p.id === "well")!.focus).toBe("done");
+    expect(built.villagers.find((v) => v.buildingId === "well")!.status).toBe("built");
+  });
+
+  it("gives every villager placement its site's name and progress", () => {
+    const layout = buildWorldLayout({ castleType: "keep", buildings: mixed });
+    expect(layout.villagers.find((v) => v.buildingId === "well")).toMatchObject({ label: "Village Well", done: 5, total: 5, status: "built" });
+    expect(layout.villagers.find((v) => v.buildingId === "mill")).toMatchObject({ label: "Grain Mill", done: 2, total: 5, status: "work" });
+    expect(layout.villagers.find((v) => v.buildingId === "garden")).toMatchObject({ label: "Royal Garden", done: 0, total: 5, status: "work" });
+    expect(layout.villagers.every((v) => v.total > 0 && v.label.length > 0)).toBe(true);
   });
 });

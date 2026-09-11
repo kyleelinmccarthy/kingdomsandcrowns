@@ -9,6 +9,11 @@ export const WORLD_SIZE = 40;
 export type Vec2 = { x: number; z: number };
 export type PropKind = "castle" | "building" | "foundation" | "path" | "villager" | "barrier" | "banner" | "decor";
 
+/** Which mark the scene draws over a site. Never changes a prop's kind, position, size or solidity. */
+export type PropFocus = "objective" | "tracked" | "done" | null;
+/** What the villager at a site is doing about it: waiting for you, working, or finished. */
+export type VillagerStatus = "objective" | "work" | "built";
+
 export type Prop = {
   id: string;
   kind: PropKind;
@@ -19,11 +24,20 @@ export type Prop = {
   size: { w: number; d: number; h: number }; // footprint width (x), depth (z), height (y)
   color: string;
   solid: boolean; // walkable props (paths, foundations, villagers) are not colliders
+  focus?: PropFocus; // a mark the scene draws over a site; additive only, and never read by colliders, spawns or the ceremony
 };
 
 /** Progress for one kingdom building, as the deeds overview reports it. */
 export type SiteProgress = { id: string; done: number; total: number; complete: boolean };
-export type VillagerPlacement = { id: string; buildingId: string; position: Vec2 };
+export type VillagerPlacement = {
+  id: string;
+  buildingId: string;
+  position: Vec2;
+  status: VillagerStatus;
+  label: string; // the building's name: "Village Well"
+  done: number;
+  total: number;
+};
 
 export type WorldLayout = { props: Prop[]; spawn: Vec2; colliders: Prop[]; villagers: VillagerPlacement[]; castleType: string };
 
@@ -120,8 +134,9 @@ export function buildingFootprint(id: string): { w: number; d: number; h: number
   return id === "watchtower" ? WATCHTOWER_SIZE : BUILDING_SIZE;
 }
 
-export function buildWorldLayout(input: { castleType: string; buildings: SiteProgress[]; villagers?: boolean; banners?: number; decor?: boolean }): WorldLayout {
+export function buildWorldLayout(input: { castleType: string; buildings: SiteProgress[]; villagers?: boolean; banners?: number; decor?: boolean; objectiveIds?: string[] }): WorldLayout {
   const showVillagers = input.villagers ?? true;
+  const objectiveIds = input.objectiveIds ?? [];
   const castleType = input.castleType in CASTLE_FOOTPRINTS ? input.castleType : "campsite";
   const castleSize = CASTLE_FOOTPRINTS[castleType];
   const props: Prop[] = [
@@ -155,16 +170,20 @@ export function buildWorldLayout(input: { castleType: string; buildings: SitePro
     if (!slot) continue;
     const footprint = buildingFootprint(building.id);
     const p = progress.get(building.id) ?? { id: building.id, done: 0, total: building.deedsToBuild, complete: false };
+    // A raised site is never a quest, whatever the caller asks for, so a finished village can never grow a beacon.
+    const rank = objectiveIds.indexOf(building.id);
+    const focus: PropFocus | undefined = p.complete ? "done" : rank === 0 ? "objective" : rank > 0 ? "tracked" : undefined;
+    const status: VillagerStatus = p.complete ? "built" : rank === 0 ? "objective" : "work";
     if (p.complete) {
-      props.push({ id: building.id, kind: "building", label: building.label, tag: showVillagers ? "Built" : undefined, position: slot, size: footprint, color: BUILDING_COLORS[building.id] ?? "#888888", solid: true });
+      props.push({ id: building.id, kind: "building", label: building.label, tag: showVillagers ? "Built" : undefined, position: slot, size: footprint, color: BUILDING_COLORS[building.id] ?? "#888888", solid: true, focus });
     } else {
-      props.push({ id: building.id, kind: "foundation", label: building.label, tag: showVillagers ? `${p.done} of ${p.total}` : undefined, position: slot, size: { ...footprint, h: FOUNDATION_H }, color: FOUNDATION_COLOR, solid: false });
+      props.push({ id: building.id, kind: "foundation", label: building.label, tag: showVillagers ? `${p.done} of ${p.total}` : undefined, position: slot, size: { ...footprint, h: FOUNDATION_H }, color: FOUNDATION_COLOR, solid: false, focus });
     }
     if (showVillagers) {
       const villager = VILLAGERS.find((v) => v.buildingId === building.id);
       if (villager) {
         const position = villagerPosition(slot, footprint);
-        villagers.push({ id: villager.id, buildingId: building.id, position });
+        villagers.push({ id: villager.id, buildingId: building.id, position, status, label: building.label, done: p.done, total: p.total });
         props.push({ id: `villager-${villager.id}`, kind: "villager", label: villager.name, position, size: VILLAGER_SIZE, color: "#000000", solid: false });
       }
     }
