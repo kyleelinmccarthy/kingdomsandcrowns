@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { GameIcon } from "@/components/game-icon";
 import { MANA_MAX } from "@/lib/realm/spells/mana";
+import type { Surfaces } from "@/lib/realm/depth";
 import { formatLap } from "@/lib/realm/recess/recess";
 
 export function RealmHud({
@@ -75,6 +76,40 @@ export function RealmHud({
         {preview && <span className="realm-hud-selector">{selector}</span>}
         <Link href="/tavern" className="realm-hud-leave">Leave the Realm</Link>
       </div>
+    </div>
+  );
+}
+
+/** Ten pips of ten mana each. A fixed list so the keys are stable and no array is built per frame. */
+const MANA_PIPS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+
+/**
+ * Mana, pinned directly above the ability bar so cost and resource read
+ * together (§3.7). Pips for a pre-literate reader, the number itself at full
+ * depth — and a numeric accessible name in *both* cases, because pips
+ * substitute for numerals on screen, never in the accessible name.
+ * An interim tenant: slice 3 gives mana its permanent home on the bar's top edge.
+ */
+export function RealmManaPips({ mana, surfaces, refused }: { mana: number | null; surfaces: Surfaces; refused: boolean }) {
+  if (mana === null) return null; // a parent's preview spends nothing, so it shows nothing
+  const value = Math.round(mana);
+  const filled = Math.round(value / 10);
+  return (
+    <div
+      className={refused ? "realm-mana-pips realm-mana-pips--refused" : "realm-mana-pips"}
+      role="img"
+      aria-label={`Mana ${value} of ${MANA_MAX}.`}
+    >
+      {surfaces.numerals ? (
+        <>
+          <span>Mana {value}</span>
+          <span className="realm-mana-bar" aria-hidden="true">
+            <span className="realm-mana-fill" style={{ width: `${(value / MANA_MAX) * 100}%` }} />
+          </span>
+        </>
+      ) : (
+        MANA_PIPS.map((pip) => <span key={pip} className={pip <= filled ? "realm-pip realm-pip--on" : "realm-pip"} />)
+      )}
     </div>
   );
 }

@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
-import { RealmHud } from "./realm-hud";
+import { RealmHud, RealmManaPips } from "./realm-hud";
+import { surfacesFor } from "@/lib/realm/depth";
+import { DEFAULT_LEARNING_PROFILE } from "@/lib/utils/learning-profile";
 
 afterEach(cleanup);
 
@@ -122,5 +124,37 @@ describe("RealmHud", () => {
     cleanup();
     render(<RealmHud {...base} paused={true} help={{ onOpen, disabled: true }} />);
     expect(screen.getByRole("button", { name: "How to play" })).toBeDisabled();
+  });
+});
+
+// The two depths, taken from the contract itself rather than hand-built, so a
+// change to surfacesFor's table cannot leave these cases quietly testing nothing.
+const simple = surfacesFor("simple", DEFAULT_LEARNING_PROFILE);
+const full = surfacesFor("full", DEFAULT_LEARNING_PROFILE);
+
+describe("RealmManaPips", () => {
+  it("draws ten pips, filled to the nearest ten, with a numeric name", () => {
+    render(<RealmManaPips mana={65} surfaces={simple} refused={false} />);
+    const strip = screen.getByRole("img", { name: "Mana 65 of 100." });
+    expect(strip.querySelectorAll(".realm-pip")).toHaveLength(10);
+    expect(strip.querySelectorAll(".realm-pip--on")).toHaveLength(7);
+    expect(strip).not.toHaveTextContent("Mana 65");
+  });
+
+  it("reads the number itself at full depth, under the same accessible name", () => {
+    render(<RealmManaPips mana={65} surfaces={full} refused={false} />);
+    const strip = screen.getByRole("img", { name: "Mana 65 of 100." });
+    expect(strip).toHaveTextContent("Mana 65");
+    expect(strip.querySelectorAll(".realm-pip")).toHaveLength(0);
+  });
+
+  it("shows nothing at all when there is no mana to show", () => {
+    const { container } = render(<RealmManaPips mana={null} surfaces={full} refused={false} />);
+    expect(container).toBeEmptyDOMElement();
+  });
+
+  it("marks the strip refused so the red flash has something to hang on", () => {
+    render(<RealmManaPips mana={4} surfaces={simple} refused={true} />);
+    expect(screen.getByRole("img", { name: "Mana 4 of 100." })).toHaveClass("realm-mana-pips--refused");
   });
 });
