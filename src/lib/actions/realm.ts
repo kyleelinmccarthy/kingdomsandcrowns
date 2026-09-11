@@ -14,6 +14,7 @@ import { crownById, type CrownTier } from "@/lib/utils/crown-catalog";
 import type { KingdomState } from "@/lib/realm/kingdom-state";
 import { profileFromRow, type LearningProfile } from "@/lib/utils/learning-profile";
 import { isValidAvatarConfig, normalizeAvatarConfig, type AvatarConfig } from "@/lib/utils/avatar-catalog";
+import { realmDepth, type DepthOverride, type RealmDepth } from "@/lib/realm/depth";
 
 export type RealmBundle = {
   heroName: string;
@@ -30,6 +31,13 @@ export type RealmBundle = {
   banners: number; // completed seasons, capped; one castle banner each
   wornCrown: CrownTier | null; // the crown on the hero's avatar, if any
   helpSeen: boolean; // false until the hero has seen the how-to-play card
+  /** The stored preference: 'auto' follows the tutorial, 'simple' and 'full' pin it. */
+  depthOverride: DepthOverride;
+  /**
+   * Computed here, once, from `helpSeen` and `depthOverride`, so no client recomputes it from
+   * two fields and gets a different answer. `RealmOpen` snapshots it for the visit.
+   */
+  depth: RealmDepth;
 };
 
 const VILLAGERS_RESTING = "The villagers are resting. Try again.";
@@ -89,6 +97,7 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
     ? { seasonId: pending.id, crownId: pending.crownId, ordinal: pending.ordinal, grade: pending.grade, seasonLabel: seasonLabel(pending.startDate) }
     : null;
   const wornCrown = avatarConfig?.crown ? crownById(avatarConfig.crown) : null;
+  const helpSeen = flags.helpSeenAt !== null;
 
   return {
     heroName: child.displayName,
@@ -103,6 +112,8 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
     ceremony,
     banners: bannerCount(seasons),
     wornCrown,
-    helpSeen: flags.helpSeenAt !== null,
+    helpSeen,
+    depthOverride: settings.depthOverride,
+    depth: realmDepth({ tutorialComplete: helpSeen, override: settings.depthOverride }),
   };
 }
