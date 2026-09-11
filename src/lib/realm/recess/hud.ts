@@ -9,3 +9,14 @@ export function hudRecessFor(recess: RecessTally, recessActive: boolean): Recess
   if (!(recessActive || recess.laps > 0 || recess.gleams > 0)) return null;
   return { ...recess, lapMs: recessActive ? recess.lapMs : null };
 }
+
+/**
+ * The recess pill's one line. Best lap and the running lap are deliberately not here:
+ * a best lap that resets when the child walks to the Spellbook is a lie, so slice 1
+ * deletes it and slice 12 persists it and brings it back as a record (D6.4).
+ */
+export function recessPillText(gleams: number, laps: number): string {
+  const g = Math.max(0, Math.floor(gleams));
+  const l = Math.max(0, Math.floor(laps));
+  return `Recess · ${g} ${g === 1 ? "gleam" : "gleams"} · ${l} ${l === 1 ? "lap" : "laps"}`;
+}
