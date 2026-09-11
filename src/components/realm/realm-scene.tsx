@@ -8,7 +8,7 @@ import type * as THREE from "three";
 import { WORLD_SIZE, spriteSizeFor, type Prop, type WorldLayout, type Vec2 } from "@/lib/realm/layout";
 import { setTarget, stepCompanion, stepHero, unstickHero, setMounted, HERO_SPEED, COMPANION_GAP_MOUNTED, type CompanionState, type HeroState } from "@/lib/realm/movement";
 import { CAMERA_OFFSET, CAMERA_ZOOM, followCamera } from "@/lib/realm/camera";
-import { GROUND_Y, shadowFootprint, SHADOW_OPACITY, SHADOW_OPACITY_CALM } from "@/lib/realm/markers";
+import { facingAngle, GROUND_Y, shadowFootprint, RING_INNER, RING_OUTER, RING_NOTCH_ARC, RING_GOLD, RING_CALM, SHADOW_OPACITY, SHADOW_OPACITY_CALM } from "@/lib/realm/markers";
 import { nearestVillager, villagerById } from "@/lib/realm/villagers";
 import type { RenderSettings } from "@/lib/realm/render-settings";
 import type { SpellDefinition } from "@/lib/utils/spell-catalog";
@@ -121,6 +121,7 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
   const heroShadow = useRef<THREE.Group>(null);
   const mountShadow = useRef<THREE.Group>(null);
   const companionShadow = useRef<THREE.Group>(null);
+  const heroRing = useRef<THREE.Group>(null);
 
   // A completed building scales up from the ground once; with motion off it simply appears.
   useEffect(() => {
@@ -236,6 +237,10 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
       mountShadow.current.visible = riding;
       mountShadow.current.position.set(p.x, 0, p.z);
     }
+    if (heroRing.current) {
+      heroRing.current.position.set(p.x, GROUND_Y.heroRing, p.z);
+      heroRing.current.rotation.set(-Math.PI / 2, 0, facingAngle(hero.current.facing));
+    }
     const c = companion.current.position;
     if (companionSprite.current) {
       companionSprite.current.position.set(c.x, SPRITE_H / 2 + bob * 0.5, c.z);
@@ -278,6 +283,7 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
   const reachVillager = reachId ? villagerById(reachId) : null;
   const reachPlacement = reachId ? layout.villagers.find((v) => v.id === reachId) ?? null : null;
   const tint = settings.calmPalette ? CALM_TINT : "#ffffff";
+  const ringColor = settings.calmPalette ? RING_CALM : RING_GOLD; // lowStimulus mutes the mark, never removes it
   const worldTex = (key: string): THREE.CanvasTexture | undefined => textures.world[key];
   const spriteFor = (prop: Prop): THREE.CanvasTexture | undefined => {
     if (prop.kind === "castle") return worldTex(`castle:${layout.castleType}`);
@@ -432,6 +438,19 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
       )}
       <group ref={heroShadow} position={[layout.spawn.x, 0, layout.spawn.z]}>
         <ContactShadow w={HERO_SHADOW.w} d={HERO_SHADOW.d} y={GROUND_Y.figureShadow} calm={settings.calmPalette} />
+      </group>
+      {/* The hero's own mark: a gold ring with a 60° gap in the direction they will walk,
+          and a solid arrowhead filling that gap so the cue is a positive mark and not only a hole.
+          After the -π/2 X rotation, local +Y is world north, so the group's local-Z rotation is facingAngle(). */}
+      <group ref={heroRing} position={[layout.spawn.x, GROUND_Y.heroRing, layout.spawn.z]} rotation={[-Math.PI / 2, 0, facingAngle("s")]}>
+        <mesh>
+          <ringGeometry args={[RING_INNER, RING_OUTER, 32, 1, Math.PI / 2 + RING_NOTCH_ARC / 2, Math.PI * 2 - RING_NOTCH_ARC]} />
+          <meshBasicMaterial color={ringColor} transparent depthWrite={false} />
+        </mesh>
+        <mesh position={[0, RING_OUTER + 0.06, 0]}>
+          <circleGeometry args={[0.16, 3, Math.PI / 2]} />
+          <meshBasicMaterial color={ringColor} transparent depthWrite={false} />
+        </mesh>
       </group>
       <sprite ref={heroSprite} position={[layout.spawn.x, SPRITE_H / 2, layout.spawn.z]} scale={[SPRITE_W, SPRITE_H, 1]}>
         <spriteMaterial map={textures.hero} transparent alphaTest={0.1} />
