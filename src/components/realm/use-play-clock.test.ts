@@ -85,6 +85,40 @@ describe("usePlayClock", () => {
     expect(result.current.error).toBe("");
   });
 
+  it("flushPending settles the minute in progress, rounded half-up", async () => {
+    recordRealmPlay.mockResolvedValue(undefined);
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 4, source: "earned" });
+
+    const { result } = renderHook(() => usePlayClock({ enabled: true, childId: "c1", initialMinutes: 5, onClose: vi.fn() }));
+
+    // 45 visible seconds: no 60-second boundary crossed, so nothing has been
+    // recorded and there is no pending whole minute to rescue.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(45_000);
+    });
+    expect(recordRealmPlay).not.toHaveBeenCalled();
+
+    await act(async () => {
+      await result.current.flushPending();
+    });
+    expect(recordRealmPlay).toHaveBeenCalledWith("c1", expect.any(String), 1);
+  });
+
+  it("flushPending charges nothing for a visit under half a minute", async () => {
+    recordRealmPlay.mockResolvedValue(undefined);
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 4, source: "earned" });
+
+    const { result } = renderHook(() => usePlayClock({ enabled: true, childId: "c1", initialMinutes: 5, onClose: vi.fn() }));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(29_000);
+    });
+    await act(async () => {
+      await result.current.flushPending();
+    });
+    expect(recordRealmPlay).not.toHaveBeenCalled();
+  });
+
   it("counts nothing while paused and refreshes access once when unpaused", async () => {
     recordRealmPlay.mockResolvedValue(undefined);
     getRealmAccess.mockResolvedValue({ allowed: false, reason: "school_hours" });

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getRealmAccess, recordRealmPlay } from "@/lib/actions/realm-play";
-import { applyAccess, startClock, tickClock, type PlayClock } from "@/lib/realm/play-clock";
+import { applyAccess, minutesToSettle, startClock, tickClock, type PlayClock } from "@/lib/realm/play-clock";
 import type { AccessDenied } from "@/lib/utils/realm-access";
 import { currentTimeOfDay, localDateOf } from "@/lib/utils/schedule-days";
 
@@ -70,17 +70,26 @@ export function usePlayClock({
     }
   }, [childId]);
 
+  /**
+   * Writes `minutes` to the ledger and refreshes access. The caller decides the
+   * number: the interval passes the whole minutes it has just banked, and
+   * `flushPending` passes `minutesToSettle(…)`, which adds the rounded-up
+   * remainder of the minute in progress. Nothing is sent for 0 — `recordRealmPlay`
+   * rejects `minutes < 1`.
+   */
   const settle = useCallback(
-    async () => {
+    async (minutes: number) => {
+      const sent = Math.min(minutes, 30);
+      if (sent < 1) return;
       recordingRef.current = true;
-      const sent = Math.min(pendingRef.current, 30);
       try {
         const date = localDateOf(new Date());
         await recordRealmPlay(childId, date, sent);
         // Only the minutes actually sent are cleared: more may have accrued
         // locally while this round-trip was in flight, and those stay
-        // pending for the next record.
-        pendingRef.current -= sent;
+        // pending for the next record. A rounded-up remainder is not a
+        // pending record, so this floors at 0 rather than going negative.
+        pendingRef.current = Math.max(0, pendingRef.current - sent);
         const access = await getRealmAccess(childId, date, currentTimeOfDay());
         const applied = applyAccess(clockRef.current, access);
         clockRef.current = applied.clock;
@@ -118,15 +127,20 @@ export function usePlayClock({
       if (ticked.event !== "record") return;
       pendingRef.current += ticked.records;
       if (recordingRef.current) return;
-      void settle();
+      void settle(pendingRef.current);
     }, 1000);
     return () => clearInterval(id);
   }, [enabled, settle, refresh]);
 
+  /**
+   * Writes what this visit owes right now: the pending whole minutes plus the
+   * minute in progress, rounded half-up. Called by the HUD's Try-again button
+   * and — above all — by RealmOpen's unmount cleanup, so every exit path
+   * charges the minute the child actually played.
+   */
   const flushPending = useCallback(async () => {
-    if (pendingRef.current > 0 && !recordingRef.current) {
-      await settle();
-    }
+    if (recordingRef.current) return;
+    await settle(minutesToSettle(clockRef.current, pendingRef.current));
   }, [settle]);
 
   return { minutesRemaining: clock.minutesRemaining, warning, error, clearError: () => setError(""), flushPending, source };
