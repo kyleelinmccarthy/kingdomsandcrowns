@@ -1699,16 +1699,37 @@ html { scrollbar-color: var(--border) var(--background); }
 @media (prefers-reduced-motion: reduce) { .deed-sparkle { animation: none; } }
 
 /* ── The Realm ──────────────────────────────────────────────── */
-.realm-root { position: fixed; inset: 0; z-index: 45; background: #0a1220; }
+/* `--realm-hud-scale` and `--realm-bar-bottom` are overwritten inline by RealmShell
+   from the hero's render settings; these are the defaults. Every control that sits
+   over the 3D world is `--realm-touch`; panel buttons stay at 44px. */
+.realm-root { position: fixed; inset: 0; z-index: 45; background: #0a1220; --realm-hud-scale: 1; --realm-bar-bottom: 1.25rem; --realm-touch: 56px; }
 .realm-root:focus { outline: none; }
 .realm-hud { position: absolute; top: 0.75rem; left: 0.75rem; right: 0.75rem; z-index: 20; pointer-events: none; color: #fff; font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif; }
-.realm-hud > * { pointer-events: auto; }
+.realm-hud button, .realm-hud a, .realm-hud-selector *, .realm-messages button { pointer-events: auto; }
 .realm-hud-row { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem; }
 .realm-hud-row > * { pointer-events: auto; }
 .realm-hud-name { font-weight: 700; }
 .realm-hud-minutes, .realm-hud-badge { border-radius: 9999px; padding: 0.15rem 0.6rem; background: rgba(201, 168, 76, 0.2); color: var(--gold-bright); font-size: 0.85em; }
 .realm-hud-leave { margin-left: auto; color: var(--gold-bright); text-decoration: underline; font-size: 0.85em; }
 .realm-hud-selector { display: contents; }
+/* Two centred message lanes: persistent problems in a band under the HUD zones,
+   the things the game says in a lane above the ability bar. One message each. */
+.realm-messages { position: absolute; inset: 0; z-index: 21; pointer-events: none; color: #fff; font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif; }
+.realm-message { position: absolute; left: 50%; margin: 0; transform: translateX(-50%); display: inline-flex; align-items: center; justify-content: center; gap: 0.6rem; max-width: min(30rem, calc(100vw - 2rem)); border-radius: 0.5rem; padding: 0.4rem 0.75rem; text-align: center; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8); }
+.realm-message:empty { display: none; }
+.realm-message button { min-width: var(--realm-touch); min-height: var(--realm-touch); padding: 0 1rem; border-radius: 9999px; border: 1px solid var(--gold-border); background: rgba(201, 168, 76, 0.25); color: var(--gold-bright); font: inherit; font-weight: 700; cursor: pointer; }
+.realm-message--problem { top: calc(3.5rem * var(--realm-hud-scale)); background: rgba(0, 0, 0, 0.75); border: 1px solid var(--gold-border); font-size: 0.95em; }
+.realm-message--cheer, .realm-message--plain { bottom: calc(var(--realm-bar-bottom) + 4.5rem); font-size: 0.95em; }
+.realm-message--cheer { background: rgba(201, 168, 76, 0.25); border: 1px solid var(--gold-border); color: var(--gold-bright); font-weight: 700; animation: realm-toast-in 300ms ease-out; }
+.realm-message--plain { background: rgba(0, 0, 0, 0.45); }
+@media (prefers-reduced-motion: reduce) { .realm-message--cheer { animation: none; } }
+.realm-message--stage { top: 50%; transform: translate(-50%, -50%); font-size: calc(1.6rem * var(--realm-hud-scale)); font-weight: 700; color: var(--gold-bright); text-shadow: 0 2px 6px rgba(0, 0, 0, 0.9); }
+/* Position and pointer-events only. The scene (task 16) writes `hidden`, `transform`,
+   `color`, `opacity` and `data-motion` on this element, and task 16's own rule draws the
+   arrowhead as a `::before` triangle and gives it its 1 Hz pulse. Do NOT put a border
+   triangle on the container here: task 16's rule cannot unset it, and the arrow would
+   grow a second, unrotated head. */
+.realm-edge-arrow { position: absolute; left: 0; top: 0; pointer-events: none; }
 .realm-hud-note, .realm-hud-banner, .realm-hud-error { margin-top: 0.5rem; border-radius: 0.5rem; padding: 0.4rem 0.75rem; background: rgba(0, 0, 0, 0.45); font-size: 0.9em; }
 .realm-hud-banner { border: 1px solid var(--gold-border); }
 .realm-hud-toast { margin-top: 0.5rem; border-radius: 0.5rem; padding: 0.4rem 0.75rem; background: rgba(201, 168, 76, 0.25); border: 1px solid var(--gold-border); color: var(--gold-bright); font-weight: 700; font-size: 0.95em; animation: realm-toast-in 300ms ease-out; }
