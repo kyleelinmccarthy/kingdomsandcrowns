@@ -1,4 +1,5 @@
 import type { RealmAccessMode } from "./realm-access";
+import { DEFAULT_DEPTH_OVERRIDE, isDepthOverride, type DepthOverride } from "@/lib/realm/depth";
 
 export type ToneMode = "gentle" | "monsters";
 
@@ -9,6 +10,8 @@ export type RealmSettings = {
   offHoursEnabled: boolean;
   dailyCapMinutes: number;
   toneMode: ToneMode;
+  /** How much the Realm shows. A hero may set their own — it changes presentation, never access. */
+  depthOverride: DepthOverride;
 };
 
 export const DEFAULT_REALM_SETTINGS: RealmSettings = {
@@ -18,6 +21,7 @@ export const DEFAULT_REALM_SETTINGS: RealmSettings = {
   offHoursEnabled: false,
   dailyCapMinutes: 30,
   toneMode: "gentle",
+  depthOverride: DEFAULT_DEPTH_OVERRIDE,
 };
 
 const ACCESS_MODES: RealmAccessMode[] = ["earned", "scheduled", "both"];
@@ -38,6 +42,7 @@ export function settingsFromRow(row: Partial<Record<keyof RealmSettings, unknown
     offHoursEnabled: typeof row.offHoursEnabled === "boolean" ? row.offHoursEnabled : DEFAULT_REALM_SETTINGS.offHoursEnabled,
     dailyCapMinutes: inRange(row.dailyCapMinutes, DAILY_CAP_RANGE) ? row.dailyCapMinutes : DEFAULT_REALM_SETTINGS.dailyCapMinutes,
     toneMode: TONES.includes(row.toneMode as ToneMode) ? (row.toneMode as ToneMode) : DEFAULT_REALM_SETTINGS.toneMode,
+    depthOverride: isDepthOverride(row.depthOverride) ? row.depthOverride : DEFAULT_REALM_SETTINGS.depthOverride,
   };
 }
 
@@ -59,6 +64,10 @@ export function validateRealmSettingsPatch(patch: unknown): Partial<RealmSetting
       case "toneMode":
         if (!TONES.includes(v as ToneMode)) throw new Error("Choose gentle or monsters.");
         out.toneMode = v as ToneMode;
+        break;
+      case "depthOverride":
+        if (!isDepthOverride(v)) throw new Error("Choose automatic, simple, or everything.");
+        out.depthOverride = v;
         break;
       case "earnedMinutesPerQuest":
         if (!inRange(v, EARNED_MINUTES_RANGE)) throw new Error(`Minutes per quest must be ${EARNED_MINUTES_RANGE.min}–${EARNED_MINUTES_RANGE.max}.`);

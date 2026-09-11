@@ -29,3 +29,30 @@ describe("validateRealmSettingsPatch", () => {
     expect(() => validateRealmSettingsPatch({ childId: "x" })).toThrow();
   });
 });
+
+describe("depthOverride", () => {
+  it("defaults to automatic", () => {
+    expect(DEFAULT_REALM_SETTINGS.depthOverride).toBe("auto");
+  });
+
+  it("passes the three stored values through and coerces anything else to auto", () => {
+    expect(settingsFromRow({ depthOverride: "auto" }).depthOverride).toBe("auto");
+    expect(settingsFromRow({ depthOverride: "simple" }).depthOverride).toBe("simple");
+    expect(settingsFromRow({ depthOverride: "full" }).depthOverride).toBe("full");
+    // A hand-edited database, a future enum change, a column that does not exist yet:
+    // the Realm never crashes on a bad enum, it falls back to automatic.
+    expect(settingsFromRow({ depthOverride: "Simple" }).depthOverride).toBe("auto");
+    expect(settingsFromRow({ depthOverride: null }).depthOverride).toBe("auto");
+    expect(settingsFromRow({ depthOverride: 7 }).depthOverride).toBe("auto");
+    expect(settingsFromRow({ depthOverride: undefined }).depthOverride).toBe("auto");
+    expect(settingsFromRow(null).depthOverride).toBe("auto");
+  });
+
+  it("accepts the three values in a patch and refuses anything else", () => {
+    expect(validateRealmSettingsPatch({ depthOverride: "auto" })).toEqual({ depthOverride: "auto" });
+    expect(validateRealmSettingsPatch({ depthOverride: "simple" })).toEqual({ depthOverride: "simple" });
+    expect(validateRealmSettingsPatch({ depthOverride: "full" })).toEqual({ depthOverride: "full" });
+    expect(() => validateRealmSettingsPatch({ depthOverride: "everything" })).toThrow("Choose automatic, simple, or everything.");
+    expect(() => validateRealmSettingsPatch({ depthOverride: null })).toThrow("Choose automatic, simple, or everything.");
+  });
+});
