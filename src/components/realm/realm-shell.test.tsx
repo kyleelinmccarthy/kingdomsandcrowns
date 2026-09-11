@@ -1,9 +1,11 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
-import { render, screen, cleanup, act, waitFor, fireEvent } from "@testing-library/react";
+import { render, screen, cleanup, act, waitFor, fireEvent, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { RealmShell } from "./realm-shell";
 import { DEFAULT_LEARNING_PROFILE } from "@/lib/utils/learning-profile";
 import { DEFAULT_AVATAR } from "@/lib/utils/avatar-catalog";
+import { BUILDINGS } from "@/lib/utils/kingdom";
+import { VILLAGERS } from "@/lib/realm/villagers";
 
 const getRealmAccess = vi.fn();
 const recordRealmPlay = vi.fn();
@@ -96,6 +98,15 @@ const well = {
   deeds: [{ id: "well-stones", title: "Count the Well Stones", story: "Old Bram's bucket keeps coming up dry.", area: "math" as const }],
 };
 const bundle = { heroName: "Lily", avatarConfig: DEFAULT_AVATAR, castleType: "campsite", kingdom: { tone: "gentle" as const, buildings: [well] }, profile: DEFAULT_LEARNING_PROFILE, settings: { enabled: true, toneMode: "gentle" as const }, spellbook: { spells: [], slots: 4 }, mounts: { unlocked: ["pony"] }, ceremony: null, banners: 0, wornCrown: null, helpSeen: true, depthOverride: "auto" as const, depth: "full" as const };
+
+// A brand-new hero: all eight buildings at 0 of 5, each with one side quest to begin.
+const newKingdom = BUILDINGS.map((b) => ({
+  id: b.id, label: b.label, description: b.description, icon: b.icon,
+  done: 0, total: b.deedsToBuild, complete: false,
+  deeds: [{ id: `${b.id}-1`, title: `Help at the ${b.label}`, story: "There is work to do.", area: "math" as const }],
+}));
+// The same eight, every one of them raised.
+const raisedKingdom = newKingdom.map((b) => ({ ...b, done: b.total, complete: true }));
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -200,8 +211,7 @@ describe("RealmShell", () => {
     await act(async () => {
       (sceneProps.onTalk as (id: string) => void)("bram");
     });
-    expect(await screen.findByRole("dialog", { name: "Old Bram" })).toBeInTheDocument();
-    expect(screen.getByText("4 of 5")).toBeInTheDocument();
+    expect(within(await screen.findByRole("dialog", { name: "Old Bram" })).getByText("4 of 5")).toBeInTheDocument();
     expect(screen.getByTestId("scene")).toHaveAttribute("data-interactive", "false");
     expect(screen.getByText("12 min left · paused")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Begin Count the Well Stones" }));
@@ -455,7 +465,7 @@ describe("RealmShell", () => {
     render(<RealmShell bundle={bundle} childId="c1" isChildView={true} />);
     expect(await screen.findByTestId("scene")).toBeInTheDocument();
     expect(screen.getByTestId("scene")).toHaveAttribute("data-recess", "true");
-    expect(screen.getByText("Gleams: 0")).toBeInTheDocument();
+    expect(screen.getByText("Recess · 0 gleams · 0 laps")).toBeInTheDocument();
     await act(async () => {
       (sceneProps.onRecessEvent as (e: unknown) => void)({ kind: "recessStart" });
     });
@@ -466,13 +476,13 @@ describe("RealmShell", () => {
     // "Recess!" still owns the lane — the gleam notice is held beneath it. The tally is
     // the assertion that matters here, and the gleam's own copy is proved by the case below.
     expect(screen.getByTestId("realm-speech")).toHaveTextContent("Recess!");
-    expect(screen.getByText("Gleams: 1")).toBeInTheDocument();
+    expect(screen.getByText("Recess · 1 gleam · 0 laps")).toBeInTheDocument();
     cleanup();
     getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 20, source: "earned" });
     render(<RealmShell bundle={bundle} childId="c1" isChildView={true} />);
     expect(await screen.findByTestId("scene")).toBeInTheDocument();
     expect(screen.getByTestId("scene")).toHaveAttribute("data-recess", "false");
-    expect(screen.queryByText(/Gleams:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^Recess ·/)).not.toBeInTheDocument();
     cleanup();
     getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 20, source: "recess" });
     render(<RealmShell bundle={bundle} childId="c1" isChildView={false} />);
@@ -491,14 +501,21 @@ describe("RealmShell", () => {
     expect(screen.getByTestId("realm-speech")).toHaveTextContent("A gleam! 1 so far.");
   });
 
-  it("shows the running lap time while recess is active", async () => {
+  it("keeps the running lap and the best lap off the HUD, and counts finished laps in the pill", async () => {
     getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 20, source: "recess" });
     render(<RealmShell bundle={bundle} childId="c1" isChildView={true} />);
     expect(await screen.findByTestId("scene")).toBeInTheDocument();
     await act(async () => {
       (sceneProps.onRecessEvent as (e: unknown) => void)({ kind: "lapTick", lapMs: 12_000 });
     });
-    expect(screen.getByText(/12\.0 s/)).toBeInTheDocument();
+    // D6.4: a best lap that resets on navigation is a lie, and the running clock is slice 12's.
+    expect(screen.queryByText(/12\.0 s/)).not.toBeInTheDocument();
+    expect(screen.getByText("Recess · 0 gleams · 0 laps")).toBeInTheDocument();
+    await act(async () => {
+      (sceneProps.onRecessEvent as (e: unknown) => void)({ kind: "lap", laps: 1, lapMs: 30_000, best: true });
+    });
+    expect(screen.getByText("Recess · 0 gleams · 1 lap")).toBeInTheDocument();
+    expect(screen.queryByText(/Best/)).not.toBeInTheDocument();
   });
 
   it("rides an unlocked equipped mount, blocks casting while riding, and hides the button otherwise", async () => {
@@ -614,6 +631,76 @@ describe("RealmShell", () => {
     const messages = screen.getByTestId("realm-messages");
     expect(hud.compareDocumentPosition(scene) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(messages.compareDocumentPosition(scene) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("marks the new hero's first site on the layout and names it on the objective card", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    render(<RealmShell bundle={{ ...bundle, kingdom: { tone: "gentle", buildings: newKingdom } }} childId="c1" isChildView={true} />);
+    expect(await screen.findByTestId("scene")).toBeInTheDocument();
+    const layout = sceneProps.layout as { props: { id: string; focus?: string }[]; villagers: { id: string; status: string }[] };
+    // objectiveIds[0] is "well" for every brand-new hero: the opening is identical every time.
+    expect(layout.props.find((p) => p.id === "well")!.focus).toBe("objective");
+    expect(layout.villagers.find((v) => v.id === "bram")!.status).toBe("objective");
+    const card = screen.getByRole("region", { name: "What to do next" });
+    expect(within(card).getByText("Village Well")).toBeInTheDocument();
+    expect(within(card).getByText("Old Bram is waiting.")).toBeInTheDocument();
+  });
+
+  it("folds the next objective into the rise toast, so two toasts never queue", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    startDeedRun.mockResolvedValue({ runId: "r1", deed: { id: "well-stones", title: "Count the Well Stones", story: "Dry again." }, questions: [], responses: [] });
+    const user = userEvent.setup();
+    const buildings = [well, ...newKingdom.filter((b) => b.id !== "well")];
+    render(<RealmShell bundle={{ ...bundle, kingdom: { tone: "gentle", buildings } }} childId="c1" isChildView={true} />);
+    expect(await screen.findByTestId("scene")).toBeInTheDocument();
+    await act(async () => {
+      (sceneProps.onTalk as (id: string) => void)("bram");
+    });
+    await user.click(await screen.findByRole("button", { name: "Begin Count the Well Stones" }));
+    await user.click(await screen.findByRole("button", { name: "finish" }));
+    expect(await screen.findByText("The Village Well stands. Next: the Grain Mill, with Miller Tessa.")).toBeInTheDocument();
+  });
+
+  it("opens a site card for every villager, whatever the objective says", async () => {
+    // §3.19: the objective card is a suggestion, never a gate.
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    for (const buildings of [newKingdom, raisedKingdom]) {
+      for (const depth of ["simple", "full"] as const) {
+        for (const fewerChoices of [false, true]) {
+          render(
+            <RealmShell
+              bundle={{ ...bundle, depth, kingdom: { tone: "gentle", buildings }, profile: { ...DEFAULT_LEARNING_PROFILE, fewerChoices } }}
+              childId="c1"
+              isChildView={true}
+            />
+          );
+          expect(await screen.findByTestId("scene")).toBeInTheDocument();
+          for (const v of VILLAGERS) {
+            await act(async () => {
+              (sceneProps.onTalk as (id: string) => void)(v.id);
+            });
+            const dialog = await screen.findByRole("dialog", { name: v.name });
+            fireEvent.keyDown(dialog, { key: "Escape" });
+          }
+          cleanup();
+        }
+      }
+    }
+    // An unknown kingdom is the one closed door, and it is the pre-existing "no data for
+    // this site yet" guard that closes it — not the objective, which renders no card at all.
+    getRealmKingdom.mockResolvedValue({ tone: "gentle", buildings: newKingdom });
+    render(<RealmShell bundle={{ ...bundle, kingdom: { tone: "gentle", buildings: [] }, kingdomError: "The villagers are resting. Try again." }} childId="c1" isChildView={true} />);
+    expect(await screen.findByTestId("scene")).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "What to do next" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Wake the villagers" }));
+    await waitFor(() => expect(screen.getByRole("region", { name: "What to do next" })).toBeInTheDocument());
+    for (const v of VILLAGERS) {
+      await act(async () => {
+        (sceneProps.onTalk as (id: string) => void)(v.id);
+      });
+      const dialog = await screen.findByRole("dialog", { name: v.name });
+      fireEvent.keyDown(dialog, { key: "Escape" });
+    }
   });
 });
 

@@ -17,7 +17,8 @@ import { resolvePages, withEmptyPages } from "@/lib/realm/spells/pages";
 import { TROUBLE_COPY, type TroubleSkin } from "@/lib/realm/spells/troubles";
 import { MANA_MAX } from "@/lib/realm/spells/mana";
 import { formatLap } from "@/lib/realm/recess/recess";
-import { hudRecessFor } from "@/lib/realm/recess/hud";
+import { hudRecessFor, recessPillText } from "@/lib/realm/recess/hud";
+import { objectiveState, riseToast } from "@/lib/realm/objective";
 import { pickProblem, pickSpeech, type MessageInput } from "@/lib/realm/messages";
 import { HERO_SPEED } from "@/lib/realm/movement";
 import { ceremonyNotice, type CeremonyEvent } from "@/lib/realm/ceremony/ceremony";
@@ -224,9 +225,13 @@ function RealmOpen({
   const [portalTarget] = useState<Element | null>(() => (typeof document === "undefined" ? null : document.body));
   const settings = useMemo(() => renderSettingsFor(bundle.profile, isTouch), [bundle.profile, isTouch]);
   const surfaces = useMemo(() => surfacesFor(depth, bundle.profile), [depth, bundle.profile]);
+  // One objective state for the whole render: the card reads it and the layout marks its
+  // sites from it, so the card and the world can never disagree about what to do next.
+  const objective = useMemo(() => objectiveState(kingdom.buildings, surfaces.trackedObjectives), [kingdom.buildings, surfaces.trackedObjectives]);
+  const objectiveIds = useMemo(() => (objective.kind === "next" ? objective.objectives.map((o) => o.buildingId) : []), [objective]);
   const layout = useMemo(
-    () => buildWorldLayout({ castleType: bundle.castleType, buildings: kingdom.buildings, villagers: !kingdomError, banners: bundle.banners, decor: !settings.calmPalette }),
-    [bundle.castleType, kingdom.buildings, kingdomError, bundle.banners, settings.calmPalette]
+    () => buildWorldLayout({ castleType: bundle.castleType, buildings: kingdom.buildings, villagers: !kingdomError, banners: bundle.banners, decor: !settings.calmPalette, objectiveIds }),
+    [bundle.castleType, kingdom.buildings, kingdomError, bundle.banners, settings.calmPalette, objectiveIds]
   );
   // All eight kingdom buildings are rasterised up front (see SpriteSource), so this only
   // changes with the castle tier or the calm-palette decor toggle — never mid-visit as
@@ -455,7 +460,8 @@ function RealmOpen({
     if (applied.rose) {
       const label = applied.state.buildings.find((b) => b.id === buildingId)?.label ?? "building";
       setRisingId(buildingId);
-      setToast(`The ${label} stands.`);
+      // One toast, not two queued: the rise and what comes next travel together (§3.18).
+      setToast(riseToast(label, objectiveState(applied.state.buildings, 1)));
     }
     setOpenVillagerId(null);
     returnFocus();
@@ -510,6 +516,10 @@ function RealmOpen({
 
   const calm = bundle.profile.reducedMotion || bundle.profile.lowStimulus;
   const hudRecess = isChildView ? hudRecessFor(recess, recessActive) : null;
+  // Gleams and laps collapse into one pill while recess runs; best lap is deleted (D6.4).
+  const recessPill = hudRecess ? recessPillText(hudRecess.gleams, hudRecess.laps) : null;
+  const kingdomDone = kingdom.buildings.filter((b) => b.complete).length;
+  const kingdomTotal = kingdom.buildings.length; // 0 when the load failed: the plate drops the line
   const hudRide = isChildView
     ? (canRide ? { riding, disabled: ceremonyRunning, onToggle: onToggleRide } : null)
     : (mountItem && bundle.mounts.unlocked.includes(mountItem.id) ? { riding: false, disabled: true, onToggle: () => {} } : null);
@@ -554,7 +564,11 @@ function RealmOpen({
         hudScale={settings.hudScale}
         selector={selector}
         paused={panelOpen || ceremonyRunning || helpOpen}
-        recess={hudRecess}
+        objective={objective}
+        surfaces={surfaces}
+        kingdomDone={kingdomDone}
+        kingdomTotal={kingdomTotal}
+        recessPill={recessPill}
         crown={crown}
         ceremony={ceremonyStage === "running" ? { onSkip } : null}
         help={{ onOpen: openHelp, disabled: panelOpen || helpOpen }}

@@ -1,120 +1,190 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { render, screen, cleanup, fireEvent } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent, within } from "@testing-library/react";
+import type { ComponentProps } from "react";
 import { RealmHud, RealmManaPips, RealmMountButton } from "./realm-hud";
 import { surfacesFor } from "@/lib/realm/depth";
+import type { ObjectiveState } from "@/lib/realm/objective";
 import { DEFAULT_LEARNING_PROFILE } from "@/lib/utils/learning-profile";
 
 afterEach(cleanup);
 
-// Every message now lives in the two centred lanes (RealmMessages), so the HUD's prop
-// list carries no string it could print: no toast, no notice, no error, no banner.
-//
-// `mana`, `cleared` and `ride` are deliberately carried through this task unchanged:
-// this task's gate is the whole suite, and the shell still renders all three. Task 10
-// evicts them — it deletes the two mana cases and the ride half of the recess case,
-// and drops these three keys from `base`. Keeping them here for one task is coverage,
-// not churn: they are the only thing testing a meter that is still on screen.
-const base = {
-  heroName: "Lily",
-  minutesRemaining: 7 as number | null,
-  preview: false,
-  hudScale: 1,
-  paused: false,
-  recess: null,
+const simple = surfacesFor("simple", DEFAULT_LEARNING_PROFILE);
+const full = surfacesFor("full", DEFAULT_LEARNING_PROFILE);
+
+const next: ObjectiveState = {
+  kind: "next",
+  objectives: [{ buildingId: "well", villagerId: "bram", label: "Village Well", villagerName: "Old Bram", done: 2, total: 5 }],
+};
+const nextThree: ObjectiveState = {
+  kind: "next",
+  objectives: [
+    { buildingId: "well", villagerId: "bram", label: "Village Well", villagerName: "Old Bram", done: 2, total: 5 },
+    { buildingId: "mill", villagerId: "tessa", label: "Grain Mill", villagerName: "Miller Tessa", done: 1, total: 5 },
+    { buildingId: "bridge", villagerId: "aldo", label: "River Bridge", villagerName: "Carpenter Aldo", done: 0, total: 5 },
+  ],
 };
 
-describe("RealmHud", () => {
-  it("shows the hero's minutes", () => {
-    render(<RealmHud {...base} />);
-    expect(screen.getByText("7 min left")).toBeInTheDocument();
+function hud(overrides: Partial<ComponentProps<typeof RealmHud>> = {}) {
+  const props: ComponentProps<typeof RealmHud> = {
+    heroName: "Lily",
+    minutesRemaining: 7,
+    preview: false,
+    hudScale: 1,
+    paused: false,
+    objective: next,
+    surfaces: full,
+    kingdomDone: 3,
+    kingdomTotal: 8,
+    recessPill: null,
+    ...overrides,
+  };
+  return render(<RealmHud {...props} />);
+}
+
+const zone = (name: string) => document.querySelector<HTMLElement>(name)!;
+
+describe("RealmHud zones", () => {
+  it("lays out three pass-through zones whose controls still accept pointers", () => {
+    hud({ ceremony: { onSkip: () => {} }, help: { onOpen: () => {}, disabled: false } });
+    expect(zone(".realm-hud-identity").style.pointerEvents).toBe("none");
+    expect(zone(".realm-hud-objective").style.pointerEvents).toBe("none");
+    expect(zone(".realm-hud-meta").style.pointerEvents).toBe("none");
+    expect(screen.getByRole("button", { name: "Skip" }).style.pointerEvents).toBe("auto");
+    expect(screen.getByRole("button", { name: "How to play" }).style.pointerEvents).toBe("auto");
+    expect(screen.getByRole("link", { name: "Leave the Realm" }).style.pointerEvents).toBe("auto");
   });
 
-  it("prints no message of its own — the lanes own every one", () => {
-    render(<RealmHud {...base} minutesRemaining={1} />);
-    expect(document.querySelector(".realm-hud-notice")).toBeNull();
-    expect(document.querySelector(".realm-hud-toast")).toBeNull();
-    expect(document.querySelector(".realm-hud-error")).toBeNull();
-    expect(document.querySelector(".realm-hud-banner")).toBeNull();
-    expect(document.querySelector(".realm-hud-note")).toBeNull();
-    expect(screen.queryByText("One minute left in the Realm today.")).not.toBeInTheDocument();
-    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  it("has no scoreboard left in the corner", () => {
+    hud({ recessPill: "Recess · 3 gleams · 1 lap" });
+    expect(screen.queryByRole("progressbar", { name: "Mana" })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Cleared/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Gleams:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Laps:/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Best/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Ride" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Dismount" })).not.toBeInTheDocument();
+    expect(screen.getByText("Recess · 3 gleams · 1 lap")).toBeInTheDocument();
+  });
+});
+
+describe("RealmHud identity plate", () => {
+  it("shows the hero's name and the kingdom line as pips at simple depth", () => {
+    hud({ surfaces: simple });
+    const identity = zone(".realm-hud-identity");
+    expect(within(identity).getByText("Lily")).toBeInTheDocument();
+    const row = within(identity).getByRole("img", { name: "3 of 8 buildings raised." });
+    expect(row.querySelectorAll(".realm-pip")).toHaveLength(8);
+    expect(row.querySelectorAll(".realm-pip--on")).toHaveLength(3);
+    expect(within(identity).queryByText("3 of 8 raised")).not.toBeInTheDocument();
   });
 
-  it("shows the preview badge and hides minutes for a parent", () => {
-    render(<RealmHud {...base} minutesRemaining={null} preview={true} />);
-    expect(screen.getByText("Previewing Lily's Realm")).toBeInTheDocument();
-    expect(screen.queryByText(/min left/)).not.toBeInTheDocument();
+  it("shows the kingdom line as numerals at full depth, with the same accessible name", () => {
+    hud({ surfaces: full });
+    const identity = zone(".realm-hud-identity");
+    const row = within(identity).getByRole("img", { name: "3 of 8 buildings raised." });
+    expect(row).toHaveTextContent("3 of 8 raised");
+    expect(identity.querySelectorAll(".realm-pip")).toHaveLength(0);
   });
 
-  it("links back to the Tavern", () => {
-    render(<RealmHud {...base} minutesRemaining={3} hudScale={1.25} />);
-    expect(screen.getByRole("link", { name: "Leave the Realm" })).toHaveAttribute("href", "/tavern");
+  it("drops the kingdom line rather than saying 0 of 0 when the kingdom did not load", () => {
+    hud({ kingdomDone: 0, kingdomTotal: 0, objective: { kind: "unknown" } });
+    expect(screen.getByText("Lily")).toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: /buildings raised\./ })).not.toBeInTheDocument();
+  });
+});
+
+describe("RealmHud objective card", () => {
+  it("names the next building, its villager and the side-quest progress", () => {
+    hud({ surfaces: full });
+    const card = screen.getByRole("region", { name: "What to do next" });
+    expect(within(card).getByText("Village Well")).toBeInTheDocument();
+    expect(within(card).getByText("Old Bram is waiting.")).toBeInTheDocument();
+    expect(within(card).getByRole("img", { name: "2 of 5 side quests done." })).toHaveTextContent("2 of 5");
+    expect(within(card).queryByText(/deed/i)).not.toBeInTheDocument();
   });
 
-  it("shows the selector only in the preview HUD", () => {
-    render(<RealmHud {...base} minutesRemaining={null} preview={true} selector={<span>picker</span>} />);
-    expect(screen.getByText("picker")).toBeInTheDocument();
-    cleanup();
-    render(<RealmHud {...base} minutesRemaining={3} selector={<span>picker</span>} />);
-    expect(screen.queryByText("picker")).not.toBeInTheDocument();
+  it("keeps the progress row's accessible name numeric at simple depth, where it is pips", () => {
+    hud({ surfaces: simple });
+    const card = screen.getByRole("region", { name: "What to do next" });
+    const row = within(card).getByRole("img", { name: "2 of 5 side quests done." });
+    expect(row.querySelectorAll(".realm-pip")).toHaveLength(5);
+    expect(row.querySelectorAll(".realm-pip--on")).toHaveLength(2);
+    expect(row).not.toHaveTextContent("2 of 5");
   });
 
-  it("marks the counter paused", () => {
-    render(<RealmHud {...base} paused={true} />);
+  it("tracks the extra objectives at full depth", () => {
+    hud({ surfaces: full, objective: nextThree });
+    const card = screen.getByRole("region", { name: "What to do next" });
+    expect(within(card).getByText("Grain Mill · 1 of 5")).toBeInTheDocument();
+    expect(within(card).getByText("River Bridge · 0 of 5")).toBeInTheDocument();
+  });
+
+  it("says the kingdom stands when every building is raised", () => {
+    hud({ objective: { kind: "complete" } });
+    const card = screen.getByRole("region", { name: "What to do next" });
+    expect(within(card).getByText("Every building is raised.")).toBeInTheDocument();
+    expect(within(card).getByText("Nothing is waiting. Walk where you like.")).toBeInTheDocument();
+    expect(card.querySelectorAll(".realm-pips")).toHaveLength(0);
+  });
+
+  it("renders no card at all when the kingdom did not load", () => {
+    hud({ objective: { kind: "unknown" } });
+    expect(screen.queryByRole("region", { name: "What to do next" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Every building is raised.")).not.toBeInTheDocument();
+  });
+});
+
+describe("RealmHud meta zone", () => {
+  it("counts the minutes and marks them paused", () => {
+    hud({ minutesRemaining: 7, paused: true });
     expect(screen.getByText("7 min left · paused")).toBeInTheDocument();
   });
 
-  it("logs no console errors when a preview selector is shown", () => {
-    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
-    render(<RealmHud {...base} minutesRemaining={null} preview={true} selector={<span>picker</span>} />);
-    const keyWarning = spy.mock.calls.some((args) => typeof args[0] === "string" && args[0].includes('unique "key"'));
-    expect(keyWarning).toBe(false);
-    spy.mockRestore();
+  it("hides the counter for a parent and tells them whose grounds these are, always in numbers", () => {
+    hud({ preview: true, minutesRemaining: null, surfaces: simple, selector: <span>picker</span> });
+    const card = screen.getByRole("region", { name: "What to do next" });
+    expect(within(card).getByText("Old Bram is waiting for Lily.")).toBeInTheDocument();
+    expect(within(card).getByRole("img", { name: "2 of 5 side quests done." })).toHaveTextContent("2 of 5");
+    expect(document.querySelectorAll(".realm-pip")).toHaveLength(0);
+    expect(screen.getByText("Previewing Lily's Realm")).toBeInTheDocument();
+    expect(screen.getByText("picker")).toBeInTheDocument();
+    expect(screen.queryByText(/min left/)).not.toBeInTheDocument();
   });
 
-  it("shows recess tallies", () => {
-    render(<RealmHud {...base} recess={{ gleams: 3, laps: 1, bestLapMs: 40_300, lapMs: 12_000 }} />);
-    expect(screen.getByText("Gleams: 3")).toBeInTheDocument();
-    expect(screen.getByText(/Laps: 1/)).toBeInTheDocument();
-    expect(screen.getByText(/Best 40\.3 s/)).toBeInTheDocument();
-    expect(screen.getByText(/12\.0 s/)).toBeInTheDocument();
+  it("shows the selector only in the preview HUD", () => {
+    hud({ selector: <span>picker</span> });
+    expect(screen.queryByText("picker")).not.toBeInTheDocument();
   });
 
-  it("carries no mana meter, no cleared count and no mount button — the shell owns those now", () => {
-    render(<RealmHud {...base} />);
-    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
-    expect(screen.queryByText(/Cleared/)).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Ride|Dismount/ })).not.toBeInTheDocument();
-  });
-
-  it("shows the worn crown and the ceremony's Skip button", () => {
+  it("keeps the crown badge, Skip, the help button and the Tavern link", () => {
     const onSkip = vi.fn();
-    render(<RealmHud {...base} paused={true} crown={{ label: "Copper Circlet", color: "#b87333" }} ceremony={{ onSkip }} />);
+    const onOpen = vi.fn();
+    hud({ crown: { label: "Copper Circlet", color: "#b87333" }, ceremony: { onSkip }, help: { onOpen, disabled: false } });
     expect(screen.getByText("Copper Circlet")).toBeInTheDocument();
     const skip = screen.getByRole("button", { name: "Skip" });
     expect(skip.className).toContain("realm-hud-skip");
     fireEvent.click(skip);
     expect(onSkip).toHaveBeenCalledTimes(1);
+    const helpButton = screen.getByRole("button", { name: "How to play" });
+    expect(helpButton.className).toContain("realm-hud-help");
+    fireEvent.click(helpButton);
+    expect(onOpen).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("link", { name: "Leave the Realm" })).toHaveAttribute("href", "/tavern");
   });
 
-  it("offers How to play as a 44px button and disables it while a panel is open", () => {
-    const onOpen = vi.fn();
-    render(<RealmHud {...base} help={{ onOpen, disabled: false }} />);
-    const button = screen.getByRole("button", { name: "How to play" });
-    expect(button.className).toContain("realm-hud-help");
-    fireEvent.click(button);
-    expect(onOpen).toHaveBeenCalledTimes(1);
-    cleanup();
-    render(<RealmHud {...base} paused={true} help={{ onOpen, disabled: true }} />);
+  it("disables the help button while a panel is open", () => {
+    hud({ help: { onOpen: () => {}, disabled: true } });
     expect(screen.getByRole("button", { name: "How to play" })).toBeDisabled();
   });
+
+  it("logs no console errors when a preview selector is shown", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    hud({ preview: true, minutesRemaining: null, selector: <span>picker</span> });
+    const keyWarning = spy.mock.calls.some((args) => typeof args[0] === "string" && args[0].includes('unique "key"'));
+    expect(keyWarning).toBe(false);
+    spy.mockRestore();
+  });
 });
-
-// The two depths, taken from the contract itself rather than hand-built, so a
-// change to surfacesFor's table cannot leave these cases quietly testing nothing.
-const simple = surfacesFor("simple", DEFAULT_LEARNING_PROFILE);
-const full = surfacesFor("full", DEFAULT_LEARNING_PROFILE);
-
 describe("RealmManaPips", () => {
   it("draws ten pips, filled to the nearest ten, with a numeric name", () => {
     render(<RealmManaPips mana={65} surfaces={simple} refused={false} />);
