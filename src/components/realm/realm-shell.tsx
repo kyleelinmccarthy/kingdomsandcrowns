@@ -235,6 +235,24 @@ function RealmOpen({
   const { axisRef, setStick, castRef } = useRealmInput({ enabled: !panelOpen && !ceremonyRunning && !helpOpen, castEnabled: isChildView && !panelOpen && !ceremonyRunning && !helpOpen && !riding && selectedSpell !== null });
   const config = bundle.avatarConfig ?? DEFAULT_AVATAR;
   const clock = usePlayClock({ enabled: isChildView, childId, initialMinutes: minutes, onClose, paused: panelOpen || ceremonyRunning || helpOpen, initialSource: source });
+  // Every exit path — the `Leave the Realm` link, a router navigation, the gate
+  // closing, the clock running out, a browser back — unmounts this component, so
+  // hanging the flush off its cleanup is the one place that cannot be bypassed:
+  // no later slice can add an exit that skips it. `flushPending` is a
+  // `useCallback` on `[settle]` and `settle` on `[childId]`, so the identity is
+  // stable and this runs exactly once, on the real unmount. `settle` catches its
+  // own errors and only sets state, and a set on an unmounted component is a
+  // no-op in React 19; the `void` keeps the floating promise lint-clean.
+  // Destructured (rather than `clock.flushPending` inline) so exhaustive-deps
+  // can track the dependency directly: eslint-plugin-react-hooks widens a
+  // dependency to the whole base object whenever the member expression is
+  // called (`clock.flushPending()`), since a method call can read other
+  // properties of its receiver via `this` — it does not narrow to the callee
+  // path the way it does for a plain property read. `clock` itself is a new
+  // object every render, so depending on it directly would run this cleanup
+  // on every render instead of once, on the real unmount.
+  const { flushPending } = clock;
+  useEffect(() => () => { void flushPending(); }, [flushPending]);
   const recessActive = isChildView && clock.source === "recess";
   const mountItem = bundle.avatarConfig?.mount ? findMount(bundle.avatarConfig.mount) : null;
   const canRide = mountItem !== null && bundle.mounts.unlocked.includes(mountItem.id) && isChildView;

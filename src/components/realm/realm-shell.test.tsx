@@ -35,22 +35,25 @@ vi.mock("@/components/deed-player", () => ({
   ),
 }));
 // The real hook, with `flushPending` wrapped so tests can assert it was
-// called on retry without duplicating use-play-clock.test.ts's own coverage
-// of what flushPending actually does.
+// called on retry and on unmount without duplicating use-play-clock.test.ts's
+// own coverage of what flushPending actually does. The wrapper is memoised on
+// the real hook's own stable `flushPending`, because RealmOpen's unmount
+// cleanup keys on that identity: a fresh arrow every render would fire the
+// cleanup on every render instead of once, on the real unmount.
 let flushPendingCalls = 0;
 vi.mock("./use-play-clock", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./use-play-clock")>();
+  const React = await import("react");
   return {
     ...actual,
     usePlayClock: (...args: Parameters<typeof actual.usePlayClock>) => {
       const hook = actual.usePlayClock(...args);
-      return {
-        ...hook,
-        flushPending: () => {
-          flushPendingCalls += 1;
-          return hook.flushPending();
-        },
-      };
+      const inner = hook.flushPending;
+      const flushPending = React.useCallback(() => {
+        flushPendingCalls += 1;
+        return inner();
+      }, [inner]);
+      return { ...hook, flushPending };
     },
   };
 });
@@ -143,6 +146,16 @@ describe("RealmShell", () => {
     expect(screen.queryByTestId("scene")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Try again" }));
     expect(await screen.findByTestId("scene")).toBeInTheDocument();
+    expect(flushPendingCalls).toBe(1);
+  });
+
+  it("charges the minute in progress when the Realm unmounts", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    const { unmount } = render(<RealmShell bundle={bundle} childId="c1" isChildView={true} />);
+    expect(await screen.findByTestId("scene")).toBeInTheDocument();
+    // Not on every render — only on the real unmount.
+    expect(flushPendingCalls).toBe(0);
+    unmount();
     expect(flushPendingCalls).toBe(1);
   });
 
