@@ -1,4 +1,5 @@
 import { BUILDINGS, findBuilding } from "@/lib/utils/kingdom";
+import { SIDE_QUEST_LOWER } from "@/lib/utils/side-quest-copy";
 import { villagerForBuilding } from "./villagers";
 import type { SiteProgress } from "./layout";
 
@@ -74,4 +75,30 @@ export function pickObjective(buildings: SiteProgress[]): Objective | null {
   if (state.kind !== "next") return null;
   const [objective] = state.objectives;
   return objective ?? null;
+}
+
+/**
+ * The rise toast, with the next objective folded in so two toasts never queue: one 4-second toast
+ * instead of two.
+ */
+export function riseToast(label: string, next: ObjectiveState): string {
+  const stands = `The ${label} stands.`;
+  // Interim: slice 13 (the record of the work) owns the final completion line and moves it with its test.
+  if (next.kind === "complete") return `${stands} Every building is raised.`;
+  if (next.kind === "unknown") return stands;
+  const [objective] = next.objectives;
+  if (!objective) return stands;
+  if (!objective.villagerName) return `${stands} Next: the ${objective.label}.`;
+  return `${stands} Next: the ${objective.label}, with ${objective.villagerName}.`;
+}
+
+/** The read-aloud line, written for speech. Unknown says nothing: the problem lane already speaks for it. */
+export function objectiveSpeech(state: ObjectiveState): string | null {
+  if (state.kind === "unknown") return null;
+  // Interim: slice 13 owns the final completion line and moves it with its test.
+  if (state.kind === "complete") return "Every building is raised. Nothing is waiting.";
+  const [objective] = state.objectives;
+  if (!objective) return null;
+  const where = `Your next ${SIDE_QUEST_LOWER} is at the ${objective.label}.`;
+  return objective.villagerName ? `${where} ${objective.villagerName} is waiting.` : where;
 }

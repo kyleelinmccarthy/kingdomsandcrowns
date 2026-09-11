@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { objectiveRank, rankBuildings, objectiveState, pickObjective, type ObjectiveState } from "./objective";
+import { objectiveRank, rankBuildings, objectiveState, pickObjective, riseToast, objectiveSpeech, type Objective, type ObjectiveState } from "./objective";
 import type { SiteProgress } from "./layout";
 import { BUILDINGS } from "@/lib/utils/kingdom";
 
@@ -88,5 +88,54 @@ describe("objectiveState", () => {
     expect(ids(objectiveState(newHero, -4))).toEqual(["well"]);
     expect(ids(objectiveState(newHero, 1.9))).toEqual(["well"]);
     expect(ids(objectiveState(newHero, 99)).length).toBe(8);
+  });
+});
+
+const objective = (buildingId: string, label: string, villagerId: string | null, villagerName: string | null): Objective =>
+  ({ buildingId, villagerId, label, villagerName, done: 0, total: 5 });
+
+describe("riseToast", () => {
+  it("names the building that rose and the one that follows", () => {
+    const next: ObjectiveState = { kind: "next", objectives: [objective("mill", "Grain Mill", "tessa", "Miller Tessa")] };
+    expect(riseToast("Village Well", next)).toBe("The Village Well stands. Next: the Grain Mill, with Miller Tessa.");
+  });
+
+  it("says the kingdom is finished when that was the last one", () => {
+    // Interim copy: slice 13 (the record of the work) owns the final line and re-baselines this assertion.
+    expect(riseToast("Royal Garden", { kind: "complete" })).toBe("The Royal Garden stands. Every building is raised.");
+  });
+
+  it("says only what it knows when the kingdom state is unknown", () => {
+    expect(riseToast("Village Well", { kind: "unknown" })).toBe("The Village Well stands.");
+    expect(riseToast("Village Well", { kind: "next", objectives: [] })).toBe("The Village Well stands.");
+  });
+
+  it("drops the companion clause when the next site has no villager", () => {
+    const next: ObjectiveState = { kind: "next", objectives: [objective("mill", "Grain Mill", null, null)] };
+    expect(riseToast("Village Well", next)).toBe("The Village Well stands. Next: the Grain Mill.");
+  });
+});
+
+describe("objectiveSpeech", () => {
+  it("reads the next objective aloud", () => {
+    expect(objectiveSpeech(objectiveState(newHero, 1))).toBe("Your next side quest is at the Village Well. Old Bram is waiting.");
+  });
+
+  it("reads a finished kingdom aloud", () => {
+    // Interim copy: slice 13 owns the final line and re-baselines this assertion.
+    expect(objectiveSpeech({ kind: "complete" })).toBe("Every building is raised. Nothing is waiting.");
+  });
+
+  it("says nothing at all when the kingdom is unknown", () => {
+    expect(objectiveSpeech({ kind: "unknown" })).toBeNull();
+    expect(objectiveSpeech({ kind: "next", objectives: [] })).toBeNull();
+  });
+
+  it("drops the villager clause when the site has no villager", () => {
+    expect(objectiveSpeech({ kind: "next", objectives: [objective("mill", "Grain Mill", null, null)] })).toBe("Your next side quest is at the Grain Mill.");
+  });
+
+  it("never puts the word deed in a child's ear", () => {
+    expect(objectiveSpeech(objectiveState(newHero, 1))).not.toMatch(/deed/i);
   });
 });
