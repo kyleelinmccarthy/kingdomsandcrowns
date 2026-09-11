@@ -118,6 +118,9 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
   const frozenRef = useRef(false); // dazzled or mid-cast; read by onPointerDown too
   const ceremonyRef = useRef<CeremonyState | null>(null);
   const villagerSprites = useRef(new Map<string, THREE.Sprite>());
+  const heroShadow = useRef<THREE.Group>(null);
+  const mountShadow = useRef<THREE.Group>(null);
+  const companionShadow = useRef<THREE.Group>(null);
 
   // A completed building scales up from the ground once; with motion off it simply appears.
   useEffect(() => {
@@ -222,11 +225,23 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
         mountSprite.current.scale.set(flip, SPRITE_H, 1);
       }
     }
+    // The marks on the ground take the figure's TRUE position. `bob` is applied
+    // to the sprites above and to nothing down here: the hero rises, the shadow
+    // does not, which is the difference between a hero who stands and one who hops.
+    if (heroShadow.current) {
+      heroShadow.current.position.set(p.x, 0, p.z);
+      heroShadow.current.visible = !riding; // the mount's wider shadow stands in for both while mounted
+    }
+    if (mountShadow.current) {
+      mountShadow.current.visible = riding;
+      mountShadow.current.position.set(p.x, 0, p.z);
+    }
     const c = companion.current.position;
     if (companionSprite.current) {
       companionSprite.current.position.set(c.x, SPRITE_H / 2 + bob * 0.5, c.z);
       companionSprite.current.scale.set(c.x > p.x ? -SPRITE_W : SPRITE_W, SPRITE_H, 1);
     }
+    if (companionShadow.current) companionShadow.current.position.set(c.x, 0, c.z);
     const t = camTarget.current;
     if (camera.current) {
       camera.current.position.set(t.x + CAMERA_OFFSET.x, CAMERA_OFFSET.y, t.z + CAMERA_OFFSET.z);
@@ -406,17 +421,30 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
         </Html>
       )}
       {textures.mount && (
-        <sprite ref={mountSprite} visible={false} scale={[SPRITE_W, SPRITE_H, 1]}>
-          <spriteMaterial map={textures.mount} transparent alphaTest={0.1} />
-        </sprite>
+        <>
+          <group ref={mountShadow} visible={false} position={[layout.spawn.x, 0, layout.spawn.z]}>
+            <ContactShadow w={MOUNT_SHADOW.w} d={MOUNT_SHADOW.d} y={GROUND_Y.figureShadow} calm={settings.calmPalette} />
+          </group>
+          <sprite ref={mountSprite} visible={false} scale={[SPRITE_W, SPRITE_H, 1]}>
+            <spriteMaterial map={textures.mount} transparent alphaTest={0.1} />
+          </sprite>
+        </>
       )}
+      <group ref={heroShadow} position={[layout.spawn.x, 0, layout.spawn.z]}>
+        <ContactShadow w={HERO_SHADOW.w} d={HERO_SHADOW.d} y={GROUND_Y.figureShadow} calm={settings.calmPalette} />
+      </group>
       <sprite ref={heroSprite} position={[layout.spawn.x, SPRITE_H / 2, layout.spawn.z]} scale={[SPRITE_W, SPRITE_H, 1]}>
         <spriteMaterial map={textures.hero} transparent alphaTest={0.1} />
       </sprite>
       {textures.companion && (
-        <sprite ref={companionSprite} position={[layout.spawn.x, SPRITE_H / 2, layout.spawn.z + 1.2]} scale={[SPRITE_W, SPRITE_H, 1]}>
-          <spriteMaterial map={textures.companion} transparent alphaTest={0.1} />
-        </sprite>
+        <>
+          <group ref={companionShadow} position={[layout.spawn.x, 0, layout.spawn.z + 1.2]}>
+            <ContactShadow w={COMPANION_SHADOW.w} d={COMPANION_SHADOW.d} y={GROUND_Y.figureShadow} calm={settings.calmPalette} />
+          </group>
+          <sprite ref={companionSprite} position={[layout.spawn.x, SPRITE_H / 2, layout.spawn.z + 1.2]} scale={[SPRITE_W, SPRITE_H, 1]}>
+            <spriteMaterial map={textures.companion} transparent alphaTest={0.1} />
+          </sprite>
+        </>
       )}
     </>
   );
