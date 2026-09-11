@@ -102,6 +102,15 @@ describe("usePlayClock", () => {
       await result.current.flushPending();
     });
     expect(recordRealmPlay).toHaveBeenCalledWith("c1", expect.any(String), 1);
+
+    // Regression: those 45 seconds were charged and must be zeroed on the
+    // clock, not merely tracked in `pendingRef`. Without that, the same
+    // seconds go on ticking, cross their natural 60-second boundary 15
+    // seconds later, and bill a second minute for the one already paid for.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20_000);
+    });
+    expect(recordRealmPlay).toHaveBeenCalledTimes(1);
   });
 
   it("flushPending charges nothing for a visit under half a minute", async () => {
@@ -117,6 +126,15 @@ describe("usePlayClock", () => {
       await result.current.flushPending();
     });
     expect(recordRealmPlay).not.toHaveBeenCalled();
+
+    // Mirror of the case above: an uncharged remainder is retained, not
+    // zeroed, so the same seconds keep counting and still complete their own
+    // 60-second boundary normally — the flush must not have reset the clock.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(31_000);
+    });
+    expect(recordRealmPlay).toHaveBeenCalledTimes(1);
+    expect(recordRealmPlay).toHaveBeenCalledWith("c1", expect.any(String), 1);
   });
 
   it("counts nothing while paused and refreshes access once when unpaused", async () => {

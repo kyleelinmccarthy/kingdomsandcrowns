@@ -25,11 +25,14 @@ export const ROUND_UP_SECONDS = 30;
  * every 50 seconds played forever for nothing.
  *
  * A child who leaves at 5 seconds is charged nothing; one who leaves at 50 is
- * charged the minute they played, so the leak is capped at 29 seconds a visit
- * instead of 59 and cannot be farmed. Clamped to the minutes the hero actually
- * has left and to the ledger's 30-minute ceiling, so `recordRealmPlay`'s
- * `assertMinutes(minutes, 30)` is never made to throw. A 0 is simply not sent:
- * `recordRealmPlay` rejects `minutes < 1`.
+ * charged the minute they played, so while the gate is open the leak is capped
+ * at 29 seconds a visit instead of 59 and cannot be farmed. That cap is
+ * specific to an open gate: while the gate is closed (see below), up to 59
+ * seconds are dropped on every visit by deliberate rule, not by omission, and
+ * this function does nothing to narrow that. Clamped to the minutes the hero
+ * actually has left and to the ledger's 30-minute ceiling, so
+ * `recordRealmPlay`'s `assertMinutes(minutes, 30)` is never made to throw. A 0
+ * is simply not sent: `recordRealmPlay` rejects `minutes < 1`.
  */
 export function minutesToSettle(clock: PlayClock, pending: number): number {
   if (clock.closed) return 0; // the gate already charged and shut

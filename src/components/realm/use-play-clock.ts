@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getRealmAccess, recordRealmPlay } from "@/lib/actions/realm-play";
-import { applyAccess, minutesToSettle, startClock, tickClock, type PlayClock } from "@/lib/realm/play-clock";
+import { applyAccess, minutesToSettle, ROUND_UP_SECONDS, startClock, tickClock, type PlayClock } from "@/lib/realm/play-clock";
 import type { AccessDenied } from "@/lib/utils/realm-access";
 import { currentTimeOfDay, localDateOf } from "@/lib/utils/schedule-days";
 
@@ -81,6 +81,15 @@ export function usePlayClock({
     async (minutes: number) => {
       const sent = Math.min(minutes, 30);
       if (sent < 1) return;
+      // Captured before the round trip: if the minute in progress was already
+      // at or past the rounding threshold, `minutesToSettle` folded it into
+      // `sent` as the rounded-up remainder. Once that succeeds, those seconds
+      // have been paid for and must be zeroed so they cannot also cross their
+      // natural 60-second boundary and bill a second minute for the same
+      // stretch of play. A remainder short of the threshold was never part of
+      // `sent` — it stays on the clock so `tickClock` keeps counting it
+      // toward its own boundary, uncharged.
+      const chargedRemainder = clockRef.current.secondsThisMinute >= ROUND_UP_SECONDS;
       recordingRef.current = true;
       try {
         const date = localDateOf(new Date());
@@ -90,6 +99,7 @@ export function usePlayClock({
         // pending for the next record. A rounded-up remainder is not a
         // pending record, so this floors at 0 rather than going negative.
         pendingRef.current = Math.max(0, pendingRef.current - sent);
+        if (chargedRemainder) clockRef.current = { ...clockRef.current, secondsThisMinute: 0 };
         const access = await getRealmAccess(childId, date, currentTimeOfDay());
         const applied = applyAccess(clockRef.current, access);
         clockRef.current = applied.clock;
@@ -100,7 +110,9 @@ export function usePlayClock({
         if (applied.clock.minutesRemaining > 1) setWarning(false);
         if (applied.event === "close") closeRef.current(access.allowed ? "no_minutes" : access.reason);
       } catch (err) {
-        // pendingRef is left as-is: the failed minutes carry into the next record.
+        // pendingRef and the clock's seconds are left as-is: the failed minutes
+        // carry into the next record, and an uncharged remainder is not zeroed
+        // just because a send was attempted.
         setError(err instanceof Error ? err.message : "The Realm lost track of time for a moment.");
       } finally {
         recordingRef.current = false;
