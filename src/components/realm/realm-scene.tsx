@@ -8,6 +8,7 @@ import type * as THREE from "three";
 import { WORLD_SIZE, spriteSizeFor, type Prop, type WorldLayout, type Vec2 } from "@/lib/realm/layout";
 import { setTarget, stepCompanion, stepHero, unstickHero, setMounted, HERO_SPEED, COMPANION_GAP_MOUNTED, type CompanionState, type HeroState } from "@/lib/realm/movement";
 import { CAMERA_OFFSET, CAMERA_ZOOM, followCamera } from "@/lib/realm/camera";
+import { GROUND_Y } from "@/lib/realm/markers";
 import { nearestVillager, villagerById } from "@/lib/realm/villagers";
 import type { RenderSettings } from "@/lib/realm/render-settings";
 import type { SpellDefinition } from "@/lib/utils/spell-catalog";
@@ -267,7 +268,7 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
         {textures.tiles ? <meshStandardMaterial map={textures.tiles.grass} color={tint} /> : <meshStandardMaterial color={ground} />}
       </mesh>
       {layout.props.filter((p) => p.kind === "path").map((prop) => (
-        <mesh key={prop.id} position={[prop.position.x, 0.03, prop.position.z]} rotation={[-Math.PI / 2, 0, 0]}>
+        <mesh key={prop.id} position={[prop.position.x, GROUND_Y.path, prop.position.z]} rotation={[-Math.PI / 2, 0, 0]}>
           <planeGeometry args={[prop.size.w, prop.size.d]} />
           {textures.tiles ? <meshStandardMaterial map={textures.tiles.cobble} color={tint} /> : <meshStandardMaterial color={prop.color} />}
         </mesh>
@@ -276,7 +277,7 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
         const foundationTex = worldTex("foundation");
         return (
           <group key={prop.id} position={[prop.position.x, 0, prop.position.z]}>
-            <mesh position={[0, 0.04, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <mesh position={[0, GROUND_Y.foundation, 0]} rotation={[-Math.PI / 2, 0, 0]}>
               <planeGeometry args={[prop.size.w, prop.size.d]} />
               {foundationTex ? (
                 <meshStandardMaterial map={foundationTex} color={tint} transparent alphaTest={0.1} />

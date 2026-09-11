@@ -7,6 +7,7 @@ import type * as THREE from "three";
 import type { RecessSim } from "./use-recess-sim";
 import type { SpriteTextures } from "./sprite-source";
 import { GLEAM_COUNT, LAP_START, LAP_WAYPOINTS } from "@/lib/realm/recess/recess";
+import { GROUND_Y } from "@/lib/realm/markers";
 
 /** Pooled gleam sprites, the ring markers, and the start banner; visible only while recess is active. */
 export function RecessLayer({ sim, textures, calm, motion }: { sim: RefObject<RecessSim>; textures: SpriteTextures; calm: boolean; motion: boolean }) {
@@ -40,7 +41,7 @@ export function RecessLayer({ sim, textures, calm, motion }: { sim: RefObject<Re
       ))}
       <group ref={ring} visible={false}>
         {LAP_WAYPOINTS.map((w, i) => (
-          <mesh key={`w${i}`} position={[w.x, 0.05, w.z]} rotation={[-Math.PI / 2, 0, 0]}>
+          <mesh key={`w${i}`} position={[w.x, GROUND_Y.lapWaypoint, w.z]} rotation={[-Math.PI / 2, 0, 0]}>
             <circleGeometry args={[0.6, 16]} />
             <meshStandardMaterial color={marker} />
           </mesh>
