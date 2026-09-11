@@ -8,7 +8,7 @@ import type * as THREE from "three";
 import { WORLD_SIZE, spriteSizeFor, type Prop, type WorldLayout, type Vec2 } from "@/lib/realm/layout";
 import { setTarget, stepCompanion, stepHero, unstickHero, setMounted, HERO_SPEED, COMPANION_GAP_MOUNTED, type CompanionState, type HeroState } from "@/lib/realm/movement";
 import { CAMERA_OFFSET, CAMERA_ZOOM, followCamera } from "@/lib/realm/camera";
-import { GROUND_Y } from "@/lib/realm/markers";
+import { GROUND_Y, shadowFootprint, SHADOW_OPACITY, SHADOW_OPACITY_CALM } from "@/lib/realm/markers";
 import { nearestVillager, villagerById } from "@/lib/realm/villagers";
 import type { RenderSettings } from "@/lib/realm/render-settings";
 import type { SpellDefinition } from "@/lib/utils/spell-catalog";
@@ -53,9 +53,38 @@ const SPRITE_H = 2;
 export const RISE_MS = 900;
 const CALM_FOUNDATION = "#5a5750";
 const CALM_TINT = "#a9aaa4";
+// §3.4's footprint table, every entry put through the one shared transform so
+// the whole programme's shadows keep the same shape rule. Task 15 gives each
+// villager the hero's 0.8 × 0.8.
+const HERO_SHADOW = shadowFootprint({ w: 0.8, d: 0.8 });
+const MOUNT_SHADOW = shadowFootprint({ w: 1.1, d: 1.1 });
+const COMPANION_SHADOW = shadowFootprint({ w: 0.6, d: 0.6 });
 
 function easeOut(t: number): number {
   return 1 - (1 - t) * (1 - t);
+}
+
+/**
+ * The flat diamond a figure or a prop drops on the ground: a 4-segment circle
+ * is an axis-aligned diamond, scaled to the footprint so a building's shadow is
+ * its plan and never a bar. It is a child of the thing it belongs to and sits at
+ * a named rung of GROUND_Y — and it never takes `bob`, which is the one detail
+ * that turns "floating" into "standing" (D1.3, D1.4).
+ */
+function ContactShadow({ w, d, y, calm }: { w: number; d: number; y: number; calm: boolean }) {
+  return (
+    <mesh position={[0, y, 0]} rotation={[-Math.PI / 2, 0, 0]} scale={[w, d, 1]}>
+      <circleGeometry args={[0.5, 4]} />
+      <meshBasicMaterial
+        color="#000000"
+        transparent
+        opacity={calm ? SHADOW_OPACITY_CALM : SHADOW_OPACITY}
+        depthWrite={false}
+        polygonOffset
+        polygonOffsetFactor={-1}
+      />
+    </mesh>
+  );
 }
 
 function PropLabel({ prop, y }: { prop: Prop; y: number }) {
@@ -292,6 +321,7 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
       {standing.map((prop) => {
         const texture = spriteFor(prop);
         const { w, h } = spriteSizeFor(prop);
+        const shadow = shadowFootprint(prop.size);
         const register = (obj: THREE.Object3D | null) => {
           if (prop.kind !== "building") return;
           if (obj) {
@@ -306,6 +336,7 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
         if (texture) {
           return (
             <group key={prop.id} position={[prop.position.x, 0, prop.position.z]}>
+              <ContactShadow w={shadow.w} d={shadow.d} y={GROUND_Y.propShadow} calm={settings.calmPalette} />
               <sprite ref={register} position={[0, h / 2, 0]} scale={[w, h, 1]}>
                 <spriteMaterial map={texture} color={tint} transparent alphaTest={0.1} />
               </sprite>
@@ -317,6 +348,7 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
         // No texture for this prop (a barrier, or a figure that failed to draw): the slice 4 box.
         return (
           <group key={prop.id} position={[prop.position.x, 0, prop.position.z]}>
+            <ContactShadow w={shadow.w} d={shadow.d} y={GROUND_Y.propShadow} calm={settings.calmPalette} />
             <mesh ref={register} position={[0, prop.size.h / 2, 0]}>
               <boxGeometry args={[prop.size.w, prop.size.h, prop.size.d]} />
               <meshStandardMaterial color={colorFor(prop)} />
