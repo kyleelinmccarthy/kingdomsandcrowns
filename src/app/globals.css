@@ -1746,8 +1746,34 @@ html { scrollbar-color: var(--border) var(--background); }
    grow a second, unrotated head. */
 .realm-edge-arrow { position: absolute; left: 0; top: 0; pointer-events: none; }
 @keyframes realm-toast-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
-.realm-label { white-space: nowrap; border-radius: 9999px; padding: 0.1rem 0.5rem; background: rgba(0, 0, 0, 0.55); color: #fff; font-size: 11px; pointer-events: none; }
-.realm-label-tag { display: block; font-size: 10px; color: var(--gold-bright); }
+/* `--realm-hud-scale` is set once on `.realm-root` from settings.hudScale. It is what
+   closes the largerText hole the audit found: globals.css:244's `zoom` rule is scoped to
+   `.realm-panel`, so a hero who needs larger text got a 1.25x HUD and an unchanged 11px
+   world. The `, 1` fallback keeps a plate legible when it is rendered outside
+   `.realm-root` — a unit test, or any harness that mounts it on its own. */
+.realm-label { white-space: nowrap; border-radius: 9999px; padding: 0.1rem 0.5rem; background: rgba(0, 0, 0, 0.55); color: #fff; font-size: calc(11px * var(--realm-hud-scale, 1)); pointer-events: none; }
+.realm-label-tag { display: block; font-size: calc(10px * var(--realm-hud-scale, 1)); color: var(--gold-bright); }
+.realm-plate { display: flex; flex-direction: column; align-items: center; gap: 0.1rem; min-height: 44px; white-space: nowrap; border-radius: 0.5rem; border: 1px solid var(--gold-border); padding: 0.25rem 0.5rem; background: rgba(0, 0, 0, 0.55); color: #fff; font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif; text-align: center; pointer-events: auto; cursor: pointer; }
+.realm-plate-name { display: flex; align-items: center; gap: 0.3rem; font-weight: 700; font-size: calc(13px * var(--realm-hud-scale, 1)); text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9); }
+.realm-plate-tag { font-size: calc(11px * var(--realm-hud-scale, 1)); color: var(--gold-bright); text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9); }
+.realm-plate-badge { display: inline-flex; align-items: center; justify-content: center; width: calc(14px * var(--realm-hud-scale, 1)); height: calc(14px * var(--realm-hud-scale, 1)); border-radius: 9999px; font-size: calc(11px * var(--realm-hud-scale, 1)); font-weight: 700; line-height: 1; }
+.realm-plate-badge--quest { background: rgba(201, 168, 76, 0.35); color: var(--gold-bright); }
+.realm-plate-badge--done { background: rgba(255, 255, 255, 0.12); color: rgba(255, 255, 255, 0.55); }
+/* 2 Hz, 3px: the objective villager's `!` is the one thing on a plate that moves. */
+@keyframes realm-plate-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+.realm-plate-badge--bob { animation: realm-plate-bob 500ms ease-in-out infinite; }
+/* The non-motion substitute, set by the component from the learning profile. */
+.realm-plate--outline { outline: 1px solid var(--gold-bright); outline-offset: 1px; }
+/* And the same substitute again for an OS-level preference the profile never saw. */
+@media (prefers-reduced-motion: reduce) {
+  .realm-plate-badge--bob { animation: none; }
+  .realm-plate:has(.realm-plate-badge--bob) { outline: 1px solid var(--gold-bright); outline-offset: 1px; }
+}
+/* lowStimulus mutes, never empties: the plate loses its gold border and darkens, the
+   badge drops to muted gold, and every mark is still there. */
+.realm-plate--calm { border-color: transparent; background: rgba(0, 0, 0, 0.7); }
+.realm-plate--calm .realm-plate-tag { color: #cbbf9a; }
+.realm-plate--calm .realm-plate-badge--quest { background: rgba(138, 125, 90, 0.35); color: #8a7d5a; }
 .realm-bubble { display: flex; flex-direction: column; align-items: center; gap: 0.4rem; max-width: 16rem; border-radius: 0.75rem; padding: 0.5rem 0.75rem; background: rgba(0, 0, 0, 0.7); color: #fff; font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif; font-size: 12px; text-align: center; pointer-events: auto; }
 .realm-bubble-text { margin: 0; }
 .realm-bubble-talk { min-width: 44px; min-height: 44px; border-radius: 9999px; padding: 0 1rem; border: 1px solid var(--gold-border); background: rgba(201, 168, 76, 0.25); color: var(--gold-bright); font-weight: 700; cursor: pointer; }
