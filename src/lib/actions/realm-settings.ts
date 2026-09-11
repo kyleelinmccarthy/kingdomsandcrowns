@@ -7,6 +7,7 @@ import * as schema from "@/lib/db/schema";
 import { requireChildAccess, isChildActor } from "@/lib/auth/access";
 import { loadRealmSettings } from "@/lib/services/realm-play";
 import { validateRealmSettingsPatch, type RealmSettings } from "@/lib/utils/realm-settings";
+import { isDepthOverride, type DepthOverride } from "@/lib/realm/depth";
 
 /** A hero may read their own settings; the Realm page will need them. */
 export async function getRealmSettings(childId: string): Promise<RealmSettings> {
@@ -41,4 +42,19 @@ export async function resetRealmHelp(childId: string): Promise<void> {
   await loadRealmSettings(childId);
   await db.update(schema.realmSettings).set({ helpSeenAt: null, updatedAt: new Date() }).where(eq(schema.realmSettings.childId, childId));
   revalidatePath("/settings");
+}
+
+/**
+ * How much the Realm shows. A hero may set their own — it changes presentation, never access.
+ * Deliberately NOT part of `updateRealmSettings`: this writes one validated column and cannot
+ * touch `enabled`, `accessMode`, `dailyCapMinutes` or `toneMode`, which is the whole reason it
+ * carries no `isChildActor` refusal. No `revalidatePath`: the Realm is a client tree and re-reads
+ * its bundle on the next mount.
+ */
+export async function setRealmDepth(childId: string, override: DepthOverride): Promise<void> {
+  await requireChildAccess(childId, { write: true });
+  if (!isDepthOverride(override)) throw new Error("Choose automatic, simple, or everything.");
+  await loadRealmSettings(childId);
+  const now = new Date();
+  await db.update(schema.realmSettings).set({ depthOverride: override, updatedAt: now }).where(eq(schema.realmSettings.childId, childId));
 }
