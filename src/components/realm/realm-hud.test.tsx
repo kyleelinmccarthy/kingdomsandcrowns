@@ -20,10 +20,7 @@ const base = {
   preview: false,
   hudScale: 1,
   paused: false,
-  mana: null as number | null,
-  cleared: null as number | null,
   recess: null,
-  ride: null,
 };
 
 describe("RealmHud", () => {
@@ -75,33 +72,19 @@ describe("RealmHud", () => {
     spy.mockRestore();
   });
 
-  it("shows mana and the cleared count", () => {
-    render(<RealmHud {...base} mana={42} cleared={3} />);
-    const bar = screen.getByRole("progressbar", { name: "Mana" });
-    expect(bar).toHaveAttribute("aria-valuenow", "42");
-    expect(bar).toHaveAttribute("aria-valuemax", "100");
-    expect(screen.getByText("Cleared: 3")).toBeInTheDocument();
-  });
-
-  it("hides mana and the count in preview", () => {
-    render(<RealmHud {...base} minutesRemaining={null} preview={true} />);
-    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
-    expect(screen.queryByText(/Cleared:/)).not.toBeInTheDocument();
-  });
-
-  it("shows recess tallies and the ride button", () => {
-    const onToggle = vi.fn();
-    render(<RealmHud {...base} mana={50} cleared={0} recess={{ gleams: 3, laps: 1, bestLapMs: 40_300, lapMs: 12_000 }} ride={{ riding: false, disabled: false, onToggle }} />);
+  it("shows recess tallies", () => {
+    render(<RealmHud {...base} recess={{ gleams: 3, laps: 1, bestLapMs: 40_300, lapMs: 12_000 }} />);
     expect(screen.getByText("Gleams: 3")).toBeInTheDocument();
     expect(screen.getByText(/Laps: 1/)).toBeInTheDocument();
     expect(screen.getByText(/Best 40\.3 s/)).toBeInTheDocument();
     expect(screen.getByText(/12\.0 s/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Ride" }));
-    expect(onToggle).toHaveBeenCalled();
-    cleanup();
-    render(<RealmHud {...base} mana={50} cleared={0} ride={{ riding: true, disabled: true, onToggle }} />);
-    expect(screen.getByRole("button", { name: "Dismount" })).toBeDisabled();
-    expect(screen.queryByText(/Gleams:/)).not.toBeInTheDocument();
+  });
+
+  it("carries no mana meter, no cleared count and no mount button — the shell owns those now", () => {
+    render(<RealmHud {...base} />);
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Cleared/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Ride|Dismount/ })).not.toBeInTheDocument();
   });
 
   it("shows the worn crown and the ceremony's Skip button", () => {

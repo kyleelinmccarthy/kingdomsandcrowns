@@ -305,8 +305,7 @@ describe("RealmShell", () => {
     render(<RealmShell bundle={{ ...bundle, spellbook: { spells: pages, slots: 4 } }} childId="c1" isChildView={true} />);
     expect(await screen.findByTestId("scene")).toBeInTheDocument();
     expect(screen.getByRole("toolbar", { name: "Spellbook" })).toBeInTheDocument();
-    expect(screen.getByRole("progressbar", { name: "Mana" })).toBeInTheDocument();
-    expect(screen.getByText("Cleared: 0")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Mana 100 of 100." })).toBeInTheDocument();
     await act(async () => {
       (sceneProps.onReachChange as (id: string | null) => void)("bram");
       (sceneProps.onTalk as (id: string) => void)("bram");
@@ -332,8 +331,7 @@ describe("RealmShell", () => {
       (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "mana", current: 61 });
       (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "cleared", troubleKind: "fog", count: 1 });
     });
-    expect(screen.getByRole("progressbar", { name: "Mana" })).toHaveAttribute("aria-valuenow", "61");
-    expect(screen.getByText("Cleared: 1")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Mana 61 of 100." })).toBeInTheDocument();
     // The cast hint took the speech lane when the page was selected and holds it for its
     // four seconds; "The fog thins." is held in `notice`, not destroyed (§3.6). The cleared
     // copy is proved on its own by task 10's `says what a cleared trouble did` case, which
@@ -364,9 +362,45 @@ describe("RealmShell", () => {
       (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "mana", current: 80 });
       (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "mana", current: 70 });
     });
-    expect(screen.getByRole("progressbar", { name: "Mana" })).toHaveAttribute("aria-valuenow", "70");
+    expect(screen.getByRole("img", { name: "Mana 70 of 100." })).toBeInTheDocument();
     expect(sceneProps.settings).toBe(settings);
     expect(sceneProps.layout).toBe(layout);
+  });
+
+  it("flashes the mana strip red for 600 ms when a cast is refused, and still says why", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    render(<RealmShell bundle={{ ...bundle, spellbook: { spells: pages, slots: 4 } }} childId="c1" isChildView={true} />);
+    await screen.findByTestId("scene");
+    expect(document.querySelector(".realm-mana-pips")).not.toHaveClass("realm-mana-pips--refused");
+    await act(async () => {
+      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "refused" });
+    });
+    expect(document.querySelector(".realm-mana-pips")).toHaveClass("realm-mana-pips--refused");
+    expect(screen.getByText("Not enough mana yet.")).toBeInTheDocument();
+    // The window is 600 ms of wall clock; nothing here is on a fake timer, so wait it out.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 650));
+    });
+    expect(document.querySelector(".realm-mana-pips")).not.toHaveClass("realm-mana-pips--refused");
+  });
+
+  it("says what a cleared trouble did without keeping a score of it", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    render(<RealmShell bundle={{ ...bundle, spellbook: { spells: pages, slots: 4 } }} childId="c1" isChildView={true} />);
+    await screen.findByTestId("scene");
+    await act(async () => {
+      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "cleared", troubleKind: "fog", count: 1 });
+    });
+    expect(screen.getByText("The fog thins.")).toBeInTheDocument();
+    expect(screen.queryByText(/Cleared/)).not.toBeInTheDocument();
+  });
+
+  it("suppresses the mana strip for a parent and offers the mount button disabled", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: false, reason: "school_hours" });
+    render(<RealmShell bundle={{ ...bundle, avatarConfig: { ...DEFAULT_AVATAR, mount: "pony" } }} childId="c1" isChildView={false} />);
+    expect(await screen.findByTestId("scene")).toBeInTheDocument();
+    expect(document.querySelector(".realm-mana-pips")).toBeNull();
+    expect(screen.getByRole("button", { name: "Ride your mount" })).toBeDisabled();
   });
 
   it("skips decorations under low-stimulus, in both the layout and the requested world texture set", async () => {
@@ -454,7 +488,7 @@ describe("RealmShell", () => {
     const riderBundle = { ...bundle, avatarConfig: { ...DEFAULT_AVATAR, mount: "pony" }, spellbook: { spells: pages, slots: 4 } };
     render(<RealmShell bundle={riderBundle} childId="c1" isChildView={true} />);
     expect(await screen.findByTestId("scene")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Ride" }));
+    await user.click(screen.getByRole("button", { name: "Ride your mount" }));
     expect(screen.getByTestId("scene")).toHaveAttribute("data-riding", "true");
     expect((sceneProps.mountSpeed as number)).toBe(4.5);
     await user.click(screen.getByRole("button", { name: "Ember Bolt, 10 mana" }));
@@ -465,7 +499,7 @@ describe("RealmShell", () => {
     cleanup();
     render(<RealmShell bundle={{ ...riderBundle, mounts: { unlocked: [] } }} childId="c1" isChildView={true} />);
     expect(await screen.findByTestId("scene")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Ride" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Ride your mount" })).not.toBeInTheDocument();
   });
 
   it("dismounts with M even while focus is still on the HUD's Ride button", async () => {
@@ -474,9 +508,9 @@ describe("RealmShell", () => {
     const riderBundle = { ...bundle, avatarConfig: { ...DEFAULT_AVATAR, mount: "pony" }, spellbook: { spells: pages, slots: 4 } };
     render(<RealmShell bundle={riderBundle} childId="c1" isChildView={true} />);
     expect(await screen.findByTestId("scene")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Ride" }));
+    await user.click(screen.getByRole("button", { name: "Ride your mount" }));
     expect(screen.getByTestId("scene")).toHaveAttribute("data-riding", "true");
-    fireEvent.keyDown(screen.getByRole("button", { name: "Dismount" }), { code: "KeyM", key: "m" });
+    fireEvent.keyDown(screen.getByRole("button", { name: "Get off your mount" }), { code: "KeyM", key: "m" });
     await waitFor(() => expect(screen.getByTestId("scene")).toHaveAttribute("data-riding", "false"));
   });
 
@@ -486,7 +520,7 @@ describe("RealmShell", () => {
     const riderBundle = { ...bundle, avatarConfig: { ...DEFAULT_AVATAR, mount: "pony" }, spellbook: { spells: pages, slots: 4 } };
     render(<RealmShell bundle={riderBundle} childId="c1" isChildView={true} />);
     expect(await screen.findByTestId("scene")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Ride" }));
+    await user.click(screen.getByRole("button", { name: "Ride your mount" }));
     expect(screen.getByTestId("scene")).toHaveAttribute("data-riding", "true");
     const spellBarButton = screen.getByRole("button", { name: "Ember Bolt, 10 mana" });
     await user.click(spellBarButton);
@@ -502,7 +536,7 @@ describe("RealmShell", () => {
     const riderBundle = { ...bundle, avatarConfig: { ...DEFAULT_AVATAR, mount: "pony" }, spellbook: { spells: pages, slots: 4 } };
     render(<RealmShell bundle={riderBundle} childId="c1" isChildView={true} />);
     expect(await screen.findByTestId("scene")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Ride" }));
+    await user.click(screen.getByRole("button", { name: "Ride your mount" }));
     expect(screen.getByTestId("scene")).toHaveAttribute("data-riding", "true");
     fireEvent.keyDown(document.body, { code: "KeyM", key: "m", metaKey: true });
     expect(screen.getByTestId("scene")).toHaveAttribute("data-riding", "true");
@@ -642,12 +676,12 @@ describe("RealmShell crown ceremony", () => {
     const riderCeremonyBundle = { ...ceremonyBundle, avatarConfig: { ...DEFAULT_AVATAR, mount: "pony" } };
     render(<RealmShell bundle={riderCeremonyBundle} childId="c1" isChildView={true} />);
     await screen.findByTestId("scene");
-    expect(screen.getByRole("button", { name: "Ride" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Ride your mount" })).toBeDisabled();
     step("gather");
     step("hail");
     step("done");
     await waitFor(() => expect(markCeremonySeen).toHaveBeenCalledWith("c1", "s1"));
-    await waitFor(() => expect(screen.getByRole("button", { name: "Ride" })).toBeEnabled());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Ride your mount" })).toBeEnabled());
   });
 
   it("raises the skip flag from the Skip button and from Escape", async () => {

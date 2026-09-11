@@ -28,7 +28,8 @@ import { crownById, CROWNS } from "@/lib/utils/crown-catalog";
 import { speak } from "@/lib/utils/speech";
 import { SIDE_QUESTS_LOWER } from "@/lib/utils/side-quest-copy";
 import { SpriteSource, type SpriteTextures } from "./sprite-source";
-import { RealmHud } from "./realm-hud";
+import { RealmHud, RealmManaPips, RealmMountButton } from "./realm-hud";
+import { surfacesFor } from "@/lib/realm/depth";
 import { RealmMessages } from "./realm-messages";
 import { RealmHelp } from "./realm-help";
 import { RealmGate } from "./realm-gate";
@@ -169,11 +170,18 @@ function RealmOpen({
   const [toast, setToast] = useState<string | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
   const [mana, setMana] = useState(MANA_MAX);
-  const [cleared, setCleared] = useState(0);
   const [notice, setNotice] = useState<string | null>(null);
   const [riding, setRiding] = useState(false);
   const [recess, setRecess] = useState<{ gleams: number; laps: number; bestLapMs: number | null; lapMs: number | null }>({ gleams: 0, laps: 0, bestLapMs: null, lapMs: null });
   const [seed] = useState(() => Date.now() >>> 0);
+  // The visit's complexity depth, snapshotted once (§3.1): a surface must never flip
+  // mid-play. The server computed it from helpSeen + depthOverride; task 18 adds the
+  // setter so the help card's "Show me everything" can raise it for this visit.
+  const [depth] = useState(() => bundle.depth);
+  // A refused cast paints the mana strip red for 600 ms. The counter is what makes a
+  // second refusal restart the window rather than ride out the first one's timer.
+  const refusals = useRef(0);
+  const [refusedAt, setRefusedAt] = useState(0);
   // The ceremony waits for textures ("waiting"), plays ("running"), records itself ("finishing"), then is over ("done").
   // Snapshotted once: a bundle refresh from any source (e.g. router revalidation after
   // markCeremonySeen) must not change the ceremony mid-visit and unmount the crown sprite.
@@ -215,6 +223,7 @@ function RealmOpen({
   // client-side access check resolves).
   const [portalTarget] = useState<Element | null>(() => (typeof document === "undefined" ? null : document.body));
   const settings = useMemo(() => renderSettingsFor(bundle.profile, isTouch), [bundle.profile, isTouch]);
+  const surfaces = useMemo(() => surfacesFor(depth, bundle.profile), [depth, bundle.profile]);
   const layout = useMemo(
     () => buildWorldLayout({ castleType: bundle.castleType, buildings: kingdom.buildings, villagers: !kingdomError, banners: bundle.banners, decor: !settings.calmPalette }),
     [bundle.castleType, kingdom.buildings, kingdomError, bundle.banners, settings.calmPalette]
@@ -372,12 +381,19 @@ function RealmOpen({
     return () => clearTimeout(id);
   }, [notice]);
 
+  // The refusal flash clears itself, exactly like the toast and the notice.
+  useEffect(() => {
+    if (!refusedAt) return;
+    const id = setTimeout(() => setRefusedAt(0), 600);
+    return () => clearTimeout(id);
+  }, [refusedAt]);
+
   const onSpellEvent = useCallback((e: SpellEvent) => {
     if (!isChildView) return;
     switch (e.kind) {
       case "mana": setMana(e.current); break;
-      case "cleared": setCleared(e.count); setNotice(TROUBLE_COPY[e.troubleKind][troubleSkin]); break;
-      case "refused": setNotice(NOT_ENOUGH_MANA); break;
+      case "cleared": setNotice(TROUBLE_COPY[e.troubleKind][troubleSkin]); break;
+      case "refused": refusals.current += 1; setRefusedAt(refusals.current); setNotice(NOT_ENOUGH_MANA); break;
       case "focusLost": setNotice(LOST_FOCUS); break;
       case "castState": break;
     }
@@ -538,14 +554,16 @@ function RealmOpen({
         hudScale={settings.hudScale}
         selector={selector}
         paused={panelOpen || ceremonyRunning || helpOpen}
-        mana={isChildView ? mana : null}
-        cleared={isChildView ? cleared : null}
         recess={hudRecess}
-        ride={hudRide}
         crown={crown}
         ceremony={ceremonyStage === "running" ? { onSkip } : null}
         help={{ onOpen: openHelp, disabled: panelOpen || helpOpen }}
       />
+      {/* Mana sits above the bar and Ride beside it, where slice 3's real bar will find
+          them. `mana === null` is the single gate: a parent spends nothing, so a parent
+          sees nothing. The mount button stays visible in preview and merely disabled. */}
+      <RealmManaPips mana={isChildView ? mana : null} surfaces={surfaces} refused={refusedAt !== 0} />
+      <RealmMountButton ride={hudRide} showStick={settings.showStick} />
       <RealmMessages
         problem={problem}
         speech={speech}

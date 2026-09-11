@@ -14,10 +14,7 @@ export function RealmHud({
   hudScale,
   selector,
   paused,
-  mana,
-  cleared,
   recess,
-  ride,
   crown = null,
   ceremony = null,
   help = null,
@@ -28,10 +25,7 @@ export function RealmHud({
   hudScale: number;
   selector?: React.ReactNode;
   paused: boolean;
-  mana: number | null;
-  cleared: number | null;
   recess: { gleams: number; laps: number; bestLapMs: number | null; lapMs: number | null } | null;
-  ride: { riding: boolean; disabled: boolean; onToggle: () => void } | null;
   crown?: { label: string; color: string } | null; // the hero's crown for the session, as a badge
   ceremony?: { onSkip: () => void } | null; // non-null while the ceremony plays
   help?: { onOpen: () => void; disabled: boolean } | null;
@@ -41,13 +35,6 @@ export function RealmHud({
       <div className="realm-hud-row">
         <span className="realm-hud-name">{heroName}</span>
         {minutesRemaining !== null && <span className="realm-hud-minutes">{minutesRemaining} min left{paused ? " · paused" : ""}</span>}
-        {mana !== null && (
-          <span className="realm-hud-mana" role="progressbar" aria-label="Mana" aria-valuemin={0} aria-valuemax={MANA_MAX} aria-valuenow={Math.round(mana)}>
-            <span className="realm-hud-mana-fill" style={{ width: `${(mana / MANA_MAX) * 100}%` }} />
-            <span className="realm-hud-mana-text">Mana {Math.round(mana)}</span>
-          </span>
-        )}
-        {cleared !== null && <span className="realm-hud-cleared">Cleared: {cleared}</span>}
         {recess && <span className="realm-hud-cleared">Gleams: {recess.gleams}</span>}
         {recess && (
           <span className="realm-hud-cleared">
@@ -55,11 +42,6 @@ export function RealmHud({
             {recess.bestLapMs !== null && ` · Best ${formatLap(recess.bestLapMs)} s`}
             {recess.lapMs !== null && ` · ${formatLap(recess.lapMs)} s`}
           </span>
-        )}
-        {ride && (
-          <Button size="sm" variant="outline" className="realm-hud-ride" disabled={ride.disabled} onClick={ride.onToggle}>
-            {ride.riding ? "Dismount" : "Ride"}
-          </Button>
         )}
         {crown && (
           <span className="realm-hud-badge realm-hud-crown" style={{ color: crown.color }}>
