@@ -8,6 +8,7 @@ import { DeedPlayer } from "@/components/deed-player";
 import { SubjectChip } from "@/components/subject-chip";
 import { startDeedRun, type DeedsOverview, type RunStart } from "@/lib/actions/deeds";
 import { AREA_LABELS, type SkillArea } from "@/lib/utils/skills";
+import { rankBuildings } from "@/lib/realm/objective";
 import type { ProfileLike } from "@/lib/utils/deed-engine";
 
 export function DeedPicker({ childId, overview, profile, calm }: { childId: string; overview: DeedsOverview; profile: ProfileLike; calm: boolean }) {
@@ -17,9 +18,9 @@ export function DeedPicker({ childId, overview, profile, calm }: { childId: stri
   const [error, setError] = useState("");
   const [area, setArea] = useState<SkillArea | "all">("all");
 
-  // Work in progress leads, untouched buildings follow, finished ones rest at the end.
-  const rank = (b: DeedsOverview["buildings"][number]) => (b.complete ? 2 : b.done > 0 ? 0 : 1);
-  const buildings = [...overview.buildings].sort((a, b) => rank(a) - rank(b));
+  // Work in progress leads, untouched buildings follow, finished ones rest at the end — the rank the world
+  // sorts by too, so this page and the Realm can never disagree about what to do next.
+  const buildings = rankBuildings(overview.buildings);
   const visible = buildings
     .map((b) => ({ ...b, deeds: b.deeds.filter((d) => area === "all" || d.area === area) }))
     .filter((b) => b.deeds.length > 0);
