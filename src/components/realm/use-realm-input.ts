@@ -17,7 +17,7 @@ export type CastRequest = { target: Vec2 } | { nearest: true };
  * Keyboard and stick are folded into one world-space axis kept in a ref, so
  * the render loop reads it every frame without a React re-render per keypress.
  */
-export function useRealmInput({ enabled = true, castEnabled = false }: { enabled?: boolean; castEnabled?: boolean } = {}) {
+export function useRealmInput({ enabled = true, onInteract }: { enabled?: boolean; onInteract?: () => void } = {}) {
   const axisRef = useRef<Vec2>({ x: 0, z: 0 });
   const castRef = useRef<CastRequest | null>(null);
   const keys = useRef(new Set<string>());
@@ -40,14 +40,19 @@ export function useRealmInput({ enabled = true, castEnabled = false }: { enabled
       recompute();
       return;
     }
-    function castKey(e: KeyboardEvent) {
-      if (!castEnabled || e.code !== "Space" || e.repeat) return;
+    // `E` is bound to interacting with whatever is in reach, not to talking: later slices
+    // give doors, hitching posts and signboards the same verb. Casting has no key of its
+    // own here — the number keys reach it through the spell bar, and the pointer through
+    // `requestCast`.
+    function interactKey(e: KeyboardEvent) {
+      if (e.code !== "KeyE" || e.repeat) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
       const t = e.target;
-      if (t instanceof Element && !t.closest(".realm-spellbar") && t.closest("a, button, input, textarea, select, [role='dialog']")) return;
+      if (t instanceof Element && t.closest("input, textarea, select, [role='dialog']")) return;
       e.preventDefault();
-      castRef.current = { nearest: true };
+      onInteract?.();
     }
-    window.addEventListener("keydown", castKey);
+    window.addEventListener("keydown", interactKey);
     function down(e: KeyboardEvent) {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (!(e.code in KEYS)) return;
@@ -71,13 +76,13 @@ export function useRealmInput({ enabled = true, castEnabled = false }: { enabled
     window.addEventListener("blur", clear);
     document.addEventListener("visibilitychange", clear);
     return () => {
-      window.removeEventListener("keydown", castKey);
+      window.removeEventListener("keydown", interactKey);
       window.removeEventListener("keydown", down);
       window.removeEventListener("keyup", up);
       window.removeEventListener("blur", clear);
       document.removeEventListener("visibilitychange", clear);
     };
-  }, [recompute, enabled, castEnabled]);
+  }, [recompute, enabled, onInteract]);
 
   const setStick = useCallback((screen: { x: number; y: number }) => {
     stick.current = screen;

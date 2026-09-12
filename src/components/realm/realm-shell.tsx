@@ -52,7 +52,7 @@ const VILLAGERS_RESTING = "The villagers are resting. Try again.";
 const NOT_ENOUGH_MANA = "Not enough mana yet.";
 const LOST_FOCUS = "You lost focus for a moment.";
 const CEREMONY_FAILED = "The crown could not be recorded.";
-const CAST_HINT = "Tap or click where the spell should go, or press Space to aim at the nearest trouble.";
+const CAST_HINT = "Tap or click where the spell should go.";
 const CAST_HINT_TOUCH = "Tap where the spell should go.";
 
 const RealmScene = dynamic(() => import("./realm-scene"), { ssr: false, loading: () => <p className="p-6 text-center text-muted-foreground">Opening the Realm…</p> });
@@ -315,7 +315,7 @@ function RealmOpen({
   const openBuilding = openVillager ? kingdom.buildings.find((b) => b.id === openVillager.buildingId) ?? null : null;
   const panelOpen = openVillager !== null && openBuilding !== null;
   // The one predicate for "the world is not the hero's to drive right now". It governs
-  // input, the Enter/Space/M keys, the spoken objective, the paused chip, scene
+  // input, the E and M keys, the spoken objective, the paused chip, scene
   // interactivity, the stick and the ability bar — nine sites that were nine copies of
   // the same three flags. The one deliberate exception is the `?` button's `disabled`
   // below, which omits ceremonyRunning on purpose; it says so there.
@@ -324,7 +324,7 @@ function RealmOpen({
   const castHintShown = useRef(false);
   const selectedSpell = selectedSlot === null ? null : pages.find((p) => p.slot === selectedSlot)?.spell ?? null;
   const troubleSkin: TroubleSkin = kingdom.tone === "monsters" ? "monsters" : "gentle";
-  const { axisRef, setStick, castRef } = useRealmInput({ enabled: !worldBusy, castEnabled: isChildView && !worldBusy && !riding && selectedSpell !== null });
+  const { axisRef, setStick, castRef, requestCast } = useRealmInput({ enabled: !worldBusy });
   const config = bundle.avatarConfig ?? DEFAULT_AVATAR;
   const clock = usePlayClock({ enabled: isChildView, childId, initialMinutes: minutes, onClose, paused: worldBusy, initialSource: source });
   // Every exit path — the `Leave the Realm` link, a router navigation, the gate
@@ -382,13 +382,19 @@ function RealmOpen({
       setReachNotice(null);
       return;
     }
-    setReachNotice(settings.showStick ? `${villager.name} is here. Tap Talk.` : `${villager.name} is here. Press Enter to talk.`);
+    setReachNotice(settings.showStick ? `${villager.name} is here. Tap Talk.` : `${villager.name} is here. Press E to talk.`);
   }, [settings.showStick]);
   const onToggleRide = useCallback(() => {
     if (!canRide) return;
     setRiding((r) => !r);
     setSelectedSlot(null);
   }, [canRide]);
+  // "1" is one verb, not two: it selects the page AND casts it, and a second press casts
+  // again. The request cannot be written here, though — the scene's frame loop reads and
+  // clears `castRef` every frame and drops a request it has no selected spell for, so a
+  // write beside `setSelectedSlot` races the render that carries the new spell. Bumping a
+  // counter and writing the request from an effect puts it after that commit, every time.
+  const [castSeq, setCastSeq] = useState(0);
   // Stable across renders so the bar's window key listener isn't torn down and re-added every render.
   const onSelectSpell = useCallback(
     (slot: number | null) => {
@@ -397,6 +403,7 @@ function RealmOpen({
         return;
       }
       setSelectedSlot(slot);
+      if (slot !== null) setCastSeq((n) => n + 1);
       if (slot !== null && !castHintShown.current) {
         castHintShown.current = true; // once per visit; the toast holds four seconds
         setToast(settings.showStick ? CAST_HINT_TOUCH : CAST_HINT);
@@ -404,6 +411,10 @@ function RealmOpen({
     },
     [riding, settings.showStick]
   );
+  useEffect(() => {
+    if (castSeq === 0) return; // nothing has been picked yet; the world must not open with a cast
+    requestCast({ nearest: true });
+  }, [castSeq, requestCast]);
 
   // The latest kingdom, readable from event handlers without a stale closure and without side effects in an updater.
   const kingdomRef = useRef(kingdom);
@@ -418,7 +429,8 @@ function RealmOpen({
     setOpenVillagerId(id);
   }, []);
 
-  // Enter or Space talks to the villager in reach when no panel is open; M mounts or dismounts.
+  // `E` interacts with whatever is in reach — today that is the villager standing by, and
+  // later slices give doors, hitching posts and signboards the same key; M mounts or dismounts.
   useEffect(() => {
     if (worldBusy) return;
     function onKey(e: KeyboardEvent) {
@@ -432,8 +444,8 @@ function RealmOpen({
         onToggleRide();
         return;
       }
-      if (e.key !== "Enter" && e.key !== " ") return;
-      if (e.key === " " && selectedSlot !== null) return; // a page is selected: Space casts, it does not talk
+      if (e.code !== "KeyE" || e.repeat) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (!reachId) return;
       if (onInteractiveElement) return;
       e.preventDefault();
@@ -441,7 +453,7 @@ function RealmOpen({
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [worldBusy, reachId, selectedSlot, onToggleRide]);
+  }, [worldBusy, reachId, onToggleRide]);
 
   // Escape skips the ceremony; nothing else listens for it while the ceremony runs (the deed panel cannot open).
   // While the help card is open, its own Escape handler closes the card first (it stops propagation).

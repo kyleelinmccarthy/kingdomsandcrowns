@@ -34,7 +34,7 @@ export function helpGroups(touch: boolean, ceremony: boolean): HelpGroup[] {
       title: "Talk",
       text: touch
         ? `Walk up to a villager and tap Talk. They'll give you a ${SIDE_QUEST_LOWER}.`
-        : `Walk up to a villager and press Enter, or tap Talk. They'll give you a ${SIDE_QUEST_LOWER}.`,
+        : `Walk up to a villager and press E, or tap Talk. They'll give you a ${SIDE_QUEST_LOWER}.`,
     },
     {
       // No stakes clause. Nothing a trouble does touches a site, a building, a villager or the
@@ -45,7 +45,7 @@ export function helpGroups(touch: boolean, ceremony: boolean): HelpGroup[] {
       title: "Cast",
       text: touch
         ? "Tap a spell page, then tap where the spell should go."
-        : "Pick a spell page (1, 2, 3, 4) or tap it, then click where the spell should go. Space aims at the nearest trouble.",
+        : "Pick a spell page (1, 2, 3, 4) or tap it, then click where the spell should go.",
     },
     {
       icon: "map",

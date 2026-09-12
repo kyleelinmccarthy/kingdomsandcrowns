@@ -326,7 +326,7 @@ describe("RealmShell", () => {
     await waitFor(() => expect(document.activeElement).toBe(document.querySelector(".realm-root")));
   });
 
-  it("opens the site card with Enter when a villager is in reach", async () => {
+  it("talks on E and not on Enter or Space", async () => {
     getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
     render(<RealmShell bundle={bundle} childId="c1" isChildView={true} />);
     expect(await screen.findByTestId("scene")).toBeInTheDocument();
@@ -334,10 +334,14 @@ describe("RealmShell", () => {
       (sceneProps.onReachChange as (id: string | null) => void)("bram");
     });
     fireEvent.keyDown(document.body, { key: "Enter" });
+    expect(screen.queryByRole("dialog", { name: "Old Bram" })).not.toBeInTheDocument();
+    fireEvent.keyDown(document.body, { key: " " }); // the spacebar: bound to nothing in the Realm now
+    expect(screen.queryByRole("dialog", { name: "Old Bram" })).not.toBeInTheDocument();
+    fireEvent.keyDown(document.body, { key: "e", code: "KeyE" });
     expect(await screen.findByRole("dialog", { name: "Old Bram" })).toBeInTheDocument();
   });
 
-  it("does not open the site card when Enter is pressed on the Leave the Realm link", async () => {
+  it("does not open the site card when E is pressed on the Leave the Realm link", async () => {
     getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
     render(<RealmShell bundle={bundle} childId="c1" isChildView={true} />);
     expect(await screen.findByTestId("scene")).toBeInTheDocument();
@@ -346,7 +350,7 @@ describe("RealmShell", () => {
     });
     const link = screen.getByRole("link", { name: "Leave the Realm" });
     link.focus();
-    fireEvent.keyDown(link, { key: "Enter" });
+    fireEvent.keyDown(link, { key: "e", code: "KeyE" });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
@@ -389,7 +393,7 @@ describe("RealmShell", () => {
     // copy is proved on its own by task 10's `says what a cleared trouble did` case, which
     // never selects a page.
     expect(screen.getByTestId("realm-speech")).toHaveTextContent(
-      "Tap or click where the spell should go, or press Space to aim at the nearest trouble."
+      "Tap or click where the spell should go."
     );
     await act(async () => {
       (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "refused" });
@@ -399,8 +403,37 @@ describe("RealmShell", () => {
     // same time, one in each lane` case in edit (f) below, which raises no toast.
     expect(screen.queryByText("Not enough mana yet.")).not.toBeInTheDocument();
     expect(screen.getByTestId("realm-speech")).toHaveTextContent(
-      "Tap or click where the spell should go, or press Space to aim at the nearest trouble."
+      "Tap or click where the spell should go."
     );
+  });
+
+  it("casts at the nearest trouble on a number key, and casts again on a second press", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    render(<RealmShell bundle={{ ...bundle, spellbook: { spells: pages, slots: 4 } }} childId="c1" isChildView={true} />);
+    await screen.findByTestId("scene");
+    const castRef = sceneProps.castRef as { current: unknown };
+    expect(castRef.current).toBeNull();
+    await act(async () => {
+      fireEvent.keyDown(window, { key: "1" });
+    });
+    // The page is selected AND the cast is queued — "1" is one verb, not two.
+    expect((sceneProps.selectedSpell as { manaCost: number }).manaCost).toBe(10);
+    expect(castRef.current).toEqual({ nearest: true });
+    // The frame loop reads and clears the request; the same key pressed again queues another
+    // cast rather than putting the spell away.
+    castRef.current = null;
+    await act(async () => {
+      fireEvent.keyDown(window, { key: "1" });
+    });
+    expect(castRef.current).toEqual({ nearest: true });
+    expect(sceneProps.selectedSpell).not.toBeNull();
+    // Escape is the only way to put it away, and it queues no cast.
+    castRef.current = null;
+    await act(async () => {
+      fireEvent.keyDown(window, { key: "Escape" });
+    });
+    expect(sceneProps.selectedSpell).toBeNull();
+    expect(castRef.current).toBeNull();
   });
 
   it("keeps the scene's settings and layout referentially stable across mana regen re-renders", async () => {
@@ -970,7 +1003,7 @@ describe("RealmShell spell bar", () => {
     render(<RealmShell bundle={{ ...bundle, spellbook: { spells: [spell], slots: 4 } }} childId="c1" isChildView={true} />);
     await screen.findByTestId("scene");
     fireEvent.click(screen.getByRole("button", { name: "Ember Bolt, 10 mana" }));
-    expect(screen.getByText("Tap or click where the spell should go, or press Space to aim at the nearest trouble.")).toBeInTheDocument();
+    expect(screen.getByText("Tap or click where the spell should go.")).toBeInTheDocument();
     expect(document.querySelector(".realm-root")?.className).toContain("realm-root--aiming");
     cleanup();
     render(<RealmShell bundle={{ ...bundle, spellbook: { spells: [spell], slots: 4 }, profile: { ...DEFAULT_LEARNING_PROFILE, inputMode: "touch" as const } }} childId="c1" isChildView={true} />);
@@ -1111,14 +1144,27 @@ describe("RealmShell reach and speech", () => {
     render(<RealmShell bundle={bundle} childId="c1" isChildView={true} />);
     expect(await screen.findByTestId("scene")).toBeInTheDocument();
     await inReach("bram");
-    expect(screen.getByText("Old Bram is here. Press Enter to talk.")).toBeInTheDocument();
+    expect(screen.getByText("Old Bram is here. Press E to talk.")).toBeInTheDocument();
     await inReach(null);
-    expect(screen.queryByText("Old Bram is here. Press Enter to talk.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Old Bram is here. Press E to talk.")).not.toBeInTheDocument();
     cleanup();
     render(<RealmShell bundle={{ ...bundle, profile: { ...DEFAULT_LEARNING_PROFILE, readAloud: true } }} childId="c1" isChildView={true} />);
     expect(await screen.findByTestId("scene")).toBeInTheDocument();
     await inReach("bram");
-    expect(screen.getByText("Old Bram is here. Press Enter to talk.")).toBeInTheDocument();
+    expect(screen.getByText("Old Bram is here. Press E to talk.")).toBeInTheDocument();
+  });
+
+  it("tells a keyboard child to press E, and a touch child to tap", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 20, source: "earned" });
+    render(<RealmShell bundle={bundle} childId="c1" isChildView={true} />);
+    expect(await screen.findByTestId("scene")).toBeInTheDocument();
+    await inReach("bram");
+    await waitFor(() => expect(screen.getByTestId("realm-speech")).toHaveTextContent(/press E to talk/i));
+    cleanup();
+    render(<RealmShell bundle={{ ...bundle, profile: { ...DEFAULT_LEARNING_PROFILE, inputMode: "touch" as const } }} childId="c1" isChildView={true} />);
+    expect(await screen.findByTestId("scene")).toBeInTheDocument();
+    await inReach("bram");
+    await waitFor(() => expect(screen.getByTestId("realm-speech")).toHaveTextContent(/tap talk/i));
   });
 
   it("names the touch control when the on-screen stick is showing", async () => {
@@ -1127,7 +1173,7 @@ describe("RealmShell reach and speech", () => {
     expect(await screen.findByTestId("scene")).toBeInTheDocument();
     await inReach("bram");
     expect(screen.getByText("Old Bram is here. Tap Talk.")).toBeInTheDocument();
-    expect(screen.queryByText("Old Bram is here. Press Enter to talk.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Old Bram is here. Press E to talk.")).not.toBeInTheDocument();
   });
 
   it("lets a spell notice borrow the lane, then puts the reach line back when it expires", async () => {
@@ -1135,15 +1181,15 @@ describe("RealmShell reach and speech", () => {
     render(<RealmShell bundle={bundle} childId="c1" isChildView={true} />);
     expect(await screen.findByTestId("scene")).toBeInTheDocument();
     await inReach("bram");
-    expect(screen.getByText("Old Bram is here. Press Enter to talk.")).toBeInTheDocument();
+    expect(screen.getByText("Old Bram is here. Press E to talk.")).toBeInTheDocument();
     await act(async () => {
       (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "refused" });
     });
     expect(screen.getByText("Not enough mana yet.")).toBeInTheDocument();
-    expect(screen.queryByText("Old Bram is here. Press Enter to talk.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Old Bram is here. Press E to talk.")).not.toBeInTheDocument();
     // The spell notice clears itself after two seconds. The reach line never had a timer:
     // it is still there underneath, and comes back on its own.
-    await waitFor(() => expect(screen.getByText("Old Bram is here. Press Enter to talk.")).toBeInTheDocument(), { timeout: 3000 });
+    await waitFor(() => expect(screen.getByText("Old Bram is here. Press E to talk.")).toBeInTheDocument(), { timeout: 3000 });
     expect(screen.queryByText("Not enough mana yet.")).not.toBeInTheDocument();
   });
 
@@ -1168,7 +1214,7 @@ describe("RealmShell reach and speech", () => {
     expect(await screen.findByTestId("scene")).toBeInTheDocument();
     await waitFor(() => expect(speakMock).toHaveBeenCalledWith(OBJECTIVE_LINE));
     await inReach("bram");
-    await waitFor(() => expect(speakMock).toHaveBeenCalledWith("Old Bram is here. Press Enter to talk."));
+    await waitFor(() => expect(speakMock).toHaveBeenCalledWith("Old Bram is here. Press E to talk."));
     const spokenSoFar = speakMock.mock.calls.length;
     // Re-renders that change no message say nothing.
     await act(async () => {
@@ -1179,7 +1225,7 @@ describe("RealmShell reach and speech", () => {
       (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "refused" });
     });
     await waitFor(() => expect(speakMock).toHaveBeenCalledWith("Not enough mana yet."));
-    expect(speakMock.mock.calls.filter((c) => c[0] === "Old Bram is here. Press Enter to talk.")).toHaveLength(1);
+    expect(speakMock.mock.calls.filter((c) => c[0] === "Old Bram is here. Press E to talk.")).toHaveLength(1);
   });
 
   it("speaks the ceremony narration through the lane, and the objective only once the ceremony is over", async () => {
@@ -1206,7 +1252,7 @@ describe("RealmShell reach and speech", () => {
     render(<RealmShell bundle={bundle} childId="c1" isChildView={true} />);
     expect(await screen.findByTestId("scene")).toBeInTheDocument();
     await inReach("bram");
-    expect(screen.getByText("Old Bram is here. Press Enter to talk.")).toBeInTheDocument();
+    expect(screen.getByText("Old Bram is here. Press E to talk.")).toBeInTheDocument();
     expect(speakMock).not.toHaveBeenCalled();
     cleanup();
     getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 0, source: "earned" });
@@ -1214,7 +1260,7 @@ describe("RealmShell reach and speech", () => {
     expect(await screen.findByTestId("scene")).toBeInTheDocument();
     await inReach("bram");
     // A parent sees the line and hears nothing: readAloud is the child's setting.
-    expect(screen.getByText("Old Bram is here. Press Enter to talk.")).toBeInTheDocument();
+    expect(screen.getByText("Old Bram is here. Press E to talk.")).toBeInTheDocument();
     expect(speakMock).not.toHaveBeenCalled();
   });
 });

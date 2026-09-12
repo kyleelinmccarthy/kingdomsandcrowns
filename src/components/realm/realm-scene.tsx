@@ -206,7 +206,7 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
 
   // The frame loop is the only thing that ever reports reach, which leaves it one blind spot:
   // if the scene unmounts with a villager in reach, no final `onReachChange(null)` is sent and
-  // the shell's `reachId` stays set — Enter would still open the deed panel for a villager who
+  // the shell's `reachId` stays set — E would still open the deed panel for a villager who
   // is no longer on screen. No path reaches that today (a sprite retry re-keys SpriteSource,
   // not the scene, and `textures` never goes back to null), but `{textures && <RealmScene/>}`
   // puts it one line away, so the scene reports its own departure. Through a ref, with no deps:
@@ -547,7 +547,7 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
   // Same colour rule as `ringColor` above — reused rather than recomputed.
   const beaconHeight = settings.calmPalette ? BEACON.calmHeight : BEACON.height;
   const beaconOpacity = settings.calmPalette ? BEACON.calmOpacity : BEACON.opacity;
-  const keyHint = !settings.showStick; // `Talk · Enter` for a keyboard, a plain `Talk` for a thumb
+  const keyHint = !settings.showStick; // `Talk · E` for a keyboard, a plain `Talk` for a thumb
 
   return (
     <>
@@ -720,7 +720,7 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
               aria-label={`Talk to ${reachVillager.name}`}
               onClick={() => onTalk(reachVillager.id)}
             >
-              Talk{keyHint && <span className="realm-bubble-key"> · Enter</span>}
+              Talk{keyHint && <span className="realm-bubble-key"> · E</span>}
             </button>
           </div>
         </Html>

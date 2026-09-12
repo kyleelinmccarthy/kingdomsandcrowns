@@ -10,8 +10,8 @@ describe("helpGroups", () => {
     expect(keys.map((g) => g.title)).toEqual(["Move", "Where to go", "Talk", "Cast", "Ride and recess"]);
     expect(keys[0].text).toBe("WASD or the arrow keys, or click where you want to go.");
     expect(keys[1].text).toBe("Follow the gold light. Someone is waiting there.");
-    expect(keys[2].text).toBe("Walk up to a villager and press Enter, or tap Talk. They'll give you a side quest.");
-    expect(keys[3].text).toBe("Pick a spell page (1, 2, 3, 4) or tap it, then click where the spell should go. Space aims at the nearest trouble.");
+    expect(keys[2].text).toBe("Walk up to a villager and press E, or tap Talk. They'll give you a side quest.");
+    expect(keys[3].text).toBe("Pick a spell page (1, 2, 3, 4) or tap it, then click where the spell should go.");
     expect(keys[4].text).toBe("Press M or tap Ride to get on your mount. At recess, collect gleams and run the lap ring.");
     const touch = helpGroups(true, false);
     expect(touch.map((g) => g.title)).toEqual(["Move", "Where to go", "Talk", "Cast", "Ride and recess"]);

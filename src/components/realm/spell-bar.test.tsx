@@ -32,7 +32,7 @@ describe("SpellBar", () => {
     expect(faded).toBeDisabled();
   });
 
-  it("selects with number keys and deselects with Escape", () => {
+  it("casts and selects with number keys, and puts the spell away with Escape", () => {
     const onSelect = vi.fn();
     render(<SpellBar pages={pages} selectedSlot={null} mana={100} fewerChoices={false} onSelect={onSelect} raised={false} hudScale={1} />);
     fireEvent.keyDown(window, { key: "2" });
@@ -41,6 +41,21 @@ describe("SpellBar", () => {
     expect(onSelect).toHaveBeenCalledTimes(1);
     fireEvent.keyDown(window, { key: "Escape" });
     expect(onSelect).toHaveBeenLastCalledWith(null);
+  });
+
+  it("casts on a number key instead of only selecting", () => {
+    const onSelect = vi.fn();
+    render(<SpellBar pages={pages} selectedSlot={null} mana={100} fewerChoices={false} onSelect={onSelect} raised={false} hudScale={1} />);
+    fireEvent.keyDown(window, { key: "1" });
+    expect(onSelect).toHaveBeenCalledWith(1);
+  });
+
+  it("does not toggle a spell off when its key is pressed twice — a second press casts again", () => {
+    const onSelect = vi.fn();
+    render(<SpellBar pages={pages} selectedSlot={1} mana={100} fewerChoices={false} onSelect={onSelect} raised={false} hudScale={1} />);
+    fireEvent.keyDown(window, { key: "1" });
+    expect(onSelect).toHaveBeenCalledWith(1);
+    expect(onSelect).not.toHaveBeenCalledWith(null);
   });
 
   it("ignores a repeated key and a digit held with a modifier", () => {
@@ -136,7 +151,8 @@ describe("SpellBar", () => {
     render(<SpellBar pages={pages} selectedSlot={2} mana={4} fewerChoices={false} onSelect={() => {}} raised={false} hudScale={1} refused={false} />);
     expect(screen.getByRole("button", { name: "Ember Bolt, 15 mana" }).className).not.toContain("realm-spell--refused");
     cleanup();
-    // A refusal with nothing selected — Space aimed at a trouble with no page picked —
+    // A refusal with nothing selected — a cast the hero could not pay for, put away before the
+    // refusal landed —
     // marks no slot at all; the pip strip still carries the red on its own.
     render(<SpellBar pages={pages} selectedSlot={null} mana={4} fewerChoices={false} onSelect={() => {}} raised={false} hudScale={1} refused={true} />);
     expect(document.querySelectorAll(".realm-spell--refused")).toHaveLength(0);

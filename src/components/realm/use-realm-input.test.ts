@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useRealmInput } from "./use-realm-input";
 
@@ -53,54 +53,55 @@ describe("useRealmInput", () => {
     expect(result.current.axisRef.current.x).not.toBe(0);
   });
 
-  it("turns Space into a nearest-target cast request only while casting is enabled", () => {
-    const { result, rerender } = renderHook(({ castEnabled }) => useRealmInput({ castEnabled }), { initialProps: { castEnabled: false } });
-    window.dispatchEvent(new KeyboardEvent("keydown", { code: "Space", key: " " }));
+  it("hands a cast request to the caller, which is the scene's channel for the pointer and the number keys", () => {
+    const { result } = renderHook(() => useRealmInput());
     expect(result.current.castRef.current).toBeNull();
-    rerender({ castEnabled: true });
-    window.dispatchEvent(new KeyboardEvent("keydown", { code: "Space", key: " " }));
+    result.current.requestCast({ nearest: true });
     expect(result.current.castRef.current).toEqual({ nearest: true });
     result.current.castRef.current = null;
     result.current.requestCast({ target: { x: 1, z: 2 } });
     expect(result.current.castRef.current).toEqual({ target: { x: 1, z: 2 } });
   });
 
-  it("casts on Space from a focused spell-bar button, but not from a button elsewhere", () => {
-    const { result } = renderHook(() => useRealmInput({ castEnabled: true }));
+  it("calls onInteract on E, and not from inside a text control or a dialog", () => {
+    const onInteract = vi.fn();
+    renderHook(() => useRealmInput({ onInteract }));
 
-    const bar = document.createElement("div");
-    bar.className = "realm-spellbar";
-    const barButton = document.createElement("button");
-    bar.appendChild(barButton);
-    document.body.appendChild(bar);
+    const field = document.createElement("input");
+    document.body.appendChild(field);
+    const dialog = document.createElement("div");
+    dialog.setAttribute("role", "dialog");
+    const inDialog = document.createElement("button");
+    dialog.appendChild(inDialog);
+    document.body.appendChild(dialog);
 
-    const outsideButton = document.createElement("button");
-    document.body.appendChild(outsideButton);
+    for (const target of [field, inDialog]) {
+      const blocked = new KeyboardEvent("keydown", { code: "KeyE", key: "e", cancelable: true });
+      act(() => {
+        Object.defineProperty(blocked, "target", { value: target });
+        window.dispatchEvent(blocked);
+      });
+      expect(onInteract).not.toHaveBeenCalled();
+    }
 
-    let event = new KeyboardEvent("keydown", { code: "Space", key: " ", cancelable: true });
+    const event = new KeyboardEvent("keydown", { code: "KeyE", key: "e", cancelable: true });
     act(() => {
-      Object.defineProperty(event, "target", { value: outsideButton });
       window.dispatchEvent(event);
     });
-    expect(result.current.castRef.current).toBeNull();
-
-    event = new KeyboardEvent("keydown", { code: "Space", key: " ", cancelable: true });
-    act(() => {
-      Object.defineProperty(event, "target", { value: barButton });
-      window.dispatchEvent(event);
-    });
-    expect(result.current.castRef.current).toEqual({ nearest: true });
+    expect(onInteract).toHaveBeenCalledTimes(1);
     expect(event.defaultPrevented).toBe(true);
 
-    bar.remove();
-    outsideButton.remove();
+    field.remove();
+    dialog.remove();
   });
 
-  it("ignores a repeated Space from key-repeat", () => {
-    const { result } = renderHook(() => useRealmInput({ castEnabled: true }));
-    act(() => {
-      window.dispatchEvent(new KeyboardEvent("keydown", { code: "Space", key: " ", repeat: true }));
-    });
-    expect(result.current.castRef.current).toBeNull();
+  it("ignores a repeated E from key-repeat and an E held with a modifier", () => {
+    const onInteract = vi.fn();
+    renderHook(() => useRealmInput({ onInteract }));
+    keydown({ code: "KeyE", key: "e", repeat: true });
+    keydown({ code: "KeyE", key: "e", ctrlKey: true });
+    expect(onInteract).not.toHaveBeenCalled();
+    keydown({ code: "KeyE", key: "e" });
+    expect(onInteract).toHaveBeenCalledTimes(1);
   });
 });

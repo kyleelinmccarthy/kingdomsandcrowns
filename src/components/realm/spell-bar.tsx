@@ -9,7 +9,7 @@ const FEWER = 4;
 export const EMPTY_TITLE = "Make a spell in your Spellbook";
 export const EMPTY_HINT = "Your spellbook has room. Make a spell to fill this page.";
 
-/** The hero's pages along the bottom of the world. Keys 1–9 select, a second tap or Escape deselects; an empty page explains where spells come from. */
+/** The hero's pages along the bottom of the world. Keys 1–9 cast that page and select it, Escape puts it away, a second tap of a chip deselects; an empty page explains where spells come from. */
 export function SpellBar({
   pages,
   selectedSlot,
@@ -72,11 +72,13 @@ export function SpellBar({
       const page = shown[index - 1];
       if (!page || !page.spell) return; // faded and empty pages are not spells
       e.preventDefault();
-      onSelect(page.slot === selectedSlot ? null : page.slot);
+      // A number key casts. It never toggles off: pressing 1 twice casts twice, which is
+      // what "1 or left click" means. Escape is the way to put a spell away.
+      onSelect(page.slot);
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [shown, selectedSlot, onSelect]);
+  }, [shown, onSelect]);
 
   return (
     <>
