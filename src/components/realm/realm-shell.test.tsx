@@ -399,6 +399,29 @@ describe("RealmShell", () => {
     expect(sceneProps.layout).toBe(layout);
   });
 
+  it("hands the scene the visit's surfaces, and keeps them referentially stable across mana re-renders", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    render(<RealmShell bundle={{ ...bundle, depth: "full" as const }} childId="c1" isChildView={true} />);
+    await screen.findByTestId("scene");
+    expect(sceneProps.surfaces).toBeDefined();
+    const surfaces = sceneProps.surfaces as { numerals: boolean; trackedObjectives: number };
+    expect(surfaces.numerals).toBe(true);
+    expect(surfaces.trackedObjectives).toBe(3);
+    await act(async () => {
+      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "mana", current: 90 });
+      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "mana", current: 80 });
+    });
+    expect(sceneProps.surfaces).toBe(surfaces);
+  });
+
+  it("hands the scene pip surfaces for a hero at simple depth", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    render(<RealmShell bundle={{ ...bundle, depth: "simple" as const }} childId="c1" isChildView={true} />);
+    await screen.findByTestId("scene");
+    expect((sceneProps.surfaces as { numerals: boolean; trackedObjectives: number }).numerals).toBe(false);
+    expect((sceneProps.surfaces as { numerals: boolean; trackedObjectives: number }).trackedObjectives).toBe(1);
+  });
+
   it("flashes the mana strip red for 600 ms when a cast is refused, and still says why", async () => {
     getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
     render(<RealmShell bundle={{ ...bundle, spellbook: { spells: pages, slots: 4 } }} childId="c1" isChildView={true} />);

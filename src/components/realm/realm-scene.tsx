@@ -11,6 +11,7 @@ import { CAMERA_OFFSET, CAMERA_ZOOM, followCamera } from "@/lib/realm/camera";
 import { facingAngle, GROUND_Y, shadowFootprint, RING_INNER, RING_OUTER, RING_NOTCH_ARC, RING_GOLD, RING_CALM, SHADOW_OPACITY, SHADOW_OPACITY_CALM } from "@/lib/realm/markers";
 import { nearestVillager, villagerById, villagerForBuilding } from "@/lib/realm/villagers";
 import type { RenderSettings } from "@/lib/realm/render-settings";
+import type { Surfaces } from "@/lib/realm/depth";
 import type { SpellDefinition } from "@/lib/utils/spell-catalog";
 import type { CastRequest } from "./use-realm-input";
 import type { TroubleSkin } from "@/lib/realm/spells/troubles";
@@ -26,6 +27,7 @@ export type RealmSceneProps = {
   layout: WorldLayout;
   textures: SpriteTextures;
   settings: RenderSettings;
+  surfaces: Surfaces; // the visit's complexity axis; the villager plates read `numerals` from it
   axisRef: RefObject<Vec2>;
   interactive: boolean; // false while a panel is open: ground taps are ignored
   reachId: string | null; // the villager the hero can talk to, as the shell last heard it
