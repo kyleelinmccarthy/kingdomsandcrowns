@@ -317,16 +317,23 @@ export async function getAssignmentQuestInfo(assignmentId: string) {
       title: schema.quest.title,
       requireNotes: schema.quest.requireNotes,
       // §3.20: the Realm's problem lane says "Your {subject} timer finished.", and the
-      // stored timer carries only an assignment id. `quest.subject_id` is NOT NULL, so
-      // this inner join can never drop a row the previous query would have returned.
+      // stored timer carries only an assignment id. LEFT, not INNER: `requireNotes` is a
+      // permissions-shaped answer and `quest-timer-popup.tsx` reads it as
+      // `info?.requireNotes ?? false`, so a subject row lost to any future data-integrity
+      // accident (a hard delete, a bad backfill) would silently stop requiring Scribe's
+      // Notes instead of just leaving the sentence without a subject word.
       subjectName: schema.subject.name,
     })
     .from(schema.questAssignment)
     .innerJoin(schema.quest, eq(schema.questAssignment.questId, schema.quest.id))
-    .innerJoin(schema.subject, eq(schema.quest.subjectId, schema.subject.id))
+    .leftJoin(schema.subject, eq(schema.quest.subjectId, schema.subject.id))
     .where(eq(schema.questAssignment.id, assignmentId))
     .limit(1);
-  return rows[0] ?? null;
+  const row = rows[0];
+  if (!row) return null;
+  // "" rather than null: the caller interpolates it into one sentence, and HTML collapses
+  // the space it leaves behind.
+  return { ...row, subjectName: row.subjectName ?? "" };
 }
 
 export async function completeAssignment(
