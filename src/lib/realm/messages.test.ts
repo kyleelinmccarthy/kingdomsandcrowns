@@ -155,3 +155,60 @@ describe("pickSpeech", () => {
     expect(pickSpeech(input({ toast: "" }))).toBeNull();
   });
 });
+
+/**
+ * The two orders are closed against their unions here, not in the source.
+ *
+ * `Record<ProblemKind, 1>` makes TypeScript fail the moment a seventh kind joins the union
+ * without joining this map, and the test below fails if it joins the map without joining
+ * PROBLEM_ORDER — which is the silent failure: `pickProblem` walks the ORDER, so a kind the
+ * union and both tables know about but the order does not is unreachable, and the band would
+ * simply say nothing at all.
+ */
+const PROBLEM_KINDS = {
+  spriteError: 1,
+  kingdomError: 1,
+  ceremonyError: 1,
+  questTimer: 1,
+  lastMinute: 1,
+  preview: 1,
+} satisfies Record<ProblemKind, 1>;
+
+const SPEECH_KINDS = { ceremony: 1, toast: 1, notice: 1 } satisfies Record<SpeechKind, 1>;
+
+describe("the closed orders", () => {
+  it("orders every problem kind the union declares, once each", () => {
+    const declared = Object.keys(PROBLEM_KINDS) as ProblemKind[];
+    expect([...PROBLEM_ORDER].sort()).toEqual([...declared].sort());
+    expect(new Set(PROBLEM_ORDER).size).toBe(PROBLEM_ORDER.length);
+  });
+  it("orders every speech kind the union declares, once each", () => {
+    const declared = Object.keys(SPEECH_KINDS) as SpeechKind[];
+    expect([...SPEECH_ORDER].sort()).toEqual([...declared].sort());
+    expect(new Set(SPEECH_ORDER).size).toBe(SPEECH_ORDER.length);
+  });
+  it("can reach every problem kind it orders", () => {
+    // Every kind in the order is produced by some input, so an ordered kind is never dead.
+    const live: Record<ProblemKind, Partial<MessageInput>> = {
+      spriteError: { spriteError: "sprites failed" },
+      kingdomError: { kingdomError: "the kingdom failed" },
+      ceremonyError: { ceremonyError: "the ceremony failed" },
+      questTimer: { questTimerDone: "Your Math timer finished." },
+      lastMinute: { lastMinute: true },
+      preview: { preview: "a parent is looking" },
+    };
+    for (const kind of PROBLEM_ORDER) {
+      expect(pickProblem({ ...QUIET, ...live[kind] })?.kind).toBe(kind);
+    }
+  });
+  it("can reach every speech kind it orders", () => {
+    const live: Record<SpeechKind, Partial<MessageInput>> = {
+      ceremony: { ceremonyNotice: "Hail!" },
+      toast: { toast: "The Village Well stands." },
+      notice: { notice: "Not enough mana." },
+    };
+    for (const kind of SPEECH_ORDER) {
+      expect(pickSpeech({ ...QUIET, ...live[kind] })?.kind).toBe(kind);
+    }
+  });
+});

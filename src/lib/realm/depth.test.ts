@@ -6,7 +6,7 @@ import {
   realmDepth,
   surfacesFor,
 } from "./depth";
-import type { Surfaces } from "./depth";
+import type { DepthOverride, Surfaces } from "./depth";
 import { DEFAULT_LEARNING_PROFILE } from "@/lib/utils/learning-profile";
 
 const FEWER = { ...DEFAULT_LEARNING_PROFILE, fewerChoices: true };
@@ -113,5 +113,26 @@ describe("surfacesFor", () => {
     const b = surfacesFor("full", DEFAULT_LEARNING_PROFILE);
     expect(a).not.toBe(b);
     expect(a).toEqual(b);
+  });
+});
+
+/**
+ * DEPTH_OVERRIDES closed against its union: `Record<DepthOverride, 1>` fails to compile if a
+ * fourth override joins the union without joining this map, and the test fails if it joins
+ * the map without joining the array. That is the silent one — `isDepthOverride` reads the
+ * array, so an unlisted override is rejected on load and the parent's saved choice coerces
+ * back to `auto` with nothing said.
+ */
+const OVERRIDE_KINDS = { auto: 1, simple: 1, full: 1 } satisfies Record<DepthOverride, 1>;
+
+describe("the closed override list", () => {
+  it("lists every override the union declares, once each", () => {
+    const declared = Object.keys(OVERRIDE_KINDS) as DepthOverride[];
+    expect([...DEPTH_OVERRIDES].sort()).toEqual([...declared].sort());
+    expect(new Set(DEPTH_OVERRIDES).size).toBe(DEPTH_OVERRIDES.length);
+  });
+  it("accepts every override it lists, and nothing else", () => {
+    for (const override of Object.keys(OVERRIDE_KINDS)) expect(isDepthOverride(override)).toBe(true);
+    expect(isDepthOverride("everything")).toBe(false);
   });
 });
