@@ -7,6 +7,7 @@ import { ChildSelector } from "@/components/child-selector";
 import { GameFrame } from "@/components/game-frame";
 import { GameIcon } from "@/components/game-icon";
 import { RealmShell } from "@/components/realm/realm-shell";
+import { SwitchHero } from "@/components/switch-hero";
 
 export default async function RealmPage({ searchParams }: { searchParams: Promise<{ child?: string }> }) {
   await requireActor();
@@ -60,7 +61,17 @@ export default async function RealmPage({ searchParams }: { searchParams: Promis
         bundle={bundle}
         childId={activeChild.id}
         isChildView={isChildView}
-        selector={!isChildView && allChildren.length > 1 ? <ChildSelector kids={allChildren} selectedId={activeChild.id} /> : undefined}
+        selector={
+          // The hero switcher is a floating dock everywhere else; over a game board it
+          // would sit on the world, so in preview it rides the HUD's header row beside
+          // the child selector — the control a parent comparing two children actually uses.
+          isChildView ? undefined : (
+            <>
+              {allChildren.length > 1 && <ChildSelector kids={allChildren} selectedId={activeChild.id} />}
+              {process.env.DEMO_MODE !== "true" && <SwitchHero isChildView={false} inline />}
+            </>
+          )
+        }
       />
     </div>
   );

@@ -195,3 +195,40 @@ describe("a quest timer that ran out", () => {
     expect(getAssignmentQuestInfo).not.toHaveBeenCalled();
   });
 });
+
+describe("the hero switcher", () => {
+  it("leaves a child's world outright, and stays put everywhere else", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    render(
+      <>
+        <SwitchHero isChildView={true} />
+        <RealmShell bundle={bundle} childId="c1" isChildView={true} />
+      </>
+    );
+    expect(await screen.findByTestId("scene")).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole("button", { name: /Leave \(switch hero\)/ })).not.toBeInTheDocument());
+    cleanup();
+    // Off the Realm the pill is exactly as it was: the only way to hand the device back.
+    render(<SwitchHero isChildView={true} />);
+    expect(screen.getByRole("button", { name: /Leave \(switch hero\)/ })).toBeInTheDocument();
+  });
+
+  it("sits in the preview header row for a parent, not in a floating dock", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: false, reason: "school_hours" });
+    render(
+      <RealmShell
+        bundle={bundle}
+        childId="c1"
+        isChildView={false}
+        selector={<SwitchHero isChildView={false} inline />}
+      />
+    );
+    expect(await screen.findByTestId("scene")).toBeInTheDocument();
+    const control = screen.getByRole("button", { name: "Play as a hero" });
+    expect(control).not.toHaveClass("floating-dock");
+    expect(document.querySelector(".floating-dock")).toBeNull();
+    const meta = document.querySelector(".realm-hud-meta");
+    expect(meta).not.toBeNull();
+    expect(meta!.contains(control)).toBe(true);
+  });
+});
