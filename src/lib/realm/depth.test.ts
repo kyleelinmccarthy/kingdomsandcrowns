@@ -47,6 +47,7 @@ const SIMPLE_TABLE: Surfaces = {
   numerals: false,
   trackedObjectives: 1,
   abilitySlots: "earned",
+  minimap: "full",
   keycapHints: false,
   listRows: 3,
   districtDetail: false,
@@ -63,6 +64,7 @@ const FULL_TABLE: Surfaces = {
   numerals: true,
   trackedObjectives: 3,
   abilitySlots: "all",
+  minimap: "full",
   keycapHints: true,
   listRows: 8,
   districtDetail: true,
@@ -82,23 +84,38 @@ describe("surfacesFor", () => {
   it("draws every full surface exactly as the table says", () => {
     expect(surfacesFor("full", DEFAULT_LEARNING_PROFILE)).toEqual(FULL_TABLE);
   });
-  it("declares exactly thirteen surfaces, and the same thirteen at both depths", () => {
+  it("declares exactly fourteen surfaces, and the same fourteen at both depths", () => {
     const simpleKeys = Object.keys(surfacesFor("simple", DEFAULT_LEARNING_PROFILE)).sort();
     const fullKeys = Object.keys(surfacesFor("full", DEFAULT_LEARNING_PROFILE)).sort();
-    expect(simpleKeys).toHaveLength(13);
+    expect(simpleKeys).toHaveLength(14);
     expect(fullKeys).toEqual(simpleKeys);
     expect(Object.keys(SIMPLE_TABLE).sort()).toEqual(simpleKeys);
   });
-  it("caps tracked objectives, ability slots and list rows under fewerChoices at both depths", () => {
+  it("caps tracked objectives, ability slots, list rows and the minimap under fewerChoices at both depths", () => {
     for (const depth of ["simple", "full"] as const) {
       const s = surfacesFor(depth, FEWER);
       expect(s.trackedObjectives).toBe(1);
       expect(s.abilitySlots).toBe("earned");
       expect(s.listRows).toBe(3);
+      expect(s.minimap).toBe("objectiveOnly");
     }
   });
+  it("carries fourteen surfaces, the minimap included", () => {
+    const s = surfacesFor("full", DEFAULT_LEARNING_PROFILE);
+    expect(Object.keys(s)).toHaveLength(14);
+    expect(s.minimap).toBe("full");
+  });
+  it("shows a simpler minimap under fewerChoices, at both depths, and never removes it", () => {
+    for (const depth of ["simple", "full"] as const) {
+      const s = surfacesFor(depth, FEWER);
+      expect(s.minimap).toBe("objectiveOnly");
+    }
+    // A substitution, not a removal: the child still has a map.
+    const plain = surfacesFor("simple", DEFAULT_LEARNING_PROFILE);
+    expect(plain.minimap).toBe("full");
+  });
   it("leaves every other surface alone under fewerChoices", () => {
-    const capped = new Set<string>(["trackedObjectives", "abilitySlots", "listRows"]);
+    const capped = new Set<string>(["trackedObjectives", "abilitySlots", "listRows", "minimap"]);
     for (const depth of ["simple", "full"] as const) {
       const plain = surfacesFor(depth, DEFAULT_LEARNING_PROFILE);
       const fewer = surfacesFor(depth, FEWER);

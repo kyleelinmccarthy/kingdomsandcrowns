@@ -22,6 +22,12 @@ export type Surfaces = {
    * `surfacesFor` below). No consumer reads this field yet.
    */
   abilitySlots: "earned" | "all";
+  /**
+   * How much the minimap draws. "full" is bounds, hero, every site and every trouble;
+   * "objectiveOnly" is bounds, hero and the objective. Capped at "objectiveOnly" by
+   * `fewerChoices` at both depths — a substitution, never a removal: the child keeps a map.
+   */
+  minimap: "full" | "objectiveOnly";
   /** Whether number keycaps are drawn on the ability bar's slots. */
   keycapHints: boolean;
   /** Rows a list shows before it collapses the rest behind "and N more". Capped at 3 by `fewerChoices`. */
@@ -48,6 +54,7 @@ const SIMPLE: Surfaces = {
   numerals: false,
   trackedObjectives: 1,
   abilitySlots: "earned",
+  minimap: "full",
   keycapHints: false,
   listRows: 3,
   districtDetail: false,
@@ -64,6 +71,7 @@ const FULL: Surfaces = {
   numerals: true,
   trackedObjectives: 3,
   abilitySlots: "all",
+  minimap: "full",
   keycapHints: true,
   listRows: 8,
   districtDetail: true,
@@ -88,9 +96,10 @@ export function realmDepth(input: { tutorialComplete: boolean; override: DepthOv
 
 /**
  * The surfaces for a depth, with the profile's caps applied. `fewerChoices` caps
- * `trackedObjectives` at 1, `abilitySlots` at "earned" and `listRows` at 3 at **both** depths.
+ * `trackedObjectives` at 1, `abilitySlots` at "earned", `listRows` at 3 and `minimap` at
+ * "objectiveOnly" at **both** depths.
  *
- * This is the only place those three caps are written — with one named exception, so the claim
+ * This is the only place those four caps are written — with one named exception, so the claim
  * stays true: `spell-bar.tsx` is handed the raw `fewerChoices` and applies its own `FEWER = 4`
  * page cap. That is a COUNT of pages shown; `abilitySlots` is a MEMBERSHIP (earned pages, or
  * all of them), and the bar pads with empty pages, which "earned" would forbid. The two are
@@ -108,6 +117,7 @@ export function surfacesFor(depth: RealmDepth, profile: LearningProfile): Surfac
     out.trackedObjectives = Math.min(out.trackedObjectives, 1);
     out.abilitySlots = "earned";
     out.listRows = Math.min(out.listRows, 3);
+    out.minimap = "objectiveOnly";
   }
   return out;
 }
