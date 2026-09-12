@@ -18,7 +18,7 @@ import { TROUBLE_COPY, type TroubleSkin } from "@/lib/realm/spells/troubles";
 import { MANA_MAX } from "@/lib/realm/spells/mana";
 import { formatLap } from "@/lib/realm/recess/recess";
 import { hudRecessFor, recessPillText } from "@/lib/realm/recess/hud";
-import { objectiveState, riseToast } from "@/lib/realm/objective";
+import { objectiveSpeech, objectiveState, riseToast } from "@/lib/realm/objective";
 import { pickProblem, pickSpeech, type MessageInput } from "@/lib/realm/messages";
 import { HERO_SPEED } from "@/lib/realm/movement";
 import { ceremonyNotice, type CeremonyEvent } from "@/lib/realm/ceremony/ceremony";
@@ -519,13 +519,12 @@ function RealmOpen({
   const onCeremonyEvent = useCallback((e: CeremonyEvent) => {
     if (!ceremonyPending || !ceremonyCrown) return;
     const text = ceremonyNotice(e.step, bundle.heroName, ceremonyCrown.label);
-    if (text) {
-      setCeremonyNoticeText(text);
-      if (bundle.profile.readAloud) speak(text);
-    }
+    // The narration is spoken by the one read-aloud wiring point below, off the speech
+    // lane it already owns — never from here, or a re-render would stutter it.
+    if (text) setCeremonyNoticeText(text);
     if (e.step === "hail") setToast(`Season ${ceremonyPending.ordinal} complete`);
     if (e.step === "done") recordCeremony();
-  }, [ceremonyPending, ceremonyCrown, bundle.heroName, bundle.profile.readAloud, recordCeremony]);
+  }, [ceremonyPending, ceremonyCrown, bundle.heroName, recordCeremony]);
 
   const onSkip = useCallback(() => {
     ceremonySkipRef.current = true;
@@ -559,8 +558,37 @@ function RealmOpen({
     notice: notice ?? reachNotice,
     calm,
   };
+  // The one line spoken outside the lane: the objective, once per visit, when the world
+  // first becomes interactive — textures loaded, help card closed, no panel, no ceremony.
+  // Declared before the lane effect so that if both fire in one commit the lane's
+  // higher-priority message takes the voice last (speak() cancels what is still playing).
+  const spokenObjective = useRef(false);
+  useEffect(() => {
+    if (spokenObjective.current) return;
+    if (!isChildView || !bundle.profile.readAloud) return; // a parent's preview never speaks
+    if (!textures || panelOpen || ceremonyRunning || helpOpen) return;
+    const line = objectiveSpeech(objective);
+    if (!line) return; // an unknown kingdom says nothing; a successful retry can still speak it
+    spokenObjective.current = true;
+    speak(line);
+  }, [textures, panelOpen, ceremonyRunning, helpOpen, isChildView, bundle.profile.readAloud, objective]);
+
   const problem = pickProblem(messageInput);
   const speech = pickSpeech(messageInput);
+
+  // Read-aloud has exactly one wiring point: whatever the speech lane is showing is what
+  // is read. Ceremony narration, the rise toast, the reach line, gleams, laps and every
+  // notice are spoken once each, in the lane's own priority order, because speak()'s
+  // cancel() hands the voice to the message that won. `lastSpoken` stops a re-render
+  // stuttering the same sentence.
+  const spokenText = speech?.text ?? null;
+  const lastSpoken = useRef<string | null>(null);
+  useEffect(() => {
+    if (!isChildView || !bundle.profile.readAloud) return;
+    if (!spokenText || spokenText === lastSpoken.current) return;
+    lastSpoken.current = spokenText;
+    speak(spokenText);
+  }, [spokenText, isChildView, bundle.profile.readAloud]);
 
   if (!portalTarget) return null;
 

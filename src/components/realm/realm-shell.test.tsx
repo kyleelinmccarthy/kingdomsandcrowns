@@ -28,6 +28,11 @@ const markCeremonySeen = vi.fn();
 vi.mock("@/lib/actions/seasons", () => ({ markCeremonySeen: (...a: unknown[]) => markCeremonySeen(...a) }));
 const markRealmHelpSeen = vi.fn();
 vi.mock("@/lib/actions/realm-settings", () => ({ markRealmHelpSeen: (...a: unknown[]) => markRealmHelpSeen(...a) }));
+const speakMock = vi.fn();
+vi.mock("@/lib/utils/speech", () => ({
+  speak: (text: string) => speakMock(text),
+  canSpeak: () => true,
+}));
 vi.mock("@/components/deed-player", () => ({
   DeedPlayer: ({ run, onFinished }: { run: { deed: { title: string } }; onFinished: (s: unknown) => void }) => (
     <div>
@@ -1031,5 +1036,76 @@ describe("RealmShell reach and speech", () => {
     // it is still there underneath, and comes back on its own.
     await waitFor(() => expect(screen.getByText("Old Bram is here. Press Enter to talk.")).toBeInTheDocument(), { timeout: 3000 });
     expect(screen.queryByText("Not enough mana yet.")).not.toBeInTheDocument();
+  });
+
+  const readAloudBundle = { ...bundle, profile: { ...DEFAULT_LEARNING_PROFILE, readAloud: true } };
+  const OBJECTIVE_LINE = "Your next side quest is at the Village Well. Old Bram is waiting.";
+
+  it("speaks the next objective once when the world first becomes interactive", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    render(<RealmShell bundle={readAloudBundle} childId="c1" isChildView={true} />);
+    expect(await screen.findByTestId("scene")).toBeInTheDocument();
+    await waitFor(() => expect(speakMock).toHaveBeenCalledWith(OBJECTIVE_LINE));
+    await act(async () => {
+      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "mana", current: 90 });
+      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "mana", current: 80 });
+    });
+    expect(speakMock.mock.calls.filter((c) => c[0] === OBJECTIVE_LINE)).toHaveLength(1);
+  });
+
+  it("speaks each speech-lane message once, and never twice for the same words", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    render(<RealmShell bundle={readAloudBundle} childId="c1" isChildView={true} />);
+    expect(await screen.findByTestId("scene")).toBeInTheDocument();
+    await waitFor(() => expect(speakMock).toHaveBeenCalledWith(OBJECTIVE_LINE));
+    await inReach("bram");
+    await waitFor(() => expect(speakMock).toHaveBeenCalledWith("Old Bram is here. Press Enter to talk."));
+    const spokenSoFar = speakMock.mock.calls.length;
+    // Re-renders that change no message say nothing.
+    await act(async () => {
+      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "mana", current: 90 });
+    });
+    expect(speakMock).toHaveBeenCalledTimes(spokenSoFar);
+    await act(async () => {
+      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "refused" });
+    });
+    await waitFor(() => expect(speakMock).toHaveBeenCalledWith("Not enough mana yet."));
+    expect(speakMock.mock.calls.filter((c) => c[0] === "Old Bram is here. Press Enter to talk.")).toHaveLength(1);
+  });
+
+  it("speaks the ceremony narration through the lane, and the objective only once the ceremony is over", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    markCeremonySeen.mockResolvedValue(undefined);
+    render(<RealmShell bundle={{ ...readAloudBundle, ceremony: { seasonId: "s1", crownId: "crown-copper", ordinal: 1, grade: "3", seasonLabel: "2025–26" }, banners: 1 }} childId="c1" isChildView={true} />);
+    await screen.findByTestId("scene");
+    // The world is not interactive while the ceremony plays, so the objective waits.
+    expect(speakMock).not.toHaveBeenCalledWith(OBJECTIVE_LINE);
+    await act(async () => {
+      (sceneProps.onCeremonyEvent as (e: unknown) => void)({ kind: "step", step: "gather" });
+    });
+    await waitFor(() => expect(speakMock).toHaveBeenCalledWith("The people of the Realm gather."));
+    expect(speakMock.mock.calls.filter((c) => c[0] === "The people of the Realm gather.")).toHaveLength(1);
+    await act(async () => {
+      (sceneProps.onCeremonyEvent as (e: unknown) => void)({ kind: "step", step: "done" });
+    });
+    await waitFor(() => expect(markCeremonySeen).toHaveBeenCalledWith("c1", "s1"));
+    await waitFor(() => expect(speakMock).toHaveBeenCalledWith(OBJECTIVE_LINE));
+  });
+
+  it("speaks nothing when read-aloud is off, and nothing at all in preview", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    render(<RealmShell bundle={bundle} childId="c1" isChildView={true} />);
+    expect(await screen.findByTestId("scene")).toBeInTheDocument();
+    await inReach("bram");
+    expect(screen.getByText("Old Bram is here. Press Enter to talk.")).toBeInTheDocument();
+    expect(speakMock).not.toHaveBeenCalled();
+    cleanup();
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 0, source: "earned" });
+    render(<RealmShell bundle={readAloudBundle} childId="c1" isChildView={false} />);
+    expect(await screen.findByTestId("scene")).toBeInTheDocument();
+    await inReach("bram");
+    // A parent sees the line and hears nothing: readAloud is the child's setting.
+    expect(screen.getByText("Old Bram is here. Press Enter to talk.")).toBeInTheDocument();
+    expect(speakMock).not.toHaveBeenCalled();
   });
 });
