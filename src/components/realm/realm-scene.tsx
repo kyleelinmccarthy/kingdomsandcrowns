@@ -377,7 +377,16 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
             return;
           }
           if (frozenRef.current) return; // dazzled or mid-cast: a tap must not queue a walk target
-          hero.current = setTarget(hero.current, { x: e.point.x, z: e.point.z }, layout.colliders);
+          const before = hero.current;
+          const walked = setTarget(before, { x: e.point.x, z: e.point.z }, layout.colliders);
+          // A tap on open ground REPLACES the target rather than nulling it, so none
+          // of the frame loop's five clears see it. Only a redirect that actually
+          // takes (not one a wall refused) cancels a villager the hero was walking
+          // toward — the frame loop can't tell "replaced by a tap" from "still
+          // being pursued," so this has to live beside the setTarget call that
+          // owns the redirect, not as a sixth condition there.
+          if (walked !== before) pendingTalk.current = null;
+          hero.current = walked;
         }}
       >
         {/* Visual only: the ground plane is drawn larger than the playable world so its edge never shows past the backdrop. */}
