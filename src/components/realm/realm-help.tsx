@@ -95,8 +95,14 @@ export function RealmHelp({
   // implementation hands back the write's promise. Wrapping the call in Promise.resolve is
   // what lets the card wait for the column: on a rejection the view does not move and the
   // card says so, so the control never lies about what was stored.
+  // `aria-disabled` and an early return, never `disabled`: this is the escape hatch for a
+  // hero who finds the simple view too small, and it is the focused element when they press
+  // it. A browser blurs a disabled element to <body>, and Escape and the Tab trap both live
+  // on the panel div's onKeyDown, so disabling it mid-save left the card keyboard-dead —
+  // no Escape, no trap — until a pointer rescued it. Left enabled, focus never moves, and a
+  // second press while the write is in flight is refused here instead.
   const onDepthPress = () => {
-    if (!onSetDepth) return;
+    if (!onSetDepth || saving) return;
     setSaving(true);
     setSaveFailed(false);
     void Promise.resolve(onSetDepth(control.next)).then(
@@ -151,7 +157,7 @@ export function RealmHelp({
         </ul>
         {onSetDepth && (
           <div className="flex flex-col gap-1 border-t border-[var(--gold-dim)] pt-3">
-            <Button ref={depthButton} variant="outline" size="lg" disabled={saving} onClick={onDepthPress}>{control.label}</Button>
+            <Button ref={depthButton} variant="outline" size="lg" aria-disabled={saving} className={saving ? "opacity-60" : undefined} onClick={onDepthPress}>{control.label}</Button>
             <p className="text-sm text-muted-foreground">{control.hint}</p>
             {saveFailed && <p role="alert" className="text-sm text-destructive">{DEPTH_SAVE_FAILED}</p>}
           </div>

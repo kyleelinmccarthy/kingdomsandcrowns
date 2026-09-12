@@ -87,6 +87,47 @@ describe("RealmHelp", () => {
     expect(screen.getByRole("button", { name: "Show me everything" })).toBeEnabled();
   });
 
+  it("keeps the card keyboard-operable while the view control's write is in flight", async () => {
+    // The view control is the escape hatch for a hero who finds the simple view too small,
+    // and it is the focused element when they press it. `disabled={saving}` blurred it to
+    // <body> mid-save, and Escape and the Tab trap both live on the panel div's onKeyDown —
+    // so a keyboard hero pressing the escape hatch was stuck in a card that no longer
+    // answered Escape and no longer trapped Tab, until a pointer rescued them.
+    let settle: (() => void) | undefined;
+    const onSetDepth = vi.fn(() => new Promise<void>((resolve) => { settle = resolve; }));
+    const onClose = vi.fn();
+    render(<RealmHelp touch={false} ceremony={false} readAloud={false} depth="simple" onSetDepth={onSetDepth} onClose={onClose} />);
+    const dialog = screen.getByRole("dialog", { name: "How to play" });
+    const control = screen.getByRole("button", { name: "Show me everything" });
+    const close = screen.getByRole("button", { name: "Close" });
+
+    control.focus();
+    fireEvent.click(control);
+    expect(onSetDepth).toHaveBeenCalledTimes(1);
+    // Mid-save: still focused, still in the tab order, and refusing a second write itself.
+    expect(control).toHaveFocus();
+    expect(control).toHaveAttribute("aria-disabled", "true");
+    expect(control).not.toBeDisabled();
+    fireEvent.click(control);
+    expect(onSetDepth).toHaveBeenCalledTimes(1);
+    // Both keyboard routes out of the card still work while the write is in flight.
+    fireEvent.keyDown(control, { key: "Tab" });
+    expect(close).toHaveFocus();
+    fireEvent.keyDown(close, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      settle!();
+    });
+    expect(control).not.toHaveAttribute("aria-disabled", "true");
+    // And the trap still cycles both controls after the save settles (focus is on Close,
+    // where the Tab above left it, so the next stop is the view control).
+    fireEvent.keyDown(dialog, { key: "Tab" });
+    expect(control).toHaveFocus();
+    fireEvent.keyDown(control, { key: "Tab" });
+    expect(close).toHaveFocus();
+  });
+
   it("keeps Tab inside the card, cycling its own two controls", () => {
     render(<RealmHelp touch={false} ceremony={false} readAloud={false} depth="simple" onSetDepth={vi.fn()} onClose={vi.fn()} />);
     const dialog = screen.getByRole("dialog", { name: "How to play" });

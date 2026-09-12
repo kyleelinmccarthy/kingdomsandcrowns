@@ -13,8 +13,6 @@ import type { RealmProblem, RealmSpeech } from "@/lib/realm/messages";
  * jsdom never parses the stylesheet, and this is the property standing between a world
  * that responds to taps and one that silently eats them at the top of the screen.
  */
-const ALERT_KINDS = new Set<RealmProblem["kind"]>(["spriteError", "kingdomError", "ceremonyError"]);
-
 export function RealmMessages({
   problem,
   speech,
@@ -33,9 +31,13 @@ export function RealmMessages({
       <p
         className="realm-message realm-message--problem"
         data-testid="realm-problem"
-        // An error interrupts; a one-minute banner and the parent's preview line do not.
-        // `aria-live="polite"` stays on both so an alert never talks over a child mid-sentence.
-        role={problem && ALERT_KINDS.has(problem.kind) ? "alert" : "status"}
+        // One role for the life of the node. The lane used to swap role="alert" in for the
+        // three error kinds while pinning aria-live="polite" on both branches — which is the
+        // announcement role="status" already implies, so the swap changed nothing a screen
+        // reader did, while mutating `role` on a live region is the one thing screen readers
+        // handle inconsistently. Politeness is deliberate: an error must never talk over a
+        // child mid-sentence, and nothing in this lane is urgent enough to interrupt.
+        role="status"
         aria-live="polite"
       >
         {problem?.text ?? ""}

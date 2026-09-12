@@ -16,6 +16,10 @@ import {
 import type { RealmAccessMode } from "@/lib/utils/realm-access";
 import { DEPTH_OVERRIDES, type DepthOverride } from "@/lib/realm/depth";
 
+/* Each radio's accessible name is its one-word label (the surrounding <label> would
+   otherwise fold the hint into the name); the hint reaches a screen reader through
+   aria-describedby, so a parent hears "Simple ... Fewer numbers, one thing at a time."
+   rather than "Simple" with no explanation at all. */
 const MODES: { id: RealmAccessMode; label: string; hint: string }[] = [
   { id: "earned", label: "Earned", hint: "Each finished quest banks minutes." },
   { id: "scheduled", label: "Scheduled", hint: "Recess blocks on the schedule open the Realm." },
@@ -89,10 +93,11 @@ export function RealmSettingsPanel({
                 disabled={busy}
                 onChange={() => save({ accessMode: m.id })}
                 aria-label={m.label}
+                aria-describedby={`realm-mode-hint-${childId}-${m.id}`}
               />
               <span>
                 <span className="font-medium">{m.label}</span>
-                <span className="block text-xs text-muted-foreground">{m.hint}</span>
+                <span id={`realm-mode-hint-${childId}-${m.id}`} className="block text-xs text-muted-foreground">{m.hint}</span>
               </span>
             </label>
           ))}
@@ -162,10 +167,11 @@ export function RealmSettingsPanel({
                 disabled={busy}
                 onChange={() => save({ depthOverride: id })}
                 aria-label={DEPTH_LABELS[id].label}
+                aria-describedby={`realm-shows-hint-${childId}-${id}`}
               />
               <span>
                 <span className="font-medium">{DEPTH_LABELS[id].label}</span>
-                <span className="block text-xs text-muted-foreground">{DEPTH_LABELS[id].hint}</span>
+                <span id={`realm-shows-hint-${childId}-${id}`} className="block text-xs text-muted-foreground">{DEPTH_LABELS[id].hint}</span>
               </span>
             </label>
           ))}

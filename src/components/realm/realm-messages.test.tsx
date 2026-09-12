@@ -26,38 +26,26 @@ describe("RealmMessages", () => {
     expect(speech).toHaveClass("realm-message", "realm-message--cheer");
   });
 
-  it("gives an error the alert role and a banner or a preview line the status role", () => {
-    render(
-      <RealmMessages
-        problem={{ kind: "spriteError", text: "boom", actionLabel: "Try again" }}
-        speech={null}
-        arrowRef={arrow()}
-        onAction={() => {}}
-        hudScale={1}
-      />
-    );
-    expect(screen.getByTestId("realm-problem")).toHaveAttribute("role", "alert");
-    cleanup();
-    render(
-      <RealmMessages
-        problem={{ kind: "lastMinute", text: "One minute left in the Realm today.", actionLabel: null }}
-        speech={null}
-        arrowRef={arrow()}
-        onAction={() => {}}
-        hudScale={1}
-      />
-    );
-    expect(screen.getByTestId("realm-problem")).toHaveAttribute("role", "status");
-    cleanup();
-    render(
-      <RealmMessages
-        problem={{ kind: "preview", text: "You're looking at Lily's grounds.", actionLabel: null }}
-        speech={null}
-        arrowRef={arrow()}
-        onAction={() => {}}
-        hudScale={1}
-      />
-    );
+  it("keeps one unchanging live-region role on the problem lane, whatever the kind", () => {
+    // The lane used to swap role="alert" in for the three error kinds while pinning
+    // aria-live="polite" on both branches — identical announcement behaviour, bought at the
+    // price of mutating `role` on a live node, which is the one thing screen readers handle
+    // inconsistently. One role for the life of the node, and polite on purpose: nothing in
+    // this lane is urgent enough to talk over a child mid-sentence.
+    const kinds = [
+      { kind: "spriteError", text: "boom", actionLabel: "Try again" },
+      { kind: "lastMinute", text: "One minute left in the Realm today.", actionLabel: null },
+      { kind: "preview", text: "You're looking at Lily's grounds.", actionLabel: null },
+    ] as const;
+    for (const problem of kinds) {
+      render(<RealmMessages problem={problem} speech={null} arrowRef={arrow()} onAction={() => {}} hudScale={1} />);
+      const lane = screen.getByTestId("realm-problem");
+      expect(lane).toHaveAttribute("role", "status");
+      expect(lane).toHaveAttribute("aria-live", "polite");
+      cleanup();
+    }
+    // And with nothing showing, so the role cannot depend on there being a problem at all.
+    render(<RealmMessages problem={null} speech={null} arrowRef={arrow()} onAction={() => {}} hudScale={1} />);
     expect(screen.getByTestId("realm-problem")).toHaveAttribute("role", "status");
   });
 
