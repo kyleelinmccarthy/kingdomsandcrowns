@@ -166,6 +166,11 @@ function RealmOpen({
   const [kingdom, setKingdom] = useState<KingdomState>(bundle.kingdom);
   const [kingdomError, setKingdomError] = useState(bundle.kingdomError ?? "");
   const [reachId, setReachId] = useState<string | null>(null);
+  // The reach line lives beside `notice` rather than inside it: an ordinary notice clears
+  // itself after two seconds, and this one must hold for as long as the hero is standing
+  // next to someone. The lanes merge them (`notice ?? reachNotice`), so a spell notice
+  // borrows the lane for its two seconds and the reach line comes back underneath.
+  const [reachNotice, setReachNotice] = useState<string | null>(null);
   const [openVillagerId, setOpenVillagerId] = useState<string | null>(null);
   const [risingId, setRisingId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -299,7 +304,17 @@ function RealmOpen({
     beginCeremonyIfWaiting();
   }, [beginCeremonyIfWaiting]);
   const onError = useCallback((e: Error) => setSpriteError(e.message), []);
-  const onReachChange = useCallback((id: string | null) => setReachId(id), []);
+  // Set whether or not read-aloud is on: the speech lane is an aria-live region, so a
+  // screen reader announces the arrival for free, and everyone else reads it.
+  const onReachChange = useCallback((id: string | null) => {
+    setReachId(id);
+    const villager = id ? villagerById(id) : null;
+    if (!villager) {
+      setReachNotice(null);
+      return;
+    }
+    setReachNotice(settings.showStick ? `${villager.name} is here. Tap Talk.` : `${villager.name} is here. Press Enter to talk.`);
+  }, [settings.showStick]);
   const onToggleRide = useCallback(() => {
     if (!canRide) return;
     setRiding((r) => !r);
@@ -380,6 +395,8 @@ function RealmOpen({
   }, [toast]);
 
   // A spell notice (a clear, a refusal, lost focus) clears itself the same way.
+  // `reachNotice` is deliberately not in this effect: it holds while the hero is in reach
+  // and is cleared by `onReachChange` on the way out, never by a timer.
   useEffect(() => {
     if (!notice) return;
     const id = setTimeout(() => setNotice(null), 2000);
@@ -539,7 +556,7 @@ function RealmOpen({
     preview: previewText,
     ceremonyNotice: ceremonyNoticeText,
     toast,
-    notice,
+    notice: notice ?? reachNotice,
     calm,
   };
   const problem = pickProblem(messageInput);

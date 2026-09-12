@@ -983,3 +983,53 @@ describe("RealmShell help card", () => {
     expect(menu.defaultPrevented).toBe(true);
   });
 });
+
+describe("RealmShell reach and speech", () => {
+  const inReach = async (id: string | null) => {
+    await act(async () => {
+      (sceneProps.onReachChange as (id: string | null) => void)(id);
+    });
+  };
+
+  it("announces the villager in reach whether or not read-aloud is on, and clears it on the way out", async () => {
+    expect(bundle.profile.readAloud).toBe(false);
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    render(<RealmShell bundle={bundle} childId="c1" isChildView={true} />);
+    expect(await screen.findByTestId("scene")).toBeInTheDocument();
+    await inReach("bram");
+    expect(screen.getByText("Old Bram is here. Press Enter to talk.")).toBeInTheDocument();
+    await inReach(null);
+    expect(screen.queryByText("Old Bram is here. Press Enter to talk.")).not.toBeInTheDocument();
+    cleanup();
+    render(<RealmShell bundle={{ ...bundle, profile: { ...DEFAULT_LEARNING_PROFILE, readAloud: true } }} childId="c1" isChildView={true} />);
+    expect(await screen.findByTestId("scene")).toBeInTheDocument();
+    await inReach("bram");
+    expect(screen.getByText("Old Bram is here. Press Enter to talk.")).toBeInTheDocument();
+  });
+
+  it("names the touch control when the on-screen stick is showing", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    render(<RealmShell bundle={{ ...bundle, profile: { ...DEFAULT_LEARNING_PROFILE, inputMode: "touch" as const } }} childId="c1" isChildView={true} />);
+    expect(await screen.findByTestId("scene")).toBeInTheDocument();
+    await inReach("bram");
+    expect(screen.getByText("Old Bram is here. Tap Talk.")).toBeInTheDocument();
+    expect(screen.queryByText("Old Bram is here. Press Enter to talk.")).not.toBeInTheDocument();
+  });
+
+  it("lets a spell notice borrow the lane, then puts the reach line back when it expires", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    render(<RealmShell bundle={bundle} childId="c1" isChildView={true} />);
+    expect(await screen.findByTestId("scene")).toBeInTheDocument();
+    await inReach("bram");
+    expect(screen.getByText("Old Bram is here. Press Enter to talk.")).toBeInTheDocument();
+    await act(async () => {
+      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "refused" });
+    });
+    expect(screen.getByText("Not enough mana yet.")).toBeInTheDocument();
+    expect(screen.queryByText("Old Bram is here. Press Enter to talk.")).not.toBeInTheDocument();
+    // The spell notice clears itself after two seconds. The reach line never had a timer:
+    // it is still there underneath, and comes back on its own.
+    await waitFor(() => expect(screen.getByText("Old Bram is here. Press Enter to talk.")).toBeInTheDocument(), { timeout: 3000 });
+    expect(screen.queryByText("Not enough mana yet.")).not.toBeInTheDocument();
+  });
+});
