@@ -21,13 +21,16 @@ describe("SpellBar", () => {
     expect(screen.getAllByRole("button").length).toBe(6);
   });
 
-  it("selects on tap, deselects on a second tap, and keeps faded pages unselectable", () => {
+  it("casts on tap, casts again on a second tap of the page already selected, and keeps faded pages unselectable", () => {
     const onSelect = vi.fn();
     render(<SpellBar pages={pages} selectedSlot={1} mana={100} fewerChoices={false} onSelect={onSelect} raised={false} hudScale={1} />);
     fireEvent.click(screen.getByRole("button", { name: "Ember Bolt, 15 mana" }));
     expect(onSelect).toHaveBeenLastCalledWith(2);
+    // The page that is already selected: a tap casts it again rather than putting it away, so a
+    // thumb and a number key mean the same thing.
     fireEvent.click(screen.getByRole("button", { name: "Ember Bolt, 10 mana" }));
-    expect(onSelect).toHaveBeenLastCalledWith(null);
+    expect(onSelect).toHaveBeenLastCalledWith(1);
+    expect(onSelect).not.toHaveBeenCalledWith(null);
     const faded = screen.getByRole("button", { name: FADED_PAGE });
     expect(faded).toBeDisabled();
   });

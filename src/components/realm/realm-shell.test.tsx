@@ -341,6 +341,24 @@ describe("RealmShell", () => {
     expect(await screen.findByRole("dialog", { name: "Old Bram" })).toBeInTheDocument();
   });
 
+  it("ignores an E from key-repeat and an E held with a modifier", async () => {
+    // The guards that used to live on the input hook's cast key live here now, on the key
+    // that has them: a child leaning on E must not reopen the panel, and Ctrl/Cmd/Alt+E is
+    // a browser shortcut, not a talk.
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    render(<RealmShell bundle={bundle} childId="c1" isChildView={true} />);
+    expect(await screen.findByTestId("scene")).toBeInTheDocument();
+    await act(async () => {
+      (sceneProps.onReachChange as (id: string | null) => void)("bram");
+    });
+    fireEvent.keyDown(document.body, { key: "e", code: "KeyE", repeat: true });
+    expect(screen.queryByRole("dialog", { name: "Old Bram" })).not.toBeInTheDocument();
+    fireEvent.keyDown(document.body, { key: "e", code: "KeyE", metaKey: true });
+    expect(screen.queryByRole("dialog", { name: "Old Bram" })).not.toBeInTheDocument();
+    fireEvent.keyDown(document.body, { key: "e", code: "KeyE" });
+    expect(await screen.findByRole("dialog", { name: "Old Bram" })).toBeInTheDocument();
+  });
+
   it("does not open the site card when E is pressed on the Leave the Realm link", async () => {
     getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
     render(<RealmShell bundle={bundle} childId="c1" isChildView={true} />);

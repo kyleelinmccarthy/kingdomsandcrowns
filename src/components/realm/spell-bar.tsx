@@ -9,7 +9,7 @@ const FEWER = 4;
 export const EMPTY_TITLE = "Make a spell in your Spellbook";
 export const EMPTY_HINT = "Your spellbook has room. Make a spell to fill this page.";
 
-/** The hero's pages along the bottom of the world. Keys 1–9 cast that page and select it, Escape puts it away, a second tap of a chip deselects; an empty page explains where spells come from. */
+/** The hero's pages along the bottom of the world. A tap or keys 1–9 cast that page and select it, Escape puts it away; an empty page explains where spells come from. */
 export function SpellBar({
   pages,
   selectedSlot,
@@ -124,7 +124,9 @@ export function SpellBar({
               aria-pressed={selected}
               aria-label={label}
               disabled={!page.spell}
-              onClick={() => onSelect(selected ? null : page.slot)}
+              // A tap casts, exactly as the number key does — one action, one behaviour, however
+              // the child reaches it. The selection simply persists; Escape puts it away.
+              onClick={() => onSelect(page.slot)}
             >
               <span className="realm-spell-key">{i + 1}</span>
               <span className="realm-spell-swatch" style={{ background: page.color }} />
