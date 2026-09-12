@@ -181,7 +181,7 @@ function RealmOpen({
   const [mana, setMana] = useState(MANA_MAX);
   const [notice, setNotice] = useState<string | null>(null);
   const [riding, setRiding] = useState(false);
-  const [recess, setRecess] = useState<{ gleams: number; laps: number; bestLapMs: number | null }>({ gleams: 0, laps: 0, bestLapMs: null });
+  const [recess, setRecess] = useState<{ gleams: number; laps: number }>({ gleams: 0, laps: 0 });
   const [seed] = useState(() => Date.now() >>> 0);
   // The visit's complexity depth, snapshotted once (§3.1): a surface must never flip
   // mid-play. The server computed it from helpSeen + depthOverride; task 18 adds the
@@ -472,7 +472,7 @@ function RealmOpen({
     switch (e.kind) {
       case "recessStart": setToast("Recess!"); break;
       case "gleam": setRecess((r) => ({ ...r, gleams: e.count })); setNotice(`A gleam! ${e.count} so far.`); break;
-      case "lap": setRecess((r) => ({ ...r, laps: e.laps, bestLapMs: e.best ? e.lapMs : r.bestLapMs })); setNotice(`Lap done: ${formatLap(e.lapMs)} s!`); break;
+      case "lap": setRecess((r) => ({ ...r, laps: e.laps })); setNotice(`Lap done: ${formatLap(e.lapMs)} s!`); break;
     }
   }, [isChildView]);
 

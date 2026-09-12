@@ -1,4 +1,4 @@
-export type RecessTally = { gleams: number; laps: number; bestLapMs: number | null };
+export type RecessTally = { gleams: number; laps: number };
 
 /**
  * The HUD's recess prop: the tally once recess has ever produced one this session, and null

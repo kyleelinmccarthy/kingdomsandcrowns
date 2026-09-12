@@ -3,16 +3,16 @@ import { hudRecessFor, recessPillText } from "./hud";
 
 describe("hudRecessFor", () => {
   it("hides the HUD's recess tally until recess has ever produced one", () => {
-    expect(hudRecessFor({ gleams: 0, laps: 0, bestLapMs: null }, false)).toBeNull();
+    expect(hudRecessFor({ gleams: 0, laps: 0 }, false)).toBeNull();
   });
 
   it("keeps the tallies on screen after recess ends", () => {
-    const recess = { gleams: 3, laps: 1, bestLapMs: 30_000 };
-    expect(hudRecessFor(recess, false)).toEqual({ gleams: 3, laps: 1, bestLapMs: 30_000 });
+    const recess = { gleams: 3, laps: 1 };
+    expect(hudRecessFor(recess, false)).toEqual({ gleams: 3, laps: 1 });
   });
 
   it("shows a zeroed tally once recess is active even with nothing collected yet", () => {
-    expect(hudRecessFor({ gleams: 0, laps: 0, bestLapMs: null }, true)).toEqual({ gleams: 0, laps: 0, bestLapMs: null });
+    expect(hudRecessFor({ gleams: 0, laps: 0 }, true)).toEqual({ gleams: 0, laps: 0 });
   });
 });
 

@@ -111,10 +111,13 @@ function ContactShadow({ w, d, y, calm }: { w: number; d: number; y: number; cal
     <mesh
       geometry={SHADOW_GEOMETRY}
       material={calm ? SHADOW_MATERIAL_CALM : SHADOW_MATERIAL}
-      // Shared resources MUST opt out of unmount disposal: R3F's teardown walks an unmounting
-      // object's own properties and calls dispose() on each, so one villager leaving (a sprite
-      // that failed to re-rasterise) or the mount group going away would otherwise free the
-      // geometry and material every other shadow in the world is still drawing with.
+      // Shared resources MUST opt out of unmount disposal. This is the documented,
+      // version-proof opt-out rather than a reaction to one observed teardown path: under
+      // the installed R3F 9 a leaving villager would not in fact free these (removeChild
+      // disposes only objects that own a dispose(), which Mesh does not), but the guarantee
+      // we need is that nothing ever frees a geometry and material every other shadow in the
+      // world is still drawing with. `dispose={null}` propagates to children, so a shadow
+      // inside an unmounting villager group opts out with it.
       dispose={null}
       position={[0, y, 0]}
       rotation={[-Math.PI / 2, 0, 0]}
