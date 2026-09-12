@@ -55,4 +55,29 @@ describe("RealmSettingsPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "Show the how-to-play card again" }));
     await waitFor(() => expect(resetRealmHelp).toHaveBeenCalledWith("c1"));
   });
+
+  it("offers three ways the Realm can look, with the stored one checked", () => {
+    render(<RealmSettingsPanel childId="c1" settings={{ ...DEFAULT_REALM_SETTINGS, depthOverride: "simple" }} summary={summary} />);
+    expect(screen.getByRole("radio", { name: "Automatic" })).not.toBeChecked();
+    expect(screen.getByRole("radio", { name: "Simple" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "Everything" })).not.toBeChecked();
+    expect(screen.getByText("Simple at first, everything once they know the world.")).toBeInTheDocument();
+    expect(screen.getByText("Fewer numbers, one thing at a time.")).toBeInTheDocument();
+    expect(screen.getByText("More numbers, more to do.")).toBeInTheDocument();
+  });
+
+  it("saves a change to how much the Realm shows", async () => {
+    const user = userEvent.setup();
+    render(<RealmSettingsPanel childId="c1" settings={DEFAULT_REALM_SETTINGS} summary={summary} />);
+    await user.click(screen.getByRole("radio", { name: "Simple" }));
+    expect(updateRealmSettings).toHaveBeenCalledWith("c1", { depthOverride: "simple" });
+  });
+
+  it("never says the word depth on screen", () => {
+    const { container } = render(<RealmSettingsPanel childId="c1" settings={DEFAULT_REALM_SETTINGS} summary={summary} />);
+    expect(container.textContent?.toLowerCase()).not.toContain("depth");
+    for (const el of container.querySelectorAll("[aria-label]")) {
+      expect(el.getAttribute("aria-label")?.toLowerCase()).not.toContain("depth");
+    }
+  });
 });

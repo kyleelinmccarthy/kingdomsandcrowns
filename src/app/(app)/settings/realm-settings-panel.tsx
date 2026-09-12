@@ -14,12 +14,23 @@ import {
   type RealmSettings,
 } from "@/lib/utils/realm-settings";
 import type { RealmAccessMode } from "@/lib/utils/realm-access";
+import { DEPTH_OVERRIDES, type DepthOverride } from "@/lib/realm/depth";
 
 const MODES: { id: RealmAccessMode; label: string; hint: string }[] = [
   { id: "earned", label: "Earned", hint: "Each finished quest banks minutes." },
   { id: "scheduled", label: "Scheduled", hint: "Recess blocks on the schedule open the Realm." },
   { id: "both", label: "Both", hint: "Either one opens the Realm." },
 ];
+
+/**
+ * The parent's words for the complexity axis. "depth" is a code word — it never reaches a screen,
+ * here or in the Realm (§2 D7.3). Keyed by DepthOverride, so a fourth override fails the build.
+ */
+const DEPTH_LABELS: Record<DepthOverride, { label: string; hint: string }> = {
+  auto: { label: "Automatic", hint: "Simple at first, everything once they know the world." },
+  simple: { label: "Simple", hint: "Fewer numbers, one thing at a time." },
+  full: { label: "Everything", hint: "More numbers, more to do." },
+};
 
 export function RealmSettingsPanel({
   childId,
@@ -136,6 +147,30 @@ export function RealmSettingsPanel({
           {settings.toneMode === "gentle" ? "Allow Monsters" : "Keep It Gentle"}
         </Button>
       </div>
+
+      <fieldset className="rounded-lg border border-gold-dim bg-muted/30 px-3 py-2.5">
+        <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">How much the Realm shows</legend>
+        <p className="px-1 pb-2 text-xs text-muted-foreground">This changes what is on screen, never minutes, tone, or what the quests are.</p>
+        <div className="grid gap-2 sm:grid-cols-3">
+          {DEPTH_OVERRIDES.map((id) => (
+            <label key={id} className="flex cursor-pointer items-start gap-2 text-sm">
+              <input
+                type="radio"
+                name={`realm-shows-${childId}`}
+                value={id}
+                checked={settings.depthOverride === id}
+                disabled={busy}
+                onChange={() => save({ depthOverride: id })}
+                aria-label={DEPTH_LABELS[id].label}
+              />
+              <span>
+                <span className="font-medium">{DEPTH_LABELS[id].label}</span>
+                <span className="block text-xs text-muted-foreground">{DEPTH_LABELS[id].hint}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+      </fieldset>
 
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gold-dim bg-muted/30 px-3 py-2.5">
         <div>
