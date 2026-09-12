@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { objectiveRank, rankBuildings, objectiveState, pickObjective, riseToast, objectiveSpeech, type Objective, type ObjectiveState } from "./objective";
+import { objectiveRank, rankBuildings, objectiveState, riseToast, objectiveSpeech, type Objective, type ObjectiveState } from "./objective";
 import type { SiteProgress } from "./layout";
 import { BUILDINGS } from "@/lib/utils/kingdom";
 
@@ -53,13 +53,11 @@ describe("objectiveState", () => {
     expect(objectiveState(newHero, 1)).toEqual(expected);
     expect(objectiveState(newHero, 1)).toEqual(expected);
     expect(objectiveState(newHero, 1)).toEqual(expected);
-    expect(pickObjective(newHero)?.buildingId).toBe("well");
   });
 
   it("puts work in progress ahead of untouched sites, highest done first", () => {
     const buildings = [site("well", 0), site("mill", 1), site("bridge", 0), site("chapel", 3), site("market", 0), site("library", 2), site("watchtower", 0), site("garden", 0)];
     expect(ids(objectiveState(buildings, 8))).toEqual(["chapel", "library", "mill", "well", "bridge", "market", "watchtower", "garden"]);
-    expect(pickObjective(buildings)).toEqual({ buildingId: "chapel", villagerId: "wren", label: "Chapel", villagerName: "Sister Wren", done: 3, total: 5 });
   });
 
   it("never offers a building that is already raised", () => {
@@ -73,13 +71,11 @@ describe("objectiveState", () => {
     // An id with no catalog entry has no site in the world either (layout.ts skips it), so it is not an
     // objective — and a payload of nothing but strangers is a failed load, not a finished kingdom.
     expect(objectiveState([{ id: "moon-base", done: 0, total: 5, complete: false }], 1)).toEqual({ kind: "unknown" });
-    expect(pickObjective([])).toBeNull();
   });
 
   it("reports a finished kingdom when every building is raised", () => {
     const all: SiteProgress[] = BUILDINGS.map((b) => ({ id: b.id, done: b.deedsToBuild, total: b.deedsToBuild, complete: true }));
     expect(objectiveState(all, 3)).toEqual({ kind: "complete" });
-    expect(pickObjective(all)).toBeNull();
   });
 
   it("clamps limit to 1..8 and caps the list", () => {

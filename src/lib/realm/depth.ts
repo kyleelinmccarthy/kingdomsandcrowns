@@ -16,7 +16,11 @@ export type Surfaces = {
   numerals: boolean;
   /** How many objectives the card tracks at once. Capped at 1 by `fewerChoices` at both depths. */
   trackedObjectives: number;
-  /** Which spell pages the ability bar contains. */
+  /**
+   * Which spell pages the ability bar contains — the pages a hero has earned, or every page.
+   * A membership rule, not a count: `spell-bar.tsx` keeps its own four-page cap (see
+   * `surfacesFor` below). No consumer reads this field yet.
+   */
   abilitySlots: "earned" | "all";
   /** Whether number keycaps are drawn on the ability bar's slots. */
   keycapHints: boolean;
@@ -84,10 +88,19 @@ export function realmDepth(input: { tutorialComplete: boolean; override: DepthOv
 
 /**
  * The surfaces for a depth, with the profile's caps applied. `fewerChoices` caps
- * `trackedObjectives` at 1, `abilitySlots` at "earned" and `listRows` at 3 at **both** depths —
- * this is the only place that rule is written, and no consumer re-implements it. Every simple
- * surface is a substitution, never a removal: pips replace numerals, one tracked objective
- * replaces three, earned slots replace all slots.
+ * `trackedObjectives` at 1, `abilitySlots` at "earned" and `listRows` at 3 at **both** depths.
+ *
+ * This is the only place those three caps are written — with one named exception, so the claim
+ * stays true: `spell-bar.tsx` is handed the raw `fewerChoices` and applies its own `FEWER = 4`
+ * page cap. That is a COUNT of pages shown; `abilitySlots` is a MEMBERSHIP (earned pages, or
+ * all of them), and the bar pads with empty pages, which "earned" would forbid. The two are
+ * therefore not the same rule, and `abilitySlots` still has no consumer.
+ *
+ * Most simple surfaces are substitutions rather than removals: pips replace numerals, one
+ * tracked objective replaces three, earned slots replace all slots, the ⚠ glyph replaces a
+ * trouble's name. Four are removals with no substitute named — `keycapHints`, `troubleDetail`,
+ * `troubleHitPips` and `clearCount`. None of the four has a consumer yet; the slice that ships
+ * one owes it either a substitute or a reason it needs none.
  */
 export function surfacesFor(depth: RealmDepth, profile: LearningProfile): Surfaces {
   const out: Surfaces = { ...(depth === "simple" ? SIMPLE : FULL) };

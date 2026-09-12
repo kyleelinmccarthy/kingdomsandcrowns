@@ -17,7 +17,15 @@ export type ObjectiveState =
   | { kind: "complete" }                       // every building raised
   | { kind: "next"; objectives: Objective[] }; // 1..limit, best first
 
-/** Work in progress leads, untouched buildings follow, finished ones rest at the end. */
+/**
+ * Work in progress leads, untouched buildings follow, finished ones rest at the end.
+ *
+ * Exported for its test rather than for a caller: `rankBuildings` (which deed-picker.tsx uses)
+ * and `objectiveState` are both written in terms of it, so this is where the three-way order
+ * is pinned once. There is deliberately no `pickObjective`-style second entry point: a
+ * convenience wrapper with its own hardwired limit is a place for the tracked-objective count
+ * to drift away from `Surfaces.trackedObjectives`.
+ */
 export function objectiveRank(b: { done: number; complete: boolean }): 0 | 1 | 2 {
   return b.complete ? 2 : b.done > 0 ? 0 : 1;
 }
@@ -67,14 +75,6 @@ export function objectiveState(buildings: SiteProgress[], limit: number): Object
     (a, b) => objectiveRank(a) - objectiveRank(b) || b.done - a.done || (ORDER.get(a.id) ?? 0) - (ORDER.get(b.id) ?? 0),
   );
   return { kind: "next", objectives: ranked.slice(0, clampLimit(limit)).map(toObjective) };
-}
-
-/** The single primary objective, or null. Convenience over objectiveState(buildings, 1). */
-export function pickObjective(buildings: SiteProgress[]): Objective | null {
-  const state = objectiveState(buildings, 1);
-  if (state.kind !== "next") return null;
-  const [objective] = state.objectives;
-  return objective ?? null;
 }
 
 /**

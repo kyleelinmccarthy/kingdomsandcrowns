@@ -25,6 +25,10 @@ const UP_DIV = Math.sqrt(6);
  * Derived from CAMERA_OFFSET (12, 12, 12) looking at (target.x, 0, target.z) with up (0, 1, 0) —
  * never from a hard-coded screen coordinate. R3F's default orthographic frustum is the canvas in
  * pixels, so `zoom` is exactly pixels per world unit. Screen y grows downward.
+ *
+ * Exported for its test, not for a caller: `edgeArrow` below is the only consumer, and
+ * camera.test.ts asserts the two agree about where a point is. Un-exporting it would delete
+ * that agreement check, which is the thing that keeps the arrow and the camera in step.
  */
 export function worldToScreen(camTarget: Vec2, world: Vec2, viewport: Viewport, zoom: number = CAMERA_ZOOM): ScreenPoint {
   const dx = world.x - camTarget.x;
