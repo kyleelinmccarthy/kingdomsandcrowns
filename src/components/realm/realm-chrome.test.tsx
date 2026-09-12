@@ -92,6 +92,7 @@ const bundle = {
   helpSeen: true,
   depthOverride: "auto" as const,
   depth: "full" as const,
+  tutorialStep: 0,
 };
 
 const QUEST_TIMER_KEY = "kingdomsandcrowns:quest-timer";

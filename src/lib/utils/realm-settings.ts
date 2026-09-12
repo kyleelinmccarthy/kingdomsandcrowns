@@ -12,6 +12,8 @@ export type RealmSettings = {
   toneMode: ToneMode;
   /** How much the Realm shows. A hero may set their own — it changes presentation, never access. */
   depthOverride: DepthOverride;
+  /** The highest tutorial step the hero has finished, 0 through 4. */
+  tutorialStep: number;
 };
 
 export const DEFAULT_REALM_SETTINGS: RealmSettings = {
@@ -22,6 +24,7 @@ export const DEFAULT_REALM_SETTINGS: RealmSettings = {
   dailyCapMinutes: 30,
   toneMode: "gentle",
   depthOverride: DEFAULT_DEPTH_OVERRIDE,
+  tutorialStep: 0,
 };
 
 const ACCESS_MODES: RealmAccessMode[] = ["earned", "scheduled", "both", "open"];
@@ -33,6 +36,8 @@ function inRange(v: unknown, r: { min: number; max: number }): v is number {
   return typeof v === "number" && Number.isInteger(v) && v >= r.min && v <= r.max;
 }
 
+const isTutorialStep = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v) && v >= 0 && v <= 4;
+
 export function settingsFromRow(row: Partial<Record<keyof RealmSettings, unknown>> | null | undefined): RealmSettings {
   if (!row) return { ...DEFAULT_REALM_SETTINGS };
   return {
@@ -43,6 +48,7 @@ export function settingsFromRow(row: Partial<Record<keyof RealmSettings, unknown
     dailyCapMinutes: inRange(row.dailyCapMinutes, DAILY_CAP_RANGE) ? row.dailyCapMinutes : DEFAULT_REALM_SETTINGS.dailyCapMinutes,
     toneMode: TONES.includes(row.toneMode as ToneMode) ? (row.toneMode as ToneMode) : DEFAULT_REALM_SETTINGS.toneMode,
     depthOverride: isDepthOverride(row.depthOverride) ? row.depthOverride : DEFAULT_REALM_SETTINGS.depthOverride,
+    tutorialStep: isTutorialStep(row.tutorialStep) ? row.tutorialStep : DEFAULT_REALM_SETTINGS.tutorialStep,
   };
 }
 
@@ -68,6 +74,10 @@ export function validateRealmSettingsPatch(patch: unknown): Partial<RealmSetting
       case "depthOverride":
         if (!isDepthOverride(v)) throw new Error("Choose automatic, simple, or everything.");
         out.depthOverride = v;
+        break;
+      case "tutorialStep":
+        if (!isTutorialStep(v)) throw new Error("That tutorial step doesn't look right.");
+        out.tutorialStep = v;
         break;
       case "earnedMinutesPerQuest":
         if (!inRange(v, EARNED_MINUTES_RANGE)) throw new Error(`Minutes per quest must be ${EARNED_MINUTES_RANGE.min}–${EARNED_MINUTES_RANGE.max}.`);

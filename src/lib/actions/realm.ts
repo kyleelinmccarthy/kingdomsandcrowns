@@ -38,6 +38,8 @@ export type RealmBundle = {
    * two fields and gets a different answer. `RealmOpen` snapshots it for the visit.
    */
   depth: RealmDepth;
+  /** The highest tutorial step the hero has finished, 0 through 4. */
+  tutorialStep: number;
 };
 
 const VILLAGERS_RESTING = "The villagers are resting. Try again.";
@@ -115,5 +117,6 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
     helpSeen,
     depthOverride: settings.depthOverride,
     depth: realmDepth({ tutorialComplete: helpSeen, override: settings.depthOverride }),
+    tutorialStep: settings.tutorialStep,
   };
 }

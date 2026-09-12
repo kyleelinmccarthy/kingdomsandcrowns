@@ -1,0 +1,1 @@
+ALTER TABLE `realm_settings` ADD `tutorial_step` integer DEFAULT 0 NOT NULL;

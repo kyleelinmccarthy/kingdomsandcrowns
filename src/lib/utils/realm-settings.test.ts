@@ -1,6 +1,17 @@
 import { describe, it, expect } from "vitest";
 import { DEFAULT_REALM_SETTINGS, settingsFromRow, validateRealmSettingsPatch } from "./realm-settings";
 
+const ROW = {
+  enabled: true,
+  accessMode: "earned",
+  earnedMinutesPerQuest: 5,
+  offHoursEnabled: false,
+  dailyCapMinutes: 30,
+  toneMode: "gentle",
+  depthOverride: "auto",
+  tutorialStep: 0,
+};
+
 describe("settingsFromRow", () => {
   it("falls back to defaults", () => {
     expect(settingsFromRow(null)).toEqual(DEFAULT_REALM_SETTINGS);
@@ -55,5 +66,20 @@ describe("depthOverride", () => {
     expect(validateRealmSettingsPatch({ depthOverride: "full" })).toEqual({ depthOverride: "full" });
     expect(() => validateRealmSettingsPatch({ depthOverride: "everything" })).toThrow("Choose automatic, simple, or everything.");
     expect(() => validateRealmSettingsPatch({ depthOverride: null })).toThrow("Choose automatic, simple, or everything.");
+  });
+});
+
+describe("tutorialStep", () => {
+  it("accepts a tutorial step in range and refuses one outside it", () => {
+    expect(validateRealmSettingsPatch({ tutorialStep: 0 })).toEqual({ tutorialStep: 0 });
+    expect(validateRealmSettingsPatch({ tutorialStep: 4 })).toEqual({ tutorialStep: 4 });
+    expect(() => validateRealmSettingsPatch({ tutorialStep: 5 })).toThrow();
+    expect(() => validateRealmSettingsPatch({ tutorialStep: -1 })).toThrow();
+    expect(() => validateRealmSettingsPatch({ tutorialStep: 1.5 })).toThrow();
+  });
+
+  it("defaults a missing or corrupt tutorial step to the beginning", () => {
+    expect(DEFAULT_REALM_SETTINGS.tutorialStep).toBe(0);
+    expect(settingsFromRow({ ...ROW, tutorialStep: 99 }).tutorialStep).toBe(0);
   });
 });

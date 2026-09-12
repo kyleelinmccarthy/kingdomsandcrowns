@@ -696,6 +696,9 @@ export const realmSettings = sqliteTable(
     // Slice 1 of the presentation overhaul: how much the Realm shows.
     // 'auto' follows the tutorial; a hero or a grown-up can pin it either way.
     depthOverride: text("depth_override", { enum: ["auto", "simple", "full"] }).notNull().default("auto"),
+    // The highest tutorial step the hero has finished, 0 through 4. Resetting it to 0
+    // re-runs the walkthrough, which is what the help card's control does.
+    tutorialStep: integer("tutorial_step").notNull().default(0),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   }

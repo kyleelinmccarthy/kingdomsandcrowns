@@ -58,3 +58,11 @@ export async function setRealmDepth(childId: string, override: DepthOverride): P
   const now = new Date();
   await db.update(schema.realmSettings).set({ depthOverride: override, updatedAt: now }).where(eq(schema.realmSettings.childId, childId));
 }
+
+/** The hero finished a tutorial step, or a grown-up reset the walkthrough. Hero or parent. */
+export async function setTutorialStep(childId: string, step: number): Promise<void> {
+  await requireChildAccess(childId, { write: true });
+  if (!Number.isInteger(step) || step < 0 || step > 4) throw new Error("That tutorial step doesn't look right.");
+  await loadRealmSettings(childId);
+  await db.update(schema.realmSettings).set({ tutorialStep: step, updatedAt: new Date() }).where(eq(schema.realmSettings.childId, childId));
+}
