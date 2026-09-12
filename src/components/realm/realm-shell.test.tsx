@@ -27,7 +27,11 @@ vi.mock("@/lib/actions/realm", () => ({ getRealmKingdom: (...a: unknown[]) => ge
 const markCeremonySeen = vi.fn();
 vi.mock("@/lib/actions/seasons", () => ({ markCeremonySeen: (...a: unknown[]) => markCeremonySeen(...a) }));
 const markRealmHelpSeen = vi.fn();
-vi.mock("@/lib/actions/realm-settings", () => ({ markRealmHelpSeen: (...a: unknown[]) => markRealmHelpSeen(...a) }));
+const setRealmDepth = vi.fn();
+vi.mock("@/lib/actions/realm-settings", () => ({
+  markRealmHelpSeen: (...a: unknown[]) => markRealmHelpSeen(...a),
+  setRealmDepth: (...a: unknown[]) => setRealmDepth(...a),
+}));
 const speakMock = vi.fn();
 vi.mock("@/lib/utils/speech", () => ({
   speak: (text: string) => speakMock(text),
@@ -115,6 +119,7 @@ const raisedKingdom = newKingdom.map((b) => ({ ...b, done: b.total, complete: tr
 
 beforeEach(() => {
   vi.clearAllMocks();
+  setRealmDepth.mockResolvedValue(undefined);
   failNextSpriteMount = false;
   holdNextSpriteMount = false;
   heldOnReady = null;
@@ -986,6 +991,44 @@ describe("RealmShell help card", () => {
     const menu = new MouseEvent("contextmenu", { bubbles: true, cancelable: true });
     root.dispatchEvent(menu);
     expect(menu.defaultPrevented).toBe(true);
+  });
+
+  it("lets a hero swap views from the card, and keeps the visit's view when the write fails", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    setRealmDepth.mockRejectedValueOnce(new Error("offline"));
+    render(<RealmShell bundle={{ ...bundle, depth: "simple" as const }} childId="c1" isChildView={true} />);
+    await screen.findByTestId("scene");
+    fireEvent.click(screen.getByRole("button", { name: "How to play" }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Show me everything" }));
+    });
+    expect(setRealmDepth).toHaveBeenCalledWith("c1", "full");
+    expect(screen.getByText("That didn't save. Try again.")).toBeInTheDocument();
+    // The write never landed, so the visit is still on the simple view.
+    expect(screen.getByRole("button", { name: "Show me everything" })).toBeInTheDocument();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Show me everything" }));
+    });
+    expect(setRealmDepth).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole("button", { name: "Keep it simple" })).toBeInTheDocument();
+    expect(screen.queryByText("That didn't save. Try again.")).not.toBeInTheDocument();
+  });
+
+  it("never offers the view control to a parent, or to a hero who needs fewer choices", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 0, source: "earned" });
+    render(<RealmShell bundle={{ ...bundle, depth: "simple" as const }} childId="c1" isChildView={false} />);
+    await screen.findByTestId("scene");
+    fireEvent.click(screen.getByRole("button", { name: "How to play" }));
+    expect(screen.getByRole("dialog", { name: "How to play" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Show me everything" })).not.toBeInTheDocument();
+    cleanup();
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    render(<RealmShell bundle={{ ...bundle, depth: "simple" as const, profile: { ...DEFAULT_LEARNING_PROFILE, fewerChoices: true } }} childId="c1" isChildView={true} />);
+    await screen.findByTestId("scene");
+    fireEvent.click(screen.getByRole("button", { name: "How to play" }));
+    expect(screen.getByRole("dialog", { name: "How to play" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Show me everything" })).not.toBeInTheDocument();
+    expect(setRealmDepth).not.toHaveBeenCalled();
   });
 });
 

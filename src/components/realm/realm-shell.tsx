@@ -6,7 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getRealmKingdom, type RealmBundle } from "@/lib/actions/realm";
 import { getRealmAccess } from "@/lib/actions/realm-play";
 import { markCeremonySeen } from "@/lib/actions/seasons";
-import { markRealmHelpSeen } from "@/lib/actions/realm-settings";
+import { markRealmHelpSeen, setRealmDepth } from "@/lib/actions/realm-settings";
 import { buildWorldLayout } from "@/lib/realm/layout";
 import { applyDeedResult, type KingdomState } from "@/lib/realm/kingdom-state";
 import { renderSettingsFor } from "@/lib/realm/render-settings";
@@ -30,7 +30,7 @@ import { speak } from "@/lib/utils/speech";
 import { SIDE_QUESTS_LOWER } from "@/lib/utils/side-quest-copy";
 import { SpriteSource, type SpriteTextures } from "./sprite-source";
 import { RealmHud, RealmManaPips, RealmMountButton } from "./realm-hud";
-import { surfacesFor } from "@/lib/realm/depth";
+import { surfacesFor, type RealmDepth } from "@/lib/realm/depth";
 import { RealmMessages } from "./realm-messages";
 import { RealmHelp } from "./realm-help";
 import { RealmGate } from "./realm-gate";
@@ -183,7 +183,7 @@ function RealmOpen({
   // The visit's complexity depth, snapshotted once (§3.1): a surface must never flip
   // mid-play. The server computed it from helpSeen + depthOverride; task 18 adds the
   // setter so the help card's "Show me everything" can raise it for this visit.
-  const [depth] = useState(() => bundle.depth);
+  const [depth, setDepth] = useState(() => bundle.depth);
   // A refused cast paints the mana strip red for 600 ms. The counter is what makes a
   // second refusal restart the window rather than ride out the first one's timer.
   const refusals = useRef(0);
@@ -453,6 +453,14 @@ function RealmOpen({
     returnFocus();
   }, [childId, isChildView, beginCeremonyIfWaiting, returnFocus]);
 
+  // The hero's own escape hatch (§3.15). A parent never presses it — they change the same
+  // column in Settings, under the child's name — and fewerChoices removes the choice rather
+  // than offering it. `setDepth` runs only after the write resolves, so the visit never shows
+  // a view the column does not hold; the card renders "That didn't save. Try again." when the
+  // promise rejects. `surfaces` re-derives from `depth`, and nothing else in the world moves.
+  const canSetDepth = isChildView && !bundle.profile.fewerChoices;
+  const onSetDepth = useCallback((next: RealmDepth) => setRealmDepth(childId, next).then(() => setDepth(next)), [childId]);
+
   // Focus the world once it opens (it never moves focus while the card is showing). Keyed on
   // the first `textures` arrival only: `world` (see above) no longer changes mid-visit, so a
   // later `onReady` is a sprite retry, and re-focusing then would yank focus away from
@@ -699,7 +707,16 @@ function RealmOpen({
           onClose={onPanelClose}
         />
       )}
-      {helpOpen && <RealmHelp touch={settings.showStick} ceremony={ceremonyRunning} readAloud={bundle.profile.readAloud} onClose={onHelpClose} />}
+      {helpOpen && (
+        <RealmHelp
+          touch={settings.showStick}
+          ceremony={ceremonyRunning}
+          readAloud={bundle.profile.readAloud}
+          depth={depth}
+          onSetDepth={canSetDepth ? onSetDepth : null}
+          onClose={onHelpClose}
+        />
+      )}
     </div>,
     portalTarget
   );

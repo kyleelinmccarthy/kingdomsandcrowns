@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { render, screen, cleanup, fireEvent } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent, act } from "@testing-library/react";
 import { RealmHelp, helpGroups } from "./realm-help";
 
 afterEach(cleanup);
@@ -41,12 +41,64 @@ describe("helpGroups", () => {
 describe("RealmHelp", () => {
   it("is a dialog named How to play that closes on Close and on Escape", () => {
     const onClose = vi.fn();
-    render(<RealmHelp touch={false} ceremony={false} readAloud={false} onClose={onClose} />);
+    render(<RealmHelp touch={false} ceremony={false} readAloud={false} depth="full" onSetDepth={null} onClose={onClose} />);
     const dialog = screen.getByRole("dialog", { name: "How to play" });
     expect(dialog).toHaveFocus();
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     expect(onClose).toHaveBeenCalledTimes(1);
     fireEvent.keyDown(dialog, { key: "Escape" });
     expect(onClose).toHaveBeenCalledTimes(2);
+  });
+
+  it("offers everything on the simple view and simplicity on the full one, naming no axis", async () => {
+    const onSetDepth = vi.fn();
+    const { rerender } = render(<RealmHelp touch={false} ceremony={false} readAloud={false} depth="simple" onSetDepth={onSetDepth} onClose={vi.fn()} />);
+    expect(screen.getByRole("button", { name: "Show me everything" })).toBeInTheDocument();
+    expect(screen.getByText("More numbers, more to do. You can change it back.")).toBeInTheDocument();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Show me everything" }));
+    });
+    expect(onSetDepth).toHaveBeenCalledWith("full");
+    rerender(<RealmHelp touch={false} ceremony={false} readAloud={false} depth="full" onSetDepth={onSetDepth} onClose={vi.fn()} />);
+    expect(screen.getByRole("button", { name: "Keep it simple" })).toBeInTheDocument();
+    expect(screen.getByText("Fewer numbers, one thing at a time.")).toBeInTheDocument();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Keep it simple" }));
+    });
+    expect(onSetDepth).toHaveBeenLastCalledWith("simple");
+    // "Depth", "simple mode" and "advanced" are never words a child reads.
+    expect(document.body.textContent).not.toMatch(/depth|simple mode|advanced/i);
+  });
+
+  it("shows no view control when the card is not allowed to offer one", () => {
+    render(<RealmHelp touch={false} ceremony={false} readAloud={false} depth="simple" onSetDepth={null} onClose={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: "Show me everything" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Keep it simple" })).not.toBeInTheDocument();
+    expect(screen.queryByText("More numbers, more to do. You can change it back.")).not.toBeInTheDocument();
+  });
+
+  it("says so when the write does not land, and keeps offering the same swap", async () => {
+    const onSetDepth = vi.fn(() => Promise.reject(new Error("offline")));
+    render(<RealmHelp touch={false} ceremony={false} readAloud={false} depth="simple" onSetDepth={onSetDepth} onClose={vi.fn()} />);
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Show me everything" }));
+    });
+    expect(screen.getByRole("alert")).toHaveTextContent("That didn't save. Try again.");
+    expect(screen.getByRole("button", { name: "Show me everything" })).toBeEnabled();
+  });
+
+  it("keeps Tab inside the card, cycling its own two controls", () => {
+    render(<RealmHelp touch={false} ceremony={false} readAloud={false} depth="simple" onSetDepth={vi.fn()} onClose={vi.fn()} />);
+    const dialog = screen.getByRole("dialog", { name: "How to play" });
+    const close = screen.getByRole("button", { name: "Close" });
+    const control = screen.getByRole("button", { name: "Show me everything" });
+    fireEvent.keyDown(dialog, { key: "Tab" });
+    expect(close).toHaveFocus();
+    fireEvent.keyDown(close, { key: "Tab" });
+    expect(control).toHaveFocus();
+    fireEvent.keyDown(control, { key: "Tab" });
+    expect(close).toHaveFocus();
+    fireEvent.keyDown(close, { key: "Tab", shiftKey: true });
+    expect(control).toHaveFocus();
   });
 });
