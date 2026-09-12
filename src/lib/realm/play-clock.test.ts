@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { startClock, tickClock, applyAccess, gateCopy, minutesToSettle, ROUND_UP_SECONDS, type PlayClock } from "./play-clock";
+import { startClock, tickClock, applyAccess, gateCopy, minutesToSettle, ROUND_UP_SECONDS, type ClockEvent, type PlayClock } from "./play-clock";
 
 function tickFor(clock: ReturnType<typeof startClock>, seconds: number, visible = true) {
   const events: string[] = [];
@@ -76,6 +76,42 @@ describe("tickClock", () => {
     const r2b = tickClock(r2a.clock, 1, true);
     expect(r2b.event).toBe("warn");
     expect(r2b.clock.warned).toBe(true);
+  });
+  it("warns again at the REAL last minute after a mid-visit top-up", () => {
+    // A child at one minute is warned, a grown-up grants five more (or a quest finished on
+    // another device pays out), and the child plays on. The banner they saw belonged to a
+    // last minute that stopped being the last minute; the real one must still announce
+    // itself rather than the Realm closing on them in silence.
+    const warnedAtOne = tickClock({ minutesRemaining: 1, secondsThisMinute: 0, warned: false, closed: false }, 1, true);
+    expect(warnedAtOne.event).toBe("warn");
+    expect(warnedAtOne.clock.warned).toBe(true);
+    const toppedUp = applyAccess(warnedAtOne.clock, { allowed: true, minutesRemaining: 6, source: "earned" });
+    expect(toppedUp.event).toBeNull();
+    expect(toppedUp.clock.warned).toBe(false); // the latch is released with the last minute
+    // Spend five of the six minutes: five records, no warn yet.
+    let clock = toppedUp.clock;
+    const events: ClockEvent[] = [];
+    for (let i = 0; i < 5; i++) {
+      const r = tickClock(clock, 60, true);
+      clock = r.clock;
+      events.push(r.event);
+    }
+    expect(clock.minutesRemaining).toBe(1);
+    expect(events.filter((e) => e === "warn")).toHaveLength(0);
+    const last = tickClock(clock, 1, true);
+    expect(last.event).toBe("warn");
+    expect(last.clock.warned).toBe(true);
+  });
+  it("releases the latch on a fresh access check that raises the minutes", () => {
+    const warned = { minutesRemaining: 1, secondsThisMinute: 0, warned: true, closed: false };
+    const raised = applyAccess(warned, { allowed: true, minutesRemaining: 10, source: "earned" });
+    expect(raised.clock.warned).toBe(false);
+    expect(raised.event).toBeNull();
+    // Back down to the last minute: the banner fires again, and only once.
+    const down = applyAccess(raised.clock, { allowed: true, minutesRemaining: 1, source: "earned" });
+    expect(down.event).toBe("warn");
+    const again = applyAccess(down.clock, { allowed: true, minutesRemaining: 1, source: "earned" });
+    expect(again.event).toBeNull();
   });
 });
 

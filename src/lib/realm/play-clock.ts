@@ -62,7 +62,11 @@ export function tickClock(clock: PlayClock, elapsedSeconds: number, visible: boo
   }
   // Decrement minutes based on records and clamp to 0.
   const minutesRemaining = Math.max(0, clock.minutesRemaining - records);
-  let warned = clock.warned;
+  // The latch is held only while the last minute lasts. Minutes CAN rise mid-visit — a
+  // parent grants them, or a quest finished on another device pays out — and a latch that
+  // never clears would spend the child's one warning on a last minute that stopped being
+  // the last minute, then close the Realm on them in silence at the real one.
+  let warned = clock.warned && minutesRemaining <= 1;
   // Warn only when actually emitting the "warn" event, not when recording.
   // Use the decremented minutesRemaining for the warn check.
   if (!warned && minutesRemaining <= 1 && !event) {
@@ -78,8 +82,12 @@ export function applyAccess(clock: PlayClock, result: AccessResult): { clock: Pl
     return { clock: { ...clock, minutesRemaining: 0, closed: true }, event: "close" };
   }
   const minutesRemaining = Math.floor(result.minutesRemaining);
-  const shouldWarn = minutesRemaining <= 1 && !clock.warned;
-  return { clock: { ...clock, minutesRemaining, warned: clock.warned || shouldWarn }, event: shouldWarn ? "warn" : null };
+  // Same rule as `tickClock`: a top-up above the last minute releases the latch, so the
+  // real last minute still gets its banner. `use-play-clock.ts` keeps a second copy of
+  // this rule at a different lifetime; with the latch released here it is redundant.
+  const warned = clock.warned && minutesRemaining <= 1;
+  const shouldWarn = minutesRemaining <= 1 && !warned;
+  return { clock: { ...clock, minutesRemaining, warned: warned || shouldWarn }, event: shouldWarn ? "warn" : null };
 }
 
 export type GateCopy = { title: string; body: string };
