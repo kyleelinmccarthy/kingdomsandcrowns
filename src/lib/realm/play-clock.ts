@@ -83,8 +83,11 @@ export function applyAccess(clock: PlayClock, result: AccessResult): { clock: Pl
   }
   const minutesRemaining = Math.floor(result.minutesRemaining);
   // Same rule as `tickClock`: a top-up above the last minute releases the latch, so the
-  // real last minute still gets its banner. `use-play-clock.ts` keeps a second copy of
-  // this rule at a different lifetime; with the latch released here it is redundant.
+  // real last minute still gets its banner. `use-play-clock.ts` tests the same condition,
+  // but it is NOT a duplicate of this one and must not be deleted: releasing the latch
+  // here only lets a second `warn` event fire, while the hook's line clears the `warning`
+  // React state that draws the banner. Nothing else sets that state false, and the
+  // quest-timer message is gated on `!clock.warning`, so dropping it would strand both.
   const warned = clock.warned && minutesRemaining <= 1;
   const shouldWarn = minutesRemaining <= 1 && !warned;
   return { clock: { ...clock, minutesRemaining, warned: warned || shouldWarn }, event: shouldWarn ? "warn" : null };

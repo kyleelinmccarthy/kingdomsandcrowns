@@ -589,19 +589,20 @@ describe("RealmShell", () => {
     expect(screen.getByTestId("realm-speech")).toHaveTextContent("A gleam! 1 so far.");
   });
 
-  it("keeps the running lap and the best lap off the HUD, and counts finished laps in the pill", async () => {
+  it("keeps lap times and the best lap off the HUD, and counts finished laps in the pill", async () => {
     getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 20, source: "recess" });
     render(<RealmShell bundle={bundle} childId="c1" isChildView={true} />);
     expect(await screen.findByTestId("scene")).toBeInTheDocument();
-    await act(async () => {
-      (sceneProps.onRecessEvent as (e: unknown) => void)({ kind: "lapTick", lapMs: 12_000 });
-    });
-    // D6.4: a best lap that resets on navigation is a lie, and the running clock is slice 12's.
-    expect(screen.queryByText(/12\.0 s/)).not.toBeInTheDocument();
     expect(screen.getByText("Recess · 0 gleams · 0 laps")).toBeInTheDocument();
     await act(async () => {
       (sceneProps.onRecessEvent as (e: unknown) => void)({ kind: "lap", laps: 1, lapMs: 30_000, best: true });
     });
+    // D6.4: a best lap that resets on navigation is a lie, and the running clock is slice 12's.
+    // The pill is matched as a whole string, so it carries neither a time nor a best — and it
+    // is driven by the one event the scene still emits. (The earlier `lapTick` injection named
+    // an event kind nothing sends any more, so it only proved that an unknown event renders
+    // nothing.) The lap's own cheer does say "Lap done: 30.0 s!" in the speech lane by design,
+    // which is why this asserts on the pill rather than on the document.
     expect(screen.getByText("Recess · 0 gleams · 1 lap")).toBeInTheDocument();
     expect(screen.queryByText(/Best/)).not.toBeInTheDocument();
   });
