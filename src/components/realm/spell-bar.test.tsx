@@ -94,9 +94,13 @@ describe("SpellBar", () => {
     const onSelect = vi.fn();
     const withEmpties = withEmptyPages(resolvePages([page(2, "tide", "orb")], 3), 3);
     render(<SpellBar pages={withEmpties} selectedSlot={null} mana={100} fewerChoices={false} onSelect={onSelect} raised={false} hudScale={1} />);
-    const empty = screen.getByRole("button", { name: "Empty page 1" });
+    const empty = screen.getByRole("button", { name: /^Empty page 1\./ });
     expect(empty.className).toContain("realm-spell--empty");
-    expect(empty).toHaveAttribute("aria-disabled", "true");
+    // NOT aria-disabled (B10): this chip is the only opener of the hint that explains where
+    // spells come from, and its name has to say so, or a screen-reader child is told the one
+    // route to that explanation is unavailable.
+    expect(empty).not.toHaveAttribute("aria-disabled");
+    expect(empty).toHaveAccessibleName("Empty page 1. Make a spell in your Spellbook.");
     expect(empty).toHaveAttribute("title", "Make a spell in your Spellbook");
     fireEvent.keyDown(window, { key: "1" });
     expect(onSelect).not.toHaveBeenCalled();
@@ -115,7 +119,7 @@ describe("SpellBar", () => {
   it("returns focus to the empty page button that opened the hint, on both Close and Escape", () => {
     const withEmpties = withEmptyPages(resolvePages([page(2, "tide", "orb")], 3), 3);
     render(<SpellBar pages={withEmpties} selectedSlot={null} mana={100} fewerChoices={false} onSelect={() => {}} raised={false} hudScale={1} />);
-    const empty = screen.getByRole("button", { name: "Empty page 1" });
+    const empty = screen.getByRole("button", { name: /^Empty page 1\./ });
     fireEvent.click(empty);
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     expect(empty).toHaveFocus();

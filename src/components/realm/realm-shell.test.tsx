@@ -419,6 +419,29 @@ describe("RealmShell", () => {
     expect(sceneProps.layout).toBe(layout);
   });
 
+  it("keeps EVERY non-primitive scene prop referentially stable across a mana tick", async () => {
+    // `World` is memoised, so one prop that changes identity on every render undoes the memo
+    // for all twenty-six and the whole scene re-renders on a resource that ticks continuously.
+    // Naming four of them leaves the other twenty-two uncovered — a broken onCeremonyEvent or
+    // onRecessEvent would pass — so this snapshots the lot and re-checks each by identity.
+    // A prop added by a later slice is covered the day it is added, without editing this test.
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    render(<RealmShell bundle={{ ...bundle, spellbook: { spells: pages, slots: 4 } }} childId="c1" isChildView={true} />);
+    await screen.findByTestId("scene");
+    const before = { ...sceneProps };
+    const watched = Object.entries(before).filter(([, v]) => v !== null && (typeof v === "object" || typeof v === "function"));
+    // A floor, not the exact count: if the scene ever stops receiving objects and handlers
+    // the loop below would pass vacuously, and that must fail instead.
+    expect(watched.length).toBeGreaterThanOrEqual(14);
+    await act(async () => {
+      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "mana", current: 90 });
+    });
+    expect(screen.getByRole("img", { name: "Mana 90 of 100." })).toBeInTheDocument(); // the tick really landed
+    for (const [name, value] of watched) {
+      expect(sceneProps[name], `scene prop \`${name}\` changed identity on a mana tick, breaking the World memo`).toBe(value);
+    }
+  });
+
   it("hands the scene the visit's surfaces, and keeps them referentially stable across mana re-renders", async () => {
     getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
     render(<RealmShell bundle={{ ...bundle, depth: "full" as const }} childId="c1" isChildView={true} />);
@@ -900,7 +923,7 @@ describe("RealmShell spell bar", () => {
     render(<RealmShell bundle={bundle} childId="c1" isChildView={true} />);
     await screen.findByTestId("scene");
     expect(screen.getByRole("toolbar", { name: "Spellbook" })).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: /^Empty page \d$/ })).toHaveLength(4);
+    expect(screen.getAllByRole("button", { name: /^Empty page \d\./ })).toHaveLength(4);
     cleanup();
     getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 0, source: "earned" });
     render(<RealmShell bundle={bundle} childId="c1" isChildView={false} />);

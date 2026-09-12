@@ -93,8 +93,12 @@ export function SpellBar({
                 key={page.slot}
                 type="button"
                 className="realm-spell realm-spell--empty"
-                aria-disabled="true"
-                aria-label={`Empty page ${i + 1}`}
+                // Not aria-disabled. An empty page is the ONLY opener of the hint that says
+                // where spells come from, so telling a screen-reader child it is unavailable
+                // stops them reaching the one explanation they need. It is faded and it is
+                // skipped by the number keys because it is not a spell — but it is pressable,
+                // and its name says what pressing it is for.
+                aria-label={`Empty page ${i + 1}. ${EMPTY_TITLE}.`}
                 title={EMPTY_TITLE}
                 onClick={(e) => {
                   hintOpener.current = e.currentTarget;
