@@ -1,15 +1,15 @@
 "use client";
 
 import "@react-three/fiber";
-import { memo, useEffect, useRef, type RefObject } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
+import { memo, useCallback, useEffect, useRef, type RefObject } from "react";
+import { Canvas, useFrame, type ThreeEvent } from "@react-three/fiber";
 import { Html, OrthographicCamera } from "@react-three/drei";
 import type * as THREE from "three";
 import { WORLD_SIZE, spriteSizeFor, type Prop, type WorldLayout, type Vec2 } from "@/lib/realm/layout";
 import { setTarget, stepCompanion, stepHero, unstickHero, setMounted, HERO_SPEED, COMPANION_GAP_MOUNTED, type CompanionState, type HeroState } from "@/lib/realm/movement";
 import { CAMERA_OFFSET, CAMERA_ZOOM, followCamera } from "@/lib/realm/camera";
 import { facingAngle, GROUND_Y, shadowFootprint, RING_INNER, RING_OUTER, RING_NOTCH_ARC, RING_GOLD, RING_CALM, SHADOW_OPACITY, SHADOW_OPACITY_CALM } from "@/lib/realm/markers";
-import { nearestVillager, villagerById } from "@/lib/realm/villagers";
+import { nearestVillager, villagerById, villagerForBuilding } from "@/lib/realm/villagers";
 import type { RenderSettings } from "@/lib/realm/render-settings";
 import type { SpellDefinition } from "@/lib/utils/spell-catalog";
 import type { CastRequest } from "./use-realm-input";
@@ -55,6 +55,11 @@ export type RealmSceneProps = {
 const SPRITE_W = 1.5;
 const SPRITE_H = 2;
 export const RISE_MS = 900;
+/**
+ * How long a tap on a distant villager stays queued. A talk that fires four
+ * seconds after the child's mind moved on is worse than no talk at all.
+ */
+const PENDING_TALK_MS = 8000;
 const CALM_FOUNDATION = "#5a5750";
 const CALM_TINT = "#a9aaa4";
 // §3.4's footprint table, every entry put through the one shared transform so
@@ -102,7 +107,7 @@ function PropLabel({ prop, y }: { prop: Prop; y: number }) {
   );
 }
 
-const World = memo(function World({ layout, textures, settings, axisRef, interactive, reachId, onReachChange, onTalk, risingId, selectedSpell, selectedSlot, castRef, spellsEnabled, onSpellEvent, seed, riding, mountSpeed, recessActive, onRecessEvent, ceremonyActive, ceremonySkipRef, onCeremonyEvent }: RealmSceneProps) {
+const World = memo(function World({ layout, textures, settings, axisRef, interactive, reachId, onReachChange, onTalk, onVillagerPick, risingId, selectedSpell, selectedSlot, castRef, spellsEnabled, onSpellEvent, seed, riding, mountSpeed, recessActive, onRecessEvent, ceremonyActive, ceremonySkipRef, onCeremonyEvent }: RealmSceneProps) {
   // Per-frame state lives in refs: nothing here re-renders React sixty times a second.
   const hero = useRef<HeroState>({ position: layout.spawn, facing: "s", target: null, mounted: false });
   const companion = useRef<CompanionState>({ position: { x: layout.spawn.x, z: layout.spawn.z + 1.2 } });
@@ -122,6 +127,7 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
   const frozenRef = useRef(false); // dazzled or mid-cast; read by onPointerDown too
   const ceremonyRef = useRef<CeremonyState | null>(null);
   const villagerSprites = useRef(new Map<string, THREE.Sprite>());
+  const pendingTalk = useRef<{ id: string; until: number } | null>(null);
   const heroShadow = useRef<THREE.Group>(null);
   const mountShadow = useRef<THREE.Group>(null);
   const companionShadow = useRef<THREE.Group>(null);
@@ -150,6 +156,9 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
     // panel opened this frame must not fire later, once the world is interactive again.
     const request = castRef.current;
     castRef.current = null;
+    // A pending talk belongs to the walking hero alone: the deed panel opening,
+    // the help card opening and the crown ceremony starting each cancel it.
+    if (pendingTalk.current && (!interactive || ceremonyActive)) pendingTalk.current = null;
     if (ceremonyActive && !ceremonyRef.current) {
       const started = startCeremony(layout, hero.current.position, !settings.motion, hero.current.facing);
       ceremonyRef.current = started;
@@ -262,6 +271,18 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
       reachRef.current = near;
       queueMicrotask(() => onReachChange(near));
     }
+    // A tap on a distant villager becomes a talk on arrival — fired through
+    // queueMicrotask, never as a synchronous setState from useFrame.
+    const pending = pendingTalk.current;
+    if (pending) {
+      if (near === pending.id) {
+        pendingTalk.current = null;
+        queueMicrotask(() => onVillagerPick(pending.id));
+      } else if (performance.now() >= pending.until || hero.current.target === null) {
+        // The deadline passed, or `stepHero` dropped a target it could not reach.
+        pendingTalk.current = null;
+      }
+    }
     const r = rising.current;
     if (r) {
       const obj = buildingObjects.current.get(r.id);
@@ -286,6 +307,47 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
   const colorFor = (prop: Prop) => (prop.kind === "foundation" && settings.calmPalette ? CALM_FOUNDATION : prop.color);
   const reachVillager = reachId ? villagerById(reachId) : null;
   const reachPlacement = reachId ? layout.villagers.find((v) => v.id === reachId) ?? null : null;
+  // One pick, wherever the child aimed it: a villager's sprite, a villager's
+  // nameplate, a site's building or its bare foundation. In reach it talks;
+  // otherwise it walks the hero over and the frame loop talks on arrival.
+  const pickVillager = useCallback((id: string, point: Vec2) => {
+    if (!interactive) return;
+    if (selectedSpell) {
+      // A page is selected: the tap casts where it landed, exactly as the ground
+      // does. stopPropagation means the ground mesh never sees this one.
+      castRef.current = { target: point };
+      return;
+    }
+    if (reachRef.current === id) {
+      onVillagerPick(id);
+      return;
+    }
+    const v = layout.villagers.find((s) => s.id === id);
+    if (!v) return;
+    pendingTalk.current = { id, until: performance.now() + PENDING_TALK_MS };
+    // The approach point is one unit toward spawn. `setTarget` refuses a point
+    // inside a collider and hands back the state unchanged; a villager's own
+    // square is never a collider, so that is the retry that always works.
+    const before = hero.current;
+    const walked = setTarget(before, { x: v.position.x, z: v.position.z + 1 }, layout.colliders);
+    hero.current = walked === before ? setTarget(before, v.position, layout.colliders) : walked;
+  }, [interactive, selectedSpell, onVillagerPick, layout, castRef]);
+  // stopPropagation first, so the tap never falls through to the ground mesh and
+  // walks the hero vaguely nearby instead of to the person they pointed at.
+  const pickHandler = (id: string) => (e: ThreeEvent<PointerEvent>) => {
+    e.stopPropagation();
+    if (e.button !== 0 && e.button !== 2) return; // left and right pick or cast; the wheel does nothing
+    pickVillager(id, { x: e.point.x, z: e.point.z });
+  };
+  // Tapping the well's foundation walks you to Old Bram. With no villager on a
+  // site (the kingdom failed to load) no handler is attached at all, so the tap
+  // still reaches the ground and the hero still walks.
+  const sitePick = (prop: Prop): { onPointerDown?: (e: ThreeEvent<PointerEvent>) => void } => {
+    if (prop.kind !== "building" && prop.kind !== "foundation") return {};
+    const v = villagerForBuilding(prop.id);
+    if (!v || !layout.villagers.some((s) => s.id === v.id)) return {};
+    return { onPointerDown: pickHandler(v.id) };
+  };
   const tint = settings.calmPalette ? CALM_TINT : "#ffffff";
   const ringColor = settings.calmPalette ? RING_CALM : RING_GOLD; // lowStimulus mutes the mark, never removes it
   const worldTex = (key: string): THREE.CanvasTexture | undefined => textures.world[key];
@@ -330,7 +392,7 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
       {layout.props.filter((p) => p.kind === "foundation").map((prop) => {
         const foundationTex = worldTex("foundation");
         return (
-          <group key={prop.id} position={[prop.position.x, 0, prop.position.z]}>
+          <group key={prop.id} position={[prop.position.x, 0, prop.position.z]} {...sitePick(prop)}>
             <mesh position={[0, GROUND_Y.foundation, 0]} rotation={[-Math.PI / 2, 0, 0]}>
               <planeGeometry args={[prop.size.w, prop.size.d]} />
               {foundationTex ? (
@@ -360,7 +422,7 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
         };
         if (texture) {
           return (
-            <group key={prop.id} position={[prop.position.x, 0, prop.position.z]}>
+            <group key={prop.id} position={[prop.position.x, 0, prop.position.z]} {...sitePick(prop)}>
               <ContactShadow w={shadow.w} d={shadow.d} y={GROUND_Y.propShadow} calm={settings.calmPalette} />
               <sprite ref={register} position={[0, h / 2, 0]} scale={[w, h, 1]}>
                 <spriteMaterial map={texture} color={tint} transparent alphaTest={0.1} />
@@ -372,7 +434,7 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
         if (prop.kind === "decor") return null; // a decor figure that failed to rasterise never falls back to a box
         // No texture for this prop (a barrier, or a figure that failed to draw): the slice 4 box.
         return (
-          <group key={prop.id} position={[prop.position.x, 0, prop.position.z]}>
+          <group key={prop.id} position={[prop.position.x, 0, prop.position.z]} {...sitePick(prop)}>
             <ContactShadow w={shadow.w} d={shadow.d} y={GROUND_Y.propShadow} calm={settings.calmPalette} />
             <mesh ref={register} position={[0, prop.size.h / 2, 0]}>
               <boxGeometry args={[prop.size.w, prop.size.h, prop.size.d]} />
@@ -394,6 +456,7 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
             }}
             position={[v.position.x, SPRITE_H / 2, v.position.z]}
             scale={[SPRITE_W, SPRITE_H, 1]}
+            onPointerDown={pickHandler(v.id)}
           >
             <spriteMaterial map={texture} transparent alphaTest={0.1} />
           </sprite>
