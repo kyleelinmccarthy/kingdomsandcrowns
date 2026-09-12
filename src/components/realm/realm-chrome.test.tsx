@@ -101,6 +101,22 @@ const STOPPED_TIMER_KEY = "kingdomsandcrowns:quest-timer:stopped";
 // and the behavioural half against the attribute the rule's fallback reads.
 const GLOBALS_CSS = fs.readFileSync(path.join(__dirname, "../../app/globals.css"), "utf8").replace(/\s+/g, " ");
 
+/** The one rule whose selector list starts with `head`, split into its selectors and its declarations. */
+function ruleAt(head: string): { selectors: string[]; declarations: string[] } {
+  const at = GLOBALS_CSS.indexOf(head);
+  expect(at, `no rule in globals.css starting \`${head}\``).toBeGreaterThan(-1);
+  const open = GLOBALS_CSS.indexOf("{", at);
+  const close = GLOBALS_CSS.indexOf("}", open);
+  return {
+    selectors: GLOBALS_CSS.slice(at, open).split(",").map((sel) => sel.trim()).filter(Boolean),
+    declarations: GLOBALS_CSS.slice(open + 1, close).split(";").map((d) => d.trim()).filter(Boolean),
+  };
+}
+/** The declarations of a rule matched on its exact whole selector. */
+function declarationsOf(selector: string): string[] {
+  return ruleAt(`${selector} {`).declarations;
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   findBoundaryCrossings.mockReturnValue([]);
@@ -139,20 +155,30 @@ describe("the portal and the app chrome", () => {
   });
 
   it("raises the portal and hides the four floating chrome nodes, both ways", () => {
-    // The whole rule, not a prefix: `--realm-touch` is declared here and nowhere else,
-    // so a replacement that dropped it would leave every 56px control over the world
-    // with no minimum size, and a prefix match would not notice.
-    expect(GLOBALS_CSS).toContain(
-      ".realm-root { position: fixed; inset: 0; z-index: 60; background: #0a1220; --realm-hud-scale: 1; --realm-bar-bottom: 1.25rem; --realm-touch: 56px; }"
-    );
+    // Declaration by declaration, not one full-rule string match: jsdom cannot evaluate
+    // `:has()`, so this has to read the source — but nothing here should care what ORDER
+    // the declarations are written in, or whether the selector list happens to end in a
+    // comma. Each claim is asserted on its own, so a reformat with no behaviour change
+    // leaves the test alone and a dropped declaration still fails it.
+    const root = declarationsOf(".realm-root");
+    // `--realm-touch` is declared here and nowhere else: drop it and every 56px control
+    // over the world silently loses its minimum size.
+    expect(root).toContain("--realm-touch: 56px");
+    expect(root).toContain("--realm-hud-scale: 1");
+    expect(root).toContain("--realm-bar-bottom: 1.25rem");
+    // The portal out-ranks the app's chrome; nothing else in the Realm re-ranks itself.
+    expect(root).toContain("z-index: 60");
+    expect(root).toContain("position: fixed");
+
     // Four names, not the brief's original three: the parent-alert toast has no
     // auto-dismiss (parent-alerts.tsx), so left unhidden at z-60 it would sit under the
     // portal, unseen, but still in the DOM and the tab order, accumulating.
+    const hide = ruleAt("body:has(.realm-root) .floating-dock");
     for (const target of [".floating-dock", ".quest-timer-popup", ".schedule-notification-popup", ".parent-alert-popup"]) {
-      expect(GLOBALS_CSS).toContain(`body:has(.realm-root) ${target},`);
-      expect(GLOBALS_CSS).toContain(`body[data-realm-open] ${target}`);
+      expect(hide.selectors).toContain(`body:has(.realm-root) ${target}`);
+      expect(hide.selectors).toContain(`body[data-realm-open] ${target}`);
     }
-    expect(GLOBALS_CSS).toContain("body[data-realm-open] .parent-alert-popup { display: none; }");
+    expect(hide.declarations).toContain("display: none");
   });
 
   it("renders the quest-timer popup with its own class name", () => {

@@ -1732,13 +1732,13 @@ body[data-realm-open] .parent-alert-popup { display: none; }
 /* Three anchored zones. The HUD and all three zones are pass-through; a text-shadow floor
    keeps every bare-text element legible over grass, which the hero's name never had. */
 .realm-hud { position: absolute; top: 0.75rem; left: 0.75rem; right: 0.75rem; z-index: 20; display: flex; align-items: flex-start; gap: 0.75rem; pointer-events: none; color: #fff; font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8); }
-.realm-hud button, .realm-hud a, .realm-hud-selector *, .realm-messages button { pointer-events: auto; }
+.realm-hud button, .realm-hud a, .realm-hud-selector, .realm-hud-selector *, .realm-messages button { pointer-events: auto; }
 .realm-hud-identity { flex: 1 1 0; min-width: 0; display: flex; font-size: calc(14px * var(--realm-hud-scale)); }
 .realm-hud-objective { flex: 0 1 auto; display: flex; flex-direction: column; align-items: center; gap: 0.2rem; width: min(16rem, 44vw); text-align: center; font-size: calc(14px * var(--realm-hud-scale)); }
 .realm-hud-meta { flex: 1 1 0; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 0.5rem; font-size: calc(14px * var(--realm-hud-scale)); }
 .realm-hud-plate { border-radius: 0.5rem; border: 1px solid var(--gold-border); background: rgba(0, 0, 0, 0.55); padding: 0.3rem 0.6rem; }
-.realm-hud-identity .realm-hud-plate { display: flex; flex-direction: column; gap: 0.15rem; }
-.realm-hud-name { font-weight: 700; }
+.realm-hud-identity .realm-hud-plate { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+.realm-hud-name { font-weight: 700; overflow-wrap: anywhere; }
 .realm-hud-count { font-size: 0.85em; color: var(--gold-bright); }
 .realm-objective-title { display: flex; align-items: center; justify-content: center; gap: 0.35rem; margin: 0; font-weight: 700; }
 .realm-objective-line { margin: 0; font-size: 0.9em; }
@@ -1750,7 +1750,7 @@ body[data-realm-open] .parent-alert-popup { display: none; }
    reads like a rule. */
 .realm-pips { display: inline-flex; align-items: center; gap: 0.18rem; }
 .realm-hud-minutes, .realm-hud-badge { border-radius: 9999px; padding: 0.15rem 0.6rem; background: rgba(201, 168, 76, 0.2); color: var(--gold-bright); font-size: 0.85em; }
-.realm-hud-leave { display: inline-flex; align-items: center; min-height: 44px; color: var(--gold-bright); text-decoration: none; font-size: 0.85em; }
+.realm-hud-leave { display: inline-flex; align-items: center; min-height: var(--realm-touch); color: var(--gold-bright); text-decoration: none; font-size: 0.85em; }
 .realm-hud-selector { display: inline-flex; align-items: center; gap: 0.5rem; }
 /* Two centred message lanes: persistent problems in a band under the HUD zones,
    the things the game says in a lane above the ability bar. One message each. */
@@ -1758,12 +1758,30 @@ body[data-realm-open] .parent-alert-popup { display: none; }
 .realm-message { position: absolute; left: 50%; margin: 0; transform: translateX(-50%); display: inline-flex; align-items: center; justify-content: center; gap: 0.6rem; max-width: min(30rem, calc(100vw - 2rem)); border-radius: 0.5rem; padding: 0.4rem 0.75rem; text-align: center; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8); }
 .realm-message:empty { display: none; }
 .realm-message button { min-width: var(--realm-touch); min-height: var(--realm-touch); padding: 0 1rem; border-radius: 9999px; border: 1px solid var(--gold-border); background: rgba(201, 168, 76, 0.25); color: var(--gold-bright); font: inherit; font-weight: 700; cursor: pointer; }
-.realm-message--problem { top: calc(3.5rem * var(--realm-hud-scale)); background: rgba(0, 0, 0, 0.75); border: 1px solid var(--gold-border); font-size: 0.95em; }
-.realm-message--cheer, .realm-message--plain { bottom: calc(var(--realm-bar-bottom) + 4.5rem); font-size: 0.95em; }
+.realm-message--problem { top: calc(2.5rem + 8rem * var(--realm-hud-scale)); background: rgba(0, 0, 0, 0.75); border: 1px solid var(--gold-border); font-size: 0.95em; }
+.realm-message--cheer, .realm-message--plain { bottom: calc(var(--realm-bar-bottom) + 3.6rem + 2rem * var(--realm-hud-scale)); font-size: 0.95em; }
 .realm-message--cheer { background: rgba(201, 168, 76, 0.25); border: 1px solid var(--gold-border); color: var(--gold-bright); font-weight: 700; animation: realm-toast-in 300ms ease-out; }
 .realm-message--plain { background: rgba(0, 0, 0, 0.45); }
 @media (prefers-reduced-motion: reduce) { .realm-message--cheer { animation: none; } }
 .realm-message--stage { top: 50%; transform: translate(-50%, -50%); font-size: calc(1.6rem * var(--realm-hud-scale)); font-weight: 700; color: var(--gold-bright); text-shadow: 0 2px 6px rgba(0, 0, 0, 0.9); }
+/* B3 — phone width. Three zones of `flex: 1 1 0` leave identity and meta 75px each once
+   the objective has taken min(16rem, 44vw): a 75px column of badges running 45% down a
+   390px screen. The meta zone is the one that cannot live in a column — six badges and a
+   56px link — so it takes the whole second row and the other two keep their own sizes
+   side by side on the first, where the identity plate costs nothing (the objective card
+   is the taller of the two). Measured at 390x844: the row ends at y=231 at scale 1 and
+   y=294 at 1.25, against y=295 and y=368 when all three stack. */
+@media (max-width: 640px) {
+  .realm-hud { flex-wrap: wrap; }
+  .realm-hud-meta { flex: 1 0 100%; }
+  /* 44vw is 172px at 390: every objective line wraps, and the card grows taller than the
+     row it saved. 60vw is 234px, which holds "Librarian Hesper is waiting." on one line
+     and takes ~72px off the bottom of the HUD at scale 1.25. */
+  .realm-hud-objective { width: min(16rem, 60vw); }
+  /* Same two-term derivation as `.realm-message--problem` above, against the taller
+     wrapped row: 264px at scale 1 and 320px at 1.25, each ~30px clear of the HUD. */
+  .realm-message--problem { top: calc(2.5rem + 15rem * var(--realm-hud-scale)); }
+}
 /* Position and pointer-events only. The scene (task 16) writes `hidden`, `transform`,
    `color`, `opacity` and `data-motion` on this element, and task 16's own rule draws the
    arrowhead as a `::before` triangle and gives it its 1 Hz pulse. Do NOT put a border
@@ -1789,7 +1807,7 @@ body[data-realm-open] .parent-alert-popup { display: none; }
    `.realm-root` — a unit test, or any harness that mounts it on its own. */
 .realm-label { white-space: nowrap; border-radius: 9999px; padding: 0.1rem 0.5rem; background: rgba(0, 0, 0, 0.55); color: #fff; font-size: calc(11px * var(--realm-hud-scale, 1)); pointer-events: none; }
 .realm-label-tag { display: block; font-size: calc(10px * var(--realm-hud-scale, 1)); color: var(--gold-bright); }
-.realm-plate { display: flex; flex-direction: column; align-items: center; gap: 0.1rem; min-height: 44px; white-space: nowrap; border-radius: 0.5rem; border: 1px solid var(--gold-border); padding: 0.25rem 0.5rem; background: rgba(0, 0, 0, 0.55); color: #fff; font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif; text-align: center; pointer-events: auto; cursor: pointer; }
+.realm-plate { display: flex; flex-direction: column; align-items: center; gap: 0.1rem; min-height: var(--realm-touch); white-space: nowrap; border-radius: 0.5rem; border: 1px solid var(--gold-border); padding: 0.25rem 0.5rem; background: rgba(0, 0, 0, 0.55); color: #fff; font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif; text-align: center; pointer-events: auto; cursor: pointer; }
 .realm-plate-name { display: flex; align-items: center; gap: 0.3rem; font-weight: 700; font-size: calc(13px * var(--realm-hud-scale, 1)); text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9); }
 .realm-plate-tag { font-size: calc(11px * var(--realm-hud-scale, 1)); color: var(--gold-bright); text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9); }
 .realm-plate-badge { display: inline-flex; align-items: center; justify-content: center; width: calc(14px * var(--realm-hud-scale, 1)); height: calc(14px * var(--realm-hud-scale, 1)); border-radius: 9999px; font-size: calc(11px * var(--realm-hud-scale, 1)); font-weight: 700; line-height: 1; }
@@ -1877,7 +1895,7 @@ body[data-realm-open] .parent-alert-popup { display: none; }
    them under motion. The red is the cue; the shake is the decoration — which is what
    makes reduced motion a substitution rather than a silence. The keyframes carry the
    centring translate, or the shake would throw the strip half a screen to the right. */
-.realm-mana-pips--refused .realm-pip, .realm-mana-pips--refused .realm-mana-fill { background: #ef4444; transition: none; }
+.realm-mana-pips--refused .realm-pip--on, .realm-mana-pips--refused .realm-mana-fill { background: #ef4444; transition: none; }
 .realm-mana-pips--refused { animation: realm-mana-refused 200ms ease-in-out 3; }
 @keyframes realm-mana-refused {
   0%, 100% { transform: translateX(-50%); }
