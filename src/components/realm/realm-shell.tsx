@@ -19,6 +19,7 @@ import { disposeSpriteTextures } from "@/lib/realm/sprite-texture";
 import { resolvePages, withEmptyPages } from "@/lib/realm/spells/pages";
 import { TROUBLE_COPY, type TroubleSkin } from "@/lib/realm/spells/troubles";
 import { MANA_MAX } from "@/lib/realm/spells/mana";
+import { minimapView } from "@/lib/realm/minimap";
 import { formatLap } from "@/lib/realm/recess/recess";
 import { hudRecessFor, recessPillText } from "@/lib/realm/recess/hud";
 import { objectiveSpeech, objectiveState, riseToast } from "@/lib/realm/objective";
@@ -32,7 +33,8 @@ import { crownById, CROWNS } from "@/lib/utils/crown-catalog";
 import { speak } from "@/lib/utils/speech";
 import { SIDE_QUESTS_LOWER } from "@/lib/utils/side-quest-copy";
 import { SpriteSource, type SpriteTextures } from "./sprite-source";
-import { RealmHud, RealmManaPips, RealmMountButton } from "./realm-hud";
+import { RealmHud, RealmMountButton } from "./realm-hud";
+import { RealmMinimap } from "./realm-minimap";
 import { surfacesFor, type RealmDepth } from "@/lib/realm/depth";
 import { RealmMessages } from "./realm-messages";
 import { RealmHelp } from "./realm-help";
@@ -219,6 +221,10 @@ function RealmOpen({
   const rootRef = useRef<HTMLDivElement>(null);
   // Held here, rendered by RealmMessages, written per frame by the scene (task 16).
   const arrowRef = useRef<HTMLDivElement>(null);
+  // The same contract for the minimap's hero dot: held here, rendered inside RealmMinimap in
+  // the HUD's upper-right corner, and written per frame by the scene. A ref rather than state
+  // because the hero's position and facing move sixty times a second and the HUD must not.
+  const minimapRef = useRef<SVGGElement>(null);
   const router = useRouter();
   // Only the stopped half (`stoppedResult`/`clearStoppedResult`) is read here — but the
   // hook doesn't split by field: while a chore timer is running, its own 1 Hz interval
@@ -277,6 +283,17 @@ function RealmOpen({
   const layout = useMemo(
     () => buildWorldLayout({ castleType: bundle.castleType, buildings: kingdom.buildings, villagers: !kingdomError, banners: bundle.banners, decor: !settings.calmPalette, objectiveIds }),
     [bundle.castleType, kingdom.buildings, kingdomError, bundle.banners, settings.calmPalette, objectiveIds]
+  );
+  // Everything on the map except the hero: the bounds, the eight sites with their raised/
+  // unraised state, and the objective ring, all read off the same `layout` the world is built
+  // from and filtered by the same `surfaces` (objectiveOnly drops the rest at simple depth).
+  // It re-computes only when one of those changes — never on a mana tick, and never per frame.
+  // `hero` and `facing` here are the resting values the dot is FIRST drawn at; from the first
+  // frame onward the scene owns that element's transform and React never writes it again,
+  // which is why neither the hero's position nor their facing is a dependency of anything here.
+  const minimap = useMemo(
+    () => minimapView({ layout, hero: layout.spawn, facing: "s", troubles: [], surfaces }),
+    [layout, surfaces]
   );
   // All eight kingdom buildings are rasterised up front (see SpriteSource), so this only
   // changes with the castle tier or the calm-palette decor toggle — never mid-visit as
@@ -695,11 +712,16 @@ function RealmOpen({
         // NOT `worldBusy`: this one omits ceremonyRunning on purpose, so a hero can still
         // open the card while the ceremony plays (the card holds the ceremony; see onHelpClose).
         help={{ onOpen: openHelp, disabled: panelOpen || helpOpen }}
+        // The map fills the upper-right corner (§3.2). The dots come from state that changes
+        // when a building goes up; the hero dot is the scene's to move, through `minimapRef`.
+        minimap={<RealmMinimap view={minimap} heroRef={minimapRef} />}
+        // Mana rides in the identity corner beside the hero's name. `mana === null` is the
+        // single gate: a parent spends nothing, so a parent sees nothing.
+        mana={isChildView ? mana : null}
+        manaRefused={refusedAt !== 0}
       />
-      {/* Mana sits above the bar and Ride beside it, where slice 3's real bar will find
-          them. `mana === null` is the single gate: a parent spends nothing, so a parent
-          sees nothing. The mount button stays visible in preview and merely disabled. */}
-      <RealmManaPips mana={isChildView ? mana : null} surfaces={surfaces} refused={refusedAt !== 0} />
+      {/* Ride sits beside the ability bar, where slice 3's real bar will find it. The mount
+          button stays visible in preview and merely disabled. */}
       <RealmMountButton ride={hudRide} showStick={settings.showStick} />
       <RealmMessages
         problem={problem}
@@ -737,6 +759,7 @@ function RealmOpen({
           surfaces={surfaces}
           axisRef={axisRef}
           arrowRef={arrowRef}
+          minimapRef={minimapRef}
           interactive={!worldBusy}
           reachId={reachId}
           onReachChange={onReachChange}

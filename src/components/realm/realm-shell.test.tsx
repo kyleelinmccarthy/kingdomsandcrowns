@@ -421,8 +421,8 @@ describe("RealmShell", () => {
 
   it("keeps EVERY non-primitive scene prop referentially stable across a mana tick", async () => {
     // `World` is memoised, so one prop that changes identity on every render undoes the memo
-    // for all twenty-six and the whole scene re-renders on a resource that ticks continuously.
-    // Naming four of them leaves the other twenty-two uncovered — a broken onCeremonyEvent or
+    // for all twenty-seven and the whole scene re-renders on a resource that ticks continuously.
+    // Naming four of them leaves the other twenty-three uncovered — a broken onCeremonyEvent or
     // onRecessEvent would pass — so this snapshots the lot and re-checks each by identity.
     // A prop added by a later slice is covered the day it is added, without editing this test.
     getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
@@ -455,6 +455,38 @@ describe("RealmShell", () => {
       (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "mana", current: 80 });
     });
     expect(sceneProps.surfaces).toBe(surfaces);
+  });
+
+  it("draws the map in the HUD's corner and hands the scene the hero dot itself to move", async () => {
+    // The wiring the minimap needs and nothing more: the dots come from React state, and the
+    // one thing that moves per frame — the hero — reaches the scene as a ref to the very
+    // element it will write, so no hero position ever passes through a render.
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    render(<RealmShell bundle={bundle} childId="c1" isChildView={true} />);
+    await screen.findByTestId("scene");
+    const map = screen.getByRole("img", { name: "Map of the Realm" });
+    expect(map.closest(".realm-hud-corner")).not.toBeNull();
+    const dot = map.querySelector(".realm-minimap-hero");
+    expect(dot).not.toBeNull();
+    const ref = sceneProps.minimapRef as { current: SVGGElement | null };
+    expect(ref.current).toBe(dot);
+  });
+
+  it("leaves the hero dot's transform to the scene, even when the HUD re-renders around it", async () => {
+    // Stand in for a frame of the scene's loop by writing the element the way it does, then
+    // make the shell re-render on a mana tick. If React owned that transform it would put the
+    // resting value back and the dot would jump to the spawn point five times a second.
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    render(<RealmShell bundle={{ ...bundle, spellbook: { spells: pages, slots: 4 } }} childId="c1" isChildView={true} />);
+    await screen.findByTestId("scene");
+    const dot = screen.getByRole("img", { name: "Map of the Realm" }).querySelector(".realm-minimap-hero")!;
+    dot.setAttribute("transform", "translate(42 17) rotate(90)");
+    await act(async () => {
+      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "mana", current: 90 });
+    });
+    expect(screen.getByRole("img", { name: "Mana 90 of 100." })).toBeInTheDocument(); // the tick really landed
+    expect(screen.getByRole("img", { name: "Map of the Realm" }).querySelector(".realm-minimap-hero")).toBe(dot);
+    expect(dot.getAttribute("transform")).toBe("translate(42 17) rotate(90)");
   });
 
   it("hands the scene pip surfaces for a hero at simple depth", async () => {

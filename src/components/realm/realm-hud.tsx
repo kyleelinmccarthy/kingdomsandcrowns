@@ -118,6 +118,9 @@ export function RealmHud({
   crown = null,
   ceremony = null,
   help = null,
+  minimap = null,
+  mana = null,
+  manaRefused = false,
 }: {
   heroName: string;
   minutesRemaining: number | null; // null hides the counter (parent preview)
@@ -133,14 +136,24 @@ export function RealmHud({
   crown?: { label: string; color: string } | null; // the hero's crown for the session, as a badge
   ceremony?: { onSkip: () => void } | null; // non-null while the ceremony plays
   help?: { onOpen: () => void; disabled: boolean } | null;
+  minimap?: ReactNode; // the upper-right corner's whole contents; null in a test, and while the world has no layout
+  mana?: number | null; // null spends nothing and shows nothing (a parent's preview)
+  manaRefused?: boolean; // a cast the hero could not afford; the strip flashes red
 }) {
   // A parent reads numbers, never pips (§3.17); a child reads what their depth says.
   const numerals = surfaces.numerals || preview;
-  // Three zones, each pass-through. Only the buttons, the link and the selector take
-  // pointers, so a pointerdown at top-centre reaches the ground mesh and walks the hero.
+  // Four corners, each pass-through (§3.2): the quest log upper-left, the map upper-right,
+  // who the hero is and what they hold lower-left, and the ways out lower-right. DOM order IS
+  // corner order, which is also what a screen reader and the Tab key walk. Only the buttons,
+  // the link and the selector take pointers, so a pointerdown anywhere between the corners
+  // reaches the ground mesh and walks the hero. Bottom-centre is left entirely to the ability
+  // bar — which is why the mana strip now travels with the hero's name instead of floating
+  // above the bar, where it overlapped it below 640px.
   // The values are inline as well as in CSS so a jsdom test can read them (D10.1).
   return (
     <div className="realm-hud" style={{ fontSize: `${hudScale}em`, pointerEvents: "none" }}>
+      <ObjectiveCard objective={objective} heroName={heroName} preview={preview} numerals={numerals} />
+      <div className="realm-hud-corner" style={{ pointerEvents: "none" }}>{minimap}</div>
       <div className="realm-hud-identity" style={{ pointerEvents: "none" }}>
         <div className="realm-hud-plate">
           <span className="realm-hud-name">{heroName}</span>
@@ -154,8 +167,8 @@ export function RealmHud({
             />
           )}
         </div>
+        <RealmManaPips mana={mana} surfaces={surfaces} refused={manaRefused} />
       </div>
-      <ObjectiveCard objective={objective} heroName={heroName} preview={preview} numerals={numerals} />
       <div className="realm-hud-meta" style={{ pointerEvents: "none" }}>
         {minutesRemaining !== null && <span className="realm-hud-minutes">{minutesRemaining} min left{paused ? " · paused" : ""}</span>}
         <RealmTimerChip />
@@ -183,11 +196,12 @@ export function RealmHud({
 const MANA_PIPS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
 /**
- * Mana, pinned directly above the ability bar so cost and resource read
- * together (§3.7). Pips for a pre-literate reader, the number itself at full
+ * Mana, in the identity corner beside the hero's own name (§3.2): what the hero
+ * IS and what the hero HOLDS read together, and bottom-centre is left to the
+ * ability bar alone. Pips for a pre-literate reader, the number itself at full
  * depth — and a numeric accessible name in *both* cases, because pips
  * substitute for numerals on screen, never in the accessible name.
- * An interim tenant: slice 3 gives mana its permanent home on the bar's top edge.
+ * Exported still, because its own tests render it alone; the HUD is its only caller.
  */
 export function RealmManaPips({ mana, surfaces, refused }: { mana: number | null; surfaces: Surfaces; refused: boolean }) {
   if (mana === null) return null; // a parent's preview spends nothing, so it shows nothing

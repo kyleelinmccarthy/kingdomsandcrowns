@@ -8,6 +8,7 @@ import * as THREE from "three";
 import { WORLD_SIZE, spriteSizeFor, type Prop, type WorldLayout, type Vec2 } from "@/lib/realm/layout";
 import { setTarget, stepCompanion, stepHero, unstickHero, setMounted, HERO_SPEED, COMPANION_GAP_MOUNTED, type CompanionState, type HeroState } from "@/lib/realm/movement";
 import { CAMERA_OFFSET, CAMERA_ZOOM, edgeArrow, followCamera } from "@/lib/realm/camera";
+import { projectToMap, worldBounds } from "@/lib/realm/minimap";
 import { BEACON, facingAngle, GROUND_Y, shadowFootprint, RING_INNER, RING_OUTER, RING_NOTCH_ARC, RING_GOLD, RING_CALM, SHADOW_OPACITY, SHADOW_OPACITY_CALM } from "@/lib/realm/markers";
 import { nearestVillager, villagerById, villagerForBuilding } from "@/lib/realm/villagers";
 import type { RenderSettings } from "@/lib/realm/render-settings";
@@ -57,8 +58,15 @@ export type RealmSceneProps = {
   // referentially stable and the World memo never sees a changed prop; the scene
   // writes the element directly rather than routing a position through React.
   arrowRef: RefObject<HTMLDivElement | null>;
+  // The minimap's hero dot, which lives in the HUD layer too. Same contract as `arrowRef`
+  // for the same reason: the hero's position and facing exist only in a per-frame ref in
+  // here, and routing them through React would re-render the HUD sixty times a second.
+  // Everything else on the map is drawn from `layout` and `surfaces`, which change rarely.
+  minimapRef: RefObject<SVGGElement | null>;
 };
 
+/** The minimap's SVG user-unit box (realm-minimap.tsx's own `SIZE`); the hero dot is written in it. */
+const MAP_SIZE = 100;
 const SPRITE_W = 1.5;
 const SPRITE_H = 2;
 export const RISE_MS = 900;
@@ -137,7 +145,7 @@ function PropLabel({ prop, y }: { prop: Prop; y: number }) {
   );
 }
 
-const World = memo(function World({ layout, textures, settings, surfaces, axisRef, arrowRef, interactive, reachId, onReachChange, onTalk, onVillagerPick, risingId, selectedSpell, selectedSlot, castRef, spellsEnabled, onSpellEvent, seed, riding, mountSpeed, recessActive, onRecessEvent, ceremonyActive, ceremonySkipRef, onCeremonyEvent }: RealmSceneProps) {
+const World = memo(function World({ layout, textures, settings, surfaces, axisRef, arrowRef, minimapRef, interactive, reachId, onReachChange, onTalk, onVillagerPick, risingId, selectedSpell, selectedSlot, castRef, spellsEnabled, onSpellEvent, seed, riding, mountSpeed, recessActive, onRecessEvent, ceremonyActive, ceremonySkipRef, onCeremonyEvent }: RealmSceneProps) {
   // Per-frame state lives in refs: nothing here re-renders React sixty times a second.
   const hero = useRef<HeroState>({ position: layout.spawn, facing: "s", target: null, mounted: false });
   const companion = useRef<CompanionState>({ position: { x: layout.spawn.x, z: layout.spawn.z + 1.2 } });
@@ -159,6 +167,9 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
   const beaconMaterial = useRef<THREE.MeshBasicMaterial>(null); // the breathing column; the ground ring holds still
   const arrowShown = useRef(false);
   const arrowAt = useRef({ x: 0, y: 0 });
+  // The hero dot's last written place on the map, in the same 0..100 user units the SVG
+  // uses. Seeded off the map so the first frame always writes.
+  const heroDotAt = useRef({ x: -1, y: -1, deg: NaN });
   // The whole villager — sprite, plate and shadow — is one Object3D. The ceremony moves
   // the group, so every attachment travels with it and `ceremony.ts` needs no change.
   const villagerGroups = useRef(new Map<string, THREE.Object3D>());
@@ -262,6 +273,9 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
   }, [arrowRef, settings.calmPalette, settings.motion]);
 
   const objectiveSite = layout.props.find((p) => p.focus === "objective") ?? null;
+  // The SAME bounds the shell's `minimapView` gave the dots, from the same layout and the
+  // same function — so the hero dot and the site dots can never be drawn to two scales.
+  const mapBounds = useMemo(() => worldBounds(layout), [layout]);
 
   // Hoisted out of the frame loop: two closures and two sizeable object literals that were
   // otherwise allocated sixty times a second for the whole visit. The emitters are stable
@@ -433,6 +447,25 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
         arrowShown.current = true;
         arrowEl.style.transform = `translate(${arrow.x}px, ${arrow.y}px) translate(-50%, -50%) rotate(${arrow.angle}rad)`;
         arrowEl.hidden = false;
+      }
+    }
+    // The minimap's hero dot, written the same way and for the same reason: straight to the
+    // DOM node, no React. `MAP_SIZE` mirrors the minimap's own viewBox, and a move under a
+    // twentieth of a user unit (a fiftieth of a pixel on a 144px map) is skipped, so a
+    // standing hero writes nothing. The projection is `projectToMap` — the one the dots
+    // already went through — so a dot and the hero standing on it land on the same spot.
+    const dotEl = minimapRef.current;
+    if (dotEl) {
+      const m = projectToMap(p, mapBounds);
+      const x = m.x * MAP_SIZE;
+      const y = m.y * MAP_SIZE;
+      const deg = (facingAngle(hero.current.facing) * 180) / Math.PI;
+      const at = heroDotAt.current;
+      if (Math.abs(x - at.x) >= 0.05 || Math.abs(y - at.y) >= 0.05 || deg !== at.deg) {
+        at.x = x;
+        at.y = y;
+        at.deg = deg;
+        dotEl.setAttribute("transform", `translate(${x} ${y}) rotate(${deg})`);
       }
     }
     // Reach is reported only when it changes, and outside the frame loop, so React never sets state mid-render.

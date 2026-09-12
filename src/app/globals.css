@@ -1729,13 +1729,21 @@ body[data-realm-open] .parent-alert-popup { display: none; }
    shape anything else re-admitted later wears. Not interactive, so it keeps .realm-hud's
    `pointer-events: none` — only buttons, links and the preview selector take pointers. */
 .realm-hud-chip { display: inline-flex; align-items: center; gap: 0.3rem; border-radius: 9999px; padding: 0.15rem 0.6rem; background: rgba(0, 0, 0, 0.55); border: 1px solid var(--gold-border); color: var(--gold-bright); font-size: calc(12px * var(--realm-hud-scale, 1)); font-variant-numeric: tabular-nums; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8); }
-/* Three anchored zones. The HUD and all three zones are pass-through; a text-shadow floor
-   keeps every bare-text element legible over grass, which the hero's name never had. */
-.realm-hud { position: absolute; top: 0.75rem; left: 0.75rem; right: 0.75rem; z-index: 20; display: flex; align-items: flex-start; gap: 0.75rem; pointer-events: none; color: #fff; font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8); }
+/* Four corners. The grid is the whole play area so each zone sits in its own corner and
+   nothing has to be positioned against another zone's height. The HUD and all four zones are
+   pass-through; a text-shadow floor keeps every bare-text element legible over grass, which
+   the hero's name never had. The bottom row's `margin-bottom` is what keeps the two bottom
+   corners off the world controls that share the same edge — the stick at the left and Ride at
+   the right, both anchored to `--realm-bar-bottom`, plus the 56px the control itself is tall and
+   half a rem of air, less the HUD's own 0.75rem inset. Measured at 1280x800: the meta corner
+   ends at y724 and Ride begins at y732, where without the margin the two sat on top of each
+   other. Task 12's Cast button lands in this same band and inherits the clearance. */
+.realm-hud { position: absolute; inset: 0.75rem; z-index: 20; display: grid; grid-template-columns: auto 1fr auto; grid-template-rows: auto 1fr auto; gap: 0.75rem; pointer-events: none; color: #fff; font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8); }
 .realm-hud button, .realm-hud a, .realm-hud-selector, .realm-hud-selector *, .realm-messages button { pointer-events: auto; }
-.realm-hud-identity { flex: 1 1 0; min-width: 0; display: flex; font-size: calc(14px * var(--realm-hud-scale)); }
-.realm-hud-objective { flex: 0 1 auto; display: flex; flex-direction: column; align-items: center; gap: 0.2rem; width: min(16rem, 44vw); text-align: center; font-size: calc(14px * var(--realm-hud-scale)); }
-.realm-hud-meta { flex: 1 1 0; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 0.5rem; font-size: calc(14px * var(--realm-hud-scale)); }
+.realm-hud-objective { grid-column: 1; grid-row: 1; justify-self: start; align-self: start; display: flex; flex-direction: column; align-items: flex-start; gap: 0.2rem; width: min(16rem, 44vw); text-align: left; font-size: calc(14px * var(--realm-hud-scale)); }
+.realm-hud-corner { grid-column: 3; grid-row: 1; justify-self: end; align-self: start; }
+.realm-hud-identity { grid-column: 1; grid-row: 3; justify-self: start; align-self: end; min-width: 0; display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: calc(var(--realm-bar-bottom) + var(--realm-touch) - 0.25rem); font-size: calc(14px * var(--realm-hud-scale)); }
+.realm-hud-meta { grid-column: 3; grid-row: 3; justify-self: end; align-self: end; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 0.5rem; margin-bottom: calc(var(--realm-bar-bottom) + var(--realm-touch) - 0.25rem); font-size: calc(14px * var(--realm-hud-scale)); }
 .realm-hud-plate { border-radius: 0.5rem; border: 1px solid var(--gold-border); background: rgba(0, 0, 0, 0.55); padding: 0.3rem 0.6rem; }
 .realm-hud-identity .realm-hud-plate { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
 .realm-hud-name { font-weight: 700; overflow-wrap: anywhere; }
@@ -1774,23 +1782,30 @@ body[data-realm-open] .parent-alert-popup { display: none; }
 .realm-message--plain { background: rgba(0, 0, 0, 0.45); }
 @media (prefers-reduced-motion: reduce) { .realm-message--cheer { animation: none; } }
 .realm-message--stage { top: 50%; transform: translate(-50%, -50%); font-size: calc(1.6rem * var(--realm-hud-scale)); font-weight: 700; color: var(--gold-bright); text-shadow: 0 2px 6px rgba(0, 0, 0, 0.9); }
-/* B3 — phone width. Three zones of `flex: 1 1 0` leave identity and meta 75px each once
-   the objective has taken min(16rem, 44vw): a 75px column of badges running 45% down a
-   390px screen. The meta zone is the one that cannot live in a column — six badges and a
-   56px link — so it takes the whole second row and the other two keep their own sizes
-   side by side on the first, where the identity plate costs nothing (the objective card
-   is the taller of the two). Measured at 390x844: the row ends at y=231 at scale 1 and
-   y=294 at 1.25, against y=295 and y=368 when all three stack. */
+/* B3 — phone width. The four corners need no re-flow here — each one is already anchored to
+   its own corner and none is sized against another — so this block only trims what a 390px
+   screen cannot spare: the gutter between the corners, the map, and the objective card's
+   width. */
 @media (max-width: 640px) {
-  .realm-hud { flex-wrap: wrap; }
-  .realm-hud-meta { flex: 1 0 100%; }
+  .realm-hud { gap: 0.5rem; }
   /* 44vw is 172px at 390: every objective line wraps, and the card grows taller than the
      row it saved. 60vw is 234px, which holds "Librarian Hesper is waiting." on one line
      and takes ~72px off the bottom of the HUD at scale 1.25. */
   .realm-hud-objective { width: min(16rem, 60vw); }
-  /* Same two-term derivation as `.realm-message--problem` above, against the taller
-     wrapped row: 264px at scale 1 and 320px at 1.25, each ~30px clear of the HUD. */
-  .realm-message--problem { top: calc(2.5rem + 15rem * var(--realm-hud-scale)); }
+  /* 9rem of map beside that card does not fit 390px: measured, the top row wanted 434px at
+     hudScale 1.25 and the map hung 4px past the right gutter. The vw term is the real
+     constraint — 100vw less the card's 60vw, the two 12px gutters and the 8px gap — so the
+     map takes 6rem where there is room for it and shrinks to fit where there is not. */
+  .realm-minimap { width: min(calc(6rem * var(--realm-hud-scale)), 28vw); }
+  /* The ability bar is lifted to 6.5rem at this width (.realm-spellbar) and is 54px tall, so
+     the two bottom corners must clear 158px of it rather than the 76px they clear on a wide
+     screen. Measured at 390x844: without this floor identity overlapped the bar by 109x54 and
+     meta by 47x54 at hudScale 1. `max()` keeps the stick's own, taller clearance where the
+     stick is up, because there --realm-bar-bottom is 9.5rem and the bar rises with it. */
+  .realm-hud-identity, .realm-hud-meta { margin-bottom: calc(max(var(--realm-bar-bottom) + var(--realm-touch), 10.5rem) - 0.25rem); }
+  /* The phone override that used to live here is gone with the wrapped meta row that caused
+     it: the top row is now the objective card alone, whose measured height at 390 is the same
+     118px/141px it has at 1280, so the base rule's 2.5rem + 8rem * scale clears it by ~38px. */
 }
 /* Position and pointer-events only. The scene (task 16) writes `hidden`, `transform`,
    `color`, `opacity` and `data-motion` on this element, and task 16's own rule draws the
@@ -1891,10 +1906,14 @@ body[data-realm-open] .parent-alert-popup { display: none; }
 .realm-hud-crown { display: inline-flex; align-items: center; gap: 0.3rem; font-weight: 700; }
 @media (max-width: 640px) { .realm-spell-name { display: none; } .realm-spellbar { bottom: 6.5rem; } }
 
-/* ── Slice 1's interim tenants: the mana strip and the mount button ─────────── */
-/* Both sit over the 3D world beside the ability bar, so both take their size and
-   their footing from .realm-root's custom properties rather than from a literal. */
-.realm-mana-pips { position: absolute; left: 50%; bottom: calc(var(--realm-bar-bottom) + 3.6rem); z-index: 20; display: flex; align-items: center; gap: 0.3rem; padding: 0.25rem 0.7rem; border-radius: 9999px; background: rgba(0, 0, 0, 0.5); color: #fff; font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif; font-size: calc(12px * var(--realm-hud-scale)); text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8); pointer-events: none; transform: translateX(-50%); }
+/* ── The mana strip and the mount button ───────────────────────────────────── */
+/* The mount button sits over the 3D world beside the ability bar, so it takes its size and
+   its footing from .realm-root's custom properties rather than from a literal. The mana
+   strip no longer floats above the bar at all: §3.2 moved it into the identity corner, so
+   it is an ordinary flow item there — no position, no centring transform — and keeps only
+   its own pill dressing. `align-self` stops it stretching to the width of the name plate
+   above it, which a column flex parent would otherwise do. */
+.realm-mana-pips { align-self: flex-start; display: flex; align-items: center; gap: 0.3rem; padding: 0.25rem 0.7rem; border-radius: 9999px; background: rgba(0, 0, 0, 0.5); color: #fff; font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif; font-size: calc(12px * var(--realm-hud-scale)); text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8); pointer-events: none; }
 .realm-pip { width: calc(8px * var(--realm-hud-scale)); height: calc(8px * var(--realm-hud-scale)); border-radius: 9999px; background: rgba(255, 255, 255, 0.22); }
 .realm-pip--on { background: var(--gold-bright); }
 /* Progress is gold; mana is the spell bar's blue, so the two pip rows never read as one scale. */
@@ -1903,14 +1922,15 @@ body[data-realm-open] .parent-alert-popup { display: none; }
 .realm-mana-fill { position: absolute; inset: 0 auto 0 0; background: rgba(96, 165, 250, 0.95); }
 /* The refusal: red pips for the whole 600 ms window, and a 3-cycle 4px shake on top of
    them under motion. The red is the cue; the shake is the decoration — which is what
-   makes reduced motion a substitution rather than a silence. The keyframes carry the
-   centring translate, or the shake would throw the strip half a screen to the right. */
+   makes reduced motion a substitution rather than a silence. The keyframes no longer carry
+   a centring translate: in the identity corner the strip is in flow, so -50% would throw it
+   half its own width to the left for the whole 600 ms. */
 .realm-mana-pips--refused .realm-pip--on, .realm-mana-pips--refused .realm-mana-fill { background: #ef4444; transition: none; }
 .realm-mana-pips--refused { animation: realm-mana-refused 200ms ease-in-out 3; }
 @keyframes realm-mana-refused {
-  0%, 100% { transform: translateX(-50%); }
-  25% { transform: translateX(calc(-50% - 4px)); }
-  75% { transform: translateX(calc(-50% + 4px)); }
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
 }
 @media (prefers-reduced-motion: reduce) { .realm-mana-pips--refused { animation: none; } }
 .realm-mount-button { position: absolute; right: 1.25rem; bottom: var(--realm-bar-bottom); z-index: 21; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.05rem; min-width: var(--realm-touch); min-height: var(--realm-touch); padding: 0 0.5rem; border-radius: 9999px; border: 1px solid var(--gold-border); background: rgba(201, 168, 76, 0.25); color: var(--gold-bright); font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif; font-size: calc(12px * var(--realm-hud-scale)); font-weight: 700; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8); cursor: pointer; pointer-events: auto; }

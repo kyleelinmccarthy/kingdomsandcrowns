@@ -36,6 +36,7 @@ function hud(overrides: Partial<ComponentProps<typeof RealmHud>> = {}) {
     kingdomDone: 3,
     kingdomTotal: 8,
     recessPill: null,
+    minimap: null,
     ...overrides,
   };
   return render(<RealmHud {...props} />);
@@ -64,6 +65,27 @@ describe("RealmHud zones", () => {
     expect(screen.queryByRole("button", { name: "Ride" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Dismount" })).not.toBeInTheDocument();
     expect(screen.getByText("Recess · 3 gleams · 1 lap")).toBeInTheDocument();
+  });
+
+  it("puts the quest log top-left and the controls bottom-right", () => {
+    const { container } = hud({ minimap: <div data-testid="map" /> });
+    const root = container.querySelector(".realm-hud")!;
+    // Order in the DOM is the order in the corners: objective, minimap, identity, meta.
+    const zones = [...root.children].map((el) => el.className.split(" ")[0]);
+    expect(zones).toEqual(["realm-hud-objective", "realm-hud-corner", "realm-hud-identity", "realm-hud-meta"]);
+    expect(container.querySelector(".realm-hud-objective")).toBeInTheDocument();
+    expect(container.querySelector(".realm-hud-meta")).toBeInTheDocument();
+    expect(within(container.querySelector<HTMLElement>(".realm-hud-corner")!).getByTestId("map")).toBeInTheDocument();
+  });
+
+  it("holds the mana strip in the identity corner, not loose at the bottom centre", () => {
+    const { container } = hud({ mana: 7 });
+    expect(container.querySelector(".realm-hud-identity .realm-mana-pips")).toBeInTheDocument();
+  });
+
+  it("renders without a minimap rather than throwing", () => {
+    const { container } = hud({ minimap: null });
+    expect(container.querySelector(".realm-hud-identity")).toBeInTheDocument();
   });
 });
 
