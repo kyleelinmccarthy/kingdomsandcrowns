@@ -1752,6 +1752,16 @@ body[data-realm-open] .parent-alert-popup { display: none; }
 .realm-hud-minutes, .realm-hud-badge { border-radius: 9999px; padding: 0.15rem 0.6rem; background: rgba(201, 168, 76, 0.2); color: var(--gold-bright); font-size: 0.85em; }
 .realm-hud-leave { display: inline-flex; align-items: center; min-height: var(--realm-touch); color: var(--gold-bright); text-decoration: none; font-size: 0.85em; }
 .realm-hud-selector { display: inline-flex; align-items: center; gap: 0.5rem; }
+/* The minimap is a readout: it never takes a pointer event and holds nothing focusable. */
+.realm-minimap { width: calc(9rem * var(--realm-hud-scale)); aspect-ratio: 1; border-radius: 0.5rem; border: 1px solid var(--gold-border); background: rgba(0, 0, 0, 0.55); overflow: hidden; pointer-events: none; }
+.realm-minimap svg { display: block; width: 100%; height: 100%; }
+.realm-minimap-ground { fill: rgba(40, 70, 40, 0.5); }
+.realm-minimap-site { fill: none; stroke: var(--gold-border); stroke-width: 1.5; }
+.realm-minimap-site--raised { fill: var(--gold-bright); stroke: var(--gold-bright); }
+.realm-minimap-objective { fill: none; stroke: #c9a84c; stroke-width: 2; }
+.realm-minimap-dot { fill: #a78bfa; }
+.realm-minimap-hero circle { fill: var(--gold-bright); }
+.realm-minimap-hero line { stroke: var(--gold-bright); stroke-width: 1.5; }
 /* Two centred message lanes: persistent problems in a band under the HUD zones,
    the things the game says in a lane above the ability bar. One message each. */
 .realm-messages { position: absolute; inset: 0; z-index: 21; pointer-events: none; color: #fff; font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif; }
