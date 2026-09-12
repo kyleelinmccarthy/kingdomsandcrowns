@@ -185,6 +185,13 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
     el.dataset.motion = settings.motion ? "on" : "off";
     return () => {
       el.hidden = true;
+      // Also clear the frame loop's "already shown" flag: that loop only rewrites
+      // `hidden`/`transform` when the arrow's position moves past a half-pixel
+      // threshold, and this cleanup can run — on every calmPalette/motion flip,
+      // not just on unmount — while the hero stands still. Leaving the flag true
+      // would hide the arrow here and then have nothing move it far enough to
+      // re-show it, stranding it hidden until the hero happens to take a step.
+      arrowShown.current = false;
     };
   }, [arrowRef, settings.calmPalette, settings.motion]);
 
@@ -430,7 +437,7 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
   };
   const standing = layout.props.filter((p) => p.kind === "castle" || p.kind === "building" || p.kind === "decor" || p.kind === "barrier");
   // Calm shortens and quietens the beacon; it is never absent (§3.9, §6: lowStimulus mutes, never empties).
-  const beaconColor = settings.calmPalette ? RING_CALM : RING_GOLD;
+  // Same colour rule as `ringColor` above — reused rather than recomputed.
   const beaconHeight = settings.calmPalette ? BEACON.calmHeight : BEACON.height;
   const beaconOpacity = settings.calmPalette ? BEACON.calmOpacity : BEACON.opacity;
   const keyHint = !settings.showStick; // `Talk · Enter` for a keyboard, a plain `Talk` for a thumb
@@ -481,11 +488,11 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
               overlay — the cue of last resort for "where am I meant to go". */}
           <mesh position={[0, beaconHeight / 2, 0]}>
             <cylinderGeometry args={[BEACON.radius, BEACON.radius, beaconHeight, 8]} />
-            <meshBasicMaterial ref={beaconMaterial} color={beaconColor} transparent opacity={beaconOpacity} depthWrite={false} />
+            <meshBasicMaterial ref={beaconMaterial} color={ringColor} transparent opacity={beaconOpacity} depthWrite={false} />
           </mesh>
           <mesh position={[0, GROUND_Y.heroRing - 0.005, 0]} rotation={[-Math.PI / 2, 0, 0]}>
             <ringGeometry args={[objectiveSite.size.w / 2 + 0.22, objectiveSite.size.w / 2 + 0.3, 32]} />
-            <meshBasicMaterial color={beaconColor} transparent opacity={beaconOpacity} depthWrite={false} />
+            <meshBasicMaterial color={ringColor} transparent opacity={beaconOpacity} depthWrite={false} />
           </mesh>
         </group>
       )}
