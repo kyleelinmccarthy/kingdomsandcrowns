@@ -16,7 +16,7 @@
  * array and to the tables below. It does not add a lane.
  */
 
-export type ProblemKind = "spriteError" | "kingdomError" | "ceremonyError" | "lastMinute" | "preview";
+export type ProblemKind = "spriteError" | "kingdomError" | "ceremonyError" | "questTimer" | "lastMinute" | "preview";
 export type SpeechKind = "ceremony" | "toast" | "notice";
 
 export type RealmProblem = { kind: ProblemKind; text: string; actionLabel: string | null };
@@ -27,6 +27,9 @@ export type MessageInput = {
   kingdomError: string; // "" when none
   ceremonyError: string; // "" when none
   lastMinute: boolean;
+  // §3.20's re-admitted quest timer, already formatted as "Your {subject} timer
+  // finished." by the shell — this module owns no copy but the last-minute banner.
+  questTimerDone: string | null;
   preview: string | null; // the parent's intro, with the gate note already appended
   ceremonyNotice: string | null;
   toast: string | null;
@@ -41,13 +44,14 @@ export type MessageInput = {
  */
 export const LAST_MINUTE_TEXT = "One minute left in the Realm today.";
 
-export const PROBLEM_ORDER: ProblemKind[] = ["spriteError", "kingdomError", "ceremonyError", "lastMinute", "preview"];
+export const PROBLEM_ORDER: ProblemKind[] = ["spriteError", "kingdomError", "ceremonyError", "questTimer", "lastMinute", "preview"];
 
 /** Where each problem's text comes from; `null` means that kind is not live. */
 const PROBLEM_TEXT: Record<ProblemKind, (input: MessageInput) => string | null> = {
   spriteError: (i) => i.spriteError || null,
   kingdomError: (i) => i.kingdomError || null,
   ceremonyError: (i) => i.ceremonyError || null,
+  questTimer: (i) => i.questTimerDone || null,
   lastMinute: (i) => (i.lastMinute ? LAST_MINUTE_TEXT : null),
   preview: (i) => i.preview || null,
 };
@@ -57,6 +61,7 @@ const PROBLEM_ACTION: Record<ProblemKind, string | null> = {
   spriteError: "Try again",
   kingdomError: "Wake the villagers",
   ceremonyError: "Try again",
+  questTimer: "Go to it →",
   lastMinute: null,
   preview: null,
 };

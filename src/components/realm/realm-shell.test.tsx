@@ -7,6 +7,16 @@ import { DEFAULT_AVATAR } from "@/lib/utils/avatar-catalog";
 import { BUILDINGS } from "@/lib/utils/kingdom";
 import { VILLAGERS } from "@/lib/realm/villagers";
 
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+  useSearchParams: () => new URLSearchParams(),
+  usePathname: () => "/realm",
+}));
+vi.mock("@/lib/actions/quest-assignments", () => ({
+  completeAssignment: vi.fn(),
+  getAssignmentQuestInfo: vi.fn().mockResolvedValue({ title: "Long division", requireNotes: false, subjectName: "Math" }),
+}));
+
 const getRealmAccess = vi.fn();
 const recordRealmPlay = vi.fn();
 vi.mock("@/lib/actions/realm-play", () => ({

@@ -7,6 +7,7 @@ const QUIET: MessageInput = {
   kingdomError: "",
   ceremonyError: "",
   lastMinute: false,
+  questTimerDone: null,
   preview: null,
   ceremonyNotice: null,
   toast: null,
@@ -20,13 +21,14 @@ const SPRITE_FAILED = "The hero's picture could not be drawn.";
 const VILLAGERS_RESTING = "The villagers are resting. Try again.";
 const CEREMONY_FAILED = "The crown could not be recorded.";
 const PREVIEW_INTRO = "You're looking at Lily's grounds. Spells, side quests and recess are theirs to play.";
+const TIMER_DONE = "Your Math timer finished.";
 const HAIL = "Hail, Lily, Crown of Spring!";
 const WELL_STANDS = "The Village Well stands.";
 const NOT_ENOUGH_MANA = "Not enough mana yet.";
 
 describe("PROBLEM_ORDER", () => {
   it("is the closed list of problem kinds, in written priority order", () => {
-    expect(PROBLEM_ORDER).toEqual(["spriteError", "kingdomError", "ceremonyError", "lastMinute", "preview"]);
+    expect(PROBLEM_ORDER).toEqual(["spriteError", "kingdomError", "ceremonyError", "questTimer", "lastMinute", "preview"]);
   });
 });
 
@@ -40,6 +42,7 @@ describe("pickProblem", () => {
       spriteError: { spriteError: "" },
       kingdomError: { kingdomError: "" },
       ceremonyError: { ceremonyError: "" },
+      questTimer: { questTimerDone: null },
       lastMinute: { lastMinute: false },
       preview: { preview: null },
     };
@@ -47,6 +50,7 @@ describe("pickProblem", () => {
       spriteError: SPRITE_FAILED,
       kingdomError: VILLAGERS_RESTING,
       ceremonyError: CEREMONY_FAILED,
+      questTimerDone: TIMER_DONE,
       lastMinute: true,
       preview: PREVIEW_INTRO,
     });
@@ -89,6 +93,16 @@ describe("pickProblem", () => {
 
   it("treats an empty string as no message, not as a blank pill", () => {
     expect(pickProblem(input({ preview: "" }))).toBeNull();
+  });
+
+  it("gives a finished quest timer the lane above the one-minute banner, with its own action", () => {
+    // §3.20: a chore that ran out outranks the clock's own warning — the child can come
+    // back to the Realm, but the chore is what a grown-up is waiting on.
+    const live = input({ questTimerDone: TIMER_DONE, lastMinute: true });
+    expect(pickProblem(live)).toEqual({ kind: "questTimer", text: TIMER_DONE, actionLabel: "Go to it →" });
+    expect(pickProblem({ ...live, questTimerDone: null })?.kind).toBe("lastMinute");
+    // …and it still loses to a real error, which is the thing that actually broke.
+    expect(pickProblem({ ...live, kingdomError: VILLAGERS_RESTING })?.kind).toBe("kingdomError");
   });
 });
 

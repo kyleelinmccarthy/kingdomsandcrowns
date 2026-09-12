@@ -3,8 +3,11 @@
 import dynamic from "next/dynamic";
 import { createPortal } from "react-dom";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { getRealmKingdom, type RealmBundle } from "@/lib/actions/realm";
 import { getRealmAccess } from "@/lib/actions/realm-play";
+import { useQuestTimer } from "@/hooks/use-quest-timer";
+import { getAssignmentQuestInfo } from "@/lib/actions/quest-assignments";
 import { markCeremonySeen } from "@/lib/actions/seasons";
 import { markRealmHelpSeen, setRealmDepth } from "@/lib/actions/realm-settings";
 import { buildWorldLayout } from "@/lib/realm/layout";
@@ -216,6 +219,33 @@ function RealmOpen({
   const rootRef = useRef<HTMLDivElement>(null);
   // Held here, rendered by RealmMessages, written per frame by the scene (task 16).
   const arrowRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
+  // Only the stopped half is read here; `RealmTimerChip` owns the running clock so its
+  // 1 Hz tick repaints a chip rather than the HUD. The hook's own interval still ticks
+  // this component once a second while a chore timer runs, which is strictly less than
+  // the ~5 re-renders a second mana regen already causes, and `settings` and `layout`
+  // are useMemo'd, so the memoised `World` still never re-renders from it.
+  const { stoppedResult, clearStoppedResult } = useQuestTimer();
+  // The timer stores an assignment id, not a subject, so the sentence needs one lookup.
+  const [timerSubject, setTimerSubject] = useState<{ assignmentId: string; subject: string } | null>(null);
+  useEffect(() => {
+    if (!stoppedResult) return;
+    let cancelled = false;
+    getAssignmentQuestInfo(stoppedResult.assignmentId).then((info) => {
+      if (cancelled || !info) return;
+      setTimerSubject({ assignmentId: stoppedResult.assignmentId, subject: info.subjectName });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [stoppedResult]);
+  // Derived, never stored: when the stopped result goes away — the child pressed
+  // "Go to it →", or finished the quest in another tab — the sentence goes with it, and
+  // no effect writes state synchronously (react-hooks/set-state-in-effect).
+  const questTimerDone =
+    stoppedResult && timerSubject?.assignmentId === stoppedResult.assignmentId
+      ? `Your ${timerSubject.subject} timer finished.`
+      : null;
   // `.game-content` (the page's <main>) is `position: relative; z-index: 10`,
   // which traps `.realm-root`'s z-index inside its own stacking context —
   // the app banner (30) and bottom nav (40) would sit on top of the world
@@ -573,6 +603,7 @@ function RealmOpen({
     kingdomError,
     ceremonyError,
     lastMinute: isChildView && clock.warning,
+    questTimerDone,
     preview: previewText,
     ceremonyNotice: ceremonyNoticeText,
     toast,
@@ -660,6 +691,13 @@ function RealmOpen({
           }
           if (problem.kind === "kingdomError") {
             onKingdomRetry();
+            return;
+          }
+          if (problem.kind === "questTimer") {
+            // Out of the Realm the ordinary way. The unmount cleanup task 7 added runs on
+            // the route change and flushes the part-minute, so the visit is charged (§3.16).
+            clearStoppedResult();
+            router.push("/quests");
             return;
           }
           if (problem.kind === "ceremonyError") recordCeremony();

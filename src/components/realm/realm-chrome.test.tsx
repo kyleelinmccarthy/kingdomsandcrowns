@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import fs from "node:fs";
 import path from "node:path";
 import { RealmShell } from "./realm-shell";
@@ -8,17 +8,19 @@ import { SwitchHero } from "@/components/switch-hero";
 import { DEFAULT_LEARNING_PROFILE } from "@/lib/utils/learning-profile";
 import { DEFAULT_AVATAR } from "@/lib/utils/avatar-catalog";
 
+const routerPush = vi.fn();
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+  useRouter: () => ({ push: routerPush, refresh: vi.fn() }),
   useSearchParams: () => new URLSearchParams(),
   usePathname: () => "/realm",
 }));
 // The hand-off dialog's contents are not what this file is about, and mounting
 // them would try to fetch the family's heroes over the network.
 vi.mock("@/components/hero-login", () => ({ HeroLogin: () => <div /> }));
+const getAssignmentQuestInfo = vi.fn();
 vi.mock("@/lib/actions/quest-assignments", () => ({
   completeAssignment: vi.fn(),
-  getAssignmentQuestInfo: vi.fn().mockResolvedValue({ requireNotes: false }),
+  getAssignmentQuestInfo: (...a: unknown[]) => getAssignmentQuestInfo(...a),
 }));
 
 const getRealmAccess = vi.fn();
@@ -65,6 +67,7 @@ const bundle = {
 };
 
 const QUEST_TIMER_KEY = "kingdomsandcrowns:quest-timer";
+const STOPPED_TIMER_KEY = "kingdomsandcrowns:quest-timer:stopped";
 // jsdom does not evaluate `:has()` and vitest never loads the app's stylesheet,
 // so the cascade half of this design is asserted against the stylesheet's text
 // and the behavioural half against the attribute the rule's fallback reads.
@@ -161,5 +164,34 @@ describe("the re-admitted quest timer", () => {
     render(<RealmShell bundle={bundle} childId="c1" isChildView={true} />);
     expect(await screen.findByTestId("scene")).toBeInTheDocument();
     expect(screen.getByLabelText("Quest timer paused: 01:30")).toHaveTextContent("01:30");
+  });
+});
+
+describe("a quest timer that ran out", () => {
+  it("names the subject in the problem lane and hands the child the way out", async () => {
+    // The popup that would normally ask "complete or discard?" is display:none while the
+    // portal is up, so this is the only thing that tells a child their chore ended.
+    getAssignmentQuestInfo.mockResolvedValue({ title: "Long division", requireNotes: false, subjectName: "Math" });
+    localStorage.setItem(
+      STOPPED_TIMER_KEY,
+      JSON.stringify({ assignmentId: "a1", startedAt: Date.now() - 600_000, endedAt: Date.now(), durationMinutes: 10 })
+    );
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    render(<RealmShell bundle={bundle} childId="c1" isChildView={true} />);
+    expect(await screen.findByTestId("scene")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId("realm-problem")).toHaveTextContent("Your Math timer finished."));
+    fireEvent.click(screen.getByRole("button", { name: "Go to it →" }));
+    expect(routerPush).toHaveBeenCalledWith("/quests");
+    // Consumed on the way out, so the sentence cannot greet the child again next visit.
+    await waitFor(() => expect(localStorage.getItem(STOPPED_TIMER_KEY)).toBeNull());
+  });
+
+  it("says nothing at all when no timer has stopped", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    render(<RealmShell bundle={bundle} childId="c1" isChildView={true} />);
+    expect(await screen.findByTestId("scene")).toBeInTheDocument();
+    expect(screen.queryByText(/timer finished\./)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Go to it →" })).not.toBeInTheDocument();
+    expect(getAssignmentQuestInfo).not.toHaveBeenCalled();
   });
 });
