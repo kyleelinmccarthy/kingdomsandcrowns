@@ -1,7 +1,7 @@
 "use client";
 
 import "@react-three/fiber";
-import { memo, useCallback, useEffect, useRef, type RefObject } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, type RefObject } from "react";
 import { Canvas, useFrame, type ThreeEvent } from "@react-three/fiber";
 import { Html, OrthographicCamera } from "@react-three/drei";
 import type * as THREE from "three";
@@ -22,6 +22,7 @@ import { RecessLayer } from "./recess-layer";
 import { CeremonyLayer } from "./ceremony-layer";
 import { startCeremony, stepCeremony, skipCeremony, type CeremonyEvent, type CeremonyState } from "@/lib/realm/ceremony/ceremony";
 import type { SpriteTextures } from "./sprite-source";
+import { VillagerPlate } from "./villager-plate";
 
 export type RealmSceneProps = {
   layout: WorldLayout;
@@ -109,7 +110,7 @@ function PropLabel({ prop, y }: { prop: Prop; y: number }) {
   );
 }
 
-const World = memo(function World({ layout, textures, settings, axisRef, interactive, reachId, onReachChange, onTalk, onVillagerPick, risingId, selectedSpell, selectedSlot, castRef, spellsEnabled, onSpellEvent, seed, riding, mountSpeed, recessActive, onRecessEvent, ceremonyActive, ceremonySkipRef, onCeremonyEvent }: RealmSceneProps) {
+const World = memo(function World({ layout, textures, settings, surfaces, axisRef, interactive, reachId, onReachChange, onTalk, onVillagerPick, risingId, selectedSpell, selectedSlot, castRef, spellsEnabled, onSpellEvent, seed, riding, mountSpeed, recessActive, onRecessEvent, ceremonyActive, ceremonySkipRef, onCeremonyEvent }: RealmSceneProps) {
   // Per-frame state lives in refs: nothing here re-renders React sixty times a second.
   const hero = useRef<HeroState>({ position: layout.spawn, facing: "s", target: null, mounted: false });
   const companion = useRef<CompanionState>({ position: { x: layout.spawn.x, z: layout.spawn.z + 1.2 } });
@@ -128,7 +129,14 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
   const castingRef = useRef(false);
   const frozenRef = useRef(false); // dazzled or mid-cast; read by onPointerDown too
   const ceremonyRef = useRef<CeremonyState | null>(null);
-  const villagerSprites = useRef(new Map<string, THREE.Sprite>());
+  // The whole villager — sprite, plate and shadow — is one Object3D. The ceremony moves
+  // the group, so every attachment travels with it and `ceremony.ts` needs no change.
+  const villagerGroups = useRef(new Map<string, THREE.Object3D>());
+  // A villager whose figure never rasterised is not in the world at all. This one list
+  // feeds the render AND `nearestVillager` below, so a missing sprite can never leave a
+  // Talk bubble floating over bare grass (sprite-source.tsx silently continues past a
+  // villager whose SVG is not in the DOM).
+  const shown = useMemo(() => layout.villagers.filter((v) => Boolean(textures.villagers[v.id])), [layout.villagers, textures]);
   const pendingTalk = useRef<{ id: string; until: number } | null>(null);
   const heroShadow = useRef<THREE.Group>(null);
   const mountShadow = useRef<THREE.Group>(null);
@@ -185,13 +193,14 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
       if (entered) queueMicrotask(() => onCeremonyEvent({ kind: "step", step: entered }));
       hero.current = { ...hero.current, position: r.state.hero, target: null, facing: r.state.heroFacing };
       companion.current = stepCompanion(companion.current, hero.current, dt);
-      for (const [id, sprite] of villagerSprites.current) {
+      for (const [id, group] of villagerGroups.current) {
         const v = r.state.villagers[id];
-        if (v) sprite.position.set(v.x, SPRITE_H / 2, v.z);
+        if (v) group.position.set(v.x, 0, v.z);
       }
       if (r.state.step === "done") {
-        // The people return to their sites, where Talk expects them.
-        for (const v of layout.villagers) villagerSprites.current.get(v.id)?.position.set(v.position.x, SPRITE_H / 2, v.position.z);
+        // The people return to their sites, where Talk expects them — and their plates,
+        // markers and shadows are children of the group, so they come home too.
+        for (const v of layout.villagers) villagerGroups.current.get(v.id)?.position.set(v.position.x, 0, v.position.z);
       }
     } else if (interactive) {
       const frozen = dazzledRef.current || castingRef.current;
@@ -268,7 +277,7 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
       camera.current.lookAt(t.x, 0, t.z);
     }
     // Reach is reported only when it changes, and outside the frame loop, so React never sets state mid-render.
-    const near = nearestVillager(p, layout.villagers);
+    const near = nearestVillager(p, shown);
     if (near !== reachRef.current) {
       reachRef.current = near;
       queueMicrotask(() => onReachChange(near));
@@ -308,7 +317,7 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
   const sky = settings.calmPalette ? "#101820" : "#0a1220";
   const colorFor = (prop: Prop) => (prop.kind === "foundation" && settings.calmPalette ? CALM_FOUNDATION : prop.color);
   const reachVillager = reachId ? villagerById(reachId) : null;
-  const reachPlacement = reachId ? layout.villagers.find((v) => v.id === reachId) ?? null : null;
+  const reachPlacement = reachId ? shown.find((v) => v.id === reachId) ?? null : null;
   // One pick, wherever the child aimed it: a villager's sprite, a villager's
   // nameplate, a site's building or its bare foundation. In reach it talks;
   // otherwise it walks the hero over and the frame loop talks on arrival.
@@ -324,7 +333,7 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
       onVillagerPick(id);
       return;
     }
-    const v = layout.villagers.find((s) => s.id === id);
+    const v = shown.find((s) => s.id === id);
     if (!v) return;
     pendingTalk.current = { id, until: performance.now() + PENDING_TALK_MS };
     // The approach point is one unit toward spawn. `setTarget` refuses a point
@@ -333,7 +342,7 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
     const before = hero.current;
     const walked = setTarget(before, { x: v.position.x, z: v.position.z + 1 }, layout.colliders);
     hero.current = walked === before ? setTarget(before, v.position, layout.colliders) : walked;
-  }, [interactive, selectedSpell, onVillagerPick, layout, castRef]);
+  }, [interactive, selectedSpell, onVillagerPick, layout, shown, castRef]);
   // stopPropagation first, so the tap never falls through to the ground mesh and
   // walks the hero vaguely nearby instead of to the person they pointed at.
   const pickHandler = (id: string) => (e: ThreeEvent<PointerEvent>) => {
@@ -347,7 +356,7 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
   const sitePick = (prop: Prop): { onPointerDown?: (e: ThreeEvent<PointerEvent>) => void } => {
     if (prop.kind !== "building" && prop.kind !== "foundation") return {};
     const v = villagerForBuilding(prop.id);
-    if (!v || !layout.villagers.some((s) => s.id === v.id)) return {};
+    if (!v || !shown.some((s) => s.id === v.id)) return {};
     return { onPointerDown: pickHandler(v.id) };
   };
   const tint = settings.calmPalette ? CALM_TINT : "#ffffff";
@@ -456,24 +465,30 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
           </group>
         );
       })}
-      {layout.villagers.map((v) => {
-        const texture = textures.villagers[v.id];
-        if (!texture) return null;
-        return (
-          <sprite
-            key={v.id}
-            ref={(el) => {
-              if (el) villagerSprites.current.set(v.id, el);
-              else villagerSprites.current.delete(v.id);
-            }}
-            position={[v.position.x, SPRITE_H / 2, v.position.z]}
-            scale={[SPRITE_W, SPRITE_H, 1]}
-            onPointerDown={pickHandler(v.id)}
-          >
-            <spriteMaterial map={texture} transparent alphaTest={0.1} />
+      {shown.map((v) => (
+        <group
+          key={v.id}
+          ref={(el) => {
+            if (el) villagerGroups.current.set(v.id, el);
+            else villagerGroups.current.delete(v.id);
+          }}
+          position={[v.position.x, 0, v.position.z]}
+        >
+          <ContactShadow w={HERO_SHADOW.w} d={HERO_SHADOW.d} y={GROUND_Y.figureShadow} calm={settings.calmPalette} />
+          <sprite position={[0, SPRITE_H / 2, 0]} scale={[SPRITE_W, SPRITE_H, 1]} onPointerDown={pickHandler(v.id)}>
+            <spriteMaterial map={textures.villagers[v.id]} transparent alphaTest={0.1} />
           </sprite>
-        );
-      })}
+          <Html position={[0, SPRITE_H + 0.35, 0]} center zIndexRange={[12, 0]}>
+            <VillagerPlate
+              villager={v}
+              surfaces={surfaces}
+              calm={settings.calmPalette}
+              motion={settings.motion}
+              onPick={(id) => pickVillager(id, v.position)}
+            />
+          </Html>
+        </group>
+      ))}
       {layout.props.filter((prop) => prop.kind === "banner").map((prop) => (
         <group key={prop.id} position={[prop.position.x, 0, prop.position.z]}>
           <mesh position={[0, prop.size.h / 2, 0]}>
