@@ -609,6 +609,7 @@ function RealmOpen({
           reachId={reachId}
           onReachChange={onReachChange}
           onTalk={onTalk}
+          onVillagerPick={onTalk}
           risingId={risingId}
           selectedSpell={selectedSpell}
           selectedSlot={selectedSlot}

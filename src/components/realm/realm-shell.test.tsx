@@ -227,6 +227,28 @@ describe("RealmShell", () => {
     expect(layout.props.find((p) => p.id === "well")).toMatchObject({ kind: "building", tag: "Built" });
   });
 
+  it("hands the scene one pick door, the same one Talk opens, and keeps it referentially stable", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    render(<RealmShell bundle={bundle} childId="c1" isChildView={true} />);
+    expect(await screen.findByTestId("scene")).toBeInTheDocument();
+    expect(typeof sceneProps.onVillagerPick).toBe("function");
+    // One door: a tap on a sprite, a plate or a foundation opens exactly what
+    // Enter and the bubble's Talk button open, so the world can never have two
+    // ways to meet a villager that disagree.
+    expect(sceneProps.onVillagerPick).toBe(sceneProps.onTalk);
+    const pick = sceneProps.onVillagerPick;
+    await act(async () => {
+      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "mana", current: 90 });
+    });
+    // `World` is memoised: a prop that changes identity on every mana tick would
+    // re-render the whole scene sixty times a second.
+    expect(sceneProps.onVillagerPick).toBe(pick);
+    await act(async () => {
+      (sceneProps.onVillagerPick as (id: string) => void)("bram");
+    });
+    expect(await screen.findByRole("dialog", { name: "Old Bram" })).toBeInTheDocument();
+  });
+
   it("lets a parent read a site card without a Begin button", async () => {
     getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 5, source: "earned" });
     render(<RealmShell bundle={bundle} childId="c1" isChildView={false} />);

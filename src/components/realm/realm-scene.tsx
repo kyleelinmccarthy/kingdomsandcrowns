@@ -31,6 +31,10 @@ export type RealmSceneProps = {
   reachId: string | null; // the villager the hero can talk to, as the shell last heard it
   onReachChange: (id: string | null) => void;
   onTalk: (villagerId: string) => void;
+  // A tap on a villager, on a villager's nameplate, or on a site. The shell
+  // passes the same door `onTalk` opens; they are two props so a later slice
+  // can tell a pointer from a keypress without rewiring the scene.
+  onVillagerPick: (villagerId: string) => void;
   risingId: string | null; // a building that just completed; the scene tweens it up once
   selectedSpell: SpellDefinition | null;
   selectedSlot: number | null;
