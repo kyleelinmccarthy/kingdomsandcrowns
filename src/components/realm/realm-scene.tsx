@@ -134,17 +134,6 @@ function ContactShadow({ w, d, y, calm }: { w: number; d: number; y: number; cal
   );
 }
 
-function PropLabel({ prop, y }: { prop: Prop; y: number }) {
-  return (
-    <Html position={[0, y, 0]} center zIndexRange={[10, 0]}>
-      <span className="realm-label">
-        {prop.label}
-        {prop.tag && <span className="realm-label-tag">{prop.tag}</span>}
-      </span>
-    </Html>
-  );
-}
-
 const World = memo(function World({ layout, textures, settings, surfaces, axisRef, arrowRef, minimapRef, interactive, reachId, onReachChange, onTalk, onVillagerPick, risingId, selectedSpell, selectedSlot, castRef, spellsEnabled, onSpellEvent, seed, riding, mountSpeed, recessActive, onRecessEvent, ceremonyActive, ceremonySkipRef, onCeremonyEvent }: RealmSceneProps) {
   // Per-frame state lives in refs: nothing here re-renders React sixty times a second.
   const hero = useRef<HeroState>({ position: layout.spawn, facing: "s", target: null, mounted: false });
@@ -629,7 +618,6 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
                 <meshStandardMaterial color={colorFor(prop)} />
               )}
             </mesh>
-            <PropLabel prop={prop} y={0.8} />
           </group>
         );
       })}
@@ -655,7 +643,6 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
               <sprite ref={register} position={[0, h / 2, 0]} scale={[w, h, 1]}>
                 <spriteMaterial map={texture} color={tint} transparent alphaTest={0.1} />
               </sprite>
-              {prop.kind !== "decor" && <PropLabel prop={prop} y={h + 0.4} />}
             </group>
           );
         }
@@ -668,7 +655,6 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
               <boxGeometry args={[prop.size.w, prop.size.h, prop.size.d]} />
               <meshStandardMaterial color={colorFor(prop)} />
             </mesh>
-            {prop.kind !== "barrier" && <PropLabel prop={prop} y={prop.size.h + 0.6} />}
           </group>
         );
       })}
