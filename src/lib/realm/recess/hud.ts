@@ -1,13 +1,13 @@
-export type RecessTally = { gleams: number; laps: number; bestLapMs: number | null; lapMs: number | null };
+export type RecessTally = { gleams: number; laps: number; bestLapMs: number | null };
 
 /**
- * The HUD's recess prop: shown once recess has ever produced a tally this
- * session, but the running lap clock only while recess is actually active —
- * it must not linger on screen (or keep counting up) after recess ends.
+ * The HUD's recess prop: the tally once recess has ever produced one this session, and null
+ * until then. It is a gate and nothing else — the pill reads `gleams` and `laps`, and D6.4
+ * deleted the running lap clock from it, so there is no longer a lap to hold or to clear.
+ * Slice 12 brings the lap record back with its own design and its own lifetime.
  */
 export function hudRecessFor(recess: RecessTally, recessActive: boolean): RecessTally | null {
-  if (!(recessActive || recess.laps > 0 || recess.gleams > 0)) return null;
-  return { ...recess, lapMs: recessActive ? recess.lapMs : null };
+  return recessActive || recess.laps > 0 || recess.gleams > 0 ? recess : null;
 }
 
 /**
