@@ -7,7 +7,7 @@ import type * as THREE from "three";
 import type { RecessSim } from "./use-recess-sim";
 import type { SpriteTextures } from "./sprite-source";
 import { GLEAM_COUNT, LAP_START, LAP_WAYPOINTS } from "@/lib/realm/recess/recess";
-import { GROUND_Y } from "@/lib/realm/markers";
+import { GROUND_Y, RING_CALM, RING_GOLD } from "@/lib/realm/markers";
 
 /** Pooled gleam sprites, the ring markers, and the start banner; visible only while recess is active. */
 export function RecessLayer({ sim, textures, calm, motion }: { sim: RefObject<RecessSim>; textures: SpriteTextures; calm: boolean; motion: boolean }) {
@@ -31,7 +31,7 @@ export function RecessLayer({ sim, textures, calm, motion }: { sim: RefObject<Re
     }
   });
 
-  const marker = calm ? "#8a7d5a" : "#c9a84c";
+  const marker = calm ? RING_CALM : RING_GOLD; // the world's one gold, imported — not re-typed as a hex literal
   return (
     <>
       {Array.from({ length: GLEAM_COUNT }, (_, i) => (

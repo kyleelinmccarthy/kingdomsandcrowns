@@ -4,7 +4,7 @@ import "@react-three/fiber";
 import { memo, useCallback, useEffect, useMemo, useRef, type RefObject } from "react";
 import { Canvas, useFrame, type ThreeEvent } from "@react-three/fiber";
 import { Html, OrthographicCamera } from "@react-three/drei";
-import type * as THREE from "three";
+import * as THREE from "three";
 import { WORLD_SIZE, spriteSizeFor, type Prop, type WorldLayout, type Vec2 } from "@/lib/realm/layout";
 import { setTarget, stepCompanion, stepHero, unstickHero, setMounted, HERO_SPEED, COMPANION_GAP_MOUNTED, type CompanionState, type HeroState } from "@/lib/realm/movement";
 import { CAMERA_OFFSET, CAMERA_ZOOM, edgeArrow, followCamera } from "@/lib/realm/camera";
@@ -15,8 +15,8 @@ import type { Surfaces } from "@/lib/realm/depth";
 import type { SpellDefinition } from "@/lib/utils/spell-catalog";
 import type { CastRequest } from "./use-realm-input";
 import type { TroubleSkin } from "@/lib/realm/spells/troubles";
-import { stepSpellSim, useSpellSimRef, type SpellEvent } from "./use-spell-sim";
-import { stepRecessSim, useRecessSimRef, type RecessSimEvent } from "./use-recess-sim";
+import { stepSpellSim, useSpellSimRef, type SpellEvent, type SpellSimInput } from "./use-spell-sim";
+import { stepRecessSim, useRecessSimRef, type RecessSimEvent, type RecessSimInput } from "./use-recess-sim";
 import { SpellLayer } from "./spell-layer";
 import { RecessLayer } from "./recess-layer";
 import { CeremonyLayer } from "./ceremony-layer";
@@ -81,6 +81,25 @@ function easeOut(t: number): number {
 }
 
 /**
+ * ONE geometry and TWO materials for every contact shadow in the world.
+ *
+ * A castle, up to eight buildings, twelve decorations, up to eight villagers, the hero, the
+ * mount and the companion is 17 to 32 shadows. Declared inline, each of them got its own
+ * BufferGeometry and its own Material — so every one was a distinct VAO bind and forced
+ * `refreshMaterial = true` in setProgram, re-uploading the whole uniform block instead of
+ * taking the same-material fast path. Shared, the transparent pass binds one buffer and one
+ * program for all of them.
+ *
+ * There is no polygonOffset: GROUND_Y already gives every decal in the programme its own
+ * rung, so the offset bought nothing and cost a GL state toggle on either side of each draw.
+ * Module scope, not a hook: they are stateless, immutable and live as long as the scene
+ * module does — a per-component useMemo would hand a different pair to each subtree.
+ */
+const SHADOW_GEOMETRY = new THREE.CircleGeometry(0.5, 4);
+const SHADOW_MATERIAL = new THREE.MeshBasicMaterial({ color: "#000000", transparent: true, opacity: SHADOW_OPACITY, depthWrite: false });
+const SHADOW_MATERIAL_CALM = new THREE.MeshBasicMaterial({ color: "#000000", transparent: true, opacity: SHADOW_OPACITY_CALM, depthWrite: false });
+
+/**
  * The flat diamond a figure or a prop drops on the ground: a 4-segment circle
  * is an axis-aligned diamond, scaled to the footprint so a building's shadow is
  * its plan and never a bar. It is a child of the thing it belongs to and sits at
@@ -89,17 +108,18 @@ function easeOut(t: number): number {
  */
 function ContactShadow({ w, d, y, calm }: { w: number; d: number; y: number; calm: boolean }) {
   return (
-    <mesh position={[0, y, 0]} rotation={[-Math.PI / 2, 0, 0]} scale={[w, d, 1]}>
-      <circleGeometry args={[0.5, 4]} />
-      <meshBasicMaterial
-        color="#000000"
-        transparent
-        opacity={calm ? SHADOW_OPACITY_CALM : SHADOW_OPACITY}
-        depthWrite={false}
-        polygonOffset
-        polygonOffsetFactor={-1}
-      />
-    </mesh>
+    <mesh
+      geometry={SHADOW_GEOMETRY}
+      material={calm ? SHADOW_MATERIAL_CALM : SHADOW_MATERIAL}
+      // Shared resources MUST opt out of unmount disposal: R3F's teardown walks an unmounting
+      // object's own properties and calls dispose() on each, so one villager leaving (a sprite
+      // that failed to re-rasterise) or the mount group going away would otherwise free the
+      // geometry and material every other shadow in the world is still drawing with.
+      dispose={null}
+      position={[0, y, 0]}
+      rotation={[-Math.PI / 2, 0, 0]}
+      scale={[w, d, 1]}
+    />
   );
 }
 
@@ -150,11 +170,54 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
   const companionShadow = useRef<THREE.Group>(null);
   const heroRing = useRef<THREE.Group>(null);
 
+  // Writes one frame of a rise straight onto the building. `s` of 1 is exactly what the
+  // declarative JSX places, which is what makes this also the way to settle an abandoned one.
+  const applyRise = useCallback((id: string, s: number) => {
+    const obj = buildingObjects.current.get(id);
+    if (!obj) return;
+    if (obj.userData.box) {
+      obj.scale.y = s;
+      obj.position.y = ((obj.userData.boxH as number) * s) / 2; // the box's centre rises with it, base on the ground
+    } else {
+      const h = obj.userData.h as number;
+      obj.scale.y = h * s;
+      obj.position.y = (h * s) / 2;
+    }
+  }, []);
+
   // A completed building scales up from the ground once; with motion off it simply appears.
   useEffect(() => {
+    // Settle whatever was mid-rise BEFORE dropping it. Both triggers here abandon it — the
+    // motion setting flipping false, or a second building completing inside RISE_MS — and the
+    // abandoned object keeps the scale.y and position.y of a half-risen building. R3F diffs
+    // the declarative arrays element-wise, sees no change and never writes them again, so
+    // without this the child's newly built mill stays half-sunk for the rest of the session.
+    const abandoned = rising.current;
+    if (abandoned) {
+      applyRise(abandoned.id, 1);
+      rising.current = null;
+    }
     if (!risingId) return;
-    rising.current = settings.motion ? { id: risingId, startedAt: performance.now() } : null;
-  }, [risingId, settings.motion]);
+    if (settings.motion) rising.current = { id: risingId, startedAt: performance.now() };
+  }, [risingId, settings.motion, applyRise]);
+
+  // The frame loop is the only thing that ever reports reach, which leaves it one blind spot:
+  // if the scene unmounts with a villager in reach, no final `onReachChange(null)` is sent and
+  // the shell's `reachId` stays set — Enter would still open the deed panel for a villager who
+  // is no longer on screen. No path reaches that today (a sprite retry re-keys SpriteSource,
+  // not the scene, and `textures` never goes back to null), but `{textures && <RealmScene/>}`
+  // puts it one line away, so the scene reports its own departure. Through a ref, with no deps:
+  // `onReachChange` changes identity whenever the stick setting does, and a cleanup that ran on
+  // that would clear a reach the hero is still standing in.
+  const onReachChangeRef = useRef(onReachChange);
+  useEffect(() => {
+    onReachChangeRef.current = onReachChange;
+  }, [onReachChange]);
+  useEffect(() => () => {
+    if (reachRef.current === null) return;
+    reachRef.current = null;
+    onReachChangeRef.current(null);
+  }, []);
 
   // A foundation the hero was standing on can become a solid building between
   // frames; step them out rather than leaving them entombed inside it.
@@ -197,15 +260,28 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
 
   const objectiveSite = layout.props.find((p) => p.focus === "objective") ?? null;
 
+  // Hoisted out of the frame loop: two closures and two sizeable object literals that were
+  // otherwise allocated sixty times a second for the whole visit. The emitters are stable
+  // because the shell's handlers are (every scene callback is useCallback'd), and the two
+  // input records are written field by field each frame — both steppers read their input
+  // within the call and neither retains the object, so one instance can serve every frame.
+  const emitSpell = useCallback((e: SpellEvent) => queueMicrotask(() => onSpellEvent(e)), [onSpellEvent]);
+  const emitRecess = useCallback((e: RecessSimEvent) => queueMicrotask(() => onRecessEvent(e)), [onRecessEvent]);
+  const spellInput = useRef<SpellSimInput>({ layout, hero: layout.spawn, dt: 0, selectedSpell: null, selectedSlot: null, castRequest: null, lowStimulus: false, reducedMotion: false, seed });
+  const recessInput = useRef<RecessSimInput>({ layout, hero: layout.spawn, dt: 0, active: false, lowStimulus: false, seed });
+
   useFrame((state, delta) => {
     const dt = Math.min(delta, 0.05); // a tab that was hidden must not teleport the hero on return
     // Read and clear unconditionally: a cast request queued an instant before a
     // panel opened this frame must not fire later, once the world is interactive again.
     const request = castRef.current;
     castRef.current = null;
-    // A pending talk belongs to the walking hero alone: the deed panel opening,
-    // the help card opening and the crown ceremony starting each cancel it.
-    if (pendingTalk.current && (!interactive || ceremonyActive)) pendingTalk.current = null;
+    // A pending talk belongs to the walking hero alone: the deed panel opening, the help card
+    // opening, the crown ceremony starting and the child arming a spell each cancel it. The
+    // spell is the symmetric half of `pickVillager`, which refuses to START a talk while a
+    // page is selected — without it a talk queued a moment earlier still fires on arrival and
+    // opens the deed panel over a child lining up a cast.
+    if (pendingTalk.current && (!interactive || ceremonyActive || selectedSpell)) pendingTalk.current = null;
     if (ceremonyActive && !ceremonyRef.current) {
       const started = startCeremony(layout, hero.current.position, !settings.motion, hero.current.facing);
       ceremonyRef.current = started;
@@ -248,19 +324,28 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
       if (frozen && hero.current.target) hero.current = { ...hero.current, target: null };
       hero.current = stepHero(hero.current, { axis: frozen ? { x: 0, z: 0 } : axisRef.current ?? { x: 0, z: 0 } }, dt, layout.colliders, riding ? mountSpeed : HERO_SPEED);
       companion.current = stepCompanion(companion.current, hero.current, dt, riding ? { gap: COMPANION_GAP_MOUNTED, speed: mountSpeed + 0.5 } : undefined);
-      const stepped = stepSpellSim(
-        simRef.current,
-        { layout, hero: hero.current.position, dt, selectedSpell: spellsEnabled ? selectedSpell : null, selectedSlot: spellsEnabled ? selectedSlot : null, castRequest: spellsEnabled ? request : null, lowStimulus: settings.calmPalette, reducedMotion: !settings.motion, seed },
-        (e) => queueMicrotask(() => onSpellEvent(e))
-      );
+      const spellIn = spellInput.current;
+      spellIn.layout = layout;
+      spellIn.hero = hero.current.position;
+      spellIn.dt = dt;
+      spellIn.selectedSpell = spellsEnabled ? selectedSpell : null;
+      spellIn.selectedSlot = spellsEnabled ? selectedSlot : null;
+      spellIn.castRequest = spellsEnabled ? request : null;
+      spellIn.lowStimulus = settings.calmPalette;
+      spellIn.reducedMotion = !settings.motion;
+      spellIn.seed = seed;
+      const stepped = stepSpellSim(simRef.current, spellIn, emitSpell);
       simRef.current = stepped.sim;
       dazzledRef.current = stepped.dazzled;
       castingRef.current = stepped.casting;
-      recessRef.current = stepRecessSim(
-        recessRef.current,
-        { layout, hero: hero.current.position, dt, active: recessActive, lowStimulus: settings.calmPalette, seed },
-        (e) => queueMicrotask(() => onRecessEvent(e))
-      );
+      const recessIn = recessInput.current;
+      recessIn.layout = layout;
+      recessIn.hero = hero.current.position;
+      recessIn.dt = dt;
+      recessIn.active = recessActive;
+      recessIn.lowStimulus = settings.calmPalette;
+      recessIn.seed = seed;
+      recessRef.current = stepRecessSim(recessRef.current, recessIn, emitRecess);
     } else if (wasInteractive.current) {
       // A pointerdown that reached the ground before a panel opened this frame
       // can leave a stale walk target; drop it once so the hero doesn't creep
@@ -292,7 +377,11 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
     // does not, which is the difference between a hero who stands and one who hops.
     if (heroShadow.current) {
       heroShadow.current.position.set(p.x, 0, p.z);
-      heroShadow.current.visible = !riding; // the mount's wider shadow stands in for both while mounted
+      // The mount's wider shadow stands in for both while mounted — but only if there IS one.
+      // `canRide` is gated on the unlocked list, not on the texture, so a mount sprite that
+      // failed to rasterise renders no mount group at all; hiding the hero's shadow then
+      // leaves a figure floating on the grass with nothing anchoring it (D1.3, D1.4).
+      heroShadow.current.visible = !(riding && mountShadow.current);
     }
     if (mountShadow.current) {
       mountShadow.current.visible = riding;
@@ -363,19 +452,8 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
     }
     const r = rising.current;
     if (r) {
-      const obj = buildingObjects.current.get(r.id);
       const k = Math.min(1, (performance.now() - r.startedAt) / RISE_MS);
-      const s = 0.1 + 0.9 * easeOut(k);
-      if (obj) {
-        if (obj.userData.box) {
-          obj.scale.y = s;
-          obj.position.y = ((obj.userData.boxH as number) * s) / 2; // the box's centre rises with it, base on the ground
-        } else {
-          const h = obj.userData.h as number;
-          obj.scale.y = h * s;
-          obj.position.y = (h * s) / 2;
-        }
-      }
+      applyRise(r.id, 0.1 + 0.9 * easeOut(k)); // k === 1 gives exactly 1: the building settles at full size
       if (k >= 1) rising.current = null;
     }
   });
@@ -396,6 +474,10 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
       castRef.current = { target: point };
       return;
     }
+    // Dazzled or mid-cast, in the same order the ground handler checks it: out of reach the
+    // outcome only matched by accident (the walk it would queue is dropped every frozen
+    // frame), and IN reach this is what stops a tap opening the deed panel mid-cast.
+    if (frozenRef.current) return;
     if (reachRef.current === id) {
       onVillagerPick(id);
       return;
@@ -490,7 +572,10 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
             <cylinderGeometry args={[BEACON.radius, BEACON.radius, beaconHeight, 8]} />
             <meshBasicMaterial ref={beaconMaterial} color={ringColor} transparent opacity={beaconOpacity} depthWrite={false} />
           </mesh>
-          <mesh position={[0, GROUND_Y.heroRing - 0.005, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+          {/* Its own rung, never `heroRing - 0.005`: that is exactly GROUND_Y.figureShadow, and two
+              coplanar transparent decals swap order with the camera — the gold "go here" ring
+              flickering against the hero's own shadow the moment the child arrives. */}
+          <mesh position={[0, GROUND_Y.objectiveRing, 0]} rotation={[-Math.PI / 2, 0, 0]}>
             <ringGeometry args={[objectiveSite.size.w / 2 + 0.22, objectiveSite.size.w / 2 + 0.3, 32]} />
             <meshBasicMaterial color={ringColor} transparent opacity={beaconOpacity} depthWrite={false} />
           </mesh>
