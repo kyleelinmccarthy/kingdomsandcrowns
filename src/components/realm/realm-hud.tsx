@@ -9,6 +9,7 @@ import type { Surfaces } from "@/lib/realm/depth";
 import type { Objective, ObjectiveState } from "@/lib/realm/objective";
 import { findBuilding } from "@/lib/utils/kingdom";
 import { SIDE_QUESTS_LOWER } from "@/lib/utils/side-quest-copy";
+import { useQuestTimer, formatElapsed } from "@/hooks/use-quest-timer";
 
 /**
  * One progress row, in the one vocabulary the whole programme uses. Pips substitute for
@@ -82,6 +83,26 @@ function ObjectiveCard({ objective, heroName, preview, numerals }: { objective: 
   );
 }
 
+/**
+ * The one piece of app chrome re-admitted to the open Realm. Every other floating
+ * popup is suppressed while the portal is up (globals.css); a running quest timer is
+ * the one thing whose whole purpose is to tell a child their chore ran out, so it
+ * comes back inside the Realm's own layers as a chip rather than by out-ranking the
+ * portal's z-index. Its own component so the timer's 1 Hz tick re-renders 20 bytes
+ * of chip and not the whole HUD.
+ */
+export function RealmTimerChip() {
+  const { activeTimer, elapsedSeconds, isPaused } = useQuestTimer();
+  if (!activeTimer) return null;
+  const elapsed = formatElapsed(elapsedSeconds);
+  return (
+    <span className="realm-hud-chip" aria-label={`${isPaused ? "Quest timer paused" : "Quest timer"}: ${elapsed}`}>
+      <GameIcon name="timer" className="size-4" />
+      {elapsed}
+    </span>
+  );
+}
+
 export function RealmHud({
   heroName,
   minutesRemaining,
@@ -137,6 +158,7 @@ export function RealmHud({
       <ObjectiveCard objective={objective} heroName={heroName} preview={preview} numerals={numerals} />
       <div className="realm-hud-meta" style={{ pointerEvents: "none" }}>
         {minutesRemaining !== null && <span className="realm-hud-minutes">{minutesRemaining} min left{paused ? " · paused" : ""}</span>}
+        <RealmTimerChip />
         {crown && (
           <span className="realm-hud-badge realm-hud-crown" style={{ color: crown.color }}>
             <GameIcon name="crown" className="size-4" /> {crown.label}

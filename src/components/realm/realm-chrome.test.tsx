@@ -127,3 +127,39 @@ describe("the portal and the app chrome", () => {
     expect(schedule).toContain('className="schedule-notification-popup ');
   });
 });
+
+describe("the re-admitted quest timer", () => {
+  it("renders as a chip in the HUD's meta zone with the running quest's elapsed time", async () => {
+    const now = Date.now();
+    localStorage.setItem(
+      QUEST_TIMER_KEY,
+      JSON.stringify({ assignmentId: "a1", startedAt: now - 42_000, accumulatedMs: 42_000, resumedAt: now })
+    );
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    render(<RealmShell bundle={bundle} childId="c1" isChildView={true} />);
+    expect(await screen.findByTestId("scene")).toBeInTheDocument();
+    const chip = screen.getByLabelText("Quest timer: 00:42");
+    expect(chip).toHaveClass("realm-hud-chip");
+    const meta = document.querySelector(".realm-hud-meta");
+    expect(meta).not.toBeNull();
+    expect(meta!.contains(chip)).toBe(true);
+  });
+
+  it("shows nothing when no quest timer is running", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    render(<RealmShell bundle={bundle} childId="c1" isChildView={true} />);
+    expect(await screen.findByTestId("scene")).toBeInTheDocument();
+    expect(screen.queryByLabelText(/^Quest timer/)).not.toBeInTheDocument();
+  });
+
+  it("says so when the timer is paused", async () => {
+    localStorage.setItem(
+      QUEST_TIMER_KEY,
+      JSON.stringify({ assignmentId: "a1", startedAt: Date.now() - 90_000, accumulatedMs: 90_000, resumedAt: Date.now() - 90_000, pausedAt: Date.now() })
+    );
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    render(<RealmShell bundle={bundle} childId="c1" isChildView={true} />);
+    expect(await screen.findByTestId("scene")).toBeInTheDocument();
+    expect(screen.getByLabelText("Quest timer paused: 01:30")).toHaveTextContent("01:30");
+  });
+});

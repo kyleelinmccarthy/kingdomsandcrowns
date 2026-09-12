@@ -1718,6 +1718,10 @@ body:has(.realm-root) .schedule-notification-popup,
 body[data-realm-open] .floating-dock,
 body[data-realm-open] .quest-timer-popup,
 body[data-realm-open] .schedule-notification-popup { display: none; }
+/* A chip in the HUD's meta zone: the shape the re-admitted quest timer wears, and the
+   shape anything else re-admitted later wears. Not interactive, so it keeps .realm-hud's
+   `pointer-events: none` — only buttons, links and the preview selector take pointers. */
+.realm-hud-chip { display: inline-flex; align-items: center; gap: 0.3rem; border-radius: 9999px; padding: 0.15rem 0.6rem; background: rgba(0, 0, 0, 0.55); border: 1px solid var(--gold-border); color: var(--gold-bright); font-size: calc(12px * var(--realm-hud-scale, 1)); font-variant-numeric: tabular-nums; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8); }
 /* Three anchored zones. The HUD and all three zones are pass-through; a text-shadow floor
    keeps every bare-text element legible over grass, which the hero's name never had. */
 .realm-hud { position: absolute; top: 0.75rem; left: 0.75rem; right: 0.75rem; z-index: 20; display: flex; align-items: flex-start; gap: 0.75rem; pointer-events: none; color: #fff; font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8); }
