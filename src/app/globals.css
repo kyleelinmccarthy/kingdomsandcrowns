@@ -1745,6 +1745,17 @@ html { scrollbar-color: var(--border) var(--background); }
    triangle on the container here: task 16's rule cannot unset it, and the arrow would
    grow a second, unrotated head. */
 .realm-edge-arrow { position: absolute; left: 0; top: 0; pointer-events: none; }
+/* The off-screen objective arrow (§3.5). The scene writes `hidden`, `transform`,
+   `color`, `opacity` and `data-motion`; the shape, the pulse and the ban on pointers
+   live here. Shown in every mode — calm mutes it, never hides it — and the pulse is
+   on the ::before arrowhead, never on the container, because a CSS animation would
+   override the inline transform the scene writes sixty times a second. */
+.realm-edge-arrow { color: #c9a84c; filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6)); }
+.realm-edge-arrow[hidden] { display: none; }
+.realm-edge-arrow::before { content: ""; display: block; width: 0; height: 0; border-top: 12px solid transparent; border-bottom: 12px solid transparent; border-left: 20px solid currentColor; animation: realm-arrow-pulse 1000ms ease-in-out infinite; }
+@keyframes realm-arrow-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+.realm-edge-arrow[data-motion="off"]::before { animation: none; }
+@media (prefers-reduced-motion: reduce) { .realm-edge-arrow::before { animation: none; } }
 @keyframes realm-toast-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 /* `--realm-hud-scale` is set once on `.realm-root` from settings.hudScale. It is what
    closes the largerText hole the audit found: globals.css:244's `zoom` rule is scoped to

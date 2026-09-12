@@ -606,6 +606,7 @@ function RealmOpen({
           settings={settings}
           surfaces={surfaces}
           axisRef={axisRef}
+          arrowRef={arrowRef}
           interactive={!panelOpen && !ceremonyRunning && !helpOpen}
           reachId={reachId}
           onReachChange={onReachChange}

@@ -7,8 +7,8 @@ import { Html, OrthographicCamera } from "@react-three/drei";
 import type * as THREE from "three";
 import { WORLD_SIZE, spriteSizeFor, type Prop, type WorldLayout, type Vec2 } from "@/lib/realm/layout";
 import { setTarget, stepCompanion, stepHero, unstickHero, setMounted, HERO_SPEED, COMPANION_GAP_MOUNTED, type CompanionState, type HeroState } from "@/lib/realm/movement";
-import { CAMERA_OFFSET, CAMERA_ZOOM, followCamera } from "@/lib/realm/camera";
-import { facingAngle, GROUND_Y, shadowFootprint, RING_INNER, RING_OUTER, RING_NOTCH_ARC, RING_GOLD, RING_CALM, SHADOW_OPACITY, SHADOW_OPACITY_CALM } from "@/lib/realm/markers";
+import { CAMERA_OFFSET, CAMERA_ZOOM, edgeArrow, followCamera } from "@/lib/realm/camera";
+import { BEACON, facingAngle, GROUND_Y, shadowFootprint, RING_INNER, RING_OUTER, RING_NOTCH_ARC, RING_GOLD, RING_CALM, SHADOW_OPACITY, SHADOW_OPACITY_CALM } from "@/lib/realm/markers";
 import { nearestVillager, villagerById, villagerForBuilding } from "@/lib/realm/villagers";
 import type { RenderSettings } from "@/lib/realm/render-settings";
 import type { Surfaces } from "@/lib/realm/depth";
@@ -53,6 +53,10 @@ export type RealmSceneProps = {
   ceremonyActive: boolean; // true while the shell wants the ceremony running; the scene starts it once
   ceremonySkipRef: RefObject<boolean>; // the shell sets it; the scene reads and clears it
   onCeremonyEvent: (e: CeremonyEvent) => void;
+  // The off-screen objective arrow, which lives in the HUD layer. A ref, so it is
+  // referentially stable and the World memo never sees a changed prop; the scene
+  // writes the element directly rather than routing a position through React.
+  arrowRef: RefObject<HTMLDivElement | null>;
 };
 
 const SPRITE_W = 1.5;
@@ -110,7 +114,7 @@ function PropLabel({ prop, y }: { prop: Prop; y: number }) {
   );
 }
 
-const World = memo(function World({ layout, textures, settings, surfaces, axisRef, interactive, reachId, onReachChange, onTalk, onVillagerPick, risingId, selectedSpell, selectedSlot, castRef, spellsEnabled, onSpellEvent, seed, riding, mountSpeed, recessActive, onRecessEvent, ceremonyActive, ceremonySkipRef, onCeremonyEvent }: RealmSceneProps) {
+const World = memo(function World({ layout, textures, settings, surfaces, axisRef, arrowRef, interactive, reachId, onReachChange, onTalk, onVillagerPick, risingId, selectedSpell, selectedSlot, castRef, spellsEnabled, onSpellEvent, seed, riding, mountSpeed, recessActive, onRecessEvent, ceremonyActive, ceremonySkipRef, onCeremonyEvent }: RealmSceneProps) {
   // Per-frame state lives in refs: nothing here re-renders React sixty times a second.
   const hero = useRef<HeroState>({ position: layout.spawn, facing: "s", target: null, mounted: false });
   const companion = useRef<CompanionState>({ position: { x: layout.spawn.x, z: layout.spawn.z + 1.2 } });
@@ -129,6 +133,9 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
   const castingRef = useRef(false);
   const frozenRef = useRef(false); // dazzled or mid-cast; read by onPointerDown too
   const ceremonyRef = useRef<CeremonyState | null>(null);
+  const beaconMaterial = useRef<THREE.MeshBasicMaterial>(null); // the breathing column; the ground ring holds still
+  const arrowShown = useRef(false);
+  const arrowAt = useRef({ x: 0, y: 0 });
   // The whole villager — sprite, plate and shadow — is one Object3D. The ceremony moves
   // the group, so every attachment travels with it and `ceremony.ts` needs no change.
   const villagerGroups = useRef(new Map<string, THREE.Object3D>());
@@ -159,6 +166,29 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
   useEffect(() => {
     hero.current = setMounted(hero.current, riding);
   }, [riding]);
+
+  // The one site the child is being sent to, read off the layout rather than out of
+  // BUILDING_SLOTS: when slice 4 rewrites the town plan the beacon and the arrow move
+  // with it and nothing needs re-siting. Null when the kingdom is complete, when the
+  // load failed, and in every other state objectiveState calls `unknown` — no focus,
+  // no beacon, no arrow.
+  // The arrow element lives in the HUD layer, so the scene dresses it: gold, or the
+  // muted ring colour at 0.7 under a calm palette — shown in every mode, never hidden
+  // by a setting (§3.5) — plus the flag globals.css reads to still the pulse for a hero
+  // who asked for no motion. The cleanup hides it when the world unmounts, because the
+  // element outlives the canvas and nothing else would.
+  useEffect(() => {
+    const el = arrowRef.current;
+    if (!el) return;
+    el.style.color = settings.calmPalette ? RING_CALM : RING_GOLD;
+    el.style.opacity = settings.calmPalette ? "0.7" : "1";
+    el.dataset.motion = settings.motion ? "on" : "off";
+    return () => {
+      el.hidden = true;
+    };
+  }, [arrowRef, settings.calmPalette, settings.motion]);
+
+  const objectiveSite = layout.props.find((p) => p.focus === "objective") ?? null;
 
   useFrame((state, delta) => {
     const dt = Math.min(delta, 0.05); // a tab that was hidden must not teleport the hero on return
@@ -276,6 +306,36 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
       camera.current.position.set(t.x + CAMERA_OFFSET.x, CAMERA_OFFSET.y, t.z + CAMERA_OFFSET.z);
       camera.current.lookAt(t.x, 0, t.z);
     }
+    // The column breathes 0.35↔0.55 on a 1.2 Hz sine (2π · 1.2 = Math.PI * 2.4). A hero
+    // who asked for less motion gets it held at BEACON.opacity, and a calm palette holds
+    // it quieter still: the mark is always there, it just stops moving.
+    if (beaconMaterial.current) {
+      beaconMaterial.current.opacity = settings.calmPalette
+        ? BEACON.calmOpacity
+        : settings.motion
+          ? BEACON.opacity + Math.sin(state.clock.elapsedTime * Math.PI * 2.4) * 0.1
+          : BEACON.opacity;
+    }
+    // The off-screen arrow is written straight to the DOM: no setState, no queueMicrotask,
+    // no React at all, so a memoised World is not re-rendered sixty times a second to move
+    // one triangle. `t` is this frame's camera target, so the arrow and the camera can
+    // never disagree by a frame. A move under half a pixel is skipped, which means a
+    // standing hero writes nothing at all.
+    const arrowEl = arrowRef.current;
+    if (arrowEl) {
+      const arrow = objectiveSite ? edgeArrow(t, objectiveSite.position, state.size) : null;
+      if (!arrow) {
+        if (arrowShown.current) {
+          arrowShown.current = false;
+          arrowEl.hidden = true;
+        }
+      } else if (!arrowShown.current || Math.abs(arrow.x - arrowAt.current.x) >= 0.5 || Math.abs(arrow.y - arrowAt.current.y) >= 0.5) {
+        arrowAt.current = { x: arrow.x, y: arrow.y };
+        arrowShown.current = true;
+        arrowEl.style.transform = `translate(${arrow.x}px, ${arrow.y}px) translate(-50%, -50%) rotate(${arrow.angle}rad)`;
+        arrowEl.hidden = false;
+      }
+    }
     // Reach is reported only when it changes, and outside the frame loop, so React never sets state mid-render.
     const near = nearestVillager(p, shown);
     if (near !== reachRef.current) {
@@ -369,6 +429,10 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
     return undefined;
   };
   const standing = layout.props.filter((p) => p.kind === "castle" || p.kind === "building" || p.kind === "decor" || p.kind === "barrier");
+  // Calm shortens and quietens the beacon; it is never absent (§3.9, §6: lowStimulus mutes, never empties).
+  const beaconColor = settings.calmPalette ? RING_CALM : RING_GOLD;
+  const beaconHeight = settings.calmPalette ? BEACON.calmHeight : BEACON.height;
+  const beaconOpacity = settings.calmPalette ? BEACON.calmOpacity : BEACON.opacity;
   const keyHint = !settings.showStick; // `Talk · Enter` for a keyboard, a plain `Talk` for a thumb
 
   return (
@@ -410,6 +474,21 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
           {textures.tiles ? <meshStandardMaterial map={textures.tiles.cobble} color={tint} /> : <meshStandardMaterial color={prop.color} />}
         </mesh>
       ))}
+      {objectiveSite && (
+        <group position={[objectiveSite.position.x, 0, objectiveSite.position.z]}>
+          {/* Geometry, not a sprite and not DOM (D3.2): a gold column reads across the
+              field, costs no rasterised kind, and survives a failed sprite or a broken
+              overlay — the cue of last resort for "where am I meant to go". */}
+          <mesh position={[0, beaconHeight / 2, 0]}>
+            <cylinderGeometry args={[BEACON.radius, BEACON.radius, beaconHeight, 8]} />
+            <meshBasicMaterial ref={beaconMaterial} color={beaconColor} transparent opacity={beaconOpacity} depthWrite={false} />
+          </mesh>
+          <mesh position={[0, GROUND_Y.heroRing - 0.005, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+            <ringGeometry args={[objectiveSite.size.w / 2 + 0.22, objectiveSite.size.w / 2 + 0.3, 32]} />
+            <meshBasicMaterial color={beaconColor} transparent opacity={beaconOpacity} depthWrite={false} />
+          </mesh>
+        </group>
+      )}
       {layout.props.filter((p) => p.kind === "foundation").map((prop) => {
         const foundationTex = worldTex("foundation");
         return (
