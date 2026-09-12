@@ -358,6 +358,7 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
     return undefined;
   };
   const standing = layout.props.filter((p) => p.kind === "castle" || p.kind === "building" || p.kind === "decor" || p.kind === "barrier");
+  const keyHint = !settings.showStick; // `Talk · Enter` for a keyboard, a plain `Talk` for a thumb
 
   return (
     <>
@@ -480,6 +481,12 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
       <CeremonyLayer sim={ceremonyRef} heroRef={hero} textures={textures} calm={settings.calmPalette} motion={settings.motion} />
       {reachVillager && reachPlacement && interactive && (
         <Html position={[reachPlacement.position.x, SPRITE_H + 0.9, reachPlacement.position.z]} center zIndexRange={[15, 0]}>
+          {/*
+            The greeting paragraph is gone: it was the SiteCard's subtitle
+            verbatim, read twice, and it covered the villager it belonged to.
+            What is left is one thing to press, at the size a six-year-old's
+            thumb needs.
+          */}
           <div
             className="realm-bubble"
             role="group"
@@ -488,8 +495,14 @@ const World = memo(function World({ layout, textures, settings, axisRef, interac
             onPointerUp={(e) => e.stopPropagation()}
             onClick={(e) => e.stopPropagation()}
           >
-            <p className="realm-bubble-text">{reachVillager.greeting}</p>
-            <button type="button" className="realm-bubble-talk" onClick={() => onTalk(reachVillager.id)}>Talk</button>
+            <button
+              type="button"
+              className="realm-bubble-talk"
+              aria-label={`Talk to ${reachVillager.name}`}
+              onClick={() => onTalk(reachVillager.id)}
+            >
+              Talk{keyHint && <span className="realm-bubble-key"> · Enter</span>}
+            </button>
           </div>
         </Html>
       )}
