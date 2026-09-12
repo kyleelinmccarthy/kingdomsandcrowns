@@ -291,6 +291,12 @@ function RealmOpen({
   // `hero` and `facing` here are the resting values the dot is FIRST drawn at; from the first
   // frame onward the scene owns that element's transform and React never writes it again,
   // which is why neither the hero's position nor their facing is a dependency of anything here.
+  // PARKED, not forgotten: `troubles` is empty on purpose. A trouble's position exists only in
+  // the spell sim's per-frame ref inside the memoised scene — `SpellEvent` reports kinds and
+  // counts, never places — so the only way to get one here is to put a moving position into
+  // React state, which is the per-frame re-render this whole ref-based wiring exists to
+  // prevent. `minimapView` already takes and tests `troubles`; slice 8, which owns how
+  // enemies read, wires them with the same DOM-write treatment the hero dot has below.
   const minimap = useMemo(
     () => minimapView({ layout, hero: layout.spawn, facing: "s", troubles: [], surfaces }),
     [layout, surfaces]
