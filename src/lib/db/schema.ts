@@ -681,7 +681,7 @@ export const realmSettings = sqliteTable(
     enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
     // earned: minutes come from completed quests; scheduled: recess blocks;
     // both: either opens the Realm.
-    accessMode: text("access_mode", { enum: ["earned", "scheduled", "both"] })
+    accessMode: text("access_mode", { enum: ["earned", "scheduled", "both", "open"] })
       .notNull()
       .default("earned"),
     earnedMinutesPerQuest: integer("earned_minutes_per_quest").notNull().default(5),

@@ -123,3 +123,65 @@ describe("computeRealmAccess", () => {
     expect(offOnly).toEqual({ allowed: false, reason: "no_minutes" });
   });
 });
+
+describe("open access", () => {
+  const open = { ...settings, accessMode: "open" as const };
+
+  it("opens with an empty ledger, in school hours, with no recess block", () => {
+    // The whole point: no finished quest, no granted minutes, mid-morning on a school day.
+    const r = computeRealmAccess({ ...base, settings: open, ledgerToday: [] });
+    expect(r).toEqual({ allowed: true, minutesRemaining: 30, source: "open" });
+  });
+
+  it("never consults the ledger, so a spent-out balance still opens", () => {
+    const r = computeRealmAccess({
+      ...base,
+      settings: open,
+      ledgerToday: [{ kind: "earned", minutes: 10 }, { kind: "spent", minutes: 10 }],
+    });
+    expect(r).toEqual({ allowed: true, minutesRemaining: 20, source: "open" });
+  });
+
+  it("still obeys the daily cap, which is the one safety net left", () => {
+    const r = computeRealmAccess({
+      ...base,
+      settings: open,
+      ledgerToday: [{ kind: "spent", minutes: 30 }],
+    });
+    expect(r).toEqual({ allowed: false, reason: "cap_reached" });
+  });
+
+  it("still obeys the Realm being switched off for this hero", () => {
+    const r = computeRealmAccess({ ...base, settings: { ...open, enabled: false }, ledgerToday: [] });
+    expect(r).toEqual({ allowed: false, reason: "disabled" });
+  });
+
+  it("hands a recess block its own source and end time, so recess still behaves as recess", () => {
+    const r = computeRealmAccess({
+      ...base,
+      settings: open,
+      timeOfDay: "10:30",
+      ledgerToday: [],
+      recessBlocksToday: [{ startTime: "10:00", endTime: "10:45" }],
+    });
+    expect(r).toEqual({ allowed: true, minutesRemaining: 15, source: "recess" });
+  });
+
+  it("opens again the moment the recess block ends", () => {
+    const r = computeRealmAccess({
+      ...base,
+      settings: open,
+      timeOfDay: "10:50",
+      ledgerToday: [],
+      recessBlocksToday: [{ startTime: "10:00", endTime: "10:45" }],
+    });
+    expect(r).toEqual({ allowed: true, minutesRemaining: 30, source: "open" });
+  });
+
+  it("opens on an unreadable clock, which earned and scheduled both refuse", () => {
+    // A broken clock must never open the Realm on its own — but "open" was already open,
+    // so there is nothing for a bad time to decide.
+    const r = computeRealmAccess({ ...base, settings: open, timeOfDay: "boom", ledgerToday: [] });
+    expect(r).toEqual({ allowed: true, minutesRemaining: 30, source: "open" });
+  });
+});

@@ -24,6 +24,7 @@ const MODES: { id: RealmAccessMode; label: string; hint: string }[] = [
   { id: "earned", label: "Earned", hint: "Each finished quest banks minutes." },
   { id: "scheduled", label: "Scheduled", hint: "Recess blocks on the schedule open the Realm." },
   { id: "both", label: "Both", hint: "Either one opens the Realm." },
+  { id: "open", label: "Open", hint: "Always available, no minutes needed. The daily cap still applies." },
 ];
 
 /**

@@ -36,6 +36,19 @@ describe("RealmSettingsPanel", () => {
     expect(updateRealmSettings).toHaveBeenCalledWith("c1", { accessMode: "both" });
   });
 
+  it("saves a switch to open mode", async () => {
+    const user = userEvent.setup();
+    render(<RealmSettingsPanel childId="c1" settings={DEFAULT_REALM_SETTINGS} summary={summary} />);
+    await user.click(screen.getByRole("radio", { name: /open/i }));
+    expect(updateRealmSettings).toHaveBeenCalledWith("c1", { accessMode: "open" });
+  });
+
+  it("hides minutes-per-quest in open mode", () => {
+    // Open never consults the ledger, so a per-quest rate has nothing to govern.
+    render(<RealmSettingsPanel childId="c1" settings={{ ...DEFAULT_REALM_SETTINGS, accessMode: "open" }} summary={summary} />);
+    expect(screen.queryByLabelText(/minutes per quest/i)).not.toBeInTheDocument();
+  });
+
   it("grants minutes for today", async () => {
     const user = userEvent.setup();
     render(<RealmSettingsPanel childId="c1" settings={DEFAULT_REALM_SETTINGS} summary={summary} />);

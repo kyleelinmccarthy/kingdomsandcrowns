@@ -1,6 +1,6 @@
 import { timeToMinutes } from "./schedule-days";
 
-export type RealmAccessMode = "earned" | "scheduled" | "both";
+export type RealmAccessMode = "earned" | "scheduled" | "both" | "open";
 export type LedgerKind = "earned" | "granted" | "spent";
 export type LedgerRow = { kind: LedgerKind; minutes: number };
 export type TimeBlock = { startTime: string; endTime: string };
@@ -24,7 +24,7 @@ export type AccessInput = {
 export type AccessDenied = "disabled" | "cap_reached" | "school_hours" | "outside_recess" | "no_minutes";
 
 export type AccessResult =
-  | { allowed: true; minutesRemaining: number; source: "off_hours" | "recess" | "earned" }
+  | { allowed: true; minutesRemaining: number; source: "off_hours" | "recess" | "earned" | "open" }
   | { allowed: false; reason: AccessDenied };
 
 const TIME = /^\d{2}:\d{2}$/;
@@ -69,7 +69,10 @@ export function computeRealmAccess(input: AccessInput): AccessResult {
     return { allowed: true, minutesRemaining: headroom, source: "off_hours" };
   }
 
-  const usesRecess = settings.accessMode === "scheduled" || settings.accessMode === "both";
+  // "open" honours a recess block so recess still behaves as recess (gleams, laps, its own
+  // end time), and otherwise simply opens. It never consults the ledger.
+  const isOpen = settings.accessMode === "open";
+  const usesRecess = isOpen || settings.accessMode === "scheduled" || settings.accessMode === "both";
   const usesEarned = settings.accessMode === "earned" || settings.accessMode === "both";
   const validTime = TIME.test(timeOfDay);
 
@@ -80,6 +83,8 @@ export function computeRealmAccess(input: AccessInput): AccessResult {
       return { allowed: true, minutesRemaining: Math.min(left, headroom), source: "recess" };
     }
   }
+
+  if (isOpen) return { allowed: true, minutesRemaining: headroom, source: "open" };
 
   if (usesEarned) {
     const balance = ledgerBalance(ledgerToday);

@@ -24,7 +24,7 @@ export const DEFAULT_REALM_SETTINGS: RealmSettings = {
   depthOverride: DEFAULT_DEPTH_OVERRIDE,
 };
 
-const ACCESS_MODES: RealmAccessMode[] = ["earned", "scheduled", "both"];
+const ACCESS_MODES: RealmAccessMode[] = ["earned", "scheduled", "both", "open"];
 const TONES: ToneMode[] = ["gentle", "monsters"];
 export const EARNED_MINUTES_RANGE = { min: 0, max: 60 } as const;
 export const DAILY_CAP_RANGE = { min: 5, max: 240 } as const;
@@ -58,7 +58,7 @@ export function validateRealmSettingsPatch(patch: unknown): Partial<RealmSetting
         out[key] = v;
         break;
       case "accessMode":
-        if (!ACCESS_MODES.includes(v as RealmAccessMode)) throw new Error("Choose earned, scheduled, or both.");
+        if (!ACCESS_MODES.includes(v as RealmAccessMode)) throw new Error("Choose earned, scheduled, both, or open.");
         out.accessMode = v as RealmAccessMode;
         break;
       case "toneMode":

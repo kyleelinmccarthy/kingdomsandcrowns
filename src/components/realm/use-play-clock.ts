@@ -10,7 +10,7 @@ import { currentTimeOfDay, localDateOf } from "@/lib/utils/schedule-days";
 export type CloseReason = AccessDenied;
 
 /** Why access is currently granted, in the gate's own vocabulary. */
-export type AccessSource = "off_hours" | "recess" | "earned";
+export type AccessSource = "off_hours" | "recess" | "earned" | "open";
 
 /**
  * Ticks the pure clock once a second, writes a minute to the ledger every 60

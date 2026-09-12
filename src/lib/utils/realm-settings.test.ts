@@ -16,6 +16,7 @@ describe("validateRealmSettingsPatch", () => {
   });
   it("rejects an unknown mode or tone", () => {
     expect(() => validateRealmSettingsPatch({ accessMode: "always" })).toThrow();
+    expect(validateRealmSettingsPatch({ accessMode: "open" })).toEqual({ accessMode: "open" });
     expect(() => validateRealmSettingsPatch({ toneMode: "gory" })).toThrow();
   });
   it("bounds minutes per quest to 0..60 and the cap to 5..240", () => {
