@@ -291,13 +291,19 @@ function RealmOpen({
   const openVillager = openVillagerId ? villagerById(openVillagerId) : null;
   const openBuilding = openVillager ? kingdom.buildings.find((b) => b.id === openVillager.buildingId) ?? null : null;
   const panelOpen = openVillager !== null && openBuilding !== null;
+  // The one predicate for "the world is not the hero's to drive right now". It governs
+  // input, the Enter/Space/M keys, the spoken objective, the paused chip, scene
+  // interactivity, the stick and the ability bar — nine sites that were nine copies of
+  // the same three flags. The one deliberate exception is the `?` button's `disabled`
+  // below, which omits ceremonyRunning on purpose; it says so there.
+  const worldBusy = panelOpen || ceremonyRunning || helpOpen;
   const pages = useMemo(() => withEmptyPages(resolvePages(bundle.spellbook.spells, bundle.spellbook.slots), bundle.spellbook.slots), [bundle.spellbook]);
   const castHintShown = useRef(false);
   const selectedSpell = selectedSlot === null ? null : pages.find((p) => p.slot === selectedSlot)?.spell ?? null;
   const troubleSkin: TroubleSkin = kingdom.tone === "monsters" ? "monsters" : "gentle";
-  const { axisRef, setStick, castRef } = useRealmInput({ enabled: !panelOpen && !ceremonyRunning && !helpOpen, castEnabled: isChildView && !panelOpen && !ceremonyRunning && !helpOpen && !riding && selectedSpell !== null });
+  const { axisRef, setStick, castRef } = useRealmInput({ enabled: !worldBusy, castEnabled: isChildView && !worldBusy && !riding && selectedSpell !== null });
   const config = bundle.avatarConfig ?? DEFAULT_AVATAR;
-  const clock = usePlayClock({ enabled: isChildView, childId, initialMinutes: minutes, onClose, paused: panelOpen || ceremonyRunning || helpOpen, initialSource: source });
+  const clock = usePlayClock({ enabled: isChildView, childId, initialMinutes: minutes, onClose, paused: worldBusy, initialSource: source });
   // Every exit path — the `Leave the Realm` link, a router navigation, the gate
   // closing, the clock running out, a browser back — unmounts this component, so
   // hanging the flush off its cleanup is the one place that cannot be bypassed:
@@ -391,7 +397,7 @@ function RealmOpen({
 
   // Enter or Space talks to the villager in reach when no panel is open; M mounts or dismounts.
   useEffect(() => {
-    if (panelOpen || ceremonyRunning || helpOpen) return;
+    if (worldBusy) return;
     function onKey(e: KeyboardEvent) {
       const t = e.target;
       const onInteractiveElement = t instanceof Element && t.closest("a, button, input, textarea, select, [role='dialog']");
@@ -412,7 +418,7 @@ function RealmOpen({
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [panelOpen, ceremonyRunning, helpOpen, reachId, selectedSlot, onToggleRide]);
+  }, [worldBusy, reachId, selectedSlot, onToggleRide]);
 
   // Escape skips the ceremony; nothing else listens for it while the ceremony runs (the deed panel cannot open).
   // While the help card is open, its own Escape handler closes the card first (it stops propagation).
@@ -637,12 +643,12 @@ function RealmOpen({
   useEffect(() => {
     if (spokenObjective.current) return;
     if (!isChildView || !bundle.profile.readAloud) return; // a parent's preview never speaks
-    if (!textures || panelOpen || ceremonyRunning || helpOpen) return;
+    if (!textures || worldBusy) return;
     const line = objectiveSpeech(objective);
     if (!line) return; // an unknown kingdom says nothing; a successful retry can still speak it
     spokenObjective.current = true;
     speak(line);
-  }, [textures, panelOpen, ceremonyRunning, helpOpen, isChildView, bundle.profile.readAloud, objective]);
+  }, [textures, worldBusy, isChildView, bundle.profile.readAloud, objective]);
 
   const problem = pickProblem(messageInput);
   const speech = pickSpeech(messageInput);
@@ -679,7 +685,7 @@ function RealmOpen({
         preview={!isChildView}
         hudScale={settings.hudScale}
         selector={selector}
-        paused={panelOpen || ceremonyRunning || helpOpen}
+        paused={worldBusy}
         objective={objective}
         surfaces={surfaces}
         kingdomDone={kingdomDone}
@@ -687,6 +693,8 @@ function RealmOpen({
         recessPill={recessPill}
         crown={crown}
         ceremony={ceremonyStage === "running" ? { onSkip } : null}
+        // NOT `worldBusy`: this one omits ceremonyRunning on purpose, so a hero can still
+        // open the card while the ceremony plays (the card holds the ceremony; see onHelpClose).
         help={{ onOpen: openHelp, disabled: panelOpen || helpOpen }}
       />
       {/* Mana sits above the bar and Ride beside it, where slice 3's real bar will find
@@ -730,7 +738,7 @@ function RealmOpen({
           surfaces={surfaces}
           axisRef={axisRef}
           arrowRef={arrowRef}
-          interactive={!panelOpen && !ceremonyRunning && !helpOpen}
+          interactive={!worldBusy}
           reachId={reachId}
           onReachChange={onReachChange}
           onTalk={onTalk}
@@ -752,8 +760,8 @@ function RealmOpen({
           onCeremonyEvent={onCeremonyEvent}
         />
       )}
-      {settings.showStick && !panelOpen && !ceremonyRunning && !helpOpen && <TouchStick onChange={setStick} />}
-      {isChildView && !panelOpen && !ceremonyRunning && !helpOpen && (
+      {settings.showStick && !worldBusy && <TouchStick onChange={setStick} />}
+      {isChildView && !worldBusy && (
         <SpellBar
           pages={pages}
           selectedSlot={selectedSlot}

@@ -24,6 +24,13 @@ function subscribe(callback: () => void) {
   }
   return () => {
     listeners.delete(callback);
+    // The observer is module-level and shared, so it outlives any one subscriber — but not
+    // all of them. The last consumer to unsubscribe tears it down, and the next `subscribe`
+    // builds a fresh one, so nothing is left watching <body> for an app with no consumers.
+    if (listeners.size === 0 && observer) {
+      observer.disconnect();
+      observer = null;
+    }
   };
 }
 function getSnapshot() {
