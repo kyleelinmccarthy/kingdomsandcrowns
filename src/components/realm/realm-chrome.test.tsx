@@ -263,6 +263,46 @@ describe("a quest timer that ran out", () => {
     expect(screen.queryByRole("button", { name: "Go to it →" })).not.toBeInTheDocument();
     expect(getAssignmentQuestInfo).not.toHaveBeenCalled();
   });
+
+  it("keeps a finished timer's sentence out of a parent's preview — the intro holds the lane instead", async () => {
+    // The shared-device hand-off means a child's stopped timer sits in the same
+    // localStorage a parent's preview then reads. This sentence, with a button that
+    // navigates the viewer away, has no business replacing the preview's own intro.
+    getAssignmentQuestInfo.mockResolvedValue({ title: "Long division", requireNotes: false, subjectName: "Math" });
+    localStorage.setItem(
+      STOPPED_TIMER_KEY,
+      JSON.stringify({ assignmentId: "a1", startedAt: Date.now() - 600_000, endedAt: Date.now(), durationMinutes: 10 })
+    );
+    getRealmAccess.mockResolvedValue({ allowed: false, reason: "school_hours" });
+    render(<RealmShell bundle={bundle} childId="c1" isChildView={false} />);
+    expect(await screen.findByTestId("scene")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId("realm-problem")).toHaveTextContent(/You're looking at Lily's grounds/));
+    expect(screen.queryByText(/timer finished\./)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Go to it →" })).not.toBeInTheDocument();
+  });
+
+  it("lets the one-minute banner reclaim the lane from a finished quest timer", async () => {
+    // The "complete or discard?" card that would normally clear a finished timer's
+    // message is display:none behind the portal, so without this the message would
+    // never yield — a child who ignores "Go to it →" would never see the one-minute
+    // warning before the gate closes on them.
+    getAssignmentQuestInfo.mockResolvedValue({ title: "Long division", requireNotes: false, subjectName: "Math" });
+    localStorage.setItem(
+      STOPPED_TIMER_KEY,
+      JSON.stringify({ assignmentId: "a1", startedAt: Date.now() - 600_000, endedAt: Date.now(), durationMinutes: 10 })
+    );
+    // `minutesRemaining: 1` makes the real play clock warn on its very first tick —
+    // the actual mechanism a child would hit, not a stand-in for it.
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 1, source: "earned" });
+    render(<RealmShell bundle={bundle} childId="c1" isChildView={true} />);
+    expect(await screen.findByTestId("scene")).toBeInTheDocument();
+    await waitFor(
+      () => expect(screen.getByTestId("realm-problem")).toHaveTextContent("One minute left in the Realm today."),
+      { timeout: 3000 }
+    );
+    expect(screen.queryByText(/timer finished\./)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Go to it →" })).not.toBeInTheDocument();
+  });
 });
 
 describe("the hero switcher", () => {
