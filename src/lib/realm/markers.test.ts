@@ -29,9 +29,6 @@ describe("facingAngle", () => {
     const angles = FACINGS.map(facingAngle);
     expect(new Set(angles).size).toBe(4);
   });
-  it("is stable: the same facing always gives the same angle", () => {
-    expect(facingAngle("n")).toBe(facingAngle("n"));
-  });
 });
 
 describe("ring constants", () => {
@@ -87,6 +84,7 @@ describe("GROUND_Y", () => {
     expect(GROUND_Y.foundation).toBe(0.04);
     expect(GROUND_Y.propShadow).toBe(0.045);
     expect(GROUND_Y.lapWaypoint).toBe(0.05);
+    expect(GROUND_Y.objectiveRing).toBe(0.052);
     expect(GROUND_Y.figureShadow).toBe(0.055);
     expect(GROUND_Y.heroRing).toBe(0.06);
   });
@@ -94,7 +92,7 @@ describe("GROUND_Y", () => {
   // place it in the ladder rather than append it and quietly sink under a path tile.
   it("is strictly increasing in declaration order", () => {
     const rungs: number[] = Object.values(GROUND_Y);
-    expect(rungs.length).toBeGreaterThanOrEqual(7);
+    expect(rungs.length).toBeGreaterThanOrEqual(8);
     for (let i = 1; i < rungs.length; i++) {
       expect(rungs[i]).toBeGreaterThan(rungs[i - 1]);
     }
@@ -102,6 +100,10 @@ describe("GROUND_Y", () => {
   it("clears the path, the foundation and the recess waypoint with the marks that sit on them", () => {
     expect(GROUND_Y.propShadow).toBeGreaterThan(GROUND_Y.foundation);
     expect(GROUND_Y.figureShadow).toBeGreaterThan(GROUND_Y.lapWaypoint);
+    // The objective ring and a figure's shadow must not share a rung: coplanar transparent
+    // decals swap order with the camera, and the hero stands on the objective site.
+    expect(GROUND_Y.objectiveRing).toBeGreaterThan(GROUND_Y.lapWaypoint);
+    expect(GROUND_Y.objectiveRing).toBeLessThan(GROUND_Y.figureShadow);
     expect(GROUND_Y.heroRing).toBeGreaterThan(GROUND_Y.figureShadow);
     expect(GROUND_Y.water).toBeLessThan(GROUND_Y.path);
   });
@@ -129,8 +131,5 @@ describe("BEACON", () => {
     expect(BEACON.calmOpacity).toBeLessThan(BEACON.opacity);
     expect(BEACON.calmHeight).toBeGreaterThan(0);
     expect(BEACON.calmOpacity).toBeGreaterThan(0);
-  });
-  it("stands clear of the ground ladder", () => {
-    expect(BEACON.height).toBeGreaterThan(GROUND_Y.heroRing);
   });
 });

@@ -49,6 +49,13 @@ export const GROUND_Y = {
   foundation: 0.04, // existing: realm-scene.tsx:279
   propShadow: 0.045, // buildings, castle, decor — never on a path
   lapWaypoint: 0.05, // existing: recess-layer.tsx:43
+  // The gold ring around the objective site. It sits UNDER a figure's shadow on purpose:
+  // the hero walks onto that site by construction, and a shadow belongs on top of the mark
+  // it falls across. It has its own rung because `heroRing - 0.005` is exactly
+  // `figureShadow` — coplanar transparent decals whose order the per-frame transparent
+  // sort then flips as the camera moves, i.e. the gold "go here" ring flickering against
+  // the hero's own shadow at the moment the child arrives.
+  objectiveRing: 0.052,
   figureShadow: 0.055,
   heroRing: 0.06,
 } as const;
