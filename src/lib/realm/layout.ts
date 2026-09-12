@@ -164,6 +164,12 @@ export function buildWorldLayout(input: { castleType: string; buildings: SitePro
 
   // Every building has a site: the building once complete, a foundation until then. Missing progress means none yet.
   const progress = new Map(input.buildings.map((b) => [b.id, b]));
+  // Rank is taken over the objectives that are still OPEN. A raised site is never a quest, so a
+  // completed id sitting first in `objectiveIds` would otherwise consume rank 0 and the world
+  // would carry NO objective mark at all — no beacon, no ring, no arrow — rather than promoting
+  // the next open site. `objectiveState` filters completed ids before they get here, so this is
+  // unreachable from the shell today; it is one line to make it impossible.
+  const openObjectiveIds = objectiveIds.filter((id) => !(progress.get(id)?.complete ?? false));
   const villagers: VillagerPlacement[] = [];
   for (const building of BUILDINGS) {
     const slot = BUILDING_SLOTS[building.id];
@@ -171,7 +177,7 @@ export function buildWorldLayout(input: { castleType: string; buildings: SitePro
     const footprint = buildingFootprint(building.id);
     const p = progress.get(building.id) ?? { id: building.id, done: 0, total: building.deedsToBuild, complete: false };
     // A raised site is never a quest, whatever the caller asks for, so a finished village can never grow a beacon.
-    const rank = objectiveIds.indexOf(building.id);
+    const rank = openObjectiveIds.indexOf(building.id);
     const focus: PropFocus | undefined = p.complete ? "done" : rank === 0 ? "objective" : rank > 0 ? "tracked" : undefined;
     const status: VillagerStatus = p.complete ? "built" : rank === 0 ? "objective" : "work";
     if (p.complete) {

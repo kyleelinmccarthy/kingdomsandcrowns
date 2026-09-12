@@ -217,6 +217,21 @@ describe("objective focus and villager status", () => {
     expect(built.villagers.find((v) => v.buildingId === "well")!.status).toBe("built");
   });
 
+  it("promotes the next open site when a completed id leads objectiveIds", () => {
+    // A completed id must not consume rank 0 and leave the world with no objective at all.
+    const layout = buildWorldLayout({ castleType: "keep", buildings: mixed, objectiveIds: ["well", "mill", "bridge"] });
+    const site = (id: string) => layout.props.find((p) => p.id === id)!;
+    expect(site("well").focus).toBe("done");
+    expect(site("mill").focus).toBe("objective");
+    expect(site("bridge").focus).toBe("tracked");
+    expect(layout.villagers.find((v) => v.buildingId === "mill")!.status).toBe("objective");
+    expect(layout.props.filter((p) => p.focus === "objective")).toHaveLength(1);
+    // And the village itself is still untouched by the reordering.
+    const plain = buildWorldLayout({ castleType: "keep", buildings: mixed });
+    expect(layout.props.map(strip)).toEqual(plain.props.map(strip));
+    expect(layout.colliders).toEqual(plain.colliders);
+  });
+
   it("gives every villager placement its site's name and progress", () => {
     const layout = buildWorldLayout({ castleType: "keep", buildings: mixed });
     expect(layout.villagers.find((v) => v.buildingId === "well")).toMatchObject({ label: "Village Well", done: 5, total: 5, status: "built" });
