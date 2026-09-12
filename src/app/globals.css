@@ -1702,8 +1702,22 @@ html { scrollbar-color: var(--border) var(--background); }
 /* `--realm-hud-scale` and `--realm-bar-bottom` are overwritten inline by RealmShell
    from the hero's render settings; these are the defaults. Every control that sits
    over the 3D world is `--realm-touch`; panel buttons stay at 44px. */
-.realm-root { position: fixed; inset: 0; z-index: 45; background: #0a1220; --realm-hud-scale: 1; --realm-bar-bottom: 1.25rem; --realm-touch: 56px; }
+.realm-root { position: fixed; inset: 0; z-index: 60; background: #0a1220; --realm-hud-scale: 1; --realm-bar-bottom: 1.25rem; --realm-touch: 56px; }
 .realm-root:focus { outline: none; }
+/* While the Realm is open it is the top of the stack, and the app's floating chrome
+   stays behind it. The quest-timer and schedule popups fire unprompted, on a metered
+   clock, and were covering the ability bar mid-cast; the sign-out pill was landing
+   beside the mount slot where a child's thumb already is. The `:has()` half is what
+   browsers match; the `[data-realm-open]` half is the fallback RealmOpen sets on the
+   body, and the path jsdom can test. The one piece of chrome a child must still be
+   able to see — a running quest timer — comes back inside the HUD as .realm-hud-chip,
+   rather than by out-ranking the portal. */
+body:has(.realm-root) .floating-dock,
+body:has(.realm-root) .quest-timer-popup,
+body:has(.realm-root) .schedule-notification-popup,
+body[data-realm-open] .floating-dock,
+body[data-realm-open] .quest-timer-popup,
+body[data-realm-open] .schedule-notification-popup { display: none; }
 /* Three anchored zones. The HUD and all three zones are pass-through; a text-shadow floor
    keeps every bare-text element legible over grass, which the hero's name never had. */
 .realm-hud { position: absolute; top: 0.75rem; left: 0.75rem; right: 0.75rem; z-index: 20; display: flex; align-items: flex-start; gap: 0.75rem; pointer-events: none; color: #fff; font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8); }

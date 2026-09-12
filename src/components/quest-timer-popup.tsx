@@ -114,7 +114,7 @@ export function QuestTimerPopup() {
   // Stopped state — show result and ask to complete or discard
   if (stoppedResult) {
     return (
-      <div className="fixed right-4 top-4 z-50 animate-in fade-in slide-in-from-right-4">
+      <div className="quest-timer-popup fixed right-4 top-4 z-50 animate-in fade-in slide-in-from-right-4">
         <div className="flex flex-col items-center gap-3 rounded-xl border-2 border-[var(--gold-border)] bg-[linear-gradient(180deg,rgba(17,26,46,0.97)_0%,rgba(10,16,30,1)_100%)] px-6 py-4 shadow-[0_0_40px_-10px_rgba(201,168,76,0.2),0_8px_30px_rgba(0,0,0,0.5)]">
           <div className="text-xs font-medium uppercase tracking-wider text-[var(--gold-bright)]">
             Timer Stopped
@@ -165,7 +165,7 @@ export function QuestTimerPopup() {
           <Button onClick={dismissBreakReminder}>Keep Going</Button>
         </DialogFooter>
       </Dialog>
-      <div className="fixed right-4 top-4 z-50 animate-in fade-in slide-in-from-right-4">
+      <div className="quest-timer-popup fixed right-4 top-4 z-50 animate-in fade-in slide-in-from-right-4">
         <div className={`flex flex-col items-center gap-2 rounded-xl border-2 ${isPaused ? "border-[var(--gold-border)]" : "border-primary/40"} bg-[linear-gradient(180deg,rgba(17,26,46,0.97)_0%,rgba(10,16,30,1)_100%)] px-6 py-4 shadow-[0_0_40px_-10px_rgba(59,130,246,0.2),0_8px_30px_rgba(0,0,0,0.5)]`}>
           <div className={`flex items-center gap-2 text-xs font-medium uppercase tracking-wider ${isPaused ? "text-[var(--gold-bright)]" : "text-primary"}`}>
             {isPaused ? (

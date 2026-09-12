@@ -122,7 +122,7 @@ export function ScheduleNotificationPopup({ childId }: { childId: string }) {
   if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed right-4 top-4 z-50 flex flex-col gap-2">
+    <div className="schedule-notification-popup fixed right-4 top-4 z-50 flex flex-col gap-2">
       {toasts.map((toast) => (
         <div
           key={toast.id}

@@ -221,7 +221,7 @@ function RealmOpen({
   // the app banner (30) and bottom nav (40) would sit on top of the world
   // no matter how high `.realm-root`'s z-index goes. Portal all the way to
   // `document.body`, which has no z-index of its own (not a stacking
-  // context), so `.realm-root { z-index: 45 }` is compared against the
+  // context), so `.realm-root { z-index: 60 }` is compared against the
   // banner and nav directly. `.realm-root` no longer sits inside
   // `.game-shell`, so it carries its own `readingAttributes` below instead of
   // relying on that ancestor's scoping. Resolved once, client-side only:
@@ -536,6 +536,19 @@ function RealmOpen({
 
   const onSkip = useCallback(() => {
     ceremonySkipRef.current = true;
+  }, []);
+
+  // The portal is the top of the stack while it is open (`.realm-root` is z-index 60).
+  // This attribute is the second half of the rule that keeps the app's floating chrome —
+  // the hero-switch pill, the quest-timer popup, the schedule notifications — behind it:
+  // browsers match `body:has(.realm-root)`, and anything that cannot evaluate `:has()`
+  // (jsdom included) matches this. Cleared on unmount, so every exit path — the Tavern
+  // link, a route change, the gate closing — hands the chrome straight back.
+  useEffect(() => {
+    document.body.setAttribute("data-realm-open", "true");
+    return () => {
+      document.body.removeAttribute("data-realm-open");
+    };
   }, []);
 
   const calm = bundle.profile.reducedMotion || bundle.profile.lowStimulus;
