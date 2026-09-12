@@ -15,10 +15,12 @@ export type MinimapInput = {
   surfaces: Surfaces;
 };
 
-/** A little air around the outermost prop so nothing is drawn against the frame. */
+/**
+ * Air around the outermost prop so nothing is drawn against the frame. Applied unconditionally,
+ * this is also what keeps the bounds non-degenerate: even a single prop gets a span of `2 * PAD`
+ * in each axis, so `projectToMap`'s division is never by zero.
+ */
 const PAD = 2;
-/** A world with one prop would otherwise divide by zero when projected. */
-const MIN_SPAN = 1;
 
 /** A site on the map is a kingdom building, raised or not. Nothing else is mapped. */
 const isSite = (p: Prop) => p.kind === "building" || p.kind === "foundation";
@@ -26,10 +28,8 @@ const isSite = (p: Prop) => p.kind === "building" || p.kind === "foundation";
 export function worldBounds(layout: WorldLayout): MinimapBounds {
   const xs = [layout.spawn.x, ...layout.props.map((p) => p.position.x)];
   const zs = [layout.spawn.z, ...layout.props.map((p) => p.position.z)];
-  let [minX, maxX] = [Math.min(...xs) - PAD, Math.max(...xs) + PAD];
-  let [minZ, maxZ] = [Math.min(...zs) - PAD, Math.max(...zs) + PAD];
-  if (maxX - minX < MIN_SPAN) { minX -= MIN_SPAN / 2; maxX += MIN_SPAN / 2; }
-  if (maxZ - minZ < MIN_SPAN) { minZ -= MIN_SPAN / 2; maxZ += MIN_SPAN / 2; }
+  const [minX, maxX] = [Math.min(...xs) - PAD, Math.max(...xs) + PAD];
+  const [minZ, maxZ] = [Math.min(...zs) - PAD, Math.max(...zs) + PAD];
   return { minX, maxX, minZ, maxZ };
 }
 

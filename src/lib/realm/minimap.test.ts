@@ -56,6 +56,7 @@ describe("minimapView", () => {
     const view = minimapView(base);
     const mill = view.dots.find((d) => d.id === "mill");
     expect(mill).toMatchObject({ kind: "site", filled: true });
+    expect(view.dots.find((d) => d.id === "bridge")).toMatchObject({ kind: "site", filled: false });
   });
 
   it("draws the objective as its own kind rather than as another site", () => {
