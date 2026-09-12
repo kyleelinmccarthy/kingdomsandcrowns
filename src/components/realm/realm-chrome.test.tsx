@@ -1,12 +1,40 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, cleanup, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent, waitFor, act } from "@testing-library/react";
 import fs from "node:fs";
 import path from "node:path";
 import { RealmShell } from "./realm-shell";
 import { QuestTimerPopup } from "@/components/quest-timer-popup";
+import { ScheduleNotificationPopup } from "@/components/schedule-notification-popup";
+import { ParentAlertPopup } from "@/components/parent-alerts";
 import { SwitchHero } from "@/components/switch-hero";
 import { DEFAULT_LEARNING_PROFILE } from "@/lib/utils/learning-profile";
 import { DEFAULT_AVATAR } from "@/lib/utils/avatar-catalog";
+import type { ParentAlert } from "@/lib/actions/parent-alerts";
+
+// A minimal double, not the real polling context: rendering `ParentAlertPopup` for real
+// would need its toast to arrive *after* mount (the component snapshots whatever is
+// already waiting at mount as "not a toast" — see parent-alerts.tsx), which a live
+// provider makes needlessly hard to drive from a test. `mockParentAlerts` is reset to
+// `[]` in `beforeEach`, and each test overwrites it before its own `render`/`rerender`.
+let mockParentAlerts: ParentAlert[] = [];
+vi.mock("@/components/parent-alerts-context", () => ({
+  useParentAlerts: () => ({ alerts: mockParentAlerts, busy: false, dismiss: vi.fn(), dismissAll: vi.fn() }),
+}));
+
+// `ScheduleNotificationPopup` fetches its own data and only checks for a crossing once
+// per `POLL_MS` interval, so rendering it with a toast showing needs both the school-day
+// lookups mocked out and `findBoundaryCrossings` made to report one, then a fake-timer
+// tick to run the interval that reads it.
+vi.mock("@/lib/actions/student-schedule", () => ({
+  getSchoolDays: vi.fn().mockResolvedValue([]),
+  getScheduleBlocks: vi.fn().mockResolvedValue([]),
+}));
+vi.mock("@/lib/actions/subjects", () => ({ getSubjects: vi.fn().mockResolvedValue([]) }));
+const findBoundaryCrossings = vi.fn().mockReturnValue([]);
+vi.mock("@/lib/utils/schedule-notifications", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/utils/schedule-notifications")>();
+  return { ...actual, findBoundaryCrossings: (...a: Parameters<typeof actual.findBoundaryCrossings>) => findBoundaryCrossings(...a) };
+});
 
 const routerPush = vi.fn();
 vi.mock("next/navigation", () => ({
@@ -75,10 +103,15 @@ const GLOBALS_CSS = fs.readFileSync(path.join(__dirname, "../../app/globals.css"
 
 beforeEach(() => {
   vi.clearAllMocks();
+  findBoundaryCrossings.mockReturnValue([]);
+  mockParentAlerts = [];
   localStorage.clear();
   document.body.removeAttribute("data-realm-open");
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
 
 describe("the portal and the app chrome", () => {
   it("marks the body while the world is open and clears it on the way out", async () => {
@@ -105,29 +138,62 @@ describe("the portal and the app chrome", () => {
     expect(document.body).toHaveAttribute("data-realm-open", "true");
   });
 
-  it("raises the portal and hides the three floating chrome nodes, both ways", () => {
+  it("raises the portal and hides the four floating chrome nodes, both ways", () => {
     // The whole rule, not a prefix: `--realm-touch` is declared here and nowhere else,
     // so a replacement that dropped it would leave every 56px control over the world
     // with no minimum size, and a prefix match would not notice.
     expect(GLOBALS_CSS).toContain(
       ".realm-root { position: fixed; inset: 0; z-index: 60; background: #0a1220; --realm-hud-scale: 1; --realm-bar-bottom: 1.25rem; --realm-touch: 56px; }"
     );
-    for (const target of [".floating-dock", ".quest-timer-popup", ".schedule-notification-popup"]) {
+    // Four names, not the brief's original three: the parent-alert toast has no
+    // auto-dismiss (parent-alerts.tsx), so left unhidden at z-60 it would sit under the
+    // portal, unseen, but still in the DOM and the tab order, accumulating.
+    for (const target of [".floating-dock", ".quest-timer-popup", ".schedule-notification-popup", ".parent-alert-popup"]) {
       expect(GLOBALS_CSS).toContain(`body:has(.realm-root) ${target},`);
       expect(GLOBALS_CSS).toContain(`body[data-realm-open] ${target}`);
     }
-    expect(GLOBALS_CSS).toContain("body[data-realm-open] .schedule-notification-popup { display: none; }");
+    expect(GLOBALS_CSS).toContain("body[data-realm-open] .parent-alert-popup { display: none; }");
   });
 
-  it("names the two unprompted popups so the rule can reach them", () => {
+  it("renders the quest-timer popup with its own class name", () => {
     localStorage.setItem(
       QUEST_TIMER_KEY,
       JSON.stringify({ assignmentId: "a1", startedAt: Date.now(), accumulatedMs: 0, resumedAt: Date.now() })
     );
     render(<QuestTimerPopup />);
     expect(document.querySelector(".quest-timer-popup")).not.toBeNull();
-    const schedule = fs.readFileSync(path.join(__dirname, "../schedule-notification-popup.tsx"), "utf8");
-    expect(schedule).toContain('className="schedule-notification-popup ');
+  });
+
+  it("renders the schedule-notification popup with its own class name", async () => {
+    // A source-text grep here would pass even if the class moved into a comment or a
+    // nested div; rendering the real toast and reading the DOM is what the rule
+    // actually needs to be true.
+    findBoundaryCrossings.mockReturnValue([
+      { block: { id: "b1", subjectId: "s1", dayOfWeek: "monday", startTime: "09:00", endTime: "09:30" }, kind: "start" },
+    ]);
+    vi.useFakeTimers();
+    const { container } = render(<ScheduleNotificationPopup childId="c1" />);
+    // Let the mocked schedule/subject lookups resolve before the poll interval fires.
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    act(() => {
+      vi.advanceTimersByTime(30_000);
+    });
+    expect(container.firstElementChild).toHaveClass("schedule-notification-popup");
+  });
+
+  it("renders the parent-alert popup with its own class name", () => {
+    // The toast only shows alerts that arrive *after* mount (see the comment on the
+    // mock above), so the first render is empty and the alert is added on a rerender.
+    mockParentAlerts = [];
+    const { rerender, container } = render(<ParentAlertPopup />);
+    mockParentAlerts = [
+      { id: "a1", type: "quest_stuck", childId: "c1", childName: "Lily", questTitle: "Long division", subjectName: "Math", date: "2026-09-12", note: null, createdAt: new Date().toISOString() },
+    ];
+    rerender(<ParentAlertPopup />);
+    expect(container.firstElementChild).toHaveClass("parent-alert-popup");
   });
 });
 
@@ -141,7 +207,10 @@ describe("the re-admitted quest timer", () => {
     getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
     render(<RealmShell bundle={bundle} childId="c1" isChildView={true} />);
     expect(await screen.findByTestId("scene")).toBeInTheDocument();
-    const chip = screen.getByLabelText("Quest timer: 00:42");
+    // `getByRole` — not `getByLabelText` — because ARIA prohibits naming a roleless
+    // `<span>` (role=generic): without `role="img"` a real screen reader announces only
+    // "00:42", never "Quest timer". `getByLabelText` alone doesn't enforce that.
+    const chip = screen.getByRole("img", { name: "Quest timer: 00:42" });
     expect(chip).toHaveClass("realm-hud-chip");
     const meta = document.querySelector(".realm-hud-meta");
     expect(meta).not.toBeNull();

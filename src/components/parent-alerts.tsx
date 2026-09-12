@@ -112,7 +112,7 @@ export function ParentAlertPopup() {
   if (toasts.length === 0) return null;
 
   return (
-    <div className="fixed left-4 top-4 z-50 flex max-w-[min(20rem,calc(100vw-2rem))] flex-col gap-2">
+    <div className="parent-alert-popup fixed left-4 top-4 z-50 flex max-w-[min(20rem,calc(100vw-2rem))] flex-col gap-2">
       {toasts.map((toast) => (
         <div
           key={toast.id}

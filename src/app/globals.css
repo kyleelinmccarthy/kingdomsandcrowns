@@ -1707,17 +1707,24 @@ html { scrollbar-color: var(--border) var(--background); }
 /* While the Realm is open it is the top of the stack, and the app's floating chrome
    stays behind it. The quest-timer and schedule popups fire unprompted, on a metered
    clock, and were covering the ability bar mid-cast; the sign-out pill was landing
-   beside the mount slot where a child's thumb already is. The `:has()` half is what
-   browsers match; the `[data-realm-open]` half is the fallback RealmOpen sets on the
-   body, and the path jsdom can test. The one piece of chrome a child must still be
-   able to see — a running quest timer — comes back inside the HUD as .realm-hud-chip,
-   rather than by out-ranking the portal. */
+   beside the mount slot where a child's thumb already is; the parent-alert toast has
+   no auto-dismiss, so left unhidden it would accumulate, unseen, in the tab order.
+   `.floating-dock` also covers the demo persona switcher (demo-persona-switcher.tsx) —
+   desirable, since it is demo mode's only other floating control over the world. The
+   `:has()` half is what browsers match; the `[data-realm-open]` half is the fallback
+   RealmOpen sets on the body, and the path jsdom can test. The one piece of chrome a
+   child must still be able to see — a running quest timer — comes back inside the HUD
+   as .realm-hud-chip, rather than by out-ranking the portal. Four names, not three:
+   task 20's review amended the original three-name contract to include the parent
+   alert toast, which the brief itself missed. */
 body:has(.realm-root) .floating-dock,
 body:has(.realm-root) .quest-timer-popup,
 body:has(.realm-root) .schedule-notification-popup,
+body:has(.realm-root) .parent-alert-popup,
 body[data-realm-open] .floating-dock,
 body[data-realm-open] .quest-timer-popup,
-body[data-realm-open] .schedule-notification-popup { display: none; }
+body[data-realm-open] .schedule-notification-popup,
+body[data-realm-open] .parent-alert-popup { display: none; }
 /* A chip in the HUD's meta zone: the shape the re-admitted quest timer wears, and the
    shape anything else re-admitted later wears. Not interactive, so it keeps .realm-hud's
    `pointer-events: none` — only buttons, links and the preview selector take pointers. */

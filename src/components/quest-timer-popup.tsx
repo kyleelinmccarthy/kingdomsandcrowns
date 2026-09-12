@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useQuestTimer, formatElapsed } from "@/hooks/use-quest-timer";
+import { useRealmOpen } from "@/hooks/use-realm-open";
 import { completeAssignment, getAssignmentQuestInfo } from "@/lib/actions/quest-assignments";
 
 const BREAK_REMINDER_INTERVAL_SECONDS = 30 * 60;
@@ -60,8 +61,16 @@ export function QuestTimerPopup() {
     };
   }, [stoppedResult?.assignmentId]);
 
+  // The break reminder is a native <dialog> (see Dialog below); a sibling of
+  // `.quest-timer-popup`, not a child of it, so the Realm's suppression rule (which
+  // targets that class) never reaches it, and `showModal()` paints in the browser's
+  // top layer regardless of any z-index. Gated directly on the portal being open —
+  // rather than dropped — because the threshold re-arms itself every
+  // BREAK_REMINDER_INTERVAL_SECONDS (see `breakRemindersShown` below), so a reminder
+  // due while the Realm is open simply fires the moment it closes instead of never.
+  const realmOpen = useRealmOpen();
   const showBreakReminder =
-    !!activeTimer && elapsedSeconds >= BREAK_REMINDER_INTERVAL_SECONDS * (breakRemindersShown + 1);
+    !!activeTimer && !realmOpen && elapsedSeconds >= BREAK_REMINDER_INTERVAL_SECONDS * (breakRemindersShown + 1);
 
   function dismissBreakReminder() {
     setBreakRemindersShown((n) => n + 1);

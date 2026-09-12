@@ -220,25 +220,35 @@ function RealmOpen({
   // Held here, rendered by RealmMessages, written per frame by the scene (task 16).
   const arrowRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
-  // Only the stopped half is read here; `RealmTimerChip` owns the running clock so its
-  // 1 Hz tick repaints a chip rather than the HUD. The hook's own interval still ticks
-  // this component once a second while a chore timer runs, which is strictly less than
-  // the ~5 re-renders a second mana regen already causes, and `settings` and `layout`
-  // are useMemo'd, so the memoised `World` still never re-renders from it.
+  // Only the stopped half (`stoppedResult`/`clearStoppedResult`) is read here — but the
+  // hook doesn't split by field: while a chore timer is running, its own 1 Hz interval
+  // still re-renders this whole component too, exactly as it re-renders `RealmTimerChip`'s
+  // own separate call. That's strictly less than the ~5 re-renders a second mana regen
+  // already causes, and `settings` and `layout` are useMemo'd, so the memoised `World`
+  // still never re-renders from it.
   const { stoppedResult, clearStoppedResult } = useQuestTimer();
   // The timer stores an assignment id, not a subject, so the sentence needs one lookup.
   const [timerSubject, setTimerSubject] = useState<{ assignmentId: string; subject: string } | null>(null);
   useEffect(() => {
     if (!stoppedResult) return;
     let cancelled = false;
-    getAssignmentQuestInfo(stoppedResult.assignmentId).then((info) => {
-      if (cancelled || !info) return;
-      setTimerSubject({ assignmentId: stoppedResult.assignmentId, subject: info.subjectName });
-    });
+    getAssignmentQuestInfo(stoppedResult.assignmentId)
+      .then((info) => {
+        if (cancelled || !info) return;
+        setTimerSubject({ assignmentId: stoppedResult.assignmentId, subject: info.subjectName });
+      })
+      .catch(() => {
+        // The assignment behind a stopped timer can be gone by the time this runs — a
+        // parent deleted the quest between the timer stopping and this lookup — and
+        // `requireAssignmentAccess` throws "Assignment not found." in that case. There is
+        // nothing to say about a quest that no longer exists, so the stopped result is
+        // cleared rather than left to surface as an unhandled rejection over the game.
+        if (!cancelled) clearStoppedResult();
+      });
     return () => {
       cancelled = true;
     };
-  }, [stoppedResult]);
+  }, [stoppedResult, clearStoppedResult]);
   // Derived, never stored: when the stopped result goes away — the child pressed
   // "Go to it →", or finished the quest in another tab — the sentence goes with it, and
   // no effect writes state synchronously (react-hooks/set-state-in-effect).
@@ -603,7 +613,16 @@ function RealmOpen({
     kingdomError,
     ceremonyError,
     lastMinute: isChildView && clock.warning,
-    questTimerDone,
+    // Gated on `isChildView`: the shared-device hand-off means a child's stopped timer
+    // sits in the same localStorage a parent's preview then reads, and this sentence —
+    // with a button that navigates away — has no business replacing the preview's intro.
+    // Gated on `!clock.warning` too: the "complete or discard?" card that would normally
+    // clear this is `display:none` behind the portal, so without an exit of its own this
+    // message would otherwise never yield its lane, and a child who doesn't tap "Go to
+    // it →" would never see "One minute left in the Realm today." before the gate closes
+    // on them. The one-minute banner reclaims the lane instead; the sentence itself is
+    // untouched in storage, so it returns the moment the banner clears.
+    questTimerDone: isChildView && !clock.warning ? questTimerDone : null,
     preview: previewText,
     ceremonyNotice: ceremonyNoticeText,
     toast,

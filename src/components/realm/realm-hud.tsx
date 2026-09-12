@@ -96,7 +96,7 @@ export function RealmTimerChip() {
   if (!activeTimer) return null;
   const elapsed = formatElapsed(elapsedSeconds);
   return (
-    <span className="realm-hud-chip" aria-label={`${isPaused ? "Quest timer paused" : "Quest timer"}: ${elapsed}`}>
+    <span className="realm-hud-chip" role="img" aria-label={`${isPaused ? "Quest timer paused" : "Quest timer"}: ${elapsed}`}>
       <GameIcon name="timer" className="size-4" />
       {elapsed}
     </span>

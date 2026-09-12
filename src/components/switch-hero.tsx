@@ -1,40 +1,12 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { HeroLogin } from "@/components/hero-login";
 import { GameIcon } from "@/components/game-icon";
-
-// `RealmOpen` stamps `data-realm-open` on <body> while the Realm's portal is up (see
-// realm-shell.tsx), and the stylesheet hides `.floating-dock` from there. A child's
-// pill is removed outright rather than merely hidden: it is the only DOM control over
-// the game world, it lands beside the mount slot where a thumb already is, and a child
-// leaves the Realm through the Tavern link inside it. Subscribed rather than read
-// during render so the pill comes back the moment the portal closes — and with a
-// server snapshot of `false`, because this renders on every page, SSR included.
-const realmOpenListeners = new Set<() => void>();
-let realmOpenObserver: MutationObserver | null = null;
-
-function subscribeRealmOpen(callback: () => void) {
-  realmOpenListeners.add(callback);
-  if (!realmOpenObserver) {
-    realmOpenObserver = new MutationObserver(() => {
-      realmOpenListeners.forEach((fn) => fn());
-    });
-    realmOpenObserver.observe(document.body, { attributes: true, attributeFilter: ["data-realm-open"] });
-  }
-  return () => {
-    realmOpenListeners.delete(callback);
-  };
-}
-function getRealmOpen() {
-  return document.body.hasAttribute("data-realm-open");
-}
-function getServerRealmOpen() {
-  return false;
-}
+import { useRealmOpen } from "@/hooks/use-realm-open";
 
 /**
  * Floating control for shared-device hero hand-off (production, non-demo).
@@ -50,7 +22,7 @@ export function SwitchHero({ isChildView, inline = false }: { isChildView: boole
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [leaving, setLeaving] = useState(false);
-  const realmOpen = useSyncExternalStore(subscribeRealmOpen, getRealmOpen, getServerRealmOpen);
+  const realmOpen = useRealmOpen();
 
   async function leave() {
     setLeaving(true);
@@ -62,6 +34,9 @@ export function SwitchHero({ isChildView, inline = false }: { isChildView: boole
     }
   }
 
+  // A child's pill is removed outright rather than merely hidden by the stylesheet: it
+  // is the only DOM control over the game world, it lands beside the mount slot where a
+  // thumb already is, and a child leaves the Realm through the Tavern link inside it.
   if (isChildView && realmOpen) return null;
 
   const pill = cn(
@@ -96,7 +71,11 @@ export function SwitchHero({ isChildView, inline = false }: { isChildView: boole
         <DialogHeader>
           <DialogTitle>Play as a Hero</DialogTitle>
         </DialogHeader>
-        <HeroLogin mode="handoff" onDone={() => setOpen(false)} />
+        {/* `Dialog` always mounts its children — only `showModal()`/`close()` are gated
+            on `open` — and `HeroLogin` POSTs to `/api/child-auth/family-heroes` on
+            mount. Gated here so a parent's page load doesn't fire that request before
+            the dialog is ever opened, once per `SwitchHero` instance on the page. */}
+        {open && <HeroLogin mode="handoff" onDone={() => setOpen(false)} />}
       </Dialog>
     </>
   );
