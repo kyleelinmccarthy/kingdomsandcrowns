@@ -12,6 +12,9 @@ export type HelpGroup = { icon: GameIconName; title: string; text: string };
 export function helpGroups(touch: boolean, ceremony: boolean): HelpGroup[] {
   const groups: HelpGroup[] = [
     { icon: "compass", title: "Move", text: touch ? "Drag the stick, or tap where you want to go." : "WASD or the arrow keys, or click where you want to go." },
+    // Second, because the card has never said what the world is for. The gold light is the
+    // beacon over the objective site and the edge arrow that points at it when it is off-screen.
+    { icon: "map", title: "Where to go", text: "Follow the gold light. Someone is waiting there." },
     {
       icon: "scroll",
       title: "Talk",
@@ -20,11 +23,15 @@ export function helpGroups(touch: boolean, ceremony: boolean): HelpGroup[] {
         : `Walk up to a villager and press Enter, or tap Talk. They'll give you a ${SIDE_QUEST_LOWER}.`,
     },
     {
+      // No stakes clause. Nothing a trouble does touches a site, a building, a villager or the
+      // kingdom — the worst it does is a 1.5-second dazzle — so the card says nothing about
+      // stakes, which is true, rather than something false. Slice 8 writes the replacement when
+      // clearing a trouble actually earns Realm minutes.
       icon: "sparkles",
       title: "Cast",
       text: touch
-        ? "Tap a spell page, then tap where the spell should go. Clear troubles to protect the sites."
-        : "Pick a spell page (1, 2, 3, 4) or tap it, then click where the spell should go. Space aims at the nearest trouble. Clear troubles to protect the sites.",
+        ? "Tap a spell page, then tap where the spell should go."
+        : "Pick a spell page (1, 2, 3, 4) or tap it, then click where the spell should go. Space aims at the nearest trouble.",
     },
     {
       icon: "map",
