@@ -34,6 +34,7 @@ import { speak } from "@/lib/utils/speech";
 import { SIDE_QUESTS_LOWER } from "@/lib/utils/side-quest-copy";
 import { SpriteSource, type SpriteTextures } from "./sprite-source";
 import { RealmHud, RealmMountButton } from "./realm-hud";
+import { RealmLegend } from "./realm-legend";
 import { RealmMinimap } from "./realm-minimap";
 import { surfacesFor, type RealmDepth } from "@/lib/realm/depth";
 import { RealmMessages } from "./realm-messages";
@@ -768,6 +769,7 @@ function RealmOpen({
       {/* Ride sits beside the ability bar, where slice 3's real bar will find it. The mount
           button stays visible in preview and merely disabled. */}
       <RealmMountButton ride={hudRide} showStick={settings.showStick} />
+      <RealmLegend showStick={settings.showStick} />
       <RealmMessages
         problem={problem}
         speech={speech}

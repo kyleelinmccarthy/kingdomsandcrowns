@@ -1947,3 +1947,28 @@ body[data-realm-open] .parent-alert-popup { display: none; }
 .realm-mount-button { position: absolute; right: 1.25rem; bottom: var(--realm-bar-bottom); z-index: 21; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.05rem; min-width: var(--realm-touch); min-height: var(--realm-touch); padding: 0 0.5rem; border-radius: 9999px; border: 1px solid var(--gold-border); background: rgba(201, 168, 76, 0.25); color: var(--gold-bright); font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif; font-size: calc(12px * var(--realm-hud-scale)); font-weight: 700; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8); cursor: pointer; pointer-events: auto; }
 .realm-mount-button:disabled { opacity: 0.5; cursor: default; }
 .realm-mount-key { font-weight: 500; font-size: calc(10px * var(--realm-hud-scale)); color: rgba(255, 255, 255, 0.8); }
+
+/* The legend (§4.6): the five verbs, always on screen, desktop only — a touch child has
+   buttons instead of a keyboard. Sits directly above the ability bar, which owns
+   `--realm-bar-bottom`. The brief's own starting point (`--realm-bar-bottom + 4.6rem`) was
+   measured to sit 4-8px into the speech lane (`.realm-message--cheer`/`--plain`, whose own
+   bottom is `--realm-bar-bottom + 3.6rem + 2rem * scale`) at both hud scales and both
+   required widths — a legend under a message is the exact failure this task exists to end,
+   so 3.75rem replaces it: measured at 1280x800, that clears the ability bar's top edge by
+   6px and sits 6.6-10.6px under the speech lane's lowest real edge at hud-scale 1 and 1.25.
+   Full numbers and the two-defect trail are in task-11-report.md. */
+.realm-legend { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(var(--realm-bar-bottom) + 3.75rem); z-index: 20; display: flex; align-items: center; gap: 0.35rem; margin: 0; padding: 0.15rem 0.6rem; border-radius: 9999px; background: rgba(0, 0, 0, 0.45); color: rgba(255, 255, 255, 0.85); font-size: calc(11px * var(--realm-hud-scale)); white-space: nowrap; pointer-events: none; }
+.realm-legend-key { margin-left: 0.5rem; border-radius: 0.25rem; border: 1px solid var(--gold-border); padding: 0 0.3rem; color: var(--gold-bright); font-weight: 700; }
+.realm-legend-key:first-child { margin-left: 0; }
+/* At 390px the mobile ability bar (`.realm-spellbar`'s own ≤640px rule below moves it to
+   6.5rem) leaves only a 17-18px gap under the identity corner's mana strip and name plate —
+   less than this pill is ever tall (23-27px) — so no `bottom` value tucks it "just above the
+   bar" there; it has to clear the whole bottom-left stack instead. Measured, the corner's
+   top edge reaches 275px up (hud-scale 1.25); 18rem (288px) clears it by 13px. The legend's
+   own text is wide enough (330-380px) that at intermediate widths a plain ≤640px cutoff left
+   it still overlapping that same corner up to ~800px wide (measured at 641-768px); 900px is
+   the first breakpoint measured clear at both hud scales, so the query uses that instead of
+   the file's usual 640px. */
+@media (max-width: 900px) {
+  .realm-legend { bottom: 18rem; }
+}
