@@ -10,7 +10,8 @@ import { stepCompanion, stepHero, unstickHero, setMounted, HERO_SPEED, COMPANION
 import { CAMERA_OFFSET, CAMERA_ZOOM, edgeArrow, followCamera } from "@/lib/realm/camera";
 import { projectToMap, worldBounds } from "@/lib/realm/minimap";
 import { BEACON, facingAngle, GROUND_Y, shadowFootprint, RING_INNER, RING_OUTER, RING_NOTCH_ARC, RING_GOLD, RING_CALM, SHADOW_OPACITY, SHADOW_OPACITY_CALM } from "@/lib/realm/markers";
-import { nearestVillager, villagerById } from "@/lib/realm/villagers";
+import { nearestVillager, villagerById, REACH } from "@/lib/realm/villagers";
+import { WALK_DISTANCE, type TutorialSignal } from "@/lib/realm/tutorial";
 import type { RenderSettings } from "@/lib/realm/render-settings";
 import type { Surfaces } from "@/lib/realm/depth";
 import type { SpellDefinition } from "@/lib/utils/spell-catalog";
@@ -50,6 +51,14 @@ export type RealmSceneProps = {
   ceremonyActive: boolean; // true while the shell wants the ceremony running; the scene starts it once
   ceremonySkipRef: RefObject<boolean>; // the shell sets it; the scene reads and clears it
   onCeremonyEvent: (e: CeremonyEvent) => void;
+  /**
+   * The one door the tutorial's two world-measured signals leave by: `walked` (how far the
+   * hero has walked, and which movement keys did it) and `reachedObjective`. Both exist only
+   * inside the per-frame loop below, so both are accumulated in refs there and handed out
+   * through `queueMicrotask` like every other scene -> React event in this file. Interacting
+   * and casting are the shell's own to notice, and never travel through here.
+   */
+  onTutorialSignal: (s: TutorialSignal) => void;
   // The off-screen objective arrow, which lives in the HUD layer. A ref, so it is
   // referentially stable and the World memo never sees a changed prop; the scene
   // writes the element directly rather than routing a position through React.
@@ -74,6 +83,13 @@ const CALM_TINT = "#a9aaa4";
 const HERO_SHADOW = shadowFootprint({ w: 0.8, d: 0.8 });
 const MOUNT_SHADOW = shadowFootprint({ w: 1.1, d: 1.1 });
 const COMPANION_SHADOW = shadowFootprint({ w: 0.6, d: 0.6 });
+
+/**
+ * Below this, a world-axis component is float noise from `screenToWorldAxis` rather than a
+ * direction anyone pushed: one key alone yields components of 0 or +-0.7071, and the
+ * smallest real diagonal is 0.7071 too, so anything near zero is rounding.
+ */
+const AXIS_EPSILON = 0.05;
 
 function easeOut(t: number): number {
   return 1 - (1 - t) * (1 - t);
@@ -125,7 +141,7 @@ function ContactShadow({ w, d, y, calm }: { w: number; d: number; y: number; cal
   );
 }
 
-const World = memo(function World({ layout, textures, settings, surfaces, axisRef, arrowRef, minimapRef, interactive, reachId, onReachChange, onTalk, risingId, selectedSpell, selectedSlot, castRef, spellsEnabled, onSpellEvent, seed, riding, mountSpeed, recessActive, onRecessEvent, ceremonyActive, ceremonySkipRef, onCeremonyEvent }: RealmSceneProps) {
+const World = memo(function World({ layout, textures, settings, surfaces, axisRef, arrowRef, minimapRef, interactive, reachId, onReachChange, onTalk, risingId, selectedSpell, selectedSlot, castRef, spellsEnabled, onSpellEvent, seed, riding, mountSpeed, recessActive, onRecessEvent, ceremonyActive, ceremonySkipRef, onCeremonyEvent, onTutorialSignal }: RealmSceneProps) {
   // Per-frame state lives in refs: nothing here re-renders React sixty times a second.
   const hero = useRef<HeroState>({ position: layout.spawn, facing: "s", target: null, mounted: false });
   const companion = useRef<CompanionState>({ position: { x: layout.spawn.x, z: layout.spawn.z + 1.2 } });
@@ -161,6 +177,22 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
   const mountShadow = useRef<THREE.Group>(null);
   const companionShadow = useRef<THREE.Group>(null);
   const heroRing = useRef<THREE.Group>(null);
+  // ── The tutorial's two world-measured signals (§ task 13) ─────────────────────────────
+  // Both are accumulated HERE, in refs, and never set React state from the frame loop.
+  // How far the hero has walked under their own steam this visit, and the movement keys
+  // that did it. `walkEmitted` is the size of the key set the last `walked` signal carried,
+  // so the signal goes out when the distance FIRST crosses WALK_DISTANCE and then only when
+  // a new distinct key joins — at most four times a visit, never once a frame. Emitting a
+  // single time would strand the child who crossed the line pressing nothing but W: step one
+  // wants two keys, and they must be able to finish it the moment they press a second one.
+  const walkDistance = useRef(0);
+  const walkKeys = useRef(new Set<string>());
+  const walkEmitted = useRef(0);
+  // Whether the hero is standing at the lit site, edge-triggered so standing there is silent.
+  // Re-armed on leaving — and on every `walked` signal, because step two is unreachable until
+  // step one is done: a hero who wandered to the light while still learning to walk must not
+  // have spent their only arrival on a signal the model was bound to ignore.
+  const atObjective = useRef(false);
 
   // Writes one frame of a rise straight onto the building. `s` of 1 is exactly what the
   // declarative JSX places, which is what makes this also the way to settle an abandoned one.
@@ -262,6 +294,7 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
   // within the call and neither retains the object, so one instance can serve every frame.
   const emitSpell = useCallback((e: SpellEvent) => queueMicrotask(() => onSpellEvent(e)), [onSpellEvent]);
   const emitRecess = useCallback((e: RecessSimEvent) => queueMicrotask(() => onRecessEvent(e)), [onRecessEvent]);
+  const emitTutorial = useCallback((s: TutorialSignal) => queueMicrotask(() => onTutorialSignal(s)), [onTutorialSignal]);
   const spellInput = useRef<SpellSimInput>({ layout, hero: layout.spawn, dt: 0, selectedSpell: null, selectedSlot: null, castRequest: null, lowStimulus: false, reducedMotion: false, seed });
   const recessInput = useRef<RecessSimInput>({ layout, hero: layout.spawn, dt: 0, active: false, lowStimulus: false, seed });
 
@@ -306,8 +339,45 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
       }
     } else if (interactive) {
       const frozen = dazzledRef.current || castingRef.current;
+      const from = hero.current.position;
       hero.current = stepHero(hero.current, { axis: frozen ? { x: 0, z: 0 } : axisRef.current ?? { x: 0, z: 0 } }, dt, layout.colliders, riding ? mountSpeed : HERO_SPEED);
       companion.current = stepCompanion(companion.current, hero.current, dt, riding ? { gap: COMPANION_GAP_MOUNTED, speed: mountSpeed + 0.5 } : undefined);
+      // ── The tutorial's first two steps, measured where the hero actually is ───────────
+      // Only ground the hero really covered counts: a key held against a wall moves nothing
+      // and teaches nothing, and `frozen` already zeroes the axis, so both fall out for free.
+      const walked = Math.hypot(hero.current.position.x - from.x, hero.current.position.z - from.z);
+      if (walked > 0) {
+        walkDistance.current += walked;
+        // `axisRef` is the world-space axis; `screenToWorldAxis` built it from the screen
+        // direction the keys (and the stick) speak, and that map is invertible, so these ARE
+        // the keys that produced this step, recovered rather than tracked a second time.
+        // It also means a thumb gets the same two-directions rule a keyboard does, on a
+        // device where "W, A, S and D" are a stick and there are no key codes to count.
+        const a = axisRef.current ?? { x: 0, z: 0 };
+        const sx = (a.x - a.z) * Math.SQRT1_2;
+        const sy = -(a.x + a.z) * Math.SQRT1_2;
+        if (sy > AXIS_EPSILON) walkKeys.current.add("KeyW");
+        if (sy < -AXIS_EPSILON) walkKeys.current.add("KeyS");
+        if (sx < -AXIS_EPSILON) walkKeys.current.add("KeyA");
+        if (sx > AXIS_EPSILON) walkKeys.current.add("KeyD");
+        // A click-to-walk hero adds no keys at all, so `size` stays 0 and nothing is sent:
+        // clicking the grass is not pressing W, and the step must not pretend it is.
+        if (walkDistance.current >= WALK_DISTANCE && walkKeys.current.size !== walkEmitted.current) {
+          walkEmitted.current = walkKeys.current.size;
+          atObjective.current = false; // see the ref: step two gets its arrival back
+          emitTutorial({ kind: "walked", keys: [...walkKeys.current], distance: walkDistance.current });
+        }
+      }
+      // "Go where the light is" finishes at the site's edge plus the same REACH a villager
+      // is talkable from — the moment the person standing there becomes worth pressing E at,
+      // which is the step that comes next. Edge-triggered: crossing in sends one signal and
+      // standing there sends none.
+      const here = objectiveSite !== null && Math.hypot(hero.current.position.x - objectiveSite.position.x, hero.current.position.z - objectiveSite.position.z) <= objectiveSite.size.w / 2 + REACH;
+      if (!here) atObjective.current = false;
+      else if (!atObjective.current) {
+        atObjective.current = true;
+        emitTutorial({ kind: "reachedObjective" });
+      }
       const spellIn = spellInput.current;
       spellIn.layout = layout;
       spellIn.hero = hero.current.position;

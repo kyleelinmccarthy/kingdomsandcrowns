@@ -9,7 +9,7 @@ import { getRealmAccess } from "@/lib/actions/realm-play";
 import { useQuestTimer } from "@/hooks/use-quest-timer";
 import { getAssignmentQuestInfo } from "@/lib/actions/quest-assignments";
 import { markCeremonySeen } from "@/lib/actions/seasons";
-import { markRealmHelpSeen, setRealmDepth } from "@/lib/actions/realm-settings";
+import { markRealmHelpSeen, setRealmDepth, setTutorialStep } from "@/lib/actions/realm-settings";
 import { buildWorldLayout } from "@/lib/realm/layout";
 import { applyDeedResult, type KingdomState } from "@/lib/realm/kingdom-state";
 import { renderSettingsFor } from "@/lib/realm/render-settings";
@@ -25,6 +25,7 @@ import { hudRecessFor, recessPillText } from "@/lib/realm/recess/hud";
 import { objectiveSpeech, objectiveState, riseToast } from "@/lib/realm/objective";
 import { pickProblem, pickSpeech, type MessageInput } from "@/lib/realm/messages";
 import { HERO_SPEED } from "@/lib/realm/movement";
+import { advanceTutorial, tutorialPrompt, TUTORIAL_STEPS, type TutorialSignal, type TutorialState } from "@/lib/realm/tutorial";
 import { ceremonyNotice, type CeremonyEvent } from "@/lib/realm/ceremony/ceremony";
 import { DEFAULT_AVATAR, findMount } from "@/lib/utils/avatar-catalog";
 import { readingAttributes } from "@/lib/utils/learning-profile";
@@ -39,6 +40,7 @@ import { RealmMinimap } from "./realm-minimap";
 import { surfacesFor, type RealmDepth } from "@/lib/realm/depth";
 import { RealmMessages } from "./realm-messages";
 import { RealmHelp } from "./realm-help";
+import { RealmTutorial } from "./realm-tutorial";
 import { RealmGate } from "./realm-gate";
 import { RealmClosed } from "./realm-closed";
 import { DeedPanel } from "./deed-panel";
@@ -433,6 +435,42 @@ function RealmOpen({
   // And the way back out of aiming, which a tablet had no key for.
   const onPutAway = useCallback(() => setSelectedSlot(null), []);
 
+  // ── The tutorial: four verbs, each finished by DOING it (§ task 13) ───────────────────
+  // `bundle.tutorialStep` is how many steps the hero finished on an earlier visit, so a
+  // reload mid-tutorial resumes on the same prompt rather than starting the child over.
+  // Snapshotted once, like `depth` and the ceremony: a bundle refresh must not move the
+  // prompt out from under a child halfway through a step.
+  const [tutorial, setTutorial] = useState<TutorialState>(() => ({ completed: bundle.tutorialStep }));
+  // The one door every signal comes through. `advanceTutorial` owns the rule — including
+  // step one's two halves, a real distance AND more than one movement key — and nothing
+  // here re-decides any of it; this only feeds it and writes down what it says.
+  //
+  // Persisting is fire-and-forget: a failed write costs the child a repeated step next
+  // visit, which is far better than an error thrown over a running world. A child is never
+  // told that a save missed, because there is nothing they could do about it.
+  //
+  // Returning `prev` unchanged is load-bearing, not tidiness: React bails out of the
+  // re-render when an updater returns the same object, which is what lets the scene re-send
+  // a signal the model is not listening for — a `walked` that was one key short, an arrival
+  // the hero reached before they had learned to walk — without paying a render for each.
+  // A parent's preview signals nothing at all: they are not the one learning the keys, and
+  // their walking has no business being written to the hero's row.
+  const signal = useCallback((s: TutorialSignal) => {
+    if (!isChildView) return;
+    setTutorial((prev) => {
+      const next = advanceTutorial(prev, s);
+      if (next.completed === prev.completed) return prev;
+      void setTutorialStep(childId, next.completed).catch(() => {});
+      return next;
+    });
+  }, [childId, isChildView]);
+  // A grown-up's way out. It goes PAST the last step and writes that down, so the tutorial
+  // does not come back next visit — a skip that returned tomorrow would not be a skip.
+  const skipTutorial = useCallback(() => {
+    setTutorial({ completed: TUTORIAL_STEPS.length });
+    if (isChildView) void setTutorialStep(childId, TUTORIAL_STEPS.length).catch(() => {});
+  }, [childId, isChildView]);
+
   // The latest kingdom, readable from event handlers without a stale closure and without side effects in an updater.
   const kingdomRef = useRef(kingdom);
   useEffect(() => {
@@ -444,7 +482,14 @@ function RealmOpen({
     if (!villager) return;
     if (!kingdomRef.current.buildings.some((b) => b.id === villager.buildingId)) return; // no data for this site yet
     setOpenVillagerId(id);
-  }, []);
+    // Tutorial step three is "Stand close and press E", and this is the one function every
+    // way of doing it runs through — the E key below, the Talk bubble and the villager's own
+    // plate — so the signal is sent once from here instead of from three call sites. It is
+    // sent only where the panel really opens: a Talk at a site whose data never loaded
+    // returned above, and teaching a child that E worked when nothing appeared is how they
+    // learn to distrust the key.
+    signal({ kind: "interacted" });
+  }, [signal]);
 
   // `E` interacts with whatever is in reach — today that is the villager standing by, and
   // later slices give doors, hitching posts and signboards the same key; M mounts or dismounts.
@@ -466,11 +511,15 @@ function RealmOpen({
       if (!reachId) return;
       if (onInteractiveElement) return;
       e.preventDefault();
-      setOpenVillagerId(reachId);
+      // Through `onTalk`, not straight to `setOpenVillagerId`: it is the one place that
+      // checks the site's data really arrived, and the one place the tutorial hears an
+      // interaction. Pressing E is step three's own instruction, so the key that the prompt
+      // names has to be the key the prompt can see.
+      onTalk(reachId);
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [worldBusy, reachId, onToggleRide]);
+  }, [worldBusy, reachId, onToggleRide, onTalk]);
 
   // Escape skips the ceremony; nothing else listens for it while the ceremony runs (the deed panel cannot open).
   // While the help card is open, its own Escape handler closes the card first (it stops propagation).
@@ -538,9 +587,18 @@ function RealmOpen({
         setNotice(e.reason === "range" ? NOTHING_IN_RANGE : NOT_ENOUGH_MANA);
         break;
       case "focusLost": setNotice(LOST_FOCUS); break;
-      case "castState": break;
+      case "castState":
+        // Tutorial step four, "Press 1.", finishes on a cast that was NOT refused — and
+        // `casting: true` is exactly that event: the sim emits it only after aiming found a
+        // target and the mana was really spent. The wind-up's other half (`casting: false`)
+        // would read more literally as "landed", but it can be lost to a dazzle between the
+        // press and the release, and a child who did the thing correctly must not have the
+        // step taken back off them by a monster. Nothing else changes here: the cast state
+        // itself still drives nothing in the shell.
+        if (e.casting) signal({ kind: "castLanded" });
+        break;
     }
-  }, [isChildView, troubleSkin]);
+  }, [isChildView, troubleSkin, signal]);
 
   const onRecessEvent = useCallback((e: RecessSimEvent) => {
     if (!isChildView) return;
@@ -788,6 +846,9 @@ function RealmOpen({
       <RealmCastButton onCast={onCastTap} disabled={selectedSlot === null || riding || worldBusy} showStick={settings.showStick} />
       <RealmPutAwayButton spellName={armedName} onPutAway={onPutAway} showStick={settings.showStick} />
       <RealmLegend showStick={settings.showStick} />
+      {/* Four prompts, one at a time, above the speech lane and clear of every corner. A
+          parent's preview has none: nothing they do is being taught or written down. */}
+      {isChildView && <RealmTutorial prompt={tutorialPrompt(tutorial)} onSkip={skipTutorial} />}
       <RealmMessages
         problem={problem}
         speech={speech}
@@ -844,6 +905,7 @@ function RealmOpen({
           ceremonyActive={ceremonyStage === "running"}
           ceremonySkipRef={ceremonySkipRef}
           onCeremonyEvent={onCeremonyEvent}
+          onTutorialSignal={signal}
         />
       )}
       {settings.showStick && !worldBusy && <TouchStick onChange={setStick} />}

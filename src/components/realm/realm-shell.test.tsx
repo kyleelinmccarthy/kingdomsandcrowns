@@ -38,9 +38,11 @@ const markCeremonySeen = vi.fn();
 vi.mock("@/lib/actions/seasons", () => ({ markCeremonySeen: (...a: unknown[]) => markCeremonySeen(...a) }));
 const markRealmHelpSeen = vi.fn();
 const setRealmDepth = vi.fn();
+const setTutorialStep = vi.fn();
 vi.mock("@/lib/actions/realm-settings", () => ({
   markRealmHelpSeen: (...a: unknown[]) => markRealmHelpSeen(...a),
   setRealmDepth: (...a: unknown[]) => setRealmDepth(...a),
+  setTutorialStep: (...a: unknown[]) => setTutorialStep(...a),
 }));
 const speakMock = vi.fn();
 vi.mock("@/lib/utils/speech", () => ({
@@ -130,6 +132,7 @@ const raisedKingdom = newKingdom.map((b) => ({ ...b, done: b.total, complete: tr
 beforeEach(() => {
   vi.clearAllMocks();
   setRealmDepth.mockResolvedValue(undefined);
+  setTutorialStep.mockResolvedValue(undefined);
   failNextSpriteMount = false;
   holdNextSpriteMount = false;
   heldOnReady = null;
@@ -532,9 +535,10 @@ describe("RealmShell", () => {
 
   it("keeps EVERY non-primitive scene prop referentially stable across a mana tick", async () => {
     // `World` is memoised, so one prop that changes identity on every render undoes the memo
-    // for all twenty-six and the whole scene re-renders on a resource that ticks continuously.
-    // Naming four of them leaves the other twenty-two uncovered — a broken onCeremonyEvent or
-    // onRecessEvent would pass — so this snapshots the lot and re-checks each by identity.
+    // for all twenty-seven and the whole scene re-renders on a resource that ticks continuously.
+    // Naming four of them leaves the other twenty-three uncovered — a broken onCeremonyEvent,
+    // onRecessEvent or onTutorialSignal would pass — so this snapshots the lot and re-checks
+    // each by identity.
     // A prop added by a later slice is covered the day it is added, without editing this test.
     getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
     render(<RealmShell bundle={{ ...bundle, spellbook: { spells: pages, slots: 4 } }} childId="c1" isChildView={true} />);
@@ -1393,5 +1397,124 @@ describe("RealmShell reach and speech", () => {
     // A parent sees the line and hears nothing: readAloud is the child's setting.
     expect(screen.getByText("Old Bram is here. Press E to talk.")).toBeInTheDocument();
     expect(speakMock).not.toHaveBeenCalled();
+  });
+  // ── The tutorial (§ task 13) ───────────────────────────────────────────────────────────
+  const openRealm = async (over: Record<string, unknown> = {}, isChildView = true) => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 20, source: "earned" });
+    render(<RealmShell bundle={{ ...bundle, ...over }} childId="c1" isChildView={isChildView} />);
+    expect(await screen.findByTestId("scene")).toBeInTheDocument();
+  };
+  const sendSignal = async (sig: unknown) => {
+    await act(async () => {
+      (sceneProps.onTutorialSignal as (s: unknown) => void)(sig);
+    });
+  };
+
+  it("starts a brand-new hero on the first verb", async () => {
+    await openRealm();
+    expect(screen.getByTestId("realm-tutorial")).toHaveTextContent("Use W, A, S and D to walk.");
+    expect(setTutorialStep).not.toHaveBeenCalled();
+  });
+
+  it("does NOT finish the walking step for a hero who only ever pressed W", async () => {
+    // The whole design of step one, and the half that is easy to skip: a child who only
+    // presses W has not learned to move, and telling them they have is how they get stuck
+    // later. Distance alone is not enough, however far they walked.
+    await openRealm();
+    await sendSignal({ kind: "walked", keys: ["KeyW"], distance: 40 });
+    expect(screen.getByTestId("realm-tutorial")).toHaveTextContent("Use W, A, S and D to walk.");
+    expect(setTutorialStep).not.toHaveBeenCalled();
+    // And the same distance with a second key finishes it — so the refusal above was about
+    // the keys, not about the signal never arriving.
+    await sendSignal({ kind: "walked", keys: ["KeyW", "KeyD"], distance: 40 });
+    expect(screen.getByTestId("realm-tutorial")).toHaveTextContent("Go where the light is.");
+    await waitFor(() => expect(setTutorialStep).toHaveBeenCalledWith("c1", 1));
+  });
+
+  it("does not finish the walking step on two keys and no distance either", async () => {
+    await openRealm();
+    await sendSignal({ kind: "walked", keys: ["KeyW", "KeyD"], distance: 0.5 });
+    expect(screen.getByTestId("realm-tutorial")).toHaveTextContent("Use W, A, S and D to walk.");
+    expect(setTutorialStep).not.toHaveBeenCalled();
+  });
+
+  it("advances the tutorial only when the child does the thing, and remembers it", async () => {
+    await openRealm({ tutorialStep: 2 });
+    expect(screen.getByTestId("realm-tutorial")).toHaveTextContent("Stand close and press E.");
+    await act(async () => { (sceneProps.onTalk as (id: string) => void)("bram"); });
+    await waitFor(() => expect(setTutorialStep).toHaveBeenCalledWith("c1", 3));
+  });
+
+  it("hears the E key itself, which is the key step three names", async () => {
+    // The prompt says "press E", so the E path — not just the Talk bubble — has to be the
+    // one the tutorial can see. It goes through `onTalk` for exactly this reason.
+    await openRealm({ tutorialStep: 2 });
+    await inReach("bram");
+    fireEvent.keyDown(document.body, { key: "e", code: "KeyE" });
+    expect(await screen.findByRole("dialog", { name: "Old Bram" })).toBeInTheDocument();
+    await waitFor(() => expect(setTutorialStep).toHaveBeenCalledWith("c1", 3));
+  });
+
+  it("walks the four steps in order, ignoring a signal meant for a step that is not current", async () => {
+    await openRealm();
+    // Arriving at the light before the walking is learned teaches nothing and moves nothing.
+    await sendSignal({ kind: "reachedObjective" });
+    expect(screen.getByTestId("realm-tutorial")).toHaveTextContent("Use W, A, S and D to walk.");
+    await sendSignal({ kind: "walked", keys: ["KeyW", "KeyA"], distance: 6 });
+    expect(screen.getByTestId("realm-tutorial")).toHaveTextContent("Go where the light is.");
+    await sendSignal({ kind: "castLanded" }); // out of turn: step two is not a cast
+    expect(screen.getByTestId("realm-tutorial")).toHaveTextContent("Go where the light is.");
+    await sendSignal({ kind: "reachedObjective" });
+    expect(screen.getByTestId("realm-tutorial")).toHaveTextContent("Stand close and press E.");
+    await act(async () => { (sceneProps.onTalk as (id: string) => void)("bram"); });
+    expect(screen.getByTestId("realm-tutorial")).toHaveTextContent("Press 1.");
+    await act(async () => { (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "castState", casting: true }); });
+    expect(screen.queryByTestId("realm-tutorial")).not.toBeInTheDocument();
+    await waitFor(() => expect(setTutorialStep).toHaveBeenLastCalledWith("c1", 4));
+    expect(setTutorialStep.mock.calls.map((c) => c[1])).toEqual([1, 2, 3, 4]);
+  });
+
+  it("does not count a refused cast as the casting step", async () => {
+    await openRealm({ tutorialStep: 3 });
+    expect(screen.getByTestId("realm-tutorial")).toHaveTextContent("Press 1.");
+    await act(async () => { (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "refused", reason: "range" }); });
+    expect(screen.getByTestId("realm-tutorial")).toHaveTextContent("Press 1.");
+    await act(async () => { (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "castState", casting: false }); });
+    expect(screen.getByTestId("realm-tutorial")).toHaveTextContent("Press 1.");
+    expect(setTutorialStep).not.toHaveBeenCalled();
+  });
+
+  it("resumes where the hero left off, and shows nothing once every step is done", async () => {
+    await openRealm({ tutorialStep: 1 });
+    expect(screen.getByTestId("realm-tutorial")).toHaveTextContent("Go where the light is.");
+    cleanup();
+    await openRealm({ tutorialStep: 4 });
+    expect(screen.queryByTestId("realm-tutorial")).not.toBeInTheDocument();
+  });
+
+  it("skips past the last step and writes that down, so it does not come back", async () => {
+    await openRealm();
+    await userEvent.click(screen.getByRole("button", { name: /skip/i }));
+    expect(screen.queryByTestId("realm-tutorial")).not.toBeInTheDocument();
+    await waitFor(() => expect(setTutorialStep).toHaveBeenCalledWith("c1", 4));
+  });
+
+  it("never throws a failed save over a running world", async () => {
+    // Fire-and-forget: a lost write costs the child a repeated step next visit, which is far
+    // better than an error over the game — and the child is told nothing about it either way.
+    setTutorialStep.mockRejectedValue(new Error("offline"));
+    await openRealm();
+    await sendSignal({ kind: "walked", keys: ["KeyW", "KeyD"], distance: 9 });
+    expect(screen.getByTestId("realm-tutorial")).toHaveTextContent("Go where the light is.");
+    expect(screen.queryByText(/offline/i)).not.toBeInTheDocument();
+    expect(screen.getByTestId("scene")).toBeInTheDocument();
+  });
+
+  it("shows a parent no tutorial and writes nothing on their behalf", async () => {
+    await openRealm({}, false);
+    expect(screen.queryByTestId("realm-tutorial")).not.toBeInTheDocument();
+    await sendSignal({ kind: "walked", keys: ["KeyW", "KeyD"], distance: 9 });
+    await act(async () => { (sceneProps.onTalk as (id: string) => void)("bram"); });
+    expect(setTutorialStep).not.toHaveBeenCalled();
   });
 });

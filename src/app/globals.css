@@ -2018,3 +2018,54 @@ body[data-realm-open] .parent-alert-popup { display: none; }
 @media (max-width: 900px) {
   .realm-legend { top: 23rem; bottom: auto; }
 }
+
+/* ── The tutorial (§ task 13) ─────────────────────────────────────────────────────────── */
+/* One prompt at a time, centred, and it stays on screen for a whole visit — so unlike every
+   other thing in this band it can never be allowed to land on a transient message. The
+   brief's own starting point (`--realm-bar-bottom + 7.4rem`) measured as an overlap in every
+   single case: 7px into the one-line speech lane at 1280x800 hud-scale 1, 15px at hud-scale
+   1.25, 30px into a two-line one, and on a 390px screen it also sat 20px into the ability
+   bar and straight across the identity and meta corners.
+
+   Above 900px it is anchored off the speech lane's OWN formula
+   (`--realm-bar-bottom + 3.6rem + 2rem * scale`) plus 6.25rem, rather than off a literal, so
+   the two can never drift apart when the bar moves for touch or when the hud scale changes.
+   6.25rem is a three-line speech lane plus clearance. Measured at 1920x1080, 1440x900,
+   1280x800, 1024x768 and 901x800, both hud scales, desktop and touch: 65px clear of the
+   reach line, 42px clear of the longest line a child can see in that lane (the rise toast,
+   "The Watchtower stands. Next: the Garden, with Gardener Wilma."), 107-111px above the
+   legend and 136-144px above the ability bar.
+
+   `left: 0; right: 0; margin-inline: auto; width: fit-content` rather than this file's usual
+   `left: 50%; transform: translateX(-50%)`. That idiom leaves an absolutely positioned box
+   only HALF the viewport to shrink-to-fit into (the available width is measured from `left`
+   to the containing block's right edge), which on a 390px screen is 195px — the prompt wrapped
+   to two lines and the box grew to 86px tall, and the same thing is why the message lanes wrap
+   so hard on a phone. Centring with auto margins gives it the whole width, so the box is one
+   line and a flat 57px tall at every size measured here. (`width: max-content` is the more
+   obvious spelling and was tried first: Lightning CSS drops it from the built stylesheet
+   entirely, while `fit-content` survives — with `left`/`right: 0` the two mean the same thing
+   here, since the available width is then the full viewport.) */
+.realm-tutorial { position: absolute; left: 0; right: 0; margin-inline: auto; bottom: calc(var(--realm-bar-bottom) + 9.85rem + 2rem * var(--realm-hud-scale)); z-index: 21; display: flex; align-items: center; gap: 0.6rem; width: fit-content; max-width: calc(100vw - 2rem); padding: 0.35rem 0.8rem; border-radius: 0.5rem; border: 1px solid var(--gold-border); background: rgba(0, 0, 0, 0.7); color: #fff; font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif; font-size: calc(13px * var(--realm-hud-scale)); font-weight: 700; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8); pointer-events: none; }
+.realm-tutorial button { min-height: 44px; padding: 0 0.5rem; background: none; border: none; color: var(--gold-bright); font: inherit; font-weight: 500; text-decoration: underline; cursor: pointer; pointer-events: auto; }
+.realm-tutorial-step { margin: 0; }
+/* Below 900px the bottom band belongs to the identity and meta corners, which the same
+   measurement that sent the legend to the top-centre strip (task 11) found reach a long way
+   up a narrow screen — at 390x844 on touch the meta corner's box starts 359px off the bottom
+   edge. So the tutorial follows the legend up there and sits directly under it: `top: 25.5rem`
+   (408px) is 13-17px below the legend's deepest edge (391px at hud-scale 1, 395px at 1.25)
+   and, being top-anchored, cannot be pushed into anything by a message that grows.
+   `bottom: auto` is required alongside `top` for the reason the legend's own rule gives.
+
+   Measured at 900x800, 820x1180, 768x1024, 600x900, 430x932, 414x896, 393x852 and 390x844,
+   each at both hud scales, desktop and touch, with the longest real strings in both lanes:
+   clear everywhere, with the tightest case 390x844 on touch at hud-scale 1.25 — 20px above
+   the meta corner, 25px below the speech lane, 64px from the identity corner.
+
+   Below 390x844 it is NOT clear, and the honest note is that the HUD there is oversubscribed
+   before this box is added: at 375x812 on touch the bottom edge crosses the meta corner's box
+   by 8-12px, and at 360x740 and 320x568 no 57px-tall band exists between the legend (or the
+   problem lane) and the bottom corners at all. Numbers per viewport are in task-13-report.md. */
+@media (max-width: 900px) {
+  .realm-tutorial { top: 25.5rem; bottom: auto; }
+}
