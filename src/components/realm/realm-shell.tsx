@@ -441,33 +441,51 @@ function RealmOpen({
   // Snapshotted once, like `depth` and the ceremony: a bundle refresh must not move the
   // prompt out from under a child halfway through a step.
   const [tutorial, setTutorial] = useState<TutorialState>(() => ({ completed: bundle.tutorialStep }));
+  // The latest tutorial state, readable from a handler without a stale closure — the same
+  // treatment `kingdomRef` below gets, and for two reasons. First, `signal` is handed to the
+  // memoised scene and must never change identity, so it cannot close over `tutorial`.
+  // Second, the write below is deliberately EAGER rather than mirrored from an effect: two
+  // signals can land in the same microtask drain (a `walked` and a `reachedObjective` from one
+  // frame), and the second must judge itself against the first's result, not against the state
+  // React has not re-rendered with yet. An effect mirror would run too late for that.
+  const tutorialRef = useRef(tutorial);
   // The one door every signal comes through. `advanceTutorial` owns the rule — including
   // step one's two halves, a real distance AND more than one movement key — and nothing
   // here re-decides any of it; this only feeds it and writes down what it says.
+  //
+  // The early return on an unchanged count is load-bearing, not tidiness: it is what lets the
+  // scene re-send a signal the model is not listening for — a `walked` that was one key short,
+  // an arrival the hero reached before they had learned to walk — for the price of a function
+  // call, with no render and no round trip.
+  //
+  // Both the state change and the persist happen HERE, in the handler, and not inside a
+  // `setTutorial` updater. An updater is not the place for a server round trip: StrictMode
+  // double-invokes updaters in development and React may replay one during a concurrent
+  // render, so the write could go twice. It is idempotent, so nothing would break — but a
+  // request is a much heavier thing to double than the cheap boolean writes elsewhere in
+  // this file, and there is no reason to.
   //
   // Persisting is fire-and-forget: a failed write costs the child a repeated step next
   // visit, which is far better than an error thrown over a running world. A child is never
   // told that a save missed, because there is nothing they could do about it.
   //
-  // Returning `prev` unchanged is load-bearing, not tidiness: React bails out of the
-  // re-render when an updater returns the same object, which is what lets the scene re-send
-  // a signal the model is not listening for — a `walked` that was one key short, an arrival
-  // the hero reached before they had learned to walk — without paying a render for each.
   // A parent's preview signals nothing at all: they are not the one learning the keys, and
   // their walking has no business being written to the hero's row.
   const signal = useCallback((s: TutorialSignal) => {
     if (!isChildView) return;
-    setTutorial((prev) => {
-      const next = advanceTutorial(prev, s);
-      if (next.completed === prev.completed) return prev;
-      void setTutorialStep(childId, next.completed).catch(() => {});
-      return next;
-    });
+    const prev = tutorialRef.current;
+    const next = advanceTutorial(prev, s);
+    if (next.completed === prev.completed) return;
+    tutorialRef.current = next;
+    setTutorial(next);
+    void setTutorialStep(childId, next.completed).catch(() => {});
   }, [childId, isChildView]);
   // A grown-up's way out. It goes PAST the last step and writes that down, so the tutorial
   // does not come back next visit — a skip that returned tomorrow would not be a skip.
   const skipTutorial = useCallback(() => {
-    setTutorial({ completed: TUTORIAL_STEPS.length });
+    const skipped = { completed: TUTORIAL_STEPS.length };
+    tutorialRef.current = skipped;
+    setTutorial(skipped);
     if (isChildView) void setTutorialStep(childId, TUTORIAL_STEPS.length).catch(() => {});
   }, [childId, isChildView]);
 
@@ -847,8 +865,28 @@ function RealmOpen({
       <RealmPutAwayButton spellName={armedName} onPutAway={onPutAway} showStick={settings.showStick} />
       <RealmLegend showStick={settings.showStick} />
       {/* Four prompts, one at a time, above the speech lane and clear of every corner. A
-          parent's preview has none: nothing they do is being taught or written down. */}
-      {isChildView && <RealmTutorial prompt={tutorialPrompt(tutorial)} onSkip={skipTutorial} />}
+          parent's preview has none: nothing they do is being taught or written down.
+          The prompt is also dropped whenever there is no live objective, because three of the
+          four steps are then impossible to obey and the child would be told to do something
+          the world cannot let them do. `complete` is the permanent case and the one that
+          matters: `tutorialStep` defaults to 0, so every hero who finished their kingdom
+          before this shipped starts at step 0, and step two ("Go where the light is") has no
+          light to go to — no site carries `focus: "objective"` once `objectiveIds` is empty —
+          while step four has no troubles to cast at, since those only spawn at unfinished
+          sites. `deedsDone` never goes down, so that would never have resolved itself: they
+          would have read an impossible instruction every visit forever, with only a grown-up's
+          Skip as a way out. `unknown` is the same trap while it lasts — a kingdom that failed
+          to load has no sites, no villagers and no troubles either — but it is transient, the
+          problem lane explains it, and the prompt comes back with the retry.
+          Clamped HERE and not in the state: `tutorial` is what the child has really finished
+          and must survive a kingdom that is briefly unreadable, and seeding from `objective`
+          would bake in whatever it happened to say on the first render. */}
+      {isChildView && (
+        <RealmTutorial
+          prompt={objective.kind === "next" ? tutorialPrompt(tutorial) : null}
+          onSkip={skipTutorial}
+        />
+      )}
       <RealmMessages
         problem={problem}
         speech={speech}

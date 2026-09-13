@@ -11,7 +11,7 @@ import { CAMERA_OFFSET, CAMERA_ZOOM, edgeArrow, followCamera } from "@/lib/realm
 import { projectToMap, worldBounds } from "@/lib/realm/minimap";
 import { BEACON, facingAngle, GROUND_Y, shadowFootprint, RING_INNER, RING_OUTER, RING_NOTCH_ARC, RING_GOLD, RING_CALM, SHADOW_OPACITY, SHADOW_OPACITY_CALM } from "@/lib/realm/markers";
 import { nearestVillager, villagerById, REACH } from "@/lib/realm/villagers";
-import { WALK_DISTANCE, type TutorialSignal } from "@/lib/realm/tutorial";
+import { keysFromWorldAxis, objectiveArrival, shouldEmitWalked, type TutorialSignal } from "@/lib/realm/tutorial";
 import type { RenderSettings } from "@/lib/realm/render-settings";
 import type { Surfaces } from "@/lib/realm/depth";
 import type { SpellDefinition } from "@/lib/utils/spell-catalog";
@@ -83,13 +83,6 @@ const CALM_TINT = "#a9aaa4";
 const HERO_SHADOW = shadowFootprint({ w: 0.8, d: 0.8 });
 const MOUNT_SHADOW = shadowFootprint({ w: 1.1, d: 1.1 });
 const COMPANION_SHADOW = shadowFootprint({ w: 0.6, d: 0.6 });
-
-/**
- * Below this, a world-axis component is float noise from `screenToWorldAxis` rather than a
- * direction anyone pushed: one key alone yields components of 0 or +-0.7071, and the
- * smallest real diagonal is 0.7071 too, so anything near zero is rounding.
- */
-const AXIS_EPSILON = 0.05;
 
 function easeOut(t: number): number {
   return 1 - (1 - t) * (1 - t);
@@ -178,21 +171,17 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
   const companionShadow = useRef<THREE.Group>(null);
   const heroRing = useRef<THREE.Group>(null);
   // ── The tutorial's two world-measured signals (§ task 13) ─────────────────────────────
-  // Both are accumulated HERE, in refs, and never set React state from the frame loop.
-  // How far the hero has walked under their own steam this visit, and the movement keys
-  // that did it. `walkEmitted` is the size of the key set the last `walked` signal carried,
-  // so the signal goes out when the distance FIRST crosses WALK_DISTANCE and then only when
-  // a new distinct key joins — at most four times a visit, never once a frame. Emitting a
-  // single time would strand the child who crossed the line pressing nothing but W: step one
-  // wants two keys, and they must be able to finish it the moment they press a second one.
+  // The ACCUMULATORS live here, in refs, because the hero's position and the axis exist
+  // nowhere else and nothing may set React state sixty times a second. Every DECISION taken
+  // from them — which keys an axis means, whether a `walked` signal is due, whether an arrival
+  // should speak — lives in `@/lib/realm/tutorial`, which imports no three and is under test.
+  // This file cannot be unit-tested (it imports three, so the shell's suite mocks it whole),
+  // and rules that decide whether a child can finish the tutorial have no business living
+  // somewhere nothing can check them.
   const walkDistance = useRef(0);
   const walkKeys = useRef(new Set<string>());
-  const walkEmitted = useRef(0);
-  // Whether the hero is standing at the lit site, edge-triggered so standing there is silent.
-  // Re-armed on leaving — and on every `walked` signal, because step two is unreachable until
-  // step one is done: a hero who wandered to the light while still learning to walk must not
-  // have spent their only arrival on a signal the model was bound to ignore.
-  const atObjective = useRef(false);
+  const walkEmitted = useRef(0); // the size of the key set the last `walked` signal carried
+  const atObjective = useRef(false); // the edge-trigger latch for the lit site
 
   // Writes one frame of a rise straight onto the building. `s` of 1 is exactly what the
   // declarative JSX places, which is what makes this also the way to settle an abandoned one.
@@ -346,38 +335,24 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
       // Only ground the hero really covered counts: a key held against a wall moves nothing
       // and teaches nothing, and `frozen` already zeroes the axis, so both fall out for free.
       const walked = Math.hypot(hero.current.position.x - from.x, hero.current.position.z - from.z);
+      let walkedSignalled = false;
       if (walked > 0) {
         walkDistance.current += walked;
-        // `axisRef` is the world-space axis; `screenToWorldAxis` built it from the screen
-        // direction the keys (and the stick) speak, and that map is invertible, so these ARE
-        // the keys that produced this step, recovered rather than tracked a second time.
-        // It also means a thumb gets the same two-directions rule a keyboard does, on a
-        // device where "W, A, S and D" are a stick and there are no key codes to count.
-        const a = axisRef.current ?? { x: 0, z: 0 };
-        const sx = (a.x - a.z) * Math.SQRT1_2;
-        const sy = -(a.x + a.z) * Math.SQRT1_2;
-        if (sy > AXIS_EPSILON) walkKeys.current.add("KeyW");
-        if (sy < -AXIS_EPSILON) walkKeys.current.add("KeyS");
-        if (sx < -AXIS_EPSILON) walkKeys.current.add("KeyA");
-        if (sx > AXIS_EPSILON) walkKeys.current.add("KeyD");
-        // A click-to-walk hero adds no keys at all, so `size` stays 0 and nothing is sent:
-        // clicking the grass is not pressing W, and the step must not pretend it is.
-        if (walkDistance.current >= WALK_DISTANCE && walkKeys.current.size !== walkEmitted.current) {
+        for (const key of keysFromWorldAxis(axisRef.current ?? { x: 0, z: 0 })) walkKeys.current.add(key);
+        if (shouldEmitWalked(walkDistance.current, walkKeys.current.size, walkEmitted.current)) {
           walkEmitted.current = walkKeys.current.size;
-          atObjective.current = false; // see the ref: step two gets its arrival back
+          walkedSignalled = true;
           emitTutorial({ kind: "walked", keys: [...walkKeys.current], distance: walkDistance.current });
         }
       }
       // "Go where the light is" finishes at the site's edge plus the same REACH a villager
       // is talkable from — the moment the person standing there becomes worth pressing E at,
-      // which is the step that comes next. Edge-triggered: crossing in sends one signal and
-      // standing there sends none.
+      // which is the step that comes next. A complete kingdom has no lit site at all, and the
+      // shell drops the whole prompt then rather than leaving one that cannot be obeyed.
       const here = objectiveSite !== null && Math.hypot(hero.current.position.x - objectiveSite.position.x, hero.current.position.z - objectiveSite.position.z) <= objectiveSite.size.w / 2 + REACH;
-      if (!here) atObjective.current = false;
-      else if (!atObjective.current) {
-        atObjective.current = true;
-        emitTutorial({ kind: "reachedObjective" });
-      }
+      const arrival = objectiveArrival(here, atObjective.current, walkedSignalled);
+      atObjective.current = arrival.latched;
+      if (arrival.emit) emitTutorial({ kind: "reachedObjective" });
       const spellIn = spellInput.current;
       spellIn.layout = layout;
       spellIn.hero = hero.current.position;

@@ -1510,6 +1510,30 @@ describe("RealmShell reach and speech", () => {
     expect(screen.getByTestId("scene")).toBeInTheDocument();
   });
 
+  it("shows no prompt at all to a hero whose kingdom is already finished", async () => {
+    // `tutorialStep` defaults to 0, so EVERY hero who finished their kingdom before this
+    // shipped starts at step 0 — and with every building raised there is no lit site to go to
+    // (nothing carries `focus: "objective"`) and no troubles to cast at (they only spawn at
+    // unfinished sites). Three of the four steps are impossible, `deedsDone` never goes down,
+    // and the prompt would never have resolved itself: they would read an instruction they
+    // cannot obey, every visit, forever.
+    await openRealm({ kingdom: { tone: "gentle" as const, buildings: raisedKingdom } });
+    expect(screen.queryByTestId("realm-tutorial")).not.toBeInTheDocument();
+    expect(setTutorialStep).not.toHaveBeenCalled();
+  });
+
+  it("holds the prompt back while the kingdom cannot be read, and gives it back on the retry", async () => {
+    // The same trap, transient: a kingdom that failed to load has no sites, no villagers and
+    // no troubles either. The step the hero has really reached is untouched underneath, so
+    // the retry brings back the prompt they were on rather than starting them over.
+    getRealmKingdom.mockResolvedValue({ tone: "gentle", buildings: [well] });
+    const user = userEvent.setup();
+    await openRealm({ tutorialStep: 1, kingdom: { tone: "gentle" as const, buildings: [] }, kingdomError: "The villagers are resting. Try again." });
+    expect(screen.queryByTestId("realm-tutorial")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Wake the villagers" }));
+    await waitFor(() => expect(screen.getByTestId("realm-tutorial")).toHaveTextContent("Go where the light is."));
+  });
+
   it("shows a parent no tutorial and writes nothing on their behalf", async () => {
     await openRealm({}, false);
     expect(screen.queryByTestId("realm-tutorial")).not.toBeInTheDocument();
