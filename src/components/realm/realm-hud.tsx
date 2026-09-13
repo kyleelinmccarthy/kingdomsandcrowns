@@ -250,3 +250,55 @@ export function RealmMountButton({ ride, showStick }: { ride: { riding: boolean;
     </button>
   );
 }
+
+/**
+ * Cast, for a hero with no keyboard and no left click (§4.5). A dedicated button rather
+ * than a second tap on the page itself: tap-to-select-then-tap-again-to-fire is the
+ * hidden second meaning this slice deletes everywhere else, and task 8 already made a
+ * tap and its number key mean the same one thing.
+ *
+ * It sits in the bottom-right corner, opposite the stick: left thumb walks, right thumb
+ * casts, which is the layout every game a child has already played uses. `disabled`
+ * carries "nothing is chosen" and "you are on a mount" — it stays visible either way,
+ * because a control that vanishes teaches nothing. Nothing here decides whether the cast
+ * lands: task 9's targeting rule refuses an out-of-range cast in the sim, with red pips
+ * and no mana spent, whichever way the hero asked for it.
+ */
+export function RealmCastButton({ onCast, disabled, showStick }: { onCast: () => void; disabled: boolean; showStick: boolean }) {
+  if (!showStick) return null; // a keyboard and a mouse both already have a way to cast
+  return (
+    <button type="button" className="realm-cast-button" disabled={disabled} onClick={onCast} aria-label="Cast">
+      Cast
+    </button>
+  );
+}
+
+/**
+ * Put the spell away — the verb a touch hero did not have. Task 8 made a chip tap cast
+ * rather than toggle, which is right (a tap and its number key must mean one thing), but
+ * it left `Escape` as the only way to disarm, and a tablet has no `Escape`: a child who
+ * tapped a page once stayed armed for the whole visit, with every ground tap casting.
+ *
+ * So the way back is its own control rather than a second meaning on the chip:
+ *   - it appears only while something is armed, directly above Cast, so the pair reads
+ *     as one thought — do it, or put it back;
+ *   - it wears a large ✕ — the one glyph a child already reads as "stop this" without
+ *     being taught it — drawn by CSS beside the words, for a child who does read;
+ *   - it names the spell in its accessible name, because a screen-reader child hears the
+ *     button in isolation and "Put away" alone does not say away what.
+ * `spellName` null means nothing is armed, so there is nothing to put away and no button.
+ */
+export function RealmPutAwayButton({ spellName, onPutAway, showStick }: { spellName: string | null; onPutAway: () => void; showStick: boolean }) {
+  if (!showStick) return null; // Escape already does this for a keyboard hero
+  if (!spellName) return null; // nothing is armed, so there is nothing to put away
+  return (
+    <button
+      type="button"
+      className="realm-cast-button realm-cast-button--away"
+      onClick={onPutAway}
+      aria-label={`Put ${spellName} away`}
+    >
+      Put away
+    </button>
+  );
+}

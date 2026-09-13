@@ -9,7 +9,7 @@ const FEWER = 4;
 export const EMPTY_TITLE = "Make a spell in your Spellbook";
 export const EMPTY_HINT = "Your spellbook has room. Make a spell to fill this page.";
 
-/** The hero's pages along the bottom of the world. A tap or keys 1–9 cast that page and select it, Escape puts it away; an empty page explains where spells come from. */
+/** The hero's pages along the bottom of the world. A tap or keys 1–9 cast that page and select it; Escape puts it away, and a touch hero has the Put away button instead. An empty page explains where spells come from. */
 export function SpellBar({
   pages,
   selectedSlot,
@@ -114,18 +114,25 @@ export function SpellBar({
           }
           const selected = page.slot === selectedSlot;
           const affordable = page.spell ? mana >= page.spell.manaCost : false;
-          const label = page.spell ? `${page.name}, ${page.spell.manaCost} mana` : page.name;
+          // NOT `aria-pressed`. Task 8 made a chip cast rather than toggle, so the chip is a
+          // momentary action, and a toggle's promise — activate it again and it unpresses —
+          // is one this button cannot keep: a screen-reader child heard "pressed", activated
+          // it to unpress it, cast a second time and heard "pressed" still. The armed state
+          // is real, though, so it goes where a plain button can carry it: into the name. The
+          // way back out is Escape, or the Put away button a touch hero gets instead of it.
+          const base = page.spell ? `${page.name}, ${page.spell.manaCost} mana` : page.name;
+          const label = selected ? `${base}, chosen` : base;
           return (
             <button
               key={page.slot}
               type="button"
               className={`realm-spell${selected ? " realm-spell--selected" : ""}${page.spell && !affordable ? " realm-spell--dim" : ""}${selected && refused ? " realm-spell--refused" : ""}`}
               style={{ borderColor: page.color }}
-              aria-pressed={selected}
               aria-label={label}
               disabled={!page.spell}
               // A tap casts, exactly as the number key does — one action, one behaviour, however
-              // the child reaches it. The selection simply persists; Escape puts it away.
+              // the child reaches it. The selection simply persists; Escape puts it away, and a
+              // touch hero, who has no Escape, taps Put away (realm-hud.tsx) instead.
               onClick={() => onSelect(page.slot)}
             >
               <span className="realm-spell-key">{i + 1}</span>

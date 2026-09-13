@@ -33,7 +33,7 @@ import { crownById, CROWNS } from "@/lib/utils/crown-catalog";
 import { speak } from "@/lib/utils/speech";
 import { SIDE_QUESTS_LOWER } from "@/lib/utils/side-quest-copy";
 import { SpriteSource, type SpriteTextures } from "./sprite-source";
-import { RealmHud, RealmMountButton } from "./realm-hud";
+import { RealmHud, RealmMountButton, RealmCastButton, RealmPutAwayButton } from "./realm-hud";
 import { RealmLegend } from "./realm-legend";
 import { RealmMinimap } from "./realm-minimap";
 import { surfacesFor, type RealmDepth } from "@/lib/realm/depth";
@@ -327,7 +327,11 @@ function RealmOpen({
   const worldBusy = panelOpen || ceremonyRunning || helpOpen;
   const pages = useMemo(() => withEmptyPages(resolvePages(bundle.spellbook.spells, bundle.spellbook.slots), bundle.spellbook.slots), [bundle.spellbook]);
   const castHintShown = useRef(false);
-  const selectedSpell = selectedSlot === null ? null : pages.find((p) => p.slot === selectedSlot)?.spell ?? null;
+  const selectedPage = selectedSlot === null ? null : pages.find((p) => p.slot === selectedSlot) ?? null;
+  const selectedSpell = selectedPage?.spell ?? null;
+  // What the touch Put away button names. Null while nothing is armed, which is also what
+  // makes the button absent: a control for putting away nothing has nothing to teach.
+  const armedName = selectedPage && selectedSpell ? selectedPage.name : null;
   const troubleSkin: TroubleSkin = kingdom.tone === "monsters" ? "monsters" : "gentle";
   const { axisRef, setStick, castRef, requestCast } = useRealmInput({ enabled: !worldBusy });
   const config = bundle.avatarConfig ?? DEFAULT_AVATAR;
@@ -420,6 +424,14 @@ function RealmOpen({
     if (castSeq === 0) return; // nothing has been picked yet; the world must not open with a cast
     requestCast({ nearest: true });
   }, [castSeq, requestCast]);
+  // Cast, for a thumb. The selection is already committed by the time this can be tapped —
+  // it is `disabled` until one exists — so this writes the request straight onto the ref
+  // rather than going the long way round `castSeq`, which exists only for the select-and-cast
+  // race a number key opens. Nothing here judges the target: task 9's rule in the spell sim
+  // refuses a cast with nothing in range, with red pips and no mana spent.
+  const onCastTap = useCallback(() => requestCast({ nearest: true }), [requestCast]);
+  // And the way back out of aiming, which a tablet had no key for.
+  const onPutAway = useCallback(() => setSelectedSlot(null), []);
 
   // The latest kingdom, readable from event handlers without a stale closure and without side effects in an updater.
   const kingdomRef = useRef(kingdom);
@@ -769,6 +781,12 @@ function RealmOpen({
       {/* Ride sits beside the ability bar, where slice 3's real bar will find it. The mount
           button stays visible in preview and merely disabled. */}
       <RealmMountButton ride={hudRide} showStick={settings.showStick} />
+      {/* The two verbs a keyboard already had and a thumb did not: `1` and left click cast,
+          and `Escape` puts the spell away. Both render only when the stick is up. Cast is
+          disabled rather than hidden while nothing is armed; Put away is absent instead,
+          because there is nothing for it to act on and nothing for it to teach. */}
+      <RealmCastButton onCast={onCastTap} disabled={selectedSlot === null || riding || worldBusy} showStick={settings.showStick} />
+      <RealmPutAwayButton spellName={armedName} onPutAway={onPutAway} showStick={settings.showStick} />
       <RealmLegend showStick={settings.showStick} />
       <RealmMessages
         problem={problem}

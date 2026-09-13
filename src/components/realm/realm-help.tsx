@@ -44,8 +44,8 @@ export function helpGroups(touch: boolean, ceremony: boolean): HelpGroup[] {
       icon: "sparkles",
       title: "Cast",
       text: touch
-        ? "Tap a spell page, then tap where the spell should go."
-        : "Pick a spell page (1, 2, 3, 4) or tap it, then click where the spell should go.",
+        ? "Tap a spell page, then tap where the spell should go, or tap Cast. Tap Put away when you are done."
+        : "Pick a spell page (1, 2, 3, 4) or tap it, then click where the spell should go. Escape puts it away.",
     },
     {
       icon: "map",

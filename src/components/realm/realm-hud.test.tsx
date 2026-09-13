@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, cleanup, fireEvent, within } from "@testing-library/react";
 import type { ComponentProps } from "react";
-import { RealmHud, RealmManaPips, RealmMountButton } from "./realm-hud";
+import { RealmHud, RealmManaPips, RealmMountButton, RealmCastButton, RealmPutAwayButton } from "./realm-hud";
 import { surfacesFor } from "@/lib/realm/depth";
 import type { ObjectiveState } from "@/lib/realm/objective";
 import { DEFAULT_LEARNING_PROFILE } from "@/lib/utils/learning-profile";
@@ -258,6 +258,53 @@ describe("RealmMountButton", () => {
     expect(screen.getByRole("button", { name: "Ride your mount" })).toBeDisabled();
     cleanup();
     const { container } = render(<RealmMountButton ride={null} showStick={false} />);
+    expect(container).toBeEmptyDOMElement();
+  });
+});
+
+describe("RealmCastButton", () => {
+  it("shows the cast button only on touch, and fires the selection", () => {
+    const onCast = vi.fn();
+    const { rerender } = render(<RealmCastButton onCast={onCast} disabled={false} showStick={true} />);
+    fireEvent.click(screen.getByRole("button", { name: "Cast" }));
+    expect(onCast).toHaveBeenCalledTimes(1);
+    // A keyboard hero has 1-9 and a left click already, so the button is not there to be
+    // tabbed past or read out.
+    rerender(<RealmCastButton onCast={onCast} disabled={false} showStick={false} />);
+    expect(screen.queryByRole("button", { name: "Cast" })).not.toBeInTheDocument();
+  });
+
+  it("is a world control, so it carries the class that gives it the 56px touch target", () => {
+    const { container } = render(<RealmCastButton onCast={() => {}} disabled={false} showStick={true} />);
+    expect(container.querySelector(".realm-cast-button")).toBeInTheDocument();
+  });
+
+  it("stays on screen but disabled while nothing is chosen, rather than vanishing", () => {
+    const onCast = vi.fn();
+    render(<RealmCastButton onCast={onCast} disabled={true} showStick={true} />);
+    const button = screen.getByRole("button", { name: "Cast" });
+    expect(button).toBeDisabled();
+    fireEvent.click(button);
+    expect(onCast).not.toHaveBeenCalled();
+  });
+});
+
+describe("RealmPutAwayButton", () => {
+  it("appears only once a spell is armed, names it, and puts it away", () => {
+    const onPutAway = vi.fn();
+    const { rerender, container } = render(<RealmPutAwayButton spellName={null} onPutAway={onPutAway} showStick={true} />);
+    // Nothing is armed, so there is nothing to put away and nothing on screen.
+    expect(container).toBeEmptyDOMElement();
+    rerender(<RealmPutAwayButton spellName="Ember Bolt" onPutAway={onPutAway} showStick={true} />);
+    const button = screen.getByRole("button", { name: "Put Ember Bolt away" });
+    expect(button).toHaveClass("realm-cast-button"); // the 56px world-control shape, like Cast
+    expect(button).toHaveClass("realm-cast-button--away");
+    fireEvent.click(button);
+    expect(onPutAway).toHaveBeenCalledTimes(1);
+  });
+
+  it("is touch-only: a keyboard hero has Escape", () => {
+    const { container } = render(<RealmPutAwayButton spellName="Ember Bolt" onPutAway={() => {}} showStick={false} />);
     expect(container).toBeEmptyDOMElement();
   });
 });

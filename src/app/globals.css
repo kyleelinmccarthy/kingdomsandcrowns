@@ -1948,6 +1948,36 @@ body[data-realm-open] .parent-alert-popup { display: none; }
 .realm-mount-button:disabled { opacity: 0.5; cursor: default; }
 .realm-mount-key { font-weight: 500; font-size: calc(10px * var(--realm-hud-scale)); color: rgba(255, 255, 255, 0.8); }
 
+/* ── Cast and Put away: the two verbs touch was missing (§4.5) ─────────────── */
+/* Both are world controls, so both are `--realm-touch`, and both render only when the
+   stick is up. They form a right-hand column with Ride above them, opposite the stick:
+   left thumb walks, right thumb acts.
+
+   They do NOT take the brief's suggested `bottom: var(--realm-bar-bottom)` — that is
+   exactly where `.realm-mount-button` already sits, so Cast would have landed on top of
+   Ride. Measured with the stick up (`--realm-bar-bottom` is 9.5rem/152px then, and the
+   raised ability bar rises with it), the whole band from the bottom edge up to 152px is
+   free on the right: the stick is 120px wide at `left: 1.25rem`, so it ends at x140 and
+   never reaches this corner, and `.realm-hud-meta` — Leave the Realm, the minutes and
+   `?` — is held 216px off the bottom edge by the bottom row's own margin. So Cast takes
+   the corner itself and Put away stacks 0.5rem above it, which still leaves 12px under
+   Ride. Every offset here is a fixed pixel height, never a text width, so a longer word
+   or a bigger hud scale cannot close the gaps: the buttons grow sideways, into open
+   world, not towards Ride or the stick.
+
+   Leave the Realm is the reason the corner is worth this much care: a child reaching for
+   Cast and hitting it is thrown out of the game. */
+.realm-cast-button { position: absolute; right: 1.25rem; bottom: 1.25rem; z-index: 20; display: inline-flex; align-items: center; justify-content: center; min-width: var(--realm-touch); min-height: var(--realm-touch); padding: 0 1rem; border-radius: 9999px; border: 1px solid var(--gold-border); background: rgba(0, 0, 0, 0.55); color: var(--gold-bright); font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif; font-size: calc(14px * var(--realm-hud-scale)); font-weight: 700; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8); cursor: pointer; pointer-events: auto; }
+.realm-cast-button:disabled { opacity: 0.5; cursor: default; }
+/* The way back. It is the same shape and the same size as Cast, one step above it, and
+   it is dressed DOWN rather than up — white on black, where Cast is gold — because it
+   undoes rather than does. The ✕ is a `::before` so the glyph can be twice the size of
+   the words without a second element: a child who cannot read the words still reads the
+   ✕, and the button's `aria-label` names the spell, so the pseudo-element is never part
+   of what a screen reader says. */
+.realm-cast-button--away { bottom: calc(1.25rem + var(--realm-touch) + 0.5rem); border-color: rgba(255, 255, 255, 0.45); color: #fff; font-size: calc(12px * var(--realm-hud-scale)); font-weight: 600; }
+.realm-cast-button--away::before { content: "\2715"; margin-right: 0.4rem; font-size: calc(20px * var(--realm-hud-scale)); line-height: 1; }
+
 /* The legend (§4.6): the five verbs, always on screen, desktop only — a touch child has
    buttons instead of a keyboard. Sits directly above the ability bar, which owns
    `--realm-bar-bottom`. The brief's own starting point (`--realm-bar-bottom + 4.6rem`) was

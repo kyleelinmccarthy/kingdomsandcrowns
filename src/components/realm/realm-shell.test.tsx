@@ -647,14 +647,54 @@ describe("RealmShell", () => {
     await act(async () => {
       (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "refused", reason: "mana" });
     });
-    expect(screen.getByRole("button", { name: "Ember Bolt, 10 mana" }).className).toContain("realm-spell--refused");
+    // Chosen, so the chip's own name says so now that it no longer lies with `aria-pressed`.
+    expect(screen.getByRole("button", { name: "Ember Bolt, 10 mana, chosen" }).className).toContain("realm-spell--refused");
     expect(document.querySelector(".realm-mana-pips")).toHaveClass("realm-mana-pips--refused");
     // One window, one state: both cues clear together when `refusedAt` resets.
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 650));
     });
-    expect(screen.getByRole("button", { name: "Ember Bolt, 10 mana" }).className).not.toContain("realm-spell--refused");
+    expect(screen.getByRole("button", { name: "Ember Bolt, 10 mana, chosen" }).className).not.toContain("realm-spell--refused");
     expect(document.querySelector(".realm-mana-pips")).not.toHaveClass("realm-mana-pips--refused");
+  });
+
+  // Task 12: the two verbs a thumb did not have. A keyboard hero casts with `1` or a left
+  // click and puts the spell away with Escape. A touch hero had neither — and since task 8
+  // made a chip tap cast rather than toggle (rightly: a tap and its number key must mean one
+  // thing), a child who armed a spell stayed armed for the whole visit, with every ground tap
+  // casting and no way back.
+  it("gives a touch hero a Cast button and a way to put the spell away again", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    const user = userEvent.setup();
+    const touch = { ...bundle, profile: { ...DEFAULT_LEARNING_PROFILE, inputMode: "touch" as const }, spellbook: { spells: pages, slots: 4 } };
+    render(<RealmShell bundle={touch} childId="c1" isChildView={true} />);
+    await screen.findByTestId("scene");
+    const cast = screen.getByRole("button", { name: "Cast" });
+    expect(cast).toBeDisabled(); // visible from the start, so it teaches; inert until there is a spell
+    expect(screen.queryByRole("button", { name: /^Put .+ away$/ })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Ember Bolt, 10 mana" }));
+    expect(cast).toBeEnabled();
+    const castRef = sceneProps.castRef as { current: unknown };
+    castRef.current = null; // the tap's own select-and-cast, which the real scene eats each frame
+    await user.click(cast);
+    expect(castRef.current).toEqual({ nearest: true });
+
+    // And back out again, without an Escape key.
+    await user.click(screen.getByRole("button", { name: "Put Ember Bolt away" }));
+    expect(sceneProps.selectedSpell).toBeNull();
+    expect(screen.queryByRole("button", { name: "Put Ember Bolt away" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Cast" })).toBeDisabled();
+  });
+
+  it("gives a keyboard hero neither button, since 1, a left click and Escape are already there", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    const user = userEvent.setup();
+    render(<RealmShell bundle={{ ...bundle, spellbook: { spells: pages, slots: 4 } }} childId="c1" isChildView={true} />);
+    await screen.findByTestId("scene");
+    await user.click(screen.getByRole("button", { name: "Ember Bolt, 10 mana" }));
+    expect(screen.queryByRole("button", { name: "Cast" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Put .+ away$/ })).not.toBeInTheDocument();
   });
 
   it("says what a cleared trouble did without keeping a score of it", async () => {

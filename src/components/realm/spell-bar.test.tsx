@@ -14,10 +14,15 @@ const pages = resolvePages([page(1), page(2, "tide", "orb"), page(3, "nope"), pa
 describe("SpellBar", () => {
   it("lists pages with names and costs, marks the selected one, and dims what the hero cannot afford", () => {
     render(<SpellBar pages={pages} selectedSlot={2} mana={12} fewerChoices={false} onSelect={() => {}} raised={false} hudScale={1} />);
-    const orb = screen.getByRole("button", { name: "Ember Bolt, 15 mana" });
-    expect(orb).toHaveAttribute("aria-pressed", "true");
+    // The chosen page carries its state in its NAME, not in `aria-pressed`: the chip casts,
+    // it does not toggle, so promising a screen-reader child that activating it again would
+    // unpress it was a promise it could not keep. The way back out is Escape, or the Put away
+    // button on touch.
+    const orb = screen.getByRole("button", { name: "Ember Bolt, 15 mana, chosen" });
+    expect(orb).not.toHaveAttribute("aria-pressed");
     expect(orb.className).toContain("realm-spell--dim");
-    expect(screen.getByRole("button", { name: "Ember Bolt, 10 mana" })).toHaveAttribute("aria-pressed", "false");
+    const unchosen = screen.getByRole("button", { name: "Ember Bolt, 10 mana" });
+    expect(unchosen).not.toHaveAttribute("aria-pressed");
     expect(screen.getAllByRole("button").length).toBe(6);
   });
 
@@ -28,7 +33,7 @@ describe("SpellBar", () => {
     expect(onSelect).toHaveBeenLastCalledWith(2);
     // The page that is already selected: a tap casts it again rather than putting it away, so a
     // thumb and a number key mean the same thing.
-    fireEvent.click(screen.getByRole("button", { name: "Ember Bolt, 10 mana" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ember Bolt, 10 mana, chosen" }));
     expect(onSelect).toHaveBeenLastCalledWith(1);
     expect(onSelect).not.toHaveBeenCalledWith(null);
     const faded = screen.getByRole("button", { name: FADED_PAGE });
@@ -148,11 +153,11 @@ describe("SpellBar", () => {
 
   it("marks only the selected slot refused, so the shake lands on the spell that cost too much", () => {
     render(<SpellBar pages={pages} selectedSlot={2} mana={4} fewerChoices={false} onSelect={() => {}} raised={false} hudScale={1} refused={true} />);
-    expect(screen.getByRole("button", { name: "Ember Bolt, 15 mana" }).className).toContain("realm-spell--refused");
+    expect(screen.getByRole("button", { name: "Ember Bolt, 15 mana, chosen" }).className).toContain("realm-spell--refused");
     expect(screen.getByRole("button", { name: "Ember Bolt, 10 mana" }).className).not.toContain("realm-spell--refused");
     cleanup();
     render(<SpellBar pages={pages} selectedSlot={2} mana={4} fewerChoices={false} onSelect={() => {}} raised={false} hudScale={1} refused={false} />);
-    expect(screen.getByRole("button", { name: "Ember Bolt, 15 mana" }).className).not.toContain("realm-spell--refused");
+    expect(screen.getByRole("button", { name: "Ember Bolt, 15 mana, chosen" }).className).not.toContain("realm-spell--refused");
     cleanup();
     // A refusal with nothing selected — a cast the hero could not pay for, put away before the
     // refusal landed —
