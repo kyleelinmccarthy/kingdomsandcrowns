@@ -613,10 +613,12 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
               surfaces={surfaces}
               calm={settings.calmPalette}
               motion={settings.motion}
-              // In reach the plate is the same door the bubble's Talk button and `E` are.
-              // Out of reach it does nothing: it used to walk the hero over and talk on
-              // arrival, which was tap-to-move wearing a nameplate.
-              onPick={(id) => { if (reachId === id) onTalk(id); }}
+              // In reach the plate is the same door the bubble's Talk button and `E` are, and
+              // out of reach it says so rather than going quiet. It used to walk the hero over
+              // and talk on arrival, which was tap-to-move wearing a nameplate. One gate, in
+              // the plate, so the announcement and the refusal can never disagree.
+              inReach={reachId === v.id}
+              onPick={onTalk}
             />
           </Html>
         </group>

@@ -21,12 +21,14 @@ export function VillagerPlate({
   surfaces,
   calm,
   motion,
+  inReach,
   onPick,
 }: {
   villager: VillagerPlacement;
   surfaces: Surfaces;
   calm: boolean;
   motion: boolean;
+  inReach: boolean; // the hero is close enough to talk; out of reach there is no talk to offer
   onPick: (id: string) => void;
 }) {
   const name = villagerById(villager.id)?.name ?? villager.label;
@@ -66,10 +68,17 @@ export function VillagerPlate({
         .filter(Boolean)
         .join(" ")}
       aria-label={accessibleName}
+      // Out of reach there is no conversation to be had — `E` does nothing and the bubble is
+      // not drawn either — so the plate stops announcing itself as an action. `aria-disabled`
+      // and NOT `disabled`: `disabled` would take it out of the tab order, and the name is the
+      // only place a child who cannot see the world hears who keeps which site. Silence in
+      // answer to a deliberate press is the one thing a six-year-old cannot diagnose, so the
+      // same flag guards the handler: unavailable here means unavailable, not quietly ignored.
+      aria-disabled={inReach ? undefined : true}
       // The reach bubble does the same: a pointer that lands on a plate must never also
       // reach the canvas underneath and walk the hero somewhere vaguely nearby.
       onPointerDown={(e) => e.stopPropagation()}
-      onClick={() => onPick(villager.id)}
+      onClick={() => { if (inReach) onPick(villager.id); }}
     >
       <span className="realm-plate-name">
         {marker && (
