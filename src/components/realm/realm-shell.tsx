@@ -510,12 +510,18 @@ function RealmOpen({
         // job by then: the child has demonstrably found the cast key. Only the hint is retired
         // (a functional updater, so `onSpellEvent` keeps the stable identity the memoised
         // World requires) — a rise toast, "Recess!" or the crowning line still hold the lane.
-        setToast((t) => (t === CAST_HINT || t === CAST_HINT_TOUCH ? null : t));
-        // Un-burn the once-per-visit flag with it. A first cast that refuses nulls the hint
-        // about a frame after raising it, so the child never actually read it — and without
-        // this, a visit whose first cast refuses would never teach click-to-cast at all. The
-        // hint is still once per visit; it just is not spent by a refusal that swallowed it.
-        castHintShown.current = false;
+        // Un-burning the once-per-visit flag belongs INSIDE the updater, gated on the toast
+        // really being the hint at this moment. A first cast that refuses nulls the hint about
+        // a frame after raising it, so the child never read it and the visit still owes them
+        // the lesson — but an unrelated refusal much later, with "Recess!" or a rise toast in
+        // the lane, retires nothing and so must un-burn nothing, or the "once per visit" hint
+        // shows twice. Writing a ref in an updater is safe only because `= false` is
+        // idempotent: StrictMode may run this twice, and nothing here accumulates.
+        setToast((t) => {
+          const isHint = t === CAST_HINT || t === CAST_HINT_TOUCH;
+          if (isHint) castHintShown.current = false;
+          return isHint ? null : t;
+        });
         setNotice(e.reason === "range" ? NOTHING_IN_RANGE : NOT_ENOUGH_MANA);
         break;
       case "focusLost": setNotice(LOST_FOCUS); break;

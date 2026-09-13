@@ -462,6 +462,31 @@ describe("RealmShell", () => {
     expect(screen.getByTestId("realm-speech")).toHaveTextContent("Recess!");
   });
 
+  it("does not re-offer the cast hint when a later refusal retires nothing, so once per visit stays once", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    render(<RealmShell bundle={{ ...bundle, spellbook: { spells: pages, slots: 4 } }} childId="c1" isChildView={true} />);
+    await screen.findByTestId("scene");
+    // The hint is raised AND genuinely read — it holds the lane on its own.
+    await act(async () => {
+      fireEvent.keyDown(window, { key: "1" });
+    });
+    expect(screen.getByText("Tap or click where the spell should go.")).toBeInTheDocument();
+    // Something else takes the toast lane, so the hint is long gone by its own accord.
+    await act(async () => {
+      (sceneProps.onRecessEvent as (e: unknown) => void)({ kind: "recessStart" });
+    });
+    expect(screen.queryByText("Tap or click where the spell should go.")).not.toBeInTheDocument();
+    // An unrelated refusal now. It retires nothing, so it must un-burn nothing either.
+    await act(async () => {
+      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "refused", reason: "range" });
+    });
+    await act(async () => {
+      fireEvent.keyDown(window, { key: "1" });
+    });
+    expect(screen.queryByText("Tap or click where the spell should go.")).not.toBeInTheDocument();
+    expect(screen.getByTestId("realm-speech")).toHaveTextContent("Recess!");
+  });
+
   it("casts at the nearest trouble on a number key, and casts again on a second press", async () => {
     getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
     render(<RealmShell bundle={{ ...bundle, spellbook: { spells: pages, slots: 4 } }} childId="c1" isChildView={true} />);
