@@ -26,8 +26,31 @@ describe("worldBounds", () => {
       expect(p.position.z).toBeGreaterThanOrEqual(b.minZ);
       expect(p.position.z).toBeLessThanOrEqual(b.maxZ);
     }
+    // Both ends, not just the lower one: the original pair checked `>= minX`/`>= minZ` only,
+    // so half the claim in this test's own name was unguarded.
     expect(layout.spawn.x).toBeGreaterThanOrEqual(b.minX);
+    expect(layout.spawn.x).toBeLessThanOrEqual(b.maxX);
     expect(layout.spawn.z).toBeGreaterThanOrEqual(b.minZ);
+    expect(layout.spawn.z).toBeLessThanOrEqual(b.maxZ);
+  });
+
+  it("contains the spawn even when no prop reaches it", () => {
+    // The assertions above pass whether or not `worldBounds` looks at the spawn at all: the
+    // path tiles run to z=17, past SPAWN's z=15, so the props happen to enclose it. Dropping
+    // the spawn from the bounds therefore survived every check — and the day the path row is
+    // shortened, the hero's dot would sit clamped against the edge of the map at spawn, which
+    // is the one dot a child uses to find themselves. So: a world whose only prop is nowhere
+    // near the spawn, where the spawn is the extreme point and the bounds must stretch to it.
+    const far = { ...layout.props[0], position: { x: layout.spawn.x - 30, z: layout.spawn.z - 30 } };
+    const b = worldBounds({ ...layout, props: [far] });
+    expect(layout.spawn.x).toBeGreaterThanOrEqual(b.minX);
+    expect(layout.spawn.x).toBeLessThanOrEqual(b.maxX);
+    expect(layout.spawn.z).toBeGreaterThanOrEqual(b.minZ);
+    expect(layout.spawn.z).toBeLessThanOrEqual(b.maxZ);
+    // ...and the dot really lands inside the map rather than clamped onto its edge.
+    const dot = projectToMap(layout.spawn, b);
+    expect(dot.x).toBeLessThan(1);
+    expect(dot.y).toBeLessThan(1);
   });
 
   it("is never degenerate, so a one-prop world cannot divide by zero", () => {

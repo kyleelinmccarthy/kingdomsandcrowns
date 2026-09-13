@@ -45,11 +45,15 @@ function hud(overrides: Partial<ComponentProps<typeof RealmHud>> = {}) {
 const zone = (name: string) => document.querySelector<HTMLElement>(name)!;
 
 describe("RealmHud zones", () => {
-  it("lays out three pass-through zones whose controls still accept pointers", () => {
+  it("lays out four pass-through zones whose controls still accept pointers", () => {
     hud({ ceremony: { onSkip: () => {} }, help: { onOpen: () => {}, disabled: false } });
     expect(zone(".realm-hud-identity").style.pointerEvents).toBe("none");
     expect(zone(".realm-hud-objective").style.pointerEvents).toBe("none");
     expect(zone(".realm-hud-meta").style.pointerEvents).toBe("none");
+    // Four, not three. The map corner sits over the top-right of a world the child clicks to
+    // aim spells at, and its `pointerEvents: "none"` could be deleted with all 264 tests still
+    // green — while the test that was supposed to cover it said "three pass-through zones".
+    expect(zone(".realm-hud-corner").style.pointerEvents).toBe("none");
     expect(screen.getByRole("button", { name: "Skip" }).style.pointerEvents).toBe("auto");
     expect(screen.getByRole("button", { name: "How to play" }).style.pointerEvents).toBe("auto");
     expect(screen.getByRole("link", { name: "Leave the Realm" }).style.pointerEvents).toBe("auto");

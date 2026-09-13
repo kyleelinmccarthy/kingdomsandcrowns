@@ -48,6 +48,18 @@ describe("advanceTutorial", () => {
     expect(after.completed).toBe(0);
   });
 
+  it("does not finish step one for the SAME key sent twice", () => {
+    // "More than one DISTINCT key" is the rule, and `new Set(signal.keys).size` is what makes
+    // it distinct — a line that survived mutation to `signal.keys.length` because nothing sent
+    // a duplicate. Safe only by luck today: the scene builds its keys from a Set, but
+    // `TutorialSignal.keys` is a bare string[], so any future producer sending ["KeyW","KeyW"]
+    // would finish the walking step for a child who has only ever pressed W.
+    expect(advanceTutorial(start, { kind: "walked", keys: ["KeyW", "KeyW"], distance: 999 }).completed).toBe(0);
+    expect(advanceTutorial(start, { kind: "walked", keys: ["KeyA", "KeyA", "KeyA"], distance: 999 }).completed).toBe(0);
+    // ...and two really different keys still finish it, so the rule is "distinct", not "few".
+    expect(advanceTutorial(start, { kind: "walked", keys: ["KeyW", "KeyW", "KeyA"], distance: 999 }).completed).toBe(1);
+  });
+
   it("does not finish step one for two keys and no distance", () => {
     const after = advanceTutorial(start, { kind: "walked", keys: ["KeyW", "KeyD"], distance: 0 });
     expect(after.completed).toBe(0);
@@ -77,8 +89,15 @@ describe("advanceTutorial", () => {
   });
 
   it("never returns a completed count outside 0..4", () => {
-    expect(advanceTutorial({ completed: -5 }, { kind: "interacted" }).completed).toBeGreaterThanOrEqual(0);
-    expect(advanceTutorial({ completed: 99 }, { kind: "castLanded" }).completed).toBeLessThanOrEqual(4);
+    // EXACT values, not bounds. `clampCompleted` is `Math.max(0, Math.min(LEN, floor(n)))`, and
+    // a sign flip — `Math.max(0, …)` becoming `Math.abs(…)` — survives every `toBeGreaterThan`
+    // check: a stored -5 then clamps to 5 rather than 0, which reads as "tutorial finished" and
+    // the walkthrough is never shown to that child again. It is the one mutation of the three
+    // that hurts, and only an exact assertion kills it.
+    expect(advanceTutorial({ completed: -5 }, { kind: "interacted" }).completed).toBe(0);
+    expect(advanceTutorial({ completed: -5 }, { kind: "walked", keys: ["KeyW", "KeyA"], distance: 999 }).completed).toBe(1);
+    expect(advanceTutorial({ completed: 99 }, { kind: "castLanded" }).completed).toBe(TUTORIAL_STEPS.length);
+    expect(tutorialPrompt({ completed: -5 })).toBe(TUTORIAL_STEPS[0].prompt);
   });
 
   it("has exactly four steps, in the frozen order", () => {

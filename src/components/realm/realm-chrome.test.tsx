@@ -182,6 +182,23 @@ describe("the portal and the app chrome", () => {
     expect(hide.declarations).toContain("display: none");
   });
 
+  it("keeps every control over the world at the 56px floor, in the stylesheet", () => {
+    // The file's rule, restated three times this slice: anything over the 3D world is
+    // `--realm-touch`; panel buttons stay at 44px. Cast and Put away are the newest pair, and
+    // their 56px rested entirely on CSS review — `min-height`/`min-width` could be changed to
+    // 44px with the whole suite green. jsdom computes nothing from the stylesheet, so this
+    // reads the declarations the same way the rules above do.
+    const cast = declarationsOf(".realm-cast-button");
+    expect(cast).toContain("min-height: var(--realm-touch)");
+    expect(cast).toContain("min-width: var(--realm-touch)");
+    // Ride and the Talk bubble share the floor, and Put away is `.realm-cast-button` plus a
+    // modifier, so it inherits the pair above rather than declaring its own.
+    expect(declarationsOf(".realm-mount-button")).toContain("min-height: var(--realm-touch)");
+    expect(declarationsOf(".realm-bubble-talk")).toContain("min-height: var(--realm-touch)");
+    // ...and the panel's own buttons stay at 44px, which is the other half of the rule.
+    expect(declarationsOf(".realm-panel button")).toContain("min-height: 44px");
+  });
+
   it("renders the quest-timer popup with its own class name", () => {
     localStorage.setItem(
       QUEST_TIMER_KEY,
