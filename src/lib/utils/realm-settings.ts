@@ -1,5 +1,6 @@
 import type { RealmAccessMode } from "./realm-access";
 import { DEFAULT_DEPTH_OVERRIDE, isDepthOverride, type DepthOverride } from "@/lib/realm/depth";
+import { TUTORIAL_STEPS } from "@/lib/realm/tutorial";
 
 export type ToneMode = "gentle" | "monsters";
 
@@ -12,7 +13,7 @@ export type RealmSettings = {
   toneMode: ToneMode;
   /** How much the Realm shows. A hero may set their own — it changes presentation, never access. */
   depthOverride: DepthOverride;
-  /** The highest tutorial step the hero has finished, 0 through 4. */
+  /** The highest tutorial step the hero has finished, 0 through `TUTORIAL_STEPS.length`. */
   tutorialStep: number;
 };
 
@@ -36,7 +37,11 @@ function inRange(v: unknown, r: { min: number; max: number }): v is number {
   return typeof v === "number" && Number.isInteger(v) && v >= r.min && v <= r.max;
 }
 
-const isTutorialStep = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v) && v >= 0 && v <= 4;
+// The upper bound is the ladder's own length, never a literal. A fifth step added to
+// `TUTORIAL_STEPS` used to make this reject a stored 5 and silently reset an advanced child
+// to step 0, while the shell's Skip — which writes `TUTORIAL_STEPS.length` fire-and-forget —
+// threw server-side into a `.catch(() => {})` and a grown-up's Skip came back next visit.
+const isTutorialStep = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v) && v >= 0 && v <= TUTORIAL_STEPS.length;
 
 export function settingsFromRow(row: Partial<Record<keyof RealmSettings, unknown>> | null | undefined): RealmSettings {
   if (!row) return { ...DEFAULT_REALM_SETTINGS };

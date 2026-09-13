@@ -14,12 +14,21 @@ export const WALK_DISTANCE = 4;
 /**
  * Four steps, each gated on doing the thing. The prompts are the only tutorial words a
  * child reads, so they name keys and never name the complexity axis.
+ *
+ * Two prompts per step, because a tablet has no W and no E. `keysFromWorldAxis` below
+ * already adapted the RULE for a thumb on a stick; the COPY was written for a keyboard and
+ * left there, so a six-year-old on an iPad was told to press keys the device does not have
+ * while `realm-shell.tsx` was branching the identical instruction ("Tap Talk." vs "Press E
+ * to talk.") a few lines away. `promptTouch` is spelled out on every row rather than
+ * defaulted, so the table shows at a glance what each input mode is told; step two names no
+ * hardware at all, so both its columns read the same, which is the honest thing for a
+ * gold light that is in the same place on both devices.
  */
 export const TUTORIAL_STEPS = [
-  { step: 1 as TutorialStep, signal: "walked" as const, prompt: "Use W, A, S and D to walk." },
-  { step: 2 as TutorialStep, signal: "reachedObjective" as const, prompt: "Go where the light is." },
-  { step: 3 as TutorialStep, signal: "interacted" as const, prompt: "Stand close and press E." },
-  { step: 4 as TutorialStep, signal: "castLanded" as const, prompt: "Press 1." },
+  { step: 1 as TutorialStep, signal: "walked" as const, prompt: "Use W, A, S and D to walk.", promptTouch: "Drag the stick to walk." },
+  { step: 2 as TutorialStep, signal: "reachedObjective" as const, prompt: "Go where the light is.", promptTouch: "Go where the light is." },
+  { step: 3 as TutorialStep, signal: "interacted" as const, prompt: "Stand close and press E.", promptTouch: "Stand close and tap Talk." },
+  { step: 4 as TutorialStep, signal: "castLanded" as const, prompt: "Press 1.", promptTouch: "Tap a spell page." },
 ];
 
 const clampCompleted = (n: number) => Math.max(0, Math.min(TUTORIAL_STEPS.length, Math.floor(n)));
@@ -57,11 +66,22 @@ export function keysFromWorldAxis(axis: { x: number; z: number }): string[] {
 }
 
 /**
+ * Which WALK_DISTANCE-sized stretch of ground the hero's running total falls in. The second
+ * half of `shouldEmitWalked`'s memory, and the reason the scene keeps a `walkBucket` ref
+ * beside `walkEmitted`.
+ */
+export function walkBucket(distance: number): number {
+  return Math.floor(distance / WALK_DISTANCE);
+}
+
+/**
  * Whether the frame loop should send a `walked` signal this frame.
  *
- * `lastEmittedKeyCount` is the size of the key set the previous signal carried, and starts at
- * 0. So the signal goes out when the distance FIRST crosses WALK_DISTANCE, and after that only
- * when a NEW distinct key joins the set — at most four times a visit, and never once a frame.
+ * `lastEmittedKeyCount` is the size of the key set the previous signal carried and
+ * `lastEmittedBucket` the stretch of ground it was sent from; both start at 0. So the signal
+ * goes out when the distance FIRST crosses WALK_DISTANCE, and after that whenever a NEW
+ * distinct key joins the set OR the hero covers another WALK_DISTANCE of ground — roughly one
+ * signal per four world-units, and never once a frame.
  *
  * Emitting strictly once would be a trap, and this is the half of the design that matters. A
  * child who crosses the line pressing nothing but W has not finished step one (`advanceTutorial`
@@ -70,12 +90,20 @@ export function keysFromWorldAxis(axis: { x: number; z: number }): string[] {
  * the visit with no way out but a grown-up's Skip. Re-emitting on a grown key set is what makes
  * the step finishable the instant the child does the thing the prompt asked for.
  *
+ * The DISTANCE half exists for the same reason one step further on. The scene's accumulators
+ * are refs that only ever grow, and the help card's "Show me the tutorial again" resets the
+ * shell's state without remounting the scene — so a child who has already walked with all four
+ * keys and then replays would, on the key-count rule alone, never be able to emit `walked`
+ * again: step one would sit on screen for the rest of the visit, unfinishable, with a grown-up's
+ * Skip or a page reload the only ways out. Crossing into a new bucket re-opens the door, and the
+ * same frame sets `walkedThisFrame`, which `objectiveArrival` uses to re-arm step two.
+ *
  * A key count of 0 never emits: a click-to-walk hero covers ground without pressing anything.
  */
-export function shouldEmitWalked(distance: number, keyCount: number, lastEmittedKeyCount: number): boolean {
+export function shouldEmitWalked(distance: number, keyCount: number, lastEmittedKeyCount: number, lastEmittedBucket: number): boolean {
   if (distance < WALK_DISTANCE) return false;
   if (keyCount === 0) return false;
-  return keyCount !== lastEmittedKeyCount;
+  return keyCount !== lastEmittedKeyCount || walkBucket(distance) !== lastEmittedBucket;
 }
 
 /**
@@ -117,9 +145,17 @@ export function objectiveArrival(
   return { latched: true, emit: !armed };
 }
 
-export function tutorialPrompt(state: TutorialState): string | null {
+/**
+ * The words on screen for the step the hero is on, in the vocabulary of the device they are
+ * holding. `touch` is the shell's `settings.showStick` — the same flag `realm-shell.tsx`
+ * branches "Tap Talk." on — so one hero is never told to press a key and tap a button for
+ * the same act.
+ */
+export function tutorialPrompt(state: TutorialState, touch: boolean = false): string | null {
   const done = clampCompleted(state.completed);
-  return TUTORIAL_STEPS[done]?.prompt ?? null;
+  const step = TUTORIAL_STEPS[done];
+  if (!step) return null;
+  return touch ? step.promptTouch : step.prompt;
 }
 
 export function advanceTutorial(state: TutorialState, signal: TutorialSignal): TutorialState {

@@ -8,6 +8,7 @@ import { requireChildAccess, isChildActor } from "@/lib/auth/access";
 import { loadRealmSettings } from "@/lib/services/realm-play";
 import { validateRealmSettingsPatch, type RealmSettings } from "@/lib/utils/realm-settings";
 import { isDepthOverride, type DepthOverride } from "@/lib/realm/depth";
+import { TUTORIAL_STEPS } from "@/lib/realm/tutorial";
 
 /** A hero may read their own settings; the Realm page will need them. */
 export async function getRealmSettings(childId: string): Promise<RealmSettings> {
@@ -62,7 +63,9 @@ export async function setRealmDepth(childId: string, override: DepthOverride): P
 /** The hero finished a tutorial step, or a grown-up reset the walkthrough. Hero or parent. */
 export async function setTutorialStep(childId: string, step: number): Promise<void> {
   await requireChildAccess(childId, { write: true });
-  if (!Number.isInteger(step) || step < 0 || step > 4) throw new Error("That tutorial step doesn't look right.");
+  // The ladder's length, never a literal: the shell's Skip writes `TUTORIAL_STEPS.length`
+  // fire-and-forget, so a fifth step would have made every Skip throw into a swallowed catch.
+  if (!Number.isInteger(step) || step < 0 || step > TUTORIAL_STEPS.length) throw new Error("That tutorial step doesn't look right.");
   await loadRealmSettings(childId);
   await db.update(schema.realmSettings).set({ tutorialStep: step, updatedAt: new Date() }).where(eq(schema.realmSettings.childId, childId));
 }

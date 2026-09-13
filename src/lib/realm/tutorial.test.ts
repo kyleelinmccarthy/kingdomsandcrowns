@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { advanceTutorial, deferSignal, keysFromWorldAxis, objectiveArrival, shouldEmitWalked, tutorialPrompt, TUTORIAL_STEPS, WALK_DISTANCE } from "./tutorial";
+import { advanceTutorial, deferSignal, keysFromWorldAxis, objectiveArrival, shouldEmitWalked, tutorialPrompt, TUTORIAL_STEPS, walkBucket, WALK_DISTANCE } from "./tutorial";
 import { screenToWorldAxis } from "./input-mapping";
 
 const start = { completed: 0 };
@@ -10,13 +10,34 @@ describe("tutorialPrompt", () => {
     for (const key of ["W", "A", "S", "D"]) expect(prompt).toContain(key);
   });
 
-  it("says nothing once all four steps are done", () => {
+  it("gives a touch hero instructions their device can actually obey", () => {
+    // realm-shell.tsx already branches the identical instruction on this same flag ("Tap
+    // Talk." vs "Press E to talk."), so without this the two modules handed one tablet child
+    // contradictory directions for the same act — and "Press E" names a key an iPad has not got.
+    const onTouch = TUTORIAL_STEPS.map((_, completed) => tutorialPrompt({ completed }, true)!);
+    expect(onTouch[0]).toBe("Drag the stick to walk.");
+    expect(onTouch[2]).toBe("Stand close and tap Talk.");
+    expect(onTouch[3]).toBe("Tap a spell page.");
+    expect(onTouch.join(" ")).not.toMatch(/W, A, S and D|press E|press 1/i);
+  });
+
+  it("still names the keys for a hero at a keyboard", () => {
+    const onKeys = TUTORIAL_STEPS.map((_, completed) => tutorialPrompt({ completed })!);
+    expect(onKeys[0]).toBe("Use W, A, S and D to walk.");
+    expect(onKeys[2]).toBe("Stand close and press E.");
+    expect(onKeys[3]).toBe("Press 1.");
+  });
+
+  it("says nothing once all four steps are done, on either device", () => {
     expect(tutorialPrompt({ completed: 4 })).toBeNull();
+    expect(tutorialPrompt({ completed: 4 }, true)).toBeNull();
   });
 
   it("never says a word about depth", () => {
     for (let c = 0; c <= 4; c++) {
-      expect(tutorialPrompt({ completed: c }) ?? "").not.toMatch(/depth|simple mode|advanced/i);
+      for (const touch of [false, true]) {
+        expect(tutorialPrompt({ completed: c }, touch) ?? "").not.toMatch(/depth|simple mode|advanced/i);
+      }
     }
   });
 });
@@ -112,18 +133,30 @@ describe("keysFromWorldAxis", () => {
   });
 });
 
+describe("walkBucket", () => {
+  it("counts whole WALK_DISTANCE stretches of ground, from nothing", () => {
+    expect(walkBucket(0)).toBe(0);
+    expect(walkBucket(WALK_DISTANCE - 0.01)).toBe(0);
+    expect(walkBucket(WALK_DISTANCE)).toBe(1);
+    expect(walkBucket(WALK_DISTANCE * 2.5)).toBe(2);
+  });
+});
+
 describe("shouldEmitWalked", () => {
   it("stays quiet until the distance is really covered", () => {
-    expect(shouldEmitWalked(WALK_DISTANCE - 0.01, 2, 0)).toBe(false);
-    expect(shouldEmitWalked(WALK_DISTANCE, 2, 0)).toBe(true);
+    expect(shouldEmitWalked(WALK_DISTANCE - 0.01, 2, 0, 0)).toBe(false);
+    expect(shouldEmitWalked(WALK_DISTANCE, 2, 0, 0)).toBe(true);
   });
 
-  it("speaks once when the line is crossed, then holds its tongue", () => {
-    expect(shouldEmitWalked(WALK_DISTANCE, 1, 0)).toBe(true);
-    // Every frame after that, with the same one key, must send nothing: this is the only
-    // thing between a memoised scene and sixty signals a second.
-    expect(shouldEmitWalked(WALK_DISTANCE + 50, 1, 1)).toBe(false);
-    expect(shouldEmitWalked(WALK_DISTANCE + 900, 1, 1)).toBe(false);
+  it("speaks once when the line is crossed, then holds its tongue for the rest of that stretch", () => {
+    expect(shouldEmitWalked(WALK_DISTANCE, 1, 0, 0)).toBe(true);
+    // Every frame after that, with the same one key and inside the same stretch of ground,
+    // must send nothing: this is the only thing between a memoised scene and sixty signals
+    // a second.
+    const sent = walkBucket(WALK_DISTANCE);
+    expect(shouldEmitWalked(WALK_DISTANCE + 0.01, 1, 1, sent)).toBe(false);
+    expect(shouldEmitWalked(WALK_DISTANCE + 1, 1, 1, sent)).toBe(false);
+    expect(shouldEmitWalked(WALK_DISTANCE + 3.99, 1, 1, sent)).toBe(false);
   });
 
   it("speaks again the moment a NEW key joins, which is what unsticks a W-only child", () => {
@@ -131,15 +164,45 @@ describe("shouldEmitWalked", () => {
     // signal goes out with one key and `advanceTutorial` correctly refuses it. If that were
     // the only signal they ever got, pressing A afterwards could never finish step one and
     // the tutorial would be unfinishable for the rest of the visit.
-    expect(shouldEmitWalked(WALK_DISTANCE + 10, 2, 1)).toBe(true);
-    expect(shouldEmitWalked(WALK_DISTANCE + 20, 3, 2)).toBe(true);
-    expect(shouldEmitWalked(WALK_DISTANCE + 30, 4, 3)).toBe(true);
-    // ...and is bounded: four keys is all there are, so a whole visit sends at most four.
-    expect(shouldEmitWalked(WALK_DISTANCE + 40, 4, 4)).toBe(false);
+    // The bucket is held FIXED at the current stretch in each case, so what is being tested
+    // here is the key rule alone and not the distance rule standing in for it.
+    expect(shouldEmitWalked(WALK_DISTANCE + 10, 2, 1, walkBucket(WALK_DISTANCE + 10))).toBe(true);
+    expect(shouldEmitWalked(WALK_DISTANCE + 20, 3, 2, walkBucket(WALK_DISTANCE + 20))).toBe(true);
+    expect(shouldEmitWalked(WALK_DISTANCE + 30, 4, 3, walkBucket(WALK_DISTANCE + 30))).toBe(true);
+    // ...and four keys is all there are, so the key rule alone has nothing left to say.
+    expect(shouldEmitWalked(WALK_DISTANCE + 40, 4, 4, walkBucket(WALK_DISTANCE + 40))).toBe(false);
+  });
+
+  it("speaks again after another WALK_DISTANCE of ground, which is what makes a REPLAY finishable", () => {
+    // The other half, and the one a child actually hits. The scene's accumulators are refs
+    // that outlive the help card's "Show me the tutorial again" — it resets the shell's
+    // state and never remounts the scene — so a hero who has already walked with all four
+    // keys arrives at step one again with the key set full. On the key-count rule alone no
+    // `walked` signal could ever go out again: step one would sit on screen, unfinishable,
+    // for the rest of the visit, with a grown-up's Skip or a page reload the only ways out.
+    const walkedSoFar = 100;
+    const sent = walkBucket(walkedSoFar);
+    expect(shouldEmitWalked(walkedSoFar, 4, 4, sent)).toBe(false);
+    expect(shouldEmitWalked(walkedSoFar + WALK_DISTANCE, 4, 4, sent)).toBe(true);
+  });
+
+  it("is still bounded by the ground covered, never by the frame rate", () => {
+    // Sixty frames inside one stretch send nothing; that is what keeps the re-emit above
+    // from becoming a signal per frame on a memoised scene.
+    const walkedSoFar = 100;
+    const sent = walkBucket(walkedSoFar);
+    for (const step of [0.001, 0.5, 1, 2, 3.99]) {
+      expect(shouldEmitWalked(walkedSoFar + step, 4, 4, sent)).toBe(false);
+    }
   });
 
   it("never speaks for a hero who pressed nothing", () => {
-    expect(shouldEmitWalked(999, 0, 0)).toBe(false);
+    expect(shouldEmitWalked(999, 0, 0, 0)).toBe(false);
+    // ...and the zero-key guard is what refuses this one, not the two lines above it: the
+    // key count differs from the last signal's AND the distance is many buckets past it, so
+    // deleting `if (keyCount === 0) return false` turns a click-to-walk hero's silent
+    // journey into a `walked` signal carrying an empty key array.
+    expect(shouldEmitWalked(999, 0, 2, 0)).toBe(false);
   });
 });
 

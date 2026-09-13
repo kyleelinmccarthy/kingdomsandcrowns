@@ -9,6 +9,31 @@ const FEWER = 4;
 export const EMPTY_TITLE = "Make a spell in your Spellbook";
 export const EMPTY_HINT = "Your spellbook has room. Make a spell to fill this page.";
 
+/**
+ * The pages the bar really draws, and therefore the number keys it really binds.
+ *
+ * Exported because two surfaces outside this file promise a hero which keys cast — the
+ * always-on legend and the how-to-play card — and both used to say "1-4" from a literal
+ * while `spellSlots(level)` hands a level-10 hero a fifth page that this bar renders a
+ * keycap for and the handler below binds. One function, so the copy counts what the
+ * control actually offers instead of what it offered when the sentence was written.
+ *
+ * Under fewer-choices, show the first four pages that hold a saved spell (never hide one
+ * behind an "Empty" chip just because it lives past page four), padding with empty pages
+ * only when fewer than four saved pages exist.
+ */
+export function shownPages(pages: SpellPageView[], fewerChoices: boolean): SpellPageView[] {
+  if (!fewerChoices) return pages;
+  const withSpell = pages.filter((p) => !p.empty);
+  const chosen = withSpell.slice(0, FEWER);
+  if (chosen.length < FEWER) {
+    const empties = pages.filter((p) => p.empty);
+    chosen.push(...empties.slice(0, FEWER - chosen.length));
+    chosen.sort((a, b) => a.slot - b.slot); // padding can interleave with saved pages; keep book order
+  }
+  return chosen;
+}
+
 /** The hero's pages along the bottom of the world. A tap or keys 1–9 cast that page and select it; Escape puts it away, and a touch hero has the Put away button instead. An empty page explains where spells come from. */
 export function SpellBar({
   pages,
@@ -31,20 +56,7 @@ export function SpellBar({
   // slot that was selected — never the whole bar — so the cue points at the cost.
   refused?: boolean;
 }) {
-  // Under fewer-choices, show the first four pages that hold a saved spell (never hide one
-  // behind an "Empty" chip just because it lives past page four), padding with empty pages
-  // only when fewer than four saved pages exist.
-  const shown = useMemo(() => {
-    if (!fewerChoices) return pages;
-    const withSpell = pages.filter((p) => !p.empty);
-    const chosen = withSpell.slice(0, FEWER);
-    if (chosen.length < FEWER) {
-      const empties = pages.filter((p) => p.empty);
-      chosen.push(...empties.slice(0, FEWER - chosen.length));
-      chosen.sort((a, b) => a.slot - b.slot); // padding can interleave with saved pages; keep book order
-    }
-    return chosen;
-  }, [fewerChoices, pages]);
+  const shown = useMemo(() => shownPages(pages, fewerChoices), [fewerChoices, pages]);
   const [hint, setHint] = useState(false);
   const hintPanel = useRef<HTMLDivElement>(null);
   const hintOpener = useRef<HTMLButtonElement | null>(null);

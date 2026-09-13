@@ -15,6 +15,7 @@ import type { KingdomState } from "@/lib/realm/kingdom-state";
 import { profileFromRow, type LearningProfile } from "@/lib/utils/learning-profile";
 import { isValidAvatarConfig, normalizeAvatarConfig, type AvatarConfig } from "@/lib/utils/avatar-catalog";
 import { realmDepth, type DepthOverride, type RealmDepth } from "@/lib/realm/depth";
+import { TUTORIAL_STEPS } from "@/lib/realm/tutorial";
 
 export type RealmBundle = {
   heroName: string;
@@ -34,11 +35,11 @@ export type RealmBundle = {
   /** The stored preference: 'auto' follows the tutorial, 'simple' and 'full' pin it. */
   depthOverride: DepthOverride;
   /**
-   * Computed here, once, from `helpSeen` and `depthOverride`, so no client recomputes it from
-   * two fields and gets a different answer. `RealmOpen` snapshots it for the visit.
+   * Computed here, once, from `tutorialStep` and `depthOverride`, so no client recomputes it
+   * from two fields and gets a different answer. `RealmOpen` snapshots it for the visit.
    */
   depth: RealmDepth;
-  /** The highest tutorial step the hero has finished, 0 through 4. */
+  /** The highest tutorial step the hero has finished, 0 through `TUTORIAL_STEPS.length`. */
   tutorialStep: number;
 };
 
@@ -116,7 +117,13 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
     wornCrown,
     helpSeen,
     depthOverride: settings.depthOverride,
-    depth: realmDepth({ tutorialComplete: helpSeen, override: settings.depthOverride }),
+    // `auto` follows THE TUTORIAL, which is what `depth.ts` has always documented. It used to
+    // be handed `helpSeen` because there was no tutorial to follow; now there is one, it is
+    // persisted, and it rides on this bundle. Off `helpSeen` a child was at full depth from
+    // visit two — numerals, every spell page, trouble names, fast travel — while the box on
+    // screen still read "Use W, A, S and D to walk." The ramp belongs to doing, not to
+    // dismissing a card, and erring toward staying simple longer is the safe direction here.
+    depth: realmDepth({ tutorialComplete: settings.tutorialStep >= TUTORIAL_STEPS.length, override: settings.depthOverride }),
     tutorialStep: settings.tutorialStep,
   };
 }

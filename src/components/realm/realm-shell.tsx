@@ -17,6 +17,7 @@ import { VILLAGERS, villagerById } from "@/lib/realm/villagers";
 import { gateCopy, type GateCopy } from "@/lib/realm/play-clock";
 import { disposeSpriteTextures } from "@/lib/realm/sprite-texture";
 import { resolvePages, withEmptyPages } from "@/lib/realm/spells/pages";
+import { shownPages } from "./spell-bar";
 import { TROUBLE_COPY, type TroubleSkin } from "@/lib/realm/spells/troubles";
 import { MANA_MAX } from "@/lib/realm/spells/mana";
 import { minimapView } from "@/lib/realm/minimap";
@@ -333,6 +334,11 @@ function RealmOpen({
   // below, which omits ceremonyRunning on purpose; it says so there.
   const worldBusy = panelOpen || ceremonyRunning || helpOpen;
   const pages = useMemo(() => withEmptyPages(resolvePages(bundle.spellbook.spells, bundle.spellbook.slots), bundle.spellbook.slots), [bundle.spellbook]);
+  // How many pages the ability bar really draws, and therefore how many number keys it
+  // really binds. The legend and the help card both used to say "1-4" from a literal, while
+  // `spellSlots(level)` gives a level-10 hero a fifth page that the bar renders and binds.
+  // Counted from the bar's own rule so the two sentences can never fall behind the control.
+  const spellPages = useMemo(() => shownPages(pages, bundle.profile.fewerChoices).length, [pages, bundle.profile.fewerChoices]);
   const castHintShown = useRef(false);
   const selectedPage = selectedSlot === null ? null : pages.find((p) => p.slot === selectedSlot) ?? null;
   const selectedSpell = selectedPage?.spell ?? null;
@@ -388,7 +394,11 @@ function RealmOpen({
     if (helpOpenRef.current) return; // a manually opened card holds the ceremony too; onHelpClose starts it
     beginCeremonyIfWaiting();
   }, [beginCeremonyIfWaiting]);
-  const onError = useCallback((e: Error) => setSpriteError(e.message), []);
+  // Sliced, because this string is a browser's or a loader's, not ours: it goes straight into
+  // the problem lane, which is an inline-flex row sharing its box with the retry button, so an
+  // unbounded message would push that button off a phone screen. 100 characters is enough for
+  // a grown-up to recognise the failure and short enough to stay one or two lines.
+  const onError = useCallback((e: Error) => setSpriteError(e.message.slice(0, 100)), []);
   // Set whether or not read-aloud is on: the speech lane is an aria-live region, so a
   // screen reader announces the arrival for free, and everyone else reads it.
   const onReachChange = useCallback((id: string | null) => {
@@ -699,11 +709,11 @@ function RealmOpen({
       const label = applied.state.buildings.find((b) => b.id === buildingId)?.label ?? "building";
       setRisingId(buildingId);
       // One toast, not two queued: the rise and what comes next travel together (§3.18).
-      setToast(riseToast(label, objectiveState(applied.state.buildings, 1)));
+      setToast(riseToast(label, objectiveState(applied.state.buildings, surfaces.trackedObjectives)));
     }
     setOpenVillagerId(null);
     returnFocus();
-  }, [returnFocus]);
+  }, [returnFocus, surfaces.trackedObjectives]);
 
   const onKingdomRetry = useCallback(() => {
     if (ceremonyRunning) return; // the plaza is mid-ceremony; villagers stand at their sites, not their buildings
@@ -880,7 +890,7 @@ function RealmOpen({
           because there is nothing for it to act on and nothing for it to teach. */}
       <RealmCastButton onCast={onCastTap} disabled={selectedSlot === null || riding || worldBusy} showStick={settings.showStick} />
       <RealmPutAwayButton spellName={armedName} onPutAway={onPutAway} showStick={settings.showStick} />
-      <RealmLegend showStick={settings.showStick} />
+      <RealmLegend showStick={settings.showStick} spellPages={spellPages} />
       {/* Four prompts, one at a time, above the speech lane and clear of every corner. A
           parent's preview has none: nothing they do is being taught or written down.
           The prompt is also dropped whenever there is no live objective, because three of the
@@ -900,7 +910,7 @@ function RealmOpen({
           would bake in whatever it happened to say on the first render. */}
       {isChildView && (
         <RealmTutorial
-          prompt={objective.kind === "next" ? tutorialPrompt(tutorial) : null}
+          prompt={objective.kind === "next" ? tutorialPrompt(tutorial, settings.showStick) : null}
           onSkip={skipTutorial}
         />
       )}
@@ -996,6 +1006,7 @@ function RealmOpen({
           depth={depth}
           onSetDepth={canSetDepth ? onSetDepth : null}
           onReplayTutorial={isChildView ? onReplayTutorial : null}
+          spellPages={spellPages}
           onClose={onHelpClose}
         />
       )}

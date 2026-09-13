@@ -6,14 +6,14 @@ afterEach(cleanup);
 
 describe("helpGroups", () => {
   it("speaks keys to a keyboard hero and taps to a touch hero", () => {
-    const keys = helpGroups(false, false);
+    const keys = helpGroups(false, false, 4);
     expect(keys.map((g) => g.title)).toEqual(["Move", "Where to go", "Talk", "Cast", "Ride and recess"]);
     expect(keys[0].text).toBe("Use W, A, S and D to walk.");
     expect(keys[1].text).toBe("Follow the gold light. Someone is waiting there.");
     expect(keys[2].text).toBe("Stand close to someone and press E.");
     expect(keys[3].text).toBe("Press 1, 2, 3 or 4 — or click what you want to hit. Press Escape to put it away.");
     expect(keys[4].text).toBe("Press M or tap Ride to get on your mount. At recess, collect gleams and run the lap ring.");
-    const touch = helpGroups(true, false);
+    const touch = helpGroups(true, false, 4);
     expect(touch.map((g) => g.title)).toEqual(["Move", "Where to go", "Talk", "Cast", "Ride and recess"]);
     expect(touch[0].text).toBe("Drag the stick to walk.");
     expect(touch[1].text).toBe("Follow the gold light. Someone is waiting there.");
@@ -29,34 +29,47 @@ describe("helpGroups", () => {
     // gone (Task 8, Task 10), and a number key or a spell-page tap CASTS on its own rather
     // than merely picking a page for a second click to fire.
     for (const touch of [false, true]) {
-      const text = helpGroups(touch, false).map((g) => g.text).join(" ");
+      const text = helpGroups(touch, false, 4).map((g) => g.text).join(" ");
       expect(text).not.toMatch(/space/i);
       expect(text).not.toMatch(/click .*(walk|move)/i);
       expect(text).not.toMatch(/tap where you want to go/i);
       expect(text).not.toMatch(/then (tap|click)/i);
     }
-    expect(helpGroups(false, false)[0].text).toMatch(/W, A, S and D/);
-    expect(helpGroups(false, false).map((g) => g.text).join(" ")).toMatch(/\bE\b/);
+    expect(helpGroups(false, false, 4)[0].text).toMatch(/W, A, S and D/);
+    expect(helpGroups(false, false, 4).map((g) => g.text).join(" ")).toMatch(/\bE\b/);
   });
 
   it("promises nothing that clearing a trouble does not do", () => {
     for (const touch of [false, true]) {
       for (const ceremony of [false, true]) {
-        for (const g of helpGroups(touch, ceremony)) expect(g.text).not.toMatch(/protect the sites/);
+        for (const g of helpGroups(touch, ceremony, 4)) expect(g.text).not.toMatch(/protect the sites/);
       }
     }
   });
 
+  it("names the number keys the ability bar really binds, not a frozen 1-4", () => {
+    // `spellSlots(level)` is min(MAX, 4 + floor(level/10)), so from level 10 the bar draws a
+    // fifth page, renders its `5` keycap and binds the key — while this card went on saying
+    // "1, 2, 3 or 4". The slice whose point was that the copy describes the controls that
+    // exist cannot leave a hero a key the card never told them about.
+    expect(helpGroups(false, false, 5)[3].text).toBe("Press 1, 2, 3, 4 or 5 — or click what you want to hit. Press Escape to put it away.");
+    expect(helpGroups(false, false, 9)[3].text).toMatch(/^Press 1, 2, 3, 4, 5, 6, 7, 8 or 9 —/);
+    // One page is not a range, and "Press 1 or" is not a sentence.
+    expect(helpGroups(false, false, 1)[3].text).toBe("Press 1 — or click what you want to hit. Press Escape to put it away.");
+    // A touch hero taps pages and is told nothing about keys, whatever the count.
+    expect(helpGroups(true, false, 9)[3].text).toBe("Tap a spell page to cast it, or tap Cast to cast again. Tap Put away when you are done.");
+  });
+
   it("adds the ceremony line only during a ceremony", () => {
-    expect(helpGroups(false, true).at(-1)?.text).toBe("Skip the ceremony with Escape or the Skip button.");
-    expect(helpGroups(false, false).some((g) => g.title === "Ceremony")).toBe(false);
+    expect(helpGroups(false, true, 4).at(-1)?.text).toBe("Skip the ceremony with Escape or the Skip button.");
+    expect(helpGroups(false, false, 4).some((g) => g.title === "Ceremony")).toBe(false);
   });
 });
 
 describe("RealmHelp", () => {
   it("is a dialog named How to play that closes on Close and on Escape", () => {
     const onClose = vi.fn();
-    render(<RealmHelp touch={false} ceremony={false} readAloud={false} depth="full" onSetDepth={null} onReplayTutorial={null} onClose={onClose} />);
+    render(<RealmHelp touch={false} ceremony={false} readAloud={false} depth="full" onSetDepth={null} onReplayTutorial={null} spellPages={4} onClose={onClose} />);
     const dialog = screen.getByRole("dialog", { name: "How to play" });
     expect(dialog).toHaveFocus();
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
@@ -67,14 +80,14 @@ describe("RealmHelp", () => {
 
   it("offers everything on the simple view and simplicity on the full one, naming no axis", async () => {
     const onSetDepth = vi.fn();
-    const { rerender } = render(<RealmHelp touch={false} ceremony={false} readAloud={false} depth="simple" onSetDepth={onSetDepth} onReplayTutorial={null} onClose={vi.fn()} />);
+    const { rerender } = render(<RealmHelp touch={false} ceremony={false} readAloud={false} depth="simple" onSetDepth={onSetDepth} onReplayTutorial={null} spellPages={4} onClose={vi.fn()} />);
     expect(screen.getByRole("button", { name: "Show me everything" })).toBeInTheDocument();
     expect(screen.getByText("More numbers, more to do. You can change it back.")).toBeInTheDocument();
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Show me everything" }));
     });
     expect(onSetDepth).toHaveBeenCalledWith("full");
-    rerender(<RealmHelp touch={false} ceremony={false} readAloud={false} depth="full" onSetDepth={onSetDepth} onReplayTutorial={null} onClose={vi.fn()} />);
+    rerender(<RealmHelp touch={false} ceremony={false} readAloud={false} depth="full" onSetDepth={onSetDepth} onReplayTutorial={null} spellPages={4} onClose={vi.fn()} />);
     expect(screen.getByRole("button", { name: "Keep it simple" })).toBeInTheDocument();
     expect(screen.getByText("Fewer numbers, one thing at a time.")).toBeInTheDocument();
     await act(async () => {
@@ -86,7 +99,7 @@ describe("RealmHelp", () => {
   });
 
   it("shows no view control when the card is not allowed to offer one", () => {
-    render(<RealmHelp touch={false} ceremony={false} readAloud={false} depth="simple" onSetDepth={null} onReplayTutorial={null} onClose={vi.fn()} />);
+    render(<RealmHelp touch={false} ceremony={false} readAloud={false} depth="simple" onSetDepth={null} onReplayTutorial={null} spellPages={4} onClose={vi.fn()} />);
     expect(screen.queryByRole("button", { name: "Show me everything" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Keep it simple" })).not.toBeInTheDocument();
     expect(screen.queryByText("More numbers, more to do. You can change it back.")).not.toBeInTheDocument();
@@ -94,7 +107,7 @@ describe("RealmHelp", () => {
 
   it("says so when the write does not land, and keeps offering the same swap", async () => {
     const onSetDepth = vi.fn(() => Promise.reject(new Error("offline")));
-    render(<RealmHelp touch={false} ceremony={false} readAloud={false} depth="simple" onSetDepth={onSetDepth} onReplayTutorial={null} onClose={vi.fn()} />);
+    render(<RealmHelp touch={false} ceremony={false} readAloud={false} depth="simple" onSetDepth={onSetDepth} onReplayTutorial={null} spellPages={4} onClose={vi.fn()} />);
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Show me everything" }));
     });
@@ -111,7 +124,7 @@ describe("RealmHelp", () => {
     let settle: (() => void) | undefined;
     const onSetDepth = vi.fn(() => new Promise<void>((resolve) => { settle = resolve; }));
     const onClose = vi.fn();
-    render(<RealmHelp touch={false} ceremony={false} readAloud={false} depth="simple" onSetDepth={onSetDepth} onReplayTutorial={null} onClose={onClose} />);
+    render(<RealmHelp touch={false} ceremony={false} readAloud={false} depth="simple" onSetDepth={onSetDepth} onReplayTutorial={null} spellPages={4} onClose={onClose} />);
     const dialog = screen.getByRole("dialog", { name: "How to play" });
     const control = screen.getByRole("button", { name: "Show me everything" });
     const close = screen.getByRole("button", { name: "Close" });
@@ -144,7 +157,7 @@ describe("RealmHelp", () => {
   });
 
   it("keeps Tab inside the card, cycling its own two controls", () => {
-    render(<RealmHelp touch={false} ceremony={false} readAloud={false} depth="simple" onSetDepth={vi.fn()} onReplayTutorial={null} onClose={vi.fn()} />);
+    render(<RealmHelp touch={false} ceremony={false} readAloud={false} depth="simple" onSetDepth={vi.fn()} onReplayTutorial={null} spellPages={4} onClose={vi.fn()} />);
     const dialog = screen.getByRole("dialog", { name: "How to play" });
     const close = screen.getByRole("button", { name: "Close" });
     const control = screen.getByRole("button", { name: "Show me everything" });
@@ -159,7 +172,7 @@ describe("RealmHelp", () => {
   });
 
   it("shows no replay control when none is offered", () => {
-    render(<RealmHelp touch={false} ceremony={false} readAloud={false} depth="simple" onSetDepth={null} onReplayTutorial={null} onClose={vi.fn()} />);
+    render(<RealmHelp touch={false} ceremony={false} readAloud={false} depth="simple" onSetDepth={null} onReplayTutorial={null} spellPages={4} onClose={vi.fn()} />);
     expect(screen.queryByRole("button", { name: /tutorial again/i })).not.toBeInTheDocument();
   });
 
@@ -169,7 +182,7 @@ describe("RealmHelp", () => {
     // shell hands it, exactly the way it already treats `onSetDepth`.
     const onReplayTutorial = vi.fn();
     const onClose = vi.fn();
-    render(<RealmHelp touch={false} ceremony={false} readAloud={false} depth="full" onSetDepth={null} onReplayTutorial={onReplayTutorial} onClose={onClose} />);
+    render(<RealmHelp touch={false} ceremony={false} readAloud={false} depth="full" onSetDepth={null} onReplayTutorial={onReplayTutorial} spellPages={4} onClose={onClose} />);
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Show me the tutorial again" }));
     });
@@ -182,7 +195,7 @@ describe("RealmHelp", () => {
   it("closes the card even when the replay write fails, because nothing here is worth telling a child about", async () => {
     const onReplayTutorial = vi.fn(() => Promise.reject(new Error("offline")));
     const onClose = vi.fn();
-    render(<RealmHelp touch={false} ceremony={false} readAloud={false} depth="full" onSetDepth={null} onReplayTutorial={onReplayTutorial} onClose={onClose} />);
+    render(<RealmHelp touch={false} ceremony={false} readAloud={false} depth="full" onSetDepth={null} onReplayTutorial={onReplayTutorial} spellPages={4} onClose={onClose} />);
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Show me the tutorial again" }));
     });
@@ -196,7 +209,7 @@ describe("RealmHelp", () => {
     let settle: (() => void) | undefined;
     const onReplayTutorial = vi.fn(() => new Promise<void>((resolve) => { settle = resolve; }));
     const onClose = vi.fn();
-    render(<RealmHelp touch={false} ceremony={false} readAloud={false} depth="full" onSetDepth={null} onReplayTutorial={onReplayTutorial} onClose={onClose} />);
+    render(<RealmHelp touch={false} ceremony={false} readAloud={false} depth="full" onSetDepth={null} onReplayTutorial={onReplayTutorial} spellPages={4} onClose={onClose} />);
     const dialog = screen.getByRole("dialog", { name: "How to play" });
     const control = screen.getByRole("button", { name: "Show me the tutorial again" });
     const close = screen.getByRole("button", { name: "Close" });
@@ -230,7 +243,7 @@ describe("RealmHelp", () => {
   });
 
   it("cycles Close, the view control and the replay control together when both are offered", () => {
-    render(<RealmHelp touch={false} ceremony={false} readAloud={false} depth="simple" onSetDepth={vi.fn()} onReplayTutorial={vi.fn()} onClose={vi.fn()} />);
+    render(<RealmHelp touch={false} ceremony={false} readAloud={false} depth="simple" onSetDepth={vi.fn()} onReplayTutorial={vi.fn()} spellPages={4} onClose={vi.fn()} />);
     const dialog = screen.getByRole("dialog", { name: "How to play" });
     const close = screen.getByRole("button", { name: "Close" });
     const view = screen.getByRole("button", { name: "Show me everything" });

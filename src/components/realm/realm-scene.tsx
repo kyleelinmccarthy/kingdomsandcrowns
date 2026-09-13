@@ -11,7 +11,7 @@ import { CAMERA_OFFSET, CAMERA_ZOOM, edgeArrow, followCamera } from "@/lib/realm
 import { projectToMap, worldBounds } from "@/lib/realm/minimap";
 import { BEACON, facingAngle, GROUND_Y, shadowFootprint, RING_INNER, RING_OUTER, RING_NOTCH_ARC, RING_GOLD, RING_CALM, SHADOW_OPACITY, SHADOW_OPACITY_CALM } from "@/lib/realm/markers";
 import { nearestVillager, villagerById, REACH } from "@/lib/realm/villagers";
-import { deferSignal, keysFromWorldAxis, objectiveArrival, shouldEmitWalked, type TutorialSignal } from "@/lib/realm/tutorial";
+import { deferSignal, keysFromWorldAxis, objectiveArrival, shouldEmitWalked, walkBucket, type TutorialSignal } from "@/lib/realm/tutorial";
 import type { RenderSettings } from "@/lib/realm/render-settings";
 import type { Surfaces } from "@/lib/realm/depth";
 import type { SpellDefinition } from "@/lib/utils/spell-catalog";
@@ -181,6 +181,11 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
   const walkDistance = useRef(0);
   const walkKeys = useRef(new Set<string>());
   const walkEmitted = useRef(0); // the size of the key set the last `walked` signal carried
+  // ...and which WALK_DISTANCE-sized stretch of ground it was sent from. The key set only ever
+  // grows, so on its own it runs out after four; the bucket is what lets a child who REPLAYS
+  // the tutorial (the help card resets the shell's state but never remounts this scene, so
+  // every accumulator here survives) finish step one again by walking rather than by reloading.
+  const walkBucketAt = useRef(0);
   const atObjective = useRef(false); // the edge-trigger latch for the lit site
 
   // Writes one frame of a rise straight onto the building. `s` of 1 is exactly what the
@@ -342,8 +347,9 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
       if (walked > 0) {
         walkDistance.current += walked;
         for (const key of keysFromWorldAxis(axisRef.current ?? { x: 0, z: 0 })) walkKeys.current.add(key);
-        if (shouldEmitWalked(walkDistance.current, walkKeys.current.size, walkEmitted.current)) {
+        if (shouldEmitWalked(walkDistance.current, walkKeys.current.size, walkEmitted.current, walkBucketAt.current)) {
           walkEmitted.current = walkKeys.current.size;
+          walkBucketAt.current = walkBucket(walkDistance.current);
           walkedSignalled = true;
           emitTutorial({ kind: "walked", keys: [...walkKeys.current], distance: walkDistance.current });
         }

@@ -21,8 +21,22 @@ const DEPTH_CONTROL: Record<RealmDepth, { next: RealmDepth; label: string; hint:
   full: { next: "simple", label: "Keep it simple", hint: "Fewer numbers, one thing at a time." },
 };
 
+/**
+ * The number keys the ability bar really binds, written out the way a child reads a list.
+ *
+ * `spellSlots(level)` is `min(MAX, 4 + floor(level/10))`, so from level 10 a hero has a
+ * fifth page, the bar draws its keycap and the handler binds `5` — while this card said
+ * "1, 2, 3 or 4" from a literal. The count comes from `shownPages` in spell-bar.tsx, so the
+ * sentence counts the control instead of remembering it.
+ */
+export function castKeyList(spellPages: number): string {
+  const keys = Array.from({ length: Math.max(1, spellPages) }, (_, i) => String(i + 1));
+  if (keys.length === 1) return keys[0];
+  return `${keys.slice(0, -1).join(", ")} or ${keys[keys.length - 1]}`;
+}
+
 /** The controls, in the words the hero's input mode needs. Written for a reader of about eight. */
-export function helpGroups(touch: boolean, ceremony: boolean): HelpGroup[] {
+export function helpGroups(touch: boolean, ceremony: boolean, spellPages: number): HelpGroup[] {
   const groups: HelpGroup[] = [
     // Tapping the ground used to walk the hero there; Task 10 deleted that verb entirely, so
     // the only way to move, on either input mode, is the one the world still answers to.
@@ -45,7 +59,7 @@ export function helpGroups(touch: boolean, ceremony: boolean): HelpGroup[] {
       title: "Cast",
       text: touch
         ? "Tap a spell page to cast it, or tap Cast to cast again. Tap Put away when you are done."
-        : "Press 1, 2, 3 or 4 — or click what you want to hit. Press Escape to put it away.",
+        : `Press ${castKeyList(spellPages)} — or click what you want to hit. Press Escape to put it away.`,
     },
     {
       icon: "map",
@@ -65,6 +79,7 @@ export function RealmHelp({
   depth,
   onSetDepth,
   onReplayTutorial,
+  spellPages,
   onClose,
 }: {
   touch: boolean;
@@ -77,6 +92,8 @@ export function RealmHelp({
   // needs to reset. Typed `() => void` like `onSetDepth` above — the shell's real
   // implementation hands back the write's promise, wrapped in Promise.resolve below.
   onReplayTutorial: (() => void) | null;
+  /** How many pages the ability bar draws, so the Cast line names the keys it really binds. */
+  spellPages: number;
   onClose: () => void;
 }) {
   const panel = useRef<HTMLDivElement>(null);
@@ -86,7 +103,7 @@ export function RealmHelp({
   const [saving, setSaving] = useState(false);
   const [saveFailed, setSaveFailed] = useState(false);
   const [replaying, setReplaying] = useState(false);
-  const groups = helpGroups(touch, ceremony);
+  const groups = helpGroups(touch, ceremony, spellPages);
   const control = DEPTH_CONTROL[depth];
 
   useEffect(() => {

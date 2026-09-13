@@ -1557,6 +1557,25 @@ describe("RealmShell reach and speech", () => {
     expect(screen.getByTestId("realm-tutorial")).toHaveTextContent("Use W, A, S and D to walk.");
   });
 
+  it("lets a hero FINISH the replayed walkthrough, not just start it", async () => {
+    // The dead end this closes (C1). The scene's walk accumulators are refs, and the replay
+    // control resets the shell without remounting the scene, so a hero who has already walked
+    // with all four of W/A/S/D arrives back at step one with the key set full — and on the old
+    // key-count-only rule no `walked` signal could ever be emitted again. `shouldEmitWalked`
+    // owns the re-emit (proved against the distance rule in tutorial.test.ts); this is the
+    // other half of the round trip: when the scene does speak again, with the four keys it has
+    // been carrying all visit, the REPLAYED tutorial really does move on.
+    await openRealm({ tutorialStep: 4 });
+    fireEvent.click(screen.getByRole("button", { name: "How to play" }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Show me the tutorial again" }));
+    });
+    expect(screen.getByTestId("realm-tutorial")).toHaveTextContent("Use W, A, S and D to walk.");
+    await sendSignal({ kind: "walked", keys: ["KeyW", "KeyA", "KeyS", "KeyD"], distance: 104 });
+    expect(screen.getByTestId("realm-tutorial")).toHaveTextContent("Go where the light is.");
+    expect(setTutorialStep).toHaveBeenLastCalledWith("c1", 1);
+  });
+
   it("offers no replay control to a parent's preview", async () => {
     await openRealm({}, false);
     fireEvent.click(screen.getByRole("button", { name: "How to play" }));
