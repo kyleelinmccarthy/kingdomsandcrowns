@@ -6,11 +6,11 @@ import { Canvas, useFrame, type ThreeEvent } from "@react-three/fiber";
 import { Html, OrthographicCamera } from "@react-three/drei";
 import * as THREE from "three";
 import { WORLD_SIZE, spriteSizeFor, type Prop, type WorldLayout, type Vec2 } from "@/lib/realm/layout";
-import { setTarget, stepCompanion, stepHero, unstickHero, setMounted, HERO_SPEED, COMPANION_GAP_MOUNTED, type CompanionState, type HeroState } from "@/lib/realm/movement";
+import { stepCompanion, stepHero, unstickHero, setMounted, HERO_SPEED, COMPANION_GAP_MOUNTED, type CompanionState, type HeroState } from "@/lib/realm/movement";
 import { CAMERA_OFFSET, CAMERA_ZOOM, edgeArrow, followCamera } from "@/lib/realm/camera";
 import { projectToMap, worldBounds } from "@/lib/realm/minimap";
 import { BEACON, facingAngle, GROUND_Y, shadowFootprint, RING_INNER, RING_OUTER, RING_NOTCH_ARC, RING_GOLD, RING_CALM, SHADOW_OPACITY, SHADOW_OPACITY_CALM } from "@/lib/realm/markers";
-import { nearestVillager, villagerById, villagerForBuilding } from "@/lib/realm/villagers";
+import { nearestVillager, villagerById } from "@/lib/realm/villagers";
 import type { RenderSettings } from "@/lib/realm/render-settings";
 import type { Surfaces } from "@/lib/realm/depth";
 import type { SpellDefinition } from "@/lib/utils/spell-catalog";
@@ -35,10 +35,6 @@ export type RealmSceneProps = {
   reachId: string | null; // the villager the hero can talk to, as the shell last heard it
   onReachChange: (id: string | null) => void;
   onTalk: (villagerId: string) => void;
-  // A tap on a villager, on a villager's nameplate, or on a site. The shell
-  // passes the same door `onTalk` opens; they are two props so a later slice
-  // can tell a pointer from a keypress without rewiring the scene.
-  onVillagerPick: (villagerId: string) => void;
   risingId: string | null; // a building that just completed; the scene tweens it up once
   selectedSpell: SpellDefinition | null;
   selectedSlot: number | null;
@@ -70,11 +66,6 @@ const MAP_SIZE = 100;
 const SPRITE_W = 1.5;
 const SPRITE_H = 2;
 export const RISE_MS = 900;
-/**
- * How long a tap on a distant villager stays queued. A talk that fires four
- * seconds after the child's mind moved on is worse than no talk at all.
- */
-const PENDING_TALK_MS = 8000;
 const CALM_FOUNDATION = "#5a5750";
 const CALM_TINT = "#a9aaa4";
 // §3.4's footprint table, every entry put through the one shared transform so
@@ -134,7 +125,7 @@ function ContactShadow({ w, d, y, calm }: { w: number; d: number; y: number; cal
   );
 }
 
-const World = memo(function World({ layout, textures, settings, surfaces, axisRef, arrowRef, minimapRef, interactive, reachId, onReachChange, onTalk, onVillagerPick, risingId, selectedSpell, selectedSlot, castRef, spellsEnabled, onSpellEvent, seed, riding, mountSpeed, recessActive, onRecessEvent, ceremonyActive, ceremonySkipRef, onCeremonyEvent }: RealmSceneProps) {
+const World = memo(function World({ layout, textures, settings, surfaces, axisRef, arrowRef, minimapRef, interactive, reachId, onReachChange, onTalk, risingId, selectedSpell, selectedSlot, castRef, spellsEnabled, onSpellEvent, seed, riding, mountSpeed, recessActive, onRecessEvent, ceremonyActive, ceremonySkipRef, onCeremonyEvent }: RealmSceneProps) {
   // Per-frame state lives in refs: nothing here re-renders React sixty times a second.
   const hero = useRef<HeroState>({ position: layout.spawn, facing: "s", target: null, mounted: false });
   const companion = useRef<CompanionState>({ position: { x: layout.spawn.x, z: layout.spawn.z + 1.2 } });
@@ -151,7 +142,6 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
   const recessRef = useRecessSimRef();
   const dazzledRef = useRef(false);
   const castingRef = useRef(false);
-  const frozenRef = useRef(false); // dazzled or mid-cast; read by onPointerDown too
   const ceremonyRef = useRef<CeremonyState | null>(null);
   const beaconMaterial = useRef<THREE.MeshBasicMaterial>(null); // the breathing column; the ground ring holds still
   const arrowShown = useRef(false);
@@ -167,7 +157,6 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
   // Talk bubble floating over bare grass (sprite-source.tsx silently continues past a
   // villager whose SVG is not in the DOM).
   const shown = useMemo(() => layout.villagers.filter((v) => Boolean(textures.villagers[v.id])), [layout.villagers, textures]);
-  const pendingTalk = useRef<{ id: string; until: number } | null>(null);
   const heroShadow = useRef<THREE.Group>(null);
   const mountShadow = useRef<THREE.Group>(null);
   const companionShadow = useRef<THREE.Group>(null);
@@ -282,12 +271,6 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
     // panel opened this frame must not fire later, once the world is interactive again.
     const request = castRef.current;
     castRef.current = null;
-    // A pending talk belongs to the walking hero alone: the deed panel opening, the help card
-    // opening, the crown ceremony starting and the child arming a spell each cancel it. The
-    // spell is the symmetric half of `pickVillager`, which refuses to START a talk while a
-    // page is selected — without it a talk queued a moment earlier still fires on arrival and
-    // opens the deed panel over a child lining up a cast.
-    if (pendingTalk.current && (!interactive || ceremonyActive || selectedSpell)) pendingTalk.current = null;
     if (ceremonyActive && !ceremonyRef.current) {
       const started = startCeremony(layout, hero.current.position, !settings.motion, hero.current.facing);
       ceremonyRef.current = started;
@@ -323,11 +306,6 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
       }
     } else if (interactive) {
       const frozen = dazzledRef.current || castingRef.current;
-      frozenRef.current = frozen;
-      // While frozen, a walk target (from a tap that landed the same frame the
-      // freeze began, or one queued moments earlier) is dropped every frame,
-      // not just on the transition into frozen.
-      if (frozen && hero.current.target) hero.current = { ...hero.current, target: null };
       hero.current = stepHero(hero.current, { axis: frozen ? { x: 0, z: 0 } : axisRef.current ?? { x: 0, z: 0 } }, dt, layout.colliders, riding ? mountSpeed : HERO_SPEED);
       companion.current = stepCompanion(companion.current, hero.current, dt, riding ? { gap: COMPANION_GAP_MOUNTED, speed: mountSpeed + 0.5 } : undefined);
       const spellIn = spellInput.current;
@@ -463,18 +441,6 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
       reachRef.current = near;
       queueMicrotask(() => onReachChange(near));
     }
-    // A tap on a distant villager becomes a talk on arrival — fired through
-    // queueMicrotask, never as a synchronous setState from useFrame.
-    const pending = pendingTalk.current;
-    if (pending) {
-      if (near === pending.id) {
-        pendingTalk.current = null;
-        queueMicrotask(() => onVillagerPick(pending.id));
-      } else if (performance.now() >= pending.until || hero.current.target === null) {
-        // The deadline passed, or `stepHero` dropped a target it could not reach.
-        pendingTalk.current = null;
-      }
-    }
     const r = rising.current;
     if (r) {
       const k = Math.min(1, (performance.now() - r.startedAt) / RISE_MS);
@@ -488,50 +454,29 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
   const colorFor = (prop: Prop) => (prop.kind === "foundation" && settings.calmPalette ? CALM_FOUNDATION : prop.color);
   const reachVillager = reachId ? villagerById(reachId) : null;
   const reachPlacement = reachId ? shown.find((v) => v.id === reachId) ?? null : null;
-  // One pick, wherever the child aimed it: a villager's sprite, a villager's
-  // nameplate, a site's building or its bare foundation. In reach it talks;
-  // otherwise it walks the hero over and the frame loop talks on arrival.
-  const pickVillager = useCallback((id: string, point: Vec2) => {
-    if (!interactive) return;
-    if (selectedSpell) {
-      // A page is selected: the tap casts where it landed, exactly as the ground
-      // does. stopPropagation means the ground mesh never sees this one.
-      castRef.current = { target: point };
-      return;
-    }
-    // Dazzled or mid-cast, in the same order the ground handler checks it: out of reach the
-    // outcome only matched by accident (the walk it would queue is dropped every frozen
-    // frame), and IN reach this is what stops a tap opening the deed panel mid-cast.
-    if (frozenRef.current) return;
-    if (reachRef.current === id) {
-      onVillagerPick(id);
-      return;
-    }
-    const v = shown.find((s) => s.id === id);
-    if (!v) return;
-    pendingTalk.current = { id, until: performance.now() + PENDING_TALK_MS };
-    // The approach point is one unit toward spawn. `setTarget` refuses a point
-    // inside a collider and hands back the state unchanged; a villager's own
-    // square is never a collider, so that is the retry that always works.
-    const before = hero.current;
-    const walked = setTarget(before, { x: v.position.x, z: v.position.z + 1 }, layout.colliders);
-    hero.current = walked === before ? setTarget(before, v.position, layout.colliders) : walked;
-  }, [interactive, selectedSpell, onVillagerPick, layout, shown, castRef]);
-  // stopPropagation first, so the tap never falls through to the ground mesh and
-  // walks the hero vaguely nearby instead of to the person they pointed at.
-  const pickHandler = (id: string) => (e: ThreeEvent<PointerEvent>) => {
+  // The one thing a click in the world does (§4.1). The ground, a villager's sprite and a
+  // site's building each hand over their own hit point, so a page aimed at a person is not
+  // a page aimed at the grass three units behind them.
+  const castAt = useCallback((point: Vec2) => {
+    if (!interactive) return; // a panel is open: the world underneath it is not listening
+    // The point the child aimed at, not the point the spell lands on: `stepSpellSim` puts
+    // this through `pickTarget` alongside the number key's `{ nearest: true }`, so a click
+    // on open grass takes the nearest trouble in range and a click with nothing in range
+    // refuses there — one rule, one place, every entry point.
+    if (selectedSpell) castRef.current = { target: point };
+  }, [interactive, selectedSpell, castRef]);
+  // stopPropagation first, so a click on a figure is not also a click on the ground behind it.
+  const castHandler = (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
     if (e.button !== 0) return; // left only, exactly like the ground: right click is not a second cast key
-    pickVillager(id, { x: e.point.x, z: e.point.z });
+    castAt({ x: e.point.x, z: e.point.z });
   };
-  // Tapping the well's foundation walks you to Old Bram. With no villager on a
-  // site (the kingdom failed to load) no handler is attached at all, so the tap
-  // still reaches the ground and the hero still walks.
-  const sitePick = (prop: Prop): { onPointerDown?: (e: ThreeEvent<PointerEvent>) => void } => {
+  // A site is a thing you can aim at, so its building and its bare foundation take the same
+  // handler. Which villager keeps it no longer matters — it used to, when a tap on the well
+  // walked you to Old Bram.
+  const siteCast = (prop: Prop): { onPointerDown?: (e: ThreeEvent<PointerEvent>) => void } => {
     if (prop.kind !== "building" && prop.kind !== "foundation") return {};
-    const v = villagerForBuilding(prop.id);
-    if (!v || !shown.some((s) => s.id === v.id)) return {};
-    return { onPointerDown: pickHandler(v.id) };
+    return { onPointerDown: castHandler };
   };
   const tint = settings.calmPalette ? CALM_TINT : "#ffffff";
   const ringColor = settings.calmPalette ? RING_CALM : RING_GOLD; // lowStimulus mutes the mark, never removes it
@@ -563,26 +508,10 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
           // which meant the browser menu key also fired a spell. It now does nothing in the
           // world at all; `onContextMenu` on the realm root still swallows the menu itself.
           if (e.button !== 0) return;
-          if (!interactive) return;
-          if (selectedSpell) {
-            // The point the child aimed at, not the point the spell lands on: `stepSpellSim`
-            // puts this through `pickTarget` alongside the number key's `{ nearest: true }`,
-            // so a click on open grass takes the nearest trouble in range and a click with
-            // nothing in range refuses there — one rule, one place, both entry points.
-            castRef.current = { target: { x: e.point.x, z: e.point.z } };
-            return;
-          }
-          if (frozenRef.current) return; // dazzled or mid-cast: a tap must not queue a walk target
-          const before = hero.current;
-          const walked = setTarget(before, { x: e.point.x, z: e.point.z }, layout.colliders);
-          // A tap on open ground REPLACES the target rather than nulling it, so none
-          // of the frame loop's five clears see it. Only a redirect that actually
-          // takes (not one a wall refused) cancels a villager the hero was walking
-          // toward — the frame loop can't tell "replaced by a tap" from "still
-          // being pursued," so this has to live beside the setTarget call that
-          // owns the redirect, not as a sixth condition there.
-          if (walked !== before) pendingTalk.current = null;
-          hero.current = walked;
+          // And then nothing else. A tap on open grass used to walk the hero there, which
+          // was a second way to do the one thing the stick and WASD already do (§4.1);
+          // with no page armed a tap on the world is now simply inert.
+          castAt({ x: e.point.x, z: e.point.z });
         }}
       >
         {/* Visual only: the ground plane is drawn larger than the playable world so its edge never shows past the backdrop. */}
@@ -616,7 +545,7 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
       {layout.props.filter((p) => p.kind === "foundation").map((prop) => {
         const foundationTex = worldTex("foundation");
         return (
-          <group key={prop.id} position={[prop.position.x, 0, prop.position.z]} {...sitePick(prop)}>
+          <group key={prop.id} position={[prop.position.x, 0, prop.position.z]} {...siteCast(prop)}>
             <mesh position={[0, GROUND_Y.foundation, 0]} rotation={[-Math.PI / 2, 0, 0]}>
               <planeGeometry args={[prop.size.w, prop.size.d]} />
               {foundationTex ? (
@@ -645,7 +574,7 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
         };
         if (texture) {
           return (
-            <group key={prop.id} position={[prop.position.x, 0, prop.position.z]} {...sitePick(prop)}>
+            <group key={prop.id} position={[prop.position.x, 0, prop.position.z]} {...siteCast(prop)}>
               <ContactShadow w={shadow.w} d={shadow.d} y={GROUND_Y.propShadow} calm={settings.calmPalette} />
               <sprite ref={register} position={[0, h / 2, 0]} scale={[w, h, 1]}>
                 <spriteMaterial map={texture} color={tint} transparent alphaTest={0.1} />
@@ -656,7 +585,7 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
         if (prop.kind === "decor") return null; // a decor figure that failed to rasterise never falls back to a box
         // No texture for this prop (a barrier, or a figure that failed to draw): the slice 4 box.
         return (
-          <group key={prop.id} position={[prop.position.x, 0, prop.position.z]} {...sitePick(prop)}>
+          <group key={prop.id} position={[prop.position.x, 0, prop.position.z]} {...siteCast(prop)}>
             <ContactShadow w={shadow.w} d={shadow.d} y={GROUND_Y.propShadow} calm={settings.calmPalette} />
             <mesh ref={register} position={[0, prop.size.h / 2, 0]}>
               <boxGeometry args={[prop.size.w, prop.size.h, prop.size.d]} />
@@ -675,7 +604,7 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
           position={[v.position.x, 0, v.position.z]}
         >
           <ContactShadow w={HERO_SHADOW.w} d={HERO_SHADOW.d} y={GROUND_Y.figureShadow} calm={settings.calmPalette} />
-          <sprite position={[0, SPRITE_H / 2, 0]} scale={[SPRITE_W, SPRITE_H, 1]} onPointerDown={pickHandler(v.id)}>
+          <sprite position={[0, SPRITE_H / 2, 0]} scale={[SPRITE_W, SPRITE_H, 1]} onPointerDown={castHandler}>
             <spriteMaterial map={textures.villagers[v.id]} transparent alphaTest={0.1} />
           </sprite>
           <Html position={[0, SPRITE_H + 0.35, 0]} center zIndexRange={[12, 0]}>
@@ -684,7 +613,10 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
               surfaces={surfaces}
               calm={settings.calmPalette}
               motion={settings.motion}
-              onPick={(id) => pickVillager(id, v.position)}
+              // In reach the plate is the same door the bubble's Talk button and `E` are.
+              // Out of reach it does nothing: it used to walk the hero over and talk on
+              // arrival, which was tap-to-move wearing a nameplate.
+              onPick={(id) => { if (reachId === id) onTalk(id); }}
             />
           </Html>
         </group>

@@ -247,24 +247,22 @@ describe("RealmShell", () => {
     expect(layout.props.find((p) => p.id === "well")).toMatchObject({ kind: "building", tag: "Built" });
   });
 
-  it("hands the scene one pick door, the same one Talk opens, and keeps it referentially stable", async () => {
+  it("hands the scene one door onto a villager, and keeps it referentially stable", async () => {
     getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
     render(<RealmShell bundle={bundle} childId="c1" isChildView={true} />);
     expect(await screen.findByTestId("scene")).toBeInTheDocument();
-    expect(typeof sceneProps.onVillagerPick).toBe("function");
-    // One door: a tap on a sprite, a plate or a foundation opens exactly what
-    // Enter and the bubble's Talk button open, so the world can never have two
-    // ways to meet a villager that disagree.
-    expect(sceneProps.onVillagerPick).toBe(sceneProps.onTalk);
-    const pick = sceneProps.onVillagerPick;
+    // ONE door now: `E`, the bubble's Talk button and the nameplate all go through
+    // `onTalk`. The second door was tap-to-talk, and Task 10 deleted it.
+    expect(typeof sceneProps.onTalk).toBe("function");
+    const talk = sceneProps.onTalk;
     await act(async () => {
       (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "mana", current: 90 });
     });
     // `World` is memoised: a prop that changes identity on every mana tick would
     // re-render the whole scene sixty times a second.
-    expect(sceneProps.onVillagerPick).toBe(pick);
+    expect(sceneProps.onTalk).toBe(talk);
     await act(async () => {
-      (sceneProps.onVillagerPick as (id: string) => void)("bram");
+      (sceneProps.onTalk as (id: string) => void)("bram");
     });
     expect(await screen.findByRole("dialog", { name: "Old Bram" })).toBeInTheDocument();
   });
@@ -534,8 +532,8 @@ describe("RealmShell", () => {
 
   it("keeps EVERY non-primitive scene prop referentially stable across a mana tick", async () => {
     // `World` is memoised, so one prop that changes identity on every render undoes the memo
-    // for all twenty-seven and the whole scene re-renders on a resource that ticks continuously.
-    // Naming four of them leaves the other twenty-three uncovered — a broken onCeremonyEvent or
+    // for all twenty-six and the whole scene re-renders on a resource that ticks continuously.
+    // Naming four of them leaves the other twenty-two uncovered — a broken onCeremonyEvent or
     // onRecessEvent would pass — so this snapshots the lot and re-checks each by identity.
     // A prop added by a later slice is covered the day it is added, without editing this test.
     getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
