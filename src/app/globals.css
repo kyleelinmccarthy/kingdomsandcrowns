@@ -1963,12 +1963,28 @@ body[data-realm-open] .parent-alert-popup { display: none; }
 /* At 390px the mobile ability bar (`.realm-spellbar`'s own ≤640px rule below moves it to
    6.5rem) leaves only a 17-18px gap under the identity corner's mana strip and name plate —
    less than this pill is ever tall (23-27px) — so no `bottom` value tucks it "just above the
-   bar" there; it has to clear the whole bottom-left stack instead. Measured, the corner's
-   top edge reaches 275px up (hud-scale 1.25); 18rem (288px) clears it by 13px. The legend's
-   own text is wide enough (330-380px) that at intermediate widths a plain ≤640px cutoff left
-   it still overlapping that same corner up to ~800px wide (measured at 641-768px); 900px is
-   the first breakpoint measured clear at both hud scales, so the query uses that instead of
-   the file's usual 640px. */
+   bar" there. A bottom-anchored fix also can't just clear the corner and stop: the legend's
+   own text is wide enough (330-380px) that even a purely bottom-based fix stayed inside that
+   same corner's horizontal reach up to ~800px wide. Task 6 moved the objective card to the
+   top-left and the minimap to the top-right, which leaves the whole top-centre strip open
+   underneath both — real estate nothing else claims — so below 900px this rule anchors from
+   `top` instead of `bottom` and lands there. `bottom: auto` is required alongside `top`: with
+   neither `height` nor `bottom: auto` set, an absolutely positioned box with both `top` and
+   `bottom` declared stretches to fill the gap between them instead of sizing to its content.
+   Measured across the full 320-900px width band and both hud scales: the objective card's
+   deepest real bottom edge is 153px (hud-scale 1.25, height is width-independent); the
+   minimap's is 192px (hud-scale 1.25, at any width ≥700px, where it reverts to its
+   non-mobile 9rem size); the top problem lane — a third element worth clearing since it can
+   show at the same time as the legend and is also top-anchored — reaches its deepest real
+   edge, 352px, at 320px width and hud-scale 1.25 with the longest real problem copy in the
+   app (the preview-mode intro line, which wraps hardest on the narrowest screen). `top: 23rem`
+   (368px) clears all three by 16px+ at their respective worst cases, at every width from 320
+   to 900 and both hud scales — full table in task-11-report.md. Because the fix no longer
+   sits near the bottom at all, there's no longer a bottom-corner reason to switch at 900px
+   instead of the file's usual 640px; the reason is now the wide-screen (`bottom`-anchored)
+   rule above, which was only measured clear of the identity/mana corner from 900px up
+   (verified 641-768px still collided; 850-900px did not) — the same 900px cutoff carries
+   both rules, so a single query threshold governs whichever one is active on a given side. */
 @media (max-width: 900px) {
-  .realm-legend { bottom: 18rem; }
+  .realm-legend { top: 23rem; bottom: auto; }
 }
