@@ -36,4 +36,13 @@ describe("pickTarget", () => {
     const r = pickTarget({ ...base, pointer: { x: 99, z: 99 }, troubles: [{ id: "miles", position: { x: 99, z: 99 } }] });
     expect(r).toEqual({ refused: true });
   });
+
+  it("drops the pointed-at trouble for the nearest in range, rather than out-ranging the spell", () => {
+    // The case above is answered by the empty-inRange early return, so the pointer loop is
+    // never reached. Here something IS in range, which is the only way to prove the loop
+    // searches `inRange` and not the whole list: a child clicking a far monster while a near
+    // one is in reach must have the near one hit, never a shot outside the spell's range.
+    const r = pickTarget({ ...base, pointer: { x: 99, z: 99 }, troubles: [near, { id: "miles", position: { x: 99, z: 99 } }] });
+    expect(r).toMatchObject({ id: "near" });
+  });
 });

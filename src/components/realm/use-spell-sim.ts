@@ -145,9 +145,11 @@ export function stepSpellSim(sim: SpellSim, input: SpellSimInput, emit: (e: Spel
  * still spent the mana.
  */
 function aimFor(spell: SpellDefinition, request: CastRequest, troubles: Trouble[], hero: Vec2): Vec2 | null {
-  // A self spell lands on the caster and carries `range: 0` by definition, so putting it
-  // through the targeting rule would make Shield and Aura permanently uncastable. It needs
-  // no trouble and never fires into the grass, so there is nothing here for §4.2 to refuse.
+  // The exemption keys on SHAPE, not on range. A self spell lands on the caster: it needs no
+  // trouble and can never fire into the grass, so there is nothing here for §4.2 to refuse.
+  // Their ranges differ and neither one saves them — Shield's `range: 0` would refuse every
+  // cast outright, and Aura's `range: 5` would refuse whenever no trouble happened to be
+  // within five units of a hero warding themselves. Both are self spells; both are exempt.
   if (spell.shape === "self") return { ...hero };
   const picked = pickTarget({
     pointer: "target" in request ? request.target : null,

@@ -56,6 +56,23 @@ describe("stepSpellSim", () => {
     expect(r.sim.effects).toHaveLength(0);
   });
 
+  it("still casts a self spell with nothing in range, because a ward needs no trouble", () => {
+    // The targeting rule keys on SHAPE. Shield (range 0) would otherwise refuse every cast
+    // it ever made, and Aura (range 5) would refuse whenever the hero was not already stood
+    // next to something — a reward that silently does nothing the day it unlocks.
+    for (const formId of ["shield", "aura"] as const) {
+      const ward = resolveSpell({ elementId: "ember", formId, modifierId: null })!;
+      expect(ward.shape).toBe("self");
+      const events: SpellEvent[] = [];
+      const seeded = stepSpellSim(startSpellSim(), { ...base, hero: layout.spawn, castRequest: null }, () => {}).sim;
+      const nowhere = { x: 1000, z: 1000 }; // miles from every trouble in the world
+      const r = stepSpellSim(seeded, { ...base, selectedSpell: ward, hero: nowhere, castRequest: { nearest: true } }, (e) => events.push(e));
+      expect(r.casting).toBe(true);
+      expect(events.some((e) => e.kind === "refused")).toBe(false);
+      expect(r.sim.caster.casting!.target).toMatchObject(nowhere); // it lands on the caster
+    }
+  });
+
   it("refuses a POINTER cast at open grass when nothing is in range", () => {
     const events: SpellEvent[] = [];
     const seeded = stepSpellSim(startSpellSim(), { ...base, hero: layout.spawn, castRequest: null }, () => {}).sim;

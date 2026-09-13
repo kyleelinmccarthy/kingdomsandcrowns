@@ -511,6 +511,11 @@ function RealmOpen({
         // (a functional updater, so `onSpellEvent` keeps the stable identity the memoised
         // World requires) — a rise toast, "Recess!" or the crowning line still hold the lane.
         setToast((t) => (t === CAST_HINT || t === CAST_HINT_TOUCH ? null : t));
+        // Un-burn the once-per-visit flag with it. A first cast that refuses nulls the hint
+        // about a frame after raising it, so the child never actually read it — and without
+        // this, a visit whose first cast refuses would never teach click-to-cast at all. The
+        // hint is still once per visit; it just is not spent by a refusal that swallowed it.
+        castHintShown.current = false;
         setNotice(e.reason === "range" ? NOTHING_IN_RANGE : NOT_ENOUGH_MANA);
         break;
       case "focusLost": setNotice(LOST_FOCUS); break;

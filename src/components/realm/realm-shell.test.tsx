@@ -439,6 +439,12 @@ describe("RealmShell", () => {
     expect(document.querySelector(".realm-mana-pips")).toHaveClass("realm-mana-pips--refused");
     expect(screen.getByTestId("realm-speech")).toHaveTextContent("Nothing close enough yet. Move closer.");
     expect(screen.queryByText("Tap or click where the spell should go.")).not.toBeInTheDocument();
+    // …and the lesson is not lost with it. The hint was nulled about a frame after it was
+    // raised, so the child never read it; the next page press still owes them the sentence.
+    await act(async () => {
+      fireEvent.keyDown(window, { key: "1" });
+    });
+    expect(screen.getByText("Tap or click where the spell should go.")).toBeInTheDocument();
   });
 
   it("leaves a toast that is not the cast hint holding the lane when a cast refuses", async () => {
