@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { resolveSpell } from "@/lib/utils/spell-catalog";
-import { selectSlot, beginCast, stepCaster, castTargetFor, directionFrom, type CasterState } from "./caster";
+import { beginCast, stepCaster, castTargetFor, directionFrom, type CasterState } from "./caster";
 
-const idle: CasterState = { selectedSlot: null, casting: null };
+const idle: CasterState = { casting: null };
 const bolt = resolveSpell({ elementId: "ember", formId: "bolt", modifierId: null })!; // 300 ms, 10 mana
 const quickBolt = resolveSpell({ elementId: "ember", formId: "bolt", modifierId: "quicken" })!; // 150 ms, 15 mana
 const burst = resolveSpell({ elementId: "ember", formId: "burst", modifierId: null })!; // area, range 4
@@ -11,11 +11,6 @@ const shield = resolveSpell({ elementId: "tide", formId: "shield", modifierId: n
 const hero = { x: 0, z: 0 };
 
 describe("caster", () => {
-  it("selects and deselects a slot", () => {
-    expect(selectSlot(idle, 2).selectedSlot).toBe(2);
-    expect(selectSlot(selectSlot(idle, 2), null).selectedSlot).toBeNull();
-  });
-
   it("begins a cast, spends mana, and releases after castMs (halved by quicken)", () => {
     const begun = beginCast(idle, bolt, 3, hero, { x: 5, z: 0 }, 50, 1000);
     expect(begun.refused).toBeNull();

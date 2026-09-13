@@ -4,12 +4,15 @@ import { canCast, spend } from "./mana";
 
 export type CastTarget = Vec2;
 export type Casting = { spell: SpellDefinition; slot: number; target: CastTarget; startedAt: number; releaseAt: number };
-export type CasterState = { selectedSlot: number | null; casting: Casting | null };
+/**
+ * The in-flight cast, and nothing else. `selectedSlot` used to live here too and was never
+ * read: the armed page belongs to the shell (`selectedSlot` in realm-shell.tsx), which hands
+ * it to the sim through `SpellSimInput` every frame, so a second copy in here could only ever
+ * drift out of step with the one a child can see on the ability bar. `selectSlot` went with
+ * it — writing the field was the whole of what it did.
+ */
+export type CasterState = { casting: Casting | null };
 export type Refusal = "mana" | "busy" | null;
-
-export function selectSlot(state: CasterState, slot: number | null): CasterState {
-  return { ...state, selectedSlot: slot };
-}
 
 /** Unit vector from the hero to a point; a tap on the hero itself fires north. */
 export function directionFrom(hero: Vec2, target: Vec2): Vec2 {

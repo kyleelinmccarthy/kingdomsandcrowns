@@ -1,6 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { stepHero, setTarget, stepCompanion, unstickHero, setMounted, toggleMount, HERO_SPEED, ARRIVE_RADIUS, HERO_RADIUS, COMPANION_MIN_GAP, COMPANION_GAP_MOUNTED, type HeroState } from "./movement";
+import { stepHero, stepCompanion, unstickHero, setMounted, HERO_SPEED, ARRIVE_RADIUS, HERO_RADIUS, COMPANION_MIN_GAP, COMPANION_GAP_MOUNTED, type HeroState } from "./movement";
 import { WORLD_SIZE, type Prop } from "./layout";
+
+// A hero with somewhere to walk to, written as the literal `ceremony/ceremony.ts:97` writes it.
+// `setTarget` used to build these and has been deleted with the tap-to-move verb it belonged
+// to; the ceremony is the one remaining producer of a target and it constructs the state
+// inline, so these say exactly what production says.
+const heading = (state: HeroState, target: { x: number; z: number }): HeroState => ({ ...state, target });
 
 const idle: HeroState = { position: { x: 0, z: 0 }, facing: "s", target: null, mounted: false };
 const noInput = { axis: { x: 0, z: 0 } };
@@ -31,14 +37,14 @@ describe("stepHero with axis input", () => {
     expect(stepHero({ ...idle, facing: "e" }, noInput, 1 / 60, []).facing).toBe("e");
   });
   it("clears a pending target", () => {
-    const withTarget = setTarget(idle, { x: 5, z: 5 }, []);
+    const withTarget = heading(idle, { x: 5, z: 5 });
     expect(stepHero(withTarget, { axis: { x: 0, z: 1 } }, 1 / 60, []).target).toBeNull();
   });
   it("is unchanged with no input and no target", () => {
     expect(stepHero(idle, noInput, 1 / 60, [])).toBe(idle);
   });
   it("moves nobody on a zero-length frame, even with a target set (R3F's first useFrame delta can be 0)", () => {
-    const withTarget = setTarget(idle, { x: 4, z: 0 }, []);
+    const withTarget = heading(idle, { x: 4, z: 0 });
     const stepped = stepHero(withTarget, noInput, 0, []);
     expect(stepped).toEqual(withTarget);
     expect(Number.isFinite(stepped.position.x)).toBe(true);
@@ -48,13 +54,16 @@ describe("stepHero with axis input", () => {
 
 describe("targets", () => {
   it("walks to a target and stops within ARRIVE_RADIUS, clearing it", () => {
-    const s = run(setTarget(idle, { x: 4, z: 0 }, []), noInput, 3);
+    const s = run(heading(idle, { x: 4, z: 0 }), noInput, 3);
     expect(Math.hypot(s.position.x - 4, s.position.z)).toBeLessThanOrEqual(ARRIVE_RADIUS + 0.01);
     expect(s.target).toBeNull();
   });
-  it("clamps a target into the world and refuses one inside a solid prop", () => {
-    expect(setTarget(idle, { x: 100, z: -100 }, []).target).toEqual({ x: WORLD_SIZE / 2 - HERO_RADIUS, z: -(WORLD_SIZE / 2 - HERO_RADIUS) });
-    expect(setTarget(idle, { x: 3, z: 0 }, [wall]).target).toBeNull();
+  it("clamps the hero into the world while walking to a target outside it", () => {
+    // `setTarget`'s own clamp went with `setTarget`; the hero's position is clamped every frame
+    // by `stepHero` regardless, which is the half that was ever load-bearing.
+    const s = run(heading(idle, { x: 100, z: -100 }), noInput, 20);
+    expect(s.position.x).toBeLessThanOrEqual(WORLD_SIZE / 2 - HERO_RADIUS);
+    expect(s.position.z).toBeGreaterThanOrEqual(-(WORLD_SIZE / 2 - HERO_RADIUS));
   });
 });
 
@@ -69,7 +78,7 @@ describe("colliders and bounds", () => {
     expect(s.position.x).toBeLessThanOrEqual(WORLD_SIZE / 2 - HERO_RADIUS);
   });
   it("drops a target it cannot reach", () => {
-    const s = run(setTarget({ ...idle, position: { x: 0, z: 0 } }, { x: 6, z: 0 }, [wall]), noInput, 3, [wall]);
+    const s = run(heading({ ...idle, position: { x: 0, z: 0 } }, { x: 6, z: 0 }), noInput, 3, [wall]);
     expect(s.target).toBeNull();
   });
 });
@@ -110,15 +119,16 @@ describe("riding", () => {
     expect(rode.position.x).toBeCloseTo(7, 5);
     expect(rode.mounted).toBe(true);
   });
-  it("mounts and dismounts, clearing the walk target, only when riding is allowed", () => {
+  it("mounts and dismounts, clearing the walk target", () => {
+    // `toggleMount` went with the shell taking ownership of `riding` — the scene calls
+    // `setMounted` with the flag it is given and never flips one of its own. Every assertion
+    // that still has a subject is kept, on the function that survived.
     const start: HeroState = { position: { x: 0, z: 0 }, facing: "s", target: { x: 3, z: 3 }, mounted: false };
-    const up = toggleMount(start, true);
+    const up = setMounted(start, true);
     expect(up.mounted).toBe(true);
     expect(up.target).toBeNull();
-    expect(toggleMount(up, true).mounted).toBe(false);
-    expect(toggleMount(start, false)).toBe(start);
-    expect(setMounted(start, false)).toBe(start);
-    expect(setMounted(start, true).mounted).toBe(true);
+    expect(setMounted(up, false).mounted).toBe(false);
+    expect(setMounted(start, false)).toBe(start); // already dismounted: the same object back
   });
   it("lets the companion follow further back and faster while mounted", () => {
     const hero: HeroState = { position: { x: 0, z: 0 }, facing: "s", target: null, mounted: true };

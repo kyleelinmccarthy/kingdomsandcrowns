@@ -33,17 +33,17 @@ function facingFrom(dx: number, dz: number, previous: Facing): Facing {
   return dz > 0 ? "s" : "n";
 }
 
-/** A tap sets a destination; a tap inside a wall is ignored rather than walking the hero into it. */
-export function setTarget(state: HeroState, target: Vec2, colliders: Prop[]): HeroState {
-  const t = clampToWorld(target);
-  if (colliders.some((c) => blocked(t, c))) return state;
-  return { ...state, target: t };
-}
-
 /**
- * One frame of hero motion. Stick or keys win over a pending tap. Movement is
+ * One frame of hero motion. Stick or keys win over a pending target. Movement is
  * applied one axis at a time and a blocked axis is simply cancelled, which is
  * what makes the hero slide along walls instead of sticking to them.
+ *
+ * The target-following arm is NOT dead code, and it is worth saying so here because a review
+ * once concluded it was. Task 10 deleted tap-to-move, so nothing in `realm-scene.tsx` sets a
+ * target any more — but `ceremony/ceremony.ts` builds its HeroState literals inline with
+ * `target: waypoint` and calls straight through, for the hero and for every villager, on every
+ * walk step of the crown ceremony. Delete this arm and every figure stands still at a season's
+ * end.
  */
 export function stepHero(state: HeroState, input: MoveInput, dt: number, colliders: Prop[], speed: number = HERO_SPEED): HeroState {
   if (dt <= 0) return state; // a zero-length frame (R3F's first useFrame delta can be 0) moves nobody
@@ -92,11 +92,6 @@ export function unstickHero(state: HeroState, colliders: Prop[]): HeroState {
 export function setMounted(state: HeroState, mounted: boolean): HeroState {
   if (state.mounted === mounted) return state;
   return { ...state, mounted, target: null };
-}
-
-export function toggleMount(state: HeroState, canRide: boolean): HeroState {
-  if (!canRide) return state;
-  return setMounted(state, !state.mounted);
 }
 
 /** The companion eases toward a spot behind the hero and never crowds them. */

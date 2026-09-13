@@ -23,9 +23,14 @@ export type Surfaces = {
    */
   abilitySlots: "earned" | "all";
   /**
-   * How much the minimap draws. "full" is bounds, hero, every site and every trouble;
-   * "objectiveOnly" is bounds, hero and the objective. Capped at "objectiveOnly" by
-   * `fewerChoices` at both depths — a substitution, never a removal: the child keeps a map.
+   * How much the minimap draws. "full" is bounds, hero and every site; "objectiveOnly" is
+   * bounds, hero and the objective alone. Capped at "objectiveOnly" by `fewerChoices` at both
+   * depths — a substitution, never a removal: the child keeps a map.
+   *
+   * `minimapView` also draws every trouble under "full", and this doc used to say so — but the
+   * shell passes `troubles: []` unconditionally (parked, with a reason, in the slice that made
+   * the map), so no child has ever seen a trouble dot. The code stays, ready for the slice that
+   * feeds it; the sentence a reader trusts should not describe a thing that is not on screen.
    */
   minimap: "full" | "objectiveOnly";
   /** Whether number keycaps are drawn on the ability bar's slots. */

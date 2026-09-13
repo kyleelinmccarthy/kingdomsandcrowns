@@ -43,7 +43,7 @@ export type SpellSim = {
 };
 
 export function startSpellSim(): SpellSim {
-  return { mana: startMana(), caster: { selectedSlot: null, casting: null }, effects: [], troubles: [], focus: startFocus(), tally: startTally(), clearedSites: {}, now: 0, nextId: 1, lastManaReported: -1, lastVanished: {} };
+  return { mana: startMana(), caster: { casting: null }, effects: [], troubles: [], focus: startFocus(), tally: startTally(), clearedSites: {}, now: 0, nextId: 1, lastManaReported: -1, lastVanished: {} };
 }
 
 export type SpellSimInput = {

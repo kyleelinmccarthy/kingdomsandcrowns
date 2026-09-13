@@ -146,7 +146,6 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
   const reachRef = useRef<string | null>(null);
   const buildingObjects = useRef(new Map<string, THREE.Object3D>()); // a sprite, or the fallback box mesh when its texture is missing
   const rising = useRef<{ id: string; startedAt: number } | null>(null);
-  const wasInteractive = useRef(interactive);
   const simRef = useSpellSimRef();
   const recessRef = useRecessSimRef();
   const dazzledRef = useRef(false);
@@ -384,13 +383,7 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
       recessIn.lowStimulus = settings.calmPalette;
       recessIn.seed = seed;
       recessRef.current = stepRecessSim(recessRef.current, recessIn, emitRecess);
-    } else if (wasInteractive.current) {
-      // A pointerdown that reached the ground before a panel opened this frame
-      // can leave a stale walk target; drop it once so the hero doesn't creep
-      // toward it while the panel is up.
-      hero.current = { ...hero.current, target: null };
     }
-    wasInteractive.current = interactive;
     camTarget.current = followCamera(camTarget.current, hero.current.position, dt, { reducedMotion: !settings.motion });
     const bob = settings.motion ? Math.sin(state.clock.elapsedTime * 3) * 0.05 : 0;
     const p = hero.current.position;
