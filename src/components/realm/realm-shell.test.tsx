@@ -675,7 +675,7 @@ describe("RealmShell", () => {
     await screen.findByTestId("scene");
     const cast = screen.getByRole("button", { name: "Cast" });
     expect(cast).toBeDisabled(); // visible from the start, so it teaches; inert until there is a spell
-    expect(screen.queryByRole("button", { name: /^Put .+ away$/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Put away .+$/ })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Ember Bolt, 10 mana" }));
     expect(cast).toBeEnabled();
@@ -685,9 +685,9 @@ describe("RealmShell", () => {
     expect(castRef.current).toEqual({ nearest: true });
 
     // And back out again, without an Escape key.
-    await user.click(screen.getByRole("button", { name: "Put Ember Bolt away" }));
+    await user.click(screen.getByRole("button", { name: "Put away Ember Bolt" }));
     expect(sceneProps.selectedSpell).toBeNull();
-    expect(screen.queryByRole("button", { name: "Put Ember Bolt away" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Put away Ember Bolt" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Cast" })).toBeDisabled();
   });
 
@@ -698,7 +698,7 @@ describe("RealmShell", () => {
     await screen.findByTestId("scene");
     await user.click(screen.getByRole("button", { name: "Ember Bolt, 10 mana" }));
     expect(screen.queryByRole("button", { name: "Cast" })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /^Put .+ away$/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Put away .+$/ })).not.toBeInTheDocument();
   });
 
   it("says what a cleared trouble did without keeping a score of it", async () => {
@@ -835,7 +835,7 @@ describe("RealmShell", () => {
     expect(await screen.findByTestId("scene")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Ride your mount" }));
     expect(screen.getByTestId("scene")).toHaveAttribute("data-riding", "true");
-    fireEvent.keyDown(screen.getByRole("button", { name: "Get off your mount" }), { code: "KeyM", key: "m" });
+    fireEvent.keyDown(screen.getByRole("button", { name: "Dismount from your mount" }), { code: "KeyM", key: "m" });
     await waitFor(() => expect(screen.getByTestId("scene")).toHaveAttribute("data-riding", "false"));
   });
 
@@ -1216,6 +1216,44 @@ describe("RealmShell help card", () => {
     expect(screen.getByTestId("scene").dataset.ceremony).toBe("true");
   });
 
+  it("hands focus back to the ? button on close, never to the Talk bubble", async () => {
+    // The defect this exists for: `onHelpClose` reused `returnFocus()`, which was written for
+    // the DEED PANEL and whose rule is "back to the Talk bubble if the hero is still in reach".
+    // So a child who opened "How to play" while standing next to Hesper closed it and landed on
+    // "Talk to Hesper" — a control they never came from, one keypress from opening a panel, and
+    // for a screen-reader child indistinguishable from the card having opened something.
+    // The bubble is the SCENE's, and this suite mocks the scene whole, so it is stood up here by
+    // hand: it is the exact selector the old code queried for, and without it this test would
+    // pass against that code by accident.
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    render(<RealmShell bundle={bundle} childId="c1" isChildView={true} />);
+    await screen.findByTestId("scene");
+    const bubble = document.createElement("button");
+    bubble.className = "realm-bubble-talk";
+    bubble.textContent = "Talk to Old Bram";
+    document.querySelector(".realm-root")!.appendChild(bubble);
+
+    const help = screen.getByRole("button", { name: "How to play" });
+    fireEvent.click(help);
+    expect(screen.getByRole("dialog", { name: "How to play" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    await waitFor(() => expect(document.activeElement).toBe(help));
+    expect(document.activeElement).not.toBe(bubble);
+  });
+
+  it("hands focus to the world when the card opened itself, since no control was pressed", async () => {
+    // The first-visit path has no trigger to go back to: the card opens on its own once the
+    // sprites arrive. The world is where the hero is about to play, so that is where they land.
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    markRealmHelpSeen.mockResolvedValue(undefined);
+    render(<RealmShell bundle={{ ...bundle, helpSeen: false }} childId="c1" isChildView={true} />);
+    await screen.findByTestId("scene");
+    expect(screen.getByRole("dialog", { name: "How to play" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    const root = document.querySelector(".realm-root");
+    await waitFor(() => expect(document.activeElement).toBe(root));
+  });
+
   it("suppresses the browser menu over the world and focuses the world on open", async () => {
     getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
     render(<RealmShell bundle={bundle} childId="c1" isChildView={true} />);
@@ -1409,6 +1447,15 @@ describe("RealmShell reach and speech", () => {
       (sceneProps.onTutorialSignal as (s: unknown) => void)(sig);
     });
   };
+  // The box is ALWAYS mounted for a child now (realm-tutorial.tsx): a live region that is
+  // re-created already holding its text announces nothing, so "nothing is being taught" is an
+  // EMPTY region rather than a missing one. Two halves, and both matter — the region is there
+  // for the screen reader, and it says nothing and offers no Skip, so a child sees and hears
+  // exactly what the old early return gave them.
+  const expectNoPrompt = () => {
+    expect(screen.getByTestId("realm-tutorial").textContent).toBe("");
+    expect(screen.queryByRole("button", { name: "Skip the tutorial" })).not.toBeInTheDocument();
+  };
 
   it("starts a brand-new hero on the first verb", async () => {
     await openRealm();
@@ -1469,7 +1516,7 @@ describe("RealmShell reach and speech", () => {
     await act(async () => { (sceneProps.onTalk as (id: string) => void)("bram"); });
     expect(screen.getByTestId("realm-tutorial")).toHaveTextContent("Press 1.");
     await act(async () => { (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "castState", casting: true }); });
-    expect(screen.queryByTestId("realm-tutorial")).not.toBeInTheDocument();
+    expectNoPrompt();
     await waitFor(() => expect(setTutorialStep).toHaveBeenLastCalledWith("c1", 4));
     expect(setTutorialStep.mock.calls.map((c) => c[1])).toEqual([1, 2, 3, 4]);
   });
@@ -1489,13 +1536,13 @@ describe("RealmShell reach and speech", () => {
     expect(screen.getByTestId("realm-tutorial")).toHaveTextContent("Go where the light is.");
     cleanup();
     await openRealm({ tutorialStep: 4 });
-    expect(screen.queryByTestId("realm-tutorial")).not.toBeInTheDocument();
+    expectNoPrompt();
   });
 
   it("skips past the last step and writes that down, so it does not come back", async () => {
     await openRealm();
     await userEvent.click(screen.getByRole("button", { name: /skip/i }));
-    expect(screen.queryByTestId("realm-tutorial")).not.toBeInTheDocument();
+    expectNoPrompt();
     await waitFor(() => expect(setTutorialStep).toHaveBeenCalledWith("c1", 4));
   });
 
@@ -1518,7 +1565,7 @@ describe("RealmShell reach and speech", () => {
     // and the prompt would never have resolved itself: they would read an instruction they
     // cannot obey, every visit, forever.
     await openRealm({ kingdom: { tone: "gentle" as const, buildings: raisedKingdom } });
-    expect(screen.queryByTestId("realm-tutorial")).not.toBeInTheDocument();
+    expectNoPrompt();
     expect(setTutorialStep).not.toHaveBeenCalled();
   });
 
@@ -1529,7 +1576,7 @@ describe("RealmShell reach and speech", () => {
     getRealmKingdom.mockResolvedValue({ tone: "gentle", buildings: [well] });
     const user = userEvent.setup();
     await openRealm({ tutorialStep: 1, kingdom: { tone: "gentle" as const, buildings: [] }, kingdomError: "The villagers are resting. Try again." });
-    expect(screen.queryByTestId("realm-tutorial")).not.toBeInTheDocument();
+    expectNoPrompt();
     await user.click(screen.getByRole("button", { name: "Wake the villagers" }));
     await waitFor(() => expect(screen.getByTestId("realm-tutorial")).toHaveTextContent("Go where the light is."));
   });
@@ -1547,7 +1594,7 @@ describe("RealmShell reach and speech", () => {
     // control, and lands back on the first prompt — the same reset `setTutorialStep(childId, 0)`
     // gives on the next visit, applied without waiting on the round trip.
     await openRealm({ tutorialStep: 4 });
-    expect(screen.queryByTestId("realm-tutorial")).not.toBeInTheDocument();
+    expectNoPrompt();
     fireEvent.click(screen.getByRole("button", { name: "How to play" }));
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Show me the tutorial again" }));

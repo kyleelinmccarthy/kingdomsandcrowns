@@ -220,6 +220,10 @@ function RealmOpen({
   // A first visit shows the card once, before anything else; the record is sent once.
   const helpPending = useRef(isChildView && !bundle.helpSeen);
   const helpMarked = useRef(bundle.helpSeen);
+  // WHICH control opened the card, because that is what its focus has to go back to on close
+  // (see `returnFocusFromHelp` below). The first-visit card opens itself once the sprites
+  // arrive and so has no trigger, which is why "auto" is the starting value.
+  const helpOpenedBy = useRef<"button" | "auto">("auto");
   const ceremonyStageRef = useRef(ceremonyStage);
   useEffect(() => {
     ceremonyStageRef.current = ceremonyStage;
@@ -388,6 +392,7 @@ function RealmOpen({
     setTextures(t);
     if (helpPending.current) {
       helpPending.current = false;
+      helpOpenedBy.current = "auto"; // nobody pressed `?`, so the way out is the world
       setHelpOpen(true); // the ceremony waits behind the card
       return;
     }
@@ -651,7 +656,24 @@ function RealmOpen({
     });
   }, []);
 
-  const openHelp = useCallback(() => setHelpOpen(true), []);
+  const openHelp = useCallback(() => {
+    helpOpenedBy.current = "button";
+    setHelpOpen(true);
+  }, []);
+  // The card's own way back. NOT `returnFocus()`, which was written for the DEED PANEL and
+  // whose rule is "back to the Talk bubble if the hero is still in reach" — so a child who
+  // opened "How to play" while standing next to Hesper closed it and landed on "Talk to
+  // Hesper": a control they never came from, one keypress from opening a deed panel, and for
+  // a screen-reader child indistinguishable from the card having opened something. WCAG 2.4.3
+  // wants the trigger, so focus goes back to `?`. The first-visit card has no trigger — it
+  // opens itself once the sprites arrive — and that path falls back to the world, which is
+  // where the hero is about to play anyway.
+  const returnFocusFromHelp = useCallback(() => {
+    requestAnimationFrame(() => {
+      const trigger = helpOpenedBy.current === "button" ? document.querySelector<HTMLElement>(".realm-hud-help") : null;
+      (trigger ?? rootRef.current)?.focus();
+    });
+  }, []);
   const onHelpClose = useCallback(() => {
     setHelpOpen(false);
     // Only a hero's own visit records "seen": a parent opening the card from the
@@ -661,8 +683,8 @@ function RealmOpen({
       markRealmHelpSeen(childId).catch(() => {}); // the next visit simply shows the card again
     }
     beginCeremonyIfWaiting();
-    returnFocus();
-  }, [childId, isChildView, beginCeremonyIfWaiting, returnFocus]);
+    returnFocusFromHelp();
+  }, [childId, isChildView, beginCeremonyIfWaiting, returnFocusFromHelp]);
 
   // The hero's own escape hatch (§3.15). A parent never presses it — they change the same
   // column in Settings, under the child's name — and fewerChoices removes the choice rather

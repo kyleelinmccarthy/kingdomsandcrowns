@@ -2094,6 +2094,14 @@ body[data-realm-open] .parent-alert-popup { display: none; }
    axis nobody thinks to check. `min-height` alone does not make a 44px target. */
 .realm-tutorial button { min-height: 44px; min-width: 44px; padding: 0 0.5rem; background: none; border: none; color: var(--gold-bright); font: inherit; font-weight: 500; text-decoration: underline; cursor: pointer; pointer-events: auto; }
 .realm-tutorial-step { margin: 0; }
+/* With nothing to say the box keeps its place in the accessibility tree and loses everything
+   that would draw it: an absolutely positioned flex box with no padding, no border and one
+   empty child measures 0x0, so there is no empty frame holding a gap open above the ability
+   bar and no ghost at the top of a phone screen. `display: none` is what this must NOT be —
+   that would take the live region back out of the tree, which is the whole defect
+   `realm-tutorial.tsx` is fixed for: a region only announces mutations that land after it has
+   entered the tree, so one that is re-created already holding step one announces nothing. */
+.realm-tutorial:has(.realm-tutorial-step:empty) { padding: 0; border: none; background: none; }
 /* Below 900px the bottom band belongs to the identity and meta corners, which the same
    measurement that sent the legend to the top-centre strip (task 11) found reach a long way
    up a narrow screen — at 390x844 on touch the meta corner's box starts 359px off the bottom

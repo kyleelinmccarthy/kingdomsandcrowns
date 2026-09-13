@@ -248,8 +248,12 @@ describe("RealmMountButton", () => {
 
   it("says Dismount while riding, and drops the keycap on a touch device", () => {
     render(<RealmMountButton ride={{ riding: true, disabled: false, onToggle: () => {} }} showStick={true} />);
-    const button = screen.getByRole("button", { name: "Get off your mount" });
+    const button = screen.getByRole("button", { name: "Dismount from your mount" });
     expect(button).toHaveTextContent("Dismount");
+    // WCAG 2.5.3: the accessible name must contain the visible label as a contiguous run, so a
+    // child using speech input who says the word on the button reaches it. "Get off your mount"
+    // did not contain "Dismount" at all, and reached nothing.
+    expect(button.getAttribute("aria-label")).toMatch(/^Dismount\b/);
     expect(button.querySelector(".realm-mount-key")).toBeNull();
   });
 
@@ -296,7 +300,11 @@ describe("RealmPutAwayButton", () => {
     // Nothing is armed, so there is nothing to put away and nothing on screen.
     expect(container).toBeEmptyDOMElement();
     rerender(<RealmPutAwayButton spellName="Ember Bolt" onPutAway={onPutAway} showStick={true} />);
-    const button = screen.getByRole("button", { name: "Put Ember Bolt away" });
+    const button = screen.getByRole("button", { name: "Put away Ember Bolt" });
+    // WCAG 2.5.3 again, and the same failure: "Put Ember Bolt away" does not contain the
+    // visible "Put away" as a contiguous run, so speech input reached nothing.
+    expect(button.getAttribute("aria-label")).toMatch(/^Put away\b/);
+    expect(button.getAttribute("aria-label")).toContain(button.textContent!);
     expect(button).toHaveClass("realm-cast-button"); // the 56px world-control shape, like Cast
     expect(button).toHaveClass("realm-cast-button--away");
     fireEvent.click(button);

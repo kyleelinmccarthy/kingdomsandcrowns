@@ -241,7 +241,10 @@ export function RealmMountButton({ ride, showStick }: { ride: { riding: boolean;
     <button
       type="button"
       className="realm-mount-button"
-      aria-label={ride.riding ? "Get off your mount" : "Ride your mount"}
+      // The visible word comes FIRST and whole, in both states (WCAG 2.5.3, label in name).
+      // "Get off your mount" did not contain "Dismount" as a contiguous run, so a child using
+      // speech input who said what the button says got nothing.
+      aria-label={ride.riding ? "Dismount from your mount" : "Ride your mount"}
       disabled={ride.disabled}
       onClick={ride.onToggle}
     >
@@ -285,7 +288,10 @@ export function RealmCastButton({ onCast, disabled, showStick }: { onCast: () =>
  *   - it wears a large ✕ — the one glyph a child already reads as "stop this" without
  *     being taught it — drawn by CSS beside the words, for a child who does read;
  *   - it names the spell in its accessible name, because a screen-reader child hears the
- *     button in isolation and "Put away" alone does not say away what.
+ *     button in isolation and "Put away" alone does not say away what — with the visible
+ *     words FIRST and whole ("Put away Ember Bolt", not "Put Ember Bolt away"), because a
+ *     name that does not contain the visible label as a contiguous run fails WCAG 2.5.3 and
+ *     leaves a child using speech input saying "put away" to nothing at all.
  * `spellName` null means nothing is armed, so there is nothing to put away and no button.
  */
 export function RealmPutAwayButton({ spellName, onPutAway, showStick }: { spellName: string | null; onPutAway: () => void; showStick: boolean }) {
@@ -296,7 +302,7 @@ export function RealmPutAwayButton({ spellName, onPutAway, showStick }: { spellN
       type="button"
       className="realm-cast-button realm-cast-button--away"
       onClick={onPutAway}
-      aria-label={`Put ${spellName} away`}
+      aria-label={`Put away ${spellName}`}
     >
       Put away
     </button>
