@@ -1921,7 +1921,14 @@ body[data-realm-open] .parent-alert-popup { display: none; }
    from the base rule still handles a book too wide to fit. The stick and the raised bar are in
    different vertical bands, so nothing new collides on the left. */
 .realm-spellbar.realm-spellbar--raised { bottom: 9.5rem; left: 1rem; right: calc(1.75rem + var(--realm-touch)); transform: none; max-width: none; justify-content: safe center; }
-.realm-spell { position: relative; display: flex; align-items: center; gap: 0.35rem; min-height: 44px; min-width: 44px; padding: 0 0.7rem; border-radius: 9999px; border: 2px solid transparent; background: rgba(255, 255, 255, 0.08); color: #fff; font-size: 1em; white-space: nowrap; cursor: pointer; }
+/* `flex: 0 0 auto` is load-bearing, not tidying. `.realm-spellbar--raised` is anchored to both
+   edges (it has to reserve Ride's corner), so its width now resolves from the constraint rather
+   than from its content — and a flex item's automatic minimum size is overridden by the explicit
+   `min-width` below, so instead of the bar scrolling, every chip shrank. Measured at 360x740,
+   375x812 and 390x844 with the stick up: a four-page book squeezed each chip from 68-73px to
+   56-67px, and a six-page one crushed every chip to the 44px floor. `0 0 auto` hands the job
+   back to the base rule's own `overflow-x: auto`, which is what it was written for. */
+.realm-spell { position: relative; display: flex; flex: 0 0 auto; align-items: center; gap: 0.35rem; min-height: 44px; min-width: 44px; padding: 0 0.7rem; border-radius: 9999px; border: 2px solid transparent; background: rgba(255, 255, 255, 0.08); color: #fff; font-size: 1em; white-space: nowrap; cursor: pointer; }
 .realm-spell--selected { background: rgba(201, 168, 76, 0.3); box-shadow: 0 0 0 2px var(--gold-bright); }
 .realm-spell--dim { opacity: 0.55; }
 /* §3.7: a refused cast shakes the SELECTED slot — three cycles of 4px — while the pips
