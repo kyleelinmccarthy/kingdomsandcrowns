@@ -414,7 +414,7 @@ describe("RealmShell", () => {
       "Tap or click where the spell should go."
     );
     await act(async () => {
-      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "refused" });
+      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "refused", reason: "mana" });
     });
     // Same lane, same holder — and this is the priority rule stated outright. The refusal's
     // own copy is proved on its own by the new `shows a problem and a speech message at the
@@ -554,7 +554,7 @@ describe("RealmShell", () => {
     await screen.findByTestId("scene");
     expect(document.querySelector(".realm-mana-pips")).not.toHaveClass("realm-mana-pips--refused");
     await act(async () => {
-      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "refused" });
+      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "refused", reason: "mana" });
     });
     expect(document.querySelector(".realm-mana-pips")).toHaveClass("realm-mana-pips--refused");
     expect(screen.getByText("Not enough mana yet.")).toBeInTheDocument();
@@ -565,6 +565,19 @@ describe("RealmShell", () => {
     expect(document.querySelector(".realm-mana-pips")).not.toHaveClass("realm-mana-pips--refused");
   });
 
+  it("tells a hero who cast with nothing in range about the distance, not about their mana", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    render(<RealmShell bundle={{ ...bundle, spellbook: { spells: pages, slots: 4 } }} childId="c1" isChildView={true} />);
+    await screen.findByTestId("scene");
+    await act(async () => {
+      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "refused", reason: "range" });
+    });
+    // Same red flash as any refusal — one cue, two causes.
+    expect(document.querySelector(".realm-mana-pips")).toHaveClass("realm-mana-pips--refused");
+    expect(screen.getByText("Nothing close enough yet. Move closer.")).toBeInTheDocument();
+    expect(screen.queryByText("Not enough mana yet.")).not.toBeInTheDocument();
+  });
+
   it("shakes the slot the hero actually picked, for the same 600 ms as the pips", async () => {
     getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
     const user = userEvent.setup();
@@ -572,7 +585,7 @@ describe("RealmShell", () => {
     await screen.findByTestId("scene");
     await user.click(screen.getByRole("button", { name: "Ember Bolt, 10 mana" }));
     await act(async () => {
-      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "refused" });
+      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "refused", reason: "mana" });
     });
     expect(screen.getByRole("button", { name: "Ember Bolt, 10 mana" }).className).toContain("realm-spell--refused");
     expect(document.querySelector(".realm-mana-pips")).toHaveClass("realm-mana-pips--refused");
@@ -782,7 +795,7 @@ describe("RealmShell", () => {
     );
     await screen.findByTestId("scene");
     await act(async () => {
-      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "refused" });
+      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "refused", reason: "mana" });
     });
     expect(screen.getByTestId("realm-problem")).toHaveTextContent("The villagers are resting. Try again.");
     expect(screen.getByRole("button", { name: "Wake the villagers" })).toBeInTheDocument();
@@ -917,7 +930,7 @@ describe("RealmShell crown ceremony", () => {
     await screen.findByTestId("scene");
     step("hail");
     await act(async () => {
-      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "refused" });
+      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "refused", reason: "mana" });
     });
     // ceremonyNotice and notice are two separate props on RealmMessages: the picker
     // chooses, the loser is simply not shown rather than overwritten (§3.6, §5).
@@ -1201,7 +1214,7 @@ describe("RealmShell reach and speech", () => {
     await inReach("bram");
     expect(screen.getByText("Old Bram is here. Press E to talk.")).toBeInTheDocument();
     await act(async () => {
-      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "refused" });
+      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "refused", reason: "mana" });
     });
     expect(screen.getByText("Not enough mana yet.")).toBeInTheDocument();
     expect(screen.queryByText("Old Bram is here. Press E to talk.")).not.toBeInTheDocument();
@@ -1240,7 +1253,7 @@ describe("RealmShell reach and speech", () => {
     });
     expect(speakMock).toHaveBeenCalledTimes(spokenSoFar);
     await act(async () => {
-      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "refused" });
+      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "refused", reason: "mana" });
     });
     await waitFor(() => expect(speakMock).toHaveBeenCalledWith("Not enough mana yet."));
     expect(speakMock.mock.calls.filter((c) => c[0] === "Old Bram is here. Press E to talk.")).toHaveLength(1);

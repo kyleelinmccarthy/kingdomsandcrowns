@@ -8,14 +8,25 @@ import { beginCast, stepCaster, type CasterState } from "@/lib/realm/spells/cast
 import { releaseEffect, stepEffects, barrierColliders, heroShielded, hasStatus, type SpellEffect } from "@/lib/realm/spells/effects";
 import { spawnTroubles, stepTroubles, applyHit, startTally, recordClear, type Trouble, type TroubleKind, type ClearTally } from "@/lib/realm/spells/troubles";
 import { startFocus, stepFocus, isDazzled, type FocusState } from "@/lib/realm/spells/focus";
+import { pickTarget } from "@/lib/realm/targeting";
 import type { CastRequest } from "./use-realm-input";
+
+/**
+ * Why a cast did not happen. A refusal with no cause used to be safe — a mana shortfall
+ * was the only one — but §4.2's out-of-range refusal would otherwise be reported to a
+ * child as "Not enough mana yet.", which is false and teaches the wrong lesson.
+ */
+export type RefusalReason = "mana" | "range";
 
 export type SpellEvent =
   | { kind: "mana"; current: number }
   | { kind: "cleared"; troubleKind: TroubleKind; count: number }
-  | { kind: "refused" }
+  | { kind: "refused"; reason: RefusalReason }
   | { kind: "focusLost" }
   | { kind: "castState"; casting: boolean };
+
+/** How wide a click counts as "pointing at" a trouble, in world units (§4.2). */
+export const POINTER_RADIUS = 1.5;
 
 export type SpellSim = {
   mana: number;
@@ -65,14 +76,21 @@ export function stepSpellSim(sim: SpellSim, input: SpellSimInput, emit: (e: Spel
   const focus = stepFocus(sim.focus, stepped.focusLost, now);
   if (stepped.focusLost) emit({ kind: "focusLost" });
 
-  // A cast request becomes a wind-up when a page is selected.
+  // A cast request becomes a wind-up when a page is selected. BOTH ways of casting arrive
+  // here — the pointer's `{ target }` and a number key's `{ nearest: true }` — so this is
+  // the one place §4.2's targeting rule has to live for the refusal to cover both. Aiming
+  // happens BEFORE beginCast, so a cast with nothing in range cannot spend a drop of mana.
   if (input.castRequest && input.selectedSpell && input.selectedSlot !== null) {
-    const tap = "target" in input.castRequest ? input.castRequest.target : nearestTroubleOrAhead(troubles, input.hero, input.selectedSpell.range);
-    const begun = beginCast(caster, input.selectedSpell, input.selectedSlot, input.hero, tap, mana, now);
-    caster = begun.state;
-    mana = begun.mana;
-    if (begun.refused === "mana") emit({ kind: "refused" });
-    if (begun.refused === null) emit({ kind: "castState", casting: true });
+    const aim = aimFor(input.selectedSpell, input.castRequest, troubles, input.hero);
+    if (aim === null) {
+      emit({ kind: "refused", reason: "range" });
+    } else {
+      const begun = beginCast(caster, input.selectedSpell, input.selectedSlot, input.hero, aim, mana, now);
+      caster = begun.state;
+      mana = begun.mana;
+      if (begun.refused === "mana") emit({ kind: "refused", reason: "mana" });
+      if (begun.refused === null) emit({ kind: "castState", casting: true });
+    }
   }
   const release = stepCaster(caster, now);
   caster = release.state;
@@ -120,17 +138,25 @@ export function stepSpellSim(sim: SpellSim, input: SpellSimInput, emit: (e: Spel
   };
 }
 
-function nearestTroubleOrAhead(troubles: Trouble[], hero: Vec2, range: number): Vec2 {
-  let best: Trouble | null = null;
-  let bestD = range;
-  for (const t of troubles) {
-    const d = Math.hypot(t.position.x - hero.x, t.position.z - hero.z);
-    if (d <= bestD) {
-      best = t;
-      bestD = d;
-    }
-  }
-  return best ? best.position : { x: hero.x, z: hero.z - Math.max(1, range) };
+/**
+ * Where this cast is aimed, or `null` when nothing is in range and it must refuse.
+ * Replaces the old `nearestTroubleOrAhead`, which fell back to a point one range north of
+ * the hero — the parked bug where a cast with nothing nearby fired into empty grass and
+ * still spent the mana.
+ */
+function aimFor(spell: SpellDefinition, request: CastRequest, troubles: Trouble[], hero: Vec2): Vec2 | null {
+  // A self spell lands on the caster and carries `range: 0` by definition, so putting it
+  // through the targeting rule would make Shield and Aura permanently uncastable. It needs
+  // no trouble and never fires into the grass, so there is nothing here for §4.2 to refuse.
+  if (spell.shape === "self") return { ...hero };
+  const picked = pickTarget({
+    pointer: "target" in request ? request.target : null,
+    hero,
+    troubles,
+    range: spell.range,
+    pointerRadius: POINTER_RADIUS,
+  });
+  return "refused" in picked ? null : picked.position;
 }
 
 /** Keeps the simulation in a ref for the frame loop; created once, never re-created on re-render. */

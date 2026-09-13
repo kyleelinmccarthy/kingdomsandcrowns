@@ -521,7 +521,7 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
   // walks the hero vaguely nearby instead of to the person they pointed at.
   const pickHandler = (id: string) => (e: ThreeEvent<PointerEvent>) => {
     e.stopPropagation();
-    if (e.button !== 0 && e.button !== 2) return; // left and right pick or cast; the wheel does nothing
+    if (e.button !== 0) return; // left only, exactly like the ground: right click is not a second cast key
     pickVillager(id, { x: e.point.x, z: e.point.z });
   };
   // Tapping the well's foundation walks you to Old Bram. With no villager on a
@@ -559,9 +559,16 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
         rotation={[-Math.PI / 2, 0, 0]}
         onPointerDown={(e) => {
           e.stopPropagation();
-          if (e.button !== 0 && e.button !== 2) return; // left and right buttons walk or cast; the wheel does nothing
+          // LEFT ONLY. Right click used to cast too — a duplicate of the verb §4.5 names,
+          // which meant the browser menu key also fired a spell. It now does nothing in the
+          // world at all; `onContextMenu` on the realm root still swallows the menu itself.
+          if (e.button !== 0) return;
           if (!interactive) return;
           if (selectedSpell) {
+            // The point the child aimed at, not the point the spell lands on: `stepSpellSim`
+            // puts this through `pickTarget` alongside the number key's `{ nearest: true }`,
+            // so a click on open grass takes the nearest trouble in range and a click with
+            // nothing in range refuses there — one rule, one place, both entry points.
             castRef.current = { target: { x: e.point.x, z: e.point.z } };
             return;
           }

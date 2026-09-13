@@ -32,12 +32,50 @@ describe("stepSpellSim", () => {
     expect(events.some((e) => e.kind === "mana" && e.current <= 90)).toBe(true);
   });
 
-  it("refuses a cast when mana is short and reports it", () => {
+  it("refuses a cast when mana is short and says the shortfall is the reason", () => {
     const events: SpellEvent[] = [];
-    const sim = { ...startSpellSim(), mana: 0 };
-    const r = stepSpellSim(sim, { ...base, hero: layout.spawn, castRequest: { nearest: true } }, (e) => events.push(e));
+    // One frame to populate the world, then stand beside a trouble so the ONLY thing
+    // wrong with this cast is the empty mana strip.
+    const seeded = stepSpellSim(startSpellSim(), { ...base, hero: layout.spawn, castRequest: null }, () => {}).sim;
+    const beside = { x: seeded.troubles[0].position.x, z: seeded.troubles[0].position.z + 2 };
+    const r = stepSpellSim({ ...seeded, mana: 0 }, { ...base, hero: beside, castRequest: { nearest: true } }, (e) => events.push(e));
     expect(r.casting).toBe(false);
-    expect(events.some((e) => e.kind === "refused")).toBe(true);
+    expect(events).toContainEqual({ kind: "refused", reason: "mana" });
+  });
+
+  it("refuses a NUMBER-KEY cast when nothing is in range, and spends no mana on the grass", () => {
+    const events: SpellEvent[] = [];
+    const seeded = stepSpellSim(startSpellSim(), { ...base, hero: layout.spawn, castRequest: null }, () => {}).sim;
+    expect(seeded.troubles.length).toBeGreaterThan(0); // there ARE troubles; they are simply miles off
+    const nowhere = { x: 1000, z: 1000 };
+    const r = stepSpellSim(seeded, { ...base, hero: nowhere, castRequest: { nearest: true } }, (e) => events.push(e));
+    expect(r.casting).toBe(false);
+    expect(events).toContainEqual({ kind: "refused", reason: "range" });
+    // The whole point: a cast into nothing is free. Mana only ever went up (regeneration).
+    expect(r.sim.mana).toBeGreaterThanOrEqual(seeded.mana);
+    expect(r.sim.effects).toHaveLength(0);
+  });
+
+  it("refuses a POINTER cast at open grass when nothing is in range", () => {
+    const events: SpellEvent[] = [];
+    const seeded = stepSpellSim(startSpellSim(), { ...base, hero: layout.spawn, castRequest: null }, () => {}).sim;
+    const nowhere = { x: 1000, z: 1000 };
+    const r = stepSpellSim(seeded, { ...base, hero: nowhere, castRequest: { target: { x: 1001, z: 1000 } } }, (e) => events.push(e));
+    expect(r.casting).toBe(false);
+    expect(events).toContainEqual({ kind: "refused", reason: "range" });
+    expect(r.sim.mana).toBeGreaterThanOrEqual(seeded.mana);
+  });
+
+  it("sends a pointer cast at open grass to the nearest trouble in range instead of the grass", () => {
+    const seeded = stepSpellSim(startSpellSim(), { ...base, hero: layout.spawn, castRequest: null }, () => {}).sim;
+    const target = seeded.troubles[0];
+    const hero = { x: target.position.x, z: target.position.z + 3 };
+    // Two units to the side of the hero: open grass, nowhere near the trouble.
+    const r = stepSpellSim(seeded, { ...base, hero, castRequest: { target: { x: hero.x + 2, z: hero.z } } }, () => {});
+    expect(r.casting).toBe(true);
+    // Troubles wander before the cast resolves, so compare against this frame's position.
+    const moved = r.sim.troubles.find((t) => t.id === target.id)!;
+    expect(r.sim.caster.casting!.target).toMatchObject({ x: moved.position.x, z: moved.position.z });
   });
 
   it("does nothing with a request when no page is selected", () => {

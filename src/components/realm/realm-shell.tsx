@@ -50,6 +50,10 @@ import type { RecessSimEvent } from "./use-recess-sim";
 
 const VILLAGERS_RESTING = "The villagers are resting. Try again.";
 const NOT_ENOUGH_MANA = "Not enough mana yet.";
+// The other half of a refusal (§4.2). It must not be the mana line: a cast that had
+// nothing in range spent nothing, and telling a child they are out of mana when their
+// strip is full teaches them to distrust the strip.
+const NOTHING_IN_RANGE = "Nothing close enough yet. Move closer.";
 const LOST_FOCUS = "You lost focus for a moment.";
 const CEREMONY_FAILED = "The crown could not be recorded.";
 const CAST_HINT = "Tap or click where the spell should go.";
@@ -496,7 +500,7 @@ function RealmOpen({
     switch (e.kind) {
       case "mana": setMana(e.current); break;
       case "cleared": setNotice(TROUBLE_COPY[e.troubleKind][troubleSkin]); break;
-      case "refused": refusals.current += 1; setRefusedAt(refusals.current); setNotice(NOT_ENOUGH_MANA); break;
+      case "refused": refusals.current += 1; setRefusedAt(refusals.current); setNotice(e.reason === "range" ? NOTHING_IN_RANGE : NOT_ENOUGH_MANA); break;
       case "focusLost": setNotice(LOST_FOCUS); break;
       case "castState": break;
     }
