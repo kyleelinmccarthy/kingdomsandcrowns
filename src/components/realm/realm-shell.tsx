@@ -59,8 +59,13 @@ const NOT_ENOUGH_MANA = "Not enough mana yet.";
 const NOTHING_IN_RANGE = "Nothing close enough yet. Move closer.";
 const LOST_FOCUS = "You lost focus for a moment.";
 const CEREMONY_FAILED = "The crown could not be recorded.";
-const CAST_HINT = "Tap or click where the spell should go.";
-const CAST_HINT_TOUCH = "Tap where the spell should go.";
+// The first lesson a child gets about casting, so it must describe the input model that exists.
+// Both of these used to name a SECOND gesture ("…where the spell should go"), which is the
+// two-step model this slice deleted everywhere else: a number key, and a tapped spell page, each
+// arm AND fire in the one gesture (`onSelectSpell` bumps `castSeq`, whose effect calls
+// `requestCast`). Each line now names only what the child's own input mode really does.
+const CAST_HINT = "Press 1 to cast. Click to aim it.";
+const CAST_HINT_TOUCH = "Tap a spell to cast it.";
 
 const RealmScene = dynamic(() => import("./realm-scene"), { ssr: false, loading: () => <p className="p-6 text-center text-muted-foreground">Opening the Realm…</p> });
 
@@ -585,7 +590,7 @@ function RealmOpen({
         setRefusedAt(refusals.current);
         // A refusal RETIRES the once-per-visit cast hint. A toast outranks a notice in the
         // speech lane, so without this the very first refusal of a visit flashes the pips red
-        // while the lane still reads "Tap or click where the spell should go." — the one
+        // while the lane still reads "Press 1 to cast. Click to aim it." — the one
         // refusal that most needs its own words showing someone else's. The hint has done its
         // job by then: the child has demonstrably found the cast key. Only the hint is retired
         // (a functional updater, so `onSpellEvent` keeps the stable identity the memoised

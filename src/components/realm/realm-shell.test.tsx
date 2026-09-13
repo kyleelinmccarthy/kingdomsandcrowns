@@ -412,7 +412,7 @@ describe("RealmShell", () => {
     // copy is proved on its own by task 10's `says what a cleared trouble did` case, which
     // never selects a page.
     expect(screen.getByTestId("realm-speech")).toHaveTextContent(
-      "Tap or click where the spell should go."
+      "Press 1 to cast. Click to aim it."
     );
     await act(async () => {
       (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "refused", reason: "mana" });
@@ -420,7 +420,7 @@ describe("RealmShell", () => {
     // A REFUSAL is the one thing that retires the hint, rather than losing the lane to it:
     // a red flash with someone else's sentence under it teaches a child nothing. The
     // priority rule itself is unchanged and is still proved above by "The fog thins."
-    expect(screen.queryByText("Tap or click where the spell should go.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Press 1 to cast. Click to aim it.")).not.toBeInTheDocument();
     expect(screen.getByTestId("realm-speech")).toHaveTextContent("Not enough mana yet.");
   });
 
@@ -433,19 +433,19 @@ describe("RealmShell", () => {
     await act(async () => {
       fireEvent.keyDown(window, { key: "1" });
     });
-    expect(screen.getByText("Tap or click where the spell should go.")).toBeInTheDocument();
+    expect(screen.getByText("Press 1 to cast. Click to aim it.")).toBeInTheDocument();
     await act(async () => {
       (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "refused", reason: "range" });
     });
     expect(document.querySelector(".realm-mana-pips")).toHaveClass("realm-mana-pips--refused");
     expect(screen.getByTestId("realm-speech")).toHaveTextContent("Nothing close enough yet. Move closer.");
-    expect(screen.queryByText("Tap or click where the spell should go.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Press 1 to cast. Click to aim it.")).not.toBeInTheDocument();
     // …and the lesson is not lost with it. The hint was nulled about a frame after it was
     // raised, so the child never read it; the next page press still owes them the sentence.
     await act(async () => {
       fireEvent.keyDown(window, { key: "1" });
     });
-    expect(screen.getByText("Tap or click where the spell should go.")).toBeInTheDocument();
+    expect(screen.getByText("Press 1 to cast. Click to aim it.")).toBeInTheDocument();
   });
 
   it("leaves a toast that is not the cast hint holding the lane when a cast refuses", async () => {
@@ -471,12 +471,12 @@ describe("RealmShell", () => {
     await act(async () => {
       fireEvent.keyDown(window, { key: "1" });
     });
-    expect(screen.getByText("Tap or click where the spell should go.")).toBeInTheDocument();
+    expect(screen.getByText("Press 1 to cast. Click to aim it.")).toBeInTheDocument();
     // Something else takes the toast lane, so the hint is long gone by its own accord.
     await act(async () => {
       (sceneProps.onRecessEvent as (e: unknown) => void)({ kind: "recessStart" });
     });
-    expect(screen.queryByText("Tap or click where the spell should go.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Press 1 to cast. Click to aim it.")).not.toBeInTheDocument();
     // An unrelated refusal now. It retires nothing, so it must un-burn nothing either.
     await act(async () => {
       (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "refused", reason: "range" });
@@ -484,7 +484,7 @@ describe("RealmShell", () => {
     await act(async () => {
       fireEvent.keyDown(window, { key: "1" });
     });
-    expect(screen.queryByText("Tap or click where the spell should go.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Press 1 to cast. Click to aim it.")).not.toBeInTheDocument();
     expect(screen.getByTestId("realm-speech")).toHaveTextContent("Recess!");
   });
 
@@ -1138,13 +1138,13 @@ describe("RealmShell spell bar", () => {
     render(<RealmShell bundle={{ ...bundle, spellbook: { spells: [spell], slots: 4 } }} childId="c1" isChildView={true} />);
     await screen.findByTestId("scene");
     fireEvent.click(screen.getByRole("button", { name: "Ember Bolt, 10 mana" }));
-    expect(screen.getByText("Tap or click where the spell should go.")).toBeInTheDocument();
+    expect(screen.getByText("Press 1 to cast. Click to aim it.")).toBeInTheDocument();
     expect(document.querySelector(".realm-root")?.className).toContain("realm-root--aiming");
     cleanup();
     render(<RealmShell bundle={{ ...bundle, spellbook: { spells: [spell], slots: 4 }, profile: { ...DEFAULT_LEARNING_PROFILE, inputMode: "touch" as const } }} childId="c1" isChildView={true} />);
     await screen.findByTestId("scene");
     fireEvent.click(screen.getByRole("button", { name: "Ember Bolt, 10 mana" }));
-    expect(screen.getByText("Tap where the spell should go.")).toBeInTheDocument();
+    expect(screen.getByText("Tap a spell to cast it.")).toBeInTheDocument();
   });
 });
 
