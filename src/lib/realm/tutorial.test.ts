@@ -1,5 +1,5 @@
-import { describe, it, expect } from "vitest";
-import { advanceTutorial, keysFromWorldAxis, objectiveArrival, shouldEmitWalked, tutorialPrompt, TUTORIAL_STEPS, WALK_DISTANCE } from "./tutorial";
+import { describe, it, expect, vi } from "vitest";
+import { advanceTutorial, deferSignal, keysFromWorldAxis, objectiveArrival, shouldEmitWalked, tutorialPrompt, TUTORIAL_STEPS, WALK_DISTANCE } from "./tutorial";
 import { screenToWorldAxis } from "./input-mapping";
 
 const start = { completed: 0 };
@@ -165,5 +165,39 @@ describe("objectiveArrival", () => {
 
   it("stays silent out in the world whatever else is happening", () => {
     expect(objectiveArrival(false, false, true)).toEqual({ latched: false, emit: false });
+  });
+});
+
+describe("deferSignal", () => {
+  const flush = () => new Promise<void>((resolve) => queueMicrotask(resolve));
+
+  it("does not call through synchronously", async () => {
+    // The whole point: the caller is `useFrame`, sixty times a second, and a synchronous call
+    // here is a setState in the middle of a frame — the failure the scene's ref-based wiring
+    // exists to prevent, and one nothing on screen would show you.
+    const emit = vi.fn();
+    deferSignal(emit)({ kind: "reachedObjective" });
+    expect(emit).not.toHaveBeenCalled();
+  });
+
+  it("calls through once the microtask queue drains, with the signal untouched", async () => {
+    const emit = vi.fn();
+    const signal = { kind: "walked" as const, keys: ["KeyW", "KeyD"], distance: 9 };
+    deferSignal(emit)(signal);
+    await flush();
+    expect(emit).toHaveBeenCalledTimes(1);
+    expect(emit).toHaveBeenCalledWith(signal);
+  });
+
+  it("keeps several signals from one frame in order", async () => {
+    // A `walked` and a `reachedObjective` can be sent by the same frame; the shell judges the
+    // second against the first's result, so the order they arrive in is part of the contract.
+    const seen: string[] = [];
+    const defer = deferSignal((s) => seen.push(s.kind));
+    defer({ kind: "walked", keys: ["KeyW", "KeyA"], distance: 9 });
+    defer({ kind: "reachedObjective" });
+    expect(seen).toEqual([]);
+    await flush();
+    expect(seen).toEqual(["walked", "reachedObjective"]);
   });
 });

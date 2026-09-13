@@ -91,6 +91,22 @@ export function shouldEmitWalked(distance: number, keyCount: number, lastEmitted
  * re-arm they would finish step one standing in the beacon and never be able to finish step
  * two without leaving and coming back.
  */
+/**
+ * Wraps a signal handler so it fires on the next microtask instead of immediately.
+ *
+ * This is the boundary between a 60fps render loop and React: the two signals the scene
+ * measures are read inside `useFrame`, and calling `setState` from there — sixty times a
+ * second, in the middle of a frame — is the failure the whole ref-based wiring exists to
+ * prevent. Every other scene→React event in `realm-scene.tsx` crosses the same way.
+ *
+ * It lives here, beside the three rules, for the reason they do: `realm-scene.tsx` cannot be
+ * exercised by a test (it needs a frame loop), so a deferral removed from it would be silent.
+ * Removing the `queueMicrotask` below fails this module's own test immediately.
+ */
+export function deferSignal(emit: (s: TutorialSignal) => void): (s: TutorialSignal) => void {
+  return (s) => queueMicrotask(() => emit(s));
+}
+
 export function objectiveArrival(
   inside: boolean,
   latched: boolean,

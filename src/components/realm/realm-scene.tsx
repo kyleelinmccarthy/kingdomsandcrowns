@@ -11,7 +11,7 @@ import { CAMERA_OFFSET, CAMERA_ZOOM, edgeArrow, followCamera } from "@/lib/realm
 import { projectToMap, worldBounds } from "@/lib/realm/minimap";
 import { BEACON, facingAngle, GROUND_Y, shadowFootprint, RING_INNER, RING_OUTER, RING_NOTCH_ARC, RING_GOLD, RING_CALM, SHADOW_OPACITY, SHADOW_OPACITY_CALM } from "@/lib/realm/markers";
 import { nearestVillager, villagerById, REACH } from "@/lib/realm/villagers";
-import { keysFromWorldAxis, objectiveArrival, shouldEmitWalked, type TutorialSignal } from "@/lib/realm/tutorial";
+import { deferSignal, keysFromWorldAxis, objectiveArrival, shouldEmitWalked, type TutorialSignal } from "@/lib/realm/tutorial";
 import type { RenderSettings } from "@/lib/realm/render-settings";
 import type { Surfaces } from "@/lib/realm/depth";
 import type { SpellDefinition } from "@/lib/utils/spell-catalog";
@@ -283,7 +283,10 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
   // within the call and neither retains the object, so one instance can serve every frame.
   const emitSpell = useCallback((e: SpellEvent) => queueMicrotask(() => onSpellEvent(e)), [onSpellEvent]);
   const emitRecess = useCallback((e: RecessSimEvent) => queueMicrotask(() => onRecessEvent(e)), [onRecessEvent]);
-  const emitTutorial = useCallback((s: TutorialSignal) => queueMicrotask(() => onTutorialSignal(s)), [onTutorialSignal]);
+  // The microtask boundary is `deferSignal`, beside the rules, so that removing it fails a
+  // test rather than quietly turning the frame loop into a setState loop. `useMemo` rather
+  // than `useCallback` because the function is built by a call, not written as a literal.
+  const emitTutorial = useMemo(() => deferSignal(onTutorialSignal), [onTutorialSignal]);
   const spellInput = useRef<SpellSimInput>({ layout, hero: layout.spawn, dt: 0, selectedSpell: null, selectedSlot: null, castRequest: null, lowStimulus: false, reducedMotion: false, seed });
   const recessInput = useRef<RecessSimInput>({ layout, hero: layout.spawn, dt: 0, active: false, lowStimulus: false, seed });
 
