@@ -1839,6 +1839,11 @@ body[data-realm-open] .parent-alert-popup { display: none; }
    world. The `, 1` fallback keeps a plate legible when it is rendered outside
    `.realm-root` — a unit test, or any harness that mounts it on its own. */
 .realm-plate { display: flex; flex-direction: column; align-items: center; gap: 0.1rem; min-height: var(--realm-touch); white-space: nowrap; border-radius: 0.5rem; border: 1px solid var(--gold-border); padding: 0.25rem 0.5rem; background: rgba(0, 0, 0, 0.55); color: #fff; font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif; text-align: center; pointer-events: auto; cursor: pointer; }
+/* Out of reach there is nothing to press, and the pointer must not say otherwise. Keyed off the
+   same `aria-disabled` the plate already sets from `inReach`, so the cue a child sees and the one
+   a screen reader hears are derived from one state and cannot drift apart. `default`, not
+   `not-allowed`: the plate is a label you have not walked up to yet, not something forbidden. */
+.realm-plate[aria-disabled="true"] { cursor: default; }
 .realm-plate-name { display: flex; align-items: center; gap: 0.3rem; font-weight: 700; font-size: calc(13px * var(--realm-hud-scale, 1)); text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9); }
 .realm-plate-tag { font-size: calc(11px * var(--realm-hud-scale, 1)); color: var(--gold-bright); text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9); }
 .realm-plate-badge { display: inline-flex; align-items: center; justify-content: center; width: calc(14px * var(--realm-hud-scale, 1)); height: calc(14px * var(--realm-hud-scale, 1)); border-radius: 9999px; font-size: calc(11px * var(--realm-hud-scale, 1)); font-weight: 700; line-height: 1; }
