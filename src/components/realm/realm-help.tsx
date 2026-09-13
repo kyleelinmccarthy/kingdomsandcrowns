@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { GameIcon, type GameIconName } from "@/components/game-icon";
 import type { RealmDepth } from "@/lib/realm/depth";
-import { SIDE_QUEST_LOWER } from "@/lib/utils/side-quest-copy";
 import { speak } from "@/lib/utils/speech";
 
 export type HelpGroup = { icon: GameIconName; title: string; text: string };
@@ -25,27 +24,28 @@ const DEPTH_CONTROL: Record<RealmDepth, { next: RealmDepth; label: string; hint:
 /** The controls, in the words the hero's input mode needs. Written for a reader of about eight. */
 export function helpGroups(touch: boolean, ceremony: boolean): HelpGroup[] {
   const groups: HelpGroup[] = [
-    { icon: "compass", title: "Move", text: touch ? "Drag the stick, or tap where you want to go." : "WASD or the arrow keys, or click where you want to go." },
+    // Tapping the ground used to walk the hero there; Task 10 deleted that verb entirely, so
+    // the only way to move, on either input mode, is the one the world still answers to.
+    { icon: "compass", title: "Move", text: touch ? "Drag the stick to walk." : "Use W, A, S and D to walk." },
     // Second, because the card has never said what the world is for. The gold light is the
     // beacon over the objective site and the edge arrow that points at it when it is off-screen.
     { icon: "map", title: "Where to go", text: "Follow the gold light. Someone is waiting there." },
-    {
-      icon: "scroll",
-      title: "Talk",
-      text: touch
-        ? `Walk up to a villager and tap Talk. They'll give you a ${SIDE_QUEST_LOWER}.`
-        : `Walk up to a villager and press E, or tap Talk. They'll give you a ${SIDE_QUEST_LOWER}.`,
-    },
+    { icon: "scroll", title: "Talk", text: touch ? "Stand close to someone and tap Talk." : "Stand close to someone and press E." },
     {
       // No stakes clause. Nothing a trouble does touches a site, a building, a villager or the
       // kingdom — the worst it does is a 1.5-second dazzle — so the card says nothing about
       // stakes, which is true, rather than something false. Slice 8 writes the replacement when
       // clearing a trouble actually earns Realm minutes.
+      //
+      // One verb, not two: a number key (or a tapped spell page) CASTS by itself — it does not
+      // merely arm a page for a second press to fire — so the card no longer reads "pick a
+      // page, then click where it should go", which is exactly the two-step model a reviewer
+      // called out as still taught here after Task 9 made a single press enough.
       icon: "sparkles",
       title: "Cast",
       text: touch
-        ? "Tap a spell page, then tap where the spell should go, or tap Cast. Tap Put away when you are done."
-        : "Pick a spell page (1, 2, 3, 4) or tap it, then click where the spell should go. Escape puts it away.",
+        ? "Tap a spell page to cast it, or tap Cast to cast again. Tap Put away when you are done."
+        : "Press 1, 2, 3 or 4 — or click what you want to hit. Press Escape to put it away.",
     },
     {
       icon: "map",
@@ -64,6 +64,7 @@ export function RealmHelp({
   readAloud,
   depth,
   onSetDepth,
+  onReplayTutorial,
   onClose,
 }: {
   touch: boolean;
@@ -71,13 +72,20 @@ export function RealmHelp({
   readAloud: boolean;
   depth: RealmDepth;
   onSetDepth: ((d: RealmDepth) => void) | null;
+  // A callback, not `setTutorialStep` itself: the card must stay testable without mocking a
+  // "use server" file, and the shell already owns `childId` and the local tutorial state this
+  // needs to reset. Typed `() => void` like `onSetDepth` above — the shell's real
+  // implementation hands back the write's promise, wrapped in Promise.resolve below.
+  onReplayTutorial: (() => void) | null;
   onClose: () => void;
 }) {
   const panel = useRef<HTMLDivElement>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
   const depthButton = useRef<HTMLButtonElement>(null);
+  const replayButton = useRef<HTMLButtonElement>(null);
   const [saving, setSaving] = useState(false);
   const [saveFailed, setSaveFailed] = useState(false);
+  const [replaying, setReplaying] = useState(false);
   const groups = helpGroups(touch, ceremony);
   const control = DEPTH_CONTROL[depth];
 
@@ -114,6 +122,24 @@ export function RealmHelp({
     );
   };
 
+  // The reset already happened, synchronously, inside `onReplayTutorial` itself — the shell
+  // writes the local tutorial state back to step one before it ever calls `setTutorialStep`,
+  // the same "state here, persist fire-and-forget" split `signal` and `skipTutorial` use in
+  // realm-shell.tsx. So the card closes either way rather than reporting a save that missed:
+  // there is nothing left for a failure to undo, and nothing a child could do about it anyway.
+  // `aria-disabled` and an early return, never `disabled` — same reason as the view control
+  // above: this is the focused element when it is pressed, and disabling it mid-write would
+  // blur focus to <body> and strand a keyboard hero past both Escape and the Tab trap.
+  const onReplayPress = () => {
+    if (!onReplayTutorial || replaying) return;
+    setReplaying(true);
+    const settle = () => {
+      setReplaying(false);
+      onClose();
+    };
+    void Promise.resolve(onReplayTutorial()).then(settle, settle);
+  };
+
   return (
     <div className="realm-overlay" onPointerDown={(e) => e.stopPropagation()}>
       <div
@@ -128,10 +154,11 @@ export function RealmHelp({
             e.stopPropagation();
             onClose();
           } else if (e.key === "Tab") {
-            // Tab cycles the card's own controls — Close, and the view control when it is
-            // offered — and never wanders out into the HUD behind the card.
+            // Tab cycles the card's own controls — Close, the view control and the replay
+            // control, whichever of the last two are offered — and never wanders out into the
+            // HUD behind the card.
             e.preventDefault();
-            const stops = [closeButton.current, depthButton.current].filter((el): el is HTMLButtonElement => el !== null);
+            const stops = [closeButton.current, depthButton.current, replayButton.current].filter((el): el is HTMLButtonElement => el !== null);
             if (stops.length === 0) return;
             const at = stops.indexOf(document.activeElement as HTMLButtonElement);
             const step = e.shiftKey ? stops.length - 1 : 1;
@@ -160,6 +187,11 @@ export function RealmHelp({
             <Button ref={depthButton} variant="outline" size="lg" aria-disabled={saving} className={saving ? "opacity-60" : undefined} onClick={onDepthPress}>{control.label}</Button>
             <p className="text-sm text-muted-foreground">{control.hint}</p>
             {saveFailed && <p role="alert" className="text-sm text-destructive">{DEPTH_SAVE_FAILED}</p>}
+          </div>
+        )}
+        {onReplayTutorial && (
+          <div className="flex flex-col gap-1 border-t border-[var(--gold-dim)] pt-3">
+            <Button ref={replayButton} variant="outline" size="lg" aria-disabled={replaying} className={replaying ? "opacity-60" : undefined} onClick={onReplayPress}>Show me the tutorial again</Button>
           </div>
         )}
       </div>

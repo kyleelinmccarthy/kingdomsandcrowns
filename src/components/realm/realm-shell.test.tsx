@@ -1541,4 +1541,26 @@ describe("RealmShell reach and speech", () => {
     await act(async () => { (sceneProps.onTalk as (id: string) => void)("bram"); });
     expect(setTutorialStep).not.toHaveBeenCalled();
   });
+
+  it("lets a hero start the walkthrough again from the help card", async () => {
+    // A finished hero has completed every step (nothing showing), presses the card's replay
+    // control, and lands back on the first prompt — the same reset `setTutorialStep(childId, 0)`
+    // gives on the next visit, applied without waiting on the round trip.
+    await openRealm({ tutorialStep: 4 });
+    expect(screen.queryByTestId("realm-tutorial")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "How to play" }));
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Show me the tutorial again" }));
+    });
+    expect(setTutorialStep).toHaveBeenCalledWith("c1", 0);
+    expect(screen.queryByRole("dialog", { name: "How to play" })).not.toBeInTheDocument();
+    expect(screen.getByTestId("realm-tutorial")).toHaveTextContent("Use W, A, S and D to walk.");
+  });
+
+  it("offers no replay control to a parent's preview", async () => {
+    await openRealm({}, false);
+    fireEvent.click(screen.getByRole("button", { name: "How to play" }));
+    expect(screen.getByRole("dialog", { name: "How to play" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Show me the tutorial again" })).not.toBeInTheDocument();
+  });
 });

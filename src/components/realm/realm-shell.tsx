@@ -657,6 +657,18 @@ function RealmOpen({
   const canSetDepth = isChildView && !bundle.profile.fewerChoices;
   const onSetDepth = useCallback((next: RealmDepth) => setRealmDepth(childId, next).then(() => setDepth(next)), [childId]);
 
+  // The help card's "show me the tutorial again" control. Its state reset happens HERE,
+  // synchronously, before the write even starts — the same split `signal` and `skipTutorial`
+  // use above — so the card can close the instant it is pressed without waiting on a round
+  // trip, and a lost write only costs a repeated step, exactly like every other tutorial
+  // write. A parent's preview gets none: they have no tutorial of their own to replay.
+  const onReplayTutorial = useCallback(() => {
+    const restarted = { completed: 0 };
+    tutorialRef.current = restarted;
+    setTutorial(restarted);
+    return setTutorialStep(childId, 0);
+  }, [childId]);
+
   // Focus the world once it opens (it never moves focus while the card is showing). Keyed on
   // the first `textures` arrival only: `world` (see above) no longer changes mid-visit, so a
   // later `onReady` is a sprite retry, and re-focusing then would yank focus away from
@@ -978,6 +990,7 @@ function RealmOpen({
           readAloud={bundle.profile.readAloud}
           depth={depth}
           onSetDepth={canSetDepth ? onSetDepth : null}
+          onReplayTutorial={isChildView ? onReplayTutorial : null}
           onClose={onHelpClose}
         />
       )}
