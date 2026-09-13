@@ -1781,7 +1781,20 @@ body[data-realm-open] .parent-alert-popup { display: none; }
 /* Two centred message lanes: persistent problems in a band under the HUD zones,
    the things the game says in a lane above the ability bar. One message each. */
 .realm-messages { position: absolute; inset: 0; z-index: 21; pointer-events: none; color: #fff; font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif; }
-.realm-message { position: absolute; left: 50%; margin: 0; transform: translateX(-50%); display: inline-flex; align-items: center; justify-content: center; gap: 0.6rem; max-width: min(30rem, calc(100vw - 2rem)); border-radius: 0.5rem; padding: 0.4rem 0.75rem; text-align: center; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8); }
+/* `left: 0; right: 0; margin-inline: auto; width: fit-content` rather than this file's older
+   `left: 50%; transform: translateX(-50%)`. That idiom leaves an absolutely positioned box only
+   HALF the viewport to shrink-to-fit into — the available width is measured from `left` to the
+   containing block's right edge — so on a 390px phone each lane had 195px, and the problem lane
+   wrapped to 243px tall where the same copy is 92px tall with the full width. `.realm-tutorial`
+   below already carries this idiom and its own note on why (and on why `fit-content` rather than
+   `max-content`, which Lightning CSS drops).
+
+   Dropping the centring transform also ends a second defect. `.realm-message--cheer` runs
+   `realm-toast-in`, whose keyframes END on `transform: none` — which clobbered the translate for
+   the animation's whole 300ms, so every celebratory line a child got first painted with its LEFT
+   EDGE on the 50% line and then snapped back. This slice already fixed exactly that trap for the
+   mana strip; with no base transform to clobber there is nothing left to fix here. */
+.realm-message { position: absolute; left: 0; right: 0; margin: 0; margin-inline: auto; width: fit-content; display: inline-flex; align-items: center; justify-content: center; gap: 0.6rem; max-width: min(30rem, calc(100vw - 2rem)); border-radius: 0.5rem; padding: 0.4rem 0.75rem; text-align: center; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8); }
 .realm-message:empty { display: none; }
 .realm-message button { min-width: var(--realm-touch); min-height: var(--realm-touch); padding: 0 1rem; border-radius: 9999px; border: 1px solid var(--gold-border); background: rgba(201, 168, 76, 0.25); color: var(--gold-bright); font: inherit; font-weight: 700; cursor: pointer; }
 .realm-message--problem { top: calc(2.5rem + 8rem * var(--realm-hud-scale)); background: rgba(0, 0, 0, 0.75); border: 1px solid var(--gold-border); font-size: 0.95em; }
@@ -1789,7 +1802,7 @@ body[data-realm-open] .parent-alert-popup { display: none; }
 .realm-message--cheer { background: rgba(201, 168, 76, 0.25); border: 1px solid var(--gold-border); color: var(--gold-bright); font-weight: 700; animation: realm-toast-in 300ms ease-out; }
 .realm-message--plain { background: rgba(0, 0, 0, 0.45); }
 @media (prefers-reduced-motion: reduce) { .realm-message--cheer { animation: none; } }
-.realm-message--stage { top: 50%; transform: translate(-50%, -50%); font-size: calc(1.6rem * var(--realm-hud-scale)); font-weight: 700; color: var(--gold-bright); text-shadow: 0 2px 6px rgba(0, 0, 0, 0.9); }
+.realm-message--stage { top: 50%; transform: translateY(-50%); font-size: calc(1.6rem * var(--realm-hud-scale)); font-weight: 700; color: var(--gold-bright); text-shadow: 0 2px 6px rgba(0, 0, 0, 0.9); }
 /* B3 — phone width. The four corners need no re-flow here — each one is already anchored to
    its own corner and none is sized against another — so this block only trims what a 390px
    screen cannot spare: the gutter between the corners, the map, and the objective card's
@@ -1814,6 +1827,16 @@ body[data-realm-open] .parent-alert-popup { display: none; }
   /* The phone override that used to live here is gone with the wrapped meta row that caused
      it: the top row is now the objective card alone, whose measured height at 390 is the same
      118px/141px it has at 1280, so the base rule's 2.5rem + 8rem * scale clears it by ~38px. */
+  /* The speech lane is anchored off `--realm-bar-bottom`, which is where the ability bar sits
+     on a WIDE screen — but `.realm-spellbar`'s own <=640px rule lifts the bar to 6.5rem (104px)
+     and leaves that variable at 1.25rem whenever the stick is down. So with the stick down the
+     lane sat at 109.6-137.6px and the bar at 104-158px, and "A gleam! 3 so far." painted across
+     the spell icons a child was aiming at — `.realm-messages` is z-21 over the bar's z-20.
+     Measured at 360x740, 375x812 and 390x844 before the fix: 154-157px wide by 36-44px deep,
+     at both hud scales. The `max()` keeps the first term wherever it is already the higher of
+     the two, which is every stick-up case (there `--realm-bar-bottom` is 9.5rem and the raised
+     bar rises with it), so one declaration is correct in both stick states. */
+  .realm-message--cheer, .realm-message--plain { bottom: max(calc(var(--realm-bar-bottom) + 3.6rem + 2rem * var(--realm-hud-scale)), calc(8.6rem + 2rem * var(--realm-hud-scale))); }
 }
 /* Position and pointer-events only. The scene (task 16) writes `hidden`, `transform`,
    `color`, `opacity` and `data-motion` on this element, and task 16's own rule draws the
@@ -1885,7 +1908,18 @@ body[data-realm-open] .parent-alert-popup { display: none; }
 .realm-hud-help { min-height: 44px; min-width: 44px; font-weight: 700; }
 .realm-hud .realm-hud-help { font-size: 0.9em; }
 .realm-spellbar { position: absolute; left: 50%; bottom: 1.25rem; z-index: 20; display: flex; gap: 0.4rem; transform: translateX(-50%); max-width: calc(100vw - 2rem); overflow-x: auto; padding: 0.3rem; border-radius: 9999px; background: rgba(0, 0, 0, 0.5); font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif; }
-.realm-spellbar.realm-spellbar--raised { bottom: 9.5rem; }
+/* The raised bar is NOT centred, and that is the whole fix. Centred with
+   `max-width: calc(100vw - 2rem)` its right edge reached x374 on a 390px screen while
+   `.realm-mount-button` starts at x314 — so a child aiming for a spell page hit Dismount, and
+   it worsened with every spell earned (measured before the fix: 35-53px of overlap, the full
+   56px height of Ride, at 360, 375 and 390 wide and both hud scales). A centred box cannot
+   reserve width asymmetrically, so this one is anchored to both edges instead and stops short
+   of Ride's corner: `1.75rem + --realm-touch` is Ride's own `right: 1.25rem` plus its 56px plus
+   half a rem of air. `justify-content: safe center` keeps a short book centred in what is left
+   and `safe` stops a long one being pushed off the scrollable start edge; `overflow-x: auto`
+   from the base rule still handles a book too wide to fit. The stick and the raised bar are in
+   different vertical bands, so nothing new collides on the left. */
+.realm-spellbar.realm-spellbar--raised { bottom: 9.5rem; left: 1rem; right: calc(1.75rem + var(--realm-touch)); transform: none; max-width: none; justify-content: safe center; }
 .realm-spell { position: relative; display: flex; align-items: center; gap: 0.35rem; min-height: 44px; min-width: 44px; padding: 0 0.7rem; border-radius: 9999px; border: 2px solid transparent; background: rgba(255, 255, 255, 0.08); color: #fff; font-size: 1em; white-space: nowrap; cursor: pointer; }
 .realm-spell--selected { background: rgba(201, 168, 76, 0.3); box-shadow: 0 0 0 2px var(--gold-bright); }
 .realm-spell--dim { opacity: 0.55; }
@@ -2005,18 +2039,26 @@ body[data-realm-open] .parent-alert-popup { display: none; }
    deepest real bottom edge is 153px (hud-scale 1.25, height is width-independent); the
    minimap's is 192px (hud-scale 1.25, at any width ≥700px, where it reverts to its
    non-mobile 9rem size); the top problem lane — a third element worth clearing since it can
-   show at the same time as the legend and is also top-anchored — reaches its deepest real
-   edge, 352px, at 320px width and hud-scale 1.25 with the longest real problem copy in the
-   app (the preview-mode intro line, which wraps hardest on the narrowest screen). `top: 23rem`
-   (368px) clears all three by 16px+ at their respective worst cases, at every width from 320
-   to 900 and both hud scales — full table in task-11-report.md. Because the fix no longer
+   show at the same time as the legend and is also top-anchored.
+
+   `top: 23rem` (368px) was set against a problem lane 352px deep, and that number was wrong
+   twice over. It came from the PREVIEW-MODE intro line, which renders only when `!isChildView`
+   while the legend and the tutorial render only for a child — the two can never be on screen
+   together (realm-shell.tsx:901) — and it was measured while `.realm-message` still carried the
+   `left: 50%` half-width bug fixed above, which left every lane half a phone to wrap into.
+   Re-measured against the deepest problem a CHILD can see WITH this pill showing (the
+   re-admitted quest timer's line plus its 56px button; a kingdom error cannot coexist, because
+   an unreadable kingdom has no objective and the shell drops both surfaces), the lane bottoms
+   out at 273.8px at hud-scale 1.25. `top: 17.4rem` (278.4px) clears that by 4.6px and the
+   minimap — the deeper of the two top corners — by 145px, and it is what lets the tutorial
+   below come up far enough to clear the bottom corners at 360x740. Table in fix-wave-report.md. Because the fix no longer
    sits near the bottom at all, there's no longer a bottom-corner reason to switch at 900px
    instead of the file's usual 640px; the reason is now the wide-screen (`bottom`-anchored)
    rule above, which was only measured clear of the identity/mana corner from 900px up
    (verified 641-768px still collided; 850-900px did not) — the same 900px cutoff carries
    both rules, so a single query threshold governs whichever one is active on a given side. */
 @media (max-width: 900px) {
-  .realm-legend { top: 23rem; bottom: auto; }
+  .realm-legend { top: 17.4rem; bottom: auto; }
 }
 
 /* ── The tutorial (§ task 13) ─────────────────────────────────────────────────────────── */
@@ -2055,20 +2097,29 @@ body[data-realm-open] .parent-alert-popup { display: none; }
 /* Below 900px the bottom band belongs to the identity and meta corners, which the same
    measurement that sent the legend to the top-centre strip (task 11) found reach a long way
    up a narrow screen — at 390x844 on touch the meta corner's box starts 359px off the bottom
-   edge. So the tutorial follows the legend up there and sits directly under it: `top: 25.5rem`
-   (408px) is 13-17px below the legend's deepest edge (391px at hud-scale 1, 395px at 1.25)
-   and, being top-anchored, cannot be pushed into anything by a message that grows.
-   `bottom: auto` is required alongside `top` for the reason the legend's own rule gives.
+   edge. So the tutorial follows the legend up there and sits directly under it: `top: 19.9rem`
+   (318.4px) keeps the same 2.5rem delta the legend's `top` carries, so the 13-17px
+   legend-to-tutorial gap survives by construction, and being top-anchored it cannot be pushed
+   into anything by a message that grows. `bottom: auto` is required alongside `top` for the
+   reason the legend's own rule gives.
 
-   Measured at 900x800, 820x1180, 768x1024, 600x900, 430x932, 414x896, 393x852 and 390x844,
-   each at both hud scales, desktop and touch, with the longest real strings in both lanes:
-   clear everywhere, with the tightest case 390x844 on touch at hud-scale 1.25 — 20px above
-   the meta corner, 25px below the speech lane, 64px from the identity corner.
+   19.9rem, not the 25.5rem this started at, and the number is measured rather than chosen. The
+   feasible band for this box's `top` is bounded from below by the bottom corners and the speech
+   lane, and from above by the problem lane the legend has to clear. Measured at 360x740,
+   375x812, 390x844, 414x896, 430x932, 600x900, 768x1024, 820x1180 and 899x1000, each at both
+   hud scales, desktop and touch, with the deepest real strings in both lanes, the intersection
+   of those bands across every width is 313.8px to 323.5px — 9.7px wide. 19.9rem sits in the
+   middle of it: 5.1px above the meta corner at its tightest (360x740 on touch at hud-scale
+   1.25, where that corner's box starts 380.7px down a 740px screen), and 4.6px below the
+   legend's own floor. Before this, the same worst case overlapped the meta corner by 67.9x57.2
+   and the identity corner by 156.1x39.8.
 
-   Below 390x844 it is NOT clear, and the honest note is that the HUD there is oversubscribed
-   before this box is added: at 375x812 on touch the bottom edge crosses the meta corner's box
-   by 8-12px, and at 360x740 and 320x568 no 57px-tall band exists between the legend (or the
-   problem lane) and the bottom corners at all. Numbers per viewport are in task-13-report.md. */
+   Two honest notes. At 320x568 nothing fits: the meta corner starts 164px down and the problem
+   lane alone reaches 271px, so no 57px band exists and this box lands on a corner however it is
+   anchored. And a sprite-loader error at its full 100-character cap (realm-shell.tsx) is deep
+   enough at hud-scale 1.25 to push the problem lane to 357px, which the legend above overlaps
+   at 360x740 and 375x812 — a failure state in which the world has not loaded at all. Both are
+   recorded in fix-wave-report.md rather than papered over. */
 @media (max-width: 900px) {
-  .realm-tutorial { top: 25.5rem; bottom: auto; }
+  .realm-tutorial { top: 19.9rem; bottom: auto; }
 }
