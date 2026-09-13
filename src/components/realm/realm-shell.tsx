@@ -500,7 +500,19 @@ function RealmOpen({
     switch (e.kind) {
       case "mana": setMana(e.current); break;
       case "cleared": setNotice(TROUBLE_COPY[e.troubleKind][troubleSkin]); break;
-      case "refused": refusals.current += 1; setRefusedAt(refusals.current); setNotice(e.reason === "range" ? NOTHING_IN_RANGE : NOT_ENOUGH_MANA); break;
+      case "refused":
+        refusals.current += 1;
+        setRefusedAt(refusals.current);
+        // A refusal RETIRES the once-per-visit cast hint. A toast outranks a notice in the
+        // speech lane, so without this the very first refusal of a visit flashes the pips red
+        // while the lane still reads "Tap or click where the spell should go." — the one
+        // refusal that most needs its own words showing someone else's. The hint has done its
+        // job by then: the child has demonstrably found the cast key. Only the hint is retired
+        // (a functional updater, so `onSpellEvent` keeps the stable identity the memoised
+        // World requires) — a rise toast, "Recess!" or the crowning line still hold the lane.
+        setToast((t) => (t === CAST_HINT || t === CAST_HINT_TOUCH ? null : t));
+        setNotice(e.reason === "range" ? NOTHING_IN_RANGE : NOT_ENOUGH_MANA);
+        break;
       case "focusLost": setNotice(LOST_FOCUS); break;
       case "castState": break;
     }

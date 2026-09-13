@@ -416,13 +416,44 @@ describe("RealmShell", () => {
     await act(async () => {
       (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "refused", reason: "mana" });
     });
-    // Same lane, same holder — and this is the priority rule stated outright. The refusal's
-    // own copy is proved on its own by the new `shows a problem and a speech message at the
-    // same time, one in each lane` case in edit (f) below, which raises no toast.
-    expect(screen.queryByText("Not enough mana yet.")).not.toBeInTheDocument();
-    expect(screen.getByTestId("realm-speech")).toHaveTextContent(
-      "Tap or click where the spell should go."
-    );
+    // A REFUSAL is the one thing that retires the hint, rather than losing the lane to it:
+    // a red flash with someone else's sentence under it teaches a child nothing. The
+    // priority rule itself is unchanged and is still proved above by "The fog thins."
+    expect(screen.queryByText("Tap or click where the spell should go.")).not.toBeInTheDocument();
+    expect(screen.getByTestId("realm-speech")).toHaveTextContent("Not enough mana yet.");
+  });
+
+  it("retires the cast hint when the very first cast of a visit refuses, so the red flash has its own words", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    render(<RealmShell bundle={{ ...bundle, spellbook: { spells: pages, slots: 4 } }} childId="c1" isChildView={true} />);
+    await screen.findByTestId("scene");
+    // The first press of a page is what raises the once-per-visit hint — and, after task 8,
+    // the same press is the cast. This is the first refusal a child can ever see.
+    await act(async () => {
+      fireEvent.keyDown(window, { key: "1" });
+    });
+    expect(screen.getByText("Tap or click where the spell should go.")).toBeInTheDocument();
+    await act(async () => {
+      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "refused", reason: "range" });
+    });
+    expect(document.querySelector(".realm-mana-pips")).toHaveClass("realm-mana-pips--refused");
+    expect(screen.getByTestId("realm-speech")).toHaveTextContent("Nothing close enough yet. Move closer.");
+    expect(screen.queryByText("Tap or click where the spell should go.")).not.toBeInTheDocument();
+  });
+
+  it("leaves a toast that is not the cast hint holding the lane when a cast refuses", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    render(<RealmShell bundle={{ ...bundle, spellbook: { spells: pages, slots: 4 } }} childId="c1" isChildView={true} />);
+    await screen.findByTestId("scene");
+    await act(async () => {
+      (sceneProps.onRecessEvent as (e: unknown) => void)({ kind: "recessStart" });
+    });
+    expect(screen.getByTestId("realm-speech")).toHaveTextContent("Recess!");
+    await act(async () => {
+      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "refused", reason: "range" });
+    });
+    // Only the hint is retired; §3.6's priority still stands for every other toast.
+    expect(screen.getByTestId("realm-speech")).toHaveTextContent("Recess!");
   });
 
   it("casts at the nearest trouble on a number key, and casts again on a second press", async () => {
