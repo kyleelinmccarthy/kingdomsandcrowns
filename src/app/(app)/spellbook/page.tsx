@@ -59,7 +59,7 @@ export default async function SpellbookPage({ searchParams }: { searchParams: Pr
         </div>
         {!isChildView && allChildren.length > 1 && <ChildSelector kids={allChildren} selectedId={activeChild.id} />}
       </div>
-      <SpellbookBuilder childId={activeChild.id} heroName={activeChild.displayName} book={book} canEdit={true} />
+      <SpellbookBuilder key={activeChild.id} childId={activeChild.id} heroName={activeChild.displayName} book={book} canEdit={true} />
     </div>
   );
 }

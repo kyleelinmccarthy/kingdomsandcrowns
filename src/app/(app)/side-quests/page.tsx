@@ -62,7 +62,7 @@ export default async function SideQuestsPage({ searchParams }: { searchParams: P
       </div>
       <SideQuestMagic spellbookHref={isChildView ? "/spellbook" : `/spellbook?child=${activeChild.id}`} />
       {overview.enabled ? (
-        <DeedPicker childId={activeChild.id} overview={overview} profile={profile} calm={calm} />
+        <DeedPicker key={activeChild.id} childId={activeChild.id} overview={overview} profile={profile} calm={calm} />
       ) : (
         <GameFrame>
           <p className="py-4 text-center text-muted-foreground">The Realm is closed for this hero. A grown-up can open it in the Chronicle.</p>

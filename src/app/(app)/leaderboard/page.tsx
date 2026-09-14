@@ -49,7 +49,7 @@ export default async function LeaderboardPage({
         </p>
       </div>
 
-      <LeaderboardTabs
+      <LeaderboardTabs key={activeChild.id}
         familyData={familyData}
         initialAllData={allData}
         communityData={[]}

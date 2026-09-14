@@ -158,7 +158,7 @@ export default async function TavernPage({
       </div>
 
       {seasons.pending && (
-        <CrownCard childId={activeChild.id} childName={activeChild.displayName} season={seasons.pending} isChildView={isChildView} />
+        <CrownCard key={activeChild.id} childId={activeChild.id} childName={activeChild.displayName} season={seasons.pending} isChildView={isChildView} />
       )}
 
       {/* ═══ ROW 1: Assigned Quests | Character | Quest Form ═══ */}
@@ -209,7 +209,7 @@ export default async function TavernPage({
         {/* CENTER: Character Showcase (avatar, name, level, XP, streaks) */}
         <div className="hud-panel-center">
           {isChildView ? (
-            <TavernAvatarCard
+            <TavernAvatarCard key={activeChild.id}
               childId={activeChild.id}
               childName={activeChild.displayName}
               avatarConfig={activeChild.avatarConfig}
@@ -278,7 +278,7 @@ export default async function TavernPage({
 
         {/* RIGHT: Start a Quest (quest form) */}
         <div className="hud-panel-right">
-          <QuestForm
+          <QuestForm key={activeChild.id}
             childId={activeChild.id}
             subjects={subjects}
             quests={quests}

@@ -88,7 +88,7 @@ export default async function SchedulePage({
           hero sees the same calendar read-only, and only once it has something
           on it — it's how they know a quiet day isn't costing them a streak. */}
       {(!isChildView || breaks.length > 0) && (
-        <SchoolCalendar
+        <SchoolCalendar key={activeChild.id}
           familyId={activeChild.familyId}
           breaks={breaks}
           today={formatDate(new Date())}
@@ -112,7 +112,7 @@ export default async function SchedulePage({
           </div>
         </GameFrame>
       ) : (
-        <StudentScheduleEditor
+        <StudentScheduleEditor key={activeChild.id}
           childId={activeChild.id}
           subjects={subjects}
           schoolDays={schoolDays}
@@ -122,7 +122,7 @@ export default async function SchedulePage({
         />
       )}
 
-      {!isChildView && <RecessBlocksPanel childId={activeChild.id} blocks={recessBlocks} />}
+      {!isChildView && <RecessBlocksPanel key={activeChild.id} childId={activeChild.id} blocks={recessBlocks} />}
     </div>
   );
 }

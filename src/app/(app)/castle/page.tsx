@@ -136,7 +136,7 @@ export default async function CastlePage({
       </GameFrame>
 
       {/* Castle Actions (client component) */}
-      <CastleActions
+      <CastleActions key={activeChild.id}
         childId={activeChild.id}
         castle={castle}
         level={level}

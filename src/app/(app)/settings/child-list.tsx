@@ -192,7 +192,14 @@ export function ChildList({
       </div>
 
       {expandedChild && (
-        <ChildDetail child={expandedChild} isChildView={isChildView} />
+        // Keyed by the hero so switching heroes REMOUNTS the detail rather than reusing it.
+        // Every panel inside seeds useState from its props once (the name and grade editor,
+        // the Realm settings' minutes and cap, and more), so a reused instance kept the
+        // previous hero's values on screen — and the editor then counted that stale name or
+        // grade as an edit, offered Save, and wrote it onto the newly selected hero. That is
+        // how a sibling's name was overwritten, and a stale grade would have promoted a hero
+        // and awarded a crown they never earned. The summary cards above are keyed the same way.
+        <ChildDetail key={expandedChild.id} child={expandedChild} isChildView={isChildView} />
       )}
 
       {!isChildView && banished.length > 0 && <BanishedHeroes heroes={banished} />}

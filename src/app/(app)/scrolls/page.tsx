@@ -104,7 +104,7 @@ export default async function ManageQuestsPage({
         </div>
       </div>
 
-      <QuestTemplateList
+      <QuestTemplateList key={activeChild.id}
         childId={activeChild.id}
         quests={quests}
         subjects={subjects}
