@@ -5,6 +5,7 @@ import { getActor } from "@/lib/auth/actor";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { profileFromRow, readingAttributes } from "@/lib/utils/learning-profile";
+import { loadLearningProfileRow } from "@/lib/services/learning-profile";
 import { GameBanner, GameNavBar } from "@/components/game-nav";
 import { DemoPersonaSwitcher } from "@/components/demo-persona-switcher";
 import { SwitchHero } from "@/components/switch-hero";
@@ -37,12 +38,8 @@ export default async function AppLayout({
       .limit(1);
     userName = rows[0]?.displayName ?? "Hero";
 
-    const profileRows = await db
-      .select()
-      .from(schema.learningProfile)
-      .where(eq(schema.learningProfile.childId, actor.childId))
-      .limit(1);
-    readingAttrs = readingAttributes(profileFromRow(profileRows[0] ?? null));
+    // Memoized per request, so the Realm bundle and the side quests below reuse this read.
+    readingAttrs = readingAttributes(profileFromRow(await loadLearningProfileRow(actor.childId)));
   } else {
     const session = await getSession();
     userName = session?.user.name ?? "Adventurer";

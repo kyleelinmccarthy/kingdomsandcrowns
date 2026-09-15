@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { buildKingdomOverview, ownGradeOf } from "./deeds";
+import { buildKingdomOverview, gradesFor, ownGradeOf } from "./deeds";
 import { BUILDINGS } from "@/lib/utils/kingdom";
 import { bandForHero, type ContentBand } from "@/lib/utils/content-bands";
-import { bandForGrade } from "@/lib/utils/grade-levels";
+import { bandForGrade, NO_OFFSETS } from "@/lib/utils/grade-levels";
 import type { AgeMode } from "@/lib/utils/age-mode";
 
 describe("buildKingdomOverview", () => {
@@ -28,17 +28,39 @@ describe("ownGradeOf", () => {
     expect(ownGradeOf("12", null, "elementary", today)).toBe("12");
   });
 
-  it("falls back to the birth year when there is no grade", () => {
-    expect(ownGradeOf(null, 2017, "elementary", today)).toBe("4"); // 2026 - 2017 - 5
-    expect(ownGradeOf(null, 2021, "elementary", today)).toBe("K");
-    expect(ownGradeOf(null, 2008, "high", today)).toBe("12"); // clamped at the top
+  it("refines the age mode with the birth year, inside the band the hero is already in", () => {
+    expect(ownGradeOf(null, 2019, "elementary", today)).toBe("2"); // 2026 - 2019 - 5, still g23
+    expect(ownGradeOf(null, 2013, "middle", today)).toBe("8"); // still g68
+    expect(ownGradeOf(null, 2008, "high", today)).toBe("12"); // clamped at the top, still g912
+  });
+
+  it("never lets the age estimate move a hero out of the band their age mode put them in", () => {
+    // `ageMode` is set at sign-up and never recomputed, so the estimate drifts past it
+    // as a child ages. A deploy must not promote anyone: only a grown-up setting a
+    // real grade does that. These are the ages the reviewer measured as regressions.
+    expect(ownGradeOf(null, 2017, "elementary", today)).toBe("3"); // age 9 would estimate g45
+    expect(ownGradeOf(null, 2016, "elementary", today)).toBe("3"); // age 10 would estimate g45
+    expect(ownGradeOf(null, 2012, "middle", today)).toBe("6"); // age 14 would estimate g912
+    expect(ownGradeOf(null, 2021, "elementary", today)).toBe("3"); // age 5 would estimate k1
   });
 
   it("does not trust a stored grade that is not on the ladder", () => {
     // `child.grade` is a plain nullable text column, so anything can be in it.
-    expect(ownGradeOf("13", 2017, "elementary", today)).toBe("4");
-    expect(ownGradeOf("", 2017, "elementary", today)).toBe("4");
+    expect(ownGradeOf("13", 2019, "elementary", today)).toBe("2");
+    expect(ownGradeOf("", 2019, "elementary", today)).toBe("2");
     expect(ownGradeOf("kindergarten", null, "middle", today)).toBe("6");
+  });
+
+  it("keeps EVERY gradeless hero in the band they were already in, at any age", () => {
+    // The whole invariant, not a sample: for every age mode and every plausible birth
+    // year (including none), the band must be the one `bandForHero` gave before.
+    const modes: AgeMode[] = ["elementary", "middle", "high"];
+    for (const mode of modes) {
+      for (const birthYear of [null, ...Array.from({ length: 22 }, (_, i) => 2004 + i)]) {
+        const now: ContentBand = bandForGrade(ownGradeOf(null, birthYear, mode, today));
+        expect(`${mode}/${birthYear}:${now}`).toBe(`${mode}/${birthYear}:${bandForHero(null, mode)}`);
+      }
+    }
   });
 
   it("keeps a hero with neither grade nor birth year in the band they were already in", () => {
@@ -52,5 +74,31 @@ describe("ownGradeOf", () => {
     expect(ownGradeOf(null, null, "elementary", today)).toBe("3");
     expect(ownGradeOf(null, null, "middle", today)).toBe("6");
     expect(ownGradeOf(null, null, "high", today)).toBe("9");
+  });
+});
+
+describe("gradesFor", () => {
+  it("moves each strand by its OWN gap, never another strand's", () => {
+    // Four distinct offsets, so a cross-wired strand cannot pass by coincidence.
+    expect(gradesFor("3", { math: 1, reading: -1, language: 0, science: 2 })).toEqual({
+      math: "4", reading: "2", language: "3", science: "5",
+    });
+  });
+
+  it("leaves every strand at the hero's own grade when no grown-up has set a gap", () => {
+    expect(gradesFor("6", NO_OFFSETS)).toEqual({ math: "6", reading: "6", language: "6", science: "6" });
+  });
+
+  it("is what reaches multiplication: +1 math at grade 3 asks the grades 4-5 band", () => {
+    const grades = gradesFor("3", { ...NO_OFFSETS, math: 1 });
+    expect(grades.math).toBe("4");
+    expect(bandForGrade(grades.math)).toBe("g45");
+    // and the strands the grown-up did not touch stay exactly where they were
+    expect(bandForGrade(grades.reading)).toBe(bandForGrade("3"));
+  });
+
+  it("clamps the derived grade at both ends of the ladder", () => {
+    expect(gradesFor("K", { ...NO_OFFSETS, math: -3 }).math).toBe("K");
+    expect(gradesFor("12", { ...NO_OFFSETS, science: 4 }).science).toBe("12");
   });
 });

@@ -3,11 +3,12 @@ import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { loadRealmSettings } from "@/lib/services/realm-play";
 import { loadLearningProfileRow } from "@/lib/services/learning-profile";
-import { effectiveGrade, estimateGrade, GRADES, type Grade } from "@/lib/utils/grade-levels";
+import { bandForGrade, effectiveGrade, estimateGrade, GRADES, type Grade, type SubjectOffsets } from "@/lib/utils/grade-levels";
 import { profileFromRow } from "@/lib/utils/learning-profile";
 import type { AgeMode } from "@/lib/utils/age-mode";
 import { BUILDINGS, buildingProgress } from "@/lib/utils/kingdom";
 import { deedsForBuilding, deedStory } from "@/lib/utils/deeds";
+import type { ContentBand } from "@/lib/utils/content-bands";
 import type { SkillArea } from "@/lib/utils/skills";
 import type { GameIconName } from "@/components/game-icon";
 
@@ -18,10 +19,18 @@ export type BuildingOverview = {
 };
 
 export type HeroLevels = {
-  /** The hero's own grade, before any subject gap. */
-  ownGrade: Grade;
-  /** The grade each strand is actually taught at: the hero's grade plus that strand's gap. */
+  /**
+   * The grade each strand is actually taught at: the hero's own grade moved by that
+   * strand's gap. This is the only thing the engine may ask on.
+   */
   grades: Record<SkillArea, Grade>;
+  /**
+   * The hero's own coarse band, for the one page header that needs a single label.
+   * Deliberately a `ContentBand` and not a `Grade`: it is not an axis the engine can
+   * be asked on, so a call site cannot reach for it instead of `grades[area]` and
+   * silently serve every strand the hero's own year.
+   */
+  band: ContentBand;
   enabled: boolean;
   tone: "gentle" | "monsters";
 };
@@ -47,32 +56,55 @@ export function ownGradeOf(
   today: Date = new Date(),
 ): Grade {
   if (grade !== null && (GRADES as readonly string[]).includes(grade)) return grade as Grade;
-  return estimateGrade(birthYear, today) ?? AGE_MODE_GRADE[ageMode];
+  const modeGrade = AGE_MODE_GRADE[ageMode];
+  // `ageMode` is stored once at sign-up and never recomputed as a child ages, so an
+  // age estimate can disagree with it. The estimate is used only where it refines the
+  // band the hero is already in; outside it, the mode wins. Otherwise a deploy alone
+  // could hand a nine-year-old grades 4-5 work, and this app's rule is that only a
+  // grown-up setting a real grade moves a child up.
+  const estimated = estimateGrade(birthYear, today);
+  if (estimated !== null && bandForGrade(estimated) === bandForGrade(modeGrade)) return estimated;
+  return modeGrade;
+}
+
+/**
+ * Each strand's taught grade: the hero's own grade moved by THAT strand's own gap.
+ * Written out one strand per line rather than looped, so a cross-wired strand is a
+ * visible edit; pure and exported so the mapping is pinned by tests, because it is
+ * the step where a grown-up's setting either reaches the engine or quietly does not.
+ */
+export function gradesFor(ownGrade: Grade, offsets: SubjectOffsets): Record<SkillArea, Grade> {
+  return {
+    math: effectiveGrade(ownGrade, offsets.math),
+    reading: effectiveGrade(ownGrade, offsets.reading),
+    language: effectiveGrade(ownGrade, offsets.language),
+    science: effectiveGrade(ownGrade, offsets.science),
+  };
 }
 
 /** The hero's grade per strand, Realm switch, and story tone; shared by the Deeds page and the Realm. */
 export async function loadHeroLevels(childId: string): Promise<HeroLevels> {
-  const rows = await db
-    .select({ grade: schema.child.grade, birthYear: schema.child.birthYear, ageMode: schema.child.ageMode })
-    .from(schema.child)
-    .where(eq(schema.child.id, childId))
-    .limit(1);
-  if (!rows[0]) throw new Error("Hero not found.");
-  const [settings, profileRow] = await Promise.all([
+  // Nothing here depends on anything else here, so it is one parallel round.
+  const [rows, settings, profileRow] = await Promise.all([
+    db
+      .select({ grade: schema.child.grade, birthYear: schema.child.birthYear, ageMode: schema.child.ageMode })
+      .from(schema.child)
+      .where(eq(schema.child.id, childId))
+      .limit(1),
     loadRealmSettings(childId),
     loadLearningProfileRow(childId),
   ]);
+  if (!rows[0]) throw new Error("Hero not found.");
   // Read through the profile util, never off the raw row: it is what turns a corrupt
   // or fractional stored offset into 0 rather than letting it reach the engine.
   const { subjectOffsets } = profileFromRow(profileRow);
   const ownGrade = ownGradeOf(rows[0].grade, rows[0].birthYear, rows[0].ageMode);
-  const grades = {
-    math: effectiveGrade(ownGrade, subjectOffsets.math),
-    reading: effectiveGrade(ownGrade, subjectOffsets.reading),
-    language: effectiveGrade(ownGrade, subjectOffsets.language),
-    science: effectiveGrade(ownGrade, subjectOffsets.science),
+  return {
+    grades: gradesFor(ownGrade, subjectOffsets),
+    band: bandForGrade(ownGrade),
+    enabled: settings.enabled,
+    tone: settings.toneMode,
   };
-  return { ownGrade, grades, enabled: settings.enabled, tone: settings.toneMode };
 }
 
 /** Every building with its progress and deeds, from raw progress rows. Pure, so the shape is testable without a database. */

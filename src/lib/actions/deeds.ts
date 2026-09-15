@@ -84,11 +84,10 @@ async function loadRecentMisses(childId: string): Promise<Question[]> {
 export async function getDeedsOverview(childId: string): Promise<DeedsOverview> {
   await requireChildAccess(childId);
   const [kingdom, mastery] = await Promise.all([loadKingdomOverview(childId), loadMasteryRows(childId)]);
-  const heroBand = bandForGrade(kingdom.ownGrade);
   return {
     // The page's one coarse label still describes the hero themselves, not any one
     // strand's gap; the per-strand grades reach the engine, not this header.
-    enabled: kingdom.enabled, band: heroBand, bandLabel: BAND_LABELS[heroBand], tone: kingdom.tone,
+    enabled: kingdom.enabled, band: kingdom.band, bandLabel: BAND_LABELS[kingdom.band], tone: kingdom.tone,
     buildings: kingdom.buildings, mastery: mastery.map(masteryRow).filter((m): m is MasteryRow => m !== null),
   };
 }
