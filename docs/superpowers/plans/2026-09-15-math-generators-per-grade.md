@@ -189,9 +189,16 @@ finds:
 | 6, 7, 8 | fractions-compare, integer-ops | fractions-compare | **integer-ops** |
 | 9–12 | percent-of, one-step-eq | percent-of | **one-step-eq** |
 
+It is not only math. Language Arts at grades 4 and 5 offers `spell-g45` and `vocab-g45`, both pools,
+and `find` takes spelling — so **`vocab-g45` is never served either**. Reading and Science happen to
+have one skill per band today, so they are unaffected by luck rather than by design.
+
 So today a grade-3 child does addition within 20 and nothing else, for as long as they play — no
 subtraction, ever. A grade-5 child never sees division or place value. This is a large part of why
 the math does not feel right, and it is independent of the band problem.
+
+Measured, not inferred: the table above comes from running `chooseSkills` over every grade and
+comparing what it returns against what `skillsFor` offers.
 
 The cause is in `chooseSkills` (`src/lib/utils/deed-engine.ts`):
 
