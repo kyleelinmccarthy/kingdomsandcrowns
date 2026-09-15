@@ -30,8 +30,11 @@ const GROUPS: { title: string | null; items: { area: Area; label: string }[] }[]
   { title: null, items: [{ area: "science", label: "Science" }] },
 ];
 
-/** A strand not at grade level starts one grade below, the common case; a parent can
-    always move it from there with the picker that appears. */
+/** A strand not at grade level starts one grade below, never above: this app's standing
+    rule is that a child is never handed harder work than their grade, so "one behind" is
+    the safe direction if a parent flips the toggle and is pulled away before picking a
+    grade. They land on "Grade N-1 · 1 behind" — always safe — and can move it either way
+    from there. Do not change this to 0 or +1 without keeping that guarantee some other way. */
 const DEFAULT_OFFSET_ON = -1;
 
 export function SubjectLevelsPanel({
@@ -46,11 +49,14 @@ export function SubjectLevelsPanel({
   offsets: SubjectOffsets;
 }) {
   const router = useRouter();
-  const [busy, setBusy] = useState(false);
+  // Which single strand has a save in flight, not whether anything does — so one strand
+  // saving never disables or reveals the picker on the other three (a parent turning Math
+  // on should never see Reading, Language Arts, or Science flash open).
+  const [savingArea, setSavingArea] = useState<Area | null>(null);
   const [error, setError] = useState("");
 
-  async function run(fn: () => Promise<void>) {
-    setBusy(true);
+  async function run(area: Area, fn: () => Promise<void>) {
+    setSavingArea(area);
     setError("");
     try {
       await fn();
@@ -58,11 +64,11 @@ export function SubjectLevelsPanel({
     } catch (err) {
       setError(err instanceof Error ? err.message : "The enchantment failed.");
     } finally {
-      setBusy(false);
+      setSavingArea(null);
     }
   }
 
-  const save = (area: Area, offset: number) => run(() => setSubjectOffset(childId, area, offset));
+  const save = (area: Area, offset: number) => run(area, () => setSubjectOffset(childId, area, offset));
 
   return (
     <div className="space-y-3">
@@ -85,6 +91,7 @@ export function SubjectLevelsPanel({
             {group.items.map(({ area, label }) => {
               const offset = offsets[area];
               const notAtGrade = offset !== 0;
+              const savingThis = savingArea === area;
               return (
                 <div
                   key={area}
@@ -102,21 +109,22 @@ export function SubjectLevelsPanel({
                     <Switch
                       aria-label={`${label} is not at grade level`}
                       checked={notAtGrade}
-                      disabled={busy}
+                      disabled={savingThis}
                       onCheckedChange={() => save(area, notAtGrade ? 0 : DEFAULT_OFFSET_ON)}
                     />
                   </div>
-                  {/* Also shown while a toggle-on save for ANY strand is in flight: the offset
+                  {/* Also shown while THIS strand's toggle-on save is in flight: the offset
                       isn't persisted yet, so there is nothing in props to derive "on" from
-                      until router.refresh() lands the real value. */}
-                  {(notAtGrade || busy) && (
+                      until router.refresh() lands the real value. Gated on savingThis, not on
+                      "any save in flight", so the other three strands never flash open. */}
+                  {(notAtGrade || savingThis) && (
                     <label className="flex items-center gap-2 text-sm">
                       <span className="text-xs text-muted-foreground">{label} level</span>
                       <Select
                         aria-label={`${label} level`}
                         className="w-24"
                         value={effectiveGrade(childGrade, offset)}
-                        disabled={busy}
+                        disabled={savingThis}
                         onChange={(e) =>
                           save(area, gradeIndex(e.target.value as Grade) - gradeIndex(childGrade))
                         }

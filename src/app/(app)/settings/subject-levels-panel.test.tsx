@@ -53,6 +53,15 @@ describe("SubjectLevelsPanel", () => {
     expect(screen.getAllByText("Grade 6 · at grade level")).toHaveLength(4);
   });
 
+  it("keeps the other strands' pickers hidden while one strand's save is in flight", () => {
+    render(<SubjectLevelsPanel {...props} />);
+    fireEvent.click(screen.getByRole("switch", { name: /math is not at grade level/i }));
+    expect(screen.getByLabelText("Math level")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Reading level")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Language Arts level")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Science level")).not.toBeInTheDocument();
+  });
+
   it("says a grade is estimated when the hero has only a birth year", () => {
     render(<SubjectLevelsPanel {...props} estimated={true} />);
     expect(screen.getByText(/estimated grade 3 from age/i)).toBeInTheDocument();
