@@ -1182,7 +1182,124 @@ git commit -m "feat(skills): give every grade its own math" -m "Co-Authored-By: 
 
 ---
 
-## Task 14: The `/dev/content` review page
+## Task 14: Stop a child being served the same skill every day
+
+Task 2 made every skill reachable by serving the **least-mastered** one. That fixed dead content, but
+a review simulation showed the rule has a sharp edge once a child actually uses it.
+
+`recordResult` in `src/lib/utils/mastery.ts` lets a level go **down** (three wrong in six), and levels
+cap at `MASTERY_MAX = 4`. So a skill a child finds hard is not merely stuck — it is pushed toward 0
+while everything else climbs to 4, making it *strictly and permanently* the minimum. Simulated over 40
+runs at grade 3, with a child who succeeds at everything except subtraction:
+
+| Skill | Times served in 40 runs |
+|---|---|
+| `sub-20` | **38** |
+| `add-20` | 1 |
+| `add-100` | 1 |
+
+The last twenty consecutive runs were all `sub-20`. A child who finds subtraction hard gets subtraction,
+every single day, until they stop wanting to play. And a skill they have mastered is never seen again
+until every skill is tied at 4, so nothing is ever revisited.
+
+This is the wrong long-run rule, and it is invisible to the current tests: the reachability test pins
+the **flat-mastery** case, which is exactly the case where the policy looks fine.
+
+**Why this task is here and not inside Task 2.** It changes the rng draw order again, which re-pins
+question expectations; doing it once, after all the generators have landed, means re-pinning once
+rather than twice. Task 2's contract was reachability, and it delivers that.
+
+**Files:**
+- Modify: `src/lib/utils/deed-engine.ts`
+- Test: `src/lib/utils/deed-engine.test.ts`
+
+**Interfaces:**
+- Consumes: `selectSkills(candidates, masteryBySkill, rng)` from Task 2; `MASTERY_MAX` from `mastery.ts`.
+- Produces: the same `selectSkills` signature plus an optional last argument for recency. **Keep the
+  signature backward-compatible** or update every caller in the same commit.
+
+- [ ] **Step 1: Write the failing test — the simulation, not a single run**
+
+A one-run assertion cannot see this bug. The test must play a child forward:
+
+```ts
+it("does not serve the same skill every day to a child who finds one hard", () => {
+  // A child who succeeds at everything except sub-20. Mastery moves the way the real
+  // engine moves it: up on success, down on repeated failure, capped at MASTERY_MAX.
+  const mastery: Record<string, number> = {};
+  const served: string[] = [];
+  for (let day = 1; day <= 40; day++) {
+    const built = buildDeedRun({ ...baseInput, grade: "3", seed: day, masteryBySkill: { ...mastery } });
+    for (const id of built.skillIds) {
+      served.push(id);
+      mastery[id] = id === "sub-20" ? Math.max(0, (mastery[id] ?? 0) - 1) : Math.min(4, (mastery[id] ?? 0) + 1);
+    }
+  }
+  const counts = new Map<string, number>();
+  for (const id of served) counts.set(id, (counts.get(id) ?? 0) + 1);
+
+  // No skill takes more than two thirds of the days...
+  for (const [id, n] of counts) expect(n, `${id} served ${n}/40 days`).toBeLessThanOrEqual(27);
+  // ...and nothing is served ten days running.
+  const longestRun = served.reduce((best, id, i) => {
+    let run = 1;
+    while (i - run >= 0 && served[i - run] === id) run++;
+    return Math.max(best, run);
+  }, 1);
+  expect(longestRun, `longest unbroken run of one skill: ${longestRun}`).toBeLessThan(10);
+});
+```
+
+- [ ] **Step 2: Run it and confirm it fails as the table above predicts**
+
+Run: `npx vitest run src/lib/utils/deed-engine.test.ts`
+Expected: FAIL, with a run length in the high twenties or thirties. **If it passes, stop and report
+it** — the policy would then already be acceptable and the rest of this task is unnecessary.
+
+- [ ] **Step 3: Make least-mastered a bias rather than a rule**
+
+Two mechanisms are wanted, and the second is why `lastPracticedAt` is already persisted:
+
+1. **A weighted draw.** The lowest-mastery skill should win *most* of the time, not every time. Weight
+   each candidate by `(MASTERY_MAX + 1 - level)` and draw from that distribution with the run's rng, so
+   a level-0 skill is five times likelier than a level-4 one but never certain.
+2. **A recency term.** A skill untouched for several runs gets a turn regardless of mastery.
+   `skill_mastery.lastPracticedAt` is already stored and already loaded — check `loadMasteryRows` in
+   `src/lib/actions/deeds.ts` and thread it through if it is not already in `masteryBySkill`'s shape.
+   **If threading it costs a new database round trip, do not do it** — say so in your report and ship
+   the weighted draw alone, which is enough to pass Step 1's test.
+
+Interleaved practice also beats blocked practice pedagogically, so this is a genuine improvement rather
+than an escape hatch.
+
+**Do not lose what Task 2 bought.** The reachability tests over all four areas must still pass, and the
+"practises the least-mastered skill first" test will need rewriting — a weighted draw means it is no
+longer true on every seed. Rewrite it as a *tendency*: over 50 seeds with one skill at 0 and the rest
+at 4, the level-0 skill is picked substantially more often than any other. **Do not simply delete it.**
+
+- [ ] **Step 4: Re-pin the question expectations the rng change shifts**
+
+Same situation as Task 2 step 4: adding draws changes every subsequent draw, so tests pinning exact
+questions for a seed will fail and that is correct. **Update fixtures, never assertions.** A test
+changed from an exact expectation to a vague one is a defect, not a fix. Say in your report how many
+you re-pinned and confirm none was loosened.
+
+- [ ] **Step 5: Run everything and prove the fix bites**
+
+Run: `npx vitest run`, then `npx tsc --noEmit`, then `npm run build`.
+Then revert the weighting to the plain least-mastered rule and confirm Step 1's test fails again.
+Restore. **Record what failed.**
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add src/lib/utils/deed-engine.ts src/lib/utils/deed-engine.test.ts
+git commit -m "fix(deeds): vary what a child practises instead of drilling their weakest skill daily" -m "Co-Authored-By: Claude Opus 5 (1M context) <noreply@anthropic.com>"
+```
+
+---
+
+## Task 15: The `/dev/content` review page
 
 Spec 6.5.3: a dev-only page where a grown-up picks a grade and a strand and sees every question with
 its answer marked. For generated math it draws a sample, since the questions are infinite.
@@ -1268,7 +1385,7 @@ Checked after writing, against the spec and the map:
 
 - **Spec coverage.** 6.2 (the map): Task 13 makes the code follow it, and the map itself already
   exists. 6.3 (math is generated, answers computed, three plausible distinct distractors, none equal
-  to the answer): Tasks 3–12, with Task 3 as the enforcement. 6.5.3 (`/dev/content`): Task 14. 6.6
+  to the answer): Tasks 3–12, with Task 3 as the enforcement. 6.5.3 (`/dev/content`): Task 15. 6.6
   (mastery preserved): Global Constraints plus Task 13 steps 4 and 6. 6.5.1 and 6.5.2 are explicitly
   deferred above with reasons.
 - **Placeholder scan.** Every generator has its prompt shape, its level-indexed parameter table, its
