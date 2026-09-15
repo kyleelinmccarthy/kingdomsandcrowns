@@ -28,6 +28,8 @@ vi.mock("@/lib/actions/student-schedule", () => ({ setScheduleSelfManage: vi.fn(
 vi.mock("@/lib/actions/quest-assignments", () => ({ setSkipQuestsEnabled: vi.fn() }));
 
 import { ChildList } from "./child-list";
+import { DEFAULT_LEARNING_PROFILE } from "@/lib/utils/learning-profile";
+import { DEFAULT_REALM_SETTINGS } from "@/lib/utils/realm-settings";
 
 afterEach(() => {
   cleanup();
@@ -53,6 +55,24 @@ function hero(id: string, displayName: string, grade: string) {
 
 const emma = hero("demo-child-1", "Emma", "6");
 const noah = hero("demo-child-2", "Noah", "3");
+
+/**
+ * A hero with every grown-up-only panel's data populated, so a positive-control render (as a
+ * grown-up) proves each panel actually renders here before the negative control (as the child)
+ * asserts it does not. Without the positive control, an absent heading could just as easily mean
+ * "the panel never had data to show" as "the child-view gate is working."
+ */
+function heroWithPanels(id: string, displayName: string, grade: string) {
+  return {
+    ...hero(id, displayName, grade),
+    learningProfile: DEFAULT_LEARNING_PROFILE,
+    realmSettings: DEFAULT_REALM_SETTINGS,
+    realmPlay: { date: "2024-01-01", balance: 0, spent: 0 },
+    mastery: [
+      { skillId: "add-10", label: "Addition within 10", area: "math" as const, level: 1, levelLabel: "Level 1", lastPracticedAt: null },
+    ],
+  };
+}
 
 /**
  * The summary card for a hero is a clickable div carrying their name. Match the card
@@ -114,5 +134,27 @@ describe("ChildList — switching between heroes", () => {
     openHero("Noah");
     const noahGrade = document.getElementById(`age-${noah.id}-grade`) as HTMLSelectElement;
     expect(noahGrade.value).toBe("3");
+  });
+
+  it("hides every grown-up-only panel from a child, including Subject Levels", () => {
+    const priya = heroWithPanels("demo-child-3", "Priya", "3");
+
+    // Positive control: a grown-up viewing this hero sees all five panels.
+    const grownUp = render(<ChildList family={family} kids={[priya]} />);
+    openHero("Priya");
+    expect(screen.getByText("Subject Levels")).toBeInTheDocument();
+    expect(screen.getByText("Learning Profile")).toBeInTheDocument();
+    expect(screen.getByText("The Realm")).toBeInTheDocument();
+    expect(screen.getByText("Side Quests & Mastery")).toBeInTheDocument();
+    grownUp.unmount();
+
+    // Negative control: the child viewing their own hero sees none of them. A child who reads
+    // below grade level gets reading that fits them and is told nothing about it — this is the
+    // one gate that promise rests on.
+    render(<ChildList family={family} kids={[priya]} isChildView currentChildId={priya.id} />);
+    expect(screen.queryByText("Subject Levels")).not.toBeInTheDocument();
+    expect(screen.queryByText("Learning Profile")).not.toBeInTheDocument();
+    expect(screen.queryByText("The Realm")).not.toBeInTheDocument();
+    expect(screen.queryByText("Side Quests & Mastery")).not.toBeInTheDocument();
   });
 });
