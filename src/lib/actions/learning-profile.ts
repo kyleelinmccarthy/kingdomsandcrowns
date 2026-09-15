@@ -13,6 +13,7 @@ import {
   LEARNING_PRESETS,
   type LearningProfile,
 } from "@/lib/utils/learning-profile";
+import { GRADES } from "@/lib/utils/grade-levels";
 
 /** Insert-if-missing then select, so two first reads can't make two rows. */
 async function loadOrCreate(childId: string) {
@@ -67,4 +68,25 @@ export async function applyLearningPreset(childId: string, presetId: string): Pr
     .where(eq(schema.learningProfile.childId, childId));
   revalidatePath("/settings");
   revalidatePath("/", "layout");
+}
+
+const AREAS = ["math", "reading", "language", "science"] as const;
+
+/** A grown-up moves one strand away from the child's grade. Never the hero themselves. */
+export async function setSubjectOffset(
+  childId: string,
+  area: (typeof AREAS)[number],
+  offset: number
+): Promise<void> {
+  const { access } = await requireChildAccess(childId, { write: true });
+  if (isChildActor(access)) throw new Error("Only a grown-up can set subject levels.");
+  if (!AREAS.includes(area)) throw new Error("That subject doesn't look right.");
+  if (!Number.isInteger(offset) || Math.abs(offset) > GRADES.length) throw new Error("That level doesn't look right.");
+  const column = { math: "mathOffset", reading: "readingOffset", language: "languageOffset", science: "scienceOffset" } as const;
+  await loadOrCreate(childId);
+  await db
+    .update(schema.learningProfile)
+    .set({ [column[area]]: offset, updatedAt: new Date() })
+    .where(eq(schema.learningProfile.childId, childId));
+  revalidatePath("/settings");
 }

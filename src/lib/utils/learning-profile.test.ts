@@ -8,6 +8,19 @@ import {
   validateProfilePatch,
 } from "./learning-profile";
 
+const ROW: Record<keyof typeof DEFAULT_LEARNING_PROFILE, unknown> & {
+  mathOffset: number;
+  readingOffset: number;
+  languageOffset: number;
+  scienceOffset: number;
+} = {
+  ...DEFAULT_LEARNING_PROFILE,
+  mathOffset: 0,
+  readingOffset: 0,
+  languageOffset: 0,
+  scienceOffset: 0,
+};
+
 describe("profileFromRow", () => {
   it("returns defaults for a missing row", () => {
     expect(profileFromRow(null)).toEqual(DEFAULT_LEARNING_PROFILE);
@@ -17,6 +30,18 @@ describe("profileFromRow", () => {
   });
   it("ignores an unknown input mode", () => {
     expect(profileFromRow({ inputMode: "gamepad" }).inputMode).toBe("auto");
+  });
+  it("starts every strand at grade level", () => {
+    expect(DEFAULT_LEARNING_PROFILE.subjectOffsets).toEqual({ math: 0, reading: 0, language: 0, science: 0 });
+  });
+  it("reads the offsets off a row", () => {
+    const row = { ...ROW, mathOffset: 1, readingOffset: -2, languageOffset: 0, scienceOffset: 3 };
+    expect(profileFromRow(row).subjectOffsets).toEqual({ math: 1, reading: -2, language: 0, science: 3 });
+  });
+  it("falls back to grade level for a corrupt or missing offset", () => {
+    const row = { ...ROW, mathOffset: null as unknown as number, readingOffset: 1.5 };
+    expect(profileFromRow(row).subjectOffsets.math).toBe(0);
+    expect(profileFromRow(row).subjectOffsets.reading).toBe(0);
   });
 });
 

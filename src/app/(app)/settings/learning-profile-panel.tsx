@@ -8,7 +8,7 @@ import { Select } from "@/components/ui/select";
 import { applyLearningPreset, updateLearningProfile } from "@/lib/actions/learning-profile";
 import { LEARNING_PRESETS, type LearningProfile, type InputMode } from "@/lib/utils/learning-profile";
 
-type BoolKey = Exclude<keyof LearningProfile, "sessionMinutes" | "inputMode">;
+type BoolKey = Exclude<keyof LearningProfile, "sessionMinutes" | "inputMode" | "subjectOffsets">;
 
 const GROUPS: { title: string; items: { key: BoolKey; label: string; hint: string }[] }[] = [
   {

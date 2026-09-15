@@ -754,6 +754,12 @@ export const learningProfile = sqliteTable(
     predictableRoutine: integer("predictable_routine", { mode: "boolean" }).notNull().default(false),
     soundEnabled: integer("sound_enabled", { mode: "boolean" }).notNull().default(true),
     inputMode: text("input_mode", { enum: ["auto", "touch", "keyboard"] }).notNull().default("auto"),
+    // How far each strand sits from the child's own grade. 0 is at grade level. Stored as a
+    // gap, not a grade, so a promotion carries it up the ladder with no code path of its own.
+    mathOffset: integer("math_offset").notNull().default(0),
+    readingOffset: integer("reading_offset").notNull().default(0),
+    languageOffset: integer("language_offset").notNull().default(0),
+    scienceOffset: integer("science_offset").notNull().default(0),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   }

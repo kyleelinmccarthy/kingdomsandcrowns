@@ -197,6 +197,13 @@
       "when": 1789252344572,
       "tag": "0027_cold_silhouette",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "6",
+      "when": 1789493183220,
+      "tag": "0028_thin_naoko",
+      "breakpoints": true
     }
   ]
 }

@@ -1,3 +1,5 @@
+import { NO_OFFSETS, type SubjectOffsets } from "./grade-levels";
+
 export type InputMode = "auto" | "touch" | "keyboard";
 const INPUT_MODES: InputMode[] = ["auto", "touch", "keyboard"];
 
@@ -18,6 +20,7 @@ export type LearningProfile = {
   predictableRoutine: boolean;
   soundEnabled: boolean;
   inputMode: InputMode;
+  subjectOffsets: SubjectOffsets;
 };
 
 export const DEFAULT_LEARNING_PROFILE: LearningProfile = {
@@ -33,6 +36,7 @@ export const DEFAULT_LEARNING_PROFILE: LearningProfile = {
   predictableRoutine: false,
   soundEnabled: true,
   inputMode: "auto",
+  subjectOffsets: NO_OFFSETS,
 };
 
 export const LEARNING_PROFILE_KEYS = Object.keys(DEFAULT_LEARNING_PROFILE) as (keyof LearningProfile)[];
@@ -79,13 +83,28 @@ function isSessionMinutes(v: unknown): v is number {
   return typeof v === "number" && Number.isInteger(v) && v >= SESSION_MIN && v <= SESSION_MAX;
 }
 
+/** A corrupt or fractional stored value falls back to grade level rather than reaching the engine. */
+function offset(v: unknown): number {
+  return typeof v === "number" && Number.isInteger(v) ? v : 0;
+}
+
+/**
+ * A DB row: most columns line up 1:1 with `LearningProfile`, but the four subject offsets
+ * are stored flat (`mathOffset`, ...) rather than nested under `subjectOffsets`.
+ */
+type LearningProfileRow = Partial<Record<keyof LearningProfile, unknown>> & {
+  mathOffset?: unknown;
+  readingOffset?: unknown;
+  languageOffset?: unknown;
+  scienceOffset?: unknown;
+};
+
 /** Tolerant read from a DB row: missing or malformed columns fall back to defaults. */
-export function profileFromRow(
-  row: Partial<Record<keyof LearningProfile, unknown>> | null | undefined
-): LearningProfile {
+export function profileFromRow(row: LearningProfileRow | null | undefined): LearningProfile {
   if (!row) return { ...DEFAULT_LEARNING_PROFILE };
   const out: LearningProfile = { ...DEFAULT_LEARNING_PROFILE };
   for (const key of LEARNING_PROFILE_KEYS) {
+    if (key === "subjectOffsets") continue;
     const v = row[key];
     if (key === "sessionMinutes") {
       out.sessionMinutes = isSessionMinutes(v) ? v : null;
@@ -95,6 +114,12 @@ export function profileFromRow(
       out[key] = v;
     }
   }
+  out.subjectOffsets = {
+    math: offset(row.mathOffset),
+    reading: offset(row.readingOffset),
+    language: offset(row.languageOffset),
+    science: offset(row.scienceOffset),
+  };
   return out;
 }
 
@@ -114,9 +139,11 @@ export function validateProfilePatch(patch: unknown): Partial<LearningProfile> {
     } else if (key === "inputMode") {
       if (!INPUT_MODES.includes(v as InputMode)) throw new Error("Choose touch, keyboard, or auto.");
       out.inputMode = v as InputMode;
+    } else if (key === "subjectOffsets") {
+      throw new Error("Subject levels are set individually.");
     } else {
       if (typeof v !== "boolean") throw new Error(`${key} must be on or off.`);
-      out[key as Exclude<keyof LearningProfile, "sessionMinutes" | "inputMode">] = v;
+      out[key as Exclude<keyof LearningProfile, "sessionMinutes" | "inputMode" | "subjectOffsets">] = v;
     }
   }
   return out;
