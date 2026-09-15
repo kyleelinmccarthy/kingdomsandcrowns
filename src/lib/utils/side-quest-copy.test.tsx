@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, it, expect, afterEach } from "vitest";
 import { render, cleanup } from "@testing-library/react";
 import { MAIN_NAV } from "@/components/nav-items";
@@ -31,6 +33,23 @@ describe("side quest copy", () => {
     expect(results.container.textContent).toContain("Back to side quests");
     expect(results.container.textContent).not.toMatch(/deed/i);
   });
+  /**
+   * Spec §5.5: nothing child-facing ever says "behind", "ahead", or a level. The Side Quests
+   * header is the one child-facing surface that ever carried one — it ended with the hero's
+   * band label, which renders literally as "Grades 2-3". This reads the page source rather
+   * than rendering it: the page is an async server component behind `requireActor`, and the
+   * thing worth guarding is that the label is not wired into the header at all.
+   */
+  it("never tells a child what level they are on", () => {
+    const page = readFileSync(resolve(process.cwd(), "src/app/(app)/side-quests/page.tsx"), "utf8");
+    // The heading and the sentence under it are all a child reads here.
+    const rendered = page.split("\n").filter((l) => !l.trim().startsWith("//") && !l.trim().startsWith("*"));
+    for (const banned of ["overview.bandLabel", "BAND_LABELS", "gapLabel", "overview.band}"]) {
+      expect(rendered.join("\n")).not.toContain(banned);
+    }
+    expect(page).toContain("Help the folk of the kingdom. Each side quest raises a building and strengthens your magic.</p>");
+  });
+
   it("redirects the old deeds address for good", async () => {
     const rules = await nextConfig.redirects!();
     expect(rules).toContainEqual({ source: "/deeds", destination: "/side-quests", permanent: true });

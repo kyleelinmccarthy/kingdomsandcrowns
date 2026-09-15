@@ -56,7 +56,12 @@ export default async function SideQuestsPage({ searchParams }: { searchParams: P
       <div className="page-banner flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="page-title text-4xl">{isChildView ? `My ${SIDE_QUESTS}` : `${activeChild.displayName}'s ${SIDE_QUESTS}`}</h1>
-          <p className="mt-1 text-muted-foreground">Help the folk of the kingdom. Each side quest raises a building and strengthens your magic. &middot; {overview.bandLabel}</p>
+          {/* No level, band, or grade here. A child reads this header, and nothing child-facing
+              ever tells them what level they are on — a child who reads below grade level simply
+              receives reading that fits them. It is also no longer even true of the work they get:
+              their math may be running a band above the one their own grade sits in. The grown-up
+              has a strictly better answer, per strand, in Settings → Subject Levels. */}
+          <p className="mt-1 text-muted-foreground">Help the folk of the kingdom. Each side quest raises a building and strengthens your magic.</p>
         </div>
         {!isChildView && allChildren.length > 1 && <ChildSelector kids={allChildren} selectedId={activeChild.id} />}
       </div>
