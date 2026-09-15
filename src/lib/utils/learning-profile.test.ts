@@ -6,7 +6,11 @@ import {
   profileFromRow,
   readingAttributes,
   validateProfilePatch,
+  validateSubjectOffset,
+  SUBJECT_AREAS,
+  SUBJECT_OFFSET_COLUMN,
 } from "./learning-profile";
+import { GRADES, effectiveGrade } from "./grade-levels";
 
 const ROW: Record<keyof typeof DEFAULT_LEARNING_PROFILE, unknown> & {
   mathOffset: number;
@@ -95,5 +99,54 @@ describe("readingAttributes", () => {
     expect(
       readingAttributes({ ...DEFAULT_LEARNING_PROFILE, readingFont: true, largerText: true, extraSpacing: true })
     ).toEqual({ "data-reading-font": "on", "data-larger-text": "on", "data-extra-spacing": "on" });
+  });
+});
+
+describe("SUBJECT_OFFSET_COLUMN", () => {
+  it("gives each strand its OWN column, and no two strands the same one", () => {
+    // Injective, and each entry the column for its own area. A cross-wired map is silent
+    // at every other layer: setting Reading would write the Math column, so the strand a
+    // grown-up touched would snap back while a strand they never touched moved a year.
+    const columns = SUBJECT_AREAS.map((area) => SUBJECT_OFFSET_COLUMN[area]);
+    expect(columns).toHaveLength(4);
+    expect(new Set(columns).size).toBe(4);
+    for (const area of SUBJECT_AREAS) {
+      expect(SUBJECT_OFFSET_COLUMN[area]).toBe(`${area}Offset`);
+    }
+  });
+
+  it("covers every strand a gap can be set on", () => {
+    expect(SUBJECT_AREAS).toEqual(["math", "reading", "language", "science"]);
+    expect(Object.keys(SUBJECT_OFFSET_COLUMN).sort()).toEqual([...SUBJECT_AREAS].sort());
+  });
+});
+
+describe("validateSubjectOffset", () => {
+  it("returns the strand's own column and the gap untouched", () => {
+    expect(validateSubjectOffset("reading", -2)).toEqual({ column: "readingOffset", offset: -2 });
+    expect(validateSubjectOffset("math", 3)).toEqual({ column: "mathOffset", offset: 3 });
+    expect(validateSubjectOffset("science", 0)).toEqual({ column: "scienceOffset", offset: 0 });
+  });
+
+  it("refuses an out-of-range gap outright, and NEVER clamps it into one", () => {
+    // Clamping at write time is the bug: it rewrites what the grown-up asked for. Only
+    // `gradeAt` clamps, at read time, so a far-out gap comes back into range on its own
+    // when the child is promoted. A gap clamped to the ladder's end at write time would
+    // strand a child there — the promotion would have nothing left to lift.
+    expect(() => validateSubjectOffset("math", -20)).toThrow(/doesn't look right/i);
+    expect(() => validateSubjectOffset("math", 20)).toThrow(/doesn't look right/i);
+    // The read-time clamp is still what keeps a legal-but-large gap safe on the page.
+    expect(effectiveGrade("1", validateSubjectOffset("math", -GRADES.length).offset)).toBe("K");
+  });
+
+  it("refuses a gap that is not a whole number of grades", () => {
+    expect(() => validateSubjectOffset("math", 1.5)).toThrow(/doesn't look right/i);
+    expect(() => validateSubjectOffset("math", NaN)).toThrow(/doesn't look right/i);
+    expect(() => validateSubjectOffset("math", Infinity)).toThrow(/doesn't look right/i);
+  });
+
+  it("refuses a strand that is not one of the four", () => {
+    expect(() => validateSubjectOffset("history", 1)).toThrow(/subject doesn't look right/i);
+    expect(() => validateSubjectOffset("mathOffset", 1)).toThrow(/subject doesn't look right/i);
   });
 });

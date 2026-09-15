@@ -1,4 +1,4 @@
-import { NO_OFFSETS, type SubjectOffsets } from "./grade-levels";
+import { GRADES, NO_OFFSETS, type SubjectOffsets } from "./grade-levels";
 
 export type InputMode = "auto" | "touch" | "keyboard";
 const INPUT_MODES: InputMode[] = ["auto", "touch", "keyboard"];
@@ -147,6 +147,46 @@ export function validateProfilePatch(patch: unknown): Partial<LearningProfile> {
     }
   }
   return out;
+}
+
+/** The four strands a grade gap can be set on. */
+export type SubjectArea = keyof SubjectOffsets;
+export const SUBJECT_AREAS: SubjectArea[] = ["math", "reading", "language", "science"];
+
+export type SubjectOffsetColumn = "mathOffset" | "readingOffset" | "languageOffset" | "scienceOffset";
+
+/**
+ * The column each strand's gap is stored in. Written out one strand per line, and pinned
+ * by an injectivity test, because a cross-wired entry here is silent: setting Reading
+ * would rewrite Math, and a grown-up would see the strand they touched snap back while a
+ * strand they never touched moved. Lives in this plain util, not beside the server
+ * action, because a `"use server"` module may export only async functions.
+ */
+export const SUBJECT_OFFSET_COLUMN: Record<SubjectArea, SubjectOffsetColumn> = {
+  math: "mathOffset",
+  reading: "readingOffset",
+  language: "languageOffset",
+  science: "scienceOffset",
+};
+
+/**
+ * Strict read of one subject-level write, in the style of `validateProfilePatch`: anything
+ * unexpected is an error, not a default. It deliberately does NOT clamp — an out-of-range
+ * magnitude is refused outright rather than quietly stored as the nearest legal value.
+ * Only `gradeAt` clamps, at read time, so a stored gap that runs off the end of the ladder
+ * comes back into range by itself when the child is promoted. A gap clamped at write time
+ * would strand a child at K: their offset would have been rewritten, and the promotion
+ * that should have lifted them would have nothing left to lift.
+ */
+export function validateSubjectOffset(
+  area: string,
+  offset: number,
+): { column: SubjectOffsetColumn; offset: number } {
+  if (!SUBJECT_AREAS.includes(area as SubjectArea)) throw new Error("That subject doesn't look right.");
+  if (!Number.isInteger(offset) || Math.abs(offset) > GRADES.length) {
+    throw new Error("That level doesn't look right.");
+  }
+  return { column: SUBJECT_OFFSET_COLUMN[area as SubjectArea], offset };
 }
 
 /** Data attributes the app shell sets so CSS can restyle text for this hero. */

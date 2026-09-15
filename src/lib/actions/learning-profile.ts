@@ -10,10 +10,11 @@ import {
   applyPreset,
   profileFromRow,
   validateProfilePatch,
+  validateSubjectOffset,
   LEARNING_PRESETS,
   type LearningProfile,
+  type SubjectArea,
 } from "@/lib/utils/learning-profile";
-import { GRADES } from "@/lib/utils/grade-levels";
 
 /** Insert-if-missing then select, so two first reads can't make two rows. */
 async function loadOrCreate(childId: string) {
@@ -70,23 +71,27 @@ export async function applyLearningPreset(childId: string, presetId: string): Pr
   revalidatePath("/", "layout");
 }
 
-const AREAS = ["math", "reading", "language", "science"] as const;
-
 /** A grown-up moves one strand away from the child's grade. Never the hero themselves. */
 export async function setSubjectOffset(
   childId: string,
-  area: (typeof AREAS)[number],
+  area: SubjectArea,
   offset: number
 ): Promise<void> {
   const { access } = await requireChildAccess(childId, { write: true });
+  // A child must never move their own level: the whole feature rests on a child never
+  // being handed harder work without a grown-up's deliberate action, and a hero who can
+  // set their own gap can promote themselves.
   if (isChildActor(access)) throw new Error("Only a grown-up can set subject levels.");
-  if (!AREAS.includes(area)) throw new Error("That subject doesn't look right.");
-  if (!Number.isInteger(offset) || Math.abs(offset) > GRADES.length) throw new Error("That level doesn't look right.");
-  const column = { math: "mathOffset", reading: "readingOffset", language: "languageOffset", science: "scienceOffset" } as const;
+  // Validated in a plain util, never inline: the map from strand to column and the
+  // never-clamp rule are both silent when wrong, so they are pinned by test there.
+  const { column, offset: gap } = validateSubjectOffset(area, offset);
   await loadOrCreate(childId);
   await db
     .update(schema.learningProfile)
-    .set({ [column[area]]: offset, updatedAt: new Date() })
+    .set({ [column]: gap, updatedAt: new Date() })
     .where(eq(schema.learningProfile.childId, childId));
   revalidatePath("/settings");
+  // The hero's own open session is holding content built at the old grade; without this
+  // it keeps it until something unrelated revalidates. Matches `updateLearningProfile`.
+  revalidatePath("/", "layout");
 }
