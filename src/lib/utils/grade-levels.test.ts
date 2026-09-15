@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import {
   GRADES, gradeIndex, gradeAt, effectiveGrade, estimateGrade,
-  nearestGrades, bandForGrade, gapLabel, NO_OFFSETS,
+  nearestGrades, bandForGrade, gapLabel, offsetForGrade, NO_OFFSETS,
+  type Grade,
 } from "./grade-levels";
 
 describe("the grade ladder", () => {
@@ -124,5 +125,25 @@ describe("gapLabel", () => {
     // This label is parent-only. The test pins the vocabulary so a later edit cannot
     // quietly leak it into a child-facing surface with different words.
     expect(gapLabel("3", 0)).not.toMatch(/struggling|remedial|slow/i);
+  });
+});
+
+describe("offsetForGrade", () => {
+  it("is the exact inverse of effectiveGrade, everywhere on the ladder", () => {
+    // Every anchor against every target: the picker stores what this returns, and the
+    // engine reads it back through `effectiveGrade`. If the two ever disagree, a
+    // grown-up picking "Grade 5" gets a child taught at some other year entirely.
+    for (const anchor of GRADES as readonly Grade[]) {
+      for (const target of GRADES as readonly Grade[]) {
+        expect(effectiveGrade(anchor, offsetForGrade(anchor, target))).toBe(target);
+      }
+    }
+  });
+
+  it("is zero at grade level, and signed the way a gap reads", () => {
+    expect(offsetForGrade("3", "3")).toBe(0);
+    expect(offsetForGrade("3", "5")).toBe(2);
+    expect(offsetForGrade("6", "4")).toBe(-2);
+    expect(offsetForGrade("K", "12")).toBe(GRADES.length - 1);
   });
 });

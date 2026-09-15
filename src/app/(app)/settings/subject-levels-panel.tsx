@@ -9,7 +9,7 @@ import {
   GRADES,
   effectiveGrade,
   gapLabel,
-  gradeIndex,
+  offsetForGrade,
   type Grade,
   type SubjectOffsets,
 } from "@/lib/utils/grade-levels";
@@ -79,7 +79,7 @@ export function SubjectLevelsPanel({
       <h4 className="text-sm font-medium">Subject Levels</h4>
       {estimated && (
         <p className="text-xs text-muted-foreground">
-          Estimated grade {childGrade} from age. Add a grade below to set it exactly.
+          Estimated grade {childGrade} from age — set a grade in Hero Details for accuracy.
         </p>
       )}
       {error && <div className="rounded-md bg-destructive/10 p-2 text-sm text-destructive">{error}</div>}
@@ -138,9 +138,7 @@ export function SubjectLevelsPanel({
                         className="w-24"
                         value={effectiveGrade(childGrade, offset)}
                         disabled={savingThis}
-                        onChange={(e) =>
-                          save(area, gradeIndex(e.target.value as Grade) - gradeIndex(childGrade))
-                        }
+                        onChange={(e) => save(area, offsetForGrade(childGrade, e.target.value as Grade))}
                       >
                         {GRADES.map((g) => (
                           <option key={g} value={g}>

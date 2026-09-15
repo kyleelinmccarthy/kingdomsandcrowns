@@ -26,6 +26,16 @@ export function effectiveGrade(childGrade: Grade, offset: number): Grade {
   return gradeAt(gradeIndex(childGrade) + Math.trunc(offset));
 }
 
+/**
+ * The inverse of `effectiveGrade`: the gap to STORE so a strand is taught at `target`.
+ * Here beside it, and not open-coded at the picker, because the two halves of one rule
+ * drifting apart is exactly how a grown-up's pick lands a grade away from what they saw.
+ * Round-trips for every reachable target: `effectiveGrade(g, offsetForGrade(g, t)) === t`.
+ */
+export function offsetForGrade(childGrade: Grade, target: Grade): number {
+  return gradeIndex(target) - gradeIndex(childGrade);
+}
+
 /** A child with only a birth year: roughly age minus five, on the ladder. Shown as estimated. */
 export function estimateGrade(birthYear: number | null, today: Date): Grade | null {
   if (birthYear === null || !Number.isFinite(birthYear)) return null;
