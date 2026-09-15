@@ -79,19 +79,31 @@ describe("nearestGrades", () => {
 });
 
 describe("bandForGrade", () => {
-  it("maps each grade onto the band that covers it", () => {
-    expect(bandForGrade("K")).toBe("k1");
-    expect(bandForGrade("1")).toBe("k1");
-    expect(bandForGrade("3")).toBe("g23");
-    expect(bandForGrade("4")).toBe("g45");
-    expect(bandForGrade("6")).toBe("g68");
-    expect(bandForGrade("8")).toBe("g68");
-    expect(bandForGrade("9")).toBe("g912");
-    expect(bandForGrade("12")).toBe("g912");
+  // Every grade, pinned to its exact band, so a boundary edit anywhere in bandForGrade
+  // is caught here rather than passing a merely-truthy check.
+  const gradeToBand = [
+    ["K", "k1"],
+    ["1", "k1"],
+    ["2", "g23"],
+    ["3", "g23"],
+    ["4", "g45"],
+    ["5", "g45"],
+    ["6", "g68"],
+    ["7", "g68"],
+    ["8", "g68"],
+    ["9", "g912"],
+    ["10", "g912"],
+    ["11", "g912"],
+    ["12", "g912"],
+  ] as const;
+
+  it.each(gradeToBand)("maps grade %s onto band %s", (grade, band) => {
+    expect(bandForGrade(grade)).toBe(band);
   });
 
   it("covers every grade, so no grade can fall through", () => {
-    for (const g of GRADES) expect(bandForGrade(g)).toBeTruthy();
+    expect(gradeToBand).toHaveLength(GRADES.length);
+    expect(gradeToBand.map(([g]) => g)).toEqual(GRADES);
   });
 });
 
