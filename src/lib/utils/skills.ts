@@ -5,7 +5,13 @@ export type SkillArea = "math" | "reading" | "language" | "science";
 
 export type SkillSource = { kind: "generator"; generatorId: string } | { kind: "pool"; poolId: string };
 
-export type Skill = { id: string; label: string; area: SkillArea; grades: Grade[]; source: SkillSource };
+/**
+ * `grades` is readonly because the rows below share array objects: every `k1` skill points
+ * at the same `k1` array. Mutating one in place would silently move every other skill in
+ * that band with it, and the band-closure test would not notice — the result is still a
+ * whole band, just attached to skills nobody meant to touch. Build a new array instead.
+ */
+export type Skill = { id: string; label: string; area: SkillArea; grades: readonly Grade[]; source: SkillSource };
 
 /** Same mapping the subject defaults use, so deeds and schoolwork pull one way. */
 export const AREA_SCHOOL: Record<SkillArea, SpellSchool> = {

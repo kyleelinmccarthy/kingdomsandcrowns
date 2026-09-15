@@ -31,14 +31,21 @@ describe("SKILLS", () => {
   });
 });
 
-describe("skillsFor is unchanged by the move from bands to grades", () => {
+describe("no skill's grade set is a partial band", () => {
   /**
-   * The oracle is the OLD rule, written out here by hand: a skill served grade g if and
-   * only if its band was the band of g. Keeping this literal means the refactor is checked
-   * against what the code used to do, not against the code as it now is.
+   * NOT an equivalence proof, despite how it reads. Both sides of the comparison below
+   * read `s.grades`, so a skill moved wholesale from one band to another passes here —
+   * the oracle moves with it. What this DOES pin is that no skill's grade set is a
+   * partial band: any edit that splits a band (giving a skill grades 6 and 7 but not 8,
+   * or lending it one grade from the band next door) shows up here immediately.
+   *
+   * Equivalence with the old band behaviour is pinned by the inline snapshot below,
+   * which was captured against the pre-refactor code and committed in `e546924` before
+   * a line of `skills.ts` changed. If that snapshot ever fails, do not reach for `-u`:
+   * this test passing alongside it means nothing about whether content moved.
    */
   it.each(AREAS.flatMap((area) => GRADES.map((g) => [area, g] as [SkillArea, Grade])))(
-    "%s at grade %s returns exactly the old band's skills",
+    "%s at grade %s is served by whole bands, not part of one",
     (area, grade) => {
       const expected = SKILLS.filter(
         (s) => s.area === area && s.grades.some((sg) => bandForGrade(sg) === bandForGrade(grade))
@@ -49,9 +56,14 @@ describe("skillsFor is unchanged by the move from bands to grades", () => {
   );
 
   it("expands each band to exactly the grades bandForGrade assigns it", () => {
+    // Every band, not just the ones BAND_GRADES happens to list: iterating the literal
+    // alone would quietly pass if a band were dropped from it entirely.
+    expect(Object.keys(BAND_GRADES).sort()).toEqual(["g23", "g45", "g68", "g912", "k1"]);
     for (const [band, grades] of Object.entries(BAND_GRADES)) {
       expect(GRADES.filter((g) => bandForGrade(g) === band)).toEqual([...grades]);
     }
+    // And between them the bands cover the whole ladder, so no grade is left unreachable.
+    expect(Object.values(BAND_GRADES).flatMap((g) => [...g]).sort()).toEqual([...GRADES].sort());
   });
 
   /**
