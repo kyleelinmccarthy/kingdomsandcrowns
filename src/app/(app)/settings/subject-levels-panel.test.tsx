@@ -56,6 +56,16 @@ describe("SubjectLevelsPanel", () => {
     expect(setSubjectOffset).toHaveBeenCalledWith("c1", "math", 2);
   });
 
+  it("starts a strand BELOW grade level when the toggle goes on, never above", () => {
+    // The sign is the whole safety rule: "a child is never handed harder work than their
+    // grade without a grown-up's deliberate action." A grown-up who flips this toggle and
+    // is pulled away before picking a grade has chosen nothing yet, so the default must be
+    // the harmless direction. A default of +1 would promote a child on a flipped switch.
+    render(<SubjectLevelsPanel {...props} />);
+    fireEvent.click(screen.getByRole("switch", { name: /math is not at grade level/i }));
+    expect(setSubjectOffset).toHaveBeenCalledWith("c1", "math", -1);
+  });
+
   it("returns a strand to grade level when the toggle goes off", () => {
     render(<SubjectLevelsPanel {...props} offsets={{ ...props.offsets, reading: -1 }} />);
     fireEvent.click(screen.getByRole("switch", { name: /reading is not at grade level/i }));

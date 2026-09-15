@@ -188,6 +188,14 @@ describe("ChildList — the grade Subject Levels is anchored on", () => {
     expect(screen.queryByText(/Grade 5 · at grade level/)).not.toBeInTheDocument();
   });
 
+  it("tells a grown-up when the anchor is a guess from age, not a grade they set", () => {
+    // Without this warning a grown-up reads "Grade 3" as something the app was told,
+    // and has no idea a real grade in Hero Details would change every strand under it.
+    render(<ChildList family={family} kids={[gradelessHero("demo-child-6", "Cleo", 2016, "elementary")]} />);
+    openHero("Cleo");
+    expect(screen.getByText(/estimated grade 3 from age/i)).toBeInTheDocument();
+  });
+
   it("still renders the controls for a hero with neither a grade nor a birth year", () => {
     // The engine happily serves this hero at their age mode's grade, so a grown-up must
     // be able to move a strand for them too. Refusing to show the controls left the one
