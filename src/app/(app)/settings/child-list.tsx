@@ -39,7 +39,8 @@ import { MasteryPanel } from "./mastery-panel";
 import { SubjectLevelsPanel } from "./subject-levels-panel";
 import { crownById } from "@/lib/utils/crown-catalog";
 import { crownChoices, type SeasonWithCeremony } from "@/lib/utils/seasons";
-import { GRADES, estimateGrade, NO_OFFSETS, type Grade } from "@/lib/utils/grade-levels";
+import { GRADES, NO_OFFSETS, ownGradeOf } from "@/lib/utils/grade-levels";
+import type { AgeMode as HeroAgeMode } from "@/lib/utils/age-mode";
 import type { LearningProfile } from "@/lib/utils/learning-profile";
 import type { RealmSettings } from "@/lib/utils/realm-settings";
 import type { MasteryRow } from "@/lib/actions/deeds";
@@ -428,15 +429,15 @@ function ChildDetail({ child, isChildView = false }: { child: Child; isChildView
     }
   }
 
-  // What a grown-up set wins outright; otherwise the age estimate stands in, flagged as
-  // such. `child.grade` is a plain nullable text column, so a value off the ladder is
-  // never trusted as a real grade. A hero with neither has no meaningful grade to show
-  // Subject Levels against — SubjectLevelsPanel renders its heading with an explanation
-  // instead of guessing one, the same way SeasonPanel explains a missing grade rather
-  // than rendering nothing.
-  const ownGrade = child.grade && (GRADES as readonly string[]).includes(child.grade) ? (child.grade as Grade) : null;
-  const estimatedGrade = ownGrade ? null : estimateGrade(child.birthYear, new Date());
-  const subjectGrade = ownGrade ?? estimatedGrade;
+  // The anchor Subject Levels shows gaps against MUST be the grade the engine serves, so
+  // it comes from `ownGradeOf` — the single owner of that rule — and not from a second
+  // estimate computed here. A gap is stored against this anchor and applied to the
+  // engine's; if the two disagree, a grown-up picking "one grade up" moves the child
+  // somewhere nobody chose. `ownGradeOf` is total, so every hero has an anchor.
+  const anchor = ownGradeOf(child.grade ?? null, child.birthYear, child.ageMode as HeroAgeMode);
+  // Whether that anchor is something a grown-up actually set, or a guess from age. Only
+  // a value on the ladder counts: `child.grade` is a plain nullable text column.
+  const hasSetGrade = !!child.grade && (GRADES as readonly string[]).includes(child.grade);
 
   return (
     <GameFrame title={`${child.displayName}'s Chronicle`} icon={<GameIcon name="book" className="size-4 text-[var(--gold-bright)]" />}>
@@ -484,8 +485,8 @@ function ChildDetail({ child, isChildView = false }: { child: Child; isChildView
         {!isChildView && (
           <SubjectLevelsPanel
             childId={child.id}
-            childGrade={subjectGrade}
-            estimated={!ownGrade}
+            childGrade={anchor}
+            estimated={!hasSetGrade}
             offsets={child.learningProfile?.subjectOffsets ?? NO_OFFSETS}
           />
         )}

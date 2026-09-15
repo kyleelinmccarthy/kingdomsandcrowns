@@ -158,3 +158,42 @@ describe("ChildList — switching between heroes", () => {
     expect(screen.queryByText("Side Quests & Mastery")).not.toBeInTheDocument();
   });
 });
+
+describe("ChildList — the grade Subject Levels is anchored on", () => {
+  /**
+   * A hero a grown-up never gave a grade: only a birth year, and an `ageMode` stored at
+   * sign-up. `ownGradeOf` is the one owner of "which year of work is this child handed",
+   * and it deliberately refuses to let a drifting age estimate move a hero out of the
+   * band their age mode already put them in.
+   */
+  function gradelessHero(id: string, displayName: string, birthYear: number | null, ageMode: string) {
+    return {
+      ...heroWithPanels(id, displayName, "3"),
+      grade: null,
+      birthYear,
+      ageMode,
+    };
+  }
+
+  it("anchors the panel on the grade the ENGINE serves, not a raw age estimate", () => {
+    // Born 2016, age mode "elementary": the age estimate alone says Grade 5, but the
+    // engine serves Grade 3, because an estimate is honoured only where it refines the
+    // band the age mode already put the hero in. The panel must agree with the engine:
+    // the offset a grown-up picks here is stored as a GAP from this anchor and applied
+    // to the engine's. Two anchors means the gap lands somewhere nobody chose — pick
+    // "Grade 4" against a displayed Grade 3 and a six-year-old gets grades 4-5 work.
+    render(<ChildList family={family} kids={[gradelessHero("demo-child-4", "Ada", 2016, "elementary")]} />);
+    openHero("Ada");
+    expect(screen.getAllByText("Grade 3 · at grade level")).toHaveLength(4);
+    expect(screen.queryByText(/Grade 5 · at grade level/)).not.toBeInTheDocument();
+  });
+
+  it("still renders the controls for a hero with neither a grade nor a birth year", () => {
+    // The engine happily serves this hero at their age mode's grade, so a grown-up must
+    // be able to move a strand for them too. Refusing to show the controls left the one
+    // hero whose content is a pure guess as the one hero nobody could correct.
+    render(<ChildList family={family} kids={[gradelessHero("demo-child-5", "Bram", null, "middle")]} />);
+    openHero("Bram");
+    expect(screen.getAllByRole("switch", { name: /is not at grade level/i })).toHaveLength(4);
+  });
+});

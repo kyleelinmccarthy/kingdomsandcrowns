@@ -3,9 +3,8 @@ import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { loadRealmSettings } from "@/lib/services/realm-play";
 import { loadLearningProfileRow } from "@/lib/services/learning-profile";
-import { bandForGrade, effectiveGrade, estimateGrade, GRADES, type Grade, type SubjectOffsets } from "@/lib/utils/grade-levels";
+import { bandForGrade, effectiveGrade, ownGradeOf, type Grade, type SubjectOffsets } from "@/lib/utils/grade-levels";
 import { profileFromRow } from "@/lib/utils/learning-profile";
-import type { AgeMode } from "@/lib/utils/age-mode";
 import { BUILDINGS, buildingProgress } from "@/lib/utils/kingdom";
 import { deedsForBuilding, deedStory } from "@/lib/utils/deeds";
 import type { ContentBand } from "@/lib/utils/content-bands";
@@ -35,37 +34,10 @@ export type HeroLevels = {
   tone: "gentle" | "monsters";
 };
 
-/**
- * The grade an age mode stands for, for a hero who has neither a grade nor a birth
- * year. Each is the grade `bandForGrade` maps back onto the band `bandForHero` gave
- * that mode, so such a hero keeps exactly the content they already had rather than
- * being silently demoted.
- */
-const AGE_MODE_GRADE: Record<AgeMode, Grade> = { elementary: "3", middle: "6", high: "9" };
-
-/**
- * The hero's own grade, before any subject gap: what a grown-up set, else their age,
- * else the grade their age mode stands for. `child.grade` is a plain nullable text
- * column, so a value off the ladder is not trusted — it falls through like no grade.
- * Exported because it decides which year of work a child is handed.
- */
-export function ownGradeOf(
-  grade: string | null,
-  birthYear: number | null,
-  ageMode: AgeMode,
-  today: Date = new Date(),
-): Grade {
-  if (grade !== null && (GRADES as readonly string[]).includes(grade)) return grade as Grade;
-  const modeGrade = AGE_MODE_GRADE[ageMode];
-  // `ageMode` is stored once at sign-up and never recomputed as a child ages, so an
-  // age estimate can disagree with it. The estimate is used only where it refines the
-  // band the hero is already in; outside it, the mode wins. Otherwise a deploy alone
-  // could hand a nine-year-old grades 4-5 work, and this app's rule is that only a
-  // grown-up setting a real grade moves a child up.
-  const estimated = estimateGrade(birthYear, today);
-  if (estimated !== null && bandForGrade(estimated) === bandForGrade(modeGrade)) return estimated;
-  return modeGrade;
-}
+// `ownGradeOf` decides which year of work a hero is handed, and the Settings panel has
+// to anchor its grade gaps on the very same grade — so it lives in `utils/grade-levels`,
+// which a client component can import, and is re-exported here where the engine reads.
+export { ownGradeOf };
 
 /**
  * Each strand's taught grade: the hero's own grade moved by THAT strand's own gap.

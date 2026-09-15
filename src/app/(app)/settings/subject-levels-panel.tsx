@@ -44,9 +44,11 @@ export function SubjectLevelsPanel({
   offsets,
 }: {
   childId: string;
-  /** Null for a hero with neither a set grade nor a birth year to estimate from — there is
-      nothing honest to show "at grade level" against, so the panel explains rather than guesses. */
-  childGrade: Grade | null;
+  /** The hero's own grade, before any subject gap — always the same value the engine
+      anchors on (`ownGradeOf`), never a second estimate computed at the call site. Total:
+      a hero with neither a grade nor a birth year still has the grade their age mode
+      stands for, and a grown-up must be able to move a strand for them too. */
+  childGrade: Grade;
   estimated: boolean;
   offsets: SubjectOffsets;
 }) {
@@ -71,17 +73,6 @@ export function SubjectLevelsPanel({
   }
 
   const save = (area: Area, offset: number) => run(area, () => setSubjectOffset(childId, area, offset));
-
-  if (childGrade === null) {
-    return (
-      <div className="space-y-3">
-        <h4 className="text-sm font-medium">Subject Levels</h4>
-        <p className="text-xs text-muted-foreground">
-          Set a grade or birth year in Hero Details to unlock subject levels.
-        </p>
-      </div>
-    );
-  }
 
   return (
     <div className="space-y-3">
