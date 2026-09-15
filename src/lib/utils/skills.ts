@@ -1,4 +1,5 @@
 import type { ContentBand } from "./content-bands";
+import { bandForGrade, type Grade } from "./grade-levels";
 import type { SpellSchool } from "./spell-schools";
 
 export type SkillArea = "math" | "reading" | "language" | "science";
@@ -61,7 +62,13 @@ export const SKILLS: Skill[] = [
   { id: "science-g912", label: "Science facts", area: "science", band: "g912", source: pool("science-g912") },
 ];
 
-export function skillsFor(area: SkillArea, band: ContentBand): Skill[] {
+/**
+ * Content is still authored per band, so a requested grade reaches it through
+ * `bandForGrade`. The skill ids and their `band` field are untouched: mastery rows
+ * are keyed by skill id, and re-keying would reset every child's practice history.
+ */
+export function skillsFor(area: SkillArea, grade: Grade): Skill[] {
+  const band = bandForGrade(grade);
   return SKILLS.filter((s) => s.area === area && s.band === band);
 }
 

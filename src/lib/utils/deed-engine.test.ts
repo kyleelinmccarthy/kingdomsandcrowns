@@ -16,17 +16,17 @@ function poolItems(skillId: string, n: number, level = 2): PoolItem[] {
 const profile = { fewerChoices: false, predictableRoutine: false, untimed: false, readAloud: false };
 
 function input(over: Partial<BuildRunInput> = {}): BuildRunInput {
-  return { deed: deedReading, band: "g23", masteryBySkill: {}, profile, seed: 1, poolItems: poolItems("sight-g23", 30), recentMisses: [], ...over };
+  return { deed: deedReading, grade: "3", masteryBySkill: {}, profile, seed: 1, poolItems: poolItems("sight-g23", 30), recentMisses: [], ...over };
 }
 
 describe("chooseSkills", () => {
-  it("picks the band's skills for the area, at most one generator and one pool", () => {
-    expect(chooseSkills(deedMath, "g23").map((s) => s.id)).toHaveLength(1);
-    expect(chooseSkills(deedReading, "g23").map((s) => s.id)).toEqual(["sight-g23"]);
+  it("picks the grade's skills for the area, at most one generator and one pool", () => {
+    expect(chooseSkills(deedMath, "3").map((s) => s.id)).toHaveLength(1);
+    expect(chooseSkills(deedReading, "3").map((s) => s.id)).toEqual(["sight-g23"]);
   });
-  it("falls back to the nearest band when the area has no skill there", () => {
-    expect(chooseSkills(deedLanguage, "k1").map((s) => s.id)).toEqual(["spell-g23"]);
-    expect(chooseSkills(deedReading, "g912").map((s) => s.id)).toEqual(["sight-g23"]);
+  it("falls back to the nearest grade when the area has no skill there", () => {
+    expect(chooseSkills(deedLanguage, "K").map((s) => s.id)).toEqual(["spell-g23"]);
+    expect(chooseSkills(deedReading, "9").map((s) => s.id)).toEqual(["sight-g23"]);
   });
 });
 
@@ -89,7 +89,7 @@ describe("buildDeedRun", () => {
       { id: "add-10:2+2", skillId: "add-10", prompt: "What is 2 + 2?", choices: ["4", "3", "5", "6"], answer: "4" },
     ];
     for (let seed = 1; seed <= 50; seed++) {
-      const run = buildDeedRun(input({ deed: deedMath, band: "k1", poolItems: [], masteryBySkill: {}, recentMisses: misses, seed }));
+      const run = buildDeedRun(input({ deed: deedMath, grade: "K", poolItems: [], masteryBySkill: {}, recentMisses: misses, seed }));
       const ids = run.questions.map((q) => q.id);
       expect(run.questions).toHaveLength(8);
       expect(new Set(ids).size).toBe(ids.length);
@@ -108,5 +108,33 @@ describe("grading and client shape", () => {
   it("strips the answer for the client", () => {
     const q: Question = { id: "q", skillId: "s", prompt: "p", choices: ["a", "b", "c", "d"], answer: "b", readAloud: "pee" };
     expect(toClientQuestion(q)).toEqual({ id: "q", skillId: "s", prompt: "p", choices: ["a", "b", "c", "d"], readAloud: "pee" });
+  });
+});
+
+const mathDeed = findDeed("well-stones")!;   // area: "math"
+const readingDeed = findDeed("well-signs")!; // area: "reading"
+
+describe("chooseSkills by grade", () => {
+  it("gives a grade-3 hero the skills their grade's content is authored for", () => {
+    const ids = chooseSkills(mathDeed, "3").map((s) => s.id);
+    expect(ids).toContain("add-20");
+  });
+
+  it("reaches multiplication when a grown-up moves a grade-3 hero's math up a year", () => {
+    // The whole point of the setting: this is unreachable for grade 3 today.
+    const ids = chooseSkills(mathDeed, "4").map((s) => s.id);
+    expect(ids).toContain("mul-facts");
+  });
+
+  it("walks to easier grades, never harder, when a grade has nothing", () => {
+    // Reading is authored no higher than grade 3 right now, so a grade-6 hero falls back
+    // rather than being handed nothing. Plan 3 removes the need for this.
+    const ids = chooseSkills(readingDeed, "6").map((s) => s.id);
+    expect(ids.length).toBeGreaterThan(0);
+    expect(ids).toContain("sight-g23");
+  });
+
+  it("returns nothing rather than throwing when an area has no content at all", () => {
+    expect(() => chooseSkills(mathDeed, "K")).not.toThrow();
   });
 });

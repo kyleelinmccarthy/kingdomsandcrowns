@@ -8,6 +8,7 @@ import * as schema from "@/lib/db/schema";
 import { isChildActor, requireChildAccess } from "@/lib/auth/access";
 import { profileFromRow } from "@/lib/utils/learning-profile";
 import { BAND_LABELS, type ContentBand } from "@/lib/utils/content-bands";
+import { bandForGrade } from "@/lib/utils/grade-levels";
 import { findSkill, type SkillArea } from "@/lib/utils/skills";
 import { buildingProgress, findBuilding } from "@/lib/utils/kingdom";
 import { deedStory, findDeed } from "@/lib/utils/deeds";
@@ -22,7 +23,7 @@ import {
 } from "@/lib/utils/deed-engine";
 import { masteryChangeCopy, masteryLabel, parseRecentResults, recordResult } from "@/lib/utils/mastery";
 import type { Question } from "@/lib/utils/drill-generators";
-import { loadHeroBand, loadKingdomOverview, type BuildingOverview } from "@/lib/services/deeds";
+import { loadHeroLevels, loadKingdomOverview, type BuildingOverview } from "@/lib/services/deeds";
 export type MasteryRow = { skillId: string; label: string; area: SkillArea; level: number; levelLabel: string; lastPracticedAt: string | null };
 export type DeedsOverview = {
   enabled: boolean; band: ContentBand; bandLabel: string; tone: "gentle" | "monsters";
@@ -82,8 +83,11 @@ async function loadRecentMisses(childId: string): Promise<Question[]> {
 export async function getDeedsOverview(childId: string): Promise<DeedsOverview> {
   await requireChildAccess(childId);
   const [kingdom, mastery] = await Promise.all([loadKingdomOverview(childId), loadMasteryRows(childId)]);
+  const heroBand = bandForGrade(kingdom.ownGrade);
   return {
-    enabled: kingdom.enabled, band: kingdom.band, bandLabel: BAND_LABELS[kingdom.band], tone: kingdom.tone,
+    // The page's one coarse label still describes the hero themselves, not any one
+    // strand's gap; the per-strand grades reach the engine, not this header.
+    enabled: kingdom.enabled, band: heroBand, bandLabel: BAND_LABELS[heroBand], tone: kingdom.tone,
     buildings: kingdom.buildings, mastery: mastery.map(masteryRow).filter((m): m is MasteryRow => m !== null),
   };
 }
@@ -102,7 +106,7 @@ export async function startDeedRun(childId: string, deedId: string, context: "pa
   if (context === "realm" && !isChildActor(access)) throw new Error(HERO_ONLY);
   const deed = findDeed(deedId);
   if (!deed) throw new Error(`That ${SIDE_QUEST_LOWER} is not in the chronicle.`);
-  const hero = await loadHeroBand(childId);
+  const hero = await loadHeroLevels(childId);
   if (!hero.enabled) throw new Error(CLOSED);
   const story = deedStory(deed, hero.tone);
 
@@ -119,7 +123,8 @@ export async function startDeedRun(childId: string, deedId: string, context: "pa
     return { runId: open[0].id, deed: { id: deed.id, title: deed.title, story, area: deed.area }, questions: qs.map(toClientQuestion), responses };
   }
 
-  const skills = chooseSkills(deed, hero.band);
+  const grade = hero.grades[deed.area];
+  const skills = chooseSkills(deed, grade);
   const poolSkillIds = skills.filter((s) => s.source.kind === "pool").map((s) => s.id);
   const [profileRows, masteryRows, poolRows, recentMisses] = await Promise.all([
     db.select().from(schema.learningProfile).where(eq(schema.learningProfile.childId, childId)).limit(1),
@@ -137,7 +142,7 @@ export async function startDeedRun(childId: string, deedId: string, context: "pa
     distractors: JSON.parse(r.distractors) as string[], readAloud: r.readAloud, level: r.level,
   }));
 
-  const built = buildDeedRun({ deed, band: hero.band, masteryBySkill, profile, seed: Date.now() >>> 0, poolItems, recentMisses });
+  const built = buildDeedRun({ deed, grade, masteryBySkill, profile, seed: Date.now() >>> 0, poolItems, recentMisses });
   if (built.questions.length === 0) throw new Error(`No ${SIDE_QUESTS_LOWER} are ready for this hero yet.`);
 
   const now = new Date();
@@ -145,7 +150,7 @@ export async function startDeedRun(childId: string, deedId: string, context: "pa
   const masteryStart: Record<string, number> = {};
   for (const id of built.skillIds) masteryStart[id] = masteryBySkill[id] ?? 0;
   await db.insert(schema.deedRun).values({
-    id: runId, childId, deedId, skillIds: JSON.stringify(built.skillIds), band: hero.band,
+    id: runId, childId, deedId, skillIds: JSON.stringify(built.skillIds), band: bandForGrade(grade),
     questions: JSON.stringify(built.questions), responses: JSON.stringify(built.questions.map(() => null)),
     masteryStart: JSON.stringify(masteryStart), correctCount: 0, flawless: false,
     startedAt: now, completedAt: null, createdAt: now, updatedAt: now,

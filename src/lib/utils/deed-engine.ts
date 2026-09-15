@@ -1,5 +1,5 @@
 import { GENERATORS, seededRng, shuffle, type Question, type Rng } from "./drill-generators";
-import { nearestBands, type ContentBand } from "./content-bands";
+import { nearestGrades, type Grade } from "./grade-levels";
 import { skillsFor, type Skill } from "./skills";
 import type { Deed } from "./deeds";
 
@@ -17,7 +17,7 @@ export type PoolItem = {
 
 export type BuildRunInput = {
   deed: Deed;
-  band: ContentBand;
+  grade: Grade;
   masteryBySkill: Record<string, number>;
   profile: ProfileLike;
   seed: number;
@@ -34,12 +34,12 @@ const MAX_REVIEW = 2;
 
 /**
  * Up to two skills for the deed's area: one generator and one pool when both
- * exist at the hero's band, otherwise the nearest band that has any — easier
- * bands first, so a hero is never handed harder work than their own grade.
+ * exist at the hero's grade, otherwise the nearest grade that has any — easier
+ * grades first, so a hero is never handed harder work than their own grade.
  */
-export function chooseSkills(deed: Deed, band: ContentBand): Skill[] {
-  for (const b of nearestBands(band)) {
-    const candidates = skillsFor(deed.area, b);
+export function chooseSkills(deed: Deed, grade: Grade): Skill[] {
+  for (const g of nearestGrades(grade)) {
+    const candidates = skillsFor(deed.area, g);
     if (candidates.length === 0) continue;
     const generator = candidates.find((s) => s.source.kind === "generator");
     const pool = candidates.find((s) => s.source.kind === "pool");
@@ -91,9 +91,9 @@ function trimChoices(q: Question, rng: Rng): Question {
 }
 
 export function buildDeedRun(input: BuildRunInput): BuiltRun {
-  const { deed, band, masteryBySkill, profile, seed, poolItems, recentMisses } = input;
+  const { deed, grade, masteryBySkill, profile, seed, poolItems, recentMisses } = input;
   const rng = seededRng(seed);
-  const skills = chooseSkills(deed, band);
+  const skills = chooseSkills(deed, grade);
   const skillIds = skills.map((s) => s.id);
   if (skills.length === 0) return { skillIds: [], questions: [] };
 
