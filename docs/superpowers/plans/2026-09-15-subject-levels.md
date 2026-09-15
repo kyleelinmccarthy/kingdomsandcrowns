@@ -71,7 +71,7 @@ If a step's described change does not match what you find — a different signat
 **Interfaces:**
 - Consumes: `ContentBand` and `CONTENT_BANDS` from `src/lib/utils/content-bands.ts`.
 - Produces:
-  - `type Grade = "K" | "1" | ... | "12"`, `const GRADES: Grade[]` (14 entries, K first)
+  - `type Grade = "K" | "1" | ... | "12"`, `const GRADES: Grade[]` (13 entries: K, then 1-12)
   - `gradeIndex(g: Grade): number`, `gradeAt(i: number): Grade`
   - `type SubjectOffsets = { math: number; reading: number; language: number; science: number }`
   - `const NO_OFFSETS: SubjectOffsets` (all zero)
