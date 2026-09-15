@@ -2,8 +2,10 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { loadRealmSettings } from "@/lib/services/realm-play";
+import { loadLearningProfileRow } from "@/lib/services/learning-profile";
 import { effectiveGrade, estimateGrade, GRADES, type Grade } from "@/lib/utils/grade-levels";
 import { profileFromRow } from "@/lib/utils/learning-profile";
+import type { AgeMode } from "@/lib/utils/age-mode";
 import { BUILDINGS, buildingProgress } from "@/lib/utils/kingdom";
 import { deedsForBuilding, deedStory } from "@/lib/utils/deeds";
 import type { SkillArea } from "@/lib/utils/skills";
@@ -24,28 +26,46 @@ export type HeroLevels = {
   tone: "gentle" | "monsters";
 };
 
-/** The hero's own grade: what a grown-up set, else their age, else the middle of the ladder. */
-function ownGradeOf(grade: string | null, birthYear: number | null): Grade {
+/**
+ * The grade an age mode stands for, for a hero who has neither a grade nor a birth
+ * year. Each is the grade `bandForGrade` maps back onto the band `bandForHero` gave
+ * that mode, so such a hero keeps exactly the content they already had rather than
+ * being silently demoted.
+ */
+const AGE_MODE_GRADE: Record<AgeMode, Grade> = { elementary: "3", middle: "6", high: "9" };
+
+/**
+ * The hero's own grade, before any subject gap: what a grown-up set, else their age,
+ * else the grade their age mode stands for. `child.grade` is a plain nullable text
+ * column, so a value off the ladder is not trusted — it falls through like no grade.
+ * Exported because it decides which year of work a child is handed.
+ */
+export function ownGradeOf(
+  grade: string | null,
+  birthYear: number | null,
+  ageMode: AgeMode,
+  today: Date = new Date(),
+): Grade {
   if (grade !== null && (GRADES as readonly string[]).includes(grade)) return grade as Grade;
-  return estimateGrade(birthYear, new Date()) ?? "3";
+  return estimateGrade(birthYear, today) ?? AGE_MODE_GRADE[ageMode];
 }
 
 /** The hero's grade per strand, Realm switch, and story tone; shared by the Deeds page and the Realm. */
 export async function loadHeroLevels(childId: string): Promise<HeroLevels> {
   const rows = await db
-    .select({ grade: schema.child.grade, birthYear: schema.child.birthYear })
+    .select({ grade: schema.child.grade, birthYear: schema.child.birthYear, ageMode: schema.child.ageMode })
     .from(schema.child)
     .where(eq(schema.child.id, childId))
     .limit(1);
   if (!rows[0]) throw new Error("Hero not found.");
-  const [settings, profileRows] = await Promise.all([
+  const [settings, profileRow] = await Promise.all([
     loadRealmSettings(childId),
-    db.select().from(schema.learningProfile).where(eq(schema.learningProfile.childId, childId)).limit(1),
+    loadLearningProfileRow(childId),
   ]);
   // Read through the profile util, never off the raw row: it is what turns a corrupt
   // or fractional stored offset into 0 rather than letting it reach the engine.
-  const { subjectOffsets } = profileFromRow(profileRows[0] ?? null);
-  const ownGrade = ownGradeOf(rows[0].grade, rows[0].birthYear);
+  const { subjectOffsets } = profileFromRow(profileRow);
+  const ownGrade = ownGradeOf(rows[0].grade, rows[0].birthYear, rows[0].ageMode);
   const grades = {
     math: effectiveGrade(ownGrade, subjectOffsets.math),
     reading: effectiveGrade(ownGrade, subjectOffsets.reading),

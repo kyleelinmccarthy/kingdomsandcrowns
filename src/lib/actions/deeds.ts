@@ -24,6 +24,7 @@ import {
 import { masteryChangeCopy, masteryLabel, parseRecentResults, recordResult } from "@/lib/utils/mastery";
 import type { Question } from "@/lib/utils/drill-generators";
 import { loadHeroLevels, loadKingdomOverview, type BuildingOverview } from "@/lib/services/deeds";
+import { loadLearningProfileRow } from "@/lib/services/learning-profile";
 export type MasteryRow = { skillId: string; label: string; area: SkillArea; level: number; levelLabel: string; lastPracticedAt: string | null };
 export type DeedsOverview = {
   enabled: boolean; band: ContentBand; bandLabel: string; tone: "gentle" | "monsters";
@@ -126,15 +127,16 @@ export async function startDeedRun(childId: string, deedId: string, context: "pa
   const grade = hero.grades[deed.area];
   const skills = chooseSkills(deed, grade);
   const poolSkillIds = skills.filter((s) => s.source.kind === "pool").map((s) => s.id);
-  const [profileRows, masteryRows, poolRows, recentMisses] = await Promise.all([
-    db.select().from(schema.learningProfile).where(eq(schema.learningProfile.childId, childId)).limit(1),
+  const [profileRow, masteryRows, poolRows, recentMisses] = await Promise.all([
+    // Memoized per request, so this is the same round trip loadHeroLevels just made.
+    loadLearningProfileRow(childId),
     loadMasteryRows(childId),
     poolSkillIds.length > 0
       ? db.select().from(schema.drillItem).where(inArray(schema.drillItem.skillId, poolSkillIds))
       : Promise.resolve([] as (typeof schema.drillItem.$inferSelect)[]),
     loadRecentMisses(childId),
   ]);
-  const profile = profileFromRow(profileRows[0] ?? null);
+  const profile = profileFromRow(profileRow);
   const masteryBySkill: Record<string, number> = {};
   for (const m of masteryRows) masteryBySkill[m.skillId] = m.level;
   const poolItems: PoolItem[] = poolRows.map((r) => ({

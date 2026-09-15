@@ -6,6 +6,7 @@ import * as schema from "@/lib/db/schema";
 import { requireChildAccess, isChildActor } from "@/lib/auth/access";
 import { loadRealmSettings, loadRealmFlags } from "@/lib/services/realm-play";
 import { loadKingdomOverview } from "@/lib/services/deeds";
+import { loadLearningProfileRow } from "@/lib/services/learning-profile";
 import { loadSpellbookPages, ensureStarterSpell, type SpellPage } from "@/lib/services/spells";
 import { loadUnlockedMountIds } from "@/lib/services/mounts";
 import { loadSeasons } from "@/lib/services/crowns";
@@ -68,10 +69,11 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
       console.error("Starter spell failed", err);
       return loadRealmFlags(childId);
     });
-  const [childRows, castleRows, profileRows, settings, kingdomResult, spellbook, mounts, seasons] = await Promise.all([
+  const [childRows, castleRows, profileRow, settings, kingdomResult, spellbook, mounts, seasons] = await Promise.all([
     db.select({ displayName: schema.child.displayName, avatarConfig: schema.child.avatarConfig }).from(schema.child).where(eq(schema.child.id, childId)).limit(1),
     db.select({ type: schema.castle.type }).from(schema.castle).where(eq(schema.castle.childId, childId)).limit(1),
-    db.select().from(schema.learningProfile).where(eq(schema.learningProfile.childId, childId)).limit(1),
+    // Memoized per request; loadKingdomOverview below reads the same row for the hero's grades.
+    loadLearningProfileRow(childId),
     loadRealmSettings(childId),
     loadKingdomState(childId).then((kingdom) => ({ kingdom, error: undefined as string | undefined })).catch((err: unknown) => {
       console.error("Realm kingdom failed to load", err);
@@ -108,7 +110,7 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
     castleType: castleRows[0]?.type ?? "campsite",
     kingdom: kingdomResult.kingdom,
     ...(kingdomResult.error ? { kingdomError: kingdomResult.error } : {}),
-    profile: profileFromRow(profileRows[0] ?? null),
+    profile: profileFromRow(profileRow),
     settings: { enabled: settings.enabled, toneMode: settings.toneMode },
     spellbook: { spells: spellbook.spells, slots: spellbook.slots },
     mounts: { unlocked: mounts },
