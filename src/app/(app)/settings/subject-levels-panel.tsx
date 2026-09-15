@@ -119,12 +119,21 @@ export function SubjectLevelsPanel({
                       <p className="text-sm font-medium">{label}</p>
                       <p className="text-xs text-muted-foreground">{gapLabel(childGrade, offset)}</p>
                     </div>
-                    <Switch
-                      aria-label={`${label} is not at grade level`}
-                      checked={notAtGrade}
-                      disabled={savingThis}
-                      onCheckedChange={() => save(area, notAtGrade ? 0 : DEFAULT_OFFSET_ON)}
-                    />
+                    {/* The switch carries its own visible text, not just an accessible name: a
+                        settings page full of bare toggles gives a grown-up nothing to scan for, and
+                        the likeliest guess — that it turns the subject off — is both wrong and
+                        alarming. The aria-label keeps the strand's name in front, and because the
+                        accessible name contains this visible text the pairing satisfies "Label in
+                        Name"; it is not a duplicate to be tidied away. */}
+                    <div className="flex shrink-0 items-center gap-2">
+                      <span className="text-xs text-muted-foreground">Not at grade level</span>
+                      <Switch
+                        aria-label={`${label} is not at grade level`}
+                        checked={notAtGrade}
+                        disabled={savingThis}
+                        onCheckedChange={() => save(area, notAtGrade ? 0 : DEFAULT_OFFSET_ON)}
+                      />
+                    </div>
                   </div>
                   {/* Also shown while THIS strand's toggle-on save is in flight: the offset
                       isn't persisted yet, so there is nothing in props to derive "on" from

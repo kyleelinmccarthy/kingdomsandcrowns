@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { render, screen, cleanup, fireEvent } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent, within } from "@testing-library/react";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 const setSubjectOffset = vi.fn().mockResolvedValue(undefined);
@@ -24,6 +24,23 @@ describe("SubjectLevelsPanel", () => {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
     expect(screen.getAllByText("Grade 3 · at grade level")).toHaveLength(4);
+  });
+
+  /**
+   * getByText, never getByLabelText: the point is that a sighted grown-up can READ what the
+   * switch does. An accessible name alone passed the old assertion while the visible row was
+   * just a strand name, a gap line, and a bare toggle — so this test exists to fail if the
+   * copy ever retreats back into an attribute.
+   */
+  it("labels every strand's toggle in text a grown-up can actually see", () => {
+    render(<SubjectLevelsPanel {...props} />);
+    const visible = screen.getAllByText("Not at grade level");
+    expect(visible).toHaveLength(4);
+    // Each one sits in the same row as its own strand's switch, so no strand is left bare.
+    for (const label of ["Math", "Reading", "Language Arts", "Science"]) {
+      const row = screen.getByRole("switch", { name: `${label} is not at grade level` }).closest("div")!;
+      expect(within(row).getByText("Not at grade level")).toBeInTheDocument();
+    }
   });
 
   it("hides the grade picker until a grown-up says the strand is not at grade level", () => {
