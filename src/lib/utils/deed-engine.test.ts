@@ -8,6 +8,7 @@ import type { Question } from "./drill-generators";
 const deedMath = findDeed("well-stones")!;      // math
 const deedReading = findDeed("well-signs")!;    // reading
 const deedLanguage = findDeed("mill-ledger")!;  // language
+const deedScience = findDeed("well-water")!;     // science
 
 function poolItems(skillId: string, n: number, level = 2): PoolItem[] {
   return Array.from({ length: n }, (_, i) => ({
@@ -146,8 +147,17 @@ describe("chooseSkills by grade", () => {
     expect(ids).toContain("sight-g23");
   });
 
-  it("returns nothing rather than throwing when an area has no content at all", () => {
-    expect(() => chooseSkills(mathDeed, "K")).not.toThrow();
+  it("falls back rather than returning nothing, for every area at every grade", () => {
+    // This replaces a test named "when an area has no content at all" that asserted
+    // chooseSkills(mathDeed, "K") does not throw — but math HAS content at K, so it
+    // described a case it never exercised and could not realistically fail. Every area
+    // has content at some grade, so what is actually true and worth pinning is that the
+    // walk always lands somewhere: a hero is never handed an empty run.
+    for (const deed of [deedMath, deedReading, deedLanguage, deedScience]) {
+      for (const grade of GRADES) {
+        expect(chooseSkills(deed, grade).length, `${deed.area} at grade ${grade}`).toBeGreaterThan(0);
+      }
+    }
   });
 
   it("widens to every pool skill when a grade has more than one, so the caller's pool query is a superset of whatever gets selected", () => {
@@ -167,22 +177,48 @@ describe("chooseSkills by grade", () => {
 });
 
 describe("every skill at a hero's grade can actually be served", () => {
-  const baseInput = input({ deed: mathDeed, poolItems: [] });
+  const baseInput = input({ deed: deedMath, poolItems: [] });
 
-  it("reaches every math skill at a grade across a run of seeds", () => {
+  /**
+   * One deed per area, so this covers all four strands and not just math. The bug this
+   * guards against was never math-only: Language Arts at grades 4-5 authors two pool
+   * skills and only `spell-g45` was ever served, so `vocab-g45` was dead content too.
+   * A math-only version of this test passes while that is still broken.
+   */
+  const AREA_DEEDS = [
+    ["math", deedMath],
+    ["reading", deedReading],
+    ["language", deedLanguage],
+    ["science", deedScience],
+  ] as const;
+
+  it.each(AREA_DEEDS)("reaches every %s skill at every grade across a run of seeds", (area, deed) => {
     for (const grade of GRADES) {
-      const available = skillsFor("math", grade).map((s) => s.id);
+      const available = skillsFor(area, grade).map((s) => s.id);
       if (available.length === 0) continue;
+      // Pool skills need items or they can be selected and still produce nothing, which
+      // would read as unreachable for the wrong reason.
+      const items = available.flatMap((id) => poolItems(id, 30));
       const served = new Set<string>();
       for (let seed = 1; seed <= 200; seed++) {
         // A hero with no mastery anywhere: the flattest case, where nothing but the
         // selection rule decides. If a skill is unreachable here it is unreachable.
-        const built = buildDeedRun({ ...baseInput, grade, seed, masteryBySkill: {} });
+        const built = buildDeedRun({ ...baseInput, deed, grade, seed, masteryBySkill: {}, poolItems: items });
         for (const id of built.skillIds) served.add(id);
       }
       const unreachable = available.filter((id) => !served.has(id));
-      expect(unreachable, `grade ${grade} can never serve: ${unreachable.join(", ")}`).toEqual([]);
+      expect(unreachable, `${area} grade ${grade} can never serve: ${unreachable.join(", ")}`).toEqual([]);
     }
+  });
+
+  it("hands a run only the skills it actually practised, never every candidate", () => {
+    // skillIds drives which recent misses count as review, how the question budget is
+    // split, and — at the call site — which mastery rows are snapshotted as the run's
+    // starting point. Leaking the full candidate list would record progress against
+    // skills the child never saw. Grade 3 math has three candidates; a run uses one.
+    const built = buildDeedRun({ ...baseInput, grade: "3", seed: 7, masteryBySkill: {} });
+    expect(chooseSkills(deedMath, "3").length).toBe(3);
+    expect(built.skillIds).toHaveLength(1);
   });
 
   it("practises the least-mastered skill first", () => {
@@ -190,7 +226,9 @@ describe("every skill at a hero's grade can actually be served", () => {
     // practised and one is at level 0. The level-0 skill must be the one chosen, on
     // every seed — this is not a tie. (add-100 is pinned above 0 too, or an untouched
     // skill defaulting to 0 would tie with sub-20 and make the pick a coin flip.)
-    const built = buildDeedRun({ ...baseInput, grade: "3", seed: 99, masteryBySkill: { "add-20": 4, "sub-20": 0, "add-100": 4 } });
-    expect(built.skillIds).toContain("sub-20");
+    for (let seed = 1; seed <= 50; seed++) {
+      const built = buildDeedRun({ ...baseInput, grade: "3", seed, masteryBySkill: { "add-20": 4, "sub-20": 0, "add-100": 4 } });
+      expect(built.skillIds, `seed ${seed}`).toContain("sub-20");
+    }
   });
 });

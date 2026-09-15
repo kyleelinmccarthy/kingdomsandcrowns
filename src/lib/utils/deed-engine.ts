@@ -63,6 +63,10 @@ export function selectSkills(candidates: Skill[], masteryBySkill: Record<string,
   const generator = leastPractised(candidates.filter((s) => s.source.kind === "generator"));
   const pool = leastPractised(candidates.filter((s) => s.source.kind === "pool"));
   const picked = [generator, pool].filter((s): s is Skill => !!s);
+  // Unreachable today: `SkillSource` is exactly generator | pool, so a non-empty
+  // `candidates` always yields at least one pick. It is kept as the guard for a third
+  // source kind — which would otherwise fall through both filters and hand a hero an
+  // empty run rather than something to do.
   return picked.length > 0 ? picked : candidates.slice(0, 1);
 }
 
