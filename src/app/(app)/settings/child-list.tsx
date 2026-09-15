@@ -431,7 +431,9 @@ function ChildDetail({ child, isChildView = false }: { child: Child; isChildView
   // What a grown-up set wins outright; otherwise the age estimate stands in, flagged as
   // such. `child.grade` is a plain nullable text column, so a value off the ladder is
   // never trusted as a real grade. A hero with neither has no meaningful grade to show
-  // Subject Levels against, so the panel is skipped entirely for them rather than guessing.
+  // Subject Levels against — SubjectLevelsPanel renders its heading with an explanation
+  // instead of guessing one, the same way SeasonPanel explains a missing grade rather
+  // than rendering nothing.
   const ownGrade = child.grade && (GRADES as readonly string[]).includes(child.grade) ? (child.grade as Grade) : null;
   const estimatedGrade = ownGrade ? null : estimateGrade(child.birthYear, new Date());
   const subjectGrade = ownGrade ?? estimatedGrade;
@@ -479,7 +481,7 @@ function ChildDetail({ child, isChildView = false }: { child: Child; isChildView
         {!isChildView && child.learningProfile && (
           <LearningProfilePanel childId={child.id} profile={child.learningProfile} />
         )}
-        {!isChildView && subjectGrade && (
+        {!isChildView && (
           <SubjectLevelsPanel
             childId={child.id}
             childGrade={subjectGrade}

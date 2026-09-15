@@ -67,6 +67,16 @@ describe("SubjectLevelsPanel", () => {
     expect(screen.getByText(/estimated grade 3 from age/i)).toBeInTheDocument();
   });
 
+  it("explains rather than guesses when a hero has neither a grade nor a birth year", () => {
+    render(<SubjectLevelsPanel {...props} childGrade={null} />);
+    expect(screen.getByText("Subject Levels")).toBeInTheDocument();
+    expect(
+      screen.getByText(/set a grade or birth year in hero details to unlock subject levels/i)
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("switch")).not.toBeInTheDocument();
+    expect(screen.queryByText("Math")).not.toBeInTheDocument();
+  });
+
   it("never uses a word about the child that a child should not read", () => {
     render(<SubjectLevelsPanel {...props} offsets={{ math: -2, reading: 0, language: 0, science: 0 }} />);
     expect(document.body.textContent).not.toMatch(/struggling|remedial|slow|failing/i);

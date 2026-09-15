@@ -1,10 +1,12 @@
 import type { MasteryRow } from "@/lib/actions/deeds";
+import { AREA_LABELS, type SkillArea } from "@/lib/utils/skills";
 import { SIDE_QUESTS, SIDE_QUESTS_LOWER } from "@/lib/utils/side-quest-copy";
 
-const AREA_LABELS: Record<string, string> = { math: "Math", reading: "Reading", language: "Language", science: "Science" };
+/** Same order as the coloured chip's areas; this panel just needs the label, not the colour. */
+const AREA_ORDER: SkillArea[] = ["math", "reading", "language", "science"];
 
 export function MasteryPanel({ mastery }: { mastery: MasteryRow[] }) {
-  const areas = ["math", "reading", "language", "science"].filter((a) => mastery.some((m) => m.area === a));
+  const areas = AREA_ORDER.filter((a) => mastery.some((m) => m.area === a));
   return (
     <div className="space-y-2">
       <h4 className="text-sm font-medium">{SIDE_QUESTS} &amp; Mastery</h4>
@@ -16,7 +18,7 @@ export function MasteryPanel({ mastery }: { mastery: MasteryRow[] }) {
       ) : (
         areas.map((area) => (
           <div key={area} className="rounded-lg border border-gold-dim bg-muted/30 px-3 py-2.5">
-            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{AREA_LABELS[area]}</p>
+            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{AREA_LABELS[area].label}</p>
             <ul className="space-y-1 text-sm">
               {mastery.filter((m) => m.area === area).map((m) => (
                 <li key={m.skillId} className="flex justify-between gap-2">

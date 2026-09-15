@@ -44,7 +44,9 @@ export function SubjectLevelsPanel({
   offsets,
 }: {
   childId: string;
-  childGrade: Grade;
+  /** Null for a hero with neither a set grade nor a birth year to estimate from — there is
+      nothing honest to show "at grade level" against, so the panel explains rather than guesses. */
+  childGrade: Grade | null;
   estimated: boolean;
   offsets: SubjectOffsets;
 }) {
@@ -69,6 +71,17 @@ export function SubjectLevelsPanel({
   }
 
   const save = (area: Area, offset: number) => run(area, () => setSubjectOffset(childId, area, offset));
+
+  if (childGrade === null) {
+    return (
+      <div className="space-y-3">
+        <h4 className="text-sm font-medium">Subject Levels</h4>
+        <p className="text-xs text-muted-foreground">
+          Set a grade or birth year in Hero Details to unlock subject levels.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3">
