@@ -33,20 +33,37 @@ export type ClientQuestion = Omit<Question, "answer">;
 const MAX_REVIEW = 2;
 
 /**
- * Up to two skills for the deed's area: one generator and one pool when both
- * exist at the hero's grade, otherwise the nearest grade that has any — easier
- * grades first, so a hero is never handed harder work than their own grade.
+ * Every skill for the deed's area at the hero's grade, or at the nearest grade that has
+ * any — easier grades first, so a hero is never handed harder work than their own grade.
+ * Which of these a run actually practises is decided in `buildRun`, where the hero's
+ * mastery and the run's seed are both in hand.
  */
 export function chooseSkills(deed: Deed, grade: Grade): Skill[] {
   for (const g of nearestGrades(grade)) {
     const candidates = skillsFor(deed.area, g);
-    if (candidates.length === 0) continue;
-    const generator = candidates.find((s) => s.source.kind === "generator");
-    const pool = candidates.find((s) => s.source.kind === "pool");
-    const picked = [generator, pool].filter((s): s is Skill => !!s);
-    return picked.length > 0 ? picked : [candidates[0]];
+    if (candidates.length > 0) return candidates;
   }
   return [];
+}
+
+/**
+ * Up to two skills for one run: the least-practised generator, and the least-practised
+ * pool when one exists — so a hero works on what they have done least rather than on
+ * whatever happened to be listed first. Ties are broken by the run's seed, so a hero
+ * with fresh mastery everywhere still meets all of their grade's skills over time
+ * instead of the same one every day.
+ */
+export function selectSkills(candidates: Skill[], masteryBySkill: Record<string, number>, rng: Rng): Skill[] {
+  const leastPractised = (pool: Skill[]): Skill | undefined => {
+    if (pool.length === 0) return undefined;
+    const lowest = Math.min(...pool.map((s) => masteryBySkill[s.id] ?? 0));
+    const tied = pool.filter((s) => (masteryBySkill[s.id] ?? 0) === lowest);
+    return shuffle(tied, rng)[0];
+  };
+  const generator = leastPractised(candidates.filter((s) => s.source.kind === "generator"));
+  const pool = leastPractised(candidates.filter((s) => s.source.kind === "pool"));
+  const picked = [generator, pool].filter((s): s is Skill => !!s);
+  return picked.length > 0 ? picked : candidates.slice(0, 1);
 }
 
 function poolQuestion(item: PoolItem, rng: Rng): Question {
@@ -93,7 +110,7 @@ function trimChoices(q: Question, rng: Rng): Question {
 export function buildDeedRun(input: BuildRunInput): BuiltRun {
   const { deed, grade, masteryBySkill, profile, seed, poolItems, recentMisses } = input;
   const rng = seededRng(seed);
-  const skills = chooseSkills(deed, grade);
+  const skills = selectSkills(chooseSkills(deed, grade), masteryBySkill, rng);
   const skillIds = skills.map((s) => s.id);
   if (skills.length === 0) return { skillIds: [], questions: [] };
 

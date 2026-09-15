@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { buildDeedRun, chooseSkills, gradeAnswer, toClientQuestion, type BuildRunInput, type PoolItem } from "./deed-engine";
 import { findDeed } from "./deeds";
+import { GRADES } from "./grade-levels";
+import { skillsFor } from "./skills";
 import type { Question } from "./drill-generators";
 
 const deedMath = findDeed("well-stones")!;      // math
@@ -20,8 +22,8 @@ function input(over: Partial<BuildRunInput> = {}): BuildRunInput {
 }
 
 describe("chooseSkills", () => {
-  it("picks the grade's skills for the area, at most one generator and one pool", () => {
-    expect(chooseSkills(deedMath, "3").map((s) => s.id)).toHaveLength(1);
+  it("returns every candidate skill for the area at the hero's grade", () => {
+    expect(chooseSkills(deedMath, "3").map((s) => s.id)).toEqual(["add-20", "sub-20", "add-100"]);
     expect(chooseSkills(deedReading, "3").map((s) => s.id)).toEqual(["sight-g23"]);
   });
   it("falls back to the nearest grade when the area has no skill there", () => {
@@ -72,7 +74,14 @@ describe("buildDeedRun", () => {
   });
   it("groups by skill with review last under predictableRoutine", () => {
     const misses: Question[] = [{ id: "miss-0", skillId: "add-20", prompt: "1 + 1", choices: ["2", "3", "4", "5"], answer: "2" }];
-    const run = buildDeedRun(input({ deed: deedMath, poolItems: [], recentMisses: misses, profile: { ...profile, predictableRoutine: true } }));
+    // Pin selection to add-20 (the miss's own skill) by making it the grade's only
+    // least-practised generator; otherwise which of the three grade-3 generators gets
+    // chosen is a seeded tie-break, and the miss would land on a skill never picked.
+    const run = buildDeedRun(input({
+      deed: deedMath, poolItems: [], recentMisses: misses,
+      masteryBySkill: { "add-20": 0, "sub-20": 5, "add-100": 5 },
+      profile: { ...profile, predictableRoutine: true },
+    }));
     expect(run.questions[run.questions.length - 1].id).toBe("miss-0");
   });
   it("uses generators for math deeds", () => {
@@ -89,7 +98,10 @@ describe("buildDeedRun", () => {
       { id: "add-10:2+2", skillId: "add-10", prompt: "What is 2 + 2?", choices: ["4", "3", "5", "6"], answer: "4" },
     ];
     for (let seed = 1; seed <= 50; seed++) {
-      const run = buildDeedRun(input({ deed: deedMath, grade: "K", poolItems: [], masteryBySkill: {}, recentMisses: misses, seed }));
+      // Grade K has two generators (add-10, sub-10); pin selection to add-10 (the
+      // misses' own skill) so the tie-break shuffle can't route review questions
+      // to a skill that was never chosen for the run.
+      const run = buildDeedRun(input({ deed: deedMath, grade: "K", poolItems: [], masteryBySkill: { "add-10": 0, "sub-10": 5 }, recentMisses: misses, seed }));
       const ids = run.questions.map((q) => q.id);
       expect(run.questions).toHaveLength(8);
       expect(new Set(ids).size).toBe(ids.length);
@@ -136,5 +148,49 @@ describe("chooseSkills by grade", () => {
 
   it("returns nothing rather than throwing when an area has no content at all", () => {
     expect(() => chooseSkills(mathDeed, "K")).not.toThrow();
+  });
+
+  it("widens to every pool skill when a grade has more than one, so the caller's pool query is a superset of whatever gets selected", () => {
+    // Language at grades 4-5 authors two pool skills (spell-g45, vocab-g45) — the
+    // exact case the action's poolSkillIds query must cover, or the run silently
+    // comes up short whenever selectSkills picks the one the query didn't fetch for.
+    const ids = chooseSkills(deedLanguage, "4").map((s) => s.id);
+    expect(ids).toEqual(expect.arrayContaining(["spell-g45", "vocab-g45"]));
+  });
+
+  it("still selects only one pool skill per run even when a grade has two candidates", () => {
+    const items = [...poolItems("spell-g45", 10), ...poolItems("vocab-g45", 10)];
+    const run = buildDeedRun(input({ deed: deedLanguage, grade: "4", poolItems: items, masteryBySkill: {} }));
+    const poolSkillIds = run.skillIds.filter((id) => id === "spell-g45" || id === "vocab-g45");
+    expect(poolSkillIds).toHaveLength(1);
+  });
+});
+
+describe("every skill at a hero's grade can actually be served", () => {
+  const baseInput = input({ deed: mathDeed, poolItems: [] });
+
+  it("reaches every math skill at a grade across a run of seeds", () => {
+    for (const grade of GRADES) {
+      const available = skillsFor("math", grade).map((s) => s.id);
+      if (available.length === 0) continue;
+      const served = new Set<string>();
+      for (let seed = 1; seed <= 200; seed++) {
+        // A hero with no mastery anywhere: the flattest case, where nothing but the
+        // selection rule decides. If a skill is unreachable here it is unreachable.
+        const built = buildDeedRun({ ...baseInput, grade, seed, masteryBySkill: {} });
+        for (const id of built.skillIds) served.add(id);
+      }
+      const unreachable = available.filter((id) => !served.has(id));
+      expect(unreachable, `grade ${grade} can never serve: ${unreachable.join(", ")}`).toEqual([]);
+    }
+  });
+
+  it("practises the least-mastered skill first", () => {
+    // Grade 3 math has three generators (add-20, sub-20, add-100). Two are already
+    // practised and one is at level 0. The level-0 skill must be the one chosen, on
+    // every seed — this is not a tie. (add-100 is pinned above 0 too, or an untouched
+    // skill defaulting to 0 would tie with sub-20 and make the pick a coin flip.)
+    const built = buildDeedRun({ ...baseInput, grade: "3", seed: 99, masteryBySkill: { "add-20": 4, "sub-20": 0, "add-100": 4 } });
+    expect(built.skillIds).toContain("sub-20");
   });
 });
