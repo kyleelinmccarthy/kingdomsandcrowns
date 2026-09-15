@@ -89,9 +89,12 @@ describe("SubjectLevelsPanel", () => {
     expect(screen.queryByLabelText("Science level")).not.toBeInTheDocument();
   });
 
-  it("says a grade is estimated when the hero has only a birth year", () => {
+  it("says a grade is a guess when nobody set one", () => {
     render(<SubjectLevelsPanel {...props} estimated={true} />);
-    expect(screen.getByText(/estimated grade 3 from age/i)).toBeInTheDocument();
+    expect(screen.getByText(/grade 3 is our best guess/i)).toBeInTheDocument();
+    // The panel cannot tell why the grade is a guess — an age estimate, an age estimate
+    // the band guard overrode, or no birth year at all — so it must not name a reason.
+    expect(screen.getByText(/set a grade in Hero Details/i)).toBeInTheDocument();
   });
 
   it("never uses a word about the child that a child should not read", () => {
@@ -99,7 +102,7 @@ describe("SubjectLevelsPanel", () => {
     expect(document.body.textContent).not.toMatch(/struggling|remedial|slow|failing/i);
     cleanup();
 
-    // Also render the estimated-grade path: its "Estimated grade N from age..." copy is
+    // Also render the estimated-grade path: its "Grade N is our best guess..." copy is
     // only shown when `estimated` is true, so a banned word planted there is invisible
     // to every other test in this file.
     render(

@@ -188,12 +188,12 @@ describe("ChildList — the grade Subject Levels is anchored on", () => {
     expect(screen.queryByText(/Grade 5 · at grade level/)).not.toBeInTheDocument();
   });
 
-  it("tells a grown-up when the anchor is a guess from age, not a grade they set", () => {
+  it("tells a grown-up when the anchor is a guess, not a grade they set", () => {
     // Without this warning a grown-up reads "Grade 3" as something the app was told,
     // and has no idea a real grade in Hero Details would change every strand under it.
     render(<ChildList family={family} kids={[gradelessHero("demo-child-6", "Cleo", 2016, "elementary")]} />);
     openHero("Cleo");
-    expect(screen.getByText(/estimated grade 3 from age/i)).toBeInTheDocument();
+    expect(screen.getByText(/grade 3 is our best guess/i)).toBeInTheDocument();
   });
 
   it("still renders the controls for a hero with neither a grade nor a birth year", () => {
@@ -203,5 +203,12 @@ describe("ChildList — the grade Subject Levels is anchored on", () => {
     render(<ChildList family={family} kids={[gradelessHero("demo-child-5", "Bram", null, "middle")]} />);
     openHero("Bram");
     expect(screen.getAllByRole("switch", { name: /is not at grade level/i })).toHaveLength(4);
+
+    // And the warning must not claim an age this hero does not have. Bram has no birth
+    // year at all: "grade 6" is what his age mode stands for, not anything derived from
+    // him. Copy that says "from age" would send a grown-up looking for a birth year they
+    // already know is missing, instead of setting the grade that actually fixes it.
+    expect(screen.getByText(/grade 6 is our best guess/i)).toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/from age/i);
   });
 });

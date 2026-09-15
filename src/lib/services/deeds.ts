@@ -25,7 +25,12 @@ export type HeroLevels = {
    */
   grades: Record<SkillArea, Grade>;
   /**
-   * The hero's own coarse band, for the one page header that needs a single label.
+   * The hero's own coarse band. Nothing renders it any more — the side-quest header that
+   * did was removed, because naming a child's level to them is exactly what this feature
+   * promises never to do. It is kept because the next content plan retires bands wholesale
+   * and will remove it then, and because `services/deeds.test.ts` still uses it to prove
+   * that plan moved no hero's content.
+   *
    * Deliberately a `ContentBand` and not a `Grade`: it is not an axis the engine can
    * be asked on, so a call site cannot reach for it instead of `grades[area]` and
    * silently serve every strand the hero's own year.

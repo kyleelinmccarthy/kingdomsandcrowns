@@ -79,7 +79,7 @@ export function SubjectLevelsPanel({
       <h4 className="text-sm font-medium">Subject Levels</h4>
       {estimated && (
         <p className="text-xs text-muted-foreground">
-          Estimated grade {childGrade} from age — set a grade in Hero Details for accuracy.
+          Grade {childGrade} is our best guess — set a grade in Hero Details so subject levels line up.
         </p>
       )}
       {error && <div className="rounded-md bg-destructive/10 p-2 text-sm text-destructive">{error}</div>}
