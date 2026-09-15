@@ -338,7 +338,18 @@ export function selectSkills(candidates: Skill[], masteryBySkill: Record<string,
 }
 ```
 
-In `buildRun`, replace the use of the passed-in skill list with `selectSkills(chooseSkills(deed, grade), masteryBySkill, rng)`.
+`buildDeedRun` does **not** receive a skill list — it calls `chooseSkills(deed, grade)` itself at
+`deed-engine.ts:96`, right after creating `rng`. That one line becomes:
+
+```ts
+const skills = selectSkills(chooseSkills(deed, grade), masteryBySkill, rng);
+const skillIds = skills.map((s) => s.id);
+```
+
+`skillIds` must stay the **selected** skills, never the full candidate list: it drives which recent
+misses count as review, how the question budget is split, and (at the call site) which mastery rows
+are snapshotted into `masteryStart`. Handing it every candidate would record progress against skills
+the child never practised.
 
 **Careful:** `buildRun` draws the rng in a fixed order, and adding a `shuffle` call changes every
 subsequent draw. Existing tests that pin exact generated questions for a given seed **will fail, and
@@ -348,10 +359,16 @@ stop and report it.
 
 - [ ] **Step 5: Check the caller still works**
 
-`src/lib/actions/deeds.ts` derives `poolSkillIds` from `chooseSkills`, which now returns more skills.
-At most one is a pool skill per area per grade, so the `inArray` query is the same size in practice —
-**verify that by test rather than by assumption**, and if a grade ever has two pool skills, the query
-simply covers both, which is harmless. Confirm the action still typechecks and that `built.skillIds`
+`src/lib/actions/deeds.ts` derives `poolSkillIds` from `chooseSkills`, which now returns every
+candidate rather than one. **That widening is load-bearing, not incidental.** The action loads pool
+items *before* `buildDeedRun` runs, so if the query still fetched only the first pool skill while
+`selectSkills` then picked a different one, the chosen skill would have an empty pool and the run
+would silently come up short. Returning all candidates from `chooseSkills` is what keeps the query a
+superset of whatever gets selected. Do not "optimise" it back to one.
+
+The cost is nil in practice — there is at most one pool skill per area per grade today — but
+**verify that by test rather than by assumption**, and if a grade ever has two, the query simply
+covers both. Confirm the action still typechecks and that `built.skillIds`
 (which drives `masteryStart`) contains only the skills actually practised, not every candidate.
 
 - [ ] **Step 6: Run everything and prove the fix bites**
