@@ -36,8 +36,10 @@ import { SeasonPanel } from "./season-panel";
 import { LearningProfilePanel } from "./learning-profile-panel";
 import { RealmSettingsPanel } from "./realm-settings-panel";
 import { MasteryPanel } from "./mastery-panel";
+import { SubjectLevelsPanel } from "./subject-levels-panel";
 import { crownById } from "@/lib/utils/crown-catalog";
 import { crownChoices, type SeasonWithCeremony } from "@/lib/utils/seasons";
+import { GRADES, estimateGrade, NO_OFFSETS, type Grade } from "@/lib/utils/grade-levels";
 import type { LearningProfile } from "@/lib/utils/learning-profile";
 import type { RealmSettings } from "@/lib/utils/realm-settings";
 import type { MasteryRow } from "@/lib/actions/deeds";
@@ -426,6 +428,14 @@ function ChildDetail({ child, isChildView = false }: { child: Child; isChildView
     }
   }
 
+  // What a grown-up set wins outright; otherwise the age estimate stands in, flagged as
+  // such. `child.grade` is a plain nullable text column, so a value off the ladder is
+  // never trusted as a real grade. A hero with neither has no meaningful grade to show
+  // Subject Levels against, so the panel is skipped entirely for them rather than guessing.
+  const ownGrade = child.grade && (GRADES as readonly string[]).includes(child.grade) ? (child.grade as Grade) : null;
+  const estimatedGrade = ownGrade ? null : estimateGrade(child.birthYear, new Date());
+  const subjectGrade = ownGrade ?? estimatedGrade;
+
   return (
     <GameFrame title={`${child.displayName}'s Chronicle`} icon={<GameIcon name="book" className="size-4 text-[var(--gold-bright)]" />}>
       <div className="space-y-6">
@@ -468,6 +478,14 @@ function ChildDetail({ child, isChildView = false }: { child: Child; isChildView
         )}
         {!isChildView && child.learningProfile && (
           <LearningProfilePanel childId={child.id} profile={child.learningProfile} />
+        )}
+        {!isChildView && subjectGrade && (
+          <SubjectLevelsPanel
+            childId={child.id}
+            childGrade={subjectGrade}
+            estimated={!ownGrade}
+            offsets={child.learningProfile?.subjectOffsets ?? NO_OFFSETS}
+          />
         )}
         {!isChildView && child.realmSettings && child.realmPlay && (
           <RealmSettingsPanel childId={child.id} settings={child.realmSettings} summary={child.realmPlay} />

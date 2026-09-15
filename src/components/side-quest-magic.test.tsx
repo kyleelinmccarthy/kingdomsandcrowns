@@ -13,7 +13,7 @@ describe("How side quests make magic", () => {
       { school: "modifier", areas: ["science"] },
     ]);
     expect(magicLine("form", ["math"])).toBe("Math side quests unlock Forms: Bolt, Orb, Burst and more.");
-    expect(magicLine("element", ["reading", "language"])).toBe("Reading and Language side quests unlock Elements: Ember, Tide, Stone and more.");
+    expect(magicLine("element", ["reading", "language"])).toBe("Reading and Language Arts side quests unlock Elements: Ember, Tide, Stone and more.");
     expect(magicLine("modifier", ["science"])).toBe("Science side quests unlock Modifiers.");
   });
   it("links every line to the Spellbook", () => {

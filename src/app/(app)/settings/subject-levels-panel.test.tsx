@@ -70,5 +70,18 @@ describe("SubjectLevelsPanel", () => {
   it("never uses a word about the child that a child should not read", () => {
     render(<SubjectLevelsPanel {...props} offsets={{ math: -2, reading: 0, language: 0, science: 0 }} />);
     expect(document.body.textContent).not.toMatch(/struggling|remedial|slow|failing/i);
+    cleanup();
+
+    // Also render the estimated-grade path: its "Estimated grade N from age..." copy is
+    // only shown when `estimated` is true, so a banned word planted there is invisible
+    // to every other test in this file.
+    render(
+      <SubjectLevelsPanel
+        {...props}
+        estimated={true}
+        offsets={{ math: -2, reading: 0, language: 0, science: 0 }}
+      />
+    );
+    expect(document.body.textContent).not.toMatch(/struggling|remedial|slow|failing/i);
   });
 });

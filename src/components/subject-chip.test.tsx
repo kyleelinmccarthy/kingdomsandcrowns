@@ -22,7 +22,7 @@ describe("SubjectChip", () => {
     expect(AREA_LABELS).toEqual({
       math: { label: "Math", color: "#3b82f6" },
       reading: { label: "Reading", color: "#22c55e" },
-      language: { label: "Language", color: "#a855f7" },
+      language: { label: "Language Arts", color: "#a855f7" },
       science: { label: "Science", color: "#f97316" },
     });
   });

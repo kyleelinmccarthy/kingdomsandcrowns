@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
-import { SKILLS, skillsFor, findSkill, skillForPool, AREA_SCHOOL } from "./skills";
+import { SKILLS, skillsFor, findSkill, skillForPool, AREA_SCHOOL, AREA_LABELS } from "./skills";
 import { GENERATORS } from "./drill-generators";
 
 describe("SKILLS", () => {
@@ -12,6 +12,9 @@ describe("SKILLS", () => {
       if (s.source.kind === "generator") expect(GENERATORS[s.source.generatorId]).toBeTypeOf("function");
       else expect(fs.existsSync(path.join(__dirname, "../../content/drills", `${s.source.poolId}.json`))).toBe(true);
     }
+  });
+  it("calls the strand Language Arts everywhere a person reads it", () => {
+    expect(AREA_LABELS.language.label).toBe("Language Arts");
   });
   it("maps every area to a school", () => {
     expect(AREA_SCHOOL).toEqual({ reading: "element", language: "element", math: "form", science: "modifier" });
