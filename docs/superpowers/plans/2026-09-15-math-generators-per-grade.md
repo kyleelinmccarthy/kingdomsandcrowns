@@ -166,7 +166,31 @@ it("expands each band to exactly the grades bandForGrade assigns it", () => {
 ```
 This needs `BAND_GRADES` exported. Export it; Task 13 deletes it along with the last band reference.
 
-- [ ] **Step 8: Commit**
+- [ ] **Step 8: Narrow the snapshot to the areas that are about to stop changing**
+
+The snapshot has now done its job: it proved the axis change moved nobody. Leaving it covering **math**
+would break it in all nine generator tasks that follow, and nine routine `-u` runs is how a real
+regression gets waved through.
+
+So narrow it to reading, language and science, and say why in the test:
+
+```ts
+/**
+ * Math is deliberately excluded. Every grade's math is rewritten over the next nine tasks, so a
+ * snapshot covering it would be updated nine times and would stop being evidence of anything.
+ * Math is pinned instead by the skill map (which the table must match, asserted separately), by
+ * the universal generator property test, and by a per-grade minimum.
+ *
+ * These three areas, by contrast, must not move AT ALL during the math work. This snapshot is
+ * what makes "the math changes touched nothing else" a fact rather than a hope — so if it fails
+ * in a later task, that task reached somewhere it should not have. Do not update it; find out why.
+ */
+const PINNED_AREAS: SkillArea[] = ["reading", "language", "science"];
+```
+
+Regenerate once with `-u`, **read the diff** to confirm only the math entries were removed, and commit.
+
+- [ ] **Step 9: Commit**
 
 ```bash
 git add src/lib/utils/skills.ts src/lib/utils/skills.test.ts
@@ -1087,8 +1111,12 @@ Run: `npx vitest run src/lib/utils/skills.test.ts -u`
 Then **read the snapshot diff in `git diff` before committing it.** This is the moment the content
 actually moves, and the diff is the record of it. Check by eye that:
 - no grade lost math entirely (every grade K–12 has at least three math skills);
-- reading, language and science are **completely unchanged** — this task touches math only;
 - `fractions-compare` disappears from every grade and no other id does.
+
+You do **not** need to check reading, language and science by eye: Task 1 narrowed the snapshot to
+exactly those three areas, so if this task disturbed them the snapshot fails on its own. **If it does
+fail, do not run `-u`** — this task touches math only, so a non-math change means something reached
+further than intended. Find out what, and report it.
 
 Write what you saw into your report. If a non-math skill moved, something is wrong with the table, not
 with the snapshot.
