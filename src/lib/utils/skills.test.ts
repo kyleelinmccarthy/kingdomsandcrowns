@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
-import { SKILLS, skillsFor, findSkill, skillForPool, AREA_SCHOOL, AREA_LABELS, type SkillArea } from "./skills";
+import { SKILLS, skillsFor, findSkill, skillForPool, AREA_SCHOOL, AREA_LABELS, BAND_GRADES, type SkillArea } from "./skills";
 import { GENERATORS } from "./drill-generators";
-import { GRADES } from "./grade-levels";
+import { GRADES, bandForGrade, type Grade } from "./grade-levels";
 
 const AREAS: SkillArea[] = ["math", "reading", "language", "science"];
 
@@ -32,9 +32,43 @@ describe("SKILLS", () => {
 });
 
 describe("skillsFor is unchanged by the move from bands to grades", () => {
+  /**
+   * The oracle is the OLD rule, written out here by hand: a skill served grade g if and
+   * only if its band was the band of g. Keeping this literal means the refactor is checked
+   * against what the code used to do, not against the code as it now is.
+   */
+  it.each(AREAS.flatMap((area) => GRADES.map((g) => [area, g] as [SkillArea, Grade])))(
+    "%s at grade %s returns exactly the old band's skills",
+    (area, grade) => {
+      const expected = SKILLS.filter(
+        (s) => s.area === area && s.grades.some((sg) => bandForGrade(sg) === bandForGrade(grade))
+      );
+      // Not a subset check: the exact set, so a skill gained or lost is caught.
+      expect(skillsFor(area, grade).map((s) => s.id).sort()).toEqual(expected.map((s) => s.id).sort());
+    }
+  );
+
+  it("expands each band to exactly the grades bandForGrade assigns it", () => {
+    for (const [band, grades] of Object.entries(BAND_GRADES)) {
+      expect(GRADES.filter((g) => bandForGrade(g) === band)).toEqual([...grades]);
+    }
+  });
+
+  /**
+   * Math is deliberately excluded. Every grade's math is rewritten over the next nine tasks, so a
+   * snapshot covering it would be updated nine times and would stop being evidence of anything.
+   * Math is pinned instead by the skill map (which the table must match, asserted separately), by
+   * the universal generator property test, and by a per-grade minimum.
+   *
+   * These three areas, by contrast, must not move AT ALL during the math work. This snapshot is
+   * what makes "the math changes touched nothing else" a fact rather than a hope — so if it fails
+   * in a later task, that task reached somewhere it should not have. Do not update it; find out why.
+   */
+  const PINNED_AREAS: SkillArea[] = ["reading", "language", "science"];
+
   it("pins today's grade-to-skill-ids map so the refactor cannot move anyone", () => {
     const map = Object.fromEntries(
-      AREAS.map((area) => [area, Object.fromEntries(GRADES.map((g) => [g, skillsFor(area, g).map((s) => s.id)]))])
+      PINNED_AREAS.map((area) => [area, Object.fromEntries(GRADES.map((g) => [g, skillsFor(area, g).map((s) => s.id)]))])
     );
     expect(map).toMatchInlineSnapshot(`
       {
@@ -76,64 +110,6 @@ describe("skillsFor is unchanged by the move from bands to grades", () => {
             "vocab-g912",
           ],
           "K": [],
-        },
-        "math": {
-          "1": [
-            "add-10",
-            "sub-10",
-          ],
-          "10": [
-            "percent-of",
-            "one-step-eq",
-          ],
-          "11": [
-            "percent-of",
-            "one-step-eq",
-          ],
-          "12": [
-            "percent-of",
-            "one-step-eq",
-          ],
-          "2": [
-            "add-20",
-            "sub-20",
-            "add-100",
-          ],
-          "3": [
-            "add-20",
-            "sub-20",
-            "add-100",
-          ],
-          "4": [
-            "mul-facts",
-            "div-facts",
-            "place-value",
-          ],
-          "5": [
-            "mul-facts",
-            "div-facts",
-            "place-value",
-          ],
-          "6": [
-            "fractions-compare",
-            "integer-ops",
-          ],
-          "7": [
-            "fractions-compare",
-            "integer-ops",
-          ],
-          "8": [
-            "fractions-compare",
-            "integer-ops",
-          ],
-          "9": [
-            "percent-of",
-            "one-step-eq",
-          ],
-          "K": [
-            "add-10",
-            "sub-10",
-          ],
         },
         "reading": {
           "1": [
