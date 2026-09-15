@@ -8,6 +8,7 @@ import { profileFromRow } from "@/lib/utils/learning-profile";
 import { BUILDINGS, buildingProgress } from "@/lib/utils/kingdom";
 import { deedsForBuilding, deedStory } from "@/lib/utils/deeds";
 import type { ContentBand } from "@/lib/utils/content-bands";
+import type { AgeMode } from "@/lib/utils/age-mode";
 import type { SkillArea } from "@/lib/utils/skills";
 import type { GameIconName } from "@/components/game-icon";
 
@@ -54,6 +55,36 @@ export function gradesFor(ownGrade: Grade, offsets: SubjectOffsets): Record<Skil
   };
 }
 
+/** The three rows `heroLevels` composes: the hero, their learning profile, their Realm settings. */
+type HeroRow = { grade: string | null; birthYear: number | null; ageMode: string };
+type ProfileRow = Parameters<typeof profileFromRow>[0];
+type SettingsRow = { enabled: boolean; toneMode: "gentle" | "monsters" };
+
+/**
+ * The whole composition, with the database lifted out: rows in, HeroLevels out. Pure and
+ * exported because this is where a grown-up's setting either reaches the engine or quietly
+ * does not — dropping `subjectOffsets` here disconnects every level anyone ever set, and
+ * with the composition buried inside an async DB function no test could see it.
+ */
+export function heroLevels(row: HeroRow, profileRow: ProfileRow, settings: SettingsRow): HeroLevels {
+  // Read through the profile util, never off the raw row: it is what turns a corrupt
+  // or fractional stored offset into 0 rather than letting it reach the engine.
+  const { subjectOffsets } = profileFromRow(profileRow);
+  const ownGrade = ownGradeOf(row.grade, row.birthYear, row.ageMode as AgeMode);
+  return {
+    grades: gradesFor(ownGrade, subjectOffsets),
+    band: bandForGrade(ownGrade),
+    enabled: settings.enabled,
+    tone: settings.toneMode,
+  };
+}
+
+/** The grade a run for THIS side quest must be built at: the grade of the deed's OWN strand.
+    One line, and pure, so a test can prove a reading quest never asks on the math grade. */
+export function gradeForDeed(hero: Pick<HeroLevels, "grades">, deed: { area: SkillArea }): Grade {
+  return hero.grades[deed.area];
+}
+
 /** The hero's grade per strand, Realm switch, and story tone; shared by the Deeds page and the Realm. */
 export async function loadHeroLevels(childId: string): Promise<HeroLevels> {
   // Nothing here depends on anything else here, so it is one parallel round.
@@ -67,16 +98,7 @@ export async function loadHeroLevels(childId: string): Promise<HeroLevels> {
     loadLearningProfileRow(childId),
   ]);
   if (!rows[0]) throw new Error("Hero not found.");
-  // Read through the profile util, never off the raw row: it is what turns a corrupt
-  // or fractional stored offset into 0 rather than letting it reach the engine.
-  const { subjectOffsets } = profileFromRow(profileRow);
-  const ownGrade = ownGradeOf(rows[0].grade, rows[0].birthYear, rows[0].ageMode);
-  return {
-    grades: gradesFor(ownGrade, subjectOffsets),
-    band: bandForGrade(ownGrade),
-    enabled: settings.enabled,
-    tone: settings.toneMode,
-  };
+  return heroLevels(rows[0], profileRow, settings);
 }
 
 /** Every building with its progress and deeds, from raw progress rows. Pure, so the shape is testable without a database. */

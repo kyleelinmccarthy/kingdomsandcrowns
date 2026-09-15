@@ -23,7 +23,7 @@ import {
 } from "@/lib/utils/deed-engine";
 import { masteryChangeCopy, masteryLabel, parseRecentResults, recordResult } from "@/lib/utils/mastery";
 import type { Question } from "@/lib/utils/drill-generators";
-import { loadHeroLevels, loadKingdomOverview, type BuildingOverview } from "@/lib/services/deeds";
+import { gradeForDeed, loadHeroLevels, loadKingdomOverview, type BuildingOverview } from "@/lib/services/deeds";
 import { loadLearningProfileRow } from "@/lib/services/learning-profile";
 export type MasteryRow = { skillId: string; label: string; area: SkillArea; level: number; levelLabel: string; lastPracticedAt: string | null };
 export type DeedsOverview = {
@@ -123,7 +123,9 @@ export async function startDeedRun(childId: string, deedId: string, context: "pa
     return { runId: open[0].id, deed: { id: deed.id, title: deed.title, story, area: deed.area }, questions: qs.map(toClientQuestion), responses };
   }
 
-  const grade = hero.grades[deed.area];
+  // The deed's OWN strand decides the grade — never a fixed one, and never another
+  // strand's. `gradeForDeed` is where that is pinned by test.
+  const grade = gradeForDeed(hero, deed);
   const skills = chooseSkills(deed, grade);
   const poolSkillIds = skills.filter((s) => s.source.kind === "pool").map((s) => s.id);
   const [profileRow, masteryRows, poolRows, recentMisses] = await Promise.all([

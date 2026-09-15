@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { buildKingdomOverview, gradesFor, ownGradeOf } from "./deeds";
+import { buildKingdomOverview, gradeForDeed, gradesFor, heroLevels, ownGradeOf } from "./deeds";
+import { findDeed } from "@/lib/utils/deeds";
 import { BUILDINGS } from "@/lib/utils/kingdom";
 import { bandForHero, type ContentBand } from "@/lib/utils/content-bands";
 import { bandForGrade, NO_OFFSETS } from "@/lib/utils/grade-levels";
@@ -100,5 +101,51 @@ describe("gradesFor", () => {
   it("clamps the derived grade at both ends of the ladder", () => {
     expect(gradesFor("K", { ...NO_OFFSETS, math: -3 }).math).toBe("K");
     expect(gradesFor("12", { ...NO_OFFSETS, science: 4 }).science).toBe("12");
+  });
+});
+
+describe("heroLevels — the whole composition, without a database", () => {
+  // The rows `loadHeroLevels` fetches, as the database hands them over.
+  const hero = { grade: "3", birthYear: null, ageMode: "elementary" };
+  const settings = { enabled: true, toneMode: "gentle" as const };
+
+  it("carries EVERY strand's saved gap through to the grade the engine is asked on", () => {
+    // Four different offsets, so dropping them (or reading one strand's for all four)
+    // cannot pass by coincidence. This is the step where a grown-up's setting either
+    // reaches the engine or quietly reaches nothing at all: a composition that ignored
+    // the profile row would leave all four at Grade 3 and every level ever set would be
+    // dead, with the rest of the suite still green.
+    const levels = heroLevels(hero, { mathOffset: 2, readingOffset: -1, languageOffset: 0, scienceOffset: 1 }, settings);
+    expect(levels.grades).toEqual({ math: "5", reading: "2", language: "3", science: "4" });
+  });
+
+  it("leaves a hero with no profile row at their own grade, and carries the Realm settings", () => {
+    const levels = heroLevels(hero, null, settings);
+    expect(levels.grades).toEqual({ math: "3", reading: "3", language: "3", science: "3" });
+    expect(levels.band).toBe("g23");
+    expect(levels.enabled).toBe(true);
+    expect(levels.tone).toBe("gentle");
+  });
+
+  it("turns a corrupt stored offset into grade level rather than letting it reach the engine", () => {
+    const levels = heroLevels(hero, { mathOffset: 1.5, readingOffset: "two" }, settings);
+    expect(levels.grades.math).toBe("3");
+    expect(levels.grades.reading).toBe("3");
+  });
+});
+
+describe("gradeForDeed", () => {
+  it("asks on the grade of the deed's OWN strand", () => {
+    // Reading and math are deliberately different grades, so a run that reached for the
+    // wrong strand — or for a fixed one — lands on a visibly wrong grade rather than
+    // passing because every strand happened to be the same year.
+    const grades = { math: "6" as const, reading: "2" as const, language: "3" as const, science: "4" as const };
+    const readingDeed = findDeed("well-signs")!;
+    expect(readingDeed.area).toBe("reading");
+    expect(gradeForDeed({ grades }, readingDeed)).toBe("2");
+    // and the same hero's math quest is still built two bands higher
+    const mathDeed = findDeed("well-stones")!;
+    expect(mathDeed.area).toBe("math");
+    expect(gradeForDeed({ grades }, mathDeed)).toBe("6");
   });
 });
