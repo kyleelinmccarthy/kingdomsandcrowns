@@ -150,3 +150,65 @@ describe("every generated question is independently verifiable", () => {
     expect(run()).toEqual(run());
   });
 });
+
+/**
+ * Every rung must be a different rung — for every generated skill in the bank.
+ *
+ * This started as a per-file check and is universal because the same defect has now been
+ * found three times, in three different files, by three different people: `two-step-eq`
+ * levels 0 and 1 produced literally the same 480 equations, `exponent-rules` level 1 could
+ * ask nothing level 0 could not, and `factor-quad` and `inequalities` shipped with levels 0
+ * and 1 sharing a pool. A child masters a rung, is promoted, and is handed the questions
+ * they just finished — while their mastery number goes up. Per-level ceilings asserted with
+ * `toBeLessThanOrEqual` pin that flatness in place rather than catching it.
+ *
+ * What this asserts is the weakest honest form: level N must be able to ask something no
+ * earlier level can. Harder rungs may and should revisit easier work; what is forbidden is a
+ * rung that changes nothing.
+ *
+ * Honest limitation: it samples. For a small question space it is decisive; for a very large
+ * one it can only fail, never prove — two levels sharing a 7,000-question pool would need an
+ * exhaustive census to distinguish. It has caught every flat rung found so far.
+ */
+describe("every level of every skill offers something no earlier level can ask", () => {
+  const LADDER_SEEDS = Array.from({ length: 120 }, (_, i) => i * 131 + 7);
+  const GENERATED = SKILLS.filter((s) => s.source.kind === "generator");
+
+  it("covers every generated skill, so the check below is not vacuous", () => {
+    expect(GENERATED.length).toBeGreaterThanOrEqual(Object.keys(GENERATORS).length);
+  });
+
+  it.each(GENERATED.map((s) => [s.id, (s.source as { generatorId: string }).generatorId]))(
+    "%s climbs",
+    (skillId, genId) => {
+      // A few generators put the whole question in the choices — "Which number is the
+      // greatest?" is one prompt forever, and the four numbers are the question. For those
+      // the identity is the sorted choice set; for everyone else it is the prompt, because
+      // their distractors are drawn and would make every draw look unique.
+      const prompts = new Set<string>();
+      for (const seed of LADDER_SEEDS.slice(0, 20)) {
+        const rng = seededRng(seed);
+        for (const level of LEVELS) for (let i = 0; i < 6; i++) prompts.add(GENERATORS[genId](level, rng, skillId).prompt);
+      }
+      const identity = (q: Question) =>
+        prompts.size === 1 ? [...q.choices].sort().join(",") : q.prompt;
+
+      const seen = new Set<string>();
+      for (const level of LEVELS) {
+        const here = new Set<string>();
+        for (const seed of LADDER_SEEDS) {
+          const rng = seededRng(seed);
+          for (let i = 0; i < 12; i++) here.add(identity(GENERATORS[genId](level, rng, skillId)));
+        }
+        if (level > 0) {
+          const fresh = [...here].filter((p) => !seen.has(p));
+          expect(
+            fresh.length,
+            `${skillId} level ${level} can ask nothing level ${level - 1} could not — ${here.size} questions, all already reachable`
+          ).toBeGreaterThan(0);
+        }
+        for (const p of here) seen.add(p);
+      }
+    }
+  );
+});
