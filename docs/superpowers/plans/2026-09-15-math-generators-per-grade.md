@@ -622,6 +622,17 @@ gives only what is specific to it — the generators, their exact parameters, an
    the generator or duplicate its formula from the same source — **write the arithmetic the other way
    round where you can** (a generator that builds `a × b` from factors gets a verifier that parses the
    product and divides).
+
+   **Design the prompt so an inverse exists.** Task 3 found that three of the nine original verifiers
+   are not genuinely two derivations: `mul`, `percent-of` and `fractions-compare` re-run the same
+   formula in the same direction, because their prompts already name both operands and leave nothing
+   to invert. Such a verifier catches a prompt/answer *mismatch* but not a shared misconception — if
+   the generator's idea of the operation is wrong, the verifier is wrong in the same way.
+
+   So when a new skill could be phrased either way, prefer the phrasing that leaves the verifier
+   something to check: ask for a missing factor rather than a product, a remainder rather than a
+   restatement. Where no inverse is possible, say so in a comment on the verifier — an honest
+   "this re-derives in the same direction" is worth more than a false sense of coverage.
 3. **Register the generator** in `GENERATORS` and **add its skill row** to `SKILLS` with the grades the
    map gives it. The universal test fails on a generator with no skill and on a skill with no verifier,
    so all three must land together.
