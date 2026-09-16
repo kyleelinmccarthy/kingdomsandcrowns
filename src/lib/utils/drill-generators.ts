@@ -4,9 +4,11 @@
  */
 import { compareNum, countSeq, moneyCoins, skipCount, tenMoreLess, timeClock } from "./generators/elementary";
 import {
+  addSubWithin1000,
   areaPerimeter,
   decOps,
   divMulti,
+  divTwoDigit,
   factors,
   fracAddsub,
   fracEquiv,
@@ -311,8 +313,10 @@ export const GENERATORS: Record<string, Generator> = {
   "frac-unit": fracUnit,
   "area-perimeter": areaPerimeter,
   "round-nearest": roundNearest,
+  "addsub-1000": addSubWithin1000,
   "mul-multi": mulMulti,
   "div-multi": divMulti,
+  "div-2digit": divTwoDigit,
   "frac-equiv": fracEquiv,
   factors,
   "frac-addsub": fracAddsub,

@@ -1,9 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { SKILLS } from "../skills";
 import {
+  addSubWithin1000,
   areaPerimeter,
   decOps,
   divMulti,
+  divTwoDigit,
   factors,
   frac,
   fracAddsub,
@@ -929,6 +931,240 @@ describe("order-ops", () => {
       expect(q.readAloud, q.readAloud).toContain("open parenthesis");
       expect(q.readAloud, q.readAloud).toContain("close parenthesis");
       expect(q.readAloud, q.readAloud).not.toMatch(/[()]/);
+    }
+  });
+});
+
+/**
+ * The column arithmetic, written out here rather than imported. Every assertion below reads
+ * the two numbers off the PROMPT and works the columns itself, so a generator that had its
+ * own idea of when a column regroups disagrees with this rather than being believed.
+ */
+const digitAt = (n: number, place: number) => Math.floor(n / place) % 10;
+
+/** Whether each of the ones, tens and hundreds columns passes something to the next. */
+function carriesOut(a: number, b: number): boolean[] {
+  const out: boolean[] = [];
+  let carry = 0;
+  for (const place of [1, 10, 100]) {
+    const sum = digitAt(a, place) + digitAt(b, place) + carry;
+    carry = sum >= 10 ? 1 : 0;
+    out.push(carry === 1);
+  }
+  return out;
+}
+
+function borrowsOut(a: number, b: number): boolean[] {
+  const out: boolean[] = [];
+  let borrow = 0;
+  for (const place of [1, 10, 100]) {
+    const diff = digitAt(a, place) - digitAt(b, place) - borrow;
+    borrow = diff < 0 ? 1 : 0;
+    out.push(borrow === 1);
+  }
+  return out;
+}
+
+/** Every regrouping skipped: the columns done as if they never talked to each other. */
+function regroupingSkipped(a: number, b: number, adding: boolean): number {
+  let out = 0;
+  for (const place of [1, 10, 100]) {
+    const x = digitAt(a, place), y = digitAt(b, place);
+    out += (adding ? (x + y) % 10 : Math.abs(x - y)) * place;
+  }
+  return out;
+}
+
+describe("add-1000 and sub-1000", () => {
+  const operands = (q: Question) => {
+    const m = /^What is (\d+) ([+-]) (\d+)\?$/.exec(q.prompt);
+    expect(m, `add-1000 wrote a prompt a child cannot read: ${q.prompt}`).not.toBeNull();
+    return { a: Number(m![1]), adding: m![2] === "+", b: Number(m![3]) };
+  };
+
+  it("stays inside 1000, keeps both numbers real, and never asks for a negative answer", () => {
+    for (const skillId of ["add-1000", "sub-1000"]) {
+      for (const lvl of LEVELS) {
+        for (const q of draws(addSubWithin1000, lvl, skillId)) {
+          const { a, adding, b } = operands(q);
+          expect(adding, `${skillId} asked the wrong operation: ${q.prompt}`).toBe(skillId === "add-1000");
+          expect(a, q.prompt).toBeGreaterThanOrEqual(100);
+          expect(b, q.prompt).toBeGreaterThanOrEqual(10);
+          expect(Number(q.answer), q.prompt).toBe(adding ? a + b : a - b);
+          expect(Number(q.answer), q.prompt).toBeGreaterThanOrEqual(0);
+          expect(Number(q.answer), `${q.prompt} leaves 3.NBT.2 behind`).toBeLessThan(1000);
+        }
+      }
+    }
+  });
+
+  /**
+   * The ladder this skill has, stated per rung. 3.NBT.2 fixes the ceiling at 1000, so five
+   * rungs of a widening ceiling would have been five rungs of the same work: what actually
+   * gets harder is how many columns regroup, and — at the top — whether the regrouping is
+   * one the child caused themselves a column earlier.
+   */
+  it("climbs by regrouping rather than by magnitude", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(addSubWithin1000, lvl, "add-1000")) {
+        const { a, b } = operands(q);
+        const [ones, tens, hundreds] = carriesOut(a, b);
+        expect(hundreds, `${q.prompt} carries past the hundreds`).toBe(false);
+        if (lvl === 0) expect(b, `${q.prompt} should add a two-digit number`).toBeLessThan(100);
+        else expect(b, `${q.prompt} should add a three-digit number`).toBeGreaterThanOrEqual(100);
+        if (lvl <= 1) expect([ones, tens], `${q.prompt} regroups on a rung that should not`).toEqual([false, false]);
+        if (lvl === 2) expect([ones, tens].filter(Boolean).length, `${q.prompt} is not exactly one carry`).toBe(1);
+        if (lvl >= 3) expect([ones, tens], `${q.prompt} is not two carries`).toEqual([true, true]);
+        // The top rung is the carry a child creates: the tens sum to nine on their own and
+        // only tip over because the ones column handed one up. Level 3's two carries are
+        // independent of each other, which is what keeps the two rungs apart.
+        const tensAlone = digitAt(a, 10) + digitAt(b, 10);
+        if (lvl === 3) expect(tensAlone, `${q.prompt} only carries because the ones did`).toBeGreaterThanOrEqual(10);
+        if (lvl === 4) expect(tensAlone, `${q.prompt} does not cascade`).toBe(9);
+      }
+      for (const q of draws(addSubWithin1000, lvl, "sub-1000")) {
+        const { a, b } = operands(q);
+        const [ones, tens] = borrowsOut(a, b);
+        if (lvl === 0) expect(b, `${q.prompt} should subtract a two-digit number`).toBeLessThan(100);
+        else expect(b, `${q.prompt} should subtract a three-digit number`).toBeGreaterThanOrEqual(100);
+        if (lvl <= 1) expect([ones, tens], `${q.prompt} borrows on a rung that should not`).toEqual([false, false]);
+        if (lvl === 2) expect([ones, tens], `${q.prompt} is not exactly one borrow`).toEqual([true, false]);
+        if (lvl >= 3) expect([ones, tens], `${q.prompt} is not two borrows`).toEqual([true, true]);
+        // The top rung is the borrow across a zero — 405 - 167, the shape a grade-3 class
+        // spends a week on. Level 3 keeps a real digit in the tens, so the two differ.
+        if (lvl === 3) expect(digitAt(a, 10), `${q.prompt} borrows across a zero on level 3`).not.toBe(0);
+        if (lvl === 4) expect(digitAt(a, 10), `${q.prompt} has nothing to borrow across`).toBe(0);
+      }
+    }
+  });
+
+  it("offers the answer with every regrouping skipped, from the first rung that regroups", () => {
+    for (const skillId of ["add-1000", "sub-1000"]) {
+      for (const lvl of [2, 3, 4]) {
+        for (const q of draws(addSubWithin1000, lvl, skillId)) {
+          const { a, adding, b } = operands(q);
+          const skipped = String(regroupingSkipped(a, b, adding));
+          // On screen AND not the answer. `toContain` alone would pass either way: when a
+          // characteristic-error distractor equals the answer the choice builder quietly
+          // backfills a near miss instead of offering a duplicate, so nothing would fire.
+          expect(skipped, `${q.prompt} has two right answers`).not.toBe(q.answer);
+          expect(q.choices, q.prompt).toContain(skipped);
+        }
+      }
+    }
+    // Not vacuous the other way either: levels 0 and 1 regroup nowhere, so the "skipped"
+    // answer IS the answer and must not be offered a second time.
+    for (const skillId of ["add-1000", "sub-1000"]) {
+      for (const lvl of [0, 1]) {
+        for (const q of draws(addSubWithin1000, lvl, skillId)) {
+          const { a, adding, b } = operands(q);
+          expect(String(regroupingSkipped(a, b, adding)), q.prompt).toBe(q.answer);
+        }
+      }
+    }
+  });
+});
+
+describe("mul-standard", () => {
+  const operands = (q: Question) => /^What is (\d+) × (\d+)\?$/.exec(q.prompt)!.slice(1).map(Number) as [number, number];
+  const interiorZero = (n: number) => String(n).slice(1, -1).includes("0");
+
+  it("gives each level the shape 5.NBT.5 asks for, and buys only one rung with a longer number", () => {
+    // 5.NBT.5 is the standard algorithm, so the rungs are partial-product rows and the
+    // places a child loses one — not four-digit numbers for their own sake. Levels 0 and 1
+    // have identical digit counts and differ only in the zero inside the multiplicand.
+    const digits: [number, number][] = [[3, 2], [3, 2], [4, 2], [3, 3], [3, 3]];
+    const zeroInside: (boolean | null)[] = [false, true, null, false, true];
+    for (const lvl of LEVELS) {
+      for (const q of draws(mulMulti, lvl, "mul-standard")) {
+        const [a, b] = operands(q);
+        expect(String(a).length, q.prompt).toBe(digits[lvl][0]);
+        expect(String(b).length, q.prompt).toBe(digits[lvl][1]);
+        expect(a % 10, `${q.prompt} ends in 0, so "tens ignored" would be 0`).not.toBe(0);
+        expect(b % 10, `${q.prompt} ends in 0`).not.toBe(0);
+        if (zeroInside[lvl] !== null) expect(interiorZero(a), `${q.prompt} has the wrong zero shape`).toBe(zeroInside[lvl]);
+        expect(Number(q.answer), q.prompt).toBe(a * b);
+      }
+    }
+  });
+
+  it("carries somewhere, and always offers the ones digit multiplied on its own", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(mulMulti, lvl, "mul-standard")) {
+        const [a, b] = operands(q);
+        expect(carryDroppedProduct(a, b), `${q.prompt} has two right answers`).not.toBe(a * b);
+        expect(String((a % 10) * b), `${q.prompt} has two right answers`).not.toBe(q.answer);
+        expect(q.choices, q.prompt).toContain(String((a % 10) * b));
+      }
+    }
+  });
+});
+
+describe("div-2digit", () => {
+  const parts = (q: Question) => {
+    const m = /^What is (\d+) ÷ (\d+)\? Give the (quotient|remainder)\.$/.exec(q.prompt)!;
+    return { dividend: Number(m[1]), divisor: Number(m[2]), wants: m[3] };
+  };
+  /** Dividing by the divisor rounded down to a whole ten — written again, not imported. */
+  const tensOnly = (dividend: number, divisor: number) => Math.floor(dividend / (Math.floor(divisor / 10) * 10));
+
+  it("always divides by a real two-digit divisor and never by a whole ten", () => {
+    // `÷ 40` is a one-digit division with a place shift, not the algorithm 5.NBT.6 names.
+    for (const lvl of LEVELS) {
+      for (const q of draws(divTwoDigit, lvl, "div-2digit")) {
+        const { dividend, divisor } = parts(q);
+        expect(divisor, q.prompt).toBeGreaterThanOrEqual(11);
+        expect(divisor, q.prompt).toBeLessThanOrEqual(99);
+        expect(divisor % 10, `${q.prompt} divides by a whole ten`).not.toBe(0);
+        expect(dividend, `${q.prompt} passes four digits`).toBeLessThanOrEqual(9999);
+        expect(dividend, q.prompt).toBeGreaterThanOrEqual(100);
+      }
+    }
+  });
+
+  /**
+   * The ladder is the digits of the QUOTIENT — how many times a child brings a digit down —
+   * with the dividend following from that rather than driving it. The top rung is the
+   * quotient with a zero inside it, the step that gets dropped.
+   */
+  it("climbs by the digits of the quotient, ending on the one with a zero inside it", () => {
+    const quotientDigits = [1, 1, 2, 2, 3];
+    for (const lvl of LEVELS) {
+      for (const q of draws(divTwoDigit, lvl, "div-2digit")) {
+        const { dividend, divisor, wants } = parts(q);
+        const quotient = Math.floor(dividend / divisor);
+        expect(String(quotient).length, q.prompt).toBe(quotientDigits[lvl]);
+        expect(wants, `level ${lvl} asked for the ${wants}`).toBe(lvl % 2 === 0 ? "quotient" : "remainder");
+        // Quotient rungs come out exactly, so the answer is the whole of the division;
+        // remainder rungs always leave something, or there would be nothing to ask about.
+        if (lvl % 2 === 0) expect(dividend % divisor, `${q.prompt} does not divide exactly`).toBe(0);
+        else expect(dividend % divisor, `${q.prompt} has no remainder to ask about`).not.toBe(0);
+        if (lvl === 4) expect(String(quotient).slice(1, -1), `${q.prompt} has no zero to drop`).toContain("0");
+        expect(Number(q.answer), q.prompt).toBe(wants === "quotient" ? quotient : dividend % divisor);
+      }
+    }
+  });
+
+  it("puts the mistake each rung is about on the screen, and never as the right answer", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(divTwoDigit, lvl, "div-2digit")) {
+        const { dividend, divisor, wants } = parts(q);
+        const quotient = Math.floor(dividend / divisor);
+        // Every rung offers the estimate taken for the answer, or — on a remainder rung —
+        // the quotient, since swapping the two measures is THE mistake there. Each is
+        // checked against the answer as well as for its presence: a characteristic-error
+        // distractor that equals the answer is backfilled away, and `toContain` alone
+        // would still pass while the question quietly had two right answers.
+        const mistake = String(wants === "quotient" ? tensOnly(dividend, divisor) : quotient);
+        expect(mistake, `${q.prompt} has two right answers`).not.toBe(q.answer);
+        expect(q.choices, q.prompt).toContain(mistake);
+        if (lvl === 4) {
+          // The zero left out of the quotient: 3045 ÷ 15 answered 23 rather than 203.
+          const dropped = String(Number(String(quotient).replace("0", "")));
+          expect(dropped, `${q.prompt} has two right answers`).not.toBe(q.answer);
+          expect(q.choices, q.prompt).toContain(dropped);
+        }
+      }
     }
   });
 });

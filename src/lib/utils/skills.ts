@@ -81,6 +81,13 @@ export const SKILLS: Skill[] = [
   { id: "frac-unit", label: "Unit fractions", area: "math", grades: ["3"], source: gen("frac-unit") },
   { id: "area-perimeter", label: "Area and perimeter", area: "math", grades: ["3"], source: gen("area-perimeter") },
   { id: "round-nearest", label: "Rounding", area: "math", grades: ["3"], source: gen("round-nearest") },
+  /**
+   * 3.NBT.2 — fluent addition and subtraction within 1000. Grade 3 had neither: `add-100`
+   * and `sub-100` stop at grade 2 and nothing carried the strand on. New ids, never a
+   * rename of the grade-2 pair, so no child's mastery moves.
+   */
+  { id: "add-1000", label: "Addition within 1000", area: "math", grades: ["3"], source: gen("addsub-1000") },
+  { id: "sub-1000", label: "Subtraction within 1000", area: "math", grades: ["3"], source: gen("addsub-1000") },
   { id: "mul-multi", label: "Multi-digit multiplication", area: "math", grades: ["4"], source: gen("mul-multi") },
   { id: "div-multi", label: "Division with remainders", area: "math", grades: ["4"], source: gen("div-multi") },
   { id: "frac-equiv", label: "Equivalent fractions", area: "math", grades: ["4"], source: gen("frac-equiv") },
@@ -90,6 +97,14 @@ export const SKILLS: Skill[] = [
   { id: "dec-ops", label: "Decimal arithmetic", area: "math", grades: ["5"], source: gen("dec-ops") },
   { id: "volume-prism", label: "Volume of a rectangular prism", area: "math", grades: ["5"], source: gen("volume-prism") },
   { id: "order-ops", label: "Order of operations", area: "math", grades: ["5"], source: gen("order-ops") },
+  /**
+   * 5.NBT.5 and 5.NBT.6 — grade 5 had no whole-number multiplication or division at all,
+   * with `mul-multi` and `div-multi` stopping at grade 4. `mul-standard` reuses the grade-4
+   * generator off its own ladder; `div-2digit` is the long-division algorithm with a
+   * two-digit divisor, which grade 4 never asks for.
+   */
+  { id: "mul-standard", label: "The standard multiplication algorithm", area: "math", grades: ["5"], source: gen("mul-multi") },
+  { id: "div-2digit", label: "Dividing by a two-digit number", area: "math", grades: ["5"], source: gen("div-2digit") },
   { id: "ratio-rate", label: "Ratios and unit rates", area: "math", grades: ["6"], source: gen("ratio-rate") },
   { id: "frac-div", label: "Dividing fractions", area: "math", grades: ["6"], source: gen("frac-div") },
   { id: "eval-expr", label: "Evaluating expressions", area: "math", grades: ["6"], source: gen("eval-expr") },

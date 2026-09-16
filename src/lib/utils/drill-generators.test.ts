@@ -22,6 +22,7 @@
  */
 import { describe, it, expect } from "vitest";
 import { GENERATORS, seededRng, numericDistractors, shuffle, type Question } from "./drill-generators";
+import { SKILLS } from "./skills";
 
 const LEVELS = [0, 1, 2, 3, 4];
 const SEEDS = Array.from({ length: 40 }, (_, i) => i + 1);
@@ -145,11 +146,21 @@ describe("percent-of", () => {
 });
 
 describe("read-aloud", () => {
-  it("never speaks raw math symbols, across every generator and level", () => {
-    for (const [name, generator] of Object.entries(GENERATORS)) {
+  /**
+   * Driven by the SKILLS table, not by `Object.entries(GENERATORS)`. A generator is handed a
+   * SKILL id, and several of them serve more than one skill off different parameter rows —
+   * `add` serves three, `mul-multi` serves two grades. Passing the generator's own id, as
+   * this used to, exercised a fallback branch instead of any real row, and one generator
+   * does not have a fallback to exercise at all. Every generator still has at least one
+   * skill pointing at it, which `drill-verify.test.ts` asserts, so nothing loses coverage.
+   */
+  it("never speaks raw math symbols, across every skill and level", () => {
+    for (const skill of SKILLS) {
+      if (skill.source.kind !== "generator") continue;
+      const generator = GENERATORS[skill.source.generatorId];
       for (const lvl of LEVELS) {
         for (let seed = 1; seed <= 10; seed++) {
-          const q = generator(lvl, seededRng(seed), name);
+          const q = generator(lvl, seededRng(seed), skill.id);
           if (!q.readAloud) continue;
           for (const bad of ["×", "÷", "%", "- -"]) expect(q.readAloud).not.toContain(bad);
         }

@@ -22,7 +22,7 @@ describe("SKILLS", () => {
   });
   it("finds skills by area and grade, and pools by id", () => {
     expect(skillsFor("math", "3").map((s) => s.id).sort())
-      .toEqual(["area-perimeter", "div-facts", "frac-unit", "mul-facts", "round-nearest"]);
+      .toEqual(["add-1000", "area-perimeter", "div-facts", "frac-unit", "mul-facts", "round-nearest", "sub-1000"]);
     expect(skillsFor("language", "K")).toEqual([]);
     expect(findSkill("mul-facts")?.label).toBe("Multiplication facts");
     expect(findSkill("nope")).toBeNull();
@@ -180,7 +180,7 @@ function mapRows(): { grade: string; skillId: string }[] {
 
 describe("the math skill table follows the skill map", () => {
   it("finds every row in the map, so the comparison below is not vacuous", () => {
-    expect(mapRows().length).toBe(64);
+    expect(mapRows().length).toBe(68);
   });
 
   it("serves exactly the map's skills at every grade", () => {

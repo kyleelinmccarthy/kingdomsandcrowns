@@ -25,7 +25,7 @@ function input(over: Partial<BuildRunInput> = {}): BuildRunInput {
 describe("chooseSkills", () => {
   it("returns every candidate skill for the area at the hero's grade", () => {
     expect(chooseSkills(deedMath, "3").map((s) => s.id))
-      .toEqual(["mul-facts", "div-facts", "frac-unit", "area-perimeter", "round-nearest"]);
+      .toEqual(["mul-facts", "div-facts", "frac-unit", "area-perimeter", "round-nearest", "add-1000", "sub-1000"]);
     expect(chooseSkills(deedReading, "3").map((s) => s.id)).toEqual(["sight-g23"]);
   });
   it("falls back to the nearest grade when the area has no skill there", () => {
@@ -227,9 +227,9 @@ describe("every skill at a hero's grade can actually be served", () => {
     // skillIds drives which recent misses count as review, how the question budget is
     // split, and — at the call site — which mastery rows are snapshotted as the run's
     // starting point. Leaking the full candidate list would record progress against
-    // skills the child never saw. Grade 3 math has five candidates; a run uses one.
+    // skills the child never saw. Grade 3 math has seven candidates; a run uses one.
     const built = buildDeedRun({ ...baseInput, grade: "3", seed: 7, masteryBySkill: {} });
-    expect(chooseSkills(deedMath, "3").length).toBe(5);
+    expect(chooseSkills(deedMath, "3").length).toBe(7);
     expect(built.skillIds).toHaveLength(1);
   });
 

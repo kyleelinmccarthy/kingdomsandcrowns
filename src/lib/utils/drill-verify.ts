@@ -348,7 +348,9 @@ const mulMulti: Verifier = (q) => {
   const m = /^What is (\d+) × (\d+)\?$/.exec(q.prompt);
   if (!m) throw new Error(`multi-digit multiplication verifier cannot parse: ${q.prompt}`);
   const a = Number(m[1]), b = Number(m[2]);
-  if (b > 200) throw new Error(`operand too large to count out in: ${q.prompt}`);
+  // A bound on the loop, not a claim about the curriculum: grade 5 multiplies by a
+  // three-digit number, and 999 additions is still nothing.
+  if (b > 999) throw new Error(`operand too large to count out in: ${q.prompt}`);
   let total = 0;
   for (let counted = 0; counted < b; counted++) total += a;
   return String(total);
@@ -1877,8 +1879,16 @@ export const VERIFIERS: Record<string, Verifier> = {
   "frac-unit": fracUnit,
   "area-perimeter": areaPerimeter,
   "round-nearest": roundNearest,
+  "addsub-1000": arithmetic,
   "mul-multi": mulMulti,
   "div-multi": divRemainder,
+  /**
+   * Grade 5's two-digit division prints exactly the same sentence grade 4's does, so it is
+   * read by the same second derivation rather than by a copy of it: a duplicate is a second
+   * thing to get wrong, and this one already counts the divisor out of the dividend without
+   * ever using `/` or `%`.
+   */
+  "div-2digit": divRemainder,
   "frac-equiv": equivalentFraction,
   factors: factorOf,
   "frac-addsub": fractionAddSub,

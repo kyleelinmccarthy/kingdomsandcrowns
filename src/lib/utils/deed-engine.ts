@@ -101,7 +101,15 @@ function drawPool(items: PoolItem[], level: number, count: number, rng: Rng): Qu
  * from its prompt, so the id check has already caught a genuine repeat before this runs.
  */
 function questionText(q: Question): string {
-  return `${q.prompt}|${[...q.choices].sort().join(",")}`;
+  // The choices are part of the identity ONLY for those two, and they are recognised by the
+  // thing that makes them special: a prompt with no number in it. Folding the choices in
+  // everywhere looked harmless — an ordinary generator's id already encodes its prompt, so
+  // the id check catches a repeated draw first — but it is not, because the REVIEW question
+  // is compared by this text and not by id. A missed question replayed from an earlier run
+  // carries that day's distractors; the same prompt drawn fresh today carries new ones, so
+  // the two texts differed and the deed asked the same question twice, once as review and
+  // once as fresh. That is the exact duplicate `excludePrompts` was added to prevent.
+  return /\d/.test(q.prompt) ? q.prompt : `${q.prompt}|${[...q.choices].sort().join(",")}`;
 }
 
 /**

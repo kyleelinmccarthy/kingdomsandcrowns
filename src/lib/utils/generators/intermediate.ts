@@ -294,26 +294,183 @@ export function speakFrac(rendered: string): string {
 }
 
 /**
- * Digits in each operand per level, as [digits in a, digits in b].
+ * Addition and subtraction within 1000 — `add-1000` and `sub-1000`, grade 3 (3.NBT.2).
  *
- * This was `[[2, 1], [2, 1], ...]`: levels 0 and 1 drew the same 552 products, so a child who
- * mastered two-by-one was promoted to two-by-one. 4.NBT.5 is "up to four digits by a one-digit
- * number, and two two-digit numbers", which is a five-rung ladder as it stands — one, two and
- * three digits more against a single digit, then two by two — with no rung invented for it.
+ * The ceiling is fixed by the standard at 1000, so the rungs CANNOT climb by magnitude: the
+ * only honest ladder is the one the algorithm itself has, which is regrouping. Widening a
+ * ceiling from 200 to 1000 across five rungs would have been the cheap version of this and
+ * would have handed a grade-3 child "184 + 7" at the top rung, because a uniform draw under
+ * a ceiling is mostly lopsided pairs that need no carrying at all. Every rung here instead
+ * pins the columns:
+ *
+ *   0. three digits plus two, or minus two, with nothing to carry or borrow
+ *   1. three digits plus or minus three, still with nothing to carry or borrow
+ *   2. exactly one regrouping
+ *   3. two regroupings that happen independently of each other
+ *   4. the regrouping that is CAUSED by the one below it — a carry into a column that sums
+ *      to nine, and for subtraction the borrow across a zero (`405 - 167`), which is the
+ *      shape every grade-3 teacher spends a week on
+ *
+ * The rungs are disjoint by construction, not by ceiling, so each one can ask something no
+ * earlier one can — and the question is built column by column rather than drawn and tested,
+ * so no rung can spin looking for a draw that fits.
  */
-const MUL_DIGITS: [number, number][] = [[2, 1], [3, 1], [4, 1], [2, 2], [3, 2]];
+const SPEAK_OP = { "+": "plus", "-": "minus" } as const;
+
+/**
+ * Which operation each skill on this generator asks for. Listed rather than inferred from
+ * the id, so a skill pointed at this generator without being named here fails loudly
+ * instead of quietly handing a child the wrong operation for the rest of the year.
+ */
+const WITHIN_1000_OP: Record<string, "+" | "-"> = { "add-1000": "+", "sub-1000": "-" };
+
+/** Two digits summing to a total drawn from [lo, hi]; both stay inside 0-9. */
+function columnPair(rng: Rng, lo: number, hi: number): [number, number] {
+  const sum = randInt(rng, lo, hi);
+  const a = randInt(rng, Math.max(0, sum - 9), Math.min(9, sum));
+  return [a, sum - a];
+}
+
+/** Digit-wise addition with every carry thrown away — the mistake this skill is about. */
+function carriesDropped(a: number, b: number): number {
+  let out = 0;
+  for (let place = 1; place <= 100; place *= 10) {
+    out += ((Math.floor(a / place) % 10) + (Math.floor(b / place) % 10)) % 10 * place;
+  }
+  return out;
+}
+
+/** The smaller digit taken from the larger in every column — the mistake instead of borrowing. */
+function borrowsDropped(a: number, b: number): number {
+  let out = 0;
+  for (let place = 1; place <= 100; place *= 10) {
+    out += Math.abs((Math.floor(a / place) % 10) - (Math.floor(b / place) % 10)) * place;
+  }
+  return out;
+}
+
+function addendsWithin1000(lvl: number, rng: Rng): [number, number] {
+  if (lvl === 0) {
+    // Three digits plus two, no carry: every column is chosen to fit under ten.
+    const b2 = randInt(rng, 1, 9), b1 = randInt(rng, 0, 9);
+    return [randInt(rng, 1, 9) * 100 + randInt(rng, 0, 9 - b2) * 10 + randInt(rng, 0, 9 - b1), b2 * 10 + b1];
+  }
+  // How each column must behave, and therefore whether the hundreds receive a carry.
+  const [ones, tens] = lvl === 1 ? [columnPair(rng, 0, 9), columnPair(rng, 0, 9)]
+    : lvl === 2 ? (rng() < 0.5 ? [columnPair(rng, 10, 18), columnPair(rng, 0, 8)] : [columnPair(rng, 0, 9), columnPair(rng, 10, 18)])
+    : lvl === 3 ? [columnPair(rng, 10, 18), columnPair(rng, 10, 18)]
+    : [columnPair(rng, 10, 18), columnPair(rng, 9, 9)];
+  const carriedIn = tens[0] + tens[1] + (ones[0] + ones[1] >= 10 ? 1 : 0) >= 10 ? 1 : 0;
+  // Both addends keep three digits, and the sum stays under 1000: the two hundreds digits
+  // plus anything carried into them must leave nine.
+  const hundreds = randInt(rng, 2, 9 - carriedIn);
+  const a3 = randInt(rng, 1, hundreds - 1);
+  return [a3 * 100 + tens[0] * 10 + ones[0], (hundreds - a3) * 100 + tens[1] * 10 + ones[1]];
+}
+
+function minuendAndSubtrahend(lvl: number, rng: Rng): [number, number] {
+  // The ones column: levels 2 and up need it to borrow, levels 0 and 1 need it not to.
+  const m1 = lvl >= 2 ? randInt(rng, 0, 8) : randInt(rng, 0, 9);
+  const s1 = lvl >= 2 ? randInt(rng, m1 + 1, 9) : randInt(rng, 0, m1);
+  if (lvl === 0) {
+    // Three digits minus two, no borrow anywhere.
+    const m2 = randInt(rng, 1, 9);
+    return [randInt(rng, 1, 9) * 100 + m2 * 10 + m1, randInt(rng, 1, m2) * 10 + s1];
+  }
+  // Level 4 is the borrow across a zero; every other rung keeps a real digit in the tens.
+  const m2 = lvl === 4 ? 0 : lvl === 1 ? randInt(rng, 0, 9) : randInt(rng, 1, 9);
+  const s2 = lvl === 4 ? randInt(rng, 0, 9)
+    : lvl === 1 ? randInt(rng, 0, m2)          // no borrow out of the tens
+    : lvl === 2 ? randInt(rng, 0, m2 - 1)      // the ones borrow, and the tens still cover it
+    : randInt(rng, m2, 9);                     // the tens cannot cover the ones' borrow either
+  // The hundreds always keep one to give and the subtrahend always keeps three digits, so
+  // the difference is never negative and the question never quietly becomes a two-digit one.
+  const m3 = randInt(rng, 2, 9);
+  return [m3 * 100 + m2 * 10 + m1, randInt(rng, 1, m3 - 1) * 100 + s2 * 10 + s1];
+}
+
+export function addSubWithin1000(level: number, rng: Rng, skillId: string): Question {
+  const lvl = L(level);
+  const op = WITHIN_1000_OP[skillId];
+  if (op === undefined) throw new Error(`no operation within 1000 for skill ${skillId}`);
+  const adding = op === "+";
+  const [a, b] = adding ? addendsWithin1000(lvl, rng) : minuendAndSubtrahend(lvl, rng);
+  const answer = adding ? a + b : a - b;
+
+  // The one distractor worth naming: every regrouping skipped. At levels 0 and 1 nothing
+  // regroups, so it IS the answer and is dropped here rather than offered twice — which is
+  // why the test only asserts it from level 2 up.
+  const skipped = adding ? carriesDropped(a, b) : borrowsDropped(a, b);
+  const distractors = skipped === answer ? [] : [String(skipped)];
+  for (const near of numericDistractors(answer, rng, 0)) {
+    if (distractors.length === 3) break;
+    if (!distractors.includes(near)) distractors.push(near);
+  }
+
+  return makeQuestion(
+    skillId,
+    `${a}${op}${b}`,
+    `What is ${a} ${op} ${b}?`,
+    String(answer),
+    distractors.slice(0, 3),
+    rng,
+    `What is ${a} ${SPEAK_OP[op]} ${b}?`,
+  );
+}
+
+/**
+ * The shape of each rung: how many digits each operand has, and whether the multiplicand
+ * must (or must not) carry a zero in the middle of it.
+ *
+ * `mul-multi` was `[[2, 1], [2, 1], ...]`: levels 0 and 1 drew the same 552 products, so a
+ * child who mastered two-by-one was promoted to two-by-one. 4.NBT.5 is "up to four digits by
+ * a one-digit number, and two two-digit numbers", which is a five-rung ladder as it stands —
+ * one, two and three digits more against a single digit, then two by two.
+ *
+ * `mul-standard` is 5.NBT.5, "fluently multiply multi-digit whole numbers using the standard
+ * algorithm", and it starts where grade 4 stopped: three digits by two. Only ONE of its four
+ * remaining rungs is bought with a longer number. The rest change SHAPE:
+ *
+ *   0. three by two                       3. three by three — a third partial-product row
+ *   1. three by two, zero in the middle    4. three by three, zero in the middle
+ *   2. four by two
+ *
+ * A zero in the middle of the multiplicand is where the standard algorithm actually trips —
+ * `407 × 36` has a partial product children routinely mis-align or skip — and it costs a
+ * child nothing in arithmetic they have already mastered, which four digits by three would.
+ * The `zero` flag is what keeps the pairs of rungs disjoint: level 1 forbids what level 0
+ * requires, so each really can ask what the one below it cannot.
+ */
+type MulShape = { a: number; b: number; zero?: "required" | "forbidden" };
+
+const MUL_SHAPES: Record<string, MulShape[]> = {
+  "mul-multi": [{ a: 2, b: 1 }, { a: 3, b: 1 }, { a: 4, b: 1 }, { a: 2, b: 2 }, { a: 3, b: 2 }],
+  "mul-standard": [
+    { a: 3, b: 2, zero: "forbidden" },
+    { a: 3, b: 2, zero: "required" },
+    { a: 4, b: 2 },
+    { a: 3, b: 3, zero: "forbidden" },
+    { a: 3, b: 3, zero: "required" },
+  ],
+};
+
+/** A zero anywhere but the first or last digit — the one the standard algorithm stumbles on. */
+function hasInteriorZero(n: number): boolean {
+  return String(n).slice(1, -1).includes("0");
+}
 
 /**
  * A number with exactly `digits` digits and never a trailing zero: `30 × 6` makes the
  * "tens ignored" distractor 0, which tells a child nothing, and a single-digit operand of
- * 0 or 1 makes the whole question trivial.
+ * 0 or 1 makes the whole question trivial. `zero` additionally pins whether the number
+ * carries an interior zero; left off, either is allowed.
  */
-function multiDigit(rng: Rng, digits: number): number {
+function multiDigit(rng: Rng, digits: number, zero?: "required" | "forbidden"): number {
   if (digits === 1) return randInt(rng, 2, 9);
   let n = 0;
   do {
     n = randInt(rng, 10 ** (digits - 1), 10 ** digits - 1);
-  } while (n % 10 === 0);
+  } while (n % 10 === 0 || (zero !== undefined && hasInteriorZero(n) !== (zero === "required")));
   return n;
 }
 
@@ -329,20 +486,24 @@ function carryDropped(a: number, b: number): number {
 }
 
 /**
- * Multi-digit multiplication (grade 4).
+ * Multi-digit multiplication — `mul-multi` at grade 4 (4.NBT.5) and `mul-standard` at
+ * grade 5 (5.NBT.5). One generator, two ladders, because the question a child sees and the
+ * mistakes they make are the same; only the shape of the operands differs.
  *
  * The three distractors are the three real mistakes: only the ones digit multiplied, every
  * carry dropped, and the answer out by a factor of ten.
  */
 export function mulMulti(level: number, rng: Rng, skillId: string): Question {
-  const [da, db] = MUL_DIGITS[L(level)];
+  const shape = (MUL_SHAPES[skillId] ?? MUL_SHAPES["mul-multi"])[L(level)];
   let a = 0, b = 0;
   // Redraw until at least one digit pair actually carries. 12 × 3 carries nowhere, so
   // "carry dropped" would come out as 36 — which IS the answer, and the question would
   // have two right answers among its four choices.
   do {
-    a = multiDigit(rng, da);
-    b = multiDigit(rng, db);
+    // The zero shape is asked of the multiplicand only: it is the number written on top,
+    // and the empty partial-product row is what the shape is about.
+    a = multiDigit(rng, shape.a, shape.zero);
+    b = multiDigit(rng, shape.b);
   } while (carryDropped(a, b) === a * b);
 
   const answer = a * b;
@@ -398,6 +559,91 @@ export function divMulti(level: number, rng: Rng, skillId: string): Question {
 
   const distractors: string[] = [];
   for (const candidate of [other, answer + 1, answer - 1]) {
+    const rendered = String(candidate);
+    if (candidate >= 0 && candidate !== answer && !distractors.includes(rendered)) distractors.push(rendered);
+  }
+  for (const near of numericDistractors(answer, rng, 0)) {
+    if (distractors.length === 3) break;
+    if (!distractors.includes(near)) distractors.push(near);
+  }
+
+  const measure = wantQuotient ? "quotient" : "remainder";
+  return makeQuestion(
+    skillId,
+    `${dividend}/${divisor}${wantQuotient ? "q" : "r"}`,
+    `What is ${dividend} ÷ ${divisor}? Give the ${measure}.`,
+    String(answer),
+    distractors.slice(0, 3),
+    rng,
+    `What is ${dividend} divided by ${divisor}? Give the ${measure}.`,
+  );
+}
+
+/**
+ * Division by a two-digit divisor — `div-2digit`, grade 5 (5.NBT.6): whole-number quotients
+ * with up to four-digit dividends and two-digit divisors.
+ *
+ * Grade 4's `div-multi` divides by a single digit and always leaves a remainder. This is the
+ * long-division algorithm proper, and its ladder is the number of digits a child has to bring
+ * down — not the size of the dividend, which follows from that rather than driving it:
+ *
+ *   0. a one-digit quotient, exact          2. a two-digit quotient, exact
+ *   1. a one-digit quotient, with a remainder   3. a two-digit quotient, with a remainder
+ *   4. a three-digit quotient with a ZERO inside it (`3045 ÷ 15 = 203`)
+ *
+ * Level 4 is the shape this skill exists for: the step where the divisor does not go, a `0`
+ * must be written in the quotient, and the child who forgets it answers `23`. That mistake is
+ * on the screen as a distractor, so the rung is scored on the thing it teaches.
+ *
+ * The divisor is never a multiple of ten: `÷ 40` is a one-digit division with a place shift,
+ * not two-digit long division, and excluding it also keeps "used only the tens digit of the
+ * divisor" — the estimation slip every rung offers — a genuinely wrong answer.
+ *
+ * Even levels ask for the quotient and odd levels for the remainder, the same way `div-multi`
+ * does, so a child meeting both skills is never asked to switch measure mid-run.
+ */
+function twoDigitDivisor(rng: Rng, max = 99): number {
+  let d = 0;
+  do {
+    d = randInt(rng, 11, max);
+  } while (d % 10 === 0);
+  return d;
+}
+
+/** Dividing by the divisor rounded down to a whole ten — the estimate taken for the answer. */
+function tensOnlyQuotient(dividend: number, divisor: number): number {
+  return Math.floor(dividend / (Math.floor(divisor / 10) * 10));
+}
+
+export function divTwoDigit(level: number, rng: Rng, skillId: string): Question {
+  const lvl = L(level);
+  const wantQuotient = lvl % 2 === 0;
+  let divisor = 0, quotient = 0, remainder = 0, dividend = 0;
+  do {
+    if (lvl === 4) {
+      // A zero in the tens place of the quotient, and a divisor small enough that the
+      // dividend still fits in four digits.
+      quotient = randInt(rng, 1, 9) * 100 + randInt(rng, 0, 9);
+      divisor = twoDigitDivisor(rng, Math.min(99, Math.floor(9999 / quotient)));
+    } else {
+      divisor = twoDigitDivisor(rng);
+      quotient = lvl <= 1 ? randInt(rng, 2, 9) : randInt(rng, 10, 99);
+    }
+    remainder = wantQuotient ? 0 : randInt(rng, 1, divisor - 1);
+    dividend = divisor * quotient + remainder;
+    // Three digits at least: `60 ÷ 12` is a division fact a grade-5 child already knows, not
+    // a long division, and the one-digit-quotient rungs can otherwise draw one. A quotient
+    // question additionally keeps the estimation slip wrong, and a remainder question keeps
+    // the quotient — always a distractor, because swapping the two is the mistake — wrong too.
+  } while (dividend < 100 || (wantQuotient ? tensOnlyQuotient(dividend, divisor) === quotient : remainder === quotient));
+
+  const answer = wantQuotient ? quotient : remainder;
+  const candidates = wantQuotient
+    ? [...(lvl === 4 ? [Number(String(quotient).replace("0", ""))] : []), tensOnlyQuotient(dividend, divisor), answer + 1, answer - 1]
+    : [quotient, answer + 1, answer - 1];
+
+  const distractors: string[] = [];
+  for (const candidate of candidates) {
     const rendered = String(candidate);
     if (candidate >= 0 && candidate !== answer && !distractors.includes(rendered)) distractors.push(rendered);
   }

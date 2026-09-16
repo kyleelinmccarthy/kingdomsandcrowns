@@ -41,6 +41,8 @@ harder within the grade, which is the ladder a child climbs before the grade its
 | | `frac-unit` | Unit fractions on a number line | new |
 | | `area-perimeter` | Area and perimeter of rectangles | new |
 | | `round-nearest` | Rounding to the nearest 10 and 100 | new |
+| | `add-1000` | Addition within 1000, with regrouping | new |
+| | `sub-1000` | Subtraction within 1000, with regrouping | new |
 | **4** | `mul-multi` | Multi-digit multiplication | new |
 | | `div-multi` | Division with remainders | new |
 | | `frac-equiv` | Equivalent fractions | new |
@@ -51,6 +53,8 @@ harder within the grade, which is the ladder a child climbs before the grade its
 | | `dec-ops` | Decimal arithmetic | new |
 | | `volume-prism` | Volume of a rectangular prism | new |
 | | `order-ops` | Order of operations | new |
+| | `mul-standard` | Multi-digit multiplication by the standard algorithm | new (reuses the `mul-multi` generator) |
+| | `div-2digit` | Division by a two-digit divisor | new |
 | **6** | `ratio-rate` | Ratios and unit rates | new |
 | | `frac-div` | Dividing fractions | new |
 | | `integer-ops` | Integer operations | **carried forward** (from grades 6–8) |
@@ -88,9 +92,11 @@ harder within the grade, which is the ladder a child climbs before the grade its
 | | `rational-expr` | Rational expressions | new |
 | | `log-eq` | Logarithmic and exponential equations | new |
 
-**Totals:** 64 skills across 13 grades — 11 carried forward with their history, 53 new. Two of the
-new ones reuse an existing generator with a different parameter table rather than adding code
-(`sub-100` reuses `sub`, `compare-num-100` reuses `compare-num`), so 51 new generators.
+**Totals:** 68 skills across 13 grades — 11 carried forward with their history, 57 new. Three of
+the new ones reuse an existing generator with a different parameter table rather than adding code
+(`sub-100` reuses `sub`, `compare-num-100` reuses `compare-num`, `mul-standard` reuses
+`mul-multi`), and `add-1000` and `sub-1000` share one generator between them, so 53 new
+generators.
 
 Today's math bank is 12 skills built on 9 generators, all of them keyed to a five-band ladder where
 one band spans three grades. That is what this replaces.
@@ -105,6 +111,23 @@ that receives them, because the band they sat in spanned three grades:
 | `integer-ops` | grades 6–8 | grade 6 | Integers are a grade-6 standard; grades 7 and 8 get `rational-ops` and `linear-eq`. |
 | `percent-of` | grades 9–12 | grade 6 | Percent of a number is grade 6. A high schooler was practising middle-school work. |
 | `one-step-eq` | grades 9–12 | grade 9, level 0 | Kept as the entry rung of Algebra I rather than dropped, so no history is stranded. |
+
+## Two gaps closed after the first pass
+
+Reading the map back once the content had landed turned up two grades missing a standard they
+plainly should have had. Both are closed above with **new ids**; nothing was renamed or moved.
+
+| Grade | Added | Standard | Why it was missing |
+|---|---|---|---|
+| 3 | `add-1000`, `sub-1000` | 3.NBT.2 | `add-100` and `sub-100` sit at grade 2 and nothing carried addition and subtraction into grade 3 at all. |
+| 5 | `mul-standard`, `div-2digit` | 5.NBT.5, 5.NBT.6 | `mul-multi` and `div-multi` sit at grade 4, so grade 5 practised fractions, decimals and volume but no whole-number multiplication or division. |
+
+The ladders for these four are cut by **shape, not by size**. Within 1000 the ceiling is the
+standard's, so the rungs climb through regrouping instead: nothing to carry, one regrouping, two
+regroupings, then the regrouping caused by the one below it — and for subtraction the borrow
+across a zero. Grade 5's multiplication buys only one rung with a longer number; the others are a
+zero inside the multiplicand and a third partial-product row. Grade 5's division climbs by the
+digits of the QUOTIENT, ending on the one with a zero inside it, which is the step children drop.
 
 `fractions-compare` is the one skill with no home in this map: comparing fractions is covered inside
 `frac-equiv` (grade 4) and `frac-addsub` (grade 5). Its id and its mastery rows are left in place and
