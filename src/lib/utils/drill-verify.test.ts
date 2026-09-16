@@ -105,6 +105,36 @@ describe("every generated question is independently verifiable", () => {
   });
 
   /**
+   * A question can satisfy every check above and still be defective. "Which fraction is equal
+   * to 4/5?" answered `4/5`, and "Which number is a factor of 24?" answered `1` or `24`, are
+   * both true and both teach nothing — the answer is read off the prompt, or off the
+   * definition. Neither generator can produce one today, and each was held there by exactly
+   * one assertion in one generator test. Saying it in the VERIFIER is what makes it hold for
+   * every draw of every level, and these cases are what prove the verifier says it.
+   */
+  describe("a defective question is rejected, not merely answered", () => {
+    const ask = (skillId: string, prompt: string, choices: string[], answer: string): Question =>
+      ({ id: `${skillId}:golden`, skillId, prompt, choices, answer });
+
+    it("frac-equiv refuses an answer copied off the prompt", () => {
+      expect(() => VERIFIERS["frac-equiv"](ask("frac-equiv", "Which fraction is equal to 4/5?", ["4/5", "5/4", "4/6", "5/6"], "4/5")))
+        .toThrow(/already names/);
+      // Not vacuous: the same question scaled by 2 is answered rather than thrown.
+      expect(VERIFIERS["frac-equiv"](ask("frac-equiv", "Which fraction is equal to 4/5?", ["8/10", "5/4", "4/6", "5/6"], "8/10")))
+        .toBe("8/10");
+    });
+
+    it("factors refuses 1 and refuses the target", () => {
+      expect(() => VERIFIERS["factors"](ask("factors", "Which number is a factor of 24?", ["1", "5", "7", "11"], "1")))
+        .toThrow(/1 and itself/);
+      expect(() => VERIFIERS["factors"](ask("factors", "Which number is a factor of 24?", ["24", "5", "7", "11"], "24")))
+        .toThrow(/1 and itself/);
+      // Not vacuous: a proper divisor of 24 is answered rather than thrown.
+      expect(VERIFIERS["factors"](ask("factors", "Which number is a factor of 24?", ["6", "5", "7", "11"], "6"))).toBe("6");
+    });
+  });
+
+  /**
    * Every case, not a slice of them. This ran over `cases.slice(0, 20)`, which was `add`'s
    * three skills plus `sub-10` — seven of the nine generators then had no determinism check
    * at all, and `percent-of` drawing from `Math.random()` survived the whole suite. The

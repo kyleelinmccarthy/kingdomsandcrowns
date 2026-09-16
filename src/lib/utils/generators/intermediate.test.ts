@@ -17,6 +17,7 @@ import {
   volumePrism,
 } from "./intermediate";
 import { GENERATORS, seededRng, type Question, type Rng } from "../drill-generators";
+import { VERIFIERS } from "../drill-verify";
 
 const LEVELS = [0, 1, 2, 3, 4];
 const SEEDS = Array.from({ length: 60 }, (_, i) => i * 31 + 5);
@@ -727,6 +728,41 @@ describe("volume-prism", () => {
 
 describe("order-ops", () => {
   const expression = (q: Question) => /^What is (.+)\?$/.exec(q.prompt)![1];
+
+  /**
+   * Precedence is coded twice — once in the generator, once in the verifier — and described a
+   * third time in this file, but until now no GOLDEN VALUE said what the rule actually comes
+   * out to. Two codings that drift the same way agree with each other and with nothing else.
+   * The two are structurally dissimilar, so this is insurance rather than a live bug.
+   *
+   * The verifier is anchored here, and the harness in `drill-verify.test.ts` anchors every
+   * generated question to the verifier, so the generator's coding is pinned through it.
+   *
+   * Each case carries the left-to-right misreading beside the answer, and asserts they
+   * DIFFER: `2 × 3 + 4` is 10 whichever way it is read, and a case like that would sit here
+   * looking like coverage while testing nothing about precedence at all.
+   */
+  it("gets four hardcoded expressions right, multiplication before addition", () => {
+    const golden: [string, string, string][] = [
+      ["3 + 4 × 2", "11", "14"],
+      ["10 - 2 × 3", "4", "24"],
+      ["2 + 3 × 4 - 5", "9", "15"],
+      ["2 + (3 + 4) × 2", "16", "18"],
+    ];
+    for (const [text, answer, misread] of golden) {
+      expect(answer, `${text} reads the same either way, so it tests nothing`).not.toBe(misread);
+      const q: Question = {
+        id: "order-ops:golden",
+        skillId: "order-ops",
+        prompt: `What is ${text}?`,
+        choices: [answer, misread, "97", "98"],
+        answer,
+      };
+      expect(VERIFIERS["order-ops"](q), text).toBe(answer);
+      // The misreading is what the verifier must NOT return, stated rather than implied.
+      expect(readLeftToRight(text), text).toBe(Number(misread));
+    }
+  });
 
   /**
    * The expression read strictly left to right, with the bracket done first — the mistake

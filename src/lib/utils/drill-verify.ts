@@ -356,6 +356,13 @@ const equivalentFraction: Verifier = (q) => {
   const different = q.choices.filter((c) => fractionKey(c) !== target);
   const wanted = m[1] === "equal" ? same : different;
   if (wanted.length !== 1) throw new Error(`${wanted.length} choices are ${m[1]} to ${m[2]}/${m[3]} in: ${q.choices.join(", ")}`);
+  // "Which fraction is equal to 4/5?" answered "4/5" satisfies every check above and teaches
+  // nothing: the answer is copied off the prompt. The generator scales by at least 2 so this
+  // cannot happen, and saying so HERE is what keeps it that way — "this question is defective"
+  // belongs in the second opinion, not in one assertion of one generator test.
+  if (m[1] === "equal" && wanted[0] === `${m[2]}/${m[3]}`) {
+    throw new Error(`the answer is the fraction the prompt already names: ${q.prompt}`);
+  }
   return wanted[0];
 };
 
@@ -380,6 +387,17 @@ const factorOf: Verifier = (q) => {
     return m[1] === "factor" ? target % value === 0 : value % target === 0;
   });
   if (passes.length !== 1) throw new Error(`${passes.length} choices are a ${m[1]} of ${target} in: ${q.choices.join(", ")}`);
+  // Every number has 1 and itself for a factor, and is a multiple of itself, so answering
+  // with either is true and tells a child nothing about 24 in particular. The generator draws
+  // its answer from the PROPER divisors, and this is where that is insisted on rather than
+  // merely intended.
+  const found = Number(passes[0]);
+  if (m[1] === "factor" && (found === 1 || found === target)) {
+    throw new Error(`every number has 1 and itself for a factor, so ${found} is no answer to: ${q.prompt}`);
+  }
+  if (m[1] === "multiple" && found === target) {
+    throw new Error(`every number is a multiple of itself, so ${found} is no answer to: ${q.prompt}`);
+  }
   return passes[0];
 };
 
