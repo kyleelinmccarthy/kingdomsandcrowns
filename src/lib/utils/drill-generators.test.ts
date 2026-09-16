@@ -120,6 +120,43 @@ describe("place-value", () => {
       expect(q.answer).toBe(digits[digits.length - 1 - idx]);
     }
   });
+
+  /**
+   * It was the one live skill with nothing to say. A grade-4 child on the read-aloud profile
+   * heard every other skill in their quest and silence on this one. The number is said in
+   * words rather than handed over as "276,596", and the words are checked against the digits
+   * here — the place name and the numeral both — so a spoken form that drifted from its own
+   * prompt is caught rather than merely present.
+   */
+  it("says its place and its number in words, with nothing a screen reader would mangle", () => {
+    const said: Record<string, number> = { zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6,
+      seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, thirteen: 13, fourteen: 14,
+      fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19, twenty: 20, thirty: 30,
+      forty: 40, fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90 };
+    /** The spoken words read back to a number, so the check never borrows the generator's own. */
+    const readBack = (words: string[]): number => {
+      let total = 0, group = 0;
+      for (const word of words) {
+        if (word === "hundred") group *= 100;
+        else if (word === "thousand") { total += group * 1000; group = 0; }
+        else {
+          expect(said[word], `place-value said "${word}", which is not a number`).toBeDefined();
+          group += said[word];
+        }
+      }
+      return total + group;
+    };
+    for (const lvl of LEVELS) for (const seed of SEEDS) {
+      const q = GENERATORS["place-value"](lvl, seededRng(seed), "place-value");
+      expect(q.readAloud, `level ${lvl} seed ${seed} says nothing`).toBeDefined();
+      expect(q.readAloud, q.readAloud).not.toMatch(/[-×÷%²³√π^/¢$,\d]/);
+      const spoken = /^What digit is in the ([a-z ]+) place of ([a-z ]+)\?$/.exec(q.readAloud!);
+      expect(spoken, `place-value said something a child cannot follow: ${q.readAloud}`).not.toBeNull();
+      const printed = q.prompt.match(/^What digit is in the ([a-z-]+) place of ([\d,]+)\?$/)!;
+      expect(spoken![1], q.readAloud).toBe(printed[1].replace("-", " "));
+      expect(readBack(spoken![2].split(" ")), `${q.readAloud} does not say ${printed[2]}`).toBe(Number(printed[2].replace(/,/g, "")));
+    }
+  });
 });
 
 describe("fractions-compare", () => {

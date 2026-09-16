@@ -130,6 +130,45 @@ export function speakInt(n: number): string {
   return n < 0 ? `negative ${Math.abs(n)}` : String(n);
 }
 
+const ONES_SPOKEN = ["", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
+  "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen"];
+/** No hyphens anywhere: read-aloud bans a bare `-`, so "twenty six" and never "twenty-six". */
+const TENS_SPOKEN = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"];
+
+function speakUnderThousand(n: number): string {
+  const said: string[] = [];
+  let left = n;
+  if (left >= 100) {
+    said.push(`${ONES_SPOKEN[Math.floor(left / 100)]} hundred`);
+    left %= 100;
+  }
+  if (left >= 20) {
+    said.push(TENS_SPOKEN[Math.floor(left / 10)]);
+    left %= 10;
+  }
+  if (left > 0) said.push(ONES_SPOKEN[left]);
+  return said.join(" ");
+}
+
+/**
+ * A whole number under a million said in words: `276596` as "two hundred seventy six thousand
+ * five hundred ninety six".
+ *
+ * `place-value` is why this exists. It was the one live skill with no spoken form at all, so a
+ * grade-4 child on the read-aloud profile met silence in the middle of a quest where every
+ * other skill spoke. Its prompt is the one that cannot simply be handed to a screen reader:
+ * "276,596" is a numeral with commas in it, and reading a place-value question is exactly the
+ * thing the question is about.
+ */
+export function speakNumber(n: number): string {
+  if (n === 0) return "zero";
+  const thousands = Math.floor(n / 1000);
+  const rest = n % 1000;
+  return [thousands > 0 ? `${speakUnderThousand(thousands)} thousand` : "", speakUnderThousand(rest)]
+    .filter((part) => part !== "")
+    .join(" ");
+}
+
 export type Generator = (level: number, rng: Rng, skillId: string) => Question;
 
 const L = (level: number) => Math.min(4, Math.max(0, Math.floor(level)));
@@ -207,7 +246,18 @@ const placeValue: Generator = (level, rng, skillId) => {
     const d = String(randInt(rng, 0, 9));
     if (d !== answer && !others.includes(d)) others.push(d);
   }
-  return makeQuestion(skillId, `${n}@${idx}`, `What digit is in the ${PLACES[idx]} place of ${n.toLocaleString("en-US")}?`, answer, others.slice(0, 3), rng);
+  return makeQuestion(
+    skillId,
+    `${n}@${idx}`,
+    `What digit is in the ${PLACES[idx]} place of ${n.toLocaleString("en-US")}?`,
+    answer,
+    others.slice(0, 3),
+    rng,
+    // The place names carry a hyphen on screen and a bare `-` is banned from spoken text, so
+    // "ten-thousands" is said as "ten thousands"; the numeral is said in words, because
+    // "276,596" read out character by character is not a number a child can hold on to.
+    `What digit is in the ${PLACES[idx].replace("-", " ")} place of ${speakNumber(n)}?`,
+  );
 };
 
 const fractionsCompare: Generator = (level, rng, skillId) => {

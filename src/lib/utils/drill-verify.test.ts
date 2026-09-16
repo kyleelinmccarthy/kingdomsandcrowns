@@ -11,12 +11,19 @@ const skillIdsFor = (generatorId: string) =>
   SKILLS.filter((s) => s.source.kind === "generator" && s.source.generatorId === generatorId).map((s) => s.id);
 
 /**
- * The only generators allowed to render without a spoken form, both predating this harness:
- * `place-value` prints a digit inside a numeral and `fractions-compare` offers fractions as
- * the choices, and neither had a `readAloud` written for it. Listed rather than inferred so
- * that adding a generator without speech is a deliberate edit here, visible in review.
+ * The only generator allowed to render without a spoken form: `fractions-compare`, which is
+ * retired — served at no grade — and whose question lives in its four fractions rather than in
+ * its one fixed prompt, so there is nothing for a spoken form to say that the choices do not.
+ * Listed rather than inferred so that adding a generator without speech is a deliberate edit
+ * here, visible in review.
+ *
+ * **`place-value` used to be in this set and is not any more.** It was the only LIVE skill
+ * without speech, so a grade-4 child on the read-aloud profile met silence on "What digit is
+ * in the ten-thousands place of 276,596?" while all sixty-seven other skills in their quest
+ * spoke. It now says the place without its hyphen and the numeral in words. This set must not
+ * grow back.
  */
-const SPEECHLESS = new Set(["place-value", "fractions-compare"]);
+const SPEECHLESS = new Set(["fractions-compare"]);
 
 const cases = Object.keys(GENERATORS).flatMap((genId) =>
   skillIdsFor(genId).flatMap((skillId) => LEVELS.map((level) => [genId, skillId, level] as [string, string, number]))
