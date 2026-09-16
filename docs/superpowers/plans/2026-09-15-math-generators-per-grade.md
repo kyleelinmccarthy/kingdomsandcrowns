@@ -1228,6 +1228,14 @@ the **flat-mastery** case, which is exactly the case where the policy looks fine
 question expectations; doing it once, after all the generators have landed, means re-pinning once
 rather than twice. Task 2's contract was reachability, and it delivers that.
 
+**A second reason this task exists, measured after the generators landed.** Several level-0 rungs have
+only just more questions than a deed needs: `mul-facts` 9, `count-seq` 9, `money-coins` 9,
+`skip-count` 10, `frac-unit` 10, `circle-measure` 10, `frac-equiv` 11, `factors` 11. Nothing repeats
+inside one deed — that is pinned — but at nine questions in existence a child's first deed is eight of
+the nine, so **rung 0 is close to the same worksheet every day** until mastery moves them off it. That
+compounds with the policy above: a child held at level 0 on their weakest skill sees a very small pool,
+over and over. Whatever you do here should be checked against that case, not just the flat-mastery one.
+
 **Files:**
 - Modify: `src/lib/utils/deed-engine.ts`
 - Test: `src/lib/utils/deed-engine.test.ts`
