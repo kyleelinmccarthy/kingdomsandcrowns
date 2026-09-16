@@ -462,23 +462,53 @@ describe("frac-addsub", () => {
       for (const q of draws(fracAddsub, lvl, "frac-addsub")) {
         const { n1, d1, n2, d2 } = parts(q);
         expect(Math.max(d1, d2), q.prompt).toBeLessThanOrEqual(max[lvl]);
+        expect(Math.min(d1, d2), q.prompt).toBeGreaterThanOrEqual(2);
         expect(n1, q.prompt).toBeLessThan(d1);
         expect(n2, q.prompt).toBeLessThan(d2);
-        if (lvl <= 2) expect(d2, `level ${lvl}: ${q.prompt}`).toBe(d1);
-        else expect(d2, `level ${lvl}: ${q.prompt}`).not.toBe(d1);
+        // Halves are barred only where the denominators are SHARED, because 1/2 is then the
+        // only fraction on either side and every such draw is discarded downstream.
+        if (lvl <= 2) {
+          expect(d2, `level ${lvl}: ${q.prompt}`).toBe(d1);
+          expect(d1, `level ${lvl}: ${q.prompt}`).toBeGreaterThanOrEqual(3);
+        } else {
+          expect(d2, `level ${lvl}: ${q.prompt}`).not.toBe(d1);
+        }
       }
     }
   });
 
-  it("answers with a fully reduced proper fraction, never an unreduced one", () => {
-    // Reduction is the decision: the unreduced form is offered as a distractor, so an
-    // unreduced answer would put the same number on screen twice.
+  /**
+   * 5.NF.A.1/A.2 includes sums over one — its own worked example is `2/3 + 5/4 = 23/12` — so
+   * the last two rungs must reach past 1, and the first three must not. What every rung keeps
+   * is that no choice is ever a whole number: among three fractions, a whole number is found
+   * by its shape without doing any arithmetic.
+   */
+  it("holds every answer under 1 to level 2, reaches past it from level 3, and never renders a whole number", () => {
+    for (const lvl of LEVELS) {
+      let atLeastOne = 0;
+      for (const q of draws(fracAddsub, lvl, "frac-addsub")) {
+        for (const choice of q.choices) {
+          expect(choice, `${q.prompt} offers the whole number ${choice}`).toMatch(/^\d+\/\d+$/);
+        }
+        const v = exactValue(q.answer);
+        expect(Number.isInteger(v), `${q.prompt} answers ${q.answer}, a whole number`).toBe(false);
+        if (lvl <= 2) expect(v, `level ${lvl}: ${q.prompt} answers ${q.answer}`).toBeLessThan(1);
+        if (v > 1) atLeastOne += 1;
+      }
+      if (lvl >= 3) expect(atLeastOne, `level ${lvl} never asks a sum over 1`).toBeGreaterThan(0);
+      else expect(atLeastOne, `level ${lvl} asked a sum over 1`).toBe(0);
+    }
+  });
+
+  it("answers with a fully reduced fraction, never an unreduced one", () => {
+    // Reduction is the decision: the verifiers reduce too, so an unreduced answer fails the
+    // harness rather than passing quietly. Whether the answer is under 1 is a separate rule,
+    // checked above — reduction holds at every level.
     for (const lvl of LEVELS) {
       for (const q of draws(fracAddsub, lvl, "frac-addsub")) {
         expect(q.answer, q.prompt).toMatch(/^\d+\/\d+$/);
         expect(lowestTerms(q.answer), `${q.prompt} answers ${q.answer}, which reduces further`).toBe(true);
         expect(exactValue(q.answer), q.prompt).toBeGreaterThan(0);
-        expect(exactValue(q.answer), q.prompt).toBeLessThan(1);
         expectFourDistinctValues(q);
       }
     }
@@ -584,18 +614,53 @@ describe("dec-ops", () => {
     const places = [1, 1, 2, 2, 2];
     for (const lvl of LEVELS) {
       const ops = new Set<string>();
+      let threePlaceProduct = 0;
       for (const q of draws(decOps, lvl, "dec-ops")) {
         const { a, op, b } = parts(q);
         ops.add(op);
+        const after = (operand: string) => (operand.split(".")[1] ?? "").length;
         for (const operand of [a, b]) {
-          const after = (operand.split(".")[1] ?? "").length;
-          expect(after, `${q.prompt} has an operand with ${after} decimal places`).toBeGreaterThanOrEqual(1);
-          // Multiplying holds both operands to one place so the product stops at two; a
-          // two-place operand times another would run to four, which is tedious not hard.
-          expect(after, q.prompt).toBeLessThanOrEqual(op === "×" ? 1 : places[lvl]);
+          expect(after(operand), `${q.prompt} has an operand with ${after(operand)} decimal places`).toBeGreaterThanOrEqual(1);
+          expect(after(operand), q.prompt).toBeLessThanOrEqual(places[lvl]);
+        }
+        // 5.NBT.B.7 asks for hundredths, so tenths × hundredths must be reachable. What stays
+        // barred is hundredths × hundredths: a four-place product is stamina, not skill.
+        if (op === "×") {
+          expect(after(a) + after(b), `${q.prompt} multiplies to ${after(a) + after(b)} places`).toBeLessThanOrEqual(3);
+          if (after(a) + after(b) === 3) threePlaceProduct += 1;
         }
       }
       expect([...ops].sort(), `level ${lvl}`).toEqual(lvl === 4 ? ["+", "-", "×"] : ["+", "-"]);
+      if (lvl === 4) expect(threePlaceProduct, "level 4 never multiplies tenths by hundredths").toBeGreaterThan(0);
+    }
+  });
+
+  /**
+   * The five levels have to be five. `DEC_PLACES` is `[1, 1, 2, 2, 2]` and cannot climb past
+   * hundredths without teaching past 5.NBT.B.7, so levels 0 and 1 had identical ranges and so
+   * did 2 and 3 — a five-rung ladder that was really three. The whole part is the axis that
+   * separates them instead, and this is the check that says so.
+   */
+  it("gives every level something no earlier level had", () => {
+    const rungs = LEVELS.map((lvl) => {
+      let whole = 0, places = 0;
+      const ops = new Set<string>();
+      for (const q of draws(decOps, lvl, "dec-ops")) {
+        const { a, op, b } = parts(q);
+        ops.add(op);
+        if (op === "×") continue; // multiplication keeps its own small ceiling on purpose
+        for (const operand of [a, b]) {
+          whole = Math.max(whole, Number(operand.split(".")[0]));
+          places = Math.max(places, (operand.split(".")[1] ?? "").length);
+        }
+      }
+      return { whole, places, ops };
+    });
+    for (let lvl = 1; lvl < LEVELS.length; lvl++) {
+      const before = rungs[lvl - 1], now = rungs[lvl];
+      const newOp = [...now.ops].some((op) => !before.ops.has(op));
+      const grew = now.whole > before.whole || now.places > before.places || newOp;
+      expect(grew, `level ${lvl} is the same rung as level ${lvl - 1}: whole ${now.whole}, ${now.places} places, ops ${[...now.ops].sort().join("")}`).toBe(true);
     }
   });
 

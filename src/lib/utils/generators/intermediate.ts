@@ -488,12 +488,30 @@ const ADDSUB_LIKE = [true, true, true, false, false];
 const ADDSUB_DENOM_MAX = [6, 8, 10, 12, 12];
 
 /**
+ * Whether the answer may reach or pass 1, per level.
+ *
+ * CCSS 5.NF.A.1/A.2 includes sums over one — the standard's own worked example is
+ * `2/3 + 5/4 = 23/12`. Holding every answer under 1, as this used to, removed improper
+ * results, whole-number results and every regrouping case: roughly half the standard, and
+ * the harder half. The first three rungs stay under 1, where a child is still learning that
+ * a common denominator is the point; the last two open up.
+ */
+const ADDSUB_PAST_ONE = [false, false, false, true, true];
+
+/**
  * Adding and subtracting fractions (grade 5).
  *
- * Every answer is a PROPER fraction strictly between 0 and 1. That is a deliberate narrowing:
- * it keeps every choice on screen the same shape, so a child compares fractions with
- * fractions rather than picking out the one whole number. The cost is that `1/2 + 1/2` is
- * never asked; the gain is that no distractor has to be discarded for rendering as "1".
+ * Levels 0-2 hold the answer strictly between 0 and 1. Levels 3-4 allow sums of 1 and more,
+ * rendered as IMPROPER fractions — `5/4`, not `1 1/4`.
+ *
+ * What survives from the original narrowing, and is the real insight in it, is that no choice
+ * is ever a whole number: `5/4` beside `9/8`, `6/4` and `3/4` is four fractions of one shape,
+ * and a child has to compare them; `1` beside three fractions is found by its shape alone,
+ * without doing the arithmetic. So a draw whose answer comes out whole is thrown away, and
+ * every candidate is still filtered through a fraction-shaped regex before it is offered.
+ *
+ * Subtraction never needs the ruling: both operands are proper, so a difference is always
+ * under 1. Only a sum can reach past it.
  *
  * The mandatory distractor is the mediant — numerators added AND denominators added,
  * `1/4 + 2/4 = 3/8` — which is the single most common error at this age. It can never
@@ -504,12 +522,18 @@ export function fracAddsub(level: number, rng: Rng, skillId: string): Question {
   const lvl = L(level);
   const like = ADDSUB_LIKE[lvl];
   const dmax = ADDSUB_DENOM_MAX[lvl];
+  const pastOne = ADDSUB_PAST_ONE[lvl];
   let n1 = 0, d1 = 0, n2 = 0, d2 = 0, plus = false, num = 0, den = 0;
   let drawn = false;
   for (let attempt = 0; attempt < 400 && !drawn; attempt++) {
-    // A shared denominator of 2 leaves 1/2 as the only fraction, so nothing can be added to
-    // it and stay under 1; the ladder starts at thirds.
-    d1 = randInt(rng, 3, dmax);
+    // A SHARED denominator of 2 leaves 1/2 as the only fraction on both sides: the sum is
+    // 2/2, which is whole, and the difference is 0, so every like draw at d = 2 is thrown
+    // away downstream and the loop would only spin. Halves are barred here for that reason
+    // alone — and only where the denominators are shared. They used to be barred for the
+    // first operand at EVERY level, under a comment claiming `num < den` had already
+    // excluded them; it had not. `1/5 + 1/2` was askable and `1/2 + 1/5` was not, an
+    // asymmetry with nothing behind it. Unlike levels now draw both from the same range.
+    d1 = like ? randInt(rng, 3, dmax) : randInt(rng, 2, dmax);
     d2 = like ? d1 : randInt(rng, 2, dmax);
     if (!like && d2 === d1) continue;
     n1 = randInt(rng, 1, d1 - 1);
@@ -519,9 +543,13 @@ export function fracAddsub(level: number, rng: Rng, skillId: string): Question {
     const left = like ? n1 : n1 * d2;
     const right = like ? n2 : n2 * d1;
     num = plus ? left + right : left - right;
-    if (num > 0 && num < den) drawn = true;
+    if (num <= 0) continue;
+    // A whole-number answer is thrown away at every level: among three fractions it would
+    // give itself away by its shape. Under 1 is the extra condition on the lower rungs.
+    if (num % den === 0) continue;
+    if (num < den || pastOne) drawn = true;
   }
-  if (!drawn) throw new Error(`could not draw a proper fraction sum at level ${level}`);
+  if (!drawn) throw new Error(`could not draw a fraction sum at level ${level}`);
 
   const answer = frac(num, den);
   const otherNum = plus ? (like ? n1 - n2 : n1 * d2 - n2 * d1) : (like ? n1 + n2 : n1 * d2 + n2 * d1);
@@ -535,8 +563,13 @@ export function fracAddsub(level: number, rng: Rng, skillId: string): Question {
   if (otherNum > 0) candidates.push(`${otherNum}/${den}`);
   if (!like) candidates.push(`${plus ? n1 + n2 : n1 - n2}/${d1}`);    // numerators combined, first denominator kept
   const [ansN, ansD] = [Number(answer.split("/")[0]), Number(answer.split("/")[1] ?? 1)];
+  // A near miss on the numerator. When the answer is proper the near miss stays proper, so
+  // every choice at levels 0-2 is still under 1; when the answer is improper there is no
+  // such ceiling to respect and only "still positive" is asked of it.
+  const properAnswer = ansN < ansD;
   for (const delta of [1, -1, 2, -2, 3]) {
-    if (ansN + delta > 0 && ansN + delta < ansD) candidates.push(`${ansN + delta}/${ansD}`);
+    const near = ansN + delta;
+    if (near > 0 && (!properAnswer || near < ansD)) candidates.push(`${near}/${ansD}`);
   }
   for (const grow of [1, 2, 3]) candidates.push(`${ansN}/${ansD + grow}`);
 
@@ -626,8 +659,24 @@ export function fracMul(level: number, rng: Rng, skillId: string): Question {
   );
 }
 
-/** How many digits after the point an operand may carry, per level. */
+/**
+ * How many digits after the point an operand may carry when adding or subtracting, per level.
+ *
+ * It stops at 2 and cannot honestly be widened: 5.NBT.B.7 asks for decimals to HUNDREDTHS,
+ * and a third place would be teaching past the standard rather than laddering within it.
+ * With only two rungs of precision available, the five levels are separated by how large the
+ * whole part gets instead — see `DEC_WHOLE_MAX`. Before that, `[1, 1, 2, 2, 2]` with one
+ * fixed ceiling made levels 0 and 1 identical and levels 2 and 3 identical: a five-rung
+ * ladder that was really three.
+ */
 const DEC_PLACES = [1, 1, 2, 2, 2];
+
+/**
+ * How large the whole part of an operand gets, per level — the axis that actually separates
+ * the rungs, since the number of decimal places cannot climb past hundredths. Multiplication
+ * keeps its own, much smaller ceiling: the point is placing the point, not long multiplication.
+ */
+const DEC_WHOLE_MAX = [9, 20, 50, 99, 99];
 
 /**
  * Every decimal in this generator is held as an integer scaled by 10 000, and no float ever
@@ -665,8 +714,12 @@ function speakDecimal(scaled: number): string {
 
 /**
  * Decimal arithmetic (grade 5). Adding and subtracting through level 3; multiplying joins at
- * level 4, where both operands are held to one decimal place so the product stops at two — a
- * two-place operand multiplied by another would run to four, which is tedious rather than hard.
+ * level 4, where exactly ONE operand may carry two decimal places.
+ *
+ * Tenths times hundredths gives a three-place product, which is the common classroom form of
+ * 5.NBT.B.7 and was unreachable while both operands were held to one place. Hundredths times
+ * hundredths stays barred: a four-place product is arithmetic stamina rather than any more
+ * understanding of where the point goes.
  *
  * The distractors are the three real mistakes: the point out by one place, the digits
  * right-aligned instead of lined up on the point, and the answer out by a tenth.
@@ -674,12 +727,17 @@ function speakDecimal(scaled: number): string {
 export function decOps(level: number, rng: Rng, skillId: string): Question {
   const lvl = L(level);
   const times = lvl === 4 && rng() < 0.5;
-  const places = times ? 1 : DEC_PLACES[lvl];
+  const places = DEC_PLACES[lvl];
+  const maxWhole = times ? 9 : DEC_WHOLE_MAX[lvl];
   let a = 0, b = 0, result = 0, op = "+";
   let drawn = false;
   for (let attempt = 0; attempt < 200 && !drawn; attempt++) {
-    a = decOperand(rng, randInt(rng, 1, places), times ? 9 : 20);
-    b = decOperand(rng, randInt(rng, 1, places), times ? 9 : 20);
+    // Multiplying: one operand may reach two places and the other is held to one, so the
+    // product is three places at most. Which side carries the two is drawn, so a child does
+    // not learn to expect the longer number on the left.
+    const [pa, pb] = times ? ([[1, 1], [1, 2], [2, 1]] as const)[randInt(rng, 0, 2)] : [0, 0];
+    a = decOperand(rng, times ? pa : randInt(rng, 1, places), maxWhole);
+    b = decOperand(rng, times ? pb : randInt(rng, 1, places), maxWhole);
     op = times ? "×" : rng() < 0.5 ? "+" : "-";
     if (op === "+") result = a + b;
     else if (op === "-") result = a - b;
