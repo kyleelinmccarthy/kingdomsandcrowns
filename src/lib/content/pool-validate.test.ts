@@ -410,44 +410,23 @@ function loadPools(): Pool[] {
 }
 
 /**
- * TODAY'S FAILURES, LISTED — and this list is Task 3's progress bar, exactly as Task 1's
+ * NOTHING LEFT TO KNOW ABOUT — and this list was Task 3's progress bar, exactly as Task 1's
  * `POOLS_NOT_YET_WRITTEN` was its own.
  *
- * The twelve pools here were written against the old band scheme and have never faced these
- * rules, so they do not pass yet. Rather than let the corpus test report and assert nothing —
- * which is the same vacuousness the fixtures above exist to avoid — every problem the corpus
- * produces today is written down, and the test asserts the corpus produces EXACTLY these.
+ * The twelve pools were written against the old band scheme and had never faced these rules, so
+ * they arrived with 22 problems: 21 prompts reading above their grade ceiling and one prompt
+ * containing `=`. Rather than let the corpus test report and assert nothing — the same
+ * vacuousness the fixtures above exist to avoid — every problem the corpus produced was written
+ * down here and the test asserted the corpus produced EXACTLY those.
  *
- * That means it fails in both directions, deliberately: a NEW problem fails the suite, and so
- * does a FIXED one until its line is deleted here. Task 3 empties this list as it rewrites the
- * items; when the list is empty the rule is simply "no pool has a problem".
+ * That made it fail in both directions, deliberately: a NEW problem failed the suite, and so did
+ * a FIXED one until its line was deleted. Task 3 emptied the list by rewriting the items, so the
+ * rule is now simply "no pool has a problem". A new problem still fails here; anything added to
+ * this list from now on is a defect being tolerated, and needs a reason beside it.
  *
  * Format: `poolId | rule | itemId`.
  */
-const KNOWN_PROBLEMS: string[] = [
-  "science-g23 | readability | sci-g23-cycle-metamorphosis",
-  "science-g23 | readability | sci-g23-habitat-adapt",
-  "science-g23 | readability | sci-g23-habitat-hibernation",
-  "science-g23 | readability | sci-g23-habitat-migration",
-  "science-g23 | readability | sci-g23-machine-flagpole",
-  "science-g23 | readability | sci-g23-machine-lever",
-  "science-g23 | readability | sci-g23-machine-ramp",
-  "science-g23 | readability | sci-g23-machine-seesaw",
-  "science-g23 | readability | sci-g23-machine-wedge",
-  "science-g45 | readability | sci-g45-asteroids",
-  "science-g45 | readability | sci-g45-ecosystem-def",
-  "science-g45 | readability | sci-g45-prey",
-  "science-g45 | readability | sci-g45-sedimentary",
-  "science-g45 | readability | sci-g45-water-cycle-name",
-  "science-g68 | readability | sci-g68-continental-drift",
-  "science-g68 | readability | sci-g68-proton",
-  "science-g68 | readability | sci-g68-symbol-water",
-  "science-g912 | read-aloud | sci-g912-f-equals-ma",
-  "science-g912 | readability | sci-g912-hypothesis",
-  "science-g912 | readability | sci-g912-independent-variable",
-  "science-g912 | readability | sci-g912-scientific-theory",
-  "vocab-g68 | readability | vocab-g68-perspective",
-];
+const KNOWN_PROBLEMS: string[] = [];
 
 function fingerprint(pool: Pool, p: Problem): string {
   return `${pool.poolId} | ${p.rule} | ${p.itemId ?? "(pool)"}`;

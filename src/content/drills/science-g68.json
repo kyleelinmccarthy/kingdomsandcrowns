@@ -279,7 +279,7 @@
     },
     {
       "id": "sci-g68-continental-drift",
-      "prompt": "What theory explains that Earth's continents were once joined together and have slowly drifted apart?",
+      "prompt": "Which theory says Earth's continents were once joined and have slowly drifted apart?",
       "answer": "Continental drift",
       "distractors": [
         "Plate collision theory",
@@ -444,7 +444,7 @@
     },
     {
       "id": "sci-g68-proton",
-      "prompt": "What positively charged particle is found in the nucleus of an atom?",
+      "prompt": "A nucleus sits at the center of every atom. Which particle in it has a positive charge?",
       "answer": "A proton",
       "distractors": [
         "An electron",
@@ -488,7 +488,7 @@
     },
     {
       "id": "sci-g68-symbol-water",
-      "prompt": "What is the chemical formula for water, a compound made of hydrogen and oxygen?",
+      "prompt": "Water is made of hydrogen and oxygen. What is its chemical formula?",
       "answer": "H2O",
       "distractors": [
         "CO2",

@@ -147,7 +147,7 @@
     },
     {
       "id": "vocab-g68-perspective",
-      "prompt": "Which word means \"a particular way of viewing or thinking about something\"?",
+      "prompt": "Which word means \"a way of looking at or thinking about something\"?",
       "answer": "perspective",
       "distractors": [
         "consequence",

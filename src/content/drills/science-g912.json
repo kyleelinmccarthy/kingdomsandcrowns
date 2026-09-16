@@ -225,6 +225,7 @@
     {
       "id": "sci-g912-f-equals-ma",
       "prompt": "What does Newton's second law state, expressed as F = ma?",
+      "readAloud": "What does Newton's second law state, written as F equals m times a?",
       "answer": "Force equals mass times acceleration",
       "distractors": [
         "Force equals mass divided by acceleration",
@@ -411,7 +412,7 @@
     },
     {
       "id": "sci-g912-hypothesis",
-      "prompt": "What do we call a testable explanation for an observation, proposed before an experiment?",
+      "prompt": "What do we call a testable explanation that is proposed before an experiment?",
       "answer": "A hypothesis",
       "distractors": [
         "A theory",
@@ -422,7 +423,7 @@
     },
     {
       "id": "sci-g912-independent-variable",
-      "prompt": "What is the variable that a scientist deliberately changes in an experiment called?",
+      "prompt": "What is the variable that a scientist changes on purpose in an experiment?",
       "answer": "The independent variable",
       "distractors": [
         "The dependent variable",
@@ -477,7 +478,7 @@
     },
     {
       "id": "sci-g912-scientific-theory",
-      "prompt": "What do we call a well-tested explanation for a wide range of observations, supported by extensive evidence?",
+      "prompt": "What do we call a well-tested explanation that covers a wide range of observations?",
       "answer": "A scientific theory",
       "distractors": [
         "A hypothesis",

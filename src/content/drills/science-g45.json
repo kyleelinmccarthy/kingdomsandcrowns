@@ -4,7 +4,7 @@
   "items": [
     {
       "id": "sci-g45-ecosystem-def",
-      "prompt": "What do we call a community of living things interacting with their environment?",
+      "prompt": "What do we call all the living things in one place plus their surroundings?",
       "answer": "An ecosystem",
       "distractors": [
         "A habitat only",
@@ -70,12 +70,12 @@
     },
     {
       "id": "sci-g45-prey",
-      "prompt": "What do we call an animal that is hunted and eaten by another animal?",
+      "prompt": "A hawk hunts and eats a mouse. What do we call the mouse?",
       "answer": "Prey",
       "distractors": [
-        "A predator",
-        "A producer",
-        "A decomposer"
+        "Predator",
+        "Producer",
+        "Decomposer"
       ],
       "level": 1
     },
@@ -169,7 +169,7 @@
     },
     {
       "id": "sci-g45-water-cycle-name",
-      "prompt": "What do we call the continuous movement of water through evaporation, condensation, and precipitation?",
+      "prompt": "Water rises into the air, forms clouds, and falls as rain. What is this called?",
       "answer": "The water cycle",
       "distractors": [
         "The rock cycle",
@@ -356,7 +356,7 @@
     },
     {
       "id": "sci-g45-asteroids",
-      "prompt": "What do we call rocky objects that orbit the Sun, many found in the asteroid belt?",
+      "prompt": "Many rocky objects orbit the Sun between Mars and Jupiter. What are they called?",
       "answer": "Asteroids",
       "distractors": [
         "Comets",
@@ -389,7 +389,7 @@
     },
     {
       "id": "sci-g45-sedimentary",
-      "prompt": "Which type of rock forms from layers of sediment pressed together over time?",
+      "prompt": "Layers of sediment settle and are pressed together over time. Which type of rock forms?",
       "answer": "Sedimentary rock",
       "distractors": [
         "Igneous rock",

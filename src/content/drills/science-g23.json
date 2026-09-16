@@ -70,7 +70,7 @@
     },
     {
       "id": "sci-g23-cycle-metamorphosis",
-      "prompt": "What is it called when an animal changes shape completely as it grows, like a caterpillar into a butterfly?",
+      "prompt": "Some animals change shape as they grow. A caterpillar turns into a butterfly. What is this change called?",
       "answer": "Metamorphosis",
       "distractors": [
         "Hibernation",
@@ -136,7 +136,7 @@
     },
     {
       "id": "sci-g23-habitat-adapt",
-      "prompt": "What does it mean when an animal is adapted to its habitat?",
+      "prompt": "A fox has thick fur for cold winters. It is adapted to its habitat. What does adapted mean?",
       "answer": "It has features that help it survive there",
       "distractors": [
         "It can live anywhere on Earth",
@@ -257,7 +257,7 @@
     },
     {
       "id": "sci-g23-machine-lever",
-      "prompt": "Which simple machine is a bar that pivots on a fixed point to lift things?",
+      "prompt": "Which simple machine is a bar that turns on a fixed point?",
       "answer": "A lever",
       "distractors": [
         "A wheel and axle",
@@ -290,7 +290,7 @@
     },
     {
       "id": "sci-g23-machine-ramp",
-      "prompt": "Which simple machine is a flat, slanted surface used to move things up or down?",
+      "prompt": "A ramp is a flat, slanted surface. Which simple machine is a ramp?",
       "answer": "An inclined plane",
       "distractors": [
         "A wedge",
@@ -301,7 +301,7 @@
     },
     {
       "id": "sci-g23-machine-wedge",
-      "prompt": "Which simple machine is used to split or cut things apart, like an axe?",
+      "prompt": "An axe splits wood apart. Which simple machine works like an axe?",
       "answer": "A wedge",
       "distractors": [
         "A lever",
@@ -323,7 +323,7 @@
     },
     {
       "id": "sci-g23-machine-seesaw",
-      "prompt": "A seesaw on a playground is an example of which simple machine?",
+      "prompt": "Kids ride a seesaw up and down. Which simple machine is a seesaw?",
       "answer": "A lever",
       "distractors": [
         "A pulley",
@@ -334,7 +334,7 @@
     },
     {
       "id": "sci-g23-machine-flagpole",
-      "prompt": "Raising a flag with a rope over a wheel uses which simple machine?",
+      "prompt": "A flagpole uses a rope over a wheel. Which simple machine is that?",
       "answer": "A pulley",
       "distractors": [
         "A lever",
@@ -455,7 +455,7 @@
     },
     {
       "id": "sci-g23-habitat-migration",
-      "prompt": "What is it called when animals travel to a new place with the seasons?",
+      "prompt": "Some animals travel far when the seasons change. Birds fly south each fall. What is this called?",
       "answer": "Migration",
       "distractors": [
         "Hibernation",
@@ -466,7 +466,7 @@
     },
     {
       "id": "sci-g23-habitat-hibernation",
-      "prompt": "What is it called when an animal sleeps through the winter to save energy?",
+      "prompt": "Some animals sleep all winter to save energy. What is this long sleep called?",
       "answer": "Hibernation",
       "distractors": [
         "Migration",
