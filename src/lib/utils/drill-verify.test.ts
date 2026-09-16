@@ -54,7 +54,12 @@ describe("every generated question is independently verifiable", () => {
 
         // Read-aloud must be speakable: no symbol a screen reader would mangle.
         if (q.readAloud !== undefined) {
-          expect(q.readAloud, `unspeakable read-aloud: ${q.readAloud}`).not.toMatch(/[-×÷²³√π^\/]/);
+          // A child using read-aloud support hears this literally, so every symbol must be
+          // spelled out in words. `%` is here because `drill-generators.test.ts` banned it
+          // and this list was written without it — coverage that survived only as long as
+          // that older file does. A bare `-` is banned outright, which also covers the
+          // "negative negative" run the old test watched for.
+          expect(q.readAloud, `unspeakable read-aloud: ${q.readAloud}`).not.toMatch(/[-×÷%²³√π^\/]/);
         }
 
         // The id encodes the parameters, so the same id is always the same question.
