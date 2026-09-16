@@ -644,6 +644,14 @@ gives only what is specific to it — the generators, their exact parameters, an
    produces no failure is not evidence — it means the generator is not actually covered, and you must
    find out why before continuing.
 
+   **A `toContain(<the mistake>)` is vacuous without a `not.toBe(<the answer>)` beside it.** This is a
+   real hole that got through once: when a characteristic-error distractor happens to equal the answer,
+   the "take candidates until three survive" pattern does not emit a duplicate — it silently skips that
+   candidate and fills the slot with an off-by-one. So the harness's duplicate-choice check never
+   fires, the question has quietly stopped offering the mistake it exists to catch, and the test
+   asserting the mistake is among the choices still passes, because the answer is among the choices.
+   Always assert the two readings are **different** before asserting the wrong one is offered.
+
 **Level 0–4 means easiest to hardest within one grade.** Every parameter table below is indexed by
 level. A child starts at level 0 in a new skill and climbs as they get answers right, so level 0 must
 be genuinely approachable for a child at the very start of that grade and level 4 genuinely stretching
