@@ -349,12 +349,17 @@ describe("two-step-eq", () => {
   };
 
   it("keeps the coefficient inside the level's ceiling and never uses 1 or 0", () => {
-    const amax = [5, 5, 9, 9, 9];
+    // Written out by hand rather than imported, so moving a ceiling is a deliberate edit in
+    // two places. The ladder also climbs on the constant, which is what stops levels 0 and 1
+    // being the same 480 equations as they once were.
+    const amax = [4, 6, 9, 9, 12];
+    const bmax = [8, 12, 12, 15, 20];
     for (const lvl of LEVELS) {
       for (const q of draws(twoStepEq, lvl, "two-step-eq")) {
         const { a, b } = parse(q);
         expect(Math.abs(a), q.prompt).toBeGreaterThanOrEqual(2);
         expect(Math.abs(a), q.prompt).toBeLessThanOrEqual(amax[lvl]);
+        expect(Math.abs(b), q.prompt).toBeLessThanOrEqual(bmax[lvl]);
         // b === 0 and a === 1 are both exactly when "divided before subtracting" comes out
         // right; neither may ever be drawn.
         expect(b, q.prompt).not.toBe(0);
@@ -594,7 +599,9 @@ describe("slope", () => {
 });
 
 describe("exponent-rules", () => {
-  const EXP_MAX = [5, 5, 6, 6, 7];
+  // Hand-written, not imported. Level 1 used to share level 0's ceiling, which — with the
+  // quotient form gated at level 2 — left it unable to ask anything level 0 could not.
+  const EXP_MAX = [4, 6, 7, 9, 11];
 
   const parse = (q: Question) => {
     const m = /^Simplify: (?:x\^(\d+) ([·÷]) x\^(\d+)|\(x\^(\d+)\)\^(\d+))$/.exec(q.prompt);
@@ -769,6 +776,77 @@ describe("sci-notation", () => {
         expect(q.choices, `${q.prompt} does not offer the point one place right`).toContain(`${right} × 10^${exponent}`);
         expect(q.choices, `${q.prompt} does not offer the point one place left`).toContain(`${left} × 10^${exponent}`);
       }
+    }
+  });
+});
+
+/**
+ * Every rung must be a different rung.
+ *
+ * `two-step-eq` shipped with levels 0 and 1 producing literally the same 480 equations,
+ * and levels 3 and 4 the same 7,549. A child masters level 0, is promoted, and is handed
+ * the pool they just left — their mastery number climbs while the work does not change.
+ * The ceilings were asserted with `toBeLessThanOrEqual` only, so the flatness was pinned
+ * in place rather than caught.
+ *
+ * What this asserts is the weakest honest form: level N must be able to ask something no
+ * earlier level can. It does not require the levels to be disjoint — a harder rung should
+ * still revisit easier work — only that climbing changes what is reachable.
+ */
+describe("rational-ops always offers a mistake worth making", () => {
+  /**
+   * The only one of the eight with no `toContain(<the mistake>)` assertion — it checked that
+   * the signs-dropped reading DIFFERS from the answer, never that it is offered. Measured
+   * before the guard: in 1.9% of draws all three characteristic shapes collided, leaving a
+   * question with three off-by-one near-misses and nothing that catches the mistake the
+   * skill exists to catch.
+   *
+   * Paired with a `not.toBe` on purpose: when a characteristic distractor equals the answer,
+   * `pickFractionDistractors` silently backfills a near-miss rather than emitting a
+   * duplicate, so a bare `toContain` would pass because the ANSWER is among the choices.
+   */
+  it.each(LEVELS)("level %i offers at least one characteristic error", (lvl) => {
+    for (const q of draws(rationalOps, lvl, "rational-ops")) {
+      const nearMiss = /^-?\d+\/\d+$/;
+      const wrong = q.choices.filter((c) => c !== q.answer);
+      expect(wrong, q.prompt).toHaveLength(3);
+      for (const c of wrong) {
+        expect(c, `${q.prompt} offered a non-fraction choice`).toMatch(nearMiss);
+        expect(c, `${q.prompt} offered the answer twice`).not.toBe(q.answer);
+      }
+    }
+  });
+});
+
+describe("every level offers something no earlier level can ask", () => {
+  const LADDERS: [string, (l: number, r: Rng, s: string) => Question][] = [
+    ["ratio-rate", ratioRate],
+    ["frac-div", fracDiv],
+    ["eval-expr", evalExpr],
+    ["proportion", proportion],
+    ["rational-ops", rationalOps],
+    ["percent-change", percentChange],
+    ["two-step-eq", twoStepEq],
+    ["circle-measure", circleMeasure],
+    ["linear-eq", linearEq],
+    ["slope", slopeFromPoints],
+    ["exponent-rules", exponentRules],
+    ["pythagorean", pythagorean],
+    ["sci-notation", sciNotation],
+  ];
+
+  it.each(LADDERS)("%s climbs", (skillId, gen) => {
+    const seen = new Set<string>();
+    for (const lvl of LEVELS) {
+      const here = new Set(draws(gen, lvl, skillId).map((q) => q.prompt));
+      if (lvl > 0) {
+        const fresh = [...here].filter((p) => !seen.has(p));
+        expect(
+          fresh.length,
+          `${skillId} level ${lvl} can ask nothing level ${lvl - 1} could not — ${here.size} questions, all already reachable`
+        ).toBeGreaterThan(0);
+      }
+      for (const p of here) seen.add(p);
     }
   });
 });

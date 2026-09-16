@@ -148,7 +148,10 @@ export function fracDiv(level: number, rng: Rng, skillId: string): Question {
     [
       `${n1 * n2}/${d1 * d2}`,          // multiplied without inverting — the defining error
       `${d1 * n2}/${n1 * d2}`,          // inverted the FIRST fraction instead of the second
-      `${n1 * d2}/${d1 * n2}`,          // the answer, left unreduced
+      // No "answer left unreduced" candidate. It is the answer BY VALUE, and
+      // `pickFractionDistractors` drops anything equal in value to the answer — rightly, since
+      // you cannot mark 6/8 wrong when the answer is 3/4. It was carried here as a live
+      // distractor for a while, offered in 0 of 20,000 draws where the answer reduces.
       `${n1 * d2 + 1}/${d1 * n2}`,
       `${n1 * d2}/${d1 * n2 + 1}`,
       `${n1 * d2 + 2}/${d1 * n2}`,
@@ -309,7 +312,19 @@ export function rationalOps(level: number, rng: Rng, skillId: string): Question 
     const right = (secondNeg ? -n2 : n2) * d1;
     den = d1 * d2;
     num = plus ? left + right : left - right;
-    drawn = num % den !== 0; // rules out 0 and every whole number in one test
+    if (num % den === 0) continue; // rules out 0 and every whole number in one test
+    // At least one of the three characteristic mistakes must survive as a wrong answer.
+    // All three can collide with the answer or each other, and when they do the question
+    // degenerates into three off-by-one near-misses with nothing that catches the mistake
+    // the skill exists to catch — measured at 1.9% of draws before this guard.
+    const droppedNum = plus ? n1 * d2 + n2 * d1 : n1 * d2 - n2 * d1;
+    const flippedNum = plus ? left - right : left + right;
+    const combinedNum = plus ? (firstNeg ? -n1 : n1) + (secondNeg ? -n2 : n2) : (firstNeg ? -n1 : n1) - (secondNeg ? -n2 : n2);
+    const sameValue = (a: number, b: number, c: number, e: number) => a * e === c * b;
+    drawn =
+      !sameValue(droppedNum, den, num, den) ||
+      !sameValue(flippedNum, den, num, den) ||
+      !sameValue(combinedNum, d1, num, den);
   }
   if (!drawn) throw new Error(`could not draw a rational sum with a fraction answer at level ${level}`);
 
@@ -326,7 +341,8 @@ export function rationalOps(level: number, rng: Rng, skillId: string): Question 
       `${dropped}/${den}`,        // the signs dropped
       `${combined}/${d1}`,        // numerators combined over the first denominator
       `${flipped}/${den}`,        // the other operation
-      `${num}/${den}`,            // the answer, left unreduced
+      // Same as `frac-div` above: an "unreduced answer" candidate can never be offered,
+      // because it equals the answer by value and the filter drops it. Not carried.
       `${num + 1}/${den}`,
       `${num - 1}/${den}`,
       `${num}/${den + 1}`,
@@ -387,8 +403,7 @@ export function percentChange(level: number, rng: Rng, skillId: string): Questio
     rises = lvl === 0 ? true : rng() < 0.5;
     if (percent < 5) continue;                 // 1% of a price is not a change a child can see
     if (!rises && percent > 90) continue;      // a price cannot fall by more than all of it
-    if (rises && percent > 100) continue;
-    const after = rises ? base + diff : base - diff;
+      const after = rises ? base + diff : base - diff;
     wrongBase = Math.round((100 * diff) / after);
     drawn = wrongBase >= 1 && wrongBase !== percent;
   }
@@ -420,7 +435,16 @@ export function percentChange(level: number, rng: Rng, skillId: string): Questio
 }
 
 /** Largest coefficient per level. */
-const TWO_STEP_COEF_MAX = [5, 5, 9, 9, 9];
+/**
+ * Largest coefficient per level. Every step must move something a child can feel, or the
+ * rung is decoration: this shipped as [5, 5, 9, 9, 9], and with the sign gates landing at
+ * levels 2 and 3 that left levels 0 and 1 producing the SAME 480 equations, and 3 and 4 the
+ * same 7,549. A child mastered a rung, was promoted, and got the pool they had just left
+ * while their mastery number went up.
+ */
+const TWO_STEP_COEF_MAX = [4, 6, 9, 9, 12];
+/** Largest constant per level — the second axis, so each rung moves even where the first repeats. */
+const TWO_STEP_CONST_MAX = [8, 12, 12, 15, 20];
 
 /**
  * Two-step equations (grade 7). A negative coefficient or a negative solution joins at
@@ -441,7 +465,7 @@ export function twoStepEq(level: number, rng: Rng, skillId: string): Question {
   let drawn = false;
   for (let attempt = 0; attempt < 200 && !drawn; attempt++) {
     a = randInt(rng, 2, amax) * (lvl >= 3 && rng() < 0.35 ? -1 : 1);
-    b = randInt(rng, 1, 12) * (lvl >= 2 && rng() < 0.4 ? -1 : 1);
+    b = randInt(rng, 1, TWO_STEP_CONST_MAX[lvl]) * (lvl >= 2 && rng() < 0.4 ? -1 : 1);
     x = lvl >= 3 ? randInt(rng, -10, 10) : randInt(rng, 1, 10);
     drawn = x !== 0;
   }
@@ -654,7 +678,12 @@ export function slopeFromPoints(level: number, rng: Rng, skillId: string): Quest
 }
 
 /** Largest exponent that may appear in the question, per level. */
-const EXPONENT_MAX = [5, 5, 6, 6, 7];
+/**
+ * Largest exponent per level. Was [5, 5, 6, 6, 7]: with the quotient form gated at level 2
+ * and the power form at level 4, level 1 could ask nothing level 0 could not — fifteen
+ * questions, every one of them already reachable a rung below.
+ */
+const EXPONENT_MAX = [4, 6, 7, 9, 11];
 
 /**
  * An exponent spoken as an ordinal. `^` is banned from read-aloud — a child on speech

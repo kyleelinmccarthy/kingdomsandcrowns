@@ -88,19 +88,39 @@ function drawPool(items: PoolItem[], level: number, count: number, rng: Rng): Qu
   return [...near, ...far].slice(0, count).map((i) => poolQuestion(i, rng));
 }
 
-function drawGenerated(skill: Skill, level: number, count: number, rng: Rng, exclude: Set<string> = new Set()): Question[] {
+/**
+ * `excludePrompts` exists because an id is only as good as the day it was written. A missed
+ * question is replayed from the run it was stored in, and when a generator's id shape
+ * changes, a miss stored under the old shape no longer matches anything drawn today — so
+ * the same question could appear twice in one deed, once as review and once as fresh. That
+ * really happened: four generators were re-keyed to drop parameters their prompts never
+ * showed, and every miss stored before that carried the old key.
+ *
+ * Excluding on the prompt as well as the id makes the guard independent of how ids are
+ * spelled, so the next re-keying costs nobody a duplicated question.
+ */
+function drawGenerated(
+  skill: Skill,
+  level: number,
+  count: number,
+  rng: Rng,
+  exclude: Set<string> = new Set(),
+  excludePrompts: Set<string> = new Set(),
+): Question[] {
   if (skill.source.kind !== "generator") return [];
   const generator = GENERATORS[skill.source.generatorId];
   const out: Question[] = [];
   // Seed "seen" from exclude so an id already used elsewhere in the run (a
   // review miss, in particular) is skipped like any other duplicate.
   const seen = new Set<string>(exclude);
+  const seenPrompts = new Set<string>(excludePrompts);
   let guard = 0;
   while (out.length < count && guard < count * 20) {
     guard += 1;
     const q = generator(level, rng, skill.id);
-    if (seen.has(q.id)) continue;
+    if (seen.has(q.id) || seenPrompts.has(q.prompt)) continue;
     seen.add(q.id);
+    seenPrompts.add(q.prompt);
     out.push(q);
   }
   return out;
@@ -128,6 +148,9 @@ export function buildDeedRun(input: BuildRunInput): BuiltRun {
   });
   const review = dedupedMisses.filter((m) => skillIds.includes(m.skillId)).slice(0, MAX_REVIEW);
   const reviewIds = new Set(review.map((m) => m.id));
+  // Also by prompt: a miss stored under an older id shape would otherwise be re-asked as a
+  // fresh question in the same deed.
+  const reviewPrompts = new Set(review.map((m) => m.prompt));
   const target = deed.questionCount;
   const fresh = Math.max(0, target - review.length);
 
@@ -135,7 +158,7 @@ export function buildDeedRun(input: BuildRunInput): BuiltRun {
   const perSkill = skills.map((_, i) => Math.floor(fresh / skills.length) + (i < fresh % skills.length ? 1 : 0));
   const bySkill = skills.map((skill, i) => {
     const level = masteryBySkill[skill.id] ?? 0;
-    if (skill.source.kind === "generator") return drawGenerated(skill, level, perSkill[i], rng, reviewIds);
+    if (skill.source.kind === "generator") return drawGenerated(skill, level, perSkill[i], rng, reviewIds, reviewPrompts);
     const items = poolItems.filter((p) => p.skillId === skill.id && !reviewIds.has(p.id));
     return drawPool(items, level, perSkill[i], rng);
   });
@@ -146,8 +169,9 @@ export function buildDeedRun(input: BuildRunInput): BuiltRun {
     for (const skill of skills) {
       if (questions.length >= fresh) break;
       const have = new Set(questions.map((q) => q.id));
+      const havePrompts = new Set(questions.map((q) => q.prompt));
       const extra = skill.source.kind === "generator"
-        ? drawGenerated(skill, masteryBySkill[skill.id] ?? 0, fresh - questions.length + have.size, rng, new Set([...have, ...reviewIds])).filter((q) => !have.has(q.id))
+        ? drawGenerated(skill, masteryBySkill[skill.id] ?? 0, fresh - questions.length + have.size, rng, new Set([...have, ...reviewIds]), new Set([...havePrompts, ...reviewPrompts])).filter((q) => !have.has(q.id))
         : drawPool(poolItems.filter((p) => p.skillId === skill.id && !have.has(p.id) && !reviewIds.has(p.id)), masteryBySkill[skill.id] ?? 0, fresh - questions.length, rng);
       questions = [...questions, ...extra].slice(0, fresh);
     }

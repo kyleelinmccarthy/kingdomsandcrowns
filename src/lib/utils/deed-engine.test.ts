@@ -247,3 +247,29 @@ describe("every skill at a hero's grade can actually be served", () => {
     }
   });
 });
+
+describe("a miss stored under an older id shape is still not re-asked", () => {
+  /**
+   * Misses are replayed from the run they were stored in, so their ids are whatever that
+   * day's generator produced. Four generators were re-keyed to drop parameters their
+   * prompts never showed — and every miss stored before that carries the old key, which
+   * matches nothing drawn today. Excluding on the id alone let the same question appear
+   * twice in one deed: once as the review question, once as a fresh draw.
+   *
+   * The id here is deliberately one no current generator can produce.
+   */
+  it("excludes the review question by its prompt, not only by its id", () => {
+    const skill = chooseSkills(deedMath, "3")[0];
+    const fresh = buildDeedRun(input({ deed: deedMath, grade: "3", poolItems: [], masteryBySkill: {}, seed: 11 }));
+    const target = fresh.questions[0];
+
+    const stale: Question = { ...target, id: `${target.skillId}:STALE-KEY:${target.id}` };
+    const run = buildDeedRun(
+      input({ deed: deedMath, grade: "3", poolItems: [], masteryBySkill: {}, seed: 11, recentMisses: [stale] })
+    );
+
+    expect(skill, "grade 3 math must have a generator skill for this to mean anything").toBeDefined();
+    const prompts = run.questions.map((q) => q.prompt);
+    expect(new Set(prompts).size, `repeated a prompt: ${prompts.join(" | ")}`).toBe(prompts.length);
+  });
+});
