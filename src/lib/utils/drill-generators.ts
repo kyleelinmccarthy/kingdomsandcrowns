@@ -114,6 +114,56 @@ export function numericDistractors(answer: number, rng: Rng, min = -Infinity): s
   return out.map(String);
 }
 
+/** A wrong answer as a child would write it, with the number behind it so it can be placed. */
+export type Reading = { text: string; value: number };
+
+/** `{ text: "12", value: 12 }` without saying 12 twice. */
+export const reading = (value: number, text = String(value)): Reading => ({ text, value });
+
+/**
+ * **Three wrong answers drawn from a pool, with how many of them BEAT the answer drawn too.**
+ *
+ * Six times in this program a question turned out to be answerable by a surface feature
+ * rather than by the mathematics, and the last two waves found the same cause underneath
+ * nineteen more rungs: the wrong answers were built at fixed offsets around the right one, so
+ * the same number of them landed above it and below it on every single question. "Sort the
+ * four numbers and take the second" was worth 100% at every rung of `circle-measure` and
+ * `pythagorean`, and 298 of 300 at the top rung of `probability`, without any arithmetic at
+ * all.
+ *
+ * The cure is not a bigger pool, it is a DRAWN one. The caller hands over every reading a
+ * child might write down; this splits them by which side of the answer they fall on and draws
+ * `beating` — how many of the three on screen are larger than the right one — flat across
+ * everything the pool can support. A rung with three believable readings on each side puts
+ * the answer at each of the four positions about a quarter of the time.
+ *
+ * **Order inside the pool is priority, not decoration.** The readings a skill exists to
+ * punish go first on their side and are taken first; near misses put at the end are fill, and
+ * appear only when a side would otherwise be too thin to draw against. What a caller may NOT
+ * do is put a reading on one side only because it balances the list — a wrong answer no child
+ * would reach for teaches a child to eliminate it, which is the defect wearing a new coat.
+ *
+ * Readings equal to the answer by value or by spelling are dropped, as are duplicates: four
+ * distinct choices with exactly one right one is the invariant every other check in this bank
+ * depends on. Returns an empty array when the pool cannot fill three slots, so a caller can
+ * redraw or fall back rather than ship a question with a repeated choice.
+ */
+export function spreadDistractors(answer: Reading, pool: Reading[], rng: Rng): string[] {
+  const seenValues = new Set<number>([answer.value]);
+  const seenText = new Set<string>([answer.text]);
+  const above: string[] = [];
+  const below: string[] = [];
+  for (const candidate of pool) {
+    if (seenValues.has(candidate.value) || seenText.has(candidate.text)) continue;
+    seenValues.add(candidate.value);
+    seenText.add(candidate.text);
+    (candidate.value > answer.value ? above : below).push(candidate.text);
+  }
+  if (above.length + below.length < 3) return [];
+  const beating = randInt(rng, Math.max(0, 3 - below.length), Math.min(3, above.length));
+  return [...above.slice(0, beating), ...below.slice(0, 3 - beating)];
+}
+
 /**
  * The standard question shape: a stable id built from the skill and a parameter key, the
  * answer shuffled in among its distractors, and read-aloud text only when there is any.

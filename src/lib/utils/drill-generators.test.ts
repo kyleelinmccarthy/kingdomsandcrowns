@@ -21,7 +21,7 @@
  * `place-value` generator emitting a duplicate choice is caught HERE and nowhere else.
  */
 import { describe, it, expect } from "vitest";
-import { GENERATORS, seededRng, numericDistractors, shuffle, type Question } from "./drill-generators";
+import { GENERATORS, reading, seededRng, numericDistractors, shuffle, spreadDistractors, type Question } from "./drill-generators";
 import { SKILLS } from "./skills";
 
 const LEVELS = [0, 1, 2, 3, 4];
@@ -68,6 +68,67 @@ describe("helpers", () => {
   });
   it("shuffle keeps the multiset", () => {
     expect([...shuffle([1, 2, 3, 4], seededRng(3))].sort()).toEqual([1, 2, 3, 4]);
+  });
+
+  /**
+   * `spreadDistractors` is the one piece the whole position census rests on, so it is checked
+   * here rather than inferred from the generators that call it.
+   */
+  describe("spreadDistractors", () => {
+    const pool = [-3, -2, -1, 1, 2, 3].map((offset) => reading(10 + offset));
+
+    it("gives three distinct wrong answers, never the right one", () => {
+      for (const seed of SEEDS) {
+        const out = spreadDistractors(reading(10), pool, seededRng(seed));
+        expect(out).toHaveLength(3);
+        expect(new Set(out).size).toBe(3);
+        expect(out).not.toContain("10");
+      }
+    });
+
+    /**
+     * The point of the helper. With three believable readings either side the answer reaches
+     * all four positions, and nothing like the 298-of-300 the named-list census could not see.
+     */
+    it("puts the answer at every one of the four positions", () => {
+      const counts = [0, 0, 0, 0];
+      for (const seed of SEEDS) {
+        const out = spreadDistractors(reading(10), pool, seededRng(seed));
+        counts[out.filter((c) => Number(c) < 10).length] += 1;
+      }
+      for (const [position, n] of counts.entries()) {
+        expect(n, `position ${position + 1} of four came up ${n} times in ${SEEDS.length}: ${counts.join("/")}`).toBeGreaterThan(0);
+      }
+    });
+
+    /** A reading equal to the answer by value or by spelling is dropped, not offered. */
+    it("drops a reading that is the answer under another spelling", () => {
+      const out = spreadDistractors(
+        { text: "1/2", value: 0.5 },
+        [{ text: "2/4", value: 0.5 }, { text: "1/3", value: 1 / 3 }, { text: "2/3", value: 2 / 3 }, { text: "3/4", value: 0.75 }],
+        seededRng(7),
+      );
+      expect(out).not.toContain("2/4");
+      expect(out).toHaveLength(3);
+    });
+
+    /** A pool that cannot fill three slots says so rather than shipping a repeated choice. */
+    it("returns nothing when the pool is too thin", () => {
+      expect(spreadDistractors(reading(10), [reading(9), reading(11)], seededRng(1))).toEqual([]);
+    });
+
+    /**
+     * A thin side never forces a repeated choice or a silent short list: with only one reading
+     * below the answer, the draw simply never puts more than one there.
+     */
+    it("draws only as far as a thin side allows", () => {
+      const thin = [reading(9), reading(11), reading(12), reading(13), reading(14)];
+      for (const seed of SEEDS) {
+        const out = spreadDistractors(reading(10), thin, seededRng(seed));
+        expect(out).toHaveLength(3);
+        expect(out.filter((c) => Number(c) < 10).length).toBeLessThanOrEqual(1);
+      }
+    });
   });
 });
 
