@@ -1236,6 +1236,22 @@ the nine, so **rung 0 is close to the same worksheet every day** until mastery m
 compounds with the policy above: a child held at level 0 on their weakest skill sees a very small pool,
 over and over. Whatever you do here should be checked against that case, not just the flat-mastery one.
 
+**A third reason, found by reading the `/dev/content` page as a parent would.** Two more variety
+problems turned up that neither the tests nor the reviews could see, because both are about what a
+question *feels* like rather than whether it is correct:
+
+- **The hardest rung is not always hard.** Grade 6 `integer-ops` at **level 4** served `What is -36 × 1?`.
+  Grade K `add-10` at **level 3** served `What is 9 + 0?` three times in five draws. The ladder check
+  asks whether a level can reach questions an earlier one cannot — it says nothing about whether the
+  questions a level *actually draws* are hard. Identity cases (`× 1`, `+ 0`, `- 0`) are trivial at any
+  rung and should be rare at the top of one.
+- **Repetition inside a single sitting.** Grade K `add-10` level 0 drew `5 + 0` twice in five; grade 6
+  `percent-of` level 0 drew `50% of 40` twice and **all five** questions were `50% of N`. The deed-fill
+  rule guarantees eight *different* questions; it does not stop eight questions that feel like one.
+
+Both belong here rather than in a generator task: they are properties of what a child is served over a
+session, which is what this task is about.
+
 **Files:**
 - Modify: `src/lib/utils/deed-engine.ts`
 - Test: `src/lib/utils/deed-engine.test.ts`
