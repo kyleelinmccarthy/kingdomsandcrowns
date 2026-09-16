@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { compareNum, countSeq, tenMoreLess } from "./elementary";
+import { compareNum, countSeq, moneyCoins, skipCount, tenMoreLess, timeClock } from "./elementary";
 import { seededRng, type Question, type Rng } from "../drill-generators";
 
 const LEVELS = [0, 1, 2, 3, 4];
@@ -92,6 +92,100 @@ describe("ten-more-less", () => {
     }
     for (const lvl of [2, 3, 4]) {
       expect(draws(tenMoreLess, lvl, "ten-more-less").some((q) => q.prompt.includes("less")), `level ${lvl}`).toBe(true);
+    }
+  });
+});
+
+describe("skip-count", () => {
+  it("shows a run that really does count by the step it names", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(skipCount, lvl, "skip-count")) {
+        const m = /^Count by (\d+)s: (\d+), (\d+), (\d+), __$/.exec(q.prompt);
+        expect(m, q.prompt).not.toBeNull();
+        const [step, a, b, c] = m!.slice(1).map(Number);
+        expect([b - a, c - b], q.prompt).toEqual([step, step]);
+        // Runs start on a multiple of the step, the way skip counting is taught.
+        expect(a % step, q.prompt).toBe(0);
+      }
+    }
+  });
+
+  it("uses only the steps its level has reached", () => {
+    const ladder = [[2], [2, 5], [2, 5, 10], [2, 5, 10, 3], [2, 5, 10, 3, 4]];
+    for (const lvl of LEVELS) {
+      const used = new Set(draws(skipCount, lvl, "skip-count").map((q) => Number(/^Count by (\d+)s/.exec(q.prompt)![1])));
+      for (const step of used) expect(ladder[lvl], `level ${lvl}`).toContain(step);
+      // And every step the level offers is actually reachable, or the ladder is decoration.
+      expect([...used].sort((x, y) => x - y)).toEqual([...ladder[lvl]].sort((x, y) => x - y));
+    }
+  });
+});
+
+describe("time-clock", () => {
+  it("places the minute hand where the minutes actually are", () => {
+    const grain = [30, 30, 15, 5, 5];
+    for (const lvl of LEVELS) {
+      for (const q of draws(timeClock, lvl, "time-clock")) {
+        const hands = /on (\d+) and the minute hand is on (\d+)\./.exec(q.prompt)!;
+        const [hour, minutes] = q.answer.split(":").map(Number);
+        expect(Number(hands[1]), q.prompt).toBe(hour);
+        expect(Number(hands[2]) * 5, q.prompt).toBe(minutes);
+        expect(minutes % grain[lvl], q.prompt).toBe(0);
+        expect(hour, q.prompt).toBeGreaterThanOrEqual(1);
+        expect(hour, q.prompt).toBeLessThanOrEqual(12);
+      }
+    }
+  });
+
+  it("offers the hands-read-backwards mistake as a wrong answer, never as the right one", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(timeClock, lvl, "time-clock")) {
+        const [hour, minutes] = q.answer.split(":").map(Number);
+        const swapped = `${minutes / 5 === 0 ? 12 : minutes / 5}:${String((hour % 12) * 5).padStart(2, "0")}`;
+        expect(q.choices, q.prompt).toContain(swapped);
+        expect(swapped, `${q.prompt} has two right answers`).not.toBe(q.answer);
+      }
+    }
+  });
+
+  it("writes every time as a two-digit minute, so 4:05 is never 4:5", () => {
+    for (const q of draws(timeClock, 4, "time-clock")) {
+      for (const c of q.choices) expect(c, q.prompt).toMatch(/^([1-9]|1[0-2]):[0-5]\d$/);
+    }
+  });
+});
+
+describe("money-coins", () => {
+  it("renders cents under a dollar and dollars above it", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(moneyCoins, lvl, "money-coins")) {
+        for (const c of q.choices) expect(c, q.prompt).toMatch(/^(\d+¢|\$\d+\.\d\d)$/);
+      }
+    }
+  });
+
+  it("never lets counting the coins instead of their value be a right answer", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(moneyCoins, lvl, "money-coins")) {
+        const coins = [...q.prompt.matchAll(/(\d+) (?:quarters?|dimes?|nickels?|penny|pennies)/g)]
+          .reduce((sum, m) => sum + Number(m[1]), 0);
+        expect(`${coins}¢`, `${q.prompt} has two right answers`).not.toBe(q.answer);
+        expect(q.choices, q.prompt).toContain(`${coins}¢`);
+      }
+    }
+  });
+
+  it("says a single coin in the singular, so no child hears '1 pennies'", () => {
+    for (const q of draws(moneyCoins, 4, "money-coins")) {
+      expect(q.prompt, q.prompt).not.toMatch(/\b1 (quarters|dimes|nickels|pennies)\b/);
+    }
+  });
+
+  it("keeps the money symbols out of the spoken form", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(moneyCoins, lvl, "money-coins")) {
+        expect(q.readAloud, q.readAloud).not.toMatch(/[¢$]/);
+      }
     }
   });
 });

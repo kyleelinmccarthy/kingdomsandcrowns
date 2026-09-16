@@ -58,8 +58,10 @@ describe("every generated question is independently verifiable", () => {
           // spelled out in words. `%` is here because `drill-generators.test.ts` banned it
           // and this list was written without it — coverage that survived only as long as
           // that older file does. A bare `-` is banned outright, which also covers the
-          // "negative negative" run the old test watched for.
-          expect(q.readAloud, `unspeakable read-aloud: ${q.readAloud}`).not.toMatch(/[-×÷%²³√π^\/]/);
+          // "negative negative" run the old test watched for. `¢` and `$` joined when the
+          // money generator arrived: its ANSWERS read "32¢" and "$1.15", which are fine on
+          // a screen and unspeakable aloud, so neither may reach the spoken text.
+          expect(q.readAloud, `unspeakable read-aloud: ${q.readAloud}`).not.toMatch(/[-×÷%²³√π^\/¢$]/);
         }
 
         // The id encodes the parameters, so the same id is always the same question.

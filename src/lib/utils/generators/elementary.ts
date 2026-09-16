@@ -110,3 +110,150 @@ export function tenMoreLess(level: number, rng: Rng, skillId: string): Question 
     prompt,
   );
 }
+
+/** Which step sizes are in play per level, easiest ladder first. */
+const SKIP_STEPS = [[2], [2, 5], [2, 5, 10], [2, 5, 10, 3], [2, 5, 10, 3, 4]];
+
+/**
+ * Skip counting (grade 2). Three terms are shown and the fourth is asked for, so the
+ * printed run IS the evidence: a verifier can recover the step from the gaps between the
+ * terms rather than trusting the "Count by 5s" label.
+ */
+export function skipCount(level: number, rng: Rng, skillId: string): Question {
+  const steps = SKIP_STEPS[L(level)];
+  const step = steps[randInt(rng, 0, steps.length - 1)];
+  // Runs begin on a multiple of the step, the way a child is taught to skip count.
+  const start = step * randInt(rng, 1, 10);
+  const shown = [start, start + step, start + 2 * step];
+  const answer = start + 3 * step;
+  return makeQuestion(
+    skillId,
+    `${step}from${start}`,
+    `Count by ${step}s: ${shown.join(", ")}, __`,
+    String(answer),
+    numericDistractors(answer, rng, 0),
+    rng,
+    `Count by ${step}s. ${shown.join(", ")}. What comes next?`,
+  );
+}
+
+/** How fine the minute hand gets per level: half hours, then quarters, then five-minute marks. */
+const CLOCK_GRAIN = [30, 30, 15, 5, 5];
+
+/** Two digits, for the minutes in "4:05" and the cents in "$1.05". */
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+/**
+ * Telling time from the hands (grade 2).
+ *
+ * The prompt names where each hand points, not the time, so the minute hand's number has
+ * to be turned into minutes — which is the step the verifier can undo independently.
+ *
+ * The three distractors are the three mistakes a child actually makes: right hour with
+ * the wrong minutes, one hour out, and the two hands read the wrong way round.
+ */
+export function timeClock(level: number, rng: Rng, skillId: string): Question {
+  const grain = CLOCK_GRAIN[L(level)];
+  const minuteChoices = Array.from({ length: 60 / grain }, (_, i) => i * grain);
+  let hour = 0, minute = 0, minuteHand = 0;
+  let choices: string[] = [];
+  // Redraw rather than patch: when the minute hand points at the hour's own number
+  // (4 o'clock, twenty past) the hands-swapped distractor IS the answer, and the
+  // question would have two right answers. It is rare, so a redraw costs nothing.
+  for (let attempt = 0; attempt < 50; attempt++) {
+    hour = randInt(rng, 1, 12);
+    minute = minuteChoices[randInt(rng, 0, minuteChoices.length - 1)];
+    minuteHand = minute / 5;
+    const answer = `${hour}:${pad2(minute)}`;
+    const otherMinutes = minuteChoices.filter((m) => m !== minute);
+    const wrongMinutes = `${hour}:${pad2(otherMinutes[randInt(rng, 0, otherMinutes.length - 1)])}`;
+    const hourOut = `${((hour + (rng() < 0.5 ? 10 : 0)) % 12) + 1}:${pad2(minute)}`;
+    const swapped = `${minuteHand === 0 ? 12 : minuteHand}:${pad2((hour % 12) * 5)}`;
+    choices = [answer, wrongMinutes, hourOut, swapped];
+    if (new Set(choices).size === 4) break;
+    choices = [];
+  }
+  if (choices.length !== 4) throw new Error(`could not draw four distinct times at level ${level}`);
+  const answer = choices[0];
+  const prompt = `The hour hand is on ${hour} and the minute hand is on ${minuteHand}. What time is it?`;
+  return {
+    id: `${skillId}:${hour}:${minute}`,
+    skillId,
+    prompt,
+    choices: shuffle(choices, rng),
+    answer,
+    // The answer's "4:30" is never spoken: what read-aloud says is the question, which
+    // names the two hand positions as plain numbers and contains no symbol at all.
+    readAloud: prompt,
+  };
+}
+
+/**
+ * The coin ladder, easiest first. Dimes come before pennies on purpose: a pennies-only
+ * round would make the "counted the coins instead of their value" distractor equal the
+ * answer, and the question would have two right answers.
+ */
+const COINS = [
+  { one: "dime", many: "dimes", value: 10 },
+  { one: "penny", many: "pennies", value: 1 },
+  { one: "nickel", many: "nickels", value: 5 },
+  { one: "quarter", many: "quarters", value: 25 },
+];
+
+/** How many kinds of coin are in the handful per level. */
+const COIN_KINDS = [1, 2, 2, 3, 4];
+
+/** "32¢" under a dollar, "$1.15" at or above one. */
+function money(cents: number): string {
+  return cents >= 100 ? `$${Math.floor(cents / 100)}.${pad2(cents % 100)}` : `${cents}¢`;
+}
+
+const coinPhrase = (count: number, coin: (typeof COINS)[number]) => `${count} ${count === 1 ? coin.one : coin.many}`;
+
+/**
+ * Counting coins (grade 2). Answers are money, so `numericDistractors` does not apply:
+ * the three wrong choices are built from the three real mistakes — counting the coins
+ * instead of their value, miscounting one coin, and being five cents out.
+ */
+export function moneyCoins(level: number, rng: Rng, skillId: string): Question {
+  const kinds = COINS.slice(0, COIN_KINDS[L(level)]);
+  const counts = kinds.map(() => randInt(rng, 1, 9));
+  const total = kinds.reduce((sum, coin, i) => sum + coin.value * counts[i], 0);
+  const coinCount = counts.reduce((a, b) => a + b, 0);
+  const miscounted = kinds[randInt(rng, 0, kinds.length - 1)].value;
+
+  const wanted = [coinCount, total + miscounted, total - miscounted, total + 5, total - 5];
+  const distractors: string[] = [];
+  for (const cents of wanted) {
+    if (cents < 0 || cents === total) continue;
+    const rendered = money(cents);
+    if (rendered !== money(total) && !distractors.includes(rendered)) distractors.push(rendered);
+    if (distractors.length === 3) break;
+  }
+  for (let nudge = 2; distractors.length < 3; nudge++) {
+    const rendered = money(total + nudge);
+    if (!distractors.includes(rendered)) distractors.push(rendered);
+  }
+
+  // Largest coin first, the way a person counts a handful out loud.
+  const spoken = [...kinds.keys()]
+    .sort((a, b) => kinds[b].value - kinds[a].value)
+    .map((i) => coinPhrase(counts[i], kinds[i]));
+  const listed = spoken.length === 1 ? spoken[0] : `${spoken.slice(0, -1).join(", ")} and ${spoken[spoken.length - 1]}`;
+  const prompt = `How much is ${listed}?`;
+  // The id names every coin kind in one fixed order, so the same handful is the same
+  // question however it was drawn — and a level with fewer kinds still reads as zeroes.
+  const key = COINS.map((coin) => {
+    const at = kinds.indexOf(coin);
+    return at < 0 ? 0 : counts[at];
+  });
+  return makeQuestion(
+    skillId,
+    `${key[3]}:${key[0]}:${key[2]}:${key[1]}`, // quarters:dimes:nickels:pennies
+    prompt,
+    money(total),
+    distractors,
+    rng,
+    prompt, // "How much is 3 dimes and 2 pennies?" — no symbol reaches the spoken form
+  );
+}

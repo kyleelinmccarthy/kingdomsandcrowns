@@ -127,6 +127,130 @@ const tenMoreLess: Verifier = (q) => {
   return String(value);
 };
 
+/** Two digits, so "4:5" can never pass for "4:05". */
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+/**
+ * "Count by 5s: 5, 10, 15, __"
+ *
+ * The step is recovered from the GAPS between the printed terms, not from the "Count by
+ * 5s" label, and the label is then checked against it. So a generator that printed one
+ * step and counted by another is caught from either side.
+ */
+const skipCount: Verifier = (q) => {
+  const m = /^Count by (\d+)s: (\d+), (\d+), (\d+), __$/.exec(q.prompt);
+  if (!m) throw new Error(`skip-count verifier cannot parse: ${q.prompt}`);
+  const [first, second, third] = [Number(m[2]), Number(m[3]), Number(m[4])];
+  const step = second - first;
+  if (step <= 0) throw new Error(`the run does not count up in: ${q.prompt}`);
+  if (third - second !== step) throw new Error(`uneven steps in: ${q.prompt}`);
+  if (Number(m[1]) !== step) throw new Error(`prompt says ${m[1]}s but counts by ${step}: ${q.prompt}`);
+  return String(third + step);
+};
+
+/**
+ * "The hour hand is on 4 and the minute hand is on 6. What time is it?"
+ *
+ * A genuine inverse: the generator divides the minutes by five to place the hand, and
+ * this multiplies the hand back up. A generator that had read the hand as the minutes
+ * themselves disagrees here.
+ */
+const timeClock: Verifier = (q) => {
+  const m = /^The hour hand is on (\d+) and the minute hand is on (\d+)\. What time is it\?$/.exec(q.prompt);
+  if (!m) throw new Error(`clock verifier cannot parse: ${q.prompt}`);
+  const hour = Number(m[1]), hand = Number(m[2]);
+  if (hour < 1 || hour > 12) throw new Error(`no such hour in: ${q.prompt}`);
+  if (hand < 0 || hand > 11) throw new Error(`no such minute-hand position in: ${q.prompt}`);
+  return `${hour}:${pad2(hand * 5)}`;
+};
+
+const COIN_VALUES: Record<string, number> = {
+  quarter: 25, quarters: 25, dime: 10, dimes: 10, nickel: 5, nickels: 5, penny: 1, pennies: 1,
+};
+
+/**
+ * "How much is 3 dimes and 2 pennies?"
+ *
+ * NOT a second derivation of the arithmetic: the prompt names every coin and its count,
+ * so there is nothing left to invert, and this adds the same values up the same way the
+ * generator did. A generator that thought a dime was worth five cents would be agreed
+ * with. What this DOES check independently is the rendering — that the cents total is
+ * spelled "32¢" under a dollar and "$1.15" at or above one, with two digits of cents —
+ * which is its own class of bug, and the total is reached by counting each coin out one
+ * at a time rather than by multiplying.
+ */
+const moneyCoins: Verifier = (q) => {
+  const m = /^How much is (.+)\?$/.exec(q.prompt);
+  if (!m) throw new Error(`money verifier cannot parse: ${q.prompt}`);
+  const phrases = m[1].split(/, | and /);
+  let cents = 0;
+  for (const phrase of phrases) {
+    const coin = /^(\d+) ([a-z]+)$/.exec(phrase);
+    if (!coin) throw new Error(`money verifier cannot read "${phrase}" in: ${q.prompt}`);
+    const value = COIN_VALUES[coin[2]];
+    if (value === undefined) throw new Error(`unknown coin "${coin[2]}" in: ${q.prompt}`);
+    for (let counted = 0; counted < Number(coin[1]); counted++) cents += value;
+  }
+  return cents >= 100 ? `$${Math.floor(cents / 100)}.${pad2(cents % 100)}` : `${cents}¢`;
+};
+
+/**
+ * "A number line from 0 to 1 is split into 6 equal parts. What fraction is at the 5th mark?"
+ *
+ * Derived by laying the marks out along the line and stepping to the one asked for, which
+ * catches a generator that numbered them from zero or counted the end of the line as a
+ * mark. It is only half a second derivation, though: the prompt already names both the
+ * numerator (as an ordinal) and the denominator, so no phrasing of this question leaves
+ * an inverse to compute. A generator with a wrong idea of what a fraction means would
+ * still be agreed with here.
+ */
+const fracUnit: Verifier = (q) => {
+  const m = /^A number line from 0 to 1 is split into (\d+) equal parts\. What fraction is at the (\d+)(?:st|nd|rd|th) mark\?$/.exec(q.prompt);
+  if (!m) throw new Error(`fraction verifier cannot parse: ${q.prompt}`);
+  const parts = Number(m[1]);
+  if (parts < 2) throw new Error(`a line split into ${parts} parts has no marks: ${q.prompt}`);
+  // The marks BETWEEN 0 and 1: cutting into `parts` pieces leaves `parts - 1` of them.
+  const marks = Array.from({ length: parts - 1 }, (_, i) => `${i + 1}/${parts}`);
+  const which = Number(m[2]);
+  if (which < 1 || which > marks.length) throw new Error(`there is no ${which} mark in: ${q.prompt}`);
+  return marks[which - 1];
+};
+
+/**
+ * "A rectangle is 7 units wide and 4 units tall. What is its area?" (or perimeter)
+ *
+ * Both measures are computed a different way round from the generator: the perimeter as
+ * the four sides added up rather than as twice the half-perimeter, and the area as the
+ * rows added up rather than multiplied. Which measure is being asked for is read from the
+ * prompt and switched on, so a generator that answered with the wrong one is caught.
+ */
+const areaPerimeter: Verifier = (q) => {
+  const m = /^A rectangle is (\d+) units wide and (\d+) units tall\. What is its (area|perimeter)\?$/.exec(q.prompt);
+  if (!m) throw new Error(`rectangle verifier cannot parse: ${q.prompt}`);
+  const w = Number(m[1]), h = Number(m[2]);
+  if (w < 1 || h < 1) throw new Error(`a rectangle needs both sides in: ${q.prompt}`);
+  if (m[3] === "perimeter") return String(w + h + w + h);
+  let area = 0;
+  for (let row = 0; row < h; row++) area += w;
+  return String(area);
+};
+
+/**
+ * "Round 274 to the nearest 10."
+ *
+ * Derived from the remainder — how far past the last multiple the number sits, and
+ * whether that is half the place or more — rather than from dividing and rounding. The
+ * two routes disagree the moment a generator rounds ties the wrong way.
+ */
+const roundNearest: Verifier = (q) => {
+  const m = /^Round (\d+) to the nearest (\d+)\.$/.exec(q.prompt);
+  if (!m) throw new Error(`rounding verifier cannot parse: ${q.prompt}`);
+  const n = Number(m[1]), place = Number(m[2]);
+  if (![10, 100, 1000].includes(place)) throw new Error(`not a place to round to: ${q.prompt}`);
+  const past = n % place;
+  return String(past * 2 >= place ? n - past + place : n - past);
+};
+
 export const VERIFIERS: Record<string, Verifier> = {
   add: arithmetic,
   sub: arithmetic,
@@ -140,4 +264,10 @@ export const VERIFIERS: Record<string, Verifier> = {
   "count-seq": countSeq,
   "compare-num": extremeNumber,
   "ten-more-less": tenMoreLess,
+  "skip-count": skipCount,
+  "time-clock": timeClock,
+  "money-coins": moneyCoins,
+  "frac-unit": fracUnit,
+  "area-perimeter": areaPerimeter,
+  "round-nearest": roundNearest,
 };

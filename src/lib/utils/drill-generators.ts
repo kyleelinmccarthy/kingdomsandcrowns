@@ -2,7 +2,8 @@
  * Math practice is generated, never stored: the ranges are tuned per skill and
  * mastery level, and a seeded rng makes every run reproducible in tests.
  */
-import { compareNum, countSeq, tenMoreLess } from "./generators/elementary";
+import { compareNum, countSeq, moneyCoins, skipCount, tenMoreLess, timeClock } from "./generators/elementary";
+import { areaPerimeter, fracUnit, roundNearest } from "./generators/intermediate";
 
 export type Question = {
   id: string;        // stable; encodes the parameters so a miss can be re-asked verbatim
@@ -82,7 +83,7 @@ const L = (level: number) => Math.min(4, Math.max(0, Math.floor(level)));
 
 // Sum ceilings per level, keyed by skill so one generator serves three skills.
 const ADD_MAX: Record<string, number[]> = { "add-10": [5, 6, 8, 9, 10], "add-20": [10, 12, 15, 18, 20], "add-100": [20, 40, 60, 80, 100] };
-const SUB_MAX: Record<string, number[]> = { "sub-10": [5, 6, 8, 9, 10], "sub-20": [10, 12, 15, 18, 20] };
+const SUB_MAX: Record<string, number[]> = { "sub-10": [5, 6, 8, 9, 10], "sub-20": [10, 12, 15, 18, 20], "sub-100": [20, 40, 60, 80, 100] };
 const FACT_MAX = [2, 4, 6, 9, 12];
 const INT_MAX = [10, 20, 30, 40, 50];
 const PLACE_DIGITS = [2, 3, 4, 5, 6];
@@ -222,4 +223,10 @@ export const GENERATORS: Record<string, Generator> = {
   "count-seq": countSeq,
   "compare-num": compareNum,
   "ten-more-less": tenMoreLess,
+  "skip-count": skipCount,
+  "time-clock": timeClock,
+  "money-coins": moneyCoins,
+  "frac-unit": fracUnit,
+  "area-perimeter": areaPerimeter,
+  "round-nearest": roundNearest,
 };

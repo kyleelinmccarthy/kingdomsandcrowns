@@ -21,7 +21,8 @@ describe("SKILLS", () => {
     expect(AREA_SCHOOL).toEqual({ reading: "element", language: "element", math: "form", science: "modifier" });
   });
   it("finds skills by area and grade, and pools by id", () => {
-    expect(skillsFor("math", "3").map((s) => s.id).sort()).toEqual(["add-100", "add-20", "sub-20"]);
+    expect(skillsFor("math", "3").map((s) => s.id).sort())
+      .toEqual(["add-100", "add-20", "area-perimeter", "frac-unit", "round-nearest", "sub-20"]);
     expect(skillsFor("language", "K")).toEqual([]);
     expect(findSkill("mul-facts")?.label).toBe("Multiplication facts");
     expect(findSkill("nope")).toBeNull();

@@ -24,7 +24,8 @@ function input(over: Partial<BuildRunInput> = {}): BuildRunInput {
 
 describe("chooseSkills", () => {
   it("returns every candidate skill for the area at the hero's grade", () => {
-    expect(chooseSkills(deedMath, "3").map((s) => s.id)).toEqual(["add-20", "sub-20", "add-100"]);
+    expect(chooseSkills(deedMath, "3").map((s) => s.id))
+      .toEqual(["add-20", "sub-20", "add-100", "frac-unit", "area-perimeter", "round-nearest"]);
     expect(chooseSkills(deedReading, "3").map((s) => s.id)).toEqual(["sight-g23"]);
   });
   it("falls back to the nearest grade when the area has no skill there", () => {
@@ -80,7 +81,12 @@ describe("buildDeedRun", () => {
     // chosen is a seeded tie-break, and the miss would land on a skill never picked.
     const run = buildDeedRun(input({
       deed: deedMath, poolItems: [], recentMisses: misses,
-      masteryBySkill: { "add-20": 0, "sub-20": 5, "add-100": 5 },
+      // Every other generator the grade offers has to be named, or an unpinned one
+      // defaults to 0, ties with add-20, and the miss lands on a skill never picked.
+      masteryBySkill: {
+        "add-20": 0, "sub-20": 5, "add-100": 5,
+        "frac-unit": 5, "area-perimeter": 5, "round-nearest": 5,
+      },
       profile: { ...profile, predictableRoutine: true },
     }));
     expect(run.questions[run.questions.length - 1].id).toBe("miss-0");
@@ -221,17 +227,22 @@ describe("every skill at a hero's grade can actually be served", () => {
     // starting point. Leaking the full candidate list would record progress against
     // skills the child never saw. Grade 3 math has three candidates; a run uses one.
     const built = buildDeedRun({ ...baseInput, grade: "3", seed: 7, masteryBySkill: {} });
-    expect(chooseSkills(deedMath, "3").length).toBe(3);
+    expect(chooseSkills(deedMath, "3").length).toBe(6);
     expect(built.skillIds).toHaveLength(1);
   });
 
   it("practises the least-mastered skill first", () => {
-    // Grade 3 math has three generators (add-20, sub-20, add-100). Two are already
-    // practised and one is at level 0. The level-0 skill must be the one chosen, on
-    // every seed — this is not a tie. (add-100 is pinned above 0 too, or an untouched
-    // skill defaulting to 0 would tie with sub-20 and make the pick a coin flip.)
+    // Every grade-3 generator but sub-20 is already practised; sub-20 alone sits at 0, so
+    // it must be the one chosen on every seed — this is not a tie. The others are pinned
+    // above 0 deliberately: an untouched skill defaults to 0, would tie with sub-20, and
+    // would turn the pick into a coin flip and this test into a flake. The pins are built
+    // from the grade's own candidate list so a skill added later cannot be forgotten.
+    const practised = Object.fromEntries(
+      chooseSkills(deedMath, "3").map((s) => [s.id, s.id === "sub-20" ? 0 : 4])
+    );
+    expect(practised["sub-20"], "sub-20 must be one of grade 3's skills").toBe(0);
     for (let seed = 1; seed <= 50; seed++) {
-      const built = buildDeedRun({ ...baseInput, grade: "3", seed, masteryBySkill: { "add-20": 4, "sub-20": 0, "add-100": 4 } });
+      const built = buildDeedRun({ ...baseInput, grade: "3", seed, masteryBySkill: practised });
       expect(built.skillIds, `seed ${seed}`).toContain("sub-20");
     }
   });
