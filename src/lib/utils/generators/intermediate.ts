@@ -507,33 +507,111 @@ function carryDropped(a: number, b: number): number {
 }
 
 /**
+ * The carry added to the next digit BEFORE that digit is multiplied instead of after it:
+ * `47 × 6` worked as 7×6 = 42, write 2 carry 4, then **(4 + 4) × 6 = 48** rather than
+ * 4×6 + 4 = 28, giving 482. The other half of the carry confusion `carryDropped` catches,
+ * and the one mistake here that comes out LARGER than the product.
+ */
+function carryAddedFirst(a: number, b: number): number {
+  const da = String(a).split("").reverse().map(Number);
+  const db = String(b).split("").reverse().map(Number);
+  let total = 0;
+  for (let j = 0; j < db.length; j++) {
+    let carry = 0, row = 0;
+    for (let i = 0; i < da.length; i++) {
+      const product = (da[i] + carry) * db[j];
+      row += (product % 10) * 10 ** i;
+      carry = Math.floor(product / 10);
+    }
+    total += (row + carry * 10 ** da.length) * 10 ** j;
+  }
+  return total;
+}
+
+/** The partial-product rows added without the zero that shifts each one a place left. */
+function noZeroPlaceholder(a: number, b: number): number {
+  return String(b).split("").reduce((sum, digit) => sum + a * Number(digit), 0);
+}
+
+/**
  * Multi-digit multiplication — `mul-multi` at grade 4 (4.NBT.5) and `mul-standard` at
  * grade 5 (5.NBT.5). One generator, two ladders, because the question a child sees and the
  * mistakes they make are the same; only the shape of the operands differs.
  *
- * The three distractors are the three real mistakes: only the ones digit multiplied, every
- * carry dropped, and the answer out by a factor of ten.
+ * **The wrong answers used to be `[(a % 10) * b, carryDropped(a, b), answer * 10]`, and all
+ * three of those are smaller-smaller-bigger every single time.** Two consequences, both
+ * measured over 3,000 draws across both skills and all ten rungs:
+ *
+ *  - `answer * 10` was the only choice a factor of ten from another, and the answer was
+ *    always the smaller of that pair — 2,998 of 3,000 draws.
+ *  - Worse and simpler: the answer was the **second largest of the four**, 2,980 of 3,000.
+ *
+ * A grade-4 child does not need to spot the zero. "Pick the second biggest" clears every
+ * multi-digit multiplication quest for a year, and their mastery climbs to 4 while they
+ * cannot do 53 × 5. So `answer * 10` is gone — it was never a mistake a child makes, only
+ * a mistake a calculator makes — and the wrong answers are now drawn from a pool of real
+ * ones that fall on BOTH sides of the product:
+ *
+ *  - `(a % 10) * b` — only the ones digit of the multiplicand multiplied. **Always offered**,
+ *    because it is the one wrong answer that says what a child actually did, and it is the
+ *    reason this skill exists. It is always far below the product, so the answer is never
+ *    the smallest of the four; that residual is deliberate and is asserted as a bound
+ *    rather than left unsaid.
+ *  - `carryDropped` — every carry thrown away. Below.
+ *  - `carryAddedFirst` — every carry added before multiplying rather than after. Above.
+ *  - `noZeroPlaceholder` — the partial-product rows added unshifted, which is the place
+ *    5.NBT.5's standard algorithm actually breaks. Below, and only when `b` has a second
+ *    digit to shift.
+ *  - `answer ± b × 10ᵏ` — one digit fact remembered one too high or one too low, which
+ *    moves the product by exactly one lot of `b` in that column. Both sides.
+ *
+ * Two of those five are drawn at random to join the ones-digit reading, so how many choices
+ * beat the answer changes from question to question and nothing about where the answer sits
+ * can be learned.
  */
 export function mulMulti(level: number, rng: Rng, skillId: string): Question {
   const shape = (MUL_SHAPES[skillId] ?? MUL_SHAPES["mul-multi"])[L(level)];
   let a = 0, b = 0;
   // Redraw until at least one digit pair actually carries. 12 × 3 carries nowhere, so
   // "carry dropped" would come out as 36 — which IS the answer, and the question would
-  // have two right answers among its four choices.
+  // have two right answers among its four choices. `carryAddedFirst` needs the same
+  // guarantee for the same reason: a carry that never leaves a column with a digit above
+  // it is a carry there is nothing to add early, and the mistake lands back on the product.
   do {
     // The zero shape is asked of the multiplicand only: it is the number written on top,
     // and the empty partial-product row is what the shape is about.
     a = multiDigit(rng, shape.a, shape.zero);
     b = multiDigit(rng, shape.b);
-  } while (carryDropped(a, b) === a * b);
+  } while (carryDropped(a, b) === a * b || carryAddedFirst(a, b) === a * b);
 
   const answer = a * b;
+  // One lot of `b` in one column, either way: `answer - b × 10ᵏ` stays positive because the
+  // multiplicand never ends in 0, so it is strictly greater than the power of ten it opens with.
+  const factSlips: number[] = [];
+  for (let k = 0; k < String(a).length; k++) factSlips.push(answer + b * 10 ** k, answer - b * 10 ** k);
+  const tooBig = shuffle([carryAddedFirst(a, b), ...factSlips.filter((v) => v > answer)], rng);
+  const tooSmall = shuffle(
+    [carryDropped(a, b), ...(shape.b > 1 ? [noZeroPlaceholder(a, b)] : []), ...factSlips.filter((v) => v < answer)],
+    rng,
+  );
+  // How many of the two remaining wrong answers beat the product, drawn flat. Taking them
+  // from one shuffled pool instead would land on one-of-each three times in five, and "the
+  // second biggest" would still be worth 60% to a child who never multiplied anything.
+  const beating = randInt(rng, 0, 2);
+  const drawnFrom = [
+    ...tooBig.slice(0, beating),
+    ...tooSmall.slice(0, 2 - beating),
+    ...tooBig.slice(beating),
+    ...tooSmall.slice(2 - beating),
+  ];
+
   const distractors: string[] = [];
-  for (const candidate of [(a % 10) * b, carryDropped(a, b), answer * 10]) {
+  for (const candidate of [(a % 10) * b, ...drawnFrom]) {
+    if (distractors.length === 3) break;
     const rendered = String(candidate);
-    if (candidate !== answer && !distractors.includes(rendered)) distractors.push(rendered);
+    if (candidate !== answer && candidate > 0 && !distractors.includes(rendered)) distractors.push(rendered);
   }
-  for (const near of numericDistractors(answer, rng, 0)) {
+  for (const near of numericDistractors(answer, rng, 1)) {
     if (distractors.length === 3) break;
     if (!distractors.includes(near)) distractors.push(near);
   }

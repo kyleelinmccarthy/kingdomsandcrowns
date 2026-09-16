@@ -377,6 +377,28 @@ function carryDroppedProduct(a: number, b: number): number {
   return total;
 }
 
+/**
+ * Every carry added to the next digit before that digit is multiplied rather than after —
+ * `47 × 6` worked as 7×6 = 42, write 2 carry 4, then (4 + 4)×6 = 48, giving 482. Written
+ * again here rather than imported, so a generator that had its own idea of the mistake is
+ * caught rather than agreed with.
+ */
+function carryAddedFirstProduct(a: number, b: number): number {
+  const da = String(a).split("").reverse().map(Number);
+  const db = String(b).split("").reverse().map(Number);
+  let total = 0;
+  for (let j = 0; j < db.length; j++) {
+    let carry = 0, row = 0;
+    for (let i = 0; i < da.length; i++) {
+      const product = (da[i] + carry) * db[j];
+      row += (product % 10) * 10 ** i;
+      carry = Math.floor(product / 10);
+    }
+    total += (row + carry * 10 ** da.length) * 10 ** j;
+  }
+  return total;
+}
+
 describe("mul-multi", () => {
   const operands = (q: Question) => /^What is (\d+) × (\d+)\?$/.exec(q.prompt)!.slice(1).map(Number) as [number, number];
 
@@ -396,12 +418,16 @@ describe("mul-multi", () => {
     }
   });
 
-  it("never draws a product that needs no carry, so 'carry dropped' is always a wrong answer", () => {
-    // 12 × 3 carries nowhere: dropping a carry leaves 36, which IS the answer.
+  it("never draws a product that needs no carry, so both carry mistakes are wrong answers", () => {
+    // 12 × 3 carries nowhere: dropping a carry leaves 36, which IS the answer. Adding the
+    // carry early lands back on the product for the same reason — there was no carry to add
+    // early — so both readings are guarded at the draw rather than filtered out of the
+    // choices, which is what lets the checks below say "never" instead of "usually".
     for (const lvl of LEVELS) {
       for (const q of draws(mulMulti, lvl, "mul-multi")) {
         const [a, b] = operands(q);
         expect(carryDroppedProduct(a, b), `${q.prompt} has two right answers`).not.toBe(a * b);
+        expect(carryAddedFirstProduct(a, b), `${q.prompt} has two right answers`).not.toBe(a * b);
       }
     }
   });
@@ -417,6 +443,23 @@ describe("mul-multi", () => {
         // here rather than left to the ladder table, which is the thing that moved.
         expect(String((a % 10) * b), `${q.prompt} has two right answers`).not.toBe(q.answer);
         expect(q.choices, q.prompt).toContain(String((a % 10) * b));
+      }
+    }
+  });
+
+  /**
+   * The wrong answers this skill used to offer were `[(a % 10) × b, carryDropped, answer × 10]`
+   * — and `answer × 10` is not a mistake a child makes. It is a mistake a calculator makes,
+   * and it made the answer the second largest of four in 2,980 draws out of 3,000. Nothing
+   * on screen may be the product with a zero stuck on it any more; where the answer SITS
+   * among the four is checked in `drill-surface-tells.test.ts`, which is about the property
+   * rather than about this one distractor.
+   */
+  it("never offers the product with a zero stuck on the end", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(mulMulti, lvl, "mul-multi")) {
+        const [a, b] = operands(q);
+        expect(q.choices, `${q.prompt} still offers ${a * b * 10}`).not.toContain(String(a * b * 10));
       }
     }
   });
@@ -1168,8 +1211,38 @@ describe("mul-standard", () => {
       for (const q of draws(mulMulti, lvl, "mul-standard")) {
         const [a, b] = operands(q);
         expect(carryDroppedProduct(a, b), `${q.prompt} has two right answers`).not.toBe(a * b);
+        expect(carryAddedFirstProduct(a, b), `${q.prompt} has two right answers`).not.toBe(a * b);
         expect(String((a % 10) * b), `${q.prompt} has two right answers`).not.toBe(q.answer);
         expect(q.choices, q.prompt).toContain(String((a % 10) * b));
+      }
+    }
+  });
+
+  /**
+   * 5.NBT.5 is the standard algorithm, and the place it breaks is the zero that shifts each
+   * partial-product row one column left. Every rung here multiplies by a two- or three-digit
+   * number, so that mistake exists on every question and is drawn into the choices — where
+   * it can never be the answer, because dropping the shift can only lose place value.
+   */
+  it("can offer the partial products added without their zero, and it is never the answer", () => {
+    const unshifted = (a: number, b: number) => String(b).split("").reduce((sum, digit) => sum + a * Number(digit), 0);
+    for (const lvl of LEVELS) {
+      let offered = 0;
+      const sample = draws(mulMulti, lvl, "mul-standard");
+      for (const q of sample) {
+        const [a, b] = operands(q);
+        expect(String(unshifted(a, b)), `${q.prompt} has two right answers`).not.toBe(q.answer);
+        if (q.choices.includes(String(unshifted(a, b)))) offered += 1;
+      }
+      expect(offered, `level ${lvl} never offers the unshifted partial products`).toBeGreaterThan(0);
+    }
+  });
+
+  it("never offers the product with a zero stuck on the end", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(mulMulti, lvl, "mul-standard")) {
+        const [a, b] = operands(q);
+        expect(q.choices, `${q.prompt} still offers ${a * b * 10}`).not.toContain(String(a * b * 10));
       }
     }
   });
