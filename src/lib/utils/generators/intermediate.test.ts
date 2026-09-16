@@ -68,6 +68,42 @@ describe("frac-unit", () => {
     }
   });
 
+  /**
+   * The repair this pins: `2` used to be in `FRAC_DENOMS[0]`, and putting it back passed the
+   * whole suite. A line split in two has exactly ONE interior mark, so the choices came out
+   * `1/2, 2/1, 2/2, 0/2` — `0/2` is not a mark at all, and `1/2` is the only choice between
+   * 0 and 1, so a child who had learned nothing but "the answer is under 1" scored every
+   * halves question without counting a mark.
+   *
+   * Three assertions, each of which fires on its own when 2 goes back in: the denominator is
+   * at least 3, no choice has a numerator of 0, and at least TWO choices are real interior
+   * marks so the shortcut cannot win.
+   *
+   * NOT asserted, against the brief's wording: that no choice exceeds 1, and that `d/d` is
+   * never offered. Both are deliberate — the fraction read upside down and the whole line
+   * called one part are two of the three mistakes this question is built around, and they
+   * are the reason a child must read the mark rather than the shape. Nor could they be
+   * dropped: a line in 3 parts has 2 interior marks and a line in 4 has 3, so there are not
+   * four distinct marks to fill four choices with at the low denominators this ladder uses.
+   */
+  it("never splits the line in two, and never offers 0 over anything", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(fracUnit, lvl, "frac-unit")) {
+        const d = Number(/split into (\d+) equal parts/.exec(q.prompt)![1]);
+        expect(d, q.prompt).toBeGreaterThanOrEqual(3);
+        const marks = new Set(Array.from({ length: d - 1 }, (_, i) => (i + 1) / d));
+        let onTheLine = 0;
+        for (const c of q.choices) {
+          const [cn, cd] = c.split("/").map(Number);
+          expect(cn, `${c} is 0 over something, which is not a mark: ${q.prompt}`).toBeGreaterThan(0);
+          if (marks.has(cn / cd)) onTheLine += 1;
+        }
+        expect(onTheLine, `only ${onTheLine} of ${q.choices.join(", ")} is a mark on the line: ${q.prompt}`)
+          .toBeGreaterThanOrEqual(2);
+      }
+    }
+  });
+
   it("speaks the mark as a word, so read-aloud never says '5 t h'", () => {
     for (const q of draws(fracUnit, 2, "frac-unit")) {
       expect(q.readAloud, q.readAloud).toMatch(/at the (first|second|third|fourth|fifth|sixth|seventh) mark/);
@@ -76,6 +112,37 @@ describe("frac-unit", () => {
 });
 
 describe("area-perimeter", () => {
+  /**
+   * The repair this pins: `unit()` used to return `"units"` for every side, and reverting it
+   * to that passes every other test in the suite. A rectangle 1 unit wide reached the screen
+   * as "1 units wide" and a screen reader said "one units tall", on better than a third of a
+   * grade-3 child's first deed. The verifier's regex was widened to `units?` in the same
+   * repair, so the second opinion accepts the broken spelling too and cannot catch this; the
+   * regex stays permissive, because the prompt legitimately carries both forms, and the
+   * generator is pinned here instead.
+   *
+   * The two flags are what keep this from passing vacuously: an assertion about the singular
+   * proves nothing if no 1-unit side is ever drawn.
+   */
+  it("says 1 unit and 2 units, and never 1 units", () => {
+    let sawSingular = false, sawPlural = false;
+    for (const lvl of LEVELS) {
+      for (const q of draws(areaPerimeter, lvl, "area-perimeter")) {
+        const m = /^A rectangle is (\d+) (units?) wide and (\d+) (units?) tall\. What is its (?:area|perimeter)\?$/.exec(q.prompt);
+        expect(m, q.prompt).not.toBeNull();
+        const [w, wWord, h, hWord] = [Number(m![1]), m![2], Number(m![3]), m![4]];
+        expect(wWord, q.prompt).toBe(w === 1 ? "unit" : "units");
+        expect(hWord, q.prompt).toBe(h === 1 ? "unit" : "units");
+        if (w === 1 || h === 1) sawSingular = true;
+        if (w === 2 || h === 2) sawPlural = true;
+        // Read-aloud is the prompt verbatim, so the same spelling is what a child hears.
+        expect(q.readAloud, q.prompt).toBe(q.prompt);
+      }
+    }
+    expect(sawSingular, "no 1-unit side was ever drawn, so the singular went untested").toBe(true);
+    expect(sawPlural, "no 2-unit side was ever drawn, so the plural went untested").toBe(true);
+  });
+
   it("never draws a rectangle whose area and perimeter are the same number", () => {
     // 4 by 4 is 16 either way. The other measure is always a distractor, so such a
     // rectangle would put a second right answer among the choices.
