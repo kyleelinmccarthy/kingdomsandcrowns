@@ -1,3 +1,25 @@
+/**
+ * NOT duplicate coverage — do not delete this file as overlapping `drill-verify.test.ts`.
+ *
+ * The two files check different things. `drill-verify.test.ts` proves the ANSWER KEY is
+ * right, for every generator, against an independently written oracle. This file proves
+ * everything else, and it is the only place holding:
+ *
+ *   - per-skill difficulty ceilings — `add-10`/`add-20`/`add-100` sum caps, `sub-*` caps and
+ *     non-negative results, `mul`/`div` fact limits with `a % b === 0`, `integer-ops`
+ *     magnitude limits and its plus/minus-only rule below level 3, `place-value` digit counts,
+ *     `percent-of` wholeness and its level-0 constraints, `one-step-eq`'s level-0 form.
+ *     Nothing in the verifier harness bounds difficulty: a generator handing a kindergartener
+ *     `97 + 84` passes it clean.
+ *   - `fractions-compare` offering four distinct VALUES, not merely four distinct strings —
+ *     `1/2` and `2/4` together would pass the harness and make "the largest" ambiguous.
+ *   - unit tests for `seededRng`, `numericDistractors` and `shuffle`. The entire harness's
+ *     determinism rests on `seededRng` and nothing else tests it.
+ *   - that `q.id` carries its parameters.
+ *
+ * A review mutation confirmed the split: with the harness's choice assertions weakened, a
+ * `place-value` generator emitting a duplicate choice is caught HERE and nowhere else.
+ */
 import { describe, it, expect } from "vitest";
 import { GENERATORS, seededRng, numericDistractors, shuffle, type Question } from "./drill-generators";
 
