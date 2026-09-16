@@ -1338,6 +1338,17 @@ const UNIT_CIRCLE_VALUES = ["1/2", "√2/2", "√3/2", "-1/2", "-√2/2", "-√3
 /**
  * How far around the circle each level may reach, as a count of the table above: quadrant I,
  * then II, then the whole circle.
+ *
+ * **Level 0 is ten questions and stays ten questions.** Quadrant I holds five special angles
+ * — 0, 30, 45, 60 and 90 — and the skill asks for a sine or a cosine, so five times two is
+ * every question the first rung can be asked. A quest asks eight, so a child's first quest
+ * really is most of the rung; there is no honest way to widen it. Reaching further round the
+ * circle is quadrant II, which is level 1 and is where a child first meets a negative
+ * coordinate. Radians are levels 3 and 4 and are half of what the skill is named for. Adding
+ * the tangent would bring `√3/3`, `√3` and an undefined value at 90 degrees onto the rung a
+ * child starts on. Each of those is the next thing to teach, not more of this one — so this
+ * rung is left narrow on purpose, and `high.test.ts` pins the reach so that widening it is a
+ * deliberate decision rather than a way of hitting a pool-size target.
  */
 const UNIT_CIRCLE_REACH = [5, 9, 16, 16, 16];
 /**
@@ -1677,7 +1688,19 @@ export function rationalExpr(level: number, rng: Rng, skillId: string): Question
 // Exponential and logarithmic equations
 // ---------------------------------------------------------------------------
 
-/** Which bases each level may draw. Base 10 joins at level 1. */
+/**
+ * Which bases each level may draw. Base 10 joins at level 1.
+ *
+ * **Level 0 is twelve questions and stays twelve questions.** It is three bases and five
+ * exponents, less the three draws where the answer IS the base (`2ˣ = 4`, `3ˣ = 27`,
+ * `5ˣ = 3125`), which are thrown away because the base is this skill's mandatory wrong
+ * answer. A quest asks eight, so the first rung is thin — and everything that would widen it
+ * is the next rung rather than more of this one. Base 10 is what level 1 introduces. A sixth
+ * exponent means recognising `15625` as a power of five, which is reading digits rather than
+ * reasoning about exponents, and the same reason `LOG_EQ_ARG_MAX` exists. Bases 4 and 6 are
+ * not easier than base 10, only less familiar: `6⁴ = 1296` is not a power a grade-12 child
+ * has memorised. The rung is left as it is on purpose.
+ */
 const LOG_EQ_BASES: readonly number[][] = [[2, 3, 5], [2, 3, 5, 10], [2, 3, 5, 10], [2, 3, 5, 10], [2, 3, 5, 10]];
 /** Largest exponent, per level. */
 const LOG_EQ_EXP_MAX = [5, 6, 6, 6, 6];

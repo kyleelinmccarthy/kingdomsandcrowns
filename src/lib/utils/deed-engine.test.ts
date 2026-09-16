@@ -367,9 +367,12 @@ describe("what a child is actually served over a sitting", () => {
   const baseInput = input({ deed: deedMath, poolItems: [] });
 
   it("does not hand a bottom-rung child the same worksheet every day", () => {
-    // `mul-facts` rung 0 draws both factors from 0-2: NINE questions in existence, and a
-    // deed asks eight. Before the rung-0 widening a child's first multiplication deed was
-    // eight of the nine, and the next day's was eight of the same nine.
+    // `mul-facts` rung 0 used to draw both factors from 0-2: NINE questions in existence,
+    // and a deed asks eight. A child's first multiplication deed was eight of the nine, and
+    // the next day's was eight of the same nine. Two things fixed it — this engine taking
+    // roughly one question in three from rung 1, and the rung itself being widened to the
+    // whole two times table, 57 facts — and this is the check that says so from the outside,
+    // where a child sits.
     const practised = Object.fromEntries(
       chooseSkills(deedMath, "3").map((s) => [s.id, s.id === "mul-facts" ? 0 : 4])
     );
@@ -382,8 +385,11 @@ describe("what a child is actually served over a sitting", () => {
       for (const q of built.questions) if (q.skillId === "mul-facts") prompts.add(q.prompt);
     }
     expect(deeds, "mul-facts was barely chosen, so this proves nothing").toBeGreaterThan(10);
+    // Nine before either repair, twenty with the engine's rung-1 borrowing alone, seventy
+    // now that the rung itself holds 57 facts. Fifty is a floor with room in it: below that
+    // and one of the two repairs has quietly stopped working.
     expect(prompts.size, `only ${prompts.size} distinct multiplication questions across ${deeds} deeds`)
-      .toBeGreaterThan(9);
+      .toBeGreaterThan(50);
   });
 
   it("still opens a bottom-rung deed at the rung the child is on", () => {
@@ -401,7 +407,10 @@ describe("what a child is actually served over a sitting", () => {
       if (!built.skillIds.includes("mul-facts")) continue;
       checked += 1;
       const [a, b] = built.questions[0].prompt.match(/(\d+) × (\d+)/)!.slice(1).map(Number);
-      expect(Math.max(a, b), `seed ${seed} opened with ${built.questions[0].prompt}`).toBeLessThanOrEqual(2);
+      // Rung 0 is the two times table and rung 1 the fours, so the SMALLER factor is what
+      // says which rung a fact was drawn at; the other factor runs to ten on both.
+      expect(Math.min(a, b), `seed ${seed} opened with ${built.questions[0].prompt}`).toBeLessThanOrEqual(2);
+      expect(Math.max(a, b), `seed ${seed} opened with ${built.questions[0].prompt}`).toBeLessThanOrEqual(10);
     }
     expect(checked).toBeGreaterThan(10);
   });

@@ -206,17 +206,25 @@ function questionText(q: Question): string {
  * Which rung a single question is drawn at.
  *
  * Rung 0 is the thinnest rung every generator has, by construction: it is the one that
- * narrows hardest. Measured after the generators landed, `mul-facts`, `count-seq` and
- * `money-coins` have nine distinct questions at rung 0, `skip-count`, `frac-unit`,
- * `circle-measure` and `unit-circle` ten, `frac-equiv`, `factors` and `log-eq` eleven or
- * twelve. A deed asks eight. Nothing repeats inside one deed — that is pinned — but eight of
- * nine means a child's first deed is very nearly everything that exists, so rung 0 was close
- * to the same worksheet every day until mastery moved them off it.
+ * narrows hardest. When this was written, `mul-facts`, `count-seq` and `money-coins` had
+ * nine distinct questions at rung 0, `skip-count`, `frac-unit`, `circle-measure` and
+ * `unit-circle` ten, `frac-equiv`, `factors` and `log-eq` eleven or twelve. A deed asks
+ * eight. Nothing repeats inside one deed — that is pinned — but eight of nine means a
+ * child's first deed is very nearly everything that exists, so rung 0 was close to the same
+ * worksheet every day until mastery moved them off it.
  *
- * So a rung-0 run takes roughly one question in three from rung 1. Rung 1 is by design the
- * next-easiest step and never a leap (`mul-facts` 0-2 becomes 0-4; `add-10` sums to 5 become
- * sums to 6), it multiplies the pool a bottom-rung child sees several times over, and it is
- * never the opening question, which stays at the rung the child is actually on.
+ * **Those pools were the real defect and have since been widened at source**, in the
+ * generators themselves: `mul-facts` rung 0 is 57 facts, `count-seq` 25, `money-coins` and
+ * `skip-count` and `circle-measure` and `factors` 20, `frac-unit` 17, `frac-equiv` 21. Two
+ * are bounded by mathematics rather than by a parameter and are left where they are, with
+ * the reasoning written beside them: `unit-circle` at ten (quadrant I holds five angles and
+ * the skill asks for two functions of them) and `log-eq` at twelve.
+ *
+ * This stays anyway, because it is worth having on its own terms rather than as a patch: a
+ * rung-0 run takes roughly one question in three from rung 1. Rung 1 is by design the
+ * next-easiest step and never a leap (`mul-facts`'s two times table becomes its fours;
+ * `add-10` sums to 5 become sums to 6), and it is never the opening question, which stays at
+ * the rung the child is actually on.
  *
  * Only rung 0. Higher rungs have both a much wider pool of their own and nothing above them
  * a child has been judged ready for, and pulling a rung-4 child down to rung 3 for variety
