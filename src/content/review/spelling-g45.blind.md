@@ -30,8 +30,8 @@ Which is spelled correctly?
 - C. weird
 - D. werid
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -44,14 +44,14 @@ Which is spelled correctly?
 - C. yacht
 - D. yatch
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
-## 3. `spell-g45-height` `#0e723a` — level 0
+## 3. `spell-g45-height` `#17db33` — level 0
 
-Which is spelled correctly?
+Which is spelled correctly? The word means how tall something is.
 
 - A. heigth
 - B. heighth
@@ -72,8 +72,8 @@ Which is spelled correctly?
 - C. bussiness
 - D. buisness
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -86,8 +86,8 @@ Which is spelled correctly?
 - C. lisence
 - D. licens
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -100,8 +100,8 @@ Which is spelled correctly?
 - C. seperate
 - D. seprate
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -114,8 +114,8 @@ Which is spelled correctly?
 - C. receeve
 - D. receve
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -128,8 +128,8 @@ Which is spelled correctly?
 - C. beleve
 - D. beleive
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -142,8 +142,8 @@ Which is spelled correctly?
 - C. desicion
 - D. decison
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -156,8 +156,8 @@ Which is spelled correctly?
 - C. famillar
 - D. familiar
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -170,8 +170,8 @@ Which is spelled correctly?
 - C. libary
 - D. library
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -184,8 +184,8 @@ Which is spelled correctly?
 - C. medicin
 - D. medicine
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -198,8 +198,8 @@ Which is spelled correctly?
 - C. neghbor
 - D. nieghbor
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -212,8 +212,8 @@ Which is spelled correctly?
 - C. opposite
 - D. oppisite
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -240,8 +240,8 @@ Which is spelled correctly?
 - C. necessary
 - D. necesary
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -254,8 +254,8 @@ Which is spelled correctly?
 - C. governement
 - D. governmant
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -268,8 +268,8 @@ Which is spelled correctly?
 - C. exersize
 - D. exercise
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -282,8 +282,8 @@ Which is spelled correctly?
 - C. knowledge
 - D. knollege
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -296,8 +296,8 @@ Which is spelled correctly?
 - C. languege
 - D. langugae
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -310,8 +310,8 @@ Which is spelled correctly?
 - C. ocasion
 - D. occasion
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -324,8 +324,8 @@ Which is spelled correctly?
 - C. particular
 - D. perticular
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -338,8 +338,8 @@ Which is spelled correctly?
 - C. posession
 - D. posssession
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -352,8 +352,8 @@ Which is spelled correctly?
 - C. recommand
 - D. recommend
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -366,8 +366,8 @@ Which is spelled correctly?
 - C. rhythm
 - D. rhythem
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -380,8 +380,8 @@ Which is spelled correctly?
 - C. scissors
 - D. scissers
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -394,8 +394,8 @@ Which is spelled correctly?
 - C. tempature
 - D. temperature
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -408,8 +408,8 @@ Which is spelled correctly?
 - C. vegetible
 - D. vegatable
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -422,8 +422,8 @@ Which is spelled correctly?
 - C. achive
 - D. achieve
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -436,8 +436,8 @@ Which is spelled correctly?
 - C. existense
 - D. existence
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -450,8 +450,8 @@ Which is spelled correctly?
 - C. foreign
 - D. foreighn
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -464,8 +464,8 @@ Which is spelled correctly?
 - C. definitely
 - D. defenitely
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -478,8 +478,8 @@ Which is spelled correctly?
 - C. enviornment
 - D. enviroment
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -492,8 +492,8 @@ Which is spelled correctly?
 - C. imediately
 - D. immeadiately
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -506,8 +506,8 @@ Which is spelled correctly?
 - C. interupt
 - D. interrupt
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -520,8 +520,8 @@ Which is spelled correctly?
 - C. conscence
 - D. consciense
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -534,8 +534,8 @@ Which is spelled correctly?
 - C. embarrass
 - D. emberrass
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -548,8 +548,8 @@ Which is spelled correctly?
 - C. garantee
 - D. guarantee
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -562,8 +562,8 @@ Which is spelled correctly?
 - C. haras
 - D. harress
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -576,8 +576,8 @@ Which is spelled correctly?
 - C. humourus
 - D. humerous
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -590,8 +590,8 @@ Which is spelled correctly?
 - C. charecter
 - D. charactor
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -604,8 +604,8 @@ Which is spelled correctly?
 - C. cemetery
 - D. cemetary
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -618,8 +618,8 @@ Which is spelled correctly?
 - C. indipendent
 - D. independant
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -632,8 +632,8 @@ Which is spelled correctly?
 - C. disappear
 - D. dissapear
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -646,8 +646,8 @@ Which is spelled correctly?
 - C. expecially
 - D. especialy
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -660,5 +660,5 @@ Which is spelled correctly?
 - C. grammear
 - D. gramar
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none

@@ -540,19 +540,64 @@ export function poolsWithSheets(): string[] {
  * `force` is passed — a regenerated sheet is byte-identical when nothing changed, so an
  * overwrite can only ever destroy a reviewer's work.
  */
+/**
+ * Fill a freshly rendered sheet with the answers an existing sheet already carries, but ONLY
+ * for questions whose `#code` is unchanged.
+ *
+ * The code is a fingerprint of the question as the reviewer read it — its prompt and its four
+ * options — so an unchanged code means the reviewer answered exactly this question. Editing
+ * one item used to blank the whole sheet: 224 valid answers were thrown away to re-ask three
+ * questions, and re-reading 224 questions nobody touched is how a reviewer stops reading
+ * carefully.
+ *
+ * An edited item's code changes, so its answer is dropped and the item comes back blank — which
+ * is the behaviour that matters and is not weakened here.
+ */
+export function carryForward(next: string, existing: string): string {
+  const byCode = new Map<string, SheetAnswer>();
+  for (const a of parseSheet(existing).answers) {
+    if (a.choice !== null || a.refused) byCode.set(a.code, a);
+  }
+  if (byCode.size === 0) return next;
+
+  const lines = next.split("\n");
+  let code: string | null = null;
+  for (let i = 0; i < lines.length; i++) {
+    const heading = /^## \d+\. `[^`]+` `#([0-9a-f]+)`/.exec(lines[i]);
+    if (heading) {
+      code = heading[1];
+      continue;
+    }
+    const carried = code ? byCode.get(code) : undefined;
+    if (!carried) continue;
+    if (lines[i] === "Answer:") {
+      const letter = carried.refused ? "?" : LETTERS[carried.choices.indexOf(carried.choice!)];
+      // A carried answer whose option is no longer on the sheet is dropped, not guessed at.
+      if (letter !== undefined) lines[i] = `Answer: ${letter}`;
+    } else if (lines[i] === "Also defensible:") {
+      const letters = carried.alsoDefensible
+        .map((text) => LETTERS[carried.choices.indexOf(text)])
+        .filter((l): l is (typeof LETTERS)[number] => l !== undefined);
+      lines[i] = `Also defensible: ${letters.length ? letters.join(", ") : "none"}`;
+    }
+  }
+  return lines.join("\n");
+}
+
 export function writeSheet(pool: Pool, force = false): { path: string; written: boolean } {
   const file = sheetPath(pool.poolId);
-  const next = renderSheet(extractSheet(pool));
-  if (fs.existsSync(file) && !force) {
+  let next = renderSheet(extractSheet(pool));
+  if (fs.existsSync(file)) {
     const existing = fs.readFileSync(file, "utf8");
     if (existing === next) return { path: file, written: false };
     const answered = parseSheet(existing).answers.some((a) => a.choice !== null || a.refused);
-    if (answered) {
+    if (answered && !force) {
       throw new Error(
-        `${file} already has answers on it. Pass force to replace it, and expect to re-read ` +
-          `every item: the questions have changed since it was answered.`,
+        `${file} already has answers on it. Pass force to replace it: answers to questions that ` +
+          `did not change are carried over, and every edited question comes back blank.`,
       );
     }
+    if (answered) next = carryForward(next, existing);
   }
   fs.mkdirSync(REVIEW_DIR, { recursive: true });
   fs.writeFileSync(file, next);

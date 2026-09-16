@@ -196,7 +196,7 @@
       "distractors": [
         "Solid",
         "Liquid",
-        "Plasma"
+        "Energy"
       ],
       "level": 2
     },
@@ -482,7 +482,7 @@
       "distractors": [
         "Solid",
         "Liquid",
-        "Plasma"
+        "Energy"
       ],
       "level": 3
     },

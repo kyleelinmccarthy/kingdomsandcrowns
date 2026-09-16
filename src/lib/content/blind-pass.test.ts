@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import {
+  carryForward,
   choicesFor,
   compareSheet,
   extractSheet,
@@ -435,4 +436,37 @@ describe("blind pass — the sheets on disk", () => {
       expect(report.ok).toBe(true);
     });
   }
+});
+
+describe("re-cutting a sheet keeps the answers that are still valid", () => {
+  /**
+   * Editing one item used to blank the whole sheet: 224 valid answers thrown away to re-ask
+   * three questions. Re-reading hundreds of questions nobody touched is not thoroughness —
+   * it is how a reviewer stops reading carefully by question forty.
+   *
+   * The `#code` fingerprints the question as the reviewer read it, so an unchanged code means
+   * they answered exactly this question. An EDITED item's code changes, so its answer is
+   * dropped and the item comes back blank — that half must not weaken, and is what this pins.
+   */
+  const pool = (answer: string): Pool => ({
+    poolId: "carry-fixture",
+    grade: "3",
+    items: [
+      { id: "keep-1", prompt: "What colour is the sky on a clear day?", answer: "Blue", distractors: ["Green", "Red", "Brown"], readAloud: "What colour is the sky on a clear day?", level: 0 },
+      { id: "edit-me", prompt: "How many legs does a spider have?", answer, distractors: ["Six", "Ten", "Four"], readAloud: "How many legs does a spider have?", level: 0 },
+    ],
+  });
+
+  it("carries an untouched question's answer across, and blanks only the edited one", () => {
+    const answered = renderSheet(extractSheet(pool("Eight")))
+      .replace(/^Answer:$/gm, "Answer: A")
+      .replace(/^Also defensible:$/gm, "Also defensible: none");
+    expect(parseSheet(answered).answers.every((a) => a.choice !== null)).toBe(true);
+
+    const recut = carryForward(renderSheet(extractSheet(pool("Two"))), answered);
+    const byId = Object.fromEntries(parseSheet(recut).answers.map((a) => [a.itemId, a]));
+
+    expect(byId["keep-1"].choice, "an untouched question lost its answer").not.toBeNull();
+    expect(byId["edit-me"].choice, "an EDITED question kept a stale answer").toBeNull();
+  });
 });

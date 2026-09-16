@@ -28,14 +28,14 @@
     },
     {
       "id": "spell-g45-height",
-      "prompt": "Which is spelled correctly?",
+      "prompt": "Which is spelled correctly? The word means how tall something is.",
       "answer": "height",
       "distractors": [
         "heighth",
         "hight",
         "heigth"
       ],
-      "readAloud": "height",
+      "readAloud": "Which is spelled correctly? The word means how tall something is.",
       "level": 0
     },
     {
