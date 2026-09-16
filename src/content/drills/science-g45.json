@@ -1,6 +1,6 @@
 {
   "poolId": "science-g45",
-  "band": "g45",
+  "grade": "4",
   "items": [
     {
       "id": "sci-g45-ecosystem-def",

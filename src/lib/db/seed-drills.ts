@@ -12,6 +12,7 @@ import { createClient } from "@libsql/client";
 import { drizzle } from "drizzle-orm/libsql";
 import * as schema from "./schema";
 import { skillForPool } from "../utils/skills";
+import { bandForGrade, type Grade } from "../utils/grade-levels";
 
 const client = createClient({
   url: process.env.TURSO_DATABASE_URL || "file:./local.db",
@@ -19,9 +20,13 @@ const client = createClient({
 });
 const db = drizzle(client, { schema });
 
+/**
+ * A pool is authored for ONE grade — `docs/content/ela-science-skill-map.md` says which — and
+ * the file says so itself rather than naming the band it used to sit in.
+ */
 type PoolFile = {
   poolId: string;
-  band: "k1" | "g23" | "g45" | "g68" | "g912";
+  grade: Grade;
   items: { id: string; prompt: string; answer: string; distractors: string[]; readAloud?: string; level?: number }[];
 };
 
@@ -41,7 +46,10 @@ async function main() {
         id: item.id,
         poolId: pool.poolId,
         skillId: skill.id,
-        band: pool.band,
+        // The `band` COLUMN stays so the schema needs no migration, but it is derived from
+        // the grade now and is no longer an axis: nothing chooses content by it. Write it
+        // from the grade rather than from the file, so the two can never disagree.
+        band: bandForGrade(pool.grade),
         prompt: item.prompt,
         answer: item.answer,
         distractors: JSON.stringify(item.distractors),

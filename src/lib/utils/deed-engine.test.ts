@@ -48,8 +48,12 @@ describe("chooseSkills", () => {
    * and grade 1 this list becomes empty and this test fails until someone empties it, which is
    * the point: the cost stays visible until it is gone.
    *
-   * Falling DOWN is not on this list and is not a defect: Reading stops at grade 3, so a
-   * grade-9 hero gets grade-3 reading. That is the walk doing what it says it does.
+   * Falling DOWN is not on this list and is not a defect: Reading is authored at K and grade
+   * 2 and nowhere above, so a grade-9 hero gets grade-2 reading. That is the walk doing what
+   * it says it does.
+   *
+   * `skills.test.ts` keeps the same inventory for the three authored strands, phrased from the
+   * skill-table side; if you empty one, empty the other.
    */
   it("hands harder work than the hero's grade in exactly these places, and nowhere else", () => {
     // One deed per area, and every area covered, so the sweep below cannot quietly skip a
@@ -205,7 +209,7 @@ describe("chooseSkills by grade", () => {
   });
 
   it("walks to easier grades, never harder, when a grade has nothing", () => {
-    // Reading is authored no higher than grade 3 right now, so a grade-6 hero falls back
+    // Reading is authored no higher than grade 2 right now, so a grade-6 hero falls back
     // rather than being handed nothing. Plan 3 removes the need for this.
     const ids = chooseSkills(readingDeed, "6").map((s) => s.id);
     expect(ids.length).toBeGreaterThan(0);
@@ -225,19 +229,29 @@ describe("chooseSkills by grade", () => {
     }
   });
 
-  it("widens to every pool skill when a grade has more than one, so the caller's pool query is a superset of whatever gets selected", () => {
-    // Language at grades 4-5 authors two pool skills (spell-g45, vocab-g45) — the
-    // exact case the action's poolSkillIds query must cover, or the run silently
-    // comes up short whenever selectSkills picks the one the query didn't fetch for.
-    const ids = chooseSkills(deedLanguage, "4").map((s) => s.id);
-    expect(ids).toEqual(expect.arrayContaining(["spell-g45", "vocab-g45"]));
+  it("returns EVERY skill its landing grade has, so the caller's pool query is a superset of whatever gets selected", () => {
+    // What the action's poolSkillIds query must cover: chooseSkills does not pick one skill,
+    // it hands back the whole grade, and `selectSkills` chooses later. Fetch items for fewer
+    // than all of them and the run silently comes up short whenever selectSkills lands on the
+    // one the query did not fetch for.
+    //
+    // This used to be asked of Language at grades 4-5, which authored two pool skills
+    // (spell-g45 and vocab-g45) into one band. `ela-science-skill-map.md` gives each strand
+    // exactly ONE skill per grade, so no authored grade has two candidates any more and that
+    // example would now pass vacuously. Math still has several skills per grade, which is the
+    // same property and a real case.
+    const ids = chooseSkills(mathDeed, "3").map((s) => s.id);
+    expect(ids.length).toBeGreaterThan(1);
+    expect([...ids].sort()).toEqual(skillsFor("math", "3").map((s) => s.id).sort());
   });
 
-  it("still selects only one pool skill per run even when a grade has two candidates", () => {
+  it("selects only one pool skill per run, even when items for another pool are in hand", () => {
+    // Grade-4 language is spell-g45 alone now, but the caller can still hand over items it
+    // fetched for a skill this run will not practise. Those must not leak into the run.
     const items = [...poolItems("spell-g45", 10), ...poolItems("vocab-g45", 10)];
     const run = buildDeedRun(input({ deed: deedLanguage, grade: "4", poolItems: items, masteryBySkill: {} }));
-    const poolSkillIds = run.skillIds.filter((id) => id === "spell-g45" || id === "vocab-g45");
-    expect(poolSkillIds).toHaveLength(1);
+    const poolSkillIds = [...new Set(run.skillIds.filter((id) => id === "spell-g45" || id === "vocab-g45"))];
+    expect(poolSkillIds).toEqual(["spell-g45"]);
   });
 });
 

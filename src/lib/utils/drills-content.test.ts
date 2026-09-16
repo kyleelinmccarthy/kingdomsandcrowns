@@ -1,16 +1,17 @@
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
+import { GRADES } from "./grade-levels";
+import { skillForPool } from "./skills";
 
 const DIR = path.join(__dirname, "../../content/drills");
-const BANDS = ["k1", "g23", "g45", "g68", "g912"];
 const EXPECTED_POOLS = [
   "sight-words-k1", "sight-words-g23", "spelling-g23", "spelling-g45",
   "vocab-g45", "vocab-g68", "vocab-g912",
   "science-k1", "science-g23", "science-g45", "science-g68", "science-g912",
 ];
 
-type PoolFile = { poolId: string; band: string; items: { id: string; prompt: string; answer: string; distractors: string[]; readAloud?: string; level?: number }[] };
+type PoolFile = { poolId: string; grade: string; items: { id: string; prompt: string; answer: string; distractors: string[]; readAloud?: string; level?: number }[] };
 
 function loadAll(): PoolFile[] {
   return fs.readdirSync(DIR).filter((f) => f.endsWith(".json")).map((f) => {
@@ -27,10 +28,24 @@ describe("drill pool content", () => {
     expect(pools.map((p) => p.poolId).sort()).toEqual([...EXPECTED_POOLS].sort());
   });
 
-  it("has a valid band and at least 40 items per pool", () => {
+  it("has a valid grade and at least 40 items per pool", () => {
     for (const p of pools) {
-      expect(BANDS).toContain(p.band);
-      expect(p.items.length).toBeGreaterThanOrEqual(40);
+      expect(GRADES, `pool ${p.poolId}`).toContain(p.grade);
+      expect(p.items.length, `pool ${p.poolId}`).toBeGreaterThanOrEqual(40);
+    }
+  });
+
+  /**
+   * The pool file and the skill table both name a grade, and they are edited separately. If
+   * they drift, `seed-drills.ts` writes a `band` column derived from one of them while the
+   * engine serves content by the other — so pin them together here rather than finding out
+   * from a child being handed the wrong year's questions.
+   */
+  it("gives each pool the same grade its skill is offered at", () => {
+    for (const p of pools) {
+      const skill = skillForPool(p.poolId);
+      expect(skill, `pool ${p.poolId} has no skill`).not.toBeNull();
+      expect(skill!.grades, `pool ${p.poolId} says grade ${p.grade}`).toEqual([p.grade]);
     }
   });
 

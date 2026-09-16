@@ -1,6 +1,6 @@
 {
   "poolId": "science-g68",
-  "band": "g68",
+  "grade": "6",
   "items": [
     {
       "id": "sci-g68-cell-basic-unit",

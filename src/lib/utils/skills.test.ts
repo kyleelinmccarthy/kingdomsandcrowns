@@ -3,7 +3,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { SKILLS, skillsFor, findSkill, skillForPool, AREA_SCHOOL, AREA_LABELS, type SkillArea } from "./skills";
 import { GENERATORS } from "./drill-generators";
-import { GRADES } from "./grade-levels";
+import { GRADES, gradeIndex } from "./grade-levels";
+import { chooseSkills } from "./deed-engine";
+import type { Deed } from "./deeds";
 
 describe("SKILLS", () => {
   it("has unique ids and resolvable sources", () => {
@@ -30,20 +32,27 @@ describe("SKILLS", () => {
   });
 });
 
-describe("the subjects that must not move while math is rewritten", () => {
+describe("which grade each strand is actually served at", () => {
   /**
-   * Math is deliberately excluded. Every grade's math is rewritten over the next nine tasks, so a
-   * snapshot covering it would be updated nine times and would stop being evidence of anything.
-   * Math is pinned instead by the skill map (which the table must match, asserted separately), by
-   * the universal generator property test, and by a per-grade minimum.
+   * Math is deliberately excluded. Every grade's math was rewritten over nine tasks, so a
+   * snapshot covering it would have been updated nine times and would stop being evidence of
+   * anything. Math is pinned instead by the skill map (which the table must match, asserted
+   * separately), by the universal generator property test, and by a per-grade minimum.
    *
-   * These three areas, by contrast, must not move AT ALL during the math work. This snapshot is
-   * what makes "the math changes touched nothing else" a fact rather than a hope — so if it fails
-   * in a later task, that task reached somewhere it should not have. Do not update it; find out why.
+   * **This snapshot changed once, deliberately, in the task that keyed these three strands to
+   * grades**, and the diff was read line by line: every line was a REMOVAL, a band collapsing
+   * onto the one grade `ela-science-skill-map.md` assigns it. No grade gained a skill.
+   *
+   * Through the whole math rewrite it said "do not update it; find out why", and that was
+   * right then: the three strands had to stay exactly still while math moved. The rule it
+   * carries now is narrower but the same in spirit — a task that AUTHORS a pool adds that one
+   * grade's id and nothing else, so anything else in the diff is that task reaching somewhere
+   * it should not have. Read every line before accepting it; never run `-u` on a red run to
+   * see what happens.
    */
   const PINNED_AREAS: SkillArea[] = ["reading", "language", "science"];
 
-  it("pins today's grade-to-skill-ids map so the refactor cannot move anyone", () => {
+  it("pins the grade-to-skill-ids map, so no strand moves without a diff saying so", () => {
     const map = Object.fromEntries(
       PINNED_AREAS.map((area) => [area, Object.fromEntries(GRADES.map((g) => [g, skillsFor(area, g).map((s) => s.id)]))])
     );
@@ -51,56 +60,38 @@ describe("the subjects that must not move while math is rewritten", () => {
       {
         "language": {
           "1": [],
-          "10": [
-            "vocab-g912",
-          ],
-          "11": [
-            "vocab-g912",
-          ],
-          "12": [
-            "vocab-g912",
-          ],
+          "10": [],
+          "11": [],
+          "12": [],
           "2": [
             "spell-g23",
           ],
-          "3": [
-            "spell-g23",
-          ],
+          "3": [],
           "4": [
             "spell-g45",
-            "vocab-g45",
           ],
           "5": [
-            "spell-g45",
             "vocab-g45",
           ],
           "6": [
             "vocab-g68",
           ],
-          "7": [
-            "vocab-g68",
-          ],
-          "8": [
-            "vocab-g68",
-          ],
+          "7": [],
+          "8": [],
           "9": [
             "vocab-g912",
           ],
           "K": [],
         },
         "reading": {
-          "1": [
-            "sight-k1",
-          ],
+          "1": [],
           "10": [],
           "11": [],
           "12": [],
           "2": [
             "sight-g23",
           ],
-          "3": [
-            "sight-g23",
-          ],
+          "3": [],
           "4": [],
           "5": [],
           "6": [],
@@ -112,39 +103,23 @@ describe("the subjects that must not move while math is rewritten", () => {
           ],
         },
         "science": {
-          "1": [
-            "science-k1",
-          ],
-          "10": [
-            "science-g912",
-          ],
-          "11": [
-            "science-g912",
-          ],
-          "12": [
-            "science-g912",
-          ],
+          "1": [],
+          "10": [],
+          "11": [],
+          "12": [],
           "2": [
             "science-g23",
           ],
-          "3": [
-            "science-g23",
-          ],
+          "3": [],
           "4": [
             "science-g45",
           ],
-          "5": [
-            "science-g45",
-          ],
+          "5": [],
           "6": [
             "science-g68",
           ],
-          "7": [
-            "science-g68",
-          ],
-          "8": [
-            "science-g68",
-          ],
+          "7": [],
+          "8": [],
           "9": [
             "science-g912",
           ],
@@ -158,40 +133,189 @@ describe("the subjects that must not move while math is rewritten", () => {
 });
 
 /**
- * The skill map is the curriculum's source of truth, and it is a document a parent can edit.
- * This reads it directly so the table cannot drift from it — if someone moves a skill to a
- * different grade in the map and not in the code, this fails and names the skill.
+ * A skill map is the curriculum's source of truth, and it is a document a parent can edit.
+ * This reads one directly so the table cannot drift from it — if someone moves a skill to a
+ * different grade in a map and not in the code, this fails and names the skill.
+ *
+ * ONE parser, for both maps. They differ in two cosmetic ways and in nothing that matters:
+ * the math map bolds its grade cell and the ELA and science map leaves it plain, and the ELA
+ * map splits its rows across a `## ` heading per strand where math has a single table. So a
+ * row carries the strand it was found under, `null` for math. A second copy of this walk
+ * would be a second thing to keep true.
  */
-function mapRows(): { grade: string; skillId: string }[] {
-  const md = fs.readFileSync(path.join(process.cwd(), "docs/content/math-skill-map.md"), "utf8");
-  const rows: { grade: string; skillId: string }[] = [];
+const MAP_STRANDS: Record<string, SkillArea> = {
+  Reading: "reading",
+  "Language Arts": "language",
+  Science: "science",
+};
+
+type MapRow = { grade: string; skillId: string; strand: SkillArea | null; status: string };
+
+function mapRows(file: string): MapRow[] {
+  const md = fs.readFileSync(path.join(process.cwd(), "docs/content", file), "utf8");
+  const rows: MapRow[] = [];
   let grade: string | null = null;
+  let strand: SkillArea | null = null;
   for (const line of md.split("\n")) {
+    const heading = /^## (.+)$/.exec(line);
+    if (heading) {
+      strand = MAP_STRANDS[heading[1].trim()] ?? null;
+      continue;
+    }
     if (!line.startsWith("|")) continue;
     const cells = line.split("|").map((c) => c.trim());
-    // A grade cell looks like "**K**" or "**9** *(Algebra I)*"; a continuation row leaves it empty.
-    const g = /\*\*([K0-9]+)\*\*/.exec(cells[1] ?? "");
+    // A grade cell is "**K**", "**9** *(Algebra I)*", "K" or "9 *(Biology)*"; a continuation
+    // row in the math table leaves it empty and keeps the grade of the row above it.
+    const g = /^\*{0,2}([K0-9]{1,2})\*{0,2}(?:\s|$)/.exec(cells[1] ?? "");
     if (g) grade = g[1];
     const id = /^`([a-z0-9-]+)`$/.exec(cells[2] ?? "");
-    if (id && grade) rows.push({ grade, skillId: id[1] });
+    // The last cell of a row is Status in both maps, whether or not there is a Standard column.
+    if (id && grade) rows.push({ grade, skillId: id[1], strand, status: cells[cells.length - 2] ?? "" });
   }
   return rows;
 }
 
+const mathMapRows = () => mapRows("math-skill-map.md");
+const elaMapRows = () => mapRows("ela-science-skill-map.md");
+
 describe("the math skill table follows the skill map", () => {
   it("finds every row in the map, so the comparison below is not vacuous", () => {
-    expect(mapRows().length).toBe(68);
+    expect(mathMapRows().length).toBe(68);
   });
 
   it("serves exactly the map's skills at every grade", () => {
     const expected = new Map<string, string[]>();
-    for (const { grade, skillId } of mapRows()) {
+    for (const { grade, skillId } of mathMapRows()) {
       expected.set(grade, [...(expected.get(grade) ?? []), skillId].sort());
     }
     for (const grade of GRADES) {
       expect(skillsFor("math", grade).map((s) => s.id).sort(), `grade ${grade}`)
         .toEqual(expected.get(grade) ?? []);
     }
+  });
+});
+
+/** The three strands `ela-science-skill-map.md` governs. Math has its own map, above. */
+const AUTHORED_AREAS = ["reading", "language", "science"] as const;
+
+describe("the ELA and science skill tables follow the skill map", () => {
+  it("finds every row in the map, so the comparisons below are not vacuous", () => {
+    const rows = elaMapRows();
+    // 39 rows, 12 of them carried forward, is what the plan that fills this map was written
+    // against. If either number moves, the map changed under the plan and the difference needs
+    // a ruling from a person — not a number quietly adjusted here to match.
+    expect(rows.length, "the ELA and science map is no longer 39 rows").toBe(39);
+    expect(
+      rows.filter((r) => r.status.includes("carried forward")).length,
+      "the ELA and science map no longer carries 12 skills forward",
+    ).toBe(12);
+    // Every row must have been found under a strand heading, or a strand could go unchecked.
+    expect(rows.filter((r) => r.strand === null).map((r) => r.skillId)).toEqual([]);
+  });
+
+  /**
+   * **The content progress bar for this plan.** These are the map's 27 rows that no pool has
+   * been written for yet — this task moves the existing twelve onto grades and authors
+   * nothing. **It must reach `[]` by the end of this plan.** Each later task that writes a
+   * pool deletes its line here; the test below fails until the line goes, and it also fails
+   * if a line is deleted without the pool actually arriving, so the list cannot be fudged in
+   * either direction. When it is empty, the comparison below is the map, unfiltered.
+   */
+  const POOLS_NOT_YET_WRITTEN = [
+    "read-g1", "read-g3", "read-g4", "read-g5", "read-g6",
+    "read-g7", "read-g8", "read-g9", "read-g10", "read-g11", "read-g12",
+    "lang-gk", "lang-g1", "lang-g3", "lang-g7", "lang-g8", "lang-g10", "lang-g11", "lang-g12",
+    "science-g1", "science-g3", "science-g5", "science-g7",
+    "science-g8", "science-g10", "science-g11", "science-g12",
+  ];
+
+  it("has a skill for every map row except the pools not yet written", () => {
+    const missing = elaMapRows().filter((r) => findSkill(r.skillId) === null).map((r) => r.skillId);
+    expect(missing.sort(), "the unwritten-pool list is not the real one").toEqual([...POOLS_NOT_YET_WRITTEN].sort());
+  });
+
+  it("serves exactly the ELA and science map's skills at every grade", () => {
+    const expected = new Map<string, string[]>();
+    for (const { grade, skillId, strand } of elaMapRows()) {
+      if (POOLS_NOT_YET_WRITTEN.includes(skillId)) continue;
+      const key = `${strand}:${grade}`;
+      expected.set(key, [...(expected.get(key) ?? []), skillId].sort());
+    }
+    for (const area of AUTHORED_AREAS) {
+      for (const grade of GRADES) {
+        expect(skillsFor(area, grade).map((s) => s.id).sort(), `${area} grade ${grade}`)
+          .toEqual(expected.get(`${area}:${grade}`) ?? []);
+      }
+    }
+  });
+
+  /**
+   * The twelve pools that existed before this map. `skill_mastery` is keyed by skill id, so
+   * losing or renaming one silently resets every child's practice history on it. They keep
+   * their ids, their items and their sources; only the grade they are offered at moves.
+   */
+  const CARRIED_FORWARD = [
+    "sight-k1", "sight-g23",
+    "spell-g23", "spell-g45", "vocab-g45", "vocab-g68", "vocab-g912",
+    "science-k1", "science-g23", "science-g45", "science-g68", "science-g912",
+  ];
+
+  it("keeps every carried-forward pool id, each now at exactly one grade", () => {
+    expect(elaMapRows().filter((r) => r.status.includes("carried forward")).map((r) => r.skillId).sort())
+      .toEqual([...CARRIED_FORWARD].sort());
+    for (const id of CARRIED_FORWARD) {
+      const skill = findSkill(id);
+      expect(skill, `skill ${id} was removed`).not.toBeNull();
+      expect(skill!.grades, `skill ${id} is offered at more than one grade`).toHaveLength(1);
+      expect(skill!.source.kind, `skill ${id} lost its pool`).toBe("pool");
+    }
+  });
+
+  it("offers each authored skill at exactly one grade", () => {
+    const spread = SKILLS.filter((s) => s.area !== "math" && s.grades.length !== 1);
+    expect(spread.map((s) => s.id), "a strand skill spanning grades means the map was not applied").toEqual([]);
+  });
+});
+
+/**
+ * **The honest progress bar for this plan.**
+ *
+ * `chooseSkills` walks `nearestGrades`, which is easier-first by design — but a grade with
+ * nothing at or below it runs off the bottom of the ladder and walks UP, handing a child a
+ * harder grade's work rather than an empty quest. The fallback is not being changed here: an
+ * empty quest is worse than a hard one. What is changing is that the cost is counted.
+ *
+ * **`EXPECTED_CLIMBS` must reach `[]` by the end of this plan.** Every entry is a real child
+ * being handed work from a year they have not reached — today, a five-year-old on a mill quest
+ * getting grade-2 spelling. Each later task that authors a missing grade removes an entry, and
+ * this test fails until whoever wrote that pool deletes the line. When the list is empty, the
+ * upward walk no longer happens anywhere and the literal stays as `[]`.
+ *
+ * Falling DOWN is not on this list and is not a defect: with reading authored only at K and
+ * grade 2 today, a grade-9 hero gets grade-2 reading. That is the walk doing what it says.
+ *
+ * `deed-engine.test.ts` keeps the same inventory across all four areas, phrased from the deed
+ * side; if you empty one, empty the other.
+ */
+const EXPECTED_CLIMBS = [
+  "language grade 1 climbs to 2",
+  "language grade K climbs to 2",
+];
+
+describe("the fallback ladder", () => {
+  it("never walks UP to find content, except where the map says a grade is still empty", () => {
+    const climbs: string[] = [];
+    for (const area of AUTHORED_AREAS) {
+      for (const grade of GRADES) {
+        const served = chooseSkills({ area } as Deed, grade);
+        expect(served.length, `${area} grade ${grade} is handed an empty quest`).toBeGreaterThan(0);
+        for (const s of served) {
+          const servedAt = s.grades[0];
+          if (servedAt && gradeIndex(servedAt) > gradeIndex(grade)) climbs.push(`${area} grade ${grade} climbs to ${servedAt}`);
+        }
+      }
+    }
+    expect([...new Set(climbs)].sort()).toEqual(EXPECTED_CLIMBS);
   });
 });
 

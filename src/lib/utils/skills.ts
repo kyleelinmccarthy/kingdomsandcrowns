@@ -6,10 +6,10 @@ export type SkillArea = "math" | "reading" | "language" | "science";
 export type SkillSource = { kind: "generator"; generatorId: string } | { kind: "pool"; poolId: string };
 
 /**
- * `grades` is readonly because the rows below share array objects: every `k1` skill points
- * at the same `k1` array. Mutating one in place would silently move every other skill in
- * that band with it, and the band-closure test would not notice — the result is still a
- * whole band, just attached to skills nobody meant to touch. Build a new array instead.
+ * `grades` is readonly. Nothing shares an array any more — every row names its own single
+ * grade — but the guarantee is worth keeping: mutating a skill's grades in place is how a
+ * child silently starts being served a different year's work without a diff saying so.
+ * Build a new array instead.
  */
 export type Skill = { id: string; label: string; area: SkillArea; grades: readonly Grade[]; source: SkillSource };
 
@@ -39,17 +39,6 @@ export function schoolLines(): { school: SpellSchool; areas: SkillArea[] }[] {
 
 const gen = (generatorId: string): SkillSource => ({ kind: "generator", generatorId });
 const pool = (poolId: string): SkillSource => ({ kind: "pool", poolId });
-
-/**
- * Reading, Language Arts and Science are still authored per band, so their rows share these
- * arrays. Math is keyed to single grades by `docs/content/math-skill-map.md` and uses none of
- * them. Plan 3 gives the other three subjects their own maps and these go with it.
- */
-const k1: readonly Grade[] = ["K", "1"];
-const g23: readonly Grade[] = ["2", "3"];
-const g45: readonly Grade[] = ["4", "5"];
-const g68: readonly Grade[] = ["6", "7", "8"];
-const g912: readonly Grade[] = ["9", "10", "11", "12"];
 
 export const SKILLS: Skill[] = [
   { id: "add-10", label: "Addition within 10", area: "math", grades: ["K"], source: gen("add") },
@@ -138,18 +127,33 @@ export const SKILLS: Skill[] = [
   { id: "probability", label: "Probability of simple events", area: "math", grades: ["12"], source: gen("probability") },
   { id: "rational-expr", label: "Rational expressions", area: "math", grades: ["12"], source: gen("rational-expr") },
   { id: "log-eq", label: "Logarithmic and exponential equations", area: "math", grades: ["12"], source: gen("log-eq") },
-  { id: "sight-k1", label: "Sight words", area: "reading", grades: k1, source: pool("sight-words-k1") },
-  { id: "sight-g23", label: "Sight words", area: "reading", grades: g23, source: pool("sight-words-g23") },
-  { id: "spell-g23", label: "Spelling", area: "language", grades: g23, source: pool("spelling-g23") },
-  { id: "spell-g45", label: "Spelling", area: "language", grades: g45, source: pool("spelling-g45") },
-  { id: "vocab-g45", label: "Vocabulary", area: "language", grades: g45, source: pool("vocab-g45") },
-  { id: "vocab-g68", label: "Vocabulary", area: "language", grades: g68, source: pool("vocab-g68") },
-  { id: "vocab-g912", label: "Vocabulary", area: "language", grades: g912, source: pool("vocab-g912") },
-  { id: "science-k1", label: "Science facts", area: "science", grades: k1, source: pool("science-k1") },
-  { id: "science-g23", label: "Science facts", area: "science", grades: g23, source: pool("science-g23") },
-  { id: "science-g45", label: "Science facts", area: "science", grades: g45, source: pool("science-g45") },
-  { id: "science-g68", label: "Science facts", area: "science", grades: g68, source: pool("science-g68") },
-  { id: "science-g912", label: "Science facts", area: "science", grades: g912, source: pool("science-g912") },
+  /**
+   * Reading, Language Arts and Science, keyed to single grades by
+   * `docs/content/ela-science-skill-map.md` exactly as math is keyed by its own map.
+   *
+   * These twelve are the pools that existed when the strands were authored per BAND. Each one
+   * lands whole at the **lowest grade of its old band** — the conservative reading, since a
+   * pool written for grades 2–3 is right at grade 2 and merely easy at grade 3, never too
+   * hard. The id, the label, the area and the pool behind it are untouched: `skill_mastery` is
+   * keyed by skill id, so renaming one would reset every child's practice history on it. The
+   * ids still carry their old band in their spelling (`sight-g23` now serves grade 2 alone);
+   * that is cosmetic and staying, because the alternative is a rename.
+   *
+   * The map's other 27 grades have no pool yet, so those grades fall back — see the climb
+   * inventory in `skills.test.ts` for the ones that fall the wrong way.
+   */
+  { id: "sight-k1", label: "Sight words", area: "reading", grades: ["K"], source: pool("sight-words-k1") },
+  { id: "sight-g23", label: "Sight words", area: "reading", grades: ["2"], source: pool("sight-words-g23") },
+  { id: "spell-g23", label: "Spelling", area: "language", grades: ["2"], source: pool("spelling-g23") },
+  { id: "spell-g45", label: "Spelling", area: "language", grades: ["4"], source: pool("spelling-g45") },
+  { id: "vocab-g45", label: "Vocabulary", area: "language", grades: ["5"], source: pool("vocab-g45") },
+  { id: "vocab-g68", label: "Vocabulary", area: "language", grades: ["6"], source: pool("vocab-g68") },
+  { id: "vocab-g912", label: "Vocabulary", area: "language", grades: ["9"], source: pool("vocab-g912") },
+  { id: "science-k1", label: "Science facts", area: "science", grades: ["K"], source: pool("science-k1") },
+  { id: "science-g23", label: "Science facts", area: "science", grades: ["2"], source: pool("science-g23") },
+  { id: "science-g45", label: "Science facts", area: "science", grades: ["4"], source: pool("science-g45") },
+  { id: "science-g68", label: "Science facts", area: "science", grades: ["6"], source: pool("science-g68") },
+  { id: "science-g912", label: "Science facts", area: "science", grades: ["9"], source: pool("science-g912") },
 ];
 
 export function skillsFor(area: SkillArea, grade: Grade): Skill[] {

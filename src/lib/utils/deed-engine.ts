@@ -57,11 +57,13 @@ const MAX_REVIEW = 2;
  *
  * **The fallback is not being changed.** An empty quest is worse than a hard one, and plan 3
  * fills those grades. What is changing is that it is written down and counted:
- * `deed-engine.test.ts` lists exactly which (area, grade) pairs walk upward today, and when
- * plan 3 lands that list should shrink to nothing and the test will say so.
+ * `deed-engine.test.ts` lists exactly which (area, grade) pairs walk upward today, and
+ * `skills.test.ts` keeps the same inventory for the three authored strands. When plan 3
+ * lands both lists should shrink to nothing and the tests will say so.
  *
- * The same gap from the other side is not a defect at all: Reading stops at grade 3, so a
- * grade-9 hero's reading quest is grade-3 work. That is the walk doing what it says.
+ * The same gap from the other side is not a defect at all: Reading is authored at K and
+ * grade 2 and nowhere above, so a grade-9 hero's reading quest is grade-2 work. That is the
+ * walk doing what it says.
  */
 export function chooseSkills(deed: Deed, grade: Grade): Skill[] {
   for (const g of nearestGrades(grade)) {
