@@ -1524,7 +1524,10 @@ describe("probability", () => {
 });
 
 describe("rational-expr", () => {
-  const SPAN = [15, 15, 20, 9, 9];
+  // Hand-written, not imported: the ladder used to be [15, 15, 20, 9, 9] because levels 0-2
+  // were difference-of-squares only and had one number to move. Both shapes are drawn at
+  // every rung now, so the span climbs.
+  const SPAN = [10, 12, 15, 15, 20];
 
   /** A linear or quadratic factor to its constant term, strictly spelled. */
   const constantOf = (text: string): number => {
@@ -1534,8 +1537,6 @@ describe("rational-expr", () => {
   };
   /** The generator's own spelling of `x + q`, written out here so the SPELLING is pinned. */
   const linearText = (constant: number): string => `x ${constant < 0 ? "-" : "+"} ${Math.abs(constant)}`;
-  const quadraticText = (middle: number, constant: number): string =>
-    `x²${middle === 0 ? "" : ` ${middle < 0 ? "-" : "+"} ${Math.abs(middle) === 1 ? "" : Math.abs(middle)}x`} ${constant < 0 ? "-" : "+"} ${Math.abs(constant)}`;
 
   const parse = (q: Question) => {
     const m = /^Simplify: \(([^()]+)\) \/ \(([^()]+)\)$/.exec(q.prompt);
@@ -1566,45 +1567,114 @@ describe("rational-expr", () => {
           expect(Math.abs(constant), q.prompt).toBeLessThanOrEqual(SPAN[lvl]);
         }
         expect(p, `${q.prompt} cancels the factor it keeps`).not.toBe(stays);
-        // A difference of squares at levels 0-2 and nothing else; a denominator of `(x - a)`
-        // from level 1; general factoring from 3, going negative only at 4.
-        if (lvl <= 2) {
-          expect(stays, `level ${lvl} is not a difference of squares: ${q.prompt}`).toBe(-p);
-          expect(Math.abs(p), q.prompt).toBeGreaterThanOrEqual(2);
-        }
+        // `(x + 1)` on the bottom would make "the numerator's constant carried straight down"
+        // the right answer, and it is one of the wrong ones.
+        expect(Math.abs(p), `${q.prompt} divides by a factor of 1`).toBeGreaterThanOrEqual(2);
+        // A plus in the denominator until level 1, and a quotient of `x - k` that is not the
+        // denominator's conjugate only from level 3. A difference of squares gives a negative
+        // quotient at every level, which is what a difference of squares is.
         if (lvl === 0) expect(p, `level 0 printed a minus in its denominator: ${q.prompt}`).toBeGreaterThan(0);
-        if (lvl === 3) for (const constant of [p, stays]) expect(constant, `level 3 went negative: ${q.prompt}`).toBeGreaterThan(0);
+        if (lvl <= 2 && stays < 0) expect(stays, `level ${lvl} kept a negative that is not a conjugate: ${q.prompt}`).toBe(-p);
       }
     }
-    for (const [lvl, check] of [
-      [1, (r: ReturnType<typeof parse>) => r.p < 0],
-      [3, (r: ReturnType<typeof parse>) => r.q !== -r.p],
-      [4, (r: ReturnType<typeof parse>) => r.q < 0 || r.p < 0],
+
+    /**
+     * Every rung reaches a shape and a size the rung below it cannot, and both shapes are
+     * reachable everywhere. This is the half that `toBeLessThanOrEqual` on a span cannot say:
+     * a ceiling pins how far a level may go and nothing at all about whether it gets there,
+     * and a rung that never uses what it was given is a rung that changed nothing.
+     */
+    for (const [lvl, what, reaches] of [
+      [0, "a difference of squares", (r: ReturnType<typeof parse>) => r.q === -r.p],
+      [0, "a general trinomial", (r: ReturnType<typeof parse>) => r.q !== -r.p],
+      [1, "a minus in the denominator", (r: ReturnType<typeof parse>) => r.p < 0],
+      [1, "a difference of squares", (r: ReturnType<typeof parse>) => r.q === -r.p],
+      [2, "a constant past level 1's span", (r: ReturnType<typeof parse>) => Math.max(Math.abs(r.p), Math.abs(r.q)) > SPAN[1]],
+      [3, "a negative quotient that is not a conjugate", (r: ReturnType<typeof parse>) => r.q < 0 && r.q !== -r.p],
+      [4, "a constant past level 3's span", (r: ReturnType<typeof parse>) => Math.max(Math.abs(r.p), Math.abs(r.q)) > SPAN[3]],
     ] as const) {
-      expect(draws(rationalExpr, lvl, "rational-expr").filter((q) => check(parse(q))).length, `level ${lvl} never reached its own shape`).toBeGreaterThan(0);
+      const reached = draws(rationalExpr, lvl, "rational-expr").filter((q) => reaches(parse(q))).length;
+      expect(reached, `level ${lvl} never reached ${what}`).toBeGreaterThan(0);
     }
   });
 
-  it("offers the sign flipped, the constants cancelled and the numerator unfactored, none of them the answer", () => {
+  /**
+   * **Every choice is linear.** Two of the four used to be quadratics — the numerator handed
+   * back unfactored, and the constants cancelled where they stood — and a quadratic cannot be
+   * the quotient of a quadratic by a linear factor, so both were free eliminations and the
+   * question was a coin toss between the two that remained.
+   */
+  it("offers four expressions that could each be the quotient", () => {
     for (const lvl of LEVELS) {
       for (const q of draws(rationalExpr, lvl, "rational-expr")) {
-        const { q: stays, middle, constant } = parse(q);
-        // Three mistakes for three slots. "The factor that cancelled, kept" is a fourth real
-        // reading and is in the generator's candidate list, but only as the backfill for the
-        // case where the last two of these are the same string — a denominator of `(x + 1)`,
-        // where cancelling the constants leaves the numerator exactly as it was. Asserting a
-        // fourth here failed on every draw, which is the right way round to find that out.
-        const wrong = [
-          linearText(-stays),                    // the sign of the constant flipped
-          quadraticText(middle, stays),          // the constants cancelled where they stand
-          quadraticText(middle, constant),       // the numerator handed back unfactored
-        ];
-        for (const mistake of wrong) {
-          // Distinct first. `q ≠ 0` is what keeps the sign flip wrong and `p ≠ q` what keeps
-          // the cancelled factor wrong; both are thrown away at the draw rather than trusted.
-          expect(mistake, `${q.prompt} offers its own answer as a mistake`).not.toBe(q.answer);
-          expect(q.choices, `${q.prompt} does not offer ${mistake}`).toContain(mistake);
+        for (const choice of q.choices) {
+          expect(choice, `${q.prompt} offers ${choice}, which cannot be a quotient here`).toMatch(/^x [+-] \d+$/);
         }
+      }
+    }
+  });
+
+  /**
+   * The conjugate of the denominator — `x - p` for a denominator of `(x + p)` — is the answer
+   * when the numerator is a difference of squares and a mistake when it is not. This is the
+   * whole fix: a child who has learned one rule and applies it everywhere finds their reading
+   * on screen on a general draw and finds out it is wrong.
+   *
+   * `not.toBe(q.answer)` beside the `toContain` is not decoration. When a characteristic wrong
+   * answer equals the right one the choice builder skips it and backfills a near miss, so a
+   * `toContain` on its own would pass whether the reading was offered or was the answer.
+   */
+  it("offers the difference-of-squares reading as a mistake whenever it is one", () => {
+    for (const lvl of LEVELS) {
+      let squares = 0, general = 0;
+      for (const q of draws(rationalExpr, lvl, "rational-expr")) {
+        const { p, q: stays } = parse(q);
+        if (stays === -p) {
+          squares += 1;
+          // On a difference of squares the conjugate IS the answer, and the denominator itself
+          // — the factor that cancelled, kept instead of the one that stayed — is the mistake.
+          expect(q.answer, q.prompt).toBe(linearText(-p));
+          expect(q.choices, `${q.prompt} does not offer ${linearText(p)}`).toContain(linearText(p));
+        } else {
+          general += 1;
+          expect(linearText(-p), `${q.prompt} offers its own answer as a mistake`).not.toBe(q.answer);
+          expect(q.choices, `${q.prompt} does not offer ${linearText(-p)}`).toContain(linearText(-p));
+        }
+      }
+      // Both shapes on every rung, in quantity: a rung that was 99% one of them would let
+      // "flip the sign" or "never flip the sign" be a rule again.
+      expect(squares / (squares + general), `level ${lvl} draws a difference of squares ${squares} times in ${squares + general}`).toBeGreaterThan(0.15);
+      expect(squares / (squares + general), `level ${lvl} draws a difference of squares ${squares} times in ${squares + general}`).toBeLessThan(0.6);
+    }
+  });
+
+  /**
+   * The other two readings, each a real one and each impossible to be the answer: the sign of
+   * the constant flipped (`q ≠ 0`), the numerator's constant carried straight down (`|p| ≥ 2`,
+   * so `pq ≠ q`), the middle coefficient taken for the constant (`p ≠ 0`), and the factor that
+   * cancelled kept instead of the one that stayed (`p ≠ q`). Which of them a question shows is
+   * drawn, so this asserts each is BOTH reachable and never right, rather than pinning a set
+   * that would put the answer's neighbours in the same place on every question.
+   */
+  it("draws its other mistakes from real readings, none of which can be the answer", () => {
+    for (const lvl of LEVELS) {
+      const seen = new Map<string, number>();
+      for (const q of draws(rationalExpr, lvl, "rational-expr")) {
+        const { p, q: stays, middle, constant } = parse(q);
+        const readings: [string, number][] = [
+          ["the sign flipped", -stays],
+          ["the numerator's constant", constant],
+          ["the middle coefficient", middle],
+          ["the factor that cancelled", p],
+        ];
+        for (const [name, k] of readings) {
+          if (k === 0) continue;                       // `x + 0` is never printed as a choice
+          expect(linearText(k), `${q.prompt} offers ${name} as a mistake and it is the answer`).not.toBe(q.answer);
+          if (q.choices.includes(linearText(k))) seen.set(name, (seen.get(name) ?? 0) + 1);
+        }
+      }
+      for (const name of ["the sign flipped", "the numerator's constant", "the factor that cancelled"]) {
+        expect(seen.get(name) ?? 0, `level ${lvl} never offers ${name}`).toBeGreaterThan(0);
       }
     }
   });

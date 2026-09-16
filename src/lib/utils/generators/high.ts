@@ -16,6 +16,7 @@ import {
   makeQuestion,
   numericDistractors,
   randInt,
+  shuffle,
   speakInt,
   type Question,
   type Rng,
@@ -1604,21 +1605,50 @@ export function probability(level: number, rng: Rng, skillId: string): Question 
 // ---------------------------------------------------------------------------
 
 /**
- * Largest number inside a factor, per level. The difference-of-squares rungs reach further than
- * the general ones because they have less to vary: a numerator built from one number has only
- * that number to move, while `(x + p)(x + q)` has two.
+ * Largest number inside a factor, per level.
+ *
+ * The ladder used to be difference of squares at levels 0-2 and a general factorisation at
+ * 3 and 4, which is why the spans ran `[15, 15, 20, 9, 9]` — the narrow rungs were the ones
+ * with two numbers to move. Both shapes are now drawn at every rung (see below), so the span
+ * climbs the way a span should.
  */
-const RATIONAL_SPAN = [15, 15, 20, 9, 9];
-/** A denominator of `(x - a)` joins at level 1; a numerator that is not a difference of squares at 3. */
-const RATIONAL_BOTH_SIGNS = [false, true, true, true, true];
-const RATIONAL_GENERAL = [false, false, false, true, true];
-/** Negative factors — and so a numerator whose middle term can go either way — at level 4. */
-const RATIONAL_NEGATIVE = [false, false, false, false, true];
+const RATIONAL_SPAN = [10, 12, 15, 15, 20];
+/** A denominator of `(x - a)` joins at level 1. */
+const RATIONAL_NEGATIVE_DENOMINATOR = [false, true, true, true, true];
+/**
+ * A quotient of `x - k` that is NOT the denominator's conjugate joins at level 3. A difference
+ * of squares gives one at every level and always will — that is what a difference of squares
+ * is — so this is about the general shape only.
+ */
+const RATIONAL_NEGATIVE_QUOTIENT = [false, false, false, true, true];
+/** How often the numerator is a difference of squares rather than a general trinomial. */
+const RATIONAL_SQUARES_SHARE = 0.35;
 
 /**
- * Rational expressions (grade 12). `(x² - 9)/(x + 3)` at levels 0-2, where the numerator is a
- * difference of squares and the denominator is one of its two factors; a general factorisation
- * from 3, with negative factors at 4.
+ * Rational expressions (grade 12): a monic quadratic over one of its own linear factors.
+ *
+ * **Levels 0-2 used to be difference-of-squares ONLY, and that made the answer readable off
+ * the denominator.** `(x² - 9)/(x + 3)` is `x - 3`; `(x² - 25)/(x - 5)` is `x + 5`. The
+ * quotient of a difference of squares by one of its factors is always the other factor, which
+ * is always the denominator with its sign reversed — measured at 900 draws of 900 across
+ * levels 0, 1 and 2. A twelfth-grader cleared three of five rungs by changing one character,
+ * and levels 3 and 4 were a coin flip because only two of the four choices were ever linear:
+ * the other two were quadratics, which cannot be the quotient of a quadratic by a linear
+ * factor and so were free eliminations.
+ *
+ * Both are fixed by the same two changes:
+ *
+ *  - **Every rung draws both shapes.** About a third of questions are a difference of squares
+ *    and the rest are a general trinomial, so "flip the denominator's sign" is right roughly a
+ *    third of the time and wrong the rest. Telling them apart means reading the numerator's
+ *    middle term, which is the mathematics this skill is for — and `x - p`, the conjugate, is
+ *    offered as a WRONG answer on every general draw, so the child who only knows that one
+ *    rule finds their answer on screen and finds out it is wrong.
+ *  - **All four choices are linear**, so every one of them could be the quotient.
+ *
+ * The rungs are now sign gates and span, in that order: level 0 keeps its plus in the
+ * denominator, level 1 allows a minus there, level 3 allows a quotient of `x - k` that is not
+ * a conjugate, and levels 2 and 4 widen the numbers.
  *
  * **There is no domain restriction on the prompt, and that is a decision rather than an
  * oversight.** `(x² - 9)/(x + 3)` is `x - 3` for every x but -3, and a mathematician writes the
@@ -1627,17 +1657,15 @@ const RATIONAL_NEGATIVE = [false, false, false, false, true];
  * is a line of noise a reader learns to skip. If this skill ever asks which values are excluded,
  * that is a different question and wants a different prompt.
  *
- * **Two of the three wrong readings would otherwise be the answer, and both are guarded at the
- * draw.** `q ≠ 0` keeps "the constant's sign flipped" wrong, and `p ≠ q` keeps "the factor that
- * cancelled, kept instead of the one that stayed" wrong.
+ * **Three wrong readings would otherwise be the answer, and all three are guarded at the draw.**
+ * `q ≠ 0` keeps "the constant's sign flipped" wrong, `p ≠ q` keeps "the factor that cancelled,
+ * kept instead of the one that stayed" wrong, and `|p| ≥ 2` keeps "the numerator's constant
+ * carried straight down" wrong — `pq` is `q` again exactly when `p` is 1.
  *
- * **The third is the interesting one.** Dividing the numerator's terms by the denominator's one
- * at a time — `x²/x` and `pq/p` — gives `x + q`, which is the ANSWER, identically, for every
- * monic quadratic over one of its own factors. It is a real thing children do and it cannot be
- * offered as a wrong answer in this question shape at any level, so the term-cancelling reading
- * offered here is the other one: the constants cancelled where they stand and the rest of the
- * numerator left alone, `(x² + 5x + 6)/(x + 2)` read as `x² + 5x + 3`. That one is a degree too
- * high and can never be the answer.
+ * **One real mistake cannot be offered at all, at any level.** Dividing the numerator's terms by
+ * the denominator's one at a time — `x²/x` and `pq/p` — gives `x + q`, which is the ANSWER,
+ * identically, for every monic quadratic over one of its own factors. Children do it; it cannot
+ * be a wrong answer here.
  */
 export function rationalExpr(level: number, rng: Rng, skillId: string): Question {
   const lvl = L(level);
@@ -1647,26 +1675,34 @@ export function rationalExpr(level: number, rng: Rng, skillId: string): Question
   let p = 0, q = 0;
   let drawn = false;
   for (let attempt = 0; attempt < 400 && !drawn; attempt++) {
-    if (RATIONAL_GENERAL[lvl]) {
-      const sign = () => (RATIONAL_NEGATIVE[lvl] && rng() < 0.5 ? -1 : 1);
-      p = randInt(rng, 1, span) * sign();
-      q = randInt(rng, 1, span) * sign();
-    } else {
-      p = randInt(rng, 2, span) * (RATIONAL_BOTH_SIGNS[lvl] && rng() < 0.5 ? -1 : 1);
-      q = -p;
-    }
+    // `2` and not `1`: a denominator of `(x + 1)` makes "the numerator's constant carried
+    // straight down" the right answer, and it is one of the wrong ones.
+    p = randInt(rng, 2, span) * (RATIONAL_NEGATIVE_DENOMINATOR[lvl] && rng() < 0.5 ? -1 : 1);
+    q = rng() < RATIONAL_SQUARES_SHARE
+      ? -p
+      : randInt(rng, 1, span) * (RATIONAL_NEGATIVE_QUOTIENT[lvl] && rng() < 0.5 ? -1 : 1);
     drawn = p !== 0 && q !== 0 && p !== q;
   }
   if (!drawn) throw new Error(`could not draw a rational expression at level ${level}`);
 
   const numerator = [1, p + q, p * q];
   const answer = polynomial([1, q]);
+  const squares = q === -p;
+  // Every candidate is linear, so all four choices are expressions that could be the quotient.
+  // On a difference of squares the conjugate IS the answer and the sign flip is the denominator
+  // again, so that draw falls through to the readings below them.
   const candidates = [
-    polynomial([1, -q]),              // the sign of the constant flipped
-    polynomial([1, p + q, q]),        // the constants cancelled where they stand, not the factor
-    polynomial(numerator),            // the numerator handed back unfactored
-    polynomial([1, p]),               // the factor that cancelled, kept instead of the one that stayed
-    polynomial([1, q + 1]),
+    ...(squares ? [] : [polynomial([1, -p])]),   // the difference-of-squares rule, on a numerator that is not one
+    ...shuffle(
+      [
+        polynomial([1, -q]),          // the sign of the constant flipped
+        polynomial([1, p * q]),       // the numerator's constant carried straight down
+        polynomial([1, p + q]),       // the numerator's MIDDLE coefficient taken for the constant
+        polynomial([1, p]),           // the factor that cancelled, kept instead of the one that stayed
+      ].filter((text) => text !== "x"),   // `p + q` is 0 on a difference of squares, which prints as a bare x
+      rng,
+    ),
+    ...[q + 1, q - 1, q + 2].filter((k) => k !== 0).map((k) => polynomial([1, k])),
   ];
   const distractors = pickDistinct(candidates, answer);
   if (distractors.length !== 3) throw new Error(`could not build three wrong simplifications of ${numerator} over ${p}`);

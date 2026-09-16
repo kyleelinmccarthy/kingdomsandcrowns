@@ -170,3 +170,45 @@ describe("the answer cannot be picked out by where it sits in the order", () => 
     }
   });
 });
+
+describe("the answer cannot be copied off the prompt or picked out by its shape", () => {
+  /**
+   * `rational-expr` levels 0, 1 and 2 were difference-of-squares only, and the quotient of a
+   * difference of squares by one of its factors is the OTHER factor — which is the denominator
+   * with its sign reversed, every time. 900 draws of 900. Three of five rungs were two
+   * characters of pattern matching.
+   *
+   * The rule must be right sometimes, or "never the conjugate" becomes the new rule and a
+   * child passes by refusing to apply the one thing this skill teaches. So this is a band and
+   * not a ceiling: the reading has to be worth something and has to be worth losing.
+   */
+  it("rational-expr does not let the denominator be read for the answer", () => {
+    for (const level of LEVELS) {
+      const sample = draws("rational-expr", "rational-expr", level);
+      const { rate, text } = rateOf(sample, (q) => {
+        const denominator = /^Simplify: \([^()]+\) \/ \(x ([+-]) (\d+)\)$/.exec(q.prompt)!;
+        return q.answer === `x ${denominator[1] === "+" ? "-" : "+"} ${denominator[2]}`;
+      });
+      expect(rate, `level ${level} answers with the denominator's sign flipped in ${text} draws`).toBeLessThan(0.6);
+      expect(rate, `level ${level} has stopped asking a difference of squares at all — ${text}`).toBeGreaterThan(0.15);
+    }
+  });
+
+  /**
+   * Two of the four choices used to be quadratics, and a quadratic cannot be the quotient of a
+   * quadratic by a linear factor — so half the screen was eliminable without reading the
+   * question, and the rungs where the sign flip did not settle it were a coin toss between the
+   * two survivors. Said as "every choice has the same shape", which is the property; the
+   * grade-12 file pins the shape itself.
+   */
+  it("rational-expr gives all four choices the same shape", () => {
+    for (const level of LEVELS) {
+      for (const q of draws("rational-expr", "rational-expr", level)) {
+        // Numbers and signs blanked out, so `x + 3` and `x - 40` are one shape and
+        // `x² + 5x + 6` is another. Shape is what a child eliminates on without reading.
+        const shapes = new Set(q.choices.map((c) => c.replace(/\d+/g, "n").replace(/[+-]/g, "±")));
+        expect(shapes.size, `${q.prompt} offers choices of ${shapes.size} different shapes: ${q.choices.join(", ")}`).toBe(1);
+      }
+    }
+  });
+});
