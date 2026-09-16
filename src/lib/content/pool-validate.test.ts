@@ -8,6 +8,7 @@ import {
   READABILITY_MIN_WORDS,
   fleschKincaidGrade,
   countSyllables,
+  soundAlike,
   type Pool,
   type PoolItem,
   type Problem,
@@ -392,6 +393,80 @@ describe("rule 8: no \"all of the above\" or \"none of the above\"", () => {
   it("fires when it is the answer, which is the worse case", () => {
     const broken = withItem(basePool(), 17, { answer: "none of these", distractors: ["alpha", "beta", "gamma"] });
     expect(rulesFired(validatePool(broken))).toEqual([RULES.aboveOrBelow]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Rule 9 — a homophone pair the audio cannot tell apart
+// ---------------------------------------------------------------------------
+
+/**
+ * The defect this rule exists for, as a fixture: a sight-word item whose spoken form is the bare
+ * answer word, with that word's homophone sitting among the choices. In print it is a fine
+ * question. Spoken, it is "right" — and the child is asked to choose between `right` and `write`.
+ *
+ * Every test here breaks it on purpose, the way the rest of this file does, because a rule
+ * exercised only against content that passes would go green just as happily if it checked nothing.
+ */
+const BY_EAR = { answer: "right", distractors: ["write", "night", "light"] };
+
+describe("rule 9: answerable by ear", () => {
+  it("fires when the spoken form is the bare word and a distractor is its homophone", () => {
+    const broken = withItem(basePool(), 20, {
+      ...BY_EAR,
+      prompt: "Which word is \"right\"?",
+      readAloud: "right",
+    });
+    const problems = validatePool(broken);
+    expect(rulesFired(problems)).toEqual([RULES.homophone]);
+    expect(problems).toHaveLength(1);
+    expect(problems[0].itemId).toBe("base-20");
+    expect(problems[0].detail).toContain("write");
+  });
+
+  /** `deed-player.tsx` speaks `readAloud ?? prompt`, so the fallback is a spoken form too. */
+  it("fires on the prompt when there is no readAloud, because the prompt is what gets spoken", () => {
+    const broken = withItem(basePool(), 21, { ...BY_EAR, prompt: "Which word is \"right\"?" });
+    const problems = validatePool(broken);
+    expect(rulesFired(problems)).toEqual([RULES.homophone]);
+    expect(problems[0].itemId).toBe("base-21");
+  });
+
+  it("is not satisfied by the question frame alone: a stem of function words is not context", () => {
+    const broken = withItem(basePool(), 22, {
+      ...BY_EAR,
+      prompt: "Which word is \"right\"?",
+      readAloud: "Which one of these is the word right?",
+    });
+    expect(rulesFired(validatePool(broken))).toEqual([RULES.homophone]);
+  });
+
+  it("is quiet once the spoken form carries a sense phrase that tells the pair apart", () => {
+    const fixed = withItem(basePool(), 20, {
+      ...BY_EAR,
+      prompt: "Which word is \"right\"?",
+      readAloud: "Which word is right, as in turn right at the corner?",
+    });
+    expect(validatePool(fixed)).toEqual([]);
+  });
+
+  it("is quiet when the choices only look alike, which is what a sight-word pool is for", () => {
+    const fine = withItem(basePool(), 23, {
+      answer: "right",
+      distractors: ["night", "light", "bright"],
+      prompt: "Which word is \"right\"?",
+      readAloud: "right",
+    });
+    expect(validatePool(fine)).toEqual([]);
+  });
+
+  it("knows a homophone from a near-miss", () => {
+    expect(soundAlike("their", "there")).toBe(true);
+    expect(soundAlike("you're", "your")).toBe(true);
+    expect(soundAlike("Buy", " by ")).toBe(true);
+    expect(soundAlike("right", "right")).toBe(false);
+    expect(soundAlike("right", "night")).toBe(false);
+    expect(soundAlike("made", "mode")).toBe(false);
   });
 });
 

@@ -8,8 +8,9 @@
  *
  * This module is the other half — everything about an authored item that a machine CAN see:
  * the shape of the choices, the spread of levels, the size of the pool, whether the text can be
- * spoken, whether the prompt reads at the grade it is aimed at, and whether the answer wears a
- * tell that lets a child score full marks without knowing anything.
+ * spoken, whether the prompt reads at the grade it is aimed at, whether the answer wears a
+ * tell that lets a child score full marks without knowing anything, and whether a child who is
+ * LISTENING to the question rather than reading it is given enough to answer at all.
  *
  * `validatePool` returns every problem it finds. An empty array means the pool passes. Each rule
  * is its own exported function so a failure names the rule that broke, and so a rule can be
@@ -48,6 +49,7 @@ export const RULES = {
   readability: "readability",
   lengthTell: "length-tell",
   aboveOrBelow: "all-of-the-above",
+  homophone: "homophone-by-ear",
 } as const;
 
 /** A deed asks 8 questions from one pool, so a pool needs comfortably more than 8. Target is 45. */
@@ -454,8 +456,159 @@ export function checkAboveOrBelow(pool: Pool): Problem[] {
 }
 
 // ---------------------------------------------------------------------------
+// 9. Answerable by ear: a homophone pair the audio cannot tell apart
+// ---------------------------------------------------------------------------
 
-/** Structural problems that are not one of the eight rules: a pool that is not a pool. */
+/**
+ * Words that sound alike. Grouped, so `right`, `write` and `rite` are one entry and every pair
+ * inside a group is a homophone of every other.
+ *
+ * THIS LIST IS NECESSARILY INCOMPLETE, and it cannot be otherwise: English homophony is not a
+ * closed set, it shifts with accent (`merry`/`marry`/`Mary` are three words here and one in much
+ * of North America), and no rule short of a pronouncing dictionary — which would still disagree
+ * with the voice the browser actually uses — can enumerate it. So read a green run of this rule
+ * as "none of the pairs we know about is unspoken", never as "no item is ambiguous by ear". It
+ * catches the cases that exist; it does not prove none remain. When a reader reports a new pair,
+ * the fix is to add it here as well as to fix the item, so the class cannot come back.
+ */
+const HOMOPHONE_GROUPS: readonly (readonly string[])[] = [
+  ["ad", "add"], ["aid", "aide"], ["ail", "ale"], ["air", "heir"], ["aisle", "isle", "i'll"],
+  ["allowed", "aloud"], ["altar", "alter"], ["ant", "aunt"], ["ate", "eight"], ["bail", "bale"],
+  ["bare", "bear"], ["be", "bee"], ["beat", "beet"], ["berry", "bury"], ["berth", "birth"],
+  ["billed", "build"], ["blew", "blue"], ["board", "bored"], ["brake", "break"], ["bread", "bred"],
+  ["buy", "by", "bye"], ["cell", "sell"], ["cent", "scent", "sent"], ["cereal", "serial"],
+  ["chews", "choose"], ["chord", "cord"], ["cite", "sight", "site"], ["coarse", "course"],
+  ["creak", "creek"], ["days", "daze"], ["dear", "deer"], ["dew", "do", "due"], ["die", "dye"],
+  ["doe", "dough"], ["earn", "urn"], ["eye", "i"], ["fair", "fare"], ["feat", "feet"],
+  ["find", "fined"], ["fir", "fur"], ["flea", "flee"], ["flew", "flu", "flue"],
+  ["flour", "flower"], ["for", "fore", "four"], ["foul", "fowl"], ["gait", "gate"],
+  ["grate", "great"], ["groan", "grown"], ["guessed", "guest"], ["hair", "hare"],
+  ["hall", "haul"], ["heal", "heel"], ["hear", "here"], ["heard", "herd"], ["hi", "high"],
+  ["higher", "hire"], ["hoarse", "horse"], ["hole", "whole"], ["hour", "our"], ["idle", "idol"],
+  ["in", "inn"], ["its", "it's"], ["knead", "need"], ["knew", "new"], ["knight", "night"],
+  ["knot", "not"], ["know", "no"], ["knows", "nose"], ["lead", "led"], ["lessen", "lesson"],
+  ["loan", "lone"], ["made", "maid"], ["mail", "male"], ["main", "mane"], ["meat", "meet"],
+  ["might", "mite"], ["missed", "mist"], ["moan", "mown"], ["morning", "mourning"],
+  ["muscle", "mussel"], ["none", "nun"], ["oar", "or", "ore"], ["one", "won"], ["pail", "pale"],
+  ["pain", "pane"], ["pair", "pear", "pare"], ["patience", "patients"], ["pause", "paws"],
+  ["peace", "piece"], ["peak", "peek"], ["peal", "peel"], ["pedal", "peddle"], ["peer", "pier"],
+  ["plain", "plane"], ["pole", "poll"], ["poor", "pour", "pore"], ["praise", "prays", "preys"],
+  ["pray", "prey"], ["principal", "principle"], ["profit", "prophet"], ["rain", "reign", "rein"],
+  ["raise", "rays", "raze"], ["rap", "wrap"], ["read", "red"], ["reed", "read"], ["right", "rite", "write"],
+  ["ring", "wring"], ["road", "rode", "rowed"], ["role", "roll"], ["root", "route"],
+  ["rose", "rows"], ["rote", "wrote"], ["sail", "sale"], ["scene", "seen"], ["sea", "see"],
+  ["seam", "seem"], ["sew", "so", "sow"], ["shoe", "shoo"], ["some", "sum"], ["son", "sun"],
+  ["soar", "sore"], ["sole", "soul"], ["stair", "stare"], ["stake", "steak"],
+  ["stationary", "stationery"], ["steal", "steel"], ["straight", "strait"], ["suite", "sweet"],
+  ["tail", "tale"], ["taught", "taut"], ["tea", "tee"], ["team", "teem"], ["tear", "tier"],
+  ["their", "there", "they're"], ["threw", "through"], ["throne", "thrown"], ["thyme", "time"],
+  ["tide", "tied"], ["to", "too", "two"], ["toad", "towed", "toed"], ["toe", "tow"],
+  ["vain", "vane", "vein"], ["vary", "very"], ["wail", "whale"], ["waist", "waste"],
+  ["wait", "weight"], ["war", "wore"], ["ware", "wear", "where"], ["way", "weigh", "whey"],
+  ["we", "wee"], ["weak", "week"], ["weather", "whether"], ["which", "witch"],
+  ["whine", "wine"], ["who's", "whose"], ["wood", "would"], ["yoke", "yolk"],
+  ["your", "you're", "yore"],
+];
+
+/** Every homophone, pointing at the other members of its group. */
+const HOMOPHONES = ((): Map<string, Set<string>> => {
+  const map = new Map<string, Set<string>>();
+  for (const group of HOMOPHONE_GROUPS) {
+    for (const word of group) {
+      const set = map.get(word) ?? new Set<string>();
+      for (const other of group) if (other !== word) set.add(other);
+      map.set(word, set);
+    }
+  }
+  return map;
+})();
+
+/** A choice as one comparable word: lower case, letters and apostrophes only. */
+function wordKey(text: string): string {
+  return text.trim().toLowerCase().replace(/[’]/g, "'").replace(/[^a-z']/g, "");
+}
+
+export function soundAlike(a: string, b: string): boolean {
+  const x = wordKey(a);
+  const y = wordKey(b);
+  if (x === "" || x === y) return false;
+  return HOMOPHONES.get(x)?.has(y) ?? false;
+}
+
+/**
+ * Words that carry no context of their own: the frame a question is built from, and the
+ * grammatical glue inside a sense phrase. `Which word is "for"?` is made entirely of these, and
+ * so is the bare word on its own — which is the point. Anything left over after these and the
+ * four choices are removed is something a listener can actually use to choose.
+ *
+ * Kept deliberately small and function-word-only. A content word that happens to be frequent
+ * (`turn`, `gift`, `book`) must never appear here, or a real sense phrase would stop counting.
+ */
+const FRAME_WORDS = new Set([
+  "a", "about", "an", "and", "answer", "are", "as", "at", "be", "best", "but", "by", "choose",
+  "correct", "correctly", "definition", "do", "does", "each", "find", "fits", "for", "from",
+  "goes", "had", "has", "have", "he", "her", "here", "hers", "him", "his", "how", "i", "if",
+  "in", "into", "is", "it", "its", "like", "listen", "means", "meaning", "mean", "me", "my",
+  "name", "not", "of", "on", "one", "or", "our", "out", "pick", "read", "said", "same", "say",
+  "says", "she", "should", "so", "sound", "sounds", "spell", "spelled", "spelling", "text",
+  "that", "the", "their", "them", "then", "there", "these", "they", "this", "those", "to",
+  "up", "us", "was", "we", "well", "were", "what", "when", "which", "who", "whose", "why",
+  "will", "with", "word", "words", "would", "write", "you", "your", "yours",
+]);
+
+/**
+ * RULE 9 — a question a child listening to it cannot answer.
+ *
+ * Two readers on the blind pass raised the same conditional from opposite ends of the corpus:
+ * an item that pairs a word with its homophone reads perfectly and breaks the moment it is
+ * spoken. It is spoken. `deed-player.tsx` speaks `readAloud ?? prompt`, and in the sight-word
+ * pools `readAloud` was the bare answer word, so a child on read-aloud support heard "right"
+ * and was asked to choose between `right` and `write`. There is nothing in that audio to choose
+ * with. The nine items this found were in the two pools aimed at the youngest readers — the
+ * children most likely to be listening rather than reading in the first place.
+ *
+ * What the rule checks: when a distractor is a homophone of the answer, the spoken string must
+ * carry something besides the two words and the question's own frame. Strip the four choices and
+ * the function words out of what will be spoken; if nothing is left, the audio is the same audio
+ * whichever of the pair is meant, and the item is unanswerable by ear.
+ *
+ * That test is a proxy for meaning and it knows it. It cannot tell whether the context it finds
+ * actually points at the right word — `right, as in turn right` passes and so would `right, as
+ * in xylophone` — and it is only as complete as `HOMOPHONE_GROUPS` above. It catches a bare word
+ * spoken beside its twin, which is the whole of the defect that existed, and it makes the next
+ * one cost an author one sense phrase rather than a child a wrong mark they did not earn.
+ */
+export function checkHomophoneByEar(pool: Pool): Problem[] {
+  const problems: Problem[] = [];
+  for (const item of pool.items) {
+    const twin = item.distractors.find((d) => soundAlike(item.answer, d));
+    if (twin === undefined) continue;
+
+    const spoken = (item.readAloud ?? item.prompt) || "";
+    const choices = new Set(choicesOf(item).map(wordKey));
+    const context = (spoken.toLowerCase().match(/[a-z][a-z'’-]*/g) ?? []).filter((token) => {
+      const key = wordKey(token);
+      if (key === "" || choices.has(key)) return false;
+      if (HOMOPHONES.get(wordKey(item.answer))?.has(key)) return false;
+      return !FRAME_WORDS.has(key);
+    });
+    if (context.length > 0) continue;
+
+    problems.push({
+      itemId: item.id,
+      rule: RULES.homophone,
+      detail:
+        `what the app speaks ("${spoken.trim()}") does not distinguish the answer ` +
+        `("${item.answer.trim()}") from the distractor "${twin.trim()}" — they are homophones, ` +
+        `so give readAloud a sense phrase that tells them apart`,
+    });
+  }
+  return problems;
+}
+
+// ---------------------------------------------------------------------------
+
+/** Structural problems that are not one of the nine rules: a pool that is not a pool. */
 function checkShape(pool: Pool): Problem[] {
   const problems: Problem[] = [];
   if (!(GRADES as readonly string[]).includes(pool.grade)) {
@@ -473,7 +626,7 @@ function checkShape(pool: Pool): Problem[] {
 
 /**
  * Every rule, over one pool. An empty array means the pool passes. Order is stable: shape, then
- * rules 1 through 8, so a report reads the same way twice.
+ * rules 1 through 9, so a report reads the same way twice.
  */
 export function validatePool(pool: Pool): Problem[] {
   return [
@@ -486,5 +639,6 @@ export function validatePool(pool: Pool): Problem[] {
     ...checkReadability(pool),
     ...checkLengthTell(pool),
     ...checkAboveOrBelow(pool),
+    ...checkHomophoneByEar(pool),
   ];
 }

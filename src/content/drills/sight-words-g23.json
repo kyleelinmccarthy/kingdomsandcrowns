@@ -23,7 +23,7 @@
         "but",
         "boy"
       ],
-      "readAloud": "buy",
+      "readAloud": "Which word is buy, as in buy a loaf of bread?",
       "level": 0
     },
     {
@@ -59,7 +59,7 @@
         "maid",
         "mode"
       ],
-      "readAloud": "made",
+      "readAloud": "Which word is made, as in she made a cake?",
       "level": 0
     },
     {
@@ -71,7 +71,7 @@
         "red",
         "real"
       ],
-      "readAloud": "read",
+      "readAloud": "Which word is read, as in read a book?",
       "level": 0
     },
     {
@@ -179,7 +179,7 @@
         "light",
         "write"
       ],
-      "readAloud": "right",
+      "readAloud": "Which word is right, as in turn right at the corner?",
       "level": 1
     },
     {
@@ -203,7 +203,7 @@
         "these",
         "them"
       ],
-      "readAloud": "their",
+      "readAloud": "Which word is their, as in their dog ran home?",
       "level": 1
     },
     {
@@ -311,7 +311,7 @@
         "every",
         "verb"
       ],
-      "readAloud": "very",
+      "readAloud": "Which word is very, as in very cold water?",
       "level": 2
     },
     {
@@ -323,7 +323,7 @@
         "witch",
         "watch"
       ],
-      "readAloud": "which",
+      "readAloud": "Which word is which, as in which cup is mine?",
       "level": 2
     },
     {
@@ -359,7 +359,7 @@
         "wrote",
         "white"
       ],
-      "readAloud": "write",
+      "readAloud": "Which word is write, as in write with a pencil?",
       "level": 2
     },
     {
@@ -371,7 +371,7 @@
         "you",
         "yard"
       ],
-      "readAloud": "your",
+      "readAloud": "Which word is your, as in your coat is on the hook?",
       "level": 2
     },
     {
