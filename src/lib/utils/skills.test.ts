@@ -5,8 +5,6 @@ import { SKILLS, skillsFor, findSkill, skillForPool, AREA_SCHOOL, AREA_LABELS, B
 import { GENERATORS } from "./drill-generators";
 import { GRADES, bandForGrade, type Grade } from "./grade-levels";
 
-const AREAS: SkillArea[] = ["math", "reading", "language", "science"];
-
 describe("SKILLS", () => {
   it("has unique ids and resolvable sources", () => {
     const ids = SKILLS.map((s) => s.id);
@@ -44,7 +42,16 @@ describe("no skill's grade set is a partial band", () => {
    * a line of `skills.ts` changed. If that snapshot ever fails, do not reach for `-u`:
    * this test passing alongside it means nothing about whether content moved.
    */
-  it.each(AREAS.flatMap((area) => GRADES.map((g) => [area, g] as [SkillArea, Grade])))(
+  /**
+   * Math is excluded, and this is the task that excluded it. From grade K and grade 1
+   * onwards the math table is keyed to single grades, so the band oracle below is no
+   * longer true of math — and an oracle asserting something false is worse than no
+   * oracle. The three areas that must NOT move during the math work keep it. Task 13
+   * deletes this block along with the last band reference.
+   */
+  const BAND_AREAS: SkillArea[] = ["reading", "language", "science"];
+
+  it.each(BAND_AREAS.flatMap((area) => GRADES.map((g) => [area, g] as [SkillArea, Grade])))(
     "%s at grade %s is served by whole bands, not part of one",
     (area, grade) => {
       const expected = SKILLS.filter(

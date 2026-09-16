@@ -99,10 +99,14 @@ describe("buildDeedRun", () => {
       { id: "add-10:2+2", skillId: "add-10", prompt: "What is 2 + 2?", choices: ["4", "3", "5", "6"], answer: "4" },
     ];
     for (let seed = 1; seed <= 50; seed++) {
-      // Grade K has two generators (add-10, sub-10); pin selection to add-10 (the
-      // misses' own skill) so the tie-break shuffle can't route review questions
-      // to a skill that was never chosen for the run.
-      const run = buildDeedRun(input({ deed: deedMath, grade: "K", poolItems: [], masteryBySkill: { "add-10": 0, "sub-10": 5 }, recentMisses: misses, seed }));
+      // Pin selection to add-10 (the misses' own skill) by putting every other grade-K
+      // generator above it, so the tie-break shuffle can't route review questions to a
+      // skill that was never chosen for the run. Every generator skill the grade offers
+      // has to be listed, or an unpinned one defaults to 0 and ties with add-10 again.
+      const run = buildDeedRun(input({
+        deed: deedMath, grade: "K", poolItems: [], recentMisses: misses, seed,
+        masteryBySkill: { "add-10": 0, "sub-10": 5, "count-seq": 5, "compare-num": 5 },
+      }));
       const ids = run.questions.map((q) => q.id);
       expect(run.questions).toHaveLength(8);
       expect(new Set(ids).size).toBe(ids.length);

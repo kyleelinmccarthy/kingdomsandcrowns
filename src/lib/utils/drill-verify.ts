@@ -72,6 +72,61 @@ const oneStepEq: Verifier = (q) => {
   throw new Error(`equation verifier cannot parse: ${q.prompt}`);
 };
 
+/**
+ * "What number comes after 7?" / "What number comes before 12?"
+ *
+ * Derived by walking a literal counting sequence one position, not by computing n ± 1:
+ * "comes after" IS the next entry when you count, and a generator that had decided
+ * "after" meant two steps on would disagree with this walk.
+ */
+const countSeq: Verifier = (q) => {
+  const m = /^What number comes (after|before) (\d+)\?$/.exec(q.prompt);
+  if (!m) throw new Error(`counting verifier cannot parse: ${q.prompt}`);
+  const counting = Array.from({ length: 101 }, (_, i) => i);
+  const at = counting.indexOf(Number(m[2]));
+  const next = m[1] === "after" ? at + 1 : at - 1;
+  if (at < 0 || next < 0 || next >= counting.length) throw new Error(`off the number line: ${q.prompt}`);
+  return String(counting[next]);
+};
+
+/**
+ * "Which number is the greatest?" — the choices ARE the data, so the values are read from
+ * them. The DIRECTION, though, is read from the prompt and switched on: a verifier that
+ * assumed "greatest" would still pass if the generator asked for the smallest and kept
+ * answering with the largest, and every child answering correctly would be marked wrong.
+ * Any wording this does not recognise throws rather than being guessed at.
+ */
+const extremeNumber: Verifier = (q) => {
+  const m = /^Which number is the (greatest|largest|smallest|least)\?$/.exec(q.prompt);
+  if (!m) throw new Error(`comparison verifier cannot parse: ${q.prompt}`);
+  const wantLargest = m[1] === "greatest" || m[1] === "largest";
+  const value = (s: string) => {
+    if (!/^\d+$/.test(s)) throw new Error(`not a whole number: ${s}`);
+    return Number(s);
+  };
+  return q.choices.reduce((best, c) => {
+    const better = wantLargest ? value(c) > value(best) : value(c) < value(best);
+    return better ? c : best;
+  });
+};
+
+/**
+ * "What is 10 more than 34?" / "What is 10 less than 56?"
+ *
+ * Counted out one at a time rather than by adding ten in a single step, so a generator
+ * that had multiplied by ten, or moved a different number of steps, is caught. The
+ * direction still has to be read from the prompt, which is the part no phrasing of this
+ * question can invert.
+ */
+const tenMoreLess: Verifier = (q) => {
+  const m = /^What is 10 (more|less) than (\d+)\?$/.exec(q.prompt);
+  if (!m) throw new Error(`ten-more-less verifier cannot parse: ${q.prompt}`);
+  let value = Number(m[2]);
+  for (let step = 0; step < 10; step++) value += m[1] === "more" ? 1 : -1;
+  if (value < 0) throw new Error(`negative answer in: ${q.prompt}`);
+  return String(value);
+};
+
 export const VERIFIERS: Record<string, Verifier> = {
   add: arithmetic,
   sub: arithmetic,
@@ -82,4 +137,7 @@ export const VERIFIERS: Record<string, Verifier> = {
   "place-value": placeValue,
   "fractions-compare": largestFraction,
   "one-step-eq": oneStepEq,
+  "count-seq": countSeq,
+  "compare-num": extremeNumber,
+  "ten-more-less": tenMoreLess,
 };

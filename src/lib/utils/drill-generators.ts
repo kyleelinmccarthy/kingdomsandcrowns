@@ -2,6 +2,8 @@
  * Math practice is generated, never stored: the ranges are tuned per skill and
  * mastery level, and a seeded rng makes every run reproducible in tests.
  */
+import { compareNum, countSeq, tenMoreLess } from "./generators/elementary";
+
 export type Question = {
   id: string;        // stable; encodes the parameters so a miss can be re-asked verbatim
   skillId: string;
@@ -59,7 +61,12 @@ export function numericDistractors(answer: number, rng: Rng, min = -Infinity): s
   return out.map(String);
 }
 
-function makeQuestion(skillId: string, key: string, prompt: string, answer: string, distractors: string[], rng: Rng, spoken?: string): Question {
+/**
+ * The standard question shape: a stable id built from the skill and a parameter key, the
+ * answer shuffled in among its distractors, and read-aloud text only when there is any.
+ * Exported because every per-grade generator module builds its questions with it.
+ */
+export function makeQuestion(skillId: string, key: string, prompt: string, answer: string, distractors: string[], rng: Rng, spoken?: string): Question {
   return { id: `${skillId}:${key}`, skillId, prompt, choices: shuffle([answer, ...distractors], rng), answer, ...(spoken ? { readAloud: spoken } : {}) };
 }
 
@@ -175,7 +182,8 @@ const percentOf: Generator = (level, rng, skillId) => {
   return makeQuestion(skillId, `${p}%${n}`, `What is ${p}% of ${n}?`, String(answer), numericDistractors(answer, rng, 0), rng, `What is ${p} percent of ${n}?`);
 };
 
-function gcd(a: number, b: number): number {
+/** Exported for the fraction generators, which need to know when a fraction is in lowest terms. */
+export function gcd(a: number, b: number): number {
   return b === 0 ? a : gcd(b, a % b);
 }
 
@@ -211,4 +219,7 @@ export const GENERATORS: Record<string, Generator> = {
   "integer-ops": integerOps,
   "percent-of": percentOf,
   "one-step-eq": oneStepEq,
+  "count-seq": countSeq,
+  "compare-num": compareNum,
+  "ten-more-less": tenMoreLess,
 };

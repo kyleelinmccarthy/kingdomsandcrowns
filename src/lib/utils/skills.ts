@@ -68,6 +68,12 @@ export const SKILLS: Skill[] = [
   { id: "integer-ops", label: "Integer operations", area: "math", grades: g68, source: gen("integer-ops") },
   { id: "percent-of", label: "Percent of a number", area: "math", grades: g912, source: gen("percent-of") },
   { id: "one-step-eq", label: "One-step equations", area: "math", grades: g912, source: gen("one-step-eq") },
+  // Grades K and 1, keyed to the grade the skill map gives them rather than to a band.
+  // The eleven rows above keep their band grades until Task 13 re-points them all at once.
+  { id: "count-seq", label: "Counting and number order", area: "math", grades: ["K"], source: gen("count-seq") },
+  { id: "compare-num", label: "Comparing numbers", area: "math", grades: ["K"], source: gen("compare-num") },
+  { id: "ten-more-less", label: "Ten more, ten less", area: "math", grades: ["1"], source: gen("ten-more-less") },
+  { id: "compare-num-100", label: "Comparing two-digit numbers", area: "math", grades: ["1"], source: gen("compare-num") },
   { id: "sight-k1", label: "Sight words", area: "reading", grades: k1, source: pool("sight-words-k1") },
   { id: "sight-g23", label: "Sight words", area: "reading", grades: g23, source: pool("sight-words-g23") },
   { id: "spell-g23", label: "Spelling", area: "language", grades: g23, source: pool("spelling-g23") },
