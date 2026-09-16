@@ -683,7 +683,7 @@ export function slopeFromPoints(level: number, rng: Rng, skillId: string): Quest
  * and the power form at level 4, level 1 could ask nothing level 0 could not — fifteen
  * questions, every one of them already reachable a rung below.
  */
-const EXPONENT_MAX = [4, 6, 7, 9, 11];
+const EXPONENT_MAX = [5, 6, 7, 9, 11];
 
 /**
  * An exponent spoken as an ordinal. `^` is banned from read-aloud — a child on speech

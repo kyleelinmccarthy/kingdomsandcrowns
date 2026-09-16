@@ -169,11 +169,23 @@ describe("frac-unit", () => {
     }
   });
 
-  it("speaks the mark as a word, so read-aloud never says '5 t h'", () => {
+  it("speaks the same mark it prints, as a word", () => {
+    // The spoken ordinal must AGREE with the printed one, not merely be some word. This
+    // asserted `[a-z]+` for a while, and two different off-by-one mutations of the spoken
+    // word left all 2777 tests green: a child on read-aloud would be asked for the 4th mark,
+    // answer 4/6, and be marked wrong because the screen said 5th. `[a-z]+` also happily
+    // accepts "at the undefined mark".
+    const WORDS = ["", "first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth",
+      "ninth", "tenth", "eleventh", "twelfth", "thirteenth", "fourteenth", "fifteenth", "sixteenth", "seventeenth"];
     for (const lvl of LEVELS) {
       for (const q of draws(fracUnit, lvl, "frac-unit")) {
-        expect(q.readAloud, q.readAloud).toMatch(/at the [a-z]+ mark\?$/);
+        const printed = /at the (\d+)(?:st|nd|rd|th) mark/.exec(q.prompt);
+        expect(printed, `could not read the printed mark from: ${q.prompt}`).not.toBeNull();
+        const which = Number(printed![1]);
+        expect(WORDS[which], `no word for mark ${which} — the ordinal table has been out-run`).toBeTruthy();
+        expect(q.readAloud, `${q.prompt} is spoken as: ${q.readAloud}`).toContain(`at the ${WORDS[which]} mark`);
         expect(q.readAloud, q.readAloud).not.toMatch(/\d+(st|nd|rd|th)/);
+        expect(q.readAloud, q.readAloud).not.toContain("undefined");
       }
     }
   });

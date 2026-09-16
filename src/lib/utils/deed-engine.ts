@@ -89,6 +89,22 @@ function drawPool(items: PoolItem[], level: number, count: number, rng: Rng): Qu
 }
 
 /**
+ * What a child actually reads: the prompt AND the options under it.
+ *
+ * The prompt alone is not the question for every skill. Three generators ask one sentence
+ * forever — "Which number is the greatest?", "Which fraction is the largest?" — and put the
+ * whole question in the four choices. Excluding on the prompt alone therefore threw away
+ * every draw after the first and handed a child a ONE-QUESTION deed: roughly one
+ * kindergarten math deed in four, since math has no pool skills to backfill from.
+ *
+ * Including the sorted choices costs nothing for an ordinary generator, whose id is derived
+ * from its prompt, so the id check has already caught a genuine repeat before this runs.
+ */
+function questionText(q: Question): string {
+  return `${q.prompt}|${[...q.choices].sort().join(",")}`;
+}
+
+/**
  * `excludePrompts` exists because an id is only as good as the day it was written. A missed
  * question is replayed from the run it was stored in, and when a generator's id shape
  * changes, a miss stored under the old shape no longer matches anything drawn today — so
@@ -118,9 +134,9 @@ function drawGenerated(
   while (out.length < count && guard < count * 20) {
     guard += 1;
     const q = generator(level, rng, skill.id);
-    if (seen.has(q.id) || seenPrompts.has(q.prompt)) continue;
+    if (seen.has(q.id) || seenPrompts.has(questionText(q))) continue;
     seen.add(q.id);
-    seenPrompts.add(q.prompt);
+    seenPrompts.add(questionText(q));
     out.push(q);
   }
   return out;
@@ -150,7 +166,7 @@ export function buildDeedRun(input: BuildRunInput): BuiltRun {
   const reviewIds = new Set(review.map((m) => m.id));
   // Also by prompt: a miss stored under an older id shape would otherwise be re-asked as a
   // fresh question in the same deed.
-  const reviewPrompts = new Set(review.map((m) => m.prompt));
+  const reviewPrompts = new Set(review.map(questionText));
   const target = deed.questionCount;
   const fresh = Math.max(0, target - review.length);
 
@@ -169,7 +185,7 @@ export function buildDeedRun(input: BuildRunInput): BuiltRun {
     for (const skill of skills) {
       if (questions.length >= fresh) break;
       const have = new Set(questions.map((q) => q.id));
-      const havePrompts = new Set(questions.map((q) => q.prompt));
+      const havePrompts = new Set(questions.map(questionText));
       const extra = skill.source.kind === "generator"
         ? drawGenerated(skill, masteryBySkill[skill.id] ?? 0, fresh - questions.length + have.size, rng, new Set([...have, ...reviewIds]), new Set([...havePrompts, ...reviewPrompts])).filter((q) => !have.has(q.id))
         : drawPool(poolItems.filter((p) => p.skillId === skill.id && !have.has(p.id) && !reviewIds.has(p.id)), masteryBySkill[skill.id] ?? 0, fresh - questions.length, rng);

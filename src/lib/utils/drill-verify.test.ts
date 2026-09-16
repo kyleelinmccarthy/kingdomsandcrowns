@@ -199,18 +199,54 @@ describe("every level of every skill offers something no earlier level can ask",
       const identity = (q: Question) =>
         prompts.size === 1 ? [...q.choices].sort().join(",") : q.prompt;
 
+      /**
+       * The history each level is measured against is drawn TEN TIMES as heavily as the level
+       * itself. Without that, the check could not see a rung whose pool is a strict SUBSET of
+       * the rung below: changing a parameter shifts the rng stream, so the thinner level turns
+       * up draws the thicker level's sample happened to miss, and they read as new. Saturating
+       * the history removes most of that — a level with 1,186 questions was proved to slip
+       * through the un-saturated version while asking literally nothing new.
+       *
+       * What it CAN and CANNOT do, stated precisely, because a check that is trusted past its
+       * range is worse than no check:
+       *
+       *  - Two byte-identical rungs: **decisive.** Same parameters and the same seed stream
+       *    produce the same draws, so nothing reads as fresh. Every flat rung found so far
+       *    was of this kind, and all twelve were caught here.
+       *  - A rung whose pool is a strict SUBSET of the one below, with a pool small enough to
+       *    saturate: **decisive**, thanks to the 10x history above.
+       *  - The same, with a pool too large to saturate (`inequalities`, `systems-eq`,
+       *    `dec-ops` and friends run to thousands): **NOT caught.** A parameter change shifts
+       *    the rng stream, the narrower level turns up draws the wider level's sample missed,
+       *    and they read as new. This was demonstrated, not theorised.
+       *
+       * A pool-size rule would close the last case but cannot be had honestly: `frac-unit`,
+       * `mul-multi`, `sequences` and `probability` all shrink legitimately between rungs,
+       * because a harder level narrows to a harder SHAPE with fewer instances of it. Any
+       * blanket "must not shrink" fires on all four, and an exemption list for them would rot.
+       * Closing it properly needs per-generator enumeration of the parameter space, which is
+       * a bigger piece of work than this plan; until then the sizes are printed on failure so
+       * a human can see a shrinking rung.
+       */
+      const census = (level: number, seeds: number[], per: number) => {
+        const out = new Set<string>();
+        for (const seed of seeds) {
+          const rng = seededRng(seed);
+          for (let i = 0; i < per; i++) out.add(identity(GENERATORS[genId](level, rng, skillId)));
+        }
+        return out;
+      };
+      const HISTORY_SEEDS = Array.from({ length: 400 }, (_, i) => i * 7919 + 3);
+
       const seen = new Set<string>();
       for (const level of LEVELS) {
-        const here = new Set<string>();
-        for (const seed of LADDER_SEEDS) {
-          const rng = seededRng(seed);
-          for (let i = 0; i < 12; i++) here.add(identity(GENERATORS[genId](level, rng, skillId)));
-        }
+        const here = census(level, LADDER_SEEDS, 12);
+        if (level > 0) for (const p of census(level - 1, HISTORY_SEEDS, 30)) seen.add(p);
         if (level > 0) {
           const fresh = [...here].filter((p) => !seen.has(p));
           expect(
             fresh.length,
-            `${skillId} level ${level} can ask nothing level ${level - 1} could not — ${here.size} questions, all already reachable`
+            `${skillId} level ${level} can ask nothing level ${level - 1} could not — ${here.size} questions here, ${seen.size} already reachable`
           ).toBeGreaterThan(0);
         }
         for (const p of here) seen.add(p);

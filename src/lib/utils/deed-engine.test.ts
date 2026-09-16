@@ -276,3 +276,30 @@ describe("a miss stored under an older id shape is still not re-asked", () => {
     expect(new Set(prompts).size, `repeated a prompt: ${prompts.join(" | ")}`).toBe(prompts.length);
   });
 });
+
+describe("a skill whose question lives in its choices still fills a deed", () => {
+  /**
+   * `compare-num`, `compare-num-100` and `fractions-compare` ask one sentence forever —
+   * "Which number is the greatest?" — and put the whole question in the four choices.
+   * Excluding a draw because its PROMPT had been seen therefore threw away everything after
+   * the first, and the deed came back with one question. Math has no pool skills to backfill
+   * from, so roughly one kindergarten math deed in four was a single question.
+   *
+   * Run through `buildDeedRun` rather than a replica, because the bug lived in how the real
+   * engine fills a deed, not in the generator.
+   */
+  it.each([
+    ["K", "compare-num"],
+    ["1", "compare-num-100"],
+  ] as const)("grade %s fills eight questions on %s", (grade, skillId) => {
+    for (let seed = 1; seed <= 25; seed++) {
+      const built = buildDeedRun(
+        input({ deed: deedMath, grade, poolItems: [], seed, masteryBySkill: { [skillId]: 0 } })
+      );
+      if (!built.skillIds.includes(skillId)) continue;
+      expect(built.questions.length, `${skillId} seed ${seed} filled only ${built.questions.length}`).toBe(8);
+      const texts = built.questions.map((q) => `${q.prompt}|${[...q.choices].sort().join(",")}`);
+      expect(new Set(texts).size, "repeated a question").toBe(texts.length);
+    }
+  });
+});

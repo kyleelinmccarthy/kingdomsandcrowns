@@ -601,7 +601,7 @@ describe("slope", () => {
 describe("exponent-rules", () => {
   // Hand-written, not imported. Level 1 used to share level 0's ceiling, which — with the
   // quotient form gated at level 2 — left it unable to ask anything level 0 could not.
-  const EXP_MAX = [4, 6, 7, 9, 11];
+  const EXP_MAX = [5, 6, 7, 9, 11];
 
   const parse = (q: Question) => {
     const m = /^Simplify: (?:x\^(\d+) ([·÷]) x\^(\d+)|\(x\^(\d+)\)\^(\d+))$/.exec(q.prompt);
