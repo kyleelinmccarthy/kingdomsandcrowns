@@ -491,8 +491,23 @@ export function twoStepEq(level: number, rng: Rng, skillId: string): Question {
   );
 }
 
-/** Largest radius per level; circumference joins at level 1. */
-const CIRCLE_RADIUS_MAX = [7, 8, 9, 10, 12];
+/**
+ * Largest radius per level; circumference joins at level 1.
+ *
+ * This skill has exactly two axes — which measure is asked for, and how big the circle is —
+ * and the first of them is spent on level 1, so the radius is what the four rungs above zero
+ * have to climb on. That is what used to leave level 0 with ten questions in existence: a
+ * radius from 2 to 7 is six values, r = 2 is thrown away because the area and the
+ * circumference collide there, and five radii asked as a radius or as a diameter is ten —
+ * against a quest that asks eight.
+ *
+ * So level 0 takes the radii the whole ladder used to span, and the ladder is moved up to
+ * make room. `3.14 × 144` is the same piece of arithmetic as `3.14 × 49` and a grade-7 child
+ * meets it with the same formula, so this is a wider rung rather than a harder one — but the
+ * TOP rung really did get bigger, to a radius of 20, and that is the price of leaving the
+ * first rung with twenty questions. Nothing here leaves 7.G.4.
+ */
+const CIRCLE_RADIUS_MAX = [12, 14, 16, 18, 20];
 
 /**
  * **Every circle measure in here is held as an exact integer number of HUNDREDTHS**, and no

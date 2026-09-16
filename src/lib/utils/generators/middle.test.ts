@@ -408,16 +408,25 @@ describe("circle-measure", () => {
   };
 
   it("keeps the radius inside the level's ceiling and asks circumference only from level 1", () => {
-    const rmax = [7, 8, 9, 10, 12];
+    // Written out by hand beside the generator's own table. Level 0 holds the radii the whole
+    // ladder used to span — six of them, five once r = 2 is thrown away, asked as a radius or
+    // as a diameter — because the measure axis is spent on level 1 and the radius is the only
+    // other one this skill has.
+    const rmax = [12, 14, 16, 18, 20];
     for (const lvl of LEVELS) {
       const asked = new Set<string>();
+      let biggest = 0;
       for (const q of draws(circleMeasure, lvl, "circle-measure")) {
         const { radius, area } = parse(q);
         expect(Number.isInteger(radius), q.prompt).toBe(true);
         expect(radius, q.prompt).toBeGreaterThanOrEqual(2);
         expect(radius, q.prompt).toBeLessThanOrEqual(rmax[lvl]);
+        biggest = Math.max(biggest, radius);
         asked.add(area ? "area" : "circumference");
       }
+      // And the ceiling is reachable, or a rung that climbs on the radius alone climbs on a
+      // constant nothing draws.
+      expect(biggest, `level ${lvl} never draws a circle of radius ${rmax[lvl]}`).toBe(rmax[lvl]);
       expect([...asked].sort(), `level ${lvl}`).toEqual(lvl >= 1 ? ["area", "circumference"] : ["area"]);
     }
   });
