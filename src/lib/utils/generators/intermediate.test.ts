@@ -77,23 +77,35 @@ describe("frac-unit", () => {
    * grade 3 owns with halves barred — 2 + 3 + 5 + 7 — and five rungs each needing eight of
    * their own do not fit in it, which is why the ladder used to repeat `[3, 4, 6]` and then
    * `[3, 4, 6, 8]`. The line running past one whole is what makes five rungs possible; this
-   * pins that it is really where the top three rungs go, and that the first two are still the
-   * plain 0-to-1 line a child starts on.
+   * pins that it is really where the top four rungs go, and that the first is still the plain
+   * 0-to-1 line a child starts on.
+   *
+   * Level 0 now takes ALL seventeen — it used to take ten of them and leave the rest to level
+   * 1, which handed a grade-3 child a first quest that was eight of their rung's ten
+   * questions. Seventeen is everything the one-whole line holds, so the rungs above it have
+   * to be the longer line; each denominator set is written out here by hand so that moving a
+   * rung is a deliberate edit in two places.
    */
-  it("stays on one whole for the first two rungs and runs past it after", () => {
-    for (const lvl of [0, 1]) {
-      for (const q of draws(fracUnit, lvl, "frac-unit")) {
-        expect(line(q).wholes, `level ${lvl} left the first whole: ${q.prompt}`).toBe(1);
-      }
+  it("stays on one whole for the first rung and runs past it after", () => {
+    for (const q of draws(fracUnit, 0, "frac-unit")) {
+      expect(line(q).wholes, `level 0 left the first whole: ${q.prompt}`).toBe(1);
     }
-    const wholes = [2, 2, 3];
-    for (const lvl of [2, 3, 4]) {
+    // The first rung really does use every denominator the grade owns, or it is still ten
+    // questions with a comment claiming seventeen.
+    const firstRung = new Set(draws(fracUnit, 0, "frac-unit").map((q) => line(q).parts));
+    expect([...firstRung].sort((a, b) => a - b), "level 0 does not use the whole grade").toEqual([3, 4, 6, 8]);
+
+    const wholes = [2, 2, 3, 3];
+    const denoms = [[3, 4], [3, 4, 6, 8], [3, 4], [3, 4, 6, 8]];
+    for (const lvl of [1, 2, 3, 4]) {
       const seen = new Set(draws(fracUnit, lvl, "frac-unit").map((q) => line(q).wholes));
-      expect([...seen], `level ${lvl}`).toEqual([wholes[lvl - 2]]);
+      expect([...seen], `level ${lvl}`).toEqual([wholes[lvl - 1]]);
+      const parts = new Set(draws(fracUnit, lvl, "frac-unit").map((q) => line(q).parts));
+      expect([...parts].sort((a, b) => a - b), `level ${lvl}`).toEqual(denoms[lvl - 1]);
       // And a mark past the first whole is genuinely drawn, or the longer line is decoration.
       const past = draws(fracUnit, lvl, "frac-unit").filter((q) => {
-        const { parts, which } = line(q);
-        return which > parts;
+        const { parts: d, which } = line(q);
+        return which > d;
       });
       expect(past.length, `level ${lvl} never asks a mark past one whole`).toBeGreaterThan(0);
     }
@@ -178,7 +190,8 @@ describe("frac-unit", () => {
     // answer 4/6, and be marked wrong because the screen said 5th. `[a-z]+` also happily
     // accepts "at the undefined mark".
     const WORDS = ["", "first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth",
-      "ninth", "tenth", "eleventh", "twelfth", "thirteenth", "fourteenth", "fifteenth", "sixteenth", "seventeenth"];
+      "ninth", "tenth", "eleventh", "twelfth", "thirteenth", "fourteenth", "fifteenth", "sixteenth",
+      "seventeenth", "eighteenth", "nineteenth", "twentieth", "twenty first", "twenty second", "twenty third"];
     for (const lvl of LEVELS) {
       for (const q of draws(fracUnit, lvl, "frac-unit")) {
         const printed = /at the (\d+)(?:st|nd|rd|th) mark/.exec(q.prompt);
@@ -460,7 +473,7 @@ describe("frac-equiv", () => {
 
   it("asks about a fraction in lowest terms and answers with a whole-number scaling of it", () => {
     const kmax = [2, 3, 4, 6, 8];
-    const dmax = [6, 8, 9, 10, 12];
+    const dmax = [8, 9, 10, 11, 12];
     for (const lvl of LEVELS) {
       for (const q of draws(fracEquiv, lvl, "frac-equiv")) {
         const [n, d] = base(q);
@@ -503,13 +516,33 @@ describe("frac-equiv", () => {
 });
 
 describe("factors", () => {
-  const target = (q: Question) => Number(/^Which number is a factor of (\d+)\?$/.exec(q.prompt)![1]);
+  /**
+   * This skill asks in two shapes — a factor of the target, or a multiple of it — and the
+   * wording is what says which. Read back from the printed prompt, and anything that matches
+   * neither is a defect rather than a shape, so it fails here instead of being skipped.
+   */
+  const asked = (q: Question) => {
+    const m = /^Which number is a (factor|multiple) of (\d+)\?$/.exec(q.prompt);
+    expect(m, `factors wrote a prompt a child cannot read: ${q.prompt}`).not.toBeNull();
+    return { wants: m![1], target: Number(m![2]) };
+  };
+  const ofShape = (lvl: number, wants: string) => draws(factors, lvl, "factors").filter((q) => asked(q).wants === wants);
+
+  it("asks for a multiple as often as for a factor, on every rung", () => {
+    // The multiple shape is half of what takes level 0 from eleven questions to twenty, so
+    // a rung that quietly stopped drawing one of the two shapes is the defect to catch.
+    for (const lvl of LEVELS) {
+      for (const wants of ["factor", "multiple"]) {
+        expect(ofShape(lvl, wants).length, `level ${lvl} never asks for a ${wants}`).toBeGreaterThan(0);
+      }
+    }
+  });
 
   it("keeps the target inside the level's range and answers with a factor that is neither 1 nor the target", () => {
     const max = [20, 24, 36, 60, 100];
     for (const lvl of LEVELS) {
-      for (const q of draws(factors, lvl, "factors")) {
-        const t = target(q);
+      for (const q of ofShape(lvl, "factor")) {
+        const t = asked(q).target;
         expect(t, q.prompt).toBeGreaterThanOrEqual(4);
         expect(t, q.prompt).toBeLessThanOrEqual(max[lvl]);
         expect(t % Number(q.answer), q.prompt).toBe(0);
@@ -519,22 +552,64 @@ describe("factors", () => {
     }
   });
 
+  it("keeps the multiple's target inside the level's range and never answers with the target itself", () => {
+    // Hand-written beside the generator's own table, as every ceiling in this file is.
+    const max = [10, 12, 15, 20, 25];
+    for (const lvl of LEVELS) {
+      for (const q of ofShape(lvl, "multiple")) {
+        const t = asked(q).target;
+        expect(t, q.prompt).toBeGreaterThanOrEqual(2);
+        expect(t, q.prompt).toBeLessThanOrEqual(max[lvl]);
+        expect(Number(q.answer) % t, q.prompt).toBe(0);
+        // Every number is a multiple of itself, so the target is true and teaches nothing.
+        expect(Number(q.answer), q.prompt).toBeGreaterThan(t);
+      }
+    }
+  });
+
   it("leaves exactly one choice that divides the target", () => {
     for (const lvl of LEVELS) {
-      for (const q of draws(factors, lvl, "factors")) {
-        const t = target(q);
+      for (const q of ofShape(lvl, "factor")) {
+        const t = asked(q).target;
         const dividing = q.choices.filter((c) => t % Number(c) === 0);
         expect(dividing, `${q.prompt} has ${dividing.length} right answers: ${q.choices.join(", ")}`).toEqual([q.answer]);
       }
     }
   });
 
+  it("leaves exactly one choice that is a multiple of the target", () => {
+    for (const lvl of LEVELS) {
+      for (const q of ofShape(lvl, "multiple")) {
+        const t = asked(q).target;
+        const multiples = q.choices.filter((c) => Number(c) % t === 0);
+        expect(multiples, `${q.prompt} has ${multiples.length} right answers: ${q.choices.join(", ")}`).toEqual([q.answer]);
+      }
+    }
+  });
+
   it("always offers a multiple of the target — the factor/multiple swap", () => {
     for (const lvl of LEVELS) {
-      for (const q of draws(factors, lvl, "factors")) {
-        const t = target(q);
+      for (const q of ofShape(lvl, "factor")) {
+        const t = asked(q).target;
         const multiples = q.choices.filter((c) => Number(c) > t && Number(c) % t === 0);
         expect(multiples.length, `${q.prompt} offers no multiple: ${q.choices.join(", ")}`).toBeGreaterThanOrEqual(1);
+      }
+    }
+  });
+
+  it("offers a factor of the target where a multiple was asked for — the same swap, turned round", () => {
+    // Only where the target HAS a proper factor: 2, 3, 5 and the other primes on this rung
+    // have none, and a `toContain` that could not say when it applies would be the vacuous
+    // kind. Asserted not to be the answer as well, or the question has two right answers.
+    for (const lvl of LEVELS) {
+      for (const q of ofShape(lvl, "multiple")) {
+        const t = asked(q).target;
+        const proper: number[] = [];
+        for (let d = 2; d < t; d++) if (t % d === 0) proper.push(d);
+        if (proper.length === 0) continue;
+        const offered = q.choices.filter((c) => proper.includes(Number(c)));
+        expect(offered.length, `${q.prompt} offers no factor of ${t}: ${q.choices.join(", ")}`).toBe(1);
+        expect(offered[0], `${q.prompt} has two right answers`).not.toBe(q.answer);
       }
     }
   });

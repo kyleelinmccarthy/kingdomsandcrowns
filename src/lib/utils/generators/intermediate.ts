@@ -28,8 +28,23 @@ const L = (level: number) => Math.min(4, Math.max(0, Math.floor(level)));
  * choices came out `1/2, 2/1, 2/2, 0/2`, and three of those are not marks on the line at
  * all. A child who had learned only "the answer is between 0 and 1" could score every
  * halves question without counting a single mark. Thirds up.
+ *
+ * **Level 0 takes every denominator the grade owns, which is all seventeen questions a line
+ * from 0 to 1 holds.** It used to be `[3, 4, 6]` — ten questions against a quest that asks
+ * eight — and eighths are not a harder reading of a number line than sixths, only a longer
+ * count along the same line, so there was nothing to buy by holding them back. Seventeen is
+ * the CEILING here and not a choice: with halves barred, 2 + 3 + 5 + 7 is every question
+ * this grade's one-whole line can be asked, so a rung of twenty would have to put fractions
+ * greater than one on a child's very first rung, and that is a different piece of
+ * mathematics rather than more of this one.
+ *
+ * The cost, stated plainly: giving level 0 the whole one-whole line leaves level 1 nothing
+ * there, so every rung above moves down one and the longer line now arrives at level 1
+ * instead of level 2. Level 1 is a harder rung than it was. What it buys is that no rung is
+ * a repeat of another and the FIRST rung — the one every grade-3 child starts on, and the
+ * one they see most — is no longer nine tenths of itself in a single quest.
  */
-const FRAC_DENOMS = [[3, 4, 6], [3, 4, 6, 8], [3, 4], [3, 4, 6, 8], [3, 4, 6]];
+const FRAC_DENOMS = [[3, 4, 6, 8], [3, 4], [3, 4, 6, 8], [3, 4], [3, 4, 6, 8]];
 
 /**
  * How far the line runs — and the reason this skill has five rungs at all.
@@ -44,18 +59,24 @@ const FRAC_DENOMS = [[3, 4, 6], [3, 4, 6, 8], [3, 4], [3, 4, 6, 8], [3, 4, 6]];
  * Bigger denominators are not the way out — 12ths are grade 4, and a grade-3 child does not
  * need them to feel a rung move. A longer LINE is: 3.NF.2 never caps a fraction at one whole,
  * and "the 5th mark on a line from 0 to 2 marked in fourths" is 5/4, which is the same
- * counting with the whole in a new place. That is where levels 2-4 go, and it opens far more
+ * counting with the whole in a new place. That is where levels 1-4 go, and it opens far more
  * than seventeen questions without leaving the grade.
+ *
+ * Two wholes and three wholes each get two rungs, the first in thirds and fourths and the
+ * second across every denominator: a new length of line and then a longer count along it,
+ * which is the same two-step the one-whole line used to be given.
  */
-const FRAC_WHOLES = [1, 1, 2, 2, 3];
+const FRAC_WHOLES = [1, 2, 2, 3, 3];
 
-/** Longest line is 0 to 3 in sixths, so seventeen marks is as far as these ever count. */
+/** Longest line is 0 to 3 in eighths, so twenty-three marks is as far as these ever count. */
 const ORDINALS = ["", "1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th", "10th",
-  "11th", "12th", "13th", "14th", "15th", "16th", "17th"];
+  "11th", "12th", "13th", "14th", "15th", "16th", "17th", "18th", "19th", "20th", "21st",
+  "22nd", "23rd"];
 /** No hyphens: read-aloud bans `-`, so a hyphenated ordinal would be unspeakable. */
 const ORDINAL_WORDS = ["", "first", "second", "third", "fourth", "fifth", "sixth", "seventh",
   "eighth", "ninth", "tenth", "eleventh", "twelfth", "thirteenth", "fourteenth", "fifteenth",
-  "sixteenth", "seventeenth"];
+  "sixteenth", "seventeenth", "eighteenth", "nineteenth", "twentieth", "twenty first",
+  "twenty second", "twenty third"];
 
 /** Two fractions are the same number when their lowest terms agree. */
 function sameFraction(a: [number, number], b: [number, number]): boolean {
@@ -666,7 +687,15 @@ export function divTwoDigit(level: number, rng: Rng, skillId: string): Question 
 
 /** How far the fraction may be scaled up per level, and how big the base denominator gets. */
 const EQUIV_MULT_MAX = [2, 3, 4, 6, 8];
-const EQUIV_DENOM_MAX = [6, 8, 9, 10, 12];
+/**
+ * Level 0 is 8, not 6. Base fractions are drawn in lowest terms, so a ceiling of 6 left
+ * exactly eleven of them — 1/2, 1/3, 2/3, 1/4, 3/4, 1/5 … 4/5, 1/6, 5/6 — and a quest asks
+ * eight. Eighths are a grade-3 denominator (3.NF.1 names them) and scaling 3/8 up is the same
+ * doubling as scaling 3/4 up, so the rung is wider rather than harder: twenty-one base
+ * fractions instead of eleven. Every rung above shifts up by one to keep its own new
+ * denominators, and the top of the ladder stays at twelfths where it was.
+ */
+const EQUIV_DENOM_MAX = [8, 9, 10, 11, 12];
 
 /**
  * Equivalent fractions (grade 4). The choices ARE the data, as in `fractions-compare`.
@@ -736,7 +765,64 @@ export function fracEquiv(level: number, rng: Rng, skillId: string): Question {
 const FACTOR_MAX = [20, 24, 36, 60, 100];
 
 /**
- * Factors (grade 4). The choices ARE the data.
+ * Largest number to ask for a MULTIPLE of, per level.
+ *
+ * This skill is called "Factors and multiples" and asked only for factors, which is what
+ * left level 0 with eleven questions in existence — the eleven composites under twenty —
+ * against a quest that asks eight. Multiples are the other half of 4.OA.4, the half the
+ * label already promises, and they are no harder: "which of these is a multiple of 3" is
+ * answered by the same divisibility a factor question is answered by, from the other end.
+ * Nine more prompts at level 0, and not one number bigger than the rung already used.
+ *
+ * The ceiling climbs with the level for the same reason the factor ceiling does, though the
+ * rungs above 0 do not depend on it: their factor targets already reach numbers no earlier
+ * rung could.
+ */
+const MULTIPLE_MAX = [10, 12, 15, 20, 25];
+
+/**
+ * "Which number is a multiple of 3?" (grade 4). The choices ARE the data, as for factors.
+ *
+ * The headline distractor is a FACTOR of the target — the same factor/multiple swap the
+ * factor question punishes, made in the other direction — and the answer is drawn from
+ * `2t` up, never `t` itself, because every number is a multiple of itself and answering
+ * with the target teaches nothing. Every choice is filtered through the divisibility test,
+ * so exactly one choice is a multiple of the target however the draw goes.
+ */
+function multipleOf(lvl: number, rng: Rng, skillId: string): Question {
+  const target = randInt(rng, 2, MULTIPLE_MAX[lvl]);
+  const answer = target * randInt(rng, 2, 9);
+
+  const chosen: number[] = [];
+  const take = (v: number) => {
+    // Divisibility is the guard: anything that IS a multiple of the target would be a
+    // second right answer, whatever shape it was meant to be. `1` is barred too — it is a
+    // multiple of nothing but itself, and a choice no child would weigh.
+    if (v > 1 && v !== answer && v % target !== 0 && !chosen.includes(v)) chosen.push(v);
+  };
+  // A proper factor of the target, offered where a multiple was asked for.
+  for (const d of shuffle(Array.from({ length: Math.max(0, target - 2) }, (_, i) => i + 2), rng)) {
+    if (chosen.length === 1) break;
+    if (target % d === 0) take(d);
+  }
+  // Either side of the answer: near enough to have to be tested rather than eyeballed.
+  take(answer + 1);
+  take(answer - 1);
+  take(target + 1);
+  for (let v = 2; chosen.length < 3; v++) take(v);
+
+  const prompt = `Which number is a multiple of ${target}?`;
+  // The id is the target and the shape, and nothing else — for the reason the factor id
+  // gives below: an id carrying the chosen answer lets the same prompt through twice in one
+  // quest with two different right answers.
+  return makeQuestion(skillId, `mult-${target}`, prompt, String(answer), chosen.slice(0, 3).map(String), rng, prompt);
+}
+
+/**
+ * Factors and multiples (grade 4). The choices ARE the data.
+ *
+ * Half the draws ask for a multiple instead (see `multipleOf` above), which is the other
+ * half of 4.OA.4 and what takes the first rung past a single quest's worth of questions.
  *
  * The headline distractor is a MULTIPLE of the target — swapping factor and multiple is the
  * mistake the skill exists to correct — and a multiple of t can never divide t, so it is
@@ -744,7 +830,9 @@ const FACTOR_MAX = [20, 24, 36, 60, 100];
  * so exactly one choice divides the target however the draw goes.
  */
 export function factors(level: number, rng: Rng, skillId: string): Question {
-  const max = FACTOR_MAX[L(level)];
+  const lvl = L(level);
+  if (rng() < 0.5) return multipleOf(lvl, rng, skillId);
+  const max = FACTOR_MAX[lvl];
   let target = 0;
   let divisors: number[] = [];
   do {

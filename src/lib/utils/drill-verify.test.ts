@@ -138,6 +138,16 @@ describe("every generated question is independently verifiable", () => {
       // Not vacuous: a proper divisor of 24 is answered rather than thrown.
       expect(VERIFIERS["factors"](ask("factors", "Which number is a factor of 24?", ["6", "5", "7", "11"], "6"))).toBe("6");
     });
+
+    it("factors refuses the target when a multiple was asked for", () => {
+      // The same defect in the other wording: every number is a multiple of itself, so "6"
+      // answers "which number is a multiple of 6?" truthfully and teaches nothing. The
+      // generator draws from 2t up, and this is where that is insisted on.
+      expect(() => VERIFIERS["factors"](ask("factors", "Which number is a multiple of 6?", ["6", "4", "5", "7"], "6")))
+        .toThrow(/multiple of itself/);
+      // Not vacuous: a genuine multiple of 6 is answered rather than thrown.
+      expect(VERIFIERS["factors"](ask("factors", "Which number is a multiple of 6?", ["18", "4", "5", "7"], "18"))).toBe("18");
+    });
   });
 
   /**
