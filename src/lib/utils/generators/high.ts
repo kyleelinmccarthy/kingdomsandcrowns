@@ -1109,6 +1109,9 @@ export function radicalOps(level: number, rng: Rng, skillId: string): Question {
     if (radicand % (d * d) === 0) underSimplified.push(`${d}√${radicand / (d * d)}`);
   }
 
+  // A different square-free radicand, for the same-coefficient distractor below.
+  const otherFree = RADICAL_SQUARE_FREE.find((f) => f !== free) ?? free + 1;
+
   const answer = free === 1 ? String(root) : `${root}√${free}`;
   const candidates = perfect
     ? [
@@ -1120,12 +1123,18 @@ export function radicalOps(level: number, rng: Rng, skillId: string): Question {
       String(root + 1),
     ]
     : [
+      // FIRST, so it is always offered: a wrong answer wearing the right coefficient.
+      // Without it a child could answer the whole skill without simplifying anything — at
+      // level 0 the only square factor is 4, so every answer reads `2√something`, and the
+      // other three choices were an integer, a bare root, and a different coefficient.
+      // Picking the one that starts with 2 scored 100%. Same shape as the halves question
+      // that was answerable by "it must be under 1": a question a child can pass by looking.
+      `${root}√${otherFree}`,
       `√${radicand}`,             // left un-simplified
       ...underSimplified,         // the wrong square factor pulled out
       `${square}√${free}`,        // the factor pulled out without taking its root
       String(root),               // the whole root read off as an integer
       `${root + 1}√${free}`,
-      `${root}√${free + 1}`,
     ];
 
   const distractors = pickDistinct(candidates, answer);

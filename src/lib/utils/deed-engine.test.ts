@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { buildDeedRun, chooseSkills, gradeAnswer, toClientQuestion, type BuildRunInput, type PoolItem } from "./deed-engine";
 import { findDeed } from "./deeds";
+import { GENERATORS, seededRng } from "./drill-generators";
+import { SKILLS } from "./skills";
 import { GRADES } from "./grade-levels";
 import { skillsFor } from "./skills";
 import type { Question } from "./drill-generators";
@@ -301,5 +303,31 @@ describe("a skill whose question lives in its choices still fills a deed", () =>
       const texts = built.questions.map((q) => `${q.prompt}|${[...q.choices].sort().join(",")}`);
       expect(new Set(texts).size, "repeated a question").toBe(texts.length);
     }
+  });
+});
+
+describe("which skills count their choices as part of the question", () => {
+  /**
+   * `questionText` decides this by asking whether the prompt contains a digit — a heuristic,
+   * and heuristics need a list of what they are supposed to match. Exactly three skills ask a
+   * sentence with no number in it and put the question in the four choices. If a fourth ever
+   * appears, or one of these three gains a number, this fails and someone looks at it rather
+   * than finding out from a child getting a one-question deed.
+   */
+  it("is exactly the skills whose prompt never changes", () => {
+    const constantPrompt: string[] = [];
+    for (const skill of SKILLS) {
+      if (skill.source.kind !== "generator") continue;
+      const genId = (skill.source as { generatorId: string }).generatorId;
+      const prompts = new Set<string>();
+      for (let seed = 1; seed <= 40; seed++) {
+        const rng = seededRng(seed);
+        for (const level of [0, 1, 2, 3, 4]) {
+          for (let i = 0; i < 6; i++) prompts.add(GENERATORS[genId](level, rng, skill.id).prompt);
+        }
+      }
+      if (prompts.size === 1) constantPrompt.push(skill.id);
+    }
+    expect(constantPrompt.sort()).toEqual(["compare-num", "compare-num-100", "fractions-compare"]);
   });
 });

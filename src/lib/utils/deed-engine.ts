@@ -100,16 +100,28 @@ function drawPool(items: PoolItem[], level: number, count: number, rng: Rng): Qu
  * Including the sorted choices costs nothing for an ordinary generator, whose id is derived
  * from its prompt, so the id check has already caught a genuine repeat before this runs.
  */
+/**
+ * The skills whose prompt never changes, so the four choices ARE the question.
+ *
+ * Named outright rather than sniffed from the text. This was briefly decided by "does the
+ * prompt contain a digit", which is true of these three and looks like a clean rule — but
+ * `unit-circle` also asks some questions with no digit in them ("What is cos(pi)?") while its
+ * prompts DO vary, so it was silently swept in. A test pins this set against the generators
+ * whose prompt is genuinely constant, so a fourth one cannot arrive unnoticed.
+ */
+const CHOICES_ARE_THE_QUESTION = new Set(["compare-num", "compare-num-100", "fractions-compare"]);
+
 function questionText(q: Question): string {
-  // The choices are part of the identity ONLY for those two, and they are recognised by the
-  // thing that makes them special: a prompt with no number in it. Folding the choices in
-  // everywhere looked harmless — an ordinary generator's id already encodes its prompt, so
-  // the id check catches a repeated draw first — but it is not, because the REVIEW question
-  // is compared by this text and not by id. A missed question replayed from an earlier run
-  // carries that day's distractors; the same prompt drawn fresh today carries new ones, so
-  // the two texts differed and the deed asked the same question twice, once as review and
-  // once as fresh. That is the exact duplicate `excludePrompts` was added to prevent.
-  return /\d/.test(q.prompt) ? q.prompt : `${q.prompt}|${[...q.choices].sort().join(",")}`;
+  // Folding the choices in everywhere looked harmless — an ordinary generator's id already
+  // encodes its prompt, so the id check catches a repeated draw first — but it is not,
+  // because the REVIEW question is compared by this text and not by id. A missed question
+  // replayed from an earlier run carries that day's distractors; the same prompt drawn fresh
+  // today carries new ones, so the two texts differed and the deed asked the same question
+  // twice, once as review and once as fresh. That is the exact duplicate this was added to
+  // prevent, so the choices count only where the prompt genuinely says nothing.
+  return CHOICES_ARE_THE_QUESTION.has(q.skillId)
+    ? `${q.prompt}|${[...q.choices].sort().join(",")}`
+    : q.prompt;
 }
 
 /**

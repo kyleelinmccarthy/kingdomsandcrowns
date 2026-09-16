@@ -1729,3 +1729,27 @@ describe("every grade 12 level offers something no earlier level can ask", () =>
     }
   });
 });
+
+describe("radical-ops cannot be answered by looking at the coefficient", () => {
+  /**
+   * Found by reading the `/dev/content` page rather than by any test: at level 0 the only
+   * square factor is 4, so every answer reads `2√something`, and the other three choices were
+   * an integer, a bare root, and a different coefficient. A child who always picked the
+   * option starting with 2 scored 100% without simplifying anything — ten of ten sampled
+   * questions confirmed it.
+   *
+   * The same shape as the number-line question that was answerable by "the answer must be
+   * under 1". A question a child can pass by looking is not a question.
+   */
+  it.each([0, 1, 2, 3, 4])("level %i always offers a wrong answer with the answer's coefficient", (lvl) => {
+    for (const q of draws(radicalOps, lvl, "radical-ops")) {
+      const answer = /^(\d+)√/.exec(q.answer);
+      if (!answer) continue; // a perfect square answers as a bare integer; nothing to match
+      const sameCoefficient = q.choices.filter((c) => c !== q.answer && c.startsWith(`${answer[1]}√`));
+      expect(
+        sameCoefficient.length,
+        `${q.prompt} → ${q.answer}; choices ${q.choices.join(", ")} — the answer is the only one starting ${answer[1]}√`
+      ).toBeGreaterThan(0);
+    }
+  });
+});
