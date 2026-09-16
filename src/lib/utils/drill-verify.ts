@@ -93,18 +93,38 @@ const oneStepEq: Verifier = (q) => {
 
 /**
  * "What number comes after 7?" / "What number comes before 12?" / "What number comes
- * between 12 and 14?"
+ * between 12 and 14?" / "What is 1 more than 7?" / "Count on: 5, 6, 7, __"
  *
  * Derived by walking a literal counting sequence one position, not by computing n ± 1:
  * "comes after" IS the next entry when you count, and a generator that had decided
- * "after" meant two steps on would disagree with this walk.
+ * "after" meant two steps on would disagree with this walk. The three forward phrasings
+ * all walk that same sequence, so a generator that answered one of them differently from
+ * the others is caught here rather than shipping as a fourth answer to the same fact.
  *
  * "Between" walks the same sequence and then checks the far end of the prompt against it:
  * a prompt naming two numbers that are not two apart has nothing between them, and is a
  * defect rather than a question, so it throws instead of answering the near neighbour.
+ *
+ * A run is checked the same way from the other end: the three numbers it prints must be
+ * three consecutive entries of the sequence, or the run is not a count and throws.
  */
 const countSeq: Verifier = (q) => {
   const counting = Array.from({ length: 101 }, (_, i) => i);
+  const step = (value: number, by: number): string => {
+    const at = counting.indexOf(value);
+    if (at < 0 || at + by < 0 || at + by >= counting.length) throw new Error(`off the number line: ${q.prompt}`);
+    return String(counting[at + by]);
+  };
+  const run = /^Count on: (\d+), (\d+), (\d+), __$/.exec(q.prompt);
+  if (run) {
+    const [first, second, third] = run.slice(1).map(Number);
+    if (step(first, 1) !== String(second) || step(second, 1) !== String(third)) {
+      throw new Error(`${first}, ${second}, ${third} is not a count: ${q.prompt}`);
+    }
+    return step(third, 1);
+  }
+  const more = /^What is 1 more than (\d+)\?$/.exec(q.prompt);
+  if (more) return step(Number(more[1]), 1);
   const between = /^What number comes between (\d+) and (\d+)\?$/.exec(q.prompt);
   if (between) {
     const from = counting.indexOf(Number(between[1]));

@@ -39,8 +39,29 @@ describe("count-seq", () => {
   });
 
   it("counts forward only until level 3, because counting forward is learned first", () => {
+    // Three forward phrasings share these rungs — "after n", "1 more than n" and a run to
+    // count on from — so the rule is that nothing counts BACK, not that every prompt says
+    // "after". Each one is named here by hand, so adding a fourth phrasing has to be a
+    // deliberate edit in two places rather than something this check waves through.
+    const forward = [
+      /^What number comes after (\d+)\?$/,
+      /^What is 1 more than (\d+)\?$/,
+      /^Count on: (\d+), (\d+), (\d+), __$/,
+    ];
     for (const lvl of [0, 1, 2]) {
-      for (const q of draws(countSeq, lvl, "count-seq")) expect(q.prompt).toContain("after");
+      for (const q of draws(countSeq, lvl, "count-seq")) {
+        expect(forward.some((shape) => shape.test(q.prompt)), `level ${lvl} asked: ${q.prompt}`).toBe(true);
+        // Whatever the wording, the answer is one step FORWARD from the last number shown.
+        const named = [...q.prompt.matchAll(/(\d+)/g)].map((m) => Number(m[1]));
+        expect(Number(q.answer), q.prompt).toBe(named[named.length - 1] + 1);
+      }
+    }
+    // Every phrasing the rung allows is really reachable, or the list above is decoration
+    // and one of them could have quietly stopped being drawn.
+    for (const lvl of [0, 1, 2]) {
+      for (const shape of forward) {
+        expect(draws(countSeq, lvl, "count-seq").some((q) => shape.test(q.prompt)), `level ${lvl} never asked ${shape}`).toBe(true);
+      }
     }
     // And counting back is genuinely reachable once it is allowed, or the rule above is
     // indistinguishable from a generator that never counts back at all.
@@ -72,7 +93,17 @@ describe("count-seq", () => {
   });
 
   it("speaks the question it shows", () => {
-    for (const q of draws(countSeq, 4, "count-seq")) expect(q.readAloud).toBe(q.prompt);
+    for (const q of draws(countSeq, 4, "count-seq")) {
+      // A run prints a blank, which is the one thing a screen reader cannot say, so it is
+      // the one phrasing whose spoken form differs — and it still has to say the same
+      // numbers in the same order, and ask for the next one in words.
+      if (q.prompt.startsWith("Count on:")) {
+        const shown = [...q.prompt.matchAll(/(\d+)/g)].map((m) => m[1]);
+        expect(q.readAloud, q.prompt).toBe(`Count on. ${shown.join(", ")}. What number comes next?`);
+      } else {
+        expect(q.readAloud).toBe(q.prompt);
+      }
+    }
   });
 });
 
@@ -179,7 +210,22 @@ describe("skip-count", () => {
         expect([b - a, c - b], q.prompt).toEqual([step, step]);
         // Runs start on a multiple of the step, the way skip counting is taught.
         expect(a % step, q.prompt).toBe(0);
+        // Written out by hand, as every range in this file is: a run starts on one of the
+        // first TWENTY multiples of its step, which is what takes level 0 — twos and
+        // nothing else — from ten questions in existence to twenty.
+        expect(a / step, q.prompt).toBeGreaterThanOrEqual(1);
+        expect(a / step, q.prompt).toBeLessThanOrEqual(20);
       }
+    }
+  });
+
+  it("really does start runs past the tenth multiple, or level 0 is still ten questions", () => {
+    for (const lvl of LEVELS) {
+      const far = draws(skipCount, lvl, "skip-count").filter((q) => {
+        const [step, a] = /^Count by (\d+)s: (\d+),/.exec(q.prompt)!.slice(1).map(Number);
+        return a / step > 10;
+      });
+      expect(far.length, `level ${lvl} never starts a run past the tenth multiple`).toBeGreaterThan(0);
     }
   });
 
@@ -263,7 +309,7 @@ describe("money-coins", () => {
     // one name before counting kinds — otherwise the singular reads as a fifth coin.
     const kindOf = (word: string) =>
       word.startsWith("quarter") ? "quarter" : word.startsWith("dime") ? "dime" : word.startsWith("nickel") ? "nickel" : "penny";
-    const ladder = [["dime"], ["dime", "penny"], ["dime", "penny"], ["dime", "penny", "nickel"], ["dime", "penny", "nickel", "quarter"]];
+    const ladder = [["dime", "nickel"], ["dime", "penny"], ["dime", "penny"], ["dime", "penny", "nickel"], ["dime", "penny", "nickel", "quarter"]];
     for (const lvl of LEVELS) {
       const used = new Set<string>();
       for (const q of draws(moneyCoins, lvl, "money-coins")) {
@@ -276,12 +322,25 @@ describe("money-coins", () => {
   });
 
   /**
+   * Level 0 may draw a dime handful OR a nickel handful — twenty handfuls in existence
+   * instead of nine, against a quest that asks eight — but never both coins at once. The
+   * ladder check above counts kinds across every draw and so cannot tell those two apart:
+   * without this, mixing dimes and nickels into one first-rung handful would pass it.
+   */
+  it("gives the first rung one kind of coin at a time", () => {
+    for (const q of draws(moneyCoins, 0, "money-coins")) {
+      const named = [...q.prompt.matchAll(/\d+ (quarters?|dimes?|nickels?|penny|pennies)/g)];
+      expect(named.length, q.prompt).toBe(1);
+    }
+  });
+
+  /**
    * Levels 1 and 2 both hold two coin kinds — dimes and pennies are worth two rungs, and a
    * third kind at level 2 would leave nothing for level 3 — so the handful size is what
    * separates them. Without it the two rungs were the same 81 handfuls.
    */
   it("keeps each handful inside the level's count, and opens it up at level 2", () => {
-    const maxCount = [9, 5, 9, 9, 9];
+    const maxCount = [10, 5, 9, 9, 9];
     for (const lvl of LEVELS) {
       let biggest = 0;
       for (const q of draws(moneyCoins, lvl, "money-coins")) {

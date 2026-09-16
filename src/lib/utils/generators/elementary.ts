@@ -42,22 +42,36 @@ const COUNT_MAX = [10, 12, 15, 20, 20];
 /**
  * Which phrasings each level may ask.
  *
- * Counting forward is learned first, so levels 0-2 only ever ask what comes *after*, and
- * counting back joins at level 3. Level 4 is where "between" arrives, and it is there
- * because the ceiling has nowhere left to go: levels 3 and 4 both count to 20 — twenty is
- * this grade's number line, and a rung that reached past it would be teaching grade 1 — so
- * with only the two directions in play level 4 asked the same 38 questions level 3 did.
+ * Counting forward is learned first, so levels 0-2 only ever count FORWARD; counting back
+ * joins at level 3. Level 4 is where "between" arrives, and it is there because the ceiling
+ * has nowhere left to go: levels 3 and 4 both count to 20 — twenty is this grade's number
+ * line, and a rung that reached past it would be teaching grade 1 — so with only the two
+ * directions in play level 4 asked the same 38 questions level 3 did.
  *
  * "What number comes between 12 and 14?" is number order rather than a bigger number: a
  * child has to hold two neighbours at once instead of stepping off one, which is a real
  * step up inside K, and it opens 19 questions no earlier rung can reach.
+ *
+ * **Three forward phrasings, not one, and that is the whole reason level 0 can fill a quest
+ * with room to spare.** "After" alone on a line that stops at ten is nine questions in
+ * existence, and a quest asks eight: a kindergartener's first quest was the rung, and the
+ * next one was the same nine shuffled. The line cannot be lengthened — counting to ten
+ * before twenty is the right first rung, and it is what the ceiling above says — so the
+ * honest axis left is the PHRASING. `Count on: 4, 5, 6, __` is K.CC.2 word for word
+ * (counting forward from a given number) and `What is 1 more than 6?` is the same step
+ * named the way an adult names it; both are one step forward on the same short line, and
+ * neither asks a child to know a number they did not already need for "after".
+ *
+ * They do overlap in the FACT underneath — all three at n = 6 are answered by 7 — so this
+ * widens what a child sees rather than what they have to know. That is the trade this rung
+ * has: a wider pool of the same easy step, in place of a longer line.
  */
-const COUNT_SHAPES: readonly (readonly ("after" | "before" | "between")[])[] = [
-  ["after"],
-  ["after"],
-  ["after"],
-  ["after", "before"],
-  ["after", "before", "between"],
+const COUNT_SHAPES: readonly (readonly ("after" | "more" | "run" | "before" | "between")[])[] = [
+  ["after", "more", "run"],
+  ["after", "more", "run"],
+  ["after", "more", "run"],
+  ["after", "more", "run", "before"],
+  ["after", "more", "run", "before", "between"],
 ];
 
 /**
@@ -70,12 +84,19 @@ export function countSeq(level: number, rng: Rng, skillId: string): Question {
   const shape = shapes[randInt(rng, 0, shapes.length - 1)];
   // n stays in [1, max - 1] so every neighbour named lands inside the range a child is
   // counting in — which is what makes "between n - 1 and n + 1" safe at either end too.
-  const n = randInt(rng, 1, max - 1);
-  const answer = shape === "before" ? n - 1 : shape === "after" ? n + 1 : n;
+  // A run shows the two numbers BEFORE n as well, so it starts far enough along the line
+  // for both of them to be on it.
+  const n = randInt(rng, shape === "run" ? 3 : 1, max - 1);
+  const answer = shape === "before" ? n - 1 : shape === "between" ? n : n + 1;
   const prompt =
-    shape === "between"
-      ? `What number comes between ${n - 1} and ${n + 1}?`
+    shape === "between" ? `What number comes between ${n - 1} and ${n + 1}?`
+      : shape === "more" ? `What is 1 more than ${n}?`
+      : shape === "run" ? `Count on: ${n - 2}, ${n - 1}, ${n}, __`
       : `What number comes ${shape} ${n}?`;
+  // Every phrasing but the run is written without a symbol, so it is spoken as written. The
+  // run's blank is the one thing a screen reader cannot say, so the spoken form asks for it
+  // in words instead — the same numbers, in the same order.
+  const spoken = shape === "run" ? `Count on. ${n - 2}, ${n - 1}, ${n}. What number comes next?` : prompt;
   return makeQuestion(
     skillId,
     `${shape}-${n}`,
@@ -83,7 +104,7 @@ export function countSeq(level: number, rng: Rng, skillId: string): Question {
     String(answer),
     numericDistractors(answer, rng, 0),
     rng,
-    prompt, // no symbols in it, so the spoken form is the written one
+    spoken,
   );
 }
 
@@ -187,7 +208,14 @@ export function skipCount(level: number, rng: Rng, skillId: string): Question {
   const steps = SKIP_STEPS[L(level)];
   const step = steps[randInt(rng, 0, steps.length - 1)];
   // Runs begin on a multiple of the step, the way a child is taught to skip count.
-  const start = step * randInt(rng, 1, 10);
+  //
+  // Twenty multiples, not ten. Level 0 counts by twos and nothing else — that is the ladder
+  // above, and giving it a second step would leave level 1 nothing to introduce — so the
+  // only thing that can widen it is WHERE the run starts, and ten starts was ten questions
+  // in existence against a quest of eight. Twenty is the same counting: `38, 40, 42, __` is
+  // the same "add two" as `4, 6, 8, __`, and 2.NBT.2 has a grade-2 child skip counting to
+  // 1000, so even the top rung's `200, 210, 220, __` is well inside the grade.
+  const start = step * randInt(rng, 1, 20);
   const shown = [start, start + step, start + 2 * step];
   const answer = start + 3 * step;
   return makeQuestion(
@@ -282,8 +310,23 @@ const COINS = [
   { one: "quarter", many: "quarters", value: 25 },
 ];
 
-/** How many kinds of coin are in the handful per level. */
+/** How many kinds of coin are in the handful per level. Level 0 uses `COIN_SINGLES` instead. */
 const COIN_KINDS = [1, 2, 2, 3, 4];
+
+/**
+ * Level 0 holds ONE kind of coin, and these are the kinds it may be — dimes or nickels.
+ *
+ * One kind and one count of it is nine handfuls in existence, and a quest asks eight: a
+ * grade-2 child's first money quest was nine tenths of the rung. Nothing about a second
+ * SINGLE-kind coin is harder — counting seven nickels is counting by fives, which is
+ * `skip-count`'s own level 1 and a grade below this one — so the rung offers both and
+ * doubles without touching the handful's size.
+ *
+ * Pennies are still not here, for the reason the ladder gives above: a pennies-only handful
+ * makes the "counted the coins instead of their value" distractor equal the answer, and that
+ * distractor is the one this skill exists to punish.
+ */
+const COIN_SINGLES = [0, 2]; // indices into COINS: dime, nickel
 
 /**
  * How many of each kind may be in the handful, per level — the second axis, and the reason
@@ -294,8 +337,13 @@ const COIN_KINDS = [1, 2, 2, 3, 4];
  * second kind with small handfuls — one new thing at a time — and level 2 keeps the two
  * kinds and opens the handful up to nine, which is more counting and more regrouping on the
  * same coins.
+ *
+ * Level 0 runs to TEN, one further than any rung above it, and that is not a rung out of
+ * order: a handful of one kind is the easiest counting on this ladder whatever its size, and
+ * ten of a kind is where a child meets a dollar for the first time. It is what takes the
+ * first rung to twenty handfuls with `COIN_SINGLES` rather than to eighteen.
  */
-const COIN_MAX_COUNT = [9, 5, 9, 9, 9];
+const COIN_MAX_COUNT = [10, 5, 9, 9, 9];
 
 /** "32¢" under a dollar, "$1.15" at or above one. */
 function money(cents: number): string {
@@ -311,7 +359,9 @@ const coinPhrase = (count: number, coin: (typeof COINS)[number]) => `${count} ${
  */
 export function moneyCoins(level: number, rng: Rng, skillId: string): Question {
   const lvl = L(level);
-  const kinds = COINS.slice(0, COIN_KINDS[lvl]);
+  const kinds = lvl === 0
+    ? [COINS[COIN_SINGLES[randInt(rng, 0, COIN_SINGLES.length - 1)]]]
+    : COINS.slice(0, COIN_KINDS[lvl]);
   const counts = kinds.map(() => randInt(rng, 1, COIN_MAX_COUNT[lvl]));
   const total = kinds.reduce((sum, coin, i) => sum + coin.value * counts[i], 0);
   const coinCount = counts.reduce((a, b) => a + b, 0);

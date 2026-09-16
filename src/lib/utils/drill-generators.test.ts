@@ -78,7 +78,13 @@ describe("arithmetic generators", () => {
     ["add", "add-100", (a, b, lvl) => expect(a + b).toBeLessThanOrEqual([20, 40, 60, 80, 100][lvl])],
     ["sub", "sub-10", (a, b, lvl) => { expect(a).toBeLessThanOrEqual([5, 6, 8, 9, 10][lvl]); expect(a - b).toBeGreaterThanOrEqual(0); }],
     ["sub", "sub-20", (a, b, lvl) => { expect(a).toBeLessThanOrEqual([10, 12, 15, 18, 20][lvl]); expect(a - b).toBeGreaterThanOrEqual(0); }],
-    ["mul", "mul-facts", (a, b, lvl) => { expect(Math.max(a, b)).toBeLessThanOrEqual([2, 4, 6, 9, 12][lvl]); }],
+    // Two ceilings, not one: the TABLE the fact comes from climbs with the level, and the
+    // other factor runs to ten from the start. Written out by hand here, as every ceiling in
+    // this file is, so widening `mul` has to be a deliberate edit in two places.
+    ["mul", "mul-facts", (a, b, lvl) => {
+      expect(Math.min(a, b)).toBeLessThanOrEqual([2, 4, 6, 9, 12][lvl]);
+      expect(Math.max(a, b)).toBeLessThanOrEqual([10, 10, 12, 12, 12][lvl]);
+    }],
     ["div", "div-facts", (a, b, lvl) => { expect(b).toBeLessThanOrEqual([2, 4, 6, 9, 12][lvl]); expect(a % b).toBe(0); }],
     ["integer-ops", "integer-ops", (a, b, lvl) => { expect(Math.abs(a)).toBeLessThanOrEqual([10, 20, 30, 40, 50][lvl]); expect(Math.abs(b)).toBeLessThanOrEqual([10, 20, 30, 40, 50][lvl]); }],
   ];

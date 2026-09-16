@@ -138,6 +138,27 @@ const L = (level: number) => Math.min(4, Math.max(0, Math.floor(level)));
 const ADD_MAX: Record<string, number[]> = { "add-10": [5, 6, 8, 9, 10], "add-20": [10, 12, 15, 18, 20], "add-100": [20, 40, 60, 80, 100] };
 const SUB_MAX: Record<string, number[]> = { "sub-10": [5, 6, 8, 9, 10], "sub-20": [10, 12, 15, 18, 20], "sub-100": [20, 40, 60, 80, 100] };
 const FACT_MAX = [2, 4, 6, 9, 12];
+
+/**
+ * Which multiplication facts each level may ask, as two ceilings: one factor is drawn from
+ * `[0, MUL_TABLE_MAX]` and the other from `[0, MUL_OTHER_MAX]`, either way round.
+ *
+ * This used to be `FACT_MAX` on BOTH factors, which made level 0 the square `[0, 2] × [0, 2]`
+ * — nine facts in existence, and a side quest asks eight. A grade-3 child's first quest was
+ * very nearly the whole rung and the second was the same nine shuffled.
+ *
+ * A square ceiling is the wrong shape for this skill anyway. What makes a fact easy at this
+ * age is not how small BOTH numbers are, it is which TABLE it comes from: the zeroes, ones
+ * and twos are the first a child learns, and `2 × 9` is doubling nine — grade-2 work — not
+ * harder multiplication than `2 × 2`. So the rungs climb by the table and the other factor
+ * runs to ten from the start, which is fifty-seven facts at level 0 instead of nine without
+ * asking a single thing a child on rung 0 has not been taught.
+ *
+ * `div` keeps `FACT_MAX` above: there the ceiling is on the DIVISOR alone, which is already
+ * the same "which table" ladder, and its quotient has always run to 12.
+ */
+const MUL_TABLE_MAX = [2, 4, 6, 9, 12];
+const MUL_OTHER_MAX = [10, 10, 12, 12, 12];
 const INT_MAX = [10, 20, 30, 40, 50];
 const PLACE_DIGITS = [2, 3, 4, 5, 6];
 const PLACES = ["ones", "tens", "hundreds", "thousands", "ten-thousands", "hundred-thousands"];
@@ -158,9 +179,12 @@ const sub: Generator = (level, rng, skillId) => {
 };
 
 const mul: Generator = (level, rng, skillId) => {
-  const max = FACT_MAX[L(level)];
-  const a = randInt(rng, 0, max);
-  const b = randInt(rng, 0, max);
+  const lvl = L(level);
+  // Either way round, so "9 × 2" and "2 × 9" are both in play: a child reads them as two
+  // questions, and turning the fact around is itself part of knowing it.
+  const table = randInt(rng, 0, MUL_TABLE_MAX[lvl]);
+  const other = randInt(rng, 0, MUL_OTHER_MAX[lvl]);
+  const [a, b] = rng() < 0.5 ? [table, other] : [other, table];
   return makeQuestion(skillId, `${a}x${b}`, `What is ${a} × ${b}?`, String(a * b), numericDistractors(a * b, rng, 0), rng, `What is ${a} times ${b}?`);
 };
 
