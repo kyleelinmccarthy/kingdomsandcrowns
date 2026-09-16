@@ -155,6 +155,23 @@ describe("every generated question is independently verifiable", () => {
       // Not vacuous: a genuine multiple of 6 is answered rather than thrown.
       expect(VERIFIERS["factors"](ask("factors", "Which number is a multiple of 6?", ["18", "4", "5", "7"], "18"))).toBe("18");
     });
+
+    it("time-clock refuses an hour hand that is ON its number past the hour", () => {
+      // At 2:35 the hour hand is five sixths of the way from 2 to 3 — nearer the 3 than the 2
+      // — so "the hour hand is on 2" describes a clock face that does not exist, and a child
+      // taught to read that face says 3:35 when they meet a real one. The arithmetic was
+      // right the whole time this was printed, which is why only a person reading the
+      // question ever caught it. The wording is now the verifier's business.
+      expect(() => VERIFIERS["time-clock"](ask("time-clock", "The hour hand is on 2 and the minute hand is on 7. What time is it?", ["2:35", "2:10", "3:35", "7:10"], "2:35")))
+        .toThrow(/not "on" 2 at 35 minutes past/);
+      // And the other way: at an o'clock the hand really is on its number, so "just past" is
+      // just as false. Neither wording is trusted; both are checked against the minutes.
+      expect(() => VERIFIERS["time-clock"](ask("time-clock", "The hour hand is just past 2 and the minute hand is on 12. What time is it?", ["2:00", "2:10", "3:00", "12:10"], "2:00")))
+        .toThrow(/not "just past" 2 at 0 minutes past/);
+      // Not vacuous: both wordings are answered rather than thrown when they are true.
+      expect(VERIFIERS["time-clock"](ask("time-clock", "The hour hand is just past 2 and the minute hand is on 7. What time is it?", ["2:35", "2:10", "3:35", "7:10"], "2:35"))).toBe("2:35");
+      expect(VERIFIERS["time-clock"](ask("time-clock", "The hour hand is on 2 and the minute hand is on 12. What time is it?", ["2:00", "2:10", "3:00", "12:10"], "2:00"))).toBe("2:00");
+    });
   });
 
   /**

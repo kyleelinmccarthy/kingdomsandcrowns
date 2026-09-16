@@ -202,22 +202,34 @@ const skipCount: Verifier = (q) => {
 };
 
 /**
- * "The hour hand is on 4 and the minute hand is on 6. What time is it?"
+ * "The hour hand is on 4 and the minute hand is on 12. What time is it?" /
+ * "The hour hand is just past 4 and the minute hand is on 6. What time is it?"
  *
  * A genuine inverse: the generator divides the minutes by five to place the hand, and
  * this multiplies the hand back up. A generator that had read the hand as the minutes
  * themselves disagrees here.
+ *
+ * **The hour hand's WORDING is checked against the minutes rather than trusted**, the same
+ * way percent-change checks "rises" against the two prices. An hour hand is only ON its
+ * number at the hour itself; one minute later it has left, and by half past it is halfway to
+ * the next number. A prompt that said "on 2" for 2:35 would be teaching a dial that does not
+ * exist, and the hour is still read from the prompt either way, so the wording moving cannot
+ * quietly take the answer with it.
  */
 const timeClock: Verifier = (q) => {
-  const m = /^The hour hand is on (\d+) and the minute hand is on (\d+)\. What time is it\?$/.exec(q.prompt);
+  const m = /^The hour hand is (on|just past) (\d+) and the minute hand is on (\d+)\. What time is it\?$/.exec(q.prompt);
   if (!m) throw new Error(`clock verifier cannot parse: ${q.prompt}`);
-  const hour = Number(m[1]), hand = Number(m[2]);
+  const hour = Number(m[2]), hand = Number(m[3]);
   if (hour < 1 || hour > 12) throw new Error(`no such hour in: ${q.prompt}`);
   // 1-12, like the dial. This previously accepted 0 and rejected 12 — the same mistake the
   // generator was making, which is exactly why the harness stayed silent about it. When a
   // verifier shares the generator's model of the world it stops being a second opinion.
   if (hand < 1 || hand > 12) throw new Error(`no such minute-hand position in: ${q.prompt}`);
-  return `${hour}:${pad2((hand % 12) * 5)}`;
+  const minutes = (hand % 12) * 5;
+  if ((minutes === 0) !== (m[1] === "on")) {
+    throw new Error(`the hour hand is not "${m[1]}" ${hour} at ${minutes} minutes past in: ${q.prompt}`);
+  }
+  return `${hour}:${pad2(minutes)}`;
 };
 
 const COIN_VALUES: Record<string, number> = {

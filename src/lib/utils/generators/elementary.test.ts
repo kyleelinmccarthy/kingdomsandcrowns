@@ -245,7 +245,7 @@ describe("time-clock", () => {
     const grain = [60, 30, 15, 10, 5];
     for (const lvl of LEVELS) {
       for (const q of draws(timeClock, lvl, "time-clock")) {
-        const hands = /on (\d+) and the minute hand is on (\d+)\./.exec(q.prompt)!;
+        const hands = /(?:on|just past) (\d+) and the minute hand is on (\d+)\./.exec(q.prompt)!;
         const [hour, minutes] = q.answer.split(":").map(Number);
         expect(Number(hands[1]), q.prompt).toBe(hour);
         // The hand points at 12 for o'clock, so it wraps rather than multiplying straight out.
@@ -296,6 +296,35 @@ describe("time-clock", () => {
   it("writes every time as a two-digit minute, so 4:05 is never 4:5", () => {
     for (const q of draws(timeClock, 4, "time-clock")) {
       for (const c of q.choices) expect(c, q.prompt).toMatch(/^([1-9]|1[0-2]):[0-5]\d$/);
+    }
+  });
+
+  /**
+   * **The sentence has to be true of a real clock face.** "The hour hand is on 2 and the
+   * minute hand is on 7" was printed for 2:35 — but at 2:35 the hour hand is five sixths of
+   * the way from 2 to 3, so the number it is NEAREST is 3. The arithmetic was right on all
+   * 300 draws and the sentence was wrong on every one of them that was not an o'clock, and
+   * the sentence is what a child carries to a real clock: taught to read that face as "on 2",
+   * they look at 2:35, see the hand by the 3, and say 3:35.
+   *
+   * On the hour and only on the hour is the hand ON its number, and both readings have to be
+   * reachable or one of them is untested wording.
+   */
+  it("says the hour hand is ON the hour only at the hour, and just past it otherwise", () => {
+    for (const lvl of LEVELS) {
+      let onTheHour = 0, past = 0;
+      for (const q of draws(timeClock, lvl, "time-clock")) {
+        const minutes = Number(q.answer.split(":")[1]);
+        const said = /^The hour hand is (on|just past) \d+ /.exec(q.prompt);
+        expect(said, `time-clock wrote a face a child cannot read: ${q.prompt}`).not.toBeNull();
+        expect(said![1] === "on", `${q.prompt} is not true at ${q.answer}`).toBe(minutes === 0);
+        if (said![1] === "on") onTheHour += 1; else past += 1;
+        // Whatever it says about the hour hand, it still says it out loud.
+        expect(q.readAloud, q.prompt).toBe(q.prompt);
+      }
+      if (lvl === 0) expect(past, "level 0 is o'clock only").toBe(0);
+      else expect(past, `level ${lvl} never draws a time past the hour`).toBeGreaterThan(0);
+      if (lvl <= 1) expect(onTheHour, `level ${lvl} never draws an o'clock`).toBeGreaterThan(0);
     }
   });
 });

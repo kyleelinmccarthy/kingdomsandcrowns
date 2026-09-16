@@ -285,7 +285,14 @@ export function timeClock(level: number, rng: Rng, skillId: string): Question {
   }
   if (choices.length !== 4) throw new Error(`could not draw four distinct times at level ${level}`);
   const answer = choices[0];
-  const prompt = `The hour hand is on ${hour} and the minute hand is on ${minuteHand}. What time is it?`;
+  // "The hour hand is ON 2" is only true at 2 o'clock. At 2:35 the hour hand is five sixths
+  // of the way from 2 to 3 — the hand a child sees is nearer the 3 — and a child taught to
+  // read it as "on 2" will look at a real clock at 2:35 and say 3:35, because the number the
+  // hand is nearest IS 3. The arithmetic here was always right and the sentence was not, and
+  // a sentence that is not true is what a child learns from. Past the hour the hand is "just
+  // past" the number it has left, which is what the dial actually shows.
+  const where = minute === 0 ? `on ${hour}` : `just past ${hour}`;
+  const prompt = `The hour hand is ${where} and the minute hand is on ${minuteHand}. What time is it?`;
   return {
     id: `${skillId}:${hour}:${minute}`,
     skillId,
