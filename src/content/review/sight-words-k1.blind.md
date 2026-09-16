@@ -30,8 +30,8 @@ Which word is "a"?
 - C. at
 - D. an
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -44,8 +44,8 @@ Which word is "I"?
 - C. in
 - D. it
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -58,8 +58,8 @@ Which word is "the"?
 - C. then
 - D. this
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -72,8 +72,8 @@ Which word is "and"?
 - C. any
 - D. add
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -86,8 +86,8 @@ Which word is "to"?
 - C. go
 - D. top
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -100,8 +100,8 @@ Which word is "in"?
 - C. is
 - D. it
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -114,8 +114,8 @@ Which word is "is"?
 - C. is
 - D. in
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -128,8 +128,8 @@ Which word is "you"?
 - C. yet
 - D. your
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -142,8 +142,8 @@ Which word is "he"?
 - C. we
 - D. he
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -156,8 +156,8 @@ Which word is "was"?
 - C. was
 - D. want
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -170,8 +170,8 @@ Which word is "my"?
 - C. by
 - D. may
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -184,8 +184,8 @@ Which word is "for"?
 - C. for
 - D. from
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -198,8 +198,8 @@ Which word is "are"?
 - C. our
 - D. are
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -212,8 +212,8 @@ Which word is "but"?
 - C. but
 - D. put
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -226,8 +226,8 @@ Which word is "this"?
 - C. that
 - D. with
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -240,8 +240,8 @@ Which word is "out"?
 - C. about
 - D. our
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -254,8 +254,8 @@ Which word is "be"?
 - C. me
 - D. be
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -268,8 +268,8 @@ Which word is "on"?
 - C. one
 - D. an
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -282,8 +282,8 @@ Which word is "we"?
 - C. be
 - D. we
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -296,8 +296,8 @@ Which word is "it"?
 - C. is
 - D. it
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -310,8 +310,8 @@ Which word is "have"?
 - C. gave
 - D. had
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -324,8 +324,8 @@ Which word is "am"?
 - C. am
 - D. arm
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -338,8 +338,8 @@ Which word is "do"?
 - C. do
 - D. did
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -352,8 +352,8 @@ Which word is "did"?
 - C. does
 - D. had
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -366,8 +366,8 @@ Which word is "so"?
 - C. see
 - D. sun
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -380,8 +380,8 @@ Which word is "get"?
 - C. got
 - D. yet
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -394,8 +394,8 @@ Which word is "like"?
 - C. life
 - D. look
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -408,8 +408,8 @@ Which word is "him"?
 - C. his
 - D. him
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -422,8 +422,8 @@ Which word is "her"?
 - C. her
 - D. here
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -436,8 +436,8 @@ Which word is "into"?
 - C. unto
 - D. onto
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -450,8 +450,8 @@ Which word is "over"?
 - C. over
 - D. ever
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -464,8 +464,8 @@ Which word is "take"?
 - C. take
 - D. talk
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -478,8 +478,8 @@ Which word is "know"?
 - C. knew
 - D. now
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -492,8 +492,8 @@ Which word is "ask"?
 - C. act
 - D. asks
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -506,8 +506,8 @@ Which word is "had"?
 - C. had
 - D. has
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -520,8 +520,8 @@ Which word is "has"?
 - C. had
 - D. his
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -534,8 +534,8 @@ Which word is "his"?
 - C. him
 - D. his
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -548,8 +548,8 @@ Which word is "how"?
 - C. now
 - D. who
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -562,8 +562,8 @@ Which word is "just"?
 - C. must
 - D. just
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -576,8 +576,8 @@ Which word is "let"?
 - C. get
 - D. lit
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -590,8 +590,8 @@ Which word is "look"?
 - C. look
 - D. book
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -604,8 +604,8 @@ Which word is "there"?
 - C. their
 - D. there
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -618,8 +618,8 @@ Which word is "what"?
 - C. when
 - D. what
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -632,8 +632,8 @@ Which word is "of"?
 - C. off
 - D. of
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -646,8 +646,8 @@ Which word is "said"?
 - C. said
 - D. side
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -660,8 +660,8 @@ Which word is "from"?
 - C. front
 - D. from
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -674,8 +674,8 @@ Which word is "give"?
 - C. gift
 - D. live
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -688,8 +688,8 @@ Which word is "may"?
 - C. day
 - D. way
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -702,8 +702,8 @@ Which word is "old"?
 - C. cold
 - D. hold
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -716,8 +716,8 @@ Which word is "open"?
 - C. even
 - D. oven
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -730,8 +730,8 @@ Which word is "put"?
 - C. but
 - D. pet
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -744,8 +744,8 @@ Which word is "some"?
 - C. home
 - D. same
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -758,8 +758,8 @@ Which word is "stop"?
 - C. step
 - D. shop
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -772,8 +772,8 @@ Which word is "then"?
 - C. them
 - D. then
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -786,8 +786,8 @@ Which word is "think"?
 - C. think
 - D. thick
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -800,8 +800,8 @@ Which word is "walk"?
 - C. talk
 - D. wall
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -814,8 +814,8 @@ Which word is "were"?
 - C. wear
 - D. there
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -828,8 +828,8 @@ Which word is "when"?
 - C. when
 - D. then
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -842,8 +842,8 @@ Which word is "could"?
 - C. cloud
 - D. should
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -856,8 +856,8 @@ Which word is "every"?
 - C. very
 - D. ever
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -870,8 +870,8 @@ Which word is "going"?
 - C. going
 - D. gone
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -884,8 +884,8 @@ Which word is "once"?
 - C. ounce
 - D. orange
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -898,8 +898,8 @@ Which word is "live"?
 - C. love
 - D. live
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -912,8 +912,8 @@ Which word is "round"?
 - C. round
 - D. ground
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -926,5 +926,5 @@ Which word is "thank"?
 - C. that
 - D. thank
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none

@@ -30,8 +30,8 @@ What is the basic unit of structure and function in all living things?
 - C. The cell
 - D. The atom
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -44,8 +44,8 @@ What type of cell has a nucleus enclosed in a membrane?
 - C. A prokaryotic cell
 - D. A viral cell
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -58,8 +58,8 @@ What type of cell does NOT have a nucleus enclosed in a membrane?
 - C. A prokaryotic cell
 - D. A eukaryotic cell
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -72,8 +72,8 @@ What part of the cell controls its activities and contains DNA?
 - C. The mitochondria
 - D. The nucleus
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -86,8 +86,8 @@ What part of the cell is often called the 'powerhouse' because it produces energ
 - C. The cell wall
 - D. The ribosome
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -100,8 +100,8 @@ What structure surrounds and protects a cell, controlling what enters and exits?
 - C. The nucleus
 - D. The chloroplast
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -114,8 +114,8 @@ What rigid structure surrounds plant cells but is not found in animal cells?
 - C. The cell membrane
 - D. The mitochondria
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -128,8 +128,8 @@ What green structures in plant cells capture sunlight for photosynthesis?
 - C. Chloroplasts
 - D. Vacuoles
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -142,8 +142,8 @@ What do we call a group of similar cells working together?
 - C. Tissue
 - D. An organism
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -156,8 +156,8 @@ What is photosynthesis?
 - C. The process plants use to make food from sunlight, water, and carbon dioxide
 - D. The process animals use to digest food
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -170,8 +170,8 @@ What gas do plants take in for photosynthesis?
 - C. Nitrogen
 - D. Carbon dioxide
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -184,8 +184,8 @@ What gas do plants release as a result of photosynthesis?
 - C. Helium
 - D. Carbon dioxide
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -198,8 +198,8 @@ What substance do plants produce during photosynthesis to store energy?
 - C. Glucose (sugar)
 - D. Protein only
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -212,8 +212,8 @@ What do plants need to absorb sunlight for photosynthesis?
 - C. Bark
 - D. Nitrogen
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -226,8 +226,8 @@ Where in the plant cell does photosynthesis take place?
 - C. In the cell wall
 - D. In the mitochondria
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -240,8 +240,8 @@ What do plant roots absorb from soil that is needed for photosynthesis?
 - C. Carbon dioxide
 - D. Sunlight
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -254,8 +254,8 @@ Why is photosynthesis important for most life on Earth?
 - C. It produces the carbon dioxide animals need
 - D. It makes rain fall from clouds
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -268,8 +268,8 @@ What are the large pieces of Earth's crust called that move slowly over time?
 - C. Continents only
 - D. Ocean currents
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -282,8 +282,8 @@ What is it called when two tectonic plates push against each other?
 - C. A convergent boundary
 - D. A transform boundary
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -296,8 +296,8 @@ What is it called when two tectonic plates pull apart from each other?
 - C. A fault line only
 - D. A convergent boundary
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -310,8 +310,8 @@ What is it called when two tectonic plates slide past each other?
 - C. A subduction zone
 - D. A transform boundary
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -324,8 +324,8 @@ What often forms when tectonic plates collide and push land upward?
 - C. Oceans
 - D. Rivers
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -338,8 +338,8 @@ What natural event is often caused by tectonic plates suddenly shifting?
 - C. A hurricane
 - D. A flood
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -352,8 +352,8 @@ What can form at plate boundaries where magma rises to the surface?
 - C. A canyon
 - D. A coral reef
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -366,8 +366,8 @@ What layer of the Earth do tectonic plates float on top of?
 - C. The crust
 - D. The core
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -380,8 +380,8 @@ Which theory says Earth's continents were once joined and have slowly drifted ap
 - C. The water cycle
 - D. Continental drift
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -394,8 +394,8 @@ What is a push or pull on an object called?
 - C. A force
 - D. Velocity
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -408,8 +408,8 @@ What force pulls objects toward the center of the Earth?
 - C. Momentum
 - D. Gravity
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -422,8 +422,8 @@ What force acts between two surfaces to slow or stop motion?
 - C. Friction
 - D. Inertia
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -436,8 +436,8 @@ What is Newton's first law of motion also called?
 - C. The law of gravity
 - D. The law of inertia
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -450,8 +450,8 @@ According to Newton's first law, what happens to an object at rest unless a forc
 - C. It speeds up on its own
 - D. It stays at rest
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -464,8 +464,8 @@ What does Newton's second law of motion relate force to?
 - C. An object's mass and acceleration
 - D. An object's age
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -478,8 +478,8 @@ According to Newton's third law, for every action there is what?
 - C. A doubled reaction
 - D. An equal and opposite reaction
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -492,8 +492,8 @@ What do we call the measure of how much matter is in an object?
 - C. Weight only
 - D. Density
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -506,8 +506,8 @@ What do we call the speed of an object in a certain direction?
 - C. Mass
 - D. Force
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -520,8 +520,8 @@ What do we call the smallest unit of an element that still has its properties?
 - C. A molecule
 - D. A compound
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -534,8 +534,8 @@ What is a substance made of only one type of atom called?
 - C. A mixture
 - D. A solution
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -548,8 +548,8 @@ What is a substance made of two or more elements chemically combined called?
 - C. An atom
 - D. A mixture
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -562,8 +562,8 @@ What chart organizes all known chemical elements by their properties?
 - C. The food chain chart
 - D. The water cycle chart
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -576,8 +576,8 @@ What tiny negatively charged particle orbits the nucleus of an atom?
 - C. An electron
 - D. A molecule
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -590,8 +590,8 @@ A nucleus sits at the center of every atom. Which particle in it has a positive 
 - C. An ion
 - D. A proton
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -604,8 +604,8 @@ What particle with no electric charge is found in the nucleus of an atom?
 - C. An isotope
 - D. A neutron
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -618,8 +618,8 @@ What is the chemical symbol for oxygen?
 - C. O2
 - D. Ox
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -632,8 +632,8 @@ What is the chemical symbol for gold?
 - C. Au
 - D. Go
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -646,5 +646,5 @@ Water is made of hydrogen and oxygen. What is its chemical formula?
 - C. H2
 - D. H2O
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none

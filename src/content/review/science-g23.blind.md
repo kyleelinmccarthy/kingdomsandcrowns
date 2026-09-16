@@ -30,8 +30,8 @@ What is the correct order of a butterfly's life cycle?
 - C. Egg, butterfly, caterpillar, chrysalis
 - D. Egg, caterpillar, chrysalis, butterfly
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -44,8 +44,8 @@ What is a young frog called before it grows legs?
 - C. A tadpole
 - D. A larva beetle
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -58,8 +58,8 @@ What is the correct order of a frog's life cycle?
 - C. Egg, tadpole, froglet, frog
 - D. Froglet, tadpole, egg, frog
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -72,8 +72,8 @@ What is the first stage of a plant's life cycle?
 - C. A root
 - D. A seed
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -86,8 +86,8 @@ What is the correct order of a plant's life cycle?
 - C. Adult plant, seed, flower, sprout
 - D. Seed, sprout, adult plant, flower
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -100,8 +100,8 @@ Which animals hatch from eggs?
 - C. Cats
 - D. Dogs
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -114,8 +114,8 @@ Some animals change shape as they grow. A caterpillar turns into a butterfly. Wh
 - C. Pollination
 - D. Migration
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -128,8 +128,8 @@ What is a habitat?
 - C. A kind of weather
 - D. A type of food animals eat
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -142,8 +142,8 @@ Which habitat is very dry with little rain?
 - C. A rainforest
 - D. A wetland
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -156,8 +156,8 @@ Which habitat is made of salt water?
 - C. A forest
 - D. A desert
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -170,8 +170,8 @@ Which habitat has many trees?
 - C. A forest
 - D. A desert
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -184,8 +184,8 @@ Which habitat is extremely cold with ice and snow?
 - C. The desert
 - D. A rainforest
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -198,8 +198,8 @@ A fox has thick fur for cold winters. It is adapted to its habitat. What does ad
 - C. It has features that help it survive there
 - D. It cannot move from place to place
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -212,8 +212,8 @@ How are camels adapted to live in the desert?
 - C. They can store fat and go a long time without water
 - D. They fly to find water
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -226,8 +226,8 @@ How is a polar bear adapted to its cold habitat?
 - C. Feathers keep it warm
 - D. Gills let it breathe underwater
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -240,8 +240,8 @@ Which state of matter has a shape that does not change on its own?
 - C. Solid
 - D. Liquid
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -254,8 +254,8 @@ Which state of matter takes the shape of its container?
 - C. Liquid
 - D. Gas
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: D
 
 ---
 
@@ -268,8 +268,8 @@ Which state of matter spreads out to fill any space?
 - C. Solid
 - D. Liquid
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -282,8 +282,8 @@ What happens to ice when it melts?
 - C. It disappears completely
 - D. It changes from a solid to a liquid
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -296,8 +296,8 @@ What happens to water when it freezes?
 - C. It turns into steam
 - D. It changes from a gas to a liquid
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -310,8 +310,8 @@ What happens to water when it boils?
 - C. It changes from a solid to a liquid
 - D. It turns into ice
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -324,8 +324,8 @@ Which of these is a solid?
 - C. Air
 - D. Juice
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -338,8 +338,8 @@ Which of these is a gas?
 - C. A rock
 - D. Air
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -352,8 +352,8 @@ Which simple machine is a bar that turns on a fixed point?
 - C. A wheel and axle
 - D. A screw
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -366,8 +366,8 @@ Which simple machine helps things roll and move easily?
 - C. A wheel and axle
 - D. A wedge
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -380,8 +380,8 @@ Which simple machine uses a wheel and rope to lift things?
 - C. A screw
 - D. A lever
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -394,8 +394,8 @@ A ramp is a flat, slanted surface. Which simple machine is a ramp?
 - C. An inclined plane
 - D. A screw
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -408,8 +408,8 @@ An axe splits wood apart. Which simple machine works like an axe?
 - C. A lever
 - D. A pulley
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -422,8 +422,8 @@ Which simple machine is a spiral ramp wrapped around a pole?
 - C. A lever
 - D. A screw
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -436,8 +436,8 @@ Kids ride a seesaw up and down. Which simple machine is a seesaw?
 - C. A lever
 - D. A pulley
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -450,8 +450,8 @@ A flagpole uses a rope over a wheel. Which simple machine is that?
 - C. A pulley
 - D. A lever
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -464,8 +464,8 @@ Why does the Moon appear to glow at night?
 - C. It is on fire
 - D. It reflects light from Earth's cities
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -478,8 +478,8 @@ What does the Moon do around Earth?
 - C. It orbits the Sun instead of Earth
 - D. It orbits, or travels around, Earth
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -492,8 +492,8 @@ What do we call the changing shapes of the Moon we see each month?
 - C. Moon seasons
 - D. Moon eclipses
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -506,8 +506,8 @@ What is it called when we can see the whole lit-up side of the Moon?
 - C. A new moon
 - D. A blue moon
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -520,8 +520,8 @@ What is it called when the Moon looks completely dark to us?
 - C. A harvest moon
 - D. A new moon
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -534,8 +534,8 @@ What covers much of the Moon's surface?
 - C. Oceans and rivers
 - D. Ice caps only
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -548,8 +548,8 @@ Does the Moon have air for people to breathe?
 - C. No one has ever studied this
 - D. No, it has almost no atmosphere
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -562,8 +562,8 @@ What do astronauts wear to survive on the Moon?
 - C. A spacesuit
 - D. Regular clothes
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -576,8 +576,8 @@ Compared to the Sun, how far is the Moon from Earth?
 - C. The Moon is farther from Earth than the Sun is
 - D. The Moon is inside Earth
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -590,8 +590,8 @@ What does the Moon's gravity help cause on Earth?
 - C. Earthquakes
 - D. Ocean tides
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -604,8 +604,8 @@ Some animals travel far when the seasons change. Birds fly south each fall. What
 - C. Metamorphosis
 - D. Migration
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -618,8 +618,8 @@ Some animals sleep all winter to save energy. What is this long sleep called?
 - C. Hibernation
 - D. Metamorphosis
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -632,8 +632,8 @@ Which state of matter has no shape of its own and no fixed volume?
 - C. Solid
 - D. Plasma
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -646,5 +646,5 @@ How do many plants spread their seeds to new places?
 - C. Seeds spread by making sounds
 - D. Seeds cannot move once they form
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none

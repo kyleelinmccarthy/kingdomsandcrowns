@@ -30,8 +30,8 @@ What do we call all the living things in one place plus their surroundings?
 - C. A food chain
 - D. An ecosystem
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -44,8 +44,8 @@ What is a food chain?
 - C. A list of foods animals dislike
 - D. The path an animal migrates each year
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -58,8 +58,8 @@ What are organisms called that make their own food using sunlight?
 - C. Decomposers
 - D. Predators
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -72,8 +72,8 @@ What are organisms called that eat other living things for energy?
 - C. Producers
 - D. Decomposers
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -86,8 +86,8 @@ What are organisms called that break down dead plants and animals?
 - C. Predators
 - D. Producers
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -100,8 +100,8 @@ What do we call an animal that hunts and eats other animals?
 - C. A pollinator
 - D. A decomposer
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -114,8 +114,8 @@ A hawk hunts and eats a mouse. What do we call the mouse?
 - C. Decomposer
 - D. Predator
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -128,8 +128,8 @@ What is a food web?
 - C. A network of connected food chains in an ecosystem
 - D. A list of endangered animals
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -142,8 +142,8 @@ What is the process called when the Sun heats water and turns it into vapor?
 - C. Collection
 - D. Condensation
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -156,8 +156,8 @@ What is it called when water vapor cools and forms clouds?
 - C. Condensation
 - D. Runoff
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -170,8 +170,8 @@ What is it called when water falls from clouds as rain, snow, or hail?
 - C. Precipitation
 - D. Transpiration
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -184,8 +184,8 @@ What is it called when rain and melted snow flow across land into rivers and lak
 - C. Precipitation
 - D. Condensation
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -198,8 +198,8 @@ What is the process called when water is released into the air from plant leaves
 - C. Precipitation
 - D. Condensation
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -212,8 +212,8 @@ What powers the water cycle by heating water on Earth's surface?
 - C. Ocean currents alone
 - D. The Moon
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -226,8 +226,8 @@ Where does most of Earth's water collect after precipitation?
 - C. Mountains only
 - D. The atmosphere only
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -240,8 +240,8 @@ Water rises into the air, forms clouds, and falls as rain. What is this called?
 - C. The rock cycle
 - D. The food cycle
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -254,8 +254,8 @@ What do we call a complete path that electricity can flow through?
 - C. A conductor
 - D. An insulator
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -268,8 +268,8 @@ What material allows electricity to flow through it easily?
 - C. A conductor, like copper
 - D. A magnet
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -282,8 +282,8 @@ What material blocks the flow of electricity?
 - C. A wire
 - D. A conductor, like copper
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -296,8 +296,8 @@ What provides the electrical energy in a simple flashlight circuit?
 - C. An insulator
 - D. A battery
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -310,8 +310,8 @@ What is used to open or close a circuit to turn a light on or off?
 - C. A conductor
 - D. A battery
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -324,8 +324,8 @@ What happens if there is a break in a circuit?
 - C. The circuit becomes a magnet
 - D. Electricity flows faster
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -338,8 +338,8 @@ What is static electricity?
 - C. Electricity that flows through wires only
 - D. Electricity made only by batteries
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -352,8 +352,8 @@ Which of these is a good conductor of electricity?
 - C. Rubber
 - D. Plastic
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -366,8 +366,8 @@ Which planet is closest to the Sun?
 - C. Earth
 - D. Mercury
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -380,8 +380,8 @@ Which planet is known as the Red Planet?
 - C. Venus
 - D. Saturn
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -394,8 +394,8 @@ Which planet is the largest in the solar system?
 - C. Neptune
 - D. Jupiter
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -408,8 +408,8 @@ Which planet has a famous system of rings easily seen from Earth?
 - C. Uranus
 - D. Mars
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -422,8 +422,8 @@ Which planet do humans live on?
 - C. Mars
 - D. Venus
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -436,8 +436,8 @@ What is at the center of our solar system?
 - C. Earth
 - D. Jupiter
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -450,8 +450,8 @@ What is the order of the first four planets from the Sun?
 - C. Mars, Earth, Venus, Mercury
 - D. Venus, Mercury, Mars, Earth
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -464,8 +464,8 @@ What do we call a large object made of ice and dust that orbits the Sun with a g
 - C. A comet
 - D. A star
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -478,8 +478,8 @@ Many rocky objects orbit the Sun between Mars and Jupiter. What are they called?
 - C. Comets
 - D. Moons
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -492,8 +492,8 @@ What are the three main types of rock?
 - C. Igneous, sedimentary, and metamorphic
 - D. Metamorphic, granite, and quartz
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -506,8 +506,8 @@ Which type of rock forms when melted rock cools and hardens?
 - C. Metamorphic rock
 - D. Sedimentary rock
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -520,8 +520,8 @@ Layers of sediment settle and are pressed together over time. Which type of rock
 - C. Sedimentary rock
 - D. Crystal rock
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -534,8 +534,8 @@ Which type of rock forms when heat and pressure change existing rock?
 - C. Sedimentary rock
 - D. Mineral rock
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -548,8 +548,8 @@ What is a mineral?
 - C. A living organism found underground
 - D. Any rock found near water
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -562,8 +562,8 @@ What is the hardest natural mineral on Earth?
 - C. Limestone
 - D. Gold
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -576,8 +576,8 @@ What tool do scientists often use to test how hard a mineral is?
 - C. A thermometer
 - D. A microscope alone
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -590,8 +590,8 @@ What is soil partly made of that comes from broken-down rock?
 - C. Only water
 - D. Minerals
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -604,8 +604,8 @@ What do we call the layer of gases surrounding Earth?
 - C. The atmosphere
 - D. The core
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -618,8 +618,8 @@ What is the main gas that plants use to make food?
 - C. Hydrogen
 - D. Nitrogen
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -632,8 +632,8 @@ What gas do plants release that animals need to breathe?
 - C. Nitrogen
 - D. Helium
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -646,5 +646,5 @@ What do we call the layer of rock that forms Earth's outer shell?
 - C. The crust
 - D. The mantle
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none

@@ -30,8 +30,8 @@ Which of these is a living thing?
 - C. A rock
 - D. A dog
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -44,8 +44,8 @@ Which of these is a living thing?
 - C. A shoe
 - D. A car
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -58,8 +58,8 @@ Which of these is non-living?
 - C. A bird
 - D. A cat
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -72,8 +72,8 @@ Which of these is non-living?
 - C. A chair
 - D. A frog
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -86,8 +86,8 @@ What do living things need to grow?
 - C. Gasoline
 - D. Food and water
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -100,8 +100,8 @@ Which of these can grow and change?
 - C. A table
 - D. A toy
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -114,8 +114,8 @@ Which body part do you use to see?
 - C. Eyes
 - D. Nose
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -128,8 +128,8 @@ Which body part do you use to hear?
 - C. Nose
 - D. Tongue
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -142,8 +142,8 @@ Which body part do you use to smell?
 - C. Eyes
 - D. Ears
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -156,8 +156,8 @@ Which body part do you use to taste?
 - C. Tongue
 - D. Hands
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -170,8 +170,8 @@ Which body part do you use to touch and feel?
 - C. Nose
 - D. Ears
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -184,8 +184,8 @@ How many senses do people have?
 - C. Two
 - D. Five
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -198,8 +198,8 @@ Which sense helps you hear music?
 - C. Taste
 - D. Smell
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -212,8 +212,8 @@ Which sense helps you know a flower smells sweet?
 - C. Sight
 - D. Hearing
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -226,8 +226,8 @@ What falls from clouds when it rains?
 - C. Leaves
 - D. Rocks
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -240,8 +240,8 @@ What do we call the soft white flakes that fall from the sky in winter?
 - C. Fog
 - D. Snow
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -254,8 +254,8 @@ What is the bright light in the sky during the day?
 - C. A cloud
 - D. The Sun
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -268,8 +268,8 @@ What season comes after winter?
 - C. Fall
 - D. Winter
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -282,8 +282,8 @@ What season is usually the hottest?
 - C. Summer
 - D. Fall
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -296,8 +296,8 @@ What do you call moving air outside?
 - C. Sunshine
 - D. Rain
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -310,8 +310,8 @@ What should you wear on a rainy day?
 - C. A raincoat
 - D. A swimsuit
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -324,8 +324,8 @@ What season do leaves usually fall from trees?
 - C. Fall
 - D. Summer
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -338,8 +338,8 @@ What do we see in the sky at night?
 - C. A cloud
 - D. The Moon
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -352,8 +352,8 @@ What lights up the sky during the day?
 - C. Stars
 - D. The Sun
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -366,8 +366,8 @@ When do most people sleep?
 - C. At noon
 - D. At night
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -380,8 +380,8 @@ What do we call the time when the sun rises?
 - C. Evening
 - D. Night
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -394,8 +394,8 @@ Why does it get dark at night?
 - C. The Earth stops spinning
 - D. The Moon covers the Sun
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -408,8 +408,8 @@ What can you see in the night sky besides the Moon?
 - C. The Sun
 - D. Stars
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -422,8 +422,8 @@ What do animals need to stay alive?
 - C. Toys
 - D. Television
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -436,8 +436,8 @@ Where do many birds build homes for their babies?
 - C. In rivers
 - D. In nests
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -450,8 +450,8 @@ What do animals need for shelter?
 - C. A safe place to live
 - D. A car
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -464,8 +464,8 @@ What do baby animals need from their parents?
 - C. Care and protection
 - D. Money
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -478,8 +478,8 @@ What does a fish need to breathe in water?
 - C. Water passing over its gills
 - D. Air only, like a person
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -492,8 +492,8 @@ What do most animals eat to get energy?
 - C. Rocks
 - D. Metal
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -506,8 +506,8 @@ Which of these is a living thing?
 - C. A bicycle
 - D. A kite
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -520,8 +520,8 @@ Which season is usually cold with snow?
 - C. Spring
 - D. Summer
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -534,8 +534,8 @@ What do plants need to grow well?
 - C. Sand and metal
 - D. Paint and glue
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -548,8 +548,8 @@ What covers a bird's body to help keep it warm?
 - C. Feathers
 - D. Scales
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -562,8 +562,8 @@ What covers a dog's body to help keep it warm?
 - C. Feathers
 - D. Scales
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -576,8 +576,8 @@ What covers a fish's body?
 - C. Shells
 - D. Feathers
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -590,8 +590,8 @@ Which sense do you use to know if music is loud or soft?
 - C. Hearing
 - D. Smell
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -604,8 +604,8 @@ What do we call water that falls from the sky as tiny drops?
 - C. Rain
 - D. Fog
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -618,8 +618,8 @@ What happens to water when it gets very cold?
 - C. It turns into rock
 - D. It disappears forever
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -632,5 +632,5 @@ What do we call the four times of year?
 - C. Seasons
 - D. Days
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none

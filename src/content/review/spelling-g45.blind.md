@@ -30,9 +30,8 @@ Which is spelled correctly?
 - C. weird
 - D. werid
 
-Answer:
-Also defensible:
-
+Answer: C
+Also defensible: none
 ---
 
 ## 2. `spell-g45-yacht` `#6eb8db` — level 0
@@ -44,9 +43,8 @@ Which is spelled correctly?
 - C. yacht
 - D. yatch
 
-Answer:
-Also defensible:
-
+Answer: C
+Also defensible: none
 ---
 
 ## 3. `spell-g45-height` `#0e723a` — level 0
@@ -58,9 +56,8 @@ Which is spelled correctly?
 - C. hight
 - D. height
 
-Answer:
-Also defensible:
-
+Answer: D
+Also defensible: none
 ---
 
 ## 4. `spell-g45-business` `#c60b44` — level 0
@@ -72,9 +69,8 @@ Which is spelled correctly?
 - C. bussiness
 - D. buisness
 
-Answer:
-Also defensible:
-
+Answer: A
+Also defensible: none
 ---
 
 ## 5. `spell-g45-license` `#43cb27` — level 0
@@ -86,9 +82,8 @@ Which is spelled correctly?
 - C. lisence
 - D. licens
 
-Answer:
-Also defensible:
-
+Answer: B
+Also defensible: none
 ---
 
 ## 6. `spell-g45-separate` `#32b71b` — level 1
@@ -100,9 +95,8 @@ Which is spelled correctly?
 - C. seperate
 - D. seprate
 
-Answer:
-Also defensible:
-
+Answer: B
+Also defensible: none
 ---
 
 ## 7. `spell-g45-receive` `#6f2601` — level 1
@@ -114,9 +108,8 @@ Which is spelled correctly?
 - C. receeve
 - D. receve
 
-Answer:
-Also defensible:
-
+Answer: A
+Also defensible: none
 ---
 
 ## 8. `spell-g45-believe` `#0d54a6` — level 1
@@ -128,9 +121,8 @@ Which is spelled correctly?
 - C. beleve
 - D. beleive
 
-Answer:
-Also defensible:
-
+Answer: A
+Also defensible: none
 ---
 
 ## 9. `spell-g45-decision` `#8720d4` — level 1
@@ -142,9 +134,8 @@ Which is spelled correctly?
 - C. desicion
 - D. decison
 
-Answer:
-Also defensible:
-
+Answer: A
+Also defensible: none
 ---
 
 ## 10. `spell-g45-familiar` `#c59b8e` — level 1
@@ -156,9 +147,8 @@ Which is spelled correctly?
 - C. famillar
 - D. familiar
 
-Answer:
-Also defensible:
-
+Answer: D
+Also defensible: none
 ---
 
 ## 11. `spell-g45-library` `#bef5ba` — level 1
@@ -170,9 +160,8 @@ Which is spelled correctly?
 - C. libary
 - D. library
 
-Answer:
-Also defensible:
-
+Answer: D
+Also defensible: none
 ---
 
 ## 12. `spell-g45-medicine` `#ad4865` — level 1
@@ -184,9 +173,8 @@ Which is spelled correctly?
 - C. medicin
 - D. medicine
 
-Answer:
-Also defensible:
-
+Answer: D
+Also defensible: none
 ---
 
 ## 13. `spell-g45-neighbor` `#9bbd23` — level 1
@@ -198,9 +186,8 @@ Which is spelled correctly?
 - C. neghbor
 - D. nieghbor
 
-Answer:
-Also defensible:
-
+Answer: B
+Also defensible: none
 ---
 
 ## 14. `spell-g45-opposite` `#29c9f3` — level 1
@@ -212,9 +199,8 @@ Which is spelled correctly?
 - C. opposite
 - D. oppisite
 
-Answer:
-Also defensible:
-
+Answer: C
+Also defensible: none
 ---
 
 ## 15. `spell-g45-calendar` `#991e69` — level 1
@@ -226,9 +212,8 @@ Which is spelled correctly?
 - C. calendar
 - D. calendear
 
-Answer:
-Also defensible:
-
+Answer: C
+Also defensible: A
 ---
 
 ## 16. `spell-g45-necessary` `#0a37bd` — level 2
@@ -240,9 +225,8 @@ Which is spelled correctly?
 - C. necessary
 - D. necesary
 
-Answer:
-Also defensible:
-
+Answer: C
+Also defensible: none
 ---
 
 ## 17. `spell-g45-government` `#2ed216` — level 2
@@ -254,9 +238,8 @@ Which is spelled correctly?
 - C. governement
 - D. governmant
 
-Answer:
-Also defensible:
-
+Answer: B
+Also defensible: none
 ---
 
 ## 18. `spell-g45-exercise` `#30b1c4` — level 2
@@ -268,9 +251,8 @@ Which is spelled correctly?
 - C. exersize
 - D. exercise
 
-Answer:
-Also defensible:
-
+Answer: D
+Also defensible: none
 ---
 
 ## 19. `spell-g45-knowledge` `#6c5519` — level 2
@@ -282,9 +264,8 @@ Which is spelled correctly?
 - C. knowledge
 - D. knollege
 
-Answer:
-Also defensible:
-
+Answer: C
+Also defensible: none
 ---
 
 ## 20. `spell-g45-language` `#aa6c53` — level 2
@@ -296,9 +277,8 @@ Which is spelled correctly?
 - C. languege
 - D. langugae
 
-Answer:
-Also defensible:
-
+Answer: B
+Also defensible: none
 ---
 
 ## 21. `spell-g45-occasion` `#096ac0` — level 2
@@ -310,9 +290,8 @@ Which is spelled correctly?
 - C. ocasion
 - D. occasion
 
-Answer:
-Also defensible:
-
+Answer: D
+Also defensible: none
 ---
 
 ## 22. `spell-g45-particular` `#4c1e72` — level 2
@@ -324,9 +303,8 @@ Which is spelled correctly?
 - C. particular
 - D. perticular
 
-Answer:
-Also defensible:
-
+Answer: C
+Also defensible: none
 ---
 
 ## 23. `spell-g45-possession` `#45503e` — level 2
@@ -338,9 +316,8 @@ Which is spelled correctly?
 - C. posession
 - D. posssession
 
-Answer:
-Also defensible:
-
+Answer: A
+Also defensible: none
 ---
 
 ## 24. `spell-g45-recommend` `#8f7d16` — level 2
@@ -352,9 +329,8 @@ Which is spelled correctly?
 - C. recommand
 - D. recommend
 
-Answer:
-Also defensible:
-
+Answer: D
+Also defensible: none
 ---
 
 ## 25. `spell-g45-rhythm` `#f15b58` — level 2
@@ -366,9 +342,8 @@ Which is spelled correctly?
 - C. rhythm
 - D. rhythem
 
-Answer:
-Also defensible:
-
+Answer: C
+Also defensible: none
 ---
 
 ## 26. `spell-g45-scissors` `#7482da` — level 2
@@ -380,9 +355,8 @@ Which is spelled correctly?
 - C. scissors
 - D. scissers
 
-Answer:
-Also defensible:
-
+Answer: C
+Also defensible: none
 ---
 
 ## 27. `spell-g45-temperature` `#c158cf` — level 2
@@ -394,9 +368,8 @@ Which is spelled correctly?
 - C. tempature
 - D. temperature
 
-Answer:
-Also defensible:
-
+Answer: D
+Also defensible: none
 ---
 
 ## 28. `spell-g45-vegetable` `#e0467d` — level 2
@@ -408,9 +381,8 @@ Which is spelled correctly?
 - C. vegetible
 - D. vegatable
 
-Answer:
-Also defensible:
-
+Answer: A
+Also defensible: none
 ---
 
 ## 29. `spell-g45-achieve` `#f9f27a` — level 2
@@ -422,9 +394,8 @@ Which is spelled correctly?
 - C. achive
 - D. achieve
 
-Answer:
-Also defensible:
-
+Answer: D
+Also defensible: none
 ---
 
 ## 30. `spell-g45-existence` `#56c267` — level 2
@@ -436,9 +407,8 @@ Which is spelled correctly?
 - C. existense
 - D. existence
 
-Answer:
-Also defensible:
-
+Answer: D
+Also defensible: none
 ---
 
 ## 31. `spell-g45-foreign` `#987b7d` — level 2
@@ -450,9 +420,8 @@ Which is spelled correctly?
 - C. foreign
 - D. foreighn
 
-Answer:
-Also defensible:
-
+Answer: C
+Also defensible: none
 ---
 
 ## 32. `spell-g45-definitely` `#504c46` — level 3
@@ -464,9 +433,8 @@ Which is spelled correctly?
 - C. definitely
 - D. defenitely
 
-Answer:
-Also defensible:
-
+Answer: C
+Also defensible: none
 ---
 
 ## 33. `spell-g45-environment` `#cbd34e` — level 3
@@ -478,9 +446,8 @@ Which is spelled correctly?
 - C. enviornment
 - D. enviroment
 
-Answer:
-Also defensible:
-
+Answer: A
+Also defensible: none
 ---
 
 ## 34. `spell-g45-immediately` `#5c757e` — level 3
@@ -492,9 +459,8 @@ Which is spelled correctly?
 - C. imediately
 - D. immeadiately
 
-Answer:
-Also defensible:
-
+Answer: B
+Also defensible: none
 ---
 
 ## 35. `spell-g45-interrupt` `#09176c` — level 3
@@ -506,9 +472,8 @@ Which is spelled correctly?
 - C. interupt
 - D. interrupt
 
-Answer:
-Also defensible:
-
+Answer: D
+Also defensible: none
 ---
 
 ## 36. `spell-g45-conscience` `#8d1d2b` — level 3
@@ -520,9 +485,8 @@ Which is spelled correctly?
 - C. conscence
 - D. consciense
 
-Answer:
-Also defensible:
-
+Answer: A
+Also defensible: none
 ---
 
 ## 37. `spell-g45-embarrass` `#67408b` — level 3
@@ -534,9 +498,8 @@ Which is spelled correctly?
 - C. embarrass
 - D. emberrass
 
-Answer:
-Also defensible:
-
+Answer: C
+Also defensible: none
 ---
 
 ## 38. `spell-g45-guarantee` `#05cb09` — level 3
@@ -548,9 +511,8 @@ Which is spelled correctly?
 - C. garantee
 - D. guarantee
 
-Answer:
-Also defensible:
-
+Answer: D
+Also defensible: none
 ---
 
 ## 39. `spell-g45-harass` `#19d7fe` — level 3
@@ -562,9 +524,8 @@ Which is spelled correctly?
 - C. haras
 - D. harress
 
-Answer:
-Also defensible:
-
+Answer: B
+Also defensible: none
 ---
 
 ## 40. `spell-g45-humorous` `#c081f4` — level 3
@@ -576,9 +537,8 @@ Which is spelled correctly?
 - C. humourus
 - D. humerous
 
-Answer:
-Also defensible:
-
+Answer: B
+Also defensible: none
 ---
 
 ## 41. `spell-g45-character` `#52e0de` — level 3
@@ -590,9 +550,8 @@ Which is spelled correctly?
 - C. charecter
 - D. charactor
 
-Answer:
-Also defensible:
-
+Answer: A
+Also defensible: none
 ---
 
 ## 42. `spell-g45-cemetery` `#22f4c4` — level 4
@@ -604,9 +563,8 @@ Which is spelled correctly?
 - C. cemetery
 - D. cemetary
 
-Answer:
-Also defensible:
-
+Answer: C
+Also defensible: none
 ---
 
 ## 43. `spell-g45-independent` `#0372d3` — level 4
@@ -618,9 +576,8 @@ Which is spelled correctly?
 - C. indipendent
 - D. independant
 
-Answer:
-Also defensible:
-
+Answer: B
+Also defensible: none
 ---
 
 ## 44. `spell-g45-disappear` `#8b572c` — level 4
@@ -632,9 +589,8 @@ Which is spelled correctly?
 - C. disappear
 - D. dissapear
 
-Answer:
-Also defensible:
-
+Answer: C
+Also defensible: none
 ---
 
 ## 45. `spell-g45-especially` `#ae025e` — level 4
@@ -646,9 +602,8 @@ Which is spelled correctly?
 - C. expecially
 - D. especialy
 
-Answer:
-Also defensible:
-
+Answer: A
+Also defensible: none
 ---
 
 ## 46. `spell-g45-grammar` `#052055` — level 4
@@ -660,5 +615,5 @@ Which is spelled correctly?
 - C. grammear
 - D. gramar
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none

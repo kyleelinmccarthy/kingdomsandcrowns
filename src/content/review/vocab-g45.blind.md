@@ -30,8 +30,8 @@ Which word means "to make something bigger"?
 - C. mumble
 - D. expand
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -44,8 +44,8 @@ Which word means "very old, from long ago"?
 - C. fragile
 - D. curious
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -58,8 +58,8 @@ Which word means "to watch something carefully"?
 - C. plunge
 - D. yield
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -72,8 +72,8 @@ Which word means "to say what will happen before it does"?
 - C. absorb
 - D. collide
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -86,8 +86,8 @@ Which word means "easily broken"?
 - C. furious
 - D. fragile
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -100,8 +100,8 @@ Which word means "willing to give and share"?
 - C. generous
 - D. hollow
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -114,8 +114,8 @@ Which word means "to pause because you are unsure"?
 - C. hesitate
 - D. locate
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -128,8 +128,8 @@ Which word means "to copy how someone else acts"?
 - C. vanish
 - D. permit
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -142,8 +142,8 @@ Which word means "very fast"?
 - C. rapid
 - D. scarce
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -156,8 +156,8 @@ Which word means "short in time or length"?
 - C. gigantic
 - D. enormous
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -170,8 +170,8 @@ Which word means "extremely large"?
 - C. reluctant
 - D. drowsy
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -184,8 +184,8 @@ Which word means "careful to avoid danger"?
 - C. delighted
 - D. vanish
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -198,8 +198,8 @@ Which word means "eager to learn or know something"?
 - C. obstacle
 - D. curious
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -212,8 +212,8 @@ Which word means "very pleased and happy"?
 - C. delighted
 - D. furious
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -226,8 +226,8 @@ Which word means "extremely tired"?
 - C. curious
 - D. generous
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -240,8 +240,8 @@ Which word means "extremely angry"?
 - C. cautious
 - D. drowsy
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -254,8 +254,8 @@ Which word means "huge in size"?
 - C. brief
 - D. isolate
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -268,8 +268,8 @@ Which word means "a very quick look at something"?
 - C. obstacle
 - D. journey
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -282,8 +282,8 @@ Which word means "having empty space inside"?
 - C. generous
 - D. hollow
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -296,8 +296,8 @@ Which word means "to keep something separate from others"?
 - C. assist
 - D. blend
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -310,8 +310,8 @@ Which word means "a long trip from one place to another"?
 - C. journey
 - D. obstacle
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -324,8 +324,8 @@ Which word means "to find the exact place of something"?
 - C. wander
 - D. mumble
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -338,8 +338,8 @@ Which word means "very large and heavy"?
 - C. weary
 - D. curious
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -352,8 +352,8 @@ Which word means "to speak quietly and unclearly"?
 - C. mumble
 - D. assist
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -366,8 +366,8 @@ Which word means "worried or afraid about what might happen"?
 - C. sturdy
 - D. vast
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -380,8 +380,8 @@ Which word means "something that blocks your way"?
 - C. obstacle
 - D. journey
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -394,8 +394,8 @@ Which word means "to allow something to happen"?
 - C. vanish
 - D. isolate
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -408,8 +408,8 @@ Which word means "to jump or fall suddenly into something"?
 - C. absorb
 - D. observe
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -422,8 +422,8 @@ Which word means "not willing to do something"?
 - C. generous
 - D. reluctant
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -436,8 +436,8 @@ Which word means "to save someone from danger"?
 - C. locate
 - D. rescue
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -450,8 +450,8 @@ Which word means "hard to find because there is very little"?
 - C. rapid
 - D. gigantic
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -464,8 +464,8 @@ Which word means "strongly built and not easily damaged"?
 - C. sturdy
 - D. hollow
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -478,8 +478,8 @@ Which word means "the highest point of a mountain"?
 - C. glimpse
 - D. journey
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -492,8 +492,8 @@ Which word means "to shake because of fear or cold"?
 - C. blend
 - D. tremble
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -506,8 +506,8 @@ Which word means "to disappear suddenly"?
 - C. cautious
 - D. vanish
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -520,8 +520,8 @@ Which word means "extremely large in area"?
 - C. drowsy
 - D. brief
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -534,8 +534,8 @@ Which word means "very tired"?
 - C. furious
 - D. curious
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -548,8 +548,8 @@ Which word means "to walk around without a clear direction"?
 - C. collide
 - D. wander
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -562,8 +562,8 @@ Which word means "to give way or produce a result"?
 - C. journey
 - D. isolate
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -576,8 +576,8 @@ Which word means "to soak up a liquid"?
 - C. predict
 - D. absorb
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -590,8 +590,8 @@ Which word means "to help someone do something"?
 - C. vanish
 - D. assist
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -604,8 +604,8 @@ Which word means "to mix things together smoothly"?
 - C. isolate
 - D. blend
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -618,8 +618,8 @@ Which word means "to crash into something"?
 - C. collide
 - D. absorb
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -632,5 +632,5 @@ Which word means "sleepy and wanting to rest"?
 - C. enormous
 - D. cautious
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
