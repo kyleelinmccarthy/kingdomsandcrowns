@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
-import { SKILLS, skillsFor, findSkill, skillForPool, AREA_SCHOOL, AREA_LABELS, BAND_GRADES, type SkillArea } from "./skills";
+import { SKILLS, skillsFor, findSkill, skillForPool, AREA_SCHOOL, AREA_LABELS, type SkillArea } from "./skills";
 import { GENERATORS } from "./drill-generators";
-import { GRADES, bandForGrade, type Grade } from "./grade-levels";
+import { GRADES } from "./grade-levels";
 
 describe("SKILLS", () => {
   it("has unique ids and resolvable sources", () => {
@@ -22,7 +22,7 @@ describe("SKILLS", () => {
   });
   it("finds skills by area and grade, and pools by id", () => {
     expect(skillsFor("math", "3").map((s) => s.id).sort())
-      .toEqual(["add-100", "add-20", "area-perimeter", "frac-unit", "round-nearest", "sub-20"]);
+      .toEqual(["area-perimeter", "div-facts", "frac-unit", "mul-facts", "round-nearest"]);
     expect(skillsFor("language", "K")).toEqual([]);
     expect(findSkill("mul-facts")?.label).toBe("Multiplication facts");
     expect(findSkill("nope")).toBeNull();
@@ -30,50 +30,7 @@ describe("SKILLS", () => {
   });
 });
 
-describe("no skill's grade set is a partial band", () => {
-  /**
-   * NOT an equivalence proof, despite how it reads. Both sides of the comparison below
-   * read `s.grades`, so a skill moved wholesale from one band to another passes here —
-   * the oracle moves with it. What this DOES pin is that no skill's grade set is a
-   * partial band: any edit that splits a band (giving a skill grades 6 and 7 but not 8,
-   * or lending it one grade from the band next door) shows up here immediately.
-   *
-   * Equivalence with the old band behaviour is pinned by the inline snapshot below,
-   * which was captured against the pre-refactor code and committed in `e546924` before
-   * a line of `skills.ts` changed. If that snapshot ever fails, do not reach for `-u`:
-   * this test passing alongside it means nothing about whether content moved.
-   */
-  /**
-   * Math is excluded, and this is the task that excluded it. From grade K and grade 1
-   * onwards the math table is keyed to single grades, so the band oracle below is no
-   * longer true of math — and an oracle asserting something false is worse than no
-   * oracle. The three areas that must NOT move during the math work keep it. Task 13
-   * deletes this block along with the last band reference.
-   */
-  const BAND_AREAS: SkillArea[] = ["reading", "language", "science"];
-
-  it.each(BAND_AREAS.flatMap((area) => GRADES.map((g) => [area, g] as [SkillArea, Grade])))(
-    "%s at grade %s is served by whole bands, not part of one",
-    (area, grade) => {
-      const expected = SKILLS.filter(
-        (s) => s.area === area && s.grades.some((sg) => bandForGrade(sg) === bandForGrade(grade))
-      );
-      // Not a subset check: the exact set, so a skill gained or lost is caught.
-      expect(skillsFor(area, grade).map((s) => s.id).sort()).toEqual(expected.map((s) => s.id).sort());
-    }
-  );
-
-  it("expands each band to exactly the grades bandForGrade assigns it", () => {
-    // Every band, not just the ones BAND_GRADES happens to list: iterating the literal
-    // alone would quietly pass if a band were dropped from it entirely.
-    expect(Object.keys(BAND_GRADES).sort()).toEqual(["g23", "g45", "g68", "g912", "k1"]);
-    for (const [band, grades] of Object.entries(BAND_GRADES)) {
-      expect(GRADES.filter((g) => bandForGrade(g) === band)).toEqual([...grades]);
-    }
-    // And between them the bands cover the whole ladder, so no grade is left unreachable.
-    expect(Object.values(BAND_GRADES).flatMap((g) => [...g]).sort()).toEqual([...GRADES].sort());
-  });
-
+describe("the subjects that must not move while math is rewritten", () => {
   /**
    * Math is deliberately excluded. Every grade's math is rewritten over the next nine tasks, so a
    * snapshot covering it would be updated nine times and would stop being evidence of anything.
@@ -197,5 +154,66 @@ describe("no skill's grade set is a partial band", () => {
         },
       }
     `);
+  });
+});
+
+/**
+ * The skill map is the curriculum's source of truth, and it is a document a parent can edit.
+ * This reads it directly so the table cannot drift from it — if someone moves a skill to a
+ * different grade in the map and not in the code, this fails and names the skill.
+ */
+function mapRows(): { grade: string; skillId: string }[] {
+  const md = fs.readFileSync(path.join(process.cwd(), "docs/content/math-skill-map.md"), "utf8");
+  const rows: { grade: string; skillId: string }[] = [];
+  let grade: string | null = null;
+  for (const line of md.split("\n")) {
+    if (!line.startsWith("|")) continue;
+    const cells = line.split("|").map((c) => c.trim());
+    // A grade cell looks like "**K**" or "**9** *(Algebra I)*"; a continuation row leaves it empty.
+    const g = /\*\*([K0-9]+)\*\*/.exec(cells[1] ?? "");
+    if (g) grade = g[1];
+    const id = /^`([a-z0-9-]+)`$/.exec(cells[2] ?? "");
+    if (id && grade) rows.push({ grade, skillId: id[1] });
+  }
+  return rows;
+}
+
+describe("the math skill table follows the skill map", () => {
+  it("finds every row in the map, so the comparison below is not vacuous", () => {
+    expect(mapRows().length).toBe(64);
+  });
+
+  it("serves exactly the map's skills at every grade", () => {
+    const expected = new Map<string, string[]>();
+    for (const { grade, skillId } of mapRows()) {
+      expected.set(grade, [...(expected.get(grade) ?? []), skillId].sort());
+    }
+    for (const grade of GRADES) {
+      expect(skillsFor("math", grade).map((s) => s.id).sort(), `grade ${grade}`)
+        .toEqual(expected.get(grade) ?? []);
+    }
+  });
+});
+
+describe("the invariants the map comparison cannot state", () => {
+  it("gives every grade its own math, so no child falls back for math", () => {
+    for (const grade of GRADES) expect(skillsFor("math", grade).length, `grade ${grade}`).toBeGreaterThanOrEqual(3);
+  });
+
+  it("keeps every skill id that has ever existed", () => {
+    // The ids that existed before this plan. Losing one silently orphans mastery rows.
+    const before = ["add-10", "sub-10", "add-20", "sub-20", "add-100", "mul-facts", "div-facts",
+      "place-value", "fractions-compare", "integer-ops", "percent-of", "one-step-eq"];
+    for (const id of before) expect(findSkill(id), `skill ${id} was removed`).not.toBeNull();
+  });
+
+  it("offers each math skill at exactly one grade", () => {
+    const spread = SKILLS.filter((s) => s.area === "math" && s.grades.length > 1);
+    expect(spread.map((s) => s.id), "a math skill spanning grades means the map was not applied").toEqual([]);
+  });
+
+  it("retires fractions-compare rather than deleting it, so its mastery rows still resolve", () => {
+    expect(findSkill("fractions-compare")?.grades).toEqual([]);
+    for (const grade of GRADES) expect(skillsFor("math", grade).map((s) => s.id)).not.toContain("fractions-compare");
   });
 });

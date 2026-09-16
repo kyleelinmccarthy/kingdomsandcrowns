@@ -32,6 +32,12 @@ describe("every generated question is independently verifiable", () => {
     expect(Object.keys(VERIFIERS).sort()).toEqual(Object.keys(GENERATORS).sort());
   });
 
+  /**
+   * A retired skill (`fractions-compare`, served at no grade) keeps its row and so keeps its
+   * generator reachable here: this counts skill ROWS, not grades, which is what makes the check
+   * about dead code rather than about the curriculum. A generator reaching zero rows really is
+   * unreferenced, so this stays un-narrowed.
+   */
   it("has at least one skill pointing at every generator, so none is dead", () => {
     const orphans = Object.keys(GENERATORS).filter((g) => skillIdsFor(g).length === 0);
     expect(orphans, `generators no skill uses: ${orphans.join(", ")}`).toEqual([]);

@@ -40,36 +40,36 @@ export function schoolLines(): { school: SpellSchool; areas: SkillArea[] }[] {
 const gen = (generatorId: string): SkillSource => ({ kind: "generator", generatorId });
 const pool = (poolId: string): SkillSource => ({ kind: "pool", poolId });
 
-/** The grades each old band covered. Kept as data so the expansion below is checkable by eye. */
-export const BAND_GRADES = {
-  k1: ["K", "1"],
-  g23: ["2", "3"],
-  g45: ["4", "5"],
-  g68: ["6", "7", "8"],
-  g912: ["9", "10", "11", "12"],
-} as const satisfies Record<string, readonly Grade[]>;
-
-const k1 = [...BAND_GRADES.k1];
-const g23 = [...BAND_GRADES.g23];
-const g45 = [...BAND_GRADES.g45];
-const g68 = [...BAND_GRADES.g68];
-const g912 = [...BAND_GRADES.g912];
+/**
+ * Reading, Language Arts and Science are still authored per band, so their rows share these
+ * arrays. Math is keyed to single grades by `docs/content/math-skill-map.md` and uses none of
+ * them. Plan 3 gives the other three subjects their own maps and these go with it.
+ */
+const k1: readonly Grade[] = ["K", "1"];
+const g23: readonly Grade[] = ["2", "3"];
+const g45: readonly Grade[] = ["4", "5"];
+const g68: readonly Grade[] = ["6", "7", "8"];
+const g912: readonly Grade[] = ["9", "10", "11", "12"];
 
 export const SKILLS: Skill[] = [
-  { id: "add-10", label: "Addition within 10", area: "math", grades: k1, source: gen("add") },
-  { id: "sub-10", label: "Subtraction within 10", area: "math", grades: k1, source: gen("sub") },
-  { id: "add-20", label: "Addition within 20", area: "math", grades: g23, source: gen("add") },
-  { id: "sub-20", label: "Subtraction within 20", area: "math", grades: g23, source: gen("sub") },
-  { id: "add-100", label: "Addition within 100", area: "math", grades: g23, source: gen("add") },
-  { id: "mul-facts", label: "Multiplication facts", area: "math", grades: g45, source: gen("mul") },
-  { id: "div-facts", label: "Division facts", area: "math", grades: g45, source: gen("div") },
-  { id: "place-value", label: "Place value", area: "math", grades: g45, source: gen("place-value") },
-  { id: "fractions-compare", label: "Comparing fractions", area: "math", grades: g68, source: gen("fractions-compare") },
-  { id: "integer-ops", label: "Integer operations", area: "math", grades: g68, source: gen("integer-ops") },
-  { id: "percent-of", label: "Percent of a number", area: "math", grades: g912, source: gen("percent-of") },
-  { id: "one-step-eq", label: "One-step equations", area: "math", grades: g912, source: gen("one-step-eq") },
-  // Grades K and 1, keyed to the grade the skill map gives them rather than to a band.
-  // The eleven rows above keep their band grades until Task 13 re-points them all at once.
+  { id: "add-10", label: "Addition within 10", area: "math", grades: ["K"], source: gen("add") },
+  { id: "sub-10", label: "Subtraction within 10", area: "math", grades: ["K"], source: gen("sub") },
+  { id: "add-20", label: "Addition within 20", area: "math", grades: ["1"], source: gen("add") },
+  { id: "sub-20", label: "Subtraction within 20", area: "math", grades: ["1"], source: gen("sub") },
+  { id: "add-100", label: "Addition within 100", area: "math", grades: ["2"], source: gen("add") },
+  { id: "mul-facts", label: "Multiplication facts", area: "math", grades: ["3"], source: gen("mul") },
+  { id: "div-facts", label: "Division facts", area: "math", grades: ["3"], source: gen("div") },
+  { id: "place-value", label: "Place value", area: "math", grades: ["4"], source: gen("place-value") },
+  { id: "integer-ops", label: "Integer operations", area: "math", grades: ["6"], source: gen("integer-ops") },
+  { id: "percent-of", label: "Percent of a number", area: "math", grades: ["6"], source: gen("percent-of") },
+  { id: "one-step-eq", label: "One-step equations", area: "math", grades: ["9"], source: gen("one-step-eq") },
+  /**
+   * Offered at no grade: comparing fractions is covered inside `frac-equiv` (grade 4) and
+   * `frac-addsub` (grade 5). The row stays and the id is never reused, so the mastery rows
+   * children have already earned on it are neither deleted nor silently attached to some
+   * other skill. `skillsFor` returns it for no grade, so nothing serves it.
+   */
+  { id: "fractions-compare", label: "Comparing fractions", area: "math", grades: [], source: gen("fractions-compare") },
   { id: "count-seq", label: "Counting and number order", area: "math", grades: ["K"], source: gen("count-seq") },
   { id: "compare-num", label: "Comparing numbers", area: "math", grades: ["K"], source: gen("compare-num") },
   { id: "ten-more-less", label: "Ten more, ten less", area: "math", grades: ["1"], source: gen("ten-more-less") },

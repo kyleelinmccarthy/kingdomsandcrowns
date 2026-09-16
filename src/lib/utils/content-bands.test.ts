@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { bandForHero, nearestBands, BAND_LABELS, CONTENT_BANDS } from "./content-bands";
+import { bandForHero, BAND_LABELS, CONTENT_BANDS } from "./content-bands";
 
 describe("bandForHero", () => {
   it("maps grades to bands", () => {
@@ -17,11 +17,7 @@ describe("bandForHero", () => {
   });
 });
 
-describe("nearestBands", () => {
-  it("starts with the band, then walks down, then up", () => {
-    expect(nearestBands("g45")).toEqual(["g45", "g23", "k1", "g68", "g912"]);
-    expect(nearestBands("k1")).toEqual(["k1", "g23", "g45", "g68", "g912"]);
-  });
+describe("band labels", () => {
   it("labels every band", () => {
     for (const b of CONTENT_BANDS) expect(BAND_LABELS[b]).toBeTruthy();
   });

@@ -25,7 +25,7 @@ function input(over: Partial<BuildRunInput> = {}): BuildRunInput {
 describe("chooseSkills", () => {
   it("returns every candidate skill for the area at the hero's grade", () => {
     expect(chooseSkills(deedMath, "3").map((s) => s.id))
-      .toEqual(["add-20", "sub-20", "add-100", "frac-unit", "area-perimeter", "round-nearest"]);
+      .toEqual(["mul-facts", "div-facts", "frac-unit", "area-perimeter", "round-nearest"]);
     expect(chooseSkills(deedReading, "3").map((s) => s.id)).toEqual(["sight-g23"]);
   });
   it("falls back to the nearest grade when the area has no skill there", () => {
@@ -75,18 +75,19 @@ describe("buildDeedRun", () => {
     for (const q of run.questions) { expect(q.choices).toHaveLength(2); expect(q.choices).toContain(q.answer); }
   });
   it("groups by skill with review last under predictableRoutine", () => {
-    const misses: Question[] = [{ id: "miss-0", skillId: "add-20", prompt: "1 + 1", choices: ["2", "3", "4", "5"], answer: "2" }];
-    // Pin selection to add-20 (the miss's own skill) by making it the grade's only
-    // least-practised generator; otherwise which of the three grade-3 generators gets
-    // chosen is a seeded tie-break, and the miss would land on a skill never picked.
+    const misses: Question[] = [{ id: "miss-0", skillId: "mul-facts", prompt: "6 × 7", choices: ["42", "41", "43", "40"], answer: "42" }];
+    // Pin selection to mul-facts (the miss's own skill) by making it the grade's only
+    // least-practised generator; otherwise which of grade 3's generators gets chosen is
+    // a seeded tie-break, and the miss would land on a skill never picked.
     const run = buildDeedRun(input({
       deed: deedMath, poolItems: [], recentMisses: misses,
       // Every other generator the grade offers has to be named, or an unpinned one
-      // defaults to 0, ties with add-20, and the miss lands on a skill never picked.
-      masteryBySkill: {
-        "add-20": 0, "sub-20": 5, "add-100": 5,
-        "frac-unit": 5, "area-perimeter": 5, "round-nearest": 5,
-      },
+      // defaults to 0, ties with mul-facts, and the miss lands on a skill never picked.
+      // Derived from the grade's own candidate list so re-pointing a skill at a different
+      // grade cannot silently leave one unpinned here.
+      masteryBySkill: Object.fromEntries(
+        chooseSkills(deedMath, "3").map((s) => [s.id, s.id === "mul-facts" ? 0 : 5])
+      ),
       profile: { ...profile, predictableRoutine: true },
     }));
     expect(run.questions[run.questions.length - 1].id).toBe("miss-0");
@@ -140,13 +141,14 @@ const readingDeed = findDeed("well-signs")!; // area: "reading"
 describe("chooseSkills by grade", () => {
   it("gives a grade-3 hero the skills their grade's content is authored for", () => {
     const ids = chooseSkills(mathDeed, "3").map((s) => s.id);
-    expect(ids).toContain("add-20");
+    expect(ids).toContain("mul-facts");
   });
 
-  it("reaches multiplication when a grown-up moves a grade-3 hero's math up a year", () => {
-    // The whole point of the setting: this is unreachable for grade 3 today.
+  it("reaches multi-digit multiplication when a grown-up moves a grade-3 hero's math up a year", () => {
+    // The whole point of the setting: this is unreachable for grade 3 today, which gets
+    // the multiplication FACTS and leaves multi-digit work to grade 4.
     const ids = chooseSkills(mathDeed, "4").map((s) => s.id);
-    expect(ids).toContain("mul-facts");
+    expect(ids).toContain("mul-multi");
   });
 
   it("walks to easier grades, never harder, when a grade has nothing", () => {
@@ -225,25 +227,26 @@ describe("every skill at a hero's grade can actually be served", () => {
     // skillIds drives which recent misses count as review, how the question budget is
     // split, and — at the call site — which mastery rows are snapshotted as the run's
     // starting point. Leaking the full candidate list would record progress against
-    // skills the child never saw. Grade 3 math has three candidates; a run uses one.
+    // skills the child never saw. Grade 3 math has five candidates; a run uses one.
     const built = buildDeedRun({ ...baseInput, grade: "3", seed: 7, masteryBySkill: {} });
-    expect(chooseSkills(deedMath, "3").length).toBe(6);
+    expect(chooseSkills(deedMath, "3").length).toBe(5);
     expect(built.skillIds).toHaveLength(1);
   });
 
   it("practises the least-mastered skill first", () => {
-    // Every grade-3 generator but sub-20 is already practised; sub-20 alone sits at 0, so
-    // it must be the one chosen on every seed — this is not a tie. The others are pinned
-    // above 0 deliberately: an untouched skill defaults to 0, would tie with sub-20, and
-    // would turn the pick into a coin flip and this test into a flake. The pins are built
-    // from the grade's own candidate list so a skill added later cannot be forgotten.
+    // Every grade-3 generator but div-facts is already practised; div-facts alone sits at
+    // 0, so it must be the one chosen on every seed — this is not a tie. The others are
+    // pinned above 0 deliberately: an untouched skill defaults to 0, would tie with
+    // div-facts, and would turn the pick into a coin flip and this test into a flake. The
+    // pins are built from the grade's own candidate list so a skill added later cannot be
+    // forgotten.
     const practised = Object.fromEntries(
-      chooseSkills(deedMath, "3").map((s) => [s.id, s.id === "sub-20" ? 0 : 4])
+      chooseSkills(deedMath, "3").map((s) => [s.id, s.id === "div-facts" ? 0 : 4])
     );
-    expect(practised["sub-20"], "sub-20 must be one of grade 3's skills").toBe(0);
+    expect(practised["div-facts"], "div-facts must be one of grade 3's skills").toBe(0);
     for (let seed = 1; seed <= 50; seed++) {
       const built = buildDeedRun({ ...baseInput, grade: "3", seed, masteryBySkill: practised });
-      expect(built.skillIds, `seed ${seed}`).toContain("sub-20");
+      expect(built.skillIds, `seed ${seed}`).toContain("div-facts");
     }
   });
 });

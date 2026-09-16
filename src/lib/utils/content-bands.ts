@@ -24,15 +24,3 @@ export function bandForHero(grade: string | null, ageMode: AgeMode): ContentBand
   }
   return ageMode === "elementary" ? "g23" : ageMode === "middle" ? "g68" : "g912";
 }
-
-export function bandIndex(band: ContentBand): number {
-  return CONTENT_BANDS.indexOf(band);
-}
-
-/** The band, then each band below (nearest first), then each band above. Easier before harder. */
-export function nearestBands(band: ContentBand): ContentBand[] {
-  const i = bandIndex(band);
-  const below = CONTENT_BANDS.slice(0, i).reverse();
-  const above = CONTENT_BANDS.slice(i + 1);
-  return [band, ...below, ...above];
-}
