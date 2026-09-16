@@ -17,6 +17,21 @@ function draws(gen: (l: number, r: Rng, s: string) => Question, level: number, s
   });
 }
 
+/**
+ * How often something held across a level's sample, printed as `n/total` when it fails.
+ *
+ * **A pin that says "always offers X" is how the answer's place in the order gets fixed**, if
+ * X sits on one side of the answer — which is what the census in `drill-surface-tells.test.ts`
+ * measures and what it caught here. The readings a skill exists to punish are offered OFTEN
+ * now, and these say so as a band; the half of each pin that says a characteristic mistake may
+ * never BE the answer is untouched, because a band alone would pass on a question with two
+ * right answers.
+ */
+function rateOf<T>(items: T[], holds: (item: T) => boolean): { rate: number; text: string } {
+  const n = items.filter(holds).length;
+  return { rate: n / items.length, text: `${n}/${items.length}` };
+}
+
 describe("count-seq", () => {
   it("keeps every number it names inside the level's range", () => {
     // Written out by hand rather than imported, so a change to the generator's own
@@ -392,13 +407,40 @@ describe("money-coins", () => {
     }
   });
 
-  it("never lets counting the coins instead of their value be a right answer", () => {
+  it("offers counting the coins instead of their value often, and never as a right answer", () => {
+    // Counting the coins is the penny case of "every coin counted as the same kind", which is
+    // the family this pool is built from — so it is the first reading taken below the answer
+    // rather than a choice on every question. Its other half is untouched: it may never BE the
+    // answer, which is why a handful of pennies is never drawn.
+    const coinsIn = (q: Question) => [...q.prompt.matchAll(/(\d+) (?:quarters?|dimes?|nickels?|penny|pennies)/g)]
+      .reduce((sum, m) => sum + Number(m[1]), 0);
     for (const lvl of LEVELS) {
-      for (const q of draws(moneyCoins, lvl, "money-coins")) {
-        const coins = [...q.prompt.matchAll(/(\d+) (?:quarters?|dimes?|nickels?|penny|pennies)/g)]
-          .reduce((sum, m) => sum + Number(m[1]), 0);
-        expect(`${coins}¢`, `${q.prompt} has two right answers`).not.toBe(q.answer);
-        expect(q.choices, q.prompt).toContain(`${coins}¢`);
+      const sample = draws(moneyCoins, lvl, "money-coins");
+      for (const q of sample) {
+        expect(`${coinsIn(q)}¢`, `${q.prompt} has two right answers`).not.toBe(q.answer);
+      }
+      const { rate, text } = rateOf(sample, (q) => q.choices.includes(`${coinsIn(q)}¢`));
+      expect(rate, `level ${lvl} shows the coins counted in only ${text} draws`).toBeGreaterThan(0.3);
+    }
+  });
+
+  /**
+   * And the handful's value is a number the four choices sit either side of. Before the pool
+   * was drawn, a handful of one kind of nickels had the miscounted coin and the five-cent slip
+   * land on the same number — both are five cents — so the duplicate was dropped and its
+   * opposite direction filled the gap: one choice above the total and one below it, every time,
+   * and the answer the third of four on 235 draws of 300 at the rung a grade-2 child starts on.
+   */
+  it("puts a value above the handful and a value below it, without pinning either", () => {
+    for (const lvl of LEVELS) {
+      const sample = draws(moneyCoins, lvl, "money-coins");
+      for (const side of ["above", "below"] as const) {
+        const { rate, text } = rateOf(sample, (q) => {
+          const cents = (c: string) => (c.includes("$") ? Math.round(Number(c.replace(/[$,]/g, "")) * 100) : Number(c.replace("¢", "")));
+          const total = cents(q.answer);
+          return q.choices.some((c) => (side === "above" ? cents(c) > total : cents(c) < total));
+        });
+        expect(rate, `level ${lvl} puts nothing ${side} the handful in ${text} draws`).toBeGreaterThan(0.5);
       }
     }
   });

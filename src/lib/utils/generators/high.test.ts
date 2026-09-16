@@ -46,6 +46,21 @@ function draws(gen: (l: number, r: Rng, s: string) => Question, level: number, s
   });
 }
 
+/**
+ * How often something held across a level's sample, printed as `n/total` when it fails.
+ *
+ * **"Always offers X" is how the answer's place in the order gets fixed**, whenever X sits on
+ * one side of the answer — which is what the census in `drill-surface-tells.test.ts` measures
+ * and what it caught at four skills in this file. The readings a skill exists to punish are
+ * offered OFTEN now rather than always, and these say so as a band; the other half of each pin,
+ * that a characteristic mistake may never BE the answer, is untouched and still checked on
+ * every draw, because a band alone would pass on a question with two right answers.
+ */
+function rateOf<T>(items: T[], holds: (item: T) => boolean): { rate: number; text: string } {
+  const n = items.filter(holds).length;
+  return { rate: n / items.length, text: `${n}/${items.length}` };
+}
+
 describe("multi-step-eq", () => {
   const A_MAX = [3, 4, 5, 5, 5];
   const C_MAX = [3, 4, 5, 6, 6];
@@ -573,19 +588,31 @@ describe("similar-tri", () => {
     }
   });
 
-  it("offers the scale added instead of multiplied, and it is never the answer", () => {
+  it("offers the scale added instead of multiplied often, and it is never the answer", () => {
     for (const lvl of LEVELS) {
-      for (const q of draws(similarTri, lvl, "similar-tri")) {
+      const sample = draws(similarTri, lvl, "similar-tri");
+      for (const q of sample) {
         const { first, second, image } = parse(q);
         const scale = image / first;
         // Distinct first. `b + k` and `b × k` agree exactly once, at b = k = 2, and that draw
-        // is thrown away — without the throw `pickDistinct` would swap in an off-by-one and
-        // the `toContain` below would pass on the answer itself.
+        // is thrown away — without the throw a backfilled off-by-one would let a band below
+        // pass while the question had two right answers.
         expect(String(second + scale), `${q.prompt} has two right answers`).not.toBe(q.answer);
-        expect(q.choices, `${q.prompt} does not offer the scale added`).toContain(String(second + scale));
         expect(String(second), `${q.prompt} answers with the unscaled side`).not.toBe(q.answer);
-        expect(q.choices, `${q.prompt} does not offer the unscaled side`).toContain(String(second));
       }
+      // A band, because every one of these readings makes the side too SHORT: offering them
+      // all every time left the answer the largest of the four on 201 draws of 300 at level 1.
+      for (const [name, of] of [
+        ["the scale added", (q: Question) => { const { first, second, image } = parse(q); return second + image / first; }],
+        ["the unscaled side", (q: Question) => parse(q).second],
+      ] as [string, (q: Question) => number][]) {
+        const { rate, text } = rateOf(sample, (q) => q.choices.includes(String(of(q))));
+        expect(rate, `level ${lvl} shows ${name} in only ${text} draws`).toBeGreaterThan(0.3);
+      }
+      // And something bigger than the answer is on the screen most of the time, which is the
+      // half that was missing entirely.
+      const bigger = rateOf(sample, (q) => q.choices.some((c) => Number(c) > Number(q.answer)));
+      expect(bigger.rate, `level ${lvl} puts nothing above the answer in ${bigger.text} draws`).toBeGreaterThan(0.5);
     }
   });
 });
@@ -719,9 +746,10 @@ describe("solid-measure", () => {
     expect([...asked].sort(), "level 2 must ask both measures").toEqual(["surface area", "volume"]);
   });
 
-  it("offers the other measure of the same solid, and it is never the answer", () => {
+  it("offers the other measure of the same solid often, and it is never the answer", () => {
     for (const lvl of LEVELS) {
-      for (const q of draws(solidMeasure, lvl, "solid-measure")) {
+      const sample = draws(solidMeasure, lvl, "solid-measure");
+      for (const q of sample) {
         const read = parse(q);
         const { volume, surface } = measures(read);
         // For a cone this is the one third dropped rather than a surface area; either way it
@@ -729,8 +757,16 @@ describe("solid-measure", () => {
         // to the answer rather than being quietly backfilled with an off-by-a-tenth.
         const other = tenths(read.measure === "volume" ? surface : volume);
         expect(other, `${q.prompt} has two right answers`).not.toBe(q.answer);
-        expect(q.choices, `${q.prompt} does not offer the other measure`).toContain(other);
       }
+      // A band and not a pin: a prism's volume — all of level 0 — has its surface area above it
+      // and both of its other readings below it, so offering all three every time put the
+      // answer third of four on 214 draws of 300.
+      const { rate, text } = rateOf(sample, (q) => {
+        const read = parse(q);
+        const { volume, surface } = measures(read);
+        return q.choices.includes(tenths(read.measure === "volume" ? surface : volume));
+      });
+      expect(rate, `level ${lvl} shows the other measure in only ${text} draws`).toBeGreaterThan(0.4);
     }
   });
 
@@ -917,14 +953,14 @@ describe("quad-formula", () => {
    * them `pickDistinct` would drop the colliding reading, backfill a near miss, and the
    * counts below would pass with the answer on screen twice.
    */
-  it("always offers the smaller root, spreads the rest, and none of them is ever the answer", () => {
+  it("offers the smaller root often, spreads the rest, and none of them is ever the answer", () => {
     for (const lvl of LEVELS) {
       const sample = draws(quadFormula, lvl, "quad-formula");
       const offered = new Map<string, number>();
       for (const q of sample) {
         const { larger, smaller } = roots(parse(q));
         expect(String(smaller), `${q.prompt} has two right answers`).not.toBe(q.answer);
-        expect(q.choices, `${q.prompt} does not offer the smaller root`).toContain(String(smaller));
+        if (q.choices.includes(String(smaller))) offered.set("smaller", (offered.get("smaller") ?? 0) + 1);
         const readings = { flipped: -smaller, negated: -larger, sum: larger + smaller, product: larger * smaller };
         for (const [name, value] of Object.entries(readings)) {
           // The product of the roots IS the larger root when the smaller is 1, and that one
@@ -933,7 +969,11 @@ describe("quad-formula", () => {
           if (q.choices.includes(String(value)) && String(value) !== q.answer) offered.set(name, (offered.get(name) ?? 0) + 1);
         }
       }
-      for (const name of ["flipped", "negated", "sum", "product"]) {
+      // The smaller root leads the pool on the side it falls — always below the larger — but it
+      // is no longer on every question: with nothing above the larger root to draw against at
+      // level 2, `beating` was forced to zero and the answer was the largest of the four on 184
+      // draws of 300. A slip of one or two now fills whichever side is short.
+      for (const name of ["smaller", "flipped", "negated", "sum", "product"]) {
         const count = offered.get(name) ?? 0;
         expect(count / sample.length, `level ${lvl} offers ${name} in ${count}/${sample.length} draws`).toBeGreaterThan(0.15);
         expect(count / sample.length, `level ${lvl} offers ${name} in ${count}/${sample.length} draws`).toBeLessThan(0.95);
@@ -1175,15 +1215,25 @@ describe("log-rules", () => {
     }
   });
 
-  it("always offers the base, and it is never the answer", () => {
+  it("offers the base often, and it is never the answer", () => {
     for (const lvl of LEVELS) {
-      for (const q of draws(logRules, lvl, "log-rules")) {
+      const sample = draws(logRules, lvl, "log-rules");
+      for (const q of sample) {
         const { base } = parse(q);
         // Distinct first: `base === exponent` is thrown away at the draw, which is the only
         // thing standing between this assertion and a silently backfilled off-by-one.
         expect(String(base), `${q.prompt} has two right answers`).not.toBe(q.answer);
-        expect(q.choices, `${q.prompt} does not offer its base`).toContain(String(base));
       }
+      // A band, because the answer to a logarithm is a small number and the base is usually
+      // larger than it: offering the base and the argument divided by the base on every
+      // question, with `exponent + 1` taken before `exponent - 1`, put the answer second of
+      // four on 255 draws of 300 at level 1.
+      const { rate, text } = rateOf(sample, (q) => q.choices.includes(String(parse(q).base)));
+      expect(rate, `level ${lvl} shows the base in only ${text} draws`).toBeGreaterThan(0.3);
+      // And a reading below the answer is on screen most of the time, which is what the
+      // exponent counted one or two short is there for.
+      const below = rateOf(sample, (q) => q.choices.some((c) => Number(c) < Number(q.answer)));
+      expect(below.rate, `level ${lvl} puts nothing below the answer in ${below.text} draws`).toBeGreaterThan(0.5);
     }
   });
 
@@ -1500,6 +1550,11 @@ describe("probability", () => {
     const g = factor(n, d) || 1;
     return d / g === 1 ? String(n / g) : `${n / g}/${d / g}`;
   };
+  /** A choice as a number, so two probabilities can be compared by size rather than spelling. */
+  const exact = (choice: string): number => {
+    const [n, d] = choice.split("/").map(Number);
+    return d === undefined ? n : n / d;
+  };
 
   const parse = (q: Question) => {
     const m = /^A bag has (.+?) marbles\.(.*) What is the probability (of drawing|that both are) ([a-z]+)\?$/.exec(q.prompt);
@@ -1549,12 +1604,27 @@ describe("probability", () => {
           : [reduce(other, total), reduce(favourable, other), String(favourable)];
         for (const mistake of wrong) {
           // Distinct first: the complement is the answer whenever the bag splits evenly, which
-          // is the draw thrown away above. Without that throw `pickDistinct` would put a
-          // near-miss here and this `toContain` would pass while testing nothing.
+          // is the draw thrown away above. Without that throw a backfilled near miss would let
+          // the band below pass while the question had two right answers.
           expect(mistake, `${q.prompt} offers its own answer as a mistake`).not.toBe(q.answer);
-          expect(q.choices, `${q.prompt} does not offer ${mistake}`).toContain(mistake);
         }
       }
+      // A band and not a pin. Every one of these readings is BIGGER than the answer — `r/o` has
+      // a smaller bottom, the count alone is at least 1 and a probability is less than 1 — so
+      // offering them all every time left the answer the smallest of the four on 298 draws of
+      // 300 at level 4. The complement leads the pool on whichever side it falls.
+      const sample = draws(probability, lvl, "probability");
+      const complement = rateOf(sample, (q) => {
+        const { bag, asked, twoDraws } = parse(q);
+        const total = [...bag.values()].reduce((sum, c) => sum + c, 0);
+        const favourable = bag.get(asked)!;
+        return q.choices.includes(twoDraws
+          ? reduce(total * total - favourable * favourable, total * total)
+          : reduce(total - favourable, total));
+      });
+      expect(complement.rate, `level ${lvl} shows the complement in only ${complement.text} draws`).toBeGreaterThan(0.3);
+      const below = rateOf(sample, (q) => q.choices.some((c) => exact(c) < exact(q.answer)));
+      expect(below.rate, `level ${lvl} puts nothing below the answer in ${below.text} draws`).toBeGreaterThan(0.5);
     }
   });
 

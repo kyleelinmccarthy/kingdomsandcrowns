@@ -17,6 +17,7 @@ import {
   numericDistractors,
   randInt,
   shuffle,
+  spreadDistractors,
   type Question,
   type Rng,
 } from "../drill-generators";
@@ -371,6 +372,19 @@ const coinPhrase = (count: number, coin: (typeof COINS)[number]) => `${count} ${
  * on every question level 1 could ask. Sorting level 1's four choices and taking the third
  * was worth 300 draws of 300. Which direction each mistake ran was never a content decision
  * — it was the order two lines happened to be written in.
+ *
+ * **Drawing the direction was not enough on level 0, where the handful is one kind of coin.**
+ * On a handful of nickels the miscounted coin is worth five cents and so is the nickel slip:
+ * the two readings are the same number, the duplicate is dropped, and the fallback that fills
+ * its place is that same reading pointed the other way — so a nickel handful always had one
+ * choice above and one below, and the answer was the third of four. With the dime handfuls
+ * split evenly around it that came to 228 draws of 300 on the rung a grade-2 child starts on.
+ *
+ * So a fourth real reading joins them: **every coin in the handful counted as the same kind**
+ * — seven nickels read as seven dimes, or as seven quarters. Telling a nickel from a dime by
+ * sight is most of what makes counting a handful hard at this age, and it is a mistake that
+ * runs in both directions and is not five cents from anything. "Counted the coins instead of
+ * their value" is the penny case of exactly that reading, which is why it leads the list.
  */
 export function moneyCoins(level: number, rng: Rng, skillId: string): Question {
   const lvl = L(level);
@@ -382,30 +396,20 @@ export function moneyCoins(level: number, rng: Rng, skillId: string): Question {
   const coinCount = counts.reduce((a, b) => a + b, 0);
   const miscounted = kinds[randInt(rng, 0, kinds.length - 1)].value;
 
-  // Counting the coins is always offered — it is the mistake this skill exists to punish —
-  // and the other two are drawn either side of the true value. The opposite direction of
-  // each follows as a fallback, so a handful whose first reading renders as the answer (or
-  // as a negative number of cents) still has three wrong choices.
-  const missedACoin = rng() < 0.5 ? -1 : 1;
-  const shortANickel = rng() < 0.5 ? -1 : 1;
-  const wanted = [
-    coinCount,
-    total + missedACoin * miscounted,
-    total + shortANickel * 5,
-    total - missedACoin * miscounted,
-    total - shortANickel * 5,
-  ];
-  const distractors: string[] = [];
-  for (const cents of wanted) {
-    if (cents < 0 || cents === total) continue;
-    const rendered = money(cents);
-    if (rendered !== money(total) && !distractors.includes(rendered)) distractors.push(rendered);
-    if (distractors.length === 3) break;
-  }
-  for (let nudge = 2; distractors.length < 3; nudge++) {
-    const rendered = money(total + nudge);
-    if (!distractors.includes(rendered)) distractors.push(rendered);
-  }
+  // Counting the coins instead of their value leads the pool — it is the mistake this skill
+  // exists to punish, and it is the penny case of "every coin counted as the same kind", so
+  // the four readings of that shape are written as one line with the pennies first.
+  const asOneKind = [1, 10, 5, 25].map((value) => coinCount * value);
+  const pool = [
+    ...asOneKind,
+    total + miscounted, total - miscounted,   // a coin counted twice; a coin missed
+    total + 5, total - 5,                     // five cents over; five cents under
+    total + 1, total - 1,                     // and a penny either way, if nothing else fits
+  ]
+    .filter((cents) => cents >= 0)
+    .map((cents) => ({ text: money(cents), value: cents }));
+  const distractors = spreadDistractors({ text: money(total), value: total }, pool, rng);
+  if (distractors.length !== 3) throw new Error(`could not build three wrong values for a handful worth ${total}`);
 
   // Largest coin first, the way a person counts a handful out loud.
   const spoken = [...kinds.keys()]

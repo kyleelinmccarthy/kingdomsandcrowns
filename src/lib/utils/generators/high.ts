@@ -16,9 +16,12 @@ import {
   makeQuestion,
   numericDistractors,
   randInt,
+  reading,
   shuffle,
   speakInt,
+  spreadDistractors,
   type Question,
+  type Reading,
   type Rng,
 } from "../drill-generators";
 import { frac } from "./intermediate";
@@ -562,6 +565,23 @@ const SIMILAR_SIDE_MAX = [6, 7, 8, 9, 9];
  *    pointing at either of them.
  *  - **A match that equals the first triangle's other side**, which is readable but reads
  *    like a trick.
+ *
+ * **Every reading this generator offered made the side too SHORT.** Adding the scale instead
+ * of multiplying by it, dividing by it, and leaving the side unscaled are all below the
+ * answer, and the fourth reading — the match that was given — is below it too whenever the
+ * given side is the shorter of the two, which is half the time. The answer was the largest of
+ * the four choices on 201 draws of 300 at level 1, and never once the smallest at any rung: a
+ * grade-10 child could take the biggest number on screen and be right two times in three.
+ *
+ * Two real readings above it fix that:
+ *
+ *  - **The two given lengths multiplied** (`b × matched`), which is what a child writes when
+ *    they reach for the numbers in front of them rather than the ratio between them.
+ *  - **The difference added instead of the ratio applied** (`b + (matched - a)`) — the
+ *    additive answer to a multiplicative question, which is the single best known error in
+ *    proportional reasoning and the one similarity is taught to replace.
+ *
+ * with a slip of one or two behind them, and how many of the three beat the answer drawn.
  */
 export function similarTri(level: number, rng: Rng, skillId: string): Question {
   const lvl = L(level);
@@ -577,16 +597,20 @@ export function similarTri(level: number, rng: Rng, skillId: string): Question {
 
   const matched = a * scale;
   const answer = b * scale;
-  const candidates = [
-    String(b + scale),       // the scale added instead of multiplied
-    ...whole(b, scale),      // divided instead of multiplied
-    String(b),               // the side left unscaled
-    String(matched),
-    ...numericDistractors(answer, rng, 1),
-  ];
+  const pool = [
+    b + scale,               // the scale added instead of multiplied
+    ...whole(b, scale).map(Number), // divided instead of multiplied
+    b,                       // the side left unscaled
+    b * matched,             // the two given lengths multiplied
+    b + (matched - a),       // the difference added instead of the ratio applied
+    matched,                 // the match that was given, copied out
+    answer + 1, answer - 1, answer + 2, answer - 2,
+  ].filter((candidate) => candidate >= 1).map((candidate) => reading(candidate));
 
   const prompt = `Two triangles are similar: the first has sides ${a} and ${b}, and the second's side matching the ${a} is ${matched}. What is the second's side matching the ${b}?`;
-  return makeQuestion(skillId, `${a},${b},${matched}`, prompt, String(answer), pickDistinct(candidates, String(answer)), rng, prompt);
+  const distractors = spreadDistractors(reading(answer), pool, rng);
+  if (distractors.length !== 3) throw new Error(`could not build three wrong sides for ${prompt}`);
+  return makeQuestion(skillId, `${a},${b},${matched}`, prompt, String(answer), distractors, rng, prompt);
 }
 
 // ---------------------------------------------------------------------------
@@ -728,8 +752,16 @@ const showTenths = (tenths: number): string => (tenths / 10).toFixed(1);
  * and `√(r² + h²)` is irrational for nearly every pair a child would be handed — so for a cone
  * the mandatory wrong reading is instead **the one third dropped**, which is the mistake that
  * skill is for. Either way the draw is thrown away when that reading rounds to the answer,
- * never backfilled: `pickDistinct` would quietly put an off-by-a-tenth in its place and the
- * question would stop testing what it exists to test.
+ * never backfilled: a silent off-by-a-tenth in its place would leave the question no longer
+ * testing what it exists to test.
+ *
+ * **It is offered most of the time rather than every time**, which is the one thing that
+ * changed here. A prism's volume — all of level 0 — has its surface area above it and both of
+ * its other readings, one face and the total edge length, below it: one above and two below on
+ * every draw, so the answer was the third of four on 214 draws of 300. Which readings reach
+ * the screen and how many of them beat the answer is now drawn from the same pool, with the
+ * other measure first in line on whichever side it falls and a whole unit or a tenth either
+ * way behind it.
  */
 export function solidMeasure(level: number, rng: Rng, skillId: string): Question {
   const lvl = L(level);
@@ -789,10 +821,10 @@ export function solidMeasure(level: number, rng: Rng, skillId: string): Question
   if (!drawn) throw new Error(`could not draw a solid with two different measures at level ${level}`);
 
   const answer = showTenths(answerTenths);
-  const nudges = [answerTenths + 10, answerTenths - 10, answerTenths + 1, answerTenths - 1, answerTenths * 2]
+  const pool = [otherTenths, ...wrongTenths, answerTenths + 10, answerTenths - 10, answerTenths + 1, answerTenths - 1, answerTenths * 2]
     .filter((t) => t > 0)
-    .map(showTenths);
-  const distractors = pickDistinct([showTenths(otherTenths), ...wrongTenths.filter((t) => t > 0).map(showTenths), ...nudges], answer);
+    .map((t) => ({ text: showTenths(t), value: t }));
+  const distractors = spreadDistractors({ text: answer, value: answerTenths }, pool, rng);
   if (distractors.length !== 3) throw new Error(`could not build three wrong measures for ${prompt}`);
 
   return makeQuestion(
@@ -935,6 +967,12 @@ const QUAD_ROOT_HIGH = [5, 7, 7, 9, 9];
  * meeting the quadratic formula starts on. So the two readings beside the smaller root are
  * drawn from four — both signs flipped, the answer's own sign flipped, the sum of the roots
  * and their product — with `beating` deciding how many of them land above the answer.
+ *
+ * **Four readings are not always enough to draw against.** At level 2, where a root may be
+ * negative, there are draws with nothing above the larger root at all — both flips negative,
+ * the sum below it, the product below it — and `beating` is then forced to zero and the answer
+ * is the largest of the four. That happened on 184 draws of 300. A slip of one or two in the
+ * arithmetic of the formula fills whichever side is short, so the draw is never forced.
  */
 export function quadFormula(level: number, rng: Rng, skillId: string): Question {
   const lvl = L(level);
@@ -951,25 +989,23 @@ export function quadFormula(level: number, rng: Rng, skillId: string): Question 
   const larger = Math.max(p, q), smaller = Math.min(p, q);
   const b = -a * (p + q), c = a * p * q;
   const middle = `${b < 0 ? "-" : "+"} ${Math.abs(b) === 1 ? "" : Math.abs(b)}x`;
-  // The smaller root is always offered; the other two are drawn, and how many of them beat
-  // the larger root is drawn with them.
-  const rest = shuffle([-smaller, -larger, p + q, p * q].filter((v) => v !== larger), rng);
-  const above = rest.filter((v) => v > larger);
-  const below = rest.filter((v) => v < larger);
-  const beating = randInt(rng, Math.max(0, 2 - below.length), Math.min(2, above.length));
-  const candidates = [
-    smaller,                        // the smaller root
-    ...above.slice(0, beating),
-    ...below.slice(0, 2 - beating),
-    ...rest,                        // whatever is left, if two readings landed on one number
-  ].map(String).concat(numericDistractors(larger, rng));
+  // The smaller root leads the pool on the side it falls — always below — and the readings
+  // behind it are shuffled so it is not the same two every time. How many of the three beat
+  // the larger root is drawn.
+  const pool = [
+    smaller,                                                  // the smaller root
+    ...shuffle([-smaller, -larger, p + q, p * q], rng),       // both signs flipped; the answer's own; the sum; the product
+    larger + 1, larger - 1, larger + 2, larger - 2,
+  ].map((candidate) => reading(candidate));
+  const distractors = spreadDistractors(reading(larger), pool, rng);
+  if (distractors.length !== 3) throw new Error(`could not build three wrong roots for ${a},${b},${c}`);
 
   return makeQuestion(
     skillId,
     `${a},${b},${c}`,
     `Solve: ${a === 1 ? "" : a}x² ${middle} ${signed(c)} = 0. What is the larger root?`,
     String(larger),
-    pickDistinct(candidates, String(larger)),
+    distractors,
     rng,
     // "x squared", never `x²`: a screen reader says the superscript as a separate number.
     `Solve: ${a === 1 ? "" : `${a} `}x squared ${b < 0 ? "minus" : "plus"} ${Math.abs(b) === 1 ? "" : `${Math.abs(b)} `}x ${spokenSign(c)}, equals 0. What is the larger root?`,
@@ -1205,6 +1241,19 @@ const LOG_SUBSCRIPT: Record<number, string> = { 2: "₂", 3: "₃", 5: "₅", 10
  * `log(1000)` rather than `log₁₀(1000)`, matching the convention every textbook uses. The
  * read-aloud says the base anyway: an implicit 10 is a convention on the page and not
  * something a child listening should have to already know.
+ *
+ * **The answer to a logarithm is a small number and every wrong reading was a big one.** The
+ * argument divided by the base is a power of the base; the base itself is usually larger than
+ * the exponent; `exponent + 1` came before `exponent - 1` and was taken first. The answer was
+ * the second of four on 255 draws of 300 at level 1 and 230 at level 2 — a child could sort
+ * the four choices, take the second smallest, and never once ask what power of the base the
+ * argument is.
+ *
+ * The pool below the answer is what was missing, and there is only one honest source for it:
+ * **the exponent counted one or two short**, which is the fencepost error this skill actually
+ * produces — a child who counts the multiplications rather than the factors. Above it the
+ * argument copied out whole joins the two that were already there. How many of the three beat
+ * the answer is drawn.
  */
 export function logRules(level: number, rng: Rng, skillId: string): Question {
   const lvl = L(level);
@@ -1221,20 +1270,22 @@ export function logRules(level: number, rng: Rng, skillId: string): Question {
   if (!drawn) throw new Error(`could not draw a logarithm at level ${level}`);
 
   const argument = exponent < 0 ? `1/${power}` : String(power);
-  const candidates = [
-    String(base),                                                  // the base read off as the answer
-    ...(exponent < 0 ? [String(-exponent)] : whole(power, base)),   // the minus dropped; the argument divided by the base
-    String(exponent + 1),
-    String(exponent - 1),
-    ...numericDistractors(exponent, rng),
-  ];
+  const pool = [
+    base,                                                          // the base read off as the answer
+    ...(exponent < 0
+      ? [-exponent]                                                // the minus dropped
+      : [...whole(power, base).map(Number), power]),               // the argument divided by the base; the argument itself
+    exponent + 1, exponent - 1, exponent + 2, exponent - 2,        // the multiplications counted short or long
+  ].map((candidate) => reading(candidate));
+  const distractors = spreadDistractors(reading(exponent), pool, rng);
+  if (distractors.length !== 3) throw new Error(`could not build three wrong logarithms for log base ${base} of ${argument}`);
 
   return makeQuestion(
     skillId,
     `${base}:${argument}`,
     `What is log${LOG_SUBSCRIPT[base]}(${argument})?`,
     String(exponent),
-    pickDistinct(candidates, String(exponent)),
+    distractors,
     rng,
     `What is log base ${base} of ${exponent < 0 ? `1 over ${power}` : power}?`,
   );
@@ -1598,6 +1649,28 @@ function bagText(counts: number[]): string {
  * **The part over the other part** is offered beside it, which is the same misreading pointed
  * the other way, and it can never be the answer: `r/o = r/t` needs `r = 0`, and the bag always
  * holds at least one of every colour.
+ *
+ * **A probability is hard to beat from below, and every wrong reading here used to be above
+ * it.** `r/o` is larger than `r/t` because `o` is smaller than `t`; the count alone is at least
+ * 1 and the answer is less than 1; the complement is usually the bigger part; both near misses
+ * pushed the numerator up. On the top rung — two draws, so the answer is `r²/t²` and smaller
+ * still — the smallest of the four choices was the answer on 298 draws of 300. A twelfth-grader
+ * could clear the rung by taking the smallest number on screen.
+ *
+ * The readings BELOW the answer are the ones this generator was missing, and they are the
+ * mistakes that make a probability too small rather than too large:
+ *
+ *  - **One marble of that colour instead of all of them** (`1/t`): a child who reads "what is
+ *    the probability of drawing red" as being about one particular marble.
+ *  - **The whole miscounted by one** (`r/(t+1)`), and **the favourable miscounted by one**
+ *    (`(r-1)/t`) — the two counting slips a bag of marbles invites.
+ *  - **The marble not put back** (`r(r-1)/(t(t-1))`), on the two-draw rungs. The prompt says it
+ *    is put back; a child who does not notice computes exactly this, and it is the single most
+ *    common wrong answer in the whole skill.
+ *  - **The numerator multiplied once and the denominator twice** (`r/t²`) — the second draw
+ *    remembered in the bottom of the fraction and forgotten in the top.
+ *
+ * Which of them reach the screen, and how many of the three beat the answer, is drawn.
  */
 export function probability(level: number, rng: Rng, skillId: string): Question {
   const lvl = L(level);
@@ -1617,21 +1690,34 @@ export function probability(level: number, rng: Rng, skillId: string): Question 
   const total = counts.reduce((sum, c) => sum + c, 0);
   const favourable = counts[asked];
   const other = total - favourable;
-  const answer = draws === 1 ? frac(favourable, total) : frac(favourable * favourable, total * total);
-  const candidates = draws === 1
+  const chance = (n: number, d: number): Reading => ({ text: frac(n, d), value: n / d });
+  const answer = draws === 1
+    ? chance(favourable, total)
+    : chance(favourable * favourable, total * total);
+  // Readings a child writes down, the ones this skill exists to punish first on each side and
+  // the counting slips behind them. A slip that would print `0` — one red marble miscounted
+  // down to none, or one red drawn twice without replacement — is left out rather than offered:
+  // a bag with red in it has no zero probability of red, and no child writes that down.
+  const pool = draws === 1
     ? [
-      frac(other, total),                                              // the complement
-      frac(favourable, other),                                         // the part over the other part
-      String(favourable),                                              // the count alone, with no whole to compare it to
-      frac(favourable + 1, total),
-      frac(favourable, total + 1),
+      chance(other, total),                                            // the complement
+      chance(favourable, other),                                       // the part over the other part
+      { text: String(favourable), value: favourable },                 // the count alone, with no whole to compare it to
+      chance(1, total),                                                // one marble of that colour rather than all of them
+      chance(favourable, total + 1),                                   // the whole counted one too many
+      ...(favourable >= 2 ? [chance(favourable - 1, total)] : []),     // the favourable counted one too few
+      chance(favourable + 1, total),                                   // the favourable counted one too many
     ]
     : [
-      frac(total * total - favourable * favourable, total * total),    // the complement
-      frac(favourable * favourable, other * other),                    // the part over the other part
-      frac(favourable, total),                                         // one draw's probability, the second draw forgotten
-      frac(2 * favourable, total),                                     // the two draws added rather than multiplied
-      frac(favourable * favourable + 1, total * total),
+      chance(total * total - favourable * favourable, total * total),  // the complement
+      chance(favourable * favourable, other * other),                  // the part over the other part
+      ...(favourable >= 2
+        ? [chance(favourable * (favourable - 1), total * (total - 1))] // the marble not put back
+        : []),
+      chance(favourable, total),                                       // one draw's probability, the second draw forgotten
+      chance(favourable, total * total),                               // the second draw remembered only underneath
+      chance(2 * favourable, total),                                   // the two draws added rather than multiplied
+      chance(favourable * favourable + 1, total * total),
     ];
 
   const question = draws === 1
@@ -1640,7 +1726,9 @@ export function probability(level: number, rng: Rng, skillId: string): Question 
   // The prompt is already every word: no symbol on it needs spelling out, so the spoken form
   // is the prompt itself rather than a second copy that could drift from it.
   const prompt = `A bag has ${bagText(counts)} marbles. ${question}`;
-  return makeQuestion(skillId, `${draws}:${counts.join("-")}:${MARBLE_COLORS[asked]}`, prompt, answer, pickDistinct(candidates, answer), rng, prompt);
+  const distractors = spreadDistractors(answer, pool, rng);
+  if (distractors.length !== 3) throw new Error(`could not build three wrong probabilities for ${prompt}`);
+  return makeQuestion(skillId, `${draws}:${counts.join("-")}:${MARBLE_COLORS[asked]}`, prompt, answer.text, distractors, rng, prompt);
 }
 
 // ---------------------------------------------------------------------------

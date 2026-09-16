@@ -10,8 +10,11 @@ import {
   makeQuestion,
   numericDistractors,
   randInt,
+  reading,
   shuffle,
+  spreadDistractors,
   type Question,
+  type Reading,
   type Rng,
 } from "../drill-generators";
 
@@ -90,10 +93,25 @@ function sameFraction(a: [number, number], b: [number, number]): boolean {
 /**
  * Unit fractions on a number line (grade 3).
  *
- * The answer is a fraction, so `numericDistractors` does not apply. The three wrong
- * choices are built by hand from the three real mistakes — reading the fraction upside
- * down, landing on the wrong mark, and calling the whole line one part — and are checked
- * against each other BY VALUE, not by spelling, so no two of them are the same number.
+ * The answer is a fraction, so `numericDistractors` does not apply. The wrong choices are
+ * built by hand from the mistakes a child makes on a number line — reading the fraction
+ * upside down, landing on the wrong mark, calling the whole line one part, and miscounting
+ * the parts — and are checked against each other BY VALUE, not by spelling, so no two of them
+ * are the same number.
+ *
+ * **On the one-whole line every one of them used to be bigger than the answer.** `d/n` is
+ * upside down and the answer is under 1, `d/d` IS 1, and the miscounted mark stepped FORWARD
+ * whenever there was a mark ahead — which there almost always is. The answer was the smallest
+ * of the four choices on 201 draws of 300 at level 0, the rung a grade-3 child starts on, and
+ * "pick the smallest fraction" was worth the rung without ever looking at the line.
+ *
+ * The step back is as real a mistake as the step forward, so which way it goes is drawn rather
+ * than decided by whether there is room ahead; and the two ways of miscounting the parts of
+ * the line are both offered — **the marks counted instead of the parts** (`n/(d - 1)`, a line
+ * in eighths has seven marks inside it) and **both ends counted as marks** (`n/(d + 1)`) —
+ * which are a real reading above the answer and a real reading below it. Longer lines keep the
+ * reading that belongs to them: `n/(wholes × d)`, the marks counted and divided by ALL of
+ * them, which is why levels 1 to 4 were never stuck.
  */
 export function fracUnit(level: number, rng: Rng, skillId: string): Question {
   const lvl = L(level);
@@ -109,25 +127,31 @@ export function fracUnit(level: number, rng: Rng, skillId: string): Question {
   } while (n % d === 0); // a mark that lands on a whole number gives itself away by its shape
 
   // Miscounting by one mark is the mistake this question is really about, so the off-by-one
-  // must itself be a real mark: step forward when there is a mark ahead, back when there is
-  // not. With halves excluded there is always at least one other interior mark, so this can
-  // never fall off the line to 0/d — which is not a mark, and which the verifier's own model
-  // of the line agrees is not a mark.
-  const offByOne = n + 1 <= marks ? n + 1 : n - 1;
-  // The third mistake depends on what the line shows. On one whole it is calling the whole
-  // line a single part, `d/d`. On a longer line `d/d` is a real mark — it is the whole — so
-  // the mistake worth offering there is the one this shape teaches: counting the marks and
-  // dividing by ALL of them, `n/(wholes × d)`, instead of by the parts in one whole. It can
-  // never be the answer, since it equals `n/d` only when the line is one whole long.
-  const misread: [number, number] = wholes === 1 ? [d, d] : [n, wholes * d];
-  const candidates: [number, number][] = [[d, n], [offByOne, d], misread];
+  // must itself be a real mark: `0/d` is not a mark, and the verifier's own model of the line
+  // agrees it is not, so a step back is only offered from the second mark on. Which way the
+  // miscount runs is drawn where both are marks — the answer's place in the order used to be
+  // decided by which of them happened to exist.
+  const miscounts: [number, number][] = shuffle(
+    [...(n + 1 <= marks ? [[n + 1, d] as [number, number]] : []), ...(n - 1 >= 1 ? [[n - 1, d] as [number, number]] : [])],
+    rng,
+  );
+  // The whole line called a single part, `d/d`, is a mistake only where `d/d` is not itself a
+  // mark: on a longer line it is the whole. What the longer line offers instead is the reading
+  // that shape teaches — counting the marks and dividing by ALL of them, `n/(wholes × d)`,
+  // instead of by the parts in one whole. It can never be the answer, since it equals `n/d`
+  // only when the line is one whole long.
   const answer: [number, number] = [n, d];
-  const distractors: string[] = [];
-  for (const c of candidates) {
-    if (sameFraction(c, answer)) continue;
-    if (distractors.some((seen) => sameFraction(c, seen.split("/").map(Number) as [number, number]))) continue;
-    distractors.push(`${c[0]}/${c[1]}`);
-  }
+  const candidates: [number, number][] = [
+    [d, n],                                              // read upside down
+    wholes === 1 ? [d, d] : [n, wholes * d],             // the whole line as one part; the marks all counted
+    ...miscounts,                                        // one mark out, either way
+    ...(d - 1 >= 2 ? [[n, d - 1] as [number, number]] : []), // the marks counted instead of the parts
+    [n, d + 1],                                          // both ends counted as marks too
+  ];
+  const pool = candidates
+    .filter((c) => !sameFraction(c, answer))
+    .map(([num, den]) => ({ text: `${num}/${den}`, value: num / den }));
+  const distractors = spreadDistractors({ text: `${n}/${d}`, value: n / d }, pool, rng);
   if (distractors.length !== 3) throw new Error(`could not build three distinct fractions for ${n}/${d}`);
 
   // The one-whole wording is left exactly as it was, so the ids and prompts a child has
@@ -635,9 +659,28 @@ const DIV_MAX = [5, 9, 9, 12, 12];
  *
  * Even levels ask for the quotient and odd levels for the remainder, so a level asks one
  * question shape rather than switching under a child mid-run. The measure NOT asked for is
- * always a distractor — swapping the two is the mistake this skill exists to catch — which
- * is why a draw where the quotient and the remainder are the same number is thrown away:
- * it would put the right answer in a distractor slot.
+ * the mistake this skill exists to catch — swapping the two — which is why a draw where the
+ * quotient and the remainder are the same number is thrown away: it would put the right
+ * answer in a distractor slot.
+ *
+ * **It used to be offered on every question, first, with an off-by-one either side of the
+ * answer behind it — and that fixed the answer's place in the order.** On the quotient rungs
+ * the remainder is smaller than the quotient nearly always, so the four choices came out as
+ * `answer - 1`, `remainder`, `answer`, `answer + 1` and the answer was the third of four on
+ * 262 draws of 300 at level 0; on the remainder rungs it is the other way about and the
+ * answer was the second on 251 of 300 at level 1. Either way a grade-4 child could sort the
+ * four numbers and point without dividing anything.
+ *
+ * The other measure is still the first reading taken on whichever side of the answer it falls,
+ * so it is on screen most of the time, but the pool around it now runs both ways:
+ *
+ *  - **The leftover counted as another group** (`quotient + remainder`, and `quotient + 1`,
+ *    the quotient rounded up because something was left over) — the two ways a remainder makes
+ *    a quotient too big.
+ *  - **The distance to the next multiple** (`divisor - remainder`) — a child who counts up
+ *    from the dividend to the next multiple of the divisor instead of back to the last one.
+ *
+ * with a slip of one or two behind them, and how many of the three beat the answer is drawn.
  */
 export function divMulti(level: number, rng: Rng, skillId: string): Question {
   const lvl = L(level);
@@ -656,15 +699,15 @@ export function divMulti(level: number, rng: Rng, skillId: string): Question {
   const answer = wantQuotient ? quotient : remainder;
   const other = wantQuotient ? remainder : quotient;
 
-  const distractors: string[] = [];
-  for (const candidate of [other, answer + 1, answer - 1]) {
-    const rendered = String(candidate);
-    if (candidate >= 0 && candidate !== answer && !distractors.includes(rendered)) distractors.push(rendered);
-  }
-  for (const near of numericDistractors(answer, rng, 0)) {
-    if (distractors.length === 3) break;
-    if (!distractors.includes(near)) distractors.push(near);
-  }
+  const pool = [
+    other,                                        // the measure the question did not ask for
+    ...(wantQuotient
+      ? [quotient + remainder, quotient + 1]      // the leftover counted as another group; rounded up for it
+      : [divisor - remainder]),                   // counted up to the next multiple instead of back
+    answer + 1, answer - 1, answer + 2, answer - 2,
+  ].filter((candidate) => candidate >= 0).map((candidate) => reading(candidate));
+  const distractors = spreadDistractors(reading(answer), pool, rng);
+  if (distractors.length !== 3) throw new Error(`could not build three wrong readings for ${dividend} / ${divisor}`);
 
   const measure = wantQuotient ? "quotient" : "remainder";
   return makeQuestion(
@@ -672,7 +715,7 @@ export function divMulti(level: number, rng: Rng, skillId: string): Question {
     `${dividend}/${divisor}${wantQuotient ? "q" : "r"}`,
     `What is ${dividend} ÷ ${divisor}? Give the ${measure}.`,
     String(answer),
-    distractors.slice(0, 3),
+    distractors,
     rng,
     `What is ${dividend} divided by ${divisor}? Give the ${measure}.`,
   );
@@ -700,6 +743,28 @@ export function divMulti(level: number, rng: Rng, skillId: string): Question {
  *
  * Even levels ask for the quotient and odd levels for the remainder, the same way `div-multi`
  * does, so a child meeting both skills is never asked to switch measure mid-run.
+ *
+ * **Rounding the divisor DOWN to a ten makes the quotient too big, and that was the only
+ * estimation slip on offer.** With `answer + 1` behind it and `answer - 1` behind that, the
+ * four choices on a quotient rung were `answer - 1`, `answer`, `estimate`, `answer + 1` in
+ * value order every time: the answer was the second of four on 298 draws of 300 at level 4 —
+ * the rung this skill exists for — and 280 at level 2. The remainder rungs were the same
+ * shape pointed the other way, 266 of 300 at level 1. Long division was scored without a
+ * single step of long division.
+ *
+ * The pool is the rest of the mistakes the algorithm actually produces, either side of the
+ * answer:
+ *
+ *  - **The divisor rounded UP to a ten** (`÷ 20` for 17), which is the same estimate made the
+ *    other way and comes out too small.
+ *  - **The last digit never brought down** — the quotient with its ones digit missing, which
+ *    is what a child writes when they stop a step early.
+ *  - **A digit written one column over**, `quotient × 10`, which is the place-value slip long
+ *    division is most prone to, and the one level 4's zero in the middle is all about.
+ *  - On a remainder rung, **the distance to the next multiple** (`divisor - remainder`), from
+ *    counting up from the dividend instead of back.
+ *
+ * with a slip of one or two behind them. How many of the three beat the answer is drawn.
  */
 function twoDigitDivisor(rng: Rng, max = 99): number {
   let d = 0;
@@ -712,6 +777,11 @@ function twoDigitDivisor(rng: Rng, max = 99): number {
 /** Dividing by the divisor rounded down to a whole ten — the estimate taken for the answer. */
 function tensOnlyQuotient(dividend: number, divisor: number): number {
   return Math.floor(dividend / (Math.floor(divisor / 10) * 10));
+}
+
+/** The same estimate rounded the other way: `÷ 20` for 17, which comes out too small. */
+function roundedUpQuotient(dividend: number, divisor: number): number {
+  return Math.floor(dividend / (Math.ceil(divisor / 10) * 10));
 }
 
 export function divTwoDigit(level: number, rng: Rng, skillId: string): Question {
@@ -737,19 +807,25 @@ export function divTwoDigit(level: number, rng: Rng, skillId: string): Question 
   } while (dividend < 100 || (wantQuotient ? tensOnlyQuotient(dividend, divisor) === quotient : remainder === quotient));
 
   const answer = wantQuotient ? quotient : remainder;
-  const candidates = wantQuotient
-    ? [...(lvl === 4 ? [Number(String(quotient).replace("0", ""))] : []), tensOnlyQuotient(dividend, divisor), answer + 1, answer - 1]
-    : [quotient, answer + 1, answer - 1];
-
-  const distractors: string[] = [];
-  for (const candidate of candidates) {
-    const rendered = String(candidate);
-    if (candidate >= 0 && candidate !== answer && !distractors.includes(rendered)) distractors.push(rendered);
-  }
-  for (const near of numericDistractors(answer, rng, 0)) {
-    if (distractors.length === 3) break;
-    if (!distractors.includes(near)) distractors.push(near);
-  }
+  const pool = [
+    ...(wantQuotient
+      ? [
+        // Level 4's quotient carries a zero inside it; dropping the zero is the mistake that
+        // rung exists for, so it leads the pool wherever it lands.
+        ...(lvl === 4 ? [Number(String(quotient).replace("0", ""))] : []),
+        tensOnlyQuotient(dividend, divisor),   // the divisor rounded down to a ten
+        roundedUpQuotient(dividend, divisor),  // and rounded up
+        Math.floor(quotient / 10),             // the last digit never brought down
+        quotient * 10,                         // a digit written one column over
+      ]
+      : [
+        quotient,                              // the measure the question did not ask for
+        divisor - remainder,                   // counted up to the next multiple instead of back
+      ]),
+    answer + 1, answer - 1, answer + 2, answer - 2,
+  ].filter((candidate) => candidate >= 1).map((candidate) => reading(candidate));
+  const distractors = spreadDistractors(reading(answer), pool, rng);
+  if (distractors.length !== 3) throw new Error(`could not build three wrong readings for ${dividend} / ${divisor}`);
 
   const measure = wantQuotient ? "quotient" : "remainder";
   return makeQuestion(
@@ -757,7 +833,7 @@ export function divTwoDigit(level: number, rng: Rng, skillId: string): Question 
     `${dividend}/${divisor}${wantQuotient ? "q" : "r"}`,
     `What is ${dividend} ÷ ${divisor}? Give the ${measure}.`,
     String(answer),
-    distractors.slice(0, 3),
+    distractors,
     rng,
     `What is ${dividend} divided by ${divisor}? Give the ${measure}.`,
   );
@@ -1105,6 +1181,24 @@ const FRACMUL_DENOM_MAX = [4, 5, 6, 8, 10];
  * `n₁d₂/(d₁n₂)` and `(n₁d₂ + n₂d₁)/(d₁d₂)` are both strictly larger — so both distractors
  * are always genuinely wrong, and only the unreduced form has to be checked against the
  * answer before it is offered.
+ *
+ * **Both being strictly larger is also what made this rung readable without multiplying
+ * anything.** The product of two proper fractions is a small number, and every wrong reading
+ * this generator offered was above it: cross-multiplying, adding, and a numerator pushed up by
+ * one. The answer was the smallest of the four choices on 294 draws of 300 at level 4 and on
+ * 257 at level 0 — a grade-5 child could take the smallest number on the screen and be right
+ * nine times in ten.
+ *
+ * So the pool now runs both ways, and the readings below the product are real ones:
+ *
+ *  - **The bottoms multiplied and the top copied from one fraction** (`n₁/(d₁d₂)`), which is
+ *    what "multiply straight across" looks like when only half of it is done.
+ *  - **The bottoms multiplied wrong** (`n₁n₂/(d₁d₂ + 1)` and `+ 2`) — a times-table slip in
+ *    the denominator, which is where this skill's arithmetic actually goes wrong.
+ *
+ * And one more above it: **the tops multiplied and the bottoms ADDED** (`n₁n₂/(d₁ + d₂)`),
+ * which is the other half-done "straight across" and the mistake a child makes straight after
+ * a week of adding fractions. How many of the three land above the product is drawn.
  */
 export function fracMul(level: number, rng: Rng, skillId: string): Question {
   const dmax = FRACMUL_DENOM_MAX[L(level)];
@@ -1120,31 +1214,22 @@ export function fracMul(level: number, rng: Rng, skillId: string): Question {
   const [n2, d2] = draw();
 
   const answer = frac(n1 * n2, d1 * d2);
-  // The first two are written UNREDUCED on purpose: a child who cross-multiplies 1/2 × 1/2
-  // writes 2/2, not 1, and reducing it would turn the mistake into a whole number — which
-  // the fraction-only filter below would drop, leaving the question without the one wrong
-  // answer it most needs to offer.
-  const candidates = [
-    `${n1 * d2}/${d1 * n2}`,                // cross-multiplied
-    `${n1 * d2 + n2 * d1}/${d1 * d2}`,      // added instead of multiplied
-    // Three near misses, not two. The list used to carry the product left unreduced as a
-    // third real shape; it is equal to the answer by value, so the filter below dropped it
-    // every single time and the two cross-multiplication shapes plus two near misses were
-    // all that ever reached a child. A fourth near miss keeps three candidates in reserve
-    // behind the two real ones however the draw goes.
-    `${n1 * n2 + 1}/${d1 * d2}`,
-    `${n1 * n2}/${d1 * d2 + 1}`,
-    `${n1 * n2 + 2}/${d1 * d2}`,
-    `${n1 * n2}/${d1 * d2 + 2}`,
+  // Every wrong reading is written UNREDUCED on purpose: a child who cross-multiplies
+  // 1/2 × 1/2 writes 2/2, not 1, and reducing it would turn the mistake into a whole number,
+  // which among three fractions gives itself away without being read.
+  const written = (n: number, d: number): Reading => ({ text: `${n}/${d}`, value: n / d });
+  const pool = [
+    written(n1 * d2, d1 * n2),              // cross-multiplied
+    written(n1 * d2 + n2 * d1, d1 * d2),    // added instead of multiplied
+    written(n1 * n2, d1 + d2),              // tops multiplied, bottoms added
+    written(n1, d1 * d2),                   // bottoms multiplied, the top copied from the first
+    written(n2, d1 * d2),                   // and from the second
+    written(n1 * n2, d1 * d2 + 1),          // the denominators multiplied wrong
+    written(n1 * n2 + 1, d1 * d2),          // and the numerators
+    written(n1 * n2, d1 * d2 + 2),
+    written(n1 * n2 + 2, d1 * d2),
   ];
-  const distractors: string[] = [];
-  for (const candidate of candidates) {
-    if (distractors.length === 3) break;
-    if (!/^\d+\/\d+$/.test(candidate)) continue; // a whole number among fractions gives itself away
-    if (fracValue(candidate) === fracValue(answer)) continue;
-    if (distractors.some((seen) => fracValue(seen) === fracValue(candidate))) continue;
-    distractors.push(candidate);
-  }
+  const distractors = spreadDistractors({ text: answer, value: fracValue(answer) }, pool, rng);
   if (distractors.length !== 3) throw new Error(`could not build three wrong fractions for ${n1}/${d1} × ${n2}/${d2}`);
 
   return makeQuestion(
@@ -1255,29 +1340,31 @@ export function decOps(level: number, rng: Rng, skillId: string): Question {
   const misalignedDigits = op === "-" ? digitsOf(a) - digitsOf(b) : digitsOf(a) + digitsOf(b);
   const misaligned = misalignedDigits * (DEC_SCALE / 10 ** width);
 
-  // The point one place the wrong way in each direction, then the misalignment, then a
-  // tenth out — DRAWN either side. `result / 10` is only offered when it lands on a whole
+  // The point one place the wrong way in each direction, the misalignment, and the answer a
+  // tenth or two out either way. `result / 10` is only offered when it lands on a whole
   // number of ten-thousandths — past four places nothing here can render it honestly.
   //
-  // The direction of the tenth is drawn because at levels 0 and 1 it settled the order of
-  // the whole question. Both operands carry one decimal place there, so right-aligning the
-  // digits and lining them up on the point are the same sum and the misalignment reading
-  // never renders — which left exactly `result / 10`, `result * 10` and `result + 0.1`, two
-  // choices above the answer and one below it, on all 300 draws of both rungs.
-  const tenthOver = rng() < 0.5 ? 1 : -1;
-  const tenth = (DEC_SCALE / 10) * tenthOver;
-  const wanted = [result / 10, result * 10, times ? 0 : misaligned, result + tenth, result - tenth];
-  const distractors: string[] = [];
-  for (const candidate of wanted) {
-    if (distractors.length === 3) break;
-    if (candidate <= 0 || candidate === result || !Number.isInteger(candidate)) continue;
-    const rendered = renderDecimal(candidate);
-    if (rendered !== renderDecimal(result) && !distractors.includes(rendered)) distractors.push(rendered);
-  }
-  for (let nudge = 2; distractors.length < 3; nudge++) {
-    const rendered = renderDecimal(result + nudge * (DEC_SCALE / 10));
-    if (!distractors.includes(rendered)) distractors.push(rendered);
-  }
+  // **How many of the three beat the answer is drawn, and that is what these rungs needed.**
+  // At levels 0 and 1 both operands carry one decimal place, so right-aligning the digits and
+  // lining them up on the point are the same sum and the misalignment never renders — which
+  // left exactly `result / 10`, `result × 10` and a tenth out, two above the answer and one
+  // below it, on all 300 draws of both rungs. Drawing the tenth's direction fixed those two
+  // and left levels 2 and 3, where the misalignment DOES render and falls below the answer on
+  // a subtraction: `result / 10` below, `result × 10` above, misalignment below, and the
+  // answer the third of four on 193 draws of 300. The direction of a reading is not something
+  // to decide one reading at a time.
+  const tenth = DEC_SCALE / 10;
+  const wanted = [
+    result / 10, result * 10,                  // the point one place each way
+    times ? 0 : misaligned,                    // right-aligned instead of lined up on the point
+    result + tenth, result - tenth,            // a tenth out, either way
+    result + 2 * tenth, result - 2 * tenth,
+  ];
+  const pool = wanted
+    .filter((candidate) => candidate > 0 && candidate !== result && Number.isInteger(candidate))
+    .map((candidate) => ({ text: renderDecimal(candidate), value: candidate }));
+  const distractors = spreadDistractors({ text: renderDecimal(result), value: result }, pool, rng);
+  if (distractors.length !== 3) throw new Error(`could not build three wrong decimals for ${renderDecimal(result)}`);
 
   const opWord = op === "+" ? "plus" : op === "-" ? "minus" : "times";
   return makeQuestion(
@@ -1285,7 +1372,7 @@ export function decOps(level: number, rng: Rng, skillId: string): Question {
     `${renderDecimal(a)}${op === "×" ? "x" : op}${renderDecimal(b)}`,
     `What is ${renderDecimal(a)} ${op} ${renderDecimal(b)}?`,
     renderDecimal(result),
-    distractors.slice(0, 3),
+    distractors,
     rng,
     `What is ${speakDecimal(a)} ${opWord} ${speakDecimal(b)}?`,
   );
@@ -1297,12 +1384,28 @@ const BOX_MAX = [3, 4, 5, 6, 8];
 /**
  * Volume of a rectangular prism (grade 5).
  *
- * All three distractors are measures of the same box — its surface area, the three sides
- * added, and two of the three multiplied — which is exactly why the draw is thrown away
- * unless all four numbers differ. A 1 by 2 by 3 box has a volume of 6 and sides summing to
- * 6; a cube of side 6 has a volume and a surface area of 216; and any box one unit deep has
- * a volume equal to the product of its other two sides. Each of those puts a second right
- * answer among the choices, so each is redrawn.
+ * The distractors are measures of the same box — its surface area, the three sides added, two
+ * of the three multiplied, the faces added without doubling them, and the total length of its
+ * edges. The draw is thrown away unless the volume, the surface area, the sum and the face
+ * product all differ: a 1 by 2 by 3 box has a volume of 6 and sides summing to 6; a cube of
+ * side 6 has a volume and a surface area of 216; and any box one unit deep has a volume equal
+ * to the product of its other two sides. Each of those would put a second right answer among
+ * the choices.
+ *
+ * **Which of those measures beat the volume depends on the box, and that is what used to give
+ * the rung away.** For the boxes this skill draws, the surface area is above the volume and
+ * the sum and the face product are below it — one above and two below on nearly every
+ * question, so the answer was the third of the four in 295 draws of 300 at level 3 and 283 at
+ * level 2. "Sort them and take the second biggest" was worth the rung without multiplying
+ * three numbers together once.
+ *
+ * Two more real readings widen the pool — **the three faces added but not doubled**, which is
+ * half a surface area and the commonest way to get one wrong, and **the total length of the
+ * box's edges**, `4(l + w + h)`, which is the measure a child reaches for when they picture the
+ * frame of the box rather than the box — and a slip of one, two or three in the multiplication
+ * fills whichever side is thin. A big cube is the case that needs it: at 8 by 8 by 8 every
+ * measure of the box is smaller than its volume, and without a reading above it the answer
+ * would be the largest choice every time. How many of the three beat the volume is drawn.
  */
 export function volumePrism(level: number, rng: Rng, skillId: string): Question {
   const max = BOX_MAX[L(level)];
@@ -1322,6 +1425,17 @@ export function volumePrism(level: number, rng: Rng, skillId: string): Question 
   if (!drawn) throw new Error(`could not draw a box with four different measures at level ${level}`);
 
   const prompt = `A box is ${l} by ${w} by ${h} units. What is its volume?`;
+  const pool = [
+    surface,                    // the skin of the box instead of what fills it
+    twoOfThree,                 // one face, the third dimension forgotten
+    sum,                        // the three numbers added
+    surface / 2,                // the three faces added, the doubling forgotten
+    4 * (l + w + h),            // the total length of the box's edges
+    volume + 1, volume - 1, volume + 2, volume - 2, volume + 3, volume - 3,
+  ].filter((measure) => measure >= 1).map((measure) => reading(measure));
+  const distractors = spreadDistractors(reading(volume), pool, rng);
+  if (distractors.length !== 3) throw new Error(`could not build three wrong measures for a ${l} by ${w} by ${h} box`);
+
   // The id is the box, NOT which pair-product was picked as a distractor: a child cannot see
   // `pair`, so an id carrying it let the same box be asked twice in one deed.
   return makeQuestion(
@@ -1329,7 +1443,7 @@ export function volumePrism(level: number, rng: Rng, skillId: string): Question 
     `${l}x${w}x${h}`,
     prompt,
     String(volume),
-    [String(surface), String(sum), String(twoOfThree)],
+    distractors,
     rng,
     prompt, // plain words and three numbers; nothing a screen reader would mangle
   );
@@ -1380,6 +1494,13 @@ function leftToRight(values: number[], ops: string[]): number {
  *
  * Left-to-right here still evaluates the parentheses first, because a child who ignores
  * brackets entirely is making a different mistake from the one this skill teaches.
+ *
+ * **The two slips that fill the other two slots are drawn a direction.** They used to come
+ * from `numericDistractors` with a floor of zero, which drops every reading below the answer
+ * when the answer is small and keeps the ones above it — so on the two rungs with the smallest
+ * numbers the answer sat second of four in 190 draws of 300. A slip of one or two in the
+ * arithmetic runs both ways whatever the size of the answer, and how many of the three choices
+ * beat it is drawn.
  */
 export function orderOps(level: number, rng: Rng, skillId: string): Question {
   const lvl = L(level);
@@ -1418,11 +1539,11 @@ export function orderOps(level: number, rng: Rng, skillId: string): Question {
   const expression = atoms.map((a, i) => (i === 0 ? a.text : `${topOps[i - 1]} ${a.text}`)).join(" ");
   const spoken = atoms.map((a, i) => (i === 0 ? a.spoken : `${opWord(topOps[i - 1])} ${a.spoken}`)).join(" ");
 
-  const distractors = [String(ltr)];
-  for (const near of numericDistractors(correct, rng, 0)) {
-    if (distractors.length === 3) break;
-    if (!distractors.includes(near)) distractors.push(near);
-  }
+  const pool = [ltr, correct + 1, correct - 1, correct + 2, correct - 2, correct + 3, correct - 3]
+    .filter((candidate) => candidate >= 0)
+    .map((candidate) => reading(candidate));
+  const distractors = spreadDistractors(reading(correct), pool, rng);
+  if (distractors.length !== 3) throw new Error(`could not build three wrong values for ${expression}`);
 
-  return makeQuestion(skillId, expression, `What is ${expression}?`, String(correct), distractors.slice(0, 3), rng, `What is ${spoken}?`);
+  return makeQuestion(skillId, expression, `What is ${expression}?`, String(correct), distractors, rng, `What is ${spoken}?`);
 }

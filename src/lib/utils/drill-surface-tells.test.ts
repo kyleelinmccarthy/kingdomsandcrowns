@@ -45,12 +45,23 @@ function draws(genId: string, skillId: string, level: number): Question[] {
   });
 }
 
-/** A choice read as a number, with the units a screen shows stripped off. `null` if it is not one. */
+/**
+ * A choice read as a number, with the units a screen shows stripped off. `null` if it is not
+ * one.
+ *
+ * **Money is read in cents**, because `money-coins` prints `95¢` and `$1.15` in the same set
+ * of four and a child reading them has no doubt which is bigger. Stripping the `$` and taking
+ * `1.15` would have put a dollar fifteen BELOW ninety-five cents, and the census would have
+ * reported an order no child ever sees. Anything with a `$` is therefore multiplied by a
+ * hundred; a skill that prints whole dollars only is scaled uniformly and ordered the same.
+ */
 function value(choice: string): number | null {
+  const dollars = choice.includes("$");
   const bare = choice.replace(/[$%¢,\s]/g, "");
   const fraction = /^(-?\d+)\/(\d+)$/.exec(bare);
   if (fraction) return Number(fraction[1]) / Number(fraction[2]);
-  return /^-?\d+(\.\d+)?$/.test(bare) ? Number(bare) : null;
+  if (!/^-?\d+(\.\d+)?$/.test(bare)) return null;
+  return dollars ? Math.round(Number(bare) * 100) : Number(bare);
 }
 
 /**

@@ -36,6 +36,23 @@ const value = (f: string) => {
   return n / d;
 };
 
+/**
+ * How often something held across a level's sample, printed as `n/total` when it fails.
+ *
+ * **Several pins in this file used to say "always offers X".** Always offering a reading that
+ * sits on one side of the answer is exactly what fixes the answer's place in the order — it
+ * was the cause under every one of the nineteen rungs the last wave closed and the four the
+ * threshold in `drill-surface-tells.test.ts` caught after them — so the readings a skill exists
+ * to punish are now offered OFTEN rather than always, and these say so as a band. The other
+ * half of each pin is untouched: a characteristic mistake may never BE the answer, and a
+ * `toContain` without that beside it would pass just as happily on a question with two right
+ * answers.
+ */
+function rateOf<T>(items: T[], holds: (item: T) => boolean): { rate: number; text: string } {
+  const n = items.filter(holds).length;
+  return { rate: n / items.length, text: `${n}/${items.length}` };
+}
+
 describe("frac-unit", () => {
   /**
    * Both shapes this skill asks in, read back from the printed prompt. The one-whole line
@@ -124,25 +141,55 @@ describe("frac-unit", () => {
     }
   });
 
-  it("offers the three real mistakes: upside down, one mark out, and the wrong whole", () => {
+  it("offers the real mistakes often — upside down, one mark out, the wrong whole — and never as the answer", () => {
     for (const lvl of LEVELS) {
-      for (const q of draws(fracUnit, lvl, "frac-unit")) {
+      const sample = draws(fracUnit, lvl, "frac-unit");
+      for (const q of sample) {
         const { wholes, parts } = line(q);
         const [n, d] = q.answer.split("/").map(Number);
-        const marks = wholes * d - 1;
-        // Each of the three is asserted to be ON the screen and NOT to be the answer: a
+        // None of them may ever BE the answer, whether it is on screen or not: a
         // characteristic mistake that equals the answer is a question with two right answers,
-        // and `toContain` alone would pass just as happily on one.
-        const offByOne = n + 1 <= marks ? n + 1 : n - 1;
-        // On one whole, calling the whole line a single part. On a longer line `d/d` IS a
-        // mark, so the mistake worth offering is dividing by every mark rather than by the
-        // parts in one whole.
+        // and a rate band alone would pass just as happily on one.
         const misread = wholes === 1 ? `${d}/${d}` : `${n}/${wholes * d}`;
-        for (const wrong of [`${d}/${n}`, `${offByOne}/${d}`, misread]) {
+        for (const wrong of [`${d}/${n}`, `${n + 1}/${d}`, `${n - 1}/${d}`, misread]) {
           expect(wrong, `${q.prompt} offers its own answer as a mistake`).not.toBe(q.answer);
-          expect(q.choices, `${q.prompt} does not offer ${wrong}`).toContain(wrong);
         }
         expect(parts, q.prompt).toBe(d);
+      }
+      // Each reading is on the screen often. They are not on EVERY question any more: the
+      // fraction read upside down and the whole line called one part are both bigger than the
+      // answer, and offering both every time left the answer the smallest of the four on 201
+      // draws of 300 at level 0.
+      const shows = (of: (n: number, d: number, wholes: number) => string[]) =>
+        rateOf(sample, (q) => {
+          const { wholes } = line(q);
+          const [n, d] = q.answer.split("/").map(Number);
+          return of(n, d, wholes).some((wrong) => q.choices.includes(wrong));
+        });
+      const upsideDown = shows((n, d) => [`${d}/${n}`]);
+      expect(upsideDown.rate, `level ${lvl} shows the fraction upside down in ${upsideDown.text} draws`).toBeGreaterThan(0.3);
+      const oneMarkOut = shows((n, d) => [`${n + 1}/${d}`, `${n - 1}/${d}`]);
+      expect(oneMarkOut.rate, `level ${lvl} shows a mark one out in ${oneMarkOut.text} draws`).toBeGreaterThan(0.3);
+      const wrongWhole = shows((n, d, wholes) => [wholes === 1 ? `${d}/${d}` : `${n}/${wholes * d}`]);
+      expect(wrongWhole.rate, `level ${lvl} shows the wrong whole in ${wrongWhole.text} draws`).toBeGreaterThan(0.3);
+    }
+  });
+
+  /**
+   * Miscounting by one mark runs BOTH ways. It used to step forward whenever there was a mark
+   * ahead and back only when there was not, which on a one-whole line meant forward almost
+   * always — and a reading that is always above the answer is half of what fixed the answer's
+   * place in the order.
+   */
+  it("miscounts the mark forward and back, and never off the end of the line", () => {
+    for (const lvl of LEVELS) {
+      const sample = draws(fracUnit, lvl, "frac-unit");
+      for (const direction of [1, -1]) {
+        const { rate, text } = rateOf(sample, (q) => {
+          const [n, d] = q.answer.split("/").map(Number);
+          return q.choices.includes(`${n + direction}/${d}`);
+        });
+        expect(rate, `level ${lvl} miscounts ${direction > 0 ? "forward" : "back"} in only ${text} draws`).toBeGreaterThan(0.1);
       }
     }
   });
@@ -155,8 +202,17 @@ describe("frac-unit", () => {
    * halves question without counting a mark.
    *
    * Three assertions, each of which fires on its own when 2 goes back in: the denominator is
-   * at least 3, no choice has a numerator of 0, and at least TWO choices are real interior
-   * marks so the shortcut cannot win.
+   * at least 3, no choice has a numerator of 0, and at least TWO choices lie strictly inside
+   * the line so the shortcut cannot win.
+   *
+   * **"Inside the line" and not "is a mark on the line", which is what this counted before.**
+   * Two of the readings a child makes are miscounts of the PARTS rather than of the marks —
+   * `n/(d - 1)` when the marks are counted instead of the parts, `n/(d + 1)` when both ends are
+   * counted too — and neither is a mark on the line as drawn. They are still under one whole,
+   * which is all the shortcut this pin exists to kill can see, and counting marks instead would
+   * have quietly demanded that every wrong reading be a different mark on the same line: three
+   * more numbers to fit under a denominator of 3, which is why the old comment below had to
+   * argue that the fraction upside down could not be dropped.
    *
    * NOT asserted, against the brief's wording: that no choice exceeds 1, and that `d/d` is
    * never offered. Both are deliberate — the fraction read upside down and the whole line
@@ -170,14 +226,13 @@ describe("frac-unit", () => {
       for (const q of draws(fracUnit, lvl, "frac-unit")) {
         const { wholes, parts: d } = line(q);
         expect(d, q.prompt).toBeGreaterThanOrEqual(3);
-        const marks = new Set(Array.from({ length: wholes * d - 1 }, (_, i) => (i + 1) / d));
-        let onTheLine = 0;
+        let inside = 0;
         for (const c of q.choices) {
           const [cn, cd] = c.split("/").map(Number);
           expect(cn, `${c} is 0 over something, which is not a mark: ${q.prompt}`).toBeGreaterThan(0);
-          if (marks.has(cn / cd)) onTheLine += 1;
+          if (cn / cd > 0 && cn / cd < wholes) inside += 1;
         }
-        expect(onTheLine, `only ${onTheLine} of ${q.choices.join(", ")} is a mark on the line: ${q.prompt}`)
+        expect(inside, `only ${inside} of ${q.choices.join(", ")} is inside the line: ${q.prompt}`)
           .toBeGreaterThanOrEqual(2);
       }
     }
@@ -497,16 +552,25 @@ describe("div-multi", () => {
     }
   });
 
-  it("offers the measure it did not ask for, and never lets the two be the same number", () => {
-    // Swapping quotient and remainder is THE mistake here, so the other one is always a
-    // distractor — which means a draw where they are equal would have two right answers.
+  it("offers the measure it did not ask for often, and never lets the two be the same number", () => {
+    // Swapping quotient and remainder is THE mistake here, so the other one leads the pool —
+    // which means a draw where they are equal would have two right answers, on screen or not.
+    // It is no longer on EVERY question: the remainder is smaller than the quotient nearly
+    // always, so offering it every time fixed the answer's place in the order at 262 draws of
+    // 300 on level 0.
     for (const lvl of LEVELS) {
-      for (const q of draws(divMulti, lvl, "div-multi")) {
+      const sample = draws(divMulti, lvl, "div-multi");
+      for (const q of sample) {
         const { dividend, divisor, wants } = parts(q);
         const other = wants === "quotient" ? dividend % divisor : Math.floor(dividend / divisor);
         expect(String(other), `${q.prompt} has two right answers`).not.toBe(q.answer);
-        expect(q.choices, q.prompt).toContain(String(other));
       }
+      const { rate, text } = rateOf(sample, (q) => {
+        const { dividend, divisor, wants } = parts(q);
+        const other = wants === "quotient" ? dividend % divisor : Math.floor(dividend / divisor);
+        return q.choices.includes(String(other));
+      });
+      expect(rate, `level ${lvl} shows the measure it did not ask for in only ${text} draws`).toBeGreaterThan(0.4);
     }
   });
 });
@@ -790,27 +854,48 @@ describe("frac-mul", () => {
     }
   });
 
-  it("always offers the cross-multiplied answer, written the way a child would write it", () => {
+  it("offers the cross-multiplied and added readings often, and neither is ever the answer", () => {
     // 1/2 × 1/2 cross-multiplies to 2/2. Reduced to "1" it would be filtered out as a whole
     // number and the question would lose its headline distractor, so it is offered raw.
+    //
+    // **A band and not a pin, because both of them are bigger than the product.** Two proper
+    // fractions multiply to something smaller than either, and offering the two largest
+    // readings on every question left the answer the smallest of the four on 294 draws of 300
+    // at level 4. They are still the first readings taken on their side; what changed is that
+    // the side they are on does not always get all three slots.
     for (const lvl of LEVELS) {
-      for (const q of draws(fracMul, lvl, "frac-mul")) {
+      const sample = draws(fracMul, lvl, "frac-mul");
+      for (const q of sample) {
         const { n1, d1, n2, d2 } = parts(q);
-        expect(q.choices, `${q.prompt} does not offer ${n1 * d2}/${d1 * n2}`).toContain(`${n1 * d2}/${d1 * n2}`);
+        for (const wrong of [`${n1 * d2}/${d1 * n2}`, `${n1 * d2 + n2 * d1}/${d1 * d2}`]) {
+          expect(exactValue(wrong), `${q.prompt} offers ${wrong}, which is its own answer`).not.toBe(exactValue(q.answer));
+        }
       }
+      const crossed = rateOf(sample, (q) => {
+        const { n1, d1, n2, d2 } = parts(q);
+        return q.choices.includes(`${n1 * d2}/${d1 * n2}`);
+      });
+      expect(crossed.rate, `level ${lvl} shows the cross-multiplied reading in only ${crossed.text} draws`).toBeGreaterThan(0.4);
+      const added = rateOf(sample, (q) => {
+        const { n1, d1, n2, d2 } = parts(q);
+        return q.choices.includes(`${n1 * d2 + n2 * d1}/${d1 * d2}`);
+      });
+      expect(added.rate, `level ${lvl} shows the added reading in only ${added.text} draws`).toBeGreaterThan(0.3);
     }
   });
 
-  it("always offers the two fractions added instead of multiplied", () => {
+  /**
+   * And the readings BELOW the product reach the screen too, which is the other half of the
+   * same fix: if the pool ran both ways but the small side never got a slot, nothing would have
+   * changed. The commonest of them is the one where only half of "multiply straight across"
+   * gets done — the bottoms multiplied and the top copied from one of the fractions.
+   */
+  it("offers a reading smaller than the product often enough to matter", () => {
     for (const lvl of LEVELS) {
-      for (const q of draws(fracMul, lvl, "frac-mul")) {
-        const { n1, d1, n2, d2 } = parts(q);
-        const added = `${n1 * d2 + n2 * d1}/${d1 * d2}`;
-        // Skipped only when cross-multiplying already produced the same NUMBER, in which
-        // case it is on screen under a different spelling.
-        if (exactValue(added) === (n1 * d2) / (d1 * n2)) continue;
-        expect(q.choices, `${q.prompt} does not offer ${added}`).toContain(added);
-      }
+      const sample = draws(fracMul, lvl, "frac-mul");
+      const { rate, text } = rateOf(sample, (q) =>
+        q.choices.some((c) => exactValue(c) < exactValue(q.answer)));
+      expect(rate, `level ${lvl} puts nothing below the product in ${text} draws`).toBeGreaterThan(0.4);
     }
   });
 });
@@ -941,15 +1026,37 @@ describe("volume-prism", () => {
     }
   });
 
-  it("offers the surface area, the sides added, and two of the three multiplied", () => {
+  it("offers measures of the same box, and the surface area often", () => {
+    // Every wrong choice is a measure of the box a child could have worked out, or that
+    // measure a unit or two out. It is no longer the same three on every question: the
+    // surface area is above the volume and the sum and the face product are below it for the
+    // boxes this rung draws, so offering all three put the answer third of four on 295 draws
+    // of 300 at level 3.
     for (const lvl of LEVELS) {
-      for (const q of draws(volumePrism, lvl, "volume-prism")) {
+      const sample = draws(volumePrism, lvl, "volume-prism");
+      for (const q of sample) {
         const [l, w, h] = sides(q);
-        expect(q.choices, q.prompt).toContain(String(2 * (l * w + l * h + w * h)));
-        expect(q.choices, q.prompt).toContain(String(l + w + h));
-        const pairs = [l * w, l * h, w * h].map(String);
-        expect(q.choices.some((c) => pairs.includes(c)), `${q.prompt} offers no pair product: ${q.choices.join(", ")}`).toBe(true);
+        const volume = l * w * h;
+        const measures = new Set([2 * (l * w + l * h + w * h), l * w + l * h + w * h, l + w + h,
+          4 * (l + w + h), l * w, l * h, w * h]);
+        for (const choice of q.choices) {
+          const n = Number(choice);
+          if (n === volume) continue;
+          const slip = Math.abs(n - volume) <= 3;
+          expect(measures.has(n) || slip, `${q.prompt} offers ${choice}, which is neither a measure of the box nor a slip`).toBe(true);
+        }
       }
+      const surface = rateOf(sample, (q) => {
+        const [l, w, h] = sides(q);
+        return q.choices.includes(String(2 * (l * w + l * h + w * h)));
+      });
+      expect(surface.rate, `level ${lvl} shows the surface area in only ${surface.text} draws`).toBeGreaterThan(0.3);
+      const smaller = rateOf(sample, (q) => {
+        const [l, w, h] = sides(q);
+        const pairs = [l * w, l * h, w * h, l + w + h].map(String);
+        return q.choices.some((c) => pairs.includes(c));
+      });
+      expect(smaller.rate, `level ${lvl} shows no smaller measure of the box in ${smaller.text} draws`).toBeGreaterThan(0.3);
     }
   });
 });
@@ -1032,15 +1139,21 @@ describe("order-ops", () => {
     }
   });
 
-  it("always offers the left-to-right reading, and never lets it be the right answer", () => {
+  it("offers the left-to-right reading often, and never lets it be the right answer", () => {
     // An expression where ignoring precedence happens to give the right answer teaches
     // nothing AND puts the same number on screen twice, so it is redrawn rather than patched.
+    //
+    // A band rather than a pin. The two slots beside it used to come from a near-miss family
+    // with a floor of zero, which drops everything below a small answer — so on the rungs with
+    // the smallest numbers the answer sat second of four in 190 draws of 300. The slips now run
+    // both ways and the left-to-right reading takes whichever side it falls on, first.
     for (const lvl of LEVELS) {
-      for (const q of draws(orderOps, lvl, "order-ops")) {
-        const ltr = readLeftToRight(expression(q));
-        expect(String(ltr), `${q.prompt} has two right answers`).not.toBe(q.answer);
-        expect(q.choices, `${q.prompt} does not offer the left-to-right reading ${ltr}`).toContain(String(ltr));
+      const sample = draws(orderOps, lvl, "order-ops");
+      for (const q of sample) {
+        expect(String(readLeftToRight(expression(q))), `${q.prompt} has two right answers`).not.toBe(q.answer);
       }
+      const { rate, text } = rateOf(sample, (q) => q.choices.includes(String(readLeftToRight(expression(q)))));
+      expect(rate, `level ${lvl} shows the left-to-right reading in only ${text} draws`).toBeGreaterThan(0.4);
     }
   });
 
@@ -1293,25 +1406,39 @@ describe("div-2digit", () => {
     }
   });
 
-  it("puts the mistake each rung is about on the screen, and never as the right answer", () => {
+  it("puts the mistake each rung is about on the screen often, and never as the right answer", () => {
     for (const lvl of LEVELS) {
-      for (const q of draws(divTwoDigit, lvl, "div-2digit")) {
+      const sample = draws(divTwoDigit, lvl, "div-2digit");
+      for (const q of sample) {
         const { dividend, divisor, wants } = parts(q);
         const quotient = Math.floor(dividend / divisor);
-        // Every rung offers the estimate taken for the answer, or — on a remainder rung —
-        // the quotient, since swapping the two measures is THE mistake there. Each is
-        // checked against the answer as well as for its presence: a characteristic-error
-        // distractor that equals the answer is backfilled away, and `toContain` alone
-        // would still pass while the question quietly had two right answers.
+        // The estimate taken for the answer, or — on a remainder rung — the quotient, since
+        // swapping the two measures is THE mistake there. Each is checked against the answer
+        // whether or not it reached the screen: a characteristic-error distractor that equals
+        // the answer is a question with two right answers, and a rate band alone would pass.
         const mistake = String(wants === "quotient" ? tensOnly(dividend, divisor) : quotient);
         expect(mistake, `${q.prompt} has two right answers`).not.toBe(q.answer);
-        expect(q.choices, q.prompt).toContain(mistake);
         if (lvl === 4) {
           // The zero left out of the quotient: 3045 ÷ 15 answered 23 rather than 203.
           const dropped = String(Number(String(quotient).replace("0", "")));
           expect(dropped, `${q.prompt} has two right answers`).not.toBe(q.answer);
-          expect(q.choices, q.prompt).toContain(dropped);
         }
+      }
+      // A band, because rounding the divisor DOWN to a ten always makes the quotient too big:
+      // offering it every time, with an off-by-one either side behind it, put the answer second
+      // of four on 298 draws of 300 at level 4 — the rung this skill exists for.
+      const shown = rateOf(sample, (q) => {
+        const { dividend, divisor, wants } = parts(q);
+        const mistake = String(wants === "quotient" ? tensOnly(dividend, divisor) : Math.floor(dividend / divisor));
+        return q.choices.includes(mistake);
+      });
+      expect(shown.rate, `level ${lvl} shows the mistake it is about in only ${shown.text} draws`).toBeGreaterThan(0.3);
+      if (lvl === 4) {
+        const dropped = rateOf(sample, (q) => {
+          const { dividend, divisor } = parts(q);
+          return q.choices.includes(String(Number(String(Math.floor(dividend / divisor)).replace("0", ""))));
+        });
+        expect(dropped.rate, `level 4 shows the dropped zero in only ${dropped.text} draws`).toBeGreaterThan(0.3);
       }
     }
   });
