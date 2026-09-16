@@ -363,6 +363,14 @@ const coinPhrase = (count: number, coin: (typeof COINS)[number]) => `${count} ${
  * Counting coins (grade 2). Answers are money, so `numericDistractors` does not apply:
  * the three wrong choices are built from the three real mistakes — counting the coins
  * instead of their value, miscounting one coin, and being five cents out.
+ *
+ * **Both of those last two are drawn a direction.** A coin miscounted is a coin counted
+ * twice OR a coin missed, and five cents out is five cents over OR five cents under; the
+ * generator used to offer the "over" reading of each first and take the first three
+ * readings that rendered, so the handful's value had one choice below it and two above it
+ * on every question level 1 could ask. Sorting level 1's four choices and taking the third
+ * was worth 300 draws of 300. Which direction each mistake ran was never a content decision
+ * — it was the order two lines happened to be written in.
  */
 export function moneyCoins(level: number, rng: Rng, skillId: string): Question {
   const lvl = L(level);
@@ -374,7 +382,19 @@ export function moneyCoins(level: number, rng: Rng, skillId: string): Question {
   const coinCount = counts.reduce((a, b) => a + b, 0);
   const miscounted = kinds[randInt(rng, 0, kinds.length - 1)].value;
 
-  const wanted = [coinCount, total + miscounted, total - miscounted, total + 5, total - 5];
+  // Counting the coins is always offered — it is the mistake this skill exists to punish —
+  // and the other two are drawn either side of the true value. The opposite direction of
+  // each follows as a fallback, so a handful whose first reading renders as the answer (or
+  // as a negative number of cents) still has three wrong choices.
+  const missedACoin = rng() < 0.5 ? -1 : 1;
+  const shortANickel = rng() < 0.5 ? -1 : 1;
+  const wanted = [
+    coinCount,
+    total + missedACoin * miscounted,
+    total + shortANickel * 5,
+    total - missedACoin * miscounted,
+    total - shortANickel * 5,
+  ];
   const distractors: string[] = [];
   for (const cents of wanted) {
     if (cents < 0 || cents === total) continue;

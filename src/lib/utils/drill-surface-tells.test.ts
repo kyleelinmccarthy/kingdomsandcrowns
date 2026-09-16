@@ -218,11 +218,18 @@ describe("the answer cannot be copied off the prompt or picked out by its shape"
  * **The class is wider than the three skills above, and this is how wide.**
  *
  * The three fixes in this file were found by a person reading questions. Sweeping the same
- * measurement across every generated skill turns up more of the same: at some rungs the answer
- * sits at ONE position among the four in every single draw, so "pick the second smallest" or
- * "pick the second biggest" is worth 100% without any arithmetic. Fixing them all is a
- * distractor-design decision per skill and is not this wave's work, so what this does instead
- * is what `deed-engine.test.ts` does for the grade walk: **counts them, by name, exactly.**
+ * measurement across every generated skill turned up more of the same: at nineteen rungs the
+ * answer sat at ONE position among the four in every single draw, so "pick the second
+ * smallest" or "pick the second biggest" was worth 100% without any arithmetic.
+ *
+ * **The list is empty now, and that is what it is for.** All nineteen were closed one
+ * generator at a time — `circle-measure` and `pythagorean` at every rung, `sequences` at
+ * three, `dec-ops` and `quad-formula` at two, `money-coins` and `frac-equiv` at one each —
+ * and the cause was the same in all of them: the wrong answers were built at fixed offsets
+ * around the right one, so the same number of them landed above it and below it on every
+ * question. Each generator now draws HOW MANY of its wrong answers beat the answer, from a
+ * pool of readings a child actually writes down. The per-skill bands live beside each
+ * generator's own tests; what stays here is the census, and the band below it.
  *
  * The list must SHRINK. Adding to it is not forbidden — a new skill may land here before its
  * distractors are designed — but it is an edit someone makes deliberately, in this file, with
@@ -258,27 +265,42 @@ describe("every rung that puts the answer at one fixed position, counted", () =>
         if (stuck >= 0) fixed.push(`${skill.id} level ${level} is always ${stuck + 1} of 4`);
       }
     }
-    expect(fixed).toEqual([
-      "money-coins level 1 is always 3 of 4",
-      "frac-equiv level 0 is always 3 of 4",
-      "dec-ops level 0 is always 2 of 4",
-      "dec-ops level 1 is always 2 of 4",
-      "circle-measure level 0 is always 2 of 4",
-      "circle-measure level 1 is always 2 of 4",
-      "circle-measure level 2 is always 2 of 4",
-      "circle-measure level 3 is always 2 of 4",
-      "circle-measure level 4 is always 2 of 4",
-      "pythagorean level 0 is always 2 of 4",
-      "pythagorean level 1 is always 2 of 4",
-      "pythagorean level 2 is always 2 of 4",
-      "pythagorean level 3 is always 2 of 4",
-      "pythagorean level 4 is always 2 of 4",
-      "quad-formula level 0 is always 3 of 4",
-      "quad-formula level 1 is always 3 of 4",
-      "sequences level 0 is always 2 of 4",
-      "sequences level 1 is always 2 of 4",
-      "sequences level 3 is always 2 of 4",
-    ]);
+    expect(fixed).toEqual([]);
+  });
+
+  /**
+   * And the nineteen that were here stay fixed, which the census above cannot say on its own:
+   * it only fires at a position that carries EVERY draw, and a generator that regressed to
+   * 297 of 300 would empty it and pass.
+   *
+   * So the rungs that were on the list carry a band of their own. It is a loose one — no
+   * position may hold four fifths of the draws, and a second position must really be reached
+   * — because these are the numbers the fixes actually produce and not a target anyone aimed
+   * at, and a tighter bound would be a number this file made up. Every one of them stood at
+   * 300 of 300 before.
+   *
+   * Two of the seven can only put the answer second or third of four, and that is a decision
+   * rather than an oversight. `dec-ops` offers the decimal point one place each way, which is
+   * the pair of mistakes the rung exists to punish and which brackets the answer by
+   * construction; `frac-equiv` offers the numerator scaled alone and the denominator scaled
+   * alone, which are worth k times the answer and a kth of it. Both are stated here so that a
+   * later reader meets the trade rather than discovering it.
+   */
+  it("keeps the rungs that were on that list spread across the order", () => {
+    const FIXED_IN_THIS_WAVE = ["money-coins", "frac-equiv", "dec-ops", "circle-measure", "pythagorean", "quad-formula", "sequences"];
+    for (const skillId of FIXED_IN_THIS_WAVE) {
+      const skill = SKILLS.find((s) => s.id === skillId)!;
+      const genId = skill.source.kind === "generator" ? skill.source.generatorId : "";
+      for (const level of LEVELS) {
+        const sample = draws(genId, skillId, level);
+        const counts = [0, 0, 0, 0];
+        for (const q of sample) counts[rank(q) - 1] += 1;
+        const spread = counts.map((n) => n / sample.length);
+        const where = `${skillId} level ${level} sits at ${counts.join("/")} of ${sample.length}`;
+        expect(Math.max(...spread), where).toBeLessThan(0.8);
+        expect(spread.filter((rate) => rate > 0.05).length, where).toBeGreaterThanOrEqual(2);
+      }
+    }
   });
 
   it("covers the skills it claims to, so the list above is not short by a whole sweep", () => {

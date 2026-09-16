@@ -801,12 +801,21 @@ export function fracEquiv(level: number, rng: Rng, skillId: string): Question {
     Array.from({ length: kmax + 1 }, (_, i) => i + 2).filter((j) => j !== k),
     rng,
   );
-  const candidates = [
-    `${n * k}/${d}`,
-    `${n}/${d * k}`,
-    ...others.map((j) => `${n * k}/${d * j}`),
-    ...others.map((j) => `${n * j}/${d * k}`),
-  ];
+  // The two half-scalings are offered every time — they are the mistake this skill is about —
+  // and the third choice is a mis-scaling drawn from BOTH mixed families rather than always
+  // from the one that scales the denominator too far.
+  //
+  // `n*k/d` is worth k times the answer and `n/(d*k)` a kth of it, so those two sit either
+  // side of it for nothing. The third used to be `n*k/(d*j)` every time, and at level 0 the
+  // only j available was larger than k — a third choice BELOW the answer on all 300 draws,
+  // which made the answer the third of four in sorted order every time. Scaling the
+  // numerator by the wrong factor is the same mistake in the other direction and belongs in
+  // the same bag.
+  const misScaled = shuffle(
+    [...others.map((j) => `${n * k}/${d * j}`), ...others.map((j) => `${n * j}/${d * k}`)],
+    rng,
+  );
+  const candidates = [`${n * k}/${d}`, `${n}/${d * k}`, ...misScaled];
   const distractors: string[] = [];
   for (const candidate of candidates) {
     if (distractors.length === 3) break;
@@ -1247,9 +1256,17 @@ export function decOps(level: number, rng: Rng, skillId: string): Question {
   const misaligned = misalignedDigits * (DEC_SCALE / 10 ** width);
 
   // The point one place the wrong way in each direction, then the misalignment, then a
-  // tenth either side. `result / 10` is only offered when it lands on a whole number of
-  // ten-thousandths — past four places nothing here can render it honestly.
-  const wanted = [result / 10, result * 10, times ? 0 : misaligned, result + DEC_SCALE / 10, result - DEC_SCALE / 10];
+  // tenth out — DRAWN either side. `result / 10` is only offered when it lands on a whole
+  // number of ten-thousandths — past four places nothing here can render it honestly.
+  //
+  // The direction of the tenth is drawn because at levels 0 and 1 it settled the order of
+  // the whole question. Both operands carry one decimal place there, so right-aligning the
+  // digits and lining them up on the point are the same sum and the misalignment reading
+  // never renders — which left exactly `result / 10`, `result * 10` and `result + 0.1`, two
+  // choices above the answer and one below it, on all 300 draws of both rungs.
+  const tenthOver = rng() < 0.5 ? 1 : -1;
+  const tenth = (DEC_SCALE / 10) * tenthOver;
+  const wanted = [result / 10, result * 10, times ? 0 : misaligned, result + tenth, result - tenth];
   const distractors: string[] = [];
   for (const candidate of wanted) {
     if (distractors.length === 3) break;

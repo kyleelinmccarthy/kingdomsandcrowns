@@ -903,19 +903,40 @@ describe("quad-formula", () => {
     expect(negatives.length, "level 4 never drew a negative root").toBeGreaterThan(0);
   });
 
-  it("always offers the smaller root, and it is never the answer", () => {
+  /**
+   * The smaller root every time; the rest of the pool often, and not always.
+   *
+   * The smaller root, both signs flipped and the sum used to be the three wrong answers on
+   * every question — and at levels 0 and 1, where both roots are positive, the first two are
+   * negative and the sum is bigger than either root, so the answer was the third of four on
+   * all 600 draws. A child could pass the two rungs the quadratic formula starts on by
+   * sorting four numbers.
+   *
+   * Distinctness first, for every reading and not only the shown ones: a repeated root is
+   * thrown away at the draw, and roots that cancel with it, precisely so these hold. Without
+   * them `pickDistinct` would drop the colliding reading, backfill a near miss, and the
+   * counts below would pass with the answer on screen twice.
+   */
+  it("always offers the smaller root, spreads the rest, and none of them is ever the answer", () => {
     for (const lvl of LEVELS) {
-      for (const q of draws(quadFormula, lvl, "quad-formula")) {
+      const sample = draws(quadFormula, lvl, "quad-formula");
+      const offered = new Map<string, number>();
+      for (const q of sample) {
         const { larger, smaller } = roots(parse(q));
-        // Distinct first: a repeated root is thrown away at the draw precisely so that this
-        // holds. Without that throw `pickDistinct` would backfill an off-by-one and the
-        // `toContain` below would pass on the answer itself.
         expect(String(smaller), `${q.prompt} has two right answers`).not.toBe(q.answer);
         expect(q.choices, `${q.prompt} does not offer the smaller root`).toContain(String(smaller));
-        expect(String(-smaller), `${q.prompt} flips to its own answer`).not.toBe(q.answer);
-        expect(q.choices, `${q.prompt} does not offer the roots with flipped signs`).toContain(String(-smaller));
-        expect(String(larger + smaller), q.prompt).not.toBe(q.answer);
-        expect(q.choices, `${q.prompt} does not offer the sum of the roots`).toContain(String(larger + smaller));
+        const readings = { flipped: -smaller, negated: -larger, sum: larger + smaller, product: larger * smaller };
+        for (const [name, value] of Object.entries(readings)) {
+          // The product of the roots IS the larger root when the smaller is 1, and that one
+          // is dropped from the pool rather than printed as a second right answer.
+          if (name !== "product") expect(String(value), `${q.prompt} reads its own answer as the ${name} mistake`).not.toBe(q.answer);
+          if (q.choices.includes(String(value)) && String(value) !== q.answer) offered.set(name, (offered.get(name) ?? 0) + 1);
+        }
+      }
+      for (const name of ["flipped", "negated", "sum", "product"]) {
+        const count = offered.get(name) ?? 0;
+        expect(count / sample.length, `level ${lvl} offers ${name} in ${count}/${sample.length} draws`).toBeGreaterThan(0.15);
+        expect(count / sample.length, `level ${lvl} offers ${name} in ${count}/${sample.length} draws`).toBeLessThan(0.95);
       }
     }
   });
@@ -1415,20 +1436,44 @@ describe("sequences", () => {
     }
   });
 
-  it("offers the term one step further on, the sum and the step applied once, none of them the answer", () => {
+  /**
+   * An off-by-one term every time, in one direction or the other, and the rest of the pool
+   * often. The three fixed wrong answers — the term one step on, the sum, the second term —
+   * left the answer second of four on all 900 draws of the three rungs whose step is always
+   * positive, because two of the three always beat the term and one never did.
+   *
+   * Distinctness is asserted first, and for every reading, not only for the ones on screen:
+   * either off-by-one term differs from the answer by a whole step, which is never zero; the
+   * sum can land on a later term when the difference is negative, and that draw is thrown
+   * away precisely so this holds. Without the check, a reading that equalled the answer would
+   * be quietly dropped and backfilled with a near miss, and the counts below would still pass.
+   */
+  it("always offers an off-by-one term and never the right one, and spreads the rest", () => {
     for (const lvl of LEVELS) {
-      for (const q of draws(sequences, lvl, "sequences")) {
+      const sample = draws(sequences, lvl, "sequences");
+      const offered = new Map<string, number>();
+      for (const q of sample) {
         const { geometric, start, step, index } = parse(q);
-        const wrong = geometric
-          ? [start * step ** index, (start * (step ** index - 1)) / (step - 1), start * step]
-          : [start + index * step, (index * (2 * start + (index - 1) * step)) / 2, start + step];
-        for (const mistake of wrong) {
-          // Distinct first. The off-by-one term differs from the answer by a whole step, which
-          // is never zero; the sum can land on a later term when the difference is negative,
-          // and that draw is thrown away precisely so this holds rather than being backfilled.
-          expect(String(mistake), `${q.prompt} offers its own answer as a mistake`).not.toBe(q.answer);
-          expect(q.choices, `${q.prompt} does not offer ${mistake}`).toContain(String(mistake));
+        const readings = geometric
+          ? {
+            onwards: start * step ** index, short: start * step ** (index - 2),
+            sum: (start * (step ** index - 1)) / (step - 1), second: start * step, noStart: step ** (index - 1),
+          }
+          : {
+            onwards: start + index * step, short: start + (index - 2) * step,
+            sum: (index * (2 * start + (index - 1) * step)) / 2, second: start + step, noStart: (index - 1) * step,
+          };
+        for (const [name, value] of Object.entries(readings)) {
+          expect(String(value), `${q.prompt} offers its own answer as the ${name} mistake`).not.toBe(q.answer);
+          if (q.choices.includes(String(value))) offered.set(name, (offered.get(name) ?? 0) + 1);
         }
+        const offByOne = [readings.onwards, readings.short].map(String);
+        expect(q.choices.some((c) => offByOne.includes(c)), `${q.prompt} drops the off-by-one term entirely`).toBe(true);
+      }
+      for (const name of ["onwards", "short", "sum", "second", "noStart"]) {
+        const count = offered.get(name) ?? 0;
+        expect(count / sample.length, `level ${lvl} offers ${name} in ${count}/${sample.length} draws`).toBeGreaterThan(0.15);
+        expect(count / sample.length, `level ${lvl} offers ${name} in ${count}/${sample.length} draws`).toBeLessThan(0.95);
       }
     }
   });

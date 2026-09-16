@@ -477,16 +477,41 @@ describe("circle-measure", () => {
     }
   });
 
-  it("always offers the other measure and the diameter used as the radius", () => {
+  /**
+   * A rate and not "every question", and that is the whole point of it.
+   *
+   * These two readings used to be on screen every time, next to one more, and the three of
+   * them put the same number of choices above the answer and the same number below it on
+   * every draw — so sorting the four numbers and taking the second was worth 100% at all
+   * five rungs without multiplying anything by 3.14. Which readings are shown is drawn now,
+   * and that is what this band says. Each still has to be worth offering, so each must reach
+   * a third of the draws; and each must be missing from some of them, or the count either
+   * side of the answer is fixed again and nothing was fixed.
+   *
+   * The `not.toBe` beside each `toContain` is not decoration: when a reading lands on the
+   * right number the generator drops it rather than printing the answer twice, and the
+   * `toContain` would then pass on the answer itself.
+   */
+  it("offers the other measure and the diameter used as the radius often, neither always nor ever rightly", () => {
     // Re-derived here from the radius in the prompt, in hundredths, so the expected values
     // are not the generator's own.
     const tenth = (h: number) => (Math.round(h / 10) / 10).toFixed(1);
     for (const lvl of LEVELS) {
-      for (const q of draws(circleMeasure, lvl, "circle-measure")) {
+      const sample = draws(circleMeasure, lvl, "circle-measure");
+      const offered = { other: 0, asRadius: 0 };
+      for (const q of sample) {
         const { radius, area } = parse(q);
+        const other = tenth(area ? 628 * radius : 314 * radius * radius);
+        const asRadius = tenth(area ? 4 * 314 * radius * radius : 2 * 628 * radius);
         expect(q.answer, q.prompt).toBe(tenth(area ? 314 * radius * radius : 628 * radius));
-        expect(q.choices, q.prompt).toContain(tenth(area ? 628 * radius : 314 * radius * radius));
-        expect(q.choices, q.prompt).toContain(tenth(area ? 4 * 314 * radius * radius : 2 * 628 * radius));
+        expect(other, `${q.prompt} has two right answers`).not.toBe(q.answer);
+        expect(asRadius, `${q.prompt} has two right answers`).not.toBe(q.answer);
+        if (q.choices.includes(other)) offered.other += 1;
+        if (q.choices.includes(asRadius)) offered.asRadius += 1;
+      }
+      for (const [reading, count] of Object.entries(offered)) {
+        expect(count / sample.length, `level ${lvl} offers ${reading} in ${count}/${sample.length} draws`).toBeGreaterThan(0.35);
+        expect(count / sample.length, `level ${lvl} offers ${reading} in ${count}/${sample.length} draws`).toBeLessThan(0.95);
       }
     }
   });
@@ -714,18 +739,40 @@ describe("pythagorean", () => {
     }
   });
 
-  it("offers the legs added, a leg alone and the square, none of them the answer", () => {
+  /**
+   * Every wrong choice is one of the five readings, three of them are shown, and which three
+   * is drawn — because the fixed three (`a + b`, `a`, `c²`) put two choices above the
+   * hypotenuse and one below it on all 1,500 draws the surface sweep took, which made "the
+   * second smallest" worth 100% at every rung.
+   *
+   * The distinctness check comes first and stays: `a + b` exceeds `c` in any triangle, either
+   * leg and their difference fall short of it, and `c²` is at least `5c` — but those are
+   * properties of the triple table, and a table edited later is what this is here to catch.
+   * Without it, a reading that landed on `c` would be dropped and backfilled with a near miss
+   * and every `toContain` below would still pass.
+   */
+  it("offers three of the five readings, each of them often, none of them the answer", () => {
     for (const lvl of LEVELS) {
-      for (const q of draws(pythagorean, lvl, "pythagorean")) {
+      const sample = draws(pythagorean, lvl, "pythagorean");
+      const offered = new Map<string, number>();
+      for (const q of sample) {
         const m = /legs (\d+) and (\d+)/.exec(q.prompt)!;
         const a = Number(m[1]), b = Number(m[2]), c = Number(q.answer);
-        // Distinct first. `a + b` exceeds `c` in any triangle and `c²` is at least `5c`, so
-        // none of these can be the answer — but the reason is a property of the table, and
-        // a table edited later is exactly what this is here to catch.
-        expect(new Set([c, a + b, a, c * c]).size, `${q.prompt} has two right answers`).toBe(4);
-        expect(q.choices, q.prompt).toContain(String(a + b));
-        expect(q.choices, q.prompt).toContain(String(a));
-        expect(q.choices, q.prompt).toContain(String(c * c));
+        const readings = { added: a + b, squared: c * c, legA: a, legB: b, subtracted: Math.abs(a - b) };
+        expect(new Set([c, ...Object.values(readings)]).size, `${q.prompt} has two right answers`).toBe(6);
+        for (const [name, value] of Object.entries(readings)) {
+          if (q.choices.includes(String(value))) offered.set(name, (offered.get(name) ?? 0) + 1);
+        }
+        // Nothing on screen that is not one of them: no near miss backfilled in because the
+        // pool ran dry, which would be a wrong answer nobody can explain to a child.
+        for (const choice of q.choices) {
+          expect(choice === q.answer || Object.values(readings).map(String).includes(choice), `${q.prompt} offers ${choice}, which is no reading of these legs`).toBe(true);
+        }
+      }
+      for (const name of ["added", "squared", "legA", "legB", "subtracted"]) {
+        const count = offered.get(name) ?? 0;
+        expect(count / sample.length, `level ${lvl} offers ${name} in ${count}/${sample.length} draws`).toBeGreaterThan(0.15);
+        expect(count / sample.length, `level ${lvl} offers ${name} in ${count}/${sample.length} draws`).toBeLessThan(0.95);
       }
     }
   });

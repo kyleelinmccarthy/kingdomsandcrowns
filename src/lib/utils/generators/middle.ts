@@ -14,6 +14,7 @@ import {
   makeQuestion,
   numericDistractors,
   randInt,
+  shuffle,
   speakInt,
   type Question,
   type Rng,
@@ -553,15 +554,38 @@ function tenths(hundredths: number): string {
  * halving it is part of the skill rather than an occasional trick.
  *
  * Every choice is a measure of the same circle, which is why the draw is thrown away unless
- * all four render differently. Two radii collide and both are found by that test rather
- * than by being listed: at r = 2 the area and the circumference are both 12.56, and at r = 4
- * the area (50.24) equals the circumference of a circle of twice the radius (50.24), so the
- * two distractors would be the same choice printed twice.
+ * every reading in the pool renders differently — not merely the four that are shown, so a
+ * question's four choices do not depend on which readings the draw happened to pick. Two
+ * radii collide and both are found by that test rather than by being listed: at r = 2 the
+ * area and the circumference are both 12.56, and at r = 4 the area (50.24) equals the
+ * circumference of a circle of twice the radius (50.24).
+ *
+ * **Which readings land above the answer is drawn.** The pool used to be three fixed
+ * readings in a fixed order, and it put the same count on each side of the answer every
+ * time: for an area, one below and two above; for a circumference, one below and two above
+ * again. Sorting the four numbers and taking the second was worth 100% at every one of the
+ * five rungs — 1,500 draws of 1,500 — without ever multiplying anything by 3.14.
+ *
+ * The readings are the same mistakes as before with two added, and they are grouped by the
+ * side of the answer they fall on:
+ *
+ *  - **Area.** Above: the diameter used as the radius (`πd²`), and the 2 from the
+ *    circumference formula kept (`2πr²`). Below: the circumference given instead; the
+ *    radius multiplied rather than squared (`πr`); and pi forgotten altogether (`r²`).
+ *  - **Circumference.** Above: the area given instead, and the diameter used as the radius
+ *    (`2πd`). Below: the 2 forgotten (`πr`), and pi forgotten — which is the diameter, and
+ *    is what a child who has stopped reading the question writes down.
+ *
+ * An area question therefore has three readings below it and two above, so the answer can
+ * be the second, third or fourth of the four. A circumference has two of each and can only
+ * be the second or third: a circle's circumference has exactly one believable smaller wrong
+ * answer past the diameter itself, and a third invented to balance the list would be a
+ * number nobody reaches for. Level 0 asks for the area only, so its spread is the wider one.
  */
 export function circleMeasure(level: number, rng: Rng, skillId: string): Question {
   const lvl = L(level);
   const rmax = CIRCLE_RADIUS_MAX[lvl];
-  let r = 0, wantArea = true, byDiameter = false, rendered: string[] = [];
+  let r = 0, wantArea = true, byDiameter = false, answer = "", distractors: string[] = [];
   let drawn = false;
   for (let attempt = 0; attempt < 200 && !drawn; attempt++) {
     r = randInt(rng, 2, rmax);
@@ -569,11 +593,20 @@ export function circleMeasure(level: number, rng: Rng, skillId: string): Questio
     byDiameter = rng() < 0.5;
     const area = 314 * r * r;
     const circumference = 628 * r;
-    rendered = (wantArea
-      ? [area, circumference, 4 * area, 2 * area]   // the other measure; the diameter used as the radius; 2πr²
-      : [circumference, area, 2 * circumference, 314 * r] // the other measure; the diameter used as the radius; the 2 forgotten
-    ).map(tenths);
-    drawn = new Set(rendered).size === 4;
+    // Hundredths throughout, so `100 * r * r` is r² and `200 * r` is the diameter.
+    const tooBig = wantArea ? [4 * area, 2 * area] : [area, 2 * circumference];
+    const tooSmall = wantArea ? [circumference, 314 * r, 100 * r * r] : [314 * r, 200 * r];
+    const pool = [wantArea ? area : circumference, ...tooBig, ...tooSmall].map(tenths);
+    drawn = new Set(pool).size === pool.length;
+    if (!drawn) continue;
+    // How many of the three wrong readings beat the answer, drawn flat — and never so many
+    // that there are not enough small ones left to fill the other slots.
+    const beating = randInt(rng, Math.max(0, 3 - tooSmall.length), Math.min(3, tooBig.length));
+    answer = pool[0];
+    distractors = [
+      ...shuffle(tooBig.map(tenths), rng).slice(0, beating),
+      ...shuffle(tooSmall.map(tenths), rng).slice(0, 3 - beating),
+    ];
   }
   if (!drawn) throw new Error(`could not draw a circle with four different measures at level ${level}`);
 
@@ -583,8 +616,8 @@ export function circleMeasure(level: number, rng: Rng, skillId: string): Questio
     skillId,
     `${byDiameter ? "d" : "r"}${r}${wantArea ? "a" : "c"}`,
     `A circle has a ${given}. What is its ${measure}? Use 3.14 for pi.`,
-    rendered[0],
-    rendered.slice(1),
+    answer,
+    distractors,
     rng,
     // "pi" as a word and "three point one four" as words: a screen reader says "3.14" well
     // enough, but the symbol it stands for is never on screen and must never be spoken as one.
@@ -831,10 +864,26 @@ const TRIPLE_HYP_MAX = [17, 25, 29, 60, 90];
  * leg is not always named first on a diagram — and the order is part of the id, because it
  * is part of the prompt.
  *
- * Four readings are offered and none of them can be the answer, for reasons that hold for
+ * Five readings are offered and none of them can be the answer, for reasons that hold for
  * every triple rather than by luck: the legs added is `a + b`, which is strictly greater
- * than `c` in any triangle; either leg alone is strictly less than `c`; and `c²` is at least
- * `5c`. The generator test asserts all four are distinct rather than trusting this note.
+ * than `c` in any triangle; either leg alone is strictly less than `c`, as is the difference
+ * between them; and `c²` is at least `5c`. The generator test asserts they are distinct
+ * rather than trusting this note.
+ *
+ * **Which of them land above the hypotenuse is drawn.** The old three were `a + b`, `a` and
+ * `c²` in that order every time — two above the answer and one below it — so sorting the
+ * four choices and taking the second was worth 100% at every rung, on all 1,500 draws the
+ * sweep took. A hypotenuse is hard to beat with a believable larger number: it is longer
+ * than either leg and shorter than their sum, so almost every honest wrong answer is either
+ * one of those two or the squaring left undone. The three SMALL readings are what the
+ * spread is built from instead — a leg copied out, the other leg copied out, and the legs
+ * subtracted, which is the answer to the question this skill is most often confused with,
+ * finding a leg from the hypotenuse.
+ *
+ * So `beating` is drawn from 0 to 2 and the answer is the second, third or fourth of the
+ * four. It is never the smallest: the two large readings are the two mistakes a child
+ * actually writes down, and inventing a third to balance the list would put a number on
+ * screen that no child would ever reach for.
  */
 export function pythagorean(level: number, rng: Rng, skillId: string): Question {
   const lvl = L(level);
@@ -852,8 +901,17 @@ export function pythagorean(level: number, rng: Rng, skillId: string): Question 
   }
   if (!drawn) throw new Error(`could not draw a Pythagorean triple at level ${level}`);
 
+  const tooBig = shuffle([String(a + b), String(c * c)], rng);      // the legs added; the root not taken
+  const tooSmall = shuffle([String(a), String(b), String(Math.abs(a - b))], rng); // a leg; the legs subtracted
+  const beating = randInt(rng, 0, 2);
   const distractors = pickDistinct(
-    [String(a + b), String(a), String(c * c), String(b), ...numericDistractors(c, rng, 1)],
+    [
+      ...tooBig.slice(0, beating),
+      ...tooSmall.slice(0, 3 - beating),
+      ...tooBig.slice(beating),
+      ...tooSmall.slice(3 - beating),
+      ...numericDistractors(c, rng, 1),
+    ],
     String(c),
   );
   const prompt = `A right triangle has legs ${a} and ${b}. How long is the hypotenuse?`;

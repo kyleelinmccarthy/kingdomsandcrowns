@@ -924,7 +924,17 @@ const QUAD_ROOT_HIGH = [5, 7, 7, 9, 9];
  *    makes "both signs flipped" the answer.
  *
  * "The sum of the roots" is offered too and is not guarded at the draw: it equals the larger
- * root only when the smaller is zero, which is already thrown away.
+ * root only when the smaller is zero, which is already thrown away. The product of the roots
+ * — the constant term, read off as if it were a root — equals the larger when the smaller is
+ * 1, and that one is simply dropped from the pool when it happens.
+ *
+ * **Which wrong answers beat the larger root is drawn.** The pool used to be the smaller
+ * root, both signs flipped, and the sum, in that order — and at levels 0 and 1, where both
+ * roots are positive, the first two are always negative and the sum is always larger. Sorting
+ * the four choices and taking the third was worth 100% on 600 draws, on the two rungs a child
+ * meeting the quadratic formula starts on. So the two readings beside the smaller root are
+ * drawn from four — both signs flipped, the answer's own sign flipped, the sum of the roots
+ * and their product — with `beating` deciding how many of them land above the answer.
  */
 export function quadFormula(level: number, rng: Rng, skillId: string): Question {
   const lvl = L(level);
@@ -941,13 +951,18 @@ export function quadFormula(level: number, rng: Rng, skillId: string): Question 
   const larger = Math.max(p, q), smaller = Math.min(p, q);
   const b = -a * (p + q), c = a * p * q;
   const middle = `${b < 0 ? "-" : "+"} ${Math.abs(b) === 1 ? "" : Math.abs(b)}x`;
+  // The smaller root is always offered; the other two are drawn, and how many of them beat
+  // the larger root is drawn with them.
+  const rest = shuffle([-smaller, -larger, p + q, p * q].filter((v) => v !== larger), rng);
+  const above = rest.filter((v) => v > larger);
+  const below = rest.filter((v) => v < larger);
+  const beating = randInt(rng, Math.max(0, 2 - below.length), Math.min(2, above.length));
   const candidates = [
-    String(smaller),      // the smaller root
-    String(-smaller),     // the larger root with both signs flipped
-    String(p + q),        // the sum of the roots
-    String(p * q),
-    ...numericDistractors(larger, rng),
-  ];
+    smaller,                        // the smaller root
+    ...above.slice(0, beating),
+    ...below.slice(0, 2 - beating),
+    ...rest,                        // whatever is left, if two readings landed on one number
+  ].map(String).concat(numericDistractors(larger, rng));
 
   return makeQuestion(
     skillId,
@@ -1470,15 +1485,28 @@ const ORDINAL_WORDS: Record<number, string> = {
  * rung where the terms start alternating in sign and the shape of the question changes rather
  * than its size.
  *
- * **The off-by-one term is this skill's mandatory wrong answer.** `a + nd` instead of
- * `a + (n - 1)d` is the mistake the nth-term formula exists to prevent, and it is never the
- * answer here: the two differ by `d`, which is never zero, and by a factor of `r`, which is
- * never one. The first term is never 0 for the same reason, in the geometric case: every term
- * of a sequence starting at zero is zero.
+ * **An off-by-one term is this skill's mandatory wrong answer**, and it is drawn a direction.
+ * `a + nd` instead of `a + (n - 1)d` is the mistake the nth-term formula exists to prevent,
+ * and `a + (n - 2)d` is the same mistake made by a child who corrects for it twice; neither
+ * can be the answer, because they differ from it by `d`, which is never zero, and by a factor
+ * of `r`, which is never one. The first term is never 0 for the same reason, in the geometric
+ * case: every term of a sequence starting at zero is zero.
  *
  * **The sum is offered and the draw is thrown away when it equals the term.** With a negative
  * common difference a partial sum can land exactly on a later term, and a mandatory wrong
  * answer that is quietly the right one is the failure `pickDistinct` hides by backfilling.
+ *
+ * **Why the direction is drawn.** The three wrong answers used to be `a + nd`, the sum, and
+ * the second term, in that order, every time. At the three rungs whose step is always
+ * positive — 0, 1 and 3 — the first two of those are above the term and the third is below
+ * it, so sorting the four choices and taking the second was worth 100% on all 900 draws.
+ * Both off-by-one directions are real, and so are two more readings that fall below the
+ * term: the second term, and the sequence walked with its first term forgotten — `(n - 1)d`,
+ * or `r^(n-1)` — which is what a child writes when they use the formula and drop `a`.
+ * `beating` then draws how many of the three land above the answer, and the term can be the
+ * second, third or fourth of four. It is never the smallest: the only two readings a child
+ * reaches for that beat the term are the step taken once too often and the sum, and a third
+ * would have to be invented to balance the list.
  */
 export function sequences(level: number, rng: Rng, skillId: string): Question {
   const lvl = L(level);
@@ -1504,12 +1532,27 @@ export function sequences(level: number, rng: Rng, skillId: string): Question {
   }
   if (!drawn) throw new Error(`could not draw a sequence at level ${level}`);
 
+  // `offByOne` is n steps taken instead of n - 1; `shortByOne` is n - 2, the same slip
+  // corrected for once too often. One of the two is always offered, and which one is drawn:
+  // with a positive step they fall on opposite sides of the term, and that draw is what
+  // stops the term sitting in the same place in the order on every question.
+  const shortByOne = geometric ? start * step ** (index - 2) : start + (index - 2) * step;
+  const secondTerm = geometric ? start * step : start + step;          // the step applied once
+  const startForgotten = geometric ? step ** (index - 1) : (index - 1) * step; // the first term dropped
+  const offByOnes = [offByOne, shortByOne];
+  const mandatory = offByOnes[randInt(rng, 0, 1)];
+  const rest = shuffle([offByOnes[mandatory === offByOne ? 1 : 0], sum, secondTerm, startForgotten], rng);
+  const above = rest.filter((v) => v > answer);
+  const below = rest.filter((v) => v < answer);
+  // How many of the two remaining wrong answers beat the term, drawn flat and never asking
+  // for more of either than the sequence actually offers.
+  const beating = randInt(rng, Math.max(0, 2 - below.length), Math.min(2, above.length));
   const candidates = [
-    String(offByOne),                              // n steps taken instead of n - 1
-    String(sum),                                   // the first n terms added up instead
-    String(geometric ? start * step : start + step),  // the step applied once — the second term
-    ...numericDistractors(answer, rng),
-  ];
+    mandatory,
+    ...above.slice(0, beating),
+    ...below.slice(0, 2 - beating),
+    ...rest,                                       // whatever is left, if two readings collided
+  ].map(String).concat(numericDistractors(answer, rng));
 
   const kind = geometric ? "geometric" : "arithmetic";
   const named = geometric ? "ratio" : "difference";
