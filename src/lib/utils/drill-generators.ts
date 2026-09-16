@@ -17,6 +17,16 @@ import {
   roundNearest,
   volumePrism,
 } from "./generators/intermediate";
+import {
+  circleMeasure,
+  evalExpr,
+  fracDiv,
+  percentChange,
+  proportion,
+  rationalOps,
+  ratioRate,
+  twoStepEq,
+} from "./generators/middle";
 
 export type Question = {
   id: string;        // stable; encodes the parameters so a miss can be re-asked verbatim
@@ -85,8 +95,9 @@ export function makeQuestion(skillId: string, key: string, prompt: string, answe
 }
 
 /** A signed integer spoken as words never contains a bare "-", so read-aloud text
- * built from it can never collide into an awkward "- -" run. */
-function speakInt(n: number): string {
+ * built from it can never collide into an awkward "- -" run. Exported because the grade
+ * 6-7 generators speak signed coefficients, constants and values of x the same way. */
+export function speakInt(n: number): string {
   return n < 0 ? `negative ${Math.abs(n)}` : String(n);
 }
 
@@ -251,4 +262,12 @@ export const GENERATORS: Record<string, Generator> = {
   "dec-ops": decOps,
   "volume-prism": volumePrism,
   "order-ops": orderOps,
+  "ratio-rate": ratioRate,
+  "frac-div": fracDiv,
+  "eval-expr": evalExpr,
+  proportion,
+  "rational-ops": rationalOps,
+  "percent-change": percentChange,
+  "two-step-eq": twoStepEq,
+  "circle-measure": circleMeasure,
 };

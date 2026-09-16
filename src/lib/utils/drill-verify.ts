@@ -544,6 +544,205 @@ const orderOfOperations: Verifier = (q) => {
   return String(value);
 };
 
+// ---------------------------------------------------------------------------
+// Grades 6 and 7
+// ---------------------------------------------------------------------------
+
+/**
+ * "A car travels 120 miles in 3 hours. What is the speed in miles per hour?"
+ *
+ * NOT an inverse, and the prompt leaves none: both the distance and the time are named, so
+ * there is nothing to recover. What IS independent is the route — the time is subtracted
+ * out of the distance one hour at a time and the hours counted, which is what "how far per
+ * hour" literally means — and the exactness check. Neither `/` nor `%` appears, so a
+ * generator that had built its distance wrong, or had divided the other way round, is
+ * caught. A shared misconception about what a rate IS would not be.
+ */
+const unitRate: Verifier = (q) => {
+  const m = /^A car travels (\d+) miles in (\d+) hours\. What is the speed in miles per hour\?$/.exec(q.prompt);
+  if (!m) throw new Error(`rate verifier cannot parse: ${q.prompt}`);
+  const miles = Number(m[1]), hours = Number(m[2]);
+  if (hours < 1) throw new Error(`no time passes in: ${q.prompt}`);
+  if (miles > 100000) throw new Error(`distance too large to count down in: ${q.prompt}`);
+  let left = miles, speed = 0;
+  while (left >= hours) {
+    left -= hours;
+    speed += 1;
+  }
+  if (left !== 0) throw new Error(`the distance does not divide by the time in: ${q.prompt}`);
+  return String(speed);
+};
+
+/**
+ * "What is 3/4 ÷ 1/2?"
+ *
+ * A genuinely different derivation, not invert-and-multiply. Both fractions are put over
+ * their LCM and the two NUMERATORS are then divided — "six eighths shared into four
+ * eighths" — which is the other standard algorithm and shares no step with the generator's
+ * `n₁d₂ / d₁n₂`. The operator is read from the prompt and switched on, with `×` evaluated
+ * as the straight product, so a prompt flipped to multiplication cannot keep the quotient
+ * as its answer. The answer is reduced on this side too, so an unreduced answer fails.
+ */
+const fractionDivide: Verifier = (q) => {
+  const m = /^What is (\d+)\/(\d+) ([×÷]) (\d+)\/(\d+)\?$/.exec(q.prompt);
+  if (!m) throw new Error(`fraction division verifier cannot parse: ${q.prompt}`);
+  const n1 = Number(m[1]), d1 = Number(m[2]), n2 = Number(m[4]), d2 = Number(m[5]);
+  if (d1 === 0 || d2 === 0) throw new Error(`a fraction cannot have a denominator of 0: ${q.prompt}`);
+  if (m[3] === "×") return reduceFraction(n1 * n2, d1 * d2);
+  if (n2 === 0) throw new Error(`division by zero in: ${q.prompt}`);
+  const lcm = (d1 * d2) / commonFactor(d1, d2);
+  return reduceFraction(n1 * (lcm / d1), n2 * (lcm / d2));
+};
+
+/**
+ * "If x = -3, what is 3x + 5?"
+ *
+ * NOT an inverse — the prompt names x, the coefficient and the constant. The independence
+ * is in what this REFUSES to do: `3x` is reached by counting 3 out x times, never by adding
+ * 3 to x, and the constant is added exactly once at the end, never multiplied. Those are
+ * the two mistakes the skill exists to catch, and a generator making either one disagrees
+ * here. The value of x is taken from the prompt's own `x = ` clause, so a generator that
+ * substituted a different number is caught as well.
+ */
+const evaluateExpression: Verifier = (q) => {
+  const m = /^If x = (-?\d+), what is (\d+)x \+ (-?\d+)\?$/.exec(q.prompt);
+  if (!m) throw new Error(`expression verifier cannot parse: ${q.prompt}`);
+  const x = Number(m[1]), a = Number(m[2]), b = Number(m[3]);
+  if (Math.abs(x) > 1000) throw new Error(`x too large to count out in: ${q.prompt}`);
+  let product = 0;
+  for (let counted = 0; counted < Math.abs(x); counted++) product += a;
+  return String((x < 0 ? -product : product) + b);
+};
+
+/**
+ * "If 3 pencils cost $6, how much do 7 pencils cost?"
+ *
+ * A genuine second derivation: the generator holds a unit price and multiplies it by the
+ * new count, while this never forms a unit price at all — it cross-multiplies, `n₁ × answer
+ * = n₂ × cost`, and divides by repeated subtraction. So a generator that scaled by the
+ * wrong count, or scaled the wrong number, disagrees here. The item is matched by
+ * backreference, so a prompt naming pencils in one clause and apples in the other does not
+ * parse at all.
+ */
+const proportionCost: Verifier = (q) => {
+  const m = /^If (\d+) ([a-z]+) cost \$(\d+), how much do (\d+) \2 cost\?$/.exec(q.prompt);
+  if (!m) throw new Error(`proportion verifier cannot parse: ${q.prompt}`);
+  const n1 = Number(m[1]), cost = Number(m[3]), n2 = Number(m[4]);
+  if (n1 < 1 || n2 < 1) throw new Error(`a count of none in: ${q.prompt}`);
+  if (n2 * cost > 100000) throw new Error(`total too large to count down in: ${q.prompt}`);
+  let left = n2 * cost, dollars = 0;
+  while (left >= n1) {
+    left -= n1;
+    dollars += 1;
+  }
+  if (left !== 0) throw new Error(`the counts do not scale to a whole number of dollars: ${q.prompt}`);
+  return `$${dollars}`;
+};
+
+/**
+ * "What is -3/4 + 1/2?" / "What is 3/4 - (-1/2)?"
+ *
+ * The common denominator is reached by LCM here and by multiplying the two denominators in
+ * the generator, so a cross-multiplication slip shows up as a disagreement, and the answer
+ * is reduced on this side so an unreduced one fails. Both SIGNS and the operator are read
+ * out of the prompt and applied here, never assumed: a prompt whose second operand lost its
+ * brackets, or whose plus became a minus, cannot keep the old answer. A bracketed operand
+ * must carry a minus sign — a plain `(1/2)` does not parse, because nothing should be
+ * writing one.
+ */
+const rationalAddSub: Verifier = (q) => {
+  const m = /^What is (-?\d+)\/(\d+) ([+\-]) (?:(\d+)\/(\d+)|\((-\d+)\/(\d+)\))\?$/.exec(q.prompt);
+  if (!m) throw new Error(`rational verifier cannot parse: ${q.prompt}`);
+  const n1 = Number(m[1]), d1 = Number(m[2]);
+  const n2 = Number(m[4] ?? m[6]), d2 = Number(m[5] ?? m[7]);
+  if (d1 === 0 || d2 === 0) throw new Error(`a fraction cannot have a denominator of 0: ${q.prompt}`);
+  const lcm = (d1 * d2) / commonFactor(d1, d2);
+  const left = n1 * (lcm / d1), right = n2 * (lcm / d2);
+  return reduceFraction(m[3] === "+" ? left + right : left - right, lcm);
+};
+
+/**
+ * "A price rises from $40 to $50. What is the percent increase?"
+ *
+ * A genuine inverse: the generator picks the percent and builds the new price from it,
+ * while this recovers the percent from the two prices. The BASE is the price it started
+ * FROM, which is the whole point of the skill and the one thing a verifier must not learn
+ * from its generator.
+ *
+ * Both direction words are checked against the numbers rather than trusted. A prompt that
+ * said "rises" while the price fell, or asked for the "increase" on a fall, would be read
+ * by a child one way and marked the other, and neither wording alone is enough to catch it.
+ * A price that did not move throws: there is no percent change to ask about.
+ */
+const percentChange: Verifier = (q) => {
+  const m = /^A price (rises|falls) from \$(\d+) to \$(\d+)\. What is the percent (increase|decrease)\?$/.exec(q.prompt);
+  if (!m) throw new Error(`percent-change verifier cannot parse: ${q.prompt}`);
+  const before = Number(m[2]), after = Number(m[3]);
+  if (before <= 0) throw new Error(`nothing to change from in: ${q.prompt}`);
+  if (before === after) throw new Error(`the price did not move in: ${q.prompt}`);
+  const rising = after > before;
+  if (rising !== (m[1] === "rises")) throw new Error(`the prices do not ${m[1]} in: ${q.prompt}`);
+  if (rising !== (m[4] === "increase")) throw new Error(`a price that ${m[1]} has no percent ${m[4]}: ${q.prompt}`);
+  const difference = rising ? after - before : before - after;
+  const percent = (difference * 100) / before;
+  if (!Number.isInteger(percent)) throw new Error(`not a whole percent in: ${q.prompt}`);
+  return `${percent}%`;
+};
+
+/**
+ * "Solve for x: 3x + 4 = 19" / "Solve for x: -3x - 4 = -13"
+ *
+ * A genuine inverse: the generator builds the right-hand side from x, and this takes it
+ * apart — subtract the constant, then divide by the coefficient, in that order. The
+ * constant's sign is read from the prompt, so an equation printed with a minus cannot be
+ * solved as if it had a plus.
+ *
+ * A non-integer solution THROWS rather than being rounded into agreement. Every equation
+ * this skill asks is built to come out whole, so `(c - b) % a !== 0` means the generator
+ * produced an equation no child can solve, and the throw is how that reaches the harness.
+ */
+const twoStepEquation: Verifier = (q) => {
+  const m = /^Solve for x: (-?\d+)x ([+\-]) (\d+) = (-?\d+)$/.exec(q.prompt);
+  if (!m) throw new Error(`two-step equation verifier cannot parse: ${q.prompt}`);
+  const a = Number(m[1]);
+  const b = m[2] === "+" ? Number(m[3]) : -Number(m[3]);
+  const c = Number(m[4]);
+  if (a === 0) throw new Error(`no x to solve for in: ${q.prompt}`);
+  if ((c - b) % a !== 0) throw new Error(`no integer solution in: ${q.prompt}`);
+  return String((c - b) / a);
+};
+
+/**
+ * "A circle has a radius of 5. What is its area? Use 3.14 for pi."
+ *
+ * NOT an inverse: πr² and 2πr are named by the question itself, so there is nothing to run
+ * backwards. Three things here ARE independent and each catches a real mistake:
+ *
+ *  - **The value of pi is taken from the prompt**, not from a constant in this file. A
+ *    generator computing with 3.14159 while the prompt says 3.14 disagrees here.
+ *  - **The diameter is halved here**, so a generator that used a diameter as a radius — the
+ *    defining error of this skill — is caught. An odd diameter throws.
+ *  - **The rounding is written out again**, `Math.round(x * 10) / 10` over a FLOAT, where
+ *    the generator works in exact integer hundredths. Deliberately not a shared helper:
+ *    one helper called twice is one derivation, and the whole point of one decimal place is
+ *    that both sides agree on where it lands.
+ */
+const circleMeasure: Verifier = (q) => {
+  const m = /^A circle has a (radius|diameter) of (\d+)\. What is its (area|circumference)\? Use (\d+(?:\.\d+)?) for pi\.$/.exec(q.prompt);
+  if (!m) throw new Error(`circle verifier cannot parse: ${q.prompt}`);
+  const given = Number(m[2]);
+  if (given < 1) throw new Error(`a circle needs a size in: ${q.prompt}`);
+  if (m[1] === "diameter" && given % 2 !== 0) throw new Error(`an odd diameter has no whole radius: ${q.prompt}`);
+  const radius = m[1] === "diameter" ? given / 2 : given;
+  const pi = Number(m[4]);
+  if (!(pi > 3 && pi < 4)) throw new Error(`that is not pi in: ${q.prompt}`);
+  // r squared by counting r lots of r, rather than by `r * r`.
+  let squared = 0;
+  for (let counted = 0; counted < radius; counted++) squared += radius;
+  const value = m[3] === "area" ? pi * squared : pi * radius + pi * radius;
+  return (Math.round(value * 10) / 10).toFixed(1);
+};
+
 export const VERIFIERS: Record<string, Verifier> = {
   add: arithmetic,
   sub: arithmetic,
@@ -572,4 +771,12 @@ export const VERIFIERS: Record<string, Verifier> = {
   "dec-ops": decimalOps,
   "volume-prism": boxMeasure,
   "order-ops": orderOfOperations,
+  "ratio-rate": unitRate,
+  "frac-div": fractionDivide,
+  "eval-expr": evaluateExpression,
+  proportion: proportionCost,
+  "rational-ops": rationalAddSub,
+  "percent-change": percentChange,
+  "two-step-eq": twoStepEquation,
+  "circle-measure": circleMeasure,
 };
