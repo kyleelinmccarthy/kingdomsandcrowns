@@ -33,11 +33,16 @@ import {
   twoStepEq,
 } from "./generators/middle";
 import {
+  anglePairs,
+  distMidpoint,
   factorQuad,
   inequalities,
   multiStepEq,
+  similarTri,
   slopeIntercept,
+  solidMeasure,
   systemsEq,
+  trigRatios,
 } from "./generators/high";
 
 export type Question = {
@@ -299,4 +304,9 @@ export const GENERATORS: Record<string, Generator> = {
   "factor-quad": factorQuad,
   "slope-intercept": slopeIntercept,
   inequalities,
+  "angle-pairs": anglePairs,
+  "similar-tri": similarTri,
+  "trig-ratios": trigRatios,
+  "solid-measure": solidMeasure,
+  "dist-midpoint": distMidpoint,
 };

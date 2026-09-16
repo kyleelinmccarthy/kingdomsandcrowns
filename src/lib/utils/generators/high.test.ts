@@ -1,5 +1,5 @@
 /**
- * Range and ladder checks for grade 9 — Algebra I.
+ * Range and ladder checks for grades 9, 10 and 11.
  *
  * `drill-verify.test.ts` proves the ANSWER KEY against an independent reading of the prompt;
  * nothing there bounds difficulty, and nothing there knows which mistakes a skill is supposed
@@ -12,7 +12,18 @@
  * stopped testing anything.
  */
 import { describe, it, expect } from "vitest";
-import { factorQuad, inequalities, multiStepEq, slopeIntercept, systemsEq } from "./high";
+import {
+  anglePairs,
+  distMidpoint,
+  factorQuad,
+  inequalities,
+  multiStepEq,
+  similarTri,
+  slopeIntercept,
+  solidMeasure,
+  systemsEq,
+  trigRatios,
+} from "./high";
 import { seededRng, type Question, type Rng } from "../drill-generators";
 
 const LEVELS = [0, 1, 2, 3, 4];
@@ -378,6 +389,417 @@ describe("inequalities", () => {
         expect(q.readAloud, q.readAloud).toMatch(/is (less|greater) than/);
         expect(q.readAloud, q.readAloud).not.toMatch(/[<>≤≥-]/);
       }
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Grade 10 — Geometry
+// ---------------------------------------------------------------------------
+
+describe("angle-pairs", () => {
+  const KINDS = [
+    ["complementary"],
+    ["complementary", "supplementary"],
+    ["complementary", "supplementary"],
+    ["complementary", "supplementary", "vertical", "same-side"],
+    ["complementary", "supplementary", "vertical", "same-side"],
+  ];
+
+  const parse = (q: Question) => {
+    const named = /^Two angles are (complementary|supplementary)\. One is (\d+)°\. What is the other\?$/.exec(q.prompt);
+    if (named) return { kind: named[1], given: Number(named[2]) };
+    const vertical = /^Two lines cross\. One of a pair of vertical angles is (\d+)°\. What is the other\?$/.exec(q.prompt);
+    if (vertical) return { kind: "vertical", given: Number(vertical[1]) };
+    const sameSide = /^Parallel lines are cut by a transversal\. One same-side interior angle is (\d+)°\. What is the other\?$/.exec(q.prompt);
+    expect(sameSide, `angle-pairs wrote a prompt a child cannot read: ${q.prompt}`).not.toBeNull();
+    return { kind: "same-side", given: Number(sameSide![1]) };
+  };
+
+  it("asks only the relationships its level has reached, in that level's degrees", () => {
+    for (const lvl of LEVELS) {
+      const used = new Set<string>();
+      for (const q of draws(anglePairs, lvl, "angle-pairs")) {
+        const { kind, given } = parse(q);
+        used.add(kind);
+        expect(KINDS[lvl], `level ${lvl} asked ${kind}`).toContain(kind);
+        expect(given, q.prompt).toBeGreaterThanOrEqual(1);
+        expect(given, q.prompt).toBeLessThanOrEqual(179);
+        // 90° is neither: it has no supplement worth asking and its complement is zero.
+        expect(given, q.prompt).not.toBe(90);
+        // 45° is its own complement, which would make "the angle you were given" the answer.
+        if (kind === "complementary") expect(given, q.prompt).not.toBe(45);
+        // Multiples of five only at the first two rungs — the whole difference between 1 and 2.
+        if (lvl <= 1) expect(given % 5, `level ${lvl} left the five-degree grid: ${q.prompt}`).toBe(0);
+        // Only a vertical pair may be obtuse, and only at level 4: everywhere else the
+        // complement has to stay a real angle, because it is the mandatory wrong reading.
+        if (!(kind === "vertical" && lvl === 4)) expect(given, q.prompt).toBeLessThan(90);
+      }
+      expect([...used].sort(), `level ${lvl} never asked everything it allows`).toEqual([...KINDS[lvl]].sort());
+    }
+  });
+
+  it("gives the angle the relationship the prompt actually names", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(anglePairs, lvl, "angle-pairs")) {
+        const { kind, given } = parse(q);
+        const answer = Number(q.answer);
+        expect(Number.isInteger(answer), q.answer).toBe(true);
+        expect(answer, q.prompt).toBeGreaterThan(0);
+        if (kind === "complementary") expect(given + answer, q.prompt).toBe(90);
+        else if (kind === "vertical") expect(answer, q.prompt).toBe(given);
+        else expect(given + answer, q.prompt).toBe(180);
+      }
+    }
+  });
+
+  it("offers the other relationship, and it is never the answer", () => {
+    for (const lvl of LEVELS) {
+      let offered = 0;
+      for (const q of draws(anglePairs, lvl, "angle-pairs")) {
+        const { kind, given } = parse(q);
+        if (kind === "vertical") continue;
+        const other = String(kind === "complementary" ? 180 - given : 90 - given);
+        // Distinct first: complement and supplement differ by exactly 90, so this holds for
+        // every angle — but a level that let an obtuse angle through would have no complement
+        // to offer at all, and `pickDistinct` would fill the slot with an off-by-one instead.
+        expect(other, `${q.prompt} has two right answers`).not.toBe(q.answer);
+        expect(q.choices, `${q.prompt} does not offer the other relationship`).toContain(other);
+        // A vertical pair is the one relationship whose answer IS the angle given, so the
+        // "given angle back again" reading belongs to every other kind and to no vertical one.
+        expect(q.choices, `${q.prompt} does not offer the angle it was given`).toContain(String(given));
+        offered += 1;
+      }
+      expect(offered, `level ${lvl} never asked a complement or a supplement`).toBeGreaterThan(0);
+    }
+    // A vertical pair's own mistake is reading the ADJACENT angle, which is the supplement.
+    let vertical = 0;
+    for (const q of draws(anglePairs, 4, "angle-pairs")) {
+      const { kind, given } = parse(q);
+      if (kind !== "vertical") continue;
+      expect(String(180 - given), `${q.prompt} has two right answers`).not.toBe(q.answer);
+      expect(q.choices, `${q.prompt} does not offer the adjacent angle`).toContain(String(180 - given));
+      vertical += 1;
+    }
+    expect(vertical, "level 4 never drew a vertical pair").toBeGreaterThan(0);
+  });
+
+  it("says the degrees rather than printing the sign", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(anglePairs, lvl, "angle-pairs")) {
+        expect(q.readAloud, q.readAloud).toContain("degrees");
+        expect(q.readAloud, q.readAloud).not.toMatch(/[°-]/);
+      }
+    }
+  });
+});
+
+describe("similar-tri", () => {
+  const SCALE_MAX = [3, 4, 5, 6, 8];
+  const SIDE_MAX = [6, 7, 8, 9, 9];
+
+  const parse = (q: Question) => {
+    const m = /^Two triangles are similar: the first has sides (\d+) and (\d+), and the second's side matching the (\d+) is (\d+)\. What is the second's side matching the (\d+)\?$/.exec(q.prompt);
+    expect(m, `similar-tri wrote a prompt a child cannot read: ${q.prompt}`).not.toBeNull();
+    return { first: Number(m![1]), second: Number(m![2]), matched: Number(m![3]), image: Number(m![4]), wanted: Number(m![5]) };
+  };
+
+  it("keeps the two triangles in proportion, inside the level's sides and scales", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(similarTri, lvl, "similar-tri")) {
+        const { first, second, matched, image, wanted } = parse(q);
+        // The prompt must point at the sides it named, or "the side matching the 3" is a riddle.
+        expect(matched, q.prompt).toBe(first);
+        expect(wanted, q.prompt).toBe(second);
+        expect(first, `${q.prompt} names the same side twice`).not.toBe(second);
+        // Cross-multiplied, never divided: first : second = image : answer.
+        expect(first * Number(q.answer), `${q.answer} is not in proportion with ${q.prompt}`).toBe(second * image);
+        expect(image % first, `${q.prompt} does not scale by a whole number`).toBe(0);
+        const scale = image / first;
+        expect(scale, q.prompt).toBeGreaterThanOrEqual(2);
+        expect(scale, q.prompt).toBeLessThanOrEqual(SCALE_MAX[lvl]);
+        for (const side of [first, second]) {
+          expect(side, q.prompt).toBeGreaterThanOrEqual(2);
+          expect(side, q.prompt).toBeLessThanOrEqual(SIDE_MAX[lvl]);
+        }
+        // A match that IS the first triangle's other side reads like a trick.
+        expect(image, q.prompt).not.toBe(second);
+      }
+    }
+  });
+
+  it("offers the scale added instead of multiplied, and it is never the answer", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(similarTri, lvl, "similar-tri")) {
+        const { first, second, image } = parse(q);
+        const scale = image / first;
+        // Distinct first. `b + k` and `b × k` agree exactly once, at b = k = 2, and that draw
+        // is thrown away — without the throw `pickDistinct` would swap in an off-by-one and
+        // the `toContain` below would pass on the answer itself.
+        expect(String(second + scale), `${q.prompt} has two right answers`).not.toBe(q.answer);
+        expect(q.choices, `${q.prompt} does not offer the scale added`).toContain(String(second + scale));
+        expect(String(second), `${q.prompt} answers with the unscaled side`).not.toBe(q.answer);
+        expect(q.choices, `${q.prompt} does not offer the unscaled side`).toContain(String(second));
+      }
+    }
+  });
+});
+
+describe("trig-ratios", () => {
+  const RATIOS = [["sin"], ["sin", "cos"], ["sin", "cos"], ["sin", "cos", "tan"], ["sin", "cos", "tan"]];
+  const HYP_MAX = [25, 29, 40, 60, 90];
+
+  const parse = (q: Question) => {
+    const m = /^In a right triangle, angle A has an opposite side of (\d+), an adjacent side of (\d+), and a hypotenuse of (\d+)\. What is (sin|cos|tan) A\?$/.exec(q.prompt);
+    expect(m, `trig-ratios wrote a prompt a child cannot read: ${q.prompt}`).not.toBeNull();
+    return { opposite: Number(m![1]), adjacent: Number(m![2]), hypotenuse: Number(m![3]), ratio: m![4] };
+  };
+  /** A fraction as the generators spell one: reduced, and a whole number written as one. */
+  const ratioOf = (n: number, d: number) => {
+    const g = (a: number, b: number): number => (b === 0 ? a : g(b, a % b));
+    const k = g(n, d) || 1;
+    return d / k === 1 ? String(n / k) : `${n / k}/${d / k}`;
+  };
+
+  it("names a real right triangle and the ratio the prompt asks for", () => {
+    for (const lvl of LEVELS) {
+      const used = new Set<string>();
+      for (const q of draws(trigRatios, lvl, "trig-ratios")) {
+        const { opposite, adjacent, hypotenuse, ratio } = parse(q);
+        used.add(ratio);
+        expect(RATIOS[lvl], `level ${lvl} asked ${ratio}`).toContain(ratio);
+        // The sides come from the triple table, so this holds — and holds without this file
+        // ever seeing the table. An irrational ratio could not be one of four choices.
+        expect(opposite * opposite + adjacent * adjacent, `${q.prompt} is not a right triangle`).toBe(hypotenuse * hypotenuse);
+        expect(hypotenuse, q.prompt).toBeLessThanOrEqual(HYP_MAX[lvl]);
+        const expected = ratio === "sin" ? ratioOf(opposite, hypotenuse) : ratio === "cos" ? ratioOf(adjacent, hypotenuse) : ratioOf(opposite, adjacent);
+        expect(q.answer, `${q.prompt} answered ${q.answer}`).toBe(expected);
+        // No triple has two equal legs, so no ratio here is ever 1 and none is ever whole.
+        expect(q.answer, q.prompt).toMatch(/^\d+\/\d+$/);
+      }
+      expect([...used].sort(), `level ${lvl} never asked everything it allows`).toEqual([...RATIOS[lvl]].sort());
+    }
+  });
+
+  it("offers the cosine where the sine was asked, and it is never the answer", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(trigRatios, lvl, "trig-ratios")) {
+        const { opposite, adjacent, hypotenuse, ratio } = parse(q);
+        const wrong = ratio === "sin" ? ratioOf(adjacent, hypotenuse)
+          : ratio === "cos" ? ratioOf(opposite, hypotenuse)
+            : ratioOf(adjacent, opposite);
+        // Distinct first: sine equals cosine only when the two legs are equal, and no
+        // Pythagorean triple has that. The same holds for the tangent and its reciprocal.
+        expect(wrong, `${q.prompt} has two right answers`).not.toBe(q.answer);
+        expect(q.choices, `${q.prompt} does not offer the other ratio`).toContain(wrong);
+      }
+    }
+  });
+
+  it("speaks the ratio's name rather than its abbreviation", () => {
+    for (const q of draws(trigRatios, 4, "trig-ratios")) {
+      expect(q.readAloud, q.readAloud).toMatch(/the (sine|cosine|tangent) of angle A/);
+      expect(q.readAloud, q.readAloud).not.toMatch(/[-\/]/);
+    }
+  });
+});
+
+describe("solid-measure", () => {
+  const SHAPES = [
+    ["prism"],
+    ["prism", "cylinder"],
+    ["prism", "cylinder"],
+    ["prism", "cylinder"],
+    ["prism", "cylinder", "sphere", "cone"],
+  ];
+  const DIM_MAX = [4, 5, 6, 8, 10];
+
+  type Read = { shape: string; measure: string; dims: number[]; pi: number };
+  const parse = (q: Question): Read => {
+    const prism = /^A rectangular prism is (\d+) by (\d+) by (\d+)\. What is its (volume|surface area)\?$/.exec(q.prompt);
+    if (prism) return { shape: "prism", measure: prism[4], dims: [1, 2, 3].map((i) => Number(prism[i])), pi: 0 };
+    const cylinder = /^A cylinder has radius (\d+) and height (\d+)\. What is its (volume|surface area)\? Use (3\.14) for pi\.$/.exec(q.prompt);
+    if (cylinder) return { shape: "cylinder", measure: cylinder[3], dims: [Number(cylinder[1]), Number(cylinder[2])], pi: Number(cylinder[4]) };
+    const sphere = /^A sphere has radius (\d+)\. What is its (volume|surface area)\? Use (3\.14) for pi\.$/.exec(q.prompt);
+    if (sphere) return { shape: "sphere", measure: sphere[2], dims: [Number(sphere[1])], pi: Number(sphere[3]) };
+    const cone = /^A cone has radius (\d+) and height (\d+)\. What is its volume\? Use (3\.14) for pi\.$/.exec(q.prompt);
+    expect(cone, `solid-measure wrote a prompt a child cannot read: ${q.prompt}`).not.toBeNull();
+    return { shape: "cone", measure: "volume", dims: [Number(cone![1]), Number(cone![2])], pi: Number(cone![3]) };
+  };
+
+  /** Volume and surface area of the solid the prompt describes, worked here from the prompt. */
+  const measures = ({ shape, dims, pi }: Read): { volume: number; surface: number } => {
+    if (shape === "prism") {
+      const [l, w, h] = dims;
+      return { volume: l * w * h, surface: 2 * (l * w + l * h + w * h) };
+    }
+    if (shape === "cylinder") {
+      const [r, h] = dims;
+      return { volume: pi * r * r * h, surface: 2 * pi * r * r + 2 * pi * r * h };
+    }
+    if (shape === "sphere") {
+      const [r] = dims;
+      return { volume: (4 * pi * r * r * r) / 3, surface: 4 * pi * r * r };
+    }
+    const [r, h] = dims;
+    // A cone is only ever asked for its volume — its surface needs a slant height, and
+    // `√(r² + h²)` is irrational for nearly every pair. `surface` here holds the mistake that
+    // stands in for the other measure: the one third dropped.
+    return { volume: (pi * r * r * h) / 3, surface: pi * r * r * h };
+  };
+  const tenths = (value: number) => (Math.round(value * 10) / 10).toFixed(1);
+
+  it("measures the solid the prompt names, to one decimal place, inside the level's sizes", () => {
+    for (const lvl of LEVELS) {
+      const used = new Set<string>();
+      for (const q of draws(solidMeasure, lvl, "solid-measure")) {
+        const read = parse(q);
+        used.add(read.shape);
+        expect(SHAPES[lvl], `level ${lvl} drew a ${read.shape}`).toContain(read.shape);
+        // One spelling for one number: `24` and `24.0` are the same measure written two ways.
+        expect(q.answer, `${q.prompt} answered ${q.answer}`).toMatch(/^\d+\.\d$/);
+        const { volume, surface } = measures(read);
+        expect(q.answer, `${q.prompt} answered ${q.answer}`).toBe(tenths(read.measure === "volume" ? volume : surface));
+        for (const d of read.dims) {
+          expect(d, q.prompt).toBeGreaterThanOrEqual(2);
+          expect(d, q.prompt).toBeLessThanOrEqual(Math.max(DIM_MAX[lvl], 8));
+        }
+        // Surface area is a wrong reading from the start and a QUESTION only from level 2.
+        if (lvl <= 1) expect(read.measure, `level ${lvl} asked for a surface area`).toBe("volume");
+        if (read.shape === "cone") expect(read.measure, "a cone is only ever asked for its volume").toBe("volume");
+      }
+      expect([...used].sort(), `level ${lvl} never drew everything it allows`).toEqual([...SHAPES[lvl]].sort());
+    }
+    const asked = new Set(draws(solidMeasure, 2, "solid-measure").map((q) => parse(q).measure));
+    expect([...asked].sort(), "level 2 must ask both measures").toEqual(["surface area", "volume"]);
+  });
+
+  it("offers the other measure of the same solid, and it is never the answer", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(solidMeasure, lvl, "solid-measure")) {
+        const read = parse(q);
+        const { volume, surface } = measures(read);
+        // For a cone this is the one third dropped rather than a surface area; either way it
+        // is the reading the skill exists to catch, and the draw is thrown away when it rounds
+        // to the answer rather than being quietly backfilled with an off-by-a-tenth.
+        const other = tenths(read.measure === "volume" ? surface : volume);
+        expect(other, `${q.prompt} has two right answers`).not.toBe(q.answer);
+        expect(q.choices, `${q.prompt} does not offer the other measure`).toContain(other);
+      }
+    }
+  });
+
+  it("speaks pi as a word and never prints the symbol", () => {
+    for (const q of draws(solidMeasure, 4, "solid-measure")) {
+      expect(q.readAloud, q.readAloud).not.toContain("π");
+      expect(q.readAloud, q.readAloud).not.toContain("3.14");
+      if (q.prompt.includes("pi")) expect(q.readAloud, q.readAloud).toContain("three point one four for pi");
+    }
+  });
+});
+
+describe("dist-midpoint", () => {
+  const ORIGIN_MAX = [5, 6, 8, 10, 12];
+  const HYP_MAX = [13, 17, 25, 29, 60];
+
+  const parse = (q: Question) => {
+    const m = /^What is the (distance between|midpoint of) \((-?\d+), (-?\d+)\) and \((-?\d+), (-?\d+)\)\?$/.exec(q.prompt);
+    expect(m, `dist-midpoint wrote a prompt a child cannot read: ${q.prompt}`).not.toBeNull();
+    return {
+      wantDistance: m![1] === "distance between",
+      x1: Number(m![2]), y1: Number(m![3]), x2: Number(m![4]), y2: Number(m![5]),
+    };
+  };
+
+  it("keeps the distance whole and the midpoint halfway, inside the level's grid", () => {
+    for (const lvl of LEVELS) {
+      const asked = new Set<boolean>();
+      for (const q of draws(distMidpoint, lvl, "dist-midpoint")) {
+        const { wantDistance, x1, y1, x2, y2 } = parse(q);
+        asked.add(wantDistance);
+        expect(Math.abs(x1), q.prompt).toBeLessThanOrEqual(ORIGIN_MAX[lvl]);
+        expect(Math.abs(y1), q.prompt).toBeLessThanOrEqual(ORIGIN_MAX[lvl]);
+        // Negative coordinates join at level 3, and only there.
+        if (lvl <= 2) for (const v of [x1, y1, x2, y2]) expect(v, `level ${lvl} went negative: ${q.prompt}`).toBeGreaterThanOrEqual(0);
+        if (wantDistance) {
+          const squared = (x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1);
+          // Squared back rather than rooted: the answer is the whole number whose square is
+          // the sum of the two squares, which is the only reason it can be a choice at all.
+          expect(Number(q.answer) * Number(q.answer), `${q.prompt} is not ${q.answer} apart`).toBe(squared);
+          expect(Number(q.answer), q.prompt).toBeLessThanOrEqual(HYP_MAX[lvl]);
+        } else {
+          const m = /^\((-?\d+(?:\.5)?), (-?\d+(?:\.5)?)\)$/.exec(q.answer);
+          expect(m, `dist-midpoint wrote an answer that is not a point: ${q.answer}`).not.toBeNull();
+          expect(2 * Number(m![1]), q.prompt).toBe(x1 + x2);
+          expect(2 * Number(m![2]), q.prompt).toBe(y1 + y2);
+          // Two points summing to the origin make "the halving forgotten" the answer; a
+          // midpoint with two equal coordinates makes "the coordinates swapped" the answer.
+          expect(x1 + x2 === 0 && y1 + y2 === 0, q.prompt).toBe(false);
+          expect(x1 + x2, `${q.prompt} swaps to itself`).not.toBe(y1 + y2);
+        }
+      }
+      // The midpoint is a question from level 1 and a wrong answer from level 0.
+      expect([...asked].sort(), `level ${lvl} asked the wrong mix`).toEqual(lvl === 0 ? [true] : [false, true]);
+    }
+  });
+
+  it("offers the midpoint against every distance question, and it is never the answer", () => {
+    for (const lvl of LEVELS) {
+      let offered = 0;
+      for (const q of draws(distMidpoint, lvl, "dist-midpoint")) {
+        const { wantDistance, x1, y1, x2, y2 } = parse(q);
+        if (!wantDistance) continue;
+        const midpoint = `(${(x1 + x2) / 2}, ${(y1 + y2) / 2})`;
+        // Distinct by shape rather than by luck — a point is never a whole number — but
+        // asserted anyway, because the day the distance answer is rendered as a point is the
+        // day this distractor quietly becomes the answer and nothing else would say so.
+        expect(midpoint, `${q.prompt} has two right answers`).not.toBe(q.answer);
+        expect(q.choices, `${q.prompt} does not offer the midpoint`).toContain(midpoint);
+        offered += 1;
+      }
+      expect(offered, `level ${lvl} never asked for a distance`).toBeGreaterThan(0);
+    }
+  });
+
+  it("speaks the points without brackets or a bare minus sign", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(distMidpoint, lvl, "dist-midpoint")) {
+        expect(q.readAloud, q.readAloud).toContain("the point ");
+        expect(q.readAloud, q.readAloud).not.toMatch(/[()-]/);
+      }
+    }
+  });
+});
+
+/**
+ * Every rung must be a different rung.
+ *
+ * `two-step-eq` shipped with levels 0 and 1 producing literally the same 480 equations: a
+ * child masters a rung, is promoted, and is handed the pool they just left while their mastery
+ * number climbs. What this asserts is the weakest honest form — level N must be able to ask
+ * something no earlier level can — because a harder rung should still revisit easier work.
+ */
+describe("every grade 10 level offers something no earlier level can ask", () => {
+  const LADDERS: [string, (l: number, r: Rng, s: string) => Question][] = [
+    ["angle-pairs", anglePairs],
+    ["similar-tri", similarTri],
+    ["trig-ratios", trigRatios],
+    ["solid-measure", solidMeasure],
+    ["dist-midpoint", distMidpoint],
+  ];
+
+  it.each(LADDERS)("%s climbs", (skillId, gen) => {
+    const seen = new Set<string>();
+    for (const lvl of LEVELS) {
+      const here = new Set(draws(gen, lvl, skillId).map((q) => q.prompt));
+      if (lvl > 0) {
+        const fresh = [...here].filter((p) => !seen.has(p));
+        expect(
+          fresh.length,
+          `${skillId} level ${lvl} can ask nothing level ${lvl - 1} could not — ${here.size} questions, all already reachable`,
+        ).toBeGreaterThan(0);
+      }
+      for (const p of here) seen.add(p);
     }
   });
 });

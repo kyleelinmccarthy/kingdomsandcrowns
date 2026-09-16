@@ -1136,6 +1136,225 @@ const inequality: Verifier = (q) => {
   return `x ${above ? (loose ? "≥" : ">") : (loose ? "≤" : "<")} ${boundary}`;
 };
 
+// ---------------------------------------------------------------------------
+// Grade 10 — Geometry
+// ---------------------------------------------------------------------------
+
+/** The two angles this skill is named after, spelled out rather than left as bare numbers. */
+const RIGHT_ANGLE = 90;
+const STRAIGHT_ANGLE = 180;
+
+/**
+ * "Two angles are complementary. One is 65°. What is the other?"
+ *
+ * **There is no inverse here and this does not pretend to one.** "90 minus" is its own
+ * inverse: run it on the answer and the angle the prompt gave comes straight back, so any
+ * verifier of this skill works in the same direction the generator did. An honest note is
+ * worth more than a false sense of coverage.
+ *
+ * Two things it does add, and both are failures this file has actually seen. **The
+ * relationship is read out of the prompt and switched on** — a generator that printed
+ * "complementary" and answered the supplement disagrees here rather than being agreed with,
+ * and a wording this does not recognise throws rather than being guessed at. And the test runs
+ * over EVERY choice with exactly one required to pass: this skill's distractors are built from
+ * the other relationship, and two angles on screen that both complete the pair would be a
+ * question with no single right answer.
+ */
+const anglePair: Verifier = (q) => {
+  const named = /^Two angles are (complementary|supplementary)\. One is (\d+)°\. What is the other\?$/.exec(q.prompt);
+  const vertical = /^Two lines cross\. One of a pair of vertical angles is (\d+)°\. What is the other\?$/.exec(q.prompt);
+  const sameSide = /^Parallel lines are cut by a transversal\. One same-side interior angle is (\d+)°\. What is the other\?$/.exec(q.prompt);
+  let given: number;
+  let completes: (other: number) => boolean;
+  if (named) {
+    given = Number(named[2]);
+    const whole = named[1] === "complementary" ? RIGHT_ANGLE : STRAIGHT_ANGLE;
+    completes = (other) => given + other === whole;
+  } else if (vertical) {
+    given = Number(vertical[1]);
+    completes = (other) => other === given;                        // vertical angles are equal
+  } else if (sameSide) {
+    given = Number(sameSide[1]);
+    completes = (other) => given + other === STRAIGHT_ANGLE;       // same-side interior angles are supplementary
+  } else {
+    throw new Error(`angle verifier cannot parse: ${q.prompt}`);
+  }
+  if (given < 1 || given > 359) throw new Error(`that is not an angle in: ${q.prompt}`);
+  const passes = q.choices.filter((c) => /^\d+$/.test(c) && completes(Number(c)));
+  if (passes.length !== 1) {
+    throw new Error(`${passes.length} choices complete the pair in "${q.prompt}": ${q.choices.join(", ")}`);
+  }
+  return passes[0];
+};
+
+/**
+ * "Two triangles are similar: the first has sides 3 and 5, and the second's side matching the
+ * 3 is 12. What is the second's side matching the 5?"
+ *
+ * A genuinely different route: the generator scales a side UP by multiplying, and this never
+ * divides. Every choice is put back into the proportion and cross-multiplied — `first × x`
+ * against `second × image` — so a generator that added the scale where it should have
+ * multiplied, which is this skill's mandatory wrong answer, fails the test rather than passing
+ * it. Exactly one choice may satisfy the proportion, which is what would catch a distractor
+ * that is quietly a second right answer.
+ *
+ * The prompt is also checked against itself: the side it says the image matches must be one of
+ * the two it named, and the side it asks about must be the other.
+ */
+const similarTriangle: Verifier = (q) => {
+  const m = /^Two triangles are similar: the first has sides (\d+) and (\d+), and the second's side matching the (\d+) is (\d+)\. What is the second's side matching the (\d+)\?$/.exec(q.prompt);
+  if (!m) throw new Error(`similar triangle verifier cannot parse: ${q.prompt}`);
+  const first = Number(m[1]), second = Number(m[2]), image = Number(m[4]);
+  if (Number(m[3]) !== first || Number(m[5]) !== second) {
+    throw new Error(`the prompt matches sides it never named: ${q.prompt}`);
+  }
+  if (first === second) throw new Error(`"the side matching the ${first}" names both sides in: ${q.prompt}`);
+  if (first < 1) throw new Error(`a triangle needs a size in: ${q.prompt}`);
+  const passes = q.choices.filter((c) => /^\d+$/.test(c) && first * Number(c) === second * image);
+  if (passes.length !== 1) {
+    throw new Error(`${passes.length} choices are in proportion in "${q.prompt}": ${q.choices.join(", ")}`);
+  }
+  return passes[0];
+};
+
+/**
+ * "In a right triangle, angle A has an opposite side of 3, an adjacent side of 4, and a
+ * hypotenuse of 5. What is sin A?"
+ *
+ * **The ratio itself is computed in the same direction the generator computed it** — a
+ * quotient of two of the three sides, with no inverse available, because the prompt already
+ * names every side. Two things here are genuinely a second opinion:
+ *
+ *  - **The triangle is checked.** `opposite² + adjacent² = hypotenuse²` is tested here from the
+ *    numbers a child reads, and nothing on this side has ever seen the triple table the
+ *    generator draws from. A table with a wrong row in it fails here.
+ *  - **Which ratio is wanted is read from the prompt and switched on.** A prompt that said
+ *    "cos A" and kept the sine as its answer cannot pass, and that matters more than usual for
+ *    this skill: the other ratio is its mandatory distractor, so both numbers are on screen.
+ *
+ * No trigonometric function is called. `Math.cos(Math.PI / 3)` is `0.5000000000000001`, which
+ * is not `1/2` and would mark every correct child wrong.
+ */
+const trigRatio: Verifier = (q) => {
+  const m = /^In a right triangle, angle A has an opposite side of (\d+), an adjacent side of (\d+), and a hypotenuse of (\d+)\. What is (sin|cos|tan) A\?$/.exec(q.prompt);
+  if (!m) throw new Error(`trigonometry verifier cannot parse: ${q.prompt}`);
+  const opposite = Number(m[1]), adjacent = Number(m[2]), hypotenuse = Number(m[3]);
+  if (opposite < 1 || adjacent < 1) throw new Error(`a triangle needs two legs in: ${q.prompt}`);
+  if (opposite * opposite + adjacent * adjacent !== hypotenuse * hypotenuse) {
+    throw new Error(`those three sides are not a right triangle: ${q.prompt}`);
+  }
+  if (m[4] === "sin") return reduceFraction(opposite, hypotenuse);
+  if (m[4] === "cos") return reduceFraction(adjacent, hypotenuse);
+  return reduceFraction(opposite, adjacent);
+};
+
+/** The pi a prompt actually printed, rejected unless it really is one. */
+function readPi(text: string, prompt: string): number {
+  const pi = Number(text);
+  if (!(pi > 3 && pi < 4)) throw new Error(`that is not pi in: ${prompt}`);
+  return pi;
+}
+
+/** `base` multiplied by itself `exponent` times, reached by adding rather than by `**`. */
+function raised(base: number, exponent: number): number {
+  let total = 1;
+  for (let power = 0; power < exponent; power++) {
+    let sum = 0;
+    for (let counted = 0; counted < base; counted++) sum += total;
+    total = sum;
+  }
+  return total;
+}
+
+/**
+ * "A cylinder has radius 3 and height 4. What is its volume? Use 3.14 for pi."
+ *
+ * **No inverse exists**: a solid whose every dimension is printed leaves nothing to recover,
+ * so this computes the measure the same way round the generator did. What is genuinely
+ * independent is everything around that arithmetic, and it is where this skill's defects would
+ * live. **The solid and the measure are both read from the prompt and switched on**, so a
+ * generator that printed "surface area" and answered with a volume — which is this skill's
+ * mandatory distractor, and therefore on screen either way — disagrees here. **Pi is read from
+ * the prompt** rather than assumed. And the rounding is done here from scratch, in floating
+ * point from the printed 3.14, where the generator holds every measure as an exact whole
+ * number over 100 or 300 and never forms a float at all: two roundings that can only disagree
+ * on a tie, and the generator's note shows there are none.
+ *
+ * A cone is only ever asked for its volume. Its surface needs a slant height, and
+ * `√(r² + h²)` is irrational for nearly every radius and height a child would be given.
+ */
+const solidMeasure: Verifier = (q) => {
+  const prism = /^A rectangular prism is (\d+) by (\d+) by (\d+)\. What is its (volume|surface area)\?$/.exec(q.prompt);
+  const cylinder = /^A cylinder has radius (\d+) and height (\d+)\. What is its (volume|surface area)\? Use (\d+(?:\.\d+)?) for pi\.$/.exec(q.prompt);
+  const sphere = /^A sphere has radius (\d+)\. What is its (volume|surface area)\? Use (\d+(?:\.\d+)?) for pi\.$/.exec(q.prompt);
+  const cone = /^A cone has radius (\d+) and height (\d+)\. What is its volume\? Use (\d+(?:\.\d+)?) for pi\.$/.exec(q.prompt);
+  let value: number;
+  if (prism) {
+    const l = Number(prism[1]), w = Number(prism[2]), h = Number(prism[3]);
+    if (l < 1 || w < 1 || h < 1) throw new Error(`a solid needs a size in: ${q.prompt}`);
+    value = prism[4] === "volume" ? l * w * h : 2 * (l * w + l * h + w * h);
+  } else if (cylinder) {
+    const r = Number(cylinder[1]), h = Number(cylinder[2]), pi = readPi(cylinder[4], q.prompt);
+    if (r < 1 || h < 1) throw new Error(`a solid needs a size in: ${q.prompt}`);
+    value = cylinder[3] === "volume" ? pi * raised(r, 2) * h : 2 * pi * raised(r, 2) + 2 * pi * r * h;
+  } else if (sphere) {
+    const r = Number(sphere[1]), pi = readPi(sphere[3], q.prompt);
+    if (r < 1) throw new Error(`a solid needs a size in: ${q.prompt}`);
+    value = sphere[2] === "volume" ? (4 * pi * raised(r, 3)) / 3 : 4 * pi * raised(r, 2);
+  } else if (cone) {
+    const r = Number(cone[1]), h = Number(cone[2]), pi = readPi(cone[3], q.prompt);
+    if (r < 1 || h < 1) throw new Error(`a solid needs a size in: ${q.prompt}`);
+    value = (pi * raised(r, 2) * h) / 3;
+  } else {
+    throw new Error(`solid verifier cannot parse: ${q.prompt}`);
+  }
+  return (Math.round(value * 10) / 10).toFixed(1);
+};
+
+/**
+ * "What is the distance between (1, 2) and (4, 6)?" / "What is the midpoint of (1, 2) and
+ * (4, 6)?"
+ *
+ * Both readings are run the other way round from the generator, and neither takes a square
+ * root or a half.
+ *
+ *  - **The distance is the whole number whose SQUARE is the sum of the two squares**, found by
+ *    counting up to it. The generator builds the two points by stepping the legs of a
+ *    Pythagorean triple apart; this squares a candidate back and compares, and a table with a
+ *    wrong row in it fails here. A distance that is not whole throws — every pair this skill
+ *    asks about is built to come out whole, so a ragged one is a generator bug on its way to a
+ *    child.
+ *  - **The midpoint is doubled, not halved**: the middle of two points is the point whose
+ *    double is their sum. Exactly one choice may satisfy that, which is what catches a second
+ *    right answer among the distractors.
+ *
+ * **Which of the two is wanted is read from the prompt and switched on.** This skill's
+ * mandatory distractor is the midpoint offered against a distance question, so a prompt that
+ * said "distance" while the answer key held a midpoint would have that midpoint on screen and
+ * would look entirely well-formed.
+ */
+const distanceOrMidpoint: Verifier = (q) => {
+  const m = /^What is the (distance between|midpoint of) \((-?\d+), (-?\d+)\) and \((-?\d+), (-?\d+)\)\?$/.exec(q.prompt);
+  if (!m) throw new Error(`distance verifier cannot parse: ${q.prompt}`);
+  const x1 = Number(m[2]), y1 = Number(m[3]), x2 = Number(m[4]), y2 = Number(m[5]);
+  if (x1 === x2 && y1 === y2) throw new Error(`those are the same point: ${q.prompt}`);
+  if (m[1] === "midpoint of") {
+    const passes = q.choices.filter((choice) => {
+      const c = /^\((-?\d+(?:\.5)?), (-?\d+(?:\.5)?)\)$/.exec(choice);
+      return c !== null && 2 * Number(c[1]) === x1 + x2 && 2 * Number(c[2]) === y1 + y2;
+    });
+    if (passes.length !== 1) {
+      throw new Error(`${passes.length} choices are the midpoint in "${q.prompt}": ${q.choices.join(", ")}`);
+    }
+    return passes[0];
+  }
+  const target = (x2 - x1) * (x2 - x1) + (y2 - y1) * (y2 - y1);
+  for (let distance = 1; distance * distance <= target; distance++) {
+    if (distance * distance === target) return String(distance);
+  }
+  throw new Error(`the distance in ${q.prompt} is not a whole number`);
+};
+
 export const VERIFIERS: Record<string, Verifier> = {
   add: arithmetic,
   sub: arithmetic,
@@ -1182,4 +1401,9 @@ export const VERIFIERS: Record<string, Verifier> = {
   "factor-quad": factorQuadratic,
   "slope-intercept": slopeInterceptForm,
   inequalities: inequality,
+  "angle-pairs": anglePair,
+  "similar-tri": similarTriangle,
+  "trig-ratios": trigRatio,
+  "solid-measure": solidMeasure,
+  "dist-midpoint": distanceOrMidpoint,
 };
