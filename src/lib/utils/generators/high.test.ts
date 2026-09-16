@@ -16,8 +16,13 @@ import {
   anglePairs,
   distMidpoint,
   factorQuad,
+  fnCompose,
   inequalities,
+  logRules,
   multiStepEq,
+  polyOps,
+  quadFormula,
+  radicalOps,
   similarTri,
   slopeIntercept,
   solidMeasure,
@@ -786,6 +791,433 @@ describe("every grade 10 level offers something no earlier level can ask", () =>
     ["trig-ratios", trigRatios],
     ["solid-measure", solidMeasure],
     ["dist-midpoint", distMidpoint],
+  ];
+
+  it.each(LADDERS)("%s climbs", (skillId, gen) => {
+    const seen = new Set<string>();
+    for (const lvl of LEVELS) {
+      const here = new Set(draws(gen, lvl, skillId).map((q) => q.prompt));
+      if (lvl > 0) {
+        const fresh = [...here].filter((p) => !seen.has(p));
+        expect(
+          fresh.length,
+          `${skillId} level ${lvl} can ask nothing level ${lvl - 1} could not — ${here.size} questions, all already reachable`,
+        ).toBeGreaterThan(0);
+      }
+      for (const p of here) seen.add(p);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Grade 11 — Algebra II
+// ---------------------------------------------------------------------------
+
+describe("quad-formula", () => {
+  const ROOT_LOW = [1, 1, -3, -6, -9];
+  const ROOT_HIGH = [5, 7, 7, 9, 9];
+
+  const parse = (q: Question) => {
+    const m = /^Solve: (\d*)x² ([+\-]) (\d*)x ([+\-]) (\d+) = 0\. What is the larger root\?$/.exec(q.prompt);
+    expect(m, `quad-formula wrote an equation a child cannot read: ${q.prompt}`).not.toBeNull();
+    return {
+      a: m![1] === "" ? 1 : Number(m![1]),
+      b: (m![2] === "+" ? 1 : -1) * (m![3] === "" ? 1 : Number(m![3])),
+      c: (m![4] === "+" ? 1 : -1) * Number(m![5]),
+    };
+  };
+  /** The two roots, from the coefficients — not by asking the generator what it started with. */
+  const roots = ({ a, b, c }: { a: number; b: number; c: number }) => {
+    const gap = Math.round(Math.sqrt(b * b - 4 * a * c));
+    return { larger: (-b + gap) / (2 * a), smaller: (-b - gap) / (2 * a), gap };
+  };
+
+  it("has two different whole roots that really solve the equation", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(quadFormula, lvl, "quad-formula")) {
+        const { a, b, c } = parse(q);
+        const { larger, smaller, gap } = roots({ a, b, c });
+        expect(gap * gap, `${q.prompt} has no whole roots`).toBe(b * b - 4 * a * c);
+        for (const root of [larger, smaller]) {
+          expect(Number.isInteger(root), `${q.prompt} has a root of ${root}`).toBe(true);
+          expect(a * root * root + b * root + c, `${root} does not solve ${q.prompt}`).toBe(0);
+          expect(root, q.prompt).toBeGreaterThanOrEqual(ROOT_LOW[lvl]);
+          expect(root, q.prompt).toBeLessThanOrEqual(ROOT_HIGH[lvl]);
+          // A root of zero prints `+ 0` and is a factored question written the long way.
+          expect(root, `${q.prompt} has a root of zero`).not.toBe(0);
+        }
+        // A repeated root makes "the larger root" meaningless and makes the smaller root — the
+        // mandatory distractor — the answer. Roots that cancel print no middle term at all.
+        expect(larger, `${q.prompt} has a repeated root`).not.toBe(smaller);
+        expect(larger + smaller, `${q.prompt} lost its middle term`).not.toBe(0);
+        expect(Number(q.answer), `${q.prompt} answered ${q.answer}`).toBe(larger);
+        expect(a, q.prompt).toBe(lvl >= 4 ? a : 1);
+        if (lvl >= 4) {
+          expect(a, q.prompt).toBeGreaterThanOrEqual(2);
+          expect(a, q.prompt).toBeLessThanOrEqual(3);
+        }
+        if (lvl <= 1) expect(smaller, `level ${lvl} went negative: ${q.prompt}`).toBeGreaterThan(0);
+      }
+    }
+    const negatives = draws(quadFormula, 4, "quad-formula").filter((q) => roots(parse(q)).smaller < 0);
+    expect(negatives.length, "level 4 never drew a negative root").toBeGreaterThan(0);
+  });
+
+  it("always offers the smaller root, and it is never the answer", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(quadFormula, lvl, "quad-formula")) {
+        const { larger, smaller } = roots(parse(q));
+        // Distinct first: a repeated root is thrown away at the draw precisely so that this
+        // holds. Without that throw `pickDistinct` would backfill an off-by-one and the
+        // `toContain` below would pass on the answer itself.
+        expect(String(smaller), `${q.prompt} has two right answers`).not.toBe(q.answer);
+        expect(q.choices, `${q.prompt} does not offer the smaller root`).toContain(String(smaller));
+        expect(String(-smaller), `${q.prompt} flips to its own answer`).not.toBe(q.answer);
+        expect(q.choices, `${q.prompt} does not offer the roots with flipped signs`).toContain(String(-smaller));
+        expect(String(larger + smaller), q.prompt).not.toBe(q.answer);
+        expect(q.choices, `${q.prompt} does not offer the sum of the roots`).toContain(String(larger + smaller));
+      }
+    }
+  });
+
+  it("speaks the square rather than printing it", () => {
+    for (const q of draws(quadFormula, 4, "quad-formula")) {
+      expect(q.readAloud, q.readAloud).toContain("x squared");
+      expect(q.readAloud, q.readAloud).not.toMatch(/[²-]/);
+    }
+  });
+});
+
+describe("poly-ops", () => {
+  /** A polynomial string to a coefficient per power, strictly: descending, no zero terms. */
+  const parsePoly = (text: string): Map<number, number> | null => {
+    const out = new Map<number, number>();
+    let previous = Infinity;
+    const terms = text.split(/ (?=[+-] )/);
+    for (let i = 0; i < terms.length; i++) {
+      const m = /^(?:([+-]) )?(\d*)(x[²³]?)?$/.exec(terms[i]);
+      if (!m) return null;
+      if ((i === 0) !== (m[1] === undefined)) return null;
+      if (m[2] === "" && m[3] === undefined) return null;
+      const power = m[3] === undefined ? 0 : m[3] === "x" ? 1 : m[3] === "x²" ? 2 : 3;
+      if (power >= previous) return null;
+      previous = power;
+      out.set(power, (m[1] === "-" ? -1 : 1) * (m[2] === "" ? 1 : Number(m[2])));
+    }
+    return out;
+  };
+  const at = (terms: Map<number, number>, x: number) => {
+    let total = 0;
+    for (const [power, coefficient] of terms) total += coefficient * x ** power;
+    return total;
+  };
+  /** The generator's own spelling, written out here so the SPELLING is what gets pinned. */
+  const write = (coefficients: number[]): string => {
+    const degree = coefficients.length - 1;
+    let out = "";
+    for (let i = 0; i < coefficients.length; i++) {
+      const v = coefficients[i];
+      if (v === 0) continue;
+      const power = degree - i;
+      const size = Math.abs(v);
+      const body = power === 0 ? String(size) : `${size === 1 ? "" : size}x${power === 2 ? "²" : power === 3 ? "³" : ""}`;
+      out = out === "" ? `${v < 0 ? "-" : ""}${body}` : `${out} ${v < 0 ? "-" : "+"} ${body}`;
+    }
+    return out;
+  };
+  const parse = (q: Question) => {
+    const m = /^Expand: \(([^()]+)\)\(([^()]+)\)$/.exec(q.prompt);
+    expect(m, `poly-ops wrote a product a child cannot read: ${q.prompt}`).not.toBeNull();
+    const first = parsePoly(m![1]), second = parsePoly(m![2]);
+    expect(first, `not a polynomial: ${m![1]}`).not.toBeNull();
+    expect(second, `not a polynomial: ${m![2]}`).not.toBeNull();
+    return { first: first!, second: second! };
+  };
+  /** The answer as a coefficient array, highest power first. */
+  const answerCoefficients = (q: Question, degree: number): number[] => {
+    const terms = parsePoly(q.answer);
+    expect(terms, `poly-ops wrote an answer that is not a polynomial: ${q.answer}`).not.toBeNull();
+    return Array.from({ length: degree + 1 }, (_, i) => terms!.get(degree - i) ?? 0);
+  };
+
+  it("expands the prompt's own factors, with no term missing, at the level's degree", () => {
+    for (const lvl of LEVELS) {
+      const SPAN = [5, 5, 8, 5, 8][lvl];
+      for (const q of draws(polyOps, lvl, "poly-ops")) {
+        const { first, second } = parse(q);
+        const degree = Math.max(...first.keys()) + Math.max(...second.keys());
+        // A trinomial factor joins at level 3 and never before.
+        expect(degree, `level ${lvl} expanded to degree ${degree}`).toBe(lvl >= 3 ? 3 : 2);
+        const terms = parsePoly(q.answer);
+        expect(terms, q.answer).not.toBeNull();
+        // Compared by VALUE at seven points, not by multiplying the constants out — nothing
+        // here knows the FOIL identity, so a generator with its own idea of it disagrees.
+        for (const x of [-3, -2, -1, 0, 1, 2, 3]) {
+          // Subtracted rather than compared: a factor of zero times a negative is `-0`, and
+          // `-0` is not `0` to `toBe`. The difference is plain zero either way.
+          expect(at(terms!, x) - at(first, x) * at(second, x), `${q.answer} is not ${q.prompt} at x = ${x}`).toBe(0);
+        }
+        // Every coefficient is present: each of this skill's three mistakes changes exactly
+        // one of them, and each is the answer again the moment the one it changes is zero.
+        expect(terms!.size, `${q.answer} is missing a term`).toBe(degree + 1);
+        expect(terms!.get(degree), `${q.answer} is not monic`).toBe(1);
+        for (const [, coefficient] of terms!) expect(Math.abs(coefficient), q.answer).toBeLessThanOrEqual(SPAN * SPAN * 2);
+        if (lvl === 0) {
+          for (const factor of [first, second]) {
+            expect(factor.get(0), `level 0 went negative: ${q.prompt}`).toBeGreaterThan(0);
+          }
+        }
+      }
+    }
+  });
+
+  it("offers the middle term's sign flipped, the middle term dropped and the constant flipped", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(polyOps, lvl, "poly-ops")) {
+        const degree = lvl >= 3 ? 3 : 2;
+        const product = answerCoefficients(q, degree);
+        const last = product.length - 1;
+        const wrong = [
+          write(product.map((v, i) => (i === last - 1 ? -v : v))),   // the middle term's sign
+          write(product.map((v, i) => (i === last - 1 ? 0 : v))),    // the middle term forgotten
+          write(product.map((v, i) => (i === last ? -v : v))),       // the constant's sign
+        ];
+        for (const mistake of wrong) {
+          // Distinct first: each of these differs from the answer only while the coefficient it
+          // touches is non-zero, which is exactly what the generator redraws to guarantee.
+          expect(mistake, `${q.prompt} offers its own answer as a mistake`).not.toBe(q.answer);
+          expect(q.choices, `${q.prompt} does not offer ${mistake}`).toContain(mistake);
+        }
+      }
+    }
+  });
+
+  it("speaks the powers rather than printing them", () => {
+    for (const lvl of [0, 4]) {
+      for (const q of draws(polyOps, lvl, "poly-ops")) {
+        expect(q.readAloud, q.readAloud).toContain("the quantity");
+        expect(q.readAloud, q.readAloud).not.toMatch(/[²³()-]/);
+      }
+    }
+  });
+});
+
+describe("radical-ops", () => {
+  const FACTORS = [4, 9, 16, 25, 36];
+  const squareFree = (n: number) => {
+    for (let d = 2; d * d <= n; d++) if (n % (d * d) === 0) return false;
+    return true;
+  };
+  const parse = (q: Question) => {
+    const m = /^Simplify: √(\d+)$/.exec(q.prompt);
+    expect(m, `radical-ops wrote a prompt a child cannot read: ${q.prompt}`).not.toBeNull();
+    return Number(m![1]);
+  };
+  const readSurd = (text: string) => {
+    const surd = /^(\d*)√(\d+)$/.exec(text);
+    if (surd) return { outside: surd[1] === "" ? 1 : Number(surd[1]), inside: Number(surd[2]) };
+    expect(text, `not a simplified radical: ${text}`).toMatch(/^\d+$/);
+    return { outside: Number(text), inside: 1 };
+  };
+
+  it("simplifies fully: the answer squares back to the radicand and leaves nothing square", () => {
+    for (const lvl of LEVELS) {
+      const pulled = new Set<number>();
+      for (const q of draws(radicalOps, lvl, "radical-ops")) {
+        const radicand = parse(q);
+        const { outside, inside } = readSurd(q.answer);
+        // Squared back, never factored: `a² × b` must be the radicand the prompt names.
+        expect(outside * outside * inside, `${q.answer} is not √${radicand}`).toBe(radicand);
+        // And `b` square-free, which is the other half. `2√18` also squares back to 72.
+        expect(squareFree(inside), `${q.answer} can still be simplified`).toBe(true);
+        expect(outside, `${q.answer} pulled nothing out`).toBeGreaterThanOrEqual(2);
+        pulled.add(outside * outside);
+        expect(FACTORS.slice(0, lvl + 1), `level ${lvl} pulled ${outside * outside} out of ${radicand}`).toContain(outside * outside);
+      }
+      expect([...pulled].sort((x, y) => x - y), `level ${lvl} never used every factor it allows`).toEqual(FACTORS.slice(0, lvl + 1));
+    }
+  });
+
+  it("offers the un-simplified root and the wrong factor pulled out, neither of them the answer", () => {
+    for (const lvl of LEVELS) {
+      let underSimplified = 0;
+      for (const q of draws(radicalOps, lvl, "radical-ops")) {
+        const radicand = parse(q);
+        const { outside } = readSurd(q.answer);
+        // `√72` squares back to 72 exactly as `6√2` does — the two are told apart only by
+        // whether what is left under the root is square-free. This choice is on screen so that
+        // a verifier missing that assertion would be caught rather than quietly passing.
+        expect(`√${radicand}`, `${q.prompt} answers with its own radicand`).not.toBe(q.answer);
+        expect(q.choices, `${q.prompt} does not offer the un-simplified root`).toContain(`√${radicand}`);
+        for (let d = 2; d * d < outside * outside; d++) {
+          if (radicand % (d * d) !== 0) continue;
+          const wrong = `${d}√${radicand / (d * d)}`;
+          expect(wrong, `${q.prompt} offers its own answer as a mistake`).not.toBe(q.answer);
+          expect(q.choices, `${q.prompt} does not offer ${wrong}`).toContain(wrong);
+          underSimplified += 1;
+          break;
+        }
+      }
+      // Only 16 and 36 have a proper square divisor to pull out by mistake: a square-free
+      // radicand part can contribute none, so 4, 9 and 25 never have a smaller one. That puts
+      // the first under-simplified reading at level 2, where 16 joins.
+      if (lvl >= 2) expect(underSimplified, `level ${lvl} never offered a smaller square factor`).toBeGreaterThan(0);
+    }
+  });
+
+  it("spells the radical rather than printing it", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(radicalOps, lvl, "radical-ops")) {
+        expect(q.readAloud, q.readAloud).toContain("the square root of");
+        expect(q.readAloud, q.readAloud).not.toMatch(/[√-]/);
+      }
+    }
+  });
+});
+
+describe("log-rules", () => {
+  const BASES = [[2, 3, 5], [2, 3, 5], [2, 3, 5, 10], [2, 3, 5, 10], [2, 3, 5, 10]];
+  const SUBSCRIPTS: Record<string, number> = { "₂": 2, "₃": 3, "₅": 5, "": 10 };
+
+  const parse = (q: Question) => {
+    const m = /^What is log([₂₃₅]?)\((\d+|1\/\d+)\)\?$/.exec(q.prompt);
+    expect(m, `log-rules wrote a prompt a child cannot read: ${q.prompt}`).not.toBeNull();
+    const fraction = /^1\/(\d+)$/.exec(m![2]);
+    return { base: SUBSCRIPTS[m![1]], power: Number(fraction ? fraction[1] : m![2]), negative: fraction !== null };
+  };
+
+  it("names an exponent that really does raise the base to the argument", () => {
+    for (const lvl of LEVELS) {
+      const used = new Set<number>();
+      for (const q of draws(logRules, lvl, "log-rules")) {
+        const { base, power, negative } = parse(q);
+        used.add(base);
+        expect(BASES[lvl], `level ${lvl} drew base ${base}`).toContain(base);
+        const exponent = Number(q.answer);
+        expect(Number.isInteger(exponent), q.answer).toBe(true);
+        expect(negative ? -exponent : exponent, q.prompt).toBeGreaterThanOrEqual(1);
+        // Raised back up rather than divided down: base to the answer must be the argument.
+        expect(base ** Math.abs(exponent), `${q.answer} is not the log of ${power}`).toBe(power);
+        expect(exponent < 0, `${q.prompt} answered ${q.answer}`).toBe(negative);
+        expect(power, `${q.prompt} counts zeros rather than testing logarithms`).toBeLessThanOrEqual(100000);
+        expect(Math.abs(exponent), q.prompt).toBeLessThanOrEqual([4, 6, 6, 6, 6][lvl]);
+        // The base is the mandatory wrong answer, so it may never BE the answer.
+        expect(exponent, `${q.prompt} answers with its own base`).not.toBe(base);
+        // A unit fraction for an argument joins at level 3 and never before.
+        if (lvl <= 2) expect(negative, `level ${lvl} asked ${q.prompt}`).toBe(false);
+      }
+      expect([...used].sort((x, y) => x - y), `level ${lvl} never used every base it allows`).toEqual(BASES[lvl]);
+    }
+    for (const lvl of [3, 4]) {
+      const negatives = draws(logRules, lvl, "log-rules").filter((q) => parse(q).negative);
+      expect(negatives.length, `level ${lvl} never asked a negative exponent`).toBeGreaterThan(0);
+    }
+  });
+
+  it("always offers the base, and it is never the answer", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(logRules, lvl, "log-rules")) {
+        const { base } = parse(q);
+        // Distinct first: `base === exponent` is thrown away at the draw, which is the only
+        // thing standing between this assertion and a silently backfilled off-by-one.
+        expect(String(base), `${q.prompt} has two right answers`).not.toBe(q.answer);
+        expect(q.choices, `${q.prompt} does not offer its base`).toContain(String(base));
+      }
+    }
+  });
+
+  it("says the base aloud even where the page leaves it implicit", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(logRules, lvl, "log-rules")) {
+        const { base } = parse(q);
+        expect(q.readAloud, q.readAloud).toContain(`log base ${base} of`);
+        expect(q.readAloud, q.readAloud).not.toMatch(/[₂₃₅()\/-]/);
+      }
+    }
+    // `log(1000)`, not `log₁₀(1000)` — but the spoken form says "log base 10" anyway.
+    const commonLogs = draws(logRules, 4, "log-rules").filter((q) => parse(q).base === 10);
+    expect(commonLogs.length, "level 4 never drew a common log").toBeGreaterThan(0);
+    for (const q of commonLogs) expect(q.prompt, q.prompt).toMatch(/^What is log\(/);
+  });
+});
+
+describe("fn-compose", () => {
+  const COEF_MAX = [3, 4, 5, 5, 5];
+  const CONST_MAX = [5, 6, 8, 8, 8];
+  const INPUT_MAX = [5, 8, 10, 10, 10];
+
+  const parse = (q: Question) => {
+    const m = /^If f\(x\) = (-?\d*)x ([+\-]) (\d+) and g\(x\) = (-?\d*)x ([+\-]) (\d+), what is f\(g\((-?\d+)\)\)\?$/.exec(q.prompt);
+    expect(m, `fn-compose wrote a prompt a child cannot read: ${q.prompt}`).not.toBeNull();
+    const coef = (t: string) => (t === "" ? 1 : t === "-" ? -1 : Number(t));
+    return {
+      a: coef(m![1]), b: (m![2] === "+" ? 1 : -1) * Number(m![3]),
+      c: coef(m![4]), d: (m![5] === "+" ? 1 : -1) * Number(m![6]),
+      at: Number(m![7]),
+    };
+  };
+
+  it("composes inner function first, inside the level's coefficients and inputs", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(fnCompose, lvl, "fn-compose")) {
+        const { a, b, c, d, at } = parse(q);
+        expect(Number(q.answer), `${q.prompt} answered ${q.answer}`).toBe(a * (c * at + d) + b);
+        for (const coefficient of [a, c]) {
+          expect(Math.abs(coefficient), q.prompt).toBeGreaterThanOrEqual(1);
+          expect(Math.abs(coefficient), q.prompt).toBeLessThanOrEqual(COEF_MAX[lvl]);
+        }
+        for (const constant of [b, d]) {
+          expect(Math.abs(constant), q.prompt).toBeGreaterThanOrEqual(1);
+          expect(Math.abs(constant), q.prompt).toBeLessThanOrEqual(CONST_MAX[lvl]);
+        }
+        expect(Math.abs(at), q.prompt).toBeLessThanOrEqual(INPUT_MAX[lvl]);
+        // Negative constants join at level 3; negative coefficients and inputs at level 4.
+        if (lvl <= 2) for (const v of [b, d]) expect(v, `level ${lvl} went negative: ${q.prompt}`).toBeGreaterThan(0);
+        if (lvl <= 3) {
+          for (const v of [a, c]) expect(v, `level ${lvl} went negative: ${q.prompt}`).toBeGreaterThan(0);
+          expect(at, `level ${lvl} went negative: ${q.prompt}`).toBeGreaterThanOrEqual(0);
+        }
+      }
+    }
+    for (const [lvl, check] of [[3, (p: ReturnType<typeof parse>) => p.b < 0 || p.d < 0], [4, (p: ReturnType<typeof parse>) => p.a < 0 || p.c < 0 || p.at < 0]] as const) {
+      expect(draws(fnCompose, lvl, "fn-compose").filter((q) => check(parse(q))).length, `level ${lvl} never went negative`).toBeGreaterThan(0);
+    }
+  });
+
+  it("always offers the order reversed, and it is never the answer", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(fnCompose, lvl, "fn-compose")) {
+        const { a, b, c, d, at } = parse(q);
+        // Distinct first. The two compositions agree when d(a - 1) = b(c - 1) — at a = c = 1,
+        // for one — and that draw is thrown away precisely so this holds; without the throw
+        // `pickDistinct` backfills a near-miss and the `toContain` passes on the answer.
+        expect(String(c * (a * at + b) + d), `${q.prompt} composes the same both ways`).not.toBe(q.answer);
+        expect(q.choices, `${q.prompt} does not offer g(f(x))`).toContain(String(c * (a * at + b) + d));
+        expect(String(a * at + b), `${q.prompt} answers with f alone`).not.toBe(q.answer);
+        expect(q.choices, `${q.prompt} does not offer f alone`).toContain(String(a * at + b));
+        expect(String(c * at + d), `${q.prompt} answers with g alone`).not.toBe(q.answer);
+        expect(q.choices, `${q.prompt} does not offer g alone`).toContain(String(c * at + d));
+      }
+    }
+  });
+
+  it("speaks the functions rather than reading out brackets", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(fnCompose, lvl, "fn-compose")) {
+        expect(q.readAloud, q.readAloud).toContain("f of g of");
+        expect(q.readAloud, q.readAloud).not.toMatch(/[()-]/);
+      }
+    }
+  });
+});
+
+describe("every grade 11 level offers something no earlier level can ask", () => {
+  const LADDERS: [string, (l: number, r: Rng, s: string) => Question][] = [
+    ["quad-formula", quadFormula],
+    ["poly-ops", polyOps],
+    ["radical-ops", radicalOps],
+    ["log-rules", logRules],
+    ["fn-compose", fnCompose],
   ];
 
   it.each(LADDERS)("%s climbs", (skillId, gen) => {

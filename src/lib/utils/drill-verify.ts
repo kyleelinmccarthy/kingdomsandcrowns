@@ -1355,6 +1355,214 @@ const distanceOrMidpoint: Verifier = (q) => {
   throw new Error(`the distance in ${q.prompt} is not a whole number`);
 };
 
+// ---------------------------------------------------------------------------
+// Grade 11 — Algebra II
+// ---------------------------------------------------------------------------
+
+/**
+ * "Solve: x² - 5x + 6 = 0. What is the larger root?"
+ *
+ * A genuine inverse, and a clean one: the generator picks the two roots and multiplies the
+ * brackets out, while this recovers them from the coefficients by the quadratic formula. The
+ * square root is taken by counting up to it rather than by `Math.sqrt`, so a discriminant that
+ * is not a perfect square throws instead of handing back a rounding error.
+ *
+ * **Which root is wanted is read from the prompt and switched on.** The other root is this
+ * skill's mandatory distractor, so both numbers are on screen and a prompt flipped from
+ * "larger" to "smaller" would look entirely well-formed while marking every correct child
+ * wrong.
+ *
+ * A discriminant of zero throws rather than answering. A repeated root makes "the larger root"
+ * a question with no meaning, and it makes the smaller root the answer — the two failures the
+ * generator redraws to avoid, said here so they hold for every draw of every level.
+ */
+const quadraticRoots: Verifier = (q) => {
+  const m = /^Solve: (\d*)x² ([+\-]) (\d*)x ([+\-]) (\d+) = 0\. What is the (larger|smaller) root\?$/.exec(q.prompt);
+  if (!m) throw new Error(`quadratic verifier cannot parse: ${q.prompt}`);
+  const a = m[1] === "" ? 1 : Number(m[1]);
+  const b = (m[2] === "+" ? 1 : -1) * (m[3] === "" ? 1 : Number(m[3]));
+  const c = (m[4] === "+" ? 1 : -1) * Number(m[5]);
+  if (a < 1) throw new Error(`that is not a quadratic: ${q.prompt}`);
+  const discriminant = b * b - 4 * a * c;
+  if (discriminant <= 0) throw new Error(`${q.prompt} has no two different real roots`);
+  let gap = 0;
+  for (let d = 1; d * d <= discriminant; d++) if (d * d === discriminant) gap = d;
+  if (gap === 0) throw new Error(`the roots of ${q.prompt} are not whole numbers`);
+  const larger = (-b + gap) / (2 * a), smaller = (-b - gap) / (2 * a);
+  if (!Number.isInteger(larger) || !Number.isInteger(smaller)) {
+    throw new Error(`the roots of ${q.prompt} are not whole numbers`);
+  }
+  return String(m[6] === "larger" ? larger : smaller);
+};
+
+/**
+ * A polynomial as this file reads one: `"x² - 2x - 15"` to a coefficient per power, or `null`
+ * when the text is not one.
+ *
+ * Read strictly, because the SPELLING is part of the answer here. Powers must descend and may
+ * not repeat, a coefficient of one is left unwritten, a coefficient of zero is not written at
+ * all, and the leading term carries no sign but a minus. `x² + 0x - 15` and `- 15 + x²` are
+ * both rejected — an answer with two spellings is an answer a child can be marked wrong for
+ * writing correctly.
+ */
+function polynomialTerms(text: string): Map<number, number> | null {
+  const terms = text.split(/ (?=[+-] )/);
+  const out = new Map<number, number>();
+  let previous = Infinity;
+  for (let i = 0; i < terms.length; i++) {
+    const m = /^(?:([+-]) )?(\d*)(x[²³]?)?$/.exec(terms[i]);
+    if (!m) return null;
+    if ((i === 0) !== (m[1] === undefined)) return null;     // a sign on the first term, or none on a later one
+    if (m[2] === "" && m[3] === undefined) return null;      // an empty term
+    if (m[2] === "0") return null;                           // a zero term is not written at all
+    const power = m[3] === undefined ? 0 : m[3] === "x" ? 1 : m[3] === "x²" ? 2 : 3;
+    if (power >= previous) return null;
+    previous = power;
+    out.set(power, (m[1] === "-" ? -1 : 1) * (m[2] === "" ? 1 : Number(m[2])));
+  }
+  return out;
+}
+
+/** A polynomial's value at one x, from its coefficients. */
+function polynomialAt(terms: Map<number, number>, x: number): number {
+  let total = 0;
+  for (const [power, coefficient] of terms) total += coefficient * x ** power;
+  return total;
+}
+
+/**
+ * "Expand: (x + 3)(x - 5)" — the choices carry the candidate expansions.
+ *
+ * **Nothing here knows how brackets multiply out.** Every choice is compared to the prompt's
+ * two factors **by value, at seven different x**: the factors are evaluated and multiplied, the
+ * choice is evaluated, and the two numbers must agree. Two polynomials of degree at most three
+ * that agree at seven points are the same polynomial, so a generator with its own idea of FOIL
+ * does not get to be right here by sharing that idea — which is the whole reason this skill is
+ * worth generating.
+ *
+ * Exactly one choice may match. Two would mean the same product written two ways on one
+ * screen, and catching that is why every choice is tested rather than only the answer.
+ */
+const expandPolynomial: Verifier = (q) => {
+  const m = /^Expand: \(([^()]+)\)\(([^()]+)\)$/.exec(q.prompt);
+  if (!m) throw new Error(`expansion verifier cannot parse: ${q.prompt}`);
+  const first = polynomialTerms(m[1]), second = polynomialTerms(m[2]);
+  if (!first || !second) throw new Error(`a factor this cannot read in: ${q.prompt}`);
+  const points = [-3, -2, -1, 0, 1, 2, 3];
+  const passes = q.choices.filter((choice) => {
+    const terms = polynomialTerms(choice);
+    return terms !== null && points.every((x) => polynomialAt(terms, x) === polynomialAt(first, x) * polynomialAt(second, x));
+  });
+  if (passes.length !== 1) {
+    throw new Error(`${passes.length} choices expand ${q.prompt}: ${q.choices.join(", ")}`);
+  }
+  return passes[0];
+};
+
+/** No square divides it — which is what "fully simplified" means under a root. */
+function squareFree(n: number): boolean {
+  for (let d = 2; d * d <= n; d++) if (n % (d * d) === 0) return false;
+  return true;
+}
+
+/**
+ * "Simplify: √72" — the choices carry the candidate simplifications.
+ *
+ * Squared back rather than factored: `a√b` is the answer exactly when `a² × b` is the radicand
+ * the prompt names. The generator goes the other way, choosing a perfect square and a
+ * square-free part and multiplying them together, so a generator that pulled the wrong factor
+ * out disagrees here.
+ *
+ * **And `b` must be square-free, which is half the test rather than a flourish.** `√72`
+ * squares back to 72 and so does `2√18`; both are true statements about the square root of 72
+ * and neither is simplified. Without the square-free assertion this verifier would accept
+ * either one, and the generator offers both precisely so that a verifier missing it fails
+ * loudly. A bare integer is read as `a√1`, which is how a perfect square passes both tests.
+ *
+ * Exactly one choice may survive: a second would be the same number written another way.
+ */
+const simplifyRadical: Verifier = (q) => {
+  const m = /^Simplify: √(\d+)$/.exec(q.prompt);
+  if (!m) throw new Error(`radical verifier cannot parse: ${q.prompt}`);
+  const radicand = Number(m[1]);
+  if (radicand < 2) throw new Error(`there is nothing to simplify in: ${q.prompt}`);
+  const passes = q.choices.filter((choice) => {
+    const surd = /^(\d*)√(\d+)$/.exec(choice);
+    const outside = surd ? (surd[1] === "" ? 1 : Number(surd[1])) : /^\d+$/.test(choice) ? Number(choice) : null;
+    const inside = surd ? Number(surd[2]) : /^\d+$/.test(choice) ? 1 : null;
+    if (outside === null || inside === null || inside < 1 || outside < 1) return false;
+    return outside * outside * inside === radicand && squareFree(inside);
+  });
+  if (passes.length !== 1) {
+    throw new Error(`${passes.length} choices are √${radicand} fully simplified: ${q.choices.join(", ")}`);
+  }
+  return passes[0];
+};
+
+/** The base a logarithm is written with. No subscript means ten, by convention. */
+const LOG_BASES: Record<string, number> = { "₂": 2, "₃": 3, "₅": 5, "": 10 };
+
+/**
+ * "What is log₂(32)?" / "What is log(1000)?" / "What is log₂(1/8)?"
+ *
+ * A genuine inverse: the generator raises the base to a power, and this **divides the argument
+ * down to 1 and counts the steps**, which is what a logarithm is. An argument that is not a
+ * whole power of its base throws rather than being rounded to the nearest one — every question
+ * this skill asks is built to come out whole, so a ragged one is a generator bug on its way to
+ * a child.
+ *
+ * A unit fraction counts the same divisions and comes back negative: `1/8` is three steps down
+ * from 1, so `log₂(1/8)` is -3.
+ *
+ * **The base is read from the prompt**, including the base 10 that convention leaves unwritten.
+ * The base is also this skill's mandatory distractor, so it is on screen either way — a
+ * verifier that assumed 2 would answer `log₃(81)` with a number that is already a choice.
+ */
+const logarithm: Verifier = (q) => {
+  const m = /^What is log([₂₃₅]?)\((\d+|1\/\d+)\)\?$/.exec(q.prompt);
+  if (!m) throw new Error(`logarithm verifier cannot parse: ${q.prompt}`);
+  const base = LOG_BASES[m[1]];
+  if (base === undefined || base < 2) throw new Error(`that is not a base in: ${q.prompt}`);
+  const fraction = /^1\/(\d+)$/.exec(m[2]);
+  let value = fraction ? Number(fraction[1]) : Number(m[2]);
+  if (value < 1) throw new Error(`a logarithm needs a positive argument: ${q.prompt}`);
+  let steps = 0;
+  while (value > 1) {
+    if (value % base !== 0) throw new Error(`${m[2]} is not a whole power of ${base} in: ${q.prompt}`);
+    value /= base;
+    steps += 1;
+  }
+  return String(fraction ? -steps : steps);
+};
+
+/**
+ * "If f(x) = 2x + 1 and g(x) = x - 3, what is f(g(4))?"
+ *
+ * **No inverse exists here** — the prompt names both functions and the input, and leaves
+ * nothing to recover — so this is not two derivations in the way the quadratic verifier is.
+ * What it is is two different routes to the same number. The generator NESTS: it works out
+ * `g(4)` and then feeds it to `f`. This MULTIPLIES OUT: `f(g(x))` is `acx + ad + b`, reached
+ * without ever forming the inner value. The two agree only if the distributive law was applied
+ * correctly, which is the arithmetic this skill is actually about.
+ *
+ * **Which function is on the outside is read from the prompt and switched on.** `g(f(4))` is
+ * this skill's mandatory distractor and is therefore always among the choices, so a prompt that
+ * had the order the other way round would look well-formed while every correct child was marked
+ * wrong — the exact failure that makes this switch worth writing rather than assuming.
+ */
+const composeFunctions: Verifier = (q) => {
+  const m = /^If f\(x\) = (-?\d*)x ([+\-]) (\d+) and g\(x\) = (-?\d*)x ([+\-]) (\d+), what is (f\(g|g\(f)\((-?\d+)\)\)\?$/.exec(q.prompt);
+  if (!m) throw new Error(`composition verifier cannot parse: ${q.prompt}`);
+  const a = writtenCoefficient(m[1]);
+  const b = (m[2] === "+" ? 1 : -1) * Number(m[3]);
+  const c = writtenCoefficient(m[4]);
+  const d = (m[5] === "+" ? 1 : -1) * Number(m[6]);
+  const at = Number(m[8]);
+  if (a === 0 || c === 0) throw new Error(`a constant function has nothing to compose in: ${q.prompt}`);
+  // f(g(x)) = a(cx + d) + b = acx + ad + b, and g(f(x)) = c(ax + b) + d = cax + cb + d.
+  return String(m[7] === "f(g" ? a * c * at + a * d + b : c * a * at + c * b + d);
+};
+
 export const VERIFIERS: Record<string, Verifier> = {
   add: arithmetic,
   sub: arithmetic,
@@ -1406,4 +1614,9 @@ export const VERIFIERS: Record<string, Verifier> = {
   "trig-ratios": trigRatio,
   "solid-measure": solidMeasure,
   "dist-midpoint": distanceOrMidpoint,
+  "quad-formula": quadraticRoots,
+  "poly-ops": expandPolynomial,
+  "radical-ops": simplifyRadical,
+  "log-rules": logarithm,
+  "fn-compose": composeFunctions,
 };

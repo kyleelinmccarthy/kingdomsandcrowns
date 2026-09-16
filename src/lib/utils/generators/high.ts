@@ -874,3 +874,390 @@ export function distMidpoint(level: number, rng: Rng, skillId: string): Question
     `What is ${spoken}?`,
   );
 }
+
+// ---------------------------------------------------------------------------
+// Grade 11 — Algebra II
+// ---------------------------------------------------------------------------
+
+/** How far a root may sit from zero, per level. */
+const QUAD_ROOT_LOW = [1, 1, -3, -6, -9];
+const QUAD_ROOT_HIGH = [5, 7, 7, 9, 9];
+
+/**
+ * Quadratics with whole roots (grade 11). The equation is built from its roots and printed
+ * expanded, so the question a child answers is the one the plan names; the leading coefficient
+ * is 1 until level 4, where it is 2 or 3 and the roots have to survive a division.
+ *
+ * Four draws are thrown away, and the first is the one the plan calls out by name:
+ *
+ *  - **A repeated root.** "The larger root" means nothing when both roots are the same number,
+ *    and the smaller root — this skill's mandatory wrong answer — would BE the answer.
+ *  - **A root of zero**, which prints `x² - 5x + 0` and is `x(x - 5)` written the long way.
+ *  - **Roots that cancel**, `p = -q`, which prints `x² - 9 = 0` with no middle term at all and
+ *    makes "both signs flipped" the answer.
+ *
+ * "The sum of the roots" is offered too and is not guarded at the draw: it equals the larger
+ * root only when the smaller is zero, which is already thrown away.
+ */
+export function quadFormula(level: number, rng: Rng, skillId: string): Question {
+  const lvl = L(level);
+  let p = 0, q = 0, a = 1;
+  let drawn = false;
+  for (let attempt = 0; attempt < 400 && !drawn; attempt++) {
+    a = lvl >= 4 ? randInt(rng, 2, 3) : 1;
+    p = randInt(rng, QUAD_ROOT_LOW[lvl], QUAD_ROOT_HIGH[lvl]);
+    q = randInt(rng, QUAD_ROOT_LOW[lvl], QUAD_ROOT_HIGH[lvl]);
+    drawn = p !== q && p !== 0 && q !== 0 && p + q !== 0;
+  }
+  if (!drawn) throw new Error(`could not draw a quadratic with two whole roots at level ${level}`);
+
+  const larger = Math.max(p, q), smaller = Math.min(p, q);
+  const b = -a * (p + q), c = a * p * q;
+  const middle = `${b < 0 ? "-" : "+"} ${Math.abs(b) === 1 ? "" : Math.abs(b)}x`;
+  const candidates = [
+    String(smaller),      // the smaller root
+    String(-smaller),     // the larger root with both signs flipped
+    String(p + q),        // the sum of the roots
+    String(p * q),
+    ...numericDistractors(larger, rng),
+  ];
+
+  return makeQuestion(
+    skillId,
+    `${a},${b},${c}`,
+    `Solve: ${a === 1 ? "" : a}x² ${middle} ${signed(c)} = 0. What is the larger root?`,
+    String(larger),
+    pickDistinct(candidates, String(larger)),
+    rng,
+    // "x squared", never `x²`: a screen reader says the superscript as a separate number.
+    `Solve: ${a === 1 ? "" : `${a} `}x squared ${b < 0 ? "minus" : "plus"} ${Math.abs(b) === 1 ? "" : `${Math.abs(b)} `}x ${spokenSign(c)}, equals 0. What is the larger root?`,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Polynomial arithmetic
+// ---------------------------------------------------------------------------
+
+/** Largest number inside a factor, per level. */
+const POLY_SPAN = [5, 5, 8, 5, 8];
+/** Negatives inside a factor join at level 1; a trinomial factor joins at level 3. */
+const POLY_NEGATIVE = [false, true, true, true, true];
+const POLY_TRINOMIAL = [false, false, false, true, true];
+
+/** "x squared", "x", "" — a power as it is spoken, never as a superscript. */
+const POWER_SPOKEN = ["", "x", "x squared", "x cubed"];
+
+/**
+ * A polynomial in descending powers, monic, with a coefficient of one left unwritten and a
+ * coefficient of zero not written at all: `[1, -2, -15]` is `x² - 2x - 15`.
+ *
+ * **The dropped zero is the point.** "The middle term forgotten" is the FOIL shortcut error
+ * this skill exists to catch, and it is spelled `x² - 15` rather than `x² + 0x - 15` — so the
+ * renderer has to drop it here, once, rather than at three call sites.
+ */
+function polynomial(coefficients: number[]): string {
+  const degree = coefficients.length - 1;
+  let out = "";
+  for (let i = 0; i < coefficients.length; i++) {
+    const coefficient = coefficients[i];
+    if (coefficient === 0) continue;
+    const power = degree - i;
+    const size = Math.abs(coefficient);
+    const body = power === 0 ? String(size) : `${size === 1 ? "" : size}x${power === 2 ? "²" : power === 3 ? "³" : ""}`;
+    out = out === "" ? `${coefficient < 0 ? "-" : ""}${body}` : `${out} ${coefficient < 0 ? "-" : "+"} ${body}`;
+  }
+  return out === "" ? "0" : out;
+}
+
+/** The same polynomial spoken: "x squared minus 2 x minus 15". */
+function spokenPolynomial(coefficients: number[]): string {
+  const degree = coefficients.length - 1;
+  let out = "";
+  for (let i = 0; i < coefficients.length; i++) {
+    const coefficient = coefficients[i];
+    if (coefficient === 0) continue;
+    const power = degree - i;
+    const size = Math.abs(coefficient);
+    const body = power === 0 ? String(size) : `${size === 1 ? "" : `${size} `}${POWER_SPOKEN[power]}`;
+    out = out === "" ? `${coefficient < 0 ? "negative " : ""}${body}` : `${out} ${coefficient < 0 ? "minus" : "plus"} ${body}`;
+  }
+  return out === "" ? "0" : out;
+}
+
+/**
+ * Polynomial arithmetic (grade 11). Two binomials at levels 0-2, a trinomial times a binomial
+ * at 3 and 4.
+ *
+ * **Every coefficient of the product is non-zero**, and that is a guard rather than a taste:
+ * all three of this skill's characteristic mistakes change exactly one coefficient — the
+ * middle term's sign, the middle term dropped, the constant's sign — and each of them is the
+ * answer again the moment the coefficient it changes is zero.
+ */
+export function polyOps(level: number, rng: Rng, skillId: string): Question {
+  const lvl = L(level);
+  const span = POLY_SPAN[lvl];
+  const draw = () => {
+    let value = 0;
+    do {
+      value = randInt(rng, -span, span);
+    } while (value === 0 || (!POLY_NEGATIVE[lvl] && value < 0));
+    return value;
+  };
+
+  let first: number[] = [], second: number[] = [], product: number[] = [];
+  let drawn = false;
+  for (let attempt = 0; attempt < 400 && !drawn; attempt++) {
+    if (POLY_TRINOMIAL[lvl]) {
+      const b = draw(), c = draw(), d = draw();
+      first = [1, b, c];
+      second = [1, d];
+      product = [1, b + d, c + b * d, c * d];
+    } else {
+      const p = draw(), r = draw();
+      first = [1, p];
+      second = [1, r];
+      product = [1, p + r, p * r];
+    }
+    drawn = product.slice(1).every((coefficient) => coefficient !== 0);
+  }
+  if (!drawn) throw new Error(`could not draw a product with no missing term at level ${level}`);
+
+  const last = product.length - 1;
+  const flipMiddle = product.map((v, i) => (i === last - 1 ? -v : v));
+  const dropMiddle = product.map((v, i) => (i === last - 1 ? 0 : v));
+  const flipConstant = product.map((v, i) => (i === last ? -v : v));
+  const candidates = [
+    polynomial(flipMiddle),    // the middle term's sign wrong
+    polynomial(dropMiddle),    // the middle term forgotten — the FOIL shortcut error
+    polynomial(flipConstant),  // the constant's sign wrong
+    polynomial(product.map((v, i) => (i === last ? v + 1 : v))),
+  ];
+
+  return makeQuestion(
+    skillId,
+    `(${polynomial(first)})(${polynomial(second)})`.replace(/ /g, ""),
+    `Expand: (${polynomial(first)})(${polynomial(second)})`,
+    polynomial(product),
+    pickDistinct(candidates, polynomial(product)),
+    rng,
+    `Expand: the quantity ${spokenPolynomial(first)}, times the quantity ${spokenPolynomial(second)}`,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Radicals
+// ---------------------------------------------------------------------------
+
+/** The perfect square pulled out, per level: level N may draw from the first N + 1 of these. */
+const RADICAL_FACTORS = [4, 9, 16, 25, 36];
+/**
+ * What may be left under the root. Every one of these is SQUARE-FREE — no square divides any
+ * of them — which is what makes `a√b` fully simplified and makes the largest square factor of
+ * `f × b` exactly `f`, for every `f` in the table above.
+ */
+const RADICAL_SQUARE_FREE = [2, 3, 5, 6, 7, 10, 11, 13, 14, 15];
+
+/**
+ * Radicals (grade 11). The answer is `a√b` with `b` square-free, or a bare integer when the
+ * radicand is a perfect square.
+ *
+ * **A perfect square is never 4.** `√4` is `2`, and half of 4 is also 2, so the "halved rather
+ * than rooted" reading would be the answer. The rest of the collisions cannot happen: the
+ * un-simplified `√n` and the under-simplified `d√(n/d²)` are both real square roots of `n` and
+ * are told apart from the answer only by whether what is left under the root is square-free.
+ * That is exactly the assertion the verifier must carry, and this generator offers those two
+ * readings precisely so that a verifier missing it would be caught.
+ */
+export function radicalOps(level: number, rng: Rng, skillId: string): Question {
+  const lvl = L(level);
+  const factors = RADICAL_FACTORS.slice(0, lvl + 1);
+  const square = factors[randInt(rng, 0, factors.length - 1)];
+  const root = RADICAL_FACTORS.indexOf(square) + 2;
+  const perfect = square > 4 && rng() < 0.2;
+  const free = perfect ? 1 : RADICAL_SQUARE_FREE[randInt(rng, 0, RADICAL_SQUARE_FREE.length - 1)];
+  const radicand = square * free;
+
+  // A square factor smaller than the one that should come out: "9 pulled from 72 as 4".
+  const underSimplified: string[] = [];
+  for (let d = 2; d * d < square; d++) {
+    if (radicand % (d * d) === 0) underSimplified.push(`${d}√${radicand / (d * d)}`);
+  }
+
+  const answer = free === 1 ? String(root) : `${root}√${free}`;
+  const candidates = perfect
+    ? [
+      `√${radicand}`,             // left un-simplified
+      ...underSimplified,         // the wrong square factor pulled out
+      String(radicand),           // the radicand handed back as if it were its own root
+      ...whole(radicand, 2),      // halved rather than rooted
+      String(root * 2),
+      String(root + 1),
+    ]
+    : [
+      `√${radicand}`,             // left un-simplified
+      ...underSimplified,         // the wrong square factor pulled out
+      `${square}√${free}`,        // the factor pulled out without taking its root
+      String(root),               // the whole root read off as an integer
+      `${root + 1}√${free}`,
+      `${root}√${free + 1}`,
+    ];
+
+  const distractors = pickDistinct(candidates, answer);
+  if (distractors.length !== 3) throw new Error(`could not build three wrong simplifications of ${radicand}`);
+  return makeQuestion(
+    skillId,
+    String(radicand),
+    `Simplify: √${radicand}`,
+    answer,
+    distractors,
+    rng,
+    // `√` is banned from spoken text and this is why: "the square root of 72" is what a child
+    // on read-aloud needs to hear. The answer `6√2` speaks as "6 times the square root of 2".
+    `Simplify: the square root of ${radicand}`,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Logarithms
+// ---------------------------------------------------------------------------
+
+/** Which bases each level may draw. Base 10 joins at level 2. */
+const LOG_BASES: readonly number[][] = [[2, 3, 5], [2, 3, 5], [2, 3, 5, 10], [2, 3, 5, 10], [2, 3, 5, 10]];
+/** Largest exponent, per level. */
+const LOG_EXP_MAX = [4, 6, 6, 6, 6];
+/**
+ * Which bases may be asked with a NEGATIVE exponent — a unit fraction for an argument. Phased
+ * in across the top two rungs rather than switched on at once, because a rung that adds only a
+ * handful of new questions is barely a rung: a child promoted into it is handed the pool they
+ * just left while their mastery number climbs.
+ */
+const LOG_NEGATIVE_BASES: readonly number[][] = [[], [], [], [2, 3], [2, 3, 5, 10]];
+/**
+ * Largest argument in play. `log(1000000)` is an exercise in counting zeros rather than a
+ * harder question about logarithms, so base 10 stops at five.
+ */
+const LOG_ARG_MAX = 100000;
+
+/** How each base is written. Base 10 is written with no subscript at all, by convention. */
+const LOG_SUBSCRIPT: Record<number, string> = { 2: "₂", 3: "₃", 5: "₅", 10: "" };
+
+/**
+ * Logarithms (grade 11). The argument is always a whole power of the base, so the answer is a
+ * whole number; from level 3 the exponent may be negative and the argument is then a unit
+ * fraction, which is where a child first has to read `log₂(1/8)` as `-3`.
+ *
+ * **The base is this skill's mandatory wrong answer** — a child who answers `2` to `log₂(32)`
+ * has told you exactly which number they read — so a draw where the base and the exponent are
+ * the same number is thrown away. `log₃(27)` is 3, and offering 3 as the mistake would offer
+ * the answer.
+ *
+ * `log(1000)` rather than `log₁₀(1000)`, matching the convention every textbook uses. The
+ * read-aloud says the base anyway: an implicit 10 is a convention on the page and not
+ * something a child listening should have to already know.
+ */
+export function logRules(level: number, rng: Rng, skillId: string): Question {
+  const lvl = L(level);
+  const bases = LOG_BASES[lvl];
+  let base = 2, exponent = 1, power = 1;
+  let drawn = false;
+  for (let attempt = 0; attempt < 400 && !drawn; attempt++) {
+    base = bases[randInt(rng, 0, bases.length - 1)];
+    const size = randInt(rng, 1, LOG_EXP_MAX[lvl]);
+    exponent = LOG_NEGATIVE_BASES[lvl].includes(base) && rng() < 0.45 ? -size : size;
+    power = base ** size;
+    drawn = power <= LOG_ARG_MAX && base !== exponent;
+  }
+  if (!drawn) throw new Error(`could not draw a logarithm at level ${level}`);
+
+  const argument = exponent < 0 ? `1/${power}` : String(power);
+  const candidates = [
+    String(base),                                                  // the base read off as the answer
+    ...(exponent < 0 ? [String(-exponent)] : whole(power, base)),   // the minus dropped; the argument divided by the base
+    String(exponent + 1),
+    String(exponent - 1),
+    ...numericDistractors(exponent, rng),
+  ];
+
+  return makeQuestion(
+    skillId,
+    `${base}:${argument}`,
+    `What is log${LOG_SUBSCRIPT[base]}(${argument})?`,
+    String(exponent),
+    pickDistinct(candidates, String(exponent)),
+    rng,
+    `What is log base ${base} of ${exponent < 0 ? `1 over ${power}` : power}?`,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Function composition
+// ---------------------------------------------------------------------------
+
+/** Largest coefficient, constant and input, per level. */
+const COMPOSE_COEF_MAX = [3, 4, 5, 5, 5];
+const COMPOSE_CONST_MAX = [5, 6, 8, 8, 8];
+const COMPOSE_INPUT_MAX = [5, 8, 10, 10, 10];
+/** Negative constants join at level 3; negative coefficients and inputs at level 4. */
+const COMPOSE_NEGATIVE_CONST = [false, false, false, true, true];
+const COMPOSE_NEGATIVE_ALL = [false, false, false, false, true];
+
+/** "2x + 1", "x - 3", "-2x + 5" — a linear function as it is written. */
+const linear = (slope: number, constant: number): string => `${leadTerm(slope, "x")} ${signed(constant)}`;
+/** The same function spoken: "2 x plus 1", "negative x minus 3". */
+const spokenLinear = (slope: number, constant: number): string =>
+  `${slope === 1 ? "" : slope === -1 ? "negative " : `${speakInt(slope)} `}x ${spokenSign(constant)}`;
+
+/**
+ * Function composition (grade 11). Always the inner function first — `f(g(4))` — because
+ * deciding which one goes first IS the skill, and **`g(f(4))` is always on screen**: a child
+ * who works the outer function first has told you exactly what they did.
+ *
+ * Three draws are thrown away, one per wrong reading this skill promises to offer:
+ *
+ *  - **`f(g(n)) = g(f(n))`**, which happens when `d(a - 1) = b(c - 1)` — at `a = c = 1`, for
+ *    instance, where both compositions are `n + b + d`. The order would make no difference and
+ *    the mandatory distractor would be the answer.
+ *  - **`g(n) = n`**, which makes `f(g(n))` and `f(n)` the same number.
+ *  - **`f(g(n)) = g(n)`**, which makes the inner value alone the answer.
+ *
+ * Neither function is ever constant: a coefficient of zero prints `0x + 1` and composes with
+ * nothing.
+ */
+export function fnCompose(level: number, rng: Rng, skillId: string): Question {
+  const lvl = L(level);
+  const coefficient = () => randInt(rng, 1, COMPOSE_COEF_MAX[lvl]) * (COMPOSE_NEGATIVE_ALL[lvl] && rng() < 0.4 ? -1 : 1);
+  const constant = () => randInt(rng, 1, COMPOSE_CONST_MAX[lvl]) * (COMPOSE_NEGATIVE_CONST[lvl] && rng() < 0.5 ? -1 : 1);
+
+  let a = 1, b = 1, c = 1, d = 1, at = 0;
+  let drawn = false;
+  for (let attempt = 0; attempt < 400 && !drawn; attempt++) {
+    a = coefficient();
+    b = constant();
+    c = coefficient();
+    d = constant();
+    at = randInt(rng, COMPOSE_NEGATIVE_ALL[lvl] ? -COMPOSE_INPUT_MAX[lvl] : 0, COMPOSE_INPUT_MAX[lvl]);
+    const inner = c * at + d;
+    const answer = a * inner + b;
+    drawn = answer !== c * (a * at + b) + d && answer !== a * at + b && answer !== inner;
+  }
+  if (!drawn) throw new Error(`could not draw a composition worth asking at level ${level}`);
+
+  const inner = c * at + d;
+  const answer = a * inner + b;
+  const candidates = [
+    String(c * (a * at + b) + d),   // g(f(n)) — the order reversed
+    String(a * at + b),             // f(n) alone
+    String(inner),                  // g(n) alone
+    ...numericDistractors(answer, rng),
+  ];
+
+  return makeQuestion(
+    skillId,
+    `${a},${b},${c},${d},${at}`,
+    `If f(x) = ${linear(a, b)} and g(x) = ${linear(c, d)}, what is f(g(${at}))?`,
+    String(answer),
+    pickDistinct(candidates, String(answer)),
+    rng,
+    `If f of x equals ${spokenLinear(a, b)} and g of x equals ${spokenLinear(c, d)}, what is f of g of ${speakInt(at)}?`,
+  );
+}
