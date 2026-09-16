@@ -59,8 +59,17 @@ function pickFractionDistractors(candidates: string[], answer: string): string[]
   return taken;
 }
 
-/** Take candidates in order, skipping the answer and anything already taken, to exactly three. */
-function pickDistinct(candidates: string[], answer: string): string[] {
+/**
+ * Take candidates in order, skipping the answer and anything already taken, to exactly three.
+ *
+ * Exported for the grade 9-12 module rather than written out a third time. The subtlety is
+ * worth having in one place: a candidate equal to the answer is SKIPPED, not reported, so a
+ * characteristic-error distractor that collides with the answer is silently replaced by
+ * whatever comes next in the list. Every caller must therefore rule the collision out at the
+ * draw, and every test must assert the mistake differs from the answer before asserting it is
+ * offered — `toContain` alone passes vacuously when the mistake IS the answer.
+ */
+export function pickDistinct(candidates: string[], answer: string): string[] {
   const taken: string[] = [];
   for (const candidate of candidates) {
     if (taken.length === 3) break;

@@ -32,6 +32,13 @@ import {
   slopeFromPoints,
   twoStepEq,
 } from "./generators/middle";
+import {
+  factorQuad,
+  inequalities,
+  multiStepEq,
+  slopeIntercept,
+  systemsEq,
+} from "./generators/high";
 
 export type Question = {
   id: string;        // stable; encodes the parameters so a miss can be re-asked verbatim
@@ -287,4 +294,9 @@ export const GENERATORS: Record<string, Generator> = {
   "exponent-rules": exponentRules,
   pythagorean,
   "sci-notation": sciNotation,
+  "multi-step-eq": multiStepEq,
+  "systems-eq": systemsEq,
+  "factor-quad": factorQuad,
+  "slope-intercept": slopeIntercept,
+  inequalities,
 };

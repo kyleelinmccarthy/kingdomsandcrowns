@@ -947,6 +947,195 @@ const sciNotation: Verifier = (q) => {
   return passes[0];
 };
 
+// ---------------------------------------------------------------------------
+// Grade 9 — Algebra I
+// ---------------------------------------------------------------------------
+
+/**
+ * "Solve for x: 2(x + 3) = 4x - 8" / "Solve for x: 3(x - 4) = x/2 + 8"
+ *
+ * A genuine inverse: the generator picks x and builds the right-hand side from it, and this
+ * runs it backwards. The distribution is done HERE too — `a` times the constant inside the
+ * bracket, not `a` times x alone — so a generator that had distributed to the first term
+ * only, which is the mistake this skill exists to catch, disagrees rather than agreeing.
+ *
+ * Every sign is read out of the prompt and applied here. An equation printed with a minus
+ * cannot be solved as if it had a plus, and the two shapes are told apart by which one the
+ * prompt actually wrote rather than by a level number this file never sees.
+ *
+ * Equal coefficients throw: the x terms cancel and there is nothing to solve. A non-integer
+ * solution throws too — every equation this skill asks is built to come out whole, so a
+ * ragged one is a generator bug on its way to a child.
+ */
+const multiStepEquation: Verifier = (q) => {
+  const m = /^Solve for x: (\d+)\(x ([+\-]) (\d+)\) = (?:(\d+)x|x\/(\d+)) ([+\-]) (\d+)$/.exec(q.prompt);
+  if (!m) throw new Error(`multi-step equation verifier cannot parse: ${q.prompt}`);
+  const a = Number(m[1]);
+  const b = m[2] === "+" ? Number(m[3]) : -Number(m[3]);
+  const d = m[6] === "+" ? Number(m[7]) : -Number(m[7]);
+  if (a === 0) throw new Error(`no bracket to distribute in: ${q.prompt}`);
+  // a(x + b) = cx + d  ->  (a - c)x = d - ab
+  // a(x + b) = x/e + d ->  (ae - 1)x = e(d - ab)
+  const overDivisor = m[5] !== undefined;
+  const e = overDivisor ? Number(m[5]) : 0;
+  if (overDivisor && e < 2) throw new Error(`a divisor of ${e} in: ${q.prompt}`);
+  const numerator = overDivisor ? e * (d - a * b) : d - a * b;
+  const denominator = overDivisor ? a * e - 1 : a - Number(m[4]);
+  if (denominator === 0) throw new Error(`the x terms cancel, so there is nothing to solve in: ${q.prompt}`);
+  if (numerator % denominator !== 0) throw new Error(`no integer solution in: ${q.prompt}`);
+  return String(numerator / denominator);
+};
+
+/** A coefficient as it is written in an equation: "" is 1, "-" is -1, anything else is itself. */
+function writtenCoefficient(text: string): number {
+  if (text === "" || text === "+") return 1;
+  if (text === "-") return -1;
+  const value = Number(text);
+  if (!Number.isInteger(value)) throw new Error(`not a coefficient: ${text}`);
+  return value;
+}
+
+/**
+ * "Solve: x + y = 10 and x - y = 4. What is x?"
+ *
+ * A genuine inverse: the generator picks the pair (x, y) and builds both right-hand sides
+ * from them, while this recovers the pair from the four coefficients and two totals by
+ * elimination. Cramer's rule rather than substitution, so it shares no step with the
+ * generator beyond arithmetic.
+ *
+ * **Which variable is wanted is read from the prompt and switched on**, never assumed. A
+ * prompt flipped from "What is x?" to "What is y?" cannot keep the old answer, which is the
+ * failure mode a verifier that only ever returned x would be blind to — and the two numbers
+ * are both on screen, because the other one is this skill's mandatory distractor.
+ *
+ * A zero determinant throws: two parallel lines have no single solution to ask about. A
+ * non-integer solution throws for the same reason it does everywhere else in this file.
+ */
+const systemOfEquations: Verifier = (q) => {
+  const m = /^Solve: (-?\d*)x ([+\-]) (\d*)y = (-?\d+) and (-?\d*)x ([+\-]) (\d*)y = (-?\d+)\. What is (x|y)\?$/.exec(q.prompt);
+  if (!m) throw new Error(`system verifier cannot parse: ${q.prompt}`);
+  const a = writtenCoefficient(m[1]);
+  const b = writtenCoefficient(m[3]) * (m[2] === "+" ? 1 : -1);
+  const e = Number(m[4]);
+  const c = writtenCoefficient(m[5]);
+  const d = writtenCoefficient(m[7]) * (m[6] === "+" ? 1 : -1);
+  const f = Number(m[8]);
+  const determinant = a * d - b * c;
+  if (determinant === 0) throw new Error(`these two lines never meet at one point: ${q.prompt}`);
+  const xTimes = e * d - b * f;
+  const yTimes = a * f - e * c;
+  if (xTimes % determinant !== 0 || yTimes % determinant !== 0) {
+    throw new Error(`no whole-number solution in: ${q.prompt}`);
+  }
+  return String((m[9] === "x" ? xTimes : yTimes) / determinant);
+};
+
+/**
+ * "Factor: x² + 7x + 12" — the choices carry the candidate factorisations.
+ *
+ * The independent derivation, and the reason this skill is worth generating at all: every
+ * choice is compared to the prompt's quadratic **by value, at five different x**, rather than
+ * by multiplying the two constants out. Nothing here knows the FOIL identity. Two quadratics
+ * that agree at five points are the same quadratic — three would do — so a generator with its
+ * own idea of how brackets expand does not get to be right here by sharing that idea.
+ *
+ * Exactly one choice must match. Two would mean the same quadratic factored two ways on one
+ * screen, which is a question with no single right answer — and catching that is the whole
+ * point of testing every choice rather than only the answer.
+ *
+ * The survivor must also be written canonically, smaller number first. `(x + 4)(x + 3)` is
+ * the same factorisation as `(x + 3)(x + 4)` and would pass every check above; insisting on
+ * the order HERE is what keeps the answer to one spelling, for every draw of every level.
+ */
+const factorQuadratic: Verifier = (q) => {
+  const m = /^Factor: x² ([+\-]) (\d*)x ([+\-]) (\d+)$/.exec(q.prompt);
+  if (!m) throw new Error(`factoring verifier cannot parse: ${q.prompt}`);
+  const middle = (m[2] === "" ? 1 : Number(m[2])) * (m[1] === "+" ? 1 : -1);
+  const constant = Number(m[4]) * (m[3] === "+" ? 1 : -1);
+  const passes = q.choices.filter((choice) => {
+    const c = /^\(x ([+\-]) (\d+)\)\(x ([+\-]) (\d+)\)$/.exec(choice);
+    if (!c) return false;
+    const first = Number(c[2]) * (c[1] === "+" ? 1 : -1);
+    const second = Number(c[4]) * (c[3] === "+" ? 1 : -1);
+    return [-2, -1, 0, 1, 2].every((at) => (at + first) * (at + second) === at * at + middle * at + constant);
+  });
+  if (passes.length !== 1) {
+    throw new Error(`${passes.length} choices factor ${q.prompt}: ${q.choices.join(", ")}`);
+  }
+  const c = /^\(x ([+\-]) (\d+)\)\(x ([+\-]) (\d+)\)$/.exec(passes[0])!;
+  const first = Number(c[2]) * (c[1] === "+" ? 1 : -1);
+  const second = Number(c[4]) * (c[3] === "+" ? 1 : -1);
+  if (first > second) throw new Error(`the factors are written the wrong way round in: ${passes[0]}`);
+  return passes[0];
+};
+
+/**
+ * "A line has slope 3 and passes through (2, 4). Write it in slope-intercept form."
+ *
+ * A genuine inverse: the generator picks the intercept and places the point from it, while
+ * this recovers the intercept from the point — `b = y - mx`, which is the skill itself run
+ * backwards. A generator that had added where it should subtract disagrees here, and so does
+ * one that read the point's coordinates the other way round.
+ *
+ * The answer is rendered here from scratch rather than matched against the choices, so a
+ * generator that got the arithmetic right and the WRITING wrong — `y = 3x + -2` — fails too.
+ * A slope of zero throws: `y = 0x - 2` is not how anyone writes a horizontal line.
+ */
+const slopeInterceptForm: Verifier = (q) => {
+  const m = /^A line has slope (-?\d+) and passes through \((-?\d+), (-?\d+)\)\. Write it in slope-intercept form\.$/.exec(q.prompt);
+  if (!m) throw new Error(`slope-intercept verifier cannot parse: ${q.prompt}`);
+  const slope = Number(m[1]), px = Number(m[2]), py = Number(m[3]);
+  if (slope === 0) throw new Error(`a line with no slope has no slope-intercept form worth asking: ${q.prompt}`);
+  const intercept = py - slope * px;
+  const coefficient = slope === 1 ? "" : slope === -1 ? "-" : String(slope);
+  return `y = ${coefficient}x ${intercept < 0 ? "-" : "+"} ${Math.abs(intercept)}`;
+};
+
+/**
+ * "Solve: -2x + 1 < 9"
+ *
+ * The boundary is a genuine inverse — the generator builds the right-hand side from the
+ * boundary and this recovers it — but the boundary is the easy half. **The direction is
+ * decided by substitution, and that is the part that matters.**
+ *
+ * Turning the inequality around when you divide by a negative is the entire skill, and a
+ * verifier that applied the same flip rule as the generator would be no second opinion at
+ * all: if both believed the rule backwards, every child who got it right would be marked
+ * wrong and nothing here would notice. So no flip rule is applied. Three numbers are put
+ * back into the inequality AS PRINTED — one either side of the boundary, and the boundary
+ * itself — and which of them satisfy it is what says whether the answer reads greater or
+ * less, strict or not.
+ *
+ * If both sides of the boundary satisfy the inequality, or neither does, this throws: that is
+ * not an inequality in x and there is no solution set to name.
+ */
+const inequality: Verifier = (q) => {
+  const m = /^Solve: (-?\d+)x ([+\-]) (\d+) ([<>≤≥]) (-?\d+)$/.exec(q.prompt);
+  if (!m) throw new Error(`inequality verifier cannot parse: ${q.prompt}`);
+  const a = Number(m[1]);
+  const b = m[2] === "+" ? Number(m[3]) : -Number(m[3]);
+  const relation = m[4];
+  const c = Number(m[5]);
+  if (a === 0) throw new Error(`no x to solve for in: ${q.prompt}`);
+  if ((c - b) % a !== 0) throw new Error(`the boundary is not a whole number in: ${q.prompt}`);
+  const boundary = (c - b) / a;
+
+  const holds = (at: number): boolean => {
+    const left = a * at + b;
+    switch (relation) {
+      case "<": return left < c;
+      case ">": return left > c;
+      case "≤": return left <= c;
+      case "≥": return left >= c;
+      default: throw new Error(`unknown relation in: ${q.prompt}`);
+    }
+  };
+  const above = holds(boundary + 1), below = holds(boundary - 1);
+  if (above === below) throw new Error(`both sides of ${boundary} read the same in: ${q.prompt}`);
+  const loose = holds(boundary);
+  return `x ${above ? (loose ? "≥" : ">") : (loose ? "≤" : "<")} ${boundary}`;
+};
+
 export const VERIFIERS: Record<string, Verifier> = {
   add: arithmetic,
   sub: arithmetic,
@@ -988,4 +1177,9 @@ export const VERIFIERS: Record<string, Verifier> = {
   "exponent-rules": exponentRules,
   pythagorean,
   "sci-notation": sciNotation,
+  "multi-step-eq": multiStepEquation,
+  "systems-eq": systemOfEquations,
+  "factor-quad": factorQuadratic,
+  "slope-intercept": slopeInterceptForm,
+  inequalities: inequality,
 };
