@@ -383,6 +383,12 @@ describe("mul-multi", () => {
     for (const lvl of LEVELS) {
       for (const q of draws(mulMulti, lvl, "mul-multi")) {
         const [a, b] = operands(q);
+        // On screen AND not the answer. `toContain` on its own would pass either way: when a
+        // characteristic-error distractor equals the answer the choice builder quietly
+        // backfills a near miss rather than offering a duplicate, so nothing would fire. It
+        // cannot collide while `a` has two digits or more, which is now every rung — said
+        // here rather than left to the ladder table, which is the thing that moved.
+        expect(String((a % 10) * b), `${q.prompt} has two right answers`).not.toBe(q.answer);
         expect(q.choices, q.prompt).toContain(String((a % 10) * b));
       }
     }
@@ -611,6 +617,10 @@ describe("frac-addsub", () => {
         const { n1, d1, op, n2, d2 } = parts(q);
         if (op !== "+") continue;
         adding += 1;
+        // Not the answer, as well as on screen: an operand past one whole is new at level 4,
+        // and `toContain` alone would pass silently if the mediant ever landed on the sum —
+        // the choice builder drops a duplicate and backfills a near miss instead.
+        expect(`${n1 + n2}/${d1 + d2}`, `${q.prompt} has two right answers`).not.toBe(q.answer);
         expect(q.choices, `${q.prompt} does not offer ${n1 + n2}/${d1 + d2}`).toContain(`${n1 + n2}/${d1 + d2}`);
       }
       expect(adding, `level ${lvl} never asks an addition`).toBeGreaterThan(0);
