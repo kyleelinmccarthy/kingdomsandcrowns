@@ -3,7 +3,20 @@
  * mastery level, and a seeded rng makes every run reproducible in tests.
  */
 import { compareNum, countSeq, moneyCoins, skipCount, tenMoreLess, timeClock } from "./generators/elementary";
-import { areaPerimeter, fracUnit, roundNearest } from "./generators/intermediate";
+import {
+  areaPerimeter,
+  decOps,
+  divMulti,
+  factors,
+  fracAddsub,
+  fracEquiv,
+  fracMul,
+  fracUnit,
+  mulMulti,
+  orderOps,
+  roundNearest,
+  volumePrism,
+} from "./generators/intermediate";
 
 export type Question = {
   id: string;        // stable; encodes the parameters so a miss can be re-asked verbatim
@@ -229,4 +242,13 @@ export const GENERATORS: Record<string, Generator> = {
   "frac-unit": fracUnit,
   "area-perimeter": areaPerimeter,
   "round-nearest": roundNearest,
+  "mul-multi": mulMulti,
+  "div-multi": divMulti,
+  "frac-equiv": fracEquiv,
+  factors,
+  "frac-addsub": fracAddsub,
+  "frac-mul": fracMul,
+  "dec-ops": decOps,
+  "volume-prism": volumePrism,
+  "order-ops": orderOps,
 };

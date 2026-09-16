@@ -1,5 +1,20 @@
 import { describe, it, expect } from "vitest";
-import { areaPerimeter, fracUnit, roundNearest } from "./intermediate";
+import {
+  areaPerimeter,
+  decOps,
+  divMulti,
+  factors,
+  frac,
+  fracAddsub,
+  fracEquiv,
+  fracMul,
+  fracUnit,
+  mulMulti,
+  orderOps,
+  roundNearest,
+  speakFrac,
+  volumePrism,
+} from "./intermediate";
 import { GENERATORS, seededRng, type Question, type Rng } from "../drill-generators";
 
 const LEVELS = [0, 1, 2, 3, 4];
@@ -134,6 +149,502 @@ describe("round-nearest", () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// Grades 4 and 5
+// ---------------------------------------------------------------------------
+
+/** A rendered fraction as an exact pair, so two of them are compared BY VALUE. */
+const asPair = (f: string): [number, number] => {
+  const m = /^(-?\d+)(?:\/(\d+))?$/.exec(f);
+  if (!m) throw new Error(`not a fraction: ${f}`);
+  return [Number(m[1]), m[2] === undefined ? 1 : Number(m[2])];
+};
+const exactValue = (f: string) => {
+  const [n, d] = asPair(f);
+  return n / d;
+};
+const lowestTerms = (f: string) => {
+  const [n, d] = asPair(f);
+  const g = (a: number, b: number): number => (b === 0 ? a : g(b, a % b));
+  return g(Math.abs(n), Math.abs(d)) === 1;
+};
+
+/** Every choice a distinct NUMBER, and the answer among them exactly once. */
+function expectFourDistinctValues(q: Question) {
+  const values = q.choices.map(exactValue);
+  expect(new Set(values).size, `${q.prompt} offers the same number twice: ${q.choices.join(", ")}`).toBe(4);
+  expect(values.filter((v) => v === exactValue(q.answer)), `${q.prompt} has two right answers`).toHaveLength(1);
+}
+
+describe("frac", () => {
+  it("reduces, renders a whole number as one, and never renders 0 as a fraction", () => {
+    expect(frac(2, 4)).toBe("1/2");
+    expect(frac(6, 2)).toBe("3");
+    expect(frac(0, 5)).toBe("0");
+    expect(frac(-2, 4)).toBe("-1/2");
+    expect(frac(2, -4)).toBe("-1/2");
+    expect(() => frac(1, 0)).toThrow();
+  });
+
+  it("speaks a fraction in words, because '/' is banned from read-aloud", () => {
+    expect(speakFrac("1/2")).toBe("1 half");
+    expect(speakFrac("3/4")).toBe("3 fourths");
+    expect(speakFrac("5")).toBe("5");
+    expect(speakFrac("7/20")).toBe("7 over 20");
+    for (const spoken of ["1/2", "3/4", "7/20", "11/12"].map(speakFrac)) {
+      expect(spoken, spoken).not.toMatch(/[-×÷%²³√π^\/¢$]/);
+    }
+  });
+});
+
+/** Every digit pair multiplied with its carry thrown away — written again, not imported. */
+function carryDroppedProduct(a: number, b: number): number {
+  const da = String(a).split("").reverse().map(Number);
+  const db = String(b).split("").reverse().map(Number);
+  let total = 0;
+  for (let i = 0; i < da.length; i++) for (let j = 0; j < db.length; j++) total += ((da[i] * db[j]) % 10) * 10 ** (i + j);
+  return total;
+}
+
+describe("mul-multi", () => {
+  const operands = (q: Question) => /^What is (\d+) × (\d+)\?$/.exec(q.prompt)!.slice(1).map(Number) as [number, number];
+
+  it("gives each level the digit counts the map asks for, and never a trailing zero", () => {
+    const digits: [number, number][] = [[2, 1], [2, 1], [3, 1], [2, 2], [3, 2]];
+    for (const lvl of LEVELS) {
+      for (const q of draws(mulMulti, lvl, "mul-multi")) {
+        const [a, b] = operands(q);
+        expect(String(a).length, q.prompt).toBe(digits[lvl][0]);
+        expect(String(b).length, q.prompt).toBe(digits[lvl][1]);
+        expect(a % 10, `${q.prompt} ends in 0, so "tens ignored" would be 0`).not.toBe(0);
+        expect(b % 10, `${q.prompt} ends in 0`).not.toBe(0);
+        expect(Number(q.answer), q.prompt).toBe(a * b);
+      }
+    }
+  });
+
+  it("never draws a product that needs no carry, so 'carry dropped' is always a wrong answer", () => {
+    // 12 × 3 carries nowhere: dropping a carry leaves 36, which IS the answer.
+    for (const lvl of LEVELS) {
+      for (const q of draws(mulMulti, lvl, "mul-multi")) {
+        const [a, b] = operands(q);
+        expect(carryDroppedProduct(a, b), `${q.prompt} has two right answers`).not.toBe(a * b);
+      }
+    }
+  });
+
+  it("always offers the ones digit multiplied on its own, the mistake the skill exists for", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(mulMulti, lvl, "mul-multi")) {
+        const [a, b] = operands(q);
+        expect(q.choices, q.prompt).toContain(String((a % 10) * b));
+      }
+    }
+  });
+});
+
+describe("div-multi", () => {
+  const parts = (q: Question) => {
+    const m = /^What is (\d+) ÷ (\d+)\? Give the (quotient|remainder)\.$/.exec(q.prompt)!;
+    return { dividend: Number(m[1]), divisor: Number(m[2]), wants: m[3] };
+  };
+
+  it("keeps the divisor inside the level's range and the dividend inside twelve of them", () => {
+    const max = [5, 9, 9, 12, 12];
+    for (const lvl of LEVELS) {
+      for (const q of draws(divMulti, lvl, "div-multi")) {
+        const { dividend, divisor } = parts(q);
+        expect(divisor, q.prompt).toBeGreaterThanOrEqual(2);
+        expect(divisor, q.prompt).toBeLessThanOrEqual(max[lvl]);
+        expect(Math.floor(dividend / divisor), q.prompt).toBeGreaterThanOrEqual(1);
+        expect(Math.floor(dividend / divisor), q.prompt).toBeLessThanOrEqual(12);
+      }
+    }
+  });
+
+  it("always leaves a remainder, and asks the quotient at even levels and the remainder at odd ones", () => {
+    for (const lvl of LEVELS) {
+      const asked = new Set<string>();
+      for (const q of draws(divMulti, lvl, "div-multi")) {
+        const { dividend, divisor, wants } = parts(q);
+        expect(dividend % divisor, `${q.prompt} divides exactly, so there is no remainder to ask about`).not.toBe(0);
+        expect(Number(q.answer), q.prompt).toBe(wants === "quotient" ? Math.floor(dividend / divisor) : dividend % divisor);
+        asked.add(wants);
+      }
+      expect([...asked], `level ${lvl}`).toEqual([lvl % 2 === 0 ? "quotient" : "remainder"]);
+    }
+  });
+
+  it("offers the measure it did not ask for, and never lets the two be the same number", () => {
+    // Swapping quotient and remainder is THE mistake here, so the other one is always a
+    // distractor — which means a draw where they are equal would have two right answers.
+    for (const lvl of LEVELS) {
+      for (const q of draws(divMulti, lvl, "div-multi")) {
+        const { dividend, divisor, wants } = parts(q);
+        const other = wants === "quotient" ? dividend % divisor : Math.floor(dividend / divisor);
+        expect(String(other), `${q.prompt} has two right answers`).not.toBe(q.answer);
+        expect(q.choices, q.prompt).toContain(String(other));
+      }
+    }
+  });
+});
+
+describe("frac-equiv", () => {
+  const base = (q: Question) => /^Which fraction is equal to (\d+)\/(\d+)\?$/.exec(q.prompt)!.slice(1).map(Number) as [number, number];
+
+  it("asks about a fraction in lowest terms and answers with a whole-number scaling of it", () => {
+    const kmax = [2, 3, 4, 6, 8];
+    const dmax = [6, 8, 9, 10, 12];
+    for (const lvl of LEVELS) {
+      for (const q of draws(fracEquiv, lvl, "frac-equiv")) {
+        const [n, d] = base(q);
+        expect(lowestTerms(`${n}/${d}`), `${q.prompt} is not in lowest terms`).toBe(true);
+        expect(n, q.prompt).toBeLessThan(d);
+        expect(d, q.prompt).toBeLessThanOrEqual(dmax[lvl]);
+        const [an, ad] = asPair(q.answer);
+        expect(ad % d, q.prompt).toBe(0);
+        const k = ad / d;
+        expect(k, q.prompt).toBeGreaterThanOrEqual(2);
+        expect(k, q.prompt).toBeLessThanOrEqual(kmax[lvl]);
+        expect(an, q.prompt).toBe(n * k);
+      }
+    }
+  });
+
+  it("leaves exactly one choice equal to the fraction in the prompt", () => {
+    // The choices ARE the data here, so a second equal choice is a second right answer —
+    // and "2/4" and "3/6" are the same number written two ways, which a string comparison
+    // would wave through.
+    for (const lvl of LEVELS) {
+      for (const q of draws(fracEquiv, lvl, "frac-equiv")) {
+        const [n, d] = base(q);
+        const equal = q.choices.filter((c) => exactValue(c) === n / d);
+        expect(equal, `${q.prompt} has ${equal.length} right answers: ${q.choices.join(", ")}`).toEqual([q.answer]);
+        expectFourDistinctValues(q);
+      }
+    }
+  });
+
+  it("offers the half-scaled mistakes: numerator alone, denominator alone", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(fracEquiv, lvl, "frac-equiv")) {
+        const [n, d] = base(q);
+        const k = asPair(q.answer)[1] / d;
+        expect(q.choices, q.prompt).toContain(`${n * k}/${d}`);
+      }
+    }
+  });
+});
+
+describe("factors", () => {
+  const target = (q: Question) => Number(/^Which number is a factor of (\d+)\?$/.exec(q.prompt)![1]);
+
+  it("keeps the target inside the level's range and answers with a factor that is neither 1 nor the target", () => {
+    const max = [12, 24, 36, 60, 100];
+    for (const lvl of LEVELS) {
+      for (const q of draws(factors, lvl, "factors")) {
+        const t = target(q);
+        expect(t, q.prompt).toBeGreaterThanOrEqual(4);
+        expect(t, q.prompt).toBeLessThanOrEqual(max[lvl]);
+        expect(t % Number(q.answer), q.prompt).toBe(0);
+        expect(Number(q.answer), q.prompt).toBeGreaterThan(1);
+        expect(Number(q.answer), q.prompt).toBeLessThan(t);
+      }
+    }
+  });
+
+  it("leaves exactly one choice that divides the target", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(factors, lvl, "factors")) {
+        const t = target(q);
+        const dividing = q.choices.filter((c) => t % Number(c) === 0);
+        expect(dividing, `${q.prompt} has ${dividing.length} right answers: ${q.choices.join(", ")}`).toEqual([q.answer]);
+      }
+    }
+  });
+
+  it("always offers a multiple of the target — the factor/multiple swap", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(factors, lvl, "factors")) {
+        const t = target(q);
+        const multiples = q.choices.filter((c) => Number(c) > t && Number(c) % t === 0);
+        expect(multiples.length, `${q.prompt} offers no multiple: ${q.choices.join(", ")}`).toBeGreaterThanOrEqual(1);
+      }
+    }
+  });
+});
+
+describe("frac-addsub", () => {
+  const parts = (q: Question) => {
+    const m = /^What is (\d+)\/(\d+) ([+\-]) (\d+)\/(\d+)\?$/.exec(q.prompt)!;
+    return { n1: Number(m[1]), d1: Number(m[2]), op: m[3], n2: Number(m[4]), d2: Number(m[5]) };
+  };
+
+  it("uses like denominators to level 2 and unlike from level 3, inside the level's ceiling", () => {
+    const max = [6, 8, 10, 12, 12];
+    for (const lvl of LEVELS) {
+      for (const q of draws(fracAddsub, lvl, "frac-addsub")) {
+        const { n1, d1, n2, d2 } = parts(q);
+        expect(Math.max(d1, d2), q.prompt).toBeLessThanOrEqual(max[lvl]);
+        expect(n1, q.prompt).toBeLessThan(d1);
+        expect(n2, q.prompt).toBeLessThan(d2);
+        if (lvl <= 2) expect(d2, `level ${lvl}: ${q.prompt}`).toBe(d1);
+        else expect(d2, `level ${lvl}: ${q.prompt}`).not.toBe(d1);
+      }
+    }
+  });
+
+  it("answers with a fully reduced proper fraction, never an unreduced one", () => {
+    // Reduction is the decision: the unreduced form is offered as a distractor, so an
+    // unreduced answer would put the same number on screen twice.
+    for (const lvl of LEVELS) {
+      for (const q of draws(fracAddsub, lvl, "frac-addsub")) {
+        expect(q.answer, q.prompt).toMatch(/^\d+\/\d+$/);
+        expect(lowestTerms(q.answer), `${q.prompt} answers ${q.answer}, which reduces further`).toBe(true);
+        expect(exactValue(q.answer), q.prompt).toBeGreaterThan(0);
+        expect(exactValue(q.answer), q.prompt).toBeLessThan(1);
+        expectFourDistinctValues(q);
+      }
+    }
+  });
+
+  it("always offers numerators AND denominators added, whenever the question adds", () => {
+    // 1/4 + 2/4 = 3/8 is the single most common error at this age, so it is mandatory.
+    // It can never collide with the answer: the mediant of two positive fractions lies
+    // strictly between them and their sum is larger than both.
+    for (const lvl of LEVELS) {
+      let adding = 0;
+      for (const q of draws(fracAddsub, lvl, "frac-addsub")) {
+        const { n1, d1, op, n2, d2 } = parts(q);
+        if (op !== "+") continue;
+        adding += 1;
+        expect(q.choices, `${q.prompt} does not offer ${n1 + n2}/${d1 + d2}`).toContain(`${n1 + n2}/${d1 + d2}`);
+      }
+      expect(adding, `level ${lvl} never asks an addition`).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe("frac-mul", () => {
+  const parts = (q: Question) => {
+    const m = /^What is (\d+)\/(\d+) × (\d+)\/(\d+)\?$/.exec(q.prompt)!;
+    return { n1: Number(m[1]), d1: Number(m[2]), n2: Number(m[3]), d2: Number(m[4]) };
+  };
+
+  it("multiplies two proper fractions in lowest terms, inside the level's ceiling", () => {
+    const max = [4, 5, 6, 8, 10];
+    for (const lvl of LEVELS) {
+      for (const q of draws(fracMul, lvl, "frac-mul")) {
+        const { n1, d1, n2, d2 } = parts(q);
+        for (const [n, d] of [[n1, d1], [n2, d2]]) {
+          expect(d, q.prompt).toBeLessThanOrEqual(max[lvl]);
+          expect(n, q.prompt).toBeLessThan(d);
+          expect(lowestTerms(`${n}/${d}`), `${q.prompt} has an operand that is not in lowest terms`).toBe(true);
+        }
+      }
+    }
+  });
+
+  it("answers with a fully reduced proper fraction and four different numbers", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(fracMul, lvl, "frac-mul")) {
+        expect(q.answer, q.prompt).toMatch(/^\d+\/\d+$/);
+        expect(lowestTerms(q.answer), `${q.prompt} answers ${q.answer}, which reduces further`).toBe(true);
+        expectFourDistinctValues(q);
+      }
+    }
+  });
+
+  it("always offers the cross-multiplied answer, written the way a child would write it", () => {
+    // 1/2 × 1/2 cross-multiplies to 2/2. Reduced to "1" it would be filtered out as a whole
+    // number and the question would lose its headline distractor, so it is offered raw.
+    for (const lvl of LEVELS) {
+      for (const q of draws(fracMul, lvl, "frac-mul")) {
+        const { n1, d1, n2, d2 } = parts(q);
+        expect(q.choices, `${q.prompt} does not offer ${n1 * d2}/${d1 * n2}`).toContain(`${n1 * d2}/${d1 * n2}`);
+      }
+    }
+  });
+
+  it("always offers the two fractions added instead of multiplied", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(fracMul, lvl, "frac-mul")) {
+        const { n1, d1, n2, d2 } = parts(q);
+        const added = `${n1 * d2 + n2 * d1}/${d1 * d2}`;
+        // Skipped only when cross-multiplying already produced the same NUMBER, in which
+        // case it is on screen under a different spelling.
+        if (exactValue(added) === (n1 * d2) / (d1 * n2)) continue;
+        expect(q.choices, `${q.prompt} does not offer ${added}`).toContain(added);
+      }
+    }
+  });
+});
+
+describe("dec-ops", () => {
+  const parts = (q: Question) => {
+    const m = /^What is (\d+(?:\.\d+)?) ([+\-×]) (\d+(?:\.\d+)?)\?$/.exec(q.prompt)!;
+    return { a: m[1], op: m[2], b: m[3] };
+  };
+  /** Digits of a decimal string as an integer scaled by 10 000, read never as a float. */
+  const scaled = (text: string) => {
+    const m = /^(\d+)(?:\.(\d{1,4}))?$/.exec(text)!;
+    return Number(m[1]) * 10000 + Number((m[2] ?? "").padEnd(4, "0"));
+  };
+
+  it("never lets a floating-point artifact reach a child", () => {
+    // 0.1 + 0.2 is 0.30000000000000004 in JavaScript. Four digits after the point is the
+    // most this generator can produce; anything longer is a float that leaked.
+    for (const lvl of LEVELS) {
+      for (const q of draws(decOps, lvl, "dec-ops")) {
+        for (const choice of q.choices) {
+          expect(choice, `${q.prompt} offers "${choice}"`).toMatch(/^\d+(\.\d{1,4})?$/);
+          expect(choice, `${q.prompt} offers "${choice}"`).not.toMatch(/\.\d*0$/);
+        }
+      }
+    }
+  });
+
+  it("keeps each operand inside the level's decimal places, and multiplies only at level 4", () => {
+    const places = [1, 1, 2, 2, 2];
+    for (const lvl of LEVELS) {
+      const ops = new Set<string>();
+      for (const q of draws(decOps, lvl, "dec-ops")) {
+        const { a, op, b } = parts(q);
+        ops.add(op);
+        for (const operand of [a, b]) {
+          const after = (operand.split(".")[1] ?? "").length;
+          expect(after, `${q.prompt} has an operand with ${after} decimal places`).toBeGreaterThanOrEqual(1);
+          // Multiplying holds both operands to one place so the product stops at two; a
+          // two-place operand times another would run to four, which is tedious not hard.
+          expect(after, q.prompt).toBeLessThanOrEqual(op === "×" ? 1 : places[lvl]);
+        }
+      }
+      expect([...ops].sort(), `level ${lvl}`).toEqual(lvl === 4 ? ["+", "-", "×"] : ["+", "-"]);
+    }
+  });
+
+  it("answers exactly, in scaled integers, and never with a whole number or zero", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(decOps, lvl, "dec-ops")) {
+        const { a, op, b } = parts(q);
+        const [sa, sb] = [scaled(a), scaled(b)];
+        const expected = op === "+" ? sa + sb : op === "-" ? sa - sb : (sa * sb) / 10000;
+        expect(scaled(q.answer), q.prompt).toBe(expected);
+        expect(expected, q.prompt).toBeGreaterThan(0);
+        expect(expected % 10000, `${q.prompt} comes out whole, leaving no point to place`).not.toBe(0);
+      }
+    }
+  });
+});
+
+describe("volume-prism", () => {
+  const sides = (q: Question) =>
+    /^A box is (\d+) by (\d+) by (\d+) units\. What is its volume\?$/.exec(q.prompt)!.slice(1).map(Number) as [number, number, number];
+
+  it("keeps every side inside the level's range and answers with the volume", () => {
+    const max = [3, 4, 5, 6, 8];
+    for (const lvl of LEVELS) {
+      for (const q of draws(volumePrism, lvl, "volume-prism")) {
+        const [l, w, h] = sides(q);
+        for (const side of [l, w, h]) {
+          expect(side, q.prompt).toBeGreaterThanOrEqual(1);
+          expect(side, q.prompt).toBeLessThanOrEqual(max[lvl]);
+        }
+        expect(Number(q.answer), q.prompt).toBe(l * w * h);
+      }
+    }
+  });
+
+  it("never draws a box whose volume equals another measure of itself", () => {
+    // All three distractors are measures of the same box. A 1 by 2 by 3 box has a volume
+    // of 6 and sides summing to 6; a cube of side 6 has a volume and a surface area of
+    // 216; and any box one unit deep has a volume equal to two of its sides multiplied.
+    // Each puts a second right answer among the choices, so each is redrawn.
+    for (const lvl of LEVELS) {
+      for (const q of draws(volumePrism, lvl, "volume-prism")) {
+        const [l, w, h] = sides(q);
+        const volume = l * w * h;
+        expect(volume, `${q.prompt} has two right answers (surface area)`).not.toBe(2 * (l * w + l * h + w * h));
+        expect(volume, `${q.prompt} has two right answers (the sides added)`).not.toBe(l + w + h);
+        expect(q.choices.filter((c) => Number(c) === volume), q.prompt).toHaveLength(1);
+      }
+    }
+  });
+
+  it("offers the surface area, the sides added, and two of the three multiplied", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(volumePrism, lvl, "volume-prism")) {
+        const [l, w, h] = sides(q);
+        expect(q.choices, q.prompt).toContain(String(2 * (l * w + l * h + w * h)));
+        expect(q.choices, q.prompt).toContain(String(l + w + h));
+        const pairs = [l * w, l * h, w * h].map(String);
+        expect(q.choices.some((c) => pairs.includes(c)), `${q.prompt} offers no pair product: ${q.choices.join(", ")}`).toBe(true);
+      }
+    }
+  });
+});
+
+describe("order-ops", () => {
+  const expression = (q: Question) => /^What is (.+)\?$/.exec(q.prompt)![1];
+
+  /**
+   * The expression read strictly left to right, with the bracket done first — the mistake
+   * this skill exists to correct. Written here from the printed text, so it is not the
+   * generator's own idea of what a child would do.
+   */
+  function readLeftToRight(text: string): number {
+    const flattened = text.replace(/\((\d+) ([+\-×]) (\d+)\)/, (_, a, op, b) =>
+      String(op === "+" ? Number(a) + Number(b) : op === "-" ? Number(a) - Number(b) : Number(a) * Number(b)));
+    const tokens = flattened.split(" ");
+    let total = Number(tokens[0]);
+    for (let i = 1; i < tokens.length; i += 2) {
+      const value = Number(tokens[i + 1]);
+      total = tokens[i] === "+" ? total + value : tokens[i] === "-" ? total - value : total * value;
+    }
+    return total;
+  }
+
+  it("uses the level's number of terms, and brackets only from level 3", () => {
+    const terms = [3, 3, 3, 4, 4];
+    const numMax = [9, 9, 9, 12, 12];
+    for (const lvl of LEVELS) {
+      for (const q of draws(orderOps, lvl, "order-ops")) {
+        const text = expression(q);
+        const numbers = text.match(/\d+/g)!.map(Number);
+        expect(numbers, q.prompt).toHaveLength(terms[lvl]);
+        for (const n of numbers) {
+          expect(n, q.prompt).toBeGreaterThanOrEqual(1);
+          expect(n, q.prompt).toBeLessThanOrEqual(numMax[lvl]);
+        }
+        expect((text.match(/\(/g) ?? []).length, `level ${lvl}: ${q.prompt}`).toBe(lvl >= 3 ? 1 : 0);
+        expect((text.match(/\)/g) ?? []).length, `level ${lvl}: ${q.prompt}`).toBe(lvl >= 3 ? 1 : 0);
+        expect(Number(q.answer), q.prompt).toBeGreaterThan(0);
+        expect(Number(q.answer), q.prompt).toBeLessThanOrEqual(200);
+      }
+    }
+  });
+
+  it("always offers the left-to-right reading, and never lets it be the right answer", () => {
+    // An expression where ignoring precedence happens to give the right answer teaches
+    // nothing AND puts the same number on screen twice, so it is redrawn rather than patched.
+    for (const lvl of LEVELS) {
+      for (const q of draws(orderOps, lvl, "order-ops")) {
+        const ltr = readLeftToRight(expression(q));
+        expect(String(ltr), `${q.prompt} has two right answers`).not.toBe(q.answer);
+        expect(q.choices, `${q.prompt} does not offer the left-to-right reading ${ltr}`).toContain(String(ltr));
+      }
+    }
+  });
+
+  it("speaks the brackets as words, so read-aloud never drops them in silence", () => {
+    for (const q of draws(orderOps, 4, "order-ops")) {
+      expect(q.readAloud, q.readAloud).toContain("open parenthesis");
+      expect(q.readAloud, q.readAloud).toContain("close parenthesis");
+      expect(q.readAloud, q.readAloud).not.toMatch(/[()]/);
+    }
+  });
+});
+
 describe("a new generator can fill a deed", () => {
   /**
    * A deed asks eight questions and `drawGenerated` will not repeat an id, so a level
@@ -146,7 +657,12 @@ describe("a new generator can fill a deed", () => {
    * exemptions, and there should never be one: a level that cannot fill a deed is a bug in
    * that level's range, not a fact to be recorded here.
    */
-  const NEW = ["count-seq", "compare-num", "ten-more-less", "skip-count", "time-clock", "money-coins", "frac-unit", "area-perimeter", "round-nearest"];
+  const NEW = [
+    "count-seq", "compare-num", "ten-more-less", "skip-count", "time-clock", "money-coins",
+    "frac-unit", "area-perimeter", "round-nearest",
+    "mul-multi", "div-multi", "frac-equiv", "factors",
+    "frac-addsub", "frac-mul", "dec-ops", "volume-prism", "order-ops",
+  ];
 
   it.each(NEW.flatMap((id) => LEVELS.map((lvl) => [id, lvl] as [string, number])))(
     "%s at level %i offers at least eight different questions",

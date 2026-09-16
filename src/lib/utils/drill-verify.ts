@@ -263,6 +263,281 @@ const roundNearest: Verifier = (q) => {
   return String(past * 2 >= place ? n - past + place : n - past);
 };
 
+// ---------------------------------------------------------------------------
+// Grades 4 and 5
+// ---------------------------------------------------------------------------
+
+/** Euclid, written here rather than imported: a verifier shares no code with a generator. */
+function commonFactor(a: number, b: number): number {
+  let x = Math.abs(a), y = Math.abs(b);
+  while (y !== 0) [x, y] = [y, x % y];
+  return x;
+}
+
+/** Lowest terms, rendered the way the generators render a fraction: "0", a whole number, or "n/d". */
+function reduceFraction(n: number, d: number): string {
+  if (d === 0) throw new Error("a fraction cannot have a denominator of 0");
+  if (n === 0) return "0";
+  const negative = n < 0 !== d < 0;
+  const g = commonFactor(n, d) || 1;
+  const rn = Math.abs(n) / g, rd = Math.abs(d) / g;
+  return `${negative ? "-" : ""}${rn}${rd === 1 ? "" : `/${rd}`}`;
+}
+
+/** "3/4" or "3" to its lowest-terms spelling, so two choices can be compared BY VALUE. */
+function fractionKey(text: string): string {
+  const m = /^(-?\d+)(?:\/(\d+))?$/.exec(text);
+  if (!m) throw new Error(`not a fraction: ${text}`);
+  return reduceFraction(Number(m[1]), m[2] === undefined ? 1 : Number(m[2]));
+}
+
+/**
+ * "What is 34 × 6?" (multi-digit)
+ *
+ * NOT a true inverse, and there is none to have: the prompt names both factors, so nothing
+ * is left to recover. What this does instead is reach the product by the DEFINITION of
+ * multiplication — 34 added to itself 6 times — rather than by the `*` operator, so a
+ * generator that had its own idea of what multiplying means is caught. A shared
+ * misconception about place value would not be.
+ */
+const mulMulti: Verifier = (q) => {
+  const m = /^What is (\d+) × (\d+)\?$/.exec(q.prompt);
+  if (!m) throw new Error(`multi-digit multiplication verifier cannot parse: ${q.prompt}`);
+  const a = Number(m[1]), b = Number(m[2]);
+  if (b > 200) throw new Error(`operand too large to count out in: ${q.prompt}`);
+  let total = 0;
+  for (let counted = 0; counted < b; counted++) total += a;
+  return String(total);
+};
+
+/**
+ * "What is 47 ÷ 5? Give the remainder." (or the quotient)
+ *
+ * A genuine second derivation: the generator builds the dividend up from a divisor, a
+ * quotient and a remainder, and this takes it apart again by subtracting the divisor one
+ * lot at a time and counting — which is what "how many times does 5 go into 47, and what
+ * is left over" literally means. Neither `/` nor `%` appears. Which of the two numbers is
+ * wanted is read from the prompt and switched on, so a prompt flipped to ask for the other
+ * one cannot keep the old answer.
+ */
+const divRemainder: Verifier = (q) => {
+  const m = /^What is (\d+) ÷ (\d+)\? Give the (quotient|remainder)\.$/.exec(q.prompt);
+  if (!m) throw new Error(`division verifier cannot parse: ${q.prompt}`);
+  const dividend = Number(m[1]), divisor = Number(m[2]);
+  if (divisor < 1) throw new Error(`division by zero in: ${q.prompt}`);
+  if (dividend > 10000) throw new Error(`dividend too large to count down in: ${q.prompt}`);
+  let left = dividend, times = 0;
+  while (left >= divisor) {
+    left -= divisor;
+    times += 1;
+  }
+  return String(m[3] === "quotient" ? times : left);
+};
+
+/**
+ * "Which fraction is equal to 2/3?" — the choices ARE the data.
+ *
+ * A genuine inverse: the generator scales the base fraction UP by a whole number, and this
+ * reduces every choice DOWN to lowest terms, so the two derivations meet in the middle and
+ * a generator that scaled only one half of the fraction disagrees here. The direction word
+ * is parsed and switched on, never assumed, and a wording this does not recognise throws.
+ */
+const equivalentFraction: Verifier = (q) => {
+  const m = /^Which fraction is (equal|not equal) to (\d+)\/(\d+)\?$/.exec(q.prompt);
+  if (!m) throw new Error(`equivalent-fraction verifier cannot parse: ${q.prompt}`);
+  const target = reduceFraction(Number(m[2]), Number(m[3]));
+  const same = q.choices.filter((c) => fractionKey(c) === target);
+  const different = q.choices.filter((c) => fractionKey(c) !== target);
+  const wanted = m[1] === "equal" ? same : different;
+  if (wanted.length !== 1) throw new Error(`${wanted.length} choices are ${m[1]} to ${m[2]}/${m[3]} in: ${q.choices.join(", ")}`);
+  return wanted[0];
+};
+
+/**
+ * "Which number is a factor of 24?" — the choices ARE the data.
+ *
+ * The generator picks a divisor of the target; this tests every choice for divisibility and
+ * insists exactly one passes, which is a different question from "which one did you build".
+ * Factor and multiple are the pair children swap, so both wordings are parsed and the test
+ * is turned around for "multiple" — a prompt flipped to the other word cannot keep the old
+ * answer. Anything else throws.
+ */
+const factorOf: Verifier = (q) => {
+  const m = /^Which number is a (factor|multiple) of (\d+)\?$/.exec(q.prompt);
+  if (!m) throw new Error(`factor verifier cannot parse: ${q.prompt}`);
+  const target = Number(m[2]);
+  if (target < 1) throw new Error(`nothing is a factor of ${target}: ${q.prompt}`);
+  const passes = q.choices.filter((c) => {
+    if (!/^\d+$/.test(c)) throw new Error(`not a whole number: ${c}`);
+    const value = Number(c);
+    if (value === 0) throw new Error(`0 cannot be a factor or a multiple: ${q.prompt}`);
+    return m[1] === "factor" ? target % value === 0 : value % target === 0;
+  });
+  if (passes.length !== 1) throw new Error(`${passes.length} choices are a ${m[1]} of ${target} in: ${q.choices.join(", ")}`);
+  return passes[0];
+};
+
+/**
+ * "What is 1/4 + 2/4?"
+ *
+ * The common denominator is reached by LCM here and by multiplying the two denominators in
+ * the generator — two different routes to the same number, so a cross-multiplication slip
+ * shows up as a disagreement. The answer is reduced on this side too, so an unreduced
+ * answer fails rather than passing quietly. The operator is read from the prompt, so a
+ * prompt flipped from plus to minus cannot keep the old answer.
+ */
+const fractionAddSub: Verifier = (q) => {
+  const m = /^What is (\d+)\/(\d+) ([+\-]) (\d+)\/(\d+)\?$/.exec(q.prompt);
+  if (!m) throw new Error(`fraction add/subtract verifier cannot parse: ${q.prompt}`);
+  const n1 = Number(m[1]), d1 = Number(m[2]), n2 = Number(m[4]), d2 = Number(m[5]);
+  if (d1 === 0 || d2 === 0) throw new Error(`a fraction cannot have a denominator of 0: ${q.prompt}`);
+  const lcm = (d1 * d2) / commonFactor(d1, d2);
+  const left = n1 * (lcm / d1), right = n2 * (lcm / d2);
+  return reduceFraction(m[3] === "+" ? left + right : left - right, lcm);
+};
+
+/**
+ * "What is 2/3 × 3/5?"
+ *
+ * NOT a true inverse for the multiplication itself — the prompt names both fractions, so
+ * there is nothing to recover. Two things here ARE independent: the answer is reduced on
+ * this side, so an unreduced answer fails; and the operator is parsed and switched on, with
+ * division written as multiplying by the flipped second fraction, so a prompt flipped to
+ * `÷` cannot keep the product as its answer.
+ */
+const fractionMultiply: Verifier = (q) => {
+  const m = /^What is (\d+)\/(\d+) ([×÷]) (\d+)\/(\d+)\?$/.exec(q.prompt);
+  if (!m) throw new Error(`fraction multiply verifier cannot parse: ${q.prompt}`);
+  const n1 = Number(m[1]), d1 = Number(m[2]), n2 = Number(m[4]), d2 = Number(m[5]);
+  if (d1 === 0 || d2 === 0) throw new Error(`a fraction cannot have a denominator of 0: ${q.prompt}`);
+  if (m[3] === "÷") {
+    if (n2 === 0) throw new Error(`division by zero in: ${q.prompt}`);
+    return reduceFraction(n1 * d2, d1 * n2);
+  }
+  return reduceFraction(n1 * n2, d1 * d2);
+};
+
+/** Every decimal here is an integer scaled by 10 000; no float ever touches one. */
+const VERIFY_SCALE = 10000;
+
+/**
+ * "3.4" to 34000, read DIGIT BY DIGIT out of the prompt. `parseFloat("0.1") + parseFloat("0.2")`
+ * is 0.30000000000000004, so the string is never turned into a float at any point — not
+ * here, and not in the generator, and the two do it by different means so that they are
+ * still two derivations where the bug would live.
+ */
+function scaledDecimal(text: string): number {
+  const m = /^(\d+)(?:\.(\d{1,4}))?$/.exec(text);
+  if (!m) throw new Error(`not a decimal this can read: ${text}`);
+  return Number(m[1]) * VERIFY_SCALE + Number((m[2] ?? "").padEnd(4, "0"));
+}
+
+/** Scaled integer back to the string a child reads, trailing zeros trimmed. */
+function renderScaled(scaled: number): string {
+  const sign = scaled < 0 ? "-" : "";
+  const magnitude = Math.abs(scaled);
+  const whole = Math.trunc(magnitude / VERIFY_SCALE);
+  let digits = String(VERIFY_SCALE + (magnitude % VERIFY_SCALE)).slice(1);
+  while (digits.endsWith("0")) digits = digits.slice(0, -1);
+  return digits === "" ? `${sign}${whole}` : `${sign}${whole}.${digits}`;
+}
+
+/**
+ * "What is 3.4 + 1.25?"
+ *
+ * Same-direction arithmetic — both operands are named — but independent where the bug
+ * actually lives: in the scaling and the rendering. The operator is parsed and switched on,
+ * so a flipped sign cannot hide, and a product that does not land on a whole number of
+ * ten-thousandths throws rather than being rounded into agreement.
+ */
+const decimalOps: Verifier = (q) => {
+  const m = /^What is (\d+(?:\.\d+)?) ([+\-×]) (\d+(?:\.\d+)?)\?$/.exec(q.prompt);
+  if (!m) throw new Error(`decimal verifier cannot parse: ${q.prompt}`);
+  const a = scaledDecimal(m[1]), b = scaledDecimal(m[3]);
+  if (m[2] === "+") return renderScaled(a + b);
+  if (m[2] === "-") return renderScaled(a - b);
+  const product = (a * b) / VERIFY_SCALE;
+  if (!Number.isInteger(product)) throw new Error(`product needs more than four decimal places: ${q.prompt}`);
+  return renderScaled(product);
+};
+
+/**
+ * "A box is 3 by 4 by 2 units. What is its volume?" (or its surface area)
+ *
+ * The volume is COUNTED, one unit cube at a time, rather than multiplied — the definition
+ * rather than the formula — and the surface area is the six faces added up one by one.
+ * Which measure is wanted is read from the prompt and switched on, so a generator that
+ * answered with the other one is caught.
+ */
+const boxMeasure: Verifier = (q) => {
+  const m = /^A box is (\d+) by (\d+) by (\d+) units\. What is its (volume|surface area)\?$/.exec(q.prompt);
+  if (!m) throw new Error(`box verifier cannot parse: ${q.prompt}`);
+  const [l, w, h] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  if (l < 1 || w < 1 || h < 1) throw new Error(`a box needs all three sides in: ${q.prompt}`);
+  if (l > 40 || w > 40 || h > 40) throw new Error(`box too large to count out in: ${q.prompt}`);
+  if (m[4] === "surface area") {
+    let faces = 0;
+    for (const [a, b] of [[l, w], [l, w], [l, h], [l, h], [w, h], [w, h]]) faces += a * b;
+    return String(faces);
+  }
+  let cubes = 0;
+  for (let x = 0; x < l; x++) for (let y = 0; y < w; y++) for (let z = 0; z < h; z++) cubes += 1;
+  return String(cubes);
+};
+
+/**
+ * "What is 3 + 4 × 2?" / "What is 2 + (3 + 4) × 2?"
+ *
+ * A genuinely independent derivation: the generator holds the expression as a structure and
+ * evaluates that, while this parses the printed text back into one — a recursive descent
+ * over `expr := term (('+'|'-') term)*`, `term := factor ('×' factor)*`, `factor := number |
+ * '(' expr ')'` — and so disagrees the moment the generator's precedence and the text on
+ * screen part company. Leftover tokens throw: an expression this cannot read all of is
+ * itself a defect.
+ */
+const orderOfOperations: Verifier = (q) => {
+  const m = /^What is (.+)\?$/.exec(q.prompt);
+  if (!m) throw new Error(`order-of-operations verifier cannot parse: ${q.prompt}`);
+  const tokens = m[1].match(/\d+|[+\-×()]/g) ?? [];
+  if (tokens.join("") !== m[1].replace(/\s/g, "")) throw new Error(`unreadable characters in: ${q.prompt}`);
+  let at = 0;
+  const peek = () => tokens[at];
+  const expr = (): number => {
+    let value = term();
+    while (peek() === "+" || peek() === "-") {
+      const op = tokens[at++];
+      const right = term();
+      value = op === "+" ? value + right : value - right;
+    }
+    return value;
+  };
+  const term = (): number => {
+    let value = factor();
+    while (peek() === "×") {
+      at++;
+      value *= factor();
+    }
+    return value;
+  };
+  const factor = (): number => {
+    const token = tokens[at];
+    if (token === undefined) throw new Error(`expression ends early: ${q.prompt}`);
+    if (token === "(") {
+      at++;
+      const value = expr();
+      if (tokens[at] !== ")") throw new Error(`unclosed parenthesis in: ${q.prompt}`);
+      at++;
+      return value;
+    }
+    if (!/^\d+$/.test(token)) throw new Error(`expected a number, found "${token}" in: ${q.prompt}`);
+    at++;
+    return Number(token);
+  };
+  const value = expr();
+  if (at !== tokens.length) throw new Error(`trailing "${tokens.slice(at).join(" ")}" in: ${q.prompt}`);
+  return String(value);
+};
+
 export const VERIFIERS: Record<string, Verifier> = {
   add: arithmetic,
   sub: arithmetic,
@@ -282,4 +557,13 @@ export const VERIFIERS: Record<string, Verifier> = {
   "frac-unit": fracUnit,
   "area-perimeter": areaPerimeter,
   "round-nearest": roundNearest,
+  "mul-multi": mulMulti,
+  "div-multi": divRemainder,
+  "frac-equiv": equivalentFraction,
+  factors: factorOf,
+  "frac-addsub": fractionAddSub,
+  "frac-mul": fractionMultiply,
+  "dec-ops": decimalOps,
+  "volume-prism": boxMeasure,
+  "order-ops": orderOfOperations,
 };
