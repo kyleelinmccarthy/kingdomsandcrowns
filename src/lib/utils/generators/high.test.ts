@@ -1,5 +1,5 @@
 /**
- * Range and ladder checks for grades 9, 10 and 11.
+ * Range and ladder checks for grades 9, 10, 11 and 12.
  *
  * `drill-verify.test.ts` proves the ANSWER KEY against an independent reading of the prompt;
  * nothing there bounds difficulty, and nothing there knows which mistakes a skill is supposed
@@ -18,16 +18,21 @@ import {
   factorQuad,
   fnCompose,
   inequalities,
+  logEq,
   logRules,
   multiStepEq,
   polyOps,
+  probability,
   quadFormula,
   radicalOps,
+  rationalExpr,
+  sequences,
   similarTri,
   slopeIntercept,
   solidMeasure,
   systemsEq,
   trigRatios,
+  unitCircle,
 } from "./high";
 import { seededRng, type Question, type Rng } from "../drill-generators";
 
@@ -1253,6 +1258,460 @@ describe("every grade 11 level offers something no earlier level can ask", () =>
     ["radical-ops", radicalOps],
     ["log-rules", logRules],
     ["fn-compose", fnCompose],
+  ];
+
+  it.each(LADDERS)("%s climbs", (skillId, gen) => {
+    const seen = new Set<string>();
+    for (const lvl of LEVELS) {
+      const here = new Set(draws(gen, lvl, skillId).map((q) => q.prompt));
+      if (lvl > 0) {
+        const fresh = [...here].filter((p) => !seen.has(p));
+        expect(
+          fresh.length,
+          `${skillId} level ${lvl} can ask nothing level ${lvl - 1} could not — ${here.size} questions, all already reachable`,
+        ).toBeGreaterThan(0);
+      }
+      for (const p of here) seen.add(p);
+    }
+  });
+});
+
+describe("unit-circle", () => {
+  /** How far round the circle each level may reach, in degrees and in radians. */
+  const ANGLES = [0, 30, 45, 60, 90, 120, 135, 150, 180, 210, 225, 240, 270, 300, 315, 330];
+  const REACH = [5, 9, 16, 16, 16];
+  const RADIAN_REACH = [0, 0, 0, 9, 16];
+
+  /**
+   * A canonical answer as a NUMBER. Useless as an answer — `Math.cos(Math.PI / 3)` is
+   * `0.5000000000000001` and no child could pick it — and exactly right as an audit, because
+   * it compares two choices by VALUE rather than by spelling, and because it lets this file
+   * check the generator's table against `Math.cos` without ever holding a table of its own.
+   */
+  const value = (text: string): number => {
+    const m = /^(-)?(√)?(\d+)(?:\/(\d+))?$/.exec(text);
+    expect(m, `not a value the unit circle takes: ${text}`).not.toBeNull();
+    const top = m![2] === "√" ? Math.sqrt(Number(m![3])) : Number(m![3]);
+    return ((m![1] === "-" ? -1 : 1) * top) / (m![4] === undefined ? 1 : Number(m![4]));
+  };
+  const near = (a: number, b: number) => Math.abs(a - b) < 1e-9;
+
+  const parse = (q: Question) => {
+    const m = /^What is (sin|cos)\((\d+°|\d*π(?:\/\d+)?)\)\?$/.exec(q.prompt);
+    expect(m, `unit-circle wrote a prompt a child cannot read: ${q.prompt}`).not.toBeNull();
+    const radians = !m![2].endsWith("°");
+    let degrees: number;
+    if (radians) {
+      const r = /^(\d*)π(?:\/(\d+))?$/.exec(m![2])!;
+      degrees = (180 * (r[1] === "" ? 1 : Number(r[1]))) / (r[2] === undefined ? 1 : Number(r[2]));
+    } else {
+      degrees = Number(m![2].slice(0, -1));
+    }
+    return { cosine: m![1] === "cos", degrees, radians };
+  };
+
+  it("names the value the circle really takes, inside the level's reach", () => {
+    for (const lvl of LEVELS) {
+      const used = new Set<number>();
+      for (const q of draws(unitCircle, lvl, "unit-circle")) {
+        const { cosine, degrees, radians } = parse(q);
+        used.add(degrees);
+        const reach = ANGLES.slice(0, radians ? RADIAN_REACH[lvl] : REACH[lvl]);
+        expect(reach, `level ${lvl} reached ${degrees}°`).toContain(degrees);
+        // Checked against the real trigonometric function, to a tolerance. The generator may
+        // not compute this value and this file may not print it; comparing them is the point.
+        const truth = cosine ? Math.cos((degrees * Math.PI) / 180) : Math.sin((degrees * Math.PI) / 180);
+        expect(near(value(q.answer), truth), `${q.prompt} answered ${q.answer}`).toBe(true);
+        // No two choices may be the same number differently spelled: that is a question with
+        // two right answers, and no `toContain` below would notice it.
+        expect(new Set(q.choices.map((c) => value(c).toFixed(9))).size, `${q.prompt} offers one value twice`).toBe(4);
+        // Radians join at level 3 and never before.
+        if (lvl <= 2) expect(radians, `level ${lvl} asked ${q.prompt}`).toBe(false);
+      }
+      expect([...used].sort((a, b) => a - b), `level ${lvl} never used every angle it allows`).toEqual(ANGLES.slice(0, REACH[lvl]));
+    }
+    for (const lvl of [3, 4]) {
+      const inRadians = draws(unitCircle, lvl, "unit-circle").filter((q) => parse(q).radians);
+      expect(inRadians.length, `level ${lvl} never asked in radians`).toBeGreaterThan(0);
+      for (const q of inRadians) expect(parse(q).degrees, `level ${lvl} asked ${q.prompt}`).toBeLessThanOrEqual(ANGLES[RADIAN_REACH[lvl] - 1]);
+    }
+  });
+
+  it("offers the other function and the sign flipped, and the only gaps are the angles that have none", () => {
+    for (const lvl of LEVELS) {
+      const sameBoth = new Set<number>();
+      const noSign = new Set<number>();
+      for (const q of draws(unitCircle, lvl, "unit-circle")) {
+        const { cosine, degrees } = parse(q);
+        const radians = (degrees * Math.PI) / 180;
+        const other = cosine ? Math.sin(radians) : Math.cos(radians);
+        const answer = value(q.answer);
+        const values = q.choices.map(value);
+        // Distinct first, by value rather than by spelling: at 45° the sine and the cosine ARE
+        // the same number, and `pickDistinct` backfills a near-miss rather than reporting that
+        // the mandatory wrong reading is the right one.
+        if (near(other, answer)) sameBoth.add(degrees);
+        else expect(values.some((v) => near(v, other)), `${q.prompt} does not offer the other function`).toBe(true);
+        if (near(answer, 0)) noSign.add(degrees);
+        else expect(values.some((v) => near(v, -answer)), `${q.prompt} does not offer the sign flipped`).toBe(true);
+      }
+      // The exceptions are named, not open-ended: the sine and the cosine meet only on the
+      // diagonal, and only zero has no other sign.
+      expect([...sameBoth].sort((a, b) => a - b).filter((d) => d !== 45 && d !== 225), `level ${lvl}`).toEqual([]);
+      expect([...noSign].sort((a, b) => a - b).filter((d) => ![0, 90, 180, 270].includes(d)), `level ${lvl}`).toEqual([]);
+      // And both exceptions really happen, so the branches above are not decoration.
+      expect(sameBoth.has(45), `level ${lvl} never met the diagonal`).toBe(true);
+      expect(noSign.size, `level ${lvl} never answered zero`).toBeGreaterThan(0);
+    }
+  });
+
+  it("speaks the angle rather than printing a degree sign or a pi", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(unitCircle, lvl, "unit-circle")) {
+        const { cosine, degrees, radians } = parse(q);
+        expect(q.readAloud, q.readAloud).toContain(cosine ? "the cosine of" : "the sine of");
+        expect(q.readAloud, q.readAloud).toContain(radians ? "pi" : `${degrees} degrees`);
+        expect(q.readAloud, q.readAloud).not.toMatch(/[°π\/-]/);
+      }
+    }
+  });
+});
+
+describe("sequences", () => {
+  const START_MAX = [9, 12, 15, 6, 9];
+  const DIFF_MAX = [5, 8, 9, 3, 3];
+  const TERM_MAX = [8, 10, 12, 8, 8];
+
+  const parse = (q: Question) => {
+    const m = /^An (arithmetic|geometric) sequence starts at (-?\d+) with common (difference|ratio) (-?\d+)\. What is the (\d+)(?:st|nd|rd|th) term\?$/.exec(q.prompt);
+    expect(m, `sequences wrote a prompt a child cannot read: ${q.prompt}`).not.toBeNull();
+    const geometric = m![1] === "geometric";
+    expect(m![3], `an ${m![1]} sequence has no common ${m![3]}: ${q.prompt}`).toBe(geometric ? "ratio" : "difference");
+    return { geometric, start: Number(m![2]), step: Number(m![4]), index: Number(m![5]) };
+  };
+
+  it("names the term the sequence really has, inside the level's start, step and index", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(sequences, lvl, "sequences")) {
+        const { geometric, start, step, index } = parse(q);
+        // The closed form here; `drill-verify.ts` counts the sequence out instead. The two
+        // agree only if neither of them is off by a term, which is the mistake this skill is for.
+        const term = geometric ? start * step ** (index - 1) : start + (index - 1) * step;
+        expect(Number(q.answer), `${q.prompt} answered ${q.answer}`).toBe(term);
+        expect(Math.abs(term), `${q.prompt} is an exercise in copying digits`).toBeLessThanOrEqual(6000);
+        expect(start, q.prompt).toBeGreaterThanOrEqual(geometric ? 2 : 1);
+        expect(start, q.prompt).toBeLessThanOrEqual(START_MAX[lvl]);
+        expect(Math.abs(step), q.prompt).toBeGreaterThanOrEqual(2);
+        expect(Math.abs(step), q.prompt).toBeLessThanOrEqual(DIFF_MAX[lvl]);
+        expect(index, q.prompt).toBeGreaterThanOrEqual(5);
+        expect(index, q.prompt).toBeLessThanOrEqual(TERM_MAX[lvl]);
+        // Geometric from level 3; a negative difference from 2; a negative ratio at 4.
+        expect(geometric, `level ${lvl} asked ${q.prompt}`).toBe(lvl >= 3);
+        if (lvl <= 1 || lvl === 3) expect(step, `level ${lvl} went negative: ${q.prompt}`).toBeGreaterThan(0);
+      }
+    }
+    for (const [lvl, wanted] of [[2, "a negative common difference"], [4, "a negative common ratio"]] as const) {
+      expect(draws(sequences, lvl, "sequences").filter((q) => parse(q).step < 0).length, `level ${lvl} never drew ${wanted}`).toBeGreaterThan(0);
+    }
+  });
+
+  it("offers the term one step further on, the sum and the step applied once, none of them the answer", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(sequences, lvl, "sequences")) {
+        const { geometric, start, step, index } = parse(q);
+        const wrong = geometric
+          ? [start * step ** index, (start * (step ** index - 1)) / (step - 1), start * step]
+          : [start + index * step, (index * (2 * start + (index - 1) * step)) / 2, start + step];
+        for (const mistake of wrong) {
+          // Distinct first. The off-by-one term differs from the answer by a whole step, which
+          // is never zero; the sum can land on a later term when the difference is negative,
+          // and that draw is thrown away precisely so this holds rather than being backfilled.
+          expect(String(mistake), `${q.prompt} offers its own answer as a mistake`).not.toBe(q.answer);
+          expect(q.choices, `${q.prompt} does not offer ${mistake}`).toContain(String(mistake));
+        }
+      }
+    }
+  });
+
+  it("says the ordinal as a word, so read-aloud never reads out a suffix", () => {
+    const WORDS = ["fifth", "sixth", "seventh", "eighth", "ninth", "tenth", "eleventh", "twelfth"];
+    for (const lvl of LEVELS) {
+      for (const q of draws(sequences, lvl, "sequences")) {
+        const { index } = parse(q);
+        expect(q.readAloud, q.readAloud).toContain(`the ${WORDS[index - 5]} term`);
+        expect(q.readAloud, q.readAloud).not.toMatch(/\d(?:st|nd|rd|th)|[-\/]/);
+      }
+    }
+  });
+});
+
+describe("probability", () => {
+  const COLORS = [2, 2, 3, 2, 3];
+  const COUNT_MAX = [5, 9, 9, 6, 6];
+  const DRAWS = [1, 1, 1, 2, 2];
+
+  const factor = (a: number, b: number): number => (b === 0 ? a : factor(b, a % b));
+  const reduce = (n: number, d: number): string => {
+    const g = factor(n, d) || 1;
+    return d / g === 1 ? String(n / g) : `${n / g}/${d / g}`;
+  };
+
+  const parse = (q: Question) => {
+    const m = /^A bag has (.+?) marbles\.(.*) What is the probability (of drawing|that both are) ([a-z]+)\?$/.exec(q.prompt);
+    expect(m, `probability wrote a prompt a child cannot read: ${q.prompt}`).not.toBeNull();
+    const twoDraws = m![2] === " One marble is drawn and put back, then another is drawn.";
+    expect(m![2] === "" || twoDraws, `a drawing this cannot read: ${q.prompt}`).toBe(true);
+    expect(m![3], `${q.prompt} draws and asks about different things`).toBe(twoDraws ? "that both are" : "of drawing");
+    const bag = new Map<string, number>();
+    for (const part of m![1].split(/, | and /)) {
+      const counted = /^(\d+) ([a-z]+)$/.exec(part);
+      expect(counted, `a colour this cannot read, "${part}", in: ${q.prompt}`).not.toBeNull();
+      bag.set(counted![2], Number(counted![1]));
+    }
+    return { bag, asked: m![4], twoDraws };
+  };
+
+  it("gives the bag the probability it really has, inside the level's colours and counts", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(probability, lvl, "probability")) {
+        const { bag, asked, twoDraws } = parse(q);
+        expect(bag.size, `level ${lvl} drew ${bag.size} colours`).toBe(COLORS[lvl]);
+        expect(twoDraws, `level ${lvl} asked ${q.prompt}`).toBe(DRAWS[lvl] === 2);
+        for (const [, count] of bag) {
+          expect(count, q.prompt).toBeGreaterThanOrEqual(1);
+          expect(count, q.prompt).toBeLessThanOrEqual(COUNT_MAX[lvl]);
+        }
+        const total = [...bag.values()].reduce((sum, c) => sum + c, 0);
+        const favourable = bag.get(asked) ?? 0;
+        expect(favourable, `${q.prompt} asks for a colour the bag does not hold`).toBeGreaterThan(0);
+        expect(q.answer, `${q.prompt} answered ${q.answer}`)
+          .toBe(twoDraws ? reduce(favourable * favourable, total * total) : reduce(favourable, total));
+        // An even split makes the complement the answer, so the bag never holds one.
+        expect(favourable, `${q.prompt} splits the bag in half`).not.toBe(total - favourable);
+      }
+    }
+  });
+
+  it("offers the complement and the part over the other part, neither of them the answer", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(probability, lvl, "probability")) {
+        const { bag, asked, twoDraws } = parse(q);
+        const total = [...bag.values()].reduce((sum, c) => sum + c, 0);
+        const favourable = bag.get(asked)!;
+        const other = total - favourable;
+        const wrong = twoDraws
+          ? [reduce(total * total - favourable * favourable, total * total), reduce(favourable * favourable, other * other)]
+          : [reduce(other, total), reduce(favourable, other), String(favourable)];
+        for (const mistake of wrong) {
+          // Distinct first: the complement is the answer whenever the bag splits evenly, which
+          // is the draw thrown away above. Without that throw `pickDistinct` would put a
+          // near-miss here and this `toContain` would pass while testing nothing.
+          expect(mistake, `${q.prompt} offers its own answer as a mistake`).not.toBe(q.answer);
+          expect(q.choices, `${q.prompt} does not offer ${mistake}`).toContain(mistake);
+        }
+      }
+    }
+  });
+
+  it("is speakable as written, so the spoken form is the prompt itself", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(probability, lvl, "probability")) {
+        expect(q.readAloud, q.readAloud).toBe(q.prompt);
+        expect(q.readAloud, q.readAloud).not.toMatch(/[-×÷%²³√π^\/¢$]/);
+      }
+    }
+  });
+});
+
+describe("rational-expr", () => {
+  const SPAN = [15, 15, 20, 9, 9];
+
+  /** A linear or quadratic factor to its constant term, strictly spelled. */
+  const constantOf = (text: string): number => {
+    const m = /^x ([+-]) (\d+)$/.exec(text);
+    expect(m, `not a factor a child can read: ${text}`).not.toBeNull();
+    return (m![1] === "+" ? 1 : -1) * Number(m![2]);
+  };
+  /** The generator's own spelling of `x + q`, written out here so the SPELLING is pinned. */
+  const linearText = (constant: number): string => `x ${constant < 0 ? "-" : "+"} ${Math.abs(constant)}`;
+  const quadraticText = (middle: number, constant: number): string =>
+    `x²${middle === 0 ? "" : ` ${middle < 0 ? "-" : "+"} ${Math.abs(middle) === 1 ? "" : Math.abs(middle)}x`} ${constant < 0 ? "-" : "+"} ${Math.abs(constant)}`;
+
+  const parse = (q: Question) => {
+    const m = /^Simplify: \(([^()]+)\) \/ \(([^()]+)\)$/.exec(q.prompt);
+    expect(m, `rational-expr wrote a prompt a child cannot read: ${q.prompt}`).not.toBeNull();
+    const p = constantOf(m![2]);
+    // The numerator is read back as a polynomial and its constant divided by the denominator's,
+    // which recovers the factor that stayed without this file ever seeing the generator's draw.
+    // `(\d*)x`, not `(\d+)x`: a middle coefficient of one is left unwritten, so `x² - x - 2`
+    // is a quadratic a child reads and a pattern this has to accept.
+    const numerator = /^x²(?: ([+-]) (\d*)x)? ([+-]) (\d+)$/.exec(m![1]);
+    expect(numerator, `not a quadratic a child can read: ${m![1]}`).not.toBeNull();
+    const middle = numerator![1] === undefined ? 0 : (numerator![1] === "+" ? 1 : -1) * (numerator![2] === "" ? 1 : Number(numerator![2]));
+    const constant = (numerator![3] === "+" ? 1 : -1) * Number(numerator![4]);
+    // `=== 0` rather than `toBe(0)`: `-81 % 9` is `-0`, and `-0` is not `0` to `toBe`.
+    expect(constant % p === 0, `${m![2]} does not divide ${m![1]}`).toBe(true);
+    const q2 = constant / p;
+    expect(middle, `${m![1]} does not factor through ${m![2]}`).toBe(p + q2);
+    return { p, q: q2, middle, constant };
+  };
+
+  it("cancels a real factor, inside the level's span and shape", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(rationalExpr, lvl, "rational-expr")) {
+        const { p, q: stays } = parse(q);
+        expect(q.answer, `${q.prompt} answered ${q.answer}`).toBe(linearText(stays));
+        for (const constant of [p, stays]) {
+          expect(Math.abs(constant), q.prompt).toBeGreaterThanOrEqual(1);
+          expect(Math.abs(constant), q.prompt).toBeLessThanOrEqual(SPAN[lvl]);
+        }
+        expect(p, `${q.prompt} cancels the factor it keeps`).not.toBe(stays);
+        // A difference of squares at levels 0-2 and nothing else; a denominator of `(x - a)`
+        // from level 1; general factoring from 3, going negative only at 4.
+        if (lvl <= 2) {
+          expect(stays, `level ${lvl} is not a difference of squares: ${q.prompt}`).toBe(-p);
+          expect(Math.abs(p), q.prompt).toBeGreaterThanOrEqual(2);
+        }
+        if (lvl === 0) expect(p, `level 0 printed a minus in its denominator: ${q.prompt}`).toBeGreaterThan(0);
+        if (lvl === 3) for (const constant of [p, stays]) expect(constant, `level 3 went negative: ${q.prompt}`).toBeGreaterThan(0);
+      }
+    }
+    for (const [lvl, check] of [
+      [1, (r: ReturnType<typeof parse>) => r.p < 0],
+      [3, (r: ReturnType<typeof parse>) => r.q !== -r.p],
+      [4, (r: ReturnType<typeof parse>) => r.q < 0 || r.p < 0],
+    ] as const) {
+      expect(draws(rationalExpr, lvl, "rational-expr").filter((q) => check(parse(q))).length, `level ${lvl} never reached its own shape`).toBeGreaterThan(0);
+    }
+  });
+
+  it("offers the sign flipped, the constants cancelled and the numerator unfactored, none of them the answer", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(rationalExpr, lvl, "rational-expr")) {
+        const { q: stays, middle, constant } = parse(q);
+        // Three mistakes for three slots. "The factor that cancelled, kept" is a fourth real
+        // reading and is in the generator's candidate list, but only as the backfill for the
+        // case where the last two of these are the same string — a denominator of `(x + 1)`,
+        // where cancelling the constants leaves the numerator exactly as it was. Asserting a
+        // fourth here failed on every draw, which is the right way round to find that out.
+        const wrong = [
+          linearText(-stays),                    // the sign of the constant flipped
+          quadraticText(middle, stays),          // the constants cancelled where they stand
+          quadraticText(middle, constant),       // the numerator handed back unfactored
+        ];
+        for (const mistake of wrong) {
+          // Distinct first. `q ≠ 0` is what keeps the sign flip wrong and `p ≠ q` what keeps
+          // the cancelled factor wrong; both are thrown away at the draw rather than trusted.
+          expect(mistake, `${q.prompt} offers its own answer as a mistake`).not.toBe(q.answer);
+          expect(q.choices, `${q.prompt} does not offer ${mistake}`).toContain(mistake);
+        }
+      }
+    }
+  });
+
+  it("speaks the fraction bar and the square rather than printing them", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(rationalExpr, lvl, "rational-expr")) {
+        expect(q.readAloud, q.readAloud).toContain("all over");
+        expect(q.readAloud, q.readAloud).toContain("x squared");
+        expect(q.readAloud, q.readAloud).not.toMatch(/[²³()\/-]/);
+      }
+    }
+  });
+});
+
+describe("log-eq", () => {
+  const BASES = [[2, 3, 5], [2, 3, 5, 10], [2, 3, 5, 10], [2, 3, 5, 10], [2, 3, 5, 10]];
+  const EXP_MAX = [5, 6, 6, 6, 6];
+  const SUBSCRIPTS: Record<string, number> = { "₂": 2, "₃": 3, "₅": 5, "": 10 };
+
+  const parse = (q: Question) => {
+    const exponential = /^Solve: (\d+)\^(?:x|\(x ([+\-]) (\d+)\)) = (\d+|1\/\d+)$/.exec(q.prompt);
+    if (exponential) {
+      const fraction = /^1\/(\d+)$/.exec(exponential[4]);
+      return {
+        asksLog: false,
+        base: Number(exponential[1]),
+        shift: exponential[2] === undefined ? 0 : (exponential[2] === "+" ? 1 : -1) * Number(exponential[3]),
+        power: Number(fraction ? fraction[1] : exponential[4]),
+        negative: fraction !== null,
+      };
+    }
+    const logarithmic = /^Solve: log([₂₃₅]?)\(x\) = (-?\d+)$/.exec(q.prompt);
+    expect(logarithmic, `log-eq wrote a prompt a child cannot read: ${q.prompt}`).not.toBeNull();
+    const exponent = Number(logarithmic![2]);
+    return { asksLog: true, base: SUBSCRIPTS[logarithmic![1]], shift: 0, power: SUBSCRIPTS[logarithmic![1]] ** Math.abs(exponent), negative: exponent < 0 };
+  };
+
+  it("names a solution that really does satisfy the equation, inside the level's bases and exponents", () => {
+    for (const lvl of LEVELS) {
+      const used = new Set<number>();
+      for (const q of draws(logEq, lvl, "log-eq")) {
+        const { asksLog, base, shift, power, negative } = parse(q);
+        used.add(base);
+        expect(BASES[lvl], `level ${lvl} drew base ${base}`).toContain(base);
+        expect(power, `${q.prompt} counts zeros rather than testing exponents`).toBeLessThanOrEqual(100000);
+        // Raised back up rather than divided down: the base to the exponent must be the power.
+        let exponent = 0;
+        for (let value = power; value > 1; value /= base) {
+          expect(value % base, `${power} is not a whole power of ${base}: ${q.prompt}`).toBe(0);
+          exponent += 1;
+        }
+        expect(exponent, q.prompt).toBeGreaterThanOrEqual(1);
+        expect(exponent, q.prompt).toBeLessThanOrEqual(EXP_MAX[lvl]);
+        if (asksLog) {
+          expect(q.answer, `${q.prompt} answered ${q.answer}`).toBe(negative ? `1/${power}` : String(power));
+        } else {
+          expect(Number(q.answer), `${q.prompt} answered ${q.answer}`).toBe((negative ? -exponent : exponent) - shift);
+        }
+        expect(Math.abs(shift), q.prompt).toBeLessThanOrEqual(3);
+        // The logarithmic frame joins at level 2, a unit fraction at 3, a shifted exponent at 4.
+        if (lvl <= 1) expect(asksLog, `level ${lvl} asked ${q.prompt}`).toBe(false);
+        if (lvl <= 2) expect(negative, `level ${lvl} asked ${q.prompt}`).toBe(false);
+        if (lvl <= 3) expect(shift, `level ${lvl} asked ${q.prompt}`).toBe(0);
+      }
+      expect([...used].sort((x, y) => x - y), `level ${lvl} never used every base it allows`).toEqual(BASES[lvl]);
+    }
+    for (const [lvl, check, wanted] of [
+      [2, (p: ReturnType<typeof parse>) => p.asksLog, "the logarithmic frame"],
+      [3, (p: ReturnType<typeof parse>) => p.negative, "a unit fraction"],
+      [4, (p: ReturnType<typeof parse>) => p.shift !== 0, "a shifted exponent"],
+    ] as const) {
+      expect(draws(logEq, lvl, "log-eq").filter((q) => check(parse(q))).length, `level ${lvl} never asked ${wanted}`).toBeGreaterThan(0);
+    }
+  });
+
+  it("always offers the base, and it is never the answer", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(logEq, lvl, "log-eq")) {
+        const { base } = parse(q);
+        // Distinct first: `3ˣ = 27` and `log₂(x) = 1` both answer with their own base, and both
+        // are thrown away at the draw so that this holds rather than being backfilled away.
+        expect(String(base), `${q.prompt} has two right answers`).not.toBe(q.answer);
+        expect(q.choices, `${q.prompt} does not offer its base`).toContain(String(base));
+      }
+    }
+  });
+
+  it("says the base and the power aloud, and never reads out a caret", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(logEq, lvl, "log-eq")) {
+        const { asksLog, base, shift } = parse(q);
+        expect(q.readAloud, q.readAloud).toContain(asksLog ? `log base ${base} of x` : `${base} to the power`);
+        if (shift !== 0) expect(q.readAloud, q.readAloud).toContain("the quantity x");
+        expect(q.readAloud, q.readAloud).not.toMatch(/[₂₃₅()\^\/-]/);
+      }
+    }
+  });
+});
+
+describe("every grade 12 level offers something no earlier level can ask", () => {
+  const LADDERS: [string, (l: number, r: Rng, s: string) => Question][] = [
+    ["unit-circle", unitCircle],
+    ["sequences", sequences],
+    ["probability", probability],
+    ["rational-expr", rationalExpr],
+    ["log-eq", logEq],
   ];
 
   it.each(LADDERS)("%s climbs", (skillId, gen) => {

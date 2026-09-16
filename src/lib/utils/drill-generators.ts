@@ -38,16 +38,21 @@ import {
   factorQuad,
   fnCompose,
   inequalities,
+  logEq,
   logRules,
   multiStepEq,
   polyOps,
+  probability,
   quadFormula,
   radicalOps,
+  rationalExpr,
+  sequences,
   similarTri,
   slopeIntercept,
   solidMeasure,
   systemsEq,
   trigRatios,
+  unitCircle,
 } from "./generators/high";
 
 export type Question = {
@@ -343,4 +348,9 @@ export const GENERATORS: Record<string, Generator> = {
   "radical-ops": radicalOps,
   "log-rules": logRules,
   "fn-compose": fnCompose,
+  "unit-circle": unitCircle,
+  sequences,
+  probability,
+  "rational-expr": rationalExpr,
+  "log-eq": logEq,
 };

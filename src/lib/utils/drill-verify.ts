@@ -1559,19 +1559,36 @@ const LOG_BASES: Record<string, number> = { "₂": 2, "₃": 3, "₅": 5, "": 10
 const logarithm: Verifier = (q) => {
   const m = /^What is log([₂₃₅]?)\((\d+|1\/\d+)\)\?$/.exec(q.prompt);
   if (!m) throw new Error(`logarithm verifier cannot parse: ${q.prompt}`);
-  const base = LOG_BASES[m[1]];
-  if (base === undefined || base < 2) throw new Error(`that is not a base in: ${q.prompt}`);
-  const fraction = /^1\/(\d+)$/.exec(m[2]);
-  let value = fraction ? Number(fraction[1]) : Number(m[2]);
-  if (value < 1) throw new Error(`a logarithm needs a positive argument: ${q.prompt}`);
+  return String(logSteps(m[2], LOG_BASES[m[1]], q.prompt));
+};
+
+/**
+ * How many times `base` divides `text` down to 1 — the logarithm, counted rather than computed.
+ * A unit fraction counts the same divisions the other way and comes back negative: `1/8` is
+ * three steps down from 1, so it is -3 in base 2.
+ *
+ * An argument that is not a whole power of its base throws rather than being rounded to the
+ * nearest one. Every question either logarithm skill asks is built to come out whole, so a
+ * ragged one is a generator bug on its way to a child.
+ *
+ * Shared by the grade-11 logarithm above and the grade-12 equation solver below, which is the
+ * one kind of sharing this file allows: both are verifiers, and neither has ever seen a
+ * generator. A second copy is a second place for the sign of a unit fraction to go wrong.
+ */
+function logSteps(text: string, base: number | undefined, prompt: string): number {
+  if (base === undefined || base < 2) throw new Error(`that is not a base in: ${prompt}`);
+  const fraction = /^1\/(\d+)$/.exec(text);
+  if (!fraction && !/^\d+$/.test(text)) throw new Error(`a power this cannot read, "${text}", in: ${prompt}`);
+  let value = fraction ? Number(fraction[1]) : Number(text);
+  if (value < 1) throw new Error(`a logarithm needs a positive argument: ${prompt}`);
   let steps = 0;
   while (value > 1) {
-    if (value % base !== 0) throw new Error(`${m[2]} is not a whole power of ${base} in: ${q.prompt}`);
+    if (value % base !== 0) throw new Error(`${text} is not a whole power of ${base} in: ${prompt}`);
     value /= base;
     steps += 1;
   }
-  return String(fraction ? -steps : steps);
-};
+  return fraction ? -steps : steps;
+}
 
 /**
  * "If f(x) = 2x + 1 and g(x) = x - 3, what is f(g(4))?"
@@ -1599,6 +1616,246 @@ const composeFunctions: Verifier = (q) => {
   if (a === 0 || c === 0) throw new Error(`a constant function has nothing to compose in: ${q.prompt}`);
   // f(g(x)) = a(cx + d) + b = acx + ad + b, and g(f(x)) = c(ax + b) + d = cax + cb + d.
   return String(m[7] === "f(g" ? a * c * at + a * d + b : c * a * at + c * b + d);
+};
+
+// ---------------------------------------------------------------------------
+// Grade 12 — Precalculus and statistics
+// ---------------------------------------------------------------------------
+
+/**
+ * **The cosine table, written value first.**
+ *
+ * The generator holds an angle-to-value table; a verifier holding the same table the same way
+ * round is a transcription of it, and a transcription agrees with its source about everything,
+ * including the mistakes. This one is indexed the other way — each value, and the angles where
+ * the cosine takes it — so the two disagree the moment either one has a row wrong.
+ *
+ * The SINE is not tabulated at all. `sin θ = cos(90° - θ)` is the definition of the co-function
+ * on the unit circle, and one table plus that identity is one thing to get wrong rather than
+ * two. It also means the sine questions are answered by a route the generator does not have:
+ * the generator reads the sine column, and this reflects the angle and reads the cosine.
+ */
+const COSINE_AT: Record<string, readonly number[]> = {
+  "1": [0],
+  "√3/2": [30, 330],
+  "√2/2": [45, 315],
+  "1/2": [60, 300],
+  "0": [90, 270],
+  "-1/2": [120, 240],
+  "-√2/2": [135, 225],
+  "-√3/2": [150, 210],
+  "-1": [180],
+};
+
+/** "60°" or "π/3" to a whole number of degrees. A radian angle that is not one throws. */
+function angleInDegrees(text: string, prompt: string): number {
+  const degrees = /^(\d+)°$/.exec(text);
+  if (degrees) return Number(degrees[1]);
+  const radians = /^(\d*)π(?:\/(\d+))?$/.exec(text);
+  if (!radians) throw new Error(`that is not an angle in: ${prompt}`);
+  const numerator = radians[1] === "" ? 1 : Number(radians[1]);
+  const denominator = radians[2] === undefined ? 1 : Number(radians[2]);
+  if (denominator === 0) throw new Error(`an angle cannot be divided by zero: ${prompt}`);
+  const whole = (180 * numerator) / denominator;
+  if (!Number.isInteger(whole)) throw new Error(`${text} is not a whole number of degrees in: ${prompt}`);
+  return whole;
+}
+
+/**
+ * "What is cos(60°)?" / "What is sin(π/3)?"
+ *
+ * **Which function is asked is read from the prompt and switched on.** The other one is this
+ * skill's mandatory distractor and is therefore on screen, so a prompt that said `cos` while
+ * the generator answered with the sine would look entirely well-formed while marking every
+ * correct child wrong.
+ *
+ * Nothing here computes a trigonometric function. `Math.cos(Math.PI / 3)` is
+ * `0.5000000000000001`, which is not `1/2` and is not any string a child could pick.
+ */
+const unitCircleValue: Verifier = (q) => {
+  const m = /^What is (sin|cos)\(([^()]+)\)\?$/.exec(q.prompt);
+  if (!m) throw new Error(`unit circle verifier cannot parse: ${q.prompt}`);
+  const degrees = angleInDegrees(m[2], q.prompt);
+  // A sine question is answered as the cosine of the complementary angle, brought back into
+  // one turn. The modulo is written twice because `-30 % 360` is `-30` in JavaScript.
+  const at = (((m[1] === "cos" ? degrees : 90 - degrees) % 360) + 360) % 360;
+  const found = Object.entries(COSINE_AT).filter(([, angles]) => angles.includes(at));
+  if (found.length !== 1) throw new Error(`${at}° is not one of the special angles, in: ${q.prompt}`);
+  return found[0][0];
+};
+
+/**
+ * "An arithmetic sequence starts at 4 with common difference 3. What is the 7th term?"
+ *
+ * **No inverse exists here** — the prompt names the start, the step and the position, and the
+ * term is the only thing left to work out — so this is not two derivations the way the radical
+ * verifier is. What it is is the other route to the same number: the generator uses the closed
+ * form, `a + (n - 1)d` and `a rⁿ⁻¹`, and this **counts the sequence out** one term at a time,
+ * which is what "the 7th term" means in words. The off-by-one those formulas exist to prevent
+ * is the one mistake the two routes cannot make together, and it is also this skill's mandatory
+ * distractor, so a generator that took n steps would find its own wrong answer already on screen.
+ *
+ * **Which kind of sequence is read from the prompt and cross-checked against the word it uses
+ * for its step.** An arithmetic sequence has a common difference and a geometric one a common
+ * ratio; a prompt that mixed them is a defect rather than a question, and so is one whose
+ * ordinal does not match its number.
+ */
+const sequenceTerm: Verifier = (q) => {
+  const m = /^An (arithmetic|geometric) sequence starts at (-?\d+) with common (difference|ratio) (-?\d+)\. What is the (\d+)(st|nd|rd|th) term\?$/.exec(q.prompt);
+  if (!m) throw new Error(`sequence verifier cannot parse: ${q.prompt}`);
+  const arithmetic = m[1] === "arithmetic";
+  if (arithmetic !== (m[3] === "difference")) {
+    throw new Error(`an ${m[1]} sequence has no common ${m[3]}: ${q.prompt}`);
+  }
+  const start = Number(m[2]), step = Number(m[4]), index = Number(m[5]);
+  if (index < 1 || index > 40) throw new Error(`that is not a term to ask for: ${q.prompt}`);
+  const rest = index % 100, last = index % 10;
+  const suffix = rest >= 11 && rest <= 13 ? "th" : last === 1 ? "st" : last === 2 ? "nd" : last === 3 ? "rd" : "th";
+  if (suffix !== m[6]) throw new Error(`there is no "${index}${m[6]}" term: ${q.prompt}`);
+  if (!arithmetic && step === 0) throw new Error(`a geometric sequence cannot have a ratio of zero: ${q.prompt}`);
+  let term = start;
+  for (let position = 1; position < index; position++) term = arithmetic ? term + step : term * step;
+  return String(term);
+};
+
+/**
+ * "A bag has 3 red and 5 blue marbles. What is the probability of drawing red?"
+ *
+ * **The bag is rebuilt from the prompt as a list of marbles and the outcomes are counted.** For
+ * one draw that is the same arithmetic the generator did, and this says so rather than claiming
+ * a second opinion it does not have: the count over the total IS the probability, and there is
+ * no other route to it. What the rebuild does add is that the total is re-added from the colours
+ * actually printed, so a bag whose total was computed from something else disagrees.
+ *
+ * **For two draws it is a genuinely different route.** The generator multiplies two
+ * probabilities; this walks every ordered pair of marbles in the bag and counts the pairs that
+ * are both the asked colour, which is what "independent" means before it is a formula.
+ *
+ * **How many draws there are is read from the sentence and cross-checked against the question's
+ * wording** — a prompt that put one marble back and then asked about a single draw is a defect
+ * rather than a question. And exactly one choice may reduce to the answer's value: two spellings
+ * of the same probability on one screen is a question with two right answers.
+ */
+const marbleProbability: Verifier = (q) => {
+  const m = /^A bag has (.+?) marbles\.(.*) What is the probability (of drawing|that both are) ([a-z]+)\?$/.exec(q.prompt);
+  if (!m) throw new Error(`probability verifier cannot parse: ${q.prompt}`);
+  const replaced = " One marble is drawn and put back, then another is drawn.";
+  if (m[2] !== "" && m[2] !== replaced) throw new Error(`a drawing this cannot read in: ${q.prompt}`);
+  const twoDraws = m[2] === replaced;
+  if (twoDraws !== (m[3] === "that both are")) {
+    throw new Error(`the prompt draws ${twoDraws ? "twice" : "once"} and asks about the other: ${q.prompt}`);
+  }
+  const marbles: string[] = [];
+  const seen = new Set<string>();
+  for (const part of m[1].split(/, | and /)) {
+    const counted = /^(\d+) ([a-z]+)$/.exec(part);
+    if (!counted) throw new Error(`a colour this cannot read, "${part}", in: ${q.prompt}`);
+    if (seen.has(counted[2])) throw new Error(`${counted[2]} is in the bag twice: ${q.prompt}`);
+    seen.add(counted[2]);
+    for (let i = 0; i < Number(counted[1]); i++) marbles.push(counted[2]);
+  }
+  const asked = m[4];
+  if (!seen.has(asked)) throw new Error(`there is no ${asked} in the bag: ${q.prompt}`);
+  if (marbles.length < 2) throw new Error(`there is nothing to draw from in: ${q.prompt}`);
+
+  let favourable = 0, outcomes = 0;
+  if (twoDraws) {
+    for (const first of marbles) {
+      for (const second of marbles) {
+        outcomes += 1;
+        if (first === asked && second === asked) favourable += 1;
+      }
+    }
+  } else {
+    for (const marble of marbles) {
+      outcomes += 1;
+      if (marble === asked) favourable += 1;
+    }
+  }
+  const probability = reduceFraction(favourable, outcomes);
+  const passes = q.choices.filter((c) => /^-?\d+(?:\/\d+)?$/.test(c) && fractionKey(c) === probability);
+  if (passes.length !== 1) {
+    throw new Error(`${passes.length} choices are the probability in "${q.prompt}": ${q.choices.join(", ")}`);
+  }
+  return passes[0];
+};
+
+/**
+ * "Simplify: (x² - 9) / (x + 3)" — the choices carry the candidate simplifications.
+ *
+ * **Multiplied back rather than divided.** A choice is the answer exactly when the choice times
+ * the denominator is the numerator, and that is tested by VALUE at seven different x rather
+ * than by any rule about factoring: the generator builds the numerator from two factors and
+ * cancels one of them, and this never factors anything at all. A choice a degree too high —
+ * which is what the term-cancelling distractors are — fails on the first point that is not a
+ * root.
+ *
+ * The x where the denominator is zero is skipped, and that is the one place the missing domain
+ * restriction shows itself: at x = -3 the equation reads `0 = 0` for every choice on screen, so
+ * the point tests nothing and is dropped rather than being allowed to pass everything.
+ *
+ * Exactly one choice may survive. Two would be the same expression written twice.
+ */
+const simplifyRational: Verifier = (q) => {
+  const m = /^Simplify: \(([^()]+)\) \/ \(([^()]+)\)$/.exec(q.prompt);
+  if (!m) throw new Error(`rational expression verifier cannot parse: ${q.prompt}`);
+  const numerator = polynomialTerms(m[1]), denominator = polynomialTerms(m[2]);
+  if (!numerator || !denominator) throw new Error(`an expression this cannot read in: ${q.prompt}`);
+  const points = [-7, -5, -4, -2, 2, 3, 4, 5, 7].filter((x) => polynomialAt(denominator, x) !== 0);
+  if (points.length < 4) throw new Error(`nothing left to test in: ${q.prompt}`);
+  const passes = q.choices.filter((choice) => {
+    const terms = polynomialTerms(choice);
+    return terms !== null
+      && points.every((x) => polynomialAt(terms, x) * polynomialAt(denominator, x) === polynomialAt(numerator, x));
+  });
+  if (passes.length !== 1) {
+    throw new Error(`${passes.length} choices simplify ${q.prompt}: ${q.choices.join(", ")}`);
+  }
+  return passes[0];
+};
+
+/**
+ * "Solve: 2^x = 64" / "Solve: 2^(x - 2) = 8" / "Solve: log₂(x) = 5" / "Solve: 2^x = 1/8"
+ *
+ * A genuine inverse in both frames, and the same one: the generator RAISES a base to a power,
+ * and `logSteps` above **divides back down to 1 and counts**, which is what a logarithm is.
+ *
+ *  - Written as an exponential, the count is the exponent and the shift printed in the bracket
+ *    is taken off it. The shift is read from the prompt and signed, so `2^(x - 2) = 8` cannot
+ *    keep the answer `2^(x + 2) = 8` would have.
+ *  - Written as a logarithm, the answer is a number rather than an exponent, so it is found
+ *    among the CHOICES: the one that divides down to 1 in exactly the number of steps the
+ *    prompt names. Exactly one may, and a distractor one step out is rejected by the count.
+ *
+ * **The base is read from the prompt** in both frames, including the 10 that convention leaves
+ * unwritten, and it is also this skill's mandatory distractor — so a verifier that assumed 2
+ * would answer `3ˣ = 81` with a number already on screen.
+ */
+const exponentialEquation: Verifier = (q) => {
+  const exponential = /^Solve: (\d+)\^(?:x|\(x ([+\-]) (\d+)\)) = (\d+|1\/\d+)$/.exec(q.prompt);
+  if (exponential) {
+    const base = Number(exponential[1]);
+    const shift = exponential[2] === undefined ? 0 : (exponential[2] === "+" ? 1 : -1) * Number(exponential[3]);
+    return String(logSteps(exponential[4], base, q.prompt) - shift);
+  }
+  const logarithmic = /^Solve: log([₂₃₅]?)\(x\) = (-?\d+)$/.exec(q.prompt);
+  if (logarithmic) {
+    const base = LOG_BASES[logarithmic[1]];
+    if (base === undefined) throw new Error(`that is not a base in: ${q.prompt}`);
+    const exponent = Number(logarithmic[2]);
+    const passes = q.choices.filter((c) => {
+      try {
+        return logSteps(c, base, q.prompt) === exponent;
+      } catch {
+        return false;   // a choice that is not a whole power of the base is simply not the answer
+      }
+    });
+    if (passes.length !== 1) {
+      throw new Error(`${passes.length} choices solve ${q.prompt}: ${q.choices.join(", ")}`);
+    }
+    return passes[0];
+  }
+  throw new Error(`exponential equation verifier cannot parse: ${q.prompt}`);
 };
 
 export const VERIFIERS: Record<string, Verifier> = {
@@ -1657,4 +1914,9 @@ export const VERIFIERS: Record<string, Verifier> = {
   "radical-ops": simplifyRadical,
   "log-rules": logarithm,
   "fn-compose": composeFunctions,
+  "unit-circle": unitCircleValue,
+  sequences: sequenceTerm,
+  probability: marbleProbability,
+  "rational-expr": simplifyRational,
+  "log-eq": exponentialEquation,
 };

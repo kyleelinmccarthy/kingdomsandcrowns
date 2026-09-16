@@ -1,5 +1,5 @@
 /**
- * Grade 9-12 math: Algebra I, Geometry and Algebra II.
+ * Grade 9-12 math: Algebra I, Geometry, Algebra II, and precalculus and statistics.
  *
  * Declared with `function` rather than `const`, for the same reason as every other per-grade
  * module: `drill-generators.ts` imports this file and this file imports its helpers back, so
@@ -1285,5 +1285,476 @@ export function fnCompose(level: number, rng: Rng, skillId: string): Question {
     pickDistinct(candidates, String(answer)),
     rng,
     `If f of x equals ${spokenLinear(a, b)} and g of x equals ${spokenLinear(c, d)}, what is f of g of ${speakInt(at)}?`,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Grade 12 — Precalculus and statistics
+// ---------------------------------------------------------------------------
+
+/**
+ * The special angles, with the cosine and sine of each **written out as the string a child
+ * writes**, never computed.
+ *
+ * `Math.cos(Math.PI / 3)` is `0.5000000000000001`, and a question whose right answer is a
+ * rounding error has no right answer — so no trigonometric function is called here any more
+ * than it is in `trigRatios` above. The radian column is the same angle's other spelling, and
+ * the angle 0 has none: "0 radians" is just 0, and printing it twice would be two prompts
+ * asking one question.
+ */
+type SpecialAngle = { readonly degrees: number; readonly radians: string; readonly cos: string; readonly sin: string };
+
+const UNIT_CIRCLE: readonly SpecialAngle[] = [
+  { degrees: 0, radians: "", cos: "1", sin: "0" },
+  { degrees: 30, radians: "π/6", cos: "√3/2", sin: "1/2" },
+  { degrees: 45, radians: "π/4", cos: "√2/2", sin: "√2/2" },
+  { degrees: 60, radians: "π/3", cos: "1/2", sin: "√3/2" },
+  { degrees: 90, radians: "π/2", cos: "0", sin: "1" },
+  { degrees: 120, radians: "2π/3", cos: "-1/2", sin: "√3/2" },
+  { degrees: 135, radians: "3π/4", cos: "-√2/2", sin: "√2/2" },
+  { degrees: 150, radians: "5π/6", cos: "-√3/2", sin: "1/2" },
+  { degrees: 180, radians: "π", cos: "-1", sin: "0" },
+  { degrees: 210, radians: "7π/6", cos: "-√3/2", sin: "-1/2" },
+  { degrees: 225, radians: "5π/4", cos: "-√2/2", sin: "-√2/2" },
+  { degrees: 240, radians: "4π/3", cos: "-1/2", sin: "-√3/2" },
+  { degrees: 270, radians: "3π/2", cos: "0", sin: "-1" },
+  { degrees: 300, radians: "5π/3", cos: "1/2", sin: "-√3/2" },
+  { degrees: 315, radians: "7π/4", cos: "√2/2", sin: "-√2/2" },
+  { degrees: 330, radians: "11π/6", cos: "√3/2", sin: "-1/2" },
+];
+
+/** Every value the circle takes, as a tail of plausible wrong readings. */
+const UNIT_CIRCLE_VALUES = ["1/2", "√2/2", "√3/2", "-1/2", "-√2/2", "-√3/2", "0", "1", "-1"];
+
+/**
+ * How far around the circle each level may reach, as a count of the table above: quadrant I,
+ * then II, then the whole circle.
+ */
+const UNIT_CIRCLE_REACH = [5, 9, 16, 16, 16];
+/**
+ * How far around the circle each level may ask in RADIANS, same count, zero meaning degrees
+ * only. This is the second axis and the better one: levels 0-2 widen the angle, and levels 3
+ * and 4 change the spelling rather than reaching for angles that do not exist. A special angle
+ * in radians is a different piece of reading from the same angle in degrees, and it is half of
+ * what this skill is named for.
+ */
+const UNIT_CIRCLE_RADIAN_REACH = [0, 0, 0, 9, 16];
+
+/** "-√3/2" from "√3/2", and back. Zero has no other sign, and comes back unchanged. */
+const negated = (value: string): string =>
+  value === "0" ? "0" : value.startsWith("-") ? value.slice(1) : `-${value}`;
+
+/** "5π/6" said aloud: "5 pi over 6". `π` and `/` are both banned from spoken text. */
+function spokenRadians(radians: string): string {
+  const m = /^(\d*)π(?:\/(\d+))?$/.exec(radians);
+  if (!m) throw new Error(`not an angle in radians: ${radians}`);
+  const head = m[1] === "" ? "pi" : `${m[1]} pi`;
+  return m[2] === undefined ? head : `${head} over ${m[2]}`;
+}
+
+/**
+ * The unit circle (grade 12). Quadrant I at level 0, quadrant II from 1, the whole circle from
+ * 2, and radians from 3 — quadrants I and II at level 3, all four at level 4.
+ *
+ * **The other function is this skill's mandatory wrong answer**: the sine where the cosine was
+ * asked, and the cosine where the sine was. A child who reads the wrong coordinate off the
+ * point has told you exactly what they did.
+ *
+ * It is offered at every angle but two, and those two are named rather than redrawn. At 45° and
+ * 225° the sine and the cosine ARE the same number, so there is no wrong reading to offer — and
+ * throwing those draws away would cost level 0 two of its ten questions to buy an assertion
+ * that is already true. The sign flipped is offered the same way and fails on the same terms:
+ * an answer of 0 has no other sign. Neither gap is silent — `high.test.ts` asserts that the
+ * co-function is on screen at every angle where the two differ, that the sign flip is on screen
+ * whenever the answer is not zero, and that the exceptions are exactly those angles and no
+ * others. A `toContain` with nothing standing behind it is the failure this file is built to
+ * avoid, and a conditional one that says exactly when it applies is not that.
+ */
+export function unitCircle(level: number, rng: Rng, skillId: string): Question {
+  const lvl = L(level);
+  const radianReach = UNIT_CIRCLE_RADIAN_REACH[lvl];
+  // Index 0 is the angle 0, which has no radian spelling, so a radian draw starts at 1.
+  const useRadians = radianReach > 0 && rng() < 0.5;
+  const entry = useRadians
+    ? UNIT_CIRCLE[randInt(rng, 1, radianReach - 1)]
+    : UNIT_CIRCLE[randInt(rng, 0, UNIT_CIRCLE_REACH[lvl] - 1)];
+
+  const wantCosine = rng() < 0.5;
+  const answer = wantCosine ? entry.cos : entry.sin;
+  const other = wantCosine ? entry.sin : entry.cos;
+  const ratio = wantCosine ? "cos" : "sin";
+  const candidates = [
+    other,             // the other coordinate of the same point — the defining error
+    negated(answer),   // the right value in the wrong quadrant
+    negated(other),
+    ...UNIT_CIRCLE_VALUES,
+  ];
+
+  const angle = useRadians ? entry.radians : `${entry.degrees}°`;
+  const spokenAngle = useRadians ? spokenRadians(entry.radians) : `${entry.degrees} degrees`;
+  return makeQuestion(
+    skillId,
+    // The angle's SPELLING is part of the key: `cos(60°)` and `cos(π/3)` are one question
+    // asked two ways, and two prompts sharing one id is a question that can be asked twice.
+    `${ratio}${angle}`,
+    `What is ${ratio}(${angle})?`,
+    answer,
+    pickDistinct(candidates, answer),
+    rng,
+    `What is the ${wantCosine ? "cosine" : "sine"} of ${spokenAngle}?`,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Arithmetic and geometric sequences
+// ---------------------------------------------------------------------------
+
+/**
+ * Largest first term, per level. The geometric rungs start lower than the arithmetic ones and
+ * are held there by the cap on the term itself: `9 × 3⁷` is 19683 and never gets drawn.
+ */
+const SEQ_START_MAX = [9, 12, 15, 6, 9];
+/** Largest common difference, per level; the geometric rungs use the ratio cap instead. */
+const SEQ_DIFF_MAX = [5, 8, 9, 0, 0];
+/** Largest term index in play, per level. */
+const SEQ_TERM_MAX = [8, 10, 12, 8, 8];
+/** Geometric from level 3, a negative common difference from 2, a negative ratio at 4. */
+const SEQ_GEOMETRIC = [false, false, false, true, true];
+const SEQ_NEGATIVE_DIFF = [false, false, true, false, false];
+const SEQ_NEGATIVE_RATIO = [false, false, false, false, true];
+/**
+ * The ratio and the term index are both capped hard, and the term itself is capped on top of
+ * them. `4 × 3⁷` is 8748 and `6 × 3⁷` is 13122: numbers a child copies out rather than reasons
+ * about, and four near-misses around one of them is an exercise in reading digits.
+ */
+const SEQ_RATIO_MAX = 3;
+const SEQ_TERM_VALUE_MAX = 6000;
+
+/** "7th", "12th" — and "21st", should a level ever reach that far. */
+function ordinal(n: number): string {
+  const rest = n % 100, last = n % 10;
+  const suffix = rest >= 11 && rest <= 13 ? "th" : last === 1 ? "st" : last === 2 ? "nd" : last === 3 ? "rd" : "th";
+  return `${n}${suffix}`;
+}
+
+/** The same ordinal spoken. A screen reader says "7th" as "seventh" on a good day and "seven th" on a bad one. */
+const ORDINAL_WORDS: Record<number, string> = {
+  5: "fifth", 6: "sixth", 7: "seventh", 8: "eighth", 9: "ninth",
+  10: "tenth", 11: "eleventh", 12: "twelfth",
+};
+
+/**
+ * Arithmetic and geometric sequences (grade 12). Arithmetic at levels 0-2, with a negative
+ * common difference from 2; geometric at 3 and 4, with a negative ratio at 4 — which is the
+ * rung where the terms start alternating in sign and the shape of the question changes rather
+ * than its size.
+ *
+ * **The off-by-one term is this skill's mandatory wrong answer.** `a + nd` instead of
+ * `a + (n - 1)d` is the mistake the nth-term formula exists to prevent, and it is never the
+ * answer here: the two differ by `d`, which is never zero, and by a factor of `r`, which is
+ * never one. The first term is never 0 for the same reason, in the geometric case: every term
+ * of a sequence starting at zero is zero.
+ *
+ * **The sum is offered and the draw is thrown away when it equals the term.** With a negative
+ * common difference a partial sum can land exactly on a later term, and a mandatory wrong
+ * answer that is quietly the right one is the failure `pickDistinct` hides by backfilling.
+ */
+export function sequences(level: number, rng: Rng, skillId: string): Question {
+  const lvl = L(level);
+  const geometric = SEQ_GEOMETRIC[lvl];
+  let start = 0, step = 0, index = 5, answer = 0, sum = 0, offByOne = 0;
+  let drawn = false;
+  for (let attempt = 0; attempt < 600 && !drawn; attempt++) {
+    index = randInt(rng, 5, SEQ_TERM_MAX[lvl]);
+    if (geometric) {
+      start = randInt(rng, 2, SEQ_START_MAX[lvl]);
+      step = randInt(rng, 2, SEQ_RATIO_MAX) * (SEQ_NEGATIVE_RATIO[lvl] && rng() < 0.5 ? -1 : 1);
+      answer = start * step ** (index - 1);
+      offByOne = start * step ** index;
+      sum = (start * (step ** index - 1)) / (step - 1);
+    } else {
+      start = randInt(rng, 1, SEQ_START_MAX[lvl]);
+      step = randInt(rng, 2, SEQ_DIFF_MAX[lvl]) * (SEQ_NEGATIVE_DIFF[lvl] && rng() < 0.5 ? -1 : 1);
+      answer = start + (index - 1) * step;
+      offByOne = start + index * step;
+      sum = (index * (2 * start + (index - 1) * step)) / 2;
+    }
+    drawn = Math.abs(answer) <= SEQ_TERM_VALUE_MAX && Math.abs(offByOne) <= SEQ_TERM_VALUE_MAX * 3 && sum !== answer;
+  }
+  if (!drawn) throw new Error(`could not draw a sequence at level ${level}`);
+
+  const candidates = [
+    String(offByOne),                              // n steps taken instead of n - 1
+    String(sum),                                   // the first n terms added up instead
+    String(geometric ? start * step : start + step),  // the step applied once — the second term
+    ...numericDistractors(answer, rng),
+  ];
+
+  const kind = geometric ? "geometric" : "arithmetic";
+  const named = geometric ? "ratio" : "difference";
+  return makeQuestion(
+    skillId,
+    `${geometric ? "g" : "a"}${start},${step},${index}`,
+    `An ${kind} sequence starts at ${start} with common ${named} ${step}. What is the ${ordinal(index)} term?`,
+    String(answer),
+    pickDistinct(candidates, String(answer)),
+    rng,
+    `An ${kind} sequence starts at ${start} with common ${named} ${speakInt(step)}. What is the ${ORDINAL_WORDS[index]} term?`,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Probability
+// ---------------------------------------------------------------------------
+
+/** The colours a bag may hold, in the order they are printed. */
+const MARBLE_COLORS = ["red", "blue", "green"];
+/** How many colours are in the bag, and how many marbles of each, per level. */
+const PROB_COLORS = [2, 2, 3, 2, 3];
+const PROB_COUNT_MAX = [5, 9, 9, 6, 6];
+/** Two draws, with replacement, from level 3. */
+const PROB_DRAWS = [1, 1, 1, 2, 2];
+
+/** "3 red and 5 blue", "3 red, 2 blue and 4 green" — the bag as a child reads it. */
+function bagText(counts: number[]): string {
+  const parts = counts.map((count, i) => `${count} ${MARBLE_COLORS[i]}`);
+  return parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(", ")} and ${parts[parts.length - 1]}`;
+}
+
+/**
+ * Probability of simple events (grade 12). One draw at levels 0-2 — a third colour joins at 2,
+ * which is what makes "the part over the whole" mean something a two-colour bag cannot teach —
+ * and two independent draws with replacement from 3.
+ *
+ * **The complement is this skill's mandatory wrong answer**, and an equal split makes it the
+ * right one: 3 red and 3 blue is `1/2` whichever way a child reads it. That draw is thrown away
+ * at every level, including the two-draw ones where `t² - r² = r²` has no whole-number solution
+ * and it could not have collided — one rule about the bag is easier to hold than two.
+ *
+ * **The part over the other part** is offered beside it, which is the same misreading pointed
+ * the other way, and it can never be the answer: `r/o = r/t` needs `r = 0`, and the bag always
+ * holds at least one of every colour.
+ */
+export function probability(level: number, rng: Rng, skillId: string): Question {
+  const lvl = L(level);
+  const colors = PROB_COLORS[lvl];
+  const draws = PROB_DRAWS[lvl];
+  let counts: number[] = [];
+  let asked = 0;
+  let drawn = false;
+  for (let attempt = 0; attempt < 400 && !drawn; attempt++) {
+    counts = Array.from({ length: colors }, () => randInt(rng, 1, PROB_COUNT_MAX[lvl]));
+    asked = randInt(rng, 0, colors - 1);
+    const total = counts.reduce((sum, c) => sum + c, 0);
+    drawn = counts[asked] !== total - counts[asked];
+  }
+  if (!drawn) throw new Error(`could not draw a bag at level ${level}`);
+
+  const total = counts.reduce((sum, c) => sum + c, 0);
+  const favourable = counts[asked];
+  const other = total - favourable;
+  const answer = draws === 1 ? frac(favourable, total) : frac(favourable * favourable, total * total);
+  const candidates = draws === 1
+    ? [
+      frac(other, total),                                              // the complement
+      frac(favourable, other),                                         // the part over the other part
+      String(favourable),                                              // the count alone, with no whole to compare it to
+      frac(favourable + 1, total),
+      frac(favourable, total + 1),
+    ]
+    : [
+      frac(total * total - favourable * favourable, total * total),    // the complement
+      frac(favourable * favourable, other * other),                    // the part over the other part
+      frac(favourable, total),                                         // one draw's probability, the second draw forgotten
+      frac(2 * favourable, total),                                     // the two draws added rather than multiplied
+      frac(favourable * favourable + 1, total * total),
+    ];
+
+  const question = draws === 1
+    ? `What is the probability of drawing ${MARBLE_COLORS[asked]}?`
+    : `One marble is drawn and put back, then another is drawn. What is the probability that both are ${MARBLE_COLORS[asked]}?`;
+  // The prompt is already every word: no symbol on it needs spelling out, so the spoken form
+  // is the prompt itself rather than a second copy that could drift from it.
+  const prompt = `A bag has ${bagText(counts)} marbles. ${question}`;
+  return makeQuestion(skillId, `${draws}:${counts.join("-")}:${MARBLE_COLORS[asked]}`, prompt, answer, pickDistinct(candidates, answer), rng, prompt);
+}
+
+// ---------------------------------------------------------------------------
+// Rational expressions
+// ---------------------------------------------------------------------------
+
+/**
+ * Largest number inside a factor, per level. The difference-of-squares rungs reach further than
+ * the general ones because they have less to vary: a numerator built from one number has only
+ * that number to move, while `(x + p)(x + q)` has two.
+ */
+const RATIONAL_SPAN = [15, 15, 20, 9, 9];
+/** A denominator of `(x - a)` joins at level 1; a numerator that is not a difference of squares at 3. */
+const RATIONAL_BOTH_SIGNS = [false, true, true, true, true];
+const RATIONAL_GENERAL = [false, false, false, true, true];
+/** Negative factors — and so a numerator whose middle term can go either way — at level 4. */
+const RATIONAL_NEGATIVE = [false, false, false, false, true];
+
+/**
+ * Rational expressions (grade 12). `(x² - 9)/(x + 3)` at levels 0-2, where the numerator is a
+ * difference of squares and the denominator is one of its two factors; a general factorisation
+ * from 3, with negative factors at 4.
+ *
+ * **There is no domain restriction on the prompt, and that is a decision rather than an
+ * oversight.** `(x² - 9)/(x + 3)` is `x - 3` for every x but -3, and a mathematician writes the
+ * restriction down. A child at this level is being asked to simplify, the four choices differ
+ * by their algebra and never by their domain, and "for x ≠ -3" on every question in the panel
+ * is a line of noise a reader learns to skip. If this skill ever asks which values are excluded,
+ * that is a different question and wants a different prompt.
+ *
+ * **Two of the three wrong readings would otherwise be the answer, and both are guarded at the
+ * draw.** `q ≠ 0` keeps "the constant's sign flipped" wrong, and `p ≠ q` keeps "the factor that
+ * cancelled, kept instead of the one that stayed" wrong.
+ *
+ * **The third is the interesting one.** Dividing the numerator's terms by the denominator's one
+ * at a time — `x²/x` and `pq/p` — gives `x + q`, which is the ANSWER, identically, for every
+ * monic quadratic over one of its own factors. It is a real thing children do and it cannot be
+ * offered as a wrong answer in this question shape at any level, so the term-cancelling reading
+ * offered here is the other one: the constants cancelled where they stand and the rest of the
+ * numerator left alone, `(x² + 5x + 6)/(x + 2)` read as `x² + 5x + 3`. That one is a degree too
+ * high and can never be the answer.
+ */
+export function rationalExpr(level: number, rng: Rng, skillId: string): Question {
+  const lvl = L(level);
+  const span = RATIONAL_SPAN[lvl];
+  // `p` is the factor that cancels and `q` the one that stays, so the answer is always `x + q`.
+  // A difference of squares is the case `q = -p`, which is why it needs no branch of its own.
+  let p = 0, q = 0;
+  let drawn = false;
+  for (let attempt = 0; attempt < 400 && !drawn; attempt++) {
+    if (RATIONAL_GENERAL[lvl]) {
+      const sign = () => (RATIONAL_NEGATIVE[lvl] && rng() < 0.5 ? -1 : 1);
+      p = randInt(rng, 1, span) * sign();
+      q = randInt(rng, 1, span) * sign();
+    } else {
+      p = randInt(rng, 2, span) * (RATIONAL_BOTH_SIGNS[lvl] && rng() < 0.5 ? -1 : 1);
+      q = -p;
+    }
+    drawn = p !== 0 && q !== 0 && p !== q;
+  }
+  if (!drawn) throw new Error(`could not draw a rational expression at level ${level}`);
+
+  const numerator = [1, p + q, p * q];
+  const answer = polynomial([1, q]);
+  const candidates = [
+    polynomial([1, -q]),              // the sign of the constant flipped
+    polynomial([1, p + q, q]),        // the constants cancelled where they stand, not the factor
+    polynomial(numerator),            // the numerator handed back unfactored
+    polynomial([1, p]),               // the factor that cancelled, kept instead of the one that stayed
+    polynomial([1, q + 1]),
+  ];
+  const distractors = pickDistinct(candidates, answer);
+  if (distractors.length !== 3) throw new Error(`could not build three wrong simplifications of ${numerator} over ${p}`);
+
+  const denominator = polynomial([1, p]);
+  return makeQuestion(
+    skillId,
+    `${polynomial(numerator)}/${denominator}`.replace(/ /g, ""),
+    `Simplify: (${polynomial(numerator)}) / (${denominator})`,
+    answer,
+    distractors,
+    rng,
+    // "all over", never `/`: a screen reader says the slash as "slash" or as nothing at all.
+    `Simplify: ${spokenPolynomial(numerator)}, all over ${spokenPolynomial([1, p])}`,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Exponential and logarithmic equations
+// ---------------------------------------------------------------------------
+
+/** Which bases each level may draw. Base 10 joins at level 1. */
+const LOG_EQ_BASES: readonly number[][] = [[2, 3, 5], [2, 3, 5, 10], [2, 3, 5, 10], [2, 3, 5, 10], [2, 3, 5, 10]];
+/** Largest exponent, per level. */
+const LOG_EQ_EXP_MAX = [5, 6, 6, 6, 6];
+/**
+ * The three shapes above the first, each a rung: the equation written as a logarithm from
+ * level 2, a unit fraction for the power from 3, and a shifted exponent from 4.
+ *
+ * Bases and exponents alone cannot make five rungs here — four bases and six exponents is
+ * twenty-odd questions, and widening either one only counts zeros — so four of the five rungs
+ * are a different shape rather than a wider range. Solving `log₂(x) = 5` is genuinely the other
+ * direction from solving `2ˣ = 32`, and `2^(x - 2) = 8` is the first one where the exponent is
+ * not the answer.
+ */
+const LOG_EQ_ASKS_LOG = [false, false, true, true, true];
+const LOG_EQ_NEGATIVE = [false, false, false, true, true];
+const LOG_EQ_SHIFT = [false, false, false, false, true];
+/** `10^6` is an exercise in counting zeros rather than a harder question about exponents. */
+const LOG_EQ_ARG_MAX = 100000;
+
+/**
+ * Exponential and logarithmic equations (grade 12). `2ˣ = 64` at levels 0-1, `log₂(x) = 5` from
+ * 2, a unit fraction for the power from 3, and a shifted exponent — `2^(x - 2) = 8` — at 4.
+ *
+ * **The base is this skill's mandatory wrong answer**, in both directions: a child who answers
+ * `2` to `2ˣ = 64` has told you which number they read. Any draw whose answer IS the base is
+ * thrown away, which covers `3ˣ = 27` in the one frame and `log₂(x) = 1` in the other.
+ *
+ * `log(x) = 5` rather than `log₁₀(x) = 5`, matching the convention every textbook uses and the
+ * grade-11 logarithm generator above. The read-aloud says the base anyway.
+ */
+export function logEq(level: number, rng: Rng, skillId: string): Question {
+  const lvl = L(level);
+  const bases = LOG_EQ_BASES[lvl];
+  let base = 2, exponent = 1, power = 1, shift = 0;
+  let asksLog = false;
+  let answer = "";
+  let drawn = false;
+  for (let attempt = 0; attempt < 600 && !drawn; attempt++) {
+    base = bases[randInt(rng, 0, bases.length - 1)];
+    const size = randInt(rng, 1, LOG_EQ_EXP_MAX[lvl]);
+    exponent = LOG_EQ_NEGATIVE[lvl] && rng() < 0.4 ? -size : size;
+    power = base ** size;
+    asksLog = LOG_EQ_ASKS_LOG[lvl] && rng() < 0.5;
+    shift = LOG_EQ_SHIFT[lvl] && !asksLog && rng() < 0.5 ? randInt(rng, 1, 3) * (rng() < 0.5 ? -1 : 1) : 0;
+    answer = asksLog
+      ? (exponent < 0 ? `1/${power}` : String(power))
+      : String(exponent - shift);
+    drawn = power <= LOG_EQ_ARG_MAX && answer !== String(base);
+  }
+  if (!drawn) throw new Error(`could not draw an exponential equation at level ${level}`);
+
+  const argument = exponent < 0 ? `1/${power}` : String(power);
+  const candidates = asksLog
+    ? [
+      String(base),                                                   // the base read off as the answer
+      exponent < 0 ? String(power) : `1/${power}`,                    // the sign of the exponent lost
+      String(base * Math.abs(exponent)),                              // the base multiplied by the exponent, not raised to it
+      String(power * base),
+      String(power + 1),
+    ]
+    : [
+      String(base),                                                   // the base read off as the answer
+      ...(exponent < 0 ? [String(-exponent)] : whole(power, base)),    // the minus dropped; the power divided by the base once
+      ...(shift === 0 ? [] : [String(exponent)]),                     // the shift left in the exponent
+      ...numericDistractors(exponent - shift, rng),
+    ];
+
+  const left = asksLog
+    ? `log${LOG_SUBSCRIPT[base]}(x)`
+    : `${base}^${shift === 0 ? "x" : `(x ${signed(shift)})`}`;
+  const right = asksLog ? String(exponent) : argument;
+  const spokenLeft = asksLog
+    ? `log base ${base} of x`
+    : `${base} to the power ${shift === 0 ? "x" : `of the quantity x ${spokenSign(shift)},`}`;
+  const spokenRight = asksLog
+    ? speakInt(exponent)
+    : (exponent < 0 ? `1 over ${power}` : String(power));
+
+  return makeQuestion(
+    skillId,
+    // Taken off the prompt itself, so the id cannot name anything the prompt does not.
+    `${left}=${right}`.replace(/ /g, ""),
+    `Solve: ${left} = ${right}`,
+    answer,
+    pickDistinct(candidates, answer),
+    rng,
+    `Solve: ${spokenLeft} equals ${spokenRight}`,
   );
 }
