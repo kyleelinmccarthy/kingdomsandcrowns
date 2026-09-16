@@ -217,94 +217,182 @@ describe("the answer cannot be copied off the prompt or picked out by its shape"
 /**
  * **The class is wider than the three skills above, and this is how wide.**
  *
- * The three fixes in this file were found by a person reading questions. Sweeping the same
- * measurement across every generated skill turned up more of the same: at nineteen rungs the
- * answer sat at ONE position among the four in every single draw, so "pick the second
- * smallest" or "pick the second biggest" was worth 100% without any arithmetic.
+ * The three fixes at the top of this file were each found by a person reading questions.
+ * Sweeping the same measurement across every generated skill turned up more of the same: at
+ * nineteen rungs the answer sat at ONE position among the four in every single draw, so "pick
+ * the second smallest" or "pick the second biggest" was worth 100% without any arithmetic.
+ * All nineteen were closed — `circle-measure` and `pythagorean` at every rung, `sequences` at
+ * three, `dec-ops` and `quad-formula` at two, `money-coins` and `frac-equiv` at one each — and
+ * the cause was the same in all of them: the wrong answers were built at fixed offsets around
+ * the right one, so the same number of them landed above it and below it on every question.
  *
- * **The list is empty now, and that is what it is for.** All nineteen were closed one
- * generator at a time — `circle-measure` and `pythagorean` at every rung, `sequences` at
- * three, `dec-ops` and `quad-formula` at two, `money-coins` and `frac-equiv` at one each —
- * and the cause was the same in all of them: the wrong answers were built at fixed offsets
- * around the right one, so the same number of them landed above it and below it on every
- * question. Each generator now draws HOW MANY of its wrong answers beat the answer, from a
- * pool of readings a child actually writes down. The per-skill bands live beside each
- * generator's own tests; what stays here is the census, and the band below it.
+ * **What stood here until now was a hand-kept list of the rungs at exactly 100%, and it had
+ * two faults.**
  *
- * The list must SHRINK. Adding to it is not forbidden — a new skill may land here before its
- * distractors are designed — but it is an edit someone makes deliberately, in this file, with
- * this comment in front of them, rather than a thing that happens quietly to a child.
+ *  - **It only saw 100%.** The same sweep that found the nineteen also found `probability`
+ *    level 4 at 298 of 300, `div-2digit` level 4 at 298, `volume-prism` level 3 at 295 and
+ *    `frac-mul` level 4 at 294, with more rungs of all four in the high eighties and nineties.
+ *    A child who learns a 99% tell scores 99%. A list that fires only at 100% is blind to the
+ *    entire tier below it, and "never varies" versus "varies twice in three hundred" is not a
+ *    difference a child can see.
+ *  - **A named list rots.** It needs a person to maintain it, and it cannot fire for a skill
+ *    nobody thought to name.
  *
- * "Every draw" and not "almost every draw" on purpose. The rates run in a continuum from 100%
- * down through the nineties, and any threshold in the middle of that would be a number this
- * file made up and would flip on an unrelated change. A position that NEVER varies is a
- * different kind of fact: it is a rule, and it is the one a child can find.
+ * So the list is gone and a THRESHOLD stands in its place: every generated skill at every
+ * level is measured, and no position among the four may carry more than `ONE_POSITION_CEILING`
+ * of the draws. Nothing has to be named for it to be caught.
  */
-describe("every rung that puts the answer at one fixed position, counted", () => {
-  /**
-   * The skills where the answer's position IS the question. "Which number is the greatest?"
-   * is answered by the largest choice because that is what it asks, and nothing is given away
-   * that the prompt does not already say. `fractions-compare` is retired — served at no grade
-   * — and kept here so the sweep does not have to know that.
-   */
-  const THE_QUESTION_IS_THE_ORDER = new Set(["compare-num", "compare-num-100", "fractions-compare"]);
 
-  it("is exactly these, and they are the ones left to fix", () => {
-    const fixed: string[] = [];
-    for (const skill of SKILLS) {
-      if (skill.source.kind !== "generator" || THE_QUESTION_IS_THE_ORDER.has(skill.id)) continue;
-      const genId = skill.source.generatorId;
-      for (const level of LEVELS) {
-        const sample = draws(genId, skill.id, level);
-        // Skills whose choices are not numbers — expressions, times, fractions written as
-        // words — have no order to sit at, and are not what this measures.
-        if (sample.some((q) => q.choices.some((c) => value(c) === null))) continue;
-        const counts = [0, 0, 0, 0];
-        for (const q of sample) counts[rank(q) - 1] += 1;
-        const stuck = counts.findIndex((n) => n === sample.length);
-        if (stuck >= 0) fixed.push(`${skill.id} level ${level} is always ${stuck + 1} of 4`);
+/**
+ * **Three fifths, and here is the argument for it.**
+ *
+ * Four choices, so blind guessing is 25%, and the rungs fixed in the last wave sit near a
+ * third each. Anything a child could learn as a rule is too high — but "too high" has to be a
+ * number, and the number wants a reason that is not this file's own taste.
+ *
+ * The reason is the ladder in `mastery.ts`, which is what a tell actually has to beat. Seven
+ * of the last eight right climbs a rung; **three of the last six wrong steps back down one.**
+ * So take a child who has stopped doing the mathematics and answers a rung by its position
+ * alone, right a fraction `p` of the time, and ask whether the ladder finds them out:
+ *
+ *   | p     | survives a six-question window | climbs a rung on an eight |
+ *   | 0.25  | 0.04                           | 0.00                      |
+ *   | 0.50  | 0.34                           | 0.03                      |
+ *   | 0.55  | 0.44                           | 0.06                      |
+ *   | 0.60  | 0.54                           | 0.11                      |
+ *   | 0.70  | 0.74                           | 0.26                      |
+ *
+ * Below about 0.58 the ladder wins: the child is stepped down more often than not and handed
+ * easier work, which is the system working. At 0.5786 it turns over, and from there the tell
+ * holds the rung more often than it loses it — a child can sit on a rung indefinitely, passing
+ * side quests, without ever forming a ratio or squaring a radius. That turning point is the
+ * honest line, and it is where this bound is set, rounded up to a number a person can hold:
+ * **no position may carry three fifths of the draws.** The two points of slack between 0.578
+ * and 0.600 are worth at most a coin toss in a single window, and are the price of a bound
+ * that reads as a number rather than as false precision.
+ *
+ * It is deliberately not a number chosen to let today's code pass: when it was written it
+ * failed 41 of the 290 rungs it measures, across fourteen skills, four of them above 98%.
+ */
+const ONE_POSITION_CEILING = 0.6;
+
+/**
+ * **The rungs that cannot reach it, each with its reason.**
+ *
+ * An exemption here is a decision about the mathematics, not a way to quiet the check. The
+ * test below asserts that every one of these is STILL over the ceiling, so an exemption that
+ * has stopped being true is reported and must be deleted: the list can only shrink by itself,
+ * never grow by itself.
+ *
+ * Keys are `skillId` for a whole skill or `skillId level N` for one rung.
+ */
+const CANNOT_BE_SPREAD = new Map<string, string>([
+  [
+    "compare-num",
+    "the question IS the order — 'which number is the greatest?' is answered by the largest " +
+    "choice because that is what it asks, and nothing is given away that the prompt does not say",
+  ],
+  ["compare-num-100", "the same question with larger numbers: the prompt asks for the greatest and the greatest is the answer"],
+  ["fractions-compare", "same question in fractions; retired — served at no grade — and kept here so the sweep does not have to know that"],
+  [
+    "sub-10 level 0",
+    "the whole rung lives in [0, 5] and two fifths of its answers are 0 or 1: a difference of " +
+    "zero has no believable wrong answer below it, because a negative number of anything is not " +
+    "a mistake a five-year-old makes, it is a number that does not belong on the screen. " +
+    "The rung sits at 60.3% for that reason and cannot be moved without changing what it asks",
+  ],
+]);
+
+/** The reason for a rung, or `null` if it has none. Exemptions may be per-skill or per-rung. */
+function exemption(skillId: string, level: number): string | null {
+  return CANNOT_BE_SPREAD.get(`${skillId} level ${level}`) ?? CANNOT_BE_SPREAD.get(skillId) ?? null;
+}
+
+/**
+ * The skills whose choices are not numbers at all — expressions, times of day, points on a
+ * plane, surds. There is no order for the answer to sit at, so this measurement does not
+ * apply to them. They are named rather than skipped quietly: a skill that stops rendering
+ * numbers would otherwise drop out of the sweep without a word, and the census would go on
+ * reporting that everything it measures is fine.
+ */
+const NOT_NUMBERS = [
+  "time-clock", "exponent-rules", "sci-notation", "factor-quad", "slope-intercept",
+  "inequalities", "dist-midpoint", "poly-ops", "radical-ops", "unit-circle", "rational-expr",
+];
+
+type Rung = { skillId: string; level: number; counts: number[]; total: number; worst: number };
+
+/** Every generated skill at every level, with where the answer sat in the order. */
+function census(): { measured: Rung[]; skipped: string[] } {
+  const measured: Rung[] = [];
+  const skipped = new Set<string>();
+  for (const skill of SKILLS) {
+    if (skill.source.kind !== "generator") continue;
+    for (const level of LEVELS) {
+      const sample = draws(skill.source.generatorId, skill.id, level);
+      if (sample.some((q) => q.choices.some((c) => value(c) === null))) {
+        skipped.add(skill.id);
+        continue;
       }
+      const counts = [0, 0, 0, 0];
+      for (const q of sample) counts[rank(q) - 1] += 1;
+      measured.push({
+        skillId: skill.id,
+        level,
+        counts,
+        total: sample.length,
+        worst: Math.max(...counts) / sample.length,
+      });
     }
-    expect(fixed).toEqual([]);
+  }
+  return { measured: measured, skipped: [...skipped].sort() };
+}
+
+const CENSUS = census();
+
+describe("no rung lets the answer be found by where it sits in the order", () => {
+  /**
+   * The whole point of the threshold: every rung is measured and every rung that fails is
+   * named in one failure, so a person reading the output sees the shape of the problem rather
+   * than the first rung of it.
+   */
+  it(`keeps every rung's worst position under ${ONE_POSITION_CEILING * 100}% of draws`, () => {
+    const over = CENSUS.measured
+      .filter((rung) => rung.worst > ONE_POSITION_CEILING && exemption(rung.skillId, rung.level) === null)
+      .map((rung) => `${rung.skillId} level ${rung.level} sits at ${rung.counts.join("/")} of ${rung.total}`);
+    expect(over).toEqual([]);
   });
 
   /**
-   * And the nineteen that were here stay fixed, which the census above cannot say on its own:
-   * it only fires at a position that carries EVERY draw, and a generator that regressed to
-   * 297 of 300 would empty it and pass.
-   *
-   * So the rungs that were on the list carry a band of their own. It is a loose one — no
-   * position may hold four fifths of the draws, and a second position must really be reached
-   * — because these are the numbers the fixes actually produce and not a target anyone aimed
-   * at, and a tighter bound would be a number this file made up. Every one of them stood at
-   * 300 of 300 before.
-   *
-   * Two of the seven can only put the answer second or third of four, and that is a decision
-   * rather than an oversight. `dec-ops` offers the decimal point one place each way, which is
-   * the pair of mistakes the rung exists to punish and which brackets the answer by
-   * construction; `frac-equiv` offers the numerator scaled alone and the denominator scaled
-   * alone, which are worth k times the answer and a kth of it. Both are stated here so that a
-   * later reader meets the trade rather than discovering it.
+   * And the exemptions are audited from the other side. A reason written down once stays
+   * written down forever unless something makes it false, and the thing that makes it false —
+   * the rung coming under the ceiling — is exactly what nobody would notice. So it fails here.
    */
-  it("keeps the rungs that were on that list spread across the order", () => {
-    const FIXED_IN_THIS_WAVE = ["money-coins", "frac-equiv", "dec-ops", "circle-measure", "pythagorean", "quad-formula", "sequences"];
-    for (const skillId of FIXED_IN_THIS_WAVE) {
-      const skill = SKILLS.find((s) => s.id === skillId)!;
-      const genId = skill.source.kind === "generator" ? skill.source.generatorId : "";
-      for (const level of LEVELS) {
-        const sample = draws(genId, skillId, level);
-        const counts = [0, 0, 0, 0];
-        for (const q of sample) counts[rank(q) - 1] += 1;
-        const spread = counts.map((n) => n / sample.length);
-        const where = `${skillId} level ${level} sits at ${counts.join("/")} of ${sample.length}`;
-        expect(Math.max(...spread), where).toBeLessThan(0.8);
-        expect(spread.filter((rate) => rate > 0.05).length, where).toBeGreaterThanOrEqual(2);
-      }
+  it("has no exemption that has stopped being needed", () => {
+    const stale = CENSUS.measured
+      .filter((rung) => rung.worst <= ONE_POSITION_CEILING && exemption(rung.skillId, rung.level) !== null)
+      .map((rung) => `${rung.skillId} level ${rung.level} is spread now (${rung.counts.join("/")} of ${rung.total}) — delete its exemption`);
+    expect(stale).toEqual([]);
+  });
+
+  /** Every exemption carries a reason a person can read, and not an empty string. */
+  it("gives every exemption a reason", () => {
+    for (const [key, reason] of CANNOT_BE_SPREAD) {
+      expect(reason.length, `${key} is exempt with no reason written down`).toBeGreaterThan(30);
     }
   });
 
-  it("covers the skills it claims to, so the list above is not short by a whole sweep", () => {
-    const swept = SKILLS.filter((s) => s.source.kind === "generator" && !THE_QUESTION_IS_THE_ORDER.has(s.id));
-    expect(swept.length).toBeGreaterThanOrEqual(Object.keys(GENERATORS).length - THE_QUESTION_IS_THE_ORDER.size);
+  /**
+   * The sweep is only worth its ceiling if it actually reaches everything. Two ways it could
+   * quietly stop: a generated skill stops rendering numbers and falls out of the measurement,
+   * or a generator is added to the registry with no skill pointing at it.
+   */
+  it("measures every generated skill that has an order to measure", () => {
+    expect(CENSUS.skipped).toEqual([...NOT_NUMBERS].sort());
+    const generated = SKILLS.filter((s) => s.source.kind === "generator");
+    expect(new Set(CENSUS.measured.map((r) => r.skillId)).size).toBe(generated.length - NOT_NUMBERS.length);
+    expect(CENSUS.measured.length).toBe((generated.length - NOT_NUMBERS.length) * LEVELS.length);
+    const pointedAt = new Set(generated.map((s) => (s.source.kind === "generator" ? s.source.generatorId : "")));
+    expect([...Object.keys(GENERATORS)].filter((id) => !pointedAt.has(id))).toEqual([]);
   });
 });
