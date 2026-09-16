@@ -411,15 +411,40 @@ export function percentChange(level: number, rng: Rng, skillId: string): Questio
 
   const after = rises ? base + diff : base - diff;
   const answer = `${percent}%`;
+
+  // One price read as a percent of the other, instead of the CHANGE read as a percent of the
+  // first: "$40 to $50, so 50 over 40 — 125%". For a rise that is exactly `100 + percent`;
+  // for a fall the defining error already overshoots, because the change is being measured
+  // against the smaller of the two prices. So one of the two is bigger than the right answer
+  // whichever way the price moved, which is what makes a bigger choice available at all.
+  const overshoots = rises ? 100 + percent : wrongBase;
+  const bigger = [`${overshoots}%`, ...(diff > percent ? [`${diff}%`] : []), `${percent + 1}%`, `${percent + 2}%`, `${percent + 3}%`];
+  const smaller = [
+    ...(wrongBase < percent ? [`${wrongBase}%`] : []),   // the change over the NEW value — the defining error
+    ...(diff < percent ? [`${diff}%`] : []),             // the raw difference in dollars, called a percent
+  ];
+  // The ratio never multiplied by 100 stood in 284 of 300 draws and was never once right, so
+  // "not the tiny one" was a free elimination down to three choices on every question at
+  // every level. It is a real slip and it stays — on about a quarter of questions, from
+  // second place, so that the defining error keeps the first below-the-answer slot.
+  if (rng() < 0.5) smaller.splice(1, 0, `${(percent / 100).toFixed(2)}%`);
+  for (const step of [1, 2, 3]) smaller.push(`${percent - step}%`);   // percent is at least 5
+
+  // How many wrong answers beat the right one: one, two or three, drawn flat. Without this
+  // the answer sat at a fixed place in the order — it was the LARGEST of the four in 299 of
+  // 300 draws at level 0, where every grade-7 child starts, and putting one guaranteed
+  // overshoot on screen would only have moved it to second largest, 298 of 300.
+  const beating = randInt(rng, 1, 3);
   const distractors = pickDistinct(
     [
-      `${wrongBase}%`,                   // the change over the NEW value — the defining error
-      `${diff}%`,                        // the raw difference in dollars, called a percent
-      `${(percent / 100).toFixed(2)}%`,  // the ratio, never multiplied by 100
-      ...numericDistractors(percent, rng, 1).map((p) => `${p}%`),
+      ...bigger.slice(0, beating),
+      ...smaller.slice(0, 3 - beating),
+      ...bigger.slice(beating),
+      ...smaller.slice(3 - beating),
     ],
     answer,
   );
+  if (distractors.length !== 3) throw new Error(`could not build three wrong percents for ${percent}%`);
 
   const moved = rises ? "rises" : "falls";
   const named = rises ? "increase" : "decrease";

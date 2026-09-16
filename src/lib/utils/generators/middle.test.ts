@@ -304,26 +304,43 @@ describe("percent-change", () => {
   });
 
   it("never starts from $100, where the difference IS the percent", () => {
-    // `p = 100d/b` equals `d` exactly when `b` is 100, and the raw difference is one of the
-    // three distractors — so a base of 100 puts the right answer in a wrong answer's slot.
+    // `p = 100d/b` equals `d` exactly when `b` is 100, and the raw difference is one of this
+    // skill's wrong answers — so a base of 100 would put the right answer in a wrong
+    // answer's slot. The base is what this pins; whether the difference is on screen for a
+    // particular draw is the next check's business.
     for (const lvl of LEVELS) {
       for (const q of draws(percentChange, lvl, "percent-change")) {
         const { before, after } = parse(q);
         expect(before, q.prompt).not.toBe(100);
-        expect(q.choices, q.prompt).toContain(`${Math.abs(after - before)}%`);
         expect(q.answer, q.prompt).not.toBe(`${Math.abs(after - before)}%`);
       }
     }
   });
 
-  it("offers the change measured against the NEW price — the defining error", () => {
+  /**
+   * The change measured against the NEW price is the defining error of this skill, and it
+   * used to be offered on every single question — which is exactly why the entry rung was
+   * answerable by looking. For a rise it is always SMALLER than the answer and for a fall
+   * always larger, so an always-offered copy of it pins which side of the answer at least
+   * one choice falls on, and a child can read the answer's place in the order instead of
+   * forming a ratio. It is now first in the queue for a below-the-answer slot rather than
+   * mandatory, which keeps it on most questions without pinning anything.
+   *
+   * The `not.toBe` beside the rate is not decoration: when a characteristic wrong answer
+   * equals the right one the choice builder backfills a near miss instead of offering a
+   * duplicate, so a rate check alone would read as "sometimes absent" rather than "wrong".
+   */
+  it("offers the change measured against the NEW price on most questions, and it is never right", () => {
     for (const lvl of LEVELS) {
-      for (const q of draws(percentChange, lvl, "percent-change")) {
+      const sample = draws(percentChange, lvl, "percent-change");
+      let offered = 0;
+      for (const q of sample) {
         const { before, after } = parse(q);
         const wrongBase = Math.round((Math.abs(after - before) * 100) / after);
-        expect(q.choices, `${q.prompt} does not offer ${wrongBase}%`).toContain(`${wrongBase}%`);
         expect(q.answer, q.prompt).not.toBe(`${wrongBase}%`);
+        if (q.choices.includes(`${wrongBase}%`)) offered += 1;
       }
+      expect(offered / sample.length, `level ${lvl} offers it in only ${offered}/${sample.length} draws`).toBeGreaterThan(0.5);
     }
   });
 

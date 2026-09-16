@@ -127,4 +127,46 @@ describe("the answer cannot be picked out by where it sits in the order", () => 
       }
     }
   });
+
+  /**
+   * Level 0 of `percent-change` forces a rise and caps the starting price at $50, so the base
+   * is always under 100 — and with a base under 100 every one of the three wrong answers was
+   * PROVABLY smaller than the right one. The raw difference is less than the percent, the
+   * change measured against the new price is less than the percent for any rise, and the
+   * decimal slip is a hundredth of it. The entry rung of percent change was eight out of
+   * eight by picking the biggest number, and mastery promoted the child to level 2 without
+   * their ever having formed a ratio.
+   *
+   * Something always beats the answer now, so the answer is never the largest — a
+   * one-in-four elimination, deliberately traded for the one-in-one it replaces, and asserted
+   * below as the invariant it is rather than left to be noticed. Of the three places left,
+   * none may carry more than half.
+   */
+  it("percent-change never lets the biggest number be the answer, and moves it about", () => {
+    for (const level of LEVELS) {
+      const sample = draws("percent-change", "percent-change", level);
+      const beaten = rateOf(sample, (q) => q.choices.some((c) => value(c)! > value(q.answer)!));
+      expect(beaten.rate, `level ${level} leaves the answer the largest choice in ${sample.length - sample.length * beaten.rate} draws`).toBe(1);
+      for (const position of [1, 2, 3]) {
+        const { rate, text } = rateOf(sample, (q) => rank(q) === position);
+        expect(rate, `level ${level} puts the answer in position ${position} of four in ${text} draws`).toBeLessThan(0.5);
+        expect(rate, `level ${level} almost never puts the answer in position ${position} of four — ${text}`).toBeGreaterThan(0.15);
+      }
+    }
+  });
+
+  /**
+   * The ratio never multiplied by 100 — `0.02%` for 2% — stood in 284 draws of 300 at every
+   * level and was never once right. A choice that is always on screen and never correct is
+   * not a distractor, it is a free elimination: four choices become three before a child
+   * reads the question. It is a real slip, so it stays; it may not be near-universal.
+   */
+  it("percent-change offers the decimal slip sometimes, not on nearly every question", () => {
+    for (const level of LEVELS) {
+      const sample = draws("percent-change", "percent-change", level);
+      const { rate, text } = rateOf(sample, (q) => q.choices.some((c) => /^0\.\d+%$/.test(c)));
+      expect(rate, `level ${level} shows the decimal slip in ${text} draws`).toBeLessThan(0.5);
+      expect(rate, `level ${level} has stopped offering the decimal slip at all — ${text}`).toBeGreaterThan(0.05);
+    }
+  });
 });
