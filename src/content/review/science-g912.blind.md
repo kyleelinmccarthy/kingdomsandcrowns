@@ -30,8 +30,8 @@ What molecule carries genetic information in living things?
 - C. Glucose
 - D. RNA only
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -44,8 +44,8 @@ What do we call a segment of DNA that codes for a specific trait?
 - C. A chromosome
 - D. A protein
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -58,8 +58,8 @@ What structures in the nucleus contain tightly coiled DNA?
 - C. Vacuoles
 - D. Chromosomes
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -72,8 +72,8 @@ How many chromosomes do typical human body cells have?
 - C. 92
 - D. 23
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -86,8 +86,8 @@ What do we call the different forms of a gene, such as one for brown eyes versus
 - C. Genomes
 - D. Genotypes
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -100,8 +100,8 @@ What term describes an organism's actual genetic makeup?
 - C. Allele
 - D. Phenotype
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -114,8 +114,8 @@ What term describes an organism's observable physical traits?
 - C. Genotype
 - D. Phenotype
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -128,8 +128,8 @@ What is it called when an offspring inherits a trait different from either paren
 - C. A mutation
 - D. An allele
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -142,8 +142,8 @@ Who is credited as the father of genetics for his experiments with pea plants?
 - C. Louis Pasteur
 - D. Isaac Newton
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -156,8 +156,8 @@ What do we call the starting substances in a chemical reaction?
 - C. Solutions
 - D. Reactants
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -170,8 +170,8 @@ What do we call the new substances formed by a chemical reaction?
 - C. Products
 - D. Catalysts
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -184,8 +184,8 @@ What law states that matter is neither created nor destroyed in a chemical react
 - C. The law of conservation of energy
 - D. The law of conservation of mass
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -198,8 +198,8 @@ What is a substance that speeds up a chemical reaction without being used up?
 - C. A catalyst
 - D. A product
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -212,8 +212,8 @@ What type of reaction releases energy, often as heat?
 - C. A physical reaction
 - D. An exothermic reaction
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -226,8 +226,8 @@ What type of reaction absorbs energy from its surroundings?
 - C. A physical reaction
 - D. A combustion reaction
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -240,8 +240,8 @@ What sign of a chemical reaction is bubbling or fizzing?
 - C. The release of a gas
 - D. A change in shape only
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -254,8 +254,8 @@ What do we call a reaction where a substance combines with oxygen and releases e
 - C. Decomposition
 - D. Neutralization
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -268,8 +268,8 @@ What do we call a reaction where an acid and a base combine to form water and a 
 - C. Combustion
 - D. Oxidation
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -282,8 +282,8 @@ What does Newton's first law state about an object in motion with no outside for
 - C. It changes direction on its own
 - D. It speeds up on its own
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -296,8 +296,8 @@ What is another name for Newton's first law of motion?
 - C. The law of inertia
 - D. The law of reaction
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -310,8 +310,8 @@ What does Newton's second law state, expressed as F = ma?
 - C. Force equals mass minus velocity
 - D. Force equals mass plus acceleration
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -324,8 +324,8 @@ According to Newton's second law, if you double the force on an object with the 
 - C. The acceleration becomes zero
 - D. The acceleration doubles
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -338,8 +338,8 @@ What does Newton's third law state?
 - C. For every action, there is an equal and opposite reaction
 - D. Force equals mass times acceleration
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -352,8 +352,8 @@ When you push on a wall, the wall pushes back on you. Which law of motion explai
 - C. Newton's first law
 - D. Newton's third law
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -366,8 +366,8 @@ What term describes an object's resistance to a change in its motion?
 - C. Acceleration
 - D. Momentum
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -380,8 +380,8 @@ What do we call the product of an object's mass and velocity?
 - C. Momentum
 - D. Inertia
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -394,8 +394,8 @@ What happens to the total momentum of a closed system during a collision?
 - C. It doubles
 - D. It is conserved (stays the same)
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -408,8 +408,8 @@ What law states that energy cannot be created or destroyed, only transformed?
 - C. The law of conservation of energy
 - D. Newton's first law
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -422,8 +422,8 @@ What do we call energy that is stored and has the potential to do work, such as 
 - C. Kinetic energy
 - D. Potential energy
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -436,8 +436,8 @@ What do we call the energy of motion?
 - C. Potential energy
 - D. Nuclear energy
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -450,8 +450,8 @@ What type of energy transfer occurs when heat moves through direct contact betwe
 - C. Radiation
 - D. Convection
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -464,8 +464,8 @@ What type of energy transfer occurs when heat moves through the movement of flui
 - C. Conduction
 - D. Radiation
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -478,8 +478,8 @@ What type of energy transfer occurs when heat moves as electromagnetic waves, su
 - C. Radiation
 - D. Convection
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -492,8 +492,8 @@ What do we call energy stored in the bonds of chemical compounds, such as in foo
 - C. Kinetic energy
 - D. Nuclear energy
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -506,8 +506,8 @@ What do we call energy released from splitting or combining atomic nuclei?
 - C. Nuclear energy
 - D. Chemical energy
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -520,8 +520,8 @@ As a pendulum swings, its energy constantly changes between what two forms?
 - C. Thermal energy and radiant energy
 - D. Potential energy and kinetic energy
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -534,8 +534,8 @@ Which step of the scientific method comes before forming a hypothesis?
 - C. Forming a conclusion
 - D. Publishing the results
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -548,8 +548,8 @@ What do we call a testable explanation that is proposed before an experiment?
 - C. A conclusion
 - D. A hypothesis
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -562,8 +562,8 @@ What is the variable that a scientist changes on purpose in an experiment?
 - C. The constant
 - D. The control variable
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none
 
 ---
 
@@ -576,8 +576,8 @@ What is the variable that is measured and may change as a result of the experime
 - C. The dependent variable
 - D. The control variable
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -590,8 +590,8 @@ What do we call the factors in an experiment that are kept the same so they do n
 - C. Dependent variables
 - D. Independent variables
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -604,8 +604,8 @@ What is a group in an experiment that does not receive the treatment being teste
 - C. The hypothesis group
 - D. The control group
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -618,8 +618,8 @@ Why do scientists repeat experiments multiple times?
 - C. To collect data on a different variable each time
 - D. To replace the need for a control group
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
@@ -632,8 +632,8 @@ What do we call a well-tested explanation that covers a wide range of observatio
 - C. A law of nature only
 - D. A scientific theory
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -646,5 +646,5 @@ What is it called when other scientists check and repeat a study to confirm its 
 - C. Speculation
 - D. Plagiarism
 
-Answer:
-Also defensible:
+Answer: A
+Also defensible: none

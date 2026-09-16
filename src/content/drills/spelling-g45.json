@@ -31,9 +31,9 @@
       "prompt": "Which is spelled correctly? The word means how tall something is.",
       "answer": "height",
       "distractors": [
-        "heighth",
-        "hight",
-        "heigth"
+        "hieght",
+        "heigth",
+        "highte"
       ],
       "readAloud": "Which is spelled correctly? The word means how tall something is.",
       "level": 0

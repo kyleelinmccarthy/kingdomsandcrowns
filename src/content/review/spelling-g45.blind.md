@@ -49,17 +49,17 @@ Also defensible: none
 
 ---
 
-## 3. `spell-g45-height` `#17db33` — level 0
+## 3. `spell-g45-height` `#b400ec` — level 0
 
 Which is spelled correctly? The word means how tall something is.
 
-- A. heigth
-- B. heighth
-- C. hight
+- A. hieght
+- B. heigth
+- C. highte
 - D. height
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -226,8 +226,8 @@ Which is spelled correctly? The word means a chart of the days and months.
 - C. calendar
 - D. calendear
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 

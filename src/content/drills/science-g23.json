@@ -477,14 +477,15 @@
     },
     {
       "id": "sci-g23-matter-shape",
-      "prompt": "Which state of matter has no shape of its own and no fixed volume?",
+      "prompt": "Which state of matter can be squeezed into a smaller space?",
       "answer": "Gas",
       "distractors": [
         "Solid",
         "Liquid",
         "Energy"
       ],
-      "level": 3
+      "level": 3,
+      "readAloud": "Which state of matter can be squeezed into a smaller space?"
     },
     {
       "id": "sci-g23-cycle-seed-dispersal",

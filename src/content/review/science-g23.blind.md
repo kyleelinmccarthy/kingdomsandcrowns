@@ -254,8 +254,8 @@ Which state of matter pours into a cup and takes its shape?
 - C. Liquid
 - D. Gas
 
-Answer:
-Also defensible:
+Answer: C
+Also defensible: none
 
 ---
 
@@ -268,8 +268,8 @@ Which state of matter spreads out to fill any space?
 - C. Solid
 - D. Gas
 
-Answer:
-Also defensible:
+Answer: D
+Also defensible: none
 
 ---
 
@@ -623,17 +623,17 @@ Also defensible: none
 
 ---
 
-## 44. `sci-g23-matter-shape` `#c47ebc` — level 3
+## 44. `sci-g23-matter-shape` `#703627` — level 3
 
-Which state of matter has no shape of its own and no fixed volume?
+Which state of matter can be squeezed into a smaller space?
 
 - A. Energy
 - B. Gas
 - C. Solid
 - D. Liquid
 
-Answer:
-Also defensible:
+Answer: B
+Also defensible: none
 
 ---
 
