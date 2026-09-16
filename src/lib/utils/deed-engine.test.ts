@@ -34,6 +34,48 @@ describe("chooseSkills", () => {
     expect(chooseSkills(deedLanguage, "K").map((s) => s.id)).toEqual(["spell-g23"]);
     expect(chooseSkills(deedReading, "9").map((s) => s.id)).toEqual(["sight-g23"]);
   });
+
+  /**
+   * **`chooseSkills` walks easier grades first, and where a strand has nothing at or below a
+   * grade it runs off the bottom and walks UP instead.** Its comment used to claim a hero is
+   * never handed harder work than their own grade, full stop. That is true of math, which has
+   * content at every grade; it is not true of the strands plan 3 has not filled, and the
+   * comment was the one about wrong-year work.
+   *
+   * The behaviour is deliberate and stays — an empty quest is worse than a hard one — so what
+   * this asserts is the LIST, hand-written, exactly. Every (area, grade) pair below is a hero
+   * being handed a harder grade's work than their own. When plan 3 fills Language Arts at K
+   * and grade 1 this list becomes empty and this test fails until someone empties it, which is
+   * the point: the cost stays visible until it is gone.
+   *
+   * Falling DOWN is not on this list and is not a defect: Reading stops at grade 3, so a
+   * grade-9 hero gets grade-3 reading. That is the walk doing what it says it does.
+   */
+  it("hands harder work than the hero's grade in exactly these places, and nowhere else", () => {
+    // One deed per area, and every area covered, so the sweep below cannot quietly skip a
+    // strand. Asked through `chooseSkills` itself rather than through a second copy of the
+    // walk: what is being inventoried is what a hero is actually handed.
+    const byArea = [[deedMath, "math"], [deedReading, "reading"], [deedLanguage, "language"], [deedScience, "science"]] as const;
+    expect(byArea.map(([, area]) => area).sort()).toEqual([...new Set(SKILLS.map((s) => s.area))].sort());
+
+    const climbing: string[] = [];
+    for (const [deed, area] of byArea) {
+      for (const grade of GRADES) {
+        const chosen = chooseSkills(deed, grade);
+        expect(chosen.length, `${area} grade ${grade} is handed an empty quest`).toBeGreaterThan(0);
+        // Only when EVERY grade the chosen skills belong to is above the hero's: a skill that
+        // spans grades 2 and 3 is not harder work for a grade-3 hero.
+        const served = chosen[0].grades;
+        if (served.length > 0 && served.every((g) => GRADES.indexOf(g) > GRADES.indexOf(grade))) {
+          climbing.push(`${area} grade ${grade} is taught grade ${served[0]}`);
+        }
+      }
+    }
+    expect(climbing).toEqual([
+      "language grade K is taught grade 2",
+      "language grade 1 is taught grade 2",
+    ]);
+  });
 });
 
 describe("buildDeedRun", () => {

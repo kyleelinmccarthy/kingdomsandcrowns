@@ -40,10 +40,28 @@ export type ClientQuestion = Omit<Question, "answer">;
 const MAX_REVIEW = 2;
 
 /**
- * Every skill for the deed's area at the hero's grade, or at the nearest grade that has
- * any — easier grades first, so a hero is never handed harder work than their own grade.
- * Which of these a run actually practises is decided in `buildRun`, where the hero's
- * mastery and the run's seed are both in hand.
+ * Every skill for the deed's area at the hero's grade, or at the nearest grade that has any.
+ * Which of these a run actually practises is decided in `buildRun`, where the hero's mastery
+ * and the run's seed are both in hand.
+ *
+ * `nearestGrades` walks the EASIER grades first, so wherever a strand has content at or below
+ * the hero's grade they are never handed harder work than their own. Math has content at every
+ * grade and this is simply true there.
+ *
+ * **It is not true everywhere, and the comment here used to say it was.** Where a strand has
+ * nothing at or below a grade the walk runs off the bottom and carries on UPWARD, handing the
+ * hero a harder grade's work rather than an empty quest. `nearestGrades("K")` is
+ * `[K, 1, 2, ...]`: there is no easier grade to find, so it climbs. Today that happens for
+ * Language Arts at K and at grade 1, which plan 3 has not filled — a kindergartener on a mill
+ * quest is handed grade-2 spelling.
+ *
+ * **The fallback is not being changed.** An empty quest is worse than a hard one, and plan 3
+ * fills those grades. What is changing is that it is written down and counted:
+ * `deed-engine.test.ts` lists exactly which (area, grade) pairs walk upward today, and when
+ * plan 3 lands that list should shrink to nothing and the test will say so.
+ *
+ * The same gap from the other side is not a defect at all: Reading stops at grade 3, so a
+ * grade-9 hero's reading quest is grade-3 work. That is the walk doing what it says.
  */
 export function chooseSkills(deed: Deed, grade: Grade): Skill[] {
   for (const g of nearestGrades(grade)) {

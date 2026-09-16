@@ -42,7 +42,12 @@ export function estimateGrade(birthYear: number | null, today: Date): Grade | nu
   return gradeAt(today.getFullYear() - birthYear - 5);
 }
 
-/** The grade, then each easier one nearest-first, then each harder one. Never handed harder work first. */
+/**
+ * The grade, then each easier one nearest-first, then each harder one. Easier work is always
+ * preferred — but the harder tail is not decoration: for a strand with nothing at or below the
+ * grade the walk runs off the bottom and climbs, which is what `chooseSkills` leans on and
+ * what its docblock spells out.
+ */
 export function nearestGrades(g: Grade): Grade[] {
   const i = gradeIndex(g);
   const below = GRADES.slice(0, i).slice().reverse();
