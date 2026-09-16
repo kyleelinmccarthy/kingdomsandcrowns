@@ -241,11 +241,26 @@ export function gcd(a: number, b: number): number {
   return b === 0 ? a : gcd(b, a % b);
 }
 
+/**
+ * Which one-step equations each level may ask.
+ *
+ * There are four one-step equations, not three, and only three were ever asked: levels 3 and
+ * 4 both drew "any of add, sub, mul, with a span of 20 and negatives allowed", the same 1047
+ * equations, so a child who mastered the mixed rung was promoted to the mixed rung. Dividing
+ * by a constant is the fourth, and it is genuinely a different undoing — the one where the
+ * thing to do to both sides is the operation the equation does not show — so it is what the
+ * top rung is for rather than a wider span of the same three.
+ */
+const ONE_STEP_KINDS = [
+  ["add"], ["sub"], ["mul"], ["add", "sub", "mul"], ["add", "sub", "mul", "div"],
+] as const;
+
 const oneStepEq: Generator = (level, rng, skillId) => {
   const lvl = L(level);
-  const kind = lvl === 0 ? "add" : lvl === 1 ? "sub" : lvl === 2 ? "mul" : (["add", "sub", "mul"] as const)[randInt(rng, 0, 2)];
+  const kinds = ONE_STEP_KINDS[lvl];
+  const kind = kinds[randInt(rng, 0, kinds.length - 1)];
   const span = lvl >= 3 ? 20 : 10;
-  const x = lvl >= 3 ? randInt(rng, -span, span) : randInt(rng, 0, span);
+  let x = lvl >= 3 ? randInt(rng, -span, span) : randInt(rng, 0, span);
   let prompt: string, key: string, spoken: string;
   if (kind === "add") {
     const a = randInt(rng, 1, span);
@@ -255,10 +270,19 @@ const oneStepEq: Generator = (level, rng, skillId) => {
     const a = randInt(rng, 1, span);
     prompt = `Solve for x: x - ${a} = ${x - a}`; key = `x-${a}=${x - a}`;
     spoken = `Solve for x: x minus ${a} equals ${speakInt(x - a)}`;
-  } else {
+  } else if (kind === "mul") {
     const a = lvl >= 3 ? randInt(rng, 2, 9) * (rng() < 0.3 ? -1 : 1) : randInt(rng, 2, 9);
     prompt = `Solve for x: ${a}x = ${a * x}`; key = `${a}x=${a * x}`;
     spoken = `Solve for x: ${speakInt(a)} x equals ${speakInt(a * x)}`;
+  } else {
+    // x over a: the solution is built up from the divisor and the quotient rather than
+    // drawn first, so it is always a whole number and the equation never needs a fraction.
+    // `/` is fine in the prompt and banned from the spoken form, which says "divided by".
+    const a = randInt(rng, 2, 9) * (rng() < 0.3 ? -1 : 1);
+    const quotient = randInt(rng, -9, 9);
+    x = a * quotient;
+    prompt = `Solve for x: x / ${a} = ${quotient}`; key = `x/${a}=${quotient}`;
+    spoken = `Solve for x: x divided by ${speakInt(a)} equals ${speakInt(quotient)}`;
   }
   return makeQuestion(skillId, key, prompt, String(x), numericDistractors(x, rng), rng, spoken);
 };

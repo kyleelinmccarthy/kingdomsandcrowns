@@ -187,7 +187,9 @@ describe("systems-eq", () => {
 });
 
 describe("factor-quad", () => {
-  const SPAN = [6, 6, 8, 9, 9];
+  // Was [6, 6, 8, 9, 9] and flat at both ends: levels 0 and 1 shared all fifteen positive
+  // pairs, levels 3 and 4 all the signed ones.
+  const SPAN = [6, 7, 8, 9, 10];
 
   const parsePrompt = (q: Question) => {
     const m = /^Factor: x² ([+\-]) (\d*)x ([+\-]) (\d+)$/.exec(q.prompt);
@@ -223,6 +225,13 @@ describe("factor-quad", () => {
     }
     const negatives = draws(factorQuad, 4, "factor-quad").filter((q) => parseFactors(q.answer)[0] < 0);
     expect(negatives.length, "level 4 never drew a negative factor").toBeGreaterThan(0);
+    // The span is the only axis this skill has beside the sign, so every rung has to actually
+    // use the reach it was given — a ceiling nothing touches leaves the rung where it was.
+    for (const lvl of [1, 2, 3, 4]) {
+      const reached = draws(factorQuad, lvl, "factor-quad")
+        .some((q) => parseFactors(q.answer).some((v) => Math.abs(v) > SPAN[lvl - 1]));
+      expect(reached, `level ${lvl} never reaches past ${SPAN[lvl - 1]}`).toBe(true);
+    }
   });
 
   it("offers the signs flipped, and only one choice is a real factorisation", () => {
@@ -314,7 +323,8 @@ describe("slope-intercept", () => {
 });
 
 describe("inequalities", () => {
-  const COEF_MAX = [5, 5, 7, 9, 9];
+  // Was [5, 5, 7, 9, 9]: levels 0 and 1 shared 1302 inequalities, and so did 3 and 4.
+  const COEF_MAX = [4, 6, 7, 9, 12];
 
   const parse = (q: Question) => {
     const m = /^Solve: (-?\d+)x ([+\-]) (\d+) ([<>≤≥]) (-?\d+)$/.exec(q.prompt);
@@ -352,6 +362,31 @@ describe("inequalities", () => {
         // distractor would be the answer.
         expect(boundary, q.answer).not.toBe(0);
       }
+    }
+  });
+
+  /**
+   * "Or equal to" is the second axis, and the better half of the fix: whether the boundary is
+   * itself a solution is a real thing to get wrong, and a strict-only rung never asks it. It
+   * has to be absent from the first two rungs and present after, or it separates nothing.
+   */
+  it("asks only strict inequalities until level 2, and both kinds after", () => {
+    for (const lvl of [0, 1]) {
+      for (const q of draws(inequalities, lvl, "inequalities")) {
+        expect(["<", ">"], `level ${lvl}: ${q.prompt}`).toContain(parse(q).relation);
+      }
+    }
+    for (const lvl of [2, 3, 4]) {
+      const used = new Set(draws(inequalities, lvl, "inequalities").map((q) => parse(q).relation));
+      expect([...used].sort(), `level ${lvl}`).toEqual(["<", ">", "≤", "≥"].sort());
+    }
+  });
+
+  /** Each rung reaches a coefficient the rung below could not, or its ceiling is decoration. */
+  it("reaches past the rung below's coefficient on the rungs where the ceiling moves", () => {
+    for (const lvl of [1, 2, 3, 4]) {
+      const reached = draws(inequalities, lvl, "inequalities").some((q) => Math.abs(parse(q).a) > COEF_MAX[lvl - 1]);
+      expect(reached, `level ${lvl} never reaches past ${COEF_MAX[lvl - 1]}`).toBe(true);
     }
   });
 

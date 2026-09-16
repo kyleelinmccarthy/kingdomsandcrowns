@@ -200,8 +200,19 @@ export function systemsEq(level: number, rng: Rng, skillId: string): Question {
 // Factoring quadratics
 // ---------------------------------------------------------------------------
 
-/** How large the number inside a factor may be, per level. */
-const FACTOR_SPAN = [6, 6, 8, 9, 9];
+/**
+ * How large the number inside a factor may be, per level.
+ *
+ * This was `[6, 6, 8, 9, 9]`, flat at both ends: levels 0 and 1 shared all fifteen positive
+ * pairs, and levels 3 and 4 shared the signed ones. The span climbs one a rung now.
+ *
+ * It is the only axis this skill has, and that is said here rather than hidden: the leading
+ * coefficient stays 1 by design (an answer of `(2x + 3)(x - 4)` is a different lesson and a
+ * different distractor set), a difference of squares is excluded above, and a repeated root
+ * is too — so beyond the sign, which arrives at level 3 and is the real jump, there is
+ * nothing to vary but how far the factors reach.
+ */
+const FACTOR_SPAN = [6, 7, 8, 9, 10];
 
 /**
  * One factorisation, canonically. Always `(x + a)(x + b)` with `a ≤ b`, and always `(x - 3)`
@@ -348,9 +359,23 @@ export function slopeIntercept(level: number, rng: Rng, skillId: string): Questi
 // ---------------------------------------------------------------------------
 
 /** Largest size of the coefficient on x, per level. */
-const INEQUALITY_COEF_MAX = [5, 5, 7, 9, 9];
+const INEQUALITY_COEF_MAX = [4, 6, 7, 9, 12];
 
 const RELATIONS = ["<", ">", "≤", "≥"] as const;
+
+/**
+ * Which relations each level may draw — the second axis, beside the coefficient.
+ *
+ * The coefficient ceiling was `[5, 5, 7, 9, 9]` and flat at both ends, so levels 0 and 1
+ * shared 1302 inequalities and levels 3 and 4 shared the signed ones. Widening it alone would
+ * have been the cheap fix; "or equal to" is the better one, because whether the boundary is
+ * itself a solution is a real thing to get wrong and a strict-only rung never asks it. So the
+ * first two rungs are strict, level 2 brings in `≤` and `≥`, level 3 brings the negative
+ * coefficient, and level 4 opens the coefficient the rest of the way.
+ */
+const INEQUALITY_RELATIONS: readonly (readonly Relation[])[] = [
+  ["<", ">"], ["<", ">"], RELATIONS, RELATIONS, RELATIONS,
+];
 type Relation = (typeof RELATIONS)[number];
 
 /** The same relation pointing the other way — what dividing by a negative does to it. */
@@ -389,7 +414,8 @@ export function inequalities(level: number, rng: Rng, skillId: string): Question
     b = randInt(rng, 1, 12) * (rng() < 0.5 ? -1 : 1);
     v = randInt(rng, -9, 9);
   } while (v === 0);
-  const relation = RELATIONS[randInt(rng, 0, RELATIONS.length - 1)];
+  const allowed = INEQUALITY_RELATIONS[lvl];
+  const relation = allowed[randInt(rng, 0, allowed.length - 1)];
   const c = a * v + b;
 
   const solved: Relation = a < 0 ? FLIPPED[relation] : relation;

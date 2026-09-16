@@ -167,11 +167,24 @@ describe("one-step-eq", () => {
       const add = q.prompt.match(/^Solve for x: x \+ (-?\d+) = (-?\d+)$/);
       const sub = q.prompt.match(/^Solve for x: x - (-?\d+) = (-?\d+)$/);
       const mul = q.prompt.match(/^Solve for x: (-?\d+)x = (-?\d+)$/);
-      expect(add || sub || mul).toBeTruthy();
+      // There are four one-step equations, not three. Dividing by a constant is the fourth,
+      // and it is what separates the top rung from the one below, which used to draw from
+      // exactly the same 1047 equations.
+      const div = q.prompt.match(/^Solve for x: x \/ (-?\d+) = (-?\d+)$/);
+      expect(add || sub || mul || div, q.prompt).toBeTruthy();
       if (add) expect(x + Number(add[1])).toBe(Number(add[2]));
       if (sub) expect(x - Number(sub[1])).toBe(Number(sub[2]));
       if (mul) expect(Number(mul[1]) * x).toBe(Number(mul[2]));
+      if (div) expect(x / Number(div[1])).toBe(Number(div[2]));
       if (lvl === 0) expect(add).toBeTruthy();
+      if (lvl <= 3) expect(div, `level ${lvl} divided: ${q.prompt}`).toBeNull();
     }
+    // And division is genuinely reachable at level 4, or the rung is decoration.
+    const divided = SEEDS
+      .map((seed) => GENERATORS["one-step-eq"](4, seededRng(seed), "one-step-eq"))
+      .filter((q) => / \/ /.test(q.prompt));
+    expect(divided.length, "level 4 never divides").toBeGreaterThan(0);
+    // `/` is fine on screen and unspeakable: read-aloud says "divided by".
+    for (const q of divided) expect(q.readAloud, q.readAloud).toContain("divided by");
   });
 });

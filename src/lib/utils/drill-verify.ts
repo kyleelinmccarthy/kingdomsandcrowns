@@ -69,7 +69,7 @@ const largestFraction: Verifier = (q) => {
   });
 };
 
-/** "Solve for x: x + 4 = 11" / "Solve for x: 3x = -12" */
+/** "Solve for x: x + 4 = 11" / "Solve for x: 3x = -12" / "Solve for x: x / 4 = -3" */
 const oneStepEq: Verifier = (q) => {
   const add = /^Solve for x: x \+ (-?\d+) = (-?\d+)$/.exec(q.prompt);
   if (add) return String(Number(add[2]) - Number(add[1]));
@@ -80,6 +80,13 @@ const oneStepEq: Verifier = (q) => {
     const a = Number(mul[1]), c = Number(mul[2]);
     if (a === 0 || c % a !== 0) throw new Error(`no integer solution in: ${q.prompt}`);
     return String(c / a);
+  }
+  // Undone by multiplying, which is the opposite direction from the generator's own build.
+  const div = /^Solve for x: x \/ (-?\d+) = (-?\d+)$/.exec(q.prompt);
+  if (div) {
+    const a = Number(div[1]);
+    if (a === 0) throw new Error(`divided by zero in: ${q.prompt}`);
+    return String(a * Number(div[2]));
   }
   throw new Error(`equation verifier cannot parse: ${q.prompt}`);
 };
