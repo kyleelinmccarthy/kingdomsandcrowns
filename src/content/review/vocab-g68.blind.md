@@ -30,8 +30,8 @@ Which word means "existing in large amounts"?
 - C. arbitrary
 - D. credible
 
-Answer: A
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -44,8 +44,8 @@ Which word means "something that helps or improves a situation"?
 - C. controversy
 - D. benefit
 
-Answer: D
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -58,8 +58,8 @@ Which word means "facts or information that show something is true"?
 - C. perspective
 - D. criteria
 
-Answer: B
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -72,8 +72,8 @@ Which word means "to produce or create something"?
 - C. inhibit
 - D. mitigate
 
-Answer: A
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -86,8 +86,8 @@ Which word means "a clear difference between two things"?
 - C. contrast
 - D. consequence
 
-Answer: C
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -100,22 +100,22 @@ Which word means "important enough to notice or matter"?
 - C. tentative
 - D. vulnerable
 
-Answer: B
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
-## 7. `vocab-g68-authentic` `#4e3685` — level 1
+## 7. `vocab-g68-authentic` `#54d03b` — level 1
 
 Which word means "genuine and not a copy"?
 
-- A. legitimate
+- A. plausible
 - B. authentic
-- C. plausible
+- C. tentative
 - D. vague
 
-Answer: B
-Also defensible: A
+Answer:
+Also defensible:
 
 ---
 
@@ -128,8 +128,8 @@ Which word means "to give good reasons for something"?
 - C. fluctuate
 - D. accumulate
 
-Answer: B
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -142,8 +142,8 @@ Which word means "able to be believed or trusted"?
 - C. arbitrary
 - D. tentative
 
-Answer: B
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -156,8 +156,8 @@ Which word means "one part of a larger whole"?
 - C. perspective
 - D. consequence
 
-Answer: B
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -170,8 +170,8 @@ Which word means "to study something closely to understand it"?
 - C. advocate
 - D. reinforce
 
-Answer: B
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -184,8 +184,8 @@ Which word means "an idea proposed as a possible explanation, to be tested"?
 - C. controversy
 - D. consequence
 
-Answer: B
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -198,8 +198,8 @@ Which word means "to figure something out using clues rather than being told dir
 - C. advocate
 - D. escalate
 
-Answer: B
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -212,8 +212,8 @@ Which word means "a way of looking at or thinking about something"?
 - C. perspective
 - D. constraint
 
-Answer: C
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -226,8 +226,8 @@ Which word means "to change completely in form or appearance"?
 - C. sustain
 - D. reinforce
 
-Answer: B
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -240,8 +240,8 @@ Which word means "to expect something before it happens"?
 - C. anticipate
 - D. elaborate
 
-Answer: C
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -254,8 +254,8 @@ Which word means "to fully understand something"?
 - C. escalate
 - D. comprehend
 
-Answer: D
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -268,8 +268,8 @@ Which word means "a result that follows an action"?
 - C. criteria
 - D. component
 
-Answer: A
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -282,8 +282,8 @@ Which word means "a public disagreement about an issue"?
 - C. controversy
 - D. criteria
 
-Answer: C
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -296,8 +296,8 @@ Which word means "standards used to judge or decide something"?
 - C. perspective
 - D. consequence
 
-Answer: A
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -310,8 +310,8 @@ Which word means "to reach a conclusion using logic"?
 - C. deduce
 - D. anticipate
 
-Answer: C
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -324,8 +324,8 @@ Which word means "having the most power or influence"?
 - C. arbitrary
 - D. tentative
 
-Answer: A
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -338,8 +338,8 @@ Which word means "to explain something in more detail"?
 - C. anticipate
 - D. integrate
 
-Answer: A
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -352,8 +352,8 @@ Which word means "to give special importance to something"?
 - C. inhibit
 - D. mitigate
 
-Answer: A
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -366,8 +366,8 @@ Which word means "to combine parts into a whole"?
 - C. elaborate
 - D. integrate
 
-Answer: D
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -380,8 +380,8 @@ Which word means "to gather or pile up over time"?
 - C. comprehend
 - D. generate
 
-Answer: B
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -394,8 +394,8 @@ Which word means "to publicly support an idea or cause"?
 - C. analyze
 - D. advocate
 
-Answer: D
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -408,8 +408,8 @@ Which word means "unclear or not stated in enough detail"?
 - C. legitimate
 - D. credible
 
-Answer: A
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -422,8 +422,8 @@ Which word means "based on random choice rather than reason"?
 - C. arbitrary
 - D. credible
 
-Answer: C
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -436,8 +436,8 @@ Which word means "a limit that restricts what you can do"?
 - C. evidence
 - D. constraint
 
-Answer: D
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -450,8 +450,8 @@ Which word means "to become more serious or intense"?
 - C. escalate
 - D. comprehend
 
-Answer: C
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -464,8 +464,8 @@ Which word means "to make an action or process easier"?
 - C. escalate
 - D. inhibit
 
-Answer: B
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -478,8 +478,8 @@ Which word means "to change often, going up and down"?
 - C. comprehend
 - D. accumulate
 
-Answer: B
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -492,8 +492,8 @@ Which word means "to put a plan into action"?
 - C. inhibit
 - D. implement
 
-Answer: D
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -506,22 +506,22 @@ Which word means "to introduce new ideas or methods"?
 - C. inhibit
 - D. reinforce
 
-Answer: B
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
-## 36. `vocab-g68-unavoidable` `#7f036e` — level 4
+## 36. `vocab-g68-unavoidable` `#bb859e` — level 4
 
-Which word means "certain to happen and impossible to avoid"?
+Which word means "impossible to get around or prevent"?
 
 - A. tentative
 - B. unavoidable
 - C. plausible
 - D. vulnerable
 
-Answer: B
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -534,8 +534,8 @@ Which word means "to slow down or prevent something"?
 - C. reinforce
 - D. facilitate
 
-Answer: B
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -548,8 +548,8 @@ Which word means "allowed according to rules or law"?
 - C. tentative
 - D. legitimate
 
-Answer: D
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -562,8 +562,8 @@ Which word means "to make something less severe"?
 - C. implement
 - D. facilitate
 
-Answer: A
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -576,8 +576,8 @@ Which word means "seeming reasonable or probable"?
 - C. tentative
 - D. legitimate
 
-Answer: A
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -590,8 +590,8 @@ Which word means "to strengthen or support something"?
 - C. inhibit
 - D. facilitate
 
-Answer: A
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -604,8 +604,8 @@ Which word means "to keep something going over time"?
 - C. advocate
 - D. analyze
 
-Answer: A
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -618,8 +618,8 @@ Which word means "not certain or fixed; provisional"?
 - C. vulnerable
 - D. dominant
 
-Answer: B
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -632,5 +632,5 @@ Which word means "easily hurt or affected by something"?
 - C. tentative
 - D. dominant
 
-Answer: B
-Also defensible: none
+Answer:
+Also defensible:

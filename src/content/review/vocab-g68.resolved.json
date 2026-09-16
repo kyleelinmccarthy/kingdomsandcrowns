@@ -1,0 +1,23 @@
+{
+  "poolId": "vocab-g68",
+  "resolutions": [
+    {
+      "itemId": "vocab-g68-authentic",
+      "code": "4e3685",
+      "keyAt": "authentic",
+      "verdict": "item-rewritten",
+      "note": "The reader was right: \"a legitimate Rembrandt\" is exactly \"genuine and not a copy\", so legitimate was a second defensible answer. This pool teaches authentic and legitimate as separate items with separate senses, so the fix keeps the stem and drops the overlapping distractor: legitimate is replaced by tentative.",
+      "resolvedBy": "claude-opus-5 (blind-pass fix pass)",
+      "resolvedAt": "2026-09-16"
+    },
+    {
+      "itemId": "vocab-g68-unavoidable",
+      "code": "7f036e",
+      "keyAt": "unavoidable",
+      "verdict": "item-rewritten",
+      "note": "Not a sheet flag but a reader’s note: this item and vocab-g912-inevitable carried a word-for-word identical definition, so a child who meets both is asked the same question with two different keys. This one now reads \"impossible to get around or prevent\"; vocab-g912-inevitable keeps \"certain to happen and impossible to avoid\".",
+      "resolvedBy": "claude-opus-5 (blind-pass fix pass)",
+      "resolvedAt": "2026-09-16"
+    }
+  ]
+}

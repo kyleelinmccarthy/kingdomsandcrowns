@@ -30,8 +30,9 @@ What molecule carries genetic information in living things?
 - C. Glucose
 - D. RNA only
 
-Answer: B
-Also defensible: none
+Answer:
+Also defensible:
+
 ---
 
 ## 2. `sci-g912-gene` `#50cb5c` — level 1
@@ -43,8 +44,9 @@ What do we call a segment of DNA that codes for a specific trait?
 - C. A chromosome
 - D. A protein
 
-Answer: A
-Also defensible: none
+Answer:
+Also defensible:
+
 ---
 
 ## 3. `sci-g912-chromosomes` `#662fd4` — level 1
@@ -56,8 +58,9 @@ What structures in the nucleus contain tightly coiled DNA?
 - C. Vacuoles
 - D. Chromosomes
 
-Answer: D
-Also defensible: none
+Answer:
+Also defensible:
+
 ---
 
 ## 4. `sci-g912-chromosome-count` `#60d1fa` — level 2
@@ -69,8 +72,9 @@ How many chromosomes do typical human body cells have?
 - C. 92
 - D. 23
 
-Answer: B
-Also defensible: none
+Answer:
+Also defensible:
+
 ---
 
 ## 5. `sci-g912-alleles` `#52ad22` — level 2
@@ -82,8 +86,9 @@ What do we call the different forms of a gene, such as one for brown eyes versus
 - C. Genomes
 - D. Genotypes
 
-Answer: A
-Also defensible: none
+Answer:
+Also defensible:
+
 ---
 
 ## 6. `sci-g912-genotype` `#5c8e5b` — level 2
@@ -95,8 +100,9 @@ What term describes an organism's actual genetic makeup?
 - C. Allele
 - D. Phenotype
 
-Answer: B
-Also defensible: none
+Answer:
+Also defensible:
+
 ---
 
 ## 7. `sci-g912-phenotype` `#900787` — level 2
@@ -108,8 +114,9 @@ What term describes an organism's observable physical traits?
 - C. Genotype
 - D. Phenotype
 
-Answer: D
-Also defensible: none
+Answer:
+Also defensible:
+
 ---
 
 ## 8. `sci-g912-mutation` `#9f197b` — level 2
@@ -121,8 +128,9 @@ What is it called when an offspring inherits a trait different from either paren
 - C. A mutation
 - D. An allele
 
-Answer: C
-Also defensible: none
+Answer:
+Also defensible:
+
 ---
 
 ## 9. `sci-g912-mendel` `#27f8d2` — level 3
@@ -134,8 +142,9 @@ Who is credited as the father of genetics for his experiments with pea plants?
 - C. Louis Pasteur
 - D. Isaac Newton
 
-Answer: A
-Also defensible: none
+Answer:
+Also defensible:
+
 ---
 
 ## 10. `sci-g912-reactants` `#3d2acb` — level 0
@@ -147,8 +156,9 @@ What do we call the starting substances in a chemical reaction?
 - C. Solutions
 - D. Reactants
 
-Answer: D
-Also defensible: none
+Answer:
+Also defensible:
+
 ---
 
 ## 11. `sci-g912-products` `#6ad978` — level 0
@@ -160,8 +170,9 @@ What do we call the new substances formed by a chemical reaction?
 - C. Products
 - D. Catalysts
 
-Answer: C
-Also defensible: none
+Answer:
+Also defensible:
+
 ---
 
 ## 12. `sci-g912-conservation-mass` `#bf2e40` — level 2
@@ -173,8 +184,9 @@ What law states that matter is neither created nor destroyed in a chemical react
 - C. The law of conservation of energy
 - D. The law of conservation of mass
 
-Answer: D
-Also defensible: none
+Answer:
+Also defensible:
+
 ---
 
 ## 13. `sci-g912-catalyst` `#edd533` — level 2
@@ -186,8 +198,9 @@ What is a substance that speeds up a chemical reaction without being used up?
 - C. A catalyst
 - D. A product
 
-Answer: C
-Also defensible: none
+Answer:
+Also defensible:
+
 ---
 
 ## 14. `sci-g912-exothermic` `#40ffef` — level 2
@@ -199,8 +212,9 @@ What type of reaction releases energy, often as heat?
 - C. A physical reaction
 - D. An exothermic reaction
 
-Answer: D
-Also defensible: none
+Answer:
+Also defensible:
+
 ---
 
 ## 15. `sci-g912-endothermic` `#a7c8a0` — level 2
@@ -212,8 +226,9 @@ What type of reaction absorbs energy from its surroundings?
 - C. A physical reaction
 - D. A combustion reaction
 
-Answer: B
-Also defensible: none
+Answer:
+Also defensible:
+
 ---
 
 ## 16. `sci-g912-gas-sign` `#03c804` — level 1
@@ -225,8 +240,9 @@ What sign of a chemical reaction is bubbling or fizzing?
 - C. The release of a gas
 - D. A change in shape only
 
-Answer: C
-Also defensible: none
+Answer:
+Also defensible:
+
 ---
 
 ## 17. `sci-g912-combustion` `#8465d4` — level 2
@@ -238,8 +254,9 @@ What do we call a reaction where a substance combines with oxygen and releases e
 - C. Decomposition
 - D. Neutralization
 
-Answer: B
-Also defensible: none
+Answer:
+Also defensible:
+
 ---
 
 ## 18. `sci-g912-neutralization` `#1571ca` — level 3
@@ -251,8 +268,9 @@ What do we call a reaction where an acid and a base combine to form water and a 
 - C. Combustion
 - D. Oxidation
 
-Answer: A
-Also defensible: none
+Answer:
+Also defensible:
+
 ---
 
 ## 19. `sci-g912-newton-first-motion` `#579f37` — level 1
@@ -264,8 +282,9 @@ What does Newton's first law state about an object in motion with no outside for
 - C. It changes direction on its own
 - D. It speeds up on its own
 
-Answer: A
-Also defensible: none
+Answer:
+Also defensible:
+
 ---
 
 ## 20. `sci-g912-law-of-inertia` `#892701` — level 1
@@ -277,8 +296,9 @@ What is another name for Newton's first law of motion?
 - C. The law of inertia
 - D. The law of reaction
 
-Answer: C
-Also defensible: none
+Answer:
+Also defensible:
+
 ---
 
 ## 21. `sci-g912-f-equals-ma` `#5a2f3a` — level 1
@@ -290,8 +310,9 @@ What does Newton's second law state, expressed as F = ma?
 - C. Force equals mass minus velocity
 - D. Force equals mass plus acceleration
 
-Answer: B
-Also defensible: none
+Answer:
+Also defensible:
+
 ---
 
 ## 22. `sci-g912-double-force` `#c00052` — level 3
@@ -303,8 +324,9 @@ According to Newton's second law, if you double the force on an object with the 
 - C. The acceleration becomes zero
 - D. The acceleration doubles
 
-Answer: D
-Also defensible: none
+Answer:
+Also defensible:
+
 ---
 
 ## 23. `sci-g912-newton-third-law` `#c99ca1` — level 1
@@ -316,8 +338,9 @@ What does Newton's third law state?
 - C. For every action, there is an equal and opposite reaction
 - D. Force equals mass times acceleration
 
-Answer: C
-Also defensible: none
+Answer:
+Also defensible:
+
 ---
 
 ## 24. `sci-g912-wall-push` `#8bbdd2` — level 2
@@ -329,8 +352,9 @@ When you push on a wall, the wall pushes back on you. Which law of motion explai
 - C. Newton's first law
 - D. Newton's third law
 
-Answer: D
-Also defensible: none
+Answer:
+Also defensible:
+
 ---
 
 ## 25. `sci-g912-inertia-term` `#15e758` — level 1
@@ -342,8 +366,9 @@ What term describes an object's resistance to a change in its motion?
 - C. Acceleration
 - D. Momentum
 
-Answer: B
-Also defensible: none
+Answer:
+Also defensible:
+
 ---
 
 ## 26. `sci-g912-momentum` `#2e3943` — level 2
@@ -355,8 +380,9 @@ What do we call the product of an object's mass and velocity?
 - C. Momentum
 - D. Inertia
 
-Answer: C
-Also defensible: none
+Answer:
+Also defensible:
+
 ---
 
 ## 27. `sci-g912-momentum-conserved` `#dc41a8` — level 4
@@ -368,8 +394,9 @@ What happens to the total momentum of a closed system during a collision?
 - C. It doubles
 - D. It is conserved (stays the same)
 
-Answer: D
-Also defensible: none
+Answer:
+Also defensible:
+
 ---
 
 ## 28. `sci-g912-conservation-energy` `#a4d4df` — level 1
@@ -381,8 +408,9 @@ What law states that energy cannot be created or destroyed, only transformed?
 - C. The law of conservation of energy
 - D. Newton's first law
 
-Answer: C
-Also defensible: none
+Answer:
+Also defensible:
+
 ---
 
 ## 29. `sci-g912-potential-energy` `#4c631e` — level 1
@@ -394,8 +422,9 @@ What do we call energy that is stored and has the potential to do work, such as 
 - C. Kinetic energy
 - D. Potential energy
 
-Answer: D
-Also defensible: none
+Answer:
+Also defensible:
+
 ---
 
 ## 30. `sci-g912-kinetic-energy` `#3ef8f7` — level 1
@@ -407,8 +436,9 @@ What do we call the energy of motion?
 - C. Potential energy
 - D. Nuclear energy
 
-Answer: B
-Also defensible: none
+Answer:
+Also defensible:
+
 ---
 
 ## 31. `sci-g912-conduction` `#c3d1b2` — level 2
@@ -420,8 +450,9 @@ What type of energy transfer occurs when heat moves through direct contact betwe
 - C. Radiation
 - D. Convection
 
-Answer: B
-Also defensible: none
+Answer:
+Also defensible:
+
 ---
 
 ## 32. `sci-g912-convection` `#45a4cd` — level 2
@@ -433,8 +464,9 @@ What type of energy transfer occurs when heat moves through the movement of flui
 - C. Conduction
 - D. Radiation
 
-Answer: A
-Also defensible: none
+Answer:
+Also defensible:
+
 ---
 
 ## 33. `sci-g912-radiation` `#a09270` — level 2
@@ -446,8 +478,9 @@ What type of energy transfer occurs when heat moves as electromagnetic waves, su
 - C. Radiation
 - D. Convection
 
-Answer: C
-Also defensible: none
+Answer:
+Also defensible:
+
 ---
 
 ## 34. `sci-g912-chemical-energy` `#a29b92` — level 1
@@ -459,8 +492,9 @@ What do we call energy stored in the bonds of chemical compounds, such as in foo
 - C. Kinetic energy
 - D. Nuclear energy
 
-Answer: B
-Also defensible: none
+Answer:
+Also defensible:
+
 ---
 
 ## 35. `sci-g912-nuclear-energy` `#6176cb` — level 2
@@ -472,8 +506,9 @@ What do we call energy released from splitting or combining atomic nuclei?
 - C. Nuclear energy
 - D. Chemical energy
 
-Answer: C
-Also defensible: none
+Answer:
+Also defensible:
+
 ---
 
 ## 36. `sci-g912-pendulum` `#bc047a` — level 3
@@ -485,21 +520,23 @@ As a pendulum swings, its energy constantly changes between what two forms?
 - C. Thermal energy and radiant energy
 - D. Potential energy and kinetic energy
 
-Answer: D
-Also defensible: none
+Answer:
+Also defensible:
+
 ---
 
-## 37. `sci-g912-first-step` `#5e1c61` — level 0
+## 37. `sci-g912-first-step` `#2370c1` — level 0
 
-What is the first step of the scientific method, usually involving asking a question?
+Which step of the scientific method comes before forming a hypothesis?
 
 - A. Running the final experiment
 - B. Making an observation and asking a question
 - C. Forming a conclusion
 - D. Publishing the results
 
-Answer: B
-Also defensible: none
+Answer:
+Also defensible:
+
 ---
 
 ## 38. `sci-g912-hypothesis` `#4031a0` — level 1
@@ -511,8 +548,9 @@ What do we call a testable explanation that is proposed before an experiment?
 - C. A conclusion
 - D. A hypothesis
 
-Answer: D
-Also defensible: none
+Answer:
+Also defensible:
+
 ---
 
 ## 39. `sci-g912-independent-variable` `#92f353` — level 2
@@ -524,8 +562,9 @@ What is the variable that a scientist changes on purpose in an experiment?
 - C. The constant
 - D. The control variable
 
-Answer: A
-Also defensible: none
+Answer:
+Also defensible:
+
 ---
 
 ## 40. `sci-g912-dependent-variable` `#f98bc5` — level 2
@@ -537,8 +576,9 @@ What is the variable that is measured and may change as a result of the experime
 - C. The dependent variable
 - D. The control variable
 
-Answer: C
-Also defensible: none
+Answer:
+Also defensible:
+
 ---
 
 ## 41. `sci-g912-controlled-variables` `#acbc7f` — level 3
@@ -550,8 +590,9 @@ What do we call the factors in an experiment that are kept the same so they do n
 - C. Dependent variables
 - D. Independent variables
 
-Answer: B
-Also defensible: none
+Answer:
+Also defensible:
+
 ---
 
 ## 42. `sci-g912-control-group` `#ce6423` — level 2
@@ -563,21 +604,23 @@ What is a group in an experiment that does not receive the treatment being teste
 - C. The hypothesis group
 - D. The control group
 
-Answer: D
-Also defensible: none
+Answer:
+Also defensible:
+
 ---
 
-## 43. `sci-g912-repeat-experiments` `#725988` — level 1
+## 43. `sci-g912-repeat-experiments` `#66aa90` — level 1
 
 Why do scientists repeat experiments multiple times?
 
-- A. To make the experiment take longer
+- A. To make sure the hypothesis is never rejected
 - B. To check that the results are consistent and reliable
-- C. To confuse other scientists
-- D. To use up extra materials
+- C. To collect data on a different variable each time
+- D. To replace the need for a control group
 
-Answer: B
-Also defensible: none
+Answer:
+Also defensible:
+
 ---
 
 ## 44. `sci-g912-scientific-theory` `#514695` — level 3
@@ -589,8 +632,9 @@ What do we call a well-tested explanation that covers a wide range of observatio
 - C. A law of nature only
 - D. A scientific theory
 
-Answer: D
-Also defensible: none
+Answer:
+Also defensible:
+
 ---
 
 ## 45. `sci-g912-peer-review` `#536f3c` — level 4
@@ -602,5 +646,5 @@ What is it called when other scientists check and repeat a study to confirm its 
 - C. Speculation
 - D. Plagiarism
 
-Answer: A
-Also defensible: none
+Answer:
+Also defensible:

@@ -1,0 +1,14 @@
+{
+  "poolId": "spelling-g45",
+  "resolutions": [
+    {
+      "itemId": "spell-g45-calendar",
+      "code": "991e69",
+      "keyAt": "calendar",
+      "verdict": "item-rewritten",
+      "note": "The reader was right that \"calender\" is a real English word — a machine that presses cloth or paper — and the bare stem \"Which is spelled correctly?\" gave nothing to rule it out. The prompt now names the sense (\"a chart of the days and months\"), and readAloud says the word and the sense so a listening child gets the same help.",
+      "resolvedBy": "claude-opus-5 (blind-pass fix pass)",
+      "resolvedAt": "2026-09-16"
+    }
+  ]
+}

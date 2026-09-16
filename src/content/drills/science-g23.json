@@ -180,7 +180,7 @@
     },
     {
       "id": "sci-g23-matter-liquid",
-      "prompt": "Which state of matter takes the shape of its container?",
+      "prompt": "Which state of matter pours into a cup and takes its shape?",
       "answer": "Liquid",
       "distractors": [
         "Solid",

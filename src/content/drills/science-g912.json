@@ -401,7 +401,7 @@
     },
     {
       "id": "sci-g912-first-step",
-      "prompt": "What is the first step of the scientific method, usually involving asking a question?",
+      "prompt": "Which step of the scientific method comes before forming a hypothesis?",
       "answer": "Making an observation and asking a question",
       "distractors": [
         "Forming a conclusion",
@@ -470,9 +470,9 @@
       "prompt": "Why do scientists repeat experiments multiple times?",
       "answer": "To check that the results are consistent and reliable",
       "distractors": [
-        "To make the experiment take longer",
-        "To use up extra materials",
-        "To confuse other scientists"
+        "To collect data on a different variable each time",
+        "To make sure the hypothesis is never rejected",
+        "To replace the need for a control group"
       ],
       "level": 1
     },

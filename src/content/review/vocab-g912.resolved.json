@@ -1,0 +1,23 @@
+{
+  "poolId": "vocab-g912",
+  "resolutions": [
+    {
+      "itemId": "vocab-g912-adversity",
+      "code": "802ce0",
+      "keyAt": "adversity",
+      "verdict": "item-rewritten",
+      "note": "The reader was right: read literally, \"a difficult ... situation\" admits conundrum, and only \"unfortunate\" pulled towards adversity. The stem now reads \"serious hardship or misfortune\", which a conundrum is not.",
+      "resolvedBy": "claude-opus-5 (blind-pass fix pass)",
+      "resolvedAt": "2026-09-16"
+    },
+    {
+      "itemId": "vocab-g912-impartial",
+      "code": "16b4e5",
+      "keyAt": "impartial",
+      "verdict": "ambiguity-accepted",
+      "note": "A reader’s note, not a sheet flag: \"not favoring one side\" alone would admit ambivalent, and only the \"; fair\" clause rules it out. The clause is in the stem and it is doing its work — ambivalent means holding both feelings at once, not judging evenly, and the item sits at level 0 where the contrast is the point. The key stands and the item is left alone; if a future reader marks ambivalent defensible, this is the answer.",
+      "resolvedBy": "claude-opus-5 (blind-pass fix pass)",
+      "resolvedAt": "2026-09-16"
+    }
+  ]
+}

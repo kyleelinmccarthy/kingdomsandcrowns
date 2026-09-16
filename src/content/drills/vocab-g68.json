@@ -75,7 +75,7 @@
       "distractors": [
         "vague",
         "plausible",
-        "legitimate"
+        "tentative"
       ],
       "level": 1
     },
@@ -389,7 +389,7 @@
     },
     {
       "id": "vocab-g68-unavoidable",
-      "prompt": "Which word means \"certain to happen and impossible to avoid\"?",
+      "prompt": "Which word means \"impossible to get around or prevent\"?",
       "answer": "unavoidable",
       "distractors": [
         "plausible",

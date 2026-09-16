@@ -180,7 +180,7 @@
     },
     {
       "id": "vocab-g912-adversity",
-      "prompt": "Which word means \"a difficult or unfortunate situation\"?",
+      "prompt": "Which word means \"serious hardship or misfortune\"?",
       "answer": "adversity",
       "distractors": [
         "autonomy",

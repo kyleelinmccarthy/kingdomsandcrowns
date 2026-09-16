@@ -30,8 +30,8 @@ Which word means "honest and straightforward"?
 - C. innate
 - D. dogmatic
 
-Answer: A
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -44,8 +44,8 @@ Which word means "possible to do successfully"?
 - C. obsolete
 - D. feasible
 
-Answer: D
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -58,8 +58,8 @@ Which word means "able to recover quickly from difficulties"?
 - C. resilient
 - D. novice
 
-Answer: C
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -72,8 +72,8 @@ Which word means "to perceive or recognize something clearly"?
 - C. conundrum
 - D. discern
 
-Answer: D
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -86,8 +86,8 @@ Which word means "not favoring one side; fair"?
 - C. impartial
 - D. ambivalent
 
-Answer: C
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -100,8 +100,8 @@ Which word means "kind and generous"?
 - C. indignant
 - D. benevolent
 
-Answer: D
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -114,8 +114,8 @@ Which word means "showing careful and persistent effort"?
 - C. mundane
 - D. volatile
 
-Answer: A
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -128,8 +128,8 @@ Which word means "fluent and persuasive in speaking or writing"?
 - C. verbose
 - D. succinct
 
-Answer: A
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -142,8 +142,8 @@ Which word means "extremely careful about details"?
 - C. meticulous
 - D. mundane
 
-Answer: C
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -156,8 +156,8 @@ Which word means "dealing with things sensibly and practically"?
 - C. enigmatic
 - D. ephemeral
 
-Answer: B
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -170,8 +170,8 @@ Which word means "concerned with beauty or artistic taste"?
 - C. innate
 - D. prudent
 
-Answer: A
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -184,8 +184,8 @@ Which word means "plain and severe in appearance or manner"?
 - C. mundane
 - D. austere
 
-Answer: D
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -198,8 +198,8 @@ Which word means "easy to understand; clearly expressed"?
 - C. extraneous
 - D. enigmatic
 
-Answer: B
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -212,8 +212,8 @@ Which word means "ordinary and not exciting"?
 - C. mundane
 - D. cogent
 
-Answer: C
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -226,8 +226,8 @@ Which word means "having more than one possible interpretation"?
 - C. articulate
 - D. lucid
 
-Answer: A
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -240,22 +240,22 @@ Which word means "certain to happen and impossible to avoid"?
 - C. novice
 - D. feasible
 
-Answer: A
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
-## 17. `vocab-g912-adversity` `#802ce0` — level 2
+## 17. `vocab-g912-adversity` `#e280ec` — level 2
 
-Which word means "a difficult or unfortunate situation"?
+Which word means "serious hardship or misfortune"?
 
 - A. adversity
 - B. deference
 - C. conundrum
 - D. autonomy
 
-Answer: A
-Also defensible: C
+Answer:
+Also defensible:
 
 ---
 
@@ -268,8 +268,8 @@ Which word means "unselfishly concerned for the welfare of others"?
 - C. altruistic
 - D. dogmatic
 
-Answer: C
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -282,8 +282,8 @@ Which word means "requiring great effort; difficult"?
 - C. mundane
 - D. candid
 
-Answer: B
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -296,8 +296,8 @@ Which word means "having sharp judgment; shrewd"?
 - C. mundane
 - D. impartial
 
-Answer: A
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -310,8 +310,8 @@ Which word means "the right to govern or act independently"?
 - C. conundrum
 - D. deference
 
-Answer: A
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -324,8 +324,8 @@ Which word means "clear, logical, and convincing"?
 - C. cogent
 - D. dogmatic
 
-Answer: C
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -338,8 +338,8 @@ Which word means "respect and submission to another's wishes"?
 - C. astute
 - D. autonomy
 
-Answer: A
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -352,8 +352,8 @@ Which word means "asserting opinions as if they are certainly true"?
 - C. skeptical
 - D. prudent
 
-Answer: A
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -366,8 +366,8 @@ Which word means "based on observation or experiment rather than theory"?
 - C. empirical
 - D. ambiguous
 
-Answer: C
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -380,8 +380,8 @@ Which word means "extremely important or urgent"?
 - C. imperative
 - D. obsolete
 
-Answer: C
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -394,8 +394,8 @@ Which word means "feeling angry because of something unfair"?
 - C. benevolent
 - D. impartial
 
-Answer: B
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -408,8 +408,8 @@ Which word means "present from birth; natural rather than learned"?
 - C. extraneous
 - D. innate
 
-Answer: D
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -422,8 +422,8 @@ Which word means "acting with care and good judgment"?
 - C. novice
 - D. arduous
 
-Answer: A
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -436,8 +436,8 @@ Which word means "having mixed or conflicting feelings"?
 - C. resilient
 - D. ambivalent
 
-Answer: D
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -450,8 +450,8 @@ Which word means "a confusing and difficult problem"?
 - C. adversity
 - D. conundrum
 
-Answer: D
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -464,8 +464,8 @@ Which word means "mysterious and difficult to understand"?
 - C. candid
 - D. lucid
 
-Answer: A
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -478,8 +478,8 @@ Which word means "lasting for a very short time"?
 - C. obsolete
 - D. innate
 
-Answer: A
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -492,8 +492,8 @@ Which word means "not relevant to the matter at hand"?
 - C. innate
 - D. cogent
 
-Answer: A
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -506,8 +506,8 @@ Which word means "very attentive to detail and hard to please"?
 - C. fastidious
 - D. novice
 
-Answer: C
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -520,8 +520,8 @@ Which word means "well known for a bad reason"?
 - C. infamous
 - D. candid
 
-Answer: C
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -534,8 +534,8 @@ Which word means "a person new to a skill or activity"?
 - C. astute
 - D. resilient
 
-Answer: A
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -548,8 +548,8 @@ Which word means "having doubts about something's truth"?
 - C. candid
 - D. benevolent
 
-Answer: B
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -562,8 +562,8 @@ Which word means "no longer in use; outdated"?
 - C. imperative
 - D. obsolete
 
-Answer: D
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -576,8 +576,8 @@ Which word means "a statement that seems contradictory but may be true"?
 - C. autonomy
 - D. conundrum
 
-Answer: A
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -590,8 +590,8 @@ Which word means "able to express thoughts clearly and effectively"?
 - C. novice
 - D. mundane
 
-Answer: B
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -604,8 +604,8 @@ Which word means "expressed clearly in few words"?
 - C. eloquent
 - D. ambiguous
 
-Answer: B
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -618,8 +618,8 @@ Which word means "holding firmly to a purpose; persistent"?
 - C. ambivalent
 - D. tenacious
 
-Answer: D
-Also defensible: none
+Answer:
+Also defensible:
 
 ---
 
@@ -632,5 +632,5 @@ Which word means "likely to change suddenly and unpredictably"?
 - C. volatile
 - D. resilient
 
-Answer: C
-Also defensible: none
+Answer:
+Also defensible:

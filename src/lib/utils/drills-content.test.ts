@@ -62,7 +62,22 @@ describe("drill pool content", () => {
       expect(i.distractors).not.toContain(i.answer);
       expect(new Set([i.answer, ...i.distractors]).size).toBe(4);
       if (i.level !== undefined) { expect(i.level).toBeGreaterThanOrEqual(0); expect(i.level).toBeLessThanOrEqual(4); }
-      if (p.poolId.startsWith("sight-words")) expect(i.readAloud).toBe(i.answer);
+      /**
+       * A sight-word item's spoken form has to SAY the word the child is being asked to find:
+       * for a listener that word is the whole question. What it no longer has to be is the bare
+       * word and nothing else — that was exactly the defect the blind pass turned up. Eleven
+       * items sat beside a homophone ("right" against `write`, "for" against `four`) and spoke
+       * only the answer, so a child on read-aloud support heard a sound that fitted two of the
+       * four choices. Those now speak a sense phrase around the word. So what is pinned here is
+       * that the word is spoken; `pool-validate`'s rule 9 is what checks the sense phrase is
+       * there whenever a homophone makes one necessary.
+       */
+      if (p.poolId.startsWith("sight-words")) {
+        expect(i.readAloud, `item ${i.id}`).toBeDefined();
+        const spoken = i.readAloud!.toLowerCase();
+        const word = i.answer.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        expect(spoken, `item ${i.id} must speak "${i.answer}"`).toMatch(new RegExp(`(^|[^a-z'])${word}([^a-z']|$)`));
+      }
     }
   });
 });

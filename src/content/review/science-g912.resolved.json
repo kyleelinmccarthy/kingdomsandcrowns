@@ -1,0 +1,23 @@
+{
+  "poolId": "science-g912",
+  "resolutions": [
+    {
+      "itemId": "sci-g912-first-step",
+      "code": "5e1c61",
+      "keyAt": "Making an observation and asking a question",
+      "verdict": "item-rewritten",
+      "note": "A reader’s note, not a sheet flag: the old stem (\"the first step ... usually involving asking a question\") telegraphed its own answer, so it tested reading rather than science. It now asks which step comes before forming a hypothesis, which needs the order of the method to answer.",
+      "resolvedBy": "claude-opus-5 (blind-pass fix pass)",
+      "resolvedAt": "2026-09-16"
+    },
+    {
+      "itemId": "sci-g912-repeat-experiments",
+      "code": "725988",
+      "keyAt": "To check that the results are consistent and reliable",
+      "verdict": "item-rewritten",
+      "note": "A reader’s note, not a sheet flag: three of the four distractors were jokes (\"to confuse other scientists\", \"to use up extra materials\"), so the item was answerable by elimination with no knowledge at all — the authored twin of a defect that appeared six times in the math content. All three are replaced with wrong answers a student might actually hold.",
+      "resolvedBy": "claude-opus-5 (blind-pass fix pass)",
+      "resolvedAt": "2026-09-16"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "poolId": "science-g23",
+  "resolutions": [
+    {
+      "itemId": "sci-g23-matter-liquid",
+      "code": "27f1e3",
+      "keyAt": "Liquid",
+      "verdict": "item-rewritten",
+      "note": "The reader was right: a gas takes the shape of its container too, so the stem admitted two answers and punished a child who had just learned that gases fill their containers. The property that actually picks out a liquid is fixed volume, which the old stem never mentioned. Rewritten to \"Which state of matter pours into a cup and takes its shape?\" — pouring into a cup is fixed volume in words a grade-2 child already has.",
+      "resolvedBy": "claude-opus-5 (blind-pass fix pass)",
+      "resolvedAt": "2026-09-16"
+    }
+  ]
+}

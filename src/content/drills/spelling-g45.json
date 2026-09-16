@@ -172,14 +172,14 @@
     },
     {
       "id": "spell-g45-calendar",
-      "prompt": "Which is spelled correctly?",
+      "prompt": "Which is spelled correctly? The word means a chart of the days and months.",
       "answer": "calendar",
       "distractors": [
         "calender",
         "calandar",
         "calendear"
       ],
-      "readAloud": "calendar",
+      "readAloud": "Which is spelled correctly? The word is calendar, a chart of the days and months.",
       "level": 1
     },
     {
