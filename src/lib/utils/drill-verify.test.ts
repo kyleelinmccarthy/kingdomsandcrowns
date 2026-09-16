@@ -78,11 +78,25 @@ describe("every generated question is independently verifiable", () => {
           expect(q.readAloud, `unspeakable read-aloud: ${q.readAloud}`).not.toMatch(/[-×÷%²³√π^\/¢$]/);
         }
 
-        // The id encodes the parameters, so the same id is always the same question.
+        // The id encodes the parameters, so the same id is always the same PROMPT. That is
+        // the property `drawGenerated` rests on: it fills a deed by drawing until it has
+        // eight distinct ids, so an id that does not pin the prompt lets a child be asked
+        // the same question twice.
+        //
+        // The ANSWER is pinned too, except for the two generators whose question lives in
+        // its choices rather than in its prompt. "Which number is a factor of 12?" has six
+        // right answers and "Which fraction is equal to 1/2?" has infinitely many; their
+        // ids name the target alone, on purpose, because an id carrying the chosen answer
+        // let the SAME prompt through twice in one deed with two different right answers —
+        // the first of them missing from the second question's choices. Nothing is lost by
+        // exempting them: `verify(q)` above re-derives the answer on every single draw, so
+        // a wrong key is caught there whether or not it matches the previous draw's. Listed
+        // rather than inferred, so exempting a third generator is a deliberate edit here.
+        const CHOICES_ARE_THE_DATA = new Set(["factors", "frac-equiv"]);
         const seen = byId.get(q.id);
         if (seen) {
-          expect(q.prompt).toBe(seen.prompt);
-          expect(q.answer).toBe(seen.answer);
+          expect(q.prompt, `id ${q.id} asked two different prompts`).toBe(seen.prompt);
+          if (!CHOICES_ARE_THE_DATA.has(genId)) expect(q.answer, `id ${q.id} gave two different answers`).toBe(seen.answer);
         } else {
           byId.set(q.id, q);
         }

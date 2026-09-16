@@ -400,9 +400,13 @@ export function fracEquiv(level: number, rng: Rng, skillId: string): Question {
   }
   if (distractors.length !== 3) throw new Error(`could not build three wrong fractions for ${n}/${d} scaled by ${k}`);
 
+  // The id is the fraction in the prompt, NOT the scale factor that built the answer. With
+  // `@${k}` on the end, "Which fraction is equal to 1/2?" could be asked twice in one deed —
+  // answered 2/4 the first time and 3/6 the second, with 2/4 nowhere among the second
+  // question's choices. A child who remembers their own answer is then marked wrong for it.
   return makeQuestion(
     skillId,
-    `${n}/${d}@${k}`,
+    `${n}/${d}`,
     `Which fraction is equal to ${n}/${d}?`,
     answer,
     distractors,
@@ -411,8 +415,16 @@ export function fracEquiv(level: number, rng: Rng, skillId: string): Question {
   );
 }
 
-/** Largest number to find a factor of, per level. */
-const FACTOR_MAX = [12, 24, 36, 60, 100];
+/**
+ * Largest number to find a factor of, per level.
+ *
+ * Level 0 is 20, not 12. Targets are drawn from [4, max] with primes rejected, so a ceiling
+ * of 12 left exactly {4, 6, 8, 9, 10, 12} — six prompts for an eight-question deed. It went
+ * unnoticed because the id used to carry the choice list, which inflated six prompts into
+ * thirty-five ids; with the id built from the target alone, six is six. Twenty gives eleven
+ * composites: 4, 6, 8, 9, 10, 12, 14, 15, 16, 18, 20.
+ */
+const FACTOR_MAX = [20, 24, 36, 60, 100];
 
 /**
  * Factors (grade 4). The choices ARE the data.
@@ -453,9 +465,14 @@ export function factors(level: number, rng: Rng, skillId: string): Question {
   for (let v = 2; chosen.length < 3; v++) take(v);
 
   const distractors = chosen.slice(0, 3);
-  const key = [answer, ...distractors].sort((a, b) => a - b).join(",");
+  // The id is the TARGET and nothing else. It used to carry the sorted choice list too, which
+  // let "Which number is a factor of 12?" through twice in one deed with different choices and
+  // a different right answer each time — a deed fills by drawing until it has eight distinct
+  // ids, and an id carrying anything the child cannot see does not prevent a repeat. The cost
+  // is that a missed question comes back with a fresh shuffle rather than the identical four
+  // choices; the same prompt re-asked is fine, a different question under the same id is not.
   const prompt = `Which number is a factor of ${target}?`;
-  return makeQuestion(skillId, `${target}:${key}`, prompt, String(answer), distractors.map(String), rng, prompt);
+  return makeQuestion(skillId, `${target}`, prompt, String(answer), distractors.map(String), rng, prompt);
 }
 
 /** Whether the two denominators match, and how big they get, per level. */
@@ -728,9 +745,11 @@ export function volumePrism(level: number, rng: Rng, skillId: string): Question 
   if (!drawn) throw new Error(`could not draw a box with four different measures at level ${level}`);
 
   const prompt = `A box is ${l} by ${w} by ${h} units. What is its volume?`;
+  // The id is the box, NOT which pair-product was picked as a distractor: a child cannot see
+  // `pair`, so an id carrying it let the same box be asked twice in one deed.
   return makeQuestion(
     skillId,
-    `${l}x${w}x${h}@${pair}`,
+    `${l}x${w}x${h}`,
     prompt,
     String(volume),
     [String(surface), String(sum), String(twoOfThree)],

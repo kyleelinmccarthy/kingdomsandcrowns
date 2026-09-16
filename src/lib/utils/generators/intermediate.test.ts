@@ -349,7 +349,7 @@ describe("factors", () => {
   const target = (q: Question) => Number(/^Which number is a factor of (\d+)\?$/.exec(q.prompt)![1]);
 
   it("keeps the target inside the level's range and answers with a factor that is neither 1 nor the target", () => {
-    const max = [12, 24, 36, 60, 100];
+    const max = [20, 24, 36, 60, 100];
     for (const lvl of LEVELS) {
       for (const q of draws(factors, lvl, "factors")) {
         const t = target(q);
@@ -676,16 +676,76 @@ describe("every generated skill can fill a deed", () => {
     LEVELS.map((lvl) => [s.id, (s.source as { generatorId: string }).generatorId, lvl] as [string, string, number])
   );
 
+  /**
+   * Checked against an independent source rather than against the line that builds PAIRS.
+   * `PAIRS.length === generatedSkills * LEVELS.length` merely restates the flatMap above and
+   * would still hold if SKILLS came back empty; the registry is a second opinion, and the
+   * floor is a number that only goes up as grades land.
+   */
   it("covers every generated skill, so the check below is not vacuous", () => {
-    expect(PAIRS.length).toBe(SKILLS.filter((s) => s.source.kind === "generator").length * LEVELS.length);
+    const generatorIds = new Set(
+      SKILLS.filter((s) => s.source.kind === "generator").map((s) => (s.source as { generatorId: string }).generatorId),
+    );
+    expect(generatorIds.size).toBe(Object.keys(GENERATORS).length);
+    expect(PAIRS.length).toBeGreaterThanOrEqual(34 * LEVELS.length);
   });
 
-  it.each(PAIRS)("%s at level %i offers at least eight different questions", (skillId, genId, lvl) => {
-    const ids = new Set<string>();
-    for (const seed of SEEDS) {
-      const rng = seededRng(seed);
-      for (let i = 0; i < 20; i++) ids.add(GENERATORS[genId](lvl, rng, skillId).id);
+  // `%i` on a three-element row consumes genId, so every title read "level NaN" and the
+  // report never said which rung was covered. The title is formatted by hand instead.
+  it.each(PAIRS.map((row) => [`${row[0]} at level ${row[2]}`, ...row] as [string, string, string, number]))(
+    "%s offers at least eight different questions",
+    (_title, skillId, genId, lvl) => {
+      const ids = new Set<string>();
+      for (const seed of SEEDS) {
+        const rng = seededRng(seed);
+        for (let i = 0; i < 20; i++) ids.add(GENERATORS[genId](lvl, rng, skillId).id);
+      }
+      expect(ids.size, `${skillId} level ${lvl} can only ask ${ids.size} questions`).toBeGreaterThanOrEqual(8);
+    },
+  );
+
+  /**
+   * Distinct ids are not distinct QUESTIONS. `drawGenerated` draws until it has eight ids,
+   * so an id carrying a parameter that never reaches the screen — a shuffle order, a scale
+   * factor — lets the same prompt through twice. `frac-equiv` was the worst of it: "Which
+   * fraction is equal to 1/2?" asked twice, answered `2/4` the first time and `3/6` the
+   * second, with `2/4` absent from the second question's choices. A child who reasons "I
+   * answered this already" is marked wrong for being right.
+   *
+   * What a child recognises is the prompt. Two generators frame their question in a
+   * sentence that names no number at all — "Which number is the greatest?" — and put the
+   * data entirely in the choices; for those, and only those, the choices are part of the
+   * question. Everywhere else the prompt IS the question and repeating it is the bug.
+   */
+  const questionIdentity = (q: Question): string =>
+    /\d/.test(q.prompt) ? q.prompt : `${q.prompt}|${[...q.choices].sort().join(",")}`;
+
+  it("only two generators frame their question without naming a number", () => {
+    const frames = new Set<string>();
+    for (const [skillId, genId, lvl] of PAIRS) {
+      const q = GENERATORS[genId](lvl, seededRng(11), skillId);
+      if (!/\d/.test(q.prompt)) frames.add(genId);
     }
-    expect(ids.size, `${skillId} level ${lvl} can only ask ${ids.size} questions`).toBeGreaterThanOrEqual(8);
+    expect([...frames].sort()).toEqual(["compare-num", "fractions-compare"]);
   });
+
+  it.each(PAIRS.map((row) => [`${row[0]} at level ${row[2]}`, ...row] as [string, string, string, number]))(
+    "%s fills a deed without asking the same question twice",
+    (_title, skillId, genId, lvl) => {
+      for (const seed of SEEDS.slice(0, 50)) {
+        const rng = seededRng(seed);
+        const seen = new Set<string>();
+        const asked: string[] = [];
+        let guard = 0;
+        while (asked.length < 8 && guard++ < 200) {
+          const q = GENERATORS[genId](lvl, rng, skillId);
+          if (seen.has(q.id)) continue;
+          seen.add(q.id);
+          asked.push(questionIdentity(q));
+        }
+        expect(asked.length, `${skillId} L${lvl} seed ${seed} could not fill a deed`).toBe(8);
+        expect(new Set(asked).size, `${skillId} L${lvl} seed ${seed} repeated a question`).toBe(asked.length);
+      }
+    },
+  );
 });

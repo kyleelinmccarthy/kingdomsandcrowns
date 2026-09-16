@@ -160,7 +160,11 @@ const placeValue: Generator = (level, rng, skillId) => {
 const fractionsCompare: Generator = (level, rng, skillId) => {
   const lvl = L(level);
   const fractions = new Map<string, number>(); // "n/d" -> value
-  const denomMax = [6, 10, 10, 8, 12][lvl];
+  // Level 0 is 8, not 6. Its same-denominator rounds draw the denominator from [5, denomMax],
+  // and 5 and 6 between them offer six sets of four fractions in total — six questions for an
+  // eight-question deed. The old id listed the four fractions in DRAW order, so those six sets
+  // came out as many more ids and the shortfall never showed; with the id sorted it does.
+  const denomMax = [8, 10, 10, 8, 12][lvl];
   // Same-denominator rounds need a denominator of at least 5 so four distinct
   // fractions exist; smaller ones would spin forever looking for a fourth.
   const sameDenominator = lvl <= 1 ? randInt(rng, 5, denomMax) : null;
@@ -172,7 +176,10 @@ const fractionsCompare: Generator = (level, rng, skillId) => {
   }
   const entries = [...fractions.entries()];
   const answer = entries.reduce((best, e) => (e[1] > best[1] ? e : best))[0];
-  const key = entries.map(([k]) => k).join(",");
+  // Sorted, so the id is a function of the SET of four fractions and not of the order they
+  // happened to be drawn in. Unsorted, the same four fractions could fill two slots of one
+  // deed under two different ids — the same question twice, with the same right answer.
+  const key = entries.map(([k]) => k).sort().join(",");
   return { id: `${skillId}:${key}`, skillId, prompt: "Which fraction is the largest?", choices: shuffle(entries.map(([k]) => k), rng), answer };
 };
 
