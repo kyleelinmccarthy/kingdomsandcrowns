@@ -29,10 +29,33 @@ const L = (level: number) => Math.min(4, Math.max(0, Math.floor(level)));
  * all. A child who had learned only "the answer is between 0 and 1" could score every
  * halves question without counting a single mark. Thirds up.
  */
-const FRAC_DENOMS = [[3, 4, 6], [3, 4, 6], [3, 4, 6, 8], [3, 4, 6, 8], [4, 6, 8]];
+const FRAC_DENOMS = [[3, 4, 6], [3, 4, 6, 8], [3, 4], [3, 4, 6, 8], [3, 4, 6]];
 
-const ORDINALS = ["", "1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th"];
-const ORDINAL_WORDS = ["", "first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth"];
+/**
+ * How far the line runs — and the reason this skill has five rungs at all.
+ *
+ * Grade 3 works in halves, thirds, fourths, sixths and eighths (3.NF.1 names exactly those),
+ * and halves are barred above, so a line from 0 to 1 has 2 + 3 + 5 + 7 = **seventeen**
+ * questions in it, total, across every denominator this grade owns. Five rungs each needing
+ * eight of their own and each needing to reach something the rung below could not simply does
+ * not fit: the ladder used to give up and repeat, `[3, 4, 6]` twice and then `[3, 4, 6, 8]`
+ * twice, so level 1 asked level 0's ten questions and level 3 asked level 2's.
+ *
+ * Bigger denominators are not the way out — 12ths are grade 4, and a grade-3 child does not
+ * need them to feel a rung move. A longer LINE is: 3.NF.2 never caps a fraction at one whole,
+ * and "the 5th mark on a line from 0 to 2 marked in fourths" is 5/4, which is the same
+ * counting with the whole in a new place. That is where levels 2-4 go, and it opens far more
+ * than seventeen questions without leaving the grade.
+ */
+const FRAC_WHOLES = [1, 1, 2, 2, 3];
+
+/** Longest line is 0 to 3 in sixths, so seventeen marks is as far as these ever count. */
+const ORDINALS = ["", "1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th", "10th",
+  "11th", "12th", "13th", "14th", "15th", "16th", "17th"];
+/** No hyphens: read-aloud bans `-`, so a hyphenated ordinal would be unspeakable. */
+const ORDINAL_WORDS = ["", "first", "second", "third", "fourth", "fifth", "sixth", "seventh",
+  "eighth", "ninth", "tenth", "eleventh", "twelfth", "thirteenth", "fourteenth", "fifteenth",
+  "sixteenth", "seventeenth"];
 
 /** Two fractions are the same number when their lowest terms agree. */
 function sameFraction(a: [number, number], b: [number, number]): boolean {
@@ -52,17 +75,31 @@ function sameFraction(a: [number, number], b: [number, number]): boolean {
  * against each other BY VALUE, not by spelling, so no two of them are the same number.
  */
 export function fracUnit(level: number, rng: Rng, skillId: string): Question {
-  const denoms = FRAC_DENOMS[L(level)];
+  const lvl = L(level);
+  const denoms = FRAC_DENOMS[lvl];
+  const wholes = FRAC_WHOLES[lvl];
   const d = denoms[randInt(rng, 0, denoms.length - 1)];
-  const n = randInt(rng, 1, d - 1);
+  // Every mark between 0 and the end of the line. On a one-whole line that is the old
+  // `d - 1`; on a longer one the marks keep counting past the whole, which is the point.
+  const marks = wholes * d - 1;
+  let n = 0;
+  do {
+    n = randInt(rng, 1, marks);
+  } while (n % d === 0); // a mark that lands on a whole number gives itself away by its shape
 
   // Miscounting by one mark is the mistake this question is really about, so the off-by-one
   // must itself be a real mark: step forward when there is a mark ahead, back when there is
   // not. With halves excluded there is always at least one other interior mark, so this can
   // never fall off the line to 0/d — which is not a mark, and which the verifier's own model
   // of the line agrees is not a mark.
-  const offByOne = n + 1 < d ? n + 1 : n - 1;
-  const candidates: [number, number][] = [[d, n], [offByOne, d], [d, d]];
+  const offByOne = n + 1 <= marks ? n + 1 : n - 1;
+  // The third mistake depends on what the line shows. On one whole it is calling the whole
+  // line a single part, `d/d`. On a longer line `d/d` is a real mark — it is the whole — so
+  // the mistake worth offering there is the one this shape teaches: counting the marks and
+  // dividing by ALL of them, `n/(wholes × d)`, instead of by the parts in one whole. It can
+  // never be the answer, since it equals `n/d` only when the line is one whole long.
+  const misread: [number, number] = wholes === 1 ? [d, d] : [n, wholes * d];
+  const candidates: [number, number][] = [[d, n], [offByOne, d], misread];
   const answer: [number, number] = [n, d];
   const distractors: string[] = [];
   for (const c of candidates) {
@@ -72,14 +109,25 @@ export function fracUnit(level: number, rng: Rng, skillId: string): Question {
   }
   if (distractors.length !== 3) throw new Error(`could not build three distinct fractions for ${n}/${d}`);
 
+  // The one-whole wording is left exactly as it was, so the ids and prompts a child has
+  // already met keep their spelling; the longer line gets its own, which names the size of a
+  // part rather than a count of them, because "split into 8 equal parts" over two wholes
+  // would be asking a grade-3 child to divide 8 by 2 before they could start.
+  const written = wholes === 1
+    ? `A number line from 0 to 1 is split into ${d} equal parts. What fraction is at the ${ORDINALS[n]} mark?`
+    : `A number line from 0 to ${wholes} is marked in ${DENOM_WORDS[d]}s. What fraction is at the ${ORDINALS[n]} mark?`;
+  const spoken = wholes === 1
+    ? `A number line from 0 to 1 is split into ${d} equal parts. What fraction is at the ${ORDINAL_WORDS[n]} mark?`
+    : `A number line from 0 to ${wholes} is marked in ${DENOM_WORDS[d]}s. What fraction is at the ${ORDINAL_WORDS[n]} mark?`;
+
   return makeQuestion(
     skillId,
-    `${n}/${d}`,
-    `A number line from 0 to 1 is split into ${d} equal parts. What fraction is at the ${ORDINALS[n]} mark?`,
+    wholes === 1 ? `${n}/${d}` : `0to${wholes}:${n}/${d}`,
+    written,
     `${n}/${d}`,
     distractors,
     rng,
-    `A number line from 0 to 1 is split into ${d} equal parts. What fraction is at the ${ORDINAL_WORDS[n]} mark?`,
+    spoken,
   );
 }
 
@@ -245,8 +293,15 @@ export function speakFrac(rendered: string): string {
   return `${n} ${Math.abs(n) === 1 ? word : `${word}s`}`;
 }
 
-/** Digits in each operand per level, as [digits in a, digits in b]. */
-const MUL_DIGITS: [number, number][] = [[2, 1], [2, 1], [3, 1], [2, 2], [3, 2]];
+/**
+ * Digits in each operand per level, as [digits in a, digits in b].
+ *
+ * This was `[[2, 1], [2, 1], ...]`: levels 0 and 1 drew the same 552 products, so a child who
+ * mastered two-by-one was promoted to two-by-one. 4.NBT.5 is "up to four digits by a one-digit
+ * number, and two two-digit numbers", which is a five-rung ladder as it stands — one, two and
+ * three digits more against a single digit, then two by two — with no rung invented for it.
+ */
+const MUL_DIGITS: [number, number][] = [[2, 1], [3, 1], [4, 1], [2, 2], [3, 2]];
 
 /**
  * A number with exactly `digits` digits and never a trailing zero: `30 × 6` makes the
@@ -499,6 +554,22 @@ const ADDSUB_DENOM_MAX = [6, 8, 10, 12, 12];
 const ADDSUB_PAST_ONE = [false, false, false, true, true];
 
 /**
+ * Whether an OPERAND may be greater than one, per level.
+ *
+ * Levels 3 and 4 were the same rung — unlike denominators to 12, answers allowed past one,
+ * 1129 questions shared between them — and the denominator ceiling had nowhere useful left to
+ * climb: 15ths and 16ths are not harder fraction work, just longer arithmetic. What is a real
+ * step is the operand itself passing one. 5.NF.A.1's own worked example is `2/3 + 5/4 = 23/12`,
+ * an improper operand, and it is the case a child who has only ever added two proper fractions
+ * has never met: the sum of two fractions "must" be bigger than both, until one of them is
+ * already more than a whole and the subtraction can still land above one.
+ *
+ * Written as improper fractions throughout, never as mixed numbers, so every choice on screen
+ * is one shape and none can be picked out by looking.
+ */
+const ADDSUB_IMPROPER = [false, false, false, false, true];
+
+/**
  * Adding and subtracting fractions (grade 5).
  *
  * Levels 0-2 hold the answer strictly between 0 and 1. Levels 3-4 allow sums of 1 and more,
@@ -510,8 +581,10 @@ const ADDSUB_PAST_ONE = [false, false, false, true, true];
  * without doing the arithmetic. So a draw whose answer comes out whole is thrown away, and
  * every candidate is still filtered through a fraction-shaped regex before it is offered.
  *
- * Subtraction never needs the ruling: both operands are proper, so a difference is always
- * under 1. Only a sum can reach past it.
+ * Subtraction needs the ruling only at the top rung: below it both operands are proper, so a
+ * difference is always under 1 and only a sum can reach past it. At level 4, where an operand
+ * may itself be more than a whole, a difference can land above 1 too — which is the case the
+ * rung exists to teach.
  *
  * The mandatory distractor is the mediant — numerators added AND denominators added,
  * `1/4 + 2/4 = 3/8` — which is the single most common error at this age. It can never
@@ -523,6 +596,7 @@ export function fracAddsub(level: number, rng: Rng, skillId: string): Question {
   const like = ADDSUB_LIKE[lvl];
   const dmax = ADDSUB_DENOM_MAX[lvl];
   const pastOne = ADDSUB_PAST_ONE[lvl];
+  const improper = ADDSUB_IMPROPER[lvl];
   let n1 = 0, d1 = 0, n2 = 0, d2 = 0, plus = false, num = 0, den = 0;
   let drawn = false;
   for (let attempt = 0; attempt < 400 && !drawn; attempt++) {
@@ -536,8 +610,12 @@ export function fracAddsub(level: number, rng: Rng, skillId: string): Question {
     d1 = like ? randInt(rng, 3, dmax) : randInt(rng, 2, dmax);
     d2 = like ? d1 : randInt(rng, 2, dmax);
     if (!like && d2 === d1) continue;
-    n1 = randInt(rng, 1, d1 - 1);
-    n2 = randInt(rng, 1, d2 - 1);
+    // An operand may pass one only where the level allows it, and never lands ON a whole
+    // number: `4/4 + 1/3` puts a whole number in front of a child dressed as a fraction, and
+    // the ladder is about the fraction passing one, not about spotting a disguised 1.
+    n1 = randInt(rng, 1, improper ? 2 * d1 - 1 : d1 - 1);
+    n2 = randInt(rng, 1, improper ? 2 * d2 - 1 : d2 - 1);
+    if (n1 % d1 === 0 || n2 % d2 === 0) continue;
     plus = rng() < 0.5;
     den = like ? d1 : d1 * d2;
     const left = like ? n1 : n1 * d2;
@@ -828,9 +906,17 @@ export function volumePrism(level: number, rng: Rng, skillId: string): Question 
   );
 }
 
-/** How many numbers are in the expression, and how big they get, per level. */
-const OPS_TERMS = [3, 3, 3, 4, 4];
-const OPS_NUM_MAX = [9, 9, 9, 12, 12];
+/**
+ * How many numbers are in the expression, and how big they get, per level.
+ *
+ * These were `[3, 3, 3, 4, 4]` and `[9, 9, 9, 12, 12]`, which moved together: levels 0, 1 and
+ * 2 were one rung of 602 expressions wearing three numbers, and so were 3 and 4. Staggering
+ * them is the whole fix — the two axes now step on alternate rungs, so each level has either a
+ * number the level below could not print or a term it could not hold, and level 4 gets the
+ * fifth term, which is a longer chain of precedence decisions rather than bigger arithmetic.
+ */
+const OPS_TERMS = [3, 3, 4, 4, 5];
+const OPS_NUM_MAX = [9, 12, 12, 12, 12];
 const OPS_SYMBOLS = ["+", "-", "×"];
 
 /** A number, or a parenthesised pair of numbers. */
@@ -857,7 +943,7 @@ function leftToRight(values: number[], ops: string[]): number {
 }
 
 /**
- * Order of operations (grade 5). Parentheses join at level 3.
+ * Order of operations (grade 5). Parentheses join at level 3, a fifth term at level 4.
  *
  * The mandatory distractor is the expression read strictly left to right. A draw where that
  * happens to give the right answer — `2 × 3 + 4` is 10 either way — is thrown away rather

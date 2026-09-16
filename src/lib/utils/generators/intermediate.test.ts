@@ -35,14 +35,65 @@ const value = (f: string) => {
 };
 
 describe("frac-unit", () => {
+  /**
+   * Both shapes this skill asks in, read back from the printed prompt. The one-whole line
+   * prints how many parts it is cut into; the longer line names the size of a part, because
+   * "split into 8 equal parts" over two wholes would make a grade-3 child divide before they
+   * could begin. The NAMES are written out here rather than imported, so a generator that
+   * thought "sixths" meant eight parts is caught rather than followed.
+   */
+  const PARTS_NAMED: Record<string, number> = { thirds: 3, fourths: 4, sixths: 6, eighths: 8 };
+  const line = (q: Question) => {
+    const longer = /^A number line from 0 to (\d+) is marked in ([a-z]+)\. What fraction is at the (\d+)\w\w mark\?$/.exec(q.prompt);
+    if (longer) {
+      const parts = PARTS_NAMED[longer[2]];
+      expect(parts, `${q.prompt} names a fraction this grade does not use`).toBeDefined();
+      return { wholes: Number(longer[1]), parts, which: Number(longer[3]) };
+    }
+    const one = /^A number line from 0 to 1 is split into (\d+) equal parts\. What fraction is at the (\d+)\w\w mark\?$/.exec(q.prompt);
+    expect(one, `frac-unit wrote a line a child cannot read: ${q.prompt}`).not.toBeNull();
+    return { wholes: 1, parts: Number(one![1]), which: Number(one![2]) };
+  };
+
   it("answers with the mark the prompt asks about", () => {
     for (const lvl of LEVELS) {
       for (const q of draws(fracUnit, lvl, "frac-unit")) {
-        const m = /split into (\d+) equal parts\. What fraction is at the (\d+)\w\w mark\?$/.exec(q.prompt)!;
-        expect(q.answer, q.prompt).toBe(`${m[2]}/${m[1]}`);
-        expect(Number(m[2]), q.prompt).toBeGreaterThanOrEqual(1);
-        expect(Number(m[2]), q.prompt).toBeLessThan(Number(m[1]));
+        const { wholes, parts, which } = line(q);
+        expect(q.answer, q.prompt).toBe(`${which}/${parts}`);
+        expect(which, q.prompt).toBeGreaterThanOrEqual(1);
+        // The end of the line is not a mark, so the last one is `wholes * parts - 1`.
+        expect(which, q.prompt).toBeLessThan(wholes * parts);
+        // Nor is any whole number along the way: a mark that lands on one is a fraction a
+        // child can pick out by its shape instead of by counting.
+        expect(which % parts, `${q.prompt} lands on a whole number`).not.toBe(0);
       }
+    }
+  });
+
+  /**
+   * Seventeen. That is how many questions a line from 0 to 1 holds across every denominator
+   * grade 3 owns with halves barred — 2 + 3 + 5 + 7 — and five rungs each needing eight of
+   * their own do not fit in it, which is why the ladder used to repeat `[3, 4, 6]` and then
+   * `[3, 4, 6, 8]`. The line running past one whole is what makes five rungs possible; this
+   * pins that it is really where the top three rungs go, and that the first two are still the
+   * plain 0-to-1 line a child starts on.
+   */
+  it("stays on one whole for the first two rungs and runs past it after", () => {
+    for (const lvl of [0, 1]) {
+      for (const q of draws(fracUnit, lvl, "frac-unit")) {
+        expect(line(q).wholes, `level ${lvl} left the first whole: ${q.prompt}`).toBe(1);
+      }
+    }
+    const wholes = [2, 2, 3];
+    for (const lvl of [2, 3, 4]) {
+      const seen = new Set(draws(fracUnit, lvl, "frac-unit").map((q) => line(q).wholes));
+      expect([...seen], `level ${lvl}`).toEqual([wholes[lvl - 2]]);
+      // And a mark past the first whole is genuinely drawn, or the longer line is decoration.
+      const past = draws(fracUnit, lvl, "frac-unit").filter((q) => {
+        const { parts, which } = line(q);
+        return which > parts;
+      });
+      expect(past.length, `level ${lvl} never asks a mark past one whole`).toBeGreaterThan(0);
     }
   });
 
@@ -59,13 +110,26 @@ describe("frac-unit", () => {
     }
   });
 
-  it("offers the three real mistakes: upside down, one mark out, and the whole line", () => {
-    for (const q of draws(fracUnit, 4, "frac-unit")) {
-      const [n, d] = q.answer.split("/").map(Number);
-      expect(q.choices, q.prompt).toContain(`${d}/${n}`);
-      expect(q.choices, q.prompt).toContain(`${d}/${d}`);
-      const offByOne = n + 1 < d ? n + 1 : n - 1;
-      expect(q.choices, q.prompt).toContain(`${offByOne}/${d}`);
+  it("offers the three real mistakes: upside down, one mark out, and the wrong whole", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(fracUnit, lvl, "frac-unit")) {
+        const { wholes, parts } = line(q);
+        const [n, d] = q.answer.split("/").map(Number);
+        const marks = wholes * d - 1;
+        // Each of the three is asserted to be ON the screen and NOT to be the answer: a
+        // characteristic mistake that equals the answer is a question with two right answers,
+        // and `toContain` alone would pass just as happily on one.
+        const offByOne = n + 1 <= marks ? n + 1 : n - 1;
+        // On one whole, calling the whole line a single part. On a longer line `d/d` IS a
+        // mark, so the mistake worth offering is dividing by every mark rather than by the
+        // parts in one whole.
+        const misread = wholes === 1 ? `${d}/${d}` : `${n}/${wholes * d}`;
+        for (const wrong of [`${d}/${n}`, `${offByOne}/${d}`, misread]) {
+          expect(wrong, `${q.prompt} offers its own answer as a mistake`).not.toBe(q.answer);
+          expect(q.choices, `${q.prompt} does not offer ${wrong}`).toContain(wrong);
+        }
+        expect(parts, q.prompt).toBe(d);
+      }
     }
   });
 
@@ -90,9 +154,9 @@ describe("frac-unit", () => {
   it("never splits the line in two, and never offers 0 over anything", () => {
     for (const lvl of LEVELS) {
       for (const q of draws(fracUnit, lvl, "frac-unit")) {
-        const d = Number(/split into (\d+) equal parts/.exec(q.prompt)![1]);
+        const { wholes, parts: d } = line(q);
         expect(d, q.prompt).toBeGreaterThanOrEqual(3);
-        const marks = new Set(Array.from({ length: d - 1 }, (_, i) => (i + 1) / d));
+        const marks = new Set(Array.from({ length: wholes * d - 1 }, (_, i) => (i + 1) / d));
         let onTheLine = 0;
         for (const c of q.choices) {
           const [cn, cd] = c.split("/").map(Number);
@@ -106,8 +170,11 @@ describe("frac-unit", () => {
   });
 
   it("speaks the mark as a word, so read-aloud never says '5 t h'", () => {
-    for (const q of draws(fracUnit, 2, "frac-unit")) {
-      expect(q.readAloud, q.readAloud).toMatch(/at the (first|second|third|fourth|fifth|sixth|seventh) mark/);
+    for (const lvl of LEVELS) {
+      for (const q of draws(fracUnit, lvl, "frac-unit")) {
+        expect(q.readAloud, q.readAloud).toMatch(/at the [a-z]+ mark\?$/);
+        expect(q.readAloud, q.readAloud).not.toMatch(/\d+(st|nd|rd|th)/);
+      }
     }
   });
 });
@@ -287,7 +354,9 @@ describe("mul-multi", () => {
   const operands = (q: Question) => /^What is (\d+) × (\d+)\?$/.exec(q.prompt)!.slice(1).map(Number) as [number, number];
 
   it("gives each level the digit counts the map asks for, and never a trailing zero", () => {
-    const digits: [number, number][] = [[2, 1], [2, 1], [3, 1], [2, 2], [3, 2]];
+    // 4.NBT.5: up to four digits by one digit, and two two-digit numbers. Levels 0 and 1 both
+    // read [2, 1] here, which is why a child mastering two-by-one was promoted to two-by-one.
+    const digits: [number, number][] = [[2, 1], [3, 1], [4, 1], [2, 2], [3, 2]];
     for (const lvl of LEVELS) {
       for (const q of draws(mulMulti, lvl, "mul-multi")) {
         const [a, b] = operands(q);
@@ -464,8 +533,17 @@ describe("frac-addsub", () => {
         const { n1, d1, n2, d2 } = parts(q);
         expect(Math.max(d1, d2), q.prompt).toBeLessThanOrEqual(max[lvl]);
         expect(Math.min(d1, d2), q.prompt).toBeGreaterThanOrEqual(2);
-        expect(n1, q.prompt).toBeLessThan(d1);
-        expect(n2, q.prompt).toBeLessThan(d2);
+        // Operands stay proper until the top rung, where 5.NF.A.1's own worked example —
+        // `2/3 + 5/4` — becomes askable. Nowhere may an operand land ON a whole number.
+        if (lvl <= 3) {
+          expect(n1, q.prompt).toBeLessThan(d1);
+          expect(n2, q.prompt).toBeLessThan(d2);
+        } else {
+          expect(n1, q.prompt).toBeLessThan(2 * d1);
+          expect(n2, q.prompt).toBeLessThan(2 * d2);
+        }
+        expect(n1 % d1, `${q.prompt} has a whole-number operand`).not.toBe(0);
+        expect(n2 % d2, `${q.prompt} has a whole-number operand`).not.toBe(0);
         // Halves are barred only where the denominators are SHARED, because 1/2 is then the
         // only fraction on either side and every such draw is discarded downstream.
         if (lvl <= 2) {
@@ -476,6 +554,14 @@ describe("frac-addsub", () => {
         }
       }
     }
+    // Levels 3 and 4 were the same rung: unlike denominators to 12, answers past 1, 1129
+    // questions shared. The improper operand is what separates them, so it has to be
+    // genuinely reachable at level 4 and genuinely absent below it.
+    const improper = draws(fracAddsub, 4, "frac-addsub").filter((q) => {
+      const { n1, d1, n2, d2 } = parts(q);
+      return n1 > d1 || n2 > d2;
+    });
+    expect(improper.length, "level 4 never draws an operand past one whole").toBeGreaterThan(0);
   });
 
   /**
@@ -782,8 +868,11 @@ describe("order-ops", () => {
   }
 
   it("uses the level's number of terms, and brackets only from level 3", () => {
-    const terms = [3, 3, 3, 4, 4];
-    const numMax = [9, 9, 9, 12, 12];
+    // Staggered on purpose: these used to move together at levels 0-2 and again at 3-4, so
+    // each of those was one rung printed twice. Now every rung has either a number or a term
+    // the rung below could not put on screen.
+    const terms = [3, 3, 4, 4, 5];
+    const numMax = [9, 12, 12, 12, 12];
     for (const lvl of LEVELS) {
       for (const q of draws(orderOps, lvl, "order-ops")) {
         const text = expression(q);

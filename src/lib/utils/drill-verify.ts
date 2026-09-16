@@ -226,8 +226,15 @@ const moneyCoins: Verifier = (q) => {
   return cents >= 100 ? `$${Math.floor(cents / 100)}.${pad2(cents % 100)}` : `${cents}¢`;
 };
 
+/** How many parts a named fraction cuts a whole into — the verifier's own table, not the generator's. */
+const PART_NAMES: Record<string, number> = {
+  halves: 2, thirds: 3, fourths: 4, fifths: 5, sixths: 6, sevenths: 7, eighths: 8,
+  ninths: 9, tenths: 10, elevenths: 11, twelfths: 12,
+};
+
 /**
  * "A number line from 0 to 1 is split into 6 equal parts. What fraction is at the 5th mark?"
+ * "A number line from 0 to 2 is marked in fourths. What fraction is at the 5th mark?"
  *
  * Derived by laying the marks out along the line and stepping to the one asked for, which
  * catches a generator that numbered them from zero or counted the end of the line as a
@@ -235,15 +242,25 @@ const moneyCoins: Verifier = (q) => {
  * numerator (as an ordinal) and the denominator, so no phrasing of this question leaves
  * an inverse to compute. A generator with a wrong idea of what a fraction means would
  * still be agreed with here.
+ *
+ * The longer line is laid out the same way and nothing about the answer is special-cased:
+ * marking two wholes in fourths lays out `1/4 … 7/4` and the 5th of them is `5/4`. What IS
+ * checked independently is the size of a part — `PART_NAMES` above is this file's own table,
+ * so a generator that thought "fourths" meant six parts is caught rather than agreed with.
  */
 const fracUnit: Verifier = (q) => {
-  const m = /^A number line from 0 to 1 is split into (\d+) equal parts\. What fraction is at the (\d+)(?:st|nd|rd|th) mark\?$/.exec(q.prompt);
+  const longer = /^A number line from 0 to (\d+) is marked in ([a-z]+)\. What fraction is at the (\d+)(?:st|nd|rd|th) mark\?$/.exec(q.prompt);
+  const m = longer ?? /^A number line from 0 to (1) is split into (\d+) equal parts\. What fraction is at the (\d+)(?:st|nd|rd|th) mark\?$/.exec(q.prompt);
   if (!m) throw new Error(`fraction verifier cannot parse: ${q.prompt}`);
-  const parts = Number(m[1]);
+  const wholes = Number(m[1]);
+  const parts = longer ? PART_NAMES[m[2]] : Number(m[2]);
+  if (parts === undefined) throw new Error(`no such fraction as a "${m[2]}": ${q.prompt}`);
   if (parts < 2) throw new Error(`a line split into ${parts} parts has no marks: ${q.prompt}`);
-  // The marks BETWEEN 0 and 1: cutting into `parts` pieces leaves `parts - 1` of them.
-  const marks = Array.from({ length: parts - 1 }, (_, i) => `${i + 1}/${parts}`);
-  const which = Number(m[2]);
+  if (wholes < 1) throw new Error(`a line that runs from 0 to ${wholes} has no marks: ${q.prompt}`);
+  // The marks BETWEEN 0 and the end of the line: cutting each of `wholes` wholes into
+  // `parts` pieces leaves `wholes * parts - 1` of them, the last whole itself not being one.
+  const marks = Array.from({ length: wholes * parts - 1 }, (_, i) => `${i + 1}/${parts}`);
+  const which = Number(m[3]);
   if (which < 1 || which > marks.length) throw new Error(`there is no ${which} mark in: ${q.prompt}`);
   return marks[which - 1];
 };
