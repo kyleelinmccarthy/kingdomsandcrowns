@@ -24,9 +24,14 @@ describe("count-seq", () => {
     const max = [10, 12, 15, 20, 20];
     for (const lvl of LEVELS) {
       for (const q of draws(countSeq, lvl, "count-seq")) {
-        const n = Number(/comes (?:after|before) (\d+)\?$/.exec(q.prompt)![1]);
-        expect(n, q.prompt).toBeGreaterThanOrEqual(1);
-        expect(n, q.prompt).toBeLessThanOrEqual(max[lvl] - 1);
+        // Every number the prompt names, whichever phrasing it uses — "between 12 and 14"
+        // names two, and both of them have to be inside the range as well.
+        const named = [...q.prompt.matchAll(/(\d+)/g)].map((m) => Number(m[1]));
+        expect(named.length, q.prompt).toBeGreaterThanOrEqual(1);
+        for (const n of named) {
+          expect(n, q.prompt).toBeGreaterThanOrEqual(0);
+          expect(n, q.prompt).toBeLessThanOrEqual(max[lvl]);
+        }
         expect(Number(q.answer), q.prompt).toBeGreaterThanOrEqual(0);
         expect(Number(q.answer), q.prompt).toBeLessThanOrEqual(max[lvl]);
       }
@@ -44,6 +49,28 @@ describe("count-seq", () => {
     }
   });
 
+  /**
+   * Levels 3 and 4 both count to 20, which is this grade's whole number line, so the ceiling
+   * cannot separate them and level 4 asked level 3's own 38 questions. "Between" is what
+   * separates them instead — and it has to be absent below level 4, or the rung is decoration
+   * again in the other direction.
+   */
+  it("asks what comes between only at level 4, and really does ask it there", () => {
+    for (const lvl of [0, 1, 2, 3]) {
+      for (const q of draws(countSeq, lvl, "count-seq")) {
+        expect(q.prompt, `level ${lvl} asked between`).not.toContain("between");
+      }
+    }
+    const betweens = draws(countSeq, 4, "count-seq").filter((q) => q.prompt.includes("between"));
+    expect(betweens.length, "level 4 never asks what comes between").toBeGreaterThan(0);
+    for (const q of betweens) {
+      const [before, after] = [...q.prompt.matchAll(/(\d+)/g)].map((m) => Number(m[1]));
+      // The two numbers named really are two apart, or nothing sits between them.
+      expect(after - before, q.prompt).toBe(2);
+      expect(Number(q.answer), q.prompt).toBe(before + 1);
+    }
+  });
+
   it("speaks the question it shows", () => {
     for (const q of draws(countSeq, 4, "count-seq")) expect(q.readAloud).toBe(q.prompt);
   });
@@ -51,8 +78,8 @@ describe("count-seq", () => {
 
 describe("compare-num", () => {
   it.each([
-    ["compare-num", [5, 10, 10, 10, 10]],
-    ["compare-num-100", [20, 50, 99, 99, 99]],
+    ["compare-num", [5, 8, 10, 15, 20]],
+    ["compare-num-100", [20, 50, 70, 85, 99]],
   ] as [string, number[]][])("keeps %s inside its own ceilings", (skillId, ceilings) => {
     for (const lvl of LEVELS) {
       for (const q of draws(compareNum, lvl, skillId)) {
@@ -62,6 +89,50 @@ describe("compare-num", () => {
           expect(Number(c), q.choices.join(",")).toBeLessThanOrEqual(ceilings[lvl]);
         }
       }
+    }
+  });
+
+  /**
+   * Both ceilings used to stop climbing partway up, so `compare-num` levels 1-4 shared one
+   * pool of 326 sets and `compare-num-100` levels 2-4 shared 1440. Each rung has to reach a
+   * number no rung below it could, which is what this asserts — not merely that the ceiling
+   * constant changed, but that a set containing a number above the previous ceiling is really
+   * drawn.
+   */
+  it.each([
+    ["compare-num", [5, 8, 10, 15, 20]],
+    ["compare-num-100", [20, 50, 70, 85, 99]],
+  ] as [string, number[]][])("reaches past the rung below on every rung of %s", (skillId, ceilings) => {
+    for (const lvl of [1, 2, 3, 4]) {
+      const reached = draws(compareNum, lvl, skillId).some((q) =>
+        q.choices.some((c) => Number(c) > ceilings[lvl - 1]));
+      expect(reached, `${skillId} level ${lvl} never reaches past ${ceilings[lvl - 1]}`).toBe(true);
+    }
+  });
+
+  /**
+   * The ceiling is only half the ladder. `3, 18, 5, 2` is answered by spotting the long
+   * number; `17, 19, 16, 18` has to be compared. The top two rungs draw from a narrow window
+   * so the comparison is real — and for `compare-num-100` that means a shared tens digit,
+   * which is 1.NBT.3.
+   */
+  it.each([
+    ["compare-num", [20, 20, 20, 6, 4]],
+    ["compare-num-100", [99, 99, 99, 20, 9]],
+  ] as [string, number[]][])("draws %s from the level's own window", (skillId, spreads) => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(compareNum, lvl, skillId)) {
+        const nums = q.choices.map(Number);
+        expect(Math.max(...nums) - Math.min(...nums), q.choices.join(",")).toBeLessThanOrEqual(spreads[lvl]);
+      }
+    }
+    // And the window really does bite at the top, or it is a constant nothing reads.
+    for (const lvl of [3, 4]) {
+      const widest = Math.max(...draws(compareNum, lvl, skillId).map((q) => {
+        const nums = q.choices.map(Number);
+        return Math.max(...nums) - Math.min(...nums);
+      }));
+      expect(widest, `${skillId} level ${lvl} never fills its window`).toBe(spreads[lvl]);
     }
   });
 
@@ -125,7 +196,7 @@ describe("skip-count", () => {
 
 describe("time-clock", () => {
   it("places the minute hand where the minutes actually are", () => {
-    const grain = [30, 30, 15, 5, 5];
+    const grain = [60, 30, 15, 10, 5];
     for (const lvl of LEVELS) {
       for (const q of draws(timeClock, lvl, "time-clock")) {
         const hands = /on (\d+) and the minute hand is on (\d+)\./.exec(q.prompt)!;
@@ -156,6 +227,26 @@ describe("time-clock", () => {
     }
   });
 
+  /**
+   * The grain was `[30, 30, 15, 5, 5]` and flat at both ends: levels 0 and 1 shared all 22
+   * half-hour faces, levels 3 and 4 every five-minute one. Each rung has to put a mark on
+   * the dial the rung below could not show — asserted as a real draw rather than as a
+   * constant, because the constant above is the thing that was wrong.
+   */
+  it("shows a minute mark no earlier level could show, on every rung", () => {
+    const grain = [60, 30, 15, 10, 5];
+    for (const lvl of [1, 2, 3, 4]) {
+      const earlier = new Set<number>();
+      for (const below of [0, 1, 2, 3].slice(0, lvl)) {
+        for (let m = 0; m < 60; m += grain[below]) earlier.add(m);
+      }
+      const fresh = draws(timeClock, lvl, "time-clock")
+        .map((q) => Number(q.answer.split(":")[1]))
+        .filter((m) => !earlier.has(m));
+      expect(fresh.length, `level ${lvl} shows no minute level ${lvl - 1} could not`).toBeGreaterThan(0);
+    }
+  });
+
   it("writes every time as a two-digit minute, so 4:05 is never 4:5", () => {
     for (const q of draws(timeClock, 4, "time-clock")) {
       for (const c of q.choices) expect(c, q.prompt).toMatch(/^([1-9]|1[0-2]):[0-5]\d$/);
@@ -181,6 +272,27 @@ describe("money-coins", () => {
       for (const coin of used) expect(ladder[lvl], `level ${lvl} used ${coin}`).toContain(coin);
       // And every kind the level allows is actually reachable, or the ladder is decoration.
       expect([...used].sort(), `level ${lvl}`).toEqual([...ladder[lvl]].sort());
+    }
+  });
+
+  /**
+   * Levels 1 and 2 both hold two coin kinds — dimes and pennies are worth two rungs, and a
+   * third kind at level 2 would leave nothing for level 3 — so the handful size is what
+   * separates them. Without it the two rungs were the same 81 handfuls.
+   */
+  it("keeps each handful inside the level's count, and opens it up at level 2", () => {
+    const maxCount = [9, 5, 9, 9, 9];
+    for (const lvl of LEVELS) {
+      let biggest = 0;
+      for (const q of draws(moneyCoins, lvl, "money-coins")) {
+        for (const m of q.prompt.matchAll(/(\d+) (?:quarters?|dimes?|nickels?|penny|pennies)/g)) {
+          expect(Number(m[1]), q.prompt).toBeGreaterThanOrEqual(1);
+          expect(Number(m[1]), q.prompt).toBeLessThanOrEqual(maxCount[lvl]);
+          biggest = Math.max(biggest, Number(m[1]));
+        }
+      }
+      // And the ceiling is reachable, or level 2 is level 1 again with a bigger constant.
+      expect(biggest, `level ${lvl} never draws a handful of ${maxCount[lvl]}`).toBe(maxCount[lvl]);
     }
   });
 

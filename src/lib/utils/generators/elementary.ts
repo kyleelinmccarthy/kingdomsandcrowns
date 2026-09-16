@@ -40,22 +40,45 @@ const L = (level: number) => Math.min(4, Math.max(0, Math.floor(level)));
 const COUNT_MAX = [10, 12, 15, 20, 20];
 
 /**
- * Counting and number order to 20 (grade K).
+ * Which phrasings each level may ask.
  *
- * Counting forward is learned first, so levels 0-2 only ever ask what comes *after*;
- * counting back joins in at level 3.
+ * Counting forward is learned first, so levels 0-2 only ever ask what comes *after*, and
+ * counting back joins at level 3. Level 4 is where "between" arrives, and it is there
+ * because the ceiling has nowhere left to go: levels 3 and 4 both count to 20 — twenty is
+ * this grade's number line, and a rung that reached past it would be teaching grade 1 — so
+ * with only the two directions in play level 4 asked the same 38 questions level 3 did.
+ *
+ * "What number comes between 12 and 14?" is number order rather than a bigger number: a
+ * child has to hold two neighbours at once instead of stepping off one, which is a real
+ * step up inside K, and it opens 19 questions no earlier rung can reach.
+ */
+const COUNT_SHAPES: readonly (readonly ("after" | "before" | "between")[])[] = [
+  ["after"],
+  ["after"],
+  ["after"],
+  ["after", "before"],
+  ["after", "before", "between"],
+];
+
+/**
+ * Counting and number order to 20 (grade K).
  */
 export function countSeq(level: number, rng: Rng, skillId: string): Question {
   const lvl = L(level);
   const max = COUNT_MAX[lvl];
-  // n stays in [1, max - 1] so both directions land inside the range a child is counting in.
+  const shapes = COUNT_SHAPES[lvl];
+  const shape = shapes[randInt(rng, 0, shapes.length - 1)];
+  // n stays in [1, max - 1] so every neighbour named lands inside the range a child is
+  // counting in — which is what makes "between n - 1 and n + 1" safe at either end too.
   const n = randInt(rng, 1, max - 1);
-  const back = lvl >= 3 && rng() < 0.5;
-  const answer = back ? n - 1 : n + 1;
-  const prompt = `What number comes ${back ? "before" : "after"} ${n}?`;
+  const answer = shape === "before" ? n - 1 : shape === "after" ? n + 1 : n;
+  const prompt =
+    shape === "between"
+      ? `What number comes between ${n - 1} and ${n + 1}?`
+      : `What number comes ${shape} ${n}?`;
   return makeQuestion(
     skillId,
-    `${back ? "before" : "after"}-${n}`,
+    `${shape}-${n}`,
     prompt,
     String(answer),
     numericDistractors(answer, rng, 0),
@@ -64,10 +87,34 @@ export function countSeq(level: number, rng: Rng, skillId: string): Question {
   );
 }
 
-/** Ceilings per level, keyed by skill so one generator serves both comparison skills. */
+/**
+ * Ceilings per level, keyed by skill so one generator serves both comparison skills.
+ *
+ * Both used to stop climbing partway up — `[5, 10, 10, 10, 10]` and `[20, 50, 99, 99, 99]` —
+ * so three of `compare-num`'s five rungs and two of `compare-num-100`'s drew from exactly the
+ * pool the rung below had. They climb the whole way now, to twenty for a kindergartener
+ * (K.CC.3's own range) and to ninety-nine for grade 1.
+ */
 const COMPARE_MAX: Record<string, number[]> = {
-  "compare-num": [5, 10, 10, 10, 10],
-  "compare-num-100": [20, 50, 99, 99, 99],
+  "compare-num": [5, 8, 10, 15, 20],
+  "compare-num-100": [20, 50, 70, 85, 99],
+};
+
+/**
+ * The widest gap allowed between the smallest and the largest of the four numbers.
+ *
+ * A bigger ceiling alone is the cheap half of this ladder, and on its own it is not even the
+ * real difficulty: `3, 18, 5, 2` is answered by spotting the one long number, while
+ * `17, 19, 16, 18` has to actually be compared. So the top two rungs draw their four numbers
+ * from a narrow window — which for `compare-num-100` means numbers sharing a tens digit, and
+ * so comparing the ones place, which is 1.NBT.3 word for word.
+ *
+ * A window can only ever remove draws, so it could never make a rung fresh by itself; it is
+ * the second axis beside the ceiling, not a replacement for it.
+ */
+const COMPARE_SPREAD: Record<string, number[]> = {
+  "compare-num": [20, 20, 20, 6, 4],
+  "compare-num-100": [99, 99, 99, 20, 9],
 };
 
 /**
@@ -78,9 +125,14 @@ const COMPARE_MAX: Record<string, number[]> = {
  * question however it was drawn — which is what re-asking a miss verbatim needs.
  */
 export function compareNum(level: number, rng: Rng, skillId: string): Question {
-  const max = (COMPARE_MAX[skillId] ?? COMPARE_MAX["compare-num"])[L(level)];
+  const lvl = L(level);
+  const max = (COMPARE_MAX[skillId] ?? COMPARE_MAX["compare-num"])[lvl];
+  // Never wider than the range itself, and never narrower than the four distinct numbers
+  // a window has to hold.
+  const spread = Math.max(3, Math.min((COMPARE_SPREAD[skillId] ?? COMPARE_SPREAD["compare-num"])[lvl], max));
+  const low = randInt(rng, 0, max - spread);
   const picked = new Set<number>();
-  while (picked.size < 4) picked.add(randInt(rng, 0, max));
+  while (picked.size < 4) picked.add(randInt(rng, low, low + spread));
   const nums = [...picked];
   const answer = Math.max(...nums);
   const prompt = "Which number is the greatest?";
@@ -149,8 +201,19 @@ export function skipCount(level: number, rng: Rng, skillId: string): Question {
   );
 }
 
-/** How fine the minute hand gets per level: half hours, then quarters, then five-minute marks. */
-const CLOCK_GRAIN = [30, 30, 15, 5, 5];
+/**
+ * How fine the minute hand gets per level: o'clock, then half hours, then quarters, then ten
+ * and finally five-minute marks — 2.MD.7's own ladder, which ends at "to the nearest five
+ * minutes" and so has a real top.
+ *
+ * This was `[30, 30, 15, 5, 5]`, flat at both ends: levels 0 and 1 shared all 22 half-hour
+ * faces and levels 3 and 4 shared every five-minute one. Each rung now puts marks on the dial
+ * the rung below had not, and whole hours are the right first thing a grade-2 child reads.
+ */
+const CLOCK_GRAIN = [60, 30, 15, 10, 5];
+
+/** Every mark the minute hand can point at, for the levels whose own grain offers only one. */
+const FIVE_MINUTE_MARKS = Array.from({ length: 12 }, (_, i) => i * 5);
 
 /** Two digits, for the minutes in "4:05" and the cents in "$1.05". */
 const pad2 = (n: number) => String(n).padStart(2, "0");
@@ -180,7 +243,11 @@ export function timeClock(level: number, rng: Rng, skillId: string): Question {
     // on half of their first two rungs, teaching a dial that does not exist.
     minuteHand = minute === 0 ? 12 : minute / 5;
     const answer = `${hour}:${pad2(minute)}`;
-    const otherMinutes = minuteChoices.filter((m) => m !== minute);
+    // At the o'clock rung the level's own grain offers a single minute value, so the
+    // "right hour, wrong minutes" distractor has to come from the fuller dial — otherwise
+    // there is no wrong-minutes reading to offer at all. Every other level has its own.
+    const minutePool = minuteChoices.length > 1 ? minuteChoices : FIVE_MINUTE_MARKS;
+    const otherMinutes = minutePool.filter((m) => m !== minute);
     const wrongMinutes = `${hour}:${pad2(otherMinutes[randInt(rng, 0, otherMinutes.length - 1)])}`;
     const hourOut = `${((hour + (rng() < 0.5 ? 10 : 0)) % 12) + 1}:${pad2(minute)}`;
     const swapped = `${minuteHand}:${pad2((hour % 12) * 5)}`;
@@ -218,6 +285,18 @@ const COINS = [
 /** How many kinds of coin are in the handful per level. */
 const COIN_KINDS = [1, 2, 2, 3, 4];
 
+/**
+ * How many of each kind may be in the handful, per level — the second axis, and the reason
+ * levels 1 and 2 are no longer the same 81 questions.
+ *
+ * Both rungs hold two coin kinds, because dimes-and-pennies is worth two rungs of practice
+ * and a third kind at level 2 would leave nothing for level 3. So level 1 introduces the
+ * second kind with small handfuls — one new thing at a time — and level 2 keeps the two
+ * kinds and opens the handful up to nine, which is more counting and more regrouping on the
+ * same coins.
+ */
+const COIN_MAX_COUNT = [9, 5, 9, 9, 9];
+
 /** "32¢" under a dollar, "$1.15" at or above one. */
 function money(cents: number): string {
   return cents >= 100 ? `$${Math.floor(cents / 100)}.${pad2(cents % 100)}` : `${cents}¢`;
@@ -231,8 +310,9 @@ const coinPhrase = (count: number, coin: (typeof COINS)[number]) => `${count} ${
  * instead of their value, miscounting one coin, and being five cents out.
  */
 export function moneyCoins(level: number, rng: Rng, skillId: string): Question {
-  const kinds = COINS.slice(0, COIN_KINDS[L(level)]);
-  const counts = kinds.map(() => randInt(rng, 1, 9));
+  const lvl = L(level);
+  const kinds = COINS.slice(0, COIN_KINDS[lvl]);
+  const counts = kinds.map(() => randInt(rng, 1, COIN_MAX_COUNT[lvl]));
   const total = kinds.reduce((sum, coin, i) => sum + coin.value * counts[i], 0);
   const coinCount = counts.reduce((a, b) => a + b, 0);
   const miscounted = kinds[randInt(rng, 0, kinds.length - 1)].value;

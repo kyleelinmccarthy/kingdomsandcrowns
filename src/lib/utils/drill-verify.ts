@@ -85,16 +85,30 @@ const oneStepEq: Verifier = (q) => {
 };
 
 /**
- * "What number comes after 7?" / "What number comes before 12?"
+ * "What number comes after 7?" / "What number comes before 12?" / "What number comes
+ * between 12 and 14?"
  *
  * Derived by walking a literal counting sequence one position, not by computing n ± 1:
  * "comes after" IS the next entry when you count, and a generator that had decided
  * "after" meant two steps on would disagree with this walk.
+ *
+ * "Between" walks the same sequence and then checks the far end of the prompt against it:
+ * a prompt naming two numbers that are not two apart has nothing between them, and is a
+ * defect rather than a question, so it throws instead of answering the near neighbour.
  */
 const countSeq: Verifier = (q) => {
+  const counting = Array.from({ length: 101 }, (_, i) => i);
+  const between = /^What number comes between (\d+) and (\d+)\?$/.exec(q.prompt);
+  if (between) {
+    const from = counting.indexOf(Number(between[1]));
+    if (from < 0 || from + 2 >= counting.length) throw new Error(`off the number line: ${q.prompt}`);
+    if (counting[from + 2] !== Number(between[2])) {
+      throw new Error(`nothing sits between ${between[1]} and ${between[2]}: ${q.prompt}`);
+    }
+    return String(counting[from + 1]);
+  }
   const m = /^What number comes (after|before) (\d+)\?$/.exec(q.prompt);
   if (!m) throw new Error(`counting verifier cannot parse: ${q.prompt}`);
-  const counting = Array.from({ length: 101 }, (_, i) => i);
   const at = counting.indexOf(Number(m[2]));
   const next = m[1] === "after" ? at + 1 : at - 1;
   if (at < 0 || next < 0 || next >= counting.length) throw new Error(`off the number line: ${q.prompt}`);
