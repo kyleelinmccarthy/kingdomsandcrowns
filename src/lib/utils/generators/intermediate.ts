@@ -19,12 +19,17 @@ import {
 const L = (level: number) => Math.min(4, Math.max(0, Math.floor(level)));
 
 /**
- * How many equal parts the line is cut into, per level. The brief's ladder is 2, 3, 4, 6,
- * 8; each level draws from a small set of it rather than one fixed denominator, because a
- * single denominator d offers only d - 1 different questions — one, at halves — and a
- * deed asks eight. The sets climb, so the denominators get harder as the level does.
+ * How many equal parts the line is cut into, per level. Each level draws from a small set
+ * rather than one fixed denominator, because a single denominator d offers only d - 1
+ * different questions and a deed asks eight. The sets climb with the level.
+ *
+ * No halves, though the brief's ladder starts there. A line split into 2 parts has exactly
+ * ONE interior mark, so there is no second real mark to offer as a wrong answer — the
+ * choices came out `1/2, 2/1, 2/2, 0/2`, and three of those are not marks on the line at
+ * all. A child who had learned only "the answer is between 0 and 1" could score every
+ * halves question without counting a single mark. Thirds up.
  */
-const FRAC_DENOMS = [[2, 3, 4, 6], [2, 3, 4, 6], [2, 3, 4, 6, 8], [3, 4, 6, 8], [4, 6, 8]];
+const FRAC_DENOMS = [[3, 4, 6], [3, 4, 6], [3, 4, 6, 8], [3, 4, 6, 8], [4, 6, 8]];
 
 const ORDINALS = ["", "1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th"];
 const ORDINAL_WORDS = ["", "first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth"];
@@ -51,8 +56,11 @@ export function fracUnit(level: number, rng: Rng, skillId: string): Question {
   const d = denoms[randInt(rng, 0, denoms.length - 1)];
   const n = randInt(rng, 1, d - 1);
 
-  // n + 1 would be the whole when the mark is the last one, which the third distractor
-  // already offers; step back instead so the two stay different questions.
+  // Miscounting by one mark is the mistake this question is really about, so the off-by-one
+  // must itself be a real mark: step forward when there is a mark ahead, back when there is
+  // not. With halves excluded there is always at least one other interior mark, so this can
+  // never fall off the line to 0/d — which is not a mark, and which the verifier's own model
+  // of the line agrees is not a mark.
   const offByOne = n + 1 < d ? n + 1 : n - 1;
   const candidates: [number, number][] = [[d, n], [offByOne, d], [d, d]];
   const answer: [number, number] = [n, d];
@@ -112,7 +120,10 @@ export function areaPerimeter(level: number, rng: Rng, skillId: string): Questio
   }
 
   const measure = wantArea ? "area" : "perimeter";
-  const prompt = `A rectangle is ${w} units wide and ${h} units tall. What is its ${measure}?`;
+  // "1 units wide" reached both the screen and the screen reader, which said "one units
+  // tall" — on better than a third of a grade-3 child's first deed.
+  const unit = (n: number) => (n === 1 ? "unit" : "units");
+  const prompt = `A rectangle is ${w} ${unit(w)} wide and ${h} ${unit(h)} tall. What is its ${measure}?`;
   return makeQuestion(
     skillId,
     `${w}x${h}${wantArea ? "a" : "p"}`,

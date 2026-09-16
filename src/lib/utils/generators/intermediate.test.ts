@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { SKILLS } from "../skills";
 import {
   areaPerimeter,
   decOps,
@@ -80,7 +81,7 @@ describe("area-perimeter", () => {
     // rectangle would put a second right answer among the choices.
     for (const lvl of LEVELS) {
       for (const q of draws(areaPerimeter, lvl, "area-perimeter")) {
-        const [w, h] = /is (\d+) units wide and (\d+) units tall/.exec(q.prompt)!.slice(1).map(Number);
+        const [w, h] = /is (\d+) units? wide and (\d+) units? tall/.exec(q.prompt)!.slice(1).map(Number);
         expect(w * h, q.prompt).not.toBe(2 * (w + h));
       }
     }
@@ -89,7 +90,7 @@ describe("area-perimeter", () => {
   it("always offers the other measure as a wrong answer", () => {
     for (const lvl of LEVELS) {
       for (const q of draws(areaPerimeter, lvl, "area-perimeter")) {
-        const [w, h] = /is (\d+) units wide and (\d+) units tall/.exec(q.prompt)!.slice(1).map(Number);
+        const [w, h] = /is (\d+) units? wide and (\d+) units? tall/.exec(q.prompt)!.slice(1).map(Number);
         const other = q.prompt.endsWith("area?") ? 2 * (w + h) : w * h;
         expect(q.choices, q.prompt).toContain(String(other));
       }
@@ -101,7 +102,7 @@ describe("area-perimeter", () => {
     for (const lvl of LEVELS) {
       const asked = new Set<string>();
       for (const q of draws(areaPerimeter, lvl, "area-perimeter")) {
-        const [w, h] = /is (\d+) units wide and (\d+) units tall/.exec(q.prompt)!.slice(1).map(Number);
+        const [w, h] = /is (\d+) units? wide and (\d+) units? tall/.exec(q.prompt)!.slice(1).map(Number);
         expect(Math.max(w, h), q.prompt).toBeLessThanOrEqual(max[lvl]);
         expect(Math.min(w, h), q.prompt).toBeGreaterThanOrEqual(1);
         asked.add(q.prompt.endsWith("area?") ? "area" : "perimeter");
@@ -127,12 +128,20 @@ describe("round-nearest", () => {
 
   it("rounds a tie up", () => {
     // 275 to the nearest 10 is 280, not 270 — the one case where "nearest" needs a rule.
+    // The assertion below only fires on an actual tie, so count them: at level 4 a tie is
+    // roughly a 1-in-1000 draw and the level would otherwise contribute nothing at all
+    // while still reading as covered.
+    let ties = 0;
     for (const lvl of LEVELS) {
       for (const q of draws(roundNearest, lvl, "round-nearest")) {
         const [n, place] = /^Round (\d+) to the nearest (\d+)\.$/.exec(q.prompt)!.slice(1).map(Number);
-        if (n % place === place / 2) expect(Number(q.answer), q.prompt).toBe(n - n % place + place);
+        if (n % place === place / 2) {
+          ties++;
+          expect(Number(q.answer), q.prompt).toBe(n - n % place + place);
+        }
       }
     }
+    expect(ties, "no tie was ever drawn, so the rule above was never checked").toBeGreaterThan(0);
   });
 
   it("rounds to the place the level says, over numbers that grow with it", () => {
@@ -645,34 +654,38 @@ describe("order-ops", () => {
   });
 });
 
-describe("a new generator can fill a deed", () => {
+describe("every generated skill can fill a deed", () => {
   /**
-   * A deed asks eight questions and `drawGenerated` will not repeat an id, so a level
-   * with fewer than eight distinct questions hands a child a short run. This is the check
-   * that says so out loud, per level, rather than leaving it to be noticed in use.
+   * A deed asks eight questions and `drawGenerated` will not repeat an id, so a level with
+   * fewer than eight distinct questions hands a child a short run. This is the check that
+   * says so out loud, per level, rather than leaving it to be noticed in use.
    *
-   * This test was written because `count-seq` level 0 had exactly four questions — the
-   * brief capped it at 5 and drew n in [1, max - 1], so a kindergartener's first counting
-   * deed was four questions long and nothing said so. The cap is now 10; there are no
-   * exemptions, and there should never be one: a level that cannot fill a deed is a bug in
-   * that level's range, not a fact to be recorded here.
+   * Written because `count-seq` level 0 had exactly four questions in existence — a cap of
+   * 5 drawing n in [1, max - 1] — so a kindergartener's first counting deed was four
+   * questions long and nothing said so. There are no exemptions and there should never be
+   * one: a level that cannot fill a deed is a bug in that level's range.
+   *
+   * Derived from SKILLS rather than a hand-kept list of generator ids, for two reasons. A
+   * hand-kept list goes stale every time a grade is added. And a generator's behaviour
+   * depends on WHICH SKILL asks it — `sub` serves `sub-10`, `sub-20` and `sub-100` off
+   * different ceilings — so passing the generator's own id as the skill id, as this used
+   * to, silently skipped every parameterised row and exercised a fallback branch instead
+   * of the real ones.
    */
-  const NEW = [
-    "count-seq", "compare-num", "ten-more-less", "skip-count", "time-clock", "money-coins",
-    "frac-unit", "area-perimeter", "round-nearest",
-    "mul-multi", "div-multi", "frac-equiv", "factors",
-    "frac-addsub", "frac-mul", "dec-ops", "volume-prism", "order-ops",
-  ];
-
-  it.each(NEW.flatMap((id) => LEVELS.map((lvl) => [id, lvl] as [string, number])))(
-    "%s at level %i offers at least eight different questions",
-    (genId, lvl) => {
-      const ids = new Set<string>();
-      for (const seed of SEEDS) {
-        const rng = seededRng(seed);
-        for (let i = 0; i < 20; i++) ids.add(GENERATORS[genId](lvl, rng, genId).id);
-      }
-      expect(ids.size, `${genId} level ${lvl} can only ask ${ids.size} questions`).toBeGreaterThanOrEqual(8);
-    }
+  const PAIRS = SKILLS.filter((s) => s.source.kind === "generator").flatMap((s) =>
+    LEVELS.map((lvl) => [s.id, (s.source as { generatorId: string }).generatorId, lvl] as [string, string, number])
   );
+
+  it("covers every generated skill, so the check below is not vacuous", () => {
+    expect(PAIRS.length).toBe(SKILLS.filter((s) => s.source.kind === "generator").length * LEVELS.length);
+  });
+
+  it.each(PAIRS)("%s at level %i offers at least eight different questions", (skillId, genId, lvl) => {
+    const ids = new Set<string>();
+    for (const seed of SEEDS) {
+      const rng = seededRng(seed);
+      for (let i = 0; i < 20; i++) ids.add(GENERATORS[genId](lvl, rng, skillId).id);
+    }
+    expect(ids.size, `${skillId} level ${lvl} can only ask ${ids.size} questions`).toBeGreaterThanOrEqual(8);
+  });
 });

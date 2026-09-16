@@ -131,7 +131,13 @@ describe("time-clock", () => {
         const hands = /on (\d+) and the minute hand is on (\d+)\./.exec(q.prompt)!;
         const [hour, minutes] = q.answer.split(":").map(Number);
         expect(Number(hands[1]), q.prompt).toBe(hour);
-        expect(Number(hands[2]) * 5, q.prompt).toBe(minutes);
+        // The hand points at 12 for o'clock, so it wraps rather than multiplying straight out.
+        expect((Number(hands[2]) % 12) * 5, q.prompt).toBe(minutes);
+        // A clock face is numbered 1-12 and has no 0 on it. This printed "the minute hand
+        // is on 0" for every o'clock — half of all questions at levels 0 and 1 — and the
+        // verifier encoded the same mistake, so nothing caught it.
+        expect(Number(hands[2]), `${q.prompt} — no clock face has a 0`).toBeGreaterThanOrEqual(1);
+        expect(Number(hands[2]), q.prompt).toBeLessThanOrEqual(12);
         expect(minutes % grain[lvl], q.prompt).toBe(0);
         expect(hour, q.prompt).toBeGreaterThanOrEqual(1);
         expect(hour, q.prompt).toBeLessThanOrEqual(12);
@@ -158,6 +164,26 @@ describe("time-clock", () => {
 });
 
 describe("money-coins", () => {
+  it("only offers the coin kinds its level has reached", () => {
+    // The one new generator whose ladder nothing pinned: flattening it to four kinds at
+    // every level passed the entire suite, which would have handed a grade-2 child
+    // "7 quarters, 3 dimes, 8 nickels and 2 pennies" on their very first rung.
+    // One coin is written "1 penny" and two are "2 pennies", so fold both spellings onto
+    // one name before counting kinds — otherwise the singular reads as a fifth coin.
+    const kindOf = (word: string) =>
+      word.startsWith("quarter") ? "quarter" : word.startsWith("dime") ? "dime" : word.startsWith("nickel") ? "nickel" : "penny";
+    const ladder = [["dime"], ["dime", "penny"], ["dime", "penny"], ["dime", "penny", "nickel"], ["dime", "penny", "nickel", "quarter"]];
+    for (const lvl of LEVELS) {
+      const used = new Set<string>();
+      for (const q of draws(moneyCoins, lvl, "money-coins")) {
+        for (const m of q.prompt.matchAll(/\d+ (quarters?|dimes?|nickels?|penny|pennies)/g)) used.add(kindOf(m[1]));
+      }
+      for (const coin of used) expect(ladder[lvl], `level ${lvl} used ${coin}`).toContain(coin);
+      // And every kind the level allows is actually reachable, or the ladder is decoration.
+      expect([...used].sort(), `level ${lvl}`).toEqual([...ladder[lvl]].sort());
+    }
+  });
+
   it("renders cents under a dollar and dollars above it", () => {
     for (const lvl of LEVELS) {
       for (const q of draws(moneyCoins, lvl, "money-coins")) {

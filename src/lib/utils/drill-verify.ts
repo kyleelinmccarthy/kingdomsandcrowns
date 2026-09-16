@@ -172,8 +172,11 @@ const timeClock: Verifier = (q) => {
   if (!m) throw new Error(`clock verifier cannot parse: ${q.prompt}`);
   const hour = Number(m[1]), hand = Number(m[2]);
   if (hour < 1 || hour > 12) throw new Error(`no such hour in: ${q.prompt}`);
-  if (hand < 0 || hand > 11) throw new Error(`no such minute-hand position in: ${q.prompt}`);
-  return `${hour}:${pad2(hand * 5)}`;
+  // 1-12, like the dial. This previously accepted 0 and rejected 12 — the same mistake the
+  // generator was making, which is exactly why the harness stayed silent about it. When a
+  // verifier shares the generator's model of the world it stops being a second opinion.
+  if (hand < 1 || hand > 12) throw new Error(`no such minute-hand position in: ${q.prompt}`);
+  return `${hour}:${pad2((hand % 12) * 5)}`;
 };
 
 const COIN_VALUES: Record<string, number> = {
@@ -183,13 +186,16 @@ const COIN_VALUES: Record<string, number> = {
 /**
  * "How much is 3 dimes and 2 pennies?"
  *
- * NOT a second derivation of the arithmetic: the prompt names every coin and its count,
- * so there is nothing left to invert, and this adds the same values up the same way the
- * generator did. A generator that thought a dime was worth five cents would be agreed
- * with. What this DOES check independently is the rendering — that the cents total is
- * spelled "32¢" under a dollar and "$1.15" at or above one, with two digits of cents —
- * which is its own class of bug, and the total is reached by counting each coin out one
- * at a time rather than by multiplying.
+ * The SUMMATION is the same direction: the prompt names every coin and its count, so there
+ * is nothing left to invert, and a shared misconception about adding them up would go
+ * unnoticed.
+ *
+ * Two things here ARE independent, and a review proved both by mutation. `COIN_VALUES`
+ * below is written out separately from the generator's own table, so a generator that
+ * thought a dime was worth five cents IS caught. And the rendering rule — "32¢" under a
+ * dollar, "$1.15" at or above one, always two digits of cents — is derived here too, so a
+ * boundary slip is caught. Do not "simplify" this by importing the generator's coin table:
+ * that would destroy the only independent check of what a coin is worth.
  */
 const moneyCoins: Verifier = (q) => {
   const m = /^How much is (.+)\?$/.exec(q.prompt);
@@ -229,7 +235,7 @@ const fracUnit: Verifier = (q) => {
 };
 
 /**
- * "A rectangle is 7 units wide and 4 units tall. What is its area?" (or perimeter)
+ * "A rectangle is 7 units wide and 4 units tall. What is its area?" (or perimeter, or "1 unit")
  *
  * Both measures are computed a different way round from the generator: the perimeter as
  * the four sides added up rather than as twice the half-perimeter, and the area as the
@@ -237,7 +243,7 @@ const fracUnit: Verifier = (q) => {
  * prompt and switched on, so a generator that answered with the wrong one is caught.
  */
 const areaPerimeter: Verifier = (q) => {
-  const m = /^A rectangle is (\d+) units wide and (\d+) units tall\. What is its (area|perimeter)\?$/.exec(q.prompt);
+  const m = /^A rectangle is (\d+) units? wide and (\d+) units? tall\. What is its (area|perimeter)\?$/.exec(q.prompt);
   if (!m) throw new Error(`rectangle verifier cannot parse: ${q.prompt}`);
   const w = Number(m[1]), h = Number(m[2]);
   if (w < 1 || h < 1) throw new Error(`a rectangle needs both sides in: ${q.prompt}`);

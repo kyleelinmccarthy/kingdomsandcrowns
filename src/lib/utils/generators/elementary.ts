@@ -25,11 +25,17 @@ import {
 const L = (level: number) => Math.min(4, Math.max(0, Math.floor(level)));
 
 /**
- * Highest number in play per level. Level 0 is 10, not 5: a deed asks eight questions and
- * `drawGenerated` never repeats an id, so a cap of 5 with n in [1, max - 1] left exactly
- * four questions in existence ("what comes after 1, 2, 3, 4") and a kindergartener's first
- * counting deed was four questions long. Ten gives nine, which clears the deed. Counting to
- * ten before twenty is the right first rung anyway.
+ * Highest number in play per level. Two rungs differ from the brief's [5, 10, 15, 20, 20]:
+ *
+ * Level 0 is 10, not 5. A deed asks eight questions and `drawGenerated` never repeats an id,
+ * so a cap of 5 drawing n in [1, max - 1] left exactly four questions in existence ("what
+ * comes after 1, 2, 3, 4") and a kindergartener's first counting deed was four questions
+ * long. Ten gives nine, which clears the deed, and counting to ten before twenty is the
+ * right first rung anyway.
+ *
+ * Level 1 is 12, not 10, purely as a consequence: with level 0 raised to 10, leaving level 1
+ * at 10 would have made the first two rungs the same questions, so climbing off rung 0 would
+ * have changed nothing a child could see.
  */
 const COUNT_MAX = [10, 12, 15, 20, 20];
 
@@ -169,12 +175,15 @@ export function timeClock(level: number, rng: Rng, skillId: string): Question {
   for (let attempt = 0; attempt < 50; attempt++) {
     hour = randInt(rng, 1, 12);
     minute = minuteChoices[randInt(rng, 0, minuteChoices.length - 1)];
-    minuteHand = minute / 5;
+    // A clock face is numbered 1-12: the minute hand at the top points at 12, never 0.
+    // Printing the raw quotient put "the minute hand is on 0" in front of a grade-2 child
+    // on half of their first two rungs, teaching a dial that does not exist.
+    minuteHand = minute === 0 ? 12 : minute / 5;
     const answer = `${hour}:${pad2(minute)}`;
     const otherMinutes = minuteChoices.filter((m) => m !== minute);
     const wrongMinutes = `${hour}:${pad2(otherMinutes[randInt(rng, 0, otherMinutes.length - 1)])}`;
     const hourOut = `${((hour + (rng() < 0.5 ? 10 : 0)) % 12) + 1}:${pad2(minute)}`;
-    const swapped = `${minuteHand === 0 ? 12 : minuteHand}:${pad2((hour % 12) * 5)}`;
+    const swapped = `${minuteHand}:${pad2((hour % 12) * 5)}`;
     choices = [answer, wrongMinutes, hourOut, swapped];
     if (new Set(choices).size === 4) break;
     choices = [];
