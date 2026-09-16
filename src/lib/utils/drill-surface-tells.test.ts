@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { GENERATORS, seededRng, type Question } from "./drill-generators";
+import { SKILLS } from "./skills";
 
 /**
  * **A question a child can pass by looking is not a question.**
@@ -210,5 +211,78 @@ describe("the answer cannot be copied off the prompt or picked out by its shape"
         expect(shapes.size, `${q.prompt} offers choices of ${shapes.size} different shapes: ${q.choices.join(", ")}`).toBe(1);
       }
     }
+  });
+});
+
+/**
+ * **The class is wider than the three skills above, and this is how wide.**
+ *
+ * The three fixes in this file were found by a person reading questions. Sweeping the same
+ * measurement across every generated skill turns up more of the same: at some rungs the answer
+ * sits at ONE position among the four in every single draw, so "pick the second smallest" or
+ * "pick the second biggest" is worth 100% without any arithmetic. Fixing them all is a
+ * distractor-design decision per skill and is not this wave's work, so what this does instead
+ * is what `deed-engine.test.ts` does for the grade walk: **counts them, by name, exactly.**
+ *
+ * The list must SHRINK. Adding to it is not forbidden — a new skill may land here before its
+ * distractors are designed — but it is an edit someone makes deliberately, in this file, with
+ * this comment in front of them, rather than a thing that happens quietly to a child.
+ *
+ * "Every draw" and not "almost every draw" on purpose. The rates run in a continuum from 100%
+ * down through the nineties, and any threshold in the middle of that would be a number this
+ * file made up and would flip on an unrelated change. A position that NEVER varies is a
+ * different kind of fact: it is a rule, and it is the one a child can find.
+ */
+describe("every rung that puts the answer at one fixed position, counted", () => {
+  /**
+   * The skills where the answer's position IS the question. "Which number is the greatest?"
+   * is answered by the largest choice because that is what it asks, and nothing is given away
+   * that the prompt does not already say. `fractions-compare` is retired — served at no grade
+   * — and kept here so the sweep does not have to know that.
+   */
+  const THE_QUESTION_IS_THE_ORDER = new Set(["compare-num", "compare-num-100", "fractions-compare"]);
+
+  it("is exactly these, and they are the ones left to fix", () => {
+    const fixed: string[] = [];
+    for (const skill of SKILLS) {
+      if (skill.source.kind !== "generator" || THE_QUESTION_IS_THE_ORDER.has(skill.id)) continue;
+      const genId = skill.source.generatorId;
+      for (const level of LEVELS) {
+        const sample = draws(genId, skill.id, level);
+        // Skills whose choices are not numbers — expressions, times, fractions written as
+        // words — have no order to sit at, and are not what this measures.
+        if (sample.some((q) => q.choices.some((c) => value(c) === null))) continue;
+        const counts = [0, 0, 0, 0];
+        for (const q of sample) counts[rank(q) - 1] += 1;
+        const stuck = counts.findIndex((n) => n === sample.length);
+        if (stuck >= 0) fixed.push(`${skill.id} level ${level} is always ${stuck + 1} of 4`);
+      }
+    }
+    expect(fixed).toEqual([
+      "money-coins level 1 is always 3 of 4",
+      "frac-equiv level 0 is always 3 of 4",
+      "dec-ops level 0 is always 2 of 4",
+      "dec-ops level 1 is always 2 of 4",
+      "circle-measure level 0 is always 2 of 4",
+      "circle-measure level 1 is always 2 of 4",
+      "circle-measure level 2 is always 2 of 4",
+      "circle-measure level 3 is always 2 of 4",
+      "circle-measure level 4 is always 2 of 4",
+      "pythagorean level 0 is always 2 of 4",
+      "pythagorean level 1 is always 2 of 4",
+      "pythagorean level 2 is always 2 of 4",
+      "pythagorean level 3 is always 2 of 4",
+      "pythagorean level 4 is always 2 of 4",
+      "quad-formula level 0 is always 3 of 4",
+      "quad-formula level 1 is always 3 of 4",
+      "sequences level 0 is always 2 of 4",
+      "sequences level 1 is always 2 of 4",
+      "sequences level 3 is always 2 of 4",
+    ]);
+  });
+
+  it("covers the skills it claims to, so the list above is not short by a whole sweep", () => {
+    const swept = SKILLS.filter((s) => s.source.kind === "generator" && !THE_QUESTION_IS_THE_ORDER.has(s.id));
+    expect(swept.length).toBeGreaterThanOrEqual(Object.keys(GENERATORS).length - THE_QUESTION_IS_THE_ORDER.size);
   });
 });
