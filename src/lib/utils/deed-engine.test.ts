@@ -78,21 +78,26 @@ describe("buildDeedRun", () => {
   });
   it("groups by skill with review last under predictableRoutine", () => {
     const misses: Question[] = [{ id: "miss-0", skillId: "mul-facts", prompt: "6 × 7", choices: ["42", "41", "43", "40"], answer: "42" }];
-    // Pin selection to mul-facts (the miss's own skill) by making it the grade's only
-    // least-practised generator; otherwise which of grade 3's generators gets chosen is
-    // a seeded tie-break, and the miss would land on a skill never picked.
-    const run = buildDeedRun(input({
-      deed: deedMath, poolItems: [], recentMisses: misses,
-      // Every other generator the grade offers has to be named, or an unpinned one
-      // defaults to 0, ties with mul-facts, and the miss lands on a skill never picked.
-      // Derived from the grade's own candidate list so re-pointing a skill at a different
-      // grade cannot silently leave one unpinned here.
-      masteryBySkill: Object.fromEntries(
-        chooseSkills(deedMath, "3").map((s) => [s.id, s.id === "mul-facts" ? 0 : 5])
-      ),
-      profile: { ...profile, predictableRoutine: true },
-    }));
-    expect(run.questions[run.questions.length - 1].id).toBe("miss-0");
+    // The miss only becomes review on a run that actually practises mul-facts. Mastery is a
+    // weighted bias now rather than a rule, so no arrangement of levels can PIN the pick —
+    // mul-facts is put at the bottom to make it the likely one and the runs that chose
+    // something else are skipped, which states the precondition instead of pretending to
+    // control it. The pins come from the grade's own candidate list so re-pointing a skill
+    // at a different grade cannot silently leave one out.
+    const masteryBySkill = Object.fromEntries(
+      chooseSkills(deedMath, "3").map((s) => [s.id, s.id === "mul-facts" ? 0 : 4])
+    );
+    let checked = 0;
+    for (let seed = 1; seed <= 30; seed++) {
+      const run = buildDeedRun(input({
+        deed: deedMath, poolItems: [], recentMisses: misses, seed, masteryBySkill,
+        profile: { ...profile, predictableRoutine: true },
+      }));
+      if (!run.skillIds.includes("mul-facts")) continue;
+      checked += 1;
+      expect(run.questions[run.questions.length - 1].id, `seed ${seed}`).toBe("miss-0");
+    }
+    expect(checked, "mul-facts was never chosen, so this asserted nothing").toBeGreaterThan(5);
   });
   it("uses generators for math deeds", () => {
     const run = buildDeedRun(input({ deed: deedMath, poolItems: [] }));
@@ -107,21 +112,25 @@ describe("buildDeedRun", () => {
       { id: "add-10:1+1", skillId: "add-10", prompt: "What is 1 + 1?", choices: ["2", "3", "4", "5"], answer: "2" },
       { id: "add-10:2+2", skillId: "add-10", prompt: "What is 2 + 2?", choices: ["4", "3", "5", "6"], answer: "4" },
     ];
+    let checked = 0;
     for (let seed = 1; seed <= 50; seed++) {
-      // Pin selection to add-10 (the misses' own skill) by putting every other grade-K
-      // generator above it, so the tie-break shuffle can't route review questions to a
-      // skill that was never chosen for the run. Every generator skill the grade offers
-      // has to be listed, or an unpinned one defaults to 0 and ties with add-10 again.
+      // add-10 (the misses' own skill) sits at the bottom so the weighted draw favours it,
+      // and runs that chose another grade-K skill are skipped: the misses are not review on
+      // those, so there is nothing here for them to say. Every generator skill the grade
+      // offers has to be listed, or an unpinned one defaults to 0 and dilutes the bias.
       const run = buildDeedRun(input({
         deed: deedMath, grade: "K", poolItems: [], recentMisses: misses, seed,
-        masteryBySkill: { "add-10": 0, "sub-10": 5, "count-seq": 5, "compare-num": 5 },
+        masteryBySkill: { "add-10": 0, "sub-10": 4, "count-seq": 4, "compare-num": 4 },
       }));
       const ids = run.questions.map((q) => q.id);
       expect(run.questions).toHaveLength(8);
       expect(new Set(ids).size).toBe(ids.length);
+      if (!run.skillIds.includes("add-10")) continue;
+      checked += 1;
       expect(ids.filter((id) => id === "add-10:1+1")).toHaveLength(1);
       expect(ids.filter((id) => id === "add-10:2+2")).toHaveLength(1);
     }
+    expect(checked, "add-10 was never chosen, so the review path asserted nothing").toBeGreaterThan(10);
   });
 });
 
@@ -235,20 +244,203 @@ describe("every skill at a hero's grade can actually be served", () => {
     expect(built.skillIds).toHaveLength(1);
   });
 
-  it("practises the least-mastered skill first", () => {
-    // Every grade-3 generator but div-facts is already practised; div-facts alone sits at
-    // 0, so it must be the one chosen on every seed — this is not a tie. The others are
-    // pinned above 0 deliberately: an untouched skill defaults to 0, would tie with
-    // div-facts, and would turn the pick into a coin flip and this test into a flake. The
-    // pins are built from the grade's own candidate list so a skill added later cannot be
-    // forgotten.
+  it("leans hard on the least-mastered skill without locking on to it", () => {
+    // This was "practises the least-mastered skill first", and was true on every seed
+    // because least-mastered was an absolute rule. It is a weighted draw now, so the
+    // truth is a tendency and has to be measured as one — but it is still a strong
+    // tendency, and a version of this test that merely asserted div-facts is reachable
+    // would let the bias be dropped entirely without anything failing.
+    //
+    // The other skills are pinned above 0 deliberately: an untouched skill defaults to 0
+    // and would tie with div-facts. The pins are built from the grade's own candidate
+    // list so a skill added later cannot be forgotten.
     const practised = Object.fromEntries(
       chooseSkills(deedMath, "3").map((s) => [s.id, s.id === "div-facts" ? 0 : 4])
     );
     expect(practised["div-facts"], "div-facts must be one of grade 3's skills").toBe(0);
-    for (let seed = 1; seed <= 50; seed++) {
+    const counts = new Map<string, number>();
+    const SEEDS = 200;
+    for (let seed = 1; seed <= SEEDS; seed++) {
       const built = buildDeedRun({ ...baseInput, grade: "3", seed, masteryBySkill: practised });
-      expect(built.skillIds, `seed ${seed}`).toContain("div-facts");
+      for (const id of built.skillIds) counts.set(id, (counts.get(id) ?? 0) + 1);
+    }
+    const div = counts.get("div-facts") ?? 0;
+    const rivals = [...counts.entries()].filter(([id]) => id !== "div-facts");
+    const best = Math.max(...rivals.map(([, n]) => n));
+    // Weight 5 against 1 apiece for six rivals: div-facts should take something close to
+    // 5/11 of the runs, and every rival about 1/11. Three times the busiest rival is a
+    // wide margin round a big gap, not a tight pin on the arithmetic.
+    expect(div, `div-facts took ${div}/${SEEDS}: ${[...counts].map(([k, n]) => `${k}=${n}`).join(" ")}`)
+      .toBeGreaterThan(best * 3);
+    // ...and the others are not locked out, which is the whole point of the change.
+    expect(rivals.length, "only div-facts was ever served").toBeGreaterThan(1);
+  });
+
+  it("does not serve the same skill every day to a child who finds one hard", () => {
+    // A one-run assertion cannot see this. `recordResult` lets a level go DOWN on repeated
+    // failure and caps it at MASTERY_MAX, so under a strict least-mastered rule the one
+    // skill a child struggles with sinks to 0 while everything else climbs to 4 — strictly
+    // and permanently the minimum. Measured before the fix: sub-1000 served 34 days of 40,
+    // the last 34 consecutively, every other skill served exactly once.
+    const HARD = "sub-1000";
+    expect(chooseSkills(deedMath, "3").map((s) => s.id), "the hard skill must be a grade-3 one")
+      .toContain(HARD);
+    const mastery: Record<string, number> = {};
+    const served: string[] = [];
+    for (let day = 1; day <= 40; day++) {
+      const built = buildDeedRun({ ...baseInput, grade: "3", seed: day, masteryBySkill: { ...mastery } });
+      for (const id of built.skillIds) {
+        served.push(id);
+        // Mastery moves the way the real engine moves it: up on success, down on repeated
+        // failure, capped at MASTERY_MAX.
+        mastery[id] = id === HARD ? Math.max(0, (mastery[id] ?? 0) - 1) : Math.min(4, (mastery[id] ?? 0) + 1);
+      }
+    }
+    const counts = new Map<string, number>();
+    for (const id of served) counts.set(id, (counts.get(id) ?? 0) + 1);
+
+    // No skill takes more than two thirds of the days...
+    for (const [id, n] of counts) expect(n, `${id} served ${n}/40 days`).toBeLessThanOrEqual(27);
+    // ...and nothing is served ten days running.
+    const longestRun = served.reduce((best, id, i) => {
+      let run = 1;
+      while (i - run >= 0 && served[i - run] === id) run++;
+      return Math.max(best, run);
+    }, 1);
+    expect(longestRun, `longest unbroken run of one skill: ${longestRun}`).toBeLessThan(10);
+    // The hard skill is still practised more than anything else — the point is that it
+    // stops being the ONLY thing practised, not that it stops being the priority. Before
+    // the fix this was 34/40; after it, 8/40 and still the busiest skill of the seven.
+    const hardest = counts.get(HARD) ?? 0;
+    const busiestRival = Math.max(...[...counts.entries()].filter(([id]) => id !== HARD).map(([, n]) => n));
+    expect(hardest, `${HARD} took ${hardest}/40, busiest rival ${busiestRival}`).toBeGreaterThanOrEqual(busiestRival);
+    expect(hardest, "the hard skill fell to less than a flat share of the days").toBeGreaterThan(40 / counts.size);
+  });
+
+  it("gives a skill nobody has touched for days a turn, however well it is mastered", () => {
+    // Every skill mastered, so mastery alone would make the draw a flat coin toss across
+    // seven candidates. round-nearest was last practised a week ago and the rest today, so
+    // the recency term should single it out. This is what `skill_mastery.lastPracticedAt`
+    // is persisted for.
+    const DAY = 24 * 60 * 60 * 1000;
+    const today = Date.UTC(2026, 0, 20);
+    const candidates = chooseSkills(deedMath, "3").map((s) => s.id);
+    const practised = Object.fromEntries(candidates.map((id) => [id, 4]));
+    const lastPracticedBySkill = Object.fromEntries(
+      candidates.map((id) => [id, id === "round-nearest" ? today - 7 * DAY : today])
+    );
+    const counts = new Map<string, number>();
+    for (let seed = 1; seed <= 200; seed++) {
+      const built = buildDeedRun({
+        ...baseInput, grade: "3", seed, masteryBySkill: practised, lastPracticedBySkill,
+      });
+      for (const id of built.skillIds) counts.set(id, (counts.get(id) ?? 0) + 1);
+    }
+    const stale = counts.get("round-nearest") ?? 0;
+    const best = Math.max(...[...counts.entries()].filter(([id]) => id !== "round-nearest").map(([, n]) => n));
+    expect(stale, `round-nearest took ${stale}/200: ${[...counts].map(([k, n]) => `${k}=${n}`).join(" ")}`)
+      .toBeGreaterThan(best * 2);
+  });
+
+  it("does not call everything overdue on a hero's very first run", () => {
+    // With no practice recorded anywhere there is nothing to be overdue against, so the
+    // recency term must stay silent — otherwise it adds the same constant to every
+    // candidate and flattens the mastery bias, which is the half that actually matters.
+    const practised = Object.fromEntries(
+      chooseSkills(deedMath, "3").map((s) => [s.id, s.id === "div-facts" ? 0 : 4])
+    );
+    const blank = Object.fromEntries(chooseSkills(deedMath, "3").map((s) => [s.id, null]));
+    const count = (last: Record<string, number | null>) => {
+      let n = 0;
+      for (let seed = 1; seed <= 200; seed++) {
+        const built = buildDeedRun({ ...baseInput, grade: "3", seed, masteryBySkill: practised, lastPracticedBySkill: last });
+        if (built.skillIds.includes("div-facts")) n++;
+      }
+      return n;
+    };
+    expect(count(blank)).toBe(count({}));
+    expect(count(blank), "the mastery bias went missing when nothing had been practised").toBeGreaterThan(60);
+  });
+});
+
+describe("what a child is actually served over a sitting", () => {
+  const baseInput = input({ deed: deedMath, poolItems: [] });
+
+  it("does not hand a bottom-rung child the same worksheet every day", () => {
+    // `mul-facts` rung 0 draws both factors from 0-2: NINE questions in existence, and a
+    // deed asks eight. Before the rung-0 widening a child's first multiplication deed was
+    // eight of the nine, and the next day's was eight of the same nine.
+    const practised = Object.fromEntries(
+      chooseSkills(deedMath, "3").map((s) => [s.id, s.id === "mul-facts" ? 0 : 4])
+    );
+    const prompts = new Set<string>();
+    let deeds = 0;
+    for (let seed = 1; seed <= 60; seed++) {
+      const built = buildDeedRun({ ...baseInput, grade: "3", seed, masteryBySkill: practised });
+      if (!built.skillIds.includes("mul-facts")) continue;
+      deeds += 1;
+      for (const q of built.questions) if (q.skillId === "mul-facts") prompts.add(q.prompt);
+    }
+    expect(deeds, "mul-facts was barely chosen, so this proves nothing").toBeGreaterThan(10);
+    expect(prompts.size, `only ${prompts.size} distinct multiplication questions across ${deeds} deeds`)
+      .toBeGreaterThan(9);
+  });
+
+  it("still opens a bottom-rung deed at the rung the child is on", () => {
+    // The widening must never be the first thing a child meets: the opening question is
+    // the one that decides whether today's deed looks doable.
+    const practised = Object.fromEntries(
+      chooseSkills(deedMath, "3").map((s) => [s.id, s.id === "mul-facts" ? 0 : 4])
+    );
+    let checked = 0;
+    for (let seed = 1; seed <= 60; seed++) {
+      const built = buildDeedRun({
+        ...baseInput, grade: "3", seed, masteryBySkill: practised,
+        profile: { ...profile, predictableRoutine: true },
+      });
+      if (!built.skillIds.includes("mul-facts")) continue;
+      checked += 1;
+      const [a, b] = built.questions[0].prompt.match(/(\d+) × (\d+)/)!.slice(1).map(Number);
+      expect(Math.max(a, b), `seed ${seed} opened with ${built.questions[0].prompt}`).toBeLessThanOrEqual(2);
+    }
+    expect(checked).toBeGreaterThan(10);
+  });
+
+  it.each([
+    ["6", "integer-ops", 4],
+    ["K", "add-10", 3],
+  ] as const)("keeps identity cases off grade %s's %s at level %i", (grade, skillId, level) => {
+    // Read off /dev/content as a parent would: grade 6 integer-ops at level 4 served
+    // `What is -36 × 1?`, grade K add-10 at level 3 served `What is 9 + 0?`. A child four
+    // rungs up reads "times one" as the program making a mistake.
+    const practised = Object.fromEntries(
+      chooseSkills(deedMath, grade).map((s) => [s.id, s.id === skillId ? level : 4])
+    );
+    const offenders: string[] = [];
+    let seen = 0;
+    for (let seed = 1; seed <= 80; seed++) {
+      const built = buildDeedRun({ ...baseInput, grade, seed, masteryBySkill: practised });
+      for (const q of built.questions.filter((q) => q.skillId === skillId)) {
+        seen += 1;
+        if (/(?:^|[^\d.])(?:0\s*[+×]|[+\-×]\s*0(?![\d.])|1\s*×|[×÷]\s*1(?![\d.]))/.test(q.prompt)) {
+          offenders.push(q.prompt);
+        }
+      }
+    }
+    expect(seen, `${skillId} was barely served, so this proves nothing`).toBeGreaterThan(40);
+    expect(offenders, `identity cases at level ${level}: ${offenders.slice(0, 5).join(" | ")}`).toEqual([]);
+  });
+
+  it("still fills a deed at a rung whose questions are mostly identity cases", () => {
+    // Dodging must never cost a child questions. `add-10` at level 3 sums to 9, and a
+    // third of its pairs have a zero in them; the deed is still eight questions long.
+    const practised = Object.fromEntries(
+      chooseSkills(deedMath, "K").map((s) => [s.id, s.id === "add-10" ? 4 : 5])
+    );
+    for (let seed = 1; seed <= 40; seed++) {
+      const built = buildDeedRun({ ...baseInput, grade: "K", seed, masteryBySkill: practised });
+      expect(built.questions.length, `seed ${seed}`).toBe(8);
+      expect(new Set(built.questions.map((q) => q.id)).size).toBe(8);
     }
   });
 });

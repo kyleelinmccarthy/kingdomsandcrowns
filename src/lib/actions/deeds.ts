@@ -139,13 +139,19 @@ export async function startDeedRun(childId: string, deedId: string, context: "pa
   ]);
   const profile = profileFromRow(profileRow);
   const masteryBySkill: Record<string, number> = {};
-  for (const m of masteryRows) masteryBySkill[m.skillId] = m.level;
+  // When each skill was last practised rides along on the rows already fetched above, so the
+  // recency half of the selection weighting costs no extra query.
+  const lastPracticedBySkill: Record<string, number | null> = {};
+  for (const m of masteryRows) {
+    masteryBySkill[m.skillId] = m.level;
+    lastPracticedBySkill[m.skillId] = m.lastPracticedAt ? m.lastPracticedAt.getTime() : null;
+  }
   const poolItems: PoolItem[] = poolRows.map((r) => ({
     id: r.id, skillId: r.skillId, prompt: r.prompt, answer: r.answer,
     distractors: JSON.parse(r.distractors) as string[], readAloud: r.readAloud, level: r.level,
   }));
 
-  const built = buildDeedRun({ deed, grade, masteryBySkill, profile, seed: Date.now() >>> 0, poolItems, recentMisses });
+  const built = buildDeedRun({ deed, grade, masteryBySkill, lastPracticedBySkill, profile, seed: Date.now() >>> 0, poolItems, recentMisses });
   if (built.questions.length === 0) throw new Error(`No ${SIDE_QUESTS_LOWER} are ready for this hero yet.`);
 
   const now = new Date();
