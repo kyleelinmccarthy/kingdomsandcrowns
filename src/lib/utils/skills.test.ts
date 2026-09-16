@@ -212,6 +212,54 @@ describe("the invariants the map comparison cannot state", () => {
     expect(spread.map((s) => s.id), "a math skill spanning grades means the map was not applied").toEqual([]);
   });
 
+  /**
+   * The bands each carried-forward skill sat in before this plan, written out here rather than
+   * read from anywhere: `content-bands.ts` still has the bands, but nothing still records which
+   * skill was in which, and the point of this check is to compare against what actually was.
+   */
+  const BEFORE_THIS_PLAN: Record<string, string[]> = {
+    "add-10": ["K", "1"], "sub-10": ["K", "1"],
+    "add-20": ["2", "3"], "sub-20": ["2", "3"], "add-100": ["2", "3"],
+    "mul-facts": ["4", "5"], "div-facts": ["4", "5"], "place-value": ["4", "5"],
+    "fractions-compare": ["6", "7", "8"], "integer-ops": ["6", "7", "8"],
+    "percent-of": ["9", "10", "11", "12"], "one-step-eq": ["9", "10", "11", "12"],
+  };
+
+  /**
+   * The map's prose said three skills changed which grade they are offered at. **Eleven did** —
+   * every carried-forward skill still offered — and the eight it left out include a grade-1
+   * child moving from addition within 10 to within 20 and a grade-3 child picking up the
+   * multiplication facts. None of those moves is wrong; the map being wrong about them is, and
+   * a map that under-reports is worse than no map, because it is the thing a parent reads.
+   *
+   * This reads the section back so the prose cannot drift again: the skills it lists and the
+   * grades it claims for them have to be exactly the skills whose grade moved and the grades
+   * the code actually serves. `fractions-compare` is excluded because it moved to nowhere and
+   * has a paragraph of its own.
+   */
+  it("says in the map exactly which carried-forward skills changed grade, and to what", () => {
+    const md = fs.readFileSync(path.join(process.cwd(), "docs/content/math-skill-map.md"), "utf8");
+    const section = md.split(/^## /m).find((part) => part.startsWith("Every skill carried forward"));
+    expect(section, "the map no longer has a section on skills that changed grade").toBeDefined();
+
+    const claimed = new Map<string, string>();
+    for (const line of section!.split("\n")) {
+      const cells = line.split("|").map((c) => c.trim());
+      if (cells.length < 5 || !cells[1].startsWith("`")) continue;
+      const grade = /^([K0-9]+)/.exec(cells[3]);
+      expect(grade, `the map claims an unreadable grade: ${line}`).not.toBeNull();
+      for (const id of cells[1].split(",").map((c) => c.trim().replace(/`/g, ""))) claimed.set(id, grade![1]);
+    }
+
+    const moved = Object.keys(BEFORE_THIS_PLAN).filter(
+      (id) => id !== "fractions-compare" && String(findSkill(id)?.grades) !== String(BEFORE_THIS_PLAN[id]),
+    );
+    expect([...claimed.keys()].sort(), "the map's list of skills that changed grade is not the real one").toEqual(moved.sort());
+    for (const [id, grade] of claimed) {
+      expect(findSkill(id)?.grades, `the map says ${id} is offered at grade ${grade}`).toEqual([grade]);
+    }
+  });
+
   it("retires fractions-compare rather than deleting it, so its mastery rows still resolve", () => {
     expect(findSkill("fractions-compare")?.grades).toEqual([]);
     for (const grade of GRADES) expect(skillsFor("math", grade).map((s) => s.id)).not.toContain("fractions-compare");

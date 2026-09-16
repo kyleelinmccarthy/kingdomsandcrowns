@@ -101,16 +101,35 @@ generators.
 Today's math bank is 12 skills built on 9 generators, all of them keyed to a five-band ladder where
 one band spans three grades. That is what this replaces.
 
-## Three skills change which grade they are offered at
+## Every skill carried forward changed which grade offers it
 
-These already exist and keep their ids and every child's mastery history. What changes is the grade
-that receives them, because the band they sat in spanned three grades:
+Twelve math skills existed before this map, each keyed to a **band** rather than a grade, and one
+band spanned three grades. Eleven of them are still offered, and **every one of the eleven is now
+offered at a different grade than the band gave it**. The twelfth, `fractions-compare`, is retired
+below. All twelve keep their ids and every child's mastery history: nothing is renamed, reused or
+deleted.
 
-| Skill | Today | Becomes | Why |
+This section listed three of the eleven for a while. The other eight are changes to what a child
+actually practises in a given year, and the map is the curriculum's authority, so it lists all of
+them:
+
+| Skill | Band it sat in | Grade it is offered at | Why |
 |---|---|---|---|
-| `integer-ops` | grades 6–8 | grade 6 | Integers are a grade-6 standard; grades 7 and 8 get `rational-ops` and `linear-eq`. |
-| `percent-of` | grades 9–12 | grade 6 | Percent of a number is grade 6. A high schooler was practising middle-school work. |
-| `one-step-eq` | grades 9–12 | grade 9, level 0 | Kept as the entry rung of Algebra I rather than dropped, so no history is stranded. |
+| `add-10`, `sub-10` | K–1 | K | Grade 1 moves up to within 20, so the within-10 pair narrows to K. |
+| `add-20`, `sub-20` | 2–3 | 1 | Within 20 is 1.OA.6. A grade-1 child was practising within 10 and a grade-3 child was still practising within 20. |
+| `add-100` | 2–3 | 2 | Within 100 is 2.NBT.5; grade 3 goes on to within 1000 with the new `add-1000` and `sub-1000`. |
+| `mul-facts`, `div-facts` | 4–5 | 3 | The facts are 3.OA.7. Grades 4 and 5 get multi-digit and standard-algorithm work instead. |
+| `place-value` | 4–5 | 4 | 4.NBT.2. Grade 5's place value is about decimals, which `dec-ops` covers. |
+| `integer-ops` | 6–8 | 6 | Integers are a grade-6 standard; grades 7 and 8 get `rational-ops` and `linear-eq`. |
+| `percent-of` | 9–12 | 6 | Percent of a number is grade 6. A high schooler was practising middle-school work. |
+| `one-step-eq` | 9–12 | 9, level 0 | Kept as the entry rung of Algebra I rather than dropped, so no history is stranded. |
+
+Five of those rows **narrow** a band to one of the grades inside it. Three move a skill **out** of
+its band altogether: within 20 falls from the 2–3 band to grade 1, the facts fall from 4–5 to grade
+3, and percent falls from 9–12 to grade 6. Each of those three lands the skill on the grade whose
+standard names it, and the grades it left are given the work their own standards name. That is the
+whole point of keying to grades rather than to bands, and it is also why a skill moving is not by
+itself a warning sign — what would be one is a skill moving without this table saying so.
 
 ## Two gaps closed after the first pass
 
