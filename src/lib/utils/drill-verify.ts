@@ -49,12 +49,24 @@ const placeValue: Verifier = (q) => {
 
 /** "Which fraction is the largest?" — the choices ARE the data, so verify over them. */
 const largestFraction: Verifier = (q) => {
+  // Parse the DIRECTION the prompt asks for, never assume it. Reading only the choices and
+  // hardcoding "largest" let the generator's prompt be flipped to "smallest" while the
+  // answer stayed the largest — and the whole suite passed. Every child who answered
+  // correctly would have been marked wrong, silently. Unrecognised wording throws: a
+  // question this cannot read is itself a defect, not something to guess at.
+  const m = /^Which fraction is the (largest|greatest|smallest|least)\?$/.exec(q.prompt);
+  if (!m) throw new Error(`fraction comparison verifier cannot parse: ${q.prompt}`);
+  const wantLargest = m[1] === "largest" || m[1] === "greatest";
   const value = (s: string) => {
-    const m = /^(\d+)\/(\d+)$/.exec(s);
-    if (!m) throw new Error(`not a fraction: ${s}`);
-    return Number(m[1]) / Number(m[2]);
+    const f = /^(\d+)\/(\d+)$/.exec(s);
+    if (!f) throw new Error(`not a fraction: ${s}`);
+    if (Number(f[2]) === 0) throw new Error(`zero denominator: ${s}`);
+    return Number(f[1]) / Number(f[2]);
   };
-  return q.choices.reduce((best, c) => (value(c) > value(best) ? c : best));
+  return q.choices.reduce((best, c) => {
+    const better = wantLargest ? value(c) > value(best) : value(c) < value(best);
+    return better ? c : best;
+  });
 };
 
 /** "Solve for x: x + 4 = 11" / "Solve for x: 3x = -12" */

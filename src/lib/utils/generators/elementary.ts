@@ -24,8 +24,14 @@ import {
 /** Levels are 0-4, easiest to hardest within one grade; anything else clamps. */
 const L = (level: number) => Math.min(4, Math.max(0, Math.floor(level)));
 
-/** Highest number in play per level. */
-const COUNT_MAX = [5, 10, 15, 20, 20];
+/**
+ * Highest number in play per level. Level 0 is 10, not 5: a deed asks eight questions and
+ * `drawGenerated` never repeats an id, so a cap of 5 with n in [1, max - 1] left exactly
+ * four questions in existence ("what comes after 1, 2, 3, 4") and a kindergartener's first
+ * counting deed was four questions long. Ten gives nine, which clears the deed. Counting to
+ * ten before twenty is the right first rung anyway.
+ */
+const COUNT_MAX = [10, 12, 15, 20, 20];
 
 /**
  * Counting and number order to 20 (grade K).

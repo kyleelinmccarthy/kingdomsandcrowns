@@ -10,6 +10,14 @@ const SEEDS = Array.from({ length: 40 }, (_, i) => i * 7919 + 13);
 const skillIdsFor = (generatorId: string) =>
   SKILLS.filter((s) => s.source.kind === "generator" && s.source.generatorId === generatorId).map((s) => s.id);
 
+/**
+ * The only generators allowed to render without a spoken form, both predating this harness:
+ * `place-value` prints a digit inside a numeral and `fractions-compare` offers fractions as
+ * the choices, and neither had a `readAloud` written for it. Listed rather than inferred so
+ * that adding a generator without speech is a deliberate edit here, visible in review.
+ */
+const SPEECHLESS = new Set(["place-value", "fractions-compare"]);
+
 const cases = Object.keys(GENERATORS).flatMap((genId) =>
   skillIdsFor(genId).flatMap((skillId) => LEVELS.map((level) => [genId, skillId, level] as [string, string, number]))
 );
@@ -53,6 +61,12 @@ describe("every generated question is independently verifiable", () => {
         expect(q.skillId).toBe(skillId);
 
         // Read-aloud must be speakable: no symbol a screen reader would mangle.
+        // Supplying a spoken form is required, not optional: `if (readAloud !== undefined)`
+        // alone meant deleting a generator's spoken argument went unnoticed, and a child on
+        // read-aloud would hear "What is 3 × 4?" read out as "what is three ex four".
+        // The two exemptions are the generators that have never had one; any NEW generator
+        // without a spoken form is a bug, so this list must not grow.
+        if (!SPEECHLESS.has(genId)) expect(q.readAloud, `${genId} supplies no read-aloud`).toBeDefined();
         if (q.readAloud !== undefined) {
           // A child using read-aloud support hears this literally, so every symbol must be
           // spelled out in words. `%` is here because `drill-generators.test.ts` banned it
@@ -76,13 +90,19 @@ describe("every generated question is independently verifiable", () => {
     }
   });
 
-  it("is deterministic: the same seed and level replay the same questions", () => {
-    for (const [genId, skillId, level] of cases.slice(0, 20)) {
-      const run = () => {
-        const rng = seededRng(4242);
-        return Array.from({ length: 5 }, () => GENERATORS[genId](level, rng, skillId).id);
-      };
-      expect(run()).toEqual(run());
-    }
+  /**
+   * Every case, not a slice of them. This ran over `cases.slice(0, 20)`, which was `add`'s
+   * three skills plus `sub-10` — seven of the nine generators then had no determinism check
+   * at all, and `percent-of` drawing from `Math.random()` survived the whole suite. The
+   * fraction would have shrunk with every generator added. A question that cannot be
+   * replayed from its seed can never be re-asked verbatim, which is the entire reason ids
+   * encode their parameters.
+   */
+  it.each(cases)("%s / %s / level %i replays the same questions for the same seed", (genId, skillId, level) => {
+    const run = () => {
+      const rng = seededRng(4242);
+      return Array.from({ length: 5 }, () => GENERATORS[genId](level, rng, skillId).id);
+    };
+    expect(run()).toEqual(run());
   });
 });

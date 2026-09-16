@@ -140,14 +140,13 @@ describe("a new generator can fill a deed", () => {
    * with fewer than eight distinct questions hands a child a short run. This is the check
    * that says so out loud, per level, rather than leaving it to be noticed in use.
    *
-   * `count-seq` at level 0 is the one exemption, and it is a real gap, not a quirk of the
-   * test: the brief caps level 0 at 5 and draws n in [1, max - 1], so exactly four
-   * questions exist ("what comes after 1, 2, 3, 4"). A kindergartener's first counting
-   * deed is therefore four questions long. Raising the level-0 cap is the fix, and that is
-   * a change to the brief's numbers, so it wants a ruling rather than a quiet edit here.
+   * This test was written because `count-seq` level 0 had exactly four questions — the
+   * brief capped it at 5 and drew n in [1, max - 1], so a kindergartener's first counting
+   * deed was four questions long and nothing said so. The cap is now 10; there are no
+   * exemptions, and there should never be one: a level that cannot fill a deed is a bug in
+   * that level's range, not a fact to be recorded here.
    */
   const NEW = ["count-seq", "compare-num", "ten-more-less", "skip-count", "time-clock", "money-coins", "frac-unit", "area-perimeter", "round-nearest"];
-  const THIN = new Set(["count-seq:0"]);
 
   it.each(NEW.flatMap((id) => LEVELS.map((lvl) => [id, lvl] as [string, number])))(
     "%s at level %i offers at least eight different questions",
@@ -156,10 +155,6 @@ describe("a new generator can fill a deed", () => {
       for (const seed of SEEDS) {
         const rng = seededRng(seed);
         for (let i = 0; i < 20; i++) ids.add(GENERATORS[genId](lvl, rng, genId).id);
-      }
-      if (THIN.has(`${genId}:${lvl}`)) {
-        expect(ids.size, `${genId} level ${lvl} is a known short level`).toBe(4);
-        return;
       }
       expect(ids.size, `${genId} level ${lvl} can only ask ${ids.size} questions`).toBeGreaterThanOrEqual(8);
     }

@@ -19,7 +19,9 @@ function draws(gen: (l: number, r: Rng, s: string) => Question, level: number, s
 
 describe("count-seq", () => {
   it("keeps every number it names inside the level's range", () => {
-    const max = [5, 10, 15, 20, 20];
+    // Written out by hand rather than imported, so a change to the generator's own
+    // ceilings has to be made deliberately in two places instead of following itself.
+    const max = [10, 12, 15, 20, 20];
     for (const lvl of LEVELS) {
       for (const q of draws(countSeq, lvl, "count-seq")) {
         const n = Number(/comes (?:after|before) (\d+)\?$/.exec(q.prompt)![1]);
