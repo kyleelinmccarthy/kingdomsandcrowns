@@ -518,3 +518,332 @@ export function circleMeasure(level: number, rng: Rng, skillId: string): Questio
     `A circle has a ${given}. What is its ${measure}? Use three point one four for pi.`,
   );
 }
+
+// ---------------------------------------------------------------------------
+// Grade 8
+// ---------------------------------------------------------------------------
+
+/** Largest coefficient on either side of the equals sign, per level. */
+const LINEAR_COEF_MAX = [5, 6, 7, 8, 9];
+/** Largest constant on the left, per level. */
+const LINEAR_CONST_MAX = [8, 10, 12, 12, 12];
+
+/**
+ * Linear equations in one variable (grade 8). The variable sits on one side at levels 0-1
+ * and on both sides from level 2, which is the whole difference between this skill and the
+ * grade-7 two-step equation it grows out of.
+ *
+ * Three draws are thrown away, each because it would put a second right answer on screen or
+ * an unreadable equation on the page:
+ *
+ *  - **Equal coefficients.** `4x + 1 = 4x + 5` has no solution at all, and `(d - b)/(a - c)`
+ *    divides by zero reaching for one.
+ *  - **`x = 0`.** Every distractor here is a division of `d - b` or `d + b` by something, and
+ *    at `x = 0` several of them land on 0 together.
+ *  - **A constant of zero on either side**, which would print `4x + 0`.
+ *
+ * `b` is never 0, and that is what keeps the headline distractor honest: "the constant moved
+ * the wrong way" is `(d + b)/(a - c)` against an answer of `(d - b)/(a - c)`, and the two
+ * differ by `2b/(a - c)`, which is zero exactly when `b` is.
+ */
+export function linearEq(level: number, rng: Rng, skillId: string): Question {
+  const lvl = L(level);
+  const amax = LINEAR_COEF_MAX[lvl];
+  const bmax = LINEAR_CONST_MAX[lvl];
+  const bothSides = lvl >= 2;
+  let a = 0, c = 0, b = 0, x = 0, d = 0;
+  let drawn = false;
+  for (let attempt = 0; attempt < 400 && !drawn; attempt++) {
+    a = randInt(rng, 2, amax);
+    c = bothSides ? randInt(rng, 2, amax) : 0;
+    b = randInt(rng, 1, bmax) * (rng() < 0.5 ? -1 : 1);
+    x = lvl >= 2 ? randInt(rng, -10, 10) : randInt(rng, 1, 10);
+    d = (a - c) * x + b;
+    drawn = a !== c && x !== 0 && (!bothSides || d !== 0);
+  }
+  if (!drawn) throw new Error(`could not draw a linear equation at level ${level}`);
+
+  /** A wrong reading is only offered when it comes out whole; a child who lands on a fraction starts over. */
+  const whole = (numerator: number, denominator: number): string[] =>
+    denominator !== 0 && numerator % denominator === 0 ? [String(numerator / denominator)] : [];
+
+  const candidates = [
+    ...whole(d + b, a - c),   // the constant moved the wrong way
+    ...whole(d - b, a + c),   // the x terms collected by adding rather than subtracting
+    ...whole(d - b, a),       // divided by the left coefficient alone
+    ...whole(d, a),           // divided before moving the constant
+    ...numericDistractors(x, rng),
+  ];
+
+  const left = `${a}x ${b < 0 ? "-" : "+"} ${Math.abs(b)}`;
+  const right = bothSides ? `${c}x ${d < 0 ? "-" : "+"} ${Math.abs(d)}` : String(d);
+  const prompt = `Solve for x: ${left} = ${right}`;
+  const spokenRight = bothSides
+    ? `${c} x ${d < 0 ? "minus" : "plus"} ${Math.abs(d)}`
+    : speakInt(d);
+  return makeQuestion(
+    skillId,
+    `${a}x${b < 0 ? "-" : "+"}${Math.abs(b)}=${bothSides ? `${c}x${d < 0 ? "-" : "+"}${Math.abs(d)}` : d}`,
+    prompt,
+    String(x),
+    pickDistinct(candidates, String(x)),
+    rng,
+    `Solve for x: ${a} x ${b < 0 ? "minus" : "plus"} ${Math.abs(b)} equals ${spokenRight}`,
+  );
+}
+
+/** How far a coordinate may sit from the origin, per level. */
+const SLOPE_COORD_MAX = [5, 7, 9, 10, 12];
+/** Largest size of the slope itself, per level. */
+const SLOPE_MAG_MAX = [3, 3, 4, 5, 5];
+
+/**
+ * Slope from two points (grade 8). The slope is always a whole number: the run is drawn
+ * first and the second point built from it, so `rise / run` can never come out ragged.
+ *
+ * **Equal x-coordinates are rejected before anything divides.** A vertical line has no slope
+ * to ask about, and `rise / 0` is not a choice a child can be offered.
+ *
+ * **The guard that actually fires is the four-way distinctness check**: all four readings are
+ * rendered and compared, and the draw is thrown away unless they differ. That is what catches
+ * every collision here without anybody having to enumerate them — at `m = ±1` the inverted
+ * reading `run/rise` IS the slope, and at `run = m` so is the plain difference of the
+ * x-coordinates. Both were found by that test rather than by being listed.
+ *
+ * The floor of 2 on the size of the slope is a shortcut, not a second guard: it is the `m = ±1`
+ * case ruled out at the source so the loop is not mostly rejections. Removing it changes
+ * nothing a child would see, because the distinctness check rejects the same draws.
+ */
+export function slopeFromPoints(level: number, rng: Rng, skillId: string): Question {
+  const lvl = L(level);
+  const cmax = SLOPE_COORD_MAX[lvl];
+  let x1 = 0, y1 = 0, x2 = 0, y2 = 0, rendered: string[] = [];
+  let drawn = false;
+  for (let attempt = 0; attempt < 600 && !drawn; attempt++) {
+    x1 = randInt(rng, -cmax, cmax);
+    x2 = randInt(rng, -cmax, cmax);
+    if (x1 === x2) continue;
+    const m = randInt(rng, 2, SLOPE_MAG_MAX[lvl]) * (rng() < 0.5 ? -1 : 1);
+    y1 = randInt(rng, -cmax, cmax);
+    y2 = y1 + m * (x2 - x1);
+    if (Math.abs(y2) > cmax) continue;
+    const run = x2 - x1, rise = y2 - y1;
+    rendered = [frac(rise, run), frac(run, rise), frac(-rise, run), String(run)];
+    drawn = new Set(rendered).size === 4;
+  }
+  if (!drawn) throw new Error(`could not draw two points with a whole slope at level ${level}`);
+
+  return makeQuestion(
+    skillId,
+    `${x1},${y1}:${x2},${y2}`,
+    `What is the slope of the line through (${x1}, ${y1}) and (${x2}, ${y2})?`,
+    rendered[0],
+    rendered.slice(1),
+    rng,
+    `What is the slope of the line through the point ${speakInt(x1)}, ${speakInt(y1)} and the point ${speakInt(x2)}, ${speakInt(y2)}?`,
+  );
+}
+
+/** Largest exponent that may appear in the question, per level. */
+const EXPONENT_MAX = [5, 5, 6, 6, 7];
+
+/**
+ * An exponent spoken as an ordinal. `^` is banned from read-aloud — a child on speech
+ * support would hear "x caret three" — so `x^3` is said as "x to the third power".
+ */
+const POWER_WORDS = [
+  "", "first", "second", "third", "fourth", "fifth", "sixth", "seventh",
+  "eighth", "ninth", "tenth", "eleventh", "twelfth",
+];
+
+const speakPower = (e: number): string => {
+  const word = POWER_WORDS[e];
+  if (!word) throw new Error(`no spoken form for an exponent of ${e}`);
+  return `x to the ${word} power`;
+};
+
+/**
+ * Properties of exponents (grade 8). Products at every level, quotients from level 2, and a
+ * power of a power at level 4.
+ *
+ * Every answer has an exponent of at least 2. `x^1` and `x^0` are a different lesson — and
+ * `x^1` among three `x^n` choices is the one that looks unlike the others.
+ *
+ * The headline distractor is the defining error: the exponents MULTIPLIED where they should
+ * be added, and it is checked against the answer before the draw is kept. `x^2 · x^2` is the
+ * one case where the two agree — 2 + 2 and 2 × 2 are both 4 — and it is thrown away rather
+ * than patched. Without that redraw nothing would look wrong: `pickDistinct` drops a
+ * candidate equal to the answer and quietly backfills an off-by-one, so the question stops
+ * offering the mistake it exists to catch, no duplicate choice is ever emitted, and a test
+ * asserting the mistake is among the choices still passes because the answer is.
+ *
+ * "Bases multiplied" is offered as `2x^n`, which is what that mistake actually looks like on
+ * paper: a child who reads `x · x` as `2x` writes the coefficient down. There is no way to
+ * render "the bases multiplied" as another power of x alone, and pretending otherwise would
+ * be a distractor nobody has ever written.
+ */
+export function exponentRules(level: number, rng: Rng, skillId: string): Question {
+  const lvl = L(level);
+  const emax = EXPONENT_MAX[lvl];
+  const kinds = lvl >= 4 ? (["product", "quotient", "power"] as const)
+    : lvl >= 2 ? (["product", "quotient"] as const)
+      : (["product"] as const);
+
+  let kind: "product" | "quotient" | "power" = "product";
+  let a = 0, b = 0, answer = 0;
+  let candidates: string[] = [];
+  let drawn = false;
+  for (let attempt = 0; attempt < 400 && !drawn; attempt++) {
+    kind = kinds[randInt(rng, 0, kinds.length - 1)];
+    a = randInt(rng, 2, emax);
+    b = kind === "power" ? randInt(rng, 2, 3) : randInt(rng, 2, emax);
+    if (kind === "product") {
+      answer = a + b;
+      candidates = [`x^${a * b}`, `2x^${a + b}`, `x^${Math.abs(a - b)}`, `x^${a + b + 1}`, `x^${a + b - 1}`];
+    } else if (kind === "quotient") {
+      if (a - b < 2) continue;
+      answer = a - b;
+      candidates = [`x^${a + b}`, `x^${a * b}`, `x^${a - b + 1}`, `x^${a - b - 1}`, `x^${b - a + emax}`];
+    } else {
+      answer = a * b;
+      candidates = [`x^${a + b}`, `x^${a * b + 1}`, `x^${a * b - 1}`, `x^${a + b + 1}`];
+    }
+    if (answer < 2) continue;
+    // The headline mistake must survive as a mistake; see the note above.
+    if (candidates[0] === `x^${answer}`) continue;
+    const taken = pickDistinct(candidates.filter((c) => !/x\^(0|-\d+)$/.test(c)), `x^${answer}`);
+    drawn = taken.length === 3;
+    if (drawn) candidates = taken;
+  }
+  if (!drawn) throw new Error(`could not draw an exponent question at level ${level}`);
+
+  const key = kind === "product" ? `x${a}*x${b}` : kind === "quotient" ? `x${a}/x${b}` : `(x${a})^${b}`;
+  const prompt = kind === "product" ? `Simplify: x^${a} · x^${b}`
+    : kind === "quotient" ? `Simplify: x^${a} ÷ x^${b}`
+      : `Simplify: (x^${a})^${b}`;
+  const spoken = kind === "product" ? `Simplify: ${speakPower(a)} times ${speakPower(b)}`
+    : kind === "quotient" ? `Simplify: ${speakPower(a)} divided by ${speakPower(b)}`
+      : `Simplify: ${speakPower(a)}, all to the ${POWER_WORDS[b]} power`;
+
+  return makeQuestion(skillId, key, prompt, `x^${answer}`, candidates, rng, spoken);
+}
+
+/**
+ * The only legs this app will ever ask about. Exported because `pythagorean` here and the
+ * grade-10 `trig-ratios` and `dist-midpoint` all need whole-number answers, and a triple
+ * table copied three times is three things to get wrong.
+ *
+ * Arbitrary legs are not an option: `√(3² + 5²)` is irrational, and a multiple-choice
+ * question cannot offer it.
+ */
+export const PYTHAGOREAN_TRIPLES: readonly (readonly [number, number, number])[] = [
+  [3, 4, 5], [6, 8, 10], [5, 12, 13], [8, 15, 17], [7, 24, 25], [9, 12, 15], [20, 21, 29],
+];
+
+/** How far a triple may be scaled up, per level. Three is the ceiling everywhere. */
+const TRIPLE_SCALE_MAX = [1, 1, 2, 2, 3];
+/** Largest hypotenuse in play, per level, so a scaled triple cannot run away. */
+const TRIPLE_HYP_MAX = [17, 25, 29, 60, 90];
+
+/**
+ * The Pythagorean theorem (grade 8). Legs come from the triple table above, scaled by the
+ * level and never past 3x, so the hypotenuse is always a whole number a child can pick.
+ *
+ * The two legs are printed in either order, which is a real part of the skill — the shorter
+ * leg is not always named first on a diagram — and the order is part of the id, because it
+ * is part of the prompt.
+ *
+ * Four readings are offered and none of them can be the answer, for reasons that hold for
+ * every triple rather than by luck: the legs added is `a + b`, which is strictly greater
+ * than `c` in any triangle; either leg alone is strictly less than `c`; and `c²` is at least
+ * `5c`. The generator test asserts all four are distinct rather than trusting this note.
+ */
+export function pythagorean(level: number, rng: Rng, skillId: string): Question {
+  const lvl = L(level);
+  let a = 0, b = 0, c = 0;
+  let drawn = false;
+  for (let attempt = 0; attempt < 400 && !drawn; attempt++) {
+    const [p, q, r] = PYTHAGOREAN_TRIPLES[randInt(rng, 0, PYTHAGOREAN_TRIPLES.length - 1)];
+    const scale = randInt(rng, 1, TRIPLE_SCALE_MAX[lvl]);
+    if (r * scale > TRIPLE_HYP_MAX[lvl]) continue;
+    const flip = rng() < 0.5;
+    a = (flip ? q : p) * scale;
+    b = (flip ? p : q) * scale;
+    c = r * scale;
+    drawn = true;
+  }
+  if (!drawn) throw new Error(`could not draw a Pythagorean triple at level ${level}`);
+
+  const distractors = pickDistinct(
+    [String(a + b), String(a), String(c * c), String(b), ...numericDistractors(c, rng, 1)],
+    String(c),
+  );
+  const prompt = `A right triangle has legs ${a} and ${b}. How long is the hypotenuse?`;
+  return makeQuestion(skillId, `${a},${b}`, prompt, String(c), distractors, rng, prompt);
+}
+
+/** Largest exponent in play, per level. */
+const SCI_MAGNITUDE = [3, 4, 5, 6, 8];
+
+/**
+ * A mantissa held as an integer and a count of decimal places, rendered without a float ever
+ * touching it: `45` with one place is "4.5", and with two it is "0.45". Shared by the answer
+ * and by both of its misplaced-point distractors, which is the point — the three differ only
+ * in where the point lands.
+ */
+function renderMantissa(digits: number, places: number): string {
+  if (places <= 0) return String(digits);
+  const s = String(digits).padStart(places + 1, "0");
+  return `${s.slice(0, s.length - places)}.${s.slice(s.length - places)}`;
+}
+
+/**
+ * Scientific notation (grade 8). Negative exponents join at level 4.
+ *
+ * **Every number here is an integer of digits and a power of ten, and no float touches one.**
+ * `4.56e-4` written out by `toString` is a rendering nobody controls; the digits are placed
+ * against the decimal point by hand instead, so what a child reads is exactly what was meant.
+ *
+ * The mantissa never ends in a zero. `4.50 × 10^3` and `4.5 × 10^3` are the same number
+ * written two ways, and a question whose right answer has two spellings has no right answer.
+ *
+ * A negative exponent is capped at six regardless of the level's magnitude. `4.5 × 10^-8` is
+ * `0.000000045`, and counting eight zeros is not a harder question about exponents — it is a
+ * different and worse question about eyesight.
+ */
+export function sciNotation(level: number, rng: Rng, skillId: string): Question {
+  const lvl = L(level);
+  const places = lvl >= 2 ? randInt(rng, 1, 2) : 1;
+  let digits = 0;
+  do {
+    digits = randInt(rng, 10 ** places, 10 ** (places + 1) - 1);
+  } while (digits % 10 === 0);
+  const negative = lvl >= 4 && rng() < 0.5;
+  const exponent = negative ? -randInt(rng, 2, 6) : randInt(rng, 2, SCI_MAGNITUDE[lvl]);
+
+  // The number as a child reads it: the digits shifted against the point, then grouped.
+  const shift = exponent - places;
+  const s = String(digits);
+  let plain: string;
+  if (shift >= 0) {
+    plain = Number(s + "0".repeat(shift)).toLocaleString("en-US");
+  } else {
+    const point = s.length + shift;
+    plain = point > 0 ? `${s.slice(0, point)}.${s.slice(point)}` : `0.${"0".repeat(-point)}${s}`;
+  }
+
+  const mantissa = renderMantissa(digits, places);
+  const answer = `${mantissa} × 10^${exponent}`;
+  const distractors = pickDistinct(
+    [
+      `${renderMantissa(digits, places - 1)} × 10^${exponent}`, // the point one place too far right
+      `${renderMantissa(digits, places + 1)} × 10^${exponent}`, // the point one place too far left
+      `${mantissa} × 10^${exponent + 1}`,                       // the exponent off by one
+      `${mantissa} × 10^${exponent - 1}`,
+    ],
+    answer,
+  );
+
+  const prompt = `Write ${plain} in scientific notation.`;
+  return makeQuestion(skillId, plain.replace(/,/g, ""), prompt, answer, distractors, rng, prompt);
+}

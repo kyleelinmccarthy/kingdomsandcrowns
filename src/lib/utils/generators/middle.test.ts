@@ -1,5 +1,5 @@
 /**
- * Range and ladder checks for grades 6 and 7.
+ * Range and ladder checks for grades 6, 7 and 8.
  *
  * `drill-verify.test.ts` proves the ANSWER KEY against an independent reading of the
  * prompt; nothing there bounds difficulty, so a generator handing a sixth-grader a circle
@@ -8,13 +8,19 @@
  */
 import { describe, it, expect } from "vitest";
 import {
+  PYTHAGOREAN_TRIPLES,
   circleMeasure,
   evalExpr,
+  exponentRules,
   fracDiv,
+  linearEq,
   percentChange,
   proportion,
+  pythagorean,
   rationalOps,
   ratioRate,
+  sciNotation,
+  slopeFromPoints,
   twoStepEq,
 } from "./middle";
 import { seededRng, type Question, type Rng } from "../drill-generators";
@@ -460,6 +466,309 @@ describe("circle-measure", () => {
       expect(q.readAloud, q.readAloud).toContain("three point one four");
       expect(q.readAloud, q.readAloud).not.toMatch(/[π²^]/);
       expect(q.readAloud, q.readAloud).not.toContain("3.14");
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Grade 8
+// ---------------------------------------------------------------------------
+
+describe("linear-eq", () => {
+  const COEF_MAX = [5, 6, 7, 8, 9];
+  const CONST_MAX = [8, 10, 12, 12, 12];
+
+  const parse = (q: Question) => {
+    const m = /^Solve for x: (\d+)x ([+\-]) (\d+) = (?:(\d+)x ([+\-]) (\d+)|(-?\d+))$/.exec(q.prompt);
+    expect(m, `linear-eq wrote an equation a child cannot read: ${q.prompt}`).not.toBeNull();
+    const bothSides = m![4] !== undefined;
+    return {
+      a: Number(m![1]),
+      b: m![2] === "+" ? Number(m![3]) : -Number(m![3]),
+      c: bothSides ? Number(m![4]) : 0,
+      d: bothSides ? (m![5] === "+" ? Number(m![6]) : -Number(m![6])) : Number(m![7]),
+      bothSides,
+    };
+  };
+
+  it("keeps x on one side until level 2, and inside the level's coefficients", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(linearEq, lvl, "linear-eq")) {
+        const { a, b, c, d, bothSides } = parse(q);
+        expect(bothSides, `level ${lvl}: ${q.prompt}`).toBe(lvl >= 2);
+        expect(a, q.prompt).toBeGreaterThanOrEqual(2);
+        expect(a, q.prompt).toBeLessThanOrEqual(COEF_MAX[lvl]);
+        if (bothSides) {
+          expect(c, q.prompt).toBeGreaterThanOrEqual(2);
+          expect(c, q.prompt).toBeLessThanOrEqual(COEF_MAX[lvl]);
+          // Equal coefficients cancel the x away: `4x + 1 = 4x + 5` has no solution at all.
+          expect(a, `${q.prompt} has no x left to solve for`).not.toBe(c);
+          expect(d, `${q.prompt} prints a constant of zero`).not.toBe(0);
+        }
+        expect(Math.abs(b), q.prompt).toBeGreaterThanOrEqual(1);
+        expect(Math.abs(b), q.prompt).toBeLessThanOrEqual(CONST_MAX[lvl]);
+        const x = Number(q.answer);
+        expect(Number.isInteger(x), q.prompt).toBe(true);
+        expect(a * x + b, `${q.prompt} is not solved by ${x}`).toBe(c * x + d);
+        // A solution of zero makes several of the wrong readings land on 0 together.
+        expect(x, q.prompt).not.toBe(0);
+        if (lvl <= 1) expect(x, q.prompt).toBeGreaterThanOrEqual(1);
+      }
+    }
+  });
+
+  it("offers the constant moved the wrong way, and it is never the answer", () => {
+    for (const lvl of LEVELS) {
+      let offered = 0;
+      for (const q of draws(linearEq, lvl, "linear-eq")) {
+        const { a, b, c, d } = parse(q);
+        if ((d + b) % (a - c) !== 0) continue;   // a child who lands on a fraction starts over
+        const wrongWay = (d + b) / (a - c);
+        // Asserted distinct FIRST: `toContain` passes vacuously when the mistake IS the answer,
+        // which is the shape every silent two-right-answer bug takes.
+        expect(String(wrongWay), `${q.prompt} has two right answers`).not.toBe(q.answer);
+        expect(q.choices, q.prompt).toContain(String(wrongWay));
+        offered += 1;
+      }
+      expect(offered, `level ${lvl} never offered the sign mistake, so the check above is vacuous`).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe("slope", () => {
+  const COORD_MAX = [5, 7, 9, 10, 12];
+  const MAG_MAX = [3, 3, 4, 5, 5];
+
+  const parse = (q: Question) => {
+    const m = /^What is the slope of the line through \((-?\d+), (-?\d+)\) and \((-?\d+), (-?\d+)\)\?$/.exec(q.prompt);
+    expect(m, `slope wrote a prompt a child cannot read: ${q.prompt}`).not.toBeNull();
+    return m!.slice(1, 5).map(Number) as [number, number, number, number];
+  };
+
+  it("never repeats an x, and keeps both points and the slope inside the level", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(slopeFromPoints, lvl, "slope")) {
+        const [x1, y1, x2, y2] = parse(q);
+        // A vertical line has no slope, and `rise / 0` is not a choice anyone can offer.
+        expect(x1, `${q.prompt} is a vertical line`).not.toBe(x2);
+        for (const coord of [x1, y1, x2, y2]) {
+          expect(Math.abs(coord), q.prompt).toBeLessThanOrEqual(COORD_MAX[lvl]);
+        }
+        const m = (y2 - y1) / (x2 - x1);
+        expect(Number.isInteger(m), `${q.prompt} has a ragged slope`).toBe(true);
+        expect(q.answer, q.prompt).toBe(String(m));
+        // At a slope of ±1 the inverted reading IS the slope, and the defining distractor
+        // would be the right answer printed twice. Two things keep that off the screen — the
+        // drawn size starts at 2, and the four-way distinctness check would reject it anyway —
+        // so this assertion survives either one of them being removed on its own.
+        expect(Math.abs(m), q.prompt).toBeGreaterThanOrEqual(2);
+        expect(Math.abs(m), q.prompt).toBeLessThanOrEqual(MAG_MAX[lvl]);
+      }
+    }
+  });
+
+  it("always offers run over rise, the flipped sign and the run alone, all different", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(slopeFromPoints, lvl, "slope")) {
+        const [x1, y1, x2, y2] = parse(q);
+        const run = x2 - x1, rise = y2 - y1;
+        const inverted = run / rise;
+        expect(new Set(q.choices.map(value)).size, `${q.prompt}: ${q.choices.join(", ")}`).toBe(4);
+        // Each mistake is asserted DIFFERENT from the answer before it is asserted present.
+        expect(inverted, `${q.prompt} reads the same upside down`).not.toBe(value(q.answer));
+        expect(-rise / run, `${q.prompt} reads the same with the sign flipped`).not.toBe(value(q.answer));
+        expect(run, `${q.prompt} answers itself with the run`).not.toBe(value(q.answer));
+        expect(q.choices.map(value), q.prompt).toContain(inverted);
+        expect(q.choices.map(value), q.prompt).toContain(-rise / run);
+        expect(q.choices.map(value), q.prompt).toContain(run);
+      }
+    }
+  });
+
+  it("speaks both points without a symbol in them", () => {
+    for (const q of draws(slopeFromPoints, 4, "slope")) {
+      expect(q.readAloud, q.readAloud).toContain("the point");
+      expect(q.readAloud, q.readAloud).not.toMatch(/[-()]/);
+    }
+  });
+});
+
+describe("exponent-rules", () => {
+  const EXP_MAX = [5, 5, 6, 6, 7];
+
+  const parse = (q: Question) => {
+    const m = /^Simplify: (?:x\^(\d+) ([·÷]) x\^(\d+)|\(x\^(\d+)\)\^(\d+))$/.exec(q.prompt);
+    expect(m, `exponent-rules wrote an expression a child cannot read: ${q.prompt}`).not.toBeNull();
+    if (m![4] !== undefined) return { kind: "power" as const, a: Number(m![4]), b: Number(m![5]) };
+    return { kind: m![2] === "·" ? ("product" as const) : ("quotient" as const), a: Number(m![1]), b: Number(m![3]) };
+  };
+
+  it("adds, subtracts or multiplies the exponents as the operator says, never below x squared", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(exponentRules, lvl, "exponent-rules")) {
+        const { kind, a, b } = parse(q);
+        const expected = kind === "product" ? a + b : kind === "quotient" ? a - b : a * b;
+        expect(q.answer, q.prompt).toBe(`x^${expected}`);
+        // `x^1` and `x^0` are a different lesson, and `x^1` among three powers of x is the
+        // one choice that looks unlike the others.
+        expect(expected, q.prompt).toBeGreaterThanOrEqual(2);
+        expect(a, q.prompt).toBeGreaterThanOrEqual(2);
+        expect(a, q.prompt).toBeLessThanOrEqual(EXP_MAX[lvl]);
+        expect(b, q.prompt).toBeGreaterThanOrEqual(2);
+        expect(b, q.prompt).toBeLessThanOrEqual(kind === "power" ? 3 : EXP_MAX[lvl]);
+      }
+    }
+  });
+
+  it("holds quotients back to level 2 and a power of a power to level 4", () => {
+    const seen = LEVELS.map((lvl) => new Set(draws(exponentRules, lvl, "exponent-rules").map((q) => parse(q).kind)));
+    expect([...seen[0]]).toEqual(["product"]);
+    expect([...seen[1]]).toEqual(["product"]);
+    for (const lvl of [2, 3]) expect([...seen[lvl]].sort()).toEqual(["product", "quotient"]);
+    expect([...seen[4]].sort()).toEqual(["power", "product", "quotient"]);
+  });
+
+  it("offers the exponents multiplied where they should be added, and it is never the answer", () => {
+    for (const lvl of LEVELS) {
+      let offered = 0;
+      for (const q of draws(exponentRules, lvl, "exponent-rules")) {
+        const { kind, a, b } = parse(q);
+        if (kind !== "product") continue;
+        // Distinct first: `2 + 2` and `2 × 2` are both 4, and that draw is thrown away rather
+        // than quietly backfilled with an off-by-one that would leave this check passing.
+        expect(`x^${a * b}`, `${q.prompt} adds to what it multiplies to`).not.toBe(q.answer);
+        expect(q.choices, q.prompt).toContain(`x^${a * b}`);
+        expect(q.choices, `${q.prompt} does not offer the bases multiplied`).toContain(`2x^${a + b}`);
+        offered += 1;
+      }
+      expect(offered, `level ${lvl} drew no products at all`).toBeGreaterThan(0);
+    }
+  });
+
+  it("spells every power out in words, so read-aloud never says a caret", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(exponentRules, lvl, "exponent-rules")) {
+        expect(q.readAloud, q.readAloud).toContain("power");
+        expect(q.readAloud, q.readAloud).not.toMatch(/[\^·÷x]\^/);
+        expect(q.readAloud, q.readAloud).not.toContain("^");
+      }
+    }
+  });
+});
+
+describe("pythagorean", () => {
+  const SCALE_MAX = [1, 1, 2, 2, 3];
+  const HYP_MAX = [17, 25, 29, 60, 90];
+
+  it("only ever asks about a scaled triple from the exported table", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(pythagorean, lvl, "pythagorean")) {
+        const m = /^A right triangle has legs (\d+) and (\d+)\. How long is the hypotenuse\?$/.exec(q.prompt);
+        expect(m, `pythagorean wrote a prompt a child cannot read: ${q.prompt}`).not.toBeNull();
+        const a = Number(m![1]), b = Number(m![2]), c = Number(q.answer);
+        // Independent of the table: the legs and the hypotenuse must genuinely square up, so
+        // a triple typed in wrong is caught here and not merely matched against itself.
+        expect(a * a + b * b, `${q.prompt} is not a right triangle`).toBe(c * c);
+        // One reading is enough: (6, 8, 10) is in the table in its own right AND is (3, 4, 5)
+        // doubled, so demanding EVERY reading fit the level's cap would fail a legal draw.
+        const fits = PYTHAGOREAN_TRIPLES.some(([p, q2, r]) =>
+          [1, 2, 3].some((s) =>
+            s <= SCALE_MAX[lvl] && r * s <= HYP_MAX[lvl]
+            && ((p * s === a && q2 * s === b) || (q2 * s === a && p * s === b))),
+        );
+        expect(fits, `${q.prompt} is no table triple inside level ${lvl}'s scale and size`).toBe(true);
+      }
+    }
+  });
+
+  it("offers the legs added, a leg alone and the square, none of them the answer", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(pythagorean, lvl, "pythagorean")) {
+        const m = /legs (\d+) and (\d+)/.exec(q.prompt)!;
+        const a = Number(m[1]), b = Number(m[2]), c = Number(q.answer);
+        // Distinct first. `a + b` exceeds `c` in any triangle and `c²` is at least `5c`, so
+        // none of these can be the answer — but the reason is a property of the table, and
+        // a table edited later is exactly what this is here to catch.
+        expect(new Set([c, a + b, a, c * c]).size, `${q.prompt} has two right answers`).toBe(4);
+        expect(q.choices, q.prompt).toContain(String(a + b));
+        expect(q.choices, q.prompt).toContain(String(a));
+        expect(q.choices, q.prompt).toContain(String(c * c));
+      }
+    }
+  });
+});
+
+describe("sci-notation", () => {
+  const MAGNITUDE = [3, 4, 5, 6, 8];
+
+  const parse = (q: Question) => {
+    const p = /^Write ([\d,.]+) in scientific notation\.$/.exec(q.prompt);
+    expect(p, `sci-notation wrote a prompt a child cannot read: ${q.prompt}`).not.toBeNull();
+    const a = /^(\d+)\.(\d+) × 10\^(-?\d+)$/.exec(q.answer);
+    expect(a, `sci-notation wrote an answer that is not scientific notation: ${q.answer}`).not.toBeNull();
+    return { plain: p![1].replace(/,/g, ""), whole: a![1], fraction: a![2], exponent: Number(a![3]) };
+  };
+
+  it("keeps the mantissa between 1 and 10 with no trailing zero, at the level's magnitude", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(sciNotation, lvl, "sci-notation")) {
+        const { whole, fraction, exponent } = parse(q);
+        expect(Number(whole), q.answer).toBeGreaterThanOrEqual(1);
+        expect(Number(whole), q.answer).toBeLessThanOrEqual(9);
+        // "4.50 × 10^3" and "4.5 × 10^3" are the same number written two ways, and a question
+        // whose right answer has two spellings has no right answer.
+        expect(fraction.endsWith("0"), `${q.answer} has a trailing zero`).toBe(false);
+        expect(fraction.length, q.answer).toBeLessThanOrEqual(lvl >= 2 ? 2 : 1);
+        if (exponent < 0) {
+          expect(lvl, `${q.prompt} went negative below level 4`).toBe(4);
+          expect(Math.abs(exponent), q.prompt).toBeLessThanOrEqual(6);
+        } else {
+          expect(exponent, q.prompt).toBeGreaterThanOrEqual(2);
+          expect(exponent, q.prompt).toBeLessThanOrEqual(MAGNITUDE[lvl]);
+        }
+      }
+    }
+  });
+
+  it("writes the prompt's number out digit for digit, with no float in between", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(sciNotation, lvl, "sci-notation")) {
+        const { plain, whole, fraction, exponent } = parse(q);
+        // Rebuilt as a string rather than multiplied out: 4.56 × 10^5 through a float is
+        // 455999.99999999994, and this check must not be the place that learns to round.
+        const digits = whole + fraction;
+        const shift = exponent - fraction.length;
+        const rebuilt = shift >= 0
+          ? digits + "0".repeat(shift)
+          : (digits.length + shift > 0
+            ? `${digits.slice(0, digits.length + shift)}.${digits.slice(digits.length + shift)}`
+            : `0.${"0".repeat(-(digits.length + shift))}${digits}`);
+        expect(rebuilt, `${q.prompt} is not ${q.answer}`).toBe(plain);
+      }
+    }
+  });
+
+  it("goes negative at level 4 and nowhere else, so the hardest rung is not the easy one again", () => {
+    const negatives = draws(sciNotation, 4, "sci-notation").filter((q) => parse(q).exponent < 0);
+    expect(negatives.length, "level 4 never drew a negative exponent").toBeGreaterThan(0);
+    for (const lvl of [0, 1, 2, 3]) {
+      for (const q of draws(sciNotation, lvl, "sci-notation")) expect(parse(q).exponent, q.prompt).toBeGreaterThan(0);
+    }
+  });
+
+  it("offers the point one place either side and the exponent off by one", () => {
+    for (const lvl of LEVELS) {
+      for (const q of draws(sciNotation, lvl, "sci-notation")) {
+        const { whole, fraction, exponent } = parse(q);
+        const digits = whole + fraction;
+        const right = fraction.length === 1 ? digits : `${digits.slice(0, -1)}.${digits.slice(-1)}`;
+        const left = `0.${digits}`;
+        for (const wrong of [`${right} × 10^${exponent}`, `${left} × 10^${exponent}`, `${whole}.${fraction} × 10^${exponent + 1}`]) {
+          expect(wrong, `${q.prompt} offers its own answer as a mistake`).not.toBe(q.answer);
+        }
+        expect(q.choices, `${q.prompt} does not offer the point one place right`).toContain(`${right} × 10^${exponent}`);
+        expect(q.choices, `${q.prompt} does not offer the point one place left`).toContain(`${left} × 10^${exponent}`);
+      }
     }
   });
 });

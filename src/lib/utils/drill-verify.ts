@@ -761,6 +761,192 @@ const circleMeasure: Verifier = (q) => {
   return (Math.round(value * 10) / 10).toFixed(1);
 };
 
+// ---------------------------------------------------------------------------
+// Grade 8
+// ---------------------------------------------------------------------------
+
+/**
+ * "Solve for x: 4x - 3 = 2x + 7" / "Solve for x: 4x - 3 = 5"
+ *
+ * A genuine inverse: the generator picks x and builds the right-hand side from it, and this
+ * runs that backwards — collect the x terms, collect the constants, divide. Both signs are
+ * read out of the prompt and applied here, never assumed, so an equation printed with a
+ * minus cannot be solved as if it had a plus.
+ *
+ * An equation with the same coefficient on both sides throws rather than dividing by zero:
+ * `4x + 1 = 4x + 5` has no solution and is not a question. A non-integer solution throws for
+ * the same reason it does in the grade-7 two-step verifier — every equation this skill asks
+ * is built to come out whole, so a ragged one is a generator bug reaching the harness.
+ */
+const linearEquation: Verifier = (q) => {
+  const m = /^Solve for x: (\d+)x ([+\-]) (\d+) = (?:(\d+)x ([+\-]) (\d+)|(-?\d+))$/.exec(q.prompt);
+  if (!m) throw new Error(`linear equation verifier cannot parse: ${q.prompt}`);
+  const a = Number(m[1]);
+  const b = m[2] === "+" ? Number(m[3]) : -Number(m[3]);
+  const bothSides = m[4] !== undefined;
+  const c = bothSides ? Number(m[4]) : 0;
+  const d = bothSides ? (m[5] === "+" ? Number(m[6]) : -Number(m[6])) : Number(m[7]);
+  if (a === c) throw new Error(`the x terms cancel, so there is nothing to solve in: ${q.prompt}`);
+  if ((d - b) % (a - c) !== 0) throw new Error(`no integer solution in: ${q.prompt}`);
+  return String((d - b) / (a - c));
+};
+
+/**
+ * "What is the slope of the line through (2, 3) and (6, 11)?"
+ *
+ * A genuine inverse: the generator draws the slope and places the second point from it,
+ * while this recovers the slope from the two points. Which coordinate is the rise and which
+ * the run is decided HERE, from the prompt's own ordering, so a generator that had divided
+ * run by rise — the defining error of this skill — disagrees.
+ *
+ * Equal x-coordinates throw. A vertical line has no slope, and the question would be asking
+ * a child to divide by zero.
+ */
+const slopeFromPoints: Verifier = (q) => {
+  const m = /^What is the slope of the line through \((-?\d+), (-?\d+)\) and \((-?\d+), (-?\d+)\)\?$/.exec(q.prompt);
+  if (!m) throw new Error(`slope verifier cannot parse: ${q.prompt}`);
+  const [x1, y1, x2, y2] = m.slice(1, 5).map(Number);
+  if (x1 === x2) throw new Error(`a vertical line has no slope: ${q.prompt}`);
+  return reduceFraction(y2 - y1, x2 - x1);
+};
+
+/**
+ * "Simplify: x^3 · x^5" / "Simplify: x^7 ÷ x^3" / "Simplify: (x^3)^2"
+ *
+ * NOT an inverse, and the prompt leaves none: both exponents are named, so there is nothing
+ * to recover. What IS independent is the route. An exponent here is a COUNT OF FACTORS and
+ * nothing else: a product lays the two runs of x end to end and counts them, a quotient
+ * cancels one x off each side at a time until the bottom is empty, and a power of a power
+ * lays down the inner run once per outer step. No `+`, `-` or `×` is applied to the
+ * exponents themselves, which are precisely the three operations a child confuses. A
+ * generator that added where it should multiply is caught; a shared misconception about
+ * what an exponent MEANS would not be.
+ *
+ * The operator is read from the prompt and switched on, so a prompt flipped from `·` to `÷`
+ * cannot keep the sum as its answer. An exponent that lands below 2 throws: `x^1` and `x^0`
+ * are a different lesson and this skill never asks them.
+ */
+const exponentRules: Verifier = (q) => {
+  const m = /^Simplify: (?:x\^(\d+) ([·÷]) x\^(\d+)|\(x\^(\d+)\)\^(\d+))$/.exec(q.prompt);
+  if (!m) throw new Error(`exponent verifier cannot parse: ${q.prompt}`);
+  const factors: string[] = [];
+  if (m[4] !== undefined) {
+    const inner = Number(m[4]), outer = Number(m[5]);
+    if (inner < 1 || outer < 1) throw new Error(`an exponent of none in: ${q.prompt}`);
+    for (let step = 0; step < outer; step++) for (let one = 0; one < inner; one++) factors.push("x");
+  } else {
+    const a = Number(m[1]), b = Number(m[3]);
+    if (a < 1 || b < 1) throw new Error(`an exponent of none in: ${q.prompt}`);
+    for (let one = 0; one < a; one++) factors.push("x");
+    if (m[2] === "·") {
+      for (let one = 0; one < b; one++) factors.push("x");
+    } else {
+      for (let one = 0; one < b; one++) {
+        if (factors.length === 0) throw new Error(`more x's cancelled than there were in: ${q.prompt}`);
+        factors.pop();
+      }
+    }
+  }
+  if (factors.length < 2) throw new Error(`this skill never asks for x to the first or zeroth power: ${q.prompt}`);
+  return `x^${factors.length}`;
+};
+
+/**
+ * "A right triangle has legs 3 and 4. How long is the hypotenuse?"
+ *
+ * NOT an inverse: both legs are named, so nothing is left to recover. Two things here ARE
+ * independent, and the second is the one that matters.
+ *
+ * Each leg is squared by counting it out that many times, and the hypotenuse is found by
+ * laying down consecutive odd numbers — 1, 3, 5, 7 — because that is what a square number
+ * IS. Neither `*` nor `Math.sqrt` appears, and `Math.sqrt(25)` returning 4.999999 is not a
+ * failure mode this can have.
+ *
+ * And the sum of the squares MUST be a perfect square, or this throws. That is the guard
+ * the whole skill rests on: legs of 3 and 5 give an irrational hypotenuse, which cannot be
+ * one of four choices on a screen, and a generator that wandered off the triple table
+ * reaches the harness here rather than reaching a child.
+ */
+const pythagorean: Verifier = (q) => {
+  const m = /^A right triangle has legs (\d+) and (\d+)\. How long is the hypotenuse\?$/.exec(q.prompt);
+  if (!m) throw new Error(`Pythagorean verifier cannot parse: ${q.prompt}`);
+  const a = Number(m[1]), b = Number(m[2]);
+  if (a < 1 || b < 1) throw new Error(`a triangle needs two legs in: ${q.prompt}`);
+  if (a > 500 || b > 500) throw new Error(`legs too long to count out in: ${q.prompt}`);
+  const square = (n: number) => {
+    let total = 0;
+    for (let counted = 0; counted < n; counted++) total += n;
+    return total;
+  };
+  const target = square(a) + square(b);
+  let side = 0, running = 0, odd = 1;
+  while (running < target) {
+    running += odd;
+    odd += 2;
+    side += 1;
+  }
+  if (running !== target) throw new Error(`these legs have no whole hypotenuse: ${q.prompt}`);
+  return String(side);
+};
+
+/**
+ * A decimal string as an exact integer and a power of ten, with trailing zeros normalised
+ * away: "4,500" is 45 × 10², "0.0045" is 45 × 10⁻⁴, and both come back as `{45, ...}`. No
+ * float touches one, so `4.56 × 10^5` is compared by its digits rather than by a product
+ * that might land on 455999.99999999994.
+ */
+function powerOfTenParts(text: string): { digits: number; shift: number } {
+  const m = /^(\d+)(?:\.(\d+))?$/.exec(text);
+  if (!m) throw new Error(`not a decimal this can read: ${text}`);
+  const fraction = m[2] ?? "";
+  let digits = Number(m[1] + fraction);
+  let shift = -fraction.length;
+  if (digits === 0) throw new Error(`zero has no scientific notation: ${text}`);
+  while (digits % 10 === 0) {
+    digits /= 10;
+    shift += 1;
+  }
+  return { digits, shift };
+}
+
+/** How many digits an integer is written with, so a mantissa's size can be read off it. */
+const digitCount = (n: number): number => String(n).length;
+
+/**
+ * "Write 4,500 in scientific notation." — the choices carry the candidate answers.
+ *
+ * A genuinely independent derivation, and the one the skill needs: every choice is parsed
+ * back into a mantissa and an exponent and MULTIPLIED OUT again, then compared to the
+ * number the prompt names with its commas stripped. The generator goes the other way, from
+ * digits and a power of ten to a printed number, so a generator that had placed the point
+ * one column off disagrees here.
+ *
+ * Reaching the right VALUE is not enough: `45 × 10^2` is 4,500 and is not scientific
+ * notation, so a mantissa outside [1, 10) is rejected before its value is even looked at.
+ * That test is done on the digits rather than on a float — a mantissa is in range exactly
+ * when its digit count plus its shift is one — which is what makes "0.45" and "45" both
+ * fail without ever forming a number.
+ *
+ * Exactly one choice must survive both tests. Two survivors would mean the same number
+ * written two ways, which is a question with no single right answer.
+ */
+const sciNotation: Verifier = (q) => {
+  const m = /^Write ([\d,.]+) in scientific notation\.$/.exec(q.prompt);
+  if (!m) throw new Error(`scientific notation verifier cannot parse: ${q.prompt}`);
+  const target = powerOfTenParts(m[1].replace(/,/g, ""));
+  const passes = q.choices.filter((choice) => {
+    const cm = /^(\d+(?:\.\d+)?) × 10\^(-?\d+)$/.exec(choice);
+    if (!cm) return false;
+    const mantissa = powerOfTenParts(cm[1]);
+    if (digitCount(mantissa.digits) + mantissa.shift !== 1) return false; // not between 1 and 10
+    return mantissa.digits === target.digits && mantissa.shift + Number(cm[2]) === target.shift;
+  });
+  if (passes.length !== 1) {
+    throw new Error(`${passes.length} choices are ${m[1]} in scientific notation: ${q.choices.join(", ")}`);
+  }
+  return passes[0];
+};
+
 export const VERIFIERS: Record<string, Verifier> = {
   add: arithmetic,
   sub: arithmetic,
@@ -797,4 +983,9 @@ export const VERIFIERS: Record<string, Verifier> = {
   "percent-change": percentChange,
   "two-step-eq": twoStepEquation,
   "circle-measure": circleMeasure,
+  "linear-eq": linearEquation,
+  slope: slopeFromPoints,
+  "exponent-rules": exponentRules,
+  pythagorean,
+  "sci-notation": sciNotation,
 };

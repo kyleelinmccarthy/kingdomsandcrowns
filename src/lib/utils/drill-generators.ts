@@ -20,11 +20,16 @@ import {
 import {
   circleMeasure,
   evalExpr,
+  exponentRules,
   fracDiv,
+  linearEq,
   percentChange,
   proportion,
+  pythagorean,
   rationalOps,
   ratioRate,
+  sciNotation,
+  slopeFromPoints,
   twoStepEq,
 } from "./generators/middle";
 
@@ -277,4 +282,9 @@ export const GENERATORS: Record<string, Generator> = {
   "percent-change": percentChange,
   "two-step-eq": twoStepEq,
   "circle-measure": circleMeasure,
+  "linear-eq": linearEq,
+  slope: slopeFromPoints,
+  "exponent-rules": exponentRules,
+  pythagorean,
+  "sci-notation": sciNotation,
 };
