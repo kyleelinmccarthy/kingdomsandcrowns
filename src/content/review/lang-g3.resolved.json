@@ -1,0 +1,32 @@
+{
+  "poolId": "lang-g3",
+  "resolutions": [
+    {
+      "itemId": "lang-g3-sva-box-of-apples",
+      "code": "74bab7",
+      "keyAt": "The box of apples is heavy.",
+      "verdict": "ambiguity-accepted",
+      "note": "The reviewer is describing the language honestly: over an intervening prepositional phrase, the plural verb is what most children hear at home, and a descriptive linguist would not call it an error. But that is precisely what CCSS L.3.1f asks a grade-3 child to learn — subject-verb agreement when a phrase stands between the subject and its verb — so the common spoken form is the RIGHT distractor here, not a second answer. A question whose wrong option is the mistake it exists to catch is the question working. Distinct from the calendar/heighth cases, where a dictionary recorded the rejected option as correct for the very thing the stem asked; no reference work calls 'Each of the girls have' the standard written form. All three sit at level 4, the stretch rung, which is where this belongs.",
+      "resolvedBy": "claude-opus-5 (controller ruling)",
+      "resolvedAt": "2026-09-16"
+    },
+    {
+      "itemId": "lang-g3-sva-each-girl",
+      "code": "08aa17",
+      "keyAt": "Each of the girls has a hat.",
+      "verdict": "ambiguity-accepted",
+      "note": "The reviewer is describing the language honestly: over an intervening prepositional phrase, the plural verb is what most children hear at home, and a descriptive linguist would not call it an error. But that is precisely what CCSS L.3.1f asks a grade-3 child to learn — subject-verb agreement when a phrase stands between the subject and its verb — so the common spoken form is the RIGHT distractor here, not a second answer. A question whose wrong option is the mistake it exists to catch is the question working. Distinct from the calendar/heighth cases, where a dictionary recorded the rejected option as correct for the very thing the stem asked; no reference work calls 'Each of the girls have' the standard written form. All three sit at level 4, the stretch rung, which is where this belongs.",
+      "resolvedBy": "claude-opus-5 (controller ruling)",
+      "resolvedAt": "2026-09-16"
+    },
+    {
+      "itemId": "lang-g3-sva-one-window",
+      "code": "26e418",
+      "keyAt": "One of the windows is open.",
+      "verdict": "ambiguity-accepted",
+      "note": "The reviewer is describing the language honestly: over an intervening prepositional phrase, the plural verb is what most children hear at home, and a descriptive linguist would not call it an error. But that is precisely what CCSS L.3.1f asks a grade-3 child to learn — subject-verb agreement when a phrase stands between the subject and its verb — so the common spoken form is the RIGHT distractor here, not a second answer. A question whose wrong option is the mistake it exists to catch is the question working. Distinct from the calendar/heighth cases, where a dictionary recorded the rejected option as correct for the very thing the stem asked; no reference work calls 'Each of the girls have' the standard written form. All three sit at level 4, the stretch rung, which is where this belongs.",
+      "resolvedBy": "claude-opus-5 (controller ruling)",
+      "resolvedAt": "2026-09-16"
+    }
+  ]
+}

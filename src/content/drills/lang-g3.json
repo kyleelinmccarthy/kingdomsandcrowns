@@ -308,9 +308,9 @@
       "prompt": "Which sentence is correct?",
       "answer": "She has sung that song before.",
       "distractors": [
-        "She has sang that song before.",
         "She has sing that song before.",
-        "She has singed that song before."
+        "She has singed that song before.",
+        "She has singen that song before."
       ],
       "readAloud": "Look at the four sentences. Which one is correct?",
       "level": 4

@@ -184,13 +184,13 @@
       "level": 2
     },
     {
-      "id": "lang-g1-punc-bike-mark",
+      "id": "lang-g1-punc-desk-mark",
       "prompt": "Which mark comes at the end of this sentence? The book is on the desk",
       "answer": "A period",
       "distractors": [
-        "A question mark",
-        "An exclamation point",
-        "A comma"
+        "A comma",
+        "A semicolon",
+        "A colon"
       ],
       "level": 1
     },
@@ -254,9 +254,9 @@
       "prompt": "Which sentence ends correctly?",
       "answer": "The cat sat down.",
       "distractors": [
-        "The cat sat down?",
         "The cat sat down",
-        "The cat sat down,"
+        "The cat sat down,",
+        "The cat sat down;"
       ],
       "readAloud": "Look at the four sentences. Which one has the right mark at the end?",
       "level": 1
