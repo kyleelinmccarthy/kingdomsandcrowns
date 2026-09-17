@@ -724,17 +724,22 @@ describe("RealmShell", () => {
     getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
     render(<RealmShell bundle={{ ...bundle, profile: { ...DEFAULT_LEARNING_PROFILE, lowStimulus: true } }} childId="c1" isChildView={true} />);
     await screen.findByTestId("scene");
-    const layout = sceneProps.layout as { props: { kind: string }[] };
+    const layout = sceneProps.layout as { props: { kind: string }[]; scenery: unknown[]; terrain: unknown[] };
     expect(layout.props.some((p) => p.kind === "decor")).toBe(false);
+    expect(layout.scenery).toEqual([]);
+    // ...but the ground a child navigates by — the water, the tracks, the plots — stays.
+    expect(layout.terrain.length).toBeGreaterThan(50);
     expect((spriteSourceProps.world as { decor: boolean }).decor).toBe(false);
   });
 
-  it("places twelve decorations by default", async () => {
+  it("hands the scene a whole world of scenery by default, and none of it as a prop", async () => {
     getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
     render(<RealmShell bundle={bundle} childId="c1" isChildView={true} />);
     await screen.findByTestId("scene");
-    const layout = sceneProps.layout as { props: { kind: string }[] };
-    expect(layout.props.filter((p) => p.kind === "decor")).toHaveLength(12);
+    const layout = sceneProps.layout as { props: { kind: string }[]; scenery: { kind: string }[]; terrain: { kind: string }[] };
+    expect(layout.props.some((p) => p.kind === "decor")).toBe(false);
+    expect(layout.scenery.length).toBeGreaterThan(100);
+    expect(layout.terrain.length).toBeGreaterThan(50);
   });
 
   it("uses monsters copy when the kingdom tone is monsters", async () => {

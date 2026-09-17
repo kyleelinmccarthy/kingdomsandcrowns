@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { buildWorldLayout, buildingFootprint, CASTLE_FOOTPRINTS, BUILDING_SLOTS, WORLD_SIZE, CASTLE_POSITION, SPAWN, FOUNDATION_COLOR, BANNER_SIZE, BANNER_MARGIN, DECOR_SPOTS, spriteSizeFor, type Prop } from "./layout";
+import { buildWorldLayout, buildingFootprint, CASTLE_FOOTPRINTS, BUILDING_SLOTS, WORLD_SIZE, VILLAGE_SIZE, CASTLE_POSITION, SPAWN, FOUNDATION_COLOR, BANNER_SIZE, BANNER_MARGIN, DECOR_SPOTS, SCENERY, TERRAIN, spriteSizeFor, type Prop, type Vec2 } from "./layout";
 import { BUILDINGS } from "@/lib/utils/kingdom";
 import { REACH, VILLAGER_OFFSET } from "./villagers";
+import { HERO_RADIUS } from "./movement";
 import { crownForOrdinal } from "@/lib/utils/crown-catalog";
 import { LAP_WAYPOINTS } from "./recess/recess";
 
@@ -55,7 +56,9 @@ describe("buildWorldLayout", () => {
     expect(well.position).toEqual({ x: BUILDING_SLOTS.well.x, z: BUILDING_SLOTS.well.z + buildingFootprint("well").d / 2 + VILLAGER_OFFSET });
     expect(layout.props.find((p) => p.id === `villager-${well.id}`)!.label).toBe("Old Bram");
     expect(layout.colliders.some((c) => c.kind === "villager" || c.kind === "foundation")).toBe(false);
-    expect(layout.colliders.map((c) => c.id).sort()).toEqual(["castle", "well"]);
+    // The village's own colliders; the wilderness's stone and water are asserted on their own below.
+    const village = layout.colliders.filter((c) => !c.id.startsWith("wild-") && !c.id.startsWith("water-"));
+    expect(village.map((c) => c.id).sort()).toEqual(["castle", "well"]);
     // A villager stands within reach of the walkable ground beside the site, not inside the box.
     const box = layout.props.find((p) => p.id === "well")!;
     expect(well.position.z - box.position.z).toBeGreaterThan(box.size.d / 2);
@@ -125,24 +128,49 @@ describe("decorations", () => {
   const allBuilt = BUILDINGS.map((b) => ({ id: b.id, done: b.deedsToBuild, total: b.deedsToBuild, complete: true }));
   const dist = (a: { x: number; z: number }, b: { x: number; z: number }) => Math.hypot(a.x - b.x, a.z - b.z);
 
-  it("places twelve fixed, non-solid decorations, or none when asked", () => {
+  it("keeps every decoration out of `props`, where the minimap and the spawners would trip over it", () => {
     const layout = buildWorldLayout({ castleType: "citadel", buildings: allBuilt });
-    const decor = layout.props.filter((p) => p.kind === "decor");
-    expect(decor).toHaveLength(12);
-    expect(decor.every((d) => !d.solid && d.label === "" && d.variant)).toBe(true);
-    expect(layout.colliders.some((c) => c.kind === "decor")).toBe(false);
-    expect(buildWorldLayout({ castleType: "citadel", buildings: allBuilt, decor: false }).props.some((p) => p.kind === "decor")).toBe(false);
+    expect(layout.props.some((p) => p.kind === "decor")).toBe(false);
+    expect(layout.scenery.length).toBeGreaterThan(100);
+    expect(layout.scenery.every((d) => d.kind === "decor" && d.label === "" && Boolean(d.variant))).toBe(true);
+    // The minimap frames the world from `props`; scenery must not move that frame.
+    const xs = layout.props.map((p) => Math.abs(p.position.x));
+    const zs = layout.props.map((p) => Math.abs(p.position.z));
+    expect(Math.max(...xs, ...zs)).toBeLessThanOrEqual(VILLAGE_SIZE / 2);
   });
 
-  it("keeps every decoration clear of the path, the sites, the lap ring, the ceremony plaza and the world's edge", () => {
+  it("hands out the same arrays every time, so the memoised scene never sees a new world", () => {
+    const a = buildWorldLayout({ castleType: "citadel", buildings: allBuilt });
+    const b = buildWorldLayout({ castleType: "keep", buildings: [], banners: 2 });
+    expect(a.scenery).toBe(b.scenery);
+    expect(a.terrain).toBe(b.terrain);
+    expect(a.scenery).toBe(SCENERY);
+    expect(a.terrain).toBe(TERRAIN);
+  });
+
+  it("keeps the terrain when the decorations are off, and never leaves a collider nobody can see", () => {
+    const bare = buildWorldLayout({ castleType: "citadel", buildings: allBuilt, decor: false });
+    expect(bare.scenery).toEqual([]);
+    // lowStimulus mutes the world; the water and the tracks still say where you are.
+    expect(bare.terrain).toBe(TERRAIN);
+    expect(bare.terrain.length).toBeGreaterThan(50);
+    const invisible = bare.colliders.filter((c) => c.kind === "decor");
+    expect(invisible).toEqual([]);
+    // ...but the lake still stops you: it is drawn from `terrain`, which is still there.
+    expect(bare.colliders.some((c) => c.id.startsWith("water-"))).toBe(true);
+  });
+
+  it("keeps the village's own twelve exactly where they were: clear of the path, the sites, the lap ring and the plaza", () => {
     const layout = buildWorldLayout({ castleType: "citadel", buildings: allBuilt });
     const sites = layout.props.filter((p) => p.kind === "castle" || p.kind === "building" || p.kind === "foundation");
     const castle = layout.props.find((p) => p.kind === "castle")!;
     const south = castle.position.z + castle.size.d / 2;
+    expect(DECOR_SPOTS).toHaveLength(12);
     for (const spot of DECOR_SPOTS) {
+      expect(layout.scenery.some((d) => d.position.x === spot.x && d.position.z === spot.z && d.variant === spot.kind)).toBe(true);
       expect(Math.abs(spot.x)).toBeGreaterThanOrEqual(3.5);
-      expect(Math.abs(spot.x)).toBeLessThanOrEqual(WORLD_SIZE / 2 - 2);
-      expect(Math.abs(spot.z)).toBeLessThanOrEqual(WORLD_SIZE / 2 - 2);
+      expect(Math.abs(spot.x)).toBeLessThanOrEqual(VILLAGE_SIZE / 2 - 2);
+      expect(Math.abs(spot.z)).toBeLessThanOrEqual(VILLAGE_SIZE / 2 - 2);
       for (const s of sites) {
         const inside = Math.abs(spot.x - s.position.x) < s.size.w / 2 + 2 && Math.abs(spot.z - s.position.z) < s.size.d / 2 + 2;
         expect(inside).toBe(false);
@@ -153,16 +181,19 @@ describe("decorations", () => {
     }
   });
 
-  it("sizes sprites from footprints", () => {
+  it("sizes sprites from footprints, and a bigger footprint draws a bigger tree", () => {
     const layout = buildWorldLayout({ castleType: "keep", buildings: allBuilt });
     const castle = layout.props.find((p) => p.kind === "castle")!;
     expect(spriteSizeFor(castle)).toEqual({ w: CASTLE_FOOTPRINTS.keep.w + 1, h: CASTLE_FOOTPRINTS.keep.h + 1.5 });
     const well = layout.props.find((p) => p.id === "well")!;
     expect(spriteSizeFor(well)).toEqual({ w: 3.5, h: 3.5 });
-    const oak = layout.props.find((p) => p.kind === "decor" && p.variant === "oak")!;
+    const oak = layout.scenery.find((p) => p.variant === "oak" && p.size.w === 0.9)!;
     expect(spriteSizeFor(oak)).toEqual({ w: 1.2, h: 1.6 });
-    const rock = layout.props.find((p) => p.kind === "decor" && p.variant === "rock")!;
+    const rock = layout.scenery.find((p) => p.variant === "rock" && p.size.w === 0.9)!;
     expect(spriteSizeFor(rock)).toEqual({ w: 0.9, h: 0.9 });
+    // A great oak is twice the footprint, so it draws at twice the sprite — no second table.
+    const great = layout.scenery.find((p) => p.variant === "oak" && p.size.w === 1.8)!;
+    expect(spriteSizeFor(great)).toEqual({ w: 2.4, h: 3.2 });
   });
 });
 
@@ -238,5 +269,126 @@ describe("objective focus and villager status", () => {
     expect(layout.villagers.find((v) => v.buildingId === "mill")).toMatchObject({ label: "Grain Mill", done: 2, total: 5, status: "work" });
     expect(layout.villagers.find((v) => v.buildingId === "garden")).toMatchObject({ label: "Royal Garden", done: 0, total: 5, status: "work" });
     expect(layout.villagers.every((v) => v.total > 0 && v.label.length > 0)).toBe(true);
+  });
+});
+
+describe("the world beyond the village", () => {
+  const layout = buildWorldLayout({ castleType: "citadel", buildings: BUILDINGS.map((b) => ({ id: b.id, done: 0, total: b.deedsToBuild, complete: false })) });
+  const HALF = WORLD_SIZE / 2;
+  // The six decorations that have art (world-figures.tsx's DECOR_KINDS). Hard-coded rather
+  // than imported so this pure test never pulls a React module in: a variant with no figure
+  // renders NOTHING, so a seventh kind invented here would be a hole in the world.
+  const DRAWABLE = ["oak", "pine", "bush", "rock", "fence", "lantern"];
+
+  it("is several times the village across, with the village unchanged at the heart of it", () => {
+    expect(WORLD_SIZE).toBeGreaterThanOrEqual(VILLAGE_SIZE * 3);
+    expect(VILLAGE_SIZE).toBe(40); // the world the village was built for
+    for (const slot of Object.values(BUILDING_SLOTS)) {
+      expect(Math.abs(slot.x)).toBeLessThan(VILLAGE_SIZE / 2);
+      expect(Math.abs(slot.z)).toBeLessThan(VILLAGE_SIZE / 2);
+    }
+  });
+
+  it("gives the world regions with their own ground: water and a bank, worked plots, and tracks", () => {
+    const kinds = new Set(layout.terrain.map((t) => t.kind));
+    for (const kind of ["water", "shore", "shallow", "field", "furrow", "trail"]) expect(kinds.has(kind as never)).toBe(true);
+    expect(layout.terrain.filter((t) => t.kind === "trail").length).toBeGreaterThan(30);
+    // Every patch is inside the world and has a real footprint.
+    for (const t of layout.terrain) {
+      expect(t.size.w).toBeGreaterThan(0);
+      expect(t.size.d).toBeGreaterThan(0);
+      expect(Math.abs(t.position.x) + t.size.w / 2).toBeLessThanOrEqual(HALF);
+      expect(Math.abs(t.position.z) + t.size.d / 2).toBeLessThanOrEqual(HALF);
+    }
+    expect(new Set(layout.terrain.map((t) => t.id)).size).toBe(layout.terrain.length);
+  });
+
+  it("puts a wood, a shore, a fell and a fenced plot in four different directions", () => {
+    const near = (x: number, z: number, radius: number, variant?: string) =>
+      layout.scenery.filter((p) => Math.hypot(p.position.x - x, p.position.z - z) <= radius && (!variant || p.variant === variant)).length;
+    expect(near(-50, 0, 26, "oak") + near(-50, 0, 26, "pine")).toBeGreaterThan(50); // the Old Wood, west
+    expect(near(-36, -52, 22, "rock")).toBeGreaterThan(20); // the fells, north
+    expect(near(42, -48, 24, "bush")).toBeGreaterThan(15); // reeds along Longwater, north-east
+    expect(near(38, 0, 26, "fence")).toBeGreaterThan(20); // the fenced plots, east
+    expect(near(0, 38, 20, "oak")).toBeGreaterThan(20); // the orchard rows, south
+  });
+
+  it("draws every decoration with a figure that exists, and varies the trees so a wood is not a stamp", () => {
+    for (const p of layout.scenery) expect(DRAWABLE).toContain(p.variant);
+    const trees = layout.scenery.filter((p) => p.variant === "oak" || p.variant === "pine");
+    expect(new Set(trees.map((t) => t.size.w.toFixed(2))).size).toBeGreaterThan(20);
+    expect(new Set(layout.scenery.map((p) => p.id)).size).toBe(layout.scenery.length);
+    for (const p of layout.scenery) expect(Math.abs(p.position.x) <= HALF && Math.abs(p.position.z) <= HALF).toBe(true);
+  });
+
+  it("leaves the village to the village: nothing new stands inside it, and nothing solid anywhere near", () => {
+    const outsiders = layout.scenery.filter((p) => Math.abs(p.position.x) <= VILLAGE_SIZE / 2 && Math.abs(p.position.z) <= VILLAGE_SIZE / 2);
+    expect(outsiders).toHaveLength(DECOR_SPOTS.length);
+    for (const p of outsiders) expect(p.solid).toBe(false);
+  });
+
+  it("makes stone and water solid and leaves the woods walk-through, so a forest is never a maze", () => {
+    const solid = layout.scenery.filter((p) => p.solid);
+    expect(solid.length).toBeGreaterThan(0);
+    expect(solid.length).toBeLessThan(layout.scenery.length * 0.1);
+    for (const p of solid) expect(["rock", "oak"]).toContain(p.variant);
+    // Deep water blocks, and the blocker is the rectangle the scene paints — not a guess at it.
+    const water = layout.terrain.filter((t) => t.kind === "water");
+    const blockers = layout.colliders.filter((c) => c.id.startsWith("water-"));
+    expect(blockers.length).toBe(water.length);
+    for (const b of blockers) {
+      const match = water.find((w) => w.position.x === b.position.x && w.position.z === b.position.z);
+      expect(match).toBeDefined();
+      expect({ w: match!.size.w, d: match!.size.d }).toEqual({ w: b.size.w, d: b.size.d });
+    }
+    // The shallow millstream is walked straight through: no collider stands on it.
+    const shallow = layout.terrain.find((t) => t.kind === "shallow")!;
+    expect(layout.colliders.some((c) => Math.abs(c.position.x - shallow.position.x) < 1 && Math.abs(c.position.z - shallow.position.z) < 1)).toBe(false);
+  });
+
+  it("can be walked: every track, every site and every landmark is reachable on foot from the spawn", () => {
+    // The real collider rule from movement.ts, on a one-unit grid. This is the test that says
+    // the village is not walled in — and it would fail the day a ring of trees closed a way out.
+    const blocked = (p: Vec2) =>
+      layout.colliders.some((c) => Math.abs(p.x - c.position.x) < c.size.w / 2 + HERO_RADIUS && Math.abs(p.z - c.position.z) < c.size.d / 2 + HERO_RADIUS);
+    const key = (x: number, z: number) => `${x},${z}`;
+    const start = { x: Math.round(SPAWN.x), z: Math.round(SPAWN.z) };
+    const seen = new Set<string>([key(start.x, start.z)]);
+    const queue: { x: number; z: number }[] = [start];
+    const limit = Math.floor(HALF - 1);
+    while (queue.length > 0) {
+      const cur = queue.shift()!;
+      for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const next = { x: cur.x + dx, z: cur.z + dz };
+        if (Math.abs(next.x) > limit || Math.abs(next.z) > limit) continue;
+        const k = key(next.x, next.z);
+        if (seen.has(k) || blocked(next)) continue;
+        seen.add(k);
+        queue.push(next);
+      }
+    }
+    const walkable = (p: Vec2) => {
+      for (const [dx, dz] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]) {
+        if (seen.has(key(Math.round(p.x) + dx, Math.round(p.z) + dz))) return true;
+      }
+      return false;
+    };
+    for (const tile of layout.terrain.filter((t) => t.kind === "trail")) {
+      expect(walkable(tile.position), `the track at ${tile.position.x},${tile.position.z} is cut off from the village`).toBe(true);
+    }
+    const landmarks: [string, Vec2][] = [
+      ["the stone ring", { x: -54, z: 6.5 }],
+      ["the cairn", { x: -33, z: -54 }],
+      ["Longwater's shore", { x: 33, z: -38 }],
+      ["the far plot", { x: 58, z: -2 }],
+      ["the milestone", { x: -3, z: 57 }],
+      ["the mill pool", { x: 26, z: -16 }],
+      ["the north-west corner", { x: -70, z: -70 }],
+      ["the south-east corner", { x: 70, z: 70 }],
+    ];
+    for (const [name, p] of landmarks) expect(walkable(p), `${name} is unreachable on foot`).toBe(true);
+    for (const site of Object.values(BUILDING_SLOTS)) expect(walkable({ x: site.x, z: site.z + 3 })).toBe(true);
+    // And most of the world is open ground, not a corridor between walls.
+    expect(seen.size).toBeGreaterThan(WORLD_SIZE * WORLD_SIZE * 0.8);
   });
 });

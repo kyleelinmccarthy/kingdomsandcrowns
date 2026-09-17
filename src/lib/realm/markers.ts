@@ -44,7 +44,17 @@ export const SHADOW_OPACITY_CALM = 0.14;
  * walks Object.values and requires the ladder to stay strictly increasing.
  */
 export const GROUND_Y = {
-  water: 0.02, // slice 4's river decals — the lowest rung, under everything
+  // The wilderness's surfaces, lowest first. They lie in the order the world is built up in:
+  // a ploughed plot, then the dirt rows worked into it, then the bank, then the shallows the
+  // bank holds, then the deep water, and a track laid last over whatever it crosses.
+  grove: 0.004, // the dark forest floor under the Old Wood
+  scree: 0.006, // bare stone on the fells
+  field: 0.008,
+  furrow: 0.012,
+  shore: 0.016,
+  shallow: 0.018,
+  water: 0.02, // the deep water of Longwater and the mill pool
+  trail: 0.025, // dirt tracks outside the village: under the cobbled road where they meet
   path: 0.03, // existing: realm-scene.tsx:270
   foundation: 0.04, // existing: realm-scene.tsx:279
   propShadow: 0.045, // buildings, castle, decor — never on a path

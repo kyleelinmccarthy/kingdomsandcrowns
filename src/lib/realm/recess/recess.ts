@@ -1,4 +1,4 @@
-import { SPAWN, WORLD_SIZE, type Prop, type Vec2, type WorldLayout } from "../layout";
+import { SPAWN, VILLAGE_SIZE, type Prop, type Vec2, type WorldLayout } from "../layout";
 import { seededRng } from "@/lib/utils/drill-generators";
 
 export type Gleam = { id: string; slot: number; position: Vec2; spawnedAt: number };
@@ -32,7 +32,12 @@ export const LAP_WAYPOINTS: Vec2[] = [
   { x: 12, z: 1 },
   { x: 9, z: 11 },
 ];
-const LIMIT = WORLD_SIZE / 2 - 2;
+/**
+ * Gleams fall in the VILLAGE, not the world. The world is now 160 units across and recess is
+ * a lap round the kingdom's sites: twelve gleams spread over 160² would be twelve gleams a
+ * child never finds, and the lap ring they belong to is 24 units wide.
+ */
+const LIMIT = VILLAGE_SIZE / 2 - 2;
 const CLEAR_COLLIDER = 1;
 const CLEAR_VILLAGER = 2;
 const CLEAR_PATH = 2;
