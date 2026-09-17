@@ -5,7 +5,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, type RefObject } from "r
 import { Canvas, useFrame, type ThreeEvent } from "@react-three/fiber";
 import { Html, OrthographicCamera } from "@react-three/drei";
 import * as THREE from "three";
-import { WORLD_SIZE, spriteSizeFor, type Prop, type WorldLayout, type Vec2 } from "@/lib/realm/layout";
+import { WORLD_SIZE, spriteSizeFor, TERRAIN_COLORS, TERRAIN_COLORS_CALM, type Prop, type TerrainKind, type WorldLayout, type Vec2 } from "@/lib/realm/layout";
 import { stepCompanion, stepHero, unstickHero, setMounted, HERO_SPEED, COMPANION_GAP_MOUNTED, type CompanionState, type HeroState } from "@/lib/realm/movement";
 import { CAMERA_OFFSET, CAMERA_ZOOM, edgeArrow, followCamera } from "@/lib/realm/camera";
 import { projectToMap, worldBounds } from "@/lib/realm/minimap";
@@ -135,6 +135,123 @@ function ContactShadow({ w, d, y, calm }: { w: number; d: number; y: number; cal
   );
 }
 
+/**
+ * THE WILDERNESS IS DRAWN IN BATCHES, and this is the whole reason it can exist.
+ *
+ * Six hundred trees, reeds, stones and fence posts as six hundred `<sprite>`s would be six
+ * hundred draw calls, six hundred materials and six hundred uniform re-uploads a frame — and
+ * the frame budget on this branch is already UNRESOLVED (slice 1 measured a regression it
+ * could never pin down). Instanced instead, the entire world beyond the village costs one
+ * draw call per decoration kind, one per ground surface, and one for every contact shadow in
+ * it: about fifteen draws for the lot, with one material each.
+ *
+ * Nothing here is touched per frame. The wilderness never changes — `buildWorldLayout` hands
+ * out the same frozen arrays for every layout — so the matrices are written once, on mount,
+ * and the GPU is left alone afterwards.
+ */
+const UNIT_PLANE = new THREE.PlaneGeometry(1, 1);
+const GROUND_QUAT = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, 0));
+/**
+ * The camera is orthographic and never rotates (`followCamera` moves the target, never the
+ * angle), so "face the camera" is ONE fixed rotation for the whole world: the basis of a
+ * camera at CAMERA_OFFSET looking at its target with up (0, 1, 0) — exactly what a Sprite
+ * would compute per sprite. Derived from CAMERA_OFFSET, never typed out as three numbers, so
+ * a change of camera angle cannot leave the woods facing the wrong way.
+ */
+const BILLBOARD_QUAT = new THREE.Quaternion().setFromRotationMatrix(
+  new THREE.Matrix4().lookAt(new THREE.Vector3(CAMERA_OFFSET.x, CAMERA_OFFSET.y, CAMERA_OFFSET.z), new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 1, 0)),
+);
+
+/**
+ * Builds one InstancedMesh: shared geometry, its own material, every matrix written once.
+ * A plain function, not a hook, so each batch below keeps a dependency list lint can check.
+ */
+function batch(geometry: THREE.BufferGeometry, material: THREE.Material, count: number, place: (i: number, position: THREE.Vector3, quaternion: THREE.Quaternion, scale: THREE.Vector3) => void): THREE.InstancedMesh {
+  const mesh = new THREE.InstancedMesh(geometry, material, count);
+  const matrix = new THREE.Matrix4();
+  const position = new THREE.Vector3();
+  const scale = new THREE.Vector3();
+  const quaternion = new THREE.Quaternion();
+  for (let i = 0; i < count; i++) {
+    place(i, position, quaternion, scale);
+    mesh.setMatrixAt(i, matrix.compose(position, quaternion, scale));
+  }
+  mesh.instanceMatrix.needsUpdate = true;
+  // One batch spans the whole world: culled as a unit it would pop in and out wholesale.
+  mesh.frustumCulled = false;
+  return mesh;
+}
+
+/** Frees what a batch made — its material and its instance buffers — and never the shared geometry. */
+function useDisposeBatch(mesh: THREE.InstancedMesh | null): void {
+  useEffect(() => {
+    if (!mesh) return;
+    return () => {
+      (mesh.material as THREE.Material).dispose();
+      mesh.dispose();
+    };
+  }, [mesh]);
+}
+
+/** One flat ground surface — water, a bank, a plot, a dirt track — as a single draw. */
+function GroundBatch({ items, y, color, map }: { items: { position: Vec2; size: { w: number; d: number }; angle?: number }[]; y: number; color: string; map?: THREE.CanvasTexture }) {
+  const mesh = useMemo(() => {
+    if (items.length === 0) return null;
+    const turned = new THREE.Euler();
+    return batch(UNIT_PLANE, new THREE.MeshStandardMaterial({ color, map }), items.length, (i, position, quaternion, scale) => {
+      position.set(items[i].position.x, y, items[i].position.z);
+      // Euler XYZ turns about local Z first and lays the quad flat second, so `angle` is a
+      // turn IN the ground plane. Only natural ground sets one (layout.ts's `blobs`).
+      if (items[i].angle) quaternion.setFromEuler(turned.set(-Math.PI / 2, 0, items[i].angle));
+      else quaternion.copy(GROUND_QUAT);
+      scale.set(items[i].size.w, items[i].size.d, 1);
+    });
+  }, [items, y, color, map]);
+  useDisposeBatch(mesh);
+  return mesh ? <primitive object={mesh} dispose={null} /> : null;
+}
+
+/**
+ * Every decoration of one kind, as a single draw.
+ *
+ * `alphaTest` without `transparent` on purpose: these go in the OPAQUE pass and write depth,
+ * so a tree in front of a tree simply hides it. No per-instance sort exists to get that right
+ * — the transparent pass cannot sort inside one batch — and the cutout is hard-edged, which
+ * is what nearest-filtered pixel art wants anyway.
+ */
+function SceneryBatch({ items, texture, tint }: { items: Prop[]; texture: THREE.CanvasTexture; tint: string }) {
+  const mesh = useMemo(() => {
+    if (items.length === 0) return null;
+    return batch(UNIT_PLANE, new THREE.MeshBasicMaterial({ map: texture, color: tint, alphaTest: 0.5 }), items.length, (i, position, quaternion, scale) => {
+      const { w, h } = spriteSizeFor(items[i]);
+      // The same anchor a <sprite> takes — centred at half its height — so a tree in the wood
+      // and a tree in the village stand on the ground in exactly the same way.
+      position.set(items[i].position.x, h / 2, items[i].position.z);
+      quaternion.copy(BILLBOARD_QUAT);
+      scale.set(w, h, 1);
+    });
+  }, [items, texture, tint]);
+  useDisposeBatch(mesh);
+  return mesh ? <primitive object={mesh} dispose={null} /> : null;
+}
+
+/** Every contact shadow in the wilderness, in one draw, on the shared diamond. */
+function SceneryShadows({ items, calm }: { items: Prop[]; calm: boolean }) {
+  const mesh = useMemo(() => {
+    if (items.length === 0) return null;
+    // A clone, because a batch owns and disposes its material and the shared pair must survive.
+    const material = (calm ? SHADOW_MATERIAL_CALM : SHADOW_MATERIAL).clone();
+    return batch(SHADOW_GEOMETRY, material, items.length, (i, position, quaternion, scale) => {
+      const shadow = shadowFootprint(items[i].size);
+      position.set(items[i].position.x, GROUND_Y.propShadow, items[i].position.z);
+      quaternion.copy(GROUND_QUAT);
+      scale.set(shadow.w, shadow.d, 1);
+    });
+  }, [items, calm]);
+  useDisposeBatch(mesh);
+  return mesh ? <primitive object={mesh} dispose={null} /> : null;
+}
+
 const World = memo(function World({ layout, textures, settings, surfaces, axisRef, arrowRef, minimapRef, interactive, reachId, onReachChange, onTalk, risingId, selectedSpell, selectedSlot, castRef, spellsEnabled, onSpellEvent, seed, riding, mountSpeed, recessActive, onRecessEvent, ceremonyActive, ceremonySkipRef, onCeremonyEvent, onTutorialSignal }: RealmSceneProps) {
   // Per-frame state lives in refs: nothing here re-renders React sixty times a second.
   const hero = useRef<HeroState>({ position: layout.spawn, facing: "s", target: null, mounted: false });
@@ -166,6 +283,32 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
   // Talk bubble floating over bare grass (sprite-source.tsx silently continues past a
   // villager whose SVG is not in the DOM).
   const shown = useMemo(() => layout.villagers.filter((v) => Boolean(textures.villagers[v.id])), [layout.villagers, textures]);
+  // The wilderness, grouped once per layout — never per frame. Both lists are frozen module
+  // constants inside `layout.ts`, so in practice these two memos run once for a whole visit.
+  const surfaces3d = useMemo(() => {
+    const by = new Map<TerrainKind, { position: Vec2; size: { w: number; d: number } }[]>();
+    for (const patch of layout.terrain) {
+      const list = by.get(patch.kind);
+      if (list) list.push(patch);
+      else by.set(patch.kind, [patch]);
+    }
+    return [...by.entries()];
+  }, [layout.terrain]);
+  const woods = useMemo(() => {
+    // One batch per decoration kind, and a kind whose figure failed to rasterise is simply
+    // not drawn — the same rule the village's decorations have always had.
+    const by = new Map<string, Prop[]>();
+    for (const prop of layout.scenery) {
+      const key = prop.variant ?? "";
+      if (!textures.world[`decor:${key}`]) continue;
+      const list = by.get(key);
+      if (list) list.push(prop);
+      else by.set(key, [prop]);
+    }
+    return [...by.entries()];
+  }, [layout.scenery, textures]);
+  const drawnScenery = useMemo(() => woods.flatMap(([, props]) => props), [woods]);
+  const pathTiles = useMemo(() => layout.props.filter((p) => p.kind === "path"), [layout.props]);
   const heroShadow = useRef<THREE.Group>(null);
   const mountShadow = useRef<THREE.Group>(null);
   const companionShadow = useRef<THREE.Group>(null);
@@ -547,10 +690,11 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
   const spriteFor = (prop: Prop): THREE.CanvasTexture | undefined => {
     if (prop.kind === "castle") return worldTex(`castle:${layout.castleType}`);
     if (prop.kind === "building") return worldTex(`building:${prop.id}`);
-    if (prop.kind === "decor") return worldTex(`decor:${prop.variant ?? ""}`);
     return undefined;
   };
-  const standing = layout.props.filter((p) => p.kind === "castle" || p.kind === "building" || p.kind === "decor" || p.kind === "barrier");
+  // Decorations are NOT here any more: they live in `layout.scenery` and are drawn instanced,
+  // six hundred of them for one draw call a kind. This list is the village's own buildings.
+  const standing = layout.props.filter((p) => p.kind === "castle" || p.kind === "building" || p.kind === "barrier");
   // Calm shortens and quietens the beacon; it is never absent (§3.9, §6: lowStimulus mutes, never empties).
   // Same colour rule as `ringColor` above — reused rather than recomputed.
   const beaconHeight = settings.calmPalette ? BEACON.calmHeight : BEACON.height;
@@ -581,12 +725,26 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
         <planeGeometry args={[WORLD_SIZE * 3, WORLD_SIZE * 3]} />
         {textures.tiles ? <meshStandardMaterial map={textures.tiles.grass} color={tint} /> : <meshStandardMaterial color={ground} />}
       </mesh>
-      {layout.props.filter((p) => p.kind === "path").map((prop) => (
-        <mesh key={prop.id} position={[prop.position.x, GROUND_Y.path, prop.position.z]} rotation={[-Math.PI / 2, 0, 0]}>
-          <planeGeometry args={[prop.size.w, prop.size.d]} />
-          {textures.tiles ? <meshStandardMaterial map={textures.tiles.cobble} color={tint} /> : <meshStandardMaterial color={prop.color} />}
-        </mesh>
+      {/*
+        THE WORLD BEYOND THE VILLAGE. Ground first, lowest rung up: the ploughed plots and
+        their furrows, the banks, the shallows, the deep water, the dirt tracks, and last the
+        village's own cobbled road. Every surface is ONE draw, and every y comes from a named
+        rung of GROUND_Y — there is not a y literal in this file.
+      */}
+      {surfaces3d.map(([kind, items]) => (
+        <GroundBatch
+          key={kind}
+          items={items}
+          y={GROUND_Y[kind]}
+          color={(settings.calmPalette ? TERRAIN_COLORS_CALM : TERRAIN_COLORS)[kind]}
+          map={kind === "trail" || kind === "furrow" ? textures.tiles?.cobble : undefined}
+        />
       ))}
+      <GroundBatch items={pathTiles} y={GROUND_Y.path} color={textures.tiles ? tint : pathTiles[0]?.color ?? "#c9b27a"} map={textures.tiles?.cobble} />
+      {woods.map(([kind, items]) => (
+        <SceneryBatch key={kind} items={items} texture={textures.world[`decor:${kind}`]} tint={tint} />
+      ))}
+      <SceneryShadows items={drawnScenery} calm={settings.calmPalette} />
       {objectiveSite && (
         <group position={[objectiveSite.position.x, 0, objectiveSite.position.z]}>
           {/* Geometry, not a sprite and not DOM (D3.2): a gold column reads across the
@@ -655,8 +813,7 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
             </group>
           );
         }
-        if (prop.kind === "decor") return null; // a decor figure that failed to rasterise never falls back to a box
-        // No texture for this prop (a barrier, or a figure that failed to draw): the slice 4 box.
+            // No texture for this prop (a barrier, or a figure that failed to draw): the slice 4 box.
         return (
           <group key={prop.id} position={[prop.position.x, 0, prop.position.z]} {...siteCast(prop)}>
             <ContactShadow w={shadow.w} d={shadow.d} y={GROUND_Y.propShadow} calm={settings.calmPalette} />
