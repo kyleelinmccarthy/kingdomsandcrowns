@@ -276,10 +276,14 @@ export function rimMark(target: MinimapPoint, pan: MinimapPoint): { x: number; y
  * The scene's rotation for the hero, turned into the map's.
  *
  * `facingAngle` is written for the hero's RING, which lies on the ground in the world and is
- * rotated about X first; on that ring the four compass angles come out right. The map is not
- * rotated about anything: its +y is world +z, so a rotation that turns the ring east turns a
- * map glyph west. The sign flip is the whole of the difference, and it is here, once, rather
- * than in a glyph that is quietly drawn back-to-front to compensate.
+ * rotated about X first; on that ring the four compass angles come out right. The map's own
+ * space is not rotated about anything: its +y is world +z, so a rotation that turns the ring
+ * east turns a map glyph west. The sign flip is the whole of the difference, and it is here,
+ * once, rather than in a glyph that is quietly drawn back-to-front to compensate.
+ *
+ * This is the angle INSIDE the turned group, so the quarter turn of `MAP_TILT` is already
+ * carried by the group and must not be added here: north is drawn as up and comes out as
+ * up-and-right, which is exactly where the camera puts it.
  */
 export function mapDegrees(sceneDegrees: number): number {
   return -sceneDegrees;
