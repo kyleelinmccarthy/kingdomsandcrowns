@@ -1772,13 +1772,36 @@ body[data-realm-open] .parent-alert-popup { display: none; }
    than by whatever happens to be painted behind. */
 .realm-minimap { width: calc(9rem * var(--realm-hud-scale)); aspect-ratio: 1; border-radius: 0.5rem; border: 1px solid var(--gold-border); background: #101a13; overflow: hidden; pointer-events: none; }
 .realm-minimap svg { display: block; width: 100%; height: 100%; }
+/* The map draws the land first — where the world stops, the ground inside it, then the
+   fields, the water, the woods and the road over the top — and the landmarks on top of that.
+   Every mark carries a dark outline so it survives whatever colour it lands on. */
+.realm-minimap-void { fill: #0a1310; }
 .realm-minimap-ground { fill: #16271b; }
-.realm-minimap-site { fill: none; stroke: var(--gold-border); stroke-width: 1.5; }
+/* The world's own six ground colours, taken down a stop so that the marks and the hero stay
+   the loudest things on a 144px square, plus the one the map alone has: the wood.
+   `layout.ts` owns TERRAIN_COLORS; these are the same surfaces, dimmed. */
+.realm-minimap-land--field { fill: #4e5a2b; }
+.realm-minimap-land--furrow { fill: #63523a; }
+.realm-minimap-land--shore { fill: #7a6d47; }
+.realm-minimap-land--shallow { fill: #44707f; }
+.realm-minimap-land--water { fill: #24485e; }
+.realm-minimap-land--forest { fill: #1b3a22; }
+.realm-minimap-land--trail { fill: #8a7049; }
+.realm-minimap-mark { stroke: #0a1310; stroke-width: 0.8; stroke-linejoin: round; }
+/* Four silhouettes, never four squares: a keep, a star, a house, a warning. */
+.realm-minimap-castle { fill: #e6e0cd; stroke-width: 1; }
+.realm-minimap-objective { fill: #ffd25e; }
+.realm-minimap-site { fill: #1b2a1c; stroke: var(--gold-bright); stroke-width: 1.3; }
 .realm-minimap-site--raised { fill: var(--gold-bright); stroke: var(--gold-bright); }
-.realm-minimap-objective { fill: none; stroke: #c9a84c; stroke-width: 2; }
-.realm-minimap-dot { fill: #a78bfa; }
-.realm-minimap-hero circle { fill: var(--gold-bright); }
-.realm-minimap-hero line { stroke: var(--gold-bright); stroke-width: 1.5; }
+.realm-minimap-trouble { fill: #e2554a; }
+/* The hero is the loudest thing on the map, and white rather than gold so that "me" and
+   "where I am going" are never the same colour. The carrier the scene writes draws nothing. */
+.realm-minimap-you path { fill: #ffffff; stroke: #0a1310; stroke-width: 1; stroke-linejoin: round; }
+/* Home and the objective, pinned to the rim in their own colours once they fall off the window. */
+.realm-minimap-rim path { stroke: #0a1310; stroke-width: 0.8; stroke-linejoin: round; }
+.realm-minimap-rim--home path { fill: #e6e0cd; }
+.realm-minimap-rim--goal path { fill: #ffd25e; }
+.realm-minimap-north { fill: rgba(233, 226, 205, 0.6); font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif; font-size: 7px; font-weight: 700; letter-spacing: 0.04em; }
 /* Two centred message lanes: persistent problems in a band under the HUD zones,
    the things the game says in a lane above the ability bar. One message each. */
 .realm-messages { position: absolute; inset: 0; z-index: 21; pointer-events: none; color: #fff; font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif; }
