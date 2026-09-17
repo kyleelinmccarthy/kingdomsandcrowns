@@ -1777,9 +1777,11 @@ body[data-realm-open] .parent-alert-popup { display: none; }
    Every mark carries a dark outline so it survives whatever colour it lands on. */
 .realm-minimap-void { fill: #0a1310; }
 .realm-minimap-ground { fill: #16271b; }
-/* The world's own six ground colours, taken down a stop so that the marks and the hero stay
+/* The world's own ground colours, taken down a stop so that the marks and the hero stay
    the loudest things on a 144px square, plus the one the map alone has: the wood.
    `layout.ts` owns TERRAIN_COLORS; these are the same surfaces, dimmed. */
+.realm-minimap-land--grove { fill: #1d3a26; }
+.realm-minimap-land--scree { fill: #565247; }
 .realm-minimap-land--field { fill: #4e5a2b; }
 .realm-minimap-land--furrow { fill: #63523a; }
 .realm-minimap-land--shore { fill: #7a6d47; }

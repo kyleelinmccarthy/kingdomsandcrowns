@@ -8,6 +8,7 @@ import {
   mapPan,
   rimMark,
   mapDegrees,
+  rotateMap,
   parseTransform,
   landKind,
   MAP_WINDOW,
@@ -16,6 +17,7 @@ import {
 } from "./minimap";
 import { buildWorldLayout, WORLD_SIZE, type Prop } from "./layout";
 import { facingAngle } from "./markers";
+import { worldToScreen } from "./camera";
 import { surfacesFor } from "./depth";
 import { DEFAULT_LEARNING_PROFILE } from "@/lib/utils/learning-profile";
 
@@ -97,9 +99,13 @@ describe("worldBounds", () => {
 
 describe("mapSpan", () => {
   it("shows the whole world while it fits inside the window", () => {
+    // A turned square world needs its DIAGONAL to fit, not its side (see MAP_TILT).
     const small: MinimapBounds = { minX: -15, maxX: 15, minZ: -15, maxZ: 15 };
-    expect(mapSpan(small)).toBe(30);
-    expect(mapFrame(small).follows).toBe(false);
+    expect(mapSpan(small)).toBeCloseTo(30 * Math.SQRT2, 10);
+    const frame = mapFrame(small);
+    expect(frame.follows).toBe(false);
+    expect(frame.x.min).toBeCloseTo(0, 10); // ...and it fits exactly, corner to corner
+    expect(frame.x.max).toBeCloseTo(1, 10);
   });
 
   it("stops zooming out at the window, and follows the hero instead", () => {
@@ -108,18 +114,26 @@ describe("mapSpan", () => {
     expect(mapFrame(big).follows).toBe(true);
   });
 
-  it("takes the wider axis, so a long world is never cut off along it", () => {
-    expect(mapSpan({ minX: -5, maxX: 5, minZ: -20, maxZ: 20 })).toBe(40);
+  it("measures both axes, so a long world is never cut off along it", () => {
+    expect(mapSpan({ minX: -5, maxX: 5, minZ: -20, maxZ: 20 })).toBeCloseTo(50 / Math.SQRT2, 10);
   });
 });
 
 describe("projectToMap", () => {
   const b = { minX: -10, maxX: 10, minZ: -10, maxZ: 10 };
 
-  it("puts the centre at the centre and the corners at the corners", () => {
+  it("puts the centre at the centre, and the world's corners on the map's edges once turned", () => {
     expect(projectToMap({ x: 0, z: 0 }, b)).toEqual({ x: 0.5, y: 0.5 });
-    expect(projectToMap({ x: -10, z: -10 }, b)).toEqual({ x: 0, y: 0 });
-    expect(projectToMap({ x: 10, z: 10 }, b)).toEqual({ x: 1, y: 1 });
+    // Unturned, `projectToMap` is the space the SCENE writes the hero in: the world's own axes.
+    // What a child sees is that space turned a quarter (`rotateMap`), and there the world's
+    // south-east corner is the bottom of the map and its north-west corner is the top.
+    const se = rotateMap(projectToMap({ x: 10, z: 10 }, b));
+    expect(se.x).toBeCloseTo(0.5, 10);
+    expect(se.y).toBeCloseTo(1, 10);
+    const nw = rotateMap(projectToMap({ x: -10, z: -10 }, b));
+    expect(nw.x).toBeCloseTo(0.5, 10);
+    expect(nw.y).toBeCloseTo(0, 10);
+    expect(rotateMap(projectToMap({ x: 10, z: -10 }, b)).x).toBeCloseTo(1, 10); // north-east: the map's right
   });
 
   it("uses one scale on both axes, so the land keeps its shape in a world that is not square", () => {
@@ -133,10 +147,23 @@ describe("projectToMap", () => {
     expect(east.x - o.x).toBeCloseTo(south.y - o.y, 10);
   });
 
-  it("puts north up and east right, which is what the hero's arrow is measured against", () => {
-    const o = projectToMap({ x: 0, z: 0 }, b);
-    expect(projectToMap({ x: 0, z: -5 }, b).y).toBeLessThan(o.y); // world -z is north
-    expect(projectToMap({ x: 5, z: 0 }, b).x).toBeGreaterThan(o.x); // world +x is east
+  it("agrees with the camera about which way is up: eight directions, no exceptions", () => {
+    // The point of the quarter turn. The camera is fixed at (12, 12, 12), so a thing the child
+    // sees above them on screen must be above them on the map, and the key they press to walk
+    // up the screen must send the hero up the map. `worldToScreen` is the camera's own
+    // arithmetic, so this cannot drift if the rig is ever re-angled — it fails instead.
+    const from = { x: 3, z: -2 };
+    const view = { width: 1280, height: 800 };
+    for (const [dx, dz] of [[0, -1], [1, -1], [1, 0], [1, 1], [0, 1], [-1, 1], [-1, 0], [-1, -1]]) {
+      const to = { x: from.x + dx * 4, z: from.z + dz * 4 };
+      const a = worldToScreen(from, from, view);
+      const bScreen = worldToScreen(from, to, view);
+      const mapA = rotateMap(projectToMap(from, b));
+      const mapB = rotateMap(projectToMap(to, b));
+      const way = (n: number) => (Math.abs(n) < 1e-9 ? 0 : Math.sign(n));
+      expect(way(mapB.x - mapA.x)).toBe(way(bScreen.x - a.x));
+      expect(way(mapB.y - mapA.y)).toBe(way(bScreen.y - a.y));
+    }
   });
 
   it("does not clamp: a thing off the map keeps its true place, which is what the rim arrow needs", () => {
@@ -170,10 +197,9 @@ describe("mapPan", () => {
     expect(big.y.min + pan.y).toBeLessThanOrEqual(0);
   });
 
-  it("pans per axis, so a wide shallow world scrolls sideways only", () => {
-    const wide = mapFrame({ minX: -MAP_WINDOW * 2, maxX: MAP_WINDOW * 2, minZ: -5, maxZ: 5 });
-    const pan = mapPan({ x: 0.9, y: 0.6 }, wide);
-    expect(pan.x).not.toBe(0);
+  it("clamps each axis on its own: held at the world's western corner, still centred north to south", () => {
+    const pan = mapPan({ x: big.x.min, y: 0.5 }, big);
+    expect(big.x.min + pan.x).toBeCloseTo(0, 10);
     expect(pan.y).toBe(0);
   });
 });

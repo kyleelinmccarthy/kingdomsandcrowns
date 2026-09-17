@@ -10,7 +10,7 @@ export type MinimapPoint = { x: number; y: number };
 /**
  * The land itself, drawn as shapes rather than implied by dots.
  *
- * Six of the seven are the world's own `TerrainKind`, so the map cannot drift from the ground:
+ * All but one are the world's own `TerrainKind`, so the map cannot drift from the ground:
  * the same rectangles the scene paints are the ones drawn here. "forest" is the map's alone —
  * the world has no forest, it has four hundred trees, and a map that drew four hundred trees
  * would be a map of nothing.
@@ -40,6 +40,8 @@ export type MinimapFrame = {
 export type MinimapView = {
   bounds: MinimapBounds;
   frame: MinimapFrame;
+  /** The walkable world as a rectangle in the map's UNTURNED space, so the map can say where the world stops. */
+  ground: { x: number; y: number; w: number; h: number };
   /** The resting hero: position in map fractions, `angle` in the SCENE's convention (see `mapDegrees`). */
   hero: { x: number; y: number; angle: number };
   areas: MinimapArea[];
@@ -116,7 +118,7 @@ export function landKind(prop: Prop): MinimapAreaKind | null {
  * over the ground they stand on, and the tracks over all of it —
  * because a track a child can follow home must never be hidden by what it crosses.
  */
-const LAND_ORDER: Record<MinimapAreaKind, number> = { field: 0, furrow: 1, shore: 2, shallow: 3, water: 4, forest: 5, trail: 6 };
+const LAND_ORDER: Record<MinimapAreaKind, number> = { grove: 0, scree: 1, field: 2, furrow: 3, shore: 4, shallow: 5, water: 6, forest: 7, trail: 8 };
 
 /**
  * Trees are not drawn. A wood is.
@@ -149,10 +151,14 @@ export function worldBounds(layout: WorldLayout): MinimapBounds {
   };
 }
 
-/** World units across one edge of the map: the whole world while it fits, `MAP_WINDOW` after that. */
+/**
+ * World units across one edge of the map: the whole world while it fits, `MAP_WINDOW` after
+ * that. The world is measured as the map draws it — turned a quarter (see `MAP_TILT`), so a
+ * square world is a diamond and needs its diagonal, not its side, to fit.
+ */
 export function mapSpan(bounds: MinimapBounds): number {
-  const widest = Math.max(bounds.maxX - bounds.minX, bounds.maxZ - bounds.minZ);
-  return Math.max(Math.min(widest, MAP_WINDOW), 1e-6);
+  const across = (bounds.maxX - bounds.minX + (bounds.maxZ - bounds.minZ)) / Math.SQRT2;
+  return Math.max(Math.min(across, MAP_WINDOW), 1e-6);
 }
 
 /** Map fractions per world unit — the one scale every shape on the map is drawn at. */
@@ -175,11 +181,53 @@ export function projectToMap(p: Vec2, bounds: MinimapBounds): MinimapPoint {
   return { x: 0.5 + (p.x - cx) * s, y: 0.5 + (p.z - cz) * s };
 }
 
+/**
+ * The map is turned to face the way the child is: a quarter turn, clockwise.
+ *
+ * The camera is fixed at (12, 12, 12) looking at the hero, so screen-up is the world direction
+ * (-1, -1) and screen-right is (1, -1) — `input-mapping.ts` says the same thing from the keys'
+ * side, which is why W walks a child up the SCREEN and not north. A map drawn on the world's
+ * own axes is therefore a quarter turn out of step with both the view and the keys: press W,
+ * and the dot slides diagonally. An eight-year-old cannot correct for that, and should not have
+ * to. Turned, the map's up is the screen's up, its right is the screen's right, and the shapes
+ * come out as the same diamonds the child is looking at down in the world.
+ *
+ * It is a rotation of the whole drawing rather than a different projection, and that is load-
+ * bearing: `realm-scene.tsx` writes the hero's place each frame through `projectToMap`, and it
+ * writes it in the UNTURNED space, inside the group the map turns. So the scene needs to know
+ * nothing about any of this, and the dot and the land can never be drawn to two different
+ * norths. Everything that leaves that group — the pan, the rim arrows — goes through
+ * `rotateMap` first, which is the same quarter turn done to one point.
+ */
+export const MAP_TILT = Math.PI / 4;
+const TILT_COS = Math.cos(MAP_TILT);
+const TILT_SIN = Math.sin(MAP_TILT);
+
+/** One point through the map's quarter turn, about the map's centre. */
+export function rotateMap(p: MinimapPoint): MinimapPoint {
+  const dx = p.x - 0.5;
+  const dy = p.y - 0.5;
+  return { x: 0.5 + dx * TILT_COS - dy * TILT_SIN, y: 0.5 + dx * TILT_SIN + dy * TILT_COS };
+}
+
+/** The world's four corners, turned: the box the map has to hold, and what the pan clamps to. */
+function tiltedCorners(bounds: MinimapBounds): MinimapPoint[] {
+  return [
+    { x: bounds.minX, z: bounds.minZ },
+    { x: bounds.maxX, z: bounds.minZ },
+    { x: bounds.minX, z: bounds.maxZ },
+    { x: bounds.maxX, z: bounds.maxZ },
+  ].map((c) => rotateMap(projectToMap(c, bounds)));
+}
+
 export function mapFrame(bounds: MinimapBounds): MinimapFrame {
-  const a = projectToMap({ x: bounds.minX, z: bounds.minZ }, bounds);
-  const b = projectToMap({ x: bounds.maxX, z: bounds.maxZ }, bounds);
+  const corners = tiltedCorners(bounds);
+  const xs = corners.map((c) => c.x);
+  const ys = corners.map((c) => c.y);
+  const x = { min: Math.min(...xs), max: Math.max(...xs) };
+  const y = { min: Math.min(...ys), max: Math.max(...ys) };
   const over = 1e-9; // a world that fits EXACTLY must not be called a window
-  return { follows: b.x - a.x > 1 + over || b.y - a.y > 1 + over, x: { min: a.x, max: b.x }, y: { min: a.y, max: b.y } };
+  return { follows: x.max - x.min > 1 + over || y.max - y.min > 1 + over, x, y };
 }
 
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
@@ -205,6 +253,10 @@ export const RIM_INSET = 0.075;
  * A thing that has fallen off the window, brought back to the rim pointing at where it really
  * is. `off` false means it is on the map and needs no arrow at all — which is every case while
  * the whole world fits, so a child in today's village never sees one.
+ *
+ * Both the target and the pan are in TURNED space (`rotateMap`), because the rim is the edge of
+ * the screen, not the edge of the world, and an arrow that leaves the map's own square has to
+ * be clamped in the square the child is looking at.
  */
 export function rimMark(target: MinimapPoint, pan: MinimapPoint): { x: number; y: number; angle: number; off: boolean } {
   const x = target.x + pan.x;
@@ -311,5 +363,8 @@ export function minimapView({ layout, hero, facing, troubles, surfaces }: Minima
 
   // A stable sort, so tiles of one kind keep the order the world listed them in.
   areas.sort((a, b) => LAND_ORDER[a.kind] - LAND_ORDER[b.kind]);
-  return { bounds, frame: mapFrame(bounds), hero: { ...projectToMap(hero, bounds), angle: facingAngle(facing) }, areas, marks, home, goal };
+  const low = projectToMap({ x: bounds.minX, z: bounds.minZ }, bounds);
+  const high = projectToMap({ x: bounds.maxX, z: bounds.maxZ }, bounds);
+  const ground = { x: low.x, y: low.y, w: high.x - low.x, h: high.y - low.y };
+  return { bounds, frame: mapFrame(bounds), ground, hero: { ...projectToMap(hero, bounds), angle: facingAngle(facing) }, areas, marks, home, goal };
 }

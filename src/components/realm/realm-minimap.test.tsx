@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach } from "vitest";
 import { createRef } from "react";
 import { render, screen, cleanup, act } from "@testing-library/react";
 import { RealmMinimap } from "./realm-minimap";
-import type { MinimapView } from "@/lib/realm/minimap";
+import { rotateMap, type MinimapView } from "@/lib/realm/minimap";
 
 afterEach(cleanup);
 
@@ -16,6 +16,7 @@ const window2: MinimapView["frame"] = { follows: true, x: { min: -0.5, max: 1.5 
 const view: MinimapView = {
   bounds: { minX: -10, maxX: 10, minZ: -10, maxZ: 10 },
   frame: fits,
+  ground: { x: 0.15, y: 0.15, w: 0.7, h: 0.7 },
   hero: { x: 0.5, y: 0.5, angle: 0 },
   areas: [
     { id: "path-1", kind: "trail", shape: "rect", x: 0.5, y: 0.4, w: 0.05, h: 0.05 },
@@ -109,7 +110,7 @@ describe("RealmMinimap", () => {
 
   it("never moves a map that holds the whole world", async () => {
     const ref = createRef<SVGGElement>();
-    const { container } = render(<RealmMinimap view={view} heroRef={ref} />);
+    render(<RealmMinimap view={view} heroRef={ref} />);
     await settle();
     act(() => {
       ref.current!.setAttribute("transform", "translate(90 10) rotate(0)");
@@ -124,14 +125,17 @@ describe("RealmMinimap", () => {
     render(<RealmMinimap view={big} heroRef={ref} />);
     await settle();
     act(() => {
-      ref.current!.setAttribute("transform", "translate(90 50) rotate(0)"); // 0.9 of the way east
+      // The scene writes the hero in the world's own axes; the map turns them (MAP_TILT), so
+      // walking east is walking down-and-right on the map and it pans on both axes at once.
+      ref.current!.setAttribute("transform", "translate(90 50) rotate(0)");
     });
     await settle();
     const panned = translateOf(ref.current!.parentElement)!;
-    expect(panned.x).toBeCloseTo(-40, 6); // the hero is put back at the map's centre
-    expect(panned.y).toBeCloseTo(0, 6);
+    const east = rotateMap({ x: 0.9, y: 0.5 });
+    expect(panned.x).toBeCloseTo((0.5 - east.x) * 100, 6); // the hero is put back at the map's centre
+    expect(panned.y).toBeCloseTo((0.5 - east.y) * 100, 6);
     act(() => {
-      ref.current!.setAttribute("transform", "translate(-45 50) rotate(0)"); // the far west edge of the world
+      ref.current!.setAttribute("transform", "translate(-45 50) rotate(0)"); // out past the world's western corner
     });
     await settle();
     expect(translateOf(ref.current!.parentElement)!.x).toBeCloseTo(50, 6); // held: the world's edge is the map's edge
@@ -151,11 +155,14 @@ describe("RealmMinimap", () => {
     const home = container.querySelector(".realm-minimap-rim--home") as SVGGElement;
     expect(home.style.display).toBe("none"); // standing on it
     act(() => {
-      ref.current!.setAttribute("transform", "translate(50 140) rotate(0)"); // a long way south of home
+      // Straight down the screen, which on the ground is south-east: the child walked away from
+      // home the way the camera faces, so home is straight up the map behind them.
+      ref.current!.setAttribute("transform", "translate(113.64 113.64) rotate(0)");
     });
     await settle();
     expect(home.style.display).not.toBe("none");
-    expect(rotationOf(home)).toBeCloseTo(0, 6); // home is due north: the arrow points up
-    expect(translateOf(home)!.y).toBeLessThan(20); // ...and sits on the map's north rim
+    expect(rotationOf(home)).toBeCloseTo(0, 4); // the arrow points up
+    expect(translateOf(home)!.y).toBeLessThan(20); // ...and sits on the map's top rim
+    expect(translateOf(home)!.x).toBeCloseTo(50, 4);
   });
 });

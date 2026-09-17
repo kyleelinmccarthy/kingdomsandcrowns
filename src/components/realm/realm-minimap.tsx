@@ -1,12 +1,19 @@
 "use client";
 
 import { useEffect, useRef, type RefObject } from "react";
-import { mapDegrees, mapPan, parseTransform, rimMark, type MinimapMark, type MinimapView } from "@/lib/realm/minimap";
+import { MAP_TILT, mapDegrees, mapPan, parseTransform, rimMark, rotateMap, type MinimapMark, type MinimapView } from "@/lib/realm/minimap";
 
 const SIZE = 100; // SVG user units; the rendered size comes from CSS
 
 const NO_PAN = { x: 0, y: 0 };
 const deg = (radians: number) => (radians * 180) / Math.PI;
+/**
+ * The map's quarter turn, applied to the whole world group so that the map's up is the screen's
+ * up (see MAP_TILT). The pan is written OUTSIDE it, in turned space; everything drawn inside —
+ * the land, the marks, and the hero the scene writes each frame — is in the world's own axes
+ * and is turned by this one attribute.
+ */
+const TILT = `rotate(${deg(MAP_TILT)} ${SIZE / 2} ${SIZE / 2})`;
 
 /** One glyph per kind, so a site, a trouble, the objective and the castle are told apart by silhouette. */
 const GLYPH: Record<MinimapMark["kind"], string> = {
@@ -53,9 +60,9 @@ export function RealmMinimap({ view, heroRef }: { view: MinimapView; heroRef?: R
   const homeRef = useRef<SVGGElement>(null);
   const goalRef = useRef<SVGGElement>(null);
 
-  const restPan = view.frame.follows ? mapPan(view.hero, view.frame) : NO_PAN;
-  const restHome = view.home ? rimMark(view.home, restPan) : null;
-  const restGoal = view.goal ? rimMark(view.goal, restPan) : null;
+  const restPan = view.frame.follows ? mapPan(rotateMap(view.hero), view.frame) : NO_PAN;
+  const restHome = view.home ? rimMark(rotateMap(view.home), restPan) : null;
+  const restGoal = view.goal ? rimMark(rotateMap(view.goal), restPan) : null;
 
   useEffect(() => {
     const carrier = heroRef?.current;
@@ -70,15 +77,15 @@ export function RealmMinimap({ view, heroRef }: { view: MinimapView; heroRef?: R
     const draw = () => {
       const t = parseTransform(carrier.getAttribute("transform"));
       if (!t) return;
-      const hero = { x: t.x / SIZE, y: t.y / SIZE };
+      const hero = rotateMap({ x: t.x / SIZE, y: t.y / SIZE });
       const pan = view.frame.follows ? mapPan(hero, view.frame) : NO_PAN;
-      const world = `translate(${pan.x * SIZE} ${pan.y * SIZE})`;
+      const world = `translate(${pan.x * SIZE} ${pan.y * SIZE}) ${TILT}`;
       if (world !== lastWorld) {
         lastWorld = world;
         worldRef.current?.setAttribute("transform", world);
         if (view.frame.follows) {
-          rim(homeRef.current, view.home ? rimMark(view.home, pan) : null);
-          rim(goalRef.current, view.goal ? rimMark(view.goal, pan) : null);
+          rim(homeRef.current, view.home ? rimMark(rotateMap(view.home), pan) : null);
+          rim(goalRef.current, view.goal ? rimMark(rotateMap(view.goal), pan) : null);
         }
       }
       const you = `translate(${t.x} ${t.y}) rotate(${mapDegrees(t.deg)})`;
@@ -98,14 +105,8 @@ export function RealmMinimap({ view, heroRef }: { view: MinimapView; heroRef?: R
       <svg viewBox={`0 0 ${SIZE} ${SIZE}`} role="img" aria-label="Map of the Realm" aria-hidden={false}>
         {/* Beyond the last field: the map says where the world stops. */}
         <rect x={0} y={0} width={SIZE} height={SIZE} className="realm-minimap-void" />
-        <g ref={worldRef} transform={`translate(${restPan.x * SIZE} ${restPan.y * SIZE})`}>
-          <rect
-            className="realm-minimap-ground"
-            x={view.frame.x.min * SIZE}
-            y={view.frame.y.min * SIZE}
-            width={(view.frame.x.max - view.frame.x.min) * SIZE}
-            height={(view.frame.y.max - view.frame.y.min) * SIZE}
-          />
+        <g ref={worldRef} transform={`translate(${restPan.x * SIZE} ${restPan.y * SIZE}) ${TILT}`}>
+          <rect className="realm-minimap-ground" x={view.ground.x * SIZE} y={view.ground.y * SIZE} width={view.ground.w * SIZE} height={view.ground.h * SIZE} />
           {view.areas.map((a) =>
             a.shape === "blob" ? (
               <circle
@@ -140,6 +141,11 @@ export function RealmMinimap({ view, heroRef }: { view: MinimapView; heroRef?: R
             <path d={HERO} />
           </g>
         </g>
+        {/* The map never spins under a child: it is fixed to the view, which is itself fixed, so
+            north sits in the top-right corner and stays there. */}
+        <text className="realm-minimap-north" x={SIZE - 5} y={10} textAnchor="end">
+          N
+        </text>
         {/* Rim arrows, in the map's own space rather than the world's: home and the objective,
             drawn only once the world is too big to hold both of them on screen at once. */}
         <g
@@ -158,10 +164,6 @@ export function RealmMinimap({ view, heroRef }: { view: MinimapView; heroRef?: R
         >
           <path d={RIM_ARROW} />
         </g>
-        {/* North is up and stays up: the map never spins under a child who is learning where things are. */}
-        <text className="realm-minimap-north" x={6} y={9} textAnchor="start">
-          N
-        </text>
       </svg>
     </div>
   );
