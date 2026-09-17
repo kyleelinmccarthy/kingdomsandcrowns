@@ -154,6 +154,15 @@ export const SKILLS: Skill[] = [
   { id: "science-g45", label: "Science facts", area: "science", grades: ["4"], source: pool("science-g45") },
   { id: "science-g68", label: "Science facts", area: "science", grades: ["6"], source: pool("science-g68") },
   { id: "science-g912", label: "Science facts", area: "science", grades: ["9"], source: pool("science-g912") },
+  /**
+   * Language Arts at the three grades the map calls `new` and this plan authored. `lang-gk` and
+   * `lang-g1` are why the fallback used to walk UP: with nothing below grade 2 in the strand, a
+   * five-year-old on a Language Arts side quest was handed grade 2-3 spelling. They are the two
+   * entries that emptied the climb inventories in `skills.test.ts` and `deed-engine.test.ts`.
+   */
+  { id: "lang-gk", label: "Letters and words", area: "language", grades: ["K"], source: pool("lang-gk") },
+  { id: "lang-g1", label: "Sentences and word kinds", area: "language", grades: ["1"], source: pool("lang-g1") },
+  { id: "lang-g3", label: "Spelling and verbs", area: "language", grades: ["3"], source: pool("lang-g3") },
 ];
 
 export function skillsFor(area: SkillArea, grade: Grade): Skill[] {

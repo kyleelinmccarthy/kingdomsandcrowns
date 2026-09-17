@@ -1,0 +1,509 @@
+{
+  "poolId": "lang-g1",
+  "grade": "1",
+  "items": [
+    {
+      "id": "lang-g1-cap-rule",
+      "prompt": "Every sentence begins with what kind of letter?",
+      "answer": "A capital letter",
+      "distractors": [
+        "A small letter",
+        "Any letter",
+        "A vowel"
+      ],
+      "level": 0
+    },
+    {
+      "id": "lang-g1-cap-maria",
+      "prompt": "Which word should always start with a capital letter?",
+      "answer": "Maria",
+      "distractors": [
+        "girl",
+        "happy",
+        "runs"
+      ],
+      "level": 0
+    },
+    {
+      "id": "lang-g1-cap-diego",
+      "prompt": "Which word should always start with a capital letter?",
+      "answer": "Diego",
+      "distractors": [
+        "brother",
+        "kind",
+        "jumps"
+      ],
+      "level": 1
+    },
+    {
+      "id": "lang-g1-cap-texas",
+      "prompt": "Which word should always start with a capital letter?",
+      "answer": "Texas",
+      "distractors": [
+        "town",
+        "river",
+        "street"
+      ],
+      "level": 2
+    },
+    {
+      "id": "lang-g1-cap-friday",
+      "prompt": "Which word should always start with a capital letter?",
+      "answer": "Friday",
+      "distractors": [
+        "today",
+        "week",
+        "day"
+      ],
+      "level": 2
+    },
+    {
+      "id": "lang-g1-cap-april",
+      "prompt": "Which word should always start with a capital letter?",
+      "answer": "April",
+      "distractors": [
+        "month",
+        "spring",
+        "season"
+      ],
+      "level": 3
+    },
+    {
+      "id": "lang-g1-cap-i",
+      "prompt": "Which word needs a capital letter even in the middle of a sentence?",
+      "answer": "I",
+      "distractors": [
+        "me",
+        "you",
+        "we"
+      ],
+      "level": 2
+    },
+    {
+      "id": "lang-g1-cap-not-needed",
+      "prompt": "Which word does not need a capital letter?",
+      "answer": "puppy",
+      "distractors": [
+        "Sam",
+        "July",
+        "Ohio"
+      ],
+      "level": 3
+    },
+    {
+      "id": "lang-g1-cap-dog-big",
+      "prompt": "One word in this sentence is missing its capital letter. Which word is it? my dog is big.",
+      "answer": "my",
+      "distractors": [
+        "dog",
+        "big",
+        "is"
+      ],
+      "readAloud": "Look at the sentence on the screen. One word is missing its capital letter. Which word is it?",
+      "level": 1
+    },
+    {
+      "id": "lang-g1-cap-park",
+      "prompt": "One word in this sentence is missing its capital letter. Which word is it? we went to the park.",
+      "answer": "we",
+      "distractors": [
+        "went",
+        "park",
+        "the"
+      ],
+      "readAloud": "Look at the sentence on the screen. One word is missing its capital letter. Which word is it?",
+      "level": 2
+    },
+    {
+      "id": "lang-g1-cap-red-bike",
+      "prompt": "One word in this sentence is missing its capital letter. Which word is it? ben has a red bike.",
+      "answer": "ben",
+      "distractors": [
+        "has",
+        "bike",
+        "red"
+      ],
+      "readAloud": "Look at the sentence on the screen. One word is missing its capital letter. Which word is it?",
+      "level": 2
+    },
+    {
+      "id": "lang-g1-cap-yesterday-i",
+      "prompt": "One word in this sentence is missing its capital letter. Which word is it? Yesterday i ran fast.",
+      "answer": "i",
+      "distractors": [
+        "Yesterday",
+        "ran",
+        "fast"
+      ],
+      "readAloud": "Look at the sentence on the screen. One word is missing its capital letter. Which word is it?",
+      "level": 3
+    },
+    {
+      "id": "lang-g1-cap-monday-ana",
+      "prompt": "One word in this sentence is missing its capital letter. Which word is it? On monday we saw Ana.",
+      "answer": "monday",
+      "distractors": [
+        "we",
+        "saw",
+        "On"
+      ],
+      "readAloud": "Look at the sentence on the screen. One word is missing its capital letter. Which word is it?",
+      "level": 4
+    },
+    {
+      "id": "lang-g1-punc-telling",
+      "prompt": "Which mark ends a telling sentence?",
+      "answer": "A period",
+      "distractors": [
+        "A question mark",
+        "An exclamation point",
+        "A comma"
+      ],
+      "level": 0
+    },
+    {
+      "id": "lang-g1-punc-asking",
+      "prompt": "Which mark ends an asking sentence?",
+      "answer": "A question mark",
+      "distractors": [
+        "A period",
+        "A comma",
+        "An exclamation point"
+      ],
+      "level": 0
+    },
+    {
+      "id": "lang-g1-punc-shout",
+      "prompt": "Which mark shows a shout or a big feeling?",
+      "answer": "An exclamation point",
+      "distractors": [
+        "A period",
+        "A question mark",
+        "A comma"
+      ],
+      "level": 2
+    },
+    {
+      "id": "lang-g1-punc-bike-mark",
+      "prompt": "Which mark comes at the end of this sentence? The book is on the desk",
+      "answer": "A period",
+      "distractors": [
+        "A question mark",
+        "An exclamation point",
+        "A comma"
+      ],
+      "level": 1
+    },
+    {
+      "id": "lang-g1-punc-where-mark",
+      "prompt": "Which mark comes at the end of this sentence? Where did you go",
+      "answer": "A question mark",
+      "distractors": [
+        "A period",
+        "A comma",
+        "An exclamation point"
+      ],
+      "level": 1
+    },
+    {
+      "id": "lang-g1-punc-q-outside",
+      "prompt": "Which sentence needs a question mark?",
+      "answer": "Can I go outside",
+      "distractors": [
+        "The sun is hot",
+        "I like red apples",
+        "We ran to the bus"
+      ],
+      "level": 1
+    },
+    {
+      "id": "lang-g1-punc-q-hat",
+      "prompt": "Which sentence needs a question mark?",
+      "answer": "Where is my hat",
+      "distractors": [
+        "My hat is blue",
+        "The dog ate lunch",
+        "She has two cats"
+      ],
+      "level": 2
+    },
+    {
+      "id": "lang-g1-punc-q-play",
+      "prompt": "Which sentence needs a question mark?",
+      "answer": "Do you want to play",
+      "distractors": [
+        "I want to play",
+        "We play at recess",
+        "The game was fun"
+      ],
+      "level": 3
+    },
+    {
+      "id": "lang-g1-punc-telling-pick",
+      "prompt": "Which sentence is a telling sentence?",
+      "answer": "The bus is late",
+      "distractors": [
+        "Is the bus late",
+        "When is the bus",
+        "Why is the bus late"
+      ],
+      "level": 2
+    },
+    {
+      "id": "lang-g1-punc-end-cat",
+      "prompt": "Which sentence ends correctly?",
+      "answer": "The cat sat down.",
+      "distractors": [
+        "The cat sat down?",
+        "The cat sat down",
+        "The cat sat down,"
+      ],
+      "readAloud": "Look at the four sentences. Which one has the right mark at the end?",
+      "level": 1
+    },
+    {
+      "id": "lang-g1-punc-end-cold",
+      "prompt": "Which sentence ends correctly?",
+      "answer": "Are you cold?",
+      "distractors": [
+        "Are you cold.",
+        "Are you cold",
+        "Are you cold,"
+      ],
+      "readAloud": "Look at the four sentences. Which one has the right mark at the end?",
+      "level": 2
+    },
+    {
+      "id": "lang-g1-punc-end-gate",
+      "prompt": "Which sentence ends correctly?",
+      "answer": "Please shut the gate.",
+      "distractors": [
+        "Please shut the gate?",
+        "Please shut the gate",
+        "Please shut the gate,"
+      ],
+      "readAloud": "Look at the four sentences. Which one has the right mark at the end?",
+      "level": 3
+    },
+    {
+      "id": "lang-g1-noun-table",
+      "prompt": "A noun names a person, place, or thing. Which word is a noun?",
+      "answer": "table",
+      "distractors": [
+        "jumped",
+        "happy",
+        "soft"
+      ],
+      "level": 0
+    },
+    {
+      "id": "lang-g1-noun-river",
+      "prompt": "A noun names a person, place, or thing. Which word is a noun?",
+      "answer": "river",
+      "distractors": [
+        "swam",
+        "blue",
+        "loudly"
+      ],
+      "level": 1
+    },
+    {
+      "id": "lang-g1-noun-teacher",
+      "prompt": "A noun names a person, place, or thing. Which word is a noun?",
+      "answer": "teacher",
+      "distractors": [
+        "teach",
+        "quickly",
+        "tired"
+      ],
+      "level": 4
+    },
+    {
+      "id": "lang-g1-verb-run",
+      "prompt": "A verb is an action word. Which word is a verb?",
+      "answer": "run",
+      "distractors": [
+        "chair",
+        "blue",
+        "soft"
+      ],
+      "level": 0
+    },
+    {
+      "id": "lang-g1-verb-jump",
+      "prompt": "A verb is an action word. Which word is a verb?",
+      "answer": "jump",
+      "distractors": [
+        "rope",
+        "high",
+        "happy"
+      ],
+      "level": 1
+    },
+    {
+      "id": "lang-g1-verb-sing",
+      "prompt": "A verb is an action word. Which word is a verb?",
+      "answer": "sing",
+      "distractors": [
+        "song",
+        "loud",
+        "music"
+      ],
+      "level": 4
+    },
+    {
+      "id": "lang-g1-noun-person",
+      "prompt": "Which word names a person?",
+      "answer": "baker",
+      "distractors": [
+        "kitchen",
+        "bread",
+        "bake"
+      ],
+      "level": 2
+    },
+    {
+      "id": "lang-g1-noun-place-park",
+      "prompt": "Which word names a place?",
+      "answer": "park",
+      "distractors": [
+        "teacher",
+        "hat",
+        "sing"
+      ],
+      "level": 2
+    },
+    {
+      "id": "lang-g1-noun-place-school",
+      "prompt": "Which word names a place?",
+      "answer": "school",
+      "distractors": [
+        "student",
+        "book",
+        "read"
+      ],
+      "level": 3
+    },
+    {
+      "id": "lang-g1-noun-thing",
+      "prompt": "Which word names a thing?",
+      "answer": "bicycle",
+      "distractors": [
+        "doctor",
+        "library",
+        "ride"
+      ],
+      "level": 2
+    },
+    {
+      "id": "lang-g1-verb-in-dog",
+      "prompt": "Which word in this sentence is the verb? The big dog barks.",
+      "answer": "barks",
+      "distractors": [
+        "dog",
+        "big",
+        "The"
+      ],
+      "level": 2
+    },
+    {
+      "id": "lang-g1-verb-in-sister",
+      "prompt": "Which word in this sentence is the verb? My sister reads books.",
+      "answer": "reads",
+      "distractors": [
+        "sister",
+        "books",
+        "My"
+      ],
+      "level": 3
+    },
+    {
+      "id": "lang-g1-verb-in-bird",
+      "prompt": "Which word in this sentence is the verb? The red bird sings.",
+      "answer": "sings",
+      "distractors": [
+        "bird",
+        "red",
+        "The"
+      ],
+      "level": 3
+    },
+    {
+      "id": "lang-g1-noun-in-girl",
+      "prompt": "Which word in this sentence is a noun? The girl ran fast.",
+      "answer": "girl",
+      "distractors": [
+        "ran",
+        "fast",
+        "The"
+      ],
+      "level": 2
+    },
+    {
+      "id": "lang-g1-noun-in-birds",
+      "prompt": "Which word in this sentence is a noun? Birds fly very high.",
+      "answer": "Birds",
+      "distractors": [
+        "fly",
+        "very",
+        "high"
+      ],
+      "level": 3
+    },
+    {
+      "id": "lang-g1-verb-do-swim",
+      "prompt": "Which word shows something you do?",
+      "answer": "swim",
+      "distractors": [
+        "river",
+        "wet",
+        "deep"
+      ],
+      "level": 1
+    },
+    {
+      "id": "lang-g1-verb-do-write",
+      "prompt": "Which word shows something you do?",
+      "answer": "write",
+      "distractors": [
+        "pencil",
+        "paper",
+        "neat"
+      ],
+      "level": 2
+    },
+    {
+      "id": "lang-g1-noun-among-verbs",
+      "prompt": "Three of these are actions. Which word names a thing instead?",
+      "answer": "cup",
+      "distractors": [
+        "pour",
+        "fill",
+        "stir"
+      ],
+      "level": 4
+    },
+    {
+      "id": "lang-g1-verb-among-nouns",
+      "prompt": "Three of these name things. Which word is an action instead?",
+      "answer": "kick",
+      "distractors": [
+        "ball",
+        "foot",
+        "game"
+      ],
+      "level": 4
+    },
+    {
+      "id": "lang-g1-verb-in-fish",
+      "prompt": "Which word in this sentence is the verb? Two small fish swim.",
+      "answer": "swim",
+      "distractors": [
+        "fish",
+        "small",
+        "Two"
+      ],
+      "level": 4
+    }
+  ]
+}

@@ -31,7 +31,7 @@ describe("chooseSkills", () => {
     expect(chooseSkills(deedReading, "3").map((s) => s.id)).toEqual(["sight-g23"]);
   });
   it("falls back to the nearest grade when the area has no skill there", () => {
-    expect(chooseSkills(deedLanguage, "K").map((s) => s.id)).toEqual(["spell-g23"]);
+    expect(chooseSkills(deedLanguage, "7").map((s) => s.id)).toEqual(["vocab-g68"]);
     expect(chooseSkills(deedReading, "9").map((s) => s.id)).toEqual(["sight-g23"]);
   });
 
@@ -43,10 +43,11 @@ describe("chooseSkills", () => {
    * comment was the one about wrong-year work.
    *
    * The behaviour is deliberate and stays — an empty quest is worse than a hard one — so what
-   * this asserts is the LIST, hand-written, exactly. Every (area, grade) pair below is a hero
-   * being handed a harder grade's work than their own. When plan 3 fills Language Arts at K
-   * and grade 1 this list becomes empty and this test fails until someone empties it, which is
-   * the point: the cost stays visible until it is gone.
+   * this asserts is the LIST, hand-written, exactly. Every (area, grade) pair listed would be a
+   * hero being handed a harder grade's work than their own. It held two entries, both Language
+   * Arts: a kindergartener and a first-grader handed grade-2 spelling. Authoring `lang-gk` and
+   * `lang-g1` gave those two grades their own pools, so nothing climbs anywhere and the literal
+   * is now `[]`. It stays `[]`: a new climb is a defect, not a line to add.
    *
    * Falling DOWN is not on this list and is not a defect: Reading is authored at K and grade
    * 2 and nowhere above, so a grade-9 hero gets grade-2 reading. That is the walk doing what
@@ -75,10 +76,7 @@ describe("chooseSkills", () => {
         }
       }
     }
-    expect(climbing).toEqual([
-      "language grade K is taught grade 2",
-      "language grade 1 is taught grade 2",
-    ]);
+    expect(climbing).toEqual([]);
   });
 });
 

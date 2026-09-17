@@ -1,0 +1,535 @@
+{
+  "poolId": "lang-g3",
+  "grade": "3",
+  "items": [
+    {
+      "id": "lang-g3-spell-believe",
+      "prompt": "Which is spelled correctly?",
+      "answer": "believe",
+      "distractors": [
+        "beleive",
+        "belive",
+        "beleve"
+      ],
+      "readAloud": "believe",
+      "level": 1
+    },
+    {
+      "id": "lang-g3-spell-carried",
+      "prompt": "Which is spelled correctly?",
+      "answer": "carried",
+      "distractors": [
+        "carryed",
+        "carrried",
+        "cariied"
+      ],
+      "readAloud": "carried",
+      "level": 2
+    },
+    {
+      "id": "lang-g3-spell-stopped",
+      "prompt": "Which is spelled correctly?",
+      "answer": "stopped",
+      "distractors": [
+        "stoped",
+        "stopeed",
+        "stoppd"
+      ],
+      "readAloud": "stopped",
+      "level": 1
+    },
+    {
+      "id": "lang-g3-spell-running",
+      "prompt": "Which is spelled correctly?",
+      "answer": "running",
+      "distractors": [
+        "runing",
+        "runnig",
+        "runeing"
+      ],
+      "readAloud": "running",
+      "level": 1
+    },
+    {
+      "id": "lang-g3-spell-writing",
+      "prompt": "Which is spelled correctly?",
+      "answer": "writing",
+      "distractors": [
+        "writting",
+        "writeing",
+        "writtin"
+      ],
+      "readAloud": "writing",
+      "level": 3
+    },
+    {
+      "id": "lang-g3-spell-happened",
+      "prompt": "Which is spelled correctly?",
+      "answer": "happened",
+      "distractors": [
+        "happend",
+        "hapened",
+        "happenned"
+      ],
+      "readAloud": "happened",
+      "level": 2
+    },
+    {
+      "id": "lang-g3-spell-bought",
+      "prompt": "Which is spelled correctly?",
+      "answer": "bought",
+      "distractors": [
+        "baught",
+        "bougt",
+        "boght"
+      ],
+      "readAloud": "bought",
+      "level": 2
+    },
+    {
+      "id": "lang-g3-spell-question",
+      "prompt": "Which is spelled correctly?",
+      "answer": "question",
+      "distractors": [
+        "questoin",
+        "queston",
+        "qwestion"
+      ],
+      "readAloud": "question",
+      "level": 1
+    },
+    {
+      "id": "lang-g3-spell-usually",
+      "prompt": "Which is spelled correctly?",
+      "answer": "usually",
+      "distractors": [
+        "usualy",
+        "usally",
+        "usuly"
+      ],
+      "readAloud": "usually",
+      "level": 3
+    },
+    {
+      "id": "lang-g3-spell-probably",
+      "prompt": "Which is spelled correctly?",
+      "answer": "probably",
+      "distractors": [
+        "probly",
+        "probaly",
+        "probobly"
+      ],
+      "readAloud": "probably",
+      "level": 3
+    },
+    {
+      "id": "lang-g3-spell-special",
+      "prompt": "Which is spelled correctly?",
+      "answer": "special",
+      "distractors": [
+        "speshal",
+        "specail",
+        "speciel"
+      ],
+      "readAloud": "special",
+      "level": 2
+    },
+    {
+      "id": "lang-g3-spell-beginning",
+      "prompt": "Which is spelled correctly?",
+      "answer": "beginning",
+      "distractors": [
+        "begining",
+        "beggining",
+        "beginnning"
+      ],
+      "readAloud": "beginning",
+      "level": 4
+    },
+    {
+      "id": "lang-g3-spell-library",
+      "prompt": "Which is spelled correctly?",
+      "answer": "library",
+      "distractors": [
+        "libary",
+        "libery",
+        "librery"
+      ],
+      "readAloud": "library",
+      "level": 3
+    },
+    {
+      "id": "lang-g3-spell-island",
+      "prompt": "Which is spelled correctly?",
+      "answer": "island",
+      "distractors": [
+        "iland",
+        "islend",
+        "izland"
+      ],
+      "readAloud": "island",
+      "level": 2
+    },
+    {
+      "id": "lang-g3-past-go",
+      "prompt": "Which word is the past tense of \"go\"?",
+      "answer": "went",
+      "distractors": [
+        "goed",
+        "goes",
+        "going"
+      ],
+      "level": 0
+    },
+    {
+      "id": "lang-g3-past-eat",
+      "prompt": "Which word is the past tense of \"eat\"?",
+      "answer": "ate",
+      "distractors": [
+        "eated",
+        "eats",
+        "eating"
+      ],
+      "level": 0
+    },
+    {
+      "id": "lang-g3-past-run",
+      "prompt": "Which word is the past tense of \"run\"?",
+      "answer": "ran",
+      "distractors": [
+        "runned",
+        "runs",
+        "running"
+      ],
+      "level": 0
+    },
+    {
+      "id": "lang-g3-past-swim",
+      "prompt": "Which word is the past tense of \"swim\"?",
+      "answer": "swam",
+      "distractors": [
+        "swimmed",
+        "swims",
+        "swimming"
+      ],
+      "level": 2
+    },
+    {
+      "id": "lang-g3-past-throw",
+      "prompt": "Which word is the past tense of \"throw\"?",
+      "answer": "threw",
+      "distractors": [
+        "throwed",
+        "throws",
+        "throwing"
+      ],
+      "level": 2
+    },
+    {
+      "id": "lang-g3-past-bring",
+      "prompt": "Which word is the past tense of \"bring\"?",
+      "answer": "brought",
+      "distractors": [
+        "bringed",
+        "brings",
+        "bringing"
+      ],
+      "level": 3
+    },
+    {
+      "id": "lang-g3-past-teach",
+      "prompt": "Which word is the past tense of \"teach\"?",
+      "answer": "taught",
+      "distractors": [
+        "teached",
+        "teaches",
+        "teaching"
+      ],
+      "level": 3
+    },
+    {
+      "id": "lang-g3-past-catch",
+      "prompt": "Which word is the past tense of \"catch\"?",
+      "answer": "caught",
+      "distractors": [
+        "catched",
+        "catches",
+        "catching"
+      ],
+      "level": 2
+    },
+    {
+      "id": "lang-g3-past-draw",
+      "prompt": "Which word is the past tense of \"draw\"?",
+      "answer": "drew",
+      "distractors": [
+        "drawed",
+        "draws",
+        "drawing"
+      ],
+      "level": 3
+    },
+    {
+      "id": "lang-g3-past-clap",
+      "prompt": "Which word is the past tense of \"clap\"?",
+      "answer": "clapped",
+      "distractors": [
+        "claped",
+        "claps",
+        "clapping"
+      ],
+      "level": 2
+    },
+    {
+      "id": "lang-g3-past-hurry",
+      "prompt": "Which word is the past tense of \"hurry\"?",
+      "answer": "hurried",
+      "distractors": [
+        "hurryed",
+        "hurries",
+        "hurrying"
+      ],
+      "level": 3
+    },
+    {
+      "id": "lang-g3-have-done",
+      "prompt": "Which sentence is correct?",
+      "answer": "I have done my homework.",
+      "distractors": [
+        "I have did my homework.",
+        "I have doing my homework.",
+        "I have do my homework."
+      ],
+      "readAloud": "Look at the four sentences. Which one is correct?",
+      "level": 4
+    },
+    {
+      "id": "lang-g3-have-sung",
+      "prompt": "Which sentence is correct?",
+      "answer": "She has sung that song before.",
+      "distractors": [
+        "She has sang that song before.",
+        "She has sing that song before.",
+        "She has singed that song before."
+      ],
+      "readAloud": "Look at the four sentences. Which one is correct?",
+      "level": 4
+    },
+    {
+      "id": "lang-g3-have-seen",
+      "prompt": "Which sentence is correct?",
+      "answer": "We have seen that movie.",
+      "distractors": [
+        "We have saw that movie.",
+        "We have seed that movie.",
+        "We have sawed that movie."
+      ],
+      "readAloud": "Look at the four sentences. Which one is correct?",
+      "level": 3
+    },
+    {
+      "id": "lang-g3-have-gone",
+      "prompt": "Which sentence is correct?",
+      "answer": "He has gone to the store.",
+      "distractors": [
+        "He has went to the store.",
+        "He has goed to the store.",
+        "He has go to the store."
+      ],
+      "readAloud": "Look at the four sentences. Which one is correct?",
+      "level": 4
+    },
+    {
+      "id": "lang-g3-have-eaten",
+      "prompt": "Which sentence is correct?",
+      "answer": "They have eaten lunch already.",
+      "distractors": [
+        "They have ate lunch already.",
+        "They have eat lunch already.",
+        "They have eated lunch already."
+      ],
+      "readAloud": "Look at the four sentences. Which one is correct?",
+      "level": 3
+    },
+    {
+      "id": "lang-g3-sva-children",
+      "prompt": "Which sentence is correct?",
+      "answer": "The children are happy.",
+      "distractors": [
+        "The children is happy.",
+        "The children was happy.",
+        "The children am happy."
+      ],
+      "readAloud": "Look at the four sentences. Which one is correct?",
+      "level": 0
+    },
+    {
+      "id": "lang-g3-sva-he-has",
+      "prompt": "Which sentence is correct?",
+      "answer": "He has a new bike.",
+      "distractors": [
+        "He have a new bike.",
+        "He haves a new bike.",
+        "He having a new bike."
+      ],
+      "readAloud": "Look at the four sentences. Which one is correct?",
+      "level": 0
+    },
+    {
+      "id": "lang-g3-sva-dogs-bark",
+      "prompt": "Which sentence is correct?",
+      "answer": "The dogs bark at night.",
+      "distractors": [
+        "The dogs barks at night.",
+        "The dog bark at night.",
+        "The dogs barking at night."
+      ],
+      "readAloud": "Look at the four sentences. Which one is correct?",
+      "level": 1
+    },
+    {
+      "id": "lang-g3-sva-boy-runs",
+      "prompt": "Which sentence is correct?",
+      "answer": "The boy runs to school.",
+      "distractors": [
+        "The boy run to school.",
+        "The boys runs to school.",
+        "The boy running to school."
+      ],
+      "readAloud": "Look at the four sentences. Which one is correct?",
+      "level": 1
+    },
+    {
+      "id": "lang-g3-sva-they-were",
+      "prompt": "Which sentence is correct?",
+      "answer": "They were at the park.",
+      "distractors": [
+        "They was at the park.",
+        "They is at the park.",
+        "They be at the park."
+      ],
+      "readAloud": "Look at the four sentences. Which one is correct?",
+      "level": 1
+    },
+    {
+      "id": "lang-g3-sva-bird-sings",
+      "prompt": "Which sentence is correct?",
+      "answer": "The bird sings every morning.",
+      "distractors": [
+        "The bird sing every morning.",
+        "The bird singing every morning.",
+        "The birds sings every morning."
+      ],
+      "readAloud": "Look at the four sentences. Which one is correct?",
+      "level": 2
+    },
+    {
+      "id": "lang-g3-sva-mice-run",
+      "prompt": "Which sentence is correct?",
+      "answer": "The mice run under the porch.",
+      "distractors": [
+        "The mice runs under the porch.",
+        "The mice running under the porch.",
+        "The mouse run under the porch."
+      ],
+      "readAloud": "Look at the four sentences. Which one is correct?",
+      "level": 3
+    },
+    {
+      "id": "lang-g3-sva-there-are",
+      "prompt": "Which sentence is correct?",
+      "answer": "There are three cats on the wall.",
+      "distractors": [
+        "There is three cats on the wall.",
+        "There was three cats on the wall.",
+        "There be three cats on the wall."
+      ],
+      "readAloud": "Look at the four sentences. Which one is correct?",
+      "level": 3
+    },
+    {
+      "id": "lang-g3-sva-sister-and-i",
+      "prompt": "Which sentence is correct?",
+      "answer": "My sister and I walk to school.",
+      "distractors": [
+        "My sister and I walks to school.",
+        "My sister and I walking to school.",
+        "My sister and I is walking to school."
+      ],
+      "readAloud": "Look at the four sentences. Which one is correct?",
+      "level": 3
+    },
+    {
+      "id": "lang-g3-sva-box-of-apples",
+      "prompt": "Which sentence is correct?",
+      "answer": "The box of apples is heavy.",
+      "distractors": [
+        "The box of apples are heavy.",
+        "The box of apples were heavy.",
+        "The box of apples be heavy."
+      ],
+      "readAloud": "Look at the four sentences. Which one is correct?",
+      "level": 4
+    },
+    {
+      "id": "lang-g3-sva-each-girl",
+      "prompt": "Which sentence is correct?",
+      "answer": "Each of the girls has a hat.",
+      "distractors": [
+        "Each of the girls have a hat.",
+        "Each of the girls having a hat.",
+        "Each of the girls are having a hat."
+      ],
+      "readAloud": "Look at the four sentences. Which one is correct?",
+      "level": 4
+    },
+    {
+      "id": "lang-g3-sva-one-window",
+      "prompt": "Which sentence is correct?",
+      "answer": "One of the windows is open.",
+      "distractors": [
+        "One of the windows are open.",
+        "One of the windows were open.",
+        "One of the windows be open."
+      ],
+      "readAloud": "Look at the four sentences. Which one is correct?",
+      "level": 4
+    },
+    {
+      "id": "lang-g3-sva-teacher-students",
+      "prompt": "Which sentence is correct?",
+      "answer": "The teacher and the students are ready.",
+      "distractors": [
+        "The teacher and the students is ready.",
+        "The teacher and the students was ready.",
+        "The teacher and the students being ready."
+      ],
+      "readAloud": "Look at the four sentences. Which one is correct?",
+      "level": 4
+    },
+    {
+      "id": "lang-g3-tense-team-played",
+      "prompt": "Which sentence is correct?",
+      "answer": "Yesterday the team played well.",
+      "distractors": [
+        "Yesterday the team play well.",
+        "Yesterday the team playing well.",
+        "Yesterday the team plays well."
+      ],
+      "readAloud": "Look at the four sentences. Which one is correct?",
+      "level": 2
+    },
+    {
+      "id": "lang-g3-tense-watched-movie",
+      "prompt": "Which sentence is correct?",
+      "answer": "Last night we watched a movie.",
+      "distractors": [
+        "Last night we watch a movie.",
+        "Last night we watching a movie.",
+        "Last night we will watch a movie."
+      ],
+      "readAloud": "Look at the four sentences. Which one is correct?",
+      "level": 2
+    }
+  ]
+}

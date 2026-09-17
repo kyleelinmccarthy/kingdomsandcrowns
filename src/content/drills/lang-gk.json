@@ -1,0 +1,501 @@
+{
+  "poolId": "lang-gk",
+  "grade": "K",
+  "items": [
+    {
+      "id": "lang-gk-alpha-first",
+      "prompt": "Which letter is first in the alphabet?",
+      "answer": "A",
+      "distractors": [
+        "B",
+        "C",
+        "Z"
+      ],
+      "level": 0
+    },
+    {
+      "id": "lang-gk-alpha-last",
+      "prompt": "Which letter is last in the alphabet?",
+      "answer": "Z",
+      "distractors": [
+        "Y",
+        "A",
+        "X"
+      ],
+      "level": 1
+    },
+    {
+      "id": "lang-gk-after-b",
+      "prompt": "Which letter comes right after B?",
+      "answer": "C",
+      "distractors": [
+        "B",
+        "A",
+        "D"
+      ],
+      "level": 0
+    },
+    {
+      "id": "lang-gk-after-e",
+      "prompt": "Which letter comes right after E?",
+      "answer": "F",
+      "distractors": [
+        "E",
+        "D",
+        "G"
+      ],
+      "level": 1
+    },
+    {
+      "id": "lang-gk-after-m",
+      "prompt": "Which letter comes right after M?",
+      "answer": "N",
+      "distractors": [
+        "M",
+        "L",
+        "O"
+      ],
+      "level": 2
+    },
+    {
+      "id": "lang-gk-after-x",
+      "prompt": "Which letter comes right after X?",
+      "answer": "Y",
+      "distractors": [
+        "X",
+        "W",
+        "Z"
+      ],
+      "level": 3
+    },
+    {
+      "id": "lang-gk-before-b",
+      "prompt": "Which letter comes right before B?",
+      "answer": "A",
+      "distractors": [
+        "B",
+        "C",
+        "D"
+      ],
+      "level": 0
+    },
+    {
+      "id": "lang-gk-before-f",
+      "prompt": "Which letter comes right before F?",
+      "answer": "E",
+      "distractors": [
+        "F",
+        "G",
+        "D"
+      ],
+      "level": 2
+    },
+    {
+      "id": "lang-gk-before-p",
+      "prompt": "Which letter comes right before P?",
+      "answer": "O",
+      "distractors": [
+        "P",
+        "Q",
+        "N"
+      ],
+      "level": 3
+    },
+    {
+      "id": "lang-gk-small-b",
+      "prompt": "Which is the small letter for capital B?",
+      "answer": "b",
+      "distractors": [
+        "d",
+        "p",
+        "h"
+      ],
+      "level": 2
+    },
+    {
+      "id": "lang-gk-small-d",
+      "prompt": "Which is the small letter for capital D?",
+      "answer": "d",
+      "distractors": [
+        "b",
+        "q",
+        "a"
+      ],
+      "level": 3
+    },
+    {
+      "id": "lang-gk-capital-a",
+      "prompt": "Which is the capital letter for small a?",
+      "answer": "A",
+      "distractors": [
+        "E",
+        "O",
+        "N"
+      ],
+      "level": 1
+    },
+    {
+      "id": "lang-gk-capital-m",
+      "prompt": "Which is the capital letter for small m?",
+      "answer": "M",
+      "distractors": [
+        "N",
+        "W",
+        "U"
+      ],
+      "level": 2
+    },
+    {
+      "id": "lang-gk-vowel-e",
+      "prompt": "Which one of these letters is a vowel?",
+      "answer": "E",
+      "distractors": [
+        "T",
+        "S",
+        "M"
+      ],
+      "level": 2
+    },
+    {
+      "id": "lang-gk-vowel-o",
+      "prompt": "Which one of these letters is a vowel?",
+      "answer": "O",
+      "distractors": [
+        "P",
+        "R",
+        "N"
+      ],
+      "level": 3
+    },
+    {
+      "id": "lang-gk-start-dog",
+      "prompt": "Which letter does the word \"dog\" start with?",
+      "answer": "D",
+      "distractors": [
+        "B",
+        "G",
+        "O"
+      ],
+      "level": 1
+    },
+    {
+      "id": "lang-gk-start-moon",
+      "prompt": "Which letter does the word \"moon\" start with?",
+      "answer": "M",
+      "distractors": [
+        "N",
+        "W",
+        "O"
+      ],
+      "level": 1
+    },
+    {
+      "id": "lang-gk-start-sun",
+      "prompt": "Which letter does the word \"sun\" start with?",
+      "answer": "S",
+      "distractors": [
+        "C",
+        "N",
+        "U"
+      ],
+      "level": 2
+    },
+    {
+      "id": "lang-gk-end-cat",
+      "prompt": "Which letter does the word \"cat\" end with?",
+      "answer": "T",
+      "distractors": [
+        "C",
+        "A",
+        "D"
+      ],
+      "level": 1
+    },
+    {
+      "id": "lang-gk-end-pig",
+      "prompt": "Which letter does the word \"pig\" end with?",
+      "answer": "G",
+      "distractors": [
+        "P",
+        "I",
+        "J"
+      ],
+      "level": 2
+    },
+    {
+      "id": "lang-gk-end-red",
+      "prompt": "Which letter does the word \"red\" end with?",
+      "answer": "D",
+      "distractors": [
+        "R",
+        "E",
+        "T"
+      ],
+      "level": 2
+    },
+    {
+      "id": "lang-gk-end-book",
+      "prompt": "Which letter does the word \"book\" end with?",
+      "answer": "K",
+      "distractors": [
+        "B",
+        "O",
+        "C"
+      ],
+      "level": 3
+    },
+    {
+      "id": "lang-gk-end-bus",
+      "prompt": "Which letter does the word \"bus\" end with?",
+      "answer": "S",
+      "distractors": [
+        "B",
+        "U",
+        "Z"
+      ],
+      "level": 3
+    },
+    {
+      "id": "lang-gk-letters-cat",
+      "prompt": "How many letters are in the word \"cat\"?",
+      "answer": "Three",
+      "distractors": [
+        "Two",
+        "Four",
+        "Five"
+      ],
+      "level": 1
+    },
+    {
+      "id": "lang-gk-letters-stop",
+      "prompt": "How many letters are in the word \"stop\"?",
+      "answer": "Four",
+      "distractors": [
+        "Three",
+        "Five",
+        "Two"
+      ],
+      "level": 2
+    },
+    {
+      "id": "lang-gk-letters-go",
+      "prompt": "How many letters are in the word \"go\"?",
+      "answer": "Two",
+      "distractors": [
+        "One",
+        "Three",
+        "Four"
+      ],
+      "level": 0
+    },
+    {
+      "id": "lang-gk-words-go-home",
+      "prompt": "Listen to this. Go home. How many words is that?",
+      "answer": "Two",
+      "distractors": [
+        "One",
+        "Three",
+        "Four"
+      ],
+      "level": 0
+    },
+    {
+      "id": "lang-gk-words-dog-ran",
+      "prompt": "Listen to this. The dog ran. How many words is that?",
+      "answer": "Three",
+      "distractors": [
+        "Two",
+        "Four",
+        "Five"
+      ],
+      "level": 1
+    },
+    {
+      "id": "lang-gk-words-i-see",
+      "prompt": "Listen to this. I see a dog. How many words is that?",
+      "answer": "Four",
+      "distractors": [
+        "Three",
+        "Five",
+        "Two"
+      ],
+      "level": 2
+    },
+    {
+      "id": "lang-gk-words-jump",
+      "prompt": "Listen to this. I can jump up high. How many words is that?",
+      "answer": "Five",
+      "distractors": [
+        "Four",
+        "Six",
+        "Three"
+      ],
+      "level": 4
+    },
+    {
+      "id": "lang-gk-plural-cat",
+      "prompt": "One cat. What do we call two of them?",
+      "answer": "cats",
+      "distractors": [
+        "cat",
+        "cates",
+        "catses"
+      ],
+      "level": 0
+    },
+    {
+      "id": "lang-gk-plural-dog",
+      "prompt": "One dog. What do we call two of them?",
+      "answer": "dogs",
+      "distractors": [
+        "dog",
+        "doggs",
+        "dogses"
+      ],
+      "level": 0
+    },
+    {
+      "id": "lang-gk-plural-hat",
+      "prompt": "One hat. What do we call two of them?",
+      "answer": "hats",
+      "distractors": [
+        "hat",
+        "hatts",
+        "hatses"
+      ],
+      "level": 1
+    },
+    {
+      "id": "lang-gk-plural-bug",
+      "prompt": "One bug. What do we call two of them?",
+      "answer": "bugs",
+      "distractors": [
+        "bug",
+        "bugges",
+        "buggs"
+      ],
+      "level": 1
+    },
+    {
+      "id": "lang-gk-plural-tree",
+      "prompt": "One tree. What do we call two of them?",
+      "answer": "trees",
+      "distractors": [
+        "tree",
+        "treies",
+        "treeses"
+      ],
+      "level": 2
+    },
+    {
+      "id": "lang-gk-plural-box",
+      "prompt": "One box. What do we call two of them?",
+      "answer": "boxes",
+      "distractors": [
+        "boxs",
+        "box",
+        "boxies"
+      ],
+      "level": 3
+    },
+    {
+      "id": "lang-gk-plural-dish",
+      "prompt": "One dish. What do we call two of them?",
+      "answer": "dishes",
+      "distractors": [
+        "dishs",
+        "dish",
+        "dishies"
+      ],
+      "level": 3
+    },
+    {
+      "id": "lang-gk-plural-fox",
+      "prompt": "One fox. What do we call two of them?",
+      "answer": "foxes",
+      "distractors": [
+        "foxs",
+        "fox",
+        "foxies"
+      ],
+      "level": 4
+    },
+    {
+      "id": "lang-gk-plural-brush",
+      "prompt": "One brush. What do we call two of them?",
+      "answer": "brushes",
+      "distractors": [
+        "brushs",
+        "brush",
+        "brushies"
+      ],
+      "level": 4
+    },
+    {
+      "id": "lang-gk-plural-baby",
+      "prompt": "One baby. What do we call two of them?",
+      "answer": "babies",
+      "distractors": [
+        "babys",
+        "baby",
+        "babyes"
+      ],
+      "level": 4
+    },
+    {
+      "id": "lang-gk-plural-foot",
+      "prompt": "One foot. What do we call two of them?",
+      "answer": "feet",
+      "distractors": [
+        "foots",
+        "feets",
+        "foot"
+      ],
+      "level": 4
+    },
+    {
+      "id": "lang-gk-plural-mouse",
+      "prompt": "One mouse. What do we call two of them?",
+      "answer": "mice",
+      "distractors": [
+        "mouses",
+        "mices",
+        "mouse"
+      ],
+      "level": 4
+    },
+    {
+      "id": "lang-gk-plural-child",
+      "prompt": "One child. What do we call two of them?",
+      "answer": "children",
+      "distractors": [
+        "childs",
+        "childrens",
+        "child"
+      ],
+      "level": 4
+    },
+    {
+      "id": "lang-gk-more-hands",
+      "prompt": "Which word means more than one?",
+      "answer": "hands",
+      "distractors": [
+        "hand",
+        "dress",
+        "sand"
+      ],
+      "level": 3
+    },
+    {
+      "id": "lang-gk-more-cars",
+      "prompt": "Which word means more than one?",
+      "answer": "cars",
+      "distractors": [
+        "car",
+        "bus",
+        "glass"
+      ],
+      "level": 3
+    }
+  ]
+}

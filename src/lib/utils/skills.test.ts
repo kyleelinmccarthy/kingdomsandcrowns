@@ -25,7 +25,7 @@ describe("SKILLS", () => {
   it("finds skills by area and grade, and pools by id", () => {
     expect(skillsFor("math", "3").map((s) => s.id).sort())
       .toEqual(["add-1000", "area-perimeter", "div-facts", "frac-unit", "mul-facts", "round-nearest", "sub-1000"]);
-    expect(skillsFor("language", "K")).toEqual([]);
+    expect(skillsFor("language", "K").map((s) => s.id)).toEqual(["lang-gk"]);
     expect(findSkill("mul-facts")?.label).toBe("Multiplication facts");
     expect(findSkill("nope")).toBeNull();
     expect(skillForPool("vocab-g68")?.id).toBe("vocab-g68");
@@ -59,14 +59,18 @@ describe("which grade each strand is actually served at", () => {
     expect(map).toMatchInlineSnapshot(`
       {
         "language": {
-          "1": [],
+          "1": [
+            "lang-g1",
+          ],
           "10": [],
           "11": [],
           "12": [],
           "2": [
             "spell-g23",
           ],
-          "3": [],
+          "3": [
+            "lang-g3",
+          ],
           "4": [
             "spell-g45",
           ],
@@ -81,7 +85,9 @@ describe("which grade each strand is actually served at", () => {
           "9": [
             "vocab-g912",
           ],
-          "K": [],
+          "K": [
+            "lang-gk",
+          ],
         },
         "reading": {
           "1": [],
@@ -224,7 +230,7 @@ describe("the ELA and science skill tables follow the skill map", () => {
   const POOLS_NOT_YET_WRITTEN = [
     "read-g1", "read-g3", "read-g4", "read-g5", "read-g6",
     "read-g7", "read-g8", "read-g9", "read-g10", "read-g11", "read-g12",
-    "lang-gk", "lang-g1", "lang-g3", "lang-g7", "lang-g8", "lang-g10", "lang-g11", "lang-g12",
+    "lang-g7", "lang-g8", "lang-g10", "lang-g11", "lang-g12",
     "science-g1", "science-g3", "science-g5", "science-g7",
     "science-g8", "science-g10", "science-g11", "science-g12",
   ];
@@ -285,11 +291,11 @@ describe("the ELA and science skill tables follow the skill map", () => {
  * harder grade's work rather than an empty quest. The fallback is not being changed here: an
  * empty quest is worse than a hard one. What is changing is that the cost is counted.
  *
- * **`EXPECTED_CLIMBS` must reach `[]` by the end of this plan.** Every entry is a real child
- * being handed work from a year they have not reached — today, a five-year-old on a mill quest
- * getting grade-2 spelling. Each later task that authors a missing grade removes an entry, and
- * this test fails until whoever wrote that pool deletes the line. When the list is empty, the
- * upward walk no longer happens anywhere and the literal stays as `[]`.
+ * **`EXPECTED_CLIMBS` has reached `[]`.** Every entry was a real child being handed work from a
+ * year they had not reached: both were Language Arts, a five-year-old and a six-year-old on a
+ * side quest getting grade-2 spelling because nothing easier existed. Authoring `lang-gk` and
+ * `lang-g1` gave those two grades their own pools, so the upward walk no longer happens
+ * anywhere. The literal stays `[]`: a new climb is a defect, not a line to add here.
  *
  * Falling DOWN is not on this list and is not a defect: with reading authored only at K and
  * grade 2 today, a grade-9 hero gets grade-2 reading. That is the walk doing what it says.
@@ -297,10 +303,7 @@ describe("the ELA and science skill tables follow the skill map", () => {
  * `deed-engine.test.ts` keeps the same inventory across all four areas, phrased from the deed
  * side; if you empty one, empty the other.
  */
-const EXPECTED_CLIMBS = [
-  "language grade 1 climbs to 2",
-  "language grade K climbs to 2",
-];
+const EXPECTED_CLIMBS: string[] = [];
 
 describe("the fallback ladder", () => {
   it("never walks UP to find content, except where the map says a grade is still empty", () => {
