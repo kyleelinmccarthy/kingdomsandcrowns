@@ -367,14 +367,34 @@ describe("rule 7: no length tell", () => {
     expect(validatePool({ ...pool, items })).toEqual([]);
   });
 
-  it("tolerates a tell in half a pool, so ordinary content is not flagged", () => {
+  /**
+   * Written with an exact count rather than `i % n`, because `basePool()` carries a tell of
+   * its own — the modulo version read as "a third" and was actually 51% once the base items
+   * were counted, which is precisely the kind of accident this rule exists to catch.
+   *
+   * The boundary moved from 60% to 45% on evidence: a real pool arrived at 51%, clean under
+   * the old cap, and its author caught it only by measuring. Half a pool IS a tell — worth
+   * roughly double chance to a child who notices, and reachable by accident, because a
+   * grade-4 inference answer ("claim, because evidence") is a longer clause than a throwaway.
+   */
+  function withTell(count: number) {
     const pool = basePool();
     const items = pool.items.map((it, i) =>
-      i % 2 === 0
+      i < count
         ? { ...it, answer: filler(i, 0, 20), distractors: [filler(i, 1, 4), filler(i, 2, 6), filler(i, 3, 8)] }
-        : it,
+        // Everything else is explicitly tell-free: all four choices the same length, so the
+        // count below is the whole story and not basePool's incidental shape.
+        : { ...it, answer: filler(i, 0, 10), distractors: [filler(i, 1, 10), filler(i, 2, 10), filler(i, 3, 10)] },
     );
-    expect(validatePool({ ...pool, items })).toEqual([]);
+    return validatePool({ ...pool, items });
+  }
+
+  it("tolerates the answer being longest in 40% of a pool", () => {
+    expect(withTell(18)).toEqual([]);
+  });
+
+  it("fires at half a pool, which used to pass", () => {
+    expect(rulesFired(withTell(23))).toEqual([RULES.lengthTell]);
   });
 });
 

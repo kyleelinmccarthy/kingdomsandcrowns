@@ -379,12 +379,23 @@ export function checkReadability(pool: Pool): Problem[] {
 // ---------------------------------------------------------------------------
 
 /**
- * The share of a pool's items in which the answer may be the strictly longest choice, or the
- * strictly shortest. Chance alone puts it near 25% each way; the twelve pools that exist run
- * 0-34% longest and 0-23% shortest, so 60% leaves real content plenty of room and still catches
- * a pool a child could farm.
+ * How often the answer may be the longest choice in a pool, or the shortest.
+ *
+ * Chance is about 25%. This was 60% when it was a guess over twelve pools measuring 0-34%
+ * longest and 0-23% shortest — deliberately loose, because twelve pools is thin evidence for
+ * a threshold that twenty-seven unwritten ones must live with.
+ *
+ * It is 45% now because a real pool arrived at **51%** — under the old cap, so nothing
+ * complained, and its author caught it by measuring rather than by being told. The cause was
+ * structural rather than careless: a grade-4 inference answer is "claim, because evidence",
+ * which is simply a longer clause than a throwaway distractor. Hand-tuning thirteen
+ * distractors took it to 27%.
+ *
+ * So 51% is reachable by accident and worth roughly double chance to a child who spots it,
+ * which is the definition of farmable. 45% sits above every pool written so far (worst: 34%)
+ * and below the band where accident lands.
  */
-export const LENGTH_TELL_MAX_SHARE = 0.6;
+export const LENGTH_TELL_MAX_SHARE = 0.45;
 
 /**
  * No length tell. This is the authored twin of the position tell that appeared nineteen times in

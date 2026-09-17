@@ -279,6 +279,26 @@ and that rule is there because it is the cheapest way a child games multiple cho
 **On levels.** Level 0 must be genuinely approachable by a child at the *start* of that grade, and
 level 4 stretching by its end. Spread the 45 items across all five.
 
+**On passages, from grade 9 up: one passage may carry two or three questions.** Grades 3 and 4 are
+honestly served by one passage per question, and their author said so. The upper grades are not: 45
+distinct passages each containing a nameable rhetorical move, and grade 12 needing them in conflicting
+pairs, is a volume of prose that will push an author to shorten passages until they stop doing their
+job, or to quietly reuse one. Real reading assessment asks several questions of one text, and asking a
+child to hold a passage while it is probed twice is *better* reading practice than a fresh text each
+time.
+
+So from `read-g9` onwards an item may carry a `passageId`, and items sharing one share their text
+verbatim. Two rules come with it:
+
+- **Item count is unchanged at 45.** The passage budget shrinks; the question budget does not.
+- **A side quest must not draw more than two items from one passage.** Eight questions off three
+  passages is a different, thinner experience than eight off eight, and the child did not choose it.
+  `drawGenerated`'s pool sibling already excludes by item; this needs the same guard on `passageId`,
+  in `deed-engine.ts`, with a test that fails when a third item off one passage reaches a run.
+
+The grade-3 and grade-4 pools stay as written — one passage each, no `passageId`. This is a licence for
+the grades that need it, not a migration.
+
 | Task | Strand | Grades | Pools |
 |---|---|---|---|
 | 5 | Reading | 1, 3, 4 | `read-g1`, `read-g3`, `read-g4` |
