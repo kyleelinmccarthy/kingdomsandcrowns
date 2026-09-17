@@ -1,0 +1,509 @@
+{
+  "poolId": "read-g1",
+  "grade": "1",
+  "items": [
+    {
+      "id": "read-g1-short-a-hat",
+      "prompt": "Which word has the short \"a\" sound?",
+      "answer": "hat",
+      "distractors": [
+        "hate",
+        "hay",
+        "hike"
+      ],
+      "level": 0
+    },
+    {
+      "id": "read-g1-short-e-bed",
+      "prompt": "Which word has the short \"e\" sound?",
+      "answer": "bed",
+      "distractors": [
+        "bead",
+        "bee",
+        "bike"
+      ],
+      "level": 0
+    },
+    {
+      "id": "read-g1-short-i-pig",
+      "prompt": "Which word has the short \"i\" sound?",
+      "answer": "pig",
+      "distractors": [
+        "pie",
+        "pine",
+        "pail"
+      ],
+      "level": 0
+    },
+    {
+      "id": "read-g1-short-o-mop",
+      "prompt": "Which word has the short \"o\" sound?",
+      "answer": "mop",
+      "distractors": [
+        "mole",
+        "moon",
+        "mail"
+      ],
+      "level": 0
+    },
+    {
+      "id": "read-g1-short-u-cup",
+      "prompt": "Which word has the short \"u\" sound?",
+      "answer": "cup",
+      "distractors": [
+        "cube",
+        "cute",
+        "cone"
+      ],
+      "level": 0
+    },
+    {
+      "id": "read-g1-short-a-bag",
+      "prompt": "Which word has the short \"a\" sound?",
+      "answer": "bag",
+      "distractors": [
+        "bake",
+        "beak",
+        "boat"
+      ],
+      "level": 1
+    },
+    {
+      "id": "read-g1-short-e-net",
+      "prompt": "Which word has the short \"e\" sound?",
+      "answer": "net",
+      "distractors": [
+        "neat",
+        "note",
+        "nine"
+      ],
+      "level": 1
+    },
+    {
+      "id": "read-g1-short-i-fish",
+      "prompt": "Which word has the short \"i\" sound?",
+      "answer": "fish",
+      "distractors": [
+        "five",
+        "face",
+        "feet"
+      ],
+      "level": 1
+    },
+    {
+      "id": "read-g1-short-o-box",
+      "prompt": "Which word has the short \"o\" sound?",
+      "answer": "box",
+      "distractors": [
+        "bone",
+        "bowl",
+        "bike"
+      ],
+      "level": 1
+    },
+    {
+      "id": "read-g1-short-u-sun",
+      "prompt": "Which word has the short \"u\" sound?",
+      "answer": "sun",
+      "distractors": [
+        "soon",
+        "seat",
+        "sea"
+      ],
+      "level": 1
+    },
+    {
+      "id": "read-g1-blend-st-star",
+      "prompt": "Which word begins with the same two sounds as \"stop\"?",
+      "answer": "star",
+      "distractors": [
+        "sat",
+        "tar",
+        "rat"
+      ],
+      "level": 1
+    },
+    {
+      "id": "read-g1-blend-bl-black",
+      "prompt": "Which word begins with the same two sounds as \"blue\"?",
+      "answer": "black",
+      "distractors": [
+        "back",
+        "lack",
+        "bat"
+      ],
+      "level": 1
+    },
+    {
+      "id": "read-g1-blend-cr-crab",
+      "prompt": "Which word begins with the same two sounds as \"cry\"?",
+      "answer": "crab",
+      "distractors": [
+        "cab",
+        "car",
+        "cap"
+      ],
+      "level": 2
+    },
+    {
+      "id": "read-g1-blend-fl-flag",
+      "prompt": "Which word begins with the same two sounds as \"fly\"?",
+      "answer": "flag",
+      "distractors": [
+        "fan",
+        "lag",
+        "bag"
+      ],
+      "level": 2
+    },
+    {
+      "id": "read-g1-blend-gr-green",
+      "prompt": "Which word begins with the same two sounds as \"grow\"?",
+      "answer": "green",
+      "distractors": [
+        "goat",
+        "rain",
+        "gate"
+      ],
+      "level": 2
+    },
+    {
+      "id": "read-g1-blend-sn-snail",
+      "prompt": "Which word begins with the same two sounds as \"snow\"?",
+      "answer": "snail",
+      "distractors": [
+        "sail",
+        "nail",
+        "tail"
+      ],
+      "level": 2
+    },
+    {
+      "id": "read-g1-blend-sp-spin",
+      "prompt": "Which word begins with the same two sounds as \"spoon\"?",
+      "answer": "spin",
+      "distractors": [
+        "sit",
+        "pin",
+        "win"
+      ],
+      "level": 2
+    },
+    {
+      "id": "read-g1-blend-tr-tree",
+      "prompt": "Which word begins with the same two sounds as \"truck\"?",
+      "answer": "tree",
+      "distractors": [
+        "tea",
+        "red",
+        "three"
+      ],
+      "level": 3
+    },
+    {
+      "id": "read-g1-digraph-sh-shell",
+      "prompt": "Which word begins with the same sound as \"shop\"?",
+      "answer": "shell",
+      "distractors": [
+        "sell",
+        "hen",
+        "bell"
+      ],
+      "level": 1
+    },
+    {
+      "id": "read-g1-digraph-ch-chin",
+      "prompt": "Which word begins with the same sound as \"chair\"?",
+      "answer": "chin",
+      "distractors": [
+        "coin",
+        "hen",
+        "tin"
+      ],
+      "level": 2
+    },
+    {
+      "id": "read-g1-digraph-th-thumb",
+      "prompt": "Which word begins with the same sound as \"thin\"?",
+      "answer": "thumb",
+      "distractors": [
+        "tub",
+        "hum",
+        "drum"
+      ],
+      "level": 3
+    },
+    {
+      "id": "read-g1-digraph-wh-whale",
+      "prompt": "Which word begins with the same sound as \"wheel\"?",
+      "answer": "whale",
+      "distractors": [
+        "wall",
+        "tail",
+        "hill"
+      ],
+      "level": 3
+    },
+    {
+      "id": "read-g1-end-ck-duck",
+      "prompt": "Which word ends with the same sound as \"rock\"?",
+      "answer": "duck",
+      "distractors": [
+        "dug",
+        "dust",
+        "drum"
+      ],
+      "level": 2
+    },
+    {
+      "id": "read-g1-end-ng-ring",
+      "prompt": "Which word ends with the same sound as \"song\"?",
+      "answer": "ring",
+      "distractors": [
+        "rip",
+        "rim",
+        "rid"
+      ],
+      "level": 3
+    },
+    {
+      "id": "read-g1-end-sh-brush",
+      "prompt": "Which word ends with the same sound as \"wish\"?",
+      "answer": "brush",
+      "distractors": [
+        "bust",
+        "bun",
+        "but"
+      ],
+      "level": 3
+    },
+    {
+      "id": "read-g1-end-ch-bench",
+      "prompt": "Which word ends with the same sound as \"much\"?",
+      "answer": "bench",
+      "distractors": [
+        "bend",
+        "best",
+        "belt"
+      ],
+      "level": 4
+    },
+    {
+      "id": "read-g1-rhyme-cake",
+      "prompt": "Which word rhymes with \"cake\"?",
+      "answer": "lake",
+      "distractors": [
+        "cat",
+        "lock",
+        "luck"
+      ],
+      "level": 0
+    },
+    {
+      "id": "read-g1-rhyme-ship",
+      "prompt": "Which word rhymes with \"ship\"?",
+      "answer": "chip",
+      "distractors": [
+        "shop",
+        "chop",
+        "shot"
+      ],
+      "level": 2
+    },
+    {
+      "id": "read-g1-rhyme-truck",
+      "prompt": "Which word rhymes with \"truck\"?",
+      "answer": "duck",
+      "distractors": [
+        "trick",
+        "track",
+        "dock"
+      ],
+      "level": 2
+    },
+    {
+      "id": "read-g1-rhyme-sing",
+      "prompt": "Which word rhymes with \"sing\"?",
+      "answer": "wing",
+      "distractors": [
+        "sign",
+        "swim",
+        "win"
+      ],
+      "level": 3
+    },
+    {
+      "id": "read-g1-family-op",
+      "prompt": "Which word is in the same word family as \"hop\" and \"top\"?",
+      "answer": "mop",
+      "distractors": [
+        "map",
+        "mob",
+        "tip"
+      ],
+      "level": 3
+    },
+    {
+      "id": "read-g1-sight-because",
+      "prompt": "Which word is \"because\"?",
+      "answer": "because",
+      "distractors": [
+        "before",
+        "became",
+        "between"
+      ],
+      "level": 1
+    },
+    {
+      "id": "read-g1-sight-could",
+      "prompt": "Which word is \"could\"?",
+      "answer": "could",
+      "distractors": [
+        "cold",
+        "cloud",
+        "called"
+      ],
+      "level": 1
+    },
+    {
+      "id": "read-g1-sight-again",
+      "prompt": "Which word is \"again\"?",
+      "answer": "again",
+      "distractors": [
+        "against",
+        "among",
+        "ago"
+      ],
+      "level": 2
+    },
+    {
+      "id": "read-g1-sight-every",
+      "prompt": "Which word is \"every\"?",
+      "answer": "every",
+      "distractors": [
+        "ever",
+        "very",
+        "never"
+      ],
+      "level": 2
+    },
+    {
+      "id": "read-g1-sight-people",
+      "prompt": "Which word is \"people\"?",
+      "answer": "people",
+      "distractors": [
+        "purple",
+        "paper",
+        "pepper"
+      ],
+      "level": 2
+    },
+    {
+      "id": "read-g1-sight-friend",
+      "prompt": "Which word is \"friend\"?",
+      "answer": "friend",
+      "distractors": [
+        "found",
+        "front",
+        "fried"
+      ],
+      "level": 3
+    },
+    {
+      "id": "read-g1-sight-know",
+      "prompt": "Which word is \"know\"?",
+      "answer": "know",
+      "distractors": [
+        "no",
+        "now",
+        "new"
+      ],
+      "readAloud": "Which word is know, as in I know how to tie my shoes?",
+      "level": 3
+    },
+    {
+      "id": "read-g1-sight-right",
+      "prompt": "Which word is \"right\"?",
+      "answer": "right",
+      "distractors": [
+        "write",
+        "ride",
+        "night"
+      ],
+      "readAloud": "Which word is right, as in turn right at the corner?",
+      "level": 3
+    },
+    {
+      "id": "read-g1-sight-there",
+      "prompt": "Which word is \"there\"?",
+      "answer": "there",
+      "distractors": [
+        "their",
+        "then",
+        "these"
+      ],
+      "readAloud": "Which word is there, as in the park is over there?",
+      "level": 3
+    },
+    {
+      "id": "read-g1-sight-write",
+      "prompt": "Which word is \"write\"?",
+      "answer": "write",
+      "distractors": [
+        "right",
+        "white",
+        "wrote"
+      ],
+      "readAloud": "Which word is write, as in write a letter with a pencil?",
+      "level": 4
+    },
+    {
+      "id": "read-g1-sight-their",
+      "prompt": "Which word is \"their\"?",
+      "answer": "their",
+      "distractors": [
+        "there",
+        "them",
+        "then"
+      ],
+      "readAloud": "Which word is their, as in the children rode their bikes?",
+      "level": 4
+    },
+    {
+      "id": "read-g1-sight-two",
+      "prompt": "Which word is \"two\"?",
+      "answer": "two",
+      "distractors": [
+        "to",
+        "too",
+        "tow"
+      ],
+      "readAloud": "Which word is two, as in two red apples?",
+      "level": 4
+    },
+    {
+      "id": "read-g1-sight-one",
+      "prompt": "Which word is \"one\"?",
+      "answer": "one",
+      "distractors": [
+        "won",
+        "own",
+        "on"
+      ],
+      "readAloud": "Which word is one, as in one slice of bread?",
+      "level": 4
+    },
+    {
+      "id": "read-g1-sight-through",
+      "prompt": "Which word is \"through\"?",
+      "answer": "through",
+      "distractors": [
+        "threw",
+        "though",
+        "thought"
+      ],
+      "readAloud": "Which word is through, as in we walked through the door?",
+      "level": 4
+    }
+  ]
+}

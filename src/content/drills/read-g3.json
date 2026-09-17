@@ -1,0 +1,501 @@
+{
+  "poolId": "read-g3",
+  "grade": "3",
+  "items": [
+    {
+      "id": "read-g3-bees-honey",
+      "prompt": "Bees visit flowers all day long. They gather sweet nectar from each one. Back at the hive they turn it into honey. What is this passage mostly about?",
+      "answer": "How bees make honey from flowers.",
+      "distractors": [
+        "Bees fly back to the hive.",
+        "Honey tastes better than sugar does.",
+        "All insects make food for people."
+      ],
+      "level": 0
+    },
+    {
+      "id": "read-g3-sea-turtles",
+      "prompt": "A mother sea turtle crawls onto the sand at night. She digs a deep nest and lays her eggs. Then she goes back to the sea. What is the main idea of this passage?",
+      "answer": "Sea turtles lay their eggs on the beach.",
+      "distractors": [
+        "The mother digs a deep nest.",
+        "Baby turtles hatch after three months.",
+        "Every animal in the sea lays eggs in sand."
+      ],
+      "level": 0
+    },
+    {
+      "id": "read-g3-firefighters",
+      "prompt": "Firefighters do more than put out fires. They teach classes about smoke alarms. They also help after car crashes. What is the main idea of this passage?",
+      "answer": "Firefighters help people in many ways.",
+      "distractors": [
+        "Firefighters teach classes about smoke alarms.",
+        "Most fires start in the kitchen.",
+        "Firefighters have the hardest job of all."
+      ],
+      "level": 0
+    },
+    {
+      "id": "read-g3-maple-syrup",
+      "prompt": "In early spring, sap runs inside maple trees. Farmers drill a small hole and hang a bucket. They boil the sap until it turns to syrup. What is this passage mostly about?",
+      "answer": "How maple syrup is made from sap.",
+      "distractors": [
+        "Farmers hang a bucket on the tree.",
+        "Maple syrup costs more than honey does.",
+        "Every tree gives people something sweet."
+      ],
+      "level": 1
+    },
+    {
+      "id": "read-g3-library-lends",
+      "prompt": "Our town library lends more than books now. You can borrow board games and tools. One shelf even holds cake pans. What is the main idea of this passage?",
+      "answer": "The library lends many things besides books.",
+      "distractors": [
+        "One shelf at the library holds cake pans.",
+        "The library stays open late on Sunday.",
+        "Libraries are the best place in any town."
+      ],
+      "level": 1
+    },
+    {
+      "id": "read-g3-penguin-huddle",
+      "prompt": "Emperor penguins huddle in a big group. The ones outside slowly move to the middle. That way each bird gets a turn in the warm spot. What is the main idea of this passage?",
+      "answer": "Penguins huddle so every bird stays warm.",
+      "distractors": [
+        "Penguins on the outside move to the middle.",
+        "Penguins hunt for fish under the ice.",
+        "Cold weather is dangerous for all birds."
+      ],
+      "level": 1
+    },
+    {
+      "id": "read-g3-rosa-beans",
+      "prompt": "Rosa planted beans in May. She watered them every morning before school. By July she picked a whole basket. What is the main idea of this story?",
+      "answer": "Rosa took care of her beans and they grew.",
+      "distractors": [
+        "Rosa watered her beans every morning.",
+        "Rosa likes beans better than she likes carrots.",
+        "Gardens always give people plenty of food."
+      ],
+      "level": 0
+    },
+    {
+      "id": "read-g3-bats-mammals",
+      "prompt": "Bats are not birds, though they fly. They have fur instead of feathers. Their babies drink milk, just like puppies do. What is this passage mostly about?",
+      "answer": "Bats are mammals even though they fly.",
+      "distractors": [
+        "Baby bats drink milk from their mother.",
+        "Bats sleep upside down in dark caves.",
+        "All flying animals are really mammals."
+      ],
+      "level": 1
+    },
+    {
+      "id": "read-g3-bridge-arch",
+      "prompt": "A bridge must hold a lot of weight. Builders often use a curved shape called an arch. The arch pushes the weight out to the ends. What is the main idea of this passage?",
+      "answer": "An arch helps a bridge carry weight.",
+      "distractors": [
+        "The arch pushes weight out to the ends.",
+        "Stone bridges last longer than wooden ones.",
+        "Every bridge in the world uses an arch."
+      ],
+      "level": 2
+    },
+    {
+      "id": "read-g3-sam-pepper",
+      "prompt": "Sam's dog Pepper was scared of thunder. Sam made her a soft bed under the stairs. Now Pepper hides there and stays calm. What is the main idea of this story?",
+      "answer": "Sam found a way to help his scared dog.",
+      "distractors": [
+        "Pepper hides in a bed under the stairs.",
+        "Pepper is scared of loud trucks as well.",
+        "Dogs are always afraid of storms."
+      ],
+      "level": 1
+    },
+    {
+      "id": "read-g3-rain-forest-roof",
+      "prompt": "The tallest trees in a rain forest form a roof. Below that roof it is dark and damp. Very few plants grow on the forest floor. What is this passage mostly about?",
+      "answer": "Tall trees shade the rain forest floor.",
+      "distractors": [
+        "Few plants grow on the forest floor.",
+        "Rain forests get rain almost every day.",
+        "Trees block the sun in every forest."
+      ],
+      "level": 2
+    },
+    {
+      "id": "read-g3-wheelchair-team",
+      "prompt": "Our school started a wheelchair basketball team. Anyone can join, whether they use a chair or not. Half the players walked in on their own feet. What is the main idea of this passage?",
+      "answer": "The team welcomes players of every kind.",
+      "distractors": [
+        "Half the players walked in on their feet.",
+        "The team won its first game easily.",
+        "Every sport should be played in chairs."
+      ],
+      "level": 2
+    },
+    {
+      "id": "read-g3-camel-hump",
+      "prompt": "A camel's hump is not full of water. It holds fat that the camel can use for food. That fat keeps a camel going for days. What is this passage mostly about?",
+      "answer": "A camel's hump stores fat, not water.",
+      "distractors": [
+        "A camel can keep going for days.",
+        "Camels can drink a whole bucket fast.",
+        "Desert animals never need to drink."
+      ],
+      "level": 2
+    },
+    {
+      "id": "read-g3-cans-recycled",
+      "prompt": "Old cans do not have to be thrown away. A factory melts them down into liquid metal. That metal becomes a brand new can. What is the main idea of this passage?",
+      "answer": "Old cans can be made into new ones.",
+      "distractors": [
+        "A factory melts cans into liquid metal.",
+        "Most families recycle their cans each week.",
+        "Everything people throw away can be reused."
+      ],
+      "level": 1
+    },
+    {
+      "id": "read-g3-braille-dots",
+      "prompt": "Louis Braille could not see, so reading was hard. He made an alphabet out of raised dots. Today blind readers feel those dots with their fingers. What is the main idea of this passage?",
+      "answer": "Braille made a way for blind people to read.",
+      "distractors": [
+        "Readers feel the raised dots with their fingers.",
+        "Louis Braille went to school in France.",
+        "Dots are the best way to write words."
+      ],
+      "level": 2
+    },
+    {
+      "id": "read-g3-ants-together",
+      "prompt": "One ant is small, but a colony is strong. Ants line up and carry food together. A whole team can move a crust of bread. What is this passage mostly about?",
+      "answer": "Ants get big jobs done by working together.",
+      "distractors": [
+        "A team of ants can move bread.",
+        "Ants live under the ground in tunnels.",
+        "Bugs are far stronger than people think."
+      ],
+      "level": 1
+    },
+    {
+      "id": "read-g3-thunder-sound",
+      "prompt": "Lightning heats the air around it very fast. The hot air pushes out and makes a loud bang. That bang is the thunder we hear. What is this passage mostly about?",
+      "answer": "Thunder is the sound that lightning makes.",
+      "distractors": [
+        "Lightning heats up the air all around it.",
+        "Lightning hits tall trees most often.",
+        "All of the loud sounds come from the sky."
+      ],
+      "level": 2
+    },
+    {
+      "id": "read-g3-grandpa-bread",
+      "prompt": "Every Sunday Grandpa mixes flour, water and yeast. He lets the dough rest until it puffs up. Then he bakes it into a round brown loaf. What is the main idea of this story?",
+      "answer": "Grandpa bakes a loaf of bread every Sunday.",
+      "distractors": [
+        "The dough rests until it puffs up.",
+        "Grandpa learned to bake from his mother.",
+        "Fresh bread is better than shop bread is."
+      ],
+      "level": 1
+    },
+    {
+      "id": "read-g3-volcano-lava",
+      "prompt": "Deep under a volcano, rock gets so hot it melts. Pressure pushes the melted rock up a crack. When it reaches the top, it pours out as lava. What is this passage mostly about?",
+      "answer": "Melted rock rises and pours out as lava.",
+      "distractors": [
+        "Rock under a volcano melts from heat.",
+        "Lava cools into black shiny stone.",
+        "All mountains are made of melted rock."
+      ],
+      "level": 3
+    },
+    {
+      "id": "read-g3-compost-bin",
+      "prompt": "Our class saves apple cores and banana peels. We dump them in a bin behind the school. In a few months they turn into rich brown soil. What is the main idea of this passage?",
+      "answer": "Food scraps turn into soil in our bin.",
+      "distractors": [
+        "We dump the scraps in a bin outside.",
+        "Our class grows tomatoes every spring.",
+        "Nothing at school should be thrown out."
+      ],
+      "level": 1
+    },
+    {
+      "id": "read-g3-owl-feathers",
+      "prompt": "An owl's feathers have soft, fringed edges. Those edges break up the air as the owl flies. That is why an owl can swoop without a sound. What is this passage mostly about?",
+      "answer": "Soft feathers let an owl fly in silence.",
+      "distractors": [
+        "An owl's feathers have fringed edges.",
+        "Owls hunt mice in the dark.",
+        "Birds with soft feathers fly the fastest."
+      ],
+      "level": 3
+    },
+    {
+      "id": "read-g3-maria-friend",
+      "prompt": "Maria was new and ate lunch alone. On Thursday a girl named Dee sat down beside her. By Friday they were saving each other seats. What is the main idea of this story?",
+      "answer": "Maria made a friend at her new school.",
+      "distractors": [
+        "Dee sat beside Maria on Thursday.",
+        "Maria misses her old school a lot.",
+        "New students always feel lonely at first."
+      ],
+      "level": 2
+    },
+    {
+      "id": "read-g3-letter-journey",
+      "prompt": "A letter starts in a blue box on the corner. A truck takes it to a big sorting room. Machines read the address and send it the right way. What is the main idea of this passage?",
+      "answer": "A letter takes several steps to get there.",
+      "distractors": [
+        "Machines read the address on the letter.",
+        "Most letters arrive in about three days.",
+        "Machines do every job better than people can."
+      ],
+      "level": 2
+    },
+    {
+      "id": "read-g3-elephant-rumble",
+      "prompt": "Elephants talk in sounds too low for us to hear. The rumbles travel through the ground for miles. Another herd feels them through its feet. What is this passage mostly about?",
+      "answer": "Elephants send low rumbles to far off herds.",
+      "distractors": [
+        "The rumbles travel through the ground.",
+        "Elephants use their trunks to drink water.",
+        "Animals can hear much better than people do."
+      ],
+      "level": 3
+    },
+    {
+      "id": "read-g3-snow-day",
+      "prompt": "Snow fell all night and covered the road. The school called to say the buses could not run. We stayed home and shovelled the front walk. What is the main idea of this story?",
+      "answer": "Heavy snow closed school for the day.",
+      "distractors": [
+        "The buses could not run that day.",
+        "We built a big snowman in the front yard.",
+        "Snow always makes any day more fun."
+      ],
+      "level": 0
+    },
+    {
+      "id": "read-g3-corn-plant",
+      "prompt": "Corn grows taller than a grown up in one summer. Each stalk holds a few ears wrapped in husks. Inside, hundreds of kernels sit in neat rows. What is this passage mostly about?",
+      "answer": "How a corn plant is built.",
+      "distractors": [
+        "Kernels sit in neat rows on each ear.",
+        "Corn needs plenty of rain to grow well.",
+        "Corn is the biggest plant on any farm."
+      ],
+      "level": 2
+    },
+    {
+      "id": "read-g3-sign-language",
+      "prompt": "Some signs in sign language look like what they mean. The sign for drink lifts a cup to your lips. The sign for cat draws whiskers on your cheek. What is the main idea of this passage?",
+      "answer": "Some signs act out their own meaning.",
+      "distractors": [
+        "The sign for cat draws whiskers.",
+        "Sign language is easy to learn.",
+        "Every sign copies some kind of real action."
+      ],
+      "level": 3
+    },
+    {
+      "id": "read-g3-moonlight",
+      "prompt": "The moon does not make any light of its own. Sunlight hits the moon and bounces off. That bounced light is what we see at night. What is this passage mostly about?",
+      "answer": "Moonlight is really sunlight bouncing off.",
+      "distractors": [
+        "We look up at the moon at night.",
+        "The moon is closer to us than the sun.",
+        "Everything in the sky borrows all its light."
+      ],
+      "level": 3
+    },
+    {
+      "id": "read-g3-band-practice",
+      "prompt": "The band sounded rough at the first practice. They played the same eight bars again and again. By the concert nobody missed a note. What is the main idea of this story?",
+      "answer": "Practice turned a rough band into a good one.",
+      "distractors": [
+        "The band played the same eight bars.",
+        "The concert was held in the school gym.",
+        "Anyone at all can learn to play an instrument."
+      ],
+      "level": 2
+    },
+    {
+      "id": "read-g3-spider-silk",
+      "prompt": "A spider web looks delicate, but it is strong. The silk stretches instead of snapping. A strand its size would be stronger than steel. What is this passage mostly about?",
+      "answer": "Spider silk is far stronger than it looks.",
+      "distractors": [
+        "Spider silk stretches instead of snapping.",
+        "Spiders spin a fresh web every night.",
+        "Thin things are stronger than thick ones."
+      ],
+      "level": 3
+    },
+    {
+      "id": "read-g3-farmers-market",
+      "prompt": "On Saturday the empty lot fills with tents. Farmers sell peaches, eggs and fresh bread. By noon most of the tables are bare. What is the main idea of this passage?",
+      "answer": "A busy market fills the lot on Saturday.",
+      "distractors": [
+        "Farmers sell peaches, eggs and bread.",
+        "The market is cheaper than the store.",
+        "People would rather shop outdoors."
+      ],
+      "level": 1
+    },
+    {
+      "id": "read-g3-weather-balloon",
+      "prompt": "Weather balloons rise high into the sky. They carry tools that measure heat and wind. The tools radio the numbers back down. What is this passage mostly about?",
+      "answer": "Balloons gather weather facts from the sky.",
+      "distractors": [
+        "The tools radio their numbers back down.",
+        "Balloons pop when they get too high.",
+        "Machines can tell us almost anything we ask."
+      ],
+      "level": 3
+    },
+    {
+      "id": "read-g3-frog-tadpole",
+      "prompt": "A frog begins life as an egg in the water. It hatches into a tadpole with a long tail. Slowly it grows legs and loses the tail. What is the main idea of this passage?",
+      "answer": "A frog changes shape as it grows up.",
+      "distractors": [
+        "A tadpole hatches with a long tail.",
+        "Frogs lay their eggs in early spring.",
+        "All animals change as they grow."
+      ],
+      "level": 0
+    },
+    {
+      "id": "read-g3-lost-keys",
+      "prompt": "Dad could not find his keys anywhere. He checked the same three pockets over and over. Ben found them sitting in the front door. What is the main idea of this story?",
+      "answer": "Ben found the keys Dad had lost.",
+      "distractors": [
+        "Dad checked the same three pockets.",
+        "Dad loses his keys almost every day.",
+        "Children notice more than grown ups do."
+      ],
+      "level": 1
+    },
+    {
+      "id": "read-g3-salt-trade",
+      "prompt": "Long ago salt was hard to get and cost a lot. Traders hauled it across the desert on camels. Some workers were even paid in salt. What is this passage mostly about?",
+      "answer": "Salt was once worth a great deal.",
+      "distractors": [
+        "Traders hauled salt across the desert.",
+        "Salt keeps meat from going bad.",
+        "Old jobs paid better than jobs today."
+      ],
+      "level": 3
+    },
+    {
+      "id": "read-g3-seat-belts",
+      "prompt": "Cars used to have no seat belts at all. Doctors showed how many riders got hurt. Now every new car comes with belts. What is the main idea of this passage?",
+      "answer": "Seat belts became part of every car.",
+      "distractors": [
+        "Doctors showed how many riders got hurt.",
+        "Old cars were slower than new cars.",
+        "Cars today are perfectly safe."
+      ],
+      "level": 2
+    },
+    {
+      "id": "read-g3-aunt-nell-trail",
+      "prompt": "Aunt Nell hikes the same trail every week. She says she never sees the same thing twice. In spring it is mud, and in fall it is gold. What is the main idea of this story?",
+      "answer": "The same trail looks new in every season.",
+      "distractors": [
+        "Aunt Nell hikes that trail every week.",
+        "Aunt Nell likes fall better than spring.",
+        "Hiking is the best way to see any nature."
+      ],
+      "level": 4
+    },
+    {
+      "id": "read-g3-crows-faces",
+      "prompt": "Crows can remember a face for years. A crow that was chased once will scold that person later. It will even warn other crows about them. What is this passage mostly about?",
+      "answer": "Crows remember people and tell each other.",
+      "distractors": [
+        "A crow will scold a person it knows.",
+        "Crows build their nests in tall trees.",
+        "Birds are smarter than any of the other animals."
+      ],
+      "level": 3
+    },
+    {
+      "id": "read-g3-soup-shelter",
+      "prompt": "Every Tuesday our scout troop cooks at the shelter. We chop carrots and stir big pots of soup. Forty people eat a hot meal that night. What is the main idea of this passage?",
+      "answer": "Our troop cooks a meal for the shelter.",
+      "distractors": [
+        "We chop carrots and stir the pots.",
+        "The soup is made from a family recipe.",
+        "Scouts help more than anyone else does."
+      ],
+      "level": 1
+    },
+    {
+      "id": "read-g3-desert-night",
+      "prompt": "People think a desert is always hot. The sand does bake all day in the sun. But at night the heat escapes and it turns cold. What is this passage mostly about?",
+      "answer": "A desert can be hot and also cold.",
+      "distractors": [
+        "Desert sand bakes in the sun all day.",
+        "Few plants can live in the desert.",
+        "Weather is never what people expect."
+      ],
+      "level": 4
+    },
+    {
+      "id": "read-g3-paper-mill",
+      "prompt": "Paper starts as a log at the mill. Machines chop it into tiny chips and soak them. The soft mush is pressed flat and dried. What is the main idea of this passage?",
+      "answer": "Paper is made from wood in steps.",
+      "distractors": [
+        "Machines chop the log into tiny chips.",
+        "Most paper is made from pine trees.",
+        "Machines make everything that people use."
+      ],
+      "level": 2
+    },
+    {
+      "id": "read-g3-theo-line",
+      "prompt": "Theo forgot his line on opening night. He stood still, then made one up that fit. Nobody in the seats knew a thing. What is the main idea of this story?",
+      "answer": "Theo covered up his mistake on stage.",
+      "distractors": [
+        "Theo forgot a line on opening night.",
+        "Theo had the biggest part in the play.",
+        "Actors never make mistakes on stage."
+      ],
+      "level": 4
+    },
+    {
+      "id": "read-g3-dolphin-sleep",
+      "prompt": "A dolphin has to come up for air. So it rests only half its brain at a time. The other half keeps it swimming and breathing. What is this passage mostly about?",
+      "answer": "A dolphin sleeps with half its brain awake.",
+      "distractors": [
+        "A dolphin must come up for air.",
+        "Dolphins sleep near the top of the water.",
+        "Sea animals sleep less than land animals do."
+      ],
+      "level": 4
+    },
+    {
+      "id": "read-g3-museum-bones",
+      "prompt": "The bones in a museum are rarely whole. Workers fill the gaps with plaster copies. From below you cannot tell which is which. What is the main idea of this passage?",
+      "answer": "Museums add copies where bones are missing.",
+      "distractors": [
+        "Workers fill the gaps with plaster.",
+        "Most dinosaur bones are found out west.",
+        "Nothing kept in a museum is really very old."
+      ],
+      "level": 4
+    },
+    {
+      "id": "read-g3-tide-pools",
+      "prompt": "When the tide goes out, water stays in the rocks. Crabs and small fish are trapped in these pools. They wait there until the sea comes back. What is this passage mostly about?",
+      "answer": "Sea animals wait in pools for the tide.",
+      "distractors": [
+        "Crabs get trapped when the tide goes out.",
+        "Tide pools are warmer than the open sea.",
+        "The sea takes care of every animal."
+      ],
+      "level": 4
+    }
+  ]
+}

@@ -163,6 +163,15 @@ export const SKILLS: Skill[] = [
   { id: "lang-gk", label: "Letters and words", area: "language", grades: ["K"], source: pool("lang-gk") },
   { id: "lang-g1", label: "Sentences and word kinds", area: "language", grades: ["1"], source: pool("lang-g1") },
   { id: "lang-g3", label: "Spelling and verbs", area: "language", grades: ["3"], source: pool("lang-g3") },
+  /**
+   * Reading at the three grades this task authored. Reading had pools at K and grade 2 only, so
+   * every reader above grade 2 fell DOWN to grade 2-3 sight words — a twelve-year-old included.
+   * `read-g1` fills the hole between them; `read-g3` and `read-g4` are the first two rungs above
+   * grade 2, and the first pools in the repo built on a passage rather than a single word.
+   */
+  { id: "read-g1", label: "Sounds and sight words", area: "reading", grades: ["1"], source: pool("read-g1") },
+  { id: "read-g3", label: "Main idea", area: "reading", grades: ["3"], source: pool("read-g3") },
+  { id: "read-g4", label: "Reading between the lines", area: "reading", grades: ["4"], source: pool("read-g4") },
 ];
 
 export function skillsFor(area: SkillArea, grade: Grade): Skill[] {

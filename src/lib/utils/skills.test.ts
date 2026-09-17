@@ -90,15 +90,21 @@ describe("which grade each strand is actually served at", () => {
           ],
         },
         "reading": {
-          "1": [],
+          "1": [
+            "read-g1",
+          ],
           "10": [],
           "11": [],
           "12": [],
           "2": [
             "sight-g23",
           ],
-          "3": [],
-          "4": [],
+          "3": [
+            "read-g3",
+          ],
+          "4": [
+            "read-g4",
+          ],
           "5": [],
           "6": [],
           "7": [],
@@ -228,7 +234,7 @@ describe("the ELA and science skill tables follow the skill map", () => {
    * either direction. When it is empty, the comparison below is the map, unfiltered.
    */
   const POOLS_NOT_YET_WRITTEN = [
-    "read-g1", "read-g3", "read-g4", "read-g5", "read-g6",
+    "read-g5", "read-g6",
     "read-g7", "read-g8", "read-g9", "read-g10", "read-g11", "read-g12",
     "lang-g7", "lang-g8", "lang-g10", "lang-g11", "lang-g12",
     "science-g1", "science-g3", "science-g5", "science-g7",
@@ -297,8 +303,8 @@ describe("the ELA and science skill tables follow the skill map", () => {
  * `lang-g1` gave those two grades their own pools, so the upward walk no longer happens
  * anywhere. The literal stays `[]`: a new climb is a defect, not a line to add here.
  *
- * Falling DOWN is not on this list and is not a defect: with reading authored only at K and
- * grade 2 today, a grade-9 hero gets grade-2 reading. That is the walk doing what it says.
+ * Falling DOWN is not on this list and is not a defect: with reading authored no higher than
+ * grade 4 today, a grade-9 hero gets grade-4 reading. That is the walk doing what it says.
  *
  * `deed-engine.test.ts` keeps the same inventory across all four areas, phrased from the deed
  * side; if you empty one, empty the other.

@@ -10,6 +10,7 @@ const EXPECTED_POOLS = [
   "vocab-g45", "vocab-g68", "vocab-g912",
   "science-k1", "science-g23", "science-g45", "science-g68", "science-g912",
   "lang-gk", "lang-g1", "lang-g3",
+  "read-g1", "read-g3", "read-g4",
 ];
 
 type PoolFile = { poolId: string; grade: string; items: { id: string; prompt: string; answer: string; distractors: string[]; readAloud?: string; level?: number }[] };

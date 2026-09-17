@@ -21,18 +21,18 @@ function poolItems(skillId: string, n: number, level = 2): PoolItem[] {
 const profile = { fewerChoices: false, predictableRoutine: false, untimed: false, readAloud: false };
 
 function input(over: Partial<BuildRunInput> = {}): BuildRunInput {
-  return { deed: deedReading, grade: "3", masteryBySkill: {}, profile, seed: 1, poolItems: poolItems("sight-g23", 30), recentMisses: [], ...over };
+  return { deed: deedReading, grade: "3", masteryBySkill: {}, profile, seed: 1, poolItems: poolItems("read-g3", 30), recentMisses: [], ...over };
 }
 
 describe("chooseSkills", () => {
   it("returns every candidate skill for the area at the hero's grade", () => {
     expect(chooseSkills(deedMath, "3").map((s) => s.id))
       .toEqual(["mul-facts", "div-facts", "frac-unit", "area-perimeter", "round-nearest", "add-1000", "sub-1000"]);
-    expect(chooseSkills(deedReading, "3").map((s) => s.id)).toEqual(["sight-g23"]);
+    expect(chooseSkills(deedReading, "3").map((s) => s.id)).toEqual(["read-g3"]);
   });
   it("falls back to the nearest grade when the area has no skill there", () => {
     expect(chooseSkills(deedLanguage, "7").map((s) => s.id)).toEqual(["vocab-g68"]);
-    expect(chooseSkills(deedReading, "9").map((s) => s.id)).toEqual(["sight-g23"]);
+    expect(chooseSkills(deedReading, "9").map((s) => s.id)).toEqual(["read-g4"]);
   });
 
   /**
@@ -49,9 +49,9 @@ describe("chooseSkills", () => {
    * `lang-g1` gave those two grades their own pools, so nothing climbs anywhere and the literal
    * is now `[]`. It stays `[]`: a new climb is a defect, not a line to add.
    *
-   * Falling DOWN is not on this list and is not a defect: Reading is authored at K and grade
-   * 2 and nowhere above, so a grade-9 hero gets grade-2 reading. That is the walk doing what
-   * it says it does.
+   * Falling DOWN is not on this list and is not a defect: Reading is authored no higher than
+   * grade 4 yet, so a grade-9 hero gets grade-4 reading. That is the walk doing what it says
+   * it does, and the fall shortens with every reading grade that gets written.
    *
    * `skills.test.ts` keeps the same inventory for the three authored strands, phrased from the
    * skill-table side; if you empty one, empty the other.
@@ -85,27 +85,27 @@ describe("buildDeedRun", () => {
     const run = buildDeedRun(input());
     expect(run.questions).toHaveLength(8);
     for (const q of run.questions) { expect(q.choices).toHaveLength(4); expect(q.choices).toContain(q.answer); }
-    expect(run.skillIds).toEqual(["sight-g23"]);
+    expect(run.skillIds).toEqual(["read-g3"]);
   });
   it("is deterministic for a seed", () => {
     expect(buildDeedRun(input({ seed: 9 }))).toEqual(buildDeedRun(input({ seed: 9 })));
   });
   it("never repeats a pool item and draws near the mastery level, widening when needed", () => {
-    const items = [...poolItems("sight-g23", 5, 0), ...poolItems("sight-g23", 3, 4).map((i) => ({ ...i, id: `${i.id}-hi` }))];
-    const run = buildDeedRun(input({ poolItems: items, masteryBySkill: { "sight-g23": 4 } }));
+    const items = [...poolItems("read-g3", 5, 0), ...poolItems("read-g3", 3, 4).map((i) => ({ ...i, id: `${i.id}-hi` }))];
+    const run = buildDeedRun(input({ poolItems: items, masteryBySkill: { "read-g3": 4 } }));
     expect(new Set(run.questions.map((q) => q.id)).size).toBe(run.questions.length);
     expect(run.questions.length).toBe(8);
   });
   it("mixes in at most two recent misses for the chosen skills", () => {
-    const misses: Question[] = [0, 1, 2].map((i) => ({ id: `miss-${i}`, skillId: "sight-g23", prompt: `Miss ${i}`, choices: ["x", "y", "z", "w"], answer: "x" }));
+    const misses: Question[] = [0, 1, 2].map((i) => ({ id: `miss-${i}`, skillId: "read-g3", prompt: `Miss ${i}`, choices: ["x", "y", "z", "w"], answer: "x" }));
     const run = buildDeedRun(input({ recentMisses: misses }));
     expect(run.questions.filter((q) => q.id.startsWith("miss-"))).toHaveLength(2);
     expect(run.questions).toHaveLength(8);
   });
   it("dedupes recent misses with the same id into a single review question", () => {
     const misses: Question[] = [
-      { id: "miss-dup", skillId: "sight-g23", prompt: "Miss", choices: ["x", "y", "z", "w"], answer: "x" },
-      { id: "miss-dup", skillId: "sight-g23", prompt: "Miss", choices: ["x", "y", "z", "w"], answer: "x" },
+      { id: "miss-dup", skillId: "read-g3", prompt: "Miss", choices: ["x", "y", "z", "w"], answer: "x" },
+      { id: "miss-dup", skillId: "read-g3", prompt: "Miss", choices: ["x", "y", "z", "w"], answer: "x" },
     ];
     const run = buildDeedRun(input({ recentMisses: misses }));
     expect(run.questions.filter((q) => q.id === "miss-dup")).toHaveLength(1);
@@ -207,11 +207,12 @@ describe("chooseSkills by grade", () => {
   });
 
   it("walks to easier grades, never harder, when a grade has nothing", () => {
-    // Reading is authored no higher than grade 2 right now, so a grade-6 hero falls back
-    // rather than being handed nothing. Plan 3 removes the need for this.
+    // Reading is now authored up to grade 4, so a grade-6 hero falls back two years rather
+    // than the four they used to fall. It is still a fall, not a climb, which is the point
+    // here; the remaining reading grades are what close the gap.
     const ids = chooseSkills(readingDeed, "6").map((s) => s.id);
     expect(ids.length).toBeGreaterThan(0);
-    expect(ids).toContain("sight-g23");
+    expect(ids).toContain("read-g4");
   });
 
   it("falls back rather than returning nothing, for every area at every grade", () => {

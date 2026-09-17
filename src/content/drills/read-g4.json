@@ -1,0 +1,501 @@
+{
+  "poolId": "read-g4",
+  "grade": "4",
+  "items": [
+    {
+      "id": "read-g4-priya-flute",
+      "prompt": "Priya held her flute and stared at the stage door. Her fingers left damp marks on the keys. She had played the piece perfectly for weeks. The story does not say this outright. Which answer can you infer, and what shows it?",
+      "answer": "Priya is nervous about playing, because her hands are sweating.",
+      "distractors": [
+        "Priya has practised a lot, because she played it perfectly for weeks.",
+        "Priya does not know the piece, because she has never played it.",
+        "Priya will win the contest, because judges like flute music."
+      ],
+      "level": 2
+    },
+    {
+      "id": "read-g4-marcus-tires",
+      "prompt": "Marcus wheeled his bike into the garage and hung up his helmet. He put two coins into a jar on the shelf. The jar had a label that said new tires. Which answer can you infer from this story, and what shows it? It is never said outright.",
+      "answer": "Marcus is saving up for tires, because he adds coins to that jar.",
+      "distractors": [
+        "Marcus rode his bike today, because he wheeled it into the garage.",
+        "Marcus has already bought the tires, because the jar is empty now.",
+        "Marcus works after school, because children earn coins doing chores."
+      ],
+      "level": 0
+    },
+    {
+      "id": "read-g4-nana-letters",
+      "prompt": "Nana keeps a shoebox on the top shelf. Inside are letters tied with a faded ribbon. She has never let anyone open the lid. The story does not say this outright. Which answer can you infer, and what shows it?",
+      "answer": "The letters matter to Nana, because she keeps them safe and private.",
+      "distractors": [
+        "The letters are tied with a ribbon, because that is how they sit inside.",
+        "Nana has forgotten the letters, because she threw the box away.",
+        "The letters are from the war, because old letters usually are."
+      ],
+      "level": 2
+    },
+    {
+      "id": "read-g4-rex-trash",
+      "prompt": "When Ana came home, the trash was tipped over. Rex lay flat under the table with his ears down. He did not run to the door as he always did. Which answer can you infer from this story, and what shows it? It is never said outright.",
+      "answer": "Rex knows he did wrong, because he hides instead of greeting Ana.",
+      "distractors": [
+        "The trash is tipped over, because something knocked it down.",
+        "Rex is excited to see Ana, because he runs to the door as always.",
+        "Rex must be hungry, because dogs get into trash when they are hungry."
+      ],
+      "level": 0
+    },
+    {
+      "id": "read-g4-yusuf-word",
+      "prompt": "Yusuf wrote the word carefully and read it twice. Then he checked it against the poster on the wall. His teacher smiled and gave him a thumbs up. The story does not say this outright. Which answer can you infer, and what shows it?",
+      "answer": "Yusuf is unsure of the word, because he checks it twice over.",
+      "distractors": [
+        "The teacher smiled at Yusuf, because she liked what he wrote.",
+        "Yusuf wrote the word quickly, because he was in a hurry to finish.",
+        "Yusuf just moved here, because new students check their spelling."
+      ],
+      "level": 1
+    },
+    {
+      "id": "read-g4-power-out",
+      "prompt": "The lamp went out and the fridge stopped humming. Mom felt along the wall for the drawer with the candles. Outside, the wind bent the young maple almost flat. Which answer can you infer from this story, and what shows it? It is never said outright.",
+      "answer": "The storm cut the power, because the lights and the fridge both stopped.",
+      "distractors": [
+        "Mom is looking for candles, because she feels along for the drawer.",
+        "It is a calm night outside, because nothing out there is moving at all.",
+        "This storm is a hurricane, because hurricanes knock the power out."
+      ],
+      "level": 1
+    },
+    {
+      "id": "read-g4-ellie-glove",
+      "prompt": "Dad handed Ellie the glove without a word. It was stiff and smelled of new leather. He had worn his own glove until the laces broke. The story does not say this outright. Which answer can you infer, and what shows it?",
+      "answer": "The glove is a gift for Ellie, because Dad hands her a new one.",
+      "distractors": [
+        "The glove smells of leather, because the leather on it is new.",
+        "The glove is old and worn, because its laces have already broken.",
+        "Ellie plays on a team, because girls her age play baseball."
+      ],
+      "level": 2
+    },
+    {
+      "id": "read-g4-raised-hand",
+      "prompt": "The class was loud until Mr. Oyelaran raised one hand. Nobody said shush. In four seconds the room was silent. Which answer can you infer from this story, and what shows it? It is never said outright.",
+      "answer": "The class respects their teacher, because one raised hand quiets them.",
+      "distractors": [
+        "The room went silent quickly, because it took only four seconds.",
+        "The students ignore their teacher, because they go on talking.",
+        "Mr. Oyelaran is strict, because quiet classes have strict teachers."
+      ],
+      "level": 1
+    },
+    {
+      "id": "read-g4-lunch-trade",
+      "prompt": "Every day Theo traded his apple for Jade's crackers. On Monday Jade brought an apple of her own. Theo ate his apple slowly and said nothing. The story does not say this outright. Which answer can you infer, and what shows it?",
+      "answer": "Theo is disappointed, because the trade he liked has ended.",
+      "distractors": [
+        "Jade brought an apple on Monday, because she packed one herself.",
+        "Theo is glad about the change, because he says so out loud.",
+        "Theo does not like fruit, because children prefer crackers to apples."
+      ],
+      "level": 3
+    },
+    {
+      "id": "read-g4-library-closing",
+      "prompt": "The librarian began stacking chairs on the tables. She switched off the lamps at the far end. Sara put her bookmark in place and stood up. Which answer can you infer from this story, and what shows it? It is never said outright.",
+      "answer": "The library is closing, because the chairs go up and the lamps go off.",
+      "distractors": [
+        "Sara put her bookmark in place, because she stopped on that page.",
+        "The library has only just opened, because the lamps are being switched on.",
+        "It is nine at night, because libraries always close at nine."
+      ],
+      "level": 0
+    },
+    {
+      "id": "read-g4-kofi-tide",
+      "prompt": "Kofi packed the last tower and stepped back. A thin line of water crept toward the wall he had built. He began to dig faster than before. The story does not say this outright. Which answer can you infer, and what shows it?",
+      "answer": "Kofi is worried about the water, because he digs faster as it nears.",
+      "distractors": [
+        "Kofi built a wall of sand, because that is what he dug first.",
+        "Kofi has finished for the day, because he packs up and goes home.",
+        "The tide comes in at noon, because tides follow the sun."
+      ],
+      "level": 2
+    },
+    {
+      "id": "read-g4-lena-sick",
+      "prompt": "Lena's voice came out as a croak at breakfast. She pushed her toast away and put her head on the table. Her mother reached for the phone and called the school. Which answer can you infer from this story, and what shows it? It is never said outright.",
+      "answer": "Lena is too ill for school, because her mother rings them up.",
+      "distractors": [
+        "Lena pushed her toast away, because she did not want to eat it.",
+        "Lena feels fine this morning, because she eats a big breakfast.",
+        "Lena has caught the flu, because a sore throat always means flu."
+      ],
+      "level": 0
+    },
+    {
+      "id": "read-g4-chewed-shoes",
+      "prompt": "The shoes by the door had fresh teeth marks. A chewed sock lay in the hall. Grandma laughed and said the house had changed. The story does not say this outright. Which answer can you infer, and what shows it?",
+      "answer": "A young dog has come to live there, because things are chewed up.",
+      "distractors": [
+        "There are teeth marks on the shoes, because something bit into them.",
+        "Nothing in that house is different, because Grandma says it is all the same.",
+        "The puppy must be a beagle, because beagles chew on shoes."
+      ],
+      "level": 1
+    },
+    {
+      "id": "read-g4-dev-race",
+      "prompt": "Dev crossed the line and bent over his knees. He did not look at the clock. When his coach shouted the time, Dev finally smiled. Which answer can you infer from this story, and what shows it? It is never said outright.",
+      "answer": "Dev ran better than he expected, because the time makes him smile.",
+      "distractors": [
+        "Dev bent over his knees, because he stopped hard at the line.",
+        "Dev knows his own time already, because he checks the clock himself.",
+        "Dev has broken a record, because good runners break records."
+      ],
+      "level": 3
+    },
+    {
+      "id": "read-g4-ines-wall",
+      "prompt": "Tape screeched across another box in the hallway. Ines pressed her cheek to the bedroom wall and closed her eyes. She had drawn her height on that wall every birthday. The story does not say this outright. Which answer can you infer, and what shows it?",
+      "answer": "Ines is sad to leave the house, because she says goodbye to the wall.",
+      "distractors": [
+        "Ines marked her height on the wall, because she drew it each birthday.",
+        "Ines has just moved in here, because the boxes are being unpacked.",
+        "Ines is moving to a city, because families move for work."
+      ],
+      "level": 3
+    },
+    {
+      "id": "read-g4-every-painting",
+      "prompt": "Mr. Silva hung every painting in the hall. Some had smudges and one was still damp. He pinned a card with the artist's name beside each one. Which answer can you infer from this story, and what shows it? It is never said outright.",
+      "answer": "Mr. Silva values all his students, because he hangs up every painting.",
+      "distractors": [
+        "One of the paintings is still damp, because the paint has not dried.",
+        "Mr. Silva shows only the best work, because he leaves some of it down.",
+        "Mr. Silva paints at home, because art teachers are artists too."
+      ],
+      "level": 4
+    },
+    {
+      "id": "read-g4-uncle-ray",
+      "prompt": "Uncle Ray had not caught a thing since sunrise. He kept casting anyway and hummed to himself. When the sun set he packed up whistling. The story does not say this outright. Which answer can you infer, and what shows it?",
+      "answer": "Ray likes fishing for its own sake, because he is happy with no catch.",
+      "distractors": [
+        "Ray kept casting all day long, because he never once stopped.",
+        "Ray is angry about his luck, because he storms off early in a temper.",
+        "The fish were not biting, because heat keeps fish down deep."
+      ],
+      "level": 3
+    },
+    {
+      "id": "read-g4-broken-pane",
+      "prompt": "The ball sat in the flower bed under the broken pane. Two bikes lay on their sides by the fence. The street was empty and very quiet. Which answer can you infer from this story, and what shows it? It is never said outright.",
+      "answer": "The children ran off, because the bikes lie dropped and nobody is there.",
+      "distractors": [
+        "A pane of glass is broken, because there is a hole up there.",
+        "The children are still playing out there, because they are in the street.",
+        "The ball came from next door, because neighbours play ball games."
+      ],
+      "level": 2
+    },
+    {
+      "id": "read-g4-gray-cat",
+      "prompt": "Every evening the gray cat sat on the third step. At six o'clock a blue car turned the corner. The cat was on its feet before the engine stopped. The story does not say this outright. Which answer can you infer, and what shows it?",
+      "answer": "The cat knows that car well, because it stands before the engine stops.",
+      "distractors": [
+        "The cat sits on the step each evening, because it waits there daily.",
+        "The cat is scared of the car, because it runs off when the car comes.",
+        "The driver feeds the cat, because cats wait around for food."
+      ],
+      "level": 3
+    },
+    {
+      "id": "read-g4-amara-spell",
+      "prompt": "Amara asked for the word to be said again. Then she asked for it in a sentence. She spelled it slowly and got every letter right. Which answer can you infer from this story, and what shows it? It is never said outright.",
+      "answer": "Amara was unsure of the word, because she asks about it twice.",
+      "distractors": [
+        "Amara spelled the word correctly, because every letter of it was right.",
+        "Amara answered without thinking, because she spells it straight away.",
+        "Amara studied all week long, because winners study all week."
+      ],
+      "level": 1
+    },
+    {
+      "id": "read-g4-fence-tomatoes",
+      "prompt": "Mrs. Pike's tomatoes grew over the fence into our yard. Mom never picked one, though they hung within reach. She waited until Mrs. Pike offered a bowl. The story does not say this outright. Which answer can you infer, and what shows it?",
+      "answer": "Mom respects what is not hers, because she waits to be offered some.",
+      "distractors": [
+        "The tomatoes hang over the fence, because the plants grew that way.",
+        "Mom takes the tomatoes freely, because they hang within her reach.",
+        "Mrs. Pike is a fine gardener, because her plants have grown large."
+      ],
+      "level": 4
+    },
+    {
+      "id": "read-g4-snow-prints",
+      "prompt": "Two sets of prints led from the porch to the barn. Only one set came back. The barn door stood open a hand's width. Which answer can you infer from this story, and what shows it? It is never said outright.",
+      "answer": "Someone is still in the barn, because one set of prints never came back.",
+      "distractors": [
+        "The barn door is open a little, because it stands ajar in the snow.",
+        "Both of the people came back inside, because the two sets of prints return.",
+        "A thief is in that barn, because an open door means a thief."
+      ],
+      "level": 2
+    },
+    {
+      "id": "read-g4-jonah-notes",
+      "prompt": "Jonah wrote a note for every gift he got. He did it before he played with any of them. His mother did not have to ask once. The story does not say this outright. Which answer can you infer, and what shows it?",
+      "answer": "Jonah is polite on his own, because nobody has to remind him to write.",
+      "distractors": [
+        "Jonah wrote a note for each gift, because he wrote one every time.",
+        "Jonah needs reminding to write, because his mother has to ask him.",
+        "Jonah had a birthday party, because gifts are given at parties."
+      ],
+      "level": 1
+    },
+    {
+      "id": "read-g4-bus-waits",
+      "prompt": "Mr. Dube waited while Kai ran up the hill. He waited again for Nina and her crutch. The bus left the stop four minutes late. Which answer can you infer from this story, and what shows it? It is never said outright.",
+      "answer": "Mr. Dube is patient with the children, because he waits for them both.",
+      "distractors": [
+        "Nina walks with a crutch, because she carries one to the bus.",
+        "Mr. Dube leaves the children behind, because he drives off right on time.",
+        "This bus is always late, because school buses always run late."
+      ],
+      "level": 1
+    },
+    {
+      "id": "read-g4-six-notes",
+      "prompt": "The same six notes came through the wall all afternoon. Each time the last note was a little cleaner. At dinner Rosa played the whole line without a stumble. The story does not say this outright. Which answer can you infer, and what shows it?",
+      "answer": "Rosa practised the hard part, because the notes kept getting cleaner.",
+      "distractors": [
+        "Rosa played the line at dinner, because she got through it then.",
+        "Rosa gave up on the piece, because she stopped it after one single try.",
+        "Rosa has a teacher, because every pianist takes lessons."
+      ],
+      "level": 2
+    },
+    {
+      "id": "read-g4-campfire-out",
+      "prompt": "Grandpa poured water on the fire and stirred the ashes. He held his palm above them and waited. Only then did he pick up the packs. Which answer can you infer from this story, and what shows it? It is never said outright.",
+      "answer": "Grandpa is making sure the fire is out, because he tests the ashes.",
+      "distractors": [
+        "Grandpa put water on the ashes, because he poured some over them.",
+        "Grandpa leaves the fire burning, because he walks off without it.",
+        "Grandpa is a ranger, because rangers put out camp fires."
+      ],
+      "level": 2
+    },
+    {
+      "id": "read-g4-tomas-subway",
+      "prompt": "Tomas counted the stops under his breath. He held the paper his aunt had written for him. When the doors opened he looked at the sign twice. The story does not say this outright. Which answer can you infer, and what shows it?",
+      "answer": "Tomas is new to this subway, because he counts and checks the sign.",
+      "distractors": [
+        "Tomas holds a paper from his aunt, because she wrote it out for him.",
+        "Tomas knows this line well, because he rides it here every day.",
+        "Tomas is going to school, because children ride trains to school."
+      ],
+      "level": 3
+    },
+    {
+      "id": "read-g4-storm-drain",
+      "prompt": "The crying came from inside the storm drain. Mei lay flat and reached her arm into the dark. She came up with a wet, shaking kitten. Which answer can you infer from this story, and what shows it? It is never said outright.",
+      "answer": "Mei acted to help at once, because she lies down and reaches in.",
+      "distractors": [
+        "Mei pulled out a wet kitten, because she brought one up in her arm.",
+        "Mei was afraid to help, because she stayed well away from the drain.",
+        "The kitten is a stray, because strays hide in storm drains."
+      ],
+      "level": 0
+    },
+    {
+      "id": "read-g4-surprise-grin",
+      "prompt": "Every light in the house was off when Dad came in. Twelve people crouched behind the couch, holding their breath. Dad stopped in the doorway and started to grin. The story does not say this outright. Which answer can you infer, and what shows it?",
+      "answer": "Dad has guessed the surprise, because he grins before anyone moves.",
+      "distractors": [
+        "Twelve people are behind the couch, because they all crouch there.",
+        "Dad has no idea anyone is there, because he walks straight on past.",
+        "It is Dad's fortieth birthday, because big parties mean big birthdays."
+      ],
+      "level": 1
+    },
+    {
+      "id": "read-g4-failed-tries",
+      "prompt": "Nadia's poster had one graph and a long list of failed tries. The other posters had neat photos and no mistakes. The judge spent the longest time at Nadia's table. Which answer can you infer from this story, and what shows it? It is never said outright.",
+      "answer": "The judge values honest work, because he stays longest at her table.",
+      "distractors": [
+        "Nadia listed her failed tries, because they are written on her poster.",
+        "The judge ignored Nadia's poster, because he walked right on by it.",
+        "Nadia will win the science fair, because honest work always wins."
+      ],
+      "level": 4
+    },
+    {
+      "id": "read-g4-ollie-ramp",
+      "prompt": "Ollie landed the trick on the twenty first try. He did not shout or throw his arms up. He just rolled back to the top of the ramp. The story does not say this outright. Which answer can you infer, and what shows it?",
+      "answer": "Ollie means to do it again, because he rolls back up to the top.",
+      "distractors": [
+        "Ollie landed the trick at last, because he made it on that try.",
+        "Ollie is done with the ramp, because he leaves the park for good.",
+        "Ollie will enter a contest, because skaters all enter contests."
+      ],
+      "level": 3
+    },
+    {
+      "id": "read-g4-recipe-card",
+      "prompt": "The recipe card was stained and soft at the corners. Mom did not read it while she cooked. She set it on the counter anyway. Which answer can you infer from this story, and what shows it? It is never said outright.",
+      "answer": "The card means something to Mom, because she keeps it near unread.",
+      "distractors": [
+        "The card sits out on the counter, because Mom set it down there.",
+        "Mom needs the card to cook, because she reads off each step.",
+        "The recipe is for soup, because old cards hold soup recipes."
+      ],
+      "level": 4
+    },
+    {
+      "id": "read-g4-hamster-chart",
+      "prompt": "The hamster cage was clean and the bottle was full. Room Six had a chart with a name in every square. Nobody had to be told when it was their turn. The story does not say this outright. Which answer can you infer, and what shows it?",
+      "answer": "The class shares the job well, because the chart is kept and followed.",
+      "distractors": [
+        "The water bottle is full, because someone has filled it up.",
+        "The class forgets the hamster, because its cage is left dirty.",
+        "Hamsters need fresh water daily, because small pets drink a great deal."
+      ],
+      "level": 1
+    },
+    {
+      "id": "read-g4-hana-puddles",
+      "prompt": "Hana stepped in every puddle on the way home. Her boots squelched and her socks went dark. She was laughing when she reached the porch. Which answer can you infer from this story, and what shows it? It is never said outright.",
+      "answer": "Hana does not mind being wet, because she laughs and keeps splashing.",
+      "distractors": [
+        "Hana stepped in the puddles, because she hit every one on the way.",
+        "Hana hates being out in the rain, because she runs from it to stay dry.",
+        "It rains a lot in spring, because spring is the wet season."
+      ],
+      "level": 0
+    },
+    {
+      "id": "read-g4-quiet-sami",
+      "prompt": "Sami used to talk through the whole car ride. This week he watched the window and said nothing. His mother looked at him twice in the mirror. The story does not say this outright. Which answer can you infer, and what shows it?",
+      "answer": "Something is bothering Sami, because he has gone quiet this week.",
+      "distractors": [
+        "Sami watched the window this week, because he looked out of it.",
+        "Sami is as chatty as ever, because he talks the whole way home.",
+        "Sami had a fight at school, because quiet children have had a fight."
+      ],
+      "level": 2
+    },
+    {
+      "id": "read-g4-bo-bench",
+      "prompt": "Coach put Bo in for the last two minutes of every game. Bo cheered louder than anyone from the bench. He brought the water bottles out at half time. Which answer can you infer from this story, and what shows it? It is never said outright.",
+      "answer": "Bo helps his team from the bench, because he cheers and carries water.",
+      "distractors": [
+        "Bo plays the last two minutes, because Coach puts him in then.",
+        "Bo sulks about his short turns, because he sits well away from the team.",
+        "Bo is the youngest player, because young players sit out games."
+      ],
+      "level": 2
+    },
+    {
+      "id": "read-g4-attic-map",
+      "prompt": "The map in the attic showed streets that are gone. A blue ink circle marked one corner. Someone had written a date beside it in the same ink. The story does not say this outright. Which answer can you infer, and what shows it?",
+      "answer": "That circle marked something important, because a date was added to it.",
+      "distractors": [
+        "There is a blue circle on the map, because someone drew one there.",
+        "Nobody ever used this map, because it carries no marks at all.",
+        "The map is a hundred years old, because attics only hold very old things."
+      ],
+      "level": 4
+    },
+    {
+      "id": "read-g4-ivy-glasses",
+      "prompt": "Ivy squinted at the board and copied only half the notes. Two weeks later she filled the page. She kept pushing her new glasses up her nose. Which answer can you infer from this story, and what shows it? It is never said outright.",
+      "answer": "The glasses helped Ivy see, because she can copy it all now.",
+      "distractors": [
+        "Ivy has a new pair of glasses, because she keeps pushing them up.",
+        "Ivy still cannot read the board, because she copies only half of it.",
+        "Ivy will need stronger glasses, because eyes get worse with age."
+      ],
+      "level": 1
+    },
+    {
+      "id": "read-g4-bench-bread",
+      "prompt": "Every morning a man on the bench tore bread into small bits. The pigeons landed before he sat down. One sparrow ate from his open hand. The story does not say this outright. Which answer can you infer, and what shows it?",
+      "answer": "The man comes here often, because the birds already know him.",
+      "distractors": [
+        "The man tears bread into small bits, because he breaks it up for them.",
+        "The birds are afraid of the man, because they keep well away from him.",
+        "The man is retired, because retired people go and feed birds."
+      ],
+      "level": 3
+    },
+    {
+      "id": "read-g4-attic-cage",
+      "prompt": "The scratching over Ada's ceiling stopped every time she knocked. Dad set a small cage in the attic with peanut butter. By morning the cage door was shut. Which answer can you infer from this story, and what shows it? It is never said outright.",
+      "answer": "Something was caught in the cage, because its door is shut by morning.",
+      "distractors": [
+        "Dad put peanut butter in the cage, because he baited it with some.",
+        "The attic was empty all along, because nothing ever moved up there.",
+        "There is a squirrel up there, because squirrels like peanut butter."
+      ],
+      "level": 2
+    },
+    {
+      "id": "read-g4-nia-alarm",
+      "prompt": "Nia set the alarm an hour early all week. She braided Jo's hair before the bus came. Their mother had started a night shift on Monday. The story does not say this outright. Which answer can you infer, and what shows it?",
+      "answer": "Nia is covering for their mother, because she gets up to do her jobs.",
+      "distractors": [
+        "Nia braided her sister's hair, because she did it before the bus.",
+        "Nia sleeps in every morning, because she never sets any alarm.",
+        "Their mother is a nurse, because night shifts mean nursing work."
+      ],
+      "level": 4
+    },
+    {
+      "id": "read-g4-chalkboard-flavours",
+      "prompt": "The shop wrote its flavours on a chalkboard each day. Today one flavour was smudged and written in twice. The line still went out the door. Which answer can you infer from this story, and what shows it? It is never said outright.",
+      "answer": "People come for this shop whatever happens, because the line stays long.",
+      "distractors": [
+        "One of the flavours was written twice, because the first one got smudged.",
+        "The shop has no customers today, because its line is short.",
+        "The best flavour is chocolate, because everyone likes chocolate."
+      ],
+      "level": 4
+    },
+    {
+      "id": "read-g4-hall-clock",
+      "prompt": "The clock in the hall had not ticked for years. On Saturday Uncle Ben opened the case and worked until dark. On Sunday the whole house woke to chimes. The story does not say this outright. Which answer can you infer, and what shows it?",
+      "answer": "Uncle Ben mended the clock, because it chimes the very next day.",
+      "distractors": [
+        "Uncle Ben worked until dark, because he stayed at it all day.",
+        "The clock is still broken, because it makes no sound at all.",
+        "Uncle Ben is a clockmaker, because only clockmakers can fix old clocks."
+      ],
+      "level": 0
+    },
+    {
+      "id": "read-g4-five-cookies",
+      "prompt": "Six cookies cooled on the rack and now there are five. Milo says he did not touch them. There are crumbs on his shirt and none on the floor. Which answer can you infer from this story, and what shows it? It is never said outright.",
+      "answer": "Milo ate the missing cookie, because the crumbs are all on him.",
+      "distractors": [
+        "There are five cookies left, because one of the six has gone.",
+        "Milo was never near the rack, because he stayed outside the whole time.",
+        "The dog took the cookie, because dogs steal food off counters."
+      ],
+      "level": 0
+    },
+    {
+      "id": "read-g4-two-boxes",
+      "prompt": "Mr. Ford emptied his desk into two cardboard boxes. He took the class photos off the wall one by one. He shook every student's hand at the door. The story does not say this outright. Which answer can you infer, and what shows it?",
+      "answer": "Mr. Ford is leaving the school, because he clears out and says goodbye.",
+      "distractors": [
+        "Mr. Ford took the photos down, because he lifted them off the wall.",
+        "Mr. Ford will teach here next year, because he leaves his room set up.",
+        "Mr. Ford is retiring, because teachers retire at about his age."
+      ],
+      "level": 3
+    }
+  ]
+}
