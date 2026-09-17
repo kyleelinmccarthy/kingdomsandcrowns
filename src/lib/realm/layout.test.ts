@@ -313,6 +313,24 @@ describe("the world beyond the village", () => {
     expect(near(0, 38, 20, "oak")).toBeGreaterThan(20); // the orchard rows, south
   });
 
+  it("makes the Old Wood thick enough to be a wood, and thins it at the edge", () => {
+    const trees = layout.scenery.filter((p) => p.variant === "oak" || p.variant === "pine");
+    const within = (x: number, z: number, radius: number) =>
+      trees.filter((p) => Math.hypot(p.position.x - x, p.position.z - z) <= radius).length / (Math.PI * radius * radius);
+    // Trunks per square unit at the wood's heart. A hundred and twenty trees over this rectangle
+    // was one every twenty-eight units — six on a screen, which reads as grass with stickers on
+    // it. At a tree every seven units they touch, overlap and make a canopy.
+    const heart = within(-50, 0, 18);
+    expect(heart).toBeGreaterThan(1 / 8);
+    // ...and it has an EDGE: the wood thins towards its rim rather than stopping on a line.
+    expect(within(-50, 0, 40)).toBeLessThan(heart * 0.8);
+    // The ground under it says "wood" too, and reaches past the last trunks as leaf litter.
+    expect(layout.terrain.filter((t) => t.kind === "grove").length).toBeGreaterThan(100);
+    expect(layout.terrain.filter((t) => t.kind === "litter").length).toBeGreaterThan(20);
+    // And dry grass everywhere, so no stretch of open ground is every other stretch.
+    expect(layout.terrain.filter((t) => t.kind === "meadow").length).toBeGreaterThan(150);
+  });
+
   it("draws every decoration with a figure that exists, and varies the trees so a wood is not a stamp", () => {
     for (const p of layout.scenery) expect(DRAWABLE).toContain(p.variant);
     const trees = layout.scenery.filter((p) => p.variant === "oak" || p.variant === "pine");

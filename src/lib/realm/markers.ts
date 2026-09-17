@@ -45,9 +45,12 @@ export const SHADOW_OPACITY_CALM = 0.14;
  */
 export const GROUND_Y = {
   // The wilderness's surfaces, lowest first. They lie in the order the world is built up in:
-  // a ploughed plot, then the dirt rows worked into it, then the bank, then the shallows the
-  // bank holds, then the deep water, and a track laid last over whatever it crosses.
+  // the dry patches worn into the open grass, then a ploughed plot, then the dirt rows worked
+  // into it, then the bank, then the shallows the bank holds, then the deep water, and a track
+  // laid last over whatever it crosses.
+  meadow: 0.002, // pale worn grass, everywhere: the lowest thing in the world above bare ground
   grove: 0.004, // the dark forest floor under the Old Wood
+  litter: 0.005, // leaf litter at the wood's edge, over the forest floor AND out onto the grass
   scree: 0.006, // bare stone on the fells
   field: 0.008,
   furrow: 0.012,

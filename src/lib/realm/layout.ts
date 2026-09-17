@@ -254,7 +254,15 @@ export function buildWorldLayout(input: { castleType: string; buildings: SitePro
  * ------------------------------------------------------------------------ */
 
 /** A ground rectangle: the water, its banks, the ploughed plots and the dirt tracks. */
-export type TerrainKind = "grove" | "scree" | "field" | "furrow" | "shore" | "shallow" | "water" | "trail";
+export type TerrainKind = "meadow" | "grove" | "litter" | "scree" | "field" | "furrow" | "shore" | "shallow" | "water" | "trail";
+/**
+ * Ground that is texture rather than place: it is drawn, but the map does not draw it.
+ *
+ * The minimap draws `terrain` one rectangle for one, which is right for a lake and wrong for two
+ * hundred patches of dry grass — a map speckled with them would say nothing and cost two hundred
+ * SVG nodes to say it.
+ */
+export const COSMETIC_TERRAIN: readonly TerrainKind[] = ["meadow", "litter"];
 export type TerrainPatch = {
   id: string;
   kind: TerrainKind;
@@ -269,29 +277,36 @@ export type TerrainPatch = {
 };
 
 /**
- * `trail` and `furrow` are drawn with the cobble tile, so their colour is a TINT the texture
- * is multiplied by — a lighter hex than the brown you want. The other six are flat colour.
+ * EVERY surface is now drawn with a detail tile from `tiles.ts`, so none of these is a flat fill
+ * any more: each is the TINT a near-white value pattern is multiplied by. That is why they read
+ * brighter than the colours they replace — a map can only darken, and the tiles average about
+ * four fifths of white. Change one of these and you are changing a surface's hue, never its
+ * grain; the grain is in `surfaceTile`.
  */
 export const TERRAIN_COLORS: Record<TerrainKind, string> = {
-  grove: "#275032",
-  scree: "#57594a",
-  field: "#7c8442",
-  furrow: "#c09a6e",
-  shore: "#b5a068",
-  shallow: "#6ba3b8",
-  water: "#35688a",
-  trail: "#d9b98a",
+  meadow: "#6f7c43",
+  grove: "#3f5230",
+  litter: "#6d5a34",
+  scree: "#7c7c6c",
+  field: "#8e9250",
+  furrow: "#9d7d53",
+  shore: "#c6b07c",
+  shallow: "#7fb6c8",
+  water: "#3f7aa4",
+  trail: "#bb9669",
 };
-/** lowStimulus mutes the world; it never empties it. The same eight surfaces, desaturated. */
+/** lowStimulus mutes the world; it never empties it. The same ten surfaces, desaturated. */
 export const TERRAIN_COLORS_CALM: Record<TerrainKind, string> = {
-  grove: "#2c3a31",
-  scree: "#5f5d57",
-  field: "#5f6547",
-  furrow: "#9b8f7c",
-  shore: "#8f866c",
-  shallow: "#63848f",
-  water: "#3d5a6b",
-  trail: "#a89c8a",
+  meadow: "#5c6349",
+  grove: "#374434",
+  litter: "#5b5445",
+  scree: "#6c6a62",
+  field: "#6d7152",
+  furrow: "#8f8573",
+  shore: "#9a9076",
+  shallow: "#6e919c",
+  water: "#476678",
+  trail: "#a2978a",
 };
 
 type Rect = { x: number; z: number; w: number; d: number };
@@ -340,8 +355,17 @@ const TRAILS: Vec2[][] = [
   [{ x: 14, z: -20 }, { x: 24, z: -28 }, { x: 33, z: -36 }], // the lake path, fording the stream
   [{ x: -14, z: -22 }, { x: -24, z: -34 }, { x: -33, z: -48 }], // the fell track to the cairn
 ];
-const TRAIL_STEP = 2;
-const TRAIL_TILE = { w: 2.2, d: 2.2 };
+/**
+ * A track is a RIBBON, not a row of stamps. At two units apart and two units across, two
+ * consecutive tiles of a track running east met at their corners, and under this camera that is
+ * a zigzag of separate diamonds rather than a path. Wider tiles, closer together, overlap into
+ * one continuous band whichever way the track runs.
+ */
+const TRAIL_STEP = 1.4;
+/** Along the track by `w`, across it by `d`. A tile is TURNED to the segment it belongs to. */
+const TRAIL_TILE = { w: 2.8, d: 3.2 };
+/** How far a track stops short of water. Half a tile plus a little, so it never overhangs. */
+const FORD_PAD = 1.9;
 
 function trailTiles(): TerrainPatch[] {
   const tiles: TerrainPatch[] = [];
@@ -352,14 +376,19 @@ function trailTiles(): TerrainPatch[] {
       const b = line[s + 1];
       const span = Math.hypot(b.x - a.x, b.z - a.z);
       const steps = Math.max(1, Math.round(span / TRAIL_STEP));
+      // The tile's width axis is laid ALONG the segment. Square tiles on a track running east
+      // are diamonds under this camera, and a row of overlapping diamonds has a sawtooth edge —
+      // a zigzag of stamps rather than a path. Turned, they overlap into one straight ribbon.
+      // `angle` turns world +X towards world -Z (see TerrainPatch and GroundBatch), hence -dz.
+      const angle = Math.atan2(-(b.z - a.z), b.x - a.x);
       for (let i = 0; i <= steps; i++) {
         const t = i / steps;
         const p = { x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t };
         // The ford: the track stops at the water's edge and picks up on the far bank. The
         // stepping stones between are scenery, so a child can see where to cross.
-        if (inRect(p, STREAM, 0.8) || DEEP.some((r) => inRect(p, r, 0.8))) continue;
+        if (inRect(p, STREAM, FORD_PAD) || DEEP.some((r) => inRect(p, r, FORD_PAD))) continue;
         if (last && Math.hypot(p.x - last.x, p.z - last.z) < TRAIL_STEP * 0.7) continue;
-        tiles.push({ id: `trail-${tiles.length + 1}`, kind: "trail", position: p, size: TRAIL_TILE });
+        tiles.push({ id: `trail-${tiles.length + 1}`, kind: "trail", position: p, size: TRAIL_TILE, angle });
         last = p;
       }
     }
@@ -382,31 +411,62 @@ function buildTerrain(): TerrainPatch[] {
    * coplanar and identical, so where they overlap there is nothing to see, and the outline they
    * make together is ragged. Cheap, too: the whole forest floor is still one draw call.
    */
-  const blobs = (kind: TerrainKind, area: Rect, clusters: number, per: number, lo: number, hi: number, spread: number) => {
+  type BlobOpts = {
+    clusters: number;
+    per: number;
+    lo: number;
+    hi: number;
+    spread: number;
+    /** Keep only patches whose distance from the area's centre, as a fraction of its half-size,
+     *  falls in this band. `[0.75, 1.2]` is a FRINGE — the ragged skirt that stops a region
+     *  ending in a straight line against the grass. */
+    ring?: [number, number];
+    /** The village is kept clear of wilderness ground by default; `meadow` is the exception,
+     *  because it lies below every path, foundation and shadow and the village lawn needs it
+     *  as much as the fields do. */
+    village?: boolean;
+  };
+  const blobs = (kind: TerrainKind, area: Rect, o: BlobOpts) => {
     const clamp = (v: number, span: number) => Math.max(-HALF + span / 2, Math.min(HALF - span / 2, v));
-    for (let c = 0; c < clusters; c++) {
+    for (let c = 0; c < o.clusters; c++) {
       const centre = { x: area.x + (rng() * 2 - 1) * (area.w / 2), z: area.z + (rng() * 2 - 1) * (area.d / 2) };
-      for (let i = 0; i < per; i++) {
-        const p = { x: centre.x + (rng() * 2 - 1) * spread, z: centre.z + (rng() * 2 - 1) * spread };
-        if (inRect(p, VILLAGE_KEEP) || DEEP.some((r) => inRect(p, r, 1)) || inRect(p, STREAM, 1)) continue;
-        const w = lo + rng() * (hi - lo);
+      for (let i = 0; i < o.per; i++) {
+        const p = { x: centre.x + (rng() * 2 - 1) * o.spread, z: centre.z + (rng() * 2 - 1) * o.spread };
+        if (!o.village && inRect(p, VILLAGE_KEEP)) continue;
+        if (DEEP.some((r) => inRect(p, r, 1)) || inRect(p, STREAM, 1)) continue;
+        if (o.ring) {
+          const reachOut = Math.hypot((p.x - area.x) / (area.w / 2), (p.z - area.z) / (area.d / 2));
+          if (reachOut < o.ring[0] || reachOut > o.ring[1]) continue;
+        }
+        const w = o.lo + rng() * (o.hi - o.lo);
         const d = w * (0.7 + rng() * 0.6);
         const reach = Math.hypot(w, d); // clamped on the turned footprint, so no corner leaves the world
         push(kind, rect(clamp(p.x, reach), clamp(p.z, reach), w, d), rng() * Math.PI);
       }
     }
   };
-  blobs("grove", rect(-50, 0, 54, 68), 16, 9, 4, 9, 3); // the floor of the Old Wood
-  blobs("scree", rect(-36, -56, 60, 34), 12, 9, 4, 9, 3); // bare stone across the fells
-  blobs("scree", rect(-54, 0, 12, 12), 2, 7, 3, 6, 2.5); // and around the standing stones
+
+  // THE WHOLE WORLD, first and lowest: dry, pale, worn grass. This is the layer that answers
+  // "one patch of field looks like every other patch of field" — big, soft-edged and everywhere,
+  // the village lawn included, so no stretch of ground is the same as the stretch beside it.
+  blobs("meadow", rect(0, 0, 150, 150), { clusters: 74, per: 9, lo: 3.5, hi: 10, spread: 7, village: true });
+
+  blobs("grove", rect(-50, 0, 54, 68), { clusters: 26, per: 13, lo: 4, hi: 11, spread: 4.5 }); // the floor of the Old Wood
+  // ...and the wood's edge: litter thrown out past the last trees, so the floor does not end on a line.
+  blobs("litter", rect(-50, 0, 66, 80), { clusters: 26, per: 6, lo: 3, hi: 8, spread: 4, ring: [0.62, 1.15] });
+  blobs("scree", rect(-36, -56, 60, 34), { clusters: 16, per: 10, lo: 4, hi: 10, spread: 3.5 }); // bare stone across the fells
+  blobs("scree", rect(-54, 0, 12, 12), { clusters: 2, per: 7, lo: 3, hi: 6, spread: 2.5 }); // and around the standing stones
   for (const r of PLOTS) push("field", r);
   // Furrows: thin dirt rows across each plot. The cheapest possible "this ground is worked".
   for (const plot of PLOTS) {
-    const rows = Math.floor(plot.d / 3);
-    for (let i = 0; i < rows; i++) push("furrow", rect(plot.x, plot.z - plot.d / 2 + 1.5 + i * 3, plot.w - 2, 0.7));
+    const rows = Math.floor(plot.d / 1.8);
+    for (let i = 0; i < rows; i++) push("furrow", rect(plot.x, plot.z - plot.d / 2 + 0.9 + i * 1.8, plot.w - 2, 0.55));
   }
   for (const r of DEEP) push("shore", rect(r.x, r.z, r.w + SHORE_PAD * 2, r.d + SHORE_PAD * 2));
   push("shore", rect(STREAM.x, STREAM.z, STREAM.w + 3, STREAM.d + 1));
+  // Mud and shingle thrown out past every bank, for the same reason the wood gets litter: a lake
+  // whose shore is one clean rectangle is a rug, not a shore.
+  for (const r of DEEP) blobs("shore", rect(r.x, r.z, r.w + SHORE_PAD * 4, r.d + SHORE_PAD * 4), { clusters: 14, per: 4, lo: 2.5, hi: 6, spread: 3, ring: [0.66, 1.1] });
   push("shallow", STREAM);
   for (const r of DEEP) push("water", r);
   return [...patches, ...trailTiles()];
@@ -431,12 +491,47 @@ function openGround(p: Vec2, pad: number): boolean {
   return true;
 }
 
-function far(p: Vec2, spots: Spot[], gap: number): boolean {
-  for (const s of spots) {
-    if (Math.abs(s.x - p.x) < gap && Math.abs(s.z - p.z) < gap && Math.hypot(s.x - p.x, s.z - p.z) < gap) return false;
+/**
+ * A wood is thousands of trunks, and the old `far()` walked every spot already placed to test
+ * one candidate — quadratic, and at a wood's real density that is tens of millions of distance
+ * checks at MODULE LOAD, i.e. a stall before the realm even opens. A fixed grid makes it
+ * constant time: a candidate only ever looks at the cells that could hold something close.
+ */
+const CELL = 5;
+type Grid = Map<number, Spot[]>;
+const cellKey = (cx: number, cz: number) => (cx + 512) * 1024 + (cz + 512);
+const newGrid = (): Grid => new Map();
+
+function gridAdd(grid: Grid, s: Spot): void {
+  const k = cellKey(Math.floor(s.x / CELL), Math.floor(s.z / CELL));
+  const list = grid.get(k);
+  if (list) list.push(s);
+  else grid.set(k, [s]);
+}
+
+function gridFar(grid: Grid, p: Vec2, gap: number): boolean {
+  const reach = Math.ceil(gap / CELL);
+  const cx = Math.floor(p.x / CELL);
+  const cz = Math.floor(p.z / CELL);
+  for (let dx = -reach; dx <= reach; dx++) {
+    for (let dz = -reach; dz <= reach; dz++) {
+      const list = grid.get(cellKey(cx + dx, cz + dz));
+      if (!list) continue;
+      for (const s of list) if (Math.hypot(s.x - p.x, s.z - p.z) < gap) return false;
+    }
   }
   return true;
 }
+
+/**
+ * How far apart two things a child must walk AROUND are kept.
+ *
+ * Density is the point of this file now, and density plus solidity is a wall. Trees at a gap of
+ * 1.4 make a wood; solid trees at a gap of 1.4 make a fence with no gate — two boulders 1.9 apart
+ * already leave less than a hero's diameter between them, and a line of them closes a region off.
+ * Every solid is therefore held to its own, much larger spacing, whatever the scatter's gap is.
+ */
+const SOLID_GAP = 4.4;
 
 type ScatterOpts = {
   area: Rect;
@@ -445,90 +540,135 @@ type ScatterOpts = {
   kinds: string[]; // repeat a kind to weight it
   scale?: [number, number];
   solidAbove?: number; // a trunk or a boulder at least this big is walked AROUND, not through
+  /**
+   * Where the region starts thinning out, as a fraction of its half-size. A wood with a hard
+   * rectangular edge is a hedge; a wood that thins over its last third has a canopy edge, which
+   * is the thing that says "you are going into the wood" as a child walks in.
+   */
+  soften?: number;
 };
 
 /** Seeded rejection sampling. Same seed, same wood, forever — a world that reshuffles is not a place. */
-function scatter(spots: Spot[], rng: () => number, o: ScatterOpts): void {
+function scatter(all: Spot[], grid: Grid, solids: Grid, rng: () => number, o: ScatterOpts): void {
   const [lo, hi] = o.scale ?? [0.9, 1.15];
   let placed = 0;
-  for (let attempt = 0; attempt < o.count * 14 && placed < o.count; attempt++) {
+  for (let attempt = 0; attempt < o.count * 18 && placed < o.count; attempt++) {
     const p = { x: o.area.x + (rng() * 2 - 1) * (o.area.w / 2), z: o.area.z + (rng() * 2 - 1) * (o.area.d / 2) };
+    if (o.soften !== undefined) {
+      const reachOut = Math.hypot((p.x - o.area.x) / (o.area.w / 2), (p.z - o.area.z) / (o.area.d / 2));
+      const keep = reachOut <= o.soften ? 1 : Math.max(0, 1 - (reachOut - o.soften) / (1 - o.soften));
+      if (rng() > keep) continue;
+    }
     if (!openGround(p, 1)) continue;
-    if (!far(p, spots, o.gap)) continue;
+    if (!gridFar(grid, p, o.gap)) continue;
     const scale = lo + rng() * (hi - lo);
     const kind = o.kinds[Math.min(o.kinds.length - 1, Math.floor(rng() * o.kinds.length))];
     // Only stone and trunks ever block: a gorse bush the hero bounces off is a bug report.
-    const solid = o.solidAbove !== undefined && scale >= o.solidAbove && (kind === "rock" || kind === "oak" || kind === "pine");
-    spots.push({ kind, x: p.x, z: p.z, scale, solid });
+    const solid =
+      o.solidAbove !== undefined &&
+      scale >= o.solidAbove &&
+      (kind === "rock" || kind === "oak" || kind === "pine") &&
+      gridFar(solids, p, SOLID_GAP);
+    const spot = { kind, x: p.x, z: p.z, scale, solid };
+    all.push(spot);
+    gridAdd(grid, spot);
+    if (solid) gridAdd(solids, spot);
     placed += 1;
   }
 }
 
-/** A ring of standing stones, a cairn: placement with a reason, not a sprinkle. */
-function ring(spots: Spot[], centre: Vec2, radius: number, count: number, kind: string, scale: number, solid: boolean): void {
+type Place = (spot: Spot) => void;
+
+/**
+ * A ring of standing stones, a cairn: placement with a reason, not a sprinkle.
+ *
+ * `phase` turns the ring. The west track ends dead on the stone ring's east point, and a solid
+ * stone standing in the mouth of a track is a track that ends in a boulder — half a step of turn
+ * puts a GAP there instead, which is what a way into a clearing should be.
+ */
+function ring(place: Place, centre: Vec2, radius: number, count: number, kind: string, scale: number, solid: boolean, phase = 0): void {
   for (let i = 0; i < count; i++) {
-    const a = (i / count) * Math.PI * 2;
-    spots.push({ kind, x: centre.x + Math.cos(a) * radius, z: centre.z + Math.sin(a) * radius, scale, solid });
+    const a = (i / count) * Math.PI * 2 + phase;
+    place({ kind, x: centre.x + Math.cos(a) * radius, z: centre.z + Math.sin(a) * radius, scale, solid });
   }
 }
 
-function row(spots: Spot[], from: Vec2, to: Vec2, step: number, kind: string, scale: number): void {
+function row(place: Place, from: Vec2, to: Vec2, step: number, kind: string, scale: number): void {
   const span = Math.hypot(to.x - from.x, to.z - from.z);
   const steps = Math.max(1, Math.round(span / step));
   for (let i = 0; i <= steps; i++) {
     const t = i / steps;
-    spots.push({ kind, x: from.x + (to.x - from.x) * t, z: from.z + (to.z - from.z) * t, scale, solid: false });
+    place({ kind, x: from.x + (to.x - from.x) * t, z: from.z + (to.z - from.z) * t, scale, solid: false });
   }
 }
 
 /** Reeds along a bank: the rectangle's perimeter, not a circle round its centre. */
-function border(spots: Spot[], r: Rect, pad: number, step: number, kind: string, scale: number): void {
+function border(place: Place, r: Rect, pad: number, step: number, kind: string, scale: number): void {
   const x0 = r.x - r.w / 2 - pad;
   const x1 = r.x + r.w / 2 + pad;
   const z0 = r.z - r.d / 2 - pad;
   const z1 = r.z + r.d / 2 + pad;
-  row(spots, { x: x0, z: z0 }, { x: x1, z: z0 }, step, kind, scale);
-  row(spots, { x: x0, z: z1 }, { x: x1, z: z1 }, step, kind, scale);
-  row(spots, { x: x0, z: z0 + step }, { x: x0, z: z1 - step }, step, kind, scale);
-  row(spots, { x: x1, z: z0 + step }, { x: x1, z: z1 - step }, step, kind, scale);
+  row(place, { x: x0, z: z0 }, { x: x1, z: z0 }, step, kind, scale);
+  row(place, { x: x0, z: z1 }, { x: x1, z: z1 }, step, kind, scale);
+  row(place, { x: x0, z: z0 + step }, { x: x0, z: z1 - step }, step, kind, scale);
+  row(place, { x: x1, z: z0 + step }, { x: x1, z: z1 - step }, step, kind, scale);
 }
 
 function buildScenery(): Prop[] {
   const rng = seededRng(20260917);
   const spots: Spot[] = [];
+  const grid = newGrid();
+  const solids = newGrid();
+  // Everything goes through here, structures included, so a scatter can never drop a trunk on
+  // top of the cairn and a solid boulder can never land against another one.
+  const place: Place = (spot) => {
+    spots.push(spot);
+    gridAdd(grid, spot);
+    if (spot.solid) gridAdd(solids, spot);
+  };
+  const sow = (o: ScatterOpts) => scatter(spots, grid, solids, rng, o);
 
   // The village's own twelve, unmoved: they were placed clear of the path, every site, the
   // lap ring and the ceremony plaza, and layout.test.ts still holds them to it.
-  for (const spot of DECOR_SPOTS) spots.push({ kind: spot.kind, x: spot.x, z: spot.z, scale: 1, solid: false });
+  for (const spot of DECOR_SPOTS) place({ kind: spot.kind, x: spot.x, z: spot.z, scale: 1, solid: false });
 
-  // THE OLD WOOD, west. Thick enough to be a wood rather than a lawn with trees on it, and
-  // walked THROUGH on purpose: a hundred colliders between a child and the way home is a maze.
-  scatter(spots, rng, { area: rect(-50, 0, 52, 66), count: 120, gap: 2.7, kinds: ["oak", "pine", "oak", "pine", "oak"], scale: [0.85, 1.3] });
-  scatter(spots, rng, { area: rect(-50, 0, 52, 66), count: 24, gap: 2.8, kinds: ["bush"], scale: [0.8, 1.1] });
+  /**
+   * THE OLD WOOD, west.
+   *
+   * The counts here are the difference between a wood and a lawn somebody left trees on. A
+   * hundred and twenty trunks over this rectangle put six on a screen; a child called it grass
+   * with stickers, and they were right. At these numbers the trunks touch and overlap, the
+   * undergrowth fills between them, and `soften` thins the last third so the wood has an edge
+   * rather than a boundary. It is still walked straight THROUGH: not one of these is solid, and
+   * a hundred colliders between a child and the way home is a maze.
+   */
+  sow({ area: rect(-50, 0, 52, 66), count: 720, gap: 1.35, kinds: ["oak", "pine", "oak", "pine", "oak"], scale: [1, 1.9], soften: 0.55 });
+  sow({ area: rect(-50, 0, 52, 66), count: 260, gap: 1.4, kinds: ["bush"], scale: [0.75, 1.3], soften: 0.6 });
   // The clearing at the end of the west track: a ring of standing stones round a lit lantern.
-  ring(spots, { x: -54, z: 0 }, 5, 8, "rock", 1.5, true);
-  spots.push({ kind: "lantern", x: -54, z: 0, scale: 1.2, solid: false });
+  ring(place, { x: -54, z: 0 }, 5, 8, "rock", 1.5, true, Math.PI / 8);
+  place({ kind: "lantern", x: -54, z: 0, scale: 1.2, solid: false });
   // Three great oaks, solid, far apart: landmarks to steer by inside the wood.
-  for (const g of [{ x: -30, z: 18 }, { x: -38, z: -20 }, { x: -62, z: 12 }]) spots.push({ kind: "oak", x: g.x, z: g.z, scale: 2, solid: true });
+  for (const g of [{ x: -30, z: 18 }, { x: -38, z: -20 }, { x: -62, z: 12 }]) place({ kind: "oak", x: g.x, z: g.z, scale: 2, solid: true });
 
   // THE FELLS, north and north-west: rock, gorse, and wind-bent pines behind the castle.
-  scatter(spots, rng, { area: rect(-36, -56, 60, 34), count: 55, gap: 3, kinds: ["rock", "rock", "bush"], scale: [0.8, 1.6], solidAbove: 1.35 });
-  scatter(spots, rng, { area: rect(-36, -56, 60, 34), count: 24, gap: 4, kinds: ["pine"], scale: [0.9, 1.2] });
+  sow({ area: rect(-36, -56, 60, 34), count: 320, gap: 1.7, kinds: ["rock", "rock", "bush"], scale: [0.7, 1.9], solidAbove: 1.6, soften: 0.6 });
+  sow({ area: rect(-36, -56, 60, 34), count: 140, gap: 2.1, kinds: ["pine"], scale: [1, 1.6], soften: 0.55 });
   // The cairn at the end of the fell track: five stones round a sixth, the tallest thing up here.
-  ring(spots, { x: -33, z: -50 }, 1.7, 5, "rock", 1.6, true);
-  spots.push({ kind: "rock", x: -33, z: -50, scale: 2.2, solid: true });
-  spots.push({ kind: "lantern", x: -29, z: -47, scale: 1, solid: false });
+  ring(place, { x: -33, z: -50 }, 1.7, 5, "rock", 1.6, true);
+  place({ kind: "rock", x: -33, z: -50, scale: 2.2, solid: true });
+  place({ kind: "lantern", x: -29, z: -47, scale: 1, solid: false });
 
   // LONGWATER, north-east: reeds along every bank, shingle, and a lantern where the lake path
-  // arrives — the fishing spot.
-  for (const r of LAKE) border(spots, r, SHORE_PAD + 0.8, 3.2, "bush", 0.9);
-  scatter(spots, rng, { area: rect(42, -48, 40, 30), count: 22, gap: 3.2, kinds: ["rock", "bush"], scale: [0.8, 1.3] });
-  scatter(spots, rng, { area: rect(46, -64, 46, 18), count: 20, gap: 3.6, kinds: ["pine"], scale: [0.9, 1.2] });
-  spots.push({ kind: "lantern", x: 33, z: -38, scale: 1, solid: false });
+  // arrives — the fishing spot. The reeds stand close enough to be a reed BED, which is also the
+  // thing that softens the straight line where a bank meets the grass.
+  for (const r of LAKE) border(place, r, SHORE_PAD + 0.8, 1.5, "bush", 0.85);
+  sow({ area: rect(42, -48, 40, 30), count: 130, gap: 1.9, kinds: ["rock", "bush"], scale: [0.75, 1.4], soften: 0.6 });
+  sow({ area: rect(46, -64, 46, 18), count: 110, gap: 1.9, kinds: ["pine"], scale: [1, 1.7], soften: 0.6 });
+  place({ kind: "lantern", x: 33, z: -38, scale: 1, solid: false });
   // The ford: three stepping stones where the lake path crosses the millstream.
-  for (const x of [27.4, 29, 30.6]) spots.push({ kind: "rock", x, z: -32.4, scale: 0.7, solid: false });
+  for (const x of [27.4, 29, 30.6]) place({ kind: "rock", x, z: -32.4, scale: 0.7, solid: false });
   // The mill pool at the stream's end, close enough to the village to be found in the first minute.
-  border(spots, MILL_POOL, SHORE_PAD + 0.8, 3, "bush", 0.9);
+  border(place, MILL_POOL, SHORE_PAD + 0.8, 1.5, "bush", 0.85);
 
   // THE PLOTS, east: fenced on three sides — a gate you can walk in by — with a lantern on the post.
   for (const plot of PLOTS) {
@@ -536,35 +676,40 @@ function buildScenery(): Prop[] {
     const x1 = plot.x + plot.w / 2 + 1;
     const z0 = plot.z - plot.d / 2 - 1;
     const z1 = plot.z + plot.d / 2 + 1;
-    row(spots, { x: x0, z: z0 }, { x: x1, z: z0 }, 2.4, "fence", 1);
-    row(spots, { x: x0, z: z1 }, { x: x1, z: z1 }, 2.4, "fence", 1);
-    row(spots, { x: x0, z: z0 + 2.4 }, { x: x0, z: z1 - 2.4 }, 2.4, "fence", 1);
-    spots.push({ kind: "lantern", x: x1, z: plot.z, scale: 1, solid: false });
+    row(place, { x: x0, z: z0 }, { x: x1, z: z0 }, 1.6, "fence", 1);
+    row(place, { x: x0, z: z1 }, { x: x1, z: z1 }, 1.6, "fence", 1);
+    row(place, { x: x0, z: z0 + 1.6 }, { x: x0, z: z1 - 1.6 }, 1.6, "fence", 1);
+    place({ kind: "lantern", x: x1, z: plot.z, scale: 1, solid: false });
   }
-  scatter(spots, rng, { area: rect(46, 0, 56, 50), count: 30, gap: 4, kinds: ["oak", "bush", "rock"], scale: [0.85, 1.2] });
+  sow({ area: rect(46, 0, 56, 50), count: 170, gap: 2.2, kinds: ["oak", "bush", "rock"], scale: [0.9, 1.5], soften: 0.6 });
 
   // THE ORCHARD, south of the gate: planted in rows either side of the road, so the first thing
   // a child meets outside the village is plainly somebody's work rather than more field.
   for (const side of [-1, 1]) {
-    for (let col = 0; col < 3; col++) {
-      for (let r = 0; r < 5; r++) spots.push({ kind: "oak", x: side * (7 + col * 4), z: 28 + r * 5, scale: 1.05, solid: false });
+    for (let col = 0; col < 4; col++) {
+      for (let r = 0; r < 7; r++) place({ kind: "oak", x: side * (7 + col * 3.4), z: 27 + r * 3.6, scale: 1.3, solid: false });
     }
   }
-  row(spots, { x: -20, z: 26 }, { x: -20, z: 50 }, 3, "fence", 1);
-  row(spots, { x: 20, z: 26 }, { x: 20, z: 50 }, 3, "fence", 1);
+  row(place, { x: -20, z: 26 }, { x: -20, z: 50 }, 1.8, "fence", 1);
+  row(place, { x: 20, z: 26 }, { x: 20, z: 50 }, 1.8, "fence", 1);
   // The milestone where the south road runs out.
-  spots.push({ kind: "lantern", x: -1.5, z: 57, scale: 1.1, solid: false });
-  spots.push({ kind: "rock", x: -7, z: 57, scale: 1.4, solid: true });
-  scatter(spots, rng, { area: rect(0, 50, 100, 36), count: 34, gap: 4.5, kinds: ["oak", "pine", "bush", "rock"], scale: [0.85, 1.25] });
+  place({ kind: "lantern", x: -1.5, z: 57, scale: 1.1, solid: false });
+  place({ kind: "rock", x: -7, z: 57, scale: 1.4, solid: true });
+  sow({ area: rect(0, 50, 100, 36), count: 210, gap: 2.2, kinds: ["oak", "pine", "bush", "rock"], scale: [0.9, 1.6], soften: 0.6 });
 
   // THE WILD EDGE. The hero is clamped at WORLD_SIZE / 2; a thicket standing on that line is
-  // what turns an invisible wall into somewhere a child can SEE they have gone far enough.
+  // what turns an invisible wall into somewhere a child can SEE they have gone far enough. Two
+  // ranks deep now, because one rank at seven units apart was a dotted line, not a thicket.
   const EDGE = HALF - 6;
-  for (let i = -EDGE; i <= EDGE; i += 7) {
+  for (let i = -EDGE; i <= EDGE; i += 3) {
     for (const p of [{ x: i, z: -EDGE }, { x: i, z: EDGE }, { x: -EDGE, z: i }, { x: EDGE, z: i }]) {
-      const q = { x: p.x + (rng() * 2 - 1) * 1.8, z: p.z + (rng() * 2 - 1) * 1.8 };
-      if (!openGround(q, 1)) continue;
-      spots.push({ kind: rng() < 0.5 ? "pine" : "oak", x: q.x, z: q.z, scale: 1 + rng() * 0.35, solid: false });
+      for (const inward of [0, 3.4]) {
+        const towards = { x: p.x === -EDGE ? inward : p.x === EDGE ? -inward : 0, z: p.z === -EDGE ? inward : p.z === EDGE ? -inward : 0 };
+        const q = { x: p.x + towards.x + (rng() * 2 - 1) * 1.4, z: p.z + towards.z + (rng() * 2 - 1) * 1.4 };
+        if (!openGround(q, 1)) continue;
+        if (!gridFar(grid, q, 1.5)) continue;
+        place({ kind: rng() < 0.5 ? "pine" : "oak", x: q.x, z: q.z, scale: 1.25 + rng() * 0.5, solid: false });
+      }
     }
   }
 

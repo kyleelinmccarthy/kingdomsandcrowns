@@ -11,6 +11,7 @@ import { CAMERA_OFFSET, CAMERA_ZOOM, edgeArrow, followCamera } from "@/lib/realm
 import { projectToMap, worldBounds } from "@/lib/realm/minimap";
 import { BEACON, facingAngle, GROUND_Y, shadowFootprint, RING_INNER, RING_OUTER, RING_NOTCH_ARC, RING_GOLD, RING_CALM, SHADOW_OPACITY, SHADOW_OPACITY_CALM } from "@/lib/realm/markers";
 import { nearestVillager, villagerById, REACH } from "@/lib/realm/villagers";
+import { meadowShade, SOFT_SURFACES } from "@/lib/realm/tiles";
 import { deferSignal, keysFromWorldAxis, objectiveArrival, shouldEmitWalked, walkBucket, type TutorialSignal } from "@/lib/realm/tutorial";
 import type { RenderSettings } from "@/lib/realm/render-settings";
 import type { Surfaces } from "@/lib/realm/depth";
@@ -150,6 +151,9 @@ function ContactShadow({ w, d, y, calm }: { w: number; d: number; y: number; cal
  * and the GPU is left alone afterwards.
  */
 const UNIT_PLANE = new THREE.PlaneGeometry(1, 1);
+/** How finely the ground is divided for the broad wash. 96 puts a vertex every five world units
+ *  — about a fifth of a screen — which is the scale the variation is meant to read at. */
+const GROUND_SEGMENTS = 96;
 const GROUND_QUAT = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, 0));
 /**
  * The camera is orthographic and never rotates (`followCamera` moves the target, never the
@@ -193,12 +197,19 @@ function useDisposeBatch(mesh: THREE.InstancedMesh | null): void {
   }, [mesh]);
 }
 
-/** One flat ground surface — water, a bank, a plot, a dirt track — as a single draw. */
-function GroundBatch({ items, y, color, map }: { items: { position: Vec2; size: { w: number; d: number }; angle?: number }[]; y: number; color: string; map?: THREE.CanvasTexture }) {
+/**
+ * One flat ground surface — water, a bank, a plot, a dirt track — as a single draw.
+ *
+ * `soft` is the surfaces whose tile carries a feathered alpha (`SOFT_SURFACES`): they blend, and
+ * they never write depth. Depth is what would break them — hundreds of coplanar patches of one
+ * colour, each punching a hole in the ones behind it — and they need none, because the surfaces
+ * ABOVE them are opaque, drawn first, and already reject anything lower down.
+ */
+function GroundBatch({ items, y, color, map, soft }: { items: { position: Vec2; size: { w: number; d: number }; angle?: number }[]; y: number; color: string; map?: THREE.CanvasTexture; soft?: boolean }) {
   const mesh = useMemo(() => {
     if (items.length === 0) return null;
     const turned = new THREE.Euler();
-    return batch(UNIT_PLANE, new THREE.MeshStandardMaterial({ color, map }), items.length, (i, position, quaternion, scale) => {
+    return batch(UNIT_PLANE, new THREE.MeshStandardMaterial({ color, map, transparent: soft, depthWrite: !soft }), items.length, (i, position, quaternion, scale) => {
       position.set(items[i].position.x, y, items[i].position.z);
       // Euler XYZ turns about local Z first and lays the quad flat second, so `angle` is a
       // turn IN the ground plane. Only natural ground sets one (layout.ts's `blobs`).
@@ -206,7 +217,7 @@ function GroundBatch({ items, y, color, map }: { items: { position: Vec2; size: 
       else quaternion.copy(GROUND_QUAT);
       scale.set(items[i].size.w, items[i].size.d, 1);
     });
-  }, [items, y, color, map]);
+  }, [items, y, color, map, soft]);
   useDisposeBatch(mesh);
   return mesh ? <primitive object={mesh} dispose={null} /> : null;
 }
@@ -309,6 +320,38 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
   }, [layout.scenery, textures]);
   const drawnScenery = useMemo(() => woods.flatMap(([, props]) => props), [woods]);
   const pathTiles = useMemo(() => layout.props.filter((p) => p.kind === "path"), [layout.props]);
+  /**
+   * THE BROAD WASH, and the reason the ground can stop being one flat colour for free.
+   *
+   * Every bit of variety the grass had was per-PIXEL, which at this zoom averages out to a single
+   * green over any patch a child can actually see. The variety the eye wants is at the scale of a
+   * screen — light grass here, dry straw-coloured grass fifty units away — and putting THAT in a
+   * texture would mean either a second full-world plane (a draw call) or a texture so large its
+   * texels were metres across.
+   *
+   * So it lives in the ground mesh's own vertex colours: `meadowShade` sampled on a grid, written
+   * once, multiplied by the material for nothing. No extra mesh, no extra material, no extra
+   * texture, no per-frame work — the segment count is the entire cost, and ~9k vertices is a
+   * rounding error beside two thousand instanced sprites.
+   *
+   * lowStimulus halves the swing rather than removing it: calm means quieter, never blank.
+   */
+  const groundGeometry = useMemo(() => {
+    const geometry = new THREE.PlaneGeometry(WORLD_SIZE * 3, WORLD_SIZE * 3, GROUND_SEGMENTS, GROUND_SEGMENTS);
+    const position = geometry.attributes.position;
+    const colors = new Float32Array(position.count * 3);
+    for (let i = 0; i < position.count; i++) {
+      // The plane is built in XY and laid flat by the mesh's -90° turn about X, so its local +Y
+      // is world -Z. Sampling in WORLD units is what keeps the wash put as the hero walks.
+      const shade = meadowShade(position.getX(i), -position.getY(i), settings.calmPalette ? 0.5 : 1);
+      colors[i * 3] = shade.r;
+      colors[i * 3 + 1] = shade.g;
+      colors[i * 3 + 2] = shade.b;
+    }
+    geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+    return geometry;
+  }, [settings.calmPalette]);
+  useEffect(() => () => groundGeometry.dispose(), [groundGeometry]);
   const heroShadow = useRef<THREE.Group>(null);
   const mountShadow = useRef<THREE.Group>(null);
   const companionShadow = useRef<THREE.Group>(null);
@@ -708,6 +751,7 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
       <ambientLight intensity={0.9} />
       <directionalLight position={[5, 10, 5]} intensity={settings.calmPalette ? 0.5 : 0.8} />
       <mesh
+        geometry={groundGeometry}
         rotation={[-Math.PI / 2, 0, 0]}
         onPointerDown={(e) => {
           e.stopPropagation();
@@ -721,9 +765,9 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
           castAt({ x: e.point.x, z: e.point.z });
         }}
       >
-        {/* Visual only: the ground plane is drawn larger than the playable world so its edge never shows past the backdrop. */}
-        <planeGeometry args={[WORLD_SIZE * 3, WORLD_SIZE * 3]} />
-        {textures.tiles ? <meshStandardMaterial map={textures.tiles.grass} color={tint} /> : <meshStandardMaterial color={ground} />}
+        {/* The geometry is built above, not declared here: it carries the broad wash as vertex
+            colours (see `groundGeometry`), which is why `vertexColors` is on both materials. */}
+        {textures.tiles ? <meshStandardMaterial map={textures.tiles.grass} color={tint} vertexColors /> : <meshStandardMaterial color={ground} vertexColors />}
       </mesh>
       {/*
         THE WORLD BEYOND THE VILLAGE. Ground first, lowest rung up: the ploughed plots and
@@ -737,7 +781,8 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
           items={items}
           y={GROUND_Y[kind]}
           color={(settings.calmPalette ? TERRAIN_COLORS_CALM : TERRAIN_COLORS)[kind]}
-          map={kind === "trail" || kind === "furrow" ? textures.tiles?.cobble : undefined}
+          map={textures.tiles?.surface[kind]}
+          soft={SOFT_SURFACES.includes(kind)}
         />
       ))}
       <GroundBatch items={pathTiles} y={GROUND_Y.path} color={textures.tiles ? tint : pathTiles[0]?.color ?? "#c9b27a"} map={textures.tiles?.cobble} />

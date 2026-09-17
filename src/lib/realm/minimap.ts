@@ -1,4 +1,4 @@
-import { WORLD_SIZE, type Prop, type TerrainKind, type Vec2, type WorldLayout } from "./layout";
+import { COSMETIC_TERRAIN, WORLD_SIZE, type Prop, type TerrainKind, type Vec2, type WorldLayout } from "./layout";
 import type { Facing } from "./movement";
 import type { Surfaces } from "./depth";
 import { facingAngle } from "./markers";
@@ -118,7 +118,7 @@ export function landKind(prop: Prop): MinimapAreaKind | null {
  * over the ground they stand on, and the tracks over all of it —
  * because a track a child can follow home must never be hidden by what it crosses.
  */
-const LAND_ORDER: Record<MinimapAreaKind, number> = { grove: 0, scree: 1, field: 2, furrow: 3, shore: 4, shallow: 5, water: 6, forest: 7, trail: 8 };
+const LAND_ORDER: Record<MinimapAreaKind, number> = { meadow: 0, litter: 1, grove: 2, scree: 3, field: 4, furrow: 5, shore: 6, shallow: 7, water: 8, forest: 9, trail: 10 };
 
 /**
  * Trees are not drawn. A wood is.
@@ -314,6 +314,9 @@ export function minimapView({ layout, hero, facing, troubles, surfaces }: Minima
   // and the tracks. Drawing the same rectangles the scene paints is what makes the map a
   // picture of the place rather than a diagram beside it.
   for (const t of layout.terrain ?? []) {
+    // ...bar the ground that is only texture. `meadow` and `litter` are hundreds of small
+    // patches whose whole job is to break up a surface up close; on a map they would be a rash.
+    if (COSMETIC_TERRAIN.includes(t.kind)) continue;
     const at = projectToMap(t.position, bounds);
     areas.push({ id: t.id, kind: t.kind, shape: "rect", x: at.x, y: at.y, w: t.size.w * s, h: t.size.d * s });
   }

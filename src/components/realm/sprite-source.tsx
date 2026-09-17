@@ -11,9 +11,9 @@ import type { TroubleKind, TroubleSkin } from "@/lib/realm/spells/troubles";
 import { GleamFigure, BannerFigure } from "@/components/realm/recess-figures";
 import { CrownFigure, CastleBannerFigure } from "@/components/realm/ceremony-figures";
 import { CastleFigure, BuildingFigure, FoundationFigure, SiteFigure, DecorFigure, DECOR_KINDS, SITE_STAGES, WORLD_SPRITE_SCALE } from "@/components/realm/world-figures";
-import { grassTile, cobbleTile, type Tile } from "@/lib/realm/tiles";
+import { grassTile, cobbleTile, surfaceTile, type Tile } from "@/lib/realm/tiles";
 import { tileToTexture } from "@/lib/realm/tile-texture";
-import { WORLD_SIZE } from "@/lib/realm/layout";
+import { WORLD_SIZE, type TerrainKind } from "@/lib/realm/layout";
 import { BUILDINGS } from "@/lib/utils/kingdom";
 
 export type SpriteTextures = {
@@ -28,13 +28,39 @@ export type SpriteTextures = {
   crown: THREE.CanvasTexture | null;
   castleBanner: THREE.CanvasTexture | null;
   world: Record<string, THREE.CanvasTexture>;
-  tiles: { grass: THREE.CanvasTexture; cobble: THREE.CanvasTexture } | null;
+  tiles: { grass: THREE.CanvasTexture; cobble: THREE.CanvasTexture; surface: Partial<Record<TerrainKind, THREE.CanvasTexture>> } | null;
 };
 
 const NO_VILLAGERS: Villager[] = [];
 
-/** A grass tile spans two world units; the ground plane is WORLD_SIZE * 3 across. */
-const GRASS_REPEAT = (WORLD_SIZE * 3) / 2;
+/** A grass tile spans FOUR world units now (it is 64 pixels, not 32, so a blade is the same
+ *  size on screen); the ground plane is WORLD_SIZE * 3 across. A tile with clumps in it needs
+ *  the longer repeat — structure that repeats every two units is a chequerboard. */
+const GRASS_REPEAT = (WORLD_SIZE * 3) / 4;
+
+/**
+ * How many times a surface's detail tile repeats across ONE patch of it.
+ *
+ * Every patch of a kind shares one instanced quad, so they share one set of UVs and this is the
+ * only dial there is: it is chosen for the typical patch of that kind, and a patch twice the
+ * usual size simply shows its grain twice the size. Two numbers where a surface is long and thin
+ * — a furrow, the millstream — so the grain does not come out smeared.
+ */
+const SURFACE_REPEAT: Record<TerrainKind, [number, number]> = {
+  // The five feathered surfaces are all [1, 1]: their tile carries the patch's own soft edge in
+  // its alpha, so repeating it would repeat the edge (see `feather` in tiles.ts).
+  meadow: [1, 1],
+  grove: [1, 1],
+  litter: [1, 1],
+  scree: [1, 1],
+  shore: [1, 1],
+  field: [6, 4],
+  furrow: [10, 1],
+  shallow: [2, 10],
+  water: [3, 3],
+  trail: [1, 1],
+};
+const SURFACE_KINDS = Object.keys(SURFACE_REPEAT) as TerrainKind[];
 
 async function textureFor(key: string, svg: SVGSVGElement, scale?: number): Promise<THREE.CanvasTexture> {
   const cached = getCachedTexture(key);
@@ -44,11 +70,12 @@ async function textureFor(key: string, svg: SVGSVGElement, scale?: number): Prom
   return texture;
 }
 
-async function tileTexture(key: string, tile: Tile, repeat: number): Promise<THREE.CanvasTexture> {
+async function tileTexture(key: string, tile: Tile, repeat: number | [number, number]): Promise<THREE.CanvasTexture> {
   const cached = getCachedTexture(key);
   if (cached) return cached;
   const texture = await tileToTexture(tile);
-  texture.repeat.set(repeat, repeat);
+  const [rx, ry] = typeof repeat === "number" ? [repeat, repeat] : repeat;
+  texture.repeat.set(rx, ry);
   setCachedTexture(key, texture);
   return texture;
 }
@@ -163,7 +190,11 @@ export function SpriteSource({
             if (svg) worldTextures[`decor:${kind}`] = await textureFor(`decor:${kind}`, svg, WORLD_SPRITE_SCALE.decor);
           }
         }
-        tiles = { grass: await tileTexture("tile:grass", grassTile(7), GRASS_REPEAT), cobble: await tileTexture("tile:cobble", cobbleTile(11), 1) };
+        // One detail tile per surface. They cost nothing in draw calls — a surface was already
+        // one InstancedMesh with one material, and this only gives that material a map.
+        const surface: Partial<Record<TerrainKind, THREE.CanvasTexture>> = {};
+        for (const kind of SURFACE_KINDS) surface[kind] = await tileTexture(`tile:${kind}`, surfaceTile(kind, 13), SURFACE_REPEAT[kind]);
+        tiles = { grass: await tileTexture("tile:grass", grassTile(7), GRASS_REPEAT), cobble: await tileTexture("tile:cobble", cobbleTile(11), 1), surface };
       }
       if (!cancelled) onReady({ hero, companion, villagers: villagerTextures, troubles: troubleTextures, mount: mountTexture, heroMounted, gleam, banner, crown: crownTexture, castleBanner: castleBannerTexture, world: worldTextures, tiles });
     })().catch((err: unknown) => {

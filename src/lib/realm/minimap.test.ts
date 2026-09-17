@@ -15,7 +15,7 @@ import {
   RIM_INSET,
   type MinimapBounds,
 } from "./minimap";
-import { buildWorldLayout, WORLD_SIZE, type Prop } from "./layout";
+import { buildWorldLayout, COSMETIC_TERRAIN, WORLD_SIZE, type Prop } from "./layout";
 import { facingAngle } from "./markers";
 import { worldToScreen } from "./camera";
 import { surfacesFor } from "./depth";
@@ -331,8 +331,13 @@ describe("minimapView", () => {
     expect(kinds.has("water")).toBe(true);
     expect(kinds.has("field")).toBe(true);
     expect(kinds.has("trail")).toBe(true); // the village cobbles and the wilderness tracks alike
-    // One rectangle per terrain patch the world lists, so the map cannot drift from the ground.
-    for (const t of layout.terrain) expect(view.areas.some((a) => a.id === t.id)).toBe(true);
+    // One rectangle per terrain patch the world lists, so the map cannot drift from the ground —
+    // bar the ground that is only texture. Hundreds of dry-grass and leaf-litter patches are
+    // there to break a surface up underfoot; on a map they would be a rash saying nothing.
+    for (const t of layout.terrain) {
+      expect(view.areas.some((a) => a.id === t.id)).toBe(!COSMETIC_TERRAIN.includes(t.kind));
+    }
+    for (const kind of COSMETIC_TERRAIN) expect(kinds.has(kind)).toBe(false);
     // Land is sized in map fractions at the map's own scale, never in world units.
     for (const a of view.areas) {
       expect(a.w).toBeGreaterThan(0);
