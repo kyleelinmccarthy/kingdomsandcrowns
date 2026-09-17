@@ -5,6 +5,7 @@ import { DEFAULT_AVATAR } from "@/lib/utils/avatar-catalog";
 import { VILLAGERS } from "@/lib/realm/villagers";
 import { disposeSpriteTextures } from "@/lib/realm/sprite-texture";
 import { BUILDINGS } from "@/lib/utils/kingdom";
+import { SITE_STAGES } from "./world-figures";
 
 const svgElementToTexture = vi.fn();
 vi.mock("@/lib/realm/sprite-texture", async (importOriginal) => {
@@ -90,6 +91,11 @@ describe("SpriteSource", () => {
       expect(textures.world[`building:${building.id}`].id).toBe(building.id);
     }
     expect(textures.world.foundation.id).toBe("foundation");
+    // Every site stage up front, for the same reason as every building: a site climbs a
+    // stage the moment a deed lands, and there is no second pass to fetch one texture.
+    for (let stage = 0; stage < SITE_STAGES; stage++) {
+      expect(textures.world[`site:${stage}`].id).toBe(String(stage));
+    }
     expect(textures.world["decor:oak"].id).toBe("oak");
     expect(textures.tiles.grass).toBeTruthy();
     expect(textures.tiles.cobble).toBeTruthy();
@@ -97,6 +103,7 @@ describe("SpriteSource", () => {
     expect(scaleOf("castle")).toBe(8);
     expect(scaleOf("building")).toBe(6);
     expect(scaleOf("foundation")).toBe(4);
+    expect(scaleOf("site")).toBe(6);
     expect(scaleOf("decor")).toBe(4);
   });
 

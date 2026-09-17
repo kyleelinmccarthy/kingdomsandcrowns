@@ -24,6 +24,7 @@ import { RecessLayer } from "./recess-layer";
 import { CeremonyLayer } from "./ceremony-layer";
 import { startCeremony, stepCeremony, skipCeremony, type CeremonyEvent, type CeremonyState } from "@/lib/realm/ceremony/ceremony";
 import type { SpriteTextures } from "./sprite-source";
+import { SITE_STAGES } from "@/components/realm/world-figures";
 import { VillagerPlate } from "./villager-plate";
 
 export type RealmSceneProps = {
@@ -528,6 +529,21 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
   const tint = settings.calmPalette ? CALM_TINT : "#ffffff";
   const ringColor = settings.calmPalette ? RING_CALM : RING_GOLD; // lowStimulus mutes the mark, never removes it
   const worldTex = (key: string): THREE.CanvasTexture | undefined => textures.world[key];
+  /**
+   * How far up a site is, 0..SITE_STAGES-1, for the stage figure that stands on its plot.
+   * A site owes five deeds and there are five stages, so every deed changes the picture.
+   *
+   * The count is read off the layout's villager placement rather than the prop, because
+   * the prop carries progress only as the display string in `tag` and `layout.ts` is not
+   * this file's to widen. When the shell could not load the kingdom it builds the layout
+   * with no villagers at all, and every site then shows stage 0 — which is the honest
+   * answer: with no progress to read, a site is a staked plot.
+   */
+  const siteStage = (buildingId: string): number => {
+    const placement = layout.villagers.find((v) => v.buildingId === buildingId);
+    if (!placement) return 0;
+    return Math.max(0, Math.min(SITE_STAGES - 1, placement.done));
+  };
   const spriteFor = (prop: Prop): THREE.CanvasTexture | undefined => {
     if (prop.kind === "castle") return worldTex(`castle:${layout.castleType}`);
     if (prop.kind === "building") return worldTex(`building:${prop.id}`);
@@ -591,6 +607,11 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
       )}
       {layout.props.filter((p) => p.kind === "foundation").map((prop) => {
         const foundationTex = worldTex("foundation");
+        // The plot lies flat; what is GOING UP on it stands as a billboard on the same
+        // spot, at the same width the finished building will take, so the last stage and
+        // the building line up rather than jumping.
+        const siteTex = worldTex(`site:${siteStage(prop.id)}`);
+        const s = prop.size.w + 0.5;
         return (
           <group key={prop.id} position={[prop.position.x, 0, prop.position.z]} {...siteCast(prop)}>
             <mesh position={[0, GROUND_Y.foundation, 0]} rotation={[-Math.PI / 2, 0, 0]}>
@@ -601,6 +622,11 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
                 <meshStandardMaterial color={colorFor(prop)} />
               )}
             </mesh>
+            {siteTex && (
+              <sprite position={[0, s / 2, 0]} scale={[s, s, 1]}>
+                <spriteMaterial map={siteTex} color={tint} transparent alphaTest={0.1} />
+              </sprite>
+            )}
           </group>
         );
       })}

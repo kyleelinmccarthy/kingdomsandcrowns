@@ -10,7 +10,7 @@ import { TroubleFigure, TROUBLE_KINDS } from "@/components/realm/trouble-figures
 import type { TroubleKind, TroubleSkin } from "@/lib/realm/spells/troubles";
 import { GleamFigure, BannerFigure } from "@/components/realm/recess-figures";
 import { CrownFigure, CastleBannerFigure } from "@/components/realm/ceremony-figures";
-import { CastleFigure, BuildingFigure, FoundationFigure, DecorFigure, DECOR_KINDS, WORLD_SPRITE_SCALE } from "@/components/realm/world-figures";
+import { CastleFigure, BuildingFigure, FoundationFigure, SiteFigure, DecorFigure, DECOR_KINDS, SITE_STAGES, WORLD_SPRITE_SCALE } from "@/components/realm/world-figures";
 import { grassTile, cobbleTile, type Tile } from "@/lib/realm/tiles";
 import { tileToTexture } from "@/lib/realm/tile-texture";
 import { WORLD_SIZE } from "@/lib/realm/layout";
@@ -151,6 +151,12 @@ export function SpriteSource({
         }
         const foundationSvg = root.querySelector<SVGSVGElement>('svg[data-figure="foundation"]');
         if (foundationSvg) worldTextures.foundation = await textureFor("foundation", foundationSvg, WORLD_SPRITE_SCALE.foundation);
+        // Every stage, not just the ones on screen: a site climbs a stage mid-visit when a deed
+        // lands, and re-running this whole effect to fetch one texture would re-key the scene.
+        for (let stage = 0; stage < SITE_STAGES; stage++) {
+          const svg = root.querySelector<SVGSVGElement>(`svg[data-figure="site"][data-figure-id="${stage}"]`);
+          if (svg) worldTextures[`site:${stage}`] = await textureFor(`site:${stage}`, svg, WORLD_SPRITE_SCALE.site);
+        }
         if (world.decor) {
           for (const kind of DECOR_KINDS) {
             const svg = root.querySelector<SVGSVGElement>(`svg[data-figure="decor"][data-figure-id="${kind}"]`);
@@ -183,6 +189,7 @@ export function SpriteSource({
       {world && <CastleFigure tier={world.castleType} />}
       {world && BUILDINGS.map((building) => <BuildingFigure key={building.id} id={building.id} />)}
       {world && <FoundationFigure />}
+      {world && Array.from({ length: SITE_STAGES }, (_, stage) => <SiteFigure key={stage} stage={stage} />)}
       {world?.decor && DECOR_KINDS.map((kind) => <DecorFigure key={kind} kind={kind} />)}
     </div>
   );
