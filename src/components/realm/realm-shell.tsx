@@ -10,7 +10,7 @@ import { useQuestTimer } from "@/hooks/use-quest-timer";
 import { getAssignmentQuestInfo } from "@/lib/actions/quest-assignments";
 import { markCeremonySeen } from "@/lib/actions/seasons";
 import { markRealmHelpSeen, setRealmDepth, setTutorialStep } from "@/lib/actions/realm-settings";
-import { buildWorldLayout } from "@/lib/realm/layout";
+import { arrivalText, buildWorldLayout, placeById } from "@/lib/realm/layout";
 import { applyDeedResult, type KingdomState } from "@/lib/realm/kingdom-state";
 import { renderSettingsFor } from "@/lib/realm/render-settings";
 import { VILLAGERS, villagerById } from "@/lib/realm/villagers";
@@ -195,6 +195,13 @@ function RealmOpen({
   const [selectedSlot, setSelectedSlot] = useState<number | null>(null);
   const [mana, setMana] = useState(MANA_MAX);
   const [notice, setNotice] = useState<string | null>(null);
+  // "Longwater. A little boat is pulled up on the shore." Its own state, not `notice`: a
+  // notice clears after two seconds, which is not long enough to read a name AND look up to
+  // see the thing it named.
+  const [arrival, setArrival] = useState<string | null>(null);
+  // Which of the five places this visit has already been told about. A ref, not state:
+  // nothing renders from it, and it must not re-arm when the shell re-renders.
+  const placesFound = useRef<Set<string>>(new Set());
   const [riding, setRiding] = useState(false);
   const [recess, setRecess] = useState<{ gleams: number; laps: number }>({ gleams: 0, laps: 0 });
   const [seed] = useState(() => Date.now() >>> 0);
@@ -415,6 +422,21 @@ function RealmOpen({
     }
     setReachNotice(settings.showStick ? `${villager.name} is here. Tap Talk.` : `${villager.name} is here. Press E to talk.`);
   }, [settings.showStick]);
+  /**
+   * The hero walked into a named place. The first arrival gets the name AND what is standing
+   * there; every one after that gets the name alone (see `arrivalText`).
+   *
+   * Not gated on `isChildView`: a grown-up walking the preview is walking the same world, and
+   * the five names are the world, not a child's progress. Stable identity, because the
+   * memoised World holds this function.
+   */
+  const onArrive = useCallback((id: string) => {
+    const place = placeById(id);
+    if (!place) return;
+    const first = !placesFound.current.has(id);
+    placesFound.current.add(id);
+    setArrival(arrivalText(place, first));
+  }, []);
   const onToggleRide = useCallback(() => {
     if (!canRide) return;
     setRiding((r) => !r);
@@ -578,6 +600,14 @@ function RealmOpen({
     const id = setTimeout(() => setToast(null), 4000);
     return () => clearTimeout(id);
   }, [toast]);
+
+  // An arrival holds four seconds, not two: it is two sentences and the second one is an
+  // instruction to look at something, which takes a moment longer than reading it.
+  useEffect(() => {
+    if (!arrival) return;
+    const id = setTimeout(() => setArrival(null), 4000);
+    return () => clearTimeout(id);
+  }, [arrival]);
 
   // A spell notice (a clear, a refusal, lost focus) clears itself the same way.
   // `reachNotice` is deliberately not in this effect: it holds while the hero is in reach
@@ -831,6 +861,7 @@ function RealmOpen({
     preview: previewText,
     ceremonyNotice: ceremonyNoticeText,
     toast,
+    arrival,
     notice: notice ?? reachNotice,
     calm,
   };
@@ -976,6 +1007,7 @@ function RealmOpen({
           interactive={!worldBusy}
           reachId={reachId}
           onReachChange={onReachChange}
+          onArrive={onArrive}
           onTalk={onTalk}
           risingId={risingId}
           selectedSpell={selectedSpell}

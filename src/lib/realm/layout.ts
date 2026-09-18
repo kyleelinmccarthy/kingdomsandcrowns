@@ -342,9 +342,9 @@ const SHORE_PAD = 2.5;
 const PLOTS: Rect[] = [rect(38, -11, 18, 12), rect(38, 11, 18, 12), rect(58, -2, 14, 14)];
 
 /**
- * Five tracks, every one starting at the village and ending at something worth finding: the
- * stone ring in the Old Wood, the cairn on the fells, Longwater's shore, the far plot on the
- * east lane, the milestone at the end of the south road. A child who is lost walks a track
+ * Five tracks, every one starting at the village and ending at one of the five named PLACES:
+ * the Ringstones in the Old Wood, Highcairn on the fells, Longwater's shore, Farfurrow at the
+ * end of the east lane, Appleway where the south road runs out. A child who is lost walks a track
  * inward and is home — which is why not one of them is a loop and not one of them is a ring
  * road. They are the map, for a child who cannot read one.
  */
@@ -355,6 +355,49 @@ const TRAILS: Vec2[][] = [
   [{ x: 14, z: -20 }, { x: 24, z: -28 }, { x: 33, z: -36 }], // the lake path, fording the stream
   [{ x: -14, z: -22 }, { x: -24, z: -34 }, { x: -33, z: -48 }], // the fell track to the cairn
 ];
+/**
+ * Ten fingerposts: one at the head of every track where it leaves the village, and one at
+ * every track's far end pointing back the way it came.
+ *
+ * The head post is the invitation — a child standing on the village edge can SEE that the dirt
+ * going off into the grass is a way to somewhere, rather than grass with a stripe on it. The far
+ * post is the one that matters more, and it is why there are ten and not five: five tracks leave
+ * the village and none of them is a loop, so a child who has walked out to the fells and turned
+ * round twice has exactly one problem, and it is "which way is home". A post at the end of the
+ * track answers it without a map, a compass or a grown-up.
+ *
+ * They carry no words. At WORLD_SPRITE_SCALE.decor the whole figure is a 64-pixel grid, and a
+ * place-name written across a signboard would be two pixels tall on screen — so the boards are
+ * blank, notched to read as carving, and the NAME is spoken on arrival instead. Lettering here
+ * would be a lie told at four hundred percent zoom.
+ */
+const SIGNPOSTS: Vec2[] = [
+  // At the village edge, beside the first tile of each track, in TRAILS order.
+  { x: 3, z: 20 }, // the south road, to Appleway
+  { x: -20.4, z: 6.6 }, // the west track, to the Ringstones
+  { x: 19.6, z: -4.6 }, // the east lane, to Farfurrow
+  { x: 11.8, z: -21.8 }, // the lake path, to Longwater
+  { x: -11.5, z: -23.5 }, // the fell track, to Highcairn
+  // ...and at the far end of each, pointing home.
+  { x: -44.5, z: 4 }, // beside the Ringstones' doorway, never standing in it
+  { x: -27.5, z: -43 }, // below Highcairn, where the fell track steepens
+  { x: 34.5, z: -33.5 }, // above Longwater's shore
+  { x: 48, z: -0.8 }, // at the gate of the far plot
+  { x: -5, z: 53.5 }, // where the south road runs out
+];
+/** How much open ground a fingerpost keeps around itself, so no tree ever grows in front of one. */
+const SIGNPOST_CLEAR = 3.4;
+/**
+ * And a clearing at the heart of every named place, for the same reason and a worse one.
+ *
+ * The fells are three hundred scattered stones, so the cairn — a heap of stones — was invisible
+ * in them: walked, it was impossible to tell the landmark from the scatter standing on top of
+ * it. A region's own texture burying the one thing worth walking to it for is the failure mode
+ * this whole slice exists to fix, so every place gets a hole in the scatter, and the thing at
+ * its centre gets to be the only thing there.
+ */
+const LANDMARK_CLEAR = 6;
+
 /**
  * A track is a RIBBON, not a row of stamps. At two units apart and two units across, two
  * consecutive tiles of a track running east met at their corners, and under this camera that is
@@ -472,6 +515,101 @@ function buildTerrain(): TerrainPatch[] {
   return [...patches, ...trailTiles()];
 }
 
+/* --- named places -------------------------------------------------------- */
+
+/**
+ * The five ends of the five tracks, and the only things in the world that have a NAME.
+ *
+ * A place is a circle and a sentence. It is deliberately NOT a prop, a collider or a piece of
+ * scenery: nothing is drawn from this table and nothing can be walked into because of it. It
+ * exists so that a child who walks west is TOLD they reached the Ringstones, and so that the
+ * same five words a grown-up says out loud ("go west and you'll see the standing stones") are
+ * the words the game uses.
+ *
+ * `line` is the second half of the arrival, and every one of them names the one thing standing
+ * out there. That is the whole contract of this feature: a name a child can repeat, and a
+ * promise a child can check. If a line here stops being true of the scenery below, the line is
+ * the bug.
+ *
+ * Because it is pure data and not scenery, it survives `lowStimulus`. A child who has the
+ * decorations turned off still walks onto the fells and is still told it is Highcairn — the
+ * calm world is quieter, not nameless.
+ */
+export type RealmPlace = {
+  id: string;
+  name: string;
+  /** The rest of the arrival: what is standing here, in one short clause. */
+  line: string;
+  position: Vec2;
+  /**
+   * How close counts as "here". Generous enough that a child aims at a region rather than a
+   * pixel, and no more than that: the camera shows about thirty units across, so a radius of
+   * thirteen announced "Highcairn" while the cairn was still off the top of the screen. Walked,
+   * that reads as the game naming somewhere the child cannot see, which is worse than silence.
+   */
+  radius: number;
+};
+
+export const PLACES: RealmPlace[] = [
+  { id: "ringstones", name: "The Ringstones", line: "Eight tall stones, and a lamp still lit.", position: { x: -53, z: 0 }, radius: 10 },
+  { id: "highcairn", name: "Highcairn", line: "The highest stones in the realm.", position: { x: -33, z: -48 }, radius: 10 },
+  { id: "longwater", name: "Longwater", line: "A little boat is pulled up on the shore.", position: { x: 33, z: -37 }, radius: 11 },
+  { id: "farfurrow", name: "Farfurrow", line: "The last field, and a scarecrow keeping it.", position: { x: 55, z: -1 }, radius: 11 },
+  { id: "appleway", name: "Appleway", line: "The road ends at a cart full of apples.", position: { x: -2, z: 55 }, radius: 11 },
+];
+
+const PLACE_BY_ID = new Map(PLACES.map((p) => [p.id, p]));
+
+export function placeById(id: string): RealmPlace | null {
+  return PLACE_BY_ID.get(id) ?? null;
+}
+
+/**
+ * How far past a place's radius the hero carries its name before it is left.
+ *
+ * Without it, a child standing on the rim and shuffling would re-arrive every few frames and
+ * the lane would stutter the same sentence forever. Leaving is a THIRD further out than
+ * arriving, which is more than the hero covers in a second at walking pace.
+ */
+export const PLACE_LEAVE = 1.33;
+
+/**
+ * Which named place the hero is standing in, given the one they were standing in last frame.
+ *
+ * Pure, and the caller keeps the memory: the scene holds the previous answer in a ref and
+ * speaks only when this returns something new. Nearest-wins if two ever overlap, which none
+ * of the five do today — it is there so that adding a sixth place cannot make the world
+ * announce two names in one frame.
+ */
+export function placeAt(p: Vec2, current: string | null): string | null {
+  const held = current ? PLACE_BY_ID.get(current) : undefined;
+  if (held && Math.hypot(p.x - held.position.x, p.z - held.position.z) <= held.radius * PLACE_LEAVE) return held.id;
+  let best: RealmPlace | null = null;
+  let bestReach = Infinity;
+  for (const place of PLACES) {
+    // Compared as a FRACTION of each place's own radius, so a big region does not win a
+    // point that sits well inside a small one just by being nearer in raw units.
+    const reach = Math.hypot(p.x - place.position.x, p.z - place.position.z) / place.radius;
+    if (reach <= 1 && reach < bestReach) {
+      best = place;
+      bestReach = reach;
+    }
+  }
+  return best ? best.id : null;
+}
+
+/**
+ * What the speech lane says on arrival.
+ *
+ * The first time, the name AND what is here — because the point of the walk is that something
+ * is out there and a child should be told what to look at. Every time after that, the name
+ * alone: the world has already made its promise and a child who came back does not need it
+ * explained again. That is the whole difference between a world and a tour guide.
+ */
+export function arrivalText(place: RealmPlace, first: boolean): string {
+  return first ? `${place.name}. ${place.line}` : `${place.name}.`;
+}
+
 /* --- scenery ------------------------------------------------------------- */
 
 type Spot = { kind: string; x: number; z: number; scale: number; solid: boolean };
@@ -485,6 +623,11 @@ function openGround(p: Vec2, pad: number): boolean {
   if (inRect(p, VILLAGE_KEEP)) return false;
   if (inRect(p, STREAM, WATER_CLEAR) || DEEP.some((r) => inRect(p, r, WATER_CLEAR))) return false;
   if (PLOTS.some((r) => inRect(p, r, pad))) return false;
+  // A fingerpost hidden behind an oak is a fingerpost that does not exist. The scatter's own
+  // `gap` is far too small to guarantee it (1.35 in the wood), so the posts get their own hole
+  // in the world — the same rule the tracks have, and for exactly the same reason.
+  for (const post of SIGNPOSTS) if (Math.hypot(p.x - post.x, p.z - post.z) < SIGNPOST_CLEAR) return false;
+  for (const place of PLACES) if (Math.hypot(p.x - place.position.x, p.z - place.position.z) < LANDMARK_CLEAR) return false;
   for (const line of TRAILS) {
     for (let s = 0; s < line.length - 1; s++) if (distToSegment(p, line[s], line[s + 1]) < TRAIL_CLEAR) return false;
   }
@@ -585,9 +728,18 @@ type Place = (spot: Spot) => void;
  * `phase` turns the ring. The west track ends dead on the stone ring's east point, and a solid
  * stone standing in the mouth of a track is a track that ends in a boulder — half a step of turn
  * puts a GAP there instead, which is what a way into a clearing should be.
+ *
+ * `skip` leaves one position EMPTY, and that turn of the screw is worth the parameter. A turned
+ * ring of solid stones still only leaves the chord between two neighbours as its way in: at eight
+ * stones on a radius of seven that is a gate 2.2 units wide, and an eight-year-old aiming a hero
+ * at a 2.2-unit gate bounces off the stone beside it and gives up. Omitting one position instead
+ * makes a DOORWAY two chords across — six units of clear ground, on the track's own line — and
+ * leaves the rest of the circle close enough to read as a wall you go in through rather than a
+ * dotted line you wander across. A stone circle with one way in is also simply the truth.
  */
-function ring(place: Place, centre: Vec2, radius: number, count: number, kind: string, scale: number, solid: boolean, phase = 0): void {
+function ring(place: Place, centre: Vec2, radius: number, count: number, kind: string, scale: number, solid: boolean, phase = 0, skip?: number): void {
   for (let i = 0; i < count; i++) {
+    if (i === skip) continue;
     const a = (i / count) * Math.PI * 2 + phase;
     place({ kind, x: centre.x + Math.cos(a) * radius, z: centre.z + Math.sin(a) * radius, scale, solid });
   }
@@ -632,6 +784,11 @@ function buildScenery(): Prop[] {
   // lap ring and the ceremony plaza, and layout.test.ts still holds them to it.
   for (const spot of DECOR_SPOTS) place({ kind: spot.kind, x: spot.x, z: spot.z, scale: 1, solid: false });
 
+  // The fingerposts go down FIRST, before a single tree, so that everything scattered
+  // afterwards has to make room for them (`openGround` holds SIGNPOST_CLEAR around each).
+  // Never solid: a post a child bounces off at the mouth of a track is a closed gate.
+  for (const post of SIGNPOSTS) place({ kind: "signpost", x: post.x, z: post.z, scale: 2.2, solid: false });
+
   /**
    * THE OLD WOOD, west.
    *
@@ -644,19 +801,43 @@ function buildScenery(): Prop[] {
    */
   sow({ area: rect(-50, 0, 52, 66), count: 720, gap: 1.35, kinds: ["oak", "pine", "oak", "pine", "oak"], scale: [1, 1.9], soften: 0.55 });
   sow({ area: rect(-50, 0, 52, 66), count: 260, gap: 1.4, kinds: ["bush"], scale: [0.75, 1.3], soften: 0.6 });
-  // The clearing at the end of the west track: a ring of standing stones round a lit lantern.
-  ring(place, { x: -54, z: 0 }, 5, 8, "rock", 1.5, true, Math.PI / 8);
-  place({ kind: "lantern", x: -54, z: 0, scale: 1.2, solid: false });
+  // THE RINGSTONES, at the end of the west track: eight standing stones round a lit lantern.
+  //
+  // They were boulders, and that was the bug. A `rock` draws on the square PROP_SPRITE, so a
+  // stone of the ring stood 1.35 units tall against trees of 1.6 to 3 — a child walked to the
+  // end of the west track and found pebbles in a wood. A `menhir` is its own figure: tall,
+  // narrow and carved, and at this scale it clears the undergrowth around it.
+  //
+  // The radius went 5 → 7.5, and the eighth stone became a DOORWAY, both for the hero rather
+  // than for the look. Eight solid stones evenly spaced leave only the chord between two
+  // neighbours as a way in — 1.35 units at the old radius, 2.5 at this one — and a hero
+  // walking due west a couple of units off the centre line simply meets a stone and stops.
+  // Walked, that is exactly what happened. `skip` is the fix; see `ring` for the arithmetic.
+  // Nine positions, eight stones: the missing one is at phase 0, which is due EAST, which is
+  // the line the west track arrives on. A child walking the track walks straight in the door.
+  ring(place, { x: -54, z: 0 }, 7.5, 9, "menhir", 2.5, true, 0, 0);
+  place({ kind: "lantern", x: -54, z: 0, scale: 1.6, solid: false });
   // Three great oaks, solid, far apart: landmarks to steer by inside the wood.
   for (const g of [{ x: -30, z: 18 }, { x: -38, z: -20 }, { x: -62, z: 12 }]) place({ kind: "oak", x: g.x, z: g.z, scale: 2, solid: true });
 
   // THE FELLS, north and north-west: rock, gorse, and wind-bent pines behind the castle.
   sow({ area: rect(-36, -56, 60, 34), count: 320, gap: 1.7, kinds: ["rock", "rock", "bush"], scale: [0.7, 1.9], solidAbove: 1.6, soften: 0.6 });
   sow({ area: rect(-36, -56, 60, 34), count: 140, gap: 2.1, kinds: ["pine"], scale: [1, 1.6], soften: 0.55 });
-  // The cairn at the end of the fell track: five stones round a sixth, the tallest thing up here.
-  ring(place, { x: -33, z: -50 }, 1.7, 5, "rock", 1.6, true);
-  place({ kind: "rock", x: -33, z: -50, scale: 2.2, solid: true });
-  place({ kind: "lantern", x: -29, z: -47, scale: 1, solid: false });
+  // HIGHCAIRN, at the end of the fell track: five stones round a sixth, the tallest thing up
+  // here, with a beacon burning beside it. The centre stone and the lamp are both bigger than
+  // they were: this is the top of the world and it has to LOOK like it from halfway up the
+  // track, or the last thirty units of walking are uphill towards nothing.
+  ring(place, { x: -33, z: -50 }, 1.9, 5, "rock", 1.8, true);
+  place({ kind: "rock", x: -33, z: -50, scale: 3, solid: true });
+  // ...and a marker stone standing on it, taller than anything else up here. A cairn ALONE
+  // does not read: the fells are made of scattered boulders and a heap of boulders is just a
+  // denser patch of fell. One menhir on top is what turns it into a monument somebody built,
+  // and it rhymes with the Ringstones on purpose — the same old people, two different marks.
+  // Set BEHIND the heap, not on its south face: the fell track's last tile lands at (-33, -48),
+  // and a solid stone of this size standing there ends the track in a wall — layout.test.ts's
+  // walk caught exactly that. From here it still rises out of the cairn and blocks nothing.
+  place({ kind: "menhir", x: -34.2, z: -51.4, scale: 3.4, solid: true });
+  place({ kind: "lantern", x: -29.5, z: -47, scale: 2, solid: false });
 
   // LONGWATER, north-east: reeds along every bank, shingle, and a lantern where the lake path
   // arrives — the fishing spot. The reeds stand close enough to be a reed BED, which is also the
@@ -664,7 +845,12 @@ function buildScenery(): Prop[] {
   for (const r of LAKE) border(place, r, SHORE_PAD + 0.8, 1.5, "bush", 0.85);
   sow({ area: rect(42, -48, 40, 30), count: 130, gap: 1.9, kinds: ["rock", "bush"], scale: [0.75, 1.4], soften: 0.6 });
   sow({ area: rect(46, -64, 46, 18), count: 110, gap: 1.9, kinds: ["pine"], scale: [1, 1.7], soften: 0.6 });
-  place({ kind: "lantern", x: 33, z: -38, scale: 1, solid: false });
+  place({ kind: "lantern", x: 33, z: -38, scale: 1.4, solid: false });
+  // LONGWATER's own find: a little boat pulled up where the lake path meets the water, with
+  // its oars beside it. Not solid, and deliberately drawn ON the shore rather than out on the
+  // lake — deep water is a collider, so a boat afloat would be a boat a child can never stand
+  // next to. Pulled up on the shingle, they can walk right to the gunwale.
+  place({ kind: "boat", x: 30.5, z: -37.4, scale: 2.4, solid: false });
   // The ford: three stepping stones where the lake path crosses the millstream.
   for (const x of [27.4, 29, 30.6]) place({ kind: "rock", x, z: -32.4, scale: 0.7, solid: false });
   // The mill pool at the stream's end, close enough to the village to be found in the first minute.
@@ -681,6 +867,10 @@ function buildScenery(): Prop[] {
     row(place, { x: x0, z: z0 + 1.6 }, { x: x0, z: z1 - 1.6 }, 1.6, "fence", 1);
     place({ kind: "lantern", x: x1, z: plot.z, scale: 1, solid: false });
   }
+  // FARFURROW's own find, standing in the middle of the far plot where the east lane runs out:
+  // a scarecrow, with a crow sitting on its arm that plainly is not frightened of it. Tall,
+  // because a field is flat and the whole point is to see it from the lane.
+  place({ kind: "scarecrow", x: 56, z: -1, scale: 2.8, solid: false });
   sow({ area: rect(46, 0, 56, 50), count: 170, gap: 2.2, kinds: ["oak", "bush", "rock"], scale: [0.9, 1.5], soften: 0.6 });
 
   // THE ORCHARD, south of the gate: planted in rows either side of the road, so the first thing
@@ -692,9 +882,13 @@ function buildScenery(): Prop[] {
   }
   row(place, { x: -20, z: 26 }, { x: -20, z: 50 }, 1.8, "fence", 1);
   row(place, { x: 20, z: 26 }, { x: 20, z: 50 }, 1.8, "fence", 1);
-  // The milestone where the south road runs out.
-  place({ kind: "lantern", x: -1.5, z: 57, scale: 1.1, solid: false });
-  place({ kind: "rock", x: -7, z: 57, scale: 1.4, solid: true });
+  // APPLEWAY, where the south road runs out: a carved milestone, a lamp, and a cart standing
+  // heaped with apples from the orchard the road came through. This is the FIRST place a child
+  // finds — it is straight out of the south gate, the way the cobbles already point — so it is
+  // the one that has to be worth arriving at, or none of the other four get walked.
+  place({ kind: "lantern", x: -1.5, z: 57, scale: 1.3, solid: false });
+  place({ kind: "menhir", x: -7, z: 57, scale: 1.7, solid: true });
+  place({ kind: "cart", x: 3, z: 55.5, scale: 2.6, solid: false });
   sow({ area: rect(0, 50, 100, 36), count: 210, gap: 2.2, kinds: ["oak", "pine", "bush", "rock"], scale: [0.9, 1.6], soften: 0.6 });
 
   // THE WILD EDGE. The hero is clamped at WORLD_SIZE / 2; a thicket standing on that line is

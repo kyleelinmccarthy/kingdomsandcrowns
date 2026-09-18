@@ -17,7 +17,7 @@
  */
 
 export type ProblemKind = "spriteError" | "kingdomError" | "ceremonyError" | "questTimer" | "lastMinute" | "preview";
-export type SpeechKind = "ceremony" | "toast" | "notice";
+export type SpeechKind = "ceremony" | "toast" | "arrival" | "notice";
 
 export type RealmProblem = { kind: ProblemKind; text: string; actionLabel: string | null };
 export type RealmSpeech = { kind: SpeechKind; text: string; tone: "stage" | "cheer" | "plain" };
@@ -33,6 +33,18 @@ export type MessageInput = {
   preview: string | null; // the parent's intro, with the gate note already appended
   ceremonyNotice: string | null;
   toast: string | null;
+  /**
+   * "Longwater. A little boat is pulled up on the shore." — spoken once, when the hero walks
+   * into one of the five named places. It sits ABOVE `notice` and below `toast` on purpose.
+   *
+   * Above the notice, because the notice lane carries the reach line, which HOLDS for as long
+   * as the hero is standing next to a villager rather than clearing on a timer — and while the
+   * five places hold no villagers today, a notice that never yields would be the one thing able
+   * to swallow an arrival whole. Below the toast, because a toast is the kingdom growing and an
+   * arrival is only the world being itself; a child who finishes a building the moment they walk
+   * onto the fells should be told about the building.
+   */
+  arrival: string | null;
   notice: string | null;
   calm: boolean; // reducedMotion || lowStimulus: a cheer becomes plain
 };
@@ -75,12 +87,13 @@ export function pickProblem(input: MessageInput): RealmProblem | null {
   return null;
 }
 
-export const SPEECH_ORDER: SpeechKind[] = ["ceremony", "toast", "notice"];
+export const SPEECH_ORDER: SpeechKind[] = ["ceremony", "toast", "arrival", "notice"];
 
 /** Where each spoken line comes from; `null` means that kind is not live. */
 const SPEECH_TEXT: Record<SpeechKind, (input: MessageInput) => string | null> = {
   ceremony: (i) => i.ceremonyNotice || null,
   toast: (i) => i.toast || null,
+  arrival: (i) => i.arrival || null,
   notice: (i) => i.notice || null,
 };
 
@@ -91,6 +104,10 @@ const SPEECH_TEXT: Record<SpeechKind, (input: MessageInput) => string | null> = 
 const SPEECH_TONE: Record<SpeechKind, (input: MessageInput) => RealmSpeech["tone"]> = {
   ceremony: () => "stage",
   toast: (i) => (i.calm ? "plain" : "cheer"),
+  // An arrival cheers, on the same terms a rise toast does: finding somewhere IS the reward
+  // here, and a flat sentence would make five places feel like five labels. A child who asked
+  // for less gets the same words without the celebration.
+  arrival: (i) => (i.calm ? "plain" : "cheer"),
   notice: () => "plain",
 };
 

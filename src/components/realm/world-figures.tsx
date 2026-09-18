@@ -19,7 +19,17 @@
 
 export const CASTLE_TIERS = ["campsite", "cottage", "watchtower", "keep", "manor", "castle", "fortress", "citadel"] as const;
 export type CastleTier = (typeof CASTLE_TIERS)[number];
-export const DECOR_KINDS = ["oak", "pine", "bush", "rock", "fence", "lantern"] as const;
+/**
+ * The decorations that have art. The first six are the village's; the last five are the
+ * world's, and each one is a NAMED PLACE's reason to exist — the fingerpost that says a way
+ * goes here, the standing stones at the end of the west track, the boat on Longwater, the
+ * scarecrow in the far field, the apple cart where the south road runs out.
+ *
+ * A kind is one InstancedMesh and so one draw call, however many of it stand in the world.
+ * Five new kinds is five draws, and that is the whole cost of the five places: the ten
+ * fingerposts share ONE of them, and the eight menhirs and the milestone share another.
+ */
+export const DECOR_KINDS = ["oak", "pine", "bush", "rock", "fence", "lantern", "signpost", "menhir", "boat", "scarecrow", "cart"] as const;
 export type DecorKind = (typeof DECOR_KINDS)[number];
 /**
  * The stages a site shows before it is built, one per deed still owed. A site
@@ -64,6 +74,21 @@ const SHADE = "#3a3340"; // an opening with nothing behind it yet
 const GRASS = "#24492e";
 const SMOKE = "#cfd3d8";
 const ROPE = "#d9c9a0";
+const BOARD = "#a07b4a"; // a sawn plank: a signboard, a gunwale, a cart rail
+const LICHEN = "#7d9a4e";
+const APPLE = "#c0563d";
+const APPLE_LIT = "#e07d5a";
+const CLOTH = "#4f6178";
+const CLOTH_DARK = "#36455a";
+const STRAW_LIT = "#e3c887";
+const CROW = "#1e1e26";
+// Raw stone, as the `rock` figure already draws it. A menhir in the castle's blue-grey
+// masonry tones read as a polished pillar somebody had made; in these it reads as something
+// the fells were quarried for.
+const CRAG_LIT = "#9a9aa8";
+const CRAG = "#6e6e78";
+const CRAG_DARK = "#5a5a64";
+const CRAG_DEEP = "#43434c";
 
 function Frame({ figure, id, children, size = 96 }: { figure: string; id?: string; children: React.ReactNode; size?: number }) {
   return (
@@ -1029,6 +1054,54 @@ export function SiteFigure({ stage }: { stage: number }) {
   );
 }
 
+/**
+ * The heap in the apple cart: three rows of whole-pixel squares, each with one lit pixel on
+ * its upper left and one shaded pixel on its lower right. Three pixels is the smallest thing
+ * that can read as round at this rasterisation, and roundness is the whole job — a child has
+ * to see fruit, not a red box, from across a field.
+ */
+function AppleHeap() {
+  const rows: [number, number[]][] = [
+    [22, [12, 18, 24, 30, 36, 42, 48]],
+    [17, [15, 21, 27, 33, 39, 45]],
+    [12, [21, 27, 33, 39]],
+  ];
+  const out: React.ReactNode[] = [];
+  for (const [y, xs] of rows) {
+    for (const x of xs) {
+      // Two crossed rects with the four corner pixels left out: the smallest shape on this
+      // grid that reads ROUND. Drawn as a 5x5 square it read as a brick, and a cart of bricks
+      // is not what the line at Appleway promises.
+      out.push(<rect key={`a${x}-${y}`} x={x + 1} y={y} width={3} height={5} fill={APPLE} />);
+      out.push(<rect key={`b${x}-${y}`} x={x} y={y + 1} width={5} height={3} fill={APPLE} />);
+      out.push(<rect key={`l${x}-${y}`} x={x + 1} y={y + 1} width={2} height={1} fill={APPLE_LIT} />);
+      out.push(<rect key={`d${x}-${y}`} x={x + 3} y={y + 3} width={1} height={1} fill={ROOF_DARK} />);
+    }
+  }
+  out.push(<rect key="leaf1" x={26} y={10} width={3} height={2} fill={LEAF} />);
+  out.push(<rect key="leaf2" x={41} y={15} width={3} height={2} fill={LEAF_LIGHT} />);
+  return <>{out}</>;
+}
+
+/**
+ * One cart wheel, as two octagons and a hub. A circle here would rasterise to a grey smear
+ * with smoothing off; an octagon on whole pixels stays a wheel at every zoom, which is the
+ * same trick `Roof` plays with a gable and `ArchSpan` with an arch.
+ */
+function Wheel({ cx, cy }: { cx: number; cy: number }) {
+  const ring = (r: number) => {
+    const s = Math.round(r * 0.45);
+    return `${cx - s},${cy - r} ${cx + s},${cy - r} ${cx + r},${cy - s} ${cx + r},${cy + s} ${cx + s},${cy + r} ${cx - s},${cy + r} ${cx - r},${cy + s} ${cx - r},${cy - s}`;
+  };
+  return (
+    <>
+      <polygon points={ring(9)} fill={WOOD} />
+      <polygon points={ring(5)} fill={WOOD_DARK} />
+      <rect x={cx - 1} y={cy - 1} width={3} height={3} fill={BOARD} />
+    </>
+  );
+}
+
 export function DecorFigure({ kind }: { kind: string }) {
   let body: React.ReactNode;
   switch (kind) {
@@ -1094,6 +1167,154 @@ export function DecorFigure({ kind }: { kind: string }) {
           <rect x={30} y={3} width={4} height={3} fill={STONE_DARK} />
           <rect x={22} y={54} width={20} height={4} fill={STONE_DARK} />
           <rect x={22} y={54} width={20} height={1} fill={STONE} />
+        </>
+      );
+      break;
+    /**
+     * A fingerpost. Two boards on a capped post, one pointing left and one right, each notched
+     * with two lines that read as carving — because they are the ONLY honest way to say
+     * "writing" here. The figure is 64 pixels across and draws at about eighty on screen, so a
+     * real place-name would be a two-pixel smear; the name is spoken on arrival instead, and
+     * the post's whole job is to say "a way goes from here, and somebody marked it".
+     */
+    case "signpost":
+      body = (
+        <>
+          <rect x={26} y={1} width={12} height={4} fill={WOOD_DARK} />
+          <rect x={26} y={1} width={12} height={1} fill={BOARD} />
+          <rect x={29} y={5} width={6} height={53} fill={WOOD} />
+          <rect x={29} y={5} width={2} height={53} fill={WOOD_LIT} />
+          <rect x={33} y={5} width={2} height={53} fill={WOOD_DARK} />
+          <polygon points="4,18 12,13 30,13 30,23 12,23" fill={BOARD} />
+          <rect x={12} y={21} width={18} height={2} fill={WOOD_DARK} />
+          <rect x={14} y={16} width={12} height={1} fill={WOOD_DARK} />
+          <rect x={14} y={19} width={8} height={1} fill={WOOD_DARK} />
+          <polygon points="34,29 52,29 60,34 52,39 34,39" fill={BOARD} />
+          <rect x={34} y={37} width={18} height={2} fill={WOOD_DARK} />
+          <rect x={38} y={32} width={12} height={1} fill={WOOD_DARK} />
+          <rect x={38} y={35} width={8} height={1} fill={WOOD_DARK} />
+          <rect x={22} y={54} width={20} height={4} fill={DIRT_DARK} />
+          <rect x={22} y={54} width={20} height={1} fill={DIRT} />
+        </>
+      );
+      break;
+    /**
+     * A standing stone, and the reason the Ringstones are not eight boulders any more: a `rock`
+     * is drawn on the square sprite and stands about as tall as a bush, so a ring of them read
+     * as a ring of pebbles. This one is narrow and nearly the full height of the grid, with
+     * three cut lines for carving and two patches of lichen to say it has stood a long time.
+     */
+    case "menhir":
+      body = (
+        <>
+          {/* Leaning, chipped, and carved with a cup-and-ring mark rather than lines of text.
+              Both of those are corrections from walking it: upright with a domed top it read
+              as a bottle, and upright with a flat top and three level cuts across it read as a
+              GRAVESTONE — a ring of eight of those in a dark wood is the wrong feeling for an
+              eight-year-old by a wide margin. A lean and a spiral fix it, and a cup-and-ring is
+              what is actually carved on the real ones. */}
+          <polygon points="21,58 23,36 24,18 30,6 38,10 37,26 40,42 42,58" fill={CRAG} />
+          <polygon points="30,6 38,10 37,13 29,9" fill={CRAG_LIT} />
+          <polygon points="21,58 23,36 24,18 30,6 32,7 26,19 25,37 24,58" fill={CRAG_LIT} />
+          <polygon points="35,9 38,10 37,26 40,42 42,58 36,58 34,42 35,26" fill={CRAG_DARK} />
+          <polygon points="28,18 34,18 37,21 37,27 34,30 28,30 25,27 25,21" fill={CRAG_DEEP} />
+          <polygon points="29,20 33,20 35,22 35,26 33,28 29,28 27,26 27,22" fill={CRAG} />
+          <rect x={30} y={23} width={3} height={3} fill={CRAG_DEEP} />
+          <polygon points="27,36 30,36 29,48 26,48" fill={CRAG_DARK} />
+          <rect x={22} y={46} width={4} height={3} fill={LICHEN} />
+          <rect x={37} y={31} width={3} height={4} fill={LICHEN} />
+          <rect x={17} y={56} width={28} height={2} fill={CRAG_DEEP} />
+        </>
+      );
+      break;
+    /**
+     * A rowing boat pulled up on the shingle, oar shipped over the side. Drawn ON the bank
+     * rather than afloat, because deep water is a collider: a boat out on Longwater would be a
+     * boat no child could ever stand beside.
+     */
+    case "boat":
+      body = (
+        <>
+          <rect x={4} y={30} width={4} height={11} fill={WOOD} />
+          <rect x={56} y={30} width={4} height={11} fill={WOOD_DARK} />
+          <polygon points="6,40 58,40 50,54 14,54" fill={WOOD} />
+          <polygon points="32,40 58,40 50,54 32,54" fill={WOOD_DARK} />
+          <rect x={11} y={45} width={42} height={1} fill={WOOD_DARK} />
+          <rect x={13} y={49} width={38} height={1} fill={WOOD_DARK} />
+          <rect x={6} y={37} width={52} height={4} fill={BOARD} />
+          <rect x={6} y={40} width={52} height={1} fill={WOOD_DARK} />
+          <rect x={18} y={41} width={10} height={3} fill={BOARD} />
+          <rect x={36} y={41} width={10} height={3} fill={BOARD} />
+          <polygon points="46,42 50,42 58,21 55,20" fill={WOOD} />
+          <polygon points="52,14 58,17 56,23 51,20" fill={BOARD} />
+          <rect x={10} y={53} width={9} height={3} fill={ROPE} />
+          <rect x={12} y={51} width={5} height={2} fill={ROPE} />
+          <rect x={12} y={55} width={40} height={3} fill={DIRT} />
+          <rect x={12} y={57} width={40} height={1} fill={DIRT_DARK} />
+        </>
+      );
+      break;
+    /**
+     * A scarecrow, with a crow sitting on its arm that is plainly not frightened of it. The
+     * joke is the point: it is the one thing in the world a child can be told about and then
+     * check for themselves ("there's a crow ON it"), which is what makes a name a place.
+     */
+    case "scarecrow":
+      body = (
+        <>
+          <rect x={30} y={18} width={4} height={40} fill={WOOD} />
+          <rect x={32} y={18} width={2} height={40} fill={WOOD_DARK} />
+          <rect x={13} y={26} width={38} height={3} fill={WOOD} />
+          <rect x={13} y={28} width={38} height={1} fill={WOOD_DARK} />
+          <rect x={9} y={24} width={9} height={3} fill={THATCH} />
+          <rect x={11} y={29} width={7} height={2} fill={THATCH_DARK} />
+          <rect x={46} y={24} width={9} height={3} fill={THATCH} />
+          <rect x={46} y={29} width={7} height={2} fill={THATCH_DARK} />
+          <polygon points="19,26 45,26 47,46 17,46" fill={CLOTH} />
+          <polygon points="33,26 45,26 47,46 33,46" fill={CLOTH_DARK} />
+          <rect x={19} y={46} width={4} height={4} fill={CLOTH} />
+          <rect x={27} y={46} width={5} height={5} fill={CLOTH} />
+          <rect x={37} y={46} width={4} height={3} fill={CLOTH_DARK} />
+          <rect x={22} y={50} width={3} height={6} fill={THATCH} />
+          <rect x={30} y={50} width={3} height={7} fill={THATCH} />
+          <rect x={38} y={49} width={3} height={5} fill={THATCH_DARK} />
+          <rect x={24} y={8} width={16} height={16} fill={THATCH} />
+          <rect x={24} y={8} width={2} height={16} fill={STRAW_LIT} />
+          <rect x={36} y={8} width={4} height={16} fill={THATCH_DARK} />
+          <rect x={23} y={23} width={18} height={2} fill={ROPE} />
+          <rect x={28} y={13} width={3} height={3} fill={WOOD_DARK} />
+          <rect x={34} y={13} width={3} height={3} fill={WOOD_DARK} />
+          <rect x={28} y={19} width={9} height={1} fill={WOOD_DARK} />
+          <rect x={29} y={18} width={1} height={3} fill={WOOD_DARK} />
+          <rect x={32} y={18} width={1} height={3} fill={WOOD_DARK} />
+          <rect x={35} y={18} width={1} height={3} fill={WOOD_DARK} />
+          <rect x={19} y={4} width={26} height={3} fill="#7a5a33" />
+          <rect x={19} y={6} width={26} height={1} fill={WOOD_DARK} />
+          <rect x={25} y={0} width={14} height={4} fill="#8d6a3c" />
+          <polygon points="44,20 38,18 38,23 44,24" fill={CROW} />
+          <rect x={43} y={20} width={9} height={5} fill={CROW} />
+          <rect x={49} y={16} width={5} height={5} fill={CROW} />
+          <polygon points="54,17 59,19 54,21" fill={GOLD_DEEP} />
+          <rect x={51} y={17} width={1} height={1} fill={GOLD} />
+          <rect x={24} y={56} width={16} height={2} fill={DIRT_DARK} />
+        </>
+      );
+      break;
+    /** A hand cart heaped with apples, standing where the orchard road runs out. */
+    case "cart":
+      body = (
+        <>
+          <AppleHeap />
+          <rect x={10} y={30} width={44} height={14} fill={WOOD} />
+          <rect x={10} y={30} width={44} height={2} fill={WOOD_LIT} />
+          <rect x={10} y={36} width={44} height={1} fill={WOOD_DARK} />
+          <rect x={10} y={42} width={44} height={2} fill={WOOD_DARK} />
+          <rect x={8} y={27} width={48} height={3} fill={BOARD} />
+          <rect x={8} y={29} width={48} height={1} fill={WOOD_DARK} />
+          <polygon points="10,36 2,46 2,49 10,40" fill={WOOD} />
+          <Wheel cx={20} cy={46} />
+          <Wheel cx={44} cy={46} />
+          <rect x={10} y={55} width={44} height={2} fill={DIRT_DARK} />
         </>
       );
       break;

@@ -47,7 +47,7 @@ describe("world figures", () => {
     const { container } = render(<FoundationFigure />);
     assertInside(container.querySelector<SVGSVGElement>('svg[data-figure="foundation"]')!);
     cleanup();
-    expect(DECOR_KINDS).toEqual(["oak", "pine", "bush", "rock", "fence", "lantern"]);
+    expect(DECOR_KINDS).toEqual(["oak", "pine", "bush", "rock", "fence", "lantern", "signpost", "menhir", "boat", "scarecrow", "cart"]);
     for (const kind of DECOR_KINDS) {
       const { container: c } = render(<DecorFigure kind={kind} />);
       assertInside(c.querySelector<SVGSVGElement>(`svg[data-figure="decor"][data-figure-id="${kind}"]`)!);

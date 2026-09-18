@@ -11,6 +11,7 @@ const QUIET: MessageInput = {
   preview: null,
   ceremonyNotice: null,
   toast: null,
+  arrival: null,
   notice: null,
   calm: false,
 };
@@ -25,6 +26,7 @@ const TIMER_DONE = "Your Math timer finished.";
 const HAIL = "Hail, Lily, Crown of Spring!";
 const WELL_STANDS = "The Village Well stands.";
 const NOT_ENOUGH_MANA = "Not enough mana yet.";
+const FOUND_LONGWATER = "Longwater. A little boat is pulled up on the shore.";
 
 describe("PROBLEM_ORDER", () => {
   it("is the closed list of problem kinds, in written priority order", () => {
@@ -108,7 +110,7 @@ describe("pickProblem", () => {
 
 describe("SPEECH_ORDER", () => {
   it("is the closed list of speech kinds, in written priority order", () => {
-    expect(SPEECH_ORDER).toEqual(["ceremony", "toast", "notice"]);
+    expect(SPEECH_ORDER).toEqual(["ceremony", "toast", "arrival", "notice"]);
   });
 });
 
@@ -121,9 +123,10 @@ describe("pickSpeech", () => {
     const clear: Record<SpeechKind, Partial<MessageInput>> = {
       ceremony: { ceremonyNotice: null },
       toast: { toast: null },
+      arrival: { arrival: null },
       notice: { notice: null },
     };
-    let live = input({ ceremonyNotice: HAIL, toast: WELL_STANDS, notice: NOT_ENOUGH_MANA });
+    let live = input({ ceremonyNotice: HAIL, toast: WELL_STANDS, arrival: FOUND_LONGWATER, notice: NOT_ENOUGH_MANA });
     for (const kind of SPEECH_ORDER) {
       expect(pickSpeech(live)?.kind).toBe(kind);
       live = { ...live, ...clear[kind] };
@@ -174,7 +177,19 @@ const PROBLEM_KINDS = {
   preview: 1,
 } satisfies Record<ProblemKind, 1>;
 
-const SPEECH_KINDS = { ceremony: 1, toast: 1, notice: 1 } satisfies Record<SpeechKind, 1>;
+const SPEECH_KINDS = { ceremony: 1, toast: 1, arrival: 1, notice: 1 } satisfies Record<SpeechKind, 1>;
+
+describe("an arrival", () => {
+  it("cheers like a toast, and goes plain for a hero who asked for less", () => {
+    expect(pickSpeech(input({ arrival: FOUND_LONGWATER }))).toEqual({ kind: "arrival", text: FOUND_LONGWATER, tone: "cheer" });
+    expect(pickSpeech(input({ arrival: FOUND_LONGWATER, calm: true }))?.tone).toBe("plain");
+  });
+
+  it("outranks the reach line, which holds forever, and yields to a toast, which does not", () => {
+    expect(pickSpeech(input({ arrival: FOUND_LONGWATER, notice: "Ada is here. Press E to talk." }))?.kind).toBe("arrival");
+    expect(pickSpeech(input({ arrival: FOUND_LONGWATER, toast: WELL_STANDS }))?.kind).toBe("toast");
+  });
+});
 
 describe("the closed orders", () => {
   it("orders every problem kind the union declares, once each", () => {
@@ -205,6 +220,7 @@ describe("the closed orders", () => {
     const live: Record<SpeechKind, Partial<MessageInput>> = {
       ceremony: { ceremonyNotice: "Hail!" },
       toast: { toast: "The Village Well stands." },
+      arrival: { arrival: FOUND_LONGWATER },
       notice: { notice: "Not enough mana." },
     };
     for (const kind of SPEECH_ORDER) {

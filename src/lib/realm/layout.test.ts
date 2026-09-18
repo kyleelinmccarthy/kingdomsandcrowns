@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildWorldLayout, buildingFootprint, CASTLE_FOOTPRINTS, BUILDING_SLOTS, WORLD_SIZE, VILLAGE_SIZE, CASTLE_POSITION, SPAWN, FOUNDATION_COLOR, BANNER_SIZE, BANNER_MARGIN, DECOR_SPOTS, SCENERY, TERRAIN, spriteSizeFor, type Prop, type Vec2 } from "./layout";
+import { arrivalText, buildWorldLayout, buildingFootprint, CASTLE_FOOTPRINTS, BUILDING_SLOTS, WORLD_SIZE, VILLAGE_SIZE, CASTLE_POSITION, SPAWN, FOUNDATION_COLOR, BANNER_SIZE, BANNER_MARGIN, DECOR_SPOTS, PLACES, PLACE_LEAVE, placeAt, placeById, SCENERY, TERRAIN, spriteSizeFor, type Prop, type Vec2 } from "./layout";
 import { BUILDINGS } from "@/lib/utils/kingdom";
 import { REACH, VILLAGER_OFFSET } from "./villagers";
 import { HERO_RADIUS } from "./movement";
@@ -275,10 +275,10 @@ describe("objective focus and villager status", () => {
 describe("the world beyond the village", () => {
   const layout = buildWorldLayout({ castleType: "citadel", buildings: BUILDINGS.map((b) => ({ id: b.id, done: 0, total: b.deedsToBuild, complete: false })) });
   const HALF = WORLD_SIZE / 2;
-  // The six decorations that have art (world-figures.tsx's DECOR_KINDS). Hard-coded rather
+  // The decorations that have art (world-figures.tsx's DECOR_KINDS). Hard-coded rather
   // than imported so this pure test never pulls a React module in: a variant with no figure
-  // renders NOTHING, so a seventh kind invented here would be a hole in the world.
-  const DRAWABLE = ["oak", "pine", "bush", "rock", "fence", "lantern"];
+  // renders NOTHING, so a twelfth kind invented here would be a hole in the world.
+  const DRAWABLE = ["oak", "pine", "bush", "rock", "fence", "lantern", "signpost", "menhir", "boat", "scarecrow", "cart"];
 
   it("is several times the village across, with the village unchanged at the heart of it", () => {
     expect(WORLD_SIZE).toBeGreaterThanOrEqual(VILLAGE_SIZE * 3);
@@ -339,17 +339,24 @@ describe("the world beyond the village", () => {
     for (const p of layout.scenery) expect(Math.abs(p.position.x) <= HALF && Math.abs(p.position.z) <= HALF).toBe(true);
   });
 
-  it("leaves the village to the village: nothing new stands inside it, and nothing solid anywhere near", () => {
-    const outsiders = layout.scenery.filter((p) => Math.abs(p.position.x) <= VILLAGE_SIZE / 2 && Math.abs(p.position.z) <= VILLAGE_SIZE / 2);
-    expect(outsiders).toHaveLength(DECOR_SPOTS.length);
-    for (const p of outsiders) expect(p.solid).toBe(false);
+  it("leaves the village to the village: only its own twelve and the fingerposts stand inside it, and nothing solid", () => {
+    const inside = layout.scenery.filter((p) => Math.abs(p.position.x) <= VILLAGE_SIZE / 2 && Math.abs(p.position.z) <= VILLAGE_SIZE / 2);
+    // The village's own twelve, plus however many track-head fingerposts stand just inside the
+    // line. A post at the mouth of a track has to be visible from IN the village — that is the
+    // whole invitation — so it is allowed in, and nothing else is.
+    const posts = inside.filter((p) => p.variant === "signpost");
+    expect(inside).toHaveLength(DECOR_SPOTS.length + posts.length);
+    expect(posts.length).toBeGreaterThan(0);
+    for (const p of inside) expect(p.solid).toBe(false);
   });
 
   it("makes stone and water solid and leaves the woods walk-through, so a forest is never a maze", () => {
     const solid = layout.scenery.filter((p) => p.solid);
     expect(solid.length).toBeGreaterThan(0);
     expect(solid.length).toBeLessThan(layout.scenery.length * 0.1);
-    for (const p of solid) expect(["rock", "oak"]).toContain(p.variant);
+    // A standing stone joins the list: the Ringstones and Appleway's milestone are stone, and
+    // stone is the one thing in this world a child walks around rather than through.
+    for (const p of solid) expect(["rock", "oak", "menhir"]).toContain(p.variant);
     // Deep water blocks, and the blocker is the rectangle the scene paints — not a guess at it.
     const water = layout.terrain.filter((t) => t.kind === "water");
     const blockers = layout.colliders.filter((c) => c.id.startsWith("water-"));
@@ -395,18 +402,146 @@ describe("the world beyond the village", () => {
       expect(walkable(tile.position), `the track at ${tile.position.x},${tile.position.z} is cut off from the village`).toBe(true);
     }
     const landmarks: [string, Vec2][] = [
-      ["the stone ring", { x: -54, z: 6.5 }],
-      ["the cairn", { x: -33, z: -54 }],
-      ["Longwater's shore", { x: 33, z: -38 }],
-      ["the far plot", { x: 58, z: -2 }],
-      ["the milestone", { x: -3, z: 57 }],
+      // Inside the Ringstones, in the gap the phase leaves on the track's own line: a child
+      // who walks the west track to its end must be able to get INTO the circle.
+      ["the middle of the Ringstones", { x: -54, z: 0 }],
+      ["the Ringstones' north gap", { x: -54, z: 6.5 }],
+      ["Highcairn", { x: -33, z: -54 }],
+      ["Longwater's boat", { x: 31, z: -36 }],
+      ["Farfurrow's scarecrow", { x: 56, z: -4 }],
+      ["Appleway's cart", { x: 3, z: 53 }],
       ["the mill pool", { x: 26, z: -16 }],
       ["the north-west corner", { x: -70, z: -70 }],
       ["the south-east corner", { x: 70, z: 70 }],
     ];
     for (const [name, p] of landmarks) expect(walkable(p), `${name} is unreachable on foot`).toBe(true);
+    // And the middle of every named place, which is where the arrival fires: a place a child
+    // is told they have reached and cannot actually stand in would be the world lying to them.
+    for (const place of PLACES) expect(walkable(place.position), `${place.name} is unreachable on foot`).toBe(true);
     for (const site of Object.values(BUILDING_SLOTS)) expect(walkable({ x: site.x, z: site.z + 3 })).toBe(true);
     // And most of the world is open ground, not a corridor between walls.
     expect(seen.size).toBeGreaterThan(WORLD_SIZE * WORLD_SIZE * 0.8);
+  });
+});
+
+describe("the five named places", () => {
+  const layout = buildWorldLayout({ castleType: "keep", buildings: [] });
+  const near = (p: Vec2, radius: number, variant: string) =>
+    layout.scenery.filter((s) => s.variant === variant && Math.hypot(s.position.x - p.x, s.position.z - p.z) <= radius);
+
+  it("names five places, each with a name a child can say out loud and a line that is one sentence", () => {
+    expect(PLACES).toHaveLength(5);
+    expect(new Set(PLACES.map((p) => p.id)).size).toBe(5);
+    expect(new Set(PLACES.map((p) => p.name)).size).toBe(5);
+    for (const place of PLACES) {
+      // A name, not a label: no digits, no colons, no "Region 3".
+      expect(place.name).toMatch(/^[A-Z][A-Za-z ]+$/);
+      expect(place.name.split(" ").length).toBeLessThanOrEqual(2 + 1); // "The Ringstones" at the longest
+      expect(place.line.endsWith(".")).toBe(true);
+      expect(place.line.length).toBeLessThanOrEqual(48); // one glanceable sentence, not a paragraph
+      expect(place.radius).toBeGreaterThan(8);
+    }
+  });
+
+  it("puts every one of them out in the world, well clear of the village and of each other", () => {
+    const HALF = WORLD_SIZE / 2;
+    for (const place of PLACES) {
+      expect(Math.abs(place.position.x) + place.radius).toBeLessThan(HALF);
+      expect(Math.abs(place.position.z) + place.radius).toBeLessThan(HALF);
+      // Outside the village square: a place you can see from the spawn is not somewhere you went.
+      expect(Math.max(Math.abs(place.position.x), Math.abs(place.position.z))).toBeGreaterThan(VILLAGE_SIZE / 2 + 4);
+    }
+    for (const a of PLACES) {
+      for (const b of PLACES) {
+        if (a === b) continue;
+        expect(Math.hypot(a.position.x - b.position.x, a.position.z - b.position.z), `${a.name} overlaps ${b.name}`).toBeGreaterThan(a.radius + b.radius);
+      }
+    }
+  });
+
+  it("runs a track into every one of them, so no place has to be found by luck", () => {
+    for (const place of PLACES) {
+      const tiles = layout.terrain.filter((t) => t.kind === "trail" && Math.hypot(t.position.x - place.position.x, t.position.z - place.position.z) <= place.radius);
+      expect(tiles.length, `no track reaches ${place.name}`).toBeGreaterThan(0);
+    }
+  });
+
+  it("stands a fingerpost at the mouth of every track and at the far end of every one", () => {
+    const posts = layout.scenery.filter((p) => p.variant === "signpost");
+    expect(posts).toHaveLength(10); // five heads, five far ends
+    for (const post of posts) expect(post.solid).toBe(false); // never a closed gate
+    // One at the end of each track: a child who is lost has a way home from every place.
+    for (const place of PLACES) {
+      expect(near(place.position, place.radius, "signpost").length, `${place.name} has nothing pointing home`).toBeGreaterThan(0);
+    }
+    // ...and one near the village for each track, so the way out is visible from inside.
+    const heads = posts.filter((p) => Math.hypot(p.position.x, p.position.z) < 30);
+    expect(heads).toHaveLength(5);
+  });
+
+  it("keeps the promise each line makes: the thing named is really standing there", () => {
+    const promised: Record<string, string> = {
+      ringstones: "menhir",
+      highcairn: "rock",
+      longwater: "boat",
+      farfurrow: "scarecrow",
+      appleway: "cart",
+    };
+    for (const place of PLACES) {
+      const found = near(place.position, place.radius, promised[place.id]);
+      expect(found.length, `${place.name} promises ${promised[place.id]} and has none`).toBeGreaterThan(0);
+    }
+    // The Ringstones promise EIGHT, and eight is what a child counts.
+    expect(near(placeById("ringstones")!.position, 12, "menhir")).toHaveLength(8);
+  });
+
+  it("drops every find when the decorations are off, and keeps every name", () => {
+    const calm = buildWorldLayout({ castleType: "keep", buildings: [], decor: false });
+    expect(calm.scenery).toEqual([]);
+    // The names are pure data, not scenery: a calm world is quieter, never nameless.
+    for (const place of PLACES) expect(placeAt(place.position, null)).toBe(place.id);
+  });
+});
+
+describe("placeAt", () => {
+  it("says nothing at the spawn, and names each place from its middle", () => {
+    expect(placeAt(SPAWN, null)).toBeNull();
+    for (const place of PLACES) expect(placeAt(place.position, null)).toBe(place.id);
+  });
+
+  it("holds a place past its own edge and lets go beyond that, so a child on the rim never stutters it", () => {
+    const place = PLACES[0];
+    const out = (d: number): Vec2 => ({ x: place.position.x + d, z: place.position.z });
+    // Just outside the radius, arriving fresh: not here.
+    expect(placeAt(out(place.radius + 1), null)).toBeNull();
+    // ...but held, if this is the place we were already standing in.
+    expect(placeAt(out(place.radius + 1), place.id)).toBe(place.id);
+    // And let go once past the leaving distance.
+    expect(placeAt(out(place.radius * PLACE_LEAVE + 1), place.id)).toBeNull();
+    expect(PLACE_LEAVE).toBeGreaterThan(1);
+  });
+
+  it("never claims a place from the far side of the world, whatever was held before", () => {
+    for (const place of PLACES) expect(placeAt({ x: 0, z: 0 }, place.id)).toBeNull();
+  });
+});
+
+describe("arrivalText", () => {
+  const place = placeById("longwater")!;
+
+  it("names the place and what is there the first time, and the name alone after that", () => {
+    expect(arrivalText(place, true)).toBe("Longwater. A little boat is pulled up on the shore.");
+    expect(arrivalText(place, false)).toBe("Longwater.");
+  });
+
+  it("says something for every place, both ways round", () => {
+    for (const p of PLACES) {
+      expect(arrivalText(p, true).startsWith(p.name)).toBe(true);
+      expect(arrivalText(p, true).length).toBeGreaterThan(arrivalText(p, false).length);
+    }
+  });
+
+  it("has nothing to say about a place that does not exist", () => {
+    expect(placeById("atlantis")).toBeNull();
   });
 });

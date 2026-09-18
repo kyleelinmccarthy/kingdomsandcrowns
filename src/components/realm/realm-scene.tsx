@@ -5,7 +5,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, type RefObject } from "r
 import { Canvas, useFrame, type ThreeEvent } from "@react-three/fiber";
 import { Html, OrthographicCamera } from "@react-three/drei";
 import * as THREE from "three";
-import { WORLD_SIZE, spriteSizeFor, TERRAIN_COLORS, TERRAIN_COLORS_CALM, type Prop, type TerrainKind, type WorldLayout, type Vec2 } from "@/lib/realm/layout";
+import { WORLD_SIZE, placeAt, spriteSizeFor, TERRAIN_COLORS, TERRAIN_COLORS_CALM, type Prop, type TerrainKind, type WorldLayout, type Vec2 } from "@/lib/realm/layout";
 import { stepCompanion, stepHero, unstickHero, setMounted, HERO_SPEED, COMPANION_GAP_MOUNTED, type CompanionState, type HeroState } from "@/lib/realm/movement";
 import { CAMERA_OFFSET, CAMERA_ZOOM, edgeArrow, followCamera } from "@/lib/realm/camera";
 import { projectToMap, worldBounds } from "@/lib/realm/minimap";
@@ -37,6 +37,12 @@ export type RealmSceneProps = {
   interactive: boolean; // false while a panel is open: ground taps are ignored
   reachId: string | null; // the villager the hero can talk to, as the shell last heard it
   onReachChange: (id: string | null) => void;
+  /**
+   * The hero has walked into one of `PLACES` — sent on the crossing only, never while standing
+   * there. Must be referentially stable: `World` is memoised and a new function every render
+   * would re-render the whole wilderness.
+   */
+  onArrive: (placeId: string) => void;
   onTalk: (villagerId: string) => void;
   risingId: string | null; // a building that just completed; the scene tweens it up once
   selectedSpell: SpellDefinition | null;
@@ -273,7 +279,7 @@ function SceneryShadows({ items, calm }: { items: Prop[]; calm: boolean }) {
   return mesh ? <primitive object={mesh} dispose={null} /> : null;
 }
 
-const World = memo(function World({ layout, textures, settings, surfaces, axisRef, arrowRef, minimapRef, interactive, reachId, onReachChange, onTalk, risingId, selectedSpell, selectedSlot, castRef, spellsEnabled, onSpellEvent, seed, riding, mountSpeed, recessActive, onRecessEvent, ceremonyActive, ceremonySkipRef, onCeremonyEvent, onTutorialSignal }: RealmSceneProps) {
+const World = memo(function World({ layout, textures, settings, surfaces, axisRef, arrowRef, minimapRef, interactive, reachId, onReachChange, onArrive, onTalk, risingId, selectedSpell, selectedSlot, castRef, spellsEnabled, onSpellEvent, seed, riding, mountSpeed, recessActive, onRecessEvent, ceremonyActive, ceremonySkipRef, onCeremonyEvent, onTutorialSignal }: RealmSceneProps) {
   // Per-frame state lives in refs: nothing here re-renders React sixty times a second.
   const hero = useRef<HeroState>({ position: layout.spawn, facing: "s", target: null, mounted: false });
   const companion = useRef<CompanionState>({ position: { x: layout.spawn.x, z: layout.spawn.z + 1.2 } });
@@ -283,6 +289,10 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
   const mountSprite = useRef<THREE.Sprite>(null);
   const camera = useRef<THREE.OrthographicCamera>(null);
   const reachRef = useRef<string | null>(null);
+  // Which named place the hero stood in last frame. `placeAt` is pure and keeps no memory of
+  // its own, so this ref IS the latch: arrival is edge-triggered off it and standing still in
+  // a place says nothing at all.
+  const placeRef = useRef<string | null>(null);
   const buildingObjects = useRef(new Map<string, THREE.Object3D>()); // a sprite, or the fallback box mesh when its texture is missing
   const rising = useRef<{ id: string; startedAt: number } | null>(null);
   const simRef = useSpellSimRef();
@@ -686,6 +696,15 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
     if (near !== reachRef.current) {
       reachRef.current = near;
       queueMicrotask(() => onReachChange(near));
+    }
+    // Arrival, on the same terms and for the same reason: reported on the crossing only, and
+    // out of the frame loop. `placeAt` carries the leaving hysteresis, so a child shuffling on
+    // a place's rim cannot stutter the sentence. Leaving is silent — the world does not
+    // announce that you have stopped being somewhere.
+    const placeNow = placeAt(p, placeRef.current);
+    if (placeNow !== placeRef.current) {
+      placeRef.current = placeNow;
+      if (placeNow) queueMicrotask(() => onArrive(placeNow));
     }
     // ── How much of each plate is showing ───────────────────────────────────────────────
     // Written straight onto the button, exactly like the hero dot and the off-screen arrow
