@@ -9,7 +9,10 @@
  * Same data — `buildWorldLayout()` gives every building slot, villager, path tile and tree,
  * read-only. Nothing here writes back, and nothing in the shipped Realm imports this file.
  *
- * Rough on purpose: no HUD, no collision, no calm mode, no accessibility, no tests. Only the look.
+ * Rough on purpose: no HUD, no calm mode, no accessibility. Mostly only the look — except that
+ * the owner played it and walked straight into a house, so the village now has solids under it
+ * and a camera that will not let the child's own figure go behind a roof. That arithmetic lives
+ * in `@/lib/realm3d/collision.ts` and `jump.ts`, away from three.js, where it can be tested.
  */
 
 import { useEffect, useMemo, useRef } from "react";
@@ -18,6 +21,20 @@ import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { buildWorldLayout, type Prop, type VillagerPlacement } from "@/lib/realm/layout";
 import { groundNoise, heightAt, PATCH_HALF, WALK_HALF } from "@/lib/realm3d/heightfield";
+import {
+  buildColliders,
+  clearFraction,
+  gatherNear,
+  HERO_RADIUS,
+  pickBoom,
+  pushOut,
+  slideMove,
+  supportHeight,
+  type Boom,
+  type Collider,
+  type Pt,
+} from "@/lib/realm3d/collision";
+import { makeVertical, stepVertical, tryJump, type Vertical } from "@/lib/realm3d/jump";
 import { heroLook } from "@/lib/realm3d/hero-look";
 import { DEFAULT_AVATAR, type AvatarConfig } from "@/lib/utils/avatar-catalog";
 import { Companion, HeroFigure, type Gait } from "./hero-figure";
@@ -713,7 +730,7 @@ function Village({ props: raw, villagers }: { props: Prop[]; villagers: Villager
 
 /* --------------------------------------------------------------------- hero */
 
-type Keys = { f: boolean; b: boolean; l: boolean; r: boolean; yawL: boolean; yawR: boolean };
+type Keys = { f: boolean; b: boolean; l: boolean; r: boolean; yawL: boolean; yawR: boolean; jump: boolean };
 
 /**
  * The hero is the CHILD. Every child in this app built an avatar and that avatar is theirs; a
@@ -727,6 +744,7 @@ function Hero({
   look,
   facingRef,
   gaitRef,
+  solids,
 }: {
   heroRef: React.RefObject<THREE.Vector3>;
   keys: React.RefObject<Keys>;
@@ -734,10 +752,13 @@ function Hero({
   look: ReturnType<typeof heroLook>;
   facingRef: React.RefObject<number>;
   gaitRef: React.RefObject<Gait>;
+  solids: Collider[];
 }) {
   const group = useRef<THREE.Group>(null);
   const facing = useRef(0);
   const bob = useRef(0);
+  const step = useMemo<Pt>(() => ({ x: 0, z: 0 }), []);
+  const vert = useMemo<Vertical>(() => makeVertical(0), []);
 
   useFrame((_, rawDt) => {
     const dt = Math.min(0.05, rawDt);
@@ -758,14 +779,25 @@ function Hero({
     if (moving) {
       dx /= len;
       dz /= len;
-      p.x = THREE.MathUtils.clamp(p.x + dx * HERO_SPEED * dt, -WALK_HALF, WALK_HALF);
-      p.z = THREE.MathUtils.clamp(p.z + dz * HERO_SPEED * dt, -WALK_HALF, WALK_HALF);
+      // Steering stays live in the air, so a child can aim a jump while they are running.
+      const tx = THREE.MathUtils.clamp(p.x + dx * HERO_SPEED * dt, -WALK_HALF, WALK_HALF);
+      const tz = THREE.MathUtils.clamp(p.z + dz * HERO_SPEED * dt, -WALK_HALF, WALK_HALF);
+      // One axis at a time: a blocked axis is cancelled and the other still runs, which is what
+      // turns "stuck on the corner of a house" into "sliding along its wall".
+      slideMove(step, p.x, p.z, tx, tz, solids, HERO_RADIUS, vert.y);
+      p.x = step.x;
+      p.z = step.z;
       facing.current = Math.atan2(dx, dz);
-      bob.current += dt * 9;
+      bob.current += dt * (vert.grounded ? 9 : 3);
     } else {
       bob.current += dt * 2;
     }
-    p.y = heightAt(p.x, p.z);
+    if (k.jump) {
+      k.jump = false; // edge-triggered: the keydown handler ignores auto-repeat, and this eats the press
+      tryJump(vert);
+    }
+    stepVertical(vert, dt, p.x, p.z, heightAt(p.x, p.z), solids);
+    p.y = vert.y;
 
     // The limbs, the cape and the companion all read the same two numbers.
     const g2 = gaitRef.current;
@@ -774,7 +806,7 @@ function Hero({
 
     const g = group.current;
     if (!g) return;
-    g.position.set(p.x, p.y + (moving ? Math.abs(Math.sin(bob.current)) * 0.09 : 0), p.z);
+    g.position.set(p.x, p.y + (moving && vert.grounded ? Math.abs(Math.sin(bob.current)) * 0.09 : 0), p.z);
     g.rotation.y = THREE.MathUtils.damp(g.rotation.y, facing.current, 9, dt);
     g.rotation.z = moving ? Math.sin(bob.current) * 0.035 : 0;
     facingRef.current = g.rotation.y;
@@ -838,26 +870,113 @@ function Sun({ heroRef }: { heroRef: React.RefObject<THREE.Vector3> }) {
   );
 }
 
-function Rig({ heroRef, yawRef, close }: { heroRef: React.RefObject<THREE.Vector3>; yawRef: React.RefObject<number>; close: boolean }) {
+/**
+ * The chase camera.
+ *
+ * CAM_H / CAM_Y are the shot the owner approved; everything below is about keeping the child's
+ * own figure inside it. In a village this dense a fixed boom loses them constantly: the eaves of
+ * a house overhang its walls, so a hero stopped at the far wall of one has five units of roof
+ * half a unit from his shoulder, and NO camera position behind that house at any sane pitch can
+ * see him. Pulling the boom in — the usual first answer — just walks the camera into the wall.
+ *
+ * So the boom SWINGS. The solids guarantee the hero is always standing outside whatever is
+ * hiding him, so some angle around him is always open; `pickBoom` keeps the yaw the child chose
+ * whenever it is clear and otherwise takes the nearest yaw that is. The boom also shortens to
+ * whatever is actually clear at the angle it is currently swinging through, which both ducks the
+ * camera under an oak's canopy and stops it clipping a roof mid-swing.
+ *
+ * Fading the occluder was the alternative. It was rejected: the trees are one instanced draw per
+ * kind, so a canopy cannot be faded on its own, and half a translucent house is a stranger thing
+ * for an eight-year-old to look at than a camera that steps around the corner.
+ */
+const CAM_H = 21;
+const CAM_Y = 19.5;
+/** What must stay visible: the child's figure, not the patch of grass under it. */
+const CAM_EYE = 1.5;
+/** Never closer than this fraction of the boom, or the camera ends up inside the hero's hood. */
+const CAM_MIN = 0.26;
+/** How much of a jump the camera follows. 0 and he leaves the frame; 1 and the jump is invisible. */
+const CAM_LIFT = 0.3;
+
+function Rig({ heroRef, yawRef, close, occluders, solids }: { heroRef: React.RefObject<THREE.Vector3>; yawRef: React.RefObject<number>; close: boolean; occluders: Collider[]; solids: Collider[] }) {
   const { camera } = useThree();
   const desired = useMemo(() => new THREE.Vector3(), []);
   const look = useMemo(() => new THREE.Vector3(), []);
   const up = useMemo(() => new THREE.Vector3(0, 1, 0), []);
   const off = useMemo(() => new THREE.Vector3(), []);
+  // Reused every frame. Nothing in this loop allocates.
+  const near = useMemo<Collider[]>(() => new Array(512), []);
+  const boom = useMemo<Boom>(() => ({ yaw: 0, frac: 1 }), []);
+  const swing = useRef(0);
+  const frac = useRef(1);
 
   useFrame((_, rawDt) => {
     const dt = Math.min(0.05, rawDt);
     const p = heroRef.current;
+    /**
+     * The camera hangs off the GROUND under the hero, not off the hero. A rig that tracks his
+     * y exactly turns a jump into the world dropping a metre and back — the one thing you can
+     * see happen and cannot feel. Anchored to the floor he took off from, the same jump is him
+     * rising in frame, which is the whole read. `CAM_LIFT` is how much of the hop the camera
+     * still follows, so he never climbs out of the top of the shot.
+     */
+    const floorY = supportHeight(p.x, p.z, heightAt(p.x, p.z), solids);
+    const rise = p.y - floorY;
+    const anchorY = floorY + rise * CAM_LIFT;
+
     // `?close` drops the camera to the hero's shoulder. Not a game mode — a way to look at
     // the figure, because Job 1 is only finished if the face is a face.
-    if (close) off.set(0, 2.4, 4.2).applyAxisAngle(up, yawRef.current);
-    else off.set(0, 19.5, 21).applyAxisAngle(up, yawRef.current);
-    const dx = p.x + off.x;
-    const dz = p.z + off.z;
+    if (close) {
+      off.set(0, 2.4, 4.2).applyAxisAngle(up, yawRef.current);
+      const cx = p.x + off.x;
+      const cz = p.z + off.z;
+      desired.set(cx, Math.max(anchorY + off.y, heightAt(cx, cz) + 0.6), cz);
+      camera.position.lerp(desired, 1 - Math.exp(-dt * 6));
+      look.set(p.x, anchorY + 1.7, p.z);
+      camera.lookAt(look);
+      return;
+    }
+
+    const eyeY = p.y + CAM_EYE;
+    const n = gatherNear(near, occluders, p.x, p.z, CAM_H + 3);
+    pickBoom(boom, p.x, eyeY, p.z, yawRef.current, CAM_H, CAM_Y, near, n, 0.44, CAM_MIN);
+
+    // Swing toward the angle that can see him, by the short way round.
+    let delta = boom.yaw - yawRef.current - swing.current;
+    while (delta > Math.PI) delta -= Math.PI * 2;
+    while (delta < -Math.PI) delta += Math.PI * 2;
+    swing.current += delta * (1 - Math.exp(-dt * 7));
+    /**
+     * A child pressed against the castle can hold E for ten seconds and the camera will refuse
+     * to go round, because from the north there is nothing to see but wall — which is right, but
+     * `yawRef` keeps counting all the same, and the moment they step clear the camera would whip
+     * round to wherever ten seconds of E had wound it. So anything past a good half-turn of
+     * swing is bled back into the child's own yaw: the picture does not move (the two are added),
+     * but a big forced swing quietly becomes the angle they are now steering from.
+     */
+    const over = Math.abs(swing.current) - 1.2;
+    if (over > 0) {
+      const bleed = Math.sign(swing.current) * Math.min(over, dt * 2.5);
+      yawRef.current += bleed;
+      swing.current -= bleed;
+    }
+    const yaw = yawRef.current + swing.current;
+
+    // ...and shorten to what is clear at the angle it is actually at, not the one it is heading
+    // for, so the child is never lost during the swing itself.
+    const sin = Math.sin(yaw);
+    const cos = Math.cos(yaw);
+    const want = Math.max(CAM_MIN, clearFraction(p.x, eyeY, p.z, CAM_H * sin, CAM_Y, CAM_H * cos, near, n));
+    // In fast when something cuts across, out gently, so passing a tree is not a shove.
+    frac.current += (want - frac.current) * (1 - Math.exp(-dt * (want < frac.current ? 16 : 3.5)));
+
+    const f = frac.current;
+    const cx = p.x + CAM_H * sin * f;
+    const cz = p.z + CAM_H * cos * f;
     // Never let the camera sink into a hill.
-    desired.set(dx, Math.max(p.y + off.y, heightAt(dx, dz) + (close ? 0.6 : 3.5)), dz);
-    camera.position.lerp(desired, 1 - Math.exp(-dt * 6));
-    look.set(p.x, p.y + (close ? 1.7 : 3.4), p.z);
+    desired.set(cx, Math.max(anchorY + CAM_Y * f, heightAt(cx, cz) + 3.5 * f + 0.6), cz);
+    camera.position.lerp(desired, 1 - Math.exp(-dt * 9));
+    look.set(p.x, anchorY + 1.2 + 2.2 * f, p.z);
     camera.lookAt(look);
   });
   return null;
@@ -981,11 +1100,28 @@ function World({ avatar, close }: { avatar: AvatarConfig; close: boolean }) {
     [],
   );
 
+  /**
+   * The village as arithmetic: what stops the hero, and what can hide him from the camera. Two
+   * lists because they are genuinely different — a vegetable bed stops you and never hides you,
+   * an oak's canopy hides you and you walk under it, a roof overhangs the wall it sits on.
+   */
+  const { solids, occluders } = useMemo(
+    () => buildColliders(layout.props, layout.scenery, { sitePlan: SITE_PLAN, wallH: WALL_H, roofH: ROOF_H, treeScale: TREE_SCALE, patchHalf: PATCH_HALF }),
+    [layout],
+  );
+
   const heroRef = useRef(new THREE.Vector3(0, 0, 15));
+  useMemo(() => {
+    // Once, at build: the spawn is on the road, but a village that grows a wall across it should
+    // shove the child clear rather than trap them inside it.
+    const p = heroRef.current;
+    const out = pushOut({ x: p.x, z: p.z }, p.x, p.z, solids);
+    p.set(out.x, heightAt(out.x, out.z), out.z);
+  }, [solids]);
   const yawRef = useRef(0);
   const facingRef = useRef(0);
   const gaitRef = useRef<Gait>({ speed: 0, phase: 0 });
-  const keys = useRef<Keys>({ f: false, b: false, l: false, r: false, yawL: false, yawR: false });
+  const keys = useRef<Keys>({ f: false, b: false, l: false, r: false, yawL: false, yawR: false, jump: false });
   const tex = useMemo(() => glowTexture(), []);
 
   useEffect(() => {
@@ -998,8 +1134,12 @@ function World({ avatar, close }: { avatar: AvatarConfig; close: boolean }) {
         case "KeyD": case "ArrowRight": k.r = down; break;
         case "KeyQ": k.yawL = down; break;
         case "KeyE": k.yawR = down; break;
+        // Edge-triggered, and auto-repeat is dropped: holding space is one jump, not flight.
+        case "Space": if (down && !e.repeat) k.jump = true; break;
         default: return;
       }
+      // Space scrolls the page and re-presses whatever button the child last touched. Neither
+      // belongs in a game, and the canvas is not focusable, so the window handler says no here.
       e.preventDefault();
     };
     const dn = (e: KeyboardEvent) => set(e, true);
@@ -1020,11 +1160,11 @@ function World({ avatar, close }: { avatar: AvatarConfig; close: boolean }) {
       <Terrain />
       <Scenery scenery={layout.scenery} />
       <Village props={layout.props} villagers={layout.villagers} />
-      <Hero heroRef={heroRef} keys={keys} yawRef={yawRef} look={look} facingRef={facingRef} gaitRef={gaitRef} />
+      <Hero heroRef={heroRef} keys={keys} yawRef={yawRef} look={look} facingRef={facingRef} gaitRef={gaitRef} solids={solids} />
       {look.companion && <Companion look={look.companion} heroRef={heroRef} facingRef={facingRef} />}
       <LanternGlow scenery={layout.scenery} tex={tex} />
       <Motes tex={tex} />
-      <Rig heroRef={heroRef} yawRef={yawRef} close={close} />
+      <Rig heroRef={heroRef} yawRef={yawRef} close={close} occluders={occluders} solids={solids} />
     </>
   );
 }
@@ -1045,7 +1185,7 @@ export default function SpikeScene({ avatar, close = false }: { avatar?: AvatarC
         <World avatar={avatar ?? DEFAULT_AVATAR} close={close} />
       </Canvas>
       <p className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded bg-black/45 px-3 py-1 text-sm text-white/85">
-        WASD to walk · Q / E to swing the camera
+        WASD to walk · Space to jump · Q / E to swing the camera
       </p>
     </div>
   );
