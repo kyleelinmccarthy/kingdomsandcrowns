@@ -2183,31 +2183,38 @@ function Beast({ look, phase, amp, beat }: BeastProps) {
     case "frog":
       return (
         <>
-          <mesh castShadow position={[0, 0.16, 0]}>
-            <boxGeometry args={[0.36, 0.2, 0.34]} />
+          <mesh castShadow position={[0, 0.26, 0]}>
+            <boxGeometry args={[0.38, 0.26, 0.36]} />
             {mat()}
           </mesh>
           {/* eyes ON TOP, which is the whole of what makes a frog read as a frog */}
           {[-1, 1].map((s) => (
-            <mesh key={s} castShadow position={[s * 0.1, 0.3, 0.1]}>
-              <icosahedronGeometry args={[0.075, 0]} />
+            <mesh key={s} castShadow position={[s * 0.11, 0.42, 0.1]}>
+              <icosahedronGeometry args={[0.085, 0]} />
               {pale()}
             </mesh>
           ))}
-          {eyes(0.32, 0.17, 0.1, 0.045)}
-          <mesh position={[0, 0.12, 0.17]}>
-            <boxGeometry args={[0.2, 0.03, 0.02]} />
+          {eyes(0.44, 0.18, 0.11, 0.05)}
+          <mesh position={[0, 0.2, 0.19]}>
+            <boxGeometry args={[0.22, 0.035, 0.02]} />
             {dark()}
           </mesh>
+          {/* folded haunches, higher than the body: a frog is a coiled spring */}
           {[-1, 1].map((s) => (
-            <mesh key={`l${s}`} castShadow position={[s * 0.21, 0.08, -0.06]} rotation={[0, 0, s * 0.4]}>
-              <boxGeometry args={[0.1, 0.16, 0.24]} />
+            <mesh key={`h${s}`} castShadow position={[s * 0.23, 0.26, -0.08]} rotation={[0, 0, s * 0.35]}>
+              <boxGeometry args={[0.12, 0.22, 0.28]} />
               {mat()}
             </mesh>
           ))}
           {[-1, 1].map((s) => (
-            <mesh key={`a${s}`} castShadow position={[s * 0.16, 0.05, 0.16]}>
-              <boxGeometry args={[0.06, 0.1, 0.06]} />
+            <mesh key={`s${s}`} castShadow position={[s * 0.24, 0.08, 0.02]}>
+              <boxGeometry args={[0.13, 0.08, 0.2]} />
+              {dark()}
+            </mesh>
+          ))}
+          {[-1, 1].map((s) => (
+            <mesh key={`a${s}`} castShadow position={[s * 0.16, 0.1, 0.18]}>
+              <boxGeometry args={[0.07, 0.2, 0.07]} />
               {mat()}
             </mesh>
           ))}
@@ -2218,27 +2225,28 @@ function Beast({ look, phase, amp, beat }: BeastProps) {
       return (
         <>
           {/* the shell is a dome, and nothing else in the catalog is domed */}
-          <mesh castShadow position={[0, 0.2, 0]} scale={[1, 0.62, 1.15]}>
-            <icosahedronGeometry args={[0.28, 1]} />
+          {/* the shell rides high enough that the legs and the head are not swallowed by it */}
+          <mesh castShadow position={[0, 0.34, 0]} scale={[1, 0.6, 1.15]}>
+            <icosahedronGeometry args={[0.3, 1]} />
             {hide(look, shade(look.color, 0.3))}
           </mesh>
-          <mesh castShadow position={[0, 0.12, 0]}>
-            <boxGeometry args={[0.42, 0.12, 0.46]} />
+          <mesh castShadow position={[0, 0.24, 0]}>
+            <boxGeometry args={[0.44, 0.1, 0.48]} />
             {pale()}
           </mesh>
-          <mesh castShadow position={[0, 0.16, 0.3]}>
-            <boxGeometry args={[0.16, 0.14, 0.18]} />
+          <mesh castShadow position={[0, 0.28, 0.32]}>
+            <boxGeometry args={[0.17, 0.15, 0.2]} />
             {mat()}
           </mesh>
-          {eyes(0.19, 0.39, 0.05, 0.03)}
+          {eyes(0.31, 0.42, 0.055, 0.032)}
           {[-1, 1].map((sx) =>
             [-1, 1].map((sz) => (
-              <Limb key={`${sx}${sz}`} phase={phase} offset={sx * sz > 0 ? 0 : Math.PI} amp={amp} x={sx * 0.19} y={0.12} z={sz * 0.16} w={0.11} h={0.12} d={0.13}>
+              <Limb key={`${sx}${sz}`} phase={phase} offset={sx * sz > 0 ? 0 : Math.PI} amp={amp} x={sx * 0.2} y={0.2} z={sz * 0.17} w={0.12} h={0.2} d={0.14}>
                 {mat()}
               </Limb>
             )),
           )}
-          <mesh castShadow position={[0, 0.14, -0.3]} rotation={[0.3, 0, 0]}>
+          <mesh castShadow position={[0, 0.26, -0.32]} rotation={[0.3, 0, 0]}>
             <coneGeometry args={[0.05, 0.14, 4]} />
             {mat()}
           </mesh>
@@ -2246,21 +2254,32 @@ function Beast({ look, phase, amp, beat }: BeastProps) {
       );
 
     case "snake":
+      // A coil on the ground with the front third reared up. Banded, so the coil reads as a body.
       return (
         <>
-          {[0, 1, 2, 3].map((i) => (
-            <mesh key={i} castShadow position={[Math.sin(i * 1.3) * 0.12, 0.1, 0.16 - i * 0.2]}>
-              <boxGeometry args={[0.16 - i * 0.02, 0.15 - i * 0.02, 0.22]} />
+          {[0, 1, 2, 3, 4].map((i) => (
+            <mesh
+              key={i}
+              castShadow
+              position={[Math.sin(i * 1.5) * 0.17, 0.11, -0.3 + i * 0.13 + Math.cos(i * 1.5) * 0.07]}
+              rotation={[0, i * 0.5, 0]}
+            >
+              <boxGeometry args={[0.19 - i * 0.012, 0.19 - i * 0.012, 0.19]} />
               {i % 2 ? pale() : mat()}
             </mesh>
           ))}
-          <mesh castShadow position={[0, 0.12, 0.34]}>
-            <boxGeometry args={[0.18, 0.14, 0.2]} />
+          {/* the reared neck and head, well clear of the ground */}
+          <mesh castShadow position={[0.04, 0.28, 0.28]} rotation={[0.5, 0, -0.2]}>
+            <boxGeometry args={[0.15, 0.24, 0.15]} />
             {mat()}
           </mesh>
-          {eyes(0.16, 0.44, 0.055, 0.035, "#ffcc33")}
-          <mesh position={[0, 0.08, 0.5]}>
-            <boxGeometry args={[0.02, 0.02, 0.1]} />
+          <mesh castShadow position={[0.04, 0.44, 0.36]}>
+            <boxGeometry args={[0.18, 0.13, 0.22]} />
+            {mat()}
+          </mesh>
+          {eyes(0.48, 0.45, 0.06, 0.04, "#ffcc33")}
+          <mesh position={[0.04, 0.4, 0.5]}>
+            <boxGeometry args={[0.02, 0.02, 0.12]} />
             <meshStandardMaterial color="#d94a4a" />
           </mesh>
         </>
