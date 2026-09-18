@@ -3,24 +3,46 @@
 /**
  * SPIKE — throwaway. Not the Realm. The Realm is `realm-scene.tsx` and is untouched.
  *
- * One question: does this village look like a game a child wants to play if it is built out of
- * real geometry under a real light, instead of pixel-art billboards on a flat plane?
+ * It began as one question — does this village look like a game a child wants to play if it is
+ * built out of real geometry under a real light? — and the answer was yes, so it is now a realm
+ * rather than a patch. The 160-unit hand-authored village from `@/lib/realm/layout` still stands
+ * exactly where it always stood, with every prop, plot, villager and track untouched, and
+ * `@/lib/realm3d/worldgen.ts` generates the other 640 units of island AROUND it, including the
+ * ground underneath it.
  *
- * Same data — `buildWorldLayout()` gives every building slot, villager, path tile and tree,
- * read-only. Nothing here writes back, and nothing in the shipped Realm imports this file.
+ * ## What is where
  *
- * Rough on purpose: no HUD, no calm mode, no accessibility. Mostly only the look — except that
- * the owner played it and walked straight into a house, so the village now has solids under it
- * and a camera that will not let the child's own figure go behind a roof. That arithmetic lives
- * in `@/lib/realm3d/collision.ts` and `jump.ts`, away from three.js, where it can be tested.
+ *   - `world-ground.tsx`  the island's ground and its one water surface
+ *   - `world-props.tsx`   the generated scatter: twenty thousand props as nine instanced fields
+ *   - `landmarks.tsx`     what is actually standing at the nineteen named places
+ *   - `geo-kit.ts`        the geometry shed everything above shares
+ *   - `collision.ts` / `jump.ts` / `shore.ts`  the arithmetic, testable with no WebGL
+ *
+ * ## The join
+ *
+ * There are not two worlds here with a blend between them. There is ONE surface — the
+ * generator's — and the middle of it happens to be furnished by hand. The village keeps its
+ * floor because the generator moved its own noise lattice until the noise agreed with the
+ * village, and the authored scatter meets the generated scatter because the generator plants
+ * nothing inside the authored square and feathers its density in over the twenty-two units
+ * outside it. The one thing this file must not do is draw a second ground, a second tree over
+ * the first, or a colour that changes on the authored square's boundary.
+ *
+ * Rough still: no HUD, no calm mode, no accessibility. Nothing here writes back, and nothing in
+ * the shipped Realm imports this file.
  */
 
 import { useEffect, useMemo, useRef } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
-import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
-import { buildWorldLayout, type Prop, type VillagerPlacement } from "@/lib/realm/layout";
-import { groundNoise, heightAt, PATCH_HALF, WALK_HALF } from "@/lib/realm3d/heightfield";
+import { buildWorldLayout, WORLD_SIZE, type Prop, type VillagerPlacement } from "@/lib/realm/layout";
+import { heightAt } from "@/lib/realm3d/heightfield";
+import { realmWorld, SEA_LEVEL, WALK_HALF, type RealmWorld } from "@/lib/realm3d/worldgen";
+import { shoreMove, wadeSpeed } from "@/lib/realm3d/shore";
+import { gableGeo, litMaterial, sceneryGeometryFor, vivid } from "./geo-kit";
+import { RealmGround, RealmWater, WadeRing } from "./world-ground";
+import { RealmProps } from "./world-props";
+import { landmarkColliders, RealmLandmarks } from "./landmarks";
 import {
   buildColliders,
   clearFraction,
@@ -72,187 +94,27 @@ const DOOR_H = 2.4;
  */
 const TREE_SCALE = 1.25;
 
-/** The village colours are muted for a pixel sprite. Under a light they want saturating. */
-function vivid(hex: string, satFloor = 0.5, lo = 0.34, hi = 0.58): THREE.Color {
-  const c = new THREE.Color(hex);
-  const hsl = { h: 0, s: 0, l: 0 };
-  c.getHSL(hsl);
-  c.setHSL(hsl.h, Math.max(hsl.s, satFloor), Math.min(hi, Math.max(lo, hsl.l)));
-  return c;
-}
-
-/* ------------------------------------------------------- geometry plumbing */
-
-/** Bake a flat colour into a geometry so many parts can share one vertex-coloured material. */
-function paint(geo: THREE.BufferGeometry, hex: string): THREE.BufferGeometry {
-  const g = geo.index ? geo.toNonIndexed() : geo;
-  if (g !== geo) geo.dispose();
-  const c = new THREE.Color(hex);
-  const n = g.attributes.position.count;
-  const arr = new Float32Array(n * 3);
-  for (let i = 0; i < n; i++) {
-    arr[i * 3] = c.r;
-    arr[i * 3 + 1] = c.g;
-    arr[i * 3 + 2] = c.b;
-  }
-  g.setAttribute("color", new THREE.BufferAttribute(arr, 3));
-  return g;
-}
-
-function at(geo: THREE.BufferGeometry, x: number, y: number, z: number): THREE.BufferGeometry {
-  geo.translate(x, y, z);
-  return geo;
-}
-
-/** A gable roof: a triangle extruded along z. A box plus one of these reads as a house. */
-function gableGeo(w: number, d: number, h: number): THREE.BufferGeometry {
-  const s = new THREE.Shape();
-  s.moveTo(-w / 2, 0);
-  s.lineTo(w / 2, 0);
-  s.lineTo(0, h);
-  s.closePath();
-  const g = new THREE.ExtrudeGeometry(s, { depth: d, bevelEnabled: false });
-  g.translate(0, 0, -d / 2);
-  return g;
-}
-
-const litMaterial = () => new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.92, metalness: 0 });
-
-/* ------------------------------------------------------------------ terrain */
-
-function buildTerrainGeometry(): THREE.BufferGeometry {
-  const SEG = 86;
-  const plane = new THREE.PlaneGeometry(PATCH_HALF * 2, PATCH_HALF * 2, SEG, SEG);
-  plane.rotateX(-Math.PI / 2);
-  const p0 = plane.attributes.position;
-  for (let i = 0; i < p0.count; i++) p0.setY(i, heightAt(p0.getX(i), p0.getZ(i)));
-  const geo = plane.toNonIndexed();
-  plane.dispose();
-  geo.computeVertexNormals();
-
-  const pos = geo.attributes.position;
-  const nrm = geo.attributes.normal;
-  const colors = new Float32Array(pos.count * 3);
-
-  const low = new THREE.Color("#3f6d18");
-  const high = new THREE.Color("#7fae36");
-  const rock = new THREE.Color("#9a9384");
-  const kept = new THREE.Color("#63962a"); // the village's own mown ground
-  const c = new THREE.Color();
-
-  for (let f = 0; f < pos.count; f += 3) {
-    const y = (pos.getY(f) + pos.getY(f + 1) + pos.getY(f + 2)) / 3;
-    const x = (pos.getX(f) + pos.getX(f + 1) + pos.getX(f + 2)) / 3;
-    const z = (pos.getZ(f) + pos.getZ(f + 1) + pos.getZ(f + 2)) / 3;
-    const ny = (nrm.getY(f) + nrm.getY(f + 1) + nrm.getY(f + 2)) / 3;
-
-    c.copy(low).lerp(high, THREE.MathUtils.smoothstep(y, -5, 15));
-    const r = Math.hypot(x, z);
-    c.lerp(kept, 1 - THREE.MathUtils.smoothstep(r, 20, 40));
-    const steep = 1 - Math.min(1, Math.max(0, ny));
-    c.lerp(rock, THREE.MathUtils.smoothstep(steep, 0.3, 0.62));
-    // Big soft blotches, not per-facet confetti. A wobble hashed per triangle over a regular
-    // grid reads as a chequerboard, which is what the first two passes drew across the
-    // village; what the reference actually has is low-frequency patches of darker grass.
-    const blot = groundNoise(x * 0.055, z * 0.055) * 0.72 + groundNoise(x * 0.16 + 11, z * 0.16 - 4) * 0.28;
-    const j = 0.72 + blot * 0.52;
-    // A whisper of per-facet break-up on top, to keep the facets legible without stripes.
-    const h1 = Math.abs(Math.sin(x * 12.9898 + z * 78.233) * 43758.5453) % 1;
-    for (let k = 0; k < 3; k++) {
-      const w = j * (0.975 + h1 * 0.05);
-      colors[(f + k) * 3] = c.r * w;
-      colors[(f + k) * 3 + 1] = c.g * w;
-      colors[(f + k) * 3 + 2] = c.b * w;
-    }
-  }
-  geo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
-  return geo;
-}
-
-function Terrain() {
-  const geo = useMemo(() => buildTerrainGeometry(), []);
-  const mat = useMemo(() => litMaterial(), []);
-  return <mesh geometry={geo} material={mat} receiveShadow castShadow />;
-}
+/**
+ * The authored square's half-extent. Not `PATCH_HALF` any more, and that change IS the join:
+ * the old spike drew the hand-made wilderness out to 63 units and stopped, which was invisible
+ * while the world ended at 66. The generated scatter starts fading in at 78 and is at full
+ * density by 102, so anything the authored world is not drawn out to its own edge leaves a ring
+ * of bare grass between the two — the exact seam this was supposed not to have.
+ */
+const CORE_HALF = WORLD_SIZE / 2;
 
 /* ------------------------------------------------------------------ scenery */
 
-/** One merged, vertex-coloured mesh per scenery kind, authored at nominal scale 1. */
-const SCENERY_GEO: Record<string, () => THREE.BufferGeometry> = {
-  oak: () =>
-    mergeGeometries([
-      paint(at(new THREE.CylinderGeometry(0.15, 0.24, 1.3, 6), 0, 0.65, 0), "#5b3f28"),
-      paint(at(new THREE.IcosahedronGeometry(1.0, 0).scale(1, 0.85, 1), 0, 1.95, 0), "#3f8f2c"),
-      paint(at(new THREE.IcosahedronGeometry(0.62, 0), 0.62, 2.4, 0.3), "#57ab3a"),
-      paint(at(new THREE.IcosahedronGeometry(0.55, 0), -0.6, 1.65, -0.35), "#357a26"),
-    ]),
-  pine: () =>
-    mergeGeometries([
-      paint(at(new THREE.CylinderGeometry(0.12, 0.2, 1.0, 6), 0, 0.5, 0), "#4b3320"),
-      paint(at(new THREE.ConeGeometry(1.0, 1.6, 7), 0, 1.35, 0), "#2c6b34"),
-      paint(at(new THREE.ConeGeometry(0.76, 1.4, 7), 0, 2.25, 0), "#347c3c"),
-      paint(at(new THREE.ConeGeometry(0.5, 1.2, 7), 0, 3.1, 0), "#3d8d45"),
-    ]),
-  bush: () =>
-    mergeGeometries([
-      paint(at(new THREE.IcosahedronGeometry(0.62, 0).scale(1.1, 0.8, 1.1), 0, 0.45, 0), "#457f28"),
-      paint(at(new THREE.IcosahedronGeometry(0.42, 0), 0.42, 0.62, 0.2), "#569a31"),
-    ]),
-  rock: () =>
-    paint(at(new THREE.IcosahedronGeometry(0.62, 0).scale(1.25, 0.8, 1.05), 0, 0.36, 0), "#918d84"),
-  menhir: () =>
-    mergeGeometries([
-      paint(at(new THREE.CylinderGeometry(0.24, 0.4, 2.6, 6).rotateZ(0.05), 0, 1.3, 0), "#8b877d"),
-      paint(at(new THREE.IcosahedronGeometry(0.4, 0).scale(1.1, 0.5, 1), 0, 0.2, 0), "#7c786f"),
-    ]),
-  fence: () =>
-    mergeGeometries([
-      paint(at(new THREE.BoxGeometry(0.13, 1.0, 0.13), -0.6, 0.5, 0), "#7c5c38"),
-      paint(at(new THREE.BoxGeometry(0.13, 1.0, 0.13), 0.6, 0.5, 0), "#7c5c38"),
-      paint(at(new THREE.BoxGeometry(1.35, 0.11, 0.08), 0, 0.78, 0), "#8b6a42"),
-      paint(at(new THREE.BoxGeometry(1.35, 0.11, 0.08), 0, 0.45, 0), "#8b6a42"),
-    ]),
-  lantern: () =>
-    mergeGeometries([
-      paint(at(new THREE.CylinderGeometry(0.07, 0.1, 1.7, 5), 0, 0.85, 0), "#584431"),
-      paint(at(new THREE.IcosahedronGeometry(0.24, 0), 0, 1.82, 0), "#ffd98a"),
-    ]),
-  signpost: () =>
-    mergeGeometries([
-      paint(at(new THREE.CylinderGeometry(0.06, 0.08, 1.3, 6), 0, 0.65, 0), "#7c5c38"),
-      paint(at(new THREE.IcosahedronGeometry(0.11, 0), 0, 1.33, 0), "#8b6a42"),
-      paint(at(new THREE.BoxGeometry(0.72, 0.2, 0.05), 0.4, 1.16, 0), "#d9b877"),
-      paint(at(new THREE.BoxGeometry(0.72, 0.2, 0.05).rotateY(Math.PI / 2), 0, 0.86, -0.4), "#d9b877"),
-    ]),
-  cart: () =>
-    mergeGeometries([
-      paint(at(new THREE.BoxGeometry(1.5, 0.55, 0.95), 0, 0.72, 0), "#8b6a42"),
-      paint(at(new THREE.BoxGeometry(1.3, 0.3, 0.75), 0, 1.06, 0), "#c2452c"),
-      paint(at(new THREE.CylinderGeometry(0.42, 0.42, 0.12, 9).rotateX(Math.PI / 2), -0.42, 0.42, 0.52), "#5b3f28"),
-      paint(at(new THREE.CylinderGeometry(0.42, 0.42, 0.12, 9).rotateX(Math.PI / 2), -0.42, 0.42, -0.52), "#5b3f28"),
-    ]),
-  scarecrow: () =>
-    mergeGeometries([
-      paint(at(new THREE.CylinderGeometry(0.07, 0.09, 1.9, 5), 0, 0.95, 0), "#7c5c38"),
-      paint(at(new THREE.BoxGeometry(1.5, 0.12, 0.12), 0, 1.5, 0), "#7c5c38"),
-      paint(at(new THREE.BoxGeometry(0.55, 0.7, 0.4), 0, 1.35, 0), "#b6863f"),
-      paint(at(new THREE.IcosahedronGeometry(0.28, 0), 0, 1.95, 0), "#d9b45c"),
-    ]),
-};
-
-function sceneryGeometryFor(kind: string): THREE.BufferGeometry {
-  const make = SCENERY_GEO[kind] ?? SCENERY_GEO.rock;
-  return make();
-}
-
-/** Everything in the patch, one instanced draw per kind. The forest is ~1200 of these. */
+/**
+ * The HAND-AUTHORED wilderness, one instanced draw per kind. About 1,200 of these, and every one
+ * of them is drawn: clipping them short is what would put a seam in the world.
+ */
 function Scenery({ scenery }: { scenery: readonly Prop[] }) {
   const mat = useMemo(() => litMaterial(), []);
   const groups = useMemo(() => {
     const by = new Map<string, Prop[]>();
     for (const p of scenery) {
-      if (Math.abs(p.position.x) > PATCH_HALF - 3 || Math.abs(p.position.z) > PATCH_HALF - 3) continue;
-      if (p.variant === "boat") continue; // the spike has no water for it to sit beside
+      if (Math.abs(p.position.x) > CORE_HALF || Math.abs(p.position.z) > CORE_HALF) continue;
       const k = p.variant ?? "rock";
       const list = by.get(k);
       if (list) list.push(p);
@@ -732,6 +594,13 @@ function Village({ props: raw, villagers }: { props: Prop[]; villagers: Villager
 
 type Keys = { f: boolean; b: boolean; l: boolean; r: boolean; yawL: boolean; yawR: boolean; jump: boolean };
 
+/** Consume a queued jump. A free function, so the key state is never written to as a prop. */
+function takeJump(k: Keys): boolean {
+  if (!k.jump) return false;
+  k.jump = false;
+  return true;
+}
+
 /**
  * The hero is the CHILD. Every child in this app built an avatar and that avatar is theirs; a
  * generic wizard walking their village is the one thing that would tell an eight-year-old this
@@ -745,6 +614,7 @@ function Hero({
   facingRef,
   gaitRef,
   solids,
+  world,
 }: {
   heroRef: React.RefObject<THREE.Vector3>;
   keys: React.RefObject<Keys>;
@@ -753,11 +623,13 @@ function Hero({
   facingRef: React.RefObject<number>;
   gaitRef: React.RefObject<Gait>;
   solids: Collider[];
+  world: RealmWorld;
 }) {
   const group = useRef<THREE.Group>(null);
   const facing = useRef(0);
   const bob = useRef(0);
   const step = useMemo<Pt>(() => ({ x: 0, z: 0 }), []);
+  const wet = useMemo<Pt>(() => ({ x: 0, z: 0 }), []);
   const vert = useMemo<Vertical>(() => makeVertical(0), []);
 
   useFrame((_, rawDt) => {
@@ -776,15 +648,21 @@ function Hero({
     const len = Math.hypot(dx, dz);
     const moving = len > 0.001;
     const p = heroRef.current;
+    const ground = world.heightAt(p.x, p.z);
     if (moving) {
       dx /= len;
       dz /= len;
+      // Wading costs pace. It is also the only warning a child gets that they are running out of
+      // shore, and one they can feel under their hands beats one they cannot predict.
+      const speed = HERO_SPEED * wadeSpeed(Math.max(0, SEA_LEVEL - ground));
       // Steering stays live in the air, so a child can aim a jump while they are running.
-      const tx = THREE.MathUtils.clamp(p.x + dx * HERO_SPEED * dt, -WALK_HALF, WALK_HALF);
-      const tz = THREE.MathUtils.clamp(p.z + dz * HERO_SPEED * dt, -WALK_HALF, WALK_HALF);
-      // One axis at a time: a blocked axis is cancelled and the other still runs, which is what
-      // turns "stuck on the corner of a house" into "sliding along its wall".
-      slideMove(step, p.x, p.z, tx, tz, solids, HERO_RADIUS, vert.y);
+      const tx = THREE.MathUtils.clamp(p.x + dx * speed * dt, -WALK_HALF, WALK_HALF);
+      const tz = THREE.MathUtils.clamp(p.z + dz * speed * dt, -WALK_HALF, WALK_HALF);
+      // Two refusals, both axis by axis and in the same spirit: the sea will not let you off the
+      // shelf, and the village will not let you through a wall. Walk at either head-on and you
+      // stop; walk at either at an angle and you slide along it.
+      shoreMove(wet, p.x, p.z, tx, tz, world.heightAt);
+      slideMove(step, p.x, p.z, wet.x, wet.z, solids, HERO_RADIUS, vert.y);
       p.x = step.x;
       p.z = step.z;
       facing.current = Math.atan2(dx, dz);
@@ -792,11 +670,9 @@ function Hero({
     } else {
       bob.current += dt * 2;
     }
-    if (k.jump) {
-      k.jump = false; // edge-triggered: the keydown handler ignores auto-repeat, and this eats the press
-      tryJump(vert);
-    }
-    stepVertical(vert, dt, p.x, p.z, heightAt(p.x, p.z), solids);
+    // Edge-triggered: the keydown handler ignores auto-repeat, and this eats the press.
+    if (takeJump(k)) tryJump(vert);
+    stepVertical(vert, dt, p.x, p.z, world.heightAt(p.x, p.z), solids);
     p.y = vert.y;
 
     // The limbs, the cape and the companion all read the same two numbers.
@@ -891,6 +767,24 @@ function Sun({ heroRef }: { heroRef: React.RefObject<THREE.Vector3> }) {
  */
 const CAM_H = 21;
 const CAM_Y = 19.5;
+/**
+ * ...and where it goes when the wood closes over the child.
+ *
+ * The swinging boom answers "something is between us"; it cannot answer "everything is". In the
+ * deep forest there is no yaw with a clear line at twenty-one units, because the child is under
+ * a ceiling — and shortening the boom along the SAME line only walks the camera down into the
+ * leaves, which is what the first drawn version of the wood looked like: a screen of green with
+ * a hero somewhere inside it.
+ *
+ * So when nothing is clear, the camera DUCKS: in to eight and a half units, down to three and a
+ * half, under the canopy with the child. It is a different shot and it should be — you have gone
+ * into the trees, and the picture says so. Trunks are thin, so from under the canopy there is
+ * almost always a line to the hero; and the moment they step out into a glade the boom eases
+ * back up, which reads as the wood opening rather than as the camera moving.
+ */
+const DUCK_H = 8.5;
+const DUCK_Y = 3.6;
+const DUCK_MIN = 0.55;
 /** What must stay visible: the child's figure, not the patch of grass under it. */
 const CAM_EYE = 1.5;
 /** Never closer than this fraction of the boom, or the camera ends up inside the hero's hood. */
@@ -898,7 +792,7 @@ const CAM_MIN = 0.26;
 /** How much of a jump the camera follows. 0 and he leaves the frame; 1 and the jump is invisible. */
 const CAM_LIFT = 0.3;
 
-function Rig({ heroRef, yawRef, close, occluders, solids }: { heroRef: React.RefObject<THREE.Vector3>; yawRef: React.RefObject<number>; close: boolean; occluders: Collider[]; solids: Collider[] }) {
+function Rig({ heroRef, yawRef, close, occluders, solids, world }: { heroRef: React.RefObject<THREE.Vector3>; yawRef: React.RefObject<number>; close: boolean; occluders: Collider[]; solids: Collider[]; world: RealmWorld }) {
   const { camera } = useThree();
   const desired = useMemo(() => new THREE.Vector3(), []);
   const look = useMemo(() => new THREE.Vector3(), []);
@@ -909,6 +803,8 @@ function Rig({ heroRef, yawRef, close, occluders, solids }: { heroRef: React.Ref
   const boom = useMemo<Boom>(() => ({ yaw: 0, frac: 1 }), []);
   const swing = useRef(0);
   const frac = useRef(1);
+  /** 0 out in the open, 1 under a closed canopy. Damped, so the wood opens rather than snaps. */
+  const duck = useRef(0);
 
   useFrame((_, rawDt) => {
     const dt = Math.min(0.05, rawDt);
@@ -920,7 +816,7 @@ function Rig({ heroRef, yawRef, close, occluders, solids }: { heroRef: React.Ref
      * rising in frame, which is the whole read. `CAM_LIFT` is how much of the hop the camera
      * still follows, so he never climbs out of the top of the shot.
      */
-    const floorY = supportHeight(p.x, p.z, heightAt(p.x, p.z), solids);
+    const floorY = supportHeight(p.x, p.z, world.heightAt(p.x, p.z), solids);
     const rise = p.y - floorY;
     const anchorY = floorY + rise * CAM_LIFT;
 
@@ -930,7 +826,7 @@ function Rig({ heroRef, yawRef, close, occluders, solids }: { heroRef: React.Ref
       off.set(0, 2.4, 4.2).applyAxisAngle(up, yawRef.current);
       const cx = p.x + off.x;
       const cz = p.z + off.z;
-      desired.set(cx, Math.max(anchorY + off.y, heightAt(cx, cz) + 0.6), cz);
+      desired.set(cx, Math.max(anchorY + off.y, world.heightAt(cx, cz) + 0.6), cz);
       camera.position.lerp(desired, 1 - Math.exp(-dt * 6));
       look.set(p.x, anchorY + 1.7, p.z);
       camera.lookAt(look);
@@ -938,8 +834,17 @@ function Rig({ heroRef, yawRef, close, occluders, solids }: { heroRef: React.Ref
     }
 
     const eyeY = p.y + CAM_EYE;
-    const n = gatherNear(near, occluders, p.x, p.z, CAM_H + 3);
-    pickBoom(boom, p.x, eyeY, p.z, yawRef.current, CAM_H, CAM_Y, near, n, 0.44, CAM_MIN);
+    // Last frame's verdict picks this frame's boom. One frame of lag on a value that is already
+    // damped over a third of a second is not a thing anyone can see.
+    const camH = CAM_H + (DUCK_H - CAM_H) * duck.current;
+    const camY = CAM_Y + (DUCK_Y - CAM_Y) * duck.current;
+    const minFrac = CAM_MIN + (DUCK_MIN - CAM_MIN) * duck.current;
+    const n = gatherNear(near, occluders, p.x, p.z, camH + 3);
+    pickBoom(boom, p.x, eyeY, p.z, yawRef.current, camH, camY, near, n, 0.44, minFrac);
+    // Nothing clear at any angle means a ceiling, not a wall. Duck in fast, come back out slowly:
+    // a glade you cross in two strides should not throw the camera up and drop it again.
+    const wantDuck = boom.frac < 0.52 ? 1 : 0;
+    duck.current += (wantDuck - duck.current) * (1 - Math.exp(-dt * (wantDuck > duck.current ? 4.5 : 1.4)));
 
     // Swing toward the angle that can see him, by the short way round.
     let delta = boom.yaw - yawRef.current - swing.current;
@@ -966,15 +871,16 @@ function Rig({ heroRef, yawRef, close, occluders, solids }: { heroRef: React.Ref
     // for, so the child is never lost during the swing itself.
     const sin = Math.sin(yaw);
     const cos = Math.cos(yaw);
-    const want = Math.max(CAM_MIN, clearFraction(p.x, eyeY, p.z, CAM_H * sin, CAM_Y, CAM_H * cos, near, n));
+    const want = Math.max(minFrac, clearFraction(p.x, eyeY, p.z, camH * sin, camY, camH * cos, near, n));
     // In fast when something cuts across, out gently, so passing a tree is not a shove.
     frac.current += (want - frac.current) * (1 - Math.exp(-dt * (want < frac.current ? 16 : 3.5)));
 
     const f = frac.current;
-    const cx = p.x + CAM_H * sin * f;
-    const cz = p.z + CAM_H * cos * f;
-    // Never let the camera sink into a hill.
-    desired.set(cx, Math.max(anchorY + CAM_Y * f, heightAt(cx, cz) + 3.5 * f + 0.6), cz);
+    const cx = p.x + camH * sin * f;
+    const cz = p.z + camH * cos * f;
+    // Never let the camera sink into a hill — and, ducked, never make it hover over one either.
+    const lift = 3.5 + (1.3 - 3.5) * duck.current;
+    desired.set(cx, Math.max(anchorY + camY * f, world.heightAt(cx, cz) + lift * f + 0.6), cz);
     camera.position.lerp(desired, 1 - Math.exp(-dt * 9));
     look.set(p.x, anchorY + 1.2 + 2.2 * f, p.z);
     camera.lookAt(look);
@@ -1038,7 +944,7 @@ function LanternGlow({ scenery, tex }: { scenery: readonly Prop[]; tex: THREE.Te
   const spots = useMemo(
     () =>
       scenery
-        .filter((p) => p.variant === "lantern" && Math.abs(p.position.x) < PATCH_HALF && Math.abs(p.position.z) < PATCH_HALF)
+        .filter((p) => p.variant === "lantern" && Math.abs(p.position.x) <= CORE_HALF && Math.abs(p.position.z) <= CORE_HALF)
         .map((p) => ({ x: p.position.x, z: p.position.z, s: p.size.h / 1.4 })),
     [scenery],
   );
@@ -1069,7 +975,7 @@ function SkyDome() {
   );
   return (
     <mesh material={mat} frustumCulled={false}>
-      <sphereGeometry args={[300, 24, 16]} />
+      <sphereGeometry args={[900, 24, 16]} />
     </mesh>
   );
 }
@@ -1101,23 +1007,58 @@ function World({ avatar, close }: { avatar: AvatarConfig; close: boolean }) {
   );
 
   /**
-   * The village as arithmetic: what stops the hero, and what can hide him from the camera. Two
-   * lists because they are genuinely different — a vegetable bed stops you and never hides you,
-   * an oak's canopy hides you and you walk under it, a roof overhangs the wall it sits on.
+   * The realm. Built once and shared — every height query the hero, the camera, the ground mesh
+   * and the props make comes out of this one object, which is the only reason any of them agree
+   * about where the floor is.
    */
-  const { solids, occluders } = useMemo(
-    () => buildColliders(layout.props, layout.scenery, { sitePlan: SITE_PLAN, wallH: WALL_H, roofH: ROOF_H, treeScale: TREE_SCALE, patchHalf: PATCH_HALF }),
-    [layout],
-  );
+  const world = useMemo(() => realmWorld(), []);
 
-  const heroRef = useRef(new THREE.Vector3(0, 0, 15));
-  useMemo(() => {
-    // Once, at build: the spawn is on the road, but a village that grows a wall across it should
-    // shove the child clear rather than trap them inside it.
-    const p = heroRef.current;
-    const out = pushOut({ x: p.x, z: p.z }, p.x, p.z, solids);
-    p.set(out.x, heightAt(out.x, out.z), out.z);
-  }, [solids]);
+  /**
+   * What stops the hero, and what can hide him from the camera. Two lists, because they are
+   * genuinely different — a vegetable bed stops you and never hides you, an oak's canopy hides
+   * you and you walk under it, a roof overhangs the wall it sits on.
+   *
+   * Three sources, in a fixed order: the village, the built landmarks, and then whatever the
+   * wilderness has standing near the child right now. The first two never move, so they sit at
+   * the front and `RealmProps` truncates back to their count and appends its own on each refill.
+   * Nothing downstream has to know there is more than one kind of thing in here.
+   */
+  const { solids, occluders, fixedSolids, fixedOccluders } = useMemo(() => {
+    const built = buildColliders(layout.props, layout.scenery, { sitePlan: SITE_PLAN, wallH: WALL_H, roofH: ROOF_H, treeScale: TREE_SCALE, patchHalf: CORE_HALF });
+    const marks = landmarkColliders(world);
+    built.solids.push(...marks.solids);
+    built.occluders.push(...marks.occluders);
+    return { ...built, fixedSolids: built.solids.length, fixedOccluders: built.occluders.length };
+  }, [layout, world]);
+
+  /**
+   * Where the child starts.
+   *
+   * Computed rather than written into the hero's ref, because this runs during render and a ref
+   * is not a render-time value — the position is worked out first and the ref is born holding it.
+   *
+   * `SPAWN` is on the road, but a village that grows a wall across it should shove the child
+   * clear rather than trap them inside it, so the solids get a vote. `?at=x,z` drops them
+   * somewhere else instead: not a feature — a way to look at the far side of a 640-unit island
+   * without walking there first, which is the only way a screenshot of a cove ever gets taken.
+   */
+  const spawn = useMemo(() => {
+    let sx = 0;
+    let sz = 15;
+    const q = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("at");
+    if (q) {
+      const [ax, az] = q.split(",").map(Number);
+      if (Number.isFinite(ax) && Number.isFinite(az)) {
+        sx = ax;
+        sz = az;
+      }
+    }
+    const out = pushOut({ x: sx, z: sz }, sx, sz, solids);
+    // The chunks under the child's feet, built before the first frame rather than during it.
+    world.warmAround(out.x, out.z, 120);
+    return new THREE.Vector3(out.x, world.heightAt(out.x, out.z), out.z);
+  }, [solids, world]);
+  const heroRef = useRef(spawn);
   const yawRef = useRef(0);
   const facingRef = useRef(0);
   const gaitRef = useRef<Gait>({ speed: 0, phase: 0 });
@@ -1155,16 +1096,32 @@ function World({ avatar, close }: { avatar: AvatarConfig; close: boolean }) {
   return (
     <>
       <SkyDome />
-      <fog attach="fog" args={[FOG, 72, 215]} />
+      {/*
+        The haze starts well past the village and ends past the far coast. Both numbers are the
+        draw distance's doing: the whole island is drawn, so fog is not hiding a horizon — it is
+        the only thing that puts three hundred units of air between a child and a mountain.
+      */}
+      <fog attach="fog" args={[FOG, 140, 520]} />
       <Sun heroRef={heroRef} />
-      <Terrain />
+      <RealmGround world={world} heroRef={heroRef} />
+      <RealmWater world={world} />
+      <RealmProps
+        world={world}
+        heroRef={heroRef}
+        solids={solids}
+        occluders={occluders}
+        villageSolids={fixedSolids}
+        villageOccluders={fixedOccluders}
+      />
+      <RealmLandmarks world={world} />
       <Scenery scenery={layout.scenery} />
       <Village props={layout.props} villagers={layout.villagers} />
-      <Hero heroRef={heroRef} keys={keys} yawRef={yawRef} look={look} facingRef={facingRef} gaitRef={gaitRef} solids={solids} />
+      <Hero heroRef={heroRef} keys={keys} yawRef={yawRef} look={look} facingRef={facingRef} gaitRef={gaitRef} solids={solids} world={world} />
       {look.companion && <Companion look={look.companion} heroRef={heroRef} facingRef={facingRef} />}
+      <WadeRing world={world} heroRef={heroRef} />
       <LanternGlow scenery={layout.scenery} tex={tex} />
       <Motes tex={tex} />
-      <Rig heroRef={heroRef} yawRef={yawRef} close={close} occluders={occluders} solids={solids} />
+      <Rig heroRef={heroRef} yawRef={yawRef} close={close} occluders={occluders} solids={solids} world={world} />
     </>
   );
 }
@@ -1176,7 +1133,7 @@ export default function SpikeScene({ avatar, close = false }: { avatar?: AvatarC
         dpr={1}
         shadows={{ type: THREE.PCFSoftShadowMap }}
         gl={{ antialias: true, powerPreference: "high-performance" }}
-        camera={{ fov: 46, near: 0.5, far: 420, position: [0, 22, 40] }}
+        camera={{ fov: 46, near: 0.5, far: 1400, position: [0, 22, 40] }}
         onCreated={({ gl }) => {
           gl.toneMapping = THREE.ACESFilmicToneMapping;
           gl.toneMappingExposure = 1.08;
