@@ -307,6 +307,13 @@ export type WorldProp = {
    * become reeds without regenerating a single position.
    */
   role: string;
+  /**
+   * Which lattice grew it, which is the same thing as how big a thing it is — `under` is
+   * knee-high scatter, `feature` is the great oak you can see from the next valley. The scene
+   * draws each lattice out to its own horizon, because a fern at a hundred units is four pixels
+   * of cost and no pixels of picture.
+   */
+  layer: "under" | "canopy" | "boulder" | "feature";
   x: number;
   z: number;
   /** Ground height at (x, z), computed once here so the scene never has to ask again. */
@@ -393,7 +400,20 @@ export type RealmWorld = {
 type Layer = { salt: number; cell: number; jitter: number };
 const LAYERS: Record<"under" | "canopy" | "boulder" | "feature", Layer> = {
   under: { salt: 7001, cell: 1.8, jitter: 0.62 },
-  canopy: { salt: 7103, cell: 2.1, jitter: 0.62 },
+  /**
+   * 3.2, not 2.1 — and the reason is the camera, not the look.
+   *
+   * At 2.1 the deep forest is a canopy every two units with crowns two to five units across,
+   * which is a closed ceiling: walk a child into it and there is no angle, at any boom length,
+   * from which they can be seen. It was drawn, played and photographed at 2.1, and the picture
+   * is a screen of solid green with the hero somewhere inside it.
+   *
+   * At 3.2 the same densities give the deep wood a tree every three and a bit units — still
+   * unmistakably a forest to walk through, still closing over the child in patches, but with
+   * gaps the light and the camera can both get through. The clumping field does the rest: the
+   * thickets are still thickets, they are just not everywhere.
+   */
+  canopy: { salt: 7103, cell: 3.2, jitter: 0.62 },
   boulder: { salt: 7207, cell: 6.5, jitter: 0.6 },
   feature: { salt: 7309, cell: 17, jitter: 0.55 },
 };
@@ -405,9 +425,20 @@ const DENSITY: Record<Biome, Record<LayerKey, number>> = {
   ocean: { under: 0, canopy: 0, boulder: 0, feature: 0 },
   shore: { under: 0.22, canopy: 0.02, boulder: 0.14, feature: 0.06 },
   marsh: { under: 0.78, canopy: 0.06, boulder: 0.02, feature: 0.05 },
-  meadow: { under: 0.14, canopy: 0.04, boulder: 0.05, feature: 0.1 },
-  wood: { under: 0.26, canopy: 0.45, boulder: 0.1, feature: 0.22 },
-  forest: { under: 0.36, canopy: 0.95, boulder: 0.06, feature: 0.34 },
+  // A meadow is meant to be the ground you can RUN across. At a gorse bush every five units it
+  // was furnished like a wood with the trees taken out; at eight it is open grass with
+  // something in it, which is what makes stepping into the trees feel like stepping into them.
+  // ...but open is not the same as empty, and the first walk north out of the village came out
+  // as a putting green. What furnishes open country is not more gorse, it is TREES you can see
+  // from a long way off: a hedgerow oak every ten units or so and a great field oak every
+  // thirty, both of which are drawn out to the far horizon where the undergrowth is not.
+  meadow: { under: 0.1, canopy: 0.07, boulder: 0.05, feature: 0.28 },
+  // The wood and the forest lost a third of their undergrowth when the canopy lattice opened
+  // out. Not book-keeping: at a fern every 1.8 units the forest floor is a mat, and a mat under
+  // a ceiling is why the first drawn version of the deep wood had no forest in it to look at —
+  // what a child should see in there is trunks, with the ferns in patches between them.
+  wood: { under: 0.17, canopy: 0.45, boulder: 0.1, feature: 0.22 },
+  forest: { under: 0.2, canopy: 0.95, boulder: 0.06, feature: 0.34 },
   heath: { under: 0.42, canopy: 0.12, boulder: 0.24, feature: 0.14 },
   moor: { under: 0.34, canopy: 0.025, boulder: 0.48, feature: 0.24 },
   crag: { under: 0.12, canopy: 0.012, boulder: 0.55, feature: 0.3 },
@@ -1458,6 +1489,7 @@ export function createWorld(options: WorldOptions = {}): RealmWorld {
             id: `w-${key}-${ix}-${iz}`,
             variant: pick.variant,
             role: pick.role,
+            layer: key,
             x,
             z,
             y,
