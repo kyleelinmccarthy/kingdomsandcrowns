@@ -309,6 +309,25 @@ export const TERRAIN_COLORS_CALM: Record<TerrainKind, string> = {
   trail: "#a2978a",
 };
 
+/**
+ * How far in from the nearest bank a point lies, in world units, for the union of the deep-water
+ * rectangles — 0 outside the water, growing towards the middle of the lake.
+ *
+ * The lake is three overlapping rectangles plus the mill pool, so no single one of them knows
+ * where the shore is: a point sitting well inside the big rectangle can be a metre from the edge
+ * of the small one it also belongs to, and taking the FURTHEST-in answer is what makes the union
+ * shelve as one lake rather than as four. Pure, and it takes the patches rather than reading
+ * `DEEP`, so what shelves is exactly what the scene was handed and the mill pool comes free.
+ */
+export function bankDistance(patches: readonly { position: Vec2; size: { w: number; d: number } }[], x: number, z: number): number {
+  let best = 0;
+  for (const p of patches) {
+    const inset = Math.min(p.size.w / 2 - Math.abs(x - p.position.x), p.size.d / 2 - Math.abs(z - p.position.z));
+    if (inset > best) best = inset;
+  }
+  return best;
+}
+
 type Rect = { x: number; z: number; w: number; d: number };
 const rect = (x: number, z: number, w: number, d: number): Rect => ({ x, z, w, d });
 const inRect = (p: Vec2, r: Rect, pad = 0): boolean => Math.abs(p.x - r.x) <= r.w / 2 + pad && Math.abs(p.z - r.z) <= r.d / 2 + pad;

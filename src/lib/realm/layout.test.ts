@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { arrivalText, buildWorldLayout, buildingFootprint, CASTLE_FOOTPRINTS, BUILDING_SLOTS, WORLD_SIZE, VILLAGE_SIZE, CASTLE_POSITION, SPAWN, FOUNDATION_COLOR, BANNER_SIZE, BANNER_MARGIN, DECOR_SPOTS, PLACES, PLACE_LEAVE, placeAt, placeById, SCENERY, TERRAIN, spriteSizeFor, type Prop, type Vec2 } from "./layout";
+import { arrivalText, bankDistance, buildWorldLayout, buildingFootprint, CASTLE_FOOTPRINTS, BUILDING_SLOTS, WORLD_SIZE, VILLAGE_SIZE, CASTLE_POSITION, SPAWN, FOUNDATION_COLOR, BANNER_SIZE, BANNER_MARGIN, DECOR_SPOTS, PLACES, PLACE_LEAVE, placeAt, placeById, SCENERY, TERRAIN, spriteSizeFor, type Prop, type Vec2 } from "./layout";
 import { BUILDINGS } from "@/lib/utils/kingdom";
 import { REACH, VILLAGER_OFFSET } from "./villagers";
 import { HERO_RADIUS } from "./movement";
@@ -301,6 +301,29 @@ describe("the world beyond the village", () => {
       expect(Math.abs(t.position.z) + t.size.d / 2).toBeLessThanOrEqual(HALF);
     }
     expect(new Set(layout.terrain.map((t) => t.id)).size).toBe(layout.terrain.length);
+  });
+
+  it("measures how far in from the bank a point is, across the union of the water rectangles", () => {
+    const water = layout.terrain.filter((t) => t.kind === "water");
+    expect(water.length).toBeGreaterThan(1);
+    // Dry land is not water at any depth.
+    expect(bankDistance(water, 0, 0)).toBe(0);
+    for (const w of water) {
+      const { x, z } = w.position;
+      // The middle of a rectangle is its own half-size in from the nearest of its four edges...
+      expect(bankDistance(water, x, z)).toBeGreaterThanOrEqual(Math.min(w.size.w, w.size.d) / 2 - 1e-9);
+      // ...and it falls to nothing at that rectangle's own edge, which is where its collider is.
+      expect(bankDistance([w], x + w.size.w / 2, z)).toBeCloseTo(0, 6);
+      expect(bankDistance([w], x, z + w.size.d / 2 + 0.5)).toBe(0);
+    }
+    // THE REASON IT TAKES THE WHOLE LIST: the lake is overlapping rectangles, so a point near one
+    // rectangle's edge but well inside another must read as deep. Taking the furthest-in answer
+    // is what makes four rectangles shelve as one lake instead of showing a seam at every join.
+    const big = water.reduce((a, b) => (a.size.w * a.size.d > b.size.w * b.size.d ? a : b));
+    const onItsEdge = { x: big.position.x - big.size.w / 2, z: big.position.z };
+    const others = water.filter((w) => w !== big);
+    const overlap = others.find((w) => bankDistance([w], onItsEdge.x + 1, onItsEdge.z) > 1);
+    if (overlap) expect(bankDistance(water, onItsEdge.x + 1, onItsEdge.z)).toBeGreaterThan(bankDistance([big], onItsEdge.x + 1, onItsEdge.z));
   });
 
   it("puts a wood, a shore, a fell and a fenced plot in four different directions", () => {

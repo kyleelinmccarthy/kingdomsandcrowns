@@ -248,27 +248,85 @@ export function shingleTile(seed: number, size = 32): Tile {
   return grid;
 }
 
-/** Water: broad ripple bands and a few glints. Tinted deep for the lake, pale for the shallows. */
+/**
+ * Water: a swell, ripple bands crossing it, and a few glints.
+ *
+ * One set of stripes is a barcode — that is what the lake used to be, and at the lake's size it
+ * read as ruled paper rather than as a surface. Two wave sets crossing at a shallow angle
+ * interfere, so the bands bunch and thin along their length and the water gets a swell in it.
+ * Both sets are phased by a WRAPPING noise field and both use whole numbers of periods across
+ * the tile, so the pattern still tiles seamlessly in x and y — which is what lets `DeepWater`
+ * lay one continuous sheet of it across four overlapping rectangles with no seam.
+ */
 export function rippleTile(seed: number, size = 32): Tile {
   const rng = seededRng(seed);
   const coarse = lattice(rng, 3);
+  const fine = lattice(rng, 6);
   const grid: Tile = [];
+  const TAU = Math.PI * 2;
   for (let y = 0; y < size; y++) {
     const row: string[] = [];
     for (let x = 0; x < size; x++) {
-      const n = sample(coarse, x / size, y / size);
-      // Bands, not blobs: a lake's surface has a direction the light runs along.
-      const band = (Math.sin((y / size) * Math.PI * 4 + n * 3) + 1) / 2;
-      row.push(band > 0.86 ? S_COOL : step(PALE, 0.12 + band * 0.86));
+      const u = x / size;
+      const v = y / size;
+      const n = sample(coarse, u, v);
+      const m = sample(fine, u, v);
+      // Bands, not blobs: a lake's surface has a direction the light runs along...
+      const band = (Math.sin(TAU * 2 * v + n * 3) + 1) / 2;
+      // ...and a second, finer set running across them, so the light is not a ruler.
+      const swell = (Math.sin(TAU * (u + 3 * v) + m * 4) + 1) / 2;
+      const w = band * 0.62 + swell * 0.38;
+      row.push(w > 0.88 ? S_COOL : step(PALE, 0.1 + w * 0.88));
     }
     grid.push(row);
   }
-  for (let i = 0; i < Math.round(size / 6); i++) {
+  // Glints last: short dashes lying ALONG the bands, the only near-white thing on the water.
+  for (let i = 0; i < Math.round(size / 5); i++) {
     const x = Math.floor(rng() * size);
     const y = Math.floor(rng() * size);
-    for (const [dx] of [[0], [1], [2]]) grid[y][(x + dx) % size] = S_WHITE;
+    const len = 2 + Math.floor(rng() * 3);
+    for (let s = 0; s < len; s++) grid[y][(x + s) % size] = S_WHITE;
   }
   return grid;
+}
+
+/* ---------------------------------------------------------------------------
+ * The lake's own wash.
+ *
+ * `meadowShade` gave the land variation at the scale of a screen and the water got none, so
+ * the lake read as a hole cut in a ground that had clumping, wash and grain everywhere else.
+ * This is the same idea for water, with the one thing land has no use for: DEPTH. `bank` is
+ * how far a point lies from the nearest shore, so a lake shelves — pale where a child could
+ * paddle, dark out in the middle — and that gradient is the whole reason it stops reading flat.
+ *
+ * Like `meadowShade` it is a per-channel MULTIPLIER around one, written into a mesh's vertex
+ * colours once on mount. No second plane, no blending, no per-frame work: the measured cost of
+ * the realm is blended fill, and a lake that pays for its looks in vertex colours pays nothing.
+ * ------------------------------------------------------------------------ */
+
+/** How far in from the bank the water reaches full depth, in world units. */
+export const WATER_DEPTH_REACH = 5.5;
+
+export function waterShade(x: number, z: number, bank: number, strength = 1): Shade {
+  const t = Math.max(0, Math.min(1, bank / WATER_DEPTH_REACH));
+  const deep = t * t * (3 - 2 * t); // smoothstepped, so the bank shelves rather than steps
+  // The swell, at a lake's scale rather than a field's: summed waves, continuous and seamless.
+  const swell = Math.sin(x * 0.085 + 0.9) * Math.cos(z * 0.071 - 1.4) * 0.55 + Math.sin((x - z) * 0.13 + 2.6) * 0.45;
+  // The glint: broad lanes of light lying across the water, cubed so they are a few bright
+  // streaks and not a sine wave painted on a lake. Only out in the deep, where sun on open
+  // water is what a child has actually seen.
+  const lane = Math.max(0, Math.sin((x + z) * 0.055 + 0.4));
+  const glint = lane * lane * lane;
+  const shallow = 1 - deep;
+  const v = 1 + 0.3 * shallow * strength + swell * 0.055 * strength + glint * deep * 0.16 * strength;
+  const clamp = (c: number) => Math.max(0.6, Math.min(1.45, c));
+  // Deep water goes darker AND bluer; the shelf goes paler and a touch green, which is what
+  // water over a sandy bottom does and what tells a child where they could put a boat in.
+  return {
+    r: clamp(v * (1 - deep * 0.24 * strength)),
+    g: clamp(v * (1 - deep * 0.15 * strength + shallow * 0.04 * strength)),
+    b: clamp(v * (1 + deep * 0.08 * strength - shallow * 0.05 * strength)),
+  };
 }
 
 /**

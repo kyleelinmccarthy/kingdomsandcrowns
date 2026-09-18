@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { grassTile, cobbleTile, surfaceTile, meadowShade, GRASS_COLORS, COBBLE_COLORS, SURFACE_COLORS, SOFT_SURFACES } from "./tiles";
+import { grassTile, cobbleTile, surfaceTile, meadowShade, waterShade, WATER_DEPTH_REACH, GRASS_COLORS, COBBLE_COLORS, SURFACE_COLORS, SOFT_SURFACES } from "./tiles";
 
 const SURFACES = ["meadow", "grove", "litter", "scree", "field", "furrow", "shore", "shallow", "water", "trail"];
 
@@ -66,6 +66,41 @@ describe("tiles", () => {
       expect(mid.slice(7)).toBe("ff"); // opaque in the middle...
       expect(tile[0][0].slice(7)).toBe("00"); // ...and gone at the corner
     }
+  });
+
+  it("shelves the water from the bank to the middle, and varies it at the scale of a lake", () => {
+    expect(waterShade(3, -4, 2)).toEqual(waterShade(3, -4, 2));
+    // THE POINT OF THE WHOLE FIELD: water at the bank is plainly paler than water out in the
+    // middle, and it is the gradient between them the eye reads as depth. Anything less than
+    // this and the lake is a flat blue hole again.
+    const bank = waterShade(40, -46, 0);
+    const middle = waterShade(40, -46, WATER_DEPTH_REACH);
+    expect(bank.r - middle.r).toBeGreaterThan(0.25);
+    expect(bank.g).toBeGreaterThan(middle.g);
+    // ...and it goes BLUER as it deepens, not merely darker.
+    expect(middle.b / middle.r).toBeGreaterThan(bank.b / bank.r);
+    // Past the reach it has bottomed out: no lake is deeper than deep.
+    expect(waterShade(40, -46, WATER_DEPTH_REACH * 4)).toEqual(middle);
+    // Two points a screen apart differ; two neighbouring vertices do not.
+    const here = waterShade(40, -46, 8);
+    expect(Math.abs(waterShade(41.6, -46, 8).g - here.g)).toBeLessThan(0.03);
+    expect(Math.abs(waterShade(66, -60, 8).g - here.g)).toBeGreaterThan(0.02);
+    // A multiplier around one, and bounded, so no stretch of lake goes black or blows out.
+    for (let x = -240; x <= 240; x += 7) {
+      for (let z = -240; z <= 240; z += 11) {
+        for (const bankAt of [0, 1, 3, 6, 40]) {
+          const s = waterShade(x, z, bankAt);
+          for (const c of [s.r, s.g, s.b]) {
+            expect(c).toBeGreaterThanOrEqual(0.6);
+            expect(c).toBeLessThanOrEqual(1.45);
+          }
+        }
+      }
+    }
+    // lowStimulus halves the swing; it never flattens it.
+    const calm = waterShade(40, -46, 0, 0.5);
+    expect(Math.abs(calm.r - 1)).toBeLessThan(Math.abs(bank.r - 1));
+    expect(calm.r).not.toBe(1);
   });
 
   it("washes the ground with a field that varies at the scale of a screen", () => {

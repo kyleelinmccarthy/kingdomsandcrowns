@@ -5,13 +5,13 @@ import { memo, useCallback, useEffect, useMemo, useRef, type RefObject } from "r
 import { Canvas, useFrame, type ThreeEvent } from "@react-three/fiber";
 import { Html, OrthographicCamera } from "@react-three/drei";
 import * as THREE from "three";
-import { WORLD_SIZE, placeAt, spriteSizeFor, TERRAIN_COLORS, TERRAIN_COLORS_CALM, type Prop, type TerrainKind, type WorldLayout, type Vec2 } from "@/lib/realm/layout";
+import { WORLD_SIZE, bankDistance, placeAt, spriteSizeFor, TERRAIN_COLORS, TERRAIN_COLORS_CALM, type Prop, type TerrainKind, type TerrainPatch, type WorldLayout, type Vec2 } from "@/lib/realm/layout";
 import { stepCompanion, stepHero, unstickHero, setMounted, HERO_SPEED, COMPANION_GAP_MOUNTED, type CompanionState, type HeroState } from "@/lib/realm/movement";
 import { CAMERA_OFFSET, CAMERA_ZOOM, edgeArrow, followCamera } from "@/lib/realm/camera";
 import { projectToMap, worldBounds } from "@/lib/realm/minimap";
 import { BEACON, facingAngle, GROUND_Y, shadowFootprint, RING_INNER, RING_OUTER, RING_NOTCH_ARC, RING_GOLD, RING_CALM, SHADOW_OPACITY, SHADOW_OPACITY_CALM } from "@/lib/realm/markers";
 import { nearestVillager, villagerById, REACH } from "@/lib/realm/villagers";
-import { meadowShade, SOFT_SURFACES } from "@/lib/realm/tiles";
+import { meadowShade, waterShade, SOFT_SURFACES } from "@/lib/realm/tiles";
 import { deferSignal, keysFromWorldAxis, objectiveArrival, shouldEmitWalked, walkBucket, type TutorialSignal } from "@/lib/realm/tutorial";
 import type { RenderSettings } from "@/lib/realm/render-settings";
 import type { Surfaces } from "@/lib/realm/depth";
@@ -234,7 +234,7 @@ function useDisposeBatch(mesh: THREE.InstancedMesh | null): void {
 }
 
 /**
- * One flat ground surface — water, a bank, a plot, a dirt track — as a single draw.
+ * One flat ground surface — a bank, a plot, a dirt track — as a single draw.
  *
  * `soft` is the surfaces whose tile carries a feathered alpha (`SOFT_SURFACES`): they blend, and
  * they never write depth. Depth is what would break them — hundreds of coplanar patches of one
@@ -265,6 +265,91 @@ function GroundBatch({ items, y, color, map, soft }: { items: { position: Vec2; 
     });
   }, [items, y, color, map, soft]);
   useDisposeBatch(mesh);
+  return mesh ? <primitive object={mesh} dispose={null} /> : null;
+}
+
+/** How finely the lake is divided for its wash: a vertex every metre and a half of water. */
+const WATER_CELL = 1.6;
+/** World units one ripple tile spans. Sets how big a water pixel is, and nothing else. */
+const WATER_TILE_UNITS = 3.6;
+
+/**
+ * THE DEEP WATER, as one sheet with a bottom to it.
+ *
+ * Every other surface in the world is a batch of little patches whose overlap makes the shape.
+ * Water cannot be: the deep rectangles ARE the colliders, so the edge a child sees has to be the
+ * edge they bump into, and a feathered patch would put the two in different places. Drawn as
+ * plain rectangles, though, it was the one thing in the realm with no variation at any scale the
+ * eye can see — a flat blue hole in a ground that had clumping, wash and grain everywhere else.
+ *
+ * So the rectangles are MESHED rather than instanced: a grid of vertices over each one, carrying
+ * `waterShade` in its vertex colours, and uv in WORLD units so one continuous ripple runs across
+ * all four with no seam at the joins. Because both the colour and the uv are functions of world
+ * position alone, the places where the lake's rectangles overlap paint exactly the same thing
+ * twice and the join is invisible — which is what lets the shape stay a union of rectangles.
+ *
+ * It costs what it replaced: one draw, one material, one texture, opaque, depth-writing, and
+ * not a single blended fragment — the thing the fill-rate pass above is spending its effort on.
+ * Nothing here is touched per frame.
+ */
+function DeepWater({ patches, color, map, calm }: { patches: TerrainPatch[]; color: string; map?: THREE.CanvasTexture; calm: boolean }) {
+  const mesh = useMemo(() => {
+    if (patches.length === 0) return null;
+    const positions: number[] = [];
+    const uvs: number[] = [];
+    const colors: number[] = [];
+    const indices: number[] = [];
+    // The tile's own repeat multiplies uv, so it has to be divided back out here or the ripple
+    // would be the surface's repeat squared. Read off the texture rather than restated.
+    const repeatX = (map?.repeat.x ?? 1) * WATER_TILE_UNITS;
+    const repeatY = (map?.repeat.y ?? 1) * WATER_TILE_UNITS;
+    const strength = calm ? 0.5 : 1; // lowStimulus halves the swing; it never flattens it
+    for (const patch of patches) {
+      const { w, d } = patch.size;
+      const x0 = patch.position.x - w / 2;
+      const z0 = patch.position.z - d / 2;
+      const nx = Math.max(1, Math.round(w / WATER_CELL));
+      const nz = Math.max(1, Math.round(d / WATER_CELL));
+      const base = positions.length / 3;
+      for (let j = 0; j <= nz; j++) {
+        for (let i = 0; i <= nx; i++) {
+          const x = x0 + (w * i) / nx;
+          const z = z0 + (d * j) / nz;
+          positions.push(x, GROUND_Y.water, z);
+          uvs.push(x / repeatX, -z / repeatY);
+          const shade = waterShade(x, z, bankDistance(patches, x, z), strength);
+          colors.push(shade.r, shade.g, shade.b);
+        }
+      }
+      for (let j = 0; j < nz; j++) {
+        for (let i = 0; i < nx; i++) {
+          const a = base + j * (nx + 1) + i;
+          const b = a + 1;
+          const c = a + nx + 1;
+          // Wound so the face looks UP: the sheet is built in world XZ and never turned, so a
+          // flipped winding is a lake lit from underneath and black from above.
+          indices.push(a, c, b, b, c, c + 1);
+        }
+      }
+    }
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array(positions), 3));
+    geometry.setAttribute("uv", new THREE.BufferAttribute(new Float32Array(uvs), 2));
+    geometry.setAttribute("color", new THREE.BufferAttribute(new Float32Array(colors), 3));
+    const normals = new Float32Array(positions.length);
+    for (let i = 1; i < normals.length; i += 3) normals[i] = 1;
+    geometry.setAttribute("normal", new THREE.BufferAttribute(normals, 3));
+    geometry.setIndex(indices);
+    const material = new THREE.MeshStandardMaterial({ color, map, vertexColors: true });
+    return new THREE.Mesh(geometry, material);
+  }, [patches, color, map, calm]);
+  useEffect(() => {
+    if (!mesh) return;
+    return () => {
+      mesh.geometry.dispose();
+      (mesh.material as THREE.Material).dispose();
+    };
+  }, [mesh]);
   return mesh ? <primitive object={mesh} dispose={null} /> : null;
 }
 
@@ -351,12 +436,16 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
   const surfaces3d = useMemo(() => {
     const by = new Map<TerrainKind, { position: Vec2; size: { w: number; d: number } }[]>();
     for (const patch of layout.terrain) {
+      // The deep water is not a surface batch any more: it is meshed, so it can carry a bottom
+      // (see `DeepWater`). Left in here it would be drawn a second time, flat, over the top.
+      if (patch.kind === "water") continue;
       const list = by.get(patch.kind);
       if (list) list.push(patch);
       else by.set(patch.kind, [patch]);
     }
     return [...by.entries()];
   }, [layout.terrain]);
+  const deepWater = useMemo(() => layout.terrain.filter((patch) => patch.kind === "water"), [layout.terrain]);
   const woods = useMemo(() => {
     // One batch per decoration kind, and a kind whose figure failed to rasterise is simply
     // not drawn — the same rule the village's decorations have always had.
@@ -858,9 +947,9 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
       </mesh>
       {/*
         THE WORLD BEYOND THE VILLAGE. Ground first, lowest rung up: the ploughed plots and
-        their furrows, the banks, the shallows, the deep water, the dirt tracks, and last the
-        village's own cobbled road. Every surface is ONE draw, and every y comes from a named
-        rung of GROUND_Y — there is not a y literal in this file.
+        their furrows, the banks, the shallows, then the deep water (meshed, not batched — see
+        `DeepWater`), the dirt tracks, and last the village's own cobbled road. Every surface is
+        ONE draw, and every y comes from a named rung of GROUND_Y — not a y literal in this file.
       */}
       {surfaces3d.map(([kind, items]) => (
         <GroundBatch
@@ -872,6 +961,12 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
           soft={SOFT_SURFACES.includes(kind)}
         />
       ))}
+      <DeepWater
+        patches={deepWater}
+        color={(settings.calmPalette ? TERRAIN_COLORS_CALM : TERRAIN_COLORS).water}
+        map={textures.tiles?.surface.water}
+        calm={settings.calmPalette}
+      />
       <GroundBatch items={pathTiles} y={GROUND_Y.path} color={textures.tiles ? tint : pathTiles[0]?.color ?? "#c9b27a"} map={textures.tiles?.cobble} />
       {woods.map(([kind, items]) => (
         <SceneryBatch key={kind} items={items} texture={textures.world[`decor:${kind}`]} tint={tint} />
