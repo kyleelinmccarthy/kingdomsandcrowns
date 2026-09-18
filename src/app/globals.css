@@ -1770,7 +1770,12 @@ body[data-realm-open] .parent-alert-popup { display: none; }
    the frame is one shade darker so the gold border has something to enclose. Gold sites and
    violet troubles keep ~6:1 against that ground, and keep it now by construction rather
    than by whatever happens to be painted behind. */
-.realm-minimap { width: calc(9rem * var(--realm-hud-scale)); aspect-ratio: 1; border-radius: 0.5rem; border: 1px solid var(--gold-border); background: #101a13; overflow: hidden; pointer-events: none; }
+/* Above `.realm-messages` (z-21), which spans the whole screen and carries the screen-edge
+   objective arrow. When the objective lay off the north edge the arrow slid into this corner
+   and covered about a third of the map. The map wins that overlap on purpose: it already pins
+   the objective to its own rim, so nothing is lost by the arrow going behind it, whereas a map
+   a child cannot read is the thing they were looking at. */
+.realm-minimap { position: relative; z-index: 22; width: calc(9rem * var(--realm-hud-scale)); aspect-ratio: 1; border-radius: 0.5rem; border: 1px solid var(--gold-border); background: #101a13; overflow: hidden; pointer-events: none; }
 .realm-minimap svg { display: block; width: 100%; height: 100%; }
 /* The map draws the land first — where the world stops, the ground inside it, then the
    fields, the water, the woods and the road over the top — and the landmarks on top of that.
