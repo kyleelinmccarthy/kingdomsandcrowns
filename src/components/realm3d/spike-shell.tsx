@@ -7,12 +7,13 @@
  */
 
 import dynamic from "next/dynamic";
+import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
 
 const SpikeScene = dynamic(() => import("./spike-scene"), {
   ssr: false,
   loading: () => <p className="p-6 text-center text-muted-foreground">Raising the hills…</p>,
 });
 
-export function Realm3dSpike() {
-  return <SpikeScene />;
+export function Realm3dSpike({ avatar, close }: { avatar: AvatarConfig | null; close?: boolean }) {
+  return <SpikeScene avatar={avatar} close={close} />;
 }

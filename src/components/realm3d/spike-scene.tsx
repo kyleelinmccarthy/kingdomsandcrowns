@@ -18,6 +18,9 @@ import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { buildWorldLayout, type Prop, type VillagerPlacement } from "@/lib/realm/layout";
 import { groundNoise, heightAt, PATCH_HALF, WALK_HALF } from "@/lib/realm3d/heightfield";
+import { heroLook } from "@/lib/realm3d/hero-look";
+import { DEFAULT_AVATAR, type AvatarConfig } from "@/lib/utils/avatar-catalog";
+import { Companion, HeroFigure, type Gait } from "./hero-figure";
 
 /* ------------------------------------------------------------------ palette */
 
@@ -26,6 +29,31 @@ const SKY_LOW = "#d8e9ec";
 const FOG = "#bcdcec";
 const SUN_COLOR = "#fff3d2";
 const HERO_SPEED = 11;
+
+/**
+ * The village data was authored for a pixel sprite seen from above, where a house was a
+ * PICTURE of a house: `BUILDING_SIZE` is 3 x 3 x 2.5, and at 2.5 the eaves land below the
+ * hero's chin and the front door is a cat flap. Built as real geometry that reads as a model
+ * village, not somewhere anyone lives — which is exactly what the owner said.
+ *
+ * So every village site is re-plotted 1.5x wider on the ground, and the parts above the
+ * footing (walls, roof, door, tower) are given absolute heights measured against the hero:
+ * a door he walks through, eaves over his head, a roof that carries. 1.5 and no more is the
+ * ceiling the layout allows: library (6, -8) and garden (9, -13) are 5 units apart in z, so a
+ * 3-unit footprint with a 1.06 plinth around it touches its neighbour at 1.57.
+ */
+const SITE_PLAN = 1.5;
+/** Eaves at 3.1 and a 2.4 door: the hero is 2.3 tall to the top of the head. */
+const WALL_H = 3.1;
+const ROOF_H = 2.25;
+const DOOR_H = 2.4;
+/**
+ * Trees moved with the houses. An oak whose crown stops at the hero's hat was already reading
+ * as a shrub; beside a 5.3-unit roofline it would have read as a weed. 1.25 and not more: the
+ * wilderness already varies its own footprints, and at 1.5 the big ones in the outer wood grew
+ * canopies wide enough to bury the camera when the hero walked south into the trees.
+ */
+const TREE_SCALE = 1.25;
 
 /** The village colours are muted for a pixel sprite. Under a light they want saturating. */
 function vivid(hex: string, satFloor = 0.5, lo = 0.34, hi = 0.58): THREE.Color {
@@ -242,7 +270,8 @@ function SceneryKind({ kind, props, material }: { kind: string; props: Prop[]; m
     const t = new THREE.Vector3();
     const c = new THREE.Color();
     props.forEach((p, i) => {
-      const scale = p.size.h / 1.4; // DECOR_SIZE.h — the layout's nominal decoration
+      // DECOR_SIZE.h — the layout's nominal decoration. Canopy trees take the village's new scale.
+      const scale = (p.size.h / 1.4) * (kind === "oak" || kind === "pine" ? TREE_SCALE : 1);
       const x = p.position.x;
       const z = p.position.z;
       t.set(x, heightAt(x, z) - 0.05, z);
@@ -291,65 +320,113 @@ function Plaster() {
   return <meshStandardMaterial color="#e8ddc2" flatShading roughness={0.95} />;
 }
 
+/** A lit pane. Upstairs now, because downstairs is taken up by a door a hero can walk through. */
+function Window({ w = 0.85, h = 0.9 }: { w?: number; h?: number }) {
+  return (
+    <>
+      <boxGeometry args={[w, h, 0.08]} />
+      <meshStandardMaterial color="#ffe9a8" emissive="#e8bd4a" emissiveIntensity={0.55} flatShading />
+    </>
+  );
+}
+
 function House({ prop }: { prop: Prop }) {
-  const { w, d, h } = prop.size;
-  const wallH = h * 0.66;
-  const roofH = Math.max(1.0, h * 0.62);
-  const roof = useMemo(() => gableGeo(w * 1.18, d * 1.18, roofH), [w, d, roofH]);
+  const { w, d } = prop.size;
+  const roof = useMemo(() => gableGeo(w * 1.2, d * 1.2, ROOF_H), [w, d]);
   const roofColor = useMemo(() => vivid(prop.color, 0.55, 0.3, 0.5), [prop.color]);
   return (
     <group position={[prop.position.x, groundY(prop), prop.position.z]}>
       <Plinth w={w * 1.06} d={d * 1.06} />
-      <mesh castShadow receiveShadow position={[0, wallH / 2, 0]}>
-        <boxGeometry args={[w, wallH, d]} />
+      <mesh castShadow receiveShadow position={[0, WALL_H / 2, 0]}>
+        <boxGeometry args={[w, WALL_H, d]} />
         <Plaster />
       </mesh>
-      <mesh castShadow receiveShadow position={[0, wallH, 0]} geometry={roof}>
-        <meshStandardMaterial color={roofColor} flatShading roughness={0.85} />
-      </mesh>
-      {/* a door and two windows: the cheapest thing that makes a box read as somewhere a person lives */}
-      <mesh position={[0, wallH * 0.36, d / 2 + 0.02]}>
-        <boxGeometry args={[w * 0.26, wallH * 0.62, 0.06]} />
-        <meshStandardMaterial color="#5b3a22" flatShading />
+      {/* Timbers. At two storeys a plain plaster box is a lot of blank wall. */}
+      <mesh position={[0, WALL_H * 0.56, 0]}>
+        <boxGeometry args={[w + 0.06, 0.16, d + 0.06]} />
+        <meshStandardMaterial color="#6b4a30" flatShading />
       </mesh>
       {[-1, 1].map((s) => (
-        <mesh key={s} position={[(s * w) / 3.1, wallH * 0.66, d / 2 + 0.02]}>
-          <boxGeometry args={[w * 0.18, wallH * 0.24, 0.06]} />
-          <meshStandardMaterial color="#ffe9a8" emissive="#e8bd4a" emissiveIntensity={0.5} flatShading />
+        <mesh key={s} position={[(s * w) / 2, WALL_H / 2, 0]}>
+          <boxGeometry args={[0.14, WALL_H, 0.2]} />
+          <meshStandardMaterial color="#6b4a30" flatShading />
         </mesh>
       ))}
+      <mesh castShadow receiveShadow position={[0, WALL_H, 0]} geometry={roof}>
+        <meshStandardMaterial color={roofColor} flatShading roughness={0.85} />
+      </mesh>
+      {/* The door is the whole of the point: 2.4 tall against a 2.3 hero. */}
+      <mesh position={[0, DOOR_H / 2, d / 2 + 0.03]}>
+        <boxGeometry args={[1.3, DOOR_H, 0.1]} />
+        <meshStandardMaterial color="#5b3a22" flatShading />
+      </mesh>
+      <mesh position={[0, DOOR_H + 0.12, d / 2 + 0.05]}>
+        <boxGeometry args={[1.6, 0.18, 0.34]} />
+        <meshStandardMaterial color="#6b4a30" flatShading />
+      </mesh>
+      <mesh position={[0.4, DOOR_H * 0.5, d / 2 + 0.11]}>
+        <sphereGeometry args={[0.07, 6, 5]} />
+        <meshStandardMaterial color="#d9b877" flatShading metalness={0.6} roughness={0.35} />
+      </mesh>
+      {[-1, 1].map((s) => (
+        <mesh key={s} position={[(s * w) / 3.2, WALL_H * 0.78, d / 2 + 0.03]}>
+          <Window />
+        </mesh>
+      ))}
+      {[-1, 1].map((s) => (
+        <mesh key={`side${s}`} position={[(s * w) / 2 + s * 0.03, WALL_H * 0.72, 0]} rotation={[0, Math.PI / 2, 0]}>
+          <Window w={1.0} h={0.9} />
+        </mesh>
+      ))}
+      <mesh castShadow position={[w * 0.3, WALL_H + ROOF_H * 0.5, -d * 0.22]}>
+        <boxGeometry args={[0.6, 1.5, 0.6]} />
+        <meshStandardMaterial color="#9c8a76" flatShading />
+      </mesh>
     </group>
   );
 }
 
 function Well({ prop }: { prop: Prop }) {
-  const roof = useMemo(() => gableGeo(2.6, 2.6, 0.9), []);
   return (
     <group position={[prop.position.x, groundY(prop), prop.position.z]}>
-      <Plinth w={2.6} d={2.6} />
-      <mesh castShadow receiveShadow position={[0, 0.4, 0]}>
-        <cylinderGeometry args={[1.05, 1.15, 0.8, 12]} />
+      <Plinth w={3.4} d={3.4} />
+      {/* A well is not walked into, but it still stands in a village built at the new scale:
+          the parapet is waist height on the hero and the gable clears his head. */}
+      <mesh castShadow receiveShadow position={[0, 0.55, 0]}>
+        <cylinderGeometry args={[1.5, 1.65, 1.1, 12]} />
         <meshStandardMaterial color="#9c968a" flatShading />
       </mesh>
-      <mesh position={[0, 0.78, 0]}>
-        <cylinderGeometry args={[0.85, 0.85, 0.08, 12]} />
+      <mesh position={[0, 1.06, 0]}>
+        <cylinderGeometry args={[1.22, 1.22, 0.1, 12]} />
         <meshStandardMaterial color="#2f6f9e" flatShading roughness={0.25} metalness={0.2} />
       </mesh>
       {[-1, 1].map((s) => (
-        <mesh key={s} castShadow position={[s * 0.85, 1.3, 0]}>
-          <boxGeometry args={[0.16, 1.9, 0.16]} />
+        <mesh key={s} castShadow position={[s * 1.25, 1.95, 0]}>
+          <boxGeometry args={[0.22, 2.7, 0.22]} />
           <meshStandardMaterial color="#7c5c38" flatShading />
         </mesh>
       ))}
-      <mesh castShadow position={[0, 2.2, 0]} geometry={roof}>
-        <meshStandardMaterial color={vivid(prop.color, 0.6, 0.35, 0.5)} flatShading />
+      <mesh castShadow position={[0, 3.2, 0]}>
+        <cylinderGeometry args={[0.16, 0.16, 2.6, 6]} />
+        <meshStandardMaterial color="#8b6a42" flatShading />
+      </mesh>
+      {/* A pyramid, not a gable. Grown to the village's new scale a gable this size reads as a
+          painted blue crate dropped in the middle of the green — the roof of a well is a cap. */}
+      <mesh castShadow position={[0, 3.75, 0]} rotation={[0, Math.PI / 4, 0]}>
+        <coneGeometry args={[2.5, 1.5, 4]} />
+        <meshStandardMaterial color={vivid(prop.color, 0.5, 0.3, 0.45)} flatShading />
+      </mesh>
+      <mesh castShadow position={[0, 2.35, 0]}>
+        <cylinderGeometry args={[0.45, 0.42, 0.55, 10]} />
+        <meshStandardMaterial color="#6b4a30" flatShading />
       </mesh>
     </group>
   );
 }
 
 function Watchtower({ prop }: { prop: Prop }) {
-  const { w, d, h } = prop.size;
+  const { w, d } = prop.size;
+  const h = prop.size.h * 1.5; // it has to still tower over a two-storey cottage
   const merlons = useMemo(() => {
     const out: [number, number][] = [];
     for (const s of [-1, 1]) {
@@ -377,9 +454,13 @@ function Watchtower({ prop }: { prop: Prop }) {
           <meshStandardMaterial color="#cfc6b1" flatShading />
         </mesh>
       ))}
-      <mesh position={[0, h * 0.62, d / 2 + 0.02]}>
-        <boxGeometry args={[0.5, 0.7, 0.06]} />
+      <mesh position={[0, h * 0.62, d / 2 + 0.03]}>
+        <boxGeometry args={[0.8, 1.1, 0.08]} />
         <meshStandardMaterial color="#ffe9a8" emissive="#e8bd4a" emissiveIntensity={0.6} />
+      </mesh>
+      <mesh position={[0, DOOR_H / 2, d / 2 + 0.03]}>
+        <boxGeometry args={[1.2, DOOR_H, 0.1]} />
+        <meshStandardMaterial color="#4a2f1c" flatShading />
       </mesh>
     </group>
   );
@@ -389,14 +470,18 @@ function Chapel({ prop }: { prop: Prop }) {
   return (
     <group>
       <House prop={prop} />
-      <group position={[prop.position.x, groundY(prop), prop.position.z - prop.size.d / 2 - 0.4]}>
-        <Plinth w={1.3} d={1.3} />
-        <mesh castShadow receiveShadow position={[0, 1.8, 0]}>
-          <boxGeometry args={[1.2, 3.6, 1.2]} />
+      <group position={[prop.position.x, groundY(prop), prop.position.z - prop.size.d / 2 - 0.5]}>
+        <Plinth w={2.1} d={2.1} />
+        <mesh castShadow receiveShadow position={[0, 2.8, 0]}>
+          <boxGeometry args={[1.9, 5.6, 1.9]} />
           <Plaster />
         </mesh>
-        <mesh castShadow position={[0, 4.4, 0]}>
-          <coneGeometry args={[1.0, 1.9, 4]} />
+        <mesh position={[0, 4.5, 0.97]}>
+          <boxGeometry args={[0.8, 1.3, 0.1]} />
+          <meshStandardMaterial color="#ffe9a8" emissive="#e8bd4a" emissiveIntensity={0.55} flatShading />
+        </mesh>
+        <mesh castShadow position={[0, 6.9, 0]}>
+          <coneGeometry args={[1.6, 2.9, 4]} />
           <meshStandardMaterial color={vivid(prop.color, 0.5, 0.3, 0.46)} flatShading />
         </mesh>
       </group>
@@ -411,13 +496,13 @@ function Garden({ prop }: { prop: Prop }) {
       <Plinth w={prop.size.w * 1.05} d={prop.size.d * 1.05} />
       {beds.map((z, i) => (
         <group key={i}>
-          <mesh receiveShadow castShadow position={[0, 0.18, z]}>
-            <boxGeometry args={[prop.size.w * 0.92, 0.36, prop.size.d * 0.22]} />
+          <mesh receiveShadow castShadow position={[0, 0.25, z]}>
+            <boxGeometry args={[prop.size.w * 0.92, 0.5, prop.size.d * 0.22]} />
             <meshStandardMaterial color="#6b4a30" flatShading />
           </mesh>
           {[-1, 0, 1].map((k) => (
-            <mesh key={k} castShadow position={[(k * prop.size.w) / 3.6, 0.6, z]}>
-              <icosahedronGeometry args={[0.32, 0]} />
+            <mesh key={k} castShadow position={[(k * prop.size.w) / 3.6, 0.88, z]}>
+              <icosahedronGeometry args={[0.46, 0]} />
               <meshStandardMaterial color={k === 0 ? "#d24a4a" : "#57ab3a"} flatShading />
             </mesh>
           ))}
@@ -500,26 +585,26 @@ function Foundation({ prop }: { prop: Prop }) {
         <boxGeometry args={[w, 0.28, d]} />
         <meshStandardMaterial color="#9b9384" flatShading />
       </mesh>
+      {/* The scaffold outlines the house that IS coming, so it grew with the houses. */}
       {posts.map(([x, z], i) => (
-        <mesh key={i} castShadow position={[x, 1.25, z]}>
-          <boxGeometry args={[0.22, 2.2, 0.22]} />
+        <mesh key={i} castShadow position={[x, WALL_H / 2 + 0.2, z]}>
+          <boxGeometry args={[0.26, WALL_H, 0.26]} />
           <meshStandardMaterial color="#8a6a42" flatShading />
         </mesh>
       ))}
-      {/* a ridge beam across the top: the outline of the house that is coming */}
-      <mesh castShadow position={[0, 2.35, 0]}>
-        <boxGeometry args={[0.18, 0.18, d * 0.95]} />
+      <mesh castShadow position={[0, WALL_H + 0.3, 0]}>
+        <boxGeometry args={[0.22, 0.22, d * 0.95]} />
         <meshStandardMaterial color="#a07d4c" flatShading />
       </mesh>
       {[-1, 1].map((s) => (
-        <mesh key={s} castShadow position={[(s * w) / 2.6, 1.85, 0]} rotation={[0, 0, s * 0.5]}>
-          <boxGeometry args={[0.16, w * 0.8, 0.16]} />
+        <mesh key={s} castShadow position={[(s * w) / 2.6, WALL_H * 0.78, 0]} rotation={[0, 0, s * 0.5]}>
+          <boxGeometry args={[0.2, w * 0.9, 0.2]} />
           <meshStandardMaterial color="#a07d4c" flatShading />
         </mesh>
       ))}
       {[0, 1, 2].map((i) => (
-        <mesh key={i} castShadow position={[0, 0.42 + i * 0.22, d / 2 - 0.75]} rotation={[0, 0.07 * i, 0]}>
-          <boxGeometry args={[w * 0.7, 0.2, 0.2]} />
+        <mesh key={i} castShadow position={[0, 0.48 + i * 0.3, d / 2 - 1.0]} rotation={[0, 0.07 * i, 0]}>
+          <boxGeometry args={[w * 0.7, 0.28, 0.28]} />
           <meshStandardMaterial color="#b08a53" flatShading />
         </mesh>
       ))}
@@ -586,7 +671,7 @@ function Road({ tiles }: { tiles: Prop[] }) {
     if (!mesh) return;
     const m = new THREE.Matrix4();
     tiles.forEach((t, i) => {
-      m.makeScale(t.size.w * 1.6, 0.16, t.size.d * 1.02);
+      m.makeScale(t.size.w * 2.0, 0.18, t.size.d * 1.02);
       m.setPosition(t.position.x, heightAt(t.position.x, t.position.z) + 0.06, t.position.z);
       mesh.setMatrixAt(i, m);
     });
@@ -595,7 +680,14 @@ function Road({ tiles }: { tiles: Prop[] }) {
   return <instancedMesh ref={ref} args={[geo, mat, tiles.length]} receiveShadow frustumCulled={false} />;
 }
 
-function Village({ props, villagers }: { props: Prop[]; villagers: VillagerPlacement[] }) {
+/** Every village site re-plotted at SITE_PLAN on the ground. The castle keeps its own scale. */
+function replot(p: Prop): Prop {
+  if (p.kind !== "building" && p.kind !== "foundation") return p;
+  return { ...p, size: { ...p.size, w: p.size.w * SITE_PLAN, d: p.size.d * SITE_PLAN } };
+}
+
+function Village({ props: raw, villagers }: { props: Prop[]; villagers: VillagerPlacement[] }) {
+  const props = useMemo(() => raw.map(replot), [raw]);
   const road = useMemo(() => props.filter((p) => p.kind === "path"), [props]);
   const status = useMemo(() => new Map(villagers.map((v) => [`villager-${v.id}`, v.status as string])), [villagers]);
   return (
@@ -623,7 +715,26 @@ function Village({ props, villagers }: { props: Prop[]; villagers: VillagerPlace
 
 type Keys = { f: boolean; b: boolean; l: boolean; r: boolean; yawL: boolean; yawR: boolean };
 
-function Hero({ heroRef, keys, yawRef }: { heroRef: React.RefObject<THREE.Vector3>; keys: React.RefObject<Keys>; yawRef: React.RefObject<number> }) {
+/**
+ * The hero is the CHILD. Every child in this app built an avatar and that avatar is theirs; a
+ * generic wizard walking their village is the one thing that would tell an eight-year-old this
+ * screen is not about them. The figure is `hero-figure.tsx`; this is only the mover.
+ */
+function Hero({
+  heroRef,
+  keys,
+  yawRef,
+  look,
+  facingRef,
+  gaitRef,
+}: {
+  heroRef: React.RefObject<THREE.Vector3>;
+  keys: React.RefObject<Keys>;
+  yawRef: React.RefObject<number>;
+  look: ReturnType<typeof heroLook>;
+  facingRef: React.RefObject<number>;
+  gaitRef: React.RefObject<Gait>;
+}) {
   const group = useRef<THREE.Group>(null);
   const facing = useRef(0);
   const bob = useRef(0);
@@ -642,67 +753,36 @@ function Hero({ heroRef, keys, yawRef }: { heroRef: React.RefObject<THREE.Vector
     let dx = fx * ((k.f ? 1 : 0) - (k.b ? 1 : 0)) + rx * ((k.r ? 1 : 0) - (k.l ? 1 : 0));
     let dz = fz * ((k.f ? 1 : 0) - (k.b ? 1 : 0)) + rz * ((k.r ? 1 : 0) - (k.l ? 1 : 0));
     const len = Math.hypot(dx, dz);
+    const moving = len > 0.001;
     const p = heroRef.current;
-    if (len > 0.001) {
+    if (moving) {
       dx /= len;
       dz /= len;
       p.x = THREE.MathUtils.clamp(p.x + dx * HERO_SPEED * dt, -WALK_HALF, WALK_HALF);
       p.z = THREE.MathUtils.clamp(p.z + dz * HERO_SPEED * dt, -WALK_HALF, WALK_HALF);
       facing.current = Math.atan2(dx, dz);
-      bob.current += dt * 11;
+      bob.current += dt * 9;
     } else {
       bob.current += dt * 2;
     }
     p.y = heightAt(p.x, p.z);
 
+    // The limbs, the cape and the companion all read the same two numbers.
+    const g2 = gaitRef.current;
+    g2.phase = bob.current;
+    g2.speed = THREE.MathUtils.damp(g2.speed, moving ? 1 : 0, 8, dt);
+
     const g = group.current;
     if (!g) return;
-    g.position.set(p.x, p.y + (len > 0.001 ? Math.abs(Math.sin(bob.current)) * 0.13 : 0), p.z);
+    g.position.set(p.x, p.y + (moving ? Math.abs(Math.sin(bob.current)) * 0.09 : 0), p.z);
     g.rotation.y = THREE.MathUtils.damp(g.rotation.y, facing.current, 9, dt);
-    g.rotation.z = len > 0.001 ? Math.sin(bob.current) * 0.05 : 0;
+    g.rotation.z = moving ? Math.sin(bob.current) * 0.035 : 0;
+    facingRef.current = g.rotation.y;
   });
 
   return (
     <group ref={group}>
-      {/* legs */}
-      {[-1, 1].map((s) => (
-        <mesh key={s} castShadow position={[s * 0.16, 0.3, 0]}>
-          <boxGeometry args={[0.22, 0.6, 0.24]} />
-          <meshStandardMaterial color="#3b3226" flatShading />
-        </mesh>
-      ))}
-      <mesh castShadow position={[0, 1.02, 0]}>
-        <cylinderGeometry args={[0.3, 0.42, 0.9, 8]} />
-        <meshStandardMaterial color="#3f6fc4" flatShading />
-      </mesh>
-      {/* cloak: a half-cone hung off the back, so the hero has a silhouette from behind */}
-      <mesh castShadow position={[0, 1.0, -0.18]}>
-        <coneGeometry args={[0.56, 1.5, 8, 1, false, Math.PI * 0.55, Math.PI * 0.9]} />
-        <meshStandardMaterial color="#6a3fa8" flatShading side={THREE.DoubleSide} />
-      </mesh>
-      <mesh castShadow position={[0, 1.62, 0]}>
-        <icosahedronGeometry args={[0.28, 0]} />
-        <meshStandardMaterial color="#efc79c" flatShading />
-      </mesh>
-      {/* the pointed hat — it is what makes a stack of solids read as a person from behind */}
-      <mesh castShadow position={[0, 2.15, 0]}>
-        <coneGeometry args={[0.42, 0.95, 8]} />
-        <meshStandardMaterial color="#6a3fa8" flatShading />
-      </mesh>
-      <mesh castShadow position={[0, 1.78, 0]}>
-        <cylinderGeometry args={[0.6, 0.6, 0.07, 10]} />
-        <meshStandardMaterial color="#5a3596" flatShading />
-      </mesh>
-      {/* staff */}
-      <mesh castShadow position={[0.48, 1.05, 0.12]} rotation={[0.12, 0, -0.1]}>
-        <cylinderGeometry args={[0.055, 0.07, 2.4, 6]} />
-        <meshStandardMaterial color="#8a6a42" flatShading />
-      </mesh>
-      <mesh position={[0.6, 2.28, 0.14]}>
-        <icosahedronGeometry args={[0.16, 0]} />
-        <meshStandardMaterial color="#9fe8ff" emissive="#4fd2ff" emissiveIntensity={3} toneMapped={false} />
-      </mesh>
-      <pointLight position={[0.6, 2.28, 0.14]} color="#69d8ff" intensity={6} distance={7} />
+      <HeroFigure look={look} gait={gaitRef} />
     </group>
   );
 }
@@ -758,7 +838,7 @@ function Sun({ heroRef }: { heroRef: React.RefObject<THREE.Vector3> }) {
   );
 }
 
-function Rig({ heroRef, yawRef }: { heroRef: React.RefObject<THREE.Vector3>; yawRef: React.RefObject<number> }) {
+function Rig({ heroRef, yawRef, close }: { heroRef: React.RefObject<THREE.Vector3>; yawRef: React.RefObject<number>; close: boolean }) {
   const { camera } = useThree();
   const desired = useMemo(() => new THREE.Vector3(), []);
   const look = useMemo(() => new THREE.Vector3(), []);
@@ -768,13 +848,16 @@ function Rig({ heroRef, yawRef }: { heroRef: React.RefObject<THREE.Vector3>; yaw
   useFrame((_, rawDt) => {
     const dt = Math.min(0.05, rawDt);
     const p = heroRef.current;
-    off.set(0, 19.5, 21).applyAxisAngle(up, yawRef.current);
+    // `?close` drops the camera to the hero's shoulder. Not a game mode — a way to look at
+    // the figure, because Job 1 is only finished if the face is a face.
+    if (close) off.set(0, 2.4, 4.2).applyAxisAngle(up, yawRef.current);
+    else off.set(0, 19.5, 21).applyAxisAngle(up, yawRef.current);
     const dx = p.x + off.x;
     const dz = p.z + off.z;
     // Never let the camera sink into a hill.
-    desired.set(dx, Math.max(p.y + off.y, heightAt(dx, dz) + 3.5), dz);
+    desired.set(dx, Math.max(p.y + off.y, heightAt(dx, dz) + (close ? 0.6 : 3.5)), dz);
     camera.position.lerp(desired, 1 - Math.exp(-dt * 6));
-    look.set(p.x, p.y + 3.4, p.z);
+    look.set(p.x, p.y + (close ? 1.7 : 3.4), p.z);
     camera.lookAt(look);
   });
   return null;
@@ -874,7 +957,8 @@ function SkyDome() {
 
 /* --------------------------------------------------------------------- app */
 
-function World() {
+function World({ avatar, close }: { avatar: AvatarConfig; close: boolean }) {
+  const look = useMemo(() => heroLook(avatar), [avatar]);
   const layout = useMemo(
     () =>
       buildWorldLayout({
@@ -899,6 +983,8 @@ function World() {
 
   const heroRef = useRef(new THREE.Vector3(0, 0, 15));
   const yawRef = useRef(0);
+  const facingRef = useRef(0);
+  const gaitRef = useRef<Gait>({ speed: 0, phase: 0 });
   const keys = useRef<Keys>({ f: false, b: false, l: false, r: false, yawL: false, yawR: false });
   const tex = useMemo(() => glowTexture(), []);
 
@@ -934,15 +1020,16 @@ function World() {
       <Terrain />
       <Scenery scenery={layout.scenery} />
       <Village props={layout.props} villagers={layout.villagers} />
-      <Hero heroRef={heroRef} keys={keys} yawRef={yawRef} />
+      <Hero heroRef={heroRef} keys={keys} yawRef={yawRef} look={look} facingRef={facingRef} gaitRef={gaitRef} />
+      {look.companion && <Companion look={look.companion} heroRef={heroRef} facingRef={facingRef} />}
       <LanternGlow scenery={layout.scenery} tex={tex} />
       <Motes tex={tex} />
-      <Rig heroRef={heroRef} yawRef={yawRef} />
+      <Rig heroRef={heroRef} yawRef={yawRef} close={close} />
     </>
   );
 }
 
-export default function SpikeScene() {
+export default function SpikeScene({ avatar, close = false }: { avatar?: AvatarConfig | null; close?: boolean }) {
   return (
     <div className="fixed inset-0 bg-[#bcdcec]">
       <Canvas
@@ -955,7 +1042,7 @@ export default function SpikeScene() {
           gl.toneMappingExposure = 1.08;
         }}
       >
-        <World />
+        <World avatar={avatar ?? DEFAULT_AVATAR} close={close} />
       </Canvas>
       <p className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded bg-black/45 px-3 py-1 text-sm text-white/85">
         WASD to walk · Q / E to swing the camera
