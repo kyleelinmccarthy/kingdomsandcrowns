@@ -39,6 +39,22 @@ export type DecorKind = (typeof DECOR_KINDS)[number];
  * total; `SiteFigure` clamps anything outside it.
  */
 export const SITE_STAGES = 5;
+/**
+ * The eight sites that have their OWN stage-0 picture, in the order `BUILDINGS` lists them.
+ *
+ * Stage 0 is the only stage all eight sites wear AT ONCE, and they wear it on the opening
+ * screen of a new kingdom: eight staked plots, one drawing, and a child's first three seconds
+ * spent reading "nothing here yet" eight times. So stage 0 is the rung that gets eight
+ * pictures — the well's shaft and windlass, the mill's stone, the bridge's trestle and planks
+ * — and the four rungs above it stay shared. Twelve site textures rather than forty.
+ *
+ * Above stage 0 the sameness is not a lie any more: a site that has taken a deed is visibly
+ * building, it changes with every deed after that, and by then the child has stood at it,
+ * read its board and met its villager. A child also works one objective at a time, so stages
+ * 1-4 are seldom seen side by side; stage 0 always is. That is where the line is drawn.
+ */
+export const SITE_KIT_IDS = ["well", "mill", "bridge", "chapel", "market", "library", "watchtower", "garden"] as const;
+export type SiteKitId = (typeof SITE_KIT_IDS)[number];
 /** Rasterisation scale per figure family: the citadel is 512 px, a bush 256 px. */
 export const WORLD_SPRITE_SCALE = { castle: 8, building: 6, site: 6, foundation: 4, decor: 4 } as const;
 
@@ -71,6 +87,7 @@ const PINE = "#1f5f30";
 const DIRT = "#7b6a4e";
 const DIRT_DARK = "#574a35";
 const SHADE = "#3a3340"; // an opening with nothing behind it yet
+const PIT = "#17161d"; // a hole in the GROUND: darker than any shadow, or it reads as a trough
 const GRASS = "#24492e";
 const SMOKE = "#cfd3d8";
 const ROPE = "#d9c9a0";
@@ -847,19 +864,241 @@ export function FoundationFigure() {
 }
 
 /**
+ * The eight points of a whole-pixel disc. The only round thing this grid can hold: a circle
+ * rasterises to a grey smear with smoothing off, an octagon stays a disc at every zoom. A cart
+ * wheel is one, and so is the millstone lying on the mill's plot.
+ */
+function octagon(cx: number, cy: number, r: number): string {
+  const s = Math.round(r * 0.45);
+  return `${cx - s},${cy - r} ${cx + s},${cy - r} ${cx + r},${cy - s} ${cx + r},${cy + s} ${cx + s},${cy + r} ${cx - s},${cy + r} ${cx - r},${cy + s} ${cx - r},${cy - s}`;
+}
+
+/**
+ * WHAT IS WAITING ON A BARE PLOT — one drawing per building, and the only bespoke rung on the
+ * ladder. Each is ONE big shape standing off the ground: a windlass, a millstone, a trestle, a
+ * cross-head, a bundle of stall poles, a crate of books, a ladder, a spade. Silhouette is the
+ * whole job. The plot rasterises to 384 px and draws at about 140 across, so one grid pixel is
+ * barely two on screen and anything under four pixels is mush — these are deliberately blocky.
+ *
+ * They all live inside x 14..56, y 11..56: the foreman's board takes the left of the frame and
+ * the claim flag the right, and both are drawn AFTER this, so they stand in front of the pile.
+ */
+function SiteKit({ id }: { id: string }) {
+  switch (id) {
+    case "well":
+      // The shaft is already dug, and the windlass stands over the hole with its bucket up.
+      return (
+        <>
+          <rect x={20} y={40} width={26} height={4} fill={STONE} />
+          <rect x={20} y={40} width={26} height={1} fill={STONE_LIT} />
+          <rect x={20} y={43} width={26} height={11} fill={PIT} />
+          <rect x={20} y={43} width={2} height={11} fill={STONE_LIT} />
+          <rect x={44} y={43} width={2} height={11} fill={STONE_DARK} />
+          <rect x={20} y={52} width={26} height={4} fill={STONE_DARK} />
+          <rect x={20} y={52} width={26} height={1} fill={STONE_DEEP} />
+          <rect x={21} y={26} width={4} height={17} fill={WOOD} />
+          <rect x={21} y={26} width={2} height={17} fill={WOOD_LIT} />
+          <rect x={41} y={26} width={4} height={17} fill={WOOD_DARK} />
+          <rect x={18} y={23} width={30} height={5} fill={WOOD_LIT} />
+          <rect x={18} y={27} width={30} height={1} fill={WOOD_DARK} />
+          <rect x={26} y={23} width={2} height={5} fill={WOOD_DARK} />
+          <rect x={38} y={23} width={2} height={5} fill={WOOD_DARK} />
+          <rect x={46} y={29} width={5} height={2} fill={WOOD_DARK} />
+          <rect x={48} y={31} width={3} height={6} fill={WOOD_DARK} />
+          <rect x={32} y={28} width={2} height={6} fill={ROPE} />
+          <rect x={28} y={32} width={10} height={3} fill={WOOD_DARK} />
+          <rect x={29} y={34} width={8} height={7} fill={WOOD_LIT} />
+          <rect x={34} y={34} width={3} height={7} fill={WOOD} />
+          <rect x={29} y={37} width={8} height={1} fill={WOOD_DARK} />
+        </>
+      );
+    case "mill":
+      // The stone came before anything else did. Nothing else in the village is a disc.
+      return (
+        <>
+          <rect x={43} y={41} width={12} height={8} fill={THATCH} />
+          <rect x={43} y={41} width={3} height={8} fill={STRAW_LIT} />
+          <rect x={51} y={41} width={4} height={8} fill={THATCH_DARK} />
+          <rect x={46} y={38} width={5} height={3} fill={THATCH_DARK} />
+          <rect x={42} y={48} width={13} height={8} fill={THATCH} />
+          <rect x={42} y={48} width={3} height={8} fill={STRAW_LIT} />
+          <rect x={51} y={48} width={4} height={8} fill={THATCH_DARK} />
+          <rect x={45} y={45} width={5} height={3} fill={THATCH_DARK} />
+          <polygon points={octagon(30, 38, 12)} fill={STONE_DARK} />
+          <polygon points={octagon(30, 38, 10)} fill={STONE} />
+          <rect x={19} y={33} width={3} height={10} fill={STONE_LIT} />
+          <rect x={38} y={33} width={3} height={10} fill={STONE_DEEP} />
+          <rect x={29} y={28} width={2} height={7} fill={STONE_DARK} />
+          <rect x={29} y={41} width={2} height={7} fill={STONE_DARK} />
+          <rect x={21} y={37} width={6} height={2} fill={STONE_DARK} />
+          <rect x={33} y={37} width={6} height={2} fill={STONE_DARK} />
+          <rect x={27} y={35} width={6} height={6} fill={SHADE} />
+        </>
+      );
+    case "bridge":
+      // A carpenter's plot: the centering is timber long before the arch is stone.
+      return (
+        <>
+          <rect x={18} y={31} width={36} height={4} fill={WOOD_LIT} />
+          <rect x={18} y={34} width={36} height={1} fill={WOOD_DARK} />
+          <rect x={20} y={35} width={28} height={4} fill={BOARD} />
+          <rect x={20} y={38} width={28} height={1} fill={WOOD_DARK} />
+          <rect x={26} y={39} width={4} height={8} fill={WOOD} />
+          <rect x={23} y={46} width={4} height={8} fill={WOOD} />
+          <rect x={38} y={39} width={4} height={8} fill={WOOD_DARK} />
+          <rect x={41} y={46} width={4} height={8} fill={WOOD_DARK} />
+          <rect x={26} y={43} width={16} height={3} fill={BOARD} />
+          <rect x={26} y={45} width={16} height={1} fill={WOOD_DARK} />
+          <rect x={15} y={50} width={32} height={3} fill={WOOD_LIT} />
+          <rect x={15} y={52} width={32} height={1} fill={WOOD_DARK} />
+          <rect x={16} y={53} width={32} height={3} fill={BOARD} />
+          <rect x={16} y={55} width={32} height={1} fill={WOOD_DARK} />
+        </>
+      );
+    case "chapel":
+      // Ashlar squared up, a mason's square leaning on it, and the cross-head already cut.
+      return (
+        <>
+          <rect x={24} y={44} width={20} height={6} fill={STONE} />
+          <rect x={24} y={44} width={20} height={1} fill={STONE_LIT} />
+          <rect x={24} y={49} width={20} height={1} fill={STONE_DEEP} />
+          <rect x={33} y={44} width={1} height={5} fill={STONE_DARK} />
+          <rect x={22} y={50} width={24} height={6} fill={STONE} />
+          <rect x={22} y={50} width={24} height={1} fill={STONE_LIT} />
+          <rect x={29} y={50} width={1} height={6} fill={STONE_DARK} />
+          <rect x={38} y={50} width={1} height={6} fill={STONE_DARK} />
+          <rect x={30} y={20} width={8} height={24} fill={STONE_LIT} />
+          <rect x={35} y={20} width={3} height={24} fill={STONE} />
+          <rect x={23} y={27} width={22} height={7} fill={STONE_LIT} />
+          <rect x={23} y={33} width={22} height={1} fill={STONE_DEEP} />
+          <rect x={41} y={27} width={4} height={6} fill={STONE} />
+          <rect x={46} y={38} width={4} height={14} fill={BOARD} />
+          <rect x={46} y={51} width={10} height={4} fill={BOARD} />
+          <rect x={46} y={54} width={10} height={1} fill={WOOD_DARK} />
+        </>
+      );
+    case "market":
+      // The awning is here before the stall is: rolled up, and still the only stripes around.
+      return (
+        <>
+          <rect x={15} y={44} width={34} height={10} fill={PLASTER_LIT} />
+          <rect x={19} y={44} width={4} height={10} fill={FLAG} />
+          <rect x={27} y={44} width={4} height={10} fill={FLAG} />
+          <rect x={35} y={44} width={4} height={10} fill={FLAG} />
+          <rect x={43} y={44} width={4} height={10} fill={FLAG} />
+          <rect x={15} y={44} width={34} height={1} fill={PLASTER} />
+          <rect x={15} y={52} width={34} height={2} fill="#8a8072" />
+          <rect x={15} y={44} width={3} height={10} fill={PLASTER_DARK} />
+          <rect x={15} y={54} width={34} height={2} fill={DIRT_DARK} />
+          <Brace x={17} y={42} steps={9} dx={2} dy={-2} color={WOOD_DARK} />
+          <Brace x={21} y={42} steps={9} dx={2} dy={-2} color={WOOD} />
+          <Brace x={25} y={42} steps={9} dx={2} dy={-2} color={WOOD_LIT} />
+        </>
+      );
+    case "library":
+      // A crate of shelved books, lidded against the weather. The only colour on any plot.
+      return (
+        <>
+          <rect x={20} y={26} width={28} height={30} fill={WOOD} />
+          <rect x={19} y={23} width={30} height={4} fill={WOOD_LIT} />
+          <rect x={19} y={26} width={30} height={1} fill={WOOD_DARK} />
+          <rect x={42} y={26} width={6} height={30} fill={WOOD_DARK} />
+          <rect x={23} y={30} width={17} height={8} fill={SHADE} />
+          <rect x={23} y={41} width={17} height={8} fill={SHADE} />
+          <rect x={23} y={52} width={17} height={4} fill={SHADE} />
+          <rect x={24} y={31} width={3} height={7} fill="#ef4444" />
+          <rect x={28} y={31} width={3} height={7} fill={GLASS_DARK} />
+          <rect x={32} y={32} width={3} height={6} fill={LEAF} />
+          <rect x={36} y={31} width={3} height={7} fill={GOLD_DEEP} />
+          <rect x={24} y={42} width={3} height={7} fill={GLASS_DARK} />
+          <rect x={28} y={42} width={3} height={7} fill={GOLD_DEEP} />
+          <rect x={32} y={43} width={3} height={6} fill="#ef4444" />
+          <rect x={36} y={42} width={3} height={7} fill={LEAF} />
+          <rect x={24} y={52} width={4} height={4} fill={PLASTER_LIT} />
+          <rect x={29} y={52} width={4} height={4} fill={PLASTER} />
+          <rect x={34} y={52} width={4} height={4} fill={PLASTER_LIT} />
+          <rect x={20} y={38} width={28} height={3} fill={WOOD_LIT} />
+          <rect x={20} y={40} width={28} height={1} fill={WOOD_DARK} />
+          <rect x={20} y={49} width={28} height={3} fill={WOOD_LIT} />
+          <rect x={20} y={51} width={28} height={1} fill={WOOD_DARK} />
+        </>
+      );
+    case "watchtower":
+      // Rubble for the shaft, and the ladder that will climb it. The only tall thing on a plot.
+      return (
+        <>
+          <rect x={16} y={44} width={14} height={6} fill={STONE_DARK} />
+          <rect x={16} y={44} width={14} height={1} fill={STONE_LIT} />
+          <rect x={23} y={44} width={1} height={6} fill={STONE_DEEP} />
+          <rect x={14} y={50} width={18} height={6} fill={STONE} />
+          <rect x={14} y={50} width={18} height={1} fill={STONE_LIT} />
+          <rect x={21} y={50} width={1} height={6} fill={STONE_DARK} />
+          <rect x={27} y={50} width={1} height={6} fill={STONE_DARK} />
+          <rect x={33} y={11} width={16} height={3} fill={WOOD_DARK} />
+          <rect x={33} y={14} width={4} height={42} fill={WOOD_LIT} />
+          <rect x={45} y={14} width={4} height={42} fill={WOOD} />
+          {[20, 27, 34, 41, 48].map((y) => <rect key={y} x={36} y={y} width={10} height={3} fill={WOOD_DARK} />)}
+        </>
+      );
+    default: // garden
+      // Beds turned, the first trays set out, and the spade still standing in the earth.
+      return (
+        <>
+          <rect x={12} y={42} width={34} height={5} fill="#93805f" />
+          <rect x={12} y={46} width={34} height={1} fill={DIRT_DARK} />
+          <rect x={12} y={47} width={34} height={5} fill={DIRT} />
+          <rect x={12} y={51} width={34} height={1} fill={DIRT_DARK} />
+          <rect x={12} y={52} width={34} height={4} fill="#93805f" />
+          <rect x={14} y={37} width={7} height={5} fill={LEAF} />
+          <rect x={14} y={37} width={7} height={1} fill={LEAF_LIGHT} />
+          <rect x={23} y={37} width={7} height={5} fill={LEAF_LIGHT} />
+          <rect x={23} y={37} width={7} height={1} fill="#7cc27c" />
+          <rect x={32} y={38} width={7} height={4} fill={LEAF} />
+          <rect x={32} y={38} width={7} height={1} fill={LEAF_LIGHT} />
+          <rect x={16} y={47} width={7} height={4} fill={LEAF_LIGHT} />
+          <rect x={16} y={47} width={7} height={1} fill="#7cc27c" />
+          <rect x={26} y={47} width={7} height={4} fill={LEAF} />
+          <rect x={26} y={47} width={7} height={1} fill={LEAF_LIGHT} />
+          <rect x={17} y={35} width={2} height={2} fill="#ec4899" />
+          <rect x={27} y={35} width={2} height={2} fill={GOLD} />
+          <rect x={37} y={20} width={11} height={3} fill={WOOD} />
+          <rect x={37} y={22} width={3} height={5} fill={WOOD_LIT} />
+          <rect x={45} y={22} width={3} height={5} fill={WOOD_DARK} />
+          <rect x={40} y={26} width={5} height={18} fill={WOOD_LIT} />
+          <rect x={43} y={26} width={2} height={18} fill={WOOD} />
+          <rect x={36} y={42} width={13} height={3} fill={STONE_DARK} />
+          <rect x={37} y={44} width={11} height={8} fill={STONE_LIT} />
+          <rect x={44} y={44} width={4} height={8} fill={STONE} />
+          <rect x={39} y={51} width={7} height={3} fill={STONE} />
+          <rect x={39} y={53} width={7} height={1} fill={STONE_DARK} />
+        </>
+      );
+  }
+}
+
+/**
  * What stands on the plot while the deeds are still owed. Stage 0 is a staked
  * site with the timber delivered, 4 is a roof going on; the building itself
  * takes over at 5. One deed, one visible change — which is the whole point:
  * before this, four fifths of a child's time at a site was spent looking at an
  * empty lot.
  *
- * These are deliberately GENERIC rather than eight part-built wells and mills.
- * A frame is a frame at 64 px, the site keeps its name on the foreman's board
- * and its villager's plate, and eight ids × five stages of textures is a cost
- * no eleven-year-old's laptop should pay for a difference it cannot see.
+ * Stages 1-4 are deliberately GENERIC rather than eight part-built wells and
+ * mills: a frame is a frame at 64 px, the site keeps its name on the foreman's
+ * board, and eight ids × five stages is a cost no eleven-year-old's laptop
+ * should pay for a difference it cannot see.
+ *
+ * STAGE 0 IS THE EXCEPTION, and `building` is what buys it. A fresh kingdom owes
+ * every deed, so a child's first screen is eight plots at stage 0 — the one rung
+ * all eight sites wear at the same time, and the one they are judged on. Pass an
+ * id from `SITE_KIT_IDS` and stage 0 draws that building's own materials instead:
+ * the well's windlass over its shaft, the mill's stone, the library's book crate.
+ * Leave it off and every stage falls back to the shared ladder, which is what the
+ * four rungs above 0 always do. Eight extra pictures, not thirty-two.
  */
-export function SiteFigure({ stage }: { stage: number }) {
+export function SiteFigure({ stage, building }: { stage: number; building?: string }) {
   const s = Math.min(SITE_STAGES - 1, Math.max(0, Math.floor(stage)));
+  const kit = s === 0 && building && (SITE_KIT_IDS as readonly string[]).includes(building) ? building : null;
   const sign = (
     <>
       <rect x={4} y={38} width={3} height={18} fill={WOOD} />
@@ -941,16 +1180,33 @@ export function SiteFigure({ stage }: { stage: number }) {
       <rect x={12} y={44} width={40} height={2} fill={WOOD_DARK} />
     </>
   );
+  // The turned earth, the corner stakes and the string line between them: what says "somebody
+  // has measured this out" whatever is stacked on it. Every stage-0 plot starts here.
+  const plot = (
+    <>
+      <rect x={10} y={48} width={44} height={8} fill={DIRT_DARK} />
+      <rect x={10} y={48} width={44} height={2} fill={DIRT} />
+      <rect x={12} y={38} width={3} height={18} fill={WOOD_LIT} />
+      <rect x={49} y={38} width={3} height={18} fill={WOOD} />
+      <rect x={12} y={39} width={40} height={1} fill={ROPE} />
+    </>
+  );
   let body: React.ReactNode;
-  switch (s) {
+  if (kit) {
+    body = (
+      <>
+        {plot}
+        <rect x={12} y={44} width={40} height={3} fill={DIRT_DARK} />
+        <SiteKit id={kit} />
+        {claim}
+        {sign}
+      </>
+    );
+  } else switch (s) {
     case 0: // staked out, and the first load delivered
       body = (
         <>
-          <rect x={10} y={48} width={44} height={8} fill={DIRT_DARK} />
-          <rect x={10} y={48} width={44} height={2} fill={DIRT} />
-          <rect x={12} y={38} width={3} height={18} fill={WOOD_LIT} />
-          <rect x={49} y={38} width={3} height={18} fill={WOOD} />
-          <rect x={12} y={39} width={40} height={1} fill={ROPE} />
+          {plot}
           {timber}
           <rect x={12} y={44} width={40} height={3} fill={DIRT_DARK} />
           <rect x={42} y={50} width={7} height={6} fill={WOOD_DARK} />
@@ -1047,7 +1303,7 @@ export function SiteFigure({ stage }: { stage: number }) {
       );
   }
   return (
-    <Frame figure="site" id={String(s)}>
+    <Frame figure="site" id={kit ? `${kit}:0` : String(s)}>
       {body}
       <Base x={2} w={60} />
     </Frame>
@@ -1089,14 +1345,10 @@ function AppleHeap() {
  * same trick `Roof` plays with a gable and `ArchSpan` with an arch.
  */
 function Wheel({ cx, cy }: { cx: number; cy: number }) {
-  const ring = (r: number) => {
-    const s = Math.round(r * 0.45);
-    return `${cx - s},${cy - r} ${cx + s},${cy - r} ${cx + r},${cy - s} ${cx + r},${cy + s} ${cx + s},${cy + r} ${cx - s},${cy + r} ${cx - r},${cy + s} ${cx - r},${cy - s}`;
-  };
   return (
     <>
-      <polygon points={ring(9)} fill={WOOD} />
-      <polygon points={ring(5)} fill={WOOD_DARK} />
+      <polygon points={octagon(cx, cy, 9)} fill={WOOD} />
+      <polygon points={octagon(cx, cy, 5)} fill={WOOD_DARK} />
       <rect x={cx - 1} y={cy - 1} width={3} height={3} fill={BOARD} />
     </>
   );

@@ -5,7 +5,7 @@ import { DEFAULT_AVATAR } from "@/lib/utils/avatar-catalog";
 import { VILLAGERS } from "@/lib/realm/villagers";
 import { disposeSpriteTextures } from "@/lib/realm/sprite-texture";
 import { BUILDINGS } from "@/lib/utils/kingdom";
-import { SITE_STAGES } from "./world-figures";
+import { SITE_KIT_IDS, SITE_STAGES } from "./world-figures";
 
 const svgElementToTexture = vi.fn();
 vi.mock("@/lib/realm/sprite-texture", async (importOriginal) => {
@@ -95,6 +95,11 @@ describe("SpriteSource", () => {
     // stage the moment a deed lands, and there is no second pass to fetch one texture.
     for (let stage = 0; stage < SITE_STAGES; stage++) {
       expect(textures.world[`site:${stage}`].id).toBe(String(stage));
+    }
+    // ...and one bespoke stage 0 per building on top of the ladder, so a new kingdom's opening
+    // screen is eight different piles of materials rather than eight identical staked plots.
+    for (const id of SITE_KIT_IDS) {
+      expect(textures.world[`site:${id}:0`].id).toBe(`${id}:0`);
     }
     expect(textures.world["decor:oak"].id).toBe("oak");
     expect(textures.tiles.grass).toBeTruthy();

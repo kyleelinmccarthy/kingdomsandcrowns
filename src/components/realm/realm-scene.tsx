@@ -870,7 +870,12 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
         // The plot lies flat; what is GOING UP on it stands as a billboard on the same
         // spot, at the same width the finished building will take, so the last stage and
         // the building line up rather than jumping.
-        const siteTex = worldTex(`site:${siteStage(prop.id)}`);
+        // A bare plot asks for its OWN picture first: eight identical staked plots was the
+        // first thing a new player met, and eight different piles of materials is what says
+        // which building is coming without a word of text. Only stage 0 has one — every rung
+        // above it falls through to the shared ladder, which is the whole cost saving.
+        const stage = siteStage(prop.id);
+        const siteTex = worldTex(`site:${prop.id}:${stage}`) ?? worldTex(`site:${stage}`);
         const s = prop.size.w + 0.5;
         return (
           <group key={prop.id} position={[prop.position.x, 0, prop.position.z]} {...siteCast(prop)}>

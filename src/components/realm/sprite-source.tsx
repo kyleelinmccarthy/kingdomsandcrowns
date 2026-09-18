@@ -10,7 +10,7 @@ import { TroubleFigure, TROUBLE_KINDS } from "@/components/realm/trouble-figures
 import type { TroubleKind, TroubleSkin } from "@/lib/realm/spells/troubles";
 import { GleamFigure, BannerFigure } from "@/components/realm/recess-figures";
 import { CrownFigure, CastleBannerFigure } from "@/components/realm/ceremony-figures";
-import { CastleFigure, BuildingFigure, FoundationFigure, SiteFigure, DecorFigure, DECOR_KINDS, SITE_STAGES, WORLD_SPRITE_SCALE } from "@/components/realm/world-figures";
+import { CastleFigure, BuildingFigure, FoundationFigure, SiteFigure, DecorFigure, DECOR_KINDS, SITE_KIT_IDS, SITE_STAGES, WORLD_SPRITE_SCALE } from "@/components/realm/world-figures";
 import { grassTile, cobbleTile, surfaceTile, type Tile } from "@/lib/realm/tiles";
 import { tileToTexture } from "@/lib/realm/tile-texture";
 import { WORLD_SIZE, type TerrainKind } from "@/lib/realm/layout";
@@ -184,6 +184,13 @@ export function SpriteSource({
           const svg = root.querySelector<SVGSVGElement>(`svg[data-figure="site"][data-figure-id="${stage}"]`);
           if (svg) worldTextures[`site:${stage}`] = await textureFor(`site:${stage}`, svg, WORLD_SPRITE_SCALE.site);
         }
+        // And one bespoke stage 0 per building on top of that ladder. Stage 0 is the rung all
+        // eight sites wear at once on a new kingdom's opening screen, so it is the one that is
+        // worth eight pictures; the four above it stay shared. Twelve site textures, not forty.
+        for (const id of SITE_KIT_IDS) {
+          const svg = root.querySelector<SVGSVGElement>(`svg[data-figure="site"][data-figure-id="${id}:0"]`);
+          if (svg) worldTextures[`site:${id}:0`] = await textureFor(`site:${id}:0`, svg, WORLD_SPRITE_SCALE.site);
+        }
         if (world.decor) {
           for (const kind of DECOR_KINDS) {
             const svg = root.querySelector<SVGSVGElement>(`svg[data-figure="decor"][data-figure-id="${kind}"]`);
@@ -221,6 +228,7 @@ export function SpriteSource({
       {world && BUILDINGS.map((building) => <BuildingFigure key={building.id} id={building.id} />)}
       {world && <FoundationFigure />}
       {world && Array.from({ length: SITE_STAGES }, (_, stage) => <SiteFigure key={stage} stage={stage} />)}
+      {world && SITE_KIT_IDS.map((id) => <SiteFigure key={`${id}:0`} stage={0} building={id} />)}
       {world?.decor && DECOR_KINDS.map((kind) => <DecorFigure key={kind} kind={kind} />)}
     </div>
   );

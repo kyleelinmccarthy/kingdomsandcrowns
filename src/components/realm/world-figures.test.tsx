@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { render, cleanup } from "@testing-library/react";
-import { CastleFigure, BuildingFigure, FoundationFigure, SiteFigure, DecorFigure, CASTLE_TIERS, DECOR_KINDS, SITE_STAGES, WORLD_SPRITE_SCALE } from "./world-figures";
+import { CastleFigure, BuildingFigure, FoundationFigure, SiteFigure, DecorFigure, CASTLE_TIERS, DECOR_KINDS, SITE_KIT_IDS, SITE_STAGES, WORLD_SPRITE_SCALE } from "./world-figures";
 import { BUILDINGS } from "@/lib/utils/kingdom";
 
 afterEach(cleanup);
@@ -77,6 +77,34 @@ describe("world figures", () => {
         expect(container.querySelector('svg[data-figure="site"]')!.getAttribute("data-figure-id")).toBe(expected);
         cleanup();
       }
+    });
+
+    it("gives a bare plot each building's own materials, so eight plots are eight promises", () => {
+      // The first screen of a new kingdom is eight sites at stage 0. One drawing for all eight
+      // is what "placeholder" feels like, so stage 0 — and only stage 0 — has eight of them.
+      expect([...SITE_KIT_IDS]).toEqual(BUILDINGS.map((b) => b.id));
+      const seen = new Map<string, string>();
+      for (const id of SITE_KIT_IDS) {
+        const { container } = render(<SiteFigure stage={0} building={id} />);
+        const svg = container.querySelector<SVGSVGElement>(`svg[data-figure="site"][data-figure-id="${id}:0"]`)!;
+        expect(svg).not.toBeNull();
+        assertInside(svg);
+        seen.set(id, svg.innerHTML);
+        cleanup();
+      }
+      expect(new Set(seen.values()).size).toBe(SITE_KIT_IDS.length);
+    });
+
+    it("keeps the shared ladder for every rung above 0, and for a building it has no kit for", () => {
+      // Twelve site textures rather than forty: the four stages above 0 are shared, and an
+      // unknown id falls back rather than drawing nothing.
+      for (let stage = 1; stage < SITE_STAGES; stage++) {
+        const { container } = render(<SiteFigure stage={stage} building="well" />);
+        expect(container.querySelector('svg[data-figure="site"]')!.getAttribute("data-figure-id")).toBe(String(stage));
+        cleanup();
+      }
+      const { container } = render(<SiteFigure stage={0} building="smithy" />);
+      expect(container.querySelector('svg[data-figure="site"]')!.getAttribute("data-figure-id")).toBe("0");
     });
 
     it("gives every stage a different picture, so no deed leaves the site looking unchanged", () => {
