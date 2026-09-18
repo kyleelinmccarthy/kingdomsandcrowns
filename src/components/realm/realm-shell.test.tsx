@@ -250,6 +250,36 @@ describe("RealmShell", () => {
     expect(layout.props.find((p) => p.id === "well")).toMatchObject({ kind: "building", tag: "Built" });
   });
 
+  it("lights a place's ring on the map the first time the hero walks in, without re-rendering the world", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
+    render(<RealmShell bundle={bundle} childId="c1" isChildView={true} />);
+    expect(await screen.findByTestId("scene")).toBeInTheDocument();
+    const found = () => document.querySelectorAll(".realm-minimap-place--found");
+    // All five are on the map from the start, and none of them is lit yet.
+    expect(document.querySelectorAll(".realm-minimap-place")).toHaveLength(5);
+    expect(found()).toHaveLength(0);
+    const arrive = sceneProps.onArrive as (id: string) => void;
+    const layout = sceneProps.layout;
+    await act(async () => {
+      arrive("longwater");
+    });
+    expect(found()).toHaveLength(1);
+    expect(screen.getByTestId("realm-speech")).toHaveTextContent("Longwater. A little boat is pulled up on the shore.");
+    // The whole point of lifting `placesFound` out of a ref was to let the map see it — and the
+    // whole cost of doing so must stay zero for the scene. `World` is memoised on its props, so
+    // an arrival must not change the identity of a single one of them.
+    expect(sceneProps.onArrive).toBe(arrive);
+    expect(sceneProps.layout).toBe(layout);
+    // Walking back in says the name alone (see `arrivalText`) and changes nothing on the map,
+    // so it costs no state write at all.
+    await act(async () => {
+      (sceneProps.onArrive as (id: string) => void)("longwater");
+    });
+    expect(found()).toHaveLength(1);
+    expect(screen.getByTestId("realm-speech")).toHaveTextContent("Longwater.");
+    expect(screen.getByTestId("realm-speech")).not.toHaveTextContent("boat");
+  });
+
   it("hands the scene one door onto a villager, and keeps it referentially stable", async () => {
     getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
     render(<RealmShell bundle={bundle} childId="c1" isChildView={true} />);

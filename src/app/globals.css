@@ -1790,12 +1790,18 @@ body[data-realm-open] .parent-alert-popup { display: none; }
 .realm-minimap-land--forest { fill: #1b3a22; }
 .realm-minimap-land--trail { fill: #8a7049; }
 .realm-minimap-mark { stroke: #0a1310; stroke-width: 0.8; stroke-linejoin: round; }
-/* Four silhouettes, never four squares: a keep, a star, a house, a warning. */
+/* Five silhouettes, never five squares: a keep, a star, a house, a warning, a ring. */
 .realm-minimap-castle { fill: #e6e0cd; stroke-width: 1; }
 .realm-minimap-objective { fill: #ffd25e; }
 .realm-minimap-site { fill: #1b2a1c; stroke: var(--gold-bright); stroke-width: 1.3; }
 .realm-minimap-site--raised { fill: var(--gold-bright); stroke: var(--gold-bright); }
 .realm-minimap-trouble { fill: #e2554a; }
+/* A named far place. Dim and hollow while it is only a rumour, and lit once the child has
+   stood in it. The lit colour is the one hue the map does not already spend: gold is "where I
+   am going", white is "me", cream is home, red is trouble — and the first lit place was a pale
+   blue that sat on Longwater's shore and read as a piece of the lake. */
+.realm-minimap-place { fill: none; stroke: rgba(226, 232, 226, 0.5); stroke-width: 1.1; }
+.realm-minimap-place--found { fill: #c9aef0; stroke: #0a1310; stroke-width: 0.9; }
 /* The hero is the loudest thing on the map, and white rather than gold so that "me" and
    "where I am going" are never the same colour. The carrier the scene writes draws nothing. */
 .realm-minimap-you path { fill: #ffffff; stroke: #0a1310; stroke-width: 1; stroke-linejoin: round; }

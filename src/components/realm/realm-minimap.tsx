@@ -26,6 +26,17 @@ const GLYPH: Record<MinimapMark["kind"], string> = {
   site: "M-3.4,3.6 L-3.4,-0.4 L0,-3.8 L3.4,-0.4 L3.4,3.6 Z",
   // A warning triangle.
   trouble: "M0,-3.9 L3.6,2.8 L-3.6,2.8 Z",
+  // One of the five named far places: a ring, round where every other mark is angular, because
+  // it is somewhere to GO rather than something to do. Hollow while it has not been reached and
+  // filled once it has — the same "not yet / done" language the site's house already speaks, so
+  // a child learns the rule once and it holds for both.
+  place: "M0,-3.4 A3.4,3.4 0 1,1 0,3.4 A3.4,3.4 0 1,1 0,-3.4 Z",
+};
+
+/** The second state of the marks that have one: a raised site, a found place. */
+const FILLED: Partial<Record<MinimapMark["kind"], string>> = {
+  site: "realm-minimap-site--raised",
+  place: "realm-minimap-place--found",
 };
 
 /** The hero: a kite, pointing where the next step goes. */
@@ -131,7 +142,7 @@ export function RealmMinimap({ view, heroRef }: { view: MinimapView; heroRef?: R
           {view.marks.map((m) => (
             <path
               key={m.id}
-              className={`realm-minimap-mark realm-minimap-${m.kind}${m.kind === "site" && m.filled ? " realm-minimap-site--raised" : ""}`}
+              className={`realm-minimap-mark realm-minimap-${m.kind}${m.filled && FILLED[m.kind] ? ` ${FILLED[m.kind]}` : ""}`}
               d={GLYPH[m.kind]}
               transform={`translate(${m.x * SIZE} ${m.y * SIZE})`}
             />

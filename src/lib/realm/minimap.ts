@@ -1,4 +1,4 @@
-import { COSMETIC_TERRAIN, WORLD_SIZE, type Prop, type TerrainKind, type Vec2, type WorldLayout } from "./layout";
+import { COSMETIC_TERRAIN, PLACES, WORLD_SIZE, type Prop, type TerrainKind, type Vec2, type WorldLayout } from "./layout";
 import type { Facing } from "./movement";
 import type { Surfaces } from "./depth";
 import { facingAngle } from "./markers";
@@ -22,8 +22,17 @@ export type MinimapPoint = { x: number; y: number };
 export type MinimapAreaKind = TerrainKind | "forest";
 export type MinimapArea = { id: string; kind: MinimapAreaKind; shape: "rect" | "blob"; x: number; y: number; w: number; h: number };
 
-/** Everything the child navigates BY. Four kinds, four silhouettes — never four identical squares. */
-export type MinimapMarkKind = "castle" | "objective" | "site" | "trouble";
+/**
+ * Everything the child navigates BY. Five kinds, five silhouettes — never five identical squares.
+ *
+ * "place" is one of the five named far places (`PLACES`), and it is the only kind that is not a
+ * thing built or gone wrong in the village: it is a region with something standing in it, out
+ * past the fields, worth the walk there and back. Its glyph is a ring for that reason — round
+ * where every other mark is angular, because it names somewhere to GO rather than something to
+ * do, and a child should be able to tell those apart without being told which is which.
+ */
+export type MinimapMarkKind = "castle" | "objective" | "site" | "trouble" | "place";
+/** `filled` is the mark's second state: a site that is built, a place that has been found. */
 export type MinimapMark = { id: string; kind: MinimapMarkKind; x: number; y: number; filled: boolean };
 
 /**
@@ -57,6 +66,8 @@ export type MinimapInput = {
   facing: Facing;
   troubles: { id: string; position: Vec2 }[];
   surfaces: Surfaces;
+  /** Which of the five named places the hero has stood in this visit. See `PLACE_MARK_ID`. */
+  placesFound: readonly string[];
 };
 
 /**
@@ -302,7 +313,14 @@ export function parseTransform(attr: string | null | undefined): { x: number; y:
   return { x, y, deg: Number.isFinite(deg) ? deg : 0 };
 }
 
-export function minimapView({ layout, hero, facing, troubles, surfaces }: MinimapInput): MinimapView {
+/**
+ * A place's mark id. Prefixed, because a mark id has to be unique across the whole map and the
+ * places are the one source of marks that is not a prop — nothing should have to know that
+ * "appleway" is not also the id of some building a later slice adds.
+ */
+export const PLACE_MARK_ID = (placeId: string) => `place-${placeId}`;
+
+export function minimapView({ layout, hero, facing, troubles, surfaces, placesFound }: MinimapInput): MinimapView {
   const bounds = worldBounds(layout);
   const s = mapScale(bounds);
   const areas: MinimapArea[] = [];
@@ -332,6 +350,34 @@ export function minimapView({ layout, hero, facing, troubles, surfaces }: Minima
   for (const [id, cell] of canopy) {
     const at = projectToMap(cell, bounds);
     areas.push({ id: `wood-${id}`, kind: "forest", shape: "blob", x: at.x, y: at.y, w: CANOPY_R * 2 * s, h: CANOPY_R * 2 * s });
+  }
+
+  /**
+   * The five named places — drawn BEFORE the props, so that on the day a place is ever moved in
+   * beside a building, the village's own marks paint over it rather than under it.
+   *
+   * Unfound places are drawn too, faintly (`filled: false`), and that is a decision rather than
+   * an oversight. The world is a hundred and sixty units across and the game keeps no other
+   * record of exploration anywhere: with only found places drawn, a child's first map is five
+   * empty quadrants, which reads as a world with nothing in it rather than a world with
+   * something in it they have not reached. A ring says only "something is out there" — no name,
+   * no distance, no rim arrow, nothing about what is standing in it. That is an invitation, and
+   * the finding is still entirely the child's; the mark lighting up when they arrive is the
+   * record that they did it.
+   *
+   * Under `objectiveOnly` the unfound rings are dropped and the found ones kept. That mode is
+   * for a child who needs fewer things to choose between, and five rings a child has not reached
+   * are exactly five more choices — while a place already visited is not a choice at all, it is a
+   * memory, and a substitution rather than a removal: the map keeps being a record of where they
+   * have been. This reuses `surfaces.minimap`; it deliberately does NOT add a fourteenth field
+   * to `Surfaces`, which is a closed set (see depth.ts).
+   */
+  const found = new Set(placesFound);
+  for (const place of PLACES) {
+    const seen = found.has(place.id);
+    if (!seen && surfaces.minimap !== "full") continue;
+    const at = projectToMap(place.position, bounds);
+    marks.push({ id: PLACE_MARK_ID(place.id), kind: "place", x: at.x, y: at.y, filled: seen });
   }
 
   for (const p of layout.props) {

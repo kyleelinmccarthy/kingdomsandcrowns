@@ -199,9 +199,22 @@ function RealmOpen({
   // notice clears after two seconds, which is not long enough to read a name AND look up to
   // see the thing it named.
   const [arrival, setArrival] = useState<string | null>(null);
-  // Which of the five places this visit has already been told about. A ref, not state:
-  // nothing renders from it, and it must not re-arm when the shell re-renders.
+  // Which of the five places this visit has already been told about. Kept TWICE, on purpose.
+  //
+  // The ref is the latch: `onArrive` has to know synchronously whether this is the first time,
+  // because that decides the sentence it speaks in the same call, and it must not re-arm when
+  // the shell re-renders.
+  //
+  // The state is what the minimap reads, and it is written only on a FIRST arrival — five times
+  // in a visit at the very most. A ref cannot drive the map because a ref does not re-render;
+  // state here is affordable because arrival is edge-triggered, not per-frame: the scene latches
+  // the place in its own ref and calls `onArrive` through `queueMicrotask` only when the answer
+  // CHANGES (see `placeAt`, whose hysteresis already stops a child shuffling on a rim from
+  // re-arriving), and `setArrival` beside it is a state write on every one of those already.
+  // The setter is functional, so `onArrive` keeps the empty dependency list its stable identity
+  // depends on — the memoised World holds that function and must not re-render for this.
   const placesFound = useRef<Set<string>>(new Set());
+  const [placesFoundIds, setPlacesFoundIds] = useState<string[]>([]);
   const [riding, setRiding] = useState(false);
   const [recess, setRecess] = useState<{ gleams: number; laps: number }>({ gleams: 0, laps: 0 });
   const [seed] = useState(() => Date.now() >>> 0);
@@ -309,8 +322,9 @@ function RealmOpen({
     [bundle.castleType, kingdom.buildings, kingdomError, bundle.banners, settings.calmPalette, objectiveIds]
   );
   // Everything on the map except the hero: the bounds, the eight sites with their raised/
-  // unraised state, and the objective ring, all read off the same `layout` the world is built
-  // from and filtered by the same `surfaces` (objectiveOnly drops the rest at simple depth).
+  // unraised state, the objective ring, and the five named places with their found/unfound
+  // state, all read off the same `layout` the world is built from and filtered by the same
+  // `surfaces` (objectiveOnly drops the rest at simple depth).
   // It re-computes only when one of those changes — never on a mana tick, and never per frame.
   // `hero` and `facing` here are the resting values the dot is FIRST drawn at; from the first
   // frame onward the scene owns that element's transform and React never writes it again,
@@ -322,8 +336,8 @@ function RealmOpen({
   // prevent. `minimapView` already takes and tests `troubles`; slice 8, which owns how
   // enemies read, wires them with the same DOM-write treatment the hero dot has below.
   const minimap = useMemo(
-    () => minimapView({ layout, hero: layout.spawn, facing: "s", troubles: [], surfaces }),
-    [layout, surfaces]
+    () => minimapView({ layout, hero: layout.spawn, facing: "s", troubles: [], surfaces, placesFound: placesFoundIds }),
+    [layout, surfaces, placesFoundIds]
   );
   // All eight kingdom buildings are rasterised up front (see SpriteSource), so this only
   // changes with the castle tier or the calm-palette decor toggle — never mid-visit as
@@ -436,6 +450,9 @@ function RealmOpen({
     const first = !placesFound.current.has(id);
     placesFound.current.add(id);
     setArrival(arrivalText(place, first));
+    // The map lights this place's ring. Only on a first arrival: coming back changes nothing
+    // that is drawn, so it must not cost a render either.
+    if (first) setPlacesFoundIds((found) => (found.includes(id) ? found : [...found, id]));
   }, []);
   const onToggleRide = useCallback(() => {
     if (!canRide) return;

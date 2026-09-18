@@ -13,9 +13,10 @@ import {
   landKind,
   MAP_WINDOW,
   RIM_INSET,
+  PLACE_MARK_ID,
   type MinimapBounds,
 } from "./minimap";
-import { buildWorldLayout, COSMETIC_TERRAIN, WORLD_SIZE, type Prop } from "./layout";
+import { buildWorldLayout, COSMETIC_TERRAIN, PLACES, WORLD_SIZE, type Prop } from "./layout";
 import { facingAngle } from "./markers";
 import { worldToScreen } from "./camera";
 import { surfacesFor } from "./depth";
@@ -32,7 +33,7 @@ const layout = buildWorldLayout({ castleType: "campsite", buildings: PROGRESS, o
 const profile = DEFAULT_LEARNING_PROFILE;
 const full = surfacesFor("full", profile);
 const simple = surfacesFor("full", { ...profile, fewerChoices: true });
-const base = { layout, hero: layout.spawn, facing: "n" as const, troubles: [] as { id: string; position: { x: number; z: number } }[], surfaces: full };
+const base = { layout, hero: layout.spawn, facing: "n" as const, troubles: [] as { id: string; position: { x: number; z: number } }[], surfaces: full, placesFound: [] as string[] };
 
 /** A prop of any kind, so the land rules can be asked about props the layout does not build yet. */
 const prop = (over: Partial<Prop>): Prop => ({
@@ -404,6 +405,52 @@ describe("minimapView", () => {
     // are what a lost child orients by, and the younger child needs them more, not less.
     expect(view.marks.some((d) => d.kind === "castle")).toBe(true);
     expect(view.areas.length).toBeGreaterThan(0);
+  });
+
+  it("draws all five named places, hollow until they are found", () => {
+    const view = minimapView(base);
+    const places = view.marks.filter((d) => d.kind === "place");
+    expect(places).toHaveLength(PLACES.length);
+    // Unfound on purpose, not missing: the map says something is out there without saying what,
+    // because the game keeps no other record of where a child has been.
+    expect(places.every((d) => d.filled === false)).toBe(true);
+    for (const place of PLACES) {
+      const mark = view.marks.find((d) => d.id === PLACE_MARK_ID(place.id));
+      expect(mark).toBeTruthy();
+      expect({ x: mark!.x, y: mark!.y }).toEqual(projectToMap(place.position, view.bounds));
+    }
+  });
+
+  it("lights the one place that has been found and leaves the other four alone", () => {
+    const view = minimapView({ ...base, placesFound: ["longwater"] });
+    expect(view.marks.find((d) => d.id === PLACE_MARK_ID("longwater"))).toMatchObject({ kind: "place", filled: true });
+    expect(view.marks.filter((d) => d.kind === "place" && d.filled)).toHaveLength(1);
+    expect(view.marks.filter((d) => d.kind === "place")).toHaveLength(PLACES.length);
+  });
+
+  it("gives a place no rim arrow: home and the objective earn those, and seven would drown them", () => {
+    const view = minimapView({ ...base, placesFound: ["longwater"] });
+    // `home` and `goal` are the ONLY two points the rim draws from, so this is the whole of it.
+    expect(view.home).not.toBeNull();
+    expect(view.goal).not.toBeNull();
+    expect(projectToMap(PLACES[2].position, view.bounds)).not.toEqual(view.goal);
+  });
+
+  it("under objectiveOnly keeps the places already found and drops the ones not yet reached", () => {
+    const view = minimapView({ ...base, surfaces: simple, placesFound: ["highcairn"] });
+    const places = view.marks.filter((d) => d.kind === "place");
+    // A place not yet reached is one more choice, which is the whole of what that mode removes.
+    // A place already stood in is not a choice, it is a memory, and the map keeps it.
+    expect(places).toHaveLength(1);
+    expect(places[0]).toMatchObject({ id: PLACE_MARK_ID("highcairn"), filled: true });
+  });
+
+  it("names a place's mark apart from every prop, so nothing is drawn twice", () => {
+    const view = minimapView({ ...base, placesFound: PLACES.map((p) => p.id) });
+    expect(new Set(view.marks.map((m) => m.id)).size).toBe(view.marks.length);
+    // Drawn before the village's own marks, so a place can never paint over the castle.
+    const lastPlace = view.marks.findLastIndex((m) => m.kind === "place");
+    expect(view.marks.findIndex((m) => m.kind === "castle")).toBeGreaterThan(lastPlace);
   });
 
   it("draws a map with no objective at all rather than throwing", () => {

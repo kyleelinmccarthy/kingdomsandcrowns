@@ -29,6 +29,8 @@ const view: MinimapView = {
     { id: "mill", kind: "site", x: 0.75, y: 0.25, filled: true },
     { id: "bridge", kind: "objective", x: 0.5, y: 0.9, filled: false },
     { id: "t1", kind: "trouble", x: 0.1, y: 0.8, filled: true },
+    { id: "place-longwater", kind: "place", x: 0.8, y: 0.15, filled: true },
+    { id: "place-appleway", kind: "place", x: 0.2, y: 0.85, filled: false },
   ],
   home: { x: 0.5, y: 0.1 },
   goal: { x: 0.5, y: 0.9 },
@@ -54,14 +56,36 @@ describe("RealmMinimap", () => {
     expect(container.querySelector(".realm-minimap-void")).not.toBeNull();
   });
 
-  it("gives each kind its own silhouette rather than four identical squares", () => {
+  it("gives each kind its own silhouette rather than five identical squares", () => {
     const { container } = render(<RealmMinimap view={view} />);
     const shape = (cls: string) => container.querySelector(cls)?.getAttribute("d");
-    const shapes = [".realm-minimap-castle", ".realm-minimap-objective", ".realm-minimap-site", ".realm-minimap-trouble"].map(shape);
+    const shapes = [".realm-minimap-castle", ".realm-minimap-objective", ".realm-minimap-site", ".realm-minimap-trouble", ".realm-minimap-place"].map(shape);
     expect(shapes.every(Boolean)).toBe(true);
-    expect(new Set(shapes).size).toBe(4);
+    expect(new Set(shapes).size).toBe(5);
     expect(container.querySelectorAll(".realm-minimap-site")).toHaveLength(2);
     expect(container.querySelector(".realm-minimap-site--raised")).not.toBeNull(); // the built one, filled
+    // A place is round; a site is a gabled house. At this size the silhouette is the whole of
+    // what tells them apart, so it must be an arc and not another straight-edged glyph.
+    expect(shape(".realm-minimap-place")).toMatch(/A/);
+    expect(shape(".realm-minimap-place")).not.toBe(shape(".realm-minimap-site"));
+  });
+
+  it("lights a found place and leaves an unfound one hollow", () => {
+    const { container } = render(<RealmMinimap view={view} />);
+    expect(container.querySelectorAll(".realm-minimap-place")).toHaveLength(2);
+    const found = container.querySelectorAll(".realm-minimap-place--found");
+    expect(found).toHaveLength(1);
+    // The one that is lit is the one the view said was found, not whichever came first.
+    expect(found[0].getAttribute("transform")).toContain("80");
+    // ...and it is still the same glyph: finding a place changes its state, never its shape.
+    expect(found[0].getAttribute("d")).toBe(container.querySelector(".realm-minimap-place")?.getAttribute("d"));
+  });
+
+  it("gives a place no rim arrow: only home and the objective are pinned to the rim", () => {
+    const { container } = render(<RealmMinimap view={{ ...view, frame: window2 }} />);
+    expect(container.querySelectorAll(".realm-minimap-rim")).toHaveLength(2);
+    expect(container.querySelector(".realm-minimap-rim--home")).not.toBeNull();
+    expect(container.querySelector(".realm-minimap-rim--goal")).not.toBeNull();
   });
 
   it("names itself for a screen reader without using the word depth", () => {
