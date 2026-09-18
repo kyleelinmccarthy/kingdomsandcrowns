@@ -956,25 +956,40 @@ function SiteKit({ id }: { id: string }) {
         </>
       );
     case "chapel":
-      // Ashlar squared up, a mason's square leaning on it, and the cross-head already cut.
+      /*
+       * The bell, waiting on its ashlar to be hoisted — NOT a cross.
+       *
+       * This plot was a stone cross standing on cut blocks, which is the clearest possible
+       * "chapel" and also, on its own in a field, a grave marker. The agent that drew it said
+       * so itself and asked for a second pair of eyes; the standing stones out west had already
+       * been redrawn twice for the same reason, a flat-topped menhir reading as a headstone.
+       *
+       * A bell cannot be misread. No grave has one and every chapel does, it says "not finished"
+       * as plainly as a cross-head does, and it is the one piece of a chapel a child can name
+       * from across a field.
+       */
       return (
         <>
-          <rect x={24} y={44} width={20} height={6} fill={STONE} />
-          <rect x={24} y={44} width={20} height={1} fill={STONE_LIT} />
-          <rect x={24} y={49} width={20} height={1} fill={STONE_DEEP} />
-          <rect x={33} y={44} width={1} height={5} fill={STONE_DARK} />
           <rect x={22} y={50} width={24} height={6} fill={STONE} />
           <rect x={22} y={50} width={24} height={1} fill={STONE_LIT} />
           <rect x={29} y={50} width={1} height={6} fill={STONE_DARK} />
           <rect x={38} y={50} width={1} height={6} fill={STONE_DARK} />
-          <rect x={30} y={20} width={8} height={24} fill={STONE_LIT} />
-          <rect x={35} y={20} width={3} height={24} fill={STONE} />
-          <rect x={23} y={27} width={22} height={7} fill={STONE_LIT} />
-          <rect x={23} y={33} width={22} height={1} fill={STONE_DEEP} />
-          <rect x={41} y={27} width={4} height={6} fill={STONE} />
-          <rect x={46} y={38} width={4} height={14} fill={BOARD} />
-          <rect x={46} y={51} width={10} height={4} fill={BOARD} />
-          <rect x={46} y={54} width={10} height={1} fill={WOOD_DARK} />
+          <rect x={24} y={44} width={20} height={6} fill={STONE} />
+          <rect x={24} y={44} width={20} height={1} fill={STONE_LIT} />
+          <rect x={24} y={49} width={20} height={1} fill={STONE_DEEP} />
+          {/* The hoist it is waiting on, leaning back so the bell reads in front of it. */}
+          <rect x={20} y={18} width={3} height={26} fill={WOOD} />
+          <rect x={44} y={18} width={3} height={26} fill={WOOD_DARK} />
+          <rect x={20} y={18} width={27} height={3} fill={WOOD_LIT} />
+          {/* Crown, shoulder, waist, and the flared lip that makes it a bell and not a pot. */}
+          <rect x={31} y={22} width={4} height={3} fill={GOLD_DEEP} />
+          <rect x={30} y={25} width={6} height={3} fill={GOLD} />
+          <rect x={29} y={28} width={8} height={4} fill={GOLD} />
+          <rect x={28} y={32} width={10} height={5} fill={GOLD_DEEP} />
+          <rect x={27} y={37} width={12} height={4} fill={GOLD_DEEP} />
+          <rect x={25} y={41} width={16} height={3} fill={GOLD} />
+          <rect x={25} y={43} width={16} height={1} fill={WOOD_DARK} />
+          <rect x={29} y={28} width={2} height={13} fill={GOLD} />
         </>
       );
     case "market":
