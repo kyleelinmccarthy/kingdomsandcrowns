@@ -97,7 +97,7 @@ function Hair({ h }: { h: HeroLook["hair"] }) {
   // The skull cap. When one side is shaved the cap slides off that side and leaves scalp.
   const capW = (HEAD_W + 0.05) * (h.shaved ? 0.62 : 1) * (h.base === "puff" ? 1 : h.volume);
   const capX = h.shaved ? -(HEAD_W + 0.05 - capW) / 2 : 0;
-  const cap = h.base === "puff" ? null : (
+  const cap = (
     <>
       <mesh castShadow position={[capX, HEAD_TOP - 0.05, -0.01]}>
         <boxGeometry args={[capW, 0.19, HEAD_D + 0.05]} />
@@ -125,8 +125,10 @@ function Hair({ h }: { h: HeroLook["hair"] }) {
     </>
   );
 
+  // The cloud sits ON TOP of the skull, slightly squashed. Centred on the head it swallowed the
+  // face, which is the one thing a low-poly hero cannot spare.
   const puff = h.base === "puff" && (
-    <mesh castShadow position={[0, HEAD_Y + 0.28, -0.08]}>
+    <mesh castShadow position={[0, HEAD_TOP + 0.14, -0.05]} scale={[1.05, 0.82, 1.05]}>
       <icosahedronGeometry args={[0.4 * h.volume, 0]} />
       {m}
     </mesh>
