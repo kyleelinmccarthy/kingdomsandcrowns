@@ -167,6 +167,26 @@ function ContactShadow({ w, d, y, calm }: { w: number; d: number; y: number; cal
  * and the GPU is left alone afterwards.
  */
 const UNIT_PLANE = new THREE.PlaneGeometry(1, 1);
+/**
+ * THE SHAPE A FEATHERED PATCH IS ACTUALLY DRAWN AS, and half of what the fill-rate pass bought.
+ *
+ * A feathered tile's alpha is zero outside a disc: `feather` sets it from `r = hypot(dx, dy) * 2`
+ * against `edge = 0.52 + wobble * 0.4`, so nothing is ever painted beyond r = 0.92 — while a quad
+ * reaches r = 1.414 into its corners. Every fragment out there was shaded, blended and written
+ * for a texel that is transparent by construction. A regular 12-gon has an inradius of
+ * cos(15°) = 0.966 of its circumradius, so it contains the whole disc with room to spare and
+ * still costs 3.00 r^2 against the quad's 4.00 — a quarter of the patch's fragments, gone, with
+ * nothing clipped. CircleGeometry's uv maps its bounding square to 0..1 exactly as
+ * PlaneGeometry(1, 1) does, so the tile lands identically on it.
+ */
+const SOFT_PATCH = new THREE.CircleGeometry(0.5, 12);
+/**
+ * ...and the other half. The soft materials are `transparent` with NO alphaTest, so a texel with
+ * alpha 0 still cost a blend and a framebuffer write. Measured on the real tiles, 57% of every
+ * feathered patch is fully transparent. The threshold is tiny on purpose: the feather's ramp is
+ * linear over the outer third of the disc, and 0.02 discards only what rounds to nothing anyway.
+ */
+const SOFT_ALPHA_TEST = 0.02;
 /** How finely the ground is divided for the broad wash. 96 puts a vertex every five world units
  *  — about a fifth of a screen — which is the scale the variation is meant to read at. */
 const GROUND_SEGMENTS = 96;
@@ -220,12 +240,22 @@ function useDisposeBatch(mesh: THREE.InstancedMesh | null): void {
  * they never write depth. Depth is what would break them — hundreds of coplanar patches of one
  * colour, each punching a hole in the ones behind it — and they need none, because the surfaces
  * ABOVE them are opaque, drawn first, and already reject anything lower down.
+ *
+ * Those are also the only expensive thing in the world. A feathered patch overlaps its
+ * neighbours several deep on purpose — that overlap is what makes a region ragged rather than a
+ * rug — and MEASURED on the real layout and this camera, the Old Wood submits 7.2 blended
+ * fragments for every screen pixel, 23 deep at the 99th percentile. Draw calls cannot see that,
+ * which is why it went unnoticed for so long. `SOFT_PATCH` and `SOFT_ALPHA_TEST` above are the
+ * two halves of the answer, and between them they take the fragments that reach the blend from
+ * 7.2x to 3.2x with NOTHING clipped: re-measured, the patches' inked area is identical either
+ * way. Anything added to this path wants measuring the same way before it ships.
  */
 function GroundBatch({ items, y, color, map, soft }: { items: { position: Vec2; size: { w: number; d: number }; angle?: number }[]; y: number; color: string; map?: THREE.CanvasTexture; soft?: boolean }) {
   const mesh = useMemo(() => {
     if (items.length === 0) return null;
     const turned = new THREE.Euler();
-    return batch(UNIT_PLANE, new THREE.MeshStandardMaterial({ color, map, transparent: soft, depthWrite: !soft }), items.length, (i, position, quaternion, scale) => {
+    const material = new THREE.MeshStandardMaterial({ color, map, transparent: soft, depthWrite: !soft, alphaTest: soft ? SOFT_ALPHA_TEST : 0 });
+    return batch(soft ? SOFT_PATCH : UNIT_PLANE, material, items.length, (i, position, quaternion, scale) => {
       position.set(items[i].position.x, y, items[i].position.z);
       // Euler XYZ turns about local Z first and lays the quad flat second, so `angle` is a
       // turn IN the ground plane. Only natural ground sets one (layout.ts's `blobs`).
