@@ -17,6 +17,9 @@
  *   - `landmarks.tsx`     what is actually standing at the nineteen named places
  *   - `geo-kit.ts`        the geometry shed everything above shares
  *   - `collision.ts` / `jump.ts` / `shore.ts`  the arithmetic, testable with no WebGL
+ *   - `hud.tsx`           the map, the spell bar, the mana bar, the child's name, the plates
+ *   - `hud-driver.tsx`    the one per-frame thing that joins the camera to that DOM
+ *   - `spell-fx.tsx`      what a cast looks like, over `lib/realm3d/spell-fx.ts`
  *
  * ## The join
  *
@@ -28,14 +31,22 @@
  * outside it. The one thing this file must not do is draw a second ground, a second tree over
  * the first, or a colour that changes on the authored square's boundary.
  *
- * Rough still: no HUD, no calm mode, no accessibility. Nothing here writes back, and nothing in
- * the shipped Realm imports this file.
+ * ## The HUD
+ *
+ * There is one now, and it is a SIBLING of the `<Canvas>` rather than a layer inside it, which
+ * is the one structural thing to know before editing either half. The HUD holds React state;
+ * `World` below is memoised and every prop it takes is built once in `SpikeScene`; and the
+ * numbers that move sixty times a second cross between them through `HudBus`, as writes onto
+ * DOM nodes the HUD already put on screen. Nothing in the HUD re-renders the island.
+ *
+ * Still missing: calm mode, hud scale, reduced motion, and any of the accessibility the flat
+ * Realm's HUD has. Nothing here writes back, and nothing in the shipped Realm imports this file.
  */
 
-import { useEffect, useMemo, useRef } from "react";
+import { memo, useEffect, useMemo, useRef } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
-import { buildWorldLayout, WORLD_SIZE, type Prop, type VillagerPlacement } from "@/lib/realm/layout";
+import { buildWorldLayout, WORLD_SIZE, type Prop, type VillagerPlacement, type WorldLayout } from "@/lib/realm/layout";
 import { heightAt } from "@/lib/realm3d/heightfield";
 import { realmWorld, SEA_LEVEL, WALK_HALF, type RealmWorld } from "@/lib/realm3d/worldgen";
 import { shoreMove, wadeSpeed } from "@/lib/realm3d/shore";
@@ -60,6 +71,15 @@ import { makeVertical, stepVertical, tryJump, type Vertical } from "@/lib/realm3
 import { heroLook } from "@/lib/realm3d/hero-look";
 import { DEFAULT_AVATAR, type AvatarConfig } from "@/lib/utils/avatar-catalog";
 import { Companion, HeroFigure, type Gait } from "./hero-figure";
+import { resolvePages, withEmptyPages, type SpellPageView } from "@/lib/realm/spells/pages";
+import type { SpellPage } from "@/lib/services/spells";
+import { digitSlot, makeCaster, makeCastQueue, pushCast, type Caster, type CastQueue } from "@/lib/realm3d/casting";
+import { makeHudBus, type HudBus } from "@/lib/realm3d/hud-bus";
+import { buildAnchors, type PlateAnchor } from "@/lib/realm3d/plate-anchors";
+import { makeFxPool, type FxSlot } from "@/lib/realm3d/spell-fx";
+import { RealmHud } from "./hud";
+import { HudDriver } from "./hud-driver";
+import { FX_POOL, SpellFx } from "./spell-fx";
 
 /* ------------------------------------------------------------------ palette */
 
@@ -613,6 +633,7 @@ function Hero({
   look,
   facingRef,
   gaitRef,
+  aimRef,
   solids,
   world,
 }: {
@@ -622,11 +643,29 @@ function Hero({
   look: ReturnType<typeof heroLook>;
   facingRef: React.RefObject<number>;
   gaitRef: React.RefObject<Gait>;
+  /**
+   * A facing the HUD's driver has asked for, or NaN for none. A cast sets it, because a child
+   * who presses 1 while standing still and watches the spell leave over their own shoulder has
+   * been told the game does not know which way they are pointing. The hero turns to face what
+   * they are casting at, exactly as they turn to face what they are walking at; the rotation
+   * is damped by the same line below, so it reads as turning rather than snapping.
+   */
+  aimRef: React.RefObject<number>;
   solids: Collider[];
   world: RealmWorld;
 }) {
   const group = useRef<THREE.Group>(null);
-  const facing = useRef(0);
+  /**
+   * Facing NORTH at spawn — away from the camera, which sits due south on its boom.
+   *
+   * It used to be 0, which in this basis (`atan2(dx, dz)`, so 0 is +z) is facing straight back
+   * INTO the camera. Nothing showed that until the HUD arrived, and then two things did at
+   * once: the map's hero arrow pointed down the map while the map's view cone pointed up it,
+   * and the first Ember Bolt a child cast standing still left over their own shoulder and
+   * straight past the lens. Both are the same fact — the child was standing backwards — and
+   * this is the fact, not a workaround for either.
+   */
+  const facing = useRef(Math.PI);
   const bob = useRef(0);
   const step = useMemo<Pt>(() => ({ x: 0, z: 0 }), []);
   const wet = useMemo<Pt>(() => ({ x: 0, z: 0 }), []);
@@ -669,7 +708,11 @@ function Hero({
       bob.current += dt * (vert.grounded ? 9 : 3);
     } else {
       bob.current += dt * 2;
+      // Only while standing. Walking already points the hero the way they are going, and that
+      // way is the camera's forward too, so a cast mid-stride needs no help.
+      if (Number.isFinite(aimRef.current)) facing.current = aimRef.current;
     }
+    aimRef.current = Number.NaN;
     // Edge-triggered: the keydown handler ignores auto-repeat, and this eats the press.
     if (takeJump(k)) tryJump(vert);
     stepVertical(vert, dt, p.x, p.z, world.heightAt(p.x, p.z), solids);
@@ -982,36 +1025,39 @@ function SkyDome() {
 
 /* --------------------------------------------------------------------- app */
 
-function World({ avatar, close }: { avatar: AvatarConfig; close: boolean }) {
+/**
+ * The scene. MEMOISED, and that is load-bearing rather than tidy: the HUD holds React state
+ * (which places the child has found, which slot just refused), and if that state re-rendered
+ * this component it would re-render the whole island — twenty thousand props, nineteen
+ * landmarks, the child's own figure — for one number on one bar. So the HUD is a SIBLING of
+ * the `<Canvas>` and keeps its own state, the per-frame numbers go through `HudBus` and never
+ * through React at all, and every prop below is built once in `SpikeScene` and is
+ * referentially stable for the life of the page.
+ */
+const World = memo(function World({
+  avatar,
+  close,
+  world,
+  layout,
+  anchors,
+  pages,
+  bus,
+  caster,
+  fxPool,
+  casts,
+}: {
+  avatar: AvatarConfig;
+  close: boolean;
+  world: RealmWorld;
+  layout: WorldLayout;
+  anchors: readonly PlateAnchor[];
+  pages: SpellPageView[];
+  bus: HudBus;
+  caster: Caster;
+  fxPool: FxSlot[];
+  casts: CastQueue;
+}) {
   const look = useMemo(() => heroLook(avatar), [avatar]);
-  const layout = useMemo(
-    () =>
-      buildWorldLayout({
-        castleType: "castle",
-        // A half-built village: four raised, four still foundations. It is the state a child is
-        // actually in, and it shows both kinds of site at once.
-        buildings: [
-          { id: "well", done: 5, total: 5, complete: true },
-          { id: "mill", done: 5, total: 5, complete: true },
-          { id: "bridge", done: 5, total: 5, complete: true },
-          { id: "chapel", done: 3, total: 5, complete: false },
-          { id: "market", done: 5, total: 5, complete: true },
-          { id: "library", done: 1, total: 5, complete: false },
-          { id: "watchtower", done: 5, total: 5, complete: true },
-          { id: "garden", done: 0, total: 5, complete: false },
-        ],
-        banners: 5,
-        objectiveIds: ["chapel", "library", "garden"],
-      }),
-    [],
-  );
-
-  /**
-   * The realm. Built once and shared — every height query the hero, the camera, the ground mesh
-   * and the props make comes out of this one object, which is the only reason any of them agree
-   * about where the floor is.
-   */
-  const world = useMemo(() => realmWorld(), []);
 
   /**
    * What stops the hero, and what can hide him from the camera. Two lists, because they are
@@ -1062,6 +1108,7 @@ function World({ avatar, close }: { avatar: AvatarConfig; close: boolean }) {
   const yawRef = useRef(0);
   const facingRef = useRef(0);
   const gaitRef = useRef<Gait>({ speed: 0, phase: 0 });
+  const aimRef = useRef(Number.NaN);
   const keys = useRef<Keys>({ f: false, b: false, l: false, r: false, yawL: false, yawR: false, jump: false });
   const tex = useMemo(() => glowTexture(), []);
 
@@ -1077,7 +1124,16 @@ function World({ avatar, close }: { avatar: AvatarConfig; close: boolean }) {
         case "KeyE": k.yawR = down; break;
         // Edge-triggered, and auto-repeat is dropped: holding space is one jump, not flight.
         case "Space": if (down && !e.repeat) k.jump = true; break;
-        default: return;
+        default: {
+          // 1 through 9 cast. Queued rather than acted on here, because a cast has to be
+          // decided against a mana total the frame loop owns, and auto-repeat is dropped for
+          // the same reason as the jump: holding 1 is one spell, and the cooldown is what says
+          // when the next one may go.
+          const n = digitSlot(e.code);
+          if (n === 0 || !down || e.repeat) return;
+          pushCast(casts, n);
+          break;
+        }
       }
       // Space scrolls the page and re-presses whatever button the child last touched. Neither
       // belongs in a game, and the canvas is not focusable, so the window handler says no here.
@@ -1091,7 +1147,7 @@ function World({ avatar, close }: { avatar: AvatarConfig; close: boolean }) {
       window.removeEventListener("keydown", dn);
       window.removeEventListener("keyup", up);
     };
-  }, []);
+  }, [casts]);
 
   return (
     <>
@@ -1116,17 +1172,97 @@ function World({ avatar, close }: { avatar: AvatarConfig; close: boolean }) {
       <RealmLandmarks world={world} />
       <Scenery scenery={layout.scenery} />
       <Village props={layout.props} villagers={layout.villagers} />
-      <Hero heroRef={heroRef} keys={keys} yawRef={yawRef} look={look} facingRef={facingRef} gaitRef={gaitRef} solids={solids} world={world} />
+      <Hero heroRef={heroRef} keys={keys} yawRef={yawRef} look={look} facingRef={facingRef} gaitRef={gaitRef} aimRef={aimRef} solids={solids} world={world} />
       {look.companion && <Companion look={look.companion} heroRef={heroRef} facingRef={facingRef} />}
       <WadeRing world={world} heroRef={heroRef} />
       <LanternGlow scenery={layout.scenery} tex={tex} />
       <Motes tex={tex} />
+      <SpellFx pool={fxPool} />
       <Rig heroRef={heroRef} yawRef={yawRef} close={close} occluders={occluders} solids={solids} world={world} />
+      {/*
+        LAST in the tree on purpose. R3F runs same-priority frame subscribers in the order they
+        subscribed, so the driver's projection runs after the rig has already moved the camera
+        this frame — a nameplate computed from last frame's camera slides visibly whenever the
+        boom swings round a roof.
+      */}
+      <HudDriver
+        bus={bus}
+        world={world}
+        anchors={anchors}
+        pages={pages}
+        caster={caster}
+        fxPool={fxPool}
+        casts={casts}
+        heroRef={heroRef}
+        facingRef={facingRef}
+        yawRef={yawRef}
+        aimRef={aimRef}
+      />
     </>
   );
-}
+});
 
-export default function SpikeScene({ avatar, close = false }: { avatar?: AvatarConfig | null; close?: boolean }) {
+/**
+ * The half-built village the spike has always shown: four sites raised, four still on their
+ * footings, three of them the current objectives. Hoisted out of `World` so the villagers'
+ * nameplates and the scene read the same layout object, and so a memoised `World` gets the
+ * same reference on every render.
+ */
+const VILLAGE = {
+  castleType: "castle",
+  buildings: [
+    { id: "well", done: 5, total: 5, complete: true },
+    { id: "mill", done: 5, total: 5, complete: true },
+    { id: "bridge", done: 5, total: 5, complete: true },
+    { id: "chapel", done: 3, total: 5, complete: false },
+    { id: "market", done: 5, total: 5, complete: true },
+    { id: "library", done: 1, total: 5, complete: false },
+    { id: "watchtower", done: 5, total: 5, complete: true },
+    { id: "garden", done: 0, total: 5, complete: false },
+  ],
+  banners: 5,
+  objectiveIds: ["chapel", "library", "garden"],
+} as const;
+
+export default function SpikeScene({
+  avatar,
+  close = false,
+  heroName = "The Hero",
+  spellbook,
+}: {
+  avatar?: AvatarConfig | null;
+  close?: boolean;
+  heroName?: string;
+  /** The child's own spellbook rows and slot count, straight off `getRealmBundle`. */
+  spellbook?: { spells: SpellPage[]; slots: number } | null;
+}) {
+  const world = useMemo(() => realmWorld(), []);
+  const layout = useMemo(() => buildWorldLayout({ ...VILLAGE, buildings: [...VILLAGE.buildings], objectiveIds: [...VILLAGE.objectiveIds] }), []);
+
+  /**
+   * The child's REAL spells. `resolvePages` turns their saved rows into castable definitions
+   * and `withEmptyPages` pads the book out to the slot count their level has earned — the same
+   * two calls `realm-shell.tsx` makes, so the 3D bar and the flat Realm's bar can never
+   * disagree about what a child owns. A hero with no rows at all still gets the starter Ember
+   * Bolt, because `getRealmBundle` seeds it before the page ever renders.
+   */
+  const pages = useMemo(() => {
+    const slots = spellbook?.slots ?? 4;
+    return withEmptyPages(resolvePages(spellbook?.spells ?? [], slots), slots);
+  }, [spellbook]);
+
+  const anchors = useMemo(
+    () => buildAnchors({ heroName, villagers: layout.villagers, landmarks: world.landmarks, heightAt: world.heightAt }),
+    [heroName, layout, world],
+  );
+
+  // Built once, mutated for ever, shared across the canvas boundary. None of these is React
+  // state and none of them can re-render anything.
+  const bus = useMemo(() => makeHudBus(pages.length, anchors.length), [pages.length, anchors.length]);
+  const caster = useMemo(() => makeCaster(pages.length), [pages.length]);
+  const fxPool = useMemo(() => makeFxPool(FX_POOL), []);
+  const casts = useMemo(() => makeCastQueue(), []);
+
   return (
     <div className="fixed inset-0 bg-[#bcdcec]">
       <Canvas
@@ -1139,11 +1275,20 @@ export default function SpikeScene({ avatar, close = false }: { avatar?: AvatarC
           gl.toneMappingExposure = 1.08;
         }}
       >
-        <World avatar={avatar ?? DEFAULT_AVATAR} close={close} />
+        <World
+          avatar={avatar ?? DEFAULT_AVATAR}
+          close={close}
+          world={world}
+          layout={layout}
+          anchors={anchors}
+          pages={pages}
+          bus={bus}
+          caster={caster}
+          fxPool={fxPool}
+          casts={casts}
+        />
       </Canvas>
-      <p className="pointer-events-none absolute bottom-4 left-1/2 -translate-x-1/2 rounded bg-black/45 px-3 py-1 text-sm text-white/85">
-        WASD to walk · Space to jump · Q / E to swing the camera
-      </p>
+      {!close && <RealmHud bus={bus} world={world} anchors={anchors} pages={pages} heroName={heroName} />}
     </div>
   );
 }

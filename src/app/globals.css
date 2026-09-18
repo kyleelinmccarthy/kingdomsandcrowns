@@ -2241,3 +2241,352 @@ body[data-realm-open] .parent-alert-popup { display: none; }
 @media (max-width: 900px) {
   .realm-tutorial { top: 19.9rem; bottom: auto; }
 }
+
+/* ============================================================================
+   THE 3D REALM'S HUD (/realm-3d)
+   ----------------------------------------------------------------------------
+   Its own prefix (`r3-`), its own palette, and no shared rule with `.realm-*`
+   above, on purpose. The flat Realm's HUD is black glass and a gold hairline,
+   which is a fine skin for a dark pixel board and is exactly the "grey boxes"
+   read over the 3D island: that world is warm, saturated and chunky — plaster
+   #e8ddc2, cobble #c2a469, timber #6b4a30, one gold lantern — so the HUD is
+   built out of those same four colours, with 3px borders and no hairlines
+   anywhere. Two children, eight and eleven, on a 1280-wide screen: everything
+   below is sized to be read at a glance from a metre back.
+   ========================================================================= */
+
+.r3-hud {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  pointer-events: none;
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  /* The timber-and-parchment palette, in one place. */
+  --r3-bark: #2a1709;
+  --r3-timber: #5a3a22;
+  --r3-timber-deep: #33200f;
+  --r3-parchment: #ffeec2;
+  --r3-gold: #f5c04a;
+  --r3-gold-deep: #a8761d;
+}
+
+/* The shape every panel wears: a plank with a dark edge and a lit top. */
+.r3-who,
+.r3-slot,
+.r3-keys {
+  border: 3px solid var(--r3-bark);
+  background: linear-gradient(180deg, var(--r3-timber), var(--r3-timber-deep));
+  box-shadow: 0 5px 0 rgba(0, 0, 0, 0.3), inset 0 2px 0 rgba(255, 225, 170, 0.22);
+}
+
+/* ---- the child's own name ------------------------------------------------ */
+
+.r3-who {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.4rem 1rem 0.45rem 0.45rem;
+  border-radius: 999px;
+  max-width: min(22rem, 40vw);
+}
+.r3-who-crown {
+  flex: none;
+  width: 2.7rem;
+  height: 2.7rem;
+  border-radius: 50%;
+  border: 3px solid #7a4f14;
+  background: radial-gradient(circle at 40% 30%, #fff3cf, #e0a52c 70%);
+  display: grid;
+  place-items: center;
+  box-shadow: 0 0 14px rgba(245, 192, 74, 0.55);
+}
+.r3-who-crown-icon { width: 1.6rem; height: 1.6rem; color: #6b4410; }
+.r3-who-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.1; }
+.r3-who-name {
+  font-size: 1.4rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  color: var(--r3-parchment);
+  text-shadow: 0 2px 0 var(--r3-bark), 0 0 16px rgba(245, 192, 74, 0.4);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.r3-who-where {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #f0c979;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- the map ------------------------------------------------------------- */
+
+.r3-map {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  width: 12.5rem;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  border: 5px solid var(--r3-bark);
+  background: #1d2a1b;
+  overflow: hidden;
+  box-shadow: 0 6px 0 rgba(0, 0, 0, 0.3), inset 0 0 0 3px var(--r3-gold-deep);
+}
+.r3-map svg { display: block; width: 100%; height: 100%; }
+.r3-map-void { fill: #1b2519; }
+/* The ways between places, in the cobble colour the roads are actually built out of. */
+.r3-map-road { fill: none; stroke: #d9b878; stroke-opacity: 0.8; stroke-linecap: round; stroke-linejoin: round; }
+/* A place not yet stood in: hollow. See the note on discovery in lib/realm3d/minimap.ts. */
+.r3-map-place { fill: none; stroke: #f8e6bb; stroke-width: 1.1; stroke-linejoin: round; stroke-opacity: 0.85; }
+.r3-map-place--found { fill: var(--r3-gold); stroke: #2a1709; stroke-width: 0.9; stroke-opacity: 1; }
+/* Reeds are drawn as three strokes, so "found" thickens them instead of filling them. */
+.r3-map-place--mire { stroke-width: 1.4; }
+.r3-map-place--mire.r3-map-place--found { fill: none; stroke: var(--r3-gold); stroke-width: 2; }
+.r3-map-home { fill: #fff3d6; stroke: #2a1709; stroke-width: 0.9; stroke-linejoin: round; }
+.r3-map-you { fill: var(--r3-gold); stroke: #2a1709; stroke-width: 1.3; stroke-linejoin: round; }
+/* What is on screen right now, so the map and the picture agree. */
+.r3-map-cone { fill: #fff3d6; opacity: 0.14; }
+.r3-map-rim path { fill: #fff3d6; stroke: #2a1709; stroke-width: 1; stroke-linejoin: round; }
+.r3-map-rim-ring { fill: none; stroke: rgba(168, 118, 29, 0.55); stroke-width: 2; }
+.r3-map-north { fill: #fff3d6; font-size: 9px; font-weight: 800; opacity: 0.75; }
+
+/* ---- mana, spells, keys -------------------------------------------------- */
+
+.r3-bottom {
+  position: absolute;
+  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.r3-mana { display: flex; align-items: center; gap: 0.5rem; width: min(28rem, 60vw); }
+.r3-mana-gem {
+  flex: none;
+  width: 1.5rem;
+  height: 1.5rem;
+  color: #79d6ff;
+  filter: drop-shadow(0 0 6px rgba(121, 214, 255, 0.7)) drop-shadow(0 2px 0 rgba(0, 0, 0, 0.55));
+}
+.r3-mana-track {
+  flex: 1;
+  height: 1.15rem;
+  border-radius: 999px;
+  border: 3px solid var(--r3-bark);
+  background: #16202c;
+  overflow: hidden;
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.3);
+}
+.r3-mana-fill {
+  display: block;
+  height: 100%;
+  width: 100%;
+  border-radius: 999px 0 0 999px;
+  background: linear-gradient(90deg, #2f7fc9, #79d6ff);
+  box-shadow: inset 0 0.3rem 0 rgba(255, 255, 255, 0.3), inset 0 -0.35rem 0 rgba(0, 0, 0, 0.18);
+  /* The frame loop writes the width; this smooths the step so a spent cast reads as a drain
+     rather than a jump cut. Cheap: one composited property on one element. */
+  transition: width 0.12s linear;
+}
+.r3-mana-text {
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #cfeaff;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 2px 0 #10202f, 0 0 8px rgba(0, 0, 0, 0.6);
+}
+
+.r3-bar { display: flex; gap: 0.6rem; }
+.r3-slot {
+  position: relative;
+  width: 5rem;
+  height: 5rem;
+  border-radius: 16px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+}
+/* The element's own colour, glowing out of the middle of its page. */
+.r3-slot::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 40%, var(--r3-ink, #f5c04a), transparent 70%);
+  opacity: 0.55;
+}
+.r3-slot-icon {
+  position: relative;
+  width: 2.5rem;
+  height: 2.5rem;
+  margin-bottom: 0.4rem;
+  color: #fff6de;
+  filter: drop-shadow(0 0 7px var(--r3-ink, #f5c04a)) drop-shadow(0 2px 0 rgba(0, 0, 0, 0.5));
+}
+.r3-slot-key {
+  position: absolute;
+  top: 0;
+  left: 0;
+  min-width: 1.4rem;
+  padding: 0.05rem 0.28rem;
+  border-radius: 0 0 12px 0;
+  background: var(--r3-gold);
+  color: #3a2415;
+  font-size: 0.82rem;
+  font-weight: 900;
+  text-align: center;
+  z-index: 2;
+}
+.r3-slot-cost {
+  position: absolute;
+  top: 0.15rem;
+  right: 0.3rem;
+  color: #a9dcff;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  z-index: 2;
+}
+.r3-slot-name {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 0.12rem 0.2rem;
+  background: rgba(18, 11, 4, 0.72);
+  color: var(--r3-parchment);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  z-index: 2;
+}
+/* The cooldown, wiped down from the top. `scaleY` is written on this node every frame. */
+/* The dark band shrinks upward as the page rests, so the page reads as filling back up from
+   the bottom. 0.8 and not 0.62: at 0.62 over a tile that is already dark timber the band was
+   barely there in a screenshot, and a cue an eight-year-old has to look for is not a cue. */
+.r3-slot-cool {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  background: rgba(6, 10, 20, 0.8);
+  border-bottom: 4px solid var(--r3-gold);
+  transform: scaleY(0);
+  transform-origin: top;
+}
+/* A page with no spell on it yet. Drawn, not hidden: it says there are more to earn. */
+.r3-slot--empty {
+  border-style: dashed;
+  /* Parchment dashes on dark timber. The first pass used a dark dash on a translucent
+     background and over bright grass the whole tile read as a green hole in the bar. */
+  border-color: rgba(255, 238, 194, 0.38);
+  background: linear-gradient(180deg, rgba(58, 36, 21, 0.85), rgba(32, 20, 9, 0.85));
+  box-shadow: 0 5px 0 rgba(0, 0, 0, 0.22);
+}
+.r3-slot--empty::before { display: none; }
+.r3-slot--empty .r3-slot-key { background: rgba(245, 192, 74, 0.45); color: #2a1709; }
+.r3-slot-seal { font-size: 1.9rem; font-weight: 300; color: rgba(255, 238, 194, 0.5); margin-bottom: 0.4rem; }
+
+/* Not enough mana, or the page is still resting: the page that refused shakes, never the bar. */
+.r3-slot--refused {
+  animation: r3-refuse 0.5s ease-in-out;
+  border-color: #e2554a;
+  box-shadow: 0 5px 0 rgba(0, 0, 0, 0.3), inset 0 0 0 3px rgba(226, 85, 74, 0.8), 0 0 14px rgba(226, 85, 74, 0.7);
+}
+@keyframes r3-refuse {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-5px); }
+  40% { transform: translateX(5px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
+}
+
+.r3-keys {
+  margin: 0;
+  padding: 0.22rem 0.85rem 0.3rem;
+  border-radius: 999px;
+  border-width: 2px;
+  color: #f3e2bd;
+  font-size: 0.78rem;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.28);
+}
+.r3-keys b { color: var(--r3-gold); }
+
+/* ---- nameplates ---------------------------------------------------------- */
+
+.r3-plates {
+  position: absolute;
+  inset: 0;
+  z-index: 19;
+  overflow: hidden;
+  pointer-events: none;
+  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+}
+.r3-plate {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.16rem 0.55rem 0.18rem 0.2rem;
+  border-radius: 999px;
+  border: 2px solid var(--r3-ink, #f5c04a);
+  background: rgba(26, 17, 8, 0.72);
+  white-space: nowrap;
+  /* The anchor is the BOTTOM CENTRE of the plate — the point in the world it names — so the
+     perspective shrink has to happen about that point too, or a distant plate slides off its
+     own subject as it scales. */
+  transform-origin: 50% 100%;
+  will-change: transform, opacity;
+}
+.r3-plate-mark {
+  flex: none;
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--r3-ink, #f5c04a);
+  color: #2a1709;
+  font-size: 0.7rem;
+  font-weight: 900;
+  line-height: 1;
+}
+.r3-plate-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.08; }
+.r3-plate-name {
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: #fff6de;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+}
+.r3-plate-sub {
+  font-size: 0.62rem;
+  font-weight: 600;
+  color: #e6cf9c;
+  max-width: 11rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+}
+/* The child's own plate: bigger, gold, and it never fades. */
+.r3-plate--hero {
+  border-width: 3px;
+  padding-right: 0.7rem;
+  background: rgba(58, 36, 13, 0.82);
+  box-shadow: 0 0 16px rgba(245, 192, 74, 0.45);
+}
+.r3-plate--hero .r3-plate-name { font-size: 0.95rem; }
+/* A place: parchment, because it is a sign rather than a person. */
+.r3-plate--landmark { background: rgba(38, 27, 12, 0.76); border-color: #d9c48f; }

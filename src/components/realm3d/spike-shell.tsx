@@ -8,12 +8,23 @@
 
 import dynamic from "next/dynamic";
 import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
+import type { SpellPage } from "@/lib/services/spells";
 
 const SpikeScene = dynamic(() => import("./spike-scene"), {
   ssr: false,
   loading: () => <p className="p-6 text-center text-muted-foreground">Raising the hills…</p>,
 });
 
-export function Realm3dSpike({ avatar, close }: { avatar: AvatarConfig | null; close?: boolean }) {
-  return <SpikeScene avatar={avatar} close={close} />;
+export function Realm3dSpike({
+  avatar,
+  close,
+  heroName,
+  spellbook,
+}: {
+  avatar: AvatarConfig | null;
+  close?: boolean;
+  heroName?: string;
+  spellbook?: { spells: SpellPage[]; slots: number } | null;
+}) {
+  return <SpikeScene avatar={avatar} close={close} heroName={heroName} spellbook={spellbook} />;
 }
