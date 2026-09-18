@@ -7,6 +7,24 @@ import type { Surfaces } from "@/lib/realm/depth";
 import { SIDE_QUESTS_LOWER } from "@/lib/utils/side-quest-copy";
 
 /**
+ * How much of a plate is drawn. Eight villagers each carrying name, site and progress is a
+ * wall of pills across the middle of the village — the information was right, "all of it, all
+ * the time" was not. So a plate opens as it becomes relevant:
+ *
+ * - `pin`   — a mark over their head and nothing else. Who they are is still one hover, one
+ *             Tab or one walk away, and the accessible name never changes at all.
+ * - `name`  — the mark and the person's name. Near enough to be worth walking to, or the
+ *             keeper of the objective, who is worth naming from anywhere in the realm.
+ * - `full`  — the mark, the name, the site and its progress: today's plate, for the one
+ *             villager the hero can actually talk to.
+ *
+ * Every string is rendered at every tier and hidden with CSS, for two reasons: the accessible
+ * name and the pointer both keep the whole plate (`:hover`/`:focus-visible` open a pin right
+ * back up), and a jsdom test can still read every word without a stylesheet.
+ */
+export type PlateDetail = "pin" | "name" | "full";
+
+/**
  * One villager's nameplate: who they are, which site they keep, and whether they
  * have work for you. `buildWorldLayout` has computed all three since the world was
  * first drawn; nothing rendered them.
@@ -19,17 +37,26 @@ import { SIDE_QUESTS_LOWER } from "@/lib/utils/side-quest-copy";
 export function VillagerPlate({
   villager,
   surfaces,
+  detail,
   calm,
   motion,
   inReach,
   onPick,
+  plateRef,
 }: {
   villager: VillagerPlacement;
   surfaces: Surfaces;
+  detail: PlateDetail; // how much of the plate to draw; see PlateDetail
   calm: boolean;
   motion: boolean;
   inReach: boolean; // the hero is close enough to talk; out of reach there is no talk to offer
   onPick: (id: string) => void;
+  /**
+   * Handed to realm-scene's frame loop, which refines `detail` by writing `data-detail` on
+   * this node directly — the hero dot's trick, for the hero dot's reason: a hero walking
+   * across the village must not re-render eight plates sixty times a second.
+   */
+  plateRef?: (el: HTMLButtonElement | null) => void;
 }) {
   const name = villagerById(villager.id)?.name ?? villager.label;
   const marker = markerFor(villager.status);
@@ -57,6 +84,7 @@ export function VillagerPlate({
 
   return (
     <button
+      ref={plateRef}
       type="button"
       className={[
         "realm-plate",
@@ -67,6 +95,10 @@ export function VillagerPlate({
       ]
         .filter(Boolean)
         .join(" ")}
+      // The whole tier system, in one attribute. An attribute and not a class because the
+      // frame loop overwrites it on the DOM node: `el.dataset.detail = …` is one string
+      // compare and one write, where swapping a class is a list to read and rewrite.
+      data-detail={detail}
       aria-label={accessibleName}
       // Out of reach there is no conversation to be had — `E` does nothing and the bubble is
       // not drawn either — so the plate stops announcing itself as an action. `aria-disabled`
@@ -95,7 +127,17 @@ export function VillagerPlate({
             {marker === "quest" ? "!" : "✓"}
           </span>
         )}
-        {name}
+        {/*
+          A villager with work to give but no objective and no finished site has no marker at
+          all — `markerFor` returns null for them, and rightly: an inline badge on a named
+          plate would be a third symbol saying nothing. Collapsed to a pin there is no name to
+          carry the mark, though, and a village where five of eight people are simply absent
+          from the screen is the anonymity this plate was built to end. So the dot: a quiet
+          disc, drawn only at `pin`, that says someone stands here without competing with the
+          one gold `!` that says where to go.
+        */}
+        {!marker && <span className="realm-plate-dot" aria-hidden="true" />}
+        <span className="realm-plate-who">{name}</span>
       </span>
       <span className="realm-plate-tag">{tag}</span>
       {showPips && (

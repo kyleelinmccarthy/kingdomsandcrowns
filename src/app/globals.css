@@ -1913,6 +1913,72 @@ body[data-realm-open] .parent-alert-popup { display: none; }
 .realm-plate--calm { border-color: transparent; background: rgba(0, 0, 0, 0.7); }
 .realm-plate--calm .realm-plate-tag { color: #cbbf9a; }
 .realm-plate--calm .realm-plate-badge--quest { background: rgba(138, 125, 90, 0.35); color: #8a7d5a; }
+
+/* ── How much of a plate is drawn ────────────────────────────────────────────────────────
+   Eight villagers are on screen at once in the village, and eight plates at full detail
+   covered the village with the labels describing it. `data-detail` — written by React, then
+   refined per-frame by realm-scene's loop straight on the node — decides how much shows:
+   `pin` is the mark alone, `name` adds the person, `full` is the whole plate.
+
+   Everything is still IN the plate at every tier: only `display` changes, the button's
+   `aria-label` never does, and the `:not(:hover):not(:focus-visible)` on every rule below
+   means a pointer resting on a pin, or a Tab landing on it, opens it straight back up. That
+   is the escape hatch that makes collapsing honest — the name is always one gesture away,
+   as well as one step away and one press away on the site card. */
+.realm-plate[data-detail="pin"]:not(:hover):not(:focus-visible) :is(.realm-plate-who, .realm-plate-tag, .realm-pips),
+.realm-plate[data-detail="name"]:not(:hover):not(:focus-visible) :is(.realm-plate-tag, .realm-pips) { display: none; }
+/* A collapsed plate keeps its 56px touch target — the world's frozen size, and the whole
+   reason a thumb can find a villager at all — but stops PAINTING it. That min-height is what
+   made a one-line name a slab: a 56px black box drawn around 13px of text, sitting on the
+   roof of the building it was naming. Transparent on the button, a pill on the row that
+   actually has words in it, and the touch target is still there under the child's thumb. */
+.realm-plate { min-width: var(--realm-touch); }
+.realm-plate[data-detail="pin"]:not(:hover):not(:focus-visible),
+.realm-plate[data-detail="name"]:not(:hover):not(:focus-visible) { border-color: transparent; background: transparent; padding: 0; }
+.realm-plate[data-detail="name"]:not(:hover):not(:focus-visible) .realm-plate-name { border-radius: 9999px; padding: 0.15rem 0.5rem; background: rgba(0, 0, 0, 0.62); }
+.realm-plate--calm[data-detail="name"]:not(:hover):not(:focus-visible) .realm-plate-name { background: rgba(0, 0, 0, 0.75); }
+/* `full` happens exactly when the reach bubble appears, and the bubble is anchored over the
+   same head — a Talk button landing square on the name of the person it offers to talk to.
+   So the full plate steps up over it, and the stack over a villager a child has walked up to
+   reads top down: who they are, what to press, them.
+   The step is the bubble's whole height (--realm-touch plus the 0.25rem frame round it) plus
+   half this plate, less the 0.55 world units the two anchors already differ by — measured on
+   the running village rather than derived, because the world-unit part of that depends on the
+   camera's zoom. If the bubble is ever resized, this is the number that moves with it. */
+.realm-plate[data-detail="full"] { transform: translateY(calc(var(--realm-touch, 56px) * -1 - 1.5rem)); }
+/* Collapsed, the mark carries itself: bigger than the inline badge and opaque, because a
+   14px translucent chip over grass and rooftops is not a mark a child can find. */
+.realm-plate-dot { display: none; }
+.realm-plate[data-detail="pin"]:not(:hover):not(:focus-visible) .realm-plate-dot { display: inline-flex; }
+.realm-plate-dot, .realm-plate[data-detail="pin"]:not(:hover):not(:focus-visible) .realm-plate-badge {
+  align-items: center; justify-content: center; box-sizing: border-box;
+  width: calc(20px * var(--realm-hud-scale, 1)); height: calc(20px * var(--realm-hud-scale, 1));
+  border-radius: 9999px; border: 1px solid rgba(0, 0, 0, 0.55); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  font-size: calc(13px * var(--realm-hud-scale, 1)); font-weight: 700; line-height: 1;
+}
+/* The one villager the child is being sent to is the one mark that is solid gold. The other
+   seven are dark discs — present, countable, quiet. */
+.realm-plate[data-detail="pin"]:not(:hover):not(:focus-visible) .realm-plate-badge--quest { background: var(--gold-bright); color: #1a1508; border-color: rgba(0, 0, 0, 0.7); }
+.realm-plate[data-detail="pin"]:not(:hover):not(:focus-visible) .realm-plate-badge--done { background: rgba(0, 0, 0, 0.6); color: rgba(255, 255, 255, 0.72); }
+.realm-plate-dot { background: rgba(0, 0, 0, 0.55); }
+.realm-plate-dot::after { content: ""; width: calc(6px * var(--realm-hud-scale, 1)); height: calc(6px * var(--realm-hud-scale, 1)); border-radius: 9999px; background: rgba(255, 255, 255, 0.72); }
+.realm-plate--calm[data-detail="pin"]:not(:hover):not(:focus-visible) .realm-plate-badge--quest { background: #8a7d5a; color: #12100a; }
+.realm-plate--calm .realm-plate-dot::after { background: rgba(255, 255, 255, 0.5); }
+/* reducedMotion's outline substitute has to move with the mark. On a collapsed plate the pill
+   it used to ring is transparent, so the ring would be a stray rectangle floating in the
+   grass: it goes round whatever is actually painted — the `!` at `pin`, the name chip at
+   `name`. Same cue, same meaning, drawn on the thing the eye is looking at. */
+.realm-plate--outline[data-detail="pin"]:not(:hover):not(:focus-visible),
+.realm-plate--outline[data-detail="name"]:not(:hover):not(:focus-visible) { outline: none; }
+.realm-plate--outline[data-detail="pin"]:not(:hover):not(:focus-visible) .realm-plate-badge--quest { outline: 1px solid var(--gold-bright); outline-offset: 2px; }
+.realm-plate--outline[data-detail="name"]:not(:hover):not(:focus-visible) .realm-plate-name { outline: 1px solid var(--gold-bright); outline-offset: 1px; }
+@media (prefers-reduced-motion: reduce) {
+  .realm-plate[data-detail="pin"]:not(:hover):not(:focus-visible):has(.realm-plate-badge--bob),
+  .realm-plate[data-detail="name"]:not(:hover):not(:focus-visible):has(.realm-plate-badge--bob) { outline: none; }
+  .realm-plate[data-detail="pin"]:not(:hover):not(:focus-visible) .realm-plate-badge--bob { outline: 1px solid var(--gold-bright); outline-offset: 2px; }
+  .realm-plate[data-detail="name"]:not(:hover):not(:focus-visible):has(.realm-plate-badge--bob) .realm-plate-name { outline: 1px solid var(--gold-bright); outline-offset: 1px; }
+}
+
 /* One control, no paragraph: the bubble is now a frame around the Talk button. */
 .realm-bubble { display: flex; flex-direction: column; align-items: center; border-radius: 9999px; padding: 0.25rem; background: rgba(0, 0, 0, 0.7); color: #fff; font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif; text-align: center; pointer-events: auto; }
 /* Every control that sits over the 3D world is --realm-touch (56px); panel buttons stay at 44px. */

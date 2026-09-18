@@ -26,7 +26,7 @@ import { CeremonyLayer } from "./ceremony-layer";
 import { startCeremony, stepCeremony, skipCeremony, type CeremonyEvent, type CeremonyState } from "@/lib/realm/ceremony/ceremony";
 import type { SpriteTextures } from "./sprite-source";
 import { SITE_STAGES } from "@/components/realm/world-figures";
-import { VillagerPlate } from "./villager-plate";
+import { VillagerPlate, type PlateDetail } from "./villager-plate";
 
 export type RealmSceneProps = {
   layout: WorldLayout;
@@ -74,6 +74,16 @@ export type RealmSceneProps = {
 
 /** The minimap's SVG user-unit box (realm-minimap.tsx's own `SIZE`); the hero dot is written in it. */
 const MAP_SIZE = 100;
+/**
+ * How near the hero has to be for a villager's plate to give up their name, and how far they
+ * have to walk off again before it goes back to a mark. The gap between the two is deliberate:
+ * a child who stops walking with the hero sat exactly on the threshold would otherwise watch
+ * six plates flicker open and shut on the sub-pixel wobble of a held key. Roughly: close enough
+ * that you have decided to walk to them (`_IN`), and well clear of the site before the name goes
+ * (`_OUT`). REACH (2.5) — near enough to talk — is what opens the rest of the plate.
+ */
+const PLATE_NAME_IN = 9;
+const PLATE_NAME_OUT = 10.5;
 const SPRITE_W = 1.5;
 const SPRITE_H = 2;
 export const RISE_MS = 900;
@@ -289,6 +299,8 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
   // The whole villager — sprite, plate and shadow — is one Object3D. The ceremony moves
   // the group, so every attachment travels with it and `ceremony.ts` needs no change.
   const villagerGroups = useRef(new Map<string, THREE.Object3D>());
+  // The plate DOM nodes, so the frame loop can open and close them without React.
+  const plateEls = useRef(new Map<string, HTMLButtonElement>());
   // A villager whose figure never rasterised is not in the world at all. This one list
   // feeds the render AND `nearestVillager` below, so a missing sprite can never leave a
   // Talk bubble floating over bare grass (sprite-source.tsx silently continues past a
@@ -675,6 +687,32 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
       reachRef.current = near;
       queueMicrotask(() => onReachChange(near));
     }
+    // ── How much of each plate is showing ───────────────────────────────────────────────
+    // Written straight onto the button, exactly like the hero dot and the off-screen arrow
+    // above, and for exactly the same reason: distance to the hero changes every frame, and
+    // eight plates re-rendering at 60Hz is the frame budget gone. One string compare and, on
+    // the handful of frames where a boundary is actually crossed, one attribute write.
+    //
+    // The tier read back off the node rather than out of a cache, because React owns this
+    // attribute too — it renders the tier it can know without the hero's position — and a
+    // cache would let a re-render clobber the loop's value and never be corrected.
+    for (const v of shown) {
+      const el = plateEls.current.get(v.id);
+      if (!el) continue;
+      const open = el.dataset.detail !== "pin"; // the hysteresis bit: which threshold applies
+      const d = Math.hypot(v.position.x - p.x, v.position.z - p.z);
+      // `reachRef`, not `d <= REACH`: exactly one villager is ever the one you can talk to,
+      // and the full plate has to mean that one and not "any of the two you are standing
+      // between". The objective's keeper keeps their name at any distance — they are the
+      // person the whole kingdom is currently pointing at.
+      const tier: PlateDetail =
+        reachRef.current === v.id
+          ? "full"
+          : v.status === "objective" || d <= (open ? PLATE_NAME_OUT : PLATE_NAME_IN)
+            ? "name"
+            : "pin";
+      if (el.dataset.detail !== tier) el.dataset.detail = tier;
+    }
     const r = rising.current;
     if (r) {
       const k = Math.min(1, (performance.now() - r.startedAt) / RISE_MS);
@@ -882,10 +920,30 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
           <sprite position={[0, SPRITE_H / 2, 0]} scale={[SPRITE_W, SPRITE_H, 1]} onPointerDown={castHandler}>
             <spriteMaterial map={textures.villagers[v.id]} transparent alphaTest={0.1} />
           </sprite>
-          <Html position={[0, SPRITE_H + 0.35, 0]} center zIndexRange={[12, 0]}>
+          <Html
+            position={[0, SPRITE_H + 0.35, 0]}
+            center
+            // When two plates do land on the same patch of screen, the one that matters wins:
+            // a fixed range pins the objective's keeper and whoever the hero is talking to at
+            // 13, above the 0..12 the other six are sorted into by depth. Collapsing does most
+            // of the work — two 20px marks rarely collide where two pills always did — but
+            // "rarely" is not "never", and when it happens the name a child needs is the name
+            // on top.
+            zIndexRange={v.status === "objective" || reachId === v.id ? [13, 13] : [12, 0]}
+          >
             <VillagerPlate
               villager={v}
               surfaces={surfaces}
+              // What React can know on its own: the whole plate for the villager in reach, a
+              // name for the objective's keeper, a mark for everyone else. The frame loop
+              // above refines this from the hero's live distance; this is the value a first
+              // paint — and any later re-render — is allowed to settle on, and it is already
+              // the right one in every case but a villager in the middle distance.
+              detail={reachId === v.id ? "full" : v.status === "objective" ? "name" : "pin"}
+              plateRef={(el) => {
+                if (el) plateEls.current.set(v.id, el);
+                else plateEls.current.delete(v.id);
+              }}
               calm={settings.calmPalette}
               motion={settings.motion}
               // In reach the plate is the same door the bubble's Talk button and `E` are, and
