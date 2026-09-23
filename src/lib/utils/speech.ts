@@ -26,8 +26,8 @@ export function onSpeaking(listener: SpeakingListener): () => void {
  * `readAloud` is an access feature; `soundEnabled` governs game sound, which is a
  * different channel. Nothing that mutes the game may be allowed to mute this call.
  */
-export function speak(text: string) {
-  if (!canSpeak()) return;
+export function speak(text: string): SpeechToken | null {
+  if (!canSpeak()) return null;
   window.speechSynthesis.cancel();
   const u = new SpeechSynthesisUtterance(text);
   current = u;
@@ -46,4 +46,19 @@ export function speak(text: string) {
     u.onerror = done;
   }
   window.speechSynthesis.speak(u);
+  return u;
+}
+
+/** What `speak` returns: the line it started, for `stopSpeaking`. */
+export type SpeechToken = SpeechSynthesisUtterance;
+
+/**
+ * Stops read-aloud, but only if what is being spoken is still `token` — the line this caller
+ * started. A panel that silences itself on the way out must not cut off whatever the next thing
+ * on screen has just started saying ("The Village Well is rising!" is spoken in the same click
+ * that closes the side quest's board, before the board's cleanup runs).
+ */
+export function stopSpeaking(token: SpeechToken | null) {
+  if (!token || current !== token || !canSpeak()) return;
+  window.speechSynthesis.cancel();
 }

@@ -540,3 +540,90 @@ describe("clearing a trouble, through the whole frame", () => {
     view.unmount();
   });
 });
+
+describe("a side quest's answer that arrives after the board has closed", () => {
+  const one = { ...run, questions: [run.questions[0]], responses: [null] };
+  const deferred = <T,>() => {
+    let resolve!: (v: T) => void;
+    const promise = new Promise<T>((r) => (resolve = r));
+    return { promise, resolve };
+  };
+  const done = (label: string, n: number) => ({ correctCount: 1, total: 1, flawless: true, masteryChanges: [], building: { label, done: n, total: 5, complete: false } });
+
+  it("raises the building at once when the child pressed Esc during Finish", async () => {
+    vi.mocked(startDeedRun).mockResolvedValue(one);
+    vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: true, answer: "5" });
+    const late = deferred<ReturnType<typeof done>>();
+    vi.mocked(completeDeedRun).mockReturnValue(late.promise as never);
+    const { bus, view } = mount();
+    act(() => bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" })));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "5" })));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Finish side quest" })));
+    esc();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    await act(async () => late.resolve(done("Village Well", 3)));
+    expect(view.container.querySelector(".r3-quest .r3-progress-text")).toHaveTextContent("3 of 5");
+    expect(screen.getByText("The Village Well is rising!")).toBeInTheDocument();
+  });
+
+  it("keeps two buildings' answers apart: neither is lost when the second board closes", async () => {
+    const withMill = {
+      ...realm,
+      kingdom: {
+        ...realm.kingdom,
+        buildings: realm.kingdom.buildings.map((b) => (b.id === "mill" ? { ...b, done: 1, deeds: [{ id: "mill-sacks", title: "Count the Sacks", story: "Sacks everywhere.", area: "math" as const }] } : b)),
+      },
+    };
+    vi.mocked(startDeedRun).mockImplementation(async (_c, deedId) => (deedId === "mill-sacks" ? { ...one, runId: "run-2", deed: { ...one.deed, id: "mill-sacks", title: "Count the Sacks" } } : one));
+    vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: true, answer: "5" });
+    const wellLate = deferred<ReturnType<typeof done>>();
+    vi.mocked(completeDeedRun).mockImplementation(async (runId) => (runId === "run-1" ? (wellLate.promise as never) : (done("Grain Mill", 2) as never)));
+    const { bus } = mount({ realm: withMill });
+    // The well's Finish goes out; the child walks away before it answers...
+    act(() => bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" })));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "5" })));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Finish side quest" })));
+    esc();
+    // ...straight to the mill, whose board is open when the well's answer lands.
+    act(() => bus.onInteract({ kind: "villager", id: "tessa", label: "Miller Tessa" }));
+    await act(async () => wellLate.resolve(done("Village Well", 3)));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Sacks" })));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "5" })));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Finish side quest" })));
+    fireEvent.click(screen.getByRole("button", { name: /Back to the Realm/ }));
+    const layout = handed.props!.layout as { villagers: { id: string; done: number }[] };
+    expect(layout.villagers.find((v) => v.id === "bram")!.done).toBe(3);
+    expect(layout.villagers.find((v) => v.id === "tessa")!.done).toBe(2);
+  });
+});
+
+describe("read-aloud, as a side quest ends", () => {
+  it("says the building is rising, and leaving the board does not cut it off", async () => {
+    const said: string[] = [];
+    const synth = { cancel: vi.fn(() => said.push("cancel")), speak: vi.fn((u: { text: string }) => said.push(`speak:${u.text}`)) };
+    (window as unknown as { speechSynthesis: unknown }).speechSynthesis = synth;
+    (globalThis as unknown as { SpeechSynthesisUtterance: unknown }).SpeechSynthesisUtterance = function (this: { text: string }, text: string) {
+      this.text = text;
+    };
+    try {
+      vi.mocked(startDeedRun).mockResolvedValue({ ...run, questions: [run.questions[0]], responses: [null] });
+      vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: true, answer: "5" });
+      vi.mocked(completeDeedRun).mockResolvedValue({ correctCount: 1, total: 1, flawless: true, masteryChanges: [], building: { label: "Village Well", done: 3, total: 5, complete: false } });
+      const { bus } = mount({ realm: { ...realm, profile: { ...realm.profile, readAloud: true } } });
+      act(() => bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
+      await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" })));
+      await act(async () => void fireEvent.click(screen.getByRole("button", { name: "5" })));
+      await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Finish side quest" })));
+      said.length = 0;
+      fireEvent.click(screen.getByRole("button", { name: /Back to the Realm/ }));
+      const rising = said.findIndex((s) => s.startsWith("speak:The Village Well is rising!"));
+      expect(rising).toBeGreaterThanOrEqual(0);
+      // Nothing cancels it after it was asked for.
+      expect(said.slice(rising + 1)).not.toContain("cancel");
+    } finally {
+      delete (window as unknown as { speechSynthesis?: unknown }).speechSynthesis;
+    }
+  });
+});

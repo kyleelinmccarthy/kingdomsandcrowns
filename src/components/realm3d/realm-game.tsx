@@ -460,9 +460,10 @@ export function RealmGame({
     const id = window.setTimeout(() => setToast(null), TOAST_MS);
     return () => window.clearTimeout(id);
   }, [toast]);
-  // The server's answer, held until the panel closes: the building then rises while the child
-  // is looking at it, not behind a board they are still reading.
-  const pendingDeed = useRef<{ buildingId: string; result: DeedResult } | null>(null);
+  // The server's answers, held until the panel closes: the building then rises while the child
+  // is looking at it, not behind a board they are still reading. Keyed by building, so an answer
+  // that lands while another building's board is open is kept, not overwritten.
+  const pendingDeed = useRef(new Map<string, DeedResult>());
   const trackedRef = useRef(surfaces.trackedObjectives);
   useEffect(() => {
     trackedRef.current = surfaces.trackedObjectives;
@@ -513,10 +514,10 @@ export function RealmGame({
     (asked: Overlay | null) => {
       let next = asked;
       const from = overlayRef.current;
-      if (from?.kind === "interact" && next?.kind !== "interact" && pendingDeed.current) {
-        const { buildingId, result } = pendingDeed.current;
-        pendingDeed.current = null;
-        raise(buildingId, result);
+      if (from?.kind === "interact" && next?.kind !== "interact" && pendingDeed.current.size > 0) {
+        const held = [...pendingDeed.current];
+        pendingDeed.current.clear();
+        for (const [buildingId, result] of held) raise(buildingId, result);
       }
       if (from?.kind === "welcome" && next?.kind !== "welcome") {
         if (!helpMarked.current && childId) {
@@ -964,7 +965,10 @@ export function RealmGame({
               profile={{ readAloud, untimed: profile.untimed }}
               calm={calm}
               onResult={(buildingId, result) => {
-                pendingDeed.current = { buildingId, result };
+                // Finish can answer after the child has already left the board (Esc, Leave, the
+                // dim): then there is no board to close, and the building rises now.
+                if (overlayRef.current?.kind === "interact") pendingDeed.current.set(buildingId, result);
+                else raise(buildingId, result);
               }}
               onClose={closeOverlay}
             />

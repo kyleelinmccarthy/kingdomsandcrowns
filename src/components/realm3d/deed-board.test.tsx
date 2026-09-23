@@ -2,7 +2,7 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/actions/deeds", () => ({ startDeedRun: vi.fn(), answerDeedQuestion: vi.fn(), completeDeedRun: vi.fn() }));
-vi.mock("@/lib/utils/speech", () => ({ canSpeak: () => true, speak: vi.fn() }));
+vi.mock("@/lib/utils/speech", () => ({ canSpeak: () => true, speak: vi.fn(), stopSpeaking: vi.fn() }));
 
 import { answerDeedQuestion, startDeedRun } from "@/lib/actions/deeds";
 import { villagerById } from "@/lib/realm/villagers";

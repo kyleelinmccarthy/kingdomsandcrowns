@@ -31,7 +31,7 @@ import type { BuildingOverview } from "@/lib/services/deeds";
 import type { Villager } from "@/lib/realm/villagers";
 import { resultBuildingLine, resultHeadline, talkCopy, type Viewer } from "@/lib/realm3d/talk";
 import { AREA_LABELS, type SkillArea } from "@/lib/utils/skills";
-import { canSpeak, speak } from "@/lib/utils/speech";
+import { canSpeak, speak, stopSpeaking, type SpeechToken } from "@/lib/utils/speech";
 import { SIDE_QUEST_LOWER, SIDE_QUESTS_LOWER } from "@/lib/utils/side-quest-copy";
 import { Panel, Progress } from "./frame-hud";
 
@@ -214,12 +214,16 @@ function DeedRun({
   const firstChoice = useRef<HTMLButtonElement>(null);
   void childId;
 
-  // Read-aloud, as `DeedPlayer` does it: the profile asks, the effect obeys, and leaving stops it.
+  // Read-aloud, as `DeedPlayer` does it: the profile asks, the effect obeys, and leaving stops it —
+  // but only this run's own line. The click that closes the board also says the building is
+  // rising, and that must be heard.
+  const spoken = useRef<SpeechToken | null>(null);
+  const say = (text: string) => {
+    spoken.current = speak(text);
+  };
   useEffect(() => {
-    if (profile.readAloud && question) speak(question.readAloud ?? question.prompt);
-    return () => {
-      if (canSpeak()) window.speechSynthesis.cancel();
-    };
+    if (profile.readAloud && question) spoken.current = speak(question.readAloud ?? question.prompt);
+    return () => stopSpeaking(spoken.current);
   }, [profile.readAloud, question]);
 
   useEffect(() => {
@@ -348,7 +352,7 @@ function DeedRun({
       <div className="r3-question">
         <p className="r3-question-text">{question.prompt}</p>
         {canSpeak() && (
-          <button type="button" className="r3-round r3-read" aria-label="Read aloud" title="Read aloud" onClick={() => speak(question.readAloud ?? question.prompt)}>
+          <button type="button" className="r3-round r3-read" aria-label="Read aloud" title="Read aloud" onClick={() => say(question.readAloud ?? question.prompt)}>
             <GameIcon name="sparkles" className="r3-read-icon" />
           </button>
         )}

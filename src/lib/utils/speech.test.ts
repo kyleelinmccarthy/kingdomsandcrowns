@@ -1,13 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { onSpeaking, speak } from "./speech";
+import { onSpeaking, speak, stopSpeaking } from "./speech";
 
 type Utter = { text: string; onend: (() => void) | null; onerror: (() => void) | null };
 
 let spoken: Utter[];
+let cancels: number;
 beforeEach(() => {
   spoken = [];
+  cancels = 0;
   const synth = {
-    cancel: () => {},
+    cancel: () => void cancels++,
     speak: (u: Utter) => spoken.push(u),
   };
   (window as unknown as { speechSynthesis: unknown }).speechSynthesis = synth;
@@ -48,5 +50,23 @@ describe("read-aloud tells the Realm's sound when it speaks", () => {
   it("still reads aloud with nobody listening", () => {
     speak("Hello.");
     expect(spoken.map((u) => u.text)).toEqual(["Hello."]);
+  });
+});
+
+describe("stopping only your own line", () => {
+  it("stops the caller's line while it is still the one being spoken", () => {
+    const mine = speak("What is two plus three?");
+    const before = cancels;
+    stopSpeaking(mine);
+    expect(cancels).toBe(before + 1);
+  });
+
+  it("leaves a newer line alone: a closing board must not cut off 'The Village Well is rising!'", () => {
+    const mine = speak("What is two plus three?");
+    speak("The Village Well is rising!");
+    const before = cancels;
+    stopSpeaking(mine);
+    stopSpeaking(null);
+    expect(cancels).toBe(before);
   });
 });
