@@ -120,7 +120,9 @@ export type Overlay =
   /** A child's first visit: what the Realm is for, how much to show, and the way into the tutorial. */
   | { kind: "welcome" }
   /** A crown waiting for its ceremony. */
-  | { kind: "ceremony" };
+  | { kind: "ceremony" }
+  /** A hitching post's fast-travel sheet, from the post (a destination id) the child stands at. */
+  | { kind: "travel"; from: string };
 
 /**
  * Esc. With nothing open it opens the pause menu; with a panel open it closes it — back to the
@@ -155,9 +157,9 @@ export type ControlRow = { keys: string[]; what: string };
  * orbits, right-drag orbits and turns the hero, the wheel zooms, Space jumps, E interacts,
  * 1–N casts, Esc pauses. Q and E no longer swing the camera.
  */
-export function controlRows(slots: number): ControlRow[] {
+export function controlRows(slots: number, opts: { mount?: boolean } = {}): ControlRow[] {
   const n = Math.max(1, Math.min(9, Math.floor(slots)));
-  return [
+  const rows: ControlRow[] = [
     { keys: ["W", "A", "S", "D"], what: "Walk. A and D step sideways." },
     { keys: ["Space"], what: "Jump." },
     { keys: ["Left drag"], what: "Look around." },
@@ -167,12 +169,20 @@ export function controlRows(slots: number): ControlRow[] {
     { keys: [n > 1 ? `1–${n}` : "1"], what: "Cast a spell. You can click a spell too." },
     { keys: ["Esc"], what: "Pause, with Controls and Leave." },
   ];
+  // Riding (`riding.ts`): for a child, always — with or without a mount, M says how it works.
+  if (opts.mount !== undefined) {
+    rows.splice(rows.length - 1, 0, {
+      keys: ["M"],
+      what: opts.mount ? "Get on or off your mount. On it, E at a hitching post rides you anywhere you've been." : "Ride your mount, once you've picked one in the Tavern.",
+    });
+  }
+  return rows;
 }
 
 /** The strip under the spell bar: the five verbs a child needs first, in the fewest words. */
-export function keyHints(slots: number): { key: string; what: string }[] {
+export function keyHints(slots: number, opts: { mount?: boolean } = {}): { key: string; what: string }[] {
   const n = Math.max(1, Math.min(9, Math.floor(slots)));
-  return [
+  const hints = [
     { key: "WASD", what: "walk" },
     { key: "Drag", what: "look" },
     { key: "Space", what: "jump" },
@@ -180,6 +190,9 @@ export function keyHints(slots: number): { key: string; what: string }[] {
     { key: n > 1 ? `1–${n}` : "1", what: "cast" },
     { key: "Esc", what: "menu" },
   ];
+  // Only for a child who has a mount to ride: the strip stays five verbs for everyone else.
+  if (opts.mount) hints.splice(hints.length - 1, 0, { key: "M", what: "ride" });
+  return hints;
 }
 
 /* ------------------------------------------------------------------ empty pages */

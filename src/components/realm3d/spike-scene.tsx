@@ -111,6 +111,8 @@ import { Doorstep } from "./doorstep";
 import { SpellFx } from "./spell-fx";
 import { Troubles } from "./troubles-scene";
 import type { TroubleBus } from "@/lib/realm3d/trouble-bus";
+import { boostJump, camOffsets, castBlocked, CAST_FROM_SADDLE, jumpSpeed, pace, rideFace, rideRadius, wadeLimit, type RideBus } from "@/lib/realm3d/riding";
+import { RiddenMount, Riding, Saddle, travelGraphFor, useSeatRef } from "./riding-scene";
 
 /* ------------------------------------------------------------------ palette */
 
@@ -648,6 +650,7 @@ function Hero({
   aimRef,
   solids,
   world,
+  ride = null,
   children,
 }: {
   heroRef: React.RefObject<THREE.Vector3>;
@@ -666,6 +669,8 @@ function Hero({
   aimRef: React.RefObject<number>;
   solids: Collider[];
   world: RealmWorld;
+  /** Riding (`lib/realm3d/riding.ts`): the mount's pace, body, water and jump; held still while getting on. */
+  ride?: RideBus | null;
   children: React.ReactNode;
 }) {
   const group = useRef<THREE.Group>(null);
@@ -687,24 +692,27 @@ function Hero({
     const dt = Math.min(0.05, rawDt);
     const k = keys.current;
     moveIntent(intent, yawRef.current, k);
-    const moving = intent.moving;
+    // Getting on or off a mount, or a fast-travel ride: the hands are not steering.
+    const held = ride?.hold ?? false;
+    const moving = intent.moving && !held;
     const p = heroRef.current;
     const ground = world.heightAt(p.x, p.z);
     if (moving) {
       // Wading costs pace. It is also the only warning a child gets that they are running out of
-      // shore, and one they can feel under their hands beats one they cannot predict.
-      const speed = HERO_SPEED * wadeSpeed(Math.max(0, world.waterLevelAt(p.x, p.z) - ground)) * (intent.back ? BACKPEDAL : 1);
+      // shore, and one they can feel under their hands beats one they cannot predict. Riding, the
+      // pace is the mount's (`pace`), and a mount carries further through the air.
+      const speed = pace(ride, HERO_SPEED, Math.max(0, world.waterLevelAt(p.x, p.z) - ground), !vert.grounded, wadeSpeed) * (intent.back ? BACKPEDAL : 1);
       // Steering stays live in the air, so a child can aim a jump while they are running.
       const tx = THREE.MathUtils.clamp(p.x + intent.x * speed * dt, -WALK_HALF, WALK_HALF);
       const tz = THREE.MathUtils.clamp(p.z + intent.z * speed * dt, -WALK_HALF, WALK_HALF);
       // Two refusals, both axis by axis and in the same spirit: the water will not let you off
       // the shelf, and the village will not let you through a wall. Walk at either head-on and
       // you stop; walk at either at an angle and you slide along it.
-      shoreMove(wet, p.x, p.z, tx, tz, world.heightAt, levelAt);
-      slideMove(step, p.x, p.z, wet.x, wet.z, solids, HERO_RADIUS, vert.y);
+      shoreMove(wet, p.x, p.z, tx, tz, world.heightAt, levelAt, wadeLimit(ride));
+      slideMove(step, p.x, p.z, wet.x, wet.z, solids, rideRadius(ride, HERO_RADIUS), vert.y);
       p.x = step.x;
       p.z = step.z;
-      facing.current = intent.face;
+      facing.current = rideFace(ride, intent);
       // A backpedal runs the stride cycle backwards, so the feet go the way the ground does.
       bob.current += dt * (vert.grounded ? 9 : 3) * (intent.back ? -1 : 1);
     } else {
@@ -716,7 +724,7 @@ function Hero({
     }
     aimRef.current = Number.NaN;
     // Edge-triggered: the keydown handler ignores auto-repeat, and this eats the press.
-    if (takeJump(k)) tryJump(vert);
+    if (takeJump(k) && !held && tryJump(vert)) boostJump(vert, jumpSpeed(ride, vert.vy));
     stepVertical(vert, dt, p.x, p.z, world.heightAt(p.x, p.z), solids);
     p.y = vert.y;
 
@@ -835,6 +843,13 @@ const CAM_LIFT = 0.3;
  *     assist while the child is walking and has left the camera alone for `ASSIST_GRACE`, and
  *     never faster than `ASSIST_RATE`. While they drag, just after, and while they stand still
  *     looking at what they chose, it never turns itself, so it cannot fight their hand.
+ *
+ * That turn is the CAMERA's, never the child's: it is held as `swing`, an offset over the child's
+ * own yaw (`yawRef`), and W, A, S and D go on walking the way the child last pointed the camera.
+ * It used to turn `yawRef` itself, so a child walking at a door past a neighbouring house was
+ * swung off their line by the camera stepping round the roof — one walk at the market door ended
+ * inside the castle. Now only the child's drag turns their walk; the swing eases back to nothing
+ * once the roof is passed, and a drag takes over the camera from wherever the swing left it.
  */
 function Rig({
   heroRef,
@@ -846,6 +861,7 @@ function Rig({
   occluders,
   solids,
   world,
+  ride = null,
 }: {
   heroRef: React.RefObject<THREE.Vector3>;
   yawRef: React.RefObject<number>;
@@ -856,6 +872,8 @@ function Rig({
   occluders: Collider[];
   solids: Collider[];
   world: RealmWorld;
+  /** Riding: the camera rises and pulls back (`camOffsets`). */
+  ride?: RideBus | null;
 }) {
   const { camera } = useThree();
   const desired = useMemo(() => new THREE.Vector3(), []);
@@ -869,6 +887,9 @@ function Rig({
   const frac = useRef(1);
   /** 0 out in the open, 1 under a closed canopy. Damped, so the wood opens rather than snaps. */
   const duck = useRef(0);
+  const rideCam = useMemo(() => ({ lift: 0, pull: 0 }), []);
+  /** The assist's turn, over the child's own yaw. The camera looks along `yawRef + swing`. */
+  const swing = useRef(0);
 
   useFrame((_, rawDt) => {
     // Paused: the camera holds still. The world may keep drawing behind the menu.
@@ -884,7 +905,9 @@ function Rig({
      */
     const floorY = supportHeight(p.x, p.z, world.heightAt(p.x, p.z), solids);
     const rise = p.y - floorY;
-    const anchorY = floorY + rise * CAM_LIFT;
+    // Riding: up over the rider's head and back, so the mount is in the shot as well as the child.
+    camOffsets(ride ? ride.cam : 0, rideCam);
+    const anchorY = floorY + rise * CAM_LIFT + rideCam.lift;
 
     // `?close` drops the camera to the hero's shoulder. Not a game mode — a way to look at
     // the figure, because Job 1 is only finished if the face is a face.
@@ -900,11 +923,18 @@ function Rig({
     }
 
     const dragging = ptr.drag !== 0;
+    // Coming out of a door, the doorstep sets the child's yaw and the camera afresh: no stale swing.
+    if (bus.leaving !== null) swing.current = 0;
+    // The child takes the camera: from where they SEE it, which becomes the way they walk.
+    if (dragging && swing.current !== 0) {
+      yawRef.current = wrapAngle(yawRef.current + swing.current);
+      swing.current = 0;
+    }
     const k = keys.current;
     const assist = swingAllowed(dragging, nowS(), ptr.lastDragAt, k.f || k.b || k.l || k.r);
 
-    boomOffset(arm.current, ptr.pitch, ptr.dist);
-    const eyeY = p.y + CAM_EYE;
+    boomOffset(arm.current, ptr.pitch, ptr.dist * (1 + rideCam.pull));
+    const eyeY = p.y + CAM_EYE + rideCam.lift;
     // Last frame's verdict picks this frame's boom. One frame of lag on a value that is already
     // damped over a third of a second is not a thing anyone can see.
     const camH = arm.current.h + (DUCK_H - arm.current.h) * duck.current;
@@ -919,10 +949,11 @@ function Rig({
     const minFrac = assist ? assistMin : Math.min(assistMin, CLOSEST / Math.hypot(camH, camY));
     const n = gatherNear(near, occluders, p.x, p.z, camH + 3);
     if (assist) {
+      // The nearest clear yaw to the child's OWN: once the roof is passed, that is theirs again.
       pickBoom(boom, p.x, eyeY, p.z, yawRef.current, camH, camY, near, n, 0.44, minFrac);
     } else {
-      // The child's own line, and only that line: how clear is it?
-      const y0 = yawRef.current;
+      // The line the camera is on, and only that line: how clear is it?
+      const y0 = wrapAngle(yawRef.current + swing.current);
       setBoom(boom, y0, Math.max(minFrac, clearFraction(p.x, eyeY, p.z, camH * Math.sin(y0), camY, camH * Math.cos(y0), near, n)));
     }
     // Nothing clear at any angle means a ceiling, not a wall. Duck in fast, come back out slowly:
@@ -933,17 +964,15 @@ function Rig({
     if (assist) {
       /**
        * Turn toward the angle that can see him, the short way round, and at no more than
-       * `ASSIST_RATE` a second — a drift, never a whip. It turns the child's OWN yaw rather than
-       * an offset laid over it: the camera the child sees is always the camera WASD, the spell
-       * aim and the map's view cone are measured from, and once it has stepped round a roof it
-       * stays there instead of swinging back by itself when the roof is passed.
+       * `ASSIST_RATE` a second — a drift, never a whip. It turns the camera's `swing`, not the
+       * child's yaw: the keys keep walking where the child pointed them.
        */
-      const delta = angleDelta(yawRef.current, boom.yaw);
+      const delta = angleDelta(wrapAngle(yawRef.current + swing.current), boom.yaw);
       const turn = delta * (1 - Math.exp(-dt * 4));
       const cap = ASSIST_RATE * dt;
-      yawRef.current = wrapAngle(yawRef.current + (turn > cap ? cap : turn < -cap ? -cap : turn));
+      swing.current = wrapAngle(swing.current + (turn > cap ? cap : turn < -cap ? -cap : turn));
     }
-    const yaw = yawRef.current;
+    const yaw = wrapAngle(yawRef.current + swing.current);
 
     // ...and shorten to what is clear at the angle it is actually at, not the one it is heading
     // for, so the child is never lost during the swing itself.
@@ -1193,6 +1222,7 @@ const World = memo(function World({
   castleUnlocked,
   calm,
   troubles,
+  ride,
 }: {
   avatar: AvatarConfig;
   close: boolean;
@@ -1208,8 +1238,10 @@ const World = memo(function World({
   castleUnlocked: boolean;
   calm: boolean;
   troubles: TroubleBus | null;
+  ride: RideBus | null;
 }) {
   const look = useMemo(() => heroLook(avatar), [avatar]);
+  const seat = useSeatRef(ride);
 
   /**
    * What stops the hero, and what can hide him from the camera. Two lists, because they are
@@ -1303,8 +1335,10 @@ const World = memo(function World({
           ...(castleUnlocked ? { verb: ENTER_VERB } : {}),
         }
       : null;
-    return buildSpots({ props: layout.props, sitePlan: SITE_PLAN, landmarks: world.landmarks, landmarkRadius: landmarkRadii(world), castle: gate });
-  }, [layout, world, castle, castleUnlocked]);
+    // The hitching posts (`riding-scene.tsx`) are E spots too: E at one opens the fast-travel sheet.
+    const posts = ride ? travelGraphFor(world).posts : undefined;
+    return buildSpots({ props: layout.props, sitePlan: SITE_PLAN, landmarks: world.landmarks, landmarkRadius: landmarkRadii(world), castle: gate, posts });
+  }, [layout, world, castle, castleUnlocked, ride]);
   const heroRef = useRef(spawn);
   const yawRef = useRef(0);
   const facingRef = useRef(0);
@@ -1337,7 +1371,9 @@ const World = memo(function World({
           // when the next one may go.
           const n = digitSlot(e.code);
           if (n === 0 || !down || e.repeat) return;
-          pushCast(casts, n);
+          // No spells from the saddle: the flat Realm's rule, said out loud.
+          if (castBlocked(ride)) ride?.onSay(CAST_FROM_SADDLE);
+          else pushCast(casts, n);
           break;
         }
       }
@@ -1357,7 +1393,7 @@ const World = memo(function World({
       window.removeEventListener("keyup", up);
       window.removeEventListener("blur", blur);
     };
-  }, [casts, bus]);
+  }, [casts, bus, ride]);
 
   return (
     <>
@@ -1382,19 +1418,31 @@ const World = memo(function World({
       <RealmLandmarks world={world} />
       <Scenery scenery={scenery} world={world} />
       <Village props={layout.props} villagers={layout.villagers} castleType={layout.castleType} castleUnlocked={castleUnlocked} />
-      <Hero heroRef={heroRef} keys={keys} yawRef={yawRef} pointer={pointer} bus={bus} facingRef={facingRef} gaitRef={gaitRef} aimRef={aimRef} solids={solids} world={world}>
+      <Hero heroRef={heroRef} keys={keys} yawRef={yawRef} pointer={pointer} bus={bus} facingRef={facingRef} gaitRef={gaitRef} aimRef={aimRef} solids={solids} world={world} ride={ride}>
         {/* A parent dropping in walks as the realm's quest-giver, not as the child. */}
-        {viewer === "parent" ? <WizardFigure gait={gaitRef} /> : <HeroFigure look={look} gait={gaitRef} />}
+        {viewer === "parent" ? (
+          <WizardFigure gait={gaitRef} />
+        ) : ride ? (
+          <Saddle ride={ride}>
+            <HeroFigure look={look} gait={gaitRef} seat={seat} />
+          </Saddle>
+        ) : (
+          <HeroFigure look={look} gait={gaitRef} />
+        )}
+        {/* The mount, under a riding child: it goes where the hero goes. */}
+        {viewer !== "parent" && ride?.mount && <RiddenMount ride={ride} heroRef={heroRef} />}
       </Hero>
       {/* The pet is the child's, and stays with the child: no companion follows the wizard. */}
-      {viewer !== "parent" && look.companion && <Companion look={look.companion} heroRef={heroRef} facingRef={facingRef} />}
+      {viewer !== "parent" && look.companion && <Companion look={look.companion} heroRef={heroRef} facingRef={facingRef} hideRef={ride?.away} />}
       <WadeRing world={world} heroRef={heroRef} />
       <LanternGlow scenery={scenery} tex={tex} />
       <Motes tex={tex} />
       <SpellFx pool={fxPool} />
       <Interaction spots={spots} heroRef={heroRef} keys={keys} bus={bus} world={world} />
-      <Rig heroRef={heroRef} yawRef={yawRef} pointer={pointer} keys={keys} bus={bus} close={close} occluders={occluders} solids={solids} world={world} />
+      <Rig heroRef={heroRef} yawRef={yawRef} pointer={pointer} keys={keys} bus={bus} close={close} occluders={occluders} solids={solids} world={world} ride={ride} />
       <CameraInput yawRef={yawRef} pointer={pointer} bus={bus} />
+      {/* Riding: the mount's moments, where it waits, the hitching posts and fast travel. Before the doorstep (see its note). */}
+      {ride && <Riding ride={ride} bus={bus} heroRef={heroRef} facingRef={facingRef} aimRef={aimRef} keys={keys} solids={solids} world={world} />}
       {/* Going in and coming out of doors, and never being left inside a wall. After the rig: it may set the camera. */}
       <Doorstep bus={bus} heroRef={heroRef} yawRef={yawRef} aimRef={aimRef} keys={keys} pointer={pointer} solids={solids} occluders={occluders} props={layout.props} sitePlan={SITE_PLAN} castle={castle} castleTier={layout.castleType} castleUnlocked={castleUnlocked} world={world} />
       {/* After the rig (markers project from this frame's camera), before the driver (a new charge locks on before it releases). */}
@@ -1450,9 +1498,11 @@ export type RealmCanvasProps = {
   calm?: boolean;
   /** The troubles' wire to the HUD. Without one, the world has no troubles in it. */
   troubles?: TroubleBus;
+  /** Riding and fast travel's wire to the frame (`lib/realm3d/riding.ts`). Without one, nobody rides. */
+  ride?: RideBus;
 };
 
-export default function SpikeScene({ avatar, close, world, layout, anchors, pages, bus, caster, fxPool, casts, viewer, castleUnlocked, frozen = false, calm = false, troubles }: RealmCanvasProps) {
+export default function SpikeScene({ avatar, close, world, layout, anchors, pages, bus, caster, fxPool, casts, viewer, castleUnlocked, frozen = false, calm = false, troubles, ride }: RealmCanvasProps) {
   return (
     <Canvas
       frameloop={frozen ? "never" : "always"}
@@ -1480,6 +1530,7 @@ export default function SpikeScene({ avatar, close, world, layout, anchors, page
         castleUnlocked={castleUnlocked}
         calm={calm}
         troubles={troubles ?? null}
+        ride={ride ?? null}
       />
     </Canvas>
   );

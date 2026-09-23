@@ -441,7 +441,7 @@ describe("the tutorial", () => {
     expect(screen.queryByText("Walk around.")).toBeNull();
     esc();
     expect(screen.getByText("Walk around.")).toBeInTheDocument();
-    expect(LESSONS).toHaveLength(7);
+    expect(LESSONS).toHaveLength(8);
   });
 });
 

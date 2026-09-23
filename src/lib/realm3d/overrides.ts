@@ -43,7 +43,26 @@ export function overrideAvatar(base: AvatarConfig, q: Query): AvatarConfig {
     companion: one(q, "pet") ?? base.companion,
     companionColor: hex("petc") ?? base.companionColor,
     crown: one(q, "crown") ?? base.crown,
+    // `?mount=wyrm&mountc=ff0000`, or `?mount=none` for a child with no mount at all.
+    mount: mountOverride(one(q, "mount"), base.mount),
+    mountColor: hex("mountc") ?? base.mountColor,
   };
+}
+
+function mountOverride(v: string | undefined, base: string | null): string | null {
+  if (v === undefined) return base;
+  return v === "none" || v === "" ? null : v;
+}
+
+/**
+ * The mounts a screenshot may ride: the child's own, plus a `?mount=` one in development — so
+ * `?mount=gryphon` can be photographed without earning it. In production the override restyles
+ * the avatar only, and an unearned mount is refused exactly as it would be for real.
+ */
+export function mountsFor(unlocked: readonly string[], q: Query, dev: boolean): string[] {
+  const m = one(q, "mount");
+  if (!dev || !m || m === "none" || unlocked.includes(m)) return [...unlocked];
+  return [...unlocked, m];
 }
 
 /**

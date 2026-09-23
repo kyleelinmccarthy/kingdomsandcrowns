@@ -277,12 +277,15 @@ function SpellBar({
   shake,
   onCast,
   onEmptyPage,
+  extra,
 }: {
   bus: HudBus;
   pages: SpellPageView[];
   shake: number;
   onCast: (slot: number) => void;
   onEmptyPage: (slot: number) => void;
+  /** More slots after the pages — the mount's Ride slot (`riding-hud.tsx`). */
+  extra?: ReactNode;
 }) {
   return (
     <div className="r3-bar" role="toolbar" aria-label="Spells" style={{ ["--r3-slots" as string]: String(pages.length) }}>
@@ -336,6 +339,7 @@ function SpellBar({
           </button>
         );
       })}
+      {extra}
     </div>
   );
 }
@@ -426,6 +430,8 @@ export function RealmHud({
   goal = NO_GOAL,
   inside = null,
   mapExtras,
+  barExtra,
+  mountKey = false,
 }: {
   bus: HudBus;
   world: RealmWorld;
@@ -450,6 +456,10 @@ export function RealmHud({
   inside?: string | null;
   /** Extra marks for the map's panning world group, in world units (the troubles' dots). */
   mapExtras?: ReactNode;
+  /** Extra slots at the end of the spell bar: the Ride slot. */
+  barExtra?: ReactNode;
+  /** Whether M rides: the key strip names it. */
+  mountKey?: boolean;
 }) {
   const [found, setFound] = useState<ReadonlySet<string>>(() => new Set<string>());
   const [place, setPlace] = useState<string | null>(null);
@@ -526,9 +536,9 @@ export function RealmHud({
               {MANA_MAX} / {MANA_MAX}
             </span>
           </div>
-          <SpellBar bus={bus} pages={pages} shake={shake} onCast={onCast} onEmptyPage={onEmptyPage} />
+          <SpellBar bus={bus} pages={pages} shake={shake} onCast={onCast} onEmptyPage={onEmptyPage} extra={barExtra} />
           <p className="r3-keys">
-            {keyHints(pages.length).map((h, i) => (
+            {keyHints(pages.length, { mount: mountKey }).map((h, i) => (
               <span key={h.key}>
                 {i > 0 && " · "}
                 <b>{h.key}</b> {h.what}

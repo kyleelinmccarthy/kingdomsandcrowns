@@ -92,7 +92,13 @@ export type SpotInput = {
   landmarkRadius?: (id: string) => number;
   /** The castle's gate, or the castle grounds' — null leaves the castle out entirely. */
   castle: { x: number; z: number; hw: number; hd: number; label: string; verb?: string } | null;
+  /** The hitching posts (`travel.ts`), by the destination each belongs to. Absent, there are none. */
+  posts?: readonly { id: string; x: number; z: number }[];
 };
+
+/** What E at a hitching post says. */
+export const POST_VERB = "Ride from";
+export const POST_LABEL = "the hitching post";
 
 /** "the Chapel", "the Village Well". */
 export function siteLabel(label: string): string {
@@ -158,6 +164,20 @@ export function buildSpots(input: SpotInput): InteractSpot[] {
       reach: 3.2,
       bias: 0,
       ring: r + 1.1,
+    });
+  }
+  for (const p of input.posts ?? []) {
+    out.push({
+      target: { kind: "post", id: p.id, label: POST_LABEL, verb: POST_VERB },
+      x: p.x,
+      z: p.z,
+      hw: 0.9,
+      hd: 0.9,
+      round: true,
+      reach: 1.6,
+      // A post stands at a place's edge: standing at it means the post, not the place.
+      bias: 0.4,
+      ring: 1.5,
     });
   }
   return out;

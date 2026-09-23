@@ -9,6 +9,7 @@ import {
   settle,
   skipLesson,
   STORED_MAX,
+  CORE_LESSONS,
   storedFromLessons,
   tutorialLearned,
   type LessonContext,
@@ -19,7 +20,20 @@ const at = (id: string) => LESSONS.findIndex((l) => l.id === id);
 
 describe("the ladder", () => {
   it("teaches the real controls, in the order a child meets them", () => {
-    expect(LESSONS.map((l) => l.id)).toEqual(["walk", "look", "jump", "find", "talk", "cast", "spells"]);
+    expect(LESSONS.map((l) => l.id)).toEqual(["walk", "look", "jump", "find", "talk", "cast", "spells", "ride"]);
+  });
+
+  it("teaches M only to a child with a mount, last, and counts the seven before it as learned", () => {
+    const spells = LESSONS.findIndex((l) => l.id === "spells");
+    const noMount = { ...ctx, mount: null };
+    expect(advanceLesson(spells, { kind: "page" }, noMount)).toBe(LESSONS.length);
+    const pony = { ...ctx, mount: "Pony" };
+    const at = advanceLesson(spells, { kind: "page" }, pony);
+    expect(LESSONS[at].id).toBe("ride");
+    expect(lessonCopy(at, pony)?.title).toBe("Ride your Pony!");
+    expect(lessonCopy(at, pony)?.how).toMatch(/Press M/);
+    expect(advanceLesson(at, { kind: "rode" }, pony)).toBe(LESSONS.length);
+    expect(tutorialLearned(storedFromLessons(CORE_LESSONS))).toBe(true);
   });
 
   it("walks from nothing to finished when every lesson is done by doing it", () => {

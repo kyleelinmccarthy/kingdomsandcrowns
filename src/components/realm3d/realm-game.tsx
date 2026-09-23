@@ -39,6 +39,7 @@ import {
   advanceLesson,
   currentLesson,
   LESSONS,
+  CORE_LESSONS,
   lessonCopy,
   lessonsFromStored,
   settle,
@@ -76,6 +77,8 @@ import {
 } from "./frame-hud";
 import { RealmHud } from "./hud";
 import { RoomLine } from "./room-hud";
+import { RideLine, RideSlot, TravelBanner, TravelSheet, useRiding } from "./riding-hud";
+import { travelGraphFor } from "@/lib/realm3d/travel";
 
 const RealmCanvas = dynamic(() => import("./spike-scene"), {
   ssr: false,
@@ -134,6 +137,7 @@ const NO_REALM: RealmData = {
 };
 
 const NO_ENTRY: OpenEntry = { minutes: 0, visit: null, source: null };
+const NO_MOUNTS: readonly string[] = [];
 
 const SAVE_FAILED = "That didn't save. Try again.";
 const VILLAGERS_RESTING = "The villagers are resting. Try again.";
@@ -170,6 +174,7 @@ export function RealmGame({
   entry = NO_ENTRY,
   onClose,
   selector,
+  mounts = NO_MOUNTS,
 }: {
   avatar?: AvatarConfig | null;
   close?: boolean;
@@ -184,6 +189,8 @@ export function RealmGame({
   onClose?: (reason: CloseReason) => void;
   /** A grown-up's child selector, for the pause menu. */
   selector?: ReactNode;
+  /** The mounts this child has earned (`bundle.mounts.unlocked`): what M may ride. */
+  mounts?: readonly string[];
 }) {
   const world = useMemo(() => realmWorld(), []);
 
@@ -294,6 +301,25 @@ export function RealmGame({
   /** What was in E's reach outside when the child went in, handed back when they come out. */
   const nearOutside = useRef<InteractTarget | null>(null);
 
+  /* ---- riding ------------------------------------------------------------ */
+  // M, the Ride slot, the words, and fast travel's sheet (`riding-hud.tsx`); the canvas gets the bus.
+  const travelGraph = useMemo(() => travelGraphFor(world), [world]);
+  const onRodeRef = useRef<() => void>(() => {});
+  const onRode = useCallback(() => onRodeRef.current(), []);
+  const riding = useRiding({
+    avatar: hero,
+    unlocked: mounts,
+    viewer,
+    heroName,
+    childId: realm.isChildView ? realm.childId : null,
+    reducedMotion: profile.reducedMotion,
+    readAloud,
+    bus,
+    graph: travelGraph,
+    insideRef,
+    onRode,
+  });
+
   // The ONE writer of `bus.paused`. Every panel is an overlay, so every panel pauses the
   // scene, and nothing can open a panel that forgets to. Indoors pauses the ISLAND too (its keys,
   // its casting, its E), because the child's hands belong to the room; the room reads `paused`.
@@ -314,8 +340,14 @@ export function RealmGame({
     return page ? { name: page.name, key: page.slot } : null;
   }, [pages]);
   const lessonCtx: LessonContext = useMemo(
-    () => ({ waiting: goal.on ? goal.name : null, villagers: !kingdomError && layout.villagers.length > 0, spell: firstSpell, emptyPage: pages.some((p) => !p.spell) }),
-    [goal.on, goal.name, kingdomError, layout.villagers.length, firstSpell, pages],
+    () => ({
+      waiting: goal.on ? goal.name : null,
+      villagers: !kingdomError && layout.villagers.length > 0,
+      spell: firstSpell,
+      emptyPage: pages.some((p) => !p.spell),
+      mount: riding.access.ok ? riding.access.mount.label : null,
+    }),
+    [goal.on, goal.name, kingdomError, layout.villagers.length, firstSpell, pages, riding.access],
   );
   const ctxRef = useRef(lessonCtx);
   useEffect(() => {
@@ -368,6 +400,9 @@ export function RealmGame({
     [tutorialOn, commitLessons],
   );
   const skipTutorial = useCallback(() => commitLessons(LESSONS.length), [commitLessons]);
+  useEffect(() => {
+    onRodeRef.current = () => signal({ kind: "rode" });
+  }, [signal]);
   const skipStep = useCallback(() => commitLessons(skipLesson(lessonsRef.current, ctxRef.current)), [commitLessons]);
 
   // A lesson that has sat on screen a long while offers "Skip this step" too: never trapped.
@@ -509,15 +544,18 @@ export function RealmGame({
   }, [ceremony, childId, ceremonySaving, go]);
 
   /* ---- going in and coming out ---------------------------------------- */
+  const { atDoor } = riding;
   const enter = useCallback((visit: RoomVisit) => {
     if (insideRef.current || overlayRef.current !== null) return;
+    // On a mount: set down at the door, and it waits outside.
+    atDoor();
     nearOutside.current = nearRef.current;
     nearRef.current = null;
     setNear(null);
     insideRef.current = visit;
     setInside(visit);
     setRoomLine(null);
-  }, []);
+  }, [atDoor]);
   const leave = useCallback(() => {
     const was = insideRef.current;
     if (!was) return;
@@ -531,6 +569,7 @@ export function RealmGame({
     setNear(nearOutside.current);
   }, [bus]);
 
+  const { atPost, refuseCast } = riding;
   /** Pressing E at something, or clicking the prompt. A person, or their site, is a conversation. */
   const openTarget = useCallback(
     (t: InteractTarget) => {
@@ -538,6 +577,11 @@ export function RealmGame({
       // Indoors: the door goes back out, and the room's one thing is used where it stands.
       if (t.kind === "door") {
         leave();
+        return;
+      }
+      // A hitching post: the fast-travel sheet, if the child is riding (otherwise it says how).
+      if (t.kind === "post") {
+        if (atPost(t)) go({ kind: "travel", from: t.id });
         return;
       }
       if (t.kind === "fixture") {
@@ -558,7 +602,7 @@ export function RealmGame({
       const v = t.kind === "villager" ? villagerById(t.id) : t.kind === "site" ? villagerForBuilding(t.id) : null;
       if (v && kingdomRef.current.buildings.some((b) => b.id === v.buildingId)) signal({ kind: "talked" });
     },
-    [go, signal, leave, enter, castleUnlocked, heroName],
+    [go, signal, leave, enter, castleUnlocked, heroName, atPost],
   );
 
   // What the scene tells the frame: what is in reach, that E was pressed at it, that a spell
@@ -660,8 +704,9 @@ export function RealmGame({
   const askedSpellbook = useRef(false);
   // No spells indoors: a click on the bar would otherwise wait in the queue and go off outside.
   const onCast = useCallback((slot: number) => {
-    if (!insideRef.current) pushCast(casts, slot);
-  }, [casts]);
+    // And none from the saddle: the flat Realm's "Dismount to cast."
+    if (!insideRef.current && !refuseCast()) pushCast(casts, slot);
+  }, [casts, refuseCast]);
   const onEmptyPage = useCallback(
     (slot: number) => {
       go({ kind: "page", slot });
@@ -760,6 +805,7 @@ export function RealmGame({
         castleUnlocked={castleUnlocked}
         calm={calm}
         troubles={troubleBus}
+        ride={riding.bus}
       />
       {outCount > 0 && !inside && <div key={outCount} className="r3-fade" aria-hidden="true" />}
       {inside && (
@@ -781,6 +827,8 @@ export function RealmGame({
             goal={goal}
             inside={room ? room.where : null}
             mapExtras={<TroubleMapMarks tbus={troubleBus} />}
+            barExtra={viewer === "child" ? <RideSlot riding={riding.riding} access={riding.access} onPress={riding.toggle} /> : undefined}
+            mountKey={riding.access.ok}
           />
           <TroublePlates tbus={troubleBus} />
           <div className={`r3-frame${paused ? " r3-frame--paused" : ""}`}>
@@ -801,7 +849,7 @@ export function RealmGame({
                   copy={coachCopy}
                   keys={lesson?.keys ?? []}
                   step={lessonShown + 1}
-                  steps={LESSONS.length}
+                  steps={lessonCtx.mount ? LESSONS.length : CORE_LESSONS}
                   done={doneLine}
                   onSkip={skipTutorial}
                   onSkipStep={stuck === lessons ? skipStep : null}
@@ -810,7 +858,9 @@ export function RealmGame({
               {!paused && <DeedToastBanner toast={toast} numerals={numerals} />}
               {!paused && inside && <RoomLine line={roomLine} onDone={clearRoomLine} />}
               <TroubleNotices tbus={troubleBus} skin={tone} pages={pages} paused={paused} />
+              {!paused && <RideLine line={riding.line} onDone={riding.clearLine} />}
             </div>
+            {!paused && <TravelBanner to={riding.travelling} onStop={riding.stop} />}
             {!paused && <InteractPrompt target={near} onPress={openTarget} />}
             <ClockCorner
               line={line}
@@ -840,6 +890,7 @@ export function RealmGame({
           {overlay?.kind === "howto" && (
             <HowToPlay
               slots={pages.length}
+              mount={viewer === "child" ? riding.access.ok : undefined}
               back={overlay.back}
               onClose={() => go(escapeFrom(overlay))}
               onReplay={
@@ -852,6 +903,19 @@ export function RealmGame({
                     }
                   : null
               }
+            />
+          )}
+          {overlay?.kind === "travel" && riding.access.ok && (
+            <TravelSheet
+              rows={riding.destinations(overlay.from, !surfaces.fastTravel || profile.fewerChoices, numerals)}
+              single={!surfaces.fastTravel || profile.fewerChoices}
+              mountLabel={riding.access.mount.label}
+              numerals={numerals}
+              onGo={(id) => {
+                go(null);
+                riding.go(id);
+              }}
+              onClose={closeOverlay}
             />
           )}
           {overlay?.kind === "page" && (

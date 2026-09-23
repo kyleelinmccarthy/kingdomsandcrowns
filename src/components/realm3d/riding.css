@@ -1,0 +1,114 @@
+/* Riding, the frame half: the Ride slot on the bar, the riding lines, the fast-travel sheet and
+   the ride banner. The same timber and gold as every other board in the Realm. */
+
+/* ---- the Ride slot, after a divider at the end of the spell bar -------------- */
+
+.r3-ride-divider {
+  align-self: center;
+  width: 4px;
+  height: 3.2rem;
+  margin: 0 0.15rem;
+  border-radius: 4px;
+  background: linear-gradient(180deg, transparent, rgba(245, 192, 74, 0.7), transparent);
+}
+.r3-bar .r3-ride-slot {
+  border: 3px solid var(--r3-bark);
+  background: linear-gradient(180deg, #7a5433, var(--r3-timber-deep, #4a2f1c));
+  box-shadow: 0 5px 0 rgba(0, 0, 0, 0.3), inset 0 2px 0 rgba(255, 225, 170, 0.22);
+  --r3-ink: #c9a36a;
+}
+.r3-bar .r3-ride-slot--on {
+  border-color: var(--r3-gold);
+  --r3-ink: #f5c04a;
+  box-shadow: 0 5px 0 rgba(0, 0, 0, 0.3), 0 0 22px rgba(245, 192, 74, 0.55), inset 0 2px 0 rgba(255, 225, 170, 0.3);
+}
+.r3-bar .r3-ride-slot--none { opacity: 0.8; }
+.r3-bar .r3-ride-slot--none .r3-ride-icon { opacity: 0.5; }
+.r3-ride-icon { color: #fff6de; }
+
+/* ---- the riding lines, in the top lane -------------------------------------- */
+
+.r3-ride-line { align-items: center; }
+.r3-ride-line-icon {
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  color: var(--r3-gold, #f5c04a);
+  filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.45));
+}
+
+/* ---- the sheet ---------------------------------------------------------------- */
+
+.r3-travel {
+  list-style: none;
+  margin: 0.6rem 0 0.4rem;
+  padding: 0;
+  display: grid;
+  gap: 0.4rem;
+  max-height: min(46vh, 26rem);
+  overflow-y: auto;
+}
+.r3-travel-row {
+  width: 100%;
+  min-height: 3rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: 12px;
+  border: 3px solid var(--r3-bark);
+  background: linear-gradient(180deg, #74502f, var(--r3-timber-deep, #4a2f1c));
+  color: #fff6de;
+  font: inherit;
+  cursor: pointer;
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.28);
+  text-align: left;
+}
+.r3-travel-row:hover:not(:disabled) { filter: brightness(1.15); transform: translateY(-1px); }
+.r3-travel-row:focus-visible { outline: 3px solid #fff6de; outline-offset: 2px; }
+.r3-travel-row:disabled { cursor: default; opacity: 0.62; box-shadow: none; }
+.r3-travel-row--here { border-color: var(--r3-gold, #f5c04a); opacity: 0.9 !important; }
+.r3-travel-name { font-size: 1.1rem; font-weight: 800; text-shadow: 0 2px 0 var(--r3-bark); }
+.r3-travel-time { font-size: 0.95rem; font-weight: 700; color: #ffe08a; white-space: nowrap; }
+.r3-travel-row--locked .r3-travel-time { color: #d9c7a0; font-style: italic; }
+.r3-travel-none { margin: 0.6rem 0; font-weight: 700; color: #ffe08a; }
+.r3-travel-more { margin: 0.2rem 0 0.6rem; font-size: 0.95rem; font-weight: 700; color: #d9c7a0; }
+
+/* ---- the ride banner ----------------------------------------------------------- */
+
+.r3-travel-banner {
+  position: absolute;
+  top: 5.2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.35rem 0.4rem 0.35rem 0.9rem;
+  border-radius: 999px;
+  border: 3px solid var(--r3-bark);
+  background: linear-gradient(180deg, #74502f, var(--r3-timber-deep, #4a2f1c));
+  box-shadow: 0 5px 0 rgba(0, 0, 0, 0.3), 0 0 26px rgba(245, 192, 74, 0.45);
+  color: #fff6de;
+  pointer-events: auto;
+  z-index: 3;
+}
+.r3-travel-banner-icon { width: 1.6rem; height: 1.6rem; color: var(--r3-gold, #f5c04a); }
+.r3-travel-banner-text { font-size: 1.1rem; font-weight: 800; text-shadow: 0 2px 0 var(--r3-bark); white-space: nowrap; }
+.r3-travel-stop {
+  min-height: 2.6rem;
+  padding: 0 1.1rem;
+  border-radius: 999px;
+  border: 3px solid #7a4f14;
+  background: linear-gradient(180deg, #ffe08a, var(--r3-gold, #f5c04a));
+  color: #3a2415;
+  font: inherit;
+  font-weight: 900;
+  cursor: pointer;
+}
+.r3-travel-stop:hover { filter: brightness(1.08); }
+
+@media (prefers-reduced-motion: reduce) {
+  .r3-travel-row:hover:not(:disabled) { transform: none; }
+}

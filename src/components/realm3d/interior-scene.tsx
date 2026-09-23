@@ -55,7 +55,8 @@ import type { RoomVisit } from "@/lib/realm3d/doorways";
 import type { HudBus } from "@/lib/realm3d/hud-bus";
 import { villagerAvatar, villagerById } from "@/lib/realm/villagers";
 import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
-import { Companion, HeroFigure, type Gait } from "./hero-figure";
+import { Companion, HeroFigure, makePetTrail, type Gait } from "./hero-figure";
+import { holdKeys, seedMoves } from "@/lib/realm3d/held-keys";
 import { WizardFigure } from "./wizard-figure";
 import { merge, paint } from "./geo-kit";
 
@@ -158,6 +159,13 @@ const RoomWorld = memo(function RoomWorld({
   const pointer = useRef<Pointer>({ drag: 0, pitch: plan.view.pitch, dist: plan.view.dist, yaw: 0 });
   const walls = useRef<Record<WallSide, THREE.Group | null>>({ n: null, s: null, e: null, w: null });
   const spots = useMemo(() => roomSpots(plan, keeperName), [plan, keeperName]);
+  // The pet follows the child's own footsteps here, so it goes up the stair after them rather than
+  // standing on the floor under the lookout or the gallery; and it stands on the step it is on.
+  const petTrail = useMemo(() => makePetTrail(), []);
+  const petGround = useMemo(
+    () => (x: number, z: number, feetY: number) => oy + supportHeight(x - ROOM_ORIGIN.x, z - ROOM_ORIGIN.z, 0, plan.solids, 0.3, feetY - oy),
+    [plan, oy],
+  );
 
   // Keys. The island ignores them while the child is indoors (the frame holds its `paused`), so
   // this is the only listener that acts on them.
@@ -179,10 +187,14 @@ const RoomWorld = memo(function RoomWorld({
     const dn = (e: KeyboardEvent) => set(e, true);
     const up = (e: KeyboardEvent) => set(e, false);
     const blur = () => releaseKeys(keys.current);
+    // A key held through the door is walking already: no wait for the browser's auto-repeat.
+    const unhold = holdKeys();
+    seedMoves(keys.current);
     window.addEventListener("keydown", dn);
     window.addEventListener("keyup", up);
     window.addEventListener("blur", blur);
     return () => {
+      unhold();
       window.removeEventListener("keydown", dn);
       window.removeEventListener("keyup", up);
       window.removeEventListener("blur", blur);
@@ -201,7 +213,7 @@ const RoomWorld = memo(function RoomWorld({
       <RoomHero plan={plan} oy={oy} heroRef={heroRef} local={local} facingRef={facingRef} gaitRef={gaitRef} keys={keys} pointer={pointer} live={live}>
         {viewer === "parent" ? <WizardFigure gait={gaitRef} /> : <HeroFigure look={look} gait={gaitRef} />}
       </RoomHero>
-      {viewer !== "parent" && look.companion && <Companion look={look.companion} heroRef={heroRef} facingRef={facingRef} />}
+      {viewer !== "parent" && look.companion && <Companion look={look.companion} heroRef={heroRef} facingRef={facingRef} trail={petTrail} groundAt={petGround} />}
       <RoomInteract spots={spots} local={local} keys={keys} bus={bus} live={live} />
       <RoomCamera plan={plan} oy={oy} local={local} pointer={pointer} walls={walls} live={live} plateRef={plateRef} />
       <RoomPointer pointer={pointer} live={live} facingRef={facingRef} />

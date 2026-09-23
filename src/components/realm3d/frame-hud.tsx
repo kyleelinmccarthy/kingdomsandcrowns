@@ -424,8 +424,11 @@ export function HowToPlay({
   back,
   onClose,
   onReplay = null,
+  mount,
 }: {
   slots: number;
+  /** A child's M row: true with a mount to ride, false without one; absent for a visitor. */
+  mount?: boolean;
   back: boolean;
   onClose: () => void;
   /** A child's "show me the tutorial again". Absent for a visiting grown-up, who has none. */
@@ -434,7 +437,7 @@ export function HowToPlay({
   return (
     <Panel title="How to play" label="How to play" wide icon={<GameIcon name="scroll" className="r3-board-icon" />} onClose={onClose}>
       <ul className="r3-controls">
-        {controlRows(slots).map((row) => (
+        {controlRows(slots, { mount }).map((row) => (
           <li key={row.what} className="r3-control">
             <span className="r3-control-keys">
               {row.keys.map((k) => (

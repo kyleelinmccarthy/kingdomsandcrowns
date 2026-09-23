@@ -303,10 +303,14 @@ function Hair({ h }: { h: HeroLook["hair"] }) {
 
 /* ------------------------------------------------------------------- legs */
 
-function Leg({ look, side, swingRef }: { look: HeroLook; side: number; swingRef: React.RefObject<number> }) {
+function Leg({ look, side, swingRef, seat }: { look: HeroLook; side: number; swingRef: React.RefObject<number>; seat?: React.RefObject<number> }) {
   const g = useRef<THREE.Group>(null);
   useFrame(() => {
-    if (g.current) g.current.rotation.x = swingRef.current * side;
+    if (!g.current) return;
+    // In the saddle (`seat` 1): a little forward and splayed out round the mount's barrel.
+    const s = seat?.current ?? 0;
+    g.current.rotation.x = swingRef.current * side * (1 - s) - 0.32 * s;
+    g.current.rotation.z = side * 0.72 * s;
   });
   const bare = look.legs.shape === "skirt";
   const shortLeg = look.legs.shape === "shorts";
@@ -405,10 +409,12 @@ function Leg({ look, side, swingRef }: { look: HeroLook; side: number; swingRef:
 
 /* ------------------------------------------------------------------- arms */
 
-function Arm({ look, side, swingRef }: { look: HeroLook; side: number; swingRef: React.RefObject<number> }) {
+function Arm({ look, side, swingRef, seat }: { look: HeroLook; side: number; swingRef: React.RefObject<number>; seat?: React.RefObject<number> }) {
   const g = useRef<THREE.Group>(null);
   useFrame(() => {
-    if (g.current) g.current.rotation.x = -swingRef.current * side;
+    // In the saddle, both hands forward on the reins.
+    const s = seat?.current ?? 0;
+    if (g.current) g.current.rotation.x = -swingRef.current * side * (1 - s) - 0.75 * s;
   });
   // A shade off the body on purpose: same colour and the arms vanish into the torso.
   const o = look.outfit;
@@ -1601,7 +1607,11 @@ function Accessory({ look, hatY, front }: { look: HeroLook; hatY: number; front:
 
 /* ------------------------------------------------------------------- hero */
 
-export function HeroFigure({ look, gait }: { look: HeroLook; gait: React.RefObject<Gait> }) {
+/**
+ * `seat`, when given, is how far into a saddle the hero is: 0 standing, 1 riding. The legs
+ * straddle and the hands take the reins (`riding-scene.tsx` lifts the whole figure onto the mount).
+ */
+export function HeroFigure({ look, gait, seat }: { look: HeroLook; gait: React.RefObject<Gait>; seat?: React.RefObject<number> }) {
   const swing = useRef(0);
   const cape = useRef<THREE.Group>(null);
   const bob = useRef<THREE.Group>(null);
@@ -1642,8 +1652,8 @@ export function HeroFigure({ look, gait }: { look: HeroLook; gait: React.RefObje
           warm fill that rides with the hero and reaches barely past him, so the one figure a
           child is looking for is never the dullest thing on the screen. */}
       <pointLight position={[0.4, 2.2, 1.2]} intensity={3.4} distance={3.0} decay={2} color="#ffeccf" />
-      <Leg look={look} side={-1} swingRef={swing} />
-      <Leg look={look} side={1} swingRef={swing} />
+      <Leg look={look} side={-1} swingRef={swing} seat={seat} />
+      <Leg look={look} side={1} swingRef={swing} seat={seat} />
       {skirt && (
         <mesh castShadow position={[0, 0.72, 0]}>
           <cylinderGeometry args={[0.36, 0.56, 0.54, 9]} />
@@ -1652,8 +1662,8 @@ export function HeroFigure({ look, gait }: { look: HeroLook; gait: React.RefObje
       )}
       <Torso look={look} />
       <Pauldrons look={look} />
-      <Arm look={look} side={-1} swingRef={swing} />
-      <Arm look={look} side={1} swingRef={swing} />
+      <Arm look={look} side={-1} swingRef={swing} seat={seat} />
+      <Arm look={look} side={1} swingRef={swing} seat={seat} />
       <Head look={look} />
       {look.crown && <CrownMesh crown={look.crown} y={hatY} />}
       <Accessory look={look} hatY={hatY} front={bodyFront} />
@@ -1757,6 +1767,57 @@ function Wing({
   );
 }
 
+/** How far behind the child, along their own path, an indoor pet walks. */
+const TRAIL_GAP = 1.5;
+/** Past this, a pet is put back at the hero's heel rather than sent running after them. */
+const CATCH_UP = 28;
+
+/**
+ * The child's last few metres of footsteps, for a pet to follow indoors. A ring of points laid
+ * every `TRAIL_STEP`; built once and reused, so nothing is allocated per frame.
+ */
+export type PetTrail = { xs: Float32Array; ys: Float32Array; zs: Float32Array; head: number; count: number };
+const TRAIL_N = 48;
+const TRAIL_STEP = 0.25;
+
+export function makePetTrail(): PetTrail {
+  return { xs: new Float32Array(TRAIL_N), ys: new Float32Array(TRAIL_N), zs: new Float32Array(TRAIL_N), head: 0, count: 0 };
+}
+
+function recordTrail(t: PetTrail, x: number, y: number, z: number): void {
+  if (t.count > 0) {
+    const i = (t.head - 1 + TRAIL_N) % TRAIL_N;
+    // A jump is not a path: only feet near the last laid point's height are recorded.
+    if (Math.hypot(x - t.xs[i], z - t.zs[i]) < TRAIL_STEP) return;
+    if (Math.abs(y - t.ys[i]) > 0.6) return;
+  }
+  t.xs[t.head] = x;
+  t.ys[t.head] = y;
+  t.zs[t.head] = z;
+  t.head = (t.head + 1) % TRAIL_N;
+  t.count = Math.min(TRAIL_N, t.count + 1);
+}
+
+/** The point `gap` back along the trail from its newest end, into `out`. False when too short. */
+function trailTarget(t: PetTrail, gap: number, out: THREE.Vector3): boolean {
+  if (t.count < 2) return false;
+  let left = gap;
+  let i = (t.head - 1 + TRAIL_N) % TRAIL_N;
+  for (let k = 1; k < t.count; k++) {
+    const j = (i - 1 + TRAIL_N) % TRAIL_N;
+    const d = Math.hypot(t.xs[i] - t.xs[j], t.zs[i] - t.zs[j]);
+    if (d >= left) {
+      const f = left / Math.max(d, 1e-6);
+      out.set(t.xs[i] + (t.xs[j] - t.xs[i]) * f, 0, t.zs[i] + (t.zs[j] - t.zs[i]) * f);
+      return true;
+    }
+    left -= d;
+    i = j;
+  }
+  out.set(t.xs[i], 0, t.zs[i]);
+  return true;
+}
+
 /**
  * Trots a pace behind the hero's shoulder.
  *
@@ -1771,10 +1832,26 @@ export function Companion({
   look,
   heroRef,
   facingRef,
+  hideRef,
+  trail,
+  groundAt,
 }: {
   look: CompanionLook;
   heroRef: React.RefObject<THREE.Vector3>;
   facingRef: React.RefObject<number>;
+  /**
+   * True while the pet is being CARRIED rather than drawn — a fast-travel ride, where a rabbit
+   * sprinting at sixty units a second would be worse than not drawing it. It is hidden and kept
+   * at the hero's heel, so it is simply there when the ride ends.
+   */
+  hideRef?: { readonly current: boolean };
+  /**
+   * Indoors: follow the hero's own footsteps rather than a spot beside them, so a pet goes UP the
+   * stair after a child on the lookout or the gallery instead of standing on the floor under them.
+   * `groundAt(x, z, feetY)` is the floor the pet stands on there (the room's steps and galleries).
+   */
+  trail?: PetTrail;
+  groundAt?: (x: number, z: number, feetY: number) => number;
 }) {
   const g = useRef<THREE.Group>(null);
   const body = useRef<THREE.Group>(null);
@@ -1787,6 +1864,8 @@ export function Companion({
   const speed = useRef(0);
   const target = useMemo(() => new THREE.Vector3(), []);
   const prev = useMemo(() => new THREE.Vector3(), []);
+  const heroPrev = useMemo(() => new THREE.Vector3(), []);
+  const heroSpeed = useRef(0);
   const flier = look.gait === "fly";
   const hop = look.gait === "hop" || look.gait === "bob";
 
@@ -1798,12 +1877,35 @@ export function Companion({
     const p = heroRef.current;
     const f = facingRef.current;
 
+    // How fast the hero is going: a pet keeps up with a child on a mount, not just on foot.
+    const heroStep = Math.hypot(p.x - heroPrev.x, p.z - heroPrev.z);
+    heroPrev.copy(p);
+    heroSpeed.current = heroStep > 6 ? heroSpeed.current : THREE.MathUtils.damp(heroSpeed.current, heroStep / Math.max(dt, 1e-3), 4, dt);
+
     // Behind the hero's left shoulder, in the hero's own frame.
     const ox = -1.15;
     const oz = -0.95;
     const wx = p.x + ox * Math.cos(f) + oz * Math.sin(f);
     const wz = p.z - ox * Math.sin(f) + oz * Math.cos(f);
     target.set(wx, 0, wz);
+    // Indoors, a spot back along the child's own path: up the stair if that is where they went.
+    if (trail) {
+      recordTrail(trail, p.x, p.y, p.z);
+      trailTarget(trail, TRAIL_GAP, target);
+    }
+
+    // Carried: out of sight, at the heel, and ready.
+    if (hideRef?.current) {
+      grp.visible = false;
+      grp.position.set(target.x, heightAt(target.x, target.z), target.z);
+      speed.current = 0;
+      return;
+    }
+    grp.visible = true;
+    // Left far behind (a door, a ride's end): catch up at once rather than sprint across the map.
+    if (Math.hypot(target.x - grp.position.x, target.z - grp.position.z) > CATCH_UP) {
+      grp.position.set(target.x, groundAt ? groundAt(target.x, target.z, p.y) : heightAt(target.x, target.z), target.z);
+    }
 
     prev.copy(grp.position);
     const dx = target.x - grp.position.x;
@@ -1813,7 +1915,7 @@ export function Companion({
     // A real chase, not a spring: it holds station inside the dead zone (so it STOPS when the
     // hero stops, rather than creeping), and winds up to a run the further behind it falls.
     const DEAD = flier ? 0.5 : 0.32;
-    const want = dist < DEAD ? 0 : Math.min(9, (dist - DEAD) * 4.2 + 1.2);
+    const want = dist < DEAD ? 0 : Math.min(Math.max(9, heroSpeed.current * 1.2), (dist - DEAD) * 4.2 + 1.2);
     speed.current = THREE.MathUtils.damp(speed.current, want, 6, dt);
     if (speed.current > 0.02 && dist > 0.001) {
       const step = Math.min(speed.current * dt, dist);
@@ -1821,9 +1923,10 @@ export function Companion({
       grp.position.z += (dz / dist) * step;
     }
 
-    // Its feet, on the ground that is actually under them.
-    const groundY = heightAt(grp.position.x, grp.position.z);
-    grp.position.y = flier ? groundY : THREE.MathUtils.damp(grp.position.y, groundY, 12, dt);
+    // Its feet, on the ground that is actually under them — indoors, the step or gallery it is on.
+    const groundY = groundAt ? groundAt(grp.position.x, grp.position.z, grp.position.y) : heightAt(grp.position.x, grp.position.z);
+    // Up a step at once (a lagging foot would miss the next tread of a stair); down, eased.
+    grp.position.y = flier || (groundAt && groundY > grp.position.y) ? groundY : THREE.MathUtils.damp(grp.position.y, groundY, 12, dt);
 
     const moved = Math.hypot(grp.position.x - prev.x, grp.position.z - prev.z);
 

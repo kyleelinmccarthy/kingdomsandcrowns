@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_AVATAR } from "@/lib/utils/avatar-catalog";
-import { castleShown, overrideAvatar, queryString, viewerFor } from "./overrides";
+import { castleShown, mountsFor, overrideAvatar, queryString, viewerFor } from "./overrides";
 
 describe("the screenshot overrides", () => {
   it("restyles any avatar field by its short name, and fills in a missing #", () => {
@@ -33,5 +33,19 @@ describe("the screenshot overrides", () => {
     expect(queryString({ outfit: "robe", close: "", viewer: "parent", tag: ["a", "b"], gone: undefined })).toBe(
       "?outfit=robe&close=&viewer=parent&tag=a&tag=b",
     );
+  });
+});
+
+describe("the mount overrides", () => {
+  it("rides any mount in a screenshot, or none at all", () => {
+    expect(overrideAvatar(DEFAULT_AVATAR, { mount: "wyrm", mountc: "ff0000" })).toMatchObject({ mount: "wyrm", mountColor: "#ff0000" });
+    expect(overrideAvatar({ ...DEFAULT_AVATAR, mount: "pony" }, { mount: "none" }).mount).toBeNull();
+    expect(overrideAvatar({ ...DEFAULT_AVATAR, mount: "pony" }, {}).mount).toBe("pony");
+  });
+
+  it("unlocks the screenshot's mount in development only", () => {
+    expect(mountsFor(["pony"], { mount: "gryphon" }, true)).toEqual(["pony", "gryphon"]);
+    expect(mountsFor(["pony"], { mount: "gryphon" }, false)).toEqual(["pony"]);
+    expect(mountsFor(["pony"], { mount: "none" }, true)).toEqual(["pony"]);
   });
 });

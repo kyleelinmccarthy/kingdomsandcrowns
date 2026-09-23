@@ -34,7 +34,7 @@ import { TUTORIAL_STEPS } from "@/lib/realm/tutorial";
 /** The flat Realm's ladder length: stored values up to here are its, not ours. */
 export const LEGACY_STEPS = TUTORIAL_STEPS.length;
 
-export type LessonId = "walk" | "look" | "jump" | "find" | "talk" | "cast" | "spells";
+export type LessonId = "walk" | "look" | "jump" | "find" | "talk" | "cast" | "spells" | "ride";
 
 export type LessonSignal =
   /** `keys` is how many DIFFERENT movement keys the child has pressed; `distance` in world units. */
@@ -49,7 +49,9 @@ export type LessonSignal =
   /** A spell really went off: mana spent, not refused. */
   | { kind: "cast" }
   /** The "how do I get spells?" card was opened from an empty page. */
-  | { kind: "page" };
+  | { kind: "page" }
+  /** The child got on their mount (M, or the Ride slot). */
+  | { kind: "rode" };
 
 export type Lesson = {
   id: LessonId;
@@ -67,7 +69,17 @@ export const LESSONS: readonly Lesson[] = [
   { id: "talk", signal: "talked", keys: ["E"] },
   { id: "cast", signal: "cast", keys: ["1"] },
   { id: "spells", signal: "page", keys: ["+"] },
+  // Last, and only for a child who has a mount to ride (`impossible` steps over it otherwise).
+  // Appended rather than inserted, so every stored count above means what it meant before.
+  { id: "ride", signal: "rode", keys: ["M"] },
 ];
+
+/**
+ * The lessons every child has, before the mount's. `tutorialLearned` counts these, so a child
+ * who finished the seven before riding was taught is not demoted to the simple view for want of
+ * a lesson about a mount they may not even have.
+ */
+export const CORE_LESSONS = 7;
 
 /** The highest value this ladder ever writes to `tutorial_step`. */
 export const STORED_MAX = LEGACY_STEPS + LESSONS.length;
@@ -91,6 +103,8 @@ export type LessonContext = {
   spell: { name: string; key: number } | null;
   /** Whether any page is empty. */
   emptyPage: boolean;
+  /** The mount the child can ride ("Pony"), or null: no mount, no riding lesson. */
+  mount?: string | null;
 };
 
 const clamp = (n: number) => Math.max(0, Math.min(LESSONS.length, Math.floor(Number.isFinite(n) ? n : 0)));
@@ -113,7 +127,7 @@ export function storedFromLessons(done: number): number {
  * taking it away because the world became 3D would be a demotion nobody asked for.
  */
 export function tutorialLearned(stored: number): boolean {
-  return stored === LEGACY_STEPS || lessonsFromStored(stored) >= LESSONS.length;
+  return stored === LEGACY_STEPS || lessonsFromStored(stored) >= CORE_LESSONS;
 }
 
 /**
@@ -125,6 +139,7 @@ export function tutorialLearned(stored: number): boolean {
 function impossible(lesson: Lesson, ctx: LessonContext): boolean {
   if (lesson.id === "cast") return ctx.spell === null;
   if (lesson.id === "spells") return !ctx.emptyPage;
+  if (lesson.id === "ride") return !ctx.mount;
   return false;
 }
 
@@ -194,6 +209,8 @@ export function lessonCopy(done: number, ctx: LessonContext): LessonCopy | null 
       return say(`Cast ${ctx.spell!.name}.`, `Press ${ctx.spell!.key}, or click the spell.`);
     case "spells":
       return say("Get more spells.", "Click a + page to see how.");
+    case "ride":
+      return say(`Ride your ${ctx.mount}!`, "Press M to get on, and M again to get off.");
   }
 }
 

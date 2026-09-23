@@ -10,7 +10,7 @@ import { RealmFrame } from "@/components/realm3d/realm-frame";
 import { SwitchHero } from "@/components/switch-hero";
 import { getCastle } from "@/lib/actions/castle";
 import { castleUnlocked } from "@/lib/realm3d/frame";
-import { castleShown, one, overrideAvatar, viewerFor, type Query } from "@/lib/realm3d/overrides";
+import { castleShown, mountsFor, one, overrideAvatar, viewerFor, type Query } from "@/lib/realm3d/overrides";
 import { DEFAULT_AVATAR } from "@/lib/utils/avatar-catalog";
 import { levelFromXp } from "@/lib/utils/level";
 
@@ -106,6 +106,7 @@ export default async function RealmPage({ searchParams }: { searchParams: Promis
       spellbook={bundle.spellbook}
       viewer={viewerFor(isChildView, q)}
       castleUnlocked={castleShown(unlocked, q)}
+      mounts={mountsFor(bundle.mounts.unlocked, q, dev)}
       close={q.close !== undefined}
       selector={
         // A grown-up visiting can hop to another child from the pause menu, and hand the

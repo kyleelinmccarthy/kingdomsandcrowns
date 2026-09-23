@@ -53,6 +53,8 @@ export type RealmFrameProps = {
   castleUnlocked: boolean;
   close?: boolean;
   selector?: ReactNode;
+  /** The mounts this child has earned (`bundle.mounts.unlocked`). */
+  mounts?: readonly string[];
 };
 
 export function RealmFrame(props: RealmFrameProps) {
@@ -120,6 +122,7 @@ export function RealmFrame(props: RealmFrameProps) {
         viewer={snap.viewer}
         castleUnlocked={snap.castleUnlocked}
         realm={snap.realm}
+        mounts={snap.mounts}
         entry={{ minutes: phase.minutes, visit: phase.visit, source: phase.source }}
         onClose={onClose}
         // The selector is live, not snapshotted: it is how a grown-up moves to another child.
