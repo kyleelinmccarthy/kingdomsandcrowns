@@ -34,10 +34,19 @@ export const BLOB_SENSE = 6;
 export const FOCUS_RADIUS = HERO_RADIUS + 0.5;
 export const PUSHBACK = 4;
 export const RETREAT_MS = 4000;
-const WANDER = 3;
-const KIND_ORDER: TroubleKind[] = ["fog", "cursed-stone", "shadow-blob"];
-const HITS: Record<TroubleKind, number> = { fog: 1, "cursed-stone": 2, "shadow-blob": 1 };
-const SPEED: Record<TroubleKind, number> = { fog: 0.6, "cursed-stone": 0, "shadow-blob": 1.8 };
+/**
+ * The per-kind rules, exported so the 3D Realm (`lib/realm3d/troubles3d.ts`) plays by the SAME
+ * numbers rather than a copy of them: how far a wanderer strays, the order kinds are dealt in,
+ * how many hits each takes, and how fast each moves, all in this world's units.
+ */
+export const TROUBLE_WANDER = 3;
+export const TROUBLE_KIND_ORDER: readonly TroubleKind[] = ["fog", "cursed-stone", "shadow-blob"];
+export const TROUBLE_HITS: Readonly<Record<TroubleKind, number>> = { fog: 1, "cursed-stone": 2, "shadow-blob": 1 };
+export const TROUBLE_SPEED: Readonly<Record<TroubleKind, number>> = { fog: 0.6, "cursed-stone": 0, "shadow-blob": 1.8 };
+const WANDER = TROUBLE_WANDER;
+const KIND_ORDER = TROUBLE_KIND_ORDER;
+const HITS = TROUBLE_HITS;
+const SPEED = TROUBLE_SPEED;
 const CLEAR_FROM_VILLAGER = 1.5;
 const CLEAR_FROM_PATH = 2.5;
 const CLEAR_FROM_SPAWN = 4;
@@ -183,8 +192,30 @@ export function hitTrouble(trouble: Trouble, point: Vec2, radius: number): boole
 /** A hit takes one point and leaves the spell's timed statuses behind; lifetime statuses (durationMs 0) never stick to a trouble. */
 export function applyHit(trouble: Trouble, spell: SpellDefinition, now: number): { trouble: Trouble; cleared: boolean } {
   const hitsLeft = trouble.hitsLeft - 1;
-  const statuses = [...trouble.statuses, ...spell.statuses.filter((s) => s.durationMs > 0).map((s) => ({ kind: s.kind, until: now + s.durationMs }))];
+  const statuses = [...trouble.statuses, ...spell.statuses.filter(sticksToTrouble).map((s) => ({ kind: s.kind, until: now + s.durationMs }))];
   return { trouble: { ...trouble, hitsLeft, statuses }, cleared: hitsLeft <= 0 };
+}
+
+/** Whether a spell status sticks to a trouble at all: only timed ones do (durationMs 0 is "for the spell's lifetime"). */
+export function sticksToTrouble(status: { durationMs: number }): boolean {
+  return status.durationMs > 0;
+}
+
+/**
+ * `applyHit`'s status rule, in place, for a caller that keeps its troubles in a fixed pool (the
+ * 3D Realm). One entry per status kind: a repeat hit refreshes the entry rather than stacking a
+ * second, and `speedFactor` reads the result exactly as it reads `applyHit`'s. After the first
+ * hit of each kind this allocates nothing.
+ */
+export function addHitStatuses(statuses: TroubleStatus[], spell: SpellDefinition, now: number): void {
+  for (const s of spell.statuses) {
+    if (!sticksToTrouble(s)) continue;
+    const until = now + s.durationMs;
+    let slot: TroubleStatus | null = null;
+    for (const have of statuses) if (have.kind === s.kind) slot = have;
+    if (slot) slot.until = Math.max(slot.until, until);
+    else statuses.push({ kind: s.kind, until });
+  }
 }
 
 export type ClearTally = { session: number; byKind: Record<TroubleKind, number> };

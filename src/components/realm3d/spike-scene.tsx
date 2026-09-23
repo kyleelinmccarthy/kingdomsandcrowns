@@ -107,6 +107,8 @@ import type { PlateAnchor } from "@/lib/realm3d/plate-anchors";
 import type { FxSlot } from "@/lib/realm3d/spell-fx";
 import { HudDriver } from "./hud-driver";
 import { SpellFx } from "./spell-fx";
+import { Troubles } from "./troubles-scene";
+import type { TroubleBus } from "@/lib/realm3d/trouble-bus";
 
 /* ------------------------------------------------------------------ palette */
 
@@ -1187,6 +1189,8 @@ const World = memo(function World({
   casts,
   viewer,
   castleUnlocked,
+  calm,
+  troubles,
 }: {
   avatar: AvatarConfig;
   close: boolean;
@@ -1200,6 +1204,8 @@ const World = memo(function World({
   casts: CastQueue;
   viewer: "child" | "parent";
   castleUnlocked: boolean;
+  calm: boolean;
+  troubles: TroubleBus | null;
 }) {
   const look = useMemo(() => heroLook(avatar), [avatar]);
 
@@ -1386,6 +1392,8 @@ const World = memo(function World({
       <Interaction spots={spots} heroRef={heroRef} keys={keys} bus={bus} world={world} />
       <Rig heroRef={heroRef} yawRef={yawRef} pointer={pointer} keys={keys} bus={bus} close={close} occluders={occluders} solids={solids} world={world} />
       <CameraInput yawRef={yawRef} pointer={pointer} bus={bus} />
+      {/* After the rig (markers project from this frame's camera), before the driver (a new charge locks on before it releases). */}
+      {troubles && <Troubles tbus={troubles} bus={bus} pool={fxPool} caster={caster} heroRef={heroRef} aimRef={aimRef} solids={solids} world={world} layout={layout} calm={calm} />}
       {/*
         LAST in the tree on purpose. R3F runs same-priority frame subscribers in the order they
         subscribed, so the driver's projection runs after the rig has already moved the camera
@@ -1431,9 +1439,13 @@ export type RealmCanvasProps = {
   casts: CastQueue;
   viewer: "child" | "parent";
   castleUnlocked: boolean;
+  /** Reduced motion or low stimulus: fewer troubles, and gentler ones (`troubles3d.ts`). */
+  calm?: boolean;
+  /** The troubles' wire to the HUD. Without one, the world has no troubles in it. */
+  troubles?: TroubleBus;
 };
 
-export default function SpikeScene({ avatar, close, world, layout, anchors, pages, bus, caster, fxPool, casts, viewer, castleUnlocked }: RealmCanvasProps) {
+export default function SpikeScene({ avatar, close, world, layout, anchors, pages, bus, caster, fxPool, casts, viewer, castleUnlocked, calm = false, troubles }: RealmCanvasProps) {
   return (
     <Canvas
       dpr={1}
@@ -1458,6 +1470,8 @@ export default function SpikeScene({ avatar, close, world, layout, anchors, page
         casts={casts}
         viewer={viewer}
         castleUnlocked={castleUnlocked}
+        calm={calm}
+        troubles={troubles ?? null}
       />
     </Canvas>
   );

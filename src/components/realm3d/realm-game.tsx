@@ -50,6 +50,8 @@ import {
 import { speak } from "@/lib/utils/speech";
 import { buildAnchors } from "@/lib/realm3d/plate-anchors";
 import { FX_POOL, makeFxPool } from "@/lib/realm3d/spell-fx";
+import { makeTroubleBus } from "@/lib/realm3d/trouble-bus";
+import { TroubleMapMarks, TroubleNotices, TroublePlates } from "./troubles-hud";
 import { realmWorld } from "@/lib/realm3d/worldgen";
 import { DEFAULT_AVATAR, type AvatarConfig } from "@/lib/utils/avatar-catalog";
 import { DEFAULT_LEARNING_PROFILE, type LearningProfile } from "@/lib/utils/learning-profile";
@@ -250,6 +252,7 @@ export function RealmGame({
   const caster = useMemo(() => makeCaster(pages.length), [pages.length]);
   const fxPool = useMemo(() => makeFxPool(FX_POOL), []);
   const casts = useMemo(() => makeCastQueue(), []);
+  const troubleBus = useMemo(() => makeTroubleBus(), []);
   const hero = avatar ?? DEFAULT_AVATAR;
 
 
@@ -676,6 +679,8 @@ export function RealmGame({
         casts={casts}
         viewer={viewer}
         castleUnlocked={castleUnlocked}
+        calm={calm}
+        troubles={troubleBus}
       />
       {!close && (
         <>
@@ -691,7 +696,9 @@ export function RealmGame({
             onCast={onCast}
             onEmptyPage={onEmptyPage}
             goal={goal}
+            mapExtras={<TroubleMapMarks tbus={troubleBus} />}
           />
+          <TroublePlates tbus={troubleBus} />
           <div className={`r3-frame${paused ? " r3-frame--paused" : ""}`}>
             <ObjectiveCard
               objective={objective}
@@ -717,6 +724,7 @@ export function RealmGame({
                 />
               )}
               {!paused && <DeedToastBanner toast={toast} numerals={numerals} />}
+              <TroubleNotices tbus={troubleBus} skin={tone} pages={pages} paused={paused} />
             </div>
             {!paused && <InteractPrompt target={near} onPress={openTarget} />}
             <ClockCorner

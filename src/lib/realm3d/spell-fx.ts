@@ -60,6 +60,30 @@ export type FxSlot = {
    * recycled slot keeps the last spell's shape.
    */
   seq: number;
+
+  /* ---- what it can DO, for the troubles (`troubles3d.ts`) ------------------------------ */
+
+  /** The spell this effect is, carried from the charge to what it releases, so a hit knows its statuses. */
+  spell: SpellDefinition | null;
+  /**
+   * Whether it can hit a trouble. A released shape can; a charge and the ring a bolt leaves
+   * where it lands cannot (the bolt already did its hitting), or one bolt would hit twice.
+   */
+  armed: boolean;
+  /** A charge the troubles have already looked at for something to aim at. */
+  aimed: boolean;
+  /** The trouble pool index this effect is locked onto, or -1; `targetSerial` guards reuse. */
+  target: number;
+  targetSerial: number;
+  /** Where that target stands now, kept current by the troubles each frame. */
+  tx: number;
+  tz: number;
+  /** Troubles already hit by this effect, one bit per trouble pool index. */
+  hitMask: number;
+  /** How many of a beam's or an aura's ticks have gone off. */
+  ticks: number;
+  /** A bolt that has struck something: it stays where it hit and dies into its ring. */
+  stopped: boolean;
 };
 
 export function makeFxPool(n: number): FxSlot[] {
@@ -69,10 +93,19 @@ export function makeFxPool(n: number): FxSlot[] {
       live: false, kind: "ring", color: "#ffffff", t: 0, life: 1,
       x: 0, y: 0, z: 0, dx: 0, dz: -1, speed: 0, range: 0, travelled: 0,
       size: 1, follow: false, next: "", seq: 0,
+      spell: null, armed: false, aimed: false, target: -1, targetSerial: 0, tx: 0, tz: 0, hitMask: 0, ticks: 0, stopped: false,
     };
   }
   return pool;
 }
+
+/**
+ * How fast a locked bolt turns toward what it was aimed at, in radians a second. Enough that a
+ * bolt thrown at a blob that has since hopped a body-width still lands on it — forgiving aim
+ * is the whole point for an eight-year-old — and not so much that it orbits. A `seeking` bolt
+ * turns twice as hard.
+ */
+export const BOLT_HOMING = 5;
 
 /** The lifetimes, in seconds. A ring is a blink, a wall stands for a while. */
 const LIFE: Record<FxKind, number> = { charge: 0.3, bolt: 1.2, ring: 0.55, beam: 0.5, slab: 2.4, aura: 1.4 };
@@ -102,7 +135,9 @@ export function releaseSizeFor(spell: SpellDefinition): number {
     case "area": return Math.max(3, spell.range);
     case "barrier": return 6.5;
     case "self":
-    case "summon": return Math.max(2.6, spell.range * 0.6);
+    // An aura burns out to the flat Realm's own reach for it (its range), capped so a summon does not
+    // swallow the screen; a shield (range 0) wraps the child close.
+    case "summon": return Math.max(2.6, Math.min(5, spell.range));
     case "projectile": return 3.4;
   }
 }
@@ -118,6 +153,12 @@ export type FxInit = {
   life?: number;
   follow?: boolean;
   next?: FxKind | "";
+  spell?: SpellDefinition | null;
+  armed?: boolean;
+  target?: number;
+  targetSerial?: number;
+  tx?: number;
+  tz?: number;
 };
 
 /**
@@ -156,7 +197,33 @@ export function spawnFx(pool: FxSlot[], init: FxInit): FxSlot {
   s.follow = init.follow ?? false;
   s.next = init.next ?? "";
   s.seq += 1;
+  s.spell = init.spell ?? null;
+  s.armed = init.armed ?? false;
+  s.aimed = false;
+  s.target = init.target ?? -1;
+  s.targetSerial = init.targetSerial ?? 0;
+  s.tx = init.tx ?? 0;
+  s.tz = init.tz ?? 0;
+  s.hitMask = 0;
+  s.ticks = 0;
+  s.stopped = false;
   return s;
+}
+
+/** A bolt struck something at (x, z): it stops there and, next step, dies into its landing ring. */
+export function endBolt(s: FxSlot, x: number, z: number): void {
+  s.x = x;
+  s.z = z;
+  s.stopped = true;
+  s.t = s.life;
+}
+
+/** Locks an effect onto a trouble, or unlocks it with `index` -1. */
+export function lockFx(s: FxSlot, index: number, serial: number, x: number, z: number): void {
+  s.target = index;
+  s.targetSerial = serial;
+  s.tx = x;
+  s.tz = z;
 }
 
 /**
@@ -183,6 +250,7 @@ export function beginCastFx(
     speed: spell.speed,
     range: spell.range,
     size: releaseSizeFor(spell),
+    spell,
   });
 }
 
@@ -199,9 +267,35 @@ export function followCastFx(pool: FxSlot[], x: number, y: number, z: number, dx
     s.x = x;
     s.y = y;
     s.z = z;
+    // A charge the troubles have locked onto something aims at IT, not into the screen, so
+    // what it releases goes where the child was forgiven for not quite pointing.
+    if (s.target >= 0) {
+      const ax = s.tx - x;
+      const az = s.tz - z;
+      const len = Math.sqrt(ax * ax + az * az);
+      if (len > 0.01) {
+        s.dx = ax / len;
+        s.dz = az / len;
+        continue;
+      }
+    }
     s.dx = dx;
     s.dz = dz;
   }
+}
+
+/** Turns (dx, dz) toward (ax, az) by at most `max` radians, in place on the slot. */
+function steer(s: FxSlot, ax: number, az: number, max: number): void {
+  const len = Math.sqrt(ax * ax + az * az);
+  if (len < 0.01) return;
+  const want = Math.atan2(ax, az);
+  const have = Math.atan2(s.dx, s.dz);
+  let diff = want - have;
+  while (diff > Math.PI) diff -= 2 * Math.PI;
+  while (diff < -Math.PI) diff += 2 * Math.PI;
+  const turn = diff > max ? max : diff < -max ? -max : diff;
+  s.dx = Math.sin(have + turn);
+  s.dz = Math.cos(have + turn);
 }
 
 /**
@@ -230,7 +324,11 @@ export function stepFx(pool: FxSlot[], queue: FxQueue, dt: number, groundY: (x: 
     const s = pool[i];
     if (!s.live) continue;
     s.t += dt;
-    if (s.kind === "bolt") {
+    if (s.kind === "bolt" && !s.stopped) {
+      if (s.target >= 0) {
+        const seeking = s.spell !== null && s.spell.statuses.some((st) => st.kind === "seeking");
+        steer(s, s.tx - s.x, s.tz - s.z, BOLT_HOMING * (seeking ? 2 : 1) * dt);
+      }
       const step = s.speed * dt;
       s.x += s.dx * step;
       s.z += s.dz * step;
@@ -248,8 +346,16 @@ export function stepFx(pool: FxSlot[], queue: FxQueue, dt: number, groundY: (x: 
     const s = queue.from[q];
     const next = s.next as FxKind;
     const flat = next === "aura" || next === "ring" || next === "slab";
-    // A wall and a beam stand off in front of the caster rather than inside them.
-    const off = next === "slab" ? Math.min(5, s.range) : next === "beam" ? 0.6 : 0;
+    // A wall and a beam stand off in front of the caster rather than inside them. A wall
+    // locked onto a trouble comes down ON it, if it is within the wall's reach.
+    const reach = Math.min(5, s.range);
+    let off = next === "slab" ? reach : next === "beam" ? 0.6 : 0;
+    if (next === "slab" && s.target >= 0) {
+      // Locked, a wall reaches a little past its own range for the thing it was meant for.
+      const far = s.range + 2;
+      const d = Math.sqrt((s.tx - s.x) * (s.tx - s.x) + (s.tz - s.z) * (s.tz - s.z));
+      off = d < 1.5 ? 1.5 : d > far ? far : d;
+    }
     const bx = s.x + s.dx * off;
     const bz = s.z + s.dz * off;
     spawnFx(pool, {
@@ -265,6 +371,13 @@ export function stepFx(pool: FxSlot[], queue: FxQueue, dt: number, groundY: (x: 
       size: s.size,
       // A thrown bolt leaves a ring where it lands; nothing else chains further.
       next: next === "bolt" ? "ring" : "",
+      spell: s.spell,
+      // What a charge releases can hit; the ring a bolt leaves behind cannot.
+      armed: s.kind === "charge",
+      target: s.target,
+      targetSerial: s.targetSerial,
+      tx: s.tx,
+      tz: s.tz,
     });
   }
 }

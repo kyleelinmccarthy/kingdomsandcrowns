@@ -15,7 +15,7 @@
  * refused — and hands its own DOM nodes to `bus`, which the scene's driver writes directly.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Avatar } from "@/components/avatar";
 import { GameIcon } from "@/components/game-icon";
 import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
@@ -143,10 +143,13 @@ function Minimap({
   found,
   castle,
   goal,
+  extras,
 }: {
   bus: HudBus;
   world: RealmWorld;
   found: ReadonlySet<string>;
+  /** More marks in world units, panning with the land: the troubles' dots. */
+  extras?: ReactNode;
   /** Whether the child's castle stands. No castle, no home mark and no arrow pointing home. */
   castle: boolean;
   /** Who the objective card sends the child to: a gold ! on the map, and a rim arrow past it. */
@@ -210,6 +213,7 @@ function Minimap({
               road or place sits on top of it, at the villager's own position, so it pans with
               the land for free.
             */}
+            {extras}
             {goal.on && (
               <g className="r3-map-goal" transform={`translate(${goal.x} ${goal.z}) scale(${GLYPH_SCALE})`}>
                 <circle r={4.6} />
@@ -420,6 +424,7 @@ export function RealmHud({
   onCast = noop,
   onEmptyPage = noop,
   goal = NO_GOAL,
+  mapExtras,
 }: {
   bus: HudBus;
   world: RealmWorld;
@@ -440,6 +445,8 @@ export function RealmHud({
   onEmptyPage?: (slot: number) => void;
   /** Who the objective card sends the child to, and where they stand. */
   goal?: Goal;
+  /** Extra marks for the map's panning world group, in world units (the troubles' dots). */
+  mapExtras?: ReactNode;
 }) {
   const [found, setFound] = useState<ReadonlySet<string>>(() => new Set<string>());
   const [place, setPlace] = useState<string | null>(null);
@@ -500,7 +507,7 @@ export function RealmHud({
             </span>
           </span>
         </div>
-        <Minimap bus={bus} world={world} found={found} castle={castle} goal={goal} />
+        <Minimap bus={bus} world={world} found={found} castle={castle} goal={goal} extras={mapExtras} />
         <div className="r3-bottom">
           <div className="r3-mana" aria-label="Mana">
             {/*
