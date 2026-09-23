@@ -93,6 +93,7 @@ import {
   type Orbit,
 } from "@/lib/realm3d/controls";
 import { buildSpots } from "@/lib/realm3d/interact";
+import { ENTER_VERB } from "@/lib/realm3d/doorways";
 import { Interaction } from "./interaction";
 import { ConstructionSite } from "./construction-site";
 import { Castle, CastleGrounds } from "./castle";
@@ -106,6 +107,7 @@ import type { HudBus } from "@/lib/realm3d/hud-bus";
 import type { PlateAnchor } from "@/lib/realm3d/plate-anchors";
 import type { FxSlot } from "@/lib/realm3d/spell-fx";
 import { HudDriver } from "./hud-driver";
+import { Doorstep } from "./doorstep";
 import { SpellFx } from "./spell-fx";
 
 /* ------------------------------------------------------------------ palette */
@@ -1292,6 +1294,7 @@ const World = memo(function World({
           hd: castle.plan.gate.hd,
           // Locked, E at the end of the road still means something: the grounds it will stand on.
           label: castleUnlocked ? "your castle" : "the castle grounds",
+          ...(castleUnlocked ? { verb: ENTER_VERB } : {}),
         }
       : null;
     return buildSpots({ props: layout.props, sitePlan: SITE_PLAN, landmarks: world.landmarks, landmarkRadius: landmarkRadii(world), castle: gate });
@@ -1386,6 +1389,8 @@ const World = memo(function World({
       <Interaction spots={spots} heroRef={heroRef} keys={keys} bus={bus} world={world} />
       <Rig heroRef={heroRef} yawRef={yawRef} pointer={pointer} keys={keys} bus={bus} close={close} occluders={occluders} solids={solids} world={world} />
       <CameraInput yawRef={yawRef} pointer={pointer} bus={bus} />
+      {/* Going in and coming out of doors, and never being left inside a wall. After the rig: it may set the camera. */}
+      <Doorstep bus={bus} heroRef={heroRef} yawRef={yawRef} aimRef={aimRef} keys={keys} pointer={pointer} solids={solids} occluders={occluders} props={layout.props} sitePlan={SITE_PLAN} castle={castle} castleTier={layout.castleType} castleUnlocked={castleUnlocked} world={world} />
       {/*
         LAST in the tree on purpose. R3F runs same-priority frame subscribers in the order they
         subscribed, so the driver's projection runs after the rig has already moved the camera
@@ -1431,11 +1436,14 @@ export type RealmCanvasProps = {
   casts: CastQueue;
   viewer: "child" | "parent";
   castleUnlocked: boolean;
+  /** The child is indoors (`interior-scene.tsx` is drawing): the island stops drawing until they come out. */
+  frozen?: boolean;
 };
 
-export default function SpikeScene({ avatar, close, world, layout, anchors, pages, bus, caster, fxPool, casts, viewer, castleUnlocked }: RealmCanvasProps) {
+export default function SpikeScene({ avatar, close, world, layout, anchors, pages, bus, caster, fxPool, casts, viewer, castleUnlocked, frozen = false }: RealmCanvasProps) {
   return (
     <Canvas
+      frameloop={frozen ? "never" : "always"}
       dpr={1}
       shadows={{ type: THREE.PCFSoftShadowMap }}
       gl={{ antialias: true, powerPreference: "high-performance" }}

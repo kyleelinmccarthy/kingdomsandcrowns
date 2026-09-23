@@ -208,38 +208,72 @@ export function fadeWithDistance(mat: THREE.Material, near: number, far: number)
 /** How near the lens a tree starts to dissolve. Just short of the ducked boom's shortest reach. */
 export const CAMERA_CUT = 4.2;
 
+/**
+ * Where the hero is, for the FOREGROUND dissolve below. One shared uniform, written once a frame
+ * by the scene (`doorstep.tsx`), read by every material `nearCutout` has touched.
+ */
+export const LENS_HERO = { value: new THREE.Vector3(0, -1e5, 0) };
+/**
+ * A whole tree standing this close to the lens, and well in front of the hero, is dissolved
+ * rather than drawn. See `nearCutout`.
+ */
+export const FOREGROUND_NEAR = 8.5;
+export const FOREGROUND_FAR = 12.5;
+
+/**
+ * ...and, since the review that found "a large black triangle filling the lower-left foreground":
+ * a WHOLE tree between the lens and the child, and near the lens, dissolves too. That triangle
+ * was a pine eight or nine units from a camera the child had lowered to look along the ground —
+ * its shaded side, unfogged at that distance, is nearly black, and a cone at that range fills a
+ * quarter of the screen. Per-fragment distance could never catch it (it is well past `cut`), so
+ * this measures from the tree's own root, on the ground: closer to the lens than FOREGROUND_FAR
+ * and at least four units nearer the lens than the hero is, and the tree screen-doors away, all
+ * of it together — but only while the lens is low (under ten units over the tree's root): from
+ * the usual camera a tree below is a sunlit crown and hides nothing. Trees beside or beyond the
+ * hero are never touched.
+ */
 export function nearCutout(mat: THREE.Material, cut: number): THREE.Material {
   const prev = mat.onBeforeCompile;
   const prevKey = mat.customProgramCacheKey.bind(mat);
   mat.onBeforeCompile = (shader, renderer) => {
     prev.call(mat, shader, renderer);
     shader.uniforms.cutNear = { value: cut };
+    shader.uniforms.cutHero = LENS_HERO;
     shader.vertexShader = shader.vertexShader
-      .replace("#include <common>", "#include <common>\nvarying vec3 vCutPos;")
+      .replace("#include <common>", "#include <common>\nvarying vec3 vCutPos;\nvarying float vFore;\nuniform vec3 cutHero;")
       .replace(
         "#include <project_vertex>",
         `#include <project_vertex>
+         vFore = 0.0;
          #ifdef USE_INSTANCING
            vCutPos = (modelMatrix * instanceMatrix * vec4(transformed, 1.0)).xyz;
+           vec3 foreRoot = (modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+           float foreD = length(foreRoot.xz - cameraPosition.xz);
+           float heroD = length(cutHero.xz - cameraPosition.xz);
+           // ...and only while the lens is down among the trees. From the usual camera, twenty
+           // units up, a tree below it is its own sunlit crown seen from above and hides nothing.
+           float lensUp = cameraPosition.y - foreRoot.y;
+           vFore = (1.0 - smoothstep(${FOREGROUND_NEAR.toFixed(1)}, ${FOREGROUND_FAR.toFixed(1)}, foreD)) * step(foreD + 4.0, heroD) * (1.0 - smoothstep(6.0, 10.0, lensUp));
          #else
            vCutPos = (modelMatrix * vec4(transformed, 1.0)).xyz;
          #endif`,
       );
     shader.fragmentShader = shader.fragmentShader
-      .replace("#include <common>", "#include <common>\nuniform float cutNear;\nvarying vec3 vCutPos;")
+      .replace("#include <common>", "#include <common>\nuniform float cutNear;\nvarying vec3 vCutPos;\nvarying float vFore;")
       .replace(
         "#include <clipping_planes_fragment>",
         `#include <clipping_planes_fragment>
          float cutD = distance(vCutPos, cameraPosition);
-         if (cutD < cutNear) {
+         if (cutD < cutNear || vFore > 0.0) {
            // A 4x4 ordered dither: the closer the fragment, the more of the pattern is gone.
            vec2 cell = mod(floor(gl_FragCoord.xy), 4.0);
            float bayer = mod(cell.x * 4.0 + cell.y * 7.0 + cell.x * cell.y * 5.0, 16.0) / 16.0;
-           if (bayer > smoothstep(cutNear * 0.45, cutNear, cutD)) discard;
+           float keep = min(smoothstep(cutNear * 0.45, cutNear, cutD), 1.0 - vFore);
+           if (bayer >= keep) discard;
          }`,
       );
   };
-  mat.customProgramCacheKey = () => `${prevKey()}|cut${cut}`;
+  mat.customProgramCacheKey = () => `${prevKey()}|cut${cut}|fore`;
   return mat;
 }
 

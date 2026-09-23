@@ -420,6 +420,7 @@ export function RealmHud({
   onCast = noop,
   onEmptyPage = noop,
   goal = NO_GOAL,
+  inside = null,
 }: {
   bus: HudBus;
   world: RealmWorld;
@@ -440,6 +441,8 @@ export function RealmHud({
   onEmptyPage?: (slot: number) => void;
   /** Who the objective card sends the child to, and where they stand. */
   goal?: Goal;
+  /** Indoors, where: "Inside the Chapel". Takes the plaque's second line while it lasts. */
+  inside?: string | null;
 }) {
   const [found, setFound] = useState<ReadonlySet<string>>(() => new Set<string>());
   const [place, setPlace] = useState<string | null>(null);
@@ -496,7 +499,7 @@ export function RealmHud({
           <span className="r3-who-text">
             <span className="r3-who-name">{viewer === "parent" ? "Quest Giver" : heroName}</span>
             <span className="r3-who-where" aria-live="polite">
-              {viewer === "parent" ? `Visiting ${heroName}'s Realm` : here ?? `${found.size} of ${total} places found`}
+              {inside ?? (viewer === "parent" ? `Visiting ${heroName}'s Realm` : here ?? `${found.size} of ${total} places found`)}
             </span>
           </span>
         </div>

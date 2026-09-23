@@ -1147,3 +1147,47 @@
   .r3-result-seal--flawless,
   .r3-ceremony-crown { animation: none; }
 }
+
+/* ---- indoors -------------------------------------------------------------- */
+/*
+ * A room is its own canvas over the frozen island, under the HUD. It fades up from dark, so the
+ * moment the island stops drawing and the room's first frame is ready is never seen as a jump.
+ */
+.r3-room {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  background: #120d0a;
+  animation: r3-room-in 420ms ease-out both;
+}
+.r3-room--loading { animation: none; }
+@keyframes r3-room-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.r3-room-plates { z-index: 6; }
+/* The island's plates, the gold ! and its arrow are pinned to the island's camera, which is not
+   moving while the child is indoors: they would hang over the room at the doorstep's angle. */
+.r3-game--indoors .r3-plates:not(.r3-room-plates),
+.r3-game--indoors .r3-goal-layer { display: none; }
+/* No spells indoors. The bar stays, so nothing jumps about, but it says it is resting. */
+.r3-game--indoors .r3-bar { opacity: 0.45; pointer-events: none; filter: saturate(0.6); }
+.r3-room-line .r3-toast-line { font-size: 1rem; }
+@media (prefers-reduced-motion: reduce) {
+  .r3-room { animation: none; }
+}
+.r3-fade {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  background: #120d0a;
+  pointer-events: none;
+  animation: r3-fade-out 480ms ease-in both;
+}
+@keyframes r3-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; visibility: hidden; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .r3-fade { display: none; }
+}

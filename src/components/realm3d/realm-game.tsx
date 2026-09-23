@@ -33,6 +33,8 @@ import { clockLine, escapeFrom, spellbookHref, visitClockLine, type AccessSource
 import { goalFor, spellHelp, type SpellbookFacts } from "@/lib/realm3d/guide";
 import { makeHudBus, type InteractTarget } from "@/lib/realm3d/hud-bus";
 import { deedToast, type DeedToast } from "@/lib/realm3d/talk";
+import { roomFor, type RoomVisit } from "@/lib/realm3d/doorways";
+import { fixtureLine, roomPlan } from "@/lib/realm3d/interiors";
 import {
   advanceLesson,
   currentLesson,
@@ -71,11 +73,14 @@ import {
   type PauseSettings,
 } from "./frame-hud";
 import { RealmHud } from "./hud";
+import { RoomLine } from "./room-hud";
 
 const RealmCanvas = dynamic(() => import("./spike-scene"), {
   ssr: false,
   loading: () => <p className="r3-loading">Raising the hills…</p>,
 });
+/** Indoors: its own little canvas, mounted on the way in (`interior-scene.tsx`). */
+const RoomCanvas = dynamic(() => import("./interior-scene"), { ssr: false, loading: () => <div className="r3-room r3-room--loading" /> });
 
 /**
  * The child's real kingdom and settings, straight off `getRealmBundle`: the same bundle the
@@ -147,6 +152,8 @@ declare global {
     /** Development only: how long the last raised side quest took to reach the screen, in ms. */
     __realmRebuild?: { commitMs: number; frameMs: number; at: string }[];
     __realmRaise?: (buildingId: string, result: { label: string; done: number; total: number; complete: boolean }) => void;
+    /** Development only: go straight into a room, as if through its door ("chapel", "castle"…). */
+    __realmEnter?: (site: string) => void;
   }
 }
 
@@ -270,11 +277,26 @@ export function RealmGame({
   const [near, setNear] = useState<InteractTarget | null>(null);
   const paused = overlay !== null;
 
+  /* ---- indoors ---------------------------------------------------------- */
+  // Which room the child is in, if any. Not an overlay: indoors is PLAYING — the clock runs, the
+  // tutorial and the E prompt work — it is only the island that stops (see `frozen` below).
+  const [inside, setInside] = useState<RoomVisit | null>(null);
+  const insideRef = useRef<RoomVisit | null>(null);
+  const [roomLine, setRoomLine] = useState<string | null>(null);
+  const [roomUses, setRoomUses] = useState(0);
+  const roomUsesRef = useRef(0);
+  const clearRoomLine = useCallback(() => setRoomLine(null), []);
+  /** Bumped on the way out of a room: a moment of dark over the island's first frame back. */
+  const [outCount, setOutCount] = useState(0);
+  /** What was in E's reach outside when the child went in, handed back when they come out. */
+  const nearOutside = useRef<InteractTarget | null>(null);
+
   // The ONE writer of `bus.paused`. Every panel is an overlay, so every panel pauses the
-  // scene, and nothing can open a panel that forgets to.
+  // scene, and nothing can open a panel that forgets to. Indoors pauses the ISLAND too (its keys,
+  // its casting, its E), because the child's hands belong to the room; the room reads `paused`.
   useEffect(() => {
-    bus.setPaused(paused);
-  }, [bus, paused]);
+    bus.setPaused(paused || inside !== null);
+  }, [bus, paused, inside]);
 
   // Where the gold ! points, for the driver. Written when the objective moves — a handful of
   // times a visit — and read every frame.
@@ -483,15 +505,57 @@ export function RealmGame({
       .finally(() => setCeremonySaving(false));
   }, [ceremony, childId, ceremonySaving, go]);
 
+  /* ---- going in and coming out ---------------------------------------- */
+  const enter = useCallback((visit: RoomVisit) => {
+    if (insideRef.current || overlayRef.current !== null) return;
+    nearOutside.current = nearRef.current;
+    nearRef.current = null;
+    setNear(null);
+    insideRef.current = visit;
+    setInside(visit);
+    setRoomLine(null);
+  }, []);
+  const leave = useCallback(() => {
+    const was = insideRef.current;
+    if (!was) return;
+    // The island's doorstep puts the child outside this door, facing away, on its next frame.
+    bus.setLeaving(was.site);
+    insideRef.current = null;
+    setInside(null);
+    setOutCount((n) => n + 1);
+    setRoomLine(null);
+    nearRef.current = nearOutside.current;
+    setNear(nearOutside.current);
+  }, [bus]);
+
   /** Pressing E at something, or clicking the prompt. A person, or their site, is a conversation. */
   const openTarget = useCallback(
     (t: InteractTarget) => {
       if (overlayRef.current !== null) return;
+      // Indoors: the door goes back out, and the room's one thing is used where it stands.
+      if (t.kind === "door") {
+        leave();
+        return;
+      }
+      if (t.kind === "fixture") {
+        const room = insideRef.current;
+        if (!room) return;
+        const n = roomUsesRef.current++;
+        setRoomUses(roomUsesRef.current);
+        setRoomLine(fixtureLine(roomPlan(room.room), n, heroName));
+        return;
+      }
+      // A raised building, or the child's own castle, is a door now.
+      const visit = insideRef.current ? null : roomFor(t, kingdomRef.current.buildings, castleUnlocked);
+      if (visit) {
+        enter(visit);
+        return;
+      }
       go({ kind: "interact", target: t });
       const v = t.kind === "villager" ? villagerById(t.id) : t.kind === "site" ? villagerForBuilding(t.id) : null;
       if (v && kingdomRef.current.buildings.some((b) => b.id === v.buildingId)) signal({ kind: "talked" });
     },
-    [go, signal],
+    [go, signal, leave, enter, castleUnlocked, heroName],
   );
 
   // What the scene tells the frame: what is in reach, that E was pressed at it, that a spell
@@ -506,9 +570,14 @@ export function RealmGame({
       onInteract: (t) => openTarget(t),
       onCast: () => signal({ kind: "cast" }),
       onWalked: (distance) => signal({ kind: "walked", keys: hands.current.keys.size, distance }),
+      // Walking into a doorway: the same door E opens, if it has an inside.
+      onDoor: (site) => {
+        const visit = roomFor(site === "castle" ? { kind: "castle", id: site } : { kind: "site", id: site }, kingdomRef.current.buildings, castleUnlocked);
+        if (visit) enter(visit);
+      },
     });
-    return () => bus.setHandlers({ onNear: () => {}, onInteract: () => {}, onCast: () => {}, onWalked: () => {} });
-  }, [bus, signal, openTarget]);
+    return () => bus.setHandlers({ onNear: () => {}, onInteract: () => {}, onCast: () => {}, onWalked: () => {}, onDoor: () => {} });
+  }, [bus, signal, openTarget, enter, castleUnlocked]);
 
   // Esc: pause from play, back a step from a panel. The frame owns this key; the scene does not
   // listen for it.
@@ -531,11 +600,14 @@ export function RealmGame({
     // And the rise itself, so the cost of a building going up can be measured without playing a
     // whole side quest per sample. Client state only: nothing is written anywhere.
     window.__realmRaise = raise;
+    const enterSite = (site: string) => enter({ room: site === "castle" ? "castle" : (site as RoomVisit["room"]), site });
+    window.__realmEnter = enterSite;
     return () => {
       if (window.__realmBus === bus) delete window.__realmBus;
       if (window.__realmRaise === raise) delete window.__realmRaise;
+      if (window.__realmEnter === enterSite) delete window.__realmEnter;
     };
-  }, [bus, raise]);
+  }, [bus, raise, enter]);
 
   /* ---- read-aloud ------------------------------------------------------ */
   // A lesson is read as it arrives; otherwise the objective, once, when the world is first the
@@ -583,7 +655,10 @@ export function RealmGame({
   /* ---- the HUD's clicks ------------------------------------------------ */
   const [spellFacts, setSpellFacts] = useState<SpellbookFacts | null>(null);
   const askedSpellbook = useRef(false);
-  const onCast = useCallback((slot: number) => pushCast(casts, slot), [casts]);
+  // No spells indoors: a click on the bar would otherwise wait in the queue and go off outside.
+  const onCast = useCallback((slot: number) => {
+    if (!insideRef.current) pushCast(casts, slot);
+  }, [casts]);
   const onEmptyPage = useCallback(
     (slot: number) => {
       go({ kind: "page", slot });
@@ -661,9 +736,13 @@ export function RealmGame({
         })()
       : null;
 
+  const room = useMemo(() => (inside ? roomPlan(inside.room) : null), [inside]);
+  const roomColors = useMemo(() => ({ field: hero.backgroundColor || hero.outfitColor, charge: hero.accessoryColor || "#f4d27a" }), [hero]);
+
   return (
-    <div className="r3-game">
+    <div className={`r3-game${inside ? " r3-game--indoors" : ""}`}>
       <RealmCanvas
+        frozen={inside !== null}
         avatar={hero}
         close={close}
         world={world}
@@ -677,6 +756,10 @@ export function RealmGame({
         viewer={viewer}
         castleUnlocked={castleUnlocked}
       />
+      {outCount > 0 && !inside && <div key={outCount} className="r3-fade" aria-hidden="true" />}
+      {inside && (
+        <RoomCanvas visit={inside} avatar={hero} viewer={viewer} bus={bus} paused={paused} colors={roomColors} used={roomUses} onLeave={leave} />
+      )}
       {!close && (
         <>
           <RealmHud
@@ -691,6 +774,7 @@ export function RealmGame({
             onCast={onCast}
             onEmptyPage={onEmptyPage}
             goal={goal}
+            inside={room ? room.where : null}
           />
           <div className={`r3-frame${paused ? " r3-frame--paused" : ""}`}>
             <ObjectiveCard
@@ -717,6 +801,7 @@ export function RealmGame({
                 />
               )}
               {!paused && <DeedToastBanner toast={toast} numerals={numerals} />}
+              {!paused && inside && <RoomLine line={roomLine} onDone={clearRoomLine} />}
             </div>
             {!paused && <InteractPrompt target={near} onPress={openTarget} />}
             <ClockCorner
