@@ -81,6 +81,11 @@ export function buildAnchors(input: {
   villagers: readonly VillagerPlacement[];
   landmarks: readonly Landmark[];
   heightAt: (x: number, z: number) => number;
+  /**
+   * Whether the child's castle stands. A castle not yet earned is not in the world, so it has
+   * no name hanging over the empty plot either. Defaults to true, as it always was.
+   */
+  castle?: boolean;
 }): PlateAnchor[] {
   const out: PlateAnchor[] = [];
   // The child first, and at index 0 for ever: the driver writes their moving position into
@@ -96,7 +101,7 @@ export function buildAnchors(input: {
     y: 0,
     z: 0,
   });
-  out.push({
+  if (input.castle !== false) out.push({
     id: "castle",
     tier: "landmark",
     name: "Your Castle",

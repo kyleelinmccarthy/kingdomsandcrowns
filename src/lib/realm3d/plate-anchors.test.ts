@@ -135,3 +135,15 @@ describe("how high a plate hangs", () => {
     expect(new Set(people.map((p) => Math.round(p.y))).size).toBeGreaterThan(1);
   });
 });
+
+describe("a castle not yet earned", () => {
+  it("has no name hanging over the empty plot, and the child's own plate is still first", () => {
+    const anchors = buildAnchors({ heroName: "Noah", villagers: [], landmarks: [], heightAt: () => 0, castle: false });
+    expect(anchors.map((a) => a.id)).toEqual(["hero"]);
+  });
+
+  it("is named, as always, once it stands", () => {
+    const anchors = buildAnchors({ heroName: "Noah", villagers: [], landmarks: [], heightAt: () => 0 });
+    expect(anchors.map((a) => a.id)).toEqual(["hero", "castle"]);
+  });
+});

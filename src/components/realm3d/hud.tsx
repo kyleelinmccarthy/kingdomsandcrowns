@@ -16,7 +16,11 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Avatar } from "@/components/avatar";
 import { GameIcon } from "@/components/game-icon";
+import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
+import { keyHints } from "@/lib/realm3d/frame";
+import { keepFocusInWorld } from "./frame-hud";
 import type { SpellPageView } from "@/lib/realm/spells/pages";
 import { MANA_MAX, REFUSAL_MS } from "@/lib/realm3d/casting";
 import type { HudBus } from "@/lib/realm3d/hud-bus";
@@ -55,6 +59,14 @@ const PLACE_GLYPH: Record<string, string> = {
   // `realm-minimap.tsx` — a child who has played the flat Realm already knows this mark.
   place: "M0,-3.2 A3.2,3.2 0 1,1 0,3.2 A3.2,3.2 0 1,1 0,-3.2 Z",
 };
+
+/** The four points of the compass, just inside the rim. */
+const COMPASS = [
+  { letter: "N", x: MAP / 2, y: 7 },
+  { letter: "E", x: MAP - 7, y: MAP / 2 },
+  { letter: "S", x: MAP / 2, y: MAP - 7 },
+  { letter: "W", x: 7, y: MAP / 2 },
+] as const;
 
 /** Home: a keep with crenellations, the biggest mark on the map because it is where you live. */
 const CASTLE_GLYPH = "M-4.6,3.4 L-4.6,-1.4 L-3.2,-1.4 L-3.2,-3 L-1.8,-3 L-1.8,-1.4 L1.8,-1.4 L1.8,-3 L3.2,-3 L3.2,-1.4 L4.6,-1.4 L4.6,3.4 Z";
@@ -126,10 +138,13 @@ function Minimap({
   bus,
   world,
   found,
+  castle,
 }: {
   bus: HudBus;
   world: RealmWorld;
   found: ReadonlySet<string>;
+  /** Whether the child's castle stands. No castle, no home mark and no arrow pointing home. */
+  castle: boolean;
 }) {
   const land = useBakedLand(world);
   const roads = useMemo(
@@ -179,9 +194,11 @@ function Minimap({
                 />
               </g>
             ))}
-            <g transform={`translate(0 -14) scale(${GLYPH_SCALE})`}>
-              <path className="r3-map-home" d={CASTLE_GLYPH} />
-            </g>
+            {castle && (
+              <g transform={`translate(0 -14) scale(${GLYPH_SCALE})`}>
+                <path className="r3-map-home" d={CASTLE_GLYPH} />
+              </g>
+            )}
           </g>
           {/* Fixed to the middle of the map, because the child is always the middle of it. */}
           <g ref={(el) => bus.setNode("mapCone", el)} transform={`translate(${MAP / 2} ${MAP / 2})`}>
@@ -190,12 +207,28 @@ function Minimap({
           <g ref={(el) => bus.setNode("mapYou", el)} transform={`translate(${MAP / 2} ${MAP / 2})`}>
             <path className="r3-map-you" d={YOU_GLYPH} />
           </g>
-          <g ref={(el) => bus.setNode("mapHome", el)} className="r3-map-rim" style={{ display: "none" }}>
-            <path d={RIM_GLYPH} />
-          </g>
+          {/* Never mounted without a castle: the driver writes a null node as nothing at all. */}
+          {castle && (
+            <g ref={(el) => bus.setNode("mapHome", el)} className="r3-map-rim" style={{ display: "none" }}>
+              <path d={RIM_GLYPH} />
+            </g>
+          )}
         </g>
         <circle className="r3-map-rim-ring" cx={MAP / 2} cy={MAP / 2} r={MAP / 2 - 1} />
-        <text className="r3-map-north" x={MAP / 2} y={9} textAnchor="middle">N</text>
+        {/*
+          All four, on the rim. The map is north-up and never turns — the view cone turns
+          instead — so the letters are fixed, and a child who can see N but not W, E or S has
+          been told a quarter of a compass. North is gold and bigger, the one a child finds
+          first; the other three are there to be read against it.
+        */}
+        {COMPASS.map((c) => (
+          <g key={c.letter} transform={`translate(${c.x} ${c.y})`}>
+            <circle className={`r3-map-compass-dot${c.letter === "N" ? " r3-map-compass-dot--north" : ""}`} r={c.letter === "N" ? 5.6 : 4.8} />
+            <text className={`r3-map-north${c.letter === "N" ? "" : " r3-map-compass"}`} y={c.letter === "N" ? 2.6 : 2.2} textAnchor="middle">
+              {c.letter}
+            </text>
+          </g>
+        ))}
       </svg>
     </div>
   );
@@ -213,27 +246,58 @@ function Minimap({
  * spell"; a bar with one tile and three waiting pages says "there are more, go and earn them",
  * which is true and is the whole point of a spellbook a child fills in.
  */
-function SpellBar({ bus, pages, shake }: { bus: HudBus; pages: SpellPageView[]; shake: number }) {
+function SpellBar({
+  bus,
+  pages,
+  shake,
+  onCast,
+  onEmptyPage,
+}: {
+  bus: HudBus;
+  pages: SpellPageView[];
+  shake: number;
+  onCast: (slot: number) => void;
+  onEmptyPage: (slot: number) => void;
+}) {
   return (
-    <div className="r3-bar" role="toolbar" aria-label="Spells">
+    <div className="r3-bar" role="toolbar" aria-label="Spells" style={{ ["--r3-slots" as string]: String(pages.length) }}>
       {pages.map((page, i) => {
         const key = i + 1;
         if (!page.spell) {
+          /*
+            A button, not a picture of one. "The other spells having a plus icon on them but
+            not being clickable feels wrong" — so the plus now does what a plus says: it opens a
+            card that says how a spell is earned and takes the child to where one is written.
+            A faded page (a part gone from the catalog) is the same case to a child — nothing
+            to cast here yet — and goes to the same place.
+          */
           return (
-            <div key={page.slot} className="r3-slot r3-slot--empty" aria-label={`Page ${key}, empty`}>
+            <button
+              type="button"
+              key={page.slot}
+              className="r3-slot r3-slot--empty"
+              aria-label={`Page ${key} is empty. How do I get a spell?`}
+              onMouseDown={keepFocusInWorld}
+              onClick={() => onEmptyPage(page.slot)}
+            >
               <span className="r3-slot-key">{key}</span>
               <span className="r3-slot-seal">+</span>
-              <span className="r3-slot-name">Empty</span>
-            </div>
+              <span className="r3-slot-name">{page.empty ? "Get a spell" : "Faded"}</span>
+            </button>
           );
         }
         return (
-          <div
+          <button
+            type="button"
             key={page.slot}
             ref={(el) => bus.setSlot(i, "root", el)}
             className={`r3-slot${shake === key ? " r3-slot--refused" : ""}`}
             style={{ ["--r3-ink" as string]: page.color }}
             aria-label={`${page.name}, ${page.spell.manaCost} mana, key ${key}`}
+            // A click casts, exactly as the number key does: the same queue, the same frame,
+            // the same refusal if the page is resting or the mana is short.
+            onMouseDown={keepFocusInWorld}
+            onClick={() => onCast(key)}
           >
             <span className="r3-slot-key">{key}</span>
             {page.icon && <GameIcon name={page.icon} className="r3-slot-icon" />}
@@ -244,7 +308,7 @@ function SpellBar({ bus, pages, shake }: { bus: HudBus; pages: SpellPageView[]; 
               className="r3-slot-cool"
               ref={(el) => bus.setSlot(i, "cool", el)}
             />
-          </div>
+          </button>
         );
       })}
     </div>
@@ -285,18 +349,37 @@ function Nameplates({ bus, anchors }: { bus: HudBus; anchors: readonly PlateAnch
 
 /* --------------------------------------------------------------------- the HUD */
 
+const noop = () => {};
+
 export function RealmHud({
   bus,
   world,
   anchors,
   pages,
   heroName,
+  portrait = null,
+  viewer = "child",
+  castle = true,
+  onCast = noop,
+  onEmptyPage = noop,
 }: {
   bus: HudBus;
   world: RealmWorld;
   anchors: readonly PlateAnchor[];
   pages: SpellPageView[];
   heroName: string;
+  /** The child's own look, drawn as the pixel portrait the Tavern's hero card draws. */
+  portrait?: AvatarConfig | null;
+  /**
+   * A parent visiting walks as the Quest Giver, so the plaque is theirs — the wizard, not the
+   * child's face — and says whose Realm this is.
+   */
+  viewer?: "child" | "parent";
+  castle?: boolean;
+  /** A filled page was clicked: cast it, as its number key would. */
+  onCast?: (slot: number) => void;
+  /** An empty page was clicked: say how to earn one. */
+  onEmptyPage?: (slot: number) => void;
 }) {
   const [found, setFound] = useState<ReadonlySet<string>>(() => new Set<string>());
   const [place, setPlace] = useState<string | null>(null);
@@ -336,22 +419,35 @@ export function RealmHud({
           "Shown as theirs" is the requirement, and a name in a status line is not that: this is
           the same shape as the title on a trophy, which is what it is for.
         */}
-        <div className="r3-who">
-          <span className="r3-who-crown" aria-hidden="true">
-            <GameIcon name="crown" className="r3-who-crown-icon" />
+        <div className={`r3-who${viewer === "parent" ? " r3-who--visitor" : ""}`}>
+          {/*
+            The child's own face, not a crown: "the player bar in the top left should show the
+            player icon rather than a crown". The same pixel avatar the Tavern's hero card
+            draws, cropped to head and shoulders, so the child sees the hero they dressed.
+          */}
+          <span className="r3-who-portrait" aria-hidden="true">
+            {viewer === "parent" ? (
+              <GameIcon name="mage" className="r3-who-wizard" />
+            ) : (
+              <Avatar config={portrait} name={heroName} size="lg" className="r3-who-avatar" />
+            )}
           </span>
           <span className="r3-who-text">
-            <span className="r3-who-name">{heroName}</span>
+            <span className="r3-who-name">{viewer === "parent" ? "Quest Giver" : heroName}</span>
             <span className="r3-who-where" aria-live="polite">
-              {here ?? `${found.size} of ${total} places found`}
+              {viewer === "parent" ? `Visiting ${heroName}'s Realm` : here ?? `${found.size} of ${total} places found`}
             </span>
           </span>
         </div>
-        <Minimap bus={bus} world={world} found={found} />
+        <Minimap bus={bus} world={world} found={found} castle={castle} />
         <div className="r3-bottom">
           <div className="r3-mana" aria-label="Mana">
-            {/* A gem, so "the blue bar" is a THING a child has a word for. */}
-            <GameIcon name="gem" className="r3-mana-gem" />
+            {/*
+              Sparkles, so "the blue bar" is magic a child has a word for. It was a cut gem, and
+              "not sure why mana has a diamond icon by it, that makes no sense" — a gem reads as
+              treasure, and this bar is the power the spells below it spend.
+            */}
+            <GameIcon name="mana" className="r3-mana-gem" />
             <span className="r3-mana-track">
               <span className="r3-mana-fill" ref={(el) => bus.setNode("manaFill", el)} />
             </span>
@@ -359,10 +455,14 @@ export function RealmHud({
               {MANA_MAX} / {MANA_MAX}
             </span>
           </div>
-          <SpellBar bus={bus} pages={pages} shake={shake} />
+          <SpellBar bus={bus} pages={pages} shake={shake} onCast={onCast} onEmptyPage={onEmptyPage} />
           <p className="r3-keys">
-            <b>WASD</b> walk · <b>Space</b> jump · <b>Q</b>/<b>E</b> turn the camera ·{" "}
-            <b>{pages.length > 1 ? `1–${pages.length}` : "1"}</b> cast
+            {keyHints(pages.length).map((h, i) => (
+              <span key={h.key}>
+                {i > 0 && " · "}
+                <b>{h.key}</b> {h.what}
+              </span>
+            ))}
           </p>
         </div>
       </div>

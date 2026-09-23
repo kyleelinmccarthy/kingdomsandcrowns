@@ -1,11 +1,12 @@
 import fs from "fs";
 import path from "path";
-import { act, cleanup, render, within } from "@testing-library/react";
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { act, cleanup, fireEvent, render, within } from "@testing-library/react";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { withEmptyPages, resolvePages } from "@/lib/realm/spells/pages";
 import { makeHudBus } from "@/lib/realm3d/hud-bus";
 import { buildAnchors } from "@/lib/realm3d/plate-anchors";
 import type { Landmark, RealmWorld } from "@/lib/realm3d/worldgen";
+import { DEFAULT_AVATAR } from "@/lib/utils/avatar-catalog";
 import { RealmHud } from "./hud";
 
 /**
@@ -55,14 +56,29 @@ beforeAll(() => {
   HTMLCanvasElement.prototype.getContext = (() => null) as unknown as HTMLCanvasElement["getContext"];
 });
 
-function mount(heroName = "Emma") {
+function mount(heroName = "Emma", extra: Partial<React.ComponentProps<typeof RealmHud>> = {}) {
   const bus = makeHudBus(pages.length, anchors.length);
-  const view = render(<RealmHud bus={bus} world={world} anchors={anchors} pages={pages} heroName={heroName} />);
+  const view = render(<RealmHud bus={bus} world={world} anchors={anchors} pages={pages} heroName={heroName} {...extra} />);
   // Everything the scene tells the HUD arrives from outside React, so a test that fires one
   // of those callbacks has to flush the state it sets.
   const tell = (f: () => void) => act(f);
   return { bus, view, screen: within(view.container), tell };
 }
+
+describe("the child's own face", () => {
+  it("is the pixel avatar the Tavern draws, not a crown", () => {
+    const { view } = mount("Emma", { portrait: DEFAULT_AVATAR });
+    const portrait = view.container.querySelector(".r3-who-portrait")!;
+    expect(portrait.querySelector("svg[aria-label=\"Emma's avatar\"]")).not.toBeNull();
+  });
+
+  it("is the Quest Giver's wizard for a visiting parent, who is visiting the child's Realm", () => {
+    const { view } = mount("Emma", { viewer: "parent", portrait: DEFAULT_AVATAR });
+    expect(view.container.querySelector(".r3-who-name")).toHaveTextContent("Quest Giver");
+    expect(view.container.querySelector(".r3-who-where")).toHaveTextContent("Visiting Emma's Realm");
+    expect(view.container.querySelector(".r3-who-portrait svg[aria-label]")).toBeNull();
+  });
+});
 
 describe("the child's own name", () => {
   it("is on the plaque, as theirs", () => {
@@ -91,13 +107,44 @@ describe("the spell bar", () => {
 
   it("draws the pages they have not filled yet rather than hiding them", () => {
     const { screen } = mount();
-    expect(screen.getAllByText("Empty")).toHaveLength(3);
+    expect(screen.getAllByText("Get a spell")).toHaveLength(3);
+  });
+
+  it("casts a filled page on a click, as its number key would", () => {
+    const onCast = vi.fn();
+    const { screen } = mount("Emma", { onCast });
+    fireEvent.click(screen.getByRole("button", { name: /Ember Bolt/ }));
+    expect(onCast).toHaveBeenCalledWith(1);
+  });
+
+  it("makes an empty page a button that asks how to earn a spell", () => {
+    const onEmptyPage = vi.fn();
+    const { screen } = mount("Emma", { onEmptyPage });
+    fireEvent.click(screen.getByRole("button", { name: /Page 3 is empty/ }));
+    expect(onEmptyPage).toHaveBeenCalledWith(3);
+  });
+
+  it("never lets a click take focus from the world, so Space still jumps", () => {
+    const { screen } = mount();
+    const slot = screen.getByRole("button", { name: /Ember Bolt/ });
+    const e = new MouseEvent("mousedown", { bubbles: true, cancelable: true });
+    slot.dispatchEvent(e);
+    expect(e.defaultPrevented).toBe(true);
   });
 
   it("binds exactly as many keys as it draws keycaps", () => {
     const { screen } = mount();
     for (const key of ["1", "2", "3", "4"]) expect(screen.getByText(key)).toBeInTheDocument();
     expect(screen.getByText(/cast$/)).toHaveTextContent("1–4 cast");
+  });
+
+  it("names the control scheme the scene binds: E talks, Esc is the menu, Q is gone", () => {
+    const { view } = mount();
+    const strip = view.container.querySelector(".r3-keys")!;
+    expect(strip).toHaveTextContent("E talk");
+    expect(strip).toHaveTextContent("Esc menu");
+    expect(strip.textContent).not.toMatch(/\bQ\b/);
+    expect(strip.textContent).not.toMatch(/turn the camera/);
   });
 
   it("hands the frame loop a cooldown node for every spell it drew", () => {
@@ -117,6 +164,18 @@ describe("the mana bar", () => {
 });
 
 describe("the map", () => {
+  it("names all four points of the compass, not only north", () => {
+    const { view } = mount();
+    const letters = [...view.container.querySelectorAll(".r3-map text")].map((t) => t.textContent);
+    expect(letters).toEqual(expect.arrayContaining(["N", "E", "S", "W"]));
+  });
+
+  it("marks no home, and points no arrow home, while the castle is not earned", () => {
+    const { bus, view } = mount("Noah", { castle: false });
+    expect(view.container.querySelector(".r3-map-home")).toBeNull();
+    expect(bus.mapHome).toBeNull();
+  });
+
   it("hands the frame loop the one group it pans, the hero arrow and the view cone", () => {
     const { bus } = mount();
     expect(bus.mapWorld).not.toBeNull();
@@ -194,6 +253,11 @@ describe("a refused press", () => {
 describe("nothing under test imports three", () => {
   const files = [
     "components/realm3d/hud.tsx",
+    "components/realm3d/frame-hud.tsx",
+    "components/realm3d/realm-game.tsx",
+    "components/realm3d/realm-frame.tsx",
+    "lib/realm3d/frame.ts",
+    "lib/realm3d/overrides.ts",
     "lib/realm3d/project.ts",
     "lib/realm3d/nameplates.ts",
     "lib/realm3d/plate-anchors.ts",
@@ -215,13 +279,21 @@ describe("nothing under test imports three", () => {
  * asserted against the stylesheet's text — the same approach `realm-chrome.test.tsx` takes.
  */
 describe("the HUD's own stylesheet", () => {
-  const css = fs.readFileSync(path.join(__dirname, "../../app/globals.css"), "utf8").replace(/\s+/g, " ");
+  // The HUD's rules live in globals.css; the frame's, and the frame's additions to the HUD, in
+  // realm-frame.css beside the components. The page loads both.
+  const css = [
+    fs.readFileSync(path.join(__dirname, "../../app/globals.css"), "utf8"),
+    fs.readFileSync(path.join(__dirname, "realm-frame.css"), "utf8"),
+  ]
+    .join("\n")
+    .replace(/\s+/g, " ");
 
   it("has a rule for every class the components render", () => {
     for (const cls of [
       ".r3-hud", ".r3-who", ".r3-who-name", ".r3-map", ".r3-map-place", ".r3-map-place--found",
       ".r3-map-you", ".r3-map-cone", ".r3-mana-fill", ".r3-slot", ".r3-slot-cool", ".r3-slot--empty",
       ".r3-slot--refused", ".r3-plate", ".r3-plate--hero", ".r3-plates", ".r3-keys",
+      ".r3-who-portrait", ".r3-who-avatar", ".r3-who-wizard", ".r3-map-compass", ".r3-map-compass-dot",
     ]) {
       expect(css, `no rule for ${cls}`).toContain(`${cls} `);
     }

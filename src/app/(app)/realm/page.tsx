@@ -6,12 +6,32 @@ import { getRealmBundle } from "@/lib/actions/realm";
 import { ChildSelector } from "@/components/child-selector";
 import { GameFrame } from "@/components/game-frame";
 import { GameIcon } from "@/components/game-icon";
-import { RealmShell } from "@/components/realm/realm-shell";
+import { RealmFrame } from "@/components/realm3d/realm-frame";
 import { SwitchHero } from "@/components/switch-hero";
+import { getCastle } from "@/lib/actions/castle";
+import { castleUnlocked } from "@/lib/realm3d/frame";
+import { castleShown, one, overrideAvatar, viewerFor, type Query } from "@/lib/realm3d/overrides";
+import { DEFAULT_AVATAR } from "@/lib/utils/avatar-catalog";
+import { levelFromXp } from "@/lib/utils/level";
 
-export default async function RealmPage({ searchParams }: { searchParams: Promise<{ child?: string }> }) {
+export const metadata = { title: "The Realm" };
+
+/**
+ * THE REALM. The 3D game, full bleed over the app, with its own Leave.
+ *
+ * The flat 2D Realm (`components/realm/realm-shell.tsx`) is no longer rendered here; its code
+ * stays in the repo because the next waves port its systems — the tutorial, the villagers'
+ * dialogue and deeds, troubles, recess, the crown ceremony — into this one.
+ *
+ * What did not change is who gets in: `requireActor`, `resolveActiveChild`, the no-family and
+ * no-hero states, and `?child=` for a grown-up choosing whose Realm to visit. A grown-up is a
+ * visitor — never gated, never charged, walking as the Quest Giver — which is how a parent
+ * tests the Realm without finishing quests as Emma or Noah.
+ */
+export default async function RealmPage({ searchParams }: { searchParams: Promise<Query> }) {
   await requireActor();
-  const { child: selectedChildId } = await searchParams;
+  const q = await searchParams;
+  const selectedChildId = one(q, "child");
   const { child: activeChild, allChildren, isChildView } = await resolveActiveChild(selectedChildId);
 
   if (!isChildView && !(await getFamily())) {
@@ -47,32 +67,41 @@ export default async function RealmPage({ searchParams }: { searchParams: Promis
   }
 
   const bundle = await getRealmBundle(activeChild.id);
+  // The castle's own rule, as the Castle page applies it: built, or the level to build it.
+  const castle = await getCastle(activeChild.id).catch(() => null);
+  const unlocked = castleUnlocked(levelFromXp(activeChild.currentXp), castle !== null);
 
   return (
-    <div className="space-y-4">
-      <div className="page-banner flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="page-title text-4xl">{isChildView ? "My Realm" : `${activeChild.displayName}'s Realm`}</h1>
-          <p className="mt-1 text-muted-foreground">Walk the grounds, visit what your side quests have raised, and keep your companion close.</p>
-        </div>
-      </div>
-      <RealmShell
-        key={activeChild.id}
-        bundle={bundle}
-        childId={activeChild.id}
-        isChildView={isChildView}
-        selector={
-          // The hero switcher is a floating dock everywhere else; over a game board it
-          // would sit on the world, so in preview it rides the HUD's header row beside
-          // the child selector — the control a parent comparing two children actually uses.
-          isChildView ? undefined : (
-            <>
-              {allChildren.length > 1 && <ChildSelector kids={allChildren} selectedId={activeChild.id} />}
-              {process.env.DEMO_MODE !== "true" && <SwitchHero isChildView={false} inline />}
-            </>
-          )
-        }
-      />
-    </div>
+    <RealmFrame
+      key={activeChild.id}
+      realm={{
+        childId: activeChild.id,
+        isChildView,
+        kingdom: bundle.kingdom,
+        ...(bundle.kingdomError ? { kingdomError: bundle.kingdomError } : {}),
+        castleType: bundle.castleType,
+        banners: bundle.banners,
+        profile: bundle.profile,
+        depth: bundle.depth,
+        toneMode: bundle.settings.toneMode,
+      }}
+      // `?name=` and the avatar fields restyle a screenshot; see lib/realm3d/overrides.ts.
+      heroName={one(q, "name") ?? bundle.heroName}
+      avatar={overrideAvatar(bundle.avatarConfig ?? DEFAULT_AVATAR, q)}
+      spellbook={bundle.spellbook}
+      viewer={viewerFor(isChildView, q)}
+      castleUnlocked={castleShown(unlocked, q)}
+      close={q.close !== undefined}
+      selector={
+        // A grown-up visiting can hop to another child from the pause menu, and hand the
+        // device to a hero, without leaving the Realm first.
+        isChildView ? undefined : (
+          <>
+            {allChildren.length > 1 && <ChildSelector kids={allChildren} selectedId={activeChild.id} />}
+            {process.env.DEMO_MODE !== "true" && <SwitchHero isChildView={false} inline />}
+          </>
+        )
+      }
+    />
   );
 }

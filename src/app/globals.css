@@ -2292,18 +2292,8 @@ body[data-realm-open] .parent-alert-popup { display: none; }
   border-radius: 999px;
   max-width: min(22rem, 40vw);
 }
-.r3-who-crown {
-  flex: none;
-  width: 2.7rem;
-  height: 2.7rem;
-  border-radius: 50%;
-  border: 3px solid #7a4f14;
-  background: radial-gradient(circle at 40% 30%, #fff3cf, #e0a52c 70%);
-  display: grid;
-  place-items: center;
-  box-shadow: 0 0 14px rgba(245, 192, 74, 0.55);
-}
-.r3-who-crown-icon { width: 1.6rem; height: 1.6rem; color: #6b4410; }
+/* The portrait in the plaque (the child's own pixel avatar) is styled in
+   components/realm3d/realm-frame.css, beside the frame that draws it. */
 .r3-who-text { display: flex; flex-direction: column; min-width: 0; line-height: 1.1; }
 .r3-who-name {
   font-size: 1.4rem;
