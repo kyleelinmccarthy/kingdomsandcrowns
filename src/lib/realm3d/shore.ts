@@ -65,6 +65,17 @@ export function tooDeep(groundY: number, sea: number = SEA_LEVEL, wade: number =
  * refused we let the whole step through, because being stuck in the sea is the one outcome worse
  * than swimming.
  */
+/** `tooDeep` at a point, against a level that may vary. A plain function: no closure per call. */
+function deepAt(
+  x: number,
+  z: number,
+  groundAt: (x: number, z: number) => number,
+  sea: number | ((x: number, z: number) => number),
+  wade: number,
+): boolean {
+  return tooDeep(groundAt(x, z), typeof sea === "number" ? sea : sea(x, z), wade);
+}
+
 export function shoreMove(
   out: Pt,
   fromX: number,
@@ -72,14 +83,17 @@ export function shoreMove(
   toX: number,
   toZ: number,
   groundAt: (x: number, z: number) => number,
-  sea: number = SEA_LEVEL,
+  sea: number | ((x: number, z: number) => number) = SEA_LEVEL,
   wade: number = WADE_DEPTH,
 ): Pt {
-  const stuck = tooDeep(groundAt(fromX, fromZ), sea, wade);
+  // The surface is one number for the sea, and a function where the realm has water standing
+  // above it in a basin of its own (Longwater, the millstream, the mill pool). Both are the same
+  // rule: what refuses you is the ground being too far under the water that is actually there.
+  const stuck = deepAt(fromX, fromZ, groundAt, sea, wade);
   let x = toX;
-  if (!stuck && tooDeep(groundAt(x, fromZ), sea, wade)) x = fromX;
+  if (!stuck && deepAt(x, fromZ, groundAt, sea, wade)) x = fromX;
   let z = toZ;
-  if (!stuck && tooDeep(groundAt(x, z), sea, wade)) z = fromZ;
+  if (!stuck && deepAt(x, z, groundAt, sea, wade)) z = fromZ;
   out.x = x;
   out.z = z;
   return out;

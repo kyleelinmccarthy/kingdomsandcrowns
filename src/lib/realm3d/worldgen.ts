@@ -363,6 +363,12 @@ export type RealmWorld = {
   /** The surface at a point. About six height queries — do not call it per prop per frame. */
   biomeAt(x: number, z: number): Biome;
   isWater(x: number, z: number): boolean;
+  /**
+   * The height of the water surface that governs this point: `SEA_LEVEL` almost everywhere,
+   * and a pool's own level inside the basin of one of the authored bodies of water that stand
+   * above the sea. Depth anywhere is `waterLevelAt - heightAt`, when that is positive.
+   */
+  waterLevelAt(x: number, z: number): number;
   /** Bulk height sampling into a caller-owned array, for building a terrain mesh. No allocation. */
   sampleHeights(x0: number, z0: number, step: number, nx: number, nz: number, out: Float32Array): Float32Array;
   /** The props in one chunk. Generated on first ask, then cached and shared — never copied. */
@@ -943,6 +949,10 @@ export function createWorld(options: WorldOptions = {}): RealmWorld {
 
   function biomeAt(x: number, z: number): Biome {
     return classify(heightAt(x, z), moistureAt(x, z), slopeAt(x, z));
+  }
+
+  function waterLevelAt(): number {
+    return SEA_LEVEL;
   }
 
   function isWater(x: number, z: number): boolean {
@@ -1583,6 +1593,7 @@ export function createWorld(options: WorldOptions = {}): RealmWorld {
     moistureAt,
     biomeAt,
     isWater,
+    waterLevelAt,
     sampleHeights,
     chunkProps,
     forEachPropNear,
