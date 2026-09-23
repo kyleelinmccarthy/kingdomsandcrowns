@@ -144,7 +144,7 @@ export function SpellbookBuilder({ childId, heroName, book, canEdit }: Props) {
           <PartGrid
             title="Elements"
             kind="Element"
-            tiles={SPELL_ELEMENTS.map((p) => ({ id: p.id, label: p.label, color: p.color, icon: "sparkles" as GameIconName, hint: hintFor(p.unlock, p.id) }))}
+            tiles={SPELL_ELEMENTS.map((p) => ({ id: p.id, label: p.label, color: p.color, icon: p.icon, hint: hintFor(p.unlock, p.id) }))}
             selectedId={draft.elementId}
             canEdit={canEdit}
             onSelect={(id) => updateParts({ elementId: id })}

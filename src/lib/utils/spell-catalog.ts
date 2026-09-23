@@ -23,6 +23,13 @@ export type SpellElement = {
   label: string;
   adjectives: [string, string, string];
   color: string;
+  /**
+   * What the element LOOKS like, and the icon every spell made of it wears on the spell bar.
+   * A spell is read by what it is made of — an Ember Bolt is fire before it is a bolt — so a
+   * page's icon is its element's, and the form's icon is only for the form's own tile in the
+   * Spellbook.
+   */
+  icon: GameIconName;
   particle: string;
   unlock: SpellUnlock;
   onHit?: SpellStatus;
@@ -66,19 +73,19 @@ export const SPELL_CATEGORY: Record<SpellSchool, SpellPartCategory> = {
 // so a brand-new hero can cast on day one.
 
 export const SPELL_ELEMENTS: SpellElement[] = [
-  { id: "ember", label: "Ember", adjectives: ["Ember", "Cinder", "Blaze"], color: "#f97316", particle: "sparks", unlock: { type: "free" } },
-  { id: "tide", label: "Tide", adjectives: ["Tide", "Ripple", "Wave"], color: "#3b82f6", particle: "droplets", unlock: { type: "free" } },
-  { id: "stone", label: "Stone", adjectives: ["Stone", "Pebble", "Boulder"], color: "#a16207", particle: "pebbles", unlock: { type: "school", school: "element", count: 5 } },
-  { id: "gale", label: "Gale", adjectives: ["Gale", "Breeze", "Zephyr"], color: "#22d3ee", particle: "wisps", unlock: { type: "school", school: "element", count: 15 } },
-  { id: "light", label: "Light", adjectives: ["Radiant", "Sunlit", "Gleaming"], color: "#fde68a", particle: "motes", unlock: { type: "level", level: 10 } },
-  { id: "shadow", label: "Shadow", adjectives: ["Umbral", "Dusk", "Shade"], color: "#6d28d9", particle: "smoke", unlock: { type: "school", school: "element", count: 30 } },
-  { id: "frost", label: "Frost", adjectives: ["Frost", "Rime", "Glacial"], color: "#bae6fd", particle: "crystals", unlock: { type: "badge", badgeId: "badge-streak-7", badgeName: "Week Warrior" }, onHit: { kind: "chilled", durationMs: 800 } },
-  { id: "storm", label: "Storm", adjectives: ["Storm", "Thunder", "Tempest"], color: "#818cf8", particle: "bolts", unlock: { type: "quest" } },
-  { id: "bloom", label: "Bloom", adjectives: ["Bloom", "Petal", "Verdant"], color: "#4ade80", particle: "petals", unlock: { type: "quest" } },
+  { id: "ember", label: "Ember", adjectives: ["Ember", "Cinder", "Blaze"], color: "#f97316", icon: "fire", particle: "sparks", unlock: { type: "free" } },
+  { id: "tide", label: "Tide", adjectives: ["Tide", "Ripple", "Wave"], color: "#3b82f6", icon: "droplet", particle: "droplets", unlock: { type: "free" } },
+  { id: "stone", label: "Stone", adjectives: ["Stone", "Pebble", "Boulder"], color: "#a16207", icon: "rock", particle: "pebbles", unlock: { type: "school", school: "element", count: 5 } },
+  { id: "gale", label: "Gale", adjectives: ["Gale", "Breeze", "Zephyr"], color: "#22d3ee", icon: "wind", particle: "wisps", unlock: { type: "school", school: "element", count: 15 } },
+  { id: "light", label: "Light", adjectives: ["Radiant", "Sunlit", "Gleaming"], color: "#fde68a", icon: "sun", particle: "motes", unlock: { type: "level", level: 10 } },
+  { id: "shadow", label: "Shadow", adjectives: ["Umbral", "Dusk", "Shade"], color: "#6d28d9", icon: "moon", particle: "smoke", unlock: { type: "school", school: "element", count: 30 } },
+  { id: "frost", label: "Frost", adjectives: ["Frost", "Rime", "Glacial"], color: "#bae6fd", icon: "snowflake", particle: "crystals", unlock: { type: "badge", badgeId: "badge-streak-7", badgeName: "Week Warrior" }, onHit: { kind: "chilled", durationMs: 800 } },
+  { id: "storm", label: "Storm", adjectives: ["Storm", "Thunder", "Tempest"], color: "#818cf8", icon: "thunderbolt", particle: "bolts", unlock: { type: "quest" } },
+  { id: "bloom", label: "Bloom", adjectives: ["Bloom", "Petal", "Verdant"], color: "#4ade80", icon: "flower", particle: "petals", unlock: { type: "quest" } },
 ];
 
 export const SPELL_FORMS: SpellForm[] = [
-  { id: "bolt", label: "Bolt", nouns: ["Bolt", "Dart", "Lance"], icon: "lightning", shape: "projectile", manaCost: 10, castMs: 300, range: 12, speed: 14, unlock: { type: "free" } },
+  { id: "bolt", label: "Bolt", nouns: ["Bolt", "Dart", "Lance"], icon: "thunderbolt", shape: "projectile", manaCost: 10, castMs: 300, range: 12, speed: 14, unlock: { type: "free" } },
   { id: "orb", label: "Orb", nouns: ["Orb", "Sphere", "Globe"], icon: "gem", shape: "projectile", manaCost: 15, castMs: 500, range: 10, speed: 8, unlock: { type: "free" } },
   { id: "burst", label: "Burst", nouns: ["Burst", "Nova", "Flare"], icon: "sparkles", shape: "area", manaCost: 20, castMs: 600, range: 4, speed: 0, unlock: { type: "school", school: "form", count: 5 } },
   { id: "wall", label: "Wall", nouns: ["Wall", "Rampart", "Bulwark"], icon: "stoneTower", shape: "barrier", manaCost: 25, castMs: 800, range: 6, speed: 0, unlock: { type: "school", school: "form", count: 15 } },

@@ -4,10 +4,10 @@ import { resolvePages, withEmptyPages, FADED_PAGE, EMPTY_PAGE } from "./pages";
 const page = (slot: number, elementId = "ember", formId = "bolt", modifierId: string | null = null) => ({ id: `s${slot}`, slot, elementId, formId, modifierId, adjective: "Ember", noun: "Bolt" });
 
 describe("resolvePages", () => {
-  it("resolves pages in slot order with element colour and form icon, naming unresolvable ones faded", () => {
+  it("resolves pages in slot order with the element colour and the element icon, naming unresolvable ones faded", () => {
     const views = resolvePages([page(3, "tide", "orb"), page(1), page(2, "nope", "bolt")], 4);
     expect(views.map((v) => v.slot)).toEqual([1, 2, 3]);
-    expect(views[0]).toMatchObject({ name: "Ember Bolt", color: "#f97316", icon: "lightning" });
+    expect(views[0]).toMatchObject({ name: "Ember Bolt", color: "#f97316", icon: "fire" });
     expect(views[0].spell?.manaCost).toBe(10);
     expect(views[1]).toMatchObject({ name: FADED_PAGE, spell: null, icon: null });
     expect(views[2].spell?.shape).toBe("projectile");

@@ -1,4 +1,4 @@
-import { findElement, findForm, resolveSpell, type SpellDefinition } from "@/lib/utils/spell-catalog";
+import { findElement, resolveSpell, type SpellDefinition } from "@/lib/utils/spell-catalog";
 import type { SpellPage } from "@/lib/services/spells";
 import type { GameIconName } from "@/components/game-icon";
 
@@ -7,7 +7,12 @@ export const EMPTY_PAGE = "Empty";
 
 export type SpellPageView = { slot: number; name: string; spell: SpellDefinition | null; color: string; icon: GameIconName | null; empty?: boolean };
 
-/** Pages the bar and the scene share: resolved once, sorted by slot, faded when a part is gone from the catalog. */
+/**
+ * Pages the bar and the scene share: resolved once, sorted by slot, faded when a part is gone
+ * from the catalog. A page wears its ELEMENT's icon, so an Ember Bolt shows fire on every bar
+ * that draws it — the flat Realm's, the 3D Realm's — rather than the Bolt form's lightning
+ * arc, which a child read as a trident.
+ */
 export function resolvePages(spells: SpellPage[], slots: number): SpellPageView[] {
   return spells
     .filter((s) => s.slot >= 1 && s.slot <= slots)
@@ -15,7 +20,7 @@ export function resolvePages(spells: SpellPage[], slots: number): SpellPageView[
     .map((s) => {
       const spell = resolveSpell({ elementId: s.elementId, formId: s.formId, modifierId: s.modifierId });
       if (!spell) return { slot: s.slot, name: FADED_PAGE, spell: null, color: "#6b7280", icon: null };
-      return { slot: s.slot, name: `${s.adjective} ${s.noun}`, spell, color: findElement(s.elementId)!.color, icon: findForm(s.formId)!.icon };
+      return { slot: s.slot, name: `${s.adjective} ${s.noun}`, spell, color: findElement(s.elementId)!.color, icon: findElement(s.elementId)!.icon };
     });
 }
 
