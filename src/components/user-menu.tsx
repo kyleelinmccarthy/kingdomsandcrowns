@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ChevronDown, Feather, LogOut, Settings, User } from "lucide-react";
+import { Bell, ChevronDown, Feather, LogOut, Settings, User } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,11 +14,19 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tooltip } from "@/components/ui/tooltip";
 import { SendRavenDialog } from "@/components/send-raven";
+import { AlertsDialog } from "@/components/parent-alert-bell";
+import { useParentAlerts } from "@/components/parent-alerts-context";
 import { signOut } from "@/lib/auth/client";
 
-export function UserMenu({ userName }: { userName: string }) {
+export function UserMenu({ userName, isChildView }: { userName: string; isChildView?: boolean }) {
   const [ravenOpen, setRavenOpen] = useState(false);
+  const [alertsOpen, setAlertsOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  // Heroes never get a provider above them with real data (ParentAlertsProvider
+  // seeds an empty list for them), but read defensively anyway: this medallion
+  // is grown-ups-only.
+  const { alerts } = useParentAlerts();
+  const count = isChildView ? 0 : alerts.length;
 
   async function handleSignOut() {
     if (signingOut) return;
@@ -61,13 +69,27 @@ export function UserMenu({ userName }: { userName: string }) {
     window.location.href = "/login";
   }
 
+  const badgeCount = count > 99 ? "99+" : String(count);
+  const triggerLabel =
+    count > 0
+      ? `Open your account menu — ${count} ${count === 1 ? "alert needs" : "alerts need"} your attention`
+      : "Open your account menu";
+  const tooltip =
+    count > 0
+      ? `Your menu — ${count} unread ${count === 1 ? "alert" : "alerts"}, account settings, send us a raven, and sign out.`
+      : "Your menu — account settings, send us a raven, and sign out.";
+
   return (
     <>
       <DropdownMenu>
-        <Tooltip content="Your menu — account settings, send us a raven, and sign out.">
-          <DropdownMenuTrigger className="user-medallion" aria-label="Open your account menu">
-            <span className="medallion-icon">
+        <Tooltip content={tooltip}>
+          <DropdownMenuTrigger
+            className={count > 0 ? "user-medallion alert-medallion--unread" : "user-medallion"}
+            aria-label={triggerLabel}
+          >
+            <span className="medallion-icon relative">
               <User className="size-4" />
+              {count > 0 && <span className="alert-medallion-badge">{badgeCount}</span>}
             </span>
             <span className="medallion-label">{userName}</span>
             <ChevronDown className="size-3.5 opacity-70" aria-hidden="true" />
@@ -78,6 +100,21 @@ export function UserMenu({ userName }: { userName: string }) {
             <DropdownMenuLabel className="tracking-wide" style={{ fontFamily: "var(--font-farro), sans-serif" }}>{userName}</DropdownMenuLabel>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
+          {!isChildView && (
+            <>
+              <DropdownMenuItem
+                onClick={() => setAlertsOpen(true)}
+                className="flex items-start gap-2"
+              >
+                <Bell className="size-4 mt-0.5 shrink-0" />
+                <span className="flex flex-col">
+                  <span>{count > 0 ? `Alerts (${badgeCount})` : "Alerts"}</span>
+                  <span className="text-xs text-muted-foreground">What your heroes skipped or got stuck on.</span>
+                </span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+            </>
+          )}
           <DropdownMenuItem
             onClick={() => setRavenOpen(true)}
             className="flex items-start gap-2"
@@ -111,6 +148,7 @@ export function UserMenu({ userName }: { userName: string }) {
         </DropdownMenuContent>
       </DropdownMenu>
       <SendRavenDialog open={ravenOpen} onClose={() => setRavenOpen(false)} />
+      {!isChildView && <AlertsDialog open={alertsOpen} onClose={() => setAlertsOpen(false)} />}
     </>
   );
 }

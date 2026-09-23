@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
-import { render, screen, cleanup, within } from "@testing-library/react";
+import { render, screen, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ParentAlert } from "@/lib/actions/parent-alerts";
 
@@ -7,15 +7,11 @@ const dismiss = vi.fn().mockResolvedValue(undefined);
 const dismissAll = vi.fn().mockResolvedValue(undefined);
 let alerts: ParentAlert[] = [];
 
-vi.mock("next/navigation", () => ({
-  usePathname: vi.fn(() => "/tavern"),
-}));
-
 vi.mock("@/components/parent-alerts-context", () => ({
   useParentAlerts: () => ({ alerts, busy: false, dismiss, dismissAll }),
 }));
 
-import { ParentAlertBell } from "./parent-alert-bell";
+import { AlertsDialog } from "./parent-alert-bell";
 
 function alert(overrides: Partial<ParentAlert> = {}): ParentAlert {
   return {
@@ -39,53 +35,35 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-describe("ParentAlertBell", () => {
-  it("is mounted even with nothing waiting, so parents know where alerts live", () => {
-    render(<ParentAlertBell />);
+describe("AlertsDialog", () => {
+  it("says so plainly when there is nothing waiting", () => {
+    render(<AlertsDialog open onClose={() => {}} />);
     expect(screen.getByText("Alerts")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /nothing needs your attention/i })).toBeInTheDocument();
+    expect(screen.getByText(/All clear/)).toBeInTheDocument();
   });
 
-  it("carries no badge when there is nothing waiting", () => {
-    const { container } = render(<ParentAlertBell />);
-    expect(container.querySelector(".alert-medallion-badge")).toBeNull();
-    expect(container.querySelector(".alert-medallion--unread")).toBeNull();
+  it("leaves the native dialog closed until opened", () => {
+    const { container } = render(<AlertsDialog open={false} onClose={() => {}} />);
+    expect(container.querySelector("dialog")).not.toHaveAttribute("open");
   });
 
-  it("shows the unread count and goes loud when alerts are waiting", () => {
-    alerts = [alert({ id: "a1" }), alert({ id: "a2" })];
-    const { container } = render(<ParentAlertBell />);
-    expect(container.querySelector(".alert-medallion-badge")).toHaveTextContent("2");
-    expect(container.querySelector(".alert-medallion--unread")).not.toBeNull();
-  });
-
-  it("caps a runaway count rather than blowing out the medallion", () => {
-    alerts = Array.from({ length: 120 }, (_, i) => alert({ id: `a${i}` }));
-    const { container } = render(<ParentAlertBell />);
-    expect(container.querySelector(".alert-medallion-badge")).toHaveTextContent("99+");
-  });
-
-  it("opens a tray listing what each hero skipped or got stuck on", async () => {
-    const user = userEvent.setup();
+  it("lists what each hero skipped or got stuck on, with the count in the title", () => {
     alerts = [
       alert({ id: "a1", type: "quest_skipped", questTitle: "Long division" }),
       alert({ id: "a2", type: "quest_stuck", childName: "Wren", questTitle: "Spelling" }),
     ];
-    render(<ParentAlertBell />);
+    render(<AlertsDialog open onClose={() => {}} />);
 
-    await user.click(screen.getByRole("button", { name: /alerts need your attention/i }));
-
-    const tray = screen.getByRole("dialog", { name: "Alerts" });
-    expect(within(tray).getByText('Robin skipped "Long division"')).toBeInTheDocument();
-    expect(within(tray).getByText('Wren got stuck on "Spelling"')).toBeInTheDocument();
+    expect(screen.getByText("Alerts (2)")).toBeInTheDocument();
+    expect(screen.getByText('Robin skipped "Long division"')).toBeInTheDocument();
+    expect(screen.getByText('Wren got stuck on "Spelling"')).toBeInTheDocument();
   });
 
-  it("dismisses a single alert from the tray", async () => {
+  it("dismisses a single alert", async () => {
     const user = userEvent.setup();
     alerts = [alert({ id: "a1" })];
-    render(<ParentAlertBell />);
+    render(<AlertsDialog open onClose={() => {}} />);
 
-    await user.click(screen.getByRole("button", { name: /alert needs your attention/i }));
     await user.click(screen.getByRole("button", { name: /^Dismiss: Robin skipped/ }));
 
     expect(dismiss).toHaveBeenCalledWith("a1");
@@ -94,44 +72,39 @@ describe("ParentAlertBell", () => {
   it("dismisses everything at once", async () => {
     const user = userEvent.setup();
     alerts = [alert({ id: "a1" }), alert({ id: "a2" })];
-    render(<ParentAlertBell />);
+    render(<AlertsDialog open onClose={() => {}} />);
 
-    await user.click(screen.getByRole("button", { name: /alerts need your attention/i }));
     await user.click(screen.getByText("Dismiss all"));
 
     expect(dismissAll).toHaveBeenCalled();
   });
 
-  it("keeps the overflow honest when there are more alerts than rows", async () => {
-    const user = userEvent.setup();
+  it("keeps the overflow honest when there are more alerts than rows", () => {
     alerts = Array.from({ length: 9 }, (_, i) => alert({ id: `a${i}` }));
-    render(<ParentAlertBell />);
+    render(<AlertsDialog open onClose={() => {}} />);
 
-    await user.click(screen.getByRole("button", { name: /alerts need your attention/i }));
-
-    const tray = screen.getByRole("dialog", { name: "Alerts" });
-    expect(within(tray).getAllByRole("listitem")).toHaveLength(6);
-    expect(within(tray).getByText("View all 9 in the Tavern →")).toBeInTheDocument();
+    expect(screen.getAllByRole("listitem")).toHaveLength(6);
+    expect(screen.getByText("View all 9 in the Tavern →")).toBeInTheDocument();
   });
 
-  it("says so plainly when the tray is opened with nothing in it", async () => {
+  it("closes when the Tavern link is followed", async () => {
     const user = userEvent.setup();
-    render(<ParentAlertBell />);
-
-    await user.click(screen.getByRole("button", { name: /nothing needs your attention/i }));
-
-    expect(screen.getByText(/All clear/)).toBeInTheDocument();
-  });
-
-  it("closes on Escape", async () => {
-    const user = userEvent.setup();
+    const onClose = vi.fn();
     alerts = [alert({ id: "a1" })];
-    render(<ParentAlertBell />);
+    render(<AlertsDialog open onClose={onClose} />);
 
-    await user.click(screen.getByRole("button", { name: /alert needs your attention/i }));
-    expect(screen.getByRole("dialog", { name: "Alerts" })).toBeInTheDocument();
+    await user.click(screen.getByText("View in the Tavern →"));
 
-    await user.keyboard("{Escape}");
-    expect(screen.queryByRole("dialog", { name: "Alerts" })).not.toBeInTheDocument();
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("closes via the dialog's own close control", async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    render(<AlertsDialog open onClose={onClose} />);
+
+    await user.click(screen.getByRole("button", { name: "Close" }));
+
+    expect(onClose).toHaveBeenCalled();
   });
 });
