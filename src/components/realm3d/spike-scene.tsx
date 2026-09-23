@@ -807,6 +807,8 @@ const ASSIST_RATE = 1.3;
 const CAM_EYE = 1.5;
 /** Never closer than this fraction of the boom, or the camera ends up inside the hero's hood. */
 const CAM_MIN = 0.26;
+/** The nearest a child-steered boom comes, in world units: just over the hero's shoulder. */
+const CLOSEST = 2.6;
 /** How much of a jump the camera follows. 0 and he leaves the frame; 1 and the jump is invisible. */
 const CAM_LIFT = 0.3;
 
@@ -821,14 +823,15 @@ const CAM_LIFT = 0.3;
  *   - the boom SHORTENS to whatever is clear along the line it is actually on, and DUCKS under
  *     a closed canopy. This is always on: it never changes the direction the child chose.
  *   - the boom TURNS round a roof toward the nearest clear yaw (`pickBoom`) — but only as an
- *     assist when the child has left the camera alone for `ASSIST_GRACE`, and never faster
- *     than `ASSIST_RATE`. While they are dragging, and for a moment after, it never turns
- *     itself, so it cannot fight their hand.
+ *     assist while the child is walking and has left the camera alone for `ASSIST_GRACE`, and
+ *     never faster than `ASSIST_RATE`. While they drag, just after, and while they stand still
+ *     looking at what they chose, it never turns itself, so it cannot fight their hand.
  */
 function Rig({
   heroRef,
   yawRef,
   pointer,
+  keys,
   bus,
   close,
   occluders,
@@ -838,6 +841,7 @@ function Rig({
   heroRef: React.RefObject<THREE.Vector3>;
   yawRef: React.RefObject<number>;
   pointer: React.RefObject<Pointer>;
+  keys: React.RefObject<Keys>;
   bus: HudBus;
   close: boolean;
   occluders: Collider[];
@@ -887,7 +891,8 @@ function Rig({
     }
 
     const dragging = ptr.drag !== 0;
-    const assist = swingAllowed(dragging, nowS(), ptr.lastDragAt);
+    const k = keys.current;
+    const assist = swingAllowed(dragging, nowS(), ptr.lastDragAt, k.f || k.b || k.l || k.r);
 
     boomOffset(arm.current, ptr.pitch, ptr.dist);
     const eyeY = p.y + CAM_EYE;
@@ -895,7 +900,14 @@ function Rig({
     // damped over a third of a second is not a thing anyone can see.
     const camH = arm.current.h + (DUCK_H - arm.current.h) * duck.current;
     const camY = arm.current.y + (DUCK_Y - arm.current.y) * duck.current;
-    const minFrac = CAM_MIN + (DUCK_MIN - CAM_MIN) * duck.current;
+    /**
+     * How short the boom may get. While the camera may turn itself it keeps a real distance and
+     * steps round what is in the way; while the child is steering it, it may not turn, so it
+     * comes all the way in to an over-the-shoulder `CLOSEST` instead — in FRONT of the wall or
+     * the beacon they pointed it at, rather than parked behind it.
+     */
+    const assistMin = CAM_MIN + (DUCK_MIN - CAM_MIN) * duck.current;
+    const minFrac = assist ? assistMin : Math.min(assistMin, CLOSEST / Math.hypot(camH, camY));
     const n = gatherNear(near, occluders, p.x, p.z, camH + 3);
     if (assist) {
       pickBoom(boom, p.x, eyeY, p.z, yawRef.current, camH, camY, near, n, 0.44, minFrac);
@@ -1367,7 +1379,7 @@ const World = memo(function World({
       <Motes tex={tex} />
       <SpellFx pool={fxPool} />
       <Interaction spots={spots} heroRef={heroRef} keys={keys} bus={bus} world={world} />
-      <Rig heroRef={heroRef} yawRef={yawRef} pointer={pointer} bus={bus} close={close} occluders={occluders} solids={solids} world={world} />
+      <Rig heroRef={heroRef} yawRef={yawRef} pointer={pointer} keys={keys} bus={bus} close={close} occluders={occluders} solids={solids} world={world} />
       <CameraInput yawRef={yawRef} pointer={pointer} bus={bus} />
       {/*
         LAST in the tree on purpose. R3F runs same-priority frame subscribers in the order they

@@ -82,10 +82,12 @@ describe("the mouse camera", () => {
     expect(terrainClearance(DEFAULT_PITCH)).toBeCloseTo(3.5, 1);
   });
 
-  it("never swings itself while the child is steering, or just after", () => {
-    expect(swingAllowed(true, 100, 0)).toBe(false);
-    expect(swingAllowed(false, 10, 10 - ASSIST_GRACE / 2)).toBe(false);
-    expect(swingAllowed(false, 10, 10 - ASSIST_GRACE - 0.01)).toBe(true);
+  it("never swings itself while the child is steering, or just after, or standing still", () => {
+    expect(swingAllowed(true, 100, 0, true)).toBe(false);
+    expect(swingAllowed(false, 10, 10 - ASSIST_GRACE / 2, true)).toBe(false);
+    expect(swingAllowed(false, 10, 10 - ASSIST_GRACE - 0.01, true)).toBe(true);
+    // A child standing still, looking at the view they chose, keeps it.
+    expect(swingAllowed(false, 100, 0, false)).toBe(false);
   });
 });
 

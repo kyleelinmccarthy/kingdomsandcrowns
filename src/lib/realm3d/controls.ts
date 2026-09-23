@@ -140,16 +140,17 @@ export function terrainClearance(pitch: number): number {
 /**
  * Whether the camera may swing ITSELF round an obstruction this frame.
  *
- * The swinging boom (see `pickBoom`) exists so a hero who walks behind a roof is not lost. But
- * a camera that turns itself while the child is turning it is a camera fighting their hand, and
- * one that turns itself the instant they let go undoes what they just chose. So it only helps
- * when the child has not touched the camera for `ASSIST_GRACE` seconds; while they are steering
- * it, an obstruction pulls the boom IN along the line they chose instead of swinging it.
+ * The swinging boom (see `pickBoom`) exists so a hero who WALKS behind a roof is not lost. But
+ * a camera that turns itself while the child is turning it is a camera fighting their hand, one
+ * that turns itself the instant they let go undoes what they just chose, and one that turns
+ * itself while they stand still admiring the view they set up takes the view away. So it only
+ * helps while the child is walking and has not touched the camera for `ASSIST_GRACE` seconds;
+ * otherwise an obstruction pulls the boom IN along the line they chose instead of swinging it.
  */
 export const ASSIST_GRACE = 1.6;
 
-export function swingAllowed(dragging: boolean, now: number, lastDragAt: number): boolean {
-  return !dragging && now - lastDragAt >= ASSIST_GRACE;
+export function swingAllowed(dragging: boolean, now: number, lastDragAt: number, walking: boolean): boolean {
+  return walking && !dragging && now - lastDragAt >= ASSIST_GRACE;
 }
 
 /* ------------------------------------------------------------------ the walk */
