@@ -119,8 +119,9 @@ export type RealmData = {
   sound?: SoundSettings;
   /**
    * Whether whoever is looking may WRITE this hero's settings. False for a grown-up with view
-   * access only (a teacher): every save would be refused, so the pause menu offers no depth or
-   * tone choice and the Sound sliders change this visit only. Absent counts as true.
+   * access only (a teacher): a save of the hero's settings would be refused, so the pause menu
+   * offers no depth or tone choice. Their own Sound still saves, since a visitor's sound needs
+   * read access only. Absent counts as true.
    */
   viewerCanWrite?: boolean;
 };
@@ -820,7 +821,6 @@ export function RealmGame({
     lessons,
     lessonsTotal: LESSONS.length,
     close,
-    canSave: canWrite,
   });
 
   const room = useMemo(() => (inside ? roomPlan(inside.room) : null), [inside]);
@@ -924,7 +924,7 @@ export function RealmGame({
               leaveHref="/tavern"
               settings={settings}
               selector={selector}
-              sound={<SoundControls store={soundStore} enabled={!realm.isChildView || profile.soundEnabled} calm={calm} viewer={who} heroName={heroName} localOnly={!canWrite} />}
+              sound={<SoundControls store={soundStore} enabled={!realm.isChildView || profile.soundEnabled} calm={calm} viewer={who} heroName={heroName} />}
             />
           )}
           {overlay?.kind === "howto" && (

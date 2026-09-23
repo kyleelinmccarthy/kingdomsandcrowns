@@ -648,17 +648,17 @@ describe("a grown-up who may only look", () => {
     expect(screen.getByRole("group", { name: "Troubles look like" })).toBeInTheDocument();
   });
 
-  it("is offered nothing that would be refused, and the sound is theirs for this visit, unsaved", () => {
+  it("is offered nothing that would be refused, and their own sound still saves (a visitor's sound needs read access only)", () => {
     vi.useFakeTimers();
     try {
       mount({ ...visit, realm: { ...visit.realm, viewerCanWrite: false } });
       esc();
       expect(screen.queryByRole("group", { name: "How much to show" })).toBeNull();
       expect(screen.queryByRole("group", { name: "Troubles look like" })).toBeNull();
-      expect(screen.getByText("Sound (this visit only)")).toBeInTheDocument();
+      expect(screen.getByText("Sound (just for you)")).toBeInTheDocument();
       fireEvent.change(screen.getByRole("slider", { name: "Volume" }), { target: { value: "40" } });
       act(() => void vi.advanceTimersByTime(2000));
-      expect(saveRealmSound).not.toHaveBeenCalled();
+      expect(saveRealmSound).toHaveBeenCalled();
       expect(screen.queryByText("That didn't save. Try again.")).toBeNull();
     } finally {
       vi.useRealTimers();
