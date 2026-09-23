@@ -267,12 +267,13 @@ export function paintNode(bus: HudBus, key: HudNodeKey, transform: string): void
 /**
  * The gold ! — over the villager's head when they are in view, pinned to the edge of the screen
  * and pointing the way when they are not, gone when the child is close. `state` is one of
- * "off", "over", "edge" and "edge-low" (pinned, and pointing down the screen, so its words go
+ * "off"; "near" (over their head, close enough that their own nameplate says who, so the ! goes
+ * alone); "over"; "edge"; and "edge-low" (pinned, and pointing down the screen, so its words go
  * above it rather than under its own arrow). `transform` is the marker's position, `turn` its
  * arrow's rotation, `dist` the words under it; each is written only when it changed, so a child
  * standing still costs four string compares.
  */
-export type GoalState = "off" | "over" | "edge" | "edge-low";
+export type GoalState = "off" | "near" | "over" | "edge" | "edge-low";
 
 export function paintGoal(bus: HudBus, state: GoalState, transform: string, turn: string, dist: string): void {
   const node = bus.goalMark;

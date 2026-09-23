@@ -653,6 +653,7 @@
   will-change: transform;
 }
 .r3-goal[data-state="off"] { display: none; }
+.r3-goal[data-state="near"] .r3-goal-text { display: none; }
 .r3-goal-bang {
   position: relative;
   z-index: 1;
@@ -758,7 +759,9 @@
 
 /* ---- the coach ------------------------------------------------------------- */
 
-.r3-coach-lane {
+/* Top and centre, one above the other: the lesson, then the village's news. Whatever is showing
+   sits at the top, so a toast never covers the middle of the village it is talking about. */
+.r3-top-lane {
   position: absolute;
   top: 1rem;
   left: 50%;
@@ -766,9 +769,20 @@
   width: min(34rem, calc(100vw - 30rem));
   min-width: 20rem;
   display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  pointer-events: none;
+}
+/* The last-minute banner joins the lane rather than sitting on top of the lesson. */
+.r3-top-lane .r3-banner { position: static; transform: none; margin-bottom: 0.6rem; }
+.r3-coach-lane {
+  width: 100%;
+  display: flex;
   justify-content: center;
   pointer-events: none;
 }
+
 .r3-coach {
   position: relative;
   width: 100%;
@@ -830,14 +844,11 @@
 /* ---- the village's answer to a side quest --------------------------------- */
 
 .r3-toast {
-  position: absolute;
-  top: 9.2rem;
-  left: 50%;
-  transform: translateX(-50%);
+  margin-top: 0.6rem;
   display: flex;
   align-items: center;
   gap: 0.8rem;
-  max-width: min(32rem, calc(100vw - 30rem));
+  max-width: 100%;
   padding: 0.6rem 1.3rem 0.65rem 0.7rem;
   border-radius: 20px;
   border: 3px solid #6b4410;
@@ -848,8 +859,8 @@
 }
 .r3-toast--rose { border-color: #ffd875; box-shadow: 0 6px 0 rgba(0, 0, 0, 0.32), 0 0 60px rgba(255, 216, 117, 0.9), inset 0 2px 0 rgba(255, 225, 170, 0.3); }
 @keyframes r3-toast-in {
-  from { opacity: 0; transform: translate(-50%, -16px) scale(0.9); }
-  to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+  from { opacity: 0; transform: translateY(-16px) scale(0.9); }
+  to { opacity: 1; transform: none; }
 }
 .r3-toast-icon {
   flex: none;
@@ -1117,7 +1128,7 @@
 /* The frame is in rem, so it cannot follow a font-size on the root; a child who asked for larger
    text gets every readable board and corner scaled whole instead. Nothing the driver positions
    (plates, the gold !) is scaled: their pixel positions are the world's. */
-.r3-root[data-larger-text="on"] :is(.r3-board, .r3-quest, .r3-village, .r3-corner, .r3-prompt, .r3-coach-lane, .r3-toast, .r3-who) { zoom: 1.2; }
+.r3-root[data-larger-text="on"] :is(.r3-board, .r3-quest, .r3-village, .r3-corner, .r3-prompt, .r3-top-lane, .r3-who, .r3-bottom) { zoom: 1.2; }
 /* The reading font, carried past `.game-shell` as the flat Realm's root carried it. */
 .r3-root[data-reading-font="on"] {
   --font-sans: var(--font-lexend);

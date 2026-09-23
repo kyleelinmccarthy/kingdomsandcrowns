@@ -146,6 +146,7 @@ declare global {
     __realmBus?: unknown;
     /** Development only: how long the last raised side quest took to reach the screen, in ms. */
     __realmRebuild?: { commitMs: number; frameMs: number; at: string }[];
+    __realmRaise?: (buildingId: string, result: { label: string; done: number; total: number; complete: boolean }) => void;
   }
 }
 
@@ -527,10 +528,14 @@ export function RealmGame({
   useEffect(() => {
     if (process.env.NODE_ENV === "production") return;
     window.__realmBus = bus;
+    // And the rise itself, so the cost of a building going up can be measured without playing a
+    // whole side quest per sample. Client state only: nothing is written anywhere.
+    window.__realmRaise = raise;
     return () => {
       if (window.__realmBus === bus) delete window.__realmBus;
+      if (window.__realmRaise === raise) delete window.__realmRaise;
     };
-  }, [bus]);
+  }, [bus, raise]);
 
   /* ---- read-aloud ------------------------------------------------------ */
   // A lesson is read as it arrives; otherwise the objective, once, when the world is first the
@@ -698,19 +703,21 @@ export function RealmGame({
             />
             <VillagePlank heroName={heroName} done={raised} total={kingdom.buildings.length} numerals={numerals} />
             {visiting && <VisitorRibbon heroName={heroName} />}
-            {realm.isChildView && clock.warning && <LastMinute />}
-            {tutorialOn && !paused && (
-              <Coach
-                copy={coachCopy}
-                keys={lesson?.keys ?? []}
-                step={lessonShown + 1}
-                steps={LESSONS.length}
-                done={doneLine}
-                onSkip={skipTutorial}
-                onSkipStep={stuck === lessons ? skipStep : null}
-              />
-            )}
-            {!paused && <DeedToastBanner toast={toast} numerals={numerals} />}
+            <div className="r3-top-lane">
+              {realm.isChildView && clock.warning && <LastMinute />}
+              {tutorialOn && !paused && (
+                <Coach
+                  copy={coachCopy}
+                  keys={lesson?.keys ?? []}
+                  step={lessonShown + 1}
+                  steps={LESSONS.length}
+                  done={doneLine}
+                  onSkip={skipTutorial}
+                  onSkipStep={stuck === lessons ? skipStep : null}
+                />
+              )}
+              {!paused && <DeedToastBanner toast={toast} numerals={numerals} />}
+            </div>
             {!paused && <InteractPrompt target={near} onPress={openTarget} />}
             <ClockCorner
               line={line}

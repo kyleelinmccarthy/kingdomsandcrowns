@@ -50,6 +50,8 @@ const HERO_PLATE_Y = 2.95;
  * sitting on a panel a child needs to read.
  */
 const GOAL_INSET: Inset = { top: 200, right: 84, bottom: 250, left: 84 };
+/** Nearer than this, the villager's own plate names them; the ! over their head goes wordless. */
+const GOAL_NAMED = 24;
 /** A frame that moved the hero further than this was a teleport or a respawn, not a walk. */
 const WALK_JUMP_LIMIT = 3;
 
@@ -239,7 +241,7 @@ export function HudDriver({
       const d = goalMark.dist;
       paintGoal(
         bus,
-        !goalMark.show ? "off" : !goalMark.edge ? "over" : Math.abs(goalMark.angle) > 100 ? "edge-low" : "edge",
+        !goalMark.show ? "off" : !goalMark.edge ? (d < GOAL_NAMED ? "near" : "over") : Math.abs(goalMark.angle) > 100 ? "edge-low" : "edge",
         `translate3d(${goalMark.x.toFixed(0)}px,${goalMark.y.toFixed(0)}px,0) translate(-50%,-50%)`,
         `rotate(${goalMark.angle.toFixed(0)}deg)`,
         d > 20 ? `${Math.round(d / 5) * 5} m` : `${d} m`,

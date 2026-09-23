@@ -398,6 +398,29 @@ describe("the tutorial", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
+  it("offers Skip this step after a long while on one lesson, so a child is never stuck", () => {
+    vi.useFakeTimers();
+    try {
+      mount({ realm: { ...fresh, tutorialStep: LEGACY_STEPS + 3 } });
+      expect(screen.getByText("Find Old Bram.")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Skip this step" })).toBeNull();
+      act(() => void vi.advanceTimersByTime(45_000));
+      fireEvent.click(screen.getByRole("button", { name: "Skip this step" }));
+      expect(screen.getByText("Talk to Old Bram.")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Skip this step" })).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("can be shown again from How to play", () => {
+    mount({ realm: { ...realm, tutorialStep: STORED_MAX, helpSeen: true } });
+    fireEvent.click(screen.getByRole("button", { name: "How to play" }));
+    fireEvent.click(screen.getByRole("button", { name: "Show me the tutorial again" }));
+    expect(setTutorialStep).toHaveBeenLastCalledWith("demo-child-1", 0);
+    expect(screen.getByText("Walk around.")).toBeInTheDocument();
+  });
+
   it("counts a flat-Realm graduate as new to the 3D controls", () => {
     mount({ realm: { ...realm, tutorialStep: LEGACY_STEPS, helpSeen: true } });
     expect(screen.getByText("Walk around.")).toBeInTheDocument();

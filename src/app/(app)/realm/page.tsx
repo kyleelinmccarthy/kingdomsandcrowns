@@ -67,6 +67,12 @@ export default async function RealmPage({ searchParams }: { searchParams: Promis
   }
 
   const bundle = await getRealmBundle(activeChild.id);
+  // Development only, and only for screenshots: `?ceremony=crown-silver` holds a ceremony for a
+  // season that does not exist (hailing it is refused by the server and writes nothing), and
+  // `?text=large` shows the child's larger-text view without editing their profile.
+  const dev = process.env.NODE_ENV !== "production";
+  const devCeremony = dev && isChildView ? one(q, "ceremony") : undefined;
+  const profile = dev && one(q, "text") === "large" ? { ...bundle.profile, largerText: true } : bundle.profile;
   // The castle's own rule, as the Castle page applies it: built, or the level to build it.
   const castle = await getCastle(activeChild.id).catch(() => null);
   const unlocked = castleUnlocked(levelFromXp(activeChild.currentXp), castle !== null);
@@ -81,7 +87,7 @@ export default async function RealmPage({ searchParams }: { searchParams: Promis
         ...(bundle.kingdomError ? { kingdomError: bundle.kingdomError } : {}),
         castleType: bundle.castleType,
         banners: bundle.banners,
-        profile: bundle.profile,
+        profile,
         depth: bundle.depth,
         toneMode: bundle.settings.toneMode,
         // The tutorial, the first-visit welcome and a waiting crown are the child's own; the
@@ -90,7 +96,9 @@ export default async function RealmPage({ searchParams }: { searchParams: Promis
         helpSeen: bundle.helpSeen,
         ceremony: bundle.ceremony
           ? { seasonId: bundle.ceremony.seasonId, crownId: bundle.ceremony.crownId, ordinal: bundle.ceremony.ordinal, seasonLabel: bundle.ceremony.seasonLabel }
-          : null,
+          : devCeremony
+            ? { seasonId: "screenshot", crownId: devCeremony, ordinal: 1, seasonLabel: "A screenshot's season" }
+            : null,
       }}
       // `?name=` and the avatar fields restyle a screenshot; see lib/realm3d/overrides.ts.
       heroName={one(q, "name") ?? bundle.heroName}
