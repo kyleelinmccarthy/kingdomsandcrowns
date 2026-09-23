@@ -27,7 +27,7 @@ export type HudSlotNodes = {
 /** The single nodes the driver writes, by name. */
 export type HudNodeKey = "manaFill" | "manaText" | "mapWorld" | "mapYou" | "mapCone" | "mapHome" | "mapGoal" | "goalMark" | "goalArrow" | "goalDist";
 
-export type HudHandlers = Pick<HudBus, "onPlace" | "onFound" | "onRefuse" | "onNear" | "onInteract" | "onCast" | "onWalked">;
+export type HudHandlers = Pick<HudBus, "onPlace" | "onFound" | "onRefuse" | "onNear" | "onInteract" | "onCast" | "onWalked" | "onDoor">;
 
 /**
  * Where the next objective stands — the villager the objective card names — for the driver to
@@ -44,10 +44,16 @@ export type HudGoal = { on: boolean; x: number; y: number; z: number };
  * a villager id, a building slot id, a landmark id — so neither side has to translate.
  */
 export type InteractTarget = {
-  kind: "villager" | "site" | "castle" | "landmark";
+  /**
+   * Indoors adds two: the room's `door` (E there goes back outside) and its `fixture`, the one
+   * thing in the room to use — the bell, the great book, the throne (`lib/realm3d/interiors.ts`).
+   */
+  kind: "villager" | "site" | "castle" | "landmark" | "door" | "fixture";
   id: string;
   /** What the prompt calls it: "Old Bram", "the Chapel", "Cloudfoot". */
   label: string;
+  /** The prompt's verb when it is not "Talk to" or "Look at": "Go into", "Ring", "Read". */
+  verb?: string;
 };
 
 export type HudBus = {
@@ -86,6 +92,17 @@ export type HudBus = {
    * with the running total. A few times a second at a run, never once a frame.
    */
   onWalked: (distance: number) => void;
+  /**
+   * Fired when the child walks into the doorway of a building that has an inside, with the door's
+   * site id (a building slot id, or "castle"). Edge-triggered: once per push, not once a frame.
+   */
+  onDoor: (site: string) => void;
+  /**
+   * The door the child is coming back out of, written by the frame as they leave a room and
+   * eaten by the scene's doorstep on its next frame, which puts them outside it facing away.
+   * Null the rest of the time.
+   */
+  leaving: string | null;
 
   /**
    * True while a menu, dialogue, tutorial card or the pause screen owns the child's attention.
@@ -109,6 +126,7 @@ export type HudBus = {
   setHandlers(handlers: Partial<HudHandlers>): void;
   setPaused(paused: boolean): void;
   setGoal(on: boolean, x: number, y: number, z: number): void;
+  setLeaving(site: string | null): void;
 
   /** @internal — the write cache the `paint*` functions below keep. */
   last: HudLast;
@@ -150,6 +168,8 @@ export function makeHudBus(slots: number, plates: number): HudBus {
     onInteract: noop,
     onCast: noop,
     onWalked: noop,
+    onDoor: noop,
+    leaving: null,
     paused: false,
     setNode(key, el) {
       // One assignment, one narrow cast. Every key above is either an HTMLElement slot or an
@@ -178,9 +198,13 @@ export function makeHudBus(slots: number, plates: number): HudBus {
       if (handlers.onInteract) bus.onInteract = handlers.onInteract;
       if (handlers.onCast) bus.onCast = handlers.onCast;
       if (handlers.onWalked) bus.onWalked = handlers.onWalked;
+      if (handlers.onDoor) bus.onDoor = handlers.onDoor;
     },
     setPaused(paused) {
       bus.paused = paused;
+    },
+    setLeaving(site) {
+      bus.leaving = site;
     },
     setGoal(on, x, y, z) {
       // Mutated in place: the driver holds no copy, so the next frame simply reads the new one.

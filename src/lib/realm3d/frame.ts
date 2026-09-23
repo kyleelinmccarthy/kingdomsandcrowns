@@ -140,6 +140,7 @@ export function escapeFrom(overlay: Overlay | null): Overlay | null {
  * the scene's, already phrased for a sentence ("Old Bram", "the Chapel", "Cloudfoot").
  */
 export function interactVerb(target: InteractTarget): string {
+  if (target.verb) return `${target.verb} ${target.label}`;
   return target.kind === "villager" ? `Talk to ${target.label}` : `Look at ${target.label}`;
 }
 

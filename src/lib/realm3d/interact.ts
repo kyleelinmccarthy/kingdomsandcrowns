@@ -11,6 +11,7 @@
  */
 
 import type { InteractTarget } from "./hud-bus";
+import { ENTER_VERB, hasRoom } from "./doorways";
 
 /** One thing in the world with a reach round it. */
 export type InteractSpot = {
@@ -90,7 +91,7 @@ export type SpotInput = {
   /** A landmark's own footprint radius (what is built there), by id. */
   landmarkRadius?: (id: string) => number;
   /** The castle's gate, or the castle grounds' — null leaves the castle out entirely. */
-  castle: { x: number; z: number; hw: number; hd: number; label: string } | null;
+  castle: { x: number; z: number; hw: number; hd: number; label: string; verb?: string } | null;
 };
 
 /** "the Chapel", "the Village Well". */
@@ -118,7 +119,8 @@ export function buildSpots(input: SpotInput): InteractSpot[] {
       const hw = (p.size.w * input.sitePlan * 1.06) / 2;
       const hd = (p.size.d * input.sitePlan * 1.06) / 2;
       out.push({
-        target: { kind: "site", id: p.id, label: siteLabel(p.label) },
+        // A raised building with an inside says so: "Go into the Chapel", not "Look at".
+        target: { kind: "site", id: p.id, label: siteLabel(p.label), ...(p.kind === "building" && hasRoom(p.id) ? { verb: ENTER_VERB } : {}) },
         x: p.position.x,
         z: p.position.z,
         hw,
@@ -133,7 +135,7 @@ export function buildSpots(input: SpotInput): InteractSpot[] {
   if (input.castle) {
     const c = input.castle;
     out.push({
-      target: { kind: "castle", id: "castle", label: c.label },
+      target: { kind: "castle", id: "castle", label: c.label, ...(c.verb ? { verb: c.verb } : {}) },
       x: c.x,
       z: c.z,
       hw: c.hw,
