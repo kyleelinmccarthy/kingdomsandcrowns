@@ -37,6 +37,7 @@ vi.mock("@/lib/actions/realm-settings", () => ({
   setTutorialStep: vi.fn(async () => {}),
   markRealmHelpSeen: vi.fn(async () => {}),
 }));
+vi.mock("@/lib/actions/realm-sound", () => ({ saveRealmSound: vi.fn(async () => {}) }));
 vi.mock("@/lib/actions/deeds", () => ({ startDeedRun: vi.fn(), answerDeedQuestion: vi.fn(), completeDeedRun: vi.fn() }));
 vi.mock("@/lib/actions/seasons", () => ({ markCeremonySeen: vi.fn(async () => {}) }));
 vi.mock("@/lib/actions/spells", () => ({ getSpellbook: vi.fn(async () => ({ spells: [], slots: 4, level: 3, unlocked: ["ember", "tide", "bolt", "orb"], schoolCounts: { element: 2, form: 0, modifier: 0 }, subjectNamesBySchool: { element: ["Math"], form: [], modifier: [] } })) }));
@@ -63,6 +64,7 @@ import { answerDeedQuestion, completeDeedRun, startDeedRun } from "@/lib/actions
 import { getRealmKingdom } from "@/lib/actions/realm";
 import { markRealmHelpSeen, setTutorialStep } from "@/lib/actions/realm-settings";
 import { markCeremonySeen } from "@/lib/actions/seasons";
+import { saveRealmSound } from "@/lib/actions/realm-sound";
 import { getTroubleBounty, recordTroubleClears } from "@/lib/actions/realm-play";
 import { LEGACY_STEPS, LESSONS, STORED_MAX } from "@/lib/realm3d/tutorial";
 import { findBuilding } from "@/lib/utils/kingdom";
@@ -633,5 +635,33 @@ describe("where the keyboard lands when a panel opens", () => {
     mount({ realm: { ...realm, helpSeen: false, tutorialStep: 0 } });
     expect(screen.getByRole("dialog", { name: "Welcome to your Realm" })).toBeInTheDocument();
     expect(document.activeElement).toBe(screen.getByRole("button", { name: /Show me how to play/ }));
+  });
+});
+
+describe("a grown-up who may only look", () => {
+  const visit = { viewer: "parent" as const, realm: { ...realm, isChildView: false } };
+
+  it("gets the depth and tone choices when they may write", () => {
+    mount(visit);
+    esc();
+    expect(screen.getByRole("group", { name: "How much to show" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Troubles look like" })).toBeInTheDocument();
+  });
+
+  it("is offered nothing that would be refused, and the sound is theirs for this visit, unsaved", () => {
+    vi.useFakeTimers();
+    try {
+      mount({ ...visit, realm: { ...visit.realm, viewerCanWrite: false } });
+      esc();
+      expect(screen.queryByRole("group", { name: "How much to show" })).toBeNull();
+      expect(screen.queryByRole("group", { name: "Troubles look like" })).toBeNull();
+      expect(screen.getByText("Sound (this visit only)")).toBeInTheDocument();
+      fireEvent.change(screen.getByRole("slider", { name: "Volume" }), { target: { value: "40" } });
+      act(() => void vi.advanceTimersByTime(2000));
+      expect(saveRealmSound).not.toHaveBeenCalled();
+      expect(screen.queryByText("That didn't save. Try again.")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

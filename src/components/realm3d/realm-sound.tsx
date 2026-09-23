@@ -121,6 +121,8 @@ export type RealmSoundOptions = {
   lessonsTotal: number;
   /** The clock closed the world: everything stops. */
   close: boolean;
+  /** False for a grown-up with view access only: the settings change this visit and are never saved (the save would be refused). Absent counts as true. */
+  canSave?: boolean;
 };
 
 /**
@@ -143,7 +145,9 @@ export function useRealmSound(o: RealmSoundOptions): SoundStore {
     live.current = { pages: o.pages, room: o.room, enabled: o.enabled, calm: o.calm, paused: o.overlay !== null };
   }, [o.pages, o.room, o.enabled, o.calm, o.overlay]);
 
-  const { bus, tbus, world, layout, childId } = o;
+  const { bus, tbus, world, layout } = o;
+  // Nobody to save for, or nobody allowed to: the sliders still work, for this visit.
+  const childId = o.canSave === false ? null : o.childId;
   /** Back to the country outside, on the way out of a room; set by the effect below. */
   const roomExit = useRef<() => void>(() => {});
 
@@ -387,7 +391,22 @@ function Slider({ label, value, disabled, onChange }: { label: string; value: nu
  * visiting grown-up's settings are their own. When a grown-up has switched sound off in the
  * child's learning profile, it says so instead of offering controls that would do nothing.
  */
-export function SoundControls({ store, enabled, calm, viewer, heroName }: { store: SoundStore; enabled: boolean; calm: boolean; viewer: "child" | "parent"; heroName: string }) {
+export function SoundControls({
+  store,
+  enabled,
+  calm,
+  viewer,
+  heroName,
+  localOnly = false,
+}: {
+  store: SoundStore;
+  enabled: boolean;
+  calm: boolean;
+  viewer: "child" | "parent";
+  heroName: string;
+  /** The settings are not saved (view-only access): say so, rather than fail to save. */
+  localOnly?: boolean;
+}) {
   const { settings, error } = useSound(store);
   if (!enabled) {
     return (
@@ -400,7 +419,7 @@ export function SoundControls({ store, enabled, calm, viewer, heroName }: { stor
   const off = settings.muted;
   return (
     <div className="r3-settings r3-sound">
-      <p className="r3-settings-title">Sound{viewer === "parent" ? " (just for you)" : ""}</p>
+      <p className="r3-settings-title">Sound{localOnly ? " (this visit only)" : viewer === "parent" ? " (just for you)" : ""}</p>
       <div className="r3-setting">
         <span className="r3-setting-name">Sound</span>
         <span className="r3-toggle" role="group" aria-label="Sound">
