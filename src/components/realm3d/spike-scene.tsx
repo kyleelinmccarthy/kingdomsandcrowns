@@ -20,6 +20,11 @@
  *   - `hud.tsx`           the map, the spell bar, the mana bar, the child's name, the plates
  *   - `hud-driver.tsx`    the one per-frame thing that joins the camera to that DOM
  *   - `spell-fx.tsx`      what a cast looks like, over `lib/realm3d/spell-fx.ts`
+ *   - `interaction.tsx`   what E will act on, and its ring on the ground (`lib/realm3d/interact.ts`)
+ *   - `construction-site.tsx` a site going up, stage by stage (`lib/realm3d/site-stages.ts`)
+ *   - `castle.tsx`        the castle, or its pegged-out grounds (`lib/realm3d/castle-plan.ts`)
+ *   - `wizard-figure.tsx` who a visiting parent walks as
+ *   - `lib/realm3d/controls.ts` the mouse camera and the walk's facing rule
  *
  * ## The join
  *

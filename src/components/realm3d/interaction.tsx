@@ -20,9 +20,9 @@ import type { HudBus } from "@/lib/realm3d/hud-bus";
 import { pickSpot, type InteractSpot } from "@/lib/realm3d/interact";
 import type { RealmWorld } from "@/lib/realm3d/worldgen";
 
-const SEGMENTS = 56;
+const SEGMENTS = 72;
 /** Half the ring's width, in world units. Thin: a hint, not a target reticle. */
-const BAND = 0.12;
+const BAND = 0.14;
 
 export function Interaction({
   spots,
@@ -119,14 +119,21 @@ function pulse(mat: THREE.Material, opacity: number): void {
 function layRing(geo: THREE.BufferGeometry, s: InteractSpot, world: RealmWorld): void {
   const attr = geo.getAttribute("position") as THREE.BufferAttribute;
   const pos = attr.array as Float32Array;
+  // Round things get a circle; a building gets a rounded rectangle hugging its plinth, as a
+  // superellipse, so the line follows the walls instead of cutting across the corners.
+  const ax = s.round ? s.ring : s.hw + 0.55;
+  const az = s.round ? s.ring : s.hd + 0.55;
+  const pow = s.round ? 1 : 0.25;
   for (let i = 0; i <= SEGMENTS; i++) {
     const a = (i / SEGMENTS) * Math.PI * 2;
-    const c = Math.cos(a);
-    const n = Math.sin(a);
+    const ca = Math.cos(a);
+    const sa = Math.sin(a);
+    const c = Math.sign(ca) * Math.abs(ca) ** pow;
+    const n = Math.sign(sa) * Math.abs(sa) ** pow;
     for (let j = 0; j < 2; j++) {
-      const r = s.ring + (j === 0 ? -BAND : BAND);
-      const x = s.x + c * r;
-      const z = s.z + n * r;
+      const d = j === 0 ? -BAND : BAND;
+      const x = s.x + c * (ax + d);
+      const z = s.z + n * (az + d);
       const o = (i * 2 + j) * 3;
       pos[o] = x;
       pos[o + 1] = world.heightAt(x, z) + 0.16;

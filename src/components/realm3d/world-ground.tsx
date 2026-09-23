@@ -356,6 +356,34 @@ function buildWaterGeometry(world: RealmWorld): THREE.BufferGeometry {
       depthGrid[j * (n + 1) + k] = SEA_LEVEL - world.heightAt(x, z);
     }
   }
+  /**
+   * Which of that water is the SEA: flood in from the rim over every wet vertex. Anything the
+   * flood does not reach is a pond or a tarn with no way out, and a still pond has no surf — drawn
+   * with the sea's white wash at its edge, a shallow inland pool was one pale sheet.
+   */
+  const W = n + 1;
+  const sea = new Uint8Array(W * W);
+  {
+    const stack: number[] = [];
+    for (let i = 0; i < W; i++) for (const v of [i, (W - 1) * W + i, i * W, i * W + W - 1]) if (depthGrid[v] > 0 && !sea[v]) {
+      sea[v] = 1;
+      stack.push(v);
+    }
+    while (stack.length) {
+      const v = stack.pop() as number;
+      const vx = v % W;
+      const vz = (v - vx) / W;
+      for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const x = vx + dx;
+        const z = vz + dz;
+        if (x < 0 || z < 0 || x >= W || z >= W) continue;
+        const u = z * W + x;
+        if (sea[u] || depthGrid[u] <= 0) continue;
+        sea[u] = 1;
+        stack.push(u);
+      }
+    }
+  }
   for (let j = 0; j < n; j++) {
     for (let k = 0; k < n; k++) {
       const d00 = depthGrid[j * (n + 1) + k];
@@ -373,7 +401,7 @@ function buildWaterGeometry(world: RealmWorld): THREE.BufferGeometry {
         Math.max(0, d10),
         Math.max(0, d01),
         Math.max(0, d11),
-      ]);
+      ], sea[j * W + k] | sea[j * W + k + 1] | sea[(j + 1) * W + k] | sea[(j + 1) * W + k + 1] ? 1 : 0.25);
     }
   }
 
