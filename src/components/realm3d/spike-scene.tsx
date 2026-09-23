@@ -53,7 +53,7 @@ import { shoreMove, wadeSpeed } from "@/lib/realm3d/shore";
 import { CAMERA_CUT, gableGeo, litMaterial, nearCutout, sceneryGeometryFor, vivid } from "./geo-kit";
 import { RealmGround, RealmWater, WadeRing } from "./world-ground";
 import { RealmProps } from "./world-props";
-import { landmarkColliders, RealmLandmarks } from "./landmarks";
+import { landmarkColliders, landmarkRadii, RealmLandmarks } from "./landmarks";
 import {
   buildColliders,
   clearFraction,
@@ -90,8 +90,11 @@ import {
 import { buildSpots } from "@/lib/realm3d/interact";
 import { Interaction } from "./interaction";
 import { ConstructionSite } from "./construction-site";
+import { Castle, CastleGrounds } from "./castle";
+import { castlePlan } from "@/lib/realm3d/castle-plan";
 import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
 import { Companion, HeroFigure, type Gait } from "./hero-figure";
+import { WizardFigure } from "./wizard-figure";
 import type { SpellPageView } from "@/lib/realm/spells/pages";
 import { digitSlot, pushCast, type Caster, type CastQueue } from "@/lib/realm3d/casting";
 import type { HudBus } from "@/lib/realm3d/hud-bus";
@@ -432,63 +435,6 @@ function Garden({ prop }: { prop: Prop }) {
   );
 }
 
-function Castle({ prop }: { prop: Prop }) {
-  const { w, d, h } = prop.size;
-  const towers = useMemo(() => [
-    [-w / 2 - 0.5, -d / 2 - 0.4],
-    [w / 2 + 0.5, -d / 2 - 0.4],
-    [-w / 2 - 0.5, d / 2 + 0.4],
-    [w / 2 + 0.5, d / 2 + 0.4],
-  ] as [number, number][], [w, d]);
-  const merlons = useMemo(() => {
-    const out: [number, number][] = [];
-    const n = Math.max(2, Math.round(w / 1.1));
-    for (let i = 0; i <= n; i++) {
-      const x = -w / 2 + (i * w) / n;
-      out.push([x, -d / 2], [x, d / 2]);
-    }
-    return out;
-  }, [w, d]);
-  return (
-    <group position={[prop.position.x, groundY(prop), prop.position.z]}>
-      <Plinth w={w * 1.1} d={d * 1.1} h={2.4} />
-      <mesh castShadow receiveShadow position={[0, h / 2, 0]}>
-        <boxGeometry args={[w, h, d]} />
-        <meshStandardMaterial color="#c6bb9f" flatShading />
-      </mesh>
-      {merlons.map(([x, z], i) => (
-        <mesh key={i} castShadow position={[x, h + 0.35, z]}>
-          <boxGeometry args={[0.55, 0.7, 0.5]} />
-          <meshStandardMaterial color="#ece2c8" flatShading />
-        </mesh>
-      ))}
-      {towers.map(([x, z], i) => (
-        <group key={i} position={[x, 0, z]}>
-          <mesh castShadow receiveShadow position={[0, h * 0.72, 0]}>
-            <cylinderGeometry args={[w * 0.15, w * 0.17, h * 1.44, 8]} />
-            <meshStandardMaterial color="#ece2c8" flatShading />
-          </mesh>
-          <mesh castShadow position={[0, h * 1.44 + h * 0.3, 0]}>
-            <coneGeometry args={[w * 0.23, h * 0.6, 8]} />
-            <meshStandardMaterial color="#a3344f" flatShading />
-          </mesh>
-        </group>
-      ))}
-      {/* gatehouse, facing the road in */}
-      <group position={[0, 0, d / 2 + 0.6]}>
-        <mesh castShadow receiveShadow position={[0, h * 0.42, 0]}>
-          <boxGeometry args={[w * 0.4, h * 0.84, 1.4]} />
-          <meshStandardMaterial color="#ece2c8" flatShading />
-        </mesh>
-        <mesh position={[0, h * 0.3, 0.72]}>
-          <boxGeometry args={[w * 0.2, h * 0.55, 0.1]} />
-          <meshStandardMaterial color="#4a2f1c" flatShading />
-        </mesh>
-      </group>
-    </group>
-  );
-}
-
 const VILLAGER_TUNIC: Record<string, string> = { objective: "#e8b33a", work: "#4f86c6", built: "#57ab3a" };
 
 function Villager({ prop, status }: { prop: Prop; status: string }) {
@@ -563,7 +509,17 @@ function replot(p: Prop): Prop {
   return { ...p, size: { ...p.size, w: p.size.w * SITE_PLAN, d: p.size.d * SITE_PLAN } };
 }
 
-function Village({ props: raw, villagers }: { props: Prop[]; villagers: VillagerPlacement[] }) {
+function Village({
+  props: raw,
+  villagers,
+  castleType,
+  castleUnlocked,
+}: {
+  props: Prop[];
+  villagers: VillagerPlacement[];
+  castleType: string;
+  castleUnlocked: boolean;
+}) {
   const props = useMemo(() => raw.map(replot), [raw]);
   const road = useMemo(() => props.filter((p) => p.kind === "path"), [props]);
   const status = useMemo(() => new Map(villagers.map((v) => [`villager-${v.id}`, v.status as string])), [villagers]);
@@ -580,12 +536,22 @@ function Village({ props: raw, villagers }: { props: Prop[]; villagers: Villager
     }
     return m;
   }, [villagers]);
+  // With a castle standing, the seasons' banners hang from its curtain; without one, they fly
+  // on their own poles round the grounds, where the layout puts them.
+  const bannerColors = useMemo(() => props.filter((p) => p.kind === "banner").map((p) => p.color), [props]);
   return (
     <>
       <Road tiles={road} />
       {props.map((p) => {
-        if (p.kind === "castle") return <Castle key={p.id} prop={p} />;
-        if (p.kind === "banner") return <Banner key={p.id} prop={p} />;
+        if (p.kind === "castle") {
+          const at = { x: p.position.x, y: groundY(p), z: p.position.z };
+          return castleUnlocked ? (
+            <Castle key={p.id} tier={castleType} {...at} banners={bannerColors} />
+          ) : (
+            <CastleGrounds key={p.id} tier={castleType} {...at} />
+          );
+        }
+        if (p.kind === "banner") return castleUnlocked ? null : <Banner key={p.id} prop={p} />;
         if (p.kind === "villager") return <Villager key={p.id} prop={p} status={status.get(p.id) ?? "work"} />;
         if (p.kind === "foundation") {
           const v = progress.get(p.id);
@@ -655,8 +621,9 @@ function nowS(): number {
 /**
  * The hero is the CHILD. Every child in this app built an avatar and that avatar is theirs; a
  * generic wizard walking their village is the one thing that would tell an eight-year-old this
- * screen is not about them. (A PARENT dropping in is the exception, and walks as the wizard —
- * see `WizardFigure`.) The figure is `hero-figure.tsx`; this is only the mover.
+ * screen is not about them. (A PARENT dropping in is the exception, and walks as the realm's
+ * quest-giver wizard — `wizard-figure.tsx`.) The figure is a child of this group; this is only
+ * the mover.
  *
  * Which way the body faces is `moveIntent`'s rule in `lib/realm3d/controls.ts`, and every turn
  * goes the short way round through `turnToward`. See that file for why strafing used to flip.
@@ -1201,6 +1168,8 @@ const World = memo(function World({
   caster,
   fxPool,
   casts,
+  viewer,
+  castleUnlocked,
 }: {
   avatar: AvatarConfig;
   close: boolean;
@@ -1212,6 +1181,8 @@ const World = memo(function World({
   caster: Caster;
   fxPool: FxSlot[];
   casts: CastQueue;
+  viewer: "child" | "parent";
+  castleUnlocked: boolean;
 }) {
   const look = useMemo(() => heroLook(avatar), [avatar]);
 
@@ -1231,24 +1202,41 @@ const World = memo(function World({
    * in a real hollow, the rows of bushes and stones that ran along its old edge would stand up
    * through the surface. Boats stay: they float.
    */
-  const scenery = useMemo(
-    () =>
-      layout.scenery.filter((p) => {
-        if (p.variant === "boat") return true;
-        const x = p.position.x;
-        const z = p.position.z;
-        return world.waterLevelAt(x, z) - world.heightAt(x, z) < 0.12;
-      }),
-    [layout, world],
-  );
+  const castle = useMemo(() => {
+    const prop = layout.props.find((p) => p.kind === "castle");
+    return prop ? { prop, plan: castlePlan(layout.castleType), ground: heightAt(prop.position.x, prop.position.z) } : null;
+  }, [layout]);
+  const scenery = useMemo(() => {
+    // The castle's whole footprint is kept clear, standing or not: its grounds are pegged out.
+    const b = castle?.plan.bounds;
+    const cx = castle?.prop.position.x ?? 0;
+    const cz = castle?.prop.position.z ?? 0;
+    return layout.scenery.filter((p) => {
+      const x = p.position.x;
+      const z = p.position.z;
+      if (b && x > cx + b.x0 - 0.5 && x < cx + b.x1 + 0.5 && z > cz + b.z0 - 0.5 && z < cz + b.z1 + 0.5) return false;
+      if (p.variant === "boat") return true;
+      return world.waterLevelAt(x, z) - world.heightAt(x, z) < 0.12;
+    });
+  }, [layout, world, castle]);
 
   const { solids, occluders, fixedSolids, fixedOccluders } = useMemo(() => {
-    const built = buildColliders(layout.props, scenery, { sitePlan: SITE_PLAN, wallH: WALL_H, roofH: ROOF_H, treeScale: TREE_SCALE, patchHalf: CORE_HALF });
+    // The castle's colliders come from its own plan, and only when it is standing: an unlocked
+    // castle is walls to walk round and a roofline to steer the camera round; locked, its
+    // grounds are open ground.
+    const built = buildColliders(layout.props.filter((p) => p.kind !== "castle"), scenery, { sitePlan: SITE_PLAN, wallH: WALL_H, roofH: ROOF_H, treeScale: TREE_SCALE, patchHalf: CORE_HALF });
+    if (castle && castleUnlocked) {
+      const { prop, plan, ground } = castle;
+      const put = (list: Collider[], b: (typeof plan.solids)[number]) =>
+        list.push({ x: prop.position.x + b.x, z: prop.position.z + b.z, hw: b.hw, hd: b.hd, round: b.round, base: ground + b.base, top: ground + b.top });
+      for (const b of plan.solids) put(built.solids, b);
+      for (const b of plan.occluders) put(built.occluders, b);
+    }
     const marks = landmarkColliders(world);
     built.solids.push(...marks.solids);
     built.occluders.push(...marks.occluders);
     return { ...built, fixedSolids: built.solids.length, fixedOccluders: built.occluders.length };
-  }, [layout, scenery, world]);
+  }, [layout, scenery, world, castle, castleUnlocked]);
 
   /**
    * Where the child starts.
@@ -1279,16 +1267,18 @@ const World = memo(function World({
   }, [solids, world]);
   /** Everything E can act on. Built once; each spot carries its own prebuilt target. */
   const spots = useMemo(() => {
-    const castle = layout.props.find((p) => p.kind === "castle");
-    return buildSpots({
-      props: layout.props,
-      sitePlan: SITE_PLAN,
-      landmarks: world.landmarks,
-      castle: castle
-        ? { x: castle.position.x, z: castle.position.z + castle.size.d / 2 + 0.6, hw: castle.size.w * 0.2, hd: 0.7, label: "your castle" }
-        : null,
-    });
-  }, [layout, world]);
+    const gate = castle
+      ? {
+          x: castle.prop.position.x + castle.plan.gate.x,
+          z: castle.prop.position.z + castle.plan.gate.z,
+          hw: castle.plan.gate.hw,
+          hd: castle.plan.gate.hd,
+          // Locked, E at the end of the road still means something: the grounds it will stand on.
+          label: castleUnlocked ? "your castle" : "the castle grounds",
+        }
+      : null;
+    return buildSpots({ props: layout.props, sitePlan: SITE_PLAN, landmarks: world.landmarks, landmarkRadius: landmarkRadii(world), castle: gate });
+  }, [layout, world, castle, castleUnlocked]);
   const heroRef = useRef(spawn);
   const yawRef = useRef(0);
   const facingRef = useRef(0);
@@ -1365,11 +1355,13 @@ const World = memo(function World({
       />
       <RealmLandmarks world={world} />
       <Scenery scenery={scenery} world={world} />
-      <Village props={layout.props} villagers={layout.villagers} />
+      <Village props={layout.props} villagers={layout.villagers} castleType={layout.castleType} castleUnlocked={castleUnlocked} />
       <Hero heroRef={heroRef} keys={keys} yawRef={yawRef} pointer={pointer} bus={bus} facingRef={facingRef} gaitRef={gaitRef} aimRef={aimRef} solids={solids} world={world}>
-        <HeroFigure look={look} gait={gaitRef} />
+        {/* A parent dropping in walks as the realm's quest-giver, not as the child. */}
+        {viewer === "parent" ? <WizardFigure gait={gaitRef} /> : <HeroFigure look={look} gait={gaitRef} />}
       </Hero>
-      {look.companion && <Companion look={look.companion} heroRef={heroRef} facingRef={facingRef} />}
+      {/* The pet is the child's, and stays with the child: no companion follows the wizard. */}
+      {viewer !== "parent" && look.companion && <Companion look={look.companion} heroRef={heroRef} facingRef={facingRef} />}
       <WadeRing world={world} heroRef={heroRef} />
       <LanternGlow scenery={scenery} tex={tex} />
       <Motes tex={tex} />
@@ -1424,7 +1416,7 @@ export type RealmCanvasProps = {
   castleUnlocked: boolean;
 };
 
-export default function SpikeScene({ avatar, close, world, layout, anchors, pages, bus, caster, fxPool, casts }: RealmCanvasProps) {
+export default function SpikeScene({ avatar, close, world, layout, anchors, pages, bus, caster, fxPool, casts, viewer, castleUnlocked }: RealmCanvasProps) {
   return (
     <Canvas
       dpr={1}
@@ -1447,6 +1439,8 @@ export default function SpikeScene({ avatar, close, world, layout, anchors, page
         caster={caster}
         fxPool={fxPool}
         casts={casts}
+        viewer={viewer}
+        castleUnlocked={castleUnlocked}
       />
     </Canvas>
   );

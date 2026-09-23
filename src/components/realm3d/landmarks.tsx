@@ -380,6 +380,16 @@ export function landmarkColliders(world: RealmWorld): { solids: Collider[]; occl
   return { solids, occluders };
 }
 
+/**
+ * How big what is built at each landmark is, for the interact key's reach: the solid's radius
+ * where there is one, a stride otherwise. Built once per world; the result is looked up by id.
+ */
+export function landmarkRadii(world: RealmWorld): (id: string) => number {
+  const byId = new Map<string, number>();
+  for (const l of world.landmarks) byId.set(l.id, DESIGNS[l.kind]?.solid?.r ?? 1);
+  return (id) => byId.get(id) ?? 1;
+}
+
 /* --------------------------------------------------------------- the scene */
 
 /** Which way the water is, so a jetty runs out into it rather than up the beach. */

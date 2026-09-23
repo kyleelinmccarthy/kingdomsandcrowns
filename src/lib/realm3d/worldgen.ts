@@ -42,6 +42,7 @@
  * prop, and (3) by generating chunks in a shuffled order and comparing against sorted order.
  */
 
+import { castlePlan } from "./castle-plan";
 import { BUILDING_SLOTS, buildingFootprint, CASTLE_FOOTPRINTS, CASTLE_POSITION, PLACES, SPAWN, TERRAIN, VILLAGE_SIZE, WORLD_SIZE, type Vec2 } from "@/lib/realm/layout";
 
 /* --- how big, and why ---------------------------------------------------- */
@@ -749,6 +750,23 @@ export function createWorld(options: WorldOptions = {}): RealmWorld {
     // site is level even if the village's own flatten ever changes.
     const castle = CASTLE_FOOTPRINTS.citadel; // the largest tier: a plot must fit the castle it may become
     flatRect(CASTLE_POSITION.x, CASTLE_POSITION.z, castle.w + 6, castle.d + 6, 6, true, PRIORITY.site);
+    // ...and the castle the scene actually raises (`castle-plan.ts`) runs thirty units back into
+    // the fells behind the gate, so its whole footprint is levelled to the village floor — held
+    // at the gate's own datum, not the fells', so the curtain does not stand on a step.
+    {
+      const b = castlePlan("citadel").bounds;
+      reservations.push({
+        kind: "flat",
+        x: CASTLE_POSITION.x + (b.x0 + b.x1) / 2,
+        z: CASTLE_POSITION.z + (b.z0 + b.z1) / 2,
+        w: b.x1 - b.x0 + 3,
+        d: b.z1 - b.z0 + 3,
+        feather: 9,
+        datum: villaged(CASTLE_POSITION.x, CASTLE_POSITION.z),
+        noProps: true,
+        priority: PRIORITY.site,
+      });
+    }
     for (const [id, slot] of Object.entries(BUILDING_SLOTS)) {
       const f = buildingFootprint(id);
       flatRect(slot.x, slot.z, f.w + 4, f.d + 4, 4, true, PRIORITY.site);
