@@ -236,3 +236,56 @@ describe("the Realm's sound, wired to the game", () => {
     expect(sources).toHaveLength(0);
   });
 });
+
+describe("the first gesture, and only a real one", () => {
+  const setUA = (isActive: boolean | null) => {
+    if (isActive === null) delete (navigator as unknown as { userActivation?: unknown }).userActivation;
+    else Object.defineProperty(navigator, "userActivation", { value: { isActive }, configurable: true });
+  };
+  afterEach(() => setUA(null));
+
+  it("does not spend itself on Esc: the context waits for the next real key", () => {
+    const bus = makeHudBus(4, 1);
+    const tbus = makeTroubleBus(4);
+    render(<Harness bus={bus} tbus={tbus} />);
+    fireEvent.keyDown(window, { key: "Escape", code: "Escape" });
+    expect(contexts).toHaveLength(0);
+    fireEvent.keyDown(window, { key: "w", code: "KeyW" });
+    expect(contexts).toHaveLength(1);
+  });
+
+  it("waits for a finger to lift, not to land", () => {
+    const bus = makeHudBus(4, 1);
+    const tbus = makeTroubleBus(4);
+    render(<Harness bus={bus} tbus={tbus} />);
+    fireEvent.pointerDown(window, { pointerType: "touch" });
+    expect(contexts).toHaveLength(0);
+    fireEvent.pointerUp(window, { pointerType: "touch" });
+    expect(contexts).toHaveLength(1);
+  });
+
+  it("asks the browser where it can: no context while it says the press did not count", () => {
+    const bus = makeHudBus(4, 1);
+    const tbus = makeTroubleBus(4);
+    render(<Harness bus={bus} tbus={tbus} />);
+    setUA(false);
+    fireEvent.keyDown(window, { key: "a", code: "KeyA" });
+    expect(contexts).toHaveLength(0);
+    setUA(true);
+    fireEvent.keyDown(window, { key: "a", code: "KeyA" });
+    expect(contexts).toHaveLength(1);
+  });
+
+  it("where the browser cannot say, resumes a context left suspended on the next real gesture", () => {
+    const bus = makeHudBus(4, 1);
+    const tbus = makeTroubleBus(4);
+    render(<Harness bus={bus} tbus={tbus} />);
+    fireEvent.keyDown(window, { key: "w", code: "KeyW" });
+    const ctx = contexts[0];
+    ctx.state = "suspended";
+    const resume = vi.spyOn(ctx, "resume");
+    fireEvent.click(window);
+    expect(resume).toHaveBeenCalled();
+    expect(contexts).toHaveLength(1);
+  });
+});

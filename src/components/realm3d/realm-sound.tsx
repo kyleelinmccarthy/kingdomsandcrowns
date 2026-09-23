@@ -62,6 +62,42 @@ const browserTimers: Timers = {
   },
 };
 
+/** Every event that can be a browser's user activation. */
+const UNLOCK_EVENTS = ["keydown", "pointerdown", "pointerup", "click", "touchend"] as const;
+
+type UserActivationLike = { isActive: boolean } | null;
+function userActivation(): UserActivationLike {
+  const n = typeof navigator === "undefined" ? null : (navigator as unknown as { userActivation?: { isActive: boolean } });
+  return n?.userActivation ?? null;
+}
+
+/**
+ * Whether this event lets audio start. Where the browser says (`navigator.userActivation`), it
+ * decides: "confirmed" or nothing. Where it cannot say, the HTML rule is applied by hand:
+ * a key press other than Esc, a mouse button going down, and any pointer or finger coming up —
+ * "likely", so the caller keeps listening in case it was not.
+ */
+export function gestureActivates(e: Event, ua: UserActivationLike): "confirmed" | "likely" | null {
+  if (e.type === "keydown" && (e as KeyboardEvent).repeat) return null;
+  if (ua) return ua.isActive ? "confirmed" : null;
+  switch (e.type) {
+    case "keydown": {
+      const k = e as KeyboardEvent;
+      return k.key === "Escape" || k.code === "Escape" ? null : "likely";
+    }
+    case "pointerdown": {
+      const t = (e as PointerEvent).pointerType;
+      return t === "touch" || t === "pen" ? null : "likely";
+    }
+    case "pointerup":
+    case "click":
+    case "touchend":
+      return "likely";
+    default:
+      return null;
+  }
+}
+
 export type RealmSoundOptions = {
   bus: HudBus;
   tbus: TroubleBus;
@@ -143,16 +179,25 @@ export function useRealmSound(o: RealmSoundOptions): SoundStore {
       : null;
     saveRef.current = save;
 
-    // The first touch of the keyboard or the mouse makes the audio, silently.
-    const unlock = () => {
-      if (engine.attached) return;
-      const out = createWebAudioOut();
-      if (out) engine.attach(out);
-      window.removeEventListener("keydown", unlock, true);
-      window.removeEventListener("pointerdown", unlock, true);
+    // The first real gesture makes the audio, silently. Not every press is one: Esc is not, nor
+    // is a finger going DOWN (the gesture is the lift). A context made on one of those starts
+    // suspended and stays so; so those are passed over, and the next real gesture makes it.
+    const unlock = (e: Event) => {
+      const active = gestureActivates(e, userActivation());
+      if (!active) return;
+      if (!engine.attached) {
+        const out = createWebAudioOut();
+        if (!out) return;
+        engine.attach(out);
+      } else if (!document.hidden) {
+        // A context the browser left suspended despite the gesture: this one asks again.
+        engine.hidden(false);
+      }
+      // Where the browser can SAY the gesture counted, one is enough. Where it cannot, keep
+      // asking on every real gesture; resuming a running context does nothing.
+      if (active === "confirmed") for (const t of UNLOCK_EVENTS) window.removeEventListener(t, unlock, true);
     };
-    window.addEventListener("keydown", unlock, true);
-    window.addEventListener("pointerdown", unlock, true);
+    for (const t of UNLOCK_EVENTS) window.addEventListener(t, unlock, true);
 
     // The world's events.
     let lastNear: string | null = null;
@@ -225,8 +270,7 @@ export function useRealmSound(o: RealmSoundOptions): SoundStore {
     if (process.env.NODE_ENV !== "production") window.__realmSound = engine;
 
     return () => {
-      window.removeEventListener("keydown", unlock, true);
-      window.removeEventListener("pointerdown", unlock, true);
+      for (const t of UNLOCK_EVENTS) window.removeEventListener(t, unlock, true);
       document.removeEventListener("visibilitychange", onVisible);
       document.removeEventListener("click", onClick, true);
       window.clearTimeout(speechCeiling);
