@@ -26,6 +26,7 @@ import { useEffect, useRef, useState } from "react";
 import { VillagerFigure } from "@/components/avatar";
 import { GameIcon, type GameIconName } from "@/components/game-icon";
 import { answerDeedQuestion, completeDeedRun, startDeedRun, type RunStart, type RunSummary } from "@/lib/actions/deeds";
+import { realmCue } from "@/lib/realm3d/sound/store";
 import type { BuildingOverview } from "@/lib/services/deeds";
 import type { Villager } from "@/lib/realm/villagers";
 import { resultBuildingLine, resultHeadline, talkCopy, type Viewer } from "@/lib/realm3d/talk";
@@ -238,7 +239,10 @@ function DeedRun({
     setBusy(true);
     setError("");
     try {
-      setFeedback(await answerDeedQuestion(run.runId, index, choice));
+      const answer = await answerDeedQuestion(run.runId, index, choice);
+      setFeedback(answer);
+      // A right answer rises and resolves; a wrong one is a soft low "hmm" (`realm-sound.tsx`).
+      realmCue(answer.correct ? "deed-right" : "deed-wrong");
     } catch (err) {
       setError(err instanceof Error ? err.message : FAILED);
     } finally {

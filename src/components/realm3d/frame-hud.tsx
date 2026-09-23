@@ -346,6 +346,7 @@ export function PauseMenu({
   leaveHref,
   settings,
   selector,
+  sound,
 }: {
   heroName: string;
   viewer: Viewer;
@@ -355,6 +356,8 @@ export function PauseMenu({
   settings: PauseSettings;
   /** A grown-up's way to visit another child's Realm without leaving first. */
   selector?: ReactNode;
+  /** The Sound section (`realm-sound.tsx`): volume, effects, music, mute. */
+  sound?: ReactNode;
 }) {
   return (
     <Panel title="Paused" label="Paused" icon={<GameIcon name="hourglass" className="r3-board-icon" />} onClose={onResume}>
@@ -408,6 +411,7 @@ export function PauseMenu({
           )}
         </div>
       )}
+      {sound}
       {selector && (
         <div className="r3-settings">
           <p className="r3-settings-title">Visit another hero</p>

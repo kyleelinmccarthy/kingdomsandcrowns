@@ -76,6 +76,8 @@ import {
 } from "./frame-hud";
 import { RealmHud } from "./hud";
 import { RoomLine } from "./room-hud";
+import { SoundControls, useRealmSound } from "./realm-sound";
+import type { SoundSettings } from "@/lib/realm3d/sound/settings";
 
 const RealmCanvas = dynamic(() => import("./spike-scene"), {
   ssr: false,
@@ -108,6 +110,8 @@ export type RealmData = {
   helpSeen?: boolean;
   /** A crown waiting for its ceremony. Always null for a grown-up: the bundle never sends one. */
   ceremony?: CeremonyInfo | null;
+  /** Sound settings for whoever is looking: the hero's own, or a visiting grown-up's own. */
+  sound?: SoundSettings;
 };
 
 /** What the access check decided, for an open gate. */
@@ -739,6 +743,28 @@ export function RealmGame({
         })()
       : null;
 
+  // The sound: it listens on the buses and follows the overlay, the room, a rising building and
+  // the lessons (`realm-sound.tsx`). A child's grown-up can switch it off in their learning
+  // profile; a visiting grown-up hears it on their own settings.
+  const soundStore = useRealmSound({
+    bus,
+    tbus: troubleBus,
+    world,
+    layout,
+    pages,
+    initial: realm.sound,
+    enabled: !realm.isChildView || profile.soundEnabled,
+    calm,
+    childId,
+    overlay: overlay?.kind ?? null,
+    room: inside?.room ?? null,
+    roomUses,
+    toast,
+    lessons,
+    lessonsTotal: LESSONS.length,
+    close,
+  });
+
   const room = useMemo(() => (inside ? roomPlan(inside.room) : null), [inside]);
   const roomColors = useMemo(() => ({ field: hero.backgroundColor || hero.outfitColor, charge: hero.accessoryColor || "#f4d27a" }), [hero]);
 
@@ -835,6 +861,7 @@ export function RealmGame({
               leaveHref="/tavern"
               settings={settings}
               selector={selector}
+              sound={<SoundControls store={soundStore} enabled={!realm.isChildView || profile.soundEnabled} calm={calm} viewer={who} heroName={heroName} />}
             />
           )}
           {overlay?.kind === "howto" && (

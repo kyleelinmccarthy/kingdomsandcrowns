@@ -73,6 +73,7 @@ import {
   type Pt,
 } from "@/lib/realm3d/collision";
 import { makeVertical, stepVertical, tryJump, type Vertical } from "@/lib/realm3d/jump";
+import { makeStride, strideTick } from "@/lib/realm3d/sound/stride";
 import { heroLook } from "@/lib/realm3d/hero-look";
 import {
   angleDelta,
@@ -680,6 +681,8 @@ function Hero({
   const vert = useMemo<Vertical>(() => makeVertical(0), []);
   const intent = useMemo<MoveIntent>(() => makeMoveIntent(), []);
   const levelAt = useMemo(() => (x: number, z: number) => world.waterLevelAt(x, z), [world]);
+  /** The feet, for the sound: footfalls off the stride phase, and landings. */
+  const stride = useMemo(() => makeStride(), []);
 
   useFrame((_, rawDt) => {
     // Paused: the world keeps drawing, but nothing in it moves because of the child.
@@ -716,9 +719,10 @@ function Hero({
     }
     aimRef.current = Number.NaN;
     // Edge-triggered: the keydown handler ignores auto-repeat, and this eats the press.
-    if (takeJump(k)) tryJump(vert);
+    if (takeJump(k) && tryJump(vert)) bus.feet.onJump();
     stepVertical(vert, dt, p.x, p.z, world.heightAt(p.x, p.z), solids);
     p.y = vert.y;
+    strideTick(stride, bus.feet, bob.current, vert.grounded, moving, dt, p.x, p.z);
 
     // The limbs, the cape and the companion all read the same two numbers.
     const g2 = gaitRef.current;

@@ -699,6 +699,10 @@ export const realmSettings = sqliteTable(
     // The highest tutorial step the hero has finished, 0 through 4. Resetting it to 0
     // re-runs the walkthrough, which is what the help card's control does.
     tutorialStep: integer("tutorial_step").notNull().default(0),
+    // The 3D Realm's sound: the hero's own volume, effects, music and mute, and a visiting
+    // grown-up's, each as JSON (`lib/realm3d/sound/settings.ts`). Null is the defaults.
+    sound: text("sound"),
+    visitorSound: text("visitor_sound"),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   }

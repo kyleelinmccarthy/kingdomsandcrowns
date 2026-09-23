@@ -1,0 +1,49 @@
+/* The pause menu's Sound section: timber sliders to match the toggles above them. */
+
+.r3-sound .r3-setting { margin-bottom: 0.45rem; }
+
+.r3-slider {
+  display: grid;
+  grid-template-columns: 5.2rem 1fr 2.2rem;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0.35rem 0;
+}
+.r3-slider-name { font-size: 1rem; font-weight: 700; color: #fff1d2; }
+.r3-slider-value { font-size: 0.9rem; font-weight: 800; color: #e6cf9c; text-align: right; font-variant-numeric: tabular-nums; }
+.r3-slider--off .r3-slider-name,
+.r3-slider--off .r3-slider-value { opacity: 0.45; }
+
+.r3-slider input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 14px;
+  margin: 0;
+  border: 3px solid var(--r3-bark, #3e2713);
+  border-radius: 999px;
+  background:
+    linear-gradient(180deg, #ffd875, #e09b24) 0 0 / var(--r3-fill, 50%) 100% no-repeat,
+    #1c1108;
+  cursor: pointer;
+}
+.r3-slider input[type="range"]:disabled { cursor: default; filter: grayscale(0.8) brightness(0.7); }
+.r3-slider input[type="range"]:focus-visible { outline: 3px solid #fff1d2; outline-offset: 3px; }
+
+.r3-slider input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  border: 3px solid var(--r3-bark, #3e2713);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff4cf, #f0c25a 60%, #b97a17);
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.4);
+}
+.r3-slider input[type="range"]::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border: 3px solid var(--r3-bark, #3e2713);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #fff4cf, #f0c25a 60%, #b97a17);
+}
