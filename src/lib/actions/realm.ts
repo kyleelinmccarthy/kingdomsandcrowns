@@ -16,7 +16,7 @@ import type { KingdomState } from "@/lib/realm/kingdom-state";
 import { profileFromRow, type LearningProfile } from "@/lib/utils/learning-profile";
 import { isValidAvatarConfig, normalizeAvatarConfig, type AvatarConfig } from "@/lib/utils/avatar-catalog";
 import { realmDepth, type DepthOverride, type RealmDepth } from "@/lib/realm/depth";
-import { TUTORIAL_STEPS } from "@/lib/realm/tutorial";
+import { tutorialLearned } from "@/lib/realm3d/tutorial";
 
 export type RealmBundle = {
   heroName: string;
@@ -40,7 +40,7 @@ export type RealmBundle = {
    * from two fields and gets a different answer. `RealmOpen` snapshots it for the visit.
    */
   depth: RealmDepth;
-  /** The highest tutorial step the hero has finished, 0 through `TUTORIAL_STEPS.length`. */
+  /** Tutorial progress as stored: the flat Realm's 0..4, the 3D lessons above (`lib/realm3d/tutorial.ts`). */
   tutorialStep: number;
 };
 
@@ -125,7 +125,8 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
     // visit two — numerals, every spell page, trouble names, fast travel — while the box on
     // screen still read "Use W, A, S and D to walk." The ramp belongs to doing, not to
     // dismissing a card, and erring toward staying simple longer is the safe direction here.
-    depth: realmDepth({ tutorialComplete: settings.tutorialStep >= TUTORIAL_STEPS.length, override: settings.depthOverride }),
+    // Either tutorial finished counts (`tutorialLearned`): the flat one's 4, or every 3D lesson.
+    depth: realmDepth({ tutorialComplete: tutorialLearned(settings.tutorialStep), override: settings.depthOverride }),
     tutorialStep: settings.tutorialStep,
   };
 }

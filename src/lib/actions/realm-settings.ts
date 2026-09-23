@@ -8,7 +8,7 @@ import { requireChildAccess, isChildActor } from "@/lib/auth/access";
 import { loadRealmSettings } from "@/lib/services/realm-play";
 import { validateRealmSettingsPatch, type RealmSettings } from "@/lib/utils/realm-settings";
 import { isDepthOverride, type DepthOverride } from "@/lib/realm/depth";
-import { TUTORIAL_STEPS } from "@/lib/realm/tutorial";
+import { STORED_MAX } from "@/lib/realm3d/tutorial";
 
 /** A hero may read their own settings; the Realm page will need them. */
 export async function getRealmSettings(childId: string): Promise<RealmSettings> {
@@ -63,9 +63,10 @@ export async function setRealmDepth(childId: string, override: DepthOverride): P
 /** The hero finished a tutorial step, or a grown-up reset the walkthrough. Hero or parent. */
 export async function setTutorialStep(childId: string, step: number): Promise<void> {
   await requireChildAccess(childId, { write: true });
-  // The ladder's length, never a literal: the shell's Skip writes `TUTORIAL_STEPS.length`
-  // fire-and-forget, so a fifth step would have made every Skip throw into a swallowed catch.
-  if (!Number.isInteger(step) || step < 0 || step > TUTORIAL_STEPS.length) throw new Error("That tutorial step doesn't look right.");
+  // The ladders' length, never a literal: a Skip writes the finished value fire-and-forget, so a
+  // bound one short would make every Skip throw into a swallowed catch. The 3D Realm's lessons
+  // are stored above the flat Realm's four (see `lib/realm3d/tutorial.ts`), so `STORED_MAX`.
+  if (!Number.isInteger(step) || step < 0 || step > STORED_MAX) throw new Error("That tutorial step doesn't look right.");
   await loadRealmSettings(childId);
   await db.update(schema.realmSettings).set({ tutorialStep: step, updatedAt: new Date() }).where(eq(schema.realmSettings.childId, childId));
 }

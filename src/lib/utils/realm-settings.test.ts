@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { DEFAULT_REALM_SETTINGS, settingsFromRow, validateRealmSettingsPatch } from "./realm-settings";
+import { STORED_MAX } from "@/lib/realm3d/tutorial";
 
 const ROW = {
   enabled: true,
@@ -73,7 +74,10 @@ describe("tutorialStep", () => {
   it("accepts a tutorial step in range and refuses one outside it", () => {
     expect(validateRealmSettingsPatch({ tutorialStep: 0 })).toEqual({ tutorialStep: 0 });
     expect(validateRealmSettingsPatch({ tutorialStep: 4 })).toEqual({ tutorialStep: 4 });
-    expect(() => validateRealmSettingsPatch({ tutorialStep: 5 })).toThrow();
+    // The 3D Realm's lessons are stored above the flat Realm's four, up to STORED_MAX.
+    expect(validateRealmSettingsPatch({ tutorialStep: 5 })).toEqual({ tutorialStep: 5 });
+    expect(validateRealmSettingsPatch({ tutorialStep: STORED_MAX })).toEqual({ tutorialStep: STORED_MAX });
+    expect(() => validateRealmSettingsPatch({ tutorialStep: STORED_MAX + 1 })).toThrow();
     expect(() => validateRealmSettingsPatch({ tutorialStep: -1 })).toThrow();
     expect(() => validateRealmSettingsPatch({ tutorialStep: 1.5 })).toThrow();
   });
@@ -81,5 +85,6 @@ describe("tutorialStep", () => {
   it("defaults a missing or corrupt tutorial step to the beginning", () => {
     expect(DEFAULT_REALM_SETTINGS.tutorialStep).toBe(0);
     expect(settingsFromRow({ ...ROW, tutorialStep: 99 }).tutorialStep).toBe(0);
+    expect(settingsFromRow({ ...ROW, tutorialStep: STORED_MAX }).tutorialStep).toBe(STORED_MAX);
   });
 });
