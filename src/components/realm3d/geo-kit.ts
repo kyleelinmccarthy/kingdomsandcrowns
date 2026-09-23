@@ -191,3 +191,55 @@ export function fadeWithDistance(mat: THREE.Material, near: number, far: number)
   mat.customProgramCacheKey = () => `fade${near}_${far}`;
   return mat;
 }
+
+/**
+ * Screen-door the part of anything within `cut` units of the CAMERA.
+ *
+ * The chase camera ducks under the canopy in a wood, and the Old Wood and the generated
+ * forests put a tree every metre or two — so there is often no spot on the boom that is not
+ * inside some crown or beside some trunk, and the picture becomes a wall of bark. Fading a
+ * single tree is impossible (they are one instanced draw per kind), but a fragment knows how
+ * far it is from the lens: anything that close is dissolved with an ordered dither, so the
+ * camera sees through the tree it is standing in and the child beyond it, and a tree it
+ * walks away from fills back in rather than popping.
+ *
+ * Composes with `fadeWithDistance`: it wraps whatever `onBeforeCompile` is already there.
+ */
+/** How near the lens a tree starts to dissolve. Just short of the ducked boom's shortest reach. */
+export const CAMERA_CUT = 4.2;
+
+export function nearCutout(mat: THREE.Material, cut: number): THREE.Material {
+  const prev = mat.onBeforeCompile;
+  const prevKey = mat.customProgramCacheKey.bind(mat);
+  mat.onBeforeCompile = (shader, renderer) => {
+    prev.call(mat, shader, renderer);
+    shader.uniforms.cutNear = { value: cut };
+    shader.vertexShader = shader.vertexShader
+      .replace("#include <common>", "#include <common>\nvarying vec3 vCutPos;")
+      .replace(
+        "#include <project_vertex>",
+        `#include <project_vertex>
+         #ifdef USE_INSTANCING
+           vCutPos = (modelMatrix * instanceMatrix * vec4(transformed, 1.0)).xyz;
+         #else
+           vCutPos = (modelMatrix * vec4(transformed, 1.0)).xyz;
+         #endif`,
+      );
+    shader.fragmentShader = shader.fragmentShader
+      .replace("#include <common>", "#include <common>\nuniform float cutNear;\nvarying vec3 vCutPos;")
+      .replace(
+        "#include <clipping_planes_fragment>",
+        `#include <clipping_planes_fragment>
+         float cutD = distance(vCutPos, cameraPosition);
+         if (cutD < cutNear) {
+           // A 4x4 ordered dither: the closer the fragment, the more of the pattern is gone.
+           vec2 cell = mod(floor(gl_FragCoord.xy), 4.0);
+           float bayer = mod(cell.x * 4.0 + cell.y * 7.0 + cell.x * cell.y * 5.0, 16.0) / 16.0;
+           if (bayer > smoothstep(cutNear * 0.45, cutNear, cutD)) discard;
+         }`,
+      );
+  };
+  mat.customProgramCacheKey = () => `${prevKey()}|cut${cut}`;
+  return mat;
+}
+

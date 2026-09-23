@@ -426,3 +426,48 @@ describe("what it costs to ask", () => {
     expect(CHUNK).toBeGreaterThan(0);
   });
 });
+
+describe("the water that stands above the sea", () => {
+  const lakeAt = { x: 42, z: -48 }; // the body of Longwater
+
+  it("sits Longwater in a real hollow, well under its own surface", () => {
+    const level = world.waterLevelAt(lakeAt.x, lakeAt.z);
+    expect(level).toBeGreaterThan(SEA_LEVEL + 2);
+    expect(level - world.heightAt(lakeAt.x, lakeAt.z)).toBeGreaterThan(2);
+    // The mill pool is the same body, at the same level.
+    expect(world.waterLevelAt(29, -10)).toBeCloseTo(level);
+    expect(level - world.heightAt(29, -10)).toBeGreaterThan(0.5);
+  });
+
+  it("holds the water in: a bank all the way round, never a sheet over the field", () => {
+    // Walk a ring well outside every authored rectangle: nothing there is under the lake's level
+    // while also being told it is under the lake.
+    const level = world.waterLevelAt(lakeAt.x, lakeAt.z);
+    const lifted: string[] = [];
+    for (let x = 10; x <= 80; x += 1) {
+      for (let z = -75; z <= 10; z += 1) {
+        const lvl = world.waterLevelAt(x, z);
+        if (lvl !== level) continue;
+        const inRect = TERRAIN.some(
+          (t) => (t.kind === "water" || t.kind === "shallow") && Math.abs(x - t.position.x) < t.size.w / 2 + 3 && Math.abs(z - t.position.z) < t.size.d / 2 + 3,
+        );
+        if (!inRect) lifted.push(`${x},${z}`);
+      }
+    }
+    expect(lifted).toEqual([]);
+  });
+
+  it("keeps the millstream a ford a child can wade", () => {
+    for (let z = -34; z <= -18; z += 4) { // between the lake and the mill pool
+      const depth = world.waterLevelAt(29, z) - world.heightAt(29, z);
+      expect(depth, `the stream at z=${z}`).toBeGreaterThan(0);
+      expect(depth, `the stream at z=${z}`).toBeLessThan(1.3);
+    }
+  });
+
+  it("is the sea's level everywhere else", () => {
+    expect(world.waterLevelAt(0, 0)).toBe(SEA_LEVEL);
+    expect(world.waterLevelAt(-150, 150)).toBe(SEA_LEVEL);
+    expect(world.lakes.length).toBe(1);
+  });
+});

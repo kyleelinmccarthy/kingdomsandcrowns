@@ -42,7 +42,7 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import type { RealmWorld, WorldProp } from "@/lib/realm3d/worldgen";
 import { TRUNK_R, type Collider } from "@/lib/realm3d/collision";
-import { fadeWithDistance, litMaterial, sceneryGeometryFor } from "./geo-kit";
+import { CAMERA_CUT, fadeWithDistance, litMaterial, nearCutout, sceneryGeometryFor } from "./geo-kit";
 
 type LayerKey = WorldProp["layer"];
 
@@ -129,7 +129,7 @@ export function RealmProps({
   const materials = useMemo(() => {
     const out: Record<LayerKey, THREE.Material> = {} as Record<LayerKey, THREE.Material>;
     for (const layer of Object.keys(HORIZON) as LayerKey[]) {
-      out[layer] = fadeWithDistance(litMaterial(), HORIZON[layer].near, HORIZON[layer].far);
+      out[layer] = nearCutout(fadeWithDistance(litMaterial(), HORIZON[layer].near, HORIZON[layer].far), CAMERA_CUT);
     }
     return out;
   }, []);

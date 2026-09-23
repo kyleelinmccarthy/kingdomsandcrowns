@@ -31,15 +31,17 @@
  *
  * One surface, one draw call, for the sea and for every inland lake and tarn — because the
  * generator puts all of them at the same level. It is the same fact that makes `shore.ts` a
- * single rule. The authored village's own water (Longwater and the mill pool) is dug relative to
- * the ground it sits in rather than down to the sea, so it gets its own quads at its own level,
- * merged into the same geometry.
+ * single rule. The authored water (Longwater, the millstream and the mill pool) stands above the
+ * sea in a basin the generator digs for it (`world.lakes`), and gets a surface of its own at its
+ * own level, built exactly the way the sea's is: a grid that runs a little past the shore and is
+ * cut by the bank, so the edge of the water is wherever the ground rises out of it — a curve,
+ * never a rectangle.
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-import { TERRAIN, type TerrainPatch } from "@/lib/realm/layout";
+import { TERRAIN } from "@/lib/realm/layout";
 import { SEA_LEVEL, type Biome, type RealmWorld } from "@/lib/realm3d/worldgen";
 import { buildTrackIndex, segmentsOf, type TrackIndex, type TrackSeg } from "@/lib/realm3d/track-index";
 import { groundNoise } from "@/lib/realm3d/heightfield";
@@ -83,6 +85,9 @@ const KEPT = new THREE.Color("#63962a");
 const ROCK = new THREE.Color("#8e877b");
 /** The tops of the three summits. A white cap is the cheapest landmark in any game ever made. */
 const SNOW = new THREE.Color("#e6edf0");
+/** The bed and the wet margin of the authored lakes. */
+const LAKE_BED = new THREE.Color("#6a6446");
+const LAKE_SHORE = new THREE.Color("#a99a6a");
 /** A walked track. The same sandy cobble the village road is drawn in. */
 const TRACK = new THREE.Color("#c2a469");
 
@@ -151,6 +156,15 @@ function buildTile(world: RealmWorld, tracks: TrackIndex, x0: number, z0: number
       // Under water the ground is seabed, and it gets darker as it goes down: a flat colour
       // under a translucent surface makes a lagoon of any depth look like a puddle.
       if (y < SEA_LEVEL) c.multiplyScalar(1 - Math.min(0.55, (SEA_LEVEL - y) * 0.05));
+      // The authored lakes stand above the sea, so `classify` calls their bed meadow. Grass
+      // under water is the single thing that makes a pond look painted on; give it a muddy bed
+      // that darkens with depth, and a strip of wet shore where it comes up out of the water.
+      const lake = world.waterLevelAt(x, z);
+      if (lake > SEA_LEVEL) {
+        const under = lake - y;
+        if (under > -0.9) c.lerp(LAKE_SHORE, THREE.MathUtils.smoothstep(under, -0.9, -0.1) * 0.85);
+        if (under > 0) c.copy(LAKE_BED).multiplyScalar(1 - Math.min(0.5, under * 0.16));
+      }
       // Bare rock on anything steep, whatever biome says it is.
       if (slope > 0.35) c.lerp(ROCK, THREE.MathUtils.smoothstep(slope, 0.35, 0.85));
       // Snow on the three summits. Worth every line: it is the one thing in this realm that is
@@ -291,53 +305,29 @@ const WATER_STEP = 8;
 const DEEP = new THREE.Color("#1d5178");
 const SHALLOW = new THREE.Color("#4f9fb8");
 const WASH = new THREE.Color("#a9dbe2");
-
-/**
- * Join the authored water rectangles that touch into one body of water, and give the body one
- * surface. Longwater is three overlapping rectangles; three surfaces at three levels is a
- * staircase, which is the same lesson the generator learned when it dug them.
- */
-function authoredBodies(world: RealmWorld): { patch: TerrainPatch; y: number }[] {
-  const wet = TERRAIN.filter((t) => t.kind === "water" || t.kind === "shallow");
-  const parent = wet.map((_, i) => i);
-  const find = (a: number): number => {
-    let r = a;
-    while (parent[r] !== r) r = parent[r];
-    return r;
-  };
-  const overlaps = (a: TerrainPatch, b: TerrainPatch) =>
-    Math.abs(a.position.x - b.position.x) < (a.size.w + b.size.w) / 2 &&
-    Math.abs(a.position.z - b.position.z) < (a.size.d + b.size.d) / 2;
-  for (let i = 0; i < wet.length; i++) {
-    for (let j = i + 1; j < wet.length; j++) if (overlaps(wet[i], wet[j])) parent[find(j)] = find(i);
-  }
-  // The generator cut deep water 2.6 below the body's level and the shallows 1.1. Filling the
-  // cut back up to a finger's breadth under the lowest BANK is what makes a pool a pool: any
-  // higher and it laps over the field, any lower and it is a hole with blue paint at the bottom.
-  const level = new Map<number, number>();
-  for (let i = 0; i < wet.length; i++) {
-    const root = find(i);
-    const floor = world.heightAt(wet[i].position.x, wet[i].position.z);
-    const surface = floor + (wet[i].kind === "water" ? 1.75 : 0.5);
-    const held = level.get(root);
-    if (held === undefined || surface < held) level.set(root, surface);
-  }
-  return wet.map((patch, i) => ({ patch, y: level.get(find(i)) as number }));
-}
+/** The authored lakes' own water: greener and stiller than the sea's. */
+const LAKE_SHALLOW = new THREE.Color("#4d93a3");
+const LAKE_DEEP = new THREE.Color("#245a74");
 
 function buildWaterGeometry(world: RealmWorld): THREE.BufferGeometry {
   const pos: number[] = [];
   const col: number[] = [];
   const dep: number[] = [];
+  const wash: number[] = [];
   const idx: number[] = [];
   const c = new THREE.Color();
 
-  const tint = (depth: number) => {
+  const tint = (depth: number, lake: boolean) => {
+    if (lake) {
+      // A still pool: no pale surf band, and deep sooner — its bed is two and a half down, not nine.
+      c.copy(LAKE_SHALLOW).lerp(LAKE_DEEP, THREE.MathUtils.smoothstep(depth, 0.2, 2.4));
+      return c;
+    }
     c.copy(WASH).lerp(SHALLOW, THREE.MathUtils.smoothstep(depth, 0.1, 1.6)).lerp(DEEP, THREE.MathUtils.smoothstep(depth, 1.4, 9));
     return c;
   };
 
-  const quad = (x: number, z: number, w: number, d: number, y: number, depths: [number, number, number, number]) => {
+  const quad = (x: number, z: number, w: number, d: number, y: number, depths: [number, number, number, number], surf = 1) => {
     const base = pos.length / 3;
     const corners: [number, number][] = [
       [x - w / 2, z - d / 2],
@@ -347,9 +337,10 @@ function buildWaterGeometry(world: RealmWorld): THREE.BufferGeometry {
     ];
     for (let i = 0; i < 4; i++) {
       pos.push(corners[i][0], y, corners[i][1]);
-      const t = tint(depths[i]);
+      const t = tint(depths[i], surf < 1);
       col.push(t.r, t.g, t.b);
       dep.push(depths[i]);
+      wash.push(surf);
     }
     idx.push(base, base + 2, base + 1, base + 1, base + 2, base + 3);
   };
@@ -412,16 +403,40 @@ function buildWaterGeometry(world: RealmWorld): THREE.BufferGeometry {
     }
   }
 
-  // ...and the authored village's own water, which sits above the sea in ground of its own.
-  for (const { patch, y } of authoredBodies(world)) {
-    const d = Math.max(0.3, y - world.heightAt(patch.position.x, patch.position.z) + 0.9);
-    quad(patch.position.x, patch.position.z, patch.size.w, patch.size.d, y, [d, d, d, d]);
+  /**
+   * ...and the lakes that stand above the sea, each at its own level, over a grid fine enough to
+   * follow a four-unit millstream. Exactly the sea's rule: a cell is kept if any corner is under
+   * the surface, so the surface always runs a little past the shore and the bank cuts it, and
+   * the depth each vertex carries fades the shallows out rather than ending them on a line.
+   * `surf` 0.25: a still inland pool has none of the sea's surf at its edge.
+   */
+  for (const lake of world.lakes) {
+    const step = 1.5;
+    const nx = Math.ceil((lake.x1 - lake.x0) / step);
+    const nz = Math.ceil((lake.z1 - lake.z0) / step);
+    const grid = new Float32Array((nx + 1) * (nz + 1));
+    for (let j = 0; j <= nz; j++) {
+      for (let k = 0; k <= nx; k++) grid[j * (nx + 1) + k] = lake.level - world.heightAt(lake.x0 + k * step, lake.z0 + j * step);
+    }
+    for (let j = 0; j < nz; j++) {
+      for (let k = 0; k < nx; k++) {
+        const d00 = grid[j * (nx + 1) + k];
+        const d10 = grid[j * (nx + 1) + k + 1];
+        const d01 = grid[(j + 1) * (nx + 1) + k];
+        const d11 = grid[(j + 1) * (nx + 1) + k + 1];
+        if (d00 <= 0 && d10 <= 0 && d01 <= 0 && d11 <= 0) continue;
+        const x = lake.x0 + k * step;
+        const z = lake.z0 + j * step;
+        quad(x + step / 2, z + step / 2, step, step, lake.level, [Math.max(0, d00), Math.max(0, d10), Math.max(0, d01), Math.max(0, d11)], 0.25);
+      }
+    }
   }
 
   const geo = new THREE.BufferGeometry();
   geo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(pos), 3));
   geo.setAttribute("color", new THREE.BufferAttribute(new Float32Array(col), 3));
   geo.setAttribute("aDepth", new THREE.BufferAttribute(new Float32Array(dep), 1));
+  geo.setAttribute("aWash", new THREE.BufferAttribute(new Float32Array(wash), 1));
   geo.setIndex(idx);
   geo.computeVertexNormals();
   return geo;
@@ -460,14 +475,17 @@ function waterMaterial(): THREE.MeshStandardMaterial {
         `#include <common>
          uniform float uTime;
          attribute float aDepth;
+         attribute float aWash;
          varying float vDepth;
+         varying float vWash;
          varying vec3 vWorld;`,
       )
       .replace(
         "#include <beginnormal_vertex>",
         `vDepth = aDepth;
+         vWash = aWash;
          vWorld = position;
-         float amp = mix(0.03, 0.26, clamp(aDepth / 3.5, 0.0, 1.0));
+         float amp = mix(0.03, 0.26, clamp(aDepth / 3.5, 0.0, 1.0)) * mix(0.35, 1.0, aWash);
          float a1 = position.x * 0.115 + uTime * 0.85;
          float a2 = position.z * 0.089 - uTime * 0.67;
          float a3 = (position.x + position.z) * 0.047 + uTime * 0.41;
@@ -487,6 +505,7 @@ function waterMaterial(): THREE.MeshStandardMaterial {
         `#include <common>
          uniform float uTime;
          varying float vDepth;
+         varying float vWash;
          varying vec3 vWorld;`,
       )
       .replace(
@@ -494,7 +513,7 @@ function waterMaterial(): THREE.MeshStandardMaterial {
         `#include <color_fragment>
          float band = sin(vWorld.x * 0.42 + vWorld.z * 0.31 + uTime * 1.6) * 0.5 + 0.5;
          float edge = 1.0 - smoothstep(0.05, 0.85, vDepth);
-         diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.93, 0.98, 1.0), edge * (0.35 + 0.45 * band));
+         diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.93, 0.98, 1.0), edge * (0.35 + 0.45 * band) * vWash);
          float glint = pow(max(0.0, sin(vWorld.x * 0.21 - uTime * 0.9) * sin(vWorld.z * 0.17 + uTime * 0.7)), 6.0);
          diffuseColor.rgb += glint * 0.16;
          diffuseColor.a *= mix(0.72, 1.0, smoothstep(0.0, 1.2, vDepth));`,
@@ -544,10 +563,11 @@ export function WadeRing({ world, heroRef }: { world: RealmWorld; heroRef: React
     if (!m) return;
     const p = heroRef.current;
     const ground = world.heightAt(p.x, p.z);
-    const depth = SEA_LEVEL - ground;
+    const level = world.waterLevelAt(p.x, p.z);
+    const depth = level - ground;
     m.visible = depth > 0.06;
     if (!m.visible) return;
-    m.position.set(p.x, SEA_LEVEL + 0.06, p.z);
+    m.position.set(p.x, level + 0.06, p.z);
     const pulse = 1 + Math.sin(state.clock.elapsedTime * 3.4) * 0.09;
     m.scale.setScalar(pulse * (0.9 + Math.min(1, depth / 1.3) * 0.5));
   });

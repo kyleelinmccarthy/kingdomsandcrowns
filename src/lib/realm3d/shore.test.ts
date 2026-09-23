@@ -74,4 +74,15 @@ describe("the shore as a refusal, not a wall", () => {
     // ...and where they stopped, the next step is genuinely deep water.
     expect(w.heightAt(p.x - 1, p.z)).toBeLessThan(SEA_LEVEL);
   });
+
+  it("takes a level that varies, for water standing above the sea in a basin", () => {
+    // A pool at +2 over flat ground at 0 in the west half; the sea everywhere else.
+    const ground = (x: number) => (x < 0 ? -1 : 0.5);
+    const level = (x: number) => (x < 0 ? 2 : SEA_LEVEL);
+    const out = shoreMove(pt(), 1, 0, -1, 0, (x) => ground(x), (x) => level(x));
+    expect(out.x).toBe(1); // three deep: refused
+    const shallow = shoreMove(pt(), 1, 0, -1, 0, (x) => (x < 0 ? 1.2 : 0.5), (x) => level(x));
+    expect(shallow.x).toBe(-1); // under a metre: waded
+  });
 });
+

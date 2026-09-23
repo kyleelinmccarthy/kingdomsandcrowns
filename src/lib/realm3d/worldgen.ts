@@ -339,6 +339,9 @@ export type Landmark = {
   kind: "place" | "summit" | "deepwood" | "tarn" | "cove" | "mire" | "outcrop";
 };
 
+/** A body of water above the sea: its surface level and the box its basin and banks sit in. */
+export type Lake = { level: number; x0: number; x1: number; z0: number; z1: number };
+
 /** A way between two landmarks: a polyline the scene can draw as a trail ribbon. */
 export type Road = { id: string; from: string; to: string; points: Vec2[]; halfWidth: number };
 
@@ -369,6 +372,11 @@ export type RealmWorld = {
    * above the sea. Depth anywhere is `waterLevelAt - heightAt`, when that is positive.
    */
   waterLevelAt(x: number, z: number): number;
+  /**
+   * The bodies of water that stand above the sea (Longwater with its millstream and mill pool),
+   * as a level and the box their basin and banks lie in. The scene draws a surface for each.
+   */
+  readonly lakes: readonly Lake[];
   /** Bulk height sampling into a caller-owned array, for building a terrain mesh. No allocation. */
   sampleHeights(x0: number, z0: number, step: number, nx: number, nz: number, out: Float32Array): Float32Array;
   /** The props in one chunk. Generated on first ask, then cached and shared — never copied. */
@@ -752,70 +760,9 @@ export function createWorld(options: WorldOptions = {}): RealmWorld {
       flatRect(place.position.x, place.position.z, 16, 16, 12, false, PRIORITY.place);
       reservations.push({ kind: "clear", x: place.position.x, z: place.position.z, r: place.radius, priority: PRIORITY.place });
     }
-    /**
-     * Longwater, the millstream and the mill pool, dug into the ground they stand in.
-     *
-     * Two things here, and the second one was a bug before it was a rule.
-     *
-     * The authored world is flat, so its lake is a blue rectangle painted on the floor. Put
-     * that on real terrain and it is a blue rectangle floating on a hillside, so the
-     * rectangles the scene already draws are dug out. But dug RELATIVE to the ground they sit
-     * in, not down to the waterline: Longwater and the mill pool are inland water a few units
-     * from the village, and sinking them to sea level puts a seven-unit cliff round each of
-     * them — walked, a hole a child falls into on the way to the mill.
-     *
-     * And one lake gets one surface. Longwater is three overlapping rectangles, and giving
-     * each of them its own level made the water a staircase: every rectangle dragged the
-     * ground towards a different number, and where two feathers overlapped with two different
-     * targets the bank came out at sixty degrees. Overlapping patches are therefore joined
-     * into a body of water first, and the body gets a single level — the lowest of its parts,
-     * because water finds the bottom.
-     */
-    {
-      const wet = TERRAIN.filter((t) => t.kind === "water" || t.kind === "shallow");
-      const parent = wet.map((_, i) => i);
-      const find = (a: number): number => {
-        let r = a;
-        while (parent[r] !== r) r = parent[r];
-        return r;
-      };
-      const overlaps = (a: (typeof wet)[number], b: (typeof wet)[number]) =>
-        Math.abs(a.position.x - b.position.x) < (a.size.w + b.size.w) / 2 && Math.abs(a.position.z - b.position.z) < (a.size.d + b.size.d) / 2;
-      for (let i = 0; i < wet.length; i++) {
-        for (let j = i + 1; j < wet.length; j++) if (overlaps(wet[i], wet[j])) parent[find(j)] = find(i);
-      }
-      const level = new Map<number, number>();
-      for (let i = 0; i < wet.length; i++) {
-        const root = find(i);
-        const h = villaged(wet[i].position.x, wet[i].position.z);
-        const held = level.get(root);
-        if (held === undefined || h < held) level.set(root, h);
-      }
-      for (let i = 0; i < wet.length; i++) {
-        const patch = wet[i];
-        // Deep water sits lower than the shallows it runs into, which is what makes a ford
-        // a ford. Two and a half units is a bank you can stand on and a surface plainly lower
-        // than the field, which is all a pool has to be.
-        const dig = patch.kind === "water" ? 2.6 : 1.1;
-        const datum = (level.get(find(i)) as number) - dig;
-        // The bank is as wide as the cut is deep. A fixed feather is a fixed drop over a fixed
-        // distance, so the far end of a lake whose ground falls four units across it gets a
-        // bank four units steeper than the near end — which is how the north shore of Longwater
-        // came out at sixty degrees. Three and a half to one holds every bank to about a
-        // one-in-two slope whatever the lake is sitting on.
-        reservations.push({
-          kind: "flat",
-          x: patch.position.x,
-          z: patch.position.z,
-          w: patch.size.w,
-          d: patch.size.d,
-          feather: Math.max(7, (villaged(patch.position.x, patch.position.z) - datum) * 3.6),
-          datum,
-          noProps: false,
-          priority: PRIORITY.water,
-        });
-      }
-    }
+    // Longwater, the millstream and the mill pool are NOT reservations any more: a reservation
+    // is a level the ground is dragged towards, and a lake is a hole with a lip. They are cut
+    // after everything else has had its say — see "the authored water" below `heightAt`.
     // The five authored tracks, read from the ribbon the scene actually draws. Each tile
     // becomes a short graded corridor, so a track is never cut in half by a new hillside.
     for (const patch of TERRAIN) {
@@ -898,7 +845,7 @@ export function createWorld(options: WorldOptions = {}): RealmWorld {
    * `sampleHeights` exists, why it fills an array the caller owns, and why the scene should
    * build its ground a chunk at a time rather than as one mesh.
    */
-  function heightAt(x: number, z: number): number {
+  function heightRaw(x: number, z: number): number {
     let h = villaged(x, z);
     const list = resGrid.get(resKey(Math.floor(x / RES_CELL), Math.floor(z / RES_CELL)));
     if (list === undefined) return h;
@@ -933,6 +880,172 @@ export function createWorld(options: WorldOptions = {}): RealmWorld {
     return h;
   }
 
+  /* ---- the authored water ---- */
+
+  /**
+   * Longwater, the millstream and the mill pool: the realm's only water that stands ABOVE the
+   * sea, in basins of its own.
+   *
+   * ## What was wrong
+   *
+   * They used to be `flat` reservations at the lowest priority, dragging the ground towards a
+   * datum two and a half units under the field — and every other reservation that touched them
+   * (the Longwater place pad, the lake path, the village) was applied later and dragged it back.
+   * Measured, the ground under Longwater's deepest rectangle ended up two units ABOVE the water
+   * the scene drew there. So the water was three pale flat rectangles lying on the grass, with
+   * the shore's rows of bushes standing up through them. That is the owner's screenshot.
+   *
+   * ## What it is now
+   *
+   * A post-pass, after every reservation, that only ever does two things near the water:
+   *
+   *   - INSIDE the shape it digs: the bed falls away from the waterline at about one in one and
+   *     a half, to 2.6 under the surface in open water and 1.0 in the millstream (which must stay
+   *     a ford). It never raises a bed that is already deeper.
+   *   - on the BANK outside it, it eases the ground to meet the waterline: pulled down where the
+   *     field stands high, lifted into a low lip where it lies low (so the water is held and
+   *     never spills over a hard edge), and handed back to the natural ground over a bank whose
+   *     width grows with the drop, so a deep cut gets a long gentle bank rather than a cliff.
+   *
+   * The shape is the authored rectangles with their corners rounded off and their edges pushed
+   * about by a little noise, so no shore is ever a ruler line. One body (all five rectangles
+   * touch) gets one level: low on the ring just outside its shore, so as little as possible has
+   * to be lifted to hold it.
+   */
+  type WetRect = { x: number; z: number; hw: number; hd: number; deep: number };
+  type Basin = { rects: WetRect[]; level: number; x0: number; x1: number; z0: number; z1: number };
+  /** Corner rounding of every authored rectangle, in world units. */
+  const WET_ROUND = 2.4;
+  /** How far the noise moves a shore in or out. */
+  const WET_WARP = 1.3;
+  /** The bed's fall from the waterline, per unit inward. */
+  const BED_FALL = 0.62;
+  /** The bank's rise from the waterline, per unit outward, before it rejoins the land. */
+  const BANK_RISE = 0.42;
+  const BANK_MIN = 6;
+  const BANK_MAX = 16;
+
+  function wetRectSdf(r: WetRect, x: number, z: number): number {
+    // Rounded no further than the rectangle allows: the millstream is only four units wide.
+    const round = Math.min(WET_ROUND, r.hw * 0.8, r.hd * 0.8);
+    const qx = Math.abs(x - r.x) - (r.hw - round);
+    const qz = Math.abs(z - r.z) - (r.hd - round);
+    const out = Math.hypot(qx > 0 ? qx : 0, qz > 0 ? qz : 0);
+    const inside = Math.min(Math.max(qx, qz), 0);
+    return out + inside - round;
+  }
+
+  /** How much of the shore noise a rectangle takes: all of it for a lake, a little for a stream. */
+  function wetWarpScale(r: WetRect): number {
+    return Math.min(1, Math.min(r.hw, r.hd) / 4.5);
+  }
+
+  function wetWarp(x: number, z: number): number {
+    return (fbm(x * 0.13 + 7.1, z * 0.13 - 3.3, seed ^ 0x3a7e, 2) - 0.5) * 2 * WET_WARP;
+  }
+
+  const basins: Basin[] = [];
+  if (!bare) {
+    const wet = TERRAIN.filter((t) => t.kind === "water" || t.kind === "shallow");
+    const parent = wet.map((_, i) => i);
+    const find = (a: number): number => {
+      let r = a;
+      while (parent[r] !== r) r = parent[r];
+      return r;
+    };
+    const touch = (a: (typeof wet)[number], b: (typeof wet)[number]) =>
+      Math.abs(a.position.x - b.position.x) <= (a.size.w + b.size.w) / 2 && Math.abs(a.position.z - b.position.z) <= (a.size.d + b.size.d) / 2;
+    for (let i = 0; i < wet.length; i++) {
+      for (let j = i + 1; j < wet.length; j++) if (touch(wet[i], wet[j])) parent[find(j)] = find(i);
+    }
+    const groups = new Map<number, WetRect[]>();
+    for (let i = 0; i < wet.length; i++) {
+      const t = wet[i];
+      const list = groups.get(find(i)) ?? [];
+      list.push({ x: t.position.x, z: t.position.z, hw: t.size.w / 2, hd: t.size.d / 2, deep: t.kind === "water" ? 2.6 : 1.0 });
+      groups.set(find(i), list);
+    }
+    for (const rects of groups.values()) {
+      let x0 = Infinity;
+      let x1 = -Infinity;
+      let z0 = Infinity;
+      let z1 = -Infinity;
+      for (const r of rects) {
+        x0 = Math.min(x0, r.x - r.hw - BANK_MAX - WET_WARP);
+        x1 = Math.max(x1, r.x + r.hw + BANK_MAX + WET_WARP);
+        z0 = Math.min(z0, r.z - r.hd - BANK_MAX - WET_WARP);
+        z1 = Math.max(z1, r.z + r.hd + BANK_MAX + WET_WARP);
+      }
+      // The level: low on the ring just outside the shore — the fifth-lowest part of it — so
+      // the lip that has to be raised to hold the water is as small as it can be.
+      const ring: number[] = [];
+      for (let x = x0; x <= x1; x += 1.5) {
+        for (let z = z0; z <= z1; z += 1.5) {
+          let sd = Infinity;
+          for (const r of rects) sd = Math.min(sd, wetRectSdf(r, x, z));
+          if (sd >= 1.5 && sd <= 3.5) ring.push(heightRaw(x, z));
+        }
+      }
+      ring.sort((a, b) => a - b);
+      const level = (ring[Math.floor(ring.length * 0.2)] ?? 0) - 0.25;
+      basins.push({ rects, level, x0, x1, z0, z1 });
+    }
+  }
+
+  /** Signed distance to a basin's shore (negative in the water), and the bed depth there. */
+  const WET = { sd: 0, deep: 0 };
+  function basinAt(b: Basin, x: number, z: number): typeof WET {
+    const warp = wetWarp(x, z);
+    let sd = Infinity;
+    let deep = 0;
+    for (let i = 0; i < b.rects.length; i++) {
+      const r = b.rects[i];
+      const d = wetRectSdf(r, x, z) + warp * wetWarpScale(r);
+      if (d < sd) sd = d;
+      if (d < 0) {
+        const want = Math.min(r.deep, -d * BED_FALL);
+        if (want > deep) deep = want;
+      }
+    }
+    WET.sd = sd;
+    WET.deep = deep;
+    return WET;
+  }
+
+  /**
+   * Ground height at a world point.
+   *
+   * `heightRaw` — the relief, the village and every reservation — and then the authored water's
+   * basins cut into it. Everything that asks where the ground is asks this.
+   */
+  function heightAt(x: number, z: number): number {
+    const h = heightRaw(x, z);
+    for (let i = 0; i < basins.length; i++) {
+      const b = basins[i];
+      if (x < b.x0 || x > b.x1 || z < b.z0 || z > b.z1) continue;
+      const w = basinAt(b, x, z);
+      if (w.sd < 0) {
+        const bed = b.level - w.deep;
+        return h < bed ? h : bed;
+      }
+      const bank = Math.min(BANK_MAX, Math.max(BANK_MIN, (h - b.level) * 2.4));
+      if (w.sd >= bank) continue;
+      const slopeY = b.level + w.sd * BANK_RISE;
+      return slopeY + (h - slopeY) * smoothstep(0, bank, w.sd);
+    }
+    return h;
+  }
+
+  /** The surface over this point: a basin's own level on and inside its shore, the sea's elsewhere. */
+  function waterLevelAt(x: number, z: number): number {
+    for (let i = 0; i < basins.length; i++) {
+      const b = basins[i];
+      if (x < b.x0 || x > b.x1 || z < b.z0 || z > b.z1) continue;
+      if (basinAt(b, x, z).sd < 1) return b.level;
+    }
+    return SEA_LEVEL;
+  }
+
   function moistureAt(x: number, z: number): number {
     // Wetness is mostly its own field, but the west is the Old Wood's side of the realm, so
     // the forest that starts in the authored core keeps going that way.
@@ -949,10 +1062,6 @@ export function createWorld(options: WorldOptions = {}): RealmWorld {
 
   function biomeAt(x: number, z: number): Biome {
     return classify(heightAt(x, z), moistureAt(x, z), slopeAt(x, z));
-  }
-
-  function waterLevelAt(): number {
-    return SEA_LEVEL;
   }
 
   function isWater(x: number, z: number): boolean {
@@ -1594,6 +1703,7 @@ export function createWorld(options: WorldOptions = {}): RealmWorld {
     biomeAt,
     isWater,
     waterLevelAt,
+    lakes: basins.map((b) => ({ level: b.level, x0: b.x0, x1: b.x1, z0: b.z0, z1: b.z1 })),
     sampleHeights,
     chunkProps,
     forEachPropNear,

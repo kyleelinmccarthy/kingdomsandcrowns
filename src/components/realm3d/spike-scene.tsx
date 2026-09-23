@@ -50,7 +50,7 @@ import { WORLD_SIZE, type Prop, type VillagerPlacement, type WorldLayout } from 
 import { heightAt } from "@/lib/realm3d/heightfield";
 import { WALK_HALF, type RealmWorld } from "@/lib/realm3d/worldgen";
 import { shoreMove, wadeSpeed } from "@/lib/realm3d/shore";
-import { gableGeo, litMaterial, sceneryGeometryFor, vivid } from "./geo-kit";
+import { CAMERA_CUT, gableGeo, litMaterial, nearCutout, sceneryGeometryFor, vivid } from "./geo-kit";
 import { RealmGround, RealmWater, WadeRing } from "./world-ground";
 import { RealmProps } from "./world-props";
 import { landmarkColliders, RealmLandmarks } from "./landmarks";
@@ -147,8 +147,8 @@ const CORE_HALF = WORLD_SIZE / 2;
  * The HAND-AUTHORED wilderness, one instanced draw per kind. About 1,200 of these, and every one
  * of them is drawn: clipping them short is what would put a seam in the world.
  */
-function Scenery({ scenery }: { scenery: readonly Prop[] }) {
-  const mat = useMemo(() => litMaterial(), []);
+function Scenery({ scenery, world }: { scenery: readonly Prop[]; world: RealmWorld }) {
+  const mat = useMemo(() => nearCutout(litMaterial(), CAMERA_CUT), []);
   const groups = useMemo(() => {
     const by = new Map<string, Prop[]>();
     for (const p of scenery) {
@@ -164,7 +164,7 @@ function Scenery({ scenery }: { scenery: readonly Prop[] }) {
   return (
     <>
       {groups.map(([kind, props]) => (
-        <SceneryKind key={kind} kind={kind} props={props} material={mat} />
+        <SceneryKind key={kind} kind={kind} props={props} material={mat} world={world} />
       ))}
     </>
   );
@@ -174,7 +174,7 @@ function Scenery({ scenery }: { scenery: readonly Prop[] }) {
 const ALIGNED = new Set(["fence"]);
 const UPRIGHT = new Set(["fence", "signpost", "lantern", "scarecrow", "cart", "menhir"]);
 
-function SceneryKind({ kind, props, material }: { kind: string; props: Prop[]; material: THREE.Material }) {
+function SceneryKind({ kind, props, material, world }: { kind: string; props: Prop[]; material: THREE.Material; world: RealmWorld }) {
   const geo = useMemo(() => sceneryGeometryFor(kind), [kind]);
   const ref = useRef<THREE.InstancedMesh>(null);
 
@@ -191,7 +191,9 @@ function SceneryKind({ kind, props, material }: { kind: string; props: Prop[]; m
       const scale = (p.size.h / 1.4) * (kind === "oak" || kind === "pine" ? TREE_SCALE : 1);
       const x = p.position.x;
       const z = p.position.z;
-      t.set(x, heightAt(x, z) - 0.05, z);
+      // A boat pulled up at the waterline floats if the bank under it dips below the surface.
+      const ground = heightAt(x, z) - 0.05;
+      t.set(x, kind === "boat" ? Math.max(ground, world.waterLevelAt(x, z) - 0.3) : ground, z);
       let yaw = UPRIGHT.has(kind) ? 0 : (Math.sin(i * 91.7) + 1) * Math.PI;
       if (ALIGNED.has(kind)) {
         // `row()` lays fence posts down consecutively along a straight line, so the run
@@ -212,7 +214,7 @@ function SceneryKind({ kind, props, material }: { kind: string; props: Prop[]; m
     });
     mesh.instanceMatrix.needsUpdate = true;
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-  }, [props, kind]);
+  }, [props, kind, world]);
 
   return <instancedMesh ref={ref} args={[geo, material, props.length]} castShadow receiveShadow frustumCulled={false} />;
 }
@@ -838,10 +840,11 @@ function Sun({ heroRef }: { heroRef: React.RefObject<THREE.Vector3> }) {
 const DUCK_H = 8.5;
 const DUCK_Y = 3.6;
 /**
- * How close a ducked boom may come. Short on purpose: the Old Wood plants a tree every metre or
- * so, and a camera held five units back in there was a camera inside the next pine.
+ * How close a ducked boom may come. In the Old Wood a tree stands every metre or so, so there is
+ * often no clear spot at this length either — the trees nearest the lens dissolve for that
+ * (`nearCutout` in geo-kit), rather than the camera being dragged into the child's hood.
  */
-const DUCK_MIN = 0.4;
+const DUCK_MIN = 0.55;
 /** The fastest the camera ever turns itself, in radians a second. */
 const ASSIST_RATE = 1.3;
 /** What must stay visible: the child's figure, not the patch of grass under it. */
@@ -973,13 +976,15 @@ function Rig({
     // In fast when something cuts across, out gently, so passing a tree is not a shove.
     frac.current += (want - frac.current) * (1 - Math.exp(-dt * (want < frac.current ? 16 : 3.5)));
 
-    const f = frac.current;
-    const cx = p.x + camH * sin * f;
-    const cz = p.z + camH * cos * f;
     // Never let the camera sink into a hill — and, ducked, never make it hover over one either.
     // How far over the ground depends on the pitch the child chose: lowered to look out from a
     // summit, it is allowed to sit low rather than being shoved back up to look down again.
     const lift = terrainClearance(ptr.pitch) + (1.3 - terrainClearance(ptr.pitch)) * duck.current;
+    // A boom held at its minimum can still leave the lens inside a canopy in a thick wood; the
+    // trees dissolve near the lens for exactly that (`nearCutout`), so it is not pulled in here.
+    const f = frac.current;
+    const cx = p.x + camH * sin * f;
+    const cz = p.z + camH * cos * f;
     desired.set(cx, Math.max(anchorY + camY * f, world.heightAt(cx, cz) + lift * f + 0.6), cz);
     // Snappier while the child is dragging: the camera is in their hand, not on a spring.
     camera.position.lerp(desired, 1 - Math.exp(-dt * (dragging ? 20 : 9)));
@@ -1231,13 +1236,30 @@ const World = memo(function World({
    * the front and `RealmProps` truncates back to their count and appends its own on each refill.
    * Nothing downstream has to know there is more than one kind of thing in here.
    */
+  /**
+   * The authored wilderness, less anything the lakes' basins have put under water. The layout
+   * was placed on a flat world where Longwater was a painted rectangle; now that the water sits
+   * in a real hollow, the rows of bushes and stones that ran along its old edge would stand up
+   * through the surface. Boats stay: they float.
+   */
+  const scenery = useMemo(
+    () =>
+      layout.scenery.filter((p) => {
+        if (p.variant === "boat") return true;
+        const x = p.position.x;
+        const z = p.position.z;
+        return world.waterLevelAt(x, z) - world.heightAt(x, z) < 0.12;
+      }),
+    [layout, world],
+  );
+
   const { solids, occluders, fixedSolids, fixedOccluders } = useMemo(() => {
-    const built = buildColliders(layout.props, layout.scenery, { sitePlan: SITE_PLAN, wallH: WALL_H, roofH: ROOF_H, treeScale: TREE_SCALE, patchHalf: CORE_HALF });
+    const built = buildColliders(layout.props, scenery, { sitePlan: SITE_PLAN, wallH: WALL_H, roofH: ROOF_H, treeScale: TREE_SCALE, patchHalf: CORE_HALF });
     const marks = landmarkColliders(world);
     built.solids.push(...marks.solids);
     built.occluders.push(...marks.occluders);
     return { ...built, fixedSolids: built.solids.length, fixedOccluders: built.occluders.length };
-  }, [layout, world]);
+  }, [layout, scenery, world]);
 
   /**
    * Where the child starts.
@@ -1353,14 +1375,14 @@ const World = memo(function World({
         villageOccluders={fixedOccluders}
       />
       <RealmLandmarks world={world} />
-      <Scenery scenery={layout.scenery} />
+      <Scenery scenery={scenery} world={world} />
       <Village props={layout.props} villagers={layout.villagers} />
       <Hero heroRef={heroRef} keys={keys} yawRef={yawRef} pointer={pointer} bus={bus} facingRef={facingRef} gaitRef={gaitRef} aimRef={aimRef} solids={solids} world={world}>
         <HeroFigure look={look} gait={gaitRef} />
       </Hero>
       {look.companion && <Companion look={look.companion} heroRef={heroRef} facingRef={facingRef} />}
       <WadeRing world={world} heroRef={heroRef} />
-      <LanternGlow scenery={layout.scenery} tex={tex} />
+      <LanternGlow scenery={scenery} tex={tex} />
       <Motes tex={tex} />
       <SpellFx pool={fxPool} />
       <Interaction spots={spots} heroRef={heroRef} keys={keys} bus={bus} world={world} />
