@@ -627,3 +627,11 @@ describe("read-aloud, as a side quest ends", () => {
     }
   });
 });
+
+describe("where the keyboard lands when a panel opens", () => {
+  it("is the welcome's go button, never a setting a stray Enter would write", () => {
+    mount({ realm: { ...realm, helpSeen: false, tutorialStep: 0 } });
+    expect(screen.getByRole("dialog", { name: "Welcome to your Realm" })).toBeInTheDocument();
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: /Show me how to play/ }));
+  });
+});

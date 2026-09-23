@@ -290,6 +290,21 @@ export function InteractPrompt({ target, onPress }: { target: InteractTarget | n
 /* ------------------------------------------------------------------ panels */
 
 /**
+ * Where the keyboard lands when a panel opens: a control marked `data-autofocus`, else the first
+ * button or link that is NOT one of a setting's choices (`role="group"`). A stray Enter or Space
+ * on a setting writes it — "Keep it simple" on the welcome stuck a child in simple view — while
+ * on the panel's own action it only does what the child meant.
+ */
+export function firstFocus(root: HTMLElement): HTMLElement | null {
+  const marked = root.querySelector<HTMLElement>("[data-autofocus]");
+  if (marked) return marked;
+  for (const el of root.querySelectorAll<HTMLElement>("button, a")) {
+    if (!el.closest('[role="group"]')) return el;
+  }
+  return root.querySelector<HTMLElement>("button, a");
+}
+
+/**
  * The frame every panel sits in: a dim over the world, a timber board in the middle, focus on
  * the first button so Enter does the obvious thing. Clicking the dim closes it; Esc is the
  * game's own handler, one level up, so it can go back a step instead of closing everything.
@@ -313,7 +328,7 @@ export function Panel({
 }) {
   const board = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    board.current?.querySelector<HTMLElement>("button, a")?.focus();
+    board.current && firstFocus(board.current)?.focus();
   }, []);
   return (
     <div className="r3-dim" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
