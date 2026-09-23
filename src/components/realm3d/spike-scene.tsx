@@ -89,6 +89,7 @@ import {
 } from "@/lib/realm3d/controls";
 import { buildSpots } from "@/lib/realm3d/interact";
 import { Interaction } from "./interaction";
+import { ConstructionSite } from "./construction-site";
 import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
 import { Companion, HeroFigure, type Gait } from "./hero-figure";
 import type { SpellPageView } from "@/lib/realm/spells/pages";
@@ -488,49 +489,6 @@ function Castle({ prop }: { prop: Prop }) {
   );
 }
 
-/** A site nobody has raised yet: a footing, scaffold uprights and a stack of timber. */
-function Foundation({ prop }: { prop: Prop }) {
-  const { w, d } = prop.size;
-  const posts = useMemo(() => [
-    [-w / 2 + 0.3, -d / 2 + 0.3],
-    [w / 2 - 0.3, -d / 2 + 0.3],
-    [-w / 2 + 0.3, d / 2 - 0.3],
-    [w / 2 - 0.3, d / 2 - 0.3],
-  ] as [number, number][], [w, d]);
-  return (
-    <group position={[prop.position.x, groundY(prop), prop.position.z]}>
-      <Plinth w={w * 1.02} d={d * 1.02} />
-      <mesh receiveShadow castShadow position={[0, 0.14, 0]}>
-        <boxGeometry args={[w, 0.28, d]} />
-        <meshStandardMaterial color="#9b9384" flatShading />
-      </mesh>
-      {/* The scaffold outlines the house that IS coming, so it grew with the houses. */}
-      {posts.map(([x, z], i) => (
-        <mesh key={i} castShadow position={[x, WALL_H / 2 + 0.2, z]}>
-          <boxGeometry args={[0.26, WALL_H, 0.26]} />
-          <meshStandardMaterial color="#8a6a42" flatShading />
-        </mesh>
-      ))}
-      <mesh castShadow position={[0, WALL_H + 0.3, 0]}>
-        <boxGeometry args={[0.22, 0.22, d * 0.95]} />
-        <meshStandardMaterial color="#a07d4c" flatShading />
-      </mesh>
-      {[-1, 1].map((s) => (
-        <mesh key={s} castShadow position={[(s * w) / 2.6, WALL_H * 0.78, 0]} rotation={[0, 0, s * 0.5]}>
-          <boxGeometry args={[0.2, w * 0.9, 0.2]} />
-          <meshStandardMaterial color="#a07d4c" flatShading />
-        </mesh>
-      ))}
-      {[0, 1, 2].map((i) => (
-        <mesh key={i} castShadow position={[0, 0.48 + i * 0.3, d / 2 - 1.0]} rotation={[0, 0.07 * i, 0]}>
-          <boxGeometry args={[w * 0.7, 0.28, 0.28]} />
-          <meshStandardMaterial color="#b08a53" flatShading />
-        </mesh>
-      ))}
-    </group>
-  );
-}
-
 const VILLAGER_TUNIC: Record<string, string> = { objective: "#e8b33a", work: "#4f86c6", built: "#57ab3a" };
 
 function Villager({ prop, status }: { prop: Prop; status: string }) {
@@ -609,6 +567,19 @@ function Village({ props: raw, villagers }: { props: Prop[]; villagers: Villager
   const props = useMemo(() => raw.map(replot), [raw]);
   const road = useMemo(() => props.filter((p) => p.kind === "path"), [props]);
   const status = useMemo(() => new Map(villagers.map((v) => [`villager-${v.id}`, v.status as string])), [villagers]);
+  // How far each site has got, by building id: the villager placements carry it.
+  const progress = useMemo(() => {
+    const m = new Map<string, { done: number; total: number }>(villagers.map((v) => [v.buildingId, { done: v.done, total: v.total }]));
+    // `?sitedone=chapel:3,library:1` — a screenshot override, like `?at`: it restyles the
+    // picture of a site and touches no saved row.
+    const q = typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("sitedone");
+    for (const pair of q ? q.split(",") : []) {
+      const [id, n] = pair.split(":");
+      const was = m.get(id);
+      if (was && Number.isFinite(Number(n))) m.set(id, { done: Number(n), total: was.total });
+    }
+    return m;
+  }, [villagers]);
   return (
     <>
       <Road tiles={road} />
@@ -616,7 +587,25 @@ function Village({ props: raw, villagers }: { props: Prop[]; villagers: Villager
         if (p.kind === "castle") return <Castle key={p.id} prop={p} />;
         if (p.kind === "banner") return <Banner key={p.id} prop={p} />;
         if (p.kind === "villager") return <Villager key={p.id} prop={p} status={status.get(p.id) ?? "work"} />;
-        if (p.kind === "foundation") return <Foundation key={p.id} prop={p} />;
+        if (p.kind === "foundation") {
+          const v = progress.get(p.id);
+          const tower = p.id === "watchtower";
+          return (
+            <ConstructionSite
+              key={p.id}
+              x={p.position.x}
+              y={groundY(p)}
+              z={p.position.z}
+              w={p.size.w}
+              d={p.size.d}
+              wallH={tower ? WALL_H * 1.45 : WALL_H}
+              roofH={tower ? 0.9 : ROOF_H}
+              done={v?.done ?? 0}
+              total={v?.total ?? 5}
+              side={p.position.x >= 0 ? 1 : -1}
+            />
+          );
+        }
         if (p.kind === "building") {
           if (p.id === "well") return <Well key={p.id} prop={p} />;
           if (p.id === "watchtower") return <Watchtower key={p.id} prop={p} />;
