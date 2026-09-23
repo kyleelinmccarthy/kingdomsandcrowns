@@ -1,19 +1,13 @@
 "use client";
 
 /**
- * SPIKE — throwaway. The `next/dynamic` boundary, copied from `realm-shell.tsx` for the same
- * reason: `three` must never be reachable from a module graph Vitest loads, and it must never
- * be imported on the server. Everything three-shaped lives behind this.
+ * The client entry for `/realm-3d`. The `three` boundary now lives in `realm-game.tsx`, which
+ * dynamic-imports the canvas; this stays as the name the page imports.
  */
 
-import dynamic from "next/dynamic";
 import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
 import type { SpellPage } from "@/lib/services/spells";
-
-const SpikeScene = dynamic(() => import("./spike-scene"), {
-  ssr: false,
-  loading: () => <p className="p-6 text-center text-muted-foreground">Raising the hills…</p>,
-});
+import { RealmGame } from "./realm-game";
 
 export function Realm3dSpike({
   avatar,
@@ -26,5 +20,5 @@ export function Realm3dSpike({
   heroName?: string;
   spellbook?: { spells: SpellPage[]; slots: number } | null;
 }) {
-  return <SpikeScene avatar={avatar} close={close} heroName={heroName} spellbook={spellbook} />;
+  return <RealmGame avatar={avatar} close={close} heroName={heroName} spellbook={spellbook} />;
 }

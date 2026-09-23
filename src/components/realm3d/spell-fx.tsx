@@ -14,10 +14,9 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-import { fxAlpha, fxScale, type FxKind, type FxSlot } from "@/lib/realm3d/spell-fx";
+import { FX_POOL, fxAlpha, fxScale, type FxKind, type FxSlot } from "@/lib/realm3d/spell-fx";
 
-/** How many effects can be on screen at once. Four keys and a mashing eight-year-old. */
-export const FX_POOL = 16;
+export { FX_POOL };
 
 /**
  * The six shapes, unit-sized and pre-oriented so a slot's only rotation is its heading.

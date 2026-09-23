@@ -2,6 +2,9 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactCompiler: true,
+  // A second dev server in this checkout (an agent's, for screenshots) takes its own build
+  // directory, so it never holds the lock the owner's `npm run dev` needs.
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   // "Deeds" became "Side Quests" (slice 8); old links and bookmarks keep working.
   async redirects() {
     return [{ source: "/deeds", destination: "/side-quests", permanent: true }];

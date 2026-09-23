@@ -27,7 +27,20 @@ export type HudSlotNodes = {
 /** The single nodes the driver writes, by name. */
 export type HudNodeKey = "manaFill" | "manaText" | "mapWorld" | "mapYou" | "mapCone" | "mapHome";
 
-export type HudHandlers = Pick<HudBus, "onPlace" | "onFound" | "onRefuse">;
+export type HudHandlers = Pick<HudBus, "onPlace" | "onFound" | "onRefuse" | "onNear" | "onInteract">;
+
+/**
+ * Something the child can press the interact key at. The scene decides what is in reach (it
+ * owns positions and the frame loop); the HUD decides what pressing it means (it owns the
+ * dialogue, the deed flow and every other panel). `id` is the layout's own id for that kind —
+ * a villager id, a building slot id, a landmark id — so neither side has to translate.
+ */
+export type InteractTarget = {
+  kind: "villager" | "site" | "castle" | "landmark";
+  id: string;
+  /** What the prompt calls it: "Old Bram", "the Chapel", "Cloudfoot". */
+  label: string;
+};
 
 export type HudBus = {
   manaFill: HTMLElement | null;
@@ -47,6 +60,18 @@ export type HudBus = {
   onFound: (id: string) => void;
   /** Fired when a press did nothing, with the slot number and why. */
   onRefuse: (slot: number, why: "mana" | "cooldown") => void;
+  /** Fired when the nearest thing in interact reach changes. Null means nothing is in reach. */
+  onNear: (target: InteractTarget | null) => void;
+  /** Fired when the child presses the interact key with something in reach. */
+  onInteract: (target: InteractTarget) => void;
+
+  /**
+   * True while a menu, dialogue, tutorial card or the pause screen owns the child's attention.
+   * Written by the HUD through `setPaused`; read by the scene every frame. While it is true the
+   * scene takes no movement, casting, camera or interact input and advances no simulation
+   * clock — the world may keep drawing, but nothing in it moves because of the child.
+   */
+  paused: boolean;
 
   /**
    * The HUD hands its nodes and its handlers over through these rather than assigning the
@@ -60,6 +85,7 @@ export type HudBus = {
   setSlot(index: number, which: keyof HudSlotNodes, el: HTMLElement | null): void;
   setPlate(index: number, el: HTMLElement | null): void;
   setHandlers(handlers: Partial<HudHandlers>): void;
+  setPaused(paused: boolean): void;
 
   /** @internal — the write cache the `paint*` functions below keep. */
   last: HudLast;
@@ -89,6 +115,9 @@ export function makeHudBus(slots: number, plates: number): HudBus {
     onPlace: noop,
     onFound: noop,
     onRefuse: noop,
+    onNear: noop,
+    onInteract: noop,
+    paused: false,
     setNode(key, el) {
       // One assignment, one narrow cast. Every key above is either an HTMLElement slot or an
       // SVGGElement slot and the call sites are typed, so the cast cannot pick the wrong one.
@@ -112,6 +141,11 @@ export function makeHudBus(slots: number, plates: number): HudBus {
       if (handlers.onPlace) bus.onPlace = handlers.onPlace;
       if (handlers.onFound) bus.onFound = handlers.onFound;
       if (handlers.onRefuse) bus.onRefuse = handlers.onRefuse;
+      if (handlers.onNear) bus.onNear = handlers.onNear;
+      if (handlers.onInteract) bus.onInteract = handlers.onInteract;
+    },
+    setPaused(paused) {
+      bus.paused = paused;
     },
   };
   return bus;

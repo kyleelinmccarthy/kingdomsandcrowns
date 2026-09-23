@@ -46,9 +46,9 @@
 import { memo, useEffect, useMemo, useRef } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
-import { buildWorldLayout, WORLD_SIZE, type Prop, type VillagerPlacement, type WorldLayout } from "@/lib/realm/layout";
+import { WORLD_SIZE, type Prop, type VillagerPlacement, type WorldLayout } from "@/lib/realm/layout";
 import { heightAt } from "@/lib/realm3d/heightfield";
-import { realmWorld, SEA_LEVEL, WALK_HALF, type RealmWorld } from "@/lib/realm3d/worldgen";
+import { SEA_LEVEL, WALK_HALF, type RealmWorld } from "@/lib/realm3d/worldgen";
 import { shoreMove, wadeSpeed } from "@/lib/realm3d/shore";
 import { gableGeo, litMaterial, sceneryGeometryFor, vivid } from "./geo-kit";
 import { RealmGround, RealmWater, WadeRing } from "./world-ground";
@@ -69,17 +69,15 @@ import {
 } from "@/lib/realm3d/collision";
 import { makeVertical, stepVertical, tryJump, type Vertical } from "@/lib/realm3d/jump";
 import { heroLook } from "@/lib/realm3d/hero-look";
-import { DEFAULT_AVATAR, type AvatarConfig } from "@/lib/utils/avatar-catalog";
+import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
 import { Companion, HeroFigure, type Gait } from "./hero-figure";
-import { resolvePages, withEmptyPages, type SpellPageView } from "@/lib/realm/spells/pages";
-import type { SpellPage } from "@/lib/services/spells";
-import { digitSlot, makeCaster, makeCastQueue, pushCast, type Caster, type CastQueue } from "@/lib/realm3d/casting";
-import { makeHudBus, type HudBus } from "@/lib/realm3d/hud-bus";
-import { buildAnchors, type PlateAnchor } from "@/lib/realm3d/plate-anchors";
-import { makeFxPool, type FxSlot } from "@/lib/realm3d/spell-fx";
-import { RealmHud } from "./hud";
+import type { SpellPageView } from "@/lib/realm/spells/pages";
+import { digitSlot, pushCast, type Caster, type CastQueue } from "@/lib/realm3d/casting";
+import type { HudBus } from "@/lib/realm3d/hud-bus";
+import type { PlateAnchor } from "@/lib/realm3d/plate-anchors";
+import type { FxSlot } from "@/lib/realm3d/spell-fx";
 import { HudDriver } from "./hud-driver";
-import { FX_POOL, SpellFx } from "./spell-fx";
+import { SpellFx } from "./spell-fx";
 
 /* ------------------------------------------------------------------ palette */
 
@@ -1203,92 +1201,53 @@ const World = memo(function World({
 });
 
 /**
- * The half-built village the spike has always shown: four sites raised, four still on their
- * footings, three of them the current objectives. Hoisted out of `World` so the villagers'
- * nameplates and the scene read the same layout object, and so a memoised `World` gets the
- * same reference on every render.
+ * THE CANVAS, and nothing else. Everything it draws from is built by `realm-game.tsx` — the
+ * composition root, which never imports `three` — and handed in referentially stable, so the
+ * memoised `World` never re-renders because the HUD or a menu around it did.
+ *
+ * `viewer` and `castleUnlocked` are the frame's word on who is walking and what they have
+ * earned: a parent dropping in walks as the quest-giver wizard, not as the child, and a castle
+ * the child has not unlocked is not in the world at all.
  */
-const VILLAGE = {
-  castleType: "castle",
-  buildings: [
-    { id: "well", done: 5, total: 5, complete: true },
-    { id: "mill", done: 5, total: 5, complete: true },
-    { id: "bridge", done: 5, total: 5, complete: true },
-    { id: "chapel", done: 3, total: 5, complete: false },
-    { id: "market", done: 5, total: 5, complete: true },
-    { id: "library", done: 1, total: 5, complete: false },
-    { id: "watchtower", done: 5, total: 5, complete: true },
-    { id: "garden", done: 0, total: 5, complete: false },
-  ],
-  banners: 5,
-  objectiveIds: ["chapel", "library", "garden"],
-} as const;
+export type RealmCanvasProps = {
+  avatar: AvatarConfig;
+  close: boolean;
+  world: RealmWorld;
+  layout: WorldLayout;
+  anchors: readonly PlateAnchor[];
+  pages: SpellPageView[];
+  bus: HudBus;
+  caster: Caster;
+  fxPool: FxSlot[];
+  casts: CastQueue;
+  viewer: "child" | "parent";
+  castleUnlocked: boolean;
+};
 
-export default function SpikeScene({
-  avatar,
-  close = false,
-  heroName = "The Hero",
-  spellbook,
-}: {
-  avatar?: AvatarConfig | null;
-  close?: boolean;
-  heroName?: string;
-  /** The child's own spellbook rows and slot count, straight off `getRealmBundle`. */
-  spellbook?: { spells: SpellPage[]; slots: number } | null;
-}) {
-  const world = useMemo(() => realmWorld(), []);
-  const layout = useMemo(() => buildWorldLayout({ ...VILLAGE, buildings: [...VILLAGE.buildings], objectiveIds: [...VILLAGE.objectiveIds] }), []);
-
-  /**
-   * The child's REAL spells. `resolvePages` turns their saved rows into castable definitions
-   * and `withEmptyPages` pads the book out to the slot count their level has earned — the same
-   * two calls `realm-shell.tsx` makes, so the 3D bar and the flat Realm's bar can never
-   * disagree about what a child owns. A hero with no rows at all still gets the starter Ember
-   * Bolt, because `getRealmBundle` seeds it before the page ever renders.
-   */
-  const pages = useMemo(() => {
-    const slots = spellbook?.slots ?? 4;
-    return withEmptyPages(resolvePages(spellbook?.spells ?? [], slots), slots);
-  }, [spellbook]);
-
-  const anchors = useMemo(
-    () => buildAnchors({ heroName, villagers: layout.villagers, landmarks: world.landmarks, heightAt: world.heightAt }),
-    [heroName, layout, world],
-  );
-
-  // Built once, mutated for ever, shared across the canvas boundary. None of these is React
-  // state and none of them can re-render anything.
-  const bus = useMemo(() => makeHudBus(pages.length, anchors.length), [pages.length, anchors.length]);
-  const caster = useMemo(() => makeCaster(pages.length), [pages.length]);
-  const fxPool = useMemo(() => makeFxPool(FX_POOL), []);
-  const casts = useMemo(() => makeCastQueue(), []);
-
+export default function SpikeScene({ avatar, close, world, layout, anchors, pages, bus, caster, fxPool, casts }: RealmCanvasProps) {
   return (
-    <div className="fixed inset-0 bg-[#bcdcec]">
-      <Canvas
-        dpr={1}
-        shadows={{ type: THREE.PCFSoftShadowMap }}
-        gl={{ antialias: true, powerPreference: "high-performance" }}
-        camera={{ fov: 46, near: 0.5, far: 1400, position: [0, 22, 40] }}
-        onCreated={({ gl }) => {
-          gl.toneMapping = THREE.ACESFilmicToneMapping;
-          gl.toneMappingExposure = 1.08;
-        }}
-      >
-        <World
-          avatar={avatar ?? DEFAULT_AVATAR}
-          close={close}
-          world={world}
-          layout={layout}
-          anchors={anchors}
-          pages={pages}
-          bus={bus}
-          caster={caster}
-          fxPool={fxPool}
-          casts={casts}
-        />
-      </Canvas>
-      {!close && <RealmHud bus={bus} world={world} anchors={anchors} pages={pages} heroName={heroName} />}
-    </div>
+    <Canvas
+      dpr={1}
+      shadows={{ type: THREE.PCFSoftShadowMap }}
+      gl={{ antialias: true, powerPreference: "high-performance" }}
+      camera={{ fov: 46, near: 0.5, far: 1400, position: [0, 22, 40] }}
+      onCreated={({ gl }) => {
+        gl.toneMapping = THREE.ACESFilmicToneMapping;
+        gl.toneMappingExposure = 1.08;
+      }}
+    >
+      <World
+        avatar={avatar}
+        close={close}
+        world={world}
+        layout={layout}
+        anchors={anchors}
+        pages={pages}
+        bus={bus}
+        caster={caster}
+        fxPool={fxPool}
+        casts={casts}
+      />
+    </Canvas>
   );
 }

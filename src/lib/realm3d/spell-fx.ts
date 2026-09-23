@@ -26,6 +26,9 @@
 
 import type { SpellDefinition, SpellShape } from "@/lib/utils/spell-catalog";
 
+/** How many effects can be on screen at once. Four keys and a mashing eight-year-old. */
+export const FX_POOL = 16;
+
 export type FxKind = "charge" | "bolt" | "ring" | "beam" | "slab" | "aura";
 
 export type FxSlot = {
