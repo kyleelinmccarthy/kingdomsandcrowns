@@ -18,6 +18,8 @@ export type RealmSettings = {
    * Realm's lessons (see `lib/realm3d/tutorial.ts` for why they are stored offset).
    */
   tutorialStep: number;
+  /** The most minutes a day clearing troubles may earn; 0 turns the bounty off (`lib/realm/spells/bounty.ts`). */
+  troubleBonusCapMinutes: number;
 };
 
 export const DEFAULT_REALM_SETTINGS: RealmSettings = {
@@ -29,12 +31,14 @@ export const DEFAULT_REALM_SETTINGS: RealmSettings = {
   toneMode: "gentle",
   depthOverride: DEFAULT_DEPTH_OVERRIDE,
   tutorialStep: 0,
+  troubleBonusCapMinutes: 5,
 };
 
 const ACCESS_MODES: RealmAccessMode[] = ["earned", "scheduled", "both", "open"];
 const TONES: ToneMode[] = ["gentle", "monsters"];
 export const EARNED_MINUTES_RANGE = { min: 0, max: 60 } as const;
 export const DAILY_CAP_RANGE = { min: 5, max: 240 } as const;
+export const TROUBLE_BONUS_RANGE = { min: 0, max: 30 } as const;
 
 function inRange(v: unknown, r: { min: number; max: number }): v is number {
   return typeof v === "number" && Number.isInteger(v) && v >= r.min && v <= r.max;
@@ -58,6 +62,9 @@ export function settingsFromRow(row: Partial<Record<keyof RealmSettings, unknown
     toneMode: TONES.includes(row.toneMode as ToneMode) ? (row.toneMode as ToneMode) : DEFAULT_REALM_SETTINGS.toneMode,
     depthOverride: isDepthOverride(row.depthOverride) ? row.depthOverride : DEFAULT_REALM_SETTINGS.depthOverride,
     tutorialStep: isTutorialStep(row.tutorialStep) ? row.tutorialStep : DEFAULT_REALM_SETTINGS.tutorialStep,
+    troubleBonusCapMinutes: inRange(row.troubleBonusCapMinutes, TROUBLE_BONUS_RANGE)
+      ? row.troubleBonusCapMinutes
+      : DEFAULT_REALM_SETTINGS.troubleBonusCapMinutes,
   };
 }
 
@@ -95,6 +102,10 @@ export function validateRealmSettingsPatch(patch: unknown): Partial<RealmSetting
       case "dailyCapMinutes":
         if (!inRange(v, DAILY_CAP_RANGE)) throw new Error(`The daily cap must be ${DAILY_CAP_RANGE.min}–${DAILY_CAP_RANGE.max} minutes.`);
         out.dailyCapMinutes = v;
+        break;
+      case "troubleBonusCapMinutes":
+        if (!inRange(v, TROUBLE_BONUS_RANGE)) throw new Error(`Minutes from clearing troubles must be ${TROUBLE_BONUS_RANGE.min}–${TROUBLE_BONUS_RANGE.max} a day.`);
+        out.troubleBonusCapMinutes = v;
         break;
       default:
         throw new Error(`Unknown Realm setting: ${key}`);

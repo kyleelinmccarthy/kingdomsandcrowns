@@ -5,7 +5,24 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { requireChildAccess, isChildActor } from "@/lib/auth/access";
-import { appendLedger, loadLedger, loadRealmSettings } from "@/lib/services/realm-play";
+import {
+  appendLedger,
+  countTroubleClearsSince,
+  loadLedger,
+  loadRealmSettings,
+  loadTroubleClears,
+  recordTroubleClearRows,
+} from "@/lib/services/realm-play";
+import {
+  awardClears,
+  bonusMinutesToday,
+  bountyStatusFor,
+  isNearToday,
+  isTroubleHomeId,
+  MAX_CLEARS_PER_CALL,
+  MAX_CLEARS_PER_MINUTE,
+  type BountyStatus,
+} from "@/lib/realm/spells/bounty";
 import { computeRealmAccess, ledgerBalance, minutesSpent, type AccessResult } from "@/lib/utils/realm-access";
 import { parseSchoolDays, weekdayOfDate } from "@/lib/utils/schedule-days";
 
@@ -86,9 +103,68 @@ export async function grantRealmMinutes(childId: string, date: string, minutes: 
 export async function getRealmPlaySummary(
   childId: string,
   date: string
-): Promise<{ date: string; balance: number; spent: number }> {
+): Promise<{ date: string; balance: number; spent: number; bonus: number }> {
   await requireChildAccess(childId);
   assertDate(date);
   const rows = await loadLedger(childId, date);
-  return { date, balance: ledgerBalance(rows), spent: minutesSpent(rows) };
+  return { date, balance: ledgerBalance(rows), spent: minutesSpent(rows), bonus: bonusMinutesToday(rows) };
+}
+
+/* ---- the bounty: clearing troubles earns Realm minutes (lib/realm/spells/bounty.ts) ---- */
+
+async function bountyStatus(childId: string, date: string): Promise<BountyStatus> {
+  const [settings, ledgerToday, clears] = await Promise.all([
+    loadRealmSettings(childId),
+    loadLedger(childId, date),
+    loadTroubleClears(childId, date),
+  ]);
+  return bountyStatusFor(ledgerToday, settings, clears);
+}
+
+/** What clearing troubles has earned today and may still earn. Read-only; a grown-up may ask too. */
+export async function getTroubleBounty(childId: string, date: string): Promise<BountyStatus> {
+  await requireChildAccess(childId);
+  assertDate(date);
+  return bountyStatus(childId, date);
+}
+
+/**
+ * The hero cleared these troubles (by home id, in order). Records every clear and banks the
+ * minutes they earned. The client's say is only WHICH homes; what they are worth is decided here:
+ *
+ *   - only the hero themselves — a visiting grown-up writes nothing;
+ *   - only today, somewhere on Earth, so tomorrow's allowance cannot be banked tonight;
+ *   - only home ids the game writes, at most `MAX_CLEARS_PER_CALL` a call and
+ *     `MAX_CLEARS_PER_MINUTE` a minute (the excess is dropped, not recorded);
+ *   - a minute each for a home that has not paid today, under the day's sub-cap and the
+ *     parent's daily cap (`awardClears`), and a unique index behind that.
+ */
+export async function recordTroubleClears(
+  childId: string,
+  date: string,
+  homeIds: string[]
+): Promise<{ awarded: number; status: BountyStatus }> {
+  const { access } = await requireChildAccess(childId, { write: true });
+  if (!isChildActor(access)) throw new Error("Only the hero earns minutes by clearing troubles.");
+  assertDate(date);
+  if (!isNearToday(date, new Date())) throw new Error("That date doesn't look right.");
+  if (!Array.isArray(homeIds) || homeIds.length < 1 || homeIds.length > MAX_CLEARS_PER_CALL) {
+    throw new Error(`Send between 1 and ${MAX_CLEARS_PER_CALL} clears at a time.`);
+  }
+  if (!homeIds.every(isTroubleHomeId)) throw new Error("That isn't a trouble the Realm knows.");
+
+  const recent = await countTroubleClearsSince(childId, new Date(Date.now() - 60_000));
+  const room = Math.max(0, MAX_CLEARS_PER_MINUTE - recent);
+  const batch = homeIds.slice(0, room);
+  let awarded = 0;
+  if (batch.length > 0) {
+    const [settings, ledgerToday, clears] = await Promise.all([
+      loadRealmSettings(childId),
+      loadLedger(childId, date),
+      loadTroubleClears(childId, date),
+    ]);
+    const { rows } = awardClears(batch, ledgerToday, settings, clears);
+    awarded = await recordTroubleClearRows(childId, date, rows);
+  }
+  return { awarded, status: await bountyStatus(childId, date) };
 }

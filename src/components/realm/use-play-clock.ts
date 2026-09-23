@@ -157,5 +157,6 @@ export function usePlayClock({
     await settle(minutesToSettle(clockRef.current, pendingRef.current));
   }, [settle]);
 
-  return { minutesRemaining: clock.minutesRemaining, warning, error, clearError: () => setError(""), flushPending, source };
+  // `refresh` re-asks the gate now: minutes landed from elsewhere (a cleared trouble's bounty).
+  return { minutesRemaining: clock.minutesRemaining, warning, error, clearError: () => setError(""), flushPending, refresh, source };
 }

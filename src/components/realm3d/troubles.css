@@ -127,6 +127,57 @@
 .r3t-notice-title { font-size: 1.25rem; font-weight: 900; color: #fff6de; text-shadow: 0 2px 0 #1b0f33; }
 .r3t-notice-line { font-size: 0.95rem; font-weight: 700; color: #e9d5ff; }
 
+/* The bounty: "+1 minute of Realm time!" in the clearing notice, gold, on its own line. */
+.r3t-notice-reward {
+  align-self: flex-start;
+  margin: 0.1rem 0;
+  padding: 0.05rem 0.6rem;
+  border-radius: 999px;
+  border: 2px solid #7a4f14;
+  background: linear-gradient(180deg, #ffe7a3, #f2b93b);
+  color: #4a2a08;
+  font-size: 1rem;
+  font-weight: 900;
+}
+
+/* ...and by the clock, while the clock itself goes up. */
+.r3t-gain {
+  align-self: flex-end;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.8rem;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: #fff6de;
+  border-color: #ffd875 !important;
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.3), 0 0 26px rgba(255, 216, 117, 0.65);
+  animation: r3t-notice-in 0.35s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+.r3t-gain-plus {
+  display: inline-grid;
+  place-items: center;
+  min-width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  border: 2px solid #7a4f14;
+  background: radial-gradient(circle at 45% 35%, #fff6dc, #e0a52c 78%);
+  color: #4a2a08;
+  font-weight: 900;
+}
+.r3-corner:has(.r3t-gain) .r3-clock {
+  animation: r3t-clock-gained 0.6s ease-out 2;
+  border-color: #ffd875;
+}
+.r3-corner:has(.r3t-gain) .r3-clock-text { color: #ffe08a; }
+@keyframes r3t-clock-gained {
+  0% { box-shadow: 0 0 0 rgba(255, 216, 117, 0); transform: scale(1); }
+  40% { box-shadow: 0 0 34px rgba(255, 216, 117, 0.95); transform: scale(1.08); }
+  100% { box-shadow: 0 0 0 rgba(255, 216, 117, 0); transform: scale(1); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .r3t-notice { animation: none; }
+  .r3t-gain { animation: none; }
+  .r3-corner:has(.r3t-gain) .r3-clock { animation: none; }
 }

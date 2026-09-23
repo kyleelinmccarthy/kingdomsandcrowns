@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveSpell, type SpellDefinition } from "@/lib/utils/spell-catalog";
+import { resolveSpell, SPELL_ELEMENTS, SPELL_FORMS, SPELL_MODIFIERS, type SpellDefinition } from "@/lib/utils/spell-catalog";
 import {
   cooldownLeft,
   cooldownMsFor,
@@ -8,8 +8,10 @@ import {
   makeCastQueue,
   manaFraction,
   MANA_MAX,
+  MANA_REGEN_DELAY_MS,
   MANA_REGEN_PER_S,
   pushCast,
+  QUICK_MIN_MS,
   REFUSAL_MS,
   shakingSlot,
   slotReady,
@@ -49,11 +51,20 @@ describe("mana", () => {
     expect(c.mana).toBe(MANA_MAX - bolt.manaCost);
   });
 
-  it("comes back over time, at the flat Realm's own rate", () => {
+  it("comes back after a short wait, at its own rate", () => {
     const c = makeCaster(4);
     tryCast(c, 1, bolt);
-    stepCaster(c, 1);
-    expect(c.mana).toBeCloseTo(MANA_MAX - bolt.manaCost + MANA_REGEN_PER_S);
+    stepCaster(c, MANA_REGEN_DELAY_MS / 1000);
+    expect(c.mana).toBe(MANA_MAX - bolt.manaCost); // nothing yet: still inside the wait
+    stepCaster(c, 0.4);
+    expect(c.mana).toBeCloseTo(MANA_MAX - bolt.manaCost + MANA_REGEN_PER_S * 0.4);
+  });
+
+  it("counts only the part of a long step that falls after the wait", () => {
+    const c = makeCaster(4);
+    tryCast(c, 1, bolt);
+    stepCaster(c, MANA_REGEN_DELAY_MS / 1000 + 0.2);
+    expect(c.mana).toBeCloseTo(MANA_MAX - bolt.manaCost + MANA_REGEN_PER_S * 0.2);
   });
 
   it("never overfills", () => {
@@ -68,6 +79,89 @@ describe("mana", () => {
     expect(tryCast(c, 1, bolt)).toBeNull();
     expect(c.refusal).toBe("mana");
     expect(c.mana).toBe(4);
+  });
+});
+
+/**
+ * The tuning, as the child feels it (`lib/realm/spells/mana.ts` has the reasoning). Played on
+ * the real caster at 60 frames a second, pressing as fast as the cooldown allows.
+ */
+describe("mana is a resource a child can see", () => {
+  const FRAME = 1 / 60;
+  /** Presses `slot` whenever it is ready, for `seconds`; returns how many casts happened. */
+  function mash(c: ReturnType<typeof makeCaster>, spell: SpellDefinition, seconds: number): number {
+    let n = 0;
+    for (let t = 0; t < seconds; t += FRAME) {
+      if (slotReady(c, 1) && tryCast(c, 1, spell)) n++;
+      stepCaster(c, FRAME);
+    }
+    return n;
+  }
+
+  it("a short flurry drains it: five Ember Bolts in under four seconds empty a full bar", () => {
+    const c = makeCaster(4);
+    expect(mash(c, bolt, 3.7)).toBe(5);
+    expect(c.mana).toBeLessThan(bolt.manaCost); // the sixth has to wait
+    expect(manaFraction(c)).toBeLessThan(0.2);
+  });
+
+  it("every bolt is a fifth of the bar — a chunk you can see go", () => {
+    expect(bolt.manaCost / MANA_MAX).toBeCloseTo(0.2);
+  });
+
+  it("refills fast: the next bolt within two seconds of stopping, the whole bar within five", () => {
+    const c = makeCaster(4);
+    mash(c, bolt, 3.7);
+    let t = 0;
+    while (c.mana < bolt.manaCost) {
+      stepCaster(c, FRAME);
+      t += FRAME;
+    }
+    expect(t).toBeLessThan(2);
+    while (c.mana < MANA_MAX) {
+      stepCaster(c, FRAME);
+      t += FRAME;
+    }
+    expect(t).toBeLessThanOrEqual(5.05);
+  });
+
+  it("no spell in the catalog is uncastable from a full bar, and none is free", () => {
+    for (const element of SPELL_ELEMENTS) {
+      for (const form of SPELL_FORMS) {
+        for (const modifierId of [null, ...SPELL_MODIFIERS.map((m) => m.id)]) {
+          const s = resolveSpell({ elementId: element.id, formId: form.id, modifierId })!;
+          expect(s.manaCost, `${element.id} ${form.id} ${modifierId}`).toBeGreaterThan(0);
+          expect(s.manaCost, `${element.id} ${form.id} ${modifierId}`).toBeLessThanOrEqual(MANA_MAX);
+          const c = makeCaster(1);
+          expect(tryCast(c, 1, s)).toBe(s);
+        }
+      }
+    }
+  });
+
+  it("keeps refilling while a child only presses keys it cannot afford", () => {
+    const c = makeCaster(4);
+    c.mana = 4;
+    stepCaster(c, 0.2);
+    const before = c.mana;
+    expect(before).toBeLessThan(bolt.manaCost);
+    tryCast(c, 1, bolt); // refused: not a cast, so it does not restart the wait
+    stepCaster(c, 0.5);
+    expect(c.mana).toBeGreaterThan(before);
+  });
+});
+
+describe("Quicken: cast in a flash", () => {
+  const quick = resolveSpell({ elementId: "ember", formId: "bolt", modifierId: "quicken" }) as SpellDefinition;
+
+  it("halves the charge, as the flat Realm does", () => {
+    expect(quick.castMs).toBe(bolt.castMs / 2);
+  });
+
+  it("halves the rest after it too, so the quick key is the QUICK key despite its extra mana", () => {
+    expect(cooldownMsFor(quick)).toBeLessThan(cooldownMsFor(bolt));
+    expect(cooldownMsFor(quick)).toBe(Math.round((500 + quick.manaCost * 40) / 2));
+    expect(cooldownMsFor({ ...quick, manaCost: 0 })).toBe(QUICK_MIN_MS);
   });
 });
 

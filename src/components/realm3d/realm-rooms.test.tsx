@@ -35,7 +35,12 @@ vi.mock("@/lib/actions/seasons", () => ({ markCeremonySeen: vi.fn(async () => {}
 vi.mock("@/lib/actions/spells", () => ({ getSpellbook: vi.fn(async () => ({ spells: [], slots: 4, level: 3, unlocked: [], schoolCounts: { element: 0, form: 0, modifier: 0 }, subjectNamesBySchool: { element: [], form: [], modifier: [] } })) }));
 vi.mock("@/lib/actions/realm", () => ({ getRealmKingdom: vi.fn() }));
 vi.mock("@/lib/actions/quest-assignments", () => ({ getAssignmentQuestInfo: vi.fn(async () => null) }));
-vi.mock("@/lib/actions/realm-play", () => ({ getRealmAccess: vi.fn(), recordRealmPlay: vi.fn(async () => {}) }));
+vi.mock("@/lib/actions/realm-play", () => ({
+  getRealmAccess: vi.fn(),
+  recordRealmPlay: vi.fn(async () => {}),
+  getTroubleBounty: vi.fn(async () => ({ enabled: false, capMinutes: 0, subCapMinutes: 0, paidMinutes: 0, remainingMinutes: 0, clearsToday: 0, paidHomes: [] })),
+  recordTroubleClears: vi.fn(),
+}));
 vi.mock("@/lib/realm3d/worldgen", async (orig) => {
   const real = await orig<typeof import("@/lib/realm3d/worldgen")>();
   const world = { landmarks: [], roads: [], biomeAt: () => "meadow", heightAt: () => 0 };

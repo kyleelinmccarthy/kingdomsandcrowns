@@ -55,6 +55,8 @@ import { buildAnchors } from "@/lib/realm3d/plate-anchors";
 import { FX_POOL, makeFxPool } from "@/lib/realm3d/spell-fx";
 import { makeTroubleBus } from "@/lib/realm3d/trouble-bus";
 import { TroubleMapMarks, TroubleNotices, TroublePlates } from "./troubles-hud";
+import { BountyGain } from "./troubles-hud";
+import { useTroubleBounty } from "./use-trouble-bounty";
 import { realmWorld } from "@/lib/realm3d/worldgen";
 import { DEFAULT_AVATAR, type AvatarConfig } from "@/lib/utils/avatar-catalog";
 import { DEFAULT_LEARNING_PROFILE, type LearningProfile } from "@/lib/utils/learning-profile";
@@ -698,6 +700,8 @@ export function RealmGame({
   // this component, so the part-minute is charged here, where no exit can skip it.
   const { flushPending } = clock;
   useEffect(() => () => void flushPending(), [flushPending]);
+  // Clearing troubles earns Realm minutes — the child's own visit only; a grown-up's writes nothing.
+  const bounty = useTroubleBounty({ enabled: clockOn, childId: childId ?? "", onAwarded: clock.refresh });
 
   /* ---- the HUD's clicks ------------------------------------------------ */
   const [spellFacts, setSpellFacts] = useState<SpellbookFacts | null>(null);
@@ -857,7 +861,7 @@ export function RealmGame({
               )}
               {!paused && <DeedToastBanner toast={toast} numerals={numerals} />}
               {!paused && inside && <RoomLine line={roomLine} onDone={clearRoomLine} />}
-              <TroubleNotices tbus={troubleBus} skin={tone} pages={pages} paused={paused} />
+              <TroubleNotices tbus={troubleBus} skin={tone} pages={pages} paused={paused} bounty={bounty} />
               {!paused && <RideLine line={riding.line} onDone={riding.clearLine} />}
             </div>
             {!paused && <TravelBanner to={riding.travelling} onStop={riding.stop} />}
@@ -866,7 +870,7 @@ export function RealmGame({
               line={line}
               warning={realm.isChildView && clock.warning}
               error={clock.error}
-              notice={realm.isChildView ? <TimerFinished hidden={clock.warning} /> : null}
+              notice={realm.isChildView ? <><TimerFinished hidden={clock.warning} /><BountyGain gained={bounty.gained} /></> : null}
               onRetry={() => {
                 clock.clearError();
                 void clock.flushPending();

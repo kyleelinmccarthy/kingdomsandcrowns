@@ -25,11 +25,16 @@
  */
 
 import type { SpellDefinition, SpellShape } from "@/lib/utils/spell-catalog";
+import { SUMMON_MS } from "@/lib/realm/spells/effects";
 
 /** How many effects can be on screen at once. Four keys and a mashing eight-year-old. */
 export const FX_POOL = 16;
 
-export type FxKind = "charge" | "bolt" | "ring" | "beam" | "slab" | "aura";
+/**
+ * `sprite` is the summon: a little glowing follower that circles the caster's shoulder for
+ * `SUMMON_MS` and throws mini-bolts (the throwing is the troubles' business: `troubles3d.ts`).
+ */
+export type FxKind = "charge" | "bolt" | "ring" | "beam" | "slab" | "aura" | "sprite";
 
 export type FxSlot = {
   live: boolean;
@@ -108,7 +113,7 @@ export function makeFxPool(n: number): FxSlot[] {
 export const BOLT_HOMING = 5;
 
 /** The lifetimes, in seconds. A ring is a blink, a wall stands for a while. */
-const LIFE: Record<FxKind, number> = { charge: 0.3, bolt: 1.2, ring: 0.55, beam: 0.5, slab: 2.4, aura: 1.4 };
+const LIFE: Record<FxKind, number> = { charge: 0.3, bolt: 1.2, ring: 0.55, beam: 0.5, slab: 2.4, aura: 1.4, sprite: SUMMON_MS / 1000 };
 
 /** Which shape a form's `shape` releases as. Every `SpellShape` is covered; no default. */
 export function releaseKindFor(shape: SpellShape): FxKind {
@@ -118,7 +123,7 @@ export function releaseKindFor(shape: SpellShape): FxKind {
     case "beam": return "beam";
     case "barrier": return "slab";
     case "self": return "aura";
-    case "summon": return "aura";
+    case "summon": return "sprite";
   }
 }
 
@@ -263,7 +268,20 @@ export function beginCastFx(
 export function followCastFx(pool: FxSlot[], x: number, y: number, z: number, dx: number, dz: number): void {
   for (let i = 0; i < pool.length; i++) {
     const s = pool[i];
-    if (!s.live || !s.follow) continue;
+    if (!s.live) continue;
+    if (s.kind === "sprite") {
+      // The follower: a slow circle over the caster's shoulder, eased so it trails a running
+      // child rather than being bolted to them (the flat Realm's follow, `SUMMON_FOLLOW`).
+      const a = s.t * SPRITE_ORBIT;
+      const wx = x + Math.sin(a) * 1.3;
+      const wz = z + Math.cos(a) * 1.3;
+      const wy = y + 0.95 + Math.sin(s.t * 3.1) * 0.15;
+      s.x += (wx - s.x) * SPRITE_EASE;
+      s.y += (wy - s.y) * SPRITE_EASE;
+      s.z += (wz - s.z) * SPRITE_EASE;
+      continue;
+    }
+    if (!s.follow) continue;
     s.x = x;
     s.y = y;
     s.z = z;
@@ -283,6 +301,10 @@ export function followCastFx(pool: FxSlot[], x: number, y: number, z: number, dx
     s.dz = dz;
   }
 }
+
+/** A Sprite's circle over the shoulder, in radians a second, and how much of the gap it closes a frame. */
+export const SPRITE_ORBIT = 1.7;
+export const SPRITE_EASE = 0.14;
 
 /** Turns (dx, dz) toward (ax, az) by at most `max` radians, in place on the slot. */
 function steer(s: FxSlot, ax: number, az: number, max: number): void {
@@ -403,6 +425,8 @@ export function fxAlpha(s: FxSlot): number {
     case "beam": return 1 - p * p;
     case "slab": return p < 0.75 ? 0.62 : 0.62 * (1 - (p - 0.75) / 0.25);
     case "aura": return (0.55 + 0.45 * Math.sin(p * Math.PI * 4)) * (1 - p * p);
+    // Bright for its whole visit, fading only over the last tenth, so a child sees it go.
+    case "sprite": return p < 0.9 ? 1 : (1 - p) / 0.1;
   }
 }
 
@@ -423,5 +447,7 @@ export function fxScale(s: FxSlot): number {
     // The wall rises out of the ground over the first fifth of its life.
     case "slab": return p < 0.2 ? p / 0.2 : 1;
     case "aura": return 0.75 + 0.35 * p;
+    // Pops in over its first fifth of a second, then breathes.
+    case "sprite": return Math.min(1, s.t / 0.2) * (1 + Math.sin(s.t * 6) * 0.08);
   }
 }

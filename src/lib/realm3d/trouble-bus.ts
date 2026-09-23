@@ -24,13 +24,13 @@ export type TroubleBus = {
   pips: (HTMLElement | null)[];
   /** One dot per pool slot on the minimap, inside the map's panning world group. */
   marks: (SVGGElement | null)[];
-  /** A cleared trouble, a bump, the first sighting: `placeName` is the place it haunted, if any. */
-  onEvent: (e: TroubleEvent, placeName: string | null) => void;
+  /** A cleared trouble, a bump, the first sighting: `placeName` is the place it haunted, if any, and `homeId` its home (for the bounty). */
+  onEvent: (e: TroubleEvent, placeName: string | null, homeId?: string | null) => void;
 
   setSkin(skin: TroubleSkin): void;
   setPlate(index: number, which: "plate" | "name" | "pips", el: HTMLElement | null): void;
   setMark(index: number, el: SVGGElement | null): void;
-  setHandler(fn: (e: TroubleEvent, placeName: string | null) => void): void;
+  setHandler(fn: (e: TroubleEvent, placeName: string | null, homeId?: string | null) => void): void;
 
   /** @internal — the write cache. */
   last: { plate: string[]; shown: boolean[]; label: string[]; pips: string[]; mark: string[] };

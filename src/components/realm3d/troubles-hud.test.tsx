@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { resolvePages, withEmptyPages } from "@/lib/realm/spells/pages";
 import { hideTroublePlate, makeTroubleBus, paintTroubleLabel, paintTroubleMark, paintTroublePips, paintTroublePlate } from "@/lib/realm3d/trouble-bus";
 import { TROUBLE_POOL, type TroubleEvent } from "@/lib/realm3d/troubles3d";
-import { NOTICE_MS, TroubleMapMarks, TroubleNotices, TroublePlates } from "./troubles-hud";
+import { BountyGain, GAIN_MS, NOTICE_MS, TroubleMapMarks, TroubleNotices, TroublePlates } from "./troubles-hud";
 
 afterEach(cleanup);
 
@@ -101,6 +101,59 @@ describe("the notices, in the top lane", () => {
     render(<TroubleNotices tbus={tbus} skin="gentle" pages={pages} paused />);
     act(() => tbus.onEvent(ev("bounced", "shadow-blob"), null));
     expect(screen.queryByRole("status")).toBeNull();
+  });
+});
+
+describe("clearing pays", () => {
+  /** A bounty that pays the first `n` clears, as the purse would predict them. */
+  function bountyPaying(n: number) {
+    let clears = 0;
+    const claim = vi.fn((homeId: string | null) => {
+      clears += 1;
+      return { paid: clears <= n && homeId !== null, capped: clears > n, already: false, clearsToday: 10 + clears };
+    });
+    return { enabled: true, claim, flush: vi.fn(async () => {}), gained: 0 };
+  }
+
+  it("says +1 minute on a paid clear, claims it by the trouble's home, and counts the day, not the visit", () => {
+    const tbus = makeTroubleBus();
+    const bounty = bountyPaying(1);
+    render(<TroubleNotices tbus={tbus} skin="gentle" pages={pages} paused={false} bounty={bounty} />);
+    act(() => tbus.onEvent(ev("cleared", "fog", 1), "Cloudfoot", "place-summit-6"));
+    expect(bounty.claim).toHaveBeenCalledWith("place-summit-6");
+    expect(screen.getByRole("status")).toHaveTextContent("+1 minute of Realm time!");
+    expect(screen.getByRole("status")).toHaveTextContent("Cloudfoot is clear. 11 cleared today.");
+  });
+
+  it("says the day's minutes are all had once a visit, then just counts", () => {
+    const tbus = makeTroubleBus();
+    render(<TroubleNotices tbus={tbus} skin="gentle" pages={pages} paused={false} bounty={bountyPaying(0)} />);
+    act(() => tbus.onEvent(ev("cleared", "fog"), null, "rim-0"));
+    expect(screen.getByRole("status")).toHaveTextContent("You've had all today's minutes from clearing troubles.");
+    expect(screen.getByRole("status")).not.toHaveTextContent("+1 minute");
+    act(() => tbus.onEvent(ev("cleared", "fog"), null, "rim-1"));
+    expect(screen.getByRole("status")).toHaveTextContent("The fields are clear. 12 cleared today.");
+  });
+
+  it("claims nothing for a bump or a sighting", () => {
+    const tbus = makeTroubleBus();
+    const bounty = bountyPaying(5);
+    render(<TroubleNotices tbus={tbus} skin="gentle" pages={pages} paused={false} bounty={bounty} />);
+    act(() => tbus.onEvent(ev("bounced", "shadow-blob"), null, "rim-2"));
+    act(() => tbus.onEvent(ev("sighted", "fog"), null, "rim-0"));
+    expect(bounty.claim).not.toHaveBeenCalled();
+  });
+
+  it("puts +1 by the clock for a while when a clear pays", () => {
+    vi.useFakeTimers();
+    const { rerender } = render(<BountyGain gained={0} />);
+    expect(screen.queryByRole("status")).toBeNull();
+    rerender(<BountyGain gained={1} />);
+    act(() => void vi.advanceTimersByTime(1));
+    expect(screen.getByRole("status")).toHaveTextContent("+1 minute for clearing a trouble");
+    act(() => void vi.advanceTimersByTime(GAIN_MS + 10));
+    expect(screen.queryByRole("status")).toBeNull();
+    vi.useRealTimers();
   });
 });
 

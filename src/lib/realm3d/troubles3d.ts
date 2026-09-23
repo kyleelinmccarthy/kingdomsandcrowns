@@ -70,10 +70,12 @@ import {
   type TroubleStatus,
 } from "@/lib/realm/spells/troubles";
 import { DAZZLE_MS } from "@/lib/realm/spells/focus";
-import { SHIELD_MS } from "@/lib/realm/spells/effects";
+import { SHIELD_MS, SUMMON_SENSE, SUMMON_SHOT_MS } from "@/lib/realm/spells/effects";
+import { MANA_PER_CLEAR } from "@/lib/realm/spells/mana";
 import { seededRng } from "@/lib/utils/drill-generators";
 import type { SpellDefinition, StatusKind } from "@/lib/utils/spell-catalog";
-import { endBolt, fxPhase, fxScale, lockFx, type FxSlot } from "./spell-fx";
+import type { Collider } from "./collision";
+import { endBolt, fxPhase, fxScale, lockFx, spawnFx, type FxSlot } from "./spell-fx";
 
 /* ------------------------------------------------------------------ numbers */
 
@@ -146,6 +148,12 @@ export type TroubleHome = {
   /** The named place it haunts, or null for one on the village outskirts. */
   place: string | null;
   placeName: string | null;
+  /**
+   * A home the world no longer plans (a building finished and the outskirts shrank), kept only
+   * so the trouble standing on it can stay where it is until the child is away (`rehomeField`).
+   * It never wakes again.
+   */
+  leaving?: boolean;
 };
 
 export type HomeLandmark = {
@@ -359,6 +367,49 @@ export function makeField(homes: readonly TroubleHome[]): TroubleField {
   };
 }
 
+/**
+ * The world re-planned the homes mid-visit (a building finished, so the outskirts lost a slot and
+ * the land changed): take the new plan WITHOUT touching anything that is out.
+ *
+ * Before this, a new plan meant a new field, and every awake trouble blinked out at once — a fog
+ * bank the child was aiming at simply vanished, and the day's tally went back to nought. Now:
+ *
+ *   - a home the new plan still has (same id) keeps its trouble exactly where it stands, and its
+ *     cleared time, so a trouble cleared a moment ago does not pop straight back;
+ *   - a home the new plan dropped is kept as `leaving`, still holding its trouble, until that
+ *     trouble sleeps (the child walked away) or is cleared — and then it is gone for good;
+ *   - a moved home's trouble stays put too; the next one to wake there wakes at the new spot.
+ *
+ * Allocates, once per re-plan, which happens when a building finishes: not per frame.
+ */
+export function rehomeField(f: TroubleField, homes: readonly TroubleHome[]): void {
+  const next: TroubleHome[] = homes.slice();
+  const index = new Map<string, number>();
+  for (let i = 0; i < next.length; i++) index.set(next[i].id, i);
+  const clearedAt = next.map((h) => {
+    const old = f.homes.findIndex((o) => o.id === h.id && !o.leaving);
+    return old >= 0 ? f.clearedAt[old] : Number.NEGATIVE_INFINITY;
+  });
+  const slotOf = next.map(() => -1);
+  for (let i = 0; i < f.troubles.length; i++) {
+    const t = f.troubles[i];
+    if (!t.live || t.home < 0) continue;
+    const old = f.homes[t.home];
+    let at = old.leaving ? undefined : index.get(old.id);
+    if (at === undefined) {
+      next.push({ ...old, leaving: true });
+      clearedAt.push(f.clearedAt[t.home]);
+      slotOf.push(-1);
+      at = next.length - 1;
+    }
+    t.home = at;
+    slotOf[at] = i;
+  }
+  f.homes = next;
+  f.clearedAt = clearedAt;
+  f.slotOf = slotOf;
+}
+
 function pushEvent(f: TroubleField, kind: TroubleEventKind, t: Trouble3): void {
   if (f.nEvents >= EVENT_CAP) return;
   const e = f.events[f.nEvents++];
@@ -385,6 +436,8 @@ export type FieldInput = {
   /** Reduced motion or low stimulus: three troubles, no chasing, no drifting fog. */
   calm: boolean;
   move: Mover;
+  /** The world's walls, trunks and stones, for a `bounce` bolt to bounce off. Optional in tests. */
+  solids?: readonly Collider[];
 };
 
 /** 1 when free, 0 when bound: the flat Realm's `speedFactor`, as-is. */
@@ -451,6 +504,7 @@ export function awakeCount(f: TroubleField): number {
 export function homeReady(f: TroubleField, home: number, hx: number, hz: number): boolean {
   if (f.slotOf[home] >= 0) return false;
   const h = f.homes[home];
+  if (h.leaving) return false;
   const d = dist(h.x, h.z, hx, hz);
   if (d > WAKE_R) return false;
   const cleared = f.clearedAt[home];
@@ -631,6 +685,8 @@ export function hitTrouble3(f: TroubleField, index: number, spell: SpellDefiniti
   }
   t.dying = true;
   t.diedAt = f.now;
+  // A clear gives back one Ember Bolt's worth: landing shots keeps a fight going.
+  f.refund += MANA_PER_CLEAR;
   f.clearedAt[t.home] = f.now;
   f.tally.session += 1;
   f.tally.byKind[t.kind] += 1;
@@ -654,13 +710,16 @@ export function hitTest(f: TroubleField, pool: FxSlot[], input: FieldInput): voi
     switch (s.kind) {
       case "bolt": {
         if (s.stopped) break;
+        // `ticks` on a bolt is "has bounced": a bounce bolt bounces once, as in the flat Realm.
+        const bouncy = s.ticks === 0 && hasStatus(spell, "bounce");
+        if (bouncy && input.solids && bounceOffSolid(pool, s, input.solids)) break;
         const grow = hasStatus(spell, "grown") ? 1 + Math.min(1, s.travelled / Math.max(1, s.range)) : 1;
         const r = BOLT_RADIUS * grow;
         let best = -1;
         let bestD = Number.POSITIVE_INFINITY;
         for (let k = 0; k < troubles.length; k++) {
           const t = troubles[k];
-          if (!t.live || t.dying) continue;
+          if (!t.live || t.dying || s.hitMask & (1 << k)) continue;
           const d = dist(s.x, s.z, t.x, t.z);
           if (d <= r + BODY_RADIUS[t.kind] && d < bestD) {
             bestD = d;
@@ -669,10 +728,54 @@ export function hitTest(f: TroubleField, pool: FxSlot[], input: FieldInput): voi
         }
         if (best >= 0) {
           const t = troubles[best];
+          s.hitMask |= 1 << best;
+          hitTrouble3(f, best, spell);
+          // A bounce bolt that has not bounced yet goes on to the next trouble in reach.
+          if (bouncy && ricochet(f, pool, s, best)) break;
           // Stop at the trouble's front, so the landing ring bursts ON it.
           endBolt(s, t.x, t.z);
-          hitTrouble3(f, best, spell);
         }
+        break;
+      }
+      case "sprite": {
+        // The flat Realm's summon: a little follower that looks for a trouble in reach every
+        // `SUMMON_SHOT_MS` and throws a mini-bolt at it. A look that finds nothing is not a shot
+        // spent — it fires the moment something comes into reach.
+        if (s.t < SPRITE_FIRST_S + s.ticks * SPRITE_SHOT_S) break;
+        let best = -1;
+        let bestD = SPRITE_SENSE_3D;
+        for (let k = 0; k < troubles.length; k++) {
+          const t = troubles[k];
+          if (!t.live || t.dying) continue;
+          const d = dist(s.x, s.z, t.x, t.z);
+          if (d < bestD) {
+            bestD = d;
+            best = k;
+          }
+        }
+        if (best < 0) break;
+        s.ticks += 1;
+        const t = troubles[best];
+        const d = bestD > 0.01 ? bestD : 1;
+        spawnFx(pool, {
+          kind: "bolt",
+          color: s.color,
+          x: s.x,
+          y: s.y,
+          z: s.z,
+          dx: (t.x - s.x) / d,
+          dz: (t.z - s.z) / d,
+          speed: MINI_SPEED,
+          range: MINI_RANGE,
+          size: 1.8,
+          next: "ring",
+          spell: miniBolt(spell),
+          armed: true,
+          target: best,
+          targetSerial: t.serial,
+          tx: t.x,
+          tz: t.z,
+        });
         break;
       }
       case "ring": {
@@ -745,6 +848,106 @@ export function hitTest(f: TroubleField, pool: FxSlot[], input: FieldInput): voi
         break;
     }
   }
+}
+
+/* ------------------------------------------------------- bounce and sprite */
+
+/** How far a bounce bolt looks, from where it struck, for the next one: about a bolt's own range. */
+export const BOUNCE_REACH = 14;
+/** A Sprite's first look for a mark, then one every `SUMMON_SHOT_MS`, as in the flat Realm. */
+export const SPRITE_FIRST_S = 0.6;
+export const SPRITE_SHOT_S = SUMMON_SHOT_MS / 1000;
+/** The flat Realm's summon sense, at the 3D scale: a Sprite only throws at what it can reach. */
+export const SPRITE_SENSE_3D = SUMMON_SENSE * SCALE_3D;
+/** A mini-bolt: a little slower than a thrown bolt, and just long enough to reach its mark. */
+export const MINI_SPEED = 12;
+export const MINI_RANGE = SPRITE_SENSE_3D + 3;
+
+const MINI = new WeakMap<SpellDefinition, SpellDefinition>();
+
+/**
+ * The flat Realm's mini-bolt: the Sprite's own element, shaped as a projectile, with none of the
+ * spell's statuses (`effects.ts`). Made once per spell, not per shot.
+ */
+export function miniBolt(spell: SpellDefinition): SpellDefinition {
+  let m = MINI.get(spell);
+  if (!m) {
+    m = { ...spell, shape: "projectile", speed: MINI_SPEED, range: MINI_RANGE, statuses: [], manaCost: 0 };
+    MINI.set(spell, m);
+  }
+  return m;
+}
+
+/**
+ * The flat Realm's bounce, against the 3D world: a bolt that runs into a wall, a trunk or a
+ * standing stone comes off it — reflected off the face it came through — instead of passing
+ * through it, once. It lets go of what it was aimed at (homing would only turn it back into the
+ * wall) and a little ring marks the spot, so a child sees it WAS a bounce.
+ */
+function bounceOffSolid(pool: FxSlot[], s: FxSlot, solids: readonly Collider[]): boolean {
+  for (let i = 0; i < solids.length; i++) {
+    const c = solids[i];
+    if (s.y < c.base || s.y > c.top) continue;
+    const rx = s.x - c.x;
+    const rz = s.z - c.z;
+    if (c.round) {
+      const reach = c.hw + 0.3;
+      const d2 = rx * rx + rz * rz;
+      if (d2 >= reach * reach) continue;
+      const d = Math.sqrt(d2) || 1;
+      const nx = rx / d;
+      const nz = rz / d;
+      const dot = s.dx * nx + s.dz * nz;
+      if (dot >= 0) continue; // already leaving it
+      s.dx -= 2 * dot * nx;
+      s.dz -= 2 * dot * nz;
+    } else {
+      const penX = c.hw + 0.3 - Math.abs(rx);
+      const penZ = c.hd + 0.3 - Math.abs(rz);
+      if (penX <= 0 || penZ <= 0) continue;
+      // The face it came through is the one with the shallower push.
+      if (penX < penZ) s.dx = -s.dx;
+      else s.dz = -s.dz;
+    }
+    s.ticks = 1;
+    lockFx(s, -1, 0, s.tx, s.tz);
+    s.x += s.dx * 0.35;
+    s.z += s.dz * 0.35;
+    spawnFx(pool, { kind: "ring", color: s.color, x: s.x, y: s.y - 0.6, z: s.z, dx: s.dx, dz: s.dz, size: 1.3, life: 0.35 });
+    return true;
+  }
+  return false;
+}
+
+/**
+ * "Bounces onward": the bolt that just hit `from` turns for the nearest other trouble within
+ * `BOUNCE_REACH`, locked onto it, with a fresh range. False when there is nothing to go to.
+ */
+function ricochet(f: TroubleField, pool: FxSlot[], s: FxSlot, from: number): boolean {
+  let best = -1;
+  let bestD = BOUNCE_REACH;
+  for (let k = 0; k < f.troubles.length; k++) {
+    const t = f.troubles[k];
+    if (k === from || !t.live || t.dying || s.hitMask & (1 << k)) continue;
+    const d = dist(s.x, s.z, t.x, t.z);
+    if (d < bestD) {
+      bestD = d;
+      best = k;
+    }
+  }
+  if (best < 0) return false;
+  const hit = f.troubles[from];
+  const t = f.troubles[best];
+  const d = bestD > 0.01 ? bestD : 1;
+  s.ticks = 1;
+  s.dx = (t.x - s.x) / d;
+  s.dz = (t.z - s.z) / d;
+  s.t = 0;
+  s.travelled = 0;
+  s.range = BOUNCE_REACH + 2;
+  lockFx(s, best, t.serial, t.x, t.z);
+  spawnFx(pool, { kind: "ring", color: s.color, x: hit.x, y: s.y - 1.2, z: hit.z, dx: s.dx, dz: s.dz, size: 1.8, life: 0.4 });
+  return true;
 }
 
 function insideOneSlab(s: FxSlot, x: number, z: number, r: number): boolean {
@@ -873,18 +1076,37 @@ export const SIGHT_COPY: Readonly<Record<TroubleKind, Record<TroubleSkin, string
   "shadow-blob": { gentle: "A shadow is near!", monsters: "A blob is near!" },
 };
 
-/** The words for an event, as a title and a smaller line under it. Null for events that say nothing. */
+/** What a clear earned, as the bounty predicted it (`lib/realm/spells/bounty.ts`). */
+export type ClearReward = { paid: boolean; capped: boolean; already: boolean; clearsToday: number };
+
+/** The gold words beside a clear that earned a minute. */
+export const REWARD_COPY = "+1 minute of Realm time!";
+/** Once a visit, when the day's allowance is spent. True, and never a scolding. */
+export const CAPPED_COPY = "You've had all today's minutes from clearing troubles.";
+/** A home that already paid today: said so, so a child is not left wondering where the minute went. */
+export const ALREADY_COPY = "This one already gave you a minute today.";
+
+/**
+ * The words for an event, as a title and a smaller line under it, and for a clear that paid, the
+ * gold reward. Null for events that say nothing. `reward` is the bounty's say, when there is one:
+ * its day's tally replaces the visit's, since clears are kept now.
+ */
 export function troubleNotice(
   e: Pick<TroubleEvent, "kind" | "trouble" | "count">,
   skin: TroubleSkin,
   placeName: string | null,
   castKey: number | null,
-): { title: string; line: string } | null {
+  reward: ClearReward | null = null,
+): { title: string; line: string; reward?: string } | null {
   switch (e.kind) {
     case "cleared": {
       const title = skin === "monsters" ? TROUBLE_COPY[e.trouble].monsters : TROUBLE_COPY[e.trouble].gentle;
       const where = placeName ? `${placeName} is clear.` : "The fields are clear.";
-      return { title, line: `${where} ${e.count} cleared today.` };
+      const count = reward ? reward.clearsToday : e.count;
+      if (reward?.paid) return { title, line: `${where} ${count} cleared today.`, reward: REWARD_COPY };
+      if (reward?.capped) return { title, line: `${where} ${CAPPED_COPY}` };
+      if (reward?.already) return { title, line: `${where} ${ALREADY_COPY}` };
+      return { title, line: `${where} ${count} cleared today.` };
     }
     case "bounced":
       return { title: BOUNCE_COPY[skin], line: "Cast at it, or step round it." };

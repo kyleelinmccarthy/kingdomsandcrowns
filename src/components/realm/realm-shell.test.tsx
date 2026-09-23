@@ -289,7 +289,7 @@ describe("RealmShell", () => {
     expect(typeof sceneProps.onTalk).toBe("function");
     const talk = sceneProps.onTalk;
     await act(async () => {
-      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "mana", current: 90 });
+      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "mana", current: 45 });
     });
     // `World` is memoised: a prop that changes identity on every mana tick would
     // re-render the whole scene sixty times a second.
@@ -410,7 +410,7 @@ describe("RealmShell", () => {
     render(<RealmShell bundle={{ ...bundle, spellbook: { spells: pages, slots: 4 } }} childId="c1" isChildView={true} />);
     expect(await screen.findByTestId("scene")).toBeInTheDocument();
     expect(screen.getByRole("toolbar", { name: "Spellbook" })).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "Mana 100 of 100." })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Mana 50 of 50." })).toBeInTheDocument();
     await act(async () => {
       (sceneProps.onReachChange as (id: string | null) => void)("bram");
       (sceneProps.onTalk as (id: string) => void)("bram");
@@ -433,10 +433,10 @@ describe("RealmShell", () => {
     await user.click(screen.getByRole("button", { name: "Ember Bolt, 10 mana" }));
     expect((sceneProps.selectedSpell as { manaCost: number }).manaCost).toBe(10);
     await act(async () => {
-      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "mana", current: 61 });
+      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "mana", current: 31 });
       (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "cleared", troubleKind: "fog", count: 1 });
     });
-    expect(screen.getByRole("img", { name: "Mana 61 of 100." })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Mana 31 of 50." })).toBeInTheDocument();
     // The cast hint took the speech lane when the page was selected and holds it for its
     // four seconds; "The fog thins." is held in `notice`, not destroyed (§3.6). The cleared
     // copy is proved on its own by task 10's `says what a cleared trouble did` case, which
@@ -554,11 +554,11 @@ describe("RealmShell", () => {
     const layout = sceneProps.layout;
     const settings = sceneProps.settings;
     await act(async () => {
-      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "mana", current: 90 });
-      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "mana", current: 80 });
-      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "mana", current: 70 });
+      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "mana", current: 45 });
+      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "mana", current: 40 });
+      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "mana", current: 35 });
     });
-    expect(screen.getByRole("img", { name: "Mana 70 of 100." })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Mana 35 of 50." })).toBeInTheDocument();
     expect(sceneProps.settings).toBe(settings);
     expect(sceneProps.layout).toBe(layout);
   });
@@ -579,9 +579,9 @@ describe("RealmShell", () => {
     // the loop below would pass vacuously, and that must fail instead.
     expect(watched.length).toBeGreaterThanOrEqual(14);
     await act(async () => {
-      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "mana", current: 90 });
+      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "mana", current: 45 });
     });
-    expect(screen.getByRole("img", { name: "Mana 90 of 100." })).toBeInTheDocument(); // the tick really landed
+    expect(screen.getByRole("img", { name: "Mana 45 of 50." })).toBeInTheDocument(); // the tick really landed
     for (const [name, value] of watched) {
       expect(sceneProps[name], `scene prop \`${name}\` changed identity on a mana tick, breaking the World memo`).toBe(value);
     }
@@ -596,8 +596,8 @@ describe("RealmShell", () => {
     expect(surfaces.numerals).toBe(true);
     expect(surfaces.trackedObjectives).toBe(3);
     await act(async () => {
-      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "mana", current: 90 });
-      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "mana", current: 80 });
+      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "mana", current: 45 });
+      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "mana", current: 40 });
     });
     expect(sceneProps.surfaces).toBe(surfaces);
   });
@@ -627,9 +627,9 @@ describe("RealmShell", () => {
     const dot = screen.getByRole("img", { name: "Map of the Realm" }).querySelector(".realm-minimap-hero")!;
     dot.setAttribute("transform", "translate(42 17) rotate(90)");
     await act(async () => {
-      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "mana", current: 90 });
+      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "mana", current: 45 });
     });
-    expect(screen.getByRole("img", { name: "Mana 90 of 100." })).toBeInTheDocument(); // the tick really landed
+    expect(screen.getByRole("img", { name: "Mana 45 of 50." })).toBeInTheDocument(); // the tick really landed
     expect(screen.getByRole("img", { name: "Map of the Realm" }).querySelector(".realm-minimap-hero")).toBe(dot);
     expect(dot.getAttribute("transform")).toBe("translate(42 17) rotate(90)");
   });
@@ -1410,8 +1410,8 @@ describe("RealmShell reach and speech", () => {
     expect(await screen.findByTestId("scene")).toBeInTheDocument();
     await waitFor(() => expect(speakMock).toHaveBeenCalledWith(OBJECTIVE_LINE));
     await act(async () => {
-      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "mana", current: 90 });
-      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "mana", current: 80 });
+      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "mana", current: 45 });
+      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "mana", current: 40 });
     });
     expect(speakMock.mock.calls.filter((c) => c[0] === OBJECTIVE_LINE)).toHaveLength(1);
   });
@@ -1426,7 +1426,7 @@ describe("RealmShell reach and speech", () => {
     const spokenSoFar = speakMock.mock.calls.length;
     // Re-renders that change no message say nothing.
     await act(async () => {
-      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "mana", current: 90 });
+      (sceneProps.onSpellEvent as (e: unknown) => void)({ kind: "mana", current: 45 });
     });
     expect(speakMock).toHaveBeenCalledTimes(spokenSoFar);
     await act(async () => {

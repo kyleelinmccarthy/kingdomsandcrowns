@@ -14,6 +14,8 @@ vi.mock("@/lib/actions/realm-settings", () => ({ setRealmDepth: vi.fn(async () =
 vi.mock("@/lib/actions/realm-play", () => ({
   getRealmAccess: vi.fn(async () => access.result),
   recordRealmPlay: vi.fn(async (_c: string, _d: string, m: number) => void access.recorded.push(m)),
+  getTroubleBounty: vi.fn(async () => ({ enabled: false, capMinutes: 0, subCapMinutes: 0, paidMinutes: 0, remainingMinutes: 0, clearsToday: 0, paidHomes: [] })),
+  recordTroubleClears: vi.fn(),
 }));
 vi.mock("@/lib/realm3d/worldgen", async (orig) => {
   const real = await orig<typeof import("@/lib/realm3d/worldgen")>();
