@@ -77,16 +77,35 @@ export const CASTLE_FOOTPRINTS: Record<string, { w: number; d: number; h: number
   citadel: { w: 10, d: 8, h: 8 },
 };
 
-/** Where each kingdom building stands once its deeds are done. Alternating sides of the path. */
+/**
+ * Where each kingdom building stands once its deeds are done. Alternating sides of the road, in
+ * two staggered columns a side — an inner one by the road and an outer one half a row off it —
+ * so every building has another beside it, never straight in front of it.
+ *
+ * Every door faces south (+z), and the rule this plan keeps is that NOTHING stands in front of a
+ * door: each one has open ground south of it for a run-up the hero's width and more, with its
+ * villager on it, and nothing tall enough in that line to push the camera round while a child
+ * walks at it. The first plan stacked each side in one column: the market's door opened onto a
+ * 1.2-unit gap behind the bridge house, the library's onto the chapel's bell tower (Librarian
+ * Hesper stood inside it), and the chapel and the bridge house had two or three units in front
+ * of theirs. `realm3d/doorways.test.ts` walks every door from the spawn point, so a re-plot that
+ * tucks one away again fails there.
+ *
+ * The chapel stands at the castle's flank, the last in its column, because its bell tower is the
+ * one thing in the village tall enough to block the camera behind any door north of it.
+ *
+ * Saves key on the building id, never on where it stands, so moving a slot moves nothing a child
+ * has earned. The world generator levels and clears whatever this says.
+ */
 export const BUILDING_SLOTS: Record<string, Vec2> = {
-  well: { x: -5, z: 8 },
-  mill: { x: 6, z: 6 },
-  bridge: { x: -7, z: 0 },
-  chapel: { x: 7, z: -2 },
-  market: { x: -5, z: -6 },
-  library: { x: 6, z: -8 },
-  watchtower: { x: -9, z: -12 },
-  garden: { x: 9, z: -13 },
+  well: { x: -4.5, z: 9 },
+  mill: { x: 5, z: 8.5 },
+  bridge: { x: -14.5, z: 0 },
+  chapel: { x: 14, z: -10.5 },
+  market: { x: -7.5, z: -3.5 },
+  library: { x: 8.5, z: -5 },
+  watchtower: { x: -11, z: -10 },
+  garden: { x: 13.5, z: 1.5 },
 };
 
 export const BUILDING_COLORS: Record<string, string> = {

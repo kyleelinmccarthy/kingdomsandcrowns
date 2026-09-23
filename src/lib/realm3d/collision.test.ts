@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildWorldLayout } from "@/lib/realm/layout";
+import { buildWorldLayout, BUILDING_SLOTS, CASTLE_POSITION } from "@/lib/realm/layout";
 import { heightAt } from "./heightfield";
 import {
   buildColliders,
@@ -145,20 +145,20 @@ describe("the village, as colliders", () => {
 
   it("makes every raised building and the castle solid", () => {
     for (const slot of [
-      { x: -5, z: 8 }, // well
-      { x: 6, z: 6 }, // mill
-      { x: -7, z: 0 }, // bridge
-      { x: -5, z: -6 }, // market
-      { x: -9, z: -12 }, // watchtower
-      { x: 0, z: -14 }, // castle
+      BUILDING_SLOTS.well,
+      BUILDING_SLOTS.mill,
+      BUILDING_SLOTS.bridge,
+      BUILDING_SLOTS.market,
+      BUILDING_SLOTS.watchtower,
+      CASTLE_POSITION,
     ]) {
       expect(solids.some((c) => overlaps(c, slot.x, slot.z, 0))).toBe(true);
     }
   });
 
   it("leaves unbuilt foundations, villagers and the road walk-through", () => {
-    // library (6, -8) is a foundation in this layout, and a child has to stand on the site.
-    expect(solids.some((c) => overlaps(c, 6, -8, 0))).toBe(false);
+    // The library is a foundation in this layout, and a child has to stand on the site.
+    expect(solids.some((c) => overlaps(c, BUILDING_SLOTS.library.x, BUILDING_SLOTS.library.z, 0))).toBe(false);
     for (const v of LAYOUT.villagers) expect(solids.some((c) => overlaps(c, v.position.x, v.position.z, 0))).toBe(false);
     for (let z = 0; z < 16; z += 2) expect(solids.some((c) => overlaps(c, 0, z, HERO_RADIUS))).toBe(false);
   });
@@ -182,7 +182,7 @@ describe("the village, as colliders", () => {
   });
 
   it("gives the camera a wider box than the hero gets, because the roof overhangs the wall", () => {
-    const mill = { x: 6, z: 6 };
+    const mill = BUILDING_SLOTS.mill;
     const s = solids.find((c) => Math.abs(c.x - mill.x) < 0.01 && Math.abs(c.z - mill.z) < 0.01)!;
     const o = occluders.find((c) => Math.abs(c.x - mill.x) < 0.01 && Math.abs(c.z - mill.z) < 0.01)!;
     expect(o.hw).toBeGreaterThan(s.hw);

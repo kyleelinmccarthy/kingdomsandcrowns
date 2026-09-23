@@ -13,7 +13,7 @@
  *
  * ## Why it is this SHAPE
  *
- * The village cannot move, and it crowds the castle: the library, the garden and the watchtower
+ * The village crowds the castle: the library, the chapel and the watchtower
  * stand either side of the road where it reaches the castle, and the two tracks out to Longwater
  * and Highcairn leave from just beyond its corners. So the castle is narrow where the village
  * is — a gatehouse with two drum towers, facing the road — and grows behind it, north into the
@@ -99,7 +99,7 @@ export function castlePlan(tier: string): CastlePlan {
 
   /* ---- the curtain: a ring of walls, a tower at each corner ---- */
   const cw = 9 * k; // half-width, to the outer face
-  // The curtain's south face: clear of the garden and the watchtower in front of it, at every
+  // The curtain's south face: clear of the chapel and the watchtower in front of it, at every
   // tier — a smaller castle is narrower and shallower, never nearer the village.
   const front = -4;
   const back = front - 24 * k;
