@@ -58,6 +58,18 @@ export type InteractTarget = {
   verb?: string;
 };
 
+/**
+ * The hero's feet, for the sound (`lib/realm3d/sound/`): a footfall at a place, a jump that took,
+ * a landing after `air` seconds off the ground. Fired by the scene's movers (the island's and a
+ * room's) a few times a second at most, never once a frame. `x`/`z` are the mover's own
+ * coordinates; indoors the sound ignores them and hears the room's floor.
+ */
+export type FeetHandlers = {
+  onStep: (x: number, z: number) => void;
+  onJump: () => void;
+  onLand: (air: number) => void;
+};
+
 export type HudBus = {
   manaFill: HTMLElement | null;
   manaText: HTMLElement | null;
@@ -106,6 +118,9 @@ export type HudBus = {
    */
   leaving: string | null;
 
+  /** The hero's feet. Installed by the sound through `setFeet`; silent until then. */
+  feet: FeetHandlers;
+
   /**
    * True while a menu, dialogue, tutorial card or the pause screen owns the child's attention.
    * Written by the HUD through `setPaused`; read by the scene every frame. While it is true the
@@ -129,6 +144,7 @@ export type HudBus = {
   setPaused(paused: boolean): void;
   setGoal(on: boolean, x: number, y: number, z: number): void;
   setLeaving(site: string | null): void;
+  setFeet(handlers: Partial<FeetHandlers>): void;
 
   /** @internal — the write cache the `paint*` functions below keep. */
   last: HudLast;
@@ -172,6 +188,7 @@ export function makeHudBus(slots: number, plates: number): HudBus {
     onWalked: noop,
     onDoor: noop,
     leaving: null,
+    feet: { onStep: noop, onJump: noop, onLand: noop },
     paused: false,
     setNode(key, el) {
       // One assignment, one narrow cast. Every key above is either an HTMLElement slot or an
@@ -207,6 +224,12 @@ export function makeHudBus(slots: number, plates: number): HudBus {
     },
     setLeaving(site) {
       bus.leaving = site;
+    },
+    setFeet(handlers) {
+      // Mutated in place: the movers hold `bus.feet` and call through it every stride.
+      if (handlers.onStep) bus.feet.onStep = handlers.onStep;
+      if (handlers.onJump) bus.feet.onJump = handlers.onJump;
+      if (handlers.onLand) bus.feet.onLand = handlers.onLand;
     },
     setGoal(on, x, y, z) {
       // Mutated in place: the driver holds no copy, so the next frame simply reads the new one.

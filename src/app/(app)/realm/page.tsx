@@ -94,6 +94,7 @@ export default async function RealmPage({ searchParams }: { searchParams: Promis
         // bundle never sends a grown-up a ceremony, and the game runs neither for one.
         tutorialStep: bundle.tutorialStep,
         helpSeen: bundle.helpSeen,
+        sound: bundle.sound,
         ceremony: bundle.ceremony
           ? { seasonId: bundle.ceremony.seasonId, crownId: bundle.ceremony.crownId, ordinal: bundle.ceremony.ordinal, seasonLabel: bundle.ceremony.seasonLabel }
           : devCeremony

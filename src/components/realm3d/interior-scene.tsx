@@ -37,6 +37,7 @@ import * as THREE from "three";
 import { heightAt } from "@/lib/realm3d/heightfield";
 import { supportHeight, HERO_RADIUS, type Pt } from "@/lib/realm3d/collision";
 import { makeVertical, stepVertical, tryJump, type Vertical } from "@/lib/realm3d/jump";
+import { makeStride, strideTick } from "@/lib/realm3d/sound/stride";
 import { heroLook } from "@/lib/realm3d/hero-look";
 import { cameraFacing, makeMoveIntent, moveIntent, turnToward, wrapAngle, BACKPEDAL, YAW_PER_PX, PITCH_PER_PX, ZOOM_PER_PX, type MoveIntent } from "@/lib/realm3d/controls";
 import { roomPlan, type RoomColors, type RoomPart, type RoomPlan, type WallSide } from "@/lib/realm3d/interiors";
@@ -210,7 +211,7 @@ const RoomWorld = memo(function RoomWorld({
         {plan.keeper && keeperName && <Keeper plan={plan} heroLocal={local} />}
         <RoomRing spots={spots} />
       </group>
-      <RoomHero plan={plan} oy={oy} heroRef={heroRef} local={local} facingRef={facingRef} gaitRef={gaitRef} keys={keys} pointer={pointer} live={live}>
+      <RoomHero plan={plan} oy={oy} heroRef={heroRef} local={local} facingRef={facingRef} gaitRef={gaitRef} keys={keys} pointer={pointer} live={live} bus={bus}>
         {viewer === "parent" ? <WizardFigure gait={gaitRef} /> : <HeroFigure look={look} gait={gaitRef} />}
       </RoomHero>
       {viewer !== "parent" && look.companion && <Companion look={look.companion} heroRef={heroRef} facingRef={facingRef} trail={petTrail} groundAt={petGround} />}
@@ -509,6 +510,7 @@ function RoomHero({
   keys,
   pointer,
   live,
+  bus,
   children,
 }: {
   plan: RoomPlan;
@@ -520,10 +522,13 @@ function RoomHero({
   keys: React.RefObject<Keys>;
   pointer: React.RefObject<Pointer>;
   live: Live;
+  /** For the feet's sound. */
+  bus?: HudBus;
   children: React.ReactNode;
 }) {
   const group = useRef<THREE.Group>(null);
   const facing = useRef(plan.spawn.face);
+  const stride = useMemo(() => makeStride(), []);
   const bob = useRef(0);
   const out = useMemo<Pt>(() => ({ x: 0, z: 0 }), []);
   const vert = useMemo<Vertical>(() => makeVertical(0), []);
@@ -571,9 +576,10 @@ function RoomHero({
       bob.current += dt * 2;
       if (pointer.current.drag === 2) facing.current = cameraFacing(pointer.current.yaw);
     }
-    if (eat(k, "jump")) tryJump(vert);
+    if (eat(k, "jump") && tryJump(vert)) bus?.feet.onJump();
     stepVertical(vert, dt, L.x, L.z, 0, plan.solids);
     putLocal(L, L.x, L.z, vert.y);
+    if (bus) strideTick(stride, bus.feet, bob.current, vert.grounded, moving, dt, L.x, L.z);
 
     // Out of the door: walking into it for a moment, as walking into a door outside brings you in.
     if (moving && leavingRoom(plan, L.x, L.z, intent.z, L.y)) {

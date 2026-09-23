@@ -17,6 +17,8 @@ import { profileFromRow, type LearningProfile } from "@/lib/utils/learning-profi
 import { isValidAvatarConfig, normalizeAvatarConfig, type AvatarConfig } from "@/lib/utils/avatar-catalog";
 import { realmDepth, type DepthOverride, type RealmDepth } from "@/lib/realm/depth";
 import { tutorialLearned } from "@/lib/realm3d/tutorial";
+import { loadRealmSound } from "@/lib/services/realm-sound";
+import { DEFAULT_SOUND, type SoundSettings } from "@/lib/realm3d/sound/settings";
 
 export type RealmBundle = {
   heroName: string;
@@ -42,6 +44,8 @@ export type RealmBundle = {
   depth: RealmDepth;
   /** Tutorial progress as stored: the flat Realm's 0..4, the 3D lessons above (`lib/realm3d/tutorial.ts`). */
   tutorialStep: number;
+  /** The 3D Realm's sound settings for whoever is looking: the hero's own, or a visiting grown-up's own. */
+  sound?: SoundSettings;
 };
 
 const VILLAGERS_RESTING = "The villagers are resting. Try again.";
@@ -60,6 +64,8 @@ export async function getRealmKingdom(childId: string): Promise<KingdomState> {
 /** Everything the Realm page needs, in one round of parallel reads. A hero may read their own. */
 export async function getRealmBundle(childId: string): Promise<RealmBundle> {
   const { access } = await requireChildAccess(childId);
+  // In flight alongside everything below; a failed read is the defaults, never a closed Realm.
+  const soundRead = loadRealmSound(childId, !isChildActor(access)).catch(() => ({ ...DEFAULT_SOUND }));
   // Also hands back the flags it read (post-update), so the parallel batch below does not
   // pay a second `loadRealmFlags` round trip just to read `helpSeenAt`. On the (rare) failure
   // path, fall back to a direct read so a starter-spell hiccup never misreports `helpSeen`.
@@ -128,5 +134,6 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
     // Either tutorial finished counts (`tutorialLearned`): the flat one's 4, or every 3D lesson.
     depth: realmDepth({ tutorialComplete: tutorialLearned(settings.tutorialStep), override: settings.depthOverride }),
     tutorialStep: settings.tutorialStep,
+    sound: await soundRead,
   };
 }

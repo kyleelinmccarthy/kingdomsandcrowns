@@ -702,6 +702,10 @@ export const realmSettings = sqliteTable(
     // The most Realm minutes a day that clearing troubles may earn (1 per clear). 0 turns the
     // bounty off. It can never outrun the day's schoolwork: see `lib/realm/spells/bounty.ts`.
     troubleBonusCapMinutes: integer("trouble_bonus_cap_minutes").notNull().default(5),
+    // The 3D Realm's sound: the hero's own volume, effects, music and mute, and a visiting
+    // grown-up's, each as JSON (`lib/realm3d/sound/settings.ts`). Null is the defaults.
+    sound: text("sound"),
+    visitorSound: text("visitor_sound"),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   }

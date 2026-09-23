@@ -211,6 +211,13 @@
       "when": 1790185304264,
       "tag": "0029_happy_daredevil",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "6",
+      "when": 1790189068986,
+      "tag": "0030_purple_hulk",
+      "breakpoints": true
     }
   ]
 }
