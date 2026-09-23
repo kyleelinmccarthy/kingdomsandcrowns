@@ -226,6 +226,15 @@ describe("the Realm's sound, wired to the game", () => {
     vi.useRealTimers();
   });
 
+  it("a gesture after the world was closed opens no audio device", () => {
+    const bus = makeHudBus(4, 1);
+    const tbus = makeTroubleBus(4);
+    render(<Harness bus={bus} tbus={tbus} close />);
+    fireEvent.keyDown(window, { key: "w", code: "KeyW" });
+    fireEvent.click(window);
+    expect(contexts).toHaveLength(0);
+  });
+
   it("stays silent, with no audio device at all, where there is no Web Audio", () => {
     delete (window as unknown as { AudioContext?: unknown }).AudioContext;
     const bus = makeHudBus(4, 1);

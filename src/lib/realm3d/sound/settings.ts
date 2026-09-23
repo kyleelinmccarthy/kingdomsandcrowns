@@ -2,8 +2,8 @@
  * THE SOUND SETTINGS, and the mix they make. Pure.
  *
  * Three sliders and a mute, stored per child on `realm_settings.sound` — and a visiting
- * grown-up's own on `realm_settings.visitor_sound`, so a parent who likes it quiet does not turn
- * their child's Realm down by visiting it. Stored as JSON text so a slider can be added without a
+ * grown-up's own in the `realm_visitor_sound` table, one row per grown-up, so a parent who likes
+ * it quiet does not turn their child's Realm down by visiting it. Stored as JSON text so a slider can be added without a
  * migration; anything unreadable falls back to the defaults, never to an error.
  *
  * Everything the mix does is decided in `busGains`: the sliders, the parent's switch in the

@@ -145,9 +145,11 @@ function buildOut(ctx: AudioContext): AudioOut {
       const t = Math.max(at, ctx.currentTime);
       const g = v.gain.gain;
       g.cancelScheduledValues(t - (stolen ? 0.03 : 0));
-      if (stolen && v.src) {
-        // The old sound on this voice fades out over the lead-in the engine left for it.
-        g.setTargetAtTime(0, t - 0.03, 0.008);
+      if (v.src) {
+        // The old sound on this voice fades out over the lead-in the engine left for it, when
+        // it was stolen; either way it is stopped as the new one starts, so nothing that was
+        // still in its tail ever sounds on the new sound's gain.
+        if (stolen) g.setTargetAtTime(0, t - 0.03, 0.008);
         retire(v.src, t);
       }
       const src = ctx.createBufferSource();
@@ -203,27 +205,41 @@ function buildOut(ctx: AudioContext): AudioOut {
       cur.gain.gain.cancelScheduledValues(t);
       cur.gain.gain.setValueAtTime(cur.gain.gain.value, t);
       cur.gain.gain.linearRampToValueAtTime(0, t + ramp);
+      // Kept on the slot while it fades, so a slot reused before the fade is done can stop it.
       retire(cur.src, t + ramp + 0.05);
-      cur.src = null;
       cur.buf = null;
       if (!buf) return;
       // ...and bring the new bed up in the other slot.
       front[layer] = 1 - front[layer];
       const next = pair[front[layer]];
-      retire(next.src, t);
+      const ng = next.gain.gain;
+      // That slot may still be fading out a bed from a moment ago (in through a door and straight
+      // back out): take it down fast and stop it before the new one starts on the same gain,
+      // rather than two copies of a bed at different loop points and a snap to zero.
+      const at = next.src ? t + 0.04 : t;
+      ng.cancelScheduledValues(t);
+      if (next.src) {
+        ng.setValueAtTime(ng.value, t);
+        ng.linearRampToValueAtTime(0, at);
+        retire(next.src, at);
+      }
       const src = ctx.createBufferSource();
       src.buffer = toBuffer(buf);
       src.loop = true;
       src.connect(next.gain);
-      src.onended = () => src.disconnect();
+      src.onended = () => {
+        src.disconnect();
+        if (next.src === src) next.src = null;
+      };
       next.src = src;
       next.buf = buf;
-      next.gain.gain.cancelScheduledValues(t);
-      next.gain.gain.setValueAtTime(0, t);
-      next.gain.gain.linearRampToValueAtTime(gain, t + ramp);
+      ng.setValueAtTime(0, at);
+      ng.linearRampToValueAtTime(gain, at + ramp);
       // Start somewhere other than the top of the loop, so two visits never line up.
-      src.start(t, (t * 0.37) % (buf.data.length / buf.rate));
+      src.start(at, (at * 0.37) % (buf.data.length / buf.rate));
     },
+
+    running: () => !closed && ctx.state === "running",
 
     suspend(on) {
       if (closed) return;

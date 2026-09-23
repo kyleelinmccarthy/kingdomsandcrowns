@@ -41,6 +41,11 @@ export interface AudioOut {
   bed(layer: number, buf: SoundBuffer | null, gain: number, ramp: number): void;
   /** Pauses or resumes the whole output (a hidden tab). */
   suspend(on: boolean): void;
+  /**
+   * Whether the device is really running (not left suspended by a browser that did not count
+   * the gesture). Optional: an output that cannot tell is taken to be running.
+   */
+  running?(): boolean;
   /** Stops everything and releases the device. */
   close(): void;
 }
@@ -63,6 +68,12 @@ export const LEAD = 0.01;
 export const BED_LAYERS = 2;
 
 export type PlayOptions = { gain?: number; pan?: number; rate?: number; delay?: number; offset?: number };
+
+/**
+ * How long after `AudioOut.stop` a voice's sound is really gone: the backend fades it and stops
+ * its source this long after (`web-audio.ts`). A voice is not free to be claimed before then.
+ */
+export const STOP_TAIL = 0.2;
 
 /** Where a charge's swell peaks in its buffer (`recipes.ts` swells over 0.85 s). */
 export const CHARGE_PEAK = 0.9;
@@ -90,6 +101,10 @@ export class SoundEngine {
   private rendering = false;
   private closed = false;
   private synth: Synth;
+  /** The synth failed once and this thread's idle fallback took over. */
+  private fellBack = false;
+  /** The tab is hidden: the timers are stopped until it is back. */
+  private away = false;
 
   /**
    * `synth` makes the buffers ahead of time (a worker in the browser); without one, the engine
@@ -109,6 +124,30 @@ export class SoundEngine {
     return this.out !== null;
   }
 
+  /** Attached, and the device is really running: nothing more for a gesture to do. */
+  get running(): boolean {
+    const out = this.out;
+    return out !== null && !this.closed && (out.running ? out.running() : true);
+  }
+
+  /** Finished: `close` ran, and nothing will ever play again. */
+  get finished(): boolean {
+    return this.closed;
+  }
+
+  /**
+   * The first gesture's call: makes the output with `make` and attaches it — but only if the
+   * engine still wants one. After `close`, or once attached, `make` is never called, so a late
+   * gesture can never open an audio device that nothing will close. True when it attached.
+   */
+  attachWith(make: () => AudioOut | null): boolean {
+    if (this.closed || this.out) return false;
+    const out = make();
+    if (!out) return false;
+    this.attach(out);
+    return true;
+  }
+
   get state(): Readonly<MixState> {
     return this.mix;
   }
@@ -122,10 +161,25 @@ export class SoundEngine {
     if (this.closed || this.out) return;
     this.out = out;
     out.gains(busGains(this.mix), 0.05);
-    if (this.zone) this.startZone(this.zone);
+    this.warmAndZone();
     this.scheduleMusic(FIRST_MUSIC_S);
-    // Everything the child might do, made ahead of time, so no press ever waits on it.
-    this.warm();
+  }
+
+  /**
+   * Everything the child might do, made ahead of time, so no press ever waits on it; and the
+   * country's beds. Off the game's thread the effects are asked for FIRST, ahead of the beds
+   * (and the phrase, asked for after this), which are the heaviest jobs and not wanted for
+   * seconds: a first cast in the first second must not queue behind them. On this thread the
+   * beds go first, as they always did — there, whatever is asked for early is made early.
+   */
+  private warmAndZone(): void {
+    if (this.synth.offThread) {
+      this.warm();
+      if (this.zone) this.startZone(this.zone);
+    } else {
+      if (this.zone) this.startZone(this.zone);
+      this.warm();
+    }
   }
 
   /** Changes any part of the mix; the buses follow on a short ramp. */
@@ -134,10 +188,7 @@ export class SoundEngine {
     this.mix = { ...was, ...patch };
     if (!this.out) return;
     this.out.gains(busGains(this.mix), MIX_RAMP);
-    if (was.calm !== this.mix.calm) {
-      if (this.zone) this.startZone(this.zone);
-      this.warm();
-    }
+    if (was.calm !== this.mix.calm) this.warmAndZone();
     const wanted = musicWanted(this.mix);
     if (wanted !== musicWanted(was)) {
       if (wanted) this.scheduleMusic(6);
@@ -165,7 +216,17 @@ export class SoundEngine {
     if (!admit(this.gate, pool, id, now, info.gap, info.max)) return -1;
     const variants = variantsOf(id);
     const variant = variants > 1 ? this.counter++ % variants : 0;
-    const buf = this.buffer(id, variant);
+    // With a worker, never made HERE, on the game's thread, at the moment it is wanted: a take
+    // that is not ready yet gives way to one of its siblings that is, or — first seconds only —
+    // the sound is dropped and asked for, and the next one plays.
+    let buf = this.readyTake(id, variant, variants);
+    if (!buf) {
+      if (this.synth.offThread) {
+        void this.fetch(id, variant);
+        return -1;
+      }
+      buf = this.buffer(id, variant);
+    }
     const at = now + LEAD + (o.delay ?? 0);
     const rate = o.rate ?? 1;
     const offset = Math.max(0, o.offset ?? 0);
@@ -202,7 +263,9 @@ export class SoundEngine {
     if (idx >= 0) {
       const at = out.now() + LEAD + hold;
       out.stop("sfx", idx, at);
-      endVoice(this.pools.sfx, idx, at + 0.1);
+      // Free when the backend has really stopped it, not before: claimed sooner, the charge's
+      // swell would sound on the next sound's gain.
+      endVoice(this.pools.sfx, idx, at + STOP_TAIL);
     }
     this.play(release, { delay: hold });
   }
@@ -220,9 +283,26 @@ export class SoundEngine {
     this.out = null;
   }
 
-  /** Suspends the output while the tab is hidden, and picks it up again after. */
+  /**
+   * Suspends the output while the tab is hidden, and picks it up again after. The timers stop
+   * too: a hidden tab's throttled timers still fire against a frozen audio clock, and every
+   * phrase and little sound they queued would start at once on return.
+   */
   hidden(on: boolean): void {
+    if (this.closed) return;
     this.out?.suspend(on);
+    if (on) {
+      if (this.detailTimer >= 0) this.timers.clear(this.detailTimer);
+      if (this.musicTimer >= 0) this.timers.clear(this.musicTimer);
+      this.detailTimer = this.musicTimer = -1;
+      this.away = true;
+      return;
+    }
+    if (!this.away) return;
+    this.away = false;
+    if (!this.out) return;
+    this.scheduleDetail();
+    this.scheduleMusic(musicGap(this.musicSeed));
   }
 
   /** How many voices of each bus are sounding: for tests and the dev hook. */
@@ -251,6 +331,15 @@ export class SoundEngine {
     return b;
   }
 
+  /** A ready take of `id`: the one asked for, or any sibling take that is made. */
+  private readyTake(id: SoundId, variant: number, variants: number): SoundBuffer | null {
+    for (let k = 0; k < variants; k++) {
+      const b = this.cache.get(jobKey({ kind: "sound", id, calm: this.mix.calm, variant: (variant + k) % variants }));
+      if (b) return b;
+    }
+    return null;
+  }
+
   /** Whether a sound is ready without any work on this thread. */
   ready(id: SoundId, variant = 0): boolean {
     return this.cache.has(jobKey({ kind: "sound", id, calm: this.mix.calm, variant }));
@@ -267,8 +356,25 @@ export class SoundEngine {
         if (!this.cache.has(key)) this.cache.set(key, b);
         return this.cache.get(key)!;
       },
-      () => null,
+      () => (this.fallBack() ? this.fetch(id, variant) : null),
     );
+  }
+
+  /**
+   * The synth failed (a worker that loaded and then threw, or a script that would not load):
+   * this thread's idle fallback takes over for good. True when a job that failed should be
+   * asked again (always, until the engine is closed).
+   */
+  private fallBack(): boolean {
+    if (this.closed) return false;
+    if (!this.fellBack) {
+      this.fellBack = true;
+      this.synth.close();
+      this.synth = idleSynth(this.timers, this.render);
+    }
+    // Every job the failed synth was holding comes back through here; the fallback never
+    // rejects, so asking again cannot loop.
+    return true;
   }
 
   private warm(): void {
@@ -366,6 +472,7 @@ export class SoundEngine {
       },
       () => {
         this.rendering = false;
+        if (this.fallBack()) this.prepareMusic();
       },
     );
   }

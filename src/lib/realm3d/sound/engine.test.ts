@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { CHARGE_PEAK, POOL_SIZES, SoundEngine, type AudioOut, type SoundBuffer, type Timers } from "./engine";
+import { CHARGE_PEAK, POOL_SIZES, SoundEngine, STOP_TAIL, WARM_ORDER, type AudioOut, type SoundBuffer, type Timers } from "./engine";
+import type { SynthJob } from "./synth";
 import { FIRST_MUSIC_S } from "./music";
 import { cueInfo } from "./cues";
 import { EFFECTS, type SoundId } from "./recipes";
@@ -130,9 +131,10 @@ describe("attached", () => {
     expect(musicTimer).toBeDefined();
   });
 
-  it("plays a sound on a pooled voice, and drops a repeat inside its gap", () => {
+  it("plays a sound on a pooled voice, and drops a repeat inside its gap", async () => {
     const e = engine();
     e.attach(out);
+    await settle();
     expect(e.play("talk")).toBeGreaterThanOrEqual(0);
     expect(e.play("talk")).toBe(-1);
     out.t = 1;
@@ -152,9 +154,10 @@ describe("attached", () => {
     }
   });
 
-  it("does not let a storm of lesser sounds cut off a building finishing", () => {
+  it("does not let a storm of lesser sounds cut off a building finishing", async () => {
     const e = engine();
     e.attach(out);
+    await settle();
     e.play("complete");
     const completeVoice = out.plays[0].index;
     // Everything less important than a finished building, all at once, over and over: enough to
@@ -171,9 +174,10 @@ describe("attached", () => {
     expect(e.playing("complete")).toBe(1);
   });
 
-  it("casts: the element's charge for the cast time, from near its peak, then its release", () => {
+  it("casts: the element's charge for the cast time, from near its peak, then its release", async () => {
     const e = engine();
     e.attach(out);
+    await settle();
     e.cast("frost", 300);
     const [charge, release] = out.plays;
     expect(charge.id).toBe(fp("charge-frost"));
@@ -184,9 +188,10 @@ describe("attached", () => {
     expect(out.stops[0].at).toBeCloseTo(charge.at + 0.3);
   });
 
-  it("gives a slow spell all of its charge", () => {
+  it("gives a slow spell all of its charge", async () => {
     const e = engine();
     e.attach(out);
+    await settle();
     e.cast("stone", 900);
     expect(out.plays[0].offset).toBe(0);
   });
@@ -262,10 +267,11 @@ describe("the soundscape", () => {
     expect(out.beds).toHaveLength(0);
   });
 
-  it("brings a little sound now and then on the ambience's own voices, and keeps doing so", () => {
+  it("brings a little sound now and then on the ambience's own voices, and keeps doing so", async () => {
     const e = engine();
     e.setZone("meadow");
     e.attach(out);
+    await settle();
     const before = out.plays.length;
     // Fire the detail timer (the soonest one; the music's is 18 s away).
     const ms = timers.fire();
@@ -333,5 +339,121 @@ describe("the warm-up", () => {
     e.attach(new FakeOut());
     t.drainIdle();
     for (const id of ["step-grass", "complete", "release-storm", "fixture-bell", "found"]) expect(rendered.has(id)).toBe(true);
+  });
+});
+
+describe("review fixes: nothing heavy on the game's thread, nothing stale, nothing left open", () => {
+  it("a voice a charge was cut on is not handed on until the backend has really stopped it", async () => {
+    const e = engine();
+    e.attach(out);
+    await settle();
+    e.cast("ember", 300);
+    const charge = out.plays[0];
+    const stopAt = out.stops[0].at;
+    // Just after the stop call's time, but before its tail is done: a burst of footsteps.
+    out.t = stopAt + STOP_TAIL * 0.6;
+    for (let i = 0; i < 6; i++) {
+      out.t += 0.001;
+      e.play("ui-click");
+      e.step("grass");
+    }
+    const reused = out.plays.slice(2).filter((p) => p.bus === "sfx" && p.index === charge.index && !p.stolen && p.at < stopAt + STOP_TAIL);
+    expect(reused).toEqual([]);
+  });
+
+  it("with a worker, asks for the effects before the beds and the phrase", () => {
+    const asked: string[] = [];
+    const t = new FakeTimers();
+    const synth = { offThread: true, render: (job: SynthJob) => (asked.push(job.kind === "sound" ? job.id : "phrase"), new Promise<SoundBuffer>(() => {})), close() {} };
+    const e = new SoundEngine(mix(), t, fakeRender, synth);
+    e.setZone("shore");
+    e.attach(new FakeOut());
+    expect(asked[0]).toBe(WARM_ORDER[0]);
+    const firstBed = asked.findIndex((id) => id.startsWith("bed-"));
+    const phrase = asked.indexOf("phrase");
+    expect(firstBed).toBeGreaterThan(asked.indexOf("trouble-clear"));
+    expect(phrase).toBeGreaterThan(asked.indexOf("trouble-clear"));
+  });
+
+  it("with a worker, never renders a sound on the game's thread at the moment it is wanted", async () => {
+    let inline = 0;
+    const t = new FakeTimers();
+    const o = new FakeOut();
+    // A worker that has not got to anything yet.
+    const synth = { offThread: true, render: () => new Promise<SoundBuffer>(() => {}), close() {} };
+    const e = new SoundEngine(mix(), t, (id) => (inline++, fakeRender(id)), synth);
+    e.attach(o);
+    expect(e.play("complete")).toBe(-1);
+    e.cast("ember", 300);
+    expect(inline).toBe(0);
+    expect(o.plays).toHaveLength(0);
+  });
+
+  it("plays a ready sibling take rather than wait for the one it would have picked", async () => {
+    const e = engine();
+    e.attach(out);
+    await settle();
+    // Every take of a footstep is ready after the warm-up; they rotate.
+    out.t = 0;
+    e.step("grass");
+    out.t = 1;
+    e.step("grass");
+    expect(out.plays).toHaveLength(2);
+  });
+
+  it("a synth that fails hands its work to this thread's idle fallback, beds and music included", async () => {
+    const e = new SoundEngine(mix(), (timers = new FakeTimers()), fakeRender, { offThread: true, render: () => Promise.reject(new Error("worker threw")), close() {} });
+    out = new FakeOut();
+    e.setZone("shore");
+    e.attach(out);
+    for (let i = 0; i < 6; i++) await settle();
+    expect(e.ready("trouble-clear")).toBe(true);
+    expect(out.beds.filter((b) => b.buf).length).toBeGreaterThan(0);
+    expect(e.ready("trouble-clear")).toBe(true);
+    // The phrase is ready by the time its timer fires.
+    [...timers.pending.values()].find((p) => p.ms === FIRST_MUSIC_S * 1000)!.fn();
+    expect(out.plays.some((p) => p.bus === "music")).toBe(true);
+  });
+
+  it("a hidden tab queues nothing: its timers stop, and start once on return", () => {
+    const e = engine();
+    e.setZone("meadow");
+    e.attach(out);
+    expect(timers.pending.size).toBe(2);
+    e.hidden(true);
+    expect(timers.pending.size).toBe(0);
+    e.hidden(true);
+    e.hidden(false);
+    expect(timers.pending.size).toBe(2);
+    e.hidden(false);
+    expect(timers.pending.size).toBe(2);
+  });
+
+  it("a gesture after the engine is finished opens no audio device", () => {
+    const e = engine();
+    e.close();
+    let made = 0;
+    expect(e.attachWith(() => (made++, new FakeOut()))).toBe(false);
+    expect(made).toBe(0);
+    expect(e.finished).toBe(true);
+    const f = engine();
+    expect(f.attachWith(() => (made++, out))).toBe(true);
+    expect(f.attachWith(() => (made++, new FakeOut()))).toBe(false);
+    expect(made).toBe(1);
+  });
+});
+
+describe("is the device running", () => {
+  it("only once attached, and as the output says", () => {
+    const e = engine();
+    expect(e.running).toBe(false);
+    let state = false;
+    (out as FakeOut & { running?: () => boolean }).running = () => state;
+    e.attach(out);
+    expect(e.running).toBe(false);
+    state = true;
+    expect(e.running).toBe(true);
+    e.close();
+    expect(e.running).toBe(false);
   });
 });

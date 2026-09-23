@@ -187,12 +187,15 @@ export function useRealmSound(o: RealmSoundOptions): SoundStore {
     // is a finger going DOWN (the gesture is the lift). A context made on one of those starts
     // suspended and stays so; so those are passed over, and the next real gesture makes it.
     const unlock = (e: Event) => {
+      // The world was closed (`?close`, the clock): no gesture opens a device nothing would close.
+      if (engine.finished) {
+        for (const t of UNLOCK_EVENTS) window.removeEventListener(t, unlock, true);
+        return;
+      }
       const active = gestureActivates(e, userActivation());
       if (!active) return;
       if (!engine.attached) {
-        const out = createWebAudioOut();
-        if (!out) return;
-        engine.attach(out);
+        if (!engine.attachWith(createWebAudioOut)) return;
       } else if (!document.hidden) {
         // A context the browser left suspended despite the gesture: this one asks again.
         engine.hidden(false);

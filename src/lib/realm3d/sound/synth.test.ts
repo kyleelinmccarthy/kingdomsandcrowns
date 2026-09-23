@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Timers } from "./engine";
-import { idleSynth, jobKey, runJob } from "./synth";
+import { idleSynth, jobCost, jobKey, MAX_DEFERS, runJob } from "./synth";
 
 function idleTimers() {
   const q: ((b: number) => void)[] = [];
@@ -57,5 +57,46 @@ describe("making sounds ahead of time", () => {
   it("makes a phrase of music the same way the worker does", () => {
     const b = runJob({ kind: "phrase", seed: 1 });
     expect(b.data.length / b.rate).toBeGreaterThan(10);
+  });
+});
+
+describe("the idle fallback respects the moment it is given", () => {
+  function shortMoments(budget: number) {
+    const q: ((b: number) => void)[] = [];
+    return { idle: (fn: (b: number) => void) => void q.push(fn), set: () => 0, clear: () => {}, step: () => q.shift()?.(budget), size: () => q.length };
+  }
+
+  it("a heavy job waits for a long enough moment, and a cheap one behind it goes first", async () => {
+    const t = shortMoments(12);
+    const made: string[] = [];
+    const synth = idleSynth(t, (id) => (made.push(id), { data: new Float32Array(1), rate: 1 }));
+    void synth.render({ kind: "sound", id: "complete", calm: false, variant: 0 });
+    void synth.render({ kind: "sound", id: "talk", calm: false, variant: 0 });
+    t.step();
+    expect(made).toEqual(["talk"]);
+    expect(jobCost({ kind: "sound", id: "complete", calm: false, variant: 0 })).toBeGreaterThan(12);
+    expect(jobCost({ kind: "phrase", seed: 1 })).toBeGreaterThan(jobCost({ kind: "sound", id: "complete", calm: false, variant: 0 }));
+  });
+
+  it("but never waits for ever on a page that is never idle", () => {
+    const t = shortMoments(10);
+    const made: string[] = [];
+    const synth = idleSynth(t, (id) => (made.push(id), { data: new Float32Array(1), rate: 1 }));
+    void synth.render({ kind: "sound", id: "bed-waves", calm: false, variant: 0 });
+    for (let i = 0; i < MAX_DEFERS + 1 && t.size(); i++) t.step();
+    expect(made).toEqual(["bed-waves"]);
+  });
+});
+
+describe("a heavy job is passed over only a few times", () => {
+  it("a bed is not stuck behind a long queue of cheap sounds", () => {
+    const q: ((b: number) => void)[] = [];
+    const t = { idle: (fn: (b: number) => void) => void q.push(fn), set: () => 0, clear: () => {} };
+    const made: string[] = [];
+    const synth = idleSynth(t, (id) => (made.push(id), { data: new Float32Array(1), rate: 1 }));
+    void synth.render({ kind: "sound", id: "bed-air", calm: false, variant: 0 });
+    for (let v = 0; v < 40; v++) void synth.render({ kind: "sound", id: "step-grass", calm: false, variant: v });
+    for (let i = 0; i < MAX_DEFERS + 1; i++) q.shift()?.(10);
+    expect(made).toContain("bed-air");
   });
 });

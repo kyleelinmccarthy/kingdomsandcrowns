@@ -30,6 +30,7 @@ export function workerSynth(): Synth | null {
     waiting.clear();
   };
   return {
+    offThread: true,
     render(job) {
       if (failed) return Promise.reject(new Error("synth worker failed"));
       const key = jobKey(job);
