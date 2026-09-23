@@ -173,8 +173,12 @@ describe("the village, as colliders", () => {
   it("gives canopies to the camera even though they are walked under", () => {
     const oak = LAYOUT.scenery.find((p) => p.variant === "oak" && !p.solid && Math.abs(p.position.x) < 60)!;
     const here = occluders.filter((c) => Math.hypot(c.x - oak.position.x, c.z - oak.position.z) < 0.01);
-    expect(here.length).toBe(1);
-    expect(here[0].base).toBeGreaterThan(heightAt(oak.position.x, oak.position.z)); // starts over a head
+    // The canopy, which starts over a head, and the trunk under it.
+    expect(here.length).toBe(2);
+    const [crown, trunk] = here[0].base > here[1].base ? here : [here[1], here[0]];
+    expect(crown.base).toBeGreaterThan(heightAt(oak.position.x, oak.position.z));
+    expect(trunk.hw).toBeLessThan(crown.hw);
+    expect(trunk.top).toBeCloseTo(crown.base);
   });
 
   it("gives the camera a wider box than the hero gets, because the roof overhangs the wall", () => {
@@ -187,7 +191,8 @@ describe("the village, as colliders", () => {
 
   it("stays small enough to walk every frame", () => {
     expect(solids.length).toBeLessThan(80);
-    expect(occluders.length).toBeLessThan(900);
+    // Every tree is two: a canopy and the trunk under it.
+    expect(occluders.length).toBeLessThan(1700);
   });
 
   it("can always find the hero a camera angle, anywhere in the village", () => {

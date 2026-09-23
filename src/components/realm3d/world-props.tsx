@@ -41,7 +41,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import type { RealmWorld, WorldProp } from "@/lib/realm3d/worldgen";
-import type { Collider } from "@/lib/realm3d/collision";
+import { TRUNK_R, type Collider } from "@/lib/realm3d/collision";
 import { fadeWithDistance, litMaterial, sceneryGeometryFor } from "./geo-kit";
 
 type LayerKey = WorldProp["layer"];
@@ -203,6 +203,9 @@ export function RealmProps({
           base: p.y + canopy.base * p.scale,
           top: p.y + canopy.top * p.scale,
         });
+        // ...and the trunk under it. A ducked camera lives under the canopy, and without the
+        // trunk in the list it could settle INSIDE one: a screen of dark bark.
+        occluders.push({ x: p.x, z: p.z, hw: TRUNK_R * p.scale, hd: TRUNK_R * p.scale, round: true, base: p.y - 0.2, top: p.y + canopy.base * p.scale });
       }
     });
 

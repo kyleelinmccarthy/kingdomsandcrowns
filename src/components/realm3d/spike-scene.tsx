@@ -837,7 +837,13 @@ function Sun({ heroRef }: { heroRef: React.RefObject<THREE.Vector3> }) {
  */
 const DUCK_H = 8.5;
 const DUCK_Y = 3.6;
-const DUCK_MIN = 0.55;
+/**
+ * How close a ducked boom may come. Short on purpose: the Old Wood plants a tree every metre or
+ * so, and a camera held five units back in there was a camera inside the next pine.
+ */
+const DUCK_MIN = 0.4;
+/** The fastest the camera ever turns itself, in radians a second. */
+const ASSIST_RATE = 1.3;
 /** What must stay visible: the child's figure, not the patch of grass under it. */
 const CAM_EYE = 1.5;
 /** Never closer than this fraction of the boom, or the camera ends up inside the hero's hood. */
@@ -855,11 +861,10 @@ const CAM_LIFT = 0.3;
  *
  *   - the boom SHORTENS to whatever is clear along the line it is actually on, and DUCKS under
  *     a closed canopy. This is always on: it never changes the direction the child chose.
- *   - the boom SWINGS round a roof to the nearest clear yaw (`pickBoom`) — but only as an
- *     assist while the child is walking and has left the camera alone for `ASSIST_GRACE`.
- *     While they are dragging, and for a moment after, it never turns itself. When a drag
- *     starts, whatever swing was in effect is folded into the child's own yaw, so the picture
- *     does not jump under their hand.
+ *   - the boom TURNS round a roof toward the nearest clear yaw (`pickBoom`) — but only as an
+ *     assist when the child has left the camera alone for `ASSIST_GRACE`, and never faster
+ *     than `ASSIST_RATE`. While they are dragging, and for a moment after, it never turns
+ *     itself, so it cannot fight their hand.
  */
 function Rig({
   heroRef,
@@ -886,14 +891,12 @@ function Rig({
   const up = useMemo(() => new THREE.Vector3(0, 1, 0), []);
   const off = useMemo(() => new THREE.Vector3(), []);
   // Reused every frame. Nothing in this loop allocates.
-  const near = useMemo<Collider[]>(() => new Array(512), []);
+  const near = useMemo<Collider[]>(() => new Array(1024), []);
   const boom = useMemo<Boom>(() => ({ yaw: 0, frac: 1 }), []);
   const arm = useRef({ h: 0, y: 0 });
-  const swing = useRef(0);
   const frac = useRef(1);
   /** 0 out in the open, 1 under a closed canopy. Damped, so the wood opens rather than snaps. */
   const duck = useRef(0);
-  const wasDragging = useRef(false);
 
   useFrame((_, rawDt) => {
     // Paused: the camera holds still. The world may keep drawing behind the menu.
@@ -925,13 +928,6 @@ function Rig({
     }
 
     const dragging = ptr.drag !== 0;
-    // A drag just began: fold the assist's swing into the child's own yaw, so the camera stays
-    // exactly where it is and the drag moves it from there.
-    if (dragging && !wasDragging.current) {
-      yawRef.current = wrapAngle(yawRef.current + swing.current);
-      swing.current = 0;
-    }
-    wasDragging.current = dragging;
     const assist = swingAllowed(dragging, nowS(), ptr.lastDragAt);
 
     boomOffset(arm.current, ptr.pitch, ptr.dist);
@@ -946,7 +942,7 @@ function Rig({
       pickBoom(boom, p.x, eyeY, p.z, yawRef.current, camH, camY, near, n, 0.44, minFrac);
     } else {
       // The child's own line, and only that line: how clear is it?
-      const y0 = yawRef.current + swing.current;
+      const y0 = yawRef.current;
       setBoom(boom, y0, Math.max(minFrac, clearFraction(p.x, eyeY, p.z, camH * Math.sin(y0), camY, camH * Math.cos(y0), near, n)));
     }
     // Nothing clear at any angle means a ceiling, not a wall. Duck in fast, come back out slowly:
@@ -955,22 +951,19 @@ function Rig({
     duck.current += (wantDuck - duck.current) * (1 - Math.exp(-dt * (wantDuck > duck.current ? 4.5 : 1.4)));
 
     if (assist) {
-      // Swing toward the angle that can see him, by the short way round.
-      const delta = angleDelta(yawRef.current + swing.current, boom.yaw);
-      swing.current += delta * (1 - Math.exp(-dt * 5));
       /**
-       * Anything past a good half-turn of swing is bled back into the child's own yaw: the
-       * picture does not move (the two are added), but a big forced swing quietly becomes the
-       * angle they are now steering from, so it can never whip back later.
+       * Turn toward the angle that can see him, the short way round, and at no more than
+       * `ASSIST_RATE` a second — a drift, never a whip. It turns the child's OWN yaw rather than
+       * an offset laid over it: the camera the child sees is always the camera WASD, the spell
+       * aim and the map's view cone are measured from, and once it has stepped round a roof it
+       * stays there instead of swinging back by itself when the roof is passed.
        */
-      const over = Math.abs(swing.current) - 1.2;
-      if (over > 0) {
-        const bleed = Math.sign(swing.current) * Math.min(over, dt * 2.5);
-        yawRef.current = wrapAngle(yawRef.current + bleed);
-        swing.current -= bleed;
-      }
+      const delta = angleDelta(yawRef.current, boom.yaw);
+      const turn = delta * (1 - Math.exp(-dt * 4));
+      const cap = ASSIST_RATE * dt;
+      yawRef.current = wrapAngle(yawRef.current + (turn > cap ? cap : turn < -cap ? -cap : turn));
     }
-    const yaw = yawRef.current + swing.current;
+    const yaw = yawRef.current;
 
     // ...and shorten to what is clear at the angle it is actually at, not the one it is heading
     // for, so the child is never lost during the swing itself.
@@ -1102,20 +1095,30 @@ function glowTexture(): THREE.Texture {
   return t;
 }
 
-/** No bloom pass is installed, so the glow is additive sprites. Close enough to judge by. */
+/**
+ * Fireflies — in the Old Wood, and nowhere else.
+ *
+ * These used to be 220 gold motes scattered through a 52-unit disc centred on the village green,
+ * drifting at head height, and the owner's word for them was "annoying on the screen": at the
+ * chase camera's distance every one of them is a bright dot in front of a roof or a face, in
+ * broad daylight, where nothing would glow. So there are forty now, small and low, and they live
+ * under the trees of the Old Wood west of the village, where a glint in the shade is the wood
+ * being magic rather than the screen being dirty. The village green has none.
+ */
+const WOOD_X = -50;
+const WOOD_Z = 0;
+
 function Motes({ tex }: { tex: THREE.Texture }) {
   const ref = useRef<THREE.Points>(null);
   const geo = useMemo(() => {
-    const n = 220;
+    const n = 40;
     const pos = new Float32Array(n * 3);
     const rnd = (i: number, k: number) => Math.abs(Math.sin(i * 12.9898 + k * 78.233) * 43758.5453) % 1;
     for (let i = 0; i < n; i++) {
-      const a = rnd(i, 1) * Math.PI * 2;
-      const r = 6 + rnd(i, 2) * 46;
-      const x = Math.cos(a) * r;
-      const z = Math.sin(a) * r;
+      const x = WOOD_X + (rnd(i, 1) - 0.5) * 44;
+      const z = WOOD_Z + (rnd(i, 2) - 0.5) * 56;
       pos[i * 3] = x;
-      pos[i * 3 + 1] = heightAt(x, z) + 0.8 + rnd(i, 3) * 3.4;
+      pos[i * 3 + 1] = heightAt(x, z) + 0.5 + rnd(i, 3) * 1.6;
       pos[i * 3 + 2] = z;
     }
     const g = new THREE.BufferGeometry();
@@ -1126,17 +1129,22 @@ function Motes({ tex }: { tex: THREE.Texture }) {
     const p = ref.current;
     if (!p) return;
     const t = state.clock.elapsedTime;
-    p.position.y = Math.sin(t * 0.6) * 0.5;
-    p.rotation.y = t * 0.02;
+    p.position.y = Math.sin(t * 0.6) * 0.3;
   });
   return (
     <points ref={ref} geometry={geo} frustumCulled={false}>
-      <pointsMaterial map={tex} color="#ffe6a8" size={0.72} sizeAttenuation transparent depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
+      <pointsMaterial map={tex} color="#e8f5a0" size={0.42} sizeAttenuation transparent opacity={0.8} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
     </points>
   );
 }
 
-/** A soft halo on every lantern in the patch. */
+/**
+ * A small warm glow at the head of every lantern in the patch.
+ *
+ * It was a 3.4-unit additive disc, which in daylight read as one more floating gold orb — the
+ * thing the owner asked to be rid of — and a lantern at noon does not throw a halo wider than a
+ * door. Now it is a lamp-sized glint that sits on the lamp.
+ */
 function LanternGlow({ scenery, tex }: { scenery: readonly Prop[]; tex: THREE.Texture }) {
   const spots = useMemo(
     () =>
@@ -1148,8 +1156,8 @@ function LanternGlow({ scenery, tex }: { scenery: readonly Prop[]; tex: THREE.Te
   return (
     <>
       {spots.map((s, i) => (
-        <sprite key={i} position={[s.x, heightAt(s.x, s.z) + 1.82 * s.s, s.z]} scale={[3.4 * s.s, 3.4 * s.s, 1]}>
-          <spriteMaterial map={tex} color="#ffd38a" transparent depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
+        <sprite key={i} position={[s.x, heightAt(s.x, s.z) + 1.82 * s.s, s.z]} scale={[1.1 * s.s, 1.1 * s.s, 1]}>
+          <spriteMaterial map={tex} color="#ffd38a" transparent opacity={0.7} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
         </sprite>
       ))}
     </>

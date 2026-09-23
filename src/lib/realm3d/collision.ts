@@ -370,6 +370,9 @@ export type WorldColliders = { solids: Collider[]; occluders: Collider[] };
 const box = (x: number, z: number, hw: number, hd: number, base: number, top: number): Collider => ({ x, z, hw, hd, round: false, base, top });
 const cyl = (x: number, z: number, r: number, base: number, top: number): Collider => ({ x, z, hw: r, hd: r, round: true, base, top });
 
+/** A tree trunk's radius as the camera sees it, per unit of tree scale. A shade over the drawn bark. */
+export const TRUNK_R = 0.36;
+
 /** The decoration kinds whose canopy can swallow a child. Everything else is below eye level. */
 const CANOPY: Record<string, { r: number; base: number; top: number }> = {
   oak: { r: 1.2, base: 1.0, top: 3.45 },
@@ -469,7 +472,11 @@ export function buildColliders(props: readonly PlanProp[], scenery: readonly Pla
     }
     const canopy = CANOPY[kind];
     // Walk-through or not, a crown over the child's head is a lid the camera has to get around.
-    if (canopy) occluders.push(cyl(x, z, canopy.r * scale, g + canopy.base * scale, g + canopy.top * scale));
+    if (canopy) {
+      occluders.push(cyl(x, z, canopy.r * scale, g + canopy.base * scale, g + canopy.top * scale));
+      // The trunk too: a camera ducked under the canopy must not come to rest inside the bark.
+      occluders.push(cyl(x, z, TRUNK_R * scale, g - 0.2, g + canopy.base * scale));
+    }
   }
 
   return { solids, occluders };
