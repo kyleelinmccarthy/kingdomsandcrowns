@@ -1169,6 +1169,7 @@
 /* The island's plates, the gold ! and its arrow are pinned to the island's camera, which is not
    moving while the child is indoors: they would hang over the room at the doorstep's angle. */
 .r3-game--indoors .r3-plates:not(.r3-room-plates),
+.r3-game--indoors .r3t-plates,
 .r3-game--indoors .r3-goal-layer { display: none; }
 /* No spells indoors. The bar stays, so nothing jumps about, but it says it is resting. */
 .r3-game--indoors .r3-bar { opacity: 0.45; pointer-events: none; filter: saturate(0.6); }

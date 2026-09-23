@@ -115,6 +115,15 @@ describe("the real village", () => {
     expect(handed.props!.castleUnlocked).toBe(false);
   });
 
+  it("hands the canvas the calm flag and one trouble bus, and the calm child gets calm troubles", () => {
+    mount();
+    expect(handed.props!.calm).toBe(false);
+    expect(handed.props!.troubles).toBeTruthy();
+    cleanup();
+    mount({ realm: { ...realm, profile: { ...realm.profile, lowStimulus: true } } });
+    expect(handed.props!.calm).toBe(true);
+  });
+
   it("keeps every canvas prop the same object across a re-render", () => {
     const { view } = mount();
     const first = { ...handed.props! };
