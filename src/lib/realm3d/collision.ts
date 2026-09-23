@@ -71,15 +71,47 @@ export function blocks(c: Collider, x: number, z: number, r: number, feetY: numb
   return overlaps(c, x, z, r);
 }
 
-function anyBlock(colliders: readonly Collider[], x: number, z: number, r: number, feetY: number): boolean {
-  for (let i = 0; i < colliders.length; i++) if (blocks(colliders[i], x, z, r, feetY)) return true;
+/**
+ * How far a hero of `r` at (x, z) is inside `c`'s footprint: the distance they would have to
+ * move to be clear. Positive only when they overlap. For a box it is the shallower of the two
+ * axes, which is the way out `pushOut` would take.
+ */
+export function penetration(c: Collider, x: number, z: number, r: number): number {
+  const dx = x - c.x;
+  const dz = z - c.z;
+  if (c.round) return c.hw + r - Math.sqrt(dx * dx + dz * dz);
+  const px = c.hw + r - Math.abs(dx);
+  const pz = c.hd + r - Math.abs(dz);
+  return px < pz ? px : pz;
+}
+
+/**
+ * Whether a step from (fx, fz) to (x, z) is refused by any solid.
+ *
+ * A solid the hero is ALREADY inside at the start of the step refuses only a step that takes
+ * them deeper into it. That is the rule that makes "never left embedded" a property rather than
+ * a list of rescues: the mover's body can grow where it stands (a mount's radius is wider than a
+ * child's, and a knock or a stone's shove can leave anyone a hair inside a wall), and without
+ * it the solver refuses every step whose destination still overlaps — which, from inside, is
+ * nearly all of them. A child who got on a pony beside a tree could not move at all.
+ */
+function anyBlock(colliders: readonly Collider[], fx: number, fz: number, x: number, z: number, r: number, feetY: number): boolean {
+  for (let i = 0; i < colliders.length; i++) {
+    const c = colliders[i];
+    if (!blocks(c, x, z, r, feetY)) continue;
+    // Already in it: out, or along it, is fine; further in is not.
+    if (overlaps(c, fx, fz, r) && penetration(c, x, z, r) <= penetration(c, fx, fz, r) + 1e-9) continue;
+    return true;
+  }
   return false;
 }
 
 /**
  * One frame of motion against the solids, resolved axis by axis so a blocked axis is dropped
  * and the other still runs. Walk at a wall head-on and you stop; walk at it at an angle and you
- * slide along it. Writes into `out` and returns it; allocates nothing.
+ * slide along it. A hero who starts the frame inside something is never frozen by it: they may
+ * move out of it or along it, never further in (`anyBlock`). Writes into `out` and returns it;
+ * allocates nothing.
  *
  * `feetY` is where the hero's soles are this frame; pass -Infinity to ignore height entirely.
  */
@@ -94,9 +126,9 @@ export function slideMove(
   feetY: number = -Infinity,
 ): Pt {
   let x = toX;
-  if (anyBlock(colliders, x, fromZ, r, feetY)) x = fromX;
+  if (anyBlock(colliders, fromX, fromZ, x, fromZ, r, feetY)) x = fromX;
   let z = toZ;
-  if (anyBlock(colliders, x, z, r, feetY)) z = fromZ;
+  if (anyBlock(colliders, x, fromZ, x, z, r, feetY)) z = fromZ;
   out.x = x;
   out.z = z;
   return out;
@@ -135,7 +167,8 @@ export function pushOut(out: Pt, x: number, z: number, colliders: readonly Colli
   out.z = z;
   for (let pass = 0; pass < 4; pass++) {
     let moved = false;
-    for (const c of colliders) {
+    for (let i = 0; i < colliders.length; i++) {
+      const c = colliders[i];
       if (!overlaps(c, out.x, out.z, r)) continue;
       const dx = out.x - c.x;
       const dz = out.z - c.z;

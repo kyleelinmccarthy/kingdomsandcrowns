@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { LAND_MIN_AIR, makeStride, strideTick } from "./stride";
+import { distancePhase, LAND_MIN_AIR, makeDistance, makeStride, strideTick, TRAVEL_STRIDE } from "./stride";
 
 function feet() {
   const log: string[] = [];
@@ -57,5 +57,24 @@ describe("the hero's feet", () => {
     for (let i = 0; i < frames; i++) strideTick(s, h, 0, false, false, 1 / 60, 0, 0);
     strideTick(s, h, 0, true, false, 1 / 60, 0, 0);
     expect(log).toEqual([]);
+  });
+});
+
+describe("a fast-travel ride still takes steps", () => {
+  it("the ground going by is footfalls, so the country's sound can change on the way", () => {
+    const s = makeStride();
+    const d = makeDistance();
+    const seen: [number, number][] = [];
+    const feet = { onStep: (x: number, z: number) => void seen.push([x, z]), onJump: () => {}, onLand: () => {} };
+    // Thirty units of road at a gallop, sixty frames a second.
+    for (let x = 0; x <= 30; x += 20 / 60) strideTick(s, feet, distancePhase(d, x, 0), true, true, 1 / 60, x, 0);
+    expect(seen.length).toBeGreaterThanOrEqual(Math.floor(30 / TRAVEL_STRIDE) - 1);
+    expect(seen[seen.length - 1][0]).toBeGreaterThan(25);
+  });
+
+  it("a jump across the map is not a walk", () => {
+    const d = makeDistance();
+    distancePhase(d, 0, 0);
+    expect(distancePhase(d, 200, 0)).toBe(0);
   });
 });

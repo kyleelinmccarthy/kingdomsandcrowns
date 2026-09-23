@@ -30,6 +30,8 @@
  */
 
 import { findMount, getUnlockDescription, type AvatarConfig, type MountItem } from "@/lib/utils/avatar-catalog";
+import type { Collider, Pt } from "./collision";
+import { buried, freeSpot } from "./doorways";
 import { WADE_DEPTH } from "./shore";
 
 /* ------------------------------------------------------------------ speed */
@@ -181,6 +183,8 @@ export type RideBus = {
   stop: boolean;
   /** Whether a fast-travel ride is running (written by the scene). */
   travelling: boolean;
+  /** Where the running fast-travel ride is going, or null (written by the scene with `travelling`). */
+  travelDest: string | null;
   /** Places the child has stood in, by landmark id, as the scene sees them. */
   visited: Set<string>;
 
@@ -213,6 +217,7 @@ export function makeRideBus(mount: RideMount | null, calm = false, visited: Iter
     travelTo: null,
     stop: false,
     travelling: false,
+    travelDest: null,
     visited: new Set(visited),
     onRiding: noop,
     onSay: noop,
@@ -265,6 +270,18 @@ export function askStop(ride: RideBus): void {
 export function parkNow(ride: RideBus, dx = 0, dz = 0): boolean {
   if (ride.phase === "off") return false;
   const was = ride.phase === "on" || ride.phase === "up";
+  // Through a door mid-way through a fast-travel ride: the ride ends here. Left running, it
+  // would carry on when the child came back out — dragging them on foot, through walls, on to
+  // the next waypoint, with the mount left at the door. The scene drops its run when it sees
+  // `travelling` gone; the frame hears the ride stop, so its banner comes down.
+  if (ride.travelling) {
+    const to = ride.travelDest;
+    ride.travelling = false;
+    ride.travelDest = null;
+    ride.stop = false;
+    ride.away.current = false;
+    if (to !== null) ride.onTravel("stop", to);
+  }
   ride.phase = "off";
   ride.t = 0;
   ride.seat = 0;
@@ -407,4 +424,50 @@ export function readVisited(raw: string | null): string[] {
   } catch {
     return [];
   }
+}
+
+/* ------------------------------------------------------------------ never left embedded */
+
+/** How fast an embedded mover is eased out, at the least (units a second). */
+const SETTLE_SPEED = 3;
+const SETTLE_TO: Pt = { x: 0, z: 0 };
+
+/**
+ * One frame of easing a mover out of anything solid their body has grown into where they stood
+ * — the mount-up moment is the one that does it: the radius goes from a child's 0.55 to a
+ * mount's 0.8 while they stand touching a wall or a trunk. The solver already never FREEZES
+ * anyone who is embedded (`slideMove` lets them out); this puts them clear, over the moment,
+ * so the mount is never drawn half through a wall. Writes into `out`; a mover who is not
+ * embedded (or is standing on top of the thing) is left exactly where they are.
+ */
+export function settleRider(out: Pt, x: number, z: number, feetY: number, solids: readonly Collider[], r: number, dt: number): Pt {
+  out.x = x;
+  out.z = z;
+  if (!buried(solids, x, z, feetY, r, 0.005)) return out;
+  freeSpot(SETTLE_TO, x, z, solids, r);
+  const dx = SETTLE_TO.x - x;
+  const dz = SETTLE_TO.z - z;
+  const d = Math.sqrt(dx * dx + dz * dz);
+  const step = Math.max(SETTLE_SPEED * dt, d * Math.min(1, dt * 10));
+  if (d <= step) {
+    out.x = SETTLE_TO.x;
+    out.z = SETTLE_TO.z;
+  } else {
+    out.x = x + (dx / d) * step;
+    out.z = z + (dz / d) * step;
+  }
+  return out;
+}
+
+/**
+ * Wherever the mount was parked (a fixed step to the side of a door, the spot a child got off),
+ * never INSIDE something: moved to the nearest clear ground for a mount's body. The scene runs
+ * this when the parked spot changes, before it draws the mount there.
+ */
+export function clearPark(ride: RideBus, solids: readonly Collider[]): void {
+  const pk = ride.parked;
+  if (!pk.on) return;
+  freeSpot(SETTLE_TO, pk.x, pk.z, solids, RIDE_RADIUS);
+  pk.x = SETTLE_TO.x;
+  pk.z = SETTLE_TO.z;
 }

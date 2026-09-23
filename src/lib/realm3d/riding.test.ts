@@ -29,7 +29,14 @@ import {
   stepRide,
   toggleRide,
   wadeLimit,
+  clearPark,
+  RIDE_RADIUS,
 } from "./riding";
+import { buildWorldLayout, type SiteProgress } from "@/lib/realm/layout";
+import { BUILDINGS } from "@/lib/utils/kingdom";
+import { buildColliders, overlaps, HERO_RADIUS, type Collider } from "./collision";
+import { buildDoors } from "./doorways";
+import { castlePlan, CASTLE_TIERS } from "./castle-plan";
 
 const pony = { id: "pony", label: "Pony", color: "#8b5e3c", speed: 4.5, tack: "#3b82f6" };
 
@@ -167,6 +174,61 @@ describe("getting on and off", () => {
     expect(ride.phase).toBe("off");
     expect(ride.parked).toMatchObject({ on: true, x: 5, z: 4 });
     expect(ride.speed).toBe(0);
+  });
+
+  it("going indoors mid-way through a fast-travel ride ends the ride — nobody is dragged on foot after", () => {
+    const ride = makeRideBus(pony);
+    const said: [string, string][] = [];
+    ride.onTravel = (state, to) => said.push([state, to]);
+    toggleRide(ride);
+    run(ride, 1);
+    // The scene starts a ride to Farfurrow.
+    ride.travelling = true;
+    ride.travelDest = "farfurrow";
+    stepRide(ride, 0.05, 0);
+    expect(ride.hold).toBe(true);
+    expect(parkNow(ride, 2, 0)).toBe(true);
+    expect(ride.travelling).toBe(false);
+    expect(ride.travelDest).toBeNull();
+    expect(said).toEqual([["stop", "farfurrow"]]);
+    stepRide(ride, 0.05, 0);
+    expect(ride.hold).toBe(false);
+  });
+
+  it("a mount parked by a door is never left standing inside a building", () => {
+    const ride = makeRideBus(pony);
+    toggleRide(ride);
+    run(ride, 1);
+    const house: Collider = { x: 10, z: 0, hw: 2.4, hd: 2.4, round: false, base: 0, top: 4 };
+    ride.at.x = 8;
+    ride.at.z = 1.5;
+    parkNow(ride, 2.1, 1.2);
+    expect(overlaps(house, ride.parked.x, ride.parked.z, RIDE_RADIUS)).toBe(true);
+    clearPark(ride, [house]);
+    expect(overlaps(house, ride.parked.x, ride.parked.z, RIDE_RADIUS)).toBe(false);
+    // Near where it was asked to stand, not across the village.
+    expect(Math.hypot(ride.parked.x - 10.1, ride.parked.z - 2.7)).toBeLessThan(2.5);
+  });
+
+  it("every door's waiting spot is clear, in the real village at every castle tier", () => {
+    for (const tier of Object.keys(CASTLE_TIERS)) {
+      const buildings: SiteProgress[] = BUILDINGS.map((b) => ({ id: b.id, done: 5, total: 5, complete: true }));
+      const layout = buildWorldLayout({ castleType: tier, buildings, objectiveIds: [] });
+      const { solids } = buildColliders(layout.props.filter((p) => p.kind !== "castle"), layout.scenery, { sitePlan: 1.5, wallH: 3.1, roofH: 2.25, treeScale: 1.25, patchHalf: 80 });
+      const c = layout.props.find((p) => p.kind === "castle")!;
+      for (const b of castlePlan(tier).solids) solids.push({ ...b, x: c.position.x + b.x, z: c.position.z + b.z });
+      for (const d of buildDoors({ props: layout.props, sitePlan: 1.5, castle: null })) {
+        const ride = makeRideBus(pony);
+        toggleRide(ride);
+        run(ride, 1);
+        ride.at.x = d.x;
+        ride.at.z = d.face + HERO_RADIUS;
+        parkNow(ride, 2.1, 1.2);
+        clearPark(ride, solids);
+        const hit = solids.some((c) => overlaps(c, ride.parked.x, ride.parked.z, RIDE_RADIUS));
+        expect(hit, `${tier} ${d.site}`).toBe(false);
+      }
+    }
   });
 });
 

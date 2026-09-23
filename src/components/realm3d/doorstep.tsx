@@ -29,10 +29,11 @@ import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import type { Prop } from "@/lib/realm/layout";
 import { CASTLE_TIERS, GATE_FRONT, type CastlePlan } from "@/lib/realm3d/castle-plan";
-import { pickBoom, type Boom, type Collider, type Pt } from "@/lib/realm3d/collision";
+import { pickBoom, HERO_RADIUS, type Boom, type Collider, type Pt } from "@/lib/realm3d/collision";
 import { makeMoveIntent, moveIntent, type MoveIntent, type MoveKeys } from "@/lib/realm3d/controls";
 import { buildDoors, buried, doorAhead, exitSpot, freeSpot, DOOR_DWELL, type Door } from "@/lib/realm3d/doorways";
 import type { HudBus } from "@/lib/realm3d/hud-bus";
+import { rideRadius, type RideBus } from "@/lib/realm3d/riding";
 import type { RealmWorld } from "@/lib/realm3d/worldgen";
 import { LENS_HERO } from "./geo-kit";
 
@@ -53,6 +54,7 @@ export function Doorstep({
   castleTier,
   castleUnlocked,
   world,
+  ride = null,
 }: {
   bus: HudBus;
   heroRef: React.RefObject<THREE.Vector3>;
@@ -69,6 +71,8 @@ export function Doorstep({
   castleTier: string;
   castleUnlocked: boolean;
   world: RealmWorld;
+  /** Riding: the rescue below measures the body the solver is actually pushing, a mount's. */
+  ride?: RideBus | null;
 }) {
   const { camera } = useThree();
   const doors = useMemo<Door[]>(() => {
@@ -124,8 +128,9 @@ export function Doorstep({
     }
 
     /* ---- never inside a wall ------------------------------------------- */
-    if (buried(solids, p.x, p.z, p.y)) {
-      freeSpot(free, p.x, p.z, solids);
+    const r = rideRadius(ride, HERO_RADIUS);
+    if (buried(solids, p.x, p.z, p.y, r)) {
+      freeSpot(free, p.x, p.z, solids, r);
       placeHero(p, free.x, free.z, Math.max(p.y, world.heightAt(free.x, free.z)));
     }
 

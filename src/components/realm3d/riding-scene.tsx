@@ -20,10 +20,10 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-import { slideMove, type Collider, type Pt } from "@/lib/realm3d/collision";
+import { slideMove, HERO_RADIUS, type Collider, type Pt } from "@/lib/realm3d/collision";
 import type { HudBus } from "@/lib/realm3d/hud-bus";
 import { holdKeys, seedMoves } from "@/lib/realm3d/held-keys";
-import { camGoal, isRiding, parkNow, stepRide, TOO_DEEP_TO_GET_DOWN, type RideBus } from "@/lib/realm3d/riding";
+import { camGoal, clearPark, isRiding, parkNow, rideRadius, settleRider, stepRide, TOO_DEEP_TO_GET_DOWN, type RideBus } from "@/lib/realm3d/riding";
 import { postAt, requestStop, startTravel, stepTravel, travelGraphFor, travelRoute, VILLAGE_ID, type TravelGraph, type TravelRun } from "@/lib/realm3d/travel";
 import type { RealmWorld } from "@/lib/realm3d/worldgen";
 import { at, litMaterial, merge, paint } from "./geo-kit";
@@ -233,6 +233,7 @@ export function Riding({
   const pos = useMemo<Pt>(() => ({ x: 0, z: 0 }), []);
   const out = useMemo(() => ({ heading: 0 }), []);
   const side = useMemo<Pt>(() => ({ x: 0, z: 0 }), []);
+  const settled = useMemo<Pt>(() => ({ x: 0, z: 0 }), []);
   const lookClock = useRef(0);
   // The keys a child is physically holding, whoever was listening when they went down.
   useEffect(() => holdKeys(), []);
@@ -273,6 +274,12 @@ export function Riding({
     /* ---- the state machine --------------------------------------------------- */
     const ev = stepRide(ride, dt, depth);
     if (ev === "refused-deep") ride.onSay(TOO_DEEP_TO_GET_DOWN);
+    // A mount's body is wider than a child's, and it grows where the child stands: eased out of
+    // any wall or trunk it grew into, over the mount-up moment, so nobody is left embedded.
+    if (ride.phase !== "off") {
+      settleRider(settled, p.x, p.z, p.y, solids, rideRadius(ride, HERO_RADIUS), dt);
+      moveHero(p, settled.x, settled.z);
+    }
     if (ev === "dismounted") {
       // The mount stays where it stood; the child is set down a step to its right.
       parkHere(ride, p.x, p.z, yaw);
@@ -302,18 +309,21 @@ export function Riding({
             wantDown(ride);
           } else {
             run.current = r;
-            setTravelling(ride, true);
+            setTravelling(ride, true, to);
             ride.onTravel("start", to);
           }
         }
       }
     }
+    // A ride ended from outside — the child went through a door on the way (`parkNow`) — is
+    // dropped here, before it can move them another step.
+    if (run.current && !ride.travelling) run.current = null;
     const r = run.current;
     if (r) {
       const k = keys.current;
       if (ride.stop || k.f || k.b || k.l || k.r) {
         requestStop(r);
-        setTravelling(ride, true);
+        setTravelling(ride, true, r.to);
       }
       copyXZ(pos, p);
       const done = stepTravel(r, pos, dt, out);
@@ -321,7 +331,7 @@ export function Riding({
       aimRef.current = out.heading;
       if (done) {
         run.current = null;
-        setTravelling(ride, false);
+        setTravelling(ride, false, null);
         const arrived = r.index >= r.route.length;
         if (arrived) {
           const dest = graph.posts.find((q) => q.id === r.to);
@@ -339,7 +349,7 @@ export function Riding({
 
   return (
     <>
-      <ParkedMount ride={ride} world={world} />
+      <ParkedMount ride={ride} world={world} solids={solids} />
       <HitchingPosts graph={graph} world={world} />
     </>
   );
@@ -381,8 +391,9 @@ function moveHero(p: THREE.Vector3, x: number, z: number): void {
 function clearTravelAsk(ride: RideBus): void {
   ride.travelTo = null;
 }
-function setTravelling(ride: RideBus, on: boolean): void {
+function setTravelling(ride: RideBus, on: boolean, to: string | null): void {
   ride.travelling = on;
+  ride.travelDest = on ? to : null;
   ride.stop = false;
 }
 function markVisited(ride: RideBus, id: string): void {
@@ -405,8 +416,10 @@ export { parkNow };
 /* ------------------------------------------------------------------ the waiting mount */
 
 /** The mount where the child left it: standing, breathing, flicking its tail. */
-function ParkedMount({ ride, world }: { ride: RideBus; world: RealmWorld }) {
+function ParkedMount({ ride, world, solids }: { ride: RideBus; world: RealmWorld; solids: Collider[] }) {
   const g = useRef<THREE.Group>(null);
+  /** Where it was last checked clear: a spot is checked once, when it changes. */
+  const checked = useRef({ x: Number.NaN, z: Number.NaN });
   const gait = useMemo(() => ({ current: { phase: 0, amp: 0, run: 0, air: 0, t: 0 } as MountGait }), []);
   const m = ride.mount;
   useFrame((_, rawDt) => {
@@ -416,6 +429,12 @@ function ParkedMount({ ride, world }: { ride: RideBus; world: RealmWorld }) {
     grp.visible = pk.on && ride.phase === "off";
     if (!grp.visible) return;
     tick(gait.current, Math.min(0.05, rawDt));
+    const seen = checked.current;
+    if (seen.x !== pk.x || seen.z !== pk.z) {
+      // Parked by a door or where the child got off: never standing inside a building.
+      clearPark(ride, solids);
+      noteChecked(seen, pk.x, pk.z);
+    }
     grp.position.set(pk.x, world.heightAt(pk.x, pk.z), pk.z);
     grp.rotation.y = pk.yaw;
   });
@@ -425,6 +444,11 @@ function ParkedMount({ ride, world }: { ride: RideBus; world: RealmWorld }) {
       <MountFigure id={m.id} color={m.color} tack={m.tack} gait={gait} />
     </group>
   );
+}
+
+function noteChecked(seen: { x: number; z: number }, x: number, z: number): void {
+  seen.x = x;
+  seen.z = z;
 }
 
 function tick(g: MountGait, dt: number): void {

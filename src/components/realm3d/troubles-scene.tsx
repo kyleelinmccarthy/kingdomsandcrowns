@@ -26,6 +26,8 @@ import type { TroubleKind, TroubleSkin } from "@/lib/realm/spells/troubles";
 import { MANA_MAX, type Caster } from "@/lib/realm3d/casting";
 import { castlePlan } from "@/lib/realm3d/castle-plan";
 import { HERO_RADIUS, overlaps, slideMove, type Collider } from "@/lib/realm3d/collision";
+import { rideRadius, wadeLimit, type RideBus } from "@/lib/realm3d/riding";
+import { shoveMove } from "@/lib/realm3d/shove";
 import type { HudBus } from "@/lib/realm3d/hud-bus";
 import { makeScreenPoint, projectPoint } from "@/lib/realm3d/project";
 import { shoreMove } from "@/lib/realm3d/shore";
@@ -349,6 +351,7 @@ export function Troubles({
   world,
   layout,
   calm: calmProp,
+  ride = null,
 }: {
   tbus: TroubleBus;
   bus: HudBus;
@@ -360,6 +363,8 @@ export function Troubles({
   world: RealmWorld;
   layout: WorldLayout;
   calm: boolean;
+  /** Riding: a knock or a stone's push moves the body and depth limit the mover has now. */
+  ride?: RideBus | null;
 }) {
   const { camera, size } = useThree();
   // Development only: `?calm=1` shows the calm troubles on an account whose profile is not calm.
@@ -469,6 +474,18 @@ export function Troubles({
   const mvp = useRef(new THREE.Matrix4());
   const point = useRef(makeScreenPoint());
   const scratch = useRef({ a: { x: 0, z: 0 }, b: { x: 0, z: 0 } });
+  // The last numbers each marker and map dot was written with, and the strings they made.
+  const inkRef = useRef({
+    markX: new Int32Array(TROUBLE_POOL),
+    markZ: new Int32Array(TROUBLE_POOL),
+    mark: new Array<string>(TROUBLE_POOL).fill(""),
+    plateX: new Int32Array(TROUBLE_POOL),
+    plateY: new Int32Array(TROUBLE_POOL),
+    plateS: new Int32Array(TROUBLE_POOL),
+    plateF: new Int32Array(TROUBLE_POOL),
+    plate: new Array<string>(TROUBLE_POOL).fill(""),
+    fade: new Array<string>(TROUBLE_POOL).fill("1.00"),
+  });
   const levelAt = useMemo(() => (x: number, z: number) => world.waterLevelAt(x, z), [world]);
   const move = useMemo<Mover>(() => {
     const wet = { x: 0, z: 0 };
@@ -515,25 +532,32 @@ export function Troubles({
         const home = field.homes[e.home];
         tbus.onEvent(e, home?.placeName ?? null, home?.id ?? null);
       }
-      // A bump: the child is pushed back, through the same water and walls as a walk.
+      // A bump: the child is pushed back, through the same water and walls as a walk — with
+      // the body and the depth the mover has NOW, so a rider is never shoved into a wall or out
+      // past where the mount can stand (`shove.ts`).
+      const r = rideRadius(ride, HERO_RADIUS);
+      const wade = wadeLimit(ride);
+      const s = scratch.current;
       if (field.now < field.knock.until) {
-        const s = scratch.current;
         const step = KNOCK_SPEED * dt;
-        shoreMove(s.a, p.x, p.z, p.x + field.knock.dx * step, p.z + field.knock.dz * step, world.heightAt, levelAt);
-        slideMove(s.b, p.x, p.z, s.a.x, s.a.z, solids, HERO_RADIUS);
-        p.x = Math.max(-WALK_HALF, Math.min(WALK_HALF, s.b.x));
-        p.z = Math.max(-WALK_HALF, Math.min(WALK_HALF, s.b.z));
+        shoveMove(s.b, p.x, p.z, p.x + field.knock.dx * step, p.z + field.knock.dz * step, world.heightAt, levelAt, solids, r, wade, p.y, WALK_HALF);
+        p.x = s.b.x;
+        p.z = s.b.z;
       }
-      // A standing stone is a stone: the child walks round it, not through it.
-      for (const t of field.troubles) {
+      // A standing stone is a stone: the child walks round it, not through it. Pushed off its
+      // footprint the same way — never into a wall behind them, never out into deep water.
+      const troubles = field.troubles;
+      for (let i = 0; i < troubles.length; i++) {
+        const t = troubles[i];
         if (!t.live || t.dying || t.kind !== "cursed-stone") continue;
         const dx = p.x - t.x;
         const dz = p.z - t.z;
         const d = Math.sqrt(dx * dx + dz * dz);
-        const min = BODY_RADIUS["cursed-stone"] * 0.8 + HERO_RADIUS;
+        const min = BODY_RADIUS["cursed-stone"] * 0.8 + r;
         if (d < min && d > 0.001) {
-          p.x = t.x + (dx / d) * min;
-          p.z = t.z + (dz / d) * min;
+          shoveMove(s.b, p.x, p.z, t.x + (dx / d) * min, t.z + (dz / d) * min, world.heightAt, levelAt, solids, r, wade, p.y, WALK_HALF);
+          p.x = s.b.x;
+          p.z = s.b.z;
         }
       }
     }
@@ -614,6 +638,7 @@ export function Troubles({
     m.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
     const e = m.elements;
     const pt = point.current;
+    const ink = inkRef.current;
     for (let i = 0; i < TROUBLE_POOL; i++) {
       const t = field.troubles[i];
       if (!t.live || t.dying) {
@@ -621,7 +646,15 @@ export function Troubles({
         paintTroubleMark(tbus, i, "");
         continue;
       }
-      paintTroubleMark(tbus, i, `translate(${t.x.toFixed(1)} ${t.z.toFixed(1)})`);
+      // Strings only when the rounded numbers change: a still trouble builds nothing.
+      const mx = Math.round(t.x * 10);
+      const mz = Math.round(t.z * 10);
+      if (mx !== ink.markX[i] || mz !== ink.markZ[i] || ink.mark[i] === "") {
+        ink.markX[i] = mx;
+        ink.markZ[i] = mz;
+        ink.mark[i] = `translate(${(mx / 10).toFixed(1)} ${(mz / 10).toFixed(1)})`;
+      }
+      paintTroubleMark(tbus, i, ink.mark[i]);
       const g = groups.current[i];
       const y = (g ? g.position.y : t.y) + BODY_TOP[t.kind] + 0.35;
       const ok = projectPoint(pt, e, t.x, y, t.z, size.width, size.height);
@@ -635,12 +668,19 @@ export function Troubles({
       const scale = Math.max(0.88, Math.min(1.15, 24 / pt.depth));
       paintTroubleLabel(tbus, i, t.kind, skin, troubleName(t.kind, skin));
       paintTroublePips(tbus, i, t.hitsLeft, t.maxHits);
-      paintTroublePlate(
-        tbus,
-        i,
-        `translate3d(${pt.x.toFixed(1)}px,${pt.y.toFixed(1)}px,0) translate(-50%,-100%) scale(${scale.toFixed(2)})`,
-        fade.toFixed(2),
-      );
+      const px = Math.round(pt.x * 10);
+      const py = Math.round(pt.y * 10);
+      const ps = Math.round(scale * 100);
+      const pf = Math.round(fade * 100);
+      if (px !== ink.plateX[i] || py !== ink.plateY[i] || ps !== ink.plateS[i] || pf !== ink.plateF[i] || ink.plate[i] === "") {
+        ink.plateX[i] = px;
+        ink.plateY[i] = py;
+        ink.plateS[i] = ps;
+        ink.plateF[i] = pf;
+        ink.plate[i] = `translate3d(${(px / 10).toFixed(1)}px,${(py / 10).toFixed(1)}px,0) translate(-50%,-100%) scale(${(ps / 100).toFixed(2)})`;
+        ink.fade[i] = (pf / 100).toFixed(2);
+      }
+      paintTroublePlate(tbus, i, ink.plate[i], ink.fade[i]);
     }
   });
 

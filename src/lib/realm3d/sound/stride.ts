@@ -46,3 +46,36 @@ export function strideTick(s: Stride, feet: FeetHandlers, phase: number, grounde
   s.grounded = grounded;
   s.half = half;
 }
+
+/** A fast-travel ride's hoofbeats: one footfall every this many units of road. */
+export const TRAVEL_STRIDE = 2.5;
+
+export type Distance = { phase: number; x: number; z: number; on: boolean };
+
+export function makeDistance(): Distance {
+  return { phase: 0, x: 0, z: 0, on: false };
+}
+
+/**
+ * A stride phase driven by ground covered rather than by the hands — for a fast-travel ride,
+ * where the child steers nothing and the mover's own stride stands still, but the ground still
+ * goes by: its footfalls are what the sound hears the country change by. Returns the phase to
+ * hand `strideTick`. A jump of more than a few units (a door, an arrival) is not ground covered.
+ */
+export function distancePhase(d: Distance, x: number, z: number): number {
+  if (d.on) {
+    const dx = x - d.x;
+    const dz = z - d.z;
+    const moved = Math.sqrt(dx * dx + dz * dz);
+    if (moved < 5) d.phase += (moved / TRAVEL_STRIDE) * Math.PI;
+  }
+  d.on = true;
+  d.x = x;
+  d.z = z;
+  return d.phase;
+}
+
+/** The ride is over: the next `distancePhase` starts afresh from wherever the hero is then. */
+export function resetDistance(d: Distance): void {
+  d.on = false;
+}

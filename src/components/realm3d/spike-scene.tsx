@@ -73,7 +73,7 @@ import {
   type Pt,
 } from "@/lib/realm3d/collision";
 import { makeVertical, stepVertical, tryJump, type Vertical } from "@/lib/realm3d/jump";
-import { makeStride, strideTick } from "@/lib/realm3d/sound/stride";
+import { distancePhase, makeDistance, makeStride, resetDistance, strideTick } from "@/lib/realm3d/sound/stride";
 import { heroLook } from "@/lib/realm3d/hero-look";
 import {
   angleDelta,
@@ -688,6 +688,8 @@ function Hero({
   const levelAt = useMemo(() => (x: number, z: number) => world.waterLevelAt(x, z), [world]);
   /** The feet, for the sound: footfalls off the stride phase, and landings. */
   const stride = useMemo(() => makeStride(), []);
+  /** A fast-travel ride's footfalls, by ground covered: the hands steer nothing, the road still goes by. */
+  const road = useMemo(() => makeDistance(), []);
 
   useFrame((_, rawDt) => {
     // Paused: the world keeps drawing, but nothing in it moves because of the child.
@@ -733,7 +735,11 @@ function Hero({
     }
     stepVertical(vert, dt, p.x, p.z, world.heightAt(p.x, p.z), solids);
     p.y = vert.y;
-    strideTick(stride, bus.feet, bob.current, vert.grounded, moving, dt, p.x, p.z);
+    if (ride?.travelling) strideTick(stride, bus.feet, distancePhase(road, p.x, p.z), vert.grounded, true, dt, p.x, p.z);
+    else {
+      resetDistance(road);
+      strideTick(stride, bus.feet, bob.current, vert.grounded, moving, dt, p.x, p.z);
+    }
 
     // The limbs, the cape and the companion all read the same two numbers.
     const g2 = gaitRef.current;
@@ -1451,9 +1457,9 @@ const World = memo(function World({
       {/* Riding: the mount's moments, where it waits, the hitching posts and fast travel. Before the doorstep (see its note). */}
       {ride && <Riding ride={ride} bus={bus} heroRef={heroRef} facingRef={facingRef} aimRef={aimRef} keys={keys} solids={solids} world={world} />}
       {/* Going in and coming out of doors, and never being left inside a wall. After the rig: it may set the camera. */}
-      <Doorstep bus={bus} heroRef={heroRef} yawRef={yawRef} aimRef={aimRef} keys={keys} pointer={pointer} solids={solids} occluders={occluders} props={layout.props} sitePlan={SITE_PLAN} castle={castle} castleTier={layout.castleType} castleUnlocked={castleUnlocked} world={world} />
+      <Doorstep bus={bus} heroRef={heroRef} yawRef={yawRef} aimRef={aimRef} keys={keys} pointer={pointer} solids={solids} occluders={occluders} props={layout.props} sitePlan={SITE_PLAN} castle={castle} castleTier={layout.castleType} castleUnlocked={castleUnlocked} world={world} ride={ride} />
       {/* After the rig (markers project from this frame's camera), before the driver (a new charge locks on before it releases). */}
-      {troubles && <Troubles tbus={troubles} bus={bus} pool={fxPool} caster={caster} heroRef={heroRef} aimRef={aimRef} solids={solids} world={world} layout={layout} calm={calm} />}
+      {troubles && <Troubles tbus={troubles} bus={bus} pool={fxPool} caster={caster} heroRef={heroRef} aimRef={aimRef} solids={solids} world={world} layout={layout} calm={calm} ride={ride} />}
       {/*
         LAST in the tree on purpose. R3F runs same-priority frame subscribers in the order they
         subscribed, so the driver's projection runs after the rig has already moved the camera
