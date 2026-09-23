@@ -7,8 +7,10 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("@/components/user-menu", () => ({
-  UserMenu: ({ userName }: { userName: string }) => (
-    <div data-testid="user-menu">{userName}</div>
+  UserMenu: ({ userName, isChildView }: { userName: string; isChildView?: boolean }) => (
+    <div data-testid="user-menu" data-child-view={isChildView ? "true" : "false"}>
+      {userName}
+    </div>
   ),
 }));
 
@@ -54,6 +56,36 @@ describe("GameNavBar", () => {
   it("renders user menu with userName", () => {
     render(<GameNavBar userName="Jane Doe" />);
     expect(screen.getByTestId("user-menu")).toHaveTextContent("Jane Doe");
+  });
+
+  it("passes isChildView through to the user menu, so it can gate the Alerts item", () => {
+    render(<GameNavBar userName="Hero" isChildView />);
+    expect(screen.getByTestId("user-menu")).toHaveAttribute("data-child-view", "true");
+  });
+
+  it("no longer mounts a standalone alert bell — Alerts now lives in the account menu", () => {
+    const { container } = render(<GameNavBar userName="Parent" />);
+    expect(container.querySelector(".alert-tray")).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Alerts/ })).not.toBeInTheDocument();
+  });
+
+  it("renders the destinations in the owner's requested order", () => {
+    render(<GameNavBar userName="Parent" />);
+    const labels = screen
+      .getAllByRole("link")
+      .map((link) => link.getAttribute("aria-label")?.split(" — ")[0])
+      .filter((label): label is string => Boolean(label));
+    expect(labels).toEqual([
+      "Tavern",
+      "Quest Giver",
+      "Quest Log",
+      "Side Quests",
+      "Spellbook",
+      "Realm",
+      "Loot",
+      "Ranks",
+      "Schedule",
+    ]);
   });
 
   it("renders the Help control alongside the destinations", () => {
