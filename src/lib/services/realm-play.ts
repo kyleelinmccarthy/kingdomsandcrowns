@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { settingsFromRow, type RealmSettings } from "@/lib/utils/realm-settings";
 import type { LedgerRow } from "@/lib/utils/realm-access";
+import { playChargeProblem } from "@/lib/utils/realm-play-charge";
 import { awardClears, bountyStatusFor, MAX_CLEARS_PER_MINUTE, type BountyStatus, type ClearRow } from "@/lib/realm/spells/bounty";
 
 /** The database, or a transaction on it: the reads and writes below run on either. */
@@ -72,6 +73,17 @@ export async function appendLedger(
     sourceAssignmentId,
     createdAt: new Date(),
   });
+}
+
+/**
+ * Charges Realm play time to the ledger: the one write behind both the play clock's server
+ * action and its page-hide beacon. Callers have authorized the child; the charge's shape is
+ * checked here, so neither way in can write one the other would refuse.
+ */
+export async function chargeRealmPlay(childId: string, date: string, minutes: number): Promise<void> {
+  const problem = playChargeProblem(date, minutes);
+  if (problem) throw new Error(problem);
+  await appendLedger(childId, date, "spent", minutes);
 }
 
 /** The troubles a hero cleared on `date`, oldest first: what each home paid, for the bounty. */

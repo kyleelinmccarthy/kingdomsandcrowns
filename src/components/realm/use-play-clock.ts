@@ -5,6 +5,7 @@ import { getRealmAccess, recordRealmPlay } from "@/lib/actions/realm-play";
 import { applyAccess, minutesToSettle, startClock, tickClock, type PlayClock } from "@/lib/realm/play-clock";
 import type { AccessDenied } from "@/lib/utils/realm-access";
 import { currentTimeOfDay, localDateOf } from "@/lib/utils/schedule-days";
+import { beaconPlayCharge } from "@/lib/utils/realm-play-charge";
 
 /** Why the Realm closed, in the gate's own vocabulary. `AccessDenied` already is that reason union. */
 export type CloseReason = AccessDenied;
@@ -45,6 +46,9 @@ export function usePlayClock({
   // minute the old behaviour handed out.
   const pendingRef = useRef(0);
   const recordingRef = useRef(false);
+  // The whole minutes a `recordRealmPlay` still in flight is carrying. They are in `pendingRef`
+  // until it answers, and the page-hide beacon must not send them a second time.
+  const inFlightRef = useRef(0);
   const pausedRef = useRef(paused);
   const refreshOnResumeRef = useRef(false);
   // Refs change in an effect, never during render (the React Compiler rejects render-time ref writes).
@@ -82,6 +86,7 @@ export function usePlayClock({
       const sent = Math.min(minutes, 30);
       if (sent < 1) return;
       recordingRef.current = true;
+      inFlightRef.current = sent;
       try {
         const date = localDateOf(new Date());
         await recordRealmPlay(childId, date, sent);
@@ -118,6 +123,7 @@ export function usePlayClock({
         setError(err instanceof Error ? err.message : "The Realm lost track of time for a moment.");
       } finally {
         recordingRef.current = false;
+        inFlightRef.current = 0;
       }
     },
     [childId]
@@ -156,6 +162,31 @@ export function usePlayClock({
     if (recordingRef.current) return;
     await settle(minutesToSettle(clockRef.current, pendingRef.current));
   }, [settle]);
+
+  /**
+   * A reload, a closed tab or a typed URL unloads the page without unmounting anything, so the
+   * flush above never runs on those exits and the minute in progress went uncharged — a child
+   * with one minute left could play 55 seconds, reload, and have it still. `pagehide` does fire,
+   * and a beacon (`lib/utils/realm-play-charge.ts`) is the request that outlives the page. What
+   * it sends is booked at once exactly as a successful `settle` books it, so a page restored from
+   * the back-forward cache, or unmounted after all, never charges the same seconds twice. The
+   * minutes a record in flight carries are left to that record.
+   */
+  useEffect(() => {
+    if (!enabled || typeof window === "undefined") return;
+    const onHide = () => {
+      const inFlight = inFlightRef.current;
+      const owed = minutesToSettle(clockRef.current, pendingRef.current - inFlight);
+      if (owed < 1) return;
+      if (!beaconPlayCharge({ childId, date: localDateOf(new Date()), minutes: owed })) return;
+      const unbilled = (pendingRef.current - inFlight) * 60 + clockRef.current.secondsThisMinute;
+      const remaining = Math.max(0, unbilled - owed * 60);
+      pendingRef.current = inFlight + Math.floor(remaining / 60);
+      clockRef.current = { ...clockRef.current, secondsThisMinute: remaining % 60 };
+    };
+    window.addEventListener("pagehide", onHide);
+    return () => window.removeEventListener("pagehide", onHide);
+  }, [enabled, childId]);
 
   // `refresh` re-asks the gate now: minutes landed from elsewhere (a cleared trouble's bounty).
   return { minutesRemaining: clock.minutesRemaining, warning, error, clearError: () => setError(""), flushPending, refresh, source };

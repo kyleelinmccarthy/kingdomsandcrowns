@@ -147,9 +147,17 @@ describe("minutesToSettle", () => {
     closed,
   });
 
-  it("charges nothing once the gate has closed", () => {
-    expect(minutesToSettle(at(59, 10, true), 3)).toBe(0);
+  it("charges no minute in progress once the gate has closed", () => {
+    expect(minutesToSettle(at(59, 10, true), 0)).toBe(0);
     expect(minutesToSettle(at(0, 0, true), 0)).toBe(0);
+  });
+
+  it("still charges whole minutes that were played but never recorded, after the gate closed", () => {
+    // The last minute's record failed, and the next tick closed the clock at 0: that minute was
+    // played, and settling it is the only retry it gets.
+    expect(minutesToSettle(at(0, 0, true), 1)).toBe(1);
+    expect(minutesToSettle(at(59, 0, true), 3)).toBe(3);
+    expect(minutesToSettle(at(0, 0, true), 40)).toBe(30);
   });
 
   it("rounds the minute in progress half-up", () => {
@@ -166,10 +174,17 @@ describe("minutesToSettle", () => {
     expect(minutesToSettle(at(45), 2)).toBe(3);
   });
 
-  it("never charges more minutes than the hero has left", () => {
+  it("rounds up the minute in progress only while the hero has a minute left", () => {
     expect(minutesToSettle(at(45, 0), 0)).toBe(0);
     expect(minutesToSettle(at(45, 1), 0)).toBe(1);
-    expect(minutesToSettle(at(45, 2), 4)).toBe(2);
+  });
+
+  it("charges pending minutes in full: the clock already took them off what is left", () => {
+    // `tickClock` counts a record against `minutesRemaining` when it happens, so pending minutes
+    // are not part of what is left and must not be clamped by it: 4 failed records and 2 left
+    // is 4 played, plus the half-minute in progress.
+    expect(minutesToSettle(at(45, 2), 4)).toBe(5);
+    expect(minutesToSettle(at(5, 0), 1)).toBe(1);
   });
 
   it("clamps to the ledger's 30-minute ceiling", () => {

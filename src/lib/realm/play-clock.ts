@@ -29,15 +29,20 @@ export const ROUND_UP_SECONDS = 30;
  * at 29 seconds a visit instead of 59 and cannot be farmed. That cap is
  * specific to an open gate: while the gate is closed (see below), up to 59
  * seconds are dropped on every visit by deliberate rule, not by omission, and
- * this function does nothing to narrow that. Clamped to the minutes the hero
- * actually has left and to the ledger's 30-minute ceiling, so
+ * this function does nothing to narrow that. The round-up needs a minute left;
+ * the pending minutes do not (they were already counted against it). Clamped
+ * to the ledger's 30-minute ceiling, so
  * `recordRealmPlay`'s `assertMinutes(minutes, 30)` is never made to throw. A 0
  * is simply not sent: `recordRealmPlay` rejects `minutes < 1`.
  */
 export function minutesToSettle(clock: PlayClock, pending: number): number {
-  if (clock.closed) return 0; // the gate already charged and shut
-  const owed = pending + (clock.secondsThisMinute >= ROUND_UP_SECONDS ? 1 : 0);
-  return Math.max(0, Math.min(owed, clock.minutesRemaining, 30));
+  // Pending minutes were played and are already off `minutesRemaining` (`tickClock` counts a
+  // record when it happens), so they are owed in full, closed or not: a last minute whose record
+  // failed just before the clock closed has no other retry.
+  const played = Math.max(0, Math.floor(pending));
+  // The minute in progress: rounded half-up while the gate is open and a minute is left.
+  const inProgress = !clock.closed && clock.minutesRemaining >= 1 && clock.secondsThisMinute >= ROUND_UP_SECONDS ? 1 : 0;
+  return Math.min(played + inProgress, 30);
 }
 
 /**

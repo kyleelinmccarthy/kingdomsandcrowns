@@ -8,6 +8,7 @@ import { requireChildAccess, isChildActor } from "@/lib/auth/access";
 import {
   appendLedger,
   awardTroubleClears,
+  chargeRealmPlay,
   loadLedger,
   loadRealmSettings,
   loadTroubleClears,
@@ -83,9 +84,8 @@ export async function getRealmAccess(childId: string, date: string, timeOfDay: s
 /** The Realm's heartbeat will call this; capped per call so a stuck client can't burn a day at once. */
 export async function recordRealmPlay(childId: string, date: string, minutes: number): Promise<void> {
   await requireChildAccess(childId, { write: true });
-  assertDate(date);
-  assertMinutes(minutes, 30);
-  await appendLedger(childId, date, "spent", minutes);
+  // The same write as the page-hide beacon (`app/api/realm/play/route.ts`).
+  await chargeRealmPlay(childId, date, minutes);
 }
 
 export async function grantRealmMinutes(childId: string, date: string, minutes: number): Promise<void> {

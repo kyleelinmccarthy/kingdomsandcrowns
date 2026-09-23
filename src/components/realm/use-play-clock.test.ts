@@ -309,3 +309,110 @@ describe("usePlayClock", () => {
     expect(result.current.source).toBe("recess");
   });
 });
+
+describe("usePlayClock — leaving by reload, tab close or a typed URL (pagehide)", () => {
+  // Those exits unload the document without running React's cleanups, so the unmount flush never
+  // runs; the only thing that fires is `pagehide`, and the only request that survives it is a beacon.
+  let sendBeacon: ReturnType<typeof vi.fn>;
+  beforeEach(() => {
+    sendBeacon = vi.fn(() => true);
+    Object.defineProperty(navigator, "sendBeacon", { value: sendBeacon, configurable: true, writable: true });
+  });
+  afterEach(() => {
+    delete (navigator as { sendBeacon?: unknown }).sendBeacon;
+  });
+
+  const hide = () => act(() => void window.dispatchEvent(new Event("pagehide")));
+  const sent = () => sendBeacon.mock.calls.map(([url, body]) => ({ url, ...JSON.parse(body as string) }));
+
+  it("beacons the minute in progress, rounded half-up, to the ledger's route", async () => {
+    recordRealmPlay.mockResolvedValue(undefined);
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 1, source: "earned" });
+    const { unmount } = renderHook(() => usePlayClock({ enabled: true, childId: "c1", initialMinutes: 1, onClose: vi.fn() }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(55_000);
+    });
+    hide();
+    expect(sent()).toEqual([{ url: "/api/realm/play", childId: "c1", date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/), minutes: 1 }]);
+
+    // Booked as paid: a page restored from the back-forward cache, then left, charges nothing twice.
+    hide();
+    unmount();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(sendBeacon).toHaveBeenCalledTimes(1);
+    expect(recordRealmPlay).not.toHaveBeenCalled();
+  });
+
+  it("beacons a whole minute whose record failed, with the minute in progress", async () => {
+    recordRealmPlay.mockRejectedValue(new Error("The ledger is unreachable."));
+    const { unmount } = renderHook(() => usePlayClock({ enabled: true, childId: "c1", initialMinutes: 5, onClose: vi.fn() }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(95_000);
+    });
+    hide();
+    expect(sent()).toEqual([expect.objectContaining({ minutes: 2 })]);
+    unmount();
+  });
+
+  it("charges nothing for under half a minute", async () => {
+    const { unmount } = renderHook(() => usePlayClock({ enabled: true, childId: "c1", initialMinutes: 5, onClose: vi.fn() }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(20_000);
+    });
+    hide();
+    expect(sendBeacon).not.toHaveBeenCalled();
+    unmount();
+  });
+
+  it("never beacons for a clock that is off (a grown-up's visit)", async () => {
+    const { unmount } = renderHook(() => usePlayClock({ enabled: false, childId: "c1", initialMinutes: 5, onClose: vi.fn() }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(55_000);
+    });
+    hide();
+    expect(sendBeacon).not.toHaveBeenCalled();
+    unmount();
+  });
+
+  it("does not beacon again the minutes a record already in flight is carrying", async () => {
+    const send = deferred();
+    recordRealmPlay.mockReturnValueOnce(send.promise);
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 3, source: "earned" });
+    const { unmount } = renderHook(() => usePlayClock({ enabled: true, childId: "c1", initialMinutes: 5, onClose: vi.fn() }));
+    // The 60th second sends a minute; 40 more seconds land while it is in flight.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(100_000);
+    });
+    expect(recordRealmPlay).toHaveBeenCalledTimes(1);
+    hide();
+    expect(sent()).toEqual([expect.objectContaining({ minutes: 1 })]); // the 40 seconds, not the minute in flight
+    send.resolve();
+    unmount();
+  });
+});
+
+describe("usePlayClock — the last minute's record fails, then the clock closes", () => {
+  it("still charges that minute when the Realm closes", async () => {
+    recordRealmPlay.mockRejectedValueOnce(new Error("The ledger is unreachable."));
+    recordRealmPlay.mockResolvedValue(undefined);
+    getRealmAccess.mockResolvedValue({ allowed: false, reason: "no_minutes" });
+    const onClose = vi.fn();
+    const { result, unmount } = renderHook(() => usePlayClock({ enabled: true, childId: "c1", initialMinutes: 1, onClose }));
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(61_000);
+    });
+    expect(onClose).toHaveBeenCalledWith("no_minutes");
+    expect(recordRealmPlay).toHaveBeenCalledTimes(1);
+
+    // The Realm closes: the frame unmounts, and its flush is the failed minute's only retry.
+    await act(async () => {
+      await result.current.flushPending();
+    });
+    expect(recordRealmPlay).toHaveBeenCalledTimes(2);
+    expect(recordRealmPlay).toHaveBeenNthCalledWith(2, "c1", expect.any(String), 1);
+    unmount();
+  });
+});
