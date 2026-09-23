@@ -43,7 +43,7 @@ describe("every form releases as something", () => {
     expect(releaseKindFor("beam")).toBe("beam");
     expect(releaseKindFor("barrier")).toBe("slab");
     expect(releaseKindFor("self")).toBe("aura");
-    expect(releaseKindFor("summon")).toBe("aura");
+    expect(releaseKindFor("summon")).toBe("sprite");
   });
 
   it("sizes each one in world units, from the spell", () => {
@@ -253,7 +253,7 @@ describe("what the renderer is told to draw", () => {
   });
 
   it("gives every kind a finite alpha and scale, at both ends of its life", () => {
-    for (const kind of ["charge", "bolt", "ring", "beam", "slab", "aura"] as FxKind[]) {
+    for (const kind of ["charge", "bolt", "ring", "beam", "slab", "aura", "sprite"] as FxKind[]) {
       for (const at of [0, 0.5, 1]) {
         const s = one(kind);
         s.t = s.life * at;

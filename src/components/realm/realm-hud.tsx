@@ -192,7 +192,7 @@ export function RealmHud({
   );
 }
 
-/** Ten pips of ten mana each. A fixed list so the keys are stable and no array is built per frame. */
+/** Ten pips, a tenth of the bar each. A fixed list so the keys are stable and no array is built per frame. */
 const MANA_PIPS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
 /**
@@ -206,7 +206,7 @@ const MANA_PIPS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 export function RealmManaPips({ mana, surfaces, refused }: { mana: number | null; surfaces: Surfaces; refused: boolean }) {
   if (mana === null) return null; // a parent's preview spends nothing, so it shows nothing
   const value = Math.round(mana);
-  const filled = Math.round(value / 10);
+  const filled = Math.round((value / MANA_MAX) * 10);
   return (
     <div
       className={refused ? "realm-mana-pips realm-mana-pips--refused" : "realm-mana-pips"}

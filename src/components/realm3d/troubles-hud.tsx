@@ -12,7 +12,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { TroubleSkin } from "@/lib/realm/spells/troubles";
 import type { SpellPageView } from "@/lib/realm/spells/pages";
-import { TROUBLE_POOL, troubleNotice, type TroubleEventKind } from "@/lib/realm3d/troubles3d";
+import { TROUBLE_POOL, troubleNotice, type ClearReward, type TroubleEventKind } from "@/lib/realm3d/troubles3d";
+import type { TroubleBounty } from "./use-trouble-bounty";
 import type { TroubleBus } from "@/lib/realm3d/trouble-bus";
 import { MAP_WINDOW } from "@/lib/realm3d/minimap";
 import "./troubles.css";
@@ -65,7 +66,7 @@ export function TroubleMapMarks({ tbus }: { tbus: TroubleBus }) {
   );
 }
 
-type Notice = { id: number; kind: TroubleEventKind; title: string; line: string };
+type Notice = { id: number; kind: TroubleEventKind; title: string; line: string; reward?: string };
 
 /**
  * The words, in the top-centre lane under the lesson and the village's news: the flat Realm's
@@ -78,15 +79,20 @@ export function TroubleNotices({
   skin,
   pages,
   paused,
+  bounty = null,
 }: {
   tbus: TroubleBus;
   skin: TroubleSkin;
   pages: readonly SpellPageView[];
   paused: boolean;
+  /** Clearing troubles earns Realm minutes: what each clear is worth, and the day's tally. */
+  bounty?: TroubleBounty | null;
 }) {
   const [notice, setNotice] = useState<Notice | null>(null);
   const seq = useRef(0);
   const castKey = pages.find((p) => p.spell)?.slot ?? null;
+  // "You've had all today's minutes" is said once a visit; after that a clear just counts.
+  const toldCapped = useRef(false);
 
   useEffect(() => {
     tbus.setSkin(skin);
@@ -103,14 +109,22 @@ export function TroubleNotices({
   }, [tbus]);
 
   useEffect(() => {
-    tbus.setHandler((e, placeName) => {
-      const words = troubleNotice(e, tbus.skin, placeName, castKey);
+    tbus.setHandler((e, placeName, homeId) => {
+      let reward: ClearReward | null = null;
+      if (e.kind === "cleared" && bounty) {
+        reward = bounty.claim(homeId ?? null);
+        if (reward.capped) {
+          if (toldCapped.current) reward = { ...reward, capped: false };
+          toldCapped.current = true;
+        }
+      }
+      const words = troubleNotice(e, tbus.skin, placeName, castKey, reward);
       if (!words) return;
       seq.current += 1;
-      setNotice({ id: seq.current, kind: e.kind, title: words.title, line: words.line });
+      setNotice({ id: seq.current, kind: e.kind, title: words.title, line: words.line, reward: words.reward });
     });
     return () => tbus.setHandler(() => {});
-  }, [tbus, castKey]);
+  }, [tbus, castKey, bounty]);
 
   useEffect(() => {
     if (!notice) return;
@@ -124,8 +138,37 @@ export function TroubleNotices({
       <span className="r3t-notice-icon" aria-hidden="true" />
       <span className="r3t-notice-text">
         <span className="r3t-notice-title">{notice.title}</span>
+        {notice.reward && <span className="r3t-notice-reward">{notice.reward}</span>}
         <span className="r3t-notice-line">{notice.line}</span>
       </span>
     </div>
+  );
+}
+
+/** How long the "+1 minute" stays by the clock: the clock itself goes up while it shows. */
+export const GAIN_MS = 3200;
+
+/**
+ * "+1 minute" by the clock, the moment a clear pays, so the child's eye goes to the number that
+ * just went the good way. Mounted in the clock corner's notice slot; while it shows, the clock
+ * plank pulses gold (`troubles.css`, via `:has`), or with motion off simply turns gold.
+ */
+export function BountyGain({ gained }: { gained: number }) {
+  const [shown, setShown] = useState(0);
+  useEffect(() => {
+    if (gained === 0) return;
+    // A fresh gain restarts the chip; the timer takes it away again.
+    const on = window.setTimeout(() => setShown(gained), 0);
+    const off = window.setTimeout(() => setShown(0), GAIN_MS);
+    return () => {
+      window.clearTimeout(on);
+      window.clearTimeout(off);
+    };
+  }, [gained]);
+  if (!shown) return null;
+  return (
+    <p key={shown} className="r3t-gain r3-plank" role="status" aria-live="polite">
+      <span className="r3t-gain-plus">+1</span> minute for clearing a trouble
+    </p>
   );
 }

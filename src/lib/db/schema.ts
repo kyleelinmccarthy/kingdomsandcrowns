@@ -699,6 +699,9 @@ export const realmSettings = sqliteTable(
     // The highest tutorial step the hero has finished, 0 through 4. Resetting it to 0
     // re-runs the walkthrough, which is what the help card's control does.
     tutorialStep: integer("tutorial_step").notNull().default(0),
+    // The most Realm minutes a day that clearing troubles may earn (1 per clear). 0 turns the
+    // bounty off. It can never outrun the day's schoolwork: see `lib/realm/spells/bounty.ts`.
+    troubleBonusCapMinutes: integer("trouble_bonus_cap_minutes").notNull().default(5),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   }
@@ -780,13 +783,43 @@ export const realmPlayLedger = sqliteTable(
       .notNull()
       .references(() => child.id, { onDelete: "cascade" }),
     date: text("date").notNull(), // hero's local ISO day
-    kind: text("kind", { enum: ["earned", "granted", "spent"] }).notNull(),
+    // "bonus": Realm minutes earned by clearing troubles. No CHECK constraint, so TS-only.
+    kind: text("kind", { enum: ["earned", "granted", "spent", "bonus"] }).notNull(),
     minutes: integer("minutes").notNull(),
     // No FK: assignments can be deleted and the minutes must survive.
     sourceAssignmentId: text("source_assignment_id"),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   },
   (table) => [index("realm_play_ledger_child_date_idx").on(table.childId, table.date)]
+);
+
+/**
+ * Every trouble a hero cleared in the 3D Realm, one row per clear. Append-only.
+ *
+ * `homeId` is the trouble's home (`rim-0`, `place-ringstones`, ...). `minutes` is what the clear
+ * paid: 1 the first time a home is cleared on a day while the day's bounty allowance lasts, and
+ * 0 otherwise, so a respawning trouble cannot be farmed. The partial unique index makes "one
+ * paid clear per home per day" a property of the table rather than of the client. The minutes
+ * themselves are banked as one `bonus` ledger row per batch, which is what the clock reads.
+ */
+export const realmTroubleClear = sqliteTable(
+  "realm_trouble_clear",
+  {
+    id: text("id").primaryKey(),
+    childId: text("child_id")
+      .notNull()
+      .references(() => child.id, { onDelete: "cascade" }),
+    date: text("date").notNull(), // hero's local ISO day
+    homeId: text("home_id").notNull(),
+    minutes: integer("minutes").notNull().default(0),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  },
+  (table) => [
+    index("realm_trouble_clear_child_date_idx").on(table.childId, table.date),
+    uniqueIndex("realm_trouble_clear_paid_unique_idx")
+      .on(table.childId, table.date, table.homeId)
+      .where(sql`${table.minutes} > 0`),
+  ]
 );
 
 // ── The Realm: spellbook ────────────────────────────────────

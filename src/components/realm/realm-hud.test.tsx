@@ -213,17 +213,17 @@ describe("RealmHud meta zone", () => {
 });
 describe("RealmManaPips", () => {
   it("draws ten pips, filled to the nearest ten, with a numeric name", () => {
-    render(<RealmManaPips mana={65} surfaces={simple} refused={false} />);
-    const strip = screen.getByRole("img", { name: "Mana 65 of 100." });
+    render(<RealmManaPips mana={33} surfaces={simple} refused={false} />);
+    const strip = screen.getByRole("img", { name: "Mana 33 of 50." });
     expect(strip.querySelectorAll(".realm-pip")).toHaveLength(10);
     expect(strip.querySelectorAll(".realm-pip--on")).toHaveLength(7);
-    expect(strip).not.toHaveTextContent("Mana 65");
+    expect(strip).not.toHaveTextContent("Mana 33");
   });
 
   it("reads the number itself at full depth, under the same accessible name", () => {
-    render(<RealmManaPips mana={65} surfaces={full} refused={false} />);
-    const strip = screen.getByRole("img", { name: "Mana 65 of 100." });
-    expect(strip).toHaveTextContent("Mana 65");
+    render(<RealmManaPips mana={33} surfaces={full} refused={false} />);
+    const strip = screen.getByRole("img", { name: "Mana 33 of 50." });
+    expect(strip).toHaveTextContent("Mana 33");
     expect(strip.querySelectorAll(".realm-pip")).toHaveLength(0);
   });
 
@@ -234,7 +234,7 @@ describe("RealmManaPips", () => {
 
   it("marks the strip refused so the red flash has something to hang on", () => {
     render(<RealmManaPips mana={4} surfaces={simple} refused={true} />);
-    expect(screen.getByRole("img", { name: "Mana 4 of 100." })).toHaveClass("realm-mana-pips--refused");
+    expect(screen.getByRole("img", { name: "Mana 4 of 50." })).toHaveClass("realm-mana-pips--refused");
   });
 });
 

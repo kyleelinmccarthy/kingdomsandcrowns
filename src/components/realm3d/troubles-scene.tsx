@@ -47,6 +47,7 @@ import {
   TROUBLE_POOL,
   makeField,
   planHomes,
+  rehomeField,
   statusShown,
   stepField,
   trackAim,
@@ -260,6 +261,22 @@ function glowTexture(): THREE.Texture {
   return t;
 }
 
+/** A soft round patch, dark in the middle and gone at the rim: the ground shadow under fog and blobs. */
+function shadowTexture(): THREE.Texture {
+  const c = document.createElement("canvas");
+  c.width = c.height = 64;
+  const ctx = c.getContext("2d")!;
+  const g = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+  g.addColorStop(0, "rgba(255,255,255,1)");
+  g.addColorStop(0.55, "rgba(255,255,255,0.7)");
+  g.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, 64, 64);
+  const t = new THREE.CanvasTexture(c);
+  t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
 /* ---------------------------------------------------------------- the world */
 
 /** Distance from a point to a segment, for keeping homes off the roads. */
@@ -365,7 +382,11 @@ export function Troubles({
     // Solids only matter for placing, once; the array's identity is stable for the World's life.
     [world, layout, unfinished, solids],
   );
-  const field = useMemo(() => makeField(homes), [homes]);
+  // ONE field for the visit. A building finishing re-plans the homes; the frame loop hands the
+  // new plan to `rehomeField`, which keeps every trouble that is out exactly where it stands —
+  // it used to be a new field, and every awake trouble blinked out at once.
+  const [field] = useState(() => makeField(homes));
+  const planned = useRef(homes);
   // Development only: the field, for a screenshot script to find a home and read what happened.
   // `__realmCastAs(element, form, modifier?)` begins a cast of ANY catalog spell at the walker,
   // through the same charge, lock and release as a key press, so every shape can be looked at
@@ -411,6 +432,15 @@ export function Troubles({
   const glowMat = useMemo(() => new THREE.MeshBasicMaterial({ vertexColors: true, toneMapped: false }), []);
   const tex = useMemo(() => glowTexture(), []);
   const ringGeo = useMemo(() => new THREE.TorusGeometry(1, 0.08, 5, 28).rotateX(-Math.PI / 2), []);
+  const shadowGeo = useMemo(() => new THREE.CircleGeometry(1, 24).rotateX(-Math.PI / 2), []);
+  const shadowTex = useMemo(() => shadowTexture(), []);
+  useEffect(
+    () => () => {
+      shadowGeo.dispose();
+      shadowTex.dispose();
+    },
+    [shadowGeo, shadowTex],
+  );
   useEffect(
     () => () => {
       for (const f of Object.values(figures)) {
@@ -432,6 +462,7 @@ export function Troubles({
   const models = useRef<(THREE.Group | null)[]>(new Array(TROUBLE_POOL * 6).fill(null));
   const glows = useRef<(THREE.Sprite | null)[]>(new Array(TROUBLE_POOL).fill(null));
   const rings = useRef<(THREE.Mesh | null)[]>(new Array(TROUBLE_POOL).fill(null));
+  const shadows = useRef<(THREE.Mesh | null)[]>(new Array(TROUBLE_POOL).fill(null));
   const drawn = useRef({ figure: new Int8Array(TROUBLE_POOL).fill(-1), status: new Array<string>(TROUBLE_POOL).fill("") });
 
   // Frame scratch, held in refs: the frame loop writes these, and a render's value is not its to change.
@@ -449,14 +480,19 @@ export function Troubles({
       slideMove(out, fx, fz, wet.x, wet.z, solids, BODY_RADIUS[kind] * 0.6);
     };
   }, [world, levelAt, solids]);
-  const input = useRef<FieldInput>({ dt: 0, heroX: 0, heroZ: 0, calm, move });
+  const input = useRef<FieldInput>({ dt: 0, heroX: 0, heroZ: 0, calm, move, solids });
 
   useFrame((state, rawDt) => {
     const p = heroRef.current;
     const dt = Math.min(0.05, rawDt);
+    if (planned.current !== homes) {
+      planned.current = homes;
+      rehomeField(field, homes);
+    }
     const inp = input.current;
     inp.calm = calm;
     inp.move = move;
+    inp.solids = solids;
     inp.heroX = p.x;
     inp.heroZ = p.z;
     inp.dt = dt;
@@ -476,7 +512,8 @@ export function Troubles({
           spawnFx(pool, { kind: "ring", color: "#ffd66b", x: e.x, y: gy, z: e.z, dx: 0, dz: 1, size: 4.2, life: 0.9 });
           spawnFx(pool, { kind: "aura", color: GLOW[`${e.trouble}:${tbus.skin}`], x: e.x, y: gy, z: e.z, dx: 0, dz: 1, size: 2.6, life: 1.0 });
         }
-        tbus.onEvent(e, field.homes[e.home]?.placeName ?? null);
+        const home = field.homes[e.home];
+        tbus.onEvent(e, home?.placeName ?? null, home?.id ?? null);
       }
       // A bump: the child is pushed back, through the same water and walls as a walk.
       if (field.now < field.knock.until) {
@@ -512,6 +549,8 @@ export function Troubles({
       const t = field.troubles[i];
       if (!t.live) {
         if (g.visible) g.visible = false;
+        const shade = shadows.current[i];
+        if (shade && shade.visible) shade.visible = false;
         continue;
       }
       g.visible = true;
@@ -526,6 +565,23 @@ export function Troubles({
         if (sprite) (sprite.material as THREE.SpriteMaterial).color.set(GLOW[`${t.kind}:${skin}`]);
       }
       poseTrouble(g, t, now, time, calm, world, p.x, p.z);
+      const shade = shadows.current[i];
+      if (shade) {
+        // A soft dark patch on the ground under fog and blobs (a stone has its own dark disc):
+        // mist casts no real shadow, and without one a fog bank looked afloat. A blob's patch
+        // shrinks as it hops, which is what makes a hop read as leaving the ground.
+        const kinded = t.kind !== "cursed-stone";
+        if (shade.visible !== kinded) shade.visible = kinded;
+        if (kinded) {
+          const floor = Math.max(world.heightAt(t.x, t.z), t.kind === "fog" ? world.waterLevelAt(t.x, t.z) : -1e9);
+          const lift = g.position.y - floor;
+          const fade = t.dying ? Math.max(0, 1 - (now - t.diedAt) / (DYING_MS * 0.6)) : 1;
+          const r = (t.kind === "fog" ? 3.9 : 1.35) * Math.max(0.55, 1 - lift * 0.35) * (0.4 + 0.6 * fade);
+          shade.position.set(t.x, floor + 0.07, t.z);
+          shade.scale.set(r, r, 1);
+          (shade.material as THREE.MeshBasicMaterial).opacity = (t.kind === "fog" ? 0.6 : 0.5) * fade;
+        }
+      }
       const sprite = glows.current[i];
       if (sprite) {
         const flash = Math.max(0, 1 - (now - t.hitAt) / 260);
@@ -611,6 +667,11 @@ export function Troubles({
           </mesh>
         </group>
       ))}
+      {Array.from({ length: TROUBLE_POOL }, (_, i) => (
+        <mesh key={`shade-${i}`} ref={(el) => { shadows.current[i] = el; }} geometry={shadowGeo} visible={false} renderOrder={1}>
+          <meshBasicMaterial map={shadowTex} color="#1c1633" transparent depthWrite={false} polygonOffset polygonOffsetFactor={-2} toneMapped={false} />
+        </mesh>
+      ))}
     </>
   );
 }
@@ -634,7 +695,9 @@ function poseTrouble(g: THREE.Group, t: Trouble3, now: number, time: number, cal
   let sxz = 1;
   switch (t.kind) {
     case "fog": {
-      y = Math.max(ground, world.waterLevelAt(t.x, t.z)) + 0.1 + Math.sin(t.phase * 1.3) * 0.18 * soft;
+      // Seated: the bank's lowest puffs sit in the grass, and the breathing only ever lifts it a
+      // hand's width — it used to bob up to a fifth of a unit clear, and read as floating.
+      y = Math.max(ground, world.waterLevelAt(t.x, t.z)) + (0.5 + 0.5 * Math.sin(t.phase * 1.3)) * 0.07 * soft;
       const breath = Math.sin(t.phase * 0.9) * 0.05 * soft;
       sxz = 1 + breath;
       sy = 1 - breath;

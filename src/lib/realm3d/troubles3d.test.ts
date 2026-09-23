@@ -1,9 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { LOW_STIMULUS_MAX, MAX_TROUBLES, RESPAWN_MS, RETREAT_MS, TROUBLE_COPY, TROUBLE_HITS } from "@/lib/realm/spells/troubles";
 import { resolveSpell, type SpellDefinition } from "@/lib/utils/spell-catalog";
+import { MANA_PER_CLEAR } from "@/lib/realm/spells/mana";
+import type { Collider } from "./collision";
 import { beginCastFx, followCastFx, makeFxPool, makeFxQueue, spawnFx, stepFx, type FxSlot } from "./spell-fx";
 import {
   AIM_CLOSE,
+  ALREADY_COPY,
+  CAPPED_COPY,
+  REWARD_COPY,
   BODY_RADIUS,
   DYING_MS,
   KNOCK_MS,
@@ -16,8 +21,10 @@ import {
   awakeCount,
   kindForPlace,
   makeField,
+  miniBolt,
   pickAim,
   planHomes,
+  rehomeField,
   stepField,
   trackAim,
   troubleName,
@@ -352,13 +359,105 @@ describe("every spell shape can hit", () => {
     expect(across).toBeGreaterThan(0); // on the far side from the child
   });
 
-  it("an aura burns everything close every half second; a sprite does the same", () => {
-    for (const s of [aura, sprite]) {
-      const f = target("cursed-stone", -2);
-      const pool = makeFxPool(16);
-      cast(pool, s);
-      expect(run(f, pool, 2.5)).toContain("cleared");
+  it("an aura burns everything close every half second", () => {
+    const f = target("cursed-stone", -2);
+    const pool = makeFxPool(16);
+    cast(pool, aura);
+    expect(run(f, pool, 2.5)).toContain("cleared");
+  });
+
+  it("a Sprite is the flat Realm's follower: it rides the child's shoulder and throws mini-bolts at what is near", () => {
+    const f = target("cursed-stone", -7);
+    const pool = makeFxPool(16);
+    cast(pool, sprite);
+    run(f, pool, 1.0);
+    const follower = pool.find((s) => s.live && s.kind === "sprite")!;
+    expect(follower).toBeDefined();
+    // Near the child, over their shoulder — not out on the ground like an aura.
+    expect(Math.hypot(follower.x, follower.z)).toBeLessThan(2.5);
+    expect(follower.y).toBeGreaterThan(1.35);
+    const events = run(f, pool, 4);
+    // A stone takes two: two mini-bolts, from the follower, cleared it.
+    expect(events.filter((e) => e === "hit")).toHaveLength(1);
+    expect(events).toContain("cleared");
+    const mini = miniBolt(sprite);
+    expect(mini.statuses).toEqual([]);
+    expect(miniBolt(sprite)).toBe(mini); // made once, not per shot
+  });
+
+  it("a Sprite follows the child as they walk, and throws nothing while nothing is in reach", () => {
+    const f = target("fog", -60);
+    const pool = makeFxPool(16);
+    cast(pool, sprite);
+    run(f, pool, 0.6);
+    const before = pool.filter((s) => s.live).length;
+    run(f, pool, 3, { heroX: 20, heroZ: 0 });
+    const follower = pool.find((s) => s.live && s.kind === "sprite")!;
+    expect(Math.hypot(follower.x - 20, follower.z)).toBeLessThan(2.5);
+    expect(pool.filter((s) => s.live && s.kind === "bolt")).toHaveLength(0);
+    expect(before).toBe(1);
+  });
+
+  it("a Sprite leaves after the flat Realm's eight seconds", () => {
+    const f = target("fog", -60);
+    const pool = makeFxPool(16);
+    cast(pool, sprite);
+    run(f, pool, 9.5);
+    expect(pool.some((s) => s.live && s.kind === "sprite")).toBe(false);
+  });
+
+  it("a bounce bolt that hits a trouble bounces on to the next one in reach", () => {
+    const f = fieldOf([{ kind: "fog", x: 40, z: 0 }, { kind: "fog", x: 41, z: 0 }]);
+    stepField(f, makeFxPool(1), input());
+    [f.troubles[0].x, f.troubles[0].z] = [0, -7];
+    [f.troubles[0].ox, f.troubles[0].oz] = [0, -7];
+    [f.troubles[1].x, f.troubles[1].z] = [6, -10];
+    [f.troubles[1].ox, f.troubles[1].oz] = [6, -10];
+    const pool = makeFxPool(16);
+    cast(pool, spell("ember", "bolt", "bounce"));
+    const events = run(f, pool, 2.5, { calm: true });
+    expect(events.filter((e) => e === "cleared")).toHaveLength(2);
+    // A plain bolt stops at the first.
+    const g = fieldOf([{ kind: "fog", x: 40, z: 0 }, { kind: "fog", x: 41, z: 0 }]);
+    stepField(g, makeFxPool(1), input());
+    [g.troubles[0].x, g.troubles[0].z, g.troubles[0].ox, g.troubles[0].oz] = [0, -7, 0, -7];
+    [g.troubles[1].x, g.troubles[1].z, g.troubles[1].ox, g.troubles[1].oz] = [6, -10, 6, -10];
+    const pool2 = makeFxPool(16);
+    cast(pool2, bolt);
+    expect(run(g, pool2, 2.5, { calm: true }).filter((e) => e === "cleared")).toHaveLength(1);
+  });
+
+  it("a bounce bolt comes off a wall once, the way it came, instead of passing through", () => {
+    const f = target("fog", -200);
+    const wallAhead: Collider = { x: 0, z: -5, hw: 3, hd: 0.5, round: false, base: -1, top: 6 };
+    const pool = makeFxPool(16);
+    cast(pool, spell("ember", "bolt", "bounce"));
+    run(f, pool, 0.8, { solids: [wallAhead] });
+    const b = pool.find((s) => s.live && s.kind === "bolt")!;
+    expect(b.dz).toBeGreaterThan(0); // turned round
+    expect(b.z).toBeGreaterThan(-5);
+    // A plain bolt goes straight through, as before.
+    const pool2 = makeFxPool(16);
+    cast(pool2, bolt);
+    run(target("fog", -200), pool2, 0.8, { solids: [wallAhead] });
+    expect(pool2.find((s) => s.live && s.kind === "bolt")!.z).toBeLessThan(-5);
+  });
+
+  it("clearing a trouble hands back one Ember Bolt's worth of mana", () => {
+    const f = target("fog");
+    const pool = makeFxPool(16);
+    cast(pool, bolt);
+    const q = makeFxQueue(pool.length);
+    let refunded = 0;
+    for (let i = 0; i < 90; i++) {
+      trackAim(f, pool);
+      followCastFx(pool, 0, 1.35, 0, 0, -1);
+      stepField(f, pool, input());
+      refunded += f.refund;
+      stepFx(pool, q, 1 / 60, () => 0);
     }
+    expect(refunded).toBe(MANA_PER_CLEAR);
+    expect(MANA_PER_CLEAR).toBe(bolt.manaCost);
   });
 
   it("a shield pulses once as it goes up, and keeps the blobs off after", () => {
@@ -464,6 +563,62 @@ describe("the words", () => {
   it("tells the child which key casts the first time a trouble is near", () => {
     expect(troubleNotice({ kind: "sighted", trouble: "fog", count: 0 }, "gentle", null, 1)?.line).toBe("Press 1 to cast at it.");
     expect(troubleNotice({ kind: "sighted", trouble: "fog", count: 0 }, "gentle", null, null)?.line).toBe("Earn a spell to clear it.");
+  });
+});
+
+describe("the words, when clearing pays", () => {
+  const e = { kind: "cleared" as const, trouble: "fog" as const, count: 1 };
+
+  it("says +1 minute on a clear that paid, with the day's tally rather than the visit's", () => {
+    const n = troubleNotice(e, "gentle", "Cloudfoot", 1, { paid: true, capped: false, already: false, clearsToday: 7 })!;
+    expect(n.reward).toBe(REWARD_COPY);
+    expect(n.line).toBe("Cloudfoot is clear. 7 cleared today.");
+  });
+
+  it("says so, kindly, when the day's minutes are all had, and when a home already paid", () => {
+    expect(troubleNotice(e, "gentle", null, 1, { paid: false, capped: true, already: false, clearsToday: 9 })!.line).toBe(`The fields are clear. ${CAPPED_COPY}`);
+    expect(troubleNotice(e, "gentle", null, 1, { paid: false, capped: false, already: true, clearsToday: 9 })!.line).toBe(`The fields are clear. ${ALREADY_COPY}`);
+    expect(troubleNotice(e, "gentle", null, 1, { paid: false, capped: true, already: false, clearsToday: 9 })!.reward).toBeUndefined();
+  });
+});
+
+describe("a building finishing mid-visit", () => {
+  const home = (id: string, x: number, z = 0): TroubleHome => ({ id, kind: "fog", x, z, place: null, placeName: null });
+
+  it("keeps every awake trouble exactly where it stands, the tally and all", () => {
+    const f = makeField([home("rim-0", 40), home("rim-1", 50), home("place-cove", 60)]);
+    stepField(f, makeFxPool(1), input());
+    f.tally.session = 3;
+    const before = f.troubles.filter((t) => t.live).map((t) => [t.serial, t.x, t.z]);
+    expect(before).toHaveLength(3);
+    // The outskirts lose a slot (one fewer unfinished site) and the others are re-placed.
+    rehomeField(f, [home("rim-0", 43), home("place-cove", 64)]);
+    stepField(f, makeFxPool(1), input());
+    const after = f.troubles.filter((t) => t.live).map((t) => [t.serial, t.x, t.z]);
+    expect(after.map((a) => a[0])).toEqual(before.map((b) => b[0])); // nobody blinked out or was re-spawned
+    expect(f.tally.session).toBe(3);
+  });
+
+  it("lets a dropped home's trouble go once the child is away, and never wakes it again", () => {
+    const f = makeField([home("rim-0", 40), home("rim-1", 50)]);
+    stepField(f, makeFxPool(1), input());
+    rehomeField(f, [home("rim-0", 40)]);
+    const leaving = f.homes.find((h) => h.id === "rim-1")!;
+    expect(leaving.leaving).toBe(true);
+    // The child walks far off: it sleeps. Then back: only rim-0 comes back.
+    stepField(f, makeFxPool(1), input({ heroX: 400 }));
+    stepField(f, makeFxPool(1), input());
+    expect(liveTroubles(f).map((t) => f.homes[t.home].id)).toEqual(["rim-0"]);
+  });
+
+  it("keeps a home's cleared time, so a trouble cleared a moment ago does not pop straight back", () => {
+    const f = makeField([home("rim-0", 40)]);
+    stepField(f, makeFxPool(1), input());
+    f.clearedAt[0] = f.now;
+    f.troubles[0].live = false;
+    f.slotOf[0] = -1;
+    rehomeField(f, [home("rim-0", 40), home("rim-1", 200)]);
+    expect(f.clearedAt[0]).toBe(f.now);
   });
 });
 

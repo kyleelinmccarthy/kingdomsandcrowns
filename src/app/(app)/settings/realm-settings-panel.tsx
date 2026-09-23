@@ -11,6 +11,7 @@ import { grantRealmMinutes } from "@/lib/actions/realm-play";
 import {
   DAILY_CAP_RANGE,
   EARNED_MINUTES_RANGE,
+  TROUBLE_BONUS_RANGE,
   type RealmSettings,
 } from "@/lib/utils/realm-settings";
 import type { RealmAccessMode } from "@/lib/utils/realm-access";
@@ -44,13 +45,14 @@ export function RealmSettingsPanel({
 }: {
   childId: string;
   settings: RealmSettings;
-  summary: { date: string; balance: number; spent: number };
+  summary: { date: string; balance: number; spent: number; bonus?: number };
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [perQuest, setPerQuest] = useState(String(settings.earnedMinutesPerQuest));
   const [cap, setCap] = useState(String(settings.dailyCapMinutes));
+  const [bountyCap, setBountyCap] = useState(String(settings.troubleBonusCapMinutes));
 
   async function run(fn: () => Promise<void>) {
     setBusy(true);
@@ -123,6 +125,26 @@ export function RealmSettingsPanel({
             <p className="pb-2 text-xs text-muted-foreground">Minutes earned stay earned.</p>
           </div>
         )}
+        {usesEarned && (
+          <div className="mt-3 flex items-end gap-2">
+            <div className="space-y-1">
+              <Label htmlFor={`bounty-${childId}`}>Minutes a day from clearing troubles</Label>
+              <Input
+                id={`bounty-${childId}`}
+                type="number"
+                min={TROUBLE_BONUS_RANGE.min}
+                max={TROUBLE_BONUS_RANGE.max}
+                value={bountyCap}
+                onChange={(e) => setBountyCap(e.target.value)}
+                className="w-24"
+              />
+            </div>
+            <Button size="sm" variant="outline" disabled={busy || bountyCap === String(settings.troubleBonusCapMinutes)} onClick={() => save({ troubleBonusCapMinutes: parseInt(bountyCap, 10) })}>
+              Save
+            </Button>
+            <p className="pb-2 text-xs text-muted-foreground">One minute per trouble cleared, never more than the day&apos;s quests earned. 0 turns it off.</p>
+          </div>
+        )}
       </fieldset>
 
       <div className="flex items-center justify-between rounded-lg border border-gold-dim bg-muted/30 px-3 py-2.5">
@@ -182,7 +204,9 @@ export function RealmSettingsPanel({
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gold-dim bg-muted/30 px-3 py-2.5">
         <div>
           <p className="text-sm">{summary.balance} minutes banked today</p>
-          <p className="text-xs text-muted-foreground">{summary.spent} of {settings.dailyCapMinutes} played</p>
+          <p className="text-xs text-muted-foreground">
+            {summary.spent} of {settings.dailyCapMinutes} played{summary.bonus ? ` · ${summary.bonus} earned clearing troubles` : ""}
+          </p>
         </div>
         <div className="flex gap-2">
           {[15, 30].map((m) => (

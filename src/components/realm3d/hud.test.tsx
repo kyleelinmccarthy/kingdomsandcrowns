@@ -157,7 +157,7 @@ describe("the spell bar", () => {
 describe("the mana bar", () => {
   it("starts full, and hands its fill and its readout to the frame loop", () => {
     const { bus, screen } = mount();
-    expect(screen.getByText("100 / 100")).toBeInTheDocument();
+    expect(screen.getByText("50 / 50")).toBeInTheDocument();
     expect(bus.manaFill).not.toBeNull();
     expect(bus.manaText).not.toBeNull();
   });

@@ -31,6 +31,8 @@ function fxGeometries(): Record<FxKind, THREE.BufferGeometry> {
     beam: new THREE.CylinderGeometry(1, 1, 1, 8).rotateX(Math.PI / 2).translate(0, 0, 0.5),
     slab: new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0),
     aura: new THREE.TorusGeometry(1, 0.2, 6, 26).rotateX(-Math.PI / 2),
+    // The summoned Sprite: a small bright knot, like a bolt that stayed.
+    sprite: new THREE.OctahedronGeometry(1, 0),
   };
 }
 
@@ -74,6 +76,9 @@ function applyScale(target: THREE.Object3D, s: FxSlot, k: number): void {
     case "aura":
       target.scale.set(s.size * k, s.size * k * 0.7, s.size * k);
       return;
+    case "sprite":
+      target.scale.set(0.34 * k, 0.5 * k, 0.34 * k);
+      return;
   }
 }
 
@@ -86,6 +91,7 @@ function glowScale(s: FxSlot, k: number): number {
     case "beam": return 2.2;
     case "slab": return s.size * 0.7;
     case "aura": return s.size * k * 1.3;
+    case "sprite": return 2.1 * k;
   }
 }
 
@@ -137,7 +143,7 @@ export function SpellFx({ pool }: { pool: FxSlot[] }) {
       g.rotation.y = Math.atan2(s.dx, s.dz);
       applyScale(mesh, s, k);
       // The bolt tumbles; everything else is upright, and a ring that spun would flicker.
-      mesh.rotation.set(s.kind === "bolt" ? spin : 0, s.kind === "bolt" ? spin * 0.7 : 0, 0);
+      mesh.rotation.set(s.kind === "bolt" ? spin : 0, s.kind === "bolt" ? spin * 0.7 : s.kind === "sprite" ? spin * 0.5 : 0, 0);
       (mesh.material as THREE.MeshBasicMaterial).opacity = a;
       const gs = glowScale(s, k);
       sprite.scale.set(gs, gs, 1);

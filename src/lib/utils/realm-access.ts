@@ -1,7 +1,8 @@
 import { timeToMinutes } from "./schedule-days";
 
 export type RealmAccessMode = "earned" | "scheduled" | "both" | "open";
-export type LedgerKind = "earned" | "granted" | "spent";
+/** `bonus` is minutes earned by clearing troubles (`lib/realm/spells/bounty.ts`); credit, like `earned`. */
+export type LedgerKind = "earned" | "granted" | "spent" | "bonus";
 export type LedgerRow = { kind: LedgerKind; minutes: number };
 export type TimeBlock = { startTime: string; endTime: string };
 

@@ -5,9 +5,9 @@ import { MANA_MAX, MANA_REGEN_PER_S, startMana, stepMana, canCast, spend, refund
 const orb = resolveSpell({ elementId: "tide", formId: "orb", modifierId: null })!; // 15 mana
 
 describe("mana", () => {
-  it("starts full, regenerates five per second, and never exceeds the max", () => {
+  it("starts full, regenerates at its rate, and never exceeds the max", () => {
     expect(startMana()).toBe(MANA_MAX);
-    expect(stepMana(40, 2)).toBe(40 + 2 * MANA_REGEN_PER_S);
+    expect(stepMana(20, 1)).toBe(20 + MANA_REGEN_PER_S);
     expect(stepMana(MANA_MAX - 1, 10)).toBe(MANA_MAX);
   });
   it("spends and refunds a spell's cost, clamped", () => {

@@ -23,9 +23,9 @@
  */
 
 import type { SpellDefinition } from "@/lib/utils/spell-catalog";
-import { MANA_MAX, MANA_REGEN_PER_S, canCast, spend } from "@/lib/realm/spells/mana";
+import { MANA_MAX, MANA_REGEN_DELAY_MS, MANA_REGEN_PER_S, canCast, spend } from "@/lib/realm/spells/mana";
 
-export { MANA_MAX, MANA_REGEN_PER_S };
+export { MANA_MAX, MANA_REGEN_DELAY_MS, MANA_REGEN_PER_S };
 
 /** Why a press did nothing. Never null in the struct — `refusal` is null when the last press worked. */
 export type CastRefusal = "mana" | "cooldown";
@@ -42,6 +42,8 @@ export type Caster = {
   refusal: CastRefusal | null;
   refusedSlot: number;
   refusedAt: number;
+  /** The clock reading of the last cast that happened: mana waits `MANA_REGEN_DELAY_MS` after it. */
+  castAt: number;
 };
 
 export function makeCaster(slots: number): Caster {
@@ -53,6 +55,7 @@ export function makeCaster(slots: number): Caster {
     refusal: null,
     refusedSlot: 0,
     refusedAt: -1e9,
+    castAt: -1e9,
   };
 }
 
@@ -68,14 +71,33 @@ export function makeCaster(slots: number): Caster {
  */
 export function cooldownMsFor(spell: SpellDefinition): number {
   const ms = 500 + spell.manaCost * 40;
-  return ms < 500 ? 500 : ms > 2500 ? 2500 : ms;
+  const rest = ms < 500 ? 500 : ms > 2500 ? 2500 : ms;
+  // Quicken is "cast in a flash": the flat Realm halves the cast (`resolveSpell` halves
+  // `castMs`, which the 3D charge already lasts), and here the rest after it halves too — or its
+  // +5 mana would make the quick spell the SLOWER key, which is the opposite of its name.
+  return quickened(spell) ? Math.max(QUICK_MIN_MS, Math.round(rest / 2)) : rest;
 }
 
-/** Advances the clock and regenerates mana. Mutates; allocates nothing. */
+/** The floor under a quickened rest: quick, but still one press, one spell. */
+export const QUICK_MIN_MS = 400;
+
+function quickened(spell: SpellDefinition): boolean {
+  for (const s of spell.statuses) if (s.kind === "quickened") return true;
+  return false;
+}
+
+/**
+ * Advances the clock and regenerates mana — but only once `MANA_REGEN_DELAY_MS` has passed since
+ * the last cast, so a flurry drains the bar and a pause refills it (`lib/realm/spells/mana.ts`
+ * has the reasoning). Mutates; allocates nothing.
+ */
 export function stepCaster(c: Caster, dt: number): void {
   c.clock += dt * 1000;
-  if (c.mana < MANA_MAX) {
-    const next = c.mana + MANA_REGEN_PER_S * dt;
+  // Only the part of this step that falls after the wait counts.
+  const past = c.clock - c.castAt - MANA_REGEN_DELAY_MS;
+  if (c.mana < MANA_MAX && past > 0) {
+    const ms = past < dt * 1000 ? past : dt * 1000;
+    const next = c.mana + (MANA_REGEN_PER_S * ms) / 1000;
     c.mana = next > MANA_MAX ? MANA_MAX : next;
   }
 }
@@ -119,6 +141,7 @@ export function tryCast(c: Caster, slot: number, spell: SpellDefinition): SpellD
     return null;
   }
   c.mana = spend(c.mana, spell);
+  c.castAt = c.clock;
   c.coolMs[i] = cooldownMsFor(spell);
   c.readyAt[i] = c.clock + c.coolMs[i];
   c.refusal = null;

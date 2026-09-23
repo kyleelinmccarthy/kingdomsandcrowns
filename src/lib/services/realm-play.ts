@@ -1,9 +1,10 @@
-import { and, eq } from "drizzle-orm";
+import { and, asc, count, eq, gt } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { settingsFromRow, type RealmSettings } from "@/lib/utils/realm-settings";
 import type { LedgerRow } from "@/lib/utils/realm-access";
+import type { ClearRow } from "@/lib/realm/spells/bounty";
 
 /**
  * Realm play-time plumbing shared by the actions and the quest-completion
@@ -67,6 +68,51 @@ export async function appendLedger(
     sourceAssignmentId,
     createdAt: new Date(),
   });
+}
+
+/** The troubles a hero cleared on `date`, oldest first: what each home paid, for the bounty. */
+export async function loadTroubleClears(childId: string, date: string): Promise<ClearRow[]> {
+  return db
+    .select({ homeId: schema.realmTroubleClear.homeId, minutes: schema.realmTroubleClear.minutes })
+    .from(schema.realmTroubleClear)
+    .where(and(eq(schema.realmTroubleClear.childId, childId), eq(schema.realmTroubleClear.date, date)))
+    .orderBy(asc(schema.realmTroubleClear.createdAt));
+}
+
+/** How many clears this hero has recorded since `since`, on any day. */
+export async function countTroubleClearsSince(childId: string, since: Date): Promise<number> {
+  const rows = await db
+    .select({ n: count() })
+    .from(schema.realmTroubleClear)
+    .where(and(eq(schema.realmTroubleClear.childId, childId), gt(schema.realmTroubleClear.createdAt, since)));
+  return rows[0]?.n ?? 0;
+}
+
+/**
+ * Records a batch of clears and banks what they paid as ONE `bonus` ledger row. A paid row that
+ * collides with the partial unique index (one paid clear per home per day — a second tab, a
+ * retried request) is inserted unpaid instead, and only the minutes that actually landed are
+ * banked, so the ledger can never pay a home twice.
+ */
+export async function recordTroubleClearRows(childId: string, date: string, rows: readonly ClearRow[]): Promise<number> {
+  const now = new Date();
+  let banked = 0;
+  for (const r of rows) {
+    if (r.minutes > 0) {
+      const landed = await db
+        .insert(schema.realmTroubleClear)
+        .values({ id: nanoid(), childId, date, homeId: r.homeId, minutes: r.minutes, createdAt: now })
+        .onConflictDoNothing()
+        .returning({ minutes: schema.realmTroubleClear.minutes });
+      if (landed.length > 0) {
+        banked += r.minutes;
+        continue;
+      }
+    }
+    await db.insert(schema.realmTroubleClear).values({ id: nanoid(), childId, date, homeId: r.homeId, minutes: 0, createdAt: now });
+  }
+  if (banked > 0) await appendLedger(childId, date, "bonus", banked);
+  return banked;
 }
 
 /**

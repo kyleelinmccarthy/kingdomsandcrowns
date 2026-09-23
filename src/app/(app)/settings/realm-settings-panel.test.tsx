@@ -49,6 +49,20 @@ describe("RealmSettingsPanel", () => {
     expect(screen.queryByLabelText(/minutes per quest/i)).not.toBeInTheDocument();
   });
 
+  it("lets a parent set how many minutes a day clearing troubles may earn, where minutes count", async () => {
+    render(<RealmSettingsPanel childId="c1" settings={DEFAULT_REALM_SETTINGS} summary={summary} />);
+    const field = screen.getByLabelText(/minutes a day from clearing troubles/i);
+    expect(field).toHaveValue(5);
+    fireEvent.change(field, { target: { value: "0" } });
+    const save = field.closest("div.mt-3")!.querySelector("button")!;
+    fireEvent.click(save);
+    await waitFor(() => expect(updateRealmSettings).toHaveBeenCalledWith("c1", { troubleBonusCapMinutes: 0 }));
+    cleanup();
+    // Open and scheduled never read the ledger, so clearing earns nothing there and the field is not offered.
+    render(<RealmSettingsPanel childId="c1" settings={{ ...DEFAULT_REALM_SETTINGS, accessMode: "open" }} summary={summary} />);
+    expect(screen.queryByLabelText(/minutes a day from clearing troubles/i)).not.toBeInTheDocument();
+  });
+
   it("grants minutes for today", async () => {
     const user = userEvent.setup();
     render(<RealmSettingsPanel childId="c1" settings={DEFAULT_REALM_SETTINGS} summary={summary} />);
