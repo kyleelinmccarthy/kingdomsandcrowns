@@ -28,6 +28,7 @@ import type { Objective, ObjectiveState } from "@/lib/realm/objective";
 import { villagerById, villagerForBuilding } from "@/lib/realm/villagers";
 import type { GateCopy } from "@/lib/realm/play-clock";
 import { controlRows, emptyPageCopy, interactVerb, type Viewer } from "@/lib/realm3d/frame";
+import { listWords, type SpellHelp } from "@/lib/realm3d/guide";
 import type { InteractTarget } from "@/lib/realm3d/hud-bus";
 import type { RealmWorld } from "@/lib/realm3d/worldgen";
 import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
@@ -49,7 +50,7 @@ export const keepFocusInWorld = (e: React.MouseEvent) => e.preventDefault();
  * 5" at full depth, and the count in the accessible name at both, because a pip is not a
  * substitution for a screen reader.
  */
-function Progress({ done, total, numerals, text, label }: { done: number; total: number; numerals: boolean; text: string; label: string }) {
+export function Progress({ done, total, numerals, text, label }: { done: number; total: number; numerals: boolean; text: string; label: string }) {
   return (
     <span className="r3-progress" role="img" aria-label={label}>
       <span className="r3-pips" aria-hidden="true">
@@ -75,6 +76,16 @@ function ObjectiveRows({ objectives, heroName, visiting, numerals }: { objective
       </p>
       {first.villagerName && (
         <p className="r3-quest-line">{visiting ? `${first.villagerName} is waiting for ${heroName}.` : `${first.villagerName} is waiting.`}</p>
+      )}
+      {first.villagerName && !visiting && (
+        <p className="r3-quest-lead">
+          <span className="r3-quest-bang" aria-hidden="true">
+            !
+          </span>
+          <span>
+            Follow the gold ! and press <b>E</b> to talk.
+          </span>
+        </p>
       )}
       <Progress
         done={first.done}
@@ -105,12 +116,15 @@ export function ObjectiveCard({
   visiting,
   numerals,
   kingdomError,
+  onRetry,
 }: {
   objective: ObjectiveState;
   heroName: string;
   visiting: boolean;
   numerals: boolean;
   kingdomError?: string;
+  /** Ask for the kingdom again, after a load that failed. */
+  onRetry?: () => void;
 }) {
   if (objective.kind === "unknown") {
     if (!kingdomError) return null;
@@ -118,6 +132,11 @@ export function ObjectiveCard({
       <section className="r3-quest r3-plank" aria-label="What to do next">
         <p className="r3-quest-tab">Next {SIDE_QUEST_LOWER}</p>
         <p className="r3-quest-line">{kingdomError}</p>
+        {onRetry && (
+          <button type="button" className="r3-button r3-quest-retry" onMouseDown={keepFocusInWorld} onClick={onRetry}>
+            Try again
+          </button>
+        )}
       </section>
     );
   }
@@ -178,6 +197,7 @@ export function ClockCorner({
   line,
   warning,
   error,
+  notice = null,
   onRetry,
   onHelp,
   onMenu,
@@ -187,6 +207,8 @@ export function ClockCorner({
   /** The last minute: the plank turns ember red, and says so. */
   warning: boolean;
   error: string;
+  /** A line from outside the game that a child must still hear, like a chore timer finishing. */
+  notice?: ReactNode;
   onRetry: () => void;
   onHelp: () => void;
   onMenu: () => void;
@@ -194,6 +216,7 @@ export function ClockCorner({
 }) {
   return (
     <div className="r3-corner">
+      {notice}
       {error && (
         <p className="r3-trouble r3-plank" role="alert">
           {error}{" "}
@@ -271,13 +294,14 @@ export function InteractPrompt({ target, onPress }: { target: InteractTarget | n
  * the first button so Enter does the obvious thing. Clicking the dim closes it; Esc is the
  * game's own handler, one level up, so it can go back a step instead of closing everything.
  */
-function Panel({
+export function Panel({
   title,
   icon,
   onClose,
   children,
   wide = false,
   label,
+  className = "",
 }: {
   title: ReactNode;
   icon?: ReactNode;
@@ -285,6 +309,7 @@ function Panel({
   children: ReactNode;
   wide?: boolean;
   label: string;
+  className?: string;
 }) {
   const board = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -292,7 +317,7 @@ function Panel({
   }, []);
   return (
     <div className="r3-dim" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div ref={board} className={`r3-board${wide ? " r3-board--wide" : ""}`} role="dialog" aria-modal="true" aria-label={label}>
+      <div ref={board} className={`r3-board${wide ? " r3-board--wide" : ""}${className ? ` ${className}` : ""}`} role="dialog" aria-modal="true" aria-label={label}>
         <div className="r3-board-head">
           {icon}
           <h2 className="r3-board-title">{title}</h2>
@@ -394,7 +419,18 @@ export function PauseMenu({
 }
 
 /** How to play: every control, from the one list the key strip also reads. */
-export function HowToPlay({ slots, back, onClose }: { slots: number; back: boolean; onClose: () => void }) {
+export function HowToPlay({
+  slots,
+  back,
+  onClose,
+  onReplay = null,
+}: {
+  slots: number;
+  back: boolean;
+  onClose: () => void;
+  /** A child's "show me the tutorial again". Absent for a visiting grown-up, who has none. */
+  onReplay?: (() => void) | null;
+}) {
   return (
     <Panel title="How to play" label="How to play" wide icon={<GameIcon name="scroll" className="r3-board-icon" />} onClose={onClose}>
       <ul className="r3-controls">
@@ -412,12 +448,17 @@ export function HowToPlay({ slots, back, onClose }: { slots: number; back: boole
         ))}
       </ul>
       <p className="r3-board-sub">
-        Follow the <b>!</b> over a villager&rsquo;s head. That is who is waiting for you.
+        Follow the gold <b>!</b> — over a villager&rsquo;s head, at the edge of the screen, and on your map. That is who is waiting for you.
       </p>
       <div className="r3-board-foot">
         <button type="button" className="r3-menu-item r3-menu-item--go" onClick={onClose}>
           {back ? "Back" : "Play"}
         </button>
+        {onReplay && (
+          <button type="button" className="r3-menu-item" onClick={onReplay}>
+            Show me the tutorial again
+          </button>
+        )}
       </div>
     </Panel>
   );
@@ -429,15 +470,22 @@ export function EmptyPagePanel({
   viewer,
   heroName,
   spellbookHref,
+  help = null,
   onClose,
 }: {
   slot: number;
   viewer: Viewer;
   heroName: string;
   spellbookHref: string;
+  /**
+   * What THIS child can write today and what they are closest to earning, from the Spellbook's
+   * own unlock rules. Null while it loads, or if it could not: the general words stand alone.
+   */
+  help?: SpellHelp | null;
   onClose: () => void;
 }) {
   const copy = emptyPageCopy(slot, viewer, heroName);
+  const you = viewer === "parent" ? `${heroName} can` : "You can";
   return (
     <Panel title={copy.title} label={copy.title} icon={<GameIcon name="book" className="r3-board-icon" />} onClose={onClose}>
       <div className="r3-page-demo" aria-hidden="true">
@@ -461,6 +509,22 @@ export function EmptyPagePanel({
           {l}
         </p>
       ))}
+      {help && help.elements.length > 0 && help.shapes.length > 0 && (
+        <div className="r3-spell-help">
+          <p className="r3-spell-help-have">
+            <GameIcon name="sparkles" className="r3-spell-help-icon" /> {you} write one now: <b>{listWords(help.elements, "or")}</b> with <b>{listWords(help.shapes, "or")}</b>.
+          </p>
+          {help.next.length > 0 && (
+            <ul className="r3-spell-help-next" aria-label="Next to unlock">
+              {help.next.map((n) => (
+                <li key={n.name}>
+                  <GameIcon name="lock" className="r3-spell-help-lock" /> <b>{n.name}</b> — {n.how}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
       <div className="r3-board-foot">
         <Link href={spellbookHref} className="r3-menu-item r3-menu-item--go">
           <GameIcon name="book" className="r3-menu-icon" /> {copy.cta}
@@ -474,9 +538,10 @@ export function EmptyPagePanel({
 }
 
 /**
- * Pressing E at something. A placeholder by design: the villagers' dialogue and the deed flow
- * are the next wave's. For now it names what the child is standing at and what is true about
- * it, from the real kingdom — and pauses the world, like every panel.
+ * Pressing E at something that is not a conversation: a named place, the castle, or a villager
+ * whose site's side quests did not load. A person with their site in hand opens `DeedBoard`
+ * instead. It names what the child is standing at and what is true about it, from the real
+ * kingdom — and pauses the world, like every panel.
  */
 export function InteractPanel({
   target,
@@ -509,7 +574,8 @@ export function InteractPanel({
     const v = villagerById(target.id);
     if (v) {
       portrait = <VillagerFigure villager={v} size="lg" className="r3-talk-figure" />;
-      lines = [`“${v.greeting}”`, siteLine(v.buildingId) ?? "", viewer === "parent" ? `${v.name}'s ${SIDE_QUESTS_LOWER} are ${heroName}'s to do.` : `Talking with ${v.name} comes to this Realm very soon.`];
+      // Reached only when this villager's site did not load: the conversation needs its side quests.
+      lines = [`“${v.greeting}”`, siteLine(v.buildingId) ?? "", `${v.name}'s ${SIDE_QUESTS_LOWER} did not load. Try again in a moment.`];
     }
     icon = <GameIcon name="person" className="r3-board-icon" />;
   } else if (target.kind === "site") {

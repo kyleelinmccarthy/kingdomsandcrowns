@@ -21,7 +21,8 @@ import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import type { SpellPageView } from "@/lib/realm/spells/pages";
 import { drainCasts, manaFraction, MANA_MAX, stepCaster, tryCast, type Caster, type CastQueue } from "@/lib/realm3d/casting";
-import { hidePlate, paintCooldown, paintMana, paintNode, paintPlate, type HudBus } from "@/lib/realm3d/hud-bus";
+import { hidePlate, paintCooldown, paintGoal, paintMana, paintNode, paintPlate, WALK_REPORT, type HudBus } from "@/lib/realm3d/hud-bus";
+import { makeGoalMark, placeGoal, type Inset } from "@/lib/realm3d/guide";
 import { headingDegrees, makeMapPoint, makeRimMark, mapPoint, MAP_WINDOW, placeAt, rimMark } from "@/lib/realm3d/minimap";
 import {
   declutter,
@@ -43,6 +44,14 @@ const MAP_SCALE = MAP / MAP_WINDOW;
 const RIM_INSET = 0.07;
 /** Where the child's own name hangs over their own head. */
 const HERO_PLATE_Y = 2.95;
+/**
+ * The gold !'s safe box, in pixels from each edge: below the plaque and the ribbon, inside the
+ * map's column, above the spell bar. Pinned to this box's edge it points the way without ever
+ * sitting on a panel a child needs to read.
+ */
+const GOAL_INSET: Inset = { top: 200, right: 84, bottom: 250, left: 84 };
+/** A frame that moved the hero further than this was a teleport or a respawn, not a walk. */
+const WALK_JUMP_LIMIT = 3;
 
 export function HudDriver({
   bus,
@@ -90,6 +99,9 @@ export function HudDriver({
   const groundY = useMemo(() => (x: number, z: number) => world.heightAt(x, z), [world]);
 
   const here = useRef<string | null>(null);
+  /** Ground covered while the game was the child's, for the tutorial's "walk around". */
+  const odo = useRef({ total: 0, reported: 0, x: Number.NaN, z: Number.NaN });
+  const goalMark = useMemo(() => makeGoalMark(), []);
 
   useFrame((_, rawDt) => {
     const dt = Math.min(0.05, rawDt);
@@ -142,6 +154,7 @@ export function HudDriver({
       if (cast) {
         beginCastFx(fxPool, cast, hand, dx, dz);
         aimRef.current = Math.atan2(dx, dz);
+        bus.onCast(slot);
       } else {
         bus.onRefuse(slot, caster.refusal ?? "cooldown");
       }
@@ -215,6 +228,44 @@ export function HudDriver({
       "mapHome",
       rim.off ? `translate(${(rim.x * MAP).toFixed(2)} ${(rim.y * MAP).toFixed(2)}) rotate(${rim.angle.toFixed(1)})` : "",
     );
+
+    /* ---- the gold ! ------------------------------------------------------ */
+    const goal = bus.goal;
+    if (goal.on) {
+      const ok = projectPoint(point, e, goal.x, goal.y, goal.z, size.width, size.height);
+      placeGoal(goalMark, ok, point.x, point.y, size.width, size.height, p.x, p.z, goal.x, goal.z, yawRef.current, GOAL_INSET);
+      // Distance in fives past twenty, so a walking child changes the words a few times a second
+      // at most rather than every frame.
+      const d = goalMark.dist;
+      paintGoal(
+        bus,
+        !goalMark.show ? "off" : !goalMark.edge ? "over" : Math.abs(goalMark.angle) > 100 ? "edge-low" : "edge",
+        `translate3d(${goalMark.x.toFixed(0)}px,${goalMark.y.toFixed(0)}px,0) translate(-50%,-50%)`,
+        `rotate(${goalMark.angle.toFixed(0)}deg)`,
+        d > 20 ? `${Math.round(d / 5) * 5} m` : `${d} m`,
+      );
+      mapPoint(mp, goal.x, goal.z, p.x, p.z);
+      rimMark(rim, mp, RIM_INSET);
+      paintNode(bus, "mapGoal", rim.off ? `translate(${(rim.x * MAP).toFixed(2)} ${(rim.y * MAP).toFixed(2)}) rotate(${rim.angle.toFixed(1)})` : "");
+    } else {
+      paintGoal(bus, "off", "", "", "");
+      paintNode(bus, "mapGoal", "");
+    }
+
+    /* ---- ground covered --------------------------------------------------- */
+    const o = odo.current;
+    if (!bus.paused && o.x === o.x) {
+      const sx = p.x - o.x;
+      const sz = p.z - o.z;
+      const step = Math.sqrt(sx * sx + sz * sz);
+      if (step < WALK_JUMP_LIMIT) o.total += step;
+      if (o.total - o.reported >= WALK_REPORT) {
+        o.reported = o.total;
+        bus.onWalked(o.total);
+      }
+    }
+    o.x = p.x;
+    o.z = p.z;
 
     /* ---- where am I ----------------------------------------------------- */
     const at = placeAt(p, world.landmarks, here.current);

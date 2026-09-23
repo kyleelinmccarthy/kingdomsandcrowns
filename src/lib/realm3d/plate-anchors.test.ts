@@ -147,3 +147,14 @@ describe("a castle not yet earned", () => {
     expect(anchors.map((a) => a.id)).toEqual(["hero", "castle"]);
   });
 });
+
+describe("a villager's plate carries their site's progress", () => {
+  it("shows pips for a site still rising, and none for one that stands or for anyone else", () => {
+    const wren = anchors.find((a) => a.id === "villager-wren")!;
+    expect(wren.progress).toEqual({ done: 3, total: 5 });
+    expect(anchors.find((a) => a.id === "villager-ivy")!.progress).toEqual({ done: 0, total: 5 });
+    expect(anchors.find((a) => a.id === "villager-bram")!.progress).toBeUndefined();
+    expect(anchors[0].progress).toBeUndefined();
+    expect(anchors.find((a) => a.id === "summit-1")!.progress).toBeUndefined();
+  });
+});

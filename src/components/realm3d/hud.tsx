@@ -24,6 +24,7 @@ import { keepFocusInWorld } from "./frame-hud";
 import type { SpellPageView } from "@/lib/realm/spells/pages";
 import { MANA_MAX, REFUSAL_MS } from "@/lib/realm3d/casting";
 import type { HudBus } from "@/lib/realm3d/hud-bus";
+import { NO_GOAL, type Goal } from "@/lib/realm3d/guide";
 import { BAKE_N, mapShade, MAP_WINDOW } from "@/lib/realm3d/minimap";
 import type { PlateAnchor } from "@/lib/realm3d/plate-anchors";
 import { BIOME_COLORS, WORLD_HALF, type RealmWorld } from "@/lib/realm3d/worldgen";
@@ -74,6 +75,8 @@ const CASTLE_GLYPH = "M-4.6,3.4 L-4.6,-1.4 L-3.2,-1.4 L-3.2,-3 L-1.8,-3 L-1.8,-1
 const YOU_GLYPH = "M0,-6 L4.1,3.6 L0,1.4 L-4.1,3.6 Z";
 /** An arrow pinned to the rim for home when it is off the window. */
 const RIM_GLYPH = "M0,-4.6 L3.4,2.6 L-3.4,2.6 Z";
+/** The goal: a gold disc with a !, the same mark that floats over the villager in the world. */
+const GOAL_BANG = "M-0.7,-3 L0.7,-3 L0.45,0.9 L-0.45,0.9 Z M0,1.7 A0.75,0.75 0 1,1 0,3.2 A0.75,0.75 0 1,1 0,1.7 Z";
 /** Which way the camera is looking: a wedge out of the middle of the map. */
 const CONE_GLYPH = "M0,0 L-13,-26 A29,29 0 0,1 13,-26 Z";
 
@@ -139,12 +142,15 @@ function Minimap({
   world,
   found,
   castle,
+  goal,
 }: {
   bus: HudBus;
   world: RealmWorld;
   found: ReadonlySet<string>;
   /** Whether the child's castle stands. No castle, no home mark and no arrow pointing home. */
   castle: boolean;
+  /** Who the objective card sends the child to: a gold ! on the map, and a rim arrow past it. */
+  goal: Goal;
 }) {
   const land = useBakedLand(world);
   const roads = useMemo(
@@ -199,6 +205,17 @@ function Minimap({
                 <path className="r3-map-home" d={CASTLE_GLYPH} />
               </g>
             )}
+            {/*
+              The one thing on the map that says GO HERE. Drawn last in the world group so no
+              road or place sits on top of it, at the villager's own position, so it pans with
+              the land for free.
+            */}
+            {goal.on && (
+              <g className="r3-map-goal" transform={`translate(${goal.x} ${goal.z}) scale(${GLYPH_SCALE})`}>
+                <circle r={4.6} />
+                <path d={GOAL_BANG} />
+              </g>
+            )}
           </g>
           {/* Fixed to the middle of the map, because the child is always the middle of it. */}
           <g ref={(el) => bus.setNode("mapCone", el)} transform={`translate(${MAP / 2} ${MAP / 2})`}>
@@ -213,6 +230,10 @@ function Minimap({
               <path d={RIM_GLYPH} />
             </g>
           )}
+          {/* The goal past the edge of the window: a gold arrow on the rim, written by the driver. */}
+          <g ref={(el) => bus.setNode("mapGoal", el)} className="r3-map-rim r3-map-rim--goal" style={{ display: "none" }}>
+            <path d={RIM_GLYPH} />
+          </g>
         </g>
         <circle className="r3-map-rim-ring" cx={MAP / 2} cy={MAP / 2} r={MAP / 2 - 1} />
         {/*
@@ -340,9 +361,45 @@ function Nameplates({ bus, anchors }: { bus: HudBus; anchors: readonly PlateAnch
           <span className="r3-plate-text">
             <span className="r3-plate-name">{a.name}</span>
             {a.sub && <span className="r3-plate-sub">{a.sub}</span>}
+            {/* A villager's site, as pips: the one place in the world a finished side quest shows. */}
+            {a.progress && (
+              <span className="r3-plate-pips" aria-hidden="true">
+                {Array.from({ length: a.progress.total }, (_, k) => (
+                  <span key={k} className={k < a.progress!.done ? "r3-plate-pip r3-plate-pip--on" : "r3-plate-pip"} />
+                ))}
+              </span>
+            )}
           </span>
         </div>
       ))}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ the gold ! */
+
+/**
+ * The marker that answers "where do I go?". Positioned every frame by the driver — over the
+ * waiting villager's head when they are in view, pinned to the screen's edge with its arrow
+ * turned toward them when they are not — and gone once the child is close enough for the
+ * villager's own plate and the E prompt to take over. It says who, and how far.
+ */
+function GoalMarker({ bus, goal }: { bus: HudBus; goal: Goal }) {
+  if (!goal.on) return null;
+  return (
+    <div className="r3-goal-layer" aria-hidden="true">
+      <div ref={(el) => bus.setNode("goalMark", el)} className="r3-goal" data-state="off">
+        <span ref={(el) => bus.setNode("goalArrow", el)} className="r3-goal-arrow">
+          <svg viewBox="-10 -10 20 20">
+            <path d="M0,-9 L6,-1 L2,-1 L2,4 L-2,4 L-2,-1 L-6,-1 Z" />
+          </svg>
+        </span>
+        <span className="r3-goal-bang">!</span>
+        <span className="r3-goal-text">
+          <span className="r3-goal-name">{goal.name}</span>
+          <span ref={(el) => bus.setNode("goalDist", el)} className="r3-goal-dist" />
+        </span>
+      </div>
     </div>
   );
 }
@@ -362,6 +419,7 @@ export function RealmHud({
   castle = true,
   onCast = noop,
   onEmptyPage = noop,
+  goal = NO_GOAL,
 }: {
   bus: HudBus;
   world: RealmWorld;
@@ -380,6 +438,8 @@ export function RealmHud({
   onCast?: (slot: number) => void;
   /** An empty page was clicked: say how to earn one. */
   onEmptyPage?: (slot: number) => void;
+  /** Who the objective card sends the child to, and where they stand. */
+  goal?: Goal;
 }) {
   const [found, setFound] = useState<ReadonlySet<string>>(() => new Set<string>());
   const [place, setPlace] = useState<string | null>(null);
@@ -413,6 +473,7 @@ export function RealmHud({
   return (
     <>
       <Nameplates bus={bus} anchors={anchors} />
+      <GoalMarker bus={bus} goal={goal} />
       <div className="r3-hud">
         {/*
           The child's name, top left, on the biggest plaque on the screen and under a crown.
@@ -439,7 +500,7 @@ export function RealmHud({
             </span>
           </span>
         </div>
-        <Minimap bus={bus} world={world} found={found} castle={castle} />
+        <Minimap bus={bus} world={world} found={found} castle={castle} goal={goal} />
         <div className="r3-bottom">
           <div className="r3-mana" aria-label="Mana">
             {/*

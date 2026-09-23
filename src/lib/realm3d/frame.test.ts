@@ -109,6 +109,9 @@ describe("Esc", () => {
     expect(escapeFrom({ kind: "howto", back: false })).toBeNull();
     expect(escapeFrom({ kind: "page", slot: 2 })).toBeNull();
     expect(escapeFrom({ kind: "interact", target: { kind: "villager", id: "bram", label: "Old Bram" } })).toBeNull();
+    // The first-visit card and the crown ceremony are skipped by Esc, never trapped behind it.
+    expect(escapeFrom({ kind: "welcome" })).toBeNull();
+    expect(escapeFrom({ kind: "ceremony" })).toBeNull();
   });
 
   it("always reaches the world in two presses at most", () => {

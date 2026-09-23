@@ -25,9 +25,17 @@ export type HudSlotNodes = {
 };
 
 /** The single nodes the driver writes, by name. */
-export type HudNodeKey = "manaFill" | "manaText" | "mapWorld" | "mapYou" | "mapCone" | "mapHome";
+export type HudNodeKey = "manaFill" | "manaText" | "mapWorld" | "mapYou" | "mapCone" | "mapHome" | "mapGoal" | "goalMark" | "goalArrow" | "goalDist";
 
-export type HudHandlers = Pick<HudBus, "onPlace" | "onFound" | "onRefuse" | "onNear" | "onInteract">;
+export type HudHandlers = Pick<HudBus, "onPlace" | "onFound" | "onRefuse" | "onNear" | "onInteract" | "onCast" | "onWalked">;
+
+/**
+ * Where the next objective stands — the villager the objective card names — for the driver to
+ * point the gold ! and the map's rim arrow at. Written by the frame whenever the objective
+ * changes (a handful of times a visit), read by the driver every frame. `y` is the height the !
+ * floats at, already clear of the villager's own nameplate.
+ */
+export type HudGoal = { on: boolean; x: number; y: number; z: number };
 
 /**
  * Something the child can press the interact key at. The scene decides what is in reach (it
@@ -53,6 +61,13 @@ export type HudBus = {
   mapYou: SVGGElement | null;
   mapCone: SVGGElement | null;
   mapHome: SVGGElement | null;
+  /** The map's rim arrow toward the goal, when the goal is off the map's window. */
+  mapGoal: SVGGElement | null;
+  /** The gold ! over the world, its arrow (turned when it is pinned to the screen edge) and its distance. */
+  goalMark: HTMLElement | null;
+  goalArrow: HTMLElement | null;
+  goalDist: HTMLElement | null;
+  goal: HudGoal;
 
   /** Fired when the child arrives at, or leaves, a named place. Null means nowhere named. */
   onPlace: (id: string | null) => void;
@@ -64,6 +79,13 @@ export type HudBus = {
   onNear: (target: InteractTarget | null) => void;
   /** Fired when the child presses the interact key with something in reach. */
   onInteract: (target: InteractTarget) => void;
+  /** Fired when a spell really went off (mana spent, not refused), with its slot number. */
+  onCast: (slot: number) => void;
+  /**
+   * Fired every `WALK_REPORT` world units of ground the child covers while the game is theirs,
+   * with the running total. A few times a second at a run, never once a frame.
+   */
+  onWalked: (distance: number) => void;
 
   /**
    * True while a menu, dialogue, tutorial card or the pause screen owns the child's attention.
@@ -86,6 +108,7 @@ export type HudBus = {
   setPlate(index: number, el: HTMLElement | null): void;
   setHandlers(handlers: Partial<HudHandlers>): void;
   setPaused(paused: boolean): void;
+  setGoal(on: boolean, x: number, y: number, z: number): void;
 
   /** @internal — the write cache the `paint*` functions below keep. */
   last: HudLast;
@@ -102,6 +125,9 @@ type HudLast = {
 
 const noop = () => {};
 
+/** How much ground between two `onWalked` reports. */
+export const WALK_REPORT = 2;
+
 export function makeHudBus(slots: number, plates: number): HudBus {
   const bus: HudBus = {
     manaFill: null,
@@ -112,11 +138,18 @@ export function makeHudBus(slots: number, plates: number): HudBus {
     mapYou: null,
     mapCone: null,
     mapHome: null,
+    mapGoal: null,
+    goalMark: null,
+    goalArrow: null,
+    goalDist: null,
+    goal: { on: false, x: 0, y: 0, z: 0 },
     onPlace: noop,
     onFound: noop,
     onRefuse: noop,
     onNear: noop,
     onInteract: noop,
+    onCast: noop,
+    onWalked: noop,
     paused: false,
     setNode(key, el) {
       // One assignment, one narrow cast. Every key above is either an HTMLElement slot or an
@@ -143,9 +176,18 @@ export function makeHudBus(slots: number, plates: number): HudBus {
       if (handlers.onRefuse) bus.onRefuse = handlers.onRefuse;
       if (handlers.onNear) bus.onNear = handlers.onNear;
       if (handlers.onInteract) bus.onInteract = handlers.onInteract;
+      if (handlers.onCast) bus.onCast = handlers.onCast;
+      if (handlers.onWalked) bus.onWalked = handlers.onWalked;
     },
     setPaused(paused) {
       bus.paused = paused;
+    },
+    setGoal(on, x, y, z) {
+      // Mutated in place: the driver holds no copy, so the next frame simply reads the new one.
+      bus.goal.on = on;
+      bus.goal.x = x;
+      bus.goal.y = y;
+      bus.goal.z = z;
     },
   };
   return bus;
@@ -220,4 +262,36 @@ export function paintNode(bus: HudBus, key: HudNodeKey, transform: string): void
   }
   node.style.display = "";
   node.setAttribute("transform", transform);
+}
+
+/**
+ * The gold ! — over the villager's head when they are in view, pinned to the edge of the screen
+ * and pointing the way when they are not, gone when the child is close. `state` is one of
+ * "off", "over", "edge" and "edge-low" (pinned, and pointing down the screen, so its words go
+ * above it rather than under its own arrow). `transform` is the marker's position, `turn` its
+ * arrow's rotation, `dist` the words under it; each is written only when it changed, so a child
+ * standing still costs four string compares.
+ */
+export type GoalState = "off" | "over" | "edge" | "edge-low";
+
+export function paintGoal(bus: HudBus, state: GoalState, transform: string, turn: string, dist: string): void {
+  const node = bus.goalMark;
+  if (!node) return;
+  if (state !== bus.last.node.goalState) {
+    bus.last.node.goalState = state;
+    node.dataset.state = state;
+  }
+  if (state === "off") return;
+  if (transform !== bus.last.node.goalMark) {
+    bus.last.node.goalMark = transform;
+    node.style.transform = transform;
+  }
+  if (turn !== bus.last.node.goalArrow) {
+    bus.last.node.goalArrow = turn;
+    if (bus.goalArrow) bus.goalArrow.style.transform = turn;
+  }
+  if (dist !== bus.last.node.goalDist) {
+    bus.last.node.goalDist = dist;
+    if (bus.goalDist) bus.goalDist.textContent = dist;
+  }
 }

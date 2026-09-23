@@ -17,16 +17,37 @@
 
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { setRealmDepth, updateRealmSettings } from "@/lib/actions/realm-settings";
+import { getRealmKingdom } from "@/lib/actions/realm";
+import { markRealmHelpSeen, setRealmDepth, setTutorialStep, updateRealmSettings } from "@/lib/actions/realm-settings";
+import { markCeremonySeen } from "@/lib/actions/seasons";
+import { getSpellbook } from "@/lib/actions/spells";
 import { surfacesFor, type RealmDepth } from "@/lib/realm/depth";
-import type { KingdomState } from "@/lib/realm/kingdom-state";
+import { applyDeedResult, type KingdomState } from "@/lib/realm/kingdom-state";
 import { buildWorldLayout } from "@/lib/realm/layout";
-import { objectiveState } from "@/lib/realm/objective";
+import { objectiveSpeech, objectiveState } from "@/lib/realm/objective";
 import { renderSettingsFor } from "@/lib/realm/render-settings";
 import { resolvePages, withEmptyPages } from "@/lib/realm/spells/pages";
+import { villagerById, villagerForBuilding } from "@/lib/realm/villagers";
 import { makeCaster, makeCastQueue, pushCast } from "@/lib/realm3d/casting";
 import { clockLine, escapeFrom, spellbookHref, visitClockLine, type AccessSource, type Overlay } from "@/lib/realm3d/frame";
+import { goalFor, spellHelp, type SpellbookFacts } from "@/lib/realm3d/guide";
 import { makeHudBus, type InteractTarget } from "@/lib/realm3d/hud-bus";
+import { deedToast, type DeedToast } from "@/lib/realm3d/talk";
+import {
+  advanceLesson,
+  currentLesson,
+  LESSONS,
+  lessonCopy,
+  lessonsFromStored,
+  settle,
+  skipLesson,
+  STEP_ESCAPE_MS,
+  storedFromLessons,
+  TUTORIAL_DONE,
+  type LessonContext,
+  type LessonSignal,
+} from "@/lib/realm3d/tutorial";
+import { speak } from "@/lib/utils/speech";
 import { buildAnchors } from "@/lib/realm3d/plate-anchors";
 import { FX_POOL, makeFxPool } from "@/lib/realm3d/spell-fx";
 import { realmWorld } from "@/lib/realm3d/worldgen";
@@ -34,6 +55,8 @@ import { DEFAULT_AVATAR, type AvatarConfig } from "@/lib/utils/avatar-catalog";
 import { DEFAULT_LEARNING_PROFILE, type LearningProfile } from "@/lib/utils/learning-profile";
 import type { SpellPage } from "@/lib/services/spells";
 import { usePlayClock, type CloseReason } from "@/components/realm/use-play-clock";
+import { DeedBoard, type DeedResult } from "./deed-board";
+import { CeremonyCard, Coach, DeedToastBanner, TimerFinished, WelcomeCard, type CeremonyInfo } from "./guide-hud";
 import {
   ClockCorner,
   EmptyPagePanel,
@@ -69,6 +92,15 @@ export type RealmData = {
   profile: LearningProfile;
   depth: RealmDepth;
   toneMode: "gentle" | "monsters";
+  /**
+   * Tutorial progress as stored (`lib/realm3d/tutorial.ts` reads it). Absent means "nothing to
+   * teach here" — a test, or the old spike route — and the tutorial stays off.
+   */
+  tutorialStep?: number;
+  /** Whether the child has had their first-visit welcome. Absent counts as seen. */
+  helpSeen?: boolean;
+  /** A crown waiting for its ceremony. Always null for a grown-up: the bundle never sends one. */
+  ceremony?: CeremonyInfo | null;
 };
 
 /** What the access check decided, for an open gate. */
@@ -97,11 +129,23 @@ const NO_REALM: RealmData = {
 const NO_ENTRY: OpenEntry = { minutes: 0, visit: null, source: null };
 
 const SAVE_FAILED = "That didn't save. Try again.";
+const VILLAGERS_RESTING = "The villagers are resting. Try again.";
+const CEREMONY_FAILED = "The crown could not be recorded.";
+/** How long the village's answer to a side quest stays over the world. */
+const TOAST_MS = 5200;
+/**
+ * How far over a villager's head the gold ! floats: its words hang under it, and the villager's
+ * own nameplate is at 2.9, so this keeps the two from sitting on one another.
+ */
+const GOAL_Y = 5.6;
+const MOVE_KEYS: Record<string, string> = { KeyW: "w", ArrowUp: "w", KeyA: "a", ArrowLeft: "a", KeyS: "s", ArrowDown: "s", KeyD: "d", ArrowRight: "d" };
 
 /** The dev-only handle a screenshot script uses to play the scene's half of the bus. */
 declare global {
   interface Window {
     __realmBus?: unknown;
+    /** Development only: how long the last raised side quest took to reach the screen, in ms. */
+    __realmRebuild?: { commitMs: number; frameMs: number; at: string }[];
   }
 }
 
@@ -138,7 +182,9 @@ export function RealmGame({
   // next wave) will raise buildings mid-visit, and a server refresh must not move the village
   // out from under a child. `depth` is snapshotted the same way — a surface never flips mid-play
   // unless the child asked for it in the pause menu.
-  const [kingdom] = useState(realm.kingdom);
+  const [kingdom, setKingdom] = useState(realm.kingdom);
+  const kingdomRef = useRef(kingdom);
+  const [kingdomError, setKingdomError] = useState(realm.kingdomError ?? "");
   const [depth, setDepth] = useState<RealmDepth>(realm.depth);
   const [tone, setTone] = useState(realm.toneMode);
   const [depthError, setDepthError] = useState("");
@@ -156,7 +202,7 @@ export function RealmGame({
       buildWorldLayout({
         castleType: realm.castleType,
         buildings: kingdom.buildings,
-        villagers: !realm.kingdomError,
+        villagers: !kingdomError,
         banners: realm.banners,
         decor: !render.calmPalette,
         objectiveIds: objectiveKey ? objectiveKey.split(",") : [],
@@ -164,7 +210,7 @@ export function RealmGame({
     // Keyed on the objective ids as a string, not the array: `objective` is rebuilt whenever
     // `surfaces` is, and a new array with the same ids must not hand the memoised World a new
     // layout — that is 20,000 props rebuilt for nothing.
-    [realm.castleType, kingdom.buildings, realm.kingdomError, realm.banners, render.calmPalette, objectiveKey],
+    [realm.castleType, kingdom.buildings, kingdomError, realm.banners, render.calmPalette, objectiveKey],
   );
   const raised = kingdom.buildings.filter((b) => b.complete).length;
 
@@ -190,6 +236,13 @@ export function RealmGame({
     [walkerName, layout, world, castleUnlocked],
   );
 
+  /**
+   * Who the objective card sends the child to, standing where the layout put them: the gold !
+   * over the world, the mark on the map, and the name in the tutorial's "Find Old Bram" all read
+   * this one answer.
+   */
+  const goal = useMemo(() => goalFor(objective, layout.villagers, (id) => villagerById(id)?.name ?? null), [objective, layout.villagers]);
+
   // Built once, mutated for ever, shared across the canvas boundary. None of these is React
   // state and none of them can re-render anything.
   const bus = useMemo(() => makeHudBus(pages.length, anchors.length), [pages.length, anchors.length]);
@@ -198,8 +251,21 @@ export function RealmGame({
   const casts = useMemo(() => makeCastQueue(), []);
   const hero = avatar ?? DEFAULT_AVATAR;
 
+
+  const childId = realm.childId;
+  const isChild = realm.isChildView && childId !== null;
+  const readAloud = realm.isChildView && profile.readAloud;
+  const calm = profile.reducedMotion || profile.lowStimulus;
+
+  /* ---- the first things a child sees ---------------------------------- */
+  // Snapshotted, like the flat Realm's: a refresh mid-visit must not bring the welcome back or
+  // take a crown away. A grown-up gets neither — no welcome, no tutorial, no ceremony.
+  const [ceremony] = useState<CeremonyInfo | null>(() => (isChild ? realm.ceremony ?? null : null));
+  const [welcomeFirst] = useState(() => isChild && realm.helpSeen === false);
+
   /* ---- the overlay, and pausing -------------------------------------- */
-  const [overlay, setOverlay] = useState<Overlay | null>(null);
+  const [overlay, setOverlayState] = useState<Overlay | null>(() => (welcomeFirst ? { kind: "welcome" } : ceremony ? { kind: "ceremony" } : null));
+  const overlayRef = useRef(overlay);
   const [near, setNear] = useState<InteractTarget | null>(null);
   const paused = overlay !== null;
 
@@ -209,14 +275,239 @@ export function RealmGame({
     bus.setPaused(paused);
   }, [bus, paused]);
 
-  // The two things the scene tells the frame: what is in reach, and that E was pressed at it.
+  // Where the gold ! points, for the driver. Written when the objective moves — a handful of
+  // times a visit — and read every frame.
+  useEffect(() => {
+    bus.setGoal(goal.on, goal.x, world.heightAt(goal.x, goal.z) + GOAL_Y, goal.z);
+  }, [bus, goal, world]);
+
+  /* ---- the tutorial --------------------------------------------------- */
+  const tutorialOn = isChild && realm.tutorialStep !== undefined;
+  const firstSpell = useMemo(() => {
+    const page = pages.find((p) => p.spell);
+    return page ? { name: page.name, key: page.slot } : null;
+  }, [pages]);
+  const lessonCtx: LessonContext = useMemo(
+    () => ({ waiting: goal.on ? goal.name : null, villagers: !kingdomError && layout.villagers.length > 0, spell: firstSpell, emptyPage: pages.some((p) => !p.spell) }),
+    [goal.on, goal.name, kingdomError, layout.villagers.length, firstSpell, pages],
+  );
+  const ctxRef = useRef(lessonCtx);
+  useEffect(() => {
+    ctxRef.current = lessonCtx;
+  }, [lessonCtx]);
+  const [lessons, setLessons] = useState(() => (tutorialOn ? lessonsFromStored(realm.tutorialStep!) : LESSONS.length));
+  const lessonsRef = useRef(lessons);
+  // The coach waits behind the welcome card; everything else is live from the first frame.
+  const [coachReady, setCoachReady] = useState(!welcomeFirst);
+  const [doneLine, setDoneLine] = useState<string | null>(null);
+  const [stuck, setStuck] = useState(-1);
+
+  // Who is in reach right now. A lesson that asks the child to find Old Bram while they are
+  // already standing beside him must not wait for them to walk away and come back.
+  const nearRef = useRef<InteractTarget | null>(null);
+  const goalRef = useRef(goal);
+  useEffect(() => {
+    goalRef.current = goal;
+  }, [goal]);
+  const nearSignal = (t: InteractTarget): LessonSignal => ({ kind: "near", villager: t.kind === "villager", waiting: t.kind === "villager" && t.id === goalRef.current.id });
+
+  /** Writes a new lesson count, here and on the server. Fire-and-forget, as the flat tutorial's was. */
+  const commitLessons = useCallback(
+    (asked: number) => {
+      if (!childId) return;
+      let next = asked;
+      if (nearRef.current) next = advanceLesson(next, nearSignal(nearRef.current), ctxRef.current);
+      lessonsRef.current = next;
+      setLessons(next);
+      if (next >= LESSONS.length) setDoneLine(TUTORIAL_DONE);
+      void setTutorialStep(childId, storedFromLessons(next)).catch(() => {});
+    },
+    [childId],
+  );
+
+  /**
+   * The one door every lesson signal comes through. `advanceLesson` owns the rule; this only
+   * feeds it and writes down what it says, and returns at once when nothing changed — which is
+   * what lets the key, pointer and walking listeners call it freely.
+   */
+  const signal = useCallback(
+    (s: LessonSignal) => {
+      if (!tutorialOn) return;
+      const prev = lessonsRef.current;
+      if (prev >= LESSONS.length) return;
+      const next = advanceLesson(prev, s, ctxRef.current);
+      if (next === prev) return;
+      commitLessons(next);
+    },
+    [tutorialOn, commitLessons],
+  );
+  const skipTutorial = useCallback(() => commitLessons(LESSONS.length), [commitLessons]);
+  const skipStep = useCallback(() => commitLessons(skipLesson(lessonsRef.current, ctxRef.current)), [commitLessons]);
+
+  // A lesson that has sat on screen a long while offers "Skip this step" too: never trapped.
+  useEffect(() => {
+    if (!tutorialOn || lessons >= LESSONS.length) return;
+    const id = window.setTimeout(() => setStuck(lessons), STEP_ESCAPE_MS);
+    return () => window.clearTimeout(id);
+  }, [tutorialOn, lessons]);
+  useEffect(() => {
+    if (!doneLine) return;
+    const id = window.setTimeout(() => setDoneLine(null), 6000);
+    return () => window.clearTimeout(id);
+  }, [doneLine]);
+
+  const lessonShown = tutorialOn && coachReady ? settle(lessons, lessonCtx) : LESSONS.length;
+  const lesson = lessonShown < LESSONS.length ? currentLesson(lessonShown, lessonCtx) : null;
+  const coachCopy = lesson ? lessonCopy(lessonShown, lessonCtx) : null;
+
+  /* ---- what the child's hands are doing, for the lessons -------------- */
+  // Which movement keys, how much mouse drag on the world, and Space. Listened for here, not in
+  // the scene: the scene's input is the scene's, and these only ever feed `signal`, which does
+  // nothing unless the lesson on screen is waiting for exactly this.
+  const hands = useRef({ keys: new Set<string>(), drag: 0 });
+  useEffect(() => {
+    if (!tutorialOn) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (bus.paused || e.repeat) return;
+      const k = MOVE_KEYS[e.code];
+      if (k) hands.current.keys.add(k);
+      else if (e.code === "Space") signal({ kind: "jumped" });
+    };
+    const onMove = (e: PointerEvent) => {
+      if (bus.paused || (e.buttons & 3) === 0 || !(e.target instanceof HTMLCanvasElement)) return;
+      hands.current.drag += Math.abs(e.movementX) + Math.abs(e.movementY);
+      signal({ kind: "looked", px: hands.current.drag });
+    };
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("pointermove", onMove);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("pointermove", onMove);
+    };
+  }, [tutorialOn, bus, signal]);
+
+  /* ---- a finished side quest ------------------------------------------ */
+  const [toast, setToast] = useState<DeedToast | null>(null);
+  useEffect(() => {
+    if (!toast) return;
+    const id = window.setTimeout(() => setToast(null), TOAST_MS);
+    return () => window.clearTimeout(id);
+  }, [toast]);
+  // The server's answer, held until the panel closes: the building then rises while the child
+  // is looking at it, not behind a board they are still reading.
+  const pendingDeed = useRef<{ buildingId: string; result: DeedResult } | null>(null);
+  const trackedRef = useRef(surfaces.trackedObjectives);
+  useEffect(() => {
+    trackedRef.current = surfaces.trackedObjectives;
+  }, [surfaces.trackedObjectives]);
+
+  /** `realm-shell.tsx`'s `onDeedFinished`, verbatim in its rule: `applyDeedResult`, then say so. */
+  const raise = useCallback(
+    (buildingId: string, result: DeedResult) => {
+      const before = kingdomRef.current.buildings.find((b) => b.id === buildingId);
+      const applied = applyDeedResult(kingdomRef.current, buildingId, result);
+      if (!before || applied.state === kingdomRef.current) return;
+      kingdomRef.current = applied.state;
+      const t0 = performance.now();
+      setKingdom(applied.state);
+      const next = objectiveState(applied.state.buildings, trackedRef.current);
+      const words = deedToast({ site: before, after: result, rose: applied.rose, villagerName: villagerForBuilding(buildingId)?.name ?? null, next });
+      setToast(words);
+      if (readAloud) speak(words.spoken);
+      // Development only: how long raising a building takes to reach the screen. `commitMs` is
+      // the React commit (the memoised World re-rendering on the new layout) and `frameMs` is
+      // that plus the next frame the canvas draws with it.
+      if (process.env.NODE_ENV !== "production") {
+        requestAnimationFrame(() => {
+          const commitMs = performance.now() - t0;
+          requestAnimationFrame(() => {
+            (window.__realmRebuild ??= []).push({ commitMs: Math.round(commitMs), frameMs: Math.round(performance.now() - t0), at: buildingId });
+          });
+        });
+      }
+    },
+    [readAloud],
+  );
+
+  /* ---- the ceremony ---------------------------------------------------- */
+  const [ceremonySaving, setCeremonySaving] = useState(false);
+  const [ceremonyError, setCeremonyError] = useState("");
+  const ceremonyRecorded = useRef(false);
+
+  /* ---- moving between overlays ---------------------------------------- */
+  const helpMarked = useRef(!welcomeFirst);
+  /**
+   * EVERY change of overlay comes through here — a button, Esc, a click on the dim — so what has
+   * to happen on the way OUT of a panel happens whichever way the child left it: a finished side
+   * quest raises its building, the welcome is written down as seen and hands on to the ceremony
+   * or the coach, and a ceremony left by Esc is recorded as the flat Realm's Skip recorded it.
+   */
+  const go = useCallback(
+    (asked: Overlay | null) => {
+      let next = asked;
+      const from = overlayRef.current;
+      if (from?.kind === "interact" && next?.kind !== "interact" && pendingDeed.current) {
+        const { buildingId, result } = pendingDeed.current;
+        pendingDeed.current = null;
+        raise(buildingId, result);
+      }
+      if (from?.kind === "welcome" && next?.kind !== "welcome") {
+        if (!helpMarked.current && childId) {
+          helpMarked.current = true;
+          void markRealmHelpSeen(childId).catch(() => {});
+        }
+        setCoachReady(true);
+        if (next === null && ceremony && !ceremonyRecorded.current) next = { kind: "ceremony" };
+      }
+      if (from?.kind === "ceremony" && next?.kind !== "ceremony" && ceremony && !ceremonyRecorded.current && childId) {
+        ceremonyRecorded.current = true;
+        void markCeremonySeen(childId, ceremony.seasonId).catch(() => {});
+      }
+      overlayRef.current = next;
+      setOverlayState(next);
+    },
+    [raise, childId, ceremony],
+  );
+
+  const hail = useCallback(() => {
+    if (!ceremony || !childId || ceremonySaving) return;
+    setCeremonySaving(true);
+    setCeremonyError("");
+    markCeremonySeen(childId, ceremony.seasonId)
+      .then(() => {
+        ceremonyRecorded.current = true;
+        go(null);
+      })
+      .catch(() => setCeremonyError(CEREMONY_FAILED))
+      .finally(() => setCeremonySaving(false));
+  }, [ceremony, childId, ceremonySaving, go]);
+
+  /** Pressing E at something, or clicking the prompt. A person, or their site, is a conversation. */
+  const openTarget = useCallback(
+    (t: InteractTarget) => {
+      if (overlayRef.current !== null) return;
+      go({ kind: "interact", target: t });
+      const v = t.kind === "villager" ? villagerById(t.id) : t.kind === "site" ? villagerForBuilding(t.id) : null;
+      if (v && kingdomRef.current.buildings.some((b) => b.id === v.buildingId)) signal({ kind: "talked" });
+    },
+    [go, signal],
+  );
+
+  // What the scene tells the frame: what is in reach, that E was pressed at it, that a spell
+  // went off, and how far the child has walked.
   useEffect(() => {
     bus.setHandlers({
-      onNear: (t) => setNear(t),
-      onInteract: (t) => setOverlay((o) => (o === null ? { kind: "interact", target: t } : o)),
+      onNear: (t) => {
+        nearRef.current = t;
+        setNear(t);
+        if (t) signal(nearSignal(t));
+      },
+      onInteract: (t) => openTarget(t),
+      onCast: () => signal({ kind: "cast" }),
+      onWalked: (distance) => signal({ kind: "walked", keys: hands.current.keys.size, distance }),
     });
-    return () => bus.setHandlers({ onNear: () => {}, onInteract: () => {} });
-  }, [bus]);
+    return () => bus.setHandlers({ onNear: () => {}, onInteract: () => {}, onCast: () => {}, onWalked: () => {} });
+  }, [bus, signal, openTarget]);
 
   // Esc: pause from play, back a step from a panel. The frame owns this key; the scene does not
   // listen for it.
@@ -225,11 +516,11 @@ export function RealmGame({
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape" || e.repeat) return;
       e.preventDefault();
-      setOverlay((o) => escapeFrom(o));
+      go(escapeFrom(overlayRef.current));
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [close]);
+  }, [close, go]);
 
   // Development only: hand the bus to the window, so a screenshot script can fire `onNear` and
   // `onInteract` the way the scene will, and check the frame's half of the contract on its own.
@@ -241,8 +532,27 @@ export function RealmGame({
     };
   }, [bus]);
 
+  /* ---- read-aloud ------------------------------------------------------ */
+  // A lesson is read as it arrives; otherwise the objective, once, when the world is first the
+  // child's — the flat Realm's one spoken line outside its message lane.
+  const spokenLesson = useRef<string | null>(null);
+  const spokenObjective = useRef(false);
+  useEffect(() => {
+    if (!readAloud || paused) return;
+    if (coachCopy) {
+      if (spokenLesson.current === coachCopy.spoken) return;
+      spokenLesson.current = coachCopy.spoken;
+      speak(coachCopy.spoken);
+      return;
+    }
+    if (spokenObjective.current) return;
+    const line = objectiveSpeech(objective);
+    if (!line) return;
+    spokenObjective.current = true;
+    speak(line);
+  }, [readAloud, paused, coachCopy, objective]);
+
   /* ---- the play clock ------------------------------------------------- */
-  const childId = realm.childId;
   const clockOn = realm.isChildView && childId !== null;
   const closeRef = useRef(onClose);
   useEffect(() => {
@@ -266,23 +576,52 @@ export function RealmGame({
   useEffect(() => () => void flushPending(), [flushPending]);
 
   /* ---- the HUD's clicks ------------------------------------------------ */
+  const [spellFacts, setSpellFacts] = useState<SpellbookFacts | null>(null);
+  const askedSpellbook = useRef(false);
   const onCast = useCallback((slot: number) => pushCast(casts, slot), [casts]);
-  const onEmptyPage = useCallback((slot: number) => setOverlay({ kind: "page", slot }), []);
-  const onPrompt = useCallback((t: InteractTarget) => setOverlay({ kind: "interact", target: t }), []);
-  const closeOverlay = useCallback(() => setOverlay(null), []);
+  const onEmptyPage = useCallback(
+    (slot: number) => {
+      go({ kind: "page", slot });
+      signal({ kind: "page" });
+      // What THIS child can write and is closest to earning — asked once, when first wanted.
+      if (!askedSpellbook.current && childId) {
+        askedSpellbook.current = true;
+        getSpellbook(childId)
+          .then((b) => setSpellFacts({ level: b.level, unlocked: b.unlocked, schoolCounts: b.schoolCounts, subjectNamesBySchool: b.subjectNamesBySchool }))
+          .catch(() => {
+            askedSpellbook.current = false;
+          });
+      }
+    },
+    [go, signal, childId],
+  );
+  const closeOverlay = useCallback(() => go(null), [go]);
+  const help = useMemo(() => (spellFacts ? spellHelp(spellFacts) : null), [spellFacts]);
+
+  const retryKingdom = useCallback(() => {
+    if (!childId) return;
+    getRealmKingdom(childId)
+      .then((k) => {
+        kingdomRef.current = k;
+        setKingdom(k);
+        setKingdomError("");
+      })
+      .catch(() => setKingdomError(VILLAGERS_RESTING));
+  }, [childId]);
 
   /* ---- settings ------------------------------------------------------- */
   const canSetDepth = childId !== null && !(realm.isChildView && profile.fewerChoices);
+  const onDepth = canSetDepth
+    ? (next: RealmDepth) => {
+        setDepthError("");
+        setRealmDepth(childId!, next)
+          .then(() => setDepth(next))
+          .catch(() => setDepthError(SAVE_FAILED));
+      }
+    : null;
   const settings: PauseSettings = {
     depth,
-    onDepth: canSetDepth
-      ? (next) => {
-          setDepthError("");
-          setRealmDepth(childId!, next)
-            .then(() => setDepth(next))
-            .catch(() => setDepthError(SAVE_FAILED));
-        }
-      : null,
+    onDepth,
     depthError,
     // Troubles are a grown-up's choice, made in Settings; a visiting grown-up can make it here.
     tone,
@@ -305,6 +644,17 @@ export function RealmGame({
     ? clockLine(clock.minutesRemaining, { paused, recess: clock.source === "recess" })
     : visitClockLine(heroName, entry.visit);
   const bookHref = spellbookHref(realm.isChildView ? "child" : "parent", childId);
+  const who: "child" | "parent" = realm.isChildView ? "child" : "parent";
+
+  /** What an interact overlay opens: a conversation for a person or their site, a card for anything else. */
+  const talkTo =
+    overlay?.kind === "interact" && (overlay.target.kind === "villager" || overlay.target.kind === "site")
+      ? (() => {
+          const v = overlay.target.kind === "villager" ? villagerById(overlay.target.id) : villagerForBuilding(overlay.target.id);
+          const site = v ? kingdom.buildings.find((b) => b.id === v.buildingId) : undefined;
+          return v && site ? { villager: v, site } : null;
+        })()
+      : null;
 
   return (
     <div className="r3-game">
@@ -335,59 +685,124 @@ export function RealmGame({
             castle={castleUnlocked}
             onCast={onCast}
             onEmptyPage={onEmptyPage}
+            goal={goal}
           />
           <div className={`r3-frame${paused ? " r3-frame--paused" : ""}`}>
-            <ObjectiveCard objective={objective} heroName={heroName} visiting={visiting} numerals={numerals} kingdomError={realm.kingdomError} />
+            <ObjectiveCard
+              objective={objective}
+              heroName={heroName}
+              visiting={visiting}
+              numerals={numerals}
+              kingdomError={kingdomError || undefined}
+              onRetry={childId ? retryKingdom : undefined}
+            />
             <VillagePlank heroName={heroName} done={raised} total={kingdom.buildings.length} numerals={numerals} />
             {visiting && <VisitorRibbon heroName={heroName} />}
             {realm.isChildView && clock.warning && <LastMinute />}
-            {!paused && <InteractPrompt target={near} onPress={onPrompt} />}
+            {tutorialOn && !paused && (
+              <Coach
+                copy={coachCopy}
+                keys={lesson?.keys ?? []}
+                step={lessonShown + 1}
+                steps={LESSONS.length}
+                done={doneLine}
+                onSkip={skipTutorial}
+                onSkipStep={stuck === lessons ? skipStep : null}
+              />
+            )}
+            {!paused && <DeedToastBanner toast={toast} numerals={numerals} />}
+            {!paused && <InteractPrompt target={near} onPress={openTarget} />}
             <ClockCorner
               line={line}
               warning={realm.isChildView && clock.warning}
               error={clock.error}
+              notice={realm.isChildView ? <TimerFinished hidden={clock.warning} /> : null}
               onRetry={() => {
                 clock.clearError();
                 void clock.flushPending();
               }}
-              onHelp={() => setOverlay({ kind: "howto", back: false })}
-              onMenu={() => setOverlay({ kind: "pause" })}
+              onHelp={() => go({ kind: "howto", back: false })}
+              onMenu={() => go({ kind: "pause" })}
               leaveHref="/tavern"
             />
           </div>
           {overlay?.kind === "pause" && (
             <PauseMenu
               heroName={heroName}
-              viewer={realm.isChildView ? "child" : "parent"}
+              viewer={who}
               onResume={closeOverlay}
-              onControls={() => setOverlay({ kind: "howto", back: true })}
+              onControls={() => go({ kind: "howto", back: true })}
               leaveHref="/tavern"
               settings={settings}
               selector={selector}
             />
           )}
           {overlay?.kind === "howto" && (
-            <HowToPlay slots={pages.length} back={overlay.back} onClose={() => setOverlay(escapeFrom(overlay))} />
+            <HowToPlay
+              slots={pages.length}
+              back={overlay.back}
+              onClose={() => go(escapeFrom(overlay))}
+              onReplay={
+                tutorialOn
+                  ? () => {
+                      commitLessons(0);
+                      hands.current.drag = 0;
+                      setDoneLine(null);
+                      go(null);
+                    }
+                  : null
+              }
+            />
           )}
           {overlay?.kind === "page" && (
-            <EmptyPagePanel
-              slot={overlay.slot}
-              viewer={realm.isChildView ? "child" : "parent"}
+            <EmptyPagePanel slot={overlay.slot} viewer={who} heroName={heroName} spellbookHref={bookHref} help={help} onClose={closeOverlay} />
+          )}
+          {overlay?.kind === "interact" && talkTo && (
+            <DeedBoard
+              childId={childId}
+              villager={talkTo.villager}
+              site={talkTo.site}
+              viewer={who}
               heroName={heroName}
-              spellbookHref={bookHref}
+              waiting={goal.on && goal.id === talkTo.villager.id}
+              numerals={numerals}
+              profile={{ readAloud, untimed: profile.untimed }}
+              calm={calm}
+              onResult={(buildingId, result) => {
+                pendingDeed.current = { buildingId, result };
+              }}
               onClose={closeOverlay}
             />
           )}
-          {overlay?.kind === "interact" && (
+          {overlay?.kind === "interact" && !talkTo && (
             <InteractPanel
               target={overlay.target}
               kingdom={kingdom}
               world={world}
               castleType={realm.castleType}
               heroName={heroName}
-              viewer={realm.isChildView ? "child" : "parent"}
+              viewer={who}
               onClose={closeOverlay}
             />
+          )}
+          {overlay?.kind === "welcome" && (
+            <WelcomeCard
+              heroName={heroName}
+              waiting={goal.on ? goal.name : null}
+              total={kingdom.buildings.length}
+              depth={depth}
+              onDepth={onDepth}
+              depthError={depthError}
+              tutorialDone={lessons >= LESSONS.length}
+              onStart={closeOverlay}
+              onKnow={() => {
+                if (lessonsRef.current < LESSONS.length) skipTutorial();
+                closeOverlay();
+              }}
+            />
+          )}
+          {overlay?.kind === "ceremony" && ceremony && (
+            <CeremonyCard info={ceremony} heroName={heroName} calm={calm} saving={ceremonySaving} error={ceremonyError} onHail={hail} />
           )}
         </>
       )}

@@ -116,7 +116,11 @@ export type Overlay =
   | { kind: "howto"; back: boolean }
   | { kind: "interact"; target: InteractTarget }
   /** An empty spell page, clicked. */
-  | { kind: "page"; slot: number };
+  | { kind: "page"; slot: number }
+  /** A child's first visit: what the Realm is for, how much to show, and the way into the tutorial. */
+  | { kind: "welcome" }
+  /** A crown waiting for its ceremony. */
+  | { kind: "ceremony" };
 
 /**
  * Esc. With nothing open it opens the pause menu; with a panel open it closes it — back to the

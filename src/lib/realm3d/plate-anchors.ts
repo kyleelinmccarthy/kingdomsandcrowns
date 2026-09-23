@@ -28,6 +28,11 @@ export type PlateAnchor = {
   /** The plate's trim colour. */
   accent: string;
   mark: "quest" | "done" | "work" | "place" | "home" | "you";
+  /**
+   * A villager's site, for the pips under their name — the one place in the world where a
+   * finished side quest shows before the building itself rises. Absent on every other plate.
+   */
+  progress?: { done: number; total: number };
   x: number;
   /** World y the plate hangs at — already includes the head/roof clearance. */
   y: number;
@@ -120,6 +125,7 @@ export function buildAnchors(input: {
       sub: v.label,
       accent: VILLAGER_ACCENT[v.status] ?? VILLAGER_ACCENT.work,
       mark: v.status === "objective" ? "quest" : v.status === "built" ? "done" : "work",
+      ...(v.status === "built" || v.total <= 0 ? {} : { progress: { done: Math.min(v.done, v.total), total: v.total } }),
       x: v.position.x,
       y: input.heightAt(v.position.x, v.position.z) + HEAD_Y,
       z: v.position.z,

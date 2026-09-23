@@ -633,3 +633,506 @@
   .r3-prompt,
   .r3-dim { animation: none; }
 }
+
+/* ============================================================================
+   THE GAME LOOP: the gold !, the coach, talking, side quests, the ceremony.
+   ========================================================================= */
+
+/* ---- the gold ! ------------------------------------------------------------ */
+
+/* Over the world, under every panel: the plates' own layer height. */
+.r3-goal-layer { position: absolute; inset: 0; z-index: 19; overflow: hidden; pointer-events: none; }
+.r3-goal {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  will-change: transform;
+}
+.r3-goal[data-state="off"] { display: none; }
+.r3-goal-bang {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  width: 2.7rem;
+  height: 2.7rem;
+  border-radius: 50%;
+  border: 3px solid #7a4f14;
+  background: radial-gradient(circle at 42% 34%, #fff3c4, #ffc94a 55%, #e09b24);
+  box-shadow: 0 4px 0 #7a4f14, 0 0 22px rgba(255, 201, 74, 0.95), 0 0 46px rgba(255, 201, 74, 0.5);
+  color: #3a2008;
+  font-size: 1.7rem;
+  font-weight: 900;
+  line-height: 1;
+  animation: r3-goal-bob 1.4s ease-in-out infinite;
+}
+@keyframes r3-goal-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-7px); }
+}
+/* The arrow orbits the ! and points the way, when the ! is pinned to the edge. */
+.r3-goal-arrow {
+  position: absolute;
+  left: 50%;
+  top: 1.35rem;
+  width: 0;
+  height: 0;
+  display: none;
+}
+.r3-goal-arrow svg {
+  position: absolute;
+  left: -1.1rem;
+  top: -3.9rem;
+  width: 2.2rem;
+  height: 2.2rem;
+  fill: #ffd875;
+  stroke: #3a2008;
+  stroke-width: 1.4;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 6px rgba(255, 201, 74, 0.9));
+}
+.r3-goal:is([data-state="edge"], [data-state="edge-low"]) .r3-goal-arrow { display: block; }
+/* Pinned to the bottom and pointing down: the words go above, clear of the arrow. */
+.r3-goal[data-state="edge-low"] { flex-direction: column-reverse; }
+.r3-goal[data-state="edge-low"] .r3-goal-arrow { top: auto; bottom: 1.35rem; }
+.r3-goal-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.12rem 0.6rem 0.18rem;
+  border-radius: 999px;
+  border: 2px solid var(--r3-bark);
+  background: linear-gradient(180deg, var(--r3-timber), var(--r3-timber-deep));
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.3);
+  line-height: 1.1;
+  white-space: nowrap;
+}
+.r3-goal-name { font-size: 0.85rem; font-weight: 900; color: #ffe08a; text-shadow: 0 1px 0 var(--r3-bark); }
+.r3-goal-dist { font-size: 0.72rem; font-weight: 800; color: #f0d9a6; font-variant-numeric: tabular-nums; }
+
+/* ---- the map's gold ! ---------------------------------------------------- */
+
+.r3-map-goal circle { fill: #ffc94a; stroke: #3a2008; stroke-width: 1.1; }
+.r3-map-goal path { fill: #3a2008; }
+.r3-map-goal { animation: r3-map-goal 1.4s ease-in-out infinite; }
+@keyframes r3-map-goal { 50% { opacity: 0.72; } }
+.r3-map-rim--goal path { fill: #ffc94a; stroke: #3a2008; }
+
+/* ---- a villager's plate carries their site ----------------------------- */
+
+.r3-plate-pips { display: inline-flex; gap: 2px; margin-top: 2px; }
+.r3-plate-pip { width: 7px; height: 7px; border-radius: 50%; border: 1.5px solid rgba(255, 238, 194, 0.6); background: rgba(0, 0, 0, 0.3); }
+.r3-plate-pip--on { background: #ffc94a; border-color: #7a4f14; }
+
+/* ---- the objective card leads ---------------------------------------------- */
+
+.r3-quest-lead {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #ffe08a;
+}
+.r3-quest-lead b { padding: 0 0.3rem; border-radius: 5px; background: var(--r3-gold); color: #3a2415; }
+.r3-quest-bang {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 1.3rem;
+  height: 1.3rem;
+  border-radius: 50%;
+  border: 2px solid #7a4f14;
+  background: #ffc94a;
+  color: #3a2008;
+  font-size: 0.85rem;
+  font-weight: 900;
+  box-shadow: 0 0 10px rgba(255, 201, 74, 0.8);
+}
+.r3-quest-retry { margin-top: 0.4rem; height: 2.3rem; font-size: 0.9rem; }
+
+/* ---- the coach ------------------------------------------------------------- */
+
+.r3-coach-lane {
+  position: absolute;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(34rem, calc(100vw - 30rem));
+  min-width: 20rem;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+}
+.r3-coach {
+  position: relative;
+  width: 100%;
+  padding: 0.75rem 1rem 0.6rem;
+  border-radius: 20px;
+  border: 3px solid var(--r3-bark);
+  background: linear-gradient(180deg, rgba(255, 225, 170, 0.1), transparent 40%), linear-gradient(180deg, #6a4527, #2f1c0c);
+  box-shadow: 0 6px 0 rgba(0, 0, 0, 0.32), 0 0 30px rgba(245, 192, 74, 0.35), inset 0 2px 0 rgba(255, 225, 170, 0.25), inset 0 0 0 2px rgba(168, 118, 29, 0.55);
+  color: var(--r3-parchment);
+  animation: r3-coach-in 0.28s ease-out;
+}
+@keyframes r3-coach-in {
+  from { opacity: 0; transform: translateY(-10px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+.r3-coach-step {
+  position: absolute;
+  top: -0.8rem;
+  left: 1rem;
+  padding: 0.05rem 0.6rem;
+  border-radius: 999px;
+  border: 2px solid #7a4f14;
+  background: linear-gradient(180deg, #ffe08a, var(--r3-gold));
+  color: #3a2008;
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.r3-coach-main { display: flex; align-items: center; gap: 0.9rem; }
+.r3-coach-keys { display: flex; flex-wrap: wrap; gap: 0.25rem; flex: none; max-width: 9rem; }
+.r3-coach-keys--wasd { display: grid; grid-template-columns: repeat(3, 2.4rem); grid-template-rows: repeat(2, 2.4rem); gap: 0.25rem; max-width: none; }
+.r3-coach-keys--wasd .r3-kbd:nth-child(1) { grid-area: 1 / 2; }
+.r3-coach-keys--wasd .r3-kbd:nth-child(2) { grid-area: 2 / 1; }
+.r3-coach-keys--wasd .r3-kbd:nth-child(3) { grid-area: 2 / 2; }
+.r3-coach-keys--wasd .r3-kbd:nth-child(4) { grid-area: 2 / 3; }
+.r3-kbd--big { min-width: 2.4rem; height: 2.4rem; font-size: 1.05rem; }
+.r3-coach-text { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+.r3-coach-title { font-size: 1.45rem; font-weight: 900; color: #fff6de; text-shadow: 0 2px 0 var(--r3-bark); line-height: 1.15; }
+.r3-coach-how { font-size: 1rem; font-weight: 600; color: #f0d9a6; line-height: 1.3; }
+.r3-coach-ways { display: flex; justify-content: flex-end; gap: 0.8rem; margin-top: 0.3rem; }
+.r3-coach-skip {
+  pointer-events: auto;
+  border: 0;
+  padding: 0.15rem 0.1rem;
+  background: none;
+  color: #d9bf87;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.r3-coach-skip:hover { color: var(--r3-gold); }
+.r3-coach--done { display: flex; align-items: center; justify-content: center; gap: 0.6rem; padding: 0.7rem 1.2rem; }
+.r3-coach--done .r3-coach-title { font-size: 1.2rem; }
+.r3-coach-star { width: 1.8rem; height: 1.8rem; color: var(--r3-gold); filter: drop-shadow(0 0 8px rgba(245, 192, 74, 0.9)); }
+
+/* ---- the village's answer to a side quest --------------------------------- */
+
+.r3-toast {
+  position: absolute;
+  top: 9.2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  max-width: min(32rem, calc(100vw - 30rem));
+  padding: 0.6rem 1.3rem 0.65rem 0.7rem;
+  border-radius: 20px;
+  border: 3px solid #6b4410;
+  background: linear-gradient(180deg, #7a5433, #3e2713);
+  box-shadow: 0 6px 0 rgba(0, 0, 0, 0.32), 0 0 34px rgba(245, 192, 74, 0.55), inset 0 2px 0 rgba(255, 225, 170, 0.3);
+  color: var(--r3-parchment);
+  animation: r3-toast-in 0.4s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+.r3-toast--rose { border-color: #ffd875; box-shadow: 0 6px 0 rgba(0, 0, 0, 0.32), 0 0 60px rgba(255, 216, 117, 0.9), inset 0 2px 0 rgba(255, 225, 170, 0.3); }
+@keyframes r3-toast-in {
+  from { opacity: 0; transform: translate(-50%, -16px) scale(0.9); }
+  to { opacity: 1; transform: translate(-50%, 0) scale(1); }
+}
+.r3-toast-icon {
+  flex: none;
+  width: 3rem;
+  height: 3rem;
+  padding: 0.45rem;
+  border-radius: 50%;
+  border: 3px solid #7a4f14;
+  background: radial-gradient(circle at 45% 35%, #fff6dc, #e0a52c 78%);
+  color: #5a3510;
+}
+.r3-toast-text { display: flex; flex-direction: column; gap: 0.15rem; }
+.r3-toast-title { font-size: 1.35rem; font-weight: 900; color: #fff6de; text-shadow: 0 2px 0 var(--r3-bark); }
+.r3-toast-line { font-size: 0.98rem; font-weight: 700; color: #ffe08a; }
+
+/* ---- talking to someone ------------------------------------------------------ */
+
+.r3-subject {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.05rem 0.55rem;
+  border-radius: 999px;
+  border: 2px solid var(--r3-ink);
+  background: color-mix(in srgb, var(--r3-ink) 25%, #1c1108);
+  color: #fff6de;
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.03em;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.r3-talk-role { margin: -0.3rem 0 0.8rem 3.5rem; font-size: 0.95rem; font-weight: 800; color: var(--r3-gold); }
+.r3-talk-body { display: flex; flex-direction: column; gap: 0.55rem; min-width: 0; }
+.r3-speech {
+  position: relative;
+  margin: 0;
+  padding: 0.7rem 0.9rem;
+  border-radius: 14px;
+  background: #fff3d6;
+  color: #3a2415;
+  font-size: 1.1rem;
+  font-weight: 700;
+  line-height: 1.4;
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.3);
+}
+.r3-speech::before {
+  content: "";
+  position: absolute;
+  left: -9px;
+  top: 1.1rem;
+  border: 9px solid transparent;
+  border-left: 0;
+  border-right-color: #fff3d6;
+}
+.r3-talk-need { display: flex; flex-wrap: wrap; align-items: center; gap: 0.55rem; font-size: 0.98rem; font-weight: 700; color: #f0d9a6; }
+.r3-talk-ask { margin: 0.9rem 0 0.5rem; font-size: 1rem; font-weight: 700; color: #fff1d2; }
+.r3-board-error { margin: 0.4rem 0; padding: 0.4rem 0.7rem; border-radius: 10px; background: rgba(160, 40, 30, 0.45); color: #ffd9d2; font-weight: 700; }
+.r3-deeds { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+.r3-deed {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.6rem 0.7rem 0.6rem 0.9rem;
+  border-radius: 14px;
+  border: 2px solid rgba(255, 225, 170, 0.18);
+  background: rgba(0, 0, 0, 0.22);
+}
+.r3-deed-text { flex: 1; min-width: 0; }
+.r3-deed-title { display: flex; flex-wrap: wrap; align-items: center; gap: 0.45rem; margin: 0; font-size: 1.08rem; font-weight: 900; color: #fff6de; }
+.r3-deed-story { margin: 0.2rem 0 0; font-size: 0.9rem; font-weight: 600; line-height: 1.35; color: #e6cf9c; }
+.r3-menu-item.r3-deed-go { flex: none; min-height: 2.8rem; padding: 0 1.1rem; font-size: 1.05rem; }
+.r3-menu-item:disabled { opacity: 0.6; cursor: default; transform: none; }
+
+/* ---- a side quest, question by question ------------------------------------- */
+
+.r3-board--deed { width: min(40rem, 100%); }
+.r3-run-story { margin: 0 0 0.6rem; font-size: 0.95rem; font-weight: 600; line-height: 1.4; color: #e6cf9c; }
+.r3-run-meta { display: flex; align-items: center; gap: 0.8rem; margin-bottom: 0.8rem; }
+.r3-run-dots { display: inline-flex; gap: 0.3rem; }
+.r3-run-dot { width: 0.8rem; height: 0.8rem; border-radius: 50%; border: 2px solid rgba(255, 238, 194, 0.45); background: rgba(0, 0, 0, 0.3); }
+.r3-run-dot--done { background: var(--r3-gold); border-color: #7a4f14; }
+.r3-run-dot--now { background: #fff6de; border-color: var(--r3-gold); box-shadow: 0 0 8px rgba(245, 192, 74, 0.8); }
+.r3-run-time { font-size: 0.85rem; font-weight: 800; color: #d9bf87; }
+.r3-run-leave { margin-left: auto; font-size: 0.85rem; color: #d9bf87; }
+.r3-question {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.8rem;
+  margin-bottom: 0.9rem;
+  padding: 1rem 1.1rem;
+  border-radius: 16px;
+  background: #fff3d6;
+  box-shadow: 0 4px 0 rgba(0, 0, 0, 0.3), inset 0 0 0 2px rgba(168, 118, 29, 0.35);
+}
+.r3-question-text { flex: 1; margin: 0; color: #2a1709; font-size: 1.5rem; font-weight: 800; line-height: 1.35; white-space: pre-line; }
+.r3-round.r3-read { flex: none; width: 2.6rem; height: 2.6rem; display: grid; place-items: center; }
+.r3-read-icon { width: 1.3rem; height: 1.3rem; }
+.r3-choices { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6rem; }
+.r3-choice {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  min-height: 4.2rem;
+  padding: 0.5rem 0.9rem 0.5rem 0.55rem;
+  border-radius: 14px;
+  border: 3px solid var(--r3-bark);
+  background: linear-gradient(180deg, #7a5433, #3e2713);
+  box-shadow: 0 5px 0 rgba(0, 0, 0, 0.35), inset 0 2px 0 rgba(255, 225, 170, 0.25);
+  color: #fff6de;
+  font: inherit;
+  font-size: 1.3rem;
+  font-weight: 800;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.08s ease, filter 0.08s ease;
+}
+.r3-choice:not(:disabled):hover { filter: brightness(1.18); transform: translateY(-2px); border-color: var(--r3-gold); }
+.r3-choice:not(:disabled):active { transform: translateY(3px); box-shadow: 0 2px 0 rgba(0, 0, 0, 0.35); }
+.r3-choice:focus-visible { outline: 3px solid #fff6de; outline-offset: 3px; }
+.r3-choice:disabled { cursor: default; }
+.r3-choice-key {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 8px;
+  border: 2px solid #7a4f14;
+  background: linear-gradient(180deg, #ffe7a8, #e8b54a);
+  color: #3a2008;
+  font-size: 0.95rem;
+  font-weight: 900;
+}
+.r3-choice-text { min-width: 0; overflow-wrap: anywhere; }
+.r3-choice--answer { border-color: #3f7a1e; background: linear-gradient(180deg, #5fae3a, #2f6a15); box-shadow: 0 5px 0 #1f4a0c, 0 0 20px rgba(126, 222, 94, 0.6); }
+.r3-choice--faded { opacity: 0.45; }
+.r3-choice--sparkle { animation: r3-sparkle 0.7s ease-out; }
+@keyframes r3-sparkle {
+  0% { box-shadow: 0 5px 0 #1f4a0c, 0 0 0 rgba(255, 216, 117, 0.9); }
+  40% { box-shadow: 0 5px 0 #1f4a0c, 0 0 36px rgba(255, 216, 117, 0.95); transform: scale(1.04); }
+  100% { box-shadow: 0 5px 0 #1f4a0c, 0 0 20px rgba(126, 222, 94, 0.6); transform: none; }
+}
+.r3-feedback { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.7rem; margin-top: 1rem; }
+.r3-feedback-text { margin: 0; font-size: 1.15rem; font-weight: 800; color: #ffd9a8; }
+.r3-feedback--right .r3-feedback-text { color: #b8f59a; }
+.r3-feedback .r3-menu-item { min-width: 10rem; }
+
+/* ---- the result ---------------------------------------------------------------- */
+
+.r3-result { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 0.4rem; }
+.r3-result-seal {
+  display: grid;
+  place-items: center;
+  width: 4.6rem;
+  height: 4.6rem;
+  border-radius: 50%;
+  border: 4px solid #7a4f14;
+  background: radial-gradient(circle at 45% 35%, #fff6dc, #e0a52c 78%);
+  box-shadow: 0 0 26px rgba(245, 192, 74, 0.7);
+  color: #5a3510;
+}
+.r3-result-seal--flawless { animation: r3-seal 1.6s ease-in-out infinite; }
+@keyframes r3-seal { 50% { box-shadow: 0 0 44px rgba(255, 216, 117, 1); } }
+.r3-result-icon { width: 2.6rem; height: 2.6rem; }
+.r3-result-title { margin: 0.3rem 0 0; font-size: 2rem; font-weight: 900; color: #fff6de; text-shadow: 0 3px 0 var(--r3-bark), 0 0 18px rgba(245, 192, 74, 0.4); }
+.r3-result-line { margin: 0; font-size: 1.1rem; font-weight: 700; color: #fff1d2; }
+.r3-result-mastery { list-style: none; margin: 0.3rem 0; padding: 0; font-size: 1rem; font-weight: 700; color: #b8f59a; }
+.r3-result-building { display: flex; align-items: center; gap: 0.4rem; margin: 0.3rem 0 0; font-size: 1.05rem; font-weight: 800; color: #ffe08a; }
+.r3-result-building-icon { width: 1.3rem; height: 1.3rem; }
+.r3-result .r3-board-foot { width: 100%; }
+
+/* ---- the welcome ------------------------------------------------------------------ */
+
+.r3-welcome-folk { display: flex; justify-content: center; gap: 0.4rem; margin: 0.2rem 0 0.6rem; }
+.r3-welcome-face {
+  position: relative;
+  width: 3.6rem;
+  height: 3.6rem;
+  border-radius: 12px;
+  border: 3px solid #7a4f14;
+  background: radial-gradient(circle at 50% 40%, #fff6dc, #e0a52c 80%);
+  overflow: hidden;
+}
+.r3-welcome-first {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0.7rem 0;
+  padding: 0.6rem 0.8rem;
+  border-radius: 14px;
+  background: rgba(255, 201, 74, 0.14);
+  border: 2px solid rgba(255, 201, 74, 0.45);
+  font-size: 1.08rem;
+  font-weight: 800;
+  color: #fff1d2;
+}
+.r3-welcome-first b { color: var(--r3-gold); }
+.r3-welcome-bang {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  border: 2px solid #7a4f14;
+  background: #ffc94a;
+  color: #3a2008;
+  font-weight: 900;
+  box-shadow: 0 0 12px rgba(255, 201, 74, 0.85);
+}
+.r3-welcome-depth { margin-top: 0.8rem; padding-top: 0.8rem; border-top: 3px dashed rgba(255, 238, 194, 0.2); }
+.r3-setting-hint { flex-basis: 100%; font-size: 0.85rem; font-weight: 600; color: #d9bf87; }
+
+/* ---- the crown ceremony ------------------------------------------------------------- */
+
+.r3-ceremony-stage { position: relative; display: flex; flex-direction: column; align-items: center; margin: 0.4rem 0 0.8rem; }
+.r3-ceremony-crown {
+  display: grid;
+  place-items: center;
+  width: 5.2rem;
+  height: 5.2rem;
+  margin-bottom: 0.6rem;
+  color: var(--r3-ink);
+  filter: drop-shadow(0 0 14px var(--r3-ink)) drop-shadow(0 3px 0 rgba(0, 0, 0, 0.5));
+  animation: r3-crown-down 1.5s cubic-bezier(0.2, 0.9, 0.3, 1) both;
+}
+.r3-ceremony-crown-icon { width: 100%; height: 100%; }
+@keyframes r3-crown-down {
+  from { opacity: 0; transform: translateY(-3.5rem) scale(0.7) rotate(-8deg); }
+  to { opacity: 1; transform: none; }
+}
+.r3-ceremony-folk { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.35rem; }
+.r3-ceremony-folk .r3-welcome-face { width: 3rem; height: 3rem; }
+.r3-ceremony-line { text-align: center; }
+.r3-ceremony-hail {
+  margin: 0.3rem 0 0;
+  text-align: center;
+  font-size: 1.7rem;
+  font-weight: 900;
+  color: #ffe08a;
+  text-shadow: 0 3px 0 var(--r3-bark), 0 0 22px rgba(245, 192, 74, 0.6);
+  opacity: 0;
+  transform: scale(0.9);
+  transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.2, 1.5, 0.4, 1);
+}
+.r3-ceremony-hail--on { opacity: 1; transform: none; }
+.r3-board--calm .r3-ceremony-crown { animation: none; }
+
+/* ---- how THIS child earns spells ---------------------------------------------------- */
+
+.r3-spell-help { margin-top: 0.6rem; padding: 0.7rem 0.9rem; border-radius: 14px; background: rgba(0, 0, 0, 0.22); }
+.r3-spell-help-have { margin: 0; font-size: 1rem; font-weight: 700; line-height: 1.4; color: #fff1d2; }
+.r3-spell-help-have b { color: var(--r3-gold); }
+.r3-spell-help-icon { display: inline-block; width: 1.2rem; height: 1.2rem; margin-right: 0.2rem; vertical-align: -0.2rem; color: var(--r3-gold); }
+.r3-spell-help-next { list-style: none; margin: 0.5rem 0 0; padding: 0; display: grid; gap: 0.3rem; font-size: 0.92rem; font-weight: 600; color: #e6cf9c; }
+.r3-spell-help-next b { color: #fff6de; }
+.r3-spell-help-lock { display: inline-block; width: 0.95rem; height: 0.95rem; margin-right: 0.15rem; vertical-align: -0.1rem; color: #d9bf87; }
+
+/* ---- a chore timer ran out -------------------------------------------------------------- */
+
+.r3-timer-done { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.95rem; }
+
+/* ---- larger text ------------------------------------------------------------------------ */
+
+/* The frame is in rem, so it cannot follow a font-size on the root; a child who asked for larger
+   text gets every readable board and corner scaled whole instead. Nothing the driver positions
+   (plates, the gold !) is scaled: their pixel positions are the world's. */
+.r3-root[data-larger-text="on"] :is(.r3-board, .r3-quest, .r3-village, .r3-corner, .r3-prompt, .r3-coach-lane, .r3-toast, .r3-who) { zoom: 1.2; }
+/* The reading font, carried past `.game-shell` as the flat Realm's root carried it. */
+.r3-root[data-reading-font="on"] {
+  --font-sans: var(--font-lexend);
+  --font-serif: var(--font-lexend);
+  --font-brand: var(--font-lexend);
+  font-family: var(--font-lexend), ui-sans-serif, system-ui, sans-serif;
+}
+.r3-root[data-extra-spacing="on"] :is(.r3-board, .r3-coach, .r3-toast) { line-height: 1.75; letter-spacing: 0.03em; word-spacing: 0.08em; }
+
+@media (prefers-reduced-motion: reduce) {
+  .r3-goal-bang,
+  .r3-map-goal,
+  .r3-coach,
+  .r3-toast,
+  .r3-choice--sparkle,
+  .r3-result-seal--flawless,
+  .r3-ceremony-crown { animation: none; }
+}

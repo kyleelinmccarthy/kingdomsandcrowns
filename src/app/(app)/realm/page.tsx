@@ -84,6 +84,13 @@ export default async function RealmPage({ searchParams }: { searchParams: Promis
         profile: bundle.profile,
         depth: bundle.depth,
         toneMode: bundle.settings.toneMode,
+        // The tutorial, the first-visit welcome and a waiting crown are the child's own; the
+        // bundle never sends a grown-up a ceremony, and the game runs neither for one.
+        tutorialStep: bundle.tutorialStep,
+        helpSeen: bundle.helpSeen,
+        ceremony: bundle.ceremony
+          ? { seasonId: bundle.ceremony.seasonId, crownId: bundle.ceremony.crownId, ordinal: bundle.ceremony.ordinal, seasonLabel: bundle.ceremony.seasonLabel }
+          : null,
       }}
       // `?name=` and the avatar fields restyle a screenshot; see lib/realm3d/overrides.ts.
       heroName={one(q, "name") ?? bundle.heroName}
