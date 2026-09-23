@@ -12,8 +12,8 @@
  * Allocation. `projectPoint` writes into one reused `ScreenPoint`, the plate layouts are
  * allocated once at mount, the declutter sort works in a caller-owned index array, and the
  * caster and the effect pool mutate in place. The only per-frame garbage is the handful of
- * short strings a DOM write needs, and every one of those is guarded by a compare against
- * what was written last, so a standing child produces none at all.
+ * short strings a DOM write needs, and each of those is built only when the rounded numbers it
+ * is made of moved (`paint-keys.ts`), so a standing child produces none at all.
  */
 
 import { useMemo, useRef } from "react";
@@ -33,7 +33,8 @@ import {
 } from "@/lib/realm3d/nameplates";
 import type { PlateAnchor } from "@/lib/realm3d/plate-anchors";
 import { makeScreenPoint, projectPoint } from "@/lib/realm3d/project";
-import { beginCastFx, followCastFx, makeFxQueue, stepFx, type FxSlot } from "@/lib/realm3d/spell-fx";
+import { forgetKey, keyChanged, makePaintKeys } from "@/lib/realm3d/paint-keys";
+import { beginCastFx, fxFrame, makeFxQueue, type FxSlot } from "@/lib/realm3d/spell-fx";
 import { CASTLE_POSITION } from "@/lib/realm/layout";
 import type { RealmWorld } from "@/lib/realm3d/worldgen";
 
@@ -54,6 +55,15 @@ const GOAL_INSET: Inset = { top: 200, right: 84, bottom: 250, left: 84 };
 const GOAL_NAMED = 24;
 /** A frame that moved the hero further than this was a teleport or a respawn, not a walk. */
 const WALK_JUMP_LIMIT = 3;
+/** The paint-key slots after the plates' own (one per plate, from 0). */
+const K_WORLD = 0;
+const K_YOU = 1;
+const K_CONE = 2;
+const K_HOME = 3;
+const K_GOAL = 4;
+const K_MAP_GOAL = 5;
+const K_EXTRA = 6;
+const GOAL_STATES = ["off", "near", "over", "edge", "edge-low"] as const;
 
 export function HudDriver({
   bus,
@@ -89,6 +99,8 @@ export function HudDriver({
   const layouts = useMemo(() => makePlateLayouts(anchors.length), [anchors.length]);
   const order = useMemo<number[]>(() => new Array(anchors.length).fill(0), [anchors.length]);
   const fxQueue = useMemo(() => makeFxQueue(fxPool.length), [fxPool.length]);
+  /** The rounded numbers each string below was last built from: one slot per plate, then the map's and the goal's. */
+  const keys = useMemo(() => makePaintKeys(anchors.length + K_EXTRA), [anchors.length]);
   /**
    * Scratch, and all of it held in REFS rather than in `useMemo`. Not a style choice: the
    * React compiler treats anything a render produced as immutable, so a per-frame buffer that
@@ -163,9 +175,8 @@ export function HudDriver({
     }
     drainCasts(casts);
 
-    // A charge rides the child's hands for as long as it is gathering.
-    followCastFx(fxPool, hand.x, hand.y, hand.z, dx, dz);
-    stepFx(fxPool, fxQueue, dt, groundY);
+    // A charge rides the child's hands for as long as it is gathering. Nothing flies under pause.
+    fxFrame(bus.paused, fxPool, fxQueue, dt, groundY, hand.x, hand.y, hand.z, dx, dz);
 
     /* ---- mana and cooldowns -------------------------------------------- */
     paintMana(bus, Math.round(caster.mana), manaFraction(caster), MANA_MAX);
@@ -196,8 +207,10 @@ export function HudDriver({
       const l = layouts[i];
       if (!l.visible) {
         hidePlate(bus, i);
+        forgetKey(keys, i);
         continue;
       }
+      if (!keyChanged(keys, i, Math.round(l.x * 10), Math.round(l.y * 10), Math.round(l.scale * 1000), Math.round(l.opacity * 100))) continue;
       paintPlate(
         bus,
         i,
@@ -209,8 +222,14 @@ export function HudDriver({
     /* ---- the map -------------------------------------------------------- */
     // One attribute for the whole panning world: the land bitmap, the roads and every place
     // mark are drawn in world units inside this group, so they all move together.
-    paintNode(bus, "mapWorld", `translate(${MAP / 2} ${MAP / 2}) scale(${MAP_SCALE}) translate(${(-p.x).toFixed(2)} ${(-p.z).toFixed(2)})`);
-    paintNode(bus, "mapYou", `translate(${MAP / 2} ${MAP / 2}) rotate(${headingDegrees(facing).toFixed(1)})`);
+    const n = anchors.length;
+    if (keyChanged(keys, n + K_WORLD, Math.round(p.x * 100), Math.round(p.z * 100))) {
+      paintNode(bus, "mapWorld", `translate(${MAP / 2} ${MAP / 2}) scale(${MAP_SCALE}) translate(${(-p.x).toFixed(2)} ${(-p.z).toFixed(2)})`);
+    }
+    const heading = headingDegrees(facing);
+    if (keyChanged(keys, n + K_YOU, Math.round(heading * 10))) {
+      paintNode(bus, "mapYou", `translate(${MAP / 2} ${MAP / 2}) rotate(${heading.toFixed(1)})`);
+    }
     /**
      * The camera's own yaw, not the child's facing: the cone says what is on screen, and what
      * is on screen is decided by where the boom is, which the child steers with Q and E.
@@ -220,16 +239,17 @@ export function HudDriver({
      * is why this is `-yaw` where `headingDegrees` is `180 - facing`. At yaw 0 the camera is
      * due south of the child looking north, and the wedge points up the map.
      */
-    paintNode(bus, "mapCone", `translate(${MAP / 2} ${MAP / 2}) rotate(${(-(yawRef.current * 180) / Math.PI).toFixed(1)})`);
+    const cone = -(yawRef.current * 180) / Math.PI;
+    if (keyChanged(keys, n + K_CONE, Math.round(cone * 10))) {
+      paintNode(bus, "mapCone", `translate(${MAP / 2} ${MAP / 2}) rotate(${cone.toFixed(1)})`);
+    }
     // Home, as a rim arrow, once the castle has fallen off the window. It is the one mark a
     // lost child looks for, so it is the one that follows them to the edge.
     mapPoint(mp, CASTLE_POSITION.x, CASTLE_POSITION.z, p.x, p.z);
     rimMark(rim, mp, RIM_INSET);
-    paintNode(
-      bus,
-      "mapHome",
-      rim.off ? `translate(${(rim.x * MAP).toFixed(2)} ${(rim.y * MAP).toFixed(2)}) rotate(${rim.angle.toFixed(1)})` : "",
-    );
+    if (keyChanged(keys, n + K_HOME, rim.off ? 1 : 0, rim.off ? Math.round(rim.x * MAP * 100) : 0, rim.off ? Math.round(rim.y * MAP * 100) : 0, rim.off ? Math.round(rim.angle * 10) : 0)) {
+      paintNode(bus, "mapHome", rim.off ? `translate(${(rim.x * MAP).toFixed(2)} ${(rim.y * MAP).toFixed(2)}) rotate(${rim.angle.toFixed(1)})` : "");
+    }
 
     /* ---- the gold ! ------------------------------------------------------ */
     const goal = bus.goal;
@@ -239,19 +259,25 @@ export function HudDriver({
       // Distance in fives past twenty, so a walking child changes the words a few times a second
       // at most rather than every frame.
       const d = goalMark.dist;
-      paintGoal(
-        bus,
-        !goalMark.show ? "off" : !goalMark.edge ? (d < GOAL_NAMED ? "near" : "over") : Math.abs(goalMark.angle) > 100 ? "edge-low" : "edge",
-        `translate3d(${goalMark.x.toFixed(0)}px,${goalMark.y.toFixed(0)}px,0) translate(-50%,-50%)`,
-        `rotate(${goalMark.angle.toFixed(0)}deg)`,
-        d > 20 ? `${Math.round(d / 5) * 5} m` : `${d} m`,
-      );
+      const state = !goalMark.show ? 0 : !goalMark.edge ? (d < GOAL_NAMED ? 1 : 2) : Math.abs(goalMark.angle) > 100 ? 4 : 3;
+      const shown = d > 20 ? Math.round(d / 5) * 5 : d;
+      if (keyChanged(keys, n + K_GOAL, state, Math.round(goalMark.x), Math.round(goalMark.y), Math.round(goalMark.angle), shown)) {
+        paintGoal(
+          bus,
+          GOAL_STATES[state],
+          `translate3d(${goalMark.x.toFixed(0)}px,${goalMark.y.toFixed(0)}px,0) translate(-50%,-50%)`,
+          `rotate(${goalMark.angle.toFixed(0)}deg)`,
+          `${shown} m`,
+        );
+      }
       mapPoint(mp, goal.x, goal.z, p.x, p.z);
       rimMark(rim, mp, RIM_INSET);
-      paintNode(bus, "mapGoal", rim.off ? `translate(${(rim.x * MAP).toFixed(2)} ${(rim.y * MAP).toFixed(2)}) rotate(${rim.angle.toFixed(1)})` : "");
+      if (keyChanged(keys, n + K_MAP_GOAL, rim.off ? 1 : 0, rim.off ? Math.round(rim.x * MAP * 100) : 0, rim.off ? Math.round(rim.y * MAP * 100) : 0, rim.off ? Math.round(rim.angle * 10) : 0)) {
+        paintNode(bus, "mapGoal", rim.off ? `translate(${(rim.x * MAP).toFixed(2)} ${(rim.y * MAP).toFixed(2)}) rotate(${rim.angle.toFixed(1)})` : "");
+      }
     } else {
-      paintGoal(bus, "off", "", "", "");
-      paintNode(bus, "mapGoal", "");
+      if (keyChanged(keys, n + K_GOAL, -1)) paintGoal(bus, "off", "", "", "");
+      if (keyChanged(keys, n + K_MAP_GOAL, -1)) paintNode(bus, "mapGoal", "");
     }
 
     /* ---- ground covered --------------------------------------------------- */
