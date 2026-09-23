@@ -89,6 +89,8 @@ export type FxSlot = {
   ticks: number;
   /** A bolt that has struck something: it stays where it hit and dies into its ring. */
   stopped: boolean;
+  /** The spell carries `seeking`: a locked bolt turns twice as hard. Worked out once, at spawn. */
+  seeking: boolean;
 };
 
 export function makeFxPool(n: number): FxSlot[] {
@@ -99,6 +101,7 @@ export function makeFxPool(n: number): FxSlot[] {
       x: 0, y: 0, z: 0, dx: 0, dz: -1, speed: 0, range: 0, travelled: 0,
       size: 1, follow: false, next: "", seq: 0,
       spell: null, armed: false, aimed: false, target: -1, targetSerial: 0, tx: 0, tz: 0, hitMask: 0, ticks: 0, stopped: false,
+      seeking: false,
     };
   }
   return pool;
@@ -212,7 +215,14 @@ export function spawnFx(pool: FxSlot[], init: FxInit): FxSlot {
   s.hitMask = 0;
   s.ticks = 0;
   s.stopped = false;
+  s.seeking = hasSeeking(s.spell);
   return s;
+}
+
+function hasSeeking(spell: SpellDefinition | null): boolean {
+  if (!spell) return false;
+  for (let i = 0; i < spell.statuses.length; i++) if (spell.statuses[i].kind === "seeking") return true;
+  return false;
 }
 
 /** A bolt struck something at (x, z): it stops there and, next step, dies into its landing ring. */
@@ -348,8 +358,7 @@ export function stepFx(pool: FxSlot[], queue: FxQueue, dt: number, groundY: (x: 
     s.t += dt;
     if (s.kind === "bolt" && !s.stopped) {
       if (s.target >= 0) {
-        const seeking = s.spell !== null && s.spell.statuses.some((st) => st.kind === "seeking");
-        steer(s, s.tx - s.x, s.tz - s.z, BOLT_HOMING * (seeking ? 2 : 1) * dt);
+        steer(s, s.tx - s.x, s.tz - s.z, BOLT_HOMING * (s.seeking ? 2 : 1) * dt);
       }
       const step = s.speed * dt;
       s.x += s.dx * step;
@@ -450,4 +459,34 @@ export function fxScale(s: FxSlot): number {
     // Pops in over its first fifth of a second, then breathes.
     case "sprite": return Math.min(1, s.t / 0.2) * (1 + Math.sin(s.t * 6) * 0.08);
   }
+}
+
+/**
+ * The spells' whole frame, as the HUD driver runs it: charges ride the hands, then everything
+ * steps. Under the pause menu NOTHING moves — the troubles are frozen there too, so a bolt
+ * that flew on behind the menu would pass through a frozen fog and expire at its range, the
+ * mana spent and nothing hit.
+ */
+export function fxFrame(
+  paused: boolean,
+  pool: FxSlot[],
+  queue: FxQueue,
+  dt: number,
+  groundY: (x: number, z: number) => number,
+  hx: number,
+  hy: number,
+  hz: number,
+  dx: number,
+  dz: number,
+): void {
+  if (paused) return;
+  followCastFx(pool, hx, hy, hz, dx, dz);
+  stepFx(pool, queue, dt, groundY);
+}
+
+/** How high a slot's glow sits over it: a wall's drifts up as it fades, reading as dissolving upward. */
+export function glowLift(s: FxSlot): number {
+  if (s.kind !== "slab") return 0;
+  const f = s.life > 0 ? Math.min(1, s.t / s.life) : 1;
+  return 1.7 + f * 0.9;
 }

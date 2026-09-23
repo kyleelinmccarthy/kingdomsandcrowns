@@ -3,7 +3,9 @@ import { resolveSpell, type SpellDefinition } from "@/lib/utils/spell-catalog";
 import {
   beginCastFx,
   fxAlpha,
+  fxFrame,
   fxPhase,
+  glowLift,
   fxScale,
   makeFxPool,
   makeFxQueue,
@@ -263,5 +265,67 @@ describe("what the renderer is told to draw", () => {
         expect(fxScale(s)).toBeGreaterThanOrEqual(0);
       }
     }
+  });
+});
+
+describe("under the pause menu", () => {
+  const hands = { x: 0, y: 1.35, z: 0 };
+
+  it("a bolt in flight holds still while paused, and flies on after", () => {
+    const pool = makeFxPool(8);
+    const q = makeFxQueue(8);
+    beginCastFx(pool, bolt, hands, 0, -1);
+    // Gather, release, and let it fly a little.
+    for (let i = 0; i < 60; i++) fxFrame(false, pool, q, 1 / 60, flat, hands.x, hands.y, hands.z, 0, -1);
+    const b = pool.find((s) => s.live && s.kind === "bolt")!;
+    expect(b).toBeDefined();
+    const at = { z: b.z, t: b.t, travelled: b.travelled };
+    for (let i = 0; i < 600; i++) fxFrame(true, pool, q, 1 / 60, flat, 5, 1.35, 5, 1, 0);
+    expect(b.live).toBe(true);
+    expect({ z: b.z, t: b.t, travelled: b.travelled }).toEqual(at);
+    fxFrame(false, pool, q, 1 / 60, flat, hands.x, hands.y, hands.z, 0, -1);
+    expect(b.z).toBeLessThan(at.z);
+  });
+
+  it("a charge does not follow the hands, or release, while paused", () => {
+    const pool = makeFxPool(8);
+    const q = makeFxQueue(8);
+    const c = beginCastFx(pool, bolt, hands, 0, -1);
+    for (let i = 0; i < 300; i++) fxFrame(true, pool, q, 1 / 60, flat, 9, 9, 9, 1, 0);
+    expect(c.live).toBe(true);
+    expect(c.kind).toBe("charge");
+    expect([c.x, c.y, c.z]).toEqual([0, 1.35, 0]);
+  });
+});
+
+describe("no work per frame that could be done once", () => {
+  it("a bolt knows at spawn whether it seeks", () => {
+    const pool = makeFxPool(4);
+    const seek = resolveSpell({ elementId: "ember", formId: "bolt", modifierId: "seek" }) as SpellDefinition;
+    expect(spawnFx(pool, { kind: "bolt", color: "#fff", x: 0, y: 0, z: 0, dx: 0, dz: 1, spell: seek }).seeking).toBe(true);
+    expect(spawnFx(pool, { kind: "bolt", color: "#fff", x: 0, y: 0, z: 0, dx: 0, dz: 1, spell: bolt }).seeking).toBe(false);
+    expect(spawnFx(pool, { kind: "bolt", color: "#fff", x: 0, y: 0, z: 0, dx: 0, dz: 1 }).seeking).toBe(false);
+  });
+});
+
+describe("the wall's glow", () => {
+  it("drifts up as the wall fades", () => {
+    const pool = makeFxPool(2);
+    const s = spawnFx(pool, { kind: "slab", color: "#fff", x: 0, y: 0, z: 0, dx: 0, dz: 1, life: 2 });
+    const born = glowLift(s);
+    s.t = 1;
+    const mid = glowLift(s);
+    s.t = 2;
+    const end = glowLift(s);
+    expect(mid).toBeGreaterThan(born);
+    expect(end).toBeGreaterThan(mid);
+    expect(born).toBeCloseTo(1.7);
+  });
+
+  it("everything else keeps its glow at its middle", () => {
+    const pool = makeFxPool(2);
+    const s = spawnFx(pool, { kind: "ring", color: "#fff", x: 0, y: 0, z: 0, dx: 0, dz: 1 });
+    s.t = 0.5;
+    expect(glowLift(s)).toBe(0);
   });
 });

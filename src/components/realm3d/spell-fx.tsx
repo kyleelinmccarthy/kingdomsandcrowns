@@ -14,7 +14,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
-import { FX_POOL, fxAlpha, fxScale, type FxKind, type FxSlot } from "@/lib/realm3d/spell-fx";
+import { FX_POOL, fxAlpha, fxScale, glowLift, type FxKind, type FxSlot } from "@/lib/realm3d/spell-fx";
 
 export { FX_POOL };
 
@@ -114,8 +114,7 @@ export function SpellFx({ pool }: { pool: FxSlot[] }) {
     };
   }, [geos, tex]);
 
-  useFrame((state, rawDt) => {
-    const dt = Math.min(0.05, rawDt);
+  useFrame((state) => {
     const spin = state.clock.elapsedTime * 6;
     for (let i = 0; i < FX_POOL; i++) {
       const g = groups.current[i];
@@ -149,7 +148,7 @@ export function SpellFx({ pool }: { pool: FxSlot[] }) {
       sprite.scale.set(gs, gs, 1);
       (sprite.material as THREE.SpriteMaterial).opacity = a * 0.8;
       // Drift the wall's glow up as it fades, so a barrier reads as dissolving upward.
-      sprite.position.y = s.kind === "slab" ? 1.7 + dt : s.kind === "beam" ? 0 : 0;
+      sprite.position.y = glowLift(s);
     }
   });
 
