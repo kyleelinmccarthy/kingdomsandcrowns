@@ -87,6 +87,10 @@ export default async function Realm3dPage({
       // overridden: a screenshot of a named hero should not need a database row edited.
       heroName={one("name") ?? (loaded.heroName || "Hero")}
       spellbook={loaded.spellbook}
+      // Screenshot overrides, like the avatar fields: `?viewer=parent` walks as the quest-giver
+      // wizard, `?castle=0` hides a castle the child has not unlocked.
+      viewer={one("viewer") === "parent" ? "parent" : "child"}
+      castleUnlocked={one("castle") !== "0"}
     />
   );
 }

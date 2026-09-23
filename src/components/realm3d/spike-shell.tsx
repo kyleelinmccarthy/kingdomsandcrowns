@@ -14,11 +14,15 @@ export function Realm3dSpike({
   close,
   heroName,
   spellbook,
+  viewer,
+  castleUnlocked,
 }: {
   avatar: AvatarConfig | null;
   close?: boolean;
   heroName?: string;
   spellbook?: { spells: SpellPage[]; slots: number } | null;
+  viewer?: "child" | "parent";
+  castleUnlocked?: boolean;
 }) {
-  return <RealmGame avatar={avatar} close={close} heroName={heroName} spellbook={spellbook} />;
+  return <RealmGame avatar={avatar} close={close} heroName={heroName} spellbook={spellbook} viewer={viewer} castleUnlocked={castleUnlocked} />;
 }
