@@ -328,7 +328,7 @@ export function Panel({
 }) {
   const board = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    board.current && firstFocus(board.current)?.focus();
+    if (board.current) firstFocus(board.current)?.focus();
   }, []);
   return (
     <div className="r3-dim" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
