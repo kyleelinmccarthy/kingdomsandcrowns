@@ -218,6 +218,13 @@
       "when": 1790189068986,
       "tag": "0030_purple_hulk",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "6",
+      "when": 1790190724051,
+      "tag": "0031_mixed_magik",
+      "breakpoints": true
     }
   ]
 }

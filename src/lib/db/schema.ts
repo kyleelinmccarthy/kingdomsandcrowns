@@ -702,10 +702,10 @@ export const realmSettings = sqliteTable(
     // The most Realm minutes a day that clearing troubles may earn (1 per clear). 0 turns the
     // bounty off. It can never outrun the day's schoolwork: see `lib/realm/spells/bounty.ts`.
     troubleBonusCapMinutes: integer("trouble_bonus_cap_minutes").notNull().default(5),
-    // The 3D Realm's sound: the hero's own volume, effects, music and mute, and a visiting
-    // grown-up's, each as JSON (`lib/realm3d/sound/settings.ts`). Null is the defaults.
+    // The 3D Realm's sound: the hero's own volume, effects, music and mute, as JSON
+    // (`lib/realm3d/sound/settings.ts`). Null is the defaults. A visiting grown-up's own are
+    // `realm_visitor_sound`, kept per grown-up.
     sound: text("sound"),
-    visitorSound: text("visitor_sound"),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   }
@@ -779,6 +779,20 @@ export const learningProfile = sqliteTable(
  * rows every time, the same discipline XP follows. Nothing here is updated
  * or deleted by the app.
  */
+/**
+ * A grown-up's own sound settings for visiting a Realm, one row per grown-up (JSON, as
+ * `realm_settings.sound`). Per user, not per child: it is their ears, not the child's Realm, so
+ * one parent muting a visit never mutes the other parent or the tutor, and a view-only member
+ * can keep their own without write access to anything of the child's. No row is the defaults.
+ */
+export const realmVisitorSound = sqliteTable("realm_visitor_sound", {
+  userId: text("user_id")
+    .primaryKey()
+    .references(() => user.id, { onDelete: "cascade" }),
+  sound: text("sound").notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+});
+
 export const realmPlayLedger = sqliteTable(
   "realm_play_ledger",
   {

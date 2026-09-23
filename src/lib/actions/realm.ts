@@ -46,6 +46,14 @@ export type RealmBundle = {
   tutorialStep: number;
   /** The 3D Realm's sound settings for whoever is looking: the hero's own, or a visiting grown-up's own. */
   sound?: SoundSettings;
+  /**
+   * May whoever is looking change this child's Realm (`setRealmDepth`, `updateRealmSettings`)?
+   * The hero on their own Realm, and a grown-up with edit rights; never a view-only member (a
+   * teacher, say), whose writes the server refuses. Their own sound needs no write access, so it
+   * is not gated by this. Always set by `getRealmBundle`; optional only so hand-built bundles in
+   * tests need not carry it.
+   */
+  canEdit?: boolean;
 };
 
 const VILLAGERS_RESTING = "The villagers are resting. Try again.";
@@ -65,7 +73,7 @@ export async function getRealmKingdom(childId: string): Promise<KingdomState> {
 export async function getRealmBundle(childId: string): Promise<RealmBundle> {
   const { access } = await requireChildAccess(childId);
   // In flight alongside everything below; a failed read is the defaults, never a closed Realm.
-  const soundRead = loadRealmSound(childId, !isChildActor(access)).catch(() => ({ ...DEFAULT_SOUND }));
+  const soundRead = loadRealmSound(childId, isChildActor(access) ? null : access.userId).catch(() => ({ ...DEFAULT_SOUND }));
   // Also hands back the flags it read (post-update), so the parallel batch below does not
   // pay a second `loadRealmFlags` round trip just to read `helpSeenAt`. On the (rare) failure
   // path, fall back to a direct read so a starter-spell hiccup never misreports `helpSeen`.
@@ -135,5 +143,6 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
     depth: realmDepth({ tutorialComplete: tutorialLearned(settings.tutorialStep), override: settings.depthOverride }),
     tutorialStep: settings.tutorialStep,
     sound: await soundRead,
+    canEdit: access.permission === "edit",
   };
 }

@@ -41,7 +41,7 @@ const DDL = [
     daily_cap_minutes integer DEFAULT 30 NOT NULL, tone_mode text DEFAULT 'gentle' NOT NULL,
     help_seen_at integer, starter_spell_at integer, depth_override text DEFAULT 'auto' NOT NULL,
     tutorial_step integer DEFAULT 0 NOT NULL, trouble_bonus_cap_minutes integer DEFAULT 5 NOT NULL,
-    sound text, visitor_sound text, created_at integer NOT NULL, updated_at integer NOT NULL)`,
+    sound text, created_at integer NOT NULL, updated_at integer NOT NULL)`,
   `CREATE TABLE realm_play_ledger (
     id text PRIMARY KEY NOT NULL, child_id text NOT NULL, date text NOT NULL, kind text NOT NULL,
     minutes integer NOT NULL, source_assignment_id text, created_at integer NOT NULL)`,

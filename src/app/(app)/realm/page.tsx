@@ -7,6 +7,7 @@ import { ChildSelector } from "@/components/child-selector";
 import { GameFrame } from "@/components/game-frame";
 import { GameIcon } from "@/components/game-icon";
 import { RealmFrame } from "@/components/realm3d/realm-frame";
+import type { RealmData } from "@/components/realm3d/realm-game";
 import { SwitchHero } from "@/components/switch-hero";
 import { getCastle } from "@/lib/actions/castle";
 import { castleUnlocked } from "@/lib/realm3d/frame";
@@ -77,30 +78,35 @@ export default async function RealmPage({ searchParams }: { searchParams: Promis
   const castle = await getCastle(activeChild.id).catch(() => null);
   const unlocked = castleUnlocked(levelFromXp(activeChild.currentXp), castle !== null);
 
+  const realm: RealmData = {
+    childId: activeChild.id,
+    isChildView,
+    kingdom: bundle.kingdom,
+    ...(bundle.kingdomError ? { kingdomError: bundle.kingdomError } : {}),
+    castleType: bundle.castleType,
+    banners: bundle.banners,
+    profile,
+    depth: bundle.depth,
+    toneMode: bundle.settings.toneMode,
+    // The tutorial, the first-visit welcome and a waiting crown are the child's own; the
+    // bundle never sends a grown-up a ceremony, and the game runs neither for one.
+    tutorialStep: bundle.tutorialStep,
+    helpSeen: bundle.helpSeen,
+    sound: bundle.sound,
+    ceremony: bundle.ceremony
+      ? { seasonId: bundle.ceremony.seasonId, crownId: bundle.ceremony.crownId, ordinal: bundle.ceremony.ordinal, seasonLabel: bundle.ceremony.seasonLabel }
+      : devCeremony
+        ? { seasonId: "screenshot", crownId: devCeremony, ordinal: 1, seasonLabel: "A screenshot's season" }
+        : null,
+    // May this viewer write the child's settings (depth, troubles' look)? False for a view-only
+    // grown-up, whose saves the server refuses, so the pause menu leaves those out.
+    viewerCanWrite: bundle.canEdit ?? false,
+  };
+
   return (
     <RealmFrame
       key={activeChild.id}
-      realm={{
-        childId: activeChild.id,
-        isChildView,
-        kingdom: bundle.kingdom,
-        ...(bundle.kingdomError ? { kingdomError: bundle.kingdomError } : {}),
-        castleType: bundle.castleType,
-        banners: bundle.banners,
-        profile,
-        depth: bundle.depth,
-        toneMode: bundle.settings.toneMode,
-        // The tutorial, the first-visit welcome and a waiting crown are the child's own; the
-        // bundle never sends a grown-up a ceremony, and the game runs neither for one.
-        tutorialStep: bundle.tutorialStep,
-        helpSeen: bundle.helpSeen,
-        sound: bundle.sound,
-        ceremony: bundle.ceremony
-          ? { seasonId: bundle.ceremony.seasonId, crownId: bundle.ceremony.crownId, ordinal: bundle.ceremony.ordinal, seasonLabel: bundle.ceremony.seasonLabel }
-          : devCeremony
-            ? { seasonId: "screenshot", crownId: devCeremony, ordinal: 1, seasonLabel: "A screenshot's season" }
-            : null,
-      }}
+      realm={realm}
       // `?name=` and the avatar fields restyle a screenshot; see lib/realm3d/overrides.ts.
       heroName={one(q, "name") ?? bundle.heroName}
       avatar={overrideAvatar(bundle.avatarConfig ?? DEFAULT_AVATAR, q)}
