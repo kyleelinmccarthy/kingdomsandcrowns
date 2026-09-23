@@ -1203,9 +1203,9 @@ function castle(colors: RoomColors): RoomPlan {
   r.ball("#d9a441", fx, 1.2, -2.2, 0.3, 0.16, 0.2).ball("#d9a441", fx, 1.2, 3.2, 0.3, 0.16, 0.2);
   for (let i = 0; i < 5; i++) r.ball(i % 2 ? "#d23c3c" : "#6fb04a", fx - 0.15 + (i % 2) * 0.3, 1.2, 1.6 + i * 0.12, 0.1);
   // Chandeliers of candles, hung high.
-  // (High, and clear of the dais: from the throne end of the hall the camera looks over them.)
+  // One, high and near the door: anywhere up the hall it hangs between the camera and the throne.
   const CH = 9.4;
-  for (const z of [5.5, -1.5]) {
+  for (const z of [8.0]) {
     r.cyl("#2b2420", 0, (H + CH) / 2, z, 0.03, H - CH, 0.03, { seg: 4 });
     r.cyl("#2b2420", 0, CH, z, 1.5, 0.12, 1.5, { seg: 16 });
     for (let i = 0; i < 8; i++) {
