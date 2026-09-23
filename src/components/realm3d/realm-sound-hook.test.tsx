@@ -151,7 +151,7 @@ describe("the Realm's sound, wired to the game", () => {
     expect(shots()).toHaveLength(3);
     bus.feet.onStep(3, 30);
     bus.feet.onJump();
-    tbus.onEvent({ kind: "cleared", trouble: "fog", home: 0, x: 0, z: 0, count: 1 }, null);
+    tbus.onEvent({ kind: "cleared", trouble: "fog", home: 0, x: 0, z: 0, count: 1 }, null, null);
     realmCue("deed-right");
     expect(shots()).toHaveLength(7);
   });

@@ -72,7 +72,7 @@ describe("the notices, in the top lane", () => {
     vi.useFakeTimers();
     const tbus = makeTroubleBus();
     render(<TroubleNotices tbus={tbus} skin="monsters" pages={pages} paused={false} />);
-    act(() => tbus.onEvent(ev("cleared", "fog", 2), "Cloudfoot"));
+    act(() => tbus.onEvent(ev("cleared", "fog", 2), "Cloudfoot", null));
     expect(screen.getByRole("status")).toHaveTextContent("The mist-wisp scatters!");
     expect(screen.getByRole("status")).toHaveTextContent("Cloudfoot is clear. 2 cleared today.");
     act(() => void vi.advanceTimersByTime(NOTICE_MS + 10));
@@ -84,14 +84,14 @@ describe("the notices, in the top lane", () => {
     const tbus = makeTroubleBus();
     render(<TroubleNotices tbus={tbus} skin="gentle" pages={pages} paused={false} />);
     expect(tbus.skin).toBe("gentle");
-    act(() => tbus.onEvent(ev("cleared", "shadow-blob"), null));
+    act(() => tbus.onEvent(ev("cleared", "shadow-blob"), null, null));
     expect(screen.getByRole("status")).toHaveTextContent("The shadow slips away.");
   });
 
   it("names the key that casts the first time a trouble is near", () => {
     const tbus = makeTroubleBus();
     render(<TroubleNotices tbus={tbus} skin="gentle" pages={pages} paused={false} />);
-    act(() => tbus.onEvent(ev("sighted", "cursed-stone"), null));
+    act(() => tbus.onEvent(ev("sighted", "cursed-stone"), null, null));
     expect(screen.getByRole("status")).toHaveTextContent("A cursed stone is near!");
     expect(screen.getByRole("status")).toHaveTextContent("Press 1 to cast at it.");
   });
@@ -99,7 +99,7 @@ describe("the notices, in the top lane", () => {
   it("stays out of the way under a menu", () => {
     const tbus = makeTroubleBus();
     render(<TroubleNotices tbus={tbus} skin="gentle" pages={pages} paused />);
-    act(() => tbus.onEvent(ev("bounced", "shadow-blob"), null));
+    act(() => tbus.onEvent(ev("bounced", "shadow-blob"), null, null));
     expect(screen.queryByRole("status")).toBeNull();
   });
 });

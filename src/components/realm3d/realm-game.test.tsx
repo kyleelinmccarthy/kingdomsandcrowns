@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { HudBus } from "@/lib/realm3d/hud-bus";
+import type { TroubleBus } from "@/lib/realm3d/trouble-bus";
 import type { CastQueue } from "@/lib/realm3d/casting";
 import { DEFAULT_LEARNING_PROFILE } from "@/lib/utils/learning-profile";
 
@@ -62,6 +63,7 @@ import { answerDeedQuestion, completeDeedRun, startDeedRun } from "@/lib/actions
 import { getRealmKingdom } from "@/lib/actions/realm";
 import { markRealmHelpSeen, setTutorialStep } from "@/lib/actions/realm-settings";
 import { markCeremonySeen } from "@/lib/actions/seasons";
+import { getTroubleBounty, recordTroubleClears } from "@/lib/actions/realm-play";
 import { LEGACY_STEPS, LESSONS, STORED_MAX } from "@/lib/realm3d/tutorial";
 import { findBuilding } from "@/lib/utils/kingdom";
 import { RealmGame, type RealmData } from "./realm-game";
@@ -514,5 +516,27 @@ describe("the crown ceremony", () => {
   it("is never held for a visiting grown-up", () => {
     mount({ viewer: "parent", realm: { ...crowned, isChildView: false } });
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+});
+
+describe("clearing a trouble, through the whole frame", () => {
+  // Each half of this was tested alone and passed while the whole lost the trouble's home: the
+  // sound's tap on the trouble bus dropped the third argument. So this goes through everything
+  // `RealmGame` really mounts on the one bus — the sound, the notices, the bounty — and fires the
+  // event exactly as `troubles-scene.tsx` does.
+  it("sends the cleared trouble's home to the bounty, with the sound listening in", async () => {
+    vi.mocked(getTroubleBounty).mockResolvedValue({ enabled: true, capMinutes: 5, subCapMinutes: 5, paidMinutes: 0, remainingMinutes: 5, clearsToday: 0, paidHomes: [] });
+    vi.mocked(recordTroubleClears).mockResolvedValue({
+      awarded: 1,
+      status: { enabled: true, capMinutes: 5, subCapMinutes: 5, paidMinutes: 1, remainingMinutes: 4, clearsToday: 1, paidHomes: ["place-summit-1"] },
+    } as never);
+    const { view } = mount();
+    // The purse is seeded from the server first.
+    await act(async () => {});
+    const tbus = handed.props!.troubles as TroubleBus;
+    await act(async () => tbus.onEvent({ kind: "cleared", trouble: "fog", home: 0, x: 0, z: 0, count: 1 }, "Cloudfoot", "place-summit-1"));
+    expect(recordTroubleClears).toHaveBeenCalledWith("demo-child-1", expect.any(String), ["place-summit-1"]);
+    expect(screen.getByText(/\+1 minute/)).toBeInTheDocument();
+    view.unmount();
   });
 });

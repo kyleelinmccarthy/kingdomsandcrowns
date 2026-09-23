@@ -69,8 +69,9 @@ export function tapTroubles(tbus: TroubleBus, listener: (e: TroubleEvent) => voi
     tap = t;
     troubleTaps.set(tbus, t);
     const install = tbus.setHandler;
-    const wrap = (fn: TroubleBus["onEvent"]): TroubleBus["onEvent"] => (e, place) => {
-      fn(e, place);
+    // Every argument goes through: the notices need the trouble's home for the bounty.
+    const wrap = (fn: TroubleBus["onEvent"]): TroubleBus["onEvent"] => (e, place, homeId) => {
+      fn(e, place, homeId);
       t.listener?.(e);
     };
     tbus.setHandler = (fn) => install(wrap(fn));

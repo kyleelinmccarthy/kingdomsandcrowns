@@ -16,6 +16,8 @@
 import type { TroubleKind, TroubleSkin } from "@/lib/realm/spells/troubles";
 import { TROUBLE_POOL, type TroubleEvent } from "./troubles3d";
 
+export type TroubleHandler = (e: TroubleEvent, placeName: string | null, homeId: string | null) => void;
+
 export type TroubleBus = {
   skin: TroubleSkin;
   /** One marker per trouble pool slot: the plate, its name, and its pips. */
@@ -24,13 +26,18 @@ export type TroubleBus = {
   pips: (HTMLElement | null)[];
   /** One dot per pool slot on the minimap, inside the map's panning world group. */
   marks: (SVGGElement | null)[];
-  /** A cleared trouble, a bump, the first sighting: `placeName` is the place it haunted, if any, and `homeId` its home (for the bounty). */
-  onEvent: (e: TroubleEvent, placeName: string | null, homeId?: string | null) => void;
+  /**
+   * A cleared trouble, a bump, the first sighting: `placeName` is the place it haunted, if any,
+   * and `homeId` its home (for the bounty). `homeId` is REQUIRED, null when there is none, so
+   * anything that wraps this handler (the sound's tap) cannot type-check while dropping it — a
+   * dropped home silently stops the bounty paying.
+   */
+  onEvent: TroubleHandler;
 
   setSkin(skin: TroubleSkin): void;
   setPlate(index: number, which: "plate" | "name" | "pips", el: HTMLElement | null): void;
   setMark(index: number, el: SVGGElement | null): void;
-  setHandler(fn: (e: TroubleEvent, placeName: string | null, homeId?: string | null) => void): void;
+  setHandler(fn: TroubleHandler): void;
 
   /** @internal — the write cache. */
   last: { plate: string[]; shown: boolean[]; label: string[]; pips: string[]; mark: string[] };

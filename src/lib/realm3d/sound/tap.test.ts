@@ -60,8 +60,9 @@ describe("listening in on the trouble bus", () => {
     tapTroubles(tbus, heard);
     const notices = vi.fn();
     tbus.setHandler(notices);
-    tbus.onEvent(ev("cleared"), "Cloudfoot");
-    expect(notices).toHaveBeenCalledWith(ev("cleared"), "Cloudfoot");
+    tbus.onEvent(ev("cleared"), "Cloudfoot", "place-summit-1");
+    // All of it, the home too: the notices hand it to the bounty.
+    expect(notices).toHaveBeenCalledWith(ev("cleared"), "Cloudfoot", "place-summit-1");
     expect(heard).toHaveBeenCalledWith(ev("cleared"));
   });
 });
