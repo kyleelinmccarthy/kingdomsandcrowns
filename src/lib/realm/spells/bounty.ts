@@ -18,6 +18,7 @@
  */
 
 import { minutesSpent, type LedgerRow, type RealmAccessMode } from "@/lib/utils/realm-access";
+import { PLACES } from "@/lib/realm/layout";
 
 export const MINUTES_PER_CLEAR = 1;
 /** "One grant", never zero: the sub-cap's floor when `earnedMinutesPerQuest` is 0. */
@@ -26,6 +27,12 @@ export const BOUNTY_FLOOR_MINUTES = 1;
 export const CLEARS_PER_FLUSH = 3;
 /** ...or this long after the last one. */
 export const FLUSH_IDLE_MS = 4000;
+/**
+ * The client gives a batch up after this many refusals in a row. A refusal that lasts (an expired
+ * session, a date the server no longer takes) would otherwise sit at the head of the queue for
+ * the rest of the visit, and every clear after it would wait behind it.
+ */
+export const MAX_FLUSH_FAILURES = 3;
 /** A stuck or lying client cannot bank a day in one call. */
 export const MAX_CLEARS_PER_CALL = 12;
 /**
@@ -148,24 +155,40 @@ export function awardClears(
 
 /**
  * A trouble home id as `planHomes` writes them (`lib/realm3d/troubles3d.ts`): one of the three
- * outskirts slots, or a named place's id. Anything else did not come from the game.
+ * outskirts slots, or a landmark's id behind `place-`. Landmarks are the five authored `PLACES`
+ * and the generator's own (`lib/realm3d/worldgen.ts`, `${kind}-${n}`, n under a hundred or so).
+ * Anything else did not come from the game — and any `place-*` string used to pass, which gave a
+ * hand-made request an unlimited supply of homes that had never paid.
  */
-const HOME_ID = /^(rim-[0-2]|place-[a-z][a-z0-9-]{0,39})$/;
+const GENERATED_KINDS = ["summit", "deepwood", "tarn", "cove", "mire", "outcrop"] as const;
+const HOME_ID = new RegExp(
+  `^(rim-[0-2]|place-(${PLACES.map((p) => p.id).join("|")})|place-(${GENERATED_KINDS.join("|")})-[1-9][0-9]{0,2})$`,
+);
 
 export function isTroubleHomeId(id: unknown): id is string {
   return typeof id === "string" && HOME_ID.test(id);
 }
 
+/** The world's earliest and latest clocks: UTC-12 and UTC+14. */
+const WEST_MS = 12 * 3_600_000;
+const EAST_MS = 14 * 3_600_000;
+
+function utcDay(ms: number): string {
+  return new Date(ms).toISOString().slice(0, 10);
+}
+
 /**
  * The hero's local day is sent by the client, so the server checks it is today somewhere on
- * Earth — within a day of its own UTC date — or a client could bank tomorrow's allowance today.
+ * Earth right now: the date at UTC-12, the date at UTC+14, or (when they differ by two) the one
+ * between. A date nobody has reached yet is refused, so tomorrow's allowance cannot be banked
+ * tonight, and a date that has ended everywhere is refused too.
  */
 export function isNearToday(date: string, now: Date): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
   const t = Date.parse(`${date}T00:00:00Z`);
-  if (Number.isNaN(t)) return false;
-  const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
-  return Math.abs(t - today) <= 86_400_000;
+  if (Number.isNaN(t) || utcDay(t) !== date) return false;
+  const at = now.getTime();
+  return date >= utcDay(at - WEST_MS) && date <= utcDay(at + EAST_MS);
 }
 
 /* ----------------------------------------------------------- the client's half */

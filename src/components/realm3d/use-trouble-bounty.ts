@@ -25,6 +25,7 @@ import {
   CLEARS_PER_FLUSH,
   FLUSH_IDLE_MS,
   MAX_CLEARS_PER_CALL,
+  MAX_FLUSH_FAILURES,
   startPurse,
   takeClear,
   type ClearOutcome,
@@ -54,6 +55,8 @@ export function useTroubleBounty({
   const purse = useRef(startPurse());
   const queue = useRef<string[]>([]);
   const inflight = useRef(false);
+  /** Refusals in a row of the batch at the head of the queue. */
+  const failures = useRef(0);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const awardedRef = useRef(onAwarded);
   const [gained, setGained] = useState(0);
@@ -88,13 +91,18 @@ export function useTroubleBounty({
     let failed = false;
     try {
       const r = await recordTroubleClears(childId, localDateOf(new Date()), batch);
+      failures.current = 0;
       applyStatus(purse.current, r.status, queue.current);
       if (r.awarded > 0) awardedRef.current?.();
     } catch {
       // Not lost: the batch goes back to the front of the queue and rides the next flush. A
       // clear is worth a minute at most, and the ledger is append-only — losing one on a torn
-      // down page is strictly better than paying one twice.
-      queue.current.unshift(...batch);
+      // down page is strictly better than paying one twice. But not for ever: a refusal that
+      // lasts would hold back every later clear for the rest of the visit, so after
+      // MAX_FLUSH_FAILURES the batch is dropped and the next clears go out on their own.
+      failures.current += 1;
+      if (failures.current < MAX_FLUSH_FAILURES) queue.current.unshift(...batch);
+      else failures.current = 0;
       failed = true;
     } finally {
       inflight.current = false;

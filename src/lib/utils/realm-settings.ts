@@ -51,6 +51,18 @@ function inRange(v: unknown, r: { min: number; max: number }): v is number {
 // Realm's lessons are stored above the flat ones, so the bound is theirs: `STORED_MAX`.
 const isTutorialStep = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v) && v >= 0 && v <= STORED_MAX;
 
+/**
+ * Reading is kinder than writing: a whole number above `STORED_MAX` was written by a build with
+ * a longer ladder (a rollback, or a tab left open across a deploy), so it means "finished" and is
+ * clamped to this build's end. Reading it as 0 sent a finished child back to lesson 1, and their
+ * next lesson then overwrote the finished value for good. Anything that is not a whole number
+ * at or above 0 is corrupt and starts over.
+ */
+function storedTutorialStep(v: unknown): number {
+  if (typeof v !== "number" || !Number.isInteger(v) || v < 0) return DEFAULT_REALM_SETTINGS.tutorialStep;
+  return Math.min(v, STORED_MAX);
+}
+
 export function settingsFromRow(row: Partial<Record<keyof RealmSettings, unknown>> | null | undefined): RealmSettings {
   if (!row) return { ...DEFAULT_REALM_SETTINGS };
   return {
@@ -61,7 +73,7 @@ export function settingsFromRow(row: Partial<Record<keyof RealmSettings, unknown
     dailyCapMinutes: inRange(row.dailyCapMinutes, DAILY_CAP_RANGE) ? row.dailyCapMinutes : DEFAULT_REALM_SETTINGS.dailyCapMinutes,
     toneMode: TONES.includes(row.toneMode as ToneMode) ? (row.toneMode as ToneMode) : DEFAULT_REALM_SETTINGS.toneMode,
     depthOverride: isDepthOverride(row.depthOverride) ? row.depthOverride : DEFAULT_REALM_SETTINGS.depthOverride,
-    tutorialStep: isTutorialStep(row.tutorialStep) ? row.tutorialStep : DEFAULT_REALM_SETTINGS.tutorialStep,
+    tutorialStep: storedTutorialStep(row.tutorialStep),
     troubleBonusCapMinutes: inRange(row.troubleBonusCapMinutes, TROUBLE_BONUS_RANGE)
       ? row.troubleBonusCapMinutes
       : DEFAULT_REALM_SETTINGS.troubleBonusCapMinutes,

@@ -4,7 +4,10 @@ import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { settingsFromRow, type RealmSettings } from "@/lib/utils/realm-settings";
 import type { LedgerRow } from "@/lib/utils/realm-access";
-import type { ClearRow } from "@/lib/realm/spells/bounty";
+import { awardClears, bountyStatusFor, MAX_CLEARS_PER_MINUTE, type BountyStatus, type ClearRow } from "@/lib/realm/spells/bounty";
+
+/** The database, or a transaction on it: the reads and writes below run on either. */
+type Exec = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
 
 /**
  * Realm play-time plumbing shared by the actions and the quest-completion
@@ -12,13 +15,13 @@ import type { ClearRow } from "@/lib/realm/spells/bounty";
  */
 
 /** Insert-if-missing then select, so two first reads can't make two rows. */
-export async function loadRealmSettings(childId: string): Promise<RealmSettings> {
+export async function loadRealmSettings(childId: string, exec: Exec = db): Promise<RealmSettings> {
   const now = new Date();
-  await db
+  await exec
     .insert(schema.realmSettings)
     .values({ id: nanoid(), childId, createdAt: now, updatedAt: now })
     .onConflictDoNothing();
-  const rows = await db
+  const rows = await exec
     .select()
     .from(schema.realmSettings)
     .where(eq(schema.realmSettings.childId, childId))
@@ -45,8 +48,8 @@ export async function loadRealmFlags(childId: string): Promise<{ helpSeenAt: Dat
   return { helpSeenAt: rows[0]?.helpSeenAt ?? null, starterSpellAt: rows[0]?.starterSpellAt ?? null };
 }
 
-export async function loadLedger(childId: string, date: string): Promise<LedgerRow[]> {
-  return db
+export async function loadLedger(childId: string, date: string, exec: Exec = db): Promise<LedgerRow[]> {
+  return exec
     .select({ kind: schema.realmPlayLedger.kind, minutes: schema.realmPlayLedger.minutes })
     .from(schema.realmPlayLedger)
     .where(and(eq(schema.realmPlayLedger.childId, childId), eq(schema.realmPlayLedger.date, date)));
@@ -57,9 +60,10 @@ export async function appendLedger(
   date: string,
   kind: LedgerRow["kind"],
   minutes: number,
-  sourceAssignmentId: string | null = null
+  sourceAssignmentId: string | null = null,
+  exec: Exec = db
 ): Promise<void> {
-  await db.insert(schema.realmPlayLedger).values({
+  await exec.insert(schema.realmPlayLedger).values({
     id: nanoid(),
     childId,
     date,
@@ -71,8 +75,8 @@ export async function appendLedger(
 }
 
 /** The troubles a hero cleared on `date`, oldest first: what each home paid, for the bounty. */
-export async function loadTroubleClears(childId: string, date: string): Promise<ClearRow[]> {
-  return db
+export async function loadTroubleClears(childId: string, date: string, exec: Exec = db): Promise<ClearRow[]> {
+  return exec
     .select({ homeId: schema.realmTroubleClear.homeId, minutes: schema.realmTroubleClear.minutes })
     .from(schema.realmTroubleClear)
     .where(and(eq(schema.realmTroubleClear.childId, childId), eq(schema.realmTroubleClear.date, date)))
@@ -80,8 +84,8 @@ export async function loadTroubleClears(childId: string, date: string): Promise<
 }
 
 /** How many clears this hero has recorded since `since`, on any day. */
-export async function countTroubleClearsSince(childId: string, since: Date): Promise<number> {
-  const rows = await db
+export async function countTroubleClearsSince(childId: string, since: Date, exec: Exec = db): Promise<number> {
+  const rows = await exec
     .select({ n: count() })
     .from(schema.realmTroubleClear)
     .where(and(eq(schema.realmTroubleClear.childId, childId), gt(schema.realmTroubleClear.createdAt, since)));
@@ -94,12 +98,12 @@ export async function countTroubleClearsSince(childId: string, since: Date): Pro
  * retried request) is inserted unpaid instead, and only the minutes that actually landed are
  * banked, so the ledger can never pay a home twice.
  */
-export async function recordTroubleClearRows(childId: string, date: string, rows: readonly ClearRow[]): Promise<number> {
+export async function recordTroubleClearRows(childId: string, date: string, rows: readonly ClearRow[], exec: Exec = db): Promise<number> {
   const now = new Date();
   let banked = 0;
   for (const r of rows) {
     if (r.minutes > 0) {
-      const landed = await db
+      const landed = await exec
         .insert(schema.realmTroubleClear)
         .values({ id: nanoid(), childId, date, homeId: r.homeId, minutes: r.minutes, createdAt: now })
         .onConflictDoNothing()
@@ -109,10 +113,83 @@ export async function recordTroubleClearRows(childId: string, date: string, rows
         continue;
       }
     }
-    await db.insert(schema.realmTroubleClear).values({ id: nanoid(), childId, date, homeId: r.homeId, minutes: 0, createdAt: now });
+    await exec.insert(schema.realmTroubleClear).values({ id: nanoid(), childId, date, homeId: r.homeId, minutes: 0, createdAt: now });
   }
-  if (banked > 0) await appendLedger(childId, date, "bonus", banked);
+  if (banked > 0) await appendLedger(childId, date, "bonus", banked, null, exec);
   return banked;
+}
+
+/**
+ * The whole award as one write transaction: the per-minute limit, the day's allowance, the award
+ * and its writes. Read-then-write outside a transaction let two calls at once (two tabs, a
+ * replayed request) both read an untouched allowance and both bank it in full; the unique index
+ * only stops the same home paying twice, not two calls paying different homes. A libsql write
+ * transaction takes the write lock at BEGIN, so the second call reads what the first wrote.
+ *
+ * Calls for one hero in one server process also queue behind each other before they reach the
+ * database. That is not only politeness: the local libsql driver leaves a statement that failed
+ * on a busy lock un-reset on its connection, and the next COMMIT on that connection then fails
+ * too, holding the lock. Across processes (production's instances on Turso) the transaction is
+ * what serializes, and a busy lock is retried briefly.
+ */
+export async function awardTroubleClears(
+  childId: string,
+  date: string,
+  homeIds: readonly string[],
+): Promise<{ awarded: number; status: BountyStatus }> {
+  return queued(childId, () =>
+    withWriteRetry(() =>
+      db.transaction(async (tx) => {
+        const recent = await countTroubleClearsSince(childId, new Date(Date.now() - 60_000), tx);
+        const batch = homeIds.slice(0, Math.max(0, MAX_CLEARS_PER_MINUTE - recent));
+        const settings = await loadRealmSettings(childId, tx);
+        let awarded = 0;
+        if (batch.length > 0) {
+          const { rows } = awardClears(batch, await loadLedger(childId, date, tx), settings, await loadTroubleClears(childId, date, tx));
+          awarded = await recordTroubleClearRows(childId, date, rows, tx);
+        }
+        // Read back inside the lock, so the answer is exactly what this call left behind.
+        const status = bountyStatusFor(await loadLedger(childId, date, tx), settings, await loadTroubleClears(childId, date, tx));
+        return { awarded, status };
+      }),
+    ),
+  );
+}
+
+const awardQueues = new Map<string, Promise<unknown>>();
+
+/** Runs `run` after every earlier call for the same key has settled, in this process. */
+async function queued<T>(key: string, run: () => Promise<T>): Promise<T> {
+  const before = awardQueues.get(key) ?? Promise.resolve();
+  const mine = before.catch(() => {}).then(run);
+  const tail = mine.catch(() => {});
+  awardQueues.set(key, tail);
+  try {
+    return await mine;
+  } finally {
+    if (awardQueues.get(key) === tail) awardQueues.delete(key);
+  }
+}
+
+/** A second writer that finds the lock taken waits its turn, briefly, rather than failing the child's clears. */
+async function withWriteRetry<T>(run: () => Promise<T>, attempts = 5): Promise<T> {
+  for (let i = 1; ; i++) {
+    try {
+      return await run();
+    } catch (err) {
+      if (i >= attempts || !isBusy(err)) throw err;
+      await new Promise((r) => setTimeout(r, 25 * i));
+    }
+  }
+}
+
+function isBusy(err: unknown): boolean {
+  for (let e: unknown = err; e; e = (e as { cause?: unknown }).cause) {
+    const code = (e as { code?: unknown }).code;
+    const message = (e as { message?: unknown }).message;
+    if (code === "SQLITE_BUSY" || (typeof message === "string" && /SQLITE_BUSY|database is locked/i.test(message))) return true;
+  }
+  return false;
 }
 
 /**

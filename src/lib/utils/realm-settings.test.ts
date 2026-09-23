@@ -84,7 +84,17 @@ describe("tutorialStep", () => {
 
   it("defaults a missing or corrupt tutorial step to the beginning", () => {
     expect(DEFAULT_REALM_SETTINGS.tutorialStep).toBe(0);
-    expect(settingsFromRow({ ...ROW, tutorialStep: 99 }).tutorialStep).toBe(0);
+    expect(settingsFromRow({ ...ROW, tutorialStep: -1 }).tutorialStep).toBe(0);
+    expect(settingsFromRow({ ...ROW, tutorialStep: 2.5 }).tutorialStep).toBe(0);
+    expect(settingsFromRow({ ...ROW, tutorialStep: "7" }).tutorialStep).toBe(0);
     expect(settingsFromRow({ ...ROW, tutorialStep: STORED_MAX }).tutorialStep).toBe(STORED_MAX);
+  });
+
+  it("reads a step past this build's ladder as finished, never as never-started", () => {
+    // A newer build (a longer ladder) wrote it, and an older build — a rollback, or a tab left
+    // open across a deploy — is reading it. Resetting it to 0 sent a child who had finished
+    // back to lesson 1, and their next lesson then overwrote the finished value for good.
+    expect(settingsFromRow({ ...ROW, tutorialStep: STORED_MAX + 1 }).tutorialStep).toBe(STORED_MAX);
+    expect(settingsFromRow({ ...ROW, tutorialStep: 99 }).tutorialStep).toBe(STORED_MAX);
   });
 });

@@ -7,20 +7,17 @@ import * as schema from "@/lib/db/schema";
 import { requireChildAccess, isChildActor } from "@/lib/auth/access";
 import {
   appendLedger,
-  countTroubleClearsSince,
+  awardTroubleClears,
   loadLedger,
   loadRealmSettings,
   loadTroubleClears,
-  recordTroubleClearRows,
 } from "@/lib/services/realm-play";
 import {
-  awardClears,
   bonusMinutesToday,
   bountyStatusFor,
   isNearToday,
   isTroubleHomeId,
   MAX_CLEARS_PER_CALL,
-  MAX_CLEARS_PER_MINUTE,
   type BountyStatus,
 } from "@/lib/realm/spells/bounty";
 import { computeRealmAccess, ledgerBalance, minutesSpent, type AccessResult } from "@/lib/utils/realm-access";
@@ -137,7 +134,9 @@ export async function getTroubleBounty(childId: string, date: string): Promise<B
  *   - only home ids the game writes, at most `MAX_CLEARS_PER_CALL` a call and
  *     `MAX_CLEARS_PER_MINUTE` a minute (the excess is dropped, not recorded);
  *   - a minute each for a home that has not paid today, under the day's sub-cap and the
- *     parent's daily cap (`awardClears`), and a unique index behind that.
+ *     parent's daily cap (`awardClears`), and a unique index behind that;
+ *   - all of it decided and written in one write transaction (`awardTroubleClears`), so two
+ *     calls at once cannot each spend the same allowance.
  */
 export async function recordTroubleClears(
   childId: string,
@@ -153,18 +152,5 @@ export async function recordTroubleClears(
   }
   if (!homeIds.every(isTroubleHomeId)) throw new Error("That isn't a trouble the Realm knows.");
 
-  const recent = await countTroubleClearsSince(childId, new Date(Date.now() - 60_000));
-  const room = Math.max(0, MAX_CLEARS_PER_MINUTE - recent);
-  const batch = homeIds.slice(0, room);
-  let awarded = 0;
-  if (batch.length > 0) {
-    const [settings, ledgerToday, clears] = await Promise.all([
-      loadRealmSettings(childId),
-      loadLedger(childId, date),
-      loadTroubleClears(childId, date),
-    ]);
-    const { rows } = awardClears(batch, ledgerToday, settings, clears);
-    awarded = await recordTroubleClearRows(childId, date, rows);
-  }
-  return { awarded, status: await bountyStatus(childId, date) };
+  return awardTroubleClears(childId, date, homeIds);
 }
