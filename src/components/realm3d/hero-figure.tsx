@@ -19,6 +19,27 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import type { CompanionLook, GearLook, HeroLook } from "@/lib/realm3d/hero-look";
 import { heightAt } from "@/lib/realm3d/heightfield";
+import type { Collider } from "@/lib/realm3d/collision";
+import {
+  arrivalFor,
+  leadOver,
+  leadStarted,
+  makeLeadStep,
+  planLead,
+  plotsOf,
+  putPet,
+  setLeadAside,
+  setLeadMode,
+  startLead,
+  stepLead,
+  takeAsk,
+  takeStop,
+  type LeadBus,
+  type LeadContext,
+  type LeadRun,
+} from "@/lib/realm3d/lead";
+import { travelGraphFor } from "@/lib/realm3d/travel";
+import type { RealmWorld } from "@/lib/realm3d/worldgen";
 
 /** Written by the mover each frame: how fast (0..1 of top speed) and where in the walk cycle. */
 export type Gait = { speed: number; phase: number };
@@ -1835,6 +1856,10 @@ export function Companion({
   hideRef,
   trail,
   groundAt,
+  lead = null,
+  world,
+  solids,
+  layout,
 }: {
   look: CompanionLook;
   heroRef: React.RefObject<THREE.Vector3>;
@@ -1852,10 +1877,38 @@ export function Companion({
    */
   trail?: PetTrail;
   groundAt?: (x: number, z: number, feetY: number) => number;
+  /**
+   * Outdoors: the pet can lead (`lib/realm3d/lead.ts`). The frame asks through `lead`; the pet
+   * plans a real route over `world`'s roads and ground, round every one of `solids`, and walks it
+   * ahead of the child. Without all three it only ever follows.
+   */
+  lead?: LeadBus | null;
+  world?: RealmWorld;
+  solids?: readonly Collider[];
+  /** The village's layout: its unbuilt plots are walked round, down the lanes beside them. */
+  layout?: { readonly props: readonly { kind: string; position: { x: number; z: number }; size: { w: number; d: number } }[] };
 }) {
   const g = useRef<THREE.Group>(null);
   const body = useRef<THREE.Group>(null);
   const t = useRef(0);
+  /** The lead being walked, if any, and what it writes each frame. */
+  const leading = useRef<LeadRun | null>(null);
+  const step = useMemo(() => makeLeadStep(), []);
+  /** Where the pet stood when a lead began: it eases from there onto the route. */
+  const joinFrom = useMemo(() => new THREE.Vector3(), []);
+  const join = useRef(1);
+  /** A flier leads from higher up, where a child can see it over the trees. */
+  const lift = useRef(0);
+  /** Waiting for the child: a little "come on" hop now and then. */
+  const waited = useRef(0);
+  /** A lead set aside for a fast-travel ride, to be taken up again from where the ride ends. */
+  const resume = useRef(false);
+  /** Frames left before an ask is planned: see where it is eaten. */
+  const settle = useRef(2);
+  const plan = useMemo<LeadContext | null>(
+    () => (world && solids ? { graph: travelGraphFor(world), world, solids, soft: layout ? plotsOf(layout.props) : [] } : null),
+    [world, solids, layout],
+  );
   /** Distance-driven, so a foot on the ground stays on that spot while it is down. */
   const phase = useRef(0);
   /** How far the legs swing right now: 0 standing, up to ~0.7 at a run. */
@@ -1894,56 +1947,128 @@ export function Companion({
       trailTarget(trail, TRAIL_GAP, target);
     }
 
+    // Leading: what the frame asked for. A stop first, then a new lead (planned here, once, over
+    // the solids this scene knows and the island's own roads and water).
+    if (lead && plan) {
+      if (takeStop(lead) && (leading.current || resume.current)) {
+        leading.current = null;
+        resume.current = false;
+        leadOver(lead, "stopped");
+      }
+      // An ask waits two frames and for the child to be standing where they are: coming out of a
+      // door, the doorstep puts them outside it AFTER this has run, and a route planned from
+      // where they went in would start somewhere they are not.
+      if (!lead.ask || heroStep > 6) settle.current = 2;
+      else if (settle.current > 0) settle.current--;
+      if (lead.ask && !hideRef?.current && settle.current === 0) {
+        const target = takeAsk(lead)!;
+        const again = resume.current;
+        resume.current = false;
+        const route = planLead(plan, { x: p.x, z: p.z }, target);
+        const run = startLead(route, arrivalFor(target, route));
+        if (run) {
+          leading.current = run;
+          joinFrom.copy(grp.position);
+          join.current = 0;
+          waited.current = 0;
+          leadStarted(lead, target, route, again);
+        } else {
+          leading.current = null;
+          leadOver(lead, null);
+          lead.onNews({ kind: "noway", target });
+        }
+      }
+    }
+
     // Carried: out of sight, at the heel, and ready.
     if (hideRef?.current) {
       grp.visible = false;
       grp.position.set(target.x, heightAt(target.x, target.z), target.z);
       speed.current = 0;
+      // A lead is set aside for the ride and taken up again from wherever it ends.
+      if (lead && leading.current && lead.target) {
+        leading.current = null;
+        resume.current = true;
+        setLeadAside(lead);
+      }
       return;
     }
     grp.visible = true;
-    // Left far behind (a door, a ride's end): catch up at once rather than sprint across the map.
-    if (Math.hypot(target.x - grp.position.x, target.z - grp.position.z) > CATCH_UP) {
-      grp.position.set(target.x, groundAt ? groundAt(target.x, target.z, p.y) : heightAt(target.x, target.z), target.z);
-    }
 
     prev.copy(grp.position);
-    const dx = target.x - grp.position.x;
-    const dz = target.z - grp.position.z;
-    const dist = Math.hypot(dx, dz);
+    let heading: number | null = null;
+    const run = leading.current;
+    if (run && lead) {
+      // On the route, and only ever on it: it cannot be anywhere the route is not.
+      const news = stepLead(run, p.x, p.z, heroSpeed.current, dt, lead.calm, step);
+      join.current = Math.min(1, join.current + dt / JOIN_S);
+      const k = join.current * join.current * (3 - 2 * join.current);
+      grp.position.x = joinFrom.x + (step.x - joinFrom.x) * k;
+      grp.position.z = joinFrom.z + (step.z - joinFrom.z) * k;
+      speed.current = step.speed;
+      heading = step.heading;
+      setLeadMode(lead, run.mode);
+      if (news === "arrive" && lead.target) lead.onNews({ kind: "arrive", target: lead.target });
+      else if (news === "lost" || news === "done") {
+        leading.current = null;
+        resume.current = false;
+        leadOver(lead, news === "lost" ? "lost" : null);
+      }
+    } else {
+      // Left far behind (a door, a ride's end): catch up at once rather than sprint across the map.
+      if (Math.hypot(target.x - grp.position.x, target.z - grp.position.z) > CATCH_UP) {
+        grp.position.set(target.x, groundAt ? groundAt(target.x, target.z, p.y) : heightAt(target.x, target.z), target.z);
+        prev.copy(grp.position);
+      }
+      const dx = target.x - grp.position.x;
+      const dz = target.z - grp.position.z;
+      const dist = Math.hypot(dx, dz);
 
-    // A real chase, not a spring: it holds station inside the dead zone (so it STOPS when the
-    // hero stops, rather than creeping), and winds up to a run the further behind it falls.
-    const DEAD = flier ? 0.5 : 0.32;
-    const want = dist < DEAD ? 0 : Math.min(Math.max(9, heroSpeed.current * 1.2), (dist - DEAD) * 4.2 + 1.2);
-    speed.current = THREE.MathUtils.damp(speed.current, want, 6, dt);
-    if (speed.current > 0.02 && dist > 0.001) {
-      const step = Math.min(speed.current * dt, dist);
-      grp.position.x += (dx / dist) * step;
-      grp.position.z += (dz / dist) * step;
+      // A real chase, not a spring: it holds station inside the dead zone (so it STOPS when the
+      // hero stops, rather than creeping), and winds up to a run the further behind it falls.
+      const DEAD = flier ? 0.5 : 0.32;
+      const want = dist < DEAD ? 0 : Math.min(Math.max(9, heroSpeed.current * 1.2), (dist - DEAD) * 4.2 + 1.2);
+      speed.current = THREE.MathUtils.damp(speed.current, want, 6, dt);
+      if (speed.current > 0.02 && dist > 0.001) {
+        const stepLen = Math.min(speed.current * dt, dist);
+        grp.position.x += (dx / dist) * stepLen;
+        grp.position.z += (dz / dist) * stepLen;
+      }
+      if (dist > 0.001) heading = Math.atan2(dx, dz);
     }
 
     // Its feet, on the ground that is actually under them — indoors, the step or gallery it is on.
-    const groundY = groundAt ? groundAt(grp.position.x, grp.position.z, grp.position.y) : heightAt(grp.position.x, grp.position.z);
+    let groundY = groundAt ? groundAt(grp.position.x, grp.position.z, grp.position.y) : heightAt(grp.position.x, grp.position.z);
+    // Outdoors, water over its knees is swum, head up, rather than walked along the bottom of.
+    if (world && !flier) {
+      const surface = world.waterLevelAt(grp.position.x, grp.position.z) - SWIM_DEPTH * look.scale;
+      if (surface > groundY) groundY = surface;
+    }
     // Up a step at once (a lagging foot would miss the next tread of a stair); down, eased.
     grp.position.y = flier || (groundAt && groundY > grp.position.y) ? groundY : THREE.MathUtils.damp(grp.position.y, groundY, 12, dt);
 
     const moved = Math.hypot(grp.position.x - prev.x, grp.position.z - prev.z);
+    if (lead) putPet(lead, grp.position.x, grp.position.z);
 
-    // Face where it is going while it moves; fall in with the hero once it arrives.
-    if (moved > 0.004) {
-      const heading = Math.atan2(dx, dz);
-      grp.rotation.y = dampAngle(grp.rotation.y, heading, 8, dt);
-    } else {
-      grp.rotation.y = dampAngle(grp.rotation.y, f, 5, dt);
-    }
+    // Face where it is going while it moves; fall in with the hero once it arrives. Leading, it
+    // faces its own way — along the route, or back at a child it is waiting for.
+    if (run) grp.rotation.y = dampAngle(grp.rotation.y, heading ?? f, moved > 0.004 ? 8 : 5, dt);
+    else if (moved > 0.004 && heading !== null) grp.rotation.y = dampAngle(grp.rotation.y, heading, 8, dt);
+    else grp.rotation.y = dampAngle(grp.rotation.y, f, 5, dt);
+
+    // Waiting for the child to catch up: every so often a little hop, "come on!". Not in calm.
+    const waiting = !!run && run.mode === "wait" && !lead?.calm;
+    waited.current = waiting ? waited.current + dt : 0;
+    const bounce = waiting ? hopAt(waited.current) * 0.28 * look.scale : 0;
 
     const b = body.current;
     if (flier) {
-      // Deliberate hover: slow, and on its own clock so it never looks like a stuck walk.
-      beat.current = Math.sin(t.current * 8.5) * 0.55;
+      // Deliberate hover: slow, and on its own clock so it never looks like a stuck walk. Leading,
+      // it flies higher, where the child can see it over the hedges and the trees.
+      lift.current = THREE.MathUtils.damp(lift.current, run ? (lead?.calm ? FLY_LEAD_CALM : FLY_LEAD) : 0, 2.5, dt);
+      beat.current = Math.sin(t.current * (run ? 11 : 8.5)) * 0.55;
       if (b) {
-        b.position.y = look.scale * (1.2 + Math.sin(t.current * 2.2) * 0.13);
+        b.position.y = look.scale * (1.2 + Math.sin(t.current * 2.2) * 0.13) + lift.current + bounce * 0.5;
         b.rotation.z = Math.sin(t.current * 2.2 + 1) * 0.07;
         b.rotation.x = -Math.min(0.3, speed.current * 0.04);
       }
@@ -1953,8 +2078,8 @@ export function Companion({
 
     // One stride per ~0.62m travelled: the legs turn over because the ground went past.
     phase.current += (moved / (0.62 * look.scale)) * Math.PI * 2;
-    const run = Math.min(1, speed.current / 4.5);
-    amp.current = THREE.MathUtils.damp(amp.current, moved > 0.0008 ? 0.35 + run * 0.35 : 0, 8, dt);
+    const pace = Math.min(1, speed.current / 4.5);
+    amp.current = THREE.MathUtils.damp(amp.current, moved > 0.0008 ? 0.35 + pace * 0.35 : 0, 8, dt);
 
     if (!b) return;
     if (hop) {
@@ -1974,6 +2099,7 @@ export function Companion({
       b.position.y = Math.abs(Math.sin(phase.current)) * 0.045 * look.scale * amp.current * 2.6;
       b.rotation.x = Math.sin(phase.current * 2) * 0.03 * amp.current;
     }
+    if (bounce > 0) b.position.y += bounce;
   });
 
   return (
@@ -1983,6 +2109,21 @@ export function Companion({
       </group>
     </group>
   );
+}
+
+/** How long a pet takes to ease from where it stood onto the start of a lead. */
+const JOIN_S = 0.45;
+/** How far under the surface a swimming pet's feet hang, per unit of its size: head and back above. */
+const SWIM_DEPTH = 0.32;
+/** How much higher a flier goes to lead, where a child can see it over hedges and trees. */
+const FLY_LEAD = 2.6;
+const FLY_LEAD_CALM = 1.6;
+
+/** A "come on!" hop while waiting: 0 to 1 and back over a third of a second, every 1.8 s. */
+function hopAt(waited: number): number {
+  if (waited < 0.6) return 0;
+  const u = (waited - 0.6) % 1.8;
+  return u < 0.32 ? Math.sin((Math.PI * u) / 0.32) : 0;
 }
 
 /** Shortest-way-round damping for a heading, so a companion never spins the long way. */

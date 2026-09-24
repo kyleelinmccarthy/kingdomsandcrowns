@@ -89,6 +89,9 @@ export const EFFECTS = [
   "travel-start",
   "travel-arrive",
   "travel-stop",
+  // The companion leading (`lib/realm3d/lead.ts`): setting off, "this way!", and "here it is!".
+  "pet-lead",
+  "pet-arrive",
   // The big quiet moments: a crown worn, the last minute, and the goodbye.
   "crown",
   "last-minute",
@@ -721,6 +724,26 @@ function rideEffect(id: EffectId): Recipe | null {
       return { seconds: 1.0, level: 0.24, room: 0.1, build: (b) => {
         marimba(b, 0, G4, 0.45, 0.2);
         marimba(b, 0.15, C4, 0.5, 0.35);
+      } };
+    case "pet-lead":
+      // The pet sets off: "this way!" — a quick little skip up on the marimba, a patter of paws
+      // on a soft thump, and the top note left hanging, a question the child answers by following.
+      return { seconds: 1.1, level: 0.24, room: 0.1, build: (b) => {
+        marimba(b, 0, G4, 0.4, 0.14);
+        marimba(b, 0.08, C5, 0.42, 0.14);
+        kalimba(b, 0.17, E5, b.calm ? 0.26 : 0.36, 0.45);
+        thump(b, 0.02, 150, 0.22, 0.03);
+        thump(b, 0.1, 165, 0.18, 0.03);
+        if (!b.calm) b.noise({ start: 0.05, dur: 0.22, amp: 0.12, filter: "bp", freq: 700, to: 1100, q: 1.2, color: "pink", attack: 0.02, decay: 0.08 });
+      } };
+    case "pet-arrive":
+      // "Here it is!": the question answered — the same skip, landing home on C, with a small chime.
+      return { seconds: 1.6, level: 0.26, room: 0.14, build: (b) => {
+        marimba(b, 0, E5, 0.38, 0.16);
+        marimba(b, 0.1, D5, 0.36, 0.16);
+        kalimba(b, 0.2, C5, 0.42, 0.7);
+        chime(b, 0.2, G5, b.calm ? 0.1 : 0.16, 0.5);
+        thump(b, 0.2, 130, 0.2, 0.04);
       } };
     case "crown": {
       // THE CROWN IS WORN. A little fanfare in the key of everything else: a "ta-ta-TAA" on a

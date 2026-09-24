@@ -58,6 +58,9 @@ export function cueInfo(id: SoundId): CueInfo {
     case "travel-start":
     case "travel-arrive":
     case "travel-stop":
+    // The companion setting off and arriving (`lib/realm3d/lead.ts`).
+    case "pet-lead":
+    case "pet-arrive":
       return { bus: "sfx", priority: ANSWER, gap: 0.3, max: 1 };
     case "jump":
     case "land":

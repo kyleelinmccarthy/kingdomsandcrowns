@@ -432,6 +432,7 @@ export function RealmHud({
   mapExtras,
   barExtra,
   mountKey = false,
+  petKey = false,
   found: foundKept,
   onFound,
 }: {
@@ -462,6 +463,8 @@ export function RealmHud({
   barExtra?: ReactNode;
   /** Whether M rides: the key strip names it. */
   mountKey?: boolean;
+  /** The strip shows F (follow your pet) for a child with a companion. */
+  petKey?: boolean;
   /**
    * The places found, kept by the frame (`use-places-found.ts`): the saved record, so the count
    * and the map's filled marks survive a reload and match fast travel. Absent, the HUD keeps its
@@ -556,7 +559,7 @@ export function RealmHud({
           </div>
           <SpellBar bus={bus} pages={pages} shake={shake} onCast={onCast} onEmptyPage={onEmptyPage} extra={barExtra} />
           <p className="r3-keys">
-            {keyHints(pages.length, { mount: mountKey }).map((h, i) => (
+            {keyHints(pages.length, { mount: mountKey, pet: petKey }).map((h, i) => (
               <span key={h.key}>
                 {i > 0 && " · "}
                 <b>{h.key}</b> {h.what}
