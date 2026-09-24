@@ -93,7 +93,7 @@ export const RIDE_RADIUS = 0.8;
  * negative is IN), and how much lower it looks (radians off the child's pitch).
  *
  * It used to go up and back, and at the game's default boom (29 units, 43° down) a mount was a
- * smudge under the rider's cloak. So riding it comes a fifth of the way in and a little lower —
+ * smudge under the rider's cloak. So riding it comes almost a third of the way in and a little lower —
  * the mount's length shows past the rider, the child still reads plainly in the saddle — and
  * rises only by what the saddle lifts the child.
  */
