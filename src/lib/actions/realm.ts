@@ -4,7 +4,8 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { requireChildAccess, isChildActor } from "@/lib/auth/access";
-import { loadRealmSettings, loadRealmFlags } from "@/lib/services/realm-play";
+import { loadRealmSettings, loadRealmFlags, loadRecentTroubleClears } from "@/lib/services/realm-play";
+import type { RecentClear } from "@/lib/realm3d/trouble-reload";
 import { loadKingdomOverview } from "@/lib/services/deeds";
 import { loadLearningProfileRow } from "@/lib/services/learning-profile";
 import { loadSpellbookPages, ensureStarterSpell, type SpellPage } from "@/lib/services/spells";
@@ -71,6 +72,13 @@ export type RealmBundle = {
    */
   recess?: RecessRecord | null;
   /**
+   * Each trouble home's latest clear in the last few minutes (`realm_trouble_clear`), as an age,
+   * so a reload does not bring back a trouble the hero just cleared (`lib/realm3d/trouble-reload.ts`).
+   * Read for whoever is looking: a visiting grown-up sees the hero's cleared homes stay cleared.
+   * Empty when the read fails. Optional only so hand-built bundles in tests need not carry it.
+   */
+  troubleClears?: RecentClear[];
+  /**
    * What the earning copy needs (`earningLines` in `lib/realm/spells/bounty.ts`), from the
    * settings row already read here — no extra query. Always set by `getRealmBundle`.
    */
@@ -111,6 +119,11 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
   const recessRead = loadRecessRecord(childId).catch((err: unknown) => {
     console.error("Realm recess record failed to load", err);
     return null;
+  });
+  // The troubles cleared a moment ago, the same way: a failed read is "none", never a closed Realm.
+  const clearsRead = loadRecentTroubleClears(childId).catch((err: unknown) => {
+    console.error("Realm trouble clears failed to load", err);
+    return [] as RecentClear[];
   });
   // Also hands back the flags it read (post-update), so the parallel batch below does not
   // pay a second `loadRealmFlags` round trip just to read `helpSeenAt`. On the (rare) failure
@@ -184,6 +197,7 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
     canEdit: access.permission === "edit",
     placesFound: await placesRead,
     recess: await recessRead,
+    troubleClears: await clearsRead,
     earning: {
       enabled: settings.enabled,
       accessMode: settings.accessMode,

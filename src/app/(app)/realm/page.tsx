@@ -107,6 +107,8 @@ export default async function RealmPage({ searchParams }: { searchParams: Promis
     placesFound: bundle.placesFound ?? [],
     // The Ring's record: recess's gleams, laps and bests (null if it failed to load).
     recess: bundle.recess ?? null,
+    // The troubles cleared a moment ago, so a reload does not bring them straight back.
+    troubleClears: bundle.troubleClears ?? [],
     ...(bundle.earning ? { earning: bundle.earning } : {}),
   };
 

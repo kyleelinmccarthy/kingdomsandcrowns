@@ -6,6 +6,7 @@ import { settingsFromRow, type RealmSettings } from "@/lib/utils/realm-settings"
 import type { LedgerRow } from "@/lib/utils/realm-access";
 import { playChargeProblem } from "@/lib/utils/realm-play-charge";
 import { awardClears, bountyStatusFor, MAX_CLEARS_PER_MINUTE, type BountyStatus, type ClearRow } from "@/lib/realm/spells/bounty";
+import { latestClears, RELOAD_MEMORY_MS, STAMP_SLACK_MS, type RecentClear } from "@/lib/realm3d/trouble-reload";
 
 /** The database, or a transaction on it: the reads and writes below run on either. */
 type Exec = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -93,6 +94,23 @@ export async function loadTroubleClears(childId: string, date: string, exec: Exe
     .from(schema.realmTroubleClear)
     .where(and(eq(schema.realmTroubleClear.childId, childId), eq(schema.realmTroubleClear.date, date)))
     .orderBy(asc(schema.realmTroubleClear.createdAt));
+}
+
+/**
+ * Each trouble home's latest clear in the last `RELOAD_MEMORY_MS`, as how long ago it was on
+ * this server's clock: what a reload needs so a trouble cleared a moment ago stays cleared
+ * (`lib/realm3d/trouble-reload.ts`). By `created_at`, not the hero's local `date`, so it is the
+ * same answer either side of midnight in any timezone.
+ */
+export async function loadRecentTroubleClears(childId: string, now: Date = new Date(), exec: Exec = db): Promise<RecentClear[]> {
+  const rows = await exec
+    .select({ homeId: schema.realmTroubleClear.homeId, createdAt: schema.realmTroubleClear.createdAt })
+    .from(schema.realmTroubleClear)
+    .where(and(eq(schema.realmTroubleClear.childId, childId), gt(schema.realmTroubleClear.createdAt, new Date(now.getTime() - RELOAD_MEMORY_MS - STAMP_SLACK_MS))));
+  return latestClears(
+    rows.map((r) => ({ homeId: r.homeId, at: r.createdAt.getTime() })),
+    now.getTime(),
+  );
 }
 
 /** How many clears this hero has recorded since `since`, on any day. */

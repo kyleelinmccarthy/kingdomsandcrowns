@@ -32,6 +32,45 @@ import {
   type ClearOutcome,
 } from "@/lib/realm/spells/bounty";
 import { localDateOf } from "@/lib/utils/schedule-days";
+import { beaconClears } from "@/lib/utils/realm-clear-beacon";
+import { addTabClear, holdClears, mergeClears, readTabClears, tabClearsKey, type HeldClears, type RecentClear } from "@/lib/realm3d/trouble-reload";
+
+function tabStorage(): Storage | null {
+  try {
+    return typeof window === "undefined" ? null : window.sessionStorage;
+  } catch {
+    return null;
+  }
+}
+
+/** Notes a clear in this tab, for a reload that beats the server to it (`trouble-reload.ts`). */
+function noteTabClear(childId: string, homeId: string): void {
+  const s = tabStorage();
+  if (!s) return;
+  try {
+    const now = Date.now();
+    s.setItem(tabClearsKey(childId), JSON.stringify(addTabClear(readTabClears(s.getItem(tabClearsKey(childId)), now), homeId, now)));
+  } catch {
+    // Blocked or full storage: the server's record still has it, a moment later.
+  }
+}
+
+/**
+ * The clears a new page should seed its troubles with: the bundle's (the server's record), and,
+ * on the hero's own visit, this tab's note of clears the server may not have yet — held with the
+ * moment the page got them. A visiting grown-up gets the server's alone.
+ */
+export function heldClearsFor(childId: string | null, server: readonly RecentClear[] | undefined, ownVisit: boolean): HeldClears {
+  const s = ownVisit && childId ? tabStorage() : null;
+  let tab: ReturnType<typeof readTabClears> = [];
+  const now = Date.now();
+  try {
+    if (s && childId) tab = readTabClears(s.getItem(tabClearsKey(childId)), now);
+  } catch {
+    tab = [];
+  }
+  return holdClears(tab.length > 0 ? mergeClears(server ?? [], tab, now) : (server ?? []));
+}
 
 export type TroubleBounty = {
   enabled: boolean;
@@ -134,6 +173,7 @@ export function useTroubleBounty({
       const id = homeId ?? "";
       const outcome = takeClear(purse.current, id);
       if (!enabled || !childId || !homeId) return outcome;
+      noteTabClear(childId, homeId);
       queue.current.push(homeId);
       if (outcome.paid) setGained((n) => n + 1);
       if (outcome.paid || queue.current.length >= CLEARS_PER_FLUSH) {
@@ -151,6 +191,22 @@ export function useTroubleBounty({
 
   // Every way out unmounts this: send what is waiting.
   useEffect(() => () => void flush(), [flush]);
+
+  // ...except a reload, a closed tab or a typed URL, which unmount nothing. `pagehide` still
+  // fires, and a beacon outlives the page (`lib/utils/realm-clear-beacon.ts`): without it a clear
+  // still in the batch was lost, and — now a reload reads the clears back — its trouble stood
+  // there again after the reload. What a beacon took leaves the queue, so a page restored from
+  // the back-forward cache never sends it twice. A batch already in flight is left to its call.
+  useEffect(() => {
+    if (!enabled || !childId || typeof window === "undefined") return;
+    const onHide = () => {
+      if (queue.current.length === 0) return;
+      const batch = queue.current.slice(0, MAX_CLEARS_PER_CALL);
+      if (beaconClears({ childId, date: localDateOf(new Date()), homeIds: batch })) queue.current.splice(0, batch.length);
+    };
+    window.addEventListener("pagehide", onHide);
+    return () => window.removeEventListener("pagehide", onHide);
+  }, [enabled, childId]);
 
   return useMemo(() => ({ enabled: enabled && !!childId, claim, flush, gained, status }), [enabled, childId, claim, flush, gained, status]);
 }
