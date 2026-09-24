@@ -8,6 +8,7 @@ import type { SpellPageView } from "@/lib/realm/spells/pages";
 import { resolveSpell } from "@/lib/utils/spell-catalog";
 import { realmCue } from "@/lib/realm3d/sound/store";
 import { speak } from "@/lib/utils/speech";
+import { makeRideBus, stepRide, toggleRide } from "@/lib/realm3d/riding";
 import { useRealmSound, type RealmSoundOptions } from "./realm-sound";
 
 vi.mock("@/lib/actions/realm-sound", () => ({ saveRealmSound: vi.fn(async () => {}) }));
@@ -243,6 +244,124 @@ describe("the Realm's sound, wired to the game", () => {
     fireEvent.keyDown(window, { code: "KeyW" });
     expect(() => bus.onFound("cloudfoot")).not.toThrow();
     expect(sources).toHaveLength(0);
+  });
+});
+
+describe("riding, the crown, the clock, and troubles where they are", () => {
+  const pony = { id: "pony", label: "Pony", color: "#8b5e3c", speed: 4.5, tack: "#3b82f6" };
+  const started = () => shots().length;
+
+  it("hears the mount's feet in the saddle instead of the child's, and its hello as the child gets on", () => {
+    const bus = makeHudBus(4, 1);
+    const tbus = makeTroubleBus(4);
+    const ride = makeRideBus(pony);
+    render(<Harness bus={bus} tbus={tbus} ride={ride} />);
+    fireEvent.keyDown(window, { code: "KeyW" });
+    const engine = window.__realmSound!;
+    const played = vi.spyOn(engine, "play");
+    const ids = () => played.mock.calls.map((c) => c[0]);
+    // On foot: the child's own steps.
+    bus.feet.onStep(3, 30);
+    expect(ids()).toEqual(["step-grass"]);
+    // Getting on: the saddle, and a whinny a moment later.
+    toggleRide(ride);
+    stepRide(ride, 0.05, 0);
+    expect(ids()).toContain("mount-up");
+    expect(ids()).toContain("call-whinny");
+    stepRide(ride, 1, 0);
+    // In the saddle the child's feet are not heard; the pony's are, at a gallop.
+    played.mockClear();
+    bus.feet.onStep(3, 31);
+    ride.sound.onFootfall(3, 32, true);
+    bus.feet.onJump();
+    // In the air: no hoof comes down until the landing.
+    ride.sound.onFootfall(3, 33, true);
+    bus.feet.onLand(0.5);
+    expect(ids()).toEqual(["gallop-hoof-grass", "mount-jump", "mount-land"]);
+    // Fast travel, and a refusal from the saddle.
+    played.mockClear();
+    ride.sound.onTravel("start");
+    ride.sound.onRefuse();
+    ride.sound.onTravel("arrive");
+    expect(ids()).toEqual(["travel-start", "refuse", "travel-arrive"]);
+  });
+
+  it("calm hears a gallop as single feet", () => {
+    const bus = makeHudBus(4, 1);
+    const tbus = makeTroubleBus(4);
+    const ride = makeRideBus({ ...pony, id: "direwolf" });
+    render(<Harness bus={bus} tbus={tbus} ride={ride} calm />);
+    fireEvent.keyDown(window, { code: "KeyW" });
+    const played = vi.spyOn(window.__realmSound!, "play");
+    ride.sound.onFootfall(3, 32, true);
+    expect(played.mock.calls[0][0]).toBe("paw-grass");
+  });
+
+  it("gives a grown-up, who walks, no mount sounds at all — only the refusal", () => {
+    const bus = makeHudBus(4, 1);
+    const tbus = makeTroubleBus(4);
+    const ride = makeRideBus(null);
+    render(<Harness bus={bus} tbus={tbus} ride={ride} childId={null} />);
+    fireEvent.keyDown(window, { code: "KeyW" });
+    const played = vi.spyOn(window.__realmSound!, "play");
+    ride.sound.onFootfall(3, 32, true);
+    ride.sound.onMoment("up");
+    ride.sound.onTravel("start");
+    bus.feet.onJump();
+    expect(played.mock.calls.map((c) => c[0])).toEqual(["jump"]);
+    ride.sound.onRefuse();
+    expect(played.mock.calls.map((c) => c[0])).toEqual(["jump", "refuse"]);
+  });
+
+  it("pans a trouble to where it is on screen", () => {
+    const bus = makeHudBus(4, 1);
+    const tbus = makeTroubleBus(4);
+    render(<Harness bus={bus} tbus={tbus} />);
+    fireEvent.keyDown(window, { code: "KeyW" });
+    const played = vi.spyOn(window.__realmSound!, "play");
+    bus.ear.x = 0;
+    bus.ear.z = 0;
+    bus.ear.yaw = 0;
+    tbus.onEvent({ kind: "hit", trouble: "fog", home: 0, x: -20, z: 0, count: 0 }, null, null);
+    tbus.onEvent({ kind: "cleared", trouble: "fog", home: 0, x: 20, z: 0, count: 1 }, null, null);
+    const pans = played.mock.calls.map((c) => c[1]?.pan ?? 0);
+    expect(pans[0]).toBeLessThan(-0.5);
+    expect(pans[1]).toBeGreaterThan(0.5);
+  });
+
+  it("plays the crown's fanfare as the ceremony closes, and the last-minute chime once", () => {
+    const bus = makeHudBus(4, 1);
+    const tbus = makeTroubleBus(4);
+    const { rerender } = render(<Harness bus={bus} tbus={tbus} overlay="ceremony" ceremony clock />);
+    fireEvent.pointerDown(window);
+    const engine = window.__realmSound!;
+    const moments = vi.spyOn(engine, "moment");
+    rerender(<Harness bus={bus} tbus={tbus} overlay={null} ceremony clock />);
+    expect(moments.mock.calls[0][0]).toBe("crown");
+    expect(moments.mock.calls[0][1]).toMatchObject({ duck: true });
+    expect(engine.state.duck).toBe(true);
+    rerender(<Harness bus={bus} tbus={tbus} overlay={null} ceremony clock warning />);
+    rerender(<Harness bus={bus} tbus={tbus} overlay={null} ceremony clock warning />);
+    expect(moments.mock.calls.map((c) => c[0])).toEqual(["crown", "last-minute"]);
+  });
+
+  it("says goodbye when the clock closes the world, and only then", () => {
+    vi.useFakeTimers();
+    const bus = makeHudBus(4, 1);
+    const tbus = makeTroubleBus(4);
+    let closedByClock = false;
+    const farewell = () => closedByClock;
+    const { unmount } = render(<Harness bus={bus} tbus={tbus} clock farewell={farewell} />);
+    fireEvent.keyDown(window, { code: "KeyW" });
+    const before = started();
+    closedByClock = true;
+    unmount();
+    expect(started()).toBe(before + 1);
+    vi.advanceTimersByTime(200);
+    expect(contexts[0].closed).toBe(false);
+    vi.advanceTimersByTime(8000);
+    expect(contexts[0].closed).toBe(true);
+    vi.useRealTimers();
   });
 });
 

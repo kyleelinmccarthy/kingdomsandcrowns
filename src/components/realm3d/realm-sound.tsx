@@ -25,7 +25,9 @@ import type { WorldLayout } from "@/lib/realm/layout";
 import type { SpellPageView } from "@/lib/realm/spells/pages";
 import { saveRealmSound } from "@/lib/actions/realm-sound";
 import { onSpeaking } from "@/lib/utils/speech";
-import { elementOf, fixtureCue, makeZoneTracker, roomFloor, surfaceAt, trackZone, troubleCue, zoneAt } from "@/lib/realm3d/sound/cues";
+import { earPlace, elementOf, fixtureCue, makeZoneTracker, roomFloor, surfaceAt, trackZone, troubleCue, zoneAt } from "@/lib/realm3d/sound/cues";
+import { setRideSound, type RideBus } from "@/lib/realm3d/riding";
+import { footfallCue, mountSounds, mountSurface, mountVoice } from "@/lib/realm3d/sound/ride-cues";
 import { SoundEngine, type Timers } from "@/lib/realm3d/sound/engine";
 import { groundProbe } from "@/lib/realm3d/sound/ground";
 import type { Zone } from "@/lib/realm3d/sound/recipes";
@@ -123,6 +125,22 @@ export type RealmSoundOptions = {
   close: boolean;
   /** False for a grown-up with view access only: the settings change this visit and are never saved (the save would be refused). Absent counts as true. */
   canSave?: boolean;
+  /**
+   * The riding (`riding-hud.tsx`): a mount's feet and wings, its hello, getting on and off, fast
+   * travel, and the refusals. A grown-up's has no mount, so a grown-up hears none of it.
+   */
+  ride?: RideBus | null;
+  /** A crown ceremony waits this visit: its fanfare is made before anything else. */
+  ceremony?: boolean;
+  /** The play clock runs this visit (a child's own): its chimes are made ahead. */
+  clock?: boolean;
+  /** The clock's last-minute warning is up: a gentle chime as it comes. */
+  warning?: boolean;
+  /**
+   * True once the clock has closed the world. The sound then says goodbye — a soft
+   * closing cadence under "Well played" — before it stops, rather than stopping mid-note.
+   */
+  farewell?: () => boolean;
 };
 
 /**
@@ -146,6 +164,10 @@ export function useRealmSound(o: RealmSoundOptions): SoundStore {
   }, [o.pages, o.room, o.enabled, o.calm, o.overlay]);
 
   const { bus, tbus, world, layout } = o;
+  const ride = o.ride ?? null;
+  // Read once, when the engine is made: whether this visit has a ceremony waiting and a clock.
+  const firstVisit = useRef({ ceremony: o.ceremony ?? false, clock: o.clock ?? false });
+  const goodbye = o.farewell;
   // Nobody to save for, or nobody allowed to: the sliders still work, for this visit.
   const childId = o.canSave === false ? null : o.childId;
   /** Back to the country outside, on the way out of a room; set by the effect below. */
@@ -166,6 +188,8 @@ export function useRealmSound(o: RealmSoundOptions): SoundStore {
     // The sounds are made on their own thread where the browser allows it (`synth.ts`).
     const engine = new SoundEngine({ settings: store.get(), enabled: now.enabled, calm: now.calm, paused: now.paused, speaking: false }, browserTimers, undefined, workerSynth() ?? undefined);
     engineRef.current = engine;
+    const wantCrown = firstVisit.current.ceremony;
+    const clockOn = firstVisit.current.clock;
     const ground = () => probe.current ?? (probe.current = groundProbe(world, layout.props.filter((p) => p.kind === "path")));
     const tracker = makeZoneTracker();
     let outdoors: Zone = trackZone(tracker, zoneAt(ground(), spawn.current.x, spawn.current.z)) ?? "village";
@@ -225,13 +249,36 @@ export function useRealmSound(o: RealmSoundOptions): SoundStore {
       onRefuse: () => engine.play("refuse"),
       onFound: () => engine.play("found"),
     });
+    // A trouble is heard from where it is: panned by where it sits on screen, and a little
+    // quieter far off. One scratch object, so the listener allocates nothing.
+    const place = { pan: 0, gain: 1 };
     const untapTroubles = tapTroubles(tbus, (e) => {
       const id = troubleCue(e.kind);
-      if (id) engine.play(id);
+      if (!id) return;
+      earPlace(bus.ear, e.x, e.z, place);
+      engine.play(id, { pan: place.pan, gain: place.gain });
     });
 
-    // The feet.
+    // The feet: the child's own, or the mount's under them.
     let steps = 0;
+    /** An outdoor foot at (x, z): the ground under it, and every few, the country it is in. */
+    const outdoorFoot = (x: number, z: number) => {
+      const g = ground();
+      const surface = surfaceAt(g, x, z);
+      if (++steps % ZONE_EVERY === 0) {
+        const changed = trackZone(tracker, zoneAt(g, x, z));
+        if (changed) {
+          outdoors = changed;
+          engine.setZone(changed);
+        }
+      }
+      return surface;
+    };
+    // In the saddle (or getting into or out of it) the mount's feet are heard, not the child's.
+    const mounted = () => !!ride && ride.phase !== "off";
+    const voice = ride?.mount ? mountVoice(ride.mount.id) : null;
+    /** A mounted jump is in the air, from the push-off to the landing: no hoof comes down meanwhile. */
+    let aloft = false;
     bus.setFeet({
       onStep: (x, z) => {
         const room = live.current.room;
@@ -239,19 +286,52 @@ export function useRealmSound(o: RealmSoundOptions): SoundStore {
           engine.step(roomFloor(room));
           return;
         }
-        const g = ground();
-        engine.step(surfaceAt(g, x, z));
-        if (++steps % ZONE_EVERY === 0) {
-          const changed = trackZone(tracker, zoneAt(g, x, z));
-          if (changed) {
-            outdoors = changed;
-            engine.setZone(changed);
-          }
-        }
+        if (mounted()) return;
+        engine.step(outdoorFoot(x, z));
       },
-      onJump: () => engine.play("jump"),
-      onLand: (air) => engine.land(air),
+      onJump: () => {
+        if (voice && mounted()) {
+          aloft = true;
+          engine.play("mount-jump", { rate: voice.rate });
+        } else engine.play("jump");
+      },
+      onLand: (air) => {
+        aloft = false;
+        if (voice && mounted()) engine.play("mount-land", { rate: voice.rate, gain: Math.min(1, 0.5 + air) });
+        else engine.land(air);
+      },
     });
+
+    // The mount: its feet and wings, its hello as the child gets on, fast travel, and the
+    // refusals the riding says out loud. Calm: a gallop is heard as single feet, the wings and
+    // the hello softer.
+    if (ride && voice) {
+      engine.want(mountSounds(voice));
+      setRideSound(ride, {
+        onFootfall: (x, z, gallop) => {
+          if (aloft) return;
+          const calm = live.current.calm;
+          engine.footfall(footfallCue(voice.feet, mountSurface(outdoorFoot(x, z)), gallop && !calm), voice.rate);
+        },
+        onWingbeat: (air) => engine.play("wingbeat", { rate: voice.rate, gain: (air ? 1 : 0.55) * (live.current.calm ? 0.6 : 1) }),
+        onMoment: (kind) => {
+          aloft = false;
+          if (kind === "summon") engine.moment("mount-summon", { wait: 0.5 });
+          else if (kind === "down") engine.moment("mount-down", { wait: 0.5 });
+          else {
+            engine.moment("mount-up", { wait: 0.5 });
+            engine.moment(`call-${voice.call}`, { wait: 1, delay: 0.5, gain: live.current.calm ? 0.7 : 1 });
+          }
+        },
+        onTravel: (state) => engine.moment(`travel-${state}`, { wait: 1 }),
+        onRefuse: () => engine.play("refuse"),
+      });
+    } else if (ride) {
+      // No mount to ride (a grown-up, or none chosen yet): only the refusals are heard.
+      setRideSound(ride, { onRefuse: () => engine.play("refuse") });
+    }
+    if (wantCrown) engine.want(["crown"], true);
+    if (clockOn) engine.want(["last-minute", "farewell"]);
     const toOutdoors = () => engine.setZone(outdoors);
     roomExit.current = toOutdoors;
 
@@ -285,18 +365,21 @@ export function useRealmSound(o: RealmSoundOptions): SoundStore {
       untapHud();
       untapTroubles();
       bus.setFeet({ onStep: () => {}, onJump: () => {}, onLand: () => {} });
+      if (ride) setRideSound(ride, {});
       setRealmCue(null);
       save?.flush();
       saveRef.current = null;
       if (window.__realmSound === engine) delete window.__realmSound;
-      // Leaving stops everything.
-      engine.close();
+      // Leaving stops everything — except when the clock closed the world: then the goodbye
+      // plays out under "Well played", and the engine closes itself when it has.
+      if (goodbye?.()) engine.farewell();
+      else engine.close();
       if (engineRef.current === engine) engineRef.current = null;
     };
     // `world` and `layout` are read through `ground()` the first time only; after that the probe
     // ref above follows them. The engine must not be rebuilt when a building rises.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bus, tbus, childId, store]);
+  }, [bus, tbus, childId, store, ride, goodbye]);
 
   /* ---- the mix follows the game ------------------------------------------------------------ */
   useEffect(() => {
@@ -312,7 +395,17 @@ export function useRealmSound(o: RealmSoundOptions): SoundStore {
     engine.setMix({ paused: o.overlay !== null });
     if (o.overlay === "pause") engine.play("pause");
     else if (was === "pause" && o.overlay === null) engine.play("resume");
+    // The crown is worn as the ceremony closes: its fanfare, with the music stepped back.
+    if (was === "ceremony" && o.overlay !== "ceremony") engine.moment("crown", { duck: true, wait: 3 });
   }, [o.overlay]);
+
+  // The last minute on the clock: a gentle chime as the warning comes up, once.
+  const warningWas = useRef(o.warning ?? false);
+  useEffect(() => {
+    const was = warningWas.current;
+    warningWas.current = o.warning ?? false;
+    if (o.warning && !was) engineRef.current?.moment("last-minute", { duck: true });
+  }, [o.warning]);
 
   const roomWas = useRef(o.room);
   useEffect(() => {

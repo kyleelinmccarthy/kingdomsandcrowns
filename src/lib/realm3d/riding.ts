@@ -196,9 +196,38 @@ export type RideBus = {
   onVisit: (id: string) => void;
   /** Fired when a fast-travel ride starts and ends. */
   onTravel: (state: "start" | "arrive" | "stop", to: string) => void;
+  /** What the sound hears (`realm-sound.tsx`), installed with `setRideSound`; silent until then. */
+  sound: RideSound;
 };
 
 const noop = () => {};
+
+/**
+ * The riding's sounds, as events: a mount's foot down (or a gallop's three), a wingbeat, the
+ * mount-up and getting-off moments (and a mount called in from afar), fast travel's start and
+ * end, and a refusal the words are saying. Mutated in place, like the hero's `feet`: the scene
+ * holds `ride.sound` and calls through it.
+ */
+export type RideSound = {
+  onFootfall: (x: number, z: number, gallop: boolean) => void;
+  onWingbeat: (air: boolean) => void;
+  onMoment: (kind: "summon" | "up" | "down") => void;
+  onTravel: (state: "start" | "arrive" | "stop") => void;
+  onRefuse: () => void;
+};
+
+export function makeRideSound(): RideSound {
+  return { onFootfall: noop, onWingbeat: noop, onMoment: noop, onTravel: noop, onRefuse: noop };
+}
+
+/** Installs the sound's handlers; any left out go quiet. */
+export function setRideSound(ride: RideBus, h: Partial<RideSound>): void {
+  ride.sound.onFootfall = h.onFootfall ?? noop;
+  ride.sound.onWingbeat = h.onWingbeat ?? noop;
+  ride.sound.onMoment = h.onMoment ?? noop;
+  ride.sound.onTravel = h.onTravel ?? noop;
+  ride.sound.onRefuse = h.onRefuse ?? noop;
+}
 
 export function makeRideBus(mount: RideMount | null, calm = false, visited: Iterable<string> = []): RideBus {
   return {
@@ -223,6 +252,7 @@ export function makeRideBus(mount: RideMount | null, calm = false, visited: Iter
     onSay: noop,
     onVisit: noop,
     onTravel: noop,
+    sound: makeRideSound(),
   };
 }
 
@@ -318,12 +348,14 @@ export function stepRide(ride: RideBus, dt: number, depth: number): RideEvent {
       ride.phase = "up";
       ride.t = 0;
       ride.onRiding(true);
+      ride.sound.onMoment("up");
     } else if (!want && ride.phase === "on") {
       if (!canGetDown(depth)) {
         event = "refused-deep";
       } else {
         ride.phase = "down";
         ride.t = 0;
+        ride.sound.onMoment("down");
       }
     }
   }

@@ -41,7 +41,24 @@ export function cueInfo(id: SoundId): CueInfo {
   if (id.startsWith("step-")) return { bus: "sfx", priority: LOW, gap: 0.12, max: 2 };
   if (id.startsWith("charge-") || id.startsWith("release-")) return { bus: "sfx", priority: ACTION, gap: 0.05, max: 2 };
   if (id.startsWith("fixture-")) return { bus: "sfx", priority: ANSWER, gap: 0.4, max: 1 };
+  // A mount's feet: under the child's own, and a gallop's beats may overlap the last one's tail.
+  if (id.startsWith("hoof-") || id.startsWith("paw-")) return { bus: "sfx", priority: LOW, gap: 0.1, max: 2 };
+  if (id.startsWith("gallop-")) return { bus: "sfx", priority: LOW, gap: 0.2, max: 2 };
+  // A mount's hello: once, however often M is pressed.
+  if (id.startsWith("call-")) return { bus: "sfx", priority: ANSWER, gap: 1.2, max: 1 };
   switch (id as EffectId) {
+    case "wingbeat":
+      return { bus: "sfx", priority: LOW, gap: 0.25, max: 1 };
+    case "mount-jump":
+    case "mount-land":
+      return { bus: "sfx", priority: BODY, gap: 0.1, max: 1 };
+    case "mount-summon":
+    case "mount-up":
+    case "mount-down":
+    case "travel-start":
+    case "travel-arrive":
+    case "travel-stop":
+      return { bus: "sfx", priority: ANSWER, gap: 0.3, max: 1 };
     case "jump":
     case "land":
       return { bus: "sfx", priority: BODY, gap: 0.1, max: 1 };
@@ -103,6 +120,43 @@ export function troubleCue(kind: TroubleEventKind): EffectId | null {
     default:
       return null;
   }
+}
+
+/**
+ * Where the listener is: the child's position and the camera's yaw (`HudBus.ear`). The boom sits
+ * at `p + (sin yaw, cos yaw) · length` looking back at the child, so the screen's right-hand side
+ * is the world direction `(cos yaw, −sin yaw)`.
+ */
+export type Ear = { x: number; z: number; yaw: number };
+
+/** A trouble this far away or nearer is heard at full level; further off it fades toward `FAR_GAIN`. */
+export const NEAR_EAR = 12;
+export const FAR_EAR = 70;
+export const FAR_GAIN = 0.5;
+/** Never hard left or right: one ear alone is uncomfortable in headphones. */
+export const MAX_PAN = 0.8;
+
+/**
+ * Where a sound at (x, z) sits in the stereo field, and how loud, as heard from the camera: a
+ * trouble to the child's left on screen is heard on the left. Written into `out`, so the trouble
+ * listener allocates nothing.
+ */
+export function earPlace(ear: Ear, x: number, z: number, out: { pan: number; gain: number }): { pan: number; gain: number } {
+  const dx = x - ear.x;
+  const dz = z - ear.z;
+  const d = Math.sqrt(dx * dx + dz * dz);
+  if (d < 1e-3) {
+    out.pan = 0;
+    out.gain = 1;
+    return out;
+  }
+  const right = (dx * Math.cos(ear.yaw) - dz * Math.sin(ear.yaw)) / d;
+  // Close by, a sound is all round you: the pan opens up over the first few units.
+  const spread = Math.min(1, d / 6);
+  out.pan = Math.max(-MAX_PAN, Math.min(MAX_PAN, right * MAX_PAN * spread));
+  const far = Math.min(1, Math.max(0, (d - NEAR_EAR) / (FAR_EAR - NEAR_EAR)));
+  out.gain = 1 - (1 - FAR_GAIN) * far;
+  return out;
 }
 
 /* ------------------------------------------------------------------ rooms */

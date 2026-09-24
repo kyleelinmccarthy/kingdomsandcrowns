@@ -37,6 +37,18 @@ export type BedId = (typeof BEDS)[number];
 export const DETAILS = ["amb-bird-a", "amb-bird-b", "amb-bird-c", "amb-lap", "amb-owl", "amb-gust", "amb-cricket", "amb-crackle", "amb-creak", "amb-hammer"] as const;
 export type DetailId = (typeof DETAILS)[number];
 
+/** The ground a mount's feet can find: it is never ridden indoors. */
+export const MOUNT_SURFACES = ["grass", "road", "water"] as const;
+export type MountSurface = (typeof MOUNT_SURFACES)[number];
+
+/** Hooves (pony, donkey, goat, stag) or padded feet (direwolf, boar, and the winged two on the ground). */
+export const MOUNT_FEET = ["hoof", "paw"] as const;
+export type MountFeet = (typeof MOUNT_FEET)[number];
+
+/** The soft hello each kind of mount gives as the child gets on. */
+export const MOUNT_CALLS = ["whinny", "bray", "bleat", "bugle", "grunt", "howl", "trill", "rumble"] as const;
+export type MountCall = (typeof MOUNT_CALLS)[number];
+
 export const EFFECTS = [
   ...SURFACES.map((s) => `step-${s}` as const),
   "jump",
@@ -64,6 +76,23 @@ export const EFFECTS = [
   "lesson",
   "tutorial-done",
   "found",
+  // Riding: a footfall at a walk and a gallop's three beats, by feet and ground; the wings.
+  ...MOUNT_FEET.flatMap((f) => MOUNT_SURFACES.map((s) => `${f}-${s}` as const)),
+  ...MOUNT_FEET.flatMap((f) => MOUNT_SURFACES.map((s) => `gallop-${f}-${s}` as const)),
+  "wingbeat",
+  "mount-jump",
+  "mount-land",
+  "mount-summon",
+  "mount-up",
+  "mount-down",
+  ...MOUNT_CALLS.map((c) => `call-${c}` as const),
+  "travel-start",
+  "travel-arrive",
+  "travel-stop",
+  // The big quiet moments: a crown worn, the last minute, and the goodbye.
+  "crown",
+  "last-minute",
+  "farewell",
 ] as const;
 export type EffectId = (typeof EFFECTS)[number];
 
@@ -85,7 +114,7 @@ export function hz(midi: number): number {
 /** C major pentatonic, as MIDI: every pitched sound picks from here. */
 export const C4 = 60;
 const D4 = 62, E4 = 64, G4 = 67, A4 = 69, C5 = 72, D5 = 74, E5 = 76, G5 = 79, A5 = 81, C6 = 84, E6 = 88;
-const G3 = 55, C3 = 48, A3 = 57, E3 = 52;
+const G3 = 55, C3 = 48, A3 = 57, E3 = 52, D3 = 50;
 
 /* ------------------------------------------------------------------ instruments */
 
@@ -422,7 +451,328 @@ function fixture(f: FixtureSound): Recipe {
   }
 }
 
+/* ------------------------------------------------------------------ riding, and the big quiet moments */
+
+/**
+ * A soft animal voice: a tone whose harmonics are weighted by two formants, so it has a vowel
+ * ("ee", "eh", "ah", "oo", "aw") rather than the bare hoot of a sine. The formants are cartoon
+ * ones, and every harmonic above 3.2 kHz is left out: a mount says hello, it never shrieks.
+ */
+type Vowel = "ee" | "eh" | "ah" | "oo" | "aw";
+const FORMANTS: Readonly<Record<Vowel, readonly [number, number]>> = {
+  ee: [320, 2200],
+  eh: [560, 1750],
+  ah: [780, 1200],
+  oo: [360, 820],
+  aw: [600, 950],
+};
+
+function voicePartials(f0: number, vowel: Vowel): { base: number; partials: [number, number, number][] } {
+  const [f1, f2] = FORMANTS[vowel];
+  const bump = (f: number, c: number, bw: number) => Math.exp(-((f - c) * (f - c)) / (2 * bw * bw));
+  const weight = (k: number) => {
+    const f = f0 * k;
+    return (0.25 + bump(f, f1, 160) + 0.55 * bump(f, f2, 260)) / Math.pow(k, 0.6);
+  };
+  const base = Math.max(0.08, weight(1));
+  const partials: [number, number, number][] = [];
+  for (let k = 2; k <= 8; k++) {
+    if (f0 * k > 3200) break;
+    partials.push([k, Math.min(3, weight(k) / base), 1]);
+  }
+  return { base, partials };
+}
+
+type VoiceSpec = {
+  start?: number;
+  dur: number;
+  freq: number;
+  to?: number;
+  glide?: number;
+  amp: number;
+  vowel: Vowel;
+  attack: number;
+  release: number;
+  vib?: number;
+  vibDepth?: number;
+  trem?: number;
+  tremDepth?: number;
+};
+
+function animalVoice(b: Builder, v: VoiceSpec): void {
+  // The vowel is weighed at the middle of the glide: near enough at either end.
+  const mid = v.to !== undefined ? Math.sqrt(v.freq * v.to) : v.freq;
+  const { partials } = voicePartials(mid, v.vowel);
+  const sum = partials.reduce((a, p) => a + p[1], 0);
+  b.tone({
+    start: v.start,
+    dur: v.dur,
+    freq: v.freq,
+    to: v.to,
+    glide: v.glide,
+    amp: v.amp / (1 + sum * 0.5),
+    // Calm keeps the vowel's first few harmonics only: rounder, and nothing near the top.
+    partials: b.calm ? partials.slice(0, 3) : partials,
+    swell: { attack: v.attack, release: v.release, curve: 1.6 },
+    vib: v.vib,
+    vibDepth: v.vibDepth,
+    trem: v.trem,
+    tremDepth: v.tremDepth,
+  });
+}
+
+/** A breath through the nose: the little snort a pony ends on. */
+function breath(b: Builder, start: number, dur: number, amp: number, freq = 700): void {
+  b.noise({ start, dur, amp, filter: "bp", freq, to: freq * 0.7, q: 1.1, color: "pink", swell: { attack: dur * 0.3, release: dur * 0.6 } });
+}
+
+/**
+ * One foot down. A hoof is a hollow wooden "clop" — two short resonances and a tick over a small
+ * thud — on the road, and a muffled thud through the turf; a slosh in the shallows. A padded
+ * foot is the same weight with no knock in it: a soft pad and, on the road, the faintest tick of
+ * a claw.
+ */
+function footHit(b: Builder, start: number, feet: MountFeet, surface: MountSurface, amp: number, k: number): void {
+  if (surface === "water") {
+    b.noise({ start, dur: 0.26, amp: amp * 0.9, filter: "bp", freq: 1200 * k, to: 450 * k, q: 1.1, attack: 0.012, decay: 0.06 });
+    b.noise({ start, dur: 0.18, amp: amp * 0.5, filter: "lp", freq: 380, attack: 0.008, decay: 0.05, color: "brown" });
+    thump(b, start, 120 * k, amp * 0.4, 0.04);
+    b.tone({ start: start + b.r(0.03, 0.1), dur: 0.07, freq: b.r(650, 950), to: b.r(330, 450), glide: 0.02, amp: amp * 0.15, attack: 0.002, decay: 0.018 });
+    return;
+  }
+  if (feet === "hoof") {
+    if (surface === "road") {
+      b.tone({ start, dur: 0.12, freq: 560 * k, amp: amp * 0.55, attack: 0.0015, decay: 0.022 });
+      b.tone({ start, dur: 0.1, freq: 1010 * k, amp: amp * 0.25, attack: 0.0015, decay: 0.014 });
+      b.noise({ start, dur: 0.04, amp: amp * 0.35, filter: "bp", freq: 1900 * k, q: 2, attack: 0.001, decay: 0.006 });
+      thump(b, start, 140 * k, amp * 0.5, 0.03);
+    } else {
+      thump(b, start, 135 * k, amp * 0.7, 0.04);
+      b.tone({ start, dur: 0.1, freq: 420 * k, amp: amp * 0.32, attack: 0.002, decay: 0.02 });
+      b.noise({ start, dur: 0.12, amp: amp * 0.55, filter: "bp", freq: 1100 * k, to: 700 * k, q: 0.9, attack: 0.006, decay: 0.03, color: "pink" });
+    }
+    return;
+  }
+  thump(b, start, 125 * k, amp * 0.65, 0.045);
+  b.noise({ start, dur: 0.12, amp: amp * 0.6, filter: "bp", freq: 850 * k, to: 450 * k, q: 0.8, attack: 0.008, decay: 0.03, color: "pink" });
+  if (surface === "road") b.crackle({ start: start + 0.004, dur: 0.02, rate: 90, amp: amp * 0.12, freq: 1800 * k, q: 4, ramp: "down" });
+  else b.noise({ start, dur: 0.1, amp: amp * 0.25, filter: "bp", freq: 1300 * k, to: 900 * k, q: 1, attack: 0.01, decay: 0.025, color: "pink" });
+}
+
+/** A mount's feet are felt more than heard, but only above what a laptop speaker can play. */
+const FEET_HIGHPASS = 110;
+
+function footfall(feet: MountFeet, surface: MountSurface): Recipe {
+  return {
+    seconds: surface === "water" ? 0.34 : 0.24,
+    level: feet === "hoof" ? 0.24 : 0.2,
+    room: 0.05,
+    highpass: FEET_HIGHPASS,
+    tail: 0.08,
+    build: (b) => footHit(b, 0, feet, surface, 1, b.r(0.9, 1.1)),
+  };
+}
+
+/** A gallop's three beats — ba-da-DUM — the hind pair then the front, the last the firmest. */
+function gallop(feet: MountFeet, surface: MountSurface): Recipe {
+  return {
+    seconds: surface === "water" ? 0.5 : 0.4,
+    level: feet === "hoof" ? 0.26 : 0.22,
+    room: 0.05,
+    highpass: FEET_HIGHPASS,
+    tail: 0.08,
+    build: (b) => {
+      const k = b.r(0.92, 1.08);
+      footHit(b, 0, feet, surface, 0.62, k * 1.04);
+      footHit(b, b.r(0.068, 0.078), feet, surface, 0.78, k * 0.97);
+      footHit(b, b.r(0.145, 0.16), feet, surface, 1, k);
+    },
+  };
+}
+
+function mountCall(c: MountCall): Recipe {
+  switch (c) {
+    case "whinny":
+      // A pony's hello: a light "wee-hee-hee" that flutters down, and a soft snort.
+      return { seconds: 1.0, level: 0.2, room: 0.12, build: (b) => {
+        animalVoice(b, { dur: 0.72, freq: hz(E5), to: hz(G4), glide: 0.3, amp: 1, vowel: "eh", attack: 0.07, release: 0.4, vib: 9, vibDepth: 0.045, trem: 9, tremDepth: b.calm ? 0.2 : 0.4 });
+        breath(b, 0.7, 0.24, 0.35);
+      } };
+    case "bray":
+      // A donkey's, softened into a sing-song: "hee-haw", "hee-haw".
+      return { seconds: 1.3, level: 0.2, room: 0.1, build: (b) => {
+        for (let i = 0; i < 2; i++) {
+          const t = i * 0.52;
+          const a = i === 0 ? 1 : 0.7;
+          animalVoice(b, { start: t, dur: 0.2, freq: hz(G4), to: hz(A4), glide: 0.08, amp: a * 0.8, vowel: "eh", attack: 0.04, release: 0.1 });
+          animalVoice(b, { start: t + 0.2, dur: 0.3, freq: hz(D4), to: hz(C4), glide: 0.12, amp: a, vowel: "ah", attack: 0.04, release: 0.16 });
+        }
+      } };
+    case "bleat":
+      // A goat's "meh-eh-eh": the wobble is the whole charm.
+      return { seconds: 0.85, level: 0.18, room: 0.1, build: (b) => {
+        animalVoice(b, { dur: 0.6, freq: hz(A4), to: hz(G4), glide: 0.25, amp: 1, vowel: "eh", attack: 0.05, release: 0.3, trem: 11, tremDepth: b.calm ? 0.35 : 0.65, vib: 11, vibDepth: 0.02 });
+      } };
+    case "bugle":
+      // A stag's call, far gentler than a real one: a breathy rising "hoo-oo" that settles.
+      return { seconds: 1.2, level: 0.18, room: 0.16, size: 1.2, build: (b) => {
+        animalVoice(b, { dur: 0.45, freq: hz(G4), to: hz(D5), glide: 0.14, amp: 0.8, vowel: "oo", attack: 0.1, release: 0.15 });
+        animalVoice(b, { start: 0.4, dur: 0.55, freq: hz(D5), to: hz(C5), glide: 0.2, amp: 0.9, vowel: "oo", attack: 0.06, release: 0.35, vib: 5, vibDepth: 0.008 });
+        breath(b, 0.05, 0.8, 0.18, 1300);
+      } };
+    case "grunt":
+      // A boar's friendly "hnf-hnf-hnf", rising a little at the end, as if pleased.
+      return { seconds: 0.8, level: 0.22, room: 0.06, build: (b) => {
+        const n = b.calm ? 2 : 3;
+        for (let i = 0; i < n; i++) {
+          const t = i * 0.15;
+          animalVoice(b, { start: t, dur: 0.12, freq: hz(C3) * (1 + i * 0.1), to: hz(E3) * (1 + i * 0.1), glide: 0.05, amp: 1 - i * 0.15, vowel: "aw", attack: 0.015, release: 0.07 });
+          breath(b, t, 0.1, 0.25, 520);
+        }
+      } };
+    case "howl":
+      // A direwolf's "a-woo", small and sung, the way a puppy tries it.
+      return { seconds: 1.3, level: 0.18, room: 0.2, size: 1.3, build: (b) => {
+        animalVoice(b, { dur: 0.42, freq: hz(E4), to: hz(A4), glide: 0.14, amp: 0.7, vowel: "ah", attack: 0.08, release: 0.12 });
+        animalVoice(b, { start: 0.36, dur: 0.72, freq: hz(A4), to: hz(E4), glide: 0.32, amp: 1, vowel: "oo", attack: 0.05, release: 0.45, vib: 5, vibDepth: 0.012 });
+      } };
+    case "trill":
+      // A gryphon's chirrup: three quick bright chirps, a songbird's rather than an eagle's scream.
+      return { seconds: 0.8, level: 0.16, room: 0.12, build: (b) => {
+        for (let i = 0; i < 3; i++) animalVoice(b, { start: i * 0.1, dur: 0.09, freq: hz(E5), to: hz(G5), glide: 0.03, amp: 0.8 + i * 0.1, vowel: "ee", attack: 0.012, release: 0.05 });
+        animalVoice(b, { start: 0.32, dur: 0.3, freq: hz(G5), to: hz(E5), glide: 0.12, amp: 0.7, vowel: "ee", attack: 0.02, release: 0.2, trem: b.calm ? 0 : 24, tremDepth: 0.5 });
+      } };
+    case "rumble":
+      // A wyrm's contented purr, and a small chirp on top: a big friend, never a roar.
+      return { seconds: 1.1, level: 0.2, room: 0.1, build: (b) => {
+        animalVoice(b, { dur: 0.8, freq: hz(C3), to: hz(D3), glide: 0.4, amp: 1, vowel: "aw", attack: 0.15, release: 0.45, trem: 21, tremDepth: b.calm ? 0.4 : 0.7 });
+        animalVoice(b, { start: 0.62, dur: 0.24, freq: hz(G4), to: hz(C5), glide: 0.07, amp: 0.45, vowel: "oo", attack: 0.03, release: 0.15 });
+      } };
+  }
+}
+
+function rideEffect(id: EffectId): Recipe | null {
+  const m = /^(gallop-)?(hoof|paw)-(grass|road|water)$/.exec(id);
+  if (m) return m[1] ? gallop(m[2] as MountFeet, m[3] as MountSurface) : footfall(m[2] as MountFeet, m[3] as MountSurface);
+  // Every hello is low-passed: warm and round, with no edge a small speaker could make shrill.
+  if (id.startsWith("call-")) return { lowpass: 2400, ...mountCall(id.slice(5) as MountCall) };
+  switch (id) {
+    case "wingbeat":
+      // One downstroke: a soft low "whump" of air, and a feathery edge on it.
+      return { seconds: 0.45, level: 0.2, room: 0.04, build: (b) => {
+        const k = b.r(0.92, 1.08);
+        b.noise({ dur: 0.4, amp: 1, filter: "bp", freq: 260 * k, to: 520 * k, q: 0.8, color: "pink", swell: { attack: 0.09, release: 0.26, curve: 1.4 } });
+        b.noise({ start: 0.04, dur: 0.3, amp: 0.2, filter: "bp", freq: 1200 * k, to: 800 * k, q: 1, color: "pink", swell: { attack: 0.06, release: 0.2 } });
+      } };
+    case "mount-jump":
+      // The push-off: a firm thud of four feet and a rising rush of air.
+      return { seconds: 0.4, level: 0.26, room: 0.05, highpass: FEET_HIGHPASS, build: (b) => {
+        thump(b, 0, 130, 0.8, 0.05);
+        b.noise({ start: 0.02, dur: 0.3, amp: 0.9, filter: "bp", freq: 380, to: 1100, q: 1.3, attack: 0.03, decay: 0.07, color: "pink" });
+        b.tone({ start: 0.02, dur: 0.25, freq: hz(C4), to: hz(G4), glide: 0.06, amp: 0.2, attack: 0.01, decay: 0.06 });
+      } };
+    case "mount-land":
+      // Front feet, then hind: two soft thuds close together, and a little dust.
+      return { seconds: 0.45, level: 0.32, room: 0.05, highpass: FEET_HIGHPASS, build: (b) => {
+        thump(b, 0, 120, 1, 0.07);
+        thump(b, 0.085, 140, 0.75, 0.06);
+        b.noise({ dur: 0.2, amp: 0.4, filter: "bp", freq: 1000, to: 600, q: 1, attack: 0.004, decay: 0.05, color: "pink" });
+      } };
+    case "mount-summon":
+      // The mount arrives in a puff of dust: a soft "poof", and a glint as it appears.
+      return { seconds: 0.9, level: 0.22, room: 0.1, build: (b) => {
+        b.noise({ dur: 0.6, amp: 1, filter: "lp", freq: 1400, to: 380, color: "pink", swell: { attack: 0.04, release: 0.45, curve: 1.5 } });
+        chime(b, 0.12, G5, 0.18, 0.25);
+        sparkle(b, 0.15, 2, 0.05, 0.2);
+      } };
+    case "mount-up":
+      // Up into the saddle: a hop (two kalimba notes, up), the leather taking the weight, a settle.
+      return { seconds: 0.95, level: 0.26, room: 0.1, build: (b) => {
+        kalimba(b, 0.02, G4, 0.35, 0.22);
+        kalimba(b, 0.3, C5, 0.38, 0.3);
+        b.noise({ start: 0.34, dur: 0.28, amp: 0.45, filter: "bp", freq: 620, to: 760, q: 5, swell: { attack: 0.08, release: 0.16 }, wobble: 21, wobbleDepth: 0.2 });
+        thump(b, 0.4, 120, 0.5, 0.05);
+      } };
+    case "mount-down":
+      // Hopping down: a swish, the notes coming down, and two small feet on the ground.
+      return { seconds: 0.8, level: 0.24, room: 0.08, build: (b) => {
+        b.noise({ dur: 0.22, amp: 0.6, filter: "bp", freq: 1000, to: 520, q: 1.1, attack: 0.03, decay: 0.06, color: "pink" });
+        kalimba(b, 0.02, C5, 0.3, 0.2);
+        kalimba(b, 0.16, G4, 0.3, 0.26);
+        thump(b, 0.3, 125, 0.5, 0.035);
+        thump(b, 0.36, 115, 0.4, 0.035);
+      } };
+    case "travel-start":
+      // Off we go: a bright kalimba run up and a rush of air filling in behind it.
+      return { seconds: 1.6, level: 0.32, room: 0.14, build: (b) => {
+        [C4, E4, G4, C5].forEach((mi, i) => kalimba(b, i * 0.09, mi, 0.42, 0.3 + i * 0.06));
+        b.noise({ start: 0.1, dur: 1.3, amp: b.calm ? 0.15 : 0.3, filter: "bp", freq: 350, to: 1000, q: 0.9, color: "pink", swell: { attack: 0.5, release: 0.7 } });
+        sparkle(b, 0.35, 2, 0.05, 0.2);
+      } };
+    case "travel-arrive":
+      // Here: the run comes home to C, and a soft bell names the place.
+      return { seconds: 2.0, level: 0.3, room: 0.18, size: 1.1, build: (b) => {
+        [E5, D5, C5].forEach((mi, i) => kalimba(b, i * 0.12, mi, 0.4, 0.3 + i * 0.12));
+        bell(b, 0.3, hz(C5), 0.16, 0.8);
+        thump(b, 0.02, 110, 0.35, 0.05);
+      } };
+    case "travel-stop":
+      // Pulled up on the road: a gentle "whoa", two notes settling down.
+      return { seconds: 1.0, level: 0.24, room: 0.1, build: (b) => {
+        marimba(b, 0, G4, 0.45, 0.2);
+        marimba(b, 0.15, C4, 0.5, 0.35);
+      } };
+    case "crown": {
+      // THE CROWN IS WORN. A little fanfare in the key of everything else: a "ta-ta-TAA" on a
+      // warm horn, a chord that swells under it, a kalimba run up to the top C, and a bell.
+      // Nothing brassy or loud: it is a warm moment, not a startle. Calm: the horn and the chord.
+      return { seconds: 3.6, level: 0.42, room: 0.2, size: 1.3, build: (b) => {
+        const horn = (start: number, mi: number, dur: number, amp: number) =>
+          b.tone({
+            start,
+            dur,
+            freq: hz(mi),
+            amp,
+            wave: "warm",
+            partials: [[2, 0.35, 1], [3, 0.12, 1]],
+            swell: { attack: b.calm ? 0.05 : 0.025, release: Math.min(dur * 0.6, 0.5), curve: 1.4 },
+            vib: 5,
+            vibDepth: 0.004,
+          });
+        horn(0, G4, 0.2, 0.34);
+        horn(0.2, G4, 0.2, 0.34);
+        horn(0.4, C5, 0.95, 0.42);
+        horn(0.4, E4, 0.95, 0.2);
+        for (const [mi, a] of [[C3, 0.16], [G3, 0.13], [E4, 0.1], [G4, 0.08]] as const) b.tone({ start: 0.35, dur: 3.0, freq: hz(mi), amp: a, wave: "warm", swell: { attack: 0.5, release: 1.8 } });
+        if (!b.calm) [C5, E5, G5, C6].forEach((mi, i) => kalimba(b, 1.1 + i * 0.1, mi, 0.3, 0.5 + i * 0.1));
+        bell(b, 1.35, hz(C5), b.calm ? 0.12 : 0.2, 1.1);
+        sparkle(b, 1.4, 5, 0.05, 0.7);
+      } };
+    }
+    case "last-minute":
+      // "Nearly time": a clock's soft two-note chime, falling, over a warm low C. Never an alarm.
+      return { seconds: 2.2, level: 0.24, room: 0.2, size: 1.2, build: (b) => {
+        chime(b, 0, G5, 0.42, 0.45);
+        chime(b, 0.42, E5, 0.42, 0.7);
+        bell(b, 0.42, hz(C5) * 0.5, 0.1, 1.0);
+        b.tone({ dur: 1.9, freq: hz(C4), amp: 0.08, wave: "warm", swell: { attack: 0.3, release: 1.2 } });
+      } };
+    case "farewell":
+      // The clock ran out: "Well played". A slow kalimba line coming home to C over a warm chord,
+      // with a bell as it lands — the end of a story, not a door shut.
+      return { seconds: 4.2, level: 0.32, room: 0.22, size: 1.3, build: (b) => {
+        for (const [mi, a] of [[C3, 0.14], [G3, 0.11], [E4, 0.08]] as const) b.tone({ start: 0.1, dur: 3.9, freq: hz(mi), amp: a, wave: "warm", swell: { attack: 0.7, release: 2.2 } });
+        [A4, G4, E4, D4].forEach((mi, i) => kalimba(b, i * 0.34, mi, 0.36, 0.4));
+        kalimba(b, 1.36, C4, 0.42, 1.0);
+        bell(b, 1.38, hz(C5), 0.14, 1.2);
+      } };
+  }
+  return null;
+}
+
 function effect(id: EffectId): Recipe {
+  const ridden = rideEffect(id);
+  if (ridden) return ridden;
   if (id.startsWith("step-")) return step(id.slice(5) as Surface);
   if (id.startsWith("charge-")) return charge(id.slice(7) as Element);
   if (id.startsWith("release-")) return release(id.slice(8) as Element);
@@ -693,6 +1043,8 @@ export function isBed(id: SoundId): id is BedId {
 /** How many takes of a sound there are: footsteps and birds vary, so a walk is not a metronome. */
 export function variantsOf(id: SoundId): number {
   if (id.startsWith("step-")) return 4;
+  if (/^(hoof|paw)-/.test(id)) return 4;
+  if (id.startsWith("gallop-") || id === "wingbeat") return 2;
   if (id.startsWith("amb-bird")) return 3;
   return 1;
 }

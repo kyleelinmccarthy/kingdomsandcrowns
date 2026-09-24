@@ -31,6 +31,7 @@ import {
   wadeLimit,
   clearPark,
   RIDE_RADIUS,
+  setRideSound,
 } from "./riding";
 import { buildWorldLayout, type SiteProgress } from "@/lib/realm/layout";
 import { BUILDINGS } from "@/lib/utils/kingdom";
@@ -149,6 +150,26 @@ describe("getting on and off", () => {
     expect(ride.phase).toBe("off");
     expect(ride.parked.on).toBe(true);
     expect(seen).toEqual([true, false]);
+  });
+
+  it("tells the sound as each moment starts, and nothing when it cannot get down", () => {
+    const ride = makeRideBus(pony);
+    const heard: string[] = [];
+    setRideSound(ride, { onMoment: (k) => heard.push(k) });
+    toggleRide(ride);
+    run(ride, MOUNT_UP_S + 0.1);
+    expect(heard).toEqual(["up"]);
+    toggleRide(ride);
+    stepRide(ride, 0.05, RIDE_WADE_DEPTH);
+    expect(heard).toEqual(["up"]);
+    toggleRide(ride);
+    run(ride, DISMOUNT_S + 0.1);
+    expect(heard).toEqual(["up", "down"]);
+    // Uninstalled, it goes quiet.
+    setRideSound(ride, {});
+    toggleRide(ride);
+    run(ride, 1);
+    expect(heard).toEqual(["up", "down"]);
   });
 
   it("reduced motion makes the moment a blink", () => {

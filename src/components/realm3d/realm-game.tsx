@@ -706,7 +706,13 @@ export function RealmGame({
   useEffect(() => {
     closeRef.current = onClose;
   }, [onClose]);
-  const onClockClose = useCallback((reason: CloseReason) => closeRef.current?.(reason), []);
+  // The clock closing is the one way out the sound says goodbye on (`useRealmSound`'s `farewell`).
+  const soundGoodbye = useRef(false);
+  const sayGoodbye = useCallback(() => soundGoodbye.current, []);
+  const onClockClose = useCallback((reason: CloseReason) => {
+    soundGoodbye.current = true;
+    closeRef.current?.(reason);
+  }, []);
   // The flat Realm's own hook: it ticks visible seconds, writes a minute to the ledger every
   // sixty, re-checks the gate after each, warns at the last minute and closes at zero. Paused
   // whenever the world is — a child reading the pause menu is not spending their minutes.
@@ -836,6 +842,12 @@ export function RealmGame({
     lessons,
     lessonsTotal: LESSONS.length,
     close,
+    // Riding, the crown ceremony, and the clock's last minute and goodbye.
+    ride: riding.bus,
+    ceremony: ceremony !== null,
+    clock: clockOn,
+    warning: realm.isChildView && clock.warning,
+    farewell: sayGoodbye,
   });
 
   const room = useMemo(() => (inside ? roomPlan(inside.room) : null), [inside]);

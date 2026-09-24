@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { busGains, DEFAULT_SOUND, musicWanted, PAUSE_DUCK, sameSound, sliderGain, soundFrom, soundToStored, SPEECH_DUCK, type MixState } from "./settings";
+import { busGains, DEFAULT_SOUND, MOMENT_DUCK, musicWanted, PAUSE_DUCK, sameSound, sliderGain, soundFrom, soundToStored, SPEECH_DUCK, type MixState } from "./settings";
 
 const mix = (o: Partial<MixState> = {}): MixState => ({ settings: DEFAULT_SOUND, enabled: true, calm: false, paused: false, speaking: false, ...o });
 
@@ -76,5 +76,14 @@ describe("the mix", () => {
   it("wants no music with its slider or the volume at zero", () => {
     expect(musicWanted(mix({ settings: { ...DEFAULT_SOUND, music: 0 } }))).toBe(false);
     expect(musicWanted(mix({ settings: { ...DEFAULT_SOUND, master: 0 } }))).toBe(false);
+  });
+
+  it("all but stops the music under a big moment, and leaves the moment itself alone", () => {
+    const g = busGains(mix());
+    const d = busGains(mix({ duck: true }));
+    expect(d.music).toBeCloseTo(g.music * MOMENT_DUCK.music);
+    expect(d.music).toBeLessThan(g.music * 0.1);
+    expect(d.sfx).toBe(g.sfx);
+    expect(d.master).toBe(g.master);
   });
 });

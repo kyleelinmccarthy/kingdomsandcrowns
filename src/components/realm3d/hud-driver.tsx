@@ -121,6 +121,8 @@ export function HudDriver({
     const dt = Math.min(0.05, rawDt);
     const p = heroRef.current;
     const facing = facingRef.current;
+    // Where the sound listens from: a trouble to the child's left on screen is heard on the left.
+    writeEar(bus.ear, p.x, p.z, yawRef.current);
 
     /* ---- casting ------------------------------------------------------- */
     /**
@@ -305,4 +307,11 @@ export function HudDriver({
   });
 
   return null;
+}
+
+/** A free function, so the frame loop writes through no prop of its own (the React compiler's rule). */
+function writeEar(ear: { x: number; z: number; yaw: number }, x: number, z: number, yaw: number): void {
+  ear.x = x;
+  ear.z = z;
+  ear.yaw = yaw;
 }
