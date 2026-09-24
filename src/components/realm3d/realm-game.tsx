@@ -350,7 +350,7 @@ export function RealmGame({
     places: places.store,
   });
   // The companion leads (`companion-hud.tsx`): F or the pet's slot, its words, its way on the map.
-  const companion = useCompanionLead({ avatar: hero, viewer, calm, readAloud, bus, goal, world, found: places.found, insideRef });
+  const companion = useCompanionLead({ avatar: hero, viewer, calm, readAloud, bus, goal, world, found: places.found, insideRef, breakOff: surfaces.troubleDetail && !profile.fewerChoices });
 
   // The ONE writer of `bus.paused`. Every panel is an overlay, so every panel pauses the
   // scene, and nothing can open a panel that forgets to. Indoors pauses the ISLAND too (its keys,

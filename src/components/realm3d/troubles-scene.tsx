@@ -41,6 +41,7 @@ import {
   paintTroublePlate,
   type TroubleBus,
 } from "@/lib/realm3d/trouble-bus";
+import { shareTroubleField } from "@/lib/realm3d/trouble-bus";
 import {
   BODY_RADIUS,
   BODY_TOP,
@@ -391,6 +392,11 @@ export function Troubles({
   // new plan to `rehomeField`, which keeps every trouble that is out exactly where it stands —
   // it used to be a new field, and every awake trouble blinked out at once.
   const [field] = useState(() => makeField(homes));
+  // Shared read-only on the bus, so the companion can see where the troubles are.
+  useEffect(() => {
+    shareTroubleField(tbus, field);
+    return () => shareTroubleField(tbus, null);
+  }, [tbus, field]);
   const planned = useRef(homes);
   // Development only: the field, for a screenshot script to find a home and read what happened.
   // `__realmCastAs(element, form, modifier?)` begins a cast of ANY catalog spell at the walker,

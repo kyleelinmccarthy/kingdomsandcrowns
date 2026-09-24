@@ -15,7 +15,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { HudBus } from "@/lib/realm3d/hud-bus";
 import type { Goal } from "@/lib/realm3d/guide";
-import { askLead, askStopLead, chooseLead, makeLeadBus, setLeadNews, type LeadBus, type LeadMode, type LeadNews, type LeadTarget } from "@/lib/realm3d/lead";
+import { askLead, askStopLead, chooseLead, makeLeadBus, setLeadBreakOff, setLeadNews, type ErrandKind, type LeadBus, type LeadMode, type LeadNews, type LeadTarget } from "@/lib/realm3d/lead";
 import type { Vec2 } from "@/lib/realm3d/travel";
 import type { RealmWorld } from "@/lib/realm3d/worldgen";
 import { COMPANIONS, type AvatarConfig } from "@/lib/utils/avatar-catalog";
@@ -58,6 +58,10 @@ export const leadWords = {
   here: (name: string) => `${name} is right here! Press E to talk.`,
   nothing: (pet: string) => `You've found every place, and nobody is waiting. Your ${pet} is happy just to walk with you.`,
   indoors: (pet: string) => `Outside, your ${pet} will show you the way.`,
+  /** The pet's own small jobs, said once a visit (sit, sniff) or each time (a trouble): never the only marker. */
+  sniff: (pet: string) => `Your ${pet} can smell gleams! Follow its nose.`,
+  sit: (pet: string) => `Your ${pet} is waiting at the door. Walk in, or press E.`,
+  trouble: (pet: string) => `Your ${pet} spotted a trouble near the road!`,
   /** Added to the objective as it is read aloud (the spec's objective announcement, §3.7). */
   objective: (pet: string) => `Your ${pet} will show you the way: press F.`,
   none: "You don't have a companion yet. In the Tavern, open your hero's look and pick one on the Companion tab. The Cat and the Dog are free.",
@@ -75,6 +79,8 @@ export type CompanionLead = {
   leading: boolean;
   /** What the pet is doing, for the slot's caption. */
   mode: LeadMode | "heel";
+  /** The pet's own small job, if it is on one (sit, sniff, trouble). */
+  errand: ErrandKind | null;
   /** Where it is taking the child, and the way it will go (the map draws both), or null. */
   target: LeadTarget | null;
   route: readonly Vec2[] | null;
@@ -94,6 +100,7 @@ export function useCompanionLead({
   world,
   found,
   insideRef,
+  breakOff = false,
 }: {
   avatar: Pick<AvatarConfig, "companion">;
   viewer: "child" | "parent";
@@ -109,6 +116,8 @@ export function useCompanionLead({
   found: ReadonlySet<string>;
   /** Indoors, a lead waits for the door. */
   insideRef: React.RefObject<unknown>;
+  /** Full depth and not `fewerChoices`: a leading pet may break off toward a trouble (spec §3.6). */
+  breakOff?: boolean;
 }): CompanionLead {
   const pet = viewer === "child" ? petLabel(avatar) : null;
   const has = pet !== null;
@@ -119,6 +128,9 @@ export function useCompanionLead({
   const [target, setTarget] = useState<LeadTarget | null>(null);
   const [route, setRoute] = useState<readonly Vec2[] | null>(null);
   const [line, setLine] = useState<string | null>(null);
+  const [errand, setErrand] = useState<ErrandKind | null>(null);
+  /** Sit and sniff are explained once a visit; after that the pet simply does them. */
+  const told = useRef({ sit: false, sniff: false });
   const lastSpoken = useRef<string | null>(null);
 
   const say = useCallback(
@@ -168,6 +180,17 @@ export function useCompanionLead({
           say(leadWords.noway(pet));
           realmCue("refuse");
           return;
+        case "errand":
+          setErrand(n.errand);
+          if (n.errand === "trouble") say(leadWords.trouble(pet));
+          else if (n.errand === "sit" && !told.current.sit) {
+            told.current.sit = true;
+            say(leadWords.sit(pet));
+          } else if (n.errand === "sniff" && !told.current.sniff) {
+            told.current.sniff = true;
+            say(leadWords.sniff(pet));
+          }
+          return;
         case "mode":
           setMode(n.mode);
           if (n.mode === "heel") {
@@ -181,6 +204,11 @@ export function useCompanionLead({
     setLeadNews(lead, hear);
     return () => setLeadNews(lead, null);
   }, [lead, pet, say]);
+
+  // The frame's say on the trouble break-off: the canvas reads it every frame.
+  useEffect(() => {
+    setLeadBreakOff(lead, has && breakOff);
+  }, [lead, has, breakOff]);
 
   // Read at the moment F is pressed, not captured at render.
   const live = useRef({ goal, found, world });
@@ -240,7 +268,7 @@ export function useCompanionLead({
     };
   }, [lead]);
 
-  return { bus: lead, has, pet, leading, mode, target, route, line, clearLine, toggle };
+  return { bus: lead, has, pet, leading, mode, errand, target, route, line, clearLine, toggle };
 }
 
 /* ------------------------------------------------------------------ on screen */
@@ -271,19 +299,29 @@ export function modeWords(mode: LeadMode | "heel"): string {
   return "by your side";
 }
 
+/** The pet's own small job, in a child's words, for the slot's tooltip and its spoken name. */
+export function errandWords(errand: ErrandKind): string {
+  if (errand === "sit") return "sitting by the door";
+  if (errand === "sniff") return "sniffing out a gleam";
+  return "watching a trouble";
+}
+
 /**
  * The pet's slot, after the Ride slot at the end of the bar. It carries the F keycap and a paw,
  * says "Follow" (ask the pet the way) or "Stop" while it leads, and is there for a child with no
  * pet too, as an empty one that says how to get one. A visitor has none.
  */
 export function CompanionSlot({ lead, onPress, calm = false }: { lead: CompanionLead; onPress: () => void; calm?: boolean }) {
-  const { has, pet, leading, mode } = lead;
+  const { has, pet, leading, mode, errand } = lead;
   const label = !has ? "No pet" : slotCaption(leading);
+  const doing = errand ? errandWords(errand) : modeWords(mode);
   const aria = !has
     ? "No companion yet. How do I get one?"
     : leading
-      ? `Your ${pet} is ${modeWords(mode)}. Stop, key F`
-      : `Ask your ${pet} to show you the way, key F`;
+      ? `Your ${pet} is ${doing}. Stop, key F`
+      : errand
+        ? `Your ${pet} is ${doing}. Ask it to show you the way, key F`
+        : `Ask your ${pet} to show you the way, key F`;
   return (
     <>
       <button
@@ -291,7 +329,7 @@ export function CompanionSlot({ lead, onPress, calm = false }: { lead: Companion
         className={`r3-slot r3-pet-slot${leading ? " r3-pet-slot--on" : ""}${has ? "" : " r3-pet-slot--none"}${calm ? " r3-pet-slot--calm" : ""}`}
         aria-label={aria}
         aria-pressed={has ? leading : undefined}
-        title={has ? (leading ? `Your ${pet} is ${modeWords(mode)}. F to stop.` : `Your ${pet} shows you the way. F.`) : undefined}
+        title={has ? (leading ? `Your ${pet} is ${doing}. F to stop.` : errand ? `Your ${pet} is ${doing}. F: show me the way.` : `Your ${pet} shows you the way. F.`) : undefined}
         onMouseDown={keepFocusInWorld}
         onClick={onPress}
       >

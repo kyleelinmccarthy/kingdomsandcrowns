@@ -22,11 +22,22 @@ import { heightAt } from "@/lib/realm3d/heightfield";
 import type { Collider } from "@/lib/realm3d/collision";
 import {
   arrivalFor,
+  chooseErrand,
+  errandHolds,
+  errandHome,
+  makeErrandPick,
+  planErrand,
+  setLeadErrand,
+  startErrand,
+  stepErrand,
+  type ErrandInput,
+  type ErrandRun,
   leadOver,
   leadStarted,
   makeLeadStep,
   planLead,
   plotsOf,
+  PLOT_SCALE,
   putPet,
   setLeadAside,
   setLeadMode,
@@ -40,6 +51,9 @@ import {
 } from "@/lib/realm3d/lead";
 import { travelGraphFor } from "@/lib/realm3d/travel";
 import type { RealmWorld } from "@/lib/realm3d/worldgen";
+import { buildDoors } from "@/lib/realm3d/doorways";
+import type { RecessBus } from "@/lib/realm3d/recess/bus";
+import type { TroubleBus } from "@/lib/realm3d/trouble-bus";
 
 /** Written by the mover each frame: how fast (0..1 of top speed) and where in the walk cycle. */
 export type Gait = { speed: number; phase: number };
@@ -1860,6 +1874,8 @@ export function Companion({
   world,
   solids,
   layout,
+  recess = null,
+  troubles = null,
 }: {
   look: CompanionLook;
   heroRef: React.RefObject<THREE.Vector3>;
@@ -1885,8 +1901,15 @@ export function Companion({
   lead?: LeadBus | null;
   world?: RealmWorld;
   solids?: readonly Collider[];
-  /** The village's layout: its unbuilt plots are walked round, down the lanes beside them. */
-  layout?: { readonly props: readonly { kind: string; position: { x: number; z: number }; size: { w: number; d: number } }[] };
+  /**
+   * The village's layout: its unbuilt plots are walked round, down the lanes beside them, and its
+   * raised buildings' doors are where the pet sits for a child about to go in.
+   */
+  layout?: { readonly props: readonly { id: string; kind: string; position: { x: number; z: number }; size: { w: number; d: number } }[] };
+  /** A run of the Ring: the pet sniffs out the gleam nearest the child (`lead.ts`'s errands). */
+  recess?: RecessBus | null;
+  /** The troubles, as their field stands: at full depth a leading pet breaks off toward one. */
+  troubles?: TroubleBus | null;
 }) {
   const g = useRef<THREE.Group>(null);
   const body = useRef<THREE.Group>(null);
@@ -1909,6 +1932,20 @@ export function Companion({
     () => (world && solids ? { graph: travelGraphFor(world), world, solids, soft: layout ? plotsOf(layout.props) : [] } : null),
     [world, solids, layout],
   );
+  /** The pet's own small job, if it is on one: sit at a door, sniff a gleam, watch a trouble. */
+  const errand = useRef<ErrandRun | null>(null);
+  const pick = useMemo(() => makeErrandPick(), []);
+  const errandStep = useMemo(() => makeLeadStep(), []);
+  /** After a way could not be found, a moment before trying again (never every frame). */
+  const errandCool = useRef(0);
+  /** Troubles this lead has broken off for, by pool slot (their spawn serial): never twice. */
+  const seen = useRef(new Map<number, number>());
+  /** How far into its pose — sitting, nose down — the pet is: eased, never snapped. */
+  const pose = useRef({ sit: 0, nose: 0 });
+  /** The raised buildings' doors, where the pet sits: the castle is left to its own gate. */
+  const doors = useMemo(() => (layout ? buildDoors({ props: layout.props, sitePlan: PLOT_SCALE, castle: null }) : []), [layout]);
+  /** What the errands are chosen from, filled in place each frame. */
+  const errandIn = useRef<ErrandInput>({ hero: { x: 0, z: 0 }, heroFacing: null, pet: { x: 0, z: 0 }, leading: false, doors: [], gleams: null, slots: 0, troubles: null, seen: (slot, serial) => seen.current.get(slot) === serial });
   /** Distance-driven, so a foot on the ground stays on that spot while it is down. */
   const phase = useRef(0);
   /** How far the legs swing right now: 0 standing, up to ~0.7 at a run. */
@@ -1977,6 +2014,8 @@ export function Companion({
           leadOver(lead, null);
           lead.onNews({ kind: "noway", target });
         }
+        // A new lead: every trouble may be pointed out again.
+        seen.current.clear();
       }
     }
 
@@ -1991,6 +2030,8 @@ export function Companion({
         resume.current = true;
         setLeadAside(lead);
       }
+      errand.current = null;
+      if (lead) setLeadErrand(lead, null);
       return;
     }
     grp.visible = true;
@@ -1998,7 +2039,68 @@ export function Companion({
     prev.copy(grp.position);
     let heading: number | null = null;
     const run = leading.current;
-    if (run && lead) {
+
+    // The pet's own small jobs (`lead.ts`, "errands"): only the child's own pet, outdoors.
+    if (lead && plan && !trail) {
+      const inp = errandIn.current;
+      inp.doors = doors;
+      inp.hero.x = p.x;
+      inp.hero.z = p.z;
+      inp.heroFacing = f;
+      inp.pet.x = grp.position.x;
+      inp.pet.z = grp.position.z;
+      inp.leading = !!run;
+      const rr = recess && recess.runs && recess.run.active ? recess.run : null;
+      inp.gleams = rr ? rr.gleams : null;
+      inp.slots = rr ? rr.slots : 0;
+      inp.troubles = lead.breakOff && troubles?.field ? troubles.field.troubles : null;
+      const e = errand.current;
+      if (e && !e.back && (!errandHolds(e, inp) || (e.kind === "trouble" && !run) || (e.kind !== "trouble" && !!run))) {
+        if (e.kind === "trouble") {
+          // Back the way it went, onto its route, and on with the lead. Never this trouble again.
+          seen.current.set(e.key, e.serial);
+          if (run) errandHome(e);
+          else errand.current = null;
+        } else errand.current = null;
+      }
+      errandCool.current = Math.max(0, errandCool.current - dt);
+      // A lead sets off first, and says where it is going, before anything can pull the pet off it.
+      const settled = !run || (run.mode !== "arrived" && run.s >= LEAD_SET_OFF);
+      if (!errand.current && errandCool.current === 0 && settled && chooseErrand(inp, pick)) {
+        const way = planErrand(plan, inp.pet, pick);
+        const next = way ? startErrand(way, pick) : null;
+        if (next) {
+          errand.current = next;
+          joinFrom.copy(grp.position);
+          join.current = 0;
+        } else {
+          errandCool.current = 0.5;
+          if (pick.kind === "trouble") seen.current.set(pick.key, pick.serial);
+        }
+      }
+      setLeadErrand(lead, errand.current && !errand.current.back ? errand.current.kind : null);
+    } else if (errand.current) {
+      errand.current = null;
+      if (lead) setLeadErrand(lead, null);
+    }
+
+    const job = errand.current;
+    if (job && lead) {
+      // On the errand's route, and only ever on it. A lead waits where the pet left it.
+      const news = stepErrand(job, dt, lead.calm, errandStep);
+      join.current = Math.min(1, join.current + dt / JOIN_S);
+      const k = join.current * join.current * (3 - 2 * join.current);
+      grp.position.x = joinFrom.x + (errandStep.x - joinFrom.x) * k;
+      grp.position.z = joinFrom.z + (errandStep.z - joinFrom.z) * k;
+      speed.current = errandStep.speed;
+      heading = errandStep.heading;
+      if (news === "home") {
+        errand.current = null;
+        // Back on the lead's route: ease from here onto wherever the lead has the pet.
+        joinFrom.copy(grp.position);
+        join.current = 0;
+      }
+    } else if (run && lead) {
       // On the route, and only ever on it: it cannot be anywhere the route is not.
       const news = stepLead(run, p.x, p.z, heroSpeed.current, dt, lead.calm, step);
       join.current = Math.min(1, join.current + dt / JOIN_S);
@@ -2052,14 +2154,21 @@ export function Companion({
 
     // Face where it is going while it moves; fall in with the hero once it arrives. Leading, it
     // faces its own way — along the route, or back at a child it is waiting for.
-    if (run) grp.rotation.y = dampAngle(grp.rotation.y, heading ?? f, moved > 0.004 ? 8 : 5, dt);
+    if (run || job) grp.rotation.y = dampAngle(grp.rotation.y, heading ?? f, moved > 0.004 ? 8 : 5, dt);
     else if (moved > 0.004 && heading !== null) grp.rotation.y = dampAngle(grp.rotation.y, heading, 8, dt);
     else grp.rotation.y = dampAngle(grp.rotation.y, f, 5, dt);
 
     // Waiting for the child to catch up: every so often a little hop, "come on!". Not in calm.
-    const waiting = !!run && run.mode === "wait" && !lead?.calm;
+    const waiting = !!run && !job && run.mode === "wait" && !lead?.calm;
     waited.current = waiting ? waited.current + dt : 0;
-    const bounce = waiting ? hopAt(waited.current) * 0.28 * look.scale : 0;
+    // On an errand, standing where it went: sitting at a door, nose down at a gleam, or watching
+    // a trouble with a small "look!" hop now and then (never in calm).
+    const there = !!job && !job.back && job.since > 0 && speed.current < 0.2;
+    const ps = pose.current;
+    ps.sit = THREE.MathUtils.damp(ps.sit, there && job.kind === "sit" ? 1 : 0, 7, dt);
+    ps.nose = THREE.MathUtils.damp(ps.nose, there && job.kind === "sniff" ? 1 : 0, 7, dt);
+    const alert = there && job.kind === "trouble" && !lead?.calm ? hopAt(job.since) * 0.22 * look.scale : 0;
+    const bounce = (waiting ? hopAt(waited.current) * 0.28 * look.scale : 0) + alert;
 
     const b = body.current;
     if (flier) {
@@ -2100,6 +2209,11 @@ export function Companion({
       b.rotation.x = Math.sin(phase.current * 2) * 0.03 * amp.current;
     }
     if (bounce > 0) b.position.y += bounce;
+    // Sitting back on its haunches, or nose to the ground: a tilt of the whole body.
+    if (ps.sit > 0.01 || ps.nose > 0.01) {
+      b.rotation.x += -0.42 * ps.sit + 0.32 * ps.nose * (1 + Math.sin(t.current * 9) * 0.25);
+      b.position.y -= 0.1 * look.scale * ps.sit;
+    }
   });
 
   return (
@@ -2110,6 +2224,9 @@ export function Companion({
     </group>
   );
 }
+
+/** How far along its route a leading pet must be before a trouble may pull it off: it sets off first. */
+const LEAD_SET_OFF = 4;
 
 /** How long a pet takes to ease from where it stood onto the start of a lead. */
 const JOIN_S = 0.45;

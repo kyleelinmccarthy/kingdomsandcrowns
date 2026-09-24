@@ -770,7 +770,7 @@ export function startLead(route: Vec2[], arrive?: { x: number; z: number; r: num
 }
 
 /** The point `s` along the route, into `out`, with the direction of travel there. */
-export function routeAt(run: LeadRun, s: number, out: { x: number; z: number; dx: number; dz: number }): void {
+export function routeAt(run: Pick<LeadRun, "route" | "cum" | "total">, s: number, out: { x: number; z: number; dx: number; dz: number }): void {
   const r = run.route;
   const d = Math.max(0, Math.min(run.total, s));
   let lo = 0;
@@ -904,6 +904,306 @@ export function stepLead(run: LeadRun, kidX: number, kidZ: number, kidSpeed: num
   return event;
 }
 
+/* ------------------------------------------------------------------ errands */
+
+/*
+ * THE PET'S OWN SMALL JOBS — the three the spec's companion table (D7.9, §3.6) gives it beside
+ * leading, which the first companion pass left out:
+ *
+ *   - **sit**: a child standing at a door they can go through (a raised building's, the doors
+ *     `doorways.ts` lists) — the pet trots to the doorstep and sits beside it, looking at the door:
+ *     "in here". A child walking up to the villager in front of their house finds the pet already
+ *     sitting at the door behind them.
+ *   - **sniff**: during a run of the Ring, a live gleam near the child — the pet runs to it and puts
+ *     its nose to it: "one here!". When it is taken, the next one near; when none are near, heel.
+ *   - **trouble**: full depth only, and never under `fewerChoices`: while the pet leads, a trouble
+ *     that comes within `TROUBLE_RANGE` of it pulls it off the route — it goes to a safe stand-off
+ *     short of the trouble and watches it, for as long as the trouble lives. Then it comes back to
+ *     its route the way it went and leads on. It lets a trouble be if the child plainly walks on
+ *     past, or after a while, and never breaks off for the same trouble twice in one lead.
+ *
+ * Precedence, the spec's (sit > sniff > lead > heel) with the one change this island's pet needs:
+ * a lead the child ASKED for (F) is theirs, so while it runs only a trouble may pull the pet off
+ * it, and only for a moment; sit and sniff fill the time the pet would otherwise spend at heel.
+ *
+ * Never the only marker (D7.10): a gleam glows and bobs by itself, a door is lit and has its E
+ * prompt, a trouble has its plate. The pet only points at what is already marked.
+ *
+ * Every errand walks a route planned over the same grid a lead's is — round every solid, never
+ * into deep water — and the pet only ever stands on it. No pet (a grown-up's visit, a child with
+ * none) is no errands: nothing here runs without a pet to run it.
+ */
+
+export type ErrandKind = "sniff" | "sit" | "trouble";
+
+/** The pet notices a gleam this close to the child; further, it stays by them. (Spec: 14.) */
+export const SNIFF_RANGE = 14;
+/** A door the child is this close to (from the doorstep), in front of the building, is "in reach". */
+export const SIT_RANGE = 5;
+/** Full depth, while leading: a trouble this close to the pet pulls it off its route. (Spec: 10.) */
+export const TROUBLE_RANGE = 10;
+/** How far short of a gleam the pet stands: nose to it, never on it. */
+export const SNIFF_SHORT = 0.9;
+/** How far short of a trouble the pet stops: near enough to point at it, never touching it. */
+export const TROUBLE_STAND = 3.4;
+/** The longest the pet watches a trouble the child is doing nothing about, before it leads on. */
+export const TROUBLE_HOLD_S = 14;
+/** The child this far from the trouble has walked on past it: the pet lets it be. */
+export const TROUBLE_LEAVE = TROUBLE_RANGE + 8;
+/** An errand longer than this over the ground is not a small job: the pet stays where it is. */
+export const ERRAND_MAX = 32;
+
+/** A door as `doorways.ts` builds them: facing +z, `face` the z of its wall. */
+export type DoorLike = { readonly x: number; readonly face: number; readonly hw: number };
+export type GleamLike = { readonly live: boolean; readonly x: number; readonly z: number };
+export type TroubleLike = { readonly live: boolean; readonly dying: boolean; readonly x: number; readonly z: number; readonly serial: number };
+
+export type ErrandInput = {
+  hero: Vec2;
+  /**
+   * Which way the child faces (atan2(dx, dz), like the hero), or null if not known. A door counts
+   * as "about to be gone through" only for a child turned toward it: walking PAST a row of houses
+   * must not send the pet from doorstep to doorstep.
+   */
+  heroFacing: number | null;
+  pet: Vec2;
+  /** A lead the child asked for is running, and not yet arrived: only a trouble may take the pet off it. */
+  leading: boolean;
+  /** Doors a child can go through. */
+  doors: readonly DoorLike[];
+  /** The Ring's gleams during a run on the child's own visit; null outside a run. */
+  gleams: readonly GleamLike[] | null;
+  /** How many of `gleams` are in play. */
+  slots: number;
+  /** The troubles, or null at simple depth, under `fewerChoices`, or with none in the world. */
+  troubles: readonly TroubleLike[] | null;
+  /** A trouble this lead has already broken off for (slot → serial), never broken off for again. */
+  seen: (slot: number, serial: number) => boolean;
+};
+
+/** What the pet goes to do: where it stands, what it looks at, and which thing it is for. */
+export type ErrandPick = {
+  kind: ErrandKind;
+  x: number;
+  z: number;
+  lookX: number;
+  lookZ: number;
+  /** The gleam's slot, the door's index, or the trouble's slot. */
+  key: number;
+  /** A trouble's spawn serial (a reused slot is a new trouble); 0 otherwise. */
+  serial: number;
+};
+
+export function makeErrandPick(): ErrandPick {
+  return { kind: "sit", x: 0, z: 0, lookX: 0, lookZ: 0, key: -1, serial: 0 };
+}
+
+/** The doorstep a child stands at to go in: a step out from the middle of the door. */
+function stepX(d: DoorLike): number {
+  return d.x;
+}
+function stepZ(d: DoorLike): number {
+  return d.face + 0.9;
+}
+
+/** A door is only "about to be gone through" by a child turned within this of it (about 45°). */
+const FACING_DOOR = 0.7;
+
+/**
+ * The door in reach of the child, or -1: near its doorstep, in front of the building rather than
+ * behind it, and — when `facing` is given — with the child turned toward it (or already on the step).
+ */
+export function doorInReach(doors: readonly DoorLike[], hero: Vec2, range = SIT_RANGE, facing: number | null = null): number {
+  let best = -1;
+  let bestD = range;
+  for (let i = 0; i < doors.length; i++) {
+    const d = doors[i];
+    if (hero.z < d.face - 0.3) continue;
+    const dx = stepX(d) - hero.x;
+    const dz = stepZ(d) - hero.z;
+    const dist = Math.hypot(dx, dz);
+    if (facing !== null && dist > 1.5 && (Math.sin(facing) * dx + Math.cos(facing) * dz) / dist < FACING_DOOR) continue;
+    if (dist <= bestD) {
+      best = i;
+      bestD = dist;
+    }
+  }
+  return best;
+}
+
+/** The live gleam nearest the child within `range`, or -1. */
+export function gleamInReach(gleams: readonly GleamLike[], slots: number, hero: Vec2, range = SNIFF_RANGE): number {
+  let best = -1;
+  let bestD = range;
+  const n = Math.min(slots, gleams.length);
+  for (let i = 0; i < n; i++) {
+    const g = gleams[i];
+    if (!g.live) continue;
+    const d = Math.hypot(g.x - hero.x, g.z - hero.z);
+    if (d <= bestD) {
+      best = i;
+      bestD = d;
+    }
+  }
+  return best;
+}
+
+/** The living trouble nearest the pet within `range` that this lead has not broken off for yet, or -1. */
+export function troubleInReach(troubles: readonly TroubleLike[], pet: Vec2, seen: ErrandInput["seen"], range = TROUBLE_RANGE): number {
+  let best = -1;
+  let bestD = range;
+  for (let i = 0; i < troubles.length; i++) {
+    const t = troubles[i];
+    if (!t.live || t.dying || seen(i, t.serial)) continue;
+    const d = Math.hypot(t.x - pet.x, t.z - pet.z);
+    if (d <= bestD) {
+      best = i;
+      bestD = d;
+    }
+  }
+  return best;
+}
+
+/**
+ * Which errand, if any, the pet should be on now — written into `out`. Precedence: while an asked
+ * lead runs, only a trouble; otherwise a door in reach, then a gleam near. Pure, allocation-free.
+ */
+export function chooseErrand(input: ErrandInput, out: ErrandPick): boolean {
+  const { hero, pet } = input;
+  if (input.leading) {
+    if (!input.troubles) return false;
+    const i = troubleInReach(input.troubles, pet, input.seen);
+    if (i < 0) return false;
+    const t = input.troubles[i];
+    // Short of it, on the pet's own side: pointing, never touching.
+    const d = Math.hypot(pet.x - t.x, pet.z - t.z) || 1;
+    out.kind = "trouble";
+    out.x = t.x + ((pet.x - t.x) / d) * TROUBLE_STAND;
+    out.z = t.z + ((pet.z - t.z) / d) * TROUBLE_STAND;
+    out.lookX = t.x;
+    out.lookZ = t.z;
+    out.key = i;
+    out.serial = t.serial;
+    return true;
+  }
+  const door = doorInReach(input.doors, hero, SIT_RANGE, input.heroFacing);
+  if (door >= 0) {
+    const d = input.doors[door];
+    // Beside the door, on the child's side of it, sitting on the step and looking at the door.
+    const side = hero.x >= d.x ? 1 : -1;
+    out.kind = "sit";
+    out.x = d.x + side * (d.hw + 0.55);
+    out.z = d.face + 0.75;
+    out.lookX = d.x;
+    out.lookZ = d.face - 2;
+    out.key = door;
+    out.serial = 0;
+    return true;
+  }
+  if (input.gleams) {
+    const i = gleamInReach(input.gleams, input.slots, hero);
+    if (i >= 0) {
+      const g = input.gleams[i];
+      const d = Math.hypot(pet.x - g.x, pet.z - g.z);
+      out.kind = "sniff";
+      out.x = d > SNIFF_SHORT ? g.x + ((pet.x - g.x) / d) * SNIFF_SHORT : pet.x;
+      out.z = d > SNIFF_SHORT ? g.z + ((pet.z - g.z) / d) * SNIFF_SHORT : pet.z;
+      out.lookX = g.x;
+      out.lookZ = g.z;
+      out.key = i;
+      out.serial = 0;
+      return true;
+    }
+  }
+  return false;
+}
+
+/** One errand in progress. Mutated in place by `stepErrand`: nothing per frame is allocated. */
+export type ErrandRun = {
+  kind: ErrandKind;
+  key: number;
+  serial: number;
+  route: Vec2[];
+  cum: Float64Array;
+  total: number;
+  /** The pet's distance along. */
+  s: number;
+  v: number;
+  /** Coming back along the route to where it set out from (a trouble's errand, to its lead). */
+  back: boolean;
+  /** Seconds since it got there. */
+  since: number;
+  lookX: number;
+  lookZ: number;
+};
+
+/**
+ * The way to an errand's spot: one short search over the ground, round every solid and out of
+ * deep water — the same grid a lead walks. Null when there is no such way, or it is no small job.
+ */
+export function planErrand(ctx: LeadContext, from: Vec2, to: Vec2): Vec2[] | null {
+  if (Math.hypot(to.x - from.x, to.z - from.z) > ERRAND_MAX) return null;
+  const path = gridPath(leadGrid(ctx, from, to, 6), from, to);
+  if (!path || routeLength(path) > ERRAND_MAX * 1.6) return null;
+  return path.length === 1 ? [path[0], { ...path[0] }] : resample(path, 1.5);
+}
+
+export function startErrand(route: Vec2[], pick: ErrandPick): ErrandRun | null {
+  if (route.length < 2) return null;
+  const cum = new Float64Array(route.length);
+  for (let i = 1; i < route.length; i++) cum[i] = cum[i - 1] + Math.hypot(route[i].x - route[i - 1].x, route[i].z - route[i - 1].z);
+  return { kind: pick.kind, key: pick.key, serial: pick.serial, route, cum, total: cum[route.length - 1], s: 0, v: 0, back: false, since: 0, lookX: pick.lookX, lookZ: pick.lookZ };
+}
+
+/** Whether a chosen errand still stands: its gleam uneaten and near, its door still in reach, its trouble alive and the child not gone past. */
+export function errandHolds(run: ErrandRun, input: ErrandInput): boolean {
+  const h = input.hero;
+  if (run.kind === "sit") {
+    const d = input.doors[run.key];
+    return !!d && doorInReach(input.doors, h, SIT_RANGE + 2) === run.key;
+  }
+  if (run.kind === "sniff") {
+    const g = input.gleams?.[run.key];
+    return !!g && g.live && run.key < input.slots && Math.hypot(g.x - h.x, g.z - h.z) <= SNIFF_RANGE + 3;
+  }
+  const t = input.troubles?.[run.key];
+  return !!t && t.live && !t.dying && t.serial === run.serial && run.since < TROUBLE_HOLD_S && Math.hypot(t.x - h.x, t.z - h.z) <= TROUBLE_LEAVE;
+}
+
+/** Sends the pet back the way it came: a trouble's errand ends back on its lead's route. */
+export function errandHome(run: ErrandRun): void {
+  run.back = true;
+}
+
+const eat = { x: 0, z: 0, dx: 0, dz: 0 };
+
+/**
+ * One frame of an errand: along the route to the spot (or back to the start), then standing,
+ * facing what it came for. Writes the pet's place into `out`; returns "there" the frame it
+ * arrives, "home" the frame it is back where it set out from, otherwise null.
+ */
+export function stepErrand(run: ErrandRun, dt: number, calm: boolean, out: LeadStep): "there" | "home" | null {
+  const goal = run.back ? 0 : run.total;
+  const gap = goal - run.s;
+  const top = calm ? LEAD_RUN_CALM : LEAD_RUN;
+  const want = Math.abs(gap) > 0.02 ? Math.sign(gap) * Math.min(top, 1.5 + Math.abs(gap) * (calm ? 1.2 : 2.5)) : 0;
+  run.v += (want - run.v) * Math.min(1, dt * (calm ? 4 : 9));
+  const before = run.s;
+  let step = run.v * dt;
+  if ((step > 0 && want <= 0) || (step < 0 && want >= 0)) step = 0;
+  run.s = step > 0 ? Math.min(run.s + step, goal) : step < 0 ? Math.max(run.s + step, goal) : run.s;
+  const moving = Math.abs(run.s - before) > 1e-4;
+  routeAt(run, run.s, eat);
+  out.x = eat.x;
+  out.z = eat.z;
+  out.speed = moving ? Math.abs(run.s - before) / Math.max(dt, 1e-6) : 0;
+  out.heading = moving ? (run.s > before ? Math.atan2(eat.dx, eat.dz) : Math.atan2(-eat.dx, -eat.dz)) : Math.atan2(run.lookX - eat.x, run.lookZ - eat.z);
+  const arrivedNow = Math.abs(goal - run.s) <= 0.02 && Math.abs(goal - before) > 0.02;
+  if (!run.back && Math.abs(goal - run.s) <= 0.02) run.since += dt;
+  if (!arrivedNow) return null;
+  return run.back ? "home" : "there";
+}
+
 /* ------------------------------------------------------------------ the wire */
 
 /** What the frame hears from the canvas. */
@@ -914,7 +1214,9 @@ export type LeadNews =
   | { kind: "lost"; target: LeadTarget }
   | { kind: "stopped"; target: LeadTarget }
   | { kind: "noway"; target: LeadTarget }
-  | { kind: "mode"; mode: LeadMode | "heel" };
+  | { kind: "mode"; mode: LeadMode | "heel" }
+  /** The pet set off on an errand of its own (or came back from one: null). */
+  | { kind: "errand"; errand: ErrandKind | null };
 
 export type LeadBus = {
   /** A request from the frame, eaten by the canvas: lead here. */
@@ -929,6 +1231,13 @@ export type LeadBus = {
   pet: { x: number; z: number };
   /** Reduced motion or low stimulus: a gentler pet. */
   calm: boolean;
+  /**
+   * Whether the pet may break off a lead toward a trouble: full depth, and never under
+   * `fewerChoices` (spec §3.6). Written by the frame.
+   */
+  breakOff: boolean;
+  /** Written by the canvas: the errand the pet is on, if any. */
+  errand: ErrandKind | null;
   /** Fired by the canvas when a lead starts, arrives, is lost, stopped or cannot find a way. */
   onNews: (news: LeadNews) => void;
 };
@@ -936,7 +1245,7 @@ export type LeadBus = {
 const noop = () => {};
 
 export function makeLeadBus(calm = false): LeadBus {
-  return { ask: null, stop: false, active: false, target: null, mode: "heel", pet: { x: 0, z: 0 }, calm, onNews: noop };
+  return { ask: null, stop: false, active: false, target: null, mode: "heel", pet: { x: 0, z: 0 }, calm, breakOff: false, errand: null, onNews: noop };
 }
 
 export function setLeadNews(lead: LeadBus, fn: ((news: LeadNews) => void) | null): void {
@@ -1007,4 +1316,16 @@ export function setLeadAside(lead: LeadBus): void {
 export function putPet(lead: LeadBus, x: number, z: number): void {
   lead.pet.x = x;
   lead.pet.z = z;
+}
+
+/** The frame's say on whether the pet may break off toward a trouble (full depth, not `fewerChoices`). */
+export function setLeadBreakOff(lead: LeadBus, on: boolean): void {
+  lead.breakOff = on;
+}
+
+/** The errand the pet is on now: said to the frame only when it changes. */
+export function setLeadErrand(lead: LeadBus, errand: ErrandKind | null): void {
+  if (lead.errand === errand) return;
+  lead.errand = errand;
+  lead.onNews({ kind: "errand", errand });
 }

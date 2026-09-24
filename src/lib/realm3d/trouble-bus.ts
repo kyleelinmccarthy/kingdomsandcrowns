@@ -14,7 +14,7 @@
  */
 
 import type { TroubleKind, TroubleSkin } from "@/lib/realm/spells/troubles";
-import { TROUBLE_POOL, type TroubleEvent } from "./troubles3d";
+import { TROUBLE_POOL, type TroubleEvent, type TroubleField } from "./troubles3d";
 
 export type TroubleHandler = (e: TroubleEvent, placeName: string | null, homeId: string | null) => void;
 
@@ -33,6 +33,11 @@ export type TroubleBus = {
    * dropped home silently stops the bounty paying.
    */
   onEvent: TroubleHandler;
+  /**
+   * The field the scene steps, shared read-only so the companion can see where the troubles are
+   * (a leading pet breaks off toward one, `lead.ts`). Null until the troubles' scene is up.
+   */
+  field: TroubleField | null;
 
   setSkin(skin: TroubleSkin): void;
   setPlate(index: number, which: "plate" | "name" | "pips", el: HTMLElement | null): void;
@@ -53,6 +58,7 @@ export function makeTroubleBus(slots: number = TROUBLE_POOL): TroubleBus {
     pips: new Array(slots).fill(null),
     marks: new Array(slots).fill(null),
     onEvent: noop,
+    field: null,
     setSkin(skin) {
       if (bus.skin === skin) return;
       bus.skin = skin;
@@ -80,6 +86,11 @@ export function makeTroubleBus(slots: number = TROUBLE_POOL): TroubleBus {
     },
   };
   return bus;
+}
+
+/** The troubles' scene shares its field (null when it goes): read by others, stepped only by it. */
+export function shareTroubleField(bus: TroubleBus, field: TroubleField | null): void {
+  bus.field = field;
 }
 
 /* ------------------------------------------------------------------ painting */

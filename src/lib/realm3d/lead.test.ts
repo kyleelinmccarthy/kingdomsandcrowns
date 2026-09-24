@@ -5,6 +5,30 @@ import { buildColliders, overlaps, type Collider } from "./collision";
 import { castlePlan } from "./castle-plan";
 import { realmWorld } from "./worldgen";
 import { buildTravelGraph, resample, routeLength, VILLAGE_HUB, type Vec2 } from "./travel";
+import { buildDoors } from "./doorways";
+import { ringCourse } from "./recess/course";
+import {
+  chooseErrand,
+  doorInReach,
+  errandHolds,
+  errandHome,
+  ERRAND_MAX,
+  makeErrandPick,
+  planErrand,
+  setLeadBreakOff,
+  setLeadErrand,
+  SNIFF_RANGE,
+  SNIFF_SHORT,
+  startErrand,
+  stepErrand,
+  TROUBLE_HOLD_S,
+  TROUBLE_RANGE,
+  TROUBLE_STAND,
+  type ErrandInput,
+  type GleamLike,
+  type LeadNews,
+  type TroubleLike,
+} from "./lead";
 import {
   arrivalFor,
   askLead,
@@ -393,5 +417,249 @@ describe("the lead bus", () => {
     expect(lead.stop).toBe(true);
     askLead(lead, HOME);
     expect(lead.stop).toBe(false);
+  });
+});
+
+/* ------------------------------------------------------------------ errands */
+
+const RAISED = buildWorldLayout({ castleType: "citadel", buildings: BUILDINGS.map((b) => ({ id: b.id, done: 5, total: 5, complete: true })), objectiveIds: [] });
+const DOORS = buildDoors({ props: RAISED.props, sitePlan: 1.5, castle: null });
+const NO_GLEAMS: GleamLike[] = [];
+
+function errandInput(o: Partial<ErrandInput> = {}): ErrandInput {
+  return { hero: { x: 0, z: 30 }, heroFacing: null, pet: { x: 0, z: 31 }, leading: false, doors: DOORS, gleams: null, slots: 0, troubles: null, seen: () => false, ...o };
+}
+const gleam = (x: number, z: number, live = true): GleamLike => ({ live, x, z });
+const trouble = (x: number, z: number, o: Partial<TroubleLike> = {}): TroubleLike => ({ live: true, dying: false, x, z, serial: 1, ...o });
+/** Facing from (x, z) toward (tx, tz), as the hero's heading is kept. */
+const facing = (x: number, z: number, tx: number, tz: number) => Math.atan2(tx - x, tz - z);
+
+describe("the pet's errands: which, and when", () => {
+  it("has doors to sit at: every raised building with an inside", () => {
+    expect(DOORS.length).toBeGreaterThan(4);
+  });
+
+  it("sits at a door the child is turned toward and near — beating a gleam near them (sit > sniff)", () => {
+    const d = DOORS[0];
+    const hero = { x: d.x, z: d.face + 3.5 };
+    const pick = makeErrandPick();
+    const input = errandInput({ hero, heroFacing: facing(hero.x, hero.z, d.x, d.face), gleams: [gleam(hero.x + 4, hero.z + 2)], slots: 1 });
+    expect(chooseErrand(input, pick)).toBe(true);
+    expect(pick.kind).toBe("sit");
+    expect(pick.key).toBe(0);
+    // Beside the door on the step, looking at it.
+    expect(Math.abs(pick.x - d.x)).toBeGreaterThan(d.hw);
+    expect(pick.z).toBeGreaterThan(d.face);
+    expect(pick.lookZ).toBeLessThan(d.face);
+  });
+
+  it("never sits for a child walking PAST a door, or behind the building, or far off", () => {
+    const d = DOORS[0];
+    // Walking east along the front of the house, coming level with the door and past it.
+    expect(doorInReach(DOORS, { x: d.x - 1, z: d.face + 4 }, 5, Math.PI / 2)).not.toBe(0);
+    expect(doorInReach(DOORS, { x: d.x + 2, z: d.face + 3 }, 5, Math.PI / 2)).not.toBe(0);
+    expect(doorInReach(DOORS, { x: d.x, z: d.face - 3 }, 5, null)).not.toBe(0);
+    expect(doorInReach(DOORS, { x: d.x, z: d.face + 9 }, 5, facing(d.x, d.face + 9, d.x, d.face))).not.toBe(0);
+    // On the step itself, facing any way, it is the door in reach.
+    expect(doorInReach(DOORS, { x: d.x, z: d.face + 1 }, 5, Math.PI / 2)).toBe(0);
+  });
+
+  it("sniffs out the gleam nearest the child during a run, noses up to it, and never past SNIFF_RANGE", () => {
+    const pick = makeErrandPick();
+    const hero = { x: 60, z: 60 };
+    const input = errandInput({ hero, pet: { x: 59, z: 59 }, gleams: [gleam(70, 60), gleam(64, 60), gleam(61, 60, false)], slots: 3 });
+    expect(chooseErrand(input, pick)).toBe(true);
+    expect(pick).toMatchObject({ kind: "sniff", key: 1, lookX: 64, lookZ: 60 });
+    expect(Math.hypot(pick.x - 64, pick.z - 60)).toBeCloseTo(SNIFF_SHORT);
+    // Out of range, or outside the run's slots, or no run: nothing to sniff.
+    expect(chooseErrand(errandInput({ hero, gleams: [gleam(60 + SNIFF_RANGE + 1, 60)], slots: 1 }), pick)).toBe(false);
+    expect(chooseErrand(errandInput({ hero, gleams: [gleam(64, 60)], slots: 0 }), pick)).toBe(false);
+    expect(chooseErrand(errandInput({ hero, gleams: null }), pick)).toBe(false);
+  });
+
+  it("while an asked lead runs, only a trouble takes the pet off it — never a door or a gleam", () => {
+    const d = DOORS[0];
+    const hero = { x: d.x, z: d.face + 3 };
+    const pick = makeErrandPick();
+    const leading = errandInput({ hero, heroFacing: facing(hero.x, hero.z, d.x, d.face), leading: true, gleams: [gleam(hero.x + 2, hero.z)], slots: 1 });
+    expect(chooseErrand(leading, pick)).toBe(false);
+    const pet = { x: 100, z: 100 };
+    expect(chooseErrand({ ...leading, pet, troubles: [trouble(106, 100)] }, pick)).toBe(true);
+    expect(pick).toMatchObject({ kind: "trouble", key: 0, serial: 1, lookX: 106, lookZ: 100 });
+    // A stand-off short of it, on the pet's own side.
+    expect(Math.hypot(pick.x - 106, pick.z - 100)).toBeCloseTo(TROUBLE_STAND);
+    expect(pick.x).toBeLessThan(106);
+  });
+
+  it("breaks off only for a live trouble within range, not one dying, cleared, far, or already pointed out this lead", () => {
+    const pet = { x: 100, z: 100 };
+    const pick = makeErrandPick();
+    const at = (troubles: TroubleLike[], seen: ErrandInput["seen"] = () => false) => chooseErrand(errandInput({ pet, leading: true, troubles, seen }), pick);
+    expect(at([trouble(100 + TROUBLE_RANGE + 0.5, 100)])).toBe(false);
+    expect(at([trouble(104, 100, { dying: true })])).toBe(false);
+    expect(at([trouble(104, 100, { live: false })])).toBe(false);
+    expect(at([trouble(104, 100, { serial: 7 })], (slot, serial) => slot === 0 && serial === 7)).toBe(false);
+    // The same slot respawned is a new trouble.
+    expect(at([trouble(104, 100, { serial: 8 })], (slot, serial) => slot === 0 && serial === 7)).toBe(true);
+  });
+
+  it("at simple depth and under fewer choices — troubles withheld — never breaks off (T-COMP-3, T-COMP-4)", () => {
+    const pick = makeErrandPick();
+    expect(chooseErrand(errandInput({ pet: { x: 100, z: 100 }, leading: true, troubles: null }), pick)).toBe(false);
+  });
+
+  it("with nothing to do, stays at heel", () => {
+    expect(chooseErrand(errandInput({ doors: [], gleams: NO_GLEAMS }), makeErrandPick())).toBe(false);
+  });
+});
+
+describe("an errand's way", () => {
+  it("to every door's seat, from a child walking up to it, never crosses a solid or deep water", () => {
+    for (const d of DOORS) {
+      const hero = { x: d.x, z: d.face + 4 };
+      const pick = makeErrandPick();
+      expect(chooseErrand(errandInput({ hero, heroFacing: facing(hero.x, hero.z, d.x, d.face), pet: { x: hero.x - 1.2, z: hero.z + 1 } }), pick), d.site).toBe(true);
+      const way = planErrand(ctx, { x: hero.x - 1.2, z: hero.z + 1 }, pick);
+      expect(way, `no way to ${d.site}'s door`).not.toBeNull();
+      expect(crossings(way!), d.site).toEqual([]);
+      // It gets to the step: within a cell of the seat.
+      const end = way![way!.length - 1];
+      expect(Math.hypot(end.x - pick.x, end.z - pick.z), d.site).toBeLessThan(1.2);
+    }
+  });
+
+  it("to gleams all round the Ring, never crosses a solid or deep water", () => {
+    const course = ringCourse();
+    let planned = 0;
+    for (let k = 0; k < 60; k++) {
+      const a = course.path[k % (course.path.length - 1)];
+      const b = course.path[(k % (course.path.length - 1)) + 1];
+      const t = (k * 0.37) % 1;
+      const on = { x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t };
+      const side = k % 2 ? 1 : -1;
+      const g = { x: on.x + side * (2.5 + (k % 7)), z: on.z - side * 1.5 };
+      if (depthAt(world, g.x, g.z) > 0.15) continue;
+      const pick = makeErrandPick();
+      if (!chooseErrand(errandInput({ hero: on, pet: { x: on.x - 1, z: on.z - 1 }, doors: [], gleams: [gleam(g.x, g.z)], slots: 1 }), pick)) continue;
+      const way = planErrand(ctx, { x: on.x - 1, z: on.z - 1 }, pick);
+      if (!way) continue;
+      planned++;
+      expect(crossings(way), `gleam ${k} at (${g.x.toFixed(1)}, ${g.z.toFixed(1)})`).toEqual([]);
+    }
+    expect(planned).toBeGreaterThan(40);
+  });
+
+  it("off a lead's route toward a trouble by every place, never crosses a solid or deep water", () => {
+    for (const l of world.landmarks) {
+      const from = placeStand(graph, world, l.id)!;
+      for (const [dx, dz] of [[7, 0], [0, 7], [-6, -4]]) {
+        const t = { x: from.x + dx, z: from.z + dz };
+        const pick = makeErrandPick();
+        if (!chooseErrand(errandInput({ pet: from, leading: true, troubles: [trouble(t.x, t.z)] }), pick)) continue;
+        const way = planErrand(ctx, from, pick);
+        if (way) expect(crossings(way), `${l.id} +(${dx}, ${dz})`).toEqual([]);
+      }
+    }
+  });
+
+  it("is a small job or none: too far, and the pet stays put", () => {
+    expect(planErrand(ctx, { x: 0, z: 30 }, { x: 0, z: 30 + ERRAND_MAX + 5 })).toBeNull();
+  });
+});
+
+describe("running an errand", () => {
+  const line = resample([{ x: 0, z: 0 }, { x: 12, z: 0 }], 1.5);
+  const pickAt = (kind: "sniff" | "sit" | "trouble") => ({ ...makeErrandPick(), kind, lookX: 12, lookZ: 5, key: 0, serial: 3 });
+
+  it("goes to the spot along its way, stands there facing what it came for, and comes back the same way", () => {
+    const run = startErrand(line, pickAt("trouble"))!;
+    const out = makeLeadStep();
+    let there = false;
+    for (let t = 0; t < 4 && !there; t += 1 / 60) there = stepErrand(run, 1 / 60, false, out) === "there";
+    expect(there).toBe(true);
+    expect(out.x).toBeCloseTo(12);
+    stepErrand(run, 1 / 60, false, out);
+    expect(out.speed).toBe(0);
+    expect(out.heading).toBeCloseTo(Math.atan2(0, 5));
+    expect(run.since).toBeGreaterThan(0);
+    errandHome(run);
+    let home = false;
+    for (let t = 0; t < 4 && !home; t += 1 / 60) {
+      home = stepErrand(run, 1 / 60, false, out) === "home";
+      // Only ever on its way.
+      expect(Math.abs(out.z)).toBeLessThan(1e-9);
+    }
+    expect(home).toBe(true);
+    expect(out.x).toBeCloseTo(0);
+  });
+
+  it("is gentler in calm mode", () => {
+    const a = startErrand(line, pickAt("sniff"))!;
+    const b = startErrand(line, pickAt("sniff"))!;
+    const oa = makeLeadStep();
+    const ob = makeLeadStep();
+    let top = 0;
+    let topCalm = 0;
+    for (let t = 0; t < 0.6; t += 1 / 60) {
+      stepErrand(a, 1 / 60, false, oa);
+      stepErrand(b, 1 / 60, true, ob);
+      top = Math.max(top, oa.speed);
+      topCalm = Math.max(topCalm, ob.speed);
+    }
+    expect(topCalm).toBeLessThan(top);
+    expect(ob.x).toBeLessThan(oa.x);
+  });
+
+  it("allocates nothing a frame", () => {
+    const run = startErrand(line, pickAt("sit"))!;
+    const out = makeLeadStep();
+    const route = run.route;
+    for (let t = 0; t < 1; t += 1 / 60) stepErrand(run, 1 / 60, false, out);
+    expect(run.route).toBe(route);
+  });
+
+  it("holds while its reason stands, and lets go when it is gone", () => {
+    const g = [gleam(5, 0)];
+    const sniff = startErrand(line, { ...pickAt("sniff"), key: 0 })!;
+    expect(errandHolds(sniff, errandInput({ hero: { x: 0, z: 0 }, gleams: g, slots: 1 }))).toBe(true);
+    // Taken, or the run over, or the child gone off.
+    expect(errandHolds(sniff, errandInput({ hero: { x: 0, z: 0 }, gleams: [gleam(5, 0, false)], slots: 1 }))).toBe(false);
+    expect(errandHolds(sniff, errandInput({ hero: { x: 0, z: 0 }, gleams: null }))).toBe(false);
+    expect(errandHolds(sniff, errandInput({ hero: { x: 40, z: 0 }, gleams: g, slots: 1 }))).toBe(false);
+
+    const t = [trouble(8, 0, { serial: 3 })];
+    const watch = startErrand(line, pickAt("trouble"))!;
+    const hero = { x: 2, z: 0 };
+    expect(errandHolds(watch, errandInput({ hero, troubles: t }))).toBe(true);
+    expect(errandHolds(watch, errandInput({ hero, troubles: [trouble(8, 0, { serial: 3, dying: true })] }))).toBe(false);
+    expect(errandHolds(watch, errandInput({ hero, troubles: [trouble(8, 0, { serial: 4 })] }))).toBe(false);
+    // The child walked on past it.
+    expect(errandHolds(watch, errandInput({ hero: { x: 40, z: 0 }, troubles: t }))).toBe(false);
+    // ...or did nothing about it for long enough: the pet leads on.
+    watch.since = TROUBLE_HOLD_S + 0.1;
+    expect(errandHolds(watch, errandInput({ hero, troubles: t }))).toBe(false);
+
+    const d = DOORS[0];
+    const sit = startErrand(line, { ...pickAt("sit"), key: 0 })!;
+    expect(errandHolds(sit, errandInput({ hero: { x: d.x, z: d.face + 2 } }))).toBe(true);
+    expect(errandHolds(sit, errandInput({ hero: { x: d.x, z: d.face + 12 } }))).toBe(false);
+  });
+});
+
+describe("the lead bus, for errands", () => {
+  it("carries the frame's break-off say, and tells the frame the errand only when it changes", () => {
+    const lead = makeLeadBus();
+    expect(lead).toMatchObject({ breakOff: false, errand: null });
+    setLeadBreakOff(lead, true);
+    expect(lead.breakOff).toBe(true);
+    const heard: LeadNews[] = [];
+    lead.onNews = (n) => heard.push(n);
+    setLeadErrand(lead, "sniff");
+    setLeadErrand(lead, "sniff");
+    setLeadErrand(lead, null);
+    expect(heard).toEqual([
+      { kind: "errand", errand: "sniff" },
+      { kind: "errand", errand: null },
+    ]);
   });
 });

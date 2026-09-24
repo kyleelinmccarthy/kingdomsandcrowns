@@ -1471,7 +1471,7 @@ const World = memo(function World({
         {viewer !== "parent" && ride?.mount && <RiddenMount ride={ride} heroRef={heroRef} />}
       </Hero>
       {/* The pet is the child's, and stays with the child: no companion follows the wizard. */}
-      {viewer !== "parent" && look.companion && <Companion look={look.companion} heroRef={heroRef} facingRef={facingRef} hideRef={ride?.away} lead={lead} world={world} solids={solids} layout={layout} />}
+      {viewer !== "parent" && look.companion && <Companion look={look.companion} heroRef={heroRef} facingRef={facingRef} hideRef={ride?.away} lead={lead} world={world} solids={solids} layout={layout} recess={recess} troubles={troubles} />}
       <WadeRing world={world} heroRef={heroRef} />
       <LanternGlow scenery={scenery} tex={tex} />
       <Motes tex={tex} />
@@ -1486,7 +1486,7 @@ const World = memo(function World({
       {/* After the rig (markers project from this frame's camera), before the driver (a new charge locks on before it releases). */}
       {troubles && <Troubles tbus={troubles} bus={bus} pool={fxPool} caster={caster} heroRef={heroRef} aimRef={aimRef} solids={solids} world={world} layout={layout} calm={calm} ride={ride} />}
       {/* Recess: the Ring's arch and posts, and a run's gleams, lit post and pace ghost. */}
-      {recess && <RecessScene recess={recess} bus={bus} heroRef={heroRef} world={world} solids={solids} ride={ride} calm={calm} />}
+      {recess && <RecessScene recess={recess} bus={bus} heroRef={heroRef} world={world} solids={solids} ride={ride} calm={calm} troubles={troubles} />}
       {/*
         LAST in the tree on purpose. R3F runs same-priority frame subscribers in the order they
         subscribed, so the driver's projection runs after the rig has already moved the camera
