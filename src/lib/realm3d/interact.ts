@@ -94,7 +94,13 @@ export type SpotInput = {
   castle: { x: number; z: number; hw: number; hd: number; label: string; verb?: string } | null;
   /** The hitching posts (`travel.ts`), by the destination each belongs to. Absent, there are none. */
   posts?: readonly { id: string; x: number; z: number }[];
+  /** The Ring's arch (`recess/course.ts`), where E runs the Ring. Absent, there is none. */
+  arch?: { x: number; z: number; halfSpan: number } | null;
 };
+
+/** What E at the arch says to a child; the frame re-words it for a visiting grown-up (`recess/copy.ts`). */
+export const ARCH_VERB = "Run";
+export const ARCH_LABEL = "the Ring";
 
 /** What E at a hitching post says. */
 export const POST_VERB = "Ride from";
@@ -178,6 +184,21 @@ export function buildSpots(input: SpotInput): InteractSpot[] {
       // A post stands at a place's edge: standing at it means the post, not the place.
       bias: 0.4,
       ring: 1.5,
+    });
+  }
+  if (input.arch) {
+    const a = input.arch;
+    out.push({
+      target: { kind: "arch", id: "ring", label: ARCH_LABEL, verb: ARCH_VERB },
+      // The arch spans the cobbles east to west: its reach is the gap between its pillars, and a step either side.
+      x: a.x,
+      z: a.z,
+      hw: a.halfSpan,
+      hd: 0.6,
+      round: false,
+      reach: 2,
+      bias: 0.3,
+      ring: a.halfSpan + 0.6,
     });
   }
   return out;

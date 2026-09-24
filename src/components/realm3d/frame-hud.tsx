@@ -262,10 +262,10 @@ export function VisitorRibbon({ heroName, children }: { heroName: string; childr
 }
 
 /** "One minute left in the Realm today." — the flat Realm's last-minute line, as a banner. */
-export function LastMinute() {
+export function LastMinute({ text = "One minute left in the Realm today." }: { text?: string } = {}) {
   return (
     <p className="r3-banner" role="alert">
-      One minute left in the Realm today.
+      {text}
     </p>
   );
 }
@@ -445,8 +445,11 @@ export function HowToPlay({
   onReplay = null,
   mount,
   earning,
+  ring,
 }: {
   slots: number;
+  /** Where the Ring is run, for a child (`recess/copy.ts`'s `ringHelp`); absent for a visitor. */
+  ring?: string;
   /**
    * How this child's Realm minutes are earned, from `earningLines` (`lib/realm/spells/bounty.ts`):
    * the one source every surface reads. Absent for a visitor, who earns nothing.
@@ -478,6 +481,7 @@ export function HowToPlay({
       <p className="r3-board-sub">
         Follow the gold <b>!</b> — over a villager&rsquo;s head, at the edge of the screen, and on your map. That is who is waiting for you.
       </p>
+      {ring && <p className="r3-board-sub">{ring}</p>}
       {earning && earning.length > 0 && (
         <p className="r3-board-sub r3-earning">
           <GameIcon name="hourglass" className="r3-earning-icon" /> {earning.join(" ")}

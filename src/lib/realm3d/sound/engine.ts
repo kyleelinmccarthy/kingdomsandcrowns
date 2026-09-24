@@ -90,8 +90,11 @@ const FIRST: readonly SoundId[] = ["step-grass", "step-road", "prompt", "ui-clic
  * grown-up's visit never spends the synth's first seconds on a pony they will never ride.
  */
 export function onDemand(id: SoundId): boolean {
-  return /^(hoof|paw|gallop|call|mount|travel)-/.test(id) || id === "wingbeat" || id === "crown" || id === "last-minute" || id === "farewell";
+  return /^(hoof|paw|gallop|call|mount|travel)-/.test(id) || id === "wingbeat" || id === "crown" || id === "last-minute" || id === "farewell" || RECESS_SOUNDS.includes(id);
 }
+
+/** Recess's sounds: made only for a child's own visit, where the Ring can be run. */
+export const RECESS_SOUNDS: readonly SoundId[] = ["recess-bell", "gleam", "ring-post", "lap-done", "lap-best", "recess-over"];
 
 export const WARM_ORDER: readonly SoundId[] = [...FIRST, ...EFFECTS.filter((id) => !FIRST.includes(id) && id !== "complete" && !onDemand(id)), ...DETAILS, "complete"];
 

@@ -1,0 +1,154 @@
+/* Recess: the run strip, the boards and lines, the minimap marks and the Ring's board at the arch.
+   Timber and gold like the rest of the frame; every size in rem, so the HUD's one scale knob
+   (`--r3` root font size under larger text) sizes it with everything else. */
+
+/* ---- the run strip ------------------------------------------------------------- */
+
+.r3-recess-strip {
+  margin-bottom: 0.55rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.4rem 0.9rem 0.45rem 0.5rem;
+  border-radius: 18px;
+  border: 3px solid var(--r3-bark);
+  background: linear-gradient(180deg, rgba(255, 225, 170, 0.1), transparent 45%), linear-gradient(180deg, #6a4527, #2f1c0c);
+  box-shadow: 0 5px 0 rgba(0, 0, 0, 0.3), 0 0 22px rgba(245, 192, 74, 0.35), inset 0 2px 0 rgba(255, 225, 170, 0.22);
+  color: var(--r3-parchment);
+  pointer-events: none;
+}
+.r3-recess-strip-icon { flex: none; width: 2.3rem; height: 2.3rem; color: var(--r3-gold); filter: drop-shadow(0 0 6px rgba(245, 192, 74, 0.7)); }
+.r3-recess-strip-body { display: flex; flex-direction: column; gap: 0.15rem; min-width: 0; }
+.r3-recess-strip-top { display: flex; align-items: center; gap: 0.6rem; }
+.r3-recess-strip-title { font-size: 1.05rem; font-weight: 900; letter-spacing: 0.04em; text-transform: uppercase; color: #fff6de; text-shadow: 0 2px 0 var(--r3-bark); }
+.r3-recess-strip-line { display: flex; align-items: center; gap: 0.7rem; font-size: 0.95rem; font-weight: 800; color: #ffe08a; white-space: nowrap; }
+.r3-recess-next { overflow: hidden; text-overflow: ellipsis; }
+.r3-recess-time {
+  margin-left: auto;
+  min-width: 3.6rem;
+  text-align: right;
+  font-size: 1.2rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+  color: #fff6de;
+  text-shadow: 0 2px 0 var(--r3-bark);
+}
+.r3-recess-best { font-size: 0.85rem; color: #d9c7a0; }
+.r3-recess-gleams { display: inline-flex; align-items: center; gap: 0.2rem; color: #fff6de; font-variant-numeric: tabular-nums; }
+.r3-recess-gem { width: 1rem; height: 1rem; color: var(--r3-gold); filter: drop-shadow(0 0 4px rgba(245, 192, 74, 0.8)); }
+.r3-recess-gem-pips { display: inline-flex; gap: 0.12rem; }
+.r3-recess-gem-pips i { display: block; width: 0.45rem; height: 0.45rem; transform: rotate(45deg); background: var(--r3-gold); box-shadow: 0 0 4px rgba(245, 192, 74, 0.8); }
+
+.r3-recess-pips { display: inline-flex; align-items: center; gap: 0.22rem; }
+.r3-recess-pip {
+  display: block;
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 50%;
+  border: 2px solid #7a5a33;
+  background: #2a1a0b;
+}
+.r3-recess-pip--on { background: var(--r3-gold); border-color: #7a4f14; box-shadow: 0 0 6px rgba(245, 192, 74, 0.6); }
+.r3-recess-pip--next { border-color: #ffe08a; background: #fff2c0; box-shadow: 0 0 10px rgba(255, 214, 107, 0.95); animation: r3-recess-next 1s ease-in-out infinite; }
+.r3-recess-pip--arch { width: 0.95rem; border-radius: 3px; }
+@keyframes r3-recess-next {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.3); }
+}
+.r3-recess--calm .r3-recess-pip--next { animation: none; }
+
+/* The gold ribbon: a best exists (simple depth's substitute for the time). */
+.r3-recess-ribbon {
+  display: inline-block;
+  width: 0.8rem;
+  height: 1.05rem;
+  background: linear-gradient(180deg, #ffe08a, var(--r3-gold));
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 72%, 0 100%);
+  filter: drop-shadow(0 0 3px rgba(245, 192, 74, 0.8));
+}
+
+/* ---- boards and lines -------------------------------------------------------------- */
+
+.r3-recess-board { max-width: 30rem; }
+.r3-recess-board-icon { color: #7a4f14; }
+.r3-recess-board--start { border-color: #ffd875; }
+.r3-recess-board--finish { border-color: #ffd875; box-shadow: 0 6px 0 rgba(0, 0, 0, 0.32), 0 0 60px rgba(255, 216, 117, 0.85), inset 0 2px 0 rgba(255, 225, 170, 0.3); }
+.r3-recess-board--plain { animation: none; }
+.r3-recess-pop {
+  margin-top: 0.45rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.85rem;
+  border-radius: 999px;
+  border: 2px solid #7a4f14;
+  background: rgba(47, 28, 12, 0.88);
+  color: #ffe08a;
+  font-size: 1rem;
+  font-weight: 900;
+  text-shadow: 0 2px 0 var(--r3-bark);
+  animation: r3-recess-pop 0.25s ease-out;
+}
+.r3-recess-pop-gem { width: 1rem; height: 1rem; color: var(--r3-gold); }
+@keyframes r3-recess-pop {
+  from { opacity: 0; transform: translateY(-6px) scale(0.92); }
+  to { opacity: 1; transform: none; }
+}
+.r3-recess-pop.r3-recess--calm { animation: none; }
+.r3-recess-error {
+  margin-top: 0.45rem;
+  display: flex;
+  gap: 0.6rem;
+  align-items: center;
+  padding: 0.35rem 0.9rem;
+  border-radius: 12px;
+  border: 2px solid #7a2f1f;
+  background: rgba(58, 22, 12, 0.92);
+  color: #ffd9c9;
+  font-weight: 800;
+  pointer-events: auto;
+}
+
+/* ---- the minimap -------------------------------------------------------------------- */
+
+.r3-recess-map-arch { fill: #f5c04a; stroke: #5a3510; stroke-width: 1.2; paint-order: stroke; }
+.r3-recess-map-lit {
+  fill: rgba(255, 214, 107, 0.35);
+  stroke: #ffd66b;
+  stroke-width: 1.6;
+  animation: r3-recess-map 1s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+@keyframes r3-recess-map {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+.r3-recess--calm .r3-recess-map-lit { animation: none; }
+
+/* ---- the Ring's board at the arch -------------------------------------------------- */
+
+.r3-recess-panel-icon { color: var(--r3-gold); }
+.r3-recess-rows { display: flex; flex-direction: column; gap: 0.35rem; margin: 0 0 0.6rem; }
+.r3-recess-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.45rem 0.75rem;
+  border-radius: 12px;
+  background: rgba(20, 11, 4, 0.45);
+  border: 2px solid rgba(168, 118, 29, 0.45);
+}
+.r3-recess-label { font-weight: 800; color: #f0d9a6; }
+.r3-recess-value { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 1.15rem; font-weight: 900; color: #fff6de; font-variant-numeric: tabular-nums; }
+.r3-recess-more { font-weight: 900; color: var(--r3-gold); }
+.r3-recess-pips--laps .r3-recess-pip { width: 0.6rem; height: 0.6rem; }
+.r3-recess-jar { width: 1.9rem; height: 1.9rem; color: #f0d9a6; }
+.r3-recess-jar-fill { fill: var(--r3-gold); filter: drop-shadow(0 0 3px rgba(245, 192, 74, 0.8)); }
+.r3-recess-jar-caption { margin: 0 0 0.8rem; font-size: 0.9rem; font-weight: 700; color: #d9c7a0; }
+
+@media (max-width: 640px) {
+  .r3-recess-row { flex-direction: column; align-items: flex-start; gap: 0.15rem; }
+  .r3-recess-strip-line { flex-wrap: wrap; }
+}

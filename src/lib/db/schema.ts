@@ -859,6 +859,28 @@ export const realmPlaceFound = sqliteTable(
   (table) => [uniqueIndex("realm_place_found_child_place_idx").on(table.childId, table.placeId)]
 );
 
+/**
+ * The Ring: one durable row per hero — what recess adds up to (`lib/realm/recess/record.ts`).
+ * Gleams and laps are cumulative and never reset by anything except a course change, which
+ * clears the lap bests only. Foot and ridden bests are kept apart. These are NOT currency:
+ * nothing here converts to Realm minutes. Written only by the hero themselves.
+ */
+export const realmRecessRecord = sqliteTable("realm_recess_record", {
+  id: text("id").primaryKey(),
+  childId: text("child_id")
+    .notNull()
+    .unique()
+    .references(() => child.id, { onDelete: "cascade" }),
+  totalGleams: integer("total_gleams").notNull().default(0),
+  laps: integer("laps").notNull().default(0),
+  bestLapMs: integer("best_lap_ms"),
+  bestMountedLapMs: integer("best_mounted_lap_ms"),
+  courseId: text("course_id").notNull().default("island-ring-1"),
+  lastLapAt: integer("last_lap_at", { mode: "timestamp" }),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+});
+
 // ── The Realm: spellbook ────────────────────────────────────
 
 /**

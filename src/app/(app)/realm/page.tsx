@@ -103,6 +103,8 @@ export default async function RealmPage({ searchParams }: { searchParams: Promis
     viewerCanWrite: bundle.canEdit ?? false,
     // The one record of the places found, and what the earning copy needs.
     placesFound: bundle.placesFound ?? [],
+    // The Ring's record: recess's gleams, laps and bests (null if it failed to load).
+    recess: bundle.recess ?? null,
     ...(bundle.earning ? { earning: bundle.earning } : {}),
   };
 

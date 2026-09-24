@@ -47,6 +47,10 @@ describe("the gate", () => {
     expect(closedPhase("no_minutes")).toEqual({ kind: "closed", body: "Every quest you complete banks minutes here." });
     expect(closedPhase("school_hours")).toEqual({ kind: "closed", body: "The Realm opens after your last class." });
   });
+
+  it("closes a scheduled recess by saying recess is over, not 'ask when recess is'", () => {
+    expect(closedPhase("outside_recess")).toEqual({ kind: "closed", body: "Recess is over. Your gleams are kept." });
+  });
 });
 
 describe("the castle", () => {

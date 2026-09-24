@@ -48,9 +48,10 @@ export type InteractTarget = {
    * Indoors adds two: the room's `door` (E there goes back outside) and its `fixture`, the one
    * thing in the room to use — the bell, the great book, the throne (`lib/realm3d/interiors.ts`).
    * Riding adds `post`: a hitching post, where fast travel starts (`lib/realm3d/travel.ts`); its id
-   * is the destination it belongs to.
+   * is the destination it belongs to. Recess adds `arch`: the Ring's start and finish
+   * (`lib/realm3d/recess/course.ts`), where a child runs the Ring and a grown-up sees their laps.
    */
-  kind: "villager" | "site" | "castle" | "landmark" | "door" | "fixture" | "post";
+  kind: "villager" | "site" | "castle" | "landmark" | "door" | "fixture" | "post" | "arch";
   id: string;
   /** What the prompt calls it: "Old Bram", "the Chapel", "Cloudfoot". */
   label: string;

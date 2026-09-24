@@ -86,6 +86,10 @@ import type { SoundSettings } from "@/lib/realm3d/sound/settings";
 import { usePlacesFound } from "./use-places-found";
 import { earningLines, type EarningSettings } from "@/lib/realm/spells/bounty";
 import type { RealmAccessMode } from "@/lib/utils/realm-access";
+import { useRecess } from "./use-recess";
+import { RecessBoard, RecessError, RecessMapMarks, RecessPop, RecessStrip, RingPanel } from "./recess-hud";
+import { bestFor, type RecessRecord } from "@/lib/realm/recess/record";
+import { RECESS_LAST_MINUTE, ringHelp } from "@/lib/realm/recess/copy";
 
 const RealmCanvas = dynamic(() => import("./spike-scene"), {
   ssr: false,
@@ -131,6 +135,8 @@ export type RealmData = {
   placesFound?: string[];
   /** What the earning copy reads (`bundle.earning`); absent, the help card says nothing of minutes. */
   earning?: EarningSettings & { accessMode: RealmAccessMode };
+  /** The Ring's record (`bundle.recess`): lifetime gleams, laps and bests; null if it failed to load. */
+  recess?: RecessRecord | null;
 };
 
 /** What the access check decided, for an open gate. */
@@ -594,6 +600,8 @@ export function RealmGame({
   }, [bus]);
 
   const { atPost, refuseCast } = riding;
+  /** Whether E at the Ring's arch opens its board now (`use-recess.ts`, made below the clock). */
+  const archOpens = useRef<() => boolean>(() => false);
   /** Pressing E at something, or clicking the prompt. A person, or their site, is a conversation. */
   const openTarget = useCallback(
     (t: InteractTarget) => {
@@ -606,6 +614,11 @@ export function RealmGame({
       // A hitching post: the fast-travel sheet, if the child is riding (otherwise it says how).
       if (t.kind === "post") {
         if (atPost(t)) go({ kind: "travel", from: t.id });
+        return;
+      }
+      // The Ring's arch: its board (a child's record and a way to run it; a grown-up's look).
+      if (t.kind === "arch") {
+        if (archOpens.current()) go({ kind: "ring" });
         return;
       }
       if (t.kind === "fixture") {
@@ -709,9 +722,11 @@ export function RealmGame({
   // The clock closing is the one way out the sound says goodbye on (`useRealmSound`'s `farewell`).
   const soundGoodbye = useRef(false);
   const sayGoodbye = useCallback(() => soundGoodbye.current, []);
+  /** Why the gate is open, as the clock last heard it: a clock running out during recess is recess ending. */
+  const sourceRef = useRef<AccessSource | null>(entry.source);
   const onClockClose = useCallback((reason: CloseReason) => {
     soundGoodbye.current = true;
-    closeRef.current?.(reason);
+    closeRef.current?.(reason === "no_minutes" && sourceRef.current === "recess" ? "outside_recess" : reason);
   }, []);
   // The flat Realm's own hook: it ticks visible seconds, writes a minute to the ledger every
   // sixty, re-checks the gate after each, warns at the last minute and closes at zero. Paused
@@ -735,6 +750,29 @@ export function RealmGame({
     () => (realm.isChildView && realm.earning ? earningLines(realm.earning, bounty.status ?? null, realm.earning.accessMode) : undefined),
     [realm.isChildView, realm.earning, bounty.status],
   );
+  useEffect(() => {
+    sourceRef.current = clock.source;
+  }, [clock.source]);
+
+  /* ---- recess: the Ring ------------------------------------------------ */
+  // The grown-up's scheduled recess starts a run; the arch runs one any time. Only the hero's own
+  // visit runs or writes; a grown-up's arch shows the child's record (`use-recess.ts`).
+  const recess = useRecess({
+    childId,
+    writer: isChild && viewer === "child",
+    viewer,
+    heroName,
+    source: clockOn ? clock.source : null,
+    depth: surfaces.numerals || !realm.isChildView ? "full" : "simple",
+    lowStimulus: profile.lowStimulus,
+    readAloud,
+    initial: realm.recess,
+    seed: world.seed,
+    ride: riding.bus,
+  });
+  useEffect(() => {
+    archOpens.current = recess.archOpens;
+  }, [recess.archOpens]);
 
   /* ---- the HUD's clicks ------------------------------------------------ */
   const [spellFacts, setSpellFacts] = useState<SpellbookFacts | null>(null);
@@ -848,6 +886,7 @@ export function RealmGame({
     clock: clockOn,
     warning: realm.isChildView && clock.warning,
     farewell: sayGoodbye,
+    recess: recess.bus,
   });
 
   const room = useMemo(() => (inside ? roomPlan(inside.room) : null), [inside]);
@@ -872,6 +911,7 @@ export function RealmGame({
         calm={calm}
         troubles={troubleBus}
         ride={riding.bus}
+        recess={recess.bus}
       />
       {outCount > 0 && !inside && <div key={outCount} className="r3-fade" aria-hidden="true" />}
       {inside && (
@@ -892,7 +932,12 @@ export function RealmGame({
             onEmptyPage={onEmptyPage}
             goal={goal}
             inside={room ? room.where : null}
-            mapExtras={<TroubleMapMarks tbus={troubleBus} />}
+            mapExtras={
+              <>
+                <TroubleMapMarks tbus={troubleBus} />
+                <RecessMapMarks bus={recess.bus} calm={calm} />
+              </>
+            }
             barExtra={viewer === "child" ? <RideSlot riding={riding.riding} access={riding.access} onPress={riding.toggle} /> : undefined}
             mountKey={riding.access.ok}
             found={places.found}
@@ -911,7 +956,11 @@ export function RealmGame({
             <VillagePlank heroName={heroName} done={raised} total={kingdom.buildings.length} numerals={numerals} />
             {visiting && <VisitorRibbon heroName={heroName} />}
             <div className="r3-top-lane">
-              {realm.isChildView && clock.warning && <LastMinute />}
+              {realm.isChildView && clock.warning && <LastMinute text={clock.source === "recess" ? RECESS_LAST_MINUTE : undefined} />}
+              {!paused && <RecessStrip run={recess.running} bus={recess.bus} numerals={numerals} best={bestFor(recess.record, riding.riding)} calm={calm} />}
+              {!paused && <RecessBoard board={recess.board} calm={calm} />}
+              {!paused && <RecessPop pop={recess.pop} calm={calm} />}
+              <RecessError error={recess.error} onRetry={recess.retry} />
               {tutorialOn && !paused && (
                 <Coach
                   copy={coachCopy}
@@ -929,7 +978,7 @@ export function RealmGame({
               {!paused && <RideLine line={riding.line} onDone={riding.clearLine} />}
             </div>
             {!paused && <TravelBanner to={riding.travelling} onStop={riding.stop} />}
-            {!paused && <InteractPrompt target={near} onPress={openTarget} />}
+            {!paused && <InteractPrompt target={recess.prompt(near)} onPress={openTarget} />}
             <ClockCorner
               line={line}
               warning={realm.isChildView && clock.warning}
@@ -961,6 +1010,7 @@ export function RealmGame({
               slots={pages.length}
               mount={viewer === "child" ? riding.access.ok : undefined}
               earning={earning}
+              ring={viewer === "child" ? ringHelp("keyboard") : undefined}
               back={overlay.back}
               onClose={() => go(escapeFrom(overlay))}
               onReplay={
@@ -984,6 +1034,22 @@ export function RealmGame({
               onGo={(id) => {
                 go(null);
                 riding.go(id);
+              }}
+              onClose={closeOverlay}
+            />
+          )}
+          {overlay?.kind === "ring" && (
+            <RingPanel
+              record={recess.record}
+              viewer={who}
+              heroName={heroName}
+              depth={numerals ? "full" : "simple"}
+              fewerChoices={profile.fewerChoices}
+              mounted={riding.riding}
+              canRun={recess.running === null && realm.isChildView}
+              onRun={() => {
+                go(null);
+                recess.runRing();
               }}
               onClose={closeOverlay}
             />
