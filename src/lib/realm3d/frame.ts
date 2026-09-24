@@ -157,7 +157,7 @@ export type ControlRow = { keys: string[]; what: string };
  * orbits, right-drag orbits and turns the hero, the wheel zooms, Space jumps, E interacts,
  * 1–N casts, Esc pauses. Q and E no longer swing the camera.
  */
-export function controlRows(slots: number, opts: { mount?: boolean } = {}): ControlRow[] {
+export function controlRows(slots: number, opts: { mount?: boolean; pet?: string | false } = {}): ControlRow[] {
   const n = Math.max(1, Math.min(9, Math.floor(slots)));
   const rows: ControlRow[] = [
     { keys: ["W", "A", "S", "D"], what: "Walk. A and D step sideways." },
@@ -176,11 +176,20 @@ export function controlRows(slots: number, opts: { mount?: boolean } = {}): Cont
       what: opts.mount ? "Get on or off your mount. On it, E at a hitching post rides you anywhere you've been." : "Ride your mount, once you've picked one in the Tavern.",
     });
   }
+  // The companion leads (`lead.ts`): for a child, always — with or without a pet, F says how it works.
+  if (opts.pet !== undefined) {
+    rows.splice(rows.length - 1, 0, {
+      keys: ["F"],
+      what: opts.pet
+        ? `Ask your ${opts.pet} to show you the way: to whoever is waiting, or somewhere you haven't found yet. F again to stop.`
+        : "Your companion shows you the way, once you've picked one in the Tavern.",
+    });
+  }
   return rows;
 }
 
 /** The strip under the spell bar: the five verbs a child needs first, in the fewest words. */
-export function keyHints(slots: number, opts: { mount?: boolean } = {}): { key: string; what: string }[] {
+export function keyHints(slots: number, opts: { mount?: boolean; pet?: boolean } = {}): { key: string; what: string }[] {
   const n = Math.max(1, Math.min(9, Math.floor(slots)));
   const hints = [
     { key: "WASD", what: "walk" },
@@ -192,6 +201,8 @@ export function keyHints(slots: number, opts: { mount?: boolean } = {}): { key: 
   ];
   // Only for a child who has a mount to ride: the strip stays five verbs for everyone else.
   if (opts.mount) hints.splice(hints.length - 1, 0, { key: "M", what: "ride" });
+  // ...and for a child with a pet to follow.
+  if (opts.pet) hints.splice(hints.length - 1, 0, { key: "F", what: "follow" });
   return hints;
 }
 

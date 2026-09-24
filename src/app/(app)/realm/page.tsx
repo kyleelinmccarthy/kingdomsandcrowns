@@ -73,7 +73,9 @@ export default async function RealmPage({ searchParams }: { searchParams: Promis
   // `?text=large` shows the child's larger-text view without editing their profile.
   const dev = process.env.NODE_ENV !== "production";
   const devCeremony = dev && isChildView ? one(q, "ceremony") : undefined;
-  const profile = dev && one(q, "text") === "large" ? { ...bundle.profile, largerText: true } : bundle.profile;
+  const sized = dev && one(q, "text") === "large" ? { ...bundle.profile, largerText: true } : bundle.profile;
+  // `?calm=1`: the low-stimulus view (calm mode), likewise without editing the profile.
+  const profile = dev && one(q, "calm") === "1" ? { ...sized, lowStimulus: true } : sized;
   // The castle's own rule, as the Castle page applies it: built, or the level to build it.
   const castle = await getCastle(activeChild.id).catch(() => null);
   const unlocked = castleUnlocked(levelFromXp(activeChild.currentXp), castle !== null);

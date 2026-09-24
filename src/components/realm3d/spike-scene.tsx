@@ -101,6 +101,7 @@ import { Castle, CastleGrounds } from "./castle";
 import { castlePlan } from "@/lib/realm3d/castle-plan";
 import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
 import { Companion, HeroFigure, type Gait } from "./hero-figure";
+import type { LeadBus } from "@/lib/realm3d/lead";
 import { WizardFigure } from "./wizard-figure";
 import type { SpellPageView } from "@/lib/realm/spells/pages";
 import { digitSlot, pushCast, type Caster, type CastQueue } from "@/lib/realm3d/casting";
@@ -1236,6 +1237,7 @@ const World = memo(function World({
   calm,
   troubles,
   ride,
+  lead,
 }: {
   avatar: AvatarConfig;
   close: boolean;
@@ -1252,6 +1254,7 @@ const World = memo(function World({
   calm: boolean;
   troubles: TroubleBus | null;
   ride: RideBus | null;
+  lead: LeadBus | null;
 }) {
   const look = useMemo(() => heroLook(avatar), [avatar]);
   const seat = useSeatRef(ride);
@@ -1446,7 +1449,7 @@ const World = memo(function World({
         {viewer !== "parent" && ride?.mount && <RiddenMount ride={ride} heroRef={heroRef} />}
       </Hero>
       {/* The pet is the child's, and stays with the child: no companion follows the wizard. */}
-      {viewer !== "parent" && look.companion && <Companion look={look.companion} heroRef={heroRef} facingRef={facingRef} hideRef={ride?.away} />}
+      {viewer !== "parent" && look.companion && <Companion look={look.companion} heroRef={heroRef} facingRef={facingRef} hideRef={ride?.away} lead={lead} world={world} solids={solids} layout={layout} />}
       <WadeRing world={world} heroRef={heroRef} />
       <LanternGlow scenery={scenery} tex={tex} />
       <Motes tex={tex} />
@@ -1513,9 +1516,11 @@ export type RealmCanvasProps = {
   troubles?: TroubleBus;
   /** Riding and fast travel's wire to the frame (`lib/realm3d/riding.ts`). Without one, nobody rides. */
   ride?: RideBus;
+  /** The companion leading the child (`lib/realm3d/lead.ts`). Without one, the pet only follows. */
+  lead?: LeadBus;
 };
 
-export default function SpikeScene({ avatar, close, world, layout, anchors, pages, bus, caster, fxPool, casts, viewer, castleUnlocked, frozen = false, calm = false, troubles, ride }: RealmCanvasProps) {
+export default function SpikeScene({ avatar, close, world, layout, anchors, pages, bus, caster, fxPool, casts, viewer, castleUnlocked, frozen = false, calm = false, troubles, ride, lead }: RealmCanvasProps) {
   return (
     <Canvas
       frameloop={frozen ? "never" : "always"}
@@ -1544,6 +1549,7 @@ export default function SpikeScene({ avatar, close, world, layout, anchors, page
         calm={calm}
         troubles={troubles ?? null}
         ride={ride ?? null}
+        lead={lead ?? null}
       />
     </Canvas>
   );

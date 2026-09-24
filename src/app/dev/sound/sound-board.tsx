@@ -60,6 +60,11 @@ const GROUPS: Group[] = [
     items: (["wingbeat", "mount-jump", "mount-land", "mount-summon", "mount-up", "mount-down", "travel-start", "travel-arrive", "travel-stop"] as const).map((id) => ({ id, label: id.replace("-", " ") })),
   },
   {
+    title: "The companion leads",
+    blurb: "F, or the pet's slot: the pet sets off to show the way (“this way!”), and answers when the child gets there (“here it is!”).",
+    items: (["pet-lead", "pet-arrive"] as const).map((id) => ({ id, label: id.replace("-", " ") })),
+  },
+  {
     title: "Mounts say hello",
     blurb: "A soft call as the child gets on: pony, donkey, goat, stag, boar, direwolf, gryphon, wyrm.",
     items: MOUNT_CALLS.map((c) => ({ id: `call-${c}` as SoundId, label: c })),

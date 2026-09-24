@@ -65,7 +65,7 @@ export function Progress({ done, total, numerals, text, label }: { done: number;
 
 /* ------------------------------------------------------------------ objectives */
 
-function ObjectiveRows({ objectives, heroName, visiting, numerals }: { objectives: Objective[]; heroName: string; visiting: boolean; numerals: boolean }) {
+function ObjectiveRows({ objectives, heroName, visiting, numerals, pet = null }: { objectives: Objective[]; heroName: string; visiting: boolean; numerals: boolean; pet?: string | null }) {
   const [first, ...rest] = objectives;
   if (!first) return null;
   return (
@@ -84,6 +84,13 @@ function ObjectiveRows({ objectives, heroName, visiting, numerals }: { objective
           </span>
           <span>
             Follow the gold ! and press <b>E</b> to talk.
+            {/* The companion leads (`companion-hud.tsx`): the other way to find them, said where the ! is. */}
+            {pet && (
+              <>
+                {" "}
+                Or press <b>F</b>, and your {pet} will show you the way.
+              </>
+            )}
           </span>
         </p>
       )}
@@ -117,6 +124,7 @@ export function ObjectiveCard({
   numerals,
   kingdomError,
   onRetry,
+  pet = null,
 }: {
   objective: ObjectiveState;
   heroName: string;
@@ -125,6 +133,8 @@ export function ObjectiveCard({
   kingdomError?: string;
   /** Ask for the kingdom again, after a load that failed. */
   onRetry?: () => void;
+  /** The child's companion ("Fox"), which can lead them to whoever is waiting (F). */
+  pet?: string | null;
 }) {
   if (objective.kind === "unknown") {
     if (!kingdomError) return null;
@@ -149,7 +159,7 @@ export function ObjectiveCard({
           <p className="r3-quest-line">Nothing is waiting. Walk where you like.</p>
         </>
       ) : (
-        <ObjectiveRows objectives={objective.objectives} heroName={heroName} visiting={visiting} numerals={numerals} />
+        <ObjectiveRows objectives={objective.objectives} heroName={heroName} visiting={visiting} numerals={numerals} pet={pet} />
       )}
     </section>
   );
@@ -445,8 +455,11 @@ export function HowToPlay({
   onReplay = null,
   mount,
   earning,
+  pet,
 }: {
   slots: number;
+  /** A child's F row: their pet's name ("Fox"), or false without one; absent for a visitor. */
+  pet?: string | false;
   /**
    * How this child's Realm minutes are earned, from `earningLines` (`lib/realm/spells/bounty.ts`):
    * the one source every surface reads. Absent for a visitor, who earns nothing.
@@ -462,7 +475,7 @@ export function HowToPlay({
   return (
     <Panel title="How to play" label="How to play" wide icon={<GameIcon name="scroll" className="r3-board-icon" />} onClose={onClose}>
       <ul className="r3-controls">
-        {controlRows(slots, { mount }).map((row) => (
+        {controlRows(slots, { mount, pet }).map((row) => (
           <li key={row.what} className="r3-control">
             <span className="r3-control-keys">
               {row.keys.map((k) => (
@@ -477,6 +490,12 @@ export function HowToPlay({
       </ul>
       <p className="r3-board-sub">
         Follow the gold <b>!</b> — over a villager&rsquo;s head, at the edge of the screen, and on your map. That is who is waiting for you.
+        {pet && (
+          <>
+            {" "}
+            Or press <b>F</b>: your {pet} runs ahead to show you the way, and waits for you. Already there? It finds you somewhere new.
+          </>
+        )}
       </p>
       {earning && earning.length > 0 && (
         <p className="r3-board-sub r3-earning">

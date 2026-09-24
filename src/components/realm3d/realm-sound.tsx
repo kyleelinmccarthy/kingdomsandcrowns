@@ -141,6 +141,8 @@ export type RealmSoundOptions = {
    * closing cadence under "Well played" — before it stops, rather than stopping mid-note.
    */
   farewell?: () => boolean;
+  /** The child has a companion to lead them (`lib/realm3d/lead.ts`): its two cues are made ahead. */
+  pet?: boolean;
 };
 
 /**
@@ -166,7 +168,7 @@ export function useRealmSound(o: RealmSoundOptions): SoundStore {
   const { bus, tbus, world, layout } = o;
   const ride = o.ride ?? null;
   // Read once, when the engine is made: whether this visit has a ceremony waiting and a clock.
-  const firstVisit = useRef({ ceremony: o.ceremony ?? false, clock: o.clock ?? false });
+  const firstVisit = useRef({ ceremony: o.ceremony ?? false, clock: o.clock ?? false, pet: o.pet ?? false });
   const goodbye = o.farewell;
   // Nobody to save for, or nobody allowed to: the sliders still work, for this visit.
   const childId = o.canSave === false ? null : o.childId;
@@ -332,6 +334,7 @@ export function useRealmSound(o: RealmSoundOptions): SoundStore {
     }
     if (wantCrown) engine.want(["crown"], true);
     if (clockOn) engine.want(["last-minute", "farewell"]);
+    if (firstVisit.current.pet) engine.want(["pet-lead", "pet-arrive"]);
     const toOutdoors = () => engine.setZone(outdoors);
     roomExit.current = toOutdoors;
 

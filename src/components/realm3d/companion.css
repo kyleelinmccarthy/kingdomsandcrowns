@@ -1,0 +1,55 @@
+/* The companion leads you, the frame half: the pet's slot after the Ride slot, the pet's lines in
+   the top lane, and its way on the map. The same timber and gold as the Ride slot beside it. */
+
+/* ---- the pet's slot ------------------------------------------------------------ */
+
+.r3-bar .r3-pet-slot {
+  border: 3px solid var(--r3-bark);
+  background: linear-gradient(180deg, #6d5a34, var(--r3-timber-deep, #4a2f1c));
+  box-shadow: 0 5px 0 rgba(0, 0, 0, 0.3), inset 0 2px 0 rgba(255, 225, 170, 0.22);
+  --r3-ink: #c9a36a;
+}
+.r3-bar .r3-pet-slot--on {
+  border-color: #ffe08a;
+  --r3-ink: #ffe08a;
+  box-shadow: 0 5px 0 rgba(0, 0, 0, 0.3), 0 0 22px rgba(255, 224, 138, 0.55), inset 0 2px 0 rgba(255, 225, 170, 0.3);
+}
+.r3-bar .r3-pet-slot--on .r3-pet-icon { animation: r3-pet-trot 0.9s ease-in-out infinite; }
+@keyframes r3-pet-trot {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+.r3-bar .r3-pet-slot--none { opacity: 0.8; }
+.r3-bar .r3-pet-slot--none .r3-pet-icon { opacity: 0.5; }
+.r3-pet-icon { color: #fff6de; }
+
+/* ---- the pet's lines, in the top lane ------------------------------------------- */
+
+.r3-pet-line { align-items: center; }
+.r3-pet-line-icon {
+  flex: none;
+  width: 2rem;
+  height: 2rem;
+  color: #ffe08a;
+  filter: drop-shadow(0 2px 0 rgba(0, 0, 0, 0.45));
+}
+
+/* ---- the pet's way, on the map (world units: it pans with the land) --------------- */
+
+.r3-map-lead-way {
+  fill: none;
+  stroke: #fff6de;
+  stroke-width: 3.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 0.1 5;
+  opacity: 0.95;
+  filter: drop-shadow(0 0 1.2px rgba(58, 32, 8, 0.9));
+}
+.r3-map-lead-end { fill: #fff6de; stroke: #3a2008; stroke-width: 1.1; }
+.r3-map-lead-paw { fill: #6b4a1f; }
+
+.r3-bar .r3-pet-slot--calm .r3-pet-icon { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .r3-bar .r3-pet-slot--on .r3-pet-icon { animation: none; }
+}

@@ -80,6 +80,7 @@ import {
 import { RealmHud } from "./hud";
 import { RoomLine } from "./room-hud";
 import { RideLine, RideSlot, TravelBanner, TravelSheet, useRiding } from "./riding-hud";
+import { CompanionSlot, LeadLine, LeadMapMarks, leadWords, useCompanionLead } from "./companion-hud";
 import { travelGraphFor } from "@/lib/realm3d/travel";
 import { SoundControls, useRealmSound } from "./realm-sound";
 import type { SoundSettings } from "@/lib/realm3d/sound/settings";
@@ -342,6 +343,8 @@ export function RealmGame({
     onRode,
     places: places.store,
   });
+  // The companion leads (`companion-hud.tsx`): F or the pet's slot, its words, its way on the map.
+  const companion = useCompanionLead({ avatar: hero, viewer, calm, readAloud, bus, goal, world, found: places.found, insideRef });
 
   // The ONE writer of `bus.paused`. Every panel is an overlay, so every panel pauses the
   // scene, and nothing can open a panel that forgets to. Indoors pauses the ISLAND too (its keys,
@@ -697,8 +700,9 @@ export function RealmGame({
     const line = objectiveSpeech(objective);
     if (!line) return;
     spokenObjective.current = true;
-    speak(line);
-  }, [readAloud, paused, coachCopy, objective]);
+    // With a pet: the spec's "Your {companion} will show you the way.", and the key that asks it.
+    speak(companion.pet && goal.on ? `${line} ${leadWords.objective(companion.pet)}` : line);
+  }, [readAloud, paused, coachCopy, objective, companion.pet, goal.on]);
 
   /* ---- the play clock ------------------------------------------------- */
   const clockOn = realm.isChildView && childId !== null;
@@ -848,6 +852,7 @@ export function RealmGame({
     clock: clockOn,
     warning: realm.isChildView && clock.warning,
     farewell: sayGoodbye,
+    pet: companion.has,
   });
 
   const room = useMemo(() => (inside ? roomPlan(inside.room) : null), [inside]);
@@ -872,6 +877,7 @@ export function RealmGame({
         calm={calm}
         troubles={troubleBus}
         ride={riding.bus}
+        lead={companion.bus}
       />
       {outCount > 0 && !inside && <div key={outCount} className="r3-fade" aria-hidden="true" />}
       {inside && (
@@ -892,9 +898,22 @@ export function RealmGame({
             onEmptyPage={onEmptyPage}
             goal={goal}
             inside={room ? room.where : null}
-            mapExtras={<TroubleMapMarks tbus={troubleBus} />}
-            barExtra={viewer === "child" ? <RideSlot riding={riding.riding} access={riding.access} onPress={riding.toggle} /> : undefined}
+            mapExtras={
+              <>
+                <TroubleMapMarks tbus={troubleBus} />
+                <LeadMapMarks route={companion.route} target={companion.target} />
+              </>
+            }
+            barExtra={
+              viewer === "child" ? (
+                <>
+                  <RideSlot riding={riding.riding} access={riding.access} onPress={riding.toggle} />
+                  <CompanionSlot lead={companion} onPress={companion.toggle} calm={calm} />
+                </>
+              ) : undefined
+            }
             mountKey={riding.access.ok}
+            petKey={companion.has}
             found={places.found}
             onFound={places.store.add}
           />
@@ -907,6 +926,7 @@ export function RealmGame({
               numerals={numerals}
               kingdomError={kingdomError || undefined}
               onRetry={childId ? retryKingdom : undefined}
+              pet={companion.pet}
             />
             <VillagePlank heroName={heroName} done={raised} total={kingdom.buildings.length} numerals={numerals} />
             {visiting && <VisitorRibbon heroName={heroName} />}
@@ -927,6 +947,7 @@ export function RealmGame({
               {!paused && inside && <RoomLine line={roomLine} onDone={clearRoomLine} />}
               <TroubleNotices tbus={troubleBus} skin={tone} pages={pages} paused={paused} bounty={bounty} clearCount={surfaces.clearCount} />
               {!paused && <RideLine line={riding.line} onDone={riding.clearLine} />}
+              {!paused && <LeadLine line={companion.line} onDone={companion.clearLine} />}
             </div>
             {!paused && <TravelBanner to={riding.travelling} onStop={riding.stop} />}
             {!paused && <InteractPrompt target={near} onPress={openTarget} />}
@@ -960,6 +981,7 @@ export function RealmGame({
             <HowToPlay
               slots={pages.length}
               mount={viewer === "child" ? riding.access.ok : undefined}
+              pet={viewer === "child" ? (companion.pet ?? false) : undefined}
               earning={earning}
               back={overlay.back}
               onClose={() => go(escapeFrom(overlay))}
