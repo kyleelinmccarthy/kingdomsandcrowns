@@ -214,6 +214,13 @@ describe("a visiting parent", () => {
     expect(screen.getByText("Emma has 40 min today")).toBeInTheDocument();
     expect(screen.getByText("Old Bram is waiting for Emma.")).toBeInTheDocument();
   });
+
+  it("wears the visitor ribbon at the head of the top lane, so the lane's messages stack under it", () => {
+    const { container } = mount({ viewer: "parent", realm: { ...realm, isChildView: false } }).view;
+    const lane = container.querySelector(".r3-top-lane")!;
+    expect(lane.firstElementChild?.classList.contains("r3-ribbon")).toBe(true);
+    expect(container.querySelectorAll(".r3-ribbon")).toHaveLength(1);
+  });
 });
 
 /* ------------------------------------------------------------------ the loop */

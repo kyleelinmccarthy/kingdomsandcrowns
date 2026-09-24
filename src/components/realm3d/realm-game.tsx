@@ -909,8 +909,9 @@ export function RealmGame({
               onRetry={childId ? retryKingdom : undefined}
             />
             <VillagePlank heroName={heroName} done={raised} total={kingdom.buildings.length} numerals={numerals} />
-            {visiting && <VisitorRibbon heroName={heroName} />}
             <div className="r3-top-lane">
+              {/* First in the lane, so every message after it stacks under it instead of over it. */}
+              {visiting && <VisitorRibbon heroName={heroName} />}
               {realm.isChildView && clock.warning && <LastMinute />}
               {tutorialOn && !paused && (
                 <Coach

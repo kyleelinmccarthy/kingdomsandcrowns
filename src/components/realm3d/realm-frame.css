@@ -776,6 +776,10 @@
 }
 /* The last-minute banner joins the lane rather than sitting on top of the lesson. */
 .r3-top-lane .r3-banner { position: static; transform: none; margin-bottom: 0.6rem; }
+/* So does a visiting grown-up's ribbon, at the head of it: the lesson, the room's line, a side
+   quest's news and a trouble's notice all stack under it rather than on top of it. It keeps its
+   own width (a little wider than the lane, centred over it) and never shrinks into two pills. */
+.r3-top-lane .r3-ribbon { position: static; transform: none; flex: none; width: max-content; margin-bottom: 0.6rem; }
 .r3-coach-lane {
   width: 100%;
   display: flex;
