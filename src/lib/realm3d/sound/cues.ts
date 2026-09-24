@@ -65,6 +65,11 @@ export function cueInfo(id: SoundId): CueInfo {
     case "jump":
     case "land":
       return { bus: "sfx", priority: BODY, gap: 0.1, max: 1 };
+    // Recess: gleams come in handfuls, so they may overlap one another's tails but never pile up.
+    case "gleam":
+      return { bus: "sfx", priority: ACTION, gap: 0.06, max: 2 };
+    case "ring-post":
+      return { bus: "sfx", priority: ANSWER, gap: 0.3, max: 1 };
     case "ui-click":
       return { bus: "sfx", priority: BODY, gap: 0.05, max: 2 };
     case "prompt":
@@ -91,6 +96,34 @@ export function cueInfo(id: SoundId): CueInfo {
     default:
       // rise, complete, lesson, tutorial-done, found: the big moments.
       return { bus: "sfx", priority: MOMENT, gap: 0.3, max: 1 };
+  }
+}
+
+/* ------------------------------------------------------------------ recess */
+
+/**
+ * Recess's moments, as sounds (`lib/realm3d/recess/bus.ts`'s `RecessCue`). The bells and a best
+ * are moments: made ahead, and the music steps back under them. A gleam, a post and a lap are
+ * plain plays. The nudge and a voided lap use the gentle "not that" taps the game already has.
+ */
+export function recessSound(cue: "bell" | "gleam" | "post" | "lap" | "best" | "over" | "nudge" | "void"): { id: EffectId; moment: boolean; duck: boolean } {
+  switch (cue) {
+    case "bell":
+      return { id: "recess-bell", moment: true, duck: true };
+    case "over":
+      return { id: "recess-over", moment: true, duck: true };
+    case "best":
+      return { id: "lap-best", moment: true, duck: true };
+    case "lap":
+      return { id: "lap-done", moment: true, duck: false };
+    case "gleam":
+      return { id: "gleam", moment: false, duck: false };
+    case "post":
+      return { id: "ring-post", moment: false, duck: false };
+    case "nudge":
+      return { id: "refuse", moment: false, duck: false };
+    case "void":
+      return { id: "deed-wrong", moment: false, duck: false };
   }
 }
 

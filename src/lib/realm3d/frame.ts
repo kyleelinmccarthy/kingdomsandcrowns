@@ -58,8 +58,14 @@ export function entryPhase(result: AccessResult, isChildView: boolean): EntryPha
   return { kind: "open", minutes: result.minutesRemaining, visit: null, source: result.source };
 }
 
+/** The closing card when a scheduled recess ends (`recess/copy.ts`'s RECESS_OVER, the words a run ends with too). */
+export const RECESS_CLOSED = "Recess is over. Your gleams are kept.";
+
 /** The clock ran out, or the gate shut mid-visit: the same words the flat Realm's closing card uses. */
 export function closedPhase(reason: AccessDenied): EntryPhase {
+  // Shut mid-visit because the recess block ended: recess is over — not "ask when recess is",
+  // which is the gate's line for a child arriving outside it.
+  if (reason === "outside_recess") return { kind: "closed", body: RECESS_CLOSED };
   return { kind: "closed", body: gateCopy({ allowed: false, reason })!.body };
 }
 
@@ -122,7 +128,9 @@ export type Overlay =
   /** A crown waiting for its ceremony. */
   | { kind: "ceremony" }
   /** A hitching post's fast-travel sheet, from the post (a destination id) the child stands at. */
-  | { kind: "travel"; from: string };
+  | { kind: "travel"; from: string }
+  /** The Ring's board at the arch: the child's record and a way to run it (a grown-up only looks). */
+  | { kind: "ring" };
 
 /**
  * Esc. With nothing open it opens the pause menu; with a panel open it closes it — back to the

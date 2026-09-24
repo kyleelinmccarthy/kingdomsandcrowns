@@ -20,6 +20,8 @@ import { tutorialLearned } from "@/lib/realm3d/tutorial";
 import { loadRealmSound } from "@/lib/services/realm-sound";
 import { DEFAULT_SOUND, type SoundSettings } from "@/lib/realm3d/sound/settings";
 import { loadPlacesFound } from "@/lib/services/realm-places";
+import { loadRecessRecord } from "@/lib/services/recess";
+import type { RecessRecord } from "@/lib/realm/recess/record";
 import type { RealmAccessMode } from "@/lib/utils/realm-access";
 
 export type RealmBundle = {
@@ -63,6 +65,12 @@ export type RealmBundle = {
    */
   placesFound?: string[];
   /**
+   * The Ring's record (`realm_recess_record`): lifetime gleams, laps and bests. Null when it failed
+   * to load — the Realm opens anyway and the board reads as empty, never as a claimed zero.
+   * Optional only so hand-built bundles in tests need not carry it.
+   */
+  recess?: RecessRecord | null;
+  /**
    * What the earning copy needs (`earningLines` in `lib/realm/spells/bounty.ts`), from the
    * settings row already read here — no extra query. Always set by `getRealmBundle`.
    */
@@ -98,6 +106,11 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
   const placesRead = loadPlacesFound(childId).catch((err: unknown) => {
     console.error("Realm places failed to load", err);
     return [] as string[];
+  });
+  // The Ring's record, the same way: a failed read is "not known", never a closed Realm.
+  const recessRead = loadRecessRecord(childId).catch((err: unknown) => {
+    console.error("Realm recess record failed to load", err);
+    return null;
   });
   // Also hands back the flags it read (post-update), so the parallel batch below does not
   // pay a second `loadRealmFlags` round trip just to read `helpSeenAt`. On the (rare) failure
@@ -170,6 +183,7 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
     sound: await soundRead,
     canEdit: access.permission === "edit",
     placesFound: await placesRead,
+    recess: await recessRead,
     earning: {
       enabled: settings.enabled,
       accessMode: settings.accessMode,

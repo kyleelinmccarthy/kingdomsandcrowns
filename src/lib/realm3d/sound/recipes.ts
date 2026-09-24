@@ -96,6 +96,13 @@ export const EFFECTS = [
   "crown",
   "last-minute",
   "farewell",
+  // Recess and the Ring: the bell that starts it, a gleam, a post passed, a lap, a best, the end.
+  "recess-bell",
+  "gleam",
+  "ring-post",
+  "lap-done",
+  "lap-best",
+  "recess-over",
 ] as const;
 export type EffectId = (typeof EFFECTS)[number];
 
@@ -793,9 +800,66 @@ function rideEffect(id: EffectId): Recipe | null {
   return null;
 }
 
+/**
+ * Recess and the Ring. The school's hand bell rings recess in and out — a bright "ding-ding" that
+ * says play time, and the same bell falling home to C when it is over. A gleam is the smallest
+ * glassy chime there is (they come often, so it is quiet and short); a post passed is a wooden
+ * tick and a chime, "yes, that one"; a lap is a kalimba run up; a best is the run with a chord
+ * swelling under it and a bell on top — still below a building finishing, which is the biggest
+ * moment the village has. All in the key of everything else.
+ */
+function recessEffect(id: EffectId): Recipe | null {
+  switch (id) {
+    case "recess-bell":
+      return { seconds: 2.2, level: 0.34, room: 0.16, size: 1.1, build: (b) => {
+        // A hand bell swung twice, twice: ding-ding, ding-ding.
+        for (const [t, mi, a] of [[0, G5, 0.26], [0.17, E5, 0.22], [0.42, G5, 0.26], [0.59, E5, 0.22]] as const) bell(b, t, hz(mi), a, 0.55);
+        if (!b.calm) [C5, E5, G5, C6].forEach((mi, i) => kalimba(b, 0.95 + i * 0.08, mi, 0.3, 0.35 + i * 0.05));
+        else kalimba(b, 0.95, C5, 0.3, 0.5);
+        sparkle(b, 1.05, 3, 0.05, 0.35);
+      } };
+    case "gleam":
+      // A little glassy "ting-ting", high and short.
+      return { seconds: 0.8, level: 0.2, room: 0.1, build: (b) => {
+        chime(b, 0, C6, 0.36, 0.16);
+        chime(b, 0.07, E6, 0.32, 0.26);
+        sparkle(b, 0.08, 1, 0.04, 0.1);
+      } };
+    case "ring-post":
+      // A post passed: a wooden tick, and a chime that says "that one".
+      return { seconds: 0.9, level: 0.26, room: 0.1, build: (b) => {
+        marimba(b, 0, G4, 0.45, 0.12);
+        chime(b, 0.08, G5, 0.36, 0.35);
+      } };
+    case "lap-done":
+      // Home through the arch: a kalimba run up to the top C.
+      return { seconds: 1.6, level: 0.32, room: 0.14, build: (b) => {
+        [C5, E5, G5, C6].forEach((mi, i) => kalimba(b, i * 0.09, mi, 0.42, 0.3 + i * 0.07));
+        bell(b, 0.35, hz(C5), 0.1, 0.6);
+      } };
+    case "lap-best":
+      // A new best: the run, a chord swelling under it, and a bell — a warm "you did it".
+      return { seconds: 2.6, level: 0.4, room: 0.18, size: 1.1, build: (b) => {
+        for (const [mi, a] of [[C3, 0.16], [G3, 0.13], [E4, 0.1]] as const) b.tone({ dur: 2.2, freq: hz(mi), amp: a, wave: "warm", swell: { attack: 0.3, release: 1.2 } });
+        [C5, D5, E5, G5, C6].forEach((mi, i) => kalimba(b, 0.04 + i * 0.08, mi, 0.4, 0.32 + i * 0.07));
+        bell(b, 0.5, hz(C5), 0.18, 0.9);
+        sparkle(b, 0.5, 4, 0.06, 0.5);
+      } };
+    case "recess-over":
+      // The bell again, slower, coming home: recess is over, and it was good.
+      return { seconds: 2.6, level: 0.3, room: 0.2, size: 1.2, build: (b) => {
+        for (const [t, mi, a] of [[0, G5, 0.22], [0.36, E5, 0.2], [0.72, C5, 0.22]] as const) bell(b, t, hz(mi), a, 0.8);
+        b.tone({ start: 0.7, dur: 1.8, freq: hz(C4), amp: 0.08, wave: "warm", swell: { attack: 0.3, release: 1.2 } });
+      } };
+  }
+  return null;
+}
+
 function effect(id: EffectId): Recipe {
   const ridden = rideEffect(id);
   if (ridden) return ridden;
+  const recessed = recessEffect(id);
+  if (recessed) return recessed;
   if (id.startsWith("step-")) return step(id.slice(5) as Surface);
   if (id.startsWith("charge-")) return charge(id.slice(7) as Element);
   if (id.startsWith("release-")) return release(id.slice(8) as Element);

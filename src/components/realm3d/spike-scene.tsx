@@ -116,6 +116,9 @@ import type { TroubleBus } from "@/lib/realm3d/trouble-bus";
 import { boostJump, camOffsets, castBlocked, CAST_FROM_SADDLE, holdDrop, jumpSpeed, keepFooting, pace, rideFace, rideRadius, wadeLimit, writeAir, type RideBus } from "@/lib/realm3d/riding";
 import { RiddenMount, Riding, Saddle, travelGraphFor, useSeatRef } from "./riding-scene";
 import { bodyFor, slideBody, turnBody } from "@/lib/realm3d/mount-body";
+import { RecessScene } from "./recess-scene";
+import type { RecessBus } from "@/lib/realm3d/recess/bus";
+import { ARCH_HALF_SPAN } from "@/lib/realm3d/recess/course";
 
 /* ------------------------------------------------------------------ palette */
 
@@ -1252,6 +1255,7 @@ const World = memo(function World({
   troubles,
   ride,
   lead,
+  recess = null,
 }: {
   avatar: AvatarConfig;
   close: boolean;
@@ -1269,6 +1273,8 @@ const World = memo(function World({
   troubles: TroubleBus | null;
   ride: RideBus | null;
   lead: LeadBus | null;
+  /** Recess and the Ring (`recess-scene.tsx`): the arch and posts always, a run on the child's own visit. */
+  recess?: RecessBus | null;
 }) {
   const look = useMemo(() => heroLook(avatar), [avatar]);
   const seat = useSeatRef(ride);
@@ -1367,8 +1373,10 @@ const World = memo(function World({
       : null;
     // The hitching posts (`riding-scene.tsx`) are E spots too: E at one opens the fast-travel sheet.
     const posts = ride ? travelGraphFor(world).posts : undefined;
-    return buildSpots({ props: layout.props, sitePlan: SITE_PLAN, landmarks: world.landmarks, landmarkRadius: landmarkRadii(world), castle: gate, posts });
-  }, [layout, world, castle, castleUnlocked, ride]);
+    // The Ring's arch is an E spot too: E there opens the Ring's board.
+    const arch = recess ? { x: recess.course.arch.x, z: recess.course.arch.z, halfSpan: ARCH_HALF_SPAN } : null;
+    return buildSpots({ props: layout.props, sitePlan: SITE_PLAN, landmarks: world.landmarks, landmarkRadius: landmarkRadii(world), castle: gate, posts, arch });
+  }, [layout, world, castle, castleUnlocked, ride, recess]);
   const heroRef = useRef(spawn);
   const yawRef = useRef(0);
   const facingRef = useRef(0);
@@ -1477,6 +1485,8 @@ const World = memo(function World({
       <Doorstep bus={bus} heroRef={heroRef} yawRef={yawRef} aimRef={aimRef} keys={keys} pointer={pointer} solids={solids} occluders={occluders} props={layout.props} sitePlan={SITE_PLAN} castle={castle} castleTier={layout.castleType} castleUnlocked={castleUnlocked} world={world} ride={ride} />
       {/* After the rig (markers project from this frame's camera), before the driver (a new charge locks on before it releases). */}
       {troubles && <Troubles tbus={troubles} bus={bus} pool={fxPool} caster={caster} heroRef={heroRef} aimRef={aimRef} solids={solids} world={world} layout={layout} calm={calm} ride={ride} />}
+      {/* Recess: the Ring's arch and posts, and a run's gleams, lit post and pace ghost. */}
+      {recess && <RecessScene recess={recess} bus={bus} heroRef={heroRef} world={world} solids={solids} ride={ride} calm={calm} />}
       {/*
         LAST in the tree on purpose. R3F runs same-priority frame subscribers in the order they
         subscribed, so the driver's projection runs after the rig has already moved the camera
@@ -1532,9 +1542,11 @@ export type RealmCanvasProps = {
   ride?: RideBus;
   /** The companion leading the child (`lib/realm3d/lead.ts`). Without one, the pet only follows. */
   lead?: LeadBus;
+  /** Recess's wire to the frame (`lib/realm3d/recess/bus.ts`). Without one, there is no Ring. */
+  recess?: RecessBus;
 };
 
-export default function SpikeScene({ avatar, close, world, layout, anchors, pages, bus, caster, fxPool, casts, viewer, castleUnlocked, frozen = false, calm = false, troubles, ride, lead }: RealmCanvasProps) {
+export default function SpikeScene({ avatar, close, world, layout, anchors, pages, bus, caster, fxPool, casts, viewer, castleUnlocked, frozen = false, calm = false, troubles, ride, lead, recess }: RealmCanvasProps) {
   return (
     <Canvas
       frameloop={frozen ? "never" : "always"}
@@ -1564,6 +1576,7 @@ export default function SpikeScene({ avatar, close, world, layout, anchors, page
         troubles={troubles ?? null}
         ride={ride ?? null}
         lead={lead ?? null}
+        recess={recess ?? null}
       />
     </Canvas>
   );

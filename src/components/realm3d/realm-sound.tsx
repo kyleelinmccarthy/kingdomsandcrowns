@@ -26,6 +26,9 @@ import type { SpellPageView } from "@/lib/realm/spells/pages";
 import { saveRealmSound } from "@/lib/actions/realm-sound";
 import { onSpeaking } from "@/lib/utils/speech";
 import { earPlace, elementOf, fixtureCue, makeZoneTracker, roomFloor, surfaceAt, trackZone, troubleCue, zoneAt } from "@/lib/realm3d/sound/cues";
+import { recessSound } from "@/lib/realm3d/sound/cues";
+import { RECESS_SOUNDS } from "@/lib/realm3d/sound/engine";
+import { setRecessSound, type RecessBus } from "@/lib/realm3d/recess/bus";
 import { setRideSound, type RideBus } from "@/lib/realm3d/riding";
 import { footfallCue, mountSounds, mountSurface, mountVoice } from "@/lib/realm3d/sound/ride-cues";
 import { SoundEngine, type Timers } from "@/lib/realm3d/sound/engine";
@@ -143,6 +146,11 @@ export type RealmSoundOptions = {
   farewell?: () => boolean;
   /** The child has a companion to lead them (`lib/realm3d/lead.ts`): its two cues are made ahead. */
   pet?: boolean;
+  /**
+   * Recess and the Ring (`use-recess.ts`): the bell, gleams, posts, laps and bests, heard through
+   * the recess bus's cue. Only a child's own visit runs the Ring, so only theirs makes its sounds.
+   */
+  recess?: RecessBus | null;
 };
 
 /**
@@ -167,6 +175,7 @@ export function useRealmSound(o: RealmSoundOptions): SoundStore {
 
   const { bus, tbus, world, layout } = o;
   const ride = o.ride ?? null;
+  const recess = o.recess ?? null;
   // Read once, when the engine is made: whether this visit has a ceremony waiting and a clock.
   const firstVisit = useRef({ ceremony: o.ceremony ?? false, clock: o.clock ?? false, pet: o.pet ?? false });
   const goodbye = o.farewell;
@@ -335,6 +344,17 @@ export function useRealmSound(o: RealmSoundOptions): SoundStore {
     if (wantCrown) engine.want(["crown"], true);
     if (clockOn) engine.want(["last-minute", "farewell"]);
     if (firstVisit.current.pet) engine.want(["pet-lead", "pet-arrive"]);
+    // Recess: a child's own visit can run the Ring, so its sounds are made; a grown-up's never is.
+    if (recess?.runs) {
+      engine.want(RECESS_SOUNDS);
+      setRecessSound(recess, {
+        onCue: (cue) => {
+          const s = recessSound(cue);
+          if (s.moment) engine.moment(s.id, { duck: s.duck, wait: 1 });
+          else engine.play(s.id);
+        },
+      });
+    }
     const toOutdoors = () => engine.setZone(outdoors);
     roomExit.current = toOutdoors;
 
@@ -369,6 +389,7 @@ export function useRealmSound(o: RealmSoundOptions): SoundStore {
       untapTroubles();
       bus.setFeet({ onStep: () => {}, onJump: () => {}, onLand: () => {} });
       if (ride) setRideSound(ride, {});
+      if (recess) setRecessSound(recess, {});
       setRealmCue(null);
       save?.flush();
       saveRef.current = null;
@@ -382,7 +403,7 @@ export function useRealmSound(o: RealmSoundOptions): SoundStore {
     // `world` and `layout` are read through `ground()` the first time only; after that the probe
     // ref above follows them. The engine must not be rebuilt when a building rises.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bus, tbus, childId, store, ride, goodbye]);
+  }, [bus, tbus, childId, store, ride, goodbye, recess]);
 
   /* ---- the mix follows the game ------------------------------------------------------------ */
   useEffect(() => {

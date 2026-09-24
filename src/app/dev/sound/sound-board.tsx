@@ -74,6 +74,11 @@ const GROUPS: Group[] = [
     blurb: "The crown worn at the ceremony, the last minute on the clock, and the goodbye under \u201cWell played\u201d. Each steps the music right back while it plays.",
     items: (["crown", "last-minute", "farewell"] as const).map((id) => ({ id, label: id.replace("-", " ") })),
   },
+  {
+    title: "Recess and the Ring",
+    blurb: "The hand bell that rings recess in, a gleam picked up, a lit post passed, a lap home through the arch, a new best, and the bell again when recess is over.",
+    items: (["recess-bell", "gleam", "ring-post", "lap-done", "lap-best", "recess-over"] as const).map((id) => ({ id, label: id.replace("-", " ") })),
+  },
   { title: "Ambience: now and then", blurb: "The little sounds each country scatters over its beds.", items: DETAILS.map((id) => ({ id, label: label(id) })) },
   { title: "Ambience: the beds", blurb: "Seamless loops. Each country plays two of different lengths at once.", items: BEDS.map((id) => ({ id, label: label(id), note: "loop" })) },
 ];
