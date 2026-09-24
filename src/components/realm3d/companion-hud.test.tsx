@@ -12,9 +12,9 @@ const WORLD = { landmarks: [{ id: "far", name: "Far Place", position: { x: 200, 
 
 type Seen = (lead: CompanionLead) => void;
 
-function Harness({ pet, viewer = "child", bus, goal = BRAM, inside = false, seen }: { pet: string | null; viewer?: "child" | "parent"; bus: HudBus; goal?: Goal; inside?: boolean; seen: Seen }) {
+function Harness({ pet, viewer = "child", bus, goal = BRAM, inside = false, breakOff = false, seen }: { pet: string | null; viewer?: "child" | "parent"; bus: HudBus; goal?: Goal; inside?: boolean; breakOff?: boolean; seen: Seen }) {
   const insideRef = useRef<unknown>(inside ? { room: "chapel" } : null);
-  const lead = useCompanionLead({ avatar: { companion: pet }, viewer, calm: false, readAloud: false, bus, goal, world: WORLD, found: new Set(), insideRef });
+  const lead = useCompanionLead({ avatar: { companion: pet }, viewer, calm: false, readAloud: false, bus, goal, world: WORLD, found: new Set(), insideRef, breakOff });
   // Handed out after each render, through a function rather than by writing to a prop.
   useEffect(() => {
     seen(lead);
@@ -27,10 +27,10 @@ function Harness({ pet, viewer = "child", bus, goal = BRAM, inside = false, seen
   );
 }
 
-function setup(o: { pet?: string | null; viewer?: "child" | "parent"; goal?: Goal; inside?: boolean } = {}) {
+function setup(o: { pet?: string | null; viewer?: "child" | "parent"; goal?: Goal; inside?: boolean; breakOff?: boolean } = {}) {
   const bus = makeHudBus(4, 1);
   let latest: CompanionLead | null = null;
-  const view = render(<Harness pet={o.pet === undefined ? "fox" : o.pet} viewer={o.viewer} bus={bus} goal={o.goal} inside={o.inside} seen={(l) => (latest = l)} />);
+  const view = render(<Harness pet={o.pet === undefined ? "fox" : o.pet} viewer={o.viewer} bus={bus} goal={o.goal} inside={o.inside} breakOff={o.breakOff} seen={(l) => (latest = l)} />);
   return { bus, view, lead: () => latest!.bus as LeadBus };
 }
 
@@ -146,5 +146,33 @@ describe("the words, the slot and the map", () => {
     expect(container.querySelector(".r3-map-lead-end")).toBeNull();
     rerender(<svg><LeadMapMarks route={null} target={null} /></svg>);
     expect(container.querySelector(".r3-map-lead")).toBeNull();
+  });
+});
+
+describe("the pet's own small jobs, as the frame hears them", () => {
+  it("says sit and sniff once a visit, a trouble each time, and the slot says what the pet is doing", () => {
+    const { lead } = setup();
+    act(() => lead().onNews({ kind: "errand", errand: "sniff" }));
+    expect(screen.getByRole("status")).toHaveTextContent(leadWords.sniff("Fox"));
+    expect(screen.getByRole("button", { name: /Fox is sniffing out a gleam/ })).toBeInTheDocument();
+    act(() => lead().onNews({ kind: "errand", errand: null }));
+    act(() => lead().onNews({ kind: "errand", errand: "sit" }));
+    expect(screen.getByRole("status")).toHaveTextContent(leadWords.sit("Fox"));
+    expect(screen.getByRole("button", { name: /Fox is sitting by the door/ })).toBeInTheDocument();
+    // Said once a visit: the second time the pet simply does it.
+    act(() => lead().onNews({ kind: "errand", errand: "sniff" }));
+    expect(screen.getByRole("status")).toHaveTextContent(leadWords.sit("Fox"));
+    act(() => lead().onNews({ kind: "errand", errand: "trouble" }));
+    expect(screen.getByRole("status")).toHaveTextContent(leadWords.trouble("Fox"));
+    act(() => lead().onNews({ kind: "errand", errand: null }));
+    expect(screen.getByRole("button", { name: "Ask your Fox to show you the way, key F" })).toBeInTheDocument();
+  });
+
+  it("lets the pet break off toward a trouble only when the frame says so (full depth, not fewer choices), and only with a pet", () => {
+    expect(setup().lead().breakOff).toBe(false);
+    cleanup();
+    expect(setup({ breakOff: true }).lead().breakOff).toBe(true);
+    cleanup();
+    expect(setup({ breakOff: true, pet: null }).lead().breakOff).toBe(false);
   });
 });
