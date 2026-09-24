@@ -712,7 +712,7 @@ export function hitTest(f: TroubleField, pool: FxSlot[], input: FieldInput): voi
         if (s.stopped) break;
         // `ticks` on a bolt is "has bounced": a bounce bolt bounces once, as in the flat Realm.
         const bouncy = s.ticks === 0 && hasStatus(spell, "bounce");
-        if (bouncy && input.solids && bounceOffSolid(pool, s, input.solids)) break;
+        if (bouncy && (bounceOffSlab(pool, s) || (input.solids && bounceOffSolid(pool, s, input.solids)))) break;
         const grow = hasStatus(spell, "grown") ? 1 + Math.min(1, s.travelled / Math.max(1, s.range)) : 1;
         const r = BOLT_RADIUS * grow;
         let best = -1;
@@ -909,11 +909,42 @@ function bounceOffSolid(pool: FxSlot[], s: FxSlot, solids: readonly Collider[]):
       if (penX < penZ) s.dx = -s.dx;
       else s.dz = -s.dz;
     }
-    s.ticks = 1;
-    lockFx(s, -1, 0, s.tx, s.tz);
-    s.x += s.dx * 0.35;
-    s.z += s.dz * 0.35;
-    spawnFx(pool, { kind: "ring", color: s.color, x: s.x, y: s.y - 0.6, z: s.z, dx: s.dx, dz: s.dz, size: 1.3, life: 0.35 });
+    markBounce(pool, s);
+    return true;
+  }
+  return false;
+}
+
+/** After a bolt's heading is reflected: it has bounced, lets go of its mark, steps clear, and leaves a ring. */
+function markBounce(pool: FxSlot[], s: FxSlot): void {
+  s.ticks = 1;
+  lockFx(s, -1, 0, s.tx, s.tz);
+  s.x += s.dx * 0.35;
+  s.z += s.dz * 0.35;
+  spawnFx(pool, { kind: "ring", color: s.color, x: s.x, y: s.y - 0.6, z: s.z, dx: s.dx, dz: s.dz, size: 1.3, life: 0.35 });
+}
+
+/**
+ * The child's own Wall spell is a wall too: a bounce bolt that runs into a standing one comes off
+ * its face, as it would off a house. Only while the wall is there (a slab's life), only as high
+ * as it has risen, and only going INTO it — a bolt thrown from inside a wall's footprint (the
+ * child may stand in their own wall) flies straight out.
+ */
+function bounceOffSlab(pool: FxSlot[], s: FxSlot): boolean {
+  for (let i = 0; i < pool.length; i++) {
+    const w = pool[i];
+    if (!w.live || w.kind !== "slab") continue;
+    const height = w.size * 0.7 * fxScale(w);
+    if (s.y < w.y - 0.2 || s.y > w.y + height + 0.2) continue;
+    if (!insideOneSlab(w, s.x, s.z, 0.3)) continue;
+    const across = (s.x - w.x) * w.dx + (s.z - w.z) * w.dz;
+    const into = s.dx * w.dx + s.dz * w.dz;
+    // Heading for the wall's middle line from the side it is on; a bolt leaving it (or born on
+    // that line) is let go.
+    if (Math.abs(across) <= 1e-3 || across * into >= 0) continue;
+    s.dx -= 2 * into * w.dx;
+    s.dz -= 2 * into * w.dz;
+    markBounce(pool, s);
     return true;
   }
   return false;

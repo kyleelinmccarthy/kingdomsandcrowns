@@ -443,6 +443,48 @@ describe("every spell shape can hit", () => {
     expect(pool2.find((s) => s.live && s.kind === "bolt")!.z).toBeLessThan(-5);
   });
 
+  it("a bounce bolt comes off the child's own Wall spell too, while the wall stands", () => {
+    const f = target("fog", -200);
+    const pool = makeFxPool(16);
+    cast(pool, wall);
+    run(f, pool, 1.0);
+    const slab = pool.find((s) => s.live && s.kind === "slab")!;
+    expect(slab).toBeDefined();
+    expect(slab.z).toBeLessThan(-2);
+    cast(pool, spell("ember", "bolt", "bounce"));
+    run(f, pool, 0.8);
+    const b = pool.find((s) => s.live && s.kind === "bolt")!;
+    expect(b.dz).toBeGreaterThan(0); // turned round at the wall
+    expect(b.z).toBeGreaterThan(slab.z);
+    expect(pool.some((s) => s.live && s.kind === "ring")).toBe(true); // the bounce is marked
+    // A plain bolt still goes straight through the child's own wall.
+    const pool2 = makeFxPool(16);
+    cast(pool2, wall);
+    run(target("fog", -200), pool2, 1.0);
+    const slab2 = pool2.find((s) => s.live && s.kind === "slab")!;
+    cast(pool2, bolt);
+    run(target("fog", -200), pool2, 0.8);
+    expect(pool2.find((s) => s.live && s.kind === "bolt")!.z).toBeLessThan(slab2.z);
+  });
+
+  it("a bounce bolt passes a wall that has gone, and one it is already leaving", () => {
+    const f = target("fog", -200);
+    const pool = makeFxPool(16);
+    cast(pool, wall);
+    run(f, pool, 4); // the wall has come and gone
+    expect(pool.some((s) => s.live && s.kind === "slab")).toBe(false);
+    cast(pool, spell("ember", "bolt", "bounce"));
+    run(f, pool, 0.8);
+    expect(pool.find((s) => s.live && s.kind === "bolt")!.dz).toBeLessThan(0);
+    // A child standing in their own wall's footprint throws straight out of it.
+    const pool2 = makeFxPool(16);
+    spawnFx(pool2, { kind: "slab", color: "#888", x: 0, y: 0, z: 0, dx: 0, dz: -1, size: 5, life: 2.4 });
+    pool2[0].t = 1;
+    cast(pool2, spell("ember", "bolt", "bounce"));
+    run(target("fog", -200), pool2, 0.8);
+    expect(pool2.find((s) => s.live && s.kind === "bolt")!.dz).toBeLessThan(0);
+  });
+
   it("clearing a trouble hands back one Ember Bolt's worth of mana", () => {
     const f = target("fog");
     const pool = makeFxPool(16);
