@@ -15,8 +15,9 @@
 import { GameIcon } from "@/components/game-icon";
 import type { RecessBus } from "@/lib/realm3d/recess/bus";
 import { MAP_WINDOW } from "@/lib/realm3d/minimap";
-import { boardRows, formatLap, jarCaption, nextMarkLine, parentArchLine, RING, WRITE_FAILED, WRITE_FAILED_AGAIN, type BoardRow, type RecessDepth } from "@/lib/realm/recess/copy";
-import { hasAnyRecord, jarFillFor, type RecessRecord } from "@/lib/realm/recess/record";
+import { boardRows, formatLap, jarCaption, lampLine, nextMarkLine, parentArchLine, RING, WRITE_FAILED, WRITE_FAILED_AGAIN, type BoardRow, type RecessDepth } from "@/lib/realm/recess/copy";
+import { hasAnyRecord, JAR_CAPACITY, jarFillFor, lampsLitFor, type RecessRecord } from "@/lib/realm/recess/record";
+import { LAMP_COUNT } from "@/lib/realm3d/recess/lamps";
 import { keepFocusInWorld, Panel } from "./frame-hud";
 import type { RecessBoardView, RecessPopView, RunView } from "./use-recess";
 import "./recess.css";
@@ -51,6 +52,35 @@ export function GleamJar({ fill, className = "" }: { fill: number; className?: s
       <rect x="6.5" y={21 - h} width="11" height={h} rx="1.6" className="r3-recess-jar-fill" />
       <path d="M8 3.5h8M8.5 3.5v3L6 9v11.5a1.5 1.5 0 0 0 1.5 1.5h9a1.5 1.5 0 0 0 1.5-1.5V9l-2.5-2.5v-3" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
     </svg>
+  );
+}
+
+/** A road lamp, lit or dark: the board's picture of the lamps along the west road. */
+function LampGlyph({ lit }: { lit: boolean }) {
+  return (
+    <svg className={`r3-recess-lamp${lit ? " r3-recess-lamp--lit" : ""}`} viewBox="0 0 12 24" aria-hidden="true">
+      <rect x="5.2" y="6" width="1.6" height="17" className="r3-recess-lamp-post" />
+      <rect x="3" y="2" width="6" height="6.5" rx="1" className="r3-recess-lamp-glass" />
+      <path d="M2.4 2.2 L6 0 L9.6 2.2 Z" className="r3-recess-lamp-post" />
+    </svg>
+  );
+}
+
+/**
+ * The lamps along the road, drawn: lit ones warm, the rest dark, nearest the village first. At
+ * full depth the line under them counts them; at simple depth the picture is the count.
+ */
+export function RoadLamps({ totalGleams, numerals }: { totalGleams: number; numerals: boolean }) {
+  const lit = lampsLitFor(totalGleams, LAMP_COUNT);
+  return (
+    <div className="r3-recess-lamps">
+      <span className="r3-recess-lamp-row" role="img" aria-label={numerals ? lampLine(lit, LAMP_COUNT) : lit >= LAMP_COUNT ? "Every lamp on the road is lit." : "The lamps along the road"}>
+        {Array.from({ length: LAMP_COUNT }, (_, i) => (
+          <LampGlyph key={i} lit={i < lit} />
+        ))}
+      </span>
+      <span className="r3-recess-lamp-line">{numerals ? lampLine(lit, LAMP_COUNT) : lit >= LAMP_COUNT ? "Every lamp on the road is lit." : "Your gleams light the lamps on the road."}</span>
+    </div>
   );
 }
 
@@ -234,7 +264,17 @@ export function RingPanel({
           <Row key={r.label} row={r} />
         ))}
       </div>
-      <p className="r3-recess-jar-caption">{jarCaption(record?.totalGleams ?? 0)}{!hasAnyRecord(record) && !parent ? " — empty, for now." : ""}</p>
+      {/* The jar's home in the 3D Realm (D12.2): the Ring's own board, on a shelf with the road's lamps. */}
+      <div className="r3-recess-shelf">
+        <GleamJar fill={jarFillFor(record?.totalGleams ?? 0)} className="r3-recess-jar--shelf" />
+        <div className="r3-recess-shelf-body">
+          <p className="r3-recess-jar-caption">
+            {jarCaption(record?.totalGleams ?? 0)}
+            {!hasAnyRecord(record) && !parent ? " — empty, for now." : depth === "full" && (record?.totalGleams ?? 0) < JAR_CAPACITY ? ` — ${record?.totalGleams ?? 0} of ${JAR_CAPACITY}` : ""}
+          </p>
+          <RoadLamps totalGleams={record?.totalGleams ?? 0} numerals={depth === "full"} />
+        </div>
+      </div>
       <div className="r3-menu">
         {!parent && canRun && (
           <button type="button" className="r3-menu-item r3-menu-item--go" data-autofocus onClick={onRun}>

@@ -29,8 +29,13 @@ import type { HudBus } from "@/lib/realm3d/hud-bus";
 import type { RideBus } from "@/lib/realm3d/riding";
 import { ARCH_HALF_SPAN, ARCH_RADIUS, POST_RADIUS } from "@/lib/realm3d/recess/course";
 import { ghostAt, ghostStep, type GhostSample } from "@/lib/realm3d/recess/ghost";
-import { paintLapTime, paintMapMark, takeWant, type RecessBus } from "@/lib/realm3d/recess/bus";
-import { drainEvents, endRun, GLEAM_COUNT, lapElapsed, spawnGleams, startRun, stepRun, type OpenGround, type StepInput } from "@/lib/realm3d/recess/sim";
+import { paintLapHeld, paintLapTime, paintMapMark, takeWant, type RecessBus } from "@/lib/realm3d/recess/bus";
+import { bumpHoldMs, drainEvents, endRun, GLEAM_COUNT, holdLap, lapElapsed, lapHeld, spawnGleams, startRun, stepRun, type OpenGround, type StepInput } from "@/lib/realm3d/recess/sim";
+import { ringLamps } from "@/lib/realm3d/recess/lamps";
+import { lampsLitFor } from "@/lib/realm/recess/record";
+import { ISLAND_WALK } from "@/lib/realm3d/riding";
+import type { TroubleBus } from "@/lib/realm3d/trouble-bus";
+import { hearTroubles } from "@/lib/realm3d/sound/tap";
 import { WALK_HALF, type RealmWorld } from "@/lib/realm3d/worldgen";
 import { at, litMaterial, merge, paint } from "./geo-kit";
 
@@ -94,6 +99,27 @@ function postGeo(): THREE.BufferGeometry {
     at(paint(new THREE.ConeGeometry(0.46, 0.4, 4).rotateY(Math.PI / 4), TIMBER_DARK), 0, 4.5, 0),
     box(0.9, 0.5, 0.05, 0.6, 2.9, 0, "#c0392b"),
   ]);
+}
+
+/**
+ * A lamp on the road (D12.2): a dark iron standard on a stone foot, a crossbar, and a lantern
+ * hung under it. The glass is its own mesh (`lampGlassGeo`), dim until the hero's gleams light it.
+ * Deliberately NOT a course post: iron, not pale timber, with no pennant and no ring on the ground.
+ */
+function lampGeo(): THREE.BufferGeometry {
+  const IRON = "#3b3a3f";
+  return merge([
+    box(0.5, 0.28, 0.5, 0, 0.14, 0, STONE),
+    at(paint(new THREE.CylinderGeometry(0.08, 0.11, 3.0, 6), IRON), 0, 1.75, 0),
+    box(0.7, 0.08, 0.08, 0.3, 3.2, 0, IRON),
+    box(0.36, 0.06, 0.36, 0.55, 3.08, 0, IRON),
+    at(paint(new THREE.ConeGeometry(0.28, 0.22, 4).rotateY(Math.PI / 4), IRON), 0.55, 3.2, 0),
+    box(0.3, 0.05, 0.3, 0.55, 2.52, 0, IRON),
+  ]);
+}
+
+function lampGlassGeo(): THREE.BufferGeometry {
+  return new THREE.BoxGeometry(0.26, 0.5, 0.26).translate(0.55, 2.8, 0);
 }
 
 /** The lantern's glass: its own mesh, so the lit post can glow while the rest stay dim. */
@@ -191,6 +217,7 @@ export function RecessScene({
   solids,
   ride = null,
   calm,
+  troubles = null,
 }: {
   recess: RecessBus;
   bus: HudBus;
@@ -199,11 +226,14 @@ export function RecessScene({
   solids: Collider[];
   ride?: RideBus | null;
   calm: boolean;
+  /** The troubles' wire: a bump mid-lap holds the lap clock for what it cost (D12.9). */
+  troubles?: TroubleBus | null;
 }) {
   const course = recess.course;
+  const lamps = ringLamps();
   const nPosts = course.posts.length;
 
-  const geos = useMemo(() => ({ arch: archGeo(), post: postGeo(), lantern: lanternGeo(), gleam: gleamGeo(), ghost: new THREE.SphereGeometry(0.55, 14, 10) }), []);
+  const geos = useMemo(() => ({ arch: archGeo(), post: postGeo(), lantern: lanternGeo(), gleam: gleamGeo(), ghost: new THREE.SphereGeometry(0.55, 14, 10), lamp: lampGeo(), lampGlass: lampGlassGeo() }), []);
   const ringGeo = useMemo(() => new THREE.TorusGeometry(1, 0.07, 5, 40).rotateX(-Math.PI / 2), []);
   const beamGeo = useMemo(() => new THREE.CylinderGeometry(0.75, 0.75, BEAM_H, 12, 1, true).translate(0, BEAM_H / 2, 0), []);
   const mats = useMemo(() => {
@@ -215,7 +245,10 @@ export function RecessScene({
     const ring = new THREE.MeshBasicMaterial({ color: calm ? CALM_GOLD : GOLD, transparent: true, opacity: 0.35, depthWrite: false, toneMapped: false });
     const ringLit = new THREE.MeshBasicMaterial({ color: calm ? "#c9b27a" : GOLD, transparent: true, opacity: 0.95, depthWrite: false, toneMapped: false });
     const beam = new THREE.MeshBasicMaterial({ color: calm ? "#e8d9a8" : GOLD, transparent: true, opacity: 0.4, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide, toneMapped: false, fog: false });
-    return { wood, dim, lit, gleam, ghost, ring, ringLit, beam };
+    // A road lamp's glass: cold and dark until lit; lit, the warm light of the posts, a touch softer.
+    const lampDark = new THREE.MeshStandardMaterial({ color: "#4a4f57", roughness: 0.35, metalness: 0.1, flatShading: true });
+    const lampLit = new THREE.MeshStandardMaterial({ color: "#fff4cf", emissive: calm ? "#f2c870" : "#ffc14a", emissiveIntensity: calm ? 1.1 : 1.5, roughness: 0.4 });
+    return { wood, dim, lit, gleam, ghost, ring, ringLit, beam, lampDark, lampLit };
   }, [calm]);
   const tex = useMemo(() => ({ glow: glowTexture(), beam: beamTexture(), label: ghostLabelTexture() }), []);
   useEffect(() => attachMap(mats.beam, tex.beam), [mats, tex]);
@@ -265,6 +298,23 @@ export function RecessScene({
     };
   }, [recess, heroRef]);
 
+  // A trouble's bump mid-lap (D12.9): heard here, beside the sound and the notices, and eaten on
+  // the next frame so the run is only ever changed by the one loop that steps it. One bump is one
+  // hold, however many frames it takes to eat it.
+  const bumped = useRef(false);
+  useEffect(() => {
+    if (!troubles || !recess.runs) return;
+    return hearTroubles(troubles, (e) => {
+      if (e.kind === "bounced") bumped.current = true;
+    });
+  }, [troubles, recess]);
+
+  const lampGlass = useRef<(THREE.Mesh | null)[]>(new Array(lamps.length).fill(null));
+  const lampGlow = useRef<(THREE.Sprite | null)[]>(new Array(lamps.length).fill(null));
+  /** How many lamps are drawn lit (-1: not drawn yet), and when each last lit, for its flare. */
+  const lampsDrawn = useRef(-1);
+  const lampFlare = useRef<number[]>(new Array(lamps.length).fill(-1e9));
+  const lampSpots = useMemo(() => lamps.map((l) => ({ x: l.x, y: world.heightAt(l.x, l.z), z: l.z })), [lamps, world]);
   const lanterns = useRef<(THREE.Mesh | null)[]>(new Array(nPosts).fill(null));
   const postRings = useRef<(THREE.Mesh | null)[]>(new Array(nPosts).fill(null));
   const archRing = useRef<THREE.Mesh>(null);
@@ -294,10 +344,39 @@ export function RecessScene({
         inp.z = p.z;
         inp.mounted = !!ride && ride.phase !== "off";
         inp.travelling = !!ride && ride.travelling;
+        if (bumped.current) {
+          // What it cost at the child's own pace: on foot, or the mount's.
+          holdLap(run, bumpHoldMs(inp.mounted && ride && ride.speed > 0 ? ride.speed : ISLAND_WALK));
+        }
         spawnGleams(run, course, open);
         stepRun(run, course, inp);
         drainEvents(run, recess.onEvent);
       }
+    }
+    // A bump with no lap running holds nothing; either way it is spent.
+    if (!bus.paused) bumped.current = false;
+
+    /* ---- the road's lamps: one lit per 25 lifetime gleams, nearest the village first ----- */
+    const litLamps = lampsLitFor(recess.gleamsTotal, lamps.length);
+    if (litLamps !== lampsDrawn.current) {
+      const was = lampsDrawn.current;
+      lampsDrawn.current = litLamps;
+      for (let i = 0; i < lamps.length; i++) {
+        const on = i < litLamps;
+        const glass = lampGlass.current[i];
+        if (glass) glass.material = on ? mats.lampLit : mats.lampDark;
+        const glow = lampGlow.current[i];
+        if (glow) glow.visible = on;
+        // A lamp that lights while the child is here flares once; the ones lit on arrival do not.
+        if (on && was >= 0 && i >= was) lampFlare.current[i] = time;
+      }
+    }
+    for (let i = 0; i < litLamps; i++) {
+      const glow = lampGlow.current[i];
+      if (!glow) continue;
+      const since = time - lampFlare.current[i];
+      const flare = calm || since > 1.6 ? 0 : Math.sin((Math.PI * since) / 1.6) * 2.2;
+      glow.scale.setScalar((calm ? 1.2 : 1.5) + flare);
     }
 
     /* ---- the lit mark: the arch before a lap, the next post during one ------------------- */
@@ -358,6 +437,7 @@ export function RecessScene({
 
     /* ---- the running time ------------------------------------------------------------------ */
     paintLapTime(recess, recess.showTime ? lapElapsed(run) : null);
+    paintLapHeld(recess, lapHeld(run));
   });
 
   return (
@@ -384,6 +464,29 @@ export function RecessScene({
             position={[0, 0.08, 0]}
             scale={POST_RADIUS}
           />
+        </group>
+      ))}
+      {/* The road's lamps, west from the arch: lit by the hero's lifetime gleams, for everyone who visits. */}
+      {lampSpots.map((s, i) => (
+        // The arm reaches north, out over the track.
+        <group key={`lamp-${i}`} position={[s.x, s.y, s.z]} rotation={[0, Math.PI / 2, 0]}>
+          <mesh geometry={geos.lamp} material={mats.wood} castShadow />
+          <mesh
+            ref={(el) => {
+              lampGlass.current[i] = el;
+            }}
+            geometry={geos.lampGlass}
+            material={mats.lampDark}
+          />
+          <sprite
+            ref={(el) => {
+              lampGlow.current[i] = el;
+            }}
+            position={[0.55, 2.8, 0]}
+            visible={false}
+          >
+            <spriteMaterial map={tex.glow} color={calm ? "#f2d69a" : "#ffcf6e"} transparent opacity={calm ? 0.55 : 0.8} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
+          </sprite>
         </group>
       ))}
       <mesh ref={beam} geometry={beamGeo} material={mats.beam} visible={false} renderOrder={2} />

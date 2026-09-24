@@ -90,6 +90,18 @@ export function validateRecessResult(result: RecessResult, course: { id: string;
   return null;
 }
 
+/**
+ * Every this many lifetime gleams lights the next lamp on the road out of the village (D12.2).
+ * Cosmetic: a lamp unlocks nothing, gates nothing, and is never spent.
+ */
+export const GLEAMS_PER_LAMP = 25;
+
+/** How many of `lampCount` lamps a hero's lifetime gleams have lit, in road order. Clamps. */
+export function lampsLitFor(totalGleams: number, lampCount: number): number {
+  if (!Number.isFinite(totalGleams) || totalGleams <= 0) return 0;
+  return Math.max(0, Math.min(lampCount, Math.floor(totalGleams / GLEAMS_PER_LAMP)));
+}
+
 /** 0..1: how full the gleam jar is. */
 export function jarFillFor(totalGleams: number): number {
   return Math.max(0, Math.min(1, totalGleams / JAR_CAPACITY));

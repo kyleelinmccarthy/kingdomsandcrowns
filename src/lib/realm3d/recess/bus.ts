@@ -44,6 +44,12 @@ export type RecessBus = {
   bestRide: number | null;
   /** Full depth shows the running time; simple depth shows only the pips. */
   showTime: boolean;
+  /**
+   * The hero's lifetime gleams, the stored record plus any still on their way to the server: how
+   * many of the road's lamps are lit (D12.2). Written by the frame; the scene lights lamps by it.
+   * The record is the child's for a visiting grown-up too, so their world shows the same lamps.
+   */
+  gleamsTotal: number;
   onEvent: RecessHandler;
   sound: RecessSound;
   nodes: Record<RecessNodeKey, HTMLElement | SVGGElement | null>;
@@ -53,9 +59,10 @@ export type RecessBus = {
   setNode(key: RecessNodeKey, el: HTMLElement | SVGGElement | null): void;
   setBests(foot: number | null, ride: number | null): void;
   setShowTime(show: boolean): void;
+  setGleamsTotal(n: number): void;
 
   /** @internal — the write cache. */
-  last: { tenths: number; mark: string };
+  last: { tenths: number; mark: string; held: boolean };
 };
 
 const noop = () => {};
@@ -74,6 +81,7 @@ export function makeRecessBus(o: { seed: number; runs: boolean; lowStimulus: boo
     bestFoot: null,
     bestRide: null,
     showTime: o.showTime,
+    gleamsTotal: 0,
     onEvent: noop,
     sound: makeRecessSound(),
     nodes: { time: null, mapMark: null },
@@ -87,7 +95,10 @@ export function makeRecessBus(o: { seed: number; runs: boolean; lowStimulus: boo
     setNode(key, el) {
       bus.nodes[key] = el;
       // A node that is new has never been written: forget what the old one said.
-      if (key === "time") bus.last.tenths = -2;
+      if (key === "time") {
+        bus.last.tenths = -2;
+        bus.last.held = false;
+      }
       else bus.last.mark = "";
     },
     setBests(foot, ride) {
@@ -97,7 +108,10 @@ export function makeRecessBus(o: { seed: number; runs: boolean; lowStimulus: boo
     setShowTime(show) {
       bus.showTime = show;
     },
-    last: { tenths: -2, mark: "" },
+    setGleamsTotal(n) {
+      bus.gleamsTotal = Number.isFinite(n) ? Math.max(0, Math.floor(n)) : 0;
+    },
+    last: { tenths: -2, mark: "", held: false },
   };
   return bus;
 }
@@ -126,6 +140,19 @@ export function paintLapTime(bus: RecessBus, ms: number | null): void {
   bus.last.tenths = tenths;
   const node = bus.nodes.time;
   if (node) node.textContent = ms === null ? "" : formatLap(tenths * 100);
+}
+
+/**
+ * The running time stands still for a trouble's bump (D12.9): marked on the node so the HUD can
+ * show it is held, not stuck. Written only when it changes.
+ */
+export function paintLapHeld(bus: RecessBus, held: boolean): void {
+  if (held === bus.last.held) return;
+  bus.last.held = held;
+  const node = bus.nodes.time;
+  if (!node) return;
+  if (held) node.setAttribute("data-held", "");
+  else node.removeAttribute("data-held");
 }
 
 /** The lit mark on the minimap, in world units, or "" to hide it. */

@@ -24,6 +24,8 @@
 
 import { seededRng } from "@/lib/utils/drill-generators";
 import { ARCH_RADIUS, pointAt, POST_RADIUS, type LapCourse, type Vec2 } from "./course";
+import { DAZZLE_MS } from "@/lib/realm/spells/focus";
+import { KNOCK_MS, KNOCK_SPEED } from "../troubles3d";
 
 export const GLEAM_COUNT = 12;
 /** Low stimulus: half as many, the flat Realm's rule. The record is kept in full ("mute, don't empty"). */
@@ -68,6 +70,11 @@ export type RecessRun = {
   /** Null until the child runs through the arch; the lap clock starts there. */
   lapStartedAt: number | null;
   pausedMs: number;
+  /**
+   * The lap clock is held until this moment of `now` (D12.9): a trouble's bump. Time spent under a
+   * hold goes into `pausedMs` as it passes, so two bumps that overlap hold the clock once.
+   */
+  heldUntil: number;
   mountedThisLap: boolean;
   /** 0..posts.length: the post to reach next; `posts.length` means the arch is next. */
   nextPost: number;
@@ -89,6 +96,7 @@ export function makeRun(seed = 1): RecessRun {
     laps: 0,
     lapStartedAt: null,
     pausedMs: 0,
+    heldUntil: 0,
     mountedThisLap: false,
     nextPost: 0,
     nudged: false,
@@ -109,6 +117,7 @@ function push(run: RecessRun, kind: RecessEventKind, n = 0, lapMs = 0, mounted =
 function resetLap(run: RecessRun): void {
   run.lapStartedAt = null;
   run.pausedMs = 0;
+  run.heldUntil = 0;
   run.mountedThisLap = false;
   run.nextPost = 0;
 }
@@ -148,6 +157,34 @@ export function endRun(run: RecessRun): void {
 /** Time the game took from the child mid-lap (D12.9): subtracted from the lap. */
 export function pauseLap(run: RecessRun, ms: number): void {
   if (run.active && run.lapStartedAt !== null && ms > 0) run.pausedMs += ms;
+}
+
+/**
+ * What a trouble's bump costs a child mid-lap, in ms, at `pace` units a second: the shove itself
+ * (`KNOCK_MS`), and walking back the ground it pushed them (`KNOCK_SPEED` for `KNOCK_MS`) at their
+ * own pace — on foot, or at the mount's. Never more than the spec's dazzle (`DAZZLE_MS`), so a
+ * bump can only ever give back time it took, never hand out time to farm.
+ */
+export function bumpHoldMs(pace: number): number {
+  const back = (KNOCK_SPEED * KNOCK_MS) / 1000;
+  const walk = pace > 0.5 ? (back / pace) * 1000 : DAZZLE_MS;
+  return Math.min(DAZZLE_MS, Math.round(KNOCK_MS + walk));
+}
+
+/**
+ * A trouble bumped the child mid-lap (D12.9: "the game does not charge a child for something it
+ * did to them"): the lap clock holds for `ms` from now. It HOLDS rather than jumping back, so the
+ * running time on screen stops and never counts backwards; a bump during a hold only lengthens it
+ * to the later end, so overlapping bumps are never counted twice. No lap running, nothing held.
+ */
+export function holdLap(run: RecessRun, ms: number): void {
+  if (!run.active || run.lapStartedAt === null || !(ms > 0)) return;
+  run.heldUntil = Math.max(run.heldUntil, run.now + ms);
+}
+
+/** The lap clock is standing still for a bump right now. */
+export function lapHeld(run: RecessRun): boolean {
+  return run.active && run.lapStartedAt !== null && run.now < run.heldUntil;
 }
 
 /** Fast travel mid-lap (D12.10): the lap cannot close. A child's own run ends; recess starts again at the arch. */
@@ -226,7 +263,10 @@ export type StepInput = {
  */
 export function stepRun(run: RecessRun, course: LapCourse, input: StepInput): void {
   if (!run.active) return;
+  const before = run.now;
   run.now += input.dt;
+  // A bump's hold, as it passes: only the part of this frame inside it, and only once.
+  if (run.lapStartedAt !== null && run.heldUntil > before) run.pausedMs += Math.min(run.now, run.heldUntil) - before;
   const { x, z } = input;
 
   if (input.travelling) {
@@ -250,6 +290,7 @@ export function stepRun(run: RecessRun, course: LapCourse, input: StepInput): vo
     if (Math.hypot(x - course.arch.x, z - course.arch.z) <= ARCH_RADIUS) {
       run.lapStartedAt = run.now;
       run.pausedMs = 0;
+      run.heldUntil = 0;
       run.nextPost = 0;
       run.mountedThisLap = input.mounted;
       push(run, "started");
@@ -290,6 +331,7 @@ export function stepRun(run: RecessRun, course: LapCourse, input: StepInput): vo
     // Recess goes on: the next lap starts as this one ends, at the arch.
     run.lapStartedAt = run.now;
     run.pausedMs = 0;
+    run.heldUntil = 0;
     run.nextPost = 0;
     run.mountedThisLap = input.mounted;
   }

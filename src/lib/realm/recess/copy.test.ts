@@ -8,6 +8,9 @@ import {
   jarCaption,
   lapLine,
   lastRunLabel,
+  lampLine,
+  LAMP_LIT,
+  LAST_LAMP_LIT,
   nextMarkLine,
   parentArchLine,
   recessTavernLine,
@@ -165,5 +168,19 @@ describe("the board", () => {
     expect(recessTavernLine("Emma", empty)).toBeNull();
     expect(recessTavernLine("Emma", rec({ bestLapMs: 38400 }))).toBe("Emma ran the Ring in 38.4 s.");
     expect(recessTavernLine("Emma", rec({ bestMountedLapMs: 24100 }))).toBe("Emma ran the Ring riding in 24.1 s.");
+  });
+});
+
+describe("the lamps", () => {
+  it("counts the lamps lit along the road, and says so when the road is all lit", () => {
+    expect(lampLine(0, 12)).toBe("0 of 12 lamps lit along the road.");
+    expect(lampLine(5, 12)).toBe("5 of 12 lamps lit along the road.");
+    expect(lampLine(12, 12)).toBe("Every lamp on the road is lit.");
+  });
+  it("says a lamp lit without a digit, so it reads at simple depth too", () => {
+    for (const l of [LAMP_LIT, LAST_LAMP_LIT]) {
+      expect(l.text).not.toMatch(DIGIT);
+      expect(l.speech).not.toMatch(DIGIT);
+    }
   });
 });

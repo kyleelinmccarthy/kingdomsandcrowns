@@ -179,6 +179,25 @@ export function boardRows(record: RecessRecord | null, depth: RecessDepth, fewer
   return [gleamRow, footRow, lapRow, rideRow, lastRow];
 }
 
+/**
+ * The lamp line under the board's rows (§3.3), full depth only: at simple depth the lamps light
+ * in the world and the board draws them, with no number.
+ */
+export function lampLine(lit: number, total: number): string {
+  if (lit >= total) return "Every lamp on the road is lit.";
+  return `${lit} of ${total} lamps lit along the road.`;
+}
+
+/** Said the moment a gleam lights the next lamp on the road. No digit: it reads at both depths. */
+export const LAMP_LIT: RecessLine = {
+  text: "A gleam! A lamp on the road just lit up.",
+  speech: "You found a gleam, and a lamp on the road just lit up.",
+};
+export const LAST_LAMP_LIT: RecessLine = {
+  text: "A gleam! Every lamp on the road is lit.",
+  speech: "You found a gleam, and now every lamp on the road is lit.",
+};
+
 /** The jar's caption. */
 export function jarCaption(totalGleams: number): string {
   return totalGleams >= 1000 ? "The jar is full." : "Gleam jar";

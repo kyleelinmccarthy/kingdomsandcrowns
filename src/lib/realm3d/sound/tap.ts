@@ -19,7 +19,8 @@ import type { TroubleEvent } from "@/lib/realm3d/troubles3d";
 
 export type HudListener = Partial<HudHandlers>;
 type HudTap = { listener: HudListener | null };
-type TroubleTap = { listener: ((e: TroubleEvent) => void) | null };
+/** `listener` is the sound's one slot; `also` is everyone else who listens in (`hearTroubles`). */
+type TroubleTap = { listener: ((e: TroubleEvent) => void) | null; also: Set<(e: TroubleEvent) => void> };
 
 const hudTaps = new WeakMap<HudBus, HudTap>();
 const troubleTaps = new WeakMap<TroubleBus, TroubleTap>();
@@ -61,11 +62,11 @@ export function tapHud(bus: HudBus, listener: HudListener): () => void {
   };
 }
 
-/** Hears every trouble event. Returns the untap. */
-export function tapTroubles(tbus: TroubleBus, listener: (e: TroubleEvent) => void): () => void {
+/** The bus's tap, installed once: every handler installed on it from now on also tells the tap. */
+function troubleTapOf(tbus: TroubleBus): TroubleTap {
   let tap = troubleTaps.get(tbus);
   if (!tap) {
-    const t: TroubleTap = { listener: null };
+    const t: TroubleTap = { listener: null, also: new Set() };
     tap = t;
     troubleTaps.set(tbus, t);
     const install = tbus.setHandler;
@@ -73,13 +74,33 @@ export function tapTroubles(tbus: TroubleBus, listener: (e: TroubleEvent) => voi
     const wrap = (fn: TroubleBus["onEvent"]): TroubleBus["onEvent"] => (e, place, homeId) => {
       fn(e, place, homeId);
       t.listener?.(e);
+      if (t.also.size) for (const l of t.also) l(e);
     };
     tbus.setHandler = (fn) => install(wrap(fn));
     install(wrap(tbus.onEvent));
   }
+  return tap;
+}
+
+/** Hears every trouble event. Returns the untap. */
+export function tapTroubles(tbus: TroubleBus, listener: (e: TroubleEvent) => void): () => void {
+  const tap = troubleTapOf(tbus);
   tap.listener = listener;
   const mine = tap;
   return () => {
     if (mine.listener === listener) mine.listener = null;
+  };
+}
+
+/**
+ * Hears every trouble event too, beside the sound and never instead of it: recess listens for a
+ * bump mid-lap (D12.9). Any number may listen; each is heard once per event, however often the
+ * bus's handler is replaced. Returns the untap.
+ */
+export function hearTroubles(tbus: TroubleBus, listener: (e: TroubleEvent) => void): () => void {
+  const tap = troubleTapOf(tbus);
+  tap.also.add(listener);
+  return () => {
+    tap.also.delete(listener);
   };
 }

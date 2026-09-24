@@ -255,3 +255,48 @@ describe("a visiting grown-up", () => {
     expect(recordRecessResult).not.toHaveBeenCalled();
   });
 });
+
+describe("the road's lamps and the jar (D12.2)", () => {
+  it("light from the stored record the moment the world opens, for the hero and for a visiting grown-up alike", () => {
+    const { recess } = mount({ realm: { ...realm, recess: { ...realm.recess!, totalGleams: 110 } } });
+    expect(recess.gleamsTotal).toBe(110);
+    cleanup();
+    const visit = mount({ viewer: "parent", realm: { ...realm, isChildView: false, recess: { ...realm.recess!, totalGleams: 60 } }, entry: { minutes: 0, visit: { minutes: 30, closedBecause: null }, source: null } });
+    expect(visit.recess.gleamsTotal).toBe(60);
+  });
+
+  it("count each gleam at once, and the 25th lights the next lamp and says so — the board shows the jar and the lamps", async () => {
+    const { bus, recess } = mount({ realm: { ...realm, recess: { ...realm.recess!, totalGleams: 23 } } });
+    act(() => bus.onInteract(arch));
+    fireEvent.click(screen.getByRole("button", { name: "Run the Ring" }));
+    await waitFor(() => expect(recess.want).toBe("arch"));
+    act(() => recess.onEvent(ev("gleam", 1)));
+    expect(recess.gleamsTotal).toBe(24);
+    expect(screen.getByText("A gleam! 1 so far.")).toBeInTheDocument();
+    act(() => recess.onEvent(ev("gleam", 2)));
+    expect(recess.gleamsTotal).toBe(25);
+    expect(screen.getByText("A gleam! A lamp on the road just lit up.")).toBeInTheDocument();
+    // Nothing was spent and nothing unlocked: the gleams are only written to the Ring's record.
+    act(() => recess.onEvent(ev("lap", 1, 36200, false)));
+    await waitFor(() => expect(recordRecessResult).toHaveBeenCalledWith("c1", { gleams: 2, lapMs: 36200, mounted: false, courseId: COURSE_ID }));
+  });
+
+  it("the Ring's board carries the jar on its shelf, and the lamps drawn and counted", () => {
+    const { bus } = mount({ realm: { ...realm, recess: { ...realm.recess!, totalGleams: 110 } } });
+    act(() => bus.onInteract(arch));
+    const board = screen.getByRole("dialog", { name: "The Ring" });
+    expect(board).toHaveTextContent("Gleam jar — 110 of 1000");
+    expect(board).toHaveTextContent("4 of 12 lamps lit along the road.");
+    expect(board.querySelectorAll(".r3-recess-lamp")).toHaveLength(12);
+    expect(board.querySelectorAll(".r3-recess-lamp--lit")).toHaveLength(4);
+  });
+
+  it("at simple depth the lamps are drawn, not counted", () => {
+    const { bus } = mount({ realm: { ...realm, depth: "simple", recess: { ...realm.recess!, totalGleams: 110 } } });
+    act(() => bus.onInteract(arch));
+    const board = screen.getByRole("dialog", { name: "The Ring" });
+    expect(board.querySelectorAll(".r3-recess-lamp--lit")).toHaveLength(4);
+    expect(board).not.toHaveTextContent("of 12 lamps");
+    expect(board).toHaveTextContent("Your gleams light the lamps on the road.");
+  });
+});

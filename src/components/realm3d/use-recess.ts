@@ -27,8 +27,9 @@ import { makeRecessBus, type RecessBus, type RecessCue } from "@/lib/realm3d/rec
 import { COURSE_ID, minLapMs, ringCourse } from "@/lib/realm3d/recess/course";
 import type { RecessEvent, RunKind } from "@/lib/realm3d/recess/sim";
 import { makeRecessWriter, type RecessWriter } from "@/lib/realm3d/recess/writer";
-import { archPrompt, COURSE_CHANGED, gleamLine, lapLine, OFF_COURSE, RECESS_OVER, RING, startLine, VOIDED, type RecessDepth } from "@/lib/realm/recess/copy";
-import { emptyRecessRecord, mergeRecess, validateRecessResult, type RecessRecord } from "@/lib/realm/recess/record";
+import { archPrompt, COURSE_CHANGED, gleamLine, lapLine, LAMP_LIT, LAST_LAMP_LIT, OFF_COURSE, RECESS_OVER, RING, startLine, VOIDED, type RecessDepth } from "@/lib/realm/recess/copy";
+import { emptyRecessRecord, lampsLitFor, mergeRecess, validateRecessResult, type RecessRecord } from "@/lib/realm/recess/record";
+import { LAMP_COUNT } from "@/lib/realm3d/recess/lamps";
 import { speak } from "@/lib/utils/speech";
 
 /** How long the start board stays up, and the finish (and every ending) board. */
@@ -113,18 +114,23 @@ export function useRecess(o: {
     setRunning(r);
   }, []);
 
-  const [write] = useState<RecessWriter | null>(() =>
-    writer && childId
-      ? makeRecessWriter({
-          save: (r) => recordRecessResult(childId, r),
-          course: { id: COURSE_ID, minLapMs: minLapMs(ringCourse()) },
-          timers: browserTimers,
-          // The server's record; `recordRef` follows the state in the effect below.
-          onRecord: setRecord,
-          onError: setError,
-        })
-      : null,
-  );
+  const [write] = useState<RecessWriter | null>(() => {
+    if (!writer || !childId) return null;
+    const w: RecessWriter = makeRecessWriter({
+      save: (r) => recordRecessResult(childId, r),
+      course: { id: COURSE_ID, minLapMs: minLapMs(ringCourse()) },
+      timers: browserTimers,
+      // The server's record, plus any gleams still waiting to be sent: the jar and the road's
+      // lamps never go dark for a moment while a batch is in flight. `recordRef` follows the state
+      // in the effect below.
+      onRecord: (r) => {
+        const unsent = w.pending().gleams;
+        setRecord(unsent > 0 ? { ...r, totalGleams: r.totalGleams + unsent } : r);
+      },
+      onError: setError,
+    });
+    return w;
+  });
   useEffect(() => {
     recordRef.current = record;
   }, [record]);
@@ -136,6 +142,8 @@ export function useRecess(o: {
   }, [bus, depth, readAloud]);
   useEffect(() => {
     bus.setBests(record?.bestLapMs ?? null, record?.bestMountedLapMs ?? null);
+    // The road's lamps (D12.2), from the stored record: they are lit again on every visit.
+    bus.setGleamsTotal(record?.totalGleams ?? 0);
   }, [bus, record]);
 
   /* ---- boards, lines, sounds ---------------------------------------------------------- */
@@ -257,8 +265,14 @@ export function useRecess(o: {
         case "gleam": {
           write?.addGleams(1);
           if (run) keepRunning({ ...run, collected: n });
-          const line = gleamLine(n, depthRef.current);
-          showPop(line.text, POP_MS);
+          // Counted at once toward the jar and the lamps. Only onto a record that loaded: a failed
+          // read is never turned into a claimed count.
+          const had = recordRef.current;
+          const before = had?.totalGleams ?? 0;
+          if (had) keepRecord({ ...had, totalGleams: before + 1 });
+          const lamp = had !== null && lampsLitFor(before + 1, LAMP_COUNT) > lampsLitFor(before, LAMP_COUNT);
+          const line = lamp ? (lampsLitFor(before + 1, LAMP_COUNT) >= LAMP_COUNT ? LAST_LAMP_LIT : LAMP_LIT) : gleamLine(n, depthRef.current);
+          showPop(line.text, lamp ? NUDGE_MS : POP_MS);
           cue("gleam");
           say(line.speech);
           break;
@@ -284,7 +298,7 @@ export function useRecess(o: {
       }
     });
     return () => bus.setHandler(() => {});
-  }, [bus, keepRunning, showPop, showBoard, cue, say, onLap, write]);
+  }, [bus, keepRunning, keepRecord, showPop, showBoard, cue, say, onLap, write]);
 
   /* ---- writing it down --------------------------------------------------------------- */
   useEffect(() => {

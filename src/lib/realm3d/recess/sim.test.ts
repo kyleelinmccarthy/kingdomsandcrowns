@@ -6,7 +6,10 @@ import {
   GLEAM_COUNT_LOW,
   GLEAM_OFF_MAX,
   GLEAM_RESPAWN_MS,
+  bumpHoldMs,
+  holdLap,
   lapElapsed,
+  lapHeld,
   makeRun,
   pauseLap,
   spawnGleams,
@@ -140,6 +143,71 @@ describe("a lap", () => {
     pauseLap(run, 1500);
     const rest = course.posts.flatMap((_, i) => step(run, at(i).x, at(i).z, { dt: 4000 })).concat(step(run, arch.x, arch.z, { dt: 4000 }));
     expect(rest.find((e) => e.kind === "lap")!.lapMs).toBe(9 * 4000 - 1500);
+  });
+
+  it("a trouble's bump holds the lap clock for exactly what it cost (D12.9), and the time stands still rather than counting back", () => {
+    startRun(run, "recess", false);
+    step(run, arch.x, arch.z);
+    step(run, at(0).x, at(0).z, { dt: 4000 });
+    const before = lapElapsed(run)!;
+    holdLap(run, 1000);
+    expect(lapHeld(run)).toBe(true);
+    // Mid-hold the clock stands still: it never jumps back.
+    step(run, 0, 0, { dt: 400 });
+    expect(lapElapsed(run)).toBe(before);
+    step(run, 0, 0, { dt: 400 });
+    expect(lapElapsed(run)).toBe(before);
+    // The hold ends part-way through a frame: only the rest of that frame counts.
+    step(run, 0, 0, { dt: 400 });
+    expect(lapElapsed(run)).toBe(before + 200);
+    expect(lapHeld(run)).toBe(false);
+    const rest = course.posts.slice(1).flatMap((_, i) => step(run, at(i + 1).x, at(i + 1).z, { dt: 4000 })).concat(step(run, arch.x, arch.z, { dt: 4000 }));
+    expect(rest.find((e) => e.kind === "lap")!.lapMs).toBe(9 * 4000 + 1200 - 1000);
+  });
+
+  it("never counts a bump twice: a second bump inside the first's hold only stretches it to its own end", () => {
+    startRun(run, "recess", false);
+    step(run, arch.x, arch.z);
+    holdLap(run, 1000);
+    step(run, 0, 0, { dt: 500 });
+    holdLap(run, 1000); // held to now + 1000, not 1000 more on top
+    step(run, 0, 0, { dt: 2000 });
+    expect(lapElapsed(run)).toBe(2500 - 1500);
+    // The same bump heard twice in one frame is one hold.
+    holdLap(run, 800);
+    holdLap(run, 800);
+    step(run, 0, 0, { dt: 1000 });
+    expect(lapElapsed(run)).toBe(1000 + 200);
+  });
+
+  it("holds nothing before the arch, after a run, or for nothing; a new lap starts with no hold", () => {
+    startRun(run, "recess", false);
+    holdLap(run, 1000);
+    expect(lapHeld(run)).toBe(false);
+    step(run, arch.x, arch.z);
+    holdLap(run, 0);
+    holdLap(run, -5);
+    holdLap(run, Number.NaN);
+    expect(lapHeld(run)).toBe(false);
+    holdLap(run, 5000);
+    course.posts.forEach((_, i) => step(run, at(i).x, at(i).z, { dt: 4000 }));
+    step(run, arch.x, arch.z, { dt: 4000 });
+    // Recess goes on into the next lap, which owes the last one's bump nothing.
+    expect(lapHeld(run)).toBe(false);
+    expect(lapElapsed(run)).toBe(0);
+    endRun(run);
+    holdLap(run, 1000);
+    expect(lapHeld(run)).toBe(false);
+  });
+
+  it("gives back what a bump costs at the child's pace: a shove and the walk back, never more than the dazzle", () => {
+    // On foot at the island's 11: the 0.35 s shove and 7 units back at 11 a second.
+    expect(bumpHoldMs(11)).toBe(986);
+    // A fast mount walks it back sooner, so gets less back.
+    expect(bumpHoldMs(22)).toBeLessThan(bumpHoldMs(11));
+    // Standing still, or crawling: capped at the spec's dazzle.
+    expect(bumpHoldMs(0)).toBe(1500);
+    expect(bumpHoldMs(1)).toBe(1500);
   });
 
   it("fast travel voids the lap: recess starts again at the arch, a child's own run ends", () => {

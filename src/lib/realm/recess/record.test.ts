@@ -3,8 +3,10 @@ import {
   bestFor,
   emptyRecessRecord,
   hasAnyRecord,
+  GLEAMS_PER_LAMP,
   jarFillFor,
   JAR_CAPACITY,
+  lampsLitFor,
   LAP_TOO_FAST,
   BAD_RESULT,
   MAX_GLEAMS_PER_CALL,
@@ -80,6 +82,24 @@ describe("validateRecessResult", () => {
     expect(validateRecessResult({ gleams: 1, lapMs: null, mounted: false, courseId: "elsewhere" }, course)).toBe(BAD_RESULT);
     expect(validateRecessResult({ gleams: 0, lapMs: null, mounted: false, courseId: C }, course)).toBe(BAD_RESULT);
     expect(validateRecessResult({ gleams: 0, lapMs: Number.NaN, mounted: false, courseId: C }, course)).toBe(BAD_RESULT);
+  });
+});
+
+describe("the lamps on the road (D12.2)", () => {
+  it("lights one lamp per 25 lifetime gleams, in order, and clamps at the road's end", () => {
+    expect(GLEAMS_PER_LAMP).toBe(25);
+    expect(lampsLitFor(0, 24)).toBe(0);
+    expect(lampsLitFor(24, 24)).toBe(0);
+    expect(lampsLitFor(25, 24)).toBe(1);
+    expect(lampsLitFor(49, 24)).toBe(1);
+    expect(lampsLitFor(50, 24)).toBe(2);
+    expect(lampsLitFor(10_000, 24)).toBe(24);
+    expect(lampsLitFor(10_000, 12)).toBe(12);
+  });
+  it("never lights a lamp from nothing, a negative or a broken count", () => {
+    expect(lampsLitFor(-40, 12)).toBe(0);
+    expect(lampsLitFor(Number.NaN, 12)).toBe(0);
+    expect(lampsLitFor(Number.POSITIVE_INFINITY, 12)).toBe(0);
   });
 });
 

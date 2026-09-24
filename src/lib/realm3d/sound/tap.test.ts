@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { makeHudBus } from "@/lib/realm3d/hud-bus";
 import { makeTroubleBus } from "@/lib/realm3d/trouble-bus";
 import type { TroubleEvent } from "@/lib/realm3d/troubles3d";
-import { tapHud, tapTroubles } from "./tap";
+import { hearTroubles, tapHud, tapTroubles } from "./tap";
 
 const ev = (kind: TroubleEvent["kind"]): TroubleEvent => ({ kind, trouble: "fog", home: 0, x: 0, z: 0, count: 1 });
 
@@ -64,6 +64,31 @@ describe("listening in on the trouble bus", () => {
     // All of it, the home too: the notices hand it to the bounty.
     expect(notices).toHaveBeenCalledWith(ev("cleared"), "Cloudfoot", "place-summit-1");
     expect(heard).toHaveBeenCalledWith(ev("cleared"));
+  });
+});
+
+describe("hearing the troubles beside the sound", () => {
+  it("hears every event once, beside the sound and the notices, whichever tapped first and however often the handler is replaced", () => {
+    const tbus = makeTroubleBus(4);
+    const recess = vi.fn();
+    const unhear = hearTroubles(tbus, recess);
+    const sound = vi.fn();
+    tapTroubles(tbus, sound);
+    const notices = vi.fn();
+    tbus.setHandler(notices);
+    tbus.setHandler(notices);
+    tbus.onEvent(ev("bounced"), null, null);
+    expect(recess).toHaveBeenCalledTimes(1);
+    expect(sound).toHaveBeenCalledTimes(1);
+    expect(notices).toHaveBeenCalledTimes(1);
+    // A second listener hears alongside; an untapped one hears no more.
+    const other = vi.fn();
+    hearTroubles(tbus, other);
+    unhear();
+    tbus.onEvent(ev("bounced"), null, null);
+    expect(recess).toHaveBeenCalledTimes(1);
+    expect(other).toHaveBeenCalledTimes(1);
+    expect(sound).toHaveBeenCalledTimes(2);
   });
 });
 
