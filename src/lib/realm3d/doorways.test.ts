@@ -55,12 +55,13 @@ describe("which buildings have an inside", () => {
     expect(roomFor({ kind: "castle", id: "castle" }, [], true)).toEqual({ room: "castle", site: "castle" });
   });
 
-  it("the E prompt says 'Go into' at a raised building, and nothing new at a site going up", () => {
+  it("the E prompt says 'Go into' at a raised building, and 'Talk to' its villager at a site going up", () => {
     const up = buildSpots({ props: village(true).props, sitePlan: SITE_PLAN, landmarks: [], castle: null });
     const down = buildSpots({ props: village(false).props, sitePlan: SITE_PLAN, landmarks: [], castle: null });
     expect(up.find((s) => s.target.id === "chapel")!.target.verb).toBe("Go into");
-    expect(up.find((s) => s.target.id === "well")!.target.verb).toBeUndefined();
-    expect(down.find((s) => s.target.id === "chapel")!.target.verb).toBeUndefined();
+    // No inside: E is the villager's conversation, and says so (interact-prompt.test.ts).
+    expect(up.find((s) => s.target.id === "well")!.target.verb).toBe("Talk to");
+    expect(down.find((s) => s.target.id === "chapel")!.target.verb).toBe("Talk to");
   });
 });
 
