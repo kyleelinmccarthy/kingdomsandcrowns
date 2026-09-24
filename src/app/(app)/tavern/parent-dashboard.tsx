@@ -19,6 +19,7 @@ import { ParentAlertsPanel } from "@/components/parent-alerts";
 import { ScheduleGapNotice } from "@/components/schedule-gap-notice";
 import { GameIcon, type GameIconName } from "@/components/game-icon";
 import { Avatar } from "@/components/avatar";
+import { RecessTavernCard } from "@/components/realm/recess-tavern-card";
 import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
 import type { getChildren } from "@/lib/actions/children";
 
@@ -133,6 +134,8 @@ export async function ParentDashboard({ allChildren }: { allChildren: ChildRow[]
           </div>
         )}
       </GameFrame>
+
+      <RecessTavernCard heroes={allChildren} />
     </div>
   );
 }
