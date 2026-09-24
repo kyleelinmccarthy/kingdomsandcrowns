@@ -31,7 +31,9 @@ describe("what E can act on", () => {
 
   it("labels things the way the prompt says them", () => {
     expect(spots[find("villager", "bram")].target.label).toBe("Old Bram");
-    expect(spots[find("site", "chapel")].target.label).toBe("the Chapel");
+    // A foundation's E is its villager's conversation, so it is labelled for them (interact-prompt.test.ts).
+    expect(spots[find("site", "chapel")].target.label).toBe("Sister Wren");
+    expect(siteLabel("Chapel")).toBe("the Chapel");
     expect(spots[find("landmark", "summit-6")].target.label).toBe("Cloudfoot");
     expect(siteLabel("the Mill")).toBe("the Mill");
   });

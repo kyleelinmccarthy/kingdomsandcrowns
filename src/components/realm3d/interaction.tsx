@@ -39,6 +39,13 @@ export function Interaction({
   world: RealmWorld;
 }) {
   const current = useRef(-1);
+  /**
+   * The target last announced. The spots are rebuilt when the village changes (a building goes up
+   * under the child's feet), and the same index then carries a new target — "Go into the Chapel"
+   * where it said "Talk to Sister Wren" — so a change of target is announced too, not only a
+   * change of index, or the prompt goes on naming what E no longer does.
+   */
+  const announced = useRef<InteractSpot["target"] | null>(null);
   const mesh = useRef<THREE.Mesh>(null);
   const geo = useMemo(() => {
     const g = new THREE.BufferGeometry();
@@ -88,9 +95,11 @@ export function Interaction({
     }
     const p = heroRef.current;
     const i = pickSpot(spots, p.x, p.z, current.current);
-    if (i !== current.current) {
+    const target = i < 0 ? null : spots[i].target;
+    if (i !== current.current || target !== announced.current) {
       current.current = i;
-      bus.onNear(i < 0 ? null : spots[i].target);
+      announced.current = target;
+      bus.onNear(target);
       if (i >= 0) layRing(geo, spots[i], world);
     }
     if (eatPress(k) && i >= 0) bus.onInteract(spots[i].target);

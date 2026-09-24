@@ -18,7 +18,7 @@
  * loop allocates.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import type { Prop, WorldLayout } from "@/lib/realm/layout";
@@ -59,6 +59,7 @@ import {
   type Mover,
   type Trouble3,
 } from "@/lib/realm3d/troubles3d";
+import { seedClears } from "@/lib/realm3d/trouble-reload";
 import { WALK_HALF, type RealmWorld } from "@/lib/realm3d/worldgen";
 import { at, litMaterial, merge, paint } from "./geo-kit";
 
@@ -398,6 +399,12 @@ export function Troubles({
     return () => shareTroubleField(tbus, null);
   }, [tbus, field]);
   const planned = useRef(homes);
+  // A reload makes a new field that remembers nothing: seed it with the clears the page's bundle
+  // carried, aged by how long the page has had them, before its first step, so a trouble cleared
+  // a moment ago stays cleared under the normal rule (`lib/realm3d/trouble-reload.ts`).
+  useLayoutEffect(() => {
+    seedClears(field, tbus.held.clears, performance.now() - tbus.held.heldAt);
+  }, [field, tbus]);
   // Development only: the field, for a screenshot script to find a home and read what happened.
   // `__realmCastAs(element, form, modifier?)` begins a cast of ANY catalog spell at the walker,
   // through the same charge, lock and release as a key press, so every shape can be looked at

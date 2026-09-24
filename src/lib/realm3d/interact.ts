@@ -12,6 +12,7 @@
 
 import type { InteractTarget } from "./hud-bus";
 import { ENTER_VERB, hasRoom } from "./doorways";
+import { villagerById } from "@/lib/realm/villagers";
 
 /** One thing in the world with a reach round it. */
 export type InteractSpot = {
@@ -31,7 +32,16 @@ export type InteractSpot = {
   bias: number;
   /** Radius of the ground highlight, so the ring hugs the thing rather than a fixed size. */
   ring: number;
+  /**
+   * The index of a spot that E here does the same thing as, and that should be chosen instead
+   * whenever it is in reach too: a site with no inside, whose E is its villager's conversation,
+   * yields to that villager. Absent (or -1), nothing.
+   */
+  yieldsTo?: number;
 };
+
+/** What E at a person says, and at a site whose E is that person's conversation. */
+export const TALK_VERB = "Talk to";
 
 /** Stickiness: a new nearest must beat the current one by this much to take over. */
 export const SWITCH_MARGIN = 0.35;
@@ -60,6 +70,7 @@ export function pickSpot(spots: readonly InteractSpot[], x: number, z: number, c
     const s = spots[i];
     const d = edgeDistance(s, x, z);
     if (d > s.reach) continue;
+    if (yields(spots, s, x, z)) continue;
     const score = d - s.bias;
     if (score < bestScore) {
       bestScore = score;
@@ -69,12 +80,20 @@ export function pickSpot(spots: readonly InteractSpot[], x: number, z: number, c
   if (current >= 0 && current < spots.length) {
     const c = spots[current];
     const d = edgeDistance(c, x, z);
-    if (d <= c.reach + RELEASE_MARGIN) {
+    if (d <= c.reach + RELEASE_MARGIN && !yields(spots, c, x, z)) {
       if (best < 0 || best === current) return current;
       if (bestScore > d - c.bias - SWITCH_MARGIN) return current;
     }
   }
   return best;
+}
+
+/** True when the spot E would do the same thing at is in reach from (x, z) too. */
+function yields(spots: readonly InteractSpot[], s: InteractSpot, x: number, z: number): boolean {
+  const to = s.yieldsTo ?? -1;
+  if (to < 0 || to >= spots.length) return false;
+  const t = spots[to];
+  return edgeDistance(t, x, z) <= t.reach;
 }
 
 /* ------------------------------------------------------------------ building */
@@ -186,6 +205,7 @@ export function buildSpots(input: SpotInput): InteractSpot[] {
       ring: 1.5,
     });
   }
+  pairWithVillagers(out);
   if (input.arch) {
     const a = input.arch;
     out.push({
@@ -202,4 +222,34 @@ export function buildSpots(input: SpotInput): InteractSpot[] {
     });
   }
   return out;
+}
+
+
+/**
+ * A villager stands a step in front of their own site, so a child walking up to one is nearly
+ * always in reach of both. What E does there decides what the prompt must say:
+ *
+ *   - a raised building with an inside: E at the SITE goes in ("Go into the Chapel") and E at the
+ *     villager talks ("Talk to Sister Wren") — two different things, so the nearer one wins, and
+ *     each says what it does;
+ *   - anything else (every foundation, and the Village Well, which has no inside): E at the site
+ *     opens the villager's conversation (`realm-game.tsx`'s `openTarget` → `talkTo`), exactly as
+ *     E at the villager does. So the site says "Talk to Old Bram", never "Look at the Village
+ *     Well", and yields to the villager whenever both are in reach, so the ring is round the
+ *     person the child is about to speak to.
+ *
+ * It used to be a distance contest with a small bias for the villager, and a child standing
+ * between Old Bram and his well — inside the well's reach at nought, in Bram's at a step — read
+ * "Look at the Village Well" and got Bram. Once, after the spots are built.
+ */
+function pairWithVillagers(out: InteractSpot[]): void {
+  for (let v = 0; v < out.length; v++) {
+    const person = out[v].target;
+    if (person.kind !== "villager") continue;
+    const buildingId = villagerById(person.id)?.buildingId;
+    if (!buildingId) continue;
+    const s = out.findIndex((o) => o.target.kind === "site" && o.target.id === buildingId);
+    if (s < 0 || out[s].target.verb === ENTER_VERB) continue;
+    out[s] = { ...out[s], target: { kind: "site", id: buildingId, label: person.label, verb: TALK_VERB }, yieldsTo: v };
+  }
 }

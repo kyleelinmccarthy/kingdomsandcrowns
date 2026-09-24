@@ -54,9 +54,10 @@ import { speak } from "@/lib/utils/speech";
 import { buildAnchors } from "@/lib/realm3d/plate-anchors";
 import { FX_POOL, makeFxPool } from "@/lib/realm3d/spell-fx";
 import { makeTroubleBus } from "@/lib/realm3d/trouble-bus";
+import type { RecentClear } from "@/lib/realm3d/trouble-reload";
 import { TroubleMapMarks, TroubleNotices, TroublePlates } from "./troubles-hud";
 import { BountyGain } from "./troubles-hud";
-import { useTroubleBounty } from "./use-trouble-bounty";
+import { heldClearsFor, useTroubleBounty } from "./use-trouble-bounty";
 import { realmWorld } from "@/lib/realm3d/worldgen";
 import { DEFAULT_AVATAR, type AvatarConfig } from "@/lib/utils/avatar-catalog";
 import { DEFAULT_LEARNING_PROFILE, type LearningProfile } from "@/lib/utils/learning-profile";
@@ -138,6 +139,8 @@ export type RealmData = {
   earning?: EarningSettings & { accessMode: RealmAccessMode };
   /** The Ring's record (`bundle.recess`): lifetime gleams, laps and bests; null if it failed to load. */
   recess?: RecessRecord | null;
+  /** Each trouble home's latest clear, as an age (`bundle.troubleClears`): a reload keeps them cleared. */
+  troubleClears?: RecentClear[];
 };
 
 /** What the access check decided, for an open gate. */
@@ -293,7 +296,8 @@ export function RealmGame({
   const caster = useMemo(() => makeCaster(pages.length), [pages.length]);
   const fxPool = useMemo(() => makeFxPool(FX_POOL), []);
   const casts = useMemo(() => makeCastQueue(), []);
-  const troubleBus = useMemo(() => makeTroubleBus(), []);
+  // With the clears a reload would forget, held with when they arrived, for the scene to seed its field.
+  const [troubleBus] = useState(() => makeTroubleBus(undefined, heldClearsFor(realm.childId, realm.troubleClears, realm.isChildView)));
   const hero = avatar ?? DEFAULT_AVATAR;
 
 

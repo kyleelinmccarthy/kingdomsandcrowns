@@ -15,9 +15,11 @@ const loadRealmSound = vi.fn(async () => ({ ...DEFAULT_SOUND }));
 vi.mock("@/lib/services/realm-sound", () => ({ loadRealmSound: (...a: unknown[]) => (loadRealmSound as (...x: unknown[]) => unknown)(...a) }));
 const loadPlacesFound = vi.fn(async (childId: string): Promise<string[]> => (childId ? ["farfurrow", "summit-6"] : []));
 vi.mock("@/lib/services/realm-places", () => ({ loadPlacesFound: (childId: string) => loadPlacesFound(childId) }));
+const loadRecentTroubleClears = vi.fn(async (childId: string) => childId ? [{ homeId: "rim-0", agoMs: 4_000 }] : []);
 vi.mock("@/lib/services/realm-play", () => ({
   loadRealmSettings: async () => ({ ...DEFAULT_REALM_SETTINGS }),
   loadRealmFlags: async () => ({ helpSeenAt: null, starterSpellAt: null }),
+  loadRecentTroubleClears: (childId: string) => loadRecentTroubleClears(childId),
 }));
 vi.mock("@/lib/services/deeds", () => ({ loadKingdomOverview: async () => ({ tone: "gentle", buildings: [] }) }));
 vi.mock("@/lib/services/learning-profile", () => ({ loadLearningProfileRow: async () => null }));
@@ -96,5 +98,25 @@ describe("getRealmBundle — the places found, and the earning copy's settings",
       dailyCapMinutes: DEFAULT_REALM_SETTINGS.dailyCapMinutes,
       troubleBonusCapMinutes: DEFAULT_REALM_SETTINGS.troubleBonusCapMinutes,
     });
+  });
+});
+
+describe("getRealmBundle — the troubles cleared a moment ago", () => {
+  it("carries the hero's recent clears to whoever is looking, so a reload keeps them cleared", async () => {
+    for (const who of [as("child:c1", "edit"), as("u-mom", "edit"), as("u-tutor", "view")]) {
+      requireChildAccess.mockResolvedValue(who);
+      const b = await getRealmBundle("c1");
+      expect(b.troubleClears).toEqual([{ homeId: "rim-0", agoMs: 4_000 }]);
+    }
+    expect(loadRecentTroubleClears).toHaveBeenCalledWith("c1");
+  });
+
+  it("opens with none remembered when the read fails, rather than closing the Realm", async () => {
+    requireChildAccess.mockResolvedValue(as("child:c1", "edit"));
+    loadRecentTroubleClears.mockRejectedValueOnce(new Error("down"));
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const b = await getRealmBundle("c1");
+    spy.mockRestore();
+    expect(b.troubleClears).toEqual([]);
   });
 });

@@ -15,6 +15,7 @@
 
 import type { TroubleKind, TroubleSkin } from "@/lib/realm/spells/troubles";
 import { TROUBLE_POOL, type TroubleEvent, type TroubleField } from "./troubles3d";
+import type { HeldClears } from "./trouble-reload";
 
 export type TroubleHandler = (e: TroubleEvent, placeName: string | null, homeId: string | null) => void;
 
@@ -44,14 +45,21 @@ export type TroubleBus = {
   setMark(index: number, el: SVGGElement | null): void;
   setHandler(fn: TroubleHandler): void;
 
+  /**
+   * The clears the page's bundle carried (`lib/realm3d/trouble-reload.ts`), for the scene to seed
+   * its new field with, so a reload does not bring back a trouble cleared a moment ago.
+   */
+  held: HeldClears;
+
   /** @internal — the write cache. */
   last: { plate: string[]; shown: boolean[]; label: string[]; pips: string[]; mark: string[] };
 };
 
 const noop = () => {};
 
-export function makeTroubleBus(slots: number = TROUBLE_POOL): TroubleBus {
+export function makeTroubleBus(slots: number = TROUBLE_POOL, held: HeldClears = { clears: [], heldAt: 0 }): TroubleBus {
   const bus: TroubleBus = {
+    held,
     skin: "gentle",
     plates: new Array(slots).fill(null),
     names: new Array(slots).fill(null),
