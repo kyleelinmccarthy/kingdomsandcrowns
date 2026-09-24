@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { stats } from "./dsp";
-import { ALL_SOUNDS, BEDS, DETAILS, EFFECTS, ELEMENTS, FIXTURES, isBed, recipeFor, renderSound, SURFACES, variantsOf, type SoundId } from "./recipes";
+import { filterBuffer, stats } from "./dsp";
+import { ALL_SOUNDS, BEDS, DETAILS, EFFECTS, ELEMENTS, FIXTURES, isBed, MOUNT_CALLS, MOUNT_FEET, MOUNT_SURFACES, recipeFor, renderSound, SURFACES, variantsOf, type SoundId } from "./recipes";
 import { composePhrase, MELODY, musicGap, renderPhrase } from "./music";
 
 /** Energy above `hz`, as a fraction, by a crude one-pole split: enough to compare two takes. */
@@ -16,6 +16,20 @@ function brightness(data: Float32Array, rate: number, hz: number): number {
     all += data[i] * data[i];
   }
   return all > 0 ? hi / all : 0;
+}
+
+/** Energy above `hz`, as a fraction, through a steep (24 dB/octave) high-pass: what is really up there. */
+function above(data: Float32Array, rate: number, hz: number): number {
+  const hi = Float32Array.from(data);
+  filterBuffer(hi, rate, "hp", hz);
+  filterBuffer(hi, rate, "hp", hz);
+  let h = 0;
+  let all = 0;
+  for (let i = 0; i < data.length; i++) {
+    h += hi[i] * hi[i];
+    all += data[i] * data[i];
+  }
+  return all > 0 ? h / all : 0;
 }
 
 describe("the catalogue", () => {
@@ -77,6 +91,57 @@ describe("every sound, rendered", () => {
     }
     expect(level("prompt")).toBeLessThan(level("talk"));
     expect(level("deed-wrong")).toBeLessThan(level("deed-right"));
+  });
+});
+
+describe("riding and the big moments", () => {
+  it("gives every mount's feet a footfall and a gallop on every ground it can find, and every kind a hello", () => {
+    for (const f of MOUNT_FEET)
+      for (const s of MOUNT_SURFACES) {
+        expect(EFFECTS).toContain(`${f}-${s}`);
+        expect(EFFECTS).toContain(`gallop-${f}-${s}`);
+      }
+    for (const c of MOUNT_CALLS) expect(EFFECTS).toContain(`call-${c}`);
+    for (const id of ["wingbeat", "mount-jump", "mount-land", "mount-summon", "mount-up", "mount-down", "travel-start", "travel-arrive", "travel-stop", "crown", "last-minute", "farewell"]) expect(EFFECTS).toContain(id);
+  });
+
+  it("keeps the mount's feet down with the child's, and its hello gentle", () => {
+    const level = (id: SoundId) => recipeFor(id).level;
+    for (const f of MOUNT_FEET)
+      for (const s of MOUNT_SURFACES) {
+        expect(level(`${f}-${s}`)).toBeLessThanOrEqual(level("land"));
+        expect(level(`gallop-${f}-${s}`)).toBeLessThan(level("trouble-clear"));
+      }
+    // A hello is never louder than a footstep's landing, and never bright: an eight-year-old's
+    // pony says hello, it does not startle anyone: next to nothing above 4 kHz.
+    for (const c of MOUNT_CALLS) {
+      const id = `call-${c}` as SoundId;
+      expect(level(id)).toBeLessThanOrEqual(level("land"));
+      const r = renderSound(id);
+      expect(above(r.data, r.rate, 4000), id).toBeLessThan(0.005);
+    }
+  });
+
+  it("makes the crown the size of a building finished, and the clock's chimes quieter", () => {
+    const level = (id: SoundId) => recipeFor(id).level;
+    expect(level("crown")).toBeLessThanOrEqual(level("complete"));
+    expect(level("last-minute")).toBeLessThan(level("crown"));
+    expect(level("farewell")).toBeLessThan(level("crown"));
+  });
+
+  it("is softer and quieter in calm mode", () => {
+    for (const id of ["crown", "call-whinny", "call-howl", "gallop-hoof-road", "travel-start", "last-minute", "farewell"] as const) {
+      const loud = renderSound(id);
+      const calm = renderSound(id, { calm: true });
+      expect(stats(calm.data, calm.rate).peak, id).toBeLessThan(stats(loud.data, loud.rate).peak);
+      expect(brightness(calm.data, calm.rate, 3000), id).toBeLessThanOrEqual(brightness(loud.data, loud.rate, 3000) + 1e-9);
+    }
+  });
+
+  it("gives the mount's feet several takes, so a gallop is not a machine", () => {
+    expect(variantsOf("hoof-road")).toBeGreaterThan(1);
+    expect(variantsOf("gallop-paw-grass")).toBeGreaterThan(1);
+    expect(renderSound("hoof-road", { variant: 0 }).data).not.toEqual(renderSound("hoof-road", { variant: 1 }).data);
   });
 });
 

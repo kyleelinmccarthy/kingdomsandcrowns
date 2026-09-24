@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Biome } from "@/lib/realm3d/worldgen";
-import { castCues, cueInfo, elementOf, fixtureCue, jitter, makeZoneTracker, roomFloor, surfaceAt, trackZone, troubleCue, zoneAt, zoneSound, type GroundProbe } from "./cues";
+import { castCues, cueInfo, earPlace, elementOf, fixtureCue, FAR_EAR, FAR_GAIN, jitter, MAX_PAN, makeZoneTracker, roomFloor, surfaceAt, trackZone, troubleCue, zoneAt, zoneSound, type GroundProbe } from "./cues";
 import { ALL_SOUNDS, EFFECTS, ELEMENTS, ZONES } from "./recipes";
 
 function probe(o: Partial<{ depth: number; road: boolean; biome: Biome; from: number }> = {}): GroundProbe {
@@ -113,5 +113,41 @@ describe("the soundscape", () => {
     expect(Math.min(...xs)).toBeGreaterThanOrEqual(0);
     expect(Math.max(...xs)).toBeLessThan(1);
     expect(new Set(xs.map((x) => Math.floor(x * 10))).size).toBe(10);
+  });
+});
+
+describe("where a trouble is heard from", () => {
+  const out = { pan: 0, gain: 0 };
+
+  it("pans by where it sits on screen: left of the camera on the left, right on the right", () => {
+    // Yaw 0: the camera is south of the child, looking north (−z); screen-right is +x.
+    const ear = { x: 0, z: 0, yaw: 0 };
+    expect(earPlace(ear, -20, 0, out).pan).toBeCloseTo(-MAX_PAN);
+    expect(earPlace(ear, 20, 0, out).pan).toBeCloseTo(MAX_PAN);
+    expect(earPlace(ear, 0, -20, out).pan).toBeCloseTo(0);
+    // Turn the camera half round (looking south): the same trouble swaps sides.
+    expect(earPlace({ x: 0, z: 0, yaw: Math.PI }, -20, 0, out).pan).toBeCloseTo(MAX_PAN);
+    // A quarter turn (the camera east of the child, looking west): north is on the right.
+    expect(earPlace({ x: 0, z: 0, yaw: Math.PI / 2 }, 0, -20, out).pan).toBeCloseTo(MAX_PAN);
+  });
+
+  it("is round you when close, and quieter far off, never silent", () => {
+    const ear = { x: 5, z: 5, yaw: 0 };
+    expect(earPlace(ear, 5, 5, out)).toEqual({ pan: 0, gain: 1 });
+    expect(Math.abs(earPlace(ear, 6, 5, out).pan)).toBeLessThan(0.2);
+    expect(earPlace(ear, 15, 5, out).gain).toBe(1);
+    expect(earPlace(ear, 5 + FAR_EAR * 2, 5, out).gain).toBeCloseTo(FAR_GAIN);
+  });
+});
+
+describe("the riding's place in the mix", () => {
+  it("puts a mount's feet with the child's, under every moment, and says hello once", () => {
+    expect(cueInfo("hoof-road").priority).toBe(cueInfo("step-road").priority);
+    expect(cueInfo("gallop-paw-grass").priority).toBe(cueInfo("step-grass").priority);
+    expect(cueInfo("wingbeat").priority).toBeLessThan(cueInfo("trouble-clear").priority);
+    expect(cueInfo("call-whinny").gap).toBeGreaterThanOrEqual(1);
+    expect(cueInfo("crown").priority).toBe(cueInfo("complete").priority);
+    expect(cueInfo("farewell").priority).toBe(cueInfo("complete").priority);
+    for (const id of EFFECTS) expect(cueInfo(id).bus, id).toBe("sfx");
   });
 });

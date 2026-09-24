@@ -28,6 +28,7 @@ import { postAt, requestStop, startTravel, stepTravel, travelGraphFor, travelRou
 import type { RealmWorld } from "@/lib/realm3d/worldgen";
 import { at, litMaterial, merge, paint } from "./geo-kit";
 import { MountFigure, mountBuild, type MountGait } from "./mount-figure";
+import { hoofTick, makeHoofClock, mountVoice, wingsOpen, wingTick } from "@/lib/realm3d/sound/ride-cues";
 
 /** The hero figure's hip height (`hero-figure.tsx` HIP): what is lifted onto the saddle. */
 const RIDER_HIP = 0.95;
@@ -86,6 +87,9 @@ export function RiddenMount({ ride, heroRef }: { ride: RideBus; heroRef: React.R
   const s = scratchFor(ride);
   const gait = useMemo(() => ({ current: s.gait }), [s]);
   const m = ride.mount;
+  /** The feet and the wings, for the sound (`lib/realm3d/sound/ride-cues.ts`). */
+  const feet = useMemo(() => makeHoofClock(), []);
+  const winged = mountVoice(m?.id).wings;
 
   useFrame((_, rawDt) => {
     const dt = Math.min(0.05, rawDt);
@@ -98,6 +102,16 @@ export function RiddenMount({ ride, heroRef }: { ride: RideBus; heroRef: React.R
     const rose = p.y - s.lastY;
     track(s, p);
     driveGait(s.gait, moved > 5 ? 0 : moved, dt, mountBuild(m.id).stride, ride.speed || 14, rose / Math.max(dt, 1e-3));
+    // The sound of it: a foot down off the gait, and a wingbeat on each downstroke of open wings.
+    // (A jump's air is the sound's to know: it hears the push-off and the landing, and drops
+    // footfalls between them. The gait's own `air` also rises on a steep hill, which is ground.)
+    if (ride.phase === "on") {
+      // The rest between footfalls is REAL time (the frame's dt is clamped for the physics): on a
+      // slow machine a gallop still sounds three times a second, not once every two.
+      const fall = hoofTick(feet, s.gait.phase, s.gait.run, moved > 0.002 && moved <= 5, Math.min(0.25, rawDt));
+      if (fall) ride.sound.onFootfall(p.x, p.z, fall === "gallop");
+      if (winged && wingTick(feet, s.gait.t, wingsOpen(s.gait.air, s.gait.run))) ride.sound.onWingbeat(s.gait.air >= 0.5);
+    }
     if (!on) return;
     // The mount-up moment: it steps in under the child from where it stood, or is called in with
     // a puff of dust if it was far away (or had never been out).
@@ -268,6 +282,7 @@ export function Riding({
         const sn = Math.sin(-yaw);
         setFrom(s, dx * c + dz * sn, -dx * sn + dz * c, false);
       } else setFrom(s, -1.1, 0, true);
+      if (s.from.summoned) ride.sound.onMoment("summon");
       hidePark(ride);
     }
 
@@ -306,11 +321,13 @@ export function Riding({
             const dest = graph.posts.find((q) => q.id === to);
             aimRef.current = dest ? dest.face : aimRef.current;
             ride.onTravel("arrive", to);
+            ride.sound.onTravel("arrive");
             wantDown(ride);
           } else {
             run.current = r;
             setTravelling(ride, true, to);
             ride.onTravel("start", to);
+            ride.sound.onTravel("start");
           }
         }
       }
@@ -337,8 +354,12 @@ export function Riding({
           const dest = graph.posts.find((q) => q.id === r.to);
           if (dest) aimRef.current = dest.face;
           ride.onTravel("arrive", r.to);
+          ride.sound.onTravel("arrive");
           wantDown(ride);
-        } else ride.onTravel("stop", r.to);
+        } else {
+          ride.onTravel("stop", r.to);
+          ride.sound.onTravel("stop");
+        }
       }
     }
     carry(ride);

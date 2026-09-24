@@ -83,7 +83,22 @@ export const CHARGE_PEAK = 0.9;
  * seconds first (walking, the prompt, clicking), the rarest and heaviest last.
  */
 const FIRST: readonly SoundId[] = ["step-grass", "step-road", "prompt", "ui-click", "jump", "land", "talk", "pause", "resume", "refuse"];
-export const WARM_ORDER: readonly SoundId[] = [...FIRST, ...EFFECTS.filter((id) => !FIRST.includes(id) && id !== "complete"), ...DETAILS, "complete"];
+
+/**
+ * Sounds only some visits want — one mount's feet and hello out of eight, a crown ceremony, the
+ * clock's chimes — made only when the game says it wants them (`SoundEngine.want`), so a
+ * grown-up's visit never spends the synth's first seconds on a pony they will never ride.
+ */
+export function onDemand(id: SoundId): boolean {
+  return /^(hoof|paw|gallop|call|mount|travel)-/.test(id) || id === "wingbeat" || id === "crown" || id === "last-minute" || id === "farewell";
+}
+
+export const WARM_ORDER: readonly SoundId[] = [...FIRST, ...EFFECTS.filter((id) => !FIRST.includes(id) && id !== "complete" && !onDemand(id)), ...DETAILS, "complete"];
+
+/** How long a big moment may wait for its sound to be made before it is let go (`moment`). */
+export const MOMENT_WAIT = 2.5;
+/** How long after a ducked moment ends the music comes back. */
+export const DUCK_TAIL = 0.6;
 
 type Render = (id: SoundId, o: { calm: boolean; variant: number }) => SoundBuffer;
 
@@ -105,6 +120,13 @@ export class SoundEngine {
   private fellBack = false;
   /** The tab is hidden: the timers are stopped until it is back. */
   private away = false;
+  /** Sounds wanted this visit beyond the usual ones (`want`): made ahead of the usual, or after them. */
+  private early: SoundId[] = [];
+  private late: SoundId[] = [];
+  private warmed = false;
+  /** Moments sounding with the music ducked under them, and the timers that bring it back. */
+  private ducks = 0;
+  private duckTimers = new Set<number>();
 
   /**
    * `synth` makes the buffers ahead of time (a worker in the browser); without one, the engine
@@ -243,6 +265,85 @@ export class SoundEngine {
     this.play(`step-${surface}`, { rate: 0.94 + 0.12 * j, gain: 0.85 + 0.15 * jitter(this.counter + 7), pan: (j - 0.5) * 0.12 });
   }
 
+  /**
+   * A mount's footfall (or a gallop's three beats): takes rotate, the pitch is the mount's own
+   * (`rate`) and wanders a hair, like the hero's steps.
+   */
+  footfall(id: SoundId, rate: number, gain = 1): void {
+    const j = jitter(this.counter);
+    this.play(id, { rate: rate * (0.96 + 0.08 * j), gain: gain * (0.82 + 0.18 * jitter(this.counter + 7)), pan: (j - 0.5) * 0.1 });
+  }
+
+  /**
+   * Sounds this visit will want that the usual warm-up leaves out (`onDemand`): the child's own
+   * mount's, the crown's when a ceremony is waiting, the clock's. `first` puts them ahead of
+   * everything — the ceremony is the first thing a child with a new crown sees. Asked for at
+   * once if the warm-up has already run.
+   */
+  want(ids: readonly SoundId[], first = false): void {
+    if (this.closed) return;
+    const list = first ? this.early : this.late;
+    for (const id of ids) if (!list.includes(id)) list.push(id);
+    if (this.warmed) for (const id of ids) for (let v = 0; v < variantsOf(id); v++) void this.fetch(id, v);
+  }
+
+  /**
+   * A big moment — the crown worn, the last minute, travel's start — which must not be lost to
+   * a sound not made yet: played as soon as it is ready, if that is within `wait` seconds of
+   * asking. `duck` steps the music back for its length, so a fanfare never plays over a phrase.
+   * Never renders on the game's thread when a worker exists: it waits for the worker instead.
+   */
+  moment(id: SoundId, o: { duck?: boolean; wait?: number; gain?: number; delay?: number; rate?: number } = {}): void {
+    const out = this.out;
+    if (!out || this.closed) return;
+    const asked = out.now();
+    const go = (buf: SoundBuffer) => {
+      const now = this.out;
+      if (!now || this.closed || now.now() - asked > (o.wait ?? MOMENT_WAIT)) return;
+      if (this.play(id, { gain: o.gain, delay: o.delay, rate: o.rate }) < 0) return;
+      if (o.duck) this.duckFor((buf.data.length / buf.rate) / (o.rate ?? 1) + (o.delay ?? 0));
+    };
+    const ready = this.readyTake(id, 0, variantsOf(id));
+    if (ready) go(ready);
+    else if (this.synth.offThread) void this.fetch(id).then((b) => b && go(b));
+    else go(this.buffer(id));
+  }
+
+  /** The music steps back for `seconds`, then returns; overlapping moments hold it back together. */
+  private duckFor(seconds: number): void {
+    this.ducks++;
+    if (this.ducks === 1) this.setMix({ duck: true });
+    const id = this.timers.set(() => {
+      this.duckTimers.delete(id);
+      this.ducks = Math.max(0, this.ducks - 1);
+      if (this.ducks === 0 && !this.closed) this.setMix({ duck: false });
+    }, (seconds + DUCK_TAIL) * 1000);
+    this.duckTimers.add(id);
+  }
+
+  /**
+   * The goodbye (the clock ran out): the music stops, the closing cadence plays, and the engine
+   * closes itself when it has finished. Nothing else plays after it. Closes at once when there is
+   * no output to say goodbye on.
+   */
+  farewell(): void {
+    const out = this.out;
+    if (this.closed) return;
+    if (!out) {
+      this.close();
+      return;
+    }
+    this.stopMusic();
+    if (this.detailTimer >= 0) this.timers.clear(this.detailTimer);
+    this.detailTimer = -1;
+    for (let layer = 0; layer < BED_LAYERS; layer++) out.bed(layer, null, 0, 1.5);
+    const ready = this.readyTake("farewell", 0, 1);
+    const wait = ready ? 0 : MOMENT_WAIT;
+    this.moment("farewell", { duck: true });
+    const seconds = ready ? ready.data.length / ready.rate : 4.8;
+    this.timers.set(() => this.close(), (seconds + wait + 0.3) * 1000);
+  }
+
   /** Landing from a jump: louder the longer the child was in the air. */
   land(air: number): void {
     this.play("land", { gain: Math.min(1, 0.45 + air) });
@@ -277,6 +378,8 @@ export class SoundEngine {
     if (this.detailTimer >= 0) this.timers.clear(this.detailTimer);
     if (this.musicTimer >= 0) this.timers.clear(this.musicTimer);
     this.detailTimer = this.musicTimer = -1;
+    for (const id of this.duckTimers) this.timers.clear(id);
+    this.duckTimers.clear();
     for (const bus of ["sfx", "amb", "music"] as const) clearPool(this.pools[bus]);
     this.synth.close();
     this.out?.close();
@@ -379,7 +482,13 @@ export class SoundEngine {
 
   private warm(): void {
     if (this.closed) return;
-    for (const id of WARM_ORDER) for (let v = 0; v < variantsOf(id); v++) void this.fetch(id, v);
+    this.warmed = true;
+    const ask = (id: SoundId) => {
+      for (let v = 0; v < variantsOf(id); v++) void this.fetch(id, v);
+    };
+    this.early.forEach(ask);
+    WARM_ORDER.forEach(ask);
+    this.late.forEach(ask);
   }
 
   private startZone(zone: Zone): void {

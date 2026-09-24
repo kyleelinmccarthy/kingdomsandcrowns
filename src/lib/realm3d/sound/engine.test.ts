@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { CHARGE_PEAK, POOL_SIZES, SoundEngine, STOP_TAIL, WARM_ORDER, type AudioOut, type SoundBuffer, type Timers } from "./engine";
+import { CHARGE_PEAK, MOMENT_WAIT, onDemand, POOL_SIZES, SoundEngine, STOP_TAIL, WARM_ORDER, type AudioOut, type SoundBuffer, type Timers } from "./engine";
 import type { SynthJob } from "./synth";
 import { FIRST_MUSIC_S } from "./music";
 import { cueInfo } from "./cues";
@@ -455,5 +455,114 @@ describe("is the device running", () => {
     expect(e.running).toBe(true);
     e.close();
     expect(e.running).toBe(false);
+  });
+});
+
+describe("riding, the crown and the clock", () => {
+  /** A worker that answers only when the test says so. */
+  function heldWorker() {
+    const asked: string[] = [];
+    const held = new Map<string, (b: SoundBuffer) => void>();
+    const synth = {
+      offThread: true,
+      render: (job: SynthJob) => {
+        const id = job.kind === "sound" ? job.id : "phrase";
+        asked.push(id);
+        return new Promise<SoundBuffer>((res) => held.set(id, res));
+      },
+      close() {},
+    };
+    const answer = (id: SoundId) => held.get(id)?.(fakeRender(id));
+    return { asked, synth, answer };
+  }
+
+  it("leaves one visit's sounds out of the usual warm-up, and makes them when the game wants them", () => {
+    expect(WARM_ORDER.filter(onDemand)).toEqual([]);
+    expect(onDemand("hoof-road")).toBe(true);
+    expect(onDemand("crown")).toBe(true);
+    expect(onDemand("step-road")).toBe(false);
+    const w = heldWorker();
+    const e = new SoundEngine(mix(), new FakeTimers(), fakeRender, w.synth);
+    e.want(["crown"], true);
+    e.want(["hoof-road", "call-whinny"]);
+    e.attach(new FakeOut());
+    // The crown before everything; the mount's after the usual.
+    expect(w.asked[0]).toBe("crown");
+    expect(w.asked.indexOf("hoof-road")).toBeGreaterThan(w.asked.indexOf("complete"));
+    // Wanted after the warm-up: asked for at once.
+    e.want(["farewell"]);
+    expect(w.asked).toContain("farewell");
+  });
+
+  it("plays a big moment when its sound arrives, if it arrives in time, and never on the game's thread", async () => {
+    let inline = 0;
+    const w = heldWorker();
+    const o = new FakeOut();
+    const e = new SoundEngine(mix(), new FakeTimers(), (id) => (inline++, fakeRender(id)), w.synth);
+    e.attach(o);
+    e.moment("crown");
+    expect(o.plays).toHaveLength(0);
+    w.answer("crown");
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(o.plays.map((p) => p.id)).toEqual([fp("crown")]);
+    // Too late: a moment that could not be made in time is let go rather than played out of place.
+    e.moment("last-minute");
+    o.t = MOMENT_WAIT + 1;
+    w.answer("last-minute");
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(o.plays).toHaveLength(1);
+    expect(inline).toBe(0);
+  });
+
+  it("steps the music back under a ducked moment, and brings it back after", async () => {
+    const e = engine();
+    e.attach(out);
+    await settle();
+    const music = out.last.music;
+    e.moment("crown", { duck: true });
+    expect(out.plays.at(-1)!.id).toBe(fp("crown"));
+    expect(out.last.music).toBeLessThan(music * 0.1);
+    // Two at once hold it back together.
+    e.moment("last-minute", { duck: true });
+    const back = [...timers.pending.entries()].filter(([, p]) => p.ms < 5000 && p.ms > 500);
+    expect(back.length).toBe(2);
+    timers.pending.delete(back[0][0]);
+    back[0][1].fn();
+    expect(out.last.music).toBeLessThan(music * 0.1);
+    timers.pending.delete(back[1][0]);
+    back[1][1].fn();
+    expect(out.last.music).toBeCloseTo(music);
+  });
+
+  it("says goodbye: stops the music and the country, plays the cadence, then closes itself", async () => {
+    const e = engine();
+    e.setZone("meadow");
+    e.attach(out);
+    await settle();
+    e.farewell();
+    expect(out.plays.at(-1)!.id).toBe(fp("farewell"));
+    expect(out.beds.slice(-2).every((b) => b.buf === null)).toBe(true);
+    expect(out.last.music).toBeLessThan(0.05);
+    expect(e.finished).toBe(false);
+    while (timers.pending.size) timers.fire();
+    expect(e.finished).toBe(true);
+    expect(out.closed).toBe(true);
+  });
+
+  it("says goodbye by simply stopping when there is nothing to hear it on", () => {
+    const e = engine();
+    e.farewell();
+    expect(e.finished).toBe(true);
+  });
+
+  it("plays a mount's footfall at the mount's own pitch", async () => {
+    const e = engine();
+    e.want(["gallop-hoof-road"]);
+    e.attach(out);
+    await settle();
+    e.footfall("gallop-hoof-road", 1.2);
+    expect(out.plays.at(-1)!.id).toBe(fp("gallop-hoof-road"));
   });
 });

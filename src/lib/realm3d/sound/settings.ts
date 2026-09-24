@@ -83,6 +83,8 @@ export type MixState = {
   paused: boolean;
   /** Read-aloud is speaking. */
   speaking: boolean;
+  /** A big moment is sounding (the crown, the goodbye): the music steps right back for it. */
+  duck?: boolean;
 };
 
 export type BusGains = { master: number; sfx: number; amb: number; music: number };
@@ -91,6 +93,11 @@ export type BusGains = { master: number; sfx: number; amb: number; music: number
 export const PAUSE_DUCK = { music: 0.35, amb: 0.6, sfx: 1 } as const;
 /** And while read-aloud speaks: enough that a question is never buried under a kalimba. */
 export const SPEECH_DUCK = { music: 0.15, amb: 0.4, sfx: 0.6 } as const;
+/**
+ * And under a big moment — the crown's fanfare, the last-minute chime, the goodbye — the music
+ * all but stops, so the two never sound as one: it is in the same key, but not in the same time.
+ */
+export const MOMENT_DUCK = { music: 0.08, amb: 0.7, sfx: 1 } as const;
 /** Calm mode's master. */
 export const CALM_MASTER = 0.7;
 /**
@@ -120,6 +127,11 @@ export function busGains(m: MixState): BusGains {
     sfx *= SPEECH_DUCK.sfx;
     amb *= SPEECH_DUCK.amb;
     music *= SPEECH_DUCK.music;
+  }
+  if (m.duck) {
+    sfx *= MOMENT_DUCK.sfx;
+    amb *= MOMENT_DUCK.amb;
+    music *= MOMENT_DUCK.music;
   }
   return { master, sfx, amb, music };
 }

@@ -12,9 +12,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { stats, waveformPeaks } from "@/lib/realm3d/sound/dsp";
-import { SoundEngine, type AudioOut, type SoundBuffer, type Timers } from "@/lib/realm3d/sound/engine";
+import { onDemand, SoundEngine, type AudioOut, type SoundBuffer, type Timers } from "@/lib/realm3d/sound/engine";
 import { composePhrase, renderPhrase } from "@/lib/realm3d/sound/music";
-import { BEDS, DETAILS, ELEMENTS, FIXTURES, renderSound, SURFACES, ZONES, type Element, type SoundId, type Zone } from "@/lib/realm3d/sound/recipes";
+import { BEDS, DETAILS, ELEMENTS, FIXTURES, MOUNT_CALLS, MOUNT_FEET, MOUNT_SURFACES, renderSound, SURFACES, ZONES, type Element, type SoundId, type Zone } from "@/lib/realm3d/sound/recipes";
 import { DEFAULT_SOUND } from "@/lib/realm3d/sound/settings";
 import { createWebAudioOut } from "@/lib/realm3d/sound/web-audio";
 import { workerSynth } from "@/lib/realm3d/sound/synth-client";
@@ -48,6 +48,26 @@ const GROUPS: Group[] = [
     title: "Menus and moments",
     blurb: "Button ticks, pause and resume, a refusal, a lesson done, the tutorial finished, a place found.",
     items: (["ui-click", "pause", "resume", "refuse", "lesson", "tutorial-done", "found"] as const).map((id) => ({ id, label: id.replace("-", " ") })),
+  },
+  {
+    title: "Riding: feet",
+    blurb: "A mount's footfall off its own gait, at a walk, and a gallop's three beats (ba-da-DUM). Hooves for the pony, donkey, goat and stag; padded feet for the direwolf, boar, gryphon and wyrm. The game plays them at the mount's own pitch.",
+    items: MOUNT_FEET.flatMap((f) => MOUNT_SURFACES.flatMap((s) => [{ id: `${f}-${s}` as SoundId, label: `${f} ${s}` }, { id: `gallop-${f}-${s}` as SoundId, label: `gallop ${f} ${s}` }])),
+  },
+  {
+    title: "Riding: moments",
+    blurb: "Wings (the gryphon's and the wyrm's, in the air), the jump and the landing in the saddle, the mount called in with a puff, getting on and off, and fast travel's start, arrival and pulling up.",
+    items: (["wingbeat", "mount-jump", "mount-land", "mount-summon", "mount-up", "mount-down", "travel-start", "travel-arrive", "travel-stop"] as const).map((id) => ({ id, label: id.replace("-", " ") })),
+  },
+  {
+    title: "Mounts say hello",
+    blurb: "A soft call as the child gets on: pony, donkey, goat, stag, boar, direwolf, gryphon, wyrm.",
+    items: MOUNT_CALLS.map((c) => ({ id: `call-${c}` as SoundId, label: c })),
+  },
+  {
+    title: "The big quiet moments",
+    blurb: "The crown worn at the ceremony, the last minute on the clock, and the goodbye under \u201cWell played\u201d. Each steps the music right back while it plays.",
+    items: (["crown", "last-minute", "farewell"] as const).map((id) => ({ id, label: id.replace("-", " ") })),
   },
   { title: "Ambience: now and then", blurb: "The little sounds each country scatters over its beds.", items: DETAILS.map((id) => ({ id, label: label(id) })) },
   { title: "Ambience: the beds", blurb: "Seamless loops. Each country plays two of different lengths at once.", items: BEDS.map((id) => ({ id, label: label(id), note: "loop" })) },
@@ -138,6 +158,8 @@ export function SoundBoard() {
   function ensure(): { engine: SoundEngine; out: AudioOut | null } {
     if (!audio.current) {
       const engine = new SoundEngine({ settings: { ...DEFAULT_SOUND, master: volume, music: 80 }, enabled: true, calm, paused: false, speaking: false }, browserTimers, undefined, workerSynth() ?? undefined);
+      // The board plays everything, so it wants the sounds a visit makes only on demand too.
+      engine.want(BOARD_SOUNDS.filter(onDemand));
       const out = createWebAudioOut();
       if (out) engine.attach(out);
       audio.current = { engine, out };
@@ -156,6 +178,9 @@ export function SoundBoard() {
     }
     const element = id.startsWith("charge-") ? (id.slice(7) as Element) : null;
     if (element) engine.cast(element, 800);
+    // The big moments play as the game plays them: with the music stepped back under them.
+    else if (id === "crown" || id === "last-minute" || id === "farewell") engine.moment(id, { duck: true, wait: 5 });
+    else if (onDemand(id)) engine.moment(id, { wait: 5 });
     else engine.play(id);
   }
 

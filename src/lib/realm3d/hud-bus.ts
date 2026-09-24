@@ -122,6 +122,13 @@ export type HudBus = {
   feet: FeetHandlers;
 
   /**
+   * Where the sound listens from: the child's position and the camera's yaw, written in place by
+   * the HUD driver each frame (three numbers, no allocation), read by the sound when a trouble
+   * makes a noise, so one on the child's left is heard on the left.
+   */
+  ear: { x: number; z: number; yaw: number };
+
+  /**
    * True while a menu, dialogue, tutorial card or the pause screen owns the child's attention.
    * Written by the HUD through `setPaused`; read by the scene every frame. While it is true the
    * scene takes no movement, casting, camera or interact input and advances no simulation
@@ -189,6 +196,7 @@ export function makeHudBus(slots: number, plates: number): HudBus {
     onDoor: noop,
     leaving: null,
     feet: { onStep: noop, onJump: noop, onLand: noop },
+    ear: { x: 0, z: 0, yaw: 0 },
     paused: false,
     setNode(key, el) {
       // One assignment, one narrow cast. Every key above is either an HTMLElement slot or an

@@ -153,7 +153,12 @@ export function useRiding({
         setRiding(r);
         if (r) onRodeRef.current?.();
       },
-      onSay: say,
+      // Everything the scene says is a refusal (too deep to get down, no spells from the
+      // saddle): it gets the refusal's soft tap as well as the words.
+      onSay: (text) => {
+        say(text);
+        ride.sound.onRefuse();
+      },
       onVisit: () => {
         if (viewer === "child") store(childId, ride.visited);
       },
@@ -184,10 +189,12 @@ export function useRiding({
   const toggle = useCallback(() => {
     if (!access.ok) {
       say(rideRefusal(access, heroName));
+      ride.sound.onRefuse();
       return;
     }
     if (insideRef.current) {
       say(waitingOutside(access.mount.label));
+      ride.sound.onRefuse();
       return;
     }
     if (ride.travelling) return;
@@ -211,6 +218,7 @@ export function useRiding({
   const refuseCast = useCallback(() => {
     if (!castBlocked(ride)) return false;
     say(CAST_FROM_SADDLE);
+    ride.sound.onRefuse();
     return true;
   }, [ride, say]);
 
@@ -224,10 +232,13 @@ export function useRiding({
       if (t.kind !== "post") return false;
       if (!access.ok) {
         say(access.reason === "visitor" ? `A hitching post. ${heroName} can ride from here to anywhere ${heroName} has been.` : rideRefusal(access, heroName));
+        // A visitor is being told about the post, not refused anything.
+        if (access.reason !== "visitor") ride.sound.onRefuse();
         return false;
       }
       if (!isRiding(ride) || ride.phase !== "on") {
         say(`Get on your ${access.mount.label} first. Press M.`);
+        ride.sound.onRefuse();
         return false;
       }
       if (ride.travelling) return false;
