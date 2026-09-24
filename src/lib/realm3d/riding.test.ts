@@ -282,12 +282,17 @@ describe("what riding changes", () => {
     toggleRide(ride);
     run(ride, 1);
     expect(rideRadius(ride, 0.55)).toBeGreaterThan(0.55);
-    const o = camOffsets(1, { lift: 0, pull: 0 });
+    // Riding: up by the saddle, IN a fifth and a little lower, so the mount reads at the default boom.
+    const o = camOffsets(1, { lift: 0, pull: 0, tilt: 0 });
     expect(o.lift).toBeGreaterThan(0);
-    expect(o.pull).toBeGreaterThan(0);
-    const t = camOffsets(2, { lift: 0, pull: 0 });
+    expect(o.pull).toBeLessThan(0);
+    expect(o.tilt).toBeGreaterThan(0);
+    // A fast-travel ride: out and up over the island, at the child's own pitch.
+    const t = camOffsets(2, { lift: 0, pull: 0, tilt: 0 });
     expect(t.lift).toBeGreaterThan(o.lift);
-    expect(t.pull).toBeGreaterThan(o.pull);
+    expect(t.pull).toBeGreaterThan(0);
+    expect(t.tilt).toBe(0);
+    expect(camOffsets(0, { lift: 1, pull: 1, tilt: 1 })).toEqual({ lift: 0, pull: 0, tilt: 0 });
   });
 
   it("a mount turns and goes the way it is going, rather than crabbing sideways", () => {

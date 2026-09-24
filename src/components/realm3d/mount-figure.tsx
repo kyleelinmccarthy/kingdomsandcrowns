@@ -32,6 +32,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
+import { MOUNT_SCALE } from "@/lib/realm3d/mount-body";
 
 /** What the gait says this frame. `phase` is distance-driven; `amp` 0 standing to ~0.8 at a gallop. */
 export type MountGait = { phase: number; amp: number; run: number; air: number; t: number };
@@ -60,6 +61,18 @@ export const MOUNT_BUILD: Record<string, MountBuild> = {
 
 export function mountBuild(id: string): MountBuild {
   return MOUNT_BUILD[id] ?? MOUNT_BUILD.pony;
+}
+
+const DRAWN: Record<string, MountBuild> = Object.fromEntries(
+  Object.entries(MOUNT_BUILD).map(([id, b]) => [id, { ...b, seat: b.seat * MOUNT_SCALE, seatZ: b.seatZ * MOUNT_SCALE, stride: b.stride * MOUNT_SCALE }]),
+);
+
+/**
+ * A mount's build at the size it is DRAWN — `MOUNT_SCALE` over the modelled numbers above, which
+ * the bodies themselves are built in. Where the rider sits, and how far a stride carries it.
+ */
+export function drawnBuild(id: string): MountBuild {
+  return DRAWN[id] ?? DRAWN.pony;
 }
 
 /* ------------------------------------------------------------------ colour */
@@ -695,14 +708,17 @@ export function MountFigure({ id, color, tack, gait }: { id: string; color: stri
     b.rotation.x = Math.sin(g.phase) * 0.07 * g.run * g.amp - g.air * 0.12;
   });
   const props = { id, mats, gait };
+  // Drawn bigger than modelled (`MOUNT_SCALE`, which the collision body and the saddle match).
   return (
-    <group ref={body}>
-      {build.body === "equine" && <Equine {...props} />}
-      {build.body === "hind" && <Hind {...props} />}
-      {build.body === "boar" && <Boar {...props} />}
-      {build.body === "wolf" && <Wolf {...props} />}
-      {build.body === "gryphon" && <Gryphon {...props} />}
-      {build.body === "wyrm" && <Wyrm {...props} />}
+    <group scale={MOUNT_SCALE}>
+      <group ref={body}>
+        {build.body === "equine" && <Equine {...props} />}
+        {build.body === "hind" && <Hind {...props} />}
+        {build.body === "boar" && <Boar {...props} />}
+        {build.body === "wolf" && <Wolf {...props} />}
+        {build.body === "gryphon" && <Gryphon {...props} />}
+        {build.body === "wyrm" && <Wyrm {...props} />}
+      </group>
     </group>
   );
 }

@@ -199,7 +199,7 @@ export function HudDriver({
       const a = anchors[i];
       // Anchor 0 is the child, and the child moves.
       const ax = i === 0 ? p.x : a.x;
-      const ay = i === 0 ? p.y + HERO_PLATE_Y : a.y;
+      const ay = i === 0 ? p.y + HERO_PLATE_Y + bus.heroLift.y : a.y;
       const az = i === 0 ? p.z : a.z;
       const ok = projectPoint(point, e, ax, ay, az, size.width, size.height);
       placePlate(layouts[i], ok, point, a.tier, size.width, size.height);

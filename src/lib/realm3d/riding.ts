@@ -32,6 +32,7 @@
 import { findMount, getUnlockDescription, type AvatarConfig, type MountItem } from "@/lib/utils/avatar-catalog";
 import type { Collider, Pt } from "./collision";
 import { buried, freeSpot } from "./doorways";
+import { fitParked, mountBody } from "./mount-body";
 import { WADE_DEPTH } from "./shore";
 
 /* ------------------------------------------------------------------ speed */
@@ -87,12 +88,22 @@ export const MOUNT_AIR_CARRY = 1.2;
  */
 export const RIDE_RADIUS = 0.8;
 
-/** The camera, riding: how far up (world units) and how much further back (a fraction of the boom). */
-export const RIDE_CAM_LIFT = 1.15;
-export const RIDE_CAM_PULL = 0.14;
-/** And on a fast-travel ride, further again, so the island goes past underneath. */
+/**
+ * The camera, riding: how far up (world units), how much further back (a fraction of the boom;
+ * negative is IN), and how much lower it looks (radians off the child's pitch).
+ *
+ * It used to go up and back, and at the game's default boom (29 units, 43° down) a mount was a
+ * smudge under the rider's cloak. So riding it comes a fifth of the way in and a little lower —
+ * the mount's length shows past the rider, the child still reads plainly in the saddle — and
+ * rises only by what the saddle lifts the child.
+ */
+export const RIDE_CAM_LIFT = 0.9;
+export const RIDE_CAM_PULL = -0.3;
+export const RIDE_CAM_TILT = 0.15;
+/** And on a fast-travel ride, out and up, so the island goes past underneath. */
 export const TRAVEL_CAM_LIFT = 2.4;
 export const TRAVEL_CAM_PULL = 0.7;
+export const TRAVEL_CAM_TILT = 0;
 
 /* ------------------------------------------------------------------ who rides */
 
@@ -187,6 +198,12 @@ export type RideBus = {
   travelDest: string | null;
   /** Places the child has stood in, by landmark id, as the scene sees them. */
   visited: Set<string>;
+  /**
+   * How long the mover's feet have been off the ground, in seconds (0 on it), written in place by
+   * the mover each frame. The mount's gait tucks its legs by this (`offTheGround`) — never by how
+   * fast the rider is rising or falling, which a steep road does as well as a jump.
+   */
+  air: { s: number };
 
   /** Fired when riding starts or stops (the HUD redraws its Ride button). */
   onRiding: (riding: boolean) => void;
@@ -248,6 +265,7 @@ export function makeRideBus(mount: RideMount | null, calm = false, visited: Iter
     travelling: false,
     travelDest: null,
     visited: new Set(visited),
+    air: { s: 0 },
     onRiding: noop,
     onSay: noop,
     onVisit: noop,
@@ -420,6 +438,55 @@ export function rideFace(ride: RideBus | null | undefined, intent: { x: number; 
   return intent.face;
 }
 
+/* ------------------------------------------------------------------ feet on the ground */
+
+/**
+ * A mount is off the ground once its feet have been off it this long. Long enough that a frame's
+ * lip over a kerb or a crest is not a leap; far shorter than any jump (0.74 s).
+ */
+export const AIR_GRACE = 0.08;
+
+/** Whether the mount is in the air, by how long its feet have been off the ground. */
+export function offTheGround(airSeconds: number): boolean {
+  return airSeconds > AIR_GRACE;
+}
+
+/**
+ * How steep a slope, going DOWN, a ridden mount keeps its feet on, as drop per unit across. Past
+ * this it is a drop and it falls. The island's roads have banks near 3.3 where they climb out of
+ * a valley, and a fast-travel ride goes down them at three times a gallop.
+ */
+export const MOUNT_HOLD_SLOPE = 3.5;
+
+/**
+ * How far below it a ridden mount's feet follow the ground this frame instead of leaving it: a
+ * galloping mount does not sail off every downhill. On a fast-travel ride, all the way — the
+ * road is the ride. Walking, 0: a child's hop down a slope is theirs.
+ */
+export function holdDrop(ride: RideBus | null | undefined, dt: number): number {
+  if (!ride || ride.phase !== "on") return 0;
+  if (ride.travelling) return Number.POSITIVE_INFINITY;
+  return ride.speed * MOUNT_AIR_CARRY * dt * MOUNT_HOLD_SLOPE + 0.05;
+}
+
+/**
+ * Keeps a mover's feet on the ground they were on a frame ago, if it has dropped away under
+ * them by no more than `drop` and they are not on the way up (a jump). Mutates `v`.
+ */
+export function keepFooting(v: { y: number; vy: number; grounded: boolean; airborne: number }, wasGrounded: boolean, floor: number, drop: number): void {
+  if (v.grounded || !wasGrounded || v.vy > 0 || drop <= 0) return;
+  if (v.y - floor > drop) return;
+  v.y = floor;
+  v.vy = 0;
+  v.grounded = true;
+  v.airborne = 0;
+}
+
+/** Writes how long the feet have been off the ground (`RideBus.air`). */
+export function writeAir(ride: RideBus, grounded: boolean, airborne: number): void {
+  ride.air.s = grounded ? 0 : airborne;
+}
+
 /** Set a jump's impulse (the mover's vertical state is written through a function, never a prop). */
 export function boostJump(v: { vy: number }, speed: number): void {
   v.vy = speed;
@@ -431,12 +498,13 @@ export function camGoal(ride: RideBus): number {
   return ride.seat;
 }
 
-/** The camera's rise and pull for a `cam` value, written into `out`. */
-export function camOffsets(cam: number, out: { lift: number; pull: number }): { lift: number; pull: number } {
+/** The camera's rise, pull and tilt for a `cam` value, written into `out`. */
+export function camOffsets<T extends { lift: number; pull: number; tilt?: number }>(cam: number, out: T): T {
   const ride = Math.min(1, cam);
   const travel = Math.max(0, cam - 1);
   out.lift = ride * RIDE_CAM_LIFT + travel * (TRAVEL_CAM_LIFT - RIDE_CAM_LIFT);
   out.pull = ride * RIDE_CAM_PULL + travel * (TRAVEL_CAM_PULL - RIDE_CAM_PULL);
+  out.tilt = ride * RIDE_CAM_TILT + travel * (TRAVEL_CAM_TILT - RIDE_CAM_TILT);
   return out;
 }
 
@@ -500,6 +568,8 @@ export function clearPark(ride: RideBus, solids: readonly Collider[]): void {
   const pk = ride.parked;
   if (!pk.on) return;
   freeSpot(SETTLE_TO, pk.x, pk.z, solids, RIDE_RADIUS);
+  // And its head and rump too, the way it is standing (`mount-body.ts`).
+  if (ride.mount) fitParked(SETTLE_TO, SETTLE_TO.x, SETTLE_TO.z, pk.yaw, solids, RIDE_RADIUS, mountBody(ride.mount.id));
   pk.x = SETTLE_TO.x;
   pk.z = SETTLE_TO.z;
 }

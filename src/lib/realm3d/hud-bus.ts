@@ -129,6 +129,12 @@ export type HudBus = {
   ear: { x: number; z: number; yaw: number };
 
   /**
+   * How far the child is lifted off their feet — into a mount's saddle — written in place by the
+   * riding each frame, so the child's own nameplate rides over their head, not across it.
+   */
+  heroLift: { y: number };
+
+  /**
    * True while a menu, dialogue, tutorial card or the pause screen owns the child's attention.
    * Written by the HUD through `setPaused`; read by the scene every frame. While it is true the
    * scene takes no movement, casting, camera or interact input and advances no simulation
@@ -197,6 +203,7 @@ export function makeHudBus(slots: number, plates: number): HudBus {
     leaving: null,
     feet: { onStep: noop, onJump: noop, onLand: noop },
     ear: { x: 0, z: 0, yaw: 0 },
+    heroLift: { y: 0 },
     paused: false,
     setNode(key, el) {
       // One assignment, one narrow cast. Every key above is either an HTMLElement slot or an

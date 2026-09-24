@@ -23,11 +23,11 @@ import * as THREE from "three";
 import { slideMove, HERO_RADIUS, type Collider, type Pt } from "@/lib/realm3d/collision";
 import type { HudBus } from "@/lib/realm3d/hud-bus";
 import { holdKeys, seedMoves } from "@/lib/realm3d/held-keys";
-import { camGoal, clearPark, isRiding, parkNow, rideRadius, settleRider, stepRide, TOO_DEEP_TO_GET_DOWN, type RideBus } from "@/lib/realm3d/riding";
+import { camGoal, clearPark, isRiding, offTheGround, parkNow, rideRadius, settleRider, stepRide, TOO_DEEP_TO_GET_DOWN, type RideBus } from "@/lib/realm3d/riding";
 import { postAt, requestStop, startTravel, stepTravel, travelGraphFor, travelRoute, VILLAGE_ID, type TravelGraph, type TravelRun } from "@/lib/realm3d/travel";
 import type { RealmWorld } from "@/lib/realm3d/worldgen";
 import { at, litMaterial, merge, paint } from "./geo-kit";
-import { MountFigure, mountBuild, type MountGait } from "./mount-figure";
+import { MountFigure, drawnBuild, type MountGait } from "./mount-figure";
 import { hoofTick, makeHoofClock, mountVoice, wingsOpen, wingTick } from "@/lib/realm3d/sound/ride-cues";
 
 /** The hero figure's hip height (`hero-figure.tsx` HIP): what is lifted onto the saddle. */
@@ -99,12 +99,13 @@ export function RiddenMount({ ride, heroRef }: { ride: RideBus; heroRef: React.R
     grp.visible = on;
     const p = heroRef.current;
     const moved = Math.hypot(p.x - s.prev.x, p.z - s.prev.z);
-    const rose = p.y - s.lastY;
     track(s, p);
-    driveGait(s.gait, moved > 5 ? 0 : moved, dt, mountBuild(m.id).stride, ride.speed || 14, rose / Math.max(dt, 1e-3));
+    // In the air by the feet, not by how fast the rider rises or falls: a steep road does that too,
+    // and a fast-travel ride up one used to fold the legs up for the whole climb.
+    driveGait(s.gait, moved > 5 ? 0 : moved, dt, drawnBuild(m.id).stride, ride.speed || 14, offTheGround(ride.air.s));
     // The sound of it: a foot down off the gait, and a wingbeat on each downstroke of open wings.
     // (A jump's air is the sound's to know: it hears the push-off and the landing, and drops
-    // footfalls between them. The gait's own `air` also rises on a steep hill, which is ground.)
+    // footfalls between them.)
     if (ride.phase === "on") {
       // The rest between footfalls is REAL time (the frame's dt is clamped for the physics): on a
       // slow machine a gallop still sounds three times a second, not once every two.
@@ -180,7 +181,7 @@ export function Saddle({ ride, children }: { ride: RideBus; children: React.Reac
       grp.rotation.x = 0;
       return;
     }
-    const b = mountBuild(m.id);
+    const b = drawnBuild(m.id);
     const lift = b.seat - RIDER_HIP + 0.04;
     const e = easeOut(ride.seat);
     if (ride.phase === "down") {
@@ -202,14 +203,14 @@ export function useSeatRef(ride: RideBus | null | undefined): { readonly current
 }
 
 /** Distance-driven: the legs turn over because the ground went past. */
-function driveGait(g: MountGait, moved: number, dt: number, stride: number, top: number, vy: number): void {
+function driveGait(g: MountGait, moved: number, dt: number, stride: number, top: number, aloft: boolean): void {
   g.t += dt;
   g.phase += (moved / stride) * Math.PI * 2;
   const speed = moved / Math.max(dt, 1e-3);
   const run = Math.min(1, Math.max(0, (speed - 6) / Math.max(4, top - 6)));
   g.run = THREE.MathUtils.damp(g.run, run, 5, dt);
   g.amp = THREE.MathUtils.damp(g.amp, moved > 0.002 ? 0.38 + 0.42 * g.run : 0, 8, dt);
-  g.air = THREE.MathUtils.damp(g.air, Math.abs(vy) > 1.5 ? 1 : 0, 10, dt);
+  g.air = THREE.MathUtils.damp(g.air, aloft ? 1 : 0, 10, dt);
 }
 
 /* ------------------------------------------------------------------ the world side */
@@ -366,6 +367,8 @@ export function Riding({
 
     // The camera value the rig reads: up and back when riding, further on a ride.
     easeCam(ride, camGoal(ride), dt);
+    // The child's nameplate goes up with them into the saddle.
+    writeLift(bus.heroLift, ride.mount && ride.phase !== "off" ? (drawnBuild(ride.mount.id).seat - RIDER_HIP) * easeOut(ride.seat) : 0);
   });
 
   return (
@@ -377,6 +380,9 @@ export function Riding({
 }
 
 /* Free functions, so nothing here assigns through a prop (the React compiler's rule). */
+function writeLift(lift: { y: number }, y: number): void {
+  lift.y = y;
+}
 function track(s: Scratch, p: THREE.Vector3): void {
   s.prev.copy(p);
   s.lastY = p.y;

@@ -96,6 +96,14 @@ export function penetration(c: Collider, x: number, z: number, r: number): numbe
  * nearly all of them. A child who got on a pony beside a tree could not move at all.
  */
 function anyBlock(colliders: readonly Collider[], fx: number, fz: number, x: number, z: number, r: number, feetY: number): boolean {
+  return stepBlocked(colliders, fx, fz, x, z, r, feetY);
+}
+
+/**
+ * `anyBlock`, for any circle the mover carries: a mount's head and rump (`mount-body.ts`) are
+ * stopped by exactly the rule the saddle is, so they too may always come out of what they are in.
+ */
+export function stepBlocked(colliders: readonly Collider[], fx: number, fz: number, x: number, z: number, r: number, feetY: number): boolean {
   for (let i = 0; i < colliders.length; i++) {
     const c = colliders[i];
     if (!blocks(c, x, z, r, feetY)) continue;

@@ -66,7 +66,6 @@ import {
   HERO_RADIUS,
   pickBoom,
   pushOut,
-  slideMove,
   supportHeight,
   type Boom,
   type Collider,
@@ -82,6 +81,7 @@ import {
   cameraFacing,
   DEFAULT_DIST,
   DEFAULT_PITCH,
+  PITCH_MIN,
   makeMoveIntent,
   moveIntent,
   orbitDrag,
@@ -112,8 +112,9 @@ import { Doorstep } from "./doorstep";
 import { SpellFx } from "./spell-fx";
 import { Troubles } from "./troubles-scene";
 import type { TroubleBus } from "@/lib/realm3d/trouble-bus";
-import { boostJump, camOffsets, castBlocked, CAST_FROM_SADDLE, jumpSpeed, pace, rideFace, rideRadius, wadeLimit, type RideBus } from "@/lib/realm3d/riding";
+import { boostJump, camOffsets, castBlocked, CAST_FROM_SADDLE, holdDrop, jumpSpeed, keepFooting, pace, rideFace, rideRadius, wadeLimit, writeAir, type RideBus } from "@/lib/realm3d/riding";
 import { RiddenMount, Riding, Saddle, travelGraphFor, useSeatRef } from "./riding-scene";
+import { bodyFor, slideBody, turnBody } from "@/lib/realm3d/mount-body";
 
 /* ------------------------------------------------------------------ palette */
 
@@ -714,7 +715,8 @@ function Hero({
       // the shelf, and the village will not let you through a wall. Walk at either head-on and
       // you stop; walk at either at an angle and you slide along it.
       shoreMove(wet, p.x, p.z, tx, tz, world.heightAt, levelAt, wadeLimit(ride));
-      slideMove(step, p.x, p.z, wet.x, wet.z, solids, rideRadius(ride, HERO_RADIUS), vert.y);
+      // Riding, the mount's whole body (`mount-body.ts`): its nose stops at a wall, not in it.
+      slideBody(step, p.x, p.z, wet.x, wet.z, facingRef.current, solids, rideRadius(ride, HERO_RADIUS), bodyFor(ride), vert.y);
       p.x = step.x;
       p.z = step.z;
       facing.current = rideFace(ride, intent);
@@ -733,7 +735,11 @@ function Hero({
       boostJump(vert, jumpSpeed(ride, vert.vy));
       bus.feet.onJump();
     }
+    const footed = vert.grounded;
     stepVertical(vert, dt, p.x, p.z, world.heightAt(p.x, p.z), solids);
+    // Riding, the mount keeps its feet going downhill rather than sailing off every slope.
+    if (ride && footed && !vert.grounded) keepFooting(vert, footed, supportHeight(p.x, p.z, world.heightAt(p.x, p.z), solids, HERO_RADIUS, vert.y), holdDrop(ride, dt));
+    if (ride) writeAir(ride, vert.grounded, vert.airborne);
     p.y = vert.y;
     if (ride?.travelling) strideTick(stride, bus.feet, distancePhase(road, p.x, p.z), vert.grounded, true, dt, p.x, p.z);
     else {
@@ -748,8 +754,16 @@ function Hero({
 
     const g = group.current;
     if (!g) return;
+    let yaw = turnToward(g.rotation.y, facing.current, 12, dt);
+    // A mount turning beside a wall shuffles clear of it, or holds a turn it has no room for.
+    const body = bodyFor(ride);
+    if (body) {
+      yaw = turnBody(step, p.x, p.z, g.rotation.y, yaw, solids, rideRadius(ride, HERO_RADIUS), body, vert.y);
+      p.x = step.x;
+      p.z = step.z;
+    }
     g.position.set(p.x, p.y + (moving && vert.grounded ? Math.abs(Math.sin(bob.current)) * 0.09 : 0), p.z);
-    g.rotation.y = turnToward(g.rotation.y, facing.current, 12, dt);
+    g.rotation.y = yaw;
     g.rotation.z = moving ? Math.sin(bob.current) * 0.035 : 0;
     facingRef.current = g.rotation.y;
   });
@@ -900,7 +914,7 @@ function Rig({
   const frac = useRef(1);
   /** 0 out in the open, 1 under a closed canopy. Damped, so the wood opens rather than snaps. */
   const duck = useRef(0);
-  const rideCam = useMemo(() => ({ lift: 0, pull: 0 }), []);
+  const rideCam = useMemo(() => ({ lift: 0, pull: 0, tilt: 0 }), []);
   /** The assist's turn, over the child's own yaw. The camera looks along `yawRef + swing`. */
   const swing = useRef(0);
 
@@ -946,7 +960,7 @@ function Rig({
     const k = keys.current;
     const assist = swingAllowed(dragging, nowS(), ptr.lastDragAt, k.f || k.b || k.l || k.r);
 
-    boomOffset(arm.current, ptr.pitch, ptr.dist * (1 + rideCam.pull));
+    boomOffset(arm.current, Math.max(PITCH_MIN, ptr.pitch - rideCam.tilt), ptr.dist * (1 + rideCam.pull));
     const eyeY = p.y + CAM_EYE + rideCam.lift;
     // Last frame's verdict picks this frame's boom. One frame of lag on a value that is already
     // damped over a third of a second is not a thing anyone can see.

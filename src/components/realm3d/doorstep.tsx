@@ -33,7 +33,8 @@ import { pickBoom, HERO_RADIUS, type Boom, type Collider, type Pt } from "@/lib/
 import { makeMoveIntent, moveIntent, type MoveIntent, type MoveKeys } from "@/lib/realm3d/controls";
 import { buildDoors, buried, doorAhead, exitSpot, freeSpot, DOOR_DWELL, type Door } from "@/lib/realm3d/doorways";
 import type { HudBus } from "@/lib/realm3d/hud-bus";
-import { rideRadius, type RideBus } from "@/lib/realm3d/riding";
+import { rideFace, rideRadius, type RideBus } from "@/lib/realm3d/riding";
+import { bodyFor, bodyReach } from "@/lib/realm3d/mount-body";
 import type { RealmWorld } from "@/lib/realm3d/worldgen";
 import { LENS_HERO } from "./geo-kit";
 
@@ -137,7 +138,9 @@ export function Doorstep({
     /* ---- walking into a door ------------------------------------------- */
     const k = keys.current;
     moveIntent(intent, yawRef.current, k);
-    const i = intent.moving ? doorAhead(doors, p.x, p.z, intent.x, intent.z) : -1;
+    // Riding, the push counts from the mount's nose (or rump, backing in), which is what reaches the door.
+    const reach = bodyReach(bodyFor(ride), rideFace(ride, intent), 0, -1, HERO_RADIUS);
+    const i = intent.moving ? doorAhead(doors, p.x, p.z, intent.x, intent.z, reach) : -1;
     const pu = push.current;
     if (i < 0 || i !== pu.door) {
       pu.door = i;
