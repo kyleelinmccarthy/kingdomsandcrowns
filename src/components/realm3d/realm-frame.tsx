@@ -20,7 +20,9 @@
 
 import { useCallback, useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { getRealmAccess } from "@/lib/actions/realm-play";
+import { getRealmAccess, getTroubleBounty } from "@/lib/actions/realm-play";
+import { earningLines, type BountyStatus } from "@/lib/realm/spells/bounty";
+import type { AccessDenied } from "@/lib/utils/realm-access";
 import { closedPhase, entryPhase, type EntryPhase } from "@/lib/realm3d/frame";
 import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
 import { readingAttributes } from "@/lib/utils/learning-profile";
@@ -68,6 +70,10 @@ export function RealmFrame(props: RealmFrameProps) {
   const childId = snap.realm.childId;
   const isChildView = snap.realm.isChildView;
   const [phase, setPhase] = useState<EntryPhase>({ kind: "checking" });
+  /** Why the gate is shut, when it is: the earning line is said only when minutes are what is missing. */
+  const [denied, setDenied] = useState<AccessDenied | null>(null);
+  /** Today's bounty, for the earning line: undefined until asked and answered, null if the ask failed. */
+  const [bounty, setBounty] = useState<BountyStatus | null | undefined>(undefined);
 
   useEffect(() => {
     if (!childId) {
@@ -83,6 +89,7 @@ export function RealmFrame(props: RealmFrameProps) {
           setPhase({ kind: "unsupported" });
           return;
         }
+        if (!result.allowed) setDenied(result.reason);
         setPhase(entryPhase(result, isChildView));
       })
       .catch((err: unknown) => {
@@ -93,7 +100,26 @@ export function RealmFrame(props: RealmFrameProps) {
     };
   }, [childId, isChildView]);
 
-  const onClose = useCallback((reason: CloseReason) => setPhase(closedPhase(reason)), []);
+  const onClose = useCallback((reason: CloseReason) => {
+    setDenied(reason);
+    setPhase(closedPhase(reason));
+  }, []);
+
+  // Shut for want of minutes: say how they are earned, from the one source (`earningLines`),
+  // with today's bounty so the number is the day's own.
+  const earning = snap.realm.earning;
+  const wantsEarning = isChildView && !!childId && !!earning && denied === "no_minutes" && (phase.kind === "gated" || phase.kind === "closed");
+  useEffect(() => {
+    if (!wantsEarning || !childId) return;
+    let live = true;
+    getTroubleBounty(childId, localDateOf(new Date()))
+      .then((s) => live && setBounty(s))
+      .catch(() => live && setBounty(null));
+    return () => {
+      live = false;
+    };
+  }, [wantsEarning, childId]);
+  const earningExtra = wantsEarning && earning && bounty !== undefined ? earningLines(earning, bounty, earning.accessMode).join(" ") || undefined : undefined;
 
   // The app's floating chrome stands down while the Realm is up, and comes back on every exit.
   useEffect(() => {
@@ -110,8 +136,8 @@ export function RealmFrame(props: RealmFrameProps) {
   let content: ReactNode;
   if (phase.kind === "checking") content = <RealmScreen icon="castle" title="Opening the gates…" />;
   else if (phase.kind === "unsupported") content = <RealmScreen icon="castle" title="The Realm can't open here" body={UNSUPPORTED} />;
-  else if (phase.kind === "gated") content = <GateScreen copy={phase.copy} heroName={snap.heroName} portrait={snap.avatar} />;
-  else if (phase.kind === "closed") content = <ClosedScreen heroName={snap.heroName} body={phase.body} portrait={snap.avatar} />;
+  else if (phase.kind === "gated") content = <GateScreen copy={phase.copy} heroName={snap.heroName} portrait={snap.avatar} extra={earningExtra} />;
+  else if (phase.kind === "closed") content = <ClosedScreen heroName={snap.heroName} body={phase.body} portrait={snap.avatar} extra={earningExtra} />;
   else
     content = (
       <RealmGame

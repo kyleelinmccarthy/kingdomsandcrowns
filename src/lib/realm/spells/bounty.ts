@@ -242,3 +242,52 @@ export function applyStatus(purse: BountyPurse, status: BountyStatus, unsent: re
     }
   }
 }
+
+/* ----------------------------------------------------------- the earning copy */
+
+/** What the earning copy reads from the hero's Realm settings. */
+export type EarningSettings = Pick<BountySettings, "enabled" | "earnedMinutesPerQuest" | "dailyCapMinutes" | "troubleBonusCapMinutes">;
+
+function minutesWord(n: number): string {
+  return n === 1 ? "minute" : "minutes";
+}
+
+/** Slice 6's line, unchanged, for scheduled mode (spec §3.11). */
+export const RECESS_EARNING_LINE = "Your Realm time comes from recess, not from quests.";
+/** The second sentence once today's minutes from clearing are all paid (spec §3.11). */
+export const CLEARING_SPENT_LINE = "You've had all today's minutes from clearing troubles.";
+
+/**
+ * THE ONE PLACE the Realm says how its minutes are earned (spec §3.11, "The Tavern panel's earning
+ * line, rewritten"). The help card and the gate's closed screens all read it, and `bounty.test.ts`
+ * asserts every string verbatim, so the next time the economy gains a door there is one string to
+ * change and a test that fails if it is not changed.
+ *
+ * Returned as sentences, in order; joined with a space they are the spec's strings exactly.
+ *
+ *   - `earned` / `both`, bounty on: what a quest earns, and what clearing earns up to today's
+ *     sub-cap — or, once the sub-cap is paid, that today's minutes from clearing are had;
+ *   - `earned` / `both`, bounty off (a cap of 0): slice 6's line, which is still exactly true;
+ *   - `scheduled`: recess, never quests, and never clearing — the bounty cannot pay there;
+ *   - `open`: open, up to the daily cap — no promise of minutes, since nothing earns them;
+ *   - the Realm switched off: nothing.
+ *
+ * `status` is the server's `BountyStatus` for today, or null before it has answered: then the
+ * clearing sentence names no number rather than guessing one.
+ */
+export function earningLines(settings: EarningSettings, status: BountyStatus | null, accessMode: RealmAccessMode): string[] {
+  if (!settings.enabled) return [];
+  if (accessMode === "scheduled") return [RECESS_EARNING_LINE];
+  if (accessMode === "open") return [`Your Realm is open, up to ${settings.dailyCapMinutes} ${minutesWord(settings.dailyCapMinutes)} a day.`];
+
+  const q = settings.earnedMinutesPerQuest;
+  const bounty = bountyEnabled({ ...settings, accessMode }) && (status === null || status.enabled);
+  if (!bounty) {
+    if (q <= 0) return [`A grown-up gives you your minutes here, up to ${settings.dailyCapMinutes} a day.`];
+    return [`Finish a quest and you earn ${q} more ${minutesWord(q)} here, up to ${settings.dailyCapMinutes} a day.`];
+  }
+  const quest = q <= 0 ? "A grown-up gives you your minutes here." : `Finish a quest and you earn ${q} more ${minutesWord(q)} here.`;
+  if (status === null) return [quest, "Clearing troubles earns a minute each."];
+  if (status.subCapMinutes > 0 && status.paidMinutes >= status.subCapMinutes) return [quest, CLEARING_SPENT_LINE];
+  return [quest, `Clearing troubles earns a minute each, up to ${status.subCapMinutes} a day.`];
+}

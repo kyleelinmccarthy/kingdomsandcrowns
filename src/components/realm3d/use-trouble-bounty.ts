@@ -28,6 +28,7 @@ import {
   MAX_FLUSH_FAILURES,
   startPurse,
   takeClear,
+  type BountyStatus,
   type ClearOutcome,
 } from "@/lib/realm/spells/bounty";
 import { localDateOf } from "@/lib/utils/schedule-days";
@@ -40,6 +41,8 @@ export type TroubleBounty = {
   flush: () => Promise<void>;
   /** Bumped on every paid clear, for the "+1 minute" by the clock. 0 until the first. */
   gained: number;
+  /** The server's last word on today's bounty, or null before it has spoken: the earning copy reads it. */
+  status?: BountyStatus | null;
 };
 
 export function useTroubleBounty({
@@ -60,6 +63,7 @@ export function useTroubleBounty({
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const awardedRef = useRef(onAwarded);
   const [gained, setGained] = useState(0);
+  const [status, setStatus] = useState<BountyStatus | null>(null);
   /** The latest `flush`, for the retry timer a flush schedules for itself. */
   const again = useRef<() => Promise<void>>(async () => {});
   useEffect(() => {
@@ -72,7 +76,9 @@ export function useTroubleBounty({
     let live = true;
     getTroubleBounty(childId, localDateOf(new Date()))
       .then((s) => {
-        if (live) applyStatus(purse.current, s, queue.current);
+        if (!live) return;
+        applyStatus(purse.current, s, queue.current);
+        setStatus(s);
       })
       .catch(() => {});
     return () => {
@@ -93,6 +99,7 @@ export function useTroubleBounty({
       const r = await recordTroubleClears(childId, localDateOf(new Date()), batch);
       failures.current = 0;
       applyStatus(purse.current, r.status, queue.current);
+      setStatus(r.status);
       if (r.awarded > 0) awardedRef.current?.();
     } catch {
       // Not lost: the batch goes back to the front of the queue and rides the next flush. A
@@ -145,5 +152,5 @@ export function useTroubleBounty({
   // Every way out unmounts this: send what is waiting.
   useEffect(() => () => void flush(), [flush]);
 
-  return useMemo(() => ({ enabled: enabled && !!childId, claim, flush, gained }), [enabled, childId, claim, flush, gained]);
+  return useMemo(() => ({ enabled: enabled && !!childId, claim, flush, gained, status }), [enabled, childId, claim, flush, gained, status]);
 }

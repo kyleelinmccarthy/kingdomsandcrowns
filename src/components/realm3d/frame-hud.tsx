@@ -444,8 +444,14 @@ export function HowToPlay({
   onClose,
   onReplay = null,
   mount,
+  earning,
 }: {
   slots: number;
+  /**
+   * How this child's Realm minutes are earned, from `earningLines` (`lib/realm/spells/bounty.ts`):
+   * the one source every surface reads. Absent for a visitor, who earns nothing.
+   */
+  earning?: readonly string[];
   /** A child's M row: true with a mount to ride, false without one; absent for a visitor. */
   mount?: boolean;
   back: boolean;
@@ -472,6 +478,11 @@ export function HowToPlay({
       <p className="r3-board-sub">
         Follow the gold <b>!</b> — over a villager&rsquo;s head, at the edge of the screen, and on your map. That is who is waiting for you.
       </p>
+      {earning && earning.length > 0 && (
+        <p className="r3-board-sub r3-earning">
+          <GameIcon name="hourglass" className="r3-earning-icon" /> {earning.join(" ")}
+        </p>
+      )}
       <div className="r3-board-foot">
         <button type="button" className="r3-menu-item r3-menu-item--go" onClick={onClose}>
           {back ? "Back" : "Play"}
@@ -650,10 +661,13 @@ export function RealmScreen({
   children,
   portrait,
   heroName,
+  extra,
 }: {
   icon: GameIconName;
   title: string;
   body?: string;
+  /** A further line under the body: how minutes are earned (`earningLines`). */
+  extra?: string;
   children?: ReactNode;
   portrait?: AvatarConfig | null;
   heroName?: string;
@@ -670,15 +684,16 @@ export function RealmScreen({
         </div>
         <h1 className="r3-screen-title">{title}</h1>
         {body && <p className="r3-screen-body">{body}</p>}
+        {extra && <p className="r3-screen-body r3-screen-extra">{extra}</p>}
         {children && <div className="r3-screen-foot">{children}</div>}
       </div>
     </div>
   );
 }
 
-export function GateScreen({ copy, heroName, portrait }: { copy: GateCopy; heroName: string; portrait: AvatarConfig | null }) {
+export function GateScreen({ copy, heroName, portrait, extra }: { copy: GateCopy; heroName: string; portrait: AvatarConfig | null; extra?: string }) {
   return (
-    <RealmScreen icon="lock" title={copy.title} body={copy.body} portrait={portrait} heroName={heroName}>
+    <RealmScreen icon="lock" title={copy.title} body={copy.body} portrait={portrait} heroName={heroName} extra={extra}>
       <Link href="/quests" className="r3-menu-item r3-menu-item--go">
         <GameIcon name="scroll" className="r3-menu-icon" /> Open {heroName}&rsquo;s Quest Log
       </Link>
@@ -689,9 +704,9 @@ export function GateScreen({ copy, heroName, portrait }: { copy: GateCopy; heroN
   );
 }
 
-export function ClosedScreen({ heroName, body, portrait }: { heroName: string; body: string; portrait: AvatarConfig | null }) {
+export function ClosedScreen({ heroName, body, portrait, extra }: { heroName: string; body: string; portrait: AvatarConfig | null; extra?: string }) {
   return (
-    <RealmScreen icon="star" title={`Well played, ${heroName}!`} body={body} portrait={portrait} heroName={heroName}>
+    <RealmScreen icon="star" title={`Well played, ${heroName}!`} body={body} portrait={portrait} heroName={heroName} extra={extra}>
       <Link href="/tavern" className="r3-menu-item r3-menu-item--go">
         <GameIcon name="tavern" className="r3-menu-icon" /> Back to the Tavern
       </Link>

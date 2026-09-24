@@ -432,6 +432,8 @@ export function RealmHud({
   mapExtras,
   barExtra,
   mountKey = false,
+  found: foundKept,
+  onFound,
 }: {
   bus: HudBus;
   world: RealmWorld;
@@ -460,8 +462,21 @@ export function RealmHud({
   barExtra?: ReactNode;
   /** Whether M rides: the key strip names it. */
   mountKey?: boolean;
+  /**
+   * The places found, kept by the frame (`use-places-found.ts`): the saved record, so the count
+   * and the map's filled marks survive a reload and match fast travel. Absent, the HUD keeps its
+   * own for the visit, as it always did.
+   */
+  found?: ReadonlySet<string>;
+  /** A place was found; with `found`, this is how it reaches the record. */
+  onFound?: (id: string) => void;
 }) {
-  const [found, setFound] = useState<ReadonlySet<string>>(() => new Set<string>());
+  const [foundHere, setFound] = useState<ReadonlySet<string>>(() => new Set<string>());
+  const found = foundKept ?? foundHere;
+  const onFoundRef = useRef(onFound);
+  useEffect(() => {
+    onFoundRef.current = onFound;
+  }, [onFound]);
   const [place, setPlace] = useState<string | null>(null);
   const [shake, setShake] = useState(0);
   const shakeTimer = useRef(0);
@@ -473,7 +488,10 @@ export function RealmHud({
   useEffect(() => {
     const timer = shakeTimer;
     bus.setHandlers({
-      onFound: (id) => setFound((prev) => (prev.has(id) ? prev : new Set(prev).add(id))),
+      onFound: (id) => {
+        if (onFoundRef.current) onFoundRef.current(id);
+        else setFound((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
+      },
       onPlace: (id) => setPlace(id),
       onRefuse: (slot) => {
         setShake(slot);

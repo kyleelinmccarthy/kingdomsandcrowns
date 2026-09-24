@@ -1192,3 +1192,8 @@
 @media (prefers-reduced-motion: reduce) {
   .r3-fade { display: none; }
 }
+
+/* ---- how minutes are earned (earningLines) ---------------------------------------- */
+.r3-earning { display: flex; gap: 0.5rem; align-items: flex-start; padding: 0.6rem 0.75rem; border-radius: 10px; background: rgba(245, 192, 74, 0.1); border: 1px solid rgba(245, 192, 74, 0.35); }
+.r3-earning-icon { flex: none; width: 1.2em; height: 1.2em; margin-top: 0.1em; color: var(--r3-gold); }
+.r3-screen-extra { font-size: 1rem; color: #e8cf97; }

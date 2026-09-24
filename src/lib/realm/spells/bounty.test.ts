@@ -8,11 +8,13 @@ import {
   bountyEnabled,
   bountyStatusFor,
   bountySubCap,
+  earningLines,
   isNearToday,
   isTroubleHomeId,
   startPurse,
   takeClear,
   type BountySettings,
+  type BountyStatus,
 } from "./bounty";
 import { realmWorld } from "@/lib/realm3d/worldgen";
 
@@ -186,5 +188,94 @@ describe("the client's purse", () => {
     expect(p.clearsToday).toBe(3);
     expect(p.remaining).toBe(3);
     expect([...p.paidHomes]).toEqual(["rim-0", "rim-1"]);
+  });
+});
+
+describe("earningLines — the one place the Realm says how minutes are earned (spec §3.11)", () => {
+  const settings = { enabled: true, earnedMinutesPerQuest: 5, dailyCapMinutes: 30, troubleBonusCapMinutes: 5 };
+  const status = (over: Partial<BountyStatus> = {}): BountyStatus => ({
+    enabled: true,
+    capMinutes: 5,
+    subCapMinutes: 5,
+    paidMinutes: 0,
+    remainingMinutes: 5,
+    clearsToday: 0,
+    paidHomes: [],
+    ...over,
+  });
+  const say = (...args: Parameters<typeof earningLines>) => earningLines(...args).join(" ");
+
+  it("earned and both, bounty on, allowance left: a quest's minutes and clearing's, up to the sub-cap", () => {
+    for (const mode of ["earned", "both"] as const) {
+      expect(earningLines(settings, status(), mode)).toEqual([
+        "Finish a quest and you earn 5 more minutes here.",
+        "Clearing troubles earns a minute each, up to 5 a day.",
+      ]);
+      expect(say(settings, status(), mode)).toBe("Finish a quest and you earn 5 more minutes here. Clearing troubles earns a minute each, up to 5 a day.");
+    }
+  });
+
+  it("names the day's sub-cap, not the parent's number", () => {
+    expect(say({ ...settings, troubleBonusCapMinutes: 30 }, status({ capMinutes: 30, subCapMinutes: 15, remainingMinutes: 15 }), "earned")).toBe(
+      "Finish a quest and you earn 5 more minutes here. Clearing troubles earns a minute each, up to 15 a day.",
+    );
+  });
+
+  it("earned and both, the sub-cap spent: says today's minutes from clearing are had", () => {
+    for (const mode of ["earned", "both"] as const) {
+      expect(say(settings, status({ paidMinutes: 5, remainingMinutes: 0 }), mode)).toBe(
+        "Finish a quest and you earn 5 more minutes here. You've had all today's minutes from clearing troubles.",
+      );
+    }
+  });
+
+  it("earned and both, bounty off (a cap of 0): slice 6's line, unchanged, and no word of clearing", () => {
+    for (const mode of ["earned", "both"] as const) {
+      const off = { ...settings, troubleBonusCapMinutes: 0 };
+      expect(say(off, status({ enabled: false, capMinutes: 0, subCapMinutes: 0, remainingMinutes: 0 }), mode)).toBe(
+        "Finish a quest and you earn 5 more minutes here, up to 30 a day.",
+      );
+      expect(say(off, null, mode)).toBe("Finish a quest and you earn 5 more minutes here, up to 30 a day.");
+    }
+  });
+
+  it("scheduled: recess, and never a promise of minutes — the bounty cannot pay there", () => {
+    expect(earningLines(settings, status({ enabled: false }), "scheduled")).toEqual(["Your Realm time comes from recess, not from quests."]);
+    expect(earningLines(settings, null, "scheduled")).toEqual(["Your Realm time comes from recess, not from quests."]);
+  });
+
+  it("open: open up to the daily cap, and never a promise of minutes", () => {
+    expect(earningLines(settings, status({ enabled: false }), "open")).toEqual(["Your Realm is open, up to 30 minutes a day."]);
+  });
+
+  it("promises no minutes in open or scheduled mode, whatever the bounty's cap", () => {
+    for (const mode of ["open", "scheduled"] as const) {
+      for (const cap of [0, 5, 30]) {
+        const text = say({ ...settings, troubleBonusCapMinutes: cap }, status(), mode);
+        expect(text).not.toMatch(/earn/i);
+        expect(text).not.toMatch(/clearing/i);
+      }
+    }
+  });
+
+  it("before the server has answered, names no number for clearing rather than guess one", () => {
+    expect(say(settings, null, "earned")).toBe("Finish a quest and you earn 5 more minutes here. Clearing troubles earns a minute each.");
+  });
+
+  it("believes the server when it says the bounty is off", () => {
+    expect(say(settings, status({ enabled: false, subCapMinutes: 0, remainingMinutes: 0 }), "earned")).toBe(
+      "Finish a quest and you earn 5 more minutes here, up to 30 a day.",
+    );
+  });
+
+  it("counts right at one, and says who gives minutes when a quest earns none", () => {
+    expect(say({ ...settings, earnedMinutesPerQuest: 1, dailyCapMinutes: 5 }, status({ subCapMinutes: 1 }), "earned")).toBe(
+      "Finish a quest and you earn 1 more minute here. Clearing troubles earns a minute each, up to 1 a day.",
+    );
+    expect(say({ ...settings, earnedMinutesPerQuest: 0, troubleBonusCapMinutes: 0 }, null, "earned")).toBe("A grown-up gives you your minutes here, up to 30 a day.");
+  });
+
+  it("says nothing when the Realm is switched off", () => {
+    for (const mode of ["earned", "both", "open", "scheduled"] as const) expect(earningLines({ ...settings, enabled: false }, null, mode)).toEqual([]);
   });
 });

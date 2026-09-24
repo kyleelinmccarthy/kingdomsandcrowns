@@ -83,6 +83,9 @@ import { RideLine, RideSlot, TravelBanner, TravelSheet, useRiding } from "./ridi
 import { travelGraphFor } from "@/lib/realm3d/travel";
 import { SoundControls, useRealmSound } from "./realm-sound";
 import type { SoundSettings } from "@/lib/realm3d/sound/settings";
+import { usePlacesFound } from "./use-places-found";
+import { earningLines, type EarningSettings } from "@/lib/realm/spells/bounty";
+import type { RealmAccessMode } from "@/lib/utils/realm-access";
 
 const RealmCanvas = dynamic(() => import("./spike-scene"), {
   ssr: false,
@@ -124,6 +127,10 @@ export type RealmData = {
    * read access only. Absent counts as true.
    */
   viewerCanWrite?: boolean;
+  /** The places this hero has found, from the database (`bundle.placesFound`). */
+  placesFound?: string[];
+  /** What the earning copy reads (`bundle.earning`); absent, the help card says nothing of minutes. */
+  earning?: EarningSettings & { accessMode: RealmAccessMode };
 };
 
 /** What the access check decided, for an open gate. */
@@ -317,6 +324,8 @@ export function RealmGame({
   /* ---- riding ------------------------------------------------------------ */
   // M, the Ride slot, the words, and fast travel's sheet (`riding-hud.tsx`); the canvas gets the bus.
   const travelGraph = useMemo(() => travelGraphFor(world), [world]);
+  // The one record of the places found: the HUD's count, the map's marks and fast travel all read it.
+  const places = usePlacesFound({ childId, writer: isChild && viewer === "child", initial: realm.placesFound });
   const onRodeRef = useRef<() => void>(() => {});
   const onRode = useCallback(() => onRodeRef.current(), []);
   const riding = useRiding({
@@ -331,6 +340,7 @@ export function RealmGame({
     graph: travelGraph,
     insideRef,
     onRode,
+    places: places.store,
   });
 
   // The ONE writer of `bus.paused`. Every panel is an overlay, so every panel pauses the
@@ -714,6 +724,11 @@ export function RealmGame({
   useEffect(() => () => void flushPending(), [flushPending]);
   // Clearing troubles earns Realm minutes — the child's own visit only; a grown-up's writes nothing.
   const bounty = useTroubleBounty({ enabled: clockOn, childId: childId ?? "", onAwarded: clock.refresh });
+  // How this child's minutes are earned, for the help card: `earningLines`, the one source.
+  const earning = useMemo(
+    () => (realm.isChildView && realm.earning ? earningLines(realm.earning, bounty.status ?? null, realm.earning.accessMode) : undefined),
+    [realm.isChildView, realm.earning, bounty.status],
+  );
 
   /* ---- the HUD's clicks ------------------------------------------------ */
   const [spellFacts, setSpellFacts] = useState<SpellbookFacts | null>(null);
@@ -868,6 +883,8 @@ export function RealmGame({
             mapExtras={<TroubleMapMarks tbus={troubleBus} />}
             barExtra={viewer === "child" ? <RideSlot riding={riding.riding} access={riding.access} onPress={riding.toggle} /> : undefined}
             mountKey={riding.access.ok}
+            found={places.found}
+            onFound={places.store.add}
           />
           <TroublePlates tbus={troubleBus} />
           <div className={`r3-frame${paused ? " r3-frame--paused" : ""}`}>
@@ -896,7 +913,7 @@ export function RealmGame({
               )}
               {!paused && <DeedToastBanner toast={toast} numerals={numerals} />}
               {!paused && inside && <RoomLine line={roomLine} onDone={clearRoomLine} />}
-              <TroubleNotices tbus={troubleBus} skin={tone} pages={pages} paused={paused} bounty={bounty} />
+              <TroubleNotices tbus={troubleBus} skin={tone} pages={pages} paused={paused} bounty={bounty} clearCount={surfaces.clearCount} />
               {!paused && <RideLine line={riding.line} onDone={riding.clearLine} />}
             </div>
             {!paused && <TravelBanner to={riding.travelling} onStop={riding.stop} />}
@@ -931,6 +948,7 @@ export function RealmGame({
             <HowToPlay
               slots={pages.length}
               mount={viewer === "child" ? riding.access.ok : undefined}
+              earning={earning}
               back={overlay.back}
               onClose={() => go(escapeFrom(overlay))}
               onReplay={

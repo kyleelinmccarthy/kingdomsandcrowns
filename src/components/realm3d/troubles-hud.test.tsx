@@ -68,6 +68,14 @@ describe("the markers and the map", () => {
 });
 
 describe("the notices, in the top lane", () => {
+  it("leaves the day's clear count out in simple view", () => {
+    const tbus = makeTroubleBus();
+    render(<TroubleNotices tbus={tbus} skin="gentle" pages={pages} paused={false} clearCount={false} />);
+    act(() => tbus.onEvent(ev("cleared", "fog", 2), "Cloudfoot", null));
+    expect(screen.getByRole("status")).toHaveTextContent("Cloudfoot is clear.");
+    expect(screen.getByRole("status")).not.toHaveTextContent("cleared today");
+  });
+
   it("says the flat Realm's clearing line in the chosen tone, and where", () => {
     vi.useFakeTimers();
     const tbus = makeTroubleBus();

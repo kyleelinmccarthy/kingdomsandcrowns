@@ -80,11 +80,14 @@ export function TroubleNotices({
   pages,
   paused,
   bounty = null,
+  clearCount = true,
 }: {
   tbus: TroubleBus;
   skin: TroubleSkin;
   pages: readonly SpellPageView[];
   paused: boolean;
+  /** Full view shows the day's clear count; simple view does not (`surfacesFor(...).clearCount`). */
+  clearCount?: boolean;
   /** Clearing troubles earns Realm minutes: what each clear is worth, and the day's tally. */
   bounty?: TroubleBounty | null;
 }) {
@@ -118,13 +121,13 @@ export function TroubleNotices({
           toldCapped.current = true;
         }
       }
-      const words = troubleNotice(e, tbus.skin, placeName, castKey, reward);
+      const words = troubleNotice(e, tbus.skin, placeName, castKey, reward, clearCount);
       if (!words) return;
       seq.current += 1;
       setNotice({ id: seq.current, kind: e.kind, title: words.title, line: words.line, reward: words.reward });
     });
     return () => tbus.setHandler(() => {});
-  }, [tbus, castKey, bounty]);
+  }, [tbus, castKey, bounty, clearCount]);
 
   useEffect(() => {
     if (!notice) return;

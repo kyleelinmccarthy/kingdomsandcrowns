@@ -101,6 +101,9 @@ export default async function RealmPage({ searchParams }: { searchParams: Promis
     // May this viewer write the child's settings (depth, troubles' look)? False for a view-only
     // grown-up, whose saves the server refuses, so the pause menu leaves those out.
     viewerCanWrite: bundle.canEdit ?? false,
+    // The one record of the places found, and what the earning copy needs.
+    placesFound: bundle.placesFound ?? [],
+    ...(bundle.earning ? { earning: bundle.earning } : {}),
   };
 
   return (

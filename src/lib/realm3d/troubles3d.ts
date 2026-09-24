@@ -1089,7 +1089,9 @@ export const ALREADY_COPY = "This one already gave you a minute today.";
 /**
  * The words for an event, as a title and a smaller line under it, and for a clear that paid, the
  * gold reward. Null for events that say nothing. `reward` is the bounty's say, when there is one:
- * its day's tally replaces the visit's, since clears are kept now.
+ * its day's tally replaces the visit's, since clears are kept now. `clearCount` is the depth's
+ * say (`surfacesFor(...).clearCount`): the running tally is a full-view surface, so at simple
+ * depth a clear says where, and the reward, but no count (spec §6).
  */
 export function troubleNotice(
   e: Pick<TroubleEvent, "kind" | "trouble" | "count">,
@@ -1097,16 +1099,18 @@ export function troubleNotice(
   placeName: string | null,
   castKey: number | null,
   reward: ClearReward | null = null,
+  clearCount = true,
 ): { title: string; line: string; reward?: string } | null {
   switch (e.kind) {
     case "cleared": {
       const title = skin === "monsters" ? TROUBLE_COPY[e.trouble].monsters : TROUBLE_COPY[e.trouble].gentle;
       const where = placeName ? `${placeName} is clear.` : "The fields are clear.";
       const count = reward ? reward.clearsToday : e.count;
-      if (reward?.paid) return { title, line: `${where} ${count} cleared today.`, reward: REWARD_COPY };
+      const tally = clearCount ? `${where} ${count} cleared today.` : where;
+      if (reward?.paid) return { title, line: tally, reward: REWARD_COPY };
       if (reward?.capped) return { title, line: `${where} ${CAPPED_COPY}` };
       if (reward?.already) return { title, line: `${where} ${ALREADY_COPY}` };
-      return { title, line: `${where} ${count} cleared today.` };
+      return { title, line: tally };
     }
     case "bounced":
       return { title: BOUNCE_COPY[skin], line: "Cast at it, or step round it." };

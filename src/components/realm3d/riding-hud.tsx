@@ -19,43 +19,24 @@ import {
   isRiding,
   makeRideBus,
   parkNow,
-  readVisited,
   rideAccess,
   rideRefusal,
   rideSpeed,
   setRideHandlers,
   toggleRide,
-  visitedKey,
   waitingOutside,
   type RideAccess,
   type RideBus,
 } from "@/lib/realm3d/riding";
 import { postAt, travelDestinations, VILLAGE_ID, type Destination, type TravelGraph } from "@/lib/realm3d/travel";
 import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
+import type { PlacesStore } from "@/lib/realm3d/places-store";
 import { speak } from "@/lib/utils/speech";
 import { keepFocusInWorld, Panel } from "./frame-hud";
 import "./riding.css";
 
 /** How long a riding line stays in the top lane. */
 export const RIDE_LINE_MS = 4200;
-
-function readStored(childId: string | null): string[] {
-  if (!childId || typeof window === "undefined") return [];
-  try {
-    return readVisited(window.localStorage.getItem(visitedKey(childId)));
-  } catch {
-    return [];
-  }
-}
-
-function store(childId: string | null, ids: Iterable<string>): void {
-  if (!childId || typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(visitedKey(childId), JSON.stringify([...ids]));
-  } catch {
-    // A private window or blocked storage: the child walks there once more next visit.
-  }
-}
 
 /** The place names, for the words. */
 function nameOf(graph: TravelGraph, id: string): string {
@@ -92,19 +73,20 @@ export function useRiding({
   unlocked,
   viewer,
   heroName,
-  childId,
   reducedMotion,
   readAloud,
   bus,
   graph,
   insideRef,
   onRode,
+  places,
 }: {
   avatar: AvatarConfig;
   unlocked: readonly string[];
   viewer: "child" | "parent";
   heroName: string;
-  childId: string | null;
+  /** Whose Realm. The places are the `places` store's now; kept so callers need not change. */
+  childId?: string | null;
   reducedMotion: boolean;
   readAloud: boolean;
   bus: HudBus;
@@ -113,6 +95,12 @@ export function useRiding({
   insideRef: React.RefObject<unknown>;
   /** The first time the child is in the saddle this visit: the tutorial's "ride" lesson. */
   onRode?: () => void;
+  /**
+   * The one record of the places the child has found (`use-places-found.ts`): fast travel offers
+   * what it holds, and a place the ride sees the child stand in is written into it. Absent (a
+   * test), the ride remembers only this visit's.
+   */
+  places?: PlacesStore;
 }): Riding {
   const access = useMemo(() => rideAccess(avatar, unlocked, viewer), [avatar, unlocked, viewer]);
   // Built once for the visit: the canvas is memoised on it.
@@ -120,9 +108,18 @@ export function useRiding({
     makeRideBus(
       access.ok ? { id: access.mount.id, label: access.mount.label, color: access.color, speed: access.mount.speed, tack: avatar.backgroundColor || avatar.outfitColor } : null,
       reducedMotion,
-      viewer === "child" ? readStored(childId) : [],
+      viewer === "child" && places ? places.get() : [],
     ),
   );
+  // Whatever the HUD finds first (it watches the same places) opens for travel too.
+  useEffect(() => {
+    if (!places) return;
+    const sync = () => {
+      for (const id of places.get()) ride.visited.add(id);
+    };
+    sync();
+    return places.subscribe(sync);
+  }, [places, ride]);
   const [riding, setRiding] = useState(false);
   const [travelling, setTravelling] = useState<string | null>(null);
   const [line, setLine] = useState<string | null>(null);
@@ -154,8 +151,8 @@ export function useRiding({
         if (r) onRodeRef.current?.();
       },
       onSay: say,
-      onVisit: () => {
-        if (viewer === "child") store(childId, ride.visited);
+      onVisit: (id) => {
+        places?.add(id);
       },
       onTravel: (state, to) => {
         const where = nameOf(graph, to);
@@ -169,7 +166,7 @@ export function useRiding({
         }
       },
     });
-  }, [ride, say, viewer, childId, graph, readAloud]);
+  }, [ride, say, graph, readAloud, places]);
 
   // Development only: the ride bus, for a screenshot script to read and steer.
   useEffect(() => {

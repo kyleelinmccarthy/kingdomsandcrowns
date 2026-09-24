@@ -19,6 +19,8 @@ import { realmDepth, type DepthOverride, type RealmDepth } from "@/lib/realm/dep
 import { tutorialLearned } from "@/lib/realm3d/tutorial";
 import { loadRealmSound } from "@/lib/services/realm-sound";
 import { DEFAULT_SOUND, type SoundSettings } from "@/lib/realm3d/sound/settings";
+import { loadPlacesFound } from "@/lib/services/realm-places";
+import type { RealmAccessMode } from "@/lib/utils/realm-access";
 
 export type RealmBundle = {
   heroName: string;
@@ -54,6 +56,23 @@ export type RealmBundle = {
    * tests need not carry it.
    */
   canEdit?: boolean;
+  /**
+   * The places of the 3D Realm this hero has found (`realm_place_found`): the one record behind
+   * the HUD's count, the minimap's filled marks and fast travel. Optional only so hand-built
+   * bundles in tests need not carry it; `getRealmBundle` always sets it.
+   */
+  placesFound?: string[];
+  /**
+   * What the earning copy needs (`earningLines` in `lib/realm/spells/bounty.ts`), from the
+   * settings row already read here — no extra query. Always set by `getRealmBundle`.
+   */
+  earning?: {
+    enabled: boolean;
+    accessMode: RealmAccessMode;
+    earnedMinutesPerQuest: number;
+    dailyCapMinutes: number;
+    troubleBonusCapMinutes: number;
+  };
 };
 
 const VILLAGERS_RESTING = "The villagers are resting. Try again.";
@@ -74,6 +93,12 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
   const { access } = await requireChildAccess(childId);
   // In flight alongside everything below; a failed read is the defaults, never a closed Realm.
   const soundRead = loadRealmSound(childId, isChildActor(access) ? null : access.userId).catch(() => ({ ...DEFAULT_SOUND }));
+  // Likewise: a failed read is "nothing found yet on this load", never a closed Realm. The
+  // client keeps its own unsaved finds and merges the server's answer on its next save.
+  const placesRead = loadPlacesFound(childId).catch((err: unknown) => {
+    console.error("Realm places failed to load", err);
+    return [] as string[];
+  });
   // Also hands back the flags it read (post-update), so the parallel batch below does not
   // pay a second `loadRealmFlags` round trip just to read `helpSeenAt`. On the (rare) failure
   // path, fall back to a direct read so a starter-spell hiccup never misreports `helpSeen`.
@@ -144,5 +169,13 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
     tutorialStep: settings.tutorialStep,
     sound: await soundRead,
     canEdit: access.permission === "edit",
+    placesFound: await placesRead,
+    earning: {
+      enabled: settings.enabled,
+      accessMode: settings.accessMode,
+      earnedMinutesPerQuest: settings.earnedMinutesPerQuest,
+      dailyCapMinutes: settings.dailyCapMinutes,
+      troubleBonusCapMinutes: settings.troubleBonusCapMinutes,
+    },
   };
 }

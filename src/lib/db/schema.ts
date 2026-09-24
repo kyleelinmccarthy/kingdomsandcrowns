@@ -840,6 +840,25 @@ export const realmTroubleClear = sqliteTable(
   ]
 );
 
+/**
+ * The places of the 3D Realm a hero has found — stood in once — one row per place. It is the
+ * one record behind the HUD's "N of 19 places found", the minimap's filled marks and fast
+ * travel's destinations (`lib/realm/places-found.ts`). Written only by the hero themselves, and
+ * idempotently: finding a place twice is one row.
+ */
+export const realmPlaceFound = sqliteTable(
+  "realm_place_found",
+  {
+    id: text("id").primaryKey(),
+    childId: text("child_id")
+      .notNull()
+      .references(() => child.id, { onDelete: "cascade" }),
+    placeId: text("place_id").notNull(),
+    foundAt: integer("found_at", { mode: "timestamp" }).notNull(),
+  },
+  (table) => [uniqueIndex("realm_place_found_child_place_idx").on(table.childId, table.placeId)]
+);
+
 // ── The Realm: spellbook ────────────────────────────────────
 
 /**

@@ -582,6 +582,22 @@ describe("the words, when clearing pays", () => {
   });
 });
 
+describe("the day's clear count is a full-view surface (spec §6, clearCount)", () => {
+  const e = { kind: "cleared" as const, trouble: "fog" as const, count: 4 };
+
+  it("in simple view says where, and the reward, but never a tally", () => {
+    expect(troubleNotice(e, "gentle", "Cloudfoot", 1, null, false)!.line).toBe("Cloudfoot is clear.");
+    const paid = troubleNotice(e, "gentle", "Cloudfoot", 1, { paid: true, capped: false, already: false, clearsToday: 7 }, false)!;
+    expect(paid.line).toBe("Cloudfoot is clear.");
+    expect(paid.reward).toBe(REWARD_COPY);
+    expect(troubleNotice(e, "gentle", null, 1, null, false)!.line).not.toMatch(/\d/);
+  });
+
+  it("in full view keeps the day's tally", () => {
+    expect(troubleNotice(e, "gentle", "Cloudfoot", 1, null, true)!.line).toBe("Cloudfoot is clear. 4 cleared today.");
+  });
+});
+
 describe("a building finishing mid-visit", () => {
   const home = (id: string, x: number, z = 0): TroubleHome => ({ id, kind: "fog", x, z, place: null, placeName: null });
 

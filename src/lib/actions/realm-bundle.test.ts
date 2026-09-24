@@ -13,6 +13,8 @@ vi.mock("@/lib/auth/access", () => ({
 }));
 const loadRealmSound = vi.fn(async () => ({ ...DEFAULT_SOUND }));
 vi.mock("@/lib/services/realm-sound", () => ({ loadRealmSound: (...a: unknown[]) => (loadRealmSound as (...x: unknown[]) => unknown)(...a) }));
+const loadPlacesFound = vi.fn(async (childId: string): Promise<string[]> => (childId ? ["farfurrow", "summit-6"] : []));
+vi.mock("@/lib/services/realm-places", () => ({ loadPlacesFound: (childId: string) => loadPlacesFound(childId) }));
 vi.mock("@/lib/services/realm-play", () => ({
   loadRealmSettings: async () => ({ ...DEFAULT_REALM_SETTINGS }),
   loadRealmFlags: async () => ({ helpSeenAt: null, starterSpellAt: null }),
@@ -62,5 +64,37 @@ describe("getRealmBundle — who is looking", () => {
     const b = await getRealmBundle("c1");
     expect(b.canEdit).toBe(false);
     expect(loadRealmSound).toHaveBeenCalledWith("c1", "u-tutor");
+  });
+});
+
+describe("getRealmBundle — the places found, and the earning copy's settings", () => {
+  it("carries the hero's found places, read from the database, to whoever is looking", async () => {
+    for (const who of [as("child:c1", "edit"), as("u-mom", "edit")]) {
+      requireChildAccess.mockResolvedValue(who);
+      const b = await getRealmBundle("c1");
+      expect(b.placesFound).toEqual(["farfurrow", "summit-6"]);
+    }
+    expect(loadPlacesFound).toHaveBeenCalledWith("c1");
+  });
+
+  it("opens with none found when the read fails, rather than closing the Realm", async () => {
+    requireChildAccess.mockResolvedValue(as("child:c1", "edit"));
+    loadPlacesFound.mockRejectedValueOnce(new Error("down"));
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const b = await getRealmBundle("c1");
+    spy.mockRestore();
+    expect(b.placesFound).toEqual([]);
+  });
+
+  it("hands the earning copy the settings it reads, from the row already loaded", async () => {
+    requireChildAccess.mockResolvedValue(as("child:c1", "edit"));
+    const b = await getRealmBundle("c1");
+    expect(b.earning).toEqual({
+      enabled: DEFAULT_REALM_SETTINGS.enabled,
+      accessMode: DEFAULT_REALM_SETTINGS.accessMode,
+      earnedMinutesPerQuest: DEFAULT_REALM_SETTINGS.earnedMinutesPerQuest,
+      dailyCapMinutes: DEFAULT_REALM_SETTINGS.dailyCapMinutes,
+      troubleBonusCapMinutes: DEFAULT_REALM_SETTINGS.troubleBonusCapMinutes,
+    });
   });
 });

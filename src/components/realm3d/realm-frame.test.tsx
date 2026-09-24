@@ -94,4 +94,24 @@ describe("the Realm's door", () => {
     expect(screen.getByText("Every quest you complete banks minutes here.")).toBeInTheDocument();
     expect(screen.queryByTestId("canvas")).toBeNull();
   });
+
+  it("says how minutes are earned when minutes are what the child is missing (earningLines)", async () => {
+    access.result = { allowed: false, reason: "no_minutes" };
+    const p = props(true);
+    const earning = { enabled: true, accessMode: "earned" as const, earnedMinutesPerQuest: 5, dailyCapMinutes: 30, troubleBonusCapMinutes: 0 };
+    render(<RealmFrame {...p} realm={{ ...p.realm, earning }} />);
+    await act(async () => {});
+    await act(async () => {});
+    expect(screen.getByText("Finish a quest and you earn 5 more minutes here, up to 30 a day.")).toBeInTheDocument();
+  });
+
+  it("says nothing of earning when the gate is shut for another reason", async () => {
+    access.result = { allowed: false, reason: "school_hours" };
+    const p = props(true);
+    const earning = { enabled: true, accessMode: "earned" as const, earnedMinutesPerQuest: 5, dailyCapMinutes: 30, troubleBonusCapMinutes: 5 };
+    render(<RealmFrame {...p} realm={{ ...p.realm, earning }} />);
+    await act(async () => {});
+    await act(async () => {});
+    expect(screen.queryByText(/Finish a quest and you earn/)).toBeNull();
+  });
 });
