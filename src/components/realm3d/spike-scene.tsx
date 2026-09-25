@@ -61,21 +61,19 @@ import { RealmProps } from "./world-props";
 import { landmarkColliders, landmarkRadii, RealmLandmarks } from "./landmarks";
 import {
   buildColliders,
-  clearFraction,
   gatherNear,
   HERO_RADIUS,
-  pickBoom,
   pushOut,
   supportHeight,
-  type Boom,
   type Collider,
   type Pt,
 } from "@/lib/realm3d/collision";
 import { makeVertical, stepVertical, tryJump, type Vertical } from "@/lib/realm3d/jump";
+import { aimBoom, insideWall, lensFrac, READ_DIST, swingStep, type Aim, type AimInput } from "@/lib/realm3d/camera-boom";
 import { distancePhase, makeDistance, makeStride, resetDistance, strideTick } from "@/lib/realm3d/sound/stride";
 import { heroLook } from "@/lib/realm3d/hero-look";
 import {
-  angleDelta,
+  ASSIST_GRACE,
   BACKPEDAL,
   boomOffset,
   cameraFacing,
@@ -913,14 +911,25 @@ function Rig({
   const off = useMemo(() => new THREE.Vector3(), []);
   // Reused every frame. Nothing in this loop allocates.
   const near = useMemo<Collider[]>(() => new Array(1024), []);
-  const boom = useMemo<Boom>(() => ({ yaw: 0, frac: 1 }), []);
+  const aim = useMemo<Aim>(() => ({ ceiling: false, turn: false, yaw: 0, lift: 0, readable: true }), []);
+  const aimRef = useRef<AimInput>({ hx: 0, eyeY: 0, hz: 0, feetY: 0, yawRef: 0, swing: 0, swingVel: 0, pitch: 0, dist: 0, camH: 0, camY: 0, minFrac: 0, assistMin: 0, assist: false, mayTurn: false });
   const arm = useRef({ h: 0, y: 0 });
+  /** The boom at the child's own pitch, before any lift: what the ceiling scan asks about. */
+  const arm0 = useRef({ h: 0, y: 0 });
+  /**
+   * How far the boom has risen over the child's pitch to see over a roof or a tower beside them
+   * (`camera-boom.ts`). Damped: up briskly, down gently, so walking along a wall is a rise and a
+   * settle, never a bob.
+   */
+  const overPitch = useRef(0);
   const frac = useRef(1);
   /** 0 out in the open, 1 under a closed canopy. Damped, so the wood opens rather than snaps. */
   const duck = useRef(0);
   const rideCam = useMemo(() => ({ lift: 0, pull: 0, tilt: 0 }), []);
   /** The assist's turn, over the child's own yaw. The camera looks along `yawRef + swing`. */
   const swing = useRef(0);
+  /** The swing's momentum, radians a second (`swingStep`). */
+  const swingVel = useRef({ v: 0 });
 
   useFrame((_, rawDt) => {
     // Paused: the camera holds still. The world may keep drawing behind the menu.
@@ -955,16 +964,24 @@ function Rig({
 
     const dragging = ptr.drag !== 0;
     // Coming out of a door, the doorstep sets the child's yaw and the camera afresh: no stale swing.
-    if (bus.leaving !== null) swing.current = 0;
+    if (bus.leaving !== null) {
+      swing.current = 0;
+      swingVel.current.v = 0;
+    }
     // The child takes the camera: from where they SEE it, which becomes the way they walk.
     if (dragging && swing.current !== 0) {
       yawRef.current = wrapAngle(yawRef.current + swing.current);
       swing.current = 0;
     }
+    if (dragging) swingVel.current.v = 0;
     const k = keys.current;
     const assist = swingAllowed(dragging, nowS(), ptr.lastDragAt, k.f || k.b || k.l || k.r);
 
-    boomOffset(arm.current, Math.max(PITCH_MIN, ptr.pitch - rideCam.tilt), ptr.dist * (1 + rideCam.pull));
+    const basePitch = Math.max(PITCH_MIN, ptr.pitch - rideCam.tilt);
+    const baseDist = ptr.dist * (1 + rideCam.pull);
+    // The boom rises over what is beside the child (`overPitch`), never while it ducks under a canopy.
+    boomOffset(arm.current, basePitch + overPitch.current * (1 - duck.current), baseDist);
+    boomOffset(arm0.current, basePitch, baseDist);
     const eyeY = p.y + CAM_EYE + rideCam.lift;
     // Last frame's verdict picks this frame's boom. One frame of lag on a value that is already
     // damped over a third of a second is not a thing anyone can see.
@@ -976,42 +993,63 @@ function Rig({
      * comes all the way in to an over-the-shoulder `CLOSEST` instead — in FRONT of the wall or
      * the beacon they pointed it at, rather than parked behind it.
      */
-    const assistMin = CAM_MIN + (DUCK_MIN - CAM_MIN) * duck.current;
+    // Walking, it keeps a real distance — but never more than `READ_DIST`, or the floor itself
+    // would push the lens through the roof that is hiding the child.
+    const walkMin = Math.min(CAM_MIN, READ_DIST / baseDist);
+    const assistMin = walkMin + (DUCK_MIN - walkMin) * duck.current;
     const minFrac = assist ? assistMin : Math.min(assistMin, CLOSEST / Math.hypot(camH, camY));
-    const n = gatherNear(near, occluders, p.x, p.z, camH + 3);
-    if (assist) {
-      // The nearest clear yaw to the child's OWN: once the roof is passed, that is theirs again.
-      pickBoom(boom, p.x, eyeY, p.z, yawRef.current, camH, camY, near, n, 0.44, minFrac);
-    } else {
-      // The line the camera is on, and only that line: how clear is it?
-      const y0 = wrapAngle(yawRef.current + swing.current);
-      setBoom(boom, y0, Math.max(minFrac, clearFraction(p.x, eyeY, p.z, camH * Math.sin(y0), camY, camH * Math.cos(y0), near, n)));
-    }
+    const n = gatherNear(near, occluders, p.x, p.z, Math.max(camH, arm0.current.h) + 3);
+    /**
+     * `aimBoom` decides (camera-boom.ts): a CEILING only when no bearing is clear of the lids over
+     * the child — a wall beside them is not one; a LIFT over the child's pitch for the line the
+     * camera is on; and a TURN while walking (the assist), or — hand off the camera for the grace
+     * period — when no lift on that line can show the child at a readable distance.
+     */
+    const aimIn = aimRef.current;
+    aimIn.hx = p.x;
+    aimIn.eyeY = eyeY;
+    aimIn.hz = p.z;
+    aimIn.feetY = floorY;
+    aimIn.yawRef = yawRef.current;
+    aimIn.swing = swing.current;
+    aimIn.swingVel = swingVel.current.v;
+    aimIn.pitch = basePitch;
+    aimIn.dist = baseDist;
+    aimIn.camH = arm0.current.h + (DUCK_H - arm0.current.h) * duck.current;
+    aimIn.camY = arm0.current.y + (DUCK_Y - arm0.current.y) * duck.current;
+    aimIn.minFrac = minFrac;
+    aimIn.assistMin = assistMin;
+    aimIn.assist = assist;
+    aimIn.mayTurn = !dragging && nowS() - ptr.lastDragAt >= ASSIST_GRACE;
+    aimBoom(aim, aimIn, near, n);
     // Nothing clear at any angle means a ceiling, not a wall. Duck in fast, come back out slowly:
     // a glade you cross in two strides should not throw the camera up and drop it again.
-    const wantDuck = boom.frac < 0.52 ? 1 : 0;
+    const wantDuck = aim.ceiling ? 1 : 0;
     duck.current += (wantDuck - duck.current) * (1 - Math.exp(-dt * (wantDuck > duck.current ? 4.5 : 1.4)));
+    overPitch.current += (aim.lift - overPitch.current) * (1 - Math.exp(-dt * (aim.lift > overPitch.current ? 5 : 1.5)));
 
-    if (assist) {
-      /**
-       * Turn toward the angle that can see him, the short way round, and at no more than
-       * `ASSIST_RATE` a second — a drift, never a whip. It turns the camera's `swing`, not the
-       * child's yaw: the keys keep walking where the child pointed them.
-       */
-      const delta = angleDelta(wrapAngle(yawRef.current + swing.current), boom.yaw);
-      const turn = delta * (1 - Math.exp(-dt * 4));
-      const cap = ASSIST_RATE * dt;
-      swing.current = wrapAngle(swing.current + (turn > cap ? cap : turn < -cap ? -cap : turn));
-    }
+    /**
+     * Turn toward the angle that can see him, the short way round, and at no more than
+     * `ASSIST_RATE` a second — a drift, never a whip. It turns the camera's `swing`, not the
+     * child's yaw: the keys keep walking where the child pointed them. Only while there is
+     * something to turn for; with nothing, the turn's own momentum settles (`swingStep`).
+     */
+    const sv = swingVel.current;
+    if (aim.turn || sv.v !== 0) swing.current = swingStep(sv, swing.current, yawRef.current, aim.turn ? aim.yaw : null, dt, ASSIST_RATE, !aim.readable);
+    if (!aim.turn && Math.abs(sv.v) < 1e-3) sv.v = 0;
     const yaw = wrapAngle(yawRef.current + swing.current);
 
     // ...and shorten to what is clear at the angle it is actually at, not the one it is heading
     // for, so the child is never lost during the swing itself.
     const sin = Math.sin(yaw);
     const cos = Math.cos(yaw);
-    const want = Math.max(minFrac, clearFraction(p.x, eyeY, p.z, camH * sin, camY, camH * cos, near, n));
+    // The whole figure, eye and knee: a line that sees only the top of a head over the eaves is not
+    // a shot of the child. The floor keeps a real distance, but never parks the lens inside a wall.
+    const want = lensFrac(p.x, eyeY, p.z, floorY, camH * sin, camY, camH * cos, minFrac, near, n);
     // In fast when something cuts across, out gently, so passing a tree is not a shove.
     frac.current += (want - frac.current) * (1 - Math.exp(-dt * (want < frac.current ? 16 : 3.5)));
+    // ...but never eased THROUGH a wall, in or out: past a roof's corner it goes straight to where it is going.
+    if (insideWall(p.x + camH * sin * frac.current, eyeY + camY * frac.current, p.z + camH * cos * frac.current, near, n, floorY)) frac.current = want;
 
     // Never let the camera sink into a hill — and, ducked, never make it hover over one either.
     // How far over the ground depends on the pitch the child chose: lowered to look out from a
@@ -1025,16 +1063,12 @@ function Rig({
     desired.set(cx, Math.max(anchorY + camY * f, world.heightAt(cx, cz) + lift * f + 0.6), cz);
     // Snappier while the child is dragging: the camera is in their hand, not on a spring.
     camera.position.lerp(desired, 1 - Math.exp(-dt * (dragging ? 20 : 9)));
+    // Easing in from far out, the lens cuts the corner it is coming in past; never through a wall.
+    if (insideWall(camera.position.x, camera.position.y, camera.position.z, near, n, floorY)) camera.position.copy(desired);
     look.set(p.x, anchorY + 1.2 + 2.2 * f * Math.min(1, ptr.pitch / DEFAULT_PITCH), p.z);
     camera.lookAt(look);
   });
   return null;
-}
-
-/** A free function, so the boom scratch is never written to as a hook result. */
-function setBoom(b: Boom, yaw: number, frac: number): void {
-  b.yaw = yaw;
-  b.frac = frac;
 }
 
 /**

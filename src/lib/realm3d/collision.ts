@@ -462,7 +462,11 @@ export function buildColliders(props: readonly PlanProp[], scenery: readonly Pla
 
     if (p.id === "well") {
       solids.push(cyl(x, z, 1.75, g, g + 1.1));
-      occluders.push(cyl(x, z, 2.5, g, g + 4.5)); // the cap, which is wider than the parapet
+      // The parapet, and the cap over it on its posts — two shapes, not one drum from the grass
+      // to the peak. A drum that wide swallowed a child leaning on the parapet: their eye was
+      // inside it, so every line from them read as blocked, and nothing was ever clear.
+      occluders.push(cyl(x, z, 1.75, g, g + 1.1));
+      occluders.push(cyl(x, z, 2.5, g + 3.0, g + 4.5)); // the cap, which is wider than the parapet
       continue;
     }
     if (p.id === "garden") {
