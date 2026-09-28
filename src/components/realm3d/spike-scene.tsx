@@ -101,6 +101,7 @@ import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
 import { Companion, HeroFigure, type Gait } from "./hero-figure";
 import type { LeadBus } from "@/lib/realm3d/lead";
 import { WizardFigure } from "./wizard-figure";
+import { Villagers } from "./villagers";
 import type { SpellPageView } from "@/lib/realm/spells/pages";
 import { digitSlot, pushCast, type Caster, type CastQueue } from "@/lib/realm3d/casting";
 import type { HudBus } from "@/lib/realm3d/hud-bus";
@@ -451,40 +452,6 @@ function Garden({ prop }: { prop: Prop }) {
   );
 }
 
-const VILLAGER_TUNIC: Record<string, string> = { objective: "#e8b33a", work: "#4f86c6", built: "#57ab3a" };
-
-function Villager({ prop, status }: { prop: Prop; status: string }) {
-  const tunic = VILLAGER_TUNIC[status] ?? "#4f86c6";
-  return (
-    <group position={[prop.position.x, groundY(prop), prop.position.z]} rotation={[0, Math.PI, 0]}>
-      {[-1, 1].map((s) => (
-        <mesh key={s} castShadow position={[s * 0.15, 0.28, 0]}>
-          <boxGeometry args={[0.22, 0.56, 0.22]} />
-          <meshStandardMaterial color="#4a3c2c" flatShading />
-        </mesh>
-      ))}
-      <mesh castShadow position={[0, 0.98, 0]}>
-        <cylinderGeometry args={[0.3, 0.4, 0.9, 8]} />
-        <meshStandardMaterial color={tunic} flatShading />
-      </mesh>
-      {[-1, 1].map((s) => (
-        <mesh key={s} castShadow position={[s * 0.42, 1.0, 0]} rotation={[0, 0, s * 0.22]}>
-          <boxGeometry args={[0.17, 0.72, 0.19]} />
-          <meshStandardMaterial color={tunic} flatShading />
-        </mesh>
-      ))}
-      <mesh castShadow position={[0, 1.6, 0]}>
-        <icosahedronGeometry args={[0.27, 0]} />
-        <meshStandardMaterial color="#edc196" flatShading />
-      </mesh>
-      <mesh castShadow position={[0, 1.88, 0]}>
-        <coneGeometry args={[0.36, 0.36, 8]} />
-        <meshStandardMaterial color="#8a5330" flatShading />
-      </mesh>
-    </group>
-  );
-}
-
 function Banner({ prop }: { prop: Prop }) {
   return (
     <group position={[prop.position.x, groundY(prop), prop.position.z]}>
@@ -538,7 +505,6 @@ function Village({
 }) {
   const props = useMemo(() => raw.map(replot), [raw]);
   const road = useMemo(() => props.filter((p) => p.kind === "path"), [props]);
-  const status = useMemo(() => new Map(villagers.map((v) => [`villager-${v.id}`, v.status as string])), [villagers]);
   // How far each site has got, by building id: the villager placements carry it.
   const progress = useMemo(() => {
     const m = new Map<string, { done: number; total: number }>(villagers.map((v) => [v.buildingId, { done: v.done, total: v.total }]));
@@ -568,7 +534,7 @@ function Village({
           );
         }
         if (p.kind === "banner") return castleUnlocked ? null : <Banner key={p.id} prop={p} />;
-        if (p.kind === "villager") return <Villager key={p.id} prop={p} status={status.get(p.id) ?? "work"} />;
+        // Villagers are people now, drawn by `Villagers` (`villagers.tsx`) beside the village.
         if (p.kind === "foundation") {
           const v = progress.get(p.id);
           const tower = p.id === "watchtower";
@@ -1491,6 +1457,7 @@ const World = memo(function World({
       <RealmLandmarks world={world} />
       <Scenery scenery={scenery} world={world} />
       <Village props={layout.props} villagers={layout.villagers} castleType={layout.castleType} castleUnlocked={castleUnlocked} />
+      <Villagers villagers={layout.villagers} heroRef={heroRef} />
       <Hero heroRef={heroRef} keys={keys} yawRef={yawRef} pointer={pointer} bus={bus} facingRef={facingRef} gaitRef={gaitRef} aimRef={aimRef} solids={solids} world={world} ride={ride}>
         {/* A parent dropping in walks as the realm's quest-giver, not as the child. */}
         {viewer === "parent" ? (

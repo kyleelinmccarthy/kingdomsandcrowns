@@ -54,7 +54,9 @@ import {
 } from "@/lib/realm3d/room-rules";
 import type { RoomVisit } from "@/lib/realm3d/doorways";
 import type { HudBus } from "@/lib/realm3d/hud-bus";
-import { villagerAvatar, villagerById } from "@/lib/realm/villagers";
+import { villagerById } from "@/lib/realm/villagers";
+import { villagerLook } from "@/lib/realm3d/villager-look";
+import { noticeFacing } from "@/lib/realm3d/attention";
 import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
 import { Companion, HeroFigure, makePetTrail, type Gait } from "./hero-figure";
 import { holdKeys, seedMoves } from "@/lib/realm3d/held-keys";
@@ -475,8 +477,8 @@ function animate(grp: THREE.Group, kind: string, pivot: { x: number; y: number; 
 
 function Keeper({ plan, heroLocal }: { plan: RoomPlan; heroLocal: React.RefObject<{ x: number; y: number; z: number }> }) {
   const k = plan.keeper!;
-  const v = villagerById(k.villager);
-  const look = useMemo(() => heroLook(v ? villagerAvatar(v) : null), [v]);
+  // The same look, and the same turn to the child, as the villager out on the green (`villagers.tsx`).
+  const look = villagerLook(k.villager);
   const gait = useRef<Gait>({ speed: 0, phase: 0 });
   const g = useRef<THREE.Group>(null);
   useFrame((_, rawDt) => {
@@ -485,12 +487,10 @@ function Keeper({ plan, heroLocal }: { plan: RoomPlan; heroLocal: React.RefObjec
     if (!grp) return;
     // They turn to face the child when the child comes near, and back to the door when not.
     const h = heroLocal.current;
-    const dx = h.x - k.x;
-    const dz = h.z - k.z;
-    const want = dx * dx + dz * dz < 36 ? Math.atan2(dx, dz) : k.face;
-    grp.rotation.y = turnToward(grp.rotation.y, want, 4, dt);
+    grp.rotation.y = turnToward(grp.rotation.y, noticeFacing(k.x, k.z, k.face, h.x, h.z), 4, dt);
     gait.current.phase += dt * 1.6; // breathing, not walking
   });
+  if (!look) return null;
   return (
     <group ref={g} position={[k.x, 0, k.z]} rotation={[0, k.face, 0]}>
       <HeroFigure look={look} gait={gait} />

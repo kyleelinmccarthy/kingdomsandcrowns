@@ -11,10 +11,17 @@ const base: VillagerFigureConfig = {
   legwear: "pants", legwearColor: "#4a3728", boots: "leather-boots", bootsColor: "#6b4226", accessory: null, accessoryColor: "#d4a843",
 };
 
-/** One villager per building, in BUILDINGS order. Greetings are gentle; the monsters toggle changes deed stories, not greetings. */
+/**
+ * One villager per building, in BUILDINGS order. Greetings are gentle; the monsters toggle changes deed stories, not greetings.
+ *
+ * `figure` is the ONE place a villager's look lives: the talk panel's portrait and the 3D Realm's
+ * figure (`lib/realm3d/villager-look.ts`) both wear it. Each is dressed to read as who they are from
+ * across the green — Old Bram's hair has gone silver; the miller works in floury pale clothes, her
+ * sleeves off and a kerchief over her hair.
+ */
 export const VILLAGERS: Villager[] = [
-  { id: "bram", buildingId: "well", name: "Old Bram", greeting: "The bucket's dry again. Have you a moment for the well?", figure: { ...base, skinTone: "medium-dark", hairStyle: "short", hairColor: "#6b7280", outfit: "tunic", outfitColor: "#5b8fb9" } },
-  { id: "tessa", buildingId: "mill", name: "Miller Tessa", greeting: "Sacks everywhere and no one to count them. Lend a hand?", figure: { ...base, skinTone: "light", hairStyle: "bun", hairColor: "#b87333", outfit: "vest", outfitColor: "#b08a5a" } },
+  { id: "bram", buildingId: "well", name: "Old Bram", greeting: "The bucket's dry again. Have you a moment for the well?", figure: { ...base, skinTone: "medium-dark", hairStyle: "short", hairColor: "#d6d6d2", outfit: "tunic", outfitColor: "#5b8fb9" } },
+  { id: "tessa", buildingId: "mill", name: "Miller Tessa", greeting: "Sacks everywhere and no one to count them. Lend a hand?", figure: { ...base, skinTone: "light", hairStyle: "bun", hairColor: "#b87333", outfit: "vest", outfitColor: "#efe6d3", accessory: "bandana", accessoryColor: "#faf6ec" } },
   { id: "aldo", buildingId: "bridge", name: "Carpenter Aldo", greeting: "Planks to measure and a river that won't wait. Help me?", figure: { ...base, skinTone: "olive", hairStyle: "curly", hairColor: "#1a1a2e", outfit: "vest", outfitColor: "#8c7a6b", accessory: "bandana", accessoryColor: "#c0563d" } },
   { id: "wren", buildingId: "chapel", name: "Sister Wren", greeting: "The bell wants numbers and the scroll wants reading. Will you?", figure: { ...base, skinTone: "pale", hairStyle: "long", hairColor: "#f0f0f0", outfit: "robe", outfitColor: "#d8cfc0" } },
   { id: "pip", buildingId: "market", name: "Crier Pip", greeting: "Prices, words, and a market that opens at noon. Join me?", figure: { ...base, skinTone: "medium-light", hairStyle: "spiky", hairColor: "#f97316", outfit: "tunic", outfitColor: "#c0563d" } },
