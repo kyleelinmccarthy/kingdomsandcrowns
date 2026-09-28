@@ -1,13 +1,36 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Feather, Settings, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip } from "@/components/ui/tooltip";
 import { SendRavenDialog } from "@/components/send-raven";
-import { navItemsFor } from "@/components/nav-items";
+import { isNavGroup, navItemsFor, type NavLink } from "@/components/nav-items";
 import { GameIcon } from "@/components/game-icon";
+
+/** One line of the guide: a place or a menu item, in its medallion, with what it is for. */
+function GuideRow({ icon, label, description, children }: { icon: ReactNode; label: string; description: string; children?: ReactNode }) {
+  return (
+    <li>
+      <div className="flex items-start gap-3">
+        <span
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--gold-border)] bg-black/30"
+          aria-hidden="true"
+        >
+          {icon}
+        </span>
+        <span className="flex flex-col">
+          <span className="text-sm font-semibold text-foreground">{label}</span>
+          <span className="text-xs text-muted-foreground">{description}</span>
+        </span>
+      </div>
+      {children}
+    </li>
+  );
+}
+
+const placeIcon = (item: Pick<NavLink, "icon">) => <GameIcon name={item.icon} className="size-5 text-[var(--gold-bright)]" />;
 
 export function QuestHelper({ isChildView }: { isChildView?: boolean }) {
   const [open, setOpen] = useState(false);
@@ -47,20 +70,19 @@ export function QuestHelper({ isChildView }: { isChildView?: boolean }) {
               Getting around
             </h3>
             <ul className="space-y-2">
-              {navItems.map((item) => (
-                <li key={item.href} className="flex items-start gap-3">
-                  <span
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--gold-border)] bg-black/30"
-                    aria-hidden="true"
-                  >
-                    <GameIcon name={item.icon} className="size-5 text-[var(--gold-bright)]" />
-                  </span>
-                  <span className="flex flex-col">
-                    <span className="text-sm font-semibold text-foreground">{item.label}</span>
-                    <span className="text-xs text-muted-foreground">{item.description}</span>
-                  </span>
-                </li>
-              ))}
+              {navItems.map((entry) =>
+                isNavGroup(entry) ? (
+                  <GuideRow key={entry.label} icon={placeIcon(entry)} label={entry.label} description={`Tap ${entry.label} to open its menu:`}>
+                    <ul className="mt-2 space-y-2 pl-11">
+                      {entry.items.map((item) => (
+                        <GuideRow key={item.href} icon={placeIcon(item)} label={item.label} description={item.description} />
+                      ))}
+                    </ul>
+                  </GuideRow>
+                ) : (
+                  <GuideRow key={entry.href} icon={placeIcon(entry)} label={entry.label} description={entry.description} />
+                ),
+              )}
             </ul>
           </div>
 
@@ -75,35 +97,12 @@ export function QuestHelper({ isChildView }: { isChildView?: boolean }) {
               corner) to open your account menu. You&apos;ll find these inside:
             </p>
             <ul className="space-y-2 pt-1">
-              <li className="flex items-start gap-3">
-                <span
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--gold-border)] bg-black/30"
-                  aria-hidden="true"
-                >
-                  <Feather className="size-4" />
-                </span>
-                <span className="flex flex-col">
-                  <span className="text-sm font-semibold text-foreground">Send a Raven</span>
-                  <span className="text-xs text-muted-foreground">
-                    Report a bug, share an idea, or just say hello — your message flies straight to
-                    the keepers of the kingdom.
-                  </span>
-                </span>
-              </li>
-              <li className="flex items-start gap-3">
-                <span
-                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-[var(--gold-border)] bg-black/30"
-                  aria-hidden="true"
-                >
-                  <Settings className="size-4" />
-                </span>
-                <span className="flex flex-col">
-                  <span className="text-sm font-semibold text-foreground">Settings</span>
-                  <span className="text-xs text-muted-foreground">
-                    Manage your family, guardians, and account.
-                  </span>
-                </span>
-              </li>
+              <GuideRow
+                icon={<Feather className="size-4" />}
+                label="Send a Raven"
+                description="Report a bug, share an idea, or just say hello — your message flies straight to the keepers of the kingdom."
+              />
+              <GuideRow icon={<Settings className="size-4" />} label="Settings" description="Manage your family, guardians, and account." />
             </ul>
           </div>
 

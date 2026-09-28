@@ -22,9 +22,50 @@ function row(guide: HTMLElement, label: string): HTMLElement {
   return within(guide).getByText(label, { selector: "span" }).closest("li") as HTMLElement;
 }
 
+/** The places listed inside a group's row, each as its name and sentence run together. */
+function inside(groupRow: HTMLElement): string[] {
+  return within(groupRow).getAllByRole("listitem").map((item) => item.textContent ?? "");
+}
+
 describe("QuestHelper — the guide to getting around", () => {
   it("shows the Spellbook as the same open book the bar shows", async () => {
     const guide = await openGuide(true);
     expect(drawing(row(guide, "Spellbook").querySelector("svg"))).toBe(drawingOf("book"));
+  });
+
+  it("walks the bar in order, naming Quests and Rewards as menus", async () => {
+    const guide = await openGuide(true);
+    const topLevel = within(guide).getAllByRole("listitem").filter((item) => item.parentElement?.parentElement === guide);
+    expect(topLevel.map((item) => item.querySelector("span span")?.textContent)).toEqual([
+      "Tavern",
+      "Quests",
+      "Spellbook",
+      "Realm",
+      "Rewards",
+      "Schedule",
+    ]);
+  });
+
+  it("lists a hero's Quest Log and Side Quests under Quests, and never Quest Giver", async () => {
+    const guide = await openGuide(true);
+    expect(inside(row(guide, "Quests"))).toEqual([
+      expect.stringMatching(/^Quest Log/),
+      expect.stringMatching(/^Side Quests/),
+    ]);
+    expect(within(guide).queryByText("Quest Giver")).not.toBeInTheDocument();
+  });
+
+  it("lists Quest Giver first under Quests for a grown-up", async () => {
+    const guide = await openGuide(false);
+    expect(inside(row(guide, "Quests"))).toEqual([
+      expect.stringMatching(/^Quest Giver/),
+      expect.stringMatching(/^Quest Log/),
+      expect.stringMatching(/^Side Quests/),
+    ]);
+  });
+
+  it("lists Loot and Ranks under Rewards", async () => {
+    const guide = await openGuide(true);
+    expect(inside(row(guide, "Rewards"))).toEqual([expect.stringMatching(/^Loot/), expect.stringMatching(/^Ranks/)]);
   });
 });

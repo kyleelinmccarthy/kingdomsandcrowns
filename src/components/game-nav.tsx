@@ -7,12 +7,9 @@ import { cn } from "@/lib/utils";
 import { UserMenu } from "@/components/user-menu";
 import { QuestHelper } from "@/components/quest-helper";
 import { GameIcon, type GameIconName } from "@/components/game-icon";
-import { navItemsFor } from "@/components/nav-items";
+import { isNavActive, isNavGroup, navItemsFor } from "@/components/nav-items";
+import { NavGroupMenu } from "@/components/nav-group-menu";
 import { Tooltip, TooltipProvider } from "@/components/ui/tooltip";
-
-function isActive(pathname: string, href: string) {
-  return pathname === href || pathname.startsWith(href + "/");
-}
 
 function NavMedallion({
   href,
@@ -98,16 +95,20 @@ export function GameNavBar({ userName, isChildView }: { userName: string; isChil
           <div className="game-navbar-corner game-navbar-corner--br" />
 
           <div className="game-navbar-main">
-            {navItems.map((item) => (
-              <NavMedallion
-                key={item.href}
-                href={item.href}
-                icon={item.icon}
-                label={item.label}
-                description={item.description}
-                active={isActive(pathname, item.href)}
-              />
-            ))}
+            {navItems.map((entry) =>
+              isNavGroup(entry) ? (
+                <NavGroupMenu key={entry.label} group={entry} pathname={pathname} />
+              ) : (
+                <NavMedallion
+                  key={entry.href}
+                  href={entry.href}
+                  icon={entry.icon}
+                  label={entry.label}
+                  description={entry.description}
+                  active={isNavActive(pathname, entry)}
+                />
+              ),
+            )}
           </div>
 
           <div className="game-navbar-end">

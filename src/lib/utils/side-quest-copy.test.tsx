@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, it, expect, afterEach } from "vitest";
 import { render, cleanup } from "@testing-library/react";
-import { MAIN_NAV } from "@/components/nav-items";
+import { MAIN_NAV, navLinks } from "@/components/nav-items";
 import { SiteCard, HERO_ONLY } from "@/components/realm/site-card";
 import { DeedResults } from "@/components/deed-results";
 import { VILLAGERS } from "@/lib/realm/villagers";
@@ -21,8 +21,9 @@ describe("side quest copy", () => {
     expect([SIDE_QUEST, SIDE_QUESTS, SIDE_QUEST_LOWER, SIDE_QUESTS_LOWER]).toEqual(["Side Quest", "Side Quests", "side quest", "side quests"]);
   });
   it("never says deed where a person reads", () => {
-    for (const item of MAIN_NAV) expect(`${item.label} ${item.description}`).not.toMatch(/deed/i);
-    expect(MAIN_NAV.find((i) => i.label === "Side Quests")?.href).toBe("/side-quests");
+    for (const entry of MAIN_NAV) expect(entry.label).not.toMatch(/deed/i);
+    for (const item of navLinks(MAIN_NAV)) expect(`${item.label} ${item.description}`).not.toMatch(/deed/i);
+    expect(navLinks(MAIN_NAV).find((i) => i.label === "Side Quests")?.href).toBe("/side-quests");
     expect(HERO_ONLY).toBe("Side quests are for the hero to play.");
     const card = render(<SiteCard villager={VILLAGERS[0]} building={building} preview={true} busy={false} error="" onBegin={() => {}} onClearError={() => {}} onClose={() => {}} />);
     expect(card.container.textContent).not.toMatch(/deed/i);
