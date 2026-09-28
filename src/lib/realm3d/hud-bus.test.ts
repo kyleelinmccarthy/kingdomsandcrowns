@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { makeHudBus, paintGoal } from "./hud-bus";
 
 describe("the gold !", () => {
@@ -42,5 +42,39 @@ describe("the gold !", () => {
     bus.onCast(2);
     bus.onWalked(6);
     expect(got).toEqual(["cast 2", "walked 6"]);
+  });
+});
+
+describe("looking with the mouse", () => {
+  it("starts at a steady sensitivity, not inverted, and settings are merged in place", () => {
+    const bus = makeHudBus(1, 1);
+    const look = bus.look;
+    expect(look).toEqual({ sensitivity: 1, invertY: false });
+    bus.setLook({ sensitivity: 1.6 });
+    expect(bus.look).toBe(look); // the scene holds this object and reads it on every mouse move
+    expect(bus.look).toEqual({ sensitivity: 1.6, invertY: false });
+    bus.setLook({ invertY: true });
+    expect(bus.look).toEqual({ sensitivity: 1.6, invertY: true });
+  });
+
+  it("tells the frame when the browser freed the captured mouse, through the ordinary handlers", () => {
+    const bus = makeHudBus(1, 1);
+    expect(() => bus.onLookFreed()).not.toThrow(); // a no-op until the frame installs one
+    const freed = vi.fn();
+    const near = vi.fn();
+    bus.setHandlers({ onNear: near });
+    bus.setHandlers({ onLookFreed: freed });
+    bus.onLookFreed();
+    expect(freed).toHaveBeenCalledTimes(1);
+    expect(bus.onNear).toBe(near); // installing one handler leaves the others alone
+  });
+
+  it("lets the frame ask the scene to capture the mouse again, once the scene has said how", () => {
+    const bus = makeHudBus(1, 1);
+    expect(() => bus.requestLook()).not.toThrow(); // nothing to capture until the scene is up
+    const capture = vi.fn();
+    bus.setLookRequester(capture);
+    bus.requestLook();
+    expect(capture).toHaveBeenCalledTimes(1);
   });
 });

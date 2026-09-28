@@ -27,7 +27,10 @@ export type HudSlotNodes = {
 /** The single nodes the driver writes, by name. */
 export type HudNodeKey = "manaFill" | "manaText" | "mapWorld" | "mapYou" | "mapCone" | "mapHome" | "mapGoal" | "goalMark" | "goalArrow" | "goalDist";
 
-export type HudHandlers = Pick<HudBus, "onPlace" | "onFound" | "onRefuse" | "onNear" | "onInteract" | "onCast" | "onWalked" | "onDoor">;
+export type HudHandlers = Pick<HudBus, "onPlace" | "onFound" | "onRefuse" | "onNear" | "onInteract" | "onCast" | "onWalked" | "onDoor" | "onLookFreed">;
+
+/** How the mouse turns the camera. Written by the frame's settings, read by the scene on every move. */
+export type LookSettings = { sensitivity: number; invertY: boolean };
 
 /**
  * Where the next objective stands — the villager the objective card names — for the driver to
@@ -144,6 +147,17 @@ export type HudBus = {
   paused: boolean;
 
   /**
+   * Looking with the mouse. The scene captures the mouse when the child clicks the world; the
+   * browser frees it on Esc, and then the scene fires `onLookFreed` so the frame can open the
+   * pause menu (Esc never reaches the page while the mouse is captured). `requestLook` goes the
+   * other way: the frame calls it from a click (Resume) to capture the mouse again, and the scene
+   * installs what that means through `setLookRequester`. `look` is mutated in place by `setLook`.
+   */
+  onLookFreed: () => void;
+  requestLook: () => void;
+  look: LookSettings;
+
+  /**
    * The HUD hands its nodes and its handlers over through these rather than assigning the
    * fields directly, and that is the React compiler's rule rather than a preference: a prop is
    * immutable as far as the compiler is concerned, so `bus.manaFill = el` inside a ref callback
@@ -156,6 +170,8 @@ export type HudBus = {
   setPlate(index: number, el: HTMLElement | null): void;
   setHandlers(handlers: Partial<HudHandlers>): void;
   setPaused(paused: boolean): void;
+  setLook(settings: Partial<LookSettings>): void;
+  setLookRequester(request: () => void): void;
   setGoal(on: boolean, x: number, y: number, z: number): void;
   setLeaving(site: string | null): void;
   setFeet(handlers: Partial<FeetHandlers>): void;
@@ -201,6 +217,9 @@ export function makeHudBus(slots: number, plates: number): HudBus {
     onCast: noop,
     onWalked: noop,
     onDoor: noop,
+    onLookFreed: noop,
+    requestLook: noop,
+    look: { sensitivity: 1, invertY: false },
     leaving: null,
     feet: { onStep: noop, onJump: noop, onLand: noop },
     ear: { x: 0, z: 0, yaw: 0 },
@@ -234,9 +253,16 @@ export function makeHudBus(slots: number, plates: number): HudBus {
       if (handlers.onCast) bus.onCast = handlers.onCast;
       if (handlers.onWalked) bus.onWalked = handlers.onWalked;
       if (handlers.onDoor) bus.onDoor = handlers.onDoor;
+      if (handlers.onLookFreed) bus.onLookFreed = handlers.onLookFreed;
     },
     setPaused(paused) {
       bus.paused = paused;
+    },
+    setLook(settings) {
+      Object.assign(bus.look, settings);
+    },
+    setLookRequester(request) {
+      bus.requestLook = request;
     },
     setLeaving(site) {
       bus.leaving = site;
