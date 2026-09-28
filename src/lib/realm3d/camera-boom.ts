@@ -442,7 +442,7 @@ export function insideWall(x: number, y: number, z: number, near: readonly Colli
  * far as the whole figure can be seen (`sightFraction`), and at least the Rig's floor `minFrac` —
  * unless the floor would park the lens INSIDE a wall or a tower, in which case no further than the
  * eye's line reaches. A lens behind a wall shows the inside of the wall; a lens in a canopy is left
- * alone, because the wood dissolves round the lens (`nearCutout`).
+ * alone, because the wood dissolves round the lens (`seeThrough`).
  */
 export function lensFrac(
   hx: number,

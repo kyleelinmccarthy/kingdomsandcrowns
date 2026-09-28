@@ -55,9 +55,10 @@ import { WORLD_SIZE, type Prop, type VillagerPlacement, type WorldLayout } from 
 import { heightAt } from "@/lib/realm3d/heightfield";
 import { WALK_HALF, type RealmWorld } from "@/lib/realm3d/worldgen";
 import { shoreMove, wadeSpeed } from "@/lib/realm3d/shore";
-import { CAMERA_CUT, gableGeo, litMaterial, nearCutout, sceneryGeometryFor, vivid } from "./geo-kit";
+import { gableGeo, litMaterial, sceneryGeometryFor, seeThrough, vivid } from "./geo-kit";
 import { RealmGround, RealmWater, WadeRing } from "./world-ground";
 import { RealmProps } from "./world-props";
+import { SeeThroughGroup } from "./see-through-group";
 import { landmarkColliders, landmarkRadii, RealmLandmarks } from "./landmarks";
 import {
   buildColliders,
@@ -169,7 +170,7 @@ const CORE_HALF = WORLD_SIZE / 2;
  * of them is drawn: clipping them short is what would put a seam in the world.
  */
 function Scenery({ scenery, world }: { scenery: readonly Prop[]; world: RealmWorld }) {
-  const mat = useMemo(() => nearCutout(litMaterial(), CAMERA_CUT), []);
+  const mat = useMemo(() => seeThrough(litMaterial()), []);
   const groups = useMemo(() => {
     const by = new Map<string, Prop[]>();
     for (const p of scenery) {
@@ -811,7 +812,7 @@ const DUCK_Y = 3.6;
 /**
  * How close a ducked boom may come. In the Old Wood a tree stands every metre or so, so there is
  * often no clear spot at this length either — the trees nearest the lens dissolve for that
- * (`nearCutout` in geo-kit), rather than the camera being dragged into the child's hood.
+ * (`seeThrough` in geo-kit), rather than the camera being dragged into the child's hood.
  */
 const DUCK_MIN = 0.55;
 /** The fastest the camera ever turns itself, in radians a second. */
@@ -1023,7 +1024,7 @@ function Rig({
     // summit, it is allowed to sit low rather than being shoved back up to look down again.
     const lift = terrainClearance(ptr.pitch) + (1.3 - terrainClearance(ptr.pitch)) * duck.current;
     // A boom held at its minimum can still leave the lens inside a canopy in a thick wood; the
-    // trees dissolve near the lens for exactly that (`nearCutout`), so it is not pulled in here.
+    // trees dissolve near the lens for exactly that (`seeThrough`), so it is not pulled in here.
     const f = frac.current;
     const cx = p.x + camH * sin * f;
     const cz = p.z + camH * cos * f;
@@ -1454,9 +1455,11 @@ const World = memo(function World({
         villageSolids={fixedSolids}
         villageOccluders={fixedOccluders}
       />
-      <RealmLandmarks world={world} />
       <Scenery scenery={scenery} world={world} />
-      <Village props={layout.props} villagers={layout.villagers} castleType={layout.castleType} castleUnlocked={castleUnlocked} />
+      <SeeThroughGroup>
+        <RealmLandmarks world={world} />
+        <Village props={layout.props} villagers={layout.villagers} castleType={layout.castleType} castleUnlocked={castleUnlocked} />
+      </SeeThroughGroup>
       <Villagers villagers={layout.villagers} heroRef={heroRef} />
       <Hero heroRef={heroRef} keys={keys} yawRef={yawRef} pointer={pointer} bus={bus} facingRef={facingRef} gaitRef={gaitRef} aimRef={aimRef} solids={solids} world={world} ride={ride}>
         {/* A parent dropping in walks as the realm's quest-giver, not as the child. */}

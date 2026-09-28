@@ -15,6 +15,7 @@
 
 import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
+import { AIM_Y, HERO_R, NEAR_HERO, SOFT } from "@/lib/realm3d/see-through";
 
 /** Bake a flat colour into a geometry so many parts can share one vertex-coloured material. */
 export function paint(geo: THREE.BufferGeometry, hex: string): THREE.BufferGeometry {
@@ -210,12 +211,12 @@ export const CAMERA_CUT = 4.2;
 
 /**
  * Where the hero is, for the FOREGROUND dissolve below. One shared uniform, written once a frame
- * by the scene (`doorstep.tsx`), read by every material `nearCutout` has touched.
+ * by the scene (`doorstep.tsx`), read by every material `seeThrough` has touched.
  */
 export const LENS_HERO = { value: new THREE.Vector3(0, -1e5, 0) };
 /**
  * A whole tree standing this close to the lens, and well in front of the hero, is dissolved
- * rather than drawn. See `nearCutout`.
+ * rather than drawn. See `seeThrough`.
  */
 export const FOREGROUND_NEAR = 8.5;
 export const FOREGROUND_FAR = 12.5;
@@ -231,8 +232,17 @@ export const FOREGROUND_FAR = 12.5;
  * of it together — but only while the lens is low (under ten units over the tree's root): from
  * the usual camera a tree below is a sunlit crown and hides nothing. Trees beside or beyond the
  * hero are never touched.
+ *
+ * ...and, since the owner asked that the camera never zoom in: everything between the lens and
+ * the child, inside the cone `lib/realm3d/see-through.ts` describes.
  */
-export function nearCutout(mat: THREE.Material, cut: number): THREE.Material {
+const glsl = (n: number) => n.toFixed(3);
+/** Materials already given the hook, so a material shared by two places, or seen twice by `patchSeeThrough`, is wrapped once. */
+const PATCHED = new WeakSet<THREE.Material>();
+
+export function seeThrough(mat: THREE.Material, cut: number = CAMERA_CUT): THREE.Material {
+  if (PATCHED.has(mat)) return mat;
+  PATCHED.add(mat);
   const prev = mat.onBeforeCompile;
   const prevKey = mat.customProgramCacheKey.bind(mat);
   mat.onBeforeCompile = (shader, renderer) => {
@@ -250,8 +260,6 @@ export function nearCutout(mat: THREE.Material, cut: number): THREE.Material {
            vec3 foreRoot = (modelMatrix * instanceMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
            float foreD = length(foreRoot.xz - cameraPosition.xz);
            float heroD = length(cutHero.xz - cameraPosition.xz);
-           // ...and only while the lens is down among the trees. From the usual camera, twenty
-           // units up, a tree below it is its own sunlit crown seen from above and hides nothing.
            float lensUp = cameraPosition.y - foreRoot.y;
            vFore = (1.0 - smoothstep(${FOREGROUND_NEAR.toFixed(1)}, ${FOREGROUND_FAR.toFixed(1)}, foreD)) * step(foreD + 4.0, heroD) * (1.0 - smoothstep(6.0, 10.0, lensUp));
          #else
@@ -259,21 +267,50 @@ export function nearCutout(mat: THREE.Material, cut: number): THREE.Material {
          #endif`,
       );
     shader.fragmentShader = shader.fragmentShader
-      .replace("#include <common>", "#include <common>\nuniform float cutNear;\nvarying vec3 vCutPos;\nvarying float vFore;")
+      .replace("#include <common>", "#include <common>\nuniform float cutNear;\nuniform vec3 cutHero;\nvarying vec3 vCutPos;\nvarying float vFore;")
       .replace(
         "#include <clipping_planes_fragment>",
         `#include <clipping_planes_fragment>
-         float cutD = distance(vCutPos, cameraPosition);
-         if (cutD < cutNear || vFore > 0.0) {
-           // A 4x4 ordered dither: the closer the fragment, the more of the pattern is gone.
+         // Near the lens, and a whole tree in front of a lowered lens (above).
+         float keep = min(smoothstep(cutNear * 0.45, cutNear, distance(vCutPos, cameraPosition)), 1.0 - vFore);
+         // Between the lens and the child: seeThroughKeep in lib/realm3d/see-through.ts, line for line.
+         vec3 stA = cutHero + vec3(0.0, ${glsl(AIM_Y)}, 0.0) - cameraPosition;
+         float stLen = length(stA);
+         if (stLen > 0.001) {
+           vec3 stU = stA / stLen;
+           vec3 stV = vCutPos - cameraPosition;
+           float stT = dot(stV, stU);
+           if (stT > 0.0 && stT < stLen - ${glsl(NEAR_HERO)}) {
+             float stRad = ${glsl(HERO_R)} * stT / stLen;
+             keep = min(keep, smoothstep(stRad * ${glsl(SOFT)}, stRad, length(stV - stU * stT)));
+           }
+         }
+         if (keep < 1.0) {
+           // A 4x4 ordered dither: the less of a surface is kept, the more of the pattern is gone.
            vec2 cell = mod(floor(gl_FragCoord.xy), 4.0);
            float bayer = mod(cell.x * 4.0 + cell.y * 7.0 + cell.x * cell.y * 5.0, 16.0) / 16.0;
-           float keep = min(smoothstep(cutNear * 0.45, cutNear, cutD), 1.0 - vFore);
            if (bayer >= keep) discard;
          }`,
       );
   };
-  mat.customProgramCacheKey = () => `${prevKey()}|cut${cut}|fore`;
+  mat.customProgramCacheKey = () => `${prevKey()}|see${cut}`;
   return mat;
+}
+
+/**
+ * Every mesh material under `root` given `seeThrough`, once each (`SeeThroughGroup`). Sprites,
+ * points and lines are left alone: their shaders never compute the world position the rule needs.
+ */
+export function patchSeeThrough(root: THREE.Object3D): void {
+  root.traverse((o) => {
+    const mesh = o as THREE.Mesh;
+    if (!mesh.isMesh) return;
+    const list = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    for (const m of list) {
+      if (!m || PATCHED.has(m) || !m.type.startsWith("Mesh")) continue;
+      seeThrough(m);
+      m.needsUpdate = true;
+    }
+  });
 }
 

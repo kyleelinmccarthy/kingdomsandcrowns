@@ -93,7 +93,7 @@ export function Doorstep({
 
   useFrame((_, rawDt) => {
     const p = heroRef.current;
-    // The world's view of the hero, for the foreground dissolve (see `nearCutout`).
+    // The world's view of the hero, for the foreground dissolve (see `seeThrough`).
     LENS_HERO.value.set(p.x, p.y, p.z);
 
     /* ---- coming out of a door ------------------------------------------ */
