@@ -58,6 +58,7 @@ import type { RecentClear } from "@/lib/realm3d/trouble-reload";
 import { TroubleMapMarks, TroubleNotices, TroublePlates } from "./troubles-hud";
 import { BountyGain } from "./troubles-hud";
 import { heldClearsFor, useTroubleBounty } from "./use-trouble-bounty";
+import { LookReticle } from "./look-reticle";
 import { realmWorld } from "@/lib/realm3d/worldgen";
 import { DEFAULT_AVATAR, type AvatarConfig } from "@/lib/utils/avatar-catalog";
 import { DEFAULT_LEARNING_PROFILE, type LearningProfile } from "@/lib/utils/learning-profile";
@@ -963,6 +964,7 @@ export function RealmGame({
             onFound={places.store.add}
           />
           <TroublePlates tbus={troubleBus} />
+          <LookReticle paused={paused} />
           <div className={`r3-frame${paused ? " r3-frame--paused" : ""}`}>
             <ObjectiveCard
               objective={objective}

@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <defs>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#fff1b8"/>
+      <stop offset="0.5" stop-color="#e2b54a"/>
+      <stop offset="1" stop-color="#9a6a1c"/>
+    </linearGradient>
+    <linearGradient id="cuff" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#c9953a"/>
+      <stop offset="1" stop-color="#7a5217"/>
+    </linearGradient>
+  </defs>
+  <g stroke="#1a1408" stroke-width="1.4" stroke-linejoin="round" stroke-linecap="round">
+    <rect x="9.5" y="1.5" width="5" height="13" rx="2.5" fill="url(#gold)"/>
+    <path d="M7.2 13.2 Q7.2 11.6 9.3 11.6 H22.2 Q25 11.6 25 14.4 V20.6 Q25 24.6 21 24.6 H10.4 Q7.6 24.6 7 21.8 L6 16.4 Q5.8 13.9 7.2 13.2 Z" fill="url(#gold)"/>
+    <path d="M17.2 11.8 V16.4 M20.9 11.8 V16.4" fill="none"/>
+    <path d="M9.6 17.2 Q7.4 17.6 6.4 19.4" fill="none"/>
+    <path d="M8.6 24.6 H23.2 L25.2 30.4 H6.6 Z" fill="url(#cuff)"/>
+  </g>
+  <circle cx="15.9" cy="27.6" r="1.1" fill="#fff1b8"/>
+  <path d="M10.6 3.4 V12.6" stroke="#fffbe6" stroke-width="0.9" stroke-linecap="round" opacity="0.7"/>
+</svg>

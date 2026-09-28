@@ -61,7 +61,7 @@
   background: linear-gradient(180deg, #74502f, var(--r3-timber-deep, #4a2f1c));
   color: #fff6de;
   font: inherit;
-  cursor: pointer;
+  cursor: var(--cursor-hand);
   box-shadow: 0 4px 0 rgba(0, 0, 0, 0.28);
   text-align: left;
 }
@@ -105,7 +105,7 @@
   color: #3a2415;
   font: inherit;
   font-weight: 900;
-  cursor: pointer;
+  cursor: var(--cursor-hand);
 }
 .r3-travel-stop:hover { filter: brightness(1.08); }
 

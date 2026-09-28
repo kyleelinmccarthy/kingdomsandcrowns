@@ -481,7 +481,7 @@ html { scrollbar-color: var(--border) var(--background); }
   text-decoration: none;
   transition: all 0.25s ease;
   color: var(--muted-foreground);
-  cursor: pointer;
+  cursor: var(--cursor-hand);
   border: none;
   background: none;
   font: inherit;
@@ -1907,7 +1907,7 @@ body[data-realm-open] .parent-alert-popup { display: none; }
    mana strip; with no base transform to clobber there is nothing left to fix here. */
 .realm-message { position: absolute; left: 0; right: 0; margin: 0; margin-inline: auto; width: fit-content; display: inline-flex; align-items: center; justify-content: center; gap: 0.6rem; max-width: min(30rem, calc(100vw - 2rem)); border-radius: 0.5rem; padding: 0.4rem 0.75rem; text-align: center; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8); }
 .realm-message:empty { display: none; }
-.realm-message button { min-width: var(--realm-touch); min-height: var(--realm-touch); padding: 0 1rem; border-radius: 9999px; border: 1px solid var(--gold-border); background: rgba(201, 168, 76, 0.25); color: var(--gold-bright); font: inherit; font-weight: 700; cursor: pointer; }
+.realm-message button { min-width: var(--realm-touch); min-height: var(--realm-touch); padding: 0 1rem; border-radius: 9999px; border: 1px solid var(--gold-border); background: rgba(201, 168, 76, 0.25); color: var(--gold-bright); font: inherit; font-weight: 700; cursor: var(--cursor-hand); }
 .realm-message--problem { top: calc(2.5rem + 8rem * var(--realm-hud-scale)); background: rgba(0, 0, 0, 0.75); border: 1px solid var(--gold-border); font-size: 0.95em; }
 .realm-message--cheer, .realm-message--plain { bottom: calc(var(--realm-bar-bottom) + 3.6rem + 2rem * var(--realm-hud-scale)); font-size: 0.95em; }
 .realm-message--cheer { background: rgba(201, 168, 76, 0.25); border: 1px solid var(--gold-border); color: var(--gold-bright); font-weight: 700; animation: realm-toast-in 300ms ease-out; }
@@ -1972,7 +1972,7 @@ body[data-realm-open] .parent-alert-popup { display: none; }
    `.realm-panel`, so a hero who needs larger text got a 1.25x HUD and an unchanged 11px
    world. The `, 1` fallback keeps a plate legible when it is rendered outside
    `.realm-root` — a unit test, or any harness that mounts it on its own. */
-.realm-plate { display: flex; flex-direction: column; align-items: center; gap: 0.1rem; min-height: var(--realm-touch); white-space: nowrap; border-radius: 0.5rem; border: 1px solid var(--gold-border); padding: 0.25rem 0.5rem; background: rgba(0, 0, 0, 0.55); color: #fff; font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif; text-align: center; pointer-events: auto; cursor: pointer; }
+.realm-plate { display: flex; flex-direction: column; align-items: center; gap: 0.1rem; min-height: var(--realm-touch); white-space: nowrap; border-radius: 0.5rem; border: 1px solid var(--gold-border); padding: 0.25rem 0.5rem; background: rgba(0, 0, 0, 0.55); color: #fff; font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif; text-align: center; pointer-events: auto; cursor: var(--cursor-hand); }
 /* Out of reach there is nothing to press, and the pointer must not say otherwise. Keyed off the
    same `aria-disabled` the plate already sets from `inReach`, so the cue a child sees and the one
    a screen reader hears are derived from one state and cannot drift apart. `default`, not
@@ -2067,7 +2067,7 @@ body[data-realm-open] .parent-alert-popup { display: none; }
 /* One control, no paragraph: the bubble is now a frame around the Talk button. */
 .realm-bubble { display: flex; flex-direction: column; align-items: center; border-radius: 9999px; padding: 0.25rem; background: rgba(0, 0, 0, 0.7); color: #fff; font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif; text-align: center; pointer-events: auto; }
 /* Every control that sits over the 3D world is --realm-touch (56px); panel buttons stay at 44px. */
-.realm-bubble-talk { min-width: var(--realm-touch); min-height: var(--realm-touch); border-radius: 9999px; padding: 0 1.1rem; border: 1px solid var(--gold-border); background: rgba(201, 168, 76, 0.25); color: var(--gold-bright); font-size: calc(15px * var(--realm-hud-scale)); font-weight: 700; cursor: pointer; }
+.realm-bubble-talk { min-width: var(--realm-touch); min-height: var(--realm-touch); border-radius: 9999px; padding: 0 1.1rem; border: 1px solid var(--gold-border); background: rgba(201, 168, 76, 0.25); color: var(--gold-bright); font-size: calc(15px * var(--realm-hud-scale)); font-weight: 700; cursor: var(--cursor-hand); }
 .realm-bubble-key { font-weight: 600; opacity: 0.75; }
 .realm-stick { position: absolute; left: 1.25rem; bottom: 1.25rem; z-index: 20; border-radius: 9999px; background: rgba(255, 255, 255, 0.12); border: 2px solid rgba(255, 255, 255, 0.35); touch-action: none; }
 .realm-stick-knob { position: absolute; left: 50%; top: 50%; width: 44%; height: 44%; margin: -22% 0 0 -22%; border-radius: 9999px; background: rgba(255, 255, 255, 0.55); }
@@ -2104,7 +2104,7 @@ body[data-realm-open] .parent-alert-popup { display: none; }
    375x812 and 390x844 with the stick up: a four-page book squeezed each chip from 68-73px to
    56-67px, and a six-page one crushed every chip to the 44px floor. `0 0 auto` hands the job
    back to the base rule's own `overflow-x: auto`, which is what it was written for. */
-.realm-spell { position: relative; display: flex; flex: 0 0 auto; align-items: center; gap: 0.35rem; min-height: 44px; min-width: 44px; padding: 0 0.7rem; border-radius: 9999px; border: 2px solid transparent; background: rgba(255, 255, 255, 0.08); color: #fff; font-size: 1em; white-space: nowrap; cursor: pointer; }
+.realm-spell { position: relative; display: flex; flex: 0 0 auto; align-items: center; gap: 0.35rem; min-height: 44px; min-width: 44px; padding: 0 0.7rem; border-radius: 9999px; border: 2px solid transparent; background: rgba(255, 255, 255, 0.08); color: #fff; font-size: 1em; white-space: nowrap; cursor: var(--cursor-hand); }
 .realm-spell--selected { background: rgba(201, 168, 76, 0.3); box-shadow: 0 0 0 2px var(--gold-bright); }
 .realm-spell--dim { opacity: 0.55; }
 /* §3.7: a refused cast shakes the SELECTED slot — three cycles of 4px — while the pips
@@ -2128,7 +2128,7 @@ body[data-realm-open] .parent-alert-popup { display: none; }
 .realm-spell-hint-text { margin: 0 0 0.6rem; }
 .realm-spell-hint-actions { display: flex; align-items: center; gap: 0.75rem; }
 .realm-spell-hint-link { min-height: 44px; display: inline-flex; align-items: center; padding: 0 1rem; border-radius: 9999px; border: 1px solid var(--gold-border); background: rgba(201, 168, 76, 0.25); color: var(--gold-bright); font-weight: 700; }
-.realm-spell-hint-close { min-height: 44px; min-width: 44px; background: none; border: none; color: #fff; text-decoration: underline; cursor: pointer; }
+.realm-spell-hint-close { min-height: 44px; min-width: 44px; background: none; border: none; color: #fff; text-decoration: underline; cursor: var(--cursor-hand); }
 .realm-root--aiming canvas { cursor: crosshair; }
 .realm-hud-skip { min-height: 44px; min-width: 44px; }
 .realm-hud .realm-hud-skip { font-size: 0.9em; }
@@ -2162,7 +2162,7 @@ body[data-realm-open] .parent-alert-popup { display: none; }
   75% { transform: translateX(4px); }
 }
 @media (prefers-reduced-motion: reduce) { .realm-mana-pips--refused { animation: none; } }
-.realm-mount-button { position: absolute; right: 1.25rem; bottom: var(--realm-bar-bottom); z-index: 21; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.05rem; min-width: var(--realm-touch); min-height: var(--realm-touch); padding: 0 0.5rem; border-radius: 9999px; border: 1px solid var(--gold-border); background: rgba(201, 168, 76, 0.25); color: var(--gold-bright); font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif; font-size: calc(12px * var(--realm-hud-scale)); font-weight: 700; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8); cursor: pointer; pointer-events: auto; }
+.realm-mount-button { position: absolute; right: 1.25rem; bottom: var(--realm-bar-bottom); z-index: 21; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.05rem; min-width: var(--realm-touch); min-height: var(--realm-touch); padding: 0 0.5rem; border-radius: 9999px; border: 1px solid var(--gold-border); background: rgba(201, 168, 76, 0.25); color: var(--gold-bright); font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif; font-size: calc(12px * var(--realm-hud-scale)); font-weight: 700; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8); cursor: var(--cursor-hand); pointer-events: auto; }
 .realm-mount-button:disabled { opacity: 0.5; cursor: default; }
 .realm-mount-key { font-weight: 500; font-size: calc(10px * var(--realm-hud-scale)); color: rgba(255, 255, 255, 0.8); }
 
@@ -2185,7 +2185,7 @@ body[data-realm-open] .parent-alert-popup { display: none; }
 
    Leave the Realm is the reason the corner is worth this much care: a child reaching for
    Cast and hitting it is thrown out of the game. */
-.realm-cast-button { position: absolute; right: 1.25rem; bottom: 1.25rem; z-index: 20; display: inline-flex; align-items: center; justify-content: center; min-width: var(--realm-touch); min-height: var(--realm-touch); padding: 0 1rem; border-radius: 9999px; border: 1px solid var(--gold-border); background: rgba(0, 0, 0, 0.55); color: var(--gold-bright); font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif; font-size: calc(14px * var(--realm-hud-scale)); font-weight: 700; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8); cursor: pointer; pointer-events: auto; }
+.realm-cast-button { position: absolute; right: 1.25rem; bottom: 1.25rem; z-index: 20; display: inline-flex; align-items: center; justify-content: center; min-width: var(--realm-touch); min-height: var(--realm-touch); padding: 0 1rem; border-radius: 9999px; border: 1px solid var(--gold-border); background: rgba(0, 0, 0, 0.55); color: var(--gold-bright); font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif; font-size: calc(14px * var(--realm-hud-scale)); font-weight: 700; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8); cursor: var(--cursor-hand); pointer-events: auto; }
 .realm-cast-button:disabled { opacity: 0.5; cursor: default; }
 /* The way back. It is the same shape and the same size as Cast, one step above it, and
    it is dressed DOWN rather than up — white on black, where Cast is gold — because it
@@ -2276,7 +2276,7 @@ body[data-realm-open] .parent-alert-popup { display: none; }
 /* Both axes, like `.realm-hud-help` and `.realm-hud-skip`: as a flex item this button sizes
    to its content, and "Skip" plus its padding comes to ~42px — under the target floor on the
    axis nobody thinks to check. `min-height` alone does not make a 44px target. */
-.realm-tutorial button { min-height: 44px; min-width: 44px; padding: 0 0.5rem; background: none; border: none; color: var(--gold-bright); font: inherit; font-weight: 500; text-decoration: underline; cursor: pointer; pointer-events: auto; }
+.realm-tutorial button { min-height: 44px; min-width: 44px; padding: 0 0.5rem; background: none; border: none; color: var(--gold-bright); font: inherit; font-weight: 500; text-decoration: underline; cursor: var(--cursor-hand); pointer-events: auto; }
 .realm-tutorial-step { margin: 0; }
 /* With nothing to say the box keeps its place in the accessibility tree and loses everything
    that would draw it: an absolutely positioned flex box with no padding, no border and one
@@ -2654,3 +2654,21 @@ body[data-realm-open] .parent-alert-popup { display: none; }
 .r3-plate--hero .r3-plate-name { font-size: 0.95rem; }
 /* A place: parchment, because it is a sign rather than a person. */
 .r3-plate--landmark { background: rgba(38, 27, 12, 0.76); border-color: #d9c48f; }
+
+/* ──────────────────────────────────────────────────────────
+   Cursors — a gilded arrow everywhere, a gold gauntlet over anything that can be pressed.
+   One pair of tokens: stylesheets say var(--cursor-hand), never `pointer`
+   (src/app/cursors.test.ts holds that line). Unlayered on purpose, so it beats Tailwind's
+   `cursor-pointer` utility, which lives in @layer utilities.
+   ────────────────────────────────────────────────────────── */
+:root {
+  --cursor-arrow: url("/cursors/arrow.svg") 3 2, auto;
+  --cursor-hand: url("/cursors/gauntlet.svg") 12 2, pointer;
+}
+html { cursor: var(--cursor-arrow); }
+a[href], button:not(:disabled), summary, label[for], select:not(:disabled),
+[role="button"]:not([aria-disabled="true"]), [role="menuitem"], [role="tab"], [role="option"], [role="switch"],
+input[type="checkbox"]:not(:disabled), input[type="radio"]:not(:disabled), input[type="range"]:not(:disabled) { cursor: var(--cursor-hand); }
+.cursor-pointer { cursor: var(--cursor-hand); }
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="button"]):not([type="submit"]),
+textarea, [contenteditable="true"] { cursor: text; }

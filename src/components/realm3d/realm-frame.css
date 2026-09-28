@@ -213,13 +213,13 @@
 }
 .r3-chip-icon { width: 1.1rem; height: 1.1rem; }
 .r3-trouble { margin: 0; padding: 0.4rem 0.8rem; border-radius: 12px; font-size: 0.85rem; font-weight: 700; pointer-events: auto; }
-.r3-link-button { border: 0; background: none; padding: 0; color: var(--r3-gold); font: inherit; font-weight: 900; text-decoration: underline; cursor: pointer; }
+.r3-link-button { border: 0; background: none; padding: 0; color: var(--r3-gold); font: inherit; font-weight: 900; text-decoration: underline; cursor: var(--cursor-hand); }
 
 /* Buttons over the world: chunky, gold-edged, and the only things here that take the pointer. */
 .r3-round,
 .r3-button {
   pointer-events: auto;
-  cursor: pointer;
+  cursor: var(--cursor-hand);
   border: 3px solid var(--r3-bark);
   background: linear-gradient(180deg, #74502f, var(--r3-timber-deep));
   color: var(--r3-parchment);
@@ -329,7 +329,7 @@
   box-shadow: 0 5px 0 rgba(0, 0, 0, 0.3), 0 0 26px rgba(245, 192, 74, 0.45), inset 0 2px 0 rgba(255, 225, 170, 0.25);
   color: #fff6de;
   font: inherit;
-  cursor: pointer;
+  cursor: var(--cursor-hand);
   pointer-events: auto;
   animation: r3-prompt-in 0.18s ease-out;
 }
@@ -357,7 +357,7 @@
 
 .r3-bar .r3-slot {
   pointer-events: auto;
-  cursor: pointer;
+  cursor: var(--cursor-hand);
   padding: 0;
   font: inherit;
   color: inherit;
@@ -447,7 +447,7 @@
   font-size: 1.15rem;
   font-weight: 900;
   text-decoration: none;
-  cursor: pointer;
+  cursor: var(--cursor-hand);
   transition: transform 0.08s ease, filter 0.08s ease;
 }
 .r3-board-foot .r3-menu-item { flex: 1 1 auto; }
@@ -479,7 +479,7 @@
   font: inherit;
   font-size: 0.9rem;
   font-weight: 800;
-  cursor: pointer;
+  cursor: var(--cursor-hand);
 }
 .r3-toggle button[aria-pressed="true"] { background: linear-gradient(180deg, #ffd875, #e09b24); color: #3a2008; }
 .r3-selector { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; }
@@ -492,7 +492,7 @@
   color: var(--r3-parchment);
   font-family: inherit;
   font-weight: 800;
-  cursor: pointer;
+  cursor: var(--cursor-hand);
 }
 .r3-selector button:hover { filter: brightness(1.15); }
 .r3-selector button.border-primary {
@@ -838,7 +838,7 @@
   font-size: 0.8rem;
   font-weight: 800;
   text-decoration: underline;
-  cursor: pointer;
+  cursor: var(--cursor-hand);
 }
 .r3-coach-skip:hover { color: var(--r3-gold); }
 .r3-coach--done { display: flex; align-items: center; justify-content: center; gap: 0.6rem; padding: 0.7rem 1.2rem; }
@@ -978,7 +978,7 @@
   font-size: 1.3rem;
   font-weight: 800;
   text-align: left;
-  cursor: pointer;
+  cursor: var(--cursor-hand);
   transition: transform 0.08s ease, filter 0.08s ease;
 }
 .r3-choice:not(:disabled):hover { filter: brightness(1.18); transform: translateY(-2px); border-color: var(--r3-gold); }
@@ -1201,3 +1201,6 @@
 .r3-earning { display: flex; gap: 0.5rem; align-items: flex-start; padding: 0.6rem 0.75rem; border-radius: 10px; background: rgba(245, 192, 74, 0.1); border: 1px solid rgba(245, 192, 74, 0.35); }
 .r3-earning-icon { flex: none; width: 1.2em; height: 1.2em; margin-top: 0.1em; color: var(--r3-gold); }
 .r3-screen-extra { font-size: 1rem; color: #e8cf97; }
+
+/* The mouse is the camera (look-reticle.tsx): a small gold mark at the middle of the view. */
+.r3-reticle { position: absolute; left: 50%; top: 50%; z-index: 22; width: 22px; height: 22px; transform: translate(-50%, -50%); color: var(--r3-gold); filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.8)); pointer-events: none; }
