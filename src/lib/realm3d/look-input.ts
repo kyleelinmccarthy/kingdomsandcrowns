@@ -94,11 +94,14 @@ export function mouseLook(el: LookEl, doc: LookDoc, o: MouseLookOptions): MouseL
   let asking = false;
   /** The one retry after a refusal has been spent. */
   let retried = false;
+  /** Gone (a room closed): a retry queued before that must not ask a torn-down canvas. */
+  let disposed = false;
   let drag = -1;
   let lastX = 0;
   let lastY = 0;
 
   function ask(): void {
+    if (disposed) return;
     asking = true;
     try {
       const r = el.requestPointerLock?.() as Promise<void> | undefined;
@@ -148,6 +151,7 @@ export function mouseLook(el: LookEl, doc: LookDoc, o: MouseLookOptions): MouseL
       }
     },
     dispose() {
+      disposed = true;
       // Going away while captured (a room closing): the next canvas to play takes the capture.
       if (captured) HANDED.set(doc, true);
       endDrag();

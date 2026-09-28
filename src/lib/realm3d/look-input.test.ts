@@ -185,6 +185,16 @@ describe("when the browser says no", () => {
     expect(el.requestPointerLock).toHaveBeenCalledTimes(1);
   });
 
+  it("cancels a pending retry on dispose, so a torn-down canvas is never asked again", async () => {
+    const { el, look, queued } = rig({ refuse: true });
+    el.fire("pointerdown", { button: 0, pointerId: 1 });
+    await settle();
+    expect(el.requestPointerLock).toHaveBeenCalledTimes(1);
+    look.dispose();
+    for (const q of queued) q.fn();
+    expect(el.requestPointerLock).toHaveBeenCalledTimes(1);
+  });
+
   it("plays on without Pointer Lock at all: a click asks nothing and throws nothing, and the right button still looks", () => {
     const { el, doc, looks } = rig();
     delete (el as { requestPointerLock?: unknown }).requestPointerLock;
