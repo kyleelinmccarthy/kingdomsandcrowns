@@ -2,43 +2,42 @@
  * THE CHILD'S HANDS ON THE REALM — the arithmetic of the mouse camera and the walk.
  *
  * Deliberately NOT a three.js module: the scene runs all of this inside `useFrame` and inside
- * pointer handlers, and every rule here is one a child feels directly, so every one of them is
+ * input handlers, and every rule here is one a child feels directly, so every one of them is
  * tested with no WebGL. Nothing here allocates; anything that returns more than a number writes
  * into a caller-owned object.
  *
- * ## The scheme (fixed, and the frame's hints and pause menu describe exactly this)
+ * ## The scheme (the frame's hints, the pause menu and the tutorial describe exactly this)
  *
- *   - WASD walks relative to the CAMERA. A and D strafe.
- *   - Left-drag orbits the camera round the hero; the hero does not turn.
- *   - Right-drag orbits the camera AND turns the hero to face where the camera looks.
- *   - The wheel zooms, clamped. Vertical drag pitches, clamped.
+ * The owner: "it should feel more like minecraft/world of warcraft where you can move
+ * dynamically with wasd with strafing and using the mouse to control the camera".
+ *
+ *   - THE MOUSE IS THE CAMERA. Click the world and the mouse is captured: from then on moving it
+ *     turns the camera left and right and tilts it up and down, with no button held. Esc frees
+ *     it. While it is free, holding the RIGHT button and dragging turns the camera too, as in
+ *     World of Warcraft, so the HUD stays clickable. Every source goes through one door, `lookBy`,
+ *     in screen pixels, scaled by the child's own sensitivity and invert setting.
+ *   - The wheel zooms and the pitch is the child's, both clamped. NOTHING ELSE MOVES THE CAMERA.
+ *     It does not swing round a roof, duck under a canopy, rise over a tower or come in along a
+ *     blocked line: what stands between it and the child turns see-through instead
+ *     (`see-through.ts`). The one thing the lens does on its own is stay above the ground
+ *     (`chaseLens`), and that only ever raises it — never brings it nearer, never turns it.
+ *   - WASD walks relative to the CAMERA. A and D are true strafes, S is a backpedal, and a
+ *     diagonal is no faster than straight. How the body gets up to speed is `locomotion.ts`.
+ *   - The body faces where the camera looks while it moves and while the mouse has the camera;
+ *     with the mouse free and no drag, a standing body keeps its facing (`bodyFacing`).
  *   - Space jumps, E interacts, 1–9 cast. Esc is the frame's.
  *
- * ## The facing rule, and the bug it replaces
+ * ## Why facing the heading cannot flip
  *
- * The body used to face the MOVEMENT direction, damped with `MathUtils.damp` on the raw angle.
- * Two faults, one symptom ("they keep flipping around back and forth"):
- *
- *   1. `atan2` hands back (-π, π], and due north — straight into the screen at spawn — is
- *      exactly the seam. Walking north with a touch of A or D flips the target between +π-ε and
- *      -π+ε, and a plain damp between those goes the LONG way, through 0, which is facing the
- *      camera. So the hero spun a full half-turn every time a strafe key was tapped.
- *   2. Even turned the short way, facing the movement direction means a strafe turns the body
- *      sideways and a backpedal turns it round to face the lens. With a mouse camera that is
- *      the wrong read: the child is looking where the camera looks, and S means "back up".
- *
- * The rule now (`moveIntent`), with F the camera's forward on the ground:
- *
- *   - any forward input (W, W+A, W+D): face the way you are going — F, or F turned 45°.
- *   - backward input (S, S+A, S+D): BACKPEDAL — face away from the motion, so the body faces F
- *     (or F turned 45° the mirror way) and walks backwards; the legs run their cycle in reverse.
- *   - pure strafe (A or D alone): face F and sidestep.
- *   - no input: hold whatever facing you had.
- *
- * So while walking the body is never more than 45° off the camera's forward, the target can
- * never be across the ±π seam from where the body is by more than that, and every turn is taken
- * the short way round by `turnToward`. Strafing and backpedalling cannot flip the body.
+ * The body once faced its MOVEMENT direction, damped with `MathUtils.damp` on the raw angle, and
+ * "they keep flipping around back and forth": `atan2` hands back (-π, π], due north — straight
+ * into the screen at spawn — is exactly the seam, and a plain damp across it goes the LONG way,
+ * through facing the camera. Now a moving body faces the camera's heading whatever the keys are,
+ * so a strafe or a backpedal never asks it to turn at all, and every turn there is (the mouse
+ * swinging the heading round) is taken the short way by `turnToward`.
  */
+
+import type { LookSettings } from "./hud-bus";
 
 /* ------------------------------------------------------------------ angles */
 
@@ -66,6 +65,8 @@ export function turnToward(current: number, target: number, lambda: number, dt: 
   return wrapAngle(current + angleDelta(current, target) * (1 - Math.exp(-lambda * dt)));
 }
 
+const clamp = (v: number, lo: number, hi: number) => (v < lo ? lo : v > hi ? hi : v);
+
 /* -------------------------------------------------------------- the camera */
 
 /**
@@ -88,36 +89,53 @@ export const PITCH_MAX = 1.3;
 export const DIST_MIN = 11;
 export const DIST_MAX = 44;
 
-/** Radians per pixel of drag. Pitch is slower: a child drags sideways far more than up. */
+/** Radians per pixel of mouse at sensitivity 1. Pitch is slower: a child looks sideways far more than up. */
 export const YAW_PER_PX = 0.0062;
 export const PITCH_PER_PX = 0.0042;
 /** Per wheel "pixel": one notch (~100) is a tenth or so of the boom. */
 export const ZOOM_PER_PX = 0.0011;
 
-export function clampPitch(p: number): number {
-  return p < PITCH_MIN ? PITCH_MIN : p > PITCH_MAX ? PITCH_MAX : p;
-}
-
-export function clampDist(d: number): number {
-  return d < DIST_MIN ? DIST_MIN : d > DIST_MAX ? DIST_MAX : d;
-}
+/** How far the child may tilt and zoom: the island's, or a room's (`room-rules.ts`). */
+export type LookLimits = { pitchMin: number; pitchMax: number; distMin: number; distMax: number };
+export const ISLAND_LOOK: LookLimits = { pitchMin: PITCH_MIN, pitchMax: PITCH_MAX, distMin: DIST_MIN, distMax: DIST_MAX };
 
 /**
- * A mouse drag, in pixels. Drag right looks right; drag down looks down (the camera rises).
+ * A look, in screen pixels: the mouse moved (captured), or dragged with the right button (free).
+ * Right looks right; up looks up — the camera sinks toward the horizon — unless the child plays
+ * inverted. `s` is the frame's settings, read at every move so a change applies at once.
  *
  * Looking right means the camera's forward turns clockwise seen from above. Forward is
  * `-(sin yaw, cos yaw)`, which turns ANTI-clockwise as yaw grows — hence the minus.
  */
-export function orbitDrag(o: Orbit, dxPx: number, dyPx: number): Orbit {
-  o.yaw = wrapAngle(o.yaw - dxPx * YAW_PER_PX);
-  o.pitch = clampPitch(o.pitch + dyPx * PITCH_PER_PX);
+export function lookBy(o: Orbit, dxPx: number, dyPx: number, s: LookSettings, lim: LookLimits = ISLAND_LOOK): Orbit {
+  const k = s.sensitivity;
+  o.yaw = wrapAngle(o.yaw - dxPx * YAW_PER_PX * k);
+  o.pitch = clamp(o.pitch + (s.invertY ? -dyPx : dyPx) * PITCH_PER_PX * k, lim.pitchMin, lim.pitchMax);
   return o;
 }
 
 /** A wheel event's `deltaY`. Positive (scroll down / towards you) pulls the camera back. */
-export function orbitZoom(o: Orbit, deltaY: number): Orbit {
-  o.dist = clampDist(o.dist * Math.exp(deltaY * ZOOM_PER_PX));
+export function zoomBy(o: Orbit, deltaY: number, lim: LookLimits = ISLAND_LOOK): Orbit {
+  o.dist = clamp(o.dist * Math.exp(deltaY * ZOOM_PER_PX), lim.distMin, lim.distMax);
   return o;
+}
+
+/**
+ * The camera as the child holds it, beside the yaw (which the scene keeps in its own ref, read by
+ * the HUD's cone and the spells). `held` is true while a mouse source has the camera — captured,
+ * or a right-drag — and `lastLookAt` is when the last look arrived, in seconds.
+ */
+export type LookState = { pitch: number; dist: number; held: boolean; lastLookAt: number };
+
+/** How long after the last look the body is still turning to follow it. */
+export const LOOK_SETTLE = 0.3;
+
+/**
+ * Whether the child is looking with the mouse: it has the camera now, or moved it a moment ago —
+ * so a body turning to follow a drag finishes its turn after the button comes up.
+ */
+export function looking(s: LookState, now: number): boolean {
+  return s.held || now - s.lastLookAt < LOOK_SETTLE;
 }
 
 /** The boom's horizontal reach and its rise, for an orbit. Writes into `out`. */
@@ -128,9 +146,8 @@ export function boomOffset(out: { h: number; y: number }, pitch: number, dist: n
 }
 
 /**
- * How high over the ground under it the camera insists on sitting, by pitch. The old fixed
- * 3.5 was right for a camera looking down at 43°; a camera the child has lowered to look out
- * at the horizon would be shoved up by it and made to look down again, fighting their hand.
+ * How high over the ground under it the lens insists on sitting, by pitch. A camera the child
+ * has lowered to look out at the horizon may sit low; one looking down sits higher.
  */
 export function terrainClearance(pitch: number): number {
   const t = Math.min(1, Math.max(0, (pitch - 0.15) / 0.55));
@@ -138,19 +155,28 @@ export function terrainClearance(pitch: number): number {
 }
 
 /**
- * Whether the camera may swing ITSELF round an obstruction this frame.
- *
- * The swinging boom (see `pickBoom`) exists so a hero who WALKS behind a roof is not lost. But
- * a camera that turns itself while the child is turning it is a camera fighting their hand, one
- * that turns itself the instant they let go undoes what they just chose, and one that turns
- * itself while they stand still admiring the view they set up takes the view away. So it only
- * helps while the child is walking and has not touched the camera for `ASSIST_GRACE` seconds;
- * otherwise an obstruction pulls the boom IN along the line they chose instead of swinging it.
+ * Where the lens goes: on the child's own boom from (hx, anchorY, hz) — their yaw, their pitch,
+ * their distance — raised only as far as the ground under it needs (`clear` over `groundAt`, when
+ * there is ground; a room has none). It is never brought nearer and never turned: whatever stands
+ * between the lens and the child is the see-through's business, not the camera's. Writes `out`.
  */
-export const ASSIST_GRACE = 1.6;
-
-export function swingAllowed(dragging: boolean, now: number, lastDragAt: number, walking: boolean): boolean {
-  return walking && !dragging && now - lastDragAt >= ASSIST_GRACE;
+export function chaseLens<T extends { x: number; y: number; z: number }>(
+  out: T,
+  hx: number,
+  anchorY: number,
+  hz: number,
+  yaw: number,
+  pitch: number,
+  dist: number,
+  groundAt: ((x: number, z: number) => number) | null,
+  clear: number,
+): T {
+  const h = dist * Math.cos(pitch);
+  out.x = hx + h * Math.sin(yaw);
+  out.z = hz + h * Math.cos(yaw);
+  const y = anchorY + dist * Math.sin(pitch);
+  out.y = groundAt ? Math.max(y, groundAt(out.x, out.z) + clear) : y;
+  return out;
 }
 
 /* ------------------------------------------------------------------ the walk */
@@ -163,9 +189,9 @@ export type MoveIntent = {
   x: number;
   z: number;
   moving: boolean;
-  /** The body's facing target, in the `atan2(dx, dz)` basis; NaN means hold what you have. */
+  /** The body's facing target, in the `atan2(dx, dz)` basis: the camera's heading; NaN standing. */
   face: number;
-  /** Walking backwards: the legs run in reverse and the pace drops. */
+  /** Walking backwards: the pace drops, and the legs read it as a backpedal. */
   back: boolean;
 };
 
@@ -177,8 +203,8 @@ export function makeMoveIntent(): MoveIntent {
 export const BACKPEDAL = 0.72;
 
 /**
- * Keys plus the camera's yaw → where to walk and which way to face. See the file header for
- * the facing rule. Writes into `out`.
+ * Keys plus the camera's yaw → where to walk and which way to face. A and D strafe, S backs up,
+ * and the body faces the camera's heading for all of them. Writes into `out`.
  */
 export function moveIntent(out: MoveIntent, yaw: number, k: MoveKeys): MoveIntent {
   const fb = (k.f ? 1 : 0) - (k.b ? 1 : 0);
@@ -188,8 +214,8 @@ export function moveIntent(out: MoveIntent, yaw: number, k: MoveKeys): MoveInten
   const fz = -Math.cos(yaw);
   const rx = Math.cos(yaw);
   const rz = -Math.sin(yaw);
-  let dx = fx * fb + rx * s;
-  let dz = fz * fb + rz * s;
+  const dx = fx * fb + rx * s;
+  const dz = fz * fb + rz * s;
   const len = Math.hypot(dx, dz);
   if (len < 1e-6) {
     out.x = 0;
@@ -199,19 +225,52 @@ export function moveIntent(out: MoveIntent, yaw: number, k: MoveKeys): MoveInten
     out.back = false;
     return out;
   }
-  dx /= len;
-  dz /= len;
-  out.x = dx;
-  out.z = dz;
+  out.x = dx / len;
+  out.z = dz / len;
   out.moving = true;
   out.back = fb < 0;
-  if (fb > 0) out.face = Math.atan2(dx, dz);
-  else if (fb < 0) out.face = Math.atan2(-dx, -dz);
-  else out.face = Math.atan2(fx, fz);
+  out.face = Math.atan2(fx, fz);
   return out;
 }
 
-/** The facing that looks where the camera looks: what a right-drag turns the hero to. */
+/** The facing that looks where the camera looks. */
 export function cameraFacing(yaw: number): number {
   return Math.atan2(-Math.sin(yaw), -Math.cos(yaw));
+}
+
+/**
+ * Which way the body turns this frame, or NaN to hold it where it is.
+ *
+ *   - `steered`: something else has the reins — a fast-travel ride, the mount-up moment — and
+ *     the body faces where it asks (`aim`), never where the camera looks.
+ *   - moving: where it travels (`travel`: the camera's heading on foot; a mount going forward
+ *     faces its own way, `rideFace`).
+ *   - `looking` with the mouse: the camera's heading, so the child turns to look where they look.
+ *   - otherwise the body keeps its facing, unless a cast or a doorway asks for one (`aim`).
+ */
+export function bodyFacing(travel: number, heading: number, looking: boolean, steered: boolean, aim: number): number {
+  if (steered) return aim;
+  if (travel === travel) return travel;
+  if (looking) return heading;
+  return aim;
+}
+
+/* ---------------------------------------------- going with the next commit */
+
+/** @deprecated the mouse is `lookBy` now; kept only until the scenes move over. */
+export function orbitDrag(o: Orbit, dxPx: number, dyPx: number): Orbit {
+  return lookBy(o, dxPx, dyPx, { sensitivity: 1, invertY: false });
+}
+
+/** @deprecated `zoomBy`. */
+export function orbitZoom(o: Orbit, deltaY: number): Orbit {
+  return zoomBy(o, deltaY);
+}
+
+/** @deprecated the camera no longer swings itself. */
+export const ASSIST_GRACE = 1.6;
+
+/** @deprecated the camera no longer swings itself. */
+export function swingAllowed(dragging: boolean, now: number, lastDragAt: number, walking: boolean): boolean {
+  return walking && !dragging && now - lastDragAt >= ASSIST_GRACE;
 }

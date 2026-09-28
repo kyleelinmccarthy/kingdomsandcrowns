@@ -55,8 +55,8 @@ import { buildDoors } from "@/lib/realm3d/doorways";
 import type { RecessBus } from "@/lib/realm3d/recess/bus";
 import type { TroubleBus } from "@/lib/realm3d/trouble-bus";
 
-/** Written by the mover each frame: how fast (0..1 of top speed) and where in the walk cycle. */
-export type Gait = { speed: number; phase: number };
+/** Written by the mover each frame: how fast (0..1 of top speed), where in the walk cycle, and how far the hips turn into a sidestep (`hipTurn`; absent is square). */
+export type Gait = { speed: number; phase: number; hip?: number };
 
 /* ------------------------------------------------------------ proportions */
 
@@ -1650,6 +1650,7 @@ export function HeroFigure({ look, gait, seat }: { look: HeroLook; gait: React.R
   const swing = useRef(0);
   const cape = useRef<THREE.Group>(null);
   const bob = useRef<THREE.Group>(null);
+  const hips = useRef<THREE.Group>(null);
 
   useFrame((_, rawDt) => {
     const dt = Math.min(0.05, rawDt);
@@ -1667,6 +1668,8 @@ export function HeroFigure({ look, gait, seat }: { look: HeroLook; gait: React.R
       c.rotation.x = THREE.MathUtils.damp(c.rotation.x, lift2, 7, dt);
       c.rotation.z = THREE.MathUtils.damp(c.rotation.z, Math.sin(g.phase * 0.5) * 0.12 * g.speed, 7, dt);
     }
+    const hp = hips.current;
+    if (hp) hp.rotation.y = THREE.MathUtils.damp(hp.rotation.y, g.hip ?? 0, 10, dt);
   });
 
   const skirt = look.legs.shape === "skirt" && look.outfit.shape !== "robe";
@@ -1687,14 +1690,16 @@ export function HeroFigure({ look, gait, seat }: { look: HeroLook; gait: React.R
           warm fill that rides with the hero and reaches barely past him, so the one figure a
           child is looking for is never the dullest thing on the screen. */}
       <pointLight position={[0.4, 2.2, 1.2]} intensity={3.4} distance={3.0} decay={2} color="#ffeccf" />
-      <Leg look={look} side={-1} swingRef={swing} seat={seat} />
-      <Leg look={look} side={1} swingRef={swing} seat={seat} />
-      {skirt && (
-        <mesh castShadow position={[0, 0.72, 0]}>
-          <cylinderGeometry args={[0.36, 0.56, 0.54, 9]} />
-          <Flat color={look.legs.color} />
-        </mesh>
-      )}
+      <group ref={hips}>
+        <Leg look={look} side={-1} swingRef={swing} seat={seat} />
+        <Leg look={look} side={1} swingRef={swing} seat={seat} />
+        {skirt && (
+          <mesh castShadow position={[0, 0.72, 0]}>
+            <cylinderGeometry args={[0.36, 0.56, 0.54, 9]} />
+            <Flat color={look.legs.color} />
+          </mesh>
+        )}
+      </group>
       <Torso look={look} />
       <Pauldrons look={look} />
       <Arm look={look} side={-1} swingRef={swing} seat={seat} />

@@ -16,6 +16,7 @@
  */
 
 import { overlaps, STEP_UP, HERO_RADIUS, type Collider, type Pt } from "./collision";
+import type { LookLimits } from "./controls";
 import { DOOR_PUSH } from "./doorways";
 import type { InteractSpot } from "./interact";
 import { edgeDistance, RELEASE_MARGIN, SWITCH_MARGIN } from "./interact";
@@ -164,3 +165,6 @@ export function clampRoomPitch(p: number): number {
 export function clampRoomDist(d: number): number {
   return d < ROOM_DIST_MIN ? ROOM_DIST_MIN : d > ROOM_DIST_MAX ? ROOM_DIST_MAX : d;
 }
+
+/** The room's look limits, for the one mouse input the island and the rooms share (`lookBy`, `zoomBy`). */
+export const ROOM_LOOK: LookLimits = { pitchMin: ROOM_PITCH_MIN, pitchMax: ROOM_PITCH_MAX, distMin: ROOM_DIST_MIN, distMax: ROOM_DIST_MAX };

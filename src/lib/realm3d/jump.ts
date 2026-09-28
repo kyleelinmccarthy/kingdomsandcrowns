@@ -56,6 +56,9 @@ export function tryJump(v: Vertical): boolean {
 /**
  * One frame of gravity, then a clamp onto whatever is under the hero at (x, z). `terrainY` is
  * the heightfield; `colliders` are the solids they might be standing on top of. Mutates `v`.
+ *
+ * The rise and fall are the exact arc under constant gravity, not a step of it, so a jump is the
+ * same height at 30 frames a second as at 144 — a slow laptop's child clears the same garden bed.
  */
 export function stepVertical(
   v: Vertical,
@@ -66,13 +69,14 @@ export function stepVertical(
   colliders: readonly Collider[],
   radius?: number,
 ): Vertical {
+  const was = v.y;
   if (dt > 0) {
+    v.y += v.vy * dt - 0.5 * GRAVITY * dt * dt;
     v.vy -= GRAVITY * dt;
-    v.y += v.vy * dt;
   }
   // Only tops the feet were already above count as ground, so a ledge the hero is passing in
   // front of never yanks them up onto it.
-  const floor = supportHeight(x, z, terrainY, colliders, radius, Math.max(v.y, v.y - v.vy * dt));
+  const floor = supportHeight(x, z, terrainY, colliders, radius, Math.max(v.y, was));
   if (v.y <= floor) {
     v.y = floor;
     v.vy = 0;

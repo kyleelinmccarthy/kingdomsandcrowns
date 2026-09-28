@@ -237,6 +237,21 @@ describe("jumping", () => {
     expect((JUMP_SPEED * JUMP_SPEED) / (2 * GRAVITY)).toBeCloseTo(1.47, 2);
   });
 
+  it("is the same jump at 30, 60 and 144 frames a second", () => {
+    // y = 10t − 17t², sampled at sixths of a second (a frame boundary at all three rates).
+    const want = [1.194444444, 1.444444444, 0.75];
+    for (const hz of [30, 60, 144]) {
+      const v = makeVertical(0);
+      tryJump(v);
+      const got: number[] = [];
+      for (let i = 1; i <= hz / 2; i++) {
+        stepVertical(v, 1 / hz, 0, 0, 0, flat);
+        if ((i * 6) % hz === 0) got.push(v.y);
+      }
+      for (let k = 0; k < 3; k++) expect(got[k], `${hz} Hz at ${k + 1}/6 s`).toBeCloseTo(want[k], 8);
+    }
+  });
+
   it("refuses a second jump in the air, and a held key is one jump", () => {
     const v = makeVertical(0);
     tryJump(v);
