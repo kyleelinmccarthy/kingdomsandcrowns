@@ -464,12 +464,12 @@ html { scrollbar-color: var(--border) var(--background); }
 .game-navbar-main {
   display: flex;
   align-items: center;
-  gap: 0.1rem;
+  gap: 0;
 }
 .game-navbar-end {
   display: flex;
   align-items: center;
-  gap: 0.1rem;
+  gap: 0;
 }
 /* User medallion — dropdown trigger styled like a nav medallion */
 .user-medallion {
@@ -522,13 +522,20 @@ html { scrollbar-color: var(--border) var(--background); }
   white-space: nowrap;
 }
 
-/* Compact medallions in the navbar — sized so the full destination set fits
-   on common phone widths (≥360px) without horizontal scrolling. */
+/* Compact medallions in the navbar — icons only below 768px. Eight medallions
+   (six destinations plus Help and the account medallion) don't fit at 390px
+   with words under every icon — even after Round 8 cut the bar from nine
+   destinations to six, six worded medallions plus two more still overflowed
+   the bar and collided with Help/the account medallion (see task-2-report.md,
+   fix round 1). Icons stay unambiguous on their own (tooltip + aria-label
+   carry the word for touch and screen readers); a group's chevron still
+   marks it as a menu, sized off its own font-size so collapsing the label's
+   doesn't collapse the chevron with it. */
 .game-navbar .medallion,
 .game-navbar .user-medallion {
   flex-direction: column;
   gap: 0.1rem;
-  padding: 0.2rem 0.3rem;
+  padding: 0.2rem 0.2rem;
   border-radius: 0.5rem;
 }
 .game-navbar .medallion-icon,
@@ -539,7 +546,7 @@ html { scrollbar-color: var(--border) var(--background); }
 }
 .game-navbar .medallion-label,
 .game-navbar .user-medallion .medallion-label {
-  font-size: 0.55rem;
+  font-size: 0;
   letter-spacing: 0.02em;
   text-transform: uppercase;
 }
@@ -552,7 +559,11 @@ html { scrollbar-color: var(--border) var(--background); }
 
 /* A group medallion (Quests, Rewards) opens a menu. Its chevron rides after the word, sized in em
    so it follows the label from the stacked phone bar to the desktop row, and points the way the
-   menu opens: up, out of the bar. While its menu is open the medallion stays lit like a hover. */
+   menu opens: up, out of the bar. While its menu is open the medallion stays lit like a hover.
+   Below 768px the label's own font-size collapses to 0 (see the compact-medallion rule above) so
+   the word disappears without display:none; the chevron sets its own font-size rather than
+   inherit that 0, so it stays visible — still the one visual sign a medallion is a menu, not a
+   plain link, once the word beside it is gone. */
 .medallion-chevron {
   display: inline-block;
   width: 1em;
@@ -560,6 +571,7 @@ html { scrollbar-color: var(--border) var(--background); }
   margin-left: 0.15em;
   vertical-align: -0.15em;
   opacity: 0.7;
+  font-size: 0.75rem;
 }
 .medallion[data-popup-open] {
   background: rgba(201, 168, 76, 0.08);
@@ -732,6 +744,11 @@ html { scrollbar-color: var(--border) var(--background); }
   .game-navbar .user-medallion .medallion-label {
     font-size: 0.8rem;
     text-transform: none;
+  }
+  /* Pins the chevron back to the size it had before it needed its own font-size to survive the
+     label's font-size: 0 below 768px — matches 0.8rem, what it inherited from the label here. */
+  .game-navbar .medallion-chevron {
+    font-size: 0.8rem;
   }
 }
 
