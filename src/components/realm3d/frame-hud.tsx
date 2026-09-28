@@ -20,7 +20,7 @@
 import Link from "next/link";
 import { useEffect, useRef, type ReactNode } from "react";
 import { Avatar, VillagerFigure } from "@/components/avatar";
-import { GameIcon, type GameIconName } from "@/components/game-icon";
+import { GameIcon, SPELLBOOK_ICON, type GameIconName } from "@/components/game-icon";
 import { formatElapsed, useQuestTimer } from "@/hooks/use-quest-timer";
 import type { RealmDepth } from "@/lib/realm/depth";
 import type { KingdomState } from "@/lib/realm/kingdom-state";
@@ -543,7 +543,7 @@ export function EmptyPagePanel({
   const copy = emptyPageCopy(slot, viewer, heroName);
   const you = viewer === "parent" ? `${heroName} can` : "You can";
   return (
-    <Panel title={copy.title} label={copy.title} icon={<GameIcon name="book" className="r3-board-icon" />} onClose={onClose}>
+    <Panel title={copy.title} label={copy.title} icon={<GameIcon name={SPELLBOOK_ICON} className="r3-board-icon" />} onClose={onClose}>
       <div className="r3-page-demo" aria-hidden="true">
         <span className="r3-page-part" style={{ ["--r3-ink" as string]: "#f97316" }}>
           <GameIcon name="fire" className="r3-page-part-icon" />
@@ -583,7 +583,7 @@ export function EmptyPagePanel({
       )}
       <div className="r3-board-foot">
         <Link href={spellbookHref} className="r3-menu-item r3-menu-item--go">
-          <GameIcon name="book" className="r3-menu-icon" /> {copy.cta}
+          <GameIcon name={SPELLBOOK_ICON} className="r3-menu-icon" /> {copy.cta}
         </Link>
         <button type="button" className="r3-menu-item" onClick={onClose}>
           Keep playing

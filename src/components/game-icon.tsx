@@ -125,6 +125,9 @@ export const CASTLE_ICONS: Record<string, GameIconName> = {
   citadel: "castle",
 };
 
+/** The Spellbook wherever it is shown — the bar, the guide, its page, the links to it: an open book. */
+export const SPELLBOOK_ICON: GameIconName = "book";
+
 export function GameIcon({
   name,
   className,

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import { GameBanner, GameNavBar } from "./game-nav";
+import { drawing, drawingOf } from "@/test/icons";
 
 vi.mock("next/navigation", () => ({
   usePathname: vi.fn(() => "/tavern"),
@@ -115,6 +116,13 @@ describe("GameNavBar", () => {
     render(<GameNavBar userName="Test" />);
     const questsLink = screen.getByText("Quest Log").closest("a");
     expect(questsLink).not.toHaveClass("medallion--active");
+  });
+
+  it("shows the Spellbook as an open book", () => {
+    const book = drawingOf("book");
+    render(<GameNavBar userName="Hero" isChildView />);
+    const spellbook = screen.getByRole("link", { name: /^Spellbook — / });
+    expect(drawing(spellbook.querySelector("svg"))).toBe(book);
   });
 
   it("renders corner ornaments on navbar", () => {

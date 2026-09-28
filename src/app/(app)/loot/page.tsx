@@ -14,7 +14,7 @@ import { GameFrame } from "@/components/game-frame";
 import { CrownsPanel } from "@/components/crowns-panel";
 import { Avatar } from "@/components/avatar";
 import { getRewardItemLabel, MOUNTS, isUnlocked, type AvatarConfig } from "@/lib/utils/avatar-catalog";
-import { GameIcon, BADGE_ICONS } from "@/components/game-icon";
+import { GameIcon, BADGE_ICONS, SPELLBOOK_ICON } from "@/components/game-icon";
 
 export default async function LootPage({
   searchParams,
@@ -146,7 +146,7 @@ export default async function LootPage({
         </GameFrame>
       </div>
 
-      <GameFrame title="Spellbook" icon={<GameIcon name="crystalBall" className="size-4 text-[var(--gold-bright)]" />}>
+      <GameFrame title="Spellbook" icon={<GameIcon name={SPELLBOOK_ICON} className="size-4 text-[var(--gold-bright)]" />}>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm">
             {spellsKept} {spellsKept === 1 ? "spell" : "spells"} kept &middot; {spellbook.unlocked.length} of {SPELL_PART_COUNT} parts unlocked &middot; Mounts: {mountsUnlocked} of {MOUNTS.length}

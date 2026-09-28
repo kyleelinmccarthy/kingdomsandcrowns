@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { GameFrame } from "@/components/game-frame";
-import { GameIcon, type GameIconName } from "@/components/game-icon";
+import { GameIcon, SPELLBOOK_ICON, type GameIconName } from "@/components/game-icon";
 import { saveSpell, clearSpell, type Spellbook, type SpellRecord } from "@/lib/actions/spells";
 import {
   SPELL_ELEMENTS,
@@ -98,7 +98,7 @@ export function SpellbookBuilder({ childId, heroName, book, canEdit }: Props) {
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
-      <GameFrame title={`${heroName}'s Pages`} icon={<GameIcon name="book" className="size-4 text-[var(--gold-bright)]" />}>
+      <GameFrame title={`${heroName}'s Pages`} icon={<GameIcon name={SPELLBOOK_ICON} className="size-4 text-[var(--gold-bright)]" />}>
         <ul className="space-y-2">
           {Array.from({ length: pageCount }, (_, i) => i + 1).map((n) => {
             const spell = spellsBySlot.get(n);

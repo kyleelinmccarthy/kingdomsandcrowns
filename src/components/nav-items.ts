@@ -1,4 +1,4 @@
-import type { GameIconName } from "@/components/game-icon";
+import { SPELLBOOK_ICON, type GameIconName } from "@/components/game-icon";
 import { SIDE_QUESTS } from "@/lib/utils/side-quest-copy";
 
 export type NavItem = {
@@ -44,7 +44,7 @@ export const MAIN_NAV: NavItem[] = [
   {
     href: "/spellbook",
     label: "Spellbook",
-    icon: "crystalBall",
+    icon: SPELLBOOK_ICON,
     description: "Your book of spells — assemble what you've unlocked and name your magic.",
   },
   {
