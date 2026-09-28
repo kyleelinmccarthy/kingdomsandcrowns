@@ -106,6 +106,7 @@ import { digitSlot, pushCast, type Caster, type CastQueue } from "@/lib/realm3d/
 import type { HudBus } from "@/lib/realm3d/hud-bus";
 import type { PlateAnchor } from "@/lib/realm3d/plate-anchors";
 import type { FxSlot } from "@/lib/realm3d/spell-fx";
+import { DevDraws } from "./dev-draws";
 import { HudDriver } from "./hud-driver";
 import { Doorstep } from "./doorstep";
 import { SpellFx } from "./spell-fx";
@@ -1527,6 +1528,7 @@ const World = memo(function World({
         this frame — a nameplate computed from last frame's camera slides visibly whenever the
         boom swings round a roof.
       */}
+      {process.env.NODE_ENV !== "production" && <DevDraws />}
       <HudDriver
         bus={bus}
         world={world}
