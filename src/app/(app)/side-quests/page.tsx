@@ -61,7 +61,7 @@ export default async function SideQuestsPage({ searchParams }: { searchParams: P
               receives reading that fits them. It is also no longer even true of the work they get:
               their math may be running a band above the one their own grade sits in. The grown-up
               has a strictly better answer, per strand, in Settings → Subject Levels. */}
-          <p className="mt-1 text-muted-foreground">Help the folk of the kingdom. Each side quest raises a building and strengthens your magic.</p>
+          <p className="mt-1 text-muted-foreground">Help the folk of the kingdom. Each side quest helps build the village and strengthens your magic.</p>
         </div>
         {!isChildView && allChildren.length > 1 && <ChildSelector kids={allChildren} selectedId={activeChild.id} />}
       </div>

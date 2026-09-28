@@ -14,7 +14,7 @@ export type Objective = {
 
 export type ObjectiveState =
   | { kind: "unknown" }                        // no kingdom data: the load failed
-  | { kind: "complete" }                       // every building raised
+  | { kind: "complete" }                       // every building built
   | { kind: "next"; objectives: Objective[] }; // 1..limit, best first
 
 /**
@@ -84,7 +84,7 @@ export function objectiveState(buildings: SiteProgress[], limit: number): Object
 export function riseToast(label: string, next: ObjectiveState): string {
   const stands = `The ${label} stands.`;
   // Interim: slice 13 (the record of the work) owns the final completion line and moves it with its test.
-  if (next.kind === "complete") return `${stands} Every building is raised.`;
+  if (next.kind === "complete") return `${stands} Every building is built.`;
   if (next.kind === "unknown") return stands;
   const [objective] = next.objectives;
   if (!objective) return stands;
@@ -96,7 +96,7 @@ export function riseToast(label: string, next: ObjectiveState): string {
 export function objectiveSpeech(state: ObjectiveState): string | null {
   if (state.kind === "unknown") return null;
   // Interim: slice 13 owns the final completion line and moves it with its test.
-  if (state.kind === "complete") return "Every building is raised. Nothing is waiting.";
+  if (state.kind === "complete") return "Every building is built. Nothing is waiting.";
   const [objective] = state.objectives;
   if (!objective) return null;
   const where = `Your next ${SIDE_QUEST_LOWER} is at the ${objective.label}.`;

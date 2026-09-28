@@ -98,24 +98,24 @@ describe("RealmHud identity plate", () => {
     hud({ surfaces: simple });
     const identity = zone(".realm-hud-identity");
     expect(within(identity).getByText("Lily")).toBeInTheDocument();
-    const row = within(identity).getByRole("img", { name: "3 of 8 buildings raised." });
+    const row = within(identity).getByRole("img", { name: "3 of 8 buildings built." });
     expect(row.querySelectorAll(".realm-pip")).toHaveLength(8);
     expect(row.querySelectorAll(".realm-pip--on")).toHaveLength(3);
-    expect(within(identity).queryByText("3 of 8 raised")).not.toBeInTheDocument();
+    expect(within(identity).queryByText("3 of 8 built")).not.toBeInTheDocument();
   });
 
   it("shows the kingdom line as numerals at full depth, with the same accessible name", () => {
     hud({ surfaces: full });
     const identity = zone(".realm-hud-identity");
-    const row = within(identity).getByRole("img", { name: "3 of 8 buildings raised." });
-    expect(row).toHaveTextContent("3 of 8 raised");
+    const row = within(identity).getByRole("img", { name: "3 of 8 buildings built." });
+    expect(row).toHaveTextContent("3 of 8 built");
     expect(identity.querySelectorAll(".realm-pip")).toHaveLength(0);
   });
 
   it("drops the kingdom line rather than saying 0 of 0 when the kingdom did not load", () => {
     hud({ kingdomDone: 0, kingdomTotal: 0, objective: { kind: "unknown" } });
     expect(screen.getByText("Lily")).toBeInTheDocument();
-    expect(screen.queryByRole("img", { name: /buildings raised\./ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: /buildings built\./ })).not.toBeInTheDocument();
   });
 });
 
@@ -145,10 +145,10 @@ describe("RealmHud objective card", () => {
     expect(within(card).getByText("River Bridge · 0 of 5")).toBeInTheDocument();
   });
 
-  it("says the kingdom stands when every building is raised", () => {
+  it("says the kingdom stands when every building is built", () => {
     hud({ objective: { kind: "complete" } });
     const card = screen.getByRole("region", { name: "What to do next" });
-    expect(within(card).getByText("Every building is raised.")).toBeInTheDocument();
+    expect(within(card).getByText("Every building is built.")).toBeInTheDocument();
     expect(within(card).getByText("Nothing is waiting. Walk where you like.")).toBeInTheDocument();
     expect(card.querySelectorAll(".realm-pips")).toHaveLength(0);
   });
@@ -156,7 +156,7 @@ describe("RealmHud objective card", () => {
   it("renders no card at all when the kingdom did not load", () => {
     hud({ objective: { kind: "unknown" } });
     expect(screen.queryByRole("region", { name: "What to do next" })).not.toBeInTheDocument();
-    expect(screen.queryByText("Every building is raised.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Every building is built.")).not.toBeInTheDocument();
   });
 });
 

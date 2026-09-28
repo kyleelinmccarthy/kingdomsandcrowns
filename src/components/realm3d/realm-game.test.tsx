@@ -143,7 +143,7 @@ describe("the real village", () => {
   it("shows the objectives, the village and the clock", () => {
     const { view } = mount();
     expect(view.container.querySelector(".r3-quest-title")).toHaveTextContent("Village Well");
-    expect(screen.getByText("0 of 8 raised")).toBeInTheDocument();
+    expect(screen.getByText("0 of 8 built")).toBeInTheDocument();
     expect(screen.getByText("240 min left")).toBeInTheDocument();
   });
 });
@@ -317,7 +317,7 @@ describe("talking to a villager, and doing their side quest", () => {
     await act(async () => void fireEvent.click(screen.getByRole("button", { name: "5" })));
     await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Finish side quest" })));
     fireEvent.click(screen.getByRole("button", { name: /Back to the Realm/ }));
-    expect(screen.getByText("1 of 8 raised")).toBeInTheDocument();
+    expect(screen.getByText("1 of 8 built")).toBeInTheDocument();
     expect(screen.getByText("The Village Well stands!")).toBeInTheDocument();
     expect(screen.getByText("Next: the Grain Mill, with Miller Tessa.")).toBeInTheDocument();
     const layout = handed.props!.layout as { props: { id: string; kind: string }[] };

@@ -47,7 +47,7 @@ describe("the objectives card", () => {
 
   it("says a finished village is finished", () => {
     render(<ObjectiveCard objective={objectiveState(fresh.map((b) => ({ ...b, done: 5, complete: true })), 3)} heroName="Emma" visiting={false} numerals />);
-    expect(screen.getByText("Every building is raised.")).toBeInTheDocument();
+    expect(screen.getByText("Every building is built.")).toBeInTheDocument();
   });
 
   it("never tells a child their village is finished because it failed to load", () => {
@@ -62,7 +62,7 @@ describe("the village plank", () => {
   it("says how much stands, as the flat Realm's corner did", () => {
     render(<VillagePlank heroName="Emma" done={0} total={8} numerals />);
     expect(screen.getByText("Emma’s village")).toBeInTheDocument();
-    expect(screen.getByText("0 of 8 raised")).toBeInTheDocument();
+    expect(screen.getByText("0 of 8 built")).toBeInTheDocument();
   });
 
   it("is absent rather than showing a zero when the kingdom did not load", () => {

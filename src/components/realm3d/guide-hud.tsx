@@ -148,7 +148,7 @@ export function WelcomeCard({
         ))}
       </div>
       <p className="r3-board-line">
-        This is <b>your village</b>. {total > 0 ? `${total} buildings are waiting to be raised, and the villagers need your help.` : "The villagers need your help."}
+        This is <b>your village</b>. {total > 0 ? `${total} buildings are waiting to be built, and the villagers need your help.` : "The villagers need your help."}
       </p>
       <p className="r3-board-line">
         Talk to them and do their {SIDE_QUESTS_LOWER}. Every {SIDE_QUESTS_LOWER.replace(/s$/, "")} you finish builds their building a little more.

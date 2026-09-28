@@ -47,7 +47,7 @@ describe("side quest copy", () => {
     for (const banned of ["overview.bandLabel", "BAND_LABELS", "gapLabel", "overview.band}"]) {
       expect(rendered.join("\n")).not.toContain(banned);
     }
-    expect(page).toContain("Help the folk of the kingdom. Each side quest raises a building and strengthens your magic.</p>");
+    expect(page).toContain("Help the folk of the kingdom. Each side quest helps build the village and strengthens your magic.</p>");
   });
 
   it("redirects the old deeds address for good", async () => {

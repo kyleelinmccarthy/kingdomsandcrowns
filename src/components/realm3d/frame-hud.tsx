@@ -155,7 +155,7 @@ export function ObjectiveCard({
       <p className="r3-quest-tab">{objective.kind === "complete" ? "Your village" : `Next ${SIDE_QUEST_LOWER}`}</p>
       {objective.kind === "complete" ? (
         <>
-          <p className="r3-quest-title">Every building is raised.</p>
+          <p className="r3-quest-title">Every building is built.</p>
           <p className="r3-quest-line">Nothing is waiting. Walk where you like.</p>
         </>
       ) : (
@@ -168,7 +168,7 @@ export function ObjectiveCard({
 /* ------------------------------------------------------------------ the village */
 
 /**
- * How much of the village stands: "Emma — 0 of 8 raised", bottom left, as in the flat Realm.
+ * How much of the village stands: "Emma — 0 of 8 built", bottom left, as in the flat Realm.
  * Absent when the kingdom did not load — a zero there would be a lie.
  */
 export function VillagePlank({ heroName, done, total, numerals }: { heroName: string; done: number; total: number; numerals: boolean }) {
@@ -178,7 +178,7 @@ export function VillagePlank({ heroName, done, total, numerals }: { heroName: st
       <GameIcon name="house" className="r3-village-icon" />
       <span className="r3-village-text">
         <span className="r3-village-name">{heroName}&rsquo;s village</span>
-        <Progress done={done} total={total} numerals={numerals} text={`${done} of ${total} raised`} label={`${done} of ${total} buildings raised.`} />
+        <Progress done={done} total={total} numerals={numerals} text={`${done} of ${total} built`} label={`${done} of ${total} buildings built.`} />
       </span>
     </div>
   );

@@ -73,7 +73,7 @@ function ObjectiveCard({ objective, heroName, preview, numerals }: { objective: 
         // ("Your kingdom stands. Troubles still gather — clear them and earn more time
         // here.") and moves these two strings together with objective.ts's own.
         <>
-          <p className="realm-objective-title">Every building is raised.</p>
+          <p className="realm-objective-title">Every building is built.</p>
           <p className="realm-objective-line">Nothing is waiting. Walk where you like.</p>
         </>
       ) : (
@@ -162,8 +162,8 @@ export function RealmHud({
               done={kingdomDone}
               total={kingdomTotal}
               numerals={numerals}
-              text={`${kingdomDone} of ${kingdomTotal} raised`}
-              label={`${kingdomDone} of ${kingdomTotal} buildings raised.`}
+              text={`${kingdomDone} of ${kingdomTotal} built`}
+              label={`${kingdomDone} of ${kingdomTotal} buildings built.`}
             />
           )}
         </div>

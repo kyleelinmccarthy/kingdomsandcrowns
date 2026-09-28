@@ -39,7 +39,7 @@ export const MAIN_NAV: NavItem[] = [
     href: "/side-quests",
     label: SIDE_QUESTS,
     icon: "map",
-    description: "Help the folk of your kingdom. Each side quest raises a building and strengthens your magic.",
+    description: "Help the folk of your kingdom. Each side quest helps build the village and strengthens your magic.",
   },
   {
     href: "/spellbook",
@@ -51,7 +51,7 @@ export const MAIN_NAV: NavItem[] = [
     href: "/realm",
     label: "Realm",
     icon: "castle",
-    description: "Walk your kingdom — the castle, the buildings your side quests raised, and your companion at your side.",
+    description: "Walk your kingdom — the castle, the buildings your side quests built, and your companion at your side.",
   },
   {
     href: "/loot",

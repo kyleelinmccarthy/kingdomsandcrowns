@@ -73,7 +73,7 @@ describe("objectiveState", () => {
     expect(objectiveState([{ id: "moon-base", done: 0, total: 5, complete: false }], 1)).toEqual({ kind: "unknown" });
   });
 
-  it("reports a finished kingdom when every building is raised", () => {
+  it("reports a finished kingdom when every building is built", () => {
     const all: SiteProgress[] = BUILDINGS.map((b) => ({ id: b.id, done: b.deedsToBuild, total: b.deedsToBuild, complete: true }));
     expect(objectiveState(all, 3)).toEqual({ kind: "complete" });
   });
@@ -98,7 +98,7 @@ describe("riseToast", () => {
 
   it("says the kingdom is finished when that was the last one", () => {
     // Interim copy: slice 13 (the record of the work) owns the final line and re-baselines this assertion.
-    expect(riseToast("Royal Garden", { kind: "complete" })).toBe("The Royal Garden stands. Every building is raised.");
+    expect(riseToast("Royal Garden", { kind: "complete" })).toBe("The Royal Garden stands. Every building is built.");
   });
 
   it("says only what it knows when the kingdom state is unknown", () => {
@@ -119,7 +119,7 @@ describe("objectiveSpeech", () => {
 
   it("reads a finished kingdom aloud", () => {
     // Interim copy: slice 13 owns the final line and re-baselines this assertion.
-    expect(objectiveSpeech({ kind: "complete" })).toBe("Every building is raised. Nothing is waiting.");
+    expect(objectiveSpeech({ kind: "complete" })).toBe("Every building is built. Nothing is waiting.");
   });
 
   it("says nothing at all when the kingdom is unknown", () => {
