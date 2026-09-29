@@ -43,6 +43,7 @@ import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import type { RealmWorld, WorldProp } from "@/lib/realm3d/worldgen";
 import { type Collider } from "@/lib/realm3d/collision";
+import { GROUND_TINT } from "./day-light";
 import { fadeWithDistance, litMaterial, sceneryGeometryFor, seeThrough } from "./geo-kit";
 
 type LayerKey = WorldProp["layer"];
@@ -118,7 +119,9 @@ export function RealmProps({
   const materials = useMemo(() => {
     const out: Record<LayerKey, THREE.Material> = {} as Record<LayerKey, THREE.Material>;
     for (const layer of Object.keys(HORIZON) as LayerKey[]) {
-      out[layer] = seeThrough(fadeWithDistance(litMaterial(), HORIZON[layer].near, HORIZON[layer].far));
+      const m = litMaterial();
+      m.color = GROUND_TINT;
+      out[layer] = seeThrough(fadeWithDistance(m, HORIZON[layer].near, HORIZON[layer].far));
     }
     return out;
   }, []);

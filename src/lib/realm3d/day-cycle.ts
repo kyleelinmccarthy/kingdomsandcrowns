@@ -26,6 +26,8 @@ export type DayLight = {
   skyTop: Rgb;
   skyLow: Rgb;
   fog: Rgb;
+  /** Multiplies the ground and the foliage: white by day, blue at night, so the grass reads moonlit and not green. */
+  groundTint: Rgb;
   /** Lamps and lit windows: 1 by day, brighter after dark. */
   lamp: number;
 };
@@ -42,6 +44,7 @@ type Moment = {
   skyTop: string;
   skyLow: string;
   fog: string;
+  groundTint: string;
   lamp: number;
 };
 
@@ -49,24 +52,24 @@ type Moment = {
  * Noon is the approved shot, unchanged: the spike's sun, low on purpose and raking from behind, so
  * the shadows stay long enough to read the hills; its colours and strengths are the ones it shipped.
  */
-const DAY = { dir: [0.58, 0.44, -0.52], sun: "#fff3d2", sunI: 3.1, hemiSky: "#cfe4ff", hemiGround: "#3f5c1c", hemiI: 0.62, ambientI: 0.1, skyTop: "#2c6fb8", skyLow: "#d8e9ec", fog: "#bcdcec", lamp: 1 } as const;
+const DAY = { dir: [0.58, 0.44, -0.52], sun: "#fff3d2", sunI: 3.1, hemiSky: "#cfe4ff", hemiGround: "#3f5c1c", hemiI: 0.62, ambientI: 0.1, skyTop: "#2c6fb8", skyLow: "#d8e9ec", fog: "#bcdcec", groundTint: "#ffffff", lamp: 1 } as const;
 /** A clear moonlit night: blue, soft, and bright enough to play in. */
-const NIGHT = { dir: [-0.42, 0.62, -0.5], sun: "#7aa2ff", sunI: 1.25, hemiSky: "#4d6fe6", hemiGround: "#1a2a5c", hemiI: 0.8, ambientI: 0.3, skyTop: "#0a1a4a", skyLow: "#2a4a9a", fog: "#1f3a78", lamp: 2.4 } as const;
+const NIGHT = { dir: [-0.42, 0.62, -0.5], sun: "#7aa2ff", sunI: 1.25, hemiSky: "#4d6fe6", hemiGround: "#1a2a5c", hemiI: 0.8, ambientI: 0.3, skyTop: "#0a1a4a", skyLow: "#2a4a9a", fog: "#1f3a78", groundTint: "#6c88ff", lamp: 2.4 } as const;
 
 /** The day, hour by hour: in order, and round midnight the last blends into the first. */
 export const MOMENTS: readonly Moment[] = [
   { at: 5, ...NIGHT },
-  { at: 6.25, dir: [0.9, 0.2, -0.3], sun: "#ffb27a", sunI: 1.7, hemiSky: "#f3c6a8", hemiGround: "#3a3f2a", hemiI: 0.52, ambientI: 0.14, skyTop: "#5a6fa8", skyLow: "#f5b98a", fog: "#e0b9a0", lamp: 1.6 },
+  { at: 6.25, dir: [0.9, 0.2, -0.3], sun: "#ffb27a", sunI: 1.7, hemiSky: "#f3c6a8", hemiGround: "#3a3f2a", hemiI: 0.52, ambientI: 0.14, skyTop: "#5a6fa8", skyLow: "#f5b98a", fog: "#e0b9a0", groundTint: "#ffffff", lamp: 1.6 },
   { at: 8, ...DAY },
   { at: 17, ...DAY },
-  { at: 18.75, dir: [-0.9, 0.2, -0.3], sun: "#ff9a5c", sunI: 1.6, hemiSky: "#e8a88f", hemiGround: "#3a3526", hemiI: 0.5, ambientI: 0.14, skyTop: "#4a4f8f", skyLow: "#f39a6b", fog: "#d9a38c", lamp: 1.8 },
+  { at: 18.75, dir: [-0.9, 0.2, -0.3], sun: "#ff9a5c", sunI: 1.6, hemiSky: "#e8a88f", hemiGround: "#3a3526", hemiI: 0.5, ambientI: 0.14, skyTop: "#4a4f8f", skyLow: "#f39a6b", fog: "#d9a38c", groundTint: "#ffffff", lamp: 1.8 },
   { at: 20.5, ...NIGHT },
 ];
 
 /** Night is never darker than this share of noon (`brightness`): the floor that keeps it playable. */
 export const NIGHT_FLOOR = 0.35;
 
-type Parsed = Omit<Moment, "dir" | "sun" | "hemiSky" | "hemiGround" | "skyTop" | "skyLow" | "fog"> & {
+type Parsed = Omit<Moment, "dir" | "sun" | "hemiSky" | "hemiGround" | "skyTop" | "skyLow" | "fog" | "groundTint"> & {
   dir: Vec3;
   sun: Rgb;
   hemiSky: Rgb;
@@ -74,6 +77,7 @@ type Parsed = Omit<Moment, "dir" | "sun" | "hemiSky" | "hemiGround" | "skyTop" |
   skyTop: Rgb;
   skyLow: Rgb;
   fog: Rgb;
+  groundTint: Rgb;
 };
 
 const rgb = (hex: string): Rgb => ({ r: parseInt(hex.slice(1, 3), 16) / 255, g: parseInt(hex.slice(3, 5), 16) / 255, b: parseInt(hex.slice(5, 7), 16) / 255 });
@@ -87,12 +91,13 @@ const PARSED: readonly Parsed[] = MOMENTS.map((m) => ({
   skyTop: rgb(m.skyTop),
   skyLow: rgb(m.skyLow),
   fog: rgb(m.fog),
+  groundTint: rgb(m.groundTint),
 }));
 
 const black = (): Rgb => ({ r: 0, g: 0, b: 0 });
 
 export function makeDayLight(): DayLight {
-  return { sunDir: { x: 0, y: 1, z: 0 }, sun: black(), sunI: 0, hemiSky: black(), hemiGround: black(), hemiI: 0, ambientI: 0, skyTop: black(), skyLow: black(), fog: black(), lamp: 1 };
+  return { sunDir: { x: 0, y: 1, z: 0 }, sun: black(), sunI: 0, hemiSky: black(), hemiGround: black(), hemiI: 0, ambientI: 0, skyTop: black(), skyLow: black(), fog: black(), groundTint: { r: 1, g: 1, b: 1 }, lamp: 1 };
 }
 
 const mix = (a: number, b: number, t: number) => a + (b - a) * t;
@@ -130,6 +135,7 @@ export function lightAt(hour: number, out: DayLight): DayLight {
   mixRgb(out.skyTop, a.skyTop, b.skyTop, t);
   mixRgb(out.skyLow, a.skyLow, b.skyLow, t);
   mixRgb(out.fog, a.fog, b.fog, t);
+  mixRgb(out.groundTint, a.groundTint, b.groundTint, t);
   out.lamp = mix(a.lamp, b.lamp, t);
   return out;
 }

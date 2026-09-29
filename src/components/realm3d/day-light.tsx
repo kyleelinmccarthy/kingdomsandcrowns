@@ -13,6 +13,11 @@ import { hourFrom, lightAt, localHour, makeDayLight, type DayLight, type Rgb } f
 
 /** Every lit window in the village shares this material, so the night lights them all at once. */
 export const LIT_WINDOW = new THREE.MeshStandardMaterial({ color: "#ffe9a8", emissive: "#e8bd4a", emissiveIntensity: 0.55, flatShading: true });
+/**
+ * One colour for all the ground and its scatter (grass, trees, rocks): white by day, blue at night.
+ * Their materials point at it (`mat.color = GROUND_TINT`), and the scene paints it once a frame.
+ */
+export const GROUND_TINT = new THREE.Color(1, 1, 1);
 /** The windows' glow by day; `lamp` scales it after dark. */
 const WINDOW_GLOW = 0.55;
 const EVERY_MS = 60_000;

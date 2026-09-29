@@ -44,6 +44,7 @@ import * as THREE from "three";
 import { TERRAIN } from "@/lib/realm/layout";
 import { SEA_LEVEL, type Biome, type RealmWorld } from "@/lib/realm3d/worldgen";
 import { buildTrackIndex, segmentsOf, type TrackIndex, type TrackSeg } from "@/lib/realm3d/track-index";
+import { GROUND_TINT } from "./day-light";
 import { groundNoise } from "@/lib/realm3d/heightfield";
 
 /* ------------------------------------------------------------------ ground */
@@ -221,10 +222,12 @@ function buildTile(world: RealmWorld, tracks: TrackIndex, x0: number, z0: number
  * lurch on arrival, and sixteen frames of four is not.
  */
 export function RealmGround({ world, heroRef }: { world: RealmWorld; heroRef: React.RefObject<THREE.Vector3> }) {
-  const mat = useMemo(
-    () => new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.95, metalness: 0 }),
-    [],
-  );
+  const mat = useMemo(() => {
+    const m = new THREE.MeshStandardMaterial({ vertexColors: true, flatShading: true, roughness: 0.95, metalness: 0 });
+    // Assigned, not passed to the constructor (which would copy it): one paint tints the ground and the scatter.
+    m.color = GROUND_TINT;
+    return m;
+  }, []);
   const tracks = useMemo(() => {
     const segs: TrackSeg[] = [];
     for (const road of world.roads) segs.push(...segmentsOf(road.points, road.halfWidth));

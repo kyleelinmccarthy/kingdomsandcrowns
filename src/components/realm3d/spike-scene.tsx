@@ -117,7 +117,7 @@ import { boostJump, castBlocked, CAST_FROM_SADDLE, holdDrop, jumpSpeed, keepFoot
 import { RiddenMount, Riding, Saddle, travelGraphFor, useSeatRef } from "./riding-scene";
 import { bodyFor, slideBody, turnBody } from "@/lib/realm3d/mount-body";
 import { RecessScene } from "./recess-scene";
-import { LIT_WINDOW, paintColor, useDayLight } from "./day-light";
+import { GROUND_TINT, LIT_WINDOW, paintColor, useDayLight } from "./day-light";
 import type { DayLight } from "@/lib/realm3d/day-cycle";
 import type { RecessBus } from "@/lib/realm3d/recess/bus";
 import { ARCH_HALF_SPAN } from "@/lib/realm3d/recess/course";
@@ -168,7 +168,11 @@ const CORE_HALF = WORLD_SIZE / 2;
  * of them is drawn: clipping them short is what would put a seam in the world.
  */
 function Scenery({ scenery, world }: { scenery: readonly Prop[]; world: RealmWorld }) {
-  const mat = useMemo(() => seeThrough(litMaterial()), []);
+  const mat = useMemo(() => {
+    const m = litMaterial();
+    m.color = GROUND_TINT;
+    return seeThrough(m);
+  }, []);
   const groups = useMemo(() => {
     const by = new Map<string, Prop[]>();
     for (const p of scenery) {
@@ -765,6 +769,7 @@ function Sun({ heroRef, day }: { heroRef: React.RefObject<THREE.Vector3>; day: D
     }
     if (fill.current) fill.current.intensity = day.ambientI;
     if (scene.fog) paintColor(scene.fog.color, day.fog);
+    paintColor(GROUND_TINT, day.groundTint);
   });
 
   return (

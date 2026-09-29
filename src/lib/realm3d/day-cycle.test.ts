@@ -55,6 +55,23 @@ describe("the light at each hour", () => {
     for (const c of [l.sun, l.hemiSky, l.hemiGround, l.fog]) expect(c.b).toBeGreaterThan(c.g);
   });
 
+  it("tints the ground white at noon and blue at night, so the moon reads blue on the grass", () => {
+    close(light(12).groundTint, { r: 1, g: 1, b: 1 });
+    const n = light(0).groundTint;
+    expect(n.b).toBeGreaterThan(n.g);
+    expect(n.g).toBeGreaterThan(n.r);
+  });
+
+  it("never jumps the ground tint either", () => {
+    let prev = light(0);
+    for (let m = 1; m <= 24 * 60; m++) {
+      const next = light(m / 60);
+      expect(Math.abs(next.groundTint.b - prev.groundTint.b)).toBeLessThan(0.02);
+      expect(Math.abs(next.groundTint.r - prev.groundTint.r)).toBeLessThan(0.02);
+      prev = next;
+    }
+  });
+
   it("reddens at dawn and at dusk", () => {
     close(light(6.25).sun, hex("#ffb27a"));
     close(light(18.75).sun, hex("#ff9a5c"));
