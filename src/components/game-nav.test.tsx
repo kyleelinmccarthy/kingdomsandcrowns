@@ -77,13 +77,19 @@ describe("GameNavBar", () => {
   });
 
   it("opens a group on a click, not on hover", async () => {
-    const user = userEvent.setup();
-    render(<GameNavBar userName="Parent" />);
-    await user.hover(screen.getByRole("button", { name: /^Quests/ }));
-    await new Promise((resolve) => setTimeout(resolve, 400));
-    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
-    const items = await openGroup(user, "Quests");
-    expect(items.map((item) => item.textContent)).toEqual(["Quest Giver", "Quest Log", "Side Quests"]);
+    // shouldAdvanceTime: Testing Library's async helpers wait on a real 0 ms timeout, which a fully frozen clock never fires.
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      render(<GameNavBar userName="Parent" />);
+      await user.hover(screen.getByRole("button", { name: /^Quests/ }));
+      await vi.advanceTimersByTimeAsync(400);
+      expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+      const items = await openGroup(user, "Quests");
+      expect(items.map((item) => item.textContent)).toEqual(["Quest Giver", "Quest Log", "Side Quests"]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("gives a hero's Quests menu Quest Log and Side Quests, and no Quest Giver", async () => {

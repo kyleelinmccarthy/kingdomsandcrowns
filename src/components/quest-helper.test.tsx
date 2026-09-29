@@ -35,7 +35,9 @@ describe("QuestHelper — the guide to getting around", () => {
 
   it("walks the bar in order, naming Quests and Rewards as menus", async () => {
     const guide = await openGuide(true);
-    const topLevel = within(guide).getAllByRole("listitem").filter((item) => item.parentElement?.parentElement === guide);
+    // The guide's first list is the bar; its direct children are the top-level places (nested lists hold a group's members).
+    const bar = within(guide).getAllByRole("list")[0];
+    const topLevel = within(bar).getAllByRole("listitem").filter((item) => item.parentElement === bar);
     expect(topLevel.map((item) => item.querySelector("span span")?.textContent)).toEqual([
       "Tavern",
       "Quests",
