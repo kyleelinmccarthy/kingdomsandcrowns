@@ -41,7 +41,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import type { RealmWorld, WorldProp } from "@/lib/realm3d/worldgen";
-import { TRUNK_R, type Collider } from "@/lib/realm3d/collision";
+import { type Collider } from "@/lib/realm3d/collision";
 import { fadeWithDistance, litMaterial, sceneryGeometryFor, seeThrough } from "./geo-kit";
 
 type LayerKey = WorldProp["layer"];
@@ -83,26 +83,18 @@ const GATHER_MARGIN = 14;
 const UPRIGHT = new Set(["menhir"]);
 
 /**
- * Cut a collider list back to its fixed prefix.
+ * Cut the collider list back to its fixed prefix.
  *
- * A free function and not an inline `list.length = n`, because the arrays arrive as props and
- * the lint rule that forbids writing to a prop is right in general — the point of these two is
- * that they are the SAME arrays the frame loop already walks, deliberately shared, and the
- * sharing is what keeps the hero's collision from needing to know where a collider came from.
+ * A free function and not an inline `list.length = n`, because the array arrives as a prop and
+ * the lint rule that forbids writing to a prop is right in general — the point is that it is the
+ * SAME array the frame loop already walks, deliberately shared, and the sharing is what keeps
+ * the hero's collision from needing to know where a collider came from.
  */
 function truncate(list: Collider[], n: number): void {
   list.length = n;
 }
 
-/** The crowns that can swallow a child, as the scene draws them. Same numbers as the village's. */
-const CANOPY: Record<string, { r: number; base: number; top: number }> = {
-  oak: { r: 1.2, base: 1.0, top: 3.45 },
-  pine: { r: 0.95, base: 0.9, top: 3.75 },
-};
-
-/** A camera boom is 21 units, so a crown further out than this can never be in the way. */
-const OCCLUDER_REACH = 34;
-/** ...and a trunk further out than this cannot be walked into before the next refill. */
+/** A trunk further out than this cannot be walked into before the next refill. */
 const SOLID_REACH = 60;
 
 export type PropFields = {
@@ -114,17 +106,13 @@ export function RealmProps({
   world,
   heroRef,
   solids,
-  occluders,
   villageSolids,
-  villageOccluders,
 }: {
   world: RealmWorld;
   heroRef: React.RefObject<THREE.Vector3>;
   /** The village's solids, which this appends the wilderness's to. Mutated in place. */
   solids: Collider[];
-  occluders: Collider[];
   villageSolids: number;
-  villageOccluders: number;
 }) {
   const materials = useMemo(() => {
     const out: Record<LayerKey, THREE.Material> = {} as Record<LayerKey, THREE.Material>;
@@ -172,7 +160,6 @@ export function RealmProps({
   function refill(x: number, z: number): void {
     for (const list of buckets.values()) list.length = 0;
     truncate(solids, villageSolids);
-    truncate(occluders, villageOccluders);
 
     let widest = 0;
     for (const layer of Object.keys(HORIZON) as LayerKey[]) widest = Math.max(widest, HORIZON[layer].far);
@@ -191,21 +178,6 @@ export function RealmProps({
         const tree = p.variant === "oak" || p.variant === "pine";
         const r = tree ? 0.42 * p.scale : p.variant === "menhir" ? 0.32 * p.scale : 0.62 * p.scale;
         solids.push({ x: p.x, z: p.z, hw: Math.max(0.35, r), hd: Math.max(0.35, r), round: true, base: p.y, top: p.y + 2.4 * p.scale });
-      }
-      const canopy = CANOPY[p.variant];
-      if (canopy && d2 < OCCLUDER_REACH * OCCLUDER_REACH) {
-        occluders.push({
-          x: p.x,
-          z: p.z,
-          hw: canopy.r * p.scale,
-          hd: canopy.r * p.scale,
-          round: true,
-          base: p.y + canopy.base * p.scale,
-          top: p.y + canopy.top * p.scale,
-        });
-        // ...and the trunk under it. A ducked camera lives under the canopy, and without the
-        // trunk in the list it could settle INSIDE one: a screen of dark bark.
-        occluders.push({ x: p.x, z: p.z, hw: TRUNK_R * p.scale, hd: TRUNK_R * p.scale, round: true, base: p.y - 0.2, top: p.y + canopy.base * p.scale });
       }
     });
 

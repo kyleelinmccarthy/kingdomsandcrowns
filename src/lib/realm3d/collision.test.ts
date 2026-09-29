@@ -3,16 +3,11 @@ import { buildWorldLayout, BUILDING_SLOTS, CASTLE_POSITION } from "@/lib/realm/l
 import { heightAt } from "./heightfield";
 import {
   buildColliders,
-  clearFraction,
-  gatherNear,
   HERO_RADIUS,
   overlaps,
-  pickBoom,
   pushOut,
-  segmentEntry,
   slideMove,
   supportHeight,
-  type Boom,
   type Collider,
   type Pt,
 } from "./collision";
@@ -91,57 +86,8 @@ describe("solids", () => {
   });
 });
 
-describe("occlusion", () => {
-  it("finds where a segment enters a box, and 1 when it misses", () => {
-    expect(segmentEntry(0, 0, 0, 10, 0, 0, box(5, 0, 1, 1, -1, 1))).toBeCloseTo(0.4);
-    expect(segmentEntry(0, 0, 0, 10, 0, 0, box(5, 9, 1, 1, -1, 1))).toBe(1);
-    // over the top of it
-    expect(segmentEntry(0, 5, 0, 10, 5, 0, box(5, 0, 1, 1, -1, 1))).toBe(1);
-  });
-
-  it("finds where a segment enters a cylinder", () => {
-    expect(segmentEntry(0, 0, 0, 10, 0, 0, cyl(5, 0, 1, -1, 1))).toBeCloseTo(0.4);
-    expect(segmentEntry(0, 0, 0, 10, 0, 0, cyl(5, 3, 1, -1, 1))).toBe(1);
-  });
-
-  it("reports the boom as clear when nothing is in the way", () => {
-    expect(clearFraction(0, 1.5, 0, 0, 19.5, 21, [])).toBe(1);
-  });
-
-  it("shortens the boom for something it can be pulled in front of", () => {
-    // A canopy hanging right over the sight line, four units back.
-    const oak = cyl(0, 4, 1.6, 2, 6.5);
-    const f = clearFraction(0, 1.5, 0, 0, 19.5, 21, [oak]);
-    expect(f).toBeGreaterThan(0.05);
-    expect(f).toBeLessThan(0.45);
-  });
-
-  it("swings the camera when the hero is pinned against the far wall of a house", () => {
-    // The real case: a 4.5-unit house, roof half-width 2.7, with the hero stopped by its wall
-    // half a unit clear of the eaves — and the boom running out along +z, straight into it.
-    const house = box(0, 3.25, 2.7, 2.7, 0, 5.35);
-    const out = pickBoom({ yaw: 0, frac: 1 } as Boom, 0, 1.5, 0, 0, 21, 19.5, [house]);
-    expect(Math.abs(out.yaw)).toBeGreaterThan(0.3); // it did not stay on the blocked angle
-    // ...and the angle it chose really can see him.
-    const f = clearFraction(0, 1.5, 0, 21 * Math.sin(out.yaw), 19.5, 21 * Math.cos(out.yaw), [house]);
-    expect(f).toBeGreaterThan(0.43);
-  });
-
-  it("keeps the child's own angle when nothing is in the way", () => {
-    const out = pickBoom({ yaw: 0, frac: 1 } as Boom, 0, 1.5, 0, 1.2, 21, 19.5, [box(40, 40, 3, 3, 0, 6)]);
-    expect(out.yaw).toBeCloseTo(1.2);
-    expect(out.frac).toBe(1);
-  });
-
-  it("gathers only what is near, into an array it is handed", () => {
-    const dest: Collider[] = new Array(16);
-    const n = gatherNear(dest, [cyl(0, 2, 1), cyl(0, 90, 1), cyl(3, 0, 1)], 0, 0, 10);
-    expect(n).toBe(2);
-  });
-});
-
 describe("the village, as colliders", () => {
-  const { solids, occluders } = buildColliders(LAYOUT.props, LAYOUT.scenery, PLAN);
+  const { solids } = buildColliders(LAYOUT.props, LAYOUT.scenery, PLAN);
 
   it("makes every raised building and the castle solid", () => {
     for (const slot of [
@@ -170,46 +116,12 @@ describe("the village, as colliders", () => {
     expect(solidTrees.length).toBe(3); // the three great oaks, and only those
   });
 
-  it("gives canopies to the camera even though they are walked under", () => {
-    const oak = LAYOUT.scenery.find((p) => p.variant === "oak" && !p.solid && Math.abs(p.position.x) < 60)!;
-    const here = occluders.filter((c) => Math.hypot(c.x - oak.position.x, c.z - oak.position.z) < 0.01);
-    // The canopy, which starts over a head, and the trunk under it.
-    expect(here.length).toBe(2);
-    const [crown, trunk] = here[0].base > here[1].base ? here : [here[1], here[0]];
-    expect(crown.base).toBeGreaterThan(heightAt(oak.position.x, oak.position.z));
-    expect(trunk.hw).toBeLessThan(crown.hw);
-    expect(trunk.top).toBeCloseTo(crown.base);
-  });
-
-  it("gives the camera a wider box than the hero gets, because the roof overhangs the wall", () => {
-    const mill = BUILDING_SLOTS.mill;
-    const s = solids.find((c) => Math.abs(c.x - mill.x) < 0.01 && Math.abs(c.z - mill.z) < 0.01)!;
-    const o = occluders.find((c) => Math.abs(c.x - mill.x) < 0.01 && Math.abs(c.z - mill.z) < 0.01)!;
-    expect(o.hw).toBeGreaterThan(s.hw);
-    expect(o.top).toBeGreaterThan(s.top);
-  });
-
   it("stays small enough to walk every frame", () => {
     expect(solids.length).toBeLessThan(80);
-    // Every tree is two: a canopy and the trunk under it.
-    expect(occluders.length).toBeLessThan(1700);
   });
 
-  it("can always find the hero a camera angle, anywhere in the village", () => {
-    const out: Boom = { yaw: 0, frac: 1 };
-    const near: Collider[] = new Array(512);
-    const move: Pt = { x: 0, z: 0 };
-    for (let x = -16; x <= 16; x += 1) {
-      for (let z = -18; z <= 18; z += 1) {
-        // Only from spots a hero could actually stand in.
-        const p = pushOut(move, x, z, solids);
-        const y = heightAt(p.x, p.z) + 1.5;
-        const n = gatherNear(near, occluders, p.x, p.z, 24);
-        pickBoom(out, p.x, y, p.z, 0, 21, 19.5, near, n);
-        const f = clearFraction(p.x, y, p.z, 21 * Math.sin(out.yaw), 19.5, 21 * Math.cos(out.yaw), near, n);
-        expect(Math.max(f, out.frac)).toBeGreaterThan(0.2);
-      }
-    }
+  it("builds only what stops the hero: nothing is kept for a camera to steer round", () => {
+    expect(Object.keys(buildColliders(LAYOUT.props, LAYOUT.scenery, PLAN))).toEqual(["solids"]);
   });
 });
 

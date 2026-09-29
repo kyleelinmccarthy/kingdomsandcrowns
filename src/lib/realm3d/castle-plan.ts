@@ -1,7 +1,6 @@
 /**
- * THE CHILD'S CASTLE, as a plan: every wall, tower and roof as a shape, and the colliders and the
- * camera's occluders derived from the same shapes, so what stops the hero and what hides them
- * are exactly what is drawn.
+ * THE CHILD'S CASTLE, as a plan: every wall, tower and roof as a shape, and the colliders
+ * derived from the same shapes, so what stops the hero is exactly what is drawn.
  *
  * ## Why it is this big
  *
@@ -45,7 +44,6 @@ export type CastleBlock = { x: number; z: number; hw: number; hd: number; round:
 export type CastlePlan = {
   parts: CastlePart[];
   solids: CastleBlock[];
-  occluders: CastleBlock[];
   /** Where banners hang: on the outside face of a wall, with the direction that face looks. */
   bannerSpots: { x: number; y: number; z: number; ry: number }[];
   /** The gate, for the interact key: a box just in front of the doors. */
@@ -85,7 +83,6 @@ export function castlePlan(tier: string): CastlePlan {
   const H = t.tall;
   const parts: CastlePart[] = [];
   const solids: CastleBlock[] = [];
-  const occluders: CastleBlock[] = [];
   const bannerSpots: CastlePlan["bannerSpots"] = [];
 
   const box = (color: CastleColor, x: number, y: number, z: number, sx: number, sy: number, sz: number) =>
@@ -132,7 +129,6 @@ export function castlePlan(tier: string): CastlePlan {
     merlon(cw - 0.2, z);
   }
   block(solids, 0, midZ, cw, depth / 2, wallH);
-  block(occluders, 0, midZ, cw + 0.2, depth / 2 + 0.2, wallH + walk + 0.9 * H);
 
   const towerR = 2.3 * k;
   const towerH = 14 * H;
@@ -143,7 +139,6 @@ export function castlePlan(tier: string): CastlePlan {
       cone("roof", x, towerH + 0.4 * H, z, towerR + 0.5, 6 * H);
       cone("gold", x, towerH + 6.4 * H, z, 0.12, 0.9 * H);
       block(solids, x, z, towerR, towerR, towerH, true);
-      block(occluders, x, z, towerR + 0.5, towerR + 0.5, towerH + 6.4 * H, true);
       // Arrow slits, a dark stripe up the outward face.
       box("slate", x + Math.sign(x) * (towerR - 0.02), towerH * 0.6, z, 0.12, 1.6 * H, 0.32);
     }
@@ -170,7 +165,6 @@ export function castlePlan(tier: string): CastlePlan {
   // A lit window over the gate.
   box("window", 0, doorH + 2.2 * H, GATE_FRONT + 0.05, 1.1, 1.5 * H, 0.08);
   block(solids, 0, gz, gw, gd / 2, gh);
-  block(occluders, 0, gz, gw + 0.2, gd / 2 + 0.2, gh + 1.4 * H);
 
   const drumR = 1.7 * Math.min(1, k * 1.15);
   const drumX = gw + drumR * 0.3;
@@ -183,7 +177,6 @@ export function castlePlan(tier: string): CastlePlan {
     cone("gold", s * drumX, drumH + 5.4 * H, drumZ, 0.1, 0.8 * H);
     box("window", s * drumX, drumH * 0.66, drumZ + drumR - 0.03, 0.5, 1.1 * H, 0.08);
     block(solids, s * drumX, drumZ, drumR, drumR, drumH, true);
-    block(occluders, s * drumX, drumZ, drumR + 0.4, drumR + 0.4, drumH + 5.4 * H, true);
   }
 
   /* ---- the keep, inside, and its tower: the castle's silhouette from anywhere ---- */
@@ -197,7 +190,6 @@ export function castlePlan(tier: string): CastlePlan {
   box("stone", 0, keepH + 0.25 * H, kzc, kx * 2 + 0.4, 0.5 * H, kd + 0.4);
   cone("roof", 0, keepH + 0.5 * H, kzc, Math.hypot(kx, kd / 2) + 0.3, 6 * H, "pyramid");
   for (const s of [-1, 1]) box("window", s * kx * 0.5, keepH * 0.72, kz0 + 0.05, 0.9, 1.6 * H, 0.08);
-  block(occluders, 0, kzc, kx + 0.3, kd / 2 + 0.3, keepH + 6.5 * H);
   const ktR = 1.9 * k;
   const ktx = kx - ktR * 0.6;
   const ktz = kz1 + ktR * 0.6;
@@ -207,7 +199,6 @@ export function castlePlan(tier: string): CastlePlan {
   cone("roof", ktx, ktH + 0.4 * H, ktz, ktR + 0.5, 7 * H);
   cone("gold", ktx, ktH + 7.4 * H, ktz, 0.14, 1.2 * H);
   box("window", ktx, ktH * 0.8, ktz + ktR - 0.03, 0.6, 1.3 * H, 0.08);
-  block(occluders, ktx, ktz, ktR + 0.4, ktR + 0.4, ktH + 8.6 * H, true);
 
   /* ---- where the banners hang: the south curtain either side of the gate, then the flanks ---- */
   const bannerY = wallH * 0.72;
@@ -221,7 +212,6 @@ export function castlePlan(tier: string): CastlePlan {
   return {
     parts,
     solids,
-    occluders,
     bannerSpots,
     gate: { x: 0, z: GATE_FRONT + 0.4, hw: doorW / 2 + 0.3, hd: 0.4 },
     bounds: { x0: -cw - reach, x1: cw + reach, z0: back - reach, z1: GATE_FRONT + 0.4 },

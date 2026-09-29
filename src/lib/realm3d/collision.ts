@@ -4,19 +4,12 @@
  * Deliberately NOT a three.js module, for the same reason `heightfield.ts` is not: the scene
  * runs this every frame inside `useFrame`, and it has to be testable without a WebGL context.
  *
- * Two jobs, one set of shapes:
+ * SOLIDS — the boxes and circles a hero is stopped by. `slideMove` is the 3D twin of
+ * `realm/movement.ts`'s `stepHero`: one axis at a time, a blocked axis cancelled rather
+ * than the whole step. That is the whole trick behind sliding along a wall, and sliding is
+ * the difference between a child who feels they are moving and a child who feels stuck.
  *
- *  1. SOLIDS — the boxes and circles a hero is stopped by. `slideMove` is the 3D twin of
- *     `realm/movement.ts`'s `stepHero`: one axis at a time, a blocked axis cancelled rather
- *     than the whole step. That is the whole trick behind sliding along a wall, and sliding is
- *     the difference between a child who feels they are moving and a child who feels stuck.
- *
- *  2. OCCLUDERS — the volumes that can put themselves between the camera and the child. These
- *     are a different list on purpose: a garden bed stops you but never hides you, an oak's
- *     canopy hides you but you walk under it, and a house's roof overhangs its walls so the
- *     thing that hides you is wider than the thing that stops you.
- *
- * Nothing here allocates once the lists are built. Everything that returns a pair of numbers
+ * Nothing here allocates once the list is built. Everything that returns a pair of numbers
  * writes into a caller-owned object.
  */
 
@@ -198,190 +191,6 @@ export function pushOut(out: Pt, x: number, z: number, colliders: readonly Colli
   return out;
 }
 
-/* --------------------------------------------------------------- occlusion */
-
-/** Overlap of a ray's [0,1] span with one slab. Returns false when it misses. */
-function slab(lo: number, hi: number, origin: number, delta: number, span: Pt): boolean {
-  if (Math.abs(delta) < 1e-9) return origin > lo && origin < hi;
-  let t0 = (lo - origin) / delta;
-  let t1 = (hi - origin) / delta;
-  if (t0 > t1) {
-    const s = t0;
-    t0 = t1;
-    t1 = s;
-  }
-  if (t0 > span.x) span.x = t0;
-  if (t1 < span.z) span.z = t1;
-  return span.x <= span.z;
-}
-
-// Scratch for the slab tests. Module-scope so the per-frame path never allocates.
-const SPAN: Pt = { x: 0, z: 0 };
-
-/**
- * Where along the segment a→b it first enters `c`, as a fraction in [0, 1]. Returns 1 when the
- * segment misses entirely, and 0 when it starts inside. This is the number the camera rides on:
- * it is exactly how far down its own boom the camera may sit and still see the hero.
- */
-export function segmentEntry(
-  ax: number,
-  ay: number,
-  az: number,
-  bx: number,
-  by: number,
-  bz: number,
-  c: Collider,
-): number {
-  const dx = bx - ax;
-  const dy = by - ay;
-  const dz = bz - az;
-  SPAN.x = 0;
-  SPAN.z = 1;
-  if (!slab(c.base, c.top, ay, dy, SPAN)) return 1;
-
-  if (c.round) {
-    // The infinite cylinder, then the height slab already in SPAN.
-    const fx = ax - c.x;
-    const fz = az - c.z;
-    const qa = dx * dx + dz * dz;
-    const qb = 2 * (fx * dx + fz * dz);
-    const qc = fx * fx + fz * fz - c.hw * c.hw;
-    if (qa < 1e-9) {
-      if (qc > 0) return 1; // straight up, and outside the circle
-    } else {
-      const disc = qb * qb - 4 * qa * qc;
-      if (disc < 0) return 1;
-      const sq = Math.sqrt(disc);
-      const t0 = (-qb - sq) / (2 * qa);
-      const t1 = (-qb + sq) / (2 * qa);
-      if (t0 > SPAN.x) SPAN.x = t0;
-      if (t1 < SPAN.z) SPAN.z = t1;
-      if (SPAN.x > SPAN.z) return 1;
-    }
-  } else {
-    if (!slab(c.x - c.hw, c.x + c.hw, ax, dx, SPAN)) return 1;
-    if (!slab(c.z - c.hd, c.z + c.hd, az, dz, SPAN)) return 1;
-  }
-  if (SPAN.z < 0 || SPAN.x > 1) return 1;
-  return Math.max(0, SPAN.x);
-}
-
-/**
- * How far down a boom the camera can sit before something gets in the way, as a fraction of the
- * full offset. 1 means the whole village is between you and nothing.
- */
-export function clearFraction(
-  hx: number,
-  hy: number,
-  hz: number,
-  ox: number,
-  oy: number,
-  oz: number,
-  occluders: readonly Collider[],
-  count: number = occluders.length,
-): number {
-  let best = 1;
-  const bx = hx + ox;
-  const by = hy + oy;
-  const bz = hz + oz;
-  for (let i = 0; i < count; i++) {
-    const t = segmentEntry(hx, hy, hz, bx, by, bz, occluders[i]);
-    if (t < best) {
-      best = t;
-      if (best <= 0) break;
-    }
-  }
-  if (best >= 1) return 1;
-  // Stop a shade short of the surface so the near plane never eats a roof tile.
-  return Math.max(0, best - 0.025);
-}
-
-/**
- * Copy every collider within `radius` of (x, z) into `dest`, which the caller owns and reuses.
- * Returns how many. The wood is ~740 canopies; the camera only ever cares about the dozen or so
- * standing within a boom's length of the child.
- */
-export function gatherNear(
-  dest: Collider[],
-  colliders: readonly Collider[],
-  x: number,
-  z: number,
-  radius: number,
-): number {
-  let n = 0;
-  for (let i = 0; i < colliders.length && n < dest.length; i++) {
-    const c = colliders[i];
-    const dx = c.x - x;
-    const dz = c.z - z;
-    const reach = radius + (c.hw > c.hd ? c.hw : c.hd);
-    if (dx * dx + dz * dz <= reach * reach) dest[n++] = c;
-  }
-  return n;
-}
-
-/**
- * Yaw offsets tried, in order of how much they disturb the shot. The camera keeps the angle the
- * child chose whenever it can, and swings only as far as it must.
- */
-const YAW_TRIES = [0, 0.32, -0.32, 0.64, -0.64, 0.98, -0.98, 1.32, -1.32, 1.7, -1.7, 2.1, -2.1, 2.5, -2.5, 2.9, -2.9, Math.PI];
-
-export type Boom = { yaw: number; frac: number };
-
-/**
- * Pick where the chase camera goes.
- *
- * A village is not a corridor, and the usual answer — pull the boom in until it is clear — has a
- * hard floor here: stand the hero against the far wall of a house and NO point behind that house,
- * at any distance and any sane pitch, can see him. The eaves are half a unit from his shoulder
- * and five units over his head. Pulling in just walks the camera into the wall.
- *
- * So the boom swings. The hero is always standing OUTSIDE the thing that is hiding him — that is
- * what the solids guarantee — so some direction around him is open, at worst the one he walked in
- * from. We try the child's own yaw first and take the nearest yaw that gives a clean line,
- * shortening the boom a little on the way for anything we can simply duck under or squeeze past.
- *
- * Writes into `out`. `frac` is a fraction of the full offset; `yaw` is absolute.
- */
-export function pickBoom(
-  out: Boom,
-  hx: number,
-  hy: number,
-  hz: number,
-  baseYaw: number,
-  offH: number,
-  offY: number,
-  occluders: readonly Collider[],
-  count: number = occluders.length,
-  goodFrac = 0.44,
-  minFrac = 0.22,
-): Boom {
-  let bestYaw = baseYaw;
-  let bestFrac = -1;
-  for (let i = 0; i < YAW_TRIES.length; i++) {
-    const yaw = baseYaw + YAW_TRIES[i];
-    const f = clearFraction(hx, hy, hz, offH * Math.sin(yaw), offY, offH * Math.cos(yaw), occluders, count);
-    if (f >= 1 - 1e-6) {
-      out.yaw = yaw;
-      out.frac = 1;
-      return out;
-    }
-    if (f > bestFrac) {
-      bestFrac = f;
-      bestYaw = yaw;
-    }
-    // Good enough beats perfect-but-sideways: a slightly short boom on the child's own angle is
-    // a nicer shot than a clean one from somewhere they did not ask to look from.
-    if (f >= goodFrac) {
-      out.yaw = yaw;
-      out.frac = f;
-      return out;
-    }
-  }
-  out.yaw = bestYaw;
-  out.frac = Math.max(minFrac, bestFrac);
-  return out;
-}
-
 /* ----------------------------------------------------------- world colliders */
 
 /** The shape of a layout prop this module needs. `realm/layout.ts`'s `Prop` satisfies it. */
@@ -406,22 +215,13 @@ export type PlanOpts = {
   patchHalf: number;
 };
 
-export type WorldColliders = { solids: Collider[]; occluders: Collider[] };
+export type WorldColliders = { solids: Collider[] };
 
 const box = (x: number, z: number, hw: number, hd: number, base: number, top: number): Collider => ({ x, z, hw, hd, round: false, base, top });
 const cyl = (x: number, z: number, r: number, base: number, top: number): Collider => ({ x, z, hw: r, hd: r, round: true, base, top });
 
-/** A tree trunk's radius as the camera sees it, per unit of tree scale. A shade over the drawn bark. */
-export const TRUNK_R = 0.36;
-
-/** The decoration kinds whose canopy can swallow a child. Everything else is below eye level. */
-const CANOPY: Record<string, { r: number; base: number; top: number }> = {
-  oak: { r: 1.2, base: 1.0, top: 3.45 },
-  pine: { r: 0.95, base: 0.9, top: 3.75 },
-};
-
 /**
- * Turn the village and the wilderness into the two lists the frame loop walks.
+ * Turn the village and the wilderness into the list of solids the frame loop walks.
  *
  * WHAT IS SOLID, and why:
  *  - every raised building, the castle, the well, the garden. These are the things a child
@@ -439,7 +239,6 @@ const CANOPY: Record<string, { r: number; base: number; top: number }> = {
  */
 export function buildColliders(props: readonly PlanProp[], scenery: readonly PlanProp[], o: PlanOpts): WorldColliders {
   const solids: Collider[] = [];
-  const occluders: Collider[] = [];
 
   for (const p of props) {
     const x = p.position.x;
@@ -452,7 +251,6 @@ export function buildColliders(props: readonly PlanProp[], scenery: readonly Pla
       const hw = w / 2 + 0.5 + w * 0.17;
       const hd = d / 2 + 0.4 + w * 0.17;
       solids.push(box(x, z, hw, hd, g, g + h));
-      occluders.push(box(x, z, hw, hd, g - 2.4, g + h * 2.1));
       continue;
     }
     if (p.kind !== "building") continue; // foundations, villagers, banners and path tiles are walked over
@@ -462,38 +260,27 @@ export function buildColliders(props: readonly PlanProp[], scenery: readonly Pla
 
     if (p.id === "well") {
       solids.push(cyl(x, z, 1.75, g, g + 1.1));
-      // The parapet, and the cap over it on its posts — two shapes, not one drum from the grass
-      // to the peak. A drum that wide swallowed a child leaning on the parapet: their eye was
-      // inside it, so every line from them read as blocked, and nothing was ever clear.
-      occluders.push(cyl(x, z, 1.75, g, g + 1.1));
-      occluders.push(cyl(x, z, 2.5, g + 3.0, g + 4.5)); // the cap, which is wider than the parapet
       continue;
     }
     if (p.id === "garden") {
-      // Waist-high beds. Solid, because you do not wade through a vegetable patch — but it
-      // could never hide anyone, so it stays out of the camera's list entirely.
+      // Waist-high beds. Solid, because you do not wade through a vegetable patch.
       solids.push(box(x, z, (w * 1.05) / 2, (d * 1.05) / 2, g, g + 1.0));
       continue;
     }
     if (p.id === "watchtower") {
       const h = p.size.h * 1.5;
       solids.push(box(x, z, w / 2, d / 2, g, g + h));
-      occluders.push(box(x, z, (w * 1.25) / 2, (d * 1.25) / 2, g, g + h + 0.9));
       continue;
     }
 
     // Every other raised site is the House shell: plaster box, gable over it.
     solids.push(box(x, z, (w * 1.06) / 2, (d * 1.06) / 2, g, g + o.wallH));
-    // The roof overhangs the walls by a fifth, and the overhang is what hides a child standing
-    // against the far wall — so the camera's box is the roof's, not the wall's.
-    occluders.push(box(x, z, (w * 1.2) / 2, (d * 1.2) / 2, g, g + o.wallH + o.roofH));
 
     if (p.id === "chapel") {
       // The bell tower is its own building, set off the back of the nave.
       const tz = z - d / 2 - 0.5;
       const tg = heightAt(x, tz);
       solids.push(box(x, tz, 1.05, 1.05, tg, tg + 5.6));
-      occluders.push(box(x, tz, 1.6, 1.6, tg, tg + 8.4));
     }
   }
 
@@ -512,17 +299,8 @@ export function buildColliders(props: readonly PlanProp[], scenery: readonly Pla
       // The layout's own ruling on what a child walks around, at the scale the scene draws it.
       const r = tree ? 0.42 * scale : (s.size.w / 2) * (kind === "menhir" ? 0.75 : 1);
       solids.push(cyl(x, z, Math.max(0.35, r), g, g + s.size.h));
-      if (kind === "menhir") occluders.push(cyl(x, z, 0.45 * scale, g, g + 2.75 * scale));
-      else if (!tree && scale > 1.6) occluders.push(cyl(x, z, 0.8 * scale, g, g + 0.95 * scale));
-    }
-    const canopy = CANOPY[kind];
-    // Walk-through or not, a crown over the child's head is a lid the camera has to get around.
-    if (canopy) {
-      occluders.push(cyl(x, z, canopy.r * scale, g + canopy.base * scale, g + canopy.top * scale));
-      // The trunk too: a camera ducked under the canopy must not come to rest inside the bark.
-      occluders.push(cyl(x, z, TRUNK_R * scale, g - 0.2, g + canopy.base * scale));
     }
   }
 
-  return { solids, occluders };
+  return { solids };
 }

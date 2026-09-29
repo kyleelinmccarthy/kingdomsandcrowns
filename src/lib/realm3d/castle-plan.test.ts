@@ -73,11 +73,9 @@ describe("the castle", () => {
     expect(g.z).toBeGreaterThan(GATE_FRONT);
   });
 
-  it("gives the camera something taller than the walls to steer round, and the hero something to stop at", () => {
+  it("gives the hero something to stop at, and keeps nothing for a camera to steer round", () => {
     expect(plan.solids.length).toBeGreaterThan(4);
-    const tallestSolid = Math.max(...plan.solids.map((b) => b.top));
-    const tallestOcc = Math.max(...plan.occluders.map((b) => b.top));
-    expect(tallestOcc).toBeGreaterThan(tallestSolid);
+    expect("occluders" in castlePlan("citadel")).toBe(false);
   });
 
   it("hangs eight banners, and stands smaller for a smaller tier", () => {

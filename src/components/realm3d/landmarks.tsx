@@ -361,23 +361,21 @@ function boardTexture(name: string, sub: string): THREE.Texture {
 /* ------------------------------------------------------------------ colliders */
 
 /**
- * What a child is stopped by, and what can hide them, at the built places.
+ * What a child is stopped by at the built places.
  *
  * Built once with the world, because nothing here ever moves — so these go on the front of the
- * same arrays the village fills, ahead of the wilderness's own, and the frame loop never learns
- * that there is more than one kind of thing in them.
+ * same array the village fills, ahead of the wilderness's own, and the frame loop never learns
+ * that there is more than one kind of thing in it.
  */
-export function landmarkColliders(world: RealmWorld): { solids: Collider[]; occluders: Collider[] } {
+export function landmarkColliders(world: RealmWorld): { solids: Collider[] } {
   const solids: Collider[] = [];
-  const occluders: Collider[] = [];
   for (const l of world.landmarks) {
     const design = DESIGNS[l.kind];
     if (!design?.solid) continue;
     const { r, h } = design.solid;
     solids.push({ x: l.position.x, z: l.position.z, hw: r, hd: r, round: true, base: l.y - 1, top: l.y + h });
-    occluders.push({ x: l.position.x, z: l.position.z, hw: r + 0.4, hd: r + 0.4, round: true, base: l.y - 1, top: l.y + h + 1.2 });
   }
-  return { solids, occluders };
+  return { solids };
 }
 
 /**

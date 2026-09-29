@@ -1,9 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildWorldLayout, SPAWN, type SiteProgress } from "@/lib/realm/layout";
 import { BUILDINGS } from "@/lib/utils/kingdom";
-import { buildColliders, clearFraction, overlaps, slideMove, HERO_RADIUS, type Collider } from "./collision";
-import { DEFAULT_DIST, DEFAULT_PITCH } from "./controls";
-import { heightAt } from "./heightfield";
+import { buildColliders, overlaps, slideMove, HERO_RADIUS, type Collider } from "./collision";
 import { castlePlan, GATE_FRONT } from "./castle-plan";
 import { buried, buildDoors, doorAhead, exitSpot, freeSpot, hasRoom, roomFor, ROOM_OF, DOOR_DWELL } from "./doorways";
 import { buildSpots } from "./interact";
@@ -153,13 +151,6 @@ function reachable(solids: readonly Collider[]): (x: number, z: number) => boole
 
 /** How far straight out from its face every door keeps open ground: a child's run-up, with the villager in it. */
 const APPROACH = 4;
-/**
- * How far out the camera behind a child walking at a door must see them without swinging. Longer
- * than the run-up: a camera free to swing turns W with it, and while this plan was being drawn a
- * village oak six units out behind the bridge house's door swung a walk right round the house
- * (found by playing).
- */
-const CAMERA_RUN = 6;
 
 describe("every door can be walked through", () => {
   // The class of bug, not its two instances: the market's door once opened onto a 1.2-unit gap
@@ -184,31 +175,6 @@ describe("every door can be walked through", () => {
       expect(shut).toEqual([]);
     });
   }
-
-  it(`walking straight at every door, the camera behind the child has a clear line for the last ${CAMERA_RUN} — it never has to swing round a roof or a tower`, () => {
-    // The camera swings itself round anything between it and a walking child, and W turns with
-    // it; a door with a tall neighbour close behind it turns the walk off the door just as the
-    // child arrives. Found by playing: with the camera free, a walk at the market's door ended in
-    // the castle's great hall.
-    const layout = village(true, "citadel");
-    const built = buildColliders(layout.props.filter((p) => p.kind !== "castle"), layout.scenery, OPTS);
-    const c = layout.props.find((p) => p.kind === "castle")!;
-    for (const b of castlePlan("citadel").occluders) built.occluders.push({ ...b, x: c.position.x + b.x, z: c.position.z + b.z });
-    const doors = buildDoors({ props: layout.props, sitePlan: SITE_PLAN, castle: castleGate("citadel") });
-    const EYE = 1.5; // spike-scene's CAM_EYE
-    const back = DEFAULT_DIST * Math.cos(DEFAULT_PITCH);
-    const up = DEFAULT_DIST * Math.sin(DEFAULT_PITCH);
-    const blocked: string[] = [];
-    for (const d of doors) {
-      for (let z = d.face + HERO_RADIUS + 0.05; z <= d.face + HERO_RADIUS + CAMERA_RUN; z += 0.25) {
-        if (clearFraction(d.x, heightAt(d.x, z) + EYE, z, 0, up, back, built.occluders) < 0.999) {
-          blocked.push(`${d.site} at ${z.toFixed(1)}`);
-          break;
-        }
-      }
-    }
-    expect(blocked).toEqual([]);
-  });
 
   it("nobody stands in a wall: every villager is clear of every solid, and can be walked up to", () => {
     const solids = solidsFor(true, true, "citadel", true);

@@ -952,9 +952,8 @@ const World = memo(function World({
   const seat = useSeatRef(ride);
 
   /**
-   * What stops the hero, and what can hide him from the camera. Two lists, because they are
-   * genuinely different — a vegetable bed stops you and never hides you, an oak's canopy hides
-   * you and you walk under it, a roof overhangs the wall it sits on.
+   * What stops the hero: one list. The camera steers round nothing (it never moves itself, and
+   * the see-through shader thins what stands in the way), so nothing else is kept.
    *
    * Three sources, in a fixed order: the village, the built landmarks, and then whatever the
    * wilderness has standing near the child right now. The first two never move, so they sit at
@@ -985,9 +984,9 @@ const World = memo(function World({
     });
   }, [layout, world, castle]);
 
-  const { solids, occluders, fixedSolids, fixedOccluders } = useMemo(() => {
+  const { solids, fixedSolids } = useMemo(() => {
     // The castle's colliders come from its own plan, and only when it is standing: an unlocked
-    // castle is walls to walk round and a roofline to steer the camera round; locked, its
+    // castle is walls to walk round; locked, its
     // grounds are open ground.
     const built = buildColliders(layout.props.filter((p) => p.kind !== "castle"), scenery, { sitePlan: SITE_PLAN, wallH: WALL_H, roofH: ROOF_H, treeScale: TREE_SCALE, patchHalf: CORE_HALF });
     if (castle && castleUnlocked) {
@@ -995,12 +994,10 @@ const World = memo(function World({
       const put = (list: Collider[], b: (typeof plan.solids)[number]) =>
         list.push({ x: prop.position.x + b.x, z: prop.position.z + b.z, hw: b.hw, hd: b.hd, round: b.round, base: ground + b.base, top: ground + b.top });
       for (const b of plan.solids) put(built.solids, b);
-      for (const b of plan.occluders) put(built.occluders, b);
     }
     const marks = landmarkColliders(world);
     built.solids.push(...marks.solids);
-    built.occluders.push(...marks.occluders);
-    return { ...built, fixedSolids: built.solids.length, fixedOccluders: built.occluders.length };
+    return { ...built, fixedSolids: built.solids.length };
   }, [layout, scenery, world, castle, castleUnlocked]);
 
   /**
@@ -1122,9 +1119,7 @@ const World = memo(function World({
         world={world}
         heroRef={heroRef}
         solids={solids}
-        occluders={occluders}
         villageSolids={fixedSolids}
-        villageOccluders={fixedOccluders}
       />
       <Scenery scenery={scenery} world={world} />
       <SeeThroughGroup>
