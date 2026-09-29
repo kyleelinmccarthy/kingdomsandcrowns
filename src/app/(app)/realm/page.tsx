@@ -86,6 +86,7 @@ export default async function RealmPage({ searchParams }: { searchParams: Promis
     kingdom: bundle.kingdom,
     ...(bundle.kingdomError ? { kingdomError: bundle.kingdomError } : {}),
     castleType: bundle.castleType,
+    timezone: bundle.timezone,
     banners: bundle.banners,
     profile,
     depth: bundle.depth,

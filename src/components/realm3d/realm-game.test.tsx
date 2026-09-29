@@ -718,3 +718,10 @@ describe("the wardrobe", () => {
     expect(screen.queryByRole("button", { name: /Wardrobe/ })).toBeNull();
   });
 });
+
+describe("day and night", () => {
+  it("hands the scene the family's timezone", () => {
+    mount({ realm: { ...realm, timezone: "Asia/Tokyo" } });
+    expect(handed.props!.timeZone).toBe("Asia/Tokyo");
+  });
+});

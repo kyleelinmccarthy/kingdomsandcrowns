@@ -28,6 +28,8 @@ import type { RealmAccessMode } from "@/lib/utils/realm-access";
 export type RealmBundle = {
   heroName: string;
   avatarConfig: AvatarConfig | null;
+  /** The family's saved timezone, for the island's day and night; null when the hero's family has none. */
+  timezone: string | null;
   castleType: string;
   kingdom: KingdomState;
   kingdomError?: string; // set when the kingdom could not load; the world still opens, without villagers
@@ -135,7 +137,12 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
       return loadRealmFlags(childId);
     });
   const [childRows, castleRows, profileRow, settings, kingdomResult, spellbook, mounts, seasons] = await Promise.all([
-    db.select({ displayName: schema.child.displayName, avatarConfig: schema.child.avatarConfig }).from(schema.child).where(eq(schema.child.id, childId)).limit(1),
+    db
+      .select({ displayName: schema.child.displayName, avatarConfig: schema.child.avatarConfig, timezone: schema.family.timezone })
+      .from(schema.child)
+      .leftJoin(schema.family, eq(schema.family.id, schema.child.familyId))
+      .where(eq(schema.child.id, childId))
+      .limit(1),
     db.select({ type: schema.castle.type }).from(schema.castle).where(eq(schema.castle.childId, childId)).limit(1),
     // Memoized per request; loadKingdomOverview below reads the same row for the hero's grades.
     loadLearningProfileRow(childId),
@@ -172,6 +179,7 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
   return {
     heroName: child.displayName,
     avatarConfig,
+    timezone: child.timezone ?? null,
     castleType: castleRows[0]?.type ?? "campsite",
     kingdom: kingdomResult.kingdom,
     ...(kingdomResult.error ? { kingdomError: kingdomResult.error } : {}),

@@ -50,7 +50,7 @@
  */
 
 import { memo, useCallback, useEffect, useMemo, useRef } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { WORLD_SIZE, type Prop, type VillagerPlacement, type WorldLayout } from "@/lib/realm/layout";
 import { heightAt } from "@/lib/realm3d/heightfield";
@@ -117,15 +117,13 @@ import { boostJump, castBlocked, CAST_FROM_SADDLE, holdDrop, jumpSpeed, keepFoot
 import { RiddenMount, Riding, Saddle, travelGraphFor, useSeatRef } from "./riding-scene";
 import { bodyFor, slideBody, turnBody } from "@/lib/realm3d/mount-body";
 import { RecessScene } from "./recess-scene";
+import { LIT_WINDOW, paint, useDayLight } from "./day-light";
+import type { DayLight } from "@/lib/realm3d/day-cycle";
 import type { RecessBus } from "@/lib/realm3d/recess/bus";
 import { ARCH_HALF_SPAN } from "@/lib/realm3d/recess/course";
 
 /* ------------------------------------------------------------------ palette */
 
-const SKY_TOP = "#2c6fb8";
-const SKY_LOW = "#d8e9ec";
-const FOG = "#bcdcec";
-const SUN_COLOR = "#fff3d2";
 const HERO_SPEED = 11;
 
 /**
@@ -265,7 +263,7 @@ function Window({ w = 0.85, h = 0.9 }: { w?: number; h?: number }) {
   return (
     <>
       <boxGeometry args={[w, h, 0.08]} />
-      <meshStandardMaterial color="#ffe9a8" emissive="#e8bd4a" emissiveIntensity={0.55} flatShading />
+      <primitive object={LIT_WINDOW} attach="material" />
     </>
   );
 }
@@ -743,14 +741,11 @@ function Hero({
 
 /* --------------------------------------------------------- light and camera */
 
-/**
- * Low on purpose. This vector is the single most important number in the spike: raise it and
- * the shadows shrink to puddles and the whole thing goes back to looking like a flat board.
- */
-const SUN_DIR = new THREE.Vector3(0.58, 0.44, -0.52).normalize();
-
-function Sun({ heroRef }: { heroRef: React.RefObject<THREE.Vector3> }) {
+function Sun({ heroRef, day }: { heroRef: React.RefObject<THREE.Vector3>; day: DayLight }) {
   const light = useRef<THREE.DirectionalLight>(null);
+  const hemi = useRef<THREE.HemisphereLight>(null);
+  const fill = useRef<THREE.AmbientLight>(null);
+  const scene = useThree((s) => s.scene);
   const target = useMemo(() => new THREE.Object3D(), []);
 
   useFrame(() => {
@@ -762,8 +757,19 @@ function Sun({ heroRef }: { heroRef: React.RefObject<THREE.Vector3> }) {
     // blurry mess or missing entirely.
     target.position.set(p.x, p.y, p.z);
     target.updateMatrixWorld();
-    l.position.set(p.x + SUN_DIR.x * 90, p.y + SUN_DIR.y * 90, p.z + SUN_DIR.z * 90);
+    const d = day.sunDir;
+    l.position.set(p.x + d.x * 90, p.y + d.y * 90, p.z + d.z * 90);
     l.updateMatrixWorld();
+    paint(l.color, day.sun);
+    l.intensity = day.sunI;
+    const h = hemi.current;
+    if (h) {
+      paint(h.color, day.hemiSky);
+      paint(h.groundColor, day.hemiGround);
+      h.intensity = day.hemiI;
+    }
+    if (fill.current) fill.current.intensity = day.ambientI;
+    if (scene.fog) paint(scene.fog.color, day.fog);
   });
 
   return (
@@ -772,8 +778,6 @@ function Sun({ heroRef }: { heroRef: React.RefObject<THREE.Vector3> }) {
       <directionalLight
         ref={light}
         target={target}
-        color={SUN_COLOR}
-        intensity={3.1}
         castShadow
         shadow-mapSize={[3072, 3072]}
         shadow-bias={-0.0012}
@@ -786,8 +790,8 @@ function Sun({ heroRef }: { heroRef: React.RefObject<THREE.Vector3> }) {
         shadow-camera-bottom={-52}
       />
       {/* Sky and bounce, low: the shadows have to stay dark or none of this reads. */}
-      <hemisphereLight args={["#cfe4ff", "#3f5c1c", 0.62]} />
-      <ambientLight intensity={0.1} />
+      <hemisphereLight ref={hemi} />
+      <ambientLight ref={fill} />
     </>
   );
 }
@@ -852,6 +856,11 @@ function Motes({ tex }: { tex: THREE.Texture }) {
   );
 }
 
+/** The lantern glow's strength; a free function because the compiler lint forbids writing a memoised material in a hook. */
+function glow(m: THREE.SpriteMaterial, o: number): void {
+  m.opacity = o;
+}
+
 /**
  * A small warm glow at the head of every lantern in the patch.
  *
@@ -859,7 +868,13 @@ function Motes({ tex }: { tex: THREE.Texture }) {
  * thing the owner asked to be rid of — and a lantern at noon does not throw a halo wider than a
  * door. Now it is a lamp-sized glint that sits on the lamp.
  */
-function LanternGlow({ scenery, tex }: { scenery: readonly Prop[]; tex: THREE.Texture }) {
+function LanternGlow({ scenery, tex, day }: { scenery: readonly Prop[]; tex: THREE.Texture; day: DayLight }) {
+  const mat = useMemo(() => new THREE.SpriteMaterial({ map: tex, color: "#ffd38a", transparent: true, opacity: 0.7, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }), [tex]);
+  useEffect(() => () => mat.dispose(), [mat]);
+  // By day a lamp is a glint on the lamp; after dark it glows.
+  useFrame(() => {
+    glow(mat, Math.min(1, 0.45 + 0.25 * day.lamp));
+  });
   const spots = useMemo(
     () =>
       scenery
@@ -870,9 +885,7 @@ function LanternGlow({ scenery, tex }: { scenery: readonly Prop[]; tex: THREE.Te
   return (
     <>
       {spots.map((s, i) => (
-        <sprite key={i} position={[s.x, heightAt(s.x, s.z) + 1.82 * s.s, s.z]} scale={[1.1 * s.s, 1.1 * s.s, 1]}>
-          <spriteMaterial map={tex} color="#ffd38a" transparent opacity={0.7} depthWrite={false} blending={THREE.AdditiveBlending} toneMapped={false} />
-        </sprite>
+        <sprite key={i} position={[s.x, heightAt(s.x, s.z) + 1.82 * s.s, s.z]} scale={[1.1 * s.s, 1.1 * s.s, 1]} material={mat} />
       ))}
     </>
   );
@@ -880,18 +893,22 @@ function LanternGlow({ scenery, tex }: { scenery: readonly Prop[]; tex: THREE.Te
 
 /* --------------------------------------------------------------------- sky */
 
-function SkyDome() {
+function SkyDome({ day }: { day: DayLight }) {
   const mat = useMemo(
     () =>
       new THREE.ShaderMaterial({
         side: THREE.BackSide,
         depthWrite: false,
-        uniforms: { top: { value: new THREE.Color(SKY_TOP) }, low: { value: new THREE.Color(SKY_LOW) } },
+        uniforms: { top: { value: new THREE.Color() }, low: { value: new THREE.Color() } },
         vertexShader: `varying float vY; void main(){ vY = normalize(position).y; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
         fragmentShader: `uniform vec3 top; uniform vec3 low; varying float vY; void main(){ gl_FragColor = vec4(mix(low, top, smoothstep(-0.05, 0.55, vY)), 1.0); }`,
       }),
     [],
   );
+  useFrame(() => {
+    paint(mat.uniforms.top.value, day.skyTop);
+    paint(mat.uniforms.low.value, day.skyLow);
+  });
   return (
     <mesh material={mat} frustumCulled={false}>
       <sphereGeometry args={[900, 24, 16]} />
@@ -928,6 +945,7 @@ const World = memo(function World({
   ride,
   lead,
   recess = null,
+  timeZone,
 }: {
   avatar: AvatarConfig;
   close: boolean;
@@ -947,7 +965,9 @@ const World = memo(function World({
   lead: LeadBus | null;
   /** Recess and the Ring (`recess-scene.tsx`): the arch and posts always, a run on the child's own visit. */
   recess?: RecessBus | null;
+  timeZone: string | null;
 }) {
+  const day = useDayLight(timeZone);
   const look = useMemo(() => heroLook(avatar), [avatar]);
   const seat = useSeatRef(ride);
 
@@ -1105,14 +1125,15 @@ const World = memo(function World({
 
   return (
     <>
-      <SkyDome />
+      <SkyDome day={day} />
       {/*
         The haze starts well past the village and ends past the far coast. Both numbers are the
         draw distance's doing: the whole island is drawn, so fog is not hiding a horizon — it is
-        the only thing that puts three hundred units of air between a child and a mountain.
+        the only thing that puts three hundred units of air between a child and a mountain. `Sun`
+        paints its colour from the hour before the first frame draws.
       */}
-      <fog attach="fog" args={[FOG, 140, 520]} />
-      <Sun heroRef={heroRef} />
+      <fog attach="fog" args={["#000000", 140, 520]} />
+      <Sun heroRef={heroRef} day={day} />
       <RealmGround world={world} heroRef={heroRef} />
       <RealmWater world={world} />
       <RealmProps
@@ -1144,7 +1165,7 @@ const World = memo(function World({
       {/* The pet is the child's, and stays with the child: no companion follows the wizard. */}
       {viewer !== "parent" && look.companion && <Companion look={look.companion} heroRef={heroRef} facingRef={facingRef} hideRef={ride?.away} lead={lead} world={world} solids={solids} layout={layout} recess={recess} troubles={troubles} />}
       <WadeRing world={world} heroRef={heroRef} />
-      <LanternGlow scenery={scenery} tex={tex} />
+      <LanternGlow scenery={scenery} tex={tex} day={day} />
       <Motes tex={tex} />
       <SpellFx pool={fxPool} />
       <Interaction spots={spots} heroRef={heroRef} keys={keys} bus={bus} world={world} />
@@ -1216,9 +1237,11 @@ export type RealmCanvasProps = {
   lead?: LeadBus;
   /** Recess's wire to the frame (`lib/realm3d/recess/bus.ts`). Without one, there is no Ring. */
   recess?: RecessBus;
+  /** The family's timezone: the island's day and night follow its clock (`day-cycle.ts`). */
+  timeZone?: string | null;
 };
 
-export default function SpikeScene({ avatar, close, world, layout, anchors, pages, bus, caster, fxPool, casts, viewer, castleUnlocked, frozen = false, calm = false, troubles, ride, lead, recess }: RealmCanvasProps) {
+export default function SpikeScene({ avatar, close, world, layout, anchors, pages, bus, caster, fxPool, casts, viewer, castleUnlocked, frozen = false, calm = false, troubles, ride, lead, recess, timeZone }: RealmCanvasProps) {
   return (
     <Canvas
       frameloop={frozen ? "never" : "always"}
@@ -1249,6 +1272,7 @@ export default function SpikeScene({ avatar, close, world, layout, anchors, page
         ride={ride ?? null}
         lead={lead ?? null}
         recess={recess ?? null}
+        timeZone={timeZone ?? null}
       />
     </Canvas>
   );

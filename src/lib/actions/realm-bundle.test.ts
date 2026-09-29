@@ -31,9 +31,9 @@ vi.mock("@/lib/services/mounts", () => ({ loadUnlockedMountIds: async () => [] }
 vi.mock("@/lib/services/crowns", () => ({ loadSeasons: async () => [] }));
 // Two selects: the child's row, then the castle's.
 vi.mock("@/lib/db", () => {
-  const rows = [[{ displayName: "Emma", avatarConfig: null }], []];
+  const rows = [[{ displayName: "Emma", avatarConfig: null, timezone: "America/Chicago" }], []];
   let n = 0;
-  const chain = { from: () => chain, where: () => chain, limit: async () => rows[n++ % 2] };
+  const chain = { from: () => chain, leftJoin: () => chain, where: () => chain, limit: async () => rows[n++ % 2] };
   return { db: { select: () => chain } };
 });
 
@@ -118,5 +118,12 @@ describe("getRealmBundle — the troubles cleared a moment ago", () => {
     const b = await getRealmBundle("c1");
     spy.mockRestore();
     expect(b.troubleClears).toEqual([]);
+  });
+});
+
+describe("getRealmBundle — the family's clock", () => {
+  it("carries the family's timezone, for the island's day and night", async () => {
+    requireChildAccess.mockResolvedValue(as("child:c1", "edit"));
+    expect((await getRealmBundle("c1")).timezone).toBe("America/Chicago");
   });
 });

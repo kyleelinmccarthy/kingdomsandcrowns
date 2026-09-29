@@ -111,6 +111,8 @@ const RoomCanvas = dynamic(() => import("./interior-scene"), { ssr: false, loadi
  */
 export type RealmData = {
   childId: string | null;
+  /** The family's timezone, for day and night (`day-cycle.ts`). */
+  timezone?: string | null;
   /** The actor is the child themselves. False is a grown-up visiting: no clock, no spending. */
   isChildView: boolean;
   kingdom: KingdomState;
@@ -916,6 +918,7 @@ export function RealmGame({
   return (
     <div className={`r3-game${inside ? " r3-game--indoors" : ""}`}>
       <RealmCanvas
+        timeZone={realm.timezone ?? null}
         frozen={inside !== null}
         avatar={hero}
         close={close}

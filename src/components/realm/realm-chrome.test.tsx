@@ -80,6 +80,7 @@ const well = {
 const bundle = {
   heroName: "Lily",
   avatarConfig: DEFAULT_AVATAR,
+  timezone: null,
   castleType: "campsite",
   kingdom: { tone: "gentle" as const, buildings: [well] },
   profile: DEFAULT_LEARNING_PROFILE,
