@@ -158,13 +158,5 @@ export const ROOM_DIST = 12;
 export const ROOM_DIST_MIN = 6;
 export const ROOM_DIST_MAX = 22;
 
-export function clampRoomPitch(p: number): number {
-  return p < ROOM_PITCH_MIN ? ROOM_PITCH_MIN : p > ROOM_PITCH_MAX ? ROOM_PITCH_MAX : p;
-}
-
-export function clampRoomDist(d: number): number {
-  return d < ROOM_DIST_MIN ? ROOM_DIST_MIN : d > ROOM_DIST_MAX ? ROOM_DIST_MAX : d;
-}
-
-/** The room's look limits, for the one mouse input the island and the rooms share (`lookBy`, `zoomBy`). */
+/** The room's look limits, for the one mouse input the island and the rooms share (`lookBy`, `zoomBy`): the clamp is theirs. */
 export const ROOM_LOOK: LookLimits = { pitchMin: ROOM_PITCH_MIN, pitchMax: ROOM_PITCH_MAX, distMin: ROOM_DIST_MIN, distMax: ROOM_DIST_MAX };

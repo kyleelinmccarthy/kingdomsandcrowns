@@ -31,4 +31,10 @@ describe("the camera never moves itself", () => {
     expect(scene).toMatch(/<ChaseCamera\b/);
     expect(scene).not.toMatch(/addEventListener\("pointerdown"/);
   });
+
+  it("takes a room's mouse through the same door, with the room's own limits", () => {
+    const room = read("interior-scene.tsx");
+    expect(room).toMatch(/<MouseLook\b[^>]*limits=\{ROOM_LOOK\}/);
+    expect(room).not.toMatch(/addEventListener\("pointerdown"/);
+  });
 });

@@ -26,12 +26,16 @@
  *
  * No boom tricks. A room is cut away instead: every wall between the lens and the room is hidden
  * (with whatever stands against it), so the camera sits outside like a dolls' house and looks in
- * over the knee-high course that is always drawn. Drag to orbit, wheel to zoom, as outdoors.
+ * over the knee-high course that is always drawn. The mouse is the camera exactly as outdoors,
+ * through the same door (`MouseLook`) with the room's own limits (`ROOM_LOOK`): click to look
+ * (Esc lets go), or right-drag while it is free; the wheel zooms. A mouse captured outside comes
+ * through the door still captured. The walk is the island's too: the same weight, the same
+ * sidestep (`locomotion.ts`).
  *
  * Nothing in a frame allocates.
  */
 
-import { memo, useEffect, useMemo, useRef } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import { heightAt } from "@/lib/realm3d/heightfield";
@@ -39,19 +43,22 @@ import { supportHeight, HERO_RADIUS, type Pt } from "@/lib/realm3d/collision";
 import { makeVertical, stepVertical, tryJump, type Vertical } from "@/lib/realm3d/jump";
 import { makeStride, strideTick } from "@/lib/realm3d/sound/stride";
 import { heroLook } from "@/lib/realm3d/hero-look";
-import { cameraFacing, makeMoveIntent, moveIntent, turnToward, wrapAngle, BACKPEDAL, YAW_PER_PX, PITCH_PER_PX, ZOOM_PER_PX, type MoveIntent } from "@/lib/realm3d/controls";
-import { roomPlan, type RoomColors, type RoomPart, type RoomPlan, type WallSide } from "@/lib/realm3d/interiors";
 import {
-  clampRoomDist,
-  clampRoomPitch,
-  hiddenWalls,
-  leavingRoom,
-  makeHidden,
-  pickRoomSpot,
-  roomSlide,
-  roomSpots,
-  type RoomSpots,
-} from "@/lib/realm3d/room-rules";
+  bodyFacing,
+  cameraFacing,
+  looking,
+  makeAim,
+  makeMoveIntent,
+  moveIntent,
+  turnToward,
+  BACKPEDAL,
+  type Aim,
+  type LookState,
+  type MoveIntent,
+} from "@/lib/realm3d/controls";
+import { hipTurn, keepMotion, makeMotion, makeStride as makeLegs, readStride, stepMotion, strideRate, type Motion } from "@/lib/realm3d/locomotion";
+import { roomPlan, type RoomColors, type RoomPart, type RoomPlan, type WallSide } from "@/lib/realm3d/interiors";
+import { hiddenWalls, leavingRoom, makeHidden, pickRoomSpot, roomSlide, roomSpots, ROOM_LOOK, type RoomSpots } from "@/lib/realm3d/room-rules";
 import type { RoomVisit } from "@/lib/realm3d/doorways";
 import type { HudBus } from "@/lib/realm3d/hud-bus";
 import { villagerById } from "@/lib/realm/villagers";
@@ -61,6 +68,7 @@ import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
 import { Companion, HeroFigure, makePetTrail, type Gait } from "./hero-figure";
 import { holdKeys, seedMoves } from "@/lib/realm3d/held-keys";
 import { WizardFigure } from "./wizard-figure";
+import { MouseLook } from "./mouse-look";
 import { merge, paint } from "./geo-kit";
 
 /** Out at sea, where the ground is flat for a long way in every direction. See the header. */
@@ -70,6 +78,8 @@ const HERO_SPEED = 8.5;
 const SUBSTEP = 0.12;
 /** How long walking into the doorway takes to count as leaving, in seconds. */
 const LEAVE_DWELL = 0.14;
+/** Nothing aims the body indoors (no casting): an aim that is never taken, for `bodyFacing`. */
+const NO_AIM: Aim = makeAim();
 
 export type RoomViewProps = {
   visit: RoomVisit;
@@ -86,7 +96,6 @@ export type RoomViewProps = {
 };
 
 type Keys = { f: boolean; b: boolean; l: boolean; r: boolean; jump: boolean; interact: boolean };
-type Pointer = { drag: 0 | 1 | 2; pitch: number; dist: number; yaw: number };
 
 export default function RoomView({ visit, avatar, viewer, bus, paused, colors, used, onLeave }: RoomViewProps) {
   const plan = useMemo(() => roomPlan(visit.room, colors), [visit.room, colors]);
@@ -159,7 +168,9 @@ const RoomWorld = memo(function RoomWorld({
   const facingRef = useRef(plan.spawn.face);
   const gaitRef = useRef<Gait>({ speed: 0, phase: 0 });
   const keys = useRef<Keys>({ f: false, b: false, l: false, r: false, jump: false, interact: false });
-  const pointer = useRef<Pointer>({ drag: 0, pitch: plan.view.pitch, dist: plan.view.dist, yaw: 0 });
+  const yawRef = useRef(0);
+  const view = useRef<LookState>({ pitch: plan.view.pitch, dist: plan.view.dist, held: false, lastLookAt: -1e9 });
+  const lookPaused = useCallback(() => roomPaused(live), [live]);
   const walls = useRef<Record<WallSide, THREE.Group | null>>({ n: null, s: null, e: null, w: null });
   const spots = useMemo(() => roomSpots(plan, keeperName), [plan, keeperName]);
   // The pet follows the child's own footsteps here, so it goes up the stair after them rather than
@@ -213,13 +224,13 @@ const RoomWorld = memo(function RoomWorld({
         {plan.keeper && keeperName && <Keeper plan={plan} heroLocal={local} />}
         <RoomRing spots={spots} />
       </group>
-      <RoomHero plan={plan} oy={oy} heroRef={heroRef} local={local} facingRef={facingRef} gaitRef={gaitRef} keys={keys} pointer={pointer} live={live} bus={bus}>
+      <RoomHero plan={plan} oy={oy} heroRef={heroRef} local={local} facingRef={facingRef} gaitRef={gaitRef} keys={keys} yawRef={yawRef} view={view} live={live} bus={bus}>
         {viewer === "parent" ? <WizardFigure gait={gaitRef} /> : <HeroFigure look={look} gait={gaitRef} />}
       </RoomHero>
       {viewer !== "parent" && look.companion && <Companion look={look.companion} heroRef={heroRef} facingRef={facingRef} trail={petTrail} groundAt={petGround} />}
       <RoomInteract spots={spots} local={local} keys={keys} bus={bus} live={live} />
-      <RoomCamera plan={plan} oy={oy} local={local} pointer={pointer} walls={walls} live={live} plateRef={plateRef} />
-      <RoomPointer pointer={pointer} live={live} facingRef={facingRef} />
+      <RoomCamera plan={plan} oy={oy} local={local} yawRef={yawRef} view={view} walls={walls} live={live} plateRef={plateRef} />
+      <MouseLook bus={bus} yawRef={yawRef} view={view} limits={ROOM_LOOK} paused={lookPaused} />
     </>
   );
 });
@@ -231,6 +242,12 @@ function typingInto(t: EventTarget | null): boolean {
 
 function releaseKeys(k: Keys): void {
   k.f = k.b = k.l = k.r = k.jump = k.interact = false;
+}
+
+/** Whether a panel is open over the room, read through the ref when asked. A free function, so the
+ *  compiler keeps `MouseLook`'s `paused` stable on `live` rather than on a value read at render. */
+function roomPaused(live: Live): boolean {
+  return live.current.paused;
 }
 
 /** Where the child is in the room. Free functions, so a ref's object is never written as a hook value. */
@@ -508,7 +525,8 @@ function RoomHero({
   facingRef,
   gaitRef,
   keys,
-  pointer,
+  yawRef,
+  view,
   live,
   bus,
   children,
@@ -520,7 +538,8 @@ function RoomHero({
   facingRef: React.RefObject<number>;
   gaitRef: React.RefObject<Gait>;
   keys: React.RefObject<Keys>;
-  pointer: React.RefObject<Pointer>;
+  yawRef: React.RefObject<number>;
+  view: React.RefObject<LookState>;
   live: Live;
   /** For the feet's sound. */
   bus?: HudBus;
@@ -533,6 +552,10 @@ function RoomHero({
   const out = useMemo<Pt>(() => ({ x: 0, z: 0 }), []);
   const vert = useMemo<Vertical>(() => makeVertical(0), []);
   const intent = useMemo<MoveIntent>(() => makeMoveIntent(), []);
+  // The body's weight and the legs' reading of it: the island's walk (`locomotion.ts`), indoors.
+  const motion = useMemo<Motion>(() => makeMotion(), []);
+  const move = useMemo<Pt>(() => ({ x: 0, z: 0 }), []);
+  const legs = useMemo(() => makeLegs(), []);
   const leave = useRef(0);
   // Development only: where the child is in the room, for a screenshot script to steer by.
   useEffect(() => {
@@ -554,35 +577,43 @@ function RoomHero({
     }
     const dt = Math.min(0.05, rawDt);
     const k = keys.current;
-    moveIntent(intent, pointer.current.yaw, k);
-    const moving = intent.moving;
-    if (moving) {
-      const speed = HERO_SPEED * (intent.back ? BACKPEDAL : 1);
-      // In steps no longer than a stair's tread: the solver drops a blocked step whole, and a
-      // slow frame's half-unit stride would reach two treads at once and stop dead at the foot of
-      // the stair. Each small step climbs whatever it has just stepped onto.
-      const n = Math.max(1, Math.ceil((speed * dt) / SUBSTEP));
-      const sx = (intent.x * speed * dt) / n;
-      const sz = (intent.z * speed * dt) / n;
+    moveIntent(intent, yawRef.current, k);
+    const wanted = intent.moving ? HERO_SPEED * (intent.back ? BACKPEDAL : 1) : 0;
+    stepMotion(motion, move, intent.x * wanted, intent.z * wanted, HERO_SPEED, vert.grounded, dt);
+    if (move.x !== 0 || move.z !== 0) {
+      const x0 = L.x;
+      const z0 = L.z;
+      // In steps no longer than a stair's tread: the solver drops a blocked step whole, and a slow
+      // frame's half-unit stride would reach two treads at once and stop dead at the foot of the
+      // stair. Each small step climbs whatever it has just stepped onto.
+      const n = Math.max(1, Math.ceil(Math.hypot(move.x, move.z) / SUBSTEP));
+      const sx = move.x / n;
+      const sz = move.z / n;
       for (let i = 0; i < n; i++) {
         roomSlide(out, L.x, L.z, L.x + sx, L.z + sz, plan.solids, HERO_RADIUS, vert.y);
         putLocal(L, out.x, out.z, L.y);
         const under = supportHeight(L.x, L.z, 0, plan.solids, HERO_RADIUS, vert.y);
         if (vert.grounded && under > vert.y) liftTo(vert, under);
       }
-      facing.current = intent.face;
-      bob.current += dt * (vert.grounded ? 9 : 3) * (intent.back ? -1 : 1);
-    } else {
-      bob.current += dt * 2;
-      if (pointer.current.drag === 2) facing.current = cameraFacing(pointer.current.yaw);
+      // What a wall refused takes the speed that ran into it: slid along, not leant on.
+      keepMotion(motion, move.x, move.z, L.x - x0, L.z - z0);
     }
+    readStride(legs, motion, facingRef.current, HERO_SPEED);
+    const moving = legs.speed > 0.05;
+    // Which way the body turns (`bodyFacing`): where it travels, or where the mouse looks. NaN holds it.
+    const now = performance.now() / 1000;
+    const travel = intent.moving ? intent.face : Number.NaN;
+    const face = bodyFacing(travel, cameraFacing(yawRef.current), looking(view.current, now), false, NO_AIM, now);
+    if (face === face) facing.current = face;
+    // The stride runs the way the body goes: backwards for a backpedal, slower in the air.
+    bob.current += dt * strideRate(legs, vert.grounded);
     if (eat(k, "jump") && tryJump(vert)) bus?.feet.onJump();
     stepVertical(vert, dt, L.x, L.z, 0, plan.solids);
     putLocal(L, L.x, L.z, vert.y);
     if (bus) strideTick(stride, bus.feet, bob.current, vert.grounded, moving, dt, L.x, L.z);
 
     // Out of the door: walking into it for a moment, as walking into a door outside brings you in.
-    if (moving && leavingRoom(plan, L.x, L.z, intent.z, L.y)) {
+    if (intent.moving && leavingRoom(plan, L.x, L.z, intent.z, L.y)) {
       leave.current += dt;
       if (leave.current >= LEAVE_DWELL) {
         leave.current = -1e9;
@@ -592,7 +623,8 @@ function RoomHero({
 
     const gg = gaitRef.current;
     gg.phase = bob.current;
-    gg.speed = THREE.MathUtils.damp(gg.speed, moving ? 1 : 0, 8, dt);
+    gg.speed = legs.speed;
+    gg.hip = hipTurn(legs);
     heroRef.current.set(ROOM_ORIGIN.x + L.x, oy + L.y, ROOM_ORIGIN.z + L.z);
     if (!g) return;
     g.position.set(ROOM_ORIGIN.x + L.x, oy + L.y + (moving && vert.grounded ? Math.abs(Math.sin(bob.current)) * 0.07 : 0), ROOM_ORIGIN.z + L.z);
@@ -683,7 +715,8 @@ function RoomCamera({
   plan,
   oy,
   local,
-  pointer,
+  yawRef,
+  view,
   walls,
   live,
   plateRef,
@@ -691,7 +724,8 @@ function RoomCamera({
   plan: RoomPlan;
   oy: number;
   local: React.RefObject<{ x: number; y: number; z: number }>;
-  pointer: React.RefObject<Pointer>;
+  yawRef: React.RefObject<number>;
+  view: React.RefObject<LookState>;
   walls: React.RefObject<Record<WallSide, THREE.Group | null>>;
   live: Live;
   plateRef: React.RefObject<HTMLDivElement | null>;
@@ -708,16 +742,17 @@ function RoomCamera({
   useFrame((_, rawDt) => {
     const dt = Math.min(0.05, rawDt);
     const L = local.current;
-    const ptr = pointer.current;
+    const v = view.current;
+    const yaw = yawRef.current;
     // The camera follows the floor the child is on, not every hop: a jump is them rising in frame.
     floorY.current += (L.y - floorY.current) * (1 - Math.exp(-dt * 5));
     const anchor = Math.min(L.y, floorY.current + 0.4);
     if (!live.current.paused || first.current) {
-      const h = ptr.dist * Math.cos(ptr.pitch);
-      const y = ptr.dist * Math.sin(ptr.pitch);
-      desired.set(ROOM_ORIGIN.x + L.x + h * Math.sin(ptr.yaw), oy + anchor + 1.2 + y, ROOM_ORIGIN.z + L.z + h * Math.cos(ptr.yaw));
+      const h = v.dist * Math.cos(v.pitch);
+      const y = v.dist * Math.sin(v.pitch);
+      desired.set(ROOM_ORIGIN.x + L.x + h * Math.sin(yaw), oy + anchor + 1.2 + y, ROOM_ORIGIN.z + L.z + h * Math.cos(yaw));
       if (first.current) camera.position.copy(desired);
-      else camera.position.lerp(desired, 1 - Math.exp(-dt * (ptr.drag ? 20 : 8)));
+      else camera.position.lerp(desired, 1 - Math.exp(-dt * (v.held ? 20 : 8)));
       look.set(ROOM_ORIGIN.x + L.x, oy + anchor + 1.3, ROOM_ORIGIN.z + L.z);
       camera.lookAt(look);
       first.current = false;
@@ -757,67 +792,5 @@ function RoomCamera({
       }
     }
   });
-  return null;
-}
-
-/* ------------------------------------------------------------------ the mouse */
-
-function RoomPointer({ pointer, live, facingRef }: { pointer: React.RefObject<Pointer>; live: Live; facingRef: React.RefObject<number> }) {
-  const gl = useThree((s) => s.gl);
-  useEffect(() => {
-    const el = gl.domElement;
-    let id = -1;
-    let lastX = 0;
-    let lastY = 0;
-    const end = () => {
-      pointer.current.drag = 0;
-      if (id >= 0 && el.hasPointerCapture?.(id)) el.releasePointerCapture(id);
-      id = -1;
-    };
-    const down = (e: PointerEvent) => {
-      if (live.current.paused || (e.button !== 0 && e.button !== 2)) return;
-      id = e.pointerId;
-      lastX = e.clientX;
-      lastY = e.clientY;
-      pointer.current.drag = e.button === 2 ? 2 : 1;
-      el.setPointerCapture?.(id);
-      e.preventDefault();
-    };
-    const move = (e: PointerEvent) => {
-      const p = pointer.current;
-      if (p.drag === 0 || e.pointerId !== id) return;
-      if (live.current.paused) return end();
-      p.yaw = wrapAngle(p.yaw - (e.clientX - lastX) * YAW_PER_PX);
-      p.pitch = clampRoomPitch(p.pitch + (e.clientY - lastY) * PITCH_PER_PX);
-      lastX = e.clientX;
-      lastY = e.clientY;
-    };
-    const up = (e: PointerEvent) => {
-      if (e.pointerId === id) end();
-    };
-    const wheel = (e: WheelEvent) => {
-      e.preventDefault();
-      if (live.current.paused) return;
-      const p = pointer.current;
-      p.dist = clampRoomDist(p.dist * Math.exp((e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY) * ZOOM_PER_PX));
-    };
-    const menu = (e: MouseEvent) => e.preventDefault();
-    el.addEventListener("pointerdown", down);
-    el.addEventListener("pointermove", move);
-    el.addEventListener("pointerup", up);
-    el.addEventListener("pointercancel", up);
-    el.addEventListener("lostpointercapture", end);
-    el.addEventListener("wheel", wheel, { passive: false });
-    el.addEventListener("contextmenu", menu);
-    return () => {
-      el.removeEventListener("pointerdown", down);
-      el.removeEventListener("pointermove", move);
-      el.removeEventListener("pointerup", up);
-      el.removeEventListener("pointercancel", up);
-      el.removeEventListener("lostpointercapture", end);
-      el.removeEventListener("wheel", wheel);
-      el.removeEventListener("contextmenu", menu);
-    };
-  }, [gl, pointer, live, facingRef]);
   return null;
 }
