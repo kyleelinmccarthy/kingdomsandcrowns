@@ -244,6 +244,7 @@ export function RealmGround({ world, heroRef }: { world: RealmWorld; heroRef: Re
   const keys = useMemo(() => tileKeys(world.half), [world]);
   const [tiles, setTiles] = useState<{ key: string; geo: THREE.BufferGeometry }[]>([]);
   const pending = useRef<TileKey[]>([]);
+  const built = useRef<Set<string>>(new Set());
 
   useEffect(
     () => () => {
@@ -256,14 +257,16 @@ export function RealmGround({ world, heroRef }: { world: RealmWorld; heroRef: Re
   );
 
   useFrame(() => {
-    if (tiles.length >= keys.length) return;
+    if (built.current.size >= keys.length) return;
     const p = heroRef.current;
-    const have = new Set(tiles.map((t) => t.key));
     pending.current.length = 0;
-    for (const k of keys) if (!have.has(`${k.ix},${k.iz}`)) pending.current.push(k);
+    for (const k of keys) if (!built.current.has(`${k.ix},${k.iz}`)) pending.current.push(k);
     pending.current.sort((a, b) => Math.hypot(a.cx - p.x, a.cz - p.z) - Math.hypot(b.cx - p.x, b.cz - p.z));
     const next = pending.current[0];
     const geo = buildTile(world, tracks, next.x0, next.z0);
+    // Marked here, not read back from `tiles`: a frame can run again before React commits the tile
+    // this one added, and would build the same tile twice (two children with one key).
+    built.current.add(`${next.ix},${next.iz}`);
     setTiles((list) => [...list, { key: `${next.ix},${next.iz}`, geo }]);
   });
 
