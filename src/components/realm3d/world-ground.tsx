@@ -243,17 +243,20 @@ export function RealmGround({ world, heroRef }: { world: RealmWorld; heroRef: Re
 
   const keys = useMemo(() => tileKeys(world.half), [world]);
   const [tiles, setTiles] = useState<{ key: string; geo: THREE.BufferGeometry }[]>([]);
+  // Kept in step with state, so the unmount cleanup disposes the tiles that exist then, not the empty list of the first render.
+  const tilesRef = useRef(tiles);
+  tilesRef.current = tiles;
   const pending = useRef<TileKey[]>([]);
   const built = useRef<Set<string>>(new Set());
 
   useEffect(
     () => () => {
-      for (const t of tiles) t.geo.dispose();
+      for (const t of tilesRef.current) t.geo.dispose();
     },
     // Deliberately on unmount only: the list grows every tile, and disposing the geometry of a
     // tile that is still on screen because a NEW one arrived is how you make the ground blink.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [world],
+    [],
   );
 
   useFrame(() => {
