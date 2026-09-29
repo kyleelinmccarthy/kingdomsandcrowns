@@ -141,11 +141,13 @@ describe("the E prompt", () => {
 });
 
 describe("the controls", () => {
-  it("names the fixed scheme: E interacts, drag looks, Esc pauses, and Q is gone", () => {
+  it("names the scheme the scene binds: a click catches the mouse, a right-drag looks, P and Esc pause, and Q is gone", () => {
     const rows = controlRows(4);
     const keys = rows.flatMap((r) => r.keys);
-    expect(keys).toEqual(expect.arrayContaining(["W", "A", "S", "D", "Space", "E", "Esc", "Left drag", "Right drag", "Wheel", "1–4"]));
+    expect(keys).toEqual(expect.arrayContaining(["W", "A", "S", "D", "Space", "E", "Click", "Right drag", "Wheel", "P", "Esc", "1–4"]));
+    expect(keys).not.toContain("Left drag");
     expect(keys).not.toContain("Q");
+    expect(rows.find((r) => r.keys.includes("Click"))!.what).toBe("Look around with the mouse. Esc lets the mouse go.");
     expect(rows.find((r) => r.keys.includes("E"))!.what).toMatch(/talk/i);
   });
 
@@ -155,10 +157,11 @@ describe("the controls", () => {
     expect(keyHints(5).map((h) => h.key)).toContain("1–5");
   });
 
-  it("puts E and Esc on the strip, where Q/E used to turn the camera", () => {
+  it("puts the look, E and P on the strip", () => {
     const hints = keyHints(4);
+    expect(hints.find((h) => h.key === "Click")!.what).toBe("look");
     expect(hints.find((h) => h.key === "E")!.what).toBe("talk");
-    expect(hints.find((h) => h.key === "Esc")!.what).toBe("menu");
+    expect(hints.find((h) => h.key === "P")!.what).toBe("pause");
     expect(hints.map((h) => h.key)).not.toContain("Q");
   });
 });

@@ -40,6 +40,7 @@ import {
   currentLesson,
   LESSONS,
   CORE_LESSONS,
+  countsAsLook,
   lessonCopy,
   lessonsFromStored,
   settle,
@@ -472,7 +473,7 @@ export function RealmGame({
       else if (e.code === "Space") signal({ kind: "jumped" });
     };
     const onMove = (e: PointerEvent) => {
-      if (bus.paused || (e.buttons & 3) === 0 || !(e.target instanceof HTMLCanvasElement)) return;
+      if (bus.paused || !(e.target instanceof HTMLCanvasElement) || !countsAsLook(e.buttons, document.pointerLockElement != null)) return;
       hands.current.drag += Math.abs(e.movementX) + Math.abs(e.movementY);
       signal({ kind: "looked", px: hands.current.drag });
     };

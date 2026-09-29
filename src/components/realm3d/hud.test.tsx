@@ -138,11 +138,11 @@ describe("the spell bar", () => {
     expect(screen.getByText(/cast$/)).toHaveTextContent("1–4 cast");
   });
 
-  it("names the control scheme the scene binds: E talks, Esc is the menu, Q is gone", () => {
+  it("names the control scheme the scene binds: E talks, P pauses, Q is gone", () => {
     const { view } = mount();
     const strip = view.container.querySelector(".r3-keys")!;
     expect(strip).toHaveTextContent("E talk");
-    expect(strip).toHaveTextContent("Esc menu");
+    expect(strip).toHaveTextContent("P pause");
     expect(strip.textContent).not.toMatch(/\bQ\b/);
     expect(strip.textContent).not.toMatch(/turn the camera/);
   });

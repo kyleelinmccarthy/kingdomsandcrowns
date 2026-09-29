@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   advanceLesson,
+  countsAsLook,
   currentLesson,
   LEGACY_STEPS,
   LESSONS,
@@ -149,5 +150,18 @@ describe("persistence, above the flat tutorial's numbers", () => {
     expect(tutorialLearned(0)).toBe(false);
     expect(tutorialLearned(LEGACY_STEPS + 1)).toBe(false);
     expect(tutorialLearned(2)).toBe(false);
+  });
+});
+
+describe("what counts as looking round", () => {
+  it("counts the captured mouse moving and a right-drag, and not a free mouse passing over", () => {
+    expect(countsAsLook(0, true)).toBe(true);
+    expect(countsAsLook(2, false)).toBe(true);
+    expect(countsAsLook(0, false)).toBe(false);
+    expect(countsAsLook(1, false)).toBe(false);
+  });
+
+  it("teaches the click, not a drag", () => {
+    expect(LESSONS.find((l) => l.id === "look")!.keys).toEqual(["Click"]);
   });
 });

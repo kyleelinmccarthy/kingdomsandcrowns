@@ -161,21 +161,21 @@ export type ControlRow = { keys: string[]; what: string };
 /**
  * THE control scheme, in one list. The pause menu's Controls panel, the how-to-play card and
  * the hint strip under the spell bar all read it, so no surface can describe a key the scene
- * does not bind. Fixed with the scene: WASD relative to the camera, A and D strafe, left-drag
- * orbits, right-drag orbits and turns the hero, the wheel zooms, Space jumps, E interacts,
- * 1–N casts, Esc pauses. Q and E no longer swing the camera.
+ * does not bind. Fixed with the scene: WASD relative to the camera, A and D strafe, S backs up,
+ * a click catches the mouse as the camera (Esc lets it go), a right-drag looks while it is free,
+ * the wheel zooms, Space jumps, E interacts, 1–N casts, P or Esc pauses.
  */
 export function controlRows(slots: number, opts: { mount?: boolean; pet?: string | false } = {}): ControlRow[] {
   const n = Math.max(1, Math.min(9, Math.floor(slots)));
   const rows: ControlRow[] = [
-    { keys: ["W", "A", "S", "D"], what: "Walk. A and D step sideways." },
+    { keys: ["W", "A", "S", "D"], what: "Walk. A and D step sideways, S backs up." },
     { keys: ["Space"], what: "Jump." },
-    { keys: ["Left drag"], what: "Look around." },
-    { keys: ["Right drag"], what: "Look around and turn to face that way." },
+    { keys: ["Click"], what: "Look around with the mouse. Esc lets the mouse go." },
+    { keys: ["Right drag"], what: "Look around without catching the mouse." },
     { keys: ["Wheel"], what: "Zoom in and out." },
     { keys: ["E"], what: "Talk to someone, or look at something, when you are close." },
     { keys: [n > 1 ? `1–${n}` : "1"], what: "Cast a spell. You can click a spell too." },
-    { keys: ["Esc"], what: "Pause, with Controls and Leave." },
+    { keys: ["P", "Esc"], what: "Pause, with Controls and Leave." },
   ];
   // Riding (`riding.ts`): for a child, always — with or without a mount, M says how it works.
   if (opts.mount !== undefined) {
@@ -201,11 +201,11 @@ export function keyHints(slots: number, opts: { mount?: boolean; pet?: boolean }
   const n = Math.max(1, Math.min(9, Math.floor(slots)));
   const hints = [
     { key: "WASD", what: "walk" },
-    { key: "Drag", what: "look" },
+    { key: "Click", what: "look" },
     { key: "Space", what: "jump" },
     { key: "E", what: "talk" },
     { key: n > 1 ? `1–${n}` : "1", what: "cast" },
-    { key: "Esc", what: "menu" },
+    { key: "P", what: "pause" },
   ];
   // Only for a child who has a mount to ride: the strip stays five verbs for everyone else.
   if (opts.mount) hints.splice(hints.length - 1, 0, { key: "M", what: "ride" });

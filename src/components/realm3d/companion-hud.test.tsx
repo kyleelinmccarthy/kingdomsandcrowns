@@ -128,8 +128,8 @@ describe("the words, the slot and the map", () => {
     const withPet = controlRows(4, { mount: true, pet: "Fox" });
     const f = withPet.find((r) => r.keys[0] === "F")!;
     expect(f.what).toMatch(/Ask your Fox to show you the way/);
-    // Before Esc, which stays last.
-    expect(withPet[withPet.length - 1].keys).toEqual(["Esc"]);
+    // Before the pause row, which stays last.
+    expect(withPet[withPet.length - 1].keys).toEqual(["P", "Esc"]);
     expect(controlRows(4, { pet: false }).find((r) => r.keys[0] === "F")?.what).toMatch(/once you've picked one/);
     expect(controlRows(4, {}).some((r) => r.keys[0] === "F")).toBe(false);
     expect(keyHints(4, { pet: true }).map((h) => h.key)).toContain("F");

@@ -4,7 +4,7 @@
  * The flat Realm's `lib/realm/tutorial.ts` taught four verbs (walk, go to the light, press E,
  * press 1) for a tabletop camera that no longer exists. This is the same idea — a prompt that
  * names a key, gone the moment the child has done the thing — rewritten for the controls the 3D
- * world really binds: WASD with A and D stepping sideways, a mouse drag to look, Space to jump,
+ * world really binds: WASD with A and D stepping sideways, a click to look with the mouse, Space to jump,
  * E to talk, the number row (or a click) to cast, and a `+` page that says how spells are earned.
  *
  * The rules that made the old ladder safe carry over, and each one is here for the same reason:
@@ -39,7 +39,7 @@ export type LessonId = "walk" | "look" | "jump" | "find" | "talk" | "cast" | "sp
 export type LessonSignal =
   /** `keys` is how many DIFFERENT movement keys the child has pressed; `distance` in world units. */
   | { kind: "walked"; keys: number; distance: number }
-  /** Pixels of mouse drag on the world, left or right button. */
+  /** Pixels the mouse moved as the camera: captured, or right-dragged. */
   | { kind: "looked"; px: number }
   | { kind: "jumped" }
   /** Something came into E's reach. `waiting` is true when it is the villager the child is sent to. */
@@ -63,7 +63,7 @@ export type Lesson = {
 /** The ladder, in the order a child meets it. */
 export const LESSONS: readonly Lesson[] = [
   { id: "walk", signal: "walked", keys: ["W", "A", "S", "D"] },
-  { id: "look", signal: "looked", keys: ["Drag"] },
+  { id: "look", signal: "looked", keys: ["Click"] },
   { id: "jump", signal: "jumped", keys: ["Space"] },
   { id: "find", signal: "near", keys: [] },
   { id: "talk", signal: "talked", keys: ["E"] },
@@ -194,7 +194,7 @@ export function lessonCopy(done: number, ctx: LessonContext): LessonCopy | null 
     case "walk":
       return say("Walk around.", "W walks forward and S walks back. A and D step to the side.");
     case "look":
-      return say("Look around.", "Hold the left mouse button and move the mouse. Roll the wheel to zoom.");
+      return say("Look around.", "Click the world, then move the mouse. Esc lets the mouse go. Roll the wheel to zoom.");
     case "jump":
       return say("Jump!", "Press Space.");
     case "find":
@@ -216,3 +216,8 @@ export function lessonCopy(done: number, ctx: LessonContext): LessonCopy | null 
 
 /** The line that says the tutorial is over, and the one key it has not taught by doing. */
 export const TUTORIAL_DONE = "You know the Realm! Press Esc any time for the menu.";
+
+/** A mouse move that turns the camera: the mouse is captured, or the right button is held. */
+export function countsAsLook(buttons: number, captured: boolean): boolean {
+  return captured || (buttons & 2) !== 0;
+}
