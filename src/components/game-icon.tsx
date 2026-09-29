@@ -77,6 +77,7 @@ const PATHS = {
   wind: "<path fill=\"none\" stroke=\"currentColor\" stroke-width=\"42\" stroke-linecap=\"round\" d=\"M56 196H322a62 62 0 1 0-62-62M56 280H398a60 60 0 1 1-60 60M56 364H236\"/>", // hand-drawn: three gusts
   snowflake: "<g fill=\"none\" stroke=\"currentColor\" stroke-width=\"38\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M256 40V472M69 148L443 364M69 364L443 148\"/><path d=\"M196 84L256 138L316 84M196 428L256 374L316 428\"/><path d=\"M196 84L256 138L316 84M196 428L256 374L316 428\" transform=\"rotate(60 256 256)\"/><path d=\"M196 84L256 138L316 84M196 428L256 374L316 428\" transform=\"rotate(120 256 256)\"/></g>", // hand-drawn: a six-armed snowflake
   mana: "<path fill=\"currentColor\" fill-rule=\"evenodd\" d=\"M232 20C240 120 260 150 330 176C260 204 242 232 232 336C222 232 204 204 134 176C204 150 224 120 232 20zM400 236C405 290 416 306 460 320C416 336 405 352 400 404C395 352 384 336 340 320C384 306 395 290 400 236zM140 330C144 380 156 394 196 406C156 420 144 434 140 484C136 434 124 420 84 406C124 394 136 380 140 330z\"/>", // hand-drawn: three magic sparkles
+  pause: "<path fill=\"currentColor\" d=\"M140 76h72a28 28 0 0 1 28 28v304a28 28 0 0 1-28 28h-72a28 28 0 0 1-28-28V104a28 28 0 0 1 28-28zm160 0h72a28 28 0 0 1 28 28v304a28 28 0 0 1-28 28h-72a28 28 0 0 1-28-28V104a28 28 0 0 1 28-28z\"/>", // hand-drawn: the two bars every player knows
 } as const;
 
 export type GameIconName = keyof typeof PATHS;

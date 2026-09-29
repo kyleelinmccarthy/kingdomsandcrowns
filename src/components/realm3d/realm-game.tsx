@@ -88,6 +88,8 @@ import { travelGraphFor } from "@/lib/realm3d/travel";
 import { SoundControls, useRealmSound } from "./realm-sound";
 import type { SoundSettings } from "@/lib/realm3d/sound/settings";
 import { usePlacesFound } from "./use-places-found";
+import { usePause } from "./use-pause";
+import { LookControls, useLook } from "./look-controls";
 import { earningLines, type EarningSettings } from "@/lib/realm/spells/bounty";
 import type { RealmAccessMode } from "@/lib/utils/realm-access";
 import { useRecess } from "./use-recess";
@@ -749,6 +751,11 @@ export function RealmGame({
     paused,
     initialSource: entry.source,
   });
+  // The pauses a child never asks for — the tab hidden, the window left, the mouse let go, two
+  // minutes untouched — and P (`use-pause.ts`). A grown-up has no clock: only Esc and P pause them.
+  const pauser = usePause({ bus, overlayRef, paused, go, clock: clockOn, enabled: !close });
+  // How the mouse looks around, kept on this computer and live on the bus from the first frame.
+  const mouse = useLook(bus);
   // Every way out — Leave, a link in a panel, the browser's back, the clock closing — unmounts
   // this component, so the part-minute is charged here, where no exit can skip it.
   const { flushPending } = clock;
@@ -1022,11 +1029,13 @@ export function RealmGame({
             <PauseMenu
               heroName={heroName}
               viewer={who}
-              onResume={closeOverlay}
+              why={overlay.why}
+              onResume={pauser.resume}
               onControls={() => go({ kind: "howto", back: true })}
               leaveHref="/tavern"
               settings={settings}
               selector={selector}
+              look={<LookControls look={mouse.look} onChange={mouse.change} />}
               sound={<SoundControls store={soundStore} enabled={!realm.isChildView || profile.soundEnabled} calm={calm} viewer={who} heroName={heroName} />}
             />
           )}

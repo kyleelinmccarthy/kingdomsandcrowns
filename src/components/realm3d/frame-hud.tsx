@@ -30,6 +30,7 @@ import type { GateCopy } from "@/lib/realm/play-clock";
 import { controlRows, emptyPageCopy, interactVerb, type Viewer } from "@/lib/realm3d/frame";
 import { listWords, type SpellHelp } from "@/lib/realm3d/guide";
 import type { InteractTarget } from "@/lib/realm3d/hud-bus";
+import { pauseCopy, type PauseWhy } from "@/lib/realm3d/pause";
 import type { RealmWorld } from "@/lib/realm3d/worldgen";
 import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
 import { CASTLE_TYPES } from "@/lib/utils/avatar-catalog";
@@ -246,8 +247,9 @@ export function ClockCorner({
         <button type="button" className="r3-round" aria-label="How to play" title="How to play" onMouseDown={keepFocusInWorld} onClick={onHelp}>
           ?
         </button>
-        <button type="button" className="r3-button" onMouseDown={keepFocusInWorld} onClick={onMenu}>
-          <span className="r3-button-key">Esc</span> Menu
+        {/* A plain Pause a child can find: the glyph every player knows, the word, and its key. */}
+        <button type="button" className="r3-button" title="Pause (P or Esc)" onMouseDown={keepFocusInWorld} onClick={onMenu}>
+          <GameIcon name="pause" className="r3-button-icon" /> Pause <span className="r3-button-key">P</span>
         </button>
         {/* A link, so every way out is the ordinary way out: the unmount flushes the clock. */}
         <Link href={leaveHref} className="r3-button r3-button--leave">
@@ -366,15 +368,21 @@ export type PauseSettings = {
 export function PauseMenu({
   heroName,
   viewer,
+  why = "you",
   onResume,
   onControls,
   leaveHref,
   settings,
   selector,
   sound,
+  look,
 }: {
   heroName: string;
   viewer: Viewer;
+  /** Why it paused (`pause.ts`): said on the board when the game paused by itself. */
+  why?: PauseWhy;
+  /** The Mouse section (`look-controls.tsx`): look speed and Invert up/down, beside Sound. */
+  look?: ReactNode;
   onResume: () => void;
   onControls: () => void;
   leaveHref: string;
@@ -384,12 +392,14 @@ export function PauseMenu({
   /** The Sound section (`realm-sound.tsx`): volume, effects, music, mute. */
   sound?: ReactNode;
 }) {
+  const copy = pauseCopy(why, viewer, heroName);
   return (
-    <Panel title="Paused" label="Paused" icon={<GameIcon name="hourglass" className="r3-board-icon" />} onClose={onResume}>
-      <p className="r3-board-sub">{viewer === "parent" ? `${heroName}'s Realm waits while you look.` : "The world waits for you. Your minutes are not ticking."}</p>
+    <Panel title={copy.title} label={copy.title} icon={<GameIcon name="hourglass" className="r3-board-icon" />} onClose={onResume}>
+      {copy.reason && <p className="r3-board-sub r3-pause-why">{copy.reason}</p>}
+      <p className="r3-board-sub">{copy.line}</p>
       <div className="r3-menu">
         <button type="button" className="r3-menu-item r3-menu-item--go" onClick={onResume}>
-          <GameIcon name="journey" className="r3-menu-icon" /> Resume
+          <GameIcon name="journey" className="r3-menu-icon" /> {copy.resume}
         </button>
         <button type="button" className="r3-menu-item" onClick={onControls}>
           <GameIcon name="compass" className="r3-menu-icon" /> Controls
@@ -436,6 +446,7 @@ export function PauseMenu({
           )}
         </div>
       )}
+      {look}
       {sound}
       {selector && (
         <div className="r3-settings">

@@ -17,14 +17,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { recordPlacesFound } from "@/lib/actions/realm-places";
 import { legacyVisitedKey, readStoredPlaces, unsavedPlacesKey } from "@/lib/realm/places-found";
 import { makePlacesStore, type PlacesStore } from "@/lib/realm3d/places-store";
-
-function storage(): Storage | null {
-  try {
-    return typeof window === "undefined" ? null : window.localStorage;
-  } catch {
-    return null;
-  }
-}
+import { deviceStorage as storage } from "@/lib/utils/device-storage";
 
 /** What this device kept for the hero: finds it never saved, and the old visited list (moved, then removed). */
 function carriedFor(childId: string): string[] {

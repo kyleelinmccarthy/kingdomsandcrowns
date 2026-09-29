@@ -14,6 +14,7 @@
 import { gateCopy, type GateCopy } from "@/lib/realm/play-clock";
 import type { AccessDenied, AccessResult } from "@/lib/utils/realm-access";
 import type { InteractTarget } from "./hud-bus";
+import type { PauseWhy } from "./pause";
 
 export type Viewer = "child" | "parent";
 export type AccessSource = "off_hours" | "recess" | "earned" | "open";
@@ -117,7 +118,8 @@ export function visitClockLine(heroName: string, visit: { minutes: number | null
  * `bus.setPaused(overlay !== null)` and nothing else decides it.
  */
 export type Overlay =
-  | { kind: "pause" }
+  /** `why`: the child asked (absent), they were away, or nothing moved (`pause.ts`). */
+  | { kind: "pause"; why?: PauseWhy }
   /** How to play. `back` is true when it was opened from the pause menu, so Esc returns there. */
   | { kind: "howto"; back: boolean }
   | { kind: "interact"; target: InteractTarget }

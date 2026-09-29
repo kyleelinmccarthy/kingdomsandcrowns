@@ -75,20 +75,23 @@ describe("the clock corner", () => {
   const corner = (over: Partial<React.ComponentProps<typeof ClockCorner>> = {}) =>
     render(<ClockCorner line="240 min left" warning={false} error="" onRetry={() => {}} onHelp={() => {}} onMenu={() => {}} leaveHref="/tavern" {...over} />);
 
-  it("shows the clock, a help button, the menu and a way out", () => {
+  it("shows the clock, a help button, a plain Pause button with its key, and a way out", () => {
     corner();
     expect(screen.getByText("240 min left")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "How to play" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Menu/ })).toBeInTheDocument();
+    const pause = screen.getByRole("button", { name: /^Pause/ });
+    expect(pause.querySelector("svg")).not.toBeNull();
+    expect(pause.querySelector(".r3-button-key")).toHaveTextContent("P");
+    expect(screen.queryByRole("button", { name: /Menu/ })).toBeNull();
     expect(screen.getByRole("link", { name: /Leave/ })).toHaveAttribute("href", "/tavern");
   });
 
-  it("opens help and the menu", () => {
+  it("opens help, and pauses", () => {
     const onHelp = vi.fn();
     const onMenu = vi.fn();
     corner({ onHelp, onMenu });
     fireEvent.click(screen.getByRole("button", { name: "How to play" }));
-    fireEvent.click(screen.getByRole("button", { name: /Menu/ }));
+    fireEvent.click(screen.getByRole("button", { name: /^Pause/ }));
     expect(onHelp).toHaveBeenCalledOnce();
     expect(onMenu).toHaveBeenCalledOnce();
   });
@@ -138,6 +141,22 @@ describe("the pause menu", () => {
   it("puts Resume under the child's finger the moment it opens", () => {
     render(<PauseMenu heroName="Emma" viewer="child" onResume={() => {}} onControls={() => {}} leaveHref="/tavern" settings={noSettings} />);
     expect(screen.getByRole("button", { name: /Resume/ })).toHaveFocus();
+  });
+
+  it("says why it paused when it paused by itself, and keeps the honest line", () => {
+    render(<PauseMenu heroName="Emma" viewer="child" why="away" onResume={() => {}} onControls={() => {}} leaveHref="/tavern" settings={noSettings} />);
+    const board = screen.getByRole("dialog", { name: "Paused" });
+    expect(board).toHaveTextContent("Paused while you were away — your minutes stopped too.");
+    expect(board).toHaveTextContent("The world waits for you. Your minutes are not ticking.");
+  });
+
+  it("asks 'Still there?' after two minutes untouched, with one friendly button back", () => {
+    const onResume = vi.fn();
+    render(<PauseMenu heroName="Emma" viewer="child" why="idle" onResume={onResume} onControls={() => {}} leaveHref="/tavern" settings={noSettings} />);
+    expect(screen.getByRole("dialog", { name: "Still there?" })).toHaveTextContent("your minutes stopped too");
+    expect(screen.getByRole("button", { name: /I'm here!/ })).toHaveFocus();
+    fireEvent.click(screen.getByRole("button", { name: /I'm here!/ }));
+    expect(onResume).toHaveBeenCalledOnce();
   });
 
   it("offers the flat Realm's one in-game setting, how much to show", () => {
