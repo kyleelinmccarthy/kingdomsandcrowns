@@ -96,6 +96,9 @@ export function mouseLook(el: LookEl, doc: LookDoc, o: MouseLookOptions): MouseL
   let retried = false;
   /** Gone (a room closed): a retry queued before that must not ask a torn-down canvas. */
   let disposed = false;
+  // A new instance over a document nothing holds is a fresh visit: a hand-over left by a Realm that
+  // unmounted while captured is stale, and must not capture the mouse without a click.
+  if (doc.pointerLockElement == null) HANDED.delete(doc);
   let drag = -1;
   let lastX = 0;
   let lastY = 0;

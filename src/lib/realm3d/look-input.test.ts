@@ -300,6 +300,18 @@ describe("going through a door with the mouse captured", () => {
     expect(island.el.requestPointerLock).not.toHaveBeenCalled();
   });
 
+  it("a Realm that unmounted while captured does not make the next visit capture on its own", () => {
+    const doc = page();
+    const first = rig({ doc });
+    lockTo(doc, first.el);
+    // The whole Realm goes (time up, browser Back): dispose, then the browser drops the lock.
+    first.look.dispose();
+    lockTo(doc, null);
+    const next = rig({ doc });
+    next.look.tick(false);
+    expect(next.el.requestPointerLock).not.toHaveBeenCalled();
+  });
+
   it("leaves nothing listening behind it", () => {
     const { el, doc, look } = rig();
     look.dispose();
