@@ -83,6 +83,13 @@ export type MouseLook = {
 export const LOCK_RETRY_MS = 1100;
 
 /**
+ * Some Windows and Chrome setups now and then report a huge `movementX`/`movementY` in one captured
+ * move (a known Chromium bug), which whips the camera round. Past this many px in one event it is
+ * dropped: a real flick is well under 300 px a frame at 60 fps, the bug's jumps are half a screen.
+ */
+export const LOOK_SPIKE = 300;
+
+/**
  * Captures handed from one canvas to whichever plays next: a room that closed while it held the
  * mouse. Per document, so nothing leaks between pages (or tests).
  */
@@ -219,6 +226,7 @@ export function mouseLook(el: LookEl, doc: LookDoc, o: MouseLookOptions): MouseL
     if (!captured || o.paused()) return;
     const dx = e.movementX ?? 0;
     const dy = e.movementY ?? 0;
+    if (Math.abs(dx) > LOOK_SPIKE || Math.abs(dy) > LOOK_SPIKE) return;
     if (dx !== 0 || dy !== 0) o.sink(dx, dy);
   }
 

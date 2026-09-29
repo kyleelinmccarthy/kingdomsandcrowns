@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { LOCK_RETRY_MS, mouseLook, type LookDoc, type LookEl } from "./look-input";
+import { LOCK_RETRY_MS, LOOK_SPIKE, mouseLook, type LookDoc, type LookEl } from "./look-input";
 
 /* A document and a canvas, faked down to what the browser gives this module. */
 
@@ -284,6 +284,22 @@ describe("looking with the right button while the mouse is free, as in World of 
   it("keeps the right button's menu off the world", () => {
     const { el } = rig();
     expect(el.fire("contextmenu").preventDefault).toHaveBeenCalled();
+  });
+});
+
+describe("a pointer-lock spike", () => {
+  it("drops a single huge captured move and keeps ordinary ones, fast flicks included", () => {
+    const { el, doc, looks } = rig();
+    lockTo(doc, el);
+    doc.fire("mousemove", { movementX: 900, movementY: 2 });
+    doc.fire("mousemove", { movementX: 3, movementY: -900 });
+    doc.fire("mousemove", { movementX: 120, movementY: 0 });
+    doc.fire("mousemove", { movementX: -250, movementY: 10 });
+    expect(LOOK_SPIKE).toBe(300);
+    expect(looks).toEqual([
+      [120, 0],
+      [-250, 10],
+    ]);
   });
 });
 
