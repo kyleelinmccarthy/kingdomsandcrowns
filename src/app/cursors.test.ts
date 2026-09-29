@@ -37,6 +37,18 @@ describe("the site's cursors", () => {
     expect(globals).toMatch(/textarea[^{]*\{\s*cursor:\s*text/);
   });
 
+  it("does not give the gauntlet to a disabled switch, tab, option or menu item", () => {
+    const rule = globals.match(/a\[href\][^{]*\{[^}]*\}/)![0];
+    for (const role of ["menuitem", "tab", "option", "switch"]) {
+      expect(rule, role).toContain(`[role="${role}"]:not([aria-disabled="true"]):not(:disabled)`);
+    }
+  });
+
+  it("keeps Tailwind's grab cursors, which the reorder handle uses", () => {
+    expect(globals).toMatch(/\.cursor-grab,[^{]*button\.cursor-grab\s*\{\s*cursor:\s*grab/);
+    expect(globals).toMatch(/\.cursor-grabbing,[^{]*button\.active\\:cursor-grabbing:active\s*\{\s*cursor:\s*grabbing/);
+  });
+
   it("leaves no bare `cursor: pointer` in any stylesheet, so no corner of the site falls back to the system hand", () => {
     for (const file of cssFiles(SRC)) {
       expect(strip(readFileSync(file, "utf8")), file).not.toMatch(/cursor:\s*pointer\s*[;}]/);
