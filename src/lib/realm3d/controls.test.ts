@@ -1,9 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  AIM_HOLD,
   angleDelta,
   bodyFacing,
+  CAM_LIFT,
+  CAM_SNAP,
   cameraFacing,
   chaseLens,
+  chaseShot,
   DEFAULT_DIST,
   DEFAULT_PITCH,
   DIST_MAX,
@@ -11,10 +15,15 @@ import {
   lookBy,
   looking,
   LOOK_SETTLE,
+  makeAim,
+  makeCamFloor,
   makeMoveIntent,
   moveIntent,
+  OVER_GROUND,
   PITCH_MAX,
   PITCH_MIN,
+  settleFloor,
+  takeAim,
   terrainClearance,
   turnToward,
   wrapAngle,
@@ -179,24 +188,122 @@ describe("the walk and the facing rule", () => {
 describe("which way the body turns", () => {
   const HEADING = 2;
   const AIM = -1;
+  const T = 100;
+  /** No cast, no doorway: an aim that was never taken. */
+  const none = makeAim();
+  /** A cast (or a lock-on, a doorway, a ride) that asked for `AIM` at `T`. */
+  const cast = () => takeAim(makeAim(), AIM, T);
 
-  it("turns a moving body the way it travels", () => {
-    expect(bodyFacing(0.5, HEADING, false, false, Number.NaN)).toBe(0.5);
-    expect(bodyFacing(0.5, HEADING, true, false, AIM)).toBe(0.5);
+  it("turns a moving body the way it travels, whatever the mouse or a cast asks", () => {
+    expect(bodyFacing(0.5, HEADING, false, false, none, T)).toBe(0.5);
+    expect(bodyFacing(0.5, HEADING, true, false, cast(), T)).toBe(0.5);
   });
 
   it("turns a standing child to the camera's heading while they look with the mouse", () => {
-    expect(bodyFacing(Number.NaN, HEADING, true, false, Number.NaN)).toBe(HEADING);
+    expect(bodyFacing(Number.NaN, HEADING, true, false, none, T)).toBe(HEADING);
+  });
+
+  it("turns a standing child with the mouse captured to a fresh cast's aim, and gives the body back to the mouse after the hold", () => {
+    // A trouble at the child's elbow: the lock-on turns them to it, captured mouse or not.
+    const a = cast();
+    expect(bodyFacing(Number.NaN, HEADING, true, false, a, T)).toBe(AIM);
+    expect(bodyFacing(Number.NaN, HEADING, true, false, a, T + AIM_HOLD * 0.9)).toBe(AIM);
+    expect(bodyFacing(Number.NaN, HEADING, true, false, a, T + AIM_HOLD + 0.01)).toBe(HEADING);
   });
 
   it("leaves a standing child alone with the mouse free, unless a cast or a doorway turns them", () => {
-    expect(Number.isNaN(bodyFacing(Number.NaN, HEADING, false, false, Number.NaN))).toBe(true);
-    expect(bodyFacing(Number.NaN, HEADING, false, false, AIM)).toBe(AIM);
+    expect(Number.isNaN(bodyFacing(Number.NaN, HEADING, false, false, none, T))).toBe(true);
+    expect(bodyFacing(Number.NaN, HEADING, false, false, cast(), T)).toBe(AIM);
+    // After the hold the body simply stays where the aim turned it.
+    expect(Number.isNaN(bodyFacing(Number.NaN, HEADING, false, false, cast(), T + AIM_HOLD + 0.01))).toBe(true);
   });
 
   it("lets a ride that is steering them (fast travel, getting on) face where it asks, never the camera", () => {
-    expect(bodyFacing(Number.NaN, HEADING, true, true, AIM)).toBe(AIM);
-    expect(Number.isNaN(bodyFacing(0.5, HEADING, true, true, Number.NaN))).toBe(true);
+    expect(bodyFacing(Number.NaN, HEADING, true, true, cast(), T)).toBe(AIM);
+    expect(Number.isNaN(bodyFacing(0.5, HEADING, true, true, none, T))).toBe(true);
+  });
+
+  it("keeps the last aim asked for, and when: a frame with nothing asked keeps the one before", () => {
+    const a = makeAim();
+    takeAim(a, AIM, T);
+    takeAim(a, Number.NaN, T + 0.2);
+    expect(a.face).toBe(AIM);
+    expect(a.at).toBe(T);
+    takeAim(a, 0.3, T + 0.4);
+    expect(a.face).toBe(0.3);
+    expect(a.at).toBe(T + 0.4);
+  });
+});
+
+describe("the camera's floor", () => {
+  it("follows a step off a plinth as a glide, not a drop, and has settled within half a second", () => {
+    const f = makeCamFloor();
+    expect(settleFloor(f, 0, 0, 1, 1 / 60)).toBe(1); // the first frame starts where the child is
+    const y = settleFloor(f, 0.1, 0, 0, 1 / 60);
+    expect(y).toBeGreaterThan(0.5); // less than all the way in one frame…
+    expect(y).toBeLessThan(1);
+    let z = y;
+    for (let i = 1; i < 30; i++) z = settleFloor(f, 0.1, 0, 0, 1 / 60);
+    expect(z).toBeLessThan(0.01); // …and there by half a second
+  });
+
+  it("is the same glide at any frame rate", () => {
+    const a = makeCamFloor();
+    const b = makeCamFloor();
+    settleFloor(a, 0, 0, 1, 1 / 60);
+    settleFloor(b, 0, 0, 1, 1 / 30);
+    let ya = 0;
+    let yb = 0;
+    for (let i = 0; i < 12; i++) ya = settleFloor(a, 0, 0, 0, 1 / 60);
+    for (let i = 0; i < 6; i++) yb = settleFloor(b, 0, 0, 0, 1 / 30);
+    expect(ya).toBeCloseTo(yb, 9);
+  });
+
+  it("snaps to where a door or a ride's arrival put the child, rather than swooping there", () => {
+    const f = makeCamFloor();
+    settleFloor(f, 0, 0, 0, 1 / 60);
+    expect(settleFloor(f, CAM_SNAP + 1, 0, 10, 1 / 60)).toBe(10);
+  });
+});
+
+describe("the shot", () => {
+  const flat = () => -100;
+  const still = { lift: 0, pull: 0, tilt: 0 };
+  const view = { pitch: DEFAULT_PITCH, dist: DEFAULT_DIST };
+  const lens = { x: 0, y: 0, z: 0 };
+
+  it("sits on the child's own boom off the floor under them, looking at them", () => {
+    const lookY = chaseShot(lens, 5, 2, -3, 2, 0, view, still, flat);
+    expect(lens.x).toBeCloseTo(5, 9);
+    expect(lens.y).toBeCloseTo(21.5, 9);
+    expect(lens.z).toBeCloseTo(18, 9);
+    expect(lookY).toBeCloseTo(2 + 3.4, 9);
+  });
+
+  it("follows only a share of a jump, so the child rises in frame", () => {
+    chaseShot(lens, 0, 1, 0, 0, 0, view, still, flat);
+    expect(lens.y).toBeCloseTo(19.5 + CAM_LIFT, 9);
+  });
+
+  it("applies a change of pitch at once: nothing between the mouse and the lens is eased", () => {
+    chaseShot(lens, 0, 0, 0, 0, 0, { pitch: 0.5, dist: 20 }, still, flat);
+    const y1 = lens.y;
+    chaseShot(lens, 0, 0, 0, 0, 0, { pitch: 0.9, dist: 20 }, still, flat);
+    expect(lens.y - y1).toBeCloseTo(20 * (Math.sin(0.9) - Math.sin(0.5)), 9);
+  });
+
+  it("rises, pulls back and flattens for a mount", () => {
+    chaseShot(lens, 0, 0, 0, 0, 0, view, { lift: 2, pull: 0.5, tilt: 0.1 }, flat);
+    const d = DEFAULT_DIST * 1.5;
+    expect(lens.z).toBeCloseTo(d * Math.cos(DEFAULT_PITCH - 0.1), 9);
+    expect(lens.y).toBeCloseTo(2 + d * Math.sin(DEFAULT_PITCH - 0.1), 9);
+  });
+
+  it("stays over a hill behind the child, and never comes any nearer", () => {
+    const hill = (x: number, z: number) => (z > 10 ? 30 : 0);
+    chaseShot(lens, 0, 0, 0, 0, 0, view, still, hill);
+    expect(lens.y).toBeCloseTo(30 + terrainClearance(DEFAULT_PITCH) + OVER_GROUND, 9);
+    expect(Math.hypot(lens.x, lens.z)).toBeCloseTo(21, 9);
   });
 });
 

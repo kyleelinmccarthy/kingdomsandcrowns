@@ -189,9 +189,9 @@ export function HudDriver({
     }
 
     /* ---- nameplates ---------------------------------------------------- */
-    // The camera was moved by the rig this same frame and three only refreshes these matrices
+    // The camera was moved by `ChaseCamera` this same frame and three only refreshes these matrices
     // at render time, so refresh them here: without it every plate is one frame behind the
-    // camera, which on a swinging boom is a visible slide.
+    // camera, which is a visible slide whenever the camera moves.
     camera.updateMatrixWorld();
     mvp.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
     const e = mvp.elements;

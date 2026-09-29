@@ -10,7 +10,7 @@
  *     child swinging up into the saddle.
  *   - `Saddle` wraps the child's figure and lifts it into that saddle.
  *   - `Riding` is the world-side frame loop: the state machine (`lib/realm3d/riding.ts`), the
- *     camera value the rig reads, the mount waiting where the child got off, the hitching posts,
+ *     value the camera reads (`ride.cam`), the mount waiting where the child got off, the hitching posts,
  *     the places a child has been, and fast travel (`lib/realm3d/travel.ts`) — the ride itself.
  *
  * None of this moves the hero directly except a fast-travel ride and the step to the side on
@@ -365,7 +365,7 @@ export function Riding({
     }
     carry(ride);
 
-    // The camera value the rig reads: up and back when riding, further on a ride.
+    // The camera value `ChaseCamera` reads: up and back when riding, further on a ride.
     easeCam(ride, camGoal(ride), dt);
     // The child's nameplate goes up with them into the saddle.
     writeLift(bus.heroLift, ride.mount && ride.phase !== "off" ? (drawnBuild(ride.mount.id).seat - RIDER_HIP) * easeOut(ride.seat) : 0);

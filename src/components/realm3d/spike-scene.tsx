@@ -79,9 +79,12 @@ import {
   DEFAULT_DIST,
   DEFAULT_PITCH,
   looking,
+  makeAim,
   makeMoveIntent,
   moveIntent,
+  takeAim,
   turnToward,
+  type Aim,
   type LookState,
   type MoveIntent,
 } from "@/lib/realm3d/controls";
@@ -648,6 +651,8 @@ function Hero({
   const motion = useMemo<Motion>(() => makeMotion(), []);
   const move = useMemo<Pt>(() => ({ x: 0, z: 0 }), []);
   const legs = useMemo(() => makeLegs(), []);
+  /** The last facing a cast, a lock-on, a doorway or a ride asked for, and when (`AIM_HOLD`). */
+  const aim = useMemo<Aim>(() => makeAim(), []);
   const levelAt = useMemo(() => (x: number, z: number) => world.waterLevelAt(x, z), [world]);
   /** The feet, for the sound: footfalls off the stride phase, and landings. */
   const stride = useMemo(() => makeStride(), []);
@@ -683,12 +688,14 @@ function Hero({
     }
     readStride(legs, motion, facingRef.current, top);
     const moving = legs.speed > 0.05;
-    // Which way the body turns (`bodyFacing`): where it travels, where the mouse looks, or where a
-    // cast or a ride asks. NaN holds it.
-    const travel = intent.moving && !held ? rideFace(ride, intent) : Number.NaN;
-    const face = bodyFacing(travel, cameraFacing(yawRef.current), looking(view.current, nowS()), held, aimRef.current);
-    if (face === face) facing.current = face;
+    // Which way the body turns (`bodyFacing`): where it travels, where a cast or a ride asked a
+    // moment ago, or where the mouse looks. NaN holds it.
+    const now = nowS();
+    takeAim(aim, aimRef.current, now);
     aimRef.current = Number.NaN;
+    const travel = intent.moving && !held ? rideFace(ride, intent) : Number.NaN;
+    const face = bodyFacing(travel, cameraFacing(yawRef.current), looking(view.current, now), held, aim, now);
+    if (face === face) facing.current = face;
     // The stride runs the way the body goes: backwards for a backpedal, slower in the air.
     bob.current += dt * strideRate(legs, vert.grounded);
     // Edge-triggered: the keydown handler ignores auto-repeat, and this eats the press.

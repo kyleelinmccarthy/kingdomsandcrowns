@@ -3,7 +3,7 @@
 /**
  * THE TROUBLES, in the world: the figures, and the frame loop that runs `lib/realm3d/troubles3d`.
  *
- * Mounted by one line in `spike-scene.tsx`, after the camera rig (so the markers project from
+ * Mounted by one line in `spike-scene.tsx`, after the camera (so the markers project from
  * this frame's camera) and before the HUD driver (so a charge the driver begins is locked onto
  * its trouble on the next frame, before it releases). Every frame, unless the game is paused:
  *

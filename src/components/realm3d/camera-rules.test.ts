@@ -1,4 +1,3 @@
-// src/components/realm3d/camera-rules.test.ts
 import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -16,6 +15,13 @@ describe("the camera never moves itself", () => {
     expect(existsSync(join(process.cwd(), "src/lib/realm3d/camera-boom.ts"))).toBe(false);
     for (const f of ["spike-scene.tsx", "doorstep.tsx", "chase-camera.tsx"]) {
       expect(read(f), f).not.toMatch(/\b(aimBoom|lensFrac|insideWall|swingStep|pickBoom|swingAllowed|orbitDrag)\b/);
+    }
+  });
+
+  it("comes out of a door into the chase camera's own shot: one rule for the lens, not two", () => {
+    for (const f of ["chase-camera.tsx", "doorstep.tsx"]) {
+      expect(read(f), f).toMatch(/\bchaseShot\(/);
+      expect(read(f), f).not.toMatch(/\bchaseLens\(/);
     }
   });
 

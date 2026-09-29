@@ -29,11 +29,11 @@ import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import type { Prop } from "@/lib/realm/layout";
 import { CASTLE_TIERS, GATE_FRONT, type CastlePlan } from "@/lib/realm3d/castle-plan";
-import { HERO_RADIUS, type Collider, type Pt } from "@/lib/realm3d/collision";
-import { chaseLens, makeMoveIntent, moveIntent, terrainClearance, wrapAngle, type LookState, type MoveIntent, type MoveKeys } from "@/lib/realm3d/controls";
+import { HERO_RADIUS, supportHeight, type Collider, type Pt } from "@/lib/realm3d/collision";
+import { chaseShot, makeMoveIntent, moveIntent, wrapAngle, type CamRide, type LookState, type MoveIntent, type MoveKeys } from "@/lib/realm3d/controls";
 import { buildDoors, buried, doorAhead, exitSpot, freeSpot, DOOR_DWELL, type Door } from "@/lib/realm3d/doorways";
 import type { HudBus } from "@/lib/realm3d/hud-bus";
-import { rideFace, rideRadius, type RideBus } from "@/lib/realm3d/riding";
+import { camOffsets, rideFace, rideRadius, type RideBus } from "@/lib/realm3d/riding";
 import { bodyFor, bodyReach } from "@/lib/realm3d/mount-body";
 import type { RealmWorld } from "@/lib/realm3d/worldgen";
 import { LENS_HERO } from "./geo-kit";
@@ -87,6 +87,7 @@ export function Doorstep({
   const spot = useMemo(() => ({ x: 0, z: 0, face: 0 }), []);
   const free = useMemo<Pt>(() => ({ x: 0, z: 0 }), []);
   const push = useRef({ door: -1, t: 0 });
+  const rideCam = useMemo<CamRide>(() => ({ lift: 0, pull: 0, tilt: 0 }), []);
 
   useFrame((_, rawDt) => {
     const p = heroRef.current;
@@ -106,10 +107,12 @@ export function Doorstep({
         // camera's to dodge. Put there now, rather than swung through the house from wherever it
         // was when the child went in.
         aimRef.current = spot.face;
+        // The chase camera's own shot (`chaseShot`), so the camera that takes over next frame is already there.
         yawRef.current = wrapAngle(spot.face + Math.PI);
-        const v = view.current;
-        chaseLens(camera.position, p.x, p.y, p.z, yawRef.current, v.pitch, v.dist, world.heightAt, terrainClearance(v.pitch) + 0.6);
-        camera.lookAt(p.x, p.y + 1.6, p.z);
+        camOffsets(ride ? ride.cam : 0, rideCam);
+        const floor = supportHeight(p.x, p.z, world.heightAt(p.x, p.z), solids);
+        const lookY = chaseShot(camera.position, p.x, p.y, p.z, floor, yawRef.current, view.current, rideCam, world.heightAt);
+        camera.lookAt(p.x, lookY, p.z);
       }
       push.current.door = -1;
       push.current.t = 0;

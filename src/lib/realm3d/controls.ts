@@ -20,11 +20,13 @@
  *     It does not swing round a roof, duck under a canopy, rise over a tower or come in along a
  *     blocked line: what stands between it and the child turns see-through instead
  *     (`see-through.ts`). The one thing the lens does on its own is stay above the ground
- *     (`chaseLens`), and that only ever raises it — never brings it nearer, never turns it.
+ *     (`chaseLens`), and that only ever raises it — never brings it nearer, never turns it; the
+ *     floor it hangs off glides over a step rather than dropping with it (`settleFloor`).
  *   - WASD walks relative to the CAMERA. A and D are true strafes, S is a backpedal, and a
  *     diagonal is no faster than straight. How the body gets up to speed is `locomotion.ts`.
  *   - The body faces where the camera looks while it moves and while the mouse has the camera;
- *     with the mouse free and no drag, a standing body keeps its facing (`bodyFacing`).
+ *     with the mouse free and no drag, a standing body keeps its facing (`bodyFacing`). A cast
+ *     turns a standing body to what it is aimed at for a moment (`AIM_HOLD`), mouse or not.
  *   - Space jumps, E interacts, 1–9 cast. Esc is the frame's.
  *
  * ## Why facing the heading cannot flip
@@ -172,6 +174,77 @@ export function chaseLens<T extends { x: number; y: number; z: number }>(
   return out;
 }
 
+/** How much of a jump the camera follows. 0 and the child leaves the frame; 1 and the jump is invisible. */
+export const CAM_LIFT = 0.3;
+/** How high over the ground under it the lens stays, on top of the pitch's own clearance. */
+export const OVER_GROUND = 0.6;
+
+/** A mount's say in the shot (`camOffsets` in `riding.ts`): up, back, and a flatter pitch. */
+export type CamRide = { lift: number; pull: number; tilt: number };
+
+/**
+ * The height the camera hangs off: the FLOOR under the child, not the child, so a jump is them
+ * rising in frame — `CAM_LIFT` of it is followed, so they never climb out of the top of the shot.
+ */
+export function camAnchor(floor: number, y: number, lift: number): number {
+  return floor + (y - floor) * CAM_LIFT + lift;
+}
+
+/**
+ * THE SHOT, the island's one rule for it: the lens on the child's own boom (`chaseLens`) off the
+ * floor under them, with a mount's rise, pull and tilt, clear of the ground under it. Writes the
+ * lens into `out` and returns the height it looks at, over the child. `ChaseCamera` takes it every
+ * frame, and the doorstep once as a child comes out, so the two can never disagree.
+ */
+export function chaseShot<T extends { x: number; y: number; z: number }>(
+  out: T,
+  hx: number,
+  hy: number,
+  hz: number,
+  floor: number,
+  yaw: number,
+  view: { pitch: number; dist: number },
+  ride: CamRide,
+  groundAt: (x: number, z: number) => number,
+): number {
+  const anchorY = camAnchor(floor, hy, ride.lift);
+  const pitch = Math.max(PITCH_MIN, view.pitch - ride.tilt);
+  chaseLens(out, hx, anchorY, hz, yaw, pitch, view.dist * (1 + ride.pull), groundAt, terrainClearance(view.pitch) + OVER_GROUND);
+  return anchorY + 1.2 + 2.2 * Math.min(1, view.pitch / DEFAULT_PITCH);
+}
+
+/**
+ * The floor the camera hangs off, eased. The ground under a child is not smooth — step off a
+ * plinth and it drops a metre in one frame — and a camera hung straight off it drops with it. So
+ * the floor, and only the floor, glides to where it is going (`FLOOR_SETTLE`, the same at any
+ * frame rate); the mouse's pitch and distance go on the lens at once. A step bigger than
+ * `CAM_SNAP` in one frame is not a walk but a teleport — a calm fast-travel ride puts the child
+ * down at the far post — and the floor goes straight there rather than swooping. (A door puts the
+ * child out a step from where they went in, so the floor there has barely moved.)
+ */
+export type CamFloor = { y: number; x: number; z: number };
+
+/** How fast the camera's floor catches up, per second: settled within half a second. */
+export const FLOOR_SETTLE = 12;
+/**
+ * A step this long in one frame is a teleport. Far more than a walk or a gallop covers in a frame;
+ * a fast-travel ride on the longest road can outrun it, and then only skips that frame's easing.
+ */
+export const CAM_SNAP = 6;
+
+export function makeCamFloor(): CamFloor {
+  return { y: Number.NaN, x: 0, z: 0 };
+}
+
+/** One frame: the child at (x, z) over `floor`. Returns the eased floor. */
+export function settleFloor(f: CamFloor, x: number, z: number, floor: number, dt: number): number {
+  const jumped = f.y !== f.y || Math.hypot(x - f.x, z - f.z) > CAM_SNAP;
+  f.y = jumped ? floor : floor + (f.y - floor) * Math.exp(-FLOOR_SETTLE * dt);
+  f.x = x;
+  f.z = z;
+  return f.y;
+}
+
 /* ------------------------------------------------------------------ the walk */
 
 /** Held movement keys. */
@@ -232,18 +305,48 @@ export function cameraFacing(yaw: number): number {
 }
 
 /**
+ * A facing asked for from outside the walk — a cast, a lock-on at a trouble, a doorway, a ride —
+ * and when (seconds). They arrive as one-frame pulses; the body keeps the last one for `AIM_HOLD`.
+ */
+export type Aim = { face: number; at: number };
+
+/**
+ * How long an aim holds the body against the mouse's heading: long enough for the longest charge
+ * (a Sprite gathers for 0.9 s) to leave from the child's front, short enough that the mouse has
+ * the body back within a second.
+ */
+export const AIM_HOLD = 1;
+
+export function makeAim(): Aim {
+  return { face: Number.NaN, at: -1e9 };
+}
+
+/** This frame's pulse, if there is one (NaN is none): kept, with when it came. */
+export function takeAim(a: Aim, face: number, now: number): Aim {
+  if (face === face) {
+    a.face = face;
+    a.at = now;
+  }
+  return a;
+}
+
+/**
  * Which way the body turns this frame, or NaN to hold it where it is.
  *
  *   - `steered`: something else has the reins — a fast-travel ride, the mount-up moment — and
  *     the body faces where it asks (`aim`), never where the camera looks.
  *   - moving: where it travels (`travel`: the camera's heading on foot; a mount going forward
  *     faces its own way, `rideFace`).
+ *   - a fresh `aim` (a cast, a lock-on, a doorway, within `AIM_HOLD`): there, even with the mouse
+ *     captured — a trouble at the child's elbow is hit by a spell leaving their front, not their side.
  *   - `looking` with the mouse: the camera's heading, so the child turns to look where they look.
- *   - otherwise the body keeps its facing, unless a cast or a doorway asks for one (`aim`).
+ *   - otherwise the body keeps its facing.
  */
-export function bodyFacing(travel: number, heading: number, looking: boolean, steered: boolean, aim: number): number {
-  if (steered) return aim;
+export function bodyFacing(travel: number, heading: number, looking: boolean, steered: boolean, aim: Aim, now: number): number {
+  const fresh = now - aim.at < AIM_HOLD ? aim.face : Number.NaN;
+  if (steered) return fresh;
   if (travel === travel) return travel;
+  if (fresh === fresh) return fresh;
   if (looking) return heading;
-  return aim;
+  return Number.NaN;
 }
