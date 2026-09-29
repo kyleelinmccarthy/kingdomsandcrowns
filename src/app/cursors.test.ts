@@ -37,6 +37,16 @@ describe("the site's cursors", () => {
     expect(globals).toMatch(/textarea[^{]*\{\s*cursor:\s*text/);
   });
 
+  it("gives the caret only to fields that take typed text, and the gauntlet to the colour and file pickers", () => {
+    const caret = globals.match(/input:not\([^{]*\{\s*cursor:\s*text/)![0];
+    for (const type of ["checkbox", "radio", "range", "button", "submit", "date", "color", "file"]) {
+      expect(caret, type).toContain(`:not([type="${type}"])`);
+    }
+    const hand = globals.match(/a\[href\][^{]*\{[^}]*\}/)![0];
+    expect(hand).toContain('input[type="color"]:not(:disabled)');
+    expect(hand).toContain('input[type="file"]:not(:disabled)');
+  });
+
   it("does not give the gauntlet to a disabled switch, tab, option or menu item", () => {
     const rule = globals.match(/a\[href\][^{]*\{[^}]*\}/)![0];
     for (const role of ["menuitem", "tab", "option", "switch"]) {

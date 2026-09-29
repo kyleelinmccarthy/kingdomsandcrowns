@@ -2669,11 +2669,13 @@ html { cursor: var(--cursor-arrow); }
 a[href], button:not(:disabled), summary, label[for], select:not(:disabled),
 [role="button"]:not([aria-disabled="true"]), [role="menuitem"]:not([aria-disabled="true"]):not(:disabled), [role="tab"]:not([aria-disabled="true"]):not(:disabled),
 [role="option"]:not([aria-disabled="true"]):not(:disabled), [role="switch"]:not([aria-disabled="true"]):not(:disabled),
-input[type="checkbox"]:not(:disabled), input[type="radio"]:not(:disabled), input[type="range"]:not(:disabled) { cursor: var(--cursor-hand); }
+input[type="checkbox"]:not(:disabled), input[type="radio"]:not(:disabled), input[type="range"]:not(:disabled),
+input[type="color"]:not(:disabled), input[type="file"]:not(:disabled) { cursor: var(--cursor-hand); }
 .cursor-pointer { cursor: var(--cursor-hand); }
 /* Unlayered like the rule above, so the arrow on html does not swallow Tailwind's grab cursors. The
    reorder handle is a button, so `button.` keeps these ahead of button:not(:disabled) above. */
 .cursor-grab, button.cursor-grab { cursor: grab; }
 .cursor-grabbing, .active\:cursor-grabbing:active, button.active\:cursor-grabbing:active { cursor: grabbing; }
-input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="button"]):not([type="submit"]),
+/* Date, colour and file inputs take no typed caret: the date field keeps the arrow, the two pickers are buttons. */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="button"]):not([type="submit"]):not([type="date"]):not([type="color"]):not([type="file"]),
 textarea, [contenteditable="true"] { cursor: text; }
