@@ -2676,6 +2676,6 @@ input[type="color"]:not(:disabled), input[type="file"]:not(:disabled) { cursor: 
    reorder handle is a button, so `button.` keeps these ahead of button:not(:disabled) above. */
 .cursor-grab, button.cursor-grab { cursor: grab; }
 .cursor-grabbing, .active\:cursor-grabbing:active, button.active\:cursor-grabbing:active { cursor: grabbing; }
-/* Date, colour and file inputs take no typed caret: the date field keeps the arrow, the two pickers are buttons. */
-input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="button"]):not([type="submit"]):not([type="date"]):not([type="color"]):not([type="file"]),
+/* Date, time, colour and file inputs take no typed caret: the date and time fields keep the arrow, the two pickers are buttons. */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="button"]):not([type="submit"]):not([type="date"]):not([type="time"]):not([type="color"]):not([type="file"]),
 textarea, [contenteditable="true"] { cursor: text; }

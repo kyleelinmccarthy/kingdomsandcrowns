@@ -39,7 +39,7 @@ describe("the site's cursors", () => {
 
   it("gives the caret only to fields that take typed text, and the gauntlet to the colour and file pickers", () => {
     const caret = globals.match(/input:not\([^{]*\{\s*cursor:\s*text/)![0];
-    for (const type of ["checkbox", "radio", "range", "button", "submit", "date", "color", "file"]) {
+    for (const type of ["checkbox", "radio", "range", "button", "submit", "date", "time", "color", "file"]) {
       expect(caret, type).toContain(`:not([type="${type}"])`);
     }
     const hand = globals.match(/a\[href\][^{]*\{[^}]*\}/)![0];
