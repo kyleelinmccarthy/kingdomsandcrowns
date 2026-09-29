@@ -29,8 +29,8 @@ import { useFrame, useThree } from "@react-three/fiber";
 import * as THREE from "three";
 import type { Prop } from "@/lib/realm/layout";
 import { CASTLE_TIERS, GATE_FRONT, type CastlePlan } from "@/lib/realm3d/castle-plan";
-import { pickBoom, HERO_RADIUS, type Boom, type Collider, type Pt } from "@/lib/realm3d/collision";
-import { makeMoveIntent, moveIntent, type MoveIntent, type MoveKeys } from "@/lib/realm3d/controls";
+import { HERO_RADIUS, type Collider, type Pt } from "@/lib/realm3d/collision";
+import { chaseLens, makeMoveIntent, moveIntent, terrainClearance, wrapAngle, type LookState, type MoveIntent, type MoveKeys } from "@/lib/realm3d/controls";
 import { buildDoors, buried, doorAhead, exitSpot, freeSpot, DOOR_DWELL, type Door } from "@/lib/realm3d/doorways";
 import type { HudBus } from "@/lib/realm3d/hud-bus";
 import { rideFace, rideRadius, type RideBus } from "@/lib/realm3d/riding";
@@ -46,9 +46,8 @@ export function Doorstep({
   yawRef,
   aimRef,
   keys,
-  pointer,
+  view,
   solids,
-  occluders,
   props,
   sitePlan,
   castle,
@@ -62,10 +61,9 @@ export function Doorstep({
   yawRef: React.RefObject<number>;
   aimRef: React.RefObject<number>;
   keys: React.RefObject<MoveKeys>;
-  /** The mouse camera's pitch and length, to frame the child as they come out. Read, never written. */
-  pointer: React.RefObject<{ pitch: number; dist: number }>;
+  /** The child's own camera — its pitch and length — to frame them as they come out. Read, never written. */
+  view: React.RefObject<LookState>;
   solids: Collider[];
-  occluders: Collider[];
   props: readonly Prop[];
   sitePlan: number;
   castle: CastleInfo;
@@ -89,7 +87,6 @@ export function Doorstep({
   const spot = useMemo(() => ({ x: 0, z: 0, face: 0 }), []);
   const free = useMemo<Pt>(() => ({ x: 0, z: 0 }), []);
   const push = useRef({ door: -1, t: 0 });
-  const boom = useMemo<Boom>(() => ({ yaw: 0, frac: 1 }), []);
 
   useFrame((_, rawDt) => {
     const p = heroRef.current;
@@ -104,19 +101,14 @@ export function Doorstep({
       if (d) {
         exitSpot(spot, d, solids, avoid);
         placeHero(p, spot.x, spot.z, world.heightAt(spot.x, spot.z));
-        // Face out, into the village. The camera goes behind them, so W walks away from the
-        // door — or, when the house is right behind them (it usually is: they are on its step),
-        // round to the nearest angle past its corner that can see them whole, rather than
-        // squashed against their own hood in front of the wall.
+        // Face out, into the village, with the camera straight behind them, looking out, so W walks
+        // away from the door. The house behind the lens is the see-through's to thin, not the
+        // camera's to dodge. Put there now, rather than swung through the house from wherever it
+        // was when the child went in.
         aimRef.current = spot.face;
-        const ptr = pointer.current;
-        const h = ptr.dist * Math.cos(ptr.pitch);
-        const y = ptr.dist * Math.sin(ptr.pitch);
-        pickBoom(boom, p.x, p.y + 1.5, p.z, spot.face + Math.PI, h, y, occluders, occluders.length, 0.75, 0.3);
-        yawRef.current = boom.yaw;
-        // Put the camera there now, rather than letting it swing through the house from wherever
-        // it was when the child went in.
-        camera.position.set(p.x + h * Math.sin(boom.yaw) * boom.frac, p.y + 1.5 + y * boom.frac, p.z + h * Math.cos(boom.yaw) * boom.frac);
+        yawRef.current = wrapAngle(spot.face + Math.PI);
+        const v = view.current;
+        chaseLens(camera.position, p.x, p.y, p.z, yawRef.current, v.pitch, v.dist, world.heightAt, terrainClearance(v.pitch) + 0.6);
         camera.lookAt(p.x, p.y + 1.6, p.z);
       }
       push.current.door = -1;

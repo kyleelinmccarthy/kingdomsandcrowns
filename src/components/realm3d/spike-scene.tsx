@@ -25,6 +25,7 @@
  *   - `castle.tsx`        the castle, or its pegged-out grounds (`lib/realm3d/castle-plan.ts`)
  *   - `wizard-figure.tsx` who a visiting parent walks as
  *   - `lib/realm3d/controls.ts` the mouse camera and the walk's facing rule
+ *   - `chase-camera.tsx` / `mouse-look.tsx`  the camera where the child put it, and the mouse that puts it there
  *
  * ## The join
  *
@@ -48,8 +49,8 @@
  * Realm's HUD has. Nothing here writes back, and nothing in the shipped Realm imports this file.
  */
 
-import { memo, useEffect, useMemo, useRef } from "react";
-import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { memo, useCallback, useEffect, useMemo, useRef } from "react";
+import { Canvas, useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 import { WORLD_SIZE, type Prop, type VillagerPlacement, type WorldLayout } from "@/lib/realm/layout";
 import { heightAt } from "@/lib/realm3d/heightfield";
@@ -62,7 +63,6 @@ import { SeeThroughGroup } from "./see-through-group";
 import { landmarkColliders, landmarkRadii, RealmLandmarks } from "./landmarks";
 import {
   buildColliders,
-  gatherNear,
   HERO_RADIUS,
   pushOut,
   supportHeight,
@@ -70,28 +70,24 @@ import {
   type Pt,
 } from "@/lib/realm3d/collision";
 import { makeVertical, stepVertical, tryJump, type Vertical } from "@/lib/realm3d/jump";
-import { aimBoom, insideWall, lensFrac, READ_DIST, swingStep, type Aim, type AimInput } from "@/lib/realm3d/camera-boom";
 import { distancePhase, makeDistance, makeStride, resetDistance, strideTick } from "@/lib/realm3d/sound/stride";
 import { heroLook } from "@/lib/realm3d/hero-look";
 import {
-  ASSIST_GRACE,
   BACKPEDAL,
-  boomOffset,
+  bodyFacing,
   cameraFacing,
   DEFAULT_DIST,
   DEFAULT_PITCH,
-  PITCH_MIN,
+  looking,
   makeMoveIntent,
   moveIntent,
-  orbitDrag,
-  orbitZoom,
-  swingAllowed,
-  terrainClearance,
   turnToward,
-  wrapAngle,
+  type LookState,
   type MoveIntent,
-  type Orbit,
 } from "@/lib/realm3d/controls";
+import { hipTurn, keepMotion, makeMotion, makeStride as makeLegs, readStride, stepMotion, strideRate, type Motion } from "@/lib/realm3d/locomotion";
+import { ChaseCamera } from "./chase-camera";
+import { MouseLook } from "./mouse-look";
 import { buildSpots } from "@/lib/realm3d/interact";
 import { ENTER_VERB } from "@/lib/realm3d/doorways";
 import { Interaction } from "./interaction";
@@ -114,7 +110,7 @@ import { Doorstep } from "./doorstep";
 import { SpellFx } from "./spell-fx";
 import { Troubles } from "./troubles-scene";
 import type { TroubleBus } from "@/lib/realm3d/trouble-bus";
-import { boostJump, camOffsets, castBlocked, CAST_FROM_SADDLE, holdDrop, jumpSpeed, keepFooting, pace, rideFace, rideRadius, wadeLimit, writeAir, type RideBus } from "@/lib/realm3d/riding";
+import { boostJump, castBlocked, CAST_FROM_SADDLE, holdDrop, jumpSpeed, keepFooting, pace, rideFace, rideRadius, wadeLimit, writeAir, type RideBus } from "@/lib/realm3d/riding";
 import { RiddenMount, Riding, Saddle, travelGraphFor, useSeatRef } from "./riding-scene";
 import { bodyFor, slideBody, turnBody } from "@/lib/realm3d/mount-body";
 import { RecessScene } from "./recess-scene";
@@ -584,13 +580,6 @@ function releaseKeys(k: Keys): void {
   k.f = k.b = k.l = k.r = k.jump = k.interact = false;
 }
 
-/**
- * What the mouse is doing to the camera, shared between the pointer handlers and the frame loop.
- * `drag` is 0 for none, 1 for a left-drag (orbit only) and 2 for a right-drag (orbit and turn).
- * `lastDragAt` is on the `performance.now()` clock, in seconds.
- */
-type Pointer = { drag: 0 | 1 | 2; lastDragAt: number; pitch: number; dist: number };
-
 /** True when a key press belongs to a text field the HUD put on screen, not to the game. */
 function typingInto(t: EventTarget | null): boolean {
   if (!(t instanceof HTMLElement)) return false;
@@ -608,14 +597,14 @@ function nowS(): number {
  * quest-giver wizard — `wizard-figure.tsx`.) The figure is a child of this group; this is only
  * the mover.
  *
- * Which way the body faces is `moveIntent`'s rule in `lib/realm3d/controls.ts`, and every turn
+ * Which way the body faces is `bodyFacing`'s rule in `lib/realm3d/controls.ts`, and every turn
  * goes the short way round through `turnToward`. See that file for why strafing used to flip.
  */
 function Hero({
   heroRef,
   keys,
   yawRef,
-  pointer,
+  view,
   bus,
   facingRef,
   gaitRef,
@@ -628,7 +617,7 @@ function Hero({
   heroRef: React.RefObject<THREE.Vector3>;
   keys: React.RefObject<Keys>;
   yawRef: React.RefObject<number>;
-  pointer: React.RefObject<Pointer>;
+  view: React.RefObject<LookState>;
   bus: HudBus;
   facingRef: React.RefObject<number>;
   gaitRef: React.RefObject<Gait>;
@@ -656,6 +645,9 @@ function Hero({
   const wet = useMemo<Pt>(() => ({ x: 0, z: 0 }), []);
   const vert = useMemo<Vertical>(() => makeVertical(0), []);
   const intent = useMemo<MoveIntent>(() => makeMoveIntent(), []);
+  const motion = useMemo<Motion>(() => makeMotion(), []);
+  const move = useMemo<Pt>(() => ({ x: 0, z: 0 }), []);
+  const legs = useMemo(() => makeLegs(), []);
   const levelAt = useMemo(() => (x: number, z: number) => world.waterLevelAt(x, z), [world]);
   /** The feet, for the sound: footfalls off the stride phase, and landings. */
   const stride = useMemo(() => makeStride(), []);
@@ -670,36 +662,35 @@ function Hero({
     moveIntent(intent, yawRef.current, k);
     // Getting on or off a mount, or a fast-travel ride: the hands are not steering.
     const held = ride?.hold ?? false;
-    const moving = intent.moving && !held;
     const p = heroRef.current;
     const ground = world.heightAt(p.x, p.z);
-    if (moving) {
-      // Wading costs pace. It is also the only warning a child gets that they are running out of
-      // shore, and one they can feel under their hands beats one they cannot predict. Riding, the
-      // pace is the mount's (`pace`), and a mount carries further through the air.
-      const speed = pace(ride, HERO_SPEED, Math.max(0, world.waterLevelAt(p.x, p.z) - ground), !vert.grounded, wadeSpeed) * (intent.back ? BACKPEDAL : 1);
-      // Steering stays live in the air, so a child can aim a jump while they are running.
-      const tx = THREE.MathUtils.clamp(p.x + intent.x * speed * dt, -WALK_HALF, WALK_HALF);
-      const tz = THREE.MathUtils.clamp(p.z + intent.z * speed * dt, -WALK_HALF, WALK_HALF);
-      // Two refusals, both axis by axis and in the same spirit: the water will not let you off
-      // the shelf, and the village will not let you through a wall. Walk at either head-on and
-      // you stop; walk at either at an angle and you slide along it.
+    // The body has weight (`locomotion.ts`): the keys say what speed it wants — its full speed on
+    // flat dry ground sets the grip — and the wade, the air and a backpedal take their share.
+    const top = pace(ride, HERO_SPEED, 0, false, wadeSpeed);
+    const wanted = intent.moving && !held ? pace(ride, HERO_SPEED, Math.max(0, world.waterLevelAt(p.x, p.z) - ground), !vert.grounded, wadeSpeed) * (intent.back ? BACKPEDAL : 1) : 0;
+    stepMotion(motion, move, intent.x * wanted, intent.z * wanted, top, vert.grounded, dt);
+    if (move.x !== 0 || move.z !== 0) {
+      const tx = THREE.MathUtils.clamp(p.x + move.x, -WALK_HALF, WALK_HALF);
+      const tz = THREE.MathUtils.clamp(p.z + move.z, -WALK_HALF, WALK_HALF);
+      // Two refusals, axis by axis: the water will not let you off the shelf, and the village will
+      // not let you through a wall. Head-on you stop; at an angle you slide along it.
       shoreMove(wet, p.x, p.z, tx, tz, world.heightAt, levelAt, wadeLimit(ride));
-      // Riding, the mount's whole body (`mount-body.ts`): its nose stops at a wall, not in it.
       slideBody(step, p.x, p.z, wet.x, wet.z, facingRef.current, solids, rideRadius(ride, HERO_RADIUS), bodyFor(ride), vert.y);
+      // What the world refused takes the speed that ran into it: a wall is slid along, not leant on.
+      keepMotion(motion, move.x, move.z, step.x - p.x, step.z - p.z);
       p.x = step.x;
       p.z = step.z;
-      facing.current = rideFace(ride, intent);
-      // A backpedal runs the stride cycle backwards, so the feet go the way the ground does.
-      bob.current += dt * (vert.grounded ? 9 : 3) * (intent.back ? -1 : 1);
-    } else {
-      bob.current += dt * 2;
-      // A right-drag turns the hero to look where the camera looks; a cast turns them to face
-      // what they are casting at. Only while standing: walking already points them camera-ward.
-      if (pointer.current.drag === 2) facing.current = cameraFacing(yawRef.current);
-      if (Number.isFinite(aimRef.current)) facing.current = aimRef.current;
     }
+    readStride(legs, motion, facingRef.current, top);
+    const moving = legs.speed > 0.05;
+    // Which way the body turns (`bodyFacing`): where it travels, where the mouse looks, or where a
+    // cast or a ride asks. NaN holds it.
+    const travel = intent.moving && !held ? rideFace(ride, intent) : Number.NaN;
+    const face = bodyFacing(travel, cameraFacing(yawRef.current), looking(view.current, nowS()), held, aimRef.current);
+    if (face === face) facing.current = face;
     aimRef.current = Number.NaN;
+    // The stride runs the way the body goes: backwards for a backpedal, slower in the air.
+    bob.current += dt * strideRate(legs, vert.grounded);
     // Edge-triggered: the keydown handler ignores auto-repeat, and this eats the press.
     if (takeJump(k) && !held && tryJump(vert)) {
       boostJump(vert, jumpSpeed(ride, vert.vy));
@@ -720,7 +711,9 @@ function Hero({
     // The limbs, the cape and the companion all read the same two numbers.
     const g2 = gaitRef.current;
     g2.phase = bob.current;
-    g2.speed = THREE.MathUtils.damp(g2.speed, moving ? 1 : 0, 8, dt);
+    g2.speed = legs.speed;
+    // Riding, the legs straddle the saddle: no sidestep there.
+    g2.hip = ride && ride.phase !== "off" ? 0 : hipTurn(legs);
 
     const g = group.current;
     if (!g) return;
@@ -790,336 +783,6 @@ function Sun({ heroRef }: { heroRef: React.RefObject<THREE.Vector3> }) {
       <ambientLight intensity={0.1} />
     </>
   );
-}
-
-/**
- * Fading an occluder was the alternative to the boom tricks below. It was rejected: the trees
- * are one instanced draw per kind, so a canopy cannot be faded on its own, and half a
- * translucent house is a stranger thing for an eight-year-old to look at than a camera that
- * steps in front of the corner.
- *
- * Where the camera goes when the wood closes over the child.
- *
- * The swinging boom answers "something is between us"; it cannot answer "everything is". In the
- * deep forest there is no yaw with a clear line at full length, because the child is under a
- * ceiling — and shortening the boom along the SAME line only walks the camera down into the
- * leaves. So when nothing is clear, the camera DUCKS: in to eight and a half units, down to
- * three and a half, under the canopy with the child. The moment they step out into a glade the
- * boom eases back up, which reads as the wood opening rather than as the camera moving.
- */
-const DUCK_H = 8.5;
-const DUCK_Y = 3.6;
-/**
- * How close a ducked boom may come. In the Old Wood a tree stands every metre or so, so there is
- * often no clear spot at this length either — the trees nearest the lens dissolve for that
- * (`seeThrough` in geo-kit), rather than the camera being dragged into the child's hood.
- */
-const DUCK_MIN = 0.55;
-/** The fastest the camera ever turns itself, in radians a second. */
-const ASSIST_RATE = 1.3;
-/** What must stay visible: the child's figure, not the patch of grass under it. */
-const CAM_EYE = 1.5;
-/** Never closer than this fraction of the boom, or the camera ends up inside the hero's hood. */
-const CAM_MIN = 0.26;
-/** The nearest a child-steered boom comes, in world units: just over the hero's shoulder. */
-const CLOSEST = 2.6;
-/** How much of a jump the camera follows. 0 and he leaves the frame; 1 and the jump is invisible. */
-const CAM_LIFT = 0.3;
-
-/**
- * The chase camera, on a boom the CHILD steers with the mouse (see `controls.ts`): yaw from a
- * horizontal drag, pitch from a vertical one, length from the wheel.
- *
- * Everything else here is about keeping the child's own figure in the shot without fighting
- * their hand. In a village this dense a fixed boom loses them constantly — a hero stopped at the
- * far wall of a house has five units of roof half a unit from his shoulder — so two things help:
- *
- *   - the boom SHORTENS to whatever is clear along the line it is actually on, and DUCKS under
- *     a closed canopy. This is always on: it never changes the direction the child chose.
- *   - the boom TURNS round a roof toward the nearest clear yaw (`pickBoom`) — but only as an
- *     assist while the child is walking and has left the camera alone for `ASSIST_GRACE`, and
- *     never faster than `ASSIST_RATE`. While they drag, just after, and while they stand still
- *     looking at what they chose, it never turns itself, so it cannot fight their hand.
- *
- * That turn is the CAMERA's, never the child's: it is held as `swing`, an offset over the child's
- * own yaw (`yawRef`), and W, A, S and D go on walking the way the child last pointed the camera.
- * It used to turn `yawRef` itself, so a child walking at a door past a neighbouring house was
- * swung off their line by the camera stepping round the roof — one walk at the market door ended
- * inside the castle. Now only the child's drag turns their walk; the swing eases back to nothing
- * once the roof is passed, and a drag takes over the camera from wherever the swing left it.
- */
-function Rig({
-  heroRef,
-  yawRef,
-  pointer,
-  keys,
-  bus,
-  close,
-  occluders,
-  solids,
-  world,
-  ride = null,
-}: {
-  heroRef: React.RefObject<THREE.Vector3>;
-  yawRef: React.RefObject<number>;
-  pointer: React.RefObject<Pointer>;
-  keys: React.RefObject<Keys>;
-  bus: HudBus;
-  close: boolean;
-  occluders: Collider[];
-  solids: Collider[];
-  world: RealmWorld;
-  /** Riding: the camera rises and pulls back (`camOffsets`). */
-  ride?: RideBus | null;
-}) {
-  const { camera } = useThree();
-  const desired = useMemo(() => new THREE.Vector3(), []);
-  const look = useMemo(() => new THREE.Vector3(), []);
-  const up = useMemo(() => new THREE.Vector3(0, 1, 0), []);
-  const off = useMemo(() => new THREE.Vector3(), []);
-  // Reused every frame. Nothing in this loop allocates.
-  const near = useMemo<Collider[]>(() => new Array(1024), []);
-  const aim = useMemo<Aim>(() => ({ ceiling: false, turn: false, yaw: 0, lift: 0, readable: true }), []);
-  const aimRef = useRef<AimInput>({ hx: 0, eyeY: 0, hz: 0, feetY: 0, yawRef: 0, swing: 0, swingVel: 0, pitch: 0, dist: 0, camH: 0, camY: 0, minFrac: 0, assistMin: 0, assist: false, mayTurn: false });
-  const arm = useRef({ h: 0, y: 0 });
-  /** The boom at the child's own pitch, before any lift: what the ceiling scan asks about. */
-  const arm0 = useRef({ h: 0, y: 0 });
-  /**
-   * How far the boom has risen over the child's pitch to see over a roof or a tower beside them
-   * (`camera-boom.ts`). Damped: up briskly, down gently, so walking along a wall is a rise and a
-   * settle, never a bob.
-   */
-  const overPitch = useRef(0);
-  const frac = useRef(1);
-  /** 0 out in the open, 1 under a closed canopy. Damped, so the wood opens rather than snaps. */
-  const duck = useRef(0);
-  const rideCam = useMemo(() => ({ lift: 0, pull: 0, tilt: 0 }), []);
-  /** The assist's turn, over the child's own yaw. The camera looks along `yawRef + swing`. */
-  const swing = useRef(0);
-  /** The swing's momentum, radians a second (`swingStep`). */
-  const swingVel = useRef({ v: 0 });
-
-  useFrame((_, rawDt) => {
-    // Paused: the camera holds still. The world may keep drawing behind the menu.
-    if (bus.paused) return;
-    const dt = Math.min(0.05, rawDt);
-    const p = heroRef.current;
-    const ptr = pointer.current;
-    /**
-     * The camera hangs off the GROUND under the hero, not off the hero. A rig that tracks his
-     * y exactly turns a jump into the world dropping a metre and back. Anchored to the floor he
-     * took off from, the same jump is him rising in frame. `CAM_LIFT` is how much of the hop
-     * the camera still follows, so he never climbs out of the top of the shot.
-     */
-    const floorY = supportHeight(p.x, p.z, world.heightAt(p.x, p.z), solids);
-    const rise = p.y - floorY;
-    // Riding: up over the rider's head and back, so the mount is in the shot as well as the child.
-    camOffsets(ride ? ride.cam : 0, rideCam);
-    const anchorY = floorY + rise * CAM_LIFT + rideCam.lift;
-
-    // `?close` drops the camera to the hero's shoulder. Not a game mode — a way to look at
-    // the figure, because Job 1 is only finished if the face is a face.
-    if (close) {
-      off.set(0, 2.4, 4.2).applyAxisAngle(up, yawRef.current);
-      const cx = p.x + off.x;
-      const cz = p.z + off.z;
-      desired.set(cx, Math.max(anchorY + off.y, world.heightAt(cx, cz) + 0.6), cz);
-      camera.position.lerp(desired, 1 - Math.exp(-dt * 6));
-      look.set(p.x, anchorY + 1.7, p.z);
-      camera.lookAt(look);
-      return;
-    }
-
-    const dragging = ptr.drag !== 0;
-    // Coming out of a door, the doorstep sets the child's yaw and the camera afresh: no stale swing.
-    if (bus.leaving !== null) {
-      swing.current = 0;
-      swingVel.current.v = 0;
-    }
-    // The child takes the camera: from where they SEE it, which becomes the way they walk.
-    if (dragging && swing.current !== 0) {
-      yawRef.current = wrapAngle(yawRef.current + swing.current);
-      swing.current = 0;
-    }
-    if (dragging) swingVel.current.v = 0;
-    const k = keys.current;
-    const assist = swingAllowed(dragging, nowS(), ptr.lastDragAt, k.f || k.b || k.l || k.r);
-
-    const basePitch = Math.max(PITCH_MIN, ptr.pitch - rideCam.tilt);
-    const baseDist = ptr.dist * (1 + rideCam.pull);
-    // The boom rises over what is beside the child (`overPitch`), never while it ducks under a canopy.
-    boomOffset(arm.current, basePitch + overPitch.current * (1 - duck.current), baseDist);
-    boomOffset(arm0.current, basePitch, baseDist);
-    const eyeY = p.y + CAM_EYE + rideCam.lift;
-    // Last frame's verdict picks this frame's boom. One frame of lag on a value that is already
-    // damped over a third of a second is not a thing anyone can see.
-    const camH = arm.current.h + (DUCK_H - arm.current.h) * duck.current;
-    const camY = arm.current.y + (DUCK_Y - arm.current.y) * duck.current;
-    /**
-     * How short the boom may get. While the camera may turn itself it keeps a real distance and
-     * steps round what is in the way; while the child is steering it, it may not turn, so it
-     * comes all the way in to an over-the-shoulder `CLOSEST` instead — in FRONT of the wall or
-     * the beacon they pointed it at, rather than parked behind it.
-     */
-    // Walking, it keeps a real distance — but never more than `READ_DIST`, or the floor itself
-    // would push the lens through the roof that is hiding the child.
-    const walkMin = Math.min(CAM_MIN, READ_DIST / baseDist);
-    const assistMin = walkMin + (DUCK_MIN - walkMin) * duck.current;
-    const minFrac = assist ? assistMin : Math.min(assistMin, CLOSEST / Math.hypot(camH, camY));
-    const n = gatherNear(near, occluders, p.x, p.z, Math.max(camH, arm0.current.h) + 3);
-    /**
-     * `aimBoom` decides (camera-boom.ts): a CEILING only when no bearing is clear of the lids over
-     * the child — a wall beside them is not one; a LIFT over the child's pitch for the line the
-     * camera is on; and a TURN while walking (the assist), or — hand off the camera for the grace
-     * period — when no lift on that line can show the child at a readable distance.
-     */
-    const aimIn = aimRef.current;
-    aimIn.hx = p.x;
-    aimIn.eyeY = eyeY;
-    aimIn.hz = p.z;
-    aimIn.feetY = floorY;
-    aimIn.yawRef = yawRef.current;
-    aimIn.swing = swing.current;
-    aimIn.swingVel = swingVel.current.v;
-    aimIn.pitch = basePitch;
-    aimIn.dist = baseDist;
-    aimIn.camH = arm0.current.h + (DUCK_H - arm0.current.h) * duck.current;
-    aimIn.camY = arm0.current.y + (DUCK_Y - arm0.current.y) * duck.current;
-    aimIn.minFrac = minFrac;
-    aimIn.assistMin = assistMin;
-    aimIn.assist = assist;
-    aimIn.mayTurn = !dragging && nowS() - ptr.lastDragAt >= ASSIST_GRACE;
-    aimBoom(aim, aimIn, near, n);
-    // Nothing clear at any angle means a ceiling, not a wall. Duck in fast, come back out slowly:
-    // a glade you cross in two strides should not throw the camera up and drop it again.
-    const wantDuck = aim.ceiling ? 1 : 0;
-    duck.current += (wantDuck - duck.current) * (1 - Math.exp(-dt * (wantDuck > duck.current ? 4.5 : 1.4)));
-    overPitch.current += (aim.lift - overPitch.current) * (1 - Math.exp(-dt * (aim.lift > overPitch.current ? 5 : 1.5)));
-
-    /**
-     * Turn toward the angle that can see him, the short way round, and at no more than
-     * `ASSIST_RATE` a second — a drift, never a whip. It turns the camera's `swing`, not the
-     * child's yaw: the keys keep walking where the child pointed them. Only while there is
-     * something to turn for; with nothing, the turn's own momentum settles (`swingStep`).
-     */
-    const sv = swingVel.current;
-    if (aim.turn || sv.v !== 0) swing.current = swingStep(sv, swing.current, yawRef.current, aim.turn ? aim.yaw : null, dt, ASSIST_RATE, !aim.readable);
-    if (!aim.turn && Math.abs(sv.v) < 1e-3) sv.v = 0;
-    const yaw = wrapAngle(yawRef.current + swing.current);
-
-    // ...and shorten to what is clear at the angle it is actually at, not the one it is heading
-    // for, so the child is never lost during the swing itself.
-    const sin = Math.sin(yaw);
-    const cos = Math.cos(yaw);
-    // The whole figure, eye and knee: a line that sees only the top of a head over the eaves is not
-    // a shot of the child. The floor keeps a real distance, but never parks the lens inside a wall.
-    const want = lensFrac(p.x, eyeY, p.z, floorY, camH * sin, camY, camH * cos, minFrac, near, n);
-    // In fast when something cuts across, out gently, so passing a tree is not a shove.
-    frac.current += (want - frac.current) * (1 - Math.exp(-dt * (want < frac.current ? 16 : 3.5)));
-    // ...but never eased THROUGH a wall, in or out: past a roof's corner it goes straight to where it is going.
-    if (insideWall(p.x + camH * sin * frac.current, eyeY + camY * frac.current, p.z + camH * cos * frac.current, near, n, floorY)) frac.current = want;
-
-    // Never let the camera sink into a hill — and, ducked, never make it hover over one either.
-    // How far over the ground depends on the pitch the child chose: lowered to look out from a
-    // summit, it is allowed to sit low rather than being shoved back up to look down again.
-    const lift = terrainClearance(ptr.pitch) + (1.3 - terrainClearance(ptr.pitch)) * duck.current;
-    // A boom held at its minimum can still leave the lens inside a canopy in a thick wood; the
-    // trees dissolve near the lens for exactly that (`seeThrough`), so it is not pulled in here.
-    const f = frac.current;
-    const cx = p.x + camH * sin * f;
-    const cz = p.z + camH * cos * f;
-    desired.set(cx, Math.max(anchorY + camY * f, world.heightAt(cx, cz) + lift * f + 0.6), cz);
-    // Snappier while the child is dragging: the camera is in their hand, not on a spring.
-    camera.position.lerp(desired, 1 - Math.exp(-dt * (dragging ? 20 : 9)));
-    // Easing in from far out, the lens cuts the corner it is coming in past; never through a wall.
-    if (insideWall(camera.position.x, camera.position.y, camera.position.z, near, n, floorY)) camera.position.copy(desired);
-    look.set(p.x, anchorY + 1.2 + 2.2 * f * Math.min(1, ptr.pitch / DEFAULT_PITCH), p.z);
-    camera.lookAt(look);
-  });
-  return null;
-}
-
-/**
- * The mouse, on the CANVAS only. The HUD is a sibling DOM layer over the canvas, so a press on
- * a HUD button never lands here and never starts a drag.
- *
- * Pointer capture rather than pointer lock: lock hides the cursor and needs its own gesture,
- * and a child who drags the view and then reaches for a spell button should find the pointer
- * where their hand left it. Capture keeps the drag alive when the pointer leaves the canvas.
- */
-function CameraInput({ yawRef, pointer, bus }: { yawRef: React.RefObject<number>; pointer: React.RefObject<Pointer>; bus: HudBus }) {
-  const gl = useThree((s) => s.gl);
-  useEffect(() => {
-    const el = gl.domElement;
-    const orbit: Orbit = { yaw: 0, pitch: DEFAULT_PITCH, dist: DEFAULT_DIST };
-    let id = -1;
-    let lastX = 0;
-    let lastY = 0;
-    const end = () => {
-      const ptr = pointer.current;
-      if (ptr.drag !== 0) ptr.lastDragAt = nowS();
-      ptr.drag = 0;
-      if (id >= 0 && el.hasPointerCapture?.(id)) el.releasePointerCapture(id);
-      id = -1;
-    };
-    const down = (e: PointerEvent) => {
-      if (bus.paused || (e.button !== 0 && e.button !== 2)) return;
-      id = e.pointerId;
-      lastX = e.clientX;
-      lastY = e.clientY;
-      pointer.current.drag = e.button === 2 ? 2 : 1;
-      el.setPointerCapture?.(id);
-      e.preventDefault();
-    };
-    const move = (e: PointerEvent) => {
-      const ptr = pointer.current;
-      if (ptr.drag === 0 || e.pointerId !== id) return;
-      if (bus.paused) {
-        end();
-        return;
-      }
-      const dx = e.clientX - lastX;
-      const dy = e.clientY - lastY;
-      lastX = e.clientX;
-      lastY = e.clientY;
-      orbit.yaw = yawRef.current;
-      orbit.pitch = ptr.pitch;
-      orbitDrag(orbit, dx, dy);
-      yawRef.current = orbit.yaw;
-      ptr.pitch = orbit.pitch;
-      ptr.lastDragAt = nowS();
-    };
-    const up = (e: PointerEvent) => {
-      if (e.pointerId === id) end();
-    };
-    const wheel = (e: WheelEvent) => {
-      e.preventDefault();
-      if (bus.paused) return;
-      const ptr = pointer.current;
-      orbit.dist = ptr.dist;
-      orbitZoom(orbit, e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY);
-      ptr.dist = orbit.dist;
-    };
-    // The right button is a camera button here, not a menu.
-    const menu = (e: MouseEvent) => e.preventDefault();
-    el.addEventListener("pointerdown", down);
-    el.addEventListener("pointermove", move);
-    el.addEventListener("pointerup", up);
-    el.addEventListener("pointercancel", up);
-    el.addEventListener("lostpointercapture", end);
-    el.addEventListener("wheel", wheel, { passive: false });
-    el.addEventListener("contextmenu", menu);
-    return () => {
-      el.removeEventListener("pointerdown", down);
-      el.removeEventListener("pointermove", move);
-      el.removeEventListener("pointerup", up);
-      el.removeEventListener("pointercancel", up);
-      el.removeEventListener("lostpointercapture", end);
-      el.removeEventListener("wheel", wheel);
-      el.removeEventListener("contextmenu", menu);
-    };
-  }, [gl, yawRef, pointer, bus]);
-  return null;
 }
 
 /* ------------------------------------------------------- glow and particles */
@@ -1385,7 +1048,8 @@ const World = memo(function World({
   const gaitRef = useRef<Gait>({ speed: 0, phase: 0 });
   const aimRef = useRef(Number.NaN);
   const keys = useRef<Keys>({ f: false, b: false, l: false, r: false, jump: false, interact: false });
-  const pointer = useRef<Pointer>({ drag: 0, lastDragAt: -1e9, pitch: DEFAULT_PITCH, dist: DEFAULT_DIST });
+  const view = useRef<LookState>({ pitch: DEFAULT_PITCH, dist: DEFAULT_DIST, held: false, lastLookAt: -1e9 });
+  const lookPaused = useCallback(() => bus.paused, [bus]);
   const tex = useMemo(() => glowTexture(), []);
 
   useEffect(() => {
@@ -1461,7 +1125,7 @@ const World = memo(function World({
         <Village props={layout.props} villagers={layout.villagers} castleType={layout.castleType} castleUnlocked={castleUnlocked} />
       </SeeThroughGroup>
       <Villagers villagers={layout.villagers} heroRef={heroRef} />
-      <Hero heroRef={heroRef} keys={keys} yawRef={yawRef} pointer={pointer} bus={bus} facingRef={facingRef} gaitRef={gaitRef} aimRef={aimRef} solids={solids} world={world} ride={ride}>
+      <Hero heroRef={heroRef} keys={keys} yawRef={yawRef} view={view} bus={bus} facingRef={facingRef} gaitRef={gaitRef} aimRef={aimRef} solids={solids} world={world} ride={ride}>
         {/* A parent dropping in walks as the realm's quest-giver, not as the child. */}
         {viewer === "parent" ? (
           <WizardFigure gait={gaitRef} />
@@ -1482,21 +1146,21 @@ const World = memo(function World({
       <Motes tex={tex} />
       <SpellFx pool={fxPool} />
       <Interaction spots={spots} heroRef={heroRef} keys={keys} bus={bus} world={world} />
-      <Rig heroRef={heroRef} yawRef={yawRef} pointer={pointer} keys={keys} bus={bus} close={close} occluders={occluders} solids={solids} world={world} ride={ride} />
-      <CameraInput yawRef={yawRef} pointer={pointer} bus={bus} />
+      <ChaseCamera heroRef={heroRef} yawRef={yawRef} view={view} bus={bus} close={close} solids={solids} world={world} ride={ride} />
+      <MouseLook bus={bus} yawRef={yawRef} view={view} paused={lookPaused} />
       {/* Riding: the mount's moments, where it waits, the hitching posts and fast travel. Before the doorstep (see its note). */}
       {ride && <Riding ride={ride} bus={bus} heroRef={heroRef} facingRef={facingRef} aimRef={aimRef} keys={keys} solids={solids} world={world} />}
-      {/* Going in and coming out of doors, and never being left inside a wall. After the rig: it may set the camera. */}
-      <Doorstep bus={bus} heroRef={heroRef} yawRef={yawRef} aimRef={aimRef} keys={keys} pointer={pointer} solids={solids} occluders={occluders} props={layout.props} sitePlan={SITE_PLAN} castle={castle} castleTier={layout.castleType} castleUnlocked={castleUnlocked} world={world} ride={ride} />
-      {/* After the rig (markers project from this frame's camera), before the driver (a new charge locks on before it releases). */}
+      {/* Going in and coming out of doors, and never being left inside a wall. After the camera: it may set the camera. */}
+      <Doorstep bus={bus} heroRef={heroRef} yawRef={yawRef} aimRef={aimRef} keys={keys} view={view} solids={solids} props={layout.props} sitePlan={SITE_PLAN} castle={castle} castleTier={layout.castleType} castleUnlocked={castleUnlocked} world={world} ride={ride} />
+      {/* After the camera (markers project from this frame's camera), before the driver (a new charge locks on before it releases). */}
       {troubles && <Troubles tbus={troubles} bus={bus} pool={fxPool} caster={caster} heroRef={heroRef} aimRef={aimRef} solids={solids} world={world} layout={layout} calm={calm} ride={ride} />}
       {/* Recess: the Ring's arch and posts, and a run's gleams, lit post and pace ghost. */}
       {recess && <RecessScene recess={recess} bus={bus} heroRef={heroRef} world={world} solids={solids} ride={ride} calm={calm} troubles={troubles} />}
       {/*
         LAST in the tree on purpose. R3F runs same-priority frame subscribers in the order they
-        subscribed, so the driver's projection runs after the rig has already moved the camera
+        subscribed, so the driver's projection runs after `ChaseCamera` has already moved the camera
         this frame — a nameplate computed from last frame's camera slides visibly whenever the
-        boom swings round a roof.
+        camera moves.
       */}
       {process.env.NODE_ENV !== "production" && <DevDraws />}
       <HudDriver

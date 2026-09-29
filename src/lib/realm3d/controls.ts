@@ -138,13 +138,6 @@ export function looking(s: LookState, now: number): boolean {
   return s.held || now - s.lastLookAt < LOOK_SETTLE;
 }
 
-/** The boom's horizontal reach and its rise, for an orbit. Writes into `out`. */
-export function boomOffset(out: { h: number; y: number }, pitch: number, dist: number): { h: number; y: number } {
-  out.h = dist * Math.cos(pitch);
-  out.y = dist * Math.sin(pitch);
-  return out;
-}
-
 /**
  * How high over the ground under it the lens insists on sitting, by pitch. A camera the child
  * has lowered to look out at the horizon may sit low; one looking down sits higher.
@@ -253,24 +246,4 @@ export function bodyFacing(travel: number, heading: number, looking: boolean, st
   if (travel === travel) return travel;
   if (looking) return heading;
   return aim;
-}
-
-/* ---------------------------------------------- going with the next commit */
-
-/** @deprecated the mouse is `lookBy` now; kept only until the scenes move over. */
-export function orbitDrag(o: Orbit, dxPx: number, dyPx: number): Orbit {
-  return lookBy(o, dxPx, dyPx, { sensitivity: 1, invertY: false });
-}
-
-/** @deprecated `zoomBy`. */
-export function orbitZoom(o: Orbit, deltaY: number): Orbit {
-  return zoomBy(o, deltaY);
-}
-
-/** @deprecated the camera no longer swings itself. */
-export const ASSIST_GRACE = 1.6;
-
-/** @deprecated the camera no longer swings itself. */
-export function swingAllowed(dragging: boolean, now: number, lastDragAt: number, walking: boolean): boolean {
-  return walking && !dragging && now - lastDragAt >= ASSIST_GRACE;
 }

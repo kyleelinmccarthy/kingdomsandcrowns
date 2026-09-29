@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import {
   angleDelta,
   bodyFacing,
-  boomOffset,
   cameraFacing,
   chaseLens,
   DEFAULT_DIST,
@@ -202,12 +201,6 @@ describe("which way the body turns", () => {
 });
 
 describe("the boom", () => {
-  it("gives back the approved shot at the default orbit", () => {
-    const b = boomOffset({ h: 0, y: 0 }, DEFAULT_PITCH, DEFAULT_DIST);
-    expect(b.h).toBeCloseTo(21);
-    expect(b.y).toBeCloseTo(19.5);
-  });
-
   it("lets a lowered camera sit low over the ground instead of shoving it back up", () => {
     expect(terrainClearance(PITCH_MIN)).toBeLessThan(1.5);
     expect(terrainClearance(DEFAULT_PITCH)).toBeCloseTo(3.5, 1);
