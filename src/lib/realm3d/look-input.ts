@@ -16,7 +16,9 @@
  *     menu on it, exactly as Esc would have.
  *   - A panel opening (anything that pauses the game) lets go of the mouse, so the panel can be
  *     clicked. That is not an Esc and is not reported. Resume asks for the capture again from its
- *     own click (`request`), which the browser allows.
+ *     own click (`request`), which the browser allows. A panel that took the mouse gives it back on
+ *     the frame it closes (whatever closed it: Resume, a dialogue's last line, a deed board's X),
+ *     from that same click's activation; a panel that opened over a free mouse captures nothing.
  *   - The browser may say no: straight after an Esc, Chrome refuses a new capture for about a
  *     second. A refusal is never an error here. The mouse simply stays free, and the capture is
  *     asked for once more after `LOCK_RETRY_MS` if the game is still being played; after that the
@@ -90,6 +92,8 @@ export function mouseLook(el: LookEl, doc: LookDoc, o: MouseLookOptions): MouseL
   const later = o.later ?? ((fn: () => void, ms: number) => void setTimeout(fn, ms));
   let captured = doc.pointerLockElement === el;
   let wasPaused = false;
+  /** A panel opening took the mouse from the camera, and has not yet given it back. */
+  let lentByPanel = false;
   /** A request is out and has not been answered. */
   let asking = false;
   /** The one retry after a refusal has been spent. */
@@ -145,7 +149,19 @@ export function mouseLook(el: LookEl, doc: LookDoc, o: MouseLookOptions): MouseL
     tick(paused) {
       // A panel just opened: let the mouse go so it can be clicked. Only on the way in — a capture
       // granted while a panel is still closing (Resume's own click) is the child's, and is kept.
-      if (paused && !wasPaused && captured) doc.exitPointerLock();
+      if (paused && !wasPaused && captured) {
+        doc.exitPointerLock();
+        lentByPanel = true;
+      }
+      // The panel closed: the mouse it took comes back as the camera, as closing a screen does in
+      // Minecraft. The browser allows the ask only inside the closing click's transient activation
+      // (about 5 s in Chrome); this frame follows that click, so it is well inside. Not if it is
+      // already ours or already asked for (Resume's own request), so one resume is one ask. An Esc
+      // freeing never set the flag: that capture is Resume's to take back.
+      if (!paused && wasPaused && lentByPanel) {
+        lentByPanel = false;
+        if (!captured && !asking) api.request();
+      }
       wasPaused = paused;
       // A room closed while it held the mouse: the capture carries on here.
       if (!paused && !captured && doc.pointerLockElement == null && HANDED.has(doc)) {

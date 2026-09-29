@@ -151,6 +151,60 @@ describe("letting go of it", () => {
   });
 });
 
+describe("a panel gives the mouse back when it closes, as in Minecraft", () => {
+  it("captures again on the frame the panel closes, once, when it had taken the mouse from the camera", () => {
+    const { el, doc, look, state } = rig();
+    lockTo(doc, el);
+    look.tick(false);
+    state.paused = true;
+    look.tick(true);
+    lockTo(doc, null);
+    look.tick(true);
+    expect(el.requestPointerLock).not.toHaveBeenCalled();
+    state.paused = false;
+    look.tick(false);
+    expect(el.requestPointerLock).toHaveBeenCalledTimes(1);
+    look.tick(false);
+    expect(el.requestPointerLock).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not capture when a panel that opened over a free mouse closes", () => {
+    const { el, look, state } = rig();
+    look.tick(false);
+    state.paused = true;
+    look.tick(true);
+    state.paused = false;
+    look.tick(false);
+    expect(el.requestPointerLock).not.toHaveBeenCalled();
+  });
+
+  it("asks once, not twice, when Resume's own click asked in the same resume", () => {
+    const { el, doc, look, state } = rig();
+    lockTo(doc, el);
+    look.tick(false);
+    state.paused = true;
+    look.tick(true);
+    lockTo(doc, null);
+    look.tick(true);
+    look.request();
+    state.paused = false;
+    look.tick(false);
+    expect(el.requestPointerLock).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves a capture the browser freed by Esc to Resume: tick asks nothing", () => {
+    const { el, doc, look, state } = rig();
+    lockTo(doc, el);
+    look.tick(false);
+    lockTo(doc, null);
+    state.paused = true;
+    look.tick(true);
+    state.paused = false;
+    look.tick(false);
+    expect(el.requestPointerLock).not.toHaveBeenCalled();
+  });
+});
+
 describe("when the browser says no", () => {
   it("leaves the mouse free, and asks once more after the browser's cooldown", async () => {
     const { el, look, queued } = rig({ refuse: true });
