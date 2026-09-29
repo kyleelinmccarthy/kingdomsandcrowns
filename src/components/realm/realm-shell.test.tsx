@@ -985,31 +985,35 @@ describe("RealmShell", () => {
     expect(await screen.findByText("The Village Well stands. Next: the Grain Mill, with Miller Tessa.")).toBeInTheDocument();
   });
 
-  it("opens a site card for every villager, whatever the objective says", async () => {
+  // One case per combination, not one loop of eight renders: the loop ran ~5 s alone and hit
+  // vitest's timeout whenever the machine was busy.
+  const siteCardCases = [newKingdom, raisedKingdom].flatMap((buildings, k) =>
+    (["simple", "full"] as const).flatMap((depth) =>
+      [false, true].map((fewerChoices) => ({ name: `${k === 0 ? "new" : "raised"} kingdom, ${depth}, fewerChoices ${fewerChoices}`, buildings, depth, fewerChoices }))
+    )
+  );
+  it.each(siteCardCases)("opens a site card for every villager, whatever the objective says ($name)", async ({ buildings, depth, fewerChoices }) => {
     // §3.19: the objective card is a suggestion, never a gate.
     getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
-    for (const buildings of [newKingdom, raisedKingdom]) {
-      for (const depth of ["simple", "full"] as const) {
-        for (const fewerChoices of [false, true]) {
-          render(
-            <RealmShell
-              bundle={{ ...bundle, depth, kingdom: { tone: "gentle", buildings }, profile: { ...DEFAULT_LEARNING_PROFILE, fewerChoices } }}
-              childId="c1"
-              isChildView={true}
-            />
-          );
-          expect(await screen.findByTestId("scene")).toBeInTheDocument();
-          for (const v of VILLAGERS) {
-            await act(async () => {
-              (sceneProps.onTalk as (id: string) => void)(v.id);
-            });
-            const dialog = await screen.findByRole("dialog", { name: v.name });
-            fireEvent.keyDown(dialog, { key: "Escape" });
-          }
-          cleanup();
-        }
-      }
+    render(
+      <RealmShell
+        bundle={{ ...bundle, depth, kingdom: { tone: "gentle", buildings }, profile: { ...DEFAULT_LEARNING_PROFILE, fewerChoices } }}
+        childId="c1"
+        isChildView={true}
+      />
+    );
+    expect(await screen.findByTestId("scene")).toBeInTheDocument();
+    for (const v of VILLAGERS) {
+      await act(async () => {
+        (sceneProps.onTalk as (id: string) => void)(v.id);
+      });
+      const dialog = await screen.findByRole("dialog", { name: v.name });
+      fireEvent.keyDown(dialog, { key: "Escape" });
     }
+  });
+
+  it("still opens a site card for every villager once an unknown kingdom is woken", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
     // An unknown kingdom is the one closed door, and it is the pre-existing "no data for
     // this site yet" guard that closes it — not the objective, which renders no card at all.
     getRealmKingdom.mockResolvedValue({ tone: "gentle", buildings: newKingdom });
@@ -1118,9 +1122,14 @@ describe("RealmShell crown ceremony", () => {
     getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
     render(<RealmShell bundle={ceremonyBundle} childId="c1" isChildView={true} />);
     await screen.findByTestId("scene");
+    // findBy resolves on the DOM mutation, which can land before React flushes the passive
+    // effect that registers the Escape listener (the scheduler lags under load). Wait for
+    // the Skip button, then flush effects, so both handlers exist before we drive them.
+    const skip = await screen.findByRole("button", { name: "Skip" });
+    await act(async () => {});
     const skipRef = sceneProps.ceremonySkipRef as { current: boolean };
     expect(skipRef.current).toBe(false);
-    fireEvent.click(screen.getByRole("button", { name: "Skip" }));
+    fireEvent.click(skip);
     expect(skipRef.current).toBe(true);
     skipRef.current = false;
     fireEvent.keyDown(window, { key: "Escape" });
