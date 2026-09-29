@@ -117,10 +117,11 @@ import { boostJump, castBlocked, CAST_FROM_SADDLE, holdDrop, jumpSpeed, keepFoot
 import { RiddenMount, Riding, Saddle, travelGraphFor, useSeatRef } from "./riding-scene";
 import { bodyFor, slideBody, turnBody } from "@/lib/realm3d/mount-body";
 import { RecessScene } from "./recess-scene";
-import { LIT_WINDOW, paint, useDayLight } from "./day-light";
+import { LIT_WINDOW, paintColor, useDayLight } from "./day-light";
 import type { DayLight } from "@/lib/realm3d/day-cycle";
 import type { RecessBus } from "@/lib/realm3d/recess/bus";
 import { ARCH_HALF_SPAN } from "@/lib/realm3d/recess/course";
+import { typingInto } from "@/lib/realm3d/typing";
 
 /* ------------------------------------------------------------------ palette */
 
@@ -581,12 +582,6 @@ function releaseKeys(k: Keys): void {
   k.f = k.b = k.l = k.r = k.jump = k.interact = false;
 }
 
-/** True when a key press belongs to a text field the HUD put on screen, not to the game. */
-function typingInto(t: EventTarget | null): boolean {
-  if (!(t instanceof HTMLElement)) return false;
-  return t.isContentEditable || t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT";
-}
-
 function nowS(): number {
   return performance.now() / 1000;
 }
@@ -760,16 +755,16 @@ function Sun({ heroRef, day }: { heroRef: React.RefObject<THREE.Vector3>; day: D
     const d = day.sunDir;
     l.position.set(p.x + d.x * 90, p.y + d.y * 90, p.z + d.z * 90);
     l.updateMatrixWorld();
-    paint(l.color, day.sun);
+    paintColor(l.color, day.sun);
     l.intensity = day.sunI;
     const h = hemi.current;
     if (h) {
-      paint(h.color, day.hemiSky);
-      paint(h.groundColor, day.hemiGround);
+      paintColor(h.color, day.hemiSky);
+      paintColor(h.groundColor, day.hemiGround);
       h.intensity = day.hemiI;
     }
     if (fill.current) fill.current.intensity = day.ambientI;
-    if (scene.fog) paint(scene.fog.color, day.fog);
+    if (scene.fog) paintColor(scene.fog.color, day.fog);
   });
 
   return (
@@ -921,8 +916,8 @@ function SkyDome({ day }: { day: DayLight }) {
     [],
   );
   useFrame(() => {
-    paint(mat.uniforms.top.value, day.skyTop);
-    paint(mat.uniforms.low.value, day.skyLow);
+    paintColor(mat.uniforms.top.value, day.skyTop);
+    paintColor(mat.uniforms.low.value, day.skyLow);
   });
   return (
     <mesh material={mat} frustumCulled={false}>

@@ -47,7 +47,7 @@ async function unlockFacts(childId: string, familyId: string) {
 export async function getWardrobe(childId: string) {
   const { familyId } = await requireChildAccess(childId);
   const [facts, seasons] = await Promise.all([unlockFacts(childId, familyId), loadSeasons(childId)]);
-  return { ...facts, crowns: crownChoices(seasons.filter((s) => s.completedAt !== null)) };
+  return { ...facts, crowns: crownChoices(seasons) };
 }
 
 export async function updateAvatarConfig(childId: string, config: AvatarConfig) {

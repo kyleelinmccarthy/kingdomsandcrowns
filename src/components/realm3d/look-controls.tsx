@@ -10,7 +10,7 @@ import { useCallback, useEffect, useState } from "react";
 import type { HudBus, LookSettings } from "@/lib/realm3d/hud-bus";
 import { LOOK_KEY, LOOK_SPEED, readLook } from "@/lib/realm3d/look-settings";
 import { deviceStorage } from "@/lib/utils/device-storage";
-import { Slider } from "./realm-sound";
+import { Slider } from "./slider";
 
 function kept(): LookSettings {
   try {

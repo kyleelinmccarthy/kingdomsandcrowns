@@ -283,7 +283,7 @@ function towerGeo(r: Rnd): THREE.BufferGeometry {
 
 type Design = {
   geo: (r: Rnd) => THREE.BufferGeometry;
-  /** Footprint the hero is stopped by, and the box that can hide him from the camera. */
+  /** Footprint the hero is stopped by. */
   solid: { r: number; h: number } | null;
   /** How high the name board hangs. See `BOARD_OUT` for why it is never much higher than this. */
   board: number;

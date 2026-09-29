@@ -196,17 +196,17 @@ export function fadeWithDistance(mat: THREE.Material, near: number, far: number)
 /**
  * Screen-door the part of anything within `cut` units of the CAMERA.
  *
- * The chase camera ducks under the canopy in a wood, and the Old Wood and the generated
- * forests put a tree every metre or two — so there is often no spot on the boom that is not
- * inside some crown or beside some trunk, and the picture becomes a wall of bark. Fading a
- * single tree is impossible (they are one instanced draw per kind), but a fragment knows how
- * far it is from the lens: anything that close is dissolved with an ordered dither, so the
- * camera sees through the tree it is standing in and the child beyond it, and a tree it
- * walks away from fills back in rather than popping.
+ * The chase camera never moves itself, so in a wood it can sit inside a crown or beside a
+ * trunk — the Old Wood and the generated forests put a tree every metre or two — and the
+ * picture would become a wall of bark. Fading a single tree is impossible (they are one
+ * instanced draw per kind), but a fragment knows how far it is from the lens: anything that
+ * close is dissolved with an ordered dither, so the camera sees through the tree it is
+ * standing in and the child beyond it, and a tree it walks away from fills back in rather
+ * than popping.
  *
  * Composes with `fadeWithDistance`: it wraps whatever `onBeforeCompile` is already there.
  */
-/** How near the lens a tree starts to dissolve. Just short of the ducked boom's shortest reach. */
+/** How near the lens a tree starts to dissolve. Solid from here out, dissolving on the way in, gone inside 45% of it. */
 export const CAMERA_CUT = 4.2;
 
 /**
@@ -240,14 +240,14 @@ const glsl = (n: number) => n.toFixed(3);
 /** Materials already given the hook, so a material shared by two places, or seen twice by `patchSeeThrough`, is wrapped once. */
 const PATCHED = new WeakSet<THREE.Material>();
 
-export function seeThrough(mat: THREE.Material, cut: number = CAMERA_CUT): THREE.Material {
+export function seeThrough(mat: THREE.Material): THREE.Material {
   if (PATCHED.has(mat)) return mat;
   PATCHED.add(mat);
   const prev = mat.onBeforeCompile;
   const prevKey = mat.customProgramCacheKey.bind(mat);
   mat.onBeforeCompile = (shader, renderer) => {
     prev.call(mat, shader, renderer);
-    shader.uniforms.cutNear = { value: cut };
+    shader.uniforms.cutNear = { value: CAMERA_CUT };
     shader.uniforms.cutHero = LENS_HERO;
     shader.vertexShader = shader.vertexShader
       .replace("#include <common>", "#include <common>\nvarying vec3 vCutPos;\nvarying float vFore;\nuniform vec3 cutHero;")
@@ -293,8 +293,14 @@ export function seeThrough(mat: THREE.Material, cut: number = CAMERA_CUT): THREE
          }`,
       );
   };
-  mat.customProgramCacheKey = () => `${prevKey()}|see${cut}`;
+  mat.customProgramCacheKey = () => `${prevKey()}|see${CAMERA_CUT}`;
   return mat;
+}
+
+function patchOne(m: THREE.Material | undefined): void {
+  if (!m || PATCHED.has(m) || !m.type.startsWith("Mesh")) return;
+  seeThrough(m);
+  m.needsUpdate = true;
 }
 
 /**
@@ -305,12 +311,8 @@ export function patchSeeThrough(root: THREE.Object3D): void {
   root.traverse((o) => {
     const mesh = o as THREE.Mesh;
     if (!mesh.isMesh) return;
-    const list = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-    for (const m of list) {
-      if (!m || PATCHED.has(m) || !m.type.startsWith("Mesh")) continue;
-      seeThrough(m);
-      m.needsUpdate = true;
-    }
+    if (Array.isArray(mesh.material)) for (const m of mesh.material) patchOne(m);
+    else patchOne(mesh.material);
   });
 }
 

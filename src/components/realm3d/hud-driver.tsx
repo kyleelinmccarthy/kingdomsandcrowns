@@ -234,7 +234,7 @@ export function HudDriver({
     }
     /**
      * The camera's own yaw, not the child's facing: the cone says what is on screen, and what
-     * is on screen is decided by where the boom is, which the child steers with Q and E.
+     * is on screen is decided by where the boom is, which the child steers with the mouse (captured, or dragged with the right button).
      *
      * The boom sits at `p + (sin yaw, cos yaw) * length` and looks back at the child, so the
      * VIEW direction is `-(sin yaw, cos yaw)` — the negative of the hero arrow's basis, which

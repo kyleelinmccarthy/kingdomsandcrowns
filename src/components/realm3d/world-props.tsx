@@ -32,9 +32,10 @@
  * ## What is left over for the hero
  *
  * The same refill collects the handful of colliders that matter: the generator marks the big
- * trunks and standing stones `solid`, and a canopy within a boom's length of the child is
- * something the camera has to get around. Both go into the arrays the frame loop already walks,
- * appended after the village's own, so nothing else has to know the difference.
+ * trunks and standing stones `solid`, which stop the hero. They go into the array the frame loop
+ * already walks, appended after the village's own, so nothing else has to know the difference.
+ * (Canopies are never obstacles: the camera steers round nothing, and the see-through dissolves
+ * whatever stands between the lens and the child.)
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";

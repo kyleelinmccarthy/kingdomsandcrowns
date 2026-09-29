@@ -16,6 +16,7 @@ import { useCallback, useEffect, useRef, type RefObject } from "react";
 import type { Overlay } from "@/lib/realm3d/frame";
 import type { HudBus } from "@/lib/realm3d/hud-bus";
 import { autoPause, IDLE_MS, type AutoTrigger } from "@/lib/realm3d/pause";
+import { typingInto } from "@/lib/realm3d/typing";
 
 /** What counts as the child touching the game: any key, click, mouse move or wheel. */
 const INPUT = ["keydown", "pointerdown", "pointermove", "wheel"] as const;
@@ -29,13 +30,6 @@ function captured(): boolean {
 /** The window is the one in front and the tab is shown: a mouse let go now was let go by Esc. */
 function focused(): boolean {
   return document.hasFocus() && document.visibilityState === "visible";
-}
-
-/** A key pressed into a field that takes text is the field's, not the game's. */
-function typing(t: EventTarget | null): boolean {
-  if (!(t instanceof HTMLElement)) return false;
-  if (t.isContentEditable || t.tagName === "TEXTAREA" || t.tagName === "SELECT") return true;
-  return t instanceof HTMLInputElement && !["range", "checkbox", "radio", "button", "submit"].includes(t.type);
 }
 
 export function usePause({
@@ -55,7 +49,7 @@ export function usePause({
   go: (next: Overlay | null) => void;
   /** The child's own clock runs. Without one (a grown-up), only Esc and P pause. */
   clock: boolean;
-  /** False once the Realm has closed: nothing is left to pause. */
+  /** False under the `?close` screenshot flag, which holds the Realm shut: nothing is left to pause. */
   enabled: boolean;
 }): { resume: () => void } {
   /** The mouse was captured when this pause began, so Resume should catch it again. */
@@ -105,7 +99,7 @@ export function usePause({
     };
     const onBlur = () => open("blur");
     const onKey = (e: KeyboardEvent) => {
-      if (e.code !== "KeyP" || e.repeat || e.ctrlKey || e.metaKey || e.altKey || typing(e.target)) return;
+      if (e.code !== "KeyP" || e.repeat || e.ctrlKey || e.metaKey || e.altKey || typingInto(e.target)) return;
       const now = overlayRef.current;
       if (now === null) {
         looked.current = captured();

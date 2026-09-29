@@ -135,6 +135,13 @@ describe("the camera never moves itself", () => {
     expect(lens.z).toBeCloseTo(0, 9);
   });
 
+  it("in a room, with no ground to clear, is the boom alone", () => {
+    chaseLens(lens, 5, 2, -3, 0, DEFAULT_PITCH, DEFAULT_DIST, null, 0);
+    expect(lens.x).toBeCloseTo(5, 9);
+    expect(lens.y).toBeCloseTo(21.5, 9);
+    expect(lens.z).toBeCloseTo(18, 9);
+  });
+
   it("rises over a hill behind the child, and never comes any nearer", () => {
     const hill = (x: number, z: number) => (z > 10 ? 30 : 0);
     chaseLens(lens, 0, 0, 0, 0, DEFAULT_PITCH, DEFAULT_DIST, hill, 3.5);

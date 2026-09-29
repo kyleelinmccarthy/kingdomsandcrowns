@@ -6,13 +6,11 @@ const requireChildAccess = vi.fn(async () => ({ familyId: "f1", access: { userId
 vi.mock("@/lib/auth/access", () => ({ requireChildAccess: (...a: unknown[]) => (requireChildAccess as (...x: unknown[]) => unknown)(...a) }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 const seasons = [
-  { id: "s1", completedAt: new Date("2026-06-01"), crownId: "crown-copper" },
-  { id: "s2", completedAt: null, crownId: null },
+  { id: "s1", ordinal: 1, startDate: "2025-09-01", completedAt: "2026-06-01T00:00:00.000Z", crownId: "crown-copper" },
+  { id: "s2", ordinal: 2, startDate: "2026-09-01", completedAt: null, crownId: null },
 ];
 vi.mock("@/lib/services/crowns", () => ({ loadSeasons: vi.fn(async () => seasons) }));
 const copper = { id: "crown-copper", label: "Copper Circlet", color: "#b87333", seasonLabel: "2025–26" };
-const crownChoices = vi.fn((...args: unknown[]) => (args.length ? [copper] : [copper]));
-vi.mock("@/lib/utils/seasons", async (orig) => ({ ...(await orig<typeof import("@/lib/utils/seasons")>()), crownChoices: (s: unknown) => crownChoices(s) }));
 
 /** Each `db.select()` answers the next queued rows, whether awaited directly or through `.limit()`. */
 const queued: unknown[][] = [];
@@ -34,7 +32,6 @@ import { getWardrobe } from "./avatar";
 
 beforeEach(() => {
   queued.length = 0;
-  crownChoices.mockClear();
 });
 
 describe("getWardrobe", () => {
@@ -43,6 +40,5 @@ describe("getWardrobe", () => {
     const w = await getWardrobe("c1");
     expect(w).toEqual({ level: levelFromXp(450), earnedBadgeIds: ["b-first-quest"], questUnlockedItems: ["cape-royal"], crowns: [copper] });
     expect(requireChildAccess).toHaveBeenCalledWith("c1");
-    expect(crownChoices).toHaveBeenCalledWith([seasons[0]]);
   });
 });

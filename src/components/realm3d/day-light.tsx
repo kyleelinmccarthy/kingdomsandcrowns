@@ -18,7 +18,7 @@ const WINDOW_GLOW = 0.55;
 const EVERY_MS = 60_000;
 
 /** A colour from the table (sRGB) onto a three.js colour, which works in linear. */
-export function paint(c: THREE.Color, v: Rgb): void {
+export function paintColor(c: THREE.Color, v: Rgb): void {
   c.setRGB(v.r, v.g, v.b, THREE.SRGBColorSpace);
 }
 

@@ -47,6 +47,7 @@ import {
   bodyFacing,
   cameraFacing,
   looking,
+  chaseLens,
   makeAim,
   makeMoveIntent,
   moveIntent,
@@ -57,6 +58,7 @@ import {
   type MoveIntent,
 } from "@/lib/realm3d/controls";
 import { hipTurn, keepMotion, makeMotion, makeStride as makeLegs, readStride, stepMotion, strideRate, type Motion } from "@/lib/realm3d/locomotion";
+import { typingInto } from "@/lib/realm3d/typing";
 import { roomPlan, type RoomColors, type RoomPart, type RoomPlan, type WallSide } from "@/lib/realm3d/interiors";
 import { hiddenWalls, leavingRoom, makeHidden, pickRoomSpot, roomSlide, roomSpots, ROOM_LOOK, type RoomSpots } from "@/lib/realm3d/room-rules";
 import type { RoomVisit } from "@/lib/realm3d/doorways";
@@ -234,11 +236,6 @@ const RoomWorld = memo(function RoomWorld({
     </>
   );
 });
-
-function typingInto(t: EventTarget | null): boolean {
-  if (!(t instanceof HTMLElement)) return false;
-  return t.isContentEditable || t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT";
-}
 
 function releaseKeys(k: Keys): void {
   k.f = k.b = k.l = k.r = k.jump = k.interact = false;
@@ -748,9 +745,8 @@ function RoomCamera({
     floorY.current += (L.y - floorY.current) * (1 - Math.exp(-dt * 5));
     const anchor = Math.min(L.y, floorY.current + 0.4);
     if (!live.current.paused || first.current) {
-      const h = v.dist * Math.cos(v.pitch);
-      const y = v.dist * Math.sin(v.pitch);
-      desired.set(ROOM_ORIGIN.x + L.x + h * Math.sin(yaw), oy + anchor + 1.2 + y, ROOM_ORIGIN.z + L.z + h * Math.cos(yaw));
+      // A room has no ground to clear: the boom alone.
+      chaseLens(desired, ROOM_ORIGIN.x + L.x, oy + anchor + 1.2, ROOM_ORIGIN.z + L.z, yaw, v.pitch, v.dist, null, 0);
       if (first.current) camera.position.copy(desired);
       else camera.position.lerp(desired, 1 - Math.exp(-dt * (v.held ? 20 : 8)));
       look.set(ROOM_ORIGIN.x + L.x, oy + anchor + 1.3, ROOM_ORIGIN.z + L.z);
