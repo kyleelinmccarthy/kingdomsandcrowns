@@ -88,7 +88,7 @@ import {
   type LookState,
   type MoveIntent,
 } from "@/lib/realm3d/controls";
-import { hipTurn, keepMotion, makeMotion, makeStride as makeLegs, readStride, stepMotion, strideRate, type Motion } from "@/lib/realm3d/locomotion";
+import { hipTurn, keepMotion, makeMotion, makeStride as makeLegs, readStride, stepMotion, stopMotion, strideRate, type Motion } from "@/lib/realm3d/locomotion";
 import { ChaseCamera } from "./chase-camera";
 import { MouseLook } from "./mouse-look";
 import { buildSpots } from "@/lib/realm3d/interact";
@@ -658,7 +658,10 @@ function Hero({
 
   useFrame((_, rawDt) => {
     // Paused: the world keeps drawing, but nothing in it moves because of the child.
-    if (bus.paused) return;
+    if (bus.paused) {
+      stopMotion(motion);
+      return;
+    }
     const dt = Math.min(0.05, rawDt);
     const k = keys.current;
     moveIntent(intent, yawRef.current, k);

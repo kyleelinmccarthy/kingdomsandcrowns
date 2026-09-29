@@ -57,7 +57,7 @@ import {
   type LookState,
   type MoveIntent,
 } from "@/lib/realm3d/controls";
-import { hipTurn, keepMotion, makeMotion, makeStride as makeLegs, readStride, stepMotion, strideRate, type Motion } from "@/lib/realm3d/locomotion";
+import { hipTurn, keepMotion, makeMotion, makeStride as makeLegs, readStride, stepMotion, stopMotion, strideRate, type Motion } from "@/lib/realm3d/locomotion";
 import { typingInto } from "@/lib/realm3d/typing";
 import { roomPlan, type RoomColors, type RoomPart, type RoomPlan, type WallSide } from "@/lib/realm3d/interiors";
 import { hiddenWalls, leavingRoom, makeHidden, pickRoomSpot, roomSlide, roomSpots, ROOM_LOOK, type RoomSpots } from "@/lib/realm3d/room-rules";
@@ -569,6 +569,7 @@ function RoomHero({
     const g = group.current;
     const L = local.current;
     if (live.current.paused) {
+      stopMotion(motion);
       if (g) g.position.set(ROOM_ORIGIN.x + L.x, oy + L.y, ROOM_ORIGIN.z + L.z);
       return;
     }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { HIP_TURN, hipTurn, keepMotion, makeMotion, makeStride, readStride, stepMotion, type Motion } from "./locomotion";
+import { HIP_TURN, hipTurn, keepMotion, makeMotion, makeStride, readStride, stepMotion, stopMotion, type Motion } from "./locomotion";
 
 /** The island's walking pace. */
 const TOP = 11;
@@ -175,5 +175,18 @@ describe("the hips", () => {
   it("stay square walking straight, and standing", () => {
     expect(hipTurn(readStride(makeStride(), { vx: 0, vz: top }, 0, top))).toBeCloseTo(0, 6);
     expect(hipTurn(readStride(makeStride(), { vx: 0, vz: 0 }, 0, top))).toBe(0);
+  });
+});
+
+describe("pausing", () => {
+  it("stops the body dead, so a child paused mid-stride does not slide on after resuming", () => {
+    const m = makeMotion();
+    run(m, 5, 1 / 60, 0, -TOP);
+    expect(m.vz).not.toBe(0);
+    stopMotion(m);
+    expect(m).toEqual({ vx: 0, vz: 0 });
+    // The first frame back starts from standing, not from the speed it was paused at.
+    run(m, 1, 1 / 60, 0, 0);
+    expect(Math.hypot(m.vx, m.vz)).toBe(0);
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { HERO_R, NEAR_HERO, SOFT, AIM_Y, seeThroughKeep } from "./see-through";
+import { HERO_R, NEAR_HERO, SOFT, AIM_Y, DEGENERATE, seeThroughKeep } from "./see-through";
 
 // A lens 20 back and 12 up from a child standing at the origin; the line aims at their chest.
 const C = { x: 0, y: 12 + AIM_Y, z: 20 };
@@ -38,5 +38,14 @@ describe("what stands between the camera and the child", () => {
     expect(at(len - NEAR_HERO * 0.5)).toBe(1);
     expect(keep(0, 0, -5)).toBe(1);
     expect(at(-2)).toBe(1);
+  });
+});
+
+describe("a lens on top of the aim point", () => {
+  it("has no line to thin along, so everything is drawn whole, inside the one epsilon the shader shares", () => {
+    expect(DEGENERATE).toBe(0.001);
+    const inside = DEGENERATE / 2;
+    expect(seeThroughKeep(0, 0, 0, 0, AIM_Y + inside, 0, 0, 0, 0)).toBe(1);
+    expect(seeThroughKeep(0.5, 0.5, 0.5, 0, AIM_Y + inside, 0, 0, 0, 0)).toBe(1);
   });
 });

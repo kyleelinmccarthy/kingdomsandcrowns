@@ -11,7 +11,7 @@ import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 import { hourFrom, lightAt, localHour, makeDayLight, type DayLight, type Rgb } from "@/lib/realm3d/day-cycle";
 
-/** Every lit window in the village shares this material, so the night lights them all at once. */
+/** Every lit window in the village shares this material, so the night lights them all at once. Module-level, so shared by every scene mount; the day-light effect repaints it on each mount. */
 export const LIT_WINDOW = new THREE.MeshStandardMaterial({ color: "#ffe9a8", emissive: "#e8bd4a", emissiveIntensity: 0.55, flatShading: true });
 /**
  * One colour for all the ground and its scatter (grass, trees, rocks): white by day, blue at night.

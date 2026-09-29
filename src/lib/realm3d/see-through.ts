@@ -22,6 +22,8 @@ export const HERO_R = 1.7;
 export const NEAR_HERO = 0.9;
 /** Inside this share of the radius the cone is fully open; out to the radius it thickens back to solid. */
 export const SOFT = 0.65;
+/** A lens closer than this to the aim point has no line to thin along, so all is drawn whole. The shader's `stLen` guard uses it too. */
+export const DEGENERATE = 0.001;
 
 function smoothstep(a: number, b: number, x: number): number {
   const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
@@ -37,7 +39,7 @@ export function seeThroughKeep(px: number, py: number, pz: number, cx: number, c
   const ay = hy + AIM_Y - cy;
   const az = hz - cz;
   const len = Math.hypot(ax, ay, az);
-  if (len < 1e-6) return 1;
+  if (len < DEGENERATE) return 1;
   const ux = ax / len;
   const uy = ay / len;
   const uz = az / len;

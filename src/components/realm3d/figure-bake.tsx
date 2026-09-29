@@ -64,15 +64,22 @@ function bakeMeshes(root: THREE.Object3D, mats: BakeMaterials): THREE.Mesh[] {
   const toRoot = new THREE.Matrix4().copy(root.matrixWorld).invert();
   const rel = new THREE.Matrix4();
   const parts: Record<BakeSurface, THREE.BufferGeometry[]> = { lit: [], steel: [], glow: [], glass: [] };
+  const skipped: string[] = [];
   root.traverse((o) => {
     const mesh = o as THREE.Mesh;
-    if (!mesh.isMesh || Array.isArray(mesh.material) || !shown(mesh, root)) return;
+    if (!mesh.isMesh || !shown(mesh, root)) return;
+    if (Array.isArray(mesh.material)) {
+      skipped.push(mesh.name || mesh.uuid);
+      return;
+    }
     const g = mesh.geometry.clone();
     // Position and normal only: the colour is painted in, and every part must merge with every other.
     for (const name of Object.keys(g.attributes)) if (name !== "position" && name !== "normal") g.deleteAttribute(name);
     g.applyMatrix4(rel.multiplyMatrices(toRoot, mesh.matrixWorld));
     parts[bakeSurface(traits(mesh.material))].push(paint(g, colorOf(mesh.material)));
   });
+  // A multi-material part cannot be baked and would vanish without a word; say so, once per figure.
+  if (skipped.length > 0 && process.env.NODE_ENV !== "production") console.warn(`Baked: skipped multi-material mesh(es): ${skipped.join(", ")}`);
   const out: THREE.Mesh[] = [];
   for (const k of SURFACES) {
     if (parts[k].length === 0) continue;

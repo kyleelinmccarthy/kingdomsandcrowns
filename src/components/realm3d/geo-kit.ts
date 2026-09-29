@@ -15,7 +15,7 @@
 
 import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
-import { AIM_Y, HERO_R, NEAR_HERO, SOFT } from "@/lib/realm3d/see-through";
+import { AIM_Y, DEGENERATE, HERO_R, NEAR_HERO, SOFT } from "@/lib/realm3d/see-through";
 
 /** Bake a flat colour into a geometry so many parts can share one vertex-coloured material. */
 export function paint(geo: THREE.BufferGeometry, hex: string): THREE.BufferGeometry {
@@ -276,7 +276,7 @@ export function seeThrough(mat: THREE.Material): THREE.Material {
          // Between the lens and the child: seeThroughKeep in lib/realm3d/see-through.ts, line for line.
          vec3 stA = cutHero + vec3(0.0, ${glsl(AIM_Y)}, 0.0) - cameraPosition;
          float stLen = length(stA);
-         if (stLen > 0.001) {
+         if (stLen > ${glsl(DEGENERATE)}) {
            vec3 stU = stA / stLen;
            vec3 stV = vCutPos - cameraPosition;
            float stT = dot(stV, stU);

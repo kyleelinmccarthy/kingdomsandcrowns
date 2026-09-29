@@ -42,6 +42,12 @@ export function makeMotion(): Motion {
   return { vx: 0, vz: 0 };
 }
 
+/** Standing still: a paused body keeps no speed to slide on with when play resumes. */
+export function stopMotion(m: Motion): void {
+  m.vx = 0;
+  m.vz = 0;
+}
+
 /**
  * One frame. The velocity moves toward `(wantX, wantZ)` at the mover's grip, and the step the
  * body takes this frame is written into `out`, integrated exactly.
