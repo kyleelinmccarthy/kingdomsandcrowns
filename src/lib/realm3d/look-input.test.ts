@@ -295,11 +295,27 @@ describe("a pointer-lock spike", () => {
     doc.fire("mousemove", { movementX: 3, movementY: -900 });
     doc.fire("mousemove", { movementX: 120, movementY: 0 });
     doc.fire("mousemove", { movementX: -250, movementY: 10 });
-    expect(LOOK_SPIKE).toBe(300);
     expect(looks).toEqual([
       [120, 0],
       [-250, 10],
     ]);
+  });
+
+  it("keeps exactly LOOK_SPIKE px and drops one more, on either axis, in either direction", () => {
+    expect(LOOK_SPIKE).toBe(500);
+    const { el, doc, looks } = rig();
+    lockTo(doc, el);
+    doc.fire("mousemove", { movementX: LOOK_SPIKE, movementY: 0 });
+    doc.fire("mousemove", { movementX: 0, movementY: -LOOK_SPIKE });
+    expect(looks).toEqual([
+      [LOOK_SPIKE, 0],
+      [0, -LOOK_SPIKE],
+    ]);
+    doc.fire("mousemove", { movementX: LOOK_SPIKE + 1, movementY: 0 });
+    doc.fire("mousemove", { movementX: -(LOOK_SPIKE + 1), movementY: 0 });
+    doc.fire("mousemove", { movementX: 0, movementY: LOOK_SPIKE + 1 });
+    doc.fire("mousemove", { movementX: 0, movementY: -(LOOK_SPIKE + 1) });
+    expect(looks).toHaveLength(2);
   });
 });
 

@@ -17,8 +17,10 @@
  *   - A panel opening (anything that pauses the game) lets go of the mouse, so the panel can be
  *     clicked. That is not an Esc and is not reported. Resume asks for the capture again from its
  *     own click (`request`), which the browser allows. A panel that took the mouse gives it back on
- *     the frame it closes (whatever closed it: Resume, a dialogue's last line, a deed board's X),
- *     from that same click's activation; a panel that opened over a free mouse captures nothing.
+ *     the frame it closes (whatever closed it: Resume, a dialogue's last line, a deed board's X,
+ *     Esc, E or code): re-locking after the page's own `exitPointerLock()` needs no user
+ *     activation, so it is not only a click that recaptures. A panel that opened over a free mouse
+ *     captures nothing.
  *   - The browser may say no: straight after an Esc, Chrome refuses a new capture for about a
  *     second. A refusal is never an error here. The mouse simply stays free, and the capture is
  *     asked for once more after `LOCK_RETRY_MS` if the game is still being played; after that the
@@ -85,9 +87,11 @@ export const LOCK_RETRY_MS = 1100;
 /**
  * Some Windows and Chrome setups now and then report a huge `movementX`/`movementY` in one captured
  * move (a known Chromium bug), which whips the camera round. Past this many px in one event it is
- * dropped: a real flick is well under 300 px a frame at 60 fps, the bug's jumps are half a screen.
+ * dropped. Chrome coalesces mousemove to one per animation frame, so on a 30 fps PC a brisk flick
+ * is a few hundred px in one event; the bug's jumps are typically half a screen or more, so 500
+ * keeps every real flick and still catches the jumps.
  */
-export const LOOK_SPIKE = 300;
+export const LOOK_SPIKE = 500;
 
 /**
  * Captures handed from one canvas to whichever plays next: a room that closed while it held the
@@ -161,10 +165,12 @@ export function mouseLook(el: LookEl, doc: LookDoc, o: MouseLookOptions): MouseL
         lentByPanel = true;
       }
       // The panel closed: the mouse it took comes back as the camera, as closing a screen does in
-      // Minecraft. The browser allows the ask only inside the closing click's transient activation
-      // (about 5 s in Chrome); this frame follows that click, so it is well inside. Not if it is
-      // already ours or already asked for (Resume's own request), so one resume is one ask. An Esc
-      // freeing never set the flag: that capture is Resume's to take back.
+      // Minecraft.
+      // Re-locking after the page's own exitPointerLock() needs no user activation (Pointer Lock
+      // spec), so a panel closed by Esc, E or code recaptures as well as one closed by a click.
+      // Not if it is already ours or already asked for (Resume's own request), so one resume is
+      // one ask. An Esc that freed the capture itself (no panel) never set the flag: that capture
+      // is Resume's to take back.
       if (!paused && wasPaused && lentByPanel) {
         lentByPanel = false;
         if (!captured && !asking) api.request();
