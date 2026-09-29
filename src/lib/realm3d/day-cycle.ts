@@ -51,7 +51,7 @@ type Moment = {
  */
 const DAY = { dir: [0.58, 0.44, -0.52], sun: "#fff3d2", sunI: 3.1, hemiSky: "#cfe4ff", hemiGround: "#3f5c1c", hemiI: 0.62, ambientI: 0.1, skyTop: "#2c6fb8", skyLow: "#d8e9ec", fog: "#bcdcec", lamp: 1 } as const;
 /** A clear moonlit night: blue, soft, and bright enough to play in. */
-const NIGHT = { dir: [-0.42, 0.62, -0.5], sun: "#9fb8ff", sunI: 0.9, hemiSky: "#6f86c8", hemiGround: "#1e2a33", hemiI: 0.55, ambientI: 0.22, skyTop: "#0b1633", skyLow: "#2a3d6b", fog: "#22314f", lamp: 2.4 } as const;
+const NIGHT = { dir: [-0.42, 0.62, -0.5], sun: "#7aa2ff", sunI: 1.25, hemiSky: "#4d6fe6", hemiGround: "#1a2a5c", hemiI: 0.8, ambientI: 0.3, skyTop: "#0a1a4a", skyLow: "#2a4a9a", fog: "#1f3a78", lamp: 2.4 } as const;
 
 /** The day, hour by hour: in order, and round midnight the last blends into the first. */
 export const MOMENTS: readonly Moment[] = [

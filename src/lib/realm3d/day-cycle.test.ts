@@ -47,9 +47,12 @@ describe("the light at each hour", () => {
 
   it("is moonlit at midnight, with the lamps up", () => {
     const l = light(0);
-    close(l.sun, hex("#9fb8ff"));
-    close(l.skyTop, hex("#0b1633"));
+    close(l.sun, hex("#7aa2ff"));
+    close(l.skyTop, hex("#0a1a4a"));
     expect(l.lamp).toBeCloseTo(2.4, 6);
+    // Blue moonlight: the ground's bounce is navy, not a green-grey, and blue leads in every light.
+    close(l.hemiGround, hex("#1a2a5c"));
+    for (const c of [l.sun, l.hemiSky, l.hemiGround, l.fog]) expect(c.b).toBeGreaterThan(c.g);
   });
 
   it("reddens at dawn and at dusk", () => {

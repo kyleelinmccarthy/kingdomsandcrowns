@@ -856,9 +856,18 @@ function Motes({ tex }: { tex: THREE.Texture }) {
   );
 }
 
-/** The lantern glow's strength; a free function because the compiler lint forbids writing a memoised material in a hook. */
-function glow(m: THREE.SpriteMaterial, o: number): void {
-  m.opacity = o;
+/**
+ * The lantern glow for a `lamp` strength: brighter and wider after dark. A free function because
+ * the compiler lint forbids writing a memoised material or a child in a hook. `spots` and the
+ * group's children are in the same order.
+ */
+function glow(m: THREE.SpriteMaterial, group: THREE.Group | null, spots: readonly { s: number }[], lamp: number): void {
+  m.opacity = Math.min(1, 0.45 + 0.25 * lamp);
+  if (!group) return;
+  for (let i = 0; i < spots.length; i++) {
+    const c = group.children[i];
+    if (c) c.scale.set(1.1 * spots[i].s * lamp, 1.1 * spots[i].s * lamp, 1);
+  }
 }
 
 /**
@@ -871,10 +880,9 @@ function glow(m: THREE.SpriteMaterial, o: number): void {
 function LanternGlow({ scenery, tex, day }: { scenery: readonly Prop[]; tex: THREE.Texture; day: DayLight }) {
   const mat = useMemo(() => new THREE.SpriteMaterial({ map: tex, color: "#ffd38a", transparent: true, opacity: 0.7, depthWrite: false, blending: THREE.AdditiveBlending, toneMapped: false }), [tex]);
   useEffect(() => () => mat.dispose(), [mat]);
-  // By day a lamp is a glint on the lamp; after dark it glows.
-  useFrame(() => {
-    glow(mat, Math.min(1, 0.45 + 0.25 * day.lamp));
-  });
+  const group = useRef<THREE.Group>(null);
+  const shown = useRef(-1);
+
   const spots = useMemo(
     () =>
       scenery
@@ -882,12 +890,19 @@ function LanternGlow({ scenery, tex, day }: { scenery: readonly Prop[]; tex: THR
         .map((p) => ({ x: p.position.x, z: p.position.z, s: p.size.h / 1.4 })),
     [scenery],
   );
+  // By day a lamp is a glint on the lamp; after dark it glows and swells. `lamp` moves once a
+  // minute, so the sprites are only touched when it has.
+  useFrame(() => {
+    if (shown.current === day.lamp) return;
+    shown.current = day.lamp;
+    glow(mat, group.current, spots, day.lamp);
+  });
   return (
-    <>
+    <group ref={group}>
       {spots.map((s, i) => (
         <sprite key={i} position={[s.x, heightAt(s.x, s.z) + 1.82 * s.s, s.z]} scale={[1.1 * s.s, 1.1 * s.s, 1]} material={mat} />
       ))}
-    </>
+    </group>
   );
 }
 
