@@ -89,6 +89,7 @@ import { SoundControls, useRealmSound } from "./realm-sound";
 import type { SoundSettings } from "@/lib/realm3d/sound/settings";
 import { usePlacesFound } from "./use-places-found";
 import { usePause } from "./use-pause";
+import { RealmWardrobe } from "./wardrobe";
 import { LookControls, useLook } from "./look-controls";
 import { earningLines, type EarningSettings } from "@/lib/realm/spells/bounty";
 import type { RealmAccessMode } from "@/lib/utils/realm-access";
@@ -302,7 +303,9 @@ export function RealmGame({
   const casts = useMemo(() => makeCastQueue(), []);
   // With the clears a reload would forget, held with when they arrived, for the scene to seed its field.
   const [troubleBus] = useState(() => makeTroubleBus(undefined, heldClearsFor(realm.childId, realm.troubleClears, realm.isChildView)));
-  const hero = avatar ?? DEFAULT_AVATAR;
+  // What the hero is wearing: the page's look, until the wardrobe saves a new one.
+  const [worn, setWorn] = useState<AvatarConfig>(() => avatar ?? DEFAULT_AVATAR);
+  const hero = worn;
 
 
   const childId = realm.childId;
@@ -1032,11 +1035,24 @@ export function RealmGame({
               why={overlay.why}
               onResume={pauser.resume}
               onControls={() => go({ kind: "howto", back: true })}
+              onWardrobe={isChild && viewer === "child" ? () => go({ kind: "wardrobe" }) : undefined}
               leaveHref="/tavern"
               settings={settings}
               selector={selector}
               look={<LookControls look={mouse.look} onChange={mouse.change} />}
               sound={<SoundControls store={soundStore} enabled={!realm.isChildView || profile.soundEnabled} calm={calm} viewer={who} heroName={heroName} />}
+            />
+          )}
+          {overlay?.kind === "wardrobe" && childId && (
+            <RealmWardrobe
+              childId={childId}
+              heroName={heroName}
+              worn={hero}
+              onSaved={(look) => {
+                setWorn(look);
+                go(null);
+              }}
+              onClose={() => go({ kind: "pause" })}
             />
           )}
           {overlay?.kind === "howto" && (

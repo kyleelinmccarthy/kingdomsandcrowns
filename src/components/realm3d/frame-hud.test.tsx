@@ -138,6 +138,16 @@ describe("the pause menu", () => {
     expect(screen.getByRole("link", { name: /Leave the Realm/ })).toHaveAttribute("href", "/tavern");
   });
 
+  it("offers the Wardrobe when given one, and nothing of it otherwise", () => {
+    const onWardrobe = vi.fn();
+    render(<PauseMenu heroName="Emma" viewer="child" onResume={() => {}} onControls={() => {}} leaveHref="/tavern" settings={noSettings} onWardrobe={onWardrobe} />);
+    fireEvent.click(screen.getByRole("button", { name: /Wardrobe/ }));
+    expect(onWardrobe).toHaveBeenCalledOnce();
+    cleanup();
+    render(<PauseMenu heroName="Emma" viewer="parent" onResume={() => {}} onControls={() => {}} leaveHref="/tavern" settings={noSettings} />);
+    expect(screen.queryByRole("button", { name: /Wardrobe/ })).toBeNull();
+  });
+
   it("puts Resume under the child's finger the moment it opens", () => {
     render(<PauseMenu heroName="Emma" viewer="child" onResume={() => {}} onControls={() => {}} leaveHref="/tavern" settings={noSettings} />);
     expect(screen.getByRole("button", { name: /Resume/ })).toHaveFocus();

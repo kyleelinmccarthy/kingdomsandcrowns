@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { render, screen, cleanup, fireEvent } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { AvatarCustomizer } from "./avatar-customizer";
 import { DEFAULT_AVATAR } from "@/lib/utils/avatar-catalog";
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }) }));
+const refresh = vi.hoisted(() => vi.fn());
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh, push: vi.fn() }) }));
 vi.mock("@/lib/actions/avatar", () => ({ updateAvatarConfig: vi.fn().mockResolvedValue(undefined) }));
 
 afterEach(cleanup);
@@ -39,5 +40,25 @@ describe("AvatarCustomizer crown tab", () => {
     expect(screen.getByRole("button", { name: "None" })).toBeInTheDocument();
     fireEvent.click(chip);
     expect(chip.getAttribute("aria-pressed")).toBe("true");
+  });
+});
+
+describe("AvatarCustomizer inside the Realm", () => {
+  it("hands a saved look to onSaved, and neither refreshes the page nor closes itself", async () => {
+    const onSaved = vi.fn();
+    const onClose = vi.fn();
+    render(<AvatarCustomizer childId="c1" childName="Lily" currentConfig={DEFAULT_AVATAR} level={1} earnedBadgeIds={[]} questUnlockedItems={[]} open onClose={onClose} onSaved={onSaved} />);
+    fireEvent.click(screen.getByRole("button", { name: "Hair" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Long/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Save Hero Look" }));
+    await waitFor(() => expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({ hairStyle: "long" })));
+    expect(refresh).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("leaves out the tabs it is told to", () => {
+    render(<AvatarCustomizer childId="c1" childName="Lily" currentConfig={DEFAULT_AVATAR} level={1} earnedBadgeIds={[]} questUnlockedItems={[]} open onClose={() => {}} omitTabs={["mount"]} />);
+    expect(screen.queryByRole("button", { name: "Mount" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Pet" })).toBeInTheDocument();
   });
 });

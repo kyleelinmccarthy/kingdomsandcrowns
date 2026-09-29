@@ -371,6 +371,7 @@ export function PauseMenu({
   why = "you",
   onResume,
   onControls,
+  onWardrobe,
   leaveHref,
   settings,
   selector,
@@ -385,6 +386,8 @@ export function PauseMenu({
   look?: ReactNode;
   onResume: () => void;
   onControls: () => void;
+  /** The child's own Realm only: the wardrobe (`wardrobe.tsx`). */
+  onWardrobe?: () => void;
   leaveHref: string;
   settings: PauseSettings;
   /** A grown-up's way to visit another child's Realm without leaving first. */
@@ -404,6 +407,11 @@ export function PauseMenu({
         <button type="button" className="r3-menu-item" onClick={onControls}>
           <GameIcon name="compass" className="r3-menu-icon" /> Controls
         </button>
+        {onWardrobe && (
+          <button type="button" className="r3-menu-item" onClick={onWardrobe}>
+            <GameIcon name="person" className="r3-menu-icon" /> Wardrobe
+          </button>
+        )}
         <Link href={leaveHref} className="r3-menu-item r3-menu-item--leave">
           <GameIcon name="door" className="r3-menu-icon" /> Leave the Realm
         </Link>

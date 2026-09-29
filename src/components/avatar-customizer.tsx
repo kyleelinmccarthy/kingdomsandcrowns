@@ -107,6 +107,13 @@ type AvatarCustomizerProps = {
   crowns?: CrownChoice[];
   open: boolean;
   onClose: () => void;
+  /**
+   * The Realm's wardrobe: called with the saved look instead of refreshing the page, and the
+   * dialog does not close itself — the game puts the look on and decides what comes next.
+   */
+  onSaved?: (config: AvatarConfig) => void;
+  /** Tabs to leave out (the Realm leaves out Mount: a visit's mount is fixed once it opens). */
+  omitTabs?: readonly Tab[];
 };
 
 export function AvatarCustomizer({
@@ -119,7 +126,10 @@ export function AvatarCustomizer({
   crowns = [],
   open,
   onClose,
+  onSaved,
+  omitTabs,
 }: AvatarCustomizerProps) {
+  const tabs = omitTabs ? TABS.filter((t) => !omitTabs.includes(t.id)) : TABS;
   const questUnlockedSet = new Set(questUnlockedItems);
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -144,8 +154,11 @@ export function AvatarCustomizer({
     startTransition(async () => {
       try {
         await updateAvatarConfig(childId, config);
-        router.refresh();
-        onClose();
+        if (onSaved) onSaved(config);
+        else {
+          router.refresh();
+          onClose();
+        }
       } catch (e) {
         setError(e instanceof Error ? e.message : "The enchantment fizzled. Try once more.");
       }
@@ -167,7 +180,7 @@ export function AvatarCustomizer({
 
       {/* Tab bar */}
       <div className="mb-4 flex gap-1 overflow-x-auto rounded-md border border-[var(--gold-dim)] bg-secondary/50 p-1">
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}

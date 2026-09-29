@@ -21,7 +21,34 @@ import {
 } from "@/lib/utils/avatar-catalog";
 import { levelFromXp } from "@/lib/utils/level";
 import { loadSeasons } from "@/lib/services/crowns";
-import { wearableCrownIds } from "@/lib/utils/seasons";
+import { crownChoices, wearableCrownIds } from "@/lib/utils/seasons";
+
+/** What decides which avatar items are unlocked for a hero: their level, their badges and their quest unlocks. */
+async function unlockFacts(childId: string, familyId: string) {
+  const [childRows, badges, unlocks] = await Promise.all([
+    db.select().from(schema.child).where(and(eq(schema.child.id, childId), eq(schema.child.familyId, familyId))).limit(1),
+    db.select({ badgeId: schema.childBadge.badgeId }).from(schema.childBadge).where(eq(schema.childBadge.childId, childId)),
+    db.select({ itemId: schema.childAvatarUnlock.itemId }).from(schema.childAvatarUnlock).where(eq(schema.childAvatarUnlock.childId, childId)),
+  ]);
+  const child = childRows[0];
+  if (!child) throw new Error("Child not found.");
+  return {
+    level: levelFromXp(child.currentXp),
+    earnedBadgeIds: badges.map((b) => b.badgeId),
+    questUnlockedItems: unlocks.map((u) => u.itemId),
+  };
+}
+
+/**
+ * What the Realm's wardrobe may offer (`components/realm3d/wardrobe.tsx`): the same facts a save
+ * is checked against, and the crowns of the hero's finished seasons. Read only — no season is
+ * opened here, as the Tavern's `getSeasons` does.
+ */
+export async function getWardrobe(childId: string) {
+  const { familyId } = await requireChildAccess(childId);
+  const [facts, seasons] = await Promise.all([unlockFacts(childId, familyId), loadSeasons(childId)]);
+  return { ...facts, crowns: crownChoices(seasons.filter((s) => s.completedAt !== null)) };
+}
 
 export async function updateAvatarConfig(childId: string, config: AvatarConfig) {
   if (!isValidAvatarConfig(config)) {
@@ -30,31 +57,9 @@ export async function updateAvatarConfig(childId: string, config: AvatarConfig) 
 
   const { familyId } = await requireChildAccess(childId, { write: true });
 
-  // Fetch child to check level and badges for unlock validation
-  const childRows = await db
-    .select()
-    .from(schema.child)
-    .where(and(eq(schema.child.id, childId), eq(schema.child.familyId, familyId)))
-    .limit(1);
-
-  const child = childRows[0];
-  if (!child) throw new Error("Child not found.");
-
-  const level = levelFromXp(child.currentXp);
-
-  const earnedBadges = await db
-    .select({ badgeId: schema.childBadge.badgeId })
-    .from(schema.childBadge)
-    .where(eq(schema.childBadge.childId, childId));
-
-  const earnedBadgeIds = earnedBadges.map((b) => b.badgeId);
-
-  // Fetch quest-unlocked avatar items
-  const questUnlocks = await db
-    .select({ itemId: schema.childAvatarUnlock.itemId })
-    .from(schema.childAvatarUnlock)
-    .where(eq(schema.childAvatarUnlock.childId, childId));
-  const questUnlockedItems = new Set(questUnlocks.map((u) => u.itemId));
+  const facts = await unlockFacts(childId, familyId);
+  const { level, earnedBadgeIds } = facts;
+  const questUnlockedItems = new Set(facts.questUnlockedItems);
 
   // Validate all selected items are unlocked
   const skinItem = SKIN_TONES.find((s) => s.id === config.skinTone);

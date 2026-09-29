@@ -1,8 +1,9 @@
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { HudBus } from "@/lib/realm3d/hud-bus";
 import type { TroubleBus } from "@/lib/realm3d/trouble-bus";
 import type { CastQueue } from "@/lib/realm3d/casting";
+import { DEFAULT_AVATAR, type AvatarConfig } from "@/lib/utils/avatar-catalog";
 import { DEFAULT_LEARNING_PROFILE } from "@/lib/utils/learning-profile";
 
 /**
@@ -37,6 +38,11 @@ vi.mock("@/lib/actions/realm-settings", () => ({
   setTutorialStep: vi.fn(async () => {}),
   markRealmHelpSeen: vi.fn(async () => {}),
 }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn(), push: vi.fn() }) }));
+vi.mock("@/lib/actions/avatar", () => ({
+  getWardrobe: vi.fn(async () => ({ level: 5, earnedBadgeIds: [], questUnlockedItems: [], crowns: [] })),
+  updateAvatarConfig: vi.fn(async () => {}),
+}));
 vi.mock("@/lib/actions/realm-sound", () => ({ saveRealmSound: vi.fn(async () => {}) }));
 vi.mock("@/lib/actions/deeds", () => ({ startDeedRun: vi.fn(), answerDeedQuestion: vi.fn(), completeDeedRun: vi.fn() }));
 vi.mock("@/lib/actions/seasons", () => ({ markCeremonySeen: vi.fn(async () => {}) }));
@@ -61,6 +67,7 @@ vi.mock("@/lib/realm3d/worldgen", async (orig) => {
 });
 
 import { answerDeedQuestion, completeDeedRun, startDeedRun } from "@/lib/actions/deeds";
+import { updateAvatarConfig } from "@/lib/actions/avatar";
 import { getRealmKingdom } from "@/lib/actions/realm";
 import { markRealmHelpSeen, setTutorialStep } from "@/lib/actions/realm-settings";
 import { markCeremonySeen } from "@/lib/actions/seasons";
@@ -670,5 +677,44 @@ describe("a grown-up who may only look", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("the wardrobe", () => {
+  const openWardrobe = async () => {
+    esc();
+    fireEvent.click(screen.getByRole("button", { name: /Wardrobe/ }));
+    await screen.findByText("Customize Your Hero");
+  };
+
+  it("dresses the hero from the pause menu, in the world, without a reload", async () => {
+    mount({ avatar: { ...DEFAULT_AVATAR, hairStyle: "short" } });
+    await openWardrobe();
+    expect(screen.queryByRole("button", { name: "Mount" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Hair" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Long/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Save Hero Look" }));
+    await waitFor(() => expect((handed.props!.avatar as AvatarConfig).hairStyle).toBe("long"));
+    expect(updateAvatarConfig).toHaveBeenCalledWith("demo-child-1", expect.objectContaining({ hairStyle: "long" }));
+    expect(screen.queryByText("Customize Your Hero")).toBeNull();
+    expect(handed.bus!.paused).toBe(false);
+  });
+
+  it("keeps the old look, says why, and stays paused when the save is refused", async () => {
+    vi.mocked(updateAvatarConfig).mockRejectedValueOnce(new Error('Item "Long" is locked.'));
+    mount({ avatar: { ...DEFAULT_AVATAR, hairStyle: "short" } });
+    await openWardrobe();
+    fireEvent.click(screen.getByRole("button", { name: "Hair" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Long/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Save Hero Look" }));
+    expect(await screen.findByText('Item "Long" is locked.')).toBeInTheDocument();
+    expect((handed.props!.avatar as AvatarConfig).hairStyle).toBe("short");
+    expect(handed.bus!.paused).toBe(true);
+  });
+
+  it("is not offered to a visiting grown-up", () => {
+    mount({ viewer: "parent", realm: { ...realm, isChildView: false } });
+    esc();
+    expect(screen.queryByRole("button", { name: /Wardrobe/ })).toBeNull();
   });
 });

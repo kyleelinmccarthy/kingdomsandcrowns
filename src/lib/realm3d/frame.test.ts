@@ -107,6 +107,7 @@ describe("Esc", () => {
 
   it("goes back to the pause menu from a panel the pause menu opened", () => {
     expect(escapeFrom({ kind: "howto", back: true })).toEqual({ kind: "pause" });
+    expect(escapeFrom({ kind: "wardrobe" })).toEqual({ kind: "pause" });
   });
 
   it("goes straight back to the world from a panel the world opened", () => {

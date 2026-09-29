@@ -122,6 +122,8 @@ export type Overlay =
   | { kind: "pause"; why?: PauseWhy }
   /** How to play. `back` is true when it was opened from the pause menu, so Esc returns there. */
   | { kind: "howto"; back: boolean }
+  /** The wardrobe (`wardrobe.tsx`), from the pause menu; Esc goes back there. */
+  | { kind: "wardrobe" }
   | { kind: "interact"; target: InteractTarget }
   /** An empty spell page, clicked. */
   | { kind: "page"; slot: number }
@@ -142,6 +144,7 @@ export type Overlay =
 export function escapeFrom(overlay: Overlay | null): Overlay | null {
   if (overlay === null) return { kind: "pause" };
   if (overlay.kind === "howto" && overlay.back) return { kind: "pause" };
+  if (overlay.kind === "wardrobe") return { kind: "pause" };
   return null;
 }
 
