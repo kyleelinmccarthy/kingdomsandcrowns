@@ -54,7 +54,7 @@ type Moment = {
  */
 const DAY = { dir: [0.58, 0.44, -0.52], sun: "#fff3d2", sunI: 3.1, hemiSky: "#cfe4ff", hemiGround: "#3f5c1c", hemiI: 0.62, ambientI: 0.1, skyTop: "#2c6fb8", skyLow: "#d8e9ec", fog: "#bcdcec", groundTint: "#ffffff", lamp: 1 } as const;
 /** A clear moonlit night: blue, soft, and bright enough to play in. */
-const NIGHT = { dir: [-0.42, 0.62, -0.5], sun: "#7aa2ff", sunI: 1.25, hemiSky: "#4d6fe6", hemiGround: "#1a2a5c", hemiI: 0.8, ambientI: 0.3, skyTop: "#0a1a4a", skyLow: "#2a4a9a", fog: "#1f3a78", groundTint: "#6c88ff", lamp: 2.4 } as const;
+const NIGHT = { dir: [-0.42, 0.62, -0.5], sun: "#7aa2ff", sunI: 1.25, hemiSky: "#4d6fe6", hemiGround: "#1a2a5c", hemiI: 0.95, ambientI: 0.45, skyTop: "#0a1a4a", skyLow: "#2a4a9a", fog: "#1f3a78", groundTint: "#a0b4ff", lamp: 2.4 } as const;
 
 /** The day, hour by hour: in order, and round midnight the last blends into the first. */
 export const MOMENTS: readonly Moment[] = [
@@ -68,6 +68,9 @@ export const MOMENTS: readonly Moment[] = [
 
 /** Night is never darker than this share of noon (`brightness`): the floor that keeps it playable. */
 export const NIGHT_FLOOR = 0.35;
+
+/** The lit ground (light x the tint's linear luminance) is never darker than this share of noon's: between the old white-tint night (0.61) and the too-dark blue one (0.17). */
+export const GROUND_FLOOR = 0.3;
 
 type Parsed = Omit<Moment, "dir" | "sun" | "hemiSky" | "hemiGround" | "skyTop" | "skyLow" | "fog" | "groundTint"> & {
   dir: Vec3;

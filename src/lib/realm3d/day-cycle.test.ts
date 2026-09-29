@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { brightness, hourFrom, lightAt, localHour, makeDayLight, NIGHT_FLOOR } from "./day-cycle";
+import { brightness, GROUND_FLOOR, hourFrom, lightAt, localHour, makeDayLight, NIGHT_FLOOR } from "./day-cycle";
 
 const hex = (h: string) => ({ r: parseInt(h.slice(1, 3), 16) / 255, g: parseInt(h.slice(3, 5), 16) / 255, b: parseInt(h.slice(5, 7), 16) / 255 });
 const light = (hour: number) => lightAt(hour, makeDayLight());
@@ -56,20 +56,10 @@ describe("the light at each hour", () => {
   });
 
   it("tints the ground white at noon and blue at night, so the moon reads blue on the grass", () => {
-    close(light(12).groundTint, { r: 1, g: 1, b: 1 });
+    expect(light(12).groundTint).toEqual({ r: 1, g: 1, b: 1 });
     const n = light(0).groundTint;
     expect(n.b).toBeGreaterThan(n.g);
     expect(n.g).toBeGreaterThan(n.r);
-  });
-
-  it("never jumps the ground tint either", () => {
-    let prev = light(0);
-    for (let m = 1; m <= 24 * 60; m++) {
-      const next = light(m / 60);
-      expect(Math.abs(next.groundTint.b - prev.groundTint.b)).toBeLessThan(0.02);
-      expect(Math.abs(next.groundTint.r - prev.groundTint.r)).toBeLessThan(0.02);
-      prev = next;
-    }
   });
 
   it("reddens at dawn and at dusk", () => {
@@ -83,6 +73,7 @@ describe("the light at each hour", () => {
       const next = light(m / 60);
       expect(Math.abs(next.sunI - prev.sunI)).toBeLessThan(0.05);
       expect(Math.abs(next.skyTop.b - prev.skyTop.b)).toBeLessThan(0.02);
+      for (const c of ["r", "g", "b"] as const) expect(Math.abs(next.groundTint[c] - prev.groundTint[c]), `groundTint.${c}`).toBeLessThan(0.02);
       prev = next;
     }
     expect(light(23.9999).sunI).toBeCloseTo(light(0).sunI, 3);
@@ -91,6 +82,16 @@ describe("the light at each hour", () => {
   it("keeps the night playable: never darker than the floor's share of noon", () => {
     const noon = brightness(light(12));
     for (let h = 0; h < 24; h += 0.25) expect(brightness(light(h)) / noon).toBeGreaterThanOrEqual(NIGHT_FLOOR);
+  });
+
+  it("keeps the lit ground playable: light times the tint's linear luminance stays a share of noon's", () => {
+    const linear = (c: number) => (c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+    const lum = (t: { r: number; g: number; b: number }) => 0.2126 * linear(t.r) + 0.7152 * linear(t.g) + 0.0722 * linear(t.b);
+    const noon = brightness(light(12)) * lum(light(12).groundTint);
+    for (let h = 0; h < 24; h += 0.25) {
+      const l = light(h);
+      expect((brightness(l) * lum(l.groundTint)) / noon, `hour ${h}`).toBeGreaterThanOrEqual(GROUND_FLOOR);
+    }
   });
 
   it("keeps the sun's direction a unit vector at every hour", () => {
