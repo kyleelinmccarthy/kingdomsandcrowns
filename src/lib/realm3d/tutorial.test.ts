@@ -12,6 +12,7 @@ import {
   STORED_MAX,
   CORE_LESSONS,
   storedFromLessons,
+  TUTORIAL_DONE,
   tutorialLearned,
   type LessonContext,
 } from "./tutorial";
@@ -163,5 +164,11 @@ describe("what counts as looking round", () => {
 
   it("teaches the click, not a drag", () => {
     expect(LESSONS.find((l) => l.id === "look")!.keys).toEqual(["Click"]);
+  });
+});
+
+describe("the closing line", () => {
+  it("names both keys that pause, matching the key strip's \"P pause\"", () => {
+    expect(TUTORIAL_DONE).toBe("You know the Realm! Press P or Esc any time to pause.");
   });
 });

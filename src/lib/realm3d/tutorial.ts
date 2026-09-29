@@ -215,7 +215,7 @@ export function lessonCopy(done: number, ctx: LessonContext): LessonCopy | null 
 }
 
 /** The line that says the tutorial is over, and the one key it has not taught by doing. */
-export const TUTORIAL_DONE = "You know the Realm! Press Esc any time for the menu.";
+export const TUTORIAL_DONE = "You know the Realm! Press P or Esc any time to pause.";
 
 /** A mouse move that turns the camera: the mouse is captured, or the right button is held. */
 export function countsAsLook(buttons: number, captured: boolean): boolean {
