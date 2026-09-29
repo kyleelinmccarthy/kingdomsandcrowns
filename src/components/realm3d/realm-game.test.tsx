@@ -1,4 +1,5 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useEffect } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { HudBus } from "@/lib/realm3d/hud-bus";
 import type { TroubleBus } from "@/lib/realm3d/trouble-bus";
@@ -12,12 +13,17 @@ import { DEFAULT_LEARNING_PROFILE } from "@/lib/utils/learning-profile";
  * scene's half of the contract, so these tests play the scene — fire `onNear`, fire
  * `onInteract`, read `bus.paused` — exactly as the real one will.
  */
+/** How many times a canvas has been mounted: a save must not remount it. */
+const canvasMounts = { n: 0 };
 const handed: { bus?: HudBus; casts?: CastQueue; props?: Record<string, unknown> } = {};
 vi.mock("./spike-scene", () => ({
-  default: (props: Record<string, unknown>) => {
+  default: function Canvas(props: Record<string, unknown>) {
     handed.bus = props.bus as HudBus;
     handed.casts = props.casts as CastQueue;
     handed.props = props;
+    useEffect(() => {
+      canvasMounts.n++;
+    }, []);
     return <div data-testid="canvas" />;
   },
 }));
@@ -28,6 +34,9 @@ vi.mock("next/dynamic", () => ({
       handed.bus = props.bus as HudBus;
       handed.casts = props.casts as CastQueue;
       handed.props = props;
+      useEffect(() => {
+        canvasMounts.n++;
+      }, []);
       return <div data-testid="canvas" />;
     };
   },
@@ -690,6 +699,7 @@ describe("the wardrobe", () => {
   it("dresses the hero from the pause menu, in the world, without a reload", async () => {
     mount({ avatar: { ...DEFAULT_AVATAR, hairStyle: "short" } });
     await openWardrobe();
+    const mounted = canvasMounts.n;
     expect(screen.queryByRole("button", { name: "Mount" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Hair" }));
     fireEvent.click(screen.getByRole("button", { name: /^Long/ }));
@@ -698,6 +708,16 @@ describe("the wardrobe", () => {
     expect(updateAvatarConfig).toHaveBeenCalledWith("demo-child-1", expect.objectContaining({ hairStyle: "long" }));
     expect(screen.queryByText("Customize Your Hero")).toBeNull();
     expect(handed.bus!.paused).toBe(false);
+    expect(canvasMounts.n).toBe(mounted);
+  });
+
+  it("goes back to the pause menu on Esc, still paused", async () => {
+    mount();
+    await openWardrobe();
+    esc();
+    expect(screen.queryByText("Customize Your Hero")).toBeNull();
+    expect(screen.getByRole("dialog", { name: "Paused" })).toBeInTheDocument();
+    expect(handed.bus!.paused).toBe(true);
   });
 
   it("keeps the old look, says why, and stays paused when the save is refused", async () => {

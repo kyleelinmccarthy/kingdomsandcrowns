@@ -113,8 +113,8 @@ describe("UserMenu — Alerts in the account menu", () => {
 
     await user.click(screen.getByRole("button", { name: /Open your account menu/ }));
 
-    expect(screen.getByText("Send a Raven")).toBeInTheDocument();
-    expect(screen.getByText("Settings").closest("a")).toHaveAttribute("href", "/settings");
-    expect(screen.getByText(/Leave the Realm/)).toBeInTheDocument();
+    expect(await screen.findByText("Send a Raven")).toBeInTheDocument();
+    expect((await screen.findByText("Settings")).closest("a")).toHaveAttribute("href", "/settings");
+    expect(await screen.findByText(/Leave the Realm/)).toBeInTheDocument();
   });
 });
