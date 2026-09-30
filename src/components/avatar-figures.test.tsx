@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from "vitest";
 import { render, cleanup } from "@testing-library/react";
 import { Avatar, AvatarFigure, CompanionFigure, VillagerFigure, MountFigure } from "./avatar";
-import { DEFAULT_AVATAR, MOUNTS } from "@/lib/utils/avatar-catalog";
+import { DEFAULT_AVATAR, MOUNTS, SKIN_TONES } from "@/lib/utils/avatar-catalog";
 import { VILLAGERS } from "@/lib/realm/villagers";
 import { crownById } from "@/lib/utils/crown-catalog";
 
@@ -125,5 +125,38 @@ describe("CrownLayer", () => {
   it("draws nothing for a crown id the catalog does not know", () => {
     const { container } = render(<AvatarFigure config={{ ...DEFAULT_AVATAR, crown: "crown-of-lies" }} />);
     expect(container.querySelector('[data-layer="crown"]')).toBeNull();
+  });
+});
+
+describe("bare legs under short legwear", () => {
+  const skin = SKIN_TONES.find((s) => s.id === DEFAULT_AVATAR.skinTone)!.hex;
+  /** Skin-coloured rects below the waist (y ≥ 28, in the figure's own coordinates). */
+  function skinLegRects(legwear: string) {
+    const svg = render(<Avatar config={{ ...DEFAULT_AVATAR, legwear }} name="Lily" size="xl" />).container;
+    return [...svg.querySelectorAll("rect")].filter(
+      (r) => r.getAttribute("fill") === skin && Number(r.getAttribute("y")) >= 28,
+    );
+  }
+
+  it.each(["shorts", "skirt", "battle-kilt"])("shows the legs under %s", (legwear) => {
+    expect(skinLegRects(legwear).length).toBeGreaterThan(0);
+  });
+
+  it("does not show skin under full-length pants", () => {
+    expect(skinLegRects("pants")).toHaveLength(0);
+  });
+});
+
+describe("flame crest", () => {
+  it("is a flame-shaped silhouette in the crest colour, not rows of one-pixel stripes", () => {
+    const { container } = render(
+      <Avatar config={{ ...DEFAULT_AVATAR, background: "flame", backgroundColor: "#a855f7" }} name="Noah" size="xl" />,
+    );
+    const crest = container.querySelector('[data-layer="crest"]')!;
+    expect(crest.getAttribute("data-crest")).toBe("flame");
+    expect([...crest.querySelectorAll("rect")].filter((r) => r.getAttribute("height") === "1")).toHaveLength(0);
+    const outline = crest.querySelector("path")!;
+    expect(outline.getAttribute("fill")).toBe("#a855f720");
+    expect(outline.getAttribute("stroke")).toBe("#a855f740");
   });
 });

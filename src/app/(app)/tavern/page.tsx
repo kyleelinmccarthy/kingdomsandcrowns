@@ -166,46 +166,47 @@ export default async function TavernPage({
       <div className="hud-row-main">
 
         {/* LEFT: Assigned Quests (today's quest assignments) */}
-        <GameFrame
-          title={isChildView ? "Today's Quests" : "Assigned Quests"}
-          icon={<GameIcon name="swords" className="size-4 text-[var(--gold-bright)]" />}
-          className="hud-panel-left"
-          action={
-            <Link href="/quests" className="text-xs font-medium text-primary hover:underline">
-              Full log →
-            </Link>
-          }
-        >
-          <div className="hud-scroll-panel">
-            {todayAssignments.length === 0 ? (
-              <div className="py-4 text-center">
-                <GameIcon name="scroll" className="mx-auto size-8 text-[var(--gold-bright)]" />
-                <p className="mt-2 text-sm text-muted-foreground">No quests assigned for today.</p>
-              </div>
-            ) : todaysBlocks.length > 0 ? (
-              <TodaySchedule
-                blocks={todaysBlocks}
-                subjects={subjects}
-                assignments={todayAssignments}
-                isChildView={isChildView}
-                structuredNext={structuredNext}
-                allowChildSkip={allowChildSkip}
-              />
-            ) : (
-              <div className="space-y-2">
-                {todayAssignments.map((a) => (
-                  <QuestAssignmentCard
-                    key={a.assignment.id}
-                    data={a}
-                    isChildView={isChildView}
-                    structuredNext={structuredNext}
-                    allowChildSkip={allowChildSkip}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        </GameFrame>
+        <div className="hud-panel-left">
+          <GameFrame
+            title={isChildView ? "Today's Quests" : "Assigned Quests"}
+            icon={<GameIcon name="swords" className="size-4 text-[var(--gold-bright)]" />}
+            action={
+              <Link href="/quests" className="text-xs font-medium text-primary hover:underline">
+                Full log →
+              </Link>
+            }
+          >
+            <div className="hud-scroll-panel">
+              {todayAssignments.length === 0 ? (
+                <div className="py-4 text-center">
+                  <GameIcon name="scroll" className="mx-auto size-8 text-[var(--gold-bright)]" />
+                  <p className="mt-2 text-sm text-muted-foreground">No quests assigned for today.</p>
+                </div>
+              ) : todaysBlocks.length > 0 ? (
+                <TodaySchedule
+                  blocks={todaysBlocks}
+                  subjects={subjects}
+                  assignments={todayAssignments}
+                  isChildView={isChildView}
+                  structuredNext={structuredNext}
+                  allowChildSkip={allowChildSkip}
+                />
+              ) : (
+                <div className="space-y-2">
+                  {todayAssignments.map((a) => (
+                    <QuestAssignmentCard
+                      key={a.assignment.id}
+                      data={a}
+                      isChildView={isChildView}
+                      structuredNext={structuredNext}
+                      allowChildSkip={allowChildSkip}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </GameFrame>
+        </div>
 
         {/* CENTER: Character Showcase (avatar, name, level, XP, streaks) */}
         <div className="hud-panel-center">

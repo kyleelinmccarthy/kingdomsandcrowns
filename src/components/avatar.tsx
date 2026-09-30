@@ -38,10 +38,12 @@ export function Avatar({ config, name, size = "md", className = "" }: AvatarProp
       aria-label={`${name}'s avatar`}
     >
       <g transform="translate(0, 8)">
-        <BackgroundLayer bg={c.background} bgColor={c.backgroundColor ?? "#3b82f6"} />
+        <g data-layer="crest" data-crest={c.background}>
+          <BackgroundLayer bg={c.background} bgColor={c.backgroundColor ?? "#3b82f6"} />
+        </g>
         <BodyLayer outfit={c.outfit} outfitColor={c.outfitColor} />
         <ArmsLayer skinHex={skinHex} />
-        <LegsLayer legwear={c.legwear} legwearColor={c.legwearColor} />
+        <LegsLayer legwear={c.legwear} legwearColor={c.legwearColor} skinHex={skinHex} />
         <BootsLayer boots={c.boots} color={c.bootsColor} />
         <HeadLayer skinHex={skinHex} />
         <HairLayer style={c.hairStyle} color={c.hairColor} />
@@ -116,34 +118,15 @@ function BackgroundLayer({ bg, bgColor }: { bg: string; bgColor: string }) {
         />
       );
     case "flame": {
-      const o = bgColor;
+      // Three tongues: a tall centre one rising above the head, a shorter one to each side.
+      const flame =
+        "M18 0 C21 5 25 9 26 14 C27 11 29 8 31 5 C34 12 35 20 35 28 C35 39 27 47 18 47 " +
+        "C9 47 1 39 1 28 C1 20 2 13 4 7 C6 10 8 12 9 15 C10 9 15 5 18 0 Z";
       return (
         <g>
-          <ellipse cx="18" cy="24" rx="17" ry="23" fill={fill} stroke={stroke} strokeWidth="0.5" />
-          {/* Outer flame */}
-          <rect x="13" y="0" width="1" height="1" fill={o} opacity="0.30" />
-          <rect x="22" y="2" width="1" height="1" fill={o} opacity="0.25" />
-          <rect x="14" y="1" width="2" height="1" fill={o} opacity="0.32" />
-          <rect x="13" y="3" width="4" height="1" fill={o} opacity="0.34" />
-          <rect x="12" y="4" width="6" height="1" fill={o} opacity="0.34" />
-          <rect x="11" y="6" width="8" height="1" fill={o} opacity="0.30" />
-          <rect x="6" y="8" width="18" height="1" fill={o} opacity="0.28" />
-          <rect x="5" y="10" width="21" height="1" fill={o} opacity="0.26" />
-          <rect x="3" y="13" width="26" height="1" fill={o} opacity="0.24" />
-          <rect x="3" y="16" width="26" height="1" fill={o} opacity="0.24" />
-          <rect x="3" y="20" width="26" height="1" fill={o} opacity="0.22" />
-          <rect x="3" y="24" width="26" height="1" fill={o} opacity="0.20" />
-          <rect x="4" y="28" width="24" height="1" fill={o} opacity="0.18" />
-          <rect x="5" y="32" width="22" height="1" fill={o} opacity="0.16" />
-          <rect x="7" y="36" width="18" height="1" fill={o} opacity="0.14" />
-          <rect x="9" y="40" width="14" height="1" fill={o} opacity="0.12" />
-          <rect x="11" y="43" width="10" height="1" fill={o} opacity="0.10" />
-          {/* Inner core */}
-          <rect x="14" y="12" width="4" height="1" fill={o} opacity="0.40" />
-          <rect x="12" y="14" width="8" height="1" fill={o} opacity="0.42" />
-          <rect x="11" y="18" width="10" height="1" fill={o} opacity="0.44" />
-          <rect x="12" y="22" width="8" height="1" fill={o} opacity="0.38" />
-          <rect x="13" y="26" width="6" height="1" fill={o} opacity="0.30" />
+          <path d={flame} fill={fill} stroke={stroke} strokeWidth="0.5" />
+          {/* Inner flame: the same shape, smaller, its side tongues licking up beside the head */}
+          <path d={flame} transform="translate(5 9) scale(0.72)" fill={bgColor} opacity="0.18" />
         </g>
       );
     }
@@ -551,7 +534,25 @@ function ArmsLayer({ skinHex }: { skinHex: string }) {
 
 // ── Legs / legwear ──────────────────────────────────────────
 
-function LegsLayer({ legwear, legwearColor }: { legwear: string; legwearColor: string }) {
+/** Legwear that stops above the ankle, so bare legs show beneath it. */
+const SHORT_LEGWEAR = new Set(["shorts", "skirt", "battle-kilt"]);
+
+function LegsLayer({ legwear, legwearColor, skinHex }: { legwear: string; legwearColor: string; skinHex: string }) {
+  return (
+    <g>
+      {SHORT_LEGWEAR.has(legwear) && (
+        <g>
+          <rect x="12" y="28" width="4" height="8" fill={skinHex} />
+          <rect x="16" y="28" width="4" height="8" fill={skinHex} />
+          <rect x="15" y="31" width="2" height="5" fill={darken(skinHex, 0.15)} />
+        </g>
+      )}
+      <Legwear legwear={legwear} legwearColor={legwearColor} />
+    </g>
+  );
+}
+
+function Legwear({ legwear, legwearColor }: { legwear: string; legwearColor: string }) {
   const darker = darken(legwearColor, 0.15);
 
   switch (legwear) {
@@ -1859,7 +1860,7 @@ export function AvatarFigure({
       <g transform={mounted ? "translate(0, 0)" : "translate(0, 8)"}>
         <BodyLayer outfit={c.outfit} outfitColor={c.outfitColor} />
         <ArmsLayer skinHex={skinHex} />
-        {!mounted && <LegsLayer legwear={c.legwear} legwearColor={c.legwearColor} />}
+        {!mounted && <LegsLayer legwear={c.legwear} legwearColor={c.legwearColor} skinHex={skinHex} />}
         {!mounted && <BootsLayer boots={c.boots} color={c.bootsColor} />}
         <HeadLayer skinHex={skinHex} />
         <HairLayer style={c.hairStyle} color={c.hairColor} />

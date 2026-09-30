@@ -1,0 +1,19 @@
+{
+  "files.watcherExclude": {
+    "**/.claude/worktrees/**": true,
+    "**/.superpowers/**": true,
+    "**/.next/**": true,
+    "**/.next-*/**": true,
+    "**/node_modules/**": true
+  },
+  "search.exclude": {
+    "**/.claude/worktrees/**": true,
+    "**/.superpowers/**": true,
+    "**/.next/**": true,
+    "**/.next-*/**": true
+  },
+  "files.exclude": {
+    "**/.next-*": true
+  },
+  "search.followSymlinks": false
+}

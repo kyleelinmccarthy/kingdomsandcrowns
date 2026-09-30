@@ -43,3 +43,10 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 /.next-*/
+
+# Agent scratch: browser-check screenshots, the Chromium libraries and their packages, backups.
+# (.superpowers/realm-rules.md and the scripts in .superpowers/tools/ stay tracked.)
+.superpowers/shots/
+.superpowers/tools/chromelibs/
+.superpowers/tools/debs/
+.superpowers/*.bak
