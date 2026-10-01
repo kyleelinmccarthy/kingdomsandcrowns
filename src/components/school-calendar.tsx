@@ -43,15 +43,18 @@ export function SchoolCalendar({
   familyId,
   breaks,
   today: serverToday,
+  timeZone,
   canEdit,
 }: {
   familyId: string;
   breaks: SchoolBreakRow[];
   today: string;
+  /** The family's IANA timezone — the clock the calendar re-reads "today" against. */
+  timeZone: string;
   canEdit: boolean;
 }) {
   const router = useRouter();
-  const { date: today } = useBrowserToday(serverToday, "");
+  const { date: today } = useBrowserToday(serverToday, "", timeZone);
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);

@@ -16,12 +16,15 @@ import { getMakeupDays } from "@/lib/actions/makeup";
 import { getFamilyMembers } from "@/lib/actions/guardians";
 import { ensureFamilyLoginCode } from "@/lib/actions/child-auth";
 import { getActor } from "@/lib/auth/actor";
-import { formatDate, todayInTimeZone } from "@/lib/utils/dates";
+import { todayInZone } from "@/lib/utils/dates";
+import { usableTimeZone } from "@/lib/services/family-timezone";
+import { GameFrame } from "@/components/game-frame";
 import { FamilySetup } from "./family-setup";
 import { ChildList } from "./child-list";
 import { GuardiansManager } from "./guardians";
 import { FamilySwitcher } from "./family-switcher";
 import { FamilyLoginCode } from "./family-login-code";
+import { UpkeepSettingsPanel } from "./upkeep-settings-panel";
 
 export default async function SettingsPage() {
   const actor = await getActor();
@@ -30,13 +33,21 @@ export default async function SettingsPage() {
 
   // Resolve the family. A PIN child has no Better Auth session, so getFamily()
   // can't find it — load by the child actor's familyId instead.
-  let family: { id: string; familyName: string; timezone: string } | null = null;
+  let family: {
+    id: string;
+    familyName: string;
+    timezone: string;
+    upkeepEnabled: boolean;
+    upkeepRequiresApproval: boolean;
+  } | null = null;
   if (isChildView && actor?.kind === "child") {
     const rows = await db
       .select({
         id: schema.family.id,
         familyName: schema.family.familyName,
         timezone: schema.family.timezone,
+        upkeepEnabled: schema.family.upkeepEnabled,
+        upkeepRequiresApproval: schema.family.upkeepRequiresApproval,
       })
       .from(schema.family)
       .where(eq(schema.family.id, actor.familyId))
@@ -50,7 +61,7 @@ export default async function SettingsPage() {
 
   // The Realm summary must read as "today" in the family's own time zone —
   // the server's UTC date can already be tomorrow (or still yesterday) there.
-  const familyToday = family ? todayInTimeZone(family.timezone, new Date()) : formatDate(new Date());
+  const familyToday = todayInZone(usableTimeZone(family?.timezone));
 
   // Adult-only management data.
   const families = !isChildView ? await getFamilies() : [];
@@ -129,6 +140,8 @@ export default async function SettingsPage() {
             banished={banishedKids}
             isChildView={isChildView}
             currentChildId={currentChildId}
+            familyUpkeepEnabled={family.upkeepEnabled}
+            familyRequiresApproval={family.upkeepRequiresApproval}
           />
           {guardianData && (
             <GuardiansManager
@@ -139,6 +152,14 @@ export default async function SettingsPage() {
             />
           )}
           {guardianData?.canManage && <FamilyLoginCode code={loginCode} />}
+          {!isChildView && family && (
+            <GameFrame>
+              <UpkeepSettingsPanel
+                enabled={family.upkeepEnabled}
+                requiresApproval={family.upkeepRequiresApproval}
+              />
+            </GameFrame>
+          )}
         </>
       ) : (
         <FamilySetup family={family} isChildView={isChildView} />

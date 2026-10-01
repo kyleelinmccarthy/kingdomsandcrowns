@@ -42,6 +42,10 @@ vi.mock("@/lib/actions/school-breaks", () => ({
   addSchoolBreaks: vi.fn(),
   deleteSchoolBreak: vi.fn(),
 }));
+// Upkeep is off for these heroes, and the family clock is a fixed zone: neither is what
+// these tests are about, and both would otherwise reach for a real database.
+vi.mock("@/lib/services/upkeep-context", () => ({ loadUpkeepContext: vi.fn().mockResolvedValue(null) }));
+vi.mock("@/lib/services/family-timezone", () => ({ getFamilyTimezone: vi.fn().mockResolvedValue("America/Denver") }));
 
 import QuestsPage from "./page";
 import { resolveActiveChild } from "@/lib/actions/resolve-child";

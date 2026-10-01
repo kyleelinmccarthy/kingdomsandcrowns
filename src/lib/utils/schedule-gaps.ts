@@ -1,8 +1,8 @@
 import { getScheduledDates } from "./schedule";
+import { addDays } from "./dates";
 import {
   DAYS_OF_WEEK,
   DAY_LABELS,
-  addDaysToDate,
   weekdayOfDate,
   type DayOfWeek,
 } from "./schedule-days";
@@ -69,7 +69,7 @@ export function scheduledWeekdays(repeat: QuestRepeat, schoolDays: string[]): Da
   if (!repeat.frequency || !isIsoDate(repeat.startDate)) return [];
   if (repeat.endDate && !isIsoDate(repeat.endDate)) return [];
 
-  const horizon = addDaysToDate(repeat.startDate, LOOKAHEAD_DAYS);
+  const horizon = addDays(repeat.startDate, LOOKAHEAD_DAYS);
   const rangeEnd = repeat.endDate && repeat.endDate < horizon ? repeat.endDate : horizon;
 
   const dates = getScheduledDates(

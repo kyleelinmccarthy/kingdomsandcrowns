@@ -19,6 +19,7 @@
 
 import { minutesSpent, type LedgerRow, type RealmAccessMode } from "@/lib/utils/realm-access";
 import { PLACES } from "@/lib/realm/layout";
+import { todayInZone } from "@/lib/utils/dates";
 
 export const MINUTES_PER_CLEAR = 1;
 /** "One grant", never zero: the sub-cap's floor when `earnedMinutesPerQuest` is 0. */
@@ -174,7 +175,7 @@ const WEST_MS = 12 * 3_600_000;
 const EAST_MS = 14 * 3_600_000;
 
 function utcDay(ms: number): string {
-  return new Date(ms).toISOString().slice(0, 10);
+  return todayInZone("UTC", new Date(ms));
 }
 
 /**

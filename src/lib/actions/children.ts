@@ -13,7 +13,8 @@ import {
 import { sanitizeName } from "@/lib/utils/sanitize";
 import { hashPin } from "@/lib/utils/pin";
 import { resolveAge } from "@/lib/utils/age-mode";
-import { formatDate } from "@/lib/utils/dates";
+import { todayInZone } from "@/lib/utils/dates";
+import { getTimezoneForChild } from "@/lib/services/family-timezone";
 import { syncSeasonForGrade } from "@/lib/services/season-sync";
 import { ensureStarterSpell } from "@/lib/services/spells";
 import type { TransitionPlan } from "@/lib/utils/seasons";
@@ -111,7 +112,7 @@ export async function createChild(data: {
   }
 
   // A hero with a grade starts their first season the day they're summoned.
-  if (grade) await syncSeasonForGrade(id, grade, formatDate(now));
+  if (grade) await syncSeasonForGrade(id, grade, todayInZone(await getTimezoneForChild(id), now));
   await ensureStarterSpell(id);
 
   return { id, displayName: name };
@@ -145,9 +146,9 @@ export async function updateChild(
   // hears about the cleared grade too: paused if it has work, dropped if not.
   let seasonTransition: TransitionPlan | null = null;
   if (data.grade) {
-    seasonTransition = await syncSeasonForGrade(childId, data.grade, today ?? formatDate(new Date()));
+    seasonTransition = await syncSeasonForGrade(childId, data.grade, today ?? todayInZone(await getTimezoneForChild(childId)));
   } else if (data.birthYear) {
-    seasonTransition = await syncSeasonForGrade(childId, null, today ?? formatDate(new Date()));
+    seasonTransition = await syncSeasonForGrade(childId, null, today ?? todayInZone(await getTimezoneForChild(childId)));
   }
 
   await db

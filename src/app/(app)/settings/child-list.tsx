@@ -31,6 +31,7 @@ import { FamilySetup } from "./family-setup";
 import { ChildLoginAccess } from "./child-login-access";
 import { SendHeroEmailButton } from "./send-hero-email";
 import { AgeInput, type AgeMode } from "./age-input";
+import { ChildUpkeepToggle } from "./child-upkeep-toggle";
 import { GameIcon } from "@/components/game-icon";
 import { SeasonPanel } from "./season-panel";
 import { LearningProfilePanel } from "./learning-profile-panel";
@@ -141,6 +142,8 @@ type Child = {
   realmSettings?: RealmSettings | null;
   realmPlay?: { date: string; balance: number; spent: number } | null;
   mastery?: MasteryRow[] | null;
+  upkeepEnabled?: boolean;
+  upkeepRequiresApproval?: boolean | null;
 };
 
 const SUBJECT_COLORS = [
@@ -167,12 +170,16 @@ export function ChildList({
   banished = [],
   isChildView = false,
   currentChildId = null,
+  familyUpkeepEnabled = false,
+  familyRequiresApproval = false,
 }: {
   family: Family;
   kids: Child[];
   banished?: BanishedHero[];
   isChildView?: boolean;
   currentChildId?: string | null;
+  familyUpkeepEnabled?: boolean;
+  familyRequiresApproval?: boolean;
 }) {
   const [showAdd, setShowAdd] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(
@@ -223,7 +230,13 @@ export function ChildList({
         // grade as an edit, offered Save, and wrote it onto the newly selected hero. That is
         // how a sibling's name was overwritten, and a stale grade would have promoted a hero
         // and awarded a crown they never earned. The summary cards above are keyed the same way.
-        <ChildDetail key={expandedChild.id} child={expandedChild} isChildView={isChildView} />
+        <ChildDetail
+          key={expandedChild.id}
+          child={expandedChild}
+          isChildView={isChildView}
+          familyUpkeepEnabled={familyUpkeepEnabled}
+          familyRequiresApproval={familyRequiresApproval}
+        />
       )}
 
       {!isChildView && banished.length > 0 && <BanishedHeroes heroes={banished} />}
@@ -430,7 +443,17 @@ function ChildSummaryCard({
   );
 }
 
-function ChildDetail({ child, isChildView = false }: { child: Child; isChildView?: boolean }) {
+function ChildDetail({
+  child,
+  isChildView = false,
+  familyUpkeepEnabled = false,
+  familyRequiresApproval = false,
+}: {
+  child: Child;
+  isChildView?: boolean;
+  familyUpkeepEnabled?: boolean;
+  familyRequiresApproval?: boolean;
+}) {
   const router = useRouter();
   const [confirmBanish, setConfirmBanish] = useState(false);
   const [banishing, setBanishing] = useState(false);
@@ -491,6 +514,15 @@ function ChildDetail({ child, isChildView = false }: { child: Child; isChildView
           <SkipQuestsToggle
             childId={child.id}
             enabled={child.skipQuestsEnabled ?? false}
+          />
+        )}
+        {!isChildView && (
+          <ChildUpkeepToggle
+            childId={child.id}
+            enabled={child.upkeepEnabled ?? false}
+            familyDisabled={!familyUpkeepEnabled}
+            requiresApproval={child.upkeepRequiresApproval ?? null}
+            familyRequiresApproval={familyRequiresApproval}
           />
         )}
         {!isChildView && (

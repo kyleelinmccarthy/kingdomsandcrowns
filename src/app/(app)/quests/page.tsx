@@ -11,7 +11,8 @@ import { getSchoolingModeForDate } from "@/lib/actions/schooling-mode";
 import { getMakeupView } from "@/lib/actions/makeup";
 import { generateLearningLog, getSavedLog } from "@/lib/actions/chronicles";
 import { getSchoolBreaks } from "@/lib/actions/school-breaks";
-import { formatDate, getWeekStartDate } from "@/lib/utils/dates";
+import { addDays, todayInZone, weekStartOf } from "@/lib/utils/dates";
+import { getFamilyTimezone } from "@/lib/services/family-timezone";
 import { weekdayOfDate, currentTimeOfDay } from "@/lib/utils/schedule-days";
 import { getStructuredCardLock } from "@/lib/utils/quest-ordering";
 import { ChildSelector } from "@/components/child-selector";
@@ -23,6 +24,13 @@ import { MakeupQuests } from "@/components/makeup-quests";
 import { QuestViewTabs } from "@/components/quest-view-tabs";
 import { LongRest } from "@/components/long-rest";
 import { TimerCleanup } from "@/components/timer-cleanup";
+import { loadUpkeepContext } from "@/lib/services/upkeep-context";
+import {
+  generateUpkeepAssignments,
+  getUpkeepAssignmentsForDate,
+  getOutstandingUpkeepAssignments,
+} from "@/lib/actions/upkeep-assignments";
+import { UpkeepTodayList } from "@/components/upkeep-today-list";
 import { QuestForm } from "./quest-form";
 import { QuestLog } from "./quest-log";
 
@@ -34,8 +42,6 @@ export default async function QuestsPage({
   await requireActor();
   const { child: selectedChildId, week, view } = await searchParams;
   const { child: activeChild, allChildren, isChildView } = await resolveActiveChild(selectedChildId);
-
-  const activeView = view === "adventure" ? "adventure" : "today";
 
   if (!isChildView) {
     const family = await getFamily();
@@ -72,6 +78,30 @@ export default async function QuestsPage({
     );
   }
 
+  const upkeepContext = await loadUpkeepContext(activeChild.id);
+  const showUpkeep = Boolean(upkeepContext?.enabled);
+
+  // A stale bookmark or a family that has since turned Upkeep off must not be
+  // able to land on a tab that no longer exists — fall back to Today rather
+  // than rendering the banner and tabs over an empty view.
+  const activeView =
+    view === "adventure" ? "adventure" : view === "upkeep" && showUpkeep ? "upkeep" : "today";
+
+  const timeZone = await getFamilyTimezone();
+  const todayDate = todayInZone(timeZone);
+  let upkeepToday: Awaited<ReturnType<typeof getUpkeepAssignmentsForDate>> = [];
+  let upkeepOutstanding: Awaited<ReturnType<typeof getOutstandingUpkeepAssignments>> = [];
+
+  if (showUpkeep) {
+    // Same idempotent on-load housekeeping quests use. Generates a fortnight
+    // ahead so a weekly chore is visible before its day arrives.
+    await generateUpkeepAssignments(activeChild.id, todayDate, addDays(todayDate, 14));
+    [upkeepToday, upkeepOutstanding] = await Promise.all([
+      getUpkeepAssignmentsForDate(activeChild.id, todayDate),
+      getOutstandingUpkeepAssignments(activeChild.id, todayDate),
+    ]);
+  }
+
   return (
     <div className="space-y-6">
       <div className="page-banner relative flex flex-col items-center gap-4 text-center">
@@ -95,7 +125,16 @@ export default async function QuestsPage({
         )}
       </div>
 
-      <QuestViewTabs active={activeView} />
+      <QuestViewTabs active={activeView} showUpkeep={showUpkeep} />
+
+      {activeView === "upkeep" && showUpkeep && (
+        <UpkeepTodayList
+          today={upkeepToday}
+          outstanding={upkeepOutstanding}
+          isChildView={isChildView}
+          todayDate={todayDate}
+        />
+      )}
 
       {activeView === "today" ? (
         <TodayView
@@ -103,8 +142,9 @@ export default async function QuestsPage({
           childId={activeChild.id}
           isChildView={isChildView}
           allowChildSkip={isChildView && activeChild.skipQuestsEnabled}
+          timeZone={timeZone}
         />
-      ) : (
+      ) : activeView === "adventure" ? (
         <AdventureView
           key={activeChild.id}
           childId={activeChild.id}
@@ -112,8 +152,9 @@ export default async function QuestsPage({
           familyId={activeChild.familyId}
           isChildView={isChildView}
           week={week}
+          timeZone={timeZone}
         />
-      )}
+      ) : null}
     </div>
   );
 }
@@ -122,13 +163,15 @@ async function TodayView({
   childId,
   isChildView,
   allowChildSkip,
+  timeZone,
 }: {
   childId: string;
   isChildView: boolean;
   /** Parent-granted: this hero may skip their own quests (a grown-up is alerted either way). */
   allowChildSkip: boolean;
+  timeZone: string;
 }) {
-  const today = formatDate(new Date());
+  const today = todayInZone(timeZone);
   await generateAssignmentsFromSchedules(childId, today, today);
 
   const [subjects, activities, todayAssignments, quests, allBlocks, latestStatusByQuestId, schoolingMode, makeup] = await Promise.all([
@@ -215,6 +258,7 @@ async function TodayView({
           nowTime={currentTimeOfDay()}
           latestStatusByQuestId={latestStatusByQuestId}
           today={today}
+          timeZone={timeZone}
           initialSchoolingMode={schoolingMode}
           isChildView={isChildView}
         />
@@ -246,19 +290,17 @@ async function AdventureView({
   familyId,
   isChildView,
   week,
+  timeZone,
 }: {
   childId: string;
   childName: string;
   familyId: string;
   isChildView: boolean;
   week?: string;
+  timeZone: string;
 }) {
-  const weekStart = week ?? getWeekStartDate();
-  const weekEnd = (() => {
-    const d = new Date(weekStart + "T12:00:00");
-    d.setDate(d.getDate() + 6);
-    return d.toISOString().split("T")[0];
-  })();
+  const weekStart = week ?? weekStartOf(todayInZone(timeZone));
+  const weekEnd = addDays(weekStart, 6);
 
   const [logText, savedLog, breaks] = await Promise.all([
     generateLearningLog(childId, childName, weekStart, weekEnd),
@@ -277,7 +319,8 @@ async function AdventureView({
       breaks={breaks}
       familyId={familyId}
       isChildView={isChildView}
-      today={formatDate(new Date())}
+      today={todayInZone(timeZone)}
+      timeZone={timeZone}
     />
   );
 }

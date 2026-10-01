@@ -6,7 +6,9 @@ import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { createActivity, deleteActivity } from "@/lib/actions/activities";
 import { getScheduledDates } from "@/lib/utils/schedule";
-import { formatDate } from "@/lib/utils/dates";
+import { todayInZone } from "@/lib/utils/dates";
+import { getTimezoneForChild } from "@/lib/services/family-timezone";
+import { clampGenerationRange } from "@/lib/utils/generation-range";
 import { getSchoolDays, getScheduleBlocks } from "@/lib/actions/student-schedule";
 import { getSchoolingModeForDate } from "@/lib/actions/schooling-mode";
 import { requireChildAccess, requireAssignmentAccess, isChildActor } from "@/lib/auth/access";
@@ -123,7 +125,7 @@ async function assertQuestUnlockedInStructuredMode(
   // order of a day that is over would refuse the very quest the catch-up list
   // just presented, and would make a hero clear last Monday in Monday's order
   // before touching last Tuesday.
-  if (date !== formatDate(new Date())) return;
+  if (date !== todayInZone(await getTimezoneForChild(childId))) return;
   const effectiveMode = await getSchoolingModeForDate(childId, date);
   if (effectiveMode !== "structured") return;
 
@@ -206,6 +208,12 @@ export async function generateAssignmentsFromSchedules(
   // child acting on their own profile. (No requireAdultActor: that gate crashed
   // the tavern/quests pages for any logged-in hero.)
   await requireChildAccess(childId, { write: true });
+
+  // Bound the window before anything materializes rows. A hero can trigger
+  // generation for their own profile, so an unbounded range is a way to write
+  // tens of thousands of rows with one request.
+  ({ startDate, endDate } = clampGenerationRange(startDate, endDate));
+
   const schoolDays = await getSchoolDays(childId);
 
   // Generation only ever adds rows, so retiring a quest or its repeat used to
@@ -392,7 +400,7 @@ export async function completeAssignment(
   // finished — but the activity log is the record of effort, and it feeds the
   // streak. A hero who sits down and clears three missed quests has done a day's questing
   // today, and their streak has to say so.
-  const today = formatDate(new Date());
+  const today = todayInZone(await getTimezoneForChild(row.assignment.childId));
   const chronicleDate = row.assignment.date < today ? today : row.assignment.date;
 
   // Create the activity log entry (this also updates XP/streak)

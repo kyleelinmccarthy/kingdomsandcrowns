@@ -1,5 +1,5 @@
-import { formatDate } from "./dates";
-import { addDaysToDate, weekdayOfDate } from "./schedule-days";
+import { addDays } from "./dates";
+import { weekdayOfDate } from "./schedule-days";
 
 /** An inclusive ISO ("YYYY-MM-DD") date range that isn't a school day, e.g. a break. */
 export type DateRange = { startDate: string; endDate: string };
@@ -42,26 +42,37 @@ export type StreakOptions = {
  * This mirrors the original day-by-day query loop, but as a pure function over
  * an already-fetched set of dates, so the streak can be derived from a single
  * database query instead of up to 365 sequential round-trips.
+ *
+ * `today` is an ISO ("YYYY-MM-DD") date string, not a `Date` — the walk stays
+ * entirely in date-string space via `addDays`. An earlier version stepped a
+ * `Date` cursor with local `getDate`/`setDate` but formatted it back to a
+ * string with UTC `toISOString`, a mixed frame that silently skipped the US
+ * DST fall-back day (e.g. 2026-11-01) once a year for every DST-observing
+ * family.
+ *
+ * `today` is required, not defaulted: this is a pure utility with no access
+ * to a family's timezone, so any default it invented here would necessarily
+ * be wrong for someone. Callers resolve "what day is it?" themselves (via
+ * `todayInZone`) and pass the answer in.
  */
 export function computeStreak(
   activeDates: Iterable<string>,
-  today: Date = new Date(),
+  today: string,
   options: StreakOptions = {}
 ): number {
   const active = new Set(activeDates);
   let streak = 0;
-  const cursor = new Date(today);
+  let cursor = today;
 
   for (let i = 0; i < 365; i++) {
-    const dateStr = formatDate(cursor);
-    if (active.has(dateStr)) {
+    if (active.has(cursor)) {
       streak++;
-    } else if (i !== 0 && !isDayOff(dateStr, options)) {
+    } else if (i !== 0 && !isDayOff(cursor, options)) {
       // A school day with nothing logged ends the streak. (i === 0 is today,
       // which may simply not have an activity logged yet.)
       break;
     }
-    cursor.setDate(cursor.getDate() - 1);
+    cursor = addDays(cursor, -1);
   }
 
   return streak;
@@ -109,7 +120,7 @@ export function computeLongestStreak(
 
 /** True when every day strictly between two active dates is a day off. */
 function gapIsAllDaysOff(from: string, to: string, options: StreakOptions): boolean {
-  for (let day = addDaysToDate(from, 1); day < to; day = addDaysToDate(day, 1)) {
+  for (let day = addDays(from, 1); day < to; day = addDays(day, 1)) {
     if (!isDayOff(day, options)) return false;
   }
   return true;

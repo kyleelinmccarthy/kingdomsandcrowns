@@ -6,8 +6,8 @@ import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { requireChildAccess, isChildActor } from "@/lib/auth/access";
 import { sanitizeText } from "@/lib/utils/sanitize";
-import { formatDate } from "@/lib/utils/dates";
-import { addDaysToDate } from "@/lib/utils/schedule-days";
+import { addDays, todayInZone } from "@/lib/utils/dates";
+import { getFamilyTimezone, getTimezoneForChild } from "@/lib/services/family-timezone";
 import { parseSchoolDays, parseStreakOptionalDays } from "@/lib/utils/schedule-days";
 import { recomputeFamilyStreaks } from "@/lib/services/streaks";
 import {
@@ -81,7 +81,7 @@ export async function getMissedDaysView(
   const { access, familyId } = await requireChildAccess(childId);
   assertIsoDate(today);
 
-  const windowStart = addDaysToDate(today, -MISSED_DAYS_WINDOW);
+  const windowStart = addDays(today, -MISSED_DAYS_WINDOW);
 
   const [childRow, activeDays, assignments, breaks, excused, firstActivity] = await Promise.all([
     db
@@ -154,7 +154,9 @@ export async function getMissedDaysView(
   // back to the day they were created.
   const notBefore =
     firstActivity[0]?.date ??
-    (childRow[0]?.createdAt ? formatDate(childRow[0].createdAt) : null);
+    (childRow[0]?.createdAt
+      ? todayInZone(await getTimezoneForChild(childId), childRow[0].createdAt)
+      : null);
 
   const missed = selectMissedDays({
     today,
@@ -286,7 +288,7 @@ export async function moveAssignmentsToDate(
 ): Promise<MoveResult> {
   if (assignmentIds.length === 0) return { moved: 0, blocked: 0 };
   assertIsoDate(targetDate);
-  if (targetDate < formatDate(new Date())) {
+  if (targetDate < todayInZone(await getFamilyTimezone())) {
     throw new Error("Pick today or a later day to move this work to.");
   }
 

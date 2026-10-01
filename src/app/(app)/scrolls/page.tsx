@@ -13,6 +13,15 @@ import { GameFrame } from "@/components/game-frame";
 import { QuestTemplateList } from "@/components/quest-template-list";
 import { GameIcon } from "@/components/game-icon";
 import { buildBlockDaysBySubject } from "@/lib/utils/schedule-gaps";
+import { loadUpkeepContext } from "@/lib/services/upkeep-context";
+import { getUpkeepTasks } from "@/lib/actions/upkeep-tasks";
+import { UpkeepTaskList } from "@/components/upkeep-task-list";
+import { todayInZone } from "@/lib/utils/dates";
+import { getFamilyTimezone } from "@/lib/services/family-timezone";
+import { getWageBalance, getWageLedger } from "@/lib/actions/wages";
+import { getUpkeepAwaitingApproval } from "@/lib/actions/upkeep-assignments";
+import { StewardsLedger } from "@/components/stewards-ledger";
+import { UpkeepApprovalQueue } from "@/components/upkeep-approval-queue";
 
 export default async function ManageQuestsPage({
   searchParams,
@@ -88,6 +97,20 @@ export default async function ManageQuestsPage({
   // up front when a repeat is pointed at a day with no class time for it.
   const blockDaysBySubject = buildBlockDaysBySubject(blocks);
 
+  const upkeepContext = await loadUpkeepContext(activeChild.id);
+  const upkeepEnabled = Boolean(upkeepContext?.enabled);
+  const timeZone = await getFamilyTimezone();
+  const todayDate = todayInZone(timeZone);
+
+  const [upkeepTasks, wageBalance, wageLedger, awaitingApproval] = upkeepEnabled
+    ? await Promise.all([
+        getUpkeepTasks(activeChild.id),
+        getWageBalance(activeChild.id),
+        getWageLedger(activeChild.id),
+        getUpkeepAwaitingApproval(activeChild.id),
+      ])
+    : [[], 0, [], []];
+
   return (
     <div className="space-y-6">
       <div className="page-banner flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -113,7 +136,31 @@ export default async function ManageQuestsPage({
         schoolDays={schoolDays}
         assignmentStatusByQuest={assignmentStatusByQuest}
         blockDaysBySubject={blockDaysBySubject}
+        timeZone={timeZone}
       />
+
+      {upkeepEnabled && (
+        <section className="space-y-4">
+          <h2 className="page-title text-2xl">Upkeep</h2>
+          <p className="text-sm text-muted-foreground">
+            Chores for {activeChild.displayName}. A task can be worth wages, repeat on a
+            schedule, and be required or merely welcome.
+          </p>
+          <UpkeepTaskList key={activeChild.id} childId={activeChild.id} tasks={upkeepTasks} timeZone={timeZone} />
+
+          <UpkeepApprovalQueue rows={awaitingApproval} today={todayDate} />
+
+          <div className="space-y-3">
+            <h3 className="page-title text-xl">Steward&apos;s Ledger</h3>
+            <StewardsLedger
+              key={activeChild.id}
+              childId={activeChild.id}
+              balanceCents={wageBalance}
+              entries={wageLedger}
+            />
+          </div>
+        </section>
+      )}
     </div>
   );
 }

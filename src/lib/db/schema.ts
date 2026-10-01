@@ -70,6 +70,15 @@ export const family = sqliteTable(
     // Short human-typeable code used by children to identify their family when
     // logging in by PIN on a standalone device. Nullable; generated on demand.
     loginCode: text("login_code"),
+    // ── Upkeep (chores) ──────────────────────────────────────────
+    // Master switch for the optional chore-tracking module. Off by default:
+    // families who never turn it on must see no trace of it.
+    upkeepEnabled: integer("upkeep_enabled", { mode: "boolean" }).notNull().default(false),
+    // When on, a hero marking a task done lands it in `awaiting_approval`
+    // rather than `completed`, and no wages post until a grown-up confirms.
+    upkeepRequiresApproval: integer("upkeep_requires_approval", { mode: "boolean" })
+      .notNull()
+      .default(false),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   },
@@ -230,6 +239,23 @@ export const child = sqliteTable(
     // JSON array of weekday codes ("mon".."sun") that are catch-up days. Only
     // read when makeupMode === "makeup_days"; null/absent means no weekday is.
     makeupDays: text("makeup_days"),
+    // ── Upkeep (chores) ──────────────────────────────────────────
+    // Per-hero opt-out, under the family's master switch. Defaults to true so
+    // that turning the module on for a family immediately works for everyone
+    // and a parent opts individual heroes out, rather than the module
+    // appearing to do nothing when it is first enabled.
+    upkeepEnabled: integer("upkeep_enabled", { mode: "boolean" }).notNull().default(true),
+    // Chore XP is deliberately its own column, never folded into currentXp:
+    // activities.ts recomputes currentXp as (activity count x 10) + bonusXp
+    // whenever schoolwork is logged, which would silently erase it.
+    upkeepXp: integer("upkeep_xp").notNull().default(0),
+    // Per-hero override of the family's "confirm completed chores" setting.
+    // Nullable on purpose: null means "inherit", which is a real third state.
+    // A parent who has made no choice for this hero should keep following the
+    // family default as it changes, rather than being frozen at whatever it
+    // happened to be the day the hero was added. A six-year-old's work usually
+    // wants checking; a fourteen-year-old's usually does not.
+    upkeepRequiresApproval: integer("upkeep_requires_approval", { mode: "boolean" }),
     // Soft delete ("banished"). Non-null hides the hero everywhere — lists,
     // logins, leaderboards — but keeps every row intact so a parent can
     // restore them. Permanent removal is a separate, explicit action.
@@ -1191,5 +1217,150 @@ export const parentAlertDismissal = sqliteTable(
   (table) => [
     uniqueIndex("parent_alert_dismissal_unique_idx").on(table.alertId, table.userId),
     index("parent_alert_dismissal_user_idx").on(table.userId),
+  ]
+);
+
+// ── Upkeep (chores) ─────────────────────────────────────────
+
+/**
+ * A chore a parent has defined for one hero. The template, not the doing of it
+ * — `upkeepTaskAssignment` holds a specific day's instance.
+ *
+ * Kept entirely separate from `quest` rather than sharing it behind a
+ * discriminator: chores must never be able to reach the learning log, the
+ * streak, or school XP, and separate tables make that structural instead of a
+ * filter someone can forget.
+ */
+export const upkeepTask = sqliteTable(
+  "upkeep_task",
+  {
+    id: text("id").primaryKey(),
+    childId: text("child_id")
+      .notNull()
+      .references(() => child.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    description: text("description"),
+    // Null means an unpaid task: it shows no wages and posts nothing to the
+    // ledger. The money is optional, the chore is not.
+    valueCents: integer("value_cents"),
+    // False marks a nice-to-have: it still pays and still grants XP when done,
+    // but it never reads as missed and never counts as outstanding.
+    isRequired: integer("is_required", { mode: "boolean" }).notNull().default(true),
+    rewardXp: integer("reward_xp"),
+    estimatedMinutes: integer("estimated_minutes"),
+    isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+    sortOrder: integer("sort_order").notNull().default(0),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+  },
+  (table) => [
+    index("upkeep_task_child_active_idx").on(table.childId, table.isActive),
+  ]
+);
+
+/** How often a task recurs. Same shape as questSchedule, minus school days. */
+export const upkeepTaskSchedule = sqliteTable("upkeep_task_schedule", {
+  id: text("id").primaryKey(),
+  taskId: text("task_id")
+    .notNull()
+    .unique()
+    .references(() => upkeepTask.id, { onDelete: "cascade" }),
+  frequency: text("frequency", { enum: ["once", "daily", "weekly", "monthly"] }).notNull(),
+  daysOfWeek: text("days_of_week"), // JSON array e.g. ["sat"]; used when weekly
+  intervalWeeks: integer("interval_weeks"), // used when weekly; 1 = every week
+  startDate: text("start_date").notNull(), // ISO YYYY-MM-DD
+  endDate: text("end_date"), // null = indefinite
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+});
+
+/**
+ * One materialized row per (task, day).
+ *
+ * There is no "skipped": a quest has skip/stuck because a hero needs to explain
+ * unfinished schoolwork, but an undone chore is simply undone and derives as
+ * missed. "excused" is the parent's counterpart — the only way to retire a
+ * task without claiming the work happened.
+ *
+ * "missed" is NOT a status here. It is derived (required + past + pending) so
+ * the feature needs no sweep job and no state that can drift.
+ */
+export const upkeepTaskAssignment = sqliteTable(
+  "upkeep_task_assignment",
+  {
+    id: text("id").primaryKey(),
+    taskId: text("task_id")
+      .notNull()
+      .references(() => upkeepTask.id, { onDelete: "cascade" }),
+    childId: text("child_id")
+      .notNull()
+      .references(() => child.id, { onDelete: "cascade" }),
+    date: text("date").notNull(), // ISO YYYY-MM-DD
+    status: text("status", {
+      enum: ["pending", "awaiting_approval", "completed", "excused"],
+    })
+      .notNull()
+      .default("pending"),
+    completedAt: integer("completed_at", { mode: "timestamp" }),
+    // Not foreign keys: a PIN hero has no row in `user` (they are recorded as
+    // "child:<id>"), and the demo actor has none either. Same reasoning as
+    // parentAlertDismissal.userId.
+    completedByUserId: text("completed_by_user_id"),
+    approvedAt: integer("approved_at", { mode: "timestamp" }),
+    approvedByUserId: text("approved_by_user_id"),
+    notes: text("notes"),
+    // Why it was excused, or why an approval was turned down.
+    statusReason: text("status_reason"),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("upkeep_assignment_child_task_date_idx").on(
+      table.childId,
+      table.taskId,
+      table.date
+    ),
+    index("upkeep_assignment_child_date_idx").on(table.childId, table.date),
+    index("upkeep_assignment_child_status_idx").on(
+      table.childId,
+      table.status,
+      table.date
+    ),
+  ]
+);
+
+/**
+ * Append-only record of wages. Never updated, never deleted.
+ *
+ * Un-completing a paid task posts a `reversal` rather than removing the
+ * `earned` row, so history stays auditable and the balance is always plainly
+ * SUM(amount_cents).
+ *
+ * `taskTitle` is snapshotted rather than joined, for the same reason
+ * parentAlert copies its quest details in: a ledger line has to still read
+ * correctly after the task is renamed or retired.
+ */
+export const wageLedgerEntry = sqliteTable(
+  "wage_ledger_entry",
+  {
+    id: text("id").primaryKey(),
+    childId: text("child_id")
+      .notNull()
+      .references(() => child.id, { onDelete: "cascade" }),
+    type: text("type", { enum: ["earned", "payout", "reversal"] }).notNull(),
+    // Signed: earned positive, payout and reversal negative.
+    amountCents: integer("amount_cents").notNull(),
+    taskAssignmentId: text("task_assignment_id").references(
+      () => upkeepTaskAssignment.id,
+      { onDelete: "set null" }
+    ),
+    taskTitle: text("task_title"),
+    date: text("date").notNull(), // ISO YYYY-MM-DD
+    note: text("note"),
+    createdByUserId: text("created_by_user_id"),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  },
+  (table) => [
+    index("wage_ledger_child_idx").on(table.childId, table.createdAt),
+    index("wage_ledger_assignment_idx").on(table.taskAssignmentId),
   ]
 );

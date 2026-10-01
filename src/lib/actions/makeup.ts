@@ -6,8 +6,9 @@ import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { requireChildAccess, isChildActor } from "@/lib/auth/access";
 import { sanitizeText } from "@/lib/utils/sanitize";
-import { formatDate } from "@/lib/utils/dates";
-import { DAYS_OF_WEEK, addDaysToDate, type DayOfWeek } from "@/lib/utils/schedule-days";
+import { addDays, todayInZone } from "@/lib/utils/dates";
+import { getTimezoneForChild } from "@/lib/services/family-timezone";
+import { DAYS_OF_WEEK, type DayOfWeek } from "@/lib/utils/schedule-days";
 import {
   getAssignmentsForDateRange,
   generateAssignmentsFromSchedules,
@@ -47,7 +48,7 @@ async function requireParent(childId: string) {
  */
 export async function getMakeupSettings(childId: string): Promise<MakeupSettings> {
   await requireChildAccess(childId);
-  const today = formatDate(new Date());
+  const today = todayInZone(await getTimezoneForChild(childId));
 
   const [rows, marked] = await Promise.all([
     db
@@ -183,9 +184,9 @@ export async function getMakeupView(childId: string, date: string): Promise<Make
 
   const windowStart = latestOf(
     makeupWindowStart(date),
-    rows[0]?.createdAt ? formatDate(rows[0].createdAt) : null
+    rows[0]?.createdAt ? todayInZone(await getTimezoneForChild(childId), rows[0].createdAt) : null
   );
-  const windowEnd = addDaysToDate(date, -1);
+  const windowEnd = addDays(date, -1);
 
   if (windowStart > windowEnd) {
     return { isMakeupDay: isMakeupDay(date, settings), reason: makeupReason(date, settings), settings, assignments: [] };

@@ -5,9 +5,10 @@ import { eq, and, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { sanitizeName, sanitizeText } from "@/lib/utils/sanitize";
-import { formatDate } from "@/lib/utils/dates";
+import { todayInZone } from "@/lib/utils/dates";
 import { requireChildAccess, requireQuestAccess } from "@/lib/auth/access";
 import { clearPendingAssignmentsForQuest } from "@/lib/services/quest-assignment-sync";
+import { getTimezoneForChild } from "@/lib/services/family-timezone";
 
 export async function getQuests(childId: string) {
   await requireChildAccess(childId);
@@ -140,7 +141,7 @@ export async function updateQuest(
 }
 
 export async function deleteQuest(questId: string) {
-  await requireQuestAccess(questId, { write: true });
+  const { childId } = await requireQuestAccess(questId, { write: true });
   await db
     .update(schema.quest)
     .set({ isActive: false, updatedAt: new Date() })
@@ -152,5 +153,6 @@ export async function deleteQuest(questId: string) {
   // keeps showing up in Today's Quests and the dashboard's Upcoming Quests.
   // Only pending rows from today forward: completed/skipped assignments are
   // the hero's history and stay in the learning log.
-  await clearPendingAssignmentsForQuest(questId, formatDate(new Date()));
+  const timeZone = await getTimezoneForChild(childId);
+  await clearPendingAssignmentsForQuest(questId, todayInZone(timeZone));
 }

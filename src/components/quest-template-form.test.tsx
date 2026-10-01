@@ -36,6 +36,7 @@ describe("QuestTemplateForm", () => {
         open={true}
         onClose={vi.fn()}
         schoolDays={schoolDays}
+        timeZone="America/Denver"
       />
     );
     expect(screen.getByLabelText("Quest Title")).toBeInTheDocument();
@@ -64,6 +65,7 @@ describe("QuestTemplateForm", () => {
         open={true}
         onClose={vi.fn()}
         schoolDays={schoolDays}
+        timeZone="America/Denver"
       />
     );
     expect(screen.getByLabelText("Quest Title")).toHaveValue("Read Chapter 5");
@@ -81,6 +83,7 @@ describe("QuestTemplateForm", () => {
         open={true}
         onClose={vi.fn()}
         schoolDays={schoolDays}
+        timeZone="America/Denver"
       />
     );
     expect(screen.getByText("Math")).toBeInTheDocument();
@@ -97,6 +100,7 @@ describe("QuestTemplateForm", () => {
         open={true}
         onClose={onClose}
         schoolDays={schoolDays}
+        timeZone="America/Denver"
       />
     );
     await user.click(screen.getByText("Cancel"));
@@ -112,6 +116,7 @@ describe("QuestTemplateForm", () => {
         open={true}
         onClose={vi.fn()}
         schoolDays={schoolDays}
+        timeZone="America/Denver"
       />
     );
     await user.click(screen.getByText("On a schedule"));
@@ -130,6 +135,7 @@ describe("QuestTemplateForm", () => {
         open={true}
         onClose={vi.fn()}
         schoolDays={schoolDays}
+        timeZone="America/Denver"
       />
     );
     await user.click(screen.getByText("On a schedule"));
@@ -174,6 +180,7 @@ describe("QuestTemplateForm", () => {
           open={true}
           onClose={vi.fn()}
           schoolDays={schoolDays}
+          timeZone="America/Denver"
         />
       );
       expect(screen.getByText("Anytime")).toHaveAttribute("aria-pressed", "false");
@@ -191,6 +198,7 @@ describe("QuestTemplateForm", () => {
           open={true}
           onClose={vi.fn()}
           schoolDays={schoolDays}
+          timeZone="America/Denver"
         />
       );
       await user.type(screen.getByLabelText("Quest Title"), "New Quest");
@@ -207,6 +215,7 @@ describe("QuestTemplateForm", () => {
           open={true}
           onClose={vi.fn()}
           schoolDays={schoolDays}
+          timeZone="America/Denver"
         />
       );
       await user.click(screen.getByText("Anytime"));
@@ -224,6 +233,7 @@ describe("QuestTemplateForm", () => {
           open={true}
           onClose={vi.fn()}
           schoolDays={schoolDays}
+          timeZone="America/Denver"
         />
       );
       expect(screen.getByText("On a schedule")).toHaveAttribute("aria-pressed", "true");
@@ -242,6 +252,7 @@ describe("QuestTemplateForm", () => {
           open={true}
           onClose={vi.fn()}
           schoolDays={schoolDays}
+          timeZone="America/Denver"
         />
       );
       expect(screen.getByText("Anytime")).toHaveAttribute("aria-pressed", "true");
@@ -288,6 +299,7 @@ describe("QuestTemplateForm schedule-gap warning", () => {
         open={true}
         onClose={vi.fn()}
         schoolDays={schoolDays}
+        timeZone="America/Denver"
         blockDaysBySubject={blockDaysBySubject}
       />
     );

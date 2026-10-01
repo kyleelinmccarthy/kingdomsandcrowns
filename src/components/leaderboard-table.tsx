@@ -139,10 +139,10 @@ export function CombinedLeaderboardTable({
 
   return (
     <GameFrame title="Community Hall" icon={<GameIcon name="temple" className="size-4 text-[var(--gold-bright)]" />}>
-      {/* Six columns can't fit narrow phones — allow horizontal scroll while
+      {/* Seven columns can't fit narrow phones — allow horizontal scroll while
           keeping a min-width so the columns stay aligned and legible. */}
       <div className="-mx-1 overflow-x-auto px-1">
-        <div className="min-w-[30rem] space-y-1">
+        <div className="min-w-[34rem] space-y-1">
         {/* Header */}
         <div className="flex items-center gap-3 px-3 py-1.5 text-xs font-medium text-muted-foreground">
           <span className="w-8 text-center">Rank</span>
@@ -151,6 +151,7 @@ export function CombinedLeaderboardTable({
           <span className="w-16 text-right">Quest Streak</span>
           <span className="w-16 text-right">Best Streak</span>
           <span className="w-16 text-right">Trophies</span>
+          <span className="w-16 text-right">Renown</span>
         </div>
 
         {entries.map((entry, i) => {
@@ -213,6 +214,11 @@ export function CombinedLeaderboardTable({
               <div className="w-16 text-right">
                 <span className="text-sm text-muted-foreground">
                   {entry.badges}
+                </span>
+              </div>
+              <div className="w-16 text-right">
+                <span className="text-sm text-muted-foreground">
+                  {entry.upkeepXp}
                 </span>
               </div>
             </div>

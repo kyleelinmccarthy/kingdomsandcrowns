@@ -1,6 +1,7 @@
+import { addDays } from "./dates";
 import { describe, it, expect } from "vitest";
 import { getDefaultUSSchoolHolidays } from "./school-holidays";
-import { weekdayOfDate, addDaysToDate } from "./schedule-days";
+import { weekdayOfDate } from "./schedule-days";
 
 function byName(holidays: ReturnType<typeof getDefaultUSSchoolHolidays>, name: string) {
   const found = holidays.find((h) => h.name === name);
@@ -46,9 +47,9 @@ describe("getDefaultUSSchoolHolidays", () => {
     const tg = byName(holidays, "Thanksgiving Break");
     expect(weekdayOfDate(tg.startDate)).toBe("wed");
     expect(weekdayOfDate(tg.endDate)).toBe("fri");
-    expect(addDaysToDate(tg.startDate, 2)).toBe(tg.endDate);
+    expect(addDays(tg.startDate, 2)).toBe(tg.endDate);
     expect(tg.startDate.slice(0, 7)).toBe("2026-11");
-    const thursday = addDaysToDate(tg.startDate, 1);
+    const thursday = addDays(tg.startDate, 1);
     const day = Number(thursday.slice(8, 10));
     expect(day).toBeGreaterThanOrEqual(22);
     expect(day).toBeLessThanOrEqual(28);
@@ -84,7 +85,7 @@ describe("getDefaultUSSchoolHolidays", () => {
     const sb = byName(holidays, "Spring Break");
     expect(weekdayOfDate(sb.startDate)).toBe("mon");
     expect(weekdayOfDate(sb.endDate)).toBe("fri");
-    expect(addDaysToDate(sb.startDate, 4)).toBe(sb.endDate);
+    expect(addDays(sb.startDate, 4)).toBe(sb.endDate);
     expect(sb.startDate.slice(0, 7)).toBe("2027-03");
   });
 

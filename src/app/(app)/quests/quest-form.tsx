@@ -63,6 +63,7 @@ export function QuestForm({
   nowTime,
   latestStatusByQuestId = {},
   today,
+  timeZone,
   initialSchoolingMode = "unstructured",
   isChildView = false,
 }: {
@@ -74,6 +75,8 @@ export function QuestForm({
   nowTime?: string;
   latestStatusByQuestId?: Record<string, { status: string; date: string }>;
   today: string;
+  /** The family's IANA timezone — the authority for correcting "today" client-side. */
+  timeZone: string;
   initialSchoolingMode?: SchoolingMode;
   /**
    * Whether a hero is looking at their own day. Gates the "I'm Stuck" escape
@@ -96,7 +99,7 @@ export function QuestForm({
   // server's guess (used for the first paint) can be a day off right around
   // midnight. When the calendar date itself turns out to be wrong, refetch
   // everything for the corrected date.
-  const { date: browserToday, time: browserNowTime, dateChanged } = useBrowserToday(today, nowTime ?? "");
+  const { date: browserToday, time: browserNowTime, dateChanged } = useBrowserToday(today, nowTime ?? "", timeZone);
   const [freshData, setFreshData] = useState<{
     todayAssignments: TodayAssignment[];
     todaysBlocks: ScheduleBlock[];

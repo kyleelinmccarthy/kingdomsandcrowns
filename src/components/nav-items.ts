@@ -51,7 +51,7 @@ export const MAIN_NAV: NavEntry[] = [
         href: "/quests",
         label: "Quest Log",
         icon: "scroll",
-        description: "Your tasks and chores. Complete quests to earn XP and rewards.",
+        description: "Your quests for today — complete them to earn XP and rewards.",
       },
       {
         href: "/side-quests",

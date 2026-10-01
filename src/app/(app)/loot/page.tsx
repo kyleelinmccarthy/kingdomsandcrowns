@@ -15,6 +15,9 @@ import { CrownsPanel } from "@/components/crowns-panel";
 import { Avatar } from "@/components/avatar";
 import { getRewardItemLabel, MOUNTS, isUnlocked, type AvatarConfig } from "@/lib/utils/avatar-catalog";
 import { GameIcon, BADGE_ICONS, SPELLBOOK_ICON } from "@/components/game-icon";
+import { loadUpkeepContext } from "@/lib/services/upkeep-context";
+import { getWageBalance } from "@/lib/actions/wages";
+import { WagesPanel } from "@/components/wages-panel";
 
 export default async function LootPage({
   searchParams,
@@ -71,6 +74,9 @@ export default async function LootPage({
     getChildAvatarUnlocks(activeChild.id),
   ]);
 
+  const upkeepContext = await loadUpkeepContext(activeChild.id);
+  const wageBalance = upkeepContext?.enabled ? await getWageBalance(activeChild.id) : null;
+
   const earnedIds = new Set(earnedBadges.map((b) => b.badge.id));
 
   const xp = activeChild.currentXp;
@@ -99,6 +105,10 @@ export default async function LootPage({
           <ChildSelector kids={allChildren} selectedId={activeChild.id} />
         )}
       </div>
+
+      {wageBalance !== null && (
+        <WagesPanel balanceCents={wageBalance} isChildView={isChildView} />
+      )}
 
       {/* Hero Stats — Level, XP, Streaks */}
       <div className="grid gap-4 sm:grid-cols-3">

@@ -1,3 +1,5 @@
+import { addDays } from "./dates";
+
 const DAY_NAMES = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
 
 /**
@@ -53,7 +55,7 @@ export function getScheduledDates(
         results.push(current);
       }
     }
-    current = nextDay(current);
+    current = addDays(current, 1);
   }
 
   return results;
@@ -86,10 +88,4 @@ function weeksSince(startDate: string, isoDate: string): number {
   const start = new Date(startDate + "T00:00:00Z").getTime();
   const current = new Date(isoDate + "T00:00:00Z").getTime();
   return Math.floor((current - start) / (7 * 24 * 60 * 60 * 1000));
-}
-
-function nextDay(isoDate: string): string {
-  const d = new Date(isoDate + "T00:00:00Z");
-  d.setUTCDate(d.getUTCDate() + 1);
-  return d.toISOString().slice(0, 10);
 }

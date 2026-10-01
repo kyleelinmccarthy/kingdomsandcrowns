@@ -1,4 +1,4 @@
-import { addDaysToDate } from "./schedule-days";
+import { addDays } from "./dates";
 
 export type HolidayPreset = { name: string; startDate: string; endDate: string };
 
@@ -55,13 +55,13 @@ export function getDefaultUSSchoolHolidays(referenceDate: Date = new Date()): Ho
     { name: "Labor Day", startDate: laborDay, endDate: laborDay },
     {
       name: "Thanksgiving Break",
-      startDate: addDaysToDate(thanksgivingThursday, -1),
-      endDate: addDaysToDate(thanksgivingThursday, 1),
+      startDate: addDays(thanksgivingThursday, -1),
+      endDate: addDays(thanksgivingThursday, 1),
     },
     { name: "Winter Break", startDate: isoDate(startYear, 11, 23), endDate: isoDate(endYear, 0, 2) },
     { name: "MLK Day", startDate: mlkDay, endDate: mlkDay },
     { name: "Presidents Day", startDate: presidentsDay, endDate: presidentsDay },
-    { name: "Spring Break", startDate: springBreakStart, endDate: addDaysToDate(springBreakStart, 4) },
+    { name: "Spring Break", startDate: springBreakStart, endDate: addDays(springBreakStart, 4) },
     { name: "Memorial Day", startDate: memorialDay, endDate: memorialDay },
     { name: "Summer Break", startDate: isoDate(endYear, 5, 1), endDate: isoDate(endYear, 7, 15) },
   ];

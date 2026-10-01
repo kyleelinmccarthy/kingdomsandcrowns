@@ -1,7 +1,8 @@
 import { and, eq, gte, inArray } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
-import { formatDate } from "@/lib/utils/dates";
+import { addDays, todayInZone } from "@/lib/utils/dates";
+import { usableTimeZone } from "@/lib/services/family-timezone";
 import { computeStreak, computeLongestStreak, type DateRange } from "@/lib/utils/streak";
 import { parseSchoolDays, parseStreakOptionalDays } from "@/lib/utils/schedule-days";
 
@@ -34,9 +35,19 @@ const LOOKBACK_DAYS = 365;
  *
  * Returns the number of heroes whose stored streak actually moved.
  */
+async function familyToday(familyId: string): Promise<string> {
+  const rows = await db
+    .select({ timezone: schema.family.timezone })
+    .from(schema.family)
+    .where(eq(schema.family.id, familyId))
+    .limit(1);
+  return todayInZone(usableTimeZone(rows[0]?.timezone));
+}
+
 export async function recomputeFamilyStreaks(
   familyId: string,
-  today: Date = new Date()
+  /** The family's calendar date, when the caller already knows it; otherwise read from the family's timezone. */
+  todayOverride?: string
 ): Promise<number> {
   const children = await db
     .select({
@@ -51,9 +62,8 @@ export async function recomputeFamilyStreaks(
 
   if (children.length === 0) return 0;
 
-  const windowStart = new Date(today);
-  windowStart.setDate(windowStart.getDate() - LOOKBACK_DAYS);
-  const windowStartDate = formatDate(windowStart);
+  const today = todayOverride ?? (await familyToday(familyId));
+  const windowStartDate = addDays(today, -LOOKBACK_DAYS);
   const childIds = children.map((c) => c.id);
 
   // Two reads for the whole family rather than two per hero: this runs from a

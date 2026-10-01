@@ -15,7 +15,8 @@ import { getBadges, getChildBadges, checkAndAwardBadges } from "@/lib/actions/ba
 import { getChildAvatarUnlocks } from "@/lib/actions/avatar";
 import { getSeasons } from "@/lib/actions/seasons";
 import { crownChoices } from "@/lib/utils/seasons";
-import { formatDate } from "@/lib/utils/dates";
+import { todayInZone } from "@/lib/utils/dates";
+import { getFamilyTimezone } from "@/lib/services/family-timezone";
 import { weekdayOfDate, currentTimeOfDay } from "@/lib/utils/schedule-days";
 import { getStructuredCardLock } from "@/lib/utils/quest-ordering";
 import { levelFromXp } from "@/lib/utils/level";
@@ -92,7 +93,8 @@ export default async function TavernPage({
 
   await checkAndAwardBadges(activeChild.id);
 
-  const today = formatDate(new Date());
+  const timeZone = await getFamilyTimezone();
+  const today = todayInZone(timeZone);
   await generateAssignmentsFromSchedules(activeChild.id, today, today);
 
   const [subjects, recentActivities, allBadges, earnedBadges, todayAssignments, quests, avatarUnlocks, allBlocks, latestStatusByQuestId, schoolingMode, seasons, makeup, missedDays] = await Promise.all([
@@ -322,6 +324,7 @@ export default async function TavernPage({
             nowTime={currentTimeOfDay()}
             latestStatusByQuestId={latestStatusByQuestId}
             today={today}
+            timeZone={timeZone}
             initialSchoolingMode={schoolingMode}
             isChildView={isChildView}
           />

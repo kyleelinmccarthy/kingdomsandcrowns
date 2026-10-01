@@ -1,4 +1,5 @@
-import { addDaysToDate, weekdayOfDate, type DayOfWeek, DAYS_OF_WEEK } from "./schedule-days";
+import { addDays } from "./dates";
+import { weekdayOfDate, type DayOfWeek, DAYS_OF_WEEK } from "./schedule-days";
 
 /**
  * Catch-up: what happens to a quest a hero didn't get to on the day it was set.
@@ -26,7 +27,7 @@ export const MAKEUP_LOOKBACK_DAYS = 7;
 
 /** The earliest date catch-up work is drawn from, given today. */
 export function makeupWindowStart(today: string): string {
-  return addDaysToDate(today, -MAKEUP_LOOKBACK_DAYS);
+  return addDays(today, -MAKEUP_LOOKBACK_DAYS);
 }
 
 /**
@@ -158,7 +159,7 @@ const WEEKDAY_NAMES: Record<DayOfWeek, string> = {
  * today's weekday, and "Thursday" sitting on a Thursday board reads as today.
  */
 export function formatMissedDate(date: string, today: string): string {
-  if (date === addDaysToDate(today, -1)) return "Yesterday";
-  if (date >= addDaysToDate(today, -6) && date < today) return WEEKDAY_NAMES[weekdayOfDate(date)];
+  if (date === addDays(today, -1)) return "Yesterday";
+  if (date >= addDays(today, -6) && date < today) return WEEKDAY_NAMES[weekdayOfDate(date)];
   return date;
 }

@@ -7,6 +7,7 @@ import { GameFrame } from "@/components/game-frame";
 import { GameIcon } from "@/components/game-icon";
 import { saveLearningLog, markLogCopied } from "@/lib/actions/chronicles";
 import { SchoolCalendar } from "@/components/school-calendar";
+import { addDays, weekStartOf, todayInZone } from "@/lib/utils/dates";
 
 type SchoolBreak = {
   id: string;
@@ -16,12 +17,6 @@ type SchoolBreak = {
 };
 
 // ── Week Navigation ─────────────────────────────────────────
-
-function addDays(iso: string, days: number): string {
-  const d = new Date(iso + "T12:00:00");
-  d.setDate(d.getDate() + days);
-  return d.toISOString().split("T")[0];
-}
 
 function formatRange(startDate: string, endDate: string): string {
   const months = [
@@ -45,14 +40,6 @@ function getOverlappingBreak(weekStart: string, weekEnd: string, breaks: SchoolB
   return breaks.find((b) => weekStart <= b.endDate && weekEnd >= b.startDate) ?? null;
 }
 
-function getThisWeekStart(): string {
-  const d = new Date();
-  const day = d.getDay();
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-  d.setDate(diff);
-  return d.toISOString().split("T")[0];
-}
-
 // ── Main Component ──────────────────────────────────────────
 
 export function LongRest({
@@ -65,6 +52,7 @@ export function LongRest({
   familyId,
   isChildView,
   today,
+  timeZone,
 }: {
   generatedText: string;
   savedEditedText: string | null;
@@ -74,8 +62,10 @@ export function LongRest({
   breaks: SchoolBreak[];
   familyId: string;
   isChildView: boolean;
-  /** Server's calendar date; the calendar panel corrects it to the browser's. */
+  /** Server's calendar date; the calendar panel re-reads it against the family's clock. */
   today: string;
+  /** The family's IANA timezone — the authority for what day "this week" means. */
+  timeZone: string;
 }) {
   const [text, setText] = useState(savedEditedText ?? generatedText);
   const [copied, setCopied] = useState(false);
@@ -104,7 +94,7 @@ export function LongRest({
   }
 
   const overlapping = getOverlappingBreak(startDate, endDate, breaks);
-  const thisWeekStart = getThisWeekStart();
+  const thisWeekStart = weekStartOf(todayInZone(timeZone));
   const isThisWeek = startDate === thisWeekStart;
 
   // ── Copy / Save ──
@@ -191,6 +181,7 @@ export function LongRest({
           familyId={familyId}
           breaks={breaks}
           today={today}
+          timeZone={timeZone}
           canEdit={!isChildView}
         />
       </div>

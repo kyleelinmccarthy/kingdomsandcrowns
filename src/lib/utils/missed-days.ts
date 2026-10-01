@@ -1,4 +1,5 @@
-import { addDaysToDate, weekdayOfDate } from "./schedule-days";
+import { addDays } from "./dates";
+import { weekdayOfDate } from "./schedule-days";
 import { isDayOff, type StreakOptions } from "./streak";
 
 const WEEKDAY_NAMES: Record<string, string> = {
@@ -89,7 +90,7 @@ export function selectMissedDays(input: MissedDaysInput): MissedDay[] {
   let breakerFound = false;
 
   for (let i = 1; i <= windowDays; i++) {
-    const date = addDaysToDate(today, -i);
+    const date = addDays(today, -i);
     if (notBefore && date < notBefore) break;
     if (isDayOff(date, input)) continue;
 

@@ -2,7 +2,8 @@ import { and, eq, gt } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
-import { formatDate } from "@/lib/utils/dates";
+import { todayInZone } from "@/lib/utils/dates";
+import { getTimezoneForChild } from "@/lib/services/family-timezone";
 import { planSeasonTransition, type TransitionPlan } from "@/lib/utils/seasons";
 import { normalizeAvatarConfig } from "@/lib/utils/avatar-catalog";
 
@@ -119,7 +120,7 @@ export async function syncSeasonForGrade(
   newGrade: string | null,
   today: string
 ): Promise<TransitionPlan> {
-  const date = ISO_DATE.test(today) ? today : formatDate(new Date());
+  const date = ISO_DATE.test(today) ? today : todayInZone(await getTimezoneForChild(childId));
   const state = await loadSeasonState(childId);
   const plan = planSeasonTransition({
     openSeason: state.open,
@@ -151,6 +152,6 @@ export async function ensureSeason(childId: string): Promise<void> {
     type: "open",
     grade: child.grade,
     ordinal: 1,
-    startDate: formatDate(child.createdAt),
+    startDate: todayInZone(await getTimezoneForChild(childId), child.createdAt),
   });
 }

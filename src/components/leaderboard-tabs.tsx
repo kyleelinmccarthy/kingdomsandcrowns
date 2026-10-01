@@ -17,6 +17,7 @@ type FamilyEntry = {
   currentStreak: number;
   longestStreak: number;
   badgeCount: number;
+  upkeepXp: number;
 };
 
 type LeaderboardTabsProps = {
@@ -33,6 +34,7 @@ const CATEGORY_LABELS: Record<LeaderboardCategory, { label: string; valueLabel: 
   streak: { label: "Active Quest Streak", valueLabel: "Days" },
   longestStreak: { label: "Legendary Endurance", valueLabel: "Days" },
   badges: { label: "Trophies Collected", valueLabel: "Trophies" },
+  upkeep: { label: "Steward's Renown", valueLabel: "Renown" },
 };
 
 type CategoryView = "all" | LeaderboardCategory;

@@ -1,4 +1,4 @@
-import { addDaysToDate } from "./schedule-days";
+import { addDays } from "./dates";
 
 /** An inclusive ISO ("YYYY-MM-DD") span of days off — a holiday or a break. */
 export type BreakRange = {
@@ -31,7 +31,7 @@ export function isIsoDate(value: string): boolean {
 /** Whole days covered by an inclusive range — a single-day holiday is 1. */
 export function daysInRange(startDate: string, endDate: string): number {
   let count = 0;
-  for (let day = startDate; day <= endDate; day = addDaysToDate(day, 1)) count++;
+  for (let day = startDate; day <= endDate; day = addDays(day, 1)) count++;
   return count;
 }
 

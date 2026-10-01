@@ -305,7 +305,13 @@ export async function requireSubjectAccess(
   return requireChildAccess(rows[0].childId, opts);
 }
 
-/** Resolve access via a quest id (looks up the owning child). */
+/**
+ * Resolve access via a quest id (looks up the owning child).
+ *
+ * Returns the owning `childId` alongside the access result — the lookup
+ * already fetches it for the guard, so callers that need it (e.g. to derive
+ * the family's timezone) can reuse it instead of querying again.
+ */
 export async function requireQuestAccess(
   questId: string,
   opts?: { write?: boolean }
@@ -316,7 +322,8 @@ export async function requireQuestAccess(
     .where(eq(schema.quest.id, questId))
     .limit(1);
   if (!rows[0]) throw new Error("Quest not found.");
-  return requireChildAccess(rows[0].childId, opts);
+  const result = await requireChildAccess(rows[0].childId, opts);
+  return { ...result, childId: rows[0].childId };
 }
 
 /** Resolve access via an activity-log id (looks up the owning child). */
@@ -391,6 +398,34 @@ export async function requireScheduleBlockAccess(
     .where(eq(schema.scheduleBlock.id, blockId))
     .limit(1);
   if (!rows[0]) throw new Error("Schedule block not found.");
+  return requireChildAccess(rows[0].childId, opts);
+}
+
+/** Resolve access via an upkeep-task id (looks up the owning child). */
+export async function requireUpkeepTaskAccess(
+  taskId: string,
+  opts?: { write?: boolean }
+) {
+  const rows = await db
+    .select({ childId: schema.upkeepTask.childId })
+    .from(schema.upkeepTask)
+    .where(eq(schema.upkeepTask.id, taskId))
+    .limit(1);
+  if (!rows[0]) throw new Error("Upkeep task not found.");
+  return requireChildAccess(rows[0].childId, opts);
+}
+
+/** Resolve access via an upkeep-assignment id (looks up the owning child). */
+export async function requireUpkeepAssignmentAccess(
+  assignmentId: string,
+  opts?: { write?: boolean }
+) {
+  const rows = await db
+    .select({ childId: schema.upkeepTaskAssignment.childId })
+    .from(schema.upkeepTaskAssignment)
+    .where(eq(schema.upkeepTaskAssignment.id, assignmentId))
+    .limit(1);
+  if (!rows[0]) throw new Error("Upkeep assignment not found.");
   return requireChildAccess(rows[0].childId, opts);
 }
 

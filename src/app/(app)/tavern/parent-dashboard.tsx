@@ -10,7 +10,8 @@ import { getSubjectScheduleGaps } from "@/lib/actions/schedule-gaps";
 import { getMakeupView } from "@/lib/actions/makeup";
 import { getMissedDaysView } from "@/lib/actions/excused-days";
 import { MissedDays } from "@/components/missed-days";
-import { formatDate } from "@/lib/utils/dates";
+import { addDays, todayInZone } from "@/lib/utils/dates";
+import { getFamilyTimezone } from "@/lib/services/family-timezone";
 import { formatTimeOfDay, weekdayOfDate } from "@/lib/utils/schedule-days";
 import {
   earliestStartTimeByDayAndSubject,
@@ -29,10 +30,9 @@ import type { getChildren } from "@/lib/actions/children";
 type ChildRow = Awaited<ReturnType<typeof getChildren>>[number];
 
 export async function ParentDashboard({ allChildren }: { allChildren: ChildRow[] }) {
-  const today = formatDate(new Date());
-  const weekOutDate = new Date();
-  weekOutDate.setDate(weekOutDate.getDate() + 6);
-  const weekOut = formatDate(weekOutDate);
+  const timeZone = await getFamilyTimezone();
+  const today = todayInZone(timeZone);
+  const weekOut = addDays(today, 6);
 
   await Promise.all(
     allChildren.map((child) => generateAssignmentsFromSchedules(child.id, today, weekOut))

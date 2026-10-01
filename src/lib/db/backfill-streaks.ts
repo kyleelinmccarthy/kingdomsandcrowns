@@ -22,6 +22,8 @@ import { drizzle } from "drizzle-orm/libsql";
 import * as schema from "./schema";
 import { computeStreak, computeLongestStreak, type DateRange } from "../utils/streak";
 import { parseSchoolDays, parseStreakOptionalDays } from "../utils/schedule-days";
+import { todayInZone } from "../utils/dates";
+import { usableTimeZone, DEFAULT_TIMEZONE } from "../services/family-timezone";
 
 const client = createClient({
   url: process.env.TURSO_DATABASE_URL || "file:./local.db",
@@ -33,11 +35,15 @@ const db = drizzle(client, { schema });
 const dryRun = process.argv.includes("--dry-run");
 
 async function main() {
-  const today = new Date();
-
-  // Three whole-table reads instead of a few queries per hero — this usually
+  // Five whole-table reads instead of a few queries per hero — this usually
   // runs against a remote database, where round-trips dominate.
-  const [children, breakRows, activityRows, excusedRows] = await Promise.all([
+  const [families, children, breakRows, activityRows, excusedRows] = await Promise.all([
+    db
+      .select({
+        id: schema.family.id,
+        timezone: schema.family.timezone,
+      })
+      .from(schema.family),
     db
       .select({
         id: schema.child.id,
@@ -72,6 +78,17 @@ async function main() {
       .from(schema.excusedDay),
   ]);
 
+  // "Today" depends on where a family lives — 02:00 UTC is still yesterday
+  // evening in Denver — so it is resolved per family, once, from this map,
+  // not taken as a single UTC snapshot for the whole sweep. A family with no
+  // row here (shouldn't happen, but the map is keyed defensively) falls back
+  // to DEFAULT_TIMEZONE, matching how the app treats a missing timezone
+  // everywhere else.
+  const timeZoneByFamily = new Map<string, string>();
+  for (const family of families) {
+    timeZoneByFamily.set(family.id, usableTimeZone(family.timezone));
+  }
+
   const breaksByFamily = new Map<string, DateRange[]>();
   for (const row of breakRows) {
     const list = breaksByFamily.get(row.familyId) ?? [];
@@ -104,6 +121,8 @@ async function main() {
       excusedDates: excusedByChild.get(child.id) ?? [],
     };
     const dates = datesByChild.get(child.id) ?? [];
+    const timeZone = timeZoneByFamily.get(child.familyId) ?? DEFAULT_TIMEZONE;
+    const today = todayInZone(timeZone);
 
     const currentStreak = computeStreak(dates, today, options);
     // Never lower an existing record — only repair one the logs prove is short.

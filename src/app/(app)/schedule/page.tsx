@@ -18,7 +18,8 @@ import { ScheduleGapNotice } from "@/components/schedule-gap-notice";
 import { RecessBlocksPanel } from "@/components/recess-blocks-panel";
 import { getSubjectScheduleGaps } from "@/lib/actions/schedule-gaps";
 import { getSchoolBreaks } from "@/lib/actions/school-breaks";
-import { formatDate } from "@/lib/utils/dates";
+import { todayInZone } from "@/lib/utils/dates";
+import { getFamilyTimezone } from "@/lib/services/family-timezone";
 
 export default async function SchedulePage({
   searchParams,
@@ -58,6 +59,7 @@ export default async function SchedulePage({
     ]);
 
   const canEdit = !isChildView || selfManageEnabled;
+  const timeZone = await getFamilyTimezone();
 
   return (
     <div className="space-y-6">
@@ -91,7 +93,8 @@ export default async function SchedulePage({
         <SchoolCalendar key={activeChild.id}
           familyId={activeChild.familyId}
           breaks={breaks}
-          today={formatDate(new Date())}
+          today={todayInZone(timeZone)}
+          timeZone={timeZone}
           canEdit={!isChildView}
         />
       )}
