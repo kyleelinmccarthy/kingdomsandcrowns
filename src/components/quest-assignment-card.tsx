@@ -13,6 +13,7 @@ import {
 } from "@/lib/actions/quest-assignments";
 import { useQuestTimer, formatElapsed } from "@/hooks/use-quest-timer";
 import { GameIcon } from "@/components/game-icon";
+import { formatMovedFrom } from "@/lib/utils/missed-days";
 import { getRewardItemLabel } from "@/lib/utils/avatar-catalog";
 import { hasMeaningfulNotes } from "@/lib/utils/sanitize";
 
@@ -24,6 +25,8 @@ type AssignmentWithDetails = {
     notes: string | null;
     /** Why the quest was skipped or set aside. Never Scribe's Notes. */
     statusReason: string | null;
+    /** Set when a grown-up moved this quest off the day it was first set for. */
+    originalDate?: string | null;
   };
   quest: {
     id: string;
@@ -47,6 +50,7 @@ export function QuestAssignmentCard({
   isChildView,
   structuredNext = null,
   allowChildSkip = false,
+  missedFrom = null,
 }: {
   data: AssignmentWithDetails;
   isChildView: boolean;
@@ -64,6 +68,15 @@ export function QuestAssignmentCard({
    * grown-ups, so this is permission, not privacy.
    */
   allowChildSkip?: boolean;
+  /**
+   * Set on a catch-up card: how the day this quest was missed should read
+   * ("Yesterday", "Monday"). It marks the card as work carried over from an
+   * earlier day, which changes three things — the card says which day it came
+   * from, a quest the hero got stuck on is theirs to attempt again, and a
+   * grown-up's Skip is offered as "Not Needed", because that is what skipping
+   * missed work means: it stops following the hero.
+   */
+  missedFrom?: string | null;
 }) {
   const router = useRouter();
   const [acting, setActing] = useState(false);
@@ -93,6 +106,14 @@ export function QuestAssignmentCard({
   // A hero may only skip what they could otherwise be doing: their parent has
   // to have turned skipping on, and in structured mode it has to be their turn.
   const canSkip = !isChildView || (allowChildSkip && !lockedByOrder);
+  const isMakeup = !!missedFrom;
+  const isExcused = assignment.status === "excused";
+  // Work still owed. On a catch-up card that includes a quest the hero got
+  // stuck on: the day that stalled them is over, and coming back to it — with
+  // the grown-up who was alerted — is the point of the catch-up list.
+  const isOpen = isPending || (isStuck && isMakeup);
+  // Skipping missed work is how a grown-up says it isn't needed any more.
+  const skipLabel = isMakeup && !isChildView ? "Not Needed" : "Skip";
 
   function handleStart() {
     startTimer(assignment.id);
@@ -269,6 +290,14 @@ export function QuestAssignmentCard({
                 <span className="text-xs text-muted-foreground">~{quest.estimatedMinutes}min</span>
               )
             )}
+            {/* Which day this was owed from. Without it a catch-up list is just
+                a second pile of quests with no explanation of where it came from. */}
+            {isMakeup && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-[rgba(201,168,76,0.15)] px-2 py-0.5 text-[10px] font-semibold text-[var(--gold-bright)]">
+                <GameIcon name="calendar" className="size-3 shrink-0" />
+                From {missedFrom}
+              </span>
+            )}
           </div>
           {quest.description && (
             <p className="mt-0.5 line-clamp-3 text-xs wrap-anywhere text-muted-foreground">{quest.description}</p>
@@ -308,11 +337,29 @@ export function QuestAssignmentCard({
               Skipped{assignment.statusReason ? `: ${assignment.statusReason}` : ""}
             </span>
           )}
+          {/* An excused day is not a failure and must never read as one — a
+              grown-up decided this day did not count. */}
+          {isExcused && (
+            <span className="text-xs text-muted-foreground">
+              Excused{assignment.statusReason ? `: ${assignment.statusReason}` : ""}
+            </span>
+          )}
+          {assignment.originalDate && (
+            <p className="text-xs text-muted-foreground">
+              Moved from {formatMovedFrom(assignment.originalDate)}
+            </p>
+          )}
           {isStuck && (
             <p className="flex items-start gap-1 text-xs wrap-anywhere text-[var(--gold-bright)]">
               <GameIcon name="idea" className="mt-0.5 size-3 shrink-0 text-[var(--gold-bright)]" />
               <span>
-                {isChildView ? "Stuck — help is on the way" : "Stuck — needs a grown-up"}
+                {isMakeup
+                  ? isChildView
+                    ? "You got stuck on this — have another go"
+                    : "Got stuck on this"
+                  : isChildView
+                    ? "Stuck — help is on the way"
+                    : "Stuck — needs a grown-up"}
                 {assignment.statusReason ? `: ${assignment.statusReason}` : ""}
               </span>
             </p>
@@ -320,7 +367,7 @@ export function QuestAssignmentCard({
         </div>
 
         {/* Timer running actions */}
-        {isPending && isTimerRunning && (
+        {isOpen && isTimerRunning && (
           <div className="flex flex-wrap gap-1 sm:ml-auto">
             {isPaused ? (
               <Button size="sm" variant="outline" onClick={resumeTimer} disabled={acting}>
@@ -341,7 +388,7 @@ export function QuestAssignmentCard({
         )}
 
         {/* Locked behind an earlier quest in structured mode */}
-        {isPending && !isTimerRunning && lockedByOrder && (
+        {isOpen && !isTimerRunning && lockedByOrder && (
           <div className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground sm:ml-auto">
             <GameIcon name="lock" className="size-3.5 shrink-0" />
             <span>Complete &quot;{structuredNext.title}&quot; first</span>
@@ -372,9 +419,19 @@ export function QuestAssignmentCard({
           </div>
         )}
 
+        {/* Putting one quest back on the list without un-excusing the whole day
+            — the rest of that day stays excused. */}
+        {isExcused && !isChildView && (
+          <div className="flex flex-wrap gap-1 sm:ml-auto">
+            <Button size="sm" variant="ghost" onClick={() => handleRevise("pending")} disabled={acting} className="text-muted-foreground">
+              Undo Excuse
+            </Button>
+          </div>
+        )}
+
         {/* A stuck quest is waiting on a grown-up: help and finish it, set it
             aside for today, or put it back on the hero's list. */}
-        {isStuck && !isChildView && !showQuickComplete && !showSkip && (
+        {isStuck && !isMakeup && !isChildView && !showQuickComplete && !showSkip && (
           <div className="flex flex-wrap gap-1 sm:ml-auto">
             <Button size="sm" variant="outline" onClick={openQuickComplete} disabled={acting} className="!border-[var(--gold-bright)]">
               Mark Done
@@ -388,8 +445,9 @@ export function QuestAssignmentCard({
           </div>
         )}
 
-        {/* Idle pending actions */}
-        {isPending && !isTimerRunning && !showQuickComplete && !lockedByOrder && (
+        {/* Idle actions on work still owed — today's pending quests, and, on a
+            catch-up card, one the hero got stuck on and is coming back to. */}
+        {isOpen && !isTimerRunning && !showQuickComplete && !lockedByOrder && (
           <div className="flex flex-wrap gap-1 sm:ml-auto">
             {isChildView ? (
               <>
@@ -399,12 +457,14 @@ export function QuestAssignmentCard({
                 <Button size="sm" variant="outline" onClick={openQuickComplete} disabled={acting} className="!border-[var(--gold-bright)]">
                   Quick Complete
                 </Button>
-                <Button size="sm" variant="ghost" onClick={openStuck} disabled={acting}>
-                  I&apos;m Stuck
-                </Button>
+                {isPending && (
+                  <Button size="sm" variant="ghost" onClick={openStuck} disabled={acting}>
+                    I&apos;m Stuck
+                  </Button>
+                )}
                 {canSkip && (
                   <Button size="sm" variant="ghost" onClick={openSkip} disabled={acting}>
-                    Skip
+                    {skipLabel}
                   </Button>
                 )}
               </>
@@ -414,7 +474,7 @@ export function QuestAssignmentCard({
                   Mark Done
                 </Button>
                 <Button size="sm" variant="ghost" onClick={openSkip} disabled={acting}>
-                  Skip
+                  {skipLabel}
                 </Button>
               </>
             )}
@@ -428,7 +488,7 @@ export function QuestAssignmentCard({
 
       {/* Quick complete inline form. Also serves a stuck quest a grown-up has
           since helped with, so they can finish it without reopening it first. */}
-      {(isPending || isStuck) && showQuickComplete && !isTimerRunning && !lockedByOrder && (
+      {(isOpen || isStuck) && showQuickComplete && !isTimerRunning && !lockedByOrder && (
         <div className="mt-2 space-y-2 border-t border-border/30 pt-2">
           {error && <p className="text-xs text-destructive">{error}</p>}
           <Input
@@ -459,7 +519,7 @@ export function QuestAssignmentCard({
             </Button>
             {isChildView ? null : (
               <Button size="sm" variant="ghost" onClick={openSkip} disabled={acting} className="ml-auto">
-                Skip
+                {skipLabel}
               </Button>
             )}
           </div>
@@ -565,14 +625,18 @@ export function QuestAssignmentCard({
       {/* Every skip says why — a hero's own, which the grown-ups hear about
           either way, and a grown-up's, which is the only record of it there
           will be. Also serves a stuck quest being set aside for the day. */}
-      {(isPending || isStuck) && showSkip && !isTimerRunning && (
+      {(isOpen || isStuck) && showSkip && !isTimerRunning && (
         <div className="mt-2 space-y-2 border-t border-border/30 pt-2">
           {error && <p className="text-xs text-destructive">{error}</p>}
           <Input
             value={skipReason}
             onChange={(e) => setSkipReason(e.target.value)}
             placeholder={
-              isChildView ? "Why are you skipping? (required)" : "Why is it being skipped? (required)"
+              isChildView
+                ? "Why are you skipping? (required)"
+                : isMakeup
+                  ? "Why isn't this needed any more? (required)"
+                  : "Why is it being skipped? (required)"
             }
             required
             aria-label="Reason for skipping"
@@ -583,7 +647,7 @@ export function QuestAssignmentCard({
               onClick={() => handleSkip(skipReason)}
               disabled={acting || skipReason.trim() === ""}
             >
-              {acting ? "Skipping..." : "Skip Quest"}
+              {acting ? "Skipping..." : isMakeup && !isChildView ? "Mark Not Needed" : "Skip Quest"}
             </Button>
             <Button size="sm" variant="ghost" onClick={() => setShowSkip(false)} disabled={acting}>
               Cancel

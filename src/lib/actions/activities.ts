@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { hasMeaningfulNotes, sanitizeName, sanitizeText } from "@/lib/utils/sanitize";
 import { formatDate } from "@/lib/utils/dates";
-import { computeStreak } from "@/lib/utils/streak";
+import { computeStreak, computeLongestStreak } from "@/lib/utils/streak";
 import { parseSchoolDays, parseStreakOptionalDays } from "@/lib/utils/schedule-days";
 import { requireChildAccess, requireActivityAccess } from "@/lib/auth/access";
 
@@ -214,7 +214,7 @@ async function updateStreakAndXp(childId: string) {
   const windowStart = new Date(today);
   windowStart.setDate(windowStart.getDate() - 365);
 
-  const [activeDays, totalCount, childRow, breaks] = await Promise.all([
+  const [activeDays, totalCount, childRow, breaks, excused] = await Promise.all([
     db
       .select({ date: schema.activityLog.date })
       .from(schema.activityLog)
@@ -255,21 +255,39 @@ async function updateStreakAndXp(childId: string) {
           gte(schema.schoolBreak.endDate, formatDate(windowStart)),
         ),
       ),
+    // Days a grown-up excused after the fact: skipped, not streak-breaking.
+    db
+      .select({ date: schema.excusedDay.date })
+      .from(schema.excusedDay)
+      .where(
+        and(
+          eq(schema.excusedDay.childId, childId),
+          gte(schema.excusedDay.date, formatDate(windowStart)),
+        ),
+      ),
   ]);
 
-  // Days where nothing is expected — days off, optional days, breaks — must
-  // not reset the streak.
-  const streak = computeStreak(
-    activeDays.map((row) => row.date),
-    today,
-    {
-      schoolDays: parseSchoolDays(childRow[0]?.schoolDays),
-      optionalDays: parseStreakOptionalDays(childRow[0]?.streakOptionalDays),
-      breaks,
-    },
-  );
+  // Days where nothing is expected — days off, optional days, breaks, days a
+  // grown-up excused — must not reset the streak.
+  const dates = activeDays.map((row) => row.date);
+  const options = {
+    schoolDays: parseSchoolDays(childRow[0]?.schoolDays),
+    optionalDays: parseStreakOptionalDays(childRow[0]?.streakOptionalDays),
+    breaks,
+    excusedDates: excused.map((e) => e.date),
+  };
 
-  const longestStreak = Math.max(streak, childRow[0]?.longestStreak ?? 0);
+  const streak = computeStreak(dates, today, options);
+
+  // Also recompute the longest run from history rather than only ratcheting up
+  // from the current one: records written before days off were understood are
+  // frozen too low, and only a recompute recovers them. Still monotonic — a
+  // stored value is never lowered.
+  const longestStreak = Math.max(
+    childRow[0]?.longestStreak ?? 0,
+    streak,
+    computeLongestStreak(dates, options),
+  );
   const bonusXp = childRow[0]?.bonusXp ?? 0;
   const xp = totalCount[0].count * 10 + bonusXp;
 

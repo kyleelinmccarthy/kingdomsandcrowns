@@ -7,6 +7,9 @@ import {
 } from "@/lib/actions/quest-assignments";
 import { getScheduleBlocks } from "@/lib/actions/student-schedule";
 import { getSubjectScheduleGaps } from "@/lib/actions/schedule-gaps";
+import { getMakeupView } from "@/lib/actions/makeup";
+import { getMissedDaysView } from "@/lib/actions/excused-days";
+import { MissedDays } from "@/components/missed-days";
 import { formatDate } from "@/lib/utils/dates";
 import { formatTimeOfDay, weekdayOfDate } from "@/lib/utils/schedule-days";
 import {
@@ -37,17 +40,24 @@ export async function ParentDashboard({ allChildren }: { allChildren: ChildRow[]
 
   const perChild = await Promise.all(
     allChildren.map(async (child) => {
-      const [todayAssignments, upcoming, blocks, scheduleGaps] = await Promise.all([
+      const [todayAssignments, upcoming, blocks, scheduleGaps, makeup, missedDays] = await Promise.all([
         getAssignmentsForDate(child.id, today),
         getAssignmentsForDateRange(child.id, today, weekOut),
         getScheduleBlocks(child.id),
         getSubjectScheduleGaps(child.id),
+        getMakeupView(child.id, today),
+        getMissedDaysView(child.id, today),
       ]);
       return {
         child,
         todayAssignments,
         upcoming,
         scheduleGaps,
+        // Work still owed from earlier days. Shown to a grown-up whatever the
+        // hero's own catch-up setting says — that setting governs the hero's
+        // board, not whether their parent gets to know they're behind.
+        makeupCount: makeup.assignments.length,
+        missedDays,
         startTimes: earliestStartTimeByDayAndSubject(blocks),
       };
     })
@@ -106,10 +116,29 @@ export async function ParentDashboard({ allChildren }: { allChildren: ChildRow[]
           "--dash-cols-xl": Math.min(perChild.length, 3),
         } as CSSProperties}
       >
-        {perChild.map(({ child, todayAssignments }) => (
-          <ChildSummaryCard key={child.id} child={child} todayAssignments={todayAssignments} />
+        {perChild.map(({ child, todayAssignments, makeupCount }) => (
+          <ChildSummaryCard
+            key={child.id}
+            child={child}
+            todayAssignments={todayAssignments}
+            makeupCount={makeupCount}
+          />
         ))}
       </div>
+
+      {/* Days that didn't go to plan, per hero. Only a grown-up ever reaches
+          this screen, so there is no child-view branch here. */}
+      {perChild.map(({ child, missedDays }) => (
+        <MissedDays
+          key={child.id}
+          childId={child.id}
+          childName={allChildren.length > 1 ? child.displayName : ""}
+          today={today}
+          missed={missedDays.missed}
+          canEdit={missedDays.canEdit}
+          writableChildCount={allChildren.length}
+        />
+      ))}
 
       <GameFrame title="Upcoming Quests" icon={<GameIcon name="scroll" className="size-4 text-[var(--gold-bright)]" />}>
         {upcomingCombined.length === 0 ? (
@@ -158,10 +187,12 @@ function QuicklinkCard({
 }
 
 function ChildSummaryCard({
-  child, todayAssignments,
+  child, todayAssignments, makeupCount,
 }: {
   child: ChildRow;
   todayAssignments: Awaited<ReturnType<typeof getAssignmentsForDate>>;
+  /** Quests still owed from earlier days. */
+  makeupCount: number;
 }) {
   const level = levelFromXp(child.currentXp);
   const xpInLevel = child.currentXp % 100;
@@ -184,9 +215,15 @@ function ChildSummaryCard({
           <div className="xp-bar-track mt-1">
             <div className="xp-bar-fill" style={{ width: `${xpInLevel}%` }} />
           </div>
-          <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
             <span style={{ color: "var(--streak)" }}>{child.currentStreak} day streak</span>
             <span>{total === 0 ? "No quests today" : `${completed}/${total} today`}</span>
+            {makeupCount > 0 && (
+              <span className="inline-flex items-center gap-1 text-[var(--gold-bright)]">
+                <GameIcon name="calendar" className="size-3 shrink-0" />
+                {makeupCount} to catch up
+              </span>
+            )}
           </div>
         </div>
       </div>

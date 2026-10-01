@@ -37,7 +37,7 @@ async function main() {
 
   // Three whole-table reads instead of a few queries per hero — this usually
   // runs against a remote database, where round-trips dominate.
-  const [children, breakRows, activityRows] = await Promise.all([
+  const [children, breakRows, activityRows, excusedRows] = await Promise.all([
     db
       .select({
         id: schema.child.id,
@@ -64,6 +64,12 @@ async function main() {
       })
       .from(schema.activityLog)
       .groupBy(schema.activityLog.childId, schema.activityLog.date),
+    db
+      .select({
+        childId: schema.excusedDay.childId,
+        date: schema.excusedDay.date,
+      })
+      .from(schema.excusedDay),
   ]);
 
   const breaksByFamily = new Map<string, DateRange[]>();
@@ -80,6 +86,13 @@ async function main() {
     datesByChild.set(row.childId, list);
   }
 
+  const excusedByChild = new Map<string, string[]>();
+  for (const row of excusedRows) {
+    const list = excusedByChild.get(row.childId) ?? [];
+    list.push(row.date);
+    excusedByChild.set(row.childId, list);
+  }
+
   let repaired = 0;
   let unchanged = 0;
 
@@ -88,6 +101,7 @@ async function main() {
       schoolDays: parseSchoolDays(child.schoolDays),
       optionalDays: parseStreakOptionalDays(child.streakOptionalDays),
       breaks: breaksByFamily.get(child.familyId) ?? [],
+      excusedDates: excusedByChild.get(child.id) ?? [],
     };
     const dates = datesByChild.get(child.id) ?? [];
 

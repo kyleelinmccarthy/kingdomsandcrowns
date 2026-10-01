@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { computeStreak, computeLongestStreak } from "./streak";
+import { computeStreak, computeLongestStreak, isDayOff } from "./streak";
 import { formatDate } from "./dates";
 
 // Helper: a date N days before the given anchor.
@@ -177,5 +177,78 @@ describe("computeLongestStreak", () => {
   it("ignores duplicates and unsorted input", () => {
     const dates = ["2026-06-02", "2026-06-01", "2026-06-02", "2026-05-29"];
     expect(computeLongestStreak(dates, { schoolDays: monFri })).toBe(3);
+  });
+});
+
+describe("excused days", () => {
+  const today = new Date("2026-09-07T12:00:00Z"); // a Monday
+  const schoolDays = ["mon", "tue", "wed", "thu", "fri"];
+
+  it("skips an excused day instead of breaking the streak", () => {
+    // Fri 4th, Thu 3rd logged; Wed 2nd empty; Tue 1st, Mon Aug 31 logged.
+    const dates = ["2026-09-04", "2026-09-03", "2026-09-01", "2026-08-31"];
+    expect(computeStreak(dates, today, { schoolDays })).toBe(2);
+    expect(
+      computeStreak(dates, today, { schoolDays, excusedDates: ["2026-09-02"] })
+    ).toBe(4);
+  });
+
+  it("still counts activity logged on an excused day", () => {
+    const dates = ["2026-09-04", "2026-09-03", "2026-09-02"];
+    expect(
+      computeStreak(dates, today, { schoolDays, excusedDates: ["2026-09-03"] })
+    ).toBe(3);
+  });
+
+  it("honours excused dates in computeLongestStreak", () => {
+    const dates = ["2026-09-04", "2026-09-03", "2026-09-01", "2026-08-31"];
+    expect(computeLongestStreak(dates, { schoolDays })).toBe(2);
+    expect(
+      computeLongestStreak(dates, { schoolDays, excusedDates: ["2026-09-02"] })
+    ).toBe(4);
+  });
+
+  // The production regression this feature exists to fix. Both heroes' real
+  // histories, read from production on 2026-09-07.
+  describe("the Aug 31 regression", () => {
+    const asOf = new Date("2026-09-04T19:36:00Z");
+    const options = { schoolDays, optionalDays: ["fri"] };
+    const lily = [
+      "2026-09-04", "2026-09-03", "2026-09-02", "2026-09-01",
+      "2026-08-28", "2026-08-27", "2026-08-26", "2026-08-25", "2026-08-24",
+      "2026-08-20", "2026-08-19",
+    ];
+    const lucas = [
+      "2026-09-04", "2026-09-03", "2026-09-02", "2026-09-01",
+      "2026-08-27", "2026-08-26", "2026-08-25", "2026-08-24",
+      "2026-08-20", "2026-08-19",
+    ];
+
+    it("reproduces the broken streak of 4", () => {
+      expect(computeStreak(lily, asOf, options)).toBe(4);
+      expect(computeStreak(lucas, asOf, options)).toBe(4);
+    });
+
+    it("restores the streak once Aug 31 is excused", () => {
+      const excused = { ...options, excusedDates: ["2026-08-31"] };
+      expect(computeStreak(lily, asOf, excused)).toBe(11);
+      expect(computeStreak(lucas, asOf, excused)).toBe(10);
+    });
+  });
+});
+
+describe("isDayOff", () => {
+  it("is true for a non-school weekday, an optional day, a break, and an excused date", () => {
+    const opts = {
+      schoolDays: ["mon", "tue", "wed", "thu", "fri"],
+      optionalDays: ["fri"],
+      breaks: [{ startDate: "2026-09-07", endDate: "2026-09-07" }],
+      excusedDates: ["2026-08-31"],
+    };
+    expect(isDayOff("2026-09-05", opts)).toBe(true); // Saturday
+    expect(isDayOff("2026-09-04", opts)).toBe(true); // optional Friday
+    expect(isDayOff("2026-09-07", opts)).toBe(true); // break
+    expect(isDayOff("2026-08-31", opts)).toBe(true); // excused
+    expect(isDayOff("2026-09-03", opts)).toBe(false); // ordinary Thursday
   });
 });

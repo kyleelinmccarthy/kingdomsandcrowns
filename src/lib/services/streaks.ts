@@ -58,7 +58,7 @@ export async function recomputeFamilyStreaks(
 
   // Two reads for the whole family rather than two per hero: this runs from a
   // server action a parent is waiting on.
-  const [breaks, activeDays] = await Promise.all([
+  const [breaks, activeDays, excusedRows] = await Promise.all([
     db
       .select({
         startDate: schema.schoolBreak.startDate,
@@ -84,6 +84,16 @@ export async function recomputeFamilyStreaks(
         )
       )
       .groupBy(schema.activityLog.childId, schema.activityLog.date),
+    // Days a grown-up excused after the fact, per hero.
+    db
+      .select({ childId: schema.excusedDay.childId, date: schema.excusedDay.date })
+      .from(schema.excusedDay)
+      .where(
+        and(
+          inArray(schema.excusedDay.childId, childIds),
+          gte(schema.excusedDay.date, windowStartDate)
+        )
+      ),
   ]);
 
   const datesByChild = new Map<string, string[]>();
@@ -91,6 +101,13 @@ export async function recomputeFamilyStreaks(
     const list = datesByChild.get(row.childId);
     if (list) list.push(row.date);
     else datesByChild.set(row.childId, [row.date]);
+  }
+
+  const excusedByChild = new Map<string, string[]>();
+  for (const row of excusedRows) {
+    const list = excusedByChild.get(row.childId);
+    if (list) list.push(row.date);
+    else excusedByChild.set(row.childId, [row.date]);
   }
 
   const breakRanges: DateRange[] = breaks;
@@ -101,6 +118,7 @@ export async function recomputeFamilyStreaks(
       schoolDays: parseSchoolDays(child.schoolDays),
       optionalDays: parseStreakOptionalDays(child.streakOptionalDays),
       breaks: breakRanges,
+      excusedDates: excusedByChild.get(child.id) ?? [],
     };
     const dates = datesByChild.get(child.id) ?? [];
 

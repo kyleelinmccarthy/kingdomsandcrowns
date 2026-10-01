@@ -12,6 +12,7 @@ import { getLearningProfile } from "@/lib/actions/learning-profile";
 import { getRealmSettings } from "@/lib/actions/realm-settings";
 import { getRealmPlaySummary } from "@/lib/actions/realm-play";
 import { getMasteryOverview } from "@/lib/actions/deeds";
+import { getMakeupDays } from "@/lib/actions/makeup";
 import { getFamilyMembers } from "@/lib/actions/guardians";
 import { ensureFamilyLoginCode } from "@/lib/actions/child-auth";
 import { getActor } from "@/lib/auth/actor";
@@ -68,10 +69,10 @@ export default async function SettingsPage() {
       ? await ensureFamilyLoginCode()
       : null;
 
-  // Fetch subjects, badges, and avatar unlocks for each visible child.
+  // Fetch subjects, badges, avatar unlocks and catch-up days for each visible child.
   const childrenWithSubjects = await Promise.all(
     children.map(async (child) => {
-      const [subjects, earnedBadges, avatarUnlocks, seasons, learningProfile, realmSettings, realmPlay, mastery] = await Promise.all([
+      const [subjects, earnedBadges, avatarUnlocks, seasons, learningProfile, realmSettings, realmPlay, mastery, makeupDays] = await Promise.all([
         getSubjects(child.id),
         getChildBadges(child.id),
         getChildAvatarUnlocks(child.id),
@@ -80,6 +81,7 @@ export default async function SettingsPage() {
         isChildView ? null : getRealmSettings(child.id),
         isChildView ? null : getRealmPlaySummary(child.id, familyToday),
         isChildView ? null : getMasteryOverview(child.id),
+        getMakeupDays(child.id),
       ]);
       const { pinHash: _pinHash, ...rest } = child;
       return {
@@ -93,6 +95,7 @@ export default async function SettingsPage() {
         realmSettings,
         realmPlay,
         mastery,
+        makeupDayDates: makeupDays.map((d) => ({ id: d.id, date: d.date, note: d.note })),
       };
     })
   );

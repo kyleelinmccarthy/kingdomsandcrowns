@@ -215,6 +215,21 @@ export const child = sqliteTable(
     // Sparse JSON map of weekday -> mode, e.g. {"fri":"unstructured"}. Only days
     // with an explicit override are present; absent days fall back to schoolingMode.
     schoolingModeOverrides: text("schooling_mode_overrides"),
+    // ── Catch-up ─────────────────────────────────────────────────
+    // What happens to work a hero didn't finish on the day it was set.
+    //   "always"      — it follows them until it's done or a grown-up excuses it.
+    //   "makeup_days" — it only resurfaces on the weekdays listed in makeupDays
+    //                   (plus any one-off date in makeupDay).
+    //   "off"         — it never resurfaces on its own; only a one-off make-up
+    //                   day a parent marks brings it back.
+    // A missed quest is never *lost* under any of these: it stays on its own
+    // day's record, and a grown-up can always reopen it.
+    makeupMode: text("makeup_mode", { enum: ["always", "makeup_days", "off"] })
+      .notNull()
+      .default("always"),
+    // JSON array of weekday codes ("mon".."sun") that are catch-up days. Only
+    // read when makeupMode === "makeup_days"; null/absent means no weekday is.
+    makeupDays: text("makeup_days"),
     // Soft delete ("banished"). Non-null hides the hero everywhere — lists,
     // logins, leaderboards — but keeps every row intact so a parent can
     // restore them. Permanent removal is a separate, explicit action.
@@ -552,11 +567,21 @@ export const questAssignment = sqliteTable(
       .notNull()
       .references(() => child.id, { onDelete: "cascade" }),
     date: text("date").notNull(), // ISO YYYY-MM-DD
+    // Set the first time this assignment is moved to another day, and never
+    // overwritten after — a quest moved twice still points at the day it was
+    // originally set for.
+    originalDate: text("original_date"),
     // "stuck" is a hero's own escape hatch: work they could not finish but had
     // to move past. It resolves the day the way "skipped" does — the structured
     // queue advances, the learning log leaves it out — but it says "I need
     // help", not "I chose not to", and it always raises a parentAlert.
-    status: text("status", { enum: ["pending", "completed", "skipped", "stuck"] })
+    //
+    // "excused" is a grown-up saying the day itself did not count — a sick day,
+    // an appointment. Deliberately distinct from "skipped", which is a decision
+    // about one quest rather than about the whole day.
+    status: text("status", {
+      enum: ["pending", "completed", "skipped", "stuck", "excused"],
+    })
       .notNull()
       .default("pending"),
     activityLogId: text("activity_log_id")
@@ -608,6 +633,61 @@ export const schoolBreak = sqliteTable(
   },
   (table) => [
     index("school_break_family_idx").on(table.familyId),
+  ]
+);
+
+/**
+ * A specific date a parent has declared a catch-up day for one hero: whatever
+ * they left unfinished over the preceding days comes back onto that day's
+ * board, whatever their standing makeupMode says.
+ *
+ * Per-child rather than per-family on purpose — one sibling being behind is
+ * not a reason to hand the other a pile of old work.
+ */
+export const makeupDay = sqliteTable(
+  "makeup_day",
+  {
+    id: text("id").primaryKey(),
+    childId: text("child_id")
+      .notNull()
+      .references(() => child.id, { onDelete: "cascade" }),
+    date: text("date").notNull(), // ISO YYYY-MM-DD
+    note: text("note"), // why the day was set aside, for the grown-ups
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("makeup_day_child_date_idx").on(table.childId, table.date),
+    index("makeup_day_child_idx").on(table.childId),
+  ]
+);
+
+/**
+ * A date a grown-up has excused for one hero after the fact — a sick day, an
+ * appointment, a family day, a holiday nobody had entered yet.
+ *
+ * An excused date is skipped by the streak exactly the way a school break is:
+ * it neither extends a streak nor breaks one. Per-child rather than per-family
+ * because the ordinary case is one hero out and the other not; "apply to all"
+ * is a convenience in the UI that writes one row per hero.
+ */
+export const excusedDay = sqliteTable(
+  "excused_day",
+  {
+    id: text("id").primaryKey(),
+    childId: text("child_id")
+      .notNull()
+      .references(() => child.id, { onDelete: "cascade" }),
+    date: text("date").notNull(), // ISO YYYY-MM-DD
+    reason: text("reason", {
+      enum: ["sick", "appointment", "family", "holiday", "other"],
+    }).notNull(),
+    note: text("note"),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+  },
+  (table) => [
+    uniqueIndex("excused_day_child_date_idx").on(table.childId, table.date),
+    index("excused_day_child_idx").on(table.childId),
   ]
 );
 

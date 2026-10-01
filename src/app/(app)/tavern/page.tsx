@@ -8,6 +8,9 @@ import { getAssignmentsForDate, generateAssignmentsFromSchedules, getLatestAssig
 import { getQuests } from "@/lib/actions/quests";
 import { getScheduleBlocks } from "@/lib/actions/student-schedule";
 import { getSchoolingModeForDate } from "@/lib/actions/schooling-mode";
+import { getMakeupView } from "@/lib/actions/makeup";
+import { formatMissedDate } from "@/lib/utils/makeup";
+import { getMissedDaysView } from "@/lib/actions/excused-days";
 import { getBadges, getChildBadges, checkAndAwardBadges } from "@/lib/actions/badges";
 import { getChildAvatarUnlocks } from "@/lib/actions/avatar";
 import { getSeasons } from "@/lib/actions/seasons";
@@ -27,6 +30,8 @@ import { QuestForm } from "../quests/quest-form";
 import { QuestLog } from "../quests/quest-log";
 import { QuestAssignmentCard } from "@/components/quest-assignment-card";
 import { TodaySchedule } from "@/components/today-schedule";
+import { MakeupQuests } from "@/components/makeup-quests";
+import { MissedDays } from "@/components/missed-days";
 import { GameIcon, BADGE_ICONS } from "@/components/game-icon";
 import { ParentDashboard } from "./parent-dashboard";
 import { RecessTavernCard } from "@/components/realm/recess-tavern-card";
@@ -90,7 +95,7 @@ export default async function TavernPage({
   const today = formatDate(new Date());
   await generateAssignmentsFromSchedules(activeChild.id, today, today);
 
-  const [subjects, recentActivities, allBadges, earnedBadges, todayAssignments, quests, avatarUnlocks, allBlocks, latestStatusByQuestId, schoolingMode, seasons] = await Promise.all([
+  const [subjects, recentActivities, allBadges, earnedBadges, todayAssignments, quests, avatarUnlocks, allBlocks, latestStatusByQuestId, schoolingMode, seasons, makeup, missedDays] = await Promise.all([
     getSubjects(activeChild.id),
     getRecentActivities(activeChild.id, 50),
     getBadges(),
@@ -102,13 +107,28 @@ export default async function TavernPage({
     getLatestAssignmentStatusByQuest(activeChild.id),
     getSchoolingModeForDate(activeChild.id, today),
     getSeasons(activeChild.id),
+    getMakeupView(activeChild.id, today),
+    getMissedDaysView(activeChild.id, today),
   ]);
+
+  // A hero only sees carried-over work on a day their parent has made a
+  // catch-up day; a grown-up always sees what's still owed.
+  const makeupAssignments = !isChildView || makeup.isMakeupDay ? makeup.assignments : [];
+
+  // The day that ended the current streak, if it is inside the window a
+  // grown-up can still act on.
+  const streakBreakDate = missedDays.missed.find((d) => d.brokeStreak)?.date ?? null;
 
   const todaysBlocks = allBlocks.filter((b) => b.dayOfWeek === weekdayOfDate(today));
 
-  const pendingIds = todayAssignments
-    .filter((a) => a.assignment.status === "pending")
-    .map((a) => a.assignment.id);
+  // TimerCleanup wipes any stored timer whose assignment isn't in this list, so
+  // catch-up cards — which can run a timer just like today's — have to be in it.
+  const pendingIds = [
+    ...todayAssignments
+      .filter((a) => a.assignment.status === "pending")
+      .map((a) => a.assignment.id),
+    ...makeupAssignments.map((a) => a.assignment.id),
+  ];
 
   // On a structured day a hero works the schedule in order, so every assigned
   // quest but the next one is shown locked rather than with its own Start /
@@ -273,6 +293,19 @@ export default async function TavernPage({
                     <p className="text-xs text-muted-foreground">best streak</p>
                   </div>
                 </div>
+
+                {/* Say why the streak is short, where a grown-up will actually
+                    wonder about it — under the figures rather than wedged
+                    between them. The fix is the panel further down the page. */}
+                {!isChildView && streakBreakDate && (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Streak broke on{" "}
+                    <span style={{ color: "var(--streak)" }}>
+                      {formatMissedDate(streakBreakDate, today)}
+                    </span>{" "}
+                    — excuse that day below to restore it.
+                  </p>
+                )}
               </div>
             </GameFrame>
           )}
@@ -294,6 +327,28 @@ export default async function TavernPage({
           />
         </div>
       </div>
+
+      <MakeupQuests
+        assignments={makeupAssignments}
+        today={today}
+        isChildView={isChildView}
+        allowChildSkip={allowChildSkip}
+        reason={makeup.reason}
+      />
+
+      {/* Grown-ups only: the ledger of days that didn't go to plan, and the one
+          place a broken streak can be put right. A hero never sees it. */}
+      {!isChildView && (
+        <MissedDays
+          key={activeChild.id}
+          childId={activeChild.id}
+          childName={activeChild.displayName}
+          today={today}
+          missed={missedDays.missed}
+          canEdit={missedDays.canEdit}
+          writableChildCount={allChildren.length}
+        />
+      )}
 
       {/* ═══ ROW 2: Hero's Path (gamification info) + Loot ═══ */}
       <div className="hud-row-bottom">
