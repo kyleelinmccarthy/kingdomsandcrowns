@@ -60,8 +60,8 @@ Save the URL and token for the Vercel step below.
 
 Migrations run **automatically** on every Vercel deploy — `vercel.json` sets the
 build command to `npm run db:migrate && npm run build`, so the committed
-migration files in `src/lib/db/migrations` are applied (via `drizzle-kit
-migrate`) before the app builds. You do **not** need to run them by hand here;
+migration files in `src/lib/db/migrations` are applied (by
+`src/lib/db/migrate.mjs`) before the app builds. You do **not** need to run them by hand here;
 the first deploy in step 5 will create the schema in the prod DB.
 
 If you want the schema in place *before* the first deploy (e.g. to seed badges
@@ -71,9 +71,11 @@ first), you can run the same step manually:
 TURSO_DATABASE_URL='<prod-url>' TURSO_AUTH_TOKEN='<prod-token>' npm run db:migrate
 ```
 
-> Note: this uses `drizzle-kit migrate` (applies versioned migration files and
-> records them in `__drizzle_migrations`), not the older interactive
-> `drizzle-kit push`. `migrate` is idempotent and safe to re-run.
+> Note: this runs `src/lib/db/migrate.mjs`, which does what `drizzle-kit migrate`
+> does and also tolerates the objects of `0034`/`0035` already being in the
+> database (see the note at the top of that file). It applies versioned migration
+> files and records them in `__drizzle_migrations`; it is not the older interactive
+> `drizzle-kit push`. It is idempotent and safe to re-run.
 
 ### Seed badges
 

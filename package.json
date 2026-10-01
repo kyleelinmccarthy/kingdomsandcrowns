@@ -12,7 +12,7 @@
     "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push",
-    "db:migrate": "drizzle-kit migrate",
+    "db:migrate": "node src/lib/db/migrate.mjs",
     "db:seed-demo": "npx tsx src/lib/db/seed-demo.ts",
     "db:seed-badges": "npx tsx src/lib/db/seed-badges.ts",
     "db:seed-drills": "npx tsx src/lib/db/seed-drills.ts",
