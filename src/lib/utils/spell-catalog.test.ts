@@ -33,6 +33,12 @@ describe("catalog shape", () => {
       if (p.unlock.type === "badge") expect(seeded).toContain(p.unlock.badgeId);
     }
   });
+  it("tells a student what every part does in the Realm", () => {
+    for (const p of [...SPELL_ELEMENTS, ...SPELL_FORMS, ...SPELL_MODIFIERS]) {
+      expect(p.help.trim(), p.id).not.toBe("");
+      expect(p.help, p.id).toMatch(/\.$/);
+    }
+  });
 });
 
 describe("isSpellPartUnlocked", () => {

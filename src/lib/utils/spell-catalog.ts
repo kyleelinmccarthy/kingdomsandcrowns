@@ -21,6 +21,8 @@ export type SpellShape = "projectile" | "area" | "barrier" | "beam" | "summon" |
 export type SpellElement = {
   id: string;
   label: string;
+  /** One line for the Spellbook tile: what the part does in the Realm, in a student's words. */
+  help: string;
   adjectives: [string, string, string];
   color: string;
   /**
@@ -38,6 +40,7 @@ export type SpellElement = {
 export type SpellForm = {
   id: string;
   label: string;
+  help: string;
   nouns: [string, string, string];
   icon: GameIconName;
   shape: SpellShape;
@@ -51,6 +54,7 @@ export type SpellForm = {
 export type SpellModifier = {
   id: string;
   label: string;
+  help: string;
   suffix: string;
   icon: GameIconName;
   status: SpellStatus;
@@ -73,36 +77,36 @@ export const SPELL_CATEGORY: Record<SpellSchool, SpellPartCategory> = {
 // so a brand-new hero can cast on day one.
 
 export const SPELL_ELEMENTS: SpellElement[] = [
-  { id: "ember", label: "Ember", adjectives: ["Ember", "Cinder", "Blaze"], color: "#f97316", icon: "fire", particle: "sparks", unlock: { type: "free" } },
-  { id: "tide", label: "Tide", adjectives: ["Tide", "Ripple", "Wave"], color: "#3b82f6", icon: "droplet", particle: "droplets", unlock: { type: "free" } },
-  { id: "stone", label: "Stone", adjectives: ["Stone", "Pebble", "Boulder"], color: "#a16207", icon: "rock", particle: "pebbles", unlock: { type: "school", school: "element", count: 5 } },
-  { id: "gale", label: "Gale", adjectives: ["Gale", "Breeze", "Zephyr"], color: "#22d3ee", icon: "wind", particle: "wisps", unlock: { type: "school", school: "element", count: 15 } },
-  { id: "light", label: "Light", adjectives: ["Radiant", "Sunlit", "Gleaming"], color: "#fde68a", icon: "sun", particle: "motes", unlock: { type: "level", level: 10 } },
-  { id: "shadow", label: "Shadow", adjectives: ["Umbral", "Dusk", "Shade"], color: "#6d28d9", icon: "moon", particle: "smoke", unlock: { type: "school", school: "element", count: 30 } },
-  { id: "frost", label: "Frost", adjectives: ["Frost", "Rime", "Glacial"], color: "#bae6fd", icon: "snowflake", particle: "crystals", unlock: { type: "badge", badgeId: "badge-streak-7", badgeName: "Week Warrior" }, onHit: { kind: "chilled", durationMs: 800 } },
-  { id: "storm", label: "Storm", adjectives: ["Storm", "Thunder", "Tempest"], color: "#818cf8", icon: "thunderbolt", particle: "bolts", unlock: { type: "quest" } },
-  { id: "bloom", label: "Bloom", adjectives: ["Bloom", "Petal", "Verdant"], color: "#4ade80", icon: "flower", particle: "petals", unlock: { type: "quest" } },
+  { id: "ember", label: "Ember", help: "Fiery orange sparks.", adjectives: ["Ember", "Cinder", "Blaze"], color: "#f97316", icon: "fire", particle: "sparks", unlock: { type: "free" } },
+  { id: "tide", label: "Tide", help: "Splashing blue droplets.", adjectives: ["Tide", "Ripple", "Wave"], color: "#3b82f6", icon: "droplet", particle: "droplets", unlock: { type: "free" } },
+  { id: "stone", label: "Stone", help: "Tumbling brown pebbles.", adjectives: ["Stone", "Pebble", "Boulder"], color: "#a16207", icon: "rock", particle: "pebbles", unlock: { type: "school", school: "element", count: 5 } },
+  { id: "gale", label: "Gale", help: "Swirling wisps of wind.", adjectives: ["Gale", "Breeze", "Zephyr"], color: "#22d3ee", icon: "wind", particle: "wisps", unlock: { type: "school", school: "element", count: 15 } },
+  { id: "light", label: "Light", help: "Golden motes of sunlight.", adjectives: ["Radiant", "Sunlit", "Gleaming"], color: "#fde68a", icon: "sun", particle: "motes", unlock: { type: "level", level: 10 } },
+  { id: "shadow", label: "Shadow", help: "Curling purple smoke.", adjectives: ["Umbral", "Dusk", "Shade"], color: "#6d28d9", icon: "moon", particle: "smoke", unlock: { type: "school", school: "element", count: 30 } },
+  { id: "frost", label: "Frost", help: "Icy crystals. Chills troubles so they move slower.", adjectives: ["Frost", "Rime", "Glacial"], color: "#bae6fd", icon: "snowflake", particle: "crystals", unlock: { type: "badge", badgeId: "badge-streak-7", badgeName: "Week Warrior" }, onHit: { kind: "chilled", durationMs: 800 } },
+  { id: "storm", label: "Storm", help: "Crackling lightning.", adjectives: ["Storm", "Thunder", "Tempest"], color: "#818cf8", icon: "thunderbolt", particle: "bolts", unlock: { type: "quest" } },
+  { id: "bloom", label: "Bloom", help: "Drifting green petals.", adjectives: ["Bloom", "Petal", "Verdant"], color: "#4ade80", icon: "flower", particle: "petals", unlock: { type: "quest" } },
 ];
 
 export const SPELL_FORMS: SpellForm[] = [
-  { id: "bolt", label: "Bolt", nouns: ["Bolt", "Dart", "Lance"], icon: "thunderbolt", shape: "projectile", manaCost: 10, castMs: 300, range: 12, speed: 14, unlock: { type: "free" } },
-  { id: "orb", label: "Orb", nouns: ["Orb", "Sphere", "Globe"], icon: "gem", shape: "projectile", manaCost: 15, castMs: 500, range: 10, speed: 8, unlock: { type: "free" } },
-  { id: "burst", label: "Burst", nouns: ["Burst", "Nova", "Flare"], icon: "sparkles", shape: "area", manaCost: 20, castMs: 600, range: 4, speed: 0, unlock: { type: "school", school: "form", count: 5 } },
-  { id: "wall", label: "Wall", nouns: ["Wall", "Rampart", "Bulwark"], icon: "stoneTower", shape: "barrier", manaCost: 25, castMs: 800, range: 6, speed: 0, unlock: { type: "school", school: "form", count: 15 } },
-  { id: "beam", label: "Beam", nouns: ["Beam", "Ray", "Shaft"], icon: "sun", shape: "beam", manaCost: 20, castMs: 400, range: 14, speed: 0, unlock: { type: "level", level: 10 } },
-  { id: "shield", label: "Shield", nouns: ["Shield", "Ward", "Aegis"], icon: "shield", shape: "self", manaCost: 15, castMs: 300, range: 0, speed: 0, unlock: { type: "school", school: "form", count: 30 } },
-  { id: "sprite", label: "Sprite", nouns: ["Sprite", "Wisp", "Familiar"], icon: "bee", shape: "summon", manaCost: 30, castMs: 900, range: 8, speed: 6, unlock: { type: "badge", badgeId: "badge-volume-25", badgeName: "Dedicated Scholar" } },
-  { id: "aura", label: "Aura", nouns: ["Aura", "Halo", "Mantle"], icon: "fireRing", shape: "self", manaCost: 25, castMs: 700, range: 5, speed: 0, unlock: { type: "quest" } },
+  { id: "bolt", label: "Bolt", help: "A fast shot that flies at one trouble.", nouns: ["Bolt", "Dart", "Lance"], icon: "thunderbolt", shape: "projectile", manaCost: 10, castMs: 300, range: 12, speed: 14, unlock: { type: "free" } },
+  { id: "orb", label: "Orb", help: "A slow, floating shot at one trouble.", nouns: ["Orb", "Sphere", "Globe"], icon: "gem", shape: "projectile", manaCost: 15, castMs: 500, range: 10, speed: 8, unlock: { type: "free" } },
+  { id: "burst", label: "Burst", help: "A ring that hits every trouble close by.", nouns: ["Burst", "Nova", "Flare"], icon: "sparkles", shape: "area", manaCost: 20, castMs: 600, range: 4, speed: 0, unlock: { type: "school", school: "form", count: 5 } },
+  { id: "wall", label: "Wall", help: "A wall that shoves troubles back and blocks them.", nouns: ["Wall", "Rampart", "Bulwark"], icon: "stoneTower", shape: "barrier", manaCost: 25, castMs: 800, range: 6, speed: 0, unlock: { type: "school", school: "form", count: 15 } },
+  { id: "beam", label: "Beam", help: "A long ray that hits the same trouble up to 3 times.", nouns: ["Beam", "Ray", "Shaft"], icon: "sun", shape: "beam", manaCost: 20, castMs: 400, range: 14, speed: 0, unlock: { type: "level", level: 10 } },
+  { id: "shield", label: "Shield", help: "Keeps troubles from bumping you for a few seconds.", nouns: ["Shield", "Ward", "Aegis"], icon: "shield", shape: "self", manaCost: 15, castMs: 300, range: 0, speed: 0, unlock: { type: "school", school: "form", count: 30 } },
+  { id: "sprite", label: "Sprite", help: "A little helper that follows you and throws bolts.", nouns: ["Sprite", "Wisp", "Familiar"], icon: "bee", shape: "summon", manaCost: 30, castMs: 900, range: 8, speed: 6, unlock: { type: "badge", badgeId: "badge-volume-25", badgeName: "Dedicated Scholar" } },
+  { id: "aura", label: "Aura", help: "A glow around you that keeps hitting nearby troubles.", nouns: ["Aura", "Halo", "Mantle"], icon: "fireRing", shape: "self", manaCost: 25, castMs: 700, range: 5, speed: 0, unlock: { type: "quest" } },
 ];
 
 export const SPELL_MODIFIERS: SpellModifier[] = [
-  { id: "slow", label: "Slow", suffix: "of Slowing", icon: "hourglass", status: { kind: "slowed", durationMs: 2000 }, manaCostDelta: 5, unlock: { type: "free" } },
-  { id: "bounce", label: "Bounce", suffix: "of Bouncing", icon: "compass", status: { kind: "bounce", durationMs: 0 }, manaCostDelta: 5, unlock: { type: "school", school: "modifier", count: 5 } },
-  { id: "seek", label: "Seek", suffix: "of Seeking", icon: "telescope", status: { kind: "seeking", durationMs: 0 }, manaCostDelta: 10, unlock: { type: "school", school: "modifier", count: 15 } },
-  { id: "grow", label: "Grow", suffix: "of Growing", icon: "upgrade", status: { kind: "grown", durationMs: 0 }, manaCostDelta: 10, unlock: { type: "level", level: 10 } },
-  { id: "mend", label: "Mend", suffix: "of Mending", icon: "flower", status: { kind: "mended", durationMs: 0 }, manaCostDelta: 10, unlock: { type: "school", school: "modifier", count: 30 } },
-  { id: "bind", label: "Bind", suffix: "of Binding", icon: "link", status: { kind: "bound", durationMs: 1500 }, manaCostDelta: 15, unlock: { type: "badge", badgeId: "badge-streak-30", badgeName: "Monthly Master" } },
-  { id: "quicken", label: "Quicken", suffix: "of Quickening", icon: "timer", status: { kind: "quickened", durationMs: 0 }, manaCostDelta: 5, unlock: { type: "quest" } },
+  { id: "slow", label: "Slow", help: "Troubles it hits crawl for 2 seconds.", suffix: "of Slowing", icon: "hourglass", status: { kind: "slowed", durationMs: 2000 }, manaCostDelta: 5, unlock: { type: "free" } },
+  { id: "bounce", label: "Bounce", help: "A shot bounces once, off a wall or on to the next trouble.", suffix: "of Bouncing", icon: "compass", status: { kind: "bounce", durationMs: 0 }, manaCostDelta: 5, unlock: { type: "school", school: "modifier", count: 5 } },
+  { id: "seek", label: "Seek", help: "A shot curves harder toward its target.", suffix: "of Seeking", icon: "telescope", status: { kind: "seeking", durationMs: 0 }, manaCostDelta: 10, unlock: { type: "school", school: "modifier", count: 15 } },
+  { id: "grow", label: "Grow", help: "A shot gets bigger the farther it flies.", suffix: "of Growing", icon: "upgrade", status: { kind: "grown", durationMs: 0 }, manaCostDelta: 10, unlock: { type: "level", level: 10 } },
+  { id: "mend", label: "Mend", help: "Gives your mana back when it hits.", suffix: "of Mending", icon: "flower", status: { kind: "mended", durationMs: 0 }, manaCostDelta: 10, unlock: { type: "school", school: "modifier", count: 30 } },
+  { id: "bind", label: "Bind", help: "Freezes a trouble in place for a moment.", suffix: "of Binding", icon: "link", status: { kind: "bound", durationMs: 1500 }, manaCostDelta: 15, unlock: { type: "badge", badgeId: "badge-streak-30", badgeName: "Monthly Master" } },
+  { id: "quicken", label: "Quicken", help: "Casts in half the time and is ready again sooner.", suffix: "of Quickening", icon: "timer", status: { kind: "quickened", durationMs: 0 }, manaCostDelta: 5, unlock: { type: "quest" } },
 ];
 
 export const SPELL_PART_COUNT = SPELL_ELEMENTS.length + SPELL_FORMS.length + SPELL_MODIFIERS.length;

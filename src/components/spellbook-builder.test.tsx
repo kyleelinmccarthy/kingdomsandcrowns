@@ -42,6 +42,33 @@ describe("SpellbookBuilder", () => {
     expect(screen.getByText("5 more Reading quests or side quests to go.")).toBeInTheDocument();
   });
 
+  it("says on each open tile what the part does in the Realm", () => {
+    renderBuilder();
+    expect(screen.getByRole("button", { name: "Element Ember" })).toHaveTextContent("Fiery orange sparks.");
+    expect(screen.getByRole("button", { name: "Form Bolt" })).toHaveTextContent("A fast shot that flies at one trouble.");
+    expect(screen.getByRole("button", { name: "Modifier Slow" })).toHaveTextContent("Troubles it hits crawl for 2 seconds.");
+    expect(screen.getByRole("button", { name: "Modifier None" })).toHaveTextContent("Just the spell, nothing extra.");
+  });
+
+  it("says what a sealed part does alongside how to unlock it", () => {
+    renderBuilder();
+    const stone = screen.getByRole("button", { name: "Element Stone" });
+    expect(stone).toHaveTextContent("Tumbling brown pebbles.");
+    expect(stone).toHaveTextContent("5 more Reading quests or side quests to go.");
+  });
+
+  it("shows what a form costs and what a modifier adds, in mana", () => {
+    renderBuilder();
+    expect(screen.getByRole("button", { name: "Form Bolt" })).toHaveTextContent("10 mana");
+    expect(screen.getByRole("button", { name: "Modifier Slow" })).toHaveTextContent("+5 mana");
+    expect(screen.getByRole("button", { name: "Element Ember" })).not.toHaveTextContent("mana");
+  });
+
+  it("explains that an element is the spell's look and sound", () => {
+    renderBuilder();
+    expect(screen.getByText("The element is your spell's color, sparkle and sound.")).toBeInTheDocument();
+  });
+
   it("offers the word bank for the chosen parts", async () => {
     const user = userEvent.setup();
     renderBuilder();

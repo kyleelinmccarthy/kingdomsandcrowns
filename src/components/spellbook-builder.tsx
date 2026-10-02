@@ -144,7 +144,8 @@ export function SpellbookBuilder({ childId, heroName, book, canEdit }: Props) {
           <PartGrid
             title="Elements"
             kind="Element"
-            tiles={SPELL_ELEMENTS.map((p) => ({ id: p.id, label: p.label, color: p.color, icon: p.icon, hint: hintFor(p.unlock, p.id) }))}
+            note="The element is your spell's color, sparkle and sound."
+            tiles={SPELL_ELEMENTS.map((p) => ({ id: p.id, label: p.label, help: p.help, cost: null, color: p.color, icon: p.icon, hint: hintFor(p.unlock, p.id) }))}
             selectedId={draft.elementId}
             canEdit={canEdit}
             onSelect={(id) => updateParts({ elementId: id })}
@@ -152,7 +153,7 @@ export function SpellbookBuilder({ childId, heroName, book, canEdit }: Props) {
           <PartGrid
             title="Forms"
             kind="Form"
-            tiles={SPELL_FORMS.map((p) => ({ id: p.id, label: p.label, color: "var(--gold-bright)", icon: p.icon, hint: hintFor(p.unlock, p.id) }))}
+            tiles={SPELL_FORMS.map((p) => ({ id: p.id, label: p.label, help: p.help, cost: `${p.manaCost} mana`, color: "var(--gold-bright)", icon: p.icon, hint: hintFor(p.unlock, p.id) }))}
             selectedId={draft.formId}
             canEdit={canEdit}
             onSelect={(id) => updateParts({ formId: id })}
@@ -161,8 +162,8 @@ export function SpellbookBuilder({ childId, heroName, book, canEdit }: Props) {
             title="Modifiers"
             kind="Modifier"
             tiles={[
-              { id: null, label: "None", color: "var(--muted-foreground)", icon: "check" as GameIconName, hint: null },
-              ...SPELL_MODIFIERS.map((p) => ({ id: p.id as string | null, label: p.label, color: "var(--magic)", icon: p.icon, hint: hintFor(p.unlock, p.id) })),
+              { id: null, label: "None", help: "Just the spell, nothing extra.", cost: null, color: "var(--muted-foreground)", icon: "check" as GameIconName, hint: null },
+              ...SPELL_MODIFIERS.map((p) => ({ id: p.id as string | null, label: p.label, help: p.help, cost: `+${p.manaCostDelta} mana`, color: "var(--magic)", icon: p.icon, hint: hintFor(p.unlock, p.id) })),
             ]}
             selectedId={draft.modifierId}
             canEdit={canEdit}
@@ -210,11 +211,13 @@ export function SpellbookBuilder({ childId, heroName, book, canEdit }: Props) {
   );
 }
 
-type Tile = { id: string | null; label: string; color: string; icon: GameIconName; hint: string | null };
+/** `help` is what the part does in the Realm; `cost` its mana, for the parts that have one. */
+type Tile = { id: string | null; label: string; help: string; cost: string | null; color: string; icon: GameIconName; hint: string | null };
 
-function PartGrid({ title, kind, tiles, selectedId, canEdit, onSelect }: {
+function PartGrid({ title, kind, note, tiles, selectedId, canEdit, onSelect }: {
   title: string;
   kind: string;
+  note?: string;
   tiles: Tile[];
   selectedId: string | null;
   canEdit: boolean;
@@ -223,7 +226,8 @@ function PartGrid({ title, kind, tiles, selectedId, canEdit, onSelect }: {
   return (
     <div>
       <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</p>
-      <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
+      {note && <p className="-mt-1 mb-2 text-xs text-muted-foreground">{note}</p>}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {tiles.map((t) => {
           const locked = t.hint !== null;
           const selected = selectedId === t.id;
@@ -242,6 +246,8 @@ function PartGrid({ title, kind, tiles, selectedId, canEdit, onSelect }: {
                 <GameIcon name={locked ? "lock" : t.icon} className="size-5" />
               </span>
               <span className="text-xs font-medium">{t.label}</span>
+              <span className="text-[11px] leading-tight text-muted-foreground">{t.help}</span>
+              {t.cost && <span className="text-[10px] leading-tight text-[var(--magic)]">{t.cost}</span>}
               {locked && <span className="text-[10px] leading-tight text-muted-foreground">{t.hint}</span>}
             </button>
           );
