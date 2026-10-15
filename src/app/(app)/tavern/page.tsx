@@ -8,7 +8,7 @@ import { getAssignmentsForDate, generateAssignmentsFromSchedules, getLatestAssig
 import { getQuests } from "@/lib/actions/quests";
 import { getScheduleBlocks } from "@/lib/actions/student-schedule";
 import { getSchoolingModeForDate } from "@/lib/actions/schooling-mode";
-import { getMakeupView } from "@/lib/actions/makeup";
+import { getMakeupView, getMoveTargets } from "@/lib/actions/makeup";
 import { formatMissedDate } from "@/lib/utils/makeup";
 import { getMissedDaysView } from "@/lib/actions/excused-days";
 import { getBadges, getChildBadges, checkAndAwardBadges } from "@/lib/actions/badges";
@@ -97,7 +97,7 @@ export default async function TavernPage({
   const today = todayInZone(timeZone);
   await generateAssignmentsFromSchedules(activeChild.id, today, today);
 
-  const [subjects, recentActivities, allBadges, earnedBadges, todayAssignments, quests, avatarUnlocks, allBlocks, latestStatusByQuestId, schoolingMode, seasons, makeup, missedDays] = await Promise.all([
+  const [subjects, recentActivities, allBadges, earnedBadges, todayAssignments, quests, avatarUnlocks, allBlocks, latestStatusByQuestId, schoolingMode, seasons, makeup, missedDays, moveTargets] = await Promise.all([
     getSubjects(activeChild.id),
     getRecentActivities(activeChild.id, 50),
     getBadges(),
@@ -111,6 +111,8 @@ export default async function TavernPage({
     getSeasons(activeChild.id),
     getMakeupView(activeChild.id, today),
     getMissedDaysView(activeChild.id, today),
+    // Only a grown-up can move a missed quest, so a hero's page skips the lookup.
+    isChildView ? Promise.resolve([]) : getMoveTargets(activeChild.id, today),
   ]);
 
   // A hero only sees carried-over work on a day their parent has made a
@@ -337,6 +339,7 @@ export default async function TavernPage({
         isChildView={isChildView}
         allowChildSkip={allowChildSkip}
         reason={makeup.reason}
+        moveTargets={moveTargets}
       />
 
       {/* Grown-ups only: the ledger of days that didn't go to plan, and the one

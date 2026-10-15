@@ -7,11 +7,14 @@ import {
   isWithinBreak,
   makeupReason,
   makeupWindowStart,
+  moveTargetDates,
+  moveTargetLabel,
   parseMakeupDays,
   parseMakeupMode,
   selectMakeupAssignments,
   type MakeupSettings,
 } from "./makeup";
+import type { DayOfWeek } from "./schedule-days";
 
 // 2026-09-04 is a Friday; 2026-08-31 is the Monday of that week.
 const TODAY = "2026-09-04";
@@ -191,5 +194,88 @@ describe("formatMissedDate", () => {
 
   it("falls back to the date a full week back, which shares today's weekday", () => {
     expect(formatMissedDate("2026-08-28", TODAY)).toBe("2026-08-28");
+  });
+});
+
+describe("moveTargetDates", () => {
+  // 2026-10-15 is a Thursday; the week ends Sunday 2026-10-18.
+  const THURSDAY = "2026-10-15";
+  const base = {
+    schoolDays: ["mon", "tue", "wed", "thu"] as DayOfWeek[],
+    optionalDays: ["fri"] as DayOfWeek[],
+    breaks: [],
+    excusedDates: [],
+  };
+
+  it("offers today and the rest of the week's school and optional days", () => {
+    expect(moveTargetDates(THURSDAY, base)).toEqual([
+      { date: "2026-10-15", optional: false },
+      { date: "2026-10-16", optional: true },
+    ]);
+  });
+
+  it("never offers days that have already passed this week", () => {
+    const dates = moveTargetDates(THURSDAY, base).map((t) => t.date);
+    expect(dates.some((d) => d < THURSDAY)).toBe(false);
+  });
+
+  it("stops at Sunday, never reaching into next week", () => {
+    const all = { ...base, schoolDays: ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as DayOfWeek[] };
+    expect(moveTargetDates(THURSDAY, all).map((t) => t.date)).toEqual([
+      "2026-10-15",
+      "2026-10-16",
+      "2026-10-17",
+      "2026-10-18",
+    ]);
+  });
+
+  it("offers only today on a Sunday", () => {
+    const sundayCrew = { ...base, schoolDays: ["sun"] as DayOfWeek[], optionalDays: [] };
+    expect(moveTargetDates("2026-10-18", sundayCrew)).toEqual([
+      { date: "2026-10-18", optional: false },
+    ]);
+  });
+
+  it("offers nothing when today is a Sunday that isn't a day at all", () => {
+    expect(moveTargetDates("2026-10-18", base)).toEqual([]);
+  });
+
+  it("skips days inside a school break", () => {
+    const breaks = [{ startDate: "2026-10-16", endDate: "2026-10-20" }];
+    expect(moveTargetDates(THURSDAY, { ...base, breaks }).map((t) => t.date)).toEqual([
+      "2026-10-15",
+    ]);
+  });
+
+  it("skips days the hero has been excused", () => {
+    expect(
+      moveTargetDates(THURSDAY, { ...base, excusedDates: ["2026-10-15"] }).map((t) => t.date)
+    ).toEqual(["2026-10-16"]);
+  });
+
+  it("marks a day optional whenever it is on the hero's optional list, school day or not", () => {
+    const both = { ...base, schoolDays: ["thu", "fri"] as DayOfWeek[], optionalDays: ["fri"] as DayOfWeek[] };
+    expect(moveTargetDates(THURSDAY, both)).toEqual([
+      { date: "2026-10-15", optional: false },
+      { date: "2026-10-16", optional: true },
+    ]);
+  });
+});
+
+describe("moveTargetLabel", () => {
+  const TODAY_ISO = "2026-10-15";
+
+  it("calls today 'Today'", () => {
+    expect(moveTargetLabel({ date: TODAY_ISO, optional: false }, TODAY_ISO)).toBe("Today");
+  });
+
+  it("uses the short weekday for any other day", () => {
+    expect(moveTargetLabel({ date: "2026-10-16", optional: false }, TODAY_ISO)).toBe("Fri");
+  });
+
+  it("says so when the day is optional", () => {
+    expect(moveTargetLabel({ date: "2026-10-16", optional: true }, TODAY_ISO)).toBe(
+      "Fri · optional"
+    );
   });
 });

@@ -8,7 +8,7 @@ import { getAssignmentsForDate, generateAssignmentsFromSchedules, getLatestAssig
 import { getQuests } from "@/lib/actions/quests";
 import { getScheduleBlocks } from "@/lib/actions/student-schedule";
 import { getSchoolingModeForDate } from "@/lib/actions/schooling-mode";
-import { getMakeupView } from "@/lib/actions/makeup";
+import { getMakeupView, getMoveTargets } from "@/lib/actions/makeup";
 import { generateLearningLog, getSavedLog } from "@/lib/actions/chronicles";
 import { getSchoolBreaks } from "@/lib/actions/school-breaks";
 import { addDays, todayInZone, weekStartOf } from "@/lib/utils/dates";
@@ -174,7 +174,7 @@ async function TodayView({
   const today = todayInZone(timeZone);
   await generateAssignmentsFromSchedules(childId, today, today);
 
-  const [subjects, activities, todayAssignments, quests, allBlocks, latestStatusByQuestId, schoolingMode, makeup] = await Promise.all([
+  const [subjects, activities, todayAssignments, quests, allBlocks, latestStatusByQuestId, schoolingMode, makeup, moveTargets] = await Promise.all([
     getSubjects(childId),
     getRecentActivities(childId, 50),
     getAssignmentsForDate(childId, today),
@@ -183,6 +183,8 @@ async function TodayView({
     getLatestAssignmentStatusByQuest(childId),
     getSchoolingModeForDate(childId, today),
     getMakeupView(childId, today),
+    // Only a grown-up can move a missed quest, so a hero's page skips the lookup.
+    isChildView ? Promise.resolve([]) : getMoveTargets(childId, today),
   ]);
 
   // A hero only sees carried-over work on a day their parent has made a
@@ -270,6 +272,7 @@ async function TodayView({
         isChildView={isChildView}
         allowChildSkip={allowChildSkip}
         reason={makeup.reason}
+        moveTargets={moveTargets}
       />
 
       <GameFrame title={isChildView ? "Adventure Log" : "Recent Adventures"} icon={<GameIcon name="book" className="size-5 text-[var(--gold-bright)]" />}>

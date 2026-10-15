@@ -29,6 +29,7 @@ async function loadPendingRows(where: SQL | undefined): Promise<PendingAssignmen
       id: schema.questAssignment.id,
       questId: schema.questAssignment.questId,
       date: schema.questAssignment.date,
+      originalDate: schema.questAssignment.originalDate,
       questIsActive: schema.quest.isActive,
       scheduleId: schema.questSchedule.id,
       frequency: schema.questSchedule.frequency,
@@ -46,6 +47,7 @@ async function loadPendingRows(where: SQL | undefined): Promise<PendingAssignmen
     id: r.id,
     sourceId: r.questId,
     date: r.date,
+    originalDate: r.originalDate,
     sourceIsActive: r.questIsActive,
     schedule: r.scheduleId
       ? {

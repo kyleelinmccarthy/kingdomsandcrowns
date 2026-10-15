@@ -1,7 +1,7 @@
 import { QuestAssignmentCard } from "@/components/quest-assignment-card";
 import { GameFrame } from "@/components/game-frame";
 import { GameIcon } from "@/components/game-icon";
-import { formatMissedDate, type MakeupReason } from "@/lib/utils/makeup";
+import { formatMissedDate, type MakeupReason, type MoveTarget } from "@/lib/utils/makeup";
 
 type AssignmentWithDetails = {
   assignment: {
@@ -43,6 +43,7 @@ export function MakeupQuests({
   isChildView,
   allowChildSkip = false,
   reason = null,
+  moveTargets = [],
 }: {
   assignments: AssignmentWithDetails[];
   /** The date the board is being shown for — what "Yesterday" is relative to. */
@@ -51,6 +52,8 @@ export function MakeupQuests({
   allowChildSkip?: boolean;
   /** Why this panel is showing, so it can say so. */
   reason?: MakeupReason | null;
+  /** Days left this week a grown-up may move a missed quest to. Parent view only. */
+  moveTargets?: MoveTarget[];
 }) {
   if (assignments.length === 0) return null;
 
@@ -60,7 +63,7 @@ export function MakeupQuests({
       icon={<GameIcon name="calendar" className="size-5 text-[var(--gold-bright)]" />}
     >
       <p className="mb-3 text-xs text-muted-foreground">
-        {blurb(isChildView, reason, assignments.length)}
+        {blurb(isChildView, reason, assignments.length, moveTargets.length > 0)}
       </p>
       <div className="min-w-0 space-y-2">
         {assignments.map((a) => (
@@ -73,6 +76,8 @@ export function MakeupQuests({
             structuredNext={null}
             allowChildSkip={allowChildSkip}
             missedFrom={formatMissedDate(a.assignment.date, today)}
+            moveTargets={isChildView ? [] : moveTargets}
+            today={today}
           />
         ))}
       </div>
@@ -80,7 +85,12 @@ export function MakeupQuests({
   );
 }
 
-function blurb(isChildView: boolean, reason: MakeupReason | null, count: number): string {
+function blurb(
+  isChildView: boolean,
+  reason: MakeupReason | null,
+  count: number,
+  canMove: boolean
+): string {
   const quests = count === 1 ? "quest" : "quests";
   if (isChildView) {
     if (reason === "marked_day") {
@@ -90,6 +100,9 @@ function blurb(isChildView: boolean, reason: MakeupReason | null, count: number)
       return `Today is your catch-up day. ${count} ${quests} from earlier in the week ${count === 1 ? "is" : "are"} waiting — do them in any order.`;
     }
     return `${count} ${quests} you didn't finish earlier. They don't lock anything — do them whenever you like.`;
+  }
+  if (canMove) {
+    return `${count} ${quests} still owed from earlier days. Finish one with this hero, move it to a day later this week, or mark it Not Needed to take it off their list for good.`;
   }
   return `${count} ${quests} still owed from earlier days. Finish one with this hero, or mark it Not Needed to take it off their list for good.`;
 }

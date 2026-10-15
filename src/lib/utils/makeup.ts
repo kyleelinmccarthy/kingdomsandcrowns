@@ -1,5 +1,5 @@
-import { addDays } from "./dates";
-import { weekdayOfDate, type DayOfWeek, DAYS_OF_WEEK } from "./schedule-days";
+import { addDays, weekEndOf } from "./dates";
+import { weekdayOfDate, type DayOfWeek, DAYS_OF_WEEK, DAY_LABELS } from "./schedule-days";
 
 /**
  * Catch-up: what happens to a quest a hero didn't get to on the day it was set.
@@ -162,4 +162,54 @@ export function formatMissedDate(date: string, today: string): string {
   if (date === addDays(today, -1)) return "Yesterday";
   if (date >= addDays(today, -6) && date < today) return WEEKDAY_NAMES[weekdayOfDate(date)];
   return date;
+}
+
+export type MoveTarget = {
+  date: string;
+  /** A day the hero may skip without breaking their streak — worth saying so before moving work onto it. */
+  optional: boolean;
+};
+
+/**
+ * The days a parent may move a missed quest onto: today and the rest of this
+ * week (Monday-start, so a Sunday is the last day), where the hero is actually
+ * meant to be at school.
+ *
+ * "At school" means a school day or a streak-optional day — a day the hero may
+ * skip is still a day they might do the work, which is why it's offered, just
+ * flagged. Days in a school break and days a parent excused are left out:
+ * nobody is working then, so moving a quest there would only bury it.
+ *
+ * Moving into the past is never offered (the server refuses it too), and
+ * neither is next week — a quest that can't be done by Sunday belongs to the
+ * weekly conversation, not a one-tap shuffle.
+ */
+export function moveTargetDates(
+  today: string,
+  opts: {
+    schoolDays: DayOfWeek[];
+    optionalDays: DayOfWeek[];
+    breaks: DateRange[];
+    excusedDates: string[];
+  }
+): MoveTarget[] {
+  const lastDay = weekEndOf(today);
+  const excused = new Set(opts.excusedDates);
+  const targets: MoveTarget[] = [];
+
+  for (let date = today; date <= lastDay; date = addDays(date, 1)) {
+    const weekday = weekdayOfDate(date);
+    const optional = opts.optionalDays.includes(weekday);
+    if (!optional && !opts.schoolDays.includes(weekday)) continue;
+    if (isWithinBreak(date, opts.breaks) || excused.has(date)) continue;
+    targets.push({ date, optional });
+  }
+
+  return targets;
+}
+
+/** How a move target reads on its chip: "Today", else the short weekday, noting when the day is optional. */
+export function moveTargetLabel(target: MoveTarget, today: string): string {
+  const day = target.date === today ? "Today" : DAY_LABELS[weekdayOfDate(target.date)];
+  return target.optional ? `${day} · optional` : day;
 }

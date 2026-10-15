@@ -13,6 +13,11 @@ export type PendingAssignmentRow = {
   sourceId: string;
   date: string; // ISO YYYY-MM-DD
   sourceIsActive: boolean;
+  /**
+   * Set when a parent moved this assignment off the day it was first planned
+   * for. Absent for sources that cannot be moved (upkeep tasks).
+   */
+  originalDate?: string | null;
   /** The source's schedule as it stands *now*, or null when it has none. */
   schedule: PruneSchedule | null;
 };
@@ -26,8 +31,11 @@ export type PendingAssignmentRow = {
  * assignment. Only `pending` rows should ever be handed in — completed rows are
  * the child's history and must survive a template being retired.
  *
- * Three rules, in order:
+ * Rules, in order:
  *  - The source was removed (soft-deleted) -> every pending row is stale.
+ *  - The row was moved to another day by a parent -> keep. A Monday-only quest
+ *    moved to Friday sits on a date its schedule never calls for, and that is
+ *    exactly what the parent asked for, not a leftover.
  *  - The source still has a schedule -> a pending row is stale unless the
  *    schedule, as it reads today, still calls for that date. This prunes
  *    leftovers when a repeat is narrowed or given an end date.
@@ -46,6 +54,7 @@ export function findStaleAssignmentIds(
       stale.push(row.id);
       continue;
     }
+    if (row.originalDate) continue;
     if (!row.schedule) continue;
 
     let dates = scheduledDatesBySourceId.get(row.sourceId);

@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { clampGenerationRange, MAX_GENERATION_DAYS } from "./generation-range";
+import {
+  clampGenerationRange,
+  occupiedAssignmentKeys,
+  MAX_GENERATION_DAYS,
+} from "./generation-range";
 
 describe("clampGenerationRange", () => {
   it("leaves a normal two-week window untouched", () => {
@@ -37,5 +41,27 @@ describe("clampGenerationRange", () => {
 
   it("exposes the cap so callers and tests agree on one number", () => {
     expect(MAX_GENERATION_DAYS).toBe(366);
+  });
+});
+
+describe("occupiedAssignmentKeys", () => {
+  it("claims the quest-and-day each row sits on", () => {
+    const keys = occupiedAssignmentKeys([{ questId: "q1", date: "2026-10-12", originalDate: null }]);
+    expect(keys).toEqual(new Set(["q1:2026-10-12"]));
+  });
+
+  it("also claims the day a moved row came from, so it is not regenerated", () => {
+    const keys = occupiedAssignmentKeys([
+      { questId: "q1", date: "2026-10-16", originalDate: "2026-10-12" },
+    ]);
+    expect(keys.has("q1:2026-10-16")).toBe(true);
+    expect(keys.has("q1:2026-10-12")).toBe(true);
+  });
+
+  it("does not claim that origin day for a different quest", () => {
+    const keys = occupiedAssignmentKeys([
+      { questId: "q1", date: "2026-10-16", originalDate: "2026-10-12" },
+    ]);
+    expect(keys.has("q2:2026-10-12")).toBe(false);
   });
 });

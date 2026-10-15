@@ -1,14 +1,19 @@
 "use server";
 
 import { nanoid } from "nanoid";
-import { and, asc, eq, gte } from "drizzle-orm";
+import { and, asc, eq, gte, lte } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { requireChildAccess, isChildActor } from "@/lib/auth/access";
 import { sanitizeText } from "@/lib/utils/sanitize";
-import { addDays, todayInZone } from "@/lib/utils/dates";
+import { addDays, todayInZone, weekEndOf } from "@/lib/utils/dates";
 import { getTimezoneForChild } from "@/lib/services/family-timezone";
-import { DAYS_OF_WEEK, type DayOfWeek } from "@/lib/utils/schedule-days";
+import {
+  DAYS_OF_WEEK,
+  parseSchoolDays,
+  parseStreakOptionalDays,
+  type DayOfWeek,
+} from "@/lib/utils/schedule-days";
 import {
   getAssignmentsForDateRange,
   generateAssignmentsFromSchedules,
@@ -19,12 +24,14 @@ import {
   isMakeupDay,
   makeupReason,
   makeupWindowStart,
+  moveTargetDates,
   parseMakeupDays,
   parseMakeupMode,
   selectMakeupAssignments,
   type MakeupMode,
   type MakeupReason,
   type MakeupSettings,
+  type MoveTarget,
 } from "@/lib/utils/makeup";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -208,6 +215,48 @@ export async function getMakeupView(childId: string, date: string): Promise<Make
     settings,
     assignments: selectMakeupAssignments(range, date, windowStart, breaks),
   };
+}
+
+/**
+ * The days a grown-up may move this hero's missed quests onto — today and the
+ * rest of the week, minus breaks and excused days. See `moveTargetDates` for
+ * the rule; this only gathers the hero's own settings to feed it.
+ *
+ * The move itself is `moveAssignmentsToDate`, which does its own authorizing,
+ * so this is a read-only convenience for rendering the chips.
+ */
+export async function getMoveTargets(childId: string, today: string): Promise<MoveTarget[]> {
+  if (!ISO_DATE.test(today)) throw new Error("Choose a valid date.");
+  const { familyId } = await requireChildAccess(childId);
+
+  const [childRows, breaks, excused] = await Promise.all([
+    db
+      .select({
+        schoolDays: schema.child.schoolDays,
+        streakOptionalDays: schema.child.streakOptionalDays,
+      })
+      .from(schema.child)
+      .where(eq(schema.child.id, childId))
+      .limit(1),
+    getSchoolBreaks(familyId),
+    db
+      .select({ date: schema.excusedDay.date })
+      .from(schema.excusedDay)
+      .where(
+        and(
+          eq(schema.excusedDay.childId, childId),
+          gte(schema.excusedDay.date, today),
+          lte(schema.excusedDay.date, weekEndOf(today))
+        )
+      ),
+  ]);
+
+  return moveTargetDates(today, {
+    schoolDays: parseSchoolDays(childRows[0]?.schoolDays),
+    optionalDays: parseStreakOptionalDays(childRows[0]?.streakOptionalDays),
+    breaks,
+    excusedDates: excused.map((e) => e.date),
+  });
 }
 
 /** How many quests a hero still owes from earlier days — the parent dashboard's badge. */

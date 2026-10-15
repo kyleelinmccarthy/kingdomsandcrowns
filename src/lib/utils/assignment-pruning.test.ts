@@ -9,6 +9,7 @@ function row(overrides: Partial<PendingAssignmentRow> & { id: string; date: stri
   return {
     sourceId: "quest-1",
     sourceIsActive: true,
+    originalDate: null,
     schedule: {
       frequency: "weekly",
       daysOfWeek: MON_WED,
@@ -126,5 +127,30 @@ describe("findStaleAssignmentIds", () => {
       row({ id: "c", sourceId: "q2", date: "2026-03-04" }),
     ];
     expect(findStaleAssignmentIds(rows, range)).toEqual(["b"]);
+  });
+
+  describe("assignments a parent moved to another day", () => {
+    it("keeps a moved row even though the schedule does not call for its new date", () => {
+      // Mon/Wed quest moved from Monday to Friday — Friday is not on its schedule.
+      const rows = [row({ id: "moved", date: "2026-03-06", originalDate: "2026-03-02" })];
+      expect(findStaleAssignmentIds(rows, range)).toEqual([]);
+    });
+
+    it("still prunes an unmoved row on the same off-schedule date", () => {
+      const rows = [row({ id: "plain", date: "2026-03-06", originalDate: null })];
+      expect(findStaleAssignmentIds(rows, range)).toEqual(["plain"]);
+    });
+
+    it("still clears a moved row when its quest was removed", () => {
+      const rows = [
+        row({
+          id: "moved",
+          date: "2026-03-06",
+          originalDate: "2026-03-02",
+          sourceIsActive: false,
+        }),
+      ];
+      expect(findStaleAssignmentIds(rows, range)).toEqual(["moved"]);
+    });
   });
 });

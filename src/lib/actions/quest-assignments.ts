@@ -8,7 +8,7 @@ import { createActivity, deleteActivity } from "@/lib/actions/activities";
 import { getScheduledDates } from "@/lib/utils/schedule";
 import { todayInZone } from "@/lib/utils/dates";
 import { getTimezoneForChild } from "@/lib/services/family-timezone";
-import { clampGenerationRange } from "@/lib/utils/generation-range";
+import { clampGenerationRange, occupiedAssignmentKeys } from "@/lib/utils/generation-range";
 import { getSchoolDays, getScheduleBlocks } from "@/lib/actions/student-schedule";
 import { getSchoolingModeForDate } from "@/lib/actions/schooling-mode";
 import { requireChildAccess, requireAssignmentAccess, isChildActor } from "@/lib/auth/access";
@@ -238,24 +238,33 @@ export async function generateAssignmentsFromSchedules(
 
   if (questsWithSchedules.length === 0) return 0;
 
-  // Get existing assignments in the range to avoid duplicates
+  // Get existing assignments in the range to avoid duplicates. A row a parent
+  // moved out of the range still counts — it is matched by the day it came
+  // from — or the day it left would be planned all over again.
   const existingAssignments = await db
     .select({
       questId: schema.questAssignment.questId,
       date: schema.questAssignment.date,
+      originalDate: schema.questAssignment.originalDate,
     })
     .from(schema.questAssignment)
     .where(
       and(
         eq(schema.questAssignment.childId, childId),
-        gte(schema.questAssignment.date, startDate),
-        lte(schema.questAssignment.date, endDate)
+        or(
+          and(
+            gte(schema.questAssignment.date, startDate),
+            lte(schema.questAssignment.date, endDate)
+          ),
+          and(
+            gte(schema.questAssignment.originalDate, startDate),
+            lte(schema.questAssignment.originalDate, endDate)
+          )
+        )
       )
     );
 
-  const existingSet = new Set(
-    existingAssignments.map((a) => `${a.questId}:${a.date}`)
-  );
+  const existingSet = occupiedAssignmentKeys(existingAssignments);
 
   let created = 0;
   const now = new Date();

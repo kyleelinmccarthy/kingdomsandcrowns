@@ -13,6 +13,8 @@ import {
 } from "@/lib/actions/quest-assignments";
 import { useQuestTimer, formatElapsed } from "@/hooks/use-quest-timer";
 import { GameIcon } from "@/components/game-icon";
+import { moveAssignmentsToDate } from "@/lib/actions/excused-days";
+import { moveTargetLabel, type MoveTarget } from "@/lib/utils/makeup";
 import { formatMovedFrom } from "@/lib/utils/missed-days";
 import { getRewardItemLabel } from "@/lib/utils/avatar-catalog";
 import { hasMeaningfulNotes } from "@/lib/utils/sanitize";
@@ -51,6 +53,8 @@ export function QuestAssignmentCard({
   structuredNext = null,
   allowChildSkip = false,
   missedFrom = null,
+  moveTargets = [],
+  today = null,
 }: {
   data: AssignmentWithDetails;
   isChildView: boolean;
@@ -77,11 +81,20 @@ export function QuestAssignmentCard({
    * missed work means: it stops following the hero.
    */
   missedFrom?: string | null;
+  /**
+   * The days left this week a grown-up may move this catch-up quest onto
+   * (parent view of a catch-up card only; empty hides the Move button). `today`
+   * is what the first chip's "Today" is measured against.
+   */
+  moveTargets?: MoveTarget[];
+  today?: string | null;
 }) {
   const router = useRouter();
   const [acting, setActing] = useState(false);
   const [showQuickComplete, setShowQuickComplete] = useState(false);
   const [showSkip, setShowSkip] = useState(false);
+  const [showMove, setShowMove] = useState(false);
+  const [moveNotice, setMoveNotice] = useState("");
   const [showStuck, setShowStuck] = useState(false);
   const [showRevise, setShowRevise] = useState(false);
   const [showNotesEdit, setShowNotesEdit] = useState(false);
@@ -114,6 +127,7 @@ export function QuestAssignmentCard({
   const isOpen = isPending || (isStuck && isMakeup);
   // Skipping missed work is how a grown-up says it isn't needed any more.
   const skipLabel = isMakeup && !isChildView ? "Not Needed" : "Skip";
+  const canMove = isMakeup && !isChildView && moveTargets.length > 0;
 
   function handleStart() {
     startTimer(assignment.id);
@@ -131,6 +145,7 @@ export function QuestAssignmentCard({
   function openQuickComplete() {
     setManualDuration(quest.estimatedMinutes ? String(quest.estimatedMinutes) : "");
     setNotes("");
+    setShowMove(false);
     setShowQuickComplete(true);
   }
 
@@ -187,7 +202,40 @@ export function QuestAssignmentCard({
     setSkipReason("");
     setError("");
     setShowQuickComplete(false);
+    setShowMove(false);
     setShowSkip(true);
+  }
+
+  function openMove() {
+    setError("");
+    setMoveNotice("");
+    setShowQuickComplete(false);
+    setShowSkip(false);
+    setShowMove(true);
+  }
+
+  /**
+   * Grown-ups only: carry this missed quest onto a later day this week. A quest
+   * can only sit on a day once, so if that day already has it nothing moves —
+   * say so rather than closing the row as though it had worked.
+   */
+  async function handleMove(date: string) {
+    setActing(true);
+    setError("");
+    setMoveNotice("");
+    try {
+      const result = await moveAssignmentsToDate([assignment.id], date);
+      if (result.blocked > 0) {
+        setMoveNotice("That day already has this quest, so there's nothing to move.");
+        return;
+      }
+      setShowMove(false);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not move quest");
+    } finally {
+      setActing(false);
+    }
   }
 
   /**
@@ -473,6 +521,11 @@ export function QuestAssignmentCard({
                 <Button size="sm" variant="outline" onClick={openQuickComplete} disabled={acting} className="!border-[var(--gold-bright)]">
                   Mark Done
                 </Button>
+                {canMove && (
+                  <Button size="sm" variant="ghost" onClick={openMove} disabled={acting}>
+                    Move…
+                  </Button>
+                )}
                 <Button size="sm" variant="ghost" onClick={openSkip} disabled={acting}>
                   {skipLabel}
                 </Button>
@@ -482,7 +535,7 @@ export function QuestAssignmentCard({
         )}
       </div>
 
-      {error && !showQuickComplete && !showSkip && !showStuck && !showRevise && !showNotesEdit && (
+      {error && !showQuickComplete && !showSkip && !showMove && !showStuck && !showRevise && !showNotesEdit && (
         <p className="mt-2 text-xs text-destructive">{error}</p>
       )}
 
@@ -522,6 +575,31 @@ export function QuestAssignmentCard({
                 {skipLabel}
               </Button>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Move a missed quest to a day still ahead this week. */}
+      {canMove && isOpen && showMove && !isTimerRunning && (
+        <div className="mt-2 space-y-2 border-t border-border/30 pt-2">
+          {error && <p className="text-xs text-destructive">{error}</p>}
+          {moveNotice && <p className="text-xs text-muted-foreground">{moveNotice}</p>}
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-muted-foreground">Move to:</span>
+            {moveTargets.map((target) => (
+              <Button
+                key={target.date}
+                size="sm"
+                variant="outline"
+                onClick={() => handleMove(target.date)}
+                disabled={acting}
+              >
+                {moveTargetLabel(target, today ?? "")}
+              </Button>
+            ))}
+            <Button size="sm" variant="ghost" onClick={() => setShowMove(false)} disabled={acting}>
+              Cancel
+            </Button>
           </div>
         </div>
       )}
