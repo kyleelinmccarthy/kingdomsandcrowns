@@ -103,12 +103,12 @@ function MissedDayRow({
     setNotice(null);
     try {
       const result = await fn();
-      // A quest already on the target day cannot be moved onto it twice, so it
-      // stays put. Say so — silently moving three of four is worse than saying
+      // A quest already on (or planned for) the target day cannot be moved onto
+      // it twice, so it stays put. Say so — silently moving three of four is worse than saying
       // which one stayed and why.
       if (result && result.blocked > 0) {
         setNotice(
-          `${result.moved} moved. ${result.blocked} stayed put — that day already has ${result.blocked === 1 ? "that quest" : "those quests"}.`
+          `${result.moved} moved. ${result.blocked} stayed put — that day already has ${result.blocked === 1 ? "that quest" : "those quests"} planned.`
         );
       }
       setMode("idle");

@@ -19,6 +19,8 @@ import {
   EXCUSE_REASONS,
   collisionKey,
   partitionMovable,
+  plannedKeysOnDate,
+  unclaimedPlannedKeys,
   type ExcuseReason,
 } from "@/lib/utils/excused-days";
 
@@ -279,6 +281,10 @@ export async function unexcuseDay(childId: string, date: string): Promise<void> 
  * Monday to Wednesday and then to Friday still says it came from Monday, which
  * is the day a parent is actually trying to account for.
  *
+ * A quest is never moved onto a day its own schedule already plans for it,
+ * even when that day's row has not been generated yet — unless that day's own
+ * row was moved away and so still claims it; see `partitionMovable`.
+ *
  * No streak recompute — moving planned work changes no activity history, and
  * the day it left is still empty until it is excused or worked.
  */
@@ -329,7 +335,60 @@ export async function moveAssignmentsToDate(
       )
     );
 
-  const { movable, blocked } = partitionMovable(rows, onTarget.map(collisionKey));
+  // What the target day plans for these heroes but has not materialized yet.
+  // That day's copy of the quest is coming anyway, so carrying another there
+  // would be a duplicate — and it would leave this row to be moved off a
+  // scheduled day later, which generation would then refill. Loaded the way
+  // the generator reads them: active quests, their schedule (if any), and each
+  // hero's own school days.
+  const questIds = [...new Set(rows.map((r) => r.questId))];
+  const schedules = await db
+    .select({
+      childId: schema.quest.childId,
+      questId: schema.quest.id,
+      isActive: schema.quest.isActive,
+      frequency: schema.questSchedule.frequency,
+      daysOfWeek: schema.questSchedule.daysOfWeek,
+      intervalWeeks: schema.questSchedule.intervalWeeks,
+      startDate: schema.questSchedule.startDate,
+      endDate: schema.questSchedule.endDate,
+    })
+    .from(schema.quest)
+    .leftJoin(schema.questSchedule, eq(schema.quest.id, schema.questSchedule.questId))
+    .where(inArray(schema.quest.id, questIds));
+
+  const children = await db
+    .select({ id: schema.child.id, schoolDays: schema.child.schoolDays })
+    .from(schema.child)
+    .where(inArray(schema.child.id, childIds));
+  const schoolDaysByChild = new Map(
+    children.map((c) => [c.id, parseSchoolDays(c.schoolDays)] as const)
+  );
+
+  // A planned day can already be spoken for: a row moved off the target day
+  // still carries it as its originalDate, and generation counts that as
+  // occupied, so no fresh copy is coming and nothing would be duplicated.
+  const movedAway = await db
+    .select({
+      childId: schema.questAssignment.childId,
+      questId: schema.questAssignment.questId,
+    })
+    .from(schema.questAssignment)
+    .where(
+      and(
+        inArray(schema.questAssignment.childId, childIds),
+        eq(schema.questAssignment.originalDate, targetDate)
+      )
+    );
+
+  const { movable, blocked } = partitionMovable(
+    rows,
+    onTarget.map(collisionKey),
+    unclaimedPlannedKeys(
+      plannedKeysOnDate(targetDate, schedules, schoolDaysByChild),
+      movedAway.map(collisionKey)
+    )
+  );
   if (movable.length === 0) return { moved: 0, blocked: blocked.length };
 
   await db

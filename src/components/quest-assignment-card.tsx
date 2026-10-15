@@ -216,8 +216,9 @@ export function QuestAssignmentCard({
 
   /**
    * Grown-ups only: carry this missed quest onto a later day this week. A quest
-   * can only sit on a day once, so if that day already has it nothing moves —
-   * say so rather than closing the row as though it had worked.
+   * can only sit on a day once, so if that day already has it — or already has
+   * it planned, even if that day's row isn't generated yet — nothing moves.
+   * Say so rather than closing the row as though it had worked.
    */
   async function handleMove(date: string) {
     setActing(true);
@@ -226,7 +227,7 @@ export function QuestAssignmentCard({
     try {
       const result = await moveAssignmentsToDate([assignment.id], date);
       if (result.blocked > 0) {
-        setMoveNotice("That day already has this quest, so there's nothing to move.");
+        setMoveNotice("That day already has this quest planned, so there's nothing to move.");
         return;
       }
       setShowMove(false);
