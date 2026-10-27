@@ -2,6 +2,7 @@ import { cache } from "react";
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
+import { BILLING_ENABLED } from "./config";
 
 /** Free plan: 1 child, 1 adult account, full quest/chore loop, no compliance export. */
 export const FREE_CHILD_LIMIT = 1;
@@ -33,6 +34,8 @@ export const getSubscriptionStatus = cache(async function getSubscriptionStatus(
  *  subscription — a lapsed or past-due family reads as "free" for gating purposes, though its
  *  existing data stays fully visible: the gates only ever stop something new being added. */
 export async function getFamilyPlan(familyId: string): Promise<Plan> {
+  // Before launch every family has everything, so all three gates below open without a query.
+  if (!BILLING_ENABLED) return "paid";
   const status = await getSubscriptionStatus(familyId);
   return PAID_STATUSES.has(status) ? "paid" : "free";
 }

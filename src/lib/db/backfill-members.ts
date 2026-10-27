@@ -10,16 +10,8 @@
  */
 import { and, eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
-import { createClient } from "@libsql/client";
-import { drizzle } from "drizzle-orm/libsql";
 import * as schema from "./schema";
-
-const client = createClient({
-  url: process.env.TURSO_DATABASE_URL || "file:./local.db",
-  authToken: process.env.TURSO_AUTH_TOKEN,
-});
-
-const db = drizzle(client, { schema });
+import { db, closeDb } from "./index";
 
 async function main() {
   const families = await db.select().from(schema.family);
@@ -68,7 +60,9 @@ async function main() {
   console.log(`Backfill complete: ${created} owner member(s) created, ${skipped} skipped.`);
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+main()
+  .catch((err) => {
+    console.error(err);
+    process.exit(1);
+  })
+  .finally(() => closeDb());

@@ -1,1 +1,0 @@
-ALTER TABLE `quest` ADD `require_notes` integer DEFAULT false NOT NULL;

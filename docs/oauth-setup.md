@@ -134,7 +134,7 @@ Send yourself a test "Send a Raven" from the user menu — the email should arri
 The Rookery (admin feedback inbox) is gated by user ID, not by role. After you create your account in production:
 
 1. Sign in as yourself.
-2. Look up your user ID in the Turso `user` table (or temporarily log it from `getSession()`).
+2. Look up your user ID in the `user` table (or temporarily log it from `getSession()`).
 3. Set `ADMIN_USER_IDS=<your-user-id>` on the Cloudflare Worker (comma-separated for multiple admins).
 4. Redeploy. You can now visit `/admin/feedback`.
 

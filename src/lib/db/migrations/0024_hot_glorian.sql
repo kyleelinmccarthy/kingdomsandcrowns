@@ -1,1 +1,0 @@
-ALTER TABLE `season` ADD `ceremony_seen_at` integer;

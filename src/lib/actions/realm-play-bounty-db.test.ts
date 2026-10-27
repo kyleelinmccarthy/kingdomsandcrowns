@@ -1,20 +1,24 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeAll, beforeEach, afterAll } from "vitest";
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
-import { createClient, type Client } from "@libsql/client";
-import { drizzle } from "drizzle-orm/libsql";
+import { Client } from "pg";
+import { drizzle } from "drizzle-orm/node-postgres";
 import * as schema from "@/lib/db/schema";
 
 /**
- * The bounty against a REAL libsql database, which is what production runs (Turso is libsql).
+ * The bounty against a REAL Postgres database, which is what production runs on Railway.
  * The other bounty test mocks the services; this one exists because the defect was between the
  * services — a read of the allowance, then an award, then the writes — and only a real database
- * shows two calls interleaving across those awaits.
+ * shows two calls interleaving across those awaits. It is also what proves the
+ * `pg_advisory_xact_lock` in `awardTroubleClears` actually serializes two concurrent calls, which
+ * Postgres's default isolation does not do on its own.
+ *
+ * Runs in its own schema so it can share a Postgres server with the other real-database tests
+ * without their tables colliding.
  */
-const dir = mkdtempSync(path.join(tmpdir(), "bounty-db-"));
-const client: Client = createClient({ url: `file:${path.join(dir, "bounty.db")}` });
+const SCHEMA = "test_bounty_db";
+const client = new Client({
+  connectionString: process.env.DATABASE_URL || "postgres://postgres:postgres@localhost:5432/kingdomsandcrowns",
+});
 const testDb = drizzle(client, { schema });
 
 vi.mock("@/lib/db", () => ({ db: testDb }));
@@ -27,7 +31,7 @@ vi.mock("@/lib/auth/access", () => ({
 const { recordTroubleClears } = await import("./realm-play");
 
 async function clearsRecorded(): Promise<number> {
-  const r = await client.execute({ sql: "SELECT count(*) AS n FROM realm_trouble_clear WHERE child_id = 'c1'", args: [] });
+  const r = await client.query("SELECT count(*) AS n FROM realm_trouble_clear WHERE child_id = 'c1'");
   return Number(r.rows[0].n);
 }
 
@@ -36,54 +40,58 @@ async function clearsRecorded(): Promise<number> {
 const DDL = [
   `CREATE TABLE realm_settings (
     id text PRIMARY KEY NOT NULL, child_id text NOT NULL UNIQUE,
-    enabled integer DEFAULT true NOT NULL, access_mode text DEFAULT 'earned' NOT NULL,
-    earned_minutes_per_quest integer DEFAULT 5 NOT NULL, off_hours_enabled integer DEFAULT false NOT NULL,
+    enabled boolean DEFAULT true NOT NULL, access_mode text DEFAULT 'earned' NOT NULL,
+    earned_minutes_per_quest integer DEFAULT 5 NOT NULL, off_hours_enabled boolean DEFAULT false NOT NULL,
     daily_cap_minutes integer DEFAULT 30 NOT NULL, tone_mode text DEFAULT 'gentle' NOT NULL,
-    help_seen_at integer, starter_spell_at integer, depth_override text DEFAULT 'auto' NOT NULL,
+    help_seen_at timestamptz, starter_spell_at timestamptz, depth_override text DEFAULT 'auto' NOT NULL,
     tutorial_step integer DEFAULT 0 NOT NULL, trouble_bonus_cap_minutes integer DEFAULT 5 NOT NULL,
-    sound text, created_at integer NOT NULL, updated_at integer NOT NULL)`,
+    sound text, created_at timestamptz NOT NULL, updated_at timestamptz NOT NULL)`,
   `CREATE TABLE realm_play_ledger (
     id text PRIMARY KEY NOT NULL, child_id text NOT NULL, date text NOT NULL, kind text NOT NULL,
-    minutes integer NOT NULL, source_assignment_id text, created_at integer NOT NULL)`,
+    minutes integer NOT NULL, source_assignment_id text, created_at timestamptz NOT NULL)`,
   `CREATE TABLE realm_trouble_clear (
     id text PRIMARY KEY NOT NULL, child_id text NOT NULL, date text NOT NULL, home_id text NOT NULL,
-    minutes integer DEFAULT 0 NOT NULL, created_at integer NOT NULL)`,
+    minutes integer DEFAULT 0 NOT NULL, created_at timestamptz NOT NULL)`,
   `CREATE UNIQUE INDEX realm_trouble_clear_paid_unique_idx ON realm_trouble_clear (child_id, date, home_id) WHERE "realm_trouble_clear"."minutes" > 0`,
 ];
 
 const today = new Date().toISOString().slice(0, 10);
 
 beforeAll(async () => {
-  for (const sql of DDL) await client.execute(sql);
+  await client.connect();
+  await client.query(`DROP SCHEMA IF EXISTS "${SCHEMA}" CASCADE`);
+  await client.query(`CREATE SCHEMA "${SCHEMA}"`);
+  await client.query(`SET search_path TO "${SCHEMA}"`);
+  for (const sql of DDL) await client.query(sql);
 });
 
 beforeEach(async () => {
-  for (const t of ["realm_settings", "realm_play_ledger", "realm_trouble_clear"]) await client.execute(`DELETE FROM ${t}`);
+  for (const t of ["realm_settings", "realm_play_ledger", "realm_trouble_clear"]) await client.query(`DELETE FROM ${t}`);
   // Plenty of schoolwork, so the parent's cap of 5 is the only ceiling.
-  await client.execute({
-    sql: "INSERT INTO realm_play_ledger (id, child_id, date, kind, minutes, created_at) VALUES ('e1', 'c1', ?, 'earned', 20, 0)",
-    args: [today],
-  });
+  await client.query(
+    "INSERT INTO realm_play_ledger (id, child_id, date, kind, minutes, created_at) VALUES ('e1', 'c1', $1, 'earned', 20, NOW())",
+    [today],
+  );
 });
 
-afterAll(() => {
-  client.close();
-  rmSync(dir, { recursive: true, force: true });
+afterAll(async () => {
+  await client.query(`DROP SCHEMA IF EXISTS "${SCHEMA}" CASCADE`);
+  await client.end();
 });
 
 async function bonusBanked(): Promise<number> {
-  const r = await client.execute({
-    sql: "SELECT coalesce(sum(minutes), 0) AS n FROM realm_play_ledger WHERE child_id = 'c1' AND date = ? AND kind = 'bonus'",
-    args: [today],
-  });
+  const r = await client.query(
+    "SELECT coalesce(sum(minutes), 0) AS n FROM realm_play_ledger WHERE child_id = 'c1' AND date = $1 AND kind = 'bonus'",
+    [today],
+  );
   return Number(r.rows[0].n);
 }
 
 async function clearsPaid(): Promise<number> {
-  const r = await client.execute({
-    sql: "SELECT coalesce(sum(minutes), 0) AS n FROM realm_trouble_clear WHERE child_id = 'c1' AND date = ?",
-    args: [today],
-  });
+  const r = await client.query(
+    "SELECT coalesce(sum(minutes), 0) AS n FROM realm_trouble_clear WHERE child_id = 'c1' AND date = $1",
+    [today],
+  );
   return Number(r.rows[0].n);
 }
 
@@ -126,8 +134,8 @@ describe("recordTroubleClears — what a batch earns", () => {
   });
 
   it("pays nothing in open mode, where minutes are never read", async () => {
-    await client.execute(
-      "INSERT INTO realm_settings (id, child_id, access_mode, created_at, updated_at) VALUES ('s1', 'c1', 'open', 0, 0)",
+    await client.query(
+      "INSERT INTO realm_settings (id, child_id, access_mode, created_at, updated_at) VALUES ('s1', 'c1', 'open', NOW(), NOW())",
     );
     const r = await recordTroubleClears("c1", today, ["rim-0"]);
     expect(r.awarded).toBe(0);

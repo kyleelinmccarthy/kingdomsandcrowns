@@ -1,18 +1,20 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeAll, beforeEach, afterAll } from "vitest";
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
-import { createClient, type Client } from "@libsql/client";
-import { drizzle } from "drizzle-orm/libsql";
+import { Client } from "pg";
+import { drizzle } from "drizzle-orm/node-postgres";
 import * as schema from "@/lib/db/schema";
 
 /**
- * The places a hero has found, against a real libsql database. The gate is mocked as the actor:
+ * The places a hero has found, against a real Postgres database. The gate is mocked as the actor:
  * the hero, or a grown-up with edit or view-only access. Its `write` rule is the real one.
+ *
+ * Runs in its own schema so it can share a Postgres server with the other real-database tests
+ * without their tables colliding.
  */
-const dir = mkdtempSync(path.join(tmpdir(), "realm-places-"));
-const client: Client = createClient({ url: `file:${path.join(dir, "places.db")}` });
+const SCHEMA = "test_realm_places";
+const client = new Client({
+  connectionString: process.env.DATABASE_URL || "postgres://postgres:postgres@localhost:5432/kingdomsandcrowns",
+});
 const testDb = drizzle(client, { schema });
 
 type Actor = { userId: string; permission: "edit" | "view" };
@@ -33,7 +35,7 @@ const { loadPlacesFound } = await import("@/lib/services/realm-places");
 
 const DDL = [
   `CREATE TABLE realm_place_found (
-    id text PRIMARY KEY NOT NULL, child_id text NOT NULL, place_id text NOT NULL, found_at integer NOT NULL)`,
+    id text PRIMARY KEY NOT NULL, child_id text NOT NULL, place_id text NOT NULL, found_at timestamptz NOT NULL)`,
   `CREATE UNIQUE INDEX realm_place_found_child_place_idx ON realm_place_found (child_id, place_id)`,
 ];
 
@@ -42,23 +44,27 @@ const mom: Actor = { userId: "u-mom", permission: "edit" };
 const tutor: Actor = { userId: "u-tutor", permission: "view" };
 
 async function rowCount(): Promise<number> {
-  const r = await client.execute("SELECT count(*) AS n FROM realm_place_found");
+  const r = await client.query("SELECT count(*) AS n FROM realm_place_found");
   return Number(r.rows[0].n);
 }
 
 beforeAll(async () => {
-  for (const sql of DDL) await client.execute(sql);
+  await client.connect();
+  await client.query(`DROP SCHEMA IF EXISTS "${SCHEMA}" CASCADE`);
+  await client.query(`CREATE SCHEMA "${SCHEMA}"`);
+  await client.query(`SET search_path TO "${SCHEMA}"`);
+  for (const sql of DDL) await client.query(sql);
 });
 
 beforeEach(async () => {
-  await client.execute("DELETE FROM realm_place_found");
+  await client.query("DELETE FROM realm_place_found");
   requireChildAccess.mockClear();
   actor = hero;
 });
 
-afterAll(() => {
-  client.close();
-  rmSync(dir, { recursive: true, force: true });
+afterAll(async () => {
+  await client.query(`DROP SCHEMA IF EXISTS "${SCHEMA}" CASCADE`);
+  await client.end();
 });
 
 describe("recordPlacesFound — who writes", () => {

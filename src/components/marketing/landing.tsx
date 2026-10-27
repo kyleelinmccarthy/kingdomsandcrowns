@@ -108,8 +108,8 @@ export function Landing() {
             makes the daily habit fun for students and keeps the paperwork done for you.
           </p>
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-            <Link href="/signup">
-              <Button size="lg">Create a parent account</Button>
+            <Link href="/request-access">
+              <Button size="lg">Request access</Button>
             </Link>
             <Link href="/login">
               <Button size="lg" variant="secondary" className={CTA_SECONDARY}>
@@ -252,8 +252,8 @@ export function Landing() {
                   .
                 </p>
                 <div className="mt-8 flex flex-col items-center gap-3 sm:flex-row md:items-start">
-                  <Link href="/signup">
-                    <Button size="lg">Create your parent account</Button>
+                  <Link href="/request-access">
+                    <Button size="lg">Request access</Button>
                   </Link>
                   <Link href="/login">
                     <Button size="lg" variant="secondary" className={CTA_SECONDARY}>

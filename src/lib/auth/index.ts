@@ -3,7 +3,12 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
+import { APIError } from "better-auth/api";
 import { tryLinkChildForUser, tryLinkChildByUserId } from "@/lib/auth/child-link";
+import { mayCreateAccount } from "@/lib/auth/signup-allowlist";
+import { INVITE_ONLY } from "@/lib/auth/invite-only";
+import { sendEmail } from "@/lib/email";
+import { brandedEmail } from "@/lib/email-template";
 
 // better-auth only trusts the single host in BETTER_AUTH_URL by default, which
 // rejects requests whose Origin is a different host (e.g. www vs apex) with
@@ -45,13 +50,33 @@ export const auth = betterAuth({
   appName: "Kingdoms & Crowns",
   trustedOrigins: buildTrustedOrigins(),
   database: drizzleAdapter(db, {
-    provider: "sqlite",
+    provider: "pg",
     schema,
   }),
   emailAndPassword: {
     enabled: true,
     minPasswordLength: 8,
     maxPasswordLength: 128,
+    resetPasswordTokenExpiresIn: 60 * 60,
+    // Also how a Google-only account gets a password: completing a reset creates the
+    // email + password sign-in when the account has none.
+    sendResetPassword: async ({ user, url }) => {
+      const { html, text } = brandedEmail({
+        preheader: "Choose a new passphrase for Kingdoms & Crowns.",
+        heading: "Reset your passphrase",
+        paragraphs: [
+          "Someone (hopefully you) asked to set a new passphrase for this account.",
+          "The link works for one hour. If you didn't ask for this, you can ignore this email.",
+        ],
+        button: { label: "Choose a new passphrase", url },
+        afterButton: [`If the button doesn't work, paste this into your browser: ${url}`],
+      });
+      try {
+        await sendEmail({ to: user.email, subject: "Reset your Kingdoms & Crowns passphrase", text, html });
+      } catch (err) {
+        console.error("[auth] reset email failed:", err);
+      }
+    },
   },
   socialProviders: {
     google: {
@@ -72,6 +97,12 @@ export const auth = betterAuth({
   databaseHooks: {
     user: {
       create: {
+        // Sign-ups are invite-only: see signup-allowlist.ts.
+        before: async (user: { email?: string | null }) => {
+          if (!(await mayCreateAccount(user.email))) {
+            throw new APIError("FORBIDDEN", { message: INVITE_ONLY });
+          }
+        },
         after: async (user: { id: string; email?: string | null }) => {
           try {
             await tryLinkChildForUser(user);

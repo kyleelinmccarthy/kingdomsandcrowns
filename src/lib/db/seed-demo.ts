@@ -2,18 +2,10 @@
  * Seeds the local database with demo data for testing.
  * Run with: npx tsx src/lib/db/seed-demo.ts
  */
-import { createClient } from "@libsql/client";
-import { drizzle } from "drizzle-orm/libsql";
 import { eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import * as schema from "./schema";
-
-const client = createClient({
-  url: process.env.TURSO_DATABASE_URL || "file:./local.db",
-  authToken: process.env.TURSO_AUTH_TOKEN,
-});
-
-const db = drizzle(client, { schema });
+import { db } from "./index";
 
 const now = new Date();
 

@@ -9,7 +9,14 @@ import { requireFamilyAccess } from "@/lib/auth/access";
 import { requireSession } from "@/lib/auth/session";
 import { stripeClient, priceIdForInterval, type BillingInterval } from "@/lib/billing/stripe";
 import { getSubscriptionStatus } from "@/lib/billing/plan";
+import { BILLING_ENABLED } from "@/lib/billing/config";
 import { appBaseUrl } from "@/lib/email";
+
+// Server actions are reachable by POST whether or not any button renders them, so the pre-launch
+// switch is enforced here too, not only in the UI.
+function assertBillingLive() {
+  if (!BILLING_ENABLED) throw new Error("Paid plans aren't available yet.");
+}
 
 function assertOwner(access: { isOwner: boolean }) {
   if (!access.isOwner) {
@@ -19,7 +26,11 @@ function assertOwner(access: { isOwner: boolean }) {
 
 export async function getBillingStatus() {
   const access = await requireFamilyAccess();
-  return { status: await getSubscriptionStatus(access.familyId), canManage: access.isOwner };
+  return {
+    enabled: BILLING_ENABLED,
+    status: BILLING_ENABLED ? await getSubscriptionStatus(access.familyId) : ("free" as const),
+    canManage: access.isOwner,
+  };
 }
 
 async function getOrCreateStripeCustomerId(
@@ -62,6 +73,7 @@ async function getOrCreateStripeCustomerId(
 
 /** Redirects the owner to Stripe-hosted Checkout for a new subscription. */
 export async function createCheckoutSession(interval: BillingInterval): Promise<never> {
+  assertBillingLive();
   const access = await requireFamilyAccess({ write: true });
   assertOwner(access);
   const session = await requireSession();
@@ -88,6 +100,7 @@ export async function createCheckoutSession(interval: BillingInterval): Promise<
 
 /** Redirects the owner to the Stripe-hosted Customer Portal (cancel, change plan, update card). */
 export async function createBillingPortalSession(): Promise<never> {
+  assertBillingLive();
   const access = await requireFamilyAccess({ write: true });
   assertOwner(access);
 

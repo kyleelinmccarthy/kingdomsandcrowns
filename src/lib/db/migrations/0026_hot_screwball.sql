@@ -1,1 +1,0 @@
-ALTER TABLE `realm_settings` ADD `depth_override` text DEFAULT 'auto' NOT NULL;

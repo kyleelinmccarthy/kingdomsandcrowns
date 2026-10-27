@@ -13,7 +13,22 @@ const STATUS_COPY: Record<SubscriptionStatus, { label: string; tone: string }> =
   canceled: { label: "Subscription canceled", tone: "text-muted-foreground" },
 };
 
-export function BillingPanel({ status }: { status: SubscriptionStatus }) {
+export function BillingPanel({ enabled, status }: { enabled: boolean; status: SubscriptionStatus }) {
+  if (!enabled) {
+    return (
+      <div className="space-y-1">
+        <p className="font-medium">Kingdom plan — coming soon</p>
+        <p className="text-sm text-muted-foreground">
+          Every feature is free for now: as many heroes and grown-ups as your family needs, and
+          weekly summaries you can save and keep.
+        </p>
+      </div>
+    );
+  }
+  return <LiveBillingPanel status={status} />;
+}
+
+function LiveBillingPanel({ status }: { status: SubscriptionStatus }) {
   const [pending, startTransition] = useTransition();
   const copy = STATUS_COPY[status];
   const isPaid = status === "active" || status === "trialing";

@@ -21,7 +21,7 @@ export default function ForgotPasswordPage() {
     try {
       await authClient.$fetch("/request-password-reset", {
         method: "POST",
-        body: { email, redirectTo: "/login" },
+        body: { email, redirectTo: "/reset-password" },
       });
     } catch {
       // Don't reveal whether the email exists

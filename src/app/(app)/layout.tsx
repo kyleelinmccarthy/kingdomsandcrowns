@@ -4,6 +4,7 @@ import { getSession, getDemoPersona } from "@/lib/auth/session";
 import { getActor } from "@/lib/auth/actor";
 import { getActiveFamilyId } from "@/lib/auth/access";
 import { getSubscriptionStatus } from "@/lib/billing/plan";
+import { BILLING_ENABLED } from "@/lib/billing/config";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { profileFromRow, readingAttributes } from "@/lib/utils/learning-profile";
@@ -61,7 +62,7 @@ export default async function AppLayout({
     } catch {
       initialAlerts = [];
     }
-    const familyId = await getActiveFamilyId().catch(() => null);
+    const familyId = BILLING_ENABLED ? await getActiveFamilyId().catch(() => null) : null;
     if (familyId) {
       billingPastDue = (await getSubscriptionStatus(familyId)) === "past_due";
     }

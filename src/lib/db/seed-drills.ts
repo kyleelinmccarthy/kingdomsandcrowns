@@ -8,17 +8,10 @@
  */
 import fs from "node:fs";
 import path from "node:path";
-import { createClient } from "@libsql/client";
-import { drizzle } from "drizzle-orm/libsql";
 import * as schema from "./schema";
+import { db, closeDb } from "./index";
 import { skillForPool } from "../utils/skills";
 import { bandForGrade, type Grade } from "../utils/grade-levels";
-
-const client = createClient({
-  url: process.env.TURSO_DATABASE_URL || "file:./local.db",
-  authToken: process.env.TURSO_AUTH_TOKEN,
-});
-const db = drizzle(client, { schema });
 
 /**
  * A pool is authored for ONE grade — `docs/content/ela-science-skill-map.md` says which — and
@@ -64,7 +57,9 @@ async function main() {
   console.log(`Seeded ${count} drill items from ${files.length} pools.`);
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+main()
+  .catch((err) => {
+    console.error(err);
+    process.exit(1);
+  })
+  .finally(() => closeDb());

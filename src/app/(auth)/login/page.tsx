@@ -2,6 +2,7 @@
 
 import { Suspense, useState } from "react";
 import Link from "next/link";
+import { authErrorMessage, INVITE_ONLY, INVITE_ONLY_MESSAGE } from "@/lib/auth/invite-only";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signIn } from "@/lib/auth/client";
 import { Button } from "@/components/ui/button";
@@ -79,11 +80,8 @@ function ParentPanel({ redirectTo }: { redirectTo: string }) {
       <div className="mt-4 text-center">
         <p className="text-sm text-muted-foreground">
           New to these lands?{" "}
-          <Link
-            href={`/signup?redirect=${encodeURIComponent(redirectTo)}`}
-            className="font-medium text-primary hover:underline"
-          >
-            Start your journey
+          <Link href="/request-access" className="font-medium text-primary hover:underline">
+            Request access
           </Link>
         </p>
       </div>
@@ -142,9 +140,17 @@ function KidPanel({
 /** Shared email/password + Google sign-in, used by both parents and email-enabled heroes. */
 function EmailForm({ redirectTo }: { redirectTo: string }) {
   const router = useRouter();
+  // Google sign-in reports failures by redirecting back here with ?error=<code>.
+  const oauthError = useSearchParams().get("error");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError] = useState(
+    !oauthError
+      ? ""
+      : oauthError === INVITE_ONLY
+        ? INVITE_ONLY_MESSAGE
+        : "Google sign-in didn't go through. Please try again.",
+  );
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -160,8 +166,10 @@ function EmailForm({ redirectTo }: { redirectTo: string }) {
 
     if (signInError) {
       setError(
-        signInError.message ||
+        authErrorMessage(
+          signInError.message,
           "The arcane seal rejects those credentials. Try again, adventurer!",
+        ),
       );
       setLoading(false);
       return;
@@ -238,6 +246,7 @@ function EmailForm({ redirectTo }: { redirectTo: string }) {
           const { error: socialError } = await signIn.social({
             provider: "google",
             callbackURL: redirectTo,
+            errorCallbackURL: "/login",
           });
           if (socialError) {
             setError(

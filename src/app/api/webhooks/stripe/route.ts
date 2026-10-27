@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { stripeClient, stripeCryptoProvider } from "@/lib/billing/stripe";
 import type { SubscriptionStatus } from "@/lib/billing/plan";
+import { BILLING_ENABLED } from "@/lib/billing/config";
 
 /** Stripe's subscription statuses, narrowed to the five we actually distinguish on. Payment
  *  trouble (incomplete/unpaid) reads as past_due; a dead subscription (incomplete_expired/paused)
@@ -80,6 +81,7 @@ async function markByCustomerId(customerId: string, status: SubscriptionStatus) 
 }
 
 export async function POST(request: NextRequest) {
+  if (!BILLING_ENABLED) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const signature = request.headers.get("stripe-signature");
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
   if (!signature || !webhookSecret) {

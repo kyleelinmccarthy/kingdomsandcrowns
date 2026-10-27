@@ -1,5 +1,7 @@
 # Stripe Setup — Billing
 
+> **Status: coming soon.** Paid plans are fully built but switched off (`BILLING_ENABLED = false` in [src/lib/billing/config.ts](../src/lib/billing/config.ts)). While off, every family has every feature, Settings shows "Kingdom plan — coming soon", and the checkout, portal and webhook endpoints are closed. Nothing in this guide is needed until you launch: finish these steps, then flip that one line to `true`.
+
 Kingdoms & Crowns gates a handful of features (more than 1 hero, more than 1 adult account, saving a weekly summary) behind a paid "Kingdom" plan, billed through Stripe Checkout and managed through the Stripe Customer Portal. This guide walks through everything needed to make `src/lib/actions/billing.ts` and `src/app/api/webhooks/stripe/route.ts` work.
 
 ## Environment Variables

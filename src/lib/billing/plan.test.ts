@@ -1,5 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+// The gates are exercised as they will run after launch; the pre-launch block at the bottom flips this.
+const billing = vi.hoisted(() => ({ enabled: true }));
+vi.mock("./config", () => ({
+  get BILLING_ENABLED() {
+    return billing.enabled;
+  },
+}));
+
 /** Each `db.select()` answers the next queued rows, whether awaited directly or through `.limit()`. */
 const queued: unknown[][] = [];
 vi.mock("@/lib/db", () => {
@@ -27,6 +35,7 @@ import {
 
 beforeEach(() => {
   queued.length = 0;
+  billing.enabled = true;
 });
 
 describe("getFamilyPlan", () => {
@@ -97,5 +106,18 @@ describe("paidPlanBlock", () => {
   it("names the gated action in the message for a free family", async () => {
     queued.push([]);
     expect(await paidPlanBlock("f-gate-free", "Saving a weekly summary")).toMatch(/Saving a weekly summary/);
+  });
+});
+
+describe("before paid plans launch", () => {
+  it("lets every family add heroes and grown-ups and save summaries, without asking the database", async () => {
+    billing.enabled = false;
+    // Rows that would block a free family if anything read them.
+    queued.push([], Array.from({ length: 5 }, (_, i) => ({ id: `x${i}` })));
+    expect(await getFamilyPlan("f-prelaunch")).toBe("paid");
+    expect(await childLimitBlock("f-prelaunch")).toBeNull();
+    expect(await memberLimitBlock("f-prelaunch")).toBeNull();
+    expect(await paidPlanBlock("f-prelaunch", "Saving a weekly summary")).toBeNull();
+    expect(queued).toHaveLength(2);
   });
 });

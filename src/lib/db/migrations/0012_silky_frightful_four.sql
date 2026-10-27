@@ -1,1 +1,0 @@
-CREATE UNIQUE INDEX `assignment_child_quest_date_idx` ON `quest_assignment` (`child_id`,`quest_id`,`date`);

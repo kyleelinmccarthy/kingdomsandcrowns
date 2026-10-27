@@ -4,6 +4,8 @@ const publicPaths = [
   "/login",
   "/signup",
   "/forgot-password",
+  "/reset-password",
+  "/request-access",
   "/terms",
   "/privacy",
   "/how-it-works",

@@ -1,203 +1,180 @@
 # Deploying Kingdoms & Crowns to Cloudflare
 
-The app runs on **Cloudflare Workers** via the [OpenNext Cloudflare adapter](https://opennext.js.org/cloudflare), with **Turso** (libSQL) as the database. Estimated time for a first deploy: 45–90 minutes if the domain is already on Cloudflare DNS.
+The app runs on **Cloudflare Workers** via the [OpenNext Cloudflare adapter](https://opennext.js.org/cloudflare), with **Postgres 18** as the database, reached through **Cloudflare Hyperdrive**. Production before this move was Vercel + Turso; section 3 copies that data across.
 
 What runs where:
 
 | Piece | Where | Configured in |
 |---|---|---|
 | Next.js app (SSR, server actions, API routes) | Cloudflare Worker `kingdomsandcrowns` | `wrangler.jsonc`, `open-next.config.ts` |
-| Revalidation queue + tag cache (backs every `revalidatePath`) | Two **Durable Objects**: `DOQueueHandler`, `DOShardedTagCache` | `wrangler.jsonc` → `durable_objects` |
-| Next's page cache (incremental cache) | **R2** bucket `kingdomsandcrowns-next-cache` | `wrangler.jsonc` → `r2_buckets` |
-| `next/image` optimization (marketing pages) | Cloudflare **Images** binding | `wrangler.jsonc` → `images` |
-| All app data | **Turso** | `TURSO_DATABASE_URL` / `TURSO_AUTH_TOKEN` |
-| Billing | **Stripe** | see [stripe-setup.md](./stripe-setup.md) |
+| All app data | **Neon** (Postgres 18) | — |
+| Connection pooling between the Worker and Postgres | **Hyperdrive** (binding `HYPERDRIVE`) | `wrangler.jsonc` → `hyperdrive` |
+| Revalidation queue + tag cache (back every `revalidatePath`) | Two **Durable Objects**: `DOQueueHandler`, `DOShardedTagCache` | `wrangler.jsonc` → `durable_objects` |
+| Next's page cache | **R2** bucket `kingdomsandcrowns-next-cache` | `wrangler.jsonc` → `r2_buckets` |
+| `next/image` (marketing pages) | Cloudflare **Images** binding | `wrangler.jsonc` → `images` |
+| Paid plans | Built, **switched off** ("coming soon") | `src/lib/billing/config.ts`; see [stripe-setup.md](./stripe-setup.md) |
+
+Two connection strings exist, on purpose:
+- **Direct** (`DATABASE_URL`): Neon's **non-pooled** connection string. Used only by migrations, scripts and backups, from your machine or CI.
+- **Hyperdrive**: what the Worker uses at runtime. The app opens a fresh pool per request through it (`src/lib/db/index.ts`); Workers can't share sockets across requests.
 
 ---
 
 ## 0. Prerequisites
 
-- **Cloudflare account on the Workers Paid plan ($5/mo).** The built Worker is ~3.1 MiB gzipped, just over the Free plan's 3 MiB limit (Paid allows 10 MiB). R2 needs a payment method on file even within its free allowance.
-- **The domain's DNS on Cloudflare** (custom domains attach to a Worker only on a Cloudflare zone). Add the site in the dashboard and switch your registrar's nameservers if it isn't already.
-- A Turso account, a verified Resend domain and a published Google OAuth client (see [oauth-setup.md](./oauth-setup.md)), and Stripe (see [stripe-setup.md](./stripe-setup.md)).
-- **Node 22** for any local `wrangler` / `opennextjs-cloudflare` command (wrangler requires it; `.nvmrc` pins it).
+- **Cloudflare Workers Paid plan ($5/mo).** The built Worker is ~3.1 MiB gzipped; the Free plan's limit is 3 MiB. R2 needs a payment method on file even inside its free allowance.
+- **The domain's DNS on Cloudflare** (custom domains attach to a Worker only on a Cloudflare zone).
+- **A Neon project on Postgres 18.** Pick a region close to where most of your family is; Smart Placement (on in `wrangler.jsonc`) runs the Worker next to the database.
+- Resend with a verified domain and a published Google OAuth client ([oauth-setup.md](./oauth-setup.md)).
+- **Node 22** and **Docker** locally (wrangler needs Node 22; backups use the `postgres:18` image so `pg_dump` matches the server).
 
 ---
 
-## 1. Pre-flight cleanup (do this BEFORE deploying)
+## 1. Pre-flight
 
-### Rotate the leaked Turso credential
-`.env.prod` (and older copies of `.env.example`) contained a real `TURSO_AUTH_TOKEN`. Before going to production:
-
-1. In Turso, revoke the token on the existing `herodex` database (`turso db tokens invalidate herodex`, or via the dashboard).
-2. Replace the value anywhere it still appears with a placeholder.
+### Rotate the old Turso credential
+`.env.prod` (and older copies of `.env.example`) contained a real `TURSO_AUTH_TOKEN`. Keep it until the data copy in step 3 is done, then revoke it: `turso db tokens invalidate herodex`.
 
 ### Generate fresh production secrets
 
 ```bash
-openssl rand -base64 32   # BETTER_AUTH_SECRET
+openssl rand -base64 32   # BETTER_AUTH_SECRET  (reuse the CURRENT production value instead if you
+                          #                      want existing sign-ins to survive the move)
 openssl rand -base64 32   # CHILD_SESSION_SECRET
 ```
 
-Don't reuse the dev values.
-
 ### Know what a local deploy bakes in
-
-`opennextjs-cloudflare build` compiles any `.env`, `.env.production`, `.env.local` and `.env.production.local` present at build time **into the Worker**, and uses them as fallbacks for every variable the Worker doesn't define itself. `npm run deploy` and `npm run upload` run [scripts/check-cloudflare-env.mjs](../scripts/check-cloudflare-env.mjs) first: it **refuses to build if those files set `DEMO_MODE=true`** (demo mode bypasses sign-in) and lists every other key that would be baked in. Deploying from CI (step 5) avoids the issue entirely, since `.env*` files are gitignored and never exist there. `.env.prod` is not one of the files the adapter reads.
-
----
-
-## 2. Create the production Turso database
-
-```bash
-turso db create kingdoms-and-crowns-prod --location iad   # pick the region nearest most users
-turso db show kingdoms-and-crowns-prod --url             # → TURSO_DATABASE_URL
-turso db tokens create kingdoms-and-crowns-prod          # → TURSO_AUTH_TOKEN
-```
-
-Apply the schema and seed badges (the deploy also migrates, but this lets you seed first):
-
-```bash
-TURSO_DATABASE_URL='<prod-url>' TURSO_AUTH_TOKEN='<prod-token>' npm run db:migrate
-TURSO_DATABASE_URL='<prod-url>' TURSO_AUTH_TOKEN='<prod-token>' npm run db:seed-badges
-```
-
-`db:migrate` runs `src/lib/db/migrate.mjs`, which applies the committed files in `src/lib/db/migrations` and is idempotent. **Do not** run `db:seed-demo` against production.
-
-> Moving an existing production database? Nothing to migrate — this is the same Turso database the Vercel deploy used. Point the Worker at it and the next deploy applies only `0036_subscription`.
+`opennextjs-cloudflare build` compiles any local `.env`, `.env.production`, `.env.local` and `.env.production.local` **into the Worker** as fallbacks. `npm run deploy` / `npm run upload` run [scripts/check-cloudflare-env.mjs](../scripts/check-cloudflare-env.mjs) first, which refuses to build if those files set `DEMO_MODE=true` (demo mode skips sign-in) and lists everything else that would be baked in. Deploying from CI (step 6) avoids this entirely.
 
 ---
 
-## 3. Create the Cloudflare resources
+## 2. Create the Neon database and apply the schema
+
+1. In Neon, create a project with **Postgres version 18**, in the region nearest your family.
+2. **Roles → New role** named `hyperdrive-user`. Copy its password right away (Neon shows it once).
+3. **Connect →** choose the `hyperdrive-user` role, and **turn off "Connection pooling"**. Copy that **direct** string. Hyperdrive does the pooling, so it must not point at Neon's `-pooler` host. Use the same direct string for migrations, scripts and backups.
+
+The app talks to Neon with the standard `pg` driver (>= 8.16.3, which Hyperdrive requires), not Neon's serverless driver. Then, from the repo:
+
+```bash
+export DATABASE_URL='postgres://USER:PASSWORD@HOST:5432/DB?sslmode=require'
+npm run db:migrate          # creates every table (src/lib/db/migrations)
+```
+
+## 3. Copy production data from Turso (one time)
+
+Do this right before the DNS switch in step 7, so nothing written to the old site in between is lost. For a family app, a short "don't use the app for 10 minutes" window is simplest.
+
+```bash
+npm run db:backup     # a verified backup of Turso first — see database-backups.md
+export TURSO_DATABASE_URL='<from .env.prod>' TURSO_AUTH_TOKEN='<from .env.prod>'
+npm run db:migrate-data-from-turso -- --dry-run    # row counts per table, writes nothing
+npm run db:migrate-data-from-turso                 # the copy
+```
+
+The copy runs table by table in foreign-key order, converts SQLite's integer timestamps and booleans to real Postgres types, and refuses to run twice (primary-key conflicts) rather than duplicate anything. It needs an empty, freshly migrated database.
+
+**Give yourself a password.** Production accounts so far are Google-only. To sign in with email + password as well (Google keeps working):
+
+```bash
+DATABASE_URL="$DATABASE_URL" npm run db:set-password -- you@example.com   # prompts, hidden, twice
+```
+
+(Before the move, the same script fixes the *current* Turso production: `node --env-file=.env.prod scripts/set-password.mjs you@example.com`.) Family members can also use **Forgot passphrase?** on the sign-in page once the new site is live; it now really sends the email.
+
+---
+
+## 4. Create the Cloudflare resources
 
 ```bash
 npx wrangler login
 npx wrangler r2 bucket create kingdomsandcrowns-next-cache
+npx wrangler hyperdrive create kingdomsandcrowns-db --connection-string="$DATABASE_URL"
 ```
 
-That's the only resource to create by hand:
-
-- **Durable Objects** are created on the first deploy from the `migrations` block in `wrangler.jsonc` (SQLite-backed, tag `v1`). Never edit or remove an applied migration tag; add a new one if the DO classes ever change.
-- **Images**: enable Cloudflare Images on the account (Images → Transformations). The free allowance covers the marketing pages comfortably.
+Paste the Hyperdrive **id** it prints into `wrangler.jsonc` (`hyperdrive[0].id`). Durable Objects are created on first deploy from the `migrations` block. Enable Cloudflare Images (Images → Transformations).
 
 ---
 
-## 4. Configure variables and secrets
+## 5. Variables and secrets
 
-Runtime values live on the Worker: **Workers & Pages → kingdomsandcrowns → Settings → Variables and Secrets** (choose *Secret* for anything sensitive), or from the CLI:
-
-```bash
-npx wrangler secret put TURSO_AUTH_TOKEN
-```
+Runtime values live on the Worker: **Workers & Pages → kingdomsandcrowns → Settings → Variables and Secrets** (use *Secret* for anything sensitive) or `npx wrangler secret put NAME`. The database needs no variable here: the Worker uses the Hyperdrive binding.
 
 | Variable | Secret? | Notes |
 |---|---|---|
-| `TURSO_DATABASE_URL` | – | `libsql://…turso.io` from step 2 |
-| `TURSO_AUTH_TOKEN` | ✔ | from step 2 |
-| `BETTER_AUTH_SECRET` | ✔ | from step 1 |
-| `CHILD_SESSION_SECRET` | ✔ | from step 1 |
-| `BETTER_AUTH_URL` | – | `https://www.kingdomsandcrowns.com` — no trailing slash; use the `*.workers.dev` URL until step 6 |
-| `NEXT_PUBLIC_APP_URL` | – | same as `BETTER_AUTH_URL` (also needed at **build** time, see below) |
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | ✔ secret | production OAuth client |
-| `RESEND_API_KEY` | ✔ | |
+| `BETTER_AUTH_SECRET`, `CHILD_SESSION_SECRET` | ✔ | step 1 |
+| `BETTER_AUTH_URL`, `NEXT_PUBLIC_APP_URL` | – | `https://www.kingdomsandcrowns.com` (no trailing slash); `NEXT_PUBLIC_*` also at **build** time |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | ✔ | production OAuth client |
+| `RESEND_API_KEY` | ✔ | sends password resets, invites, ravens and access requests |
 | `EMAIL_FROM`, `FEEDBACK_FROM_EMAIL` | – | addresses on the verified Resend domain |
-| `FEEDBACK_NOTIFY_EMAIL` | – | receives "Send a Raven" |
-| `ADMIN_USER_IDS` | – | fill in after first sign-in (step 7) |
-| `NEXT_PUBLIC_APP_VERSION` | – | bump per release (also build time) |
-| `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` | ✔ | see [stripe-setup.md](./stripe-setup.md) |
-| `STRIPE_PRICE_MONTHLY`, `STRIPE_PRICE_YEARLY` | – | |
+| `FEEDBACK_NOTIFY_EMAIL` | – | **you** — receives ravens and access requests |
+| `ADMIN_USER_IDS` | – | your user id, for `/admin/feedback` |
+| `NEXT_PUBLIC_APP_VERSION` | – | bump per release |
 
-**Never set `DEMO_MODE`.** Deploys pass `--keep-vars`, so values set in the dashboard survive every deploy.
-
-`NEXT_PUBLIC_*` values are inlined into the JavaScript **at build time**, so they must also be present wherever the build runs (step 5's build variables, or your shell for a local deploy).
+**Never set `DEMO_MODE`.** Stripe variables aren't needed while paid plans are "coming soon". Deploys pass `--keep-vars`, so dashboard values survive deploys.
 
 ---
 
-## 5. Connect the repo (Workers Builds)
+## 6. Connect the repo (Workers Builds)
 
-**Workers & Pages → Create → Import a repository →** pick this repo, then:
+**Workers & Pages → Create → Import a repository**, then:
 
 | Setting | Value |
 |---|---|
 | Build command | `npx opennextjs-cloudflare build` |
-| Deploy command (production branch `main`) | `npm run db:migrate && npx opennextjs-cloudflare deploy -- --keep-vars` |
+| Deploy command (production branch) | `npm run db:migrate && npx opennextjs-cloudflare deploy -- --keep-vars` |
 | Non-production branch deploy command | `npx opennextjs-cloudflare upload -- --keep-vars` |
 
-**Build variables and secrets** (separate from the Worker's runtime variables): `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_APP_VERSION`, `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN` (the migration step needs the last two), and `NODE_VERSION=22` if the build image doesn't pick up `.nvmrc`.
+**Build variables and secrets:** `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_APP_VERSION`, `DATABASE_URL` (direct, for the migration step) and `NODE_VERSION=22` if `.nvmrc` isn't picked up. Migrations run only on production deploys, after a successful build and before the new version goes live.
 
-Migrations run only on production deploys, after the build succeeds and before the new version goes live — the same production-only rule the Vercel setup enforced. Preview branches upload a version without touching the database.
-
-Prefer deploying by hand? `npm run deploy` does the env check, migration, build and deploy in one step (it reads `TURSO_*` from your shell for the migration).
+By hand instead: `npm run deploy` (env check → migrate → build → deploy; reads `DATABASE_URL` from your shell).
 
 ---
 
-## 6. Wire up the custom domain
+## 7. Custom domain
 
-**Worker → Settings → Domains & Routes → Add → Custom domain**, once for `www.kingdomsandcrowns.com` and once for `kingdomsandcrowns.com`. Cloudflare creates the DNS records and certificates itself. Both hostnames reach the Worker, and [next.config.ts](../next.config.ts) redirects the apex to `www` (matching the apex host only, so it can't loop).
-
-Then:
-1. Google Cloud Console → production OAuth client → confirm `https://www.kingdomsandcrowns.com/api/auth/callback/google` is an authorized redirect URI.
-2. Set `BETTER_AUTH_URL` and `NEXT_PUBLIC_APP_URL` to `https://www.kingdomsandcrowns.com` (runtime **and** build variables) and redeploy.
-3. Point the Stripe webhook endpoint at `https://www.kingdomsandcrowns.com/api/webhooks/stripe`.
+**Worker → Settings → Domains & Routes → Add → Custom domain** for both `www.kingdomsandcrowns.com` and `kingdomsandcrowns.com`; `next.config.ts` redirects the apex to `www`. Then confirm `https://www.kingdomsandcrowns.com/api/auth/callback/google` is an authorized redirect URI on the Google OAuth client, and remove the domain from Vercel.
 
 ---
 
-## 7. Smoke test in production
+## 8. Smoke test
 
-- [ ] `/` and `/login` load over HTTPS, no console errors.
-- [ ] Sign up with email/password works and lands on `/tavern`; sign in with Google works.
-- [ ] Create a family in **The Hearth** → add a hero → add a quest → complete it.
-- [ ] A second hero is refused with "The free plan includes 1 hero…" (not a generic error).
-- [ ] Upgrade with Stripe's test card in test mode; the Settings billing panel then reads "Kingdom plan", and a second hero is allowed.
-- [ ] **Send a Raven** → email arrives at `FEEDBACK_NOTIFY_EMAIL` and the row lands in `feedback`.
-- [ ] `/privacy` and `/terms` load; sign out clears the session cookie.
-
-### Enable the admin Rookery
-
-1. `turso db shell kingdoms-and-crowns-prod "select id, email from user where email = 'you@example.com';"`
-2. Set `ADMIN_USER_IDS=<your-id>` on the Worker (takes effect immediately; no redeploy needed).
-3. Visit `/admin/feedback`.
+- [ ] `/` shows the **beta banner**; every call to action says **Request access**.
+- [ ] Submitting **Request access** emails `FEEDBACK_NOTIFY_EMAIL` (and the row lands in `access_request`).
+- [ ] Signing in with **Google** and with **email + password** both work for your account.
+- [ ] A Google account that isn't in a family is turned away with the invite-only message (not an error page).
+- [ ] **Forgot passphrase?** sends an email whose link sets a new passphrase.
+- [ ] Add a second hero, invite a grown-up, save a weekly summary — all allowed (no paid plan yet); Settings shows "Kingdom plan — coming soon".
+- [ ] `/privacy` and `/terms` load; sign out clears the session.
 
 ---
 
-## 8. Hardening before broad launch
+## 9. Who can get in
 
-- **Error tracking:** add Sentry (`@sentry/nextjs`) or turn on Workers Logs / Logpush. `observability` is already enabled in `wrangler.jsonc`, so logs appear under the Worker's **Observability** tab.
-- **Rate limiting:** enable Better Auth's limiter, `betterAuth({ rateLimit: { enabled: true } })`. Cloudflare WAF rate-limit rules on `/api/auth/*` are a second layer.
-- **Backups:** Turso point-in-time recovery depends on your plan; schedule `turso db shell … .dump` otherwise.
-- **Health check:** `GET /api/health` returning `{ ok: true, version }`, watched by an uptime monitor.
-- **CSP header:** [next.config.ts](../next.config.ts) sets X-Frame-Options etc. but no Content-Security-Policy yet.
-- **Worker size:** at ~3.1 MiB gzipped there's plenty of room under Paid's 10 MiB; to see what's large, analyze `.open-next/server-functions/default/handler.mjs.meta.json` with the esbuild bundle analyzer.
+Sign-ups are **invite-only** ([src/lib/auth/signup-allowlist.ts](../src/lib/auth/signup-allowlist.ts)). A new account can be created only for an email with a pending, unexpired family invite, or a hero email with email/Google login turned on. Everyone else uses **Request access** (`/request-access`), which stores the request and emails you their opt-ins (beta tester now, or notify when free / paid accounts open). Existing accounts are unaffected.
+
+To let someone in: invite them as a guardian from **The Hearth**, or reply to their request once open sign-ups exist.
 
 ---
 
-## 9. Local development
+## 10. Backups
 
-- **Everyday:** `npm run dev` (Node, `.env.local`, `file:./local.db`), unchanged.
-- **In the Workers runtime:** `npm run preview` builds the Worker and runs it under `wrangler dev` on `:8787` with local Durable Objects and R2. The Workers runtime can't open a `file:` database, so serve one over HTTP first and point a `.dev.vars` file at it:
-
-  ```bash
-  turso dev --db-file local.db        # serves local.db on http://127.0.0.1:8080
-  ```
-
-  ```env
-  # .dev.vars (gitignored) — runtime vars for `wrangler dev`
-  NEXTJS_ENV=development
-  TURSO_DATABASE_URL=http://127.0.0.1:8080
-  BETTER_AUTH_SECRET=any-local-value
-  BETTER_AUTH_URL=http://localhost:8787
-  NEXT_PUBLIC_APP_URL=http://localhost:8787
-  ```
+Weekly, verified, local: see [database-backups.md](./database-backups.md). Turn it on with `npm run db:backup-install`.
 
 ---
 
-## 10. Release flow
+## 11. Local development
+
+- **Everyday:** `docker compose up -d` (Postgres 18; `POSTGRES_PORT=5433` if 5432 is taken), `npm run db:migrate`, then `npm run dev` with `DATABASE_URL` in `.env.local`.
+- **In the Workers runtime:** `npm run preview` runs the built Worker under `wrangler dev` on `:8787`, connecting to `hyperdrive[0].localConnectionString` (override with `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE=postgres://…` for another port). Runtime vars go in a gitignored `.dev.vars`.
+
+---
+
+## 12. Release flow
 
 1. Bump `NEXT_PUBLIC_APP_VERSION` (runtime and build variables).
-2. Schema change? `npm run db:generate`, then commit the new `.sql` **and** `meta/` files.
-3. Merge to `main`. Workers Builds builds, runs `db:migrate` against production, then deploys. A failed migration stops the deploy and the old version stays up.
-4. Walk the relevant part of the smoke test.
+2. Schema change? `npm run db:generate`, then commit the new `.sql` and `meta/` files.
+3. Merge to `main`. Workers Builds builds, migrates production, then deploys; a failed migration stops the deploy.
+4. Breaking changes (renames, drops) still need two releases: add + dual-write, then switch reads and drop.
 
-Breaking schema changes (renames, drops) still need two releases: add + dual-write first, then switch reads and drop. Migrations run before the new code is live, so the running version must tolerate the post-migration schema.
-
-Rollback: **Worker → Deployments → Rollback** restores the previous version instantly (it does not undo migrations, which is why the two-step rule matters).
+Rollback: **Worker → Deployments → Rollback** restores the previous version instantly. It does not undo migrations.

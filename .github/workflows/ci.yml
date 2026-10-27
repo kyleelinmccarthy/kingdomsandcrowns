@@ -10,12 +10,31 @@ jobs:
   ci:
     runs-on: ubuntu-latest
 
+    # Several tests run against a real Postgres (each in its own schema), as production does.
+    services:
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: kingdomsandcrowns
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d kingdomsandcrowns"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+
+    env:
+      DATABASE_URL: postgres://postgres:postgres@localhost:5432/kingdomsandcrowns
+
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version-file: .nvmrc
           cache: npm
 
       - name: Install dependencies
@@ -27,12 +46,14 @@ jobs:
       - name: Type check
         run: npm run typecheck
 
+      - name: Migrations apply cleanly
+        run: npm run db:migrate
+
       - name: Unit tests
         run: npm run test
 
       - name: Build
         run: npm run build
         env:
-          TURSO_DATABASE_URL: "file:./test.db"
           BETTER_AUTH_SECRET: "ci-test-secret-at-least-32-characters-long"
           BETTER_AUTH_URL: "http://localhost:3000"

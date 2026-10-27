@@ -108,10 +108,10 @@ export function Walkthrough() {
         </p>
         <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
           <a
-            href="/signup"
+            href="/request-access"
             className="inline-flex h-11 items-center justify-center rounded-md bg-primary px-6 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
           >
-            Create a parent account
+            Request access
           </a>
           <a
             href="/login?mode=kid"

@@ -9,6 +9,14 @@ import { SignInMenu } from "@/components/marketing/sign-in-menu";
  */
 export function MarketingHeader({ active }: { active?: "how-it-works" }) {
   return (
+    <>
+    <div role="note" className="relative z-20 border-b border-[var(--gold-border)] bg-[var(--gold-bright)]/10 px-4 py-2 text-center text-sm text-[var(--gold-bright)]">
+      <strong className="font-semibold">Beta:</strong> Kingdoms &amp; Crowns is in beta testing and open by invitation.{" "}
+      <Link href="/request-access" className="underline underline-offset-2 hover:text-foreground">
+        Request access
+      </Link>{" "}
+      to join the beta or hear when accounts open.
+    </div>
     <header className="relative z-20 border-b border-gold-dim/40 bg-[#080c18]/80 backdrop-blur-md">
       <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-4">
         <Link href="/" className="flex items-center gap-2">
@@ -27,12 +35,13 @@ export function MarketingHeader({ active }: { active?: "how-it-works" }) {
           >
             How It Works
           </Link>
-          <Link href="/signup">
-            <Button size="sm">Get Started</Button>
+          <Link href="/request-access">
+            <Button size="sm">Request access</Button>
           </Link>
           <SignInMenu />
         </nav>
       </div>
     </header>
+    </>
   );
 }

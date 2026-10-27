@@ -4,6 +4,7 @@ import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { signUp, signIn } from "@/lib/auth/client";
+import { authErrorMessage } from "@/lib/auth/invite-only";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -60,7 +61,7 @@ function SignupForm() {
     });
 
     if (signUpError) {
-      setError(signUpError.message || "Something went wrong. Please try again.");
+      setError(authErrorMessage(signUpError.message, "Something went wrong. Please try again."));
       setLoading(false);
       return;
     }
@@ -71,9 +72,14 @@ function SignupForm() {
   return (
     <>
       <div className="mb-6 text-center">
-        <h2 className="text-lg font-semibold">Create your Parent Account</h2>
+        <h2 className="text-lg font-semibold">Accept your invitation</h2>
         <p className="mt-1 text-sm font-serif text-muted-foreground">
-          Kingdoms &amp; Crowns is for parents &amp; guardians — set up your family, then add your heroes.
+          Kingdoms &amp; Crowns is invite-only during beta. If a family invited you, create your account with the
+          email the invitation went to. Otherwise,{" "}
+          <Link href="/request-access" className="text-primary hover:underline">
+            request access
+          </Link>
+          .
         </p>
       </div>
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -205,6 +211,7 @@ function SignupForm() {
             const { error: socialError } = await signIn.social({
               provider: "google",
               callbackURL: redirectTo,
+              errorCallbackURL: "/login",
             });
             if (socialError) {
               setError(

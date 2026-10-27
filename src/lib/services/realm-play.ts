@@ -1,4 +1,4 @@
-import { and, asc, count, eq, gt } from "drizzle-orm";
+import { and, asc, count, eq, gt, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
@@ -153,14 +153,18 @@ export async function recordTroubleClearRows(childId: string, date: string, rows
  * The whole award as one write transaction: the per-minute limit, the day's allowance, the award
  * and its writes. Read-then-write outside a transaction let two calls at once (two tabs, a
  * replayed request) both read an untouched allowance and both bank it in full; the unique index
- * only stops the same home paying twice, not two calls paying different homes. A libsql write
- * transaction takes the write lock at BEGIN, so the second call reads what the first wrote.
+ * only stops the same home paying twice, not two calls paying different homes. Postgres's default
+ * isolation does NOT take a write lock at BEGIN the way a libsql write transaction did, so the
+ * transaction opens by taking a `pg_advisory_xact_lock` keyed on childId — the second call for the
+ * same hero blocks until the first commits and releases it, then reads what the first wrote. Lock
+ * scope is per-childId, so unrelated heroes never block each other, and it's released automatically
+ * at COMMIT/ROLLBACK.
  *
  * Calls for one hero in one server process also queue behind each other before they reach the
- * database. That is not only politeness: the local libsql driver leaves a statement that failed
- * on a busy lock un-reset on its connection, and the next COMMIT on that connection then fails
- * too, holding the lock. Across processes (production's instances on Turso) the transaction is
- * what serializes, and a busy lock is retried briefly.
+ * database, which is not only politeness but keeps one process from blocking its own event loop
+ * on its own advisory lock. Across isolates (production on Cloudflare Workers) the advisory lock
+ * is what serializes; withWriteRetry is a defensive retry for the rare Postgres deadlock or
+ * serialization-failure error, not for routine contention (which blocks rather than erroring).
  */
 export async function awardTroubleClears(
   childId: string,
@@ -170,6 +174,7 @@ export async function awardTroubleClears(
   return queued(childId, () =>
     withWriteRetry(() =>
       db.transaction(async (tx) => {
+        await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${childId}))`);
         const recent = await countTroubleClearsSince(childId, new Date(Date.now() - 60_000), tx);
         const batch = homeIds.slice(0, Math.max(0, MAX_CLEARS_PER_MINUTE - recent));
         const settings = await loadRealmSettings(childId, tx);
@@ -213,11 +218,12 @@ async function withWriteRetry<T>(run: () => Promise<T>, attempts = 5): Promise<T
   }
 }
 
+// Postgres error codes for transient contention: 40001 serialization_failure,
+// 40P01 deadlock_detected. Both are safe to retry — neither means the write was wrong.
 function isBusy(err: unknown): boolean {
   for (let e: unknown = err; e; e = (e as { cause?: unknown }).cause) {
     const code = (e as { code?: unknown }).code;
-    const message = (e as { message?: unknown }).message;
-    if (code === "SQLITE_BUSY" || (typeof message === "string" && /SQLITE_BUSY|database is locked/i.test(message))) return true;
+    if (code === "40001" || code === "40P01") return true;
   }
   return false;
 }

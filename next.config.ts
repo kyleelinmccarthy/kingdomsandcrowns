@@ -5,6 +5,12 @@ const nextConfig: NextConfig = {
   // A second dev server in this checkout (an agent's, for screenshots) takes its own build
   // directory, so it never holds the lock the owner's `npm run dev` needs.
   distDir: process.env.NEXT_DIST_DIR || ".next",
+  // pg loads pg-cloudflare's Workers socket only under the `workerd` export condition, so Next's
+  // tracer (which follows Node's resolution) never sees that file and the Cloudflare bundle
+  // can't resolve it. Ship the whole package.
+  outputFileTracingIncludes: {
+    "/**/*": ["./node_modules/pg-cloudflare/**/*"],
+  },
   // "Deeds" became "Side Quests" (slice 8); old links and bookmarks keep working.
   //
   // Canonical host is www.kingdomsandcrowns.com (matches BETTER_AUTH_URL). Vercel handled the

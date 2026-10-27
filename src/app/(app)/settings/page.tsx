@@ -166,7 +166,7 @@ export default async function SettingsPage() {
           )}
           {billingStatus?.canManage && (
             <GameFrame>
-              <BillingPanel status={billingStatus.status} />
+              <BillingPanel enabled={billingStatus.enabled} status={billingStatus.status} />
             </GameFrame>
           )}
         </>

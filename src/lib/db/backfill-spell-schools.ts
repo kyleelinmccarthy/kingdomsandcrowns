@@ -9,16 +9,9 @@
  * Add --dry-run to print the changes without writing them.
  */
 import { eq } from "drizzle-orm";
-import { createClient } from "@libsql/client";
-import { drizzle } from "drizzle-orm/libsql";
 import * as schema from "./schema";
+import { db, closeDb } from "./index";
 import { defaultSchoolForSubject } from "../utils/spell-schools";
-
-const client = createClient({
-  url: process.env.TURSO_DATABASE_URL || "file:./local.db",
-  authToken: process.env.TURSO_AUTH_TOKEN,
-});
-const db = drizzle(client, { schema });
 const dryRun = process.argv.includes("--dry-run");
 
 async function main() {
@@ -39,7 +32,9 @@ async function main() {
   console.log(`${changed} subject(s) ${dryRun ? "would be" : ""} assigned a school.`);
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+main()
+  .catch((err) => {
+    console.error(err);
+    process.exit(1);
+  })
+  .finally(() => closeDb());

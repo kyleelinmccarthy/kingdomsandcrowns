@@ -4,16 +4,8 @@
  *
  * Safe to run multiple times — uses onConflictDoNothing().
  */
-import { createClient } from "@libsql/client";
-import { drizzle } from "drizzle-orm/libsql";
 import * as schema from "./schema";
-
-const client = createClient({
-  url: process.env.TURSO_DATABASE_URL || "file:./local.db",
-  authToken: process.env.TURSO_AUTH_TOKEN,
-});
-
-const db = drizzle(client, { schema });
+import { db } from "./index";
 
 const badges = [
   // ── Streak badges (8) ─────────────────────────────────────
