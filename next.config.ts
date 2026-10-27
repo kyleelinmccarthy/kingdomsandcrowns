@@ -6,12 +6,21 @@ const nextConfig: NextConfig = {
   // directory, so it never holds the lock the owner's `npm run dev` needs.
   distDir: process.env.NEXT_DIST_DIR || ".next",
   // "Deeds" became "Side Quests" (slice 8); old links and bookmarks keep working.
+  //
+  // Canonical host is www.kingdomsandcrowns.com (matches BETTER_AUTH_URL). Vercel handled the
+  // apex -> www redirect at the domain level; on Cloudflare both hostnames route to the Worker,
+  // so it's done here with an explicit host match — apex only, so it can never loop against www.
   async redirects() {
-    return [{ source: "/deeds", destination: "/side-quests", permanent: true }];
+    return [
+      { source: "/deeds", destination: "/side-quests", permanent: true },
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "kingdomsandcrowns.com" }],
+        destination: "https://www.kingdomsandcrowns.com/:path*",
+        permanent: true,
+      },
+    ];
   },
-  // Canonical host is www.kingdomsandcrowns.com (matches BETTER_AUTH_URL).
-  // Vercel handles the apex -> www redirect at the domain level, so no
-  // www<->apex redirect lives here (one would fight Vercel and loop).
   async headers() {
     return [
       {

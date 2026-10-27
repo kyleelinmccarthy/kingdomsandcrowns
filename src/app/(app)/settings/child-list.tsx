@@ -1086,12 +1086,17 @@ function AddChildDialog({ open, onClose }: { open: boolean; onClose: () => void 
 
     setSaving(true);
     try {
-      const { id } = await createChild({
+      const created = await createChild({
         displayName: name,
         birthYear: ageMode === "birthYear" ? parseInt(birthYear) : undefined,
         grade: ageMode === "grade" ? grade : undefined,
         pin: skipPin ? undefined : pin || undefined,
       });
+      if ("error" in created) {
+        setError(created.error);
+        return;
+      }
+      const { id } = created;
 
       if (email.trim()) {
         await setChildEmail(id, email.trim());

@@ -10,6 +10,7 @@ import {
   accessibleChildren,
   banishedChildren,
 } from "@/lib/auth/access";
+import { childLimitBlock } from "@/lib/billing/plan";
 import { sanitizeName } from "@/lib/utils/sanitize";
 import { hashPin } from "@/lib/utils/pin";
 import { resolveAge } from "@/lib/utils/age-mode";
@@ -54,12 +55,14 @@ export async function createChild(data: {
   birthYear?: number; // provide birthYear OR grade
   grade?: string;
   pin?: string; // optional — an email-only hero may have no PIN
-}) {
+}): Promise<{ id: string; displayName: string } | { error: string }> {
   const access = await requireFamilyAccess({ write: true });
   if (access.scope === "specific") {
     throw new Error("Only family-wide guardians can add new heroes.");
   }
   const familyId = access.familyId;
+  const blocked = await childLimitBlock(familyId);
+  if (blocked) return { error: blocked };
   const now = new Date();
   const id = nanoid();
   const name = sanitizeName(data.displayName);

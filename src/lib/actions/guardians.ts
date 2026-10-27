@@ -13,6 +13,7 @@ import {
   type Permission,
   type MemberScope,
 } from "@/lib/auth/access";
+import { memberLimitBlock } from "@/lib/billing/plan";
 import { sanitizeEmail } from "@/lib/utils/sanitize";
 import { sendEmail, appBaseUrl } from "@/lib/email";
 import { brandedEmail } from "@/lib/email-template";
@@ -80,9 +81,11 @@ export async function inviteGuardian(data: {
   permission: Permission;
   scope: MemberScope;
   childIds?: string[];
-}) {
+}): Promise<{ token: string; link: string; emailSent: boolean } | { error: string }> {
   const access = await requireFamilyAccess({ write: true });
   assertOwner(access);
+  const blocked = await memberLimitBlock(access.familyId);
+  if (blocked) return { error: blocked };
 
   const email = sanitizeEmail(data.email);
   if (!email || !email.includes("@")) {
@@ -410,7 +413,7 @@ export async function getInvitePreview(token: string) {
   };
 }
 
-export async function acceptInvite(token: string) {
+export async function acceptInvite(token: string): Promise<{ familyId: string } | { error: string }> {
   const session = await requireSession();
   const userEmail = sanitizeEmail(session.user.email);
 
@@ -467,6 +470,10 @@ export async function acceptInvite(token: string) {
       .delete(schema.familyMemberChild)
       .where(eq(schema.familyMemberChild.familyMemberId, memberId));
   } else {
+    // Re-check here, not just in inviteGuardian: two pending invites accepted at once could
+    // otherwise both pass the earlier check and both land a new seat.
+    const blocked = await memberLimitBlock(invite.familyId);
+    if (blocked) return { error: blocked };
     memberId = nanoid();
     await db.insert(schema.familyMember).values({
       id: memberId,

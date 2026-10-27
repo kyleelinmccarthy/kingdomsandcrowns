@@ -253,6 +253,13 @@
       "when": 1790862056826,
       "tag": "0035_upkeep_module",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "6",
+      "when": 1792676583831,
+      "tag": "0036_subscription",
+      "breakpoints": true
     }
   ]
 }

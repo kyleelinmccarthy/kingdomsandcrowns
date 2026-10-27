@@ -70,6 +70,7 @@ export function LongRest({
   const [text, setText] = useState(savedEditedText ?? generatedText);
   const [copied, setCopied] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const router = useRouter();
 
@@ -105,16 +106,36 @@ export function LongRest({
     setTimeout(() => setCopied(false), 2000);
 
     startTransition(async () => {
-      const result = await saveLearningLog(childId, startDate, endDate, generatedText, text);
-      await markLogCopied(result.id);
+      try {
+        const result = await saveLearningLog(childId, startDate, endDate, generatedText, text);
+        // On the free plan this comes back as { error } — the text is already on the clipboard
+        // either way, so the family still walks away with their summary, just not kept here.
+        if ("error" in result) {
+          setSaveError(result.error);
+          return;
+        }
+        await markLogCopied(result.id);
+        setSaveError(null);
+      } catch {
+        setSaveError("Couldn't save this summary.");
+      }
     });
   }
 
   function handleSave() {
     startTransition(async () => {
-      await saveLearningLog(childId, startDate, endDate, generatedText, text);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 2000);
+      try {
+        const result = await saveLearningLog(childId, startDate, endDate, generatedText, text);
+        if ("error" in result) {
+          setSaveError(result.error);
+          return;
+        }
+        setSaved(true);
+        setSaveError(null);
+        setTimeout(() => setSaved(false), 2000);
+      } catch {
+        setSaveError("Couldn't save this summary.");
+      }
     });
   }
 
@@ -144,6 +165,7 @@ export function LongRest({
               </Button>
             )}
           </div>
+          {saveError && <p className="text-sm text-amber-600 dark:text-amber-400">{saveError}</p>}
         </div>
       </GameFrame>
 

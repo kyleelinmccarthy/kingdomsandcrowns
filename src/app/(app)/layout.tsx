@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { eq } from "drizzle-orm";
 import { getSession, getDemoPersona } from "@/lib/auth/session";
 import { getActor } from "@/lib/auth/actor";
+import { getActiveFamilyId } from "@/lib/auth/access";
+import { getSubscriptionStatus } from "@/lib/billing/plan";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { profileFromRow, readingAttributes } from "@/lib/utils/learning-profile";
@@ -52,11 +54,16 @@ export default async function AppLayout({
   // with the first byte of HTML. Throws when there's no family set up yet,
   // which just means there's nothing to announce.
   let initialAlerts: ParentAlert[] = [];
+  let billingPastDue = false;
   if (!isChildView) {
     try {
       initialAlerts = await getParentAlerts();
     } catch {
       initialAlerts = [];
+    }
+    const familyId = await getActiveFamilyId().catch(() => null);
+    if (familyId) {
+      billingPastDue = (await getSubscriptionStatus(familyId)) === "past_due";
     }
   }
 
@@ -69,6 +76,16 @@ export default async function AppLayout({
 
         {/* Top banner with site name */}
         <GameBanner />
+
+        {billingPastDue && (
+          <div className="bg-red-600 px-4 py-2 text-center text-sm text-white">
+            Your last payment didn&rsquo;t go through.{" "}
+            <a href="/settings" className="underline">
+              Update your card
+            </a>{" "}
+            to keep the Kingdom plan — nothing of your family&rsquo;s is at risk either way.
+          </div>
+        )}
 
         {/* Main content */}
         <main className="game-content">

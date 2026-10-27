@@ -7,6 +7,7 @@ import * as schema from "@/lib/db/schema";
 import { getAssignmentsForDateRange } from "@/lib/actions/quest-assignments";
 import { formatLearningLog } from "@/lib/utils/learning-log-format";
 import { requireChildAccess } from "@/lib/auth/access";
+import { paidPlanBlock } from "@/lib/billing/plan";
 
 export async function generateLearningLog(
   childId: string,
@@ -14,7 +15,9 @@ export async function generateLearningLog(
   startDate: string,
   endDate: string
 ) {
-  // getAssignmentsForDateRange enforces child access.
+  // getAssignmentsForDateRange enforces child access. This is the always-visible Adventure
+  // tab content (both parent and child views render it on every visit), not a deliberate
+  // export action — it must never be plan-gated, or the tab itself breaks for free families.
   const assignments = await getAssignmentsForDateRange(childId, startDate, endDate);
 
   // Fetch actual durations from activity_log for completed assignments
@@ -76,8 +79,10 @@ export async function saveLearningLog(
   endDate: string,
   generatedText: string,
   editedText: string
-) {
-  await requireChildAccess(childId, { write: true });
+): Promise<{ id: string } | { error: string }> {
+  const { familyId } = await requireChildAccess(childId, { write: true });
+  const blocked = await paidPlanBlock(familyId, "Saving a weekly summary");
+  if (blocked) return { error: blocked };
   const now = new Date();
   const existing = await getSavedLog(childId, startDate);
 

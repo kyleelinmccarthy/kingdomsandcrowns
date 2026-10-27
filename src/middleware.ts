@@ -12,6 +12,7 @@ const publicPaths = [
   "/play", // legacy kid login URL — redirects to /login?mode=kid
   "/child-setup", // child email set-password (tokenized)
   "/api/child-auth", // child auth endpoints
+  "/api/webhooks", // Stripe calls in with no session; the route verifies Stripe's signature itself
 ];
 
 export function middleware(request: NextRequest) {

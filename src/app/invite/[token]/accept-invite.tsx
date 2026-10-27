@@ -14,7 +14,12 @@ export function AcceptInvite({ token }: { token: string }) {
     setBusy(true);
     setError("");
     try {
-      await acceptInvite(token);
+      const res = await acceptInvite(token);
+      if ("error" in res) {
+        setError(res.error);
+        setBusy(false);
+        return;
+      }
       router.push("/settings");
       router.refresh();
     } catch (err) {

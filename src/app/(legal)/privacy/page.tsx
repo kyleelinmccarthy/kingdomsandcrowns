@@ -102,7 +102,8 @@ export default function PrivacyPage() {
       <h2 className="mt-10 text-xl font-semibold">5. Service providers we use</h2>
       <ul className="list-disc pl-6">
         <li><strong>Turso</strong> (libSQL hosting) — stores your account, family, and learning data.</li>
-        <li><strong>Vercel</strong> — hosts and serves the app.</li>
+        <li><strong>Cloudflare</strong> — hosts and serves the app, and keeps a short-lived cache of rendered pages.</li>
+        <li><strong>Stripe</strong> — processes subscription payments if you upgrade; we never see or store your card details.</li>
         <li><strong>Google</strong> — only if you choose &ldquo;Continue with Google&rdquo; to sign in; Google shares your name, email, profile picture, and Google account ID with us.</li>
         <li><strong>Resend</strong> — sends transactional emails (password reset, quest reminders, feedback acknowledgements).</li>
       </ul>

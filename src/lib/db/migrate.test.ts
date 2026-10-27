@@ -90,7 +90,8 @@ describe("the migration runner", () => {
     await runMigrations(db, upTo("0033_wealthy_reptil"), quiet);
     const result = await runMigrations(db, all, quiet);
 
-    expect(result.applied).toEqual(["0034_excused_days", "0035_upkeep_module"]);
+    expect(result.applied).toEqual(all.slice(upTo("0033_wealthy_reptil").length).map((m) => m.tag));
+    expect(result.applied.slice(0, 2)).toEqual(["0034_excused_days", "0035_upkeep_module"]);
     expect(result.adopted).toEqual([]);
     expect(await schemaOf(db)).toEqual(await freshSchema());
   });

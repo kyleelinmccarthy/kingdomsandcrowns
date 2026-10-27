@@ -14,6 +14,7 @@ import { getRealmPlaySummary } from "@/lib/actions/realm-play";
 import { getMasteryOverview } from "@/lib/actions/deeds";
 import { getMakeupDays } from "@/lib/actions/makeup";
 import { getFamilyMembers } from "@/lib/actions/guardians";
+import { getBillingStatus } from "@/lib/actions/billing";
 import { ensureFamilyLoginCode } from "@/lib/actions/child-auth";
 import { getActor } from "@/lib/auth/actor";
 import { todayInZone } from "@/lib/utils/dates";
@@ -25,6 +26,7 @@ import { GuardiansManager } from "./guardians";
 import { FamilySwitcher } from "./family-switcher";
 import { FamilyLoginCode } from "./family-login-code";
 import { UpkeepSettingsPanel } from "./upkeep-settings-panel";
+import { BillingPanel } from "./billing-panel";
 
 export default async function SettingsPage() {
   const actor = await getActor();
@@ -75,6 +77,8 @@ export default async function SettingsPage() {
       }))
     : [];
   const guardianData = family && !isChildView ? await getFamilyMembers() : null;
+  const billingStatus =
+    family && !isChildView ? await getBillingStatus().catch(() => null) : null;
   const loginCode =
     family && !isChildView && guardianData?.canManage
       ? await ensureFamilyLoginCode()
@@ -158,6 +162,11 @@ export default async function SettingsPage() {
                 enabled={family.upkeepEnabled}
                 requiresApproval={family.upkeepRequiresApproval}
               />
+            </GameFrame>
+          )}
+          {billingStatus?.canManage && (
+            <GameFrame>
+              <BillingPanel status={billingStatus.status} />
             </GameFrame>
           )}
         </>

@@ -278,7 +278,9 @@ function InviteDialog({
         scope,
         childIds: scope === "specific" ? selectedChildIds : undefined,
       });
-      if (!res.emailSent) {
+      if ("error" in res) {
+        setError(res.error);
+      } else if (!res.emailSent) {
         // Email not configured — surface the link to copy.
         setResultLink(res.link);
       } else {

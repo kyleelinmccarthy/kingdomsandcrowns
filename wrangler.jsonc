@@ -1,0 +1,34 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "kingdomsandcrowns",
+  // Built by `opennextjs-cloudflare build`; don't point this anywhere else.
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+  // Every render makes several round trips to Turso, which lives in one region. Smart Placement
+  // runs the Worker near the database instead of near each visitor (static assets still serve
+  // from the edge), so those round trips stay short.
+  "placement": { "mode": "smart" },
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  // The revalidation queue calls back into this same Worker; `service` must equal `name`.
+  "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "kingdomsandcrowns" }],
+  // Next's page/data cache (the incremental cache). Create the bucket once: see docs/deploy-cloudflare.md.
+  "r2_buckets": [
+    { "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "kingdomsandcrowns-next-cache" }
+  ],
+  // Durable Objects back Next's revalidation: a queue that regenerates stale pages once, and a
+  // sharded tag cache that records revalidatePath() calls so every isolate sees them.
+  "durable_objects": {
+    "bindings": [
+      { "name": "NEXT_CACHE_DO_QUEUE", "class_name": "DOQueueHandler" },
+      { "name": "NEXT_TAG_CACHE_DO_SHARDED", "class_name": "DOShardedTagCache" }
+    ]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["DOQueueHandler", "DOShardedTagCache"] }],
+  // next/image optimization (marketing pages).
+  "images": { "binding": "IMAGES" },
+  "observability": { "enabled": true }
+}

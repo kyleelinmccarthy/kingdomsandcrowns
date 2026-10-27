@@ -170,6 +170,31 @@ export const familyInvite = sqliteTable(
   ]
 );
 
+/**
+ * One row per family, created lazily on first checkout. Absence of a row means the same thing
+ * as status "free" — both read as the free plan in `getFamilyPlan` — so a family never needs a
+ * row written just to be free. A row persists (status updated, never deleted) once Stripe
+ * history exists, so stripeCustomerId survives a cancellation for next time.
+ */
+export const subscription = sqliteTable("subscription", {
+  id: text("id").primaryKey(),
+  familyId: text("family_id")
+    .notNull()
+    .unique()
+    .references(() => family.id, { onDelete: "cascade" }),
+  stripeCustomerId: text("stripe_customer_id"),
+  stripeSubscriptionId: text("stripe_subscription_id"),
+  status: text("status", {
+    enum: ["free", "active", "trialing", "past_due", "canceled"],
+  })
+    .notNull()
+    .default("free"),
+  priceId: text("price_id"),
+  currentPeriodEnd: integer("current_period_end", { mode: "timestamp" }),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+});
+
 export const child = sqliteTable(
   "child",
   {
