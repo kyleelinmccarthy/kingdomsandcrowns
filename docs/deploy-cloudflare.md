@@ -127,7 +127,7 @@ Runtime values live on the Worker: **Workers & Pages → kingdomsandcrowns → S
 
 **Build variables and secrets:** `NEXT_PUBLIC_APP_URL`, `NEXT_PUBLIC_APP_VERSION`, `DATABASE_URL` (direct, for the migration step) and `NODE_VERSION=22` if `.nvmrc` isn't picked up. Migrations run only on production deploys, after a successful build and before the new version goes live.
 
-By hand instead: `npm run deploy` (env check → migrate → build → deploy; reads `DATABASE_URL` from your shell).
+By hand instead: `DATABASE_URL='<Neon direct URL>' npm run deploy` (env check → migrate → build → deploy). It refuses to run without an explicit, non-local `DATABASE_URL`, because migrations otherwise fall back to the local database in `.env.local`.
 
 ---
 
@@ -165,7 +165,7 @@ Weekly, verified, local: see [database-backups.md](./database-backups.md). Turn 
 
 ## 11. Local development
 
-- **Everyday:** `docker compose up -d` (Postgres 18; `POSTGRES_PORT=5433` if 5432 is taken), `npm run db:migrate`, then `npm run dev` with `DATABASE_URL` in `.env.local`.
+- **Everyday:** `docker compose up -d` (Postgres 18; `POSTGRES_PORT=5433` if 5432 is taken), put `DATABASE_URL` in `.env.local`, then `npm run db:migrate` (it reads `.env.local`; an explicit `DATABASE_URL` in the shell always wins) and `npm run dev`.
 - **In the Workers runtime:** `npm run preview` runs the built Worker under `wrangler dev` on `:8787`, connecting to `hyperdrive[0].localConnectionString` (override with `CLOUDFLARE_HYPERDRIVE_LOCAL_CONNECTION_STRING_HYPERDRIVE=postgres://…` for another port). Runtime vars go in a gitignored `.dev.vars`.
 
 ---

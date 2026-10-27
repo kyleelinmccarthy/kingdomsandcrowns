@@ -10,7 +10,7 @@
     "build": "next build",
     "start": "next start",
     "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
-    "deploy": "node scripts/check-cloudflare-env.mjs && npm run db:migrate && opennextjs-cloudflare build && opennextjs-cloudflare deploy -- --keep-vars",
+    "deploy": "node scripts/check-cloudflare-env.mjs --deploy && npm run db:migrate && opennextjs-cloudflare build && opennextjs-cloudflare deploy -- --keep-vars",
     "upload": "node scripts/check-cloudflare-env.mjs && opennextjs-cloudflare build && opennextjs-cloudflare upload -- --keep-vars",
     "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
     "lint": "eslint",

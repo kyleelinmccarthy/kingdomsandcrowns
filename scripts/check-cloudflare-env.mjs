@@ -39,3 +39,17 @@ if (keys.length > 0) {
       `  Make sure each one is also set on the Worker, or that the local value is safe for production.\n`
   );
 }
+
+// `npm run deploy` migrates before deploying. drizzle.config.ts falls back to .env.local's local
+// database, so without an explicit DATABASE_URL a laptop deploy would migrate the wrong database
+// and ship code to an unmigrated production one. Require the real one, from the shell.
+if (process.argv.includes("--deploy")) {
+  const url = process.env.DATABASE_URL ?? "";
+  if (!url || /@(localhost|127\.0\.0\.1)[:/]/.test(url)) {
+    console.error(
+      "\n✖ Set DATABASE_URL to production's direct Neon connection string before deploying, e.g.\n" +
+        "  DATABASE_URL='postgres://hyperdrive-user:…@…neon.tech/…?sslmode=require' npm run deploy\n"
+    );
+    process.exit(1);
+  }
+}
