@@ -46,6 +46,9 @@ export type BuiltRun = { skillIds: string[]; questions: Question[] };
 /** What the browser receives: everything but the answer and its explanation. */
 export type ClientQuestion = Omit<Question, "answer" | "explain">;
 
+/** Recent misses that may come back in one run; the rest of `REVIEW.maxTotal` is for due skills. */
+const MAX_MISSES = 2;
+
 /**
  * Every skill for the deed's area at the hero's grade, or at the nearest grade that has any.
  * Which of these a run actually practises is decided in `buildRun`, where the hero's mastery
@@ -350,7 +353,7 @@ export function buildDeedRun(input: BuildRunInput): BuiltRun {
     return true;
   });
   // Misses come back first; what is left of the review budget goes to skills that are due.
-  const review = dedupedMisses.filter((m) => skillIds.includes(m.skillId)).slice(0, REVIEW.maxTotal);
+  const review = dedupedMisses.filter((m) => skillIds.includes(m.skillId)).slice(0, MAX_MISSES);
   const reviewIds = new Set(review.map((m) => m.id));
   // Also by prompt: a miss stored under an older id shape would otherwise be re-asked as a
   // fresh question in the same deed.

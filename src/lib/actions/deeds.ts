@@ -34,7 +34,7 @@ import {
   statusOf,
   type QuestionStatus,
 } from "@/lib/utils/deed-attempts";
-import { dueSkills } from "@/lib/utils/review-schedule";
+import { overdueSkills } from "@/lib/utils/review-schedule";
 import { hintFor } from "@/lib/utils/skill-hints";
 import { buildingStars, gradeForDeed, loadDeedBest, loadHeroLevels, loadKingdomOverview, type BuildingOverview } from "@/lib/services/deeds";
 import { loadLearningProfileRow } from "@/lib/services/learning-profile";
@@ -213,9 +213,9 @@ export async function startDeedRun(
     distractors: JSON.parse(r.distractors) as string[], readAloud: r.readAloud, level: r.level,
   }));
 
-  // Skills this deed can serve that have rested past their interval. Which skills the run
-  // itself practises is chosen inside buildDeedRun, which drops any it already picked.
-  const dueSkillIds = dueSkills(
+  // Every skill this deed can serve that has rested past its interval, uncapped: which skills
+  // the run itself practises is chosen inside buildDeedRun, which drops those and then caps.
+  const dueSkillIds = overdueSkills(
     masteryRows.map((m) => ({ skillId: m.skillId, level: m.level, lastPracticedAt: lastPracticedBySkill[m.skillId] })),
     skills.map((s) => s.id), [], Date.now(),
   );

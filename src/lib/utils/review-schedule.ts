@@ -12,10 +12,11 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 export type MasteryTiming = { skillId: string; level: number; lastPracticedAt: number | null };
 
 /**
- * The skills to bring back, most overdue first, capped at `REVIEW.maxDue`. `now` is passed in
- * so this stays a pure function of its inputs.
+ * Every skill past its interval, most overdue first, with no cap. The run builder takes this
+ * so it can drop the skills the run already practises BEFORE applying `REVIEW.maxDue`. `now`
+ * is passed in so this stays a pure function of its inputs.
  */
-export function dueSkills(
+export function overdueSkills(
   rows: readonly MasteryTiming[],
   candidateIds: readonly string[],
   excludeIds: readonly string[],
@@ -30,6 +31,15 @@ export function dueSkills(
     })
     .filter((r) => r.overdue >= 1)
     .sort((a, b) => b.overdue - a.overdue)
-    .slice(0, REVIEW.maxDue)
     .map((r) => r.id);
+}
+
+/** The most overdue skills, capped at `REVIEW.maxDue`. */
+export function dueSkills(
+  rows: readonly MasteryTiming[],
+  candidateIds: readonly string[],
+  excludeIds: readonly string[],
+  now: number,
+): string[] {
+  return overdueSkills(rows, candidateIds, excludeIds, now).slice(0, REVIEW.maxDue);
 }

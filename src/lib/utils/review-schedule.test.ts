@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { REVIEW, dueSkills } from "./review-schedule";
+import { REVIEW, dueSkills, overdueSkills } from "./review-schedule";
 
 const DAY = 24 * 60 * 60 * 1000;
 const NOW = 100 * DAY;
@@ -42,5 +42,13 @@ describe("dueSkills", () => {
   it("caps at the most that can come back", () => {
     const rows = [row("a", 1, 9), row("b", 1, 8), row("c", 1, 7), row("d", 1, 6)];
     expect(dueSkills(rows, ids, [], NOW)).toEqual(["a", "b"]);
+  });
+});
+
+describe("overdueSkills", () => {
+  it("is the same ordered list with no cap", () => {
+    const rows = [row("a", 1, 9), row("b", 1, 8), row("c", 1, 7), row("d", 1, 6)];
+    expect(overdueSkills(rows, ids, [], NOW)).toEqual(["a", "b", "c", "d"]);
+    expect(dueSkills(rows, ids, [], NOW)).toEqual(overdueSkills(rows, ids, [], NOW).slice(0, REVIEW.maxDue));
   });
 });

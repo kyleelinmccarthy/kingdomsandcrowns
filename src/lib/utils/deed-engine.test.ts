@@ -101,10 +101,10 @@ describe("buildDeedRun", () => {
     expect(new Set(run.questions.map((q) => q.id)).size).toBe(run.questions.length);
     expect(run.questions.length).toBe(8);
   });
-  it("mixes in at most REVIEW.maxTotal recent misses for the chosen skills", () => {
-    const misses: Question[] = [0, 1, 2, 3].map((i) => ({ id: `miss-${i}`, skillId: "read-g3", prompt: `Miss ${i}`, choices: ["x", "y", "z", "w"], answer: "x" }));
+  it("mixes in at most two recent misses for the chosen skills", () => {
+    const misses: Question[] = [0, 1, 2].map((i) => ({ id: `miss-${i}`, skillId: "read-g3", prompt: `Miss ${i}`, choices: ["x", "y", "z", "w"], answer: "x" }));
     const run = buildDeedRun(input({ recentMisses: misses }));
-    expect(run.questions.filter((q) => q.id.startsWith("miss-"))).toHaveLength(REVIEW.maxTotal);
+    expect(run.questions.filter((q) => q.id.startsWith("miss-"))).toHaveLength(2);
     expect(run.questions).toHaveLength(8);
   });
   it("dedupes recent misses with the same id into a single review question", () => {
@@ -631,6 +631,26 @@ describe("buildDeedRun keep-it-sharp review", () => {
       expect(misses).toHaveLength(2);
       expect(misses.length + due.length).toBeLessThanOrEqual(REVIEW.maxTotal);
       expect(due.length).toBeLessThanOrEqual(1);
+    }
+  });
+  it("keeps misses at two, so three misses and two due skills give two misses and one due question", () => {
+    for (let seed = 1; seed <= 20; seed++) {
+      const own = ownOf(seed);
+      const misses = [0, 1, 2].map((i) => missOf(i, own[0]));
+      const run = buildDeedRun(mulInput({ seed, dueSkillIds: dueOf(seed, ["div-facts", "frac-unit", "sub-1000"]).slice(0, 2), recentMisses: misses }));
+      expect(run.questions).toHaveLength(8);
+      expect(run.questions.filter((q) => q.id.startsWith("miss-"))).toHaveLength(2);
+      expect(run.questions.filter((q) => !own.includes(q.skillId))).toHaveLength(1);
+    }
+  });
+  it("still brings a third overdue skill when the top two are the run's own", () => {
+    for (let seed = 1; seed <= 20; seed++) {
+      const own = ownOf(seed);
+      const others = ["mul-facts", "div-facts", "frac-unit", "area-perimeter", "round-nearest", "add-1000", "sub-1000"].filter((id) => !own.includes(id));
+      const run = buildDeedRun(mulInput({ seed, dueSkillIds: [...own, others[0]] }));
+      expect(run.skillIds).toEqual([...own, others[0]]);
+      expect(run.questions.some((q) => q.skillId === others[0])).toBe(true);
+      expect(run.questions).toHaveLength(8);
     }
   });
   it("never asks for more than maxDue due questions", () => {
