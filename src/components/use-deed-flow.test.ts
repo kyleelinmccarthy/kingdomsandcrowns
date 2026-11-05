@@ -54,4 +54,14 @@ describe("useDeedFlow", () => {
     await act(() => result.current.choose("a"));
     expect(result.current.meter).toEqual(meter);
   });
+
+  it("says an answer the server hid the reason for as one friendly line, and our own refusals as they are", async () => {
+    answerDeedQuestion.mockRejectedValueOnce(new Error("An error occurred in the Server Components render."));
+    const { result } = renderHook(() => useDeedFlow(run));
+    await act(() => result.current.choose("a"));
+    expect(result.current.error).toBe("That didn't work.");
+    answerDeedQuestion.mockRejectedValueOnce(new Error("That question has already been answered."));
+    await act(() => result.current.choose("a"));
+    expect(result.current.error).toBe("That question has already been answered.");
+  });
 });

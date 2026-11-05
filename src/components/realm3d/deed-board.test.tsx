@@ -92,6 +92,14 @@ describe("the deed board", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("No side quests are ready for this hero yet.");
   });
 
+  it("says a start the server hid the reason for as one friendly line, never \"failed\"", async () => {
+    vi.mocked(startDeedRun).mockRejectedValue(new Error("An error occurred in the Server Components render. The specific message is omitted in production builds."));
+    board();
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" })));
+    expect(screen.getByRole("alert")).toHaveTextContent("That didn't work.");
+    expect(screen.getByRole("alert").textContent).not.toMatch(/failed|Server Components/);
+  });
+
   it("does not answer twice for a double press", async () => {
     vi.mocked(startDeedRun).mockResolvedValue({ ...run, responses: [null, null] });
     let resolve: (v: { correct: boolean; secondChance: boolean; answer: string }) => void = () => {};

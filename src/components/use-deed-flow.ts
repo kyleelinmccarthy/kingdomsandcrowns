@@ -9,9 +9,8 @@ import { useReducer, useRef, useState } from "react";
 import { answerDeedQuestion, resolveDeedQuestion, retryDeedQuestion } from "@/lib/actions/deeds";
 import type { AttemptResult, RunStart } from "@/lib/utils/deed-run-types";
 import { flowReducer, initialFlow, type FlowEvent } from "@/lib/utils/deed-run-flow";
+import { deedErrorLine } from "@/lib/utils/deed-refusals";
 import type { SkillMeter } from "@/lib/utils/mastery";
-
-const FAILED = "The enchantment failed.";
 
 export function useDeedFlow(run: RunStart, onAttempt?: (result: AttemptResult) => void) {
   const [flow, dispatch] = useReducer(flowReducer, run, initialFlow);
@@ -27,7 +26,7 @@ export function useDeedFlow(run: RunStart, onAttempt?: (result: AttemptResult) =
   const [meter, setMeter] = useState<SkillMeter | null>(null);
   const inFlight = useRef(false);
 
-  /** One server call at a time; a failure is said plainly and changes nothing. */
+  /** One server call at a time; a refusal is said in one child-safe line and changes nothing. */
   async function guarded(work: () => Promise<void>) {
     if (inFlight.current) return;
     inFlight.current = true;
@@ -36,7 +35,7 @@ export function useDeedFlow(run: RunStart, onAttempt?: (result: AttemptResult) =
     try {
       await work();
     } catch (err) {
-      setError(err instanceof Error ? err.message : FAILED);
+      setError(deedErrorLine(err));
     } finally {
       inFlight.current = false;
       setBusy(false);

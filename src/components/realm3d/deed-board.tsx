@@ -33,6 +33,7 @@ import type { Villager } from "@/lib/realm/villagers";
 import { attemptFeedback, resultBuildingLine, resultHeadline, resultStarsLine, starsLabel, talkCopy, type Viewer } from "@/lib/realm3d/talk";
 import type { Stars } from "@/lib/utils/deed-scoring";
 import { choiceTone } from "@/lib/utils/deed-run-flow";
+import { deedErrorLine } from "@/lib/utils/deed-refusals";
 import { DeedMeter } from "@/components/deed-meter";
 import { useDeedFlow } from "@/components/use-deed-flow";
 import { AREA_LABELS, type SkillArea } from "@/lib/utils/skills";
@@ -52,7 +53,6 @@ export type DeedResult = RunSummary["building"] & {
   challenge?: { won: boolean };
 };
 
-const FAILED = "The enchantment failed.";
 const CROWN_CHALLENGE = "Crown Challenge";
 
 /** A subject, as a coloured tag in the frame's own type. */
@@ -125,7 +125,7 @@ export function DeedBoard({
     try {
       setRun(await (challenge ? startDeedRun(childId!, deedId, "realm", { challenge: true }) : startDeedRun(childId!, deedId, "realm")));
     } catch (err) {
-      setError(err instanceof Error ? err.message : FAILED);
+      setError(deedErrorLine(err));
     } finally {
       setBusy(false);
     }

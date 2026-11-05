@@ -12,7 +12,6 @@ import { bandForGrade } from "@/lib/utils/grade-levels";
 import { findSkill, type SkillArea } from "@/lib/utils/skills";
 import { buildingProgress, findBuilding, type Building } from "@/lib/utils/kingdom";
 import { deedStory, findDeed } from "@/lib/utils/deeds";
-import { SIDE_QUEST_LOWER, SIDE_QUESTS_LOWER } from "@/lib/utils/side-quest-copy";
 import {
   buildDeedRun,
   chooseSkills,
@@ -23,16 +22,11 @@ import {
 import { masteryChangeCopy, masteryLabel, parseRecentResults, progressToNextRung, recordResult } from "@/lib/utils/mastery";
 import type { Question } from "@/lib/utils/drill-generators";
 import { CHALLENGE, RUN_EFFECTS, countsTowardBuilding, runPoints, starsFor, type QuestionOutcome, type RunKind, type Stars } from "@/lib/utils/deed-scoring";
+import { outcomeOf, records, refuseGiveUp, refuseRetry, resumeIndex, statusOf, type QuestionStatus } from "@/lib/utils/deed-attempts";
 import {
-  ALREADY_ANSWERED,
-  outcomeOf,
-  records,
-  refuseGiveUp,
-  refuseRetry,
-  resumeIndex,
-  statusOf,
-  type QuestionStatus,
-} from "@/lib/utils/deed-attempts";
+  ALREADY_ANSWERED, ANSWER_EVERY, ANSWER_FIRST, CHALLENGE_LOCKED, CLOSED, FINISHED, HERO_ONLY, NONE_READY,
+  NOT_IN_CHRONICLE, NOT_IN_RUN, NOT_THROUGH,
+} from "@/lib/utils/deed-refusals";
 import { overdueSkills } from "@/lib/utils/review-schedule";
 import type { AttemptResult, RunStart, RunSummary } from "@/lib/utils/deed-run-types";
 import { hintFor } from "@/lib/utils/skill-hints";
@@ -46,8 +40,6 @@ export type DeedsOverview = {
   buildings: BuildingOverview[]; mastery: MasteryRow[];
 };
 
-const CLOSED = "The Realm is closed for this hero. A grown-up can open it in the Chronicle.";
-const FINISHED = `That ${SIDE_QUEST_LOWER} has already been finished.`;
 const RESUME_WINDOW_MS = 60 * 60 * 1000;
 
 async function loadMasteryRows(childId: string) {
@@ -111,11 +103,6 @@ export async function getMasteryOverview(childId: string): Promise<MasteryRow[]>
   return (await loadMasteryRows(childId)).map(masteryRow).filter((m): m is MasteryRow => m !== null);
 }
 
-// Sentence case here (not the SIDE_QUESTS title-case noun): this reads as a plain sentence, not an error code.
-const HERO_ONLY = "Side quests are for the hero to play.";
-/** The Crown Challenge opens only on a side quest with every star. */
-const CHALLENGE_LOCKED = "Earn three stars on this side quest first.";
-
 export async function startDeedRun(
   childId: string,
   deedId: string,
@@ -129,7 +116,7 @@ export async function startDeedRun(
   if ((context === "realm" || challenge) && !isChildActor(access)) throw new Error(HERO_ONLY);
   const kind: RunKind = challenge ? "challenge" : "deed";
   const deed = findDeed(deedId);
-  if (!deed) throw new Error(`That ${SIDE_QUEST_LOWER} is not in the chronicle.`);
+  if (!deed) throw new Error(NOT_IN_CHRONICLE);
   const hero = await loadHeroLevels(childId);
   if (!hero.enabled) throw new Error(CLOSED);
   if (challenge) {
@@ -202,7 +189,7 @@ export async function startDeedRun(
       ? { recentMisses: [], dueSkillIds: [], questionCount: CHALLENGE.questions, levelBoost: CHALLENGE.levelBoost }
       : { recentMisses, dueSkillIds, questionCount: settings.sideQuestLength }),
   });
-  if (built.questions.length === 0) throw new Error(`No ${SIDE_QUESTS_LOWER} are ready for this hero yet.`);
+  if (built.questions.length === 0) throw new Error(NONE_READY);
 
   const now = new Date();
   const runId = nanoid();
@@ -226,7 +213,7 @@ type DeedRunRow = typeof schema.deedRun.$inferSelect;
 
 async function loadRun(runId: string): Promise<DeedRunRow> {
   const rows = await db.select().from(schema.deedRun).where(eq(schema.deedRun.id, runId)).limit(1);
-  if (!rows[0]) throw new Error(`That ${SIDE_QUEST_LOWER} is not in the chronicle.`);
+  if (!rows[0]) throw new Error(NOT_IN_CHRONICLE);
   await requireChildAccess(rows[0].childId, { write: true });
   return rows[0];
 }
@@ -249,7 +236,7 @@ async function loadAttemptState(runId: string, index: number) {
   if (run.completedAt) throw new Error(FINISHED);
   const state = parseRun(run);
   if (!Number.isInteger(index) || index < 0 || index >= state.questions.length) {
-    throw new Error(`That question is not in this ${SIDE_QUEST_LOWER}.`);
+    throw new Error(NOT_IN_RUN);
   }
   return { run, ...state, question: state.questions[index], attempt: state.attempts[index] };
 }
@@ -259,7 +246,7 @@ async function loadAttemptState(runId: string, index: number) {
  * An open second chance echoes the stored first pick, so a late repeat rules out what was stored.
  */
 function resultFor(question: Question, status: QuestionStatus, firstPick?: string): AttemptResult {
-  if (status === "unanswered") throw new Error("Answer the question first.");
+  if (status === "unanswered") throw new Error(ANSWER_FIRST);
   if (status === "open") return { correct: false, secondChance: true, hint: hintFor(question.skillId), firstPick };
   const correct = status === "right-first" || status === "right-second";
   const result: AttemptResult = { correct, secondChance: false, answer: question.answer };
@@ -327,7 +314,7 @@ export async function answerDeedQuestion(runId: string, index: number, answer: s
     const moved = RUN_EFFECTS[run.kind].movesMastery ? await recordFirstTry(run.childId, question.skillId, correct, now) : {};
     return { ...resultFor(question, statusOf(question, { first: answer, second: null }, allows), answer), ...moved };
   }
-  throw new Error("That answer did not go through. Try it again.");
+  throw new Error(NOT_THROUGH);
 }
 
 /**
@@ -395,7 +382,7 @@ export async function completeDeedRun(runId: string): Promise<RunSummary> {
   const { questions, statuses } = parseRun(run);
   // An open second chance blocks finishing exactly as an unanswered question does.
   const outcomes = statuses.map(outcomeOf).filter((o): o is QuestionOutcome => o !== null);
-  if (outcomes.length !== questions.length) throw new Error(`Answer every question before finishing the ${SIDE_QUEST_LOWER}.`);
+  if (outcomes.length !== questions.length) throw new Error(ANSWER_EVERY);
   const effects = RUN_EFFECTS[run.kind];
   const correctCount = statuses.filter((s) => s === "right-first").length;
   const flawless = correctCount === questions.length;

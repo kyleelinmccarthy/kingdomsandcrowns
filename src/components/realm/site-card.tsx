@@ -6,9 +6,10 @@ import { GameIcon } from "@/components/game-icon";
 import { SubjectChip } from "@/components/subject-chip";
 import type { BuildingOverview } from "@/lib/services/deeds";
 import type { Villager } from "@/lib/realm/villagers";
+import { HERO_ONLY } from "@/lib/utils/deed-refusals";
 
-// Sentence case here (not the SIDE_QUESTS title-case noun): this reads as a plain sentence, not a heading.
-export const HERO_ONLY = "Side quests are for the hero to play.";
+// One copy of the line the server refuses a grown-up with.
+export { HERO_ONLY };
 
 export function SiteCard({
   villager,

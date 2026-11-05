@@ -1,7 +1,7 @@
 import type { Question } from "./drill-generators";
 import { gradeAnswer } from "./deed-engine";
 import type { QuestionOutcome } from "./deed-scoring";
-import { SIDE_QUEST_LOWER } from "./side-quest-copy";
+import { ALREADY_ANSWERED, ANSWER_FIRST, NO_SECOND_TRIES, PICK_SHOWN, TRY_DIFFERENT } from "./deed-refusals";
 
 /** `second`: null = no second try, "" = gave up, otherwise the retry as given. */
 export type AttemptRecord = { first: string | null; second: string | null };
@@ -46,22 +46,20 @@ export function records(
   return responses.map((first, i) => ({ first, second: secondTries[i] ?? null }));
 }
 
-export const ALREADY_ANSWERED = "That question has already been answered.";
-
 export function refuseRetry(
   q: Pick<Question, "answer" | "choices">,
   rec: AttemptRecord,
   runAllows: boolean,
   answer: string,
 ): string | null {
-  if (rec.first === null) return "Answer the question first.";
+  if (rec.first === null) return ANSWER_FIRST;
   if (gradeAnswer(q, rec.first)) return ALREADY_ANSWERED;
-  if (!secondChanceAllowed(q, runAllows)) return `This ${SIDE_QUEST_LOWER} has no second tries.`;
+  if (!secondChanceAllowed(q, runAllows)) return NO_SECOND_TRIES;
   if (rec.second !== null) return ALREADY_ANSWERED;
   // "" is how the server records a give-up, so it can never be a real retry.
   const picked = answer.trim();
-  if (picked === "" || !q.choices.some((c) => c.trim() === picked)) return "Pick one of the answers shown.";
-  if (picked === rec.first.trim()) return "Try a different answer this time.";
+  if (picked === "" || !q.choices.some((c) => c.trim() === picked)) return PICK_SHOWN;
+  if (picked === rec.first.trim()) return TRY_DIFFERENT;
   return null;
 }
 
