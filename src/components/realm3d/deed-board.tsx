@@ -25,11 +25,13 @@
 import { useEffect, useRef, useState } from "react";
 import { VillagerFigure } from "@/components/avatar";
 import { GameIcon, type GameIconName } from "@/components/game-icon";
-import { answerDeedQuestion, completeDeedRun, startDeedRun, type RunStart, type RunSummary } from "@/lib/actions/deeds";
+import { completeDeedRun, startDeedRun, type RunStart, type RunSummary } from "@/lib/actions/deeds";
 import { realmCue } from "@/lib/realm3d/sound/store";
 import type { BuildingOverview } from "@/lib/services/deeds";
 import type { Villager } from "@/lib/realm/villagers";
-import { resultBuildingLine, resultHeadline, talkCopy, type Viewer } from "@/lib/realm3d/talk";
+import { attemptFeedback, resultBuildingLine, resultHeadline, resultStarsLine, starsLabel, talkCopy, type Viewer } from "@/lib/realm3d/talk";
+import { choiceTone } from "@/lib/utils/deed-run-flow";
+import { useDeedFlow } from "@/components/use-deed-flow";
 import { AREA_LABELS, type SkillArea } from "@/lib/utils/skills";
 import { canSpeak, speak, stopSpeaking, type SpeechToken } from "@/lib/utils/speech";
 import { SIDE_QUEST_LOWER, SIDE_QUESTS_LOWER } from "@/lib/utils/side-quest-copy";
@@ -173,12 +175,10 @@ export function DeedBoard({
   );
 }
 
-// The answer is absent while a second chance is open (`AttemptResult`).
-type Feedback = { correct: boolean; answer?: string };
-
 /**
  * One run, question by question. `DeedPlayer`'s rules, in the frame's clothes, plus the number
- * keys: a child at a keyboard can answer with 1 to 4, the way they cast.
+ * keys: a child at a keyboard can answer with 1 to 4, the way they cast. A wrong pick on a
+ * question with room for it gets a hint and a second try (`useDeedFlow`), or "Show me".
  */
 function DeedRun({
   childId,
@@ -197,22 +197,18 @@ function DeedRun({
   onResult: (b: DeedResult) => void;
   onClose: () => void;
 }) {
-  // A resumed run continues at the first unanswered question; one with nothing unanswered opens
-  // on the last. Exactly `DeedPlayer`'s rule.
-  const [index, setIndex] = useState(() => {
-    const first = run.responses.findIndex((r) => r === null);
-    return first === -1 ? run.questions.length - 1 : first;
-  });
-  const [feedback, setFeedback] = useState<Feedback | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  // A wrong answer is a soft low "hmm", a right one rises and resolves (`realm-sound.tsx`).
+  const { flow, busy, error, setError, guarded, choose, showMe, next } = useDeedFlow(run, (r) => realmCue(r.correct ? "deed-right" : "deed-wrong"));
+  const { index, phase } = flow;
   const [summary, setSummary] = useState<RunSummary | null>(null);
   const [startedAt] = useState(() => Date.now());
   const [now, setNow] = useState(() => Date.now());
   const question = run.questions[index];
   const isLast = index === run.questions.length - 1;
   const nextRef = useRef<HTMLButtonElement>(null);
-  const firstChoice = useRef<HTMLButtonElement>(null);
+  const firstOpenChoice = useRef<HTMLButtonElement>(null);
+  const firstOpen = question.choices.findIndex((c) => !flow.ruledOut.includes(c));
+  const feedback = flow.result ? attemptFeedback(flow.result, flow.ruledOut.length > 0, villagerName) : null;
   void childId;
 
   // Read-aloud, as `DeedPlayer` does it: the profile asks, the effect obeys, and leaving stops it —
@@ -227,51 +223,34 @@ function DeedRun({
     return () => stopSpeaking(spoken.current);
   }, [profile.readAloud, question]);
 
+  // The hint is read once, when the second chance opens.
+  const hint = phase === "second-chance" ? flow.result?.hint : undefined;
+  useEffect(() => {
+    if (!profile.readAloud || !hint) return;
+    const token = speak(hint);
+    return () => stopSpeaking(token);
+  }, [profile.readAloud, hint, index]);
+
   useEffect(() => {
     if (profile.untimed) return;
     const id = setInterval(() => setNow(Date.now()), 30_000);
     return () => clearInterval(id);
   }, [profile.untimed]);
 
-  // Focus follows the question: the first choice when one is asked, Next once it is answered.
+  // Focus follows the question: the first open choice when one is asked (a second chance skips
+  // the crossed-out pick), Next once it is resolved.
   useEffect(() => {
     if (summary) return;
-    (feedback ? nextRef.current : firstChoice.current)?.focus();
-  }, [feedback, index, summary]);
+    (phase === "resolved" ? nextRef.current : firstOpenChoice.current)?.focus();
+  }, [phase, index, summary]);
 
-  async function choose(choice: string) {
-    if (feedback || busy) return;
-    setBusy(true);
-    setError("");
-    try {
-      const answer = await answerDeedQuestion(run.runId, index, choice);
-      setFeedback(answer);
-      // A right answer rises and resolves; a wrong one is a soft low "hmm" (`realm-sound.tsx`).
-      realmCue(answer.correct ? "deed-right" : "deed-wrong");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : FAILED);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function next() {
-    if (!isLast) {
-      setIndex(index + 1);
-      setFeedback(null);
-      return;
-    }
-    setBusy(true);
-    setError("");
-    try {
+  function advance() {
+    if (!isLast) return next();
+    return guarded(async () => {
       const done = await completeDeedRun(run.runId);
       setSummary(done);
       onResult(done.building);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : FAILED);
-    } finally {
-      setBusy(false);
-    }
+    });
   }
 
   // The number row answers. Enter and Space belong to whichever button has focus.
@@ -296,12 +275,21 @@ function DeedRun({
 
   if (summary) {
     const head = resultHeadline(summary, run.deed.title);
+    const stars = resultStarsLine(summary, villagerName);
     return (
       <div className="r3-result">
         <span className={`r3-result-seal${summary.flawless ? " r3-result-seal--flawless" : ""}`}>
           <GameIcon name={summary.flawless ? "star" : "check"} className="r3-result-icon" />
         </span>
         <h3 className="r3-result-title">{head.title}</h3>
+        {summary.kind === "deed" && (
+          <span className="r3-result-stars" role="img" aria-label={starsLabel(summary.stars)}>
+            {[1, 2, 3].map((n) => (
+              <GameIcon key={n} name="star" className={`r3-star${n <= summary.stars ? " r3-star--on" : ""}`} />
+            ))}
+          </span>
+        )}
+        {stars && <p className="r3-result-stars-line">{stars}</p>}
         <p className="r3-result-line">
           <Subject area={run.deed.area} /> {head.line}
         </p>
@@ -360,41 +348,53 @@ function DeedRun({
       </div>
       <div className="r3-choices">
         {question.choices.map((choice, i) => {
-          const isAnswer = feedback?.answer === choice;
-          const tone = feedback ? (isAnswer ? " r3-choice--answer" : " r3-choice--faded") : "";
-          const sparkle = !calm && isAnswer && feedback?.correct ? " r3-choice--sparkle" : "";
+          const tone = choiceTone(flow, choice);
+          const ruledOut = tone === "ruled-out";
+          const sparkle = !calm && tone === "answer" && flow.result?.correct ? " r3-choice--sparkle" : "";
           return (
             <button
               key={choice}
-              ref={i === 0 ? firstChoice : undefined}
+              ref={i === firstOpen ? firstOpenChoice : undefined}
               type="button"
-              className={`r3-choice${tone}${sparkle}`}
-              disabled={!!feedback || busy}
+              className={`r3-choice r3-choice--${tone}${sparkle}`}
+              data-tone={tone}
+              disabled={phase === "resolved" || ruledOut || busy}
+              aria-disabled={ruledOut || undefined}
               onClick={() => void choose(choice)}
             >
               <span className="r3-choice-key" aria-hidden="true">
                 {i + 1}
               </span>
               <span className="r3-choice-text">{choice}</span>
+              {ruledOut && <span className="sr-only"> (not this one)</span>}
             </button>
           );
         })}
       </div>
       {feedback && (
-        <div className={`r3-feedback${feedback.correct ? " r3-feedback--right" : ""}`}>
-          <p className="r3-feedback-text" role="status">
-            {feedback.correct ? `That's it! ${villagerName} is pleased.` : feedback.answer ? `Not quite. The answer was ${feedback.answer}.` : "Not quite."}
-          </p>
-          <button
-            ref={nextRef}
-            type="button"
-            className="r3-menu-item r3-menu-item--go"
-            aria-label={isLast ? `Finish ${SIDE_QUEST_LOWER}` : "Next question"}
-            disabled={busy}
-            onClick={() => void next()}
-          >
-            {isLast ? `Finish ${SIDE_QUEST_LOWER}` : "Next"}
-          </button>
+        <div className={`r3-feedback${flow.result?.correct ? " r3-feedback--right" : ""}`}>
+          <div>
+            {feedback.heading && <p className="r3-feedback-heading">{feedback.heading}</p>}
+            <p className="r3-feedback-text" role="status">
+              {feedback.text}
+            </p>
+          </div>
+          {phase === "second-chance" ? (
+            <button type="button" className="r3-link-button r3-show-me" disabled={busy} onClick={() => void showMe()}>
+              Show me
+            </button>
+          ) : (
+            <button
+              ref={nextRef}
+              type="button"
+              className="r3-menu-item r3-menu-item--go"
+              aria-label={isLast ? `Finish ${SIDE_QUEST_LOWER}` : "Next question"}
+              disabled={busy}
+              onClick={() => void advance()}
+            >
+              {isLast ? `Finish ${SIDE_QUEST_LOWER}` : "Next"}
+            </button>
+          )}
         </div>
       )}
     </div>

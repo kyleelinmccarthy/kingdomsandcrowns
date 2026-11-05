@@ -1,16 +1,26 @@
 import { Button } from "@/components/ui/button";
 import { GameIcon } from "@/components/game-icon";
+import { resultStarsLine, starsLabel } from "@/lib/realm3d/talk";
 import { SubjectChip } from "@/components/subject-chip";
 import type { RunSummary } from "@/lib/actions/deeds";
 import type { SkillArea } from "@/lib/utils/skills";
 import { SIDE_QUESTS_LOWER } from "@/lib/utils/side-quest-copy";
 
 export function DeedResults({ summary, deedTitle, area, onDone, doneLabel = `Back to ${SIDE_QUESTS_LOWER}` }: { summary: RunSummary; deedTitle: string; area: SkillArea; onDone: () => void; doneLabel?: string }) {
+  const starsLine = resultStarsLine(summary);
   return (
     <div className="space-y-4 text-center">
       <GameIcon name={summary.flawless ? "star" : "check"} className="mx-auto size-10 text-[var(--gold-bright)]" />
       {/* Sentence case here (not the SIDE_QUEST title-case noun): matches "Flawless!" as a short exclamation, not a heading. */}
       <h3 className="text-lg font-bold">{summary.flawless ? "Flawless!" : "Side quest done!"}</h3>
+      {summary.kind === "deed" && (
+        <div className="flex justify-center gap-1" role="img" aria-label={starsLabel(summary.stars)}>
+          {[1, 2, 3].map((n) => (
+            <GameIcon key={n} name="star" className={`size-7 ${n <= summary.stars ? "text-[var(--gold-bright)]" : "text-muted-foreground/30"}`} />
+          ))}
+        </div>
+      )}
+      {starsLine && <p className="text-sm font-semibold">{starsLine}</p>}
       <SubjectChip area={area} size="md" />
       <p className="text-sm">{summary.correctCount} of {summary.total} right in {deedTitle}.</p>
       {summary.masteryChanges.length > 0 && (

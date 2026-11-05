@@ -1,10 +1,16 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/actions/deeds", () => ({ startDeedRun: vi.fn(), answerDeedQuestion: vi.fn(), completeDeedRun: vi.fn() }));
+vi.mock("@/lib/actions/deeds", () => ({
+  startDeedRun: vi.fn(),
+  answerDeedQuestion: vi.fn(),
+  retryDeedQuestion: vi.fn(),
+  resolveDeedQuestion: vi.fn(),
+  completeDeedRun: vi.fn(),
+}));
 vi.mock("@/lib/utils/speech", () => ({ canSpeak: () => true, speak: vi.fn(), stopSpeaking: vi.fn() }));
 
-import { answerDeedQuestion, startDeedRun } from "@/lib/actions/deeds";
+import { answerDeedQuestion, completeDeedRun, resolveDeedQuestion, retryDeedQuestion, startDeedRun } from "@/lib/actions/deeds";
 import { villagerById } from "@/lib/realm/villagers";
 import { speak } from "@/lib/utils/speech";
 import { DeedBoard } from "./deed-board";
@@ -35,7 +41,7 @@ const run = {
   ],
   responses: ["5", null] as (string | null)[],
   kind: "deed" as const,
-  pending: null,
+  pending: null as { index: number; ruledOut: string; hint: string } | null,
 };
 
 function board(over: Partial<React.ComponentProps<typeof DeedBoard>> = {}) {
@@ -101,5 +107,127 @@ describe("the deed board", () => {
     expect(screen.queryByRole("button", { name: /Begin/ })).toBeNull();
     expect(screen.getByText("Side Quests are for Emma to play. Here is what each one asks.")).toBeInTheDocument();
     expect(startDeedRun).not.toHaveBeenCalled();
+  });
+
+  describe("second chances", () => {
+    const four = {
+      ...run,
+      questions: [
+        { id: "q1", skillId: "add", prompt: "What is 2 + 3?", choices: ["4", "5", "6", "7"] },
+        { id: "q2", skillId: "add", prompt: "What is 4 + 4?", choices: ["8", "9"] },
+      ],
+      responses: [null, null] as (string | null)[],
+    };
+    const open = { correct: false, secondChance: true, hint: "Count up from the bigger number." };
+
+    async function begin(r = four, over: Partial<React.ComponentProps<typeof DeedBoard>> = {}) {
+      vi.mocked(startDeedRun).mockResolvedValue(r);
+      board(over);
+      await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" })));
+    }
+    const click = (name: string | RegExp) => act(async () => void fireEvent.click(screen.getByRole("button", { name })));
+
+    it("shows the hint, not the answer, after a wrong first pick, and crosses the pick out", async () => {
+      vi.mocked(answerDeedQuestion).mockResolvedValue(open);
+      await begin();
+      await click("4");
+      expect(screen.getByText("Not quite. Count up from the bigger number.")).toBeInTheDocument();
+      expect(screen.getByText("Try again")).toBeInTheDocument();
+      expect(screen.queryByText(/The answer was/)).toBeNull();
+      const crossed = screen.getByRole("button", { name: /^4/ });
+      expect(crossed).toBeDisabled();
+      expect(crossed).toHaveAttribute("aria-disabled", "true");
+      expect(crossed).toHaveAttribute("data-tone", "ruled-out");
+      expect(crossed).toHaveTextContent("(not this one)");
+      expect(screen.getByRole("button", { name: "5" })).toBeEnabled();
+      expect(screen.getByRole("button", { name: "5" })).toHaveFocus();
+      expect(screen.queryByRole("button", { name: "Next question" })).toBeNull();
+    });
+
+    it("sends the second pick to retryDeedQuestion and says 'You got there!' when it is right", async () => {
+      vi.mocked(answerDeedQuestion).mockResolvedValue(open);
+      vi.mocked(retryDeedQuestion).mockResolvedValue({ correct: true, secondChance: false, answer: "5" });
+      await begin();
+      await click("4");
+      await click("5");
+      expect(retryDeedQuestion).toHaveBeenCalledWith("run-1", 0, "5");
+      expect(answerDeedQuestion).toHaveBeenCalledTimes(1);
+      expect(screen.getByText("You got there!")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Next question" })).toHaveFocus();
+    });
+
+    it("'Show me' resolves on the server, then shows the answer and the explanation", async () => {
+      vi.mocked(answerDeedQuestion).mockResolvedValue(open);
+      vi.mocked(resolveDeedQuestion).mockResolvedValue({ correct: false, secondChance: false, answer: "5", explain: "2 + 3 makes 5." });
+      await begin();
+      await click("4");
+      await click("Show me");
+      expect(resolveDeedQuestion).toHaveBeenCalledWith("run-1", 0);
+      expect(screen.getByText("The answer was 5. 2 + 3 makes 5.")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "5" })).toHaveAttribute("data-tone", "answer");
+      expect(screen.getByRole("button", { name: "Next question" })).toHaveFocus();
+    });
+
+    it("shows the answer at once when there were only two choices", async () => {
+      vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: false, secondChance: false, answer: "8", explain: "Double 4." });
+      await begin({ ...four, responses: ["5", null] });
+      await click("9");
+      expect(screen.getByText("The answer was 8. Double 4.")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Show me" })).toBeNull();
+    });
+
+    it("answers with the number keys, and the crossed-out number does nothing", async () => {
+      vi.mocked(answerDeedQuestion).mockResolvedValue(open);
+      vi.mocked(retryDeedQuestion).mockResolvedValue({ correct: true, secondChance: false, answer: "6" });
+      await begin();
+      await act(async () => void fireEvent.keyDown(window, { code: "Digit1" }));
+      expect(answerDeedQuestion).toHaveBeenCalledWith("run-1", 0, "4");
+      await act(async () => void fireEvent.keyDown(window, { code: "Digit1" }));
+      expect(retryDeedQuestion).not.toHaveBeenCalled();
+      await act(async () => void fireEvent.keyDown(window, { code: "Digit3" }));
+      expect(retryDeedQuestion).toHaveBeenCalledWith("run-1", 0, "6");
+    });
+
+    it("reopens a resumed second chance on that question with the pick crossed and the hint shown", async () => {
+      await begin({ ...four, responses: ["4", null], pending: { index: 0, ruledOut: "4", hint: "Count up." } });
+      expect(screen.getByText("What is 2 + 3?")).toBeInTheDocument();
+      expect(screen.getByText("Not quite. Count up.")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^4/ })).toBeDisabled();
+    });
+
+    it("reads the hint aloud for a child who asked for it", async () => {
+      vi.mocked(answerDeedQuestion).mockResolvedValue(open);
+      await begin(four, { profile: { readAloud: true, untimed: true } });
+      await click("4");
+      expect(speak).toHaveBeenLastCalledWith("Count up from the bigger number.");
+    });
+
+    it("keeps the sparkle away from a calm child", async () => {
+      vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: true, secondChance: false, answer: "5" });
+      await begin(four, { calm: true });
+      await click("5");
+      expect(screen.getByRole("button", { name: "5" }).className).not.toMatch(/sparkle/);
+    });
+
+    it("finishes with stars, a new best, and a villager who will help when nothing was earned", async () => {
+      vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: true, secondChance: false, answer: "8" });
+      const summary = { correctCount: 2, total: 2, flawless: true, masteryChanges: [], stars: 3 as const, previousBest: 2 as const, counted: true, kind: "deed" as const, building: { label: "Village Well", done: 3, total: 5, complete: false, stars: 3, maxStars: 15 } };
+      vi.mocked(completeDeedRun).mockResolvedValue(summary);
+      await begin({ ...four, responses: ["5", null] });
+      await click("8");
+      await click("Finish side quest");
+      expect(screen.getByRole("img", { name: "3 of 3 stars" })).toBeInTheDocument();
+      expect(screen.getByText("New best!")).toBeInTheDocument();
+    });
+
+    it("says the villager will help when a side quest earned no stars, never 'failed'", async () => {
+      vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: false, secondChance: false, answer: "8" });
+      vi.mocked(completeDeedRun).mockResolvedValue({ correctCount: 0, total: 2, flawless: false, masteryChanges: [], stars: 0, previousBest: 0, counted: false, kind: "deed", building: { label: "Village Well", done: 2, total: 5, complete: false, stars: 0, maxStars: 15 } });
+      await begin({ ...four, responses: ["5", null] });
+      await click("9");
+      await click("Finish side quest");
+      expect(screen.getByText("Old Bram will help you try again.")).toBeInTheDocument();
+      expect(document.body.textContent).not.toMatch(/fail/i);
+    });
   });
 });

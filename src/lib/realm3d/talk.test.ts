@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { objectiveState } from "@/lib/realm/objective";
 import { villagerById } from "@/lib/realm/villagers";
-import { deedToast, resultBuildingLine, resultHeadline, talkCopy, type SiteState } from "./talk";
+import { attemptFeedback, deedToast, resultBuildingLine, resultHeadline, resultStarsLine, starsLabel, talkCopy, type SiteState } from "./talk";
 
 const bram = villagerById("bram")!;
 const well: SiteState = { id: "well", label: "Village Well", done: 0, total: 5, complete: false };
@@ -83,5 +83,46 @@ describe("the result card", () => {
     expect(resultHeadline({ correctCount: 3, total: 5, flawless: false }, "Fill the Bucket").title).toBe("Side quest done!");
     expect(resultBuildingLine({ label: "Village Well", done: 2, total: 5, complete: false })).toBe("Village Well: 2 of 5 side quests");
     expect(resultBuildingLine({ label: "Village Well", done: 5, total: 5, complete: true })).toBe("Village Well is built!");
+  });
+});
+
+describe("the result card's stars", () => {
+  const base = { stars: 2 as const, previousBest: 1 as const, counted: true, kind: "deed" as const };
+  it("celebrates a new best, and only a new best", () => {
+    expect(resultStarsLine(base)).toBe("New best!");
+    expect(resultStarsLine({ ...base, previousBest: 2 })).toBe("");
+    expect(resultStarsLine({ ...base, stars: 3, previousBest: 3 })).toBe("");
+  });
+  it("tells a starless side quest the villager will help, never that it failed", () => {
+    const none = { ...base, stars: 0 as const, previousBest: 0 as const, counted: false };
+    expect(resultStarsLine(none, "Old Bram")).toBe("Old Bram will help you try again.");
+    expect(resultStarsLine(none)).toBe("The village will help you try again.");
+    expect(resultStarsLine(none)).not.toMatch(/fail/i);
+  });
+  it("says nothing about trying again for a challenge", () => {
+    expect(resultStarsLine({ stars: 0, previousBest: 0, counted: false, kind: "challenge" })).toBe("");
+  });
+  it("words the star count for a screen reader", () => {
+    expect(starsLabel(1)).toBe("1 of 3 stars");
+    expect(starsLabel(3)).toBe("3 of 3 stars");
+  });
+});
+
+describe("what a villager says after an answer", () => {
+  it("is pleased with a first try, and says so with the villager's name on the Realm board", () => {
+    const right = { correct: true, secondChance: false, answer: "5" };
+    expect(attemptFeedback(right, false)).toEqual({ heading: null, text: "That's it!" });
+    expect(attemptFeedback(right, false, "Old Bram").text).toBe("That's it! Old Bram is pleased.");
+  });
+  it("cheers a right retry", () => {
+    expect(attemptFeedback({ correct: true, secondChance: false, answer: "5" }, true, "Old Bram").text).toBe("You got there!");
+  });
+  it("gives a hint, not the answer, on a second chance", () => {
+    expect(attemptFeedback({ correct: false, secondChance: true, hint: "Count on." }, false)).toEqual({ heading: "Try again", text: "Not quite. Count on." });
+  });
+  it("reveals the answer with the explanation, or the hint when there is none", () => {
+    expect(attemptFeedback({ correct: false, secondChance: false, answer: "5", explain: "2 + 3 is 5." }, false).text).toBe("The answer was 5. 2 + 3 is 5.");
+    expect(attemptFeedback({ correct: false, secondChance: false, answer: "5", hint: "Count on." }, true).text).toBe("The answer was 5. Count on.");
+    expect(attemptFeedback({ correct: false, secondChance: false, answer: "5" }, false).text).toBe("The answer was 5.");
   });
 });

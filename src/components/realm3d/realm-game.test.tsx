@@ -296,7 +296,7 @@ describe("talking to a villager, and doing their side quest", () => {
     expect(screen.getByText(/That's it! Old Bram is pleased/)).toBeInTheDocument();
     await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Next question" })));
     await act(async () => void fireEvent.click(screen.getByRole("button", { name: "6" })));
-    expect(screen.getByText("Not quite. The answer was 8.")).toBeInTheDocument();
+    expect(screen.getByText("The answer was 8.")).toBeInTheDocument();
     await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Finish side quest" })));
     expect(completeDeedRun).toHaveBeenCalledWith("run-1");
     expect(screen.getByText("Side quest done!")).toBeInTheDocument();

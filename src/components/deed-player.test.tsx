@@ -6,8 +6,12 @@ import type { RunStart } from "@/lib/actions/deeds";
 
 const answerDeedQuestion = vi.fn();
 const completeDeedRun = vi.fn();
+const retryDeedQuestion = vi.fn();
+const resolveDeedQuestion = vi.fn();
 vi.mock("@/lib/actions/deeds", () => ({
   answerDeedQuestion: (...a: unknown[]) => answerDeedQuestion(...a),
+  retryDeedQuestion: (...a: unknown[]) => retryDeedQuestion(...a),
+  resolveDeedQuestion: (...a: unknown[]) => resolveDeedQuestion(...a),
   completeDeedRun: (...a: unknown[]) => completeDeedRun(...a),
 }));
 
@@ -40,7 +44,7 @@ describe("DeedPlayer", () => {
     expect(screen.getByLabelText("Question 1 of 2")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "become" }));
     expect(answerDeedQuestion).toHaveBeenCalledWith("r1", 0, "become");
-    expect(await screen.findByText("Not quite. The answer was because.")).toBeInTheDocument();
+    expect(await screen.findByText("The answer was because.")).toBeInTheDocument();
   });
 
   it("advances with Next and finishes after the last question", async () => {
@@ -71,5 +75,86 @@ describe("DeedPlayer", () => {
     render(<DeedPlayer childId="c1" run={resumed} profile={profile} calm={false} onFinished={() => {}} />);
     expect(screen.getByText('Which word is "again"?')).toBeInTheDocument();
     expect(screen.getByLabelText("Question 2 of 2")).toBeInTheDocument();
+  });
+
+  describe("second chances", () => {
+    const open = { correct: false, secondChance: true, hint: "Look at the first letters." };
+    const wrongFirst = async (user: ReturnType<typeof userEvent.setup>) => {
+      answerDeedQuestion.mockResolvedValue(open);
+      render(<DeedPlayer childId="c1" run={run} profile={profile} calm={false} onFinished={() => {}} />);
+      await user.click(screen.getByRole("button", { name: "become" }));
+    };
+
+    it("shows the hint with a Try again state, crosses the pick out, and never shows the answer", async () => {
+      const user = userEvent.setup();
+      await wrongFirst(user);
+      expect(await screen.findByText("Not quite. Look at the first letters.")).toBeInTheDocument();
+      expect(screen.getByText("Try again")).toBeInTheDocument();
+      expect(screen.queryByText(/The answer was/)).not.toBeInTheDocument();
+      const crossed = screen.getByRole("button", { name: /^become/ });
+      expect(crossed).toBeDisabled();
+      expect(crossed).toHaveAttribute("aria-disabled", "true");
+      expect(crossed).toHaveAttribute("data-tone", "ruled-out");
+      expect(crossed).toHaveTextContent("(not this one)");
+      expect(screen.getByRole("button", { name: "because" })).toHaveFocus();
+    });
+
+    it("sends the second pick to retryDeedQuestion and cheers a right one", async () => {
+      const user = userEvent.setup();
+      await wrongFirst(user);
+      retryDeedQuestion.mockResolvedValue({ correct: true, secondChance: false, answer: "because" });
+      await user.click(await screen.findByRole("button", { name: "because" }));
+      expect(retryDeedQuestion).toHaveBeenCalledWith("r1", 0, "because");
+      expect(answerDeedQuestion).toHaveBeenCalledTimes(1);
+      expect(await screen.findByText("You got there!")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Next question" })).toHaveFocus();
+    });
+
+    it("'Show me' resolves on the server and then shows the answer and the explanation", async () => {
+      const user = userEvent.setup();
+      await wrongFirst(user);
+      resolveDeedQuestion.mockResolvedValue({ correct: false, secondChance: false, answer: "because", explain: "It starts with be-cause." });
+      await user.click(await screen.findByRole("button", { name: "Show me" }));
+      expect(resolveDeedQuestion).toHaveBeenCalledWith("r1", 0);
+      expect(await screen.findByText("The answer was because. It starts with be-cause.")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Next question" })).toHaveFocus();
+    });
+
+    it("shows the answer at once with two choices", async () => {
+      const user = userEvent.setup();
+      render(<DeedPlayer childId="c1" run={{ ...run, responses: ["because", null] }} profile={profile} calm={false} onFinished={() => {}} />);
+      answerDeedQuestion.mockResolvedValue({ correct: false, secondChance: false, answer: "again", explain: "Again has no s." });
+      await user.click(screen.getByRole("button", { name: "against" }));
+      expect(await screen.findByText("The answer was again. Again has no s.")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Show me" })).not.toBeInTheDocument();
+    });
+
+    it("reopens a resumed second chance with the pick crossed and the hint shown", () => {
+      const resumed: RunStart = { ...run, responses: ["become", null], pending: { index: 0, ruledOut: "become", hint: "Look at the ends." } };
+      render(<DeedPlayer childId="c1" run={resumed} profile={profile} calm={false} onFinished={() => {}} />);
+      expect(screen.getByText('Which word is "because"?')).toBeInTheDocument();
+      expect(screen.getByText("Not quite. Look at the ends.")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^become/ })).toBeDisabled();
+    });
+
+    it("draws the stars and celebrates a new best", async () => {
+      const user = userEvent.setup();
+      answerDeedQuestion.mockResolvedValue({ correct: true, secondChance: false, answer: "again" });
+      render(<DeedPlayer childId="c1" run={{ ...run, responses: ["because", null] }} profile={profile} calm={false} onFinished={() => {}} />);
+      await user.click(screen.getByRole("button", { name: "again" }));
+      await user.click(await screen.findByRole("button", { name: "Finish side quest" }));
+      expect(await screen.findByRole("img", { name: "1 of 3 stars" })).toBeInTheDocument();
+      expect(screen.getByText("New best!")).toBeInTheDocument();
+    });
+
+    it("tells a starless run the village will help, never that it failed", async () => {
+      const user = userEvent.setup();
+      completeDeedRun.mockResolvedValue({ ...summary, stars: 0, previousBest: 0, counted: false });
+      render(<DeedPlayer childId="c1" run={{ ...run, responses: ["because", null] }} profile={profile} calm={false} onFinished={() => {}} />);
+      await user.click(screen.getByRole("button", { name: "against" }));
+      await user.click(await screen.findByRole("button", { name: "Finish side quest" }));
+      expect(await screen.findByText("The village will help you try again.")).toBeInTheDocument();
+      expect(document.body.textContent).not.toMatch(/fail/i);
+    });
   });
 });

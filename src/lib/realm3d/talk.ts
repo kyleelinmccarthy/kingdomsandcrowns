@@ -15,6 +15,7 @@
  * No `three`, no DOM.
  */
 
+import type { AttemptResult, RunSummary } from "@/lib/actions/deeds";
 import type { ObjectiveState } from "@/lib/realm/objective";
 import { riseToast } from "@/lib/realm/objective";
 import type { Villager } from "@/lib/realm/villagers";
@@ -140,4 +141,34 @@ export function resultHeadline(summary: { correctCount: number; total: number; f
 /** The result card's building line, word for word the flat Realm's. */
 export function resultBuildingLine(b: { label: string; done: number; total: number; complete: boolean }): string {
   return b.complete ? `${b.label} is built!` : `${b.label}: ${b.done} of ${b.total} ${SIDE_QUESTS_LOWER}`;
+}
+
+/** "2 of 3 stars", for a screen reader beside the drawn stars. */
+export function starsLabel(stars: number): string {
+  return `${stars} of 3 stars`;
+}
+
+/**
+ * The line under the stars, one source for the Realm card and the page's. A new best is
+ * celebrated; a side quest that earned nothing says someone will help, never that it failed.
+ */
+export function resultStarsLine(summary: Pick<RunSummary, "stars" | "previousBest" | "counted" | "kind">, villagerName?: string | null): string {
+  if (summary.stars > summary.previousBest) return "New best!";
+  if (!summary.counted && summary.kind === "deed") return `${villagerName ?? "The village"} will help you try again.`;
+  return "";
+}
+
+/**
+ * What to say after an answer. `retried` is true once a first pick was ruled out, so a right
+ * answer then is "You got there!". A miss that has run out of tries reveals the answer, then
+ * the server's explanation, or its hint when it has none.
+ */
+export function attemptFeedback(result: AttemptResult, retried: boolean, villagerName?: string): { heading: "Try again" | null; text: string } {
+  if (result.secondChance) return { heading: "Try again", text: `Not quite. ${result.hint ?? ""}`.trim() };
+  if (result.correct) {
+    const text = retried ? "You got there!" : villagerName ? `That's it! ${villagerName} is pleased.` : "That's it!";
+    return { heading: null, text };
+  }
+  const why = result.explain ?? result.hint;
+  return { heading: null, text: [result.answer ? `The answer was ${result.answer}.` : "Not quite.", why].filter(Boolean).join(" ") };
 }

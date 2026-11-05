@@ -1,18 +1,26 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { GameFrame } from "@/components/game-frame";
 import { GameIcon } from "@/components/game-icon";
 import { DeedResults } from "@/components/deed-results";
 import { SubjectChip } from "@/components/subject-chip";
-import { answerDeedQuestion, completeDeedRun, type RunStart, type RunSummary } from "@/lib/actions/deeds";
+import { completeDeedRun, type RunStart, type RunSummary } from "@/lib/actions/deeds";
+import { useDeedFlow } from "@/components/use-deed-flow";
+import { attemptFeedback } from "@/lib/realm3d/talk";
+import { choiceTone, type ChoiceTone } from "@/lib/utils/deed-run-flow";
 import type { ProfileLike } from "@/lib/utils/deed-engine";
 import { canSpeak, speak } from "@/lib/utils/speech";
 import { SIDE_QUEST_LOWER } from "@/lib/utils/side-quest-copy";
 
-// The answer is absent while a second chance is open (`AttemptResult`).
-type Feedback = { correct: boolean; answer?: string };
+const TONE_CLASS: Record<ChoiceTone, string> = {
+  plain: "border-gold-dim bg-muted/20",
+  answer: "border-[var(--gold-border)] bg-muted/40",
+  "ruled-out": "border-dashed border-gold-dim bg-muted/10 opacity-50 line-through",
+  "picked-wrong": "border-destructive/60 bg-destructive/10 opacity-70",
+  faded: "opacity-60",
+};
 
 export function DeedPlayer({
   childId,
@@ -29,15 +37,8 @@ export function DeedPlayer({
   doneLabel?: string;
   onFinished: (summary: RunSummary) => void;
 }) {
-  // A resumed run continues at the first unanswered question rather than replaying
-  // from the start; a run with nothing left unanswered opens on the last question.
-  const [index, setIndex] = useState(() => {
-    const firstUnanswered = run.responses.findIndex((r) => r === null);
-    return firstUnanswered === -1 ? run.questions.length - 1 : firstUnanswered;
-  });
-  const [feedback, setFeedback] = useState<Feedback | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const { flow, busy, error, setError, guarded, choose, showMe, next } = useDeedFlow(run);
+  const { index, phase } = flow;
   const [summary, setSummary] = useState<RunSummary | null>(null);
   const [startedAt] = useState(() => Date.now());
   const [now, setNow] = useState(() => Date.now());
@@ -61,34 +62,31 @@ export function DeedPlayer({
     return () => clearInterval(id);
   }, [profile.untimed]);
 
-  async function choose(choice: string) {
-    if (feedback || busy) return;
-    setBusy(true);
-    setError("");
-    try {
-      setFeedback(await answerDeedQuestion(run.runId, index, choice));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "The enchantment failed.");
-    } finally {
-      setBusy(false);
-    }
-  }
+  const nextRef = useRef<HTMLButtonElement>(null);
+  const firstOpenChoice = useRef<HTMLButtonElement>(null);
+  const firstOpen = question.choices.findIndex((c) => !flow.ruledOut.includes(c));
+  const feedback = flow.result ? attemptFeedback(flow.result, flow.ruledOut.length > 0) : null;
 
-  async function next() {
-    if (!isLast) {
-      setIndex(index + 1);
-      setFeedback(null);
-      return;
-    }
-    setBusy(true);
-    setError("");
-    try {
-      setSummary(await completeDeedRun(run.runId));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "The enchantment failed.");
-    } finally {
-      setBusy(false);
-    }
+  // The hint is read once, when the second chance opens.
+  const hint = phase === "second-chance" ? flow.result?.hint : undefined;
+  useEffect(() => {
+    if (!profile.readAloud || !hint) return;
+    speak(hint);
+    return () => {
+      if (canSpeak()) window.speechSynthesis.cancel();
+    };
+  }, [profile.readAloud, hint, index]);
+
+  // Focus follows the question: the first open choice (a second chance skips the crossed-out
+  // pick), Next once it is resolved.
+  useEffect(() => {
+    if (summary) return;
+    (phase === "resolved" ? nextRef.current : firstOpenChoice.current)?.focus();
+  }, [phase, index, summary]);
+
+  function advance() {
+    if (!isLast) return next();
+    return guarded(async () => setSummary(await completeDeedRun(run.runId)));
   }
 
   if (summary) {
@@ -124,28 +122,39 @@ export function DeedPlayer({
           )}
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
-          {question.choices.map((choice) => {
-            const isAnswer = feedback?.answer === choice;
-            const tone = feedback ? (isAnswer ? "border-[var(--gold-border)] bg-muted/40" : "opacity-60") : "border-gold-dim bg-muted/20";
+          {question.choices.map((choice, i) => {
+            const tone = choiceTone(flow, choice);
+            const ruledOut = tone === "ruled-out";
             return (
               <button
                 key={choice}
+                ref={i === firstOpen ? firstOpenChoice : undefined}
                 type="button"
-                disabled={!!feedback || busy}
-                onClick={() => choose(choice)}
-                className={`min-h-16 rounded-lg border px-4 py-3 text-lg ${tone} ${!calm && isAnswer && feedback?.correct ? "deed-sparkle" : ""}`}
+                data-tone={tone}
+                disabled={phase === "resolved" || ruledOut || busy}
+                aria-disabled={ruledOut || undefined}
+                onClick={() => void choose(choice)}
+                className={`min-h-16 rounded-lg border px-4 py-3 text-lg ${TONE_CLASS[tone]} ${!calm && tone === "answer" && flow.result?.correct ? "deed-sparkle" : ""}`}
               >
                 {choice}
+                {ruledOut && <span className="sr-only"> (not this one)</span>}
               </button>
             );
           })}
         </div>
         {feedback && (
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm">{feedback.correct ? "That's it!" : feedback.answer ? `Not quite. The answer was ${feedback.answer}.` : "Not quite."}</p>
-            <Button aria-label={isLast ? `Finish ${SIDE_QUEST_LOWER}` : "Next question"} disabled={busy} onClick={next}>
-              {isLast ? `Finish ${SIDE_QUEST_LOWER}` : "Next"}
-            </Button>
+            <div>
+              {feedback.heading && <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{feedback.heading}</p>}
+              <p className="text-sm" role="status">{feedback.text}</p>
+            </div>
+            {phase === "second-chance" ? (
+              <Button variant="link" disabled={busy} onClick={() => void showMe()}>Show me</Button>
+            ) : (
+              <Button ref={nextRef} aria-label={isLast ? `Finish ${SIDE_QUEST_LOWER}` : "Next question"} disabled={busy} onClick={() => void advance()}>
+                {isLast ? `Finish ${SIDE_QUEST_LOWER}` : "Next"}
+              </Button>
+            )}
           </div>
         )}
       </div>
