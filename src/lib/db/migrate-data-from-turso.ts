@@ -7,6 +7,8 @@
  * Converts SQLite's integer-encoded booleans and timestamps into real Postgres `boolean`/
  * `timestamp` values based on each destination column's type — the two dialects' schemas are
  * otherwise identical (same table and column names), so no other per-table mapping is needed.
+ * A column Turso never had takes its Postgres default (`convertRow`). Data backfills that the
+ * migrations ran on the then-empty tables (the deed-run stars) are run again once the rows are in.
  *
  * Not idempotent: run against an empty destination schema. Re-running after a partial run will
  * fail on primary-key conflicts rather than silently duplicating rows, which is the safer default
@@ -18,10 +20,12 @@
  * Add --dry-run to report row counts per table without writing anything.
  */
 import { createClient } from "@libsql/client";
-import { getTableColumns, getTableName } from "drizzle-orm";
+import { getTableName } from "drizzle-orm";
 import { Pool } from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
 import * as schema from "./schema";
+import { STAR_BACKFILL_SQL } from "./star-backfill";
+import { convertRow } from "./turso-rows";
 
 // Parents before the children that reference them.
 const TABLE_ORDER = [
@@ -49,26 +53,6 @@ const sourceClient = createClient({
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const destDb = drizzle(pool, { schema });
 
-/** Raw SQLite values -> the JS values the destination Postgres column expects. */
-function convertRow(table: (typeof schema)[keyof typeof schema], row: Record<string, unknown>) {
-  const columns = getTableColumns(table as never);
-  const out: Record<string, unknown> = {};
-  for (const [key, column] of Object.entries(columns)) {
-    const raw = row[(column as { name: string }).name];
-    const columnType = (column as { columnType: string }).columnType;
-    if (raw === null || raw === undefined) {
-      out[key] = null;
-    } else if (columnType === "PgBoolean") {
-      out[key] = Boolean(raw);
-    } else if (columnType === "PgTimestamp") {
-      out[key] = new Date(Number(raw) * 1000);
-    } else {
-      out[key] = raw;
-    }
-  }
-  return out;
-}
-
 async function copyTable(tableName: (typeof TABLE_ORDER)[number]) {
   const table = schema[tableName];
   const dbTableName = getTableName(table as never);
@@ -90,6 +74,8 @@ async function main() {
   for (const tableName of TABLE_ORDER) {
     await copyTable(tableName);
   }
+  // Migration 0002's backfill ran before any deed run was here; give the imported runs their stars.
+  if (!dryRun) await pool.query(STAR_BACKFILL_SQL);
   console.log(dryRun ? "\nDry run — nothing was written." : "\nData migration complete.");
 }
 
