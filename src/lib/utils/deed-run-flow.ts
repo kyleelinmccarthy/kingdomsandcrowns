@@ -3,7 +3,7 @@
  * ask, maybe a second chance, resolve. The server decides which (`AttemptResult.secondChance`);
  * this only follows it. The streak is kept here for the HUD to show later.
  */
-import type { AttemptResult, RunStart } from "@/lib/actions/deeds";
+import type { AttemptResult, RunStart } from "./deed-run-types";
 
 export type FlowPhase = "asking" | "second-chance" | "resolved";
 export type FlowState = {

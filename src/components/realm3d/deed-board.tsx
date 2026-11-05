@@ -25,7 +25,8 @@
 import { useEffect, useRef, useState } from "react";
 import { VillagerFigure } from "@/components/avatar";
 import { GameIcon, type GameIconName } from "@/components/game-icon";
-import { completeDeedRun, startDeedRun, type RunStart, type RunSummary } from "@/lib/actions/deeds";
+import { completeDeedRun, startDeedRun } from "@/lib/actions/deeds";
+import type { RunStart, RunSummary } from "@/lib/utils/deed-run-types";
 import { realmCue } from "@/lib/realm3d/sound/store";
 import type { BuildingOverview } from "@/lib/services/deeds";
 import type { Villager } from "@/lib/realm/villagers";

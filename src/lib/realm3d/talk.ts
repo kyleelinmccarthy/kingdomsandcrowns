@@ -15,7 +15,7 @@
  * No `three`, no DOM.
  */
 
-import type { AttemptResult, RunSummary } from "@/lib/actions/deeds";
+import type { AttemptResult, RunSummary } from "@/lib/utils/deed-run-types";
 import type { ObjectiveState } from "@/lib/realm/objective";
 import { riseToast } from "@/lib/realm/objective";
 import type { Villager } from "@/lib/realm/villagers";

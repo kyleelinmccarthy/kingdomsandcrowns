@@ -2,7 +2,7 @@ import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DeedPlayer } from "./deed-player";
-import type { RunStart } from "@/lib/actions/deeds";
+import type { RunStart } from "@/lib/utils/deed-run-types";
 
 const answerDeedQuestion = vi.fn();
 const completeDeedRun = vi.fn();

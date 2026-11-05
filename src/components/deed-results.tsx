@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { GameIcon } from "@/components/game-icon";
 import { resultStarsLine, starsLabel } from "@/lib/realm3d/talk";
 import { SubjectChip } from "@/components/subject-chip";
-import type { RunSummary } from "@/lib/actions/deeds";
+import type { RunSummary } from "@/lib/utils/deed-run-types";
 import type { SkillArea } from "@/lib/utils/skills";
 import { SIDE_QUESTS_LOWER } from "@/lib/utils/side-quest-copy";
 

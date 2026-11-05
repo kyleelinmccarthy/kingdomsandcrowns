@@ -6,7 +6,8 @@
  * so a second chance behaves the same.
  */
 import { useReducer, useRef, useState } from "react";
-import { answerDeedQuestion, resolveDeedQuestion, retryDeedQuestion, type AttemptResult, type RunStart } from "@/lib/actions/deeds";
+import { answerDeedQuestion, resolveDeedQuestion, retryDeedQuestion } from "@/lib/actions/deeds";
+import type { AttemptResult, RunStart } from "@/lib/utils/deed-run-types";
 import { flowReducer, initialFlow } from "@/lib/utils/deed-run-flow";
 import type { SkillMeter } from "@/lib/utils/mastery";
 

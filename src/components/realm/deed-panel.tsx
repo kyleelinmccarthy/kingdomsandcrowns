@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { DeedPlayer } from "@/components/deed-player";
-import { startDeedRun, type RunStart, type RunSummary } from "@/lib/actions/deeds";
+import { startDeedRun } from "@/lib/actions/deeds";
+import type { RunStart, RunSummary } from "@/lib/utils/deed-run-types";
 import type { BuildingOverview } from "@/lib/services/deeds";
 import type { Villager } from "@/lib/realm/villagers";
 import type { ProfileLike } from "@/lib/utils/deed-engine";

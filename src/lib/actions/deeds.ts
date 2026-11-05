@@ -18,10 +18,9 @@ import {
   chooseSkills,
   gradeAnswer,
   toClientQuestion,
-  type ClientQuestion,
   type PoolItem,
 } from "@/lib/utils/deed-engine";
-import { masteryChangeCopy, masteryLabel, parseRecentResults, progressToNextRung, recordResult, type SkillMeter } from "@/lib/utils/mastery";
+import { masteryChangeCopy, masteryLabel, parseRecentResults, progressToNextRung, recordResult } from "@/lib/utils/mastery";
 import type { Question } from "@/lib/utils/drill-generators";
 import { CHALLENGE, RUN_EFFECTS, countsTowardBuilding, runPoints, starsFor, type QuestionOutcome, type RunKind, type Stars } from "@/lib/utils/deed-scoring";
 import {
@@ -35,48 +34,16 @@ import {
   type QuestionStatus,
 } from "@/lib/utils/deed-attempts";
 import { overdueSkills } from "@/lib/utils/review-schedule";
+import type { AttemptResult, RunStart, RunSummary } from "@/lib/utils/deed-run-types";
 import { hintFor } from "@/lib/utils/skill-hints";
 import { MAX_STARS, buildingStars, gradeForDeed, loadDeedBest, loadHeroLevels, loadKingdomOverview, type BuildingOverview } from "@/lib/services/deeds";
 import { loadLearningProfileRow } from "@/lib/services/learning-profile";
 import { loadRealmSettings } from "@/lib/services/realm-play";
+
 export type MasteryRow = { skillId: string; label: string; area: SkillArea; level: number; levelLabel: string; lastPracticedAt: string | null };
 export type DeedsOverview = {
   enabled: boolean; band: ContentBand; bandLabel: string; tone: "gentle" | "monsters";
   buildings: BuildingOverview[]; mastery: MasteryRow[];
-};
-export type RunStart = {
-  runId: string; deed: { id: string; title: string; story: string; area: SkillArea }; questions: ClientQuestion[]; responses: (string | null)[];
-  kind: RunKind;
-  /** A resumed run left on a second chance: reopen there, the first pick ruled out and the hint shown. */
-  pending: { index: number; ruledOut: string; hint: string } | null;
-};
-/**
- * `answer` and `explain` are present only once the question is resolved, so the answer never
- * reaches the browser while a try is still open. `hint` comes with an open second chance, and
- * with a resolved miss that has no explanation.
- */
-export type AttemptResult = {
-  correct: boolean; secondChance: boolean; answer?: string; explain?: string; hint?: string;
-  /**
-   * Only on a first answer that moved mastery: where the skill's pips stand now. Absent or null
-   * means "no news" to the board (it keeps the last meter) — except with `rungChange`, where null
-   * means the skill just reached the top and there is nothing left to fill.
-   */
-  meter?: SkillMeter | null;
-  /** Set only on a promotion; a step down is never said mid-run (the summary handles it gently). */
-  rungChange?: string | null;
-};
-export type RunSummary = {
-  correctCount: number; total: number; flawless: boolean; masteryChanges: string[];
-  stars: Stars; previousBest: Stars;
-  /** The best stars on this side quest after this run. */
-  deedBest: Stars;
-  /** Whether this run raised its building: a starless run teaches but does not build. */
-  counted: boolean;
-  /** Whether the side quest holds its crown after this run: a flawless Crown Challenge earns it. */
-  crowned: boolean;
-  kind: RunKind;
-  building: { label: string; done: number; total: number; complete: boolean; stars: number; maxStars: number };
 };
 
 const CLOSED = "The Realm is closed for this hero. A grown-up can open it in the Chronicle.";
