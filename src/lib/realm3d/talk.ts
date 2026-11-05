@@ -40,9 +40,10 @@ export type TalkCopy = {
 };
 
 /** What a standing building still has to give: the stars not yet earned on its side quests. */
-export function starsLeftLine(site: { stars: number; maxStars: number }): string {
+export function starsLeftLine(site: { stars: number; maxStars: number }, numerals: boolean): string {
   const left = Math.max(0, site.maxStars - site.stars);
   if (left === 0) return "Every star here is yours.";
+  if (!numerals) return "There are still stars to earn here.";
   return `${left} more ${left === 1 ? "star" : "stars"} to earn here.`;
 }
 
@@ -71,7 +72,7 @@ export function talkCopy(input: {
   let need: string;
   if (site.complete) {
     says = `The ${site.label} stands, and that is thanks to ${who}!`;
-    need = starsLeftLine(site);
+    need = starsLeftLine(site, numerals);
   } else {
     const hello = waiting ? (viewer === "parent" ? `I was hoping ${heroName} would come. ` : "There you are! ") : "";
     says = `${hello}${villager.greeting}`;
@@ -115,11 +116,12 @@ export type DeedToast = {
  * What the village says when a side quest is done. A building that rose gets `riseToast`'s own
  * sentence, with the next objective folded in, exactly as the flat Realm's toast did. A building
  * that is still rising says so, and names who is grateful. A run that earned no star built
- * nothing, so it never says the building rose or is rising.
+ * nothing, so it never says the building rose or is rising. A counted run at a building that
+ * already stands says what stars are still to earn there, after this run.
  */
 export function deedToast(input: {
   site: SiteState;
-  after: { done: number; total: number; complete: boolean };
+  after: { done: number; total: number; complete: boolean; stars?: number; maxStars?: number };
   rose: boolean;
   /** False when the run earned no star: it taught, but it did not build. Defaults to true. */
   counted?: boolean;
@@ -127,8 +129,9 @@ export function deedToast(input: {
   challenge?: { won: boolean };
   villagerName: string | null;
   next: ObjectiveState;
+  numerals: boolean;
 }): DeedToast {
-  const { site, after, rose, villagerName, next, counted = true, challenge } = input;
+  const { site, after, rose, villagerName, next, counted = true, challenge, numerals } = input;
   if (challenge) {
     const [title, line] = challenge.won ? [CROWNED, "The crown shines beside your stars."] : ["So close!", "Try the challenge again any time."];
     return { title, line, done: after.done, total: after.total, rose: false, spoken: `${title} ${line}` };
@@ -145,7 +148,7 @@ export function deedToast(input: {
   }
   if (after.complete) {
     const title = `The ${site.label} stands.`;
-    const line = "That was good practice.";
+    const line = starsLeftLine({ stars: after.stars ?? site.stars, maxStars: after.maxStars ?? site.maxStars }, numerals);
     return { title, line, done: after.done, total: after.total, rose, spoken: `${title} ${line}` };
   }
   const title = `The ${site.label} is rising!`;

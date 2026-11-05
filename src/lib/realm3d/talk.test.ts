@@ -42,9 +42,16 @@ describe("a villager's conversation", () => {
   });
 
   it("words the stars still to earn, down to none", () => {
-    expect(starsLeftLine({ stars: 7, maxStars: 9 })).toBe("2 more stars to earn here.");
-    expect(starsLeftLine({ stars: 8, maxStars: 9 })).toBe("1 more star to earn here.");
-    expect(starsLeftLine({ stars: 9, maxStars: 9 })).toBe("Every star here is yours.");
+    expect(starsLeftLine({ stars: 7, maxStars: 9 }, true)).toBe("2 more stars to earn here.");
+    expect(starsLeftLine({ stars: 8, maxStars: 9 }, true)).toBe("1 more star to earn here.");
+    expect(starsLeftLine({ stars: 9, maxStars: 9 }, true)).toBe("Every star here is yours.");
+  });
+
+  it("words the stars still to earn with no digits at simple depth", () => {
+    expect(starsLeftLine({ stars: 7, maxStars: 9 }, false)).toBe("There are still stars to earn here.");
+    expect(starsLeftLine({ stars: 9, maxStars: 9 }, false)).toBe("Every star here is yours.");
+    const t = talkCopy({ villager: bram, site: { ...well, done: 5, complete: true, stars: 7 }, viewer: "child", heroName: "Emma", waiting: false, numerals: false });
+    expect(`${t.says} ${t.need} ${t.ask}`).not.toMatch(/\d/);
   });
 
   it("tells a visiting grown-up the side quests are the child's to play", () => {
@@ -57,14 +64,14 @@ describe("a villager's conversation", () => {
 
 describe("the village's answer to a finished side quest", () => {
   it("says the site is rising and who is grateful", () => {
-    const t = deedToast({ site: well, after: { done: 1, total: 5, complete: false }, rose: false, villagerName: "Old Bram", next: objectiveState(all({ well: { done: 1 } }), 1) });
+    const t = deedToast({ site: well, after: { done: 1, total: 5, complete: false }, rose: false, villagerName: "Old Bram", next: objectiveState(all({ well: { done: 1 } }), 1), numerals: true });
     expect(t).toMatchObject({ title: "The Village Well is rising!", line: "Old Bram says thank you.", done: 1, total: 5, rose: false });
     expect(t.spoken).toBe("The Village Well is rising! Old Bram says thank you.");
   });
 
   it("raises a building with the flat Realm's own sentence, next objective folded in", () => {
     const next = objectiveState(all({ well: { done: 5, complete: true } }), 1);
-    const t = deedToast({ site: { ...well, done: 4 }, after: { done: 5, total: 5, complete: true }, rose: true, villagerName: "Old Bram", next });
+    const t = deedToast({ site: { ...well, done: 4 }, after: { done: 5, total: 5, complete: true }, rose: true, villagerName: "Old Bram", next, numerals: true });
     expect(t.title).toBe("The Village Well stands!");
     expect(t.line).toBe("Next: the Grain Mill, with Miller Tessa.");
     expect(t.spoken).toBe("The Village Well stands. Next: the Grain Mill, with Miller Tessa.");
@@ -73,36 +80,45 @@ describe("the village's answer to a finished side quest", () => {
 
   it("says the whole village is raised when the last building rises", () => {
     const done = all(Object.fromEntries(["well", "mill", "bridge", "chapel", "market", "library", "watchtower", "garden"].map((id) => [id, { done: 5, complete: true, stars: 9 }])));
-    const t = deedToast({ site: { ...well, done: 4 }, after: { done: 5, total: 5, complete: true }, rose: true, villagerName: "Old Bram", next: objectiveState(done, 1) });
+    const t = deedToast({ site: { ...well, done: 4 }, after: { done: 5, total: 5, complete: true }, rose: true, villagerName: "Old Bram", next: objectiveState(done, 1), numerals: true });
     expect(t.line).toBe("Every building is built.");
   });
 
   it("says where stars are still to earn when the last building rises and some are left", () => {
     const done = all(Object.fromEntries(["well", "mill", "bridge", "chapel", "market", "library", "watchtower", "garden"].map((id) => [id, { done: 5, complete: true, stars: id === "mill" ? 4 : 9 }])));
-    const t = deedToast({ site: { ...well, done: 4 }, after: { done: 5, total: 5, complete: true }, rose: true, villagerName: "Old Bram", next: objectiveState(done, 1) });
+    const t = deedToast({ site: { ...well, done: 4 }, after: { done: 5, total: 5, complete: true }, rose: true, villagerName: "Old Bram", next: objectiveState(done, 1), numerals: true });
     expect(t.title).toBe("The Village Well stands!");
     expect(t.line).toBe("Every building is built — there are stars to earn at the Grain Mill.");
   });
 
-  it("calls a side quest at a standing building practice, not a rise", () => {
-    const t = deedToast({ site: { ...well, done: 5, complete: true }, after: { done: 5, total: 5, complete: true }, rose: false, villagerName: "Old Bram", next: objectiveState(all(), 1) });
+  it("calls a side quest at a standing building practice, not a rise, and says what stars are left", () => {
+    const t = deedToast({ site: { ...well, done: 5, complete: true, stars: 6 }, after: { done: 5, total: 5, complete: true, stars: 7, maxStars: 9 }, rose: false, villagerName: "Old Bram", next: objectiveState(all(), 1), numerals: true });
     expect(t.title).toBe("The Village Well stands.");
+    expect(t.line).toBe("2 more stars to earn here.");
+    expect(t.spoken).toBe("The Village Well stands. 2 more stars to earn here.");
     expect(t.rose).toBe(false);
+  });
+
+  it("says what stars are left at a standing building with no digits at simple depth", () => {
+    const t = deedToast({ site: { ...well, done: 5, complete: true, stars: 6 }, after: { done: 5, total: 5, complete: true, stars: 7, maxStars: 9 }, rose: false, villagerName: "Old Bram", next: objectiveState(all(), 1), numerals: false });
+    expect(t.line).toBe("There are still stars to earn here.");
+    const full = deedToast({ site: { ...well, done: 5, complete: true, stars: 9 }, after: { done: 5, total: 5, complete: true }, rose: false, villagerName: "Old Bram", next: objectiveState(all(), 1), numerals: false });
+    expect(full.line).toBe("Every star here is yours.");
   });
 });
 
 describe("a side quest that earned no star", () => {
   it("does not say the building rose, and says the villager will help", () => {
-    const t = deedToast({ site: well, after: { done: 0, total: 5, complete: false }, rose: false, counted: false, villagerName: "Old Bram", next: objectiveState(all(), 1) });
+    const t = deedToast({ site: well, after: { done: 0, total: 5, complete: false }, rose: false, counted: false, villagerName: "Old Bram", next: objectiveState(all(), 1), numerals: true });
     expect(t).toMatchObject({ title: "Old Bram will help you try again.", rose: false, done: 0, total: 5 });
     expect(`${t.title} ${t.line} ${t.spoken}`).not.toMatch(/rising|rose|stands|fail/i);
   });
   it("says the village will help when no villager is named", () => {
-    const t = deedToast({ site: well, after: { done: 0, total: 5, complete: false }, rose: false, counted: false, villagerName: null, next: objectiveState(all(), 1) });
+    const t = deedToast({ site: well, after: { done: 0, total: 5, complete: false }, rose: false, counted: false, villagerName: null, next: objectiveState(all(), 1), numerals: true });
     expect(t.title).toBe("The village will help you try again.");
   });
   it("still says the building is rising for a run that counted", () => {
-    const t = deedToast({ site: well, after: { done: 1, total: 5, complete: false }, rose: false, counted: true, villagerName: "Old Bram", next: objectiveState(all(), 1) });
+    const t = deedToast({ site: well, after: { done: 1, total: 5, complete: false }, rose: false, counted: true, villagerName: "Old Bram", next: objectiveState(all(), 1), numerals: true });
     expect(t.title).toBe("The Village Well is rising!");
   });
 });
@@ -125,10 +141,10 @@ describe("a Crown Challenge's result", () => {
     expect(resultStarsLine({ stars: 0, previousBest: 3, counted: false, kind: "challenge" })).toBe("");
   });
   it("toasts the crown, or says it can be tried again — never that someone will help", () => {
-    const won = deedToast({ site: { ...well, done: 5, complete: true }, after: { done: 5, total: 5, complete: true }, rose: false, counted: false, challenge: { won: true }, villagerName: "Old Bram", next: objectiveState(all(), 1) });
+    const won = deedToast({ site: { ...well, done: 5, complete: true }, after: { done: 5, total: 5, complete: true }, rose: false, counted: false, challenge: { won: true }, villagerName: "Old Bram", next: objectiveState(all(), 1), numerals: true });
     expect(won).toMatchObject({ title: "Crowned!", rose: false });
     expect(won.spoken).toBe(`${won.title} ${won.line}`);
-    const close = deedToast({ site: { ...well, done: 5, complete: true }, after: { done: 5, total: 5, complete: true }, rose: false, counted: false, challenge: { won: false }, villagerName: "Old Bram", next: objectiveState(all(), 1) });
+    const close = deedToast({ site: { ...well, done: 5, complete: true }, after: { done: 5, total: 5, complete: true }, rose: false, counted: false, challenge: { won: false }, villagerName: "Old Bram", next: objectiveState(all(), 1), numerals: true });
     expect(close.title).toBe("So close!");
     expect(close.line).toBe("Try the challenge again any time.");
     for (const t of [won, close]) expect(t.spoken).not.toMatch(/help you|rising|fail/i);
