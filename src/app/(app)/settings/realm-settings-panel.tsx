@@ -11,6 +11,7 @@ import { grantRealmMinutes } from "@/lib/actions/realm-play";
 import {
   DAILY_CAP_RANGE,
   EARNED_MINUTES_RANGE,
+  SIDE_QUEST_LENGTH_RANGE,
   TROUBLE_BONUS_RANGE,
   type RealmSettings,
 } from "@/lib/utils/realm-settings";
@@ -53,6 +54,7 @@ export function RealmSettingsPanel({
   const [perQuest, setPerQuest] = useState(String(settings.earnedMinutesPerQuest));
   const [cap, setCap] = useState(String(settings.dailyCapMinutes));
   const [bountyCap, setBountyCap] = useState(String(settings.troubleBonusCapMinutes));
+  const [questLength, setQuestLength] = useState(String(settings.sideQuestLength));
 
   async function run(fn: () => Promise<void>) {
     setBusy(true);
@@ -198,6 +200,35 @@ export function RealmSettingsPanel({
               </span>
             </label>
           ))}
+        </div>
+      </fieldset>
+
+      <fieldset className="space-y-3 rounded-lg border border-gold-dim bg-muted/30 px-3 py-2.5">
+        <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Side quests</legend>
+        <div className="flex items-end gap-2">
+          <div className="space-y-1">
+            <Label htmlFor={`quest-length-${childId}`}>Questions in a side quest</Label>
+            <Input
+              id={`quest-length-${childId}`}
+              type="number"
+              min={SIDE_QUEST_LENGTH_RANGE.min}
+              max={SIDE_QUEST_LENGTH_RANGE.max}
+              value={questLength}
+              onChange={(e) => setQuestLength(e.target.value)}
+              className="w-24"
+            />
+          </div>
+          <Button size="sm" variant="outline" disabled={busy || questLength === String(settings.sideQuestLength)} onClick={() => save({ sideQuestLength: parseInt(questLength, 10) })}>
+            Save
+          </Button>
+          <p className="pb-2 text-xs text-muted-foreground">Shorter side quests suit younger heroes. Changes apply to the next side quest.</p>
+        </div>
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <p className="text-sm">Second chances</p>
+            <p className="text-xs text-muted-foreground">A wrong first answer gets a hint and one more try.</p>
+          </div>
+          <Switch aria-label="Second chances" checked={settings.secondChances} disabled={busy} onCheckedChange={() => save({ secondChances: !settings.secondChances })} />
         </div>
       </fieldset>
 

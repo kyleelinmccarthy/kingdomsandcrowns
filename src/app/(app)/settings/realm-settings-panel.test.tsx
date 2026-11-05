@@ -2,7 +2,7 @@ import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { render, screen, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { RealmSettingsPanel } from "./realm-settings-panel";
-import { DEFAULT_REALM_SETTINGS } from "@/lib/utils/realm-settings";
+import { DEFAULT_REALM_SETTINGS, SIDE_QUEST_LENGTH_RANGE } from "@/lib/utils/realm-settings";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
@@ -61,6 +61,35 @@ describe("RealmSettingsPanel", () => {
     // Open and scheduled never read the ledger, so clearing earns nothing there and the field is not offered.
     render(<RealmSettingsPanel childId="c1" settings={{ ...DEFAULT_REALM_SETTINGS, accessMode: "open" }} summary={summary} />);
     expect(screen.queryByLabelText(/minutes a day from clearing troubles/i)).not.toBeInTheDocument();
+  });
+
+  it("lets a grown-up choose side-quest length, bounded by the range, and saves only that", async () => {
+    render(<RealmSettingsPanel childId="c1" settings={DEFAULT_REALM_SETTINGS} summary={summary} />);
+    expect(screen.getByRole("group", { name: "Side quests" })).toBeInTheDocument();
+    const field = screen.getByLabelText("Questions in a side quest");
+    expect(field).toHaveValue(8);
+    expect(field).toHaveAttribute("min", String(SIDE_QUEST_LENGTH_RANGE.min));
+    expect(field).toHaveAttribute("max", String(SIDE_QUEST_LENGTH_RANGE.max));
+    expect(screen.getByText("Shorter side quests suit younger heroes. Changes apply to the next side quest.")).toBeInTheDocument();
+    const save = field.closest("div.flex")!.querySelector("button")!;
+    expect(save).toBeDisabled();
+    fireEvent.change(field, { target: { value: "5" } });
+    fireEvent.click(save);
+    await waitFor(() => expect(updateRealmSettings).toHaveBeenCalledWith("c1", { sideQuestLength: 5 }));
+  });
+
+  it("lets a grown-up turn second chances off and on, saving only that", async () => {
+    const user = userEvent.setup();
+    render(<RealmSettingsPanel childId="c1" settings={DEFAULT_REALM_SETTINGS} summary={summary} />);
+    expect(screen.getByText("A wrong first answer gets a hint and one more try.")).toBeInTheDocument();
+    const sw = screen.getByRole("switch", { name: "Second chances" });
+    expect(sw).toBeChecked();
+    await user.click(sw);
+    expect(updateRealmSettings).toHaveBeenCalledWith("c1", { secondChances: false });
+    cleanup();
+    render(<RealmSettingsPanel childId="c1" settings={{ ...DEFAULT_REALM_SETTINGS, secondChances: false }} summary={summary} />);
+    await user.click(screen.getByRole("switch", { name: "Second chances" }));
+    expect(updateRealmSettings).toHaveBeenLastCalledWith("c1", { secondChances: true });
   });
 
   it("grants minutes for today", async () => {
