@@ -1295,7 +1295,7 @@ export default function SpikeScene({ avatar, close, world, layout, anchors, page
         recess={recess ?? null}
         timeZone={timeZone ?? null}
       />
-      <GildedPennants layout={layout} gilded={gilded} />
+      <GildedPennants layout={layout} gilded={gilded} sitePlan={SITE_PLAN} wallH={WALL_H} roofH={ROOF_H} />
     </Canvas>
   );
 }

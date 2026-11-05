@@ -27,6 +27,7 @@ import type { HudBus } from "@/lib/realm3d/hud-bus";
 import { NO_GOAL, type Goal } from "@/lib/realm3d/guide";
 import { BAKE_N, mapShade, MAP_WINDOW } from "@/lib/realm3d/minimap";
 import type { PlateAnchor } from "@/lib/realm3d/plate-anchors";
+import { PlateStars } from "./plate-stars";
 import { BIOME_COLORS, WORLD_HALF, type RealmWorld } from "@/lib/realm3d/worldgen";
 
 /* ------------------------------------------------------------------ the map */
@@ -382,21 +383,6 @@ function Nameplates({ bus, anchors, numerals }: { bus: HudBus; anchors: readonly
         </div>
       ))}
     </div>
-  );
-}
-
-/** A built site's stars: "★ 7 of 9" at full depth, the marks alone (lit to what is earned) at simple. */
-function PlateStars({ have, max, numerals }: { have: number; max: number; numerals: boolean }) {
-  return (
-    <span className="r3-plate-stars">
-      {numerals
-        ? `★ ${have} of ${max}`
-        : Array.from({ length: max }, (_, k) => (
-            <span key={k} className={k < have ? "r3-plate-star r3-plate-star--on" : "r3-plate-star"}>
-              ★
-            </span>
-          ))}
-    </span>
   );
 }
 

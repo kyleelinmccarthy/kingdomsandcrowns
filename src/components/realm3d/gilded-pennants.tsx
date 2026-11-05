@@ -14,7 +14,7 @@ import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 import type { WorldLayout } from "@/lib/realm/layout";
 import { heightAt } from "@/lib/realm3d/heightfield";
-import { pennantSpots } from "@/lib/realm3d/pennants";
+import { pennantSpots, type PennantPlan } from "@/lib/realm3d/pennants";
 import { merge } from "./geo-kit";
 
 const NONE: readonly string[] = [];
@@ -44,8 +44,9 @@ function flagGeometry(): THREE.BufferGeometry {
   return merged;
 }
 
-export function GildedPennants({ layout, gilded = NONE }: { layout: WorldLayout; gilded?: readonly string[] }) {
-  const spots = useMemo(() => pennantSpots(layout.props, gilded, heightAt), [layout.props, gilded]);
+/** `sitePlan`, `wallH`, `roofH`: the scene's own building plan, so a pole stands on the roof it draws. */
+export function GildedPennants({ layout, gilded = NONE, sitePlan, wallH, roofH }: { layout: WorldLayout; gilded?: readonly string[] } & PennantPlan) {
+  const spots = useMemo(() => pennantSpots(layout.props, gilded, heightAt, { sitePlan, wallH, roofH }), [layout.props, gilded, sitePlan, wallH, roofH]);
   const kit = useMemo(
     () => ({
       pole: new THREE.CylinderGeometry(0.06, 0.07, POLE_H, 6).translate(0, POLE_H / 2, 0),
