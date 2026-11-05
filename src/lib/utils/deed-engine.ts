@@ -32,9 +32,9 @@ export type BuildRunInput = {
   poolItems: PoolItem[];
   recentMisses: Question[];
   /**
-   * Skills the child has learned that are due again (see `dueSkills`). Only those the deed can
-   * serve at this grade and the run is not already practising are used, and their questions
-   * take the place of fresh ones — never added to the count.
+   * Skills the child has learned that are due again, uncapped (see `overdueSkills`). Only those the
+   * deed can serve at this grade and the run is not already practising are used, capped here at
+   * `REVIEW.maxDue`, and their questions take the place of fresh ones — never added to the count.
    */
   dueSkillIds?: string[];
   /** The grown-up's side-quest length; the deed's own count when absent. */

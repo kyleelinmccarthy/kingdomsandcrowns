@@ -181,7 +181,7 @@ export async function startDeedRun(
   // the run itself practises is chosen inside buildDeedRun, which drops those and then caps.
   const dueSkillIds = overdueSkills(
     masteryRows.map((m) => ({ skillId: m.skillId, level: m.level, lastPracticedAt: lastPracticedBySkill[m.skillId] })),
-    skills.map((s) => s.id), [], Date.now(),
+    skills.map((s) => s.id), Date.now(),
   );
   const built = buildDeedRun({
     deed, grade, masteryBySkill, lastPracticedBySkill, profile, seed: Date.now() >>> 0, poolItems,

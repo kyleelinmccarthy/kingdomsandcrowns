@@ -39,7 +39,7 @@ export function DeedPicker({ childId, overview, profile, calm }: { childId: stri
   }
 
   if (run) {
-    return <DeedPlayer childId={childId} run={run} profile={profile} calm={calm} onFinished={() => { setRun(null); router.refresh(); }} />;
+    return <DeedPlayer run={run} profile={profile} calm={calm} onFinished={() => { setRun(null); router.refresh(); }} />;
   }
 
   return (

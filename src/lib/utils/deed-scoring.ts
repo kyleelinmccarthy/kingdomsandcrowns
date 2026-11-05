@@ -80,7 +80,3 @@ export function countsTowardBuilding(stars: number): boolean {
 export function isGilded(b: { stars: number; maxStars: number }): boolean {
   return b.maxStars > 0 && b.stars >= b.maxStars;
 }
-
-export function isRunKind(v: unknown): v is RunKind {
-  return v === "deed" || v === "challenge";
-}

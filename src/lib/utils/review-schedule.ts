@@ -16,14 +16,9 @@ export type MasteryTiming = { skillId: string; level: number; lastPracticedAt: n
  * so it can drop the skills the run already practises BEFORE applying `REVIEW.maxDue`. `now`
  * is passed in so this stays a pure function of its inputs.
  */
-export function overdueSkills(
-  rows: readonly MasteryTiming[],
-  candidateIds: readonly string[],
-  excludeIds: readonly string[],
-  now: number,
-): string[] {
+export function overdueSkills(rows: readonly MasteryTiming[], candidateIds: readonly string[], now: number): string[] {
   return rows
-    .filter((r) => candidateIds.includes(r.skillId) && !excludeIds.includes(r.skillId) && r.lastPracticedAt !== null)
+    .filter((r) => candidateIds.includes(r.skillId) && r.lastPracticedAt !== null)
     .map((r) => {
       const level = Math.min(MASTERY_MAX, Math.floor(r.level));
       const interval = level >= 1 ? REVIEW.intervalDays[level] * DAY_MS : Infinity;
@@ -32,14 +27,4 @@ export function overdueSkills(
     .filter((r) => r.overdue >= 1)
     .sort((a, b) => b.overdue - a.overdue)
     .map((r) => r.id);
-}
-
-/** The most overdue skills, capped at `REVIEW.maxDue`. */
-export function dueSkills(
-  rows: readonly MasteryTiming[],
-  candidateIds: readonly string[],
-  excludeIds: readonly string[],
-  now: number,
-): string[] {
-  return overdueSkills(rows, candidateIds, excludeIds, now).slice(0, REVIEW.maxDue);
 }

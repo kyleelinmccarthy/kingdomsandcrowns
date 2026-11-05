@@ -96,7 +96,7 @@ export function DeedPanel({
             <span className="text-sm text-muted-foreground">{villager.name}</span>
             <Button size="sm" variant="ghost" className="ml-auto" onClick={onClose}>Leave the {SIDE_QUEST_LOWER}</Button>
           </div>
-          <DeedPlayer childId={childId} run={run} profile={profile} calm={calm} doneLabel="Back to the Realm" onFinished={(summary) => onFinished(building.id, summary.building)} />
+          <DeedPlayer run={run} profile={profile} calm={calm} doneLabel="Back to the Realm" onFinished={(summary) => onFinished(building.id, summary.building)} />
         </div>
       ) : (
         <SiteCard villager={villager} building={building} preview={preview} busy={busy} error={error} onBegin={begin} onClearError={() => setError("")} onClose={onClose} />

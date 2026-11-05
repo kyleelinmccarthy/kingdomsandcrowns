@@ -5,7 +5,6 @@ import {
   SCORING,
   countsTowardBuilding,
   isGilded,
-  isRunKind,
   runPoints,
   starsFor,
   type QuestionOutcome,
@@ -68,12 +67,6 @@ describe("run kinds", () => {
   });
   it("a deed does everything", () => {
     expect(Object.values(RUN_EFFECTS.deed).every((v) => v === true)).toBe(true);
-  });
-  it("isRunKind accepts only the two kinds", () => {
-    expect(isRunKind("deed")).toBe(true);
-    expect(isRunKind("challenge")).toBe(true);
-    expect(isRunKind("trial")).toBe(false);
-    expect(isRunKind(undefined)).toBe(false);
   });
   it("pins the challenge shape", () => {
     expect(CHALLENGE).toEqual({ questions: 3, levelBoost: 1 });

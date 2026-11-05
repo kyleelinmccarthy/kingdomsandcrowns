@@ -137,7 +137,7 @@ export function DeedBoard({
     </div>
   );
 
-  if (run && childId) {
+  if (run) {
     const title = run.kind === "challenge" ? `${CROWN_CHALLENGE}: ${run.deed.title}` : run.deed.title;
     const handUp = (done: RunSummary) =>
       onResult(site.id, {
@@ -146,7 +146,7 @@ export function DeedBoard({
       });
     return (
       <Panel title={title} label={title} wide className="r3-board--deed" icon={<GameIcon name={site.icon as GameIconName} className="r3-board-icon" />} onClose={onClose}>
-        <DeedRun childId={childId} run={run} villagerName={villager.name} profile={profile} calm={calm} onResult={handUp} onClose={onClose} />
+        <DeedRun run={run} villagerName={villager.name} profile={profile} calm={calm} onResult={handUp} onClose={onClose} />
       </Panel>
     );
   }
@@ -225,7 +225,6 @@ export function DeedBoard({
  * question with room for it gets a hint and a second try (`useDeedFlow`), or "Show me".
  */
 function DeedRun({
-  childId,
   run,
   villagerName,
   profile,
@@ -233,7 +232,6 @@ function DeedRun({
   onResult,
   onClose,
 }: {
-  childId: string;
   run: RunStart;
   villagerName: string;
   profile: Profile;
@@ -253,7 +251,6 @@ function DeedRun({
   const firstOpenChoice = useRef<HTMLButtonElement>(null);
   const firstOpen = question.choices.findIndex((c) => !flow.ruledOut.includes(c));
   const feedback = flow.result ? attemptFeedback(flow.result, flow.ruledOut.length > 0, villagerName) : null;
-  void childId;
 
   // Read-aloud, as `DeedPlayer` does it: the profile asks, the effect obeys, and leaving stops it —
   // but only this run's own line. The click that closes the board also says the building is

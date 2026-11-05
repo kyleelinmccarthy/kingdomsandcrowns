@@ -25,14 +25,12 @@ const TONE_CLASS: Record<ChoiceTone, string> = {
 };
 
 export function DeedPlayer({
-  childId,
   run,
   profile,
   calm,
   doneLabel,
   onFinished,
 }: {
-  childId: string;
   run: RunStart;
   profile: ProfileLike;
   calm: boolean;
@@ -47,7 +45,6 @@ export function DeedPlayer({
   const speakable = canSpeak();
   const question = run.questions[index];
   const isLast = index === run.questions.length - 1;
-  void childId;
 
   // Read-aloud is a side effect, not state: the profile asks for it, the effect obeys.
   useEffect(() => {

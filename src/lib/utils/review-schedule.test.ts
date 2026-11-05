@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { REVIEW, dueSkills, overdueSkills } from "./review-schedule";
+import { REVIEW, overdueSkills } from "./review-schedule";
 
 const DAY = 24 * 60 * 60 * 1000;
 const NOW = 100 * DAY;
@@ -16,39 +16,31 @@ describe("REVIEW", () => {
   });
 });
 
-describe("dueSkills", () => {
+describe("overdueSkills", () => {
   it("never calls a level-0 skill due", () => {
-    expect(dueSkills([row("a", 0, 400)], ids, [], NOW)).toEqual([]);
+    expect(overdueSkills([row("a", 0, 400)], ids, NOW)).toEqual([]);
   });
   it("is due once the level's interval has passed, and not before", () => {
-    expect(dueSkills([row("a", 2, 3)], ids, [], NOW)).toEqual([]);
-    expect(dueSkills([row("a", 2, 4)], ids, [], NOW)).toEqual(["a"]);
-    expect(dueSkills([row("a", 1, 2)], ids, [], NOW)).toEqual(["a"]);
-    expect(dueSkills([row("a", 4, 13)], ids, [], NOW)).toEqual([]);
-    expect(dueSkills([row("a", 4, 14)], ids, [], NOW)).toEqual(["a"]);
+    expect(overdueSkills([row("a", 2, 3)], ids, NOW)).toEqual([]);
+    expect(overdueSkills([row("a", 2, 4)], ids, NOW)).toEqual(["a"]);
+    expect(overdueSkills([row("a", 1, 2)], ids, NOW)).toEqual(["a"]);
+    expect(overdueSkills([row("a", 4, 13)], ids, NOW)).toEqual([]);
+    expect(overdueSkills([row("a", 4, 14)], ids, NOW)).toEqual(["a"]);
   });
   it("never calls a skill with no practice date due", () => {
-    expect(dueSkills([row("a", 3, null)], ids, [], NOW)).toEqual([]);
+    expect(overdueSkills([row("a", 3, null)], ids, NOW)).toEqual([]);
   });
-  it("only offers candidates, and skips the excluded", () => {
+  it("only offers candidates", () => {
     const rows = [row("a", 1, 9), row("b", 1, 9), row("zzz", 1, 9)];
-    expect(dueSkills(rows, ["a", "b"], ["a"], NOW)).toEqual(["b"]);
+    expect(overdueSkills(rows, ["a", "b"], NOW)).toEqual(["a", "b"]);
   });
   it("puts the most overdue first (elapsed over interval)", () => {
     // a: 4/2 = 2.0, b: 14/7 = 2.0 -> tie keeps row order; c: 12/2 = 6 first.
     const rows = [row("a", 1, 4), row("c", 1, 12), row("b", 3, 14)];
-    expect(dueSkills(rows, ids, [], NOW)).toEqual(["c", "a"]);
+    expect(overdueSkills(rows, ids, NOW)).toEqual(["c", "a", "b"]);
   });
-  it("caps at the most that can come back", () => {
+  it("has no cap: the run builder caps after dropping the run's own skills", () => {
     const rows = [row("a", 1, 9), row("b", 1, 8), row("c", 1, 7), row("d", 1, 6)];
-    expect(dueSkills(rows, ids, [], NOW)).toEqual(["a", "b"]);
-  });
-});
-
-describe("overdueSkills", () => {
-  it("is the same ordered list with no cap", () => {
-    const rows = [row("a", 1, 9), row("b", 1, 8), row("c", 1, 7), row("d", 1, 6)];
-    expect(overdueSkills(rows, ids, [], NOW)).toEqual(["a", "b", "c", "d"]);
-    expect(dueSkills(rows, ids, [], NOW)).toEqual(overdueSkills(rows, ids, [], NOW).slice(0, REVIEW.maxDue));
+    expect(overdueSkills(rows, ids, NOW)).toEqual(["a", "b", "c", "d"]);
   });
 });

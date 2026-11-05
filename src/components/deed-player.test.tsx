@@ -39,7 +39,7 @@ afterEach(cleanup);
 describe("DeedPlayer", () => {
   it("shows the question, grades a tap, and reveals the answer", async () => {
     const user = userEvent.setup();
-    render(<DeedPlayer childId="c1" run={run} profile={profile} calm={false} onFinished={() => {}} />);
+    render(<DeedPlayer run={run} profile={profile} calm={false} onFinished={() => {}} />);
     expect(screen.getByText('Which word is "because"?')).toBeInTheDocument();
     expect(screen.getByLabelText("Question 1 of 2")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "become" }));
@@ -51,7 +51,7 @@ describe("DeedPlayer", () => {
     const user = userEvent.setup();
     answerDeedQuestion.mockResolvedValue({ correct: true, secondChance: false, answer: "because" });
     const onFinished = vi.fn();
-    render(<DeedPlayer childId="c1" run={run} profile={profile} calm={true} onFinished={onFinished} />);
+    render(<DeedPlayer run={run} profile={profile} calm={true} onFinished={onFinished} />);
     await user.click(screen.getByRole("button", { name: "because" }));
     await user.click(await screen.findByRole("button", { name: "Next question" }));
     expect(screen.getByText('Which word is "again"?')).toBeInTheDocument();
@@ -66,13 +66,13 @@ describe("DeedPlayer", () => {
   });
 
   it("hides the speaker when the browser cannot speak", () => {
-    render(<DeedPlayer childId="c1" run={run} profile={profile} calm={false} onFinished={() => {}} />);
+    render(<DeedPlayer run={run} profile={profile} calm={false} onFinished={() => {}} />);
     expect(screen.queryByRole("button", { name: "Read aloud" })).not.toBeInTheDocument();
   });
 
   it("resumes at the first unanswered question instead of replaying from the start", () => {
     const resumed: RunStart = { ...run, responses: ["because", null] };
-    render(<DeedPlayer childId="c1" run={resumed} profile={profile} calm={false} onFinished={() => {}} />);
+    render(<DeedPlayer run={resumed} profile={profile} calm={false} onFinished={() => {}} />);
     expect(screen.getByText('Which word is "again"?')).toBeInTheDocument();
     expect(screen.getByLabelText("Question 2 of 2")).toBeInTheDocument();
   });
@@ -84,7 +84,7 @@ describe("DeedPlayer", () => {
     it("fills pips after an answer, and keeps them through the next question", async () => {
       const user = userEvent.setup();
       answerDeedQuestion.mockResolvedValue(right);
-      render(<DeedPlayer childId="c1" run={run} profile={profile} calm={false} onFinished={() => {}} />);
+      render(<DeedPlayer run={run} profile={profile} calm={false} onFinished={() => {}} />);
       expect(screen.queryByText("Sight words")).not.toBeInTheDocument();
       await user.click(screen.getByRole("button", { name: "because" }));
       expect(await screen.findByText("Sight words")).toBeInTheDocument();
@@ -96,7 +96,7 @@ describe("DeedPlayer", () => {
     it("shows the flame from two first tries right in a row,", async () => {
       const user = userEvent.setup();
       answerDeedQuestion.mockResolvedValue(right);
-      render(<DeedPlayer childId="c1" run={run} profile={profile} calm={false} onFinished={() => {}} />);
+      render(<DeedPlayer run={run} profile={profile} calm={false} onFinished={() => {}} />);
       await user.click(screen.getByRole("button", { name: "because" }));
       expect(screen.queryByTestId("deed-streak")).not.toBeInTheDocument();
       await user.click(await screen.findByRole("button", { name: "Next question" }));
@@ -107,7 +107,7 @@ describe("DeedPlayer", () => {
     it("keeps the last meter when a retry brings none, and says a promotion kindly", async () => {
       const user = userEvent.setup();
       answerDeedQuestion.mockResolvedValue({ correct: false, secondChance: true, hint: "Look.", meter: { ...meter, filled: 2 } });
-      render(<DeedPlayer childId="c1" run={run} profile={profile} calm={false} onFinished={() => {}} />);
+      render(<DeedPlayer run={run} profile={profile} calm={false} onFinished={() => {}} />);
       await user.click(screen.getByRole("button", { name: "become" }));
       retryDeedQuestion.mockResolvedValue({ correct: true, secondChance: false, answer: "because" });
       await user.click(await screen.findByRole("button", { name: "because" }));
@@ -119,7 +119,7 @@ describe("DeedPlayer", () => {
     it("says the promotion, and draws no meter once the skill is at the top", async () => {
       const user = userEvent.setup();
       answerDeedQuestion.mockResolvedValueOnce(right).mockResolvedValueOnce({ correct: true, secondChance: false, answer: "again", meter: null, rungChange: "Sight words: getting stronger!" });
-      render(<DeedPlayer childId="c1" run={run} profile={profile} calm={false} onFinished={() => {}} />);
+      render(<DeedPlayer run={run} profile={profile} calm={false} onFinished={() => {}} />);
       await user.click(screen.getByRole("button", { name: "because" }));
       await user.click(await screen.findByRole("button", { name: "Next question" }));
       await user.click(screen.getByRole("button", { name: "again" }));
@@ -130,7 +130,7 @@ describe("DeedPlayer", () => {
     it("draws the flame without its animation for a calm child", async () => {
       const user = userEvent.setup();
       answerDeedQuestion.mockResolvedValue(right);
-      render(<DeedPlayer childId="c1" run={run} profile={profile} calm onFinished={() => {}} />);
+      render(<DeedPlayer run={run} profile={profile} calm onFinished={() => {}} />);
       await user.click(screen.getByRole("button", { name: "because" }));
       await user.click(await screen.findByRole("button", { name: "Next question" }));
       await user.click(screen.getByRole("button", { name: "again" }));
@@ -143,7 +143,7 @@ describe("DeedPlayer", () => {
     const open = { correct: false, secondChance: true, hint: "Look at the first letters." };
     const wrongFirst = async (user: ReturnType<typeof userEvent.setup>) => {
       answerDeedQuestion.mockResolvedValue(open);
-      render(<DeedPlayer childId="c1" run={run} profile={profile} calm={false} onFinished={() => {}} />);
+      render(<DeedPlayer run={run} profile={profile} calm={false} onFinished={() => {}} />);
       await user.click(screen.getByRole("button", { name: "become" }));
     };
 
@@ -184,7 +184,7 @@ describe("DeedPlayer", () => {
 
     it("shows the answer at once with two choices", async () => {
       const user = userEvent.setup();
-      render(<DeedPlayer childId="c1" run={{ ...run, responses: ["because", null] }} profile={profile} calm={false} onFinished={() => {}} />);
+      render(<DeedPlayer run={{ ...run, responses: ["because", null] }} profile={profile} calm={false} onFinished={() => {}} />);
       answerDeedQuestion.mockResolvedValue({ correct: false, secondChance: false, answer: "again", explain: "Again has no s." });
       await user.click(screen.getByRole("button", { name: "against" }));
       expect(await screen.findByText("The answer was again. Again has no s.")).toBeInTheDocument();
@@ -193,7 +193,7 @@ describe("DeedPlayer", () => {
 
     it("reopens a resumed second chance with the pick crossed and the hint shown", () => {
       const resumed: RunStart = { ...run, responses: ["become", null], pending: { index: 0, ruledOut: "become", hint: "Look at the ends." } };
-      render(<DeedPlayer childId="c1" run={resumed} profile={profile} calm={false} onFinished={() => {}} />);
+      render(<DeedPlayer run={resumed} profile={profile} calm={false} onFinished={() => {}} />);
       expect(screen.getByText('Which word is "because"?')).toBeInTheDocument();
       expect(screen.getByText("Not quite. Look at the ends.")).toBeInTheDocument();
       expect(screen.getByRole("button", { name: /^become/ })).toBeDisabled();
@@ -202,7 +202,7 @@ describe("DeedPlayer", () => {
     it("draws the stars and celebrates a new best", async () => {
       const user = userEvent.setup();
       answerDeedQuestion.mockResolvedValue({ correct: true, secondChance: false, answer: "again" });
-      render(<DeedPlayer childId="c1" run={{ ...run, responses: ["because", null] }} profile={profile} calm={false} onFinished={() => {}} />);
+      render(<DeedPlayer run={{ ...run, responses: ["because", null] }} profile={profile} calm={false} onFinished={() => {}} />);
       await user.click(screen.getByRole("button", { name: "again" }));
       await user.click(await screen.findByRole("button", { name: "Finish side quest" }));
       expect(await screen.findByRole("img", { name: "1 of 3 stars" })).toBeInTheDocument();
@@ -212,7 +212,7 @@ describe("DeedPlayer", () => {
     it("tells a starless run the village will help, never that it failed", async () => {
       const user = userEvent.setup();
       completeDeedRun.mockResolvedValue({ ...summary, stars: 0, previousBest: 0, counted: false });
-      render(<DeedPlayer childId="c1" run={{ ...run, responses: ["because", null] }} profile={profile} calm={false} onFinished={() => {}} />);
+      render(<DeedPlayer run={{ ...run, responses: ["because", null] }} profile={profile} calm={false} onFinished={() => {}} />);
       await user.click(screen.getByRole("button", { name: "against" }));
       await user.click(await screen.findByRole("button", { name: "Finish side quest" }));
       expect(await screen.findByText("The village will help you try again.")).toBeInTheDocument();
