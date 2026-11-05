@@ -74,8 +74,8 @@ vi.mock("./sprite-source", async () => {
 });
 
 const well = {
-  id: "well", label: "Village Well", description: "Clean water for every doorstep.", icon: "box" as const, done: 4, total: 5, complete: false,
-  deeds: [{ id: "well-stones", title: "Count the Well Stones", story: "Old Bram's bucket keeps coming up dry.", area: "math" as const }],
+  id: "well", label: "Village Well", description: "Clean water for every doorstep.", icon: "box" as const, done: 4, total: 5, complete: false, stars: 0, maxStars: 3,
+  deeds: [{ id: "well-stones", title: "Count the Well Stones", story: "Old Bram's bucket keeps coming up dry.", area: "math" as const, bestStars: 0 as const, crowned: false }],
 };
 const bundle = {
   heroName: "Lily",

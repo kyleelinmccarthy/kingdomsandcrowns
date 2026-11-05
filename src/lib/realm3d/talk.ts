@@ -24,7 +24,7 @@ import { SIDE_QUEST_LOWER, SIDE_QUESTS, SIDE_QUESTS_LOWER } from "@/lib/utils/si
 export type Viewer = "child" | "parent";
 
 /** The building half of `BuildingOverview`, as much as a conversation needs. */
-export type SiteState = { id: string; label: string; done: number; total: number; complete: boolean };
+export type SiteState = { id: string; label: string; done: number; total: number; complete: boolean; stars: number; maxStars: number };
 
 export type TalkCopy = {
   /** "Old Bram" */
@@ -38,6 +38,13 @@ export type TalkCopy = {
   /** What the child can do about it: the line above the list of side quests. */
   ask: string;
 };
+
+/** What a standing building still has to give: the stars not yet earned on its side quests. */
+export function starsLeftLine(site: { stars: number; maxStars: number }): string {
+  const left = Math.max(0, site.maxStars - site.stars);
+  if (left === 0) return "Every star here is yours.";
+  return `${left} more ${left === 1 ? "star" : "stars"} to earn here.`;
+}
 
 function areIs(n: number): string {
   return n === 1 ? "is" : "are";
@@ -64,7 +71,7 @@ export function talkCopy(input: {
   let need: string;
   if (site.complete) {
     says = `The ${site.label} stands, and that is thanks to ${who}!`;
-    need = `Its ${SIDE_QUESTS_LOWER} are still here, for practice.`;
+    need = starsLeftLine(site);
   } else {
     const hello = waiting ? (viewer === "parent" ? `I was hoping ${heroName} would come. ` : "There you are! ") : "";
     says = `${hello}${villager.greeting}`;
@@ -104,16 +111,23 @@ export type DeedToast = {
 /**
  * What the village says when a side quest is done. A building that rose gets `riseToast`'s own
  * sentence, with the next objective folded in, exactly as the flat Realm's toast did. A building
- * that is still rising says so, and names who is grateful.
+ * that is still rising says so, and names who is grateful. A run that earned no star built
+ * nothing, so it never says the building rose or is rising.
  */
 export function deedToast(input: {
   site: SiteState;
   after: { done: number; total: number; complete: boolean };
   rose: boolean;
+  /** False when the run earned no star: it taught, but it did not build. Defaults to true. */
+  counted?: boolean;
   villagerName: string | null;
   next: ObjectiveState;
 }): DeedToast {
-  const { site, after, rose, villagerName, next } = input;
+  const { site, after, rose, villagerName, next, counted = true } = input;
+  if (!counted) {
+    const title = `${villagerName ?? "The village"} will help you try again.`;
+    return { title, line: "Every try teaches something.", done: after.done, total: after.total, rose: false, spoken: `${title} Every try teaches something.` };
+  }
   if (rose) {
     const sentence = riseToast(site.label, next);
     const [title, ...rest] = sentence.split(/(?<=\.)\s/);

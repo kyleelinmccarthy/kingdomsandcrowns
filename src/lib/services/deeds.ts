@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { loadRealmSettings } from "@/lib/services/realm-play";
@@ -10,12 +10,21 @@ import { deedsForBuilding, deedStory } from "@/lib/utils/deeds";
 import type { ContentBand } from "@/lib/utils/content-bands";
 import type { AgeMode } from "@/lib/utils/age-mode";
 import type { SkillArea } from "@/lib/utils/skills";
+import type { Stars } from "@/lib/utils/deed-scoring";
 import type { GameIconName } from "@/components/game-icon";
+
+/** The most stars one side quest can hold. */
+const MAX_STARS = 3;
+
+/** What a hero has earned on one side quest: its best stars, and whether a Crown Challenge was ever flawless. */
+export type DeedBest = { deedId: string; bestStars: Stars; crowned: boolean };
 
 export type BuildingOverview = {
   id: string; label: string; description: string; icon: GameIconName;
   done: number; total: number; complete: boolean;
-  deeds: { id: string; title: string; story: string; area: SkillArea }[];
+  /** Best stars summed over the building's side quests, out of `maxStars`. */
+  stars: number; maxStars: number;
+  deeds: { id: string; title: string; story: string; area: SkillArea; bestStars: Stars; crowned: boolean }[];
 };
 
 export type HeroLevels = {
@@ -106,23 +115,60 @@ export async function loadHeroLevels(childId: string): Promise<HeroLevels> {
   return heroLevels(rows[0], profileRow, settings);
 }
 
+/** A building's stars, summed over its side quests' best. Pure: the overview and a finished run both read it. */
+export function buildingStars(buildingId: string, best: readonly Pick<DeedBest, "deedId" | "bestStars">[]): { stars: number; maxStars: number } {
+  const bestBy = new Map(best.map((b) => [b.deedId, b.bestStars]));
+  const deeds = deedsForBuilding(buildingId);
+  return { stars: deeds.reduce((sum, d) => sum + (bestBy.get(d.id) ?? 0), 0), maxStars: deeds.length * MAX_STARS };
+}
+
 /** Every building with its progress and deeds, from raw progress rows. Pure, so the shape is testable without a database. */
-export function buildKingdomOverview(progress: { buildingId: string; deedsDone: number }[], tone: "gentle" | "monsters"): BuildingOverview[] {
+export function buildKingdomOverview(
+  progress: { buildingId: string; deedsDone: number }[],
+  tone: "gentle" | "monsters",
+  best: readonly DeedBest[] = [],
+): BuildingOverview[] {
   const doneBy = new Map(progress.map((p) => [p.buildingId, p.deedsDone]));
+  const bestBy = new Map(best.map((b) => [b.deedId, b]));
   return BUILDINGS.map((b) => {
     const { done, total, complete } = buildingProgress(doneBy.get(b.id) ?? 0, b);
     return {
       id: b.id, label: b.label, description: b.description, icon: b.icon, done, total, complete,
-      deeds: deedsForBuilding(b.id).map((d) => ({ id: d.id, title: d.title, story: deedStory(d, tone), area: d.area })),
+      ...buildingStars(b.id, best),
+      deeds: deedsForBuilding(b.id).map((d) => ({
+        id: d.id, title: d.title, story: deedStory(d, tone), area: d.area,
+        bestStars: bestBy.get(d.id)?.bestStars ?? 0, crowned: bestBy.get(d.id)?.crowned ?? false,
+      })),
     };
   });
 }
 
+/**
+ * The hero's best stars and crowns per side quest, in one grouped query. Stars count finished
+ * side quests only, never a Crown Challenge; a crown is a flawless finished challenge.
+ */
+export async function loadDeedBest(childId: string): Promise<DeedBest[]> {
+  const run = schema.deedRun;
+  const rows = await db
+    .select({
+      deedId: run.deedId,
+      bestStars: sql<number | null>`max(${run.stars}) filter (where ${run.kind} = 'deed' and ${run.completedAt} is not null)`,
+      crowned: sql<boolean | null>`bool_or(${run.kind} = 'challenge' and ${run.flawless} and ${run.completedAt} is not null)`,
+    })
+    .from(run)
+    .where(eq(run.childId, childId))
+    .groupBy(run.deedId);
+  return rows.map((r) => ({ deedId: r.deedId, bestStars: (r.bestStars ?? 0) as Stars, crowned: r.crowned === true }));
+}
+
 export async function loadKingdomOverview(childId: string): Promise<HeroLevels & { buildings: BuildingOverview[] }> {
-  const hero = await loadHeroLevels(childId);
-  const progress = await db
-    .select({ buildingId: schema.kingdomProgress.buildingId, deedsDone: schema.kingdomProgress.deedsDone })
-    .from(schema.kingdomProgress)
-    .where(eq(schema.kingdomProgress.childId, childId));
-  return { ...hero, buildings: buildKingdomOverview(progress, hero.tone) };
+  const [hero, progress, best] = await Promise.all([
+    loadHeroLevels(childId),
+    db
+      .select({ buildingId: schema.kingdomProgress.buildingId, deedsDone: schema.kingdomProgress.deedsDone })
+      .from(schema.kingdomProgress)
+      .where(eq(schema.kingdomProgress.childId, childId)),
+    loadDeedBest(childId),
+  ]);
+  return { ...hero, buildings: buildKingdomOverview(progress, hero.tone, best) };
 }

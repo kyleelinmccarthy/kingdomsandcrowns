@@ -102,7 +102,9 @@ const realm: RealmData = {
       label: findBuilding(id)!.label,
       description: "",
       icon: "box" as const,
-      deeds: id === "well" ? [{ id: "well-stones", title: "Count the Well Stones", story: "Old Bram's bucket keeps coming up dry.", area: "math" as const }] : [],
+      deeds: id === "well" ? [{ id: "well-stones", title: "Count the Well Stones", story: "Old Bram's bucket keeps coming up dry.", area: "math" as const, bestStars: 0 as const, crowned: false }] : [],
+      stars: 0,
+      maxStars: id === "well" ? 3 : 0,
       done: id === "well" ? 2 : 0,
       total: 5,
       complete: false,
@@ -280,6 +282,7 @@ describe("talking to a villager, and doing their side quest", () => {
       masteryChanges: ["Adding within 20 is getting stronger."],
       stars: 1,
       previousBest: 0,
+      deedBest: 1,
       counted: true,
       kind: "deed",
       building: { label: "Village Well", done: 3, total: 5, complete: false, stars: 0, maxStars: 0 },
@@ -314,10 +317,39 @@ describe("talking to a villager, and doing their side quest", () => {
     expect(layout.villagers.find((v) => v.id === "bram")!.done).toBe(3);
   });
 
+  it("a side quest that earned no star does not say the building rose, and the board keeps its stars", async () => {
+    vi.mocked(startDeedRun).mockResolvedValue({ ...run, questions: [run.questions[0]], responses: [null] });
+    vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: false, secondChance: false, answer: "5" });
+    vi.mocked(completeDeedRun).mockResolvedValue({ correctCount: 0, total: 1, flawless: false, masteryChanges: [], stars: 0, previousBest: 0, deedBest: 0, counted: false, kind: "deed" as const, building: { label: "Village Well", done: 2, total: 5, complete: false, stars: 0, maxStars: 3 } });
+    const { bus } = mount();
+    act(() => bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" })));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "6" })));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Finish side quest" })));
+    fireEvent.click(screen.getByRole("button", { name: /Back to the Realm/ }));
+    expect(screen.getByText("Old Bram will help you try again.")).toBeInTheDocument();
+    expect(screen.queryByText(/is rising/)).toBeNull();
+  });
+
+  it("shows the new best when the child returns to the villager without a reload", async () => {
+    vi.mocked(startDeedRun).mockResolvedValue({ ...run, questions: [run.questions[0]], responses: [null] });
+    vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: true, secondChance: false, answer: "5" });
+    vi.mocked(completeDeedRun).mockResolvedValue({ correctCount: 1, total: 1, flawless: true, masteryChanges: [], stars: 3, previousBest: 0, deedBest: 3, counted: true, kind: "deed" as const, building: { label: "Village Well", done: 3, total: 5, complete: false, stars: 3, maxStars: 3 } });
+    const { bus } = mount();
+    act(() => bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
+    expect(screen.getByRole("img", { name: "0 of 3 stars" })).toBeInTheDocument();
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" })));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "5" })));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Finish side quest" })));
+    fireEvent.click(screen.getByRole("button", { name: /Back to the Realm/ }));
+    act(() => bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
+    expect(screen.getByRole("img", { name: "3 of 3 stars" })).toBeInTheDocument();
+  });
+
   it("still raises the site when the child leaves the results with Esc", async () => {
     vi.mocked(startDeedRun).mockResolvedValue({ ...run, questions: [run.questions[0]], responses: [null] });
     vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: true, secondChance: false, answer: "5" });
-    vi.mocked(completeDeedRun).mockResolvedValue({ correctCount: 1, total: 1, flawless: true, masteryChanges: [], stars: 1, previousBest: 0, counted: true, kind: "deed" as const, building: { label: "Village Well", done: 3, total: 5, complete: false, stars: 0, maxStars: 0 } });
+    vi.mocked(completeDeedRun).mockResolvedValue({ correctCount: 1, total: 1, flawless: true, masteryChanges: [], stars: 1, previousBest: 0, deedBest: 1, counted: true, kind: "deed" as const, building: { label: "Village Well", done: 3, total: 5, complete: false, stars: 0, maxStars: 0 } });
     const { bus, view } = mount();
     act(() => bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
     await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" })));
@@ -331,7 +363,7 @@ describe("talking to a villager, and doing their side quest", () => {
   it("raises a whole building, and the village plank counts it", async () => {
     vi.mocked(startDeedRun).mockResolvedValue({ ...run, questions: [run.questions[0]], responses: [null] });
     vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: true, secondChance: false, answer: "5" });
-    vi.mocked(completeDeedRun).mockResolvedValue({ correctCount: 1, total: 1, flawless: true, masteryChanges: [], stars: 1, previousBest: 0, counted: true, kind: "deed" as const, building: { label: "Village Well", done: 5, total: 5, complete: true, stars: 0, maxStars: 0 } });
+    vi.mocked(completeDeedRun).mockResolvedValue({ correctCount: 1, total: 1, flawless: true, masteryChanges: [], stars: 1, previousBest: 0, deedBest: 1, counted: true, kind: "deed" as const, building: { label: "Village Well", done: 5, total: 5, complete: true, stars: 0, maxStars: 0 } });
     const well = { ...realm, kingdom: { ...realm.kingdom, buildings: realm.kingdom.buildings.map((b) => (b.id === "well" ? { ...b, done: 4 } : b)) } };
     const { bus } = mount({ realm: well });
     act(() => bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
@@ -579,7 +611,7 @@ describe("a side quest's answer that arrives after the board has closed", () => 
     const promise = new Promise<T>((r) => (resolve = r));
     return { promise, resolve };
   };
-  const done = (label: string, n: number) => ({ correctCount: 1, total: 1, flawless: true, masteryChanges: [], stars: 1, previousBest: 0, counted: true, kind: "deed" as const, building: { label, done: n, total: 5, complete: false, stars: 0, maxStars: 0 } });
+  const done = (label: string, n: number) => ({ correctCount: 1, total: 1, flawless: true, masteryChanges: [], stars: 1, previousBest: 0, deedBest: 1, counted: true, kind: "deed" as const, building: { label, done: n, total: 5, complete: false, stars: 0, maxStars: 0 } });
 
   it("raises the building at once when the child pressed Esc during Finish", async () => {
     vi.mocked(startDeedRun).mockResolvedValue(one);
@@ -603,7 +635,7 @@ describe("a side quest's answer that arrives after the board has closed", () => 
       ...realm,
       kingdom: {
         ...realm.kingdom,
-        buildings: realm.kingdom.buildings.map((b) => (b.id === "mill" ? { ...b, done: 1, deeds: [{ id: "mill-sacks", title: "Count the Sacks", story: "Sacks everywhere.", area: "math" as const }] } : b)),
+        buildings: realm.kingdom.buildings.map((b) => (b.id === "mill" ? { ...b, done: 1, deeds: [{ id: "mill-sacks", title: "Count the Sacks", story: "Sacks everywhere.", area: "math" as const, bestStars: 0 as const, crowned: false }] } : b)),
       },
     };
     vi.mocked(startDeedRun).mockImplementation(async (_c, deedId) => (deedId === "mill-sacks" ? { ...one, runId: "run-2", deed: { ...one.deed, id: "mill-sacks", title: "Count the Sacks" } } : one));
@@ -641,7 +673,7 @@ describe("read-aloud, as a side quest ends", () => {
     try {
       vi.mocked(startDeedRun).mockResolvedValue({ ...run, questions: [run.questions[0]], responses: [null] });
       vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: true, secondChance: false, answer: "5" });
-      vi.mocked(completeDeedRun).mockResolvedValue({ correctCount: 1, total: 1, flawless: true, masteryChanges: [], stars: 1, previousBest: 0, counted: true, kind: "deed" as const, building: { label: "Village Well", done: 3, total: 5, complete: false, stars: 0, maxStars: 0 } });
+      vi.mocked(completeDeedRun).mockResolvedValue({ correctCount: 1, total: 1, flawless: true, masteryChanges: [], stars: 1, previousBest: 0, deedBest: 1, counted: true, kind: "deed" as const, building: { label: "Village Well", done: 3, total: 5, complete: false, stars: 0, maxStars: 0 } });
       const { bus } = mount({ realm: { ...realm, profile: { ...realm.profile, readAloud: true } } });
       act(() => bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
       await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" })));

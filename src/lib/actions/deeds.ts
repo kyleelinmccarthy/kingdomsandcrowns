@@ -1,6 +1,6 @@
 "use server";
 
-import { and, desc, eq, inArray, isNotNull, isNull, gt, max, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull, gt, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
@@ -35,7 +35,7 @@ import {
   type QuestionStatus,
 } from "@/lib/utils/deed-attempts";
 import { hintFor } from "@/lib/utils/skill-hints";
-import { gradeForDeed, loadHeroLevels, loadKingdomOverview, type BuildingOverview } from "@/lib/services/deeds";
+import { buildingStars, gradeForDeed, loadDeedBest, loadHeroLevels, loadKingdomOverview, type BuildingOverview } from "@/lib/services/deeds";
 import { loadLearningProfileRow } from "@/lib/services/learning-profile";
 import { loadRealmSettings } from "@/lib/services/realm-play";
 export type MasteryRow = { skillId: string; label: string; area: SkillArea; level: number; levelLabel: string; lastPracticedAt: string | null };
@@ -61,6 +61,8 @@ export type AttemptResult = {
 export type RunSummary = {
   correctCount: number; total: number; flawless: boolean; masteryChanges: string[];
   stars: Stars; previousBest: Stars;
+  /** The best stars on this side quest after this run. */
+  deedBest: Stars;
   /** Whether this run raised its building: a starless run teaches but does not build. */
   counted: boolean;
   kind: RunKind;
@@ -359,18 +361,6 @@ export async function resolveDeedQuestion(runId: string, index: number): Promise
   return resultFor(question, "missed");
 }
 
-/** The hero's best stars on a deed, over finished side quests only. */
-async function bestStars(childId: string, deedId: string): Promise<Stars> {
-  const [row] = await db
-    .select({ best: max(schema.deedRun.stars) })
-    .from(schema.deedRun)
-    .where(and(
-      eq(schema.deedRun.childId, childId), eq(schema.deedRun.deedId, deedId),
-      eq(schema.deedRun.kind, "deed"), isNotNull(schema.deedRun.completedAt),
-    ));
-  return (row?.best ?? 0) as Stars;
-}
-
 /** Raises the building when the run counts, and reads where it stands either way. */
 async function buildingAfter(childId: string, building: Building, counted: boolean, now: Date) {
   if (counted) {
@@ -411,7 +401,8 @@ export async function completeDeedRun(runId: string): Promise<RunSummary> {
   const { points, max: maxPoints } = runPoints(outcomes);
   const stars: Stars = effects.earnsStars ? starsFor(points, maxPoints) : 0;
   // Read before this run's stars are written, so a new best is never measured against itself.
-  const previousBest = await bestStars(run.childId, run.deedId);
+  const bestBefore = await loadDeedBest(run.childId);
+  const previousBest = bestBefore.find((b) => b.deedId === run.deedId)?.bestStars ?? 0;
   const now = new Date();
   const finished = await db
     .update(schema.deedRun)
@@ -425,6 +416,11 @@ export async function completeDeedRun(runId: string): Promise<RunSummary> {
   const deed = findDeed(run.deedId);
   const building = deed ? findBuilding(deed.buildingId) : null;
   const progress = building ? await buildingAfter(run.childId, building, counted, now) : { done: 0, total: 0, complete: false };
+
+  // A challenge earns no stars, so it cannot move a best; a deed can only raise it.
+  const deedBest = Math.max(previousBest, stars) as Stars;
+  const bestAfter = [...bestBefore.filter((b) => b.deedId !== run.deedId), { deedId: run.deedId, bestStars: deedBest }];
+  const buildingStarsNow = building ? buildingStars(building.id, bestAfter) : { stars: 0, maxStars: 0 };
 
   const masteryStart = JSON.parse(run.masteryStart) as Record<string, number>;
   const skillIds = JSON.parse(run.skillIds) as string[];
@@ -441,8 +437,7 @@ export async function completeDeedRun(runId: string): Promise<RunSummary> {
   revalidatePath("/spellbook");
   revalidatePath("/loot");
   return {
-    correctCount, total: questions.length, flawless, masteryChanges, stars, previousBest, counted, kind: run.kind,
-    // The building's stars are summed in a later step; until then they read as none.
-    building: { label: building?.label ?? "the kingdom", ...progress, stars: 0, maxStars: 0 },
+    correctCount, total: questions.length, flawless, masteryChanges, stars, previousBest, deedBest, counted, kind: run.kind,
+    building: { label: building?.label ?? "the kingdom", ...progress, ...buildingStarsNow },
   };
 }

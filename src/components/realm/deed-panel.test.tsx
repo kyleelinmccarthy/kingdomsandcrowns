@@ -20,8 +20,8 @@ vi.mock("@/components/deed-player", () => ({
 }));
 
 const building = {
-  id: "well", label: "Village Well", description: "", icon: "box" as const, done: 4, total: 5, complete: false,
-  deeds: [{ id: "well-stones", title: "Count the Well Stones", story: "Dry again.", area: "math" as const }],
+  id: "well", label: "Village Well", description: "", icon: "box" as const, done: 4, total: 5, complete: false, stars: 0, maxStars: 3,
+  deeds: [{ id: "well-stones", title: "Count the Well Stones", story: "Dry again.", area: "math" as const, bestStars: 0 as const, crowned: false }],
 };
 
 beforeEach(() => vi.clearAllMocks());

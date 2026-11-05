@@ -512,13 +512,13 @@ export function RealmGame({
   const raise = useCallback(
     (buildingId: string, result: DeedResult) => {
       const before = kingdomRef.current.buildings.find((b) => b.id === buildingId);
-      const applied = applyDeedResult(kingdomRef.current, buildingId, result);
+      const applied = applyDeedResult(kingdomRef.current, buildingId, result, result.deed);
       if (!before || applied.state === kingdomRef.current) return;
       kingdomRef.current = applied.state;
       const t0 = performance.now();
       setKingdom(applied.state);
       const next = objectiveState(applied.state.buildings, trackedRef.current);
-      const words = deedToast({ site: before, after: result, rose: applied.rose, villagerName: villagerForBuilding(buildingId)?.name ?? null, next });
+      const words = deedToast({ site: before, after: result, rose: applied.rose, counted: result.counted, villagerName: villagerForBuilding(buildingId)?.name ?? null, next });
       setToast(words);
       if (readAloud) speak(words.spoken);
       // Development only: how long raising a building takes to reach the screen. `commitMs` is

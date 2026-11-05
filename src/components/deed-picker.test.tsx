@@ -15,15 +15,15 @@ vi.mock("@/lib/actions/deeds", () => ({
 const overview: DeedsOverview = {
   enabled: true, band: "g23", bandLabel: "Grades 2–3", tone: "gentle",
   buildings: [
-    { id: "well", label: "Village Well", description: "Water.", icon: "box", done: 5, total: 5, complete: true, deeds: [{ id: "well-signs", title: "Signs for the Well", story: "Help.", area: "reading" }] },
-    { id: "mill", label: "Grain Mill", description: "Flour.", icon: "compass", done: 0, total: 5, complete: false, deeds: [{ id: "mill-sacks", title: "Sacks at the Mill", story: "Count.", area: "math" }] },
-    { id: "bridge", label: "River Bridge", description: "Cross.", icon: "link", done: 2, total: 5, complete: false, deeds: [{ id: "bridge-planks", title: "Planks for the Bridge", story: "Measure.", area: "math" }] },
+    { id: "well", label: "Village Well", description: "Water.", icon: "box", done: 5, total: 5, complete: true, stars: 0, maxStars: 3, deeds: [{ id: "well-signs", title: "Signs for the Well", story: "Help.", area: "reading", bestStars: 0 as const, crowned: false }] },
+    { id: "mill", label: "Grain Mill", description: "Flour.", icon: "compass", done: 0, total: 5, complete: false, stars: 0, maxStars: 3, deeds: [{ id: "mill-sacks", title: "Sacks at the Mill", story: "Count.", area: "math", bestStars: 0 as const, crowned: false }] },
+    { id: "bridge", label: "River Bridge", description: "Cross.", icon: "link", done: 2, total: 5, complete: false, stars: 0, maxStars: 3, deeds: [{ id: "bridge-planks", title: "Planks for the Bridge", story: "Measure.", area: "math", bestStars: 0 as const, crowned: false }] },
   ],
   mastery: [],
 };
 const profile = { fewerChoices: false, predictableRoutine: false, untimed: true, readAloud: false };
 
-beforeEach(() => { vi.clearAllMocks(); startDeedRun.mockResolvedValue({ runId: "r1", deed: { id: "bridge-planks", title: "Planks for the Bridge", story: "Measure.", area: "math" }, questions: [{ id: "q", skillId: "add-20", prompt: "What is 1 + 1?", choices: ["2", "3", "4", "5"] }], responses: [null] }); });
+beforeEach(() => { vi.clearAllMocks(); startDeedRun.mockResolvedValue({ runId: "r1", deed: { id: "bridge-planks", title: "Planks for the Bridge", story: "Measure.", area: "math", bestStars: 0 as const, crowned: false }, questions: [{ id: "q", skillId: "add-20", prompt: "What is 1 + 1?", choices: ["2", "3", "4", "5"] }], responses: [null] }); });
 afterEach(cleanup);
 
 describe("DeedPicker", () => {

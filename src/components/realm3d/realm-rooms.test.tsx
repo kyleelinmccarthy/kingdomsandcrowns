@@ -72,6 +72,8 @@ const realm: RealmData = {
       description: "",
       icon: "box" as const,
       deeds: [],
+      stars: 0,
+      maxStars: 0,
       done: id === "chapel" ? 5 : id === "well" ? 2 : 0,
       total: 5,
       complete: id === "chapel",

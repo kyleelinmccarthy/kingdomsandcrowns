@@ -18,6 +18,23 @@ describe("buildKingdomOverview", () => {
     expect(planks.story).not.toBe(monsters.story);
     expect(monsters.story).toMatch(/Shadow blobs/);
   });
+
+  it("carries each side quest's best stars and crown, and sums them per building", () => {
+    const best = [
+      { deedId: "well-stones", bestStars: 3 as const, crowned: true },
+      { deedId: "well-signs", bestStars: 2 as const, crowned: false },
+    ];
+    const well = buildKingdomOverview([], "gentle", best).find((b) => b.id === "well")!;
+    expect(well.deeds.find((d) => d.id === "well-stones")).toMatchObject({ bestStars: 3, crowned: true });
+    expect(well.deeds.find((d) => d.id === "well-signs")).toMatchObject({ bestStars: 2, crowned: false });
+    // A side quest nobody has run holds no stars and no crown.
+    expect(well.deeds.find((d) => d.id === "well-water")).toMatchObject({ bestStars: 0 as const, crowned: false });
+    expect(well).toMatchObject({ stars: 5, maxStars: 9 });
+  });
+
+  it("holds no stars when there are no runs", () => {
+    for (const b of buildKingdomOverview([], "gentle")) expect(b).toMatchObject({ stars: 0, maxStars: 3 * b.deeds.length });
+  });
 });
 
 describe("ownGradeOf", () => {

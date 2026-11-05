@@ -30,6 +30,7 @@ import { realmCue } from "@/lib/realm3d/sound/store";
 import type { BuildingOverview } from "@/lib/services/deeds";
 import type { Villager } from "@/lib/realm/villagers";
 import { attemptFeedback, resultBuildingLine, resultHeadline, resultStarsLine, starsLabel, talkCopy, type Viewer } from "@/lib/realm3d/talk";
+import type { Stars } from "@/lib/utils/deed-scoring";
 import { choiceTone } from "@/lib/utils/deed-run-flow";
 import { useDeedFlow } from "@/components/use-deed-flow";
 import { AREA_LABELS, type SkillArea } from "@/lib/utils/skills";
@@ -38,7 +39,12 @@ import { SIDE_QUEST_LOWER, SIDE_QUESTS_LOWER } from "@/lib/utils/side-quest-copy
 import { Panel, Progress } from "./frame-hud";
 
 type Profile = { readAloud: boolean; untimed: boolean };
-export type DeedResult = RunSummary["building"];
+/**
+ * What the board hands up when a run is finished: the building's new progress and stars, whether
+ * the run counted, and the side quest's new best. The last two are optional so a hand-raised
+ * building (the dev hook) still fits.
+ */
+export type DeedResult = RunSummary["building"] & { counted?: boolean; deed?: { id: string; bestStars: Stars } };
 
 const FAILED = "The enchantment failed.";
 
@@ -49,6 +55,17 @@ function Subject({ area }: { area: SkillArea }) {
     <span className="r3-subject" style={{ ["--r3-ink" as string]: color }}>
       <span className="sr-only">Subject: </span>
       {label}
+    </span>
+  );
+}
+
+/** Three stars, lit up to `stars`: the board's list and the result card draw them the same way. */
+function StarRow({ stars, small }: { stars: number; small?: boolean }) {
+  return (
+    <span className={`r3-result-stars${small ? " r3-stars--small" : ""}`} role="img" aria-label={starsLabel(stars)}>
+      {[1, 2, 3].map((n) => (
+        <GameIcon key={n} name="star" className={`r3-star${n <= stars ? " r3-star--on" : ""}`} />
+      ))}
     </span>
   );
 }
@@ -116,7 +133,7 @@ export function DeedBoard({
   if (run && childId) {
     return (
       <Panel title={run.deed.title} label={run.deed.title} wide className="r3-board--deed" icon={<GameIcon name={site.icon as GameIconName} className="r3-board-icon" />} onClose={onClose}>
-        <DeedRun childId={childId} run={run} villagerName={villager.name} profile={profile} calm={calm} onResult={(b) => onResult(site.id, b)} onClose={onClose} />
+        <DeedRun childId={childId} run={run} villagerName={villager.name} profile={profile} calm={calm} onResult={(done) => onResult(site.id, { ...done.building, counted: done.counted, deed: { id: run.deed.id, bestStars: done.deedBest } })} onClose={onClose} />
       </Panel>
     );
   }
@@ -155,6 +172,13 @@ export function DeedBoard({
             <div className="r3-deed-text">
               <p className="r3-deed-title">
                 {d.title} <Subject area={d.area} />
+                <StarRow stars={d.bestStars} small />
+                {d.crowned && (
+                  <span className="r3-deed-crown">
+                    <GameIcon name="crown" className="r3-deed-crown-icon" />
+                    <span className="sr-only">Crown earned</span>
+                  </span>
+                )}
               </p>
               <p className="r3-deed-story">{d.story}</p>
             </div>
@@ -194,7 +218,7 @@ function DeedRun({
   villagerName: string;
   profile: Profile;
   calm: boolean;
-  onResult: (b: DeedResult) => void;
+  onResult: (done: RunSummary) => void;
   onClose: () => void;
 }) {
   // A wrong answer is a soft low "hmm", a right one rises and resolves (`realm-sound.tsx`).
@@ -249,7 +273,7 @@ function DeedRun({
     return guarded(async () => {
       const done = await completeDeedRun(run.runId);
       setSummary(done);
-      onResult(done.building);
+      onResult(done);
     });
   }
 
@@ -282,13 +306,7 @@ function DeedRun({
           <GameIcon name={summary.flawless ? "star" : "check"} className="r3-result-icon" />
         </span>
         <h3 className="r3-result-title">{head.title}</h3>
-        {summary.kind === "deed" && (
-          <span className="r3-result-stars" role="img" aria-label={starsLabel(summary.stars)}>
-            {[1, 2, 3].map((n) => (
-              <GameIcon key={n} name="star" className={`r3-star${n <= summary.stars ? " r3-star--on" : ""}`} />
-            ))}
-          </span>
-        )}
+        {summary.kind === "deed" && <StarRow stars={summary.stars} />}
         {stars && <p className="r3-result-stars-line">{stars}</p>}
         <p className="r3-result-line">
           <Subject area={run.deed.area} /> {head.line}

@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { objectiveState } from "@/lib/realm/objective";
 import { villagerById } from "@/lib/realm/villagers";
-import { attemptFeedback, deedToast, resultBuildingLine, resultHeadline, resultStarsLine, starsLabel, talkCopy, type SiteState } from "./talk";
+import { attemptFeedback, deedToast, resultBuildingLine, resultHeadline, resultStarsLine, starsLabel, starsLeftLine, talkCopy, type SiteState } from "./talk";
 
 const bram = villagerById("bram")!;
-const well: SiteState = { id: "well", label: "Village Well", done: 0, total: 5, complete: false };
+const well: SiteState = { id: "well", label: "Village Well", done: 0, total: 5, complete: false, stars: 0, maxStars: 9 };
 const all = (over: Record<string, Partial<SiteState>> = {}) =>
-  ["well", "mill", "bridge", "chapel", "market", "library", "watchtower", "garden"].map((id) => ({ id, done: 0, total: 5, complete: false, ...over[id] }));
+  ["well", "mill", "bridge", "chapel", "market", "library", "watchtower", "garden"].map((id) => ({ id, done: 0, total: 5, complete: false, stars: 0, maxStars: 9, ...over[id] }));
 
 describe("a villager's conversation", () => {
   it("greets a child who was sent here, says what the site needs, and asks for help", () => {
@@ -33,11 +33,18 @@ describe("a villager's conversation", () => {
     expect(t.says).toBe(bram.greeting);
   });
 
-  it("thanks the child for a building that stands, and offers its side quests as practice", () => {
-    const t = talkCopy({ villager: bram, site: { ...well, done: 5, complete: true }, viewer: "child", heroName: "Emma", waiting: false, numerals: true });
+  it("thanks the child for a building that stands, and says how many stars are left to earn", () => {
+    const t = talkCopy({ villager: bram, site: { ...well, done: 5, complete: true, stars: 7 }, viewer: "child", heroName: "Emma", waiting: false, numerals: true });
     expect(t.says).toBe("The Village Well stands, and that is thanks to you!");
-    expect(t.need).toMatch(/practice/);
+    expect(t.need).toBe("2 more stars to earn here.");
+    expect(t.need).not.toContain("for practice");
     expect(t.ask).toBe("Pick one to play again.");
+  });
+
+  it("words the stars still to earn, down to none", () => {
+    expect(starsLeftLine({ stars: 7, maxStars: 9 })).toBe("2 more stars to earn here.");
+    expect(starsLeftLine({ stars: 8, maxStars: 9 })).toBe("1 more star to earn here.");
+    expect(starsLeftLine({ stars: 9, maxStars: 9 })).toBe("Every star here is yours.");
   });
 
   it("tells a visiting grown-up the side quests are the child's to play", () => {
@@ -74,6 +81,22 @@ describe("the village's answer to a finished side quest", () => {
     const t = deedToast({ site: { ...well, done: 5, complete: true }, after: { done: 5, total: 5, complete: true }, rose: false, villagerName: "Old Bram", next: objectiveState(all(), 1) });
     expect(t.title).toBe("The Village Well stands.");
     expect(t.rose).toBe(false);
+  });
+});
+
+describe("a side quest that earned no star", () => {
+  it("does not say the building rose, and says the villager will help", () => {
+    const t = deedToast({ site: well, after: { done: 0, total: 5, complete: false }, rose: false, counted: false, villagerName: "Old Bram", next: objectiveState(all(), 1) });
+    expect(t).toMatchObject({ title: "Old Bram will help you try again.", rose: false, done: 0, total: 5 });
+    expect(`${t.title} ${t.line} ${t.spoken}`).not.toMatch(/rising|rose|stands|fail/i);
+  });
+  it("says the village will help when no villager is named", () => {
+    const t = deedToast({ site: well, after: { done: 0, total: 5, complete: false }, rose: false, counted: false, villagerName: null, next: objectiveState(all(), 1) });
+    expect(t.title).toBe("The village will help you try again.");
+  });
+  it("still says the building is rising for a run that counted", () => {
+    const t = deedToast({ site: well, after: { done: 1, total: 5, complete: false }, rose: false, counted: true, villagerName: "Old Bram", next: objectiveState(all(), 1) });
+    expect(t.title).toBe("The Village Well is rising!");
   });
 });
 

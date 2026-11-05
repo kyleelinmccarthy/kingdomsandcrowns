@@ -1038,6 +1038,10 @@
 .r3-result-stars { display: inline-flex; gap: 0.3rem; }
 .r3-star { width: 2.2rem; height: 2.2rem; color: rgba(0, 0, 0, 0.35); }
 .r3-star--on { color: var(--r3-gold); filter: drop-shadow(0 2px 0 #7a4f14); }
+.r3-stars--small { gap: 0.1rem; }
+.r3-stars--small .r3-star { width: 1.15rem; height: 1.15rem; }
+.r3-deed-crown { display: inline-flex; color: var(--r3-gold); }
+.r3-deed-crown-icon { width: 1.25rem; height: 1.25rem; filter: drop-shadow(0 2px 0 #7a4f14); }
 .r3-result-stars-line { margin: 0; font-size: 1.1rem; font-weight: 800; color: #ffe08a; }
 .r3-result-line { margin: 0; font-size: 1.1rem; font-weight: 700; color: #fff1d2; }
 .r3-result-mastery { list-style: none; margin: 0.3rem 0; padding: 0; font-size: 1rem; font-weight: 700; color: #b8f59a; }

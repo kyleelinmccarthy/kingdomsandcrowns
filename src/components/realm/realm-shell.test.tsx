@@ -115,16 +115,16 @@ vi.mock("./sprite-source", async () => {
 });
 
 const well = {
-  id: "well", label: "Village Well", description: "Clean water for every doorstep.", icon: "box" as const, done: 4, total: 5, complete: false,
-  deeds: [{ id: "well-stones", title: "Count the Well Stones", story: "Old Bram's bucket keeps coming up dry.", area: "math" as const }],
+  id: "well", label: "Village Well", description: "Clean water for every doorstep.", icon: "box" as const, done: 4, total: 5, complete: false, stars: 0, maxStars: 3,
+  deeds: [{ id: "well-stones", title: "Count the Well Stones", story: "Old Bram's bucket keeps coming up dry.", area: "math" as const, bestStars: 0 as const, crowned: false }],
 };
 const bundle = { heroName: "Lily", avatarConfig: DEFAULT_AVATAR, timezone: null, castleType: "campsite", kingdom: { tone: "gentle" as const, buildings: [well] }, profile: DEFAULT_LEARNING_PROFILE, settings: { enabled: true, toneMode: "gentle" as const }, spellbook: { spells: [], slots: 4 }, mounts: { unlocked: ["pony"] }, ceremony: null, banners: 0, wornCrown: null, helpSeen: true, depthOverride: "auto" as const, depth: "full" as const, tutorialStep: 0 };
 
 // A brand-new hero: all eight buildings at 0 of 5, each with one side quest to begin.
 const newKingdom = BUILDINGS.map((b) => ({
   id: b.id, label: b.label, description: b.description, icon: b.icon,
-  done: 0, total: b.deedsToBuild, complete: false,
-  deeds: [{ id: `${b.id}-1`, title: `Help at the ${b.label}`, story: "There is work to do.", area: "math" as const }],
+  done: 0, total: b.deedsToBuild, complete: false, stars: 0, maxStars: 3,
+  deeds: [{ id: `${b.id}-1`, title: `Help at the ${b.label}`, story: "There is work to do.", area: "math" as const, bestStars: 0 as const, crowned: false }],
 }));
 // The same eight, every one of them raised.
 const raisedKingdom = newKingdom.map((b) => ({ ...b, done: b.total, complete: true }));

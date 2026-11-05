@@ -43,6 +43,7 @@ vi.mock("@/lib/services/deeds", async () => ({
 
 const { answerDeedQuestion, retryDeedQuestion, resolveDeedQuestion, completeDeedRun, startDeedRun } = await import("./deeds");
 const { getSchoolCounts } = await import("./subjects");
+const { loadDeedBest } = await import("@/lib/services/deeds");
 const { loadRealmSettings } = await import("@/lib/services/realm-play");
 const { buildDeedRun } = await import("@/lib/utils/deed-engine");
 
@@ -277,8 +278,8 @@ describe("stars on a finished run", () => {
 
     const s = await completeDeedRun("run1");
     expect(starsFor(5, 8)).toBe(1);
-    expect(s).toMatchObject({ stars: 1, previousBest: 0, counted: true, kind: "deed", correctCount: 2, total: 4, flawless: false });
-    expect(s.building).toMatchObject({ label: "Village Well", done: 1, stars: 0, maxStars: 0 });
+    expect(s).toMatchObject({ stars: 1, previousBest: 0, deedBest: 1, counted: true, kind: "deed", correctCount: 2, total: 4, flawless: false });
+    expect(s.building).toMatchObject({ label: "Village Well", done: 1, stars: 1, maxStars: 9 });
     expect((await stored()).stars).toBe(1);
     expect(await deedsDone()).toBe(1);
   });
@@ -287,8 +288,8 @@ describe("stars on a finished run", () => {
     await seedRun({ id: "old", responses: ["6", "9", "12", "15"], secondTries: "[]", completed: true, stars: 2 });
     await seedRun({ responses: ["5", "6", "7", "8"], secondTries: JSON.stringify(["", "", "", ""]) });
     const s = await completeDeedRun("run1");
-    expect(s).toMatchObject({ stars: 0, previousBest: 2, counted: false });
-    expect(s.building).toMatchObject({ label: "Village Well", done: 0 });
+    expect(s).toMatchObject({ stars: 0, previousBest: 2, deedBest: 2, counted: false });
+    expect(s.building).toMatchObject({ label: "Village Well", done: 0, stars: 2, maxStars: 9 });
     expect(await deedsDone()).toBe(0);
   });
 
@@ -313,6 +314,32 @@ describe("stars on a finished run", () => {
     await completeDeedRun("run1");
     await expect(completeDeedRun("run1")).rejects.toThrow("already been finished");
     expect(await deedsDone()).toBe(1);
+  });
+});
+
+describe("the best stars a hero holds", () => {
+  it("keeps the best finished side quest, ignores unfinished runs, and a challenge never moves it", async () => {
+    await seedRun({ id: "a", completed: true, stars: 2 });
+    await seedRun({ id: "b", completed: true, stars: 1 });
+    await seedRun({ id: "open", stars: 3 });
+    await seedRun({ id: "c", completed: true, stars: 3, kind: "challenge" });
+    expect(await loadDeedBest("c1")).toEqual([{ deedId: "well-stones", bestStars: 2, crowned: false }]);
+  });
+
+  it("crowns a side quest once a challenge on it was finished flawless", async () => {
+    await seedRun({ id: "c", completed: true, kind: "challenge" });
+    await client.query("UPDATE deed_run SET flawless = true WHERE id = 'c'");
+    await seedRun({ id: "d", kind: "challenge" });
+    expect(await loadDeedBest("c1")).toEqual([{ deedId: "well-stones", bestStars: 0, crowned: true }]);
+    expect(await loadDeedBest("someone-else")).toEqual([]);
+  });
+
+  it("finishing a challenge leaves the side quest's best where it was", async () => {
+    await seedRun({ id: "old", completed: true, stars: 2 });
+    await seedRun({ kind: "challenge", responses: ["6", "9", "12", "15"] });
+    const s = await completeDeedRun("run1");
+    expect(s).toMatchObject({ kind: "challenge", previousBest: 2, deedBest: 2, counted: false });
+    expect(s.building).toMatchObject({ stars: 2, maxStars: 9 });
   });
 });
 
