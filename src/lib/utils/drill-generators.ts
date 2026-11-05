@@ -270,13 +270,25 @@ function explainTimes(a: number, b: number): string {
 
 const withSign = (n: number) => (n < 0 ? `(${n})` : String(n));
 
+/** Tens-and-ones working for two two-digit sizes; null when a factor is a single digit or the ones part is 0, where the fact is just stated. */
+function splitProduct(x: number, y: number): string | null {
+  if (x < 10 || y < 10) return null;
+  const [whole, split] = y % 10 !== 0 ? [x, y] : x % 10 !== 0 ? [y, x] : [0, 0];
+  if (split === 0) return null;
+  const tens = split - (split % 10);
+  const ones = split % 10;
+  return `${whole} × ${tens} = ${whole * tens}, ${whole} × ${ones} = ${whole * ones}, ${whole * tens} + ${whole * ones} = ${x * y}`;
+}
+
 /** The rule for the operation, then the working with these numbers; signs spelled as the prompt spells them. */
 function explainIntegerOp(a: number, op: string, b: number, answer: number): string {
   if (op === "×") {
     if (a === 0 || b === 0) return `${a} × ${b}: anything times 0 is 0, so the answer is ${answer}.`;
-    if (a > 0 && b > 0) return `${a} × ${b} = ${answer}.`;
+    const sizes = Math.abs(answer);
+    const working = splitProduct(Math.abs(a), Math.abs(b));
+    if (a > 0 && b > 0) return working ? `${a} × ${b}: ${working}.` : `${a} × ${b} = ${answer}.`;
     const sign = answer < 0 ? "The signs differ, so it is negative" : "The signs match, so it is positive";
-    return `${a} × ${b}: ${Math.abs(a)} × ${Math.abs(b)} = ${Math.abs(answer)}. ${sign}: ${answer}.`;
+    return `${a} × ${b}: ${working ?? `${Math.abs(a)} × ${Math.abs(b)} = ${sizes}`}. ${sign}: ${answer}.`;
   }
   if (op === "-") return `${a} - ${withSign(b)}: taking away ${b} is the same as adding ${-b}. ${a} + ${withSign(-b)} = ${answer}.`;
   if (a === 0 || b === 0) return `${a} + ${withSign(b)}: adding 0 changes nothing, so the answer is ${answer}.`;

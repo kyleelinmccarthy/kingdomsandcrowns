@@ -44,4 +44,50 @@ describe("worked explanations", () => {
       expect({ id: q.id, prompt: q.prompt, choices: q.choices, answer: q.answer }, key).toEqual(was);
     }
   });
+
+  it("splits a two-digit product into tens and ones, in the signed cases too", () => {
+    let split = 0, stated = 0, signed = 0;
+    for (const level of [3, 4]) {
+      for (let seed = 1; seed <= 200; seed++) {
+        const q = generate("integer-ops", level, seed);
+        const m = q.prompt.match(/^What is (-?\d+) × (-?\d+)\?$/);
+        if (!m) continue;
+        const [x, y] = [Math.abs(Number(m[1])), Math.abs(Number(m[2]))];
+        if (x === 0 || y === 0) continue;
+        const wantsSplit = x >= 10 && y >= 10 && (x % 10 !== 0 || y % 10 !== 0);
+        if (wantsSplit) {
+          split++;
+          expect(q.explain, q.prompt).toMatch(/\d+ × \d+0 = \d+, \d+ × \d = \d+, \d+ \+ \d+ = \d+/);
+          if (Number(m[1]) < 0 || Number(m[2]) < 0) { signed++; expect(q.explain, q.prompt).toMatch(/signs (differ|match)/); }
+        } else {
+          stated++;
+          expect(q.explain, q.prompt).not.toContain(" + ");
+        }
+      }
+    }
+    expect(split).toBeGreaterThan(0);
+    expect(signed).toBeGreaterThan(0);
+    expect(stated).toBeGreaterThan(0);
+  });
+
+  it("names the chunks only when there is more than one", () => {
+    let single = 0, several = 0;
+    for (const id of ["add-1000", "sub-1000"]) {
+      for (const level of LEVELS) {
+        for (let seed = 1; seed <= 200; seed++) {
+          const e = generate(id, level, seed).explain!;
+          if (e.includes(", then ")) { several++; expect(e).toContain("in chunks"); }
+          else { single++; expect(e).not.toContain("in chunks"); }
+        }
+      }
+    }
+    expect(single).toBeGreaterThan(0);
+    expect(several).toBeGreaterThan(0);
+  });
+
+  it("explains area in the prompt's own words", () => {
+    const areas = Array.from({ length: 200 }, (_, i) => generate("area-perimeter", 0, i + 1)).filter((q) => q.prompt.endsWith("area?"));
+    expect(areas.length).toBeGreaterThan(0);
+    for (const q of areas) expect(q.explain).toContain("wide times tall");
+  });
 });

@@ -227,7 +227,7 @@ export function areaPerimeter(level: number, rng: Rng, skillId: string): Questio
     rng,
     prompt, // plain words and two numbers; nothing a screen reader would mangle
     wantArea
-      ? `Area is length times width: ${w} × ${h} = ${answer}.`
+      ? `Area is wide times tall: ${w} × ${h} = ${answer}.`
       : `Perimeter is all four sides added: ${w} + ${h} + ${w} + ${h} = ${answer}.`,
   );
 }
@@ -481,7 +481,8 @@ function explainWithin1000(a: number, op: "+" | "-", b: number): string {
     now = next;
     return step;
   });
-  return `${op === "+" ? "Add" : "Take away"} ${b} in chunks: ${steps.join(", then ")}.`;
+  const verb = op === "+" ? "Add" : "Take away";
+  return chunks.length === 1 ? `${verb} ${b}: ${steps[0]}.` : `${verb} ${b} in chunks: ${steps.join(", then ")}.`;
 }
 
 /**
