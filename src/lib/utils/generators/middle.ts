@@ -107,11 +107,21 @@ export function ratioRate(level: number, rng: Rng, skillId: string): Question {
     String(speed),
   );
   const prompt = `A car travels ${total} miles in ${hours} hours. What is the speed in miles per hour?`;
-  return makeQuestion(skillId, `${total}/${hours}`, prompt, String(speed), distractors, rng, prompt);
+  return makeQuestion(
+    skillId, `${total}/${hours}`, prompt, String(speed), distractors, rng, prompt,
+    `Speed is distance divided by time: ${total} ÷ ${hours} = ${speed} miles per hour.`,
+  );
 }
 
 /** Largest denominator either operand may carry, per level. */
 const FRACDIV_DENOM_MAX = [4, 5, 6, 8, 10];
+
+/** Flip the second fraction, multiply across, and say so when the product still has to be reduced. */
+function explainFracDiv(n1: number, d1: number, n2: number, d2: number, answer: string): string {
+  const across = `${n1 * d2}/${d1 * n2}`;
+  const product = `${n1}/${d1} × ${d2}/${n2} = ${across}`;
+  return `Flip the second fraction and multiply: ${product}${across === answer ? "." : `, which is ${answer} in lowest terms.`}`;
+}
 
 /**
  * Dividing fractions (grade 6). Both operands are proper and in lowest terms.
@@ -170,6 +180,7 @@ export function fracDiv(level: number, rng: Rng, skillId: string): Question {
     distractors,
     rng,
     `What is ${speakFrac(`${n1}/${d1}`)} divided by ${speakFrac(`${n2}/${d2}`)}?`,
+    explainFracDiv(n1, d1, n2, d2, answer),
   );
 }
 
@@ -201,6 +212,7 @@ export function evalExpr(level: number, rng: Rng, skillId: string): Question {
   if (!drawn) throw new Error(`could not draw an expression with three different readings at level ${level}`);
 
   const answer = a * x + b;
+  const shownX = x < 0 ? `(${x})` : String(x); // a minus sign wants its brackets next to a ×
   const candidates = [
     String(a + x + b),                        // the coefficient read as a term: 3 + x + 5
     String(a * b + x),                        // x substituted into the constant's slot
@@ -216,6 +228,7 @@ export function evalExpr(level: number, rng: Rng, skillId: string): Question {
     pickDistinct(candidates, String(answer)),
     rng,
     `If x is ${speakInt(x)}, what is ${a} x plus ${b}?`,
+    `Put ${shownX} in for x: ${a} × ${shownX} + ${b} = ${a * x} + ${b} = ${answer}.`,
   );
 }
 

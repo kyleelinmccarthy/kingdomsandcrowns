@@ -171,8 +171,11 @@ export function spreadDistractors(answer: Reading, pool: Reading[], rng: Rng): s
  * answer shuffled in among its distractors, and read-aloud text only when there is any.
  * Exported because every per-grade generator module builds its questions with it.
  */
-export function makeQuestion(skillId: string, key: string, prompt: string, answer: string, distractors: string[], rng: Rng, spoken?: string): Question {
-  return { id: `${skillId}:${key}`, skillId, prompt, choices: shuffle([answer, ...distractors], rng), answer, ...(spoken ? { readAloud: spoken } : {}) };
+export function makeQuestion(skillId: string, key: string, prompt: string, answer: string, distractors: string[], rng: Rng, spoken?: string, explain?: string): Question {
+  return {
+    id: `${skillId}:${key}`, skillId, prompt, choices: shuffle([answer, ...distractors], rng), answer,
+    ...(spoken ? { readAloud: spoken } : {}), ...(explain ? { explain } : {}),
+  };
 }
 
 /** A signed integer spoken as words never contains a bare "-", so read-aloud text
@@ -255,6 +258,46 @@ const PLACE_DIGITS = [2, 3, 4, 5, 6];
 const PLACES = ["ones", "tens", "hundreds", "thousands", "ten-thousands", "hundred-thousands"];
 const PERCENT_BASE_MAX = [100, 200, 300, 400, 500];
 
+/** Half the even factor, then double: the doubling trick; with two odd factors, one group short and one more. */
+function explainTimes(a: number, b: number): string {
+  const ans = a * b;
+  if (a === 0 || b === 0) return `${a} × ${b}: anything times 0 is 0, so the answer is ${ans}.`;
+  if (a === 1 || b === 1) return `${a} × ${b}: times 1 leaves the number as it is, so the answer is ${ans}.`;
+  if (b % 2 === 0) return `${a} × ${b}: ${a} × ${b / 2} = ${ans / 2}, and doubling gives ${ans}.`;
+  if (a % 2 === 0) return `${a} × ${b}: ${a / 2} × ${b} = ${ans / 2}, and doubling gives ${ans}.`;
+  return `${a} × ${b}: ${a - 1} × ${b} = ${(a - 1) * b}, and one more ${b} makes ${ans}.`;
+}
+
+const withSign = (n: number) => (n < 0 ? `(${n})` : String(n));
+
+/** The rule for the operation, then the working with these numbers; signs spelled as the prompt spells them. */
+function explainIntegerOp(a: number, op: string, b: number, answer: number): string {
+  if (op === "×") {
+    if (a === 0 || b === 0) return `${a} × ${b}: anything times 0 is 0, so the answer is ${answer}.`;
+    if (a > 0 && b > 0) return `${a} × ${b} = ${answer}.`;
+    const sign = answer < 0 ? "The signs differ, so it is negative" : "The signs match, so it is positive";
+    return `${a} × ${b}: ${Math.abs(a)} × ${Math.abs(b)} = ${Math.abs(answer)}. ${sign}: ${answer}.`;
+  }
+  if (op === "-") return `${a} - ${withSign(b)}: taking away ${b} is the same as adding ${-b}. ${a} + ${withSign(-b)} = ${answer}.`;
+  if (a === 0 || b === 0) return `${a} + ${withSign(b)}: adding 0 changes nothing, so the answer is ${answer}.`;
+  if (a > 0 === b > 0) return `${a} + ${withSign(b)}: the signs match, so add the sizes, ${Math.abs(a)} + ${Math.abs(b)} = ${Math.abs(answer)}, and keep the sign: ${answer}.`;
+  if (answer === 0) return `${a} + ${withSign(b)}: the two are opposites, so they cancel to ${answer}.`;
+  const big = Math.max(Math.abs(a), Math.abs(b));
+  const small = Math.min(Math.abs(a), Math.abs(b));
+  return `${a} + ${withSign(b)}: the signs differ, so subtract the sizes, ${big} - ${small} = ${big - small}, and keep the sign of the bigger one: ${answer}.`;
+}
+
+/** The percent as a simple fraction of the whole, so the working is one division and maybe one times. */
+function explainPercentOf(p: number, n: number, answer: number): string {
+  const g = gcd(p, 100);
+  const top = p / g;
+  const bottom = 100 / g;
+  const head = `${p}% of ${n}: ${p}% is ${top}/${bottom}.`;
+  return top === 1
+    ? `${head} ${n} ÷ ${bottom} = ${answer}.`
+    : `${head} ${n} ÷ ${bottom} = ${n / bottom}, and ${n / bottom} × ${top} = ${answer}.`;
+}
+
 const add: Generator = (level, rng, skillId) => {
   const max = (ADD_MAX[skillId] ?? ADD_MAX["add-20"])[L(level)];
   const a = randInt(rng, 0, max);
@@ -276,7 +319,7 @@ const mul: Generator = (level, rng, skillId) => {
   const table = randInt(rng, 0, MUL_TABLE_MAX[lvl]);
   const other = randInt(rng, 0, MUL_OTHER_MAX[lvl]);
   const [a, b] = rng() < 0.5 ? [table, other] : [other, table];
-  return makeQuestion(skillId, `${a}x${b}`, `What is ${a} × ${b}?`, String(a * b), numericDistractors(a * b, rng, 0), rng, `What is ${a} times ${b}?`);
+  return makeQuestion(skillId, `${a}x${b}`, `What is ${a} × ${b}?`, String(a * b), numericDistractors(a * b, rng, 0), rng, `What is ${a} times ${b}?`, explainTimes(a, b));
 };
 
 const div: Generator = (level, rng, skillId) => {
@@ -284,7 +327,10 @@ const div: Generator = (level, rng, skillId) => {
   const b = randInt(rng, 1, max);
   const q = randInt(rng, 0, 12);
   const a = b * q;
-  return makeQuestion(skillId, `${a}/${b}`, `What is ${a} ÷ ${b}?`, String(q), numericDistractors(q, rng, 0), rng, `What is ${a} divided by ${b}?`);
+  return makeQuestion(
+    skillId, `${a}/${b}`, `What is ${a} ÷ ${b}?`, String(q), numericDistractors(q, rng, 0), rng, `What is ${a} divided by ${b}?`,
+    `${a} ÷ ${b}: think ${b} × ? = ${a}. ${b} × ${q} = ${a}, so ${a} ÷ ${b} = ${q}.`,
+  );
 };
 
 const placeValue: Generator = (level, rng, skillId) => {
@@ -349,6 +395,7 @@ const integerOps: Generator = (level, rng, skillId) => {
   return makeQuestion(
     skillId, `${a}${op}${b}`, `What is ${a} ${op} ${b}?`, String(answer), numericDistractors(answer, rng), rng,
     `What is ${speakInt(a)} ${opWord} ${speakInt(b)}?`,
+    explainIntegerOp(a, op, b, answer),
   );
 };
 
@@ -366,7 +413,10 @@ const percentOf: Generator = (level, rng, skillId) => {
     n = randInt(rng, 1, Math.floor(baseMax / step)) * step;
   }
   const answer = (p * n) / 100;
-  return makeQuestion(skillId, `${p}%${n}`, `What is ${p}% of ${n}?`, String(answer), numericDistractors(answer, rng, 0), rng, `What is ${p} percent of ${n}?`);
+  return makeQuestion(
+    skillId, `${p}%${n}`, `What is ${p}% of ${n}?`, String(answer), numericDistractors(answer, rng, 0), rng, `What is ${p} percent of ${n}?`,
+    explainPercentOf(p, n, answer),
+  );
 };
 
 /** Exported for the fraction generators, which need to know when a fraction is in lowest terms. */

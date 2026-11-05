@@ -173,6 +173,7 @@ export function fracUnit(level: number, rng: Rng, skillId: string): Question {
     distractors,
     rng,
     spoken,
+    `Each whole is cut into ${d} equal parts, so one part is 1/${d}. The ${ORDINALS[n]} mark is ${n} ${n === 1 ? "part" : "parts"} from 0: ${n}/${d}.`,
   );
 }
 
@@ -225,6 +226,9 @@ export function areaPerimeter(level: number, rng: Rng, skillId: string): Questio
     distractors,
     rng,
     prompt, // plain words and two numbers; nothing a screen reader would mangle
+    wantArea
+      ? `Area is length times width: ${w} × ${h} = ${answer}.`
+      : `Perimeter is all four sides added: ${w} + ${h} + ${w} + ${h} = ${answer}.`,
   );
 }
 
@@ -271,6 +275,8 @@ export function roundNearest(level: number, rng: Rng, skillId: string): Question
   }
 
   const prompt = `Round ${n} to the nearest ${place}.`;
+  const past = n % place;
+  const half = place / 2;
   return {
     id: `${skillId}:${n}@${place}`,
     skillId,
@@ -278,6 +284,7 @@ export function roundNearest(level: number, rng: Rng, skillId: string): Question
     choices: shuffle([String(answer), ...distractors.slice(0, 3)], rng),
     answer: String(answer),
     readAloud: prompt, // "Round 274 to the nearest 10." reads as written
+    explain: `${n} is ${past} past ${below}. Halfway is ${half}, so ${past >= half ? "round up" : "round down"} to ${answer}.`,
   };
 }
 
@@ -460,7 +467,21 @@ export function addSubWithin1000(level: number, rng: Rng, skillId: string): Ques
     distractors.slice(0, 3),
     rng,
     `What is ${a} ${SPEAK_OP[op]} ${b}?`,
+    explainWithin1000(a, op, b),
   );
+}
+
+/** The second number in its hundreds, tens and ones, taken one chunk at a time. */
+function explainWithin1000(a: number, op: "+" | "-", b: number): string {
+  const chunks = [Math.floor(b / 100) * 100, Math.floor(b / 10) % 10 * 10, b % 10].filter((c) => c > 0);
+  let now = a;
+  const steps = chunks.map((chunk) => {
+    const next = op === "+" ? now + chunk : now - chunk;
+    const step = `${now} ${op} ${chunk} = ${next}`;
+    now = next;
+    return step;
+  });
+  return `${op === "+" ? "Add" : "Take away"} ${b} in chunks: ${steps.join(", then ")}.`;
 }
 
 /**
