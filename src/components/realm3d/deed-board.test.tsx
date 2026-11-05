@@ -34,6 +34,8 @@ const run = {
     { id: "q2", skillId: "add", prompt: "What is 4 + 4?", choices: ["8", "9"] },
   ],
   responses: ["5", null] as (string | null)[],
+  kind: "deed" as const,
+  pending: null,
 };
 
 function board(over: Partial<React.ComponentProps<typeof DeedBoard>> = {}) {
@@ -84,13 +86,13 @@ describe("the deed board", () => {
 
   it("does not answer twice for a double press", async () => {
     vi.mocked(startDeedRun).mockResolvedValue({ ...run, responses: [null, null] });
-    let resolve: (v: { correct: boolean; answer: string }) => void = () => {};
+    let resolve: (v: { correct: boolean; secondChance: boolean; answer: string }) => void = () => {};
     vi.mocked(answerDeedQuestion).mockReturnValue(new Promise((r) => (resolve = r)));
     board();
     await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" })));
     fireEvent.click(screen.getByRole("button", { name: "5" }));
     fireEvent.click(screen.getByRole("button", { name: "4" }));
-    await act(async () => resolve({ correct: true, answer: "5" }));
+    await act(async () => resolve({ correct: true, secondChance: false, answer: "5" }));
     expect(answerDeedQuestion).toHaveBeenCalledTimes(1);
   });
 

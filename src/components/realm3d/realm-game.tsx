@@ -194,7 +194,7 @@ declare global {
     __realmBus?: unknown;
     /** Development only: how long the last raised side quest took to reach the screen, in ms. */
     __realmRebuild?: { commitMs: number; frameMs: number; at: string }[];
-    __realmRaise?: (buildingId: string, result: { label: string; done: number; total: number; complete: boolean }) => void;
+    __realmRaise?: (buildingId: string, result: DeedResult) => void;
     /** Development only: go straight into a room, as if through its door ("chapel", "castle"…). */
     __realmEnter?: (site: string) => void;
   }

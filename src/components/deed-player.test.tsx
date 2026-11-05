@@ -19,13 +19,15 @@ const run: RunStart = {
     { id: "q2", skillId: "sight-g23", prompt: 'Which word is "again"?', choices: ["again", "against"] },
   ],
   responses: [null, null],
+  kind: "deed",
+  pending: null,
 };
 const profile = { fewerChoices: false, predictableRoutine: false, untimed: true, readAloud: false };
-const summary = { correctCount: 1, total: 2, flawless: false, masteryChanges: ["Sight words: getting stronger"], building: { label: "Village Well", done: 1, total: 5, complete: false } };
+const summary = { correctCount: 1, total: 2, flawless: false, masteryChanges: ["Sight words: getting stronger"], stars: 1, previousBest: 0, counted: true, kind: "deed" as const, building: { label: "Village Well", done: 1, total: 5, complete: false, stars: 0, maxStars: 0 } };
 
 beforeEach(() => {
   vi.clearAllMocks();
-  answerDeedQuestion.mockResolvedValue({ correct: false, answer: "because" });
+  answerDeedQuestion.mockResolvedValue({ correct: false, secondChance: false, answer: "because" });
   completeDeedRun.mockResolvedValue(summary);
 });
 afterEach(cleanup);
@@ -43,7 +45,7 @@ describe("DeedPlayer", () => {
 
   it("advances with Next and finishes after the last question", async () => {
     const user = userEvent.setup();
-    answerDeedQuestion.mockResolvedValue({ correct: true, answer: "because" });
+    answerDeedQuestion.mockResolvedValue({ correct: true, secondChance: false, answer: "because" });
     const onFinished = vi.fn();
     render(<DeedPlayer childId="c1" run={run} profile={profile} calm={true} onFinished={onFinished} />);
     await user.click(screen.getByRole("button", { name: "because" }));

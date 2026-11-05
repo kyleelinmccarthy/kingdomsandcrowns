@@ -30,12 +30,14 @@ export type BuildRunInput = {
   seed: number;
   poolItems: PoolItem[];
   recentMisses: Question[];
+  /** The grown-up's side-quest length; the deed's own count when absent. */
+  questionCount?: number;
 };
 
 export type BuiltRun = { skillIds: string[]; questions: Question[] };
 
-/** What the browser receives: everything but the answer. */
-export type ClientQuestion = Omit<Question, "answer">;
+/** What the browser receives: everything but the answer and its explanation. */
+export type ClientQuestion = Omit<Question, "answer" | "explain">;
 
 const MAX_REVIEW = 2;
 
@@ -347,7 +349,7 @@ export function buildDeedRun(input: BuildRunInput): BuiltRun {
   // Also by prompt: a miss stored under an older id shape would otherwise be re-asked as a
   // fresh question in the same deed.
   const reviewPrompts = new Set(review.map(questionText));
-  const target = deed.questionCount;
+  const target = input.questionCount ?? deed.questionCount;
   const fresh = Math.max(0, target - review.length);
 
   // Split fresh questions across the chosen skills, first skill taking the remainder.

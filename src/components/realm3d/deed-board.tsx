@@ -173,7 +173,8 @@ export function DeedBoard({
   );
 }
 
-type Feedback = { correct: boolean; answer: string };
+// The answer is absent while a second chance is open (`AttemptResult`).
+type Feedback = { correct: boolean; answer?: string };
 
 /**
  * One run, question by question. `DeedPlayer`'s rules, in the frame's clothes, plus the number
@@ -382,7 +383,7 @@ function DeedRun({
       {feedback && (
         <div className={`r3-feedback${feedback.correct ? " r3-feedback--right" : ""}`}>
           <p className="r3-feedback-text" role="status">
-            {feedback.correct ? `That's it! ${villagerName} is pleased.` : `Not quite. The answer was ${feedback.answer}.`}
+            {feedback.correct ? `That's it! ${villagerName} is pleased.` : feedback.answer ? `Not quite. The answer was ${feedback.answer}.` : "Not quite."}
           </p>
           <button
             ref={nextRef}

@@ -64,6 +64,8 @@ export type Question = {
   choices: string[]; // 4 (2 after fewerChoices trimming)
   answer: string;    // always one of choices
   readAloud?: string;
+  /** How to get there, built from the question's own parameters; leaves the server only once the question is resolved. */
+  explain?: string;
 };
 
 export type Rng = () => number;

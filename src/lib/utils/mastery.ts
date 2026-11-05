@@ -3,6 +3,9 @@ const HISTORY = 10;
 
 export type MasteryState = { level: number; recentResults: boolean[] };
 
+/** How close a skill is to its next rung, as the run shows it after an answer. */
+export type SkillMeter = { skillLabel: string; filled: number; needed: number };
+
 /**
  * The ladder: seven of the last eight right climbs a rung, three of the last
  * six wrong steps down one. History clears on a step so a hero starts each

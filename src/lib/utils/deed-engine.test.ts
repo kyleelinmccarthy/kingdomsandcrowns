@@ -90,6 +90,10 @@ describe("buildDeedRun", () => {
   it("is deterministic for a seed", () => {
     expect(buildDeedRun(input({ seed: 9 }))).toEqual(buildDeedRun(input({ seed: 9 })));
   });
+  it("takes the grown-up's side-quest length over the deed's own count", () => {
+    expect(buildDeedRun(input({ questionCount: 4 })).questions).toHaveLength(4);
+    expect(buildDeedRun(input({ questionCount: 12 })).questions).toHaveLength(12);
+  });
   it("never repeats a pool item and draws near the mastery level, widening when needed", () => {
     const items = [...poolItems("read-g3", 5, 0), ...poolItems("read-g3", 3, 4).map((i) => ({ ...i, id: `${i.id}-hi` }))];
     const run = buildDeedRun(input({ poolItems: items, masteryBySkill: { "read-g3": 4 } }));
@@ -187,6 +191,10 @@ describe("grading and client shape", () => {
   it("strips the answer for the client", () => {
     const q: Question = { id: "q", skillId: "s", prompt: "p", choices: ["a", "b", "c", "d"], answer: "b", readAloud: "pee" };
     expect(toClientQuestion(q)).toEqual({ id: "q", skillId: "s", prompt: "p", choices: ["a", "b", "c", "d"], readAloud: "pee" });
+  });
+  it("never sends the explanation to the client", () => {
+    const q: Question = { id: "q", skillId: "s", prompt: "p", choices: ["a", "b", "c", "d"], answer: "b", explain: "x" };
+    expect("explain" in toClientQuestion(q)).toBe(false);
   });
 });
 

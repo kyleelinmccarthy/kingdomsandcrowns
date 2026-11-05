@@ -46,7 +46,7 @@ export function records(
   return responses.map((first, i) => ({ first, second: secondTries[i] ?? null }));
 }
 
-const ALREADY_ANSWERED = "That question has already been answered.";
+export const ALREADY_ANSWERED = "That question has already been answered.";
 
 export function refuseRetry(
   q: Pick<Question, "answer" | "choices">,

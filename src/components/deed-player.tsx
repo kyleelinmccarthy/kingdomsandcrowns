@@ -11,7 +11,8 @@ import type { ProfileLike } from "@/lib/utils/deed-engine";
 import { canSpeak, speak } from "@/lib/utils/speech";
 import { SIDE_QUEST_LOWER } from "@/lib/utils/side-quest-copy";
 
-type Feedback = { correct: boolean; answer: string };
+// The answer is absent while a second chance is open (`AttemptResult`).
+type Feedback = { correct: boolean; answer?: string };
 
 export function DeedPlayer({
   childId,
@@ -141,7 +142,7 @@ export function DeedPlayer({
         </div>
         {feedback && (
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm">{feedback.correct ? "That's it!" : `Not quite. The answer was ${feedback.answer}.`}</p>
+            <p className="text-sm">{feedback.correct ? "That's it!" : feedback.answer ? `Not quite. The answer was ${feedback.answer}.` : "Not quite."}</p>
             <Button aria-label={isLast ? `Finish ${SIDE_QUEST_LOWER}` : "Next question"} disabled={busy} onClick={next}>
               {isLast ? `Finish ${SIDE_QUEST_LOWER}` : "Next"}
             </Button>
