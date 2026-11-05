@@ -141,7 +141,7 @@ export function DeedBoard({
       });
     return (
       <Panel title={title} label={title} wide className="r3-board--deed" icon={<GameIcon name={site.icon as GameIconName} className="r3-board-icon" />} onClose={onClose}>
-        <DeedRun run={run} villagerName={villager.name} profile={profile} calm={calm} onResult={handUp} onClose={onClose} />
+        <DeedRun run={run} villagerName={villager.name} profile={profile} calm={calm} numerals={numerals} onResult={handUp} onClose={onClose} />
       </Panel>
     );
   }
@@ -224,6 +224,7 @@ function DeedRun({
   villagerName,
   profile,
   calm,
+  numerals,
   onResult,
   onClose,
 }: {
@@ -231,6 +232,7 @@ function DeedRun({
   villagerName: string;
   profile: Profile;
   calm: boolean;
+  numerals: boolean;
   onResult: (done: RunSummary) => void;
   onClose: () => void;
 }) {
@@ -360,7 +362,7 @@ function DeedRun({
           Leave the {SIDE_QUEST_LOWER}
         </button>
       </div>
-      <DeedMeter meter={meter} streak={flow.streak} calm={calm} />
+      <DeedMeter meter={meter} streak={flow.streak} calm={calm} numerals={numerals} />
       {error && (
         <p className="r3-board-error" role="alert">
           {error}{" "}

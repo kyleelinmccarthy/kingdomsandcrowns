@@ -7,9 +7,10 @@ const FLAME_FROM = 2;
 /**
  * The skill's pips and the streak flame, shared by the Realm board and the page's player (styled
  * in globals.css). It names the skill and fills pips only — no numbers, no step names — and
- * calm play keeps the flame but never animates it.
+ * calm play keeps the flame but never animates it. At simple depth (`numerals` off) the flame
+ * stands alone, without its count.
  */
-export function DeedMeter({ meter, streak, calm }: { meter: SkillMeter | null; streak: number; calm: boolean }) {
+export function DeedMeter({ meter, streak, calm, numerals }: { meter: SkillMeter | null; streak: number; calm: boolean; numerals: boolean }) {
   const flame = streak >= FLAME_FROM;
   if (!meter && !flame) return null;
   return (
@@ -25,9 +26,9 @@ export function DeedMeter({ meter, streak, calm }: { meter: SkillMeter | null; s
         </div>
       )}
       {flame && (
-        <span className="deed-meter-streak" data-testid="deed-streak" role="img" aria-label={`${streak} right in a row`}>
+        <span className="deed-meter-streak" data-testid="deed-streak" role="img" aria-label={numerals ? `${streak} right in a row` : "Right in a row"}>
           <GameIcon name="fire" className={`deed-meter-flame${calm ? "" : " deed-meter-flame--live"}`} />
-          <span className="deed-meter-count" aria-hidden="true">{streak}</span>
+          {numerals && <span className="deed-meter-count" aria-hidden="true">{streak}</span>}
         </span>
       )}
     </div>

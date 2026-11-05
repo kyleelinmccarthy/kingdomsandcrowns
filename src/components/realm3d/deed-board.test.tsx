@@ -226,6 +226,19 @@ describe("the deed board", () => {
       expect(screen.getByTestId("deed-streak")).toHaveTextContent("2");
       expect(screen.getByText("Addition: getting stronger!")).toBeInTheDocument();
     });
+
+    it("at simple depth lights the flame without its count", async () => {
+      vi.mocked(startDeedRun).mockResolvedValue(fresh);
+      vi.mocked(answerDeedQuestion)
+        .mockResolvedValueOnce({ correct: true, secondChance: false, answer: "5", meter })
+        .mockResolvedValueOnce({ correct: true, secondChance: false, answer: "8", meter });
+      board({ numerals: false });
+      await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" })));
+      await act(async () => void fireEvent.click(screen.getByRole("button", { name: /^5/ })));
+      await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Next question" })));
+      await act(async () => void fireEvent.click(screen.getByRole("button", { name: /^8/ })));
+      expect(screen.getByTestId("deed-streak").textContent).not.toMatch(/\d/);
+    });
   });
 
   describe("second chances", () => {

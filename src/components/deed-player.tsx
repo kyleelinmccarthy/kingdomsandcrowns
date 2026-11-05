@@ -111,7 +111,7 @@ export function DeedPlayer({
             <span key={q.id} className={`size-2 rounded-full ${i < index ? "bg-[var(--gold-bright)]" : i === index ? "bg-primary" : "bg-muted"}`} />
           ))}
         </div>
-        <DeedMeter meter={meter} streak={flow.streak} calm={calm} />
+        <DeedMeter meter={meter} streak={flow.streak} calm={calm} numerals />
         {error && <div className="rounded-md bg-destructive/10 p-2 text-sm text-destructive">{error} <Button size="xs" variant="ghost" onClick={() => setError("")}>Try again</Button></div>}
         <div className="flex items-start gap-3">
           <p className="flex-1 text-xl font-medium">{question.prompt}</p>
