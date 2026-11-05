@@ -6,6 +6,7 @@ import * as schema from "@/lib/db/schema";
 import { DEFAULT_REALM_SETTINGS } from "@/lib/utils/realm-settings";
 import { hintFor } from "@/lib/utils/skill-hints";
 import { CHALLENGE, starsFor } from "@/lib/utils/deed-scoring";
+import { CHALLENGE_NOT_READY } from "@/lib/utils/deed-refusals";
 import type { Question } from "@/lib/utils/drill-generators";
 
 /**
@@ -443,6 +444,13 @@ describe("the Crown Challenge", () => {
     await expect(startDeedRun("c1", "well-stones", "realm", { challenge: true })).rejects.toThrow("Earn three stars on this side quest first.");
     await seedRun({ id: "two", completed: true, stars: 2 });
     await expect(startDeedRun("c1", "well-stones", "realm", { challenge: true })).rejects.toThrow("Earn three stars on this side quest first.");
+    expect(await runCount()).toBe(1);
+  });
+
+  it("is refused when the pool is too thin for all three questions, and nothing is written", async () => {
+    await threeStars();
+    vi.mocked(buildDeedRun).mockReturnValueOnce({ skillIds: [SKILL], questions: QUESTIONS.slice(0, CHALLENGE.questions - 1) });
+    await expect(startDeedRun("c1", "well-stones", "realm", { challenge: true })).rejects.toThrow(CHALLENGE_NOT_READY);
     expect(await runCount()).toBe(1);
   });
 

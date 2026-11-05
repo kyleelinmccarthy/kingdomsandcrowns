@@ -24,7 +24,7 @@ import type { Question } from "@/lib/utils/drill-generators";
 import { CHALLENGE, RUN_EFFECTS, countsTowardBuilding, runPoints, starsFor, type QuestionOutcome, type RunKind, type Stars } from "@/lib/utils/deed-scoring";
 import { outcomeOf, records, refuseGiveUp, refuseRetry, resumeIndex, statusOf, type QuestionStatus } from "@/lib/utils/deed-attempts";
 import {
-  ALREADY_ANSWERED, ANSWER_EVERY, ANSWER_FIRST, CHALLENGE_LOCKED, CLOSED, FINISHED, HERO_ONLY, NONE_READY,
+  ALREADY_ANSWERED, ANSWER_EVERY, ANSWER_FIRST, CHALLENGE_LOCKED, CHALLENGE_NOT_READY, CLOSED, FINISHED, HERO_ONLY, NONE_READY,
   NOT_IN_CHRONICLE, NOT_IN_RUN, NOT_THROUGH,
 } from "@/lib/utils/deed-refusals";
 import { overdueSkills } from "@/lib/utils/review-schedule";
@@ -190,6 +190,8 @@ export async function startDeedRun(
       : { recentMisses, dueSkillIds, questionCount: settings.sideQuestLength }),
   });
   if (built.questions.length === 0) throw new Error(NONE_READY);
+  // A crown is three right answers, never fewer: a thin pool at the higher rung waits.
+  if (challenge && built.questions.length < CHALLENGE.questions) throw new Error(CHALLENGE_NOT_READY);
 
   const now = new Date();
   const runId = nanoid();

@@ -21,10 +21,13 @@ export const FINISHED = `That ${SIDE_QUEST_LOWER} has already been finished.`;
 export const NOT_IN_RUN = `That question is not in this ${SIDE_QUEST_LOWER}.`;
 export const NOT_THROUGH = "That answer did not go through. Try it again.";
 export const ANSWER_EVERY = `Answer every question before finishing the ${SIDE_QUEST_LOWER}.`;
+/** Too few questions at the challenge's rung to make a whole Crown Challenge. */
+export const CHALLENGE_NOT_READY = `The Crown Challenge for this ${SIDE_QUEST_LOWER} isn't ready yet. Come back soon!`;
 
 const KNOWN = new Set([
   ALREADY_ANSWERED, ANSWER_FIRST, NO_SECOND_TRIES, PICK_SHOWN, TRY_DIFFERENT, CLOSED, HERO_ONLY,
   CHALLENGE_LOCKED, NOT_IN_CHRONICLE, NONE_READY, FINISHED, NOT_IN_RUN, NOT_THROUGH, ANSWER_EVERY,
+  CHALLENGE_NOT_READY,
 ]);
 
 /** One child-safe line for any error a deed action threw: our own refusal, or a friendly fallback. */
