@@ -243,6 +243,28 @@ describe("out-of-order and repeated calls are refused, and write nothing", () =>
   });
 });
 
+describe("two first answers at once", () => {
+  it("to one question: one is stored, mastery moves once, and both callers hear what was stored", async () => {
+    await seedRun();
+    const results = await Promise.all([answerDeedQuestion("run1", 1, "9"), answerDeedQuestion("run1", 1, "6")]);
+    const first = JSON.parse((await stored()).responses)[1];
+    expect(["9", "6"]).toContain(first);
+    const m = await client.query("SELECT attempt_total FROM skill_mastery WHERE child_id = 'c1' AND skill_id = $1", [SKILL]);
+    expect(m.rows[0].attempt_total).toBe(1);
+    // A wrong pick stored leaves the second chance open: neither caller may have the answer.
+    for (const r of results) expect("answer" in r).toBe(first === "9");
+    expect(results[0]).toEqual(results[1]);
+  });
+
+  it("to two questions: both are kept, and the count is of what was stored", async () => {
+    await seedRun();
+    await Promise.all([answerDeedQuestion("run1", 0, "6"), answerDeedQuestion("run1", 1, "9")]);
+    expect(JSON.parse((await stored()).responses)).toEqual(["6", "9", null, null]);
+    const r = await client.query("SELECT correct_count FROM deed_run WHERE id = 'run1'");
+    expect(r.rows[0].correct_count).toBe(2);
+  });
+});
+
 describe("stars on a finished run", () => {
   it("scores first, second, miss, first as one star, and the run raises its building", async () => {
     await seedRun();

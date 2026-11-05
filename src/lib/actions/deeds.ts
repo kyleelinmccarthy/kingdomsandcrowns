@@ -299,20 +299,32 @@ async function recordFirstTry(childId: string, skillId: string, correct: boolean
   }).where(and(eq(schema.skillMastery.childId, childId), eq(schema.skillMastery.skillId, skillId)));
 }
 
+// Bounds the re-read loop below; only answers racing on other questions of the same run retry.
+const ANSWER_WRITE_TRIES = 5;
+
 export async function answerDeedQuestion(runId: string, index: number, answer: string): Promise<AttemptResult> {
-  const { run, responses, question, attempt, allows } = await loadAttemptState(runId, index);
-  // A repeat answer to the same question (double tap) is not re-graded; while a second
-  // chance is open it still says only that.
-  if (attempt.first !== null) return resultFor(question, statusOf(question, attempt, allows));
-  const correct = gradeAnswer(question, answer);
-  responses[index] = answer;
-  const now = new Date();
-  await db
-    .update(schema.deedRun)
-    .set({ responses: JSON.stringify(responses), correctCount: run.correctCount + (correct ? 1 : 0), updatedAt: now })
-    .where(eq(schema.deedRun.id, runId));
-  if (RUN_EFFECTS[run.kind].movesMastery) await recordFirstTry(run.childId, question.skillId, correct, now);
-  return resultFor(question, statusOf(question, { first: answer, second: null }, allows));
+  for (let tries = 0; tries < ANSWER_WRITE_TRIES; tries++) {
+    const { run, questions, responses, question, attempt, allows } = await loadAttemptState(runId, index);
+    // A repeat answer to the same question (double tap, or the loser of a race) is not re-graded:
+    // it hears what was stored, and while a second chance is open that is still only a hint.
+    if (attempt.first !== null) return resultFor(question, statusOf(question, attempt, allows));
+    const next = questions.map((_, i) => responses[i] ?? null);
+    next[index] = answer;
+    const correctCount = questions.filter((q, i) => next[i] !== null && gradeAnswer(q, next[i]!)).length;
+    const now = new Date();
+    // Conditional on the stored responses being the ones just read, so two first answers can
+    // never both land; a call that loses re-reads, and either hears the winner or reapplies.
+    const written = await db
+      .update(schema.deedRun)
+      .set({ responses: JSON.stringify(next), correctCount, updatedAt: now })
+      .where(and(eq(schema.deedRun.id, runId), eq(schema.deedRun.responses, run.responses), isNull(schema.deedRun.completedAt)))
+      .returning({ id: schema.deedRun.id });
+    if (written.length === 0) continue;
+    const correct = gradeAnswer(question, answer);
+    if (RUN_EFFECTS[run.kind].movesMastery) await recordFirstTry(run.childId, question.skillId, correct, now);
+    return resultFor(question, statusOf(question, { first: answer, second: null }, allows));
+  }
+  throw new Error("That answer did not go through. Try it again.");
 }
 
 /**
