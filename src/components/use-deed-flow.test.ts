@@ -34,6 +34,18 @@ describe("useDeedFlow", () => {
     expect(result.current.flow).toMatchObject({ phase: "resolved", ruledOut: ["b"] });
   });
 
+  it("a first answer on a mastered skill (no meter) clears the last skill's pips", async () => {
+    answerDeedQuestion
+      .mockResolvedValueOnce({ correct: true, secondChance: false, answer: "a", meter })
+      .mockResolvedValueOnce({ correct: true, secondChance: false, answer: "a", meter: null });
+    const { result } = renderHook(() => useDeedFlow(run));
+    await act(() => result.current.choose("a"));
+    expect(result.current.meter).toEqual(meter);
+    act(() => result.current.next());
+    await act(() => result.current.choose("a"));
+    expect(result.current.meter).toBeNull();
+  });
+
   it("a retry brings no meter and keeps the one the first answer set", async () => {
     answerDeedQuestion.mockResolvedValue({ correct: false, secondChance: true, hint: "Count.", firstPick: "b", meter });
     retryDeedQuestion.mockResolvedValue({ correct: true, secondChance: false, answer: "a" });

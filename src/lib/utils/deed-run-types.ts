@@ -23,9 +23,9 @@ export type AttemptResult = {
   /** With an open second chance: the first pick the server stored (the child's own, safe to send). */
   firstPick?: string;
   /**
-   * Only on a first answer that moved mastery: where the skill's pips stand now. Absent or null
-   * means "no news" to the board (it keeps the last meter) — except with `rungChange`, where null
-   * means the skill just reached the top and there is nothing left to fill.
+   * Only on a first answer that moved mastery: where the skill's pips stand now. On a first answer,
+   * absent or null means there are no pips to show (the skill is at the top, or nothing moved), so
+   * the board clears its meter; a retry never carries one and the board keeps the last.
    */
   meter?: SkillMeter | null;
   /** Set only on a promotion; a step down is never said mid-run (the summary handles it gently). */

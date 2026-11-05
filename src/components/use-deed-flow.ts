@@ -51,10 +51,9 @@ export function useDeedFlow(run: RunStart, onAttempt?: (result: AttemptResult) =
     return guarded(async () => {
       const result = await call(run.runId, index, choice);
       send({ type: "answered", choice, result });
-      // A call with no meter (a retry, a lost race) leaves the last one up; a promotion with none
-      // means the skill reached the top and has no pips left to fill.
-      if (result.meter) setMeter(result.meter);
-      else if (result.rungChange) setMeter(null);
+      // A first answer always says where its skill stands: no meter means a skill already at the
+      // top (or a challenge), so the last skill's pips go. A retry brings none and leaves them up.
+      if (phase === "asking") setMeter(result.meter ?? null);
       onAttempt?.(result);
     });
   }
