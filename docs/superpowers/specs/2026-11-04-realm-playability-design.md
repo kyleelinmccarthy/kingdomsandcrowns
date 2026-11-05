@@ -232,3 +232,20 @@ Each step is shippable on its own; 8 and 9 can be cut without leaving anything h
 8. Two parent settings only: side-quest length (4–12, default 8) and second chances (on).
 9. Existing finished runs are given stars from their stored score when the migration runs.
 10. Keep-it-sharp review draws only from skills the deed can serve at the child's current grade.
+
+## 11. After the build (2026-11-05)
+
+Built on `realm-playability` (32 commits from dev 690dc03): 13 tasks, each reviewed, plus a whole-branch review and one fix wave. Full suite 272 files / 5276 tests, tsc clean, eslint at the known baseline. Verified in the browser as Emma: second chance with hint, retry, Show me with worked explanation, streak, result stars, board stars, Crown Challenge, pennants, plates, simple depth, the Settings "Side quests" group.
+
+Calls made during the build (beyond §10): recent misses keep their old cap of 2 inside the review budget of 3; the streak shows the flame without a digit at simple depth; in production any deed error reads as one friendly line ("That didn't work.") because Next hides server-action messages.
+
+**Before the Turso → Neon cutover:** the importer now skips missing source columns and runs the star backfill at the end (`migrate-data-from-turso.ts`). Run it once against a scratch database first.
+
+**Known follow-ups (judged safe to wait):**
+- Flat-Realm `deed-panel.tsx` and page `deed-picker.tsx` still show raw start errors; grown-up panels still say "The enchantment failed."
+- Science and vocabulary hints are close to generic; `lang-gk` is a mixed pool one hint cannot fully fit.
+- The page player and the Realm board still repeat some view wiring (focus, read-aloud, timer); a `useDeedRunView` hook would remove it.
+- `actions/deeds.ts` is ~480 lines; split the attempt actions into their own module next time it is touched.
+- The 420 KB explanation baseline fixture could become per-generator digests.
+- Local data: `npm run db:seed-drills` is needed locally for the grade-3/4 reading pools (a reading side quest 500s without them).
+- Dev only: one fresh dev build gave two server actions the same client id ("call is not a function"); a clean `.next-agent` fixed it.
