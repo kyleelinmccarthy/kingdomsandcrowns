@@ -34,6 +34,7 @@ import {
   statusOf,
   type QuestionStatus,
 } from "@/lib/utils/deed-attempts";
+import { dueSkills } from "@/lib/utils/review-schedule";
 import { hintFor } from "@/lib/utils/skill-hints";
 import { buildingStars, gradeForDeed, loadDeedBest, loadHeroLevels, loadKingdomOverview, type BuildingOverview } from "@/lib/services/deeds";
 import { loadLearningProfileRow } from "@/lib/services/learning-profile";
@@ -212,9 +213,15 @@ export async function startDeedRun(
     distractors: JSON.parse(r.distractors) as string[], readAloud: r.readAloud, level: r.level,
   }));
 
+  // Skills this deed can serve that have rested past their interval. Which skills the run
+  // itself practises is chosen inside buildDeedRun, which drops any it already picked.
+  const dueSkillIds = dueSkills(
+    masteryRows.map((m) => ({ skillId: m.skillId, level: m.level, lastPracticedAt: lastPracticedBySkill[m.skillId] })),
+    skills.map((s) => s.id), [], Date.now(),
+  );
   const built = buildDeedRun({
     deed, grade, masteryBySkill, lastPracticedBySkill, profile, seed: Date.now() >>> 0, poolItems, recentMisses,
-    questionCount: settings.sideQuestLength,
+    dueSkillIds, questionCount: settings.sideQuestLength,
   });
   if (built.questions.length === 0) throw new Error(`No ${SIDE_QUESTS_LOWER} are ready for this hero yet.`);
 

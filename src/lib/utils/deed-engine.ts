@@ -3,6 +3,7 @@ import { nearestGrades, type Grade } from "./grade-levels";
 import { MASTERY_MAX } from "./mastery";
 import { skillsFor, type Skill } from "./skills";
 import type { Deed } from "./deeds";
+import { REVIEW } from "./review-schedule";
 
 export type ProfileLike = { fewerChoices: boolean; predictableRoutine: boolean; untimed: boolean; readAloud: boolean };
 
@@ -30,6 +31,12 @@ export type BuildRunInput = {
   seed: number;
   poolItems: PoolItem[];
   recentMisses: Question[];
+  /**
+   * Skills the child has learned that are due again (see `dueSkills`). Only those the deed can
+   * serve at this grade and the run is not already practising are used, and their questions
+   * take the place of fresh ones — never added to the count.
+   */
+  dueSkillIds?: string[];
   /** The grown-up's side-quest length; the deed's own count when absent. */
   questionCount?: number;
 };
@@ -38,8 +45,6 @@ export type BuiltRun = { skillIds: string[]; questions: Question[] };
 
 /** What the browser receives: everything but the answer and its explanation. */
 export type ClientQuestion = Omit<Question, "answer" | "explain">;
-
-const MAX_REVIEW = 2;
 
 /**
  * Every skill for the deed's area at the hero's grade, or at the nearest grade that has any.
@@ -344,13 +349,37 @@ export function buildDeedRun(input: BuildRunInput): BuiltRun {
     seenMissIds.add(m.id);
     return true;
   });
-  const review = dedupedMisses.filter((m) => skillIds.includes(m.skillId)).slice(0, MAX_REVIEW);
+  // Misses come back first; what is left of the review budget goes to skills that are due.
+  const review = dedupedMisses.filter((m) => skillIds.includes(m.skillId)).slice(0, REVIEW.maxTotal);
   const reviewIds = new Set(review.map((m) => m.id));
   // Also by prompt: a miss stored under an older id shape would otherwise be re-asked as a
   // fresh question in the same deed.
   const reviewPrompts = new Set(review.map(questionText));
   const target = input.questionCount ?? deed.questionCount;
-  const fresh = Math.max(0, target - review.length);
+
+  // Due skills are drawn at their own level before the fresh ones, so fresh draws avoid them.
+  const candidates = chooseSkills(deed, grade);
+  const dueCandidates = [...new Set(input.dueSkillIds ?? [])]
+    .map((id) => candidates.find((s) => s.id === id))
+    .filter((s): s is Skill => !!s && !skillIds.includes(s.id))
+    .slice(0, Math.min(REVIEW.maxDue, REVIEW.maxTotal - review.length, target - review.length));
+  // One question per due skill: a reminder, not a second lesson.
+  const due: Question[] = [];
+  const dueSkillsUsed: string[] = [];
+  for (const skill of dueCandidates) {
+    const level = masteryBySkill[skill.id] ?? 0;
+    const [drawn] = skill.source.kind === "generator"
+      ? drawGenerated(skill, level, 1, rng, reviewIds, reviewPrompts)
+      : drawPool(poolItems.filter((p) => p.skillId === skill.id && !reviewIds.has(p.id)), level, 1, rng);
+    if (!drawn) continue;
+    due.push(drawn);
+    dueSkillsUsed.push(skill.id);
+    reviewIds.add(drawn.id);
+    reviewPrompts.add(questionText(drawn));
+  }
+  const nonFresh = [...review, ...due];
+  const fresh = Math.max(0, target - nonFresh.length);
+  const allSkillIds = [...skillIds, ...dueSkillsUsed];
 
   // Split fresh questions across the chosen skills, first skill taking the remainder.
   const perSkill = skills.map((_, i) => Math.floor(fresh / skills.length) + (i < fresh % skills.length ? 1 : 0));
@@ -375,18 +404,18 @@ export function buildDeedRun(input: BuildRunInput): BuiltRun {
     }
   }
 
-  if (questions.length === 0 && review.length === 0) return { skillIds, questions: [] };
+  if (questions.length === 0 && nonFresh.length === 0) return { skillIds: allSkillIds, questions: [] };
 
   let ordered: Question[];
   if (profile.predictableRoutine) {
     // Same shape every time: skills in catalog order, review at the end.
-    ordered = [...skills.flatMap((s) => questions.filter((q) => q.skillId === s.id)), ...review];
+    ordered = [...skills.flatMap((s) => questions.filter((q) => q.skillId === s.id)), ...nonFresh];
   } else {
-    ordered = shuffle([...questions, ...review], rng);
+    ordered = shuffle([...questions, ...nonFresh], rng);
   }
 
   const finalQuestions = profile.fewerChoices ? ordered.map((q) => trimChoices(q, rng)) : ordered;
-  return { skillIds, questions: finalQuestions };
+  return { skillIds: allSkillIds, questions: finalQuestions };
 }
 
 export function gradeAnswer(question: Pick<Question, "answer">, answer: string): boolean {

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { buildDeedRun, chooseSkills, gradeAnswer, toClientQuestion, type BuildRunInput, type PoolItem } from "./deed-engine";
 import { findDeed } from "./deeds";
+import { REVIEW } from "./review-schedule";
 import { GENERATORS, seededRng } from "./drill-generators";
 import { SKILLS } from "./skills";
 import { GRADES } from "./grade-levels";
@@ -100,10 +101,10 @@ describe("buildDeedRun", () => {
     expect(new Set(run.questions.map((q) => q.id)).size).toBe(run.questions.length);
     expect(run.questions.length).toBe(8);
   });
-  it("mixes in at most two recent misses for the chosen skills", () => {
-    const misses: Question[] = [0, 1, 2].map((i) => ({ id: `miss-${i}`, skillId: "read-g3", prompt: `Miss ${i}`, choices: ["x", "y", "z", "w"], answer: "x" }));
+  it("mixes in at most REVIEW.maxTotal recent misses for the chosen skills", () => {
+    const misses: Question[] = [0, 1, 2, 3].map((i) => ({ id: `miss-${i}`, skillId: "read-g3", prompt: `Miss ${i}`, choices: ["x", "y", "z", "w"], answer: "x" }));
     const run = buildDeedRun(input({ recentMisses: misses }));
-    expect(run.questions.filter((q) => q.id.startsWith("miss-"))).toHaveLength(2);
+    expect(run.questions.filter((q) => q.id.startsWith("miss-"))).toHaveLength(REVIEW.maxTotal);
     expect(run.questions).toHaveLength(8);
   });
   it("dedupes recent misses with the same id into a single review question", () => {
@@ -593,5 +594,69 @@ describe("which skills count their choices as part of the question", () => {
       if (prompts.size === 1) constantPrompt.push(skill.id);
     }
     expect(constantPrompt.sort()).toEqual(["compare-num", "compare-num-100", "fractions-compare"]);
+  });
+});
+
+describe("buildDeedRun keep-it-sharp review", () => {
+  const mastery = { "mul-facts": 1, "div-facts": 2, "frac-unit": 2, "sub-1000": 2 };
+  const mulInput = (over: Partial<BuildRunInput> = {}) =>
+    input({ deed: deedMath, grade: "3", poolItems: [], masteryBySkill: mastery, ...over });
+  const missOf = (i: number, skillId: string): Question => ({ id: `miss-${i}`, skillId, prompt: `Miss ${i}`, choices: ["x", "y", "z", "w"], answer: "x" });
+  // Selection draws first from the seed, so a run without due skills names the run's own.
+  const ownOf = (seed: number) => buildDeedRun(mulInput({ seed })).skillIds;
+  const dueOf = (seed: number, ids: string[]) => {
+    const own = ownOf(seed);
+    return ids.filter((id) => !own.includes(id));
+  };
+
+  it("swaps fresh questions for a due skill's, keeping the count and the order of skillIds", () => {
+    for (let seed = 1; seed <= 20; seed++) {
+      const own = ownOf(seed);
+      const due = dueOf(seed, ["div-facts"]);
+      const run = buildDeedRun(mulInput({ seed, dueSkillIds: ["div-facts"] }));
+      expect(run.questions).toHaveLength(8);
+      expect(new Set(run.questions.map((q) => q.id)).size).toBe(8);
+      expect(run.skillIds).toEqual([...own, ...due]);
+      expect(run.questions.some((q) => q.skillId === "div-facts")).toBe(true);
+    }
+  });
+  it("holds recent misses and due questions together to REVIEW.maxTotal, misses first", () => {
+    for (let seed = 1; seed <= 20; seed++) {
+      const own = ownOf(seed);
+      const ids = ["div-facts", "frac-unit", "sub-1000"];
+      const run = buildDeedRun(mulInput({ seed, dueSkillIds: ids, recentMisses: [missOf(0, own[0]), missOf(1, own[0])] }));
+      const misses = run.questions.filter((q) => q.id.startsWith("miss-"));
+      const due = run.questions.filter((q) => !own.includes(q.skillId));
+      expect(run.questions).toHaveLength(8);
+      expect(misses).toHaveLength(2);
+      expect(misses.length + due.length).toBeLessThanOrEqual(REVIEW.maxTotal);
+      expect(due.length).toBeLessThanOrEqual(1);
+    }
+  });
+  it("never asks for more than maxDue due questions", () => {
+    for (let seed = 1; seed <= 20; seed++) {
+      const own = ownOf(seed);
+      const run = buildDeedRun(mulInput({ seed, dueSkillIds: ["div-facts", "frac-unit", "sub-1000"], questionCount: 12 }));
+      const due = run.questions.filter((q) => !own.includes(q.skillId));
+      expect(due.length).toBeLessThanOrEqual(REVIEW.maxDue);
+      expect(due.length).toBeGreaterThan(0);
+    }
+  });
+  it("ignores a due skill the deed cannot serve", () => {
+    const run = buildDeedRun(mulInput({ seed: 5, dueSkillIds: ["read-g3", "nonsense"] }));
+    expect(run.skillIds).toEqual(ownOf(5));
+    expect(run.questions).toHaveLength(8);
+  });
+  it("has none when nothing is due (the challenge shape)", () => {
+    expect(buildDeedRun(mulInput({ seed: 7, dueSkillIds: [], recentMisses: [] }))).toEqual(buildDeedRun(mulInput({ seed: 7 })));
+  });
+  it("puts due questions at the end under predictableRoutine, and trims their choices under fewerChoices", () => {
+    const seed = [1, 2, 3, 4, 5, 6].find((s) => dueOf(s, ["div-facts"]).length === 1)!;
+    const own = ownOf(seed);
+    const run = buildDeedRun(mulInput({ seed, dueSkillIds: ["div-facts"], profile: { ...profile, predictableRoutine: true, fewerChoices: true } }));
+    const flags = run.questions.map((q) => !own.includes(q.skillId));
+    expect(flags.lastIndexOf(false)).toBeLessThan(flags.indexOf(true));
+    expect(flags[flags.length - 1]).toBe(true);
+    for (const q of run.questions) expect(q.choices).toHaveLength(2);
   });
 });
