@@ -53,5 +53,7 @@ export function choiceTone(state: FlowState, choice: string): ChoiceTone {
   if (state.phase === "asking") return "plain";
   if (state.phase === "second-chance") return state.ruledOut.includes(choice) ? "ruled-out" : "plain";
   if (choice === state.result?.answer) return "answer";
+  // A first pick ruled out stays marked once resolved, whatever the retry did.
+  if (state.ruledOut.includes(choice)) return "picked-wrong";
   return choice === state.picked && !state.result?.correct ? "picked-wrong" : "faded";
 }

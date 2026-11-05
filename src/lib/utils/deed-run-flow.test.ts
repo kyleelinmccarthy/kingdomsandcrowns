@@ -72,12 +72,20 @@ describe("choiceTone", () => {
     expect(choiceTone(second, "b")).toBe("ruled-out");
     expect(choiceTone(second, "c")).toBe("plain");
   });
-  it("marks the answer, a wrong pick, and fades the rest once resolved", () => {
+  it("marks the answer, both wrong picks, and fades the rest once resolved", () => {
     const done = flowReducer(second, { type: "answered", choice: "c", result: miss });
     expect(choiceTone(done, "a")).toBe("answer");
     expect(choiceTone(done, "c")).toBe("picked-wrong");
-    expect(choiceTone(done, "b")).toBe("faded");
+    expect(choiceTone(done, "b")).toBe("picked-wrong");
     expect(choiceTone(done, "d")).toBe("faded");
+  });
+  it("keeps the first wrong pick marked after a right retry, and after showing the answer", () => {
+    const right2 = flowReducer(second, { type: "answered", choice: "a", result: right });
+    expect(choiceTone(right2, "a")).toBe("answer");
+    expect(choiceTone(right2, "b")).toBe("picked-wrong");
+    expect(choiceTone(right2, "c")).toBe("faded");
+    const shown = flowReducer(second, { type: "gave-up", result: miss });
+    expect(choiceTone(shown, "b")).toBe("picked-wrong");
   });
   it("a right pick is the answer", () => {
     const done = flowReducer(asking, { type: "answered", choice: "a", result: right });
