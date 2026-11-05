@@ -16,6 +16,7 @@
  */
 
 import type { AttemptResult, RunSummary } from "@/lib/utils/deed-run-types";
+import { MAX_STARS } from "@/lib/utils/deed-scoring";
 import type { ObjectiveState } from "@/lib/realm/objective";
 import { riseToast } from "@/lib/realm/objective";
 import type { Villager } from "@/lib/realm/villagers";
@@ -177,7 +178,7 @@ export function resultBuildingLine(b: { label: string; done: number; total: numb
 
 /** "2 of 3 stars", for a screen reader beside the drawn stars. */
 export function starsLabel(stars: number): string {
-  return `${stars} of 3 stars`;
+  return `${stars} of ${MAX_STARS} stars`;
 }
 
 /**

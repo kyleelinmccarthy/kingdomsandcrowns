@@ -10,11 +10,8 @@ import { deedsForBuilding, deedStory } from "@/lib/utils/deeds";
 import type { ContentBand } from "@/lib/utils/content-bands";
 import type { AgeMode } from "@/lib/utils/age-mode";
 import type { SkillArea } from "@/lib/utils/skills";
-import type { Stars } from "@/lib/utils/deed-scoring";
+import { MAX_STARS, type Stars } from "@/lib/utils/deed-scoring";
 import type { GameIconName } from "@/components/game-icon";
-
-/** The most stars one side quest can hold. */
-export const MAX_STARS = 3;
 
 /** What a hero has earned on one side quest: its best stars, and whether a Crown Challenge was ever flawless. */
 export type DeedBest = { deedId: string; bestStars: Stars; crowned: boolean };

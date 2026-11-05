@@ -30,11 +30,12 @@ import type { RunStart, RunSummary } from "@/lib/utils/deed-run-types";
 import { realmCue } from "@/lib/realm3d/sound/store";
 import type { BuildingOverview } from "@/lib/services/deeds";
 import type { Villager } from "@/lib/realm/villagers";
-import { attemptFeedback, resultBuildingLine, resultHeadline, resultStarsLine, starsLabel, talkCopy, type Viewer } from "@/lib/realm3d/talk";
-import type { Stars } from "@/lib/utils/deed-scoring";
+import { attemptFeedback, resultBuildingLine, resultHeadline, resultStarsLine, talkCopy, type Viewer } from "@/lib/realm3d/talk";
+import { MAX_STARS, type Stars } from "@/lib/utils/deed-scoring";
 import { choiceTone } from "@/lib/utils/deed-run-flow";
 import { deedErrorLine } from "@/lib/utils/deed-refusals";
 import { DeedMeter } from "@/components/deed-meter";
+import { StarRow } from "@/components/star-row";
 import { useDeedFlow } from "@/components/use-deed-flow";
 import { AREA_LABELS, type SkillArea } from "@/lib/utils/skills";
 import { canSpeak, speak, stopSpeaking, type SpeechToken } from "@/lib/utils/speech";
@@ -66,15 +67,9 @@ function Subject({ area }: { area: SkillArea }) {
   );
 }
 
-/** Three stars, lit up to `stars`: the board's list and the result card draw them the same way. */
-function StarRow({ stars, small }: { stars: number; small?: boolean }) {
-  return (
-    <span className={`r3-result-stars${small ? " r3-stars--small" : ""}`} role="img" aria-label={starsLabel(stars)}>
-      {[1, 2, 3].map((n) => (
-        <GameIcon key={n} name="star" className={`r3-star${n <= stars ? " r3-star--on" : ""}`} />
-      ))}
-    </span>
-  );
+/** The shared star row in the frame's clothes: the board's list and the result card alike. */
+function BoardStars({ stars, small }: { stars: number; small?: boolean }) {
+  return <StarRow stars={stars} className={`r3-result-stars${small ? " r3-stars--small" : ""}`} starClass="r3-star" onClass="r3-star--on" />;
 }
 
 export function DeedBoard({
@@ -185,7 +180,7 @@ export function DeedBoard({
             <div className="r3-deed-text">
               <p className="r3-deed-title">
                 {d.title} <Subject area={d.area} />
-                <StarRow stars={d.bestStars} small />
+                <BoardStars stars={d.bestStars} small />
                 {d.crowned && (
                   <span className="r3-deed-crown">
                     <GameIcon name="crown" className="r3-deed-crown-icon" />
@@ -200,7 +195,7 @@ export function DeedBoard({
                 <button type="button" className="r3-menu-item r3-menu-item--go r3-deed-go" aria-label={`Begin ${d.title}`} disabled={busy} onClick={() => void begin(d.id)}>
                   Begin
                 </button>
-                {d.bestStars === 3 && (
+                {d.bestStars === MAX_STARS && (
                   <button type="button" className="r3-menu-item r3-deed-go r3-deed-challenge" aria-label={`Begin the ${CROWN_CHALLENGE} for ${d.title}`} disabled={busy} onClick={() => void begin(d.id, true)}>
                     <GameIcon name="crown" className="r3-menu-icon" /> {CROWN_CHALLENGE}
                   </button>
@@ -323,7 +318,7 @@ function DeedRun({
           <GameIcon name={summary.flawless ? (summary.kind === "challenge" ? "crown" : "star") : "check"} className="r3-result-icon" />
         </span>
         <h3 className="r3-result-title">{head.title}</h3>
-        {summary.kind === "deed" && <StarRow stars={summary.stars} />}
+        {summary.kind === "deed" && <BoardStars stars={summary.stars} />}
         {stars && <p className="r3-result-stars-line">{stars}</p>}
         <p className="r3-result-line">
           <Subject area={run.deed.area} /> {head.line}

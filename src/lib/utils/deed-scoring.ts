@@ -4,6 +4,8 @@
  * rather than a zero; stars are the share of the run's best possible points.
  */
 export type Stars = 0 | 1 | 2 | 3;
+/** The most stars one side quest can hold. */
+export const MAX_STARS = 3;
 export type QuestionOutcome = "first" | "second" | "miss";
 export type RunKind = "deed" | "challenge";
 

@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { GameIcon } from "@/components/game-icon";
-import { resultStarsLine, starsLabel } from "@/lib/realm3d/talk";
+import { resultStarsLine } from "@/lib/realm3d/talk";
+import { StarRow } from "@/components/star-row";
 import { SubjectChip } from "@/components/subject-chip";
 import type { RunSummary } from "@/lib/utils/deed-run-types";
 import type { SkillArea } from "@/lib/utils/skills";
@@ -14,11 +15,7 @@ export function DeedResults({ summary, deedTitle, area, onDone, doneLabel = `Bac
       {/* Sentence case here (not the SIDE_QUEST title-case noun): matches "Flawless!" as a short exclamation, not a heading. */}
       <h3 className="text-lg font-bold">{summary.flawless ? "Flawless!" : "Side quest done!"}</h3>
       {summary.kind === "deed" && (
-        <div className="flex justify-center gap-1" role="img" aria-label={starsLabel(summary.stars)}>
-          {[1, 2, 3].map((n) => (
-            <GameIcon key={n} name="star" className={`size-7 ${n <= summary.stars ? "text-[var(--gold-bright)]" : "text-muted-foreground/30"}`} />
-          ))}
-        </div>
+        <StarRow stars={summary.stars} className="flex justify-center gap-1" starClass="size-7" onClass="text-[var(--gold-bright)]" offClass="text-muted-foreground/30" />
       )}
       {starsLine && <p className="text-sm font-semibold">{starsLine}</p>}
       <SubjectChip area={area} size="md" />

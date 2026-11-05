@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   CHALLENGE,
+  MAX_STARS,
   RUN_EFFECTS,
   SCORING,
   countsTowardBuilding,
@@ -9,6 +10,13 @@ import {
   starsFor,
   type QuestionOutcome,
 } from "./deed-scoring";
+
+describe("MAX_STARS", () => {
+  it("is one star per threshold: three", () => {
+    expect(MAX_STARS).toBe(3);
+    expect(SCORING.starThresholds).toHaveLength(MAX_STARS);
+  });
+});
 
 describe("runPoints", () => {
   it("scores first tries 2, second tries 1, misses 0", () => {
