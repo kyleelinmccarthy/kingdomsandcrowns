@@ -21,6 +21,7 @@ describe("skill hints", () => {
     expect(hint.length).toBeLessThanOrEqual(160);
     expect(hint).not.toMatch(bannedRe);
     expect(hint).not.toMatch(/\d/); // a digit would be a fact from some question
+    expect(hint.split(/[.!?]+(?:\s+|$)/).filter(Boolean).length).toBeLessThanOrEqual(2); // one or two sentences
   });
 
   it("has no hint for an id that is not a skill", () => {
