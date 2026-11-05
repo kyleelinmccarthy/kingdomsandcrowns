@@ -44,6 +44,7 @@ const DDL = [
     daily_cap_minutes integer DEFAULT 30 NOT NULL, tone_mode text DEFAULT 'gentle' NOT NULL,
     help_seen_at timestamptz, starter_spell_at timestamptz, depth_override text DEFAULT 'auto' NOT NULL,
     tutorial_step integer DEFAULT 0 NOT NULL, trouble_bonus_cap_minutes integer DEFAULT 5 NOT NULL,
+    side_quest_length integer DEFAULT 8 NOT NULL, second_chances boolean DEFAULT true NOT NULL,
     sound text, created_at timestamptz NOT NULL, updated_at timestamptz NOT NULL)`,
   `CREATE TABLE realm_visitor_sound (
     user_id text PRIMARY KEY NOT NULL, sound text NOT NULL, updated_at timestamptz NOT NULL)`,

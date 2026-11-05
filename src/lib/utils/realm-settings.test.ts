@@ -98,3 +98,24 @@ describe("tutorialStep", () => {
     expect(settingsFromRow({ ...ROW, tutorialStep: 99 }).tutorialStep).toBe(STORED_MAX);
   });
 });
+
+describe("side-quest length and second chances", () => {
+  it("defaults to 8 questions with second chances on", () => {
+    expect(DEFAULT_REALM_SETTINGS.sideQuestLength).toBe(8);
+    expect(DEFAULT_REALM_SETTINGS.secondChances).toBe(true);
+  });
+  it("reads an out-of-range length as the default and keeps a valid one", () => {
+    expect(settingsFromRow({ sideQuestLength: 13 }).sideQuestLength).toBe(8);
+    expect(settingsFromRow({ sideQuestLength: 6 }).sideQuestLength).toBe(6);
+  });
+  it("reads a non-boolean second-chances value as the default", () => {
+    expect(settingsFromRow({ secondChances: "yes" }).secondChances).toBe(true);
+    expect(settingsFromRow({ secondChances: false }).secondChances).toBe(false);
+  });
+  it("rejects a bad length or flag on write", () => {
+    expect(() => validateRealmSettingsPatch({ sideQuestLength: 3 })).toThrow("Side quests must be 4–12 questions.");
+    expect(validateRealmSettingsPatch({ sideQuestLength: 12 })).toEqual({ sideQuestLength: 12 });
+    expect(validateRealmSettingsPatch({ secondChances: false })).toEqual({ secondChances: false });
+    expect(() => validateRealmSettingsPatch({ secondChances: 1 })).toThrow();
+  });
+});

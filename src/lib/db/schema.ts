@@ -833,6 +833,8 @@ export const realmSettings = pgTable(
     // The most Realm minutes a day that clearing troubles may earn (1 per clear). 0 turns the
     // bounty off. It can never outrun the day's schoolwork: see `lib/realm/spells/bounty.ts`.
     troubleBonusCapMinutes: integer("trouble_bonus_cap_minutes").notNull().default(5),
+    sideQuestLength: integer("side_quest_length").notNull().default(8),
+    secondChances: boolean("second_chances").notNull().default(true),
     // The 3D Realm's sound: the hero's own volume, effects, music and mute, as JSON
     // (`lib/realm3d/sound/settings.ts`). Null is the defaults. A visiting grown-up's own are
     // `realm_visitor_sound`, kept per grown-up.
@@ -1112,6 +1114,12 @@ export const deedRun = pgTable(
     masteryStart: text("mastery_start").notNull().default("{}"), // JSON Record<skillId, level>
     correctCount: integer("correct_count").notNull().default(0),
     flawless: boolean("flawless").notNull().default(false),
+    // Second-try answers, parallel to `responses` (JSON (string | null)[]).
+    secondTries: text("second_tries").notNull().default("[]"),
+    stars: integer("stars").notNull().default(0),
+    kind: text("kind", { enum: ["deed", "challenge"] }).notNull().default("deed"),
+    // Frozen at run start, so changing the setting never alters a run in flight.
+    secondChances: boolean("second_chances").notNull().default(false),
     startedAt: timestamp("started_at", { mode: "date", withTimezone: true }).notNull(),
     completedAt: timestamp("completed_at", { mode: "date", withTimezone: true }),
     createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull(),
