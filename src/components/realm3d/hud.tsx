@@ -355,7 +355,7 @@ const MARK_TEXT: Record<PlateAnchor["mark"], string> = {
   you: "★",
 };
 
-function Nameplates({ bus, anchors }: { bus: HudBus; anchors: readonly PlateAnchor[] }) {
+function Nameplates({ bus, anchors, numerals }: { bus: HudBus; anchors: readonly PlateAnchor[]; numerals: boolean }) {
   return (
     <div className="r3-plates" aria-hidden="true">
       {anchors.map((a, i) => (
@@ -377,10 +377,26 @@ function Nameplates({ bus, anchors }: { bus: HudBus; anchors: readonly PlateAnch
                 ))}
               </span>
             )}
+            {a.stars && <PlateStars have={a.stars.have} max={a.stars.max} numerals={numerals} />}
           </span>
         </div>
       ))}
     </div>
+  );
+}
+
+/** A built site's stars: "★ 7 of 9" at full depth, the marks alone (lit to what is earned) at simple. */
+function PlateStars({ have, max, numerals }: { have: number; max: number; numerals: boolean }) {
+  return (
+    <span className="r3-plate-stars">
+      {numerals
+        ? `★ ${have} of ${max}`
+        : Array.from({ length: max }, (_, k) => (
+            <span key={k} className={k < have ? "r3-plate-star r3-plate-star--on" : "r3-plate-star"}>
+              ★
+            </span>
+          ))}
+    </span>
   );
 }
 
@@ -435,6 +451,7 @@ export function RealmHud({
   petKey = false,
   found: foundKept,
   onFound,
+  numerals = false,
 }: {
   bus: HudBus;
   world: RealmWorld;
@@ -473,6 +490,8 @@ export function RealmHud({
   found?: ReadonlySet<string>;
   /** A place was found; with `found`, this is how it reaches the record. */
   onFound?: (id: string) => void;
+  /** Full depth: the plates' stars say "7 of 9"; simple depth draws the marks alone. */
+  numerals?: boolean;
 }) {
   const [foundHere, setFound] = useState<ReadonlySet<string>>(() => new Set<string>());
   const found = foundKept ?? foundHere;
@@ -513,7 +532,7 @@ export function RealmHud({
 
   return (
     <>
-      <Nameplates bus={bus} anchors={anchors} />
+      <Nameplates bus={bus} anchors={anchors} numerals={numerals} />
       <GoalMarker bus={bus} goal={goal} />
       <div className="r3-hud">
         {/*

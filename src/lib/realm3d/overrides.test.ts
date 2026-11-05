@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { DEFAULT_AVATAR } from "@/lib/utils/avatar-catalog";
-import { castleShown, mountsFor, overrideAvatar, queryString, viewerFor } from "./overrides";
+import { castleShown, gildedFor, mountsFor, overrideAvatar, queryString, viewerFor } from "./overrides";
 
 describe("the screenshot overrides", () => {
   it("restyles any avatar field by its short name, and fills in a missing #", () => {
@@ -47,5 +47,18 @@ describe("the mount overrides", () => {
     expect(mountsFor(["pony"], { mount: "gryphon" }, true)).toEqual(["pony", "gryphon"]);
     expect(mountsFor(["pony"], { mount: "gryphon" }, false)).toEqual(["pony"]);
     expect(mountsFor(["pony"], { mount: "none" }, true)).toEqual(["pony"]);
+  });
+});
+
+describe("the gilded overrides", () => {
+  it("gilds the screenshot's buildings in development, keeping the real ones and never twice", () => {
+    expect(gildedFor(["mill"], { gilded: "well,mill" }, true)).toEqual(["mill", "well"]);
+    expect(gildedFor([], { gilded: "well" }, true)).toEqual(["well"]);
+    expect(gildedFor(["mill"], {}, true)).toEqual(["mill"]);
+  });
+
+  it("ignores the query in production", () => {
+    expect(gildedFor(["mill"], { gilded: "well" }, false)).toEqual(["mill"]);
+    expect(gildedFor([], { gilded: "well" }, false)).toEqual([]);
   });
 });

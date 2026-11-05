@@ -33,6 +33,8 @@ export type PlateAnchor = {
    * finished side quest shows before the building itself rises. Absent on every other plate.
    */
   progress?: { done: number; total: number };
+  /** A built site's best stars ("★ 7 of 9"): what is left to earn once the building stands. */
+  stars?: { have: number; max: number };
   x: number;
   /** World y the plate hangs at — already includes the head/roof clearance. */
   y: number;
@@ -126,6 +128,7 @@ export function buildAnchors(input: {
       accent: VILLAGER_ACCENT[v.status] ?? VILLAGER_ACCENT.work,
       mark: v.status === "objective" ? "quest" : v.status === "built" ? "done" : "work",
       ...(v.status === "built" || v.total <= 0 ? {} : { progress: { done: Math.min(v.done, v.total), total: v.total } }),
+      ...(v.status === "built" && (v.maxStars ?? 0) > 0 ? { stars: { have: Math.min(v.stars ?? 0, v.maxStars!), max: v.maxStars! } } : {}),
       x: v.position.x,
       y: input.heightAt(v.position.x, v.position.z) + HEAD_Y,
       z: v.position.z,

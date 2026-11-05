@@ -16,7 +16,7 @@
  * No `three`, no DOM, and the per-frame function allocates nothing.
  */
 
-import type { ObjectiveState } from "@/lib/realm/objective";
+import { hasObjectives, type ObjectiveState } from "@/lib/realm/objective";
 import type { VillagerPlacement } from "@/lib/realm/layout";
 import {
   SPELL_ELEMENTS,
@@ -40,7 +40,7 @@ export const NO_GOAL: Goal = { on: false, x: 0, z: 0, name: "", id: "" };
  * ! and the map can never point at three different people.
  */
 export function goalFor(objective: ObjectiveState, villagers: readonly VillagerPlacement[], nameOf: (id: string) => string | null): Goal {
-  if (objective.kind !== "next") return NO_GOAL;
+  if (!hasObjectives(objective)) return NO_GOAL;
   const first = objective.objectives[0];
   if (!first) return NO_GOAL;
   const v = villagers.find((p) => p.buildingId === first.buildingId);

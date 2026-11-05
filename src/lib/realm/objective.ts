@@ -14,8 +14,14 @@ export type Objective = {
 
 export type ObjectiveState =
   | { kind: "unknown" }                        // no kingdom data: the load failed
-  | { kind: "complete" }                       // every building built
-  | { kind: "next"; objectives: Objective[] }; // 1..limit, best first
+  | { kind: "complete" }                       // every building built and every star earned
+  | { kind: "next"; objectives: Objective[] }  // 1..limit, best first
+  | { kind: "stars"; objectives: Objective[] }; // every building built; done/total are its stars
+
+/** The kinds that name somewhere to go: the card, the ! and the map all read these alike. */
+export function hasObjectives(s: ObjectiveState): s is Extract<ObjectiveState, { objectives: Objective[] }> {
+  return s.kind === "next" || s.kind === "stars";
+}
 
 /**
  * Work in progress leads, untouched buildings follow, finished ones rest at the end.
@@ -70,11 +76,24 @@ export function objectiveState(buildings: SiteProgress[], limit: number): Object
   const known = buildings.filter((b) => ORDER.has(b.id));
   if (known.length === 0) return { kind: "unknown" };
   const open = known.filter((b) => !b.complete);
-  if (open.length === 0) return { kind: "complete" };
+  if (open.length === 0) return starsState(known, limit);
   const ranked = open.sort(
     (a, b) => objectiveRank(a) - objectiveRank(b) || b.done - a.done || (ORDER.get(a.id) ?? 0) - (ORDER.get(b.id) ?? 0),
   );
   return { kind: "next", objectives: ranked.slice(0, clampLimit(limit)).map(toObjective) };
+}
+
+const starsLeft = (b: SiteProgress) => (b.maxStars ?? 0) - (b.stars ?? 0);
+
+/**
+ * After the last building rises there is still something worth doing: the most stars still to earn
+ * first. Callers that send no stars (the flat Realm) see "complete" as before.
+ */
+function starsState(built: SiteProgress[], limit: number): ObjectiveState {
+  const open = built.filter((b) => starsLeft(b) > 0);
+  if (open.length === 0) return { kind: "complete" };
+  const ranked = open.sort((a, b) => starsLeft(b) - starsLeft(a) || (ORDER.get(a.id) ?? 0) - (ORDER.get(b.id) ?? 0));
+  return { kind: "stars", objectives: ranked.slice(0, clampLimit(limit)).map((p) => ({ ...toObjective(p), done: p.stars ?? 0, total: p.maxStars ?? 0 })) };
 }
 
 /**
@@ -88,6 +107,7 @@ export function riseToast(label: string, next: ObjectiveState): string {
   if (next.kind === "unknown") return stands;
   const [objective] = next.objectives;
   if (!objective) return stands;
+  if (next.kind === "stars") return `${stands} Every building is built — there are stars to earn at the ${objective.label}.`;
   if (!objective.villagerName) return `${stands} Next: the ${objective.label}.`;
   return `${stands} Next: the ${objective.label}, with ${objective.villagerName}.`;
 }
@@ -99,6 +119,10 @@ export function objectiveSpeech(state: ObjectiveState): string | null {
   if (state.kind === "complete") return "Every building is built. Nothing is waiting.";
   const [objective] = state.objectives;
   if (!objective) return null;
+  if (state.kind === "stars") {
+    const where = `Every building stands. There are stars to earn at the ${objective.label}.`;
+    return objective.villagerName ? `${where} ${objective.villagerName} is waiting.` : where;
+  }
   const where = `Your next ${SIDE_QUEST_LOWER} is at the ${objective.label}.`;
   return objective.villagerName ? `${where} ${objective.villagerName} is waiting.` : where;
 }

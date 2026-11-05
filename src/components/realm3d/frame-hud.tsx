@@ -24,7 +24,7 @@ import { GameIcon, SPELLBOOK_ICON, type GameIconName } from "@/components/game-i
 import { formatElapsed, useQuestTimer } from "@/hooks/use-quest-timer";
 import type { RealmDepth } from "@/lib/realm/depth";
 import type { KingdomState } from "@/lib/realm/kingdom-state";
-import type { Objective, ObjectiveState } from "@/lib/realm/objective";
+import { hasObjectives, type Objective, type ObjectiveState } from "@/lib/realm/objective";
 import { villagerById, villagerForBuilding } from "@/lib/realm/villagers";
 import type { GateCopy } from "@/lib/realm/play-clock";
 import { controlRows, emptyPageCopy, interactVerb, type Viewer } from "@/lib/realm3d/frame";
@@ -66,7 +66,7 @@ export function Progress({ done, total, numerals, text, label }: { done: number;
 
 /* ------------------------------------------------------------------ objectives */
 
-function ObjectiveRows({ objectives, heroName, visiting, numerals, pet = null }: { objectives: Objective[]; heroName: string; visiting: boolean; numerals: boolean; pet?: string | null }) {
+function ObjectiveRows({ objectives, heroName, visiting, numerals, pet = null, stars = false }: { objectives: Objective[]; heroName: string; visiting: boolean; numerals: boolean; pet?: string | null; stars?: boolean }) {
   const [first, ...rest] = objectives;
   if (!first) return null;
   return (
@@ -100,7 +100,7 @@ function ObjectiveRows({ objectives, heroName, visiting, numerals, pet = null }:
         total={first.total}
         numerals={numerals}
         text={`${first.done} of ${first.total}`}
-        label={`${first.done} of ${first.total} ${SIDE_QUESTS_LOWER} done.`}
+        label={stars ? `${first.done} of ${first.total} stars earned.` : `${first.done} of ${first.total} ${SIDE_QUESTS_LOWER} done.`}
       />
       {rest.map((o) => (
         <p key={o.buildingId} className="r3-quest-extra">
@@ -153,14 +153,14 @@ export function ObjectiveCard({
   }
   return (
     <section className="r3-quest r3-plank" aria-label="What to do next">
-      <p className="r3-quest-tab">{objective.kind === "complete" ? "Your village" : `Next ${SIDE_QUEST_LOWER}`}</p>
-      {objective.kind === "complete" ? (
+      <p className="r3-quest-tab">{objective.kind === "complete" ? "Your village" : objective.kind === "stars" ? "Earn stars" : `Next ${SIDE_QUEST_LOWER}`}</p>
+      {!hasObjectives(objective) ? (
         <>
           <p className="r3-quest-title">Every building is built.</p>
           <p className="r3-quest-line">Nothing is waiting. Walk where you like.</p>
         </>
       ) : (
-        <ObjectiveRows objectives={objective.objectives} heroName={heroName} visiting={visiting} numerals={numerals} pet={pet} />
+        <ObjectiveRows objectives={objective.objectives} heroName={heroName} visiting={visiting} numerals={numerals} pet={pet} stars={objective.kind === "stars"} />
       )}
     </section>
   );

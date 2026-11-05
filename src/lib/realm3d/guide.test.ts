@@ -21,6 +21,12 @@ describe("the goal: who the card sends the child to, standing where the world pu
     expect(goalFor(objectiveState(buildings, 1), layout.villagers, nameOf).name).toBe("Miller Tessa");
   });
 
+  it("is the villager with stars still to earn once every building stands", () => {
+    const built = fresh.map((b) => ({ ...b, done: 5, complete: true, stars: b.id === "mill" ? 7 : 9, maxStars: 9 }));
+    const layout = buildWorldLayout({ castleType: "campsite", buildings: built, villagers: true, banners: 0, decor: true, objectiveIds: ["mill"] });
+    expect(goalFor(objectiveState(built, 1), layout.villagers, nameOf).name).toBe("Miller Tessa");
+  });
+
   it("is nowhere for a finished village or one that did not load", () => {
     expect(goalFor({ kind: "complete" }, [], nameOf)).toBe(NO_GOAL);
     expect(goalFor({ kind: "unknown" }, [], nameOf)).toBe(NO_GOAL);

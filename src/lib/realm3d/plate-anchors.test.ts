@@ -158,3 +158,29 @@ describe("a villager's plate carries their site's progress", () => {
     expect(anchors.find((a) => a.id === "summit-1")!.progress).toBeUndefined();
   });
 });
+
+describe("a built building's stars", () => {
+  const starry = buildWorldLayout({
+    castleType: "castle",
+    buildings: [
+      { id: "well", done: 5, total: 5, complete: true, stars: 9, maxStars: 9 },
+      { id: "mill", done: 5, total: 5, complete: true, stars: 4, maxStars: 9 },
+      { id: "chapel", done: 3, total: 5, complete: false, stars: 3, maxStars: 9 },
+      { id: "garden", done: 5, total: 5, complete: true },
+    ],
+  });
+  const plates = buildAnchors({ heroName: "Emma", villagers: starry.villagers, landmarks: [], heightAt: flat });
+  /** By building, so the test reads in sites rather than in villager ids. */
+  const plate = (buildingId: string) => plates.find((a) => a.id === `villager-${starry.villagers.find((v) => v.buildingId === buildingId)!.id}`)!;
+
+  it("hangs on the villager's plate once the building stands", () => {
+    expect(plate("well").stars).toEqual({ have: 9, max: 9 });
+    expect(plate("mill").stars).toEqual({ have: 4, max: 9 });
+  });
+
+  it("is not on a site still rising, which shows its pips, nor on one that has no stars to earn", () => {
+    expect(plate("chapel").stars).toBeUndefined();
+    expect(plate("chapel").progress).toEqual({ done: 3, total: 5 });
+    expect(plate("garden").stars).toBeUndefined();
+  });
+});

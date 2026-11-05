@@ -50,6 +50,16 @@ describe("the objectives card", () => {
     expect(screen.getByText("Every building is built.")).toBeInTheDocument();
   });
 
+  it("sends a child to the stars still to earn once every building stands", () => {
+    const built = fresh.map((b) => ({ ...b, done: 5, complete: true, stars: b.id === "mill" ? 7 : 9, maxStars: 9 }));
+    render(<ObjectiveCard objective={objectiveState(built, 3)} heroName="Emma" visiting={false} numerals />);
+    expect(screen.getByText("Earn stars")).toBeInTheDocument();
+    expect(screen.getByText("Grain Mill")).toBeInTheDocument();
+    expect(screen.getByText("Miller Tessa is waiting.")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "7 of 9 stars earned." })).toBeInTheDocument();
+    expect(screen.queryByText(/Nothing is waiting/)).toBeNull();
+  });
+
   it("never tells a child their village is finished because it failed to load", () => {
     const { container } = render(<ObjectiveCard objective={objectiveState([], 3)} heroName="Emma" visiting={false} numerals />);
     expect(container).toBeEmptyDOMElement();

@@ -72,9 +72,16 @@ describe("the village's answer to a finished side quest", () => {
   });
 
   it("says the whole village is raised when the last building rises", () => {
-    const done = all(Object.fromEntries(["well", "mill", "bridge", "chapel", "market", "library", "watchtower", "garden"].map((id) => [id, { done: 5, complete: true }])));
+    const done = all(Object.fromEntries(["well", "mill", "bridge", "chapel", "market", "library", "watchtower", "garden"].map((id) => [id, { done: 5, complete: true, stars: 9 }])));
     const t = deedToast({ site: { ...well, done: 4 }, after: { done: 5, total: 5, complete: true }, rose: true, villagerName: "Old Bram", next: objectiveState(done, 1) });
     expect(t.line).toBe("Every building is built.");
+  });
+
+  it("says where stars are still to earn when the last building rises and some are left", () => {
+    const done = all(Object.fromEntries(["well", "mill", "bridge", "chapel", "market", "library", "watchtower", "garden"].map((id) => [id, { done: 5, complete: true, stars: id === "mill" ? 4 : 9 }])));
+    const t = deedToast({ site: { ...well, done: 4 }, after: { done: 5, total: 5, complete: true }, rose: true, villagerName: "Old Bram", next: objectiveState(done, 1) });
+    expect(t.title).toBe("The Village Well stands!");
+    expect(t.line).toBe("Every building is built — there are stars to earn at the Grain Mill.");
   });
 
   it("calls a side quest at a standing building practice, not a rise", () => {

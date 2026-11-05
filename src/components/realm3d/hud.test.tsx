@@ -234,6 +234,27 @@ describe("nameplates", () => {
     const { screen } = mount();
     expect(screen.getByText("The whole realm, from up here.")).toBeInTheDocument();
   });
+
+  describe("a built villager's stars", () => {
+    const starred = [...anchors, { id: "villager-tessa", tier: "villager" as const, name: "Miller Tessa", sub: "Grain Mill", accent: "#7ede5e", mark: "done" as const, stars: { have: 7, max: 9 }, x: 0, y: 0, z: 0 }];
+    const mountStarred = (numerals: boolean) => {
+      const bus = makeHudBus(pages.length, starred.length);
+      return render(<RealmHud bus={bus} world={world} anchors={starred} pages={pages} heroName="Emma" numerals={numerals} />);
+    };
+
+    it("reads ★ 7 of 9 at full depth", () => {
+      const view = mountStarred(true);
+      expect(view.container.querySelector(".r3-plate-stars")).toHaveTextContent("★ 7 of 9");
+    });
+
+    it("is the marks alone at simple depth, lit to what is earned, with no digits", () => {
+      const view = mountStarred(false);
+      const stars = view.container.querySelector(".r3-plate-stars")!;
+      expect(stars.textContent).not.toMatch(/\d/);
+      expect(stars.querySelectorAll(".r3-plate-star")).toHaveLength(9);
+      expect(stars.querySelectorAll(".r3-plate-star--on")).toHaveLength(7);
+    });
+  });
 });
 
 describe("a refused press", () => {

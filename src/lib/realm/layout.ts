@@ -37,8 +37,8 @@ export type Prop = {
   focus?: PropFocus; // a mark the scene draws over a site; additive only, and never read by colliders, spawns or the ceremony
 };
 
-/** Progress for one kingdom building, as the deeds overview reports it. */
-export type SiteProgress = { id: string; done: number; total: number; complete: boolean };
+/** Progress for one kingdom building, as the deeds overview reports it — with its best stars when the caller knows them. */
+export type SiteProgress = { id: string; done: number; total: number; complete: boolean; stars?: number; maxStars?: number };
 export type VillagerPlacement = {
   id: string;
   buildingId: string;
@@ -47,6 +47,9 @@ export type VillagerPlacement = {
   label: string; // the building's name: "Village Well"
   done: number;
   total: number;
+  /** The site's stars, carried from `SiteProgress` when it has them. */
+  stars?: number;
+  maxStars?: number;
 };
 
 export type WorldLayout = {
@@ -239,7 +242,8 @@ export function buildWorldLayout(input: { castleType: string; buildings: SitePro
       const villager = VILLAGERS.find((v) => v.buildingId === building.id);
       if (villager) {
         const position = villagerPosition(slot, footprint);
-        villagers.push({ id: villager.id, buildingId: building.id, position, status, label: building.label, done: p.done, total: p.total });
+        const stars = p.maxStars === undefined ? {} : { stars: p.stars ?? 0, maxStars: p.maxStars };
+        villagers.push({ id: villager.id, buildingId: building.id, position, status, label: building.label, done: p.done, total: p.total, ...stars });
         props.push({ id: `villager-${villager.id}`, kind: "villager", label: villager.name, position, size: VILLAGER_SIZE, color: "#000000", solid: false });
       }
     }

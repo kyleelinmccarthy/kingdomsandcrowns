@@ -24,7 +24,7 @@ import { getSpellbook } from "@/lib/actions/spells";
 import { surfacesFor, type RealmDepth } from "@/lib/realm/depth";
 import { applyDeedResult, type KingdomState } from "@/lib/realm/kingdom-state";
 import { buildWorldLayout } from "@/lib/realm/layout";
-import { objectiveSpeech, objectiveState } from "@/lib/realm/objective";
+import { hasObjectives, objectiveSpeech, objectiveState } from "@/lib/realm/objective";
 import { renderSettingsFor } from "@/lib/realm/render-settings";
 import { resolvePages, withEmptyPages } from "@/lib/realm/spells/pages";
 import { villagerById, villagerForBuilding } from "@/lib/realm/villagers";
@@ -53,6 +53,8 @@ import {
 } from "@/lib/realm3d/tutorial";
 import { speak } from "@/lib/utils/speech";
 import { buildAnchors } from "@/lib/realm3d/plate-anchors";
+import { gildedFor, windowQuery } from "@/lib/realm3d/overrides";
+import { isGilded } from "@/lib/utils/deed-scoring";
 import { FX_POOL, makeFxPool } from "@/lib/realm3d/spell-fx";
 import { makeTroubleBus } from "@/lib/realm3d/trouble-bus";
 import type { RecentClear } from "@/lib/realm3d/trouble-reload";
@@ -188,13 +190,16 @@ const TOAST_MS = 5200;
 const GOAL_Y = 5.6;
 const MOVE_KEYS: Record<string, string> = { KeyW: "w", ArrowUp: "w", KeyA: "a", ArrowLeft: "a", KeyS: "s", ArrowDown: "s", KeyD: "d", ArrowRight: "d" };
 
+/** A finished side quest's result; a screenshot's `__realmRaise` may leave the stars out. */
+type RaiseResult = Omit<DeedResult, "stars" | "maxStars"> & Partial<Pick<DeedResult, "stars" | "maxStars">>;
+
 /** The dev-only handle a screenshot script uses to play the scene's half of the bus. */
 declare global {
   interface Window {
     __realmBus?: unknown;
     /** Development only: how long the last raised side quest took to reach the screen, in ms. */
     __realmRebuild?: { commitMs: number; frameMs: number; at: string }[];
-    __realmRaise?: (buildingId: string, result: DeedResult) => void;
+    __realmRaise?: (buildingId: string, result: RaiseResult) => void;
     /** Development only: go straight into a room, as if through its door ("chapel", "castle"…). */
     __realmEnter?: (site: string) => void;
   }
@@ -250,7 +255,7 @@ export function RealmGame({
   // from it, so the card and the world can never disagree about what to do next — the same
   // rule, and the same two calls, as `realm-shell.tsx`.
   const objective = useMemo(() => objectiveState(kingdom.buildings, surfaces.trackedObjectives), [kingdom.buildings, surfaces.trackedObjectives]);
-  const objectiveKey = objective.kind === "next" ? objective.objectives.map((o) => o.buildingId).join(",") : "";
+  const objectiveKey = hasObjectives(objective) ? objective.objectives.map((o) => o.buildingId).join(",") : "";
   const layout = useMemo(
     () =>
       buildWorldLayout({
@@ -267,6 +272,9 @@ export function RealmGame({
     [realm.castleType, kingdom.buildings, kingdomError, realm.banners, render.calmPalette, objectiveKey],
   );
   const raised = kingdom.buildings.filter((b) => b.complete).length;
+  // Every star earned flies a pennant. Keyed on the ids as a string, so the canvas prop changes only when the set does.
+  const gildedKey = gildedFor(kingdom.buildings.filter(isGilded).map((b) => b.id), windowQuery(), process.env.NODE_ENV !== "production").join(",");
+  const gilded = useMemo(() => (gildedKey ? gildedKey.split(",") : []), [gildedKey]);
 
   /**
    * The child's REAL spells. `resolvePages` turns their saved rows into castable definitions
@@ -510,7 +518,7 @@ export function RealmGame({
 
   /** `realm-shell.tsx`'s `onDeedFinished`, verbatim in its rule: `applyDeedResult`, then say so. */
   const raise = useCallback(
-    (buildingId: string, result: DeedResult) => {
+    (buildingId: string, result: RaiseResult) => {
       const before = kingdomRef.current.buildings.find((b) => b.id === buildingId);
       const applied = applyDeedResult(kingdomRef.current, buildingId, result, result.deed);
       if (!before || applied.state === kingdomRef.current) return;
@@ -937,6 +945,7 @@ export function RealmGame({
         ride={riding.bus}
         lead={companion.bus}
         recess={recess.bus}
+        gilded={gilded}
       />
       {outCount > 0 && !inside && <div key={outCount} className="r3-fade" aria-hidden="true" />}
       {inside && (
@@ -948,6 +957,7 @@ export function RealmGame({
             bus={bus}
             world={world}
             anchors={anchors}
+            numerals={numerals}
             pages={pages}
             heroName={heroName}
             portrait={hero}

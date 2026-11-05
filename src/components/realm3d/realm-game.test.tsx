@@ -155,7 +155,18 @@ describe("the real village", () => {
     const { view } = mount();
     const first = { ...handed.props! };
     view.rerender(<RealmGame heroName="Emma" spellbook={spellbook} realm={realm} entry={{ minutes: 240, visit: null, source: "earned" }} castleUnlocked={false} />);
+    expect(first).toHaveProperty("gilded");
     for (const k of Object.keys(first)) expect(handed.props![k], k).toBe(first[k]);
+  });
+
+  it("hands the canvas the buildings whose stars are all earned, and shows a built site's stars on its plate", () => {
+    const starry = {
+      ...realm,
+      kingdom: { ...realm.kingdom, buildings: realm.kingdom.buildings.map((b) => (b.id === "well" ? { ...b, done: 5, complete: true, stars: 3, maxStars: 3 } : b)) },
+    };
+    const { view } = mount({ realm: starry });
+    expect(handed.props!.gilded).toEqual(["well"]);
+    expect(view.container.querySelector(".r3-plate-stars")).toHaveTextContent("★ 3 of 3");
   });
 
   it("shows the objectives, the village and the clock", () => {

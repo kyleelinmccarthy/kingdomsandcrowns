@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { objectiveRank, rankBuildings, objectiveState, riseToast, objectiveSpeech, type Objective, type ObjectiveState } from "./objective";
+import { hasObjectives, objectiveRank, rankBuildings, objectiveState, riseToast, objectiveSpeech, type Objective, type ObjectiveState } from "./objective";
 import type { SiteProgress } from "./layout";
 import { BUILDINGS } from "@/lib/utils/kingdom";
 
@@ -87,6 +87,47 @@ describe("objectiveState", () => {
   });
 });
 
+/** A built village whose stars are all earned except where `left` says: `{ mill: 7 }` is the Mill at 7 of 9. */
+const builtWithStars = (left: Record<string, number> = {}): SiteProgress[] =>
+  BUILDINGS.map((b) => ({ id: b.id, done: b.deedsToBuild, total: b.deedsToBuild, complete: true, stars: left[b.id] ?? 9, maxStars: 9 }));
+
+describe("objectiveState once every building stands", () => {
+  it("points at the building with stars still to earn", () => {
+    expect(objectiveState(builtWithStars({ mill: 7 }), 3)).toEqual({
+      kind: "stars",
+      objectives: [{ buildingId: "mill", villagerId: "tessa", label: "Grain Mill", villagerName: "Miller Tessa", done: 7, total: 9 }],
+    });
+  });
+
+  it("puts the building with the most stars still to earn first, then the catalog order", () => {
+    const state = objectiveState(builtWithStars({ garden: 8, chapel: 2, well: 8 }), 3);
+    expect(hasObjectives(state) ? state.objectives.map((o) => o.buildingId) : state.kind).toEqual(["chapel", "well", "garden"]);
+  });
+
+  it("is complete only when every star is earned", () => {
+    expect(objectiveState(builtWithStars(), 3)).toEqual({ kind: "complete" });
+  });
+
+  it("stays complete for callers that send no stars", () => {
+    const all: SiteProgress[] = BUILDINGS.map((b) => ({ id: b.id, done: b.deedsToBuild, total: b.deedsToBuild, complete: true }));
+    expect(objectiveState(all, 3)).toEqual({ kind: "complete" });
+  });
+
+  it("never sends a child to stars while a building still waits to be raised", () => {
+    const buildings = builtWithStars({ mill: 0 }).map((b) => (b.id === "garden" ? { ...b, done: 1, complete: false } : b));
+    expect(ids(objectiveState(buildings, 3))).toEqual(["garden"]);
+  });
+});
+
+describe("hasObjectives", () => {
+  it("is true for the kinds that carry objectives", () => {
+    expect(hasObjectives({ kind: "next", objectives: [] })).toBe(true);
+    expect(hasObjectives({ kind: "stars", objectives: [] })).toBe(true);
+    expect(hasObjectives({ kind: "complete" })).toBe(false);
+    expect(hasObjectives({ kind: "unknown" })).toBe(false);
+  });
+});
+
 const objective = (buildingId: string, label: string, villagerId: string | null, villagerName: string | null): Objective =>
   ({ buildingId, villagerId, label, villagerName, done: 0, total: 5 });
 
@@ -110,6 +151,11 @@ describe("riseToast", () => {
     const next: ObjectiveState = { kind: "next", objectives: [objective("mill", "Grain Mill", null, null)] };
     expect(riseToast("Village Well", next)).toBe("The Village Well stands. Next: the Grain Mill.");
   });
+
+  it("says the village is built and where stars are still to earn when the last one rises", () => {
+    const next: ObjectiveState = { kind: "stars", objectives: [objective("well", "Well", "bram", "Old Bram")] };
+    expect(riseToast("Mill", next)).toBe("The Mill stands. Every building is built — there are stars to earn at the Well.");
+  });
 });
 
 describe("objectiveSpeech", () => {
@@ -125,6 +171,13 @@ describe("objectiveSpeech", () => {
   it("says nothing at all when the kingdom is unknown", () => {
     expect(objectiveSpeech({ kind: "unknown" })).toBeNull();
     expect(objectiveSpeech({ kind: "next", objectives: [] })).toBeNull();
+  });
+
+  it("reads where stars are still to earn once every building stands", () => {
+    const state: ObjectiveState = { kind: "stars", objectives: [objective("mill", "Mill", "tessa", "Miller Tessa")] };
+    expect(objectiveSpeech(state)).toBe("Every building stands. There are stars to earn at the Mill. Miller Tessa is waiting.");
+    expect(objectiveSpeech({ kind: "stars", objectives: [objective("mill", "Mill", null, null)] })).toBe("Every building stands. There are stars to earn at the Mill.");
+    expect(objectiveSpeech({ kind: "stars", objectives: [] })).toBeNull();
   });
 
   it("drops the villager clause when the site has no villager", () => {

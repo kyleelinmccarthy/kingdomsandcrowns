@@ -65,6 +65,20 @@ export function mountsFor(unlocked: readonly string[], q: Query, dev: boolean): 
   return [...unlocked, m];
 }
 
+/** The query, read on the client by the overrides that live below the page; `{}` on the server. */
+export function windowQuery(): Query {
+  return typeof window === "undefined" ? {} : Object.fromEntries(new URLSearchParams(window.location.search));
+}
+
+/**
+ * The buildings that fly a gold pennant: the child's own, plus `?gilded=well,mill` in development
+ * so a pennant can be photographed without earning every star. Production ignores the query.
+ */
+export function gildedFor(ids: readonly string[], q: Query, dev: boolean): string[] {
+  const asked = dev ? (one(q, "gilded") ?? "").split(",").filter(Boolean) : [];
+  return [...new Set([...ids, ...asked])];
+}
+
 /**
  * Who is walking. The real answer comes from the actor — a parent visiting is `"parent"` — and
  * `?viewer=parent` can only dress a child's own view AS a visit for a screenshot, never the

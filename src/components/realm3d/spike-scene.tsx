@@ -95,6 +95,7 @@ import { buildSpots } from "@/lib/realm3d/interact";
 import { ENTER_VERB } from "@/lib/realm3d/doorways";
 import { Interaction } from "./interaction";
 import { ConstructionSite } from "./construction-site";
+import { GildedPennants } from "./gilded-pennants";
 import { Castle, CastleGrounds } from "./castle";
 import { castlePlan } from "@/lib/realm3d/castle-plan";
 import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
@@ -1257,9 +1258,11 @@ export type RealmCanvasProps = {
   recess?: RecessBus;
   /** The family's timezone: the island's day and night follow its clock (`day-cycle.ts`). */
   timeZone?: string | null;
+  /** The buildings whose stars are all earned: each flies a gold pennant (`gilded-pennants.tsx`). */
+  gilded?: readonly string[];
 };
 
-export default function SpikeScene({ avatar, close, world, layout, anchors, pages, bus, caster, fxPool, casts, viewer, castleUnlocked, frozen = false, calm = false, troubles, ride, lead, recess, timeZone }: RealmCanvasProps) {
+export default function SpikeScene({ avatar, close, world, layout, anchors, pages, bus, caster, fxPool, casts, viewer, castleUnlocked, frozen = false, calm = false, troubles, ride, lead, recess, timeZone, gilded }: RealmCanvasProps) {
   return (
     <Canvas
       frameloop={frozen ? "never" : "always"}
@@ -1292,6 +1295,7 @@ export default function SpikeScene({ avatar, close, world, layout, anchors, page
         recess={recess ?? null}
         timeZone={timeZone ?? null}
       />
+      <GildedPennants layout={layout} gilded={gilded} />
     </Canvas>
   );
 }
