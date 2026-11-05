@@ -39,7 +39,11 @@ export function flowReducer(state: FlowState, event: FlowEvent): FlowState {
       const { choice, result } = event;
       const firstTry = state.phase === "asking";
       const streak = firstTry ? (result.correct ? state.streak + 1 : 0) : state.streak;
-      if (result.secondChance) return { ...state, phase: "second-chance", ruledOut: [...state.ruledOut, choice], picked: choice, result, streak };
+      // The server's stored first pick, not the choice sent: a late repeat must not rule out a new one.
+      if (result.secondChance) {
+        const ruled = result.firstPick ?? choice;
+        return { ...state, phase: "second-chance", ruledOut: [...state.ruledOut, ruled], picked: ruled, result, streak };
+      }
       return { ...state, phase: "resolved", picked: choice, result, streak };
     }
     case "gave-up":

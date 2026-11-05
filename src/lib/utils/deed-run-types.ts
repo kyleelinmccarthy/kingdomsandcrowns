@@ -20,6 +20,8 @@ export type RunStart = {
  */
 export type AttemptResult = {
   correct: boolean; secondChance: boolean; answer?: string; explain?: string; hint?: string;
+  /** With an open second chance: the first pick the server stored (the child's own, safe to send). */
+  firstPick?: string;
   /**
    * Only on a first answer that moved mastery: where the skill's pips stand now. Absent or null
    * means "no news" to the board (it keeps the last meter) — except with `rungChange`, where null

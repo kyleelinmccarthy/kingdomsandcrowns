@@ -32,6 +32,10 @@ describe("flowReducer", () => {
     const s = flowReducer(asking, { type: "answered", choice: "b", result: open });
     expect(s).toMatchObject({ phase: "second-chance", ruledOut: ["b"], picked: "b", result: open, streak: 0 });
   });
+  it("rules out the first pick the server stored, not the choice sent with a late repeat", () => {
+    const s = flowReducer(asking, { type: "answered", choice: "a", result: { ...open, firstPick: "b" } });
+    expect(s).toMatchObject({ phase: "second-chance", ruledOut: ["b"], picked: "b" });
+  });
   it("a wrong first try with no second chance resolves at once", () => {
     expect(flowReducer(asking, { type: "answered", choice: "b", result: miss })).toMatchObject({ phase: "resolved", picked: "b", result: miss, streak: 0 });
   });

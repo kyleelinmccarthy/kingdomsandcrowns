@@ -149,6 +149,13 @@ describe("a wrong first answer with a second chance open", () => {
     expect("answer" in again).toBe(false);
   });
 
+  it("echoes the stored first pick while the second chance is open, so a late repeat never rules out a new choice", async () => {
+    await seedRun();
+    expect((await answerDeedQuestion("run1", 2, "7")).firstPick).toBe("7");
+    expect((await answerDeedQuestion("run1", 2, "12")).firstPick).toBe("7");
+    expect("firstPick" in (await retryDeedQuestion("run1", 2, "16"))).toBe(false);
+  });
+
   it("a right retry resolves with the answer, and mastery read only the first try", async () => {
     await seedRun();
     await answerDeedQuestion("run1", 1, "6");

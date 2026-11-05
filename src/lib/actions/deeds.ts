@@ -254,10 +254,13 @@ async function loadAttemptState(runId: string, index: number) {
   return { run, ...state, question: state.questions[index], attempt: state.attempts[index] };
 }
 
-/** What the browser may know about a question in this state: the answer only once it is resolved. */
-function resultFor(question: Question, status: QuestionStatus): AttemptResult {
+/**
+ * What the browser may know about a question in this state: the answer only once it is resolved.
+ * An open second chance echoes the stored first pick, so a late repeat rules out what was stored.
+ */
+function resultFor(question: Question, status: QuestionStatus, firstPick?: string): AttemptResult {
   if (status === "unanswered") throw new Error("Answer the question first.");
-  if (status === "open") return { correct: false, secondChance: true, hint: hintFor(question.skillId) };
+  if (status === "open") return { correct: false, secondChance: true, hint: hintFor(question.skillId), firstPick };
   const correct = status === "right-first" || status === "right-second";
   const result: AttemptResult = { correct, secondChance: false, answer: question.answer };
   if (question.explain) result.explain = question.explain;
@@ -307,7 +310,7 @@ export async function answerDeedQuestion(runId: string, index: number, answer: s
     const { run, questions, responses, question, attempt, allows } = await loadAttemptState(runId, index);
     // A repeat answer to the same question (double tap, or the loser of a race) is not re-graded:
     // it hears what was stored, and while a second chance is open that is still only a hint.
-    if (attempt.first !== null) return resultFor(question, statusOf(question, attempt, allows));
+    if (attempt.first !== null) return resultFor(question, statusOf(question, attempt, allows), attempt.first);
     const next = questions.map((_, i) => responses[i] ?? null);
     next[index] = answer;
     const correctCount = questions.filter((q, i) => next[i] !== null && gradeAnswer(q, next[i]!)).length;
@@ -322,7 +325,7 @@ export async function answerDeedQuestion(runId: string, index: number, answer: s
     if (written.length === 0) continue;
     const correct = gradeAnswer(question, answer);
     const moved = RUN_EFFECTS[run.kind].movesMastery ? await recordFirstTry(run.childId, question.skillId, correct, now) : {};
-    return { ...resultFor(question, statusOf(question, { first: answer, second: null }, allows)), ...moved };
+    return { ...resultFor(question, statusOf(question, { first: answer, second: null }, allows), answer), ...moved };
   }
   throw new Error("That answer did not go through. Try it again.");
 }

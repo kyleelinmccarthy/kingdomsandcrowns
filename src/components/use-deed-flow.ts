@@ -8,13 +8,20 @@
 import { useReducer, useRef, useState } from "react";
 import { answerDeedQuestion, resolveDeedQuestion, retryDeedQuestion } from "@/lib/actions/deeds";
 import type { AttemptResult, RunStart } from "@/lib/utils/deed-run-types";
-import { flowReducer, initialFlow } from "@/lib/utils/deed-run-flow";
+import { flowReducer, initialFlow, type FlowEvent } from "@/lib/utils/deed-run-flow";
 import type { SkillMeter } from "@/lib/utils/mastery";
 
 const FAILED = "The enchantment failed.";
 
 export function useDeedFlow(run: RunStart, onAttempt?: (result: AttemptResult) => void) {
   const [flow, dispatch] = useReducer(flowReducer, run, initialFlow);
+  // The flow as of the last event, kept in step synchronously: a key pressed after a call returns
+  // but before React re-renders still reads the phase that call left, never a stale closure's.
+  const current = useRef(flow);
+  function send(event: FlowEvent) {
+    current.current = flowReducer(current.current, event);
+    dispatch(event);
+  }
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [meter, setMeter] = useState<SkillMeter | null>(null);
@@ -38,11 +45,12 @@ export function useDeedFlow(run: RunStart, onAttempt?: (result: AttemptResult) =
 
   /** The first try goes to `answerDeedQuestion`, a second try only ever to `retryDeedQuestion`. */
   function choose(choice: string) {
-    if (flow.phase === "resolved" || flow.ruledOut.includes(choice)) return Promise.resolve();
-    const call = flow.phase === "second-chance" ? retryDeedQuestion : answerDeedQuestion;
+    const { phase, index, ruledOut } = current.current;
+    if (phase === "resolved" || ruledOut.includes(choice)) return Promise.resolve();
+    const call = phase === "second-chance" ? retryDeedQuestion : answerDeedQuestion;
     return guarded(async () => {
-      const result = await call(run.runId, flow.index, choice);
-      dispatch({ type: "answered", choice, result });
+      const result = await call(run.runId, index, choice);
+      send({ type: "answered", choice, result });
       // A call with no meter (a retry, a lost race) leaves the last one up; a promotion with none
       // means the skill reached the top and has no pips left to fill.
       if (result.meter) setMeter(result.meter);
@@ -52,9 +60,10 @@ export function useDeedFlow(run: RunStart, onAttempt?: (result: AttemptResult) =
   }
 
   function showMe() {
-    if (flow.phase !== "second-chance") return Promise.resolve();
-    return guarded(async () => dispatch({ type: "gave-up", result: await resolveDeedQuestion(run.runId, flow.index) }));
+    const { phase, index } = current.current;
+    if (phase !== "second-chance") return Promise.resolve();
+    return guarded(async () => send({ type: "gave-up", result: await resolveDeedQuestion(run.runId, index) }));
   }
 
-  return { flow, meter, busy, error, setError, guarded, choose, showMe, next: () => dispatch({ type: "next" }) };
+  return { flow, meter, busy, error, setError, guarded, choose, showMe, next: () => send({ type: "next" }) };
 }
