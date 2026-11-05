@@ -32,6 +32,7 @@ import type { Villager } from "@/lib/realm/villagers";
 import { attemptFeedback, resultBuildingLine, resultHeadline, resultStarsLine, starsLabel, talkCopy, type Viewer } from "@/lib/realm3d/talk";
 import type { Stars } from "@/lib/utils/deed-scoring";
 import { choiceTone } from "@/lib/utils/deed-run-flow";
+import { DeedMeter } from "@/components/deed-meter";
 import { useDeedFlow } from "@/components/use-deed-flow";
 import { AREA_LABELS, type SkillArea } from "@/lib/utils/skills";
 import { canSpeak, speak, stopSpeaking, type SpeechToken } from "@/lib/utils/speech";
@@ -222,7 +223,7 @@ function DeedRun({
   onClose: () => void;
 }) {
   // A wrong answer is a soft low "hmm", a right one rises and resolves (`realm-sound.tsx`).
-  const { flow, busy, error, setError, guarded, choose, showMe, next } = useDeedFlow(run, (r) => realmCue(r.correct ? "deed-right" : "deed-wrong"));
+  const { flow, meter, busy, error, setError, guarded, choose, showMe, next } = useDeedFlow(run, (r) => realmCue(r.correct ? "deed-right" : "deed-wrong"));
   const { index, phase } = flow;
   const [summary, setSummary] = useState<RunSummary | null>(null);
   const [startedAt] = useState(() => Date.now());
@@ -348,6 +349,7 @@ function DeedRun({
           Leave the {SIDE_QUEST_LOWER}
         </button>
       </div>
+      <DeedMeter meter={meter} streak={flow.streak} calm={calm} />
       {error && (
         <p className="r3-board-error" role="alert">
           {error}{" "}
@@ -396,6 +398,7 @@ function DeedRun({
             <p className="r3-feedback-text" role="status">
               {feedback.text}
             </p>
+            {flow.result?.rungChange && <p className="r3-feedback-rung">{flow.result.rungChange}</p>}
           </div>
           {phase === "second-chance" ? (
             <button type="button" className="r3-link-button r3-show-me" disabled={busy} onClick={() => void showMe()}>

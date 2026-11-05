@@ -21,7 +21,7 @@ import {
   type ClientQuestion,
   type PoolItem,
 } from "@/lib/utils/deed-engine";
-import { masteryChangeCopy, masteryLabel, parseRecentResults, recordResult, type SkillMeter } from "@/lib/utils/mastery";
+import { masteryChangeCopy, masteryLabel, parseRecentResults, progressToNextRung, recordResult, type SkillMeter } from "@/lib/utils/mastery";
 import type { Question } from "@/lib/utils/drill-generators";
 import { RUN_EFFECTS, countsTowardBuilding, runPoints, starsFor, type QuestionOutcome, type RunKind, type Stars } from "@/lib/utils/deed-scoring";
 import {
@@ -56,7 +56,14 @@ export type RunStart = {
  */
 export type AttemptResult = {
   correct: boolean; secondChance: boolean; answer?: string; explain?: string; hint?: string;
-  meter?: SkillMeter | null; rungChange?: string | null;
+  /**
+   * Only on a first answer that moved mastery: where the skill's pips stand now. Absent or null
+   * means "no news" to the board (it keeps the last meter) — except with `rungChange`, where null
+   * means the skill just reached the top and there is nothing left to fill.
+   */
+  meter?: SkillMeter | null;
+  /** Set only on a promotion; a step down is never said mid-run (the summary handles it gently). */
+  rungChange?: string | null;
 };
 export type RunSummary = {
   correctCount: number; total: number; flawless: boolean; masteryChanges: string[];
@@ -278,8 +285,9 @@ function resultFor(question: Question, status: QuestionStatus): AttemptResult {
  * row always exists before we read it, so two first answers to one skill racing each other
  * can't both see "no row" and both fall into an insert — one insert wins, onConflictDoNothing
  * no-ops the other, and both then land on the same unconditional update below.
+ * Returns what the child may see of it right away: the skill's meter, and a promotion.
  */
-async function recordFirstTry(childId: string, skillId: string, correct: boolean, now: Date) {
+async function recordFirstTry(childId: string, skillId: string, correct: boolean, now: Date): Promise<Pick<AttemptResult, "meter" | "rungChange">> {
   await db.insert(schema.skillMastery).values({
     id: nanoid(), childId, skillId, level: 0,
     recentResults: "[]", correctTotal: 0, attemptTotal: 0,
@@ -290,15 +298,19 @@ async function recordFirstTry(childId: string, skillId: string, correct: boolean
     .from(schema.skillMastery)
     .where(and(eq(schema.skillMastery.childId, childId), eq(schema.skillMastery.skillId, skillId)))
     .limit(1);
-  const state = recordResult(
-    { level: existing[0]?.level ?? 0, recentResults: parseRecentResults(existing[0]?.recentResults ?? null) },
-    correct,
-  );
+  const before = { level: existing[0]?.level ?? 0, recentResults: parseRecentResults(existing[0]?.recentResults ?? null) };
+  const state = recordResult(before, correct);
   await db.update(schema.skillMastery).set({
     level: state.level, recentResults: JSON.stringify(state.recentResults),
     correctTotal: (existing[0]?.correctTotal ?? 0) + (correct ? 1 : 0), attemptTotal: (existing[0]?.attemptTotal ?? 0) + 1,
     lastPracticedAt: now, updatedAt: now,
   }).where(and(eq(schema.skillMastery.childId, childId), eq(schema.skillMastery.skillId, skillId)));
+  const skillLabel = findSkill(skillId)?.label;
+  const progress = progressToNextRung(state);
+  return {
+    meter: skillLabel && progress ? { skillLabel, ...progress } : null,
+    rungChange: skillLabel && state.level > before.level ? `${skillLabel}: getting stronger!` : null,
+  };
 }
 
 // Bounds the re-read loop below; only answers racing on other questions of the same run retry.
@@ -323,8 +335,8 @@ export async function answerDeedQuestion(runId: string, index: number, answer: s
       .returning({ id: schema.deedRun.id });
     if (written.length === 0) continue;
     const correct = gradeAnswer(question, answer);
-    if (RUN_EFFECTS[run.kind].movesMastery) await recordFirstTry(run.childId, question.skillId, correct, now);
-    return resultFor(question, statusOf(question, { first: answer, second: null }, allows));
+    const moved = RUN_EFFECTS[run.kind].movesMastery ? await recordFirstTry(run.childId, question.skillId, correct, now) : {};
+    return { ...resultFor(question, statusOf(question, { first: answer, second: null }, allows)), ...moved };
   }
   throw new Error("That answer did not go through. Try it again.");
 }

@@ -153,6 +153,40 @@ describe("the deed board", () => {
     });
   });
 
+  describe("the streak and the skill meter", () => {
+    const meter = { skillLabel: "Addition", filled: 4, needed: 7 };
+    const fresh = { ...run, responses: [null, null] };
+
+    it("fills the pips after an answer and keeps them when a retry brings none", async () => {
+      vi.mocked(startDeedRun).mockResolvedValue(fresh);
+      vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: false, secondChance: true, hint: "Count on.", meter });
+      vi.mocked(retryDeedQuestion).mockResolvedValue({ correct: true, secondChance: false, answer: "5" });
+      board();
+      await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" })));
+      expect(screen.queryByText("Addition")).not.toBeInTheDocument();
+      await act(async () => void fireEvent.click(screen.getByRole("button", { name: /^4/ })));
+      expect(screen.getByText("Addition")).toBeInTheDocument();
+      expect(document.querySelectorAll(".deed-meter-pip--lit")).toHaveLength(4);
+      await act(async () => void fireEvent.click(screen.getByRole("button", { name: /^5/ })));
+      expect(document.querySelectorAll(".deed-meter-pip--lit")).toHaveLength(4);
+    });
+
+    it("lights the flame at two first tries in a row, and says a promotion", async () => {
+      vi.mocked(startDeedRun).mockResolvedValue(fresh);
+      vi.mocked(answerDeedQuestion)
+        .mockResolvedValueOnce({ correct: true, secondChance: false, answer: "5", meter })
+        .mockResolvedValueOnce({ correct: true, secondChance: false, answer: "8", meter: { ...meter, filled: 0 }, rungChange: "Addition: getting stronger!" });
+      board();
+      await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" })));
+      await act(async () => void fireEvent.click(screen.getByRole("button", { name: /^5/ })));
+      expect(screen.queryByTestId("deed-streak")).not.toBeInTheDocument();
+      await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Next question" })));
+      await act(async () => void fireEvent.click(screen.getByRole("button", { name: /^8/ })));
+      expect(screen.getByTestId("deed-streak")).toHaveTextContent("2");
+      expect(screen.getByText("Addition: getting stronger!")).toBeInTheDocument();
+    });
+  });
+
   describe("second chances", () => {
     const four = {
       ...run,

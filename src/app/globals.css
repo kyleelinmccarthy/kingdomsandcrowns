@@ -1772,6 +1772,19 @@ html { scrollbar-color: var(--border) var(--background); }
 @keyframes deed-sparkle { from { box-shadow: 0 0 0 0 var(--glow-gold); } to { box-shadow: 0 0 12px 4px transparent; } }
 @media (prefers-reduced-motion: reduce) { .deed-sparkle { animation: none; } }
 
+/* Deed meter — the skill's pips and the streak flame, on the Realm board and the page's player */
+.deed-meter { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.4rem 1rem; font-size: 0.85rem; font-weight: 700; }
+.deed-meter-skill { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
+.deed-meter-label { opacity: 0.85; }
+.deed-meter-pips { display: inline-flex; gap: 0.25rem; }
+.deed-meter-pip { width: 0.6rem; height: 0.6rem; border-radius: 50%; border: 2px solid currentColor; opacity: 0.4; transition: background-color 200ms, opacity 200ms; }
+.deed-meter-pip--lit { background: var(--gold-bright); border-color: var(--gold-bright); opacity: 1; }
+.deed-meter-streak { display: inline-flex; align-items: center; gap: 0.25rem; color: var(--gold-bright); }
+.deed-meter-flame { width: 1.1rem; height: 1.1rem; }
+.deed-meter-flame--live { animation: deed-flame 900ms ease-in-out infinite alternate; transform-origin: 50% 90%; }
+@keyframes deed-flame { from { transform: scale(1); } to { transform: scale(1.12) rotate(-3deg); } }
+@media (prefers-reduced-motion: reduce) { .deed-meter-flame--live, .deed-meter-pip { animation: none; transition: none; } }
+
 /* ── The Realm ──────────────────────────────────────────────── */
 /* `--realm-hud-scale` and `--realm-bar-bottom` are overwritten inline by RealmShell
    from the hero's render settings; these are the defaults. Every control that sits

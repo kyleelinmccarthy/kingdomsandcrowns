@@ -175,6 +175,60 @@ describe("a wrong first answer with a second chance open", () => {
   });
 });
 
+describe("the skill meter during a run", () => {
+  const meterRow = (level: number, recent: boolean[]) =>
+    client.query(
+      `INSERT INTO skill_mastery (id, child_id, skill_id, level, recent_results, created_at, updated_at)
+       VALUES ('m1', 'c1', $1, $2, $3, NOW(), NOW())`,
+      [SKILL, level, JSON.stringify(recent)],
+    );
+
+  it("a deed run's first answer returns the pips it moved, labelled by the skill", async () => {
+    await seedRun();
+    expect(await answerDeedQuestion("run1", 0, "6")).toMatchObject({ meter: { skillLabel: "Multiplication facts", filled: 1, needed: 7 }, rungChange: null });
+    expect(await answerDeedQuestion("run1", 1, "6")).toMatchObject({ meter: { filled: 1, needed: 7 } });
+  });
+
+  it("a promotion says so, and the meter starts over", async () => {
+    await meterRow(1, [true, true, true, false, true, true, true]);
+    await seedRun();
+    const r = await answerDeedQuestion("run1", 0, "6");
+    expect(r.rungChange).toBe("Multiplication facts: getting stronger!");
+    expect(r.meter).toEqual({ skillLabel: "Multiplication facts", filled: 0, needed: 7 });
+  });
+
+  it("a step down is never announced mid-run", async () => {
+    await meterRow(2, [false, true, false, true, false]);
+    await seedRun();
+    const r = await answerDeedQuestion("run1", 0, "5");
+    expect(r.rungChange).toBeNull();
+    expect(r.meter).toEqual({ skillLabel: "Multiplication facts", filled: 0, needed: 7 });
+  });
+
+  it("reaching the top leaves no meter to show", async () => {
+    await meterRow(3, [true, true, true, true, true, true, true]);
+    await seedRun();
+    const r = await answerDeedQuestion("run1", 0, "6");
+    expect(r.rungChange).toBe("Multiplication facts: getting stronger!");
+    expect(r.meter).toBeNull();
+  });
+
+  it("a Crown Challenge moves nothing, so it has no meter", async () => {
+    await seedRun({ kind: "challenge" });
+    const r = await answerDeedQuestion("run1", 0, "6");
+    expect(r.meter ?? null).toBeNull();
+    expect(r.rungChange ?? null).toBeNull();
+  });
+
+  it("a retry and a give-up carry no meter", async () => {
+    await seedRun();
+    await answerDeedQuestion("run1", 1, "6");
+    expect((await retryDeedQuestion("run1", 1, "9")).meter ?? null).toBeNull();
+    await answerDeedQuestion("run1", 0, "5");
+    expect((await resolveDeedQuestion("run1", 0)).meter ?? null).toBeNull();
+  });
+});
+
 describe("out-of-order and repeated calls are refused, and write nothing", () => {
   async function refused(call: () => Promise<unknown>, message: string) {
     const before = await stored();
@@ -254,7 +308,10 @@ describe("two first answers at once", () => {
     expect(m.rows[0].attempt_total).toBe(1);
     // A wrong pick stored leaves the second chance open: neither caller may have the answer.
     for (const r of results) expect("answer" in r).toBe(first === "9");
-    expect(results[0]).toEqual(results[1]);
+    // The winner alone carries the meter its answer moved; the loser keeps the one it had.
+    const bare = (r: (typeof results)[number]) => ({ ...r, meter: undefined, rungChange: undefined });
+    expect(bare(results[0])).toEqual(bare(results[1]));
+    expect(results.filter((r) => r.meter)).toHaveLength(1);
   });
 
   it("to two questions: both are kept, and the count is of what was stored", async () => {

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { recordResult, masteryLabel, masteryChangeCopy, parseRecentResults, MASTERY_MAX } from "./mastery";
+import { recordResult, masteryLabel, masteryChangeCopy, parseRecentResults, progressToNextRung, MASTERY_MAX } from "./mastery";
 
 function run(state: { level: number; recentResults: boolean[] }, results: boolean[]) {
   return results.reduce((s, r) => recordResult(s, r), state);
@@ -47,5 +47,22 @@ describe("parseRecentResults", () => {
     expect(parseRecentResults(null)).toEqual([]);
     expect(parseRecentResults("nope")).toEqual([]);
     expect(parseRecentResults("[true,false]")).toEqual([true, false]);
+  });
+});
+
+describe("progressToNextRung", () => {
+  it("counts the rights among the last eight first tries, of the seven that climb", () => {
+    expect(progressToNextRung({ level: 1, recentResults: [true, false, true] })).toEqual({ filled: 2, needed: 7 });
+  });
+  it("starts empty on a fresh rung", () => {
+    expect(progressToNextRung({ level: 0, recentResults: [] })).toEqual({ filled: 0, needed: 7 });
+  });
+  it("looks only at the last eight", () => {
+    const old = [true, true, true];
+    const last8 = [false, false, false, false, false, false, false, true];
+    expect(progressToNextRung({ level: 2, recentResults: [...old, ...last8] })).toEqual({ filled: 1, needed: 7 });
+  });
+  it("is null at the top", () => {
+    expect(progressToNextRung({ level: MASTERY_MAX, recentResults: [true] })).toBeNull();
   });
 });

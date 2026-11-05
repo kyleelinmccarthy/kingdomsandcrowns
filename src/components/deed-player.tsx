@@ -7,6 +7,7 @@ import { GameIcon } from "@/components/game-icon";
 import { DeedResults } from "@/components/deed-results";
 import { SubjectChip } from "@/components/subject-chip";
 import { completeDeedRun, type RunStart, type RunSummary } from "@/lib/actions/deeds";
+import { DeedMeter } from "@/components/deed-meter";
 import { useDeedFlow } from "@/components/use-deed-flow";
 import { attemptFeedback } from "@/lib/realm3d/talk";
 import { choiceTone, type ChoiceTone } from "@/lib/utils/deed-run-flow";
@@ -37,7 +38,7 @@ export function DeedPlayer({
   doneLabel?: string;
   onFinished: (summary: RunSummary) => void;
 }) {
-  const { flow, busy, error, setError, guarded, choose, showMe, next } = useDeedFlow(run);
+  const { flow, meter, busy, error, setError, guarded, choose, showMe, next } = useDeedFlow(run);
   const { index, phase } = flow;
   const [summary, setSummary] = useState<RunSummary | null>(null);
   const [startedAt] = useState(() => Date.now());
@@ -112,6 +113,7 @@ export function DeedPlayer({
             <span key={q.id} className={`size-2 rounded-full ${i < index ? "bg-[var(--gold-bright)]" : i === index ? "bg-primary" : "bg-muted"}`} />
           ))}
         </div>
+        <DeedMeter meter={meter} streak={flow.streak} calm={calm} />
         {error && <div className="rounded-md bg-destructive/10 p-2 text-sm text-destructive">{error} <Button size="xs" variant="ghost" onClick={() => setError("")}>Try again</Button></div>}
         <div className="flex items-start gap-3">
           <p className="flex-1 text-xl font-medium">{question.prompt}</p>
@@ -147,6 +149,7 @@ export function DeedPlayer({
             <div>
               {feedback.heading && <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{feedback.heading}</p>}
               <p className="text-sm" role="status">{feedback.text}</p>
+              {flow.result?.rungChange && <p className="text-sm font-semibold text-[var(--gold-bright)]">{flow.result.rungChange}</p>}
             </div>
             {phase === "second-chance" ? (
               <Button variant="link" disabled={busy} onClick={() => void showMe()}>Show me</Button>

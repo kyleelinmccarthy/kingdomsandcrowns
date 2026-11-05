@@ -77,6 +77,68 @@ describe("DeedPlayer", () => {
     expect(screen.getByLabelText("Question 2 of 2")).toBeInTheDocument();
   });
 
+  describe("the streak and the skill meter", () => {
+    const meter = { skillLabel: "Sight words", filled: 3, needed: 7 };
+    const right = { correct: true, secondChance: false, answer: "because", meter, rungChange: null };
+
+    it("fills pips after an answer, and keeps them through the next question", async () => {
+      const user = userEvent.setup();
+      answerDeedQuestion.mockResolvedValue(right);
+      render(<DeedPlayer childId="c1" run={run} profile={profile} calm={false} onFinished={() => {}} />);
+      expect(screen.queryByText("Sight words")).not.toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "because" }));
+      expect(await screen.findByText("Sight words")).toBeInTheDocument();
+      expect(document.querySelectorAll(".deed-meter-pip--lit")).toHaveLength(3);
+      await user.click(screen.getByRole("button", { name: "Next question" }));
+      expect(screen.getByText("Sight words")).toBeInTheDocument();
+    });
+
+    it("shows the flame from two first tries right in a row,", async () => {
+      const user = userEvent.setup();
+      answerDeedQuestion.mockResolvedValue(right);
+      render(<DeedPlayer childId="c1" run={run} profile={profile} calm={false} onFinished={() => {}} />);
+      await user.click(screen.getByRole("button", { name: "because" }));
+      expect(screen.queryByTestId("deed-streak")).not.toBeInTheDocument();
+      await user.click(await screen.findByRole("button", { name: "Next question" }));
+      await user.click(screen.getByRole("button", { name: "again" }));
+      expect(await screen.findByTestId("deed-streak")).toHaveTextContent("2");
+    });
+
+    it("keeps the last meter when a retry brings none, and says a promotion kindly", async () => {
+      const user = userEvent.setup();
+      answerDeedQuestion.mockResolvedValue({ correct: false, secondChance: true, hint: "Look.", meter: { ...meter, filled: 2 } });
+      render(<DeedPlayer childId="c1" run={run} profile={profile} calm={false} onFinished={() => {}} />);
+      await user.click(screen.getByRole("button", { name: "become" }));
+      retryDeedQuestion.mockResolvedValue({ correct: true, secondChance: false, answer: "because" });
+      await user.click(await screen.findByRole("button", { name: "because" }));
+      await screen.findByText("You got there!");
+      expect(document.querySelectorAll(".deed-meter-pip--lit")).toHaveLength(2);
+      expect(screen.queryByText(/getting stronger!/)).not.toBeInTheDocument();
+    });
+
+    it("says the promotion, and draws no meter once the skill is at the top", async () => {
+      const user = userEvent.setup();
+      answerDeedQuestion.mockResolvedValueOnce(right).mockResolvedValueOnce({ correct: true, secondChance: false, answer: "again", meter: null, rungChange: "Sight words: getting stronger!" });
+      render(<DeedPlayer childId="c1" run={run} profile={profile} calm={false} onFinished={() => {}} />);
+      await user.click(screen.getByRole("button", { name: "because" }));
+      await user.click(await screen.findByRole("button", { name: "Next question" }));
+      await user.click(screen.getByRole("button", { name: "again" }));
+      expect(await screen.findByText("Sight words: getting stronger!")).toBeInTheDocument();
+      expect(screen.queryByText("Sight words", { selector: ".deed-meter-label" })).not.toBeInTheDocument();
+    });
+
+    it("draws the flame without its animation for a calm child", async () => {
+      const user = userEvent.setup();
+      answerDeedQuestion.mockResolvedValue(right);
+      render(<DeedPlayer childId="c1" run={run} profile={profile} calm onFinished={() => {}} />);
+      await user.click(screen.getByRole("button", { name: "because" }));
+      await user.click(await screen.findByRole("button", { name: "Next question" }));
+      await user.click(screen.getByRole("button", { name: "again" }));
+      expect(await screen.findByTestId("deed-streak")).toBeInTheDocument();
+      expect(document.querySelector(".deed-meter-flame--live")).toBeNull();
+    });
+  });
+
   describe("second chances", () => {
     const open = { correct: false, secondChance: true, hint: "Look at the first letters." };
     const wrongFirst = async (user: ReturnType<typeof userEvent.setup>) => {
