@@ -167,7 +167,7 @@ WHERE completed_at IS NOT NULL AND kind = 'deed' AND stars = 0;
   - `retryDeedQuestion` right → `{ correct: true, secondChance: false, answer }`; `skill_mastery.recent_results` for that skill ends in `false` (mastery read the first try).
   - Each Review Focus 3 case refused with the Task 3 message and the row's `responses`/`second_tries` unchanged.
   - `completeDeedRun` with a second chance open throws.
-  - After `resolveDeedQuestion` on an open question → result has `answer`; completing a run of outcomes `[first, second, miss, first]` stores `stars = starsFor(5, 8) = 2` and returns `counted: true`, `previousBest: 0`.
+  - After `resolveDeedQuestion` on an open question → result has `answer`; completing a run of outcomes `[first, second, miss, first]` stores `stars = starsFor(5, 8) = 1` (0.625 is under the 0.65 line) and returns `counted: true`, `previousBest: 0`.
   - A run whose outcomes give 0 stars leaves `kingdom_progress.deeds_done` unchanged and returns `counted: false`.
   - **Review Focus 2:** a row with `second_tries = '[]'`, `second_chances = false` → a wrong answer resolves at once with `answer`, completion works.
   - **Review Focus 1:** `startDeedRun` resuming a run whose question 1 is open returns `pending: { index: 1, ruledOut: <first answer>, hint }`. (Mock `loadHeroLevels` to return an enabled hero; the resume path returns before the engine runs.)
