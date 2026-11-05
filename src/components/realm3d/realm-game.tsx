@@ -526,7 +526,7 @@ export function RealmGame({
       const t0 = performance.now();
       setKingdom(applied.state);
       const next = objectiveState(applied.state.buildings, trackedRef.current);
-      const words = deedToast({ site: before, after: result, rose: applied.rose, counted: result.counted, villagerName: villagerForBuilding(buildingId)?.name ?? null, next });
+      const words = deedToast({ site: before, after: result, rose: applied.rose, counted: result.counted, challenge: result.challenge, villagerName: villagerForBuilding(buildingId)?.name ?? null, next });
       setToast(words);
       if (readAloud) speak(words.spoken);
       // Development only: how long raising a building takes to reach the screen. `commitMs` is

@@ -5,7 +5,7 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import * as schema from "@/lib/db/schema";
 import { DEFAULT_REALM_SETTINGS } from "@/lib/utils/realm-settings";
 import { hintFor } from "@/lib/utils/skill-hints";
-import { starsFor } from "@/lib/utils/deed-scoring";
+import { CHALLENGE, starsFor } from "@/lib/utils/deed-scoring";
 import type { Question } from "@/lib/utils/drill-generators";
 
 /**
@@ -24,7 +24,7 @@ const testDb = drizzle(client, { schema });
 vi.mock("@/lib/db", () => ({ db: testDb }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 vi.mock("@/lib/auth/access", () => ({
-  requireChildAccess: async () => ({ access: { userId: "child:c1" }, familyId: "f1" }),
+  requireChildAccess: vi.fn(async () => ({ access: { userId: "child:c1" }, familyId: "f1" })),
   isChildActor: (access: { userId: string }) => access.userId.startsWith("child:"),
 }));
 vi.mock("@/lib/services/realm-play", () => ({ loadRealmSettings: vi.fn(async () => ({ ...DEFAULT_REALM_SETTINGS })) }));
@@ -46,6 +46,7 @@ const { getSchoolCounts } = await import("./subjects");
 const { loadDeedBest } = await import("@/lib/services/deeds");
 const { loadRealmSettings } = await import("@/lib/services/realm-play");
 const { buildDeedRun } = await import("@/lib/utils/deed-engine");
+const { requireChildAccess } = await import("@/lib/auth/access");
 
 // The tables the run touches, as the migrations make them (foreign keys left out); `subject` and
 // `activity_log` carry only the columns the school count reads.
@@ -414,9 +415,85 @@ describe("startDeedRun resumes an open second chance", () => {
     await seedRun({ responses: ["6", "9", null, null] });
     expect((await startDeedRun("c1", "well-stones", "realm")).pending).toBeNull();
   });
+});
 
-  it("does not open the Crown Challenge yet", async () => {
-    await expect(startDeedRun("c1", "well-stones", "realm", { challenge: true })).rejects.toThrow("The Crown Challenge is not open yet.");
+describe("the Crown Challenge", () => {
+  const runCount = async () => Number((await client.query("SELECT count(*) AS n FROM deed_run")).rows[0].n);
+  const masteryCount = async () => Number((await client.query("SELECT count(*) AS n FROM skill_mastery")).rows[0].n);
+  const threeStars = () => seedRun({ id: "earned", responses: ["6", "9", "12", "15"], completed: true, stars: 3 });
+  /** Starts a challenge and answers it from the stored questions: `right` decides each answer. */
+  async function playChallenge(right: boolean[]): Promise<string> {
+    const r = await startDeedRun("c1", "well-stones", "realm", { challenge: true });
+    const row = await client.query("SELECT questions FROM deed_run WHERE id = $1", [r.runId]);
+    const qs = JSON.parse(row.rows[0].questions) as Question[];
+    for (const [i, q] of qs.entries()) {
+      await answerDeedQuestion(r.runId, i, right[i] ? q.answer : q.choices.find((c) => c !== q.answer)!);
+    }
+    return r.runId;
+  }
+
+  it("is refused until the side quest has all three stars, and nothing is written", async () => {
+    await expect(startDeedRun("c1", "well-stones", "realm", { challenge: true })).rejects.toThrow("Earn three stars on this side quest first.");
+    await seedRun({ id: "two", completed: true, stars: 2 });
+    await expect(startDeedRun("c1", "well-stones", "realm", { challenge: true })).rejects.toThrow("Earn three stars on this side quest first.");
+    expect(await runCount()).toBe(1);
+  });
+
+  it("is refused to a grown-up, from the world or the page", async () => {
+    await threeStars();
+    const grownUp = { access: { userId: "u1" }, familyId: "f1" } as unknown as Awaited<ReturnType<typeof requireChildAccess>>;
+    vi.mocked(requireChildAccess).mockResolvedValueOnce(grownUp).mockResolvedValueOnce(grownUp);
+    await expect(startDeedRun("c1", "well-stones", "realm", { challenge: true })).rejects.toThrow("Side quests are for the hero to play.");
+    await expect(startDeedRun("c1", "well-stones", "page", { challenge: true })).rejects.toThrow("Side quests are for the hero to play.");
+    expect(await runCount()).toBe(1);
+  });
+
+  it("asks three questions a rung up, with no second chances and nothing mixed in", async () => {
+    await threeStars();
+    await seedRun({ id: "deed-old", questions: [{ ...QUESTIONS[0], id: "deed-miss", prompt: "miss?" }], responses: ["5"], completed: true });
+    const r = await startDeedRun("c1", "well-stones", "realm", { challenge: true });
+    expect(r).toMatchObject({ kind: "challenge", pending: null });
+    expect(r.questions).toHaveLength(CHALLENGE.questions);
+    expect(JSON.stringify(r.questions)).not.toMatch(/"answer"|"explain"/);
+    const row = await client.query("SELECT kind, second_chances FROM deed_run WHERE id = $1", [r.runId]);
+    expect(row.rows[0]).toEqual({ kind: "challenge", second_chances: false });
+    expect(vi.mocked(buildDeedRun).mock.calls[0][0]).toMatchObject({
+      questionCount: CHALLENGE.questions, levelBoost: CHALLENGE.levelBoost, dueSkillIds: [], recentMisses: [],
+    });
+  });
+
+  it("an open side quest is not picked up as a challenge, nor a challenge as a side quest", async () => {
+    await threeStars();
+    await seedRun({ id: "open-deed" });
+    const challenge = await startDeedRun("c1", "well-stones", "realm", { challenge: true });
+    expect(challenge.runId).not.toBe("open-deed");
+    expect((await startDeedRun("c1", "well-stones", "realm")).runId).toBe("open-deed");
+  });
+
+  it("all three right crowns the side quest and moves nothing else", async () => {
+    await threeStars();
+    const runId = await playChallenge([true, true, true]);
+    const s = await completeDeedRun(runId);
+    expect(s).toMatchObject({ kind: "challenge", flawless: true, crowned: true, stars: 0, previousBest: 3, deedBest: 3, counted: false, masteryChanges: [] });
+    expect((await stored(runId)).stars).toBe(0);
+    expect(await deedsDone()).toBe(0);
+    expect(await masteryCount()).toBe(0);
+    expect(await loadDeedBest("c1")).toEqual([{ deedId: "well-stones", bestStars: 3, crowned: true }]);
+  });
+
+  it("a miss costs nothing: no crown, no new best, and the next try is fresh", async () => {
+    await threeStars();
+    const runId = await playChallenge([true, false, true]);
+    const s = await completeDeedRun(runId);
+    expect(s).toMatchObject({ kind: "challenge", flawless: false, crowned: false, stars: 0, previousBest: 3, counted: false });
+    expect(await masteryCount()).toBe(0);
+    expect((await startDeedRun("c1", "well-stones", "realm", { challenge: true })).runId).not.toBe(runId);
+  });
+
+  it("a crown once earned stays when a later challenge has a miss", async () => {
+    await threeStars();
+    await completeDeedRun(await playChallenge([true, true, true]));
+    expect((await completeDeedRun(await playChallenge([false, true, true]))).crowned).toBe(true);
   });
 });
 

@@ -30,6 +30,12 @@ describe("applyDeedResult", () => {
     expect(state.buildings[0].deeds[0].bestStars).toBe(1);
   });
 
+  it("copies the deed's crown, so the board shows it without a reload", () => {
+    const { state: next } = applyDeedResult(state, "well", { done: 4, total: 5, complete: false }, { id: "well-stones", bestStars: 1, crowned: true });
+    expect(next.buildings[0].deeds[0]).toMatchObject({ bestStars: 1, crowned: true });
+    expect(applyDeedResult(state, "well", { done: 4, total: 5, complete: false }, { id: "well-stones", bestStars: 2 }).state.buildings[0].deeds[0].crowned).toBe(false);
+  });
+
   it("keeps the stars it had when the result carries none", () => {
     expect(applyDeedResult(state, "well", { done: 5, total: 5, complete: true }).state.buildings[0]).toMatchObject({ stars: 4, maxStars: 9 });
   });

@@ -116,6 +116,25 @@ describe("the result card", () => {
   });
 });
 
+describe("a Crown Challenge's result", () => {
+  it("is crowned when every answer was right, and so close otherwise", () => {
+    expect(resultHeadline({ correctCount: 3, total: 3, flawless: true, kind: "challenge" }, "Fill the Bucket")).toEqual({ title: "Crowned!", line: "3 of 3 right in Fill the Bucket." });
+    expect(resultHeadline({ correctCount: 2, total: 3, flawless: false, kind: "challenge" }, "Fill the Bucket").title).toBe("So close — try the challenge again any time.");
+  });
+  it("never says 'New best!', whatever the side quest's best", () => {
+    expect(resultStarsLine({ stars: 0, previousBest: 3, counted: false, kind: "challenge" })).toBe("");
+  });
+  it("toasts the crown, or says it can be tried again — never that someone will help", () => {
+    const won = deedToast({ site: { ...well, done: 5, complete: true }, after: { done: 5, total: 5, complete: true }, rose: false, counted: false, challenge: { won: true }, villagerName: "Old Bram", next: objectiveState(all(), 1) });
+    expect(won).toMatchObject({ title: "Crowned!", rose: false });
+    expect(won.spoken).toBe(`${won.title} ${won.line}`);
+    const close = deedToast({ site: { ...well, done: 5, complete: true }, after: { done: 5, total: 5, complete: true }, rose: false, counted: false, challenge: { won: false }, villagerName: "Old Bram", next: objectiveState(all(), 1) });
+    expect(close.title).toBe("So close!");
+    expect(close.line).toBe("Try the challenge again any time.");
+    for (const t of [won, close]) expect(t.spoken).not.toMatch(/help you|rising|fail/i);
+  });
+});
+
 describe("the result card's stars", () => {
   const base = { stars: 2 as const, previousBest: 1 as const, counted: true, kind: "deed" as const };
   it("celebrates a new best, and only a new best", () => {

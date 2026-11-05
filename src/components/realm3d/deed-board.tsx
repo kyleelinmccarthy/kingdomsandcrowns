@@ -42,12 +42,17 @@ import { Panel, Progress } from "./frame-hud";
 type Profile = { readAloud: boolean; untimed: boolean };
 /**
  * What the board hands up when a run is finished: the building's new progress and stars, whether
- * the run counted, and the side quest's new best. The last two are optional so a hand-raised
- * building (the dev hook) still fits.
+ * the run counted, the side quest's new best and crown, and for a Crown Challenge whether it won.
+ * All but the building are optional so a hand-raised building (the dev hook) still fits.
  */
-export type DeedResult = RunSummary["building"] & { counted?: boolean; deed?: { id: string; bestStars: Stars } };
+export type DeedResult = RunSummary["building"] & {
+  counted?: boolean;
+  deed?: { id: string; bestStars: Stars; crowned?: boolean };
+  challenge?: { won: boolean };
+};
 
 const FAILED = "The enchantment failed.";
+const CROWN_CHALLENGE = "Crown Challenge";
 
 /** A subject, as a coloured tag in the frame's own type. */
 function Subject({ area }: { area: SkillArea }) {
@@ -112,12 +117,12 @@ export function DeedBoard({
     speak(`${copy.name}. ${copy.says} ${copy.need} ${copy.ask}`);
   }, [profile.readAloud, run, villager.id, copy.name, copy.says, copy.need, copy.ask]);
 
-  async function begin(deedId: string) {
+  async function begin(deedId: string, challenge = false) {
     if (!canPlay || busy) return;
     setBusy(true);
     setError("");
     try {
-      setRun(await startDeedRun(childId!, deedId, "realm"));
+      setRun(await (challenge ? startDeedRun(childId!, deedId, "realm", { challenge: true }) : startDeedRun(childId!, deedId, "realm")));
     } catch (err) {
       setError(err instanceof Error ? err.message : FAILED);
     } finally {
@@ -132,9 +137,15 @@ export function DeedBoard({
   );
 
   if (run && childId) {
+    const title = run.kind === "challenge" ? `${CROWN_CHALLENGE}: ${run.deed.title}` : run.deed.title;
+    const handUp = (done: RunSummary) =>
+      onResult(site.id, {
+        ...done.building, counted: done.counted, deed: { id: run.deed.id, bestStars: done.deedBest, crowned: done.crowned },
+        ...(done.kind === "challenge" ? { challenge: { won: done.flawless } } : {}),
+      });
     return (
-      <Panel title={run.deed.title} label={run.deed.title} wide className="r3-board--deed" icon={<GameIcon name={site.icon as GameIconName} className="r3-board-icon" />} onClose={onClose}>
-        <DeedRun childId={childId} run={run} villagerName={villager.name} profile={profile} calm={calm} onResult={(done) => onResult(site.id, { ...done.building, counted: done.counted, deed: { id: run.deed.id, bestStars: done.deedBest } })} onClose={onClose} />
+      <Panel title={title} label={title} wide className="r3-board--deed" icon={<GameIcon name={site.icon as GameIconName} className="r3-board-icon" />} onClose={onClose}>
+        <DeedRun childId={childId} run={run} villagerName={villager.name} profile={profile} calm={calm} onResult={handUp} onClose={onClose} />
       </Panel>
     );
   }
@@ -184,9 +195,16 @@ export function DeedBoard({
               <p className="r3-deed-story">{d.story}</p>
             </div>
             {canPlay && (
-              <button type="button" className="r3-menu-item r3-menu-item--go r3-deed-go" aria-label={`Begin ${d.title}`} disabled={busy} onClick={() => void begin(d.id)}>
-                Begin
-              </button>
+              <div className="r3-deed-actions">
+                <button type="button" className="r3-menu-item r3-menu-item--go r3-deed-go" aria-label={`Begin ${d.title}`} disabled={busy} onClick={() => void begin(d.id)}>
+                  Begin
+                </button>
+                {d.bestStars === 3 && (
+                  <button type="button" className="r3-menu-item r3-deed-go r3-deed-challenge" aria-label={`Begin the ${CROWN_CHALLENGE} for ${d.title}`} disabled={busy} onClick={() => void begin(d.id, true)}>
+                    <GameIcon name="crown" className="r3-menu-icon" /> {CROWN_CHALLENGE}
+                  </button>
+                )}
+              </div>
             )}
           </li>
         ))}
@@ -304,7 +322,7 @@ function DeedRun({
     return (
       <div className="r3-result">
         <span className={`r3-result-seal${summary.flawless ? " r3-result-seal--flawless" : ""}`}>
-          <GameIcon name={summary.flawless ? "star" : "check"} className="r3-result-icon" />
+          <GameIcon name={summary.flawless ? (summary.kind === "challenge" ? "crown" : "star") : "check"} className="r3-result-icon" />
         </span>
         <h3 className="r3-result-title">{head.title}</h3>
         {summary.kind === "deed" && <StarRow stars={summary.stars} />}

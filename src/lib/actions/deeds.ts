@@ -23,7 +23,7 @@ import {
 } from "@/lib/utils/deed-engine";
 import { masteryChangeCopy, masteryLabel, parseRecentResults, progressToNextRung, recordResult, type SkillMeter } from "@/lib/utils/mastery";
 import type { Question } from "@/lib/utils/drill-generators";
-import { RUN_EFFECTS, countsTowardBuilding, runPoints, starsFor, type QuestionOutcome, type RunKind, type Stars } from "@/lib/utils/deed-scoring";
+import { CHALLENGE, RUN_EFFECTS, countsTowardBuilding, runPoints, starsFor, type QuestionOutcome, type RunKind, type Stars } from "@/lib/utils/deed-scoring";
 import {
   ALREADY_ANSWERED,
   outcomeOf,
@@ -36,7 +36,7 @@ import {
 } from "@/lib/utils/deed-attempts";
 import { overdueSkills } from "@/lib/utils/review-schedule";
 import { hintFor } from "@/lib/utils/skill-hints";
-import { buildingStars, gradeForDeed, loadDeedBest, loadHeroLevels, loadKingdomOverview, type BuildingOverview } from "@/lib/services/deeds";
+import { MAX_STARS, buildingStars, gradeForDeed, loadDeedBest, loadHeroLevels, loadKingdomOverview, type BuildingOverview } from "@/lib/services/deeds";
 import { loadLearningProfileRow } from "@/lib/services/learning-profile";
 import { loadRealmSettings } from "@/lib/services/realm-play";
 export type MasteryRow = { skillId: string; label: string; area: SkillArea; level: number; levelLabel: string; lastPracticedAt: string | null };
@@ -73,6 +73,8 @@ export type RunSummary = {
   deedBest: Stars;
   /** Whether this run raised its building: a starless run teaches but does not build. */
   counted: boolean;
+  /** Whether the side quest holds its crown after this run: a flawless Crown Challenge earns it. */
+  crowned: boolean;
   kind: RunKind;
   building: { label: string; done: number; total: number; complete: boolean; stars: number; maxStars: number };
 };
@@ -144,6 +146,8 @@ export async function getMasteryOverview(childId: string): Promise<MasteryRow[]>
 
 // Sentence case here (not the SIDE_QUESTS title-case noun): this reads as a plain sentence, not an error code.
 const HERO_ONLY = "Side quests are for the hero to play.";
+/** The Crown Challenge opens only on a side quest with every star. */
+const CHALLENGE_LOCKED = "Earn three stars on this side quest first.";
 
 export async function startDeedRun(
   childId: string,
@@ -152,14 +156,19 @@ export async function startDeedRun(
   options?: { challenge?: boolean },
 ): Promise<RunStart> {
   const { access } = await requireChildAccess(childId, { write: true });
-  // In the world, only the hero plays; a parent previewing the Realm reads stories but never starts a run.
-  if (context === "realm" && !isChildActor(access)) throw new Error(HERO_ONLY);
-  if (options?.challenge) throw new Error("The Crown Challenge is not open yet.");
-  const kind: RunKind = "deed";
+  const challenge = options?.challenge === true;
+  // In the world, only the hero plays; a parent previewing the Realm reads stories but never
+  // starts a run. A Crown Challenge is the hero's alone wherever it is asked from.
+  if ((context === "realm" || challenge) && !isChildActor(access)) throw new Error(HERO_ONLY);
+  const kind: RunKind = challenge ? "challenge" : "deed";
   const deed = findDeed(deedId);
   if (!deed) throw new Error(`That ${SIDE_QUEST_LOWER} is not in the chronicle.`);
   const hero = await loadHeroLevels(childId);
   if (!hero.enabled) throw new Error(CLOSED);
+  if (challenge) {
+    const best = (await loadDeedBest(childId)).find((b) => b.deedId === deedId)?.bestStars ?? 0;
+    if (best < MAX_STARS) throw new Error(CHALLENGE_LOCKED);
+  }
   const story = deedStory(deed, hero.tone);
 
   // A run abandoned minutes ago is picked back up rather than restarted.
@@ -196,7 +205,8 @@ export async function startDeedRun(
     poolSkillIds.length > 0
       ? db.select().from(schema.drillItem).where(inArray(schema.drillItem.skillId, poolSkillIds))
       : Promise.resolve([] as (typeof schema.drillItem.$inferSelect)[]),
-    loadRecentMisses(childId),
+    // A challenge mixes nothing in, so it needs no misses.
+    challenge ? Promise.resolve([] as Question[]) : loadRecentMisses(childId),
     loadRealmSettings(childId),
   ]);
   const profile = profileFromRow(profileRow);
@@ -220,8 +230,10 @@ export async function startDeedRun(
     skills.map((s) => s.id), [], Date.now(),
   );
   const built = buildDeedRun({
-    deed, grade, masteryBySkill, lastPracticedBySkill, profile, seed: Date.now() >>> 0, poolItems, recentMisses,
-    dueSkillIds, questionCount: settings.sideQuestLength,
+    deed, grade, masteryBySkill, lastPracticedBySkill, profile, seed: Date.now() >>> 0, poolItems,
+    ...(challenge
+      ? { recentMisses: [], dueSkillIds: [], questionCount: CHALLENGE.questions, levelBoost: CHALLENGE.levelBoost }
+      : { recentMisses, dueSkillIds, questionCount: settings.sideQuestLength }),
   });
   if (built.questions.length === 0) throw new Error(`No ${SIDE_QUESTS_LOWER} are ready for this hero yet.`);
 
@@ -421,7 +433,10 @@ export async function completeDeedRun(runId: string): Promise<RunSummary> {
   const stars: Stars = effects.earnsStars ? starsFor(points, maxPoints) : 0;
   // Read before this run's stars are written, so a new best is never measured against itself.
   const bestBefore = await loadDeedBest(run.childId);
-  const previousBest = bestBefore.find((b) => b.deedId === run.deedId)?.bestStars ?? 0;
+  const before = bestBefore.find((b) => b.deedId === run.deedId);
+  const previousBest = before?.bestStars ?? 0;
+  // Mirrors `loadDeedBest`'s crown: a finished challenge with every question right first time.
+  const crowned = (before?.crowned ?? false) || (run.kind === "challenge" && flawless);
   const now = new Date();
   const finished = await db
     .update(schema.deedRun)
@@ -456,7 +471,7 @@ export async function completeDeedRun(runId: string): Promise<RunSummary> {
   revalidatePath("/spellbook");
   revalidatePath("/loot");
   return {
-    correctCount, total: questions.length, flawless, masteryChanges, stars, previousBest, deedBest, counted, kind: run.kind,
+    correctCount, total: questions.length, flawless, masteryChanges, stars, previousBest, deedBest, counted, crowned, kind: run.kind,
     building: { label: building?.label ?? "the kingdom", ...progress, ...buildingStarsNow },
   };
 }

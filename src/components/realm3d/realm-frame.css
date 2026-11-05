@@ -940,6 +940,9 @@
 .r3-deed-title { display: flex; flex-wrap: wrap; align-items: center; gap: 0.45rem; margin: 0; font-size: 1.08rem; font-weight: 900; color: #fff6de; }
 .r3-deed-story { margin: 0.2rem 0 0; font-size: 0.9rem; font-weight: 600; line-height: 1.35; color: #e6cf9c; }
 .r3-menu-item.r3-deed-go { flex: none; min-height: 2.8rem; padding: 0 1.1rem; font-size: 1.05rem; }
+/* Begin, and the Crown Challenge under it once every star is earned. */
+.r3-deed-actions { flex: none; display: flex; flex-direction: column; align-items: stretch; gap: 0.4rem; }
+.r3-menu-item.r3-deed-challenge { font-size: 0.95rem; color: var(--r3-gold); }
 .r3-menu-item:disabled { opacity: 0.6; cursor: default; transform: none; }
 
 /* ---- a side quest, question by question ------------------------------------- */

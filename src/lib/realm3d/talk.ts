@@ -95,6 +95,9 @@ export function talkCopy(input: {
   return { name: villager.name, role, says, need, ask };
 }
 
+/** A flawless Crown Challenge, on the result card and in the toast alike. */
+const CROWNED = "Crowned!";
+
 /** The moment a side quest is finished, shown over the world as the panel closes. */
 export type DeedToast = {
   title: string;
@@ -120,10 +123,16 @@ export function deedToast(input: {
   rose: boolean;
   /** False when the run earned no star: it taught, but it did not build. Defaults to true. */
   counted?: boolean;
+  /** Set for a Crown Challenge, which never builds: whether it won the crown. */
+  challenge?: { won: boolean };
   villagerName: string | null;
   next: ObjectiveState;
 }): DeedToast {
-  const { site, after, rose, villagerName, next, counted = true } = input;
+  const { site, after, rose, villagerName, next, counted = true, challenge } = input;
+  if (challenge) {
+    const [title, line] = challenge.won ? [CROWNED, "The crown shines beside your stars."] : ["So close!", "Try the challenge again any time."];
+    return { title, line, done: after.done, total: after.total, rose: false, spoken: `${title} ${line}` };
+  }
   if (!counted) {
     const title = `${villagerName ?? "The village"} will help you try again.`;
     return { title, line: "Every try teaches something.", done: after.done, total: after.total, rose: false, spoken: `${title} Every try teaches something.` };
@@ -144,10 +153,16 @@ export function deedToast(input: {
   return { title, line, done: after.done, total: after.total, rose, spoken: `${title} ${line}` };
 }
 
-/** The result card's headline, as the flat Realm's `DeedResults` wrote it. */
-export function resultHeadline(summary: { correctCount: number; total: number; flawless: boolean }, deedTitle: string): { title: string; line: string } {
+/** The result card's headline, as the flat Realm's `DeedResults` wrote it; a Crown Challenge is crowned or close. */
+export function resultHeadline(
+  summary: { correctCount: number; total: number; flawless: boolean; kind?: RunSummary["kind"] },
+  deedTitle: string,
+): { title: string; line: string } {
+  const challenge = summary.kind === "challenge";
   return {
-    title: summary.flawless ? "Flawless!" : "Side quest done!",
+    title: challenge
+      ? summary.flawless ? CROWNED : "So close — try the challenge again any time."
+      : summary.flawless ? "Flawless!" : "Side quest done!",
     line: `${summary.correctCount} of ${summary.total} right in ${deedTitle}.`,
   };
 }

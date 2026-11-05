@@ -1,7 +1,8 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { buildDeedRun, chooseSkills, gradeAnswer, toClientQuestion, type BuildRunInput, type PoolItem } from "./deed-engine";
 import { findDeed } from "./deeds";
 import { REVIEW } from "./review-schedule";
+import { CHALLENGE } from "./deed-scoring";
 import { GENERATORS, seededRng } from "./drill-generators";
 import { SKILLS } from "./skills";
 import { GRADES } from "./grade-levels";
@@ -678,5 +679,47 @@ describe("buildDeedRun keep-it-sharp review", () => {
     expect(flags.lastIndexOf(false)).toBeLessThan(flags.indexOf(true));
     expect(flags[flags.length - 1]).toBe(true);
     for (const q of run.questions) expect(q.choices).toHaveLength(2);
+  });
+});
+
+describe("buildDeedRun for a Crown Challenge (levelBoost)", () => {
+  afterEach(() => vi.restoreAllMocks());
+  const mathSkills = chooseSkills(deedMath, "3").map((s) => s.id);
+  const at = (level: number) => Object.fromEntries(mathSkills.map((id) => [id, level]));
+  /** Every level a generator was asked for while one run was built. */
+  function drawLevels(over: Partial<BuildRunInput>): number[] {
+    const levels: number[] = [];
+    for (const key of Object.keys(GENERATORS)) {
+      const real = GENERATORS[key];
+      vi.spyOn(GENERATORS, key).mockImplementation((level, rng, skillId) => {
+        levels.push(level);
+        return real(level, rng, skillId);
+      });
+    }
+    buildDeedRun(input({ deed: deedMath, grade: "3", poolItems: [], questionCount: CHALLENGE.questions, ...over }));
+    return levels;
+  }
+
+  it("draws every generated question one rung above the child", () => {
+    const levels = drawLevels({ masteryBySkill: at(2), levelBoost: 1 });
+    expect(levels.length).toBeGreaterThan(0);
+    expect(new Set(levels)).toEqual(new Set([3]));
+  });
+  it("never draws above the top rung", () => {
+    expect(new Set(drawLevels({ masteryBySkill: at(4), levelBoost: 1 }))).toEqual(new Set([4]));
+  });
+  it("draws pool items near the boosted rung too", () => {
+    const items = [
+      ...poolItems("read-g3", 5, 1).map((i) => ({ ...i, id: `${i.id}-lo` })),
+      ...poolItems("read-g3", 5, 4).map((i) => ({ ...i, id: `${i.id}-hi` })),
+    ];
+    const plain = buildDeedRun(input({ poolItems: items, masteryBySkill: { "read-g3": 2 }, questionCount: 3 }));
+    const boosted = buildDeedRun(input({ poolItems: items, masteryBySkill: { "read-g3": 2 }, questionCount: 3, levelBoost: 1 }));
+    expect(plain.questions.every((q) => q.id.endsWith("-lo"))).toBe(true);
+    expect(boosted.questions.every((q) => q.id.endsWith("-hi"))).toBe(true);
+  });
+  it("asks exactly the challenge's three questions with nothing mixed in", () => {
+    const run = buildDeedRun(input({ deed: deedMath, grade: "3", poolItems: [], masteryBySkill: at(2), questionCount: CHALLENGE.questions, levelBoost: CHALLENGE.levelBoost, dueSkillIds: [], recentMisses: [] }));
+    expect(run.questions).toHaveLength(3);
   });
 });
