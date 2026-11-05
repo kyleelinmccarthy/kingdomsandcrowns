@@ -387,7 +387,7 @@ export function buildDeedRun(input: BuildRunInput): BuiltRun {
   return { skillIds, questions: finalQuestions };
 }
 
-export function gradeAnswer(question: Question, answer: string): boolean {
+export function gradeAnswer(question: Pick<Question, "answer">, answer: string): boolean {
   return question.answer.trim() === answer.trim();
 }
 
