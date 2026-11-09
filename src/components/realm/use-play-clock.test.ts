@@ -789,6 +789,45 @@ describe("usePlayClock — idle time given back (spec §4.6)", () => {
     expect(recordRealmPlay).toHaveBeenCalledTimes(2); // the failed idle minute is not retried
   });
 
+  it("puts back on the clock a failed in-flight minute it drops, so the count is not one low", async () => {
+    const send = deferred();
+    recordRealmPlay.mockResolvedValueOnce(undefined).mockReturnValueOnce(send.promise.then(() => Promise.reject(new Error("The ledger is unreachable."))));
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 3, source: "earned" });
+    refundIdleMinutes.mockRejectedValue(new Error("The ledger is unreachable.")); // no server answer to adopt
+    const { result } = renderHook(() => usePlayClock({ enabled: true, childId: "c1", initialMinutes: 5, onClose: vi.fn() }));
+    await play(120_000); // 3 after the first record's answer, 2 once the second minute ticks
+    expect(result.current.minutesRemaining).toBe(2);
+    let asked!: Promise<number>;
+    act(() => {
+      asked = result.current.giveBackIdle();
+    });
+    await act(async () => {
+      send.resolve();
+      expect(await asked).toBe(0);
+    });
+    expect(result.current.minutesRemaining).toBe(3);
+  });
+
+  it("minutes that ran out while idle come back, and the quiet world wakes", async () => {
+    recordRealmPlay.mockResolvedValue(undefined);
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 0, source: "quiet" });
+    refundIdleMinutes.mockResolvedValue({ refunded: 1 });
+    const onQuiet = vi.fn();
+    const onWake = vi.fn();
+    const { result } = renderHook(() => usePlayClock({ enabled: true, childId: "c1", initialMinutes: 1, onClose: vi.fn(), onQuiet, onWake, initialSource: "earned" }));
+    await play(120_000); // the last minute is written untouched, and the server says quiet
+    expect(onQuiet).toHaveBeenCalledOnce();
+    expect(result.current.quiet).toBe(true);
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 1, source: "earned" });
+    await act(async () => {
+      expect(await result.current.giveBackIdle()).toBe(1);
+    });
+    expect(refundIdleMinutes).toHaveBeenCalledWith("c1", 1);
+    expect(onWake).toHaveBeenCalledWith(1);
+    expect(result.current.quiet).toBe(false);
+    expect(result.current.minutesRemaining).toBe(1);
+  });
+
   it("has nothing to give back in the quiet world", async () => {
     const { result } = renderHook(() => usePlayClock({ enabled: true, childId: "c1", initialMinutes: 0, onClose: vi.fn(), initialSource: "quiet" }));
     await play(120_000);

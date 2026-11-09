@@ -56,8 +56,8 @@ export async function recordRealmPlay(childId: string, minutes: number): Promise
 /**
  * The idle pause gives back what the clock charged while nobody was there (spec §4.6): the
  * child's own clock only, a whole number of minutes up to `IDLE_REFUND_MAX_MINUTES`, on the
- * server's today. `refundIdle` bounds it by today's spent and to one per `IDLE_MS`; the answer is
- * what was actually given back (0 when refused, the Realm off, or nothing to give).
+ * server's today. `refundIdle` bounds it by today's spent, by play written in the last idle span,
+ * and to one per idle wait; the answer is what was actually given back (0 when refused, the Realm off, or nothing to give).
  */
 export async function refundIdleMinutes(childId: string, minutes: number): Promise<{ refunded: number }> {
   const [{ access }, { date }] = await Promise.all([requireChildAccess(childId, { write: true }), realmNow(childId)]);

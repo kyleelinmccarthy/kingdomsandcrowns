@@ -94,6 +94,14 @@ export function tickClock(clock: PlayClock, elapsedSeconds: number, visible: boo
   return { clock: { ...clock, secondsThisMinute: seconds, minutesRemaining, warned, countedSinceInput }, event, records };
 }
 
+/**
+ * Puts `minutes` that were counted off but will never be charged back on the clock. Not on a quiet
+ * clock, which holds 0 by definition: the server's next answer is what wakes it.
+ */
+export function minutesBack(clock: PlayClock, minutes: number): PlayClock {
+  return clock.quiet || minutes <= 0 ? clock : { ...clock, minutesRemaining: clock.minutesRemaining + minutes };
+}
+
 /** The child touched the game: the idle count starts again. The same clock when it is already 0 (input fires on every mouse move). */
 export function noteInput(clock: PlayClock): PlayClock {
   return clock.countedSinceInput === 0 ? clock : { ...clock, countedSinceInput: 0 };
@@ -111,11 +119,13 @@ export function noteInput(clock: PlayClock): PlayClock {
  *     A written minute counts when at least half of it was idle — the mirror of `ROUND_UP_SECONDS`,
  *     which charges a part-minute played at least half — capped at `IDLE_REFUND_MAX_MINUTES`.
  *
- * A quiet or closed clock counted nothing that could be given back.
+ * A clock that went quiet during the span still gives back what it charged before (idle time
+ * never counts against minutes earned); one quiet throughout counted nothing. A closed clock gives
+ * nothing back: the Realm has shut (the day's cap, recess over), and a refund would not reopen it.
  */
 export function idleGiveBack(clock: PlayClock, pending: number): { clock: PlayClock; dropPending: number; refundRecorded: number } {
   const reset = { ...clock, countedSinceInput: 0 };
-  if (clock.quiet || clock.closed) return { clock: reset, dropPending: 0, refundRecorded: 0 };
+  if (clock.closed) return { clock: reset, dropPending: 0, refundRecorded: 0 };
   const owedPending = Math.max(0, Math.floor(pending));
   const unwritten = owedPending * 60 + clock.secondsThisMinute;
   const played = Math.max(0, unwritten - clock.countedSinceInput);
@@ -123,7 +133,7 @@ export function idleGiveBack(clock: PlayClock, pending: number): { clock: PlayCl
   const writtenIdle = Math.max(0, clock.countedSinceInput - unwritten);
   const refundRecorded = Math.min(IDLE_REFUND_MAX_MINUTES, Math.floor((writtenIdle + 60 - ROUND_UP_SECONDS) / 60));
   return {
-    clock: { ...reset, secondsThisMinute: played % 60, minutesRemaining: clock.minutesRemaining + dropPending },
+    clock: minutesBack({ ...reset, secondsThisMinute: played % 60 }, dropPending),
     dropPending,
     refundRecorded,
   };

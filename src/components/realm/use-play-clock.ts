@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getRealmAccess, recordRealmPlay, refundIdleMinutes } from "@/lib/actions/realm-play";
-import { applyAccess, idleGiveBack, minutesToSettle, noteInput as inputSeen, startClock, tickClock, type PlayClock } from "@/lib/realm/play-clock";
+import { applyAccess, idleGiveBack, minutesBack, minutesToSettle, noteInput as inputSeen, startClock, tickClock, type PlayClock } from "@/lib/realm/play-clock";
 import type { AccessDenied, AccessResult, AccessSource } from "@/lib/utils/realm-access";
 import { beaconPlayCharge } from "@/lib/utils/realm-play-charge";
 
@@ -251,10 +251,11 @@ export function usePlayClock({
    * The idle pause fired: give back what this clock charged since the last input (spec §4.6,
    * `idleGiveBack`). Seconds in progress are rewound and unwritten minutes dropped here — so
    * neither a flush nor the page-hide beacon sends them; minutes already written are refunded by
-   * the server (`refundIdleMinutes`), then its access answer is adopted. A record still in flight
+   * the server (`refundIdleMinutes`), then its access answer is adopted (which wakes a clock that ran
+   * out and went quiet while idle). A record still in flight
    * counts as written: the refund waits for it, and if it failed its minutes are dropped from
    * pending instead, never both. Resolves to the minutes the server gave back; 0 when nothing was
-   * written, when quiet, or when the refund fails (the minutes then stay charged, and no error shows).
+   * written (a clock quiet throughout counted nothing), or when the refund fails (the minutes then stay charged, and no error shows).
    */
   const giveBackIdle = useCallback(async (): Promise<number> => {
     const inFlight = inFlightRef.current;
@@ -269,6 +270,8 @@ export function usePlayClock({
       // The newest "written" minutes were that record's, and it failed: they are back in pending, unwritten.
       const unwritten = Math.min(inFlight, ask, pendingRef.current);
       pendingRef.current -= unwritten;
+      clockRef.current = minutesBack(clockRef.current, unwritten);
+      setClock(clockRef.current);
       ask -= unwritten;
       if (ask < 1) return 0;
     }

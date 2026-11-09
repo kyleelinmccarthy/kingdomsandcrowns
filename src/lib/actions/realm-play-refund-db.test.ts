@@ -33,6 +33,7 @@ const today = "2026-11-09";
 vi.mock("@/lib/services/realm-clock", () => ({ realmNow: async () => ({ date: today, timeOfDay: "10:00" }) }));
 
 const { getRealmAccess, recordRealmPlay, refundIdleMinutes } = await import("@/lib/actions/realm-play");
+const { REFUND_SLACK_MS } = await import("@/lib/services/realm-play");
 
 const DDL = [...REALM_SETTINGS_DDL, ...REALM_LEDGER_DDL, ...REALM_TROUBLE_CLEAR_DDL, ...REALM_ACCESS_DDL];
 
@@ -57,6 +58,17 @@ afterAll(async () => {
 async function refundRows(): Promise<number[]> {
   const r = await client.query("SELECT minutes FROM realm_play_ledger WHERE child_id = 'c1' AND kind = 'refund' ORDER BY created_at");
   return r.rows.map((row) => Number(row.minutes));
+}
+
+/** Writes a ledger row stamped `agoMs` before now, as a write that long ago would have. */
+async function rowAgo(kind: "spent" | "refund", minutes: number, agoMs: number) {
+  await client.query("INSERT INTO realm_play_ledger (id, child_id, date, kind, minutes, created_at) VALUES ($1, 'c1', $2, $3, $4, $5)", [
+    `${kind}-${agoMs}`,
+    today,
+    kind,
+    minutes,
+    new Date(Date.now() - agoMs),
+  ]);
 }
 
 async function minutesLeft(): Promise<number> {
@@ -109,6 +121,33 @@ describe("refundIdleMinutes — what an idle pause may give back", () => {
     ]);
     expect(await refundIdleMinutes("c1", 2)).toEqual({ refunded: 2 });
     expect(await refundRows()).toEqual([1, 2]);
+  });
+
+  it("gives a slow round trip slack: the next refund is allowed IDLE_MS − REFUND_SLACK_MS after the last", async () => {
+    expect(REFUND_SLACK_MS).toBe(15_000);
+    await recordRealmPlay("c1", 5);
+    await rowAgo("refund", 1, IDLE_MS - REFUND_SLACK_MS + 1000);
+    expect(await refundIdleMinutes("c1", 1)).toEqual({ refunded: 1 });
+  });
+
+  it("still refuses a refund just inside that slackened window", async () => {
+    await recordRealmPlay("c1", 5);
+    await rowAgo("refund", 1, IDLE_MS - REFUND_SLACK_MS - 2000);
+    expect(await refundIdleMinutes("c1", 1)).toEqual({ refunded: 0 });
+    expect(await refundRows()).toEqual([1]);
+  });
+
+  it("only reverses minutes spent within the last IDLE_MS + REFUND_SLACK_MS: older play is not refundable", async () => {
+    await rowAgo("spent", 5, IDLE_MS + REFUND_SLACK_MS + 1000);
+    expect(await refundIdleMinutes("c1", 2)).toEqual({ refunded: 0 });
+    await recordRealmPlay("c1", 1);
+    expect(await refundIdleMinutes("c1", 2)).toEqual({ refunded: 1 });
+  });
+
+  it("counts refunds already written in that window against it, so one spend is never reversed twice", async () => {
+    await recordRealmPlay("c1", 3);
+    await rowAgo("refund", 2, IDLE_MS - REFUND_SLACK_MS + 1000);
+    expect(await refundIdleMinutes("c1", 2)).toEqual({ refunded: 1 });
   });
 
   it("refuses a grown-up, who has no clock to give back", async () => {

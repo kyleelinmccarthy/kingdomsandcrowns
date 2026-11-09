@@ -1,4 +1,4 @@
-import { and, asc, count, eq, gt, lt, max, sql } from "drizzle-orm";
+import { and, asc, count, eq, gt, gte, inArray, lt, max, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
@@ -227,23 +227,37 @@ export async function paySideQuest(childId: string, runId: string, stars: number
 }
 
 /**
+ * Slack on the idle refund's two clocks, for a slow round trip: the next refund is allowed
+ * `IDLE_MS − REFUND_SLACK_MS` after the last (a genuine second idle pause is never refused because
+ * the first answer was late), and a refund may reverse play written up to `IDLE_MS + REFUND_SLACK_MS`
+ * ago (the idle span, plus a record that took its time to land).
+ */
+export const REFUND_SLACK_MS = 15_000;
+
+/**
  * Gives back play minutes the clock charged while the child was idle (spec §4.6), as one `refund`
  * row on the server's day; returns how many. Under the child's lock with the day opened first,
- * like every write: never more than today's spent (net of refunds), so a forged refund cannot
- * mint credit, and at most one per `IDLE_MS` of wall time per child — the latest `refund` row's
- * `created_at`, read inside the lock, so two at once write one row. Callers have authorized the
- * child and checked `minutes` (`refundIdleMinutes`).
+ * like every write, and bounded three ways, all read inside the lock so two at once write one row:
+ *
+ *   - never more than today's spent (net of refunds), so a forged refund cannot mint credit;
+ *   - only `spent` written in the last `IDLE_MS + REFUND_SLACK_MS` of server time (net of refunds
+ *     written in that window): an idle pause can only reverse the play it just sat through;
+ *   - at most one per `IDLE_MS − REFUND_SLACK_MS` of wall time per child (the latest `refund` row).
+ *
+ * Callers have authorized the child and checked `minutes` (`refundIdleMinutes`).
  */
 export async function refundIdle(childId: string, date: string, minutes: number, settings: RealmSettings): Promise<number> {
   return withChildLock(childId, async (tx) => {
     const today = await openDay(childId, date, settings, tx);
+    const now = Date.now();
     const L = schema.realmPlayLedger;
-    const [latest] = await tx
-      .select({ at: max(L.createdAt) })
+    // Every refund the once-per-window rule could refuse on is inside this span too.
+    const recent = await tx
+      .select({ kind: L.kind, minutes: L.minutes, createdAt: L.createdAt })
       .from(L)
-      .where(and(eq(L.childId, childId), eq(L.kind, "refund")));
-    if (latest?.at && Date.now() - latest.at.getTime() < IDLE_MS) return 0;
-    const refunded = Math.min(minutes, minutesSpent(today));
+      .where(and(eq(L.childId, childId), inArray(L.kind, ["spent", "refund"]), gte(L.createdAt, new Date(now - IDLE_MS - REFUND_SLACK_MS))));
+    if (recent.some((r) => r.kind === "refund" && now - r.createdAt.getTime() < IDLE_MS - REFUND_SLACK_MS)) return 0;
+    const refunded = Math.min(minutes, minutesSpent(today), minutesSpent(recent));
     if (refunded < 1) return 0;
     await appendLedger(childId, date, "refund", refunded, {}, tx);
     return refunded;

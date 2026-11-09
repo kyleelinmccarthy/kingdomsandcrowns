@@ -323,9 +323,31 @@ describe("idle time given back (spec §4.6)", () => {
     expect(idleGiveBack(clock, 0).refundRecorded).toBe(IDLE_REFUND_MAX_MINUTES);
   });
 
-  it("gives nothing back from a quiet or closed clock, and starts the count again", () => {
-    const quiet = { ...idleAfter(0, 90).clock, quiet: true };
-    expect(idleGiveBack(quiet, 0)).toEqual({ clock: { ...quiet, countedSinceInput: 0 }, dropPending: 0, refundRecorded: 0 });
+  /** The last minute ran out while nobody was there: 10 played, 50 idle, the minute written, and the server said quiet. */
+  function ranOutWhileIdle() {
+    const { clock } = idleAfter(10, 50, 1);
+    expect(clock).toMatchObject({ minutesRemaining: 0, countedSinceInput: 50 });
+    const quiet = applyAccess(clock, { allowed: true, minutesRemaining: 0, source: "quiet" }).clock;
+    return tickFor(quiet, 60).clock; // quiet time counts nothing more
+  }
+
+  it("still asks back the minutes charged while idle when they ran out and the clock went quiet", () => {
+    const quiet = ranOutWhileIdle();
+    expect(quiet).toMatchObject({ quiet: true, countedSinceInput: 50 });
+    expect(idleGiveBack(quiet, 0)).toMatchObject({ dropPending: 0, refundRecorded: 1, clock: { quiet: true, minutesRemaining: 0, countedSinceInput: 0 } });
+  });
+
+  it("drops a quiet clock's unwritten idle minute without putting minutes on it (quiet holds 0; the server's answer wakes it)", () => {
+    const back = idleGiveBack(ranOutWhileIdle(), 1);
+    expect(back).toMatchObject({ dropPending: 1, refundRecorded: 0, clock: { quiet: true, minutesRemaining: 0, secondsThisMinute: 10 } });
+  });
+
+  it("gives nothing back from a clock quiet throughout: it never counted", () => {
+    const quiet = tickFor(startClock(0, true), 120).clock;
+    expect(idleGiveBack(quiet, 0)).toEqual({ clock: quiet, dropPending: 0, refundRecorded: 0 });
+  });
+
+  it("gives nothing back from a closed clock, and starts the count again", () => {
     const closed = { ...idleAfter(0, 90).clock, closed: true };
     expect(idleGiveBack(closed, 1)).toEqual({ clock: { ...closed, countedSinceInput: 0 }, dropPending: 0, refundRecorded: 0 });
   });

@@ -383,7 +383,6 @@ export function PauseMenu({
   viewer: Viewer;
   /** Why it paused (`pause.ts`): said on the board when the game paused by itself. */
   why?: PauseWhy;
-  /** What an idle pause gave back, once known (`pauseCopy`). */
   refunded?: number;
   /** The Mouse section (`look-controls.tsx`): look speed and Invert up/down, beside Sound. */
   look?: ReactNode;
