@@ -41,7 +41,7 @@ import {
   paintTroublePlate,
   type TroubleBus,
 } from "@/lib/realm3d/trouble-bus";
-import { shareTroubleField } from "@/lib/realm3d/trouble-bus";
+import { hideAllTroubles, shareTroubleField } from "@/lib/realm3d/trouble-bus";
 import {
   BODY_RADIUS,
   BODY_TOP,
@@ -398,6 +398,8 @@ export function Troubles({
     shareTroubleField(tbus, field);
     return () => shareTroubleField(tbus, null);
   }, [tbus, field]);
+  // Gone from the world (the quiet world, `lib/realm3d/quiet.ts`): the markers and map dots go too.
+  useEffect(() => () => hideAllTroubles(tbus), [tbus]);
   const planned = useRef(homes);
   // A reload makes a new field that remembers nothing: seed it with the clears the page's bundle
   // carried, aged by how long the page has had them, before its first step, so a trouble cleared

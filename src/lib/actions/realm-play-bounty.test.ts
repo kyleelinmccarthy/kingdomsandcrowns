@@ -23,20 +23,27 @@ const store = {
 // `realm-play-bounty-db.test.ts`; here it only has to be reached, or not.
 const awardTroubleClears = vi.fn(async () => ({ awarded: 0, status: {} }));
 vi.mock("@/lib/services/realm-play", () => ({
-  appendLedger: vi.fn(),
   loadRealmSettings: async () => store.settings,
   loadLedger: async () => store.ledger,
+  loadLedgerAsOpened: async () => store.ledger,
+}));
+vi.mock("@/lib/services/realm-troubles", () => ({
   loadTroubleClears: async () => store.clears,
   awardTroubleClears: (...a: unknown[]) => (awardTroubleClears as (...x: unknown[]) => unknown)(...a),
 }));
 vi.mock("@/lib/db", () => ({ db: {} }));
+// The gate's other inputs: a school-day morning with no classes or recess, so the ledger decides.
+const scene = () => ({ settings: store.settings, timeOfDay: "10:00", isSchoolDay: true, classBlocksToday: [], recessBlocksToday: [] });
+vi.mock("@/lib/services/realm-access-scene", () => ({ loadAccessScene: async () => scene() }));
+// The server's day (`realmNow`), whatever the device thinks.
+const SERVER_DAY = "2026-11-09";
+vi.mock("@/lib/services/realm-clock", () => ({ realmNow: async () => ({ date: SERVER_DAY, timeOfDay: "10:00" }) }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 import { getTroubleBounty, recordTroubleClears } from "./realm-play";
 
 const child = { access: { userId: "child:c1" }, familyId: "f1" };
 const parent = { access: { userId: "u-parent" }, familyId: "f1" };
-const today = () => new Date().toISOString().slice(0, 10);
 
 beforeEach(() => {
   requireChildAccess.mockReset();
@@ -49,36 +56,30 @@ beforeEach(() => {
 describe("recordTroubleClears — who may bank", () => {
   it("refuses a visiting grown-up and writes nothing", async () => {
     requireChildAccess.mockResolvedValue(parent);
-    await expect(recordTroubleClears("c1", today(), ["rim-0"])).rejects.toThrow(/only the hero/i);
+    await expect(recordTroubleClears("c1", ["rim-0"])).rejects.toThrow(/only the hero/i);
     expect(awardTroubleClears).not.toHaveBeenCalled();
   });
 
   it("asks the gate for write access to the hero", async () => {
     requireChildAccess.mockResolvedValue(child);
-    await recordTroubleClears("c1", today(), ["rim-0"]);
+    await recordTroubleClears("c1", ["rim-0"]);
     expect(requireChildAccess).toHaveBeenCalledWith("c1", { write: true });
   });
 });
 
-describe("recordTroubleClears — what the client may claim", () => {
+describe("recordTroubleClears — what the client may claim (which homes; never the day)", () => {
   beforeEach(() => requireChildAccess.mockResolvedValue(child));
 
-  it("refuses a day that is not today", async () => {
-    await expect(recordTroubleClears("c1", "2020-01-01", ["rim-0"])).rejects.toThrow(/date/i);
-    await expect(recordTroubleClears("c1", "tomorrow", ["rim-0"])).rejects.toThrow(/date/i);
-    expect(awardTroubleClears).not.toHaveBeenCalled();
-  });
-
   it("refuses ids the game never writes, empty batches and oversized ones", async () => {
-    await expect(recordTroubleClears("c1", today(), ["boss-1"])).rejects.toThrow(/trouble/i);
-    await expect(recordTroubleClears("c1", today(), [])).rejects.toThrow(/between/i);
-    await expect(recordTroubleClears("c1", today(), Array(13).fill("rim-0"))).rejects.toThrow(/between/i);
+    await expect(recordTroubleClears("c1", ["boss-1"])).rejects.toThrow(/trouble/i);
+    await expect(recordTroubleClears("c1", [])).rejects.toThrow(/between/i);
+    await expect(recordTroubleClears("c1", Array(13).fill("rim-0"))).rejects.toThrow(/between/i);
     expect(awardTroubleClears).not.toHaveBeenCalled();
   });
 
   it("hands a well-formed batch to the award, which decides what it is worth", async () => {
-    await recordTroubleClears("c1", today(), ["rim-0", "place-cove-7"]);
-    expect(awardTroubleClears).toHaveBeenCalledWith("c1", today(), ["rim-0", "place-cove-7"]);
+    await recordTroubleClears("c1", ["rim-0", "place-cove-7"]);
+    expect(awardTroubleClears).toHaveBeenCalledWith("c1", SERVER_DAY, ["rim-0", "place-cove-7"], scene());
   });
 });
 
@@ -87,7 +88,13 @@ describe("getTroubleBounty", () => {
     requireChildAccess.mockResolvedValue(parent);
     store.clears = [{ homeId: "rim-0", minutes: 1 }];
     store.ledger = [{ kind: "bonus", minutes: 1 }];
-    const s = await getTroubleBounty("c1", today());
+    const s = await getTroubleBounty("c1");
     expect(s).toMatchObject({ enabled: true, paidMinutes: 1, remainingMinutes: 4, clearsToday: 1, paidHomes: ["rim-0"] });
+  });
+
+  it("promises nothing in the quiet world", async () => {
+    requireChildAccess.mockResolvedValue(child);
+    store.ledger = [{ kind: "allowance", minutes: 10 }, { kind: "spent", minutes: 10 }];
+    expect((await getTroubleBounty("c1")).remainingMinutes).toBe(0);
   });
 });

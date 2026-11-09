@@ -1,16 +1,26 @@
-import type { AccessResult } from "@/lib/utils/realm-access";
+import { isQuiet, type AccessResult } from "@/lib/utils/realm-access";
 import { formatTimeOfDay } from "@/lib/utils/schedule-days";
+import { IDLE_REFUND_MAX_MINUTES } from "@/lib/realm3d/pause";
 
 export type PlayClock = {
   minutesRemaining: number; // from the last access check
   secondsThisMinute: number; // 0..59 of visible play since the last record
   warned: boolean;
   closed: boolean;
+  /** The server said `quiet` (an earning mode at a 0 balance): in, with nothing to spend, so nothing counts. */
+  quiet: boolean;
+  /** Seconds this clock counted since the child last touched anything (`noteInput`): what an idle pause gives back. */
+  countedSinceInput: number;
 };
-export type ClockEvent = "record" | "warn" | "close" | null;
+/**
+ * `empty`: the minutes ran out while playing — the caller asks the server, whose answer
+ * (`applyAccess`) is `quiet` (still allowed at 0) or `close` (a denial such as `cap_reached`).
+ * `wake`: minutes landed while quiet, and the clock counts again.
+ */
+export type ClockEvent = "record" | "warn" | "close" | "quiet" | "wake" | "empty" | null;
 
-export function startClock(minutesRemaining: number): PlayClock {
-  return { minutesRemaining: Math.max(0, Math.floor(minutesRemaining)), secondsThisMinute: 0, warned: false, closed: false };
+export function startClock(minutesRemaining: number, quiet = false): PlayClock {
+  return { minutesRemaining: Math.max(0, Math.floor(minutesRemaining)), secondsThisMinute: 0, warned: false, closed: false, quiet, countedSinceInput: 0 };
 }
 
 /** At or above this many seconds into the current minute, the minute is charged. */
@@ -40,7 +50,8 @@ export function minutesToSettle(clock: PlayClock, pending: number): number {
   // record when it happens), so they are owed in full, closed or not: a last minute whose record
   // failed just before the clock closed has no other retry.
   const played = Math.max(0, Math.floor(pending));
-  // The minute in progress: rounded half-up while the gate is open and a minute is left.
+  // The minute in progress: rounded half-up while the gate is open and a minute is left (never
+  // in quiet, which holds 0 minutes: quiet time is not charged).
   const inProgress = !clock.closed && clock.minutesRemaining >= 1 && clock.secondsThisMinute >= ROUND_UP_SECONDS ? 1 : 0;
   return Math.min(played + inProgress, 30);
 }
@@ -50,12 +61,13 @@ export function minutesToSettle(clock: PlayClock, pending: number): number {
  * spends a hero's minutes. A record is emitted every 60 such seconds; the
  * caller writes it to the ledger and refreshes access. The `records` field
  * counts how many 60-second boundaries were crossed in this tick. Minutes
- * are decremented locally; the next tick closes if they hit 0.
+ * are decremented locally; at 0 the clock never closes by itself — it says
+ * `empty` and the server decides between quiet and closed (only the server
+ * knows whether the day's cap was reached). A quiet clock does nothing.
  */
 export function tickClock(clock: PlayClock, elapsedSeconds: number, visible: boolean): { clock: PlayClock; event: ClockEvent; records: number } {
-  if (clock.closed) return { clock, event: null, records: 0 };
-  if (clock.minutesRemaining <= 0) return { clock: { ...clock, closed: true }, event: "close", records: 0 };
-  if (!visible) return { clock, event: null, records: 0 };
+  if (clock.closed || clock.quiet || !visible) return { clock, event: null, records: 0 };
+  if (clock.minutesRemaining <= 0) return { clock, event: "empty", records: 0 };
   let seconds = clock.secondsThisMinute + elapsedSeconds;
   let records = 0;
   let event: ClockEvent = null;
@@ -78,15 +90,73 @@ export function tickClock(clock: PlayClock, elapsedSeconds: number, visible: boo
     event = "warn";
     warned = true;
   }
-  return { clock: { ...clock, secondsThisMinute: seconds, minutesRemaining, warned }, event, records };
+  const countedSinceInput = clock.countedSinceInput + elapsedSeconds;
+  return { clock: { ...clock, secondsThisMinute: seconds, minutesRemaining, warned, countedSinceInput }, event, records };
 }
 
-/** A fresh access check replaces the remaining minutes and may warn or close. */
+/**
+ * Puts `minutes` that were counted off but will never be charged back on the clock. Not on a quiet
+ * clock, which holds 0 by definition: the server's next answer is what wakes it.
+ */
+export function minutesBack(clock: PlayClock, minutes: number): PlayClock {
+  return clock.quiet || minutes <= 0 ? clock : { ...clock, minutesRemaining: clock.minutesRemaining + minutes };
+}
+
+/** The child touched the game: the idle count starts again. The same clock when it is already 0 (input fires on every mouse move). */
+export function noteInput(clock: PlayClock): PlayClock {
+  return clock.countedSinceInput === 0 ? clock : { ...clock, countedSinceInput: 0 };
+}
+
+/**
+ * The idle pause fired: un-charge what this clock counted since the last input (spec §4.6).
+ * `pending` is the whole minutes counted but not yet written (none in flight). The idle span is
+ * the newest time, so it is taken back newest first, to the second:
+ *
+ *   - from the minute in progress and the pending minutes — nothing was written, so this is local:
+ *     `dropPending` minutes leave pending (and return to `minutesRemaining`), and seconds really
+ *     played in a dropped minute stay in progress;
+ *   - what is left was already written as `spent`: `refundRecorded` minutes to ask the server for.
+ *     A written minute counts when at least half of it was idle — the mirror of `ROUND_UP_SECONDS`,
+ *     which charges a part-minute played at least half — capped at `IDLE_REFUND_MAX_MINUTES`.
+ *
+ * A clock that went quiet during the span still gives back what it charged before (idle time
+ * never counts against minutes earned); one quiet throughout counted nothing. A closed clock gives
+ * nothing back: the Realm has shut (the day's cap, recess over), and a refund would not reopen it.
+ */
+export function idleGiveBack(clock: PlayClock, pending: number): { clock: PlayClock; dropPending: number; refundRecorded: number } {
+  const reset = { ...clock, countedSinceInput: 0 };
+  if (clock.closed) return { clock: reset, dropPending: 0, refundRecorded: 0 };
+  const owedPending = Math.max(0, Math.floor(pending));
+  const unwritten = owedPending * 60 + clock.secondsThisMinute;
+  const played = Math.max(0, unwritten - clock.countedSinceInput);
+  const dropPending = owedPending - Math.floor(played / 60);
+  const writtenIdle = Math.max(0, clock.countedSinceInput - unwritten);
+  const refundRecorded = Math.min(IDLE_REFUND_MAX_MINUTES, Math.floor((writtenIdle + 60 - ROUND_UP_SECONDS) / 60));
+  return {
+    clock: minutesBack({ ...reset, secondsThisMinute: played % 60 }, dropPending),
+    dropPending,
+    refundRecorded,
+  };
+}
+
+/**
+ * A fresh access check replaces the remaining minutes and may warn, close, go quiet or wake.
+ * Quiet is the server's word (`isQuiet`), never inferred from a 0 here: recess or off hours at
+ * 0 are not the quiet world (spec §4.7). Going quiet drops the part-minute in progress (nothing
+ * is spent in quiet, and a wake starts a fresh minute).
+ */
 export function applyAccess(clock: PlayClock, result: AccessResult): { clock: PlayClock; event: ClockEvent } {
+  if (isQuiet(result)) {
+    // Too late to go quiet: a closed clock's goodbye (e.g. `cap_reached`) stands.
+    if (clock.closed) return { clock, event: null };
+    return { clock: { ...clock, minutesRemaining: 0, secondsThisMinute: 0, warned: false, quiet: true }, event: clock.quiet ? null : "quiet" };
+  }
   if (!result.allowed || result.minutesRemaining <= 0) {
-    return { clock: { ...clock, minutesRemaining: 0, closed: true }, event: "close" };
+    return { clock: { ...clock, minutesRemaining: 0, closed: true, quiet: false }, event: "close" };
   }
   const minutesRemaining = Math.floor(result.minutesRemaining);
+  // Minutes landed in the quiet world: count again. A wake to the last minute warns on the next tick.
+  if (clock.quiet) return { clock: { ...clock, minutesRemaining, warned: false, quiet: false }, event: "wake" };
   // Same rule as `tickClock`: a top-up above the last minute releases the latch, so the
   // real last minute still gets its banner. `use-play-clock.ts` tests the same condition,
   // but it is NOT a duplicate of this one and must not be deleted: releasing the latch
@@ -105,7 +175,7 @@ export function gateCopy(result: AccessResult, next?: { recessStart?: string }):
   if (result.allowed) return null;
   switch (result.reason) {
     case "no_minutes":
-      return { title: "The Realm opens when you finish a quest.", body: "Every quest you complete banks minutes here." };
+      return { title: "The Realm is resting for now.", body: "Side quests earn play time, and you get free minutes every day." };
     case "outside_recess":
       return {
         title: "Recess hasn't started.",

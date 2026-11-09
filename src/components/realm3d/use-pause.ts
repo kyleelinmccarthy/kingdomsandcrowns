@@ -10,6 +10,10 @@
  * listens and asks it. And Resume: a child who was looking with the mouse when the game paused
  * gets the mouse caught again by the Resume click (`bus.requestLook`), the one moment the
  * browser allows it.
+ *
+ * The idle pause also gives the idle time back (spec §4.6): every input tells the play clock
+ * (`noteInput`), and when the pause fires the clock un-charges what it counted since
+ * (`giveBackIdle`); the card then says how many minutes came back.
  */
 
 import { useCallback, useEffect, useRef, type RefObject } from "react";
@@ -39,6 +43,8 @@ export function usePause({
   go,
   clock,
   enabled,
+  noteInput,
+  giveBackIdle,
 }: {
   bus: HudBus;
   /** The overlay as it is at the moment something happens. */
@@ -51,9 +57,18 @@ export function usePause({
   clock: boolean;
   /** False under the `?close` screenshot flag, which holds the Realm shut: nothing is left to pause. */
   enabled: boolean;
+  /** The play clock's: the child touched the game (`usePlayClock`). */
+  noteInput?: () => void;
+  /** The play clock's: give back what it charged since the last input; resolves to the minutes refunded. */
+  giveBackIdle?: () => Promise<number>;
 }): { resume: () => void } {
   /** The mouse was captured when this pause began, so Resume should catch it again. */
   const looked = useRef(false);
+  // The clock's two callbacks, read when input or the idle pause happens (no listener re-subscribes for them).
+  const idleClock = useRef({ noteInput, giveBackIdle });
+  useEffect(() => {
+    idleClock.current = { noteInput, giveBackIdle };
+  }, [noteInput, giveBackIdle]);
 
   const open = useCallback(
     (trigger: AutoTrigger) => {
@@ -61,6 +76,12 @@ export function usePause({
       if (!why) return;
       looked.current = trigger === "look" || captured();
       go({ kind: "pause", why });
+      if (why !== "idle") return;
+      // Ask the clock to give the idle time back, then put the answer on this same card (if it is still up).
+      void (idleClock.current.giveBackIdle?.() ?? Promise.resolve(0)).then((refunded) => {
+        const now = overlayRef.current;
+        if (now?.kind === "pause" && now.why === "idle" && now.refunded === undefined) go({ ...now, refunded });
+      });
     },
     [overlayRef, clock, go],
   );
@@ -123,11 +144,12 @@ export function usePause({
     let idle = 0;
     const touch = () => {
       idle = 0;
+      idleClock.current.noteInput?.();
     };
     for (const type of INPUT) window.addEventListener(type, touch, { capture: true, passive: true });
     const id = window.setInterval(() => {
       if (overlayRef.current !== null) {
-        idle = 0;
+        touch(); // a panel open is not idle time, for this count or the clock's
         return;
       }
       idle += TICK_MS;

@@ -31,6 +31,7 @@ import { archPrompt, COURSE_CHANGED, gleamLine, lapLine, LAMP_LIT, LAST_LAMP_LIT
 import { emptyRecessRecord, lampsLitFor, mergeRecess, validateRecessResult, type RecessRecord } from "@/lib/realm/recess/record";
 import { LAMP_COUNT } from "@/lib/realm3d/recess/lamps";
 import { speak } from "@/lib/utils/speech";
+import { restingLine } from "@/lib/realm3d/quiet";
 
 /** How long the start board stays up, and the finish (and every ending) board. */
 export const START_BOARD_MS = 3000;
@@ -89,6 +90,8 @@ export function useRecess(o: {
   initial: RecessRecord | null | undefined;
   seed: number;
   ride: RideBus | null;
+  /** The quiet world (`lib/realm3d/quiet.ts`): the Ring rests — the arch says so, and a run going stops. */
+  off?: boolean;
 }): RecessApi {
   const { writer, childId, depth, readAloud, ride } = o;
   const [bus] = useState(() => makeRecessBus({ seed: o.seed, runs: writer, lowStimulus: o.lowStimulus, showTime: depth === "full" }));
@@ -331,8 +334,37 @@ export function useRecess(o: {
   );
   // Read from state, not the ref: the prompt must re-render when a run starts or ends.
   const promptNow = useCallback((near: InteractTarget | null) => (running && near?.kind === "arch" && o.viewer !== "parent" ? null : prompt(near)), [running, prompt, o.viewer]);
-  const archOpens = useCallback(() => o.viewer === "parent" || runningRef.current === null, [o.viewer]);
-  const runRing = useCallback(() => start("arch"), [start]);
+  const offRef = useRef(!!o.off);
+  /** "The Ring is resting. Earn play time with a side quest." — at the arch, or as a run stops. */
+  const sayResting = useCallback(() => {
+    const line = restingLine(RING);
+    showPop(line, NUDGE_MS);
+    cue("nudge");
+    say(line);
+  }, [showPop, cue, say]);
+  const archOpens = useCallback(() => {
+    if (o.viewer === "parent") return true;
+    if (offRef.current) {
+      sayResting();
+      return false;
+    }
+    return runningRef.current === null;
+  }, [o.viewer, sayResting]);
+  const runRing = useCallback(() => {
+    if (!offRef.current) start("arch");
+  }, [start]);
+  // Going quiet mid-run: the run stops, its gleams and laps already on their way to the server,
+  // and the child hears why.
+  useEffect(() => {
+    offRef.current = !!o.off;
+    if (!o.off || !runningRef.current) return;
+    queueMicrotask(() => {
+      bus.ask("stop");
+      keepRunning(null);
+      void write?.flush();
+      sayResting();
+    });
+  }, [o.off, bus, keepRunning, write, sayResting]);
   const retry = useCallback(() => {
     setError("");
     void write?.flush();

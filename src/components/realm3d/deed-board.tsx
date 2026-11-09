@@ -30,7 +30,7 @@ import type { RunStart, RunSummary } from "@/lib/utils/deed-run-types";
 import { realmCue } from "@/lib/realm3d/sound/store";
 import type { BuildingOverview } from "@/lib/services/deeds";
 import type { Villager } from "@/lib/realm/villagers";
-import { attemptFeedback, resultBuildingLine, resultHeadline, resultStarsLine, talkCopy, type Viewer } from "@/lib/realm3d/talk";
+import { attemptFeedback, resultBuildingLine, resultHeadline, resultMinutesLine, resultStarsLine, talkCopy, type Viewer } from "@/lib/realm3d/talk";
 import { MAX_STARS, type Stars } from "@/lib/utils/deed-scoring";
 import { choiceTone } from "@/lib/utils/deed-run-flow";
 import { deedErrorLine } from "@/lib/utils/deed-refusals";
@@ -52,6 +52,8 @@ export type DeedResult = RunSummary["building"] & {
   counted?: boolean;
   deed?: { id: string; bestStars: Stars; crowned?: boolean };
   challenge?: { won: boolean };
+  /** Realm minutes the run paid (`RunSummary.minutesEarned`): above 0, the frame re-asks the gate (the quiet world wakes). */
+  minutesEarned?: number;
 };
 
 const CROWN_CHALLENGE = "Crown Challenge";
@@ -84,6 +86,7 @@ export function DeedBoard({
   calm,
   onResult,
   onClose,
+  doneLabel,
 }: {
   childId: string | null;
   villager: Villager;
@@ -98,6 +101,8 @@ export function DeedBoard({
   /** The server finished the run: this is the building's new progress. */
   onResult: (buildingId: string, result: DeedResult) => void;
   onClose: () => void;
+  /** The result card's way out, where it does not lead into the world (the gate's board). */
+  doneLabel?: string;
 }) {
   const [run, setRun] = useState<RunStart | null>(null);
   const [busy, setBusy] = useState(false);
@@ -136,12 +141,12 @@ export function DeedBoard({
     const title = run.kind === "challenge" ? `${CROWN_CHALLENGE}: ${run.deed.title}` : run.deed.title;
     const handUp = (done: RunSummary) =>
       onResult(site.id, {
-        ...done.building, counted: done.counted, deed: { id: run.deed.id, bestStars: done.deedBest, crowned: done.crowned },
+        ...done.building, counted: done.counted, minutesEarned: done.minutesEarned, deed: { id: run.deed.id, bestStars: done.deedBest, crowned: done.crowned },
         ...(done.kind === "challenge" ? { challenge: { won: done.flawless } } : {}),
       });
     return (
       <Panel title={title} label={title} wide className="r3-board--deed" icon={<GameIcon name={site.icon as GameIconName} className="r3-board-icon" />} onClose={onClose}>
-        <DeedRun run={run} villagerName={villager.name} profile={profile} calm={calm} numerals={numerals} onResult={handUp} onClose={onClose} />
+        <DeedRun run={run} villagerName={villager.name} profile={profile} calm={calm} numerals={numerals} onResult={handUp} onClose={onClose} doneLabel={doneLabel} />
       </Panel>
     );
   }
@@ -227,6 +232,7 @@ function DeedRun({
   numerals,
   onResult,
   onClose,
+  doneLabel = "Back to the Realm",
 }: {
   run: RunStart;
   villagerName: string;
@@ -235,6 +241,7 @@ function DeedRun({
   numerals: boolean;
   onResult: (done: RunSummary) => void;
   onClose: () => void;
+  doneLabel?: string;
 }) {
   // A wrong answer is a soft low "hmm", a right one rises and resolves (`realm-sound.tsx`).
   const { flow, meter, busy, error, setError, guarded, choose, showMe, next } = useDeedFlow(run, (r) => realmCue(r.correct ? "deed-right" : "deed-wrong"));
@@ -314,6 +321,7 @@ function DeedRun({
   if (summary) {
     const head = resultHeadline(summary, run.deed.title);
     const stars = resultStarsLine(summary, villagerName);
+    const minutesLine = resultMinutesLine(summary);
     return (
       <div className="r3-result">
         <span className={`r3-result-seal${summary.flawless ? " r3-result-seal--flawless" : ""}`}>
@@ -322,6 +330,11 @@ function DeedRun({
         <h3 className="r3-result-title">{head.title}</h3>
         {summary.kind === "deed" && <BoardStars stars={summary.stars} />}
         {stars && <p className="r3-result-stars-line">{stars}</p>}
+        {minutesLine && (
+          <p className="r3-result-minutes">
+            <GameIcon name="hourglass" className="r3-result-building-icon" /> {minutesLine}
+          </p>
+        )}
         <p className="r3-result-line">
           <Subject area={run.deed.area} /> {head.line}
         </p>
@@ -337,7 +350,7 @@ function DeedRun({
         </p>
         <div className="r3-board-foot">
           <button type="button" className="r3-menu-item r3-menu-item--go" autoFocus onClick={onClose}>
-            <GameIcon name="journey" className="r3-menu-icon" /> Back to the Realm
+            <GameIcon name="journey" className="r3-menu-icon" /> {doneLabel}
           </button>
         </div>
       </div>

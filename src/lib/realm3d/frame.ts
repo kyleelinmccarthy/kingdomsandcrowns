@@ -12,18 +12,22 @@
  */
 
 import { gateCopy, type GateCopy } from "@/lib/realm/play-clock";
-import type { AccessDenied, AccessResult } from "@/lib/utils/realm-access";
+import { isQuiet, type AccessDenied, type AccessResult, type AccessSource } from "@/lib/utils/realm-access";
 import type { InteractTarget } from "./hud-bus";
 import type { PauseWhy } from "./pause";
 
+// Declared once, in realm-access.ts; re-exported for the frame's own importers.
+export type { AccessSource };
+
 export type Viewer = "child" | "parent";
-export type AccessSource = "off_hours" | "recess" | "earned" | "open";
 
 /* ------------------------------------------------------------------ the gate */
 
 export type EntryPhase =
   | { kind: "checking" }
   | { kind: "gated"; copy: GateCopy }
+  /** A child at 0 minutes in an earning mode: in to learn, offered side quests before the world (spec §4.5). */
+  | { kind: "quiet-gate" }
   | {
       kind: "open";
       /** The minutes the play clock starts from. Always 0 for a parent: a parent spends nothing. */
@@ -56,8 +60,13 @@ export function entryPhase(result: AccessResult, isChildView: boolean): EntryPha
   if (copy) return { kind: "gated", copy };
   // `copy` is null exactly when access is allowed, but the type does not know that.
   if (!result.allowed) return { kind: "gated", copy: { title: "The Realm is out of reach right now.", body: "Try again in a moment." } };
+  // A grown-up (above) has no clock, so is never quiet; a child at 0 meets the quiet gate first.
+  if (isQuiet(result)) return { kind: "quiet-gate" };
   return { kind: "open", minutes: result.minutesRemaining, visit: null, source: result.source };
 }
+
+/** Walking on from the quiet gate: in, with nothing to spend, on a clock that starts quiet. */
+export const QUIET_WALK: Extract<EntryPhase, { kind: "open" }> = { kind: "open", minutes: 0, visit: null, source: "quiet" };
 
 /** The closing card when a scheduled recess ends (`recess/copy.ts`'s RECESS_OVER, the words a run ends with too). */
 export const RECESS_CLOSED = "Recess is over. Your gleams are kept.";
@@ -118,8 +127,11 @@ export function visitClockLine(heroName: string, visit: { minutes: number | null
  * `bus.setPaused(overlay !== null)` and nothing else decides it.
  */
 export type Overlay =
-  /** `why`: the child asked (absent), they were away, or nothing moved (`pause.ts`). */
-  | { kind: "pause"; why?: PauseWhy }
+  /**
+   * `why`: the child asked (absent), they were away, or nothing moved (`pause.ts`). `refunded`: the
+   * minutes an idle pause gave back, once the server has answered (`usePause`).
+   */
+  | { kind: "pause"; why?: PauseWhy; refunded?: number }
   /** How to play. `back` is true when it was opened from the pause menu, so Esc returns there. */
   | { kind: "howto"; back: boolean }
   /** The wardrobe (`wardrobe.tsx`), from the pause menu; Esc goes back there. */

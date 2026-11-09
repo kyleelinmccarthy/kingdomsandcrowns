@@ -81,7 +81,8 @@ import { getRealmKingdom } from "@/lib/actions/realm";
 import { markRealmHelpSeen, setTutorialStep } from "@/lib/actions/realm-settings";
 import { markCeremonySeen } from "@/lib/actions/seasons";
 import { saveRealmSound } from "@/lib/actions/realm-sound";
-import { getTroubleBounty, recordTroubleClears } from "@/lib/actions/realm-play";
+import { getRealmAccess, getTroubleBounty, recordTroubleClears } from "@/lib/actions/realm-play";
+import { stepRide, type RideBus } from "@/lib/realm3d/riding";
 import { LEGACY_STEPS, LESSONS, STORED_MAX } from "@/lib/realm3d/tutorial";
 import { findBuilding } from "@/lib/utils/kingdom";
 import { RealmGame, type RealmData } from "./realm-game";
@@ -297,7 +298,7 @@ describe("talking to a villager, and doing their side quest", () => {
       counted: true,
       crowned: false,
       kind: "deed",
-      building: { label: "Village Well", done: 3, total: 5, complete: false, stars: 0, maxStars: 0 },
+      building: { label: "Village Well", done: 3, total: 5, complete: false, stars: 0, maxStars: 0 }, minutesEarned: 0, sideQuestPayFull: false,
     });
     const { bus, view } = mount();
     act(() => bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
@@ -332,7 +333,7 @@ describe("talking to a villager, and doing their side quest", () => {
   it("a side quest that earned no star does not say the building rose, and the board keeps its stars", async () => {
     vi.mocked(startDeedRun).mockResolvedValue({ ...run, questions: [run.questions[0]], responses: [null] });
     vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: false, secondChance: false, answer: "5" });
-    vi.mocked(completeDeedRun).mockResolvedValue({ correctCount: 0, total: 1, flawless: false, masteryChanges: [], stars: 0, previousBest: 0, deedBest: 0, counted: false, crowned: false, kind: "deed" as const, building: { label: "Village Well", done: 2, total: 5, complete: false, stars: 0, maxStars: 3 } });
+    vi.mocked(completeDeedRun).mockResolvedValue({ correctCount: 0, total: 1, flawless: false, masteryChanges: [], stars: 0, previousBest: 0, deedBest: 0, counted: false, crowned: false, kind: "deed" as const, building: { label: "Village Well", done: 2, total: 5, complete: false, stars: 0, maxStars: 3 }, minutesEarned: 0, sideQuestPayFull: false });
     const { bus } = mount();
     act(() => bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
     await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" })));
@@ -346,7 +347,7 @@ describe("talking to a villager, and doing their side quest", () => {
   it("shows the new best when the child returns to the villager without a reload", async () => {
     vi.mocked(startDeedRun).mockResolvedValue({ ...run, questions: [run.questions[0]], responses: [null] });
     vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: true, secondChance: false, answer: "5" });
-    vi.mocked(completeDeedRun).mockResolvedValue({ correctCount: 1, total: 1, flawless: true, masteryChanges: [], stars: 3, previousBest: 0, deedBest: 3, counted: true, crowned: false, kind: "deed" as const, building: { label: "Village Well", done: 3, total: 5, complete: false, stars: 3, maxStars: 3 } });
+    vi.mocked(completeDeedRun).mockResolvedValue({ correctCount: 1, total: 1, flawless: true, masteryChanges: [], stars: 3, previousBest: 0, deedBest: 3, counted: true, crowned: false, kind: "deed" as const, building: { label: "Village Well", done: 3, total: 5, complete: false, stars: 3, maxStars: 3 }, minutesEarned: 0, sideQuestPayFull: false });
     const { bus } = mount();
     act(() => bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
     expect(screen.getByRole("img", { name: "0 of 3 stars" })).toBeInTheDocument();
@@ -362,7 +363,7 @@ describe("talking to a villager, and doing their side quest", () => {
     const starred = { ...realm, kingdom: { ...realm.kingdom, buildings: realm.kingdom.buildings.map((b) => (b.id === "well" ? { ...b, deeds: b.deeds.map((d) => ({ ...d, bestStars: 3 as const })) } : b)) } };
     vi.mocked(startDeedRun).mockResolvedValue({ ...run, kind: "challenge", questions: [run.questions[0]], responses: [null] });
     vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: true, secondChance: false, answer: "5" });
-    vi.mocked(completeDeedRun).mockResolvedValue({ correctCount: 1, total: 1, flawless: true, masteryChanges: [], stars: 0, previousBest: 3, deedBest: 3, counted: false, crowned: true, kind: "challenge" as const, building: { label: "Village Well", done: 2, total: 5, complete: false, stars: 3, maxStars: 3 } });
+    vi.mocked(completeDeedRun).mockResolvedValue({ correctCount: 1, total: 1, flawless: true, masteryChanges: [], stars: 0, previousBest: 3, deedBest: 3, counted: false, crowned: true, kind: "challenge" as const, building: { label: "Village Well", done: 2, total: 5, complete: false, stars: 3, maxStars: 3 }, minutesEarned: 0, sideQuestPayFull: false });
     const { bus } = mount({ realm: starred });
     act(() => bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
     expect(screen.queryByText("Crown earned")).toBeNull();
@@ -379,7 +380,7 @@ describe("talking to a villager, and doing their side quest", () => {
   it("still raises the site when the child leaves the results with Esc", async () => {
     vi.mocked(startDeedRun).mockResolvedValue({ ...run, questions: [run.questions[0]], responses: [null] });
     vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: true, secondChance: false, answer: "5" });
-    vi.mocked(completeDeedRun).mockResolvedValue({ correctCount: 1, total: 1, flawless: true, masteryChanges: [], stars: 1, previousBest: 0, deedBest: 1, counted: true, crowned: false, kind: "deed" as const, building: { label: "Village Well", done: 3, total: 5, complete: false, stars: 0, maxStars: 0 } });
+    vi.mocked(completeDeedRun).mockResolvedValue({ correctCount: 1, total: 1, flawless: true, masteryChanges: [], stars: 1, previousBest: 0, deedBest: 1, counted: true, crowned: false, kind: "deed" as const, building: { label: "Village Well", done: 3, total: 5, complete: false, stars: 0, maxStars: 0 }, minutesEarned: 0, sideQuestPayFull: false });
     const { bus, view } = mount();
     act(() => bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
     await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" })));
@@ -393,7 +394,7 @@ describe("talking to a villager, and doing their side quest", () => {
   it("raises a whole building, and the village plank counts it", async () => {
     vi.mocked(startDeedRun).mockResolvedValue({ ...run, questions: [run.questions[0]], responses: [null] });
     vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: true, secondChance: false, answer: "5" });
-    vi.mocked(completeDeedRun).mockResolvedValue({ correctCount: 1, total: 1, flawless: true, masteryChanges: [], stars: 1, previousBest: 0, deedBest: 1, counted: true, crowned: false, kind: "deed" as const, building: { label: "Village Well", done: 5, total: 5, complete: true, stars: 0, maxStars: 0 } });
+    vi.mocked(completeDeedRun).mockResolvedValue({ correctCount: 1, total: 1, flawless: true, masteryChanges: [], stars: 1, previousBest: 0, deedBest: 1, counted: true, crowned: false, kind: "deed" as const, building: { label: "Village Well", done: 5, total: 5, complete: true, stars: 0, maxStars: 0 }, minutesEarned: 0, sideQuestPayFull: false });
     const well = { ...realm, kingdom: { ...realm.kingdom, buildings: realm.kingdom.buildings.map((b) => (b.id === "well" ? { ...b, done: 4 } : b)) } };
     const { bus } = mount({ realm: well });
     act(() => bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
@@ -628,7 +629,7 @@ describe("clearing a trouble, through the whole frame", () => {
     await act(async () => {});
     const tbus = handed.props!.troubles as TroubleBus;
     await act(async () => tbus.onEvent({ kind: "cleared", trouble: "fog", home: 0, x: 0, z: 0, count: 1 }, "Cloudfoot", "place-summit-1"));
-    expect(recordTroubleClears).toHaveBeenCalledWith("demo-child-1", expect.any(String), ["place-summit-1"]);
+    expect(recordTroubleClears).toHaveBeenCalledWith("demo-child-1", ["place-summit-1"]);
     expect(screen.getByText(/\+1 minute/)).toBeInTheDocument();
     view.unmount();
   });
@@ -641,7 +642,7 @@ describe("a side quest's answer that arrives after the board has closed", () => 
     const promise = new Promise<T>((r) => (resolve = r));
     return { promise, resolve };
   };
-  const done = (label: string, n: number) => ({ correctCount: 1, total: 1, flawless: true, masteryChanges: [], stars: 1, previousBest: 0, deedBest: 1, counted: true, crowned: false, kind: "deed" as const, building: { label, done: n, total: 5, complete: false, stars: 0, maxStars: 0 } });
+  const done = (label: string, n: number) => ({ correctCount: 1, total: 1, flawless: true, masteryChanges: [], stars: 1, previousBest: 0, deedBest: 1, counted: true, crowned: false, kind: "deed" as const, building: { label, done: n, total: 5, complete: false, stars: 0, maxStars: 0 }, minutesEarned: 0, sideQuestPayFull: false });
 
   it("raises the building at once when the child pressed Esc during Finish", async () => {
     vi.mocked(startDeedRun).mockResolvedValue(one);
@@ -703,7 +704,7 @@ describe("read-aloud, as a side quest ends", () => {
     try {
       vi.mocked(startDeedRun).mockResolvedValue({ ...run, questions: [run.questions[0]], responses: [null] });
       vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: true, secondChance: false, answer: "5" });
-      vi.mocked(completeDeedRun).mockResolvedValue({ correctCount: 1, total: 1, flawless: true, masteryChanges: [], stars: 1, previousBest: 0, deedBest: 1, counted: true, crowned: false, kind: "deed" as const, building: { label: "Village Well", done: 3, total: 5, complete: false, stars: 0, maxStars: 0 } });
+      vi.mocked(completeDeedRun).mockResolvedValue({ correctCount: 1, total: 1, flawless: true, masteryChanges: [], stars: 1, previousBest: 0, deedBest: 1, counted: true, crowned: false, kind: "deed" as const, building: { label: "Village Well", done: 3, total: 5, complete: false, stars: 0, maxStars: 0 }, minutesEarned: 0, sideQuestPayFull: false });
       const { bus } = mount({ realm: { ...realm, profile: { ...realm.profile, readAloud: true } } });
       act(() => bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
       await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" })));
@@ -811,5 +812,118 @@ describe("day and night", () => {
   it("hands the scene the family's timezone", () => {
     mount({ realm: { ...realm, timezone: "Asia/Tokyo" } });
     expect(handed.props!.timeZone).toBe("Asia/Tokyo");
+  });
+});
+
+describe("the quiet world (0 minutes in an earning mode)", () => {
+  const QUIET = "Earn play time with a side quest";
+  const quiet = { entry: { minutes: 0, visit: null, source: "quiet" as const }, avatar: { ...DEFAULT_AVATAR, mount: "pony" }, mounts: ["pony"] };
+  const arch = { kind: "arch" as const, id: "ring", label: "the Ring", verb: "Run" };
+  const one = { ...run, questions: [run.questions[0]], responses: [null] };
+  const paid = (minutesEarned: number) => ({ correctCount: 1, total: 1, flawless: true, masteryChanges: [], stars: 3 as const, previousBest: 0 as const, deedBest: 3 as const, counted: true, crowned: false, kind: "deed" as const, building: { label: "Village Well", done: 3, total: 5, complete: false, stars: 3, maxStars: 3 }, minutesEarned, sideQuestPayFull: false });
+  const pressM = () => act(() => void fireEvent.keyDown(window, { code: "KeyM", key: "m" }));
+  const ride = () => handed.props!.ride as RideBus;
+  async function playPayingQuest(bus: HudBus, minutes: number) {
+    vi.mocked(startDeedRun).mockResolvedValue(one);
+    vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: true, secondChance: false, answer: "5" });
+    vi.mocked(completeDeedRun).mockResolvedValue(paid(minutes));
+    act(() => bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" })));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "5" })));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Finish side quest" })));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: /Back to the Realm/ })));
+  }
+
+  it("shows the invitation where the minutes were, and hands the canvas no troubles", () => {
+    const { view } = mount(quiet);
+    expect(view.container.querySelector(".r3-clock-text")).toHaveTextContent(QUIET);
+    expect(screen.queryByText(/min left/)).toBeNull();
+    expect(handed.props!.troubles).toBeUndefined();
+    // Everything else stays on: the villagers, the objective, the spells.
+    expect(handed.props!.layout).toBeDefined();
+    expect(handed.props!.recess).toBeDefined();
+  });
+
+  it("the saddle rests: no Ride slot, and M invites to a side quest instead of riding", () => {
+    mount(quiet);
+    expect(screen.queryByRole("button", { name: /Ride your Pony/ })).toBeNull();
+    pressM();
+    expect(screen.getByText(`Your Pony is resting. ${QUIET}.`)).toBeInTheDocument();
+    act(() => {
+      for (let i = 0; i < 30; i++) stepRide(ride(), 0.05, 0);
+    });
+    expect(ride().phase).toBe("off");
+  });
+
+  it("the Ring's arch opens nothing, and says why", () => {
+    const { bus } = mount(quiet);
+    act(() => bus.onInteract(arch));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(bus.paused).toBe(false);
+    expect(screen.getByText(`The Ring is resting. ${QUIET}.`)).toBeInTheDocument();
+  });
+
+  it("a side quest that pays wakes the world: the gate is asked again, a toast, the clock and the troubles", async () => {
+    vi.mocked(getRealmAccess).mockResolvedValue({ allowed: true, minutesRemaining: 3, source: "earned" });
+    const { bus, view } = mount(quiet);
+    await playPayingQuest(bus, 3);
+    expect(getRealmAccess).toHaveBeenCalledWith("demo-child-1");
+    expect(screen.getByText("+3 minutes — the Realm wakes up!")).toBeInTheDocument();
+    expect(view.container.querySelector(".r3-clock-text")).toHaveTextContent("3 min left");
+    expect(handed.props!.troubles).toBeDefined();
+    expect(screen.getByRole("button", { name: /Ride your Pony/ })).toBeInTheDocument();
+  });
+
+  it("one minute is a minute", async () => {
+    vi.mocked(getRealmAccess).mockResolvedValue({ allowed: true, minutesRemaining: 1, source: "earned" });
+    const { bus } = mount(quiet);
+    await playPayingQuest(bus, 1);
+    expect(screen.getByText("+1 minute — the Realm wakes up!")).toBeInTheDocument();
+  });
+
+  it("a side quest that paid nothing does not ask the gate (and the world stays quiet)", async () => {
+    const { bus, view } = mount(quiet);
+    await playPayingQuest(bus, 0);
+    expect(getRealmAccess).not.toHaveBeenCalled();
+    expect(view.container.querySelector(".r3-clock-text")).toHaveTextContent(QUIET);
+  });
+
+  it("going quiet mid-visit: off the mount at once, and the troubles leave the world", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.mocked(getRealmAccess).mockResolvedValue({ allowed: true, minutesRemaining: 0, source: "quiet" });
+      const { view } = mount({ ...quiet, entry: { minutes: 0, visit: null, source: "earned" } });
+      expect(handed.props!.troubles).toBeDefined();
+      pressM();
+      act(() => {
+        for (let i = 0; i < 30; i++) stepRide(ride(), 0.05, 0);
+      });
+      expect(ride().phase).toBe("on");
+      // The clock at 0 asks the gate on its next tick; the answer is quiet.
+      await act(async () => void (await vi.advanceTimersByTimeAsync(1000)));
+      expect(view.container.querySelector(".r3-clock-text")).toHaveTextContent(QUIET);
+      expect(ride().phase).toBe("off");
+      expect(handed.props!.troubles).toBeUndefined();
+      expect(screen.queryByRole("button", { name: /Get off/ })).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("a parent visit is never quiet: no clock, so the troubles and the Ring are as they always are", () => {
+    const { bus } = mount({ viewer: "parent", realm: { ...realm, isChildView: false }, entry: { minutes: 0, visit: { minutes: 0, closedBecause: null }, source: "quiet" } });
+    expect(screen.queryByText(QUIET)).toBeNull();
+    expect(screen.getByText("Emma has 0 min today")).toBeInTheDocument();
+    expect(handed.props!.troubles).toBeDefined();
+    // The arch opens the Ring's board (the child's record), and never says it is resting.
+    act(() => bus.onInteract(arch));
+    expect(screen.getByRole("dialog", { name: "The Ring" })).toBeInTheDocument();
+    expect(screen.queryByText(/The Ring is resting/)).toBeNull();
+  });
+
+  it("calm and low-stimulus profiles still render the quiet world", () => {
+    const { view } = mount({ ...quiet, realm: { ...realm, profile: { ...DEFAULT_LEARNING_PROFILE, lowStimulus: true, reducedMotion: true } } });
+    expect(view.container.querySelector(".r3-clock-text")).toHaveTextContent(QUIET);
+    expect(handed.props!.troubles).toBeUndefined();
   });
 });

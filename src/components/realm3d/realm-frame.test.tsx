@@ -1,21 +1,34 @@
-import { act, cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { DEFAULT_LEARNING_PROFILE } from "@/lib/utils/learning-profile";
 import type { AccessResult } from "@/lib/utils/realm-access";
+import type { KingdomState } from "@/lib/realm/kingdom-state";
 
 /**
  * The door: the gate decides, the game opens, the clock closes it. The canvas is a stub (the
  * real one imports `three`) and the server actions are mocks, so this is the frame's logic
  * alone, end to end.
  */
-const access = vi.hoisted(() => ({ result: null as AccessResult | null, recorded: [] as number[] }));
+const access = vi.hoisted(() => ({ result: null as AccessResult | null, recorded: [] as number[], kingdom: null as KingdomState | null }));
 vi.mock("next/dynamic", () => ({ default: () => () => <div data-testid="canvas" /> }));
 vi.mock("@/lib/actions/realm-settings", () => ({ setRealmDepth: vi.fn(async () => {}), updateRealmSettings: vi.fn(async () => {}) }));
 vi.mock("@/lib/actions/realm-play", () => ({
   getRealmAccess: vi.fn(async () => access.result),
-  recordRealmPlay: vi.fn(async (_c: string, _d: string, m: number) => void access.recorded.push(m)),
+  recordRealmPlay: vi.fn(async (_c: string, m: number) => void access.recorded.push(m)),
   getTroubleBounty: vi.fn(async () => ({ enabled: false, capMinutes: 0, subCapMinutes: 0, paidMinutes: 0, remainingMinutes: 0, clearsToday: 0, paidHomes: [] })),
   recordTroubleClears: vi.fn(),
+}));
+vi.mock("@/lib/actions/realm", async (orig) => ({
+  ...(await orig<typeof import("@/lib/actions/realm")>()),
+  getRealmKingdom: vi.fn(async () => access.kingdom),
+}));
+// The gate's board is a stub that finishes a paying run on a click; `gate-quest-board.test.tsx` covers the list.
+vi.mock("./gate-quest-board", () => ({
+  GateQuestBoard: (p: { onResult: (id: string, r: unknown) => void }) => (
+    <button type="button" onClick={() => p.onResult("well", { done: 5, total: 5, complete: true, minutesEarned: 3 })}>
+      finish a run
+    </button>
+  ),
 }));
 vi.mock("@/lib/realm3d/worldgen", async (orig) => {
   const real = await orig<typeof import("@/lib/realm3d/worldgen")>();
@@ -30,6 +43,8 @@ beforeAll(() => {
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
+  access.recorded = [];
+  access.kingdom = null;
 });
 
 const props = (isChildView: boolean): RealmFrameProps => ({
@@ -49,6 +64,9 @@ const props = (isChildView: boolean): RealmFrameProps => ({
   viewer: isChildView ? "child" : "parent",
   castleUnlocked: false,
 });
+
+/** Every earning setting at 0: each test turns on only what it asserts. */
+const EARNING_OFF = { troubleBonusCapMinutes: 0, dailyAllowanceMinutes: 0, minutesPerStar: 0, sideQuestDailyCapMinutes: 0, bankCapMinutes: 0 };
 
 async function open(isChildView: boolean, result: AccessResult) {
   access.result = result;
@@ -83,22 +101,88 @@ describe("the Realm's door", () => {
     expect(screen.getByText("Closed for Emma now")).toBeInTheDocument();
   });
 
-  it("closes, as the flat Realm does, when the clock runs out", async () => {
+  it("goes quiet, not closed, when the clock runs out and the gate says quiet", async () => {
     vi.useFakeTimers();
-    await open(true, { allowed: true, minutesRemaining: 0, source: "earned" });
-    expect(screen.getByTestId("canvas")).toBeInTheDocument();
+    await open(true, { allowed: true, minutesRemaining: 1, source: "earned" });
+    access.result = { allowed: true, minutesRemaining: 0, source: "quiet" };
     await act(async () => {
-      vi.advanceTimersByTime(1000);
+      await vi.advanceTimersByTimeAsync(180_000);
+    });
+    expect(screen.getByTestId("canvas")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Well played, Emma!" })).toBeNull();
+    expect(access.recorded).toEqual([1]); // the last minute, then nothing for three quiet minutes
+  });
+
+  it("closes when the clock runs out on the day's cap", async () => {
+    vi.useFakeTimers();
+    await open(true, { allowed: true, minutesRemaining: 1, source: "earned" });
+    access.result = { allowed: false, reason: "cap_reached" };
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(61_000);
     });
     expect(screen.getByRole("heading", { name: "Well played, Emma!" })).toBeInTheDocument();
-    expect(screen.getByText("Every quest you complete banks minutes here.")).toBeInTheDocument();
+    expect(screen.getByText("The Realm will be waiting tomorrow.")).toBeInTheDocument();
     expect(screen.queryByTestId("canvas")).toBeNull();
+  });
+
+  it("a child with minutes enters straight in", async () => {
+    await open(true, { allowed: true, minutesRemaining: 30, source: "earned" });
+    expect(screen.getByTestId("canvas")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Side quests here" })).toBeNull();
+  });
+
+  it("meets a child at 0 at the quiet gate, with both ways on, before the world", async () => {
+    await open(true, { allowed: true, minutesRemaining: 0, source: "quiet" });
+    expect(screen.queryByTestId("canvas")).toBeNull();
+    expect(screen.getByRole("button", { name: "Side quests here" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Walk in the quiet Realm" })).toBeInTheDocument();
+  });
+
+  it("walks on from the quiet gate into the quiet world, and its clock never shuts it", async () => {
+    await open(true, { allowed: true, minutesRemaining: 0, source: "quiet" });
+    vi.useFakeTimers();
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Walk in the quiet Realm" })));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(180_000);
+    });
+    expect(screen.getByTestId("canvas")).toBeInTheDocument();
+    expect(screen.getByText("Earn play time with a side quest")).toBeInTheDocument();
+    expect(access.recorded).toEqual([]);
+  });
+
+  it("enters on the clock after a paying run at the gate, into the re-fetched village", async () => {
+    const well = { id: "well", label: "Village Well", description: "", icon: "box" as const, done: 5, total: 5, complete: true, stars: 0, maxStars: 15, deeds: [] };
+    access.kingdom = { tone: "gentle", buildings: [well] };
+    await open(true, { allowed: true, minutesRemaining: 0, source: "quiet" });
+    access.result = { allowed: true, minutesRemaining: 3, source: "earned" };
+    fireEvent.click(screen.getByRole("button", { name: "Side quests here" }));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "finish a run" })));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Enter the Realm" })));
+    expect(screen.getByTestId("canvas")).toBeInTheDocument();
+    expect(screen.getByText("3 min left")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "1 of 1 buildings built." })).toBeInTheDocument();
+  });
+
+  it("a parent never sees the quiet gate", async () => {
+    await open(false, { allowed: true, minutesRemaining: 0, source: "quiet" });
+    expect(screen.getByTestId("canvas")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Side quests here" })).toBeNull();
+  });
+
+  it("says how minutes are earned on the quiet gate (earningLines)", async () => {
+    access.result = { allowed: true, minutesRemaining: 0, source: "quiet" };
+    const p = props(true);
+    const earning = { ...EARNING_OFF, enabled: true, accessMode: "earned" as const, earnedMinutesPerQuest: 5, dailyCapMinutes: 30, dailyAllowanceMinutes: 10 };
+    render(<RealmFrame {...p} realm={{ ...p.realm, earning }} />);
+    await act(async () => {});
+    await act(async () => {});
+    expect(screen.getByText("You get 10 free minutes every day. Finish a quest and you earn 5 more minutes here, up to 30 a day.")).toBeInTheDocument();
   });
 
   it("says how minutes are earned when minutes are what the child is missing (earningLines)", async () => {
     access.result = { allowed: false, reason: "no_minutes" };
     const p = props(true);
-    const earning = { enabled: true, accessMode: "earned" as const, earnedMinutesPerQuest: 5, dailyCapMinutes: 30, troubleBonusCapMinutes: 0 };
+    const earning = { ...EARNING_OFF, enabled: true, accessMode: "earned" as const, earnedMinutesPerQuest: 5, dailyCapMinutes: 30 };
     render(<RealmFrame {...p} realm={{ ...p.realm, earning }} />);
     await act(async () => {});
     await act(async () => {});
@@ -108,7 +192,7 @@ describe("the Realm's door", () => {
   it("says nothing of earning when the gate is shut for another reason", async () => {
     access.result = { allowed: false, reason: "school_hours" };
     const p = props(true);
-    const earning = { enabled: true, accessMode: "earned" as const, earnedMinutesPerQuest: 5, dailyCapMinutes: 30, troubleBonusCapMinutes: 5 };
+    const earning = { ...EARNING_OFF, enabled: true, accessMode: "earned" as const, earnedMinutesPerQuest: 5, dailyCapMinutes: 30, troubleBonusCapMinutes: 5 };
     render(<RealmFrame {...p} realm={{ ...p.realm, earning }} />);
     await act(async () => {});
     await act(async () => {});

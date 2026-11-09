@@ -8,8 +8,8 @@ afterEach(cleanup);
 describe("RealmGate", () => {
   it("shows the reason in the hero's terms", () => {
     render(<RealmGate copy={gateCopy({ allowed: false, reason: "no_minutes" })!} heroName="Lily" />);
-    expect(screen.getByRole("heading", { name: "The Realm opens when you finish a quest." })).toBeInTheDocument();
-    expect(screen.getByText("Every quest you complete banks minutes here.")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "The Realm is resting for now." })).toBeInTheDocument();
+    expect(screen.getByText("Side quests earn play time, and you get free minutes every day.")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Quest Log/ })).toHaveAttribute("href", "/quests");
   });
 });

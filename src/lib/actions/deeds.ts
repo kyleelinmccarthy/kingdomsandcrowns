@@ -5,7 +5,7 @@ import { nanoid } from "nanoid";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
-import { isChildActor, requireChildAccess } from "@/lib/auth/access";
+import { isChildActor, requireChildAccess, type FamilyAccess } from "@/lib/auth/access";
 import { profileFromRow } from "@/lib/utils/learning-profile";
 import { BAND_LABELS, type ContentBand } from "@/lib/utils/content-bands";
 import { bandForGrade } from "@/lib/utils/grade-levels";
@@ -32,7 +32,8 @@ import type { AttemptResult, RunStart, RunSummary } from "@/lib/utils/deed-run-t
 import { hintFor } from "@/lib/utils/skill-hints";
 import { buildingStars, gradeForDeed, loadDeedBest, loadHeroLevels, loadKingdomOverview, type BuildingOverview } from "@/lib/services/deeds";
 import { loadLearningProfileRow } from "@/lib/services/learning-profile";
-import { loadRealmSettings } from "@/lib/services/realm-play";
+import { loadRealmSettings, paySideQuest } from "@/lib/services/realm-play";
+import { NO_SIDE_QUEST_PAY, type SideQuestPay } from "@/lib/utils/side-quest-pay";
 
 export type MasteryRow = { skillId: string; label: string; area: SkillArea; level: number; levelLabel: string; lastPracticedAt: string | null };
 export type DeedsOverview = {
@@ -213,11 +214,12 @@ export async function startDeedRun(
 
 type DeedRunRow = typeof schema.deedRun.$inferSelect;
 
-async function loadRun(runId: string): Promise<DeedRunRow> {
+/** A stored run, once the caller may act for its hero, and who the caller is. */
+async function loadRun(runId: string): Promise<{ run: DeedRunRow; access: FamilyAccess }> {
   const rows = await db.select().from(schema.deedRun).where(eq(schema.deedRun.id, runId)).limit(1);
   if (!rows[0]) throw new Error(NOT_IN_CHRONICLE);
-  await requireChildAccess(rows[0].childId, { write: true });
-  return rows[0];
+  const { access } = await requireChildAccess(rows[0].childId, { write: true });
+  return { run: rows[0], access };
 }
 
 /** A stored run's questions and both tries, read the same way by every action. */
@@ -234,7 +236,7 @@ function parseRun(run: DeedRunRow) {
 
 /** An open run and one question of it, with every guard every attempt action shares. */
 async function loadAttemptState(runId: string, index: number) {
-  const run = await loadRun(runId);
+  const { run } = await loadRun(runId);
   if (run.completedAt) throw new Error(FINISHED);
   const state = parseRun(run);
   if (!Number.isInteger(index) || index < 0 || index >= state.questions.length) {
@@ -379,7 +381,7 @@ async function buildingAfter(childId: string, building: Building, counted: boole
 }
 
 export async function completeDeedRun(runId: string): Promise<RunSummary> {
-  const run = await loadRun(runId);
+  const { run, access } = await loadRun(runId);
   if (run.completedAt) throw new Error(FINISHED);
   const { questions, statuses } = parseRun(run);
   // An open second chance blocks finishing exactly as an unanswered question does.
@@ -402,8 +404,12 @@ export async function completeDeedRun(runId: string): Promise<RunSummary> {
     .set({ correctCount, flawless, stars, completedAt: now, updatedAt: now })
     .where(and(eq(schema.deedRun.id, runId), isNull(schema.deedRun.completedAt)))
     .returning({ id: schema.deedRun.id });
-  // Two finishes racing: only the one that closed the run may raise the building.
+  // Two finishes racing: only the one that closed the run may raise the building, or be paid.
   if (finished.length === 0) throw new Error(FINISHED);
+  // Only the hero's own run pays play minutes (spec 2026-11-09 §2a); a challenge earns no stars.
+  // Started now, after the win, and awaited at the end: the pay runs beside the building and
+  // mastery reads rather than ahead of them (`payForRun` never rejects).
+  const paying = effects.earnsStars && stars > 0 && isChildActor(access) ? payForRun(run.childId, runId, stars) : Promise.resolve(NO_SIDE_QUEST_PAY);
 
   const counted = effects.raisesBuilding && countsTowardBuilding(stars);
   const deed = findDeed(run.deedId);
@@ -426,11 +432,27 @@ export async function completeDeedRun(runId: string): Promise<RunSummary> {
     if (copy) masteryChanges.push(copy);
   }
 
+  const pay = await paying;
   revalidatePath("/side-quests");
   revalidatePath("/spellbook");
   revalidatePath("/loot");
   return {
     correctCount, total: questions.length, flawless, masteryChanges, stars, previousBest, deedBest, counted, crowned, kind: run.kind,
     building: { label: building?.label ?? "the kingdom", ...progress, ...buildingStarsNow },
+    minutesEarned: pay.minutes, sideQuestPayFull: pay.full,
   };
+}
+
+/**
+ * The run is already finished when this runs, so a failed minute write must not fail the finish:
+ * the child still sees their stars. Nothing retries it today, so a failure costs that run's
+ * minutes; the write is once per run, so a retry added later could safely pay them.
+ */
+async function payForRun(childId: string, runId: string, stars: number): Promise<SideQuestPay> {
+  try {
+    return await paySideQuest(childId, runId, stars);
+  } catch (err) {
+    console.error("side-quest pay failed", { runId, err });
+    return NO_SIDE_QUEST_PAY;
+  }
 }

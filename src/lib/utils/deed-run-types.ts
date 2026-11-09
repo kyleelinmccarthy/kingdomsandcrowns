@@ -42,4 +42,8 @@ export type RunSummary = {
   crowned: boolean;
   kind: RunKind;
   building: { label: string; done: number; total: number; complete: boolean; stars: number; maxStars: number };
+  /** Realm play minutes this run paid (`sideQuestPay`): 0 for a challenge, a starless run or a grown-up's run. */
+  minutesEarned: number;
+  /** The day's side-quest minutes are all earned, so the card can say so instead of "+0". */
+  sideQuestPayFull: boolean;
 };

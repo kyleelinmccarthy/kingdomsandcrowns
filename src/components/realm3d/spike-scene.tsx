@@ -944,7 +944,7 @@ function SkyDome({ day }: { day: DayLight }) {
  * landmarks, the child's own figure — for one number on one bar. So the HUD is a SIBLING of
  * the `<Canvas>` and keeps its own state, the per-frame numbers go through `HudBus` and never
  * through React at all, and every prop below is built once in `SpikeScene` and is
- * referentially stable for the life of the page.
+ * referentially stable for the life of the page — except `troubles`, which changes on quiet↔wake.
  */
 const World = memo(function World({
   avatar,

@@ -24,6 +24,14 @@ export type RealmSettings = {
   sideQuestLength: number;
   /** Whether a wrong first answer earns a hint and one more try. */
   secondChances: boolean;
+  /** Free minutes a day, granted when the day opens (`ALLOWANCE_RANGE`); 0 turns the allowance off. */
+  dailyAllowanceMinutes: number;
+  /** Minutes one side-quest star pays (`MINUTES_PER_STAR_RANGE`); 0 turns practice pay off. */
+  minutesPerStar: number;
+  /** The most minutes a day side quests may pay (`SIDE_QUEST_PAY_CAP_RANGE`). */
+  sideQuestDailyCapMinutes: number;
+  /** The most minutes a day may carry into the next one (`BANK_CAP_RANGE`); 0 means nothing carries. */
+  bankCapMinutes: number;
 };
 
 export const DEFAULT_REALM_SETTINGS: RealmSettings = {
@@ -38,6 +46,10 @@ export const DEFAULT_REALM_SETTINGS: RealmSettings = {
   troubleBonusCapMinutes: 5,
   sideQuestLength: 8,
   secondChances: true,
+  dailyAllowanceMinutes: 10,
+  minutesPerStar: 1,
+  sideQuestDailyCapMinutes: 15,
+  bankCapMinutes: 30,
 };
 
 const ACCESS_MODES: RealmAccessMode[] = ["earned", "scheduled", "both", "open"];
@@ -46,6 +58,10 @@ export const EARNED_MINUTES_RANGE = { min: 0, max: 60 } as const;
 export const DAILY_CAP_RANGE = { min: 5, max: 240 } as const;
 export const TROUBLE_BONUS_RANGE = { min: 0, max: 30 } as const;
 export const SIDE_QUEST_LENGTH_RANGE = { min: 4, max: 12 } as const;
+export const ALLOWANCE_RANGE = { min: 0, max: 60 } as const;
+export const MINUTES_PER_STAR_RANGE = { min: 0, max: 5 } as const;
+export const SIDE_QUEST_PAY_CAP_RANGE = { min: 0, max: 120 } as const;
+export const BANK_CAP_RANGE = { min: 0, max: 240 } as const;
 
 function inRange(v: unknown, r: { min: number; max: number }): v is number {
   return typeof v === "number" && Number.isInteger(v) && v >= r.min && v <= r.max;
@@ -86,6 +102,12 @@ export function settingsFromRow(row: Partial<Record<keyof RealmSettings, unknown
       : DEFAULT_REALM_SETTINGS.troubleBonusCapMinutes,
     sideQuestLength: inRange(row.sideQuestLength, SIDE_QUEST_LENGTH_RANGE) ? row.sideQuestLength : DEFAULT_REALM_SETTINGS.sideQuestLength,
     secondChances: typeof row.secondChances === "boolean" ? row.secondChances : DEFAULT_REALM_SETTINGS.secondChances,
+    dailyAllowanceMinutes: inRange(row.dailyAllowanceMinutes, ALLOWANCE_RANGE) ? row.dailyAllowanceMinutes : DEFAULT_REALM_SETTINGS.dailyAllowanceMinutes,
+    minutesPerStar: inRange(row.minutesPerStar, MINUTES_PER_STAR_RANGE) ? row.minutesPerStar : DEFAULT_REALM_SETTINGS.minutesPerStar,
+    sideQuestDailyCapMinutes: inRange(row.sideQuestDailyCapMinutes, SIDE_QUEST_PAY_CAP_RANGE)
+      ? row.sideQuestDailyCapMinutes
+      : DEFAULT_REALM_SETTINGS.sideQuestDailyCapMinutes,
+    bankCapMinutes: inRange(row.bankCapMinutes, BANK_CAP_RANGE) ? row.bankCapMinutes : DEFAULT_REALM_SETTINGS.bankCapMinutes,
   };
 }
 
@@ -132,6 +154,22 @@ export function validateRealmSettingsPatch(patch: unknown): Partial<RealmSetting
       case "sideQuestLength":
         if (!inRange(v, SIDE_QUEST_LENGTH_RANGE)) throw new Error(`Side quests must be ${SIDE_QUEST_LENGTH_RANGE.min}–${SIDE_QUEST_LENGTH_RANGE.max} questions.`);
         out.sideQuestLength = v;
+        break;
+      case "dailyAllowanceMinutes":
+        if (!inRange(v, ALLOWANCE_RANGE)) throw new Error(`Free minutes must be ${ALLOWANCE_RANGE.min}–${ALLOWANCE_RANGE.max} a day.`);
+        out.dailyAllowanceMinutes = v;
+        break;
+      case "minutesPerStar":
+        if (!inRange(v, MINUTES_PER_STAR_RANGE)) throw new Error(`Minutes per star must be ${MINUTES_PER_STAR_RANGE.min}–${MINUTES_PER_STAR_RANGE.max}.`);
+        out.minutesPerStar = v;
+        break;
+      case "sideQuestDailyCapMinutes":
+        if (!inRange(v, SIDE_QUEST_PAY_CAP_RANGE)) throw new Error(`Side-quest minutes must be ${SIDE_QUEST_PAY_CAP_RANGE.min}–${SIDE_QUEST_PAY_CAP_RANGE.max} a day.`);
+        out.sideQuestDailyCapMinutes = v;
+        break;
+      case "bankCapMinutes":
+        if (!inRange(v, BANK_CAP_RANGE)) throw new Error(`The saved-minutes bank must be ${BANK_CAP_RANGE.min}–${BANK_CAP_RANGE.max} minutes.`);
+        out.bankCapMinutes = v;
         break;
       default:
         throw new Error(`Unknown Realm setting: ${key}`);

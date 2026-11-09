@@ -20,7 +20,7 @@ const client = new Client({
 const testDb = drizzle(client, { schema });
 vi.mock("@/lib/db", () => ({ db: testDb }));
 
-const { loadRecentTroubleClears } = await import("./realm-play");
+const { loadRecentTroubleClears } = await import("./realm-troubles");
 
 beforeAll(async () => {
   await client.connect();

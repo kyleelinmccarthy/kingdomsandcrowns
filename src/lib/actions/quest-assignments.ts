@@ -480,7 +480,7 @@ export async function completeAssignment(
 
   // Finishing a quest can earn Realm play minutes; the service decides based
   // on the hero's Realm settings.
-  await grantEarnedMinutesForCompletion(row.assignment.childId, assignmentId, row.assignment.date);
+  await grantEarnedMinutesForCompletion(row.assignment.childId, assignmentId);
 
   return { activityId };
 }

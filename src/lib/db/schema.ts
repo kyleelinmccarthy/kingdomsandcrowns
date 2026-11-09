@@ -835,6 +835,12 @@ export const realmSettings = pgTable(
     troubleBonusCapMinutes: integer("trouble_bonus_cap_minutes").notNull().default(5),
     sideQuestLength: integer("side_quest_length").notNull().default(8),
     secondChances: boolean("second_chances").notNull().default(true),
+    // Earning time (docs/superpowers/specs/2026-11-09-realm-earning-time-design.md §4.8): free minutes a
+    // day, minutes one side-quest star pays, the most side quests pay a day, and the most a day carries over.
+    dailyAllowanceMinutes: integer("daily_allowance_minutes").notNull().default(10),
+    minutesPerStar: integer("minutes_per_star").notNull().default(1),
+    sideQuestDailyCapMinutes: integer("side_quest_daily_cap_minutes").notNull().default(15),
+    bankCapMinutes: integer("bank_cap_minutes").notNull().default(30),
     // The 3D Realm's sound: the hero's own volume, effects, music and mute, as JSON
     // (`lib/realm3d/sound/settings.ts`). Null is the defaults. A visiting grown-up's own are
     // `realm_visitor_sound`, kept per grown-up.
@@ -934,14 +940,32 @@ export const realmPlayLedger = pgTable(
       .notNull()
       .references(() => child.id, { onDelete: "cascade" }),
     date: text("date").notNull(), // hero's local ISO day
-    // "bonus": Realm minutes earned by clearing troubles. No CHECK constraint, so TS-only.
-    kind: text("kind", { enum: ["earned", "granted", "spent", "bonus"] }).notNull(),
+    // "bonus": minutes from clearing troubles; "practice": side-quest pay; "allowance": the day's free
+    // minutes; "carried": yesterday's bank; "refund": spent minutes given back. No CHECK constraint, so TS-only.
+    kind: text("kind", {
+      enum: ["earned", "granted", "spent", "bonus", "practice", "allowance", "carried", "refund"],
+    }).notNull(),
     minutes: integer("minutes").notNull(),
     // No FK: assignments can be deleted and the minutes must survive.
     sourceAssignmentId: text("source_assignment_id"),
+    // The side-quest run a `practice` row paid for (no FK: runs are pruned, the minutes must survive).
+    sourceRunId: text("source_run_id"),
     createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull(),
   },
-  (table) => [index("realm_play_ledger_child_date_idx").on(table.childId, table.date)]
+  (table) => [
+    // Also serves the carry query ("latest earlier date" for a child).
+    index("realm_play_ledger_child_date_idx").on(table.childId, table.date),
+    // Once-per-day and once-per-run are properties of the table, so two tabs cannot double-pay.
+    uniqueIndex("realm_play_ledger_allowance_day_idx")
+      .on(table.childId, table.date)
+      .where(sql`${table.kind} = 'allowance'`),
+    uniqueIndex("realm_play_ledger_carried_day_idx")
+      .on(table.childId, table.date)
+      .where(sql`${table.kind} = 'carried'`),
+    uniqueIndex("realm_play_ledger_practice_run_idx")
+      .on(table.sourceRunId)
+      .where(sql`${table.kind} = 'practice'`),
+  ]
 );
 
 /**

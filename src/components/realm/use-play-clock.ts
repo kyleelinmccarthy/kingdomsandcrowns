@@ -1,28 +1,48 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getRealmAccess, recordRealmPlay } from "@/lib/actions/realm-play";
-import { applyAccess, minutesToSettle, startClock, tickClock, type PlayClock } from "@/lib/realm/play-clock";
-import type { AccessDenied } from "@/lib/utils/realm-access";
-import { currentTimeOfDay, localDateOf } from "@/lib/utils/schedule-days";
+import { getRealmAccess, recordRealmPlay, refundIdleMinutes } from "@/lib/actions/realm-play";
+import { applyAccess, idleGiveBack, minutesBack, minutesToSettle, noteInput as inputSeen, startClock, tickClock, type PlayClock } from "@/lib/realm/play-clock";
+import type { AccessDenied, AccessResult, AccessSource } from "@/lib/utils/realm-access";
 import { beaconPlayCharge } from "@/lib/utils/realm-play-charge";
 
 /** Why the Realm closed, in the gate's own vocabulary. `AccessDenied` already is that reason union. */
 export type CloseReason = AccessDenied;
 
-/** Why access is currently granted, in the gate's own vocabulary. */
-export type AccessSource = "off_hours" | "recess" | "earned" | "open";
+/** Why access is currently granted: declared once, in realm-access.ts; re-exported for the gate. */
+export type { AccessSource };
+
+/**
+ * Out of minutes and the server will not answer: wait this many played seconds before each
+ * retry, and once the last retry fails (about a minute in), close as the clock did before the
+ * quiet world — an unreachable server must not leave a child in a Realm that never shuts.
+ */
+export const EMPTY_RETRY_SECONDS = [5, 15, 30] as const;
+
+/**
+ * A quiet clock asks the gate again after this many visible, unpaused seconds, so minutes that
+ * landed elsewhere (a grown-up's grant, a quest finished on another device) wake the world.
+ */
+export const QUIET_POLL_SECONDS = 60;
 
 /**
  * Ticks the pure clock once a second, writes a minute to the ledger every 60
  * visible seconds, and refreshes access after each write. State updates happen
  * inside the interval callback, never synchronously in the effect body.
+ *
+ * At 0 it never closes by itself: it asks the server once (`empty`), and the
+ * answer goes quiet (`onQuiet` — an earning mode at a 0 balance: nothing counts,
+ * nothing is charged) or closes (a denial, e.g. the day's cap). Minutes landing
+ * while quiet — any `refresh` that finds them — wake it (`onWake`). A failed ask
+ * is retried with backoff and, with no answer at all, closes (`EMPTY_RETRY_SECONDS`).
  */
 export function usePlayClock({
   enabled,
   childId,
   initialMinutes,
   onClose,
+  onQuiet,
+  onWake,
   paused = false,
   initialSource = null,
 }: {
@@ -30,16 +50,29 @@ export function usePlayClock({
   childId: string;
   initialMinutes: number;
   onClose: (reason: CloseReason) => void;
+  onQuiet?: () => void;
+  onWake?: (minutes: number) => void;
   paused?: boolean;
   initialSource?: AccessSource | null;
 }) {
-  const [clock, setClock] = useState<PlayClock>(() => startClock(initialMinutes));
+  const [clock, setClock] = useState<PlayClock>(() => startClock(initialMinutes, initialSource === "quiet"));
   const [warning, setWarning] = useState(false);
   const [error, setError] = useState("");
   const [source, setSource] = useState<AccessSource | null>(initialSource ?? null);
   const clockRef = useRef(clock);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
+  const quietRef = useRef(onQuiet);
+  quietRef.current = onQuiet;
+  const wakeRef = useRef(onWake);
+  wakeRef.current = onWake;
+  // An `empty` tick has asked the server and the answer is not in yet: one question, not one a second.
+  const askingRef = useRef(false);
+  // Failed `empty` asks in a row, and the played seconds left before the next one (`EMPTY_RETRY_SECONDS`).
+  const emptyFailsRef = useRef(0);
+  const emptyWaitRef = useRef(0);
+  // Visible, unpaused seconds spent quiet since the last ask (`QUIET_POLL_SECONDS`).
+  const quietSecondsRef = useRef(0);
   // Minutes recorded locally but not yet confirmed by the server. A failed
   // record is retried with the next minute's record (or on Try again); a
   // lost response can double-charge one minute, which is rarer than the free
@@ -49,6 +82,8 @@ export function usePlayClock({
   // The whole minutes a `recordRealmPlay` still in flight is carrying. They are in `pendingRef`
   // until it answers, and the page-hide beacon must not send them a second time.
   const inFlightRef = useRef(0);
+  // That record itself, resolving true once it landed: an idle give-back waits on it (`giveBackIdle`).
+  const flightRef = useRef<Promise<boolean>>(Promise.resolve(false));
   const pausedRef = useRef(paused);
   const refreshOnResumeRef = useRef(false);
   // Refs change in an effect, never during render (the React Compiler rejects render-time ref writes).
@@ -57,22 +92,34 @@ export function usePlayClock({
     pausedRef.current = paused;
   }, [paused]);
 
+  /** Adopts a fresh access answer: the one place an answer becomes clock state and callbacks. */
+  const adopt = useCallback((access: AccessResult) => {
+    emptyFailsRef.current = 0; // an answer: any backoff starts over
+    emptyWaitRef.current = 0;
+    const applied = applyAccess(clockRef.current, access);
+    clockRef.current = applied.clock;
+    setClock(applied.clock);
+    setError("");
+    if (access.allowed) setSource(access.source);
+    if (applied.event === "warn") setWarning(true);
+    // The last minute's banner comes down on a top-up, and never hangs over the quiet world.
+    if (applied.clock.minutesRemaining > 1 || applied.clock.quiet) setWarning(false);
+    if (applied.event === "quiet") quietRef.current?.();
+    if (applied.event === "wake") wakeRef.current?.(applied.clock.minutesRemaining);
+    // Allowed at 0 but not quiet is no answer the server gives; it closes as it always did.
+    if (applied.event === "close") closeRef.current(access.allowed ? "no_minutes" : access.reason);
+  }, []);
+
+  /** Re-asks the gate. Resolves true when the server answered, false when the ask failed. */
   const refresh = useCallback(async () => {
     try {
-      const date = localDateOf(new Date());
-      const access = await getRealmAccess(childId, date, currentTimeOfDay());
-      const applied = applyAccess(clockRef.current, access);
-      clockRef.current = applied.clock;
-      setClock(applied.clock);
-      setError("");
-      if (access.allowed) setSource(access.source);
-      if (applied.event === "warn") setWarning(true);
-      if (applied.clock.minutesRemaining > 1) setWarning(false);
-      if (applied.event === "close") closeRef.current(access.allowed ? "no_minutes" : access.reason);
+      adopt(await getRealmAccess(childId));
+      return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : "The Realm lost track of time for a moment.");
+      return false;
     }
-  }, [childId]);
+  }, [childId, adopt]);
 
   /**
    * Writes `minutes` to the ledger and refreshes access. The caller decides the
@@ -81,15 +128,16 @@ export function usePlayClock({
    * remainder of the minute in progress. Nothing is sent for 0 — `recordRealmPlay`
    * rejects `minutes < 1`.
    */
-  const settle = useCallback(
-    async (minutes: number) => {
+  const record = useCallback(
+    async (minutes: number): Promise<boolean> => {
       const sent = Math.min(minutes, 30);
-      if (sent < 1) return;
+      if (sent < 1) return false;
       recordingRef.current = true;
       inFlightRef.current = sent;
+      let landed = false;
       try {
-        const date = localDateOf(new Date());
-        await recordRealmPlay(childId, date, sent);
+        await recordRealmPlay(childId, sent);
+        landed = true;
         // Unbilled time is `pending` whole minutes plus the seconds of the
         // minute in progress — `pending * 60 + secondsThisMinute` seconds
         // total — and a successful send pays for `sent * 60` of it. Both
@@ -107,15 +155,7 @@ export function usePlayClock({
         const remaining = Math.max(0, unbilled - sent * 60);
         pendingRef.current = Math.floor(remaining / 60);
         clockRef.current = { ...clockRef.current, secondsThisMinute: remaining % 60 };
-        const access = await getRealmAccess(childId, date, currentTimeOfDay());
-        const applied = applyAccess(clockRef.current, access);
-        clockRef.current = applied.clock;
-        setClock(applied.clock);
-        setError("");
-        if (access.allowed) setSource(access.source);
-        if (applied.event === "warn") setWarning(true);
-        if (applied.clock.minutesRemaining > 1) setWarning(false);
-        if (applied.event === "close") closeRef.current(access.allowed ? "no_minutes" : access.reason);
+        adopt(await getRealmAccess(childId));
       } catch (err) {
         // pendingRef and the clock's seconds are left exactly as they were:
         // the failed minutes carry into the next record, and an unbilled
@@ -125,12 +165,16 @@ export function usePlayClock({
         recordingRef.current = false;
         inFlightRef.current = 0;
       }
+      return landed;
     },
-    [childId]
+    [childId, adopt]
   );
+  /** `record`, kept as the flight an idle give-back can wait on. Resolves whether the minutes landed. */
+  const settle = useCallback((minutes: number) => (flightRef.current = record(minutes)), [record]);
 
   useEffect(() => {
     if (!enabled) return;
+    let live = true; // false once unmounted or switched off: a late answer must not close anything
     const id = setInterval(() => {
       if (pausedRef.current) return; // a deed is running: no seconds, no records, no warnings
       if (refreshOnResumeRef.current) {
@@ -139,17 +183,49 @@ export function usePlayClock({
         return;
       }
       const visible = typeof document === "undefined" || document.visibilityState === "visible";
+      const quietNow = clockRef.current.quiet && !clockRef.current.closed;
+      quietSecondsRef.current = quietNow ? quietSecondsRef.current + (visible ? 1 : 0) : 0;
+      if (quietNow && quietSecondsRef.current >= QUIET_POLL_SECONDS && !askingRef.current) {
+        quietSecondsRef.current = 0;
+        askingRef.current = true;
+        void refresh().finally(() => (askingRef.current = false));
+      }
       const ticked = tickClock(clockRef.current, 1, visible);
       clockRef.current = ticked.clock;
       setClock(ticked.clock);
       if (ticked.event === "warn") setWarning(true);
-      if (ticked.event === "close") closeRef.current("no_minutes");
+      // Out of minutes: ask once. A record in flight is already asking (`settle` adopts its answer).
+      if (ticked.event === "empty" && !askingRef.current && !recordingRef.current) {
+        if (emptyWaitRef.current > 0) emptyWaitRef.current -= 1;
+        else {
+          askingRef.current = true;
+          setWarning(false); // the last minute is over, whatever the answer
+          void refresh().then((answered) => {
+            askingRef.current = false;
+            if (answered) return;
+            const failed = ++emptyFailsRef.current;
+            if (failed <= EMPTY_RETRY_SECONDS.length) {
+              emptyWaitRef.current = EMPTY_RETRY_SECONDS[failed - 1];
+              return;
+            }
+            // Only a clock still out of minutes closes: not one already closed, quiet or woken meanwhile.
+            const now = clockRef.current;
+            if (!live || now.closed || now.quiet || now.minutesRemaining > 0) return;
+            clockRef.current = { ...now, closed: true };
+            setClock(clockRef.current);
+            closeRef.current("no_minutes");
+          });
+        }
+      }
       if (ticked.event !== "record") return;
       pendingRef.current += ticked.records;
       if (recordingRef.current) return;
       void settle(pendingRef.current);
     }, 1000);
-    return () => clearInterval(id);
+    return () => {
+      live = false;
+      clearInterval(id);
+    };
   }, [enabled, settle, refresh]);
 
   /**
@@ -178,7 +254,7 @@ export function usePlayClock({
       const inFlight = inFlightRef.current;
       const owed = minutesToSettle(clockRef.current, pendingRef.current - inFlight);
       if (owed < 1) return;
-      if (!beaconPlayCharge({ childId, date: localDateOf(new Date()), minutes: owed })) return;
+      if (!beaconPlayCharge({ childId, minutes: owed })) return;
       const unbilled = (pendingRef.current - inFlight) * 60 + clockRef.current.secondsThisMinute;
       const remaining = Math.max(0, unbilled - owed * 60);
       pendingRef.current = inFlight + Math.floor(remaining / 60);
@@ -188,6 +264,51 @@ export function usePlayClock({
     return () => window.removeEventListener("pagehide", onHide);
   }, [enabled, childId]);
 
+  /** The child touched the game (`usePause`): the idle count starts again. Fires on every mouse move, so it only touches a ref. */
+  const noteInput = useCallback(() => {
+    clockRef.current = inputSeen(clockRef.current);
+  }, []);
+
+  /**
+   * The idle pause fired: give back what this clock charged since the last input (spec §4.6,
+   * `idleGiveBack`). Seconds in progress are rewound and unwritten minutes dropped here — so
+   * neither a flush nor the page-hide beacon sends them; minutes already written are refunded by
+   * the server (`refundIdleMinutes`), then its access answer is adopted (which wakes a clock that ran
+   * out and went quiet while idle). A record still in flight
+   * counts as written: the refund waits for it, and if it failed its minutes are dropped from
+   * pending instead, never both. Resolves to the minutes the server gave back; 0 when nothing was
+   * written (a clock quiet throughout counted nothing), or when the refund fails (the minutes then stay charged, and no error shows).
+   */
+  const giveBackIdle = useCallback(async (): Promise<number> => {
+    const inFlight = inFlightRef.current;
+    const flight = flightRef.current;
+    const back = idleGiveBack(clockRef.current, pendingRef.current - inFlight);
+    clockRef.current = back.clock;
+    setClock(back.clock);
+    pendingRef.current -= back.dropPending;
+    let ask = back.refundRecorded;
+    if (ask < 1) return 0;
+    if (inFlight > 0 && !(await flight)) {
+      // The newest "written" minutes were that record's, and it failed: they are back in pending, unwritten.
+      const unwritten = Math.min(inFlight, ask, pendingRef.current);
+      pendingRef.current -= unwritten;
+      clockRef.current = minutesBack(clockRef.current, unwritten);
+      setClock(clockRef.current);
+      ask -= unwritten;
+      if (ask < 1) return 0;
+    }
+    let refunded = 0;
+    try {
+      ({ refunded } = await refundIdleMinutes(childId, ask));
+    } catch {
+      return 0;
+    }
+    // The server's count now holds the refund: adopt it. A failed re-check stays silent (the card
+    // already has its answer) and leaving the pause re-checks anyway (`refreshOnResumeRef`).
+    if (refunded > 0) await getRealmAccess(childId).then(adopt, () => {});
+    return refunded;
+  }, [childId, adopt]);
+
   // `refresh` re-asks the gate now: minutes landed from elsewhere (a cleared trouble's bounty).
-  return { minutesRemaining: clock.minutesRemaining, warning, error, clearError: () => setError(""), flushPending, refresh, source };
+  return { minutesRemaining: clock.minutesRemaining, warning, error, clearError: () => setError(""), flushPending, refresh, source, quiet: clock.quiet, noteInput, giveBackIdle };
 }

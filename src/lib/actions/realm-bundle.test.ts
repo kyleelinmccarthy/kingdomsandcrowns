@@ -19,6 +19,8 @@ const loadRecentTroubleClears = vi.fn(async (childId: string) => childId ? [{ ho
 vi.mock("@/lib/services/realm-play", () => ({
   loadRealmSettings: async () => ({ ...DEFAULT_REALM_SETTINGS }),
   loadRealmFlags: async () => ({ helpSeenAt: null, starterSpellAt: null }),
+}));
+vi.mock("@/lib/services/realm-troubles", () => ({
   loadRecentTroubleClears: (childId: string) => loadRecentTroubleClears(childId),
 }));
 vi.mock("@/lib/services/deeds", () => ({ loadKingdomOverview: async () => ({ tone: "gentle", buildings: [] }) }));
@@ -97,6 +99,10 @@ describe("getRealmBundle — the places found, and the earning copy's settings",
       earnedMinutesPerQuest: DEFAULT_REALM_SETTINGS.earnedMinutesPerQuest,
       dailyCapMinutes: DEFAULT_REALM_SETTINGS.dailyCapMinutes,
       troubleBonusCapMinutes: DEFAULT_REALM_SETTINGS.troubleBonusCapMinutes,
+      dailyAllowanceMinutes: DEFAULT_REALM_SETTINGS.dailyAllowanceMinutes,
+      minutesPerStar: DEFAULT_REALM_SETTINGS.minutesPerStar,
+      sideQuestDailyCapMinutes: DEFAULT_REALM_SETTINGS.sideQuestDailyCapMinutes,
+      bankCapMinutes: DEFAULT_REALM_SETTINGS.bankCapMinutes,
     });
   });
 });

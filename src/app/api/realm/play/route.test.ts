@@ -1,21 +1,24 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 /**
- * The play clock's page-hide beacon. The access gate and the ledger are the seams: the actor is
- * mocked as the hero, another hero, or a grown-up, and the ledger write is captured so a refusal
- * can be shown to have charged NOTHING.
+ * The play clock's page-hide beacon. The access gate and the charge are the seams: the actor is
+ * mocked as the hero, another hero, or a grown-up, and the charge is captured so a refusal can be
+ * shown to have charged NOTHING.
  */
 const requireChildAccess = vi.fn();
 vi.mock("@/lib/auth/access", () => ({
   requireChildAccess: (...a: unknown[]) => requireChildAccess(...a),
   isChildActor: (access: { userId: string }) => access.userId.startsWith("child:"),
 }));
-// The real ledger code (`chargeRealmPlay` → `appendLedger`), over a database that only records
-// the rows it is asked to insert.
-const inserted: unknown[] = [];
-vi.mock("@/lib/db", () => ({
-  db: { insert: () => ({ values: async (v: unknown) => void inserted.push(v) }) },
+// The same charge as the server action. What it writes (the day opened first, then the minute)
+// is tested against a real database in `services/realm-day-db.test.ts`.
+const chargeRealmPlay = vi.fn(async () => {});
+vi.mock("@/lib/services/realm-play", () => ({
+  chargeRealmPlay: (...a: unknown[]) => (chargeRealmPlay as (...x: unknown[]) => unknown)(...a),
 }));
+
+// The server's day (`realmNow`): the only day a charge is written on.
+vi.mock("@/lib/services/realm-clock", () => ({ realmNow: async () => ({ date: "2026-11-09", timeOfDay: "10:00" }) }));
 
 import { POST } from "./route";
 
@@ -30,11 +33,11 @@ function beacon(body: unknown, headers: Record<string, string> = { origin: "http
   });
 }
 
-const good = { childId: "c1", date: "2026-09-23", minutes: 1 };
+const good = { childId: "c1", minutes: 1 };
 
 beforeEach(() => {
   requireChildAccess.mockReset();
-  inserted.length = 0;
+  chargeRealmPlay.mockClear();
 });
 
 describe("POST /api/realm/play — the page-hide charge", () => {
@@ -43,30 +46,37 @@ describe("POST /api/realm/play — the page-hide charge", () => {
     const res = await POST(beacon(good));
     expect(res.status).toBe(204);
     expect(requireChildAccess).toHaveBeenCalledWith("c1", { write: true });
-    expect(inserted).toEqual([expect.objectContaining({ childId: "c1", date: "2026-09-23", kind: "spent", minutes: 1 })]);
+    expect(chargeRealmPlay).toHaveBeenCalledWith("c1", "2026-11-09", 1);
+  });
+
+  it("charges today whatever date a tab sends (one opened before the deploy still sends one)", async () => {
+    requireChildAccess.mockResolvedValue(child);
+    const res = await POST(beacon({ ...good, date: "2099-01-01" }));
+    expect(res.status).toBe(204);
+    expect(chargeRealmPlay).toHaveBeenCalledWith("c1", "2026-11-09", 1);
   });
 
   it("never charges a visiting grown-up", async () => {
     requireChildAccess.mockResolvedValue(parent);
     const res = await POST(beacon(good));
     expect(res.status).toBe(403);
-    expect(inserted).toEqual([]);
+    expect(chargeRealmPlay).not.toHaveBeenCalled();
   });
 
   it("refuses whoever the gate refuses (another hero, no session)", async () => {
     requireChildAccess.mockRejectedValue(new Error("This hero can only act for themselves."));
     const res = await POST(beacon(good));
     expect(res.status).toBe(403);
-    expect(inserted).toEqual([]);
+    expect(chargeRealmPlay).not.toHaveBeenCalled();
   });
 
   it("refuses a malformed charge before asking the gate", async () => {
-    for (const body of ["not json", { ...good, minutes: 0 }, { ...good, minutes: 31 }, { ...good, minutes: 1.5 }, { ...good, date: "tomorrow" }, { ...good, childId: 7 }]) {
+    for (const body of ["not json", { ...good, minutes: 0 }, { ...good, minutes: 31 }, { ...good, minutes: 1.5 }, { ...good, childId: 7 }]) {
       const res = await POST(beacon(body));
       expect(res.status).toBe(400);
     }
     expect(requireChildAccess).not.toHaveBeenCalled();
-    expect(inserted).toEqual([]);
+    expect(chargeRealmPlay).not.toHaveBeenCalled();
   });
 
   it("refuses a request from another site", async () => {
@@ -75,6 +85,6 @@ describe("POST /api/realm/play — the page-hide charge", () => {
     expect(res.status).toBe(403);
     const res2 = await POST(beacon(good, { "sec-fetch-site": "cross-site", host: "localhost:3000" }));
     expect(res2.status).toBe(403);
-    expect(inserted).toEqual([]);
+    expect(chargeRealmPlay).not.toHaveBeenCalled();
   });
 });

@@ -42,7 +42,7 @@ const DDL = [
     created_at timestamptz NOT NULL, updated_at timestamptz NOT NULL)`,
   `CREATE UNIQUE INDEX realm_recess_record_child_id_unique ON realm_recess_record (child_id)`,
   // The minutes ledger, to count: the Ring must never write to it.
-  `CREATE TABLE realm_play_ledger (id text PRIMARY KEY NOT NULL, child_id text NOT NULL, date text NOT NULL, kind text NOT NULL, minutes integer NOT NULL, created_at timestamptz NOT NULL)`,
+  `CREATE TABLE realm_play_ledger (id text PRIMARY KEY NOT NULL, child_id text NOT NULL, date text NOT NULL, kind text NOT NULL, minutes integer NOT NULL, source_assignment_id text, source_run_id text, created_at timestamptz NOT NULL)`,
 ];
 
 const hero: Actor = { userId: "child:c1", permission: "edit" };

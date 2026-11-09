@@ -9,8 +9,8 @@ import {
   bountyStatusFor,
   bountySubCap,
   earningLines,
-  isNearToday,
   isTroubleHomeId,
+  questMinutesToday,
   startPurse,
   takeClear,
   type BountySettings,
@@ -29,6 +29,12 @@ describe("the bounty's switch", () => {
     expect(bountyEnabled({ ...base, accessMode: "open" })).toBe(false);
     expect(bountyEnabled({ ...base, troubleBonusCapMinutes: 0 })).toBe(false);
     expect(bountyEnabled({ ...base, enabled: false })).toBe(false);
+  });
+});
+
+describe("questMinutesToday — the schoolwork the sub-cap measures", () => {
+  it("counts quest pay and side-quest practice pay, not the bonus itself", () => {
+    expect(questMinutesToday([{ kind: "earned", minutes: 5 }, { kind: "practice", minutes: 3 }, { kind: "bonus", minutes: 1 }])).toBe(8);
   });
 });
 
@@ -73,25 +79,36 @@ describe("the sub-cap: clearing can never outrun the day's schoolwork", () => {
 describe("awarding a batch", () => {
   it("pays one minute a clear up to the allowance, then nothing, and keeps every clear", () => {
     const ids = ["rim-0", "rim-1", "rim-2", "place-ringstones", "place-summit-3", "place-appleway", "place-cove-7"];
-    const { rows, awarded } = awardClears(ids, [], base, []);
+    const { rows, awarded } = awardClears(ids, [], base, [], false);
     expect(awarded).toBe(5);
     expect(rows.map((r) => r.minutes)).toEqual([1, 1, 1, 1, 1, 0, 0]);
   });
 
   it("pays a home only once a day, so a respawning trouble cannot be farmed", () => {
-    const first = awardClears(["rim-0"], [], base, []);
+    const first = awardClears(["rim-0"], [], base, [], false);
     expect(first.awarded).toBe(1);
     const ledger: LedgerRow[] = [{ kind: "bonus", minutes: 1 }];
-    const again = awardClears(["rim-0", "rim-0", "rim-0"], ledger, base, first.rows);
+    const again = awardClears(["rim-0", "rim-0", "rim-0"], ledger, base, first.rows, false);
     expect(again.awarded).toBe(0);
     expect(again.rows).toHaveLength(3);
     // …and inside one batch too.
-    expect(awardClears(["rim-1", "rim-1"], [], base, []).awarded).toBe(1);
+    expect(awardClears(["rim-1", "rim-1"], [], base, [], false).awarded).toBe(1);
   });
 
   it("pays nothing when the bounty is off", () => {
-    expect(awardClears(["rim-0"], [], { ...base, accessMode: "open" }, []).awarded).toBe(0);
-    expect(awardClears(["rim-0"], [], { ...base, troubleBonusCapMinutes: 0 }, []).awarded).toBe(0);
+    expect(awardClears(["rim-0"], [], { ...base, accessMode: "open" }, [], false).awarded).toBe(0);
+    expect(awardClears(["rim-0"], [], { ...base, troubleBonusCapMinutes: 0 }, [], false).awarded).toBe(0);
+  });
+
+  it("pays nothing in the quiet world, but still keeps every clear", () => {
+    const { rows, awarded } = awardClears(["rim-0", "rim-1"], earned(2), base, [], true);
+    expect(awarded).toBe(0);
+    expect(rows).toEqual([{ homeId: "rim-0", minutes: 0 }, { homeId: "rim-1", minutes: 0 }]);
+  });
+
+  it("pays at a 0 balance when the child is legitimately in (a recess, off hours): only quiet stops it", () => {
+    const spentOut: LedgerRow[] = [{ kind: "allowance", minutes: 10 }, { kind: "spent", minutes: 10 }];
+    expect(awardClears(["rim-0"], spentOut, base, [], false).awarded).toBe(1);
   });
 
   it("bonus minutes are credit the clock can spend", () => {
@@ -105,9 +122,14 @@ describe("the status", () => {
       { homeId: "rim-0", minutes: 1 },
       { homeId: "rim-0", minutes: 0 },
       { homeId: "place-cove", minutes: 1 },
-    ]);
+    ], false);
     expect(s).toMatchObject({ enabled: true, capMinutes: 5, subCapMinutes: 5, paidMinutes: 2, remainingMinutes: 3, clearsToday: 3 });
     expect(s.paidHomes).toEqual(["rim-0", "place-cove"]);
+  });
+
+  it("promises nothing in the quiet world, so the client never predicts pay it cannot get", () => {
+    const s = bountyStatusFor([{ kind: "bonus", minutes: 2 }], base, [], true);
+    expect(s).toMatchObject({ enabled: true, subCapMinutes: 5, paidMinutes: 2, remainingMinutes: 0 });
   });
 });
 
@@ -133,41 +155,6 @@ describe("home ids", () => {
   });
 });
 
-describe("the day a clear is banked on", () => {
-  it("must be today somewhere on Earth (UTC-12 to UTC+14)", () => {
-    const noon = new Date("2026-09-23T12:00:00Z");
-    // 00:00 on the 23rd at UTC-12, 02:00 on the 24th at UTC+14.
-    expect(isNearToday("2026-09-23", noon)).toBe(true);
-    expect(isNearToday("2026-09-24", noon)).toBe(true);
-    expect(isNearToday("2026-09-22", noon)).toBe(false);
-    expect(isNearToday("2026-09-25", noon)).toBe(false);
-    expect(isNearToday("2026-09-21", noon)).toBe(false);
-    expect(isNearToday("2026-13-45", noon)).toBe(false);
-  });
-
-  it("never accepts a date no one on Earth has reached", () => {
-    // 09:00 CDT on the 23rd: it is the 23rd from UTC-12 to UTC+9 and already the 24th past UTC+10,
-    // so the 24th is someone's today; the 25th is nobody's, and used to pass.
-    const morning = new Date("2026-09-23T14:00:00Z");
-    expect(isNearToday("2026-09-23", morning)).toBe(true);
-    expect(isNearToday("2026-09-25", morning)).toBe(false);
-    // 22:00 CDT on the 23rd (03:00Z on the 24th): the 23rd is still today west of UTC-3, the
-    // 24th is today elsewhere, and the 25th is today nowhere yet.
-    const evening = new Date("2026-09-24T03:00:00Z");
-    expect(isNearToday("2026-09-23", evening)).toBe(true);
-    expect(isNearToday("2026-09-24", evening)).toBe(true);
-    expect(isNearToday("2026-09-25", evening)).toBe(false);
-  });
-
-  it("closes a day once it has ended everywhere", () => {
-    // 12:01Z on the 24th: the 23rd has ended even at UTC-12.
-    expect(isNearToday("2026-09-23", new Date("2026-09-24T12:01:00Z"))).toBe(false);
-    // 09:59Z on the 23rd: the 24th has not started anywhere (UTC+14 is at 23:59 on the 23rd).
-    expect(isNearToday("2026-09-24", new Date("2026-09-23T09:59:00Z"))).toBe(false);
-    expect(isNearToday("2026-09-24", new Date("2026-09-23T10:00:00Z"))).toBe(true);
-  });
-});
-
 describe("the client's purse", () => {
   it("promises nothing until the server has answered", () => {
     const p = startPurse();
@@ -176,7 +163,7 @@ describe("the client's purse", () => {
 
   it("predicts a paid clear, an already-paid home, and the cap", () => {
     const p = startPurse();
-    applyStatus(p, bountyStatusFor([{ kind: "bonus", minutes: 4 }], base, [{ homeId: "rim-0", minutes: 1 }]), []);
+    applyStatus(p, bountyStatusFor([{ kind: "bonus", minutes: 4 }], base, [{ homeId: "rim-0", minutes: 1 }], false), []);
     expect(takeClear(p, "rim-0")).toMatchObject({ paid: false, already: true, clearsToday: 2 });
     expect(takeClear(p, "rim-1")).toMatchObject({ paid: true, clearsToday: 3 });
     expect(takeClear(p, "rim-2")).toMatchObject({ paid: false, capped: true, clearsToday: 4 });
@@ -184,7 +171,7 @@ describe("the client's purse", () => {
 
   it("lays unsent clears back on top of the server's answer", () => {
     const p = startPurse();
-    applyStatus(p, bountyStatusFor([], base, []), ["rim-0", "rim-0", "rim-1"]);
+    applyStatus(p, bountyStatusFor([], base, [], false), ["rim-0", "rim-0", "rim-1"]);
     expect(p.clearsToday).toBe(3);
     expect(p.remaining).toBe(3);
     expect([...p.paidHomes]).toEqual(["rim-0", "rim-1"]);
@@ -192,7 +179,8 @@ describe("the client's purse", () => {
 });
 
 describe("earningLines — the one place the Realm says how minutes are earned (spec §3.11)", () => {
-  const settings = { enabled: true, earnedMinutesPerQuest: 5, dailyCapMinutes: 30, troubleBonusCapMinutes: 5 };
+  // The earning-time settings at 0, so each older line is asserted alone; the new lines have their own tests below.
+  const settings = { enabled: true, earnedMinutesPerQuest: 5, dailyCapMinutes: 30, troubleBonusCapMinutes: 5, dailyAllowanceMinutes: 0, minutesPerStar: 0, sideQuestDailyCapMinutes: 0, bankCapMinutes: 0 };
   const status = (over: Partial<BountyStatus> = {}): BountyStatus => ({
     enabled: true,
     capMinutes: 5,
@@ -277,5 +265,51 @@ describe("earningLines — the one place the Realm says how minutes are earned (
 
   it("says nothing when the Realm is switched off", () => {
     for (const mode of ["earned", "both", "open", "scheduled"] as const) expect(earningLines({ ...settings, enabled: false }, null, mode)).toEqual([]);
+  });
+
+  /* ---- earning time (spec §4.8): the free minutes, side quests' stars, and the bank */
+  const earning = { ...settings, dailyAllowanceMinutes: 10, minutesPerStar: 1, sideQuestDailyCapMinutes: 15, bankCapMinutes: 30 };
+
+  it("earned and both: the day's free minutes first, then side quests' stars and the bank after the older lines", () => {
+    for (const mode of ["earned", "both"] as const) {
+      expect(earningLines(earning, status(), mode)).toEqual([
+        "You get 10 free minutes every day.",
+        "Finish a quest and you earn 5 more minutes here.",
+        "Clearing troubles earns a minute each, up to 5 a day.",
+        "Side quests earn 1 minute per star, up to 15 a day.",
+        "Unspent minutes are kept for tomorrow, up to 30.",
+      ]);
+    }
+  });
+
+  it("counts the minutes a star pays right", () => {
+    expect(earningLines({ ...earning, minutesPerStar: 2 }, status(), "earned")).toContain("Side quests earn 2 minutes per star, up to 15 a day.");
+    expect(earningLines({ ...earning, dailyAllowanceMinutes: 1 }, status(), "earned")[0]).toBe("You get 1 free minute every day.");
+  });
+
+  it("never says a grown-up gives all the minutes while free minutes or side quests give some", () => {
+    const noQuest = { ...earning, earnedMinutesPerQuest: 0 };
+    for (const lines of [earningLines(noQuest, status(), "earned"), earningLines({ ...noQuest, troubleBonusCapMinutes: 0 }, null, "earned")]) {
+      expect(lines.join(" ")).not.toMatch(/A grown-up gives you your minutes/);
+      expect(lines.join(" ")).toMatch(/A grown-up can give you more minutes too/);
+    }
+    // Only the side quests on: still no contradiction.
+    expect(earningLines({ ...noQuest, dailyAllowanceMinutes: 0 }, null, "earned").join(" ")).not.toMatch(/A grown-up gives you your minutes/);
+    // Nothing else gives minutes: the grown-up does, as before.
+    expect(earningLines({ ...noQuest, dailyAllowanceMinutes: 0, minutesPerStar: 0 }, null, "earned")).toContain("A grown-up gives you your minutes here.");
+  });
+
+  it("leaves out each new line whose setting is 0", () => {
+    const lines = (over: Partial<typeof earning>) => earningLines({ ...earning, ...over }, status(), "earned");
+    expect(lines({ dailyAllowanceMinutes: 0 })).not.toContain("You get 10 free minutes every day.");
+    expect(lines({ dailyAllowanceMinutes: 0 })[0]).toBe("Finish a quest and you earn 5 more minutes here.");
+    expect(lines({ minutesPerStar: 0 }).some((l) => l.startsWith("Side quests earn"))).toBe(false);
+    expect(lines({ sideQuestDailyCapMinutes: 0 }).some((l) => l.startsWith("Side quests earn"))).toBe(false);
+    expect(lines({ bankCapMinutes: 0 }).some((l) => l.startsWith("Unspent minutes"))).toBe(false);
+  });
+
+  it("promises none of them in scheduled or open mode, where minutes are never read", () => {
+    expect(earningLines(earning, status({ enabled: false }), "scheduled")).toEqual(["Your Realm time comes from recess, not from quests."]);
+    expect(earningLines(earning, status({ enabled: false }), "open")).toEqual(["Your Realm is open, up to 30 minutes a day."]);
   });
 });

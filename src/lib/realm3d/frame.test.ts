@@ -10,6 +10,7 @@ import {
   escapeFrom,
   interactVerb,
   keyHints,
+  QUIET_WALK,
   spellbookHref,
   visitClockLine,
 } from "./frame";
@@ -26,7 +27,7 @@ describe("the gate", () => {
 
   it("keeps a child out with the flat Realm's own words when the gate is shut", () => {
     const phase = entryPhase({ allowed: false, reason: "no_minutes" }, true);
-    expect(phase).toEqual({ kind: "gated", copy: { title: "The Realm opens when you finish a quest.", body: "Every quest you complete banks minutes here." } });
+    expect(phase).toEqual({ kind: "gated", copy: { title: "The Realm is resting for now.", body: "Side quests earn play time, and you get free minutes every day." } });
   });
 
   it("never gates a parent, and spends none of the child's minutes on their visit", () => {
@@ -43,8 +44,25 @@ describe("the gate", () => {
     expect(phase.kind === "open" && phase.visit).toEqual({ minutes: 42, closedBecause: null });
   });
 
+  it("stops a child at 0 minutes at the quiet gate, not inside a clock that is already out", () => {
+    expect(entryPhase({ allowed: true, minutesRemaining: 0, source: "quiet" }, true)).toEqual({ kind: "quiet-gate" });
+  });
+
+  it("never puts a parent in the quiet world: a grown-up has no clock and walks in", () => {
+    expect(entryPhase({ allowed: true, minutesRemaining: 0, source: "quiet" }, false)).toEqual({
+      kind: "open",
+      minutes: 0,
+      visit: { minutes: 0, closedBecause: null },
+      source: null,
+    });
+  });
+
+  it("walks a child into the quiet world from the gate with nothing to spend", () => {
+    expect(QUIET_WALK).toEqual({ kind: "open", minutes: 0, visit: null, source: "quiet" });
+  });
+
   it("closes with the same closing line the flat Realm shows", () => {
-    expect(closedPhase("no_minutes")).toEqual({ kind: "closed", body: "Every quest you complete banks minutes here." });
+    expect(closedPhase("no_minutes")).toEqual({ kind: "closed", body: "Side quests earn play time, and you get free minutes every day." });
     expect(closedPhase("school_hours")).toEqual({ kind: "closed", body: "The Realm opens after your last class." });
   });
 

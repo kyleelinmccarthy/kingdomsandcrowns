@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   computeRealmAccess,
   isOutsideSchoolHours,
+  isQuiet,
   ledgerBalance,
   minutesSpent,
   type AccessInput,
@@ -28,6 +29,22 @@ describe("ledger math", () => {
   });
   it("spent sums only spent rows", () => {
     expect(minutesSpent([{ kind: "earned", minutes: 5 }, { kind: "spent", minutes: 3 }, { kind: "spent", minutes: 4 }])).toBe(7);
+  });
+  it("a refund gives spent minutes back, and never goes below zero", () => {
+    expect(minutesSpent([{ kind: "spent", minutes: 5 }, { kind: "refund", minutes: 2 }])).toBe(3);
+    expect(minutesSpent([{ kind: "spent", minutes: 2 }, { kind: "refund", minutes: 5 }])).toBe(0);
+  });
+  it("allowance, carried and practice are credit; a refund is not", () => {
+    expect(ledgerBalance([{ kind: "allowance", minutes: 10 }, { kind: "carried", minutes: 4 }, { kind: "practice", minutes: 3 }])).toBe(17);
+    expect(
+      ledgerBalance([
+        { kind: "allowance", minutes: 10 },
+        { kind: "earned", minutes: 5 },
+        { kind: "spent", minutes: 12 },
+        { kind: "refund", minutes: 2 },
+      ])
+    ).toBe(5);
+    expect(ledgerBalance([{ kind: "refund", minutes: 9 }])).toBe(0);
   });
 });
 
@@ -94,8 +111,10 @@ describe("computeRealmAccess", () => {
     const nearCap = computeRealmAccess({ ...base, ledgerToday: [{ kind: "earned", minutes: 50 }, { kind: "spent", minutes: 25 }] });
     expect(nearCap).toEqual({ allowed: true, minutesRemaining: 5, source: "earned" });
   });
-  it("denies with no_minutes when the balance is empty in earned mode", () => {
-    expect(computeRealmAccess({ ...base, ledgerToday: [] })).toEqual({ allowed: false, reason: "no_minutes" });
+  it("goes quiet instead of shut when the balance is empty in earned mode", () => {
+    expect(computeRealmAccess({ ...base, ledgerToday: [] })).toEqual({ allowed: true, minutesRemaining: 0, source: "quiet" });
+    const spentOut = computeRealmAccess({ ...base, ledgerToday: [{ kind: "allowance", minutes: 10 }, { kind: "spent", minutes: 10 }] });
+    expect(spentOut).toEqual({ allowed: true, minutesRemaining: 0, source: "quiet" });
   });
   it("in both mode, recess wins when active and earned minutes cover the rest", () => {
     const both = { ...settings, accessMode: "both" as const };
@@ -104,9 +123,21 @@ describe("computeRealmAccess", () => {
     const afterRecess = computeRealmAccess({ ...base, settings: both, recessBlocksToday: [{ startTime: "09:00", endTime: "09:30" }] });
     expect(afterRecess).toEqual({ allowed: true, minutesRemaining: 10, source: "earned" });
   });
-  it("names the most helpful denial in both mode", () => {
+  it("goes quiet in both mode outside recess at 0, while a recess still wins", () => {
     const both = { ...settings, accessMode: "both" as const };
-    expect(computeRealmAccess({ ...base, settings: both, ledgerToday: [] })).toEqual({ allowed: false, reason: "no_minutes" });
+    expect(computeRealmAccess({ ...base, settings: both, ledgerToday: [] })).toEqual({ allowed: true, minutesRemaining: 0, source: "quiet" });
+    const inRecess = computeRealmAccess({ ...base, settings: both, ledgerToday: [], recessBlocksToday: [{ startTime: "10:00", endTime: "11:00" }] });
+    expect(inRecess).toEqual({ allowed: true, minutesRemaining: 30, source: "recess" });
+  });
+  it("never goes quiet in scheduled mode: at 0 and outside recess it is still outside_recess", () => {
+    const scheduled = { ...settings, accessMode: "scheduled" as const };
+    expect(computeRealmAccess({ ...base, settings: scheduled, ledgerToday: [] })).toEqual({ allowed: false, reason: "outside_recess" });
+  });
+  it("puts the daily cap before quiet: a capped day closes, it does not go quiet", () => {
+    for (const accessMode of ["earned", "both"] as const) {
+      const r = computeRealmAccess({ ...base, settings: { ...settings, accessMode }, ledgerToday: [{ kind: "allowance", minutes: 30 }, { kind: "spent", minutes: 30 }] });
+      expect(r).toEqual({ allowed: false, reason: "cap_reached" });
+    }
   });
   it("reports the mode's own reason instead of school_hours during school time", () => {
     const r = computeRealmAccess({
@@ -120,7 +151,7 @@ describe("computeRealmAccess", () => {
       settings: { ...settings, accessMode: "earned", offHoursEnabled: true },
       ledgerToday: [],
     });
-    expect(offOnly).toEqual({ allowed: false, reason: "no_minutes" });
+    expect(offOnly).toEqual({ allowed: true, minutesRemaining: 0, source: "quiet" });
   });
 });
 
@@ -183,5 +214,14 @@ describe("open access", () => {
     // so there is nothing for a bad time to decide.
     const r = computeRealmAccess({ ...base, settings: open, timeOfDay: "boom", ledgerToday: [] });
     expect(r).toEqual({ allowed: true, minutesRemaining: 30, source: "open" });
+  });
+});
+
+describe("isQuiet — the one test for the quiet world", () => {
+  it("is an allowed answer whose source is quiet, and nothing else", () => {
+    expect(isQuiet({ allowed: true, minutesRemaining: 0, source: "quiet" })).toBe(true);
+    expect(isQuiet({ allowed: true, minutesRemaining: 0, source: "recess" })).toBe(false);
+    expect(isQuiet({ allowed: true, minutesRemaining: 5, source: "off_hours" })).toBe(false);
+    expect(isQuiet({ allowed: false, reason: "cap_reached" })).toBe(false);
   });
 });

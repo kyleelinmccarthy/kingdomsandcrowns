@@ -1,7 +1,7 @@
 /**
  * Charging Realm play time: the rules both ways in share. The play clock's server action
  * (`recordRealmPlay`) and its page-hide beacon (`app/api/realm/play/route.ts`) check a charge
- * here and write it with the same `appendLedger`, so a minute costs the same whichever way it
+ * here and write it with the same `chargeRealmPlay`, so a minute costs the same whichever way it
  * arrives.
  *
  * Why a beacon at all: a React unmount cleanup is how leaving the Realm charges the minute in
@@ -17,20 +17,21 @@ export const REALM_PLAY_BEACON_PATH = "/api/realm/play";
 /** The most minutes one charge may carry: a stuck client cannot burn a day at once. */
 export const MAX_MINUTES_PER_CHARGE = 30;
 
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+/** A charge says who and how many minutes; never which day — the server decides that (`realmNow`). */
+export type PlayCharge = { childId: string; minutes: number };
 
-export type PlayCharge = { childId: string; date: string; minutes: number };
-
-/** The problem with a charge, in words, or null when it is fine. */
-export function playChargeProblem(date: unknown, minutes: unknown): string | null {
-  if (typeof date !== "string" || !ISO_DATE.test(date)) return "That date doesn't look right.";
+/** The problem with a charge's minutes, in words, or null when they are fine. */
+export function playChargeProblem(minutes: unknown): string | null {
   if (typeof minutes !== "number" || !Number.isInteger(minutes) || minutes < 1 || minutes > MAX_MINUTES_PER_CHARGE) {
     return `Minutes must be a whole number from 1 to ${MAX_MINUTES_PER_CHARGE}.`;
   }
   return null;
 }
 
-/** A beacon's body, parsed and checked; null for anything malformed. */
+/**
+ * A beacon's body, parsed and checked; null for anything malformed. A `date` field (a tab opened
+ * before the server owned the day still sends one) is ignored, never refused.
+ */
 export function parsePlayCharge(text: string): PlayCharge | null {
   let body: unknown;
   try {
@@ -39,10 +40,10 @@ export function parsePlayCharge(text: string): PlayCharge | null {
     return null;
   }
   if (!body || typeof body !== "object") return null;
-  const { childId, date, minutes } = body as Record<string, unknown>;
+  const { childId, minutes } = body as Record<string, unknown>;
   if (typeof childId !== "string" || childId.length === 0 || childId.length > 128) return null;
-  if (playChargeProblem(date, minutes) !== null) return null;
-  return { childId, date: date as string, minutes: minutes as number };
+  if (playChargeProblem(minutes) !== null) return null;
+  return { childId, minutes: minutes as number };
 }
 
 /**

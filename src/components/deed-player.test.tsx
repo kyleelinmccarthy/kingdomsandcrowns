@@ -27,7 +27,7 @@ const run: RunStart = {
   pending: null,
 };
 const profile = { fewerChoices: false, predictableRoutine: false, untimed: true, readAloud: false };
-const summary = { correctCount: 1, total: 2, flawless: false, masteryChanges: ["Sight words: getting stronger"], stars: 1, previousBest: 0, counted: true, kind: "deed" as const, building: { label: "Village Well", done: 1, total: 5, complete: false, stars: 0, maxStars: 0 } };
+const summary = { correctCount: 1, total: 2, flawless: false, masteryChanges: ["Sight words: getting stronger"], stars: 1, previousBest: 0, counted: true, kind: "deed" as const, building: { label: "Village Well", done: 1, total: 5, complete: false, stars: 0, maxStars: 0 }, minutesEarned: 0, sideQuestPayFull: false };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -217,6 +217,25 @@ describe("DeedPlayer", () => {
       await user.click(await screen.findByRole("button", { name: "Finish side quest" }));
       expect(await screen.findByText("The village will help you try again.")).toBeInTheDocument();
       expect(document.body.textContent).not.toMatch(/fail/i);
+    });
+
+    it("says the play minutes a run earned", async () => {
+      const user = userEvent.setup();
+      completeDeedRun.mockResolvedValue({ ...summary, minutesEarned: 1 });
+      render(<DeedPlayer run={{ ...run, responses: ["because", null] }} profile={profile} calm={false} onFinished={() => {}} />);
+      await user.click(screen.getByRole("button", { name: "again" }));
+      await user.click(await screen.findByRole("button", { name: "Finish side quest" }));
+      expect(await screen.findByText("+1 minute earned")).toBeInTheDocument();
+    });
+
+    it("says gently when the day's side-quest minutes are all earned, and nothing when none were to earn", async () => {
+      const user = userEvent.setup();
+      completeDeedRun.mockResolvedValue({ ...summary, minutesEarned: 0, sideQuestPayFull: true });
+      render(<DeedPlayer run={{ ...run, responses: ["because", null] }} profile={profile} calm={false} onFinished={() => {}} />);
+      await user.click(screen.getByRole("button", { name: "again" }));
+      await user.click(await screen.findByRole("button", { name: "Finish side quest" }));
+      expect(await screen.findByText("You've earned all your side-quest minutes for today — great work!")).toBeInTheDocument();
+      expect(document.body.textContent).not.toMatch(/minutes? earned/);
     });
   });
 });

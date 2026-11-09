@@ -17,9 +17,11 @@
  * always overwritten by the server's answer). No `three`, no database.
  */
 
-import { minutesSpent, type LedgerRow, type RealmAccessMode } from "@/lib/utils/realm-access";
+import { minutesSpent, modeEarns, type LedgerRow, type RealmAccessMode } from "@/lib/utils/realm-access";
+import { practicePaidToday, sumKind } from "@/lib/utils/realm-ledger";
 import { PLACES } from "@/lib/realm/layout";
-import { todayInZone } from "@/lib/utils/dates";
+import type { RealmSettings } from "@/lib/utils/realm-settings";
+import { minutesWord } from "@/lib/utils/minutes-copy";
 
 export const MINUTES_PER_CLEAR = 1;
 /** "One grant", never zero: the sub-cap's floor when `earnedMinutesPerQuest` is 0. */
@@ -76,17 +78,12 @@ export type BountyStatus = {
  * and "+1 minute" would be a promise the game cannot keep.
  */
 export function bountyEnabled(s: BountySettings): boolean {
-  return s.enabled && s.troubleBonusCapMinutes > 0 && (s.accessMode === "earned" || s.accessMode === "both");
+  return s.enabled && s.troubleBonusCapMinutes > 0 && modeEarns(s.accessMode);
 }
 
-function sumKind(rows: readonly LedgerRow[], kind: LedgerRow["kind"]): number {
-  let n = 0;
-  for (const r of rows) if (r.kind === kind) n += r.minutes;
-  return n;
-}
-
+/** The day's schoolwork: quest pay plus side-quest practice pay (both are real work; the bonus is not). */
 export function questMinutesToday(ledgerToday: readonly LedgerRow[]): number {
-  return sumKind(ledgerToday, "earned");
+  return sumKind(ledgerToday, "earned") + practicePaidToday(ledgerToday);
 }
 
 export function bonusMinutesToday(ledgerToday: readonly LedgerRow[]): number {
@@ -108,11 +105,12 @@ export function bountySubCap(ledgerToday: readonly LedgerRow[], s: BountySetting
 export function bountyAllowance(ledgerToday: readonly LedgerRow[], s: BountySettings): number {
   if (!bountyEnabled(s)) return 0;
   const left = bountySubCap(ledgerToday, s) - bonusMinutesToday(ledgerToday);
-  const headroom = s.dailyCapMinutes - minutesSpent(ledgerToday as LedgerRow[]);
+  const headroom = s.dailyCapMinutes - minutesSpent(ledgerToday);
   return Math.max(0, Math.min(left, headroom));
 }
 
-export function bountyStatusFor(ledgerToday: readonly LedgerRow[], s: BountySettings, clearsToday: readonly ClearRow[]): BountyStatus {
+/** `quiet`: the child is in the quiet world (`isQuiet`), where clearing pays nothing, so nothing is promised. */
+export function bountyStatusFor(ledgerToday: readonly LedgerRow[], s: BountySettings, clearsToday: readonly ClearRow[], quiet: boolean): BountyStatus {
   const paidHomes: string[] = [];
   for (const c of clearsToday) if (c.minutes > 0 && !paidHomes.includes(c.homeId)) paidHomes.push(c.homeId);
   return {
@@ -120,7 +118,7 @@ export function bountyStatusFor(ledgerToday: readonly LedgerRow[], s: BountySett
     capMinutes: s.troubleBonusCapMinutes,
     subCapMinutes: bountySubCap(ledgerToday, s),
     paidMinutes: bonusMinutesToday(ledgerToday),
-    remainingMinutes: bountyAllowance(ledgerToday, s),
+    remainingMinutes: quiet ? 0 : bountyAllowance(ledgerToday, s),
     clearsToday: clearsToday.length,
     paidHomes,
   };
@@ -130,14 +128,19 @@ export function bountyStatusFor(ledgerToday: readonly LedgerRow[], s: BountySett
  * What a batch of clears earns, in the order they happened: a minute each for a home that has not
  * paid today, while the allowance lasts, and nothing for the rest. Every clear is returned (the
  * tally is real either way); `awarded` is what the ledger gets.
+ *
+ * Nothing pays in the quiet world (`quiet`, from the server's access answer): troubles are off
+ * there, so a clear sent from it is forged and must not mint the minutes that would wake it
+ * (spec §2a). A 0 balance alone is not quiet — a recess or off hours at 0 is real play, and pays.
  */
 export function awardClears(
   homeIds: readonly string[],
   ledgerToday: readonly LedgerRow[],
   s: BountySettings,
   clearsToday: readonly ClearRow[],
+  quiet: boolean,
 ): { rows: ClearRow[]; awarded: number } {
-  let allowance = bountyAllowance(ledgerToday, s);
+  let allowance = quiet ? 0 : bountyAllowance(ledgerToday, s);
   const paid = new Set<string>();
   for (const c of clearsToday) if (c.minutes > 0) paid.add(c.homeId);
   const rows: ClearRow[] = [];
@@ -168,28 +171,6 @@ const HOME_ID = new RegExp(
 
 export function isTroubleHomeId(id: unknown): id is string {
   return typeof id === "string" && HOME_ID.test(id);
-}
-
-/** The world's earliest and latest clocks: UTC-12 and UTC+14. */
-const WEST_MS = 12 * 3_600_000;
-const EAST_MS = 14 * 3_600_000;
-
-function utcDay(ms: number): string {
-  return todayInZone("UTC", new Date(ms));
-}
-
-/**
- * The hero's local day is sent by the client, so the server checks it is today somewhere on
- * Earth right now: the date at UTC-12, the date at UTC+14, or (when they differ by two) the one
- * between. A date nobody has reached yet is refused, so tomorrow's allowance cannot be banked
- * tonight, and a date that has ended everywhere is refused too.
- */
-export function isNearToday(date: string, now: Date): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
-  const t = Date.parse(`${date}T00:00:00Z`);
-  if (Number.isNaN(t) || utcDay(t) !== date) return false;
-  const at = now.getTime();
-  return date >= utcDay(at - WEST_MS) && date <= utcDay(at + EAST_MS);
 }
 
 /* ----------------------------------------------------------- the client's half */
@@ -246,12 +227,9 @@ export function applyStatus(purse: BountyPurse, status: BountyStatus, unsent: re
 
 /* ----------------------------------------------------------- the earning copy */
 
-/** What the earning copy reads from the hero's Realm settings. */
-export type EarningSettings = Pick<BountySettings, "enabled" | "earnedMinutesPerQuest" | "dailyCapMinutes" | "troubleBonusCapMinutes">;
-
-function minutesWord(n: number): string {
-  return n === 1 ? "minute" : "minutes";
-}
+/** What the earning copy reads from the hero's Realm settings: the bounty's, and earning time's (spec §4.8). */
+export type EarningSettings = Pick<BountySettings, "enabled" | "earnedMinutesPerQuest" | "dailyCapMinutes" | "troubleBonusCapMinutes"> &
+  Pick<RealmSettings, "dailyAllowanceMinutes" | "minutesPerStar" | "sideQuestDailyCapMinutes" | "bankCapMinutes">;
 
 /** Slice 6's line, unchanged, for scheduled mode (spec §3.11). */
 export const RECESS_EARNING_LINE = "Your Realm time comes from recess, not from quests.";
@@ -269,6 +247,8 @@ export const CLEARING_SPENT_LINE = "You've had all today's minutes from clearing
  *   - `earned` / `both`, bounty on: what a quest earns, and what clearing earns up to today's
  *     sub-cap — or, once the sub-cap is paid, that today's minutes from clearing are had;
  *   - `earned` / `both`, bounty off (a cap of 0): slice 6's line, which is still exactly true;
+ *   - `earned` / `both`, either way: the day's free minutes first, and after the lines above what
+ *     side quests' stars pay and how much the bank keeps — each left out while its setting is 0;
  *   - `scheduled`: recess, never quests, and never clearing — the bounty cannot pay there;
  *   - `open`: open, up to the daily cap — no promise of minutes, since nothing earns them;
  *   - the Realm switched off: nothing.
@@ -281,13 +261,30 @@ export function earningLines(settings: EarningSettings, status: BountyStatus | n
   if (accessMode === "scheduled") return [RECESS_EARNING_LINE];
   if (accessMode === "open") return [`Your Realm is open, up to ${settings.dailyCapMinutes} ${minutesWord(settings.dailyCapMinutes)} a day.`];
 
+  const { dailyAllowanceMinutes: free, minutesPerStar: star, sideQuestDailyCapMinutes: starCap, bankCapMinutes: bank } = settings;
+  return [
+    ...(free > 0 ? [`You get ${free} free ${minutesWord(free)} every day.`] : []),
+    ...questAndClearingLines(settings, status, accessMode),
+    ...(star > 0 && starCap > 0 ? [`Side quests earn ${star} ${minutesWord(star)} per star, up to ${starCap} a day.`] : []),
+    ...(bank > 0 ? [`Unspent minutes are kept for tomorrow, up to ${bank}.`] : []),
+  ];
+}
+
+/**
+ * Slice 8's two sentences for the earning modes: what a quest earns, and what clearing does. With
+ * no minutes per quest the grown-up is named instead — as the only giver when nothing else gives
+ * minutes, and as one more ("too") beside the day's free minutes or the side quests' stars.
+ */
+function questAndClearingLines(settings: EarningSettings, status: BountyStatus | null, accessMode: RealmAccessMode): string[] {
   const q = settings.earnedMinutesPerQuest;
   const bounty = bountyEnabled({ ...settings, accessMode }) && (status === null || status.enabled);
+  const othersGive = settings.dailyAllowanceMinutes > 0 || (settings.minutesPerStar > 0 && settings.sideQuestDailyCapMinutes > 0);
+  const grownUp = othersGive ? "A grown-up can give you more minutes too" : "A grown-up gives you your minutes here";
   if (!bounty) {
-    if (q <= 0) return [`A grown-up gives you your minutes here, up to ${settings.dailyCapMinutes} a day.`];
+    if (q <= 0) return [`${grownUp}, up to ${settings.dailyCapMinutes} a day.`];
     return [`Finish a quest and you earn ${q} more ${minutesWord(q)} here, up to ${settings.dailyCapMinutes} a day.`];
   }
-  const quest = q <= 0 ? "A grown-up gives you your minutes here." : `Finish a quest and you earn ${q} more ${minutesWord(q)} here.`;
+  const quest = q <= 0 ? `${grownUp}.` : `Finish a quest and you earn ${q} more ${minutesWord(q)} here.`;
   if (status === null) return [quest, "Clearing troubles earns a minute each."];
   if (status.subCapMinutes > 0 && status.paidMinutes >= status.subCapMinutes) return [quest, CLEARING_SPENT_LINE];
   return [quest, `Clearing troubles earns a minute each, up to ${status.subCapMinutes} a day.`];

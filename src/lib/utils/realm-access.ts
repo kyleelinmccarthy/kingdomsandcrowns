@@ -1,8 +1,25 @@
 import { timeToMinutes } from "./schedule-days";
+import { ledgerBalance, minutesSpent } from "./realm-ledger";
+
+// The ledger arithmetic lives in realm-ledger.ts; re-exported so callers keep importing it here.
+export { ledgerBalance, minutesSpent };
 
 export type RealmAccessMode = "earned" | "scheduled" | "both" | "open";
-/** `bonus` is minutes earned by clearing troubles (`lib/realm/spells/bounty.ts`); credit, like `earned`. */
-export type LedgerKind = "earned" | "granted" | "spent" | "bonus";
+
+/**
+ * The modes that read the balance, so the only ones where minutes mean anything: the allowance,
+ * side-quest pay, the carry and the quiet world apply here and nowhere else (spec §4.7).
+ */
+export function modeEarns(mode: RealmAccessMode): boolean {
+  return mode === "earned" || mode === "both";
+}
+/**
+ * Credits: `earned` (quest pay), `granted` (a grown-up's gift), `bonus` (clearing troubles,
+ * `lib/realm/spells/bounty.ts`), `practice` (side-quest pay), `allowance` (the day's free minutes)
+ * and `carried` (yesterday's bank). Debits: `spent`. `refund` is neither: it gives spent minutes
+ * back, so it only ever reduces `spent`.
+ */
+export type LedgerKind = "earned" | "granted" | "spent" | "bonus" | "practice" | "allowance" | "carried" | "refund";
 export type LedgerRow = { kind: LedgerKind; minutes: number };
 export type TimeBlock = { startTime: string; endTime: string };
 
@@ -24,21 +41,25 @@ export type AccessInput = {
 
 export type AccessDenied = "disabled" | "cap_reached" | "school_hours" | "outside_recess" | "no_minutes";
 
+/**
+ * Why access is granted: the one declaration (the gate, the clock and the 3D frame import it).
+ * `quiet` is an earning mode at a 0 balance: in, to learn, with nothing to spend.
+ */
+export type AccessSource = "off_hours" | "recess" | "earned" | "open" | "quiet";
+
 export type AccessResult =
-  | { allowed: true; minutesRemaining: number; source: "off_hours" | "recess" | "earned" | "open" }
+  | { allowed: true; minutesRemaining: number; source: AccessSource }
   | { allowed: false; reason: AccessDenied };
 
+/**
+ * In, to learn, with nothing to spend: the one test for the quiet world. Not "a 0 balance" — a
+ * recess or off hours at 0 is real play.
+ */
+export function isQuiet(result: AccessResult): boolean {
+  return result.allowed && result.source === "quiet";
+}
+
 const TIME = /^\d{2}:\d{2}$/;
-
-export function minutesSpent(rows: LedgerRow[]): number {
-  return rows.filter((r) => r.kind === "spent").reduce((sum, r) => sum + r.minutes, 0);
-}
-
-/** Earned + granted − spent. Never negative: an over-spend is a cap problem, not debt. */
-export function ledgerBalance(rows: LedgerRow[]): number {
-  const credit = rows.filter((r) => r.kind !== "spent").reduce((sum, r) => sum + r.minutes, 0);
-  return Math.max(0, credit - minutesSpent(rows));
-}
 
 function blockContains(block: TimeBlock, timeOfDay: string): boolean {
   return block.startTime <= timeOfDay && timeOfDay < block.endTime;
@@ -74,7 +95,7 @@ export function computeRealmAccess(input: AccessInput): AccessResult {
   // end time), and otherwise simply opens. It never consults the ledger.
   const isOpen = settings.accessMode === "open";
   const usesRecess = isOpen || settings.accessMode === "scheduled" || settings.accessMode === "both";
-  const usesEarned = settings.accessMode === "earned" || settings.accessMode === "both";
+  const usesEarned = modeEarns(settings.accessMode);
   const validTime = TIME.test(timeOfDay);
 
   if (usesRecess && validTime) {
@@ -92,9 +113,10 @@ export function computeRealmAccess(input: AccessInput): AccessResult {
     if (balance > 0) {
       return { allowed: true, minutesRemaining: Math.min(balance, headroom), source: "earned" };
     }
+    // At 0 the Realm goes quiet instead of shut, so learning (which earns minutes) stays in reach.
+    return { allowed: true, minutesRemaining: 0, source: "quiet" };
   }
 
-  if (usesEarned) return { allowed: false, reason: "no_minutes" };
   if (usesRecess) return { allowed: false, reason: "outside_recess" };
   return { allowed: false, reason: "school_hours" };
 }
