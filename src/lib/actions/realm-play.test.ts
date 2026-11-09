@@ -24,9 +24,15 @@ const store = {
 const loadLedger = vi.fn(async (_childId: string, date: string) => store.ledger[date] ?? []);
 const chargeRealmPlay = vi.fn(async () => {});
 const appendLedger = vi.fn(async () => {});
+// Opening the day and previewing it are tested against a real database (`realm-day-db.test.ts`);
+// here only who reaches which, and on what day.
+const openDay = vi.fn(async () => {});
+const loadLedgerAsOpened = vi.fn(async (_childId: string, date: string) => store.ledger[date] ?? []);
 vi.mock("@/lib/services/realm-play", () => ({
   loadRealmSettings: async () => store.settings,
   loadLedger: (...a: [string, string]) => loadLedger(...a),
+  loadLedgerAsOpened: (...a: [string, string]) => loadLedgerAsOpened(...a),
+  openDay: (...a: unknown[]) => (openDay as (...x: unknown[]) => unknown)(...a),
   chargeRealmPlay: (...a: unknown[]) => (chargeRealmPlay as (...x: unknown[]) => unknown)(...a),
   appendLedger: (...a: unknown[]) => (appendLedger as (...x: unknown[]) => unknown)(...a),
 }));
@@ -65,6 +71,8 @@ beforeEach(() => {
   loadLedger.mockClear();
   chargeRealmPlay.mockClear();
   appendLedger.mockClear();
+  openDay.mockClear();
+  loadLedgerAsOpened.mockClear();
   weekdayOfDate.mockClear();
   store.settings = { ...DEFAULT_REALM_SETTINGS, accessMode: "both" };
   store.ledger = {};
@@ -83,6 +91,22 @@ describe("getRealmAccess — on the server's day", () => {
     expect(loadLedger).not.toHaveBeenCalledWith("c1", "2099-01-01");
     expect(weekdayOfDate.mock.calls.every(([d]) => d === "2026-11-09")).toBe(true);
     expect(weekdayOfDate).toHaveBeenCalled();
+  });
+
+  it("the child's own check opens the server's day before reading it", async () => {
+    requireChildAccess.mockResolvedValue(child);
+    await getRealmAccess("c1");
+    expect(openDay).toHaveBeenCalledWith("c1", "2026-11-09", store.settings);
+    expect(openDay.mock.invocationCallOrder[0]).toBeLessThan(loadLedger.mock.invocationCallOrder[0]);
+    expect(loadLedgerAsOpened).not.toHaveBeenCalled();
+  });
+
+  it("a grown-up's check never opens the day: it reads the day as it will open", async () => {
+    requireChildAccess.mockResolvedValue(parent);
+    store.ledger = { "2026-11-09": [{ kind: "allowance", minutes: 10 }] };
+    expect(await getRealmAccess("c1")).toEqual({ allowed: true, minutesRemaining: 10, source: "earned" });
+    expect(openDay).not.toHaveBeenCalled();
+    expect(loadLedgerAsOpened).toHaveBeenCalledWith("c1", "2026-11-09", store.settings);
   });
 
   it("opens a recess by the server's time of day", async () => {

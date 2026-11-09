@@ -10,8 +10,10 @@ import {
   awardTroubleClears,
   chargeRealmPlay,
   loadLedger,
+  loadLedgerAsOpened,
   loadRealmSettings,
   loadTroubleClears,
+  openDay,
 } from "@/lib/services/realm-play";
 import { realmNow } from "@/lib/services/realm-clock";
 import {
@@ -23,12 +25,6 @@ import {
 } from "@/lib/realm/spells/bounty";
 import { computeRealmAccess, ledgerBalance, minutesSpent, type AccessResult } from "@/lib/utils/realm-access";
 import { parseSchoolDays, weekdayOfDate } from "@/lib/utils/schedule-days";
-
-const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-
-function assertDate(date: string) {
-  if (!ISO_DATE.test(date)) throw new Error("That date doesn't look right.");
-}
 
 function assertMinutes(minutes: number, max: number) {
   if (!Number.isInteger(minutes) || minutes < 1 || minutes > max) {
@@ -59,16 +55,28 @@ async function isSchoolDay(childId: string, familyId: string, date: string): Pro
 }
 
 /**
+ * Today's rows for an access answer. The child's own check opens the day first (the free
+ * allowance and yesterday's bank, written once); a grown-up's check previews it and writes nothing.
+ */
+async function ledgerForAccess(childId: string, date: string, childAsking: boolean) {
+  const settings = await loadRealmSettings(childId);
+  if (!childAsking) return { settings, ledgerToday: await loadLedgerAsOpened(childId, date, settings) };
+  await openDay(childId, date, settings);
+  return { settings, ledgerToday: await loadLedger(childId, date) };
+}
+
+/**
  * May the hero enter the Realm right now? Heroes may ask about themselves. "Now" is the family's
  * day and time on the server (`realmNow`), never the device's: a changed device clock changes nothing.
+ * The child's own first check of the day opens it (`openDay`); at 0 minutes in an earning mode
+ * the answer is `quiet`, not shut.
  */
 export async function getRealmAccess(childId: string): Promise<AccessResult> {
   // The clock's read is the child's family's timezone, harmless to start beside the gate.
-  const [{ familyId }, { date, timeOfDay }] = await Promise.all([requireChildAccess(childId), realmNow(childId)]);
+  const [{ access, familyId }, { date, timeOfDay }] = await Promise.all([requireChildAccess(childId), realmNow(childId)]);
   const day = weekdayOfDate(date);
-  const [settings, ledgerToday, classBlocksToday, recessBlocksToday, schoolDay] = await Promise.all([
-    loadRealmSettings(childId),
-    loadLedger(childId, date),
+  const [{ settings, ledgerToday }, classBlocksToday, recessBlocksToday, schoolDay] = await Promise.all([
+    ledgerForAccess(childId, date, isChildActor(access)),
     db
       .select({ startTime: schema.scheduleBlock.startTime, endTime: schema.scheduleBlock.endTime })
       .from(schema.scheduleBlock)
@@ -98,13 +106,14 @@ export async function grantRealmMinutes(childId: string, minutes: number): Promi
   revalidatePath("/settings");
 }
 
-export async function getRealmPlaySummary(
-  childId: string,
-  date: string
-): Promise<{ date: string; balance: number; spent: number; bonus: number }> {
-  await requireChildAccess(childId);
-  assertDate(date);
-  const rows = await loadLedger(childId, date);
+/**
+ * Today's minutes for the settings panel, on the server's day. Before the child has opened the
+ * day it shows the allowance and carry they will open it with; it never opens the day itself.
+ */
+export async function getRealmPlaySummary(childId: string): Promise<{ date: string; balance: number; spent: number; bonus: number }> {
+  const [, { date }] = await Promise.all([requireChildAccess(childId), realmNow(childId)]);
+  // After the gate: reading settings creates the row if it is missing.
+  const rows = await loadLedgerAsOpened(childId, date, await loadRealmSettings(childId));
   return { date, balance: ledgerBalance(rows), spent: minutesSpent(rows), bonus: bonusMinutesToday(rows) };
 }
 
@@ -135,6 +144,8 @@ export async function getTroubleBounty(childId: string): Promise<BountyStatus> {
  *     `MAX_CLEARS_PER_MINUTE` a minute (the excess is dropped, not recorded);
  *   - a minute each for a home that has not paid today, under the day's sub-cap and the
  *     parent's daily cap (`awardClears`), and a unique index behind that;
+ *   - nothing at all while the balance is 0 (the quiet world, where troubles are off), though
+ *     the clears are still recorded;
  *   - all of it decided and written in one write transaction (`awardTroubleClears`), so two
  *     calls at once cannot each spend the same allowance.
  */

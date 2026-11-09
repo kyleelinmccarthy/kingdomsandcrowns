@@ -1,16 +1,19 @@
-import { and, asc, count, eq, gt, sql } from "drizzle-orm";
+import { and, asc, count, eq, gt, lt, max, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { settingsFromRow, type RealmSettings } from "@/lib/utils/realm-settings";
-import type { LedgerRow } from "@/lib/utils/realm-access";
+import { modeEarns, type LedgerRow } from "@/lib/utils/realm-access";
+import { dayOpeningRows, isDayOpen, previewToday } from "@/lib/utils/realm-day";
 import { playChargeProblem } from "@/lib/utils/realm-play-charge";
 import { realmNow } from "@/lib/services/realm-clock";
 import { awardClears, bountyStatusFor, MAX_CLEARS_PER_MINUTE, type BountyStatus, type ClearRow } from "@/lib/realm/spells/bounty";
 import { latestClears, RELOAD_MEMORY_MS, STAMP_SLACK_MS, type RecentClear } from "@/lib/realm3d/trouble-reload";
 
+/** A transaction on the database. */
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 /** The database, or a transaction on it: the reads and writes below run on either. */
-type Exec = typeof db | Parameters<Parameters<typeof db.transaction>[0]>[0];
+type Exec = typeof db | Tx;
 
 /**
  * Realm play-time plumbing shared by the actions and the quest-completion
@@ -75,6 +78,61 @@ export async function appendLedger(
     sourceAssignmentId,
     createdAt: new Date(),
   });
+}
+
+/**
+ * The child's most recent day before `before` that has any ledger rows, as its rows (`[]` if
+ * none): what today's carry is computed from. One query on the (child_id, date) index. Because
+ * every opened day writes its `carried` row (0 too), a bank rolls forward across a gap of days
+ * and is never carried twice.
+ */
+export async function loadPreviousActiveDay(childId: string, before: string, exec: Exec = db): Promise<LedgerRow[]> {
+  const L = schema.realmPlayLedger;
+  const latest = exec.select({ date: max(L.date) }).from(L).where(and(eq(L.childId, childId), lt(L.date, before)));
+  return exec
+    .select({ kind: L.kind, minutes: L.minutes })
+    .from(L)
+    .where(and(eq(L.childId, childId), sql`${L.date} = (${latest})`));
+}
+
+/**
+ * Opens the child's day: writes its `allowance` and `carried` rows, both always (0 too), once.
+ * The only writer of those kinds, and only the child's own access check calls it (a grown-up's
+ * view reads `loadLedgerAsOpened` instead). Nothing outside the earning modes or with the Realm off.
+ *
+ * Under the child's advisory lock, so two first checks (two tabs) cannot both read "not open";
+ * the partial unique indexes and `onConflictDoNothing` stand behind it. A day counts as open by
+ * its allowance row only, so a minute charged across midnight before this ran still comes off it.
+ * Pass `tx` to open the day inside a caller's own locked transaction.
+ */
+export async function openDay(childId: string, date: string, settings: RealmSettings, tx?: Tx): Promise<void> {
+  if (!settings.enabled || !modeEarns(settings.accessMode)) return;
+  const open = async (t: Tx) => {
+    await t.execute(sql`select pg_advisory_xact_lock(hashtext(${childId}))`);
+    if (isDayOpen(await loadLedger(childId, date, t))) return;
+    const { allowance, carried } = dayOpeningRows(await loadPreviousActiveDay(childId, date, t), settings);
+    const createdAt = new Date();
+    await t
+      .insert(schema.realmPlayLedger)
+      .values([
+        { id: nanoid(), childId, date, kind: "allowance", minutes: allowance, createdAt },
+        { id: nanoid(), childId, date, kind: "carried", minutes: carried, createdAt },
+      ])
+      .onConflictDoNothing();
+  };
+  if (tx) return open(tx);
+  return queued(childId, () => withWriteRetry(() => db.transaction(open)));
+}
+
+/**
+ * Today's rows as the child will see them once the day opens, for a reader that must not open it
+ * (a grown-up's access check, the settings panel). Reads the previous day only when today is not
+ * open yet.
+ */
+export async function loadLedgerAsOpened(childId: string, date: string, settings: RealmSettings, exec: Exec = db): Promise<LedgerRow[]> {
+  const today = await loadLedger(childId, date, exec);
+  if (isDayOpen(today)) return today;
+  return previewToday(today, await loadPreviousActiveDay(childId, date, exec), settings);
 }
 
 /**
@@ -238,8 +296,7 @@ function isBusy(err: unknown): boolean {
  */
 export async function grantEarnedMinutesForCompletion(childId: string, assignmentId: string): Promise<void> {
   const settings = await loadRealmSettings(childId);
-  const earns = settings.accessMode === "earned" || settings.accessMode === "both";
-  if (!settings.enabled || !earns || settings.earnedMinutesPerQuest <= 0) return;
+  if (!settings.enabled || !modeEarns(settings.accessMode) || settings.earnedMinutesPerQuest <= 0) return;
 
   // Minutes are earned once per quest: a quest revised back to pending and
   // finished again must not bank a second grant.

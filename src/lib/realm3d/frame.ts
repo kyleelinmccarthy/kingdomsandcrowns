@@ -12,12 +12,14 @@
  */
 
 import { gateCopy, type GateCopy } from "@/lib/realm/play-clock";
-import type { AccessDenied, AccessResult } from "@/lib/utils/realm-access";
+import type { AccessDenied, AccessResult, AccessSource } from "@/lib/utils/realm-access";
 import type { InteractTarget } from "./hud-bus";
 import type { PauseWhy } from "./pause";
 
+// Declared once, in realm-access.ts; re-exported for the frame's own importers.
+export type { AccessSource };
+
 export type Viewer = "child" | "parent";
-export type AccessSource = "off_hours" | "recess" | "earned" | "open";
 
 /* ------------------------------------------------------------------ the gate */
 

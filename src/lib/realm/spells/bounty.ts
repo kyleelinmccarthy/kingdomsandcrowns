@@ -17,7 +17,7 @@
  * always overwritten by the server's answer). No `three`, no database.
  */
 
-import { minutesSpent, type LedgerRow, type RealmAccessMode } from "@/lib/utils/realm-access";
+import { ledgerBalance, minutesSpent, modeEarns, type LedgerRow, type RealmAccessMode } from "@/lib/utils/realm-access";
 import { practicePaidToday, sumKind } from "@/lib/utils/realm-ledger";
 import { PLACES } from "@/lib/realm/layout";
 
@@ -76,7 +76,7 @@ export type BountyStatus = {
  * and "+1 minute" would be a promise the game cannot keep.
  */
 export function bountyEnabled(s: BountySettings): boolean {
-  return s.enabled && s.troubleBonusCapMinutes > 0 && (s.accessMode === "earned" || s.accessMode === "both");
+  return s.enabled && s.troubleBonusCapMinutes > 0 && modeEarns(s.accessMode);
 }
 
 /** The day's schoolwork: quest pay plus side-quest practice pay (both are real work; the bonus is not). */
@@ -125,6 +125,9 @@ export function bountyStatusFor(ledgerToday: readonly LedgerRow[], s: BountySett
  * What a batch of clears earns, in the order they happened: a minute each for a home that has not
  * paid today, while the allowance lasts, and nothing for the rest. Every clear is returned (the
  * tally is real either way); `awarded` is what the ledger gets.
+ *
+ * Nothing pays while the day's balance is 0: that is the quiet world, where troubles are off, so a
+ * clear sent from it is forged and must not mint the minutes that would wake it (spec §2a).
  */
 export function awardClears(
   homeIds: readonly string[],
@@ -132,7 +135,7 @@ export function awardClears(
   s: BountySettings,
   clearsToday: readonly ClearRow[],
 ): { rows: ClearRow[]; awarded: number } {
-  let allowance = bountyAllowance(ledgerToday, s);
+  let allowance = ledgerBalance(ledgerToday) > 0 ? bountyAllowance(ledgerToday, s) : 0;
   const paid = new Set<string>();
   for (const c of clearsToday) if (c.minutes > 0) paid.add(c.homeId);
   const rows: ClearRow[] = [];

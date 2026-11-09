@@ -5,6 +5,14 @@ import { ledgerBalance, minutesSpent } from "./realm-ledger";
 export { ledgerBalance, minutesSpent };
 
 export type RealmAccessMode = "earned" | "scheduled" | "both" | "open";
+
+/**
+ * The modes that read the balance, so the only ones where minutes mean anything: the allowance,
+ * side-quest pay, the carry and the quiet world apply here and nowhere else (spec §4.7).
+ */
+export function modeEarns(mode: RealmAccessMode): boolean {
+  return mode === "earned" || mode === "both";
+}
 /**
  * Credits: `earned` (quest pay), `granted` (a grown-up's gift), `bonus` (clearing troubles,
  * `lib/realm/spells/bounty.ts`), `practice` (side-quest pay), `allowance` (the day's free minutes)
@@ -33,8 +41,14 @@ export type AccessInput = {
 
 export type AccessDenied = "disabled" | "cap_reached" | "school_hours" | "outside_recess" | "no_minutes";
 
+/**
+ * Why access is granted: the one declaration (the gate, the clock and the 3D frame import it).
+ * `quiet` is an earning mode at a 0 balance: in, to learn, with nothing to spend.
+ */
+export type AccessSource = "off_hours" | "recess" | "earned" | "open" | "quiet";
+
 export type AccessResult =
-  | { allowed: true; minutesRemaining: number; source: "off_hours" | "recess" | "earned" | "open" }
+  | { allowed: true; minutesRemaining: number; source: AccessSource }
   | { allowed: false; reason: AccessDenied };
 
 const TIME = /^\d{2}:\d{2}$/;
@@ -73,7 +87,7 @@ export function computeRealmAccess(input: AccessInput): AccessResult {
   // end time), and otherwise simply opens. It never consults the ledger.
   const isOpen = settings.accessMode === "open";
   const usesRecess = isOpen || settings.accessMode === "scheduled" || settings.accessMode === "both";
-  const usesEarned = settings.accessMode === "earned" || settings.accessMode === "both";
+  const usesEarned = modeEarns(settings.accessMode);
   const validTime = TIME.test(timeOfDay);
 
   if (usesRecess && validTime) {
@@ -91,9 +105,10 @@ export function computeRealmAccess(input: AccessInput): AccessResult {
     if (balance > 0) {
       return { allowed: true, minutesRemaining: Math.min(balance, headroom), source: "earned" };
     }
+    // At 0 the Realm goes quiet instead of shut, so learning (which earns minutes) stays in reach.
+    return { allowed: true, minutesRemaining: 0, source: "quiet" };
   }
 
-  if (usesEarned) return { allowed: false, reason: "no_minutes" };
   if (usesRecess) return { allowed: false, reason: "outside_recess" };
   return { allowed: false, reason: "school_hours" };
 }

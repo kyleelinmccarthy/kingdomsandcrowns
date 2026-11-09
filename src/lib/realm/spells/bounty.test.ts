@@ -77,27 +77,39 @@ describe("the sub-cap: clearing can never outrun the day's schoolwork", () => {
 });
 
 describe("awarding a batch", () => {
+  // Minutes to spend: the bounty pays only while the balance is above 0. Free minutes, so the
+  // sub-cap (which reads only schoolwork) is unchanged.
+  const funded: LedgerRow[] = [{ kind: "allowance", minutes: 10 }];
+
   it("pays one minute a clear up to the allowance, then nothing, and keeps every clear", () => {
     const ids = ["rim-0", "rim-1", "rim-2", "place-ringstones", "place-summit-3", "place-appleway", "place-cove-7"];
-    const { rows, awarded } = awardClears(ids, [], base, []);
+    const { rows, awarded } = awardClears(ids, funded, base, []);
     expect(awarded).toBe(5);
     expect(rows.map((r) => r.minutes)).toEqual([1, 1, 1, 1, 1, 0, 0]);
   });
 
   it("pays a home only once a day, so a respawning trouble cannot be farmed", () => {
-    const first = awardClears(["rim-0"], [], base, []);
+    const first = awardClears(["rim-0"], funded, base, []);
     expect(first.awarded).toBe(1);
     const ledger: LedgerRow[] = [{ kind: "bonus", minutes: 1 }];
     const again = awardClears(["rim-0", "rim-0", "rim-0"], ledger, base, first.rows);
     expect(again.awarded).toBe(0);
     expect(again.rows).toHaveLength(3);
     // …and inside one batch too.
-    expect(awardClears(["rim-1", "rim-1"], [], base, []).awarded).toBe(1);
+    expect(awardClears(["rim-1", "rim-1"], funded, base, []).awarded).toBe(1);
   });
 
   it("pays nothing when the bounty is off", () => {
-    expect(awardClears(["rim-0"], [], { ...base, accessMode: "open" }, []).awarded).toBe(0);
-    expect(awardClears(["rim-0"], [], { ...base, troubleBonusCapMinutes: 0 }, []).awarded).toBe(0);
+    expect(awardClears(["rim-0"], funded, { ...base, accessMode: "open" }, []).awarded).toBe(0);
+    expect(awardClears(["rim-0"], funded, { ...base, troubleBonusCapMinutes: 0 }, []).awarded).toBe(0);
+  });
+
+  it("pays nothing while the balance is 0 (the quiet world), but still keeps every clear", () => {
+    for (const ledger of [[], [...earned(2), { kind: "spent" as const, minutes: 10 }]]) {
+      const { rows, awarded } = awardClears(["rim-0", "rim-1"], ledger, base, []);
+      expect(awarded).toBe(0);
+      expect(rows).toEqual([{ homeId: "rim-0", minutes: 0 }, { homeId: "rim-1", minutes: 0 }]);
+    }
   });
 
   it("bonus minutes are credit the clock can spend", () => {

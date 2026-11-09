@@ -3,14 +3,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getRealmAccess, recordRealmPlay } from "@/lib/actions/realm-play";
 import { applyAccess, minutesToSettle, startClock, tickClock, type PlayClock } from "@/lib/realm/play-clock";
-import type { AccessDenied } from "@/lib/utils/realm-access";
+import type { AccessDenied, AccessSource } from "@/lib/utils/realm-access";
 import { beaconPlayCharge } from "@/lib/utils/realm-play-charge";
 
 /** Why the Realm closed, in the gate's own vocabulary. `AccessDenied` already is that reason union. */
 export type CloseReason = AccessDenied;
 
-/** Why access is currently granted, in the gate's own vocabulary. */
-export type AccessSource = "off_hours" | "recess" | "earned" | "open";
+/** Why access is currently granted: declared once, in realm-access.ts; re-exported for the gate. */
+export type { AccessSource };
 
 /**
  * Ticks the pure clock once a second, writes a minute to the ledger every 60
