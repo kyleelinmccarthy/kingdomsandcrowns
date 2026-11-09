@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
-import { usePlayClock } from "./use-play-clock";
+import { QUIET_POLL_SECONDS, usePlayClock } from "./use-play-clock";
 
 const getRealmAccess = vi.fn();
 const recordRealmPlay = vi.fn();
@@ -315,7 +315,7 @@ describe("usePlayClock", () => {
 describe("usePlayClock — the quiet world at 0 minutes", () => {
   it("at 0 asks the server once (latched until it answers) and goes quiet when it says quiet", async () => {
     const answer = deferred<{ allowed: true; minutesRemaining: 0; source: "quiet" }>();
-    getRealmAccess.mockReturnValueOnce(answer.promise);
+    getRealmAccess.mockReturnValueOnce(answer.promise).mockResolvedValue({ allowed: true, minutesRemaining: 0, source: "quiet" });
     const onClose = vi.fn();
     const onQuiet = vi.fn();
     const { result } = renderHook(() => usePlayClock({ enabled: true, childId: "c1", initialMinutes: 0, onClose, onQuiet, initialSource: "earned" }));
@@ -336,12 +336,12 @@ describe("usePlayClock — the quiet world at 0 minutes", () => {
     expect(onQuiet).toHaveBeenCalledTimes(1);
     expect(onClose).not.toHaveBeenCalled();
 
-    // Quiet: no seconds, no records, no more questions.
+    // Quiet: no seconds, no records, and only the once-a-minute ask (`QUIET_POLL_SECONDS`).
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(180_000);
+      await vi.advanceTimersByTimeAsync(3 * QUIET_POLL_SECONDS * 1000);
     });
     expect(recordRealmPlay).not.toHaveBeenCalled();
-    expect(getRealmAccess).toHaveBeenCalledTimes(1);
+    expect(getRealmAccess).toHaveBeenCalledTimes(1 + 3);
     expect(onClose).not.toHaveBeenCalled();
   });
 
@@ -401,7 +401,7 @@ describe("usePlayClock — the quiet world at 0 minutes", () => {
     const { result } = renderHook(() => usePlayClock({ enabled: true, childId: "c1", initialMinutes: 0, onClose, onWake, initialSource: "quiet" }));
     expect(result.current.quiet).toBe(true);
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(120_000);
+      await vi.advanceTimersByTimeAsync(QUIET_POLL_SECONDS * 1000 - 1000);
     });
     expect(recordRealmPlay).not.toHaveBeenCalled();
     expect(getRealmAccess).not.toHaveBeenCalled();
@@ -576,6 +576,43 @@ describe("usePlayClock — the quiet world at 0 minutes", () => {
     });
     expect(getRealmAccess).toHaveBeenCalledTimes(1);
     expect(onWake).toHaveBeenCalledWith(4);
+    expect(result.current.quiet).toBe(false);
+  });
+
+  it("a quiet clock asks the gate every QUIET_POLL_SECONDS of visible, unpaused time, and wakes when minutes came from elsewhere", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 0, source: "quiet" });
+    const onWake = vi.fn();
+    const { result, rerender } = renderHook(({ paused }) => usePlayClock({ enabled: true, childId: "c1", initialMinutes: 0, onClose: vi.fn(), onWake, paused, initialSource: "quiet" }), {
+      initialProps: { paused: false },
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(QUIET_POLL_SECONDS * 1000);
+    });
+    expect(getRealmAccess).toHaveBeenCalledTimes(1);
+    expect(result.current.quiet).toBe(true);
+    // Paused (a side quest open) and hidden time do not count toward the next ask.
+    rerender({ paused: true });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(120_000);
+    });
+    rerender({ paused: false });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_000); // the gate check that follows a pause
+    });
+    expect(getRealmAccess).toHaveBeenCalledTimes(2);
+    Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(120_000);
+    });
+    Object.defineProperty(document, "visibilityState", { value: "visible", configurable: true });
+    expect(getRealmAccess).toHaveBeenCalledTimes(2);
+    // A grown-up granted minutes: the next visible minute's ask finds them.
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 5, source: "earned" });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(QUIET_POLL_SECONDS * 1000);
+    });
+    expect(getRealmAccess).toHaveBeenCalledTimes(3);
+    expect(onWake).toHaveBeenCalledWith(5);
     expect(result.current.quiet).toBe(false);
   });
 
@@ -876,6 +913,7 @@ describe("usePlayClock — idle time given back (spec §4.6)", () => {
   });
 
   it("has nothing to give back in the quiet world", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 0, source: "quiet" });
     const { result } = renderHook(() => usePlayClock({ enabled: true, childId: "c1", initialMinutes: 0, onClose: vi.fn(), initialSource: "quiet" }));
     await play(120_000);
     await act(async () => {

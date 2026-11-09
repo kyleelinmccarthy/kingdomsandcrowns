@@ -40,7 +40,7 @@ vi.mock("@/lib/realm3d/worldgen", async (orig) => {
   return { ...real, realmWorld: () => ({ landmarks: [], roads: [], biomeAt: () => "meadow", heightAt: () => 0 }) };
 });
 
-import { recordRealmPlay, refundIdleMinutes } from "@/lib/actions/realm-play";
+import { getRealmAccess, recordRealmPlay, refundIdleMinutes } from "@/lib/actions/realm-play";
 import { LOOK_KEY } from "@/lib/realm3d/look-settings";
 import { RealmGame, type RealmData } from "./realm-game";
 
@@ -191,10 +191,13 @@ describe("every way the game pauses by itself stops a child's minutes", () => {
   });
 
   it("the quiet world has nothing to give back: the idle pause says so plainly", async () => {
+    // The quiet clock's once-a-minute ask still finds the Realm quiet.
+    vi.mocked(getRealmAccess).mockResolvedValueOnce({ allowed: true, minutesRemaining: 0, source: "quiet" }).mockResolvedValueOnce({ allowed: true, minutesRemaining: 0, source: "quiet" });
     render(<RealmGame heroName="Emma" realm={realm} entry={{ minutes: 0, visit: null, source: "quiet" }} castleUnlocked={false} />);
     await advance(120_000);
     expect(screen.getByRole("dialog", { name: "Are you there, Emma?" })).toHaveTextContent("your minutes stopped too");
     expect(refundIdleMinutes).not.toHaveBeenCalled();
+    expect(getRealmAccess).toHaveBeenCalledTimes(2);
   });
 
   it("starts the two minutes again at every key, click or mouse move", async () => {

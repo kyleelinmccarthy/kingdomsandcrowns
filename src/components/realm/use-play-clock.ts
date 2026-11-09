@@ -20,6 +20,12 @@ export type { AccessSource };
 export const EMPTY_RETRY_SECONDS = [5, 15, 30] as const;
 
 /**
+ * A quiet clock asks the gate again after this many visible, unpaused seconds, so minutes that
+ * landed elsewhere (a grown-up's grant, a quest finished on another device) wake the world.
+ */
+export const QUIET_POLL_SECONDS = 60;
+
+/**
  * Ticks the pure clock once a second, writes a minute to the ledger every 60
  * visible seconds, and refreshes access after each write. State updates happen
  * inside the interval callback, never synchronously in the effect body.
@@ -65,6 +71,8 @@ export function usePlayClock({
   // Failed `empty` asks in a row, and the played seconds left before the next one (`EMPTY_RETRY_SECONDS`).
   const emptyFailsRef = useRef(0);
   const emptyWaitRef = useRef(0);
+  // Visible, unpaused seconds spent quiet since the last ask (`QUIET_POLL_SECONDS`).
+  const quietSecondsRef = useRef(0);
   // Minutes recorded locally but not yet confirmed by the server. A failed
   // record is retried with the next minute's record (or on Try again); a
   // lost response can double-charge one minute, which is rarer than the free
@@ -175,6 +183,13 @@ export function usePlayClock({
         return;
       }
       const visible = typeof document === "undefined" || document.visibilityState === "visible";
+      const quietNow = clockRef.current.quiet && !clockRef.current.closed;
+      quietSecondsRef.current = quietNow ? quietSecondsRef.current + (visible ? 1 : 0) : 0;
+      if (quietNow && quietSecondsRef.current >= QUIET_POLL_SECONDS && !askingRef.current) {
+        quietSecondsRef.current = 0;
+        askingRef.current = true;
+        void refresh().finally(() => (askingRef.current = false));
+      }
       const ticked = tickClock(clockRef.current, 1, visible);
       clockRef.current = ticked.clock;
       setClock(ticked.clock);
