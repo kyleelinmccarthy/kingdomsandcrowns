@@ -576,6 +576,24 @@ describe("side quests pay play minutes by stars", () => {
     expect(opened.rows.map((r) => r.kind)).toEqual(["allowance", "carried", "practice"]);
   });
 
+  it("pays beside raising the building, and only once the finish is won", async () => {
+    await seedRun(ALL_RIGHT);
+    let release!: () => void;
+    const held = new Promise<void>((r) => (release = r));
+    let closedWhenAsked: Date | null = null;
+    vi.mocked(paySideQuest).mockImplementationOnce(async () => {
+      closedWhenAsked = (await stored()).completed_at;
+      await held;
+      return { minutes: 3, full: false };
+    });
+    const finishing = completeDeedRun("run1");
+    // The building rises while the pay is still out (one round trip, not two in a row).
+    await vi.waitFor(async () => expect(await deedsDone()).toBe(1), { timeout: 2_000 });
+    release();
+    expect(await finishing).toMatchObject({ minutesEarned: 3 });
+    expect(closedWhenAsked).not.toBeNull();
+  });
+
   it("pays once when the finish is raced, and the losing finish pays nothing", async () => {
     await seedRun(ALL_RIGHT);
     const results = await Promise.allSettled([completeDeedRun("run1"), completeDeedRun("run1")]);

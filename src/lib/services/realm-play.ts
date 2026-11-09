@@ -24,18 +24,21 @@ type Exec = typeof db | Tx;
  * hook. Plain module: callers have already authorized the child.
  */
 
-/** Insert-if-missing then select, so two first reads can't make two rows. */
+/**
+ * The hero's settings; the row is created if missing. One select in steady state: only a hero
+ * with no row yet takes the insert-if-missing (so two first reads can't make two rows) and the reselect.
+ */
 export async function loadRealmSettings(childId: string, exec: Exec = db): Promise<RealmSettings> {
-  const now = new Date();
-  await exec
-    .insert(schema.realmSettings)
-    .values({ id: nanoid(), childId, createdAt: now, updatedAt: now })
-    .onConflictDoNothing();
-  const rows = await exec
-    .select()
-    .from(schema.realmSettings)
-    .where(eq(schema.realmSettings.childId, childId))
-    .limit(1);
+  const select = () => exec.select().from(schema.realmSettings).where(eq(schema.realmSettings.childId, childId)).limit(1);
+  let rows = await select();
+  if (!rows[0]) {
+    const now = new Date();
+    await exec
+      .insert(schema.realmSettings)
+      .values({ id: nanoid(), childId, createdAt: now, updatedAt: now })
+      .onConflictDoNothing();
+    rows = await select();
+  }
   return settingsFromRow(rows[0] ?? null);
 }
 
@@ -71,7 +74,8 @@ type LedgerSource = { sourceAssignmentId?: string | null; sourceRunId?: string |
 /**
  * Module-private on purpose: every write to a day goes through an opened day (`appendToOpenedDay`,
  * or a caller that ran `openDay` in the same locked transaction). Returns whether the row landed:
- * a once-only row (a run's `practice`) already there is left alone.
+ * a run's `practice` row already there (the practice per-run index) is left alone; any other
+ * conflict is a real error and throws.
  */
 async function appendLedger(
   childId: string,
@@ -81,11 +85,12 @@ async function appendLedger(
   { sourceAssignmentId = null, sourceRunId = null }: LedgerSource = {},
   exec: Exec = db
 ): Promise<boolean> {
-  const landed = await exec
-    .insert(schema.realmPlayLedger)
-    .values({ id: nanoid(), childId, date, kind, minutes, sourceAssignmentId, sourceRunId, createdAt: new Date() })
-    .onConflictDoNothing()
-    .returning({ id: schema.realmPlayLedger.id });
+  const L = schema.realmPlayLedger;
+  const insert = exec.insert(L).values({ id: nanoid(), childId, date, kind, minutes, sourceAssignmentId, sourceRunId, createdAt: new Date() });
+  const landed = await (sourceRunId
+    ? insert.onConflictDoNothing({ target: L.sourceRunId, where: sql`${L.kind} = 'practice'` })
+    : insert
+  ).returning({ id: L.id });
   return landed.length > 0;
 }
 
@@ -121,7 +126,7 @@ async function withChildLock<T>(childId: string, run: (tx: Tx) => Promise<T>): P
   );
 }
 
-/** Takes the child's lock inside `tx` (a second take in the same transaction is a no-op). */
+/** Takes the child's lock inside `tx`. */
 async function lockChild(childId: string, tx: Tx): Promise<void> {
   await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${childId}))`);
 }
@@ -134,15 +139,15 @@ async function lockChild(childId: string, tx: Tx): Promise<void> {
  * grown-up's view reads `loadLedgerAsOpened` instead. Writes nothing when the Realm does not open
  * days (`opensDays`).
  *
- * Under the child's lock, so two first checks (two tabs) cannot both read "not open"; the partial
- * unique indexes and `onConflictDoNothing` stand behind it. A day counts as open by its allowance
- * row only, so a minute already on it still comes off it. Pass `tx` to open the day inside a
- * caller's own transaction.
+ * An already-open day is one unlocked read (the usual case, over a remote database). Opening it
+ * takes the child's lock and reads again, so two first checks (two tabs) cannot both read "not
+ * open"; the partial unique indexes and `onConflictDoNothing` stand behind it. A day counts as
+ * open by its allowance row only, so a minute already on it still comes off it. Pass `tx` to open
+ * the day inside a caller's own `withChildLock` transaction, which already holds the lock.
  */
 export async function openDay(childId: string, date: string, settings: RealmSettings, tx?: Tx): Promise<LedgerRow[]> {
   if (!opensDays(settings)) return loadLedger(childId, date, tx ?? db);
   const open = async (t: Tx): Promise<LedgerRow[]> => {
-    await lockChild(childId, t);
     const today = await loadLedger(childId, date, t);
     if (isDayOpen(today)) return today;
     const { allowance, carried } = dayOpeningRows(await loadPreviousActiveDay(childId, date, t), settings);
@@ -156,7 +161,9 @@ export async function openDay(childId: string, date: string, settings: RealmSett
       .onConflictDoNothing();
     return [...today, { kind: "allowance", minutes: allowance }, { kind: "carried", minutes: carried }];
   };
-  return tx ? open(tx) : withChildLock(childId, open);
+  if (tx) return open(tx);
+  const today = await loadLedger(childId, date);
+  return isDayOpen(today) ? today : withChildLock(childId, open);
 }
 
 /**
@@ -371,10 +378,26 @@ export async function awardTroubleClears(
 
 const awardQueues = new Map<string, Promise<unknown>>();
 
-/** Runs `run` after every earlier call for the same key has settled, in this process. */
+/**
+ * The longest a call waits in the in-process queue for the one ahead of it. A predecessor stuck in
+ * flight (a hung socket) must not hang every later write for this child; past this the call goes
+ * on, and the child's advisory lock still serializes the two in the database.
+ */
+export const QUEUE_WAIT_MS = 5_000;
+
+/** Settles when `p` does, or after `ms`, whichever is first. */
+function settledOrTimeout(p: Promise<unknown>, ms: number): Promise<void> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<void>((resolve) => {
+    timer = setTimeout(resolve, ms);
+  });
+  return Promise.race([p.then(() => {}, () => {}), timeout]).finally(() => clearTimeout(timer));
+}
+
+/** Runs `run` after every earlier call for the same key has settled (or `QUEUE_WAIT_MS` passed), in this process. */
 async function queued<T>(key: string, run: () => Promise<T>): Promise<T> {
   const before = awardQueues.get(key) ?? Promise.resolve();
-  const mine = before.catch(() => {}).then(run);
+  const mine = settledOrTimeout(before, QUEUE_WAIT_MS).then(run);
   const tail = mine.catch(() => {});
   awardQueues.set(key, tail);
   try {
@@ -414,26 +437,21 @@ function isBusy(err: unknown): boolean {
  * no day is written to once the server's day has moved on.
  */
 export async function grantEarnedMinutesForCompletion(childId: string, assignmentId: string): Promise<void> {
-  const settings = await loadRealmSettings(childId);
+  const [settings, { date }] = await Promise.all([loadRealmSettings(childId), realmNow(childId)]);
   if (!settings.enabled || !modeEarns(settings.accessMode) || settings.earnedMinutesPerQuest <= 0) return;
 
-  // Minutes are earned once per quest: a quest revised back to pending and
-  // finished again must not bank a second grant.
-  const [existing, { date }] = await Promise.all([
-    db
-      .select({ id: schema.realmPlayLedger.id })
-      .from(schema.realmPlayLedger)
-      .where(
-        and(
-          eq(schema.realmPlayLedger.childId, childId),
-          eq(schema.realmPlayLedger.kind, "earned"),
-          eq(schema.realmPlayLedger.sourceAssignmentId, assignmentId)
-        )
-      )
-      .limit(1),
-    realmNow(childId),
-  ]);
-  if (existing.length > 0) return;
-
-  await appendToOpenedDay(childId, date, "earned", settings.earnedMinutesPerQuest, { settings, sourceAssignmentId: assignmentId });
+  // Minutes are earned once per quest: a quest revised back to pending and finished again must
+  // not bank a second grant. Checked under the child's lock with the write, so two completions at
+  // once (two tabs, two isolates) cannot both find none (there is no unique index to lean on).
+  const L = schema.realmPlayLedger;
+  await withChildLock(childId, async (tx) => {
+    const existing = await tx
+      .select({ id: L.id })
+      .from(L)
+      .where(and(eq(L.childId, childId), eq(L.kind, "earned"), eq(L.sourceAssignmentId, assignmentId)))
+      .limit(1);
+    if (existing.length > 0) return;
+    await openDay(childId, date, settings, tx);
+    await appendLedger(childId, date, "earned", settings.earnedMinutesPerQuest, { sourceAssignmentId: assignmentId }, tx);
+  });
 }

@@ -407,7 +407,9 @@ export async function completeDeedRun(runId: string): Promise<RunSummary> {
   // Two finishes racing: only the one that closed the run may raise the building, or be paid.
   if (finished.length === 0) throw new Error(FINISHED);
   // Only the hero's own run pays play minutes (spec 2026-11-09 §2a); a challenge earns no stars.
-  const pay = effects.earnsStars && stars > 0 && isChildActor(access) ? await payForRun(run.childId, runId, stars) : NO_SIDE_QUEST_PAY;
+  // Started now, after the win, and awaited at the end: the pay runs beside the building and
+  // mastery reads rather than ahead of them (`payForRun` never rejects).
+  const paying = effects.earnsStars && stars > 0 && isChildActor(access) ? payForRun(run.childId, runId, stars) : Promise.resolve(NO_SIDE_QUEST_PAY);
 
   const counted = effects.raisesBuilding && countsTowardBuilding(stars);
   const deed = findDeed(run.deedId);
@@ -430,6 +432,7 @@ export async function completeDeedRun(runId: string): Promise<RunSummary> {
     if (copy) masteryChanges.push(copy);
   }
 
+  const pay = await paying;
   revalidatePath("/side-quests");
   revalidatePath("/spellbook");
   revalidatePath("/loot");
