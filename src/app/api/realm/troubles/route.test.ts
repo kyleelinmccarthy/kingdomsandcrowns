@@ -15,6 +15,10 @@ vi.mock("@/lib/services/realm-play", () => ({
   awardTroubleClears: (...a: unknown[]) => (awardTroubleClears as (...x: unknown[]) => unknown)(...a),
 }));
 
+// The gate's other inputs, handed to the award so it can tell the quiet world from play.
+const SCENE = { settings: {}, timeOfDay: "10:00", isSchoolDay: true, classBlocksToday: [], recessBlocksToday: [] };
+vi.mock("@/lib/services/realm-access-scene", () => ({ loadAccessScene: async () => SCENE }));
+
 // The server's day (`realmNow`): the only day clears are banked on.
 vi.mock("@/lib/services/realm-clock", () => ({ realmNow: async () => ({ date: "2026-11-09", timeOfDay: "10:00" }) }));
 
@@ -42,14 +46,14 @@ describe("POST /api/realm/troubles — clears sent on the way out", () => {
     const res = await POST(beacon({ childId: "c1", homeIds: ["rim-0", "place-ringstones"] }));
     expect(res.status).toBe(204);
     expect(requireChildAccess).toHaveBeenCalledWith("c1", { write: true });
-    expect(awardTroubleClears).toHaveBeenCalledWith("c1", "2026-11-09", ["rim-0", "place-ringstones"]);
+    expect(awardTroubleClears).toHaveBeenCalledWith("c1", "2026-11-09", ["rim-0", "place-ringstones"], SCENE);
   });
 
   it("banks on today whatever date a tab sends (one opened before the deploy still sends one)", async () => {
     requireChildAccess.mockResolvedValue(child);
     const res = await POST(beacon({ childId: "c1", date: "2020-01-01", homeIds: ["rim-0"] }));
     expect(res.status).toBe(204);
-    expect(awardTroubleClears).toHaveBeenCalledWith("c1", "2026-11-09", ["rim-0"]);
+    expect(awardTroubleClears).toHaveBeenCalledWith("c1", "2026-11-09", ["rim-0"], SCENE);
   });
 
   it("writes nothing for a visiting grown-up", async () => {

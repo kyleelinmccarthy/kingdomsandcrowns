@@ -3,8 +3,9 @@ import { nanoid } from "nanoid";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { settingsFromRow, type RealmSettings } from "@/lib/utils/realm-settings";
-import { modeEarns, type LedgerRow } from "@/lib/utils/realm-access";
-import { dayOpeningRows, isDayOpen, previewToday } from "@/lib/utils/realm-day";
+import { computeRealmAccess, isQuiet, modeEarns, type LedgerRow } from "@/lib/utils/realm-access";
+import { dayOpeningRows, isDayOpen, opensDays, previewToday } from "@/lib/utils/realm-day";
+import type { AccessScene } from "@/lib/services/realm-access-scene";
 import { playChargeProblem } from "@/lib/utils/realm-play-charge";
 import { realmNow } from "@/lib/services/realm-clock";
 import { awardClears, bountyStatusFor, MAX_CLEARS_PER_MINUTE, type BountyStatus, type ClearRow } from "@/lib/realm/spells/bounty";
@@ -61,7 +62,8 @@ export async function loadLedger(childId: string, date: string, exec: Exec = db)
     .where(and(eq(schema.realmPlayLedger.childId, childId), eq(schema.realmPlayLedger.date, date)));
 }
 
-export async function appendLedger(
+/** Module-private on purpose: every write to a day goes through `appendToOpenedDay`, which opens it first. */
+async function appendLedger(
   childId: string,
   date: string,
   kind: LedgerRow["kind"],
@@ -96,20 +98,46 @@ export async function loadPreviousActiveDay(childId: string, before: string, exe
 }
 
 /**
- * Opens the child's day: writes its `allowance` and `carried` rows, both always (0 too), once.
- * The only writer of those kinds, and only the child's own access check calls it (a grown-up's
- * view reads `loadLedgerAsOpened` instead). Nothing outside the earning modes or with the Realm off.
- *
- * Under the child's advisory lock, so two first checks (two tabs) cannot both read "not open";
- * the partial unique indexes and `onConflictDoNothing` stand behind it. A day counts as open by
- * its allowance row only, so a minute charged across midnight before this ran still comes off it.
- * Pass `tx` to open the day inside a caller's own locked transaction.
+ * Runs `run` in one transaction holding the child's advisory lock (`pg_advisory_xact_lock`), so
+ * every read-then-write on this child's ledger is serialized, across isolates too. The lock is
+ * per child (unrelated heroes never block each other) and released at COMMIT/ROLLBACK. See
+ * `awardTroubleClears` for why calls also queue in-process and retry on deadlock.
  */
-export async function openDay(childId: string, date: string, settings: RealmSettings, tx?: Tx): Promise<void> {
-  if (!settings.enabled || !modeEarns(settings.accessMode)) return;
-  const open = async (t: Tx) => {
-    await t.execute(sql`select pg_advisory_xact_lock(hashtext(${childId}))`);
-    if (isDayOpen(await loadLedger(childId, date, t))) return;
+async function withChildLock<T>(childId: string, run: (tx: Tx) => Promise<T>): Promise<T> {
+  return queued(childId, () =>
+    withWriteRetry(() =>
+      db.transaction(async (tx) => {
+        await lockChild(childId, tx);
+        return run(tx);
+      }),
+    ),
+  );
+}
+
+/** Takes the child's lock inside `tx` (a second take in the same transaction is a no-op). */
+async function lockChild(childId: string, tx: Tx): Promise<void> {
+  await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${childId}))`);
+}
+
+/**
+ * Opens the child's day — writes its `allowance` and `carried` rows, both always (0 too), once —
+ * and returns the day's rows as they then stand. The only writer of those kinds. Called by the
+ * child's own access check and before every other write to a day (`appendToOpenedDay`, the
+ * bounty), so a day with rows always has its carry and an older bank is never dropped; a
+ * grown-up's view reads `loadLedgerAsOpened` instead. Writes nothing when the Realm does not open
+ * days (`opensDays`).
+ *
+ * Under the child's lock, so two first checks (two tabs) cannot both read "not open"; the partial
+ * unique indexes and `onConflictDoNothing` stand behind it. A day counts as open by its allowance
+ * row only, so a minute already on it still comes off it. Pass `tx` to open the day inside a
+ * caller's own transaction.
+ */
+export async function openDay(childId: string, date: string, settings: RealmSettings, tx?: Tx): Promise<LedgerRow[]> {
+  if (!opensDays(settings)) return loadLedger(childId, date, tx ?? db);
+  const open = async (t: Tx): Promise<LedgerRow[]> => {
+    await lockChild(childId, t);
+    const today = await loadLedger(childId, date, t);
+    if (isDayOpen(today)) return today;
     const { allowance, carried } = dayOpeningRows(await loadPreviousActiveDay(childId, date, t), settings);
     const createdAt = new Date();
     await t
@@ -119,20 +147,39 @@ export async function openDay(childId: string, date: string, settings: RealmSett
         { id: nanoid(), childId, date, kind: "carried", minutes: carried, createdAt },
       ])
       .onConflictDoNothing();
+    return [...today, { kind: "allowance", minutes: allowance }, { kind: "carried", minutes: carried }];
   };
-  if (tx) return open(tx);
-  return queued(childId, () => withWriteRetry(() => db.transaction(open)));
+  return tx ? open(tx) : withChildLock(childId, open);
 }
 
 /**
  * Today's rows as the child will see them once the day opens, for a reader that must not open it
- * (a grown-up's access check, the settings panel). Reads the previous day only when today is not
- * open yet.
+ * (a grown-up's access check, the settings panel, the bounty's status). Reads the previous day
+ * only when today could still open.
  */
 export async function loadLedgerAsOpened(childId: string, date: string, settings: RealmSettings, exec: Exec = db): Promise<LedgerRow[]> {
   const today = await loadLedger(childId, date, exec);
-  if (isDayOpen(today)) return today;
+  if (isDayOpen(today) || !opensDays(settings)) return today;
   return previewToday(today, await loadPreviousActiveDay(childId, date, exec), settings);
+}
+
+/**
+ * Writes one row to the child's day, opening the day first (`openDay`) in the same locked
+ * transaction: the one way a play charge, a grown-up's grant or a quest's minutes reach the
+ * ledger. Pass `settings` when the caller already has them.
+ */
+export async function appendToOpenedDay(
+  childId: string,
+  date: string,
+  kind: LedgerRow["kind"],
+  minutes: number,
+  { settings, sourceAssignmentId = null }: { settings?: RealmSettings; sourceAssignmentId?: string | null } = {},
+): Promise<void> {
+  const s = settings ?? (await loadRealmSettings(childId));
+  await withChildLock(childId, async (tx) => {
+    await openDay(childId, date, s, tx);
+    await appendLedger(childId, date, kind, minutes, sourceAssignmentId, tx);
+  });
 }
 
 /**
@@ -143,7 +190,7 @@ export async function loadLedgerAsOpened(childId: string, date: string, settings
 export async function chargeRealmPlay(childId: string, date: string, minutes: number): Promise<void> {
   const problem = playChargeProblem(minutes);
   if (problem) throw new Error(problem);
-  await appendLedger(childId, date, "spent", minutes);
+  await appendToOpenedDay(childId, date, "spent", minutes);
 }
 
 /** The troubles a hero cleared on `date`, oldest first: what each home paid, for the bounty. */
@@ -209,8 +256,8 @@ export async function recordTroubleClearRows(childId: string, date: string, rows
 }
 
 /**
- * The whole award as one write transaction: the per-minute limit, the day's allowance, the award
- * and its writes. Read-then-write outside a transaction let two calls at once (two tabs, a
+ * The whole award as one write transaction (`withChildLock`): the per-minute limit, the day's
+ * allowance, the award and its writes. Read-then-write outside a transaction let two calls at once (two tabs, a
  * replayed request) both read an untouched allowance and both bank it in full; the unique index
  * only stops the same home paying twice, not two calls paying different homes. Postgres's default
  * isolation does NOT take a write lock at BEGIN the way a libsql write transaction did, so the
@@ -229,25 +276,26 @@ export async function awardTroubleClears(
   childId: string,
   date: string,
   homeIds: readonly string[],
+  scene: AccessScene,
 ): Promise<{ awarded: number; status: BountyStatus }> {
-  return queued(childId, () =>
-    withWriteRetry(() =>
-      db.transaction(async (tx) => {
-        await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${childId}))`);
-        const recent = await countTroubleClearsSince(childId, new Date(Date.now() - 60_000), tx);
-        const batch = homeIds.slice(0, Math.max(0, MAX_CLEARS_PER_MINUTE - recent));
-        const settings = await loadRealmSettings(childId, tx);
-        let awarded = 0;
-        if (batch.length > 0) {
-          const { rows } = awardClears(batch, await loadLedger(childId, date, tx), settings, await loadTroubleClears(childId, date, tx));
-          awarded = await recordTroubleClearRows(childId, date, rows, tx);
-        }
-        // Read back inside the lock, so the answer is exactly what this call left behind.
-        const status = bountyStatusFor(await loadLedger(childId, date, tx), settings, await loadTroubleClears(childId, date, tx));
-        return { awarded, status };
-      }),
-    ),
-  );
+  const { settings } = scene;
+  return withChildLock(childId, async (tx) => {
+    // Clears are a write to the day, so the day opens first; its rows say whether the child is in
+    // the quiet world, asked exactly as the gate asks it (`scene` is the gate's other inputs).
+    const ledgerToday = await openDay(childId, date, settings, tx);
+    const quiet = isQuiet(computeRealmAccess({ ...scene, ledgerToday }));
+    const recent = await countTroubleClearsSince(childId, new Date(Date.now() - 60_000), tx);
+    const batch = homeIds.slice(0, Math.max(0, MAX_CLEARS_PER_MINUTE - recent));
+    let awarded = 0;
+    if (batch.length > 0) {
+      const { rows } = awardClears(batch, ledgerToday, settings, await loadTroubleClears(childId, date, tx), quiet);
+      awarded = await recordTroubleClearRows(childId, date, rows, tx);
+    }
+    // Read back inside the lock, so the answer is exactly what this call left behind. Paying
+    // nothing in quiet leaves it quiet; paying anything means it was not.
+    const status = bountyStatusFor(await loadLedger(childId, date, tx), settings, await loadTroubleClears(childId, date, tx), quiet);
+    return { awarded, status };
+  });
 }
 
 const awardQueues = new Map<string, Promise<unknown>>();
@@ -316,5 +364,5 @@ export async function grantEarnedMinutesForCompletion(childId: string, assignmen
   ]);
   if (existing.length > 0) return;
 
-  await appendLedger(childId, date, "earned", settings.earnedMinutesPerQuest, assignmentId);
+  await appendToOpenedDay(childId, date, "earned", settings.earnedMinutesPerQuest, { settings, sourceAssignmentId: assignmentId });
 }

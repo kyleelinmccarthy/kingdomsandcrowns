@@ -26,10 +26,14 @@ vi.mock("@/lib/services/realm-play", () => ({
   appendLedger: vi.fn(),
   loadRealmSettings: async () => store.settings,
   loadLedger: async () => store.ledger,
+  loadLedgerAsOpened: async () => store.ledger,
   loadTroubleClears: async () => store.clears,
   awardTroubleClears: (...a: unknown[]) => (awardTroubleClears as (...x: unknown[]) => unknown)(...a),
 }));
 vi.mock("@/lib/db", () => ({ db: {} }));
+// The gate's other inputs: a school-day morning with no classes or recess, so the ledger decides.
+const scene = () => ({ settings: store.settings, timeOfDay: "10:00", isSchoolDay: true, classBlocksToday: [], recessBlocksToday: [] });
+vi.mock("@/lib/services/realm-access-scene", () => ({ loadAccessScene: async () => scene() }));
 // The server's day (`realmNow`), whatever the device thinks.
 const SERVER_DAY = "2026-11-09";
 vi.mock("@/lib/services/realm-clock", () => ({ realmNow: async () => ({ date: SERVER_DAY, timeOfDay: "10:00" }) }));
@@ -74,7 +78,7 @@ describe("recordTroubleClears — what the client may claim (which homes; never 
 
   it("hands a well-formed batch to the award, which decides what it is worth", async () => {
     await recordTroubleClears("c1", ["rim-0", "place-cove-7"]);
-    expect(awardTroubleClears).toHaveBeenCalledWith("c1", SERVER_DAY, ["rim-0", "place-cove-7"]);
+    expect(awardTroubleClears).toHaveBeenCalledWith("c1", SERVER_DAY, ["rim-0", "place-cove-7"], scene());
   });
 });
 
@@ -85,5 +89,11 @@ describe("getTroubleBounty", () => {
     store.ledger = [{ kind: "bonus", minutes: 1 }];
     const s = await getTroubleBounty("c1");
     expect(s).toMatchObject({ enabled: true, paidMinutes: 1, remainingMinutes: 4, clearsToday: 1, paidHomes: ["rim-0"] });
+  });
+
+  it("promises nothing in the quiet world", async () => {
+    requireChildAccess.mockResolvedValue(child);
+    store.ledger = [{ kind: "allowance", minutes: 10 }, { kind: "spent", minutes: 10 }];
+    expect((await getTroubleBounty("c1")).remainingMinutes).toBe(0);
   });
 });

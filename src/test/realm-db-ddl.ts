@@ -34,3 +34,11 @@ export const REALM_TROUBLE_CLEAR_DDL = [
     minutes integer DEFAULT 0 NOT NULL, created_at timestamptz NOT NULL)`,
   `CREATE UNIQUE INDEX realm_trouble_clear_paid_unique_idx ON realm_trouble_clear (child_id, date, home_id) WHERE "realm_trouble_clear"."minutes" > 0`,
 ];
+
+/** What an access answer reads beside the ledger (`services/realm-access-scene.ts`): the day's schedule and the school calendar. */
+export const REALM_ACCESS_DDL = [
+  `CREATE TABLE schedule_block (id text PRIMARY KEY, child_id text NOT NULL, day_of_week text NOT NULL, start_time text NOT NULL, end_time text NOT NULL)`,
+  `CREATE TABLE recess_block (id text PRIMARY KEY, child_id text NOT NULL, day_of_week text NOT NULL, start_time text NOT NULL, end_time text NOT NULL)`,
+  `CREATE TABLE child (id text PRIMARY KEY, family_id text, school_days text)`,
+  `CREATE TABLE school_break (id text PRIMARY KEY, family_id text NOT NULL, start_date text NOT NULL, end_date text NOT NULL)`,
+];

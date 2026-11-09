@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeAll, beforeEach, afterAll } from "vites
 import { Client } from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
 import * as schema from "@/lib/db/schema";
-import { REALM_LEDGER_DDL, REALM_SETTINGS_DDL, REALM_TROUBLE_CLEAR_DDL } from "@/test/realm-db-ddl";
+import { REALM_ACCESS_DDL, REALM_LEDGER_DDL, REALM_SETTINGS_DDL, REALM_TROUBLE_CLEAR_DDL } from "@/test/realm-db-ddl";
 
 /**
  * Opening a Realm day against a REAL Postgres database: the child's own first access check of
@@ -35,18 +35,10 @@ vi.mock("@/lib/auth/access", () => ({
 let today = "2026-11-09";
 vi.mock("@/lib/services/realm-clock", () => ({ realmNow: async () => ({ date: today, timeOfDay: "10:00" }) }));
 
-const { getRealmAccess, getRealmPlaySummary, recordTroubleClears } = await import("@/lib/actions/realm-play");
+const { getRealmAccess, getRealmPlaySummary, getTroubleBounty, grantRealmMinutes, recordRealmPlay, recordTroubleClears } = await import("@/lib/actions/realm-play");
+const { grantEarnedMinutesForCompletion } = await import("@/lib/services/realm-play");
 
-// What `getRealmAccess` reads beside the ledger: the day's schedule and the school calendar.
-const DDL = [
-  ...REALM_SETTINGS_DDL,
-  ...REALM_LEDGER_DDL,
-  ...REALM_TROUBLE_CLEAR_DDL,
-  `CREATE TABLE schedule_block (id text PRIMARY KEY, child_id text NOT NULL, day_of_week text NOT NULL, start_time text NOT NULL, end_time text NOT NULL)`,
-  `CREATE TABLE recess_block (id text PRIMARY KEY, child_id text NOT NULL, day_of_week text NOT NULL, start_time text NOT NULL, end_time text NOT NULL)`,
-  `CREATE TABLE child (id text PRIMARY KEY, school_days text)`,
-  `CREATE TABLE school_break (id text PRIMARY KEY, family_id text NOT NULL, start_date text NOT NULL, end_date text NOT NULL)`,
-];
+const DDL = [...REALM_SETTINGS_DDL, ...REALM_LEDGER_DDL, ...REALM_TROUBLE_CLEAR_DDL, ...REALM_ACCESS_DDL];
 
 beforeAll(async () => {
   await client.connect();
@@ -57,7 +49,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  for (const t of ["realm_settings", "realm_play_ledger", "realm_trouble_clear"]) await client.query(`DELETE FROM ${t}`);
+  for (const t of ["realm_settings", "realm_play_ledger", "realm_trouble_clear", "recess_block"]) await client.query(`DELETE FROM ${t}`);
   actor = CHILD;
   today = "2026-11-09";
 });
@@ -185,16 +177,62 @@ describe("a grown-up's view writes nothing", () => {
   });
 });
 
+describe("every write to a day opens it first", () => {
+  it("D−2's bank survives a D−1 with a finished quest but no Realm visit", async () => {
+    today = "2026-11-07";
+    await getRealmAccess("c1"); // D−2 opens: 10 free, nothing carried
+    await row("2026-11-07", "earned", 20); // a bank of 20
+    today = "2026-11-08";
+    await grantEarnedMinutesForCompletion("c1", "a1"); // D−1: a quest, no visit
+    expect(await opening("2026-11-08")).toEqual({ allowance: [10], carried: [20] });
+    today = "2026-11-09";
+    await getRealmAccess("c1");
+    expect(await opening(today)).toEqual({ allowance: [10], carried: [25] }); // 20 carried + 5 earned
+  });
+
+  it("a charge, a grown-up's grant and a clear each open the day before they write", async () => {
+    await row("2026-11-08", "earned", 4);
+    const writers: [string, () => Promise<unknown>][] = [
+      ["charge", () => recordRealmPlay("c1", 1)],
+      ["grant", async () => { actor = PARENT; await grantRealmMinutes("c1", 5); }],
+      ["clear", () => recordTroubleClears("c1", ["rim-0"])],
+    ];
+    for (const [what, write] of writers) {
+      await client.query("DELETE FROM realm_play_ledger WHERE date = $1", [today]);
+      actor = CHILD;
+      await write();
+      expect(await opening(today), what).toEqual({ allowance: [10], carried: [4] });
+    }
+  });
+});
+
 describe("the quiet world", () => {
   it("a child at 0 is let in quiet, and a clear sent from there earns 0 (still recorded)", async () => {
     await getRealmAccess("c1");
     await row(today, "spent", 10);
     expect(await getRealmAccess("c1")).toEqual({ allowed: true, minutesRemaining: 0, source: "quiet" });
+    expect((await getTroubleBounty("c1")).remainingMinutes).toBe(0);
     const r = await recordTroubleClears("c1", ["rim-0"]);
     expect(r.awarded).toBe(0);
+    expect(r.status.remainingMinutes).toBe(0);
     const clears = await client.query("SELECT minutes FROM realm_trouble_clear WHERE child_id = 'c1'");
     expect(clears.rows.map((x) => Number(x.minutes))).toEqual([0]);
     const bonus = await client.query("SELECT count(*) AS n FROM realm_play_ledger WHERE kind = 'bonus'");
     expect(Number(bonus.rows[0].n)).toBe(0);
+  });
+
+  it("a recess at a 0 balance is real play: its clears are paid", async () => {
+    await settings({ access_mode: "both", daily_allowance_minutes: 0 });
+    // 2026-11-09 is a Monday; the server's time is 10:00.
+    await client.query("INSERT INTO recess_block VALUES ('rb1', 'c1', 'mon', '09:45', '10:30')");
+    expect(await getRealmAccess("c1")).toEqual({ allowed: true, minutesRemaining: 30, source: "recess" });
+    expect((await recordTroubleClears("c1", ["rim-0"])).awarded).toBe(1);
+  });
+
+  it("off hours at a 0 balance is real play: its clears are paid", async () => {
+    await settings({ off_hours_enabled: "true", daily_allowance_minutes: 0 });
+    // No classes today, so it is outside school hours.
+    expect(await getRealmAccess("c1")).toEqual({ allowed: true, minutesRemaining: 30, source: "off_hours" });
+    expect((await recordTroubleClears("c1", ["rim-0"])).awarded).toBe(1);
   });
 });

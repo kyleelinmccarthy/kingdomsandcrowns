@@ -17,7 +17,7 @@
  * always overwritten by the server's answer). No `three`, no database.
  */
 
-import { ledgerBalance, minutesSpent, modeEarns, type LedgerRow, type RealmAccessMode } from "@/lib/utils/realm-access";
+import { minutesSpent, modeEarns, type LedgerRow, type RealmAccessMode } from "@/lib/utils/realm-access";
 import { practicePaidToday, sumKind } from "@/lib/utils/realm-ledger";
 import { PLACES } from "@/lib/realm/layout";
 
@@ -107,7 +107,8 @@ export function bountyAllowance(ledgerToday: readonly LedgerRow[], s: BountySett
   return Math.max(0, Math.min(left, headroom));
 }
 
-export function bountyStatusFor(ledgerToday: readonly LedgerRow[], s: BountySettings, clearsToday: readonly ClearRow[]): BountyStatus {
+/** `quiet`: the child is in the quiet world (`isQuiet`), where clearing pays nothing, so nothing is promised. */
+export function bountyStatusFor(ledgerToday: readonly LedgerRow[], s: BountySettings, clearsToday: readonly ClearRow[], quiet: boolean): BountyStatus {
   const paidHomes: string[] = [];
   for (const c of clearsToday) if (c.minutes > 0 && !paidHomes.includes(c.homeId)) paidHomes.push(c.homeId);
   return {
@@ -115,7 +116,7 @@ export function bountyStatusFor(ledgerToday: readonly LedgerRow[], s: BountySett
     capMinutes: s.troubleBonusCapMinutes,
     subCapMinutes: bountySubCap(ledgerToday, s),
     paidMinutes: bonusMinutesToday(ledgerToday),
-    remainingMinutes: bountyAllowance(ledgerToday, s),
+    remainingMinutes: quiet ? 0 : bountyAllowance(ledgerToday, s),
     clearsToday: clearsToday.length,
     paidHomes,
   };
@@ -126,16 +127,18 @@ export function bountyStatusFor(ledgerToday: readonly LedgerRow[], s: BountySett
  * paid today, while the allowance lasts, and nothing for the rest. Every clear is returned (the
  * tally is real either way); `awarded` is what the ledger gets.
  *
- * Nothing pays while the day's balance is 0: that is the quiet world, where troubles are off, so a
- * clear sent from it is forged and must not mint the minutes that would wake it (spec §2a).
+ * Nothing pays in the quiet world (`quiet`, from the server's access answer): troubles are off
+ * there, so a clear sent from it is forged and must not mint the minutes that would wake it
+ * (spec §2a). A 0 balance alone is not quiet — a recess or off hours at 0 is real play, and pays.
  */
 export function awardClears(
   homeIds: readonly string[],
   ledgerToday: readonly LedgerRow[],
   s: BountySettings,
   clearsToday: readonly ClearRow[],
+  quiet: boolean,
 ): { rows: ClearRow[]; awarded: number } {
-  let allowance = ledgerBalance(ledgerToday) > 0 ? bountyAllowance(ledgerToday, s) : 0;
+  let allowance = quiet ? 0 : bountyAllowance(ledgerToday, s);
   const paid = new Set<string>();
   for (const c of clearsToday) if (c.minutes > 0) paid.add(c.homeId);
   const rows: ClearRow[] = [];

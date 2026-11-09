@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { DEFAULT_REALM_SETTINGS, type RealmSettings } from "./realm-settings";
 import type { LedgerRow, RealmAccessMode } from "./realm-access";
-import { dayOpeningRows, isDayOpen, previewToday } from "./realm-day";
+import { dayOpeningRows, isDayOpen, opensDays, previewToday } from "./realm-day";
 
 const settings: RealmSettings = { ...DEFAULT_REALM_SETTINGS, dailyAllowanceMinutes: 10, bankCapMinutes: 30 };
 // Yesterday: 10 free, 25 earned, 15 spent — the spend eats the free 10 first, so 20 is banked.
@@ -35,6 +35,13 @@ describe("dayOpeningRows — what a new day starts with", () => {
   });
 });
 
+describe("opensDays — only an enabled Realm in an earning mode opens days", () => {
+  it.each<[RealmAccessMode, boolean]>([["earned", true], ["both", true], ["scheduled", false], ["open", false]])("%s → %s", (accessMode, want) => {
+    expect(opensDays({ ...settings, accessMode })).toBe(want);
+    expect(opensDays({ ...settings, accessMode, enabled: false })).toBe(false);
+  });
+});
+
 describe("isDayOpen — a day is open once its allowance row is written", () => {
   it("is the allowance row, not any other row (a charge can land before the day opens)", () => {
     expect(isDayOpen([])).toBe(false);
@@ -51,6 +58,13 @@ describe("previewToday — today's rows as they will be once the child opens the
       { kind: "allowance", minutes: 10 },
       { kind: "carried", minutes: 20 },
     ]);
+  });
+
+  it("adds nothing (no 0 rows) when the Realm is off or the mode never opens days", () => {
+    const today: LedgerRow[] = [{ kind: "spent", minutes: 2 }];
+    for (const s of [{ ...settings, enabled: false }, { ...settings, accessMode: "scheduled" as const }, { ...settings, accessMode: "open" as const }]) {
+      expect(previewToday(today, yesterday, s)).toEqual(today);
+    }
   });
 
   it("leaves an opened day exactly as written, whatever the settings now say", () => {

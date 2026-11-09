@@ -51,6 +51,14 @@ export type AccessResult =
   | { allowed: true; minutesRemaining: number; source: AccessSource }
   | { allowed: false; reason: AccessDenied };
 
+/**
+ * In, to learn, with nothing to spend: the one test for the quiet world. Not "a 0 balance" — a
+ * recess or off hours at 0 is real play.
+ */
+export function isQuiet(result: AccessResult): boolean {
+  return result.allowed && result.source === "quiet";
+}
+
 const TIME = /^\d{2}:\d{2}$/;
 
 function blockContains(block: TimeBlock, timeOfDay: string): boolean {

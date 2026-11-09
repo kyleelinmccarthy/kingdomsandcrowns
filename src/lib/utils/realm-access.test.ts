@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   computeRealmAccess,
   isOutsideSchoolHours,
+  isQuiet,
   ledgerBalance,
   minutesSpent,
   type AccessInput,
@@ -213,5 +214,14 @@ describe("open access", () => {
     // so there is nothing for a bad time to decide.
     const r = computeRealmAccess({ ...base, settings: open, timeOfDay: "boom", ledgerToday: [] });
     expect(r).toEqual({ allowed: true, minutesRemaining: 30, source: "open" });
+  });
+});
+
+describe("isQuiet — the one test for the quiet world", () => {
+  it("is an allowed answer whose source is quiet, and nothing else", () => {
+    expect(isQuiet({ allowed: true, minutesRemaining: 0, source: "quiet" })).toBe(true);
+    expect(isQuiet({ allowed: true, minutesRemaining: 0, source: "recess" })).toBe(false);
+    expect(isQuiet({ allowed: true, minutesRemaining: 5, source: "off_hours" })).toBe(false);
+    expect(isQuiet({ allowed: false, reason: "cap_reached" })).toBe(false);
   });
 });

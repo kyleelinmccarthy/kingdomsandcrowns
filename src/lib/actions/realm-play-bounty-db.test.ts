@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeAll, beforeEach, afterAll } from "vites
 import { Client } from "pg";
 import { drizzle } from "drizzle-orm/node-postgres";
 import * as schema from "@/lib/db/schema";
-import { REALM_LEDGER_DDL, REALM_SETTINGS_DDL, REALM_TROUBLE_CLEAR_DDL } from "@/test/realm-db-ddl";
+import { REALM_ACCESS_DDL, REALM_LEDGER_DDL, REALM_SETTINGS_DDL, REALM_TROUBLE_CLEAR_DDL } from "@/test/realm-db-ddl";
 
 /**
  * The bounty against a REAL Postgres database, which is what production runs on Railway.
@@ -40,8 +40,9 @@ async function clearsRecorded(): Promise<number> {
   return Number(r.rows[0].n);
 }
 
-// The three tables the bounty touches, as the migrations make them (`src/test/realm-db-ddl.ts`).
-const DDL = [...REALM_SETTINGS_DDL, ...REALM_LEDGER_DDL, ...REALM_TROUBLE_CLEAR_DDL];
+// The tables the bounty touches, and those the gate reads to tell quiet from play, as the
+// migrations make them (`src/test/realm-db-ddl.ts`).
+const DDL = [...REALM_SETTINGS_DDL, ...REALM_LEDGER_DDL, ...REALM_TROUBLE_CLEAR_DDL, ...REALM_ACCESS_DDL];
 
 beforeAll(async () => {
   await client.connect();

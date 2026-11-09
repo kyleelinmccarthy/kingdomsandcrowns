@@ -17,17 +17,19 @@ vi.mock("@/lib/db", () => {
     q.limit = () => q;
     return q;
   };
-  return {
-    db: {
-      insert: () => ({
-        values: (v: Record<string, unknown>) => {
-          if ("kind" in v) inserted.push(v);
-          return Object.assign(Promise.resolve(), { onConflictDoNothing: async () => {} });
-        },
-      }),
-      select: () => ({ from: none }),
-    },
+  // Ledger rows land on `inserted` one by one; the day's opening rows arrive as one batch.
+  const db = {
+    insert: () => ({
+      values: (v: Record<string, unknown> | Record<string, unknown>[]) => {
+        for (const r of Array.isArray(v) ? v : [v]) if ("kind" in r) inserted.push(r);
+        return Object.assign(Promise.resolve(), { onConflictDoNothing: async () => {} });
+      },
+    }),
+    select: () => ({ from: none }),
+    execute: async () => {},
+    transaction: async (run: (tx: unknown) => Promise<unknown>) => run(db),
   };
+  return { db };
 });
 
 import { grantEarnedMinutesForCompletion } from "./realm-play";
@@ -41,7 +43,10 @@ describe("grantEarnedMinutesForCompletion", () => {
   it("writes `earned` on the server's today, for yesterday's assignment finished today", async () => {
     await grantEarnedMinutesForCompletion("c1", "a-yesterday");
     expect(realmNow).toHaveBeenCalledWith("c1");
+    // The day opens first (any write to a day does), then the quest's minutes land on it.
     expect(inserted).toEqual([
+      expect.objectContaining({ childId: "c1", date: "2026-11-09", kind: "allowance" }),
+      expect.objectContaining({ childId: "c1", date: "2026-11-09", kind: "carried" }),
       expect.objectContaining({ childId: "c1", date: "2026-11-09", kind: "earned", minutes: 5, sourceAssignmentId: "a-yesterday" }),
     ]);
   });
