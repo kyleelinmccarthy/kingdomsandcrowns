@@ -9,13 +9,17 @@ import { Switch } from "@/components/ui/switch";
 import { updateRealmSettings, resetRealmHelp } from "@/lib/actions/realm-settings";
 import { grantRealmMinutes } from "@/lib/actions/realm-play";
 import {
+  ALLOWANCE_RANGE,
+  BANK_CAP_RANGE,
   DAILY_CAP_RANGE,
   EARNED_MINUTES_RANGE,
+  MINUTES_PER_STAR_RANGE,
   SIDE_QUEST_LENGTH_RANGE,
+  SIDE_QUEST_PAY_CAP_RANGE,
   TROUBLE_BONUS_RANGE,
   type RealmSettings,
 } from "@/lib/utils/realm-settings";
-import type { RealmAccessMode } from "@/lib/utils/realm-access";
+import { modeEarns, type RealmAccessMode } from "@/lib/utils/realm-access";
 import { DEPTH_OVERRIDES, type DepthOverride } from "@/lib/realm/depth";
 
 /* Each radio's accessible name is its one-word label (the surrounding <label> would
@@ -29,6 +33,8 @@ const MODES: { id: RealmAccessMode; label: string; hint: string }[] = [
   { id: "open", label: "Open", hint: "Always available, no minutes needed. The daily cap still applies." },
 ];
 
+const OFF_HINT = "0 turns this off.";
+
 /**
  * The parent's words for the complexity axis. "depth" is a code word — it never reaches a screen,
  * here or in the Realm (§2 D7.3). Keyed by DepthOverride, so a fourth override fails the build.
@@ -39,6 +45,39 @@ const DEPTH_LABELS: Record<DepthOverride, { label: string; hint: string }> = {
   full: { label: "Everything", hint: "More numbers, more to do." },
 };
 
+/** One saved number: edits stay local until Save, which sends only this field (the Earning time group). */
+function NumberSetting({
+  id,
+  label,
+  range,
+  saved,
+  hint,
+  busy,
+  onSave,
+}: {
+  id: string;
+  label: string;
+  range: { min: number; max: number };
+  saved: number;
+  hint: string;
+  busy: boolean;
+  onSave: (value: number) => void;
+}) {
+  const [value, setValue] = useState(String(saved));
+  return (
+    <div className="flex items-end gap-2">
+      <div className="space-y-1">
+        <Label htmlFor={id}>{label}</Label>
+        <Input id={id} type="number" min={range.min} max={range.max} value={value} onChange={(e) => setValue(e.target.value)} className="w-24" />
+      </div>
+      <Button size="sm" variant="outline" disabled={busy || value === String(saved)} onClick={() => onSave(parseInt(value, 10))}>
+        Save
+      </Button>
+      <p className="pb-2 text-xs text-muted-foreground">{hint}</p>
+    </div>
+  );
+}
+
 export function RealmSettingsPanel({
   childId,
   settings,
@@ -46,12 +85,11 @@ export function RealmSettingsPanel({
 }: {
   childId: string;
   settings: RealmSettings;
-  summary: { date: string; balance: number; spent: number; bonus?: number };
+  summary: { date: string; balance: number; spent: number; bonus?: number; allowance?: number; carried?: number };
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [perQuest, setPerQuest] = useState(String(settings.earnedMinutesPerQuest));
   const [cap, setCap] = useState(String(settings.dailyCapMinutes));
   const [bountyCap, setBountyCap] = useState(String(settings.troubleBonusCapMinutes));
   const [questLength, setQuestLength] = useState(String(settings.sideQuestLength));
@@ -70,7 +108,7 @@ export function RealmSettingsPanel({
   }
 
   const save = (patch: Partial<RealmSettings>) => run(() => updateRealmSettings(childId, patch));
-  const usesEarned = settings.accessMode === "earned" || settings.accessMode === "both";
+  const usesEarned = modeEarns(settings.accessMode);
 
   return (
     <div className="space-y-3">
@@ -110,26 +148,6 @@ export function RealmSettingsPanel({
         {usesEarned && (
           <div className="mt-3 flex items-end gap-2">
             <div className="space-y-1">
-              <Label htmlFor={`per-quest-${childId}`}>Minutes per quest</Label>
-              <Input
-                id={`per-quest-${childId}`}
-                type="number"
-                min={EARNED_MINUTES_RANGE.min}
-                max={EARNED_MINUTES_RANGE.max}
-                value={perQuest}
-                onChange={(e) => setPerQuest(e.target.value)}
-                className="w-24"
-              />
-            </div>
-            <Button size="sm" variant="outline" disabled={busy || perQuest === String(settings.earnedMinutesPerQuest)} onClick={() => save({ earnedMinutesPerQuest: parseInt(perQuest, 10) })}>
-              Save
-            </Button>
-            <p className="pb-2 text-xs text-muted-foreground">Minutes earned stay earned.</p>
-          </div>
-        )}
-        {usesEarned && (
-          <div className="mt-3 flex items-end gap-2">
-            <div className="space-y-1">
               <Label htmlFor={`bounty-${childId}`}>Minutes a day from clearing troubles</Label>
               <Input
                 id={`bounty-${childId}`}
@@ -146,6 +164,61 @@ export function RealmSettingsPanel({
             </Button>
             <p className="pb-2 text-xs text-muted-foreground">One minute per trouble cleared, never more than the day&apos;s quests earned. 0 turns it off.</p>
           </div>
+        )}
+      </fieldset>
+
+      <fieldset className="space-y-3 rounded-lg border border-gold-dim bg-muted/30 px-3 py-2.5">
+        <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Earning time</legend>
+        {usesEarned ? (
+          <>
+            <NumberSetting
+              id={`per-quest-${childId}`}
+              label="Minutes per quest"
+              range={EARNED_MINUTES_RANGE}
+              saved={settings.earnedMinutesPerQuest}
+              hint="Minutes earned stay earned."
+              busy={busy}
+              onSave={(v) => save({ earnedMinutesPerQuest: v })}
+            />
+            <NumberSetting
+              id={`allowance-${childId}`}
+              label="Free minutes each day"
+              range={ALLOWANCE_RANGE}
+              saved={settings.dailyAllowanceMinutes}
+              hint={OFF_HINT}
+              busy={busy}
+              onSave={(v) => save({ dailyAllowanceMinutes: v })}
+            />
+            <NumberSetting
+              id={`per-star-${childId}`}
+              label="Minutes per side-quest star"
+              range={MINUTES_PER_STAR_RANGE}
+              saved={settings.minutesPerStar}
+              hint={OFF_HINT}
+              busy={busy}
+              onSave={(v) => save({ minutesPerStar: v })}
+            />
+            <NumberSetting
+              id={`side-quest-pay-cap-${childId}`}
+              label="Most minutes side quests can earn a day"
+              range={SIDE_QUEST_PAY_CAP_RANGE}
+              saved={settings.sideQuestDailyCapMinutes}
+              hint={OFF_HINT}
+              busy={busy}
+              onSave={(v) => save({ sideQuestDailyCapMinutes: v })}
+            />
+            <NumberSetting
+              id={`bank-cap-${childId}`}
+              label="Most unspent minutes kept for tomorrow"
+              range={BANK_CAP_RANGE}
+              saved={settings.bankCapMinutes}
+              hint={OFF_HINT}
+              busy={busy}
+              onSave={(v) => save({ bankCapMinutes: v })}
+            />
+          </>
+        ) : (
+          <p className="text-xs text-muted-foreground">Earning time applies when minutes are earned.</p>
         )}
       </fieldset>
 
@@ -238,6 +311,11 @@ export function RealmSettingsPanel({
           <p className="text-xs text-muted-foreground">
             {summary.spent} of {settings.dailyCapMinutes} played{summary.bonus ? ` · ${summary.bonus} earned clearing troubles` : ""}
           </p>
+          {usesEarned && (
+            <p className="text-xs text-muted-foreground">
+              {summary.allowance ?? 0} free minutes today · {summary.carried ?? 0} kept from yesterday
+            </p>
+          )}
         </div>
         <div className="flex gap-2">
           {[15, 30].map((m) => (

@@ -22,6 +22,7 @@ import {
   type BountyStatus,
 } from "@/lib/realm/spells/bounty";
 import { computeRealmAccess, isQuiet, ledgerBalance, minutesSpent, type AccessResult } from "@/lib/utils/realm-access";
+import { sumKind } from "@/lib/utils/realm-ledger";
 import { IDLE_REFUND_MAX_MINUTES } from "@/lib/realm3d/pause";
 
 function assertMinutes(minutes: number, max: number) {
@@ -82,11 +83,18 @@ export async function grantRealmMinutes(childId: string, minutes: number): Promi
  * Today's minutes for the settings panel, on the server's day. Before the child has opened the
  * day it shows the allowance and carry they will open it with; it never opens the day itself.
  */
-export async function getRealmPlaySummary(childId: string): Promise<{ date: string; balance: number; spent: number; bonus: number }> {
+export async function getRealmPlaySummary(childId: string): Promise<{ date: string; balance: number; spent: number; bonus: number; allowance: number; carried: number }> {
   const [, { date }] = await Promise.all([requireChildAccess(childId), realmNow(childId)]);
   // After the gate: reading settings creates the row if it is missing.
   const rows = await loadLedgerAsOpened(childId, date, await loadRealmSettings(childId));
-  return { date, balance: ledgerBalance(rows), spent: minutesSpent(rows), bonus: bonusMinutesToday(rows) };
+  return {
+    date,
+    balance: ledgerBalance(rows),
+    spent: minutesSpent(rows),
+    bonus: bonusMinutesToday(rows),
+    allowance: sumKind(rows, "allowance"),
+    carried: sumKind(rows, "carried"),
+  };
 }
 
 /* ---- the bounty: clearing troubles earns Realm minutes (lib/realm/spells/bounty.ts) ---- */

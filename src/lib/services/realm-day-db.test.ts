@@ -172,7 +172,7 @@ describe("a grown-up's view writes nothing", () => {
   it("the settings panel previews today's allowance and carry before the child has opened the day", async () => {
     actor = PARENT;
     await row("2026-11-08", "earned", 4);
-    expect(await getRealmPlaySummary("c1")).toEqual({ date: today, balance: 14, spent: 0, bonus: 0 });
+    expect(await getRealmPlaySummary("c1")).toEqual({ date: today, balance: 14, spent: 0, bonus: 0, allowance: 10, carried: 4 });
     expect(await opening(today)).toEqual({ allowance: [], carried: [] });
   });
 });

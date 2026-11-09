@@ -2,7 +2,15 @@ import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { render, screen, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { RealmSettingsPanel } from "./realm-settings-panel";
-import { DEFAULT_REALM_SETTINGS, SIDE_QUEST_LENGTH_RANGE } from "@/lib/utils/realm-settings";
+import {
+  ALLOWANCE_RANGE,
+  BANK_CAP_RANGE,
+  DEFAULT_REALM_SETTINGS,
+  MINUTES_PER_STAR_RANGE,
+  SIDE_QUEST_LENGTH_RANGE,
+  SIDE_QUEST_PAY_CAP_RANGE,
+  type RealmSettings,
+} from "@/lib/utils/realm-settings";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 
@@ -90,6 +98,53 @@ describe("RealmSettingsPanel", () => {
     render(<RealmSettingsPanel childId="c1" settings={{ ...DEFAULT_REALM_SETTINGS, secondChances: false }} summary={summary} />);
     await user.click(screen.getByRole("switch", { name: "Second chances" }));
     expect(updateRealmSettings).toHaveBeenLastCalledWith("c1", { secondChances: true });
+  });
+
+  describe("Earning time", () => {
+    const FIELDS: { label: string; key: keyof RealmSettings; range: { min: number; max: number }; value: number }[] = [
+      { label: "Free minutes each day", key: "dailyAllowanceMinutes", range: ALLOWANCE_RANGE, value: DEFAULT_REALM_SETTINGS.dailyAllowanceMinutes },
+      { label: "Minutes per side-quest star", key: "minutesPerStar", range: MINUTES_PER_STAR_RANGE, value: DEFAULT_REALM_SETTINGS.minutesPerStar },
+      { label: "Most minutes side quests can earn a day", key: "sideQuestDailyCapMinutes", range: SIDE_QUEST_PAY_CAP_RANGE, value: DEFAULT_REALM_SETTINGS.sideQuestDailyCapMinutes },
+      { label: "Most unspent minutes kept for tomorrow", key: "bankCapMinutes", range: BANK_CAP_RANGE, value: DEFAULT_REALM_SETTINGS.bankCapMinutes },
+    ];
+
+    it("is a group of four fields, each with its range and a one-line hint", () => {
+      render(<RealmSettingsPanel childId="c1" settings={DEFAULT_REALM_SETTINGS} summary={summary} />);
+      const group = screen.getByRole("group", { name: "Earning time" });
+      for (const f of FIELDS) {
+        const field = screen.getByLabelText(f.label);
+        expect(group).toContainElement(field);
+        expect(field).toHaveValue(f.value);
+        expect(field).toHaveAttribute("min", String(f.range.min));
+        expect(field).toHaveAttribute("max", String(f.range.max));
+      }
+      expect(screen.getAllByText("0 turns this off.")).toHaveLength(4);
+      // The per-quest rate is part of the group, not the access-mode picker.
+      expect(group).toContainElement(screen.getByLabelText(/minutes per quest/i));
+    });
+
+    it.each(FIELDS)("saves exactly $key when $label changes", async ({ label, key, range }) => {
+      render(<RealmSettingsPanel childId="c1" settings={DEFAULT_REALM_SETTINGS} summary={summary} />);
+      const field = screen.getByLabelText(label);
+      const save = field.closest("div.flex")!.querySelector("button")!;
+      expect(save).toBeDisabled();
+      fireEvent.change(field, { target: { value: String(range.max) } });
+      fireEvent.click(save);
+      await waitFor(() => expect(updateRealmSettings).toHaveBeenCalledWith("c1", { [key]: range.max }));
+      expect(updateRealmSettings).toHaveBeenCalledTimes(1);
+    });
+
+    it.each(["scheduled", "open"] as const)("is replaced by a short note in %s mode", (accessMode) => {
+      render(<RealmSettingsPanel childId="c1" settings={{ ...DEFAULT_REALM_SETTINGS, accessMode }} summary={summary} />);
+      expect(screen.getByText("Earning time applies when minutes are earned.")).toBeInTheDocument();
+      for (const f of FIELDS) expect(screen.queryByLabelText(f.label)).not.toBeInTheDocument();
+    });
+
+    it("shows today's free minutes and what was kept from yesterday in the summary", () => {
+      render(<RealmSettingsPanel childId="c1" settings={DEFAULT_REALM_SETTINGS} summary={{ ...summary, allowance: 10, carried: 7 }} />);
+      expect(screen.getByText(/10 free minutes today/i)).toBeInTheDocument();
+      expect(screen.getByText(/7 kept from yesterday/i)).toBeInTheDocument();
+    });
   });
 
   it("grants minutes for today", async () => {
