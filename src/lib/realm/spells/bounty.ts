@@ -20,6 +20,7 @@
 import { minutesSpent, modeEarns, type LedgerRow, type RealmAccessMode } from "@/lib/utils/realm-access";
 import { practicePaidToday, sumKind } from "@/lib/utils/realm-ledger";
 import { PLACES } from "@/lib/realm/layout";
+import type { RealmSettings } from "@/lib/utils/realm-settings";
 
 export const MINUTES_PER_CLEAR = 1;
 /** "One grant", never zero: the sub-cap's floor when `earnedMinutesPerQuest` is 0. */
@@ -225,8 +226,9 @@ export function applyStatus(purse: BountyPurse, status: BountyStatus, unsent: re
 
 /* ----------------------------------------------------------- the earning copy */
 
-/** What the earning copy reads from the hero's Realm settings. */
-export type EarningSettings = Pick<BountySettings, "enabled" | "earnedMinutesPerQuest" | "dailyCapMinutes" | "troubleBonusCapMinutes">;
+/** What the earning copy reads from the hero's Realm settings: the bounty's, and earning time's (spec §4.8). */
+export type EarningSettings = Pick<BountySettings, "enabled" | "earnedMinutesPerQuest" | "dailyCapMinutes" | "troubleBonusCapMinutes"> &
+  Pick<RealmSettings, "dailyAllowanceMinutes" | "minutesPerStar" | "sideQuestDailyCapMinutes" | "bankCapMinutes">;
 
 /** "minute" or "minutes", for every line that counts Realm minutes. */
 export function minutesWord(n: number): string {
@@ -249,6 +251,8 @@ export const CLEARING_SPENT_LINE = "You've had all today's minutes from clearing
  *   - `earned` / `both`, bounty on: what a quest earns, and what clearing earns up to today's
  *     sub-cap — or, once the sub-cap is paid, that today's minutes from clearing are had;
  *   - `earned` / `both`, bounty off (a cap of 0): slice 6's line, which is still exactly true;
+ *   - `earned` / `both`, either way: the day's free minutes first, and after the lines above what
+ *     side quests' stars pay and how much the bank keeps — each left out while its setting is 0;
  *   - `scheduled`: recess, never quests, and never clearing — the bounty cannot pay there;
  *   - `open`: open, up to the daily cap — no promise of minutes, since nothing earns them;
  *   - the Realm switched off: nothing.
@@ -261,6 +265,17 @@ export function earningLines(settings: EarningSettings, status: BountyStatus | n
   if (accessMode === "scheduled") return [RECESS_EARNING_LINE];
   if (accessMode === "open") return [`Your Realm is open, up to ${settings.dailyCapMinutes} ${minutesWord(settings.dailyCapMinutes)} a day.`];
 
+  const { dailyAllowanceMinutes: free, minutesPerStar: star, sideQuestDailyCapMinutes: starCap, bankCapMinutes: bank } = settings;
+  return [
+    ...(free > 0 ? [`You get ${free} free ${minutesWord(free)} every day.`] : []),
+    ...questAndClearingLines(settings, status, accessMode),
+    ...(star > 0 && starCap > 0 ? [`Side quests earn ${star} ${minutesWord(star)} per star, up to ${starCap} a day.`] : []),
+    ...(bank > 0 ? [`Unspent minutes are kept for tomorrow, up to ${bank}.`] : []),
+  ];
+}
+
+/** Slice 8's two sentences for the earning modes: what a quest earns, and what clearing does. */
+function questAndClearingLines(settings: EarningSettings, status: BountyStatus | null, accessMode: RealmAccessMode): string[] {
   const q = settings.earnedMinutesPerQuest;
   const bounty = bountyEnabled({ ...settings, accessMode }) && (status === null || status.enabled);
   if (!bounty) {

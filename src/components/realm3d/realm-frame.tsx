@@ -22,14 +22,16 @@ import { useCallback, useEffect, useState, useSyncExternalStore, type ReactNode 
 import { createPortal } from "react-dom";
 import { getRealmAccess, getTroubleBounty } from "@/lib/actions/realm-play";
 import { earningLines, type BountyStatus } from "@/lib/realm/spells/bounty";
-import type { AccessDenied } from "@/lib/utils/realm-access";
+import type { AccessDenied, AccessResult } from "@/lib/utils/realm-access";
 import { closedPhase, entryPhase, QUIET_WALK, type EntryPhase } from "@/lib/realm3d/frame";
+import type { KingdomState } from "@/lib/realm/kingdom-state";
 import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
 import { readingAttributes } from "@/lib/utils/learning-profile";
 import type { SpellPage } from "@/lib/services/spells";
 import type { CloseReason } from "@/components/realm/use-play-clock";
 import { ClosedScreen, GateScreen, RealmScreen } from "./frame-hud";
 import { RealmGame, type RealmData } from "./realm-game";
+import { QuietGate } from "./quiet-gate";
 import "./realm-frame.css";
 
 const UNSUPPORTED = "This computer can't open the 3D Realm yet. Try a newer browser, or turn on hardware acceleration.";
@@ -68,6 +70,8 @@ export function RealmFrame(props: RealmFrameProps) {
   const [snap] = useState(props);
   const childId = snap.realm.childId;
   const isChildView = snap.realm.isChildView;
+  /** The Realm the world opens with: the snapshot's, or its village fetched again after runs at the quiet gate. */
+  const [realm, setRealm] = useState(snap.realm);
   const [phase, setPhase] = useState<EntryPhase>({ kind: "checking" });
   /** Why the gate is shut, when it is: the earning line is said only when minutes are what is missing. */
   const [denied, setDenied] = useState<AccessDenied | null>(null);
@@ -91,8 +95,9 @@ export function RealmFrame(props: RealmFrameProps) {
         if (!result.allowed) setDenied(result.reason);
         setPhase(entryPhase(result, isChildView));
       })
-      .catch((err: unknown) => {
-        if (!cancelled) setPhase({ kind: "gated", copy: { title: "The Realm is out of reach right now.", body: err instanceof Error ? err.message : "Try again in a moment." } });
+      .catch(() => {
+        // Never the thrown message: a child reads this, and production hides a server action's words anyway.
+        if (!cancelled) setPhase({ kind: "gated", copy: { title: "The Realm is out of reach right now.", body: "Try again in a moment." } });
       });
     return () => {
       cancelled = true;
@@ -104,10 +109,20 @@ export function RealmFrame(props: RealmFrameProps) {
     setPhase(closedPhase(reason));
   }, []);
 
-  // Shut for want of minutes: say how they are earned, from the one source (`earningLines`),
-  // with today's bounty so the number is the day's own.
+  // On from the quiet gate: on the clock if a run there woke it, quiet otherwise, into the village its runs raised.
+  const onEnter = useCallback(
+    (access: AccessResult | null, kingdom: KingdomState | null) => {
+      if (kingdom) setRealm({ ...snap.realm, kingdom });
+      setPhase(access ? entryPhase(access, isChildView) : QUIET_WALK);
+    },
+    [snap.realm, isChildView],
+  );
+
+  // Shut for want of minutes, or at the quiet gate: say how they are earned, from the one source
+  // (`earningLines`), with today's bounty so the number is the day's own.
   const earning = snap.realm.earning;
-  const wantsEarning = isChildView && !!childId && !!earning && denied === "no_minutes" && (phase.kind === "gated" || phase.kind === "closed");
+  const shutForMinutes = denied === "no_minutes" && (phase.kind === "gated" || phase.kind === "closed");
+  const wantsEarning = isChildView && !!childId && !!earning && (shutForMinutes || phase.kind === "quiet-gate");
   useEffect(() => {
     if (!wantsEarning || !childId) return;
     let live = true;
@@ -137,8 +152,12 @@ export function RealmFrame(props: RealmFrameProps) {
   else if (phase.kind === "unsupported") content = <RealmScreen icon="castle" title="The Realm can't open here" body={UNSUPPORTED} />;
   else if (phase.kind === "gated") content = <GateScreen copy={phase.copy} heroName={snap.heroName} portrait={snap.avatar} extra={earningExtra} />;
   else if (phase.kind === "closed") content = <ClosedScreen heroName={snap.heroName} body={phase.body} portrait={snap.avatar} extra={earningExtra} />;
+  else if (phase.kind === "quiet-gate" && childId)
+    content = (
+      <QuietGate childId={childId} heroName={snap.heroName} portrait={snap.avatar} earning={earningExtra} kingdom={snap.realm.kingdom} profile={snap.realm.profile} depth={snap.realm.depth} onEnter={onEnter} />
+    );
   else {
-    // Until the quiet gate is drawn, a child at 0 walks straight on into the quiet world.
+    // A quiet gate with no child cannot happen (no child, no access check); it walks in quiet all the same.
     const entry = phase.kind === "quiet-gate" ? QUIET_WALK : phase;
     content = (
       <RealmGame
@@ -148,7 +167,7 @@ export function RealmFrame(props: RealmFrameProps) {
         spellbook={snap.spellbook}
         viewer={snap.viewer}
         castleUnlocked={snap.castleUnlocked}
-        realm={snap.realm}
+        realm={realm}
         mounts={snap.mounts}
         entry={{ minutes: entry.minutes, visit: entry.visit, source: entry.source }}
         onClose={onClose}

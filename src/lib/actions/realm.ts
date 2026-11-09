@@ -24,6 +24,7 @@ import { loadPlacesFound } from "@/lib/services/realm-places";
 import { loadRecessRecord } from "@/lib/services/recess";
 import type { RecessRecord } from "@/lib/realm/recess/record";
 import type { RealmAccessMode } from "@/lib/utils/realm-access";
+import type { EarningSettings } from "@/lib/realm/spells/bounty";
 
 export type RealmBundle = {
   heroName: string;
@@ -84,13 +85,7 @@ export type RealmBundle = {
    * What the earning copy needs (`earningLines` in `lib/realm/spells/bounty.ts`), from the
    * settings row already read here — no extra query. Always set by `getRealmBundle`.
    */
-  earning?: {
-    enabled: boolean;
-    accessMode: RealmAccessMode;
-    earnedMinutesPerQuest: number;
-    dailyCapMinutes: number;
-    troubleBonusCapMinutes: number;
-  };
+  earning?: EarningSettings & { accessMode: RealmAccessMode };
 };
 
 const VILLAGERS_RESTING = "The villagers are resting. Try again.";
@@ -212,6 +207,10 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
       earnedMinutesPerQuest: settings.earnedMinutesPerQuest,
       dailyCapMinutes: settings.dailyCapMinutes,
       troubleBonusCapMinutes: settings.troubleBonusCapMinutes,
+      dailyAllowanceMinutes: settings.dailyAllowanceMinutes,
+      minutesPerStar: settings.minutesPerStar,
+      sideQuestDailyCapMinutes: settings.sideQuestDailyCapMinutes,
+      bankCapMinutes: settings.bankCapMinutes,
     },
   };
 }

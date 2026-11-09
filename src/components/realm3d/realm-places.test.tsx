@@ -69,7 +69,8 @@ beforeEach(() => {
   localStorage.clear();
 });
 
-const earning = { enabled: true, accessMode: "earned" as const, earnedMinutesPerQuest: 5, dailyCapMinutes: 30, troubleBonusCapMinutes: 5 };
+// Earning time's settings at 0, so the card's older lines are asserted alone (`bounty.test.ts` covers the new ones).
+const earning = { enabled: true, accessMode: "earned" as const, earnedMinutesPerQuest: 5, dailyCapMinutes: 30, troubleBonusCapMinutes: 5, dailyAllowanceMinutes: 0, minutesPerStar: 0, sideQuestDailyCapMinutes: 0, bankCapMinutes: 0 };
 const realm: RealmData = {
   childId: "c1",
   isChildView: true,

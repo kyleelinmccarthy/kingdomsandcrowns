@@ -1227,3 +1227,7 @@
 
 /* The mouse is the camera (look-reticle.tsx): a small gold mark at the middle of the view. */
 .r3-reticle { position: absolute; left: 50%; top: 50%; z-index: 22; width: 22px; height: 22px; transform: translate(-50%, -50%); color: var(--r3-gold); filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.8)); pointer-events: none; }
+
+/* ---- the quest board on the quiet gate (gate-quest-board.tsx) ---------------------- */
+.r3-gate-deeds { list-style: none; margin: 0.2rem 0 0; padding: 0; }
+.r3-gate-deeds .r3-deed-story { margin: 0; }

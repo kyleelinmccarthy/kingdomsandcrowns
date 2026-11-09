@@ -179,7 +179,8 @@ describe("the client's purse", () => {
 });
 
 describe("earningLines — the one place the Realm says how minutes are earned (spec §3.11)", () => {
-  const settings = { enabled: true, earnedMinutesPerQuest: 5, dailyCapMinutes: 30, troubleBonusCapMinutes: 5 };
+  // The earning-time settings at 0, so each older line is asserted alone; the new lines have their own tests below.
+  const settings = { enabled: true, earnedMinutesPerQuest: 5, dailyCapMinutes: 30, troubleBonusCapMinutes: 5, dailyAllowanceMinutes: 0, minutesPerStar: 0, sideQuestDailyCapMinutes: 0, bankCapMinutes: 0 };
   const status = (over: Partial<BountyStatus> = {}): BountyStatus => ({
     enabled: true,
     capMinutes: 5,
@@ -264,5 +265,39 @@ describe("earningLines — the one place the Realm says how minutes are earned (
 
   it("says nothing when the Realm is switched off", () => {
     for (const mode of ["earned", "both", "open", "scheduled"] as const) expect(earningLines({ ...settings, enabled: false }, null, mode)).toEqual([]);
+  });
+
+  /* ---- earning time (spec §4.8): the free minutes, side quests' stars, and the bank */
+  const earning = { ...settings, dailyAllowanceMinutes: 10, minutesPerStar: 1, sideQuestDailyCapMinutes: 15, bankCapMinutes: 30 };
+
+  it("earned and both: the day's free minutes first, then side quests' stars and the bank after the older lines", () => {
+    for (const mode of ["earned", "both"] as const) {
+      expect(earningLines(earning, status(), mode)).toEqual([
+        "You get 10 free minutes every day.",
+        "Finish a quest and you earn 5 more minutes here.",
+        "Clearing troubles earns a minute each, up to 5 a day.",
+        "Side quests earn 1 minute per star, up to 15 a day.",
+        "Unspent minutes are kept for tomorrow, up to 30.",
+      ]);
+    }
+  });
+
+  it("counts the minutes a star pays right", () => {
+    expect(earningLines({ ...earning, minutesPerStar: 2 }, status(), "earned")).toContain("Side quests earn 2 minutes per star, up to 15 a day.");
+    expect(earningLines({ ...earning, dailyAllowanceMinutes: 1 }, status(), "earned")[0]).toBe("You get 1 free minute every day.");
+  });
+
+  it("leaves out each new line whose setting is 0", () => {
+    const lines = (over: Partial<typeof earning>) => earningLines({ ...earning, ...over }, status(), "earned");
+    expect(lines({ dailyAllowanceMinutes: 0 })).not.toContain("You get 10 free minutes every day.");
+    expect(lines({ dailyAllowanceMinutes: 0 })[0]).toBe("Finish a quest and you earn 5 more minutes here.");
+    expect(lines({ minutesPerStar: 0 }).some((l) => l.startsWith("Side quests earn"))).toBe(false);
+    expect(lines({ sideQuestDailyCapMinutes: 0 }).some((l) => l.startsWith("Side quests earn"))).toBe(false);
+    expect(lines({ bankCapMinutes: 0 }).some((l) => l.startsWith("Unspent minutes"))).toBe(false);
+  });
+
+  it("promises none of them in scheduled or open mode, where minutes are never read", () => {
+    expect(earningLines(earning, status({ enabled: false }), "scheduled")).toEqual(["Your Realm time comes from recess, not from quests."]);
+    expect(earningLines(earning, status({ enabled: false }), "open")).toEqual(["Your Realm is open, up to 30 minutes a day."]);
   });
 });

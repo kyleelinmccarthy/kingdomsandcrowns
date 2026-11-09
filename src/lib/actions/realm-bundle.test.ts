@@ -97,6 +97,10 @@ describe("getRealmBundle — the places found, and the earning copy's settings",
       earnedMinutesPerQuest: DEFAULT_REALM_SETTINGS.earnedMinutesPerQuest,
       dailyCapMinutes: DEFAULT_REALM_SETTINGS.dailyCapMinutes,
       troubleBonusCapMinutes: DEFAULT_REALM_SETTINGS.troubleBonusCapMinutes,
+      dailyAllowanceMinutes: DEFAULT_REALM_SETTINGS.dailyAllowanceMinutes,
+      minutesPerStar: DEFAULT_REALM_SETTINGS.minutesPerStar,
+      sideQuestDailyCapMinutes: DEFAULT_REALM_SETTINGS.sideQuestDailyCapMinutes,
+      bankCapMinutes: DEFAULT_REALM_SETTINGS.bankCapMinutes,
     });
   });
 });
