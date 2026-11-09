@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { startClock, tickClock, applyAccess, gateCopy, minutesToSettle, ROUND_UP_SECONDS, type ClockEvent, type PlayClock } from "./play-clock";
+import { startClock, tickClock, applyAccess, gateCopy, idleGiveBack, minutesToSettle, noteInput, ROUND_UP_SECONDS, type ClockEvent, type PlayClock } from "./play-clock";
+import { IDLE_REFUND_MAX_MINUTES } from "@/lib/realm3d/pause";
 
 function tickFor(clock: ReturnType<typeof startClock>, seconds: number, visible = true) {
   const events: string[] = [];
@@ -57,7 +58,7 @@ describe("tickClock", () => {
   });
   it("warning is not lost behind a record", () => {
     // Case 1: With 1 minute remaining, a record drops to 0, so next tick asks the server rather than warns.
-    const clock1 = { minutesRemaining: 1, secondsThisMinute: 59, warned: false, closed: false, quiet: false };
+    const clock1 = { minutesRemaining: 1, secondsThisMinute: 59, warned: false, closed: false, quiet: false, countedSinceInput: 0 };
     const r1a = tickClock(clock1, 1, true);
     expect(r1a.event).toBe("record");
     expect(r1a.records).toBe(1);
@@ -68,7 +69,7 @@ describe("tickClock", () => {
     expect(r1b.clock.closed).toBe(false);
 
     // Case 2: With 2 minutes remaining, a record leaves 1 minute, so next tick warns.
-    const clock2 = { minutesRemaining: 2, secondsThisMinute: 59, warned: false, closed: false, quiet: false };
+    const clock2 = { minutesRemaining: 2, secondsThisMinute: 59, warned: false, closed: false, quiet: false, countedSinceInput: 0 };
     const r2a = tickClock(clock2, 1, true);
     expect(r2a.event).toBe("record");
     expect(r2a.records).toBe(1);
@@ -83,7 +84,7 @@ describe("tickClock", () => {
     // another device pays out), and the child plays on. The banner they saw belonged to a
     // last minute that stopped being the last minute; the real one must still announce
     // itself rather than the Realm closing on them in silence.
-    const warnedAtOne = tickClock({ minutesRemaining: 1, secondsThisMinute: 0, warned: false, closed: false, quiet: false }, 1, true);
+    const warnedAtOne = tickClock({ minutesRemaining: 1, secondsThisMinute: 0, warned: false, closed: false, quiet: false, countedSinceInput: 0 }, 1, true);
     expect(warnedAtOne.event).toBe("warn");
     expect(warnedAtOne.clock.warned).toBe(true);
     const toppedUp = applyAccess(warnedAtOne.clock, { allowed: true, minutesRemaining: 6, source: "earned" });
@@ -104,7 +105,7 @@ describe("tickClock", () => {
     expect(last.clock.warned).toBe(true);
   });
   it("releases the latch on a fresh access check that raises the minutes", () => {
-    const warned = { minutesRemaining: 1, secondsThisMinute: 0, warned: true, closed: false, quiet: false };
+    const warned = { minutesRemaining: 1, secondsThisMinute: 0, warned: true, closed: false, quiet: false, countedSinceInput: 0 };
     const raised = applyAccess(warned, { allowed: true, minutesRemaining: 10, source: "earned" });
     expect(raised.clock.warned).toBe(false);
     expect(raised.event).toBeNull();
@@ -125,10 +126,10 @@ describe("applyAccess", () => {
   });
 
   it("goes quiet, not closed, when the server answers quiet", () => {
-    const playing = { minutesRemaining: 1, secondsThisMinute: 20, warned: true, closed: false, quiet: false };
+    const playing = { minutesRemaining: 1, secondsThisMinute: 20, warned: true, closed: false, quiet: false, countedSinceInput: 0 };
     const r = applyAccess(playing, { allowed: true, minutesRemaining: 0, source: "quiet" });
     expect(r.event).toBe("quiet");
-    expect(r.clock).toEqual({ minutesRemaining: 0, secondsThisMinute: 0, warned: false, closed: false, quiet: true });
+    expect(r.clock).toEqual({ minutesRemaining: 0, secondsThisMinute: 0, warned: false, closed: false, quiet: true, countedSinceInput: 0 });
     // Already quiet: a second quiet answer is not news.
     expect(applyAccess(r.clock, { allowed: true, minutesRemaining: 0, source: "quiet" }).event).toBeNull();
   });
@@ -166,7 +167,7 @@ describe("applyAccess", () => {
 
 describe("the quiet clock", () => {
   it("starts quiet when asked to", () => {
-    expect(startClock(0, true)).toEqual({ minutesRemaining: 0, secondsThisMinute: 0, warned: false, closed: false, quiet: true });
+    expect(startClock(0, true)).toEqual({ minutesRemaining: 0, secondsThisMinute: 0, warned: false, closed: false, quiet: true, countedSinceInput: 0 });
     expect(startClock(4).quiet).toBe(false);
   });
 
@@ -207,6 +208,7 @@ describe("minutesToSettle", () => {
     warned: false,
     closed,
     quiet: false,
+    countedSinceInput: 0,
   });
 
   it("charges no minute in progress once the gate has closed", () => {
@@ -252,5 +254,79 @@ describe("minutesToSettle", () => {
   it("clamps to the ledger's 30-minute ceiling", () => {
     expect(minutesToSettle(at(45, 60), 40)).toBe(30);
     expect(minutesToSettle(at(5, 60), 30)).toBe(30);
+  });
+});
+
+describe("idle time given back (spec §4.6)", () => {
+  /** Plays `before` seconds, then the child's last input, then `idle` untouched seconds. */
+  function idleAfter(before: number, idle: number, minutes = 10) {
+    const played = tickFor(startClock(minutes), before);
+    const after = tickFor(noteInput(played.clock), idle);
+    return { clock: after.clock, records: played.records + after.records };
+  }
+
+  it("counts only the clock's own visible seconds since the last input", () => {
+    const { clock } = idleAfter(20, 45);
+    expect(clock.countedSinceInput).toBe(45);
+    expect(tickFor(clock, 30, false).clock.countedSinceInput).toBe(45); // hidden time is not counted, so not given back
+    expect(tickFor(startClock(0, true), 30).clock.countedSinceInput).toBe(0); // nor is quiet time
+  });
+
+  it("input resets the counter (and leaves a clock already at 0 untouched)", () => {
+    const { clock } = idleAfter(5, 40);
+    expect(noteInput(clock)).toEqual({ ...clock, countedSinceInput: 0 });
+    const still = noteInput(clock);
+    expect(noteInput(still)).toBe(still);
+  });
+
+  it("rewinds seconds of the current minute when the whole idle span is inside it", () => {
+    const { clock } = idleAfter(10, 40);
+    const back = idleGiveBack(clock, 0);
+    expect(back).toEqual({ clock: { ...clock, secondsThisMinute: 10, countedSinceInput: 0 }, dropPending: 0, refundRecorded: 0 });
+  });
+
+  it("drops a pending minute the idle span reached into, keeping the seconds that were really played", () => {
+    // 50 played, then 30 idle: one minute pending (not yet written) and 20 seconds in progress.
+    const { clock } = idleAfter(50, 30);
+    expect(clock).toMatchObject({ minutesRemaining: 9, secondsThisMinute: 20 });
+    const back = idleGiveBack(clock, 1);
+    expect(back.dropPending).toBe(1);
+    expect(back.refundRecorded).toBe(0);
+    expect(back.clock).toMatchObject({ minutesRemaining: 10, secondsThisMinute: 50, countedSinceInput: 0 });
+  });
+
+  it("drops whole pending minutes the child was idle through", () => {
+    const { clock } = idleAfter(20, 100);
+    const back = idleGiveBack(clock, 2);
+    expect(back.dropPending).toBe(2);
+    expect(back.clock).toMatchObject({ minutesRemaining: 10, secondsThisMinute: 20 });
+  });
+
+  it("asks for minutes already written back, a minute that was at least half idle counting (the half-up rule)", () => {
+    // 30 played, 120 idle; both whole minutes written. The older one was half idle, so it comes back too.
+    const half = idleAfter(30, 120);
+    expect(half.records).toBe(2);
+    expect(idleGiveBack(half.clock, 0)).toMatchObject({ dropPending: 0, refundRecorded: 2, clock: { secondsThisMinute: 0, minutesRemaining: 8 } });
+    // 31 played, 119 idle: the older minute was mostly played, so it stays charged.
+    expect(idleGiveBack(idleAfter(31, 119).clock, 0).refundRecorded).toBe(1);
+  });
+
+  it("drops what is pending first and asks back only what was written, never both for one minute", () => {
+    // 30 played, 120 idle; the newer minute is still pending, the older one written.
+    const { clock } = idleAfter(30, 120);
+    const back = idleGiveBack(clock, 1);
+    expect(back).toMatchObject({ dropPending: 1, refundRecorded: 1, clock: { secondsThisMinute: 0, minutesRemaining: 9 } });
+  });
+
+  it("never asks back more than one idle pause can owe", () => {
+    const { clock } = idleAfter(0, 600, 20);
+    expect(idleGiveBack(clock, 0).refundRecorded).toBe(IDLE_REFUND_MAX_MINUTES);
+  });
+
+  it("gives nothing back from a quiet or closed clock, and starts the count again", () => {
+    const quiet = { ...idleAfter(0, 90).clock, quiet: true };
+    expect(idleGiveBack(quiet, 0)).toEqual({ clock: { ...quiet, countedSinceInput: 0 }, dropPending: 0, refundRecorded: 0 });
+    const closed = { ...idleAfter(0, 90).clock, closed: true };
+    expect(idleGiveBack(closed, 1)).toEqual({ clock: { ...closed, countedSinceInput: 0 }, dropPending: 0, refundRecorded: 0 });
   });
 });

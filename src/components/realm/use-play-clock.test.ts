@@ -4,9 +4,11 @@ import { usePlayClock } from "./use-play-clock";
 
 const getRealmAccess = vi.fn();
 const recordRealmPlay = vi.fn();
+const refundIdleMinutes = vi.fn();
 vi.mock("@/lib/actions/realm-play", () => ({
   getRealmAccess: (...a: unknown[]) => getRealmAccess(...a),
   recordRealmPlay: (...a: unknown[]) => recordRealmPlay(...a),
+  refundIdleMinutes: (...a: unknown[]) => refundIdleMinutes(...a),
 }));
 
 /** A promise the test resolves by hand, so fake timers can be advanced while a `recordRealmPlay` call is still in flight. */
@@ -648,5 +650,151 @@ describe("usePlayClock — the last minute's record fails, then the clock closes
     expect(recordRealmPlay).toHaveBeenCalledTimes(2);
     expect(recordRealmPlay).toHaveBeenNthCalledWith(2, "c1", 1);
     unmount();
+  });
+});
+
+describe("usePlayClock — idle time given back (spec §4.6)", () => {
+  const play = (ms: number) =>
+    act(async () => {
+      await vi.advanceTimersByTimeAsync(ms);
+    });
+
+  it("rewinds the minute in progress locally and asks the server nothing", async () => {
+    recordRealmPlay.mockResolvedValue(undefined);
+    const { result } = renderHook(() => usePlayClock({ enabled: true, childId: "c1", initialMinutes: 5, onClose: vi.fn() }));
+    await play(10_000);
+    act(() => result.current.noteInput());
+    await play(40_000);
+    let refunded = -1;
+    await act(async () => {
+      refunded = await result.current.giveBackIdle();
+    });
+    expect(refunded).toBe(0);
+    expect(refundIdleMinutes).not.toHaveBeenCalled();
+    // Only the 10 played seconds are left in progress: leaving now charges nothing.
+    await act(async () => {
+      await result.current.flushPending();
+    });
+    expect(recordRealmPlay).not.toHaveBeenCalled();
+  });
+
+  it("drops an unwritten idle minute from pending, so neither a flush nor the page-hide beacon sends it", async () => {
+    const sendBeacon = vi.fn(() => true);
+    Object.defineProperty(navigator, "sendBeacon", { value: sendBeacon, configurable: true, writable: true });
+    recordRealmPlay.mockRejectedValue(new Error("The ledger is unreachable."));
+    const { result, unmount } = renderHook(() => usePlayClock({ enabled: true, childId: "c1", initialMinutes: 5, onClose: vi.fn() }));
+    await play(20_000);
+    act(() => result.current.noteInput());
+    await play(70_000); // the 60th second's record fails: one idle minute pending, 30 seconds in progress
+    expect(recordRealmPlay).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      expect(await result.current.giveBackIdle()).toBe(0);
+    });
+    expect(refundIdleMinutes).not.toHaveBeenCalled();
+    expect(result.current.minutesRemaining).toBe(5);
+    act(() => void window.dispatchEvent(new Event("pagehide")));
+    expect(sendBeacon).not.toHaveBeenCalled(); // 20 played seconds: under half a minute
+    unmount();
+    delete (navigator as { sendBeacon?: unknown }).sendBeacon;
+  });
+
+  it("asks the server for written idle minutes and refreshes to its count", async () => {
+    recordRealmPlay.mockResolvedValue(undefined);
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 3, source: "earned" });
+    refundIdleMinutes.mockResolvedValue({ refunded: 2 });
+    const { result } = renderHook(() => usePlayClock({ enabled: true, childId: "c1", initialMinutes: 5, onClose: vi.fn() }));
+    await play(120_000); // two minutes, both written, nobody touching anything
+    expect(recordRealmPlay).toHaveBeenCalledTimes(2);
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 5, source: "earned" });
+    let refunded = -1;
+    await act(async () => {
+      refunded = await result.current.giveBackIdle();
+    });
+    expect(refundIdleMinutes).toHaveBeenCalledWith("c1", 2);
+    expect(refunded).toBe(2);
+    expect(result.current.minutesRemaining).toBe(5);
+  });
+
+  it("leaves the minutes charged, and says nothing, when the refund fails", async () => {
+    recordRealmPlay.mockResolvedValue(undefined);
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 3, source: "earned" });
+    refundIdleMinutes.mockRejectedValue(new Error("The ledger is unreachable."));
+    const { result } = renderHook(() => usePlayClock({ enabled: true, childId: "c1", initialMinutes: 5, onClose: vi.fn() }));
+    await play(120_000);
+    let refunded = -1;
+    await act(async () => {
+      refunded = await result.current.giveBackIdle();
+    });
+    expect(refunded).toBe(0);
+    expect(result.current.error).toBe("");
+    expect(result.current.minutesRemaining).toBe(3);
+  });
+
+  it("keeps the refund's answer, and shows no error, when the re-check after it fails", async () => {
+    recordRealmPlay.mockResolvedValue(undefined);
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 3, source: "earned" });
+    refundIdleMinutes.mockResolvedValue({ refunded: 2 });
+    const { result } = renderHook(() => usePlayClock({ enabled: true, childId: "c1", initialMinutes: 5, onClose: vi.fn() }));
+    await play(120_000);
+    getRealmAccess.mockRejectedValue(new Error("The ledger is unreachable."));
+    await act(async () => {
+      expect(await result.current.giveBackIdle()).toBe(2);
+    });
+    expect(result.current.error).toBe("");
+  });
+
+  it("counts a record in flight as written: refunded once it lands", async () => {
+    const send = deferred();
+    recordRealmPlay.mockResolvedValueOnce(undefined).mockReturnValueOnce(send.promise);
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 3, source: "earned" });
+    refundIdleMinutes.mockResolvedValue({ refunded: 2 });
+    const { result } = renderHook(() => usePlayClock({ enabled: true, childId: "c1", initialMinutes: 5, onClose: vi.fn() }));
+    await play(120_000); // the second minute's record is still in flight
+    let asked!: Promise<number>;
+    act(() => {
+      asked = result.current.giveBackIdle();
+    });
+    expect(refundIdleMinutes).not.toHaveBeenCalled(); // not before the spend it gives back has landed
+    await act(async () => {
+      send.resolve();
+      expect(await asked).toBe(2);
+    });
+    expect(refundIdleMinutes).toHaveBeenCalledWith("c1", 2);
+    await act(async () => {
+      await result.current.flushPending();
+    });
+    expect(recordRealmPlay).toHaveBeenCalledTimes(2); // nothing left over to charge again
+  });
+
+  it("drops a record in flight that fails instead of refunding it, and never charges it again", async () => {
+    const send = deferred();
+    recordRealmPlay.mockResolvedValueOnce(undefined).mockReturnValueOnce(send.promise.then(() => Promise.reject(new Error("The ledger is unreachable."))));
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 3, source: "earned" });
+    refundIdleMinutes.mockResolvedValue({ refunded: 1 });
+    const { result } = renderHook(() => usePlayClock({ enabled: true, childId: "c1", initialMinutes: 5, onClose: vi.fn() }));
+    await play(120_000);
+    let asked!: Promise<number>;
+    act(() => {
+      asked = result.current.giveBackIdle();
+    });
+    await act(async () => {
+      send.resolve();
+      expect(await asked).toBe(1);
+    });
+    expect(refundIdleMinutes).toHaveBeenCalledWith("c1", 1); // only the minute that was written
+    recordRealmPlay.mockResolvedValue(undefined);
+    await act(async () => {
+      await result.current.flushPending();
+    });
+    expect(recordRealmPlay).toHaveBeenCalledTimes(2); // the failed idle minute is not retried
+  });
+
+  it("has nothing to give back in the quiet world", async () => {
+    const { result } = renderHook(() => usePlayClock({ enabled: true, childId: "c1", initialMinutes: 0, onClose: vi.fn(), initialSource: "quiet" }));
+    await play(120_000);
+    await act(async () => {
+      expect(await result.current.giveBackIdle()).toBe(0);
+    });
+    expect(refundIdleMinutes).not.toHaveBeenCalled();
   });
 });

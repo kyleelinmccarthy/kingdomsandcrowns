@@ -1,5 +1,6 @@
 import { isQuiet, type AccessResult } from "@/lib/utils/realm-access";
 import { formatTimeOfDay } from "@/lib/utils/schedule-days";
+import { IDLE_REFUND_MAX_MINUTES } from "@/lib/realm3d/pause";
 
 export type PlayClock = {
   minutesRemaining: number; // from the last access check
@@ -8,6 +9,8 @@ export type PlayClock = {
   closed: boolean;
   /** The server said `quiet` (an earning mode at a 0 balance): in, with nothing to spend, so nothing counts. */
   quiet: boolean;
+  /** Seconds this clock counted since the child last touched anything (`noteInput`): what an idle pause gives back. */
+  countedSinceInput: number;
 };
 /**
  * `empty`: the minutes ran out while playing — the caller asks the server, whose answer
@@ -17,7 +20,7 @@ export type PlayClock = {
 export type ClockEvent = "record" | "warn" | "close" | "quiet" | "wake" | "empty" | null;
 
 export function startClock(minutesRemaining: number, quiet = false): PlayClock {
-  return { minutesRemaining: Math.max(0, Math.floor(minutesRemaining)), secondsThisMinute: 0, warned: false, closed: false, quiet };
+  return { minutesRemaining: Math.max(0, Math.floor(minutesRemaining)), secondsThisMinute: 0, warned: false, closed: false, quiet, countedSinceInput: 0 };
 }
 
 /** At or above this many seconds into the current minute, the minute is charged. */
@@ -87,7 +90,43 @@ export function tickClock(clock: PlayClock, elapsedSeconds: number, visible: boo
     event = "warn";
     warned = true;
   }
-  return { clock: { ...clock, secondsThisMinute: seconds, minutesRemaining, warned }, event, records };
+  const countedSinceInput = clock.countedSinceInput + elapsedSeconds;
+  return { clock: { ...clock, secondsThisMinute: seconds, minutesRemaining, warned, countedSinceInput }, event, records };
+}
+
+/** The child touched the game: the idle count starts again. The same clock when it is already 0 (input fires on every mouse move). */
+export function noteInput(clock: PlayClock): PlayClock {
+  return clock.countedSinceInput === 0 ? clock : { ...clock, countedSinceInput: 0 };
+}
+
+/**
+ * The idle pause fired: un-charge what this clock counted since the last input (spec §4.6).
+ * `pending` is the whole minutes counted but not yet written (none in flight). The idle span is
+ * the newest time, so it is taken back newest first, to the second:
+ *
+ *   - from the minute in progress and the pending minutes — nothing was written, so this is local:
+ *     `dropPending` minutes leave pending (and return to `minutesRemaining`), and seconds really
+ *     played in a dropped minute stay in progress;
+ *   - what is left was already written as `spent`: `refundRecorded` minutes to ask the server for.
+ *     A written minute counts when at least half of it was idle — the mirror of `ROUND_UP_SECONDS`,
+ *     which charges a part-minute played at least half — capped at `IDLE_REFUND_MAX_MINUTES`.
+ *
+ * A quiet or closed clock counted nothing that could be given back.
+ */
+export function idleGiveBack(clock: PlayClock, pending: number): { clock: PlayClock; dropPending: number; refundRecorded: number } {
+  const reset = { ...clock, countedSinceInput: 0 };
+  if (clock.quiet || clock.closed) return { clock: reset, dropPending: 0, refundRecorded: 0 };
+  const owedPending = Math.max(0, Math.floor(pending));
+  const unwritten = owedPending * 60 + clock.secondsThisMinute;
+  const played = Math.max(0, unwritten - clock.countedSinceInput);
+  const dropPending = owedPending - Math.floor(played / 60);
+  const writtenIdle = Math.max(0, clock.countedSinceInput - unwritten);
+  const refundRecorded = Math.min(IDLE_REFUND_MAX_MINUTES, Math.floor((writtenIdle + 60 - ROUND_UP_SECONDS) / 60));
+  return {
+    clock: { ...reset, secondsThisMinute: played % 60, minutesRemaining: clock.minutesRemaining + dropPending },
+    dropPending,
+    refundRecorded,
+  };
 }
 
 /**

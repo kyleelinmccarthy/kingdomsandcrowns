@@ -31,6 +31,7 @@ vi.mock("@/lib/actions/quest-assignments", () => ({ getAssignmentQuestInfo: vi.f
 vi.mock("@/lib/actions/realm-play", () => ({
   getRealmAccess: vi.fn(async () => ({ allowed: true, minutesRemaining: 239, source: "earned" })),
   recordRealmPlay: vi.fn(async () => {}),
+  refundIdleMinutes: vi.fn(async (_childId: string, minutes: number) => ({ refunded: minutes })),
   getTroubleBounty: vi.fn(async () => ({ enabled: false, capMinutes: 0, subCapMinutes: 0, paidMinutes: 0, remainingMinutes: 0, clearsToday: 0, paidHomes: [] })),
   recordTroubleClears: vi.fn(),
 }));
@@ -39,7 +40,7 @@ vi.mock("@/lib/realm3d/worldgen", async (orig) => {
   return { ...real, realmWorld: () => ({ landmarks: [], roads: [], biomeAt: () => "meadow", heightAt: () => 0 }) };
 });
 
-import { recordRealmPlay } from "@/lib/actions/realm-play";
+import { recordRealmPlay, refundIdleMinutes } from "@/lib/actions/realm-play";
 import { LOOK_KEY } from "@/lib/realm3d/look-settings";
 import { RealmGame, type RealmData } from "./realm-game";
 
@@ -157,21 +158,43 @@ describe("every way the game pauses by itself stops a child's minutes", () => {
     expect(screen.getByRole("dialog", { name: "Paused" })).toHaveTextContent("Paused while you were away");
   });
 
-  it("two minutes untouched: 'Still there?', the clock stops there, and one click plays on", async () => {
+  it("two minutes untouched: 'Are you there, Emma?', the idle minutes given back, the clock stopped, and one click plays on", async () => {
     mountChild();
     await advance(119_000);
     expect(screen.queryByRole("dialog")).toBeNull();
     await advance(1_000);
-    expect(screen.getByRole("dialog", { name: "Still there?" })).toBeInTheDocument();
+    const card = screen.getByRole("dialog", { name: "Are you there, Emma?" });
 
-    // The two minutes before the card were played (nobody can tell them from watching); nothing after it is.
+    // The minutes the clock wrote while nobody was there go back (spec §4.6), and the card says how many.
+    expect(refundIdleMinutes).toHaveBeenCalledOnce();
+    const [childId, asked] = vi.mocked(refundIdleMinutes).mock.calls[0];
+    expect(childId).toBe("demo-child-1");
+    expect(card).toHaveTextContent(`You stepped away, so the Realm paused and gave back ${asked} ${asked === 1 ? "minute" : "minutes"}.`);
+
+    // Nothing after the card is charged.
     const written = vi.mocked(recordRealmPlay).mock.calls.length;
     await advance(5 * 60_000);
     expect(recordRealmPlay).toHaveBeenCalledTimes(written);
 
-    fireEvent.click(screen.getByRole("button", { name: "I'm here!" }));
+    fireEvent.click(screen.getByRole("button", { name: "I'm back!" }));
     await advance(65_000);
     expect(recordRealmPlay).toHaveBeenCalledTimes(written + 1);
+  });
+
+  it("an idle pause whose give-back fails says the minutes stopped, never an error, and leaves them charged", async () => {
+    vi.mocked(refundIdleMinutes).mockRejectedValueOnce(new Error("The ledger is unreachable."));
+    mountChild();
+    await advance(120_000);
+    const card = screen.getByRole("dialog", { name: "Are you there, Emma?" });
+    expect(card).toHaveTextContent("You stepped away, so the Realm paused — your minutes stopped too.");
+    expect(screen.queryByText(/unreachable/)).toBeNull();
+  });
+
+  it("the quiet world has nothing to give back: the idle pause says so plainly", async () => {
+    render(<RealmGame heroName="Emma" realm={realm} entry={{ minutes: 0, visit: null, source: "quiet" }} castleUnlocked={false} />);
+    await advance(120_000);
+    expect(screen.getByRole("dialog", { name: "Are you there, Emma?" })).toHaveTextContent("your minutes stopped too");
+    expect(refundIdleMinutes).not.toHaveBeenCalled();
   });
 
   it("starts the two minutes again at every key, click or mouse move", async () => {
@@ -187,7 +210,7 @@ describe("every way the game pauses by itself stops a child's minutes", () => {
     await advance(119_000);
     expect(screen.queryByRole("dialog")).toBeNull();
     await advance(1_000);
-    expect(screen.getByRole("dialog", { name: "Still there?" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Are you there, Emma?" })).toBeInTheDocument();
   });
 
   it("counts no idle time while a panel is open: the two minutes start again when the child comes back", async () => {

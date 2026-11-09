@@ -127,8 +127,11 @@ export function visitClockLine(heroName: string, visit: { minutes: number | null
  * `bus.setPaused(overlay !== null)` and nothing else decides it.
  */
 export type Overlay =
-  /** `why`: the child asked (absent), they were away, or nothing moved (`pause.ts`). */
-  | { kind: "pause"; why?: PauseWhy }
+  /**
+   * `why`: the child asked (absent), they were away, or nothing moved (`pause.ts`). `refunded`: the
+   * minutes an idle pause gave back, once the server has answered (`usePause`).
+   */
+  | { kind: "pause"; why?: PauseWhy; refunded?: number }
   /** How to play. `back` is true when it was opened from the pause menu, so Esc returns there. */
   | { kind: "howto"; back: boolean }
   /** The wardrobe (`wardrobe.tsx`), from the pause menu; Esc goes back there. */

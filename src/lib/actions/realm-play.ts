@@ -10,6 +10,7 @@ import {
   loadRealmSettings,
   loadTroubleClears,
   openDay,
+  refundIdle,
 } from "@/lib/services/realm-play";
 import { loadAccessScene } from "@/lib/services/realm-access-scene";
 import { realmNow } from "@/lib/services/realm-clock";
@@ -21,6 +22,7 @@ import {
   type BountyStatus,
 } from "@/lib/realm/spells/bounty";
 import { computeRealmAccess, isQuiet, ledgerBalance, minutesSpent, type AccessResult } from "@/lib/utils/realm-access";
+import { IDLE_REFUND_MAX_MINUTES } from "@/lib/realm3d/pause";
 
 function assertMinutes(minutes: number, max: number) {
   if (!Number.isInteger(minutes) || minutes < 1 || minutes > max) {
@@ -49,6 +51,21 @@ export async function recordRealmPlay(childId: string, minutes: number): Promise
   const [, { date }] = await Promise.all([requireChildAccess(childId, { write: true }), realmNow(childId)]);
   // The same write as the page-hide beacon (`app/api/realm/play/route.ts`).
   await chargeRealmPlay(childId, date, minutes);
+}
+
+/**
+ * The idle pause gives back what the clock charged while nobody was there (spec §4.6): the
+ * child's own clock only, a whole number of minutes up to `IDLE_REFUND_MAX_MINUTES`, on the
+ * server's today. `refundIdle` bounds it by today's spent and to one per `IDLE_MS`; the answer is
+ * what was actually given back (0 when refused, the Realm off, or nothing to give).
+ */
+export async function refundIdleMinutes(childId: string, minutes: number): Promise<{ refunded: number }> {
+  const [{ access }, { date }] = await Promise.all([requireChildAccess(childId, { write: true }), realmNow(childId)]);
+  if (!isChildActor(access)) throw new Error("Only the hero's own clock gives idle minutes back.");
+  assertMinutes(minutes, IDLE_REFUND_MAX_MINUTES);
+  const settings = await loadRealmSettings(childId);
+  if (!settings.enabled) return { refunded: 0 };
+  return { refunded: await refundIdle(childId, date, minutes, settings) };
 }
 
 /** A grown-up's grant lands on the server's today, like every other Realm minute. */

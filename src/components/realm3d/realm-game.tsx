@@ -773,7 +773,7 @@ export function RealmGame({
   });
   // The pauses a child never asks for — the tab hidden, the window left, the mouse let go, two
   // minutes untouched — and P (`use-pause.ts`). A grown-up has no clock: only Esc and P pause them.
-  const pauser = usePause({ bus, overlayRef, paused, go, clock: clockOn, enabled: !close });
+  const pauser = usePause({ bus, overlayRef, paused, go, clock: clockOn, enabled: !close, noteInput: clock.noteInput, giveBackIdle: clock.giveBackIdle });
   // The quiet world (`lib/realm3d/quiet.ts`): troubles, riding and recess rest. A grown-up has no clock, so is never quiet.
   const quiet = clockOn && clock.quiet;
   const awake = quietSurfaces(quiet);
@@ -1065,6 +1065,7 @@ export function RealmGame({
               heroName={heroName}
               viewer={who}
               why={overlay.why}
+              refunded={overlay.refunded}
               onResume={pauser.resume}
               onControls={() => go({ kind: "howto", back: true })}
               onWardrobe={isChild && viewer === "child" ? () => go({ kind: "wardrobe" }) : undefined}

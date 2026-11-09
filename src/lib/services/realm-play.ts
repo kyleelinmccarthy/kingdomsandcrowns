@@ -3,7 +3,7 @@ import { nanoid } from "nanoid";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { settingsFromRow, type RealmSettings } from "@/lib/utils/realm-settings";
-import { computeRealmAccess, isQuiet, modeEarns, type LedgerRow } from "@/lib/utils/realm-access";
+import { computeRealmAccess, isQuiet, minutesSpent, modeEarns, type LedgerRow } from "@/lib/utils/realm-access";
 import { dayOpeningRows, isDayOpen, opensDays, previewToday } from "@/lib/utils/realm-day";
 import type { AccessScene } from "@/lib/services/realm-access-scene";
 import { playChargeProblem } from "@/lib/utils/realm-play-charge";
@@ -12,6 +12,7 @@ import { practicePaidToday } from "@/lib/utils/realm-ledger";
 import { sideQuestPay, type SideQuestPay } from "@/lib/utils/side-quest-pay";
 import { awardClears, bountyStatusFor, MAX_CLEARS_PER_MINUTE, type BountyStatus, type ClearRow } from "@/lib/realm/spells/bounty";
 import { latestClears, RELOAD_MEMORY_MS, STAMP_SLACK_MS, type RecentClear } from "@/lib/realm3d/trouble-reload";
+import { IDLE_MS } from "@/lib/realm3d/pause";
 
 /** A transaction on the database. */
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -222,6 +223,30 @@ export async function paySideQuest(childId: string, runId: string, stars: number
       .where(and(eq(L.kind, "practice"), eq(L.sourceRunId, runId)))
       .limit(1);
     return { minutes: earlier[0]?.minutes ?? 0, full: sideQuestPay(0, settings, paidToday).full };
+  });
+}
+
+/**
+ * Gives back play minutes the clock charged while the child was idle (spec §4.6), as one `refund`
+ * row on the server's day; returns how many. Under the child's lock with the day opened first,
+ * like every write: never more than today's spent (net of refunds), so a forged refund cannot
+ * mint credit, and at most one per `IDLE_MS` of wall time per child — the latest `refund` row's
+ * `created_at`, read inside the lock, so two at once write one row. Callers have authorized the
+ * child and checked `minutes` (`refundIdleMinutes`).
+ */
+export async function refundIdle(childId: string, date: string, minutes: number, settings: RealmSettings): Promise<number> {
+  return withChildLock(childId, async (tx) => {
+    const today = await openDay(childId, date, settings, tx);
+    const L = schema.realmPlayLedger;
+    const [latest] = await tx
+      .select({ at: max(L.createdAt) })
+      .from(L)
+      .where(and(eq(L.childId, childId), eq(L.kind, "refund")));
+    if (latest?.at && Date.now() - latest.at.getTime() < IDLE_MS) return 0;
+    const refunded = Math.min(minutes, minutesSpent(today));
+    if (refunded < 1) return 0;
+    await appendLedger(childId, date, "refund", refunded, {}, tx);
+    return refunded;
   });
 }
 

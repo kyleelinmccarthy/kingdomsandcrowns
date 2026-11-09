@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { autoPause, pauseCopy, type AutoTrigger } from "./pause";
+import { autoPause, IDLE_MS, IDLE_REFUND_MAX_MINUTES, pauseCopy, type AutoTrigger } from "./pause";
 
 const child = { playing: true, clock: true, focused: true };
 const parent = { playing: true, clock: false, focused: true };
@@ -11,7 +11,7 @@ describe("autoPause — what pauses the game without being asked", () => {
     expect(autoPause("blur", child)).toBe("away");
   });
 
-  it("pauses a child after two minutes without input, as a 'Still there?'", () => {
+  it("pauses a child after two minutes without input, as an 'Are you there?'", () => {
     expect(autoPause("idle", child)).toBe("idle");
   });
 
@@ -53,17 +53,36 @@ describe("pauseCopy — what the pause screen says", () => {
     });
   });
 
-  it("asks 'Still there?' after the idle pause, with one friendly button back", () => {
-    const idle = pauseCopy("idle", "child", "Emma");
-    expect(idle.title).toBe("Still there?");
-    expect(idle.reason).toMatch(/two minutes/);
-    expect(idle.reason).toMatch(/your minutes stopped too/);
-    expect(idle.line).toBe(HONEST);
-    expect(idle.resume).toBe("I'm here!");
+  it("asks 'Are you there, {name}?' after the idle pause and says what it gave back, with one friendly button back", () => {
+    expect(pauseCopy("idle", "child", "Emma", 2)).toEqual({
+      title: "Are you there, Emma?",
+      reason: "You stepped away, so the Realm paused and gave back 2 minutes.",
+      line: HONEST,
+      resume: "I'm back!",
+    });
+    expect(pauseCopy("idle", "child", "Noah", 1).reason).toBe("You stepped away, so the Realm paused and gave back 1 minute.");
+  });
+
+  it("says the minutes stopped too when the idle pause had nothing to give back (or the give-back failed)", () => {
+    const idle = pauseCopy("idle", "child", "Emma", 0);
+    expect(idle.title).toBe("Are you there, Emma?");
+    expect(idle.reason).toBe("You stepped away, so the Realm paused — your minutes stopped too.");
+    expect(idle.resume).toBe("I'm back!");
+  });
+
+  it("holds the reason back while the give-back is still being asked", () => {
+    expect(pauseCopy("idle", "child", "Emma").reason).toBeNull();
   });
 
   it("tells a grown-up the child's Realm waits, and says nothing of minutes", () => {
     const c = pauseCopy("you", "parent", "Emma");
     expect(c).toEqual({ title: "Paused", reason: null, line: "Emma's Realm waits while you look.", resume: "Resume" });
+  });
+});
+
+describe("IDLE_REFUND_MAX_MINUTES — the most one idle pause gives back", () => {
+  it("is the idle wait rounded up to whole minutes, so it moves with IDLE_MS", () => {
+    expect(IDLE_REFUND_MAX_MINUTES).toBe(Math.ceil(IDLE_MS / 60_000));
+    expect(IDLE_REFUND_MAX_MINUTES).toBe(2);
   });
 });

@@ -170,12 +170,12 @@ describe("the pause menu", () => {
     expect(board).toHaveTextContent("The world waits for you. Your minutes are not ticking.");
   });
 
-  it("asks 'Still there?' after two minutes untouched, with one friendly button back", () => {
+  it("asks 'Are you there, {name}?' after two minutes untouched, says what it gave back, with one friendly button back", () => {
     const onResume = vi.fn();
-    render(<PauseMenu heroName="Emma" viewer="child" why="idle" onResume={onResume} onControls={() => {}} leaveHref="/tavern" settings={noSettings} />);
-    expect(screen.getByRole("dialog", { name: "Still there?" })).toHaveTextContent("your minutes stopped too");
-    expect(screen.getByRole("button", { name: /I'm here!/ })).toHaveFocus();
-    fireEvent.click(screen.getByRole("button", { name: /I'm here!/ }));
+    render(<PauseMenu heroName="Emma" viewer="child" why="idle" refunded={2} onResume={onResume} onControls={() => {}} leaveHref="/tavern" settings={noSettings} />);
+    expect(screen.getByRole("dialog", { name: "Are you there, Emma?" })).toHaveTextContent("You stepped away, so the Realm paused and gave back 2 minutes.");
+    expect(screen.getByRole("button", { name: /I'm back!/ })).toHaveFocus();
+    fireEvent.click(screen.getByRole("button", { name: /I'm back!/ }));
     expect(onResume).toHaveBeenCalledOnce();
   });
 

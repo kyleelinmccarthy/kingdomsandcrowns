@@ -369,6 +369,7 @@ export function PauseMenu({
   heroName,
   viewer,
   why = "you",
+  refunded,
   onResume,
   onControls,
   onWardrobe,
@@ -382,6 +383,8 @@ export function PauseMenu({
   viewer: Viewer;
   /** Why it paused (`pause.ts`): said on the board when the game paused by itself. */
   why?: PauseWhy;
+  /** What an idle pause gave back, once known (`pauseCopy`). */
+  refunded?: number;
   /** The Mouse section (`look-controls.tsx`): look speed and Invert up/down, beside Sound. */
   look?: ReactNode;
   onResume: () => void;
@@ -395,7 +398,7 @@ export function PauseMenu({
   /** The Sound section (`realm-sound.tsx`): volume, effects, music, mute. */
   sound?: ReactNode;
 }) {
-  const copy = pauseCopy(why, viewer, heroName);
+  const copy = pauseCopy(why, viewer, heroName, refunded);
   return (
     <Panel title={copy.title} label={copy.title} icon={<GameIcon name="hourglass" className="r3-board-icon" />} onClose={onResume}>
       {copy.reason && <p className="r3-board-sub r3-pause-why">{copy.reason}</p>}

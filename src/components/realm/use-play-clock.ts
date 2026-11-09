@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { getRealmAccess, recordRealmPlay } from "@/lib/actions/realm-play";
-import { applyAccess, minutesToSettle, startClock, tickClock, type PlayClock } from "@/lib/realm/play-clock";
+import { getRealmAccess, recordRealmPlay, refundIdleMinutes } from "@/lib/actions/realm-play";
+import { applyAccess, idleGiveBack, minutesToSettle, noteInput as inputSeen, startClock, tickClock, type PlayClock } from "@/lib/realm/play-clock";
 import type { AccessDenied, AccessResult, AccessSource } from "@/lib/utils/realm-access";
 import { beaconPlayCharge } from "@/lib/utils/realm-play-charge";
 
@@ -74,6 +74,8 @@ export function usePlayClock({
   // The whole minutes a `recordRealmPlay` still in flight is carrying. They are in `pendingRef`
   // until it answers, and the page-hide beacon must not send them a second time.
   const inFlightRef = useRef(0);
+  // That record itself, resolving true once it landed: an idle give-back waits on it (`giveBackIdle`).
+  const flightRef = useRef<Promise<boolean>>(Promise.resolve(false));
   const pausedRef = useRef(paused);
   const refreshOnResumeRef = useRef(false);
   // Refs change in an effect, never during render (the React Compiler rejects render-time ref writes).
@@ -118,14 +120,16 @@ export function usePlayClock({
    * remainder of the minute in progress. Nothing is sent for 0 — `recordRealmPlay`
    * rejects `minutes < 1`.
    */
-  const settle = useCallback(
-    async (minutes: number) => {
+  const record = useCallback(
+    async (minutes: number): Promise<boolean> => {
       const sent = Math.min(minutes, 30);
-      if (sent < 1) return;
+      if (sent < 1) return false;
       recordingRef.current = true;
       inFlightRef.current = sent;
+      let landed = false;
       try {
         await recordRealmPlay(childId, sent);
+        landed = true;
         // Unbilled time is `pending` whole minutes plus the seconds of the
         // minute in progress — `pending * 60 + secondsThisMinute` seconds
         // total — and a successful send pays for `sent * 60` of it. Both
@@ -153,9 +157,12 @@ export function usePlayClock({
         recordingRef.current = false;
         inFlightRef.current = 0;
       }
+      return landed;
     },
     [childId, adopt]
   );
+  /** `record`, kept as the flight an idle give-back can wait on. Resolves whether the minutes landed. */
+  const settle = useCallback((minutes: number) => (flightRef.current = record(minutes)), [record]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -235,6 +242,48 @@ export function usePlayClock({
     return () => window.removeEventListener("pagehide", onHide);
   }, [enabled, childId]);
 
+  /** The child touched the game (`usePause`): the idle count starts again. Fires on every mouse move, so it only touches a ref. */
+  const noteInput = useCallback(() => {
+    clockRef.current = inputSeen(clockRef.current);
+  }, []);
+
+  /**
+   * The idle pause fired: give back what this clock charged since the last input (spec §4.6,
+   * `idleGiveBack`). Seconds in progress are rewound and unwritten minutes dropped here — so
+   * neither a flush nor the page-hide beacon sends them; minutes already written are refunded by
+   * the server (`refundIdleMinutes`), then its access answer is adopted. A record still in flight
+   * counts as written: the refund waits for it, and if it failed its minutes are dropped from
+   * pending instead, never both. Resolves to the minutes the server gave back; 0 when nothing was
+   * written, when quiet, or when the refund fails (the minutes then stay charged, and no error shows).
+   */
+  const giveBackIdle = useCallback(async (): Promise<number> => {
+    const inFlight = inFlightRef.current;
+    const flight = flightRef.current;
+    const back = idleGiveBack(clockRef.current, pendingRef.current - inFlight);
+    clockRef.current = back.clock;
+    setClock(back.clock);
+    pendingRef.current -= back.dropPending;
+    let ask = back.refundRecorded;
+    if (ask < 1) return 0;
+    if (inFlight > 0 && !(await flight)) {
+      // The newest "written" minutes were that record's, and it failed: they are back in pending, unwritten.
+      const unwritten = Math.min(inFlight, ask, pendingRef.current);
+      pendingRef.current -= unwritten;
+      ask -= unwritten;
+      if (ask < 1) return 0;
+    }
+    let refunded = 0;
+    try {
+      ({ refunded } = await refundIdleMinutes(childId, ask));
+    } catch {
+      return 0;
+    }
+    // The server's count now holds the refund: adopt it. A failed re-check stays silent (the card
+    // already has its answer) and leaving the pause re-checks anyway (`refreshOnResumeRef`).
+    if (refunded > 0) await getRealmAccess(childId).then(adopt, () => {});
+    return refunded;
+  }, [childId, adopt]);
+
   // `refresh` re-asks the gate now: minutes landed from elsewhere (a cleared trouble's bounty).
-  return { minutesRemaining: clock.minutesRemaining, warning, error, clearError: () => setError(""), flushPending, refresh, source, quiet: clock.quiet };
+  return { minutesRemaining: clock.minutesRemaining, warning, error, clearError: () => setError(""), flushPending, refresh, source, quiet: clock.quiet, noteInput, giveBackIdle };
 }
