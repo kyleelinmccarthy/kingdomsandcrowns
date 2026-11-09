@@ -40,8 +40,13 @@ export const MISSED_DAYS_WINDOW = 30;
 /** Statuses that mean the work on that day is still owed. */
 const UNFINISHED = new Set(["pending", "stuck"]);
 
+/** One quest set for a missed day, as the panel lists it. */
+export type MissedQuest = { id: string; title: string; status: string };
+
 export type MissedDay = {
   date: string;
+  /** Every quest set for that day, so a grown-up can excuse or move just one. */
+  quests: MissedQuest[];
   /** Assignments still owed on that day. */
   unfinishedCount: number;
   /** True when nothing at all was logged that day. */
@@ -63,7 +68,7 @@ export type MissedDaysInput = StreakOptions & {
    */
   notBefore?: string | null;
   activeDates: Iterable<string>;
-  assignments: readonly { date: string; status: string }[];
+  assignments: readonly { id: string; title: string; date: string; status: string }[];
 };
 
 /**
@@ -81,7 +86,12 @@ export function selectMissedDays(input: MissedDaysInput): MissedDay[] {
   const active = new Set(input.activeDates);
 
   const unfinishedByDate = new Map<string, number>();
+  const questsByDate = new Map<string, MissedQuest[]>();
   for (const a of assignments) {
+    const quest = { id: a.id, title: a.title, status: a.status };
+    const list = questsByDate.get(a.date);
+    if (list) list.push(quest);
+    else questsByDate.set(a.date, [quest]);
     if (!UNFINISHED.has(a.status)) continue;
     unfinishedByDate.set(a.date, (unfinishedByDate.get(a.date) ?? 0) + 1);
   }
@@ -101,7 +111,7 @@ export function selectMissedDays(input: MissedDaysInput): MissedDay[] {
     const brokeStreak = empty && !breakerFound;
     if (brokeStreak) breakerFound = true;
 
-    days.push({ date, unfinishedCount, empty, brokeStreak });
+    days.push({ date, quests: questsByDate.get(date) ?? [], unfinishedCount, empty, brokeStreak });
   }
 
   return days;

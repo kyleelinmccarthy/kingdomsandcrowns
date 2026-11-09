@@ -27,6 +27,30 @@ export function parseExcuseReason(raw: string | null | undefined): ExcuseReason 
 }
 
 /**
+ * What an excused quest's `statusReason` says: the reason as the panel names
+ * it, then the grown-up's note if they left one. The quest card shows it as
+ * "Excused: Sick day".
+ */
+export function excuseStatusReason(reason: ExcuseReason, note: string): string {
+  const label = EXCUSE_REASON_LABELS[reason];
+  return note ? `${label} — ${note}` : label;
+}
+
+/**
+ * Whether excusing quests one at a time has excused the day itself: every
+ * quest on it is excused, give or take one a grown-up skipped. Then the day is
+ * excused too, and the streak is repaired just as Excuse Day would.
+ *
+ * Any work still owed, or any work done, means the day was not a day off.
+ */
+export function excusesWholeDay(statuses: readonly string[]): boolean {
+  return (
+    statuses.includes("excused") &&
+    statuses.every((s) => s === "excused" || s === "skipped")
+  );
+}
+
+/**
  * `quest_assignment` is UNIQUE(child_id, quest_id, date), so a hero can hold
  * one assignment of a given quest per day. This is the key that uniqueness is
  * expressed in once the target date is fixed.

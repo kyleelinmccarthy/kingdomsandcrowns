@@ -5,9 +5,14 @@ import { useRouter } from "next/navigation";
 import { GameFrame } from "@/components/game-frame";
 import { GameIcon } from "@/components/game-icon";
 import { Button } from "@/components/ui/button";
-import { excuseDay, moveDayToDate } from "@/lib/actions/excused-days";
+import {
+  excuseAssignment,
+  excuseDay,
+  moveAssignmentsToDate,
+  moveDayToDate,
+} from "@/lib/actions/excused-days";
 import { formatMissedDate } from "@/lib/utils/makeup";
-import { formatMovedFrom, type MissedDay } from "@/lib/utils/missed-days";
+import { formatMovedFrom, type MissedDay, type MissedQuest } from "@/lib/utils/missed-days";
 import {
   EXCUSE_REASONS,
   EXCUSE_REASON_LABELS,
@@ -25,6 +30,11 @@ import {
  * Excusing a day here is the one thing that repairs a broken streak, so the
  * day that broke it is called out by name rather than left for a parent to
  * work out from a list of dates.
+ *
+ * Each day lists its quests by name, so a grown-up can excuse or move just the
+ * one that was missed — science on a field-trip day — rather than the whole
+ * day. Excusing every quest on a day excuses the day too (see
+ * `excuseAssignment`).
  */
 export function MissedDays({
   childId,
@@ -53,8 +63,8 @@ export function MissedDays({
     >
       <p className="mb-3 text-xs text-muted-foreground">
         {canEdit
-          ? "Days that didn't go to plan. Excuse one — a sick day, an appointment — and it stops counting against their streak. Or move the work to a day that suits."
-          : "Days that didn't go to plan. A grown-up with edit access can excuse a day or move its work."}
+          ? "Days that didn't go to plan. Excuse a whole day — a sick day, an appointment — and it stops counting against their streak, or excuse just the quests that were missed. Or move the work to a day that suits."
+          : "Days that didn't go to plan. A grown-up with edit access can excuse a day or a quest, or move its work."}
       </p>
       <div className="min-w-0 space-y-2">
         {missed.map((day) => (
@@ -72,32 +82,19 @@ export function MissedDays({
   );
 }
 
-function MissedDayRow({
-  childId,
-  day,
-  today,
-  canEdit,
-  writableChildCount,
-}: {
-  childId: string;
-  day: MissedDay;
-  today: string;
-  canEdit: boolean;
-  writableChildCount: number;
-}) {
+type MoveResult = { moved: number; blocked: number };
+
+/**
+ * Runs one excuse or move, refreshes the page, and reports what went wrong —
+ * or, for a move, what stayed behind.
+ */
+function useAction() {
   const router = useRouter();
-  const [mode, setMode] = useState<"idle" | "excuse" | "move">("idle");
-  const [reason, setReason] = useState<ExcuseReason>("sick");
-  const [note, setNote] = useState("");
-  const [applyToAll, setApplyToAll] = useState(false);
-  const [target, setTarget] = useState(today);
   const [acting, setActing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const canApplyToAll = writableChildCount > 1;
-
-  async function run(fn: () => Promise<{ moved: number; blocked: number } | void>) {
+  async function run(fn: () => Promise<MoveResult | void>, onDone: () => void) {
     setActing(true);
     setError(null);
     setNotice(null);
@@ -111,7 +108,7 @@ function MissedDayRow({
           `${result.moved} moved. ${result.blocked} stayed put — that day already has ${result.blocked === 1 ? "that quest" : "those quests"} planned.`
         );
       }
-      setMode("idle");
+      onDone();
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "That didn't work. Try again.");
@@ -119,6 +116,26 @@ function MissedDayRow({
       setActing(false);
     }
   }
+
+  return { acting, error, notice, run };
+}
+
+function MissedDayRow({
+  childId,
+  day,
+  today,
+  canEdit,
+  writableChildCount,
+}: {
+  childId: string;
+  day: MissedDay;
+  today: string;
+  canEdit: boolean;
+  writableChildCount: number;
+}) {
+  const [mode, setMode] = useState<"idle" | "excuse" | "move">("idle");
+  const { acting, error, notice, run } = useAction();
+  const idle = () => setMode("idle");
 
   return (
     <div
@@ -148,90 +165,244 @@ function MissedDayRow({
 
       {day.brokeStreak && (
         <p className="mt-1 text-xs" style={{ color: "var(--streak)" }}>
-          Streak broke here. Excusing this day puts it back.
+          Streak broke here. Excusing this day — or every quest on it — puts it back.
         </p>
       )}
 
       {mode === "excuse" && (
-        <div className="mt-3 space-y-2">
-          <label className="block text-xs font-medium" htmlFor={`reason-${day.date}`}>
-            Why was this day missed?
-          </label>
-          <select
-            id={`reason-${day.date}`}
-            className="w-full rounded border border-border bg-background p-2 text-sm"
-            value={reason}
-            onChange={(e) => setReason(e.target.value as ExcuseReason)}
-          >
-            {EXCUSE_REASONS.map((r) => (
-              <option key={r} value={r}>
-                {EXCUSE_REASON_LABELS[r]}
-              </option>
-            ))}
-          </select>
-          <input
-            className="w-full rounded border border-border bg-background p-2 text-sm"
-            placeholder="Add a note (optional)"
-            value={note}
-            onChange={(e) => setNote(e.target.value)}
-          />
-          {canApplyToAll && (
-            <label className="flex items-center gap-2 text-xs">
-              <input
-                type="checkbox"
-                checked={applyToAll}
-                onChange={(e) => setApplyToAll(e.target.checked)}
-              />
-              Apply to all heroes
-            </label>
-          )}
-          <div className="flex gap-1">
-            <Button
-              size="sm"
-              disabled={acting}
-              onClick={() =>
-                run(() => excuseDay(childId, day.date, reason, note, { applyToAll }))
-              }
-            >
-              {acting ? "Excusing..." : "Excuse Day"}
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => setMode("idle")} disabled={acting}>
-              Cancel
-            </Button>
-          </div>
-        </div>
+        <ExcuseForm
+          id={`reason-${day.date}`}
+          question="Why was this day missed?"
+          submitLabel="Excuse Day"
+          showApplyToAll={writableChildCount > 1}
+          acting={acting}
+          onCancel={idle}
+          onSubmit={(reason, note, applyToAll) =>
+            run(() => excuseDay(childId, day.date, reason, note, { applyToAll }), idle)
+          }
+        />
       )}
 
       {mode === "move" && (
-        <div className="mt-3 space-y-2">
-          <label className="block text-xs font-medium" htmlFor={`target-${day.date}`}>
-            Move this day&apos;s work to
-          </label>
-          <input
-            id={`target-${day.date}`}
-            type="date"
-            min={today}
-            className="w-full rounded border border-border bg-background p-2 text-sm"
-            value={target}
-            onChange={(e) => setTarget(e.target.value)}
-          />
-          <div className="flex gap-1">
-            <Button
-              size="sm"
-              disabled={acting}
-              onClick={() => run(() => moveDayToDate(childId, day.date, target))}
-            >
-              {acting ? "Moving..." : "Move Work"}
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => setMode("idle")} disabled={acting}>
-              Cancel
-            </Button>
-          </div>
-        </div>
+        <MoveForm
+          id={`target-${day.date}`}
+          question="Move this day's work to"
+          submitLabel="Move Work"
+          today={today}
+          acting={acting}
+          onCancel={idle}
+          onSubmit={(target) => run(() => moveDayToDate(childId, day.date, target), idle)}
+        />
       )}
 
       {error && <p className="mt-2 text-xs text-destructive">{error}</p>}
       {notice && <p className="mt-2 text-xs text-muted-foreground">{notice}</p>}
+
+      {day.quests.length > 0 && (
+        <ul className="mt-2 space-y-1 border-t border-border pt-2">
+          {day.quests.map((quest) => (
+            <MissedQuestRow key={quest.id} quest={quest} today={today} canEdit={canEdit} />
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/** Statuses whose work is still owed, and so can be excused or moved. */
+const OWED = new Set(["pending", "stuck"]);
+
+const STATUS_LABELS: Record<string, string> = {
+  pending: "Not done",
+  stuck: "Stuck",
+  completed: "Done",
+  skipped: "Skipped",
+  excused: "Excused",
+};
+
+function MissedQuestRow({
+  quest,
+  today,
+  canEdit,
+}: {
+  quest: MissedQuest;
+  today: string;
+  canEdit: boolean;
+}) {
+  const [mode, setMode] = useState<"idle" | "excuse" | "move">("idle");
+  const { acting, error, notice, run } = useAction();
+  const idle = () => setMode("idle");
+  const owed = OWED.has(quest.status);
+
+  return (
+    <li className="text-sm">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+        <span className="min-w-0 break-words">{quest.title}</span>
+        <span
+          className={`text-xs ${owed ? "font-medium text-foreground" : "text-muted-foreground"}`}
+        >
+          {STATUS_LABELS[quest.status] ?? quest.status}
+        </span>
+        {canEdit && owed && mode === "idle" && (
+          <div className="flex gap-1 sm:ml-auto">
+            <Button
+              size="sm"
+              variant="outline"
+              aria-label={`Excuse ${quest.title}`}
+              onClick={() => setMode("excuse")}
+              disabled={acting}
+            >
+              Excuse
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              aria-label={`Move ${quest.title}`}
+              onClick={() => setMode("move")}
+              disabled={acting}
+            >
+              Move
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {mode === "excuse" && (
+        <ExcuseForm
+          id={`reason-${quest.id}`}
+          question={`Why was ${quest.title} missed?`}
+          submitLabel="Excuse Quest"
+          showApplyToAll={false}
+          acting={acting}
+          onCancel={idle}
+          onSubmit={(reason, note) => run(() => excuseAssignment(quest.id, reason, note), idle)}
+        />
+      )}
+
+      {mode === "move" && (
+        <MoveForm
+          id={`target-${quest.id}`}
+          question={`Move ${quest.title} to`}
+          submitLabel="Move Quest"
+          today={today}
+          acting={acting}
+          onCancel={idle}
+          onSubmit={(target) => run(() => moveAssignmentsToDate([quest.id], target), idle)}
+        />
+      )}
+
+      {error && <p className="mt-1 text-xs text-destructive">{error}</p>}
+      {notice && <p className="mt-1 text-xs text-muted-foreground">{notice}</p>}
+    </li>
+  );
+}
+
+function ExcuseForm({
+  id,
+  question,
+  submitLabel,
+  showApplyToAll,
+  acting,
+  onCancel,
+  onSubmit,
+}: {
+  id: string;
+  question: string;
+  submitLabel: string;
+  showApplyToAll: boolean;
+  acting: boolean;
+  onCancel: () => void;
+  onSubmit: (reason: ExcuseReason, note: string, applyToAll: boolean) => void;
+}) {
+  const [reason, setReason] = useState<ExcuseReason>("sick");
+  const [note, setNote] = useState("");
+  const [applyToAll, setApplyToAll] = useState(false);
+
+  return (
+    <div className="mt-3 space-y-2">
+      <label className="block text-xs font-medium" htmlFor={id}>
+        {question}
+      </label>
+      <select
+        id={id}
+        className="w-full rounded border border-border bg-background p-2 text-sm"
+        value={reason}
+        onChange={(e) => setReason(e.target.value as ExcuseReason)}
+      >
+        {EXCUSE_REASONS.map((r) => (
+          <option key={r} value={r}>
+            {EXCUSE_REASON_LABELS[r]}
+          </option>
+        ))}
+      </select>
+      <input
+        className="w-full rounded border border-border bg-background p-2 text-sm"
+        placeholder="Add a note (optional)"
+        value={note}
+        onChange={(e) => setNote(e.target.value)}
+      />
+      {showApplyToAll && (
+        <label className="flex items-center gap-2 text-xs">
+          <input
+            type="checkbox"
+            checked={applyToAll}
+            onChange={(e) => setApplyToAll(e.target.checked)}
+          />
+          Apply to all heroes
+        </label>
+      )}
+      <div className="flex gap-1">
+        <Button size="sm" disabled={acting} onClick={() => onSubmit(reason, note, applyToAll)}>
+          {acting ? "Excusing..." : submitLabel}
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onCancel} disabled={acting}>
+          Cancel
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function MoveForm({
+  id,
+  question,
+  submitLabel,
+  today,
+  acting,
+  onCancel,
+  onSubmit,
+}: {
+  id: string;
+  question: string;
+  submitLabel: string;
+  today: string;
+  acting: boolean;
+  onCancel: () => void;
+  onSubmit: (target: string) => void;
+}) {
+  const [target, setTarget] = useState(today);
+
+  return (
+    <div className="mt-3 space-y-2">
+      <label className="block text-xs font-medium" htmlFor={id}>
+        {question}
+      </label>
+      <input
+        id={id}
+        type="date"
+        min={today}
+        className="w-full rounded border border-border bg-background p-2 text-sm"
+        value={target}
+        onChange={(e) => setTarget(e.target.value)}
+      />
+      <div className="flex gap-1">
+        <Button size="sm" disabled={acting} onClick={() => onSubmit(target)}>
+          {acting ? "Moving..." : submitLabel}
+        </Button>
+        <Button size="sm" variant="ghost" onClick={onCancel} disabled={acting}>
+          Cancel
+        </Button>
+      </div>
     </div>
   );
 }

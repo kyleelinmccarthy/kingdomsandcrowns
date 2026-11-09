@@ -18,6 +18,8 @@ import {
 import {
   EXCUSE_REASONS,
   collisionKey,
+  excuseStatusReason,
+  excusesWholeDay,
   partitionMovable,
   plannedKeysOnDate,
   unclaimedPlannedKeys,
@@ -107,16 +109,20 @@ export async function getMissedDaysView(
       .groupBy(schema.activityLog.date),
     db
       .select({
+        id: schema.questAssignment.id,
+        title: schema.quest.title,
         date: schema.questAssignment.date,
         status: schema.questAssignment.status,
       })
       .from(schema.questAssignment)
+      .innerJoin(schema.quest, eq(schema.questAssignment.questId, schema.quest.id))
       .where(
         and(
           eq(schema.questAssignment.childId, childId),
           gte(schema.questAssignment.date, windowStart)
         )
-      ),
+      )
+      .orderBy(asc(schema.quest.title)),
     db
       .select({
         startDate: schema.schoolBreak.startDate,
@@ -206,28 +212,7 @@ export async function excuseDay(
   const now = new Date();
 
   for (const target of targets) {
-    const existing = await db
-      .select({ id: schema.excusedDay.id })
-      .from(schema.excusedDay)
-      .where(and(eq(schema.excusedDay.childId, target), eq(schema.excusedDay.date, date)))
-      .limit(1);
-
-    if (existing[0]) {
-      await db
-        .update(schema.excusedDay)
-        .set({ reason, note: cleanNote || null, updatedAt: now })
-        .where(eq(schema.excusedDay.id, existing[0].id));
-    } else {
-      await db.insert(schema.excusedDay).values({
-        id: nanoid(),
-        childId: target,
-        date,
-        reason,
-        note: cleanNote || null,
-        createdAt: now,
-        updatedAt: now,
-      });
-    }
+    await recordExcusedDay(target, date, reason, cleanNote, now);
 
     await db
       .update(schema.questAssignment)
@@ -243,6 +228,97 @@ export async function excuseDay(
 
   // Repair the stored streak now. Waiting for the hero's next activity would
   // mean the number stays wrong for exactly as long as they are out.
+  await recomputeFamilyStreaks(familyId);
+}
+
+/**
+ * Write the excused-day row, or update its reason and note if the day is
+ * already excused — correcting "sick" to "appointment" should not need an
+ * un-excuse first.
+ */
+async function recordExcusedDay(
+  childId: string,
+  date: string,
+  reason: ExcuseReason,
+  note: string,
+  now: Date
+) {
+  const existing = await db
+    .select({ id: schema.excusedDay.id })
+    .from(schema.excusedDay)
+    .where(and(eq(schema.excusedDay.childId, childId), eq(schema.excusedDay.date, date)))
+    .limit(1);
+
+  if (existing[0]) {
+    await db
+      .update(schema.excusedDay)
+      .set({ reason, note: note || null, updatedAt: now })
+      .where(eq(schema.excusedDay.id, existing[0].id));
+  } else {
+    await db.insert(schema.excusedDay).values({
+      id: nanoid(),
+      childId,
+      date,
+      reason,
+      note: note || null,
+      createdAt: now,
+      updatedAt: now,
+    });
+  }
+}
+
+/**
+ * Excuse one quest a hero still owes — science missed for a field trip on a
+ * day the rest of the work got done. The rest of the day is left as it is.
+ *
+ * Once every quest on that day is excused (a skipped one may stand alongside
+ * them; see `excusesWholeDay`), the day is excused too, with this quest's
+ * reason, and the streak is repaired just as Excuse Day would.
+ */
+export async function excuseAssignment(
+  assignmentId: string,
+  reason: ExcuseReason,
+  note?: string
+): Promise<void> {
+  if (!EXCUSE_REASONS.includes(reason)) throw new Error("Choose a reason.");
+
+  const rows = await db
+    .select({
+      childId: schema.questAssignment.childId,
+      date: schema.questAssignment.date,
+      status: schema.questAssignment.status,
+    })
+    .from(schema.questAssignment)
+    .where(eq(schema.questAssignment.id, assignmentId))
+    .limit(1);
+  const row = rows[0];
+  if (!row) throw new Error("That quest could not be found.");
+
+  const { familyId } = await requireParent(row.childId);
+  if (!(UNFINISHED as readonly string[]).includes(row.status)) {
+    throw new Error("Only a quest that is still owed can be excused.");
+  }
+
+  const cleanNote = note ? sanitizeText(note) : "";
+  const now = new Date();
+
+  await db
+    .update(schema.questAssignment)
+    .set({ status: "excused", statusReason: excuseStatusReason(reason, cleanNote), updatedAt: now })
+    .where(eq(schema.questAssignment.id, assignmentId));
+
+  const day = await db
+    .select({ status: schema.questAssignment.status })
+    .from(schema.questAssignment)
+    .where(
+      and(
+        eq(schema.questAssignment.childId, row.childId),
+        eq(schema.questAssignment.date, row.date)
+      )
+    );
+  if (!excusesWholeDay(day.map((d) => d.status))) return;
+
+  await recordExcusedDay(row.childId, row.date, reason, cleanNote, now);
   await recomputeFamilyStreaks(familyId);
 }
 

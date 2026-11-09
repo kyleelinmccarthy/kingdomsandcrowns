@@ -36,16 +36,34 @@ describe("selectMissedDays", () => {
       ...base,
       activeDates: ["2026-09-03"],
       assignments: [
-        { date: "2026-09-03", status: "completed" },
-        { date: "2026-09-03", status: "pending" },
-        { date: "2026-09-03", status: "stuck" },
-        { date: "2026-09-03", status: "skipped" },
+        { id: "a1", title: "Math", date: "2026-09-03", status: "completed" },
+        { id: "a2", title: "Reading", date: "2026-09-03", status: "pending" },
+        { id: "a3", title: "Science", date: "2026-09-03", status: "stuck" },
+        { id: "a4", title: "Art", date: "2026-09-03", status: "skipped" },
       ],
     });
     const day = result.find((d) => d.date === "2026-09-03");
     expect(day).toBeDefined();
     expect(day!.empty).toBe(false);
     expect(day!.unfinishedCount).toBe(2); // pending + stuck, not skipped
+  });
+
+  // A parent needs to see which quests were missed to excuse just those.
+  it("lists each of the day's quests by name with its status", () => {
+    const result = selectMissedDays({
+      ...base,
+      activeDates: ["2026-09-03"],
+      assignments: [
+        { id: "a1", title: "Math", date: "2026-09-03", status: "completed" },
+        { id: "a2", title: "Science", date: "2026-09-03", status: "pending" },
+        { id: "a3", title: "Spelling", date: "2026-09-02", status: "pending" },
+      ],
+    });
+    const day = result.find((d) => d.date === "2026-09-03");
+    expect(day!.quests).toEqual([
+      { id: "a1", title: "Math", status: "completed" },
+      { id: "a2", title: "Science", status: "pending" },
+    ]);
   });
 
   it("marks only the most recent empty day as the streak breaker", () => {

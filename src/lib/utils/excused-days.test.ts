@@ -4,6 +4,8 @@ import {
   EXCUSE_REASON_LABELS,
   EXCUSE_REASONS,
   collisionKey,
+  excuseStatusReason,
+  excusesWholeDay,
   partitionMovable,
   plannedKeysOnDate,
   unclaimedPlannedKeys,
@@ -23,6 +25,43 @@ describe("parseExcuseReason", () => {
 
   it("has a label for every reason", () => {
     for (const r of EXCUSE_REASONS) expect(EXCUSE_REASON_LABELS[r]).toBeTruthy();
+  });
+});
+
+describe("excusesWholeDay", () => {
+  // A parent who excuses every quest on a day has excused the day, and the
+  // streak should be repaired just as if they had pressed Excuse Day.
+  it("is true when every quest on the day is excused", () => {
+    expect(excusesWholeDay(["excused", "excused"])).toBe(true);
+  });
+
+  it("lets a skipped quest stand alongside the excused ones", () => {
+    expect(excusesWholeDay(["excused", "skipped"])).toBe(true);
+  });
+
+  it("is false while any work on the day is still owed", () => {
+    expect(excusesWholeDay(["excused", "pending"])).toBe(false);
+    expect(excusesWholeDay(["excused", "stuck"])).toBe(false);
+  });
+
+  // Work done that day is the day counting, not a day off.
+  it("is false when any quest on the day was done", () => {
+    expect(excusesWholeDay(["excused", "completed"])).toBe(false);
+  });
+
+  it("is false when nothing on the day was excused", () => {
+    expect(excusesWholeDay(["skipped"])).toBe(false);
+    expect(excusesWholeDay([])).toBe(false);
+  });
+});
+
+describe("excuseStatusReason", () => {
+  it("names the reason the way the panel shows it", () => {
+    expect(excuseStatusReason("sick", "")).toBe("Sick day");
+  });
+
+  it("keeps the grown-up's note after the reason", () => {
+    expect(excuseStatusReason("other", "Field trip")).toBe("Other — Field trip");
   });
 });
 
