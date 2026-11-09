@@ -29,10 +29,11 @@ describe("tickClock", () => {
     const { events } = tickFor(startClock(1), 10);
     expect(events.filter((e) => e === "warn")).toHaveLength(1);
   });
-  it("closes at zero", () => {
-    const { clock, events } = tickFor(startClock(0), 2);
-    expect(events[0]).toBe("close");
-    expect(clock.closed).toBe(true);
+  it("at zero asks the server (empty) and never closes by itself", () => {
+    const { clock, events, records } = tickFor(startClock(0), 2);
+    expect(events).toEqual(["empty", "empty"]);
+    expect(records).toBe(0);
+    expect(clock.closed).toBe(false);
   });
   it("handles multi-minute ticks correctly", () => {
     const r = tickClock(startClock(10), 125, true);
@@ -41,7 +42,7 @@ describe("tickClock", () => {
     expect(r.clock.secondsThisMinute).toBe(5);
     expect(r.clock.minutesRemaining).toBe(8);
   });
-  it("decrements minutes and closes when they hit zero", () => {
+  it("decrements minutes and asks the server when they hit zero", () => {
     // 1 minute remaining, tick 125 seconds (crosses 2 boundaries = 2 minutes spent)
     const r1 = tickClock(startClock(1), 125, true);
     expect(r1.records).toBe(2);
@@ -49,25 +50,25 @@ describe("tickClock", () => {
     expect(r1.clock.minutesRemaining).toBe(0);
     expect(r1.clock.warned).toBe(false);
     expect(r1.clock.closed).toBe(false);
-    // Next tick should close because minutesRemaining <= 0
+    // Next tick asks the server (minutesRemaining <= 0): quiet or closed is its answer, not the clock's.
     const r2 = tickClock(r1.clock, 1, true);
-    expect(r2.event).toBe("close");
-    expect(r2.clock.closed).toBe(true);
+    expect(r2.event).toBe("empty");
+    expect(r2.clock.closed).toBe(false);
   });
   it("warning is not lost behind a record", () => {
-    // Case 1: With 1 minute remaining, a record drops to 0, so next tick closes rather than warns.
-    const clock1 = { minutesRemaining: 1, secondsThisMinute: 59, warned: false, closed: false };
+    // Case 1: With 1 minute remaining, a record drops to 0, so next tick asks the server rather than warns.
+    const clock1 = { minutesRemaining: 1, secondsThisMinute: 59, warned: false, closed: false, quiet: false };
     const r1a = tickClock(clock1, 1, true);
     expect(r1a.event).toBe("record");
     expect(r1a.records).toBe(1);
     expect(r1a.clock.minutesRemaining).toBe(0);
     expect(r1a.clock.warned).toBe(false);
     const r1b = tickClock(r1a.clock, 1, true);
-    expect(r1b.event).toBe("close");
-    expect(r1b.clock.closed).toBe(true);
+    expect(r1b.event).toBe("empty");
+    expect(r1b.clock.closed).toBe(false);
 
     // Case 2: With 2 minutes remaining, a record leaves 1 minute, so next tick warns.
-    const clock2 = { minutesRemaining: 2, secondsThisMinute: 59, warned: false, closed: false };
+    const clock2 = { minutesRemaining: 2, secondsThisMinute: 59, warned: false, closed: false, quiet: false };
     const r2a = tickClock(clock2, 1, true);
     expect(r2a.event).toBe("record");
     expect(r2a.records).toBe(1);
@@ -82,7 +83,7 @@ describe("tickClock", () => {
     // another device pays out), and the child plays on. The banner they saw belonged to a
     // last minute that stopped being the last minute; the real one must still announce
     // itself rather than the Realm closing on them in silence.
-    const warnedAtOne = tickClock({ minutesRemaining: 1, secondsThisMinute: 0, warned: false, closed: false }, 1, true);
+    const warnedAtOne = tickClock({ minutesRemaining: 1, secondsThisMinute: 0, warned: false, closed: false, quiet: false }, 1, true);
     expect(warnedAtOne.event).toBe("warn");
     expect(warnedAtOne.clock.warned).toBe(true);
     const toppedUp = applyAccess(warnedAtOne.clock, { allowed: true, minutesRemaining: 6, source: "earned" });
@@ -103,7 +104,7 @@ describe("tickClock", () => {
     expect(last.clock.warned).toBe(true);
   });
   it("releases the latch on a fresh access check that raises the minutes", () => {
-    const warned = { minutesRemaining: 1, secondsThisMinute: 0, warned: true, closed: false };
+    const warned = { minutesRemaining: 1, secondsThisMinute: 0, warned: true, closed: false, quiet: false };
     const raised = applyAccess(warned, { allowed: true, minutesRemaining: 10, source: "earned" });
     expect(raised.clock.warned).toBe(false);
     expect(raised.event).toBeNull();
@@ -120,8 +121,53 @@ describe("applyAccess", () => {
     const c = startClock(5);
     expect(applyAccess(c, { allowed: true, minutesRemaining: 3, source: "earned" }).clock.minutesRemaining).toBe(3);
     expect(applyAccess(c, { allowed: true, minutesRemaining: 1, source: "earned" }).event).toBe("warn");
-    expect(applyAccess(c, { allowed: true, minutesRemaining: 0, source: "earned" }).event).toBe("close");
     expect(applyAccess(c, { allowed: false, reason: "cap_reached" }).event).toBe("close");
+  });
+
+  it("goes quiet, not closed, when the server answers quiet", () => {
+    const playing = { minutesRemaining: 1, secondsThisMinute: 20, warned: true, closed: false, quiet: false };
+    const r = applyAccess(playing, { allowed: true, minutesRemaining: 0, source: "quiet" });
+    expect(r.event).toBe("quiet");
+    expect(r.clock).toEqual({ minutesRemaining: 0, secondsThisMinute: 0, warned: false, closed: false, quiet: true });
+    // Already quiet: a second quiet answer is not news.
+    expect(applyAccess(r.clock, { allowed: true, minutesRemaining: 0, source: "quiet" }).event).toBeNull();
+  });
+
+  it("closes from quiet when the server denies (the daily cap still shuts the Realm)", () => {
+    const quiet = startClock(0, true);
+    const r = applyAccess(quiet, { allowed: false, reason: "cap_reached" });
+    expect(r.event).toBe("close");
+    expect(r.clock.closed).toBe(true);
+    expect(r.clock.quiet).toBe(false);
+  });
+
+  it("wakes from quiet when minutes land, and the clock counts again", () => {
+    const r = applyAccess(startClock(0, true), { allowed: true, minutesRemaining: 3, source: "earned" });
+    expect(r.event).toBe("wake");
+    expect(r.clock).toMatchObject({ minutesRemaining: 3, quiet: false, closed: false, warned: false });
+    const { events, records } = tickFor(r.clock, 60);
+    expect(events).toEqual(["record"]);
+    expect(records).toBe(1);
+  });
+
+  it("a wake to the last minute still warns, on the next tick", () => {
+    const woke = applyAccess(startClock(0, true), { allowed: true, minutesRemaining: 1, source: "earned" });
+    expect(woke.event).toBe("wake");
+    expect(tickClock(woke.clock, 1, true).event).toBe("warn");
+  });
+});
+
+describe("the quiet clock", () => {
+  it("starts quiet when asked to", () => {
+    expect(startClock(0, true)).toEqual({ minutesRemaining: 0, secondsThisMinute: 0, warned: false, closed: false, quiet: true });
+    expect(startClock(4).quiet).toBe(false);
+  });
+
+  it("never counts, never records, never asks and never closes", () => {
+    const { clock, events, records } = tickFor(startClock(0, true), 200);
+    expect(events).toEqual([]);
+    expect(records).toBe(0);
+    expect(clock).toEqual(startClock(0, true));
   });
 });
 
@@ -139,12 +185,21 @@ describe("gateCopy", () => {
   });
 });
 
+describe("minutesToSettle in the quiet world", () => {
+  it("charges nothing for quiet time, only minutes played before it", () => {
+    const quiet = { ...startClock(0, true), secondsThisMinute: 45 };
+    expect(minutesToSettle(quiet, 0)).toBe(0);
+    expect(minutesToSettle(quiet, 2)).toBe(2);
+  });
+});
+
 describe("minutesToSettle", () => {
   const at = (secondsThisMinute: number, minutesRemaining = 10, closed = false): PlayClock => ({
     minutesRemaining,
     secondsThisMinute,
     warned: false,
     closed,
+    quiet: false,
   });
 
   it("charges no minute in progress once the gate has closed", () => {

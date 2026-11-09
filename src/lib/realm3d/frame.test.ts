@@ -10,6 +10,7 @@ import {
   escapeFrom,
   interactVerb,
   keyHints,
+  QUIET_WALK,
   spellbookHref,
   visitClockLine,
 } from "./frame";
@@ -41,6 +42,23 @@ describe("the gate", () => {
   it("tells a visiting parent how long the child has, when the child could play", () => {
     const phase = entryPhase({ allowed: true, minutesRemaining: 42, source: "open" }, false);
     expect(phase.kind === "open" && phase.visit).toEqual({ minutes: 42, closedBecause: null });
+  });
+
+  it("stops a child at 0 minutes at the quiet gate, not inside a clock that is already out", () => {
+    expect(entryPhase({ allowed: true, minutesRemaining: 0, source: "quiet" }, true)).toEqual({ kind: "quiet-gate" });
+  });
+
+  it("never puts a parent in the quiet world: a grown-up has no clock and walks in", () => {
+    expect(entryPhase({ allowed: true, minutesRemaining: 0, source: "quiet" }, false)).toEqual({
+      kind: "open",
+      minutes: 0,
+      visit: { minutes: 0, closedBecause: null },
+      source: null,
+    });
+  });
+
+  it("walks a child into the quiet world from the gate with nothing to spend", () => {
+    expect(QUIET_WALK).toEqual({ kind: "open", minutes: 0, visit: null, source: "quiet" });
   });
 
   it("closes with the same closing line the flat Realm shows", () => {

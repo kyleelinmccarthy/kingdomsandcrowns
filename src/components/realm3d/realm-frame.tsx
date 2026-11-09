@@ -23,7 +23,7 @@ import { createPortal } from "react-dom";
 import { getRealmAccess, getTroubleBounty } from "@/lib/actions/realm-play";
 import { earningLines, type BountyStatus } from "@/lib/realm/spells/bounty";
 import type { AccessDenied } from "@/lib/utils/realm-access";
-import { closedPhase, entryPhase, type EntryPhase } from "@/lib/realm3d/frame";
+import { closedPhase, entryPhase, QUIET_WALK, type EntryPhase } from "@/lib/realm3d/frame";
 import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
 import { readingAttributes } from "@/lib/utils/learning-profile";
 import type { SpellPage } from "@/lib/services/spells";
@@ -137,7 +137,9 @@ export function RealmFrame(props: RealmFrameProps) {
   else if (phase.kind === "unsupported") content = <RealmScreen icon="castle" title="The Realm can't open here" body={UNSUPPORTED} />;
   else if (phase.kind === "gated") content = <GateScreen copy={phase.copy} heroName={snap.heroName} portrait={snap.avatar} extra={earningExtra} />;
   else if (phase.kind === "closed") content = <ClosedScreen heroName={snap.heroName} body={phase.body} portrait={snap.avatar} extra={earningExtra} />;
-  else
+  else {
+    // Until the quiet gate is drawn, a child at 0 walks straight on into the quiet world.
+    const entry = phase.kind === "quiet-gate" ? QUIET_WALK : phase;
     content = (
       <RealmGame
         avatar={snap.avatar}
@@ -148,12 +150,13 @@ export function RealmFrame(props: RealmFrameProps) {
         castleUnlocked={snap.castleUnlocked}
         realm={snap.realm}
         mounts={snap.mounts}
-        entry={{ minutes: phase.minutes, visit: phase.visit, source: phase.source }}
+        entry={{ minutes: entry.minutes, visit: entry.visit, source: entry.source }}
         onClose={onClose}
         // The selector is live, not snapshotted: it is how a grown-up moves to another child.
         selector={props.selector}
       />
     );
+  }
 
   return createPortal(
     <div className="r3-root" onContextMenu={(e) => e.preventDefault()} {...readingAttributes(snap.realm.profile)}>

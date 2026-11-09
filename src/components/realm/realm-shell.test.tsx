@@ -149,6 +149,35 @@ describe("RealmShell", () => {
     expect(screen.queryByTestId("scene")).not.toBeInTheDocument();
   });
 
+  // The flat Realm has no quiet world: it keeps its old gate and goodbye at 0 minutes.
+  it("gates a hero the gate calls quiet with the no-minutes words", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 0, source: "quiet" });
+    render(<RealmShell bundle={bundle} childId="c1" isChildView={true} />);
+    expect(await screen.findByText("The Realm opens when you finish a quest.")).toBeInTheDocument();
+    expect(screen.queryByTestId("scene")).not.toBeInTheDocument();
+  });
+
+  it("closes with the no-minutes words when the clock goes quiet mid-visit", async () => {
+    vi.useFakeTimers();
+    try {
+      recordRealmPlay.mockResolvedValue(undefined);
+      getRealmAccess.mockResolvedValueOnce({ allowed: true, minutesRemaining: 1, source: "earned" }).mockResolvedValue({ allowed: true, minutesRemaining: 0, source: "quiet" });
+      render(<RealmShell bundle={bundle} childId="c1" isChildView={true} />);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(screen.getByTestId("scene")).toBeInTheDocument();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(61_000);
+      });
+      expect(recordRealmPlay).toHaveBeenCalledWith("c1", 1);
+      expect(screen.getByText("Every quest you complete banks minutes here.")).toBeInTheDocument();
+      expect(screen.queryByTestId("scene")).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("opens the world with the minute counter for a hero", async () => {
     getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 12, source: "earned" });
     render(<RealmShell bundle={bundle} childId="c1" isChildView={true} />);

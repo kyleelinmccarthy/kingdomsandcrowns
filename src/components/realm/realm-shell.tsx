@@ -15,6 +15,7 @@ import { applyDeedResult, type KingdomState } from "@/lib/realm/kingdom-state";
 import { renderSettingsFor } from "@/lib/realm/render-settings";
 import { VILLAGERS, villagerById } from "@/lib/realm/villagers";
 import { gateCopy, type GateCopy } from "@/lib/realm/play-clock";
+import { isQuiet } from "@/lib/utils/realm-access";
 import { disposeSpriteTextures } from "@/lib/realm/sprite-texture";
 import { resolvePages, withEmptyPages } from "@/lib/realm/spells/pages";
 import { shownPages } from "./spell-bar";
@@ -108,7 +109,8 @@ export function RealmShell({
         setPhase({ kind: "unsupported" });
         return;
       }
-      const copy = gateCopy(result);
+      // The flat Realm has no quiet world: at 0 it keeps its no-minutes gate (spec §4.5).
+      const copy = gateCopy(isQuiet(result) ? { allowed: false, reason: "no_minutes" } : result);
       if (!isChildView) {
         // Parents look, never spend: the gate becomes an information line.
         setPhase({ kind: "open", minutes: 0, note: copy ? `Closed for ${bundle.heroName}: ${copy.title}` : null, source: null });
@@ -372,7 +374,8 @@ function RealmOpen({
   const troubleSkin: TroubleSkin = kingdom.tone === "monsters" ? "monsters" : "gentle";
   const { axisRef, setStick, castRef, requestCast } = useRealmInput({ enabled: !worldBusy });
   const config = bundle.avatarConfig ?? DEFAULT_AVATAR;
-  const clock = usePlayClock({ enabled: isChildView, childId, initialMinutes: minutes, onClose, paused: worldBusy, initialSource: source });
+  // No quiet world here either: a clock gone quiet says goodbye with the no-minutes words.
+  const clock = usePlayClock({ enabled: isChildView, childId, initialMinutes: minutes, onClose, onQuiet: () => onClose("no_minutes"), paused: worldBusy, initialSource: source });
   // Every exit path — the `Leave the Realm` link, a router navigation, the gate
   // closing, the clock running out, a browser back — unmounts this component, so
   // hanging the flush off its cleanup is the one place that cannot be bypassed:

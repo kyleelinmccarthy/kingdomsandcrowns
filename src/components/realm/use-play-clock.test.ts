@@ -310,6 +310,129 @@ describe("usePlayClock", () => {
   });
 });
 
+describe("usePlayClock — the quiet world at 0 minutes", () => {
+  it("at 0 asks the server once (latched until it answers) and goes quiet when it says quiet", async () => {
+    const answer = deferred<{ allowed: true; minutesRemaining: 0; source: "quiet" }>();
+    getRealmAccess.mockReturnValueOnce(answer.promise);
+    const onClose = vi.fn();
+    const onQuiet = vi.fn();
+    const { result } = renderHook(() => usePlayClock({ enabled: true, childId: "c1", initialMinutes: 0, onClose, onQuiet, initialSource: "earned" }));
+    expect(result.current.quiet).toBe(false);
+
+    // Five ticks at 0 while the answer is on its way: one question, not five.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5_000);
+    });
+    expect(getRealmAccess).toHaveBeenCalledTimes(1);
+
+    answer.resolve({ allowed: true, minutesRemaining: 0, source: "quiet" });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(result.current.quiet).toBe(true);
+    expect(result.current.source).toBe("quiet");
+    expect(onQuiet).toHaveBeenCalledTimes(1);
+    expect(onClose).not.toHaveBeenCalled();
+
+    // Quiet: no seconds, no records, no more questions.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(180_000);
+    });
+    expect(recordRealmPlay).not.toHaveBeenCalled();
+    expect(getRealmAccess).toHaveBeenCalledTimes(1);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("at 0 closes when the server answers cap_reached", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: false, reason: "cap_reached" });
+    const onClose = vi.fn();
+    const onQuiet = vi.fn();
+    renderHook(() => usePlayClock({ enabled: true, childId: "c1", initialMinutes: 0, onClose, onQuiet, initialSource: "earned" }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_000);
+    });
+    expect(onClose).toHaveBeenCalledWith("cap_reached");
+    expect(onQuiet).not.toHaveBeenCalled();
+  });
+
+  it("the last minute's record answered quiet: the world goes quiet instead of closing", async () => {
+    recordRealmPlay.mockResolvedValue(undefined);
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 0, source: "quiet" });
+    const onClose = vi.fn();
+    const onQuiet = vi.fn();
+    const { result } = renderHook(() => usePlayClock({ enabled: true, childId: "c1", initialMinutes: 1, onClose, onQuiet }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+    expect(result.current.warning).toBe(true);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(55_000);
+    });
+    expect(recordRealmPlay).toHaveBeenCalledWith("c1", 1);
+    expect(result.current.quiet).toBe(true);
+    expect(result.current.minutesRemaining).toBe(0);
+    expect(result.current.warning).toBe(false); // no "last minute" banner over the quiet world
+    expect(onQuiet).toHaveBeenCalledTimes(1);
+    expect(onClose).not.toHaveBeenCalled();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(120_000);
+    });
+    expect(recordRealmPlay).toHaveBeenCalledTimes(1);
+  });
+
+  it("the last minute's record answered cap_reached: the Realm closes", async () => {
+    recordRealmPlay.mockResolvedValue(undefined);
+    getRealmAccess.mockResolvedValue({ allowed: false, reason: "cap_reached" });
+    const onClose = vi.fn();
+    renderHook(() => usePlayClock({ enabled: true, childId: "c1", initialMinutes: 1, onClose }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(61_000);
+    });
+    expect(onClose).toHaveBeenCalledWith("cap_reached");
+  });
+
+  it("starts quiet from a quiet entry, never counts, and wakes when a refresh finds minutes", async () => {
+    recordRealmPlay.mockResolvedValue(undefined);
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 3, source: "earned" });
+    const onClose = vi.fn();
+    const onWake = vi.fn();
+    const { result } = renderHook(() => usePlayClock({ enabled: true, childId: "c1", initialMinutes: 0, onClose, onWake, initialSource: "quiet" }));
+    expect(result.current.quiet).toBe(true);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(120_000);
+    });
+    expect(recordRealmPlay).not.toHaveBeenCalled();
+    expect(getRealmAccess).not.toHaveBeenCalled();
+
+    // A side quest paid: the frame re-asks the gate.
+    await act(async () => {
+      await result.current.refresh();
+    });
+    expect(result.current.quiet).toBe(false);
+    expect(result.current.minutesRemaining).toBe(3);
+    expect(result.current.source).toBe("earned");
+    expect(onWake).toHaveBeenCalledWith(3);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+    expect(recordRealmPlay).toHaveBeenCalledWith("c1", 1);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("charges nothing for quiet time when the page is hidden", async () => {
+    const sendBeacon = vi.fn(() => true);
+    Object.defineProperty(navigator, "sendBeacon", { value: sendBeacon, configurable: true, writable: true });
+    const { unmount } = renderHook(() => usePlayClock({ enabled: true, childId: "c1", initialMinutes: 0, onClose: vi.fn(), initialSource: "quiet" }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(55_000);
+    });
+    act(() => void window.dispatchEvent(new Event("pagehide")));
+    expect(sendBeacon).not.toHaveBeenCalled();
+    unmount();
+    delete (navigator as { sendBeacon?: unknown }).sendBeacon;
+  });
+});
+
 describe("usePlayClock — leaving by reload, tab close or a typed URL (pagehide)", () => {
   // Those exits unload the document without running React's cleanups, so the unmount flush never
   // runs; the only thing that fires is `pagehide`, and the only request that survives it is a beacon.

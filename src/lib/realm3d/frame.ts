@@ -12,7 +12,7 @@
  */
 
 import { gateCopy, type GateCopy } from "@/lib/realm/play-clock";
-import type { AccessDenied, AccessResult, AccessSource } from "@/lib/utils/realm-access";
+import { isQuiet, type AccessDenied, type AccessResult, type AccessSource } from "@/lib/utils/realm-access";
 import type { InteractTarget } from "./hud-bus";
 import type { PauseWhy } from "./pause";
 
@@ -26,6 +26,8 @@ export type Viewer = "child" | "parent";
 export type EntryPhase =
   | { kind: "checking" }
   | { kind: "gated"; copy: GateCopy }
+  /** A child at 0 minutes in an earning mode: in to learn, offered side quests before the world (spec §4.5). */
+  | { kind: "quiet-gate" }
   | {
       kind: "open";
       /** The minutes the play clock starts from. Always 0 for a parent: a parent spends nothing. */
@@ -58,8 +60,13 @@ export function entryPhase(result: AccessResult, isChildView: boolean): EntryPha
   if (copy) return { kind: "gated", copy };
   // `copy` is null exactly when access is allowed, but the type does not know that.
   if (!result.allowed) return { kind: "gated", copy: { title: "The Realm is out of reach right now.", body: "Try again in a moment." } };
+  // A grown-up (above) has no clock, so is never quiet; a child at 0 meets the quiet gate first.
+  if (isQuiet(result)) return { kind: "quiet-gate" };
   return { kind: "open", minutes: result.minutesRemaining, visit: null, source: result.source };
 }
+
+/** Walking on from the quiet gate: in, with nothing to spend, on a clock that starts quiet. */
+export const QUIET_WALK: Extract<EntryPhase, { kind: "open" }> = { kind: "open", minutes: 0, visit: null, source: "quiet" };
 
 /** The closing card when a scheduled recess ends (`recess/copy.ts`'s RECESS_OVER, the words a run ends with too). */
 export const RECESS_CLOSED = "Recess is over. Your gleams are kept.";

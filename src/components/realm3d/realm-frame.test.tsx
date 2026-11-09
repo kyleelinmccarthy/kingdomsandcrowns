@@ -13,7 +13,7 @@ vi.mock("next/dynamic", () => ({ default: () => () => <div data-testid="canvas" 
 vi.mock("@/lib/actions/realm-settings", () => ({ setRealmDepth: vi.fn(async () => {}), updateRealmSettings: vi.fn(async () => {}) }));
 vi.mock("@/lib/actions/realm-play", () => ({
   getRealmAccess: vi.fn(async () => access.result),
-  recordRealmPlay: vi.fn(async (_c: string, _d: string, m: number) => void access.recorded.push(m)),
+  recordRealmPlay: vi.fn(async (_c: string, m: number) => void access.recorded.push(m)),
   getTroubleBounty: vi.fn(async () => ({ enabled: false, capMinutes: 0, subCapMinutes: 0, paidMinutes: 0, remainingMinutes: 0, clearsToday: 0, paidHomes: [] })),
   recordTroubleClears: vi.fn(),
 }));
@@ -30,6 +30,7 @@ beforeAll(() => {
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
+  access.recorded = [];
 });
 
 const props = (isChildView: boolean): RealmFrameProps => ({
@@ -83,16 +84,37 @@ describe("the Realm's door", () => {
     expect(screen.getByText("Closed for Emma now")).toBeInTheDocument();
   });
 
-  it("closes, as the flat Realm does, when the clock runs out", async () => {
+  it("goes quiet, not closed, when the clock runs out and the gate says quiet", async () => {
     vi.useFakeTimers();
-    await open(true, { allowed: true, minutesRemaining: 0, source: "earned" });
-    expect(screen.getByTestId("canvas")).toBeInTheDocument();
+    await open(true, { allowed: true, minutesRemaining: 1, source: "earned" });
+    access.result = { allowed: true, minutesRemaining: 0, source: "quiet" };
     await act(async () => {
-      vi.advanceTimersByTime(1000);
+      await vi.advanceTimersByTimeAsync(180_000);
+    });
+    expect(screen.getByTestId("canvas")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Well played, Emma!" })).toBeNull();
+  });
+
+  it("closes when the clock runs out on the day's cap", async () => {
+    vi.useFakeTimers();
+    await open(true, { allowed: true, minutesRemaining: 1, source: "earned" });
+    access.result = { allowed: false, reason: "cap_reached" };
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(61_000);
     });
     expect(screen.getByRole("heading", { name: "Well played, Emma!" })).toBeInTheDocument();
-    expect(screen.getByText("Every quest you complete banks minutes here.")).toBeInTheDocument();
+    expect(screen.getByText("The Realm will be waiting tomorrow.")).toBeInTheDocument();
     expect(screen.queryByTestId("canvas")).toBeNull();
+  });
+
+  it("until the quiet gate is drawn, a child at 0 walks into the quiet world, and its clock never shuts it", async () => {
+    vi.useFakeTimers();
+    await open(true, { allowed: true, minutesRemaining: 0, source: "quiet" });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(180_000);
+    });
+    expect(screen.getByTestId("canvas")).toBeInTheDocument();
+    expect(access.recorded).toEqual([]);
   });
 
   it("says how minutes are earned when minutes are what the child is missing (earningLines)", async () => {

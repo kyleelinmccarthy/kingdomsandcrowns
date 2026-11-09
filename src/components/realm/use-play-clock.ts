@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { getRealmAccess, recordRealmPlay } from "@/lib/actions/realm-play";
 import { applyAccess, minutesToSettle, startClock, tickClock, type PlayClock } from "@/lib/realm/play-clock";
-import type { AccessDenied, AccessSource } from "@/lib/utils/realm-access";
+import type { AccessDenied, AccessResult, AccessSource } from "@/lib/utils/realm-access";
 import { beaconPlayCharge } from "@/lib/utils/realm-play-charge";
 
 /** Why the Realm closed, in the gate's own vocabulary. `AccessDenied` already is that reason union. */
@@ -16,12 +16,19 @@ export type { AccessSource };
  * Ticks the pure clock once a second, writes a minute to the ledger every 60
  * visible seconds, and refreshes access after each write. State updates happen
  * inside the interval callback, never synchronously in the effect body.
+ *
+ * At 0 it never closes by itself: it asks the server once (`empty`), and the
+ * answer goes quiet (`onQuiet` — an earning mode at a 0 balance: nothing counts,
+ * nothing is charged) or closes (a denial, e.g. the day's cap). Minutes landing
+ * while quiet — any `refresh` that finds them — wake it (`onWake`).
  */
 export function usePlayClock({
   enabled,
   childId,
   initialMinutes,
   onClose,
+  onQuiet,
+  onWake,
   paused = false,
   initialSource = null,
 }: {
@@ -29,16 +36,24 @@ export function usePlayClock({
   childId: string;
   initialMinutes: number;
   onClose: (reason: CloseReason) => void;
+  onQuiet?: () => void;
+  onWake?: (minutes: number) => void;
   paused?: boolean;
   initialSource?: AccessSource | null;
 }) {
-  const [clock, setClock] = useState<PlayClock>(() => startClock(initialMinutes));
+  const [clock, setClock] = useState<PlayClock>(() => startClock(initialMinutes, initialSource === "quiet"));
   const [warning, setWarning] = useState(false);
   const [error, setError] = useState("");
   const [source, setSource] = useState<AccessSource | null>(initialSource ?? null);
   const clockRef = useRef(clock);
   const closeRef = useRef(onClose);
   closeRef.current = onClose;
+  const quietRef = useRef(onQuiet);
+  quietRef.current = onQuiet;
+  const wakeRef = useRef(onWake);
+  wakeRef.current = onWake;
+  // An `empty` tick has asked the server and the answer is not in yet: one question, not one a second.
+  const askingRef = useRef(false);
   // Minutes recorded locally but not yet confirmed by the server. A failed
   // record is retried with the next minute's record (or on Try again); a
   // lost response can double-charge one minute, which is rarer than the free
@@ -56,21 +71,29 @@ export function usePlayClock({
     pausedRef.current = paused;
   }, [paused]);
 
+  /** Adopts a fresh access answer: the one place an answer becomes clock state and callbacks. */
+  const adopt = useCallback((access: AccessResult) => {
+    const applied = applyAccess(clockRef.current, access);
+    clockRef.current = applied.clock;
+    setClock(applied.clock);
+    setError("");
+    if (access.allowed) setSource(access.source);
+    if (applied.event === "warn") setWarning(true);
+    // The last minute's banner comes down on a top-up, and never hangs over the quiet world.
+    if (applied.clock.minutesRemaining > 1 || applied.clock.quiet) setWarning(false);
+    if (applied.event === "quiet") quietRef.current?.();
+    if (applied.event === "wake") wakeRef.current?.(applied.clock.minutesRemaining);
+    // Allowed at 0 but not quiet is no answer the server gives; it closes as it always did.
+    if (applied.event === "close") closeRef.current(access.allowed ? "no_minutes" : access.reason);
+  }, []);
+
   const refresh = useCallback(async () => {
     try {
-      const access = await getRealmAccess(childId);
-      const applied = applyAccess(clockRef.current, access);
-      clockRef.current = applied.clock;
-      setClock(applied.clock);
-      setError("");
-      if (access.allowed) setSource(access.source);
-      if (applied.event === "warn") setWarning(true);
-      if (applied.clock.minutesRemaining > 1) setWarning(false);
-      if (applied.event === "close") closeRef.current(access.allowed ? "no_minutes" : access.reason);
+      adopt(await getRealmAccess(childId));
     } catch (err) {
       setError(err instanceof Error ? err.message : "The Realm lost track of time for a moment.");
     }
-  }, [childId]);
+  }, [childId, adopt]);
 
   /**
    * Writes `minutes` to the ledger and refreshes access. The caller decides the
@@ -104,15 +127,7 @@ export function usePlayClock({
         const remaining = Math.max(0, unbilled - sent * 60);
         pendingRef.current = Math.floor(remaining / 60);
         clockRef.current = { ...clockRef.current, secondsThisMinute: remaining % 60 };
-        const access = await getRealmAccess(childId);
-        const applied = applyAccess(clockRef.current, access);
-        clockRef.current = applied.clock;
-        setClock(applied.clock);
-        setError("");
-        if (access.allowed) setSource(access.source);
-        if (applied.event === "warn") setWarning(true);
-        if (applied.clock.minutesRemaining > 1) setWarning(false);
-        if (applied.event === "close") closeRef.current(access.allowed ? "no_minutes" : access.reason);
+        adopt(await getRealmAccess(childId));
       } catch (err) {
         // pendingRef and the clock's seconds are left exactly as they were:
         // the failed minutes carry into the next record, and an unbilled
@@ -123,7 +138,7 @@ export function usePlayClock({
         inFlightRef.current = 0;
       }
     },
-    [childId]
+    [childId, adopt]
   );
 
   useEffect(() => {
@@ -140,7 +155,13 @@ export function usePlayClock({
       clockRef.current = ticked.clock;
       setClock(ticked.clock);
       if (ticked.event === "warn") setWarning(true);
-      if (ticked.event === "close") closeRef.current("no_minutes");
+      // Out of minutes: ask once. A record in flight is already asking (`settle` adopts its answer).
+      if (ticked.event === "empty" && !askingRef.current && !recordingRef.current) {
+        askingRef.current = true;
+        void refresh().finally(() => {
+          askingRef.current = false;
+        });
+      }
       if (ticked.event !== "record") return;
       pendingRef.current += ticked.records;
       if (recordingRef.current) return;
@@ -186,5 +207,5 @@ export function usePlayClock({
   }, [enabled, childId]);
 
   // `refresh` re-asks the gate now: minutes landed from elsewhere (a cleared trouble's bounty).
-  return { minutesRemaining: clock.minutesRemaining, warning, error, clearError: () => setError(""), flushPending, refresh, source };
+  return { minutesRemaining: clock.minutesRemaining, warning, error, clearError: () => setError(""), flushPending, refresh, source, quiet: clock.quiet };
 }
