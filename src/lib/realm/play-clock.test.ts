@@ -181,7 +181,10 @@ describe("the quiet clock", () => {
 
 describe("gateCopy", () => {
   it("names each reason in the hero's terms", () => {
-    expect(gateCopy({ allowed: false, reason: "no_minutes" })).toEqual({ title: "The Realm opens when you finish a quest.", body: "Every quest you complete banks minutes here." });
+    expect(gateCopy({ allowed: false, reason: "no_minutes" })).toEqual({
+      title: "The Realm is resting for now.",
+      body: "Side quests earn play time, and you get free minutes every day.",
+    });
     expect(gateCopy({ allowed: false, reason: "outside_recess" }, { recessStart: "10:30" })).toEqual({ title: "Recess hasn't started.", body: "Recess opens at 10:30 AM." });
     expect(gateCopy({ allowed: false, reason: "outside_recess" })!.body).toBe("Ask a grown-up when recess is.");
     expect(gateCopy({ allowed: false, reason: "cap_reached" })).toEqual({ title: "You've played your minutes for today.", body: "The Realm will be waiting tomorrow." });

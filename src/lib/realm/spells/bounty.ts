@@ -270,15 +270,21 @@ export function earningLines(settings: EarningSettings, status: BountyStatus | n
   ];
 }
 
-/** Slice 8's two sentences for the earning modes: what a quest earns, and what clearing does. */
+/**
+ * Slice 8's two sentences for the earning modes: what a quest earns, and what clearing does. With
+ * no minutes per quest the grown-up is named instead — as the only giver when nothing else gives
+ * minutes, and as one more ("too") beside the day's free minutes or the side quests' stars.
+ */
 function questAndClearingLines(settings: EarningSettings, status: BountyStatus | null, accessMode: RealmAccessMode): string[] {
   const q = settings.earnedMinutesPerQuest;
   const bounty = bountyEnabled({ ...settings, accessMode }) && (status === null || status.enabled);
+  const othersGive = settings.dailyAllowanceMinutes > 0 || (settings.minutesPerStar > 0 && settings.sideQuestDailyCapMinutes > 0);
+  const grownUp = othersGive ? "A grown-up can give you more minutes too" : "A grown-up gives you your minutes here";
   if (!bounty) {
-    if (q <= 0) return [`A grown-up gives you your minutes here, up to ${settings.dailyCapMinutes} a day.`];
+    if (q <= 0) return [`${grownUp}, up to ${settings.dailyCapMinutes} a day.`];
     return [`Finish a quest and you earn ${q} more ${minutesWord(q)} here, up to ${settings.dailyCapMinutes} a day.`];
   }
-  const quest = q <= 0 ? "A grown-up gives you your minutes here." : `Finish a quest and you earn ${q} more ${minutesWord(q)} here.`;
+  const quest = q <= 0 ? `${grownUp}.` : `Finish a quest and you earn ${q} more ${minutesWord(q)} here.`;
   if (status === null) return [quest, "Clearing troubles earns a minute each."];
   if (status.subCapMinutes > 0 && status.paidMinutes >= status.subCapMinutes) return [quest, CLEARING_SPENT_LINE];
   return [quest, `Clearing troubles earns a minute each, up to ${status.subCapMinutes} a day.`];

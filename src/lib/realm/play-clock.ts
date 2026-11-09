@@ -175,7 +175,7 @@ export function gateCopy(result: AccessResult, next?: { recessStart?: string }):
   if (result.allowed) return null;
   switch (result.reason) {
     case "no_minutes":
-      return { title: "The Realm opens when you finish a quest.", body: "Every quest you complete banks minutes here." };
+      return { title: "The Realm is resting for now.", body: "Side quests earn play time, and you get free minutes every day." };
     case "outside_recess":
       return {
         title: "Recess hasn't started.",

@@ -27,7 +27,7 @@ describe("the gate", () => {
 
   it("keeps a child out with the flat Realm's own words when the gate is shut", () => {
     const phase = entryPhase({ allowed: false, reason: "no_minutes" }, true);
-    expect(phase).toEqual({ kind: "gated", copy: { title: "The Realm opens when you finish a quest.", body: "Every quest you complete banks minutes here." } });
+    expect(phase).toEqual({ kind: "gated", copy: { title: "The Realm is resting for now.", body: "Side quests earn play time, and you get free minutes every day." } });
   });
 
   it("never gates a parent, and spends none of the child's minutes on their visit", () => {
@@ -62,7 +62,7 @@ describe("the gate", () => {
   });
 
   it("closes with the same closing line the flat Realm shows", () => {
-    expect(closedPhase("no_minutes")).toEqual({ kind: "closed", body: "Every quest you complete banks minutes here." });
+    expect(closedPhase("no_minutes")).toEqual({ kind: "closed", body: "Side quests earn play time, and you get free minutes every day." });
     expect(closedPhase("school_hours")).toEqual({ kind: "closed", body: "The Realm opens after your last class." });
   });
 

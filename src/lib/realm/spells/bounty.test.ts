@@ -287,6 +287,18 @@ describe("earningLines — the one place the Realm says how minutes are earned (
     expect(earningLines({ ...earning, dailyAllowanceMinutes: 1 }, status(), "earned")[0]).toBe("You get 1 free minute every day.");
   });
 
+  it("never says a grown-up gives all the minutes while free minutes or side quests give some", () => {
+    const noQuest = { ...earning, earnedMinutesPerQuest: 0 };
+    for (const lines of [earningLines(noQuest, status(), "earned"), earningLines({ ...noQuest, troubleBonusCapMinutes: 0 }, null, "earned")]) {
+      expect(lines.join(" ")).not.toMatch(/A grown-up gives you your minutes/);
+      expect(lines.join(" ")).toMatch(/A grown-up can give you more minutes too/);
+    }
+    // Only the side quests on: still no contradiction.
+    expect(earningLines({ ...noQuest, dailyAllowanceMinutes: 0 }, null, "earned").join(" ")).not.toMatch(/A grown-up gives you your minutes/);
+    // Nothing else gives minutes: the grown-up does, as before.
+    expect(earningLines({ ...noQuest, dailyAllowanceMinutes: 0, minutesPerStar: 0 }, null, "earned")).toContain("A grown-up gives you your minutes here.");
+  });
+
   it("leaves out each new line whose setting is 0", () => {
     const lines = (over: Partial<typeof earning>) => earningLines({ ...earning, ...over }, status(), "earned");
     expect(lines({ dailyAllowanceMinutes: 0 })).not.toContain("You get 10 free minutes every day.");
