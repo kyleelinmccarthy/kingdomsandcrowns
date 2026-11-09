@@ -190,3 +190,17 @@ Four new `realm_settings` columns, grown-up only via `updateRealmSettings`, vali
 10. A real-world quest finished today for yesterday's date earns into today; a grown-up's grant lands on today.
 11. A grown-up finishing a side quest on the child's behalf earns the child no minutes.
 12. Gate-board runs refresh the village before the child enters, so a building raised at the gate is standing when they walk in.
+
+## 9. After the build (2026-11-09)
+
+Built on `realm-earning-time` (10 tasks, each reviewed; a whole-branch review and one fix wave). Full suite 287 files / 5500 tests, tsc clean, eslint at the known baseline. Verified in the browser as Emma: the day opening with 10 free minutes plus the bank, the quiet gate and quiet world, a gate side quest paying +3 and waking the Realm, a real 2-minute idle pause giving back 2 minutes, and the Settings "Earning time" group.
+
+Calls made during the build (beyond §8 and §2a): the trouble bonus is withheld only in the quiet world (recess or after-hours play at 0 still pays); every write to a day opens it first, so a day with a finished quest but no visit keeps the older bank; a clock that runs out *while idle* still gets its idle minutes back; refunds only reverse minutes charged in the last 2 minutes 15 seconds (hardening after an automated security review), with 15 s of slack on the once-per-2-minutes rule; an unreachable server at 0 minutes backs off and then closes the Realm as before; a quiet world checks for new minutes once a minute.
+
+**Known follow-ups (judged safe to wait):**
+- A branded "locked transaction" type so `appendLedger`/`openDay(tx)` can only be called under the child lock (today: doc comment).
+- If the server is unreachable exactly as a scheduled recess ends, the goodbye says side quests earn time instead of "Recess is over".
+- Keyboard focus is lost if the gate's side-quest board closes while the gate is re-checking.
+- The tutorial's riding lesson can't be finished in the quiet world until "Skip this step" appears.
+- Troubles cleared earlier in a visit may reappear after the world wakes (they pay nothing twice).
+- Each Realm write still reads "today" just before taking the lock; a write in the same millisecond as midnight could land on yesterday.
