@@ -21,6 +21,7 @@ import type { ObjectiveState } from "@/lib/realm/objective";
 import { riseToast } from "@/lib/realm/objective";
 import type { Villager } from "@/lib/realm/villagers";
 import { SIDE_QUEST_LOWER, SIDE_QUESTS, SIDE_QUESTS_LOWER } from "@/lib/utils/side-quest-copy";
+import { minutesWord } from "@/lib/realm/spells/bounty";
 
 export type Viewer = "child" | "parent";
 
@@ -189,6 +190,18 @@ export function resultStarsLine(summary: Pick<RunSummary, "stars" | "previousBes
   if (summary.stars > summary.previousBest) return "New best!";
   if (!summary.counted && summary.kind === "deed") return `${villagerName ?? "The village"} will help you try again.`;
   return "";
+}
+
+/** Said once the day's side-quest minutes are all earned (spec 2026-11-09 §4.3). */
+export const SIDE_QUEST_PAY_FULL_LINE = "You've earned all your side-quest minutes for today — great work!";
+
+/**
+ * The result card's minutes line, one source for the Realm card and the page's: what the run
+ * paid, or — when it paid nothing because the day's limit is reached — that it is, gently.
+ */
+export function resultMinutesLine(summary: Pick<RunSummary, "minutesEarned" | "sideQuestPayFull">): string | null {
+  if (summary.minutesEarned > 0) return `+${summary.minutesEarned} ${minutesWord(summary.minutesEarned)} earned`;
+  return summary.sideQuestPayFull ? SIDE_QUEST_PAY_FULL_LINE : null;
 }
 
 /**

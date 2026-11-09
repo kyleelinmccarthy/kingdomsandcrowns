@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { objectiveState } from "@/lib/realm/objective";
 import { villagerById } from "@/lib/realm/villagers";
-import { attemptFeedback, deedToast, resultBuildingLine, resultHeadline, resultStarsLine, starsLabel, starsLeftLine, talkCopy, type SiteState } from "./talk";
+import { attemptFeedback, deedToast, resultBuildingLine, resultHeadline, resultMinutesLine, resultStarsLine, starsLabel, starsLeftLine, talkCopy, type SiteState } from "./talk";
 
 const bram = villagerById("bram")!;
 const well: SiteState = { id: "well", label: "Village Well", done: 0, total: 5, complete: false, stars: 0, maxStars: 9 };
@@ -170,6 +170,21 @@ describe("the result card's stars", () => {
   it("words the star count for a screen reader", () => {
     expect(starsLabel(1)).toBe("1 of 3 stars");
     expect(starsLabel(3)).toBe("3 of 3 stars");
+  });
+});
+
+describe("the result card's minutes", () => {
+  it("says what the side quest earned, one minute or many", () => {
+    expect(resultMinutesLine({ minutesEarned: 3, sideQuestPayFull: false })).toBe("+3 minutes earned");
+    expect(resultMinutesLine({ minutesEarned: 1, sideQuestPayFull: true })).toBe("+1 minute earned");
+  });
+  it("once the day's side-quest minutes are all earned, says so gently", () => {
+    const line = resultMinutesLine({ minutesEarned: 0, sideQuestPayFull: true });
+    expect(line).toBe("You've earned all your side-quest minutes for today — great work!");
+    expect(line).not.toMatch(/out of time|behind|failed/i);
+  });
+  it("says nothing when nothing was paid and nothing is used up", () => {
+    expect(resultMinutesLine({ minutesEarned: 0, sideQuestPayFull: false })).toBeNull();
   });
 });
 

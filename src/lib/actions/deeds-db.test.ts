@@ -8,6 +8,7 @@ import { hintFor } from "@/lib/utils/skill-hints";
 import { CHALLENGE, starsFor } from "@/lib/utils/deed-scoring";
 import { CHALLENGE_NOT_READY } from "@/lib/utils/deed-refusals";
 import type { Question } from "@/lib/utils/drill-generators";
+import { REALM_LEDGER_DDL, REALM_SETTINGS_DDL } from "@/test/realm-db-ddl";
 
 /**
  * The second-chance contract against a REAL Postgres database. Every rule here is enforced from
@@ -28,7 +29,13 @@ vi.mock("@/lib/auth/access", () => ({
   requireChildAccess: vi.fn(async () => ({ access: { userId: "child:c1" }, familyId: "f1" })),
   isChildActor: (access: { userId: string }) => access.userId.startsWith("child:"),
 }));
-vi.mock("@/lib/services/realm-play", () => ({ loadRealmSettings: vi.fn(async () => ({ ...DEFAULT_REALM_SETTINGS })) }));
+// The run's own settings are mocked; side-quest pay is the real service, on the real ledger (it
+// reads the hero's settings from `realm_settings` itself).
+vi.mock("@/lib/services/realm-play", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/services/realm-play")>("@/lib/services/realm-play");
+  return { ...actual, loadRealmSettings: vi.fn(async () => ({ ...DEFAULT_REALM_SETTINGS })), paySideQuest: vi.fn(actual.paySideQuest) };
+});
+vi.mock("@/lib/services/realm-clock", () => ({ realmNow: async () => ({ date: "2026-11-09", timeOfDay: "10:00" }) }));
 vi.mock("@/lib/services/learning-profile", () => ({ loadLearningProfileRow: async () => null }));
 vi.mock("@/lib/utils/deed-engine", async () => {
   const actual = await vi.importActual<typeof import("@/lib/utils/deed-engine")>("@/lib/utils/deed-engine");
@@ -45,7 +52,7 @@ vi.mock("@/lib/services/deeds", async () => ({
 const { answerDeedQuestion, retryDeedQuestion, resolveDeedQuestion, completeDeedRun, startDeedRun } = await import("./deeds");
 const { getSchoolCounts } = await import("./subjects");
 const { loadDeedBest } = await import("@/lib/services/deeds");
-const { loadRealmSettings } = await import("@/lib/services/realm-play");
+const { loadRealmSettings, paySideQuest } = await import("@/lib/services/realm-play");
 const { buildDeedRun } = await import("@/lib/utils/deed-engine");
 const { requireChildAccess } = await import("@/lib/auth/access");
 
@@ -73,6 +80,8 @@ const DDL = [
   `CREATE UNIQUE INDEX kingdom_progress_child_building_idx ON kingdom_progress (child_id, building_id)`,
   `CREATE TABLE subject (id text PRIMARY KEY NOT NULL, spell_school text DEFAULT 'none' NOT NULL)`,
   `CREATE TABLE activity_log (id text PRIMARY KEY NOT NULL, child_id text NOT NULL, subject_id text NOT NULL)`,
+  ...REALM_SETTINGS_DDL,
+  ...REALM_LEDGER_DDL,
 ];
 
 const SKILL = "mul-facts";
@@ -123,7 +132,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  for (const t of ["deed_run", "skill_mastery", "kingdom_progress"]) await client.query(`DELETE FROM ${t}`);
+  for (const t of ["deed_run", "skill_mastery", "kingdom_progress", "realm_settings", "realm_play_ledger"]) await client.query(`DELETE FROM ${t}`);
   vi.mocked(loadRealmSettings).mockResolvedValue({ ...DEFAULT_REALM_SETTINGS });
   vi.mocked(buildDeedRun).mockClear();
 });
@@ -542,6 +551,90 @@ describe("startDeedRun begins a fresh run on the grown-up's settings", () => {
     await seedRun({ id: "deed-old", questions: [QUESTIONS[1]], responses: ["6"], secondTries: JSON.stringify(["9"]), completed: true });
     await startDeedRun("c1", "well-stones", "realm");
     expect(vi.mocked(buildDeedRun).mock.calls[0][0].recentMisses.map((q) => q.id)).toEqual(["q1"]);
+  });
+});
+
+describe("side quests pay play minutes by stars", () => {
+  const ALL_RIGHT = { responses: ["6", "9", "12", "15"] };
+  const GROWN_UP = { access: { userId: "u-parent" }, familyId: "f1" } as unknown as Awaited<ReturnType<typeof requireChildAccess>>;
+
+  async function practiceRows(): Promise<{ minutes: number; source_run_id: string | null }[]> {
+    const r = await client.query("SELECT minutes, source_run_id FROM realm_play_ledger WHERE child_id = 'c1' AND kind = 'practice' ORDER BY source_run_id");
+    return r.rows;
+  }
+  async function realmSettings(cols: Record<string, string | number>) {
+    await client.query("INSERT INTO realm_settings (id, child_id, created_at, updated_at) VALUES ('s1', 'c1', NOW(), NOW()) ON CONFLICT DO NOTHING");
+    for (const [col, v] of Object.entries(cols)) await client.query(`UPDATE realm_settings SET ${col} = $1 WHERE child_id = 'c1'`, [v]);
+  }
+
+  it("a three-star run pays three minutes on the server's day, opening the day first", async () => {
+    await seedRun(ALL_RIGHT);
+    const s = await completeDeedRun("run1");
+    expect(s).toMatchObject({ stars: 3, minutesEarned: 3, sideQuestPayFull: false });
+    expect(await practiceRows()).toEqual([{ minutes: 3, source_run_id: "run1" }]);
+    const opened = await client.query("SELECT kind FROM realm_play_ledger WHERE child_id = 'c1' AND date = '2026-11-09' ORDER BY kind");
+    expect(opened.rows.map((r) => r.kind)).toEqual(["allowance", "carried", "practice"]);
+  });
+
+  it("pays once when the finish is raced, and the losing finish pays nothing", async () => {
+    await seedRun(ALL_RIGHT);
+    const results = await Promise.allSettled([completeDeedRun("run1"), completeDeedRun("run1")]);
+    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    expect(await practiceRows()).toEqual([{ minutes: 3, source_run_id: "run1" }]);
+  });
+
+  it("asked twice for one run, the second pays nothing new and answers with what was paid", async () => {
+    expect(await paySideQuest("c1", "run9", 2)).toEqual({ minutes: 2, full: false });
+    expect(await paySideQuest("c1", "run9", 3)).toEqual({ minutes: 2, full: false });
+    expect(await practiceRows()).toEqual([{ minutes: 2, source_run_id: "run9" }]);
+  });
+
+  it("two runs finished at once never pay past the day's limit, and the card says it is reached", async () => {
+    await realmSettings({ side_quest_daily_cap_minutes: 4 });
+    await seedRun({ ...ALL_RIGHT, id: "a" });
+    await seedRun({ ...ALL_RIGHT, id: "b" });
+    const [a, b] = await Promise.all([completeDeedRun("a"), completeDeedRun("b")]);
+    expect([a.minutesEarned, b.minutesEarned].sort()).toEqual([1, 3]);
+    // The second to the lock gets what is left, and reaches the limit.
+    expect([a, b].find((x) => x.minutesEarned === 1)?.sideQuestPayFull).toBe(true);
+    expect((await practiceRows()).reduce((n, r) => n + r.minutes, 0)).toBe(4);
+    await seedRun({ ...ALL_RIGHT, id: "c" });
+    expect(await completeDeedRun("c")).toMatchObject({ minutesEarned: 0, sideQuestPayFull: true });
+    expect(await practiceRows()).toHaveLength(2);
+  });
+
+  it("a grown-up's run on the page records its stars and pays nothing", async () => {
+    await seedRun(ALL_RIGHT);
+    vi.mocked(requireChildAccess).mockResolvedValueOnce(GROWN_UP);
+    expect(await completeDeedRun("run1")).toMatchObject({ stars: 3, minutesEarned: 0, sideQuestPayFull: false });
+    expect(await practiceRows()).toEqual([]);
+  });
+
+  it("a starless run and a Crown Challenge pay nothing, and never ask", async () => {
+    vi.mocked(paySideQuest).mockClear();
+    await seedRun({ responses: ["5", "6", "7", "8"], secondTries: JSON.stringify(["", "", "", ""]) });
+    expect(await completeDeedRun("run1")).toMatchObject({ stars: 0, minutesEarned: 0 });
+    await seedRun({ id: "ch", kind: "challenge", questions: QUESTIONS.slice(0, 3), responses: ["6", "9", "12"], secondChances: false });
+    expect(await completeDeedRun("ch")).toMatchObject({ kind: "challenge", minutesEarned: 0, sideQuestPayFull: false });
+    expect(paySideQuest).not.toHaveBeenCalled();
+    expect(await practiceRows()).toEqual([]);
+  });
+
+  it("pays nothing where minutes mean nothing (scheduled)", async () => {
+    await realmSettings({ access_mode: "scheduled" });
+    await seedRun(ALL_RIGHT);
+    expect(await completeDeedRun("run1")).toMatchObject({ stars: 3, minutesEarned: 0, sideQuestPayFull: false });
+    expect(await practiceRows()).toEqual([]);
+  });
+
+  it("a minute write that fails never fails the finish: the stars still show", async () => {
+    await seedRun(ALL_RIGHT);
+    vi.mocked(paySideQuest).mockRejectedValueOnce(new Error("connection reset"));
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(await completeDeedRun("run1")).toMatchObject({ stars: 3, minutesEarned: 0, sideQuestPayFull: false });
+    expect(error).toHaveBeenCalled();
+    error.mockRestore();
+    expect((await stored()).completed_at).not.toBeNull();
   });
 });
 

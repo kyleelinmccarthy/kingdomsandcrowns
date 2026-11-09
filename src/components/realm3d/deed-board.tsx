@@ -30,7 +30,7 @@ import type { RunStart, RunSummary } from "@/lib/utils/deed-run-types";
 import { realmCue } from "@/lib/realm3d/sound/store";
 import type { BuildingOverview } from "@/lib/services/deeds";
 import type { Villager } from "@/lib/realm/villagers";
-import { attemptFeedback, resultBuildingLine, resultHeadline, resultStarsLine, talkCopy, type Viewer } from "@/lib/realm3d/talk";
+import { attemptFeedback, resultBuildingLine, resultHeadline, resultMinutesLine, resultStarsLine, talkCopy, type Viewer } from "@/lib/realm3d/talk";
 import { MAX_STARS, type Stars } from "@/lib/utils/deed-scoring";
 import { choiceTone } from "@/lib/utils/deed-run-flow";
 import { deedErrorLine } from "@/lib/utils/deed-refusals";
@@ -314,6 +314,7 @@ function DeedRun({
   if (summary) {
     const head = resultHeadline(summary, run.deed.title);
     const stars = resultStarsLine(summary, villagerName);
+    const minutesLine = resultMinutesLine(summary);
     return (
       <div className="r3-result">
         <span className={`r3-result-seal${summary.flawless ? " r3-result-seal--flawless" : ""}`}>
@@ -322,6 +323,11 @@ function DeedRun({
         <h3 className="r3-result-title">{head.title}</h3>
         {summary.kind === "deed" && <BoardStars stars={summary.stars} />}
         {stars && <p className="r3-result-stars-line">{stars}</p>}
+        {minutesLine && (
+          <p className="r3-result-minutes">
+            <GameIcon name="hourglass" className="r3-result-building-icon" /> {minutesLine}
+          </p>
+        )}
         <p className="r3-result-line">
           <Subject area={run.deed.area} /> {head.line}
         </p>

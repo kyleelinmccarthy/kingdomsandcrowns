@@ -8,6 +8,8 @@ import { dayOpeningRows, isDayOpen, opensDays, previewToday } from "@/lib/utils/
 import type { AccessScene } from "@/lib/services/realm-access-scene";
 import { playChargeProblem } from "@/lib/utils/realm-play-charge";
 import { realmNow } from "@/lib/services/realm-clock";
+import { practicePaidToday } from "@/lib/utils/realm-ledger";
+import { sideQuestPay, type SideQuestPay } from "@/lib/utils/side-quest-pay";
 import { awardClears, bountyStatusFor, MAX_CLEARS_PER_MINUTE, type BountyStatus, type ClearRow } from "@/lib/realm/spells/bounty";
 import { latestClears, RELOAD_MEMORY_MS, STAMP_SLACK_MS, type RecentClear } from "@/lib/realm3d/trouble-reload";
 
@@ -62,24 +64,28 @@ export async function loadLedger(childId: string, date: string, exec: Exec = db)
     .where(and(eq(schema.realmPlayLedger.childId, childId), eq(schema.realmPlayLedger.date, date)));
 }
 
-/** Module-private on purpose: every write to a day goes through `appendToOpenedDay`, which opens it first. */
+/** What a ledger row was paid for, when it was paid for one thing. */
+type LedgerSource = { sourceAssignmentId?: string | null; sourceRunId?: string | null };
+
+/**
+ * Module-private on purpose: every write to a day goes through an opened day (`appendToOpenedDay`,
+ * or a caller that ran `openDay` in the same locked transaction). Returns whether the row landed:
+ * a once-only row (a run's `practice`) already there is left alone.
+ */
 async function appendLedger(
   childId: string,
   date: string,
   kind: LedgerRow["kind"],
   minutes: number,
-  sourceAssignmentId: string | null = null,
+  { sourceAssignmentId = null, sourceRunId = null }: LedgerSource = {},
   exec: Exec = db
-): Promise<void> {
-  await exec.insert(schema.realmPlayLedger).values({
-    id: nanoid(),
-    childId,
-    date,
-    kind,
-    minutes,
-    sourceAssignmentId,
-    createdAt: new Date(),
-  });
+): Promise<boolean> {
+  const landed = await exec
+    .insert(schema.realmPlayLedger)
+    .values({ id: nanoid(), childId, date, kind, minutes, sourceAssignmentId, sourceRunId, createdAt: new Date() })
+    .onConflictDoNothing()
+    .returning({ id: schema.realmPlayLedger.id });
+  return landed.length > 0;
 }
 
 /**
@@ -178,7 +184,7 @@ export async function appendToOpenedDay(
   const s = settings ?? (await loadRealmSettings(childId));
   await withChildLock(childId, async (tx) => {
     await openDay(childId, date, s, tx);
-    await appendLedger(childId, date, kind, minutes, sourceAssignmentId, tx);
+    await appendLedger(childId, date, kind, minutes, { sourceAssignmentId }, tx);
   });
 }
 
@@ -191,6 +197,32 @@ export async function chargeRealmPlay(childId: string, date: string, minutes: nu
   const problem = playChargeProblem(minutes);
   if (problem) throw new Error(problem);
   await appendToOpenedDay(childId, date, "spent", minutes);
+}
+
+/**
+ * Pays a finished side quest its stars in play minutes (`sideQuestPay`) as one `practice` row on
+ * the server's day, up to the day's side-quest limit. Under the child's lock, with the day opened
+ * first, so two runs finished at once read each other's pay and never pass the limit together. A
+ * run pays once (the `practice` per-run unique index): asked again, it answers with what that run
+ * was paid. Callers have authorized the child and decided the run may pay at all (§2a, §4.3).
+ */
+export async function paySideQuest(childId: string, runId: string, stars: number): Promise<SideQuestPay> {
+  return withChildLock(childId, async (tx) => {
+    const { date } = await realmNow(childId);
+    const settings = await loadRealmSettings(childId, tx);
+    const today = await openDay(childId, date, settings, tx);
+    const paidToday = practicePaidToday(today);
+    const pay = sideQuestPay(stars, settings, paidToday);
+    if (pay.minutes <= 0) return pay;
+    if (await appendLedger(childId, date, "practice", pay.minutes, { sourceRunId: runId }, tx)) return pay;
+    const L = schema.realmPlayLedger;
+    const earlier = await tx
+      .select({ minutes: L.minutes })
+      .from(L)
+      .where(and(eq(L.kind, "practice"), eq(L.sourceRunId, runId)))
+      .limit(1);
+    return { minutes: earlier[0]?.minutes ?? 0, full: sideQuestPay(0, settings, paidToday).full };
+  });
 }
 
 /** The troubles a hero cleared on `date`, oldest first: what each home paid, for the bounty. */
@@ -251,7 +283,7 @@ export async function recordTroubleClearRows(childId: string, date: string, rows
     }
     await exec.insert(schema.realmTroubleClear).values({ id: nanoid(), childId, date, homeId: r.homeId, minutes: 0, createdAt: now });
   }
-  if (banked > 0) await appendLedger(childId, date, "bonus", banked, null, exec);
+  if (banked > 0) await appendLedger(childId, date, "bonus", banked, {}, exec);
   return banked;
 }
 

@@ -22,7 +22,9 @@ vi.mock("@/lib/db", () => {
     insert: () => ({
       values: (v: Record<string, unknown> | Record<string, unknown>[]) => {
         for (const r of Array.isArray(v) ? v : [v]) if ("kind" in r) inserted.push(r);
-        return Object.assign(Promise.resolve(), { onConflictDoNothing: async () => {} });
+        // Every insert lands: `.returning()` hands back one row.
+        const landed = () => Object.assign(Promise.resolve(), { returning: async () => [{}] });
+        return Object.assign(Promise.resolve(), { onConflictDoNothing: landed });
       },
     }),
     select: () => ({ from: none }),

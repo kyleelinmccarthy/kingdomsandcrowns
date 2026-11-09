@@ -228,7 +228,8 @@ export function applyStatus(purse: BountyPurse, status: BountyStatus, unsent: re
 /** What the earning copy reads from the hero's Realm settings. */
 export type EarningSettings = Pick<BountySettings, "enabled" | "earnedMinutesPerQuest" | "dailyCapMinutes" | "troubleBonusCapMinutes">;
 
-function minutesWord(n: number): string {
+/** "minute" or "minutes", for every line that counts Realm minutes. */
+export function minutesWord(n: number): string {
   return n === 1 ? "minute" : "minutes";
 }
 
