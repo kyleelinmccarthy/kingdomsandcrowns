@@ -22,6 +22,13 @@
       "when": 1793852906779,
       "tag": "0002_silent_timeslip",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1794238389136,
+      "tag": "0003_soft_karnak",
+      "breakpoints": true
     }
   ]
 }

@@ -46,10 +46,16 @@ const DDL = [
     help_seen_at timestamptz, starter_spell_at timestamptz, depth_override text DEFAULT 'auto' NOT NULL,
     tutorial_step integer DEFAULT 0 NOT NULL, trouble_bonus_cap_minutes integer DEFAULT 5 NOT NULL,
     side_quest_length integer DEFAULT 8 NOT NULL, second_chances boolean DEFAULT true NOT NULL,
+    daily_allowance_minutes integer DEFAULT 10 NOT NULL, minutes_per_star integer DEFAULT 1 NOT NULL,
+    side_quest_daily_cap_minutes integer DEFAULT 15 NOT NULL, bank_cap_minutes integer DEFAULT 30 NOT NULL,
     sound text, created_at timestamptz NOT NULL, updated_at timestamptz NOT NULL)`,
   `CREATE TABLE realm_play_ledger (
     id text PRIMARY KEY NOT NULL, child_id text NOT NULL, date text NOT NULL, kind text NOT NULL,
-    minutes integer NOT NULL, source_assignment_id text, created_at timestamptz NOT NULL)`,
+    minutes integer NOT NULL, source_assignment_id text, source_run_id text, created_at timestamptz NOT NULL)`,
+  `CREATE INDEX realm_play_ledger_child_date_idx ON realm_play_ledger (child_id, date)`,
+  `CREATE UNIQUE INDEX realm_play_ledger_allowance_day_idx ON realm_play_ledger (child_id, date) WHERE "realm_play_ledger"."kind" = 'allowance'`,
+  `CREATE UNIQUE INDEX realm_play_ledger_carried_day_idx ON realm_play_ledger (child_id, date) WHERE "realm_play_ledger"."kind" = 'carried'`,
+  `CREATE UNIQUE INDEX realm_play_ledger_practice_run_idx ON realm_play_ledger (source_run_id) WHERE "realm_play_ledger"."kind" = 'practice'`,
   `CREATE TABLE realm_trouble_clear (
     id text PRIMARY KEY NOT NULL, child_id text NOT NULL, date text NOT NULL, home_id text NOT NULL,
     minutes integer DEFAULT 0 NOT NULL, created_at timestamptz NOT NULL)`,

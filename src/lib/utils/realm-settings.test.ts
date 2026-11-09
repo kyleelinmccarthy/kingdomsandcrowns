@@ -119,3 +119,46 @@ describe("side-quest length and second chances", () => {
     expect(() => validateRealmSettingsPatch({ secondChances: 1 })).toThrow();
   });
 });
+
+describe("earning-time settings", () => {
+  it("defaults: 10 free minutes, 1 minute a star, 15 side-quest minutes a day, a 30-minute bank", () => {
+    expect(DEFAULT_REALM_SETTINGS.dailyAllowanceMinutes).toBe(10);
+    expect(DEFAULT_REALM_SETTINGS.minutesPerStar).toBe(1);
+    expect(DEFAULT_REALM_SETTINGS.sideQuestDailyCapMinutes).toBe(15);
+    expect(DEFAULT_REALM_SETTINGS.bankCapMinutes).toBe(30);
+  });
+
+  it("reads an out-of-range or non-integer value as the default and keeps boundaries", () => {
+    expect(settingsFromRow({ dailyAllowanceMinutes: 61 }).dailyAllowanceMinutes).toBe(10);
+    expect(settingsFromRow({ dailyAllowanceMinutes: 1.5 }).dailyAllowanceMinutes).toBe(10);
+    expect(settingsFromRow({ dailyAllowanceMinutes: 0 }).dailyAllowanceMinutes).toBe(0);
+    expect(settingsFromRow({ dailyAllowanceMinutes: 60 }).dailyAllowanceMinutes).toBe(60);
+    expect(settingsFromRow({ minutesPerStar: 6 }).minutesPerStar).toBe(1);
+    expect(settingsFromRow({ minutesPerStar: 0 }).minutesPerStar).toBe(0);
+    expect(settingsFromRow({ minutesPerStar: 5 }).minutesPerStar).toBe(5);
+    expect(settingsFromRow({ sideQuestDailyCapMinutes: 121 }).sideQuestDailyCapMinutes).toBe(15);
+    expect(settingsFromRow({ sideQuestDailyCapMinutes: 0 }).sideQuestDailyCapMinutes).toBe(0);
+    expect(settingsFromRow({ sideQuestDailyCapMinutes: 120 }).sideQuestDailyCapMinutes).toBe(120);
+    expect(settingsFromRow({ bankCapMinutes: -1 }).bankCapMinutes).toBe(30);
+    expect(settingsFromRow({ bankCapMinutes: 241 }).bankCapMinutes).toBe(30);
+    expect(settingsFromRow({ bankCapMinutes: 0 }).bankCapMinutes).toBe(0);
+    expect(settingsFromRow({ bankCapMinutes: 240 }).bankCapMinutes).toBe(240);
+  });
+
+  it("rejects out-of-range writes and accepts the boundaries", () => {
+    expect(() => validateRealmSettingsPatch({ dailyAllowanceMinutes: 61 })).toThrow("Free minutes must be 0–60 a day.");
+    expect(() => validateRealmSettingsPatch({ dailyAllowanceMinutes: -1 })).toThrow();
+    expect(validateRealmSettingsPatch({ dailyAllowanceMinutes: 0 })).toEqual({ dailyAllowanceMinutes: 0 });
+    expect(validateRealmSettingsPatch({ dailyAllowanceMinutes: 60 })).toEqual({ dailyAllowanceMinutes: 60 });
+    expect(() => validateRealmSettingsPatch({ minutesPerStar: 6 })).toThrow("Minutes per star must be 0–5.");
+    expect(() => validateRealmSettingsPatch({ minutesPerStar: 0.5 })).toThrow();
+    expect(validateRealmSettingsPatch({ minutesPerStar: 0 })).toEqual({ minutesPerStar: 0 });
+    expect(validateRealmSettingsPatch({ minutesPerStar: 5 })).toEqual({ minutesPerStar: 5 });
+    expect(() => validateRealmSettingsPatch({ sideQuestDailyCapMinutes: 121 })).toThrow("Side-quest minutes must be 0–120 a day.");
+    expect(validateRealmSettingsPatch({ sideQuestDailyCapMinutes: 0 })).toEqual({ sideQuestDailyCapMinutes: 0 });
+    expect(validateRealmSettingsPatch({ sideQuestDailyCapMinutes: 120 })).toEqual({ sideQuestDailyCapMinutes: 120 });
+    expect(() => validateRealmSettingsPatch({ bankCapMinutes: 241 })).toThrow("The saved-minutes bank must be 0–240 minutes.");
+    expect(validateRealmSettingsPatch({ bankCapMinutes: 0 })).toEqual({ bankCapMinutes: 0 });
+    expect(validateRealmSettingsPatch({ bankCapMinutes: 240 })).toEqual({ bankCapMinutes: 240 });
+  });
+});
