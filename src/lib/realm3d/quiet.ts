@@ -10,7 +10,7 @@
  * A grown-up's visit has no clock and so is never quiet: the caller passes `false` for them.
  */
 
-import { minutesWord } from "@/lib/realm/spells/bounty";
+import { minutesWord } from "@/lib/utils/minutes-copy";
 
 export type QuietSurfaces = { troubles: boolean; riding: boolean; recess: boolean };
 

@@ -1,7 +1,7 @@
 /**
  * Charging Realm play time: the rules both ways in share. The play clock's server action
  * (`recordRealmPlay`) and its page-hide beacon (`app/api/realm/play/route.ts`) check a charge
- * here and write it with the same `appendLedger`, so a minute costs the same whichever way it
+ * here and write it with the same `chargeRealmPlay`, so a minute costs the same whichever way it
  * arrives.
  *
  * Why a beacon at all: a React unmount cleanup is how leaving the Realm charges the minute in

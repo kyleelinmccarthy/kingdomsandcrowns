@@ -23,10 +23,11 @@ const store = {
 // `realm-play-bounty-db.test.ts`; here it only has to be reached, or not.
 const awardTroubleClears = vi.fn(async () => ({ awarded: 0, status: {} }));
 vi.mock("@/lib/services/realm-play", () => ({
-  appendLedger: vi.fn(),
   loadRealmSettings: async () => store.settings,
   loadLedger: async () => store.ledger,
   loadLedgerAsOpened: async () => store.ledger,
+}));
+vi.mock("@/lib/services/realm-troubles", () => ({
   loadTroubleClears: async () => store.clears,
   awardTroubleClears: (...a: unknown[]) => (awardTroubleClears as (...x: unknown[]) => unknown)(...a),
 }));

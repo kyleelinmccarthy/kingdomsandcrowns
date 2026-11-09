@@ -21,7 +21,7 @@ import type { ObjectiveState } from "@/lib/realm/objective";
 import { riseToast } from "@/lib/realm/objective";
 import type { Villager } from "@/lib/realm/villagers";
 import { SIDE_QUEST_LOWER, SIDE_QUESTS, SIDE_QUESTS_LOWER } from "@/lib/utils/side-quest-copy";
-import { minutesWord } from "@/lib/realm/spells/bounty";
+import { minutesWord } from "@/lib/utils/minutes-copy";
 
 export type Viewer = "child" | "parent";
 

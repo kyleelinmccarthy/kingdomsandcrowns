@@ -1,23 +1,20 @@
-import { and, asc, count, eq, gt, gte, inArray, lt, max, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, lt, max, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { settingsFromRow, type RealmSettings } from "@/lib/utils/realm-settings";
-import { computeRealmAccess, isQuiet, minutesSpent, modeEarns, type LedgerRow } from "@/lib/utils/realm-access";
+import { minutesSpent, modeEarns, type LedgerRow } from "@/lib/utils/realm-access";
 import { dayOpeningRows, isDayOpen, opensDays, previewToday } from "@/lib/utils/realm-day";
-import type { AccessScene } from "@/lib/services/realm-access-scene";
 import { playChargeProblem } from "@/lib/utils/realm-play-charge";
 import { realmNow } from "@/lib/services/realm-clock";
 import { practicePaidToday } from "@/lib/utils/realm-ledger";
 import { sideQuestPay, type SideQuestPay } from "@/lib/utils/side-quest-pay";
-import { awardClears, bountyStatusFor, MAX_CLEARS_PER_MINUTE, type BountyStatus, type ClearRow } from "@/lib/realm/spells/bounty";
-import { latestClears, RELOAD_MEMORY_MS, STAMP_SLACK_MS, type RecentClear } from "@/lib/realm3d/trouble-reload";
 import { IDLE_MS } from "@/lib/realm3d/pause";
 
 /** A transaction on the database. */
-type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+export type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 /** The database, or a transaction on it: the reads and writes below run on either. */
-type Exec = typeof db | Tx;
+export type Exec = typeof db | Tx;
 
 /**
  * Realm play-time plumbing shared by the actions and the quest-completion
@@ -72,21 +69,21 @@ export async function loadLedger(childId: string, date: string, exec: Exec = db)
 type LedgerSource = { sourceAssignmentId?: string | null; sourceRunId?: string | null };
 
 /**
- * Module-private on purpose: every write to a day goes through an opened day (`appendToOpenedDay`,
- * or a caller that ran `openDay` in the same locked transaction). Returns whether the row landed:
+ * Inside the child's lock only (`tx` from `withChildLock`): every write to a day goes through an
+ * opened day (`appendToOpenedDay`, or a caller that ran `openDay` in the same locked transaction). Returns whether the row landed:
  * a run's `practice` row already there (the practice per-run index) is left alone; any other
  * conflict is a real error and throws.
  */
-async function appendLedger(
+export async function appendLedger(
   childId: string,
   date: string,
   kind: LedgerRow["kind"],
   minutes: number,
-  { sourceAssignmentId = null, sourceRunId = null }: LedgerSource = {},
-  exec: Exec = db
+  { sourceAssignmentId = null, sourceRunId = null }: LedgerSource,
+  tx: Tx
 ): Promise<boolean> {
   const L = schema.realmPlayLedger;
-  const insert = exec.insert(L).values({ id: nanoid(), childId, date, kind, minutes, sourceAssignmentId, sourceRunId, createdAt: new Date() });
+  const insert = tx.insert(L).values({ id: nanoid(), childId, date, kind, minutes, sourceAssignmentId, sourceRunId, createdAt: new Date() });
   const landed = await (sourceRunId
     ? insert.onConflictDoNothing({ target: L.sourceRunId, where: sql`${L.kind} = 'practice'` })
     : insert
@@ -113,9 +110,9 @@ export async function loadPreviousActiveDay(childId: string, before: string, exe
  * Runs `run` in one transaction holding the child's advisory lock (`pg_advisory_xact_lock`), so
  * every read-then-write on this child's ledger is serialized, across isolates too. The lock is
  * per child (unrelated heroes never block each other) and released at COMMIT/ROLLBACK. See
- * `awardTroubleClears` for why calls also queue in-process and retry on deadlock.
+ * `awardTroubleClears` (`services/realm-troubles.ts`) for why calls also queue in-process and retry on deadlock.
  */
-async function withChildLock<T>(childId: string, run: (tx: Tx) => Promise<T>): Promise<T> {
+export async function withChildLock<T>(childId: string, run: (tx: Tx) => Promise<T>): Promise<T> {
   return queued(childId, () =>
     withWriteRetry(() =>
       db.transaction(async (tx) => {
@@ -268,111 +265,6 @@ export async function refundIdle(childId: string, date: string, minutes: number,
     if (refunded < 1) return 0;
     await appendLedger(childId, date, "refund", refunded, {}, tx);
     return refunded;
-  });
-}
-
-/** The troubles a hero cleared on `date`, oldest first: what each home paid, for the bounty. */
-export async function loadTroubleClears(childId: string, date: string, exec: Exec = db): Promise<ClearRow[]> {
-  return exec
-    .select({ homeId: schema.realmTroubleClear.homeId, minutes: schema.realmTroubleClear.minutes })
-    .from(schema.realmTroubleClear)
-    .where(and(eq(schema.realmTroubleClear.childId, childId), eq(schema.realmTroubleClear.date, date)))
-    .orderBy(asc(schema.realmTroubleClear.createdAt));
-}
-
-/**
- * Each trouble home's latest clear in the last `RELOAD_MEMORY_MS`, as how long ago it was on
- * this server's clock: what a reload needs so a trouble cleared a moment ago stays cleared
- * (`lib/realm3d/trouble-reload.ts`). By `created_at`, not the hero's local `date`, so it is the
- * same answer either side of midnight in any timezone.
- */
-export async function loadRecentTroubleClears(childId: string, now: Date = new Date(), exec: Exec = db): Promise<RecentClear[]> {
-  const rows = await exec
-    .select({ homeId: schema.realmTroubleClear.homeId, createdAt: schema.realmTroubleClear.createdAt })
-    .from(schema.realmTroubleClear)
-    .where(and(eq(schema.realmTroubleClear.childId, childId), gt(schema.realmTroubleClear.createdAt, new Date(now.getTime() - RELOAD_MEMORY_MS - STAMP_SLACK_MS))));
-  return latestClears(
-    rows.map((r) => ({ homeId: r.homeId, at: r.createdAt.getTime() })),
-    now.getTime(),
-  );
-}
-
-/** How many clears this hero has recorded since `since`, on any day. */
-export async function countTroubleClearsSince(childId: string, since: Date, exec: Exec = db): Promise<number> {
-  const rows = await exec
-    .select({ n: count() })
-    .from(schema.realmTroubleClear)
-    .where(and(eq(schema.realmTroubleClear.childId, childId), gt(schema.realmTroubleClear.createdAt, since)));
-  return rows[0]?.n ?? 0;
-}
-
-/**
- * Records a batch of clears and banks what they paid as ONE `bonus` ledger row. A paid row that
- * collides with the partial unique index (one paid clear per home per day — a second tab, a
- * retried request) is inserted unpaid instead, and only the minutes that actually landed are
- * banked, so the ledger can never pay a home twice.
- */
-export async function recordTroubleClearRows(childId: string, date: string, rows: readonly ClearRow[], exec: Exec = db): Promise<number> {
-  const now = new Date();
-  let banked = 0;
-  for (const r of rows) {
-    if (r.minutes > 0) {
-      const landed = await exec
-        .insert(schema.realmTroubleClear)
-        .values({ id: nanoid(), childId, date, homeId: r.homeId, minutes: r.minutes, createdAt: now })
-        .onConflictDoNothing()
-        .returning({ minutes: schema.realmTroubleClear.minutes });
-      if (landed.length > 0) {
-        banked += r.minutes;
-        continue;
-      }
-    }
-    await exec.insert(schema.realmTroubleClear).values({ id: nanoid(), childId, date, homeId: r.homeId, minutes: 0, createdAt: now });
-  }
-  if (banked > 0) await appendLedger(childId, date, "bonus", banked, {}, exec);
-  return banked;
-}
-
-/**
- * The whole award as one write transaction (`withChildLock`): the per-minute limit, the day's
- * allowance, the award and its writes. Read-then-write outside a transaction let two calls at once (two tabs, a
- * replayed request) both read an untouched allowance and both bank it in full; the unique index
- * only stops the same home paying twice, not two calls paying different homes. Postgres's default
- * isolation does NOT take a write lock at BEGIN the way a libsql write transaction did, so the
- * transaction opens by taking a `pg_advisory_xact_lock` keyed on childId — the second call for the
- * same hero blocks until the first commits and releases it, then reads what the first wrote. Lock
- * scope is per-childId, so unrelated heroes never block each other, and it's released automatically
- * at COMMIT/ROLLBACK.
- *
- * Calls for one hero in one server process also queue behind each other before they reach the
- * database, which is not only politeness but keeps one process from blocking its own event loop
- * on its own advisory lock. Across isolates (production on Cloudflare Workers) the advisory lock
- * is what serializes; withWriteRetry is a defensive retry for the rare Postgres deadlock or
- * serialization-failure error, not for routine contention (which blocks rather than erroring).
- */
-export async function awardTroubleClears(
-  childId: string,
-  date: string,
-  homeIds: readonly string[],
-  scene: AccessScene,
-): Promise<{ awarded: number; status: BountyStatus }> {
-  const { settings } = scene;
-  return withChildLock(childId, async (tx) => {
-    // Clears are a write to the day, so the day opens first; its rows say whether the child is in
-    // the quiet world, asked exactly as the gate asks it (`scene` is the gate's other inputs).
-    const ledgerToday = await openDay(childId, date, settings, tx);
-    const quiet = isQuiet(computeRealmAccess({ ...scene, ledgerToday }));
-    const recent = await countTroubleClearsSince(childId, new Date(Date.now() - 60_000), tx);
-    const batch = homeIds.slice(0, Math.max(0, MAX_CLEARS_PER_MINUTE - recent));
-    let awarded = 0;
-    if (batch.length > 0) {
-      const { rows } = awardClears(batch, ledgerToday, settings, await loadTroubleClears(childId, date, tx), quiet);
-      awarded = await recordTroubleClearRows(childId, date, rows, tx);
-    }
-    // Read back inside the lock, so the answer is exactly what this call left behind. Paying
-    // nothing in quiet leaves it quiet; paying anything means it was not.
-    const status = bountyStatusFor(await loadLedger(childId, date, tx), settings, await loadTroubleClears(childId, date, tx), quiet);
-    return { awarded, status };
   });
 }
 

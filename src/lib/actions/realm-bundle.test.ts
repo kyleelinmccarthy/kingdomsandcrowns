@@ -19,6 +19,8 @@ const loadRecentTroubleClears = vi.fn(async (childId: string) => childId ? [{ ho
 vi.mock("@/lib/services/realm-play", () => ({
   loadRealmSettings: async () => ({ ...DEFAULT_REALM_SETTINGS }),
   loadRealmFlags: async () => ({ helpSeenAt: null, starterSpellAt: null }),
+}));
+vi.mock("@/lib/services/realm-troubles", () => ({
   loadRecentTroubleClears: (childId: string) => loadRecentTroubleClears(childId),
 }));
 vi.mock("@/lib/services/deeds", () => ({ loadKingdomOverview: async () => ({ tone: "gentle", buildings: [] }) }));

@@ -4,14 +4,13 @@ import { revalidatePath } from "next/cache";
 import { requireChildAccess, isChildActor } from "@/lib/auth/access";
 import {
   appendToOpenedDay,
-  awardTroubleClears,
   chargeRealmPlay,
   loadLedgerAsOpened,
   loadRealmSettings,
-  loadTroubleClears,
   openDay,
   refundIdle,
 } from "@/lib/services/realm-play";
+import { awardTroubleClears, loadTroubleClears } from "@/lib/services/realm-troubles";
 import { loadAccessScene } from "@/lib/services/realm-access-scene";
 import { realmNow } from "@/lib/services/realm-clock";
 import {

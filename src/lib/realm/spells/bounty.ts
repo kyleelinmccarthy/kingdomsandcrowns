@@ -21,6 +21,7 @@ import { minutesSpent, modeEarns, type LedgerRow, type RealmAccessMode } from "@
 import { practicePaidToday, sumKind } from "@/lib/utils/realm-ledger";
 import { PLACES } from "@/lib/realm/layout";
 import type { RealmSettings } from "@/lib/utils/realm-settings";
+import { minutesWord } from "@/lib/utils/minutes-copy";
 
 export const MINUTES_PER_CLEAR = 1;
 /** "One grant", never zero: the sub-cap's floor when `earnedMinutesPerQuest` is 0. */
@@ -229,11 +230,6 @@ export function applyStatus(purse: BountyPurse, status: BountyStatus, unsent: re
 /** What the earning copy reads from the hero's Realm settings: the bounty's, and earning time's (spec §4.8). */
 export type EarningSettings = Pick<BountySettings, "enabled" | "earnedMinutesPerQuest" | "dailyCapMinutes" | "troubleBonusCapMinutes"> &
   Pick<RealmSettings, "dailyAllowanceMinutes" | "minutesPerStar" | "sideQuestDailyCapMinutes" | "bankCapMinutes">;
-
-/** "minute" or "minutes", for every line that counts Realm minutes. */
-export function minutesWord(n: number): string {
-  return n === 1 ? "minute" : "minutes";
-}
 
 /** Slice 6's line, unchanged, for scheduled mode (spec §3.11). */
 export const RECESS_EARNING_LINE = "Your Realm time comes from recess, not from quests.";

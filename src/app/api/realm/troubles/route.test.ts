@@ -11,7 +11,7 @@ vi.mock("@/lib/auth/access", () => ({
   isChildActor: (access: { userId: string }) => access.userId.startsWith("child:"),
 }));
 const awardTroubleClears = vi.fn(async () => ({ awarded: 0, status: {} }));
-vi.mock("@/lib/services/realm-play", () => ({
+vi.mock("@/lib/services/realm-troubles", () => ({
   awardTroubleClears: (...a: unknown[]) => (awardTroubleClears as (...x: unknown[]) => unknown)(...a),
 }));
 

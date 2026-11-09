@@ -10,6 +10,7 @@
  */
 
 import type { Viewer } from "./frame";
+import { minutesWord } from "@/lib/utils/minutes-copy";
 
 /** Why the game is paused: the child asked (Esc, P, the button), they were away, or nothing moved. */
 export type PauseWhy = "you" | "away" | "idle";
@@ -62,5 +63,5 @@ export function pauseCopy(why: PauseWhy, viewer: Viewer, heroName: string, refun
 function idleReason(refunded: number | undefined): string | null {
   if (refunded === undefined) return null;
   if (refunded < 1) return "You stepped away, so the Realm paused — your minutes stopped too.";
-  return `You stepped away, so the Realm paused and gave back ${refunded} ${refunded === 1 ? "minute" : "minutes"}.`;
+  return `You stepped away, so the Realm paused and gave back ${refunded} ${minutesWord(refunded)}.`;
 }

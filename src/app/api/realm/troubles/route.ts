@@ -1,4 +1,4 @@
-import { awardTroubleClears } from "@/lib/services/realm-play";
+import { awardTroubleClears } from "@/lib/services/realm-troubles";
 import { loadAccessScene } from "@/lib/services/realm-access-scene";
 import { realmNow } from "@/lib/services/realm-clock";
 import { parseClearBeacon } from "@/lib/utils/realm-clear-beacon";
