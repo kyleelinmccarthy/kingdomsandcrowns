@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { getRealmAccess, recordRealmPlay } from "@/lib/actions/realm-play";
 import { applyAccess, minutesToSettle, startClock, tickClock, type PlayClock } from "@/lib/realm/play-clock";
 import type { AccessDenied } from "@/lib/utils/realm-access";
-import { currentTimeOfDay, localDateOf } from "@/lib/utils/schedule-days";
 import { beaconPlayCharge } from "@/lib/utils/realm-play-charge";
 
 /** Why the Realm closed, in the gate's own vocabulary. `AccessDenied` already is that reason union. */
@@ -59,8 +58,7 @@ export function usePlayClock({
 
   const refresh = useCallback(async () => {
     try {
-      const date = localDateOf(new Date());
-      const access = await getRealmAccess(childId, date, currentTimeOfDay());
+      const access = await getRealmAccess(childId);
       const applied = applyAccess(clockRef.current, access);
       clockRef.current = applied.clock;
       setClock(applied.clock);
@@ -88,8 +86,7 @@ export function usePlayClock({
       recordingRef.current = true;
       inFlightRef.current = sent;
       try {
-        const date = localDateOf(new Date());
-        await recordRealmPlay(childId, date, sent);
+        await recordRealmPlay(childId, sent);
         // Unbilled time is `pending` whole minutes plus the seconds of the
         // minute in progress — `pending * 60 + secondsThisMinute` seconds
         // total — and a successful send pays for `sent * 60` of it. Both
@@ -107,7 +104,7 @@ export function usePlayClock({
         const remaining = Math.max(0, unbilled - sent * 60);
         pendingRef.current = Math.floor(remaining / 60);
         clockRef.current = { ...clockRef.current, secondsThisMinute: remaining % 60 };
-        const access = await getRealmAccess(childId, date, currentTimeOfDay());
+        const access = await getRealmAccess(childId);
         const applied = applyAccess(clockRef.current, access);
         clockRef.current = applied.clock;
         setClock(applied.clock);
@@ -178,7 +175,7 @@ export function usePlayClock({
       const inFlight = inFlightRef.current;
       const owed = minutesToSettle(clockRef.current, pendingRef.current - inFlight);
       if (owed < 1) return;
-      if (!beaconPlayCharge({ childId, date: localDateOf(new Date()), minutes: owed })) return;
+      if (!beaconPlayCharge({ childId, minutes: owed })) return;
       const unbilled = (pendingRef.current - inFlight) * 60 + clockRef.current.secondsThisMinute;
       const remaining = Math.max(0, unbilled - owed * 60);
       pendingRef.current = inFlight + Math.floor(remaining / 60);

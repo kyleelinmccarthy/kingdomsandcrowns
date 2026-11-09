@@ -628,7 +628,7 @@ describe("clearing a trouble, through the whole frame", () => {
     await act(async () => {});
     const tbus = handed.props!.troubles as TroubleBus;
     await act(async () => tbus.onEvent({ kind: "cleared", trouble: "fog", home: 0, x: 0, z: 0, count: 1 }, "Cloudfoot", "place-summit-1"));
-    expect(recordTroubleClears).toHaveBeenCalledWith("demo-child-1", expect.any(String), ["place-summit-1"]);
+    expect(recordTroubleClears).toHaveBeenCalledWith("demo-child-1", ["place-summit-1"]);
     expect(screen.getByText(/\+1 minute/)).toBeInTheDocument();
     view.unmount();
   });

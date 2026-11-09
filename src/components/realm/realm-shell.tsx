@@ -30,7 +30,6 @@ import { advanceTutorial, tutorialPrompt, TUTORIAL_STEPS, type TutorialSignal, t
 import { ceremonyNotice, type CeremonyEvent } from "@/lib/realm/ceremony/ceremony";
 import { DEFAULT_AVATAR, findMount } from "@/lib/utils/avatar-catalog";
 import { readingAttributes } from "@/lib/utils/learning-profile";
-import { currentTimeOfDay, localDateOf } from "@/lib/utils/schedule-days";
 import { crownById, CROWNS } from "@/lib/utils/crown-catalog";
 import { speak } from "@/lib/utils/speech";
 import { SIDE_QUESTS_LOWER } from "@/lib/utils/side-quest-copy";
@@ -102,7 +101,7 @@ export function RealmShell({
     let cancelled = false;
     (async () => {
       const touch = typeof navigator !== "undefined" && navigator.maxTouchPoints > 0;
-      const result = await getRealmAccess(childId, localDateOf(new Date()), currentTimeOfDay());
+      const result = await getRealmAccess(childId);
       if (cancelled) return;
       setIsTouch(touch);
       if (!webglSupported()) {

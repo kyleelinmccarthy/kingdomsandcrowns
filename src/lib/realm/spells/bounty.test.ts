@@ -9,7 +9,6 @@ import {
   bountyStatusFor,
   bountySubCap,
   earningLines,
-  isNearToday,
   isTroubleHomeId,
   questMinutesToday,
   startPurse,
@@ -137,41 +136,6 @@ describe("home ids", () => {
     for (const bad of ["place-a", "place-b", "place-zzz", "place-cove", "place-summit", "place-summit-", "place-summit-1234", "place-castle", "place-ringstones-2", "place-volcano-3"]) {
       expect(isTroubleHomeId(bad)).toBe(false);
     }
-  });
-});
-
-describe("the day a clear is banked on", () => {
-  it("must be today somewhere on Earth (UTC-12 to UTC+14)", () => {
-    const noon = new Date("2026-09-23T12:00:00Z");
-    // 00:00 on the 23rd at UTC-12, 02:00 on the 24th at UTC+14.
-    expect(isNearToday("2026-09-23", noon)).toBe(true);
-    expect(isNearToday("2026-09-24", noon)).toBe(true);
-    expect(isNearToday("2026-09-22", noon)).toBe(false);
-    expect(isNearToday("2026-09-25", noon)).toBe(false);
-    expect(isNearToday("2026-09-21", noon)).toBe(false);
-    expect(isNearToday("2026-13-45", noon)).toBe(false);
-  });
-
-  it("never accepts a date no one on Earth has reached", () => {
-    // 09:00 CDT on the 23rd: it is the 23rd from UTC-12 to UTC+9 and already the 24th past UTC+10,
-    // so the 24th is someone's today; the 25th is nobody's, and used to pass.
-    const morning = new Date("2026-09-23T14:00:00Z");
-    expect(isNearToday("2026-09-23", morning)).toBe(true);
-    expect(isNearToday("2026-09-25", morning)).toBe(false);
-    // 22:00 CDT on the 23rd (03:00Z on the 24th): the 23rd is still today west of UTC-3, the
-    // 24th is today elsewhere, and the 25th is today nowhere yet.
-    const evening = new Date("2026-09-24T03:00:00Z");
-    expect(isNearToday("2026-09-23", evening)).toBe(true);
-    expect(isNearToday("2026-09-24", evening)).toBe(true);
-    expect(isNearToday("2026-09-25", evening)).toBe(false);
-  });
-
-  it("closes a day once it has ended everywhere", () => {
-    // 12:01Z on the 24th: the 23rd has ended even at UTC-12.
-    expect(isNearToday("2026-09-23", new Date("2026-09-24T12:01:00Z"))).toBe(false);
-    // 09:59Z on the 23rd: the 24th has not started anywhere (UTC+14 is at 23:59 on the 23rd).
-    expect(isNearToday("2026-09-24", new Date("2026-09-23T09:59:00Z"))).toBe(false);
-    expect(isNearToday("2026-09-24", new Date("2026-09-23T10:00:00Z"))).toBe(true);
   });
 });
 

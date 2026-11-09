@@ -13,10 +13,10 @@ import {
   loadRealmSettings,
   loadTroubleClears,
 } from "@/lib/services/realm-play";
+import { realmNow } from "@/lib/services/realm-clock";
 import {
   bonusMinutesToday,
   bountyStatusFor,
-  isNearToday,
   isTroubleHomeId,
   MAX_CLEARS_PER_CALL,
   type BountyStatus,
@@ -25,7 +25,6 @@ import { computeRealmAccess, ledgerBalance, minutesSpent, type AccessResult } fr
 import { parseSchoolDays, weekdayOfDate } from "@/lib/utils/schedule-days";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-const TIME = /^\d{2}:\d{2}$/;
 
 function assertDate(date: string) {
   if (!ISO_DATE.test(date)) throw new Error("That date doesn't look right.");
@@ -59,11 +58,13 @@ async function isSchoolDay(childId: string, familyId: string, date: string): Pro
   return breaks.length === 0;
 }
 
-/** May the hero enter the Realm right now? Heroes may ask about themselves. */
-export async function getRealmAccess(childId: string, date: string, timeOfDay: string): Promise<AccessResult> {
-  const { familyId } = await requireChildAccess(childId);
-  assertDate(date);
-  if (!TIME.test(timeOfDay)) throw new Error("That time doesn't look right.");
+/**
+ * May the hero enter the Realm right now? Heroes may ask about themselves. "Now" is the family's
+ * day and time on the server (`realmNow`), never the device's: a changed device clock changes nothing.
+ */
+export async function getRealmAccess(childId: string): Promise<AccessResult> {
+  // The clock's read is the child's family's timezone, harmless to start beside the gate.
+  const [{ familyId }, { date, timeOfDay }] = await Promise.all([requireChildAccess(childId), realmNow(childId)]);
   const day = weekdayOfDate(date);
   const [settings, ledgerToday, classBlocksToday, recessBlocksToday, schoolDay] = await Promise.all([
     loadRealmSettings(childId),
@@ -81,17 +82,17 @@ export async function getRealmAccess(childId: string, date: string, timeOfDay: s
   return computeRealmAccess({ timeOfDay, isSchoolDay: schoolDay, settings, ledgerToday, classBlocksToday, recessBlocksToday });
 }
 
-/** The Realm's heartbeat will call this; capped per call so a stuck client can't burn a day at once. */
-export async function recordRealmPlay(childId: string, date: string, minutes: number): Promise<void> {
-  await requireChildAccess(childId, { write: true });
+/** The Realm's heartbeat; capped per call so a stuck client can't burn a day at once. Charged on the server's today. */
+export async function recordRealmPlay(childId: string, minutes: number): Promise<void> {
+  const [, { date }] = await Promise.all([requireChildAccess(childId, { write: true }), realmNow(childId)]);
   // The same write as the page-hide beacon (`app/api/realm/play/route.ts`).
   await chargeRealmPlay(childId, date, minutes);
 }
 
-export async function grantRealmMinutes(childId: string, date: string, minutes: number): Promise<void> {
-  const { access } = await requireChildAccess(childId, { write: true });
+/** A grown-up's grant lands on the server's today, like every other Realm minute. */
+export async function grantRealmMinutes(childId: string, minutes: number): Promise<void> {
+  const [{ access }, { date }] = await Promise.all([requireChildAccess(childId, { write: true }), realmNow(childId)]);
   if (isChildActor(access)) throw new Error("Only a grown-up can grant Realm minutes.");
-  assertDate(date);
   assertMinutes(minutes, 240);
   await appendLedger(childId, date, "granted", minutes);
   revalidatePath("/settings");
@@ -118,10 +119,9 @@ async function bountyStatus(childId: string, date: string): Promise<BountyStatus
   return bountyStatusFor(ledgerToday, settings, clears);
 }
 
-/** What clearing troubles has earned today and may still earn. Read-only; a grown-up may ask too. */
-export async function getTroubleBounty(childId: string, date: string): Promise<BountyStatus> {
-  await requireChildAccess(childId);
-  assertDate(date);
+/** What clearing troubles has earned today (the server's day) and may still earn. Read-only; a grown-up may ask too. */
+export async function getTroubleBounty(childId: string): Promise<BountyStatus> {
+  const [, { date }] = await Promise.all([requireChildAccess(childId), realmNow(childId)]);
   return bountyStatus(childId, date);
 }
 
@@ -130,7 +130,7 @@ export async function getTroubleBounty(childId: string, date: string): Promise<B
  * minutes they earned. The client's say is only WHICH homes; what they are worth is decided here:
  *
  *   - only the hero themselves — a visiting grown-up writes nothing;
- *   - only today, somewhere on Earth, so tomorrow's allowance cannot be banked tonight;
+ *   - only on the server's today (`realmNow`), so tomorrow's allowance cannot be banked tonight;
  *   - only home ids the game writes, at most `MAX_CLEARS_PER_CALL` a call and
  *     `MAX_CLEARS_PER_MINUTE` a minute (the excess is dropped, not recorded);
  *   - a minute each for a home that has not paid today, under the day's sub-cap and the
@@ -140,13 +140,10 @@ export async function getTroubleBounty(childId: string, date: string): Promise<B
  */
 export async function recordTroubleClears(
   childId: string,
-  date: string,
   homeIds: string[]
 ): Promise<{ awarded: number; status: BountyStatus }> {
-  const { access } = await requireChildAccess(childId, { write: true });
+  const [{ access }, { date }] = await Promise.all([requireChildAccess(childId, { write: true }), realmNow(childId)]);
   if (!isChildActor(access)) throw new Error("Only the hero earns minutes by clearing troubles.");
-  assertDate(date);
-  if (!isNearToday(date, new Date())) throw new Error("That date doesn't look right.");
   if (!Array.isArray(homeIds) || homeIds.length < 1 || homeIds.length > MAX_CLEARS_PER_CALL) {
     throw new Error(`Send between 1 and ${MAX_CLEARS_PER_CALL} clears at a time.`);
   }

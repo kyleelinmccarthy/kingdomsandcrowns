@@ -17,6 +17,9 @@ vi.mock("@/lib/db", () => ({
   db: { insert: () => ({ values: async (v: unknown) => void inserted.push(v) }) },
 }));
 
+// The server's day (`realmNow`): the only day a charge is written on.
+vi.mock("@/lib/services/realm-clock", () => ({ realmNow: async () => ({ date: "2026-11-09", timeOfDay: "10:00" }) }));
+
 import { POST } from "./route";
 
 const child = { access: { userId: "child:c1" }, familyId: "f1" };
@@ -30,7 +33,7 @@ function beacon(body: unknown, headers: Record<string, string> = { origin: "http
   });
 }
 
-const good = { childId: "c1", date: "2026-09-23", minutes: 1 };
+const good = { childId: "c1", minutes: 1 };
 
 beforeEach(() => {
   requireChildAccess.mockReset();
@@ -43,7 +46,14 @@ describe("POST /api/realm/play — the page-hide charge", () => {
     const res = await POST(beacon(good));
     expect(res.status).toBe(204);
     expect(requireChildAccess).toHaveBeenCalledWith("c1", { write: true });
-    expect(inserted).toEqual([expect.objectContaining({ childId: "c1", date: "2026-09-23", kind: "spent", minutes: 1 })]);
+    expect(inserted).toEqual([expect.objectContaining({ childId: "c1", date: "2026-11-09", kind: "spent", minutes: 1 })]);
+  });
+
+  it("charges today whatever date a tab sends (one opened before the deploy still sends one)", async () => {
+    requireChildAccess.mockResolvedValue(child);
+    const res = await POST(beacon({ ...good, date: "2099-01-01" }));
+    expect(res.status).toBe(204);
+    expect(inserted).toEqual([expect.objectContaining({ date: "2026-11-09", kind: "spent", minutes: 1 })]);
   });
 
   it("never charges a visiting grown-up", async () => {
@@ -61,7 +71,7 @@ describe("POST /api/realm/play — the page-hide charge", () => {
   });
 
   it("refuses a malformed charge before asking the gate", async () => {
-    for (const body of ["not json", { ...good, minutes: 0 }, { ...good, minutes: 31 }, { ...good, minutes: 1.5 }, { ...good, date: "tomorrow" }, { ...good, childId: 7 }]) {
+    for (const body of ["not json", { ...good, minutes: 0 }, { ...good, minutes: 31 }, { ...good, minutes: 1.5 }, { ...good, childId: 7 }]) {
       const res = await POST(beacon(body));
       expect(res.status).toBe(400);
     }

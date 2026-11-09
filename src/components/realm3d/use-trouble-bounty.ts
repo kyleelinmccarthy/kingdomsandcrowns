@@ -31,7 +31,6 @@ import {
   type BountyStatus,
   type ClearOutcome,
 } from "@/lib/realm/spells/bounty";
-import { localDateOf } from "@/lib/utils/schedule-days";
 import { beaconClears } from "@/lib/utils/realm-clear-beacon";
 import { addTabClear, holdClears, mergeClears, readTabClears, tabClearsKey, type HeldClears, type RecentClear } from "@/lib/realm3d/trouble-reload";
 
@@ -113,7 +112,7 @@ export function useTroubleBounty({
   useEffect(() => {
     if (!enabled || !childId) return;
     let live = true;
-    getTroubleBounty(childId, localDateOf(new Date()))
+    getTroubleBounty(childId)
       .then((s) => {
         if (!live) return;
         applyStatus(purse.current, s, queue.current);
@@ -135,7 +134,7 @@ export function useTroubleBounty({
     inflight.current = true;
     let failed = false;
     try {
-      const r = await recordTroubleClears(childId, localDateOf(new Date()), batch);
+      const r = await recordTroubleClears(childId, batch);
       failures.current = 0;
       applyStatus(purse.current, r.status, queue.current);
       setStatus(r.status);
@@ -202,7 +201,7 @@ export function useTroubleBounty({
     const onHide = () => {
       if (queue.current.length === 0) return;
       const batch = queue.current.slice(0, MAX_CLEARS_PER_CALL);
-      if (beaconClears({ childId, date: localDateOf(new Date()), homeIds: batch })) queue.current.splice(0, batch.length);
+      if (beaconClears({ childId, homeIds: batch })) queue.current.splice(0, batch.length);
     };
     window.addEventListener("pagehide", onHide);
     return () => window.removeEventListener("pagehide", onHide);

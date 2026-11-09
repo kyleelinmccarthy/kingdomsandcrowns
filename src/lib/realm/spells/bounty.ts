@@ -20,7 +20,6 @@
 import { minutesSpent, type LedgerRow, type RealmAccessMode } from "@/lib/utils/realm-access";
 import { practicePaidToday, sumKind } from "@/lib/utils/realm-ledger";
 import { PLACES } from "@/lib/realm/layout";
-import { todayInZone } from "@/lib/utils/dates";
 
 export const MINUTES_PER_CLEAR = 1;
 /** "One grant", never zero: the sub-cap's floor when `earnedMinutesPerQuest` is 0. */
@@ -164,28 +163,6 @@ const HOME_ID = new RegExp(
 
 export function isTroubleHomeId(id: unknown): id is string {
   return typeof id === "string" && HOME_ID.test(id);
-}
-
-/** The world's earliest and latest clocks: UTC-12 and UTC+14. */
-const WEST_MS = 12 * 3_600_000;
-const EAST_MS = 14 * 3_600_000;
-
-function utcDay(ms: number): string {
-  return todayInZone("UTC", new Date(ms));
-}
-
-/**
- * The hero's local day is sent by the client, so the server checks it is today somewhere on
- * Earth right now: the date at UTC-12, the date at UTC+14, or (when they differ by two) the one
- * between. A date nobody has reached yet is refused, so tomorrow's allowance cannot be banked
- * tonight, and a date that has ended everywhere is refused too.
- */
-export function isNearToday(date: string, now: Date): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
-  const t = Date.parse(`${date}T00:00:00Z`);
-  if (Number.isNaN(t) || utcDay(t) !== date) return false;
-  const at = now.getTime();
-  return date >= utcDay(at - WEST_MS) && date <= utcDay(at + EAST_MS);
 }
 
 /* ----------------------------------------------------------- the client's half */

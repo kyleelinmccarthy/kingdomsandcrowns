@@ -241,7 +241,7 @@ export function RealmSettingsPanel({
         </div>
         <div className="flex gap-2">
           {[15, 30].map((m) => (
-            <Button key={m} size="sm" variant="outline" className="!border-[var(--gold-border)]" disabled={busy} onClick={() => run(() => grantRealmMinutes(childId, summary.date, m))}>
+            <Button key={m} size="sm" variant="outline" className="!border-[var(--gold-border)]" disabled={busy} onClick={() => run(() => grantRealmMinutes(childId, m))}>
               Grant {m}
             </Button>
           ))}

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { beaconPlayCharge, parsePlayCharge, REALM_PLAY_BEACON_PATH } from "./realm-play-charge";
 
-const charge = { childId: "c1", date: "2026-09-23", minutes: 2 };
+const charge = { childId: "c1", minutes: 2 };
 
 afterEach(() => {
   delete (navigator as { sendBeacon?: unknown }).sendBeacon;
@@ -15,6 +15,11 @@ describe("parsePlayCharge", () => {
     expect(parsePlayCharge("null")).toBeNull();
     expect(parsePlayCharge(JSON.stringify({ ...charge, minutes: 31 }))).toBeNull();
     expect(parsePlayCharge(JSON.stringify({ ...charge, childId: "" }))).toBeNull();
+  });
+
+  it("ignores a date an old tab still sends: the server decides the day", () => {
+    expect(parsePlayCharge(JSON.stringify({ ...charge, date: "2099-01-01" }))).toEqual(charge);
+    expect(parsePlayCharge(JSON.stringify({ ...charge, date: "tomorrow" }))).toEqual(charge);
   });
 });
 

@@ -26,7 +26,6 @@ import type { AccessDenied } from "@/lib/utils/realm-access";
 import { closedPhase, entryPhase, type EntryPhase } from "@/lib/realm3d/frame";
 import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
 import { readingAttributes } from "@/lib/utils/learning-profile";
-import { currentTimeOfDay, localDateOf } from "@/lib/utils/schedule-days";
 import type { SpellPage } from "@/lib/services/spells";
 import type { CloseReason } from "@/components/realm/use-play-clock";
 import { ClosedScreen, GateScreen, RealmScreen } from "./frame-hud";
@@ -82,7 +81,7 @@ export function RealmFrame(props: RealmFrameProps) {
       return;
     }
     let cancelled = false;
-    getRealmAccess(childId, localDateOf(new Date()), currentTimeOfDay())
+    getRealmAccess(childId)
       .then((result) => {
         if (cancelled) return;
         if (!webglSupported()) {
@@ -112,7 +111,7 @@ export function RealmFrame(props: RealmFrameProps) {
   useEffect(() => {
     if (!wantsEarning || !childId) return;
     let live = true;
-    getTroubleBounty(childId, localDateOf(new Date()))
+    getTroubleBounty(childId)
       .then((s) => live && setBounty(s))
       .catch(() => live && setBounty(null));
     return () => {

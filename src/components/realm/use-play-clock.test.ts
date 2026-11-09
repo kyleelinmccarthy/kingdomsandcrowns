@@ -39,8 +39,8 @@ describe("usePlayClock", () => {
       await vi.advanceTimersByTimeAsync(60_000);
     });
 
-    expect(recordRealmPlay).toHaveBeenCalledWith("c1", expect.any(String), 1);
-    expect(getRealmAccess).toHaveBeenCalledWith("c1", expect.any(String), expect.any(String));
+    expect(recordRealmPlay).toHaveBeenCalledWith("c1", 1);
+    expect(getRealmAccess).toHaveBeenCalledWith("c1");
     expect(onClose).toHaveBeenCalledWith("school_hours");
   });
 
@@ -57,7 +57,7 @@ describe("usePlayClock", () => {
     });
 
     expect(recordRealmPlay).toHaveBeenCalledTimes(1);
-    expect(recordRealmPlay).toHaveBeenNthCalledWith(1, "c1", expect.any(String), 1);
+    expect(recordRealmPlay).toHaveBeenNthCalledWith(1, "c1", 1);
     expect(result.current.error).toBe("The ledger is unreachable.");
     expect(getRealmAccess).not.toHaveBeenCalled();
     expect(onClose).not.toHaveBeenCalled();
@@ -67,7 +67,7 @@ describe("usePlayClock", () => {
       await vi.advanceTimersByTimeAsync(60_000);
     });
     expect(recordRealmPlay).toHaveBeenCalledTimes(2);
-    expect(recordRealmPlay).toHaveBeenNthCalledWith(2, "c1", expect.any(String), 2);
+    expect(recordRealmPlay).toHaveBeenNthCalledWith(2, "c1", 2);
     expect(result.current.error).toBe("");
   });
 
@@ -90,7 +90,7 @@ describe("usePlayClock", () => {
     });
 
     expect(recordRealmPlay).toHaveBeenCalledTimes(2);
-    expect(recordRealmPlay).toHaveBeenNthCalledWith(2, "c1", expect.any(String), 1);
+    expect(recordRealmPlay).toHaveBeenNthCalledWith(2, "c1", 1);
     expect(result.current.error).toBe("");
   });
 
@@ -110,7 +110,7 @@ describe("usePlayClock", () => {
     await act(async () => {
       await result.current.flushPending();
     });
-    expect(recordRealmPlay).toHaveBeenCalledWith("c1", expect.any(String), 1);
+    expect(recordRealmPlay).toHaveBeenCalledWith("c1", 1);
 
     // Regression: those 45 seconds were charged and must be zeroed on the
     // clock, not merely tracked in `pendingRef`. Without that, the same
@@ -143,7 +143,7 @@ describe("usePlayClock", () => {
       await vi.advanceTimersByTimeAsync(31_000);
     });
     expect(recordRealmPlay).toHaveBeenCalledTimes(1);
-    expect(recordRealmPlay).toHaveBeenCalledWith("c1", expect.any(String), 1);
+    expect(recordRealmPlay).toHaveBeenCalledWith("c1", 1);
   });
 
   it("counts nothing while paused and refreshes access once when unpaused", async () => {
@@ -196,7 +196,7 @@ describe("usePlayClock", () => {
       flushPromise = result.current.flushPending();
     });
     expect(recordRealmPlay).toHaveBeenCalledTimes(1);
-    expect(recordRealmPlay).toHaveBeenCalledWith("c1", expect.any(String), 1);
+    expect(recordRealmPlay).toHaveBeenCalledWith("c1", 1);
 
     // 3 more seconds of real, visible play land while the send is unresolved.
     // `recordingRef` holds the interval's own record path off for the whole
@@ -242,7 +242,7 @@ describe("usePlayClock", () => {
       await vi.advanceTimersByTimeAsync(1_000);
     });
     expect(recordRealmPlay).toHaveBeenCalledTimes(2);
-    expect(recordRealmPlay).toHaveBeenNthCalledWith(2, "c1", expect.any(String), 1);
+    expect(recordRealmPlay).toHaveBeenNthCalledWith(2, "c1", 1);
   });
 
   it("nets the correct pending minutes and residual seconds when a minute rolls over mid-flight", async () => {
@@ -261,7 +261,7 @@ describe("usePlayClock", () => {
       flushPromise = result.current.flushPending();
     });
     expect(recordRealmPlay).toHaveBeenCalledTimes(1);
-    expect(recordRealmPlay).toHaveBeenCalledWith("c1", expect.any(String), 1);
+    expect(recordRealmPlay).toHaveBeenCalledWith("c1", 1);
 
     // 20 more seconds land while the send is in flight: 45+20=65 crosses the
     // minute's own natural 60-second boundary, so `tickClock` fires its own
@@ -295,7 +295,7 @@ describe("usePlayClock", () => {
       await vi.advanceTimersByTimeAsync(1_000);
     });
     expect(recordRealmPlay).toHaveBeenCalledTimes(2);
-    expect(recordRealmPlay).toHaveBeenNthCalledWith(2, "c1", expect.any(String), 1);
+    expect(recordRealmPlay).toHaveBeenNthCalledWith(2, "c1", 1);
   });
 
   it("exposes the access source, starting from the initial one and following refreshes", async () => {
@@ -333,7 +333,7 @@ describe("usePlayClock — leaving by reload, tab close or a typed URL (pagehide
       await vi.advanceTimersByTimeAsync(55_000);
     });
     hide();
-    expect(sent()).toEqual([{ url: "/api/realm/play", childId: "c1", date: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/), minutes: 1 }]);
+    expect(sent()).toEqual([{ url: "/api/realm/play", childId: "c1", minutes: 1 }]);
 
     // Booked as paid: a page restored from the back-forward cache, then left, charges nothing twice.
     hide();
@@ -412,7 +412,7 @@ describe("usePlayClock — the last minute's record fails, then the clock closes
       await result.current.flushPending();
     });
     expect(recordRealmPlay).toHaveBeenCalledTimes(2);
-    expect(recordRealmPlay).toHaveBeenNthCalledWith(2, "c1", expect.any(String), 1);
+    expect(recordRealmPlay).toHaveBeenNthCalledWith(2, "c1", 1);
     unmount();
   });
 });

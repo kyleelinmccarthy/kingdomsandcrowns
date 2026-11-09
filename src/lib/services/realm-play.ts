@@ -5,6 +5,7 @@ import * as schema from "@/lib/db/schema";
 import { settingsFromRow, type RealmSettings } from "@/lib/utils/realm-settings";
 import type { LedgerRow } from "@/lib/utils/realm-access";
 import { playChargeProblem } from "@/lib/utils/realm-play-charge";
+import { realmNow } from "@/lib/services/realm-clock";
 import { awardClears, bountyStatusFor, MAX_CLEARS_PER_MINUTE, type BountyStatus, type ClearRow } from "@/lib/realm/spells/bounty";
 import { latestClears, RELOAD_MEMORY_MS, STAMP_SLACK_MS, type RecentClear } from "@/lib/realm3d/trouble-reload";
 
@@ -78,11 +79,11 @@ export async function appendLedger(
 
 /**
  * Charges Realm play time to the ledger: the one write behind both the play clock's server
- * action and its page-hide beacon. Callers have authorized the child; the charge's shape is
- * checked here, so neither way in can write one the other would refuse.
+ * action and its page-hide beacon. Callers have authorized the child and pass the server's day
+ * (`realmNow`); the minutes are checked here, so neither way in can write one the other would refuse.
  */
 export async function chargeRealmPlay(childId: string, date: string, minutes: number): Promise<void> {
-  const problem = playChargeProblem(date, minutes);
+  const problem = playChargeProblem(minutes);
   if (problem) throw new Error(problem);
   await appendLedger(childId, date, "spent", minutes);
 }
@@ -231,30 +232,31 @@ function isBusy(err: unknown): boolean {
 /**
  * Called once per completed quest. Minutes earned stay earned: revising the
  * quest later never claws them back, which keeps the ledger append-only and
- * the balance never negative.
+ * the balance never negative. They land on the server's today, not the
+ * assignment's date: yesterday's quest finished today earns into today, so
+ * no day is written to once the server's day has moved on.
  */
-export async function grantEarnedMinutesForCompletion(
-  childId: string,
-  assignmentId: string,
-  date: string
-): Promise<void> {
+export async function grantEarnedMinutesForCompletion(childId: string, assignmentId: string): Promise<void> {
   const settings = await loadRealmSettings(childId);
   const earns = settings.accessMode === "earned" || settings.accessMode === "both";
   if (!settings.enabled || !earns || settings.earnedMinutesPerQuest <= 0) return;
 
   // Minutes are earned once per quest: a quest revised back to pending and
   // finished again must not bank a second grant.
-  const existing = await db
-    .select({ id: schema.realmPlayLedger.id })
-    .from(schema.realmPlayLedger)
-    .where(
-      and(
-        eq(schema.realmPlayLedger.childId, childId),
-        eq(schema.realmPlayLedger.kind, "earned"),
-        eq(schema.realmPlayLedger.sourceAssignmentId, assignmentId)
+  const [existing, { date }] = await Promise.all([
+    db
+      .select({ id: schema.realmPlayLedger.id })
+      .from(schema.realmPlayLedger)
+      .where(
+        and(
+          eq(schema.realmPlayLedger.childId, childId),
+          eq(schema.realmPlayLedger.kind, "earned"),
+          eq(schema.realmPlayLedger.sourceAssignmentId, assignmentId)
+        )
       )
-    )
-    .limit(1);
+      .limit(1),
+    realmNow(childId),
+  ]);
   if (existing.length > 0) return;
 
   await appendLedger(childId, date, "earned", settings.earnedMinutesPerQuest, assignmentId);

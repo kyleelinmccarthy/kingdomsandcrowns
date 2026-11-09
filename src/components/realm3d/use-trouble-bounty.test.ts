@@ -45,7 +45,7 @@ describe("useTroubleBounty — a batch the server keeps refusing", () => {
       await vi.advanceTimersByTimeAsync(0);
     });
     expect(recordTroubleClears).toHaveBeenCalledTimes(1);
-    expect(recordTroubleClears.mock.calls[0][2]).toEqual(["rim-1"]);
+    expect(recordTroubleClears.mock.calls[0][1]).toEqual(["rim-1"]);
   });
 
   it("still retries a batch that fails once and then goes through", async () => {
@@ -60,7 +60,7 @@ describe("useTroubleBounty — a batch the server keeps refusing", () => {
       await vi.advanceTimersByTimeAsync(FLUSH_IDLE_MS * 3 + 10);
     });
     expect(recordTroubleClears).toHaveBeenCalledTimes(2);
-    expect(recordTroubleClears.mock.calls[1][2]).toEqual(["rim-0"]);
+    expect(recordTroubleClears.mock.calls[1][1]).toEqual(["rim-0"]);
   });
 });
 
@@ -92,7 +92,7 @@ describe("useTroubleBounty — a reload with clears still in the batch", () => {
     window.dispatchEvent(new Event("pagehide"));
     expect(sent).toHaveLength(1);
     expect(sent[0].url).toBe("/api/realm/troubles");
-    expect(JSON.parse(sent[0].body)).toEqual({ childId: "c1", date: expect.any(String), homeIds: ["rim-0", "place-ringstones"] });
+    expect(JSON.parse(sent[0].body)).toEqual({ childId: "c1", homeIds: ["rim-0", "place-ringstones"] });
 
     unmount();
     await act(async () => {
