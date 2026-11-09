@@ -98,6 +98,8 @@ export function tickClock(clock: PlayClock, elapsedSeconds: number, visible: boo
  */
 export function applyAccess(clock: PlayClock, result: AccessResult): { clock: PlayClock; event: ClockEvent } {
   if (isQuiet(result)) {
+    // Too late to go quiet: a closed clock's goodbye (e.g. `cap_reached`) stands.
+    if (clock.closed) return { clock, event: null };
     return { clock: { ...clock, minutesRemaining: 0, secondsThisMinute: 0, warned: false, quiet: true }, event: clock.quiet ? null : "quiet" };
   }
   if (!result.allowed || result.minutesRemaining <= 0) {

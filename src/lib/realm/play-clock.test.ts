@@ -133,6 +133,13 @@ describe("applyAccess", () => {
     expect(applyAccess(r.clock, { allowed: true, minutesRemaining: 0, source: "quiet" }).event).toBeNull();
   });
 
+  it("a quiet answer on a closed clock is no news: the goodbye stands", () => {
+    const closed = applyAccess(startClock(1), { allowed: false, reason: "cap_reached" }).clock;
+    const r = applyAccess(closed, { allowed: true, minutesRemaining: 0, source: "quiet" });
+    expect(r.event).toBeNull();
+    expect(r.clock.closed).toBe(true);
+  });
+
   it("closes from quiet when the server denies (the daily cap still shuts the Realm)", () => {
     const quiet = startClock(0, true);
     const r = applyAccess(quiet, { allowed: false, reason: "cap_reached" });

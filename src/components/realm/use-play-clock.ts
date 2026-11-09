@@ -13,6 +13,13 @@ export type CloseReason = AccessDenied;
 export type { AccessSource };
 
 /**
+ * Out of minutes and the server will not answer: wait this many played seconds before each
+ * retry, and once the last retry fails (about a minute in), close as the clock did before the
+ * quiet world — an unreachable server must not leave a child in a Realm that never shuts.
+ */
+export const EMPTY_RETRY_SECONDS = [5, 15, 30] as const;
+
+/**
  * Ticks the pure clock once a second, writes a minute to the ledger every 60
  * visible seconds, and refreshes access after each write. State updates happen
  * inside the interval callback, never synchronously in the effect body.
@@ -20,7 +27,8 @@ export type { AccessSource };
  * At 0 it never closes by itself: it asks the server once (`empty`), and the
  * answer goes quiet (`onQuiet` — an earning mode at a 0 balance: nothing counts,
  * nothing is charged) or closes (a denial, e.g. the day's cap). Minutes landing
- * while quiet — any `refresh` that finds them — wake it (`onWake`).
+ * while quiet — any `refresh` that finds them — wake it (`onWake`). A failed ask
+ * is retried with backoff and, with no answer at all, closes (`EMPTY_RETRY_SECONDS`).
  */
 export function usePlayClock({
   enabled,
@@ -54,6 +62,9 @@ export function usePlayClock({
   wakeRef.current = onWake;
   // An `empty` tick has asked the server and the answer is not in yet: one question, not one a second.
   const askingRef = useRef(false);
+  // Failed `empty` asks in a row, and the played seconds left before the next one (`EMPTY_RETRY_SECONDS`).
+  const emptyFailsRef = useRef(0);
+  const emptyWaitRef = useRef(0);
   // Minutes recorded locally but not yet confirmed by the server. A failed
   // record is retried with the next minute's record (or on Try again); a
   // lost response can double-charge one minute, which is rarer than the free
@@ -73,6 +84,8 @@ export function usePlayClock({
 
   /** Adopts a fresh access answer: the one place an answer becomes clock state and callbacks. */
   const adopt = useCallback((access: AccessResult) => {
+    emptyFailsRef.current = 0; // an answer: any backoff starts over
+    emptyWaitRef.current = 0;
     const applied = applyAccess(clockRef.current, access);
     clockRef.current = applied.clock;
     setClock(applied.clock);
@@ -87,11 +100,14 @@ export function usePlayClock({
     if (applied.event === "close") closeRef.current(access.allowed ? "no_minutes" : access.reason);
   }, []);
 
+  /** Re-asks the gate. Resolves true when the server answered, false when the ask failed. */
   const refresh = useCallback(async () => {
     try {
       adopt(await getRealmAccess(childId));
+      return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : "The Realm lost track of time for a moment.");
+      return false;
     }
   }, [childId, adopt]);
 
@@ -157,10 +173,23 @@ export function usePlayClock({
       if (ticked.event === "warn") setWarning(true);
       // Out of minutes: ask once. A record in flight is already asking (`settle` adopts its answer).
       if (ticked.event === "empty" && !askingRef.current && !recordingRef.current) {
-        askingRef.current = true;
-        void refresh().finally(() => {
-          askingRef.current = false;
-        });
+        if (emptyWaitRef.current > 0) emptyWaitRef.current -= 1;
+        else {
+          askingRef.current = true;
+          setWarning(false); // the last minute is over, whatever the answer
+          void refresh().then((answered) => {
+            askingRef.current = false;
+            if (answered) return;
+            const failed = ++emptyFailsRef.current;
+            if (failed <= EMPTY_RETRY_SECONDS.length) {
+              emptyWaitRef.current = EMPTY_RETRY_SECONDS[failed - 1];
+              return;
+            }
+            clockRef.current = { ...clockRef.current, closed: true };
+            setClock(clockRef.current);
+            closeRef.current("no_minutes");
+          });
+        }
       }
       if (ticked.event !== "record") return;
       pendingRef.current += ticked.records;

@@ -93,6 +93,7 @@ describe("the Realm's door", () => {
     });
     expect(screen.getByTestId("canvas")).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Well played, Emma!" })).toBeNull();
+    expect(access.recorded).toEqual([1]); // the last minute, then nothing for three quiet minutes
   });
 
   it("closes when the clock runs out on the day's cap", async () => {

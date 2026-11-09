@@ -419,6 +419,117 @@ describe("usePlayClock — the quiet world at 0 minutes", () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
+  it("at 0 with the server unreachable, asks with backoff, not every second", async () => {
+    getRealmAccess.mockRejectedValue(new Error("The Realm lost its way for a moment."));
+    const onClose = vi.fn();
+    const { result } = renderHook(() => usePlayClock({ enabled: true, childId: "c1", initialMinutes: 0, onClose, initialSource: "earned" }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_000);
+    });
+    expect(getRealmAccess).toHaveBeenCalledTimes(1);
+    expect(result.current.error).toBe("The Realm lost its way for a moment.");
+    // Retries wait 5, then 15 seconds: three questions in half a minute, not thirty.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5_000);
+    });
+    expect(getRealmAccess).toHaveBeenCalledTimes(1);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(24_000);
+    });
+    expect(getRealmAccess).toHaveBeenCalledTimes(3);
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("at 0 with the server unreachable, eventually closes as before", async () => {
+    getRealmAccess.mockRejectedValue(new Error("The Realm lost its way for a moment."));
+    const onClose = vi.fn();
+    renderHook(() => usePlayClock({ enabled: true, childId: "c1", initialMinutes: 0, onClose, initialSource: "recess" }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+    // No answer within about a minute: the old local close, whose `no_minutes` the 3D frame
+    // reads as recess over for a recess source.
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledWith("no_minutes");
+    const asked = getRealmAccess.mock.calls.length;
+    expect(asked).toBeLessThanOrEqual(5);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(120_000);
+    });
+    expect(getRealmAccess).toHaveBeenCalledTimes(asked);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("an answer after a failed ask still goes quiet, and nothing closes", async () => {
+    getRealmAccess.mockRejectedValueOnce(new Error("The Realm lost its way for a moment.")).mockResolvedValue({ allowed: true, minutesRemaining: 0, source: "quiet" });
+    const onClose = vi.fn();
+    const { result } = renderHook(() => usePlayClock({ enabled: true, childId: "c1", initialMinutes: 0, onClose, initialSource: "earned" }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+    expect(getRealmAccess).toHaveBeenCalledTimes(2);
+    expect(result.current.quiet).toBe(true);
+    expect(result.current.error).toBe("");
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(120_000);
+    });
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("takes the last-minute banner down on the first empty tick, while the answer is still coming", async () => {
+    recordRealmPlay.mockRejectedValueOnce(new Error("The ledger is unreachable."));
+    getRealmAccess.mockReturnValueOnce(new Promise(() => {}));
+    const { result, unmount } = renderHook(() => usePlayClock({ enabled: true, childId: "c1", initialMinutes: 1, onClose: vi.fn() }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10_000);
+    });
+    expect(result.current.warning).toBe(true);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(51_000);
+    });
+    expect(getRealmAccess).toHaveBeenCalledTimes(1);
+    expect(result.current.warning).toBe(false);
+    unmount(); // its unpaid minute must not reach a later test's page-hide beacon
+  });
+
+  it("does not ask on empty while the last minute's record is still in flight (its own answer is coming)", async () => {
+    const send = deferred();
+    recordRealmPlay.mockReturnValueOnce(send.promise);
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 0, source: "quiet" });
+    const { result } = renderHook(() => usePlayClock({ enabled: true, childId: "c1", initialMinutes: 1, onClose: vi.fn() }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(70_000);
+    });
+    expect(recordRealmPlay).toHaveBeenCalledTimes(1);
+    expect(getRealmAccess).not.toHaveBeenCalled();
+    send.resolve();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(getRealmAccess).toHaveBeenCalledTimes(1);
+    expect(result.current.quiet).toBe(true);
+  });
+
+  it("wakes on the gate check that follows a pause, while quiet", async () => {
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 4, source: "earned" });
+    const onWake = vi.fn();
+    const { result, rerender } = renderHook(({ paused }) => usePlayClock({ enabled: true, childId: "c1", initialMinutes: 0, onClose: vi.fn(), onWake, paused, initialSource: "quiet" }), {
+      initialProps: { paused: false },
+    });
+    rerender({ paused: true });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5_000);
+    });
+    expect(getRealmAccess).not.toHaveBeenCalled();
+    rerender({ paused: false });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_000);
+    });
+    expect(getRealmAccess).toHaveBeenCalledTimes(1);
+    expect(onWake).toHaveBeenCalledWith(4);
+    expect(result.current.quiet).toBe(false);
+  });
+
   it("charges nothing for quiet time when the page is hidden", async () => {
     const sendBeacon = vi.fn(() => true);
     Object.defineProperty(navigator, "sendBeacon", { value: sendBeacon, configurable: true, writable: true });
