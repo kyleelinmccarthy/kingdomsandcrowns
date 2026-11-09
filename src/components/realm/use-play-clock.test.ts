@@ -449,8 +449,7 @@ describe("usePlayClock — the quiet world at 0 minutes", () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(60_000);
     });
-    // No answer within about a minute: the old local close, whose `no_minutes` the 3D frame
-    // reads as recess over for a recess source.
+    // No answer within about a minute: the old local close, `no_minutes`.
     expect(onClose).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalledWith("no_minutes");
     const asked = getRealmAccess.mock.calls.length;

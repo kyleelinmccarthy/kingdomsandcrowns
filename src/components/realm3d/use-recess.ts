@@ -335,21 +335,26 @@ export function useRecess(o: {
   // Read from state, not the ref: the prompt must re-render when a run starts or ends.
   const promptNow = useCallback((near: InteractTarget | null) => (running && near?.kind === "arch" && o.viewer !== "parent" ? null : prompt(near)), [running, prompt, o.viewer]);
   const offRef = useRef(!!o.off);
+  /** "The Ring is resting. Earn play time with a side quest." — at the arch, or as a run stops. */
+  const sayResting = useCallback(() => {
+    const line = restingLine(RING);
+    showPop(line, NUDGE_MS);
+    cue("nudge");
+    say(line);
+  }, [showPop, cue, say]);
   const archOpens = useCallback(() => {
     if (o.viewer === "parent") return true;
     if (offRef.current) {
-      const line = restingLine(RING);
-      showPop(line, NUDGE_MS);
-      cue("nudge");
-      say(line);
+      sayResting();
       return false;
     }
     return runningRef.current === null;
-  }, [o.viewer, showPop, cue, say]);
+  }, [o.viewer, sayResting]);
   const runRing = useCallback(() => {
     if (!offRef.current) start("arch");
   }, [start]);
-  // Going quiet mid-run: the run stops, its gleams and laps already on their way to the server.
+  // Going quiet mid-run: the run stops, its gleams and laps already on their way to the server,
+  // and the child hears why.
   useEffect(() => {
     offRef.current = !!o.off;
     if (!o.off || !runningRef.current) return;
@@ -357,8 +362,9 @@ export function useRecess(o: {
       bus.ask("stop");
       keepRunning(null);
       void write?.flush();
+      sayResting();
     });
-  }, [o.off, bus, keepRunning, write]);
+  }, [o.off, bus, keepRunning, write, sayResting]);
   const retry = useCallback(() => {
     setError("");
     void write?.flush();

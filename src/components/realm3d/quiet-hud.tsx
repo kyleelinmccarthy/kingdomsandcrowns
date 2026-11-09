@@ -1,7 +1,8 @@
 "use client";
 
 /**
- * THE QUIET WORLD, on screen: the toast as minutes land and the world wakes. (The invitation that
+ * THE QUIET WORLD, on screen: the composition root's wiring (`useQuietWorld`) and the toast as
+ * minutes land and the world wakes. (The invitation that
  * stands where the minutes chip is, `QUIET_LINE`, is the clock corner's own line; the rules are
  * `lib/realm3d/quiet.ts`.)
  *
@@ -9,9 +10,35 @@
  * classes (`troubles.css`): a gain by the clock, and the clock plank pulses gold while it shows.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { wakeToast } from "@/lib/realm3d/quiet";
+import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { quietSurfaces, wakeToast, type QuietSurfaces } from "@/lib/realm3d/quiet";
 import { speak } from "@/lib/utils/speech";
+
+/**
+ * The quiet world for the composition root (`lib/realm3d/quiet.ts`): whether this visit is quiet
+ * (a grown-up has no clock, so never is), which systems are awake, the saddle told to rest, and
+ * the side quests' gate check (`askGate`) pointed at the clock's `refresh` so a paying quest wakes it.
+ */
+export function useQuietWorld({
+  clockOn,
+  clock,
+  rest,
+  askGate: askGateRef,
+}: {
+  clockOn: boolean;
+  clock: { quiet: boolean; refresh: () => Promise<unknown> };
+  rest: (on: boolean) => void;
+  askGate: RefObject<() => void>;
+}): { quiet: boolean; awake: QuietSurfaces } {
+  const quiet = clockOn && clock.quiet;
+  const awake = quietSurfaces(quiet);
+  const { refresh } = clock;
+  useEffect(() => {
+    askGateRef.current = () => void refresh();
+  }, [askGateRef, refresh]);
+  useEffect(() => rest(!awake.riding), [rest, awake.riding]);
+  return { quiet, awake };
+}
 
 /** How long the wake toast stays by the clock. */
 export const WAKE_MS = 4200;

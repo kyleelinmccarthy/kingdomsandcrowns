@@ -189,6 +189,27 @@ describe("a run, as the scene reports it", () => {
   });
 });
 
+describe("the Ring and the quiet world", () => {
+  it("a run stopped by going quiet says the Ring is resting", async () => {
+    vi.useFakeTimers();
+    vi.mocked(getRealmAccess).mockResolvedValue({ allowed: true, minutesRemaining: 0, source: "quiet" });
+    const { bus, recess } = mount({ entry: { minutes: 0, visit: null, source: "earned" } });
+    act(() => bus.onInteract(arch));
+    fireEvent.click(screen.getByRole("button", { name: "Run the Ring" }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(recess.want).toBe("arch");
+    recess.want = null; // the scene ate it
+    // The clock at 0 asks the gate on its next tick; the answer is quiet, and the run stops.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1_000);
+    });
+    expect(recess.want).toBe("stop");
+    expect(screen.getByText("The Ring is resting. Earn play time with a side quest.")).toBeInTheDocument();
+  });
+});
+
 describe("recess by the schedule", () => {
   it("opens with the bell's board and a run, when the gate says recess", async () => {
     const { recess } = mount({ entry: { minutes: 20, visit: null, source: "recess" } });
@@ -200,8 +221,8 @@ describe("recess by the schedule", () => {
 
   it("when the recess block runs out, the Realm closes saying recess is over, not that minutes ran out", async () => {
     vi.useFakeTimers();
-    // The minute is written, and the gate, asked again, has no recess minutes left.
-    vi.mocked(getRealmAccess).mockResolvedValue({ allowed: true, minutesRemaining: 0, source: "recess" });
+    // The minute is written, and the gate, asked again, says the recess block is over.
+    vi.mocked(getRealmAccess).mockResolvedValue({ allowed: false, reason: "outside_recess" });
     const onClose = vi.fn();
     render(<RealmGame heroName="Emma" realm={realm} entry={{ minutes: 1, visit: null, source: "recess" }} castleUnlocked={false} onClose={onClose} />);
     await act(async () => {

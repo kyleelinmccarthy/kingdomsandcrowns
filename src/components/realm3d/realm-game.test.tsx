@@ -910,11 +910,15 @@ describe("the quiet world (0 minutes in an earning mode)", () => {
     }
   });
 
-  it("a parent visit is never quiet: no clock, so troubles, riding and the Ring are as they always are", () => {
-    mount({ viewer: "parent", realm: { ...realm, isChildView: false }, entry: { minutes: 0, visit: { minutes: 0, closedBecause: null }, source: "quiet" } });
+  it("a parent visit is never quiet: no clock, so the troubles and the Ring are as they always are", () => {
+    const { bus } = mount({ viewer: "parent", realm: { ...realm, isChildView: false }, entry: { minutes: 0, visit: { minutes: 0, closedBecause: null }, source: "quiet" } });
     expect(screen.queryByText(QUIET)).toBeNull();
     expect(screen.getByText("Emma has 0 min today")).toBeInTheDocument();
     expect(handed.props!.troubles).toBeDefined();
+    // The arch opens the Ring's board (the child's record), and never says it is resting.
+    act(() => bus.onInteract(arch));
+    expect(screen.getByRole("dialog", { name: "The Ring" })).toBeInTheDocument();
+    expect(screen.queryByText(/The Ring is resting/)).toBeNull();
   });
 
   it("calm and low-stimulus profiles still render the quiet world", () => {

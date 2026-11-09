@@ -99,8 +99,8 @@ import { useRecess } from "./use-recess";
 import { RecessBoard, RecessError, RecessMapMarks, RecessPop, RecessStrip, RingPanel } from "./recess-hud";
 import { bestFor, type RecessRecord } from "@/lib/realm/recess/record";
 import { RECESS_LAST_MINUTE, ringHelp } from "@/lib/realm/recess/copy";
-import { QUIET_LINE, quietSurfaces } from "@/lib/realm3d/quiet";
-import { useWake, WakeToast } from "./quiet-hud";
+import { QUIET_LINE } from "@/lib/realm3d/quiet";
+import { useQuietWorld, useWake, WakeToast } from "./quiet-hud";
 
 const RealmCanvas = dynamic(() => import("./spike-scene"), {
   ssr: false,
@@ -752,11 +752,9 @@ export function RealmGame({
   // The clock closing is the one way out the sound says goodbye on (`useRealmSound`'s `farewell`).
   const soundGoodbye = useRef(false);
   const sayGoodbye = useCallback(() => soundGoodbye.current, []);
-  /** Why the gate is open, as the clock last heard it: a clock running out during recess is recess ending. */
-  const sourceRef = useRef<AccessSource | null>(entry.source);
   const onClockClose = useCallback((reason: CloseReason) => {
     soundGoodbye.current = true;
-    closeRef.current?.(reason === "no_minutes" && sourceRef.current === "recess" ? "outside_recess" : reason);
+    closeRef.current?.(reason);
   }, []);
   // The flat Realm's own hook: it ticks visible seconds, writes a minute to the ledger every
   // sixty, re-checks the gate after each, warns at the last minute and closes at zero. Paused
@@ -774,15 +772,8 @@ export function RealmGame({
   // The pauses a child never asks for — the tab hidden, the window left, the mouse let go, two
   // minutes untouched — and P (`use-pause.ts`). A grown-up has no clock: only Esc and P pause them.
   const pauser = usePause({ bus, overlayRef, paused, go, clock: clockOn, enabled: !close, noteInput: clock.noteInput, giveBackIdle: clock.giveBackIdle });
-  // The quiet world (`lib/realm3d/quiet.ts`): troubles, riding and recess rest. A grown-up has no clock, so is never quiet.
-  const quiet = clockOn && clock.quiet;
-  const awake = quietSurfaces(quiet);
-  const { refresh: refreshGate } = clock;
-  useEffect(() => {
-    askGate.current = () => void refreshGate();
-  }, [refreshGate]);
-  const { rest } = riding;
-  useEffect(() => rest(!awake.riding), [rest, awake.riding]);
+  // The quiet world (`quiet-hud.tsx`): troubles, riding and recess rest. A grown-up has no clock, so is never quiet.
+  const { quiet, awake } = useQuietWorld({ clockOn, clock, rest: riding.rest, askGate });
   // How the mouse looks around, kept on this computer and live on the bus from the first frame.
   const mouse = useLook(bus);
   // Every way out — Leave, a link in a panel, the browser's back, the clock closing — unmounts
@@ -796,9 +787,6 @@ export function RealmGame({
     () => (realm.isChildView && realm.earning ? earningLines(realm.earning, bounty.status ?? null, realm.earning.accessMode) : undefined),
     [realm.isChildView, realm.earning, bounty.status],
   );
-  useEffect(() => {
-    sourceRef.current = clock.source;
-  }, [clock.source]);
 
   /* ---- recess: the Ring ------------------------------------------------ */
   // The grown-up's scheduled recess starts a run; the arch runs one any time. Only the hero's own
