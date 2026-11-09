@@ -10,7 +10,7 @@
  * does to it.
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { GameIcon, type GameIconName } from "@/components/game-icon";
 import type { BuildingOverview } from "@/lib/services/deeds";
 import { villagerForBuilding } from "@/lib/realm/villagers";
@@ -18,6 +18,11 @@ import { interactVerb } from "@/lib/realm3d/frame";
 import { SIDE_QUESTS } from "@/lib/utils/side-quest-copy";
 import { DeedBoard, type DeedResult } from "./deed-board";
 import { Panel } from "./frame-hud";
+
+/** The gate's board with nothing to play on it (the village did not load, or has no side quests yet): an invitation, not a blank. */
+export const GATE_BOARD_EMPTY = "The villagers are resting just now. Walk in the quiet Realm to say hello, and come back for side quests soon.";
+/** A finished run's way out on the gate: back to this list, not into the world. */
+const BACK_TO_LIST = "Back to the side quests";
 
 export function GateQuestBoard({
   childId,
@@ -46,6 +51,17 @@ export function GateQuestBoard({
   });
 
   const open = rows.find((r) => r.site.id === talkingTo);
+  // Esc steps back one board: from a villager to the list, from the list to the gate.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (talkingTo) setTalkingTo(null);
+      else onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [talkingTo, onClose]);
+
   if (open) {
     return (
       <DeedBoard
@@ -60,12 +76,14 @@ export function GateQuestBoard({
         calm={calm}
         onResult={onResult}
         onClose={() => setTalkingTo(null)}
+        doneLabel={BACK_TO_LIST}
       />
     );
   }
 
   return (
     <Panel title={SIDE_QUESTS} label={SIDE_QUESTS} wide className="r3-board--gate" icon={<GameIcon name="scroll" className="r3-board-icon" />} onClose={onClose}>
+      {rows.length === 0 && <p className="r3-deed-story">{GATE_BOARD_EMPTY}</p>}
       <ul className="r3-deeds">
         {rows.map(({ site, villager }) => (
           <li key={site.id} className="r3-deed">

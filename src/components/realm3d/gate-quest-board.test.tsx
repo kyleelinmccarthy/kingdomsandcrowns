@@ -10,8 +10,9 @@ vi.mock("@/lib/actions/deeds", () => ({
 }));
 vi.mock("@/lib/utils/speech", () => ({ canSpeak: () => true, speak: vi.fn(), stopSpeaking: vi.fn() }));
 
+import { answerDeedQuestion, completeDeedRun, startDeedRun } from "@/lib/actions/deeds";
 import type { BuildingOverview } from "@/lib/services/deeds";
-import { GateQuestBoard } from "./gate-quest-board";
+import { GATE_BOARD_EMPTY, GateQuestBoard } from "./gate-quest-board";
 
 afterEach(cleanup);
 beforeEach(() => {
@@ -42,11 +43,11 @@ const buildings = [
   building("bridge", "Bridge", []),
 ];
 
-function board(onClose = () => {}) {
+function board(onClose = () => {}, list: BuildingOverview[] = buildings) {
   return render(
     <GateQuestBoard
       childId="demo-child-1"
-      buildings={buildings}
+      buildings={list}
       heroName="Emma"
       numerals
       profile={{ readAloud: false, untimed: true }}
@@ -81,5 +82,51 @@ describe("the gate's quest board", () => {
     board(onClose);
     fireEvent.click(screen.getByRole("button", { name: "Back to the gate" }));
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it("Esc closes the list", () => {
+    const onClose = vi.fn();
+    board(onClose);
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("Esc in a villager's board comes back to the list, not out of it", async () => {
+    const onClose = vi.fn();
+    board(onClose);
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Talk to Old Bram" })));
+    act(() => void fireEvent.keyDown(window, { key: "Escape" }));
+    expect(screen.getByRole("button", { name: "Talk to Miller Tessa" })).toBeInTheDocument();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("with nothing to play, invites instead of standing empty", () => {
+    board(() => {}, []);
+    expect(screen.getByText(GATE_BOARD_EMPTY)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Back to the gate" })).toBeInTheDocument();
+  });
+
+  it("a finished run's card goes back to the side quests, and says so", async () => {
+    vi.mocked(startDeedRun).mockResolvedValue({
+      runId: "run-1",
+      deed: { id: "well-stones", title: "Count the Well Stones", story: "s", area: "math" as const },
+      questions: [{ id: "q1", skillId: "add", prompt: "What is 2 + 3?", choices: ["4", "5"] }],
+      responses: [null],
+      kind: "deed" as const,
+      pending: null,
+    });
+    vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: true, secondChance: false, answer: "5" });
+    vi.mocked(completeDeedRun).mockResolvedValue({
+      correctCount: 1, total: 1, flawless: true, masteryChanges: [], stars: 3, previousBest: 0, deedBest: 3, counted: true, crowned: false, kind: "deed",
+      building: { label: "Village Well", done: 1, total: 5, complete: false, stars: 3, maxStars: 6 }, minutesEarned: 3, sideQuestPayFull: false,
+    });
+    board();
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Talk to Old Bram" })));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" })));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "5" })));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Finish side quest" })));
+    expect(screen.queryByRole("button", { name: /Back to the Realm/ })).toBeNull();
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: /Back to the side quests/ })));
+    expect(screen.getByRole("button", { name: "Talk to Miller Tessa" })).toBeInTheDocument();
   });
 });

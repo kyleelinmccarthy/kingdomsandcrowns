@@ -1231,3 +1231,6 @@
 /* ---- the quest board on the quiet gate (gate-quest-board.tsx) ---------------------- */
 .r3-gate-deeds { list-style: none; margin: 0.2rem 0 0; padding: 0; }
 .r3-gate-deeds .r3-deed-story { margin: 0; }
+/* "Carpenter Aldo · River Bridge" reads as one line that wraps by word, not as two flex items. */
+.r3-board--gate .r3-deed-title { display: block; }
+.r3-board--gate .r3-deed-title .r3-deed-story { margin: 0; }

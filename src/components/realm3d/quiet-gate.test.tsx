@@ -123,4 +123,51 @@ describe("the quiet gate", () => {
     const [, entered] = onEnter.mock.calls[0] as [AccessResult, KingdomState];
     expect(entered.buildings[0]).toMatchObject({ id: "well", done: 5, complete: true });
   });
+
+  it("closing the board puts focus back on Side quests here", () => {
+    gate();
+    fireEvent.click(screen.getByRole("button", { name: "Side quests here" }));
+    fireEvent.click(screen.getByRole("button", { name: "Back to the gate" }));
+    expect(screen.getByRole("button", { name: "Side quests here" })).toHaveFocus();
+  });
+
+  it("both ways wait while the gate is asked again after a run, then open on its answer", async () => {
+    let answer!: (a: AccessResult) => void;
+    vi.mocked(getRealmAccess).mockReturnValueOnce(new Promise<AccessResult>((r) => (answer = r)));
+    gate();
+    fireEvent.click(screen.getByRole("button", { name: "Side quests here" }));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "finish a run" })));
+    fireEvent.click(screen.getByRole("button", { name: "Back to the gate" }));
+    expect(screen.getByRole("button", { name: "Side quests here" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Walk in the quiet Realm" })).toBeDisabled();
+    await act(async () => answer({ allowed: true, minutesRemaining: 3, source: "earned" }));
+    expect(screen.getByRole("button", { name: "Side quests here" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Enter the Realm" })).toBeEnabled();
+  });
+
+  it("only the latest re-check's answer counts", async () => {
+    let first!: (a: AccessResult) => void;
+    let second!: (a: AccessResult) => void;
+    vi.mocked(getRealmAccess)
+      .mockReturnValueOnce(new Promise<AccessResult>((r) => (first = r)))
+      .mockReturnValueOnce(new Promise<AccessResult>((r) => (second = r)));
+    gate();
+    fireEvent.click(screen.getByRole("button", { name: "Side quests here" }));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "finish a run" })));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "finish a run" })));
+    await act(async () => second({ allowed: true, minutesRemaining: 6, source: "earned" }));
+    await act(async () => first({ allowed: true, minutesRemaining: 3, source: "earned" }));
+    expect(screen.getByRole("heading", { name: "+6 minutes — the Realm wakes up!" })).toBeInTheDocument();
+  });
+
+  it("both ways wait while the village is fetched on the way in", async () => {
+    vi.mocked(getRealmKingdom).mockReturnValueOnce(new Promise<KingdomState>(() => {}));
+    gate();
+    fireEvent.click(screen.getByRole("button", { name: "Side quests here" }));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "finish a run" })));
+    fireEvent.click(screen.getByRole("button", { name: "Back to the gate" }));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Enter the Realm" })));
+    expect(screen.getByRole("button", { name: "Side quests here" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Enter the Realm" })).toBeDisabled();
+  });
 });

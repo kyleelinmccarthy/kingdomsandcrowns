@@ -13,7 +13,7 @@
  */
 
 import Link from "next/link";
-import { useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { GameIcon } from "@/components/game-icon";
 import { getRealmAccess } from "@/lib/actions/realm-play";
 import { getRealmKingdom } from "@/lib/actions/realm";
@@ -58,15 +58,32 @@ export function QuietGate({
   const [ran, setRan] = useState(false);
   const [awake, setAwake] = useState<Extract<AccessResult, { allowed: true }> | null>(null);
   const [entering, setEntering] = useState(false);
+  // The re-check after a run is out: both ways wait for its answer. Numbered, so only the latest applies.
+  const [checking, setChecking] = useState(false);
+  const asked = useRef(0);
+  const sideQuests = useRef<HTMLButtonElement>(null);
+  const busy = entering || checking;
 
   function onResult(buildingId: string, result: DeedResult) {
     setKingdom((k) => applyDeedResult(k, buildingId, result, result.deed).state);
     setRan(true);
+    const n = ++asked.current;
+    setChecking(true);
     // A failed ask leaves the gate quiet; the world's own clock asks again once inside.
     getRealmAccess(childId)
-      .then((access) => setAwake(access.allowed && !isQuiet(access) && access.minutesRemaining > 0 ? access : null))
-      .catch(() => {});
+      .then((access) => {
+        if (n === asked.current) setAwake(access.allowed && !isQuiet(access) && access.minutesRemaining > 0 ? access : null);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (n === asked.current) setChecking(false);
+      });
   }
+
+  const closeBoard = useCallback(() => {
+    setBoard(false);
+    sideQuests.current?.focus();
+  }, []);
 
   async function enter() {
     if (!ran) return onEnter(awake, null);
@@ -78,10 +95,10 @@ export function QuietGate({
   return (
     <>
       <RealmScreen icon="castle" title={awake ? wakeToast(awake.minutesRemaining) : QUIET_LINE} portrait={portrait} heroName={heroName} extra={earning}>
-        <button type="button" className={`r3-menu-item${awake ? "" : " r3-menu-item--go"}`} onClick={() => setBoard(true)}>
+        <button ref={sideQuests} type="button" className={`r3-menu-item${awake ? "" : " r3-menu-item--go"}`} disabled={busy} onClick={() => setBoard(true)}>
           <GameIcon name="scroll" className="r3-menu-icon" /> Side quests here
         </button>
-        <button type="button" className={`r3-menu-item${awake ? " r3-menu-item--go" : ""}`} disabled={entering} onClick={() => void enter()}>
+        <button type="button" className={`r3-menu-item${awake ? " r3-menu-item--go" : ""}`} disabled={busy} onClick={() => void enter()}>
           <GameIcon name="castle" className="r3-menu-icon" /> {awake ? "Enter the Realm" : "Walk in the quiet Realm"}
         </button>
         <Link href="/tavern" className="r3-menu-item">
@@ -97,7 +114,7 @@ export function QuietGate({
           profile={{ readAloud: profile.readAloud, untimed: profile.untimed }}
           calm={!renderSettingsFor(profile, false).motion}
           onResult={onResult}
-          onClose={() => setBoard(false)}
+          onClose={closeBoard}
         />
       )}
     </>

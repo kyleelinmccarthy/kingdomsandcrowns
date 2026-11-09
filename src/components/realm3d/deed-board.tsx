@@ -86,6 +86,7 @@ export function DeedBoard({
   calm,
   onResult,
   onClose,
+  doneLabel,
 }: {
   childId: string | null;
   villager: Villager;
@@ -100,6 +101,8 @@ export function DeedBoard({
   /** The server finished the run: this is the building's new progress. */
   onResult: (buildingId: string, result: DeedResult) => void;
   onClose: () => void;
+  /** The result card's way out, where it does not lead into the world (the gate's board). */
+  doneLabel?: string;
 }) {
   const [run, setRun] = useState<RunStart | null>(null);
   const [busy, setBusy] = useState(false);
@@ -143,7 +146,7 @@ export function DeedBoard({
       });
     return (
       <Panel title={title} label={title} wide className="r3-board--deed" icon={<GameIcon name={site.icon as GameIconName} className="r3-board-icon" />} onClose={onClose}>
-        <DeedRun run={run} villagerName={villager.name} profile={profile} calm={calm} numerals={numerals} onResult={handUp} onClose={onClose} />
+        <DeedRun run={run} villagerName={villager.name} profile={profile} calm={calm} numerals={numerals} onResult={handUp} onClose={onClose} doneLabel={doneLabel} />
       </Panel>
     );
   }
@@ -229,6 +232,7 @@ function DeedRun({
   numerals,
   onResult,
   onClose,
+  doneLabel = "Back to the Realm",
 }: {
   run: RunStart;
   villagerName: string;
@@ -237,6 +241,7 @@ function DeedRun({
   numerals: boolean;
   onResult: (done: RunSummary) => void;
   onClose: () => void;
+  doneLabel?: string;
 }) {
   // A wrong answer is a soft low "hmm", a right one rises and resolves (`realm-sound.tsx`).
   const { flow, meter, busy, error, setError, guarded, choose, showMe, next } = useDeedFlow(run, (r) => realmCue(r.correct ? "deed-right" : "deed-wrong"));
@@ -345,7 +350,7 @@ function DeedRun({
         </p>
         <div className="r3-board-foot">
           <button type="button" className="r3-menu-item r3-menu-item--go" autoFocus onClick={onClose}>
-            <GameIcon name="journey" className="r3-menu-icon" /> Back to the Realm
+            <GameIcon name="journey" className="r3-menu-icon" /> {doneLabel}
           </button>
         </div>
       </div>
