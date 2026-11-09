@@ -29,6 +29,22 @@ describe("ledger math", () => {
   it("spent sums only spent rows", () => {
     expect(minutesSpent([{ kind: "earned", minutes: 5 }, { kind: "spent", minutes: 3 }, { kind: "spent", minutes: 4 }])).toBe(7);
   });
+  it("a refund gives spent minutes back, and never goes below zero", () => {
+    expect(minutesSpent([{ kind: "spent", minutes: 5 }, { kind: "refund", minutes: 2 }])).toBe(3);
+    expect(minutesSpent([{ kind: "spent", minutes: 2 }, { kind: "refund", minutes: 5 }])).toBe(0);
+  });
+  it("allowance, carried and practice are credit; a refund is not", () => {
+    expect(ledgerBalance([{ kind: "allowance", minutes: 10 }, { kind: "carried", minutes: 4 }, { kind: "practice", minutes: 3 }])).toBe(17);
+    expect(
+      ledgerBalance([
+        { kind: "allowance", minutes: 10 },
+        { kind: "earned", minutes: 5 },
+        { kind: "spent", minutes: 12 },
+        { kind: "refund", minutes: 2 },
+      ])
+    ).toBe(5);
+    expect(ledgerBalance([{ kind: "refund", minutes: 9 }])).toBe(0);
+  });
 });
 
 describe("isOutsideSchoolHours", () => {

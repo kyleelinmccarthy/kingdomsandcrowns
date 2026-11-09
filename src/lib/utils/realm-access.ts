@@ -1,8 +1,13 @@
 import { timeToMinutes } from "./schedule-days";
 
 export type RealmAccessMode = "earned" | "scheduled" | "both" | "open";
-/** `bonus` is minutes earned by clearing troubles (`lib/realm/spells/bounty.ts`); credit, like `earned`. */
-export type LedgerKind = "earned" | "granted" | "spent" | "bonus";
+/**
+ * Credits: `earned` (quest pay), `granted` (a grown-up's gift), `bonus` (clearing troubles,
+ * `lib/realm/spells/bounty.ts`), `practice` (side-quest pay), `allowance` (the day's free minutes)
+ * and `carried` (yesterday's bank). Debits: `spent`. `refund` is neither: it gives spent minutes
+ * back, so it only ever reduces `spent`.
+ */
+export type LedgerKind = "earned" | "granted" | "spent" | "bonus" | "practice" | "allowance" | "carried" | "refund";
 export type LedgerRow = { kind: LedgerKind; minutes: number };
 export type TimeBlock = { startTime: string; endTime: string };
 
@@ -30,13 +35,19 @@ export type AccessResult =
 
 const TIME = /^\d{2}:\d{2}$/;
 
-export function minutesSpent(rows: LedgerRow[]): number {
-  return rows.filter((r) => r.kind === "spent").reduce((sum, r) => sum + r.minutes, 0);
+/** Spent minutes net of refunds. Never negative: a refund can only return what was charged. */
+export function minutesSpent(rows: readonly LedgerRow[]): number {
+  let net = 0;
+  for (const r of rows) {
+    if (r.kind === "spent") net += r.minutes;
+    else if (r.kind === "refund") net -= r.minutes;
+  }
+  return Math.max(0, net);
 }
 
-/** Earned + granted − spent. Never negative: an over-spend is a cap problem, not debt. */
-export function ledgerBalance(rows: LedgerRow[]): number {
-  const credit = rows.filter((r) => r.kind !== "spent").reduce((sum, r) => sum + r.minutes, 0);
+/** Every credit kind (all but `spent` and `refund`) − minutes spent. Never negative: an over-spend is a cap problem, not debt. */
+export function ledgerBalance(rows: readonly LedgerRow[]): number {
+  const credit = rows.filter((r) => r.kind !== "spent" && r.kind !== "refund").reduce((sum, r) => sum + r.minutes, 0);
   return Math.max(0, credit - minutesSpent(rows));
 }
 

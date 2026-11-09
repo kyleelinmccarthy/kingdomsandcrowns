@@ -18,6 +18,7 @@
  */
 
 import { minutesSpent, type LedgerRow, type RealmAccessMode } from "@/lib/utils/realm-access";
+import { practicePaidToday, sumKind } from "@/lib/utils/realm-ledger";
 import { PLACES } from "@/lib/realm/layout";
 import { todayInZone } from "@/lib/utils/dates";
 
@@ -79,14 +80,9 @@ export function bountyEnabled(s: BountySettings): boolean {
   return s.enabled && s.troubleBonusCapMinutes > 0 && (s.accessMode === "earned" || s.accessMode === "both");
 }
 
-function sumKind(rows: readonly LedgerRow[], kind: LedgerRow["kind"]): number {
-  let n = 0;
-  for (const r of rows) if (r.kind === kind) n += r.minutes;
-  return n;
-}
-
+/** The day's schoolwork: quest pay plus side-quest practice pay (both are real work; the bonus is not). */
 export function questMinutesToday(ledgerToday: readonly LedgerRow[]): number {
-  return sumKind(ledgerToday, "earned");
+  return sumKind(ledgerToday, "earned") + practicePaidToday(ledgerToday);
 }
 
 export function bonusMinutesToday(ledgerToday: readonly LedgerRow[]): number {
@@ -108,7 +104,7 @@ export function bountySubCap(ledgerToday: readonly LedgerRow[], s: BountySetting
 export function bountyAllowance(ledgerToday: readonly LedgerRow[], s: BountySettings): number {
   if (!bountyEnabled(s)) return 0;
   const left = bountySubCap(ledgerToday, s) - bonusMinutesToday(ledgerToday);
-  const headroom = s.dailyCapMinutes - minutesSpent(ledgerToday as LedgerRow[]);
+  const headroom = s.dailyCapMinutes - minutesSpent(ledgerToday);
   return Math.max(0, Math.min(left, headroom));
 }
 

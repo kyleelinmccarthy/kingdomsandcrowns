@@ -934,8 +934,9 @@ export const realmPlayLedger = pgTable(
       .notNull()
       .references(() => child.id, { onDelete: "cascade" }),
     date: text("date").notNull(), // hero's local ISO day
-    // "bonus": Realm minutes earned by clearing troubles. No CHECK constraint, so TS-only.
-    kind: text("kind", { enum: ["earned", "granted", "spent", "bonus"] }).notNull(),
+    // "bonus": minutes from clearing troubles; "practice": side-quest pay; "allowance": the day's free
+    // minutes; "carried": yesterday's bank; "refund": spent minutes given back. No CHECK constraint, so TS-only.
+    kind: text("kind", { enum: ["earned", "granted", "spent", "bonus", "practice", "allowance", "carried", "refund"] }).notNull(),
     minutes: integer("minutes").notNull(),
     // No FK: assignments can be deleted and the minutes must survive.
     sourceAssignmentId: text("source_assignment_id"),

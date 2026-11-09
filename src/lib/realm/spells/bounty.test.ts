@@ -11,6 +11,7 @@ import {
   earningLines,
   isNearToday,
   isTroubleHomeId,
+  questMinutesToday,
   startPurse,
   takeClear,
   type BountySettings,
@@ -29,6 +30,12 @@ describe("the bounty's switch", () => {
     expect(bountyEnabled({ ...base, accessMode: "open" })).toBe(false);
     expect(bountyEnabled({ ...base, troubleBonusCapMinutes: 0 })).toBe(false);
     expect(bountyEnabled({ ...base, enabled: false })).toBe(false);
+  });
+});
+
+describe("questMinutesToday — the schoolwork the sub-cap measures", () => {
+  it("counts quest pay and side-quest practice pay, not the bonus itself", () => {
+    expect(questMinutesToday([{ kind: "earned", minutes: 5 }, { kind: "practice", minutes: 3 }, { kind: "bonus", minutes: 1 }])).toBe(8);
   });
 });
 
