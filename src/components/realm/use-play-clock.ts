@@ -166,6 +166,7 @@ export function usePlayClock({
 
   useEffect(() => {
     if (!enabled) return;
+    let live = true; // false once unmounted or switched off: a late answer must not close anything
     const id = setInterval(() => {
       if (pausedRef.current) return; // a deed is running: no seconds, no records, no warnings
       if (refreshOnResumeRef.current) {
@@ -192,7 +193,10 @@ export function usePlayClock({
               emptyWaitRef.current = EMPTY_RETRY_SECONDS[failed - 1];
               return;
             }
-            clockRef.current = { ...clockRef.current, closed: true };
+            // Only a clock still out of minutes closes: not one already closed, quiet or woken meanwhile.
+            const now = clockRef.current;
+            if (!live || now.closed || now.quiet || now.minutesRemaining > 0) return;
+            clockRef.current = { ...now, closed: true };
             setClock(clockRef.current);
             closeRef.current("no_minutes");
           });
@@ -203,7 +207,10 @@ export function usePlayClock({
       if (recordingRef.current) return;
       void settle(pendingRef.current);
     }, 1000);
-    return () => clearInterval(id);
+    return () => {
+      live = false;
+      clearInterval(id);
+    };
   }, [enabled, settle, refresh]);
 
   /**

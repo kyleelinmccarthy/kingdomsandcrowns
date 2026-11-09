@@ -462,6 +462,53 @@ describe("usePlayClock — the quiet world at 0 minutes", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  /** Fails the first three empty asks at once and holds the fourth, so the test decides when (and whether) it fails. */
+  function holdTheFourthAsk() {
+    let fail!: () => void;
+    const fourth = new Promise((_, reject) => (fail = () => reject(new Error("The Realm lost its way for a moment."))));
+    const down = new Error("The Realm lost its way for a moment.");
+    getRealmAccess.mockRejectedValueOnce(down).mockRejectedValueOnce(down).mockRejectedValueOnce(down).mockReturnValueOnce(fourth);
+    return { fail };
+  }
+
+  it("a late last failed ask closes nothing once the clock is gone", async () => {
+    const { fail } = holdTheFourthAsk();
+    const onClose = vi.fn();
+    const { unmount } = renderHook(() => usePlayClock({ enabled: true, childId: "c1", initialMinutes: 0, onClose, initialSource: "earned" }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+    expect(getRealmAccess).toHaveBeenCalledTimes(4);
+    unmount();
+    await act(async () => {
+      fail();
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it("a late last failed ask closes nothing once minutes have woken the clock", async () => {
+    const { fail } = holdTheFourthAsk();
+    getRealmAccess.mockResolvedValue({ allowed: true, minutesRemaining: 3, source: "earned" });
+    const onClose = vi.fn();
+    const { result } = renderHook(() => usePlayClock({ enabled: true, childId: "c1", initialMinutes: 0, onClose, initialSource: "earned" }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+    expect(getRealmAccess).toHaveBeenCalledTimes(4);
+    // A side quest paid while the fourth ask was out: the frame re-asks and finds minutes.
+    await act(async () => {
+      await result.current.refresh();
+    });
+    expect(result.current.minutesRemaining).toBe(3);
+    await act(async () => {
+      fail();
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(onClose).not.toHaveBeenCalled();
+    expect(result.current.minutesRemaining).toBe(3);
+  });
+
   it("an answer after a failed ask still goes quiet, and nothing closes", async () => {
     getRealmAccess.mockRejectedValueOnce(new Error("The Realm lost its way for a moment.")).mockResolvedValue({ allowed: true, minutesRemaining: 0, source: "quiet" });
     const onClose = vi.fn();
