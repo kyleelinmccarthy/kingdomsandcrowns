@@ -40,4 +40,10 @@ describe("carryable — what a day leaves in the bank", () => {
   it("counts a refund as spend given back", () => {
     expect(carryable([row("allowance", 10), row("earned", 5), row("spent", 12), row("refund", 2)], 30)).toBe(5);
   });
+  it("a refund larger than the spend changes nothing", () => {
+    expect(carryable([row("allowance", 10), row("earned", 5), row("spent", 3), row("refund", 9)], 30)).toBe(5);
+  });
+  it("charges overflow to a carried bank too", () => {
+    expect(carryable([row("allowance", 10), row("carried", 20), row("spent", 15)], 30)).toBe(15);
+  });
 });

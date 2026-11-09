@@ -1,4 +1,8 @@
 import { timeToMinutes } from "./schedule-days";
+import { ledgerBalance, minutesSpent } from "./realm-ledger";
+
+// The ledger arithmetic lives in realm-ledger.ts; re-exported so callers keep importing it here.
+export { ledgerBalance, minutesSpent };
 
 export type RealmAccessMode = "earned" | "scheduled" | "both" | "open";
 /**
@@ -34,22 +38,6 @@ export type AccessResult =
   | { allowed: false; reason: AccessDenied };
 
 const TIME = /^\d{2}:\d{2}$/;
-
-/** Spent minutes net of refunds. Never negative: a refund can only return what was charged. */
-export function minutesSpent(rows: readonly LedgerRow[]): number {
-  let net = 0;
-  for (const r of rows) {
-    if (r.kind === "spent") net += r.minutes;
-    else if (r.kind === "refund") net -= r.minutes;
-  }
-  return Math.max(0, net);
-}
-
-/** Every credit kind (all but `spent` and `refund`) − minutes spent. Never negative: an over-spend is a cap problem, not debt. */
-export function ledgerBalance(rows: readonly LedgerRow[]): number {
-  const credit = rows.filter((r) => r.kind !== "spent" && r.kind !== "refund").reduce((sum, r) => sum + r.minutes, 0);
-  return Math.max(0, credit - minutesSpent(rows));
-}
 
 function blockContains(block: TimeBlock, timeOfDay: string): boolean {
   return block.startTime <= timeOfDay && timeOfDay < block.endTime;
