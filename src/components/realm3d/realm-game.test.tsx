@@ -81,7 +81,8 @@ import { getRealmKingdom } from "@/lib/actions/realm";
 import { markRealmHelpSeen, setTutorialStep } from "@/lib/actions/realm-settings";
 import { markCeremonySeen } from "@/lib/actions/seasons";
 import { saveRealmSound } from "@/lib/actions/realm-sound";
-import { getTroubleBounty, recordTroubleClears } from "@/lib/actions/realm-play";
+import { getRealmAccess, getTroubleBounty, recordTroubleClears } from "@/lib/actions/realm-play";
+import { stepRide, type RideBus } from "@/lib/realm3d/riding";
 import { LEGACY_STEPS, LESSONS, STORED_MAX } from "@/lib/realm3d/tutorial";
 import { findBuilding } from "@/lib/utils/kingdom";
 import { RealmGame, type RealmData } from "./realm-game";
@@ -811,5 +812,114 @@ describe("day and night", () => {
   it("hands the scene the family's timezone", () => {
     mount({ realm: { ...realm, timezone: "Asia/Tokyo" } });
     expect(handed.props!.timeZone).toBe("Asia/Tokyo");
+  });
+});
+
+describe("the quiet world (0 minutes in an earning mode)", () => {
+  const QUIET = "Earn play time with a side quest";
+  const quiet = { entry: { minutes: 0, visit: null, source: "quiet" as const }, avatar: { ...DEFAULT_AVATAR, mount: "pony" }, mounts: ["pony"] };
+  const arch = { kind: "arch" as const, id: "ring", label: "the Ring", verb: "Run" };
+  const one = { ...run, questions: [run.questions[0]], responses: [null] };
+  const paid = (minutesEarned: number) => ({ correctCount: 1, total: 1, flawless: true, masteryChanges: [], stars: 3 as const, previousBest: 0 as const, deedBest: 3 as const, counted: true, crowned: false, kind: "deed" as const, building: { label: "Village Well", done: 3, total: 5, complete: false, stars: 3, maxStars: 3 }, minutesEarned, sideQuestPayFull: false });
+  const pressM = () => act(() => void fireEvent.keyDown(window, { code: "KeyM", key: "m" }));
+  const ride = () => handed.props!.ride as RideBus;
+  async function playPayingQuest(bus: HudBus, minutes: number) {
+    vi.mocked(startDeedRun).mockResolvedValue(one);
+    vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: true, secondChance: false, answer: "5" });
+    vi.mocked(completeDeedRun).mockResolvedValue(paid(minutes));
+    act(() => bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" })));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "5" })));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Finish side quest" })));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: /Back to the Realm/ })));
+  }
+
+  it("shows the invitation where the minutes were, and hands the canvas no troubles", () => {
+    const { view } = mount(quiet);
+    expect(view.container.querySelector(".r3-clock-text")).toHaveTextContent(QUIET);
+    expect(screen.queryByText(/min left/)).toBeNull();
+    expect(handed.props!.troubles).toBeUndefined();
+    // Everything else stays on: the villagers, the objective, the spells.
+    expect(handed.props!.layout).toBeDefined();
+    expect(handed.props!.recess).toBeDefined();
+  });
+
+  it("the saddle rests: no Ride slot, and M invites to a side quest instead of riding", () => {
+    mount(quiet);
+    expect(screen.queryByRole("button", { name: /Ride your Pony/ })).toBeNull();
+    pressM();
+    expect(screen.getByText(`Your Pony is resting. ${QUIET}.`)).toBeInTheDocument();
+    act(() => {
+      for (let i = 0; i < 30; i++) stepRide(ride(), 0.05, 0);
+    });
+    expect(ride().phase).toBe("off");
+  });
+
+  it("the Ring's arch opens nothing, and says why", () => {
+    const { bus } = mount(quiet);
+    act(() => bus.onInteract(arch));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(bus.paused).toBe(false);
+    expect(screen.getByText(`The Ring is resting. ${QUIET}.`)).toBeInTheDocument();
+  });
+
+  it("a side quest that pays wakes the world: the gate is asked again, a toast, the clock and the troubles", async () => {
+    vi.mocked(getRealmAccess).mockResolvedValue({ allowed: true, minutesRemaining: 3, source: "earned" });
+    const { bus, view } = mount(quiet);
+    await playPayingQuest(bus, 3);
+    expect(getRealmAccess).toHaveBeenCalledWith("demo-child-1");
+    expect(screen.getByText("+3 minutes — the Realm wakes up!")).toBeInTheDocument();
+    expect(view.container.querySelector(".r3-clock-text")).toHaveTextContent("3 min left");
+    expect(handed.props!.troubles).toBeDefined();
+    expect(screen.getByRole("button", { name: /Ride your Pony/ })).toBeInTheDocument();
+  });
+
+  it("one minute is a minute", async () => {
+    vi.mocked(getRealmAccess).mockResolvedValue({ allowed: true, minutesRemaining: 1, source: "earned" });
+    const { bus } = mount(quiet);
+    await playPayingQuest(bus, 1);
+    expect(screen.getByText("+1 minute — the Realm wakes up!")).toBeInTheDocument();
+  });
+
+  it("a side quest that paid nothing does not ask the gate (and the world stays quiet)", async () => {
+    const { bus, view } = mount(quiet);
+    await playPayingQuest(bus, 0);
+    expect(getRealmAccess).not.toHaveBeenCalled();
+    expect(view.container.querySelector(".r3-clock-text")).toHaveTextContent(QUIET);
+  });
+
+  it("going quiet mid-visit: off the mount at once, and the troubles leave the world", async () => {
+    vi.useFakeTimers();
+    try {
+      vi.mocked(getRealmAccess).mockResolvedValue({ allowed: true, minutesRemaining: 0, source: "quiet" });
+      const { view } = mount({ ...quiet, entry: { minutes: 0, visit: null, source: "earned" } });
+      expect(handed.props!.troubles).toBeDefined();
+      pressM();
+      act(() => {
+        for (let i = 0; i < 30; i++) stepRide(ride(), 0.05, 0);
+      });
+      expect(ride().phase).toBe("on");
+      // The clock at 0 asks the gate on its next tick; the answer is quiet.
+      await act(async () => void (await vi.advanceTimersByTimeAsync(1000)));
+      expect(view.container.querySelector(".r3-clock-text")).toHaveTextContent(QUIET);
+      expect(ride().phase).toBe("off");
+      expect(handed.props!.troubles).toBeUndefined();
+      expect(screen.queryByRole("button", { name: /Get off/ })).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("a parent visit is never quiet: no clock, so troubles, riding and the Ring are as they always are", () => {
+    mount({ viewer: "parent", realm: { ...realm, isChildView: false }, entry: { minutes: 0, visit: { minutes: 0, closedBecause: null }, source: "quiet" } });
+    expect(screen.queryByText(QUIET)).toBeNull();
+    expect(screen.getByText("Emma has 0 min today")).toBeInTheDocument();
+    expect(handed.props!.troubles).toBeDefined();
+  });
+
+  it("calm and low-stimulus profiles still render the quiet world", () => {
+    const { view } = mount({ ...quiet, realm: { ...realm, profile: { ...DEFAULT_LEARNING_PROFILE, lowStimulus: true, reducedMotion: true } } });
+    expect(view.container.querySelector(".r3-clock-text")).toHaveTextContent(QUIET);
+    expect(handed.props!.troubles).toBeUndefined();
   });
 });

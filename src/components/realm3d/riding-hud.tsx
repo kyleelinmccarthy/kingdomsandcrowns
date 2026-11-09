@@ -31,6 +31,7 @@ import {
 import { postAt, travelDestinations, VILLAGE_ID, type Destination, type TravelGraph } from "@/lib/realm3d/travel";
 import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
 import type { PlacesStore } from "@/lib/realm3d/places-store";
+import { restingLine } from "@/lib/realm3d/quiet";
 import { speak } from "@/lib/utils/speech";
 import { keepFocusInWorld, Panel } from "./frame-hud";
 import "./riding.css";
@@ -66,6 +67,8 @@ export type Riding = {
   /** Ride to one. */
   go: (to: string) => void;
   stop: () => void;
+  /** The quiet world (`lib/realm3d/quiet.ts`): on, off the mount at once and M invites instead of riding. */
+  rest: (on: boolean) => void;
 };
 
 export function useRiding({
@@ -183,9 +186,25 @@ export function useRiding({
     };
   }, [ride]);
 
+  // The quiet world's rest: a ref, since only M and the posts read it, and never to draw.
+  const resting = useRef(false);
+  const rest = useCallback(
+    (on: boolean) => {
+      resting.current = on;
+      // A step to the side, where it waits, as at a door. Mid fast-travel, the ride ends here.
+      if (on) parkNow(ride, 2.1, 1.2);
+    },
+    [ride],
+  );
+
   const toggle = useCallback(() => {
     if (!access.ok) {
       say(rideRefusal(access, heroName));
+      ride.sound.onRefuse();
+      return;
+    }
+    if (resting.current) {
+      say(restingLine(`Your ${access.mount.label}`));
       ride.sound.onRefuse();
       return;
     }
@@ -233,6 +252,11 @@ export function useRiding({
         if (access.reason !== "visitor") ride.sound.onRefuse();
         return false;
       }
+      if (resting.current) {
+        say(restingLine(`Your ${access.mount.label}`));
+        ride.sound.onRefuse();
+        return false;
+      }
       if (!isRiding(ride) || ride.phase !== "on") {
         say(`Get on your ${access.mount.label} first. Press M.`);
         ride.sound.onRefuse();
@@ -258,7 +282,7 @@ export function useRiding({
   const go = useCallback((to: string) => askTravel(ride, to), [ride]);
   const stop = useCallback(() => askStop(ride), [ride]);
 
-  return { bus: ride, access, riding, travelling, line, clearLine, toggle, refuseCast, atDoor, atPost, destinations, go, stop };
+  return { bus: ride, access, riding, travelling, line, clearLine, toggle, refuseCast, atDoor, atPost, destinations, go, stop, rest };
 }
 
 /* ------------------------------------------------------------------ the words */

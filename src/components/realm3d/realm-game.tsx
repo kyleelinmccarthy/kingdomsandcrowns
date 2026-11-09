@@ -99,6 +99,8 @@ import { useRecess } from "./use-recess";
 import { RecessBoard, RecessError, RecessMapMarks, RecessPop, RecessStrip, RingPanel } from "./recess-hud";
 import { bestFor, type RecessRecord } from "@/lib/realm/recess/record";
 import { RECESS_LAST_MINUTE, ringHelp } from "@/lib/realm/recess/copy";
+import { QUIET_LINE, quietSurfaces } from "@/lib/realm3d/quiet";
+import { useWake, WakeToast } from "./quiet-hud";
 
 const RealmCanvas = dynamic(() => import("./spike-scene"), {
   ssr: false,
@@ -511,6 +513,8 @@ export function RealmGame({
   // is looking at it, not behind a board they are still reading. Keyed by building, so an answer
   // that lands while another building's board is open is kept, not overwritten.
   const pendingDeed = useRef(new Map<string, DeedResult>());
+  /** A side quest paid minutes: re-ask the gate now, so a quiet world wakes (the clock's `refresh`, set below). */
+  const askGate = useRef<() => void>(() => {});
   const trackedRef = useRef(surfaces.trackedObjectives);
   useEffect(() => {
     trackedRef.current = surfaces.trackedObjectives;
@@ -519,6 +523,7 @@ export function RealmGame({
   /** `realm-shell.tsx`'s `onDeedFinished`, verbatim in its rule: `applyDeedResult`, then say so. */
   const raise = useCallback(
     (buildingId: string, result: RaiseResult) => {
+      if ((result.minutesEarned ?? 0) > 0) askGate.current();
       const before = kingdomRef.current.buildings.find((b) => b.id === buildingId);
       const applied = applyDeedResult(kingdomRef.current, buildingId, result, result.deed);
       if (!before || applied.state === kingdomRef.current) return;
@@ -756,17 +761,28 @@ export function RealmGame({
   // The flat Realm's own hook: it ticks visible seconds, writes a minute to the ledger every
   // sixty, re-checks the gate after each, warns at the last minute and closes at zero. Paused
   // whenever the world is — a child reading the pause menu is not spending their minutes.
+  const wake = useWake(readAloud);
   const clock = usePlayClock({
     enabled: clockOn,
     childId: childId ?? "",
     initialMinutes: entry.minutes,
     onClose: onClockClose,
+    onWake: wake.show,
     paused,
     initialSource: entry.source,
   });
   // The pauses a child never asks for — the tab hidden, the window left, the mouse let go, two
   // minutes untouched — and P (`use-pause.ts`). A grown-up has no clock: only Esc and P pause them.
   const pauser = usePause({ bus, overlayRef, paused, go, clock: clockOn, enabled: !close });
+  // The quiet world (`lib/realm3d/quiet.ts`): troubles, riding and recess rest. A grown-up has no clock, so is never quiet.
+  const quiet = clockOn && clock.quiet;
+  const awake = quietSurfaces(quiet);
+  const { refresh: refreshGate } = clock;
+  useEffect(() => {
+    askGate.current = () => void refreshGate();
+  }, [refreshGate]);
+  const { rest } = riding;
+  useEffect(() => rest(!awake.riding), [rest, awake.riding]);
   // How the mouse looks around, kept on this computer and live on the bus from the first frame.
   const mouse = useLook(bus);
   // Every way out — Leave, a link in a panel, the browser's back, the clock closing — unmounts
@@ -799,6 +815,7 @@ export function RealmGame({
     initial: realm.recess,
     seed: world.seed,
     ride: riding.bus,
+    off: !awake.recess,
   });
   useEffect(() => {
     archOpens.current = recess.archOpens;
@@ -875,7 +892,9 @@ export function RealmGame({
   const numerals = surfaces.numerals || !realm.isChildView;
   const visiting = viewer === "parent";
   const line = realm.isChildView
-    ? clockLine(clock.minutesRemaining, { paused, recess: clock.source === "recess" })
+    ? quiet
+      ? QUIET_LINE
+      : clockLine(clock.minutesRemaining, { paused, recess: clock.source === "recess" })
     : visitClockLine(heroName, entry.visit);
   const bookHref = spellbookHref(realm.isChildView ? "child" : "parent", childId);
   const who: "child" | "parent" = realm.isChildView ? "child" : "parent";
@@ -941,7 +960,7 @@ export function RealmGame({
         viewer={viewer}
         castleUnlocked={castleUnlocked}
         calm={calm}
-        troubles={troubleBus}
+        troubles={awake.troubles ? troubleBus : undefined}
         ride={riding.bus}
         lead={companion.bus}
         recess={recess.bus}
@@ -977,12 +996,12 @@ export function RealmGame({
             barExtra={
               viewer === "child" ? (
                 <>
-                  <RideSlot riding={riding.riding} access={riding.access} onPress={riding.toggle} />
+                  {awake.riding && <RideSlot riding={riding.riding} access={riding.access} onPress={riding.toggle} />}
                   <CompanionSlot lead={companion} onPress={companion.toggle} calm={calm} />
                 </>
               ) : undefined
             }
-            mountKey={riding.access.ok}
+            mountKey={riding.access.ok && awake.riding}
             petKey={companion.has}
             found={places.found}
             onFound={places.store.add}
@@ -1031,7 +1050,7 @@ export function RealmGame({
               line={line}
               warning={realm.isChildView && clock.warning}
               error={clock.error}
-              notice={realm.isChildView ? <><TimerFinished hidden={clock.warning} /><BountyGain gained={bounty.gained} /></> : null}
+              notice={realm.isChildView ? <><TimerFinished hidden={clock.warning} /><BountyGain gained={bounty.gained} /><WakeToast wake={wake.wake} /></> : null}
               onRetry={() => {
                 clock.clearError();
                 void clock.flushPending();

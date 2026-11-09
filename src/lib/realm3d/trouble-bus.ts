@@ -110,6 +110,17 @@ export function hideTroublePlate(bus: TroubleBus, i: number): void {
   node.style.display = "none";
 }
 
+/**
+ * Every marker and map dot down at once: the troubles have left the world (the quiet world
+ * unmounts their scene). The write cache forgets them, so a field that comes back paints afresh.
+ */
+export function hideAllTroubles(bus: TroubleBus): void {
+  for (let i = 0; i < bus.plates.length; i++) {
+    hideTroublePlate(bus, i);
+    paintTroubleMark(bus, i, "");
+  }
+}
+
 export function paintTroublePlate(bus: TroubleBus, i: number, transform: string, opacity: string): void {
   const node = bus.plates[i];
   if (!node) return;

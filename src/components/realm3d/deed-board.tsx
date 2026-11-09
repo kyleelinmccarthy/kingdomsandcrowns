@@ -52,6 +52,8 @@ export type DeedResult = RunSummary["building"] & {
   counted?: boolean;
   deed?: { id: string; bestStars: Stars; crowned?: boolean };
   challenge?: { won: boolean };
+  /** Realm minutes the run paid (`RunSummary.minutesEarned`): above 0, the frame re-asks the gate (the quiet world wakes). */
+  minutesEarned?: number;
 };
 
 const CROWN_CHALLENGE = "Crown Challenge";
@@ -136,7 +138,7 @@ export function DeedBoard({
     const title = run.kind === "challenge" ? `${CROWN_CHALLENGE}: ${run.deed.title}` : run.deed.title;
     const handUp = (done: RunSummary) =>
       onResult(site.id, {
-        ...done.building, counted: done.counted, deed: { id: run.deed.id, bestStars: done.deedBest, crowned: done.crowned },
+        ...done.building, counted: done.counted, minutesEarned: done.minutesEarned, deed: { id: run.deed.id, bestStars: done.deedBest, crowned: done.crowned },
         ...(done.kind === "challenge" ? { challenge: { won: done.flawless } } : {}),
       });
     return (
