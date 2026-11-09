@@ -8,7 +8,7 @@ import { hintFor } from "@/lib/utils/skill-hints";
 import { CHALLENGE, starsFor } from "@/lib/utils/deed-scoring";
 import { CHALLENGE_NOT_READY } from "@/lib/utils/deed-refusals";
 import type { Question } from "@/lib/utils/drill-generators";
-import { REALM_LEDGER_DDL, REALM_SETTINGS_DDL } from "@/test/realm-db-ddl";
+import { REALM_ACCESS_DDL, REALM_LEDGER_DDL, REALM_SETTINGS_DDL } from "@/test/realm-db-ddl";
 
 /**
  * The second-chance contract against a REAL Postgres database. Every rule here is enforced from
@@ -51,6 +51,7 @@ vi.mock("@/lib/services/deeds", async () => ({
 
 const { answerDeedQuestion, retryDeedQuestion, resolveDeedQuestion, completeDeedRun, startDeedRun } = await import("./deeds");
 const { getSchoolCounts } = await import("./subjects");
+const { getRealmAccess, recordRealmPlay } = await import("./realm-play");
 const { loadDeedBest } = await import("@/lib/services/deeds");
 const { loadRealmSettings, paySideQuest } = await import("@/lib/services/realm-play");
 const { buildDeedRun } = await import("@/lib/utils/deed-engine");
@@ -82,6 +83,7 @@ const DDL = [
   `CREATE TABLE activity_log (id text PRIMARY KEY NOT NULL, child_id text NOT NULL, subject_id text NOT NULL)`,
   ...REALM_SETTINGS_DDL,
   ...REALM_LEDGER_DDL,
+  ...REALM_ACCESS_DDL,
 ];
 
 const SKILL = "mul-facts";
@@ -132,7 +134,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  for (const t of ["deed_run", "skill_mastery", "kingdom_progress", "realm_settings", "realm_play_ledger"]) await client.query(`DELETE FROM ${t}`);
+  for (const t of ["deed_run", "skill_mastery", "kingdom_progress", "realm_settings", "realm_play_ledger", "recess_block"]) await client.query(`DELETE FROM ${t}`);
   vi.mocked(loadRealmSettings).mockResolvedValue({ ...DEFAULT_REALM_SETTINGS });
   vi.mocked(buildDeedRun).mockClear();
 });
@@ -653,6 +655,26 @@ describe("side quests pay play minutes by stars", () => {
     expect(error).toHaveBeenCalled();
     error.mockRestore();
     expect((await stored()).completed_at).not.toBeNull();
+  });
+});
+
+describe("a day in the Realm, end to end (spec §7)", () => {
+  it("a fresh day opens with its allowance and carry, goes quiet at 0, and a starred side quest wakes it", async () => {
+    // Yesterday left 4 minutes unspent.
+    await client.query(
+      "INSERT INTO realm_play_ledger (id, child_id, date, kind, minutes, created_at) VALUES ('y1', 'c1', '2026-11-08', 'earned', 4, NOW())",
+    );
+    expect(await getRealmAccess("c1")).toEqual({ allowed: true, minutesRemaining: 14, source: "earned" });
+    const opened = await client.query("SELECT kind, minutes FROM realm_play_ledger WHERE child_id = 'c1' AND date = '2026-11-09' ORDER BY kind");
+    expect(opened.rows).toEqual([{ kind: "allowance", minutes: 10 }, { kind: "carried", minutes: 4 }]);
+
+    await recordRealmPlay("c1", 10);
+    await recordRealmPlay("c1", 4);
+    expect(await getRealmAccess("c1")).toEqual({ allowed: true, minutesRemaining: 0, source: "quiet" });
+
+    await seedRun({ responses: ["6", "9", "12", "15"] });
+    expect(await completeDeedRun("run1")).toMatchObject({ stars: 3, minutesEarned: 3 });
+    expect(await getRealmAccess("c1")).toEqual({ allowed: true, minutesRemaining: 3, source: "earned" });
   });
 });
 
