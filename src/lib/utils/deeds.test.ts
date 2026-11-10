@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { DEEDS, deedsForBuilding, deedStory, findDeed } from "./deeds";
 import { BUILDINGS } from "./kingdom";
+import { TASK_KINDS } from "@/lib/tasks/registry";
 
 describe("DEEDS", () => {
   it("has twenty deeds with unique ids and valid buildings", () => {
@@ -12,6 +13,9 @@ describe("DEEDS", () => {
       expect(d.questionCount).toBe(8);
       expect(d.story.length).toBeGreaterThan(20);
     }
+  });
+  it("names a mechanic for every deed, and it is a registered task kind", () => {
+    for (const d of DEEDS) expect(Object.keys(TASK_KINDS)).toContain(d.mechanic);
   });
   it("gives every building at least two deeds and uses every area at least twice", () => {
     for (const b of BUILDINGS) expect(deedsForBuilding(b.id).length).toBeGreaterThanOrEqual(2);

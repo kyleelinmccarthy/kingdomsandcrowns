@@ -4,6 +4,8 @@ import { MASTERY_MAX } from "./mastery";
 import { skillsFor, type Skill } from "./skills";
 import type { Deed } from "./deeds";
 import { REVIEW } from "./review-schedule";
+import { kindForSkill, TASK_KINDS } from "@/lib/tasks/registry";
+import type { Task, TaskKind } from "@/lib/tasks/types";
 
 export type ProfileLike = { fewerChoices: boolean; predictableRoutine: boolean; untimed: boolean; readAloud: boolean };
 
@@ -41,6 +43,8 @@ export type BuildRunInput = {
   questionCount?: number;
   /** Rungs above the child's own to draw every question at, capped at the top (the Crown Challenge). */
   levelBoost?: number;
+  /** The task kinds a run may present; every kind when absent. A deed's mechanic outside this is a choice. */
+  enabledKinds?: ReadonlySet<TaskKind>;
 };
 
 export type BuiltRun = { skillIds: string[]; questions: Question[] };
@@ -336,10 +340,38 @@ function trimChoices(q: Question, rng: Rng): Question {
   return { ...q, choices: shuffle([q.answer, other], rng) };
 }
 
+/**
+ * One draw for any skill, whichever way it is sourced: a generator, or the pool items that are
+ * this skill's and not in `excludeIds`. A review builder uses it to draw a single task.
+ */
+export function drawForSkill(
+  skill: Skill,
+  level: number,
+  count: number,
+  rng: Rng,
+  poolItems: PoolItem[],
+  excludeIds: Set<string>,
+  excludePrompts: Set<string>,
+): Question[] {
+  return skill.source.kind === "generator"
+    ? drawGenerated(skill, level, count, rng, excludeIds, excludePrompts)
+    : drawPool(poolItems.filter((p) => p.skillId === skill.id && !excludeIds.has(p.id)), level, count, rng);
+}
+
+/**
+ * Names a built task's kind, but only when it is not a choice: stored runs have no `kind` and
+ * read as choice, so a choice stays untagged and today's runs are unchanged byte for byte.
+ */
+function withKind(q: Question, kind: TaskKind): Task {
+  return kind === "choice" ? q : { ...q, kind };
+}
+
 export function buildDeedRun(input: BuildRunInput): BuiltRun {
   const { deed, grade, masteryBySkill, lastPracticedBySkill, profile, seed, poolItems, recentMisses } = input;
   // The rung each skill is drawn at; selection still weighs the child's own mastery.
   const levelOf = (skillId: string) => Math.min((masteryBySkill[skillId] ?? 0) + (input.levelBoost ?? 0), MASTERY_MAX);
+  const enabled = input.enabledKinds ?? new Set(Object.keys(TASK_KINDS) as TaskKind[]);
+  const tag = (q: Question) => withKind(q, kindForSkill(deed.mechanic, q.skillId, enabled));
   const rng = seededRng(seed);
   const skills = selectSkills(chooseSkills(deed, grade), masteryBySkill, rng, lastPracticedBySkill ?? {});
   const skillIds = skills.map((s) => s.id);
@@ -372,11 +404,9 @@ export function buildDeedRun(input: BuildRunInput): BuiltRun {
   const dueSkillsUsed: string[] = [];
   for (const skill of dueCandidates) {
     const level = levelOf(skill.id);
-    const [drawn] = skill.source.kind === "generator"
-      ? drawGenerated(skill, level, 1, rng, reviewIds, reviewPrompts)
-      : drawPool(poolItems.filter((p) => p.skillId === skill.id && !reviewIds.has(p.id)), level, 1, rng);
+    const [drawn] = drawForSkill(skill, level, 1, rng, poolItems, reviewIds, reviewPrompts);
     if (!drawn) continue;
-    due.push(drawn);
+    due.push(tag(drawn));
     dueSkillsUsed.push(skill.id);
     reviewIds.add(drawn.id);
     reviewPrompts.add(questionText(drawn));
@@ -389,9 +419,7 @@ export function buildDeedRun(input: BuildRunInput): BuiltRun {
   const perSkill = skills.map((_, i) => Math.floor(fresh / skills.length) + (i < fresh % skills.length ? 1 : 0));
   const bySkill = skills.map((skill, i) => {
     const level = levelOf(skill.id);
-    if (skill.source.kind === "generator") return drawGenerated(skill, level, perSkill[i], rng, reviewIds, reviewPrompts);
-    const items = poolItems.filter((p) => p.skillId === skill.id && !reviewIds.has(p.id));
-    return drawPool(items, level, perSkill[i], rng);
+    return drawForSkill(skill, level, perSkill[i], rng, poolItems, reviewIds, reviewPrompts).map(tag);
   });
 
   // A skill that came up short (thin pool) hands its slots to the others.
@@ -404,7 +432,7 @@ export function buildDeedRun(input: BuildRunInput): BuiltRun {
       const extra = skill.source.kind === "generator"
         ? drawGenerated(skill, levelOf(skill.id), fresh - questions.length + have.size, rng, new Set([...have, ...reviewIds]), new Set([...havePrompts, ...reviewPrompts])).filter((q) => !have.has(q.id))
         : drawPool(poolItems.filter((p) => p.skillId === skill.id && !have.has(p.id) && !reviewIds.has(p.id)), levelOf(skill.id), fresh - questions.length, rng);
-      questions = [...questions, ...extra].slice(0, fresh);
+      questions = [...questions, ...extra.map(tag)].slice(0, fresh);
     }
   }
 
