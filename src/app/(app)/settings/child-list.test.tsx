@@ -69,7 +69,7 @@ function heroWithPanels(id: string, displayName: string, grade: string) {
     learningProfile: DEFAULT_LEARNING_PROFILE,
     realmSettings: DEFAULT_REALM_SETTINGS,
     realmPlay: { date: "2024-01-01", balance: 0, spent: 0 },
-    focus: { options: [{ id: "add-10", label: "Addition within 10", area: "math" as const }], selected: [] },
+    focus: { options: [{ id: "add-10", label: "Addition within 10", area: "math" as const, grade: "K" as const }], selected: [] },
     mastery: [
       { skillId: "add-10", label: "Addition within 10", area: "math" as const, level: 1, levelLabel: "Level 1", lastPracticedAt: null },
     ],

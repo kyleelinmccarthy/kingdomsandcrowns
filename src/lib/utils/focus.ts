@@ -21,6 +21,14 @@ export function focusWindow(grades: Partial<Record<SkillArea, Grade>>): Skill[] 
   });
 }
 
+/** One skill a grown-up may pick, as plain data a server page can hand to the client panel. */
+export type FocusOption = { id: string; label: string; area: SkillArea; grade: Grade };
+
+/** The window as panel options. A window skill is offered at exactly one grade, so it is that one. */
+export function focusOptions(window: readonly Skill[]): FocusOption[] {
+  return window.map(({ id, label, area, grades }) => ({ id, label, area, grade: grades[0] }));
+}
+
 /**
  * The stored picks that still count: known, in the window, no repeats, first three. Lenient on
  * purpose, because it reads what was stored when the window may since have moved; the strict

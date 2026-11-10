@@ -14,7 +14,7 @@ import { getRealmPlaySummary } from "@/lib/actions/realm-play";
 import { getMasteryOverview } from "@/lib/actions/deeds";
 import { loadHeroLevels } from "@/lib/services/deeds";
 import { loadFocusSkillIds } from "@/lib/services/learning-focus";
-import { focusWindow } from "@/lib/utils/focus";
+import { focusOptions, focusWindow } from "@/lib/utils/focus";
 import { getMakeupDays } from "@/lib/actions/makeup";
 import { getFamilyMembers } from "@/lib/actions/guardians";
 import { getBillingStatus } from "@/lib/actions/billing";
@@ -36,7 +36,7 @@ import { BillingPanel } from "./billing-panel";
  */
 async function loadFocus(childId: string) {
   const [levels, selected] = await Promise.all([loadHeroLevels(childId), loadFocusSkillIds(childId)]);
-  const options = focusWindow(levels.grades).map(({ id, label, area }) => ({ id, label, area }));
+  const options = focusOptions(focusWindow(levels.grades));
   return { options, selected };
 }
 

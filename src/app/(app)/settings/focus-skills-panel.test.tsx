@@ -7,6 +7,7 @@ const setFocusSkills = vi.fn().mockResolvedValue(undefined);
 vi.mock("@/lib/actions/learning-focus", () => ({ setFocusSkills: (...a: unknown[]) => setFocusSkills(...a) }));
 
 import { FocusSkillsPanel, type FocusOption } from "./focus-skills-panel";
+import { focusOptions, focusWindow } from "@/lib/utils/focus";
 
 afterEach(() => {
   cleanup();
@@ -16,11 +17,11 @@ afterEach(() => {
 
 // Deliberately out of area order: the panel owns the order of its groups.
 const options: FocusOption[] = [
-  { id: "s1", label: "Place value", area: "science" },
-  { id: "m1", label: "Add within 10", area: "math" },
-  { id: "m2", label: "Subtract within 10", area: "math" },
-  { id: "r1", label: "Rhyming words", area: "reading" },
-  { id: "l1", label: "Nouns", area: "language" },
+  { id: "s1", label: "Place value", area: "science", grade: "3" },
+  { id: "m1", label: "Add within 10", area: "math", grade: "3" },
+  { id: "m2", label: "Subtract within 10", area: "math", grade: "3" },
+  { id: "r1", label: "Rhyming words", area: "reading", grade: "3" },
+  { id: "l1", label: "Nouns", area: "language", grade: "3" },
 ];
 
 function box(label: string) {
@@ -122,6 +123,33 @@ describe("FocusSkillsPanel", () => {
     await waitFor(() => expect(screen.getByRole("status")).toBeInTheDocument());
     fireEvent.click(box("Place value"));
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("names the grade where a label repeats within an area, and only there", () => {
+    // A grade-3 hero's window: two "Spelling" pools and two "Science facts" pools, a grade apart.
+    const window = focusOptions(focusWindow({ math: "3", reading: "3", language: "3", science: "3" }));
+    render(<FocusSkillsPanel childId="c1" options={window} selected={[]} />);
+    const language = screen.getByRole("group", { name: "Language Arts" });
+    expect(within(language).getByRole("checkbox", { name: "Spelling (Grade 2)" })).toBeInTheDocument();
+    expect(within(language).getByRole("checkbox", { name: "Spelling (Grade 4)" })).toBeInTheDocument();
+    expect(within(language).getByRole("checkbox", { name: "Spelling and verbs" })).toBeInTheDocument();
+    const science = screen.getByRole("group", { name: "Science" });
+    expect(within(science).getByRole("checkbox", { name: "Science facts (Grade 2)" })).toBeInTheDocument();
+    expect(within(science).getByRole("checkbox", { name: "Science facts (Grade 4)" })).toBeInTheDocument();
+    // Unique labels stay as they are.
+    const reading = screen.getByRole("group", { name: "Reading" });
+    expect(within(reading).getByRole("checkbox", { name: "Sight words" })).toBeInTheDocument();
+    expect(within(reading).getByRole("checkbox", { name: "Main idea" })).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: "Multiplication facts" })).toBeInTheDocument();
+    const names = screen.getAllByRole("checkbox").map((b) => b.closest("label")!.textContent);
+    expect(new Set(names).size).toBe(names.length);
+  });
+
+  it("calls kindergarten by its name", () => {
+    const window = focusOptions(focusWindow({ reading: "1" }));
+    render(<FocusSkillsPanel childId="c1" options={window} selected={[]} />);
+    expect(box("Sight words (Kindergarten)")).toBeInTheDocument();
+    expect(box("Sight words (Grade 2)")).toBeInTheDocument();
   });
 
   it("offers nothing to pick when no skills are in reach", () => {

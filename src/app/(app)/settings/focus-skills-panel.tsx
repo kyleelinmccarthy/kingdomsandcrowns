@@ -4,16 +4,27 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { setFocusSkills } from "@/lib/actions/learning-focus";
-import { FOCUS_MAX } from "@/lib/utils/focus";
+import { FOCUS_MAX, type FocusOption } from "@/lib/utils/focus";
+import { gradeName } from "@/lib/utils/seasons";
 import { AREA_LABELS, type SkillArea } from "@/lib/utils/skills";
 
-/** One skill a grown-up may pick, as plain data the server page can hand across. */
-export type FocusOption = { id: string; label: string; area: SkillArea };
+export type { FocusOption };
 
 const AREA_ORDER: SkillArea[] = ["math", "reading", "language", "science"];
 
 function sameSet(a: readonly string[], b: readonly string[]) {
   return a.length === b.length && a.every((id) => b.includes(id));
+}
+
+/**
+ * What each box in one area says. Several strands reuse a label across grades ("Spelling",
+ * "Science facts", "Sight words", "Vocabulary"), and a window a grade either side can hold two of
+ * them, so a label that repeats within the area names its grade; a unique one stays as it is.
+ */
+function boxLabels(skills: readonly FocusOption[]): Map<string, string> {
+  const uses = new Map<string, number>();
+  for (const s of skills) uses.set(s.label, (uses.get(s.label) ?? 0) + 1);
+  return new Map(skills.map((s) => [s.id, (uses.get(s.label) ?? 0) > 1 ? `${s.label} (${gradeName(s.grade)})` : s.label]));
 }
 
 /**
@@ -62,9 +73,10 @@ export function FocusSkillsPanel({
     }
   }
 
-  const groups = AREA_ORDER.map((area) => ({ area, skills: options.filter((o) => o.area === area) })).filter(
-    (g) => g.skills.length > 0,
-  );
+  const groups = AREA_ORDER.map((area) => {
+    const skills = options.filter((o) => o.area === area);
+    return { area, skills, labels: boxLabels(skills) };
+  }).filter((g) => g.skills.length > 0);
 
   return (
     <div className="space-y-3">
@@ -77,7 +89,7 @@ export function FocusSkillsPanel({
           {error}
         </div>
       )}
-      {groups.map(({ area, skills }) => (
+      {groups.map(({ area, skills, labels }) => (
         <div
           key={area}
           role="group"
@@ -99,7 +111,7 @@ export function FocusSkillsPanel({
                       disabled={busy || (full && !on)}
                       onChange={() => toggle(skill.id)}
                     />
-                    <span>{skill.label}</span>
+                    <span>{labels.get(skill.id)}</span>
                   </label>
                 </li>
               );
