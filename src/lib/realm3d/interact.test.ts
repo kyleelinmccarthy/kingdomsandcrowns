@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildWorldLayout } from "@/lib/realm/layout";
-import { buildSpots, edgeDistance, pickSpot, siteLabel } from "./interact";
+import { buildSpots, edgeDistance, pickSpot, RIDDLE_LABEL, RIDDLE_VERB, siteLabel } from "./interact";
 
 const layout = buildWorldLayout({
   castleType: "castle",
@@ -72,5 +72,25 @@ describe("what E can act on", () => {
     const well = spots[find("site", "well")];
     const i = find("site", "well");
     expect(pickSpot(spots, well.x - well.hw - 6, well.z, i)).not.toBe(i);
+  });
+});
+
+describe("the riddle stones", () => {
+  it("adds one round spot per stone, read with E, its id the place's", () => {
+    const stones = [{ placeId: "longwater", x: 33, z: -30.5 }, { placeId: "appleway", x: -5.5, z: 49 }];
+    const withStones = buildSpots({ props: layout.props, sitePlan: 1.5, landmarks, castle: null, stones });
+    const riddles = withStones.filter((s) => s.target.kind === "riddle");
+    expect(riddles.map((s) => s.target)).toEqual([
+      { kind: "riddle", id: "longwater", label: RIDDLE_LABEL, verb: RIDDLE_VERB },
+      { kind: "riddle", id: "appleway", label: RIDDLE_LABEL, verb: RIDDLE_VERB },
+    ]);
+    expect(RIDDLE_VERB).toBe("Read");
+    expect(riddles[0]).toMatchObject({ x: 33, z: -30.5, round: true });
+    // Standing beside it, E is at the stone.
+    expect(withStones[pickSpot(withStones, 33, -29.5, -1)].target).toMatchObject({ kind: "riddle", id: "longwater" });
+  });
+
+  it("has none when none are given", () => {
+    expect(spots.some((s) => s.target.kind === "riddle")).toBe(false);
   });
 });

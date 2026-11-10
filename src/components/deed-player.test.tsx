@@ -19,8 +19,8 @@ const run: RunStart = {
   runId: "r1",
   deed: { id: "well-signs", title: "Signs for the Well", story: "Help the sign-painter.", area: "reading" },
   questions: [
-    { id: "q1", skillId: "sight-g23", prompt: 'Which word is "because"?', choices: ["because", "become", "beside", "before"], readAloud: "because" },
-    { id: "q2", skillId: "sight-g23", prompt: 'Which word is "again"?', choices: ["again", "against"] },
+    { kind: "choice" as const, id: "q1", skillId: "sight-g23", view: { prompt: 'Which word is "because"?', choices: ["because", "become", "beside", "before"] }, readAloud: "because" },
+    { kind: "choice" as const, id: "q2", skillId: "sight-g23", view: { prompt: 'Which word is "again"?', choices: ["again", "against"] } },
   ],
   responses: [null, null],
   kind: "deed",
@@ -61,6 +61,7 @@ describe("DeedPlayer", () => {
     expect(completeDeedRun).toHaveBeenCalledWith("r1");
     expect(await screen.findByText(/1 of 2/)).toBeInTheDocument();
     expect(screen.getByText("Sight words: getting stronger")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Side quest done!" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Back to side quests" }));
     expect(onFinished).toHaveBeenCalled();
   });
@@ -236,6 +237,39 @@ describe("DeedPlayer", () => {
       await user.click(await screen.findByRole("button", { name: "Finish side quest" }));
       expect(await screen.findByText("You've earned all your side-quest minutes for today — great work!")).toBeInTheDocument();
       expect(document.body.textContent).not.toMatch(/minutes? earned/);
+    });
+  });
+  describe("a review run", () => {
+    const reviewRun: RunStart = {
+      ...run,
+      deed: { id: "review:page", title: "Quick review", story: "Three riddles from things you have learned.", area: null },
+      kind: "review",
+      responses: ["because", null],
+    };
+    const reviewSummary = { ...summary, correctCount: 2, total: 3, stars: 0, counted: false, kind: "review" as const, building: null, masteryChanges: [], sideQuestPayFull: true };
+
+    it("shows no subject chip while it is played", () => {
+      render(<DeedPlayer run={reviewRun} profile={profile} calm={false} onFinished={() => {}} />);
+      expect(screen.getByText("Quick review")).toBeInTheDocument();
+      expect(document.querySelector("[data-subject]")).not.toBeInTheDocument();
+    });
+
+    it("summarises without stars, a building line or minutes", async () => {
+      const user = userEvent.setup();
+      completeDeedRun.mockResolvedValue(reviewSummary);
+      render(<DeedPlayer run={reviewRun} profile={profile} calm={false} onFinished={() => {}} />);
+      await user.click(screen.getByRole("button", { name: "again" }));
+      await user.click(await screen.findByRole("button", { name: "Finish review" }));
+      expect(screen.queryByRole("button", { name: "Finish side quest" })).not.toBeInTheDocument();
+      expect(await screen.findByRole("heading", { name: "Review done!" })).toBeInTheDocument();
+      expect(screen.queryByText("Side quest done!")).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Back to side quests" })).toBeInTheDocument();
+      expect(screen.getByText("Reviewed 3 \u00B7 2 right")).toBeInTheDocument();
+      expect(screen.queryByText(/ of 3 right in/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/stars?\b/i)).not.toBeInTheDocument();
+      expect(document.body.textContent).not.toMatch(/minutes?/i);
+      expect(document.body.textContent).not.toMatch(/built|Village Well/);
+      expect(document.querySelector("[data-subject]")).not.toBeInTheDocument();
     });
   });
 });

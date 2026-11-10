@@ -132,6 +132,13 @@ describe("the result card", () => {
   });
 });
 
+describe("a review's result", () => {
+  it("is a review done, with how many were reviewed and how many right, flawless or not", () => {
+    expect(resultHeadline({ correctCount: 3, total: 3, flawless: true, kind: "review" }, "Longwater riddle stone")).toEqual({ title: "Review done!", line: "Reviewed 3 · 3 right" });
+    expect(resultHeadline({ correctCount: 1, total: 3, flawless: false, kind: "review" }, "Longwater riddle stone")).toEqual({ title: "Review done!", line: "Reviewed 3 · 1 right" });
+  });
+});
+
 describe("a Crown Challenge's result", () => {
   it("is crowned when every answer was right, and so close otherwise", () => {
     expect(resultHeadline({ correctCount: 3, total: 3, flawless: true, kind: "challenge" }, "Fill the Bucket")).toEqual({ title: "Crowned!", line: "3 of 3 right in Fill the Bucket." });

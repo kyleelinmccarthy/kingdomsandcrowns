@@ -1,4 +1,6 @@
+import { DEEDS } from "@/lib/utils/deeds";
 import { BUILDINGS, findBuilding } from "@/lib/utils/kingdom";
+import type { SkillArea } from "@/lib/utils/skills";
 import { SIDE_QUEST_LOWER } from "@/lib/utils/side-quest-copy";
 import { villagerForBuilding } from "./villagers";
 import type { SiteProgress } from "./layout";
@@ -41,8 +43,22 @@ export function objectiveRank(b: { done: number; complete: boolean }): 0 | 1 | 2
  * page and the world order their sites the same way. objectiveState adds the higher-done tie-break on
  * top of this rank; the list on the Side Quests page deliberately does not.
  */
-export function rankBuildings<T extends { done: number; complete: boolean }>(buildings: T[]): T[] {
-  return [...buildings].sort((a, b) => objectiveRank(a) - objectiveRank(b));
+export function rankBuildings<T extends { id: string; done: number; complete: boolean }>(
+  buildings: T[],
+  focusAreas: ReadonlySet<SkillArea> = new Set(),
+): T[] {
+  const leans = focusLean(focusAreas);
+  return [...buildings].sort((a, b) => objectiveRank(a) - objectiveRank(b) || leans(a.id) - leans(b.id));
+}
+
+/**
+ * 0 for a building with a deed in a strand a grown-up asked to focus on, 1 for the rest: a tie-break
+ * only, so it is read after every other rule and never reorders buildings that already differ.
+ */
+function focusLean(focusAreas: ReadonlySet<SkillArea>): (buildingId: string) => 0 | 1 {
+  if (focusAreas.size === 0) return () => 1;
+  const wanted = new Set(DEEDS.filter((d) => focusAreas.has(d.area)).map((d) => d.buildingId));
+  return (id) => (wanted.has(id) ? 0 : 1);
 }
 
 /** BUILDINGS order — the last tie-break, and the reason a brand-new hero always starts at the well. */
@@ -71,14 +87,17 @@ function toObjective(p: SiteProgress): Objective {
  * What to do next, best first. An empty `buildings` means the kingdom failed to load — "unknown", never
  * "complete", so a database hiccup can never tell a child their kingdom is finished.
  */
-export function objectiveState(buildings: SiteProgress[], limit: number): ObjectiveState {
+export function objectiveState(buildings: SiteProgress[], limit: number, focusAreas: ReadonlySet<SkillArea> = new Set()): ObjectiveState {
   // Ids with no catalog entry have no site in the world either (layout.ts skips them).
   const known = buildings.filter((b) => ORDER.has(b.id));
   if (known.length === 0) return { kind: "unknown" };
   const open = known.filter((b) => !b.complete);
   if (open.length === 0) return starsState(known, limit);
+  const leans = focusLean(focusAreas);
   const ranked = open.sort(
-    (a, b) => objectiveRank(a) - objectiveRank(b) || b.done - a.done || (ORDER.get(a.id) ?? 0) - (ORDER.get(b.id) ?? 0),
+    (a, b) =>
+      objectiveRank(a) - objectiveRank(b) || b.done - a.done || leans(a.id) - leans(b.id) ||
+      (ORDER.get(a.id) ?? 0) - (ORDER.get(b.id) ?? 0),
   );
   return { kind: "next", objectives: ranked.slice(0, clampLimit(limit)).map(toObjective) };
 }

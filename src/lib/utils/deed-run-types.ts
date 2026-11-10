@@ -2,13 +2,13 @@
  * What the deed actions hand the browser, in a plain module so the pure flow and copy modules
  * (and the components) can name these types without importing a "use server" file.
  */
-import type { ClientQuestion } from "./deed-engine";
+import type { ClientTask, FeedbackCode } from "@/lib/tasks/registry";
 import type { RunKind, Stars } from "./deed-scoring";
 import type { SkillMeter } from "./mastery";
 import type { SkillArea } from "./skills";
 
 export type RunStart = {
-  runId: string; deed: { id: string; title: string; story: string; area: SkillArea }; questions: ClientQuestion[]; responses: (string | null)[];
+  runId: string; deed: { id: string; title: string; story: string; area: SkillArea | null }; questions: ClientTask[]; responses: (string | null)[];
   kind: RunKind;
   /** A resumed run left on a second chance: reopen there, the first pick ruled out and the hint shown. */
   pending: { index: number; ruledOut: string; hint: string } | null;
@@ -16,12 +16,15 @@ export type RunStart = {
 /**
  * `answer` and `explain` are present only once the question is resolved, so the answer never
  * reaches the browser while a try is still open. `hint` comes with an open second chance, and
- * with a resolved miss that has no explanation.
+ * with a resolved miss that has no explanation. `answer` is the right answer in words
+ * (`answerText`). `feedback` is the task kind's coded note on the response just given; it is
+ * omitted when the code is "none" (multiple choice never sets it).
  */
 export type AttemptResult = {
   correct: boolean; secondChance: boolean; answer?: string; explain?: string; hint?: string;
   /** With an open second chance: the first pick the server stored (the child's own, safe to send). */
   firstPick?: string;
+  feedback?: FeedbackCode;
   /**
    * Only on a first answer that moved mastery: where the skill's pips stand now. On a first answer,
    * absent or null means there are no pips to show (the skill is at the top, or nothing moved), so
@@ -41,7 +44,8 @@ export type RunSummary = {
   /** Whether the side quest holds its crown after this run: a flawless Crown Challenge earns it. */
   crowned: boolean;
   kind: RunKind;
-  building: { label: string; done: number; total: number; complete: boolean; stars: number; maxStars: number };
+  /** Null for a run that raises nothing (a review run). */
+  building: { label: string; done: number; total: number; complete: boolean; stars: number; maxStars: number } | null;
   /** Realm play minutes this run paid (`sideQuestPay`): 0 for a challenge, a starless run or a grown-up's run. */
   minutesEarned: number;
   /** The day's side-quest minutes are all earned, so the card can say so instead of "+0". */

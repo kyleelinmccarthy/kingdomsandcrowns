@@ -33,7 +33,7 @@ export function DeedPanel({
   profile: ProfileLike;
   calm: boolean;
   preview: boolean;
-  onFinished: (buildingId: string, result: RunSummary["building"]) => void;
+  onFinished: (buildingId: string, result: NonNullable<RunSummary["building"]>) => void;
   onClose: () => void;
 }) {
   const [run, setRun] = useState<RunStart | null>(null);
@@ -96,7 +96,7 @@ export function DeedPanel({
             <span className="text-sm text-muted-foreground">{villager.name}</span>
             <Button size="sm" variant="ghost" className="ml-auto" onClick={onClose}>Leave the {SIDE_QUEST_LOWER}</Button>
           </div>
-          <DeedPlayer run={run} profile={profile} calm={calm} doneLabel="Back to the Realm" onFinished={(summary) => onFinished(building.id, summary.building)} />
+          <DeedPlayer run={run} profile={profile} calm={calm} doneLabel="Back to the Realm" onFinished={(summary) => { if (summary.building) onFinished(building.id, summary.building); }} />
         </div>
       ) : (
         <SiteCard villager={villager} building={building} preview={preview} busy={busy} error={error} onBegin={begin} onClearError={() => setError("")} onClose={onClose} />

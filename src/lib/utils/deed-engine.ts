@@ -1,9 +1,12 @@
 import { GENERATORS, seededRng, shuffle, type Question, type Rng } from "./drill-generators";
 import { nearestGrades, type Grade } from "./grade-levels";
 import { MASTERY_MAX } from "./mastery";
-import { skillsFor, type Skill } from "./skills";
+import { findSkill, skillsFor, type Skill } from "./skills";
+import { FOCUS_WEIGHT } from "./focus";
 import type { Deed } from "./deeds";
 import { REVIEW } from "./review-schedule";
+import { kindForSkill, TASK_KINDS } from "@/lib/tasks/registry";
+import type { Task, TaskKind } from "@/lib/tasks/types";
 
 export type ProfileLike = { fewerChoices: boolean; predictableRoutine: boolean; untimed: boolean; readAloud: boolean };
 
@@ -41,12 +44,13 @@ export type BuildRunInput = {
   questionCount?: number;
   /** Rungs above the child's own to draw every question at, capped at the top (the Crown Challenge). */
   levelBoost?: number;
+  /** The skills a grown-up asked this hero to focus on: each is `FOCUS_WEIGHT` times likelier to be drawn. */
+  focusSkillIds?: string[];
+  /** The task kinds a run may present; every kind when absent. A deed's mechanic outside this is a choice. */
+  enabledKinds?: ReadonlySet<TaskKind>;
 };
 
 export type BuiltRun = { skillIds: string[]; questions: Question[] };
-
-/** What the browser receives: everything but the answer and its explanation. */
-export type ClientQuestion = Omit<Question, "answer" | "explain">;
 
 /** Recent misses that may come back in one run; the rest of `REVIEW.maxTotal` is for due skills. */
 const MAX_MISSES = 2;
@@ -83,6 +87,28 @@ export function chooseSkills(deed: Deed, grade: Grade): Skill[] {
     if (candidates.length > 0) return candidates;
   }
   return [];
+}
+
+/**
+ * What a run may practise: the deed's own `chooseSkills`, then each of the hero's focus skills in
+ * the deed's strand that is not already there. A focus skill may sit a grade either side of the
+ * hero's (`focusWindow`), which `chooseSkills` never reaches, so without this a grown-up's
+ * grade-off pick could never be drawn. The ids are trusted as window-checked already
+ * (`loadFocusSkillIds`); one from another strand, or unknown, is ignored.
+ *
+ * The focus skills go on the END, so with none the list (and every draw over it) is exactly
+ * `chooseSkills`'s.
+ */
+export function runCandidates(deed: Deed, grade: Grade, focusSkillIds: readonly string[] = []): Skill[] {
+  const base = chooseSkills(deed, grade);
+  const extra: Skill[] = [];
+  for (const id of focusSkillIds) {
+    const skill = findSkill(id);
+    if (!skill || skill.area !== deed.area) continue;
+    if (base.some((s) => s.id === id) || extra.some((s) => s.id === id)) continue;
+    extra.push(skill);
+  }
+  return [...base, ...extra];
 }
 
 /**
@@ -123,6 +149,7 @@ function weightsFor(
   pool: Skill[],
   masteryBySkill: Record<string, number>,
   lastPracticedBySkill: Record<string, number | null>,
+  focusIds: ReadonlySet<string>,
 ): number[] {
   const known = pool
     .map((s) => lastPracticedBySkill[s.id])
@@ -132,12 +159,14 @@ function weightsFor(
     // Clamped, because a caller may hand back a level from a longer ladder than this one.
     const level = Math.min(MASTERY_MAX, Math.max(0, Math.floor(masteryBySkill[s.id] ?? 0)));
     const mastery = MASTERY_MAX + 1 - level;
-    if (newest === null) return mastery;
+    // A grown-up's focus multiplies the whole weight, so it lifts a skill without ever fixing the draw.
+    const boost = focusIds.has(s.id) ? FOCUS_WEIGHT : 1;
+    if (newest === null) return mastery * boost;
     const at = lastPracticedBySkill[s.id];
     const gap = typeof at === "number" && Number.isFinite(at)
       ? Math.floor((newest - at) / DAY_MS)
       : STALE_DAYS_CAP;
-    return mastery + Math.min(STALE_DAYS_CAP, Math.max(0, gap));
+    return (mastery + Math.min(STALE_DAYS_CAP, Math.max(0, gap))) * boost;
   });
 }
 
@@ -167,9 +196,10 @@ export function selectSkills(
   masteryBySkill: Record<string, number>,
   rng: Rng,
   lastPracticedBySkill: Record<string, number | null> = {},
+  focusIds: ReadonlySet<string> = new Set(),
 ): Skill[] {
   const draw = (pool: Skill[]): Skill | undefined =>
-    weightedPick(pool, weightsFor(pool, masteryBySkill, lastPracticedBySkill), rng);
+    weightedPick(pool, weightsFor(pool, masteryBySkill, lastPracticedBySkill, focusIds), rng);
   const generator = draw(candidates.filter((s) => s.source.kind === "generator"));
   const pool = draw(candidates.filter((s) => s.source.kind === "pool"));
   const picked = [generator, pool].filter((s): s is Skill => !!s);
@@ -334,17 +364,62 @@ function drawGenerated(
   return out;
 }
 
-function trimChoices(q: Question, rng: Rng): Question {
+function trimChoices<T extends Question>(q: T, rng: Rng): T {
   const other = q.choices.find((c) => c !== q.answer) ?? q.answer;
   return { ...q, choices: shuffle([q.answer, other], rng) };
+}
+
+/**
+ * What a hero's learning profile does to a run's finished, ordered tasks, in one place for every
+ * builder (`buildDeedRun`, `buildReviewRun`), so a run is never built without it.
+ *
+ *  - **fewerChoices**: each task offers its answer and one other option, shuffled. Off, the tasks
+ *    come back as they are and no rng is drawn, so a run's output is exactly what it was.
+ *  - **predictableRoutine** is deliberately not here. In a side quest it is an ORDER: fresh
+ *    questions grouped skill by skill in catalog order, then the review ones, which `buildDeedRun`
+ *    decides before calling this. A review run has no such shape to keep: every task is review,
+ *    each from a different skill, and the set is mixed across strands by design (interleaved
+ *    retrieval is the point of it), so there is nothing to group and its order stays shuffled.
+ */
+export function applyProfile<T extends Question>(questions: T[], profile: Pick<ProfileLike, "fewerChoices">, rng: Rng): T[] {
+  return profile.fewerChoices ? questions.map((q) => trimChoices(q, rng)) : questions;
+}
+
+/**
+ * One draw for any skill, whichever way it is sourced: a generator, or the pool items that are
+ * this skill's and not in `excludeIds`. A review builder uses it to draw a single task.
+ */
+export function drawForSkill(
+  skill: Skill,
+  level: number,
+  count: number,
+  rng: Rng,
+  poolItems: PoolItem[],
+  excludeIds: Set<string>,
+  excludePrompts: Set<string>,
+): Question[] {
+  return skill.source.kind === "generator"
+    ? drawGenerated(skill, level, count, rng, excludeIds, excludePrompts)
+    : drawPool(poolItems.filter((p) => p.skillId === skill.id && !excludeIds.has(p.id)), level, count, rng);
+}
+
+/**
+ * Names a built task's kind, but only when it is not a choice: stored runs have no `kind` and
+ * read as choice, so a choice stays untagged and today's runs are unchanged byte for byte.
+ */
+function withKind(q: Question, kind: TaskKind): Task {
+  return kind === "choice" ? q : { ...q, kind };
 }
 
 export function buildDeedRun(input: BuildRunInput): BuiltRun {
   const { deed, grade, masteryBySkill, lastPracticedBySkill, profile, seed, poolItems, recentMisses } = input;
   // The rung each skill is drawn at; selection still weighs the child's own mastery.
   const levelOf = (skillId: string) => Math.min((masteryBySkill[skillId] ?? 0) + (input.levelBoost ?? 0), MASTERY_MAX);
+  const enabled = input.enabledKinds ?? new Set(Object.keys(TASK_KINDS) as TaskKind[]);
+  const tag = (q: Question) => withKind(q, kindForSkill(deed.mechanic, q.skillId, enabled));
   const rng = seededRng(seed);
-  const skills = selectSkills(chooseSkills(deed, grade), masteryBySkill, rng, lastPracticedBySkill ?? {});
+  const candidates = runCandidates(deed, grade, input.focusSkillIds);
+  const skills = selectSkills(candidates, masteryBySkill, rng, lastPracticedBySkill ?? {}, new Set(input.focusSkillIds));
   const skillIds = skills.map((s) => s.id);
   if (skills.length === 0) return { skillIds: [], questions: [] };
 
@@ -365,7 +440,6 @@ export function buildDeedRun(input: BuildRunInput): BuiltRun {
   const target = input.questionCount ?? deed.questionCount;
 
   // Due skills are drawn at their own level before the fresh ones, so fresh draws avoid them.
-  const candidates = chooseSkills(deed, grade);
   const dueCandidates = [...new Set(input.dueSkillIds ?? [])]
     .map((id) => candidates.find((s) => s.id === id))
     .filter((s): s is Skill => !!s && !skillIds.includes(s.id))
@@ -375,11 +449,9 @@ export function buildDeedRun(input: BuildRunInput): BuiltRun {
   const dueSkillsUsed: string[] = [];
   for (const skill of dueCandidates) {
     const level = levelOf(skill.id);
-    const [drawn] = skill.source.kind === "generator"
-      ? drawGenerated(skill, level, 1, rng, reviewIds, reviewPrompts)
-      : drawPool(poolItems.filter((p) => p.skillId === skill.id && !reviewIds.has(p.id)), level, 1, rng);
+    const [drawn] = drawForSkill(skill, level, 1, rng, poolItems, reviewIds, reviewPrompts);
     if (!drawn) continue;
-    due.push(drawn);
+    due.push(tag(drawn));
     dueSkillsUsed.push(skill.id);
     reviewIds.add(drawn.id);
     reviewPrompts.add(questionText(drawn));
@@ -392,9 +464,7 @@ export function buildDeedRun(input: BuildRunInput): BuiltRun {
   const perSkill = skills.map((_, i) => Math.floor(fresh / skills.length) + (i < fresh % skills.length ? 1 : 0));
   const bySkill = skills.map((skill, i) => {
     const level = levelOf(skill.id);
-    if (skill.source.kind === "generator") return drawGenerated(skill, level, perSkill[i], rng, reviewIds, reviewPrompts);
-    const items = poolItems.filter((p) => p.skillId === skill.id && !reviewIds.has(p.id));
-    return drawPool(items, level, perSkill[i], rng);
+    return drawForSkill(skill, level, perSkill[i], rng, poolItems, reviewIds, reviewPrompts).map(tag);
   });
 
   // A skill that came up short (thin pool) hands its slots to the others.
@@ -407,7 +477,7 @@ export function buildDeedRun(input: BuildRunInput): BuiltRun {
       const extra = skill.source.kind === "generator"
         ? drawGenerated(skill, levelOf(skill.id), fresh - questions.length + have.size, rng, new Set([...have, ...reviewIds]), new Set([...havePrompts, ...reviewPrompts])).filter((q) => !have.has(q.id))
         : drawPool(poolItems.filter((p) => p.skillId === skill.id && !have.has(p.id) && !reviewIds.has(p.id)), levelOf(skill.id), fresh - questions.length, rng);
-      questions = [...questions, ...extra].slice(0, fresh);
+      questions = [...questions, ...extra.map(tag)].slice(0, fresh);
     }
   }
 
@@ -421,17 +491,9 @@ export function buildDeedRun(input: BuildRunInput): BuiltRun {
     ordered = shuffle([...questions, ...nonFresh], rng);
   }
 
-  const finalQuestions = profile.fewerChoices ? ordered.map((q) => trimChoices(q, rng)) : ordered;
-  return { skillIds: allSkillIds, questions: finalQuestions };
+  return { skillIds: allSkillIds, questions: applyProfile(ordered, profile, rng) };
 }
 
 export function gradeAnswer(question: Pick<Question, "answer">, answer: string): boolean {
   return question.answer.trim() === answer.trim();
-}
-
-export function toClientQuestion(question: Question): ClientQuestion {
-  // Built explicitly (not via destructuring-and-discarding `answer`) because
-  // this repo's ESLint config has no unused-var ignore pattern for that idiom.
-  const { id, skillId, prompt, choices, readAloud } = question;
-  return { id, skillId, prompt, choices, readAloud };
 }

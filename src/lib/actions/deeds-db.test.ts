@@ -46,7 +46,7 @@ vi.mock("@/lib/services/deeds", async () => ({
 const { answerDeedQuestion, retryDeedQuestion, resolveDeedQuestion, completeDeedRun, startDeedRun } = await import("./deeds");
 const { getSchoolCounts } = await import("./subjects");
 const { getRealmAccess, recordRealmPlay } = await import("./realm-play");
-const { loadDeedBest } = await import("@/lib/services/deeds");
+const { loadDeedBest, loadHeroLevels } = await import("@/lib/services/deeds");
 const { loadRealmSettings, paySideQuest } = await import("@/lib/services/realm-play");
 const { buildDeedRun } = await import("@/lib/utils/deed-engine");
 const { requireChildAccess } = await import("@/lib/auth/access");
@@ -55,7 +55,7 @@ const { requireChildAccess } = await import("@/lib/auth/access");
 // `activity_log` carry only the columns the school count reads.
 const DDL = [
   `CREATE TABLE deed_run (
-    id text PRIMARY KEY NOT NULL, child_id text NOT NULL, deed_id text NOT NULL, skill_ids text NOT NULL,
+    id text PRIMARY KEY NOT NULL, child_id text NOT NULL, deed_id text, source_ref text, skill_ids text NOT NULL,
     band text NOT NULL, questions text NOT NULL, responses text DEFAULT '[]' NOT NULL,
     mastery_start text DEFAULT '{}' NOT NULL, correct_count integer DEFAULT 0 NOT NULL,
     flawless integer DEFAULT false NOT NULL, started_at integer NOT NULL, completed_at integer,
@@ -75,6 +75,11 @@ const DDL = [
   `CREATE UNIQUE INDEX kingdom_progress_child_building_idx ON kingdom_progress (child_id, building_id)`,
   `CREATE TABLE subject (id text PRIMARY KEY NOT NULL, spell_school text DEFAULT 'none' NOT NULL)`,
   `CREATE TABLE activity_log (id text PRIMARY KEY NOT NULL, child_id text NOT NULL, subject_id text NOT NULL)`,
+  `CREATE TABLE learning_focus (
+    id text PRIMARY KEY NOT NULL, child_id text NOT NULL, skill_id text NOT NULL, created_at integer NOT NULL)`,
+  `CREATE TABLE drill_item (
+    id text PRIMARY KEY NOT NULL, pool_id text NOT NULL, skill_id text NOT NULL, band text NOT NULL, prompt text NOT NULL,
+    answer text NOT NULL, distractors text NOT NULL, read_aloud text, level integer DEFAULT 2 NOT NULL, updated_at integer NOT NULL)`,
   ...REALM_SETTINGS_DDL,
   ...REALM_LEDGER_DDL,
   ...REALM_ACCESS_DDL,
@@ -124,7 +129,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  for (const t of ["deed_run", "skill_mastery", "kingdom_progress", "realm_settings", "realm_play_ledger", "recess_block"]) await client.query(`DELETE FROM ${t}`);
+  for (const t of ["deed_run", "skill_mastery", "kingdom_progress", "realm_settings", "realm_play_ledger", "recess_block", "learning_focus"]) await client.query(`DELETE FROM ${t}`);
   vi.mocked(loadRealmSettings).mockResolvedValue({ ...DEFAULT_REALM_SETTINGS });
   vi.mocked(buildDeedRun).mockClear();
 });
@@ -538,6 +543,57 @@ describe("startDeedRun begins a fresh run on the grown-up's settings", () => {
     expect(asked).toEqual(["deed-miss"]);
   });
 
+  it("hands the engine the hero's focus skills, and ignores a stored one outside their window", async () => {
+    // div-facts is a third-grade skill: inside the grade-3 window. sight-k1 sits three grades away,
+    // and "nope" is no skill at all.
+    for (const [i, skill] of ["div-facts", "sight-k1", "nope"].entries()) {
+      await client.query("INSERT INTO learning_focus (id, child_id, skill_id, created_at) VALUES (?1, 'c1', ?2, unixepoch() + ?3)", [`f${i}`, skill, i]);
+    }
+    const r = await startDeedRun("c1", "well-stones", "realm");
+    expect(r.questions.length).toBeGreaterThan(0);
+    expect(vi.mocked(buildDeedRun).mock.calls[0][0].focusSkillIds).toEqual(["div-facts"]);
+  });
+
+  it("serves a focus skill a grade above the hero's own in the deed's strand, from its own pool", async () => {
+    // A grade-3 reader: read-g4 is inside the focus window but outside `chooseSkills`'s grade.
+    for (const skill of ["read-g3", "read-g4"]) {
+      for (let i = 0; i < 10; i++) {
+        await client.query(
+          `INSERT INTO drill_item (id, pool_id, skill_id, band, prompt, answer, distractors, level, updated_at)
+           VALUES (?1, ?2, ?2, 'g45', ?3, 'yes', '["no","maybe","never"]', 2, unixepoch())`,
+          [`${skill}-${i}`, skill, `${skill} prompt ${i}?`],
+        );
+      }
+    }
+    await client.query("INSERT INTO learning_focus (id, child_id, skill_id, created_at) VALUES ('f0', 'c1', 'read-g4', unixepoch())");
+    const now = vi.spyOn(Date, "now");
+    try {
+      let served: string[] | null = null;
+      // The run's seed is the clock; a few fixed clocks make the draw deterministic.
+      for (let t = 1_800_000_000_000; t < 1_800_000_000_020 && !served; t++) {
+        now.mockReturnValue(t);
+        vi.mocked(buildDeedRun).mockClear();
+        const r = await startDeedRun("c1", "well-signs", "realm");
+        const input = vi.mocked(buildDeedRun).mock.calls[0][0];
+        expect(new Set(input.poolItems.map((p) => p.skillId))).toEqual(new Set(["read-g3", "read-g4"]));
+        const row = await client.query("SELECT skill_ids FROM deed_run WHERE id = ?1", [r.runId]);
+        const ids = JSON.parse(row.rows[0].skill_ids as string) as string[];
+        if (ids.includes("read-g4")) served = r.questions.filter((q) => q.skillId === "read-g4").map((q) => q.id);
+        await client.query("DELETE FROM deed_run");
+      }
+      expect(served?.length).toBeGreaterThan(0);
+    } finally {
+      now.mockRestore();
+      await client.query("DELETE FROM drill_item");
+    }
+  });
+
+  it("reads the hero's levels once: the focus picks are judged on the grades already in hand", async () => {
+    vi.mocked(loadHeroLevels).mockClear();
+    await startDeedRun("c1", "well-stones", "realm");
+    expect(loadHeroLevels).toHaveBeenCalledTimes(1);
+  });
+
   it("a miss put right on the second try still comes back", async () => {
     await seedRun({ id: "deed-old", questions: [QUESTIONS[1]], responses: ["6"], secondTries: JSON.stringify(["9"]), completed: true });
     await startDeedRun("c1", "well-stones", "realm");
@@ -670,5 +726,61 @@ describe("getSchoolCounts", () => {
     await seedRun({ id: "deed-done", responses: ["6", "9", "12", "15"], completed: true });
     await seedRun({ id: "crown-done", responses: ["6", "9", "12", "15"], completed: true, kind: "challenge" });
     expect((await getSchoolCounts("c1")).form).toBe(1);
+  });
+});
+
+describe("answers are parsed by their task kind, and the browser gets views", () => {
+  async function attemptTotal(): Promise<number> {
+    const r = await client.query("SELECT coalesce(sum(attempt_total), 0) AS n FROM skill_mastery WHERE child_id = 'c1'");
+    return Number(r.rows[0].n);
+  }
+
+  it("a run stored before tasks had kinds resumes, answers and completes", async () => {
+    // QUESTIONS are plain `Question` JSON with no `kind`, exactly as older rows hold them.
+    await seedRun();
+    const start = await startDeedRun("c1", "well-stones", "realm");
+    expect(start.runId).toBe("run1");
+    expect(start.questions[0]).toMatchObject({ kind: "choice", id: "q0", view: { prompt: "2 x 3?", choices: ["6", "5", "8", "9"] } });
+    expect(await answerDeedQuestion("run1", 0, "6")).toMatchObject({ correct: true, secondChance: false, answer: "6" });
+    for (const [i, a] of [[1, "9"], [2, "12"], [3, "15"]] as const) await answerDeedQuestion("run1", i, a);
+    expect(await completeDeedRun("run1")).toMatchObject({ correctCount: 4, flawless: true, stars: 3 });
+  });
+
+  it("a malformed answer is refused and writes nothing", async () => {
+    await seedRun();
+    const before = await stored();
+    const masteryBefore = await attemptTotal();
+    for (const bad of [{}, 42, "x".repeat(10_001), "nine", null]) {
+      await expect(answerDeedQuestion("run1", 0, bad)).rejects.toThrow("Pick one of the answers shown.");
+    }
+    expect(await stored()).toEqual(before);
+    expect(await attemptTotal()).toBe(masteryBefore);
+  });
+
+  it("a malformed retry is refused and writes nothing", async () => {
+    await seedRun();
+    await answerDeedQuestion("run1", 1, "6");
+    const before = await stored();
+    for (const bad of [{}, 42, "x".repeat(10_001)]) {
+      await expect(retryDeedQuestion("run1", 1, bad)).rejects.toThrow("Pick one of the answers shown.");
+    }
+    expect(await stored()).toEqual(before);
+  });
+
+  it("stores the answer as the trimmed choice and grades it", async () => {
+    await seedRun();
+    expect(await answerDeedQuestion("run1", 0, " 6 ")).toMatchObject({ correct: true });
+    expect(JSON.parse((await stored()).responses)[0]).toBe("6");
+  });
+
+  it("the browser never sees an answer before resolution", async () => {
+    await seedRun();
+    const resumed = await startDeedRun("c1", "well-stones", "realm");
+    expect(JSON.stringify(resumed.questions)).not.toMatch(/"answer"|"explain"/);
+    await client.query("DELETE FROM deed_run");
+    const fresh = await startDeedRun("c1", "well-stones", "realm");
+    expect(fresh.runId).not.toBe("run1");
+    expect(JSON.stringify(fresh.questions)).not.toMatch(/"answer"|"explain"/);
+    expect(fresh.questions.every((q) => q.kind === "choice")).toBe(true);
   });
 });

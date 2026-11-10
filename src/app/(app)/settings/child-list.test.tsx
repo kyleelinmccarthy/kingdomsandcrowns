@@ -26,6 +26,7 @@ vi.mock("@/lib/actions/subjects", () => ({
 vi.mock("@/lib/actions/leaderboard", () => ({ toggleLeaderboardVisibility: vi.fn() }));
 vi.mock("@/lib/actions/student-schedule", () => ({ setScheduleSelfManage: vi.fn() }));
 vi.mock("@/lib/actions/quest-assignments", () => ({ setSkipQuestsEnabled: vi.fn() }));
+vi.mock("@/lib/actions/learning-focus", () => ({ setFocusSkills: vi.fn() }));
 
 import { ChildList } from "./child-list";
 import { DEFAULT_LEARNING_PROFILE } from "@/lib/utils/learning-profile";
@@ -68,6 +69,7 @@ function heroWithPanels(id: string, displayName: string, grade: string) {
     learningProfile: DEFAULT_LEARNING_PROFILE,
     realmSettings: DEFAULT_REALM_SETTINGS,
     realmPlay: { date: "2024-01-01", balance: 0, spent: 0 },
+    focus: { options: [{ id: "add-10", label: "Addition within 10", area: "math" as const, grade: "K" as const }], selected: [] },
     mastery: [
       { skillId: "add-10", label: "Addition within 10", area: "math" as const, level: 1, levelLabel: "Level 1", lastPracticedAt: null },
     ],
@@ -144,6 +146,7 @@ describe("ChildList — switching between heroes", () => {
     openHero("Priya");
     expect(screen.getByText("Subject Levels")).toBeInTheDocument();
     expect(screen.getByText("Learning Profile")).toBeInTheDocument();
+    expect(screen.getByText("Focus this month")).toBeInTheDocument();
     expect(screen.getByText("The Realm")).toBeInTheDocument();
     expect(screen.getByText("Side Quests & Mastery")).toBeInTheDocument();
     grownUp.unmount();
@@ -154,6 +157,7 @@ describe("ChildList — switching between heroes", () => {
     render(<ChildList family={family} kids={[priya]} isChildView currentChildId={priya.id} />);
     expect(screen.queryByText("Subject Levels")).not.toBeInTheDocument();
     expect(screen.queryByText("Learning Profile")).not.toBeInTheDocument();
+    expect(screen.queryByText("Focus this month")).not.toBeInTheDocument();
     expect(screen.queryByText("The Realm")).not.toBeInTheDocument();
     expect(screen.queryByText("Side Quests & Mastery")).not.toBeInTheDocument();
   });

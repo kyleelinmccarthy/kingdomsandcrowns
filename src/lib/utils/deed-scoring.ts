@@ -7,7 +7,7 @@ export type Stars = 0 | 1 | 2 | 3;
 /** The most stars one side quest can hold. */
 export const MAX_STARS = 3;
 export type QuestionOutcome = "first" | "second" | "miss";
-export type RunKind = "deed" | "challenge";
+export type RunKind = "deed" | "challenge" | "review";
 
 export const SCORING = {
   firstTryPoints: 2,
@@ -53,7 +53,21 @@ export const RUN_EFFECTS: Record<RunKind, RunEffects> = {
     feedsReview: false,
     allowsSecondChances: false,
   },
+  /** A riddle stone or Quick review: it moves mastery and feeds review, but belongs to no building. */
+  review: {
+    raisesBuilding: false,
+    earnsStars: false,
+    movesMastery: true,
+    countsForSchool: false,
+    feedsReview: true,
+    allowsSecondChances: true,
+  },
 };
+
+/** The run kinds whose first-try misses may come back in a later run (`RUN_EFFECTS[k].feedsReview`). */
+export function kindsThatFeedReview(): RunKind[] {
+  return (Object.keys(RUN_EFFECTS) as RunKind[]).filter((k) => RUN_EFFECTS[k].feedsReview);
+}
 
 export function runPoints(outcomes: readonly QuestionOutcome[]): { points: number; max: number } {
   let points = 0;

@@ -25,6 +25,7 @@ import { surfacesFor, type RealmDepth } from "@/lib/realm/depth";
 import { applyDeedResult, type KingdomState } from "@/lib/realm/kingdom-state";
 import { buildWorldLayout } from "@/lib/realm/layout";
 import { hasObjectives, objectiveSpeech, objectiveState } from "@/lib/realm/objective";
+import type { SkillArea } from "@/lib/utils/skills";
 import { renderSettingsFor } from "@/lib/realm/render-settings";
 import { resolvePages, withEmptyPages } from "@/lib/realm/spells/pages";
 import { villagerById, villagerForBuilding } from "@/lib/realm/villagers";
@@ -68,6 +69,7 @@ import { DEFAULT_LEARNING_PROFILE, type LearningProfile } from "@/lib/utils/lear
 import type { SpellPage } from "@/lib/services/spells";
 import { usePlayClock, type CloseReason } from "@/components/realm/use-play-clock";
 import { DeedBoard, type DeedResult } from "./deed-board";
+import { RiddleStoneBoard } from "./riddle-stone-board";
 import { CeremonyCard, Coach, DeedToastBanner, TimerFinished, WelcomeCard, type CeremonyInfo } from "./guide-hud";
 import {
   ClockCorner,
@@ -152,6 +154,10 @@ export type RealmData = {
   recess?: RecessRecord | null;
   /** Each trouble home's latest clear, as an age (`bundle.troubleClears`): a reload keeps them cleared. */
   troubleClears?: RecentClear[];
+  /** Something learned is due for review (`bundle.reviewDue`): the riddle stones glow. */
+  reviewDue?: boolean;
+  /** The strands a grown-up asked to focus on (`bundle.focusAreas`): the beacon leans toward them on a tie. */
+  focusAreas?: SkillArea[];
 };
 
 /** What the access check decided, for an open gate. */
@@ -256,7 +262,8 @@ export function RealmGame({
   // One objective state for the whole render: the card reads it and the layout marks its sites
   // from it, so the card and the world can never disagree about what to do next — the same
   // rule, and the same two calls, as `realm-shell.tsx`.
-  const objective = useMemo(() => objectiveState(kingdom.buildings, surfaces.trackedObjectives), [kingdom.buildings, surfaces.trackedObjectives]);
+  const focusAreas = useMemo(() => new Set(realm.focusAreas), [realm.focusAreas]);
+  const objective = useMemo(() => objectiveState(kingdom.buildings, surfaces.trackedObjectives, focusAreas), [kingdom.buildings, surfaces.trackedObjectives, focusAreas]);
   const objectiveKey = hasObjectives(objective) ? objective.objectives.map((o) => o.buildingId).join(",") : "";
   const layout = useMemo(
     () =>
@@ -317,6 +324,8 @@ export function RealmGame({
   const [troubleBus] = useState(() => makeTroubleBus(undefined, heldClearsFor(realm.childId, realm.troubleClears, realm.isChildView)));
   // What the hero is wearing: the page's look, until the wardrobe saves a new one.
   const [worn, setWorn] = useState<AvatarConfig>(() => avatar ?? DEFAULT_AVATAR);
+  // Whether the riddle stones glow: the bundle's answer, asked again after each stone's review.
+  const [reviewDue, setReviewDue] = useState(realm.reviewDue ?? false);
   const hero = worn;
 
 
@@ -530,7 +539,7 @@ export function RealmGame({
       kingdomRef.current = applied.state;
       const t0 = performance.now();
       setKingdom(applied.state);
-      const next = objectiveState(applied.state.buildings, trackedRef.current);
+      const next = objectiveState(applied.state.buildings, trackedRef.current, focusAreas);
       const words = deedToast({ site: before, after: result, rose: applied.rose, counted: result.counted, challenge: result.challenge, villagerName: villagerForBuilding(buildingId)?.name ?? null, next, numerals: surfaces.numerals || !realm.isChildView });
       setToast(words);
       if (readAloud) speak(words.spoken);
@@ -546,7 +555,7 @@ export function RealmGame({
         });
       }
     },
-    [readAloud, surfaces.numerals, realm.isChildView],
+    [readAloud, surfaces.numerals, realm.isChildView, focusAreas],
   );
 
   /* ---- the ceremony ---------------------------------------------------- */
@@ -953,6 +962,7 @@ export function RealmGame({
         lead={companion.bus}
         recess={recess.bus}
         gilded={gilded}
+        reviewDue={reviewDue}
       />
       {outCount > 0 && !inside && <div key={outCount} className="r3-fade" aria-hidden="true" />}
       {inside && (
@@ -1149,7 +1159,10 @@ export function RealmGame({
               onClose={closeOverlay}
             />
           )}
-          {overlay?.kind === "interact" && !talkTo && (
+          {overlay?.kind === "interact" && overlay.target.kind === "riddle" && (
+            <RiddleStoneBoard childId={childId} placeId={overlay.target.id} viewer={who} numerals={numerals} profile={{ readAloud, untimed: profile.untimed }} calm={calm} onDue={setReviewDue} onClose={closeOverlay} />
+          )}
+          {overlay?.kind === "interact" && !talkTo && overlay.target.kind !== "riddle" && (
             <InteractPanel
               target={overlay.target}
               kingdom={kingdom}

@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { buildDeedRun, chooseSkills, gradeAnswer, toClientQuestion, type BuildRunInput, type PoolItem } from "./deed-engine";
+import { applyProfile, buildDeedRun, chooseSkills, drawForSkill, gradeAnswer, runCandidates, selectSkills, type BuildRunInput, type PoolItem } from "./deed-engine";
 import { findDeed } from "./deeds";
 import { REVIEW } from "./review-schedule";
 import { CHALLENGE } from "./deed-scoring";
 import { GENERATORS, seededRng } from "./drill-generators";
 import { SKILLS } from "./skills";
+import { FOCUS_WEIGHT } from "./focus";
 import { GRADES } from "./grade-levels";
 import { skillsFor } from "./skills";
 import type { Question } from "./drill-generators";
@@ -184,19 +185,11 @@ describe("buildDeedRun", () => {
   });
 });
 
-describe("grading and client shape", () => {
+describe("grading", () => {
   it("grades by exact match after trimming", () => {
     const q: Question = { id: "q", skillId: "s", prompt: "p", choices: ["a", "b", "c", "d"], answer: "b" };
     expect(gradeAnswer(q, " b ")).toBe(true);
     expect(gradeAnswer(q, "B")).toBe(false);
-  });
-  it("strips the answer for the client", () => {
-    const q: Question = { id: "q", skillId: "s", prompt: "p", choices: ["a", "b", "c", "d"], answer: "b", readAloud: "pee" };
-    expect(toClientQuestion(q)).toEqual({ id: "q", skillId: "s", prompt: "p", choices: ["a", "b", "c", "d"], readAloud: "pee" });
-  });
-  it("never sends the explanation to the client", () => {
-    const q: Question = { id: "q", skillId: "s", prompt: "p", choices: ["a", "b", "c", "d"], answer: "b", explain: "x" };
-    expect("explain" in toClientQuestion(q)).toBe(false);
   });
 });
 
@@ -721,5 +714,181 @@ describe("buildDeedRun for a Crown Challenge (levelBoost)", () => {
   it("asks exactly the challenge's three questions with nothing mixed in", () => {
     const run = buildDeedRun(input({ deed: deedMath, grade: "3", poolItems: [], masteryBySkill: at(2), questionCount: CHALLENGE.questions, levelBoost: CHALLENGE.levelBoost, dueSkillIds: [], recentMisses: [] }));
     expect(run.questions).toHaveLength(3);
+  });
+});
+
+describe("buildDeedRun keeps its output as deeds name a mechanic", () => {
+  // Question ids recorded BEFORE the engine was threaded with `mechanic`; they must not move.
+  const reading = poolItems("read-g3", 30);
+  const ids = (deed: typeof deedMath, seed: number) =>
+    buildDeedRun(input({ deed, seed, poolItems: reading, dueSkillIds: ["div-facts", "read-g3"] })).questions.map((q) => q.id);
+  const RECORDED: Record<string, string[]> = {
+    "well-stones@1": ["round-nearest:69@10", "round-nearest:99@10", "round-nearest:73@10", "round-nearest:46@10", "div-facts:6/1", "round-nearest:33@10", "round-nearest:723@10", "round-nearest:631@10"],
+    "well-stones@42": ["round-nearest:35@10", "round-nearest:63@10", "div-facts:11/1", "round-nearest:28@10", "round-nearest:155@10", "round-nearest:948@10", "round-nearest:37@10", "round-nearest:13@10"],
+    "well-stones@20261110": ["area-perimeter:4x2a", "area-perimeter:5x1a", "div-facts:10/1", "area-perimeter:4x3a", "area-perimeter:1x4a", "area-perimeter:3x2a", "area-perimeter:2x1a", "area-perimeter:8x4a"],
+    "well-signs@1": ["read-g3-item-14", "read-g3-item-24", "read-g3-item-8", "read-g3-item-10", "read-g3-item-16", "read-g3-item-6", "read-g3-item-11", "read-g3-item-12"],
+    "well-signs@42": ["read-g3-item-26", "read-g3-item-25", "read-g3-item-1", "read-g3-item-16", "read-g3-item-28", "read-g3-item-7", "read-g3-item-2", "read-g3-item-27"],
+    "well-signs@20261110": ["read-g3-item-18", "read-g3-item-10", "read-g3-item-14", "read-g3-item-19", "read-g3-item-5", "read-g3-item-28", "read-g3-item-16", "read-g3-item-23"],
+  };
+  it.each(Object.entries(RECORDED))("%s asks the same questions in the same order", (key, expected) => {
+    const [deedId, seed] = key.split("@");
+    expect(ids(findDeed(deedId)!, Number(seed))).toEqual(expected);
+  });
+  it("leaves `kind` off a choice task, as stored runs have none", () => {
+    const run = buildDeedRun(input({ deed: deedMath, grade: "3", poolItems: [] }));
+    for (const q of run.questions) expect("kind" in q).toBe(false);
+  });
+});
+
+describe("drawForSkill", () => {
+  it("draws `count` distinct questions for a generator skill", () => {
+    const skill = SKILLS.find((s) => s.id === "mul-facts")!;
+    const qs = drawForSkill(skill, 2, 5, seededRng(7), [], new Set(), new Set());
+    expect(qs).toHaveLength(5);
+    expect(new Set(qs.map((q) => q.id)).size).toBe(5);
+    expect(qs.every((q) => q.skillId === "mul-facts")).toBe(true);
+  });
+  it("draws a pool skill's items, skipping other skills' and excluded ones", () => {
+    const skill = SKILLS.find((s) => s.id === "read-g3")!;
+    const items = [...poolItems("read-g3", 6), ...poolItems("read-g4", 6)];
+    const qs = drawForSkill(skill, 2, 4, seededRng(7), items, new Set(["read-g3-item-0"]), new Set());
+    expect(qs).toHaveLength(4);
+    expect(qs.every((q) => q.skillId === "read-g3" && q.id !== "read-g3-item-0")).toBe(true);
+  });
+});
+
+describe("selectSkills with focus skills", () => {
+  const two = ["mul-facts", "div-facts"].map((id) => SKILLS.find((s) => s.id === id)!);
+  const firstPick = (seed: number, focus?: ReadonlySet<string>) => selectSkills(two, {}, seededRng(seed), {}, focus)[0].id;
+
+  it("draws a focus skill at least 2.5 times as often as an equally-weighted one", () => {
+    let focused = 0;
+    for (let seed = 1; seed <= 1000; seed++) if (firstPick(seed, new Set(["mul-facts"])) === "mul-facts") focused++;
+    const other = 1000 - focused;
+    expect(focused).toBeGreaterThanOrEqual(2.5 * other);
+    expect(other).toBeGreaterThan(0); // a focus skill never locks the others out
+  });
+
+  it("is today's output, with the same rng use, when the focus set is empty or absent", () => {
+    const candidates = chooseSkills(deedMath, "3");
+    for (let seed = 1; seed <= 200; seed++) {
+      const plain = seededRng(seed);
+      const empty = seededRng(seed);
+      const a = selectSkills(candidates, { "mul-facts": 3 }, plain, { "mul-facts": 5 });
+      const b = selectSkills(candidates, { "mul-facts": 3 }, empty, { "mul-facts": 5 }, new Set());
+      expect(b.map((s) => s.id)).toEqual(a.map((s) => s.id));
+      expect(empty()).toBe(plain());
+    }
+  });
+
+  it("scales a focus skill's weight by FOCUS_WEIGHT whatever its mastery", () => {
+    expect(FOCUS_WEIGHT).toBe(3);
+  });
+
+  it("threads focusSkillIds through buildDeedRun", () => {
+    const base = input({ deed: deedMath, grade: "3", poolItems: [], questionCount: 1 });
+    const firstSkill = (seed: number, focusSkillIds?: string[]) => buildDeedRun({ ...base, seed, focusSkillIds }).skillIds[0];
+    let focused = 0;
+    for (let seed = 1; seed <= 300; seed++) if (firstSkill(seed, ["div-facts"]) === "div-facts") focused++;
+    let plain = 0;
+    for (let seed = 1; seed <= 300; seed++) if (firstSkill(seed) === "div-facts") plain++;
+    expect(focused).toBeGreaterThan(plain);
+  });
+});
+
+describe("a focus skill a grade off the hero's own", () => {
+  // The focus window reaches one grade either side; `chooseSkills` serves the hero's grade only.
+  const servedSkills = (over: Partial<BuildRunInput>, seeds = 300) => {
+    const seen = new Set<string>();
+    for (let seed = 1; seed <= seeds; seed++) for (const id of buildDeedRun(input({ ...over, seed })).skillIds) seen.add(id);
+    return seen;
+  };
+
+  it("adds nothing to chooseSkills when there is no focus, for every deed strand and grade", () => {
+    for (const deed of [deedMath, deedReading, deedLanguage, deedScience]) {
+      for (const g of GRADES) expect(runCandidates(deed, g, [])).toEqual(chooseSkills(deed, g));
+    }
+    expect(runCandidates(deedMath, "3", ["add-100", "read-g4", "nope", "add-100", "mul-facts"]).map((s) => s.id))
+      .toEqual([...chooseSkills(deedMath, "3").map((s) => s.id), "add-100"]);
+  });
+
+  it("is a candidate for a deed in its own strand: a grade-2 math focus comes up for a grade-3 hero", () => {
+    expect(chooseSkills(deedMath, "3").map((s) => s.id)).not.toContain("add-100");
+    expect(servedSkills({ deed: deedMath, grade: "3", poolItems: [], focusSkillIds: ["add-100"] })).toContain("add-100");
+  });
+
+  it("is a candidate for a pool strand too, drawing the focus pool's own items", () => {
+    const items = [...poolItems("read-g3", 30), ...poolItems("read-g4", 30)];
+    const run = (seed: number) => buildDeedRun(input({ deed: deedReading, grade: "3", poolItems: items, focusSkillIds: ["read-g4"], seed }));
+    let served = 0;
+    for (let seed = 1; seed <= 300; seed++) {
+      const r = run(seed);
+      if (!r.skillIds.includes("read-g4")) continue;
+      served++;
+      expect(r.questions.some((q) => q.skillId === "read-g4")).toBe(true);
+    }
+    expect(served).toBeGreaterThan(0);
+  });
+
+  it("never comes up in a deed of another strand", () => {
+    expect(servedSkills({ deed: deedMath, grade: "3", poolItems: [], focusSkillIds: ["read-g4", "spell-g45"] }))
+      .not.toContain("read-g4");
+    const reading = servedSkills({ deed: deedReading, grade: "3", focusSkillIds: ["add-100", "spell-g45"] });
+    expect(reading).not.toContain("add-100");
+    expect(reading).not.toContain("spell-g45");
+  });
+
+  it("can come back as a due skill once it is a candidate", () => {
+    // Mastered, so it is rarely the draw; when it is not, it arrives as one of the due skills.
+    const run = buildDeedRun(input({
+      deed: deedMath, grade: "3", poolItems: [], focusSkillIds: ["add-100"], dueSkillIds: ["add-100"],
+      masteryBySkill: { "add-100": 4 }, lastPracticedBySkill: {}, seed: 7,
+    }));
+    expect(run.skillIds).toContain("add-100");
+  });
+});
+
+describe("applyProfile", () => {
+  const qs: Question[] = [
+    { id: "a", skillId: "mul-facts", prompt: "2 x 3?", choices: ["6", "5", "8", "9"], answer: "6" },
+    { id: "b", skillId: "mul-facts", prompt: "3 x 3?", choices: ["12", "9", "6", "8"], answer: "9" },
+    { id: "c", skillId: "read-g3", prompt: "Main idea?", choices: ["x", "y"], answer: "y" },
+  ];
+
+  it("leaves the tasks alone, and draws nothing, when fewer choices is off", () => {
+    const rng = seededRng(3);
+    const twin = seededRng(3);
+    const routine = { ...profile, predictableRoutine: true };
+    expect(applyProfile(qs, routine, rng)).toBe(qs);
+    expect(rng()).toBe(twin());
+  });
+
+  it("with fewer choices, every task offers its answer and exactly one other", () => {
+    const out = applyProfile(qs, { ...profile, fewerChoices: true }, seededRng(3));
+    expect(out.map((q) => q.id)).toEqual(["a", "b", "c"]);
+    for (const [i, q] of out.entries()) {
+      expect(q.choices).toHaveLength(2);
+      expect(q.choices).toContain(qs[i].answer);
+      expect(qs[i].choices).toEqual(expect.arrayContaining(q.choices));
+    }
+  });
+
+  it("is what buildDeedRun applies: recorded fewer-choices runs ask the same choices in the same order", () => {
+    // Recorded before the rule moved into applyProfile; they must not move.
+    const RECORDED: Record<string, string[]> = {
+      "well-stones@1": ["round-nearest:69@10=69|70", "round-nearest:99@10=100|98", "round-nearest:73@10=70|100", "round-nearest:46@10=40|50", "div-facts:6/1=6|16", "round-nearest:33@10=30|27", "round-nearest:723@10=700|720", "round-nearest:631@10=630|631"],
+      "well-stones@1+routine": ["round-nearest:46@10=40|50", "round-nearest:631@10=630|631", "round-nearest:99@10=100|98", "round-nearest:33@10=27|30", "round-nearest:723@10=700|720", "round-nearest:73@10=100|70", "round-nearest:69@10=69|70", "div-facts:6/1=16|6"],
+      "well-signs@1": ["read-g3-item-14=A14|C14", "read-g3-item-24=D24|A24", "read-g3-item-8=C8|A8", "read-g3-item-10=A10|B10", "read-g3-item-16=B16|A16", "read-g3-item-6=A6|B6", "read-g3-item-11=A11|D11", "read-g3-item-12=A12|B12"],
+      "well-signs@1+routine": ["read-g3-item-14=C14|A14", "read-g3-item-24=A24|D24", "read-g3-item-12=A12|B12", "read-g3-item-8=A8|C8", "read-g3-item-11=A11|D11", "read-g3-item-6=A6|B6", "read-g3-item-16=A16|B16", "read-g3-item-10=A10|B10"],
+    };
+    for (const [key, expected] of Object.entries(RECORDED)) {
+      const [deedId, rest] = key.split("@");
+      const routine = rest.endsWith("+routine");
+      const run = buildDeedRun(input({
+        deed: findDeed(deedId)!, seed: Number(rest.replace("+routine", "")), poolItems: poolItems("read-g3", 30),
+        dueSkillIds: ["div-facts", "read-g3"], profile: { ...profile, fewerChoices: true, predictableRoutine: routine },
+      }));
+      expect(run.questions.map((q) => `${q.id}=${q.choices.join("|")}`)).toEqual(expected);
+    }
   });
 });

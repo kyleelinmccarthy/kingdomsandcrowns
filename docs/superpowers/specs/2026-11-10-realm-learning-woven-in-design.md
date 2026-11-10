@@ -130,9 +130,8 @@ interface TaskKindDef<K extends TaskKind> {
 - **Typed answers:** one shared `parseAnswer` utility (integers, decimals, fractions, mixed numbers, simple expressions; equivalent forms compare equal; tolerance per task) used by every kind that takes a typed value.
 - **Feedback codes, not strings,** from `check` (e.g. `too_long`, `too_short`, `wrong_piece`, `rule_broken`), turned into copy on the client. Second-chance hints stay conceptual and never give the answer.
 - **Run kinds:** `RUN_EFFECTS` (`deed-scoring.ts`) gains `build`, `review`, `world` and `tower`, which are covered in §4.10. Each run kind states `raisesBuilding / earnsStars / movesMastery / countsForSchool / feedsReview / allowsSecondChances / paysMinutes`.
-- **Run ownership:** `deed_run.deed_id` becomes nullable, and a new `source` column says what owns the run.
-  - `{ type: "deed" | "build" | "review" | "world" | "tower", ref }`. `ref` is a deed id, an improvement id plus level, a place id, an object id or a tower floor.
-  - Existing rows read as `{ type: "deed", ref: deed_id }`.
+- **Run ownership:** `deed_run.deed_id` becomes nullable. The run's type is the existing `deed_run.kind` (`deed`, `challenge`, `review`; later `build`, `world`, `tower`), and a nullable text column `source_ref` says what owns it: a place id, an improvement id plus level, or an object id.
+  - Existing rows are unchanged: `kind` stays what it was and `source_ref` is null.
 - **Deeds name a mechanic:** `Deed.mechanic: TaskKind`. Runs may mix kinds: each chosen skill is presented with the deed's mechanic if that mechanic can present it, otherwise as `choice`. A run is never empty.
 - **Worked example first for young players:** each kind declares `demo(view)`. For grades K–3, the first task of a kind a child has never seen opens with a short "watch Aldo do one" demo. Older children start straight in, with the worked solution after a miss.
 - **Pace guard (anti-gaming):** a pure rule spots fast wrong-answer bursts (for example, 3 misses in under 10 s). The response is a gentle line from the squire and a hint shown up front. No penalty, and it is never logged against the child.
@@ -334,7 +333,7 @@ Minutes are still earned only by side quests (as today), real quests, the daily 
 ## 5. Data and security
 
 - **New tables:** `learning_focus`, `realm_material`, `realm_improvement`, plus per-child records for fixed rune objects and opened locks (`realm_world_state (child_id, object_id, state, updated_at)`, unique `(child_id, object_id)`, one generic table for every stateful world object instead of a table per mechanic).
-- **New columns:** `subject.material`, `quest_assignment.drawing`, `realm_settings.materials_per_quest`, `realm_settings.show_minutes_on_quests`, `realm_settings.mechanics`, `deed_run.source` (JSON). `deed_run.deed_id` becomes nullable. SQLite needs a table rebuild for that; drizzle generates it, and it is tested on the production backup copy like every migration.
+- **New columns:** `subject.material`, `quest_assignment.drawing`, `realm_settings.materials_per_quest`, `realm_settings.show_minutes_on_quests`, `realm_settings.mechanics`, `deed_run.source_ref` (nullable text). `deed_run.deed_id` becomes nullable (drizzle generates an `ALTER COLUMN`), and the migration is tested on the production backup copy like every migration.
 - **Migrations:** one per slice via `db:generate` / `db:migrate`, tested on a copy of the latest production backup before merging to `main` (as done for 0037).
 - **Every write is authorized with `requireChildAccess(childId, { write })`.**
   - Children act only for themselves.
