@@ -36,7 +36,7 @@ export function useDeedFlow(run: RunStart, onAttempt?: (result: AttemptResult) =
   const inFlight = useRef(false);
   // First answers only (a retry is a second chance, not a guess), for the pace guard.
   const history = useRef<{ at: number; correct: boolean }[]>([]);
-  const [nudge, setNudge] = useState<Nudge | null>(null);
+  const [nudgeUp, setNudgeUp] = useState(false);
 
   /** One server call at a time; a refusal is said in one child-safe line and changes nothing. */
   async function guarded(work: () => Promise<void>) {
@@ -55,12 +55,12 @@ export function useDeedFlow(run: RunStart, onAttempt?: (result: AttemptResult) =
   }
 
   /** Three fast wrong first answers earn a nudge once; a right first answer takes it down. */
-  function trackPace(at: number, correct: boolean, skillId: string) {
-    if (correct) setNudge(null);
+  function trackPace(at: number, correct: boolean) {
+    if (correct) setNudgeUp(false);
     history.current.push({ at, correct });
     if (shouldNudge(history.current)) {
       history.current = [];
-      setNudge({ line: NUDGE_LINE, hint: hintFor(skillId) });
+      setNudgeUp(true);
     }
   }
 
@@ -77,7 +77,7 @@ export function useDeedFlow(run: RunStart, onAttempt?: (result: AttemptResult) =
       // top (or a challenge), so the last skill's pips go. A retry brings none and leaves them up.
       if (phase === "asking") {
         setMeter(result.meter ?? null);
-        trackPace(askedAt, result.correct, run.questions[index].skillId);
+        trackPace(askedAt, result.correct);
       }
       onAttempt?.(result);
     });
@@ -91,5 +91,8 @@ export function useDeedFlow(run: RunStart, onAttempt?: (result: AttemptResult) =
 
   // The run is over once its last question is resolved: the nudge goes with it.
   const finished = flow.phase === "resolved" && flow.index >= run.questions.length - 1;
-  return { flow, meter, nudge: finished ? null : nudge, busy, error, setError, guarded, choose, showMe, next: () => send({ type: "next" }) };
+  // The clue is for the question on the board now, not the one that earned the nudge.
+  const skillId = run.questions[flow.index]?.skillId;
+  const nudge: Nudge | null = nudgeUp && !finished && skillId ? { line: NUDGE_LINE, hint: hintFor(skillId) } : null;
+  return { flow, meter, nudge, busy, error, setError, guarded, choose, showMe, next: () => send({ type: "next" }) };
 }

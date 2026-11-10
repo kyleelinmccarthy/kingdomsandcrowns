@@ -130,14 +130,13 @@ describe("useDeedFlow", () => {
       answerDeedQuestion.mockResolvedValueOnce(wrong);
       h.at(2000);
       await act(() => h.hook.result.current.choose("b"));
-      const first = h.hook.result.current.nudge;
-      expect(first).not.toBeNull();
+      expect(h.hook.result.current.nudge).not.toBeNull();
       act(() => h.hook.result.current.next());
-      // The misses before the nudge are spent: one more is not a new burst of three, so no new nudge is made.
+      // The misses before the nudge are spent; one more miss leaves it as it was, up until a right first answer.
       answerDeedQuestion.mockResolvedValueOnce(wrong);
       h.at(3000);
       await act(() => h.hook.result.current.choose("b"));
-      expect(h.hook.result.current.nudge).toBe(first); // still up until a right first answer
+      expect(h.hook.result.current.nudge).toEqual({ line: NUDGE_LINE, hint: hintFor("s") });
     });
 
     it("takes the nudge down when the run's last question is resolved", async () => {
@@ -154,10 +153,33 @@ describe("useDeedFlow", () => {
       expect(h.hook.result.current.nudge).toBeNull();
     });
 
-    it("defaults to the browser clock and never sends a time to the server", async () => {
-      answerDeedQuestion.mockResolvedValueOnce(wrong);
-      const { result } = renderHook(() => useDeedFlow(five));
-      await act(() => result.current.choose("b"));
+    it("while it is up, the clue is for the question on the board now", async () => {
+      const skills = ["add-10", "sub-10", "mul-facts", "frac-unit", "place-value"];
+      const mixed: RunStart = { ...five, questions: skills.map((skillId, i) => ({ ...q(String(i + 1)), skillId })) };
+      let t = 0;
+      const { result } = renderHook(() => useDeedFlow(mixed, undefined, () => t));
+      for (const ms of [0, 1000, 2000]) {
+        answerDeedQuestion.mockResolvedValueOnce(wrong);
+        t = ms;
+        await act(() => result.current.choose("b"));
+        if (ms < 2000) act(() => result.current.next());
+      }
+      expect(result.current.nudge).toEqual({ line: NUDGE_LINE, hint: hintFor("mul-facts") });
+      act(() => result.current.next());
+      expect(result.current.nudge).toEqual({ line: NUDGE_LINE, hint: hintFor("frac-unit") });
+      expect(hintFor("frac-unit")).not.toBe(hintFor("mul-facts"));
+    });
+
+    it("reads the browser clock by default, and never sends a time to the server", async () => {
+      const clock = vi.spyOn(Date, "now").mockReturnValue(123);
+      try {
+        answerDeedQuestion.mockResolvedValueOnce(wrong);
+        const { result } = renderHook(() => useDeedFlow(five));
+        await act(() => result.current.choose("b"));
+        expect(clock).toHaveBeenCalled();
+      } finally {
+        clock.mockRestore();
+      }
       expect(answerDeedQuestion).toHaveBeenCalledWith("r1", 0, "b");
     });
   });
