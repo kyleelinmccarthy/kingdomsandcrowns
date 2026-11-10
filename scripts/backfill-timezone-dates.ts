@@ -16,7 +16,7 @@
  * shifting those would move scheduled work to the wrong day.
  */
 import { eq } from "drizzle-orm";
-import { db, closeDb } from "../src/lib/db";
+import { db } from "../src/lib/db";
 import * as schema from "../src/lib/db/schema";
 import { correctedDate } from "../src/lib/utils/backfill-dates";
 import { usableTimeZone, DEFAULT_TIMEZONE } from "../src/lib/services/family-timezone";
@@ -110,9 +110,7 @@ async function main() {
   );
 }
 
-main()
-  .catch((err) => {
-    console.error(err);
-    process.exit(1);
-  })
-  .finally(() => closeDb());
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

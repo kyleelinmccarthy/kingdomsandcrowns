@@ -40,15 +40,15 @@ if (keys.length > 0) {
   );
 }
 
-// `npm run deploy` migrates before deploying. drizzle.config.ts falls back to .env.local's local
-// database, so without an explicit DATABASE_URL a laptop deploy would migrate the wrong database
-// and ship code to an unmigrated production one. Require the real one, from the shell.
+// `npm run deploy` migrates before deploying. The migrator falls back to the local file database,
+// so without an explicit TURSO_DATABASE_URL a laptop deploy would migrate the wrong database and
+// ship code to an unmigrated production one. Require the real one, from the shell.
 if (process.argv.includes("--deploy")) {
-  const url = process.env.DATABASE_URL ?? "";
-  if (!url || /@(localhost|127\.0\.0\.1)[:/]/.test(url)) {
+  const url = process.env.TURSO_DATABASE_URL ?? "";
+  if (!url || url.startsWith("file:")) {
     console.error(
-      "\n✖ Set DATABASE_URL to production's direct Neon connection string before deploying, e.g.\n" +
-        "  DATABASE_URL='postgres://hyperdrive-user:…@…neon.tech/…?sslmode=require' npm run deploy\n"
+      "\n✖ Set production's Turso credentials before deploying, e.g.\n" +
+        "  TURSO_DATABASE_URL='libsql://…' TURSO_AUTH_TOKEN='…' npm run deploy\n"
     );
     process.exit(1);
   }

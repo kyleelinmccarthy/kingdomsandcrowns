@@ -7,8 +7,16 @@
  * Or via the package script: npm run db:make-admin -- user@example.com
  */
 import { eq } from "drizzle-orm";
+import { createClient } from "@libsql/client";
+import { drizzle } from "drizzle-orm/libsql";
 import * as schema from "./schema";
-import { db, closeDb } from "./index";
+
+const client = createClient({
+  url: process.env.TURSO_DATABASE_URL || "file:./local.db",
+  authToken: process.env.TURSO_AUTH_TOKEN,
+});
+
+const db = drizzle(client, { schema });
 
 async function main() {
   const email = process.argv[2];
@@ -33,9 +41,7 @@ async function main() {
   console.log(`${u.isAdmin ? "Granted" : "Revoked"} admin for ${u.email} (${u.id}).`);
 }
 
-main()
-  .catch((err) => {
-    console.error(err);
-    process.exit(1);
-  })
-  .finally(() => closeDb());
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

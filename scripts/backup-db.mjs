@@ -10,12 +10,9 @@
  *   BACKUP_DIR=/mnt/c/Users/you/Documents/KingdomsAndCrowns-backups
  *   KEEP=12
  *   ENV_FILE=/path/to/repo/.env.prod      # optional: read the credentials below from here
- *   DATABASE_URL=postgres://…             # Postgres 18 — a DIRECT connection, not Hyperdrive
- *   TURSO_DATABASE_URL=libsql://…         # Turso (production until the Postgres cutover)
+ *   TURSO_DATABASE_URL=libsql://…
  *   TURSO_AUTH_TOKEN=…
  *
- * Whichever databases are configured get backed up — both, during a cutover. Postgres uses
- * pg_dump from the postgres:18 Docker image (the client must be at least the server's version);
  * Turso is exported as a gzipped SQL script. Every backup is restored into a scratch database
  * and its row counts compared before it is kept, and old backups are pruned only after a new one
  * has been verified. On failure it emails ALERT_EMAIL (default FEEDBACK_NOTIFY_EMAIL) through
@@ -23,15 +20,12 @@
  *
  * Restore: see docs/database-backups.md.
  */
-import { spawn } from "node:child_process";
-import { createReadStream, createWriteStream, existsSync, readFileSync } from "node:fs";
+import { createWriteStream, existsSync, readFileSync } from "node:fs";
 import { chmod, mkdir, readdir, rename, rm, stat } from "node:fs/promises";
 import { homedir, hostname } from "node:os";
 import { join } from "node:path";
 import { pipeline } from "node:stream/promises";
 import { createGzip, gunzipSync } from "node:zlib";
-
-const PG_IMAGE = "postgres:18-alpine";
 
 function parseEnvFile(path) {
   const out = {};
@@ -52,70 +46,12 @@ function loadConfig() {
     path,
     dir: get("BACKUP_DIR") ?? join(homedir(), "backups/kingdoms-and-crowns"),
     keep: Math.max(1, Number(get("KEEP") ?? 12)),
-    databaseUrl: get("DATABASE_URL"),
     tursoUrl: get("TURSO_DATABASE_URL"),
     tursoToken: get("TURSO_AUTH_TOKEN"),
     resendKey: get("RESEND_API_KEY"),
     alertTo: get("ALERT_EMAIL") ?? get("FEEDBACK_NOTIFY_EMAIL"),
     alertFrom: get("ALERT_FROM") ?? get("FEEDBACK_FROM_EMAIL") ?? "raven@kingdomsandcrowns.com",
   };
-}
-
-function run(cmd, args, { env, stdinPath, stdoutPath } = {}) {
-  return new Promise((resolve, reject) => {
-    const child = spawn(cmd, args, { env: { ...process.env, ...env }, stdio: ["pipe", "pipe", "pipe"] });
-    let stdout = "";
-    let stderr = "";
-    if (stdoutPath) child.stdout.pipe(createWriteStream(stdoutPath, { mode: 0o600 }));
-    else child.stdout.on("data", (d) => (stdout += d));
-    child.stderr.on("data", (d) => (stderr += d));
-    if (stdinPath) createReadStream(stdinPath).pipe(child.stdin);
-    else child.stdin.end();
-    child.on("error", reject);
-    child.on("close", (code) =>
-      code === 0 ? resolve(stdout) : reject(new Error(`${cmd} ${args[0]} exited ${code}: ${stderr.trim().slice(-500)}`))
-    );
-  });
-}
-
-// ── Postgres ─────────────────────────────────────────────────
-// "tables|rows" — exact counts across the public schema (query_to_xml runs a count per table).
-const PG_COUNT_SQL =
-  "select count(*) || '|' || coalesce(sum((xpath('/row/c/text()', query_to_xml(" +
-  "format('select count(*) as c from %I.%I', table_schema, table_name), false, true, '')))[1]::text::bigint), 0) " +
-  "from information_schema.tables where table_schema = 'public' and table_type = 'BASE TABLE'";
-
-async function backupPostgres(url, tmp) {
-  // The URL is passed by environment, not argv, so it never appears in a process listing.
-  // Only steps that reach the real database share the host network; the verify step runs its own
-  // throwaway server, which must not try to bind the host's 5432.
-  const pg = (script, { hostNetwork = true, ...extra } = {}) =>
-    run(
-      "docker",
-      ["run", "--rm", "-i", ...(hostNetwork ? ["--network", "host"] : []), "-e", "DATABASE_URL", "-e", "COUNT_SQL", PG_IMAGE, "sh", "-c", script],
-      { env: { DATABASE_URL: url, COUNT_SQL: PG_COUNT_SQL }, ...extra }
-    );
-
-  // Counted in the same moment as the dump would be ideal; for a family app a few seconds apart
-  // is fine, and a mismatch just means "retry", never a lost backup.
-  const live = (await pg('psql "$DATABASE_URL" -tAc "$COUNT_SQL"')).trim();
-  await pg('pg_dump --format=custom --no-owner --no-privileges "$DATABASE_URL"', { stdoutPath: tmp });
-
-  // Verify by restoring into a throwaway Postgres 18 inside the container and counting again.
-  const restored = (
-    await pg(
-      "cat > /tmp/b.dump && (POSTGRES_HOST_AUTH_METHOD=trust docker-entrypoint.sh postgres >/tmp/pg.log 2>&1 &) && " +
-        "until pg_isready -q -h 127.0.0.1 -U postgres; do sleep 0.3; done && sleep 1 && " +
-        "pg_restore --no-owner --no-privileges --exit-on-error -h 127.0.0.1 -U postgres -d postgres /tmp/b.dump && " +
-        'psql -h 127.0.0.1 -U postgres -tAc "$COUNT_SQL"',
-      { stdinPath: tmp, hostNetwork: false }
-    )
-  ).trim();
-  if (restored !== live) {
-    throw new Error(`Postgres backup restored "${restored}" (tables|rows) but the database has "${live}".`);
-  }
-  const [tables, rows] = live.split("|");
-  return `${tables} tables, ${rows} rows`;
 }
 
 // ── Turso (libSQL) ───────────────────────────────────────────
@@ -188,9 +124,8 @@ async function main() {
   const cfg = loadConfig();
   const jobs = [];
   if (cfg.tursoUrl) jobs.push({ name: "turso", ext: "sql.gz", fn: (tmp) => backupTurso(cfg.tursoUrl, cfg.tursoToken, tmp) });
-  if (cfg.databaseUrl) jobs.push({ name: "postgres", ext: "dump", fn: (tmp) => backupPostgres(cfg.databaseUrl, tmp) });
   if (jobs.length === 0) {
-    throw new Error(`No database configured. Set DATABASE_URL and/or TURSO_DATABASE_URL in ${cfg.path} (or its ENV_FILE).`);
+    throw new Error(`No database configured. Set TURSO_DATABASE_URL in ${cfg.path} (or its ENV_FILE).`);
   }
 
   await mkdir(cfg.dir, { recursive: true });

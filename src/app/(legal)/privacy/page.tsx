@@ -102,8 +102,8 @@ export default function PrivacyPage() {
 
       <h2 className="mt-10 text-xl font-semibold">5. Service providers we use</h2>
       <ul className="list-disc pl-6">
-        <li><strong>Neon</strong> (managed PostgreSQL) — stores your account, family, and learning data.</li>
-        <li><strong>Cloudflare</strong> — hosts and serves the app, and keeps a short-lived cache of rendered pages.</li>
+        <li><strong>Turso</strong> (libSQL hosting) — stores your account, family, and learning data.</li>
+        <li><strong>Vercel</strong> — hosts and serves the app.</li>
         {BILLING_ENABLED && (
           <li><strong>Stripe</strong> — processes subscription payments if you upgrade; we never see or store your card details.</li>
         )}

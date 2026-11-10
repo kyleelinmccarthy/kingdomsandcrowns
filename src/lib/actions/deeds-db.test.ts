@@ -1,8 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeAll, beforeEach, afterAll } from "vitest";
-import { Client } from "pg";
-import { drizzle } from "drizzle-orm/node-postgres";
-import * as schema from "@/lib/db/schema";
+import { testDatabase } from "@/test/libsql-test-db";
 import { DEFAULT_REALM_SETTINGS } from "@/lib/utils/realm-settings";
 import { hintFor } from "@/lib/utils/skill-hints";
 import { CHALLENGE, starsFor } from "@/lib/utils/deed-scoring";
@@ -11,17 +9,13 @@ import type { Question } from "@/lib/utils/drill-generators";
 import { REALM_ACCESS_DDL, REALM_LEDGER_DDL, REALM_SETTINGS_DDL } from "@/test/realm-db-ddl";
 
 /**
- * The second-chance contract against a REAL Postgres database. Every rule here is enforced from
+ * The second-chance contract against a REAL libsql database. Every rule here is enforced from
  * the stored run, so the test drives the actions against rows it seeded itself, and checks both
  * what reaches the browser (no answer while a try is open) and what was written (nothing, on a
- * refusal). Runs in its own schema so it can share a Postgres server with the other
- * real-database tests.
+ * refusal).
  */
-const SCHEMA = "test_deeds_db";
-const client = new Client({
-  connectionString: process.env.DATABASE_URL || "postgres://postgres:postgres@localhost:5432/kingdomsandcrowns",
-});
-const testDb = drizzle(client, { schema });
+const client = testDatabase("deeds-db");
+const testDb = client.db;
 
 vi.mock("@/lib/db", () => ({ db: testDb }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -64,20 +58,20 @@ const DDL = [
     id text PRIMARY KEY NOT NULL, child_id text NOT NULL, deed_id text NOT NULL, skill_ids text NOT NULL,
     band text NOT NULL, questions text NOT NULL, responses text DEFAULT '[]' NOT NULL,
     mastery_start text DEFAULT '{}' NOT NULL, correct_count integer DEFAULT 0 NOT NULL,
-    flawless boolean DEFAULT false NOT NULL, started_at timestamptz NOT NULL, completed_at timestamptz,
-    created_at timestamptz NOT NULL, updated_at timestamptz NOT NULL,
+    flawless integer DEFAULT false NOT NULL, started_at integer NOT NULL, completed_at integer,
+    created_at integer NOT NULL, updated_at integer NOT NULL,
     second_tries text DEFAULT '[]' NOT NULL, stars integer DEFAULT 0 NOT NULL,
-    kind text DEFAULT 'deed' NOT NULL, second_chances boolean DEFAULT false NOT NULL)`,
+    kind text DEFAULT 'deed' NOT NULL, second_chances integer DEFAULT false NOT NULL)`,
   `CREATE TABLE skill_mastery (
     id text PRIMARY KEY NOT NULL, child_id text NOT NULL, skill_id text NOT NULL,
     level integer DEFAULT 0 NOT NULL, recent_results text DEFAULT '[]' NOT NULL,
     correct_total integer DEFAULT 0 NOT NULL, attempt_total integer DEFAULT 0 NOT NULL,
-    last_practiced_at timestamptz, created_at timestamptz NOT NULL, updated_at timestamptz NOT NULL)`,
+    last_practiced_at integer, created_at integer NOT NULL, updated_at integer NOT NULL)`,
   `CREATE UNIQUE INDEX skill_mastery_child_skill_idx ON skill_mastery (child_id, skill_id)`,
   `CREATE TABLE kingdom_progress (
     id text PRIMARY KEY NOT NULL, child_id text NOT NULL, building_id text NOT NULL,
-    deeds_done integer DEFAULT 0 NOT NULL, completed_at timestamptz,
-    created_at timestamptz NOT NULL, updated_at timestamptz NOT NULL)`,
+    deeds_done integer DEFAULT 0 NOT NULL, completed_at integer,
+    created_at integer NOT NULL, updated_at integer NOT NULL)`,
   `CREATE UNIQUE INDEX kingdom_progress_child_building_idx ON kingdom_progress (child_id, building_id)`,
   `CREATE TABLE subject (id text PRIMARY KEY NOT NULL, spell_school text DEFAULT 'none' NOT NULL)`,
   `CREATE TABLE activity_log (id text PRIMARY KEY NOT NULL, child_id text NOT NULL, subject_id text NOT NULL)`,
@@ -105,7 +99,7 @@ async function seedRun(over: Seed = {}): Promise<string> {
   await client.query(
     `INSERT INTO deed_run (id, child_id, deed_id, skill_ids, band, questions, responses, mastery_start,
        started_at, completed_at, created_at, updated_at, second_tries, stars, kind, second_chances)
-     VALUES ($1, 'c1', 'well-stones', $2, '3-5', $3, $4, '{}', NOW(), $5, NOW(), NOW(), $6, $7, $9, $8)`,
+     VALUES (?1, 'c1', 'well-stones', ?2, '3-5', ?3, ?4, '{}', unixepoch(), ?5, unixepoch(), unixepoch(), ?6, ?7, ?9, ?8)`,
     [
       id, JSON.stringify([SKILL]), JSON.stringify(qs), JSON.stringify(over.responses ?? qs.map(() => null)),
       over.completed ? new Date() : null, over.secondTries ?? "[]", over.stars ?? 0, over.secondChances ?? true,
@@ -115,8 +109,8 @@ async function seedRun(over: Seed = {}): Promise<string> {
   return id;
 }
 
-async function stored(id = "run1"): Promise<{ responses: string; second_tries: string; stars: number; completed_at: Date | null }> {
-  const r = await client.query("SELECT responses, second_tries, stars, completed_at FROM deed_run WHERE id = $1", [id]);
+async function stored(id = "run1"): Promise<{ responses: string; second_tries: string; stars: number; completed_at: number | null }> {
+  const r = await client.query("SELECT responses, second_tries, stars, completed_at FROM deed_run WHERE id = ?1", [id]);
   return r.rows[0];
 }
 
@@ -126,10 +120,6 @@ async function deedsDone(): Promise<number> {
 }
 
 beforeAll(async () => {
-  await client.connect();
-  await client.query(`DROP SCHEMA IF EXISTS "${SCHEMA}" CASCADE`);
-  await client.query(`CREATE SCHEMA "${SCHEMA}"`);
-  await client.query(`SET search_path TO "${SCHEMA}"`);
   for (const sql of DDL) await client.query(sql);
 });
 
@@ -140,8 +130,7 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  await client.query(`DROP SCHEMA IF EXISTS "${SCHEMA}" CASCADE`);
-  await client.end();
+  client.close();
 });
 
 describe("a wrong first answer with a second chance open", () => {
@@ -173,7 +162,7 @@ describe("a wrong first answer with a second chance open", () => {
     await answerDeedQuestion("run1", 1, "6");
     const r = await retryDeedQuestion("run1", 1, "9");
     expect(r).toMatchObject({ correct: true, secondChance: false, answer: "9" });
-    const row = await client.query("SELECT recent_results, attempt_total FROM skill_mastery WHERE child_id = 'c1' AND skill_id = $1", [SKILL]);
+    const row = await client.query("SELECT recent_results, attempt_total FROM skill_mastery WHERE child_id = 'c1' AND skill_id = ?1", [SKILL]);
     expect(JSON.parse(row.rows[0].recent_results).at(-1)).toBe(false);
     expect(row.rows[0].attempt_total).toBe(1);
   });
@@ -199,7 +188,7 @@ describe("the skill meter during a run", () => {
   const meterRow = (level: number, recent: boolean[]) =>
     client.query(
       `INSERT INTO skill_mastery (id, child_id, skill_id, level, recent_results, created_at, updated_at)
-       VALUES ('m1', 'c1', $1, $2, $3, NOW(), NOW())`,
+       VALUES ('m1', 'c1', ?1, ?2, ?3, unixepoch(), unixepoch())`,
       [SKILL, level, JSON.stringify(recent)],
     );
 
@@ -324,7 +313,7 @@ describe("two first answers at once", () => {
     const results = await Promise.all([answerDeedQuestion("run1", 1, "9"), answerDeedQuestion("run1", 1, "6")]);
     const first = JSON.parse((await stored()).responses)[1];
     expect(["9", "6"]).toContain(first);
-    const m = await client.query("SELECT attempt_total FROM skill_mastery WHERE child_id = 'c1' AND skill_id = $1", [SKILL]);
+    const m = await client.query("SELECT attempt_total FROM skill_mastery WHERE child_id = 'c1' AND skill_id = ?1", [SKILL]);
     expect(m.rows[0].attempt_total).toBe(1);
     // A wrong pick stored leaves the second chance open: neither caller may have the answer.
     for (const r of results) expect("answer" in r).toBe(first === "9");
@@ -443,7 +432,7 @@ describe("the Crown Challenge", () => {
   /** Starts a challenge and answers it from the stored questions: `right` decides each answer. */
   async function playChallenge(right: boolean[]): Promise<string> {
     const r = await startDeedRun("c1", "well-stones", "realm", { challenge: true });
-    const row = await client.query("SELECT questions FROM deed_run WHERE id = $1", [r.runId]);
+    const row = await client.query("SELECT questions FROM deed_run WHERE id = ?1", [r.runId]);
     const qs = JSON.parse(row.rows[0].questions) as Question[];
     for (const [i, q] of qs.entries()) {
       await answerDeedQuestion(r.runId, i, right[i] ? q.answer : q.choices.find((c) => c !== q.answer)!);
@@ -481,8 +470,8 @@ describe("the Crown Challenge", () => {
     expect(r).toMatchObject({ kind: "challenge", pending: null });
     expect(r.questions).toHaveLength(CHALLENGE.questions);
     expect(JSON.stringify(r.questions)).not.toMatch(/"answer"|"explain"/);
-    const row = await client.query("SELECT kind, second_chances FROM deed_run WHERE id = $1", [r.runId]);
-    expect(row.rows[0]).toEqual({ kind: "challenge", second_chances: false });
+    const row = await client.query("SELECT kind, second_chances FROM deed_run WHERE id = ?1", [r.runId]);
+    expect(row.rows[0]).toEqual({ kind: "challenge", second_chances: 0 });
     expect(vi.mocked(buildDeedRun).mock.calls[0][0]).toMatchObject({
       questionCount: CHALLENGE.questions, levelBoost: CHALLENGE.levelBoost, dueSkillIds: [], recentMisses: [],
     });
@@ -529,15 +518,15 @@ describe("startDeedRun begins a fresh run on the grown-up's settings", () => {
     const r = await startDeedRun("c1", "well-stones", "realm");
     expect(r).toMatchObject({ kind: "deed", pending: null });
     expect(r.questions).toHaveLength(5);
-    const row = await client.query("SELECT kind, second_chances, second_tries FROM deed_run WHERE id = $1", [r.runId]);
-    expect(row.rows[0]).toEqual({ kind: "deed", second_chances: false, second_tries: "[]" });
+    const row = await client.query("SELECT kind, second_chances, second_tries FROM deed_run WHERE id = ?1", [r.runId]);
+    expect(row.rows[0]).toEqual({ kind: "deed", second_chances: 0, second_tries: "[]" });
   });
 
   it("second chances on in the settings are on for the run", async () => {
     const r = await startDeedRun("c1", "well-stones", "realm");
     expect(r.questions).toHaveLength(DEFAULT_REALM_SETTINGS.sideQuestLength);
-    const row = await client.query("SELECT second_chances FROM deed_run WHERE id = $1", [r.runId]);
-    expect(row.rows[0].second_chances).toBe(true);
+    const row = await client.query("SELECT second_chances FROM deed_run WHERE id = ?1", [r.runId]);
+    expect(row.rows[0].second_chances).toBe(1);
   });
 
   it("brings back a side quest's misses, never a challenge's", async () => {
@@ -565,8 +554,8 @@ describe("side quests pay play minutes by stars", () => {
     return r.rows;
   }
   async function realmSettings(cols: Record<string, string | number>) {
-    await client.query("INSERT INTO realm_settings (id, child_id, created_at, updated_at) VALUES ('s1', 'c1', NOW(), NOW()) ON CONFLICT DO NOTHING");
-    for (const [col, v] of Object.entries(cols)) await client.query(`UPDATE realm_settings SET ${col} = $1 WHERE child_id = 'c1'`, [v]);
+    await client.query("INSERT INTO realm_settings (id, child_id, created_at, updated_at) VALUES ('s1', 'c1', unixepoch(), unixepoch()) ON CONFLICT DO NOTHING");
+    for (const [col, v] of Object.entries(cols)) await client.query(`UPDATE realm_settings SET ${col} = ?1 WHERE child_id = 'c1'`, [v]);
   }
 
   it("a three-star run pays three minutes on the server's day, opening the day first", async () => {
@@ -578,22 +567,20 @@ describe("side quests pay play minutes by stars", () => {
     expect(opened.rows.map((r) => r.kind)).toEqual(["allowance", "carried", "practice"]);
   });
 
-  it("pays beside raising the building, and only once the finish is won", async () => {
+  it("pays only once the finish is won, then raises the building", async () => {
     await seedRun(ALL_RIGHT);
-    let release!: () => void;
-    const held = new Promise<void>((r) => (release = r));
-    let closedWhenAsked: Date | null = null;
+    let closedWhenAsked: unknown = null;
+    let raisedWhenAsked: number | null = null;
     vi.mocked(paySideQuest).mockImplementationOnce(async () => {
       closedWhenAsked = (await stored()).completed_at;
-      await held;
+      raisedWhenAsked = await deedsDone();
       return { minutes: 3, full: false };
     });
-    const finishing = completeDeedRun("run1");
-    // The building rises while the pay is still out (one round trip, not two in a row).
-    await vi.waitFor(async () => expect(await deedsDone()).toBe(1), { timeout: 2_000 });
-    release();
-    expect(await finishing).toMatchObject({ minutesEarned: 3 });
+    // SQLite has one write lock: the pay's transaction ends before the building's write starts.
+    expect(await completeDeedRun("run1")).toMatchObject({ minutesEarned: 3 });
     expect(closedWhenAsked).not.toBeNull();
+    expect(raisedWhenAsked).toBe(0);
+    expect(await deedsDone()).toBe(1);
   });
 
   it("pays once when the finish is raced, and the losing finish pays nothing", async () => {
@@ -662,7 +649,7 @@ describe("a day in the Realm, end to end (spec §7)", () => {
   it("a fresh day opens with its allowance and carry, goes quiet at 0, and a starred side quest wakes it", async () => {
     // Yesterday left 4 minutes unspent.
     await client.query(
-      "INSERT INTO realm_play_ledger (id, child_id, date, kind, minutes, created_at) VALUES ('y1', 'c1', '2026-11-08', 'earned', 4, NOW())",
+      "INSERT INTO realm_play_ledger (id, child_id, date, kind, minutes, created_at) VALUES ('y1', 'c1', '2026-11-08', 'earned', 4, unixepoch())",
     );
     expect(await getRealmAccess("c1")).toEqual({ allowed: true, minutesRemaining: 14, source: "earned" });
     const opened = await client.query("SELECT kind, minutes FROM realm_play_ledger WHERE child_id = 'c1' AND date = '2026-11-09' ORDER BY kind");

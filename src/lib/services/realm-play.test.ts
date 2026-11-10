@@ -6,7 +6,7 @@ import { DEFAULT_REALM_SETTINGS } from "@/lib/utils/realm-settings";
  * A finished quest's Realm minutes land on the server's today (`realmNow`), never on the
  * assignment's own date: a quest assigned for yesterday but finished today earns into today,
  * because nothing writes to a day once the server's day has moved on (spec 2026-11-09 §2a).
- * The database records inserts, conflict rules, locks and transactions; selects answer from
+ * The database records inserts, conflict rules and transactions (each is the write lock); selects answer from
  * `h.rowsFor(table)` (nothing by default: default settings, no grant yet, an unopened day).
  */
 const realmNow = vi.fn();
@@ -17,7 +17,6 @@ const h = vi.hoisted(() => ({
   insertTables: [] as unknown[],
   conflicts: [] as { kind: unknown; config: unknown }[],
   rowsFor: (() => []) as (table: unknown) => unknown[],
-  locks: 0,
   transactions: 0,
   /** When set, the first transaction waits on it (a write stuck in flight). */
   stall: null as Promise<void> | null,
@@ -48,9 +47,6 @@ vi.mock("@/lib/db", () => {
       },
     }),
     select: () => ({ from: rows }),
-    execute: async () => {
-      h.locks++;
-    },
     transaction: async (run: (tx: unknown) => Promise<unknown>) => {
       h.transactions++;
       if (h.transactions === 1 && h.stall) await h.stall;
@@ -67,7 +63,6 @@ beforeEach(() => {
   h.insertTables.length = 0;
   h.conflicts.length = 0;
   h.rowsFor = () => [];
-  h.locks = 0;
   h.transactions = 0;
   h.stall = null;
   realmNow.mockReset().mockResolvedValue({ date: "2026-11-09", timeOfDay: "09:00" });
@@ -96,18 +91,16 @@ describe("grantEarnedMinutesForCompletion", () => {
 });
 
 describe("round trips to a remote database", () => {
-  it("an already-open day is read once, with no transaction and no lock", async () => {
+  it("an already-open day is read once, with no transaction (so no write lock)", async () => {
     h.rowsFor = (t) => (t === schema.realmPlayLedger ? OPEN_DAY : []);
     expect(await openDay("c1", "2026-11-09", { ...DEFAULT_REALM_SETTINGS })).toEqual(OPEN_DAY);
     expect(h.transactions).toBe(0);
-    expect(h.locks).toBe(0);
     expect(h.inserted).toEqual([]);
   });
 
-  it("opening the day inside a caller's lock does not take the lock a second time", async () => {
+  it("opening the day inside a caller's transaction does not open a second one", async () => {
     await appendToOpenedDay("c1", "2026-11-09", "spent", 1, { settings: { ...DEFAULT_REALM_SETTINGS } });
     expect(h.transactions).toBe(1);
-    expect(h.locks).toBe(1);
   });
 
   it("settings that exist are one read, with no insert", async () => {
@@ -138,12 +131,13 @@ describe("the in-process queue", () => {
 });
 
 describe("conflict rules on a ledger row", () => {
-  it("only a run's `practice` row skips a conflict, and only on the practice index", async () => {
+  it("only a run's `practice` row skips a conflict", async () => {
     h.rowsFor = (t) => (t === schema.realmPlayLedger ? OPEN_DAY : []);
     await appendToOpenedDay("c1", "2026-11-09", "spent", 1, { settings: { ...DEFAULT_REALM_SETTINGS } });
     expect(h.conflicts.filter((c) => c.kind === "spent")).toEqual([]);
     await paySideQuest("c1", "run-1", 3);
     const practice = h.conflicts.filter((c) => c.kind === "practice");
-    expect(practice).toEqual([{ kind: "practice", config: expect.objectContaining({ target: schema.realmPlayLedger.sourceRunId, where: expect.anything() }) }]);
+    // No target: the per-run index is the only unique one a practice row can hit (see appendLedger).
+    expect(practice).toEqual([{ kind: "practice", config: undefined }]);
   });
 });

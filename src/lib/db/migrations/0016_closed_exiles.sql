@@ -1,0 +1,1 @@
+ALTER TABLE `child` ADD `banished_at` integer;

@@ -1,0 +1,1 @@
+ALTER TABLE `child` ADD `streak_optional_days` text;

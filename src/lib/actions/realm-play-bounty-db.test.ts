@@ -1,26 +1,17 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeAll, beforeEach, afterAll } from "vitest";
-import { Client } from "pg";
-import { drizzle } from "drizzle-orm/node-postgres";
-import * as schema from "@/lib/db/schema";
+import { testDatabase } from "@/test/libsql-test-db";
 import { REALM_ACCESS_DDL, REALM_LEDGER_DDL, REALM_SETTINGS_DDL, REALM_TROUBLE_CLEAR_DDL } from "@/test/realm-db-ddl";
 
 /**
- * The bounty against a REAL Postgres database, which is what production runs on Railway.
+ * The bounty against a REAL libsql database, which is what production runs (Turso is libsql).
  * The other bounty test mocks the services; this one exists because the defect was between the
  * services — a read of the allowance, then an award, then the writes — and only a real database
- * shows two calls interleaving across those awaits. It is also what proves the
- * `pg_advisory_xact_lock` in `awardTroubleClears` actually serializes two concurrent calls, which
- * Postgres's default isolation does not do on its own.
- *
- * Runs in its own schema so it can share a Postgres server with the other real-database tests
- * without their tables colliding.
+ * shows two calls interleaving across those awaits. It is also what proves the write transaction
+ * in `awardTroubleClears` serializes two concurrent calls.
  */
-const SCHEMA = "test_bounty_db";
-const client = new Client({
-  connectionString: process.env.DATABASE_URL || "postgres://postgres:postgres@localhost:5432/kingdomsandcrowns",
-});
-const testDb = drizzle(client, { schema });
+const client = testDatabase("bounty-db");
+const testDb = client.db;
 
 vi.mock("@/lib/db", () => ({ db: testDb }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -45,10 +36,6 @@ async function clearsRecorded(): Promise<number> {
 const DDL = [...REALM_SETTINGS_DDL, ...REALM_LEDGER_DDL, ...REALM_TROUBLE_CLEAR_DDL, ...REALM_ACCESS_DDL];
 
 beforeAll(async () => {
-  await client.connect();
-  await client.query(`DROP SCHEMA IF EXISTS "${SCHEMA}" CASCADE`);
-  await client.query(`CREATE SCHEMA "${SCHEMA}"`);
-  await client.query(`SET search_path TO "${SCHEMA}"`);
   for (const sql of DDL) await client.query(sql);
 });
 
@@ -56,19 +43,18 @@ beforeEach(async () => {
   for (const t of ["realm_settings", "realm_play_ledger", "realm_trouble_clear"]) await client.query(`DELETE FROM ${t}`);
   // Plenty of schoolwork, so the parent's cap of 5 is the only ceiling.
   await client.query(
-    "INSERT INTO realm_play_ledger (id, child_id, date, kind, minutes, created_at) VALUES ('e1', 'c1', $1, 'earned', 20, NOW())",
+    "INSERT INTO realm_play_ledger (id, child_id, date, kind, minutes, created_at) VALUES ('e1', 'c1', ?1, 'earned', 20, unixepoch())",
     [today],
   );
 });
 
 afterAll(async () => {
-  await client.query(`DROP SCHEMA IF EXISTS "${SCHEMA}" CASCADE`);
-  await client.end();
+  client.close();
 });
 
 async function bonusBanked(): Promise<number> {
   const r = await client.query(
-    "SELECT coalesce(sum(minutes), 0) AS n FROM realm_play_ledger WHERE child_id = 'c1' AND date = $1 AND kind = 'bonus'",
+    "SELECT coalesce(sum(minutes), 0) AS n FROM realm_play_ledger WHERE child_id = 'c1' AND date = ?1 AND kind = 'bonus'",
     [today],
   );
   return Number(r.rows[0].n);
@@ -76,7 +62,7 @@ async function bonusBanked(): Promise<number> {
 
 async function clearsPaid(): Promise<number> {
   const r = await client.query(
-    "SELECT coalesce(sum(minutes), 0) AS n FROM realm_trouble_clear WHERE child_id = 'c1' AND date = $1",
+    "SELECT coalesce(sum(minutes), 0) AS n FROM realm_trouble_clear WHERE child_id = 'c1' AND date = ?1",
     [today],
   );
   return Number(r.rows[0].n);
@@ -122,7 +108,7 @@ describe("recordTroubleClears — what a batch earns", () => {
 
   it("pays nothing in open mode, where minutes are never read", async () => {
     await client.query(
-      "INSERT INTO realm_settings (id, child_id, access_mode, created_at, updated_at) VALUES ('s1', 'c1', 'open', NOW(), NOW())",
+      "INSERT INTO realm_settings (id, child_id, access_mode, created_at, updated_at) VALUES ('s1', 'c1', 'open', unixepoch(), unixepoch())",
     );
     const r = await recordTroubleClears("c1", ["rim-0"]);
     expect(r.awarded).toBe(0);

@@ -6,12 +6,12 @@
  * The password is typed at a hidden prompt (twice), or read from stdin when piped, and is hashed
  * with Better Auth's own hashPassword, so it is exactly what email sign-in checks against.
  *
- *   # production while it is still on Turso
+ *   # production (Turso)
  *   node --env-file=.env.prod scripts/set-password.mjs you@example.com
- *   # Postgres (DATABASE_URL = a direct connection, not Hyperdrive)
- *   DATABASE_URL='postgres://…' node scripts/set-password.mjs you@example.com
+ *   # the local database (file:./local.db)
+ *   node scripts/set-password.mjs you@example.com
  *
- * Uses TURSO_DATABASE_URL when set, otherwise DATABASE_URL.
+ * Uses TURSO_DATABASE_URL when set, otherwise the local database, as the app does.
  */
 import { hashPassword } from "better-auth/crypto";
 import { nanoid } from "nanoid";
@@ -72,9 +72,9 @@ const hash = await hashPassword(password);
 const now = new Date();
 
 let result;
-if (process.env.TURSO_DATABASE_URL) {
+{
   const { createClient } = await import("@libsql/client");
-  const db = createClient({ url: process.env.TURSO_DATABASE_URL, authToken: process.env.TURSO_AUTH_TOKEN });
+  const db = createClient({ url: process.env.TURSO_DATABASE_URL || "file:./local.db", authToken: process.env.TURSO_AUTH_TOKEN });
   const secs = Math.floor(now.getTime() / 1000); // the SQLite schema stores timestamps in seconds
   const user = (await db.execute({ sql: "select id from user where lower(email) = ?", args: [email] })).rows[0];
   if (user) {
@@ -91,30 +91,6 @@ if (process.env.TURSO_DATABASE_URL) {
     }
   }
   db.close();
-} else {
-  const { default: pg } = await import("pg");
-  const client = new pg.Client({ connectionString: process.env.DATABASE_URL });
-  await client.connect();
-  try {
-    const user = (await client.query('select id from "user" where lower(email) = $1', [email])).rows[0];
-    if (user) {
-      const updated = await client.query(
-        "update account set password = $1, updated_at = $2 where user_id = $3 and provider_id = 'credential'",
-        [hash, now, user.id]
-      );
-      if (updated.rowCount > 0) {
-        result = "replaced the existing password";
-      } else {
-        await client.query(
-          "insert into account (id, user_id, account_id, provider_id, password, created_at, updated_at) values ($1, $2, $2, 'credential', $3, $4, $4)",
-          [nanoid(), user.id, hash, now]
-        );
-        result = "added an email + password sign-in";
-      }
-    }
-  } finally {
-    await client.end();
-  }
 }
 
 if (!result) {

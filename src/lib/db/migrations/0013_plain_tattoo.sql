@@ -1,0 +1,1 @@
+ALTER TABLE `quest` ADD `include_in_learning_log` integer DEFAULT true NOT NULL;

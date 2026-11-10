@@ -1,21 +1,13 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeAll, beforeEach, afterAll } from "vitest";
-import { Client } from "pg";
-import { drizzle } from "drizzle-orm/node-postgres";
-import * as schema from "@/lib/db/schema";
+import { testDatabase } from "@/test/libsql-test-db";
 
 /**
- * The places a hero has found, against a real Postgres database. The gate is mocked as the actor:
+ * The places a hero has found, against a real libsql database. The gate is mocked as the actor:
  * the hero, or a grown-up with edit or view-only access. Its `write` rule is the real one.
- *
- * Runs in its own schema so it can share a Postgres server with the other real-database tests
- * without their tables colliding.
  */
-const SCHEMA = "test_realm_places";
-const client = new Client({
-  connectionString: process.env.DATABASE_URL || "postgres://postgres:postgres@localhost:5432/kingdomsandcrowns",
-});
-const testDb = drizzle(client, { schema });
+const client = testDatabase("realm-places");
+const testDb = client.db;
 
 type Actor = { userId: string; permission: "edit" | "view" };
 let actor: Actor = { userId: "child:c1", permission: "edit" };
@@ -35,7 +27,7 @@ const { loadPlacesFound } = await import("@/lib/services/realm-places");
 
 const DDL = [
   `CREATE TABLE realm_place_found (
-    id text PRIMARY KEY NOT NULL, child_id text NOT NULL, place_id text NOT NULL, found_at timestamptz NOT NULL)`,
+    id text PRIMARY KEY NOT NULL, child_id text NOT NULL, place_id text NOT NULL, found_at integer NOT NULL)`,
   `CREATE UNIQUE INDEX realm_place_found_child_place_idx ON realm_place_found (child_id, place_id)`,
 ];
 
@@ -49,10 +41,6 @@ async function rowCount(): Promise<number> {
 }
 
 beforeAll(async () => {
-  await client.connect();
-  await client.query(`DROP SCHEMA IF EXISTS "${SCHEMA}" CASCADE`);
-  await client.query(`CREATE SCHEMA "${SCHEMA}"`);
-  await client.query(`SET search_path TO "${SCHEMA}"`);
   for (const sql of DDL) await client.query(sql);
 });
 
@@ -63,8 +51,7 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  await client.query(`DROP SCHEMA IF EXISTS "${SCHEMA}" CASCADE`);
-  await client.end();
+  client.close();
 });
 
 describe("recordPlacesFound — who writes", () => {

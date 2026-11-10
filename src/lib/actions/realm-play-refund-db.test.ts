@@ -1,22 +1,17 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeAll, beforeEach, afterAll } from "vitest";
-import { Client } from "pg";
-import { drizzle } from "drizzle-orm/node-postgres";
-import * as schema from "@/lib/db/schema";
+import { testDatabase } from "@/test/libsql-test-db";
 import { REALM_ACCESS_DDL, REALM_LEDGER_DDL, REALM_SETTINGS_DDL, REALM_TROUBLE_CLEAR_DDL } from "@/test/realm-db-ddl";
 import { IDLE_MS, IDLE_REFUND_MAX_MINUTES } from "@/lib/realm3d/pause";
 
 /**
- * Idle time given back (spec §4.6) against a REAL Postgres database: the refund is bounded on the
+ * Idle time given back (spec §4.6) against a REAL libsql database: the refund is bounded on the
  * server — by what was spent today, by the per-call maximum, and to one per `IDLE_MS` of wall
- * time — and only a real database shows the child's advisory lock holding two refunds at once to
- * one row. Runs in its own schema so it can share a Postgres server with the other real-database tests.
+ * time — and only a real database shows the child's write transaction holding two refunds at
+ * once to one row.
  */
-const SCHEMA = "test_realm_refund_db";
-const client = new Client({
-  connectionString: process.env.DATABASE_URL || "postgres://postgres:postgres@localhost:5432/kingdomsandcrowns",
-});
-const testDb = drizzle(client, { schema });
+const client = testDatabase("realm-refund-db");
+const testDb = client.db;
 
 vi.mock("@/lib/db", () => ({ db: testDb }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -38,10 +33,6 @@ const { REFUND_SLACK_MS } = await import("@/lib/services/realm-play");
 const DDL = [...REALM_SETTINGS_DDL, ...REALM_LEDGER_DDL, ...REALM_TROUBLE_CLEAR_DDL, ...REALM_ACCESS_DDL];
 
 beforeAll(async () => {
-  await client.connect();
-  await client.query(`DROP SCHEMA IF EXISTS "${SCHEMA}" CASCADE`);
-  await client.query(`CREATE SCHEMA "${SCHEMA}"`);
-  await client.query(`SET search_path TO "${SCHEMA}"`);
   for (const sql of DDL) await client.query(sql);
 });
 
@@ -51,8 +42,7 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  await client.query(`DROP SCHEMA IF EXISTS "${SCHEMA}" CASCADE`);
-  await client.end();
+  client.close();
 });
 
 async function refundRows(): Promise<number[]> {
@@ -62,7 +52,7 @@ async function refundRows(): Promise<number[]> {
 
 /** Writes a ledger row stamped `agoMs` before now, as a write that long ago would have. */
 async function rowAgo(kind: "spent" | "refund", minutes: number, agoMs: number) {
-  await client.query("INSERT INTO realm_play_ledger (id, child_id, date, kind, minutes, created_at) VALUES ($1, 'c1', $2, $3, $4, $5)", [
+  await client.query("INSERT INTO realm_play_ledger (id, child_id, date, kind, minutes, created_at) VALUES (?1, 'c1', ?2, ?3, ?4, ?5)", [
     `${kind}-${agoMs}`,
     today,
     kind,
@@ -115,7 +105,7 @@ describe("refundIdleMinutes — what an idle pause may give back", () => {
 
   it("allows the next refund once IDLE_MS has passed since the last", async () => {
     await recordRealmPlay("c1", 5);
-    await client.query("INSERT INTO realm_play_ledger (id, child_id, date, kind, minutes, created_at) VALUES ('r0', 'c1', $1, 'refund', 1, $2)", [
+    await client.query("INSERT INTO realm_play_ledger (id, child_id, date, kind, minutes, created_at) VALUES ('r0', 'c1', ?1, 'refund', 1, ?2)", [
       today,
       new Date(Date.now() - IDLE_MS - 1000),
     ]);

@@ -17,12 +17,20 @@
  * Add --dry-run to print the changes without writing them.
  */
 import { eq } from "drizzle-orm";
+import { createClient } from "@libsql/client";
+import { drizzle } from "drizzle-orm/libsql";
 import * as schema from "./schema";
-import { db, closeDb } from "./index";
 import { computeStreak, computeLongestStreak, type DateRange } from "../utils/streak";
 import { parseSchoolDays, parseStreakOptionalDays } from "../utils/schedule-days";
 import { todayInZone } from "../utils/dates";
 import { usableTimeZone, DEFAULT_TIMEZONE } from "../services/family-timezone";
+
+const client = createClient({
+  url: process.env.TURSO_DATABASE_URL || "file:./local.db",
+  authToken: process.env.TURSO_AUTH_TOKEN,
+});
+
+const db = drizzle(client, { schema });
 
 const dryRun = process.argv.includes("--dry-run");
 
@@ -157,4 +165,4 @@ main()
     console.error(err);
     process.exit(1);
   })
-  .finally(() => closeDb());
+  .finally(() => client.close());

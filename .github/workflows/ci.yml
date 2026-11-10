@@ -10,24 +10,10 @@ jobs:
   ci:
     runs-on: ubuntu-latest
 
-    # Several tests run against a real Postgres (each in its own schema), as production does.
-    services:
-      postgres:
-        image: postgres:18-alpine
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: kingdomsandcrowns
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d kingdomsandcrowns"
-          --health-interval 2s
-          --health-timeout 3s
-          --health-retries 30
-
+    # A local libsql file stands in for Turso (Turso is libsql). The real-database tests make
+    # their own temporary databases.
     env:
-      DATABASE_URL: postgres://postgres:postgres@localhost:5432/kingdomsandcrowns
+      TURSO_DATABASE_URL: "file:./ci.db"
 
     steps:
       - uses: actions/checkout@v4

@@ -35,8 +35,7 @@ if [ ! -f "$CONFIG" ]; then
 # Weekly backup settings for scripts/backup-db.mjs. Keep this file private (it is chmod 600).
 BACKUP_DIR=$default_dir
 KEEP=12
-# Production credentials are read from this file (TURSO_DATABASE_URL + TURSO_AUTH_TOKEN today;
-# add DATABASE_URL — a direct Postgres URL, not Hyperdrive — after the Postgres cutover).
+# Production credentials (TURSO_DATABASE_URL + TURSO_AUTH_TOKEN) are read from this file.
 # Its RESEND_API_KEY and FEEDBACK_NOTIFY_EMAIL also send you an email if a backup fails.
 ENV_FILE=$REPO/.env.prod
 EOF

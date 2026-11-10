@@ -84,10 +84,9 @@ export async function appendLedger(
 ): Promise<boolean> {
   const L = schema.realmPlayLedger;
   const insert = tx.insert(L).values({ id: nanoid(), childId, date, kind, minutes, sourceAssignmentId, sourceRunId, createdAt: new Date() });
-  const landed = await (sourceRunId
-    ? insert.onConflictDoNothing({ target: L.sourceRunId, where: sql`${L.kind} = 'practice'` })
-    : insert
-  ).returning({ id: L.id });
+  // A row with a run is a `practice` row, so the per-run index is the only one it can hit. No
+  // target: drizzle's SQLite builder places a partial index's WHERE after DO NOTHING, which SQLite rejects.
+  const landed = await (sourceRunId ? insert.onConflictDoNothing() : insert).returning({ id: L.id });
   return landed.length > 0;
 }
 
@@ -107,25 +106,14 @@ export async function loadPreviousActiveDay(childId: string, before: string, exe
 }
 
 /**
- * Runs `run` in one transaction holding the child's advisory lock (`pg_advisory_xact_lock`), so
- * every read-then-write on this child's ledger is serialized, across isolates too. The lock is
- * per child (unrelated heroes never block each other) and released at COMMIT/ROLLBACK. See
- * `awardTroubleClears` (`services/realm-troubles.ts`) for why calls also queue in-process and retry on deadlock.
+ * Runs `run` in one write transaction, so every read-then-write on this child's ledger is
+ * serialized, across server instances too. A libsql write transaction takes the database's write
+ * lock at BEGIN, so a second call waits for the first to commit and then reads what it wrote.
+ * See `awardTroubleClears` (`services/realm-troubles.ts`) for why calls also queue in-process and
+ * retry on a busy lock.
  */
 export async function withChildLock<T>(childId: string, run: (tx: Tx) => Promise<T>): Promise<T> {
-  return queued(childId, () =>
-    withWriteRetry(() =>
-      db.transaction(async (tx) => {
-        await lockChild(childId, tx);
-        return run(tx);
-      }),
-    ),
-  );
-}
-
-/** Takes the child's lock inside `tx`. */
-async function lockChild(childId: string, tx: Tx): Promise<void> {
-  await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${childId}))`);
+  return queued(childId, () => withWriteRetry(() => db.transaction(run)));
 }
 
 /**
@@ -273,7 +261,7 @@ const awardQueues = new Map<string, Promise<unknown>>();
 /**
  * The longest a call waits in the in-process queue for the one ahead of it. A predecessor stuck in
  * flight (a hung socket) must not hang every later write for this child; past this the call goes
- * on, and the child's advisory lock still serializes the two in the database.
+ * on, and the write transaction still serializes the two in the database.
  */
 export const QUEUE_WAIT_MS = 5_000;
 
@@ -311,12 +299,12 @@ async function withWriteRetry<T>(run: () => Promise<T>, attempts = 5): Promise<T
   }
 }
 
-// Postgres error codes for transient contention: 40001 serialization_failure,
-// 40P01 deadlock_detected. Both are safe to retry — neither means the write was wrong.
+/** The write lock was held by another writer: safe to retry, the write was not wrong. */
 function isBusy(err: unknown): boolean {
   for (let e: unknown = err; e; e = (e as { cause?: unknown }).cause) {
     const code = (e as { code?: unknown }).code;
-    if (code === "40001" || code === "40P01") return true;
+    const message = (e as { message?: unknown }).message;
+    if (code === "SQLITE_BUSY" || (typeof message === "string" && /SQLITE_BUSY|database is locked/i.test(message))) return true;
   }
   return false;
 }
@@ -334,7 +322,7 @@ export async function grantEarnedMinutesForCompletion(childId: string, assignmen
 
   // Minutes are earned once per quest: a quest revised back to pending and finished again must
   // not bank a second grant. Checked under the child's lock with the write, so two completions at
-  // once (two tabs, two isolates) cannot both find none (there is no unique index to lean on).
+  // once (two tabs, two server instances) cannot both find none (there is no unique index to lean on).
   const L = schema.realmPlayLedger;
   await withChildLock(childId, async (tx) => {
     const existing = await tx

@@ -1,25 +1,16 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeAll, beforeEach, afterAll } from "vitest";
-import { Pool } from "pg";
-import { drizzle } from "drizzle-orm/node-postgres";
-import * as schema from "@/lib/db/schema";
+import { testDatabase } from "@/test/libsql-test-db";
 import { REALM_ACCESS_DDL, REALM_LEDGER_DDL, REALM_SETTINGS_DDL, REALM_TROUBLE_CLEAR_DDL } from "@/test/realm-db-ddl";
 
 /**
- * The child's advisory lock against a REAL Postgres database, as production sees it: a pool of
- * connections (Hyperdrive), and two isolates that do not share the in-process queue. Each
- * "isolate" here is its own fresh import of the services (`vi.resetModules`), so its queue is
- * its own and only the database lock stands between two calls.
- *
- * Runs in its own schema so it can share a Postgres server with the other real-database tests.
+ * The child's write transaction against a REAL libsql database, as production sees it: two
+ * server instances that do not share the in-process queue. Each "instance" here is its own fresh
+ * import of the services (`vi.resetModules`), so its queue is its own and only the database's
+ * write lock stands between two calls.
  */
-const SCHEMA = "test_realm_lock_db";
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL || "postgres://postgres:postgres@localhost:5432/kingdomsandcrowns",
-  max: 4,
-  options: `-c search_path=${SCHEMA}`,
-});
-const testDb = drizzle(pool, { schema });
+const pool = testDatabase("realm-lock-db");
+const testDb = pool.db;
 
 vi.mock("@/lib/db", () => ({ db: testDb }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -41,31 +32,28 @@ async function isolate(): Promise<{ actions: Actions; services: Services }> {
 const DDL = [...REALM_SETTINGS_DDL, ...REALM_LEDGER_DDL, ...REALM_TROUBLE_CLEAR_DDL, ...REALM_ACCESS_DDL];
 
 beforeAll(async () => {
-  await pool.query(`DROP SCHEMA IF EXISTS "${SCHEMA}" CASCADE`);
-  await pool.query(`CREATE SCHEMA "${SCHEMA}"`);
   for (const sql of DDL) await pool.query(sql);
 });
 
 beforeEach(async () => {
   for (const t of ["realm_settings", "realm_play_ledger", "realm_trouble_clear"]) await pool.query(`DELETE FROM ${t}`);
   // Settings exist already, so the two calls race on the ledger, not on making the settings row.
-  await pool.query("INSERT INTO realm_settings (id, child_id, created_at, updated_at) VALUES ('s1', 'c1', NOW(), NOW())");
+  await pool.query("INSERT INTO realm_settings (id, child_id, created_at, updated_at) VALUES ('s1', 'c1', unixepoch(), unixepoch())");
   await pool.query(
-    "INSERT INTO realm_play_ledger (id, child_id, date, kind, minutes, created_at) VALUES ('y1', 'c1', '2026-11-08', 'earned', 7, NOW())",
+    "INSERT INTO realm_play_ledger (id, child_id, date, kind, minutes, created_at) VALUES ('y1', 'c1', '2026-11-08', 'earned', 7, unixepoch())",
   );
 });
 
 afterAll(async () => {
-  await pool.query(`DROP SCHEMA IF EXISTS "${SCHEMA}" CASCADE`);
-  await pool.end();
+  pool.close();
 });
 
 async function kinds(kind: string): Promise<number[]> {
-  const r = await pool.query("SELECT minutes FROM realm_play_ledger WHERE child_id = 'c1' AND date = '2026-11-09' AND kind = $1", [kind]);
+  const r = await pool.query("SELECT minutes FROM realm_play_ledger WHERE child_id = 'c1' AND date = '2026-11-09' AND kind = ?1", [kind]);
   return r.rows.map((x) => Number(x.minutes));
 }
 
-describe("two isolates at once, held apart only by the child's advisory lock", () => {
+describe("two server instances at once, held apart only by the database's write lock", () => {
   it("two first access checks open the day once: one allowance, one carried row", async () => {
     const [a, b] = [await isolate(), await isolate()];
     const results = await Promise.allSettled([a.actions.getRealmAccess("c1"), b.actions.getRealmAccess("c1")]);

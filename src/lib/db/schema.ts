@@ -1,33 +1,33 @@
-import { pgTable, text, integer, boolean, timestamp, uniqueIndex, index } from "drizzle-orm/pg-core";
+import { sqliteTable, text, integer, uniqueIndex, index } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 
 // ── Auth tables (managed by Better Auth) ──────────────────────
 
-export const user = pgTable("user", {
+export const user = sqliteTable("user", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   email: text("email").notNull().unique(),
-  emailVerified: boolean("email_verified").notNull().default(false),
+  emailVerified: integer("email_verified", { mode: "boolean" }).notNull().default(false),
   image: text("image"),
-  isAdmin: boolean("is_admin").notNull().default(false),
-  createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull(),
-  updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).notNull(),
+  isAdmin: integer("is_admin", { mode: "boolean" }).notNull().default(false),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
 
-export const session = pgTable("session", {
+export const session = sqliteTable("session", {
   id: text("id").primaryKey(),
   userId: text("user_id")
     .notNull()
     .references(() => user.id, { onDelete: "cascade" }),
   token: text("token").notNull().unique(),
-  expiresAt: timestamp("expires_at", { mode: "date", withTimezone: true }).notNull(),
+  expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
   ipAddress: text("ip_address"),
   userAgent: text("user_agent"),
-  createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull(),
-  updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
 
-export const account = pgTable("account", {
+export const account = sqliteTable("account", {
   id: text("id").primaryKey(),
   userId: text("user_id")
     .notNull()
@@ -36,27 +36,27 @@ export const account = pgTable("account", {
   providerId: text("provider_id").notNull(),
   accessToken: text("access_token"),
   refreshToken: text("refresh_token"),
-  accessTokenExpiresAt: timestamp("access_token_expires_at", { mode: "date", withTimezone: true }),
-  refreshTokenExpiresAt: timestamp("refresh_token_expires_at", { mode: "date", withTimezone: true }),
+  accessTokenExpiresAt: integer("access_token_expires_at", { mode: "timestamp" }),
+  refreshTokenExpiresAt: integer("refresh_token_expires_at", { mode: "timestamp" }),
   scope: text("scope"),
   idToken: text("id_token"),
   password: text("password"),
-  createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull(),
-  updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
 
-export const verification = pgTable("verification", {
+export const verification = sqliteTable("verification", {
   id: text("id").primaryKey(),
   identifier: text("identifier").notNull(),
   value: text("value").notNull(),
-  expiresAt: timestamp("expires_at", { mode: "date", withTimezone: true }).notNull(),
-  createdAt: timestamp("created_at", { mode: "date", withTimezone: true }),
-  updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }),
+  expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" }),
+  updatedAt: integer("updated_at", { mode: "timestamp" }),
 });
 
 // ── App domain tables ─────────────────────────────────────────
 
-export const family = pgTable(
+export const family = sqliteTable(
   "family",
   {
     id: text("id").primaryKey(),
@@ -73,14 +73,14 @@ export const family = pgTable(
     // ── Upkeep (chores) ──────────────────────────────────────────
     // Master switch for the optional chore-tracking module. Off by default:
     // families who never turn it on must see no trace of it.
-    upkeepEnabled: boolean("upkeep_enabled").notNull().default(false),
+    upkeepEnabled: integer("upkeep_enabled", { mode: "boolean" }).notNull().default(false),
     // When on, a hero marking a task done lands it in `awaiting_approval`
     // rather than `completed`, and no wages post until a grown-up confirms.
-    upkeepRequiresApproval: boolean("upkeep_requires_approval")
+    upkeepRequiresApproval: integer("upkeep_requires_approval", { mode: "boolean" })
       .notNull()
       .default(false),
-    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull(),
-    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   },
   (table) => [uniqueIndex("family_login_code_idx").on(table.loginCode)]
 );
@@ -89,7 +89,7 @@ export const family = pgTable(
 // Many-to-many link between adult users and families. This is the source of
 // truth for who may view/manage a family and its children.
 
-export const familyMember = pgTable(
+export const familyMember = sqliteTable(
   "family_member",
   {
     id: text("id").primaryKey(),
@@ -108,8 +108,8 @@ export const familyMember = pgTable(
     invitedByUserId: text("invited_by_user_id").references(() => user.id, {
       onDelete: "set null",
     }),
-    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull(),
-    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   },
   (table) => [
     uniqueIndex("family_member_unique_idx").on(table.familyId, table.userId),
@@ -119,7 +119,7 @@ export const familyMember = pgTable(
 );
 
 // Per-child scope rows — only present when familyMember.scope === "specific".
-export const familyMemberChild = pgTable(
+export const familyMemberChild = sqliteTable(
   "family_member_child",
   {
     id: text("id").primaryKey(),
@@ -137,7 +137,7 @@ export const familyMemberChild = pgTable(
 );
 
 // Pending email invitations to join a family.
-export const familyInvite = pgTable(
+export const familyInvite = sqliteTable(
   "family_invite",
   {
     id: text("id").primaryKey(),
@@ -160,9 +160,9 @@ export const familyInvite = pgTable(
     })
       .notNull()
       .default("pending"),
-    expiresAt: timestamp("expires_at", { mode: "date", withTimezone: true }).notNull(),
-    acceptedAt: timestamp("accepted_at", { mode: "date", withTimezone: true }),
-    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull(),
+    expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+    acceptedAt: integer("accepted_at", { mode: "timestamp" }),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   },
   (table) => [
     index("family_invite_email_idx").on(table.email),
@@ -176,7 +176,7 @@ export const familyInvite = pgTable(
  * row written just to be free. A row persists (status updated, never deleted) once Stripe
  * history exists, so stripeCustomerId survives a cancellation for next time.
  */
-export const subscription = pgTable("subscription", {
+export const subscription = sqliteTable("subscription", {
   id: text("id").primaryKey(),
   familyId: text("family_id")
     .notNull()
@@ -190,12 +190,12 @@ export const subscription = pgTable("subscription", {
     .notNull()
     .default("free"),
   priceId: text("price_id"),
-  currentPeriodEnd: timestamp("current_period_end", { mode: "date", withTimezone: true }),
-  createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull(),
-  updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).notNull(),
+  currentPeriodEnd: integer("current_period_end", { mode: "timestamp" }),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
 
-export const child = pgTable(
+export const child = sqliteTable(
   "child",
   {
     id: text("id").primaryKey(),
@@ -215,7 +215,7 @@ export const child = pgTable(
     bonusXp: integer("bonus_xp").notNull().default(0),
     currentStreak: integer("current_streak").notNull().default(0),
     longestStreak: integer("longest_streak").notNull().default(0),
-    showOnLeaderboard: boolean("show_on_leaderboard").notNull().default(false),
+    showOnLeaderboard: integer("show_on_leaderboard", { mode: "boolean" }).notNull().default(false),
     lastActiveDate: text("last_active_date"), // ISO date YYYY-MM-DD
     // ── Child authentication (parent-provisioned) ──────────────
     // Email/Google heroes are real Better Auth users linked here.
@@ -223,16 +223,16 @@ export const child = pgTable(
     authUserId: text("auth_user_id").references(() => user.id, {
       onDelete: "set null",
     }),
-    pinEnabled: boolean("pin_enabled").notNull().default(true),
-    emailLoginEnabled: boolean("email_login_enabled").notNull().default(false),
-    googleLoginEnabled: boolean("google_login_enabled").notNull().default(false),
+    pinEnabled: integer("pin_enabled", { mode: "boolean" }).notNull().default(true),
+    emailLoginEnabled: integer("email_login_enabled", { mode: "boolean" }).notNull().default(false),
+    googleLoginEnabled: integer("google_login_enabled", { mode: "boolean" }).notNull().default(false),
     // ── Schedule ─────────────────────────────────────────────────
     // Parent-only toggle: whether this hero may edit their own schedule.
-    scheduleSelfManageEnabled: boolean("schedule_self_manage_enabled").notNull().default(false),
+    scheduleSelfManageEnabled: integer("schedule_self_manage_enabled", { mode: "boolean" }).notNull().default(false),
     // Parent-only toggle: whether this hero may skip their own quests. Off by
     // default — skipping stays a grown-up decision until a parent hands it
     // over. Every skip a hero makes raises a parentAlert either way.
-    skipQuestsEnabled: boolean("skip_quests_enabled").notNull().default(false),
+    skipQuestsEnabled: integer("skip_quests_enabled", { mode: "boolean" }).notNull().default(false),
     // JSON array of weekday codes ("mon".."sun") that are school days; null = default Mon-Fri.
     schoolDays: text("school_days"),
     // JSON array of weekday codes that are school days but optional: quests can
@@ -269,7 +269,7 @@ export const child = pgTable(
     // that turning the module on for a family immediately works for everyone
     // and a parent opts individual heroes out, rather than the module
     // appearing to do nothing when it is first enabled.
-    upkeepEnabled: boolean("upkeep_enabled").notNull().default(true),
+    upkeepEnabled: integer("upkeep_enabled", { mode: "boolean" }).notNull().default(true),
     // Chore XP is deliberately its own column, never folded into currentXp:
     // activities.ts recomputes currentXp as (activity count x 10) + bonusXp
     // whenever schoolwork is logged, which would silently erase it.
@@ -280,13 +280,13 @@ export const child = pgTable(
     // family default as it changes, rather than being frozen at whatever it
     // happened to be the day the hero was added. A six-year-old's work usually
     // wants checking; a fourteen-year-old's usually does not.
-    upkeepRequiresApproval: boolean("upkeep_requires_approval"),
+    upkeepRequiresApproval: integer("upkeep_requires_approval", { mode: "boolean" }),
     // Soft delete ("banished"). Non-null hides the hero everywhere — lists,
     // logins, leaderboards — but keeps every row intact so a parent can
     // restore them. Permanent removal is a separate, explicit action.
-    banishedAt: timestamp("banished_at", { mode: "date", withTimezone: true }),
-    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull(),
-    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).notNull(),
+    banishedAt: integer("banished_at", { mode: "timestamp" }),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   },
   (table) => [
     index("child_email_idx").on(table.email),
@@ -296,7 +296,7 @@ export const child = pgTable(
 
 // Parental consent events for a child's self-service login. Append-only history
 // (never overwritten) so consent changes remain auditable.
-export const childConsent = pgTable(
+export const childConsent = sqliteTable(
   "child_consent",
   {
     id: text("id").primaryKey(),
@@ -309,15 +309,15 @@ export const childConsent = pgTable(
     methods: text("methods").notNull(), // JSON array, e.g. ["email","google"]
     consentVersion: text("consent_version").notNull(),
     ipAddress: text("ip_address"),
-    consentedAt: timestamp("consented_at", { mode: "date", withTimezone: true }).notNull(),
-    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull(),
+    consentedAt: integer("consented_at", { mode: "timestamp" }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   },
   (table) => [index("child_consent_child_idx").on(table.childId)]
 );
 
 // Anti-hijack token a parent generates so only a parent-provisioned email can
 // claim a child profile (set a password / link an account).
-export const childLoginLink = pgTable(
+export const childLoginLink = sqliteTable(
   "child_login_link",
   {
     id: text("id").primaryKey(),
@@ -332,12 +332,12 @@ export const childLoginLink = pgTable(
     })
       .notNull()
       .default("pending"),
-    expiresAt: timestamp("expires_at", { mode: "date", withTimezone: true }).notNull(),
-    acceptedAt: timestamp("accepted_at", { mode: "date", withTimezone: true }),
+    expiresAt: integer("expires_at", { mode: "timestamp" }).notNull(),
+    acceptedAt: integer("accepted_at", { mode: "timestamp" }),
     createdByUserId: text("created_by_user_id").references(() => user.id, {
       onDelete: "set null",
     }),
-    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   },
   (table) => [
     index("child_login_link_token_idx").on(table.token),
@@ -346,7 +346,7 @@ export const childLoginLink = pgTable(
 );
 
 // PIN brute-force throttling, keyed by (child, ip).
-export const childPinAttempt = pgTable(
+export const childPinAttempt = sqliteTable(
   "child_pin_attempt",
   {
     id: text("id").primaryKey(),
@@ -355,15 +355,15 @@ export const childPinAttempt = pgTable(
       .references(() => child.id, { onDelete: "cascade" }),
     ipAddress: text("ip_address").notNull(),
     failedCount: integer("failed_count").notNull().default(0),
-    lockedUntil: timestamp("locked_until", { mode: "date", withTimezone: true }),
-    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).notNull(),
+    lockedUntil: integer("locked_until", { mode: "timestamp" }),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   },
   (table) => [
     uniqueIndex("child_pin_attempt_unique_idx").on(table.childId, table.ipAddress),
   ]
 );
 
-export const subject = pgTable(
+export const subject = sqliteTable(
   "subject",
   {
     id: text("id").primaryKey(),
@@ -373,9 +373,9 @@ export const subject = pgTable(
     name: text("name").notNull(),
     color: text("color"),
     icon: text("icon"),
-    isDefault: boolean("is_default").notNull().default(false),
-    isRequired: boolean("is_required").notNull().default(false),
-    isActive: boolean("is_active").notNull().default(true),
+    isDefault: integer("is_default", { mode: "boolean" }).notNull().default(false),
+    isRequired: integer("is_required", { mode: "boolean" }).notNull().default(false),
+    isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
     // Which school of magic this discipline feeds in the Realm's spellbook.
     // Set by name when the subject is created; a grown-up can change it, so a
     // family decides where "Latin" or "Piano" counts.
@@ -383,14 +383,14 @@ export const subject = pgTable(
       .notNull()
       .default("none"),
     sortOrder: integer("sort_order").notNull().default(0),
-    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   },
   (table) => [
     index("subject_child_active_idx").on(table.childId, table.isActive),
   ]
 );
 
-export const scheduleBlock = pgTable(
+export const scheduleBlock = sqliteTable(
   "schedule_block",
   {
     id: text("id").primaryKey(),
@@ -405,15 +405,15 @@ export const scheduleBlock = pgTable(
     }).notNull(),
     startTime: text("start_time").notNull(), // "HH:mm", 24h local time
     endTime: text("end_time").notNull(), // "HH:mm", 24h local time
-    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull(),
-    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   },
   (table) => [
     index("schedule_block_child_day_idx").on(table.childId, table.dayOfWeek),
   ]
 );
 
-export const activityLog = pgTable(
+export const activityLog = sqliteTable(
   "activity_log",
   {
     id: text("id").primaryKey(),
@@ -427,14 +427,14 @@ export const activityLog = pgTable(
     title: text("title").notNull(),
     description: text("description"),
     durationMinutes: integer("duration_minutes"),
-    startedAt: timestamp("started_at", { mode: "date", withTimezone: true }),
-    endedAt: timestamp("ended_at", { mode: "date", withTimezone: true }),
+    startedAt: integer("started_at", { mode: "timestamp" }),
+    endedAt: integer("ended_at", { mode: "timestamp" }),
     source: text("source", { enum: ["manual", "timer"] }).notNull().default("manual"),
     syncStatus: text("sync_status", { enum: ["pending", "synced"] }).notNull().default("synced"),
     clientId: text("client_id").unique(),
     questAssignmentId: text("quest_assignment_id"), // FK to questAssignment, set at app layer
-    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull(),
-    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   },
   (table) => [
     index("activity_child_date_idx").on(table.childId, table.date),
@@ -442,7 +442,7 @@ export const activityLog = pgTable(
   ]
 );
 
-export const missedSubject = pgTable("missed_subject", {
+export const missedSubject = sqliteTable("missed_subject", {
   id: text("id").primaryKey(),
   childId: text("child_id")
     .notNull()
@@ -452,10 +452,10 @@ export const missedSubject = pgTable("missed_subject", {
     .references(() => subject.id),
   weekStartDate: text("week_start_date").notNull(), // ISO date
   reason: text("reason").notNull(),
-  createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 
-export const weeklySummary = pgTable(
+export const weeklySummary = sqliteTable(
   "weekly_summary",
   {
     id: text("id").primaryKey(),
@@ -466,17 +466,17 @@ export const weeklySummary = pgTable(
     weekEndDate: text("week_end_date").notNull(),
     generatedText: text("generated_text").notNull(),
     editedText: text("edited_text"),
-    copiedAt: timestamp("copied_at", { mode: "date", withTimezone: true }),
+    copiedAt: integer("copied_at", { mode: "timestamp" }),
     checklist: text("checklist"), // JSON
-    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull(),
-    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   },
   (table) => [
     uniqueIndex("summary_child_week_idx").on(table.childId, table.weekStartDate),
   ]
 );
 
-export const teacherFeedback = pgTable("teacher_feedback", {
+export const teacherFeedback = sqliteTable("teacher_feedback", {
   id: text("id").primaryKey(),
   childId: text("child_id")
     .notNull()
@@ -485,13 +485,13 @@ export const teacherFeedback = pgTable("teacher_feedback", {
   teacherName: text("teacher_name"),
   feedbackText: text("feedback_text").notNull(),
   draftResponse: text("draft_response"),
-  responseCopiedAt: timestamp("response_copied_at", { mode: "date", withTimezone: true }),
+  responseCopiedAt: integer("response_copied_at", { mode: "timestamp" }),
   status: text("status", { enum: ["new", "responded", "archived"] }).notNull().default("new"),
-  createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull(),
-  updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
 
-export const badge = pgTable("badge", {
+export const badge = sqliteTable("badge", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   description: text("description").notNull(),
@@ -501,7 +501,7 @@ export const badge = pgTable("badge", {
   xpReward: integer("xp_reward").notNull().default(0),
 });
 
-export const childBadge = pgTable(
+export const childBadge = sqliteTable(
   "child_badge",
   {
     id: text("id").primaryKey(),
@@ -511,26 +511,26 @@ export const childBadge = pgTable(
     badgeId: text("badge_id")
       .notNull()
       .references(() => badge.id),
-    earnedAt: timestamp("earned_at", { mode: "date", withTimezone: true }).notNull(),
+    earnedAt: integer("earned_at", { mode: "timestamp" }).notNull(),
   },
   (table) => [
     uniqueIndex("child_badge_unique_idx").on(table.childId, table.badgeId),
   ]
 );
 
-export const notificationPreference = pgTable("notification_preference", {
+export const notificationPreference = sqliteTable("notification_preference", {
   id: text("id").primaryKey(),
   familyId: text("family_id")
     .notNull()
     .references(() => family.id, { onDelete: "cascade" }),
   type: text("type").notNull(),
   channel: text("channel", { enum: ["email", "push"] }).notNull(),
-  enabled: boolean("enabled").notNull().default(true),
+  enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
   schedule: text("schedule"), // JSON
-  createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 
-export const pushSubscription = pgTable("push_subscription", {
+export const pushSubscription = sqliteTable("push_subscription", {
   id: text("id").primaryKey(),
   familyId: text("family_id")
     .notNull()
@@ -538,12 +538,12 @@ export const pushSubscription = pgTable("push_subscription", {
   endpoint: text("endpoint").notNull(),
   p256dh: text("p256dh").notNull(),
   auth: text("auth").notNull(),
-  createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 
 // ── Quest management tables ──────────────────────────────────
 
-export const quest = pgTable(
+export const quest = sqliteTable(
   "quest",
   {
     id: text("id").primaryKey(),
@@ -559,14 +559,14 @@ export const quest = pgTable(
     rewardXp: integer("reward_xp"),
     rewardDescription: text("reward_description"),
     rewardAvatarItem: text("reward_avatar_item"), // JSON: { category, itemId }
-    isActive: boolean("is_active").notNull().default(true),
-    includeInLearningLog: boolean("include_in_learning_log")
+    isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+    includeInLearningLog: integer("include_in_learning_log", { mode: "boolean" })
       .notNull()
       .default(true),
-    requireNotes: boolean("require_notes").notNull().default(false),
+    requireNotes: integer("require_notes", { mode: "boolean" }).notNull().default(false),
     sortOrder: integer("sort_order").notNull().default(0),
-    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull(),
-    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   },
   (table) => [
     index("quest_child_subject_idx").on(table.childId, table.subjectId),
@@ -574,7 +574,7 @@ export const quest = pgTable(
   ]
 );
 
-export const questResource = pgTable(
+export const questResource = sqliteTable(
   "quest_resource",
   {
     id: text("id").primaryKey(),
@@ -585,7 +585,7 @@ export const questResource = pgTable(
     url: text("url"),
     details: text("details"),
     sortOrder: integer("sort_order").notNull().default(0),
-    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   },
   (table) => [
     index("resource_quest_idx").on(table.questId),
@@ -593,7 +593,7 @@ export const questResource = pgTable(
   ]
 );
 
-export const questSchedule = pgTable("quest_schedule", {
+export const questSchedule = sqliteTable("quest_schedule", {
   id: text("id").primaryKey(),
   questId: text("quest_id")
     .notNull()
@@ -604,10 +604,10 @@ export const questSchedule = pgTable("quest_schedule", {
   intervalWeeks: integer("interval_weeks"), // used when frequency === "weekly"; 1 = every week, 2 = every other week, etc.
   startDate: text("start_date").notNull(), // ISO YYYY-MM-DD
   endDate: text("end_date"), // null = indefinite
-  createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 
-export const questAssignment = pgTable(
+export const questAssignment = sqliteTable(
   "quest_assignment",
   {
     id: text("id").primaryKey(),
@@ -637,15 +637,15 @@ export const questAssignment = pgTable(
       .default("pending"),
     activityLogId: text("activity_log_id")
       .references(() => activityLog.id, { onDelete: "set null" }),
-    completedAt: timestamp("completed_at", { mode: "date", withTimezone: true }),
+    completedAt: integer("completed_at", { mode: "timestamp" }),
     notes: text("notes"),
     // Why the quest was set aside — a hero's "I'm stuck", or the reason it was
     // skipped. Deliberately not filed in `notes`: Scribe's Notes are the record
     // of work that was done, and they feed the learning log. A reason for not
     // doing the work is a different claim and must never be able to pass as one.
     statusReason: text("status_reason"),
-    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull(),
-    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   },
   (table) => [
     index("assignment_child_date_idx").on(table.childId, table.date),
@@ -655,7 +655,7 @@ export const questAssignment = pgTable(
   ]
 );
 
-export const questReminder = pgTable("quest_reminder", {
+export const questReminder = sqliteTable("quest_reminder", {
   id: text("id").primaryKey(),
   questId: text("quest_id")
     .notNull()
@@ -663,13 +663,13 @@ export const questReminder = pgTable("quest_reminder", {
   type: text("type", { enum: ["day_before", "morning_of", "custom"] }).notNull(),
   timeOfDay: text("time_of_day"), // "08:00" HH:mm format
   channel: text("channel", { enum: ["email", "push"] }).notNull().default("push"),
-  enabled: boolean("enabled").notNull().default(true),
-  createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull(),
+  enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 
 // ── School calendar ─────────────────────────────────────────
 
-export const schoolBreak = pgTable(
+export const schoolBreak = sqliteTable(
   "school_break",
   {
     id: text("id").primaryKey(),
@@ -679,8 +679,8 @@ export const schoolBreak = pgTable(
     name: text("name").notNull(),
     startDate: text("start_date").notNull(), // ISO YYYY-MM-DD
     endDate: text("end_date").notNull(), // ISO YYYY-MM-DD
-    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull(),
-    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   },
   (table) => [
     index("school_break_family_idx").on(table.familyId),
@@ -695,7 +695,7 @@ export const schoolBreak = pgTable(
  * Per-child rather than per-family on purpose — one sibling being behind is
  * not a reason to hand the other a pile of old work.
  */
-export const makeupDay = pgTable(
+export const makeupDay = sqliteTable(
   "makeup_day",
   {
     id: text("id").primaryKey(),
@@ -704,7 +704,7 @@ export const makeupDay = pgTable(
       .references(() => child.id, { onDelete: "cascade" }),
     date: text("date").notNull(), // ISO YYYY-MM-DD
     note: text("note"), // why the day was set aside, for the grown-ups
-    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   },
   (table) => [
     uniqueIndex("makeup_day_child_date_idx").on(table.childId, table.date),
@@ -721,7 +721,7 @@ export const makeupDay = pgTable(
  * because the ordinary case is one hero out and the other not; "apply to all"
  * is a convenience in the UI that writes one row per hero.
  */
-export const excusedDay = pgTable(
+export const excusedDay = sqliteTable(
   "excused_day",
   {
     id: text("id").primaryKey(),
@@ -733,8 +733,8 @@ export const excusedDay = pgTable(
       enum: ["sick", "appointment", "family", "holiday", "other"],
     }).notNull(),
     note: text("note"),
-    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull(),
-    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   },
   (table) => [
     uniqueIndex("excused_day_child_date_idx").on(table.childId, table.date),
@@ -746,7 +746,7 @@ export const excusedDay = pgTable(
 
 // ── Castle system (unlocks at level 50) ─────────────────────
 
-export const castle = pgTable(
+export const castle = sqliteTable(
   "castle",
   {
     id: text("id").primaryKey(),
@@ -756,8 +756,8 @@ export const castle = pgTable(
       .references(() => child.id, { onDelete: "cascade" }),
     type: text("type").notNull().default("campsite"), // campsite, cottage, watchtower, keep, manor, castle, fortress, citadel
     name: text("name"),
-    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull(),
-    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   },
   (table) => [
     index("castle_child_idx").on(table.childId),
@@ -773,7 +773,7 @@ export const castle = pgTable(
  * crown for a completed season is chosen by ordinal (first season, second...),
  * which is stored rather than derived so a tier never changes after the fact.
  */
-export const season = pgTable(
+export const season = sqliteTable(
   "season",
   {
     id: text("id").primaryKey(),
@@ -784,11 +784,11 @@ export const season = pgTable(
     ordinal: integer("ordinal").notNull(),
     startDate: text("start_date").notNull(), // ISO YYYY-MM-DD
     endDate: text("end_date"), // ISO YYYY-MM-DD, set on completion
-    completedAt: timestamp("completed_at", { mode: "date", withTimezone: true }), // null = open
+    completedAt: integer("completed_at", { mode: "timestamp" }), // null = open
     crownId: text("crown_id"), // crown-catalog id, minted on completion
-    ceremonySeenAt: timestamp("ceremony_seen_at", { mode: "date", withTimezone: true }), // null until the hero has seen (or a family member has dismissed) the crown ceremony
-    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull(),
-    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).notNull(),
+    ceremonySeenAt: integer("ceremony_seen_at", { mode: "timestamp" }), // null until the hero has seen (or a family member has dismissed) the crown ceremony
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   },
   (table) => [
     index("season_child_idx").on(table.childId),
@@ -801,7 +801,7 @@ export const season = pgTable(
 
 // ── The Realm: parent-controlled settings ───────────────────
 
-export const realmSettings = pgTable(
+export const realmSettings = sqliteTable(
   "realm_settings",
   {
     id: text("id").primaryKey(),
@@ -809,7 +809,7 @@ export const realmSettings = pgTable(
       .notNull()
       .unique()
       .references(() => child.id, { onDelete: "cascade" }),
-    enabled: boolean("enabled").notNull().default(true),
+    enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
     // earned: minutes come from completed quests; scheduled: recess blocks;
     // both: either opens the Realm.
     accessMode: text("access_mode", { enum: ["earned", "scheduled", "both", "open"] })
@@ -817,13 +817,13 @@ export const realmSettings = pgTable(
       .default("earned"),
     earnedMinutesPerQuest: integer("earned_minutes_per_quest").notNull().default(5),
     // Play allowed outside school hours and on non-school days.
-    offHoursEnabled: boolean("off_hours_enabled").notNull().default(false),
+    offHoursEnabled: integer("off_hours_enabled", { mode: "boolean" }).notNull().default(false),
     // Hard screen-time ceiling per local day, whatever the mode.
     dailyCapMinutes: integer("daily_cap_minutes").notNull().default(30),
     toneMode: text("tone_mode", { enum: ["gentle", "monsters"] }).notNull().default("gentle"),
     // Slice 8: when the hero first saw the how-to-play card, and when the starter spell was seeded (or found unnecessary).
-    helpSeenAt: timestamp("help_seen_at", { mode: "date", withTimezone: true }),
-    starterSpellAt: timestamp("starter_spell_at", { mode: "date", withTimezone: true }),
+    helpSeenAt: integer("help_seen_at", { mode: "timestamp" }),
+    starterSpellAt: integer("starter_spell_at", { mode: "timestamp" }),
     // Slice 1 of the presentation overhaul: how much the Realm shows.
     // 'auto' follows the tutorial; a hero or a grown-up can pin it either way.
     depthOverride: text("depth_override", { enum: ["auto", "simple", "full"] }).notNull().default("auto"),
@@ -834,7 +834,7 @@ export const realmSettings = pgTable(
     // bounty off. It can never outrun the day's schoolwork: see `lib/realm/spells/bounty.ts`.
     troubleBonusCapMinutes: integer("trouble_bonus_cap_minutes").notNull().default(5),
     sideQuestLength: integer("side_quest_length").notNull().default(8),
-    secondChances: boolean("second_chances").notNull().default(true),
+    secondChances: integer("second_chances", { mode: "boolean" }).notNull().default(true),
     // Earning time (docs/superpowers/specs/2026-11-09-realm-earning-time-design.md §4.8): free minutes a
     // day, minutes one side-quest star pays, the most side quests pay a day, and the most a day carries over.
     dailyAllowanceMinutes: integer("daily_allowance_minutes").notNull().default(10),
@@ -845,8 +845,8 @@ export const realmSettings = pgTable(
     // (`lib/realm3d/sound/settings.ts`). Null is the defaults. A visiting grown-up's own are
     // `realm_visitor_sound`, kept per grown-up.
     sound: text("sound"),
-    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull(),
-    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   }
 );
 
@@ -855,7 +855,7 @@ export const realmSettings = pgTable(
  * files assume a schedule block has a subject, and a break must not ripple
  * through all of them.
  */
-export const recessBlock = pgTable(
+export const recessBlock = sqliteTable(
   "recess_block",
   {
     id: text("id").primaryKey(),
@@ -867,8 +867,8 @@ export const recessBlock = pgTable(
     }).notNull(),
     startTime: text("start_time").notNull(), // "HH:mm"
     endTime: text("end_time").notNull(), // "HH:mm"
-    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull(),
-    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   },
   (table) => [index("recess_block_child_day_idx").on(table.childId, table.dayOfWeek)]
 );
@@ -880,7 +880,7 @@ export const recessBlock = pgTable(
  * name is never stored and no column names a diagnosis. A child's record
  * should describe what helps them, not label them.
  */
-export const learningProfile = pgTable(
+export const learningProfile = sqliteTable(
   "learning_profile",
   {
     id: text("id").primaryKey(),
@@ -888,17 +888,17 @@ export const learningProfile = pgTable(
       .notNull()
       .unique()
       .references(() => child.id, { onDelete: "cascade" }),
-    readingFont: boolean("reading_font").notNull().default(false),
-    largerText: boolean("larger_text").notNull().default(false),
-    extraSpacing: boolean("extra_spacing").notNull().default(false),
-    readAloud: boolean("read_aloud").notNull().default(false),
-    untimed: boolean("untimed").notNull().default(false),
+    readingFont: integer("reading_font", { mode: "boolean" }).notNull().default(false),
+    largerText: integer("larger_text", { mode: "boolean" }).notNull().default(false),
+    extraSpacing: integer("extra_spacing", { mode: "boolean" }).notNull().default(false),
+    readAloud: integer("read_aloud", { mode: "boolean" }).notNull().default(false),
+    untimed: integer("untimed", { mode: "boolean" }).notNull().default(false),
     sessionMinutes: integer("session_minutes"), // null = no break suggestion
-    fewerChoices: boolean("fewer_choices").notNull().default(false),
-    reducedMotion: boolean("reduced_motion").notNull().default(false),
-    lowStimulus: boolean("low_stimulus").notNull().default(false),
-    predictableRoutine: boolean("predictable_routine").notNull().default(false),
-    soundEnabled: boolean("sound_enabled").notNull().default(true),
+    fewerChoices: integer("fewer_choices", { mode: "boolean" }).notNull().default(false),
+    reducedMotion: integer("reduced_motion", { mode: "boolean" }).notNull().default(false),
+    lowStimulus: integer("low_stimulus", { mode: "boolean" }).notNull().default(false),
+    predictableRoutine: integer("predictable_routine", { mode: "boolean" }).notNull().default(false),
+    soundEnabled: integer("sound_enabled", { mode: "boolean" }).notNull().default(true),
     inputMode: text("input_mode", { enum: ["auto", "touch", "keyboard"] }).notNull().default("auto"),
     // How far each strand sits from the child's own grade. 0 is at grade level. Stored as a
     // gap, not a grade, so a promotion carries it up the ladder with no code path of its own.
@@ -906,8 +906,8 @@ export const learningProfile = pgTable(
     readingOffset: integer("reading_offset").notNull().default(0),
     languageOffset: integer("language_offset").notNull().default(0),
     scienceOffset: integer("science_offset").notNull().default(0),
-    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull(),
-    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   }
 );
 
@@ -924,15 +924,15 @@ export const learningProfile = pgTable(
  * one parent muting a visit never mutes the other parent or the tutor, and a view-only member
  * can keep their own without write access to anything of the child's. No row is the defaults.
  */
-export const realmVisitorSound = pgTable("realm_visitor_sound", {
+export const realmVisitorSound = sqliteTable("realm_visitor_sound", {
   userId: text("user_id")
     .primaryKey()
     .references(() => user.id, { onDelete: "cascade" }),
   sound: text("sound").notNull(),
-  updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
 
-export const realmPlayLedger = pgTable(
+export const realmPlayLedger = sqliteTable(
   "realm_play_ledger",
   {
     id: text("id").primaryKey(),
@@ -950,7 +950,7 @@ export const realmPlayLedger = pgTable(
     sourceAssignmentId: text("source_assignment_id"),
     // The side-quest run a `practice` row paid for (no FK: runs are pruned, the minutes must survive).
     sourceRunId: text("source_run_id"),
-    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   },
   (table) => [
     // Also serves the carry query ("latest earlier date" for a child).
@@ -977,7 +977,7 @@ export const realmPlayLedger = pgTable(
  * paid clear per home per day" a property of the table rather than of the client. The minutes
  * themselves are banked as one `bonus` ledger row per batch, which is what the clock reads.
  */
-export const realmTroubleClear = pgTable(
+export const realmTroubleClear = sqliteTable(
   "realm_trouble_clear",
   {
     id: text("id").primaryKey(),
@@ -987,7 +987,7 @@ export const realmTroubleClear = pgTable(
     date: text("date").notNull(), // hero's local ISO day
     homeId: text("home_id").notNull(),
     minutes: integer("minutes").notNull().default(0),
-    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   },
   (table) => [
     index("realm_trouble_clear_child_date_idx").on(table.childId, table.date),
@@ -1003,7 +1003,7 @@ export const realmTroubleClear = pgTable(
  * travel's destinations (`lib/realm/places-found.ts`). Written only by the hero themselves, and
  * idempotently: finding a place twice is one row.
  */
-export const realmPlaceFound = pgTable(
+export const realmPlaceFound = sqliteTable(
   "realm_place_found",
   {
     id: text("id").primaryKey(),
@@ -1011,7 +1011,7 @@ export const realmPlaceFound = pgTable(
       .notNull()
       .references(() => child.id, { onDelete: "cascade" }),
     placeId: text("place_id").notNull(),
-    foundAt: timestamp("found_at", { mode: "date", withTimezone: true }).notNull(),
+    foundAt: integer("found_at", { mode: "timestamp" }).notNull(),
   },
   (table) => [uniqueIndex("realm_place_found_child_place_idx").on(table.childId, table.placeId)]
 );
@@ -1022,7 +1022,7 @@ export const realmPlaceFound = pgTable(
  * clears the lap bests only. Foot and ridden bests are kept apart. These are NOT currency:
  * nothing here converts to Realm minutes. Written only by the hero themselves.
  */
-export const realmRecessRecord = pgTable("realm_recess_record", {
+export const realmRecessRecord = sqliteTable("realm_recess_record", {
   id: text("id").primaryKey(),
   childId: text("child_id")
     .notNull()
@@ -1033,9 +1033,9 @@ export const realmRecessRecord = pgTable("realm_recess_record", {
   bestLapMs: integer("best_lap_ms"),
   bestMountedLapMs: integer("best_mounted_lap_ms"),
   courseId: text("course_id").notNull().default("island-ring-1"),
-  lastLapAt: timestamp("last_lap_at", { mode: "date", withTimezone: true }),
-  createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull(),
-  updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).notNull(),
+  lastLapAt: integer("last_lap_at", { mode: "timestamp" }),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
 });
 
 // ── The Realm: spellbook ────────────────────────────────────
@@ -1046,7 +1046,7 @@ export const realmRecessRecord = pgTable("realm_recess_record", {
  * does, and which parts a hero may use is decided at save time from their
  * level, badges, quest rewards, and schoolwork.
  */
-export const spell = pgTable(
+export const spell = sqliteTable(
   "spell",
   {
     id: text("id").primaryKey(),
@@ -1059,8 +1059,8 @@ export const spell = pgTable(
     modifierId: text("modifier_id"), // null = no modifier
     adjective: text("adjective").notNull(), // word-bank pick
     noun: text("noun").notNull(), // word-bank pick
-    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull(),
-    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   },
   (table) => [
     uniqueIndex("spell_child_slot_idx").on(table.childId, table.slot),
@@ -1076,7 +1076,7 @@ export const spell = pgTable(
  * upserted from src/content/drills/*.json by the seed script, keyed by the
  * item id, so content edits propagate without a migration.
  */
-export const drillItem = pgTable(
+export const drillItem = sqliteTable(
   "drill_item",
   {
     id: text("id").primaryKey(), // the JSON item id, e.g. "sight-g23-because"
@@ -1088,7 +1088,7 @@ export const drillItem = pgTable(
     distractors: text("distractors").notNull(), // JSON array of 3 strings
     readAloud: text("read_aloud"),
     level: integer("level").notNull().default(2), // 0–4
-    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   },
   (table) => [index("drill_item_pool_idx").on(table.poolId)]
 );
@@ -1097,7 +1097,7 @@ export const drillItem = pgTable(
  * A hero's rung on one skill's ladder. Low mastery never locks anything; it
  * only picks easier questions, so a hard week costs nothing but practice.
  */
-export const skillMastery = pgTable(
+export const skillMastery = sqliteTable(
   "skill_mastery",
   {
     id: text("id").primaryKey(),
@@ -1109,9 +1109,9 @@ export const skillMastery = pgTable(
     recentResults: text("recent_results").notNull().default("[]"), // JSON booleans, newest last, max 10
     correctTotal: integer("correct_total").notNull().default(0),
     attemptTotal: integer("attempt_total").notNull().default(0),
-    lastPracticedAt: timestamp("last_practiced_at", { mode: "date", withTimezone: true }),
-    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull(),
-    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).notNull(),
+    lastPracticedAt: integer("last_practiced_at", { mode: "timestamp" }),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   },
   (table) => [uniqueIndex("skill_mastery_child_skill_idx").on(table.childId, table.skillId)]
 );
@@ -1121,7 +1121,7 @@ export const skillMastery = pgTable(
  * server-side; the client only ever sees prompts and choices. Runs are the
  * Realm's own record and never touch the learning log or XP.
  */
-export const deedRun = pgTable(
+export const deedRun = sqliteTable(
   "deed_run",
   {
     id: text("id").primaryKey(),
@@ -1137,23 +1137,23 @@ export const deedRun = pgTable(
     // say what changed without a second table.
     masteryStart: text("mastery_start").notNull().default("{}"), // JSON Record<skillId, level>
     correctCount: integer("correct_count").notNull().default(0),
-    flawless: boolean("flawless").notNull().default(false),
+    flawless: integer("flawless", { mode: "boolean" }).notNull().default(false),
     // Second-try answers, parallel to `responses` (JSON (string | null)[]).
     secondTries: text("second_tries").notNull().default("[]"),
     stars: integer("stars").notNull().default(0),
     kind: text("kind", { enum: ["deed", "challenge"] }).notNull().default("deed"),
     // Frozen at run start, so changing the setting never alters a run in flight.
-    secondChances: boolean("second_chances").notNull().default(false),
-    startedAt: timestamp("started_at", { mode: "date", withTimezone: true }).notNull(),
-    completedAt: timestamp("completed_at", { mode: "date", withTimezone: true }),
-    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull(),
-    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).notNull(),
+    secondChances: integer("second_chances", { mode: "boolean" }).notNull().default(false),
+    startedAt: integer("started_at", { mode: "timestamp" }).notNull(),
+    completedAt: integer("completed_at", { mode: "timestamp" }),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   },
   (table) => [index("deed_run_child_completed_idx").on(table.childId, table.completedAt)]
 );
 
 /** How far a hero has raised each kingdom building. Cumulative across seasons. */
-export const kingdomProgress = pgTable(
+export const kingdomProgress = sqliteTable(
   "kingdom_progress",
   {
     id: text("id").primaryKey(),
@@ -1162,9 +1162,9 @@ export const kingdomProgress = pgTable(
       .references(() => child.id, { onDelete: "cascade" }),
     buildingId: text("building_id").notNull(),
     deedsDone: integer("deeds_done").notNull().default(0),
-    completedAt: timestamp("completed_at", { mode: "date", withTimezone: true }),
-    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull(),
-    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).notNull(),
+    completedAt: integer("completed_at", { mode: "timestamp" }),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   },
   (table) => [uniqueIndex("kingdom_progress_child_building_idx").on(table.childId, table.buildingId)]
 );
@@ -1176,20 +1176,20 @@ export const kingdomProgress = pgTable(
  * to FEEDBACK_NOTIFY_EMAIL, so a failed email never loses a request. The three interest flags are
  * independent opt-ins: help beta-test now, and/or hear when free or paid plans open.
  */
-export const accessRequest = pgTable(
+export const accessRequest = sqliteTable(
   "access_request",
   {
     id: text("id").primaryKey(),
     name: text("name").notNull(),
     email: text("email").notNull(),
     message: text("message"),
-    wantsBeta: boolean("wants_beta").notNull().default(false),
-    notifyFree: boolean("notify_free").notNull().default(false),
-    notifyPaid: boolean("notify_paid").notNull().default(false),
+    wantsBeta: integer("wants_beta", { mode: "boolean" }).notNull().default(false),
+    notifyFree: integer("notify_free", { mode: "boolean" }).notNull().default(false),
+    notifyPaid: integer("notify_paid", { mode: "boolean" }).notNull().default(false),
     // Hashed, not raw: only ever compared for rate limiting.
     ipHash: text("ip_hash"),
     status: text("status", { enum: ["new", "invited", "declined"] }).notNull().default("new"),
-    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   },
   (table) => [
     index("access_request_email_idx").on(table.email, table.createdAt),
@@ -1199,7 +1199,7 @@ export const accessRequest = pgTable(
 
 // ── Feedback (Send a Raven) ─────────────────────────────────
 
-export const feedback = pgTable(
+export const feedback = sqliteTable(
   "feedback",
   {
     id: text("id").primaryKey(),
@@ -1214,8 +1214,8 @@ export const feedback = pgTable(
       .notNull()
       .default("new"),
     adminNotes: text("admin_notes"),
-    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull(),
-    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   },
   (table) => [
     index("feedback_user_idx").on(table.userId),
@@ -1225,7 +1225,7 @@ export const feedback = pgTable(
 
 // ── Quest reward unlocks ────────────────────────────────────
 
-export const childAvatarUnlock = pgTable(
+export const childAvatarUnlock = sqliteTable(
   "child_avatar_unlock",
   {
     id: text("id").primaryKey(),
@@ -1236,7 +1236,7 @@ export const childAvatarUnlock = pgTable(
     itemId: text("item_id").notNull(),
     source: text("source").notNull().default("quest_reward"),
     sourceQuestId: text("source_quest_id").references(() => quest.id, { onDelete: "set null" }),
-    unlockedAt: timestamp("unlocked_at", { mode: "date", withTimezone: true }).notNull(),
+    unlockedAt: integer("unlocked_at", { mode: "timestamp" }).notNull(),
   },
   (table) => [
     uniqueIndex("child_avatar_unlock_unique_idx").on(table.childId, table.category, table.itemId),
@@ -1256,7 +1256,7 @@ export const childAvatarUnlock = pgTable(
  * still read correctly after the quest is renamed, or after it's removed and
  * the assignment row goes with it.
  */
-export const parentAlert = pgTable(
+export const parentAlert = sqliteTable(
   "parent_alert",
   {
     id: text("id").primaryKey(),
@@ -1275,7 +1275,7 @@ export const parentAlert = pgTable(
     subjectName: text("subject_name"),
     date: text("date").notNull(), // ISO YYYY-MM-DD of the assignment
     note: text("note"), // the hero's own reason, when they gave one
-    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   },
   (table) => [index("parent_alert_family_idx").on(table.familyId, table.createdAt)]
 );
@@ -1289,7 +1289,7 @@ export const parentAlert = pgTable(
  * user that has no row in `user`, and a dismissal is worth keeping even if the
  * membership behind it is rebuilt.
  */
-export const parentAlertDismissal = pgTable(
+export const parentAlertDismissal = sqliteTable(
   "parent_alert_dismissal",
   {
     id: text("id").primaryKey(),
@@ -1297,7 +1297,7 @@ export const parentAlertDismissal = pgTable(
       .notNull()
       .references(() => parentAlert.id, { onDelete: "cascade" }),
     userId: text("user_id").notNull(),
-    dismissedAt: timestamp("dismissed_at", { mode: "date", withTimezone: true }).notNull(),
+    dismissedAt: integer("dismissed_at", { mode: "timestamp" }).notNull(),
   },
   (table) => [
     uniqueIndex("parent_alert_dismissal_unique_idx").on(table.alertId, table.userId),
@@ -1316,7 +1316,7 @@ export const parentAlertDismissal = pgTable(
  * streak, or school XP, and separate tables make that structural instead of a
  * filter someone can forget.
  */
-export const upkeepTask = pgTable(
+export const upkeepTask = sqliteTable(
   "upkeep_task",
   {
     id: text("id").primaryKey(),
@@ -1330,13 +1330,13 @@ export const upkeepTask = pgTable(
     valueCents: integer("value_cents"),
     // False marks a nice-to-have: it still pays and still grants XP when done,
     // but it never reads as missed and never counts as outstanding.
-    isRequired: boolean("is_required").notNull().default(true),
+    isRequired: integer("is_required", { mode: "boolean" }).notNull().default(true),
     rewardXp: integer("reward_xp"),
     estimatedMinutes: integer("estimated_minutes"),
-    isActive: boolean("is_active").notNull().default(true),
+    isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
     sortOrder: integer("sort_order").notNull().default(0),
-    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull(),
-    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   },
   (table) => [
     index("upkeep_task_child_active_idx").on(table.childId, table.isActive),
@@ -1344,7 +1344,7 @@ export const upkeepTask = pgTable(
 );
 
 /** How often a task recurs. Same shape as questSchedule, minus school days. */
-export const upkeepTaskSchedule = pgTable("upkeep_task_schedule", {
+export const upkeepTaskSchedule = sqliteTable("upkeep_task_schedule", {
   id: text("id").primaryKey(),
   taskId: text("task_id")
     .notNull()
@@ -1355,7 +1355,7 @@ export const upkeepTaskSchedule = pgTable("upkeep_task_schedule", {
   intervalWeeks: integer("interval_weeks"), // used when weekly; 1 = every week
   startDate: text("start_date").notNull(), // ISO YYYY-MM-DD
   endDate: text("end_date"), // null = indefinite
-  createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull(),
+  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
 });
 
 /**
@@ -1369,7 +1369,7 @@ export const upkeepTaskSchedule = pgTable("upkeep_task_schedule", {
  * "missed" is NOT a status here. It is derived (required + past + pending) so
  * the feature needs no sweep job and no state that can drift.
  */
-export const upkeepTaskAssignment = pgTable(
+export const upkeepTaskAssignment = sqliteTable(
   "upkeep_task_assignment",
   {
     id: text("id").primaryKey(),
@@ -1385,18 +1385,18 @@ export const upkeepTaskAssignment = pgTable(
     })
       .notNull()
       .default("pending"),
-    completedAt: timestamp("completed_at", { mode: "date", withTimezone: true }),
+    completedAt: integer("completed_at", { mode: "timestamp" }),
     // Not foreign keys: a PIN hero has no row in `user` (they are recorded as
     // "child:<id>"), and the demo actor has none either. Same reasoning as
     // parentAlertDismissal.userId.
     completedByUserId: text("completed_by_user_id"),
-    approvedAt: timestamp("approved_at", { mode: "date", withTimezone: true }),
+    approvedAt: integer("approved_at", { mode: "timestamp" }),
     approvedByUserId: text("approved_by_user_id"),
     notes: text("notes"),
     // Why it was excused, or why an approval was turned down.
     statusReason: text("status_reason"),
-    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull(),
-    updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   },
   (table) => [
     uniqueIndex("upkeep_assignment_child_task_date_idx").on(
@@ -1424,7 +1424,7 @@ export const upkeepTaskAssignment = pgTable(
  * parentAlert copies its quest details in: a ledger line has to still read
  * correctly after the task is renamed or retired.
  */
-export const wageLedgerEntry = pgTable(
+export const wageLedgerEntry = sqliteTable(
   "wage_ledger_entry",
   {
     id: text("id").primaryKey(),
@@ -1442,7 +1442,7 @@ export const wageLedgerEntry = pgTable(
     date: text("date").notNull(), // ISO YYYY-MM-DD
     note: text("note"),
     createdByUserId: text("created_by_user_id"),
-    createdAt: timestamp("created_at", { mode: "date", withTimezone: true }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   },
   (table) => [
     index("wage_ledger_child_idx").on(table.childId, table.createdAt),

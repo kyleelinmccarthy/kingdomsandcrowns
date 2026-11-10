@@ -1,23 +1,15 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeAll, beforeEach, afterAll } from "vitest";
-import { Client } from "pg";
-import { drizzle } from "drizzle-orm/node-postgres";
-import * as schema from "@/lib/db/schema";
+import { testDatabase } from "@/test/libsql-test-db";
 import { COURSE_ID, minLapMs, ringCourse } from "@/lib/realm3d/recess/course";
 import { LAP_TOO_FAST } from "@/lib/realm/recess/record";
 
 /**
- * The Ring's record against a real Postgres database. The gate is mocked as the actor — the hero, or
+ * The Ring's record against a real libsql database. The gate is mocked as the actor — the hero, or
  * a grown-up with edit or view-only access — with the real `write` rule.
- *
- * Runs in its own schema so it can share a Postgres server with the other real-database tests
- * without their tables colliding.
  */
-const SCHEMA = "test_realm_recess";
-const client = new Client({
-  connectionString: process.env.DATABASE_URL || "postgres://postgres:postgres@localhost:5432/kingdomsandcrowns",
-});
-const testDb = drizzle(client, { schema });
+const client = testDatabase("realm-recess");
+const testDb = client.db;
 
 type Actor = { userId: string; permission: "edit" | "view" };
 let actor: Actor = { userId: "child:c1", permission: "edit" };
@@ -38,11 +30,11 @@ const { loadRecessRecord } = await import("@/lib/services/recess");
 const DDL = [
   `CREATE TABLE realm_recess_record (
     id text PRIMARY KEY NOT NULL, child_id text NOT NULL, total_gleams integer DEFAULT 0 NOT NULL, laps integer DEFAULT 0 NOT NULL,
-    best_lap_ms integer, best_mounted_lap_ms integer, course_id text DEFAULT 'island-ring-1' NOT NULL, last_lap_at timestamptz,
-    created_at timestamptz NOT NULL, updated_at timestamptz NOT NULL)`,
+    best_lap_ms integer, best_mounted_lap_ms integer, course_id text DEFAULT 'island-ring-1' NOT NULL, last_lap_at integer,
+    created_at integer NOT NULL, updated_at integer NOT NULL)`,
   `CREATE UNIQUE INDEX realm_recess_record_child_id_unique ON realm_recess_record (child_id)`,
   // The minutes ledger, to count: the Ring must never write to it.
-  `CREATE TABLE realm_play_ledger (id text PRIMARY KEY NOT NULL, child_id text NOT NULL, date text NOT NULL, kind text NOT NULL, minutes integer NOT NULL, source_assignment_id text, source_run_id text, created_at timestamptz NOT NULL)`,
+  `CREATE TABLE realm_play_ledger (id text PRIMARY KEY NOT NULL, child_id text NOT NULL, date text NOT NULL, kind text NOT NULL, minutes integer NOT NULL, source_assignment_id text, source_run_id text, created_at integer NOT NULL)`,
 ];
 
 const hero: Actor = { userId: "child:c1", permission: "edit" };
@@ -56,10 +48,6 @@ async function count(table: string): Promise<number> {
 }
 
 beforeAll(async () => {
-  await client.connect();
-  await client.query(`DROP SCHEMA IF EXISTS "${SCHEMA}" CASCADE`);
-  await client.query(`CREATE SCHEMA "${SCHEMA}"`);
-  await client.query(`SET search_path TO "${SCHEMA}"`);
   for (const sql of DDL) await client.query(sql);
 });
 
@@ -70,8 +58,7 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  await client.query(`DROP SCHEMA IF EXISTS "${SCHEMA}" CASCADE`);
-  await client.end();
+  client.close();
 });
 
 describe("recordRecessResult — who writes", () => {

@@ -50,7 +50,7 @@ export const auth = betterAuth({
   appName: "Kingdoms & Crowns",
   trustedOrigins: buildTrustedOrigins(),
   database: drizzleAdapter(db, {
-    provider: "pg",
+    provider: "sqlite",
     schema,
   }),
   emailAndPassword: {

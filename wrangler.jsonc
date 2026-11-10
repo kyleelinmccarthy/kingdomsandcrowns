@@ -5,20 +5,10 @@
   "main": ".open-next/worker.js",
   "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_compat"],
-  // Every render makes several round trips to Postgres, which lives in one region. Smart Placement
+  // Every render makes several round trips to Turso, which lives in one region. Smart Placement
   // runs the Worker near the database instead of near each visitor (static assets still serve
   // from the edge), so those round trips stay short.
   "placement": { "mode": "smart" },
-  // Postgres 18, reached through Hyperdrive (connection pooling near the database). Create it with
-  // `npx wrangler hyperdrive create kingdomsandcrowns-db --connection-string="postgres://..."` and
-  // paste the id below. `wrangler dev` / `npm run preview` connect straight to localConnectionString.
-  "hyperdrive": [
-    {
-      "binding": "HYPERDRIVE",
-      "id": "00000000000000000000000000000000",
-      "localConnectionString": "postgres://postgres:postgres@localhost:5432/kingdomsandcrowns"
-    }
-  ],
   "assets": {
     "directory": ".open-next/assets",
     "binding": "ASSETS"

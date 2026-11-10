@@ -1,0 +1,1 @@
+ALTER TABLE `child` ADD `show_on_leaderboard` integer DEFAULT false NOT NULL;

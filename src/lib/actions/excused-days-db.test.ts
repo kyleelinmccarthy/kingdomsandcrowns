@@ -1,20 +1,13 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeAll, beforeEach, afterAll } from "vitest";
-import { Client } from "pg";
-import { drizzle } from "drizzle-orm/node-postgres";
-import * as schema from "@/lib/db/schema";
+import { testDatabase } from "@/test/libsql-test-db";
 
 /**
- * Excusing one quest, against a REAL Postgres database: only that quest is
+ * Excusing one quest, against a REAL libsql database: only that quest is
  * excused, and the day itself is excused once every quest on it has been.
- * Runs in its own schema so it can share a Postgres server with the other
- * real-database tests.
  */
-const SCHEMA = "test_excused_days_db";
-const client = new Client({
-  connectionString: process.env.DATABASE_URL || "postgres://postgres:postgres@localhost:5432/kingdomsandcrowns",
-});
-const testDb = drizzle(client, { schema });
+const client = testDatabase("excused-days-db");
+const testDb = client.db;
 
 vi.mock("@/lib/db", () => ({ db: testDb }));
 vi.mock("@/lib/auth/access", () => ({
@@ -36,11 +29,11 @@ const DDL = [
   `CREATE TABLE quest_assignment (
     id text PRIMARY KEY NOT NULL, quest_id text NOT NULL, child_id text NOT NULL, date text NOT NULL,
     original_date text, status text DEFAULT 'pending' NOT NULL, activity_log_id text,
-    completed_at timestamptz, notes text, status_reason text,
-    created_at timestamptz NOT NULL, updated_at timestamptz NOT NULL)`,
+    completed_at integer, notes text, status_reason text,
+    created_at integer NOT NULL, updated_at integer NOT NULL)`,
   `CREATE TABLE excused_day (
     id text PRIMARY KEY NOT NULL, child_id text NOT NULL, date text NOT NULL, reason text NOT NULL,
-    note text, created_at timestamptz NOT NULL, updated_at timestamptz NOT NULL)`,
+    note text, created_at integer NOT NULL, updated_at integer NOT NULL)`,
   `CREATE UNIQUE INDEX excused_day_child_date_idx ON excused_day (child_id, date)`,
 ];
 
@@ -49,13 +42,13 @@ const DAY = "2026-09-03";
 async function seed(id: string, status: string, date = DAY) {
   await client.query(
     `INSERT INTO quest_assignment (id, quest_id, child_id, date, status, created_at, updated_at)
-     VALUES ($1, $2, 'c1', $3, $4, NOW(), NOW())`,
+     VALUES (?1, ?2, 'c1', ?3, ?4, unixepoch(), unixepoch())`,
     [id, `q-${id}`, date, status],
   );
 }
 
 async function assignment(id: string): Promise<{ status: string; status_reason: string | null }> {
-  const r = await client.query("SELECT status, status_reason FROM quest_assignment WHERE id = $1", [id]);
+  const r = await client.query("SELECT status, status_reason FROM quest_assignment WHERE id = ?1", [id]);
   return r.rows[0];
 }
 
@@ -65,10 +58,6 @@ async function excusedDays(): Promise<{ date: string; reason: string; note: stri
 }
 
 beforeAll(async () => {
-  await client.connect();
-  await client.query(`DROP SCHEMA IF EXISTS "${SCHEMA}" CASCADE`);
-  await client.query(`CREATE SCHEMA "${SCHEMA}"`);
-  await client.query(`SET search_path TO "${SCHEMA}"`);
   for (const sql of DDL) await client.query(sql);
 });
 
@@ -78,8 +67,7 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  await client.query(`DROP SCHEMA IF EXISTS "${SCHEMA}" CASCADE`);
-  await client.end();
+  client.close();
 });
 
 describe("excuseAssignment", () => {

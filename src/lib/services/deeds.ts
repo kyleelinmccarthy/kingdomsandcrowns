@@ -150,12 +150,13 @@ export async function loadDeedBest(childId: string): Promise<DeedBest[]> {
     .select({
       deedId: run.deedId,
       bestStars: sql<number | null>`max(${run.stars}) filter (where ${run.kind} = 'deed' and ${run.completedAt} is not null)`,
-      crowned: sql<boolean | null>`bool_or(${run.kind} = 'challenge' and ${run.flawless} and ${run.completedAt} is not null)`,
+      // SQLite has no bool_or: the max of a 0/1 condition is 1 when any row meets it.
+      crowned: sql<number | null>`max(${run.kind} = 'challenge' and ${run.flawless} and ${run.completedAt} is not null)`,
     })
     .from(run)
     .where(eq(run.childId, childId))
     .groupBy(run.deedId);
-  return rows.map((r) => ({ deedId: r.deedId, bestStars: (r.bestStars ?? 0) as Stars, crowned: r.crowned === true }));
+  return rows.map((r) => ({ deedId: r.deedId, bestStars: (r.bestStars ?? 0) as Stars, crowned: Number(r.crowned) === 1 }));
 }
 
 export async function loadKingdomOverview(childId: string): Promise<HeroLevels & { buildings: BuildingOverview[] }> {

@@ -1,18 +1,13 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeAll, beforeEach, afterAll } from "vitest";
-import { Client } from "pg";
-import { drizzle } from "drizzle-orm/node-postgres";
-import * as schema from "@/lib/db/schema";
+import { testDatabase } from "@/test/libsql-test-db";
 
 /**
- * The public "Request access" form, against a real Postgres database: it stores the request,
+ * The public "Request access" form, against a real libsql database: it stores the request,
  * emails the owner with the visitor's opt-ins, and holds back bots and repeat submissions.
  */
-const SCHEMA = "test_access_request";
-const client = new Client({
-  connectionString: process.env.DATABASE_URL || "postgres://postgres:postgres@localhost:5432/kingdomsandcrowns",
-});
-const testDb = drizzle(client, { schema });
+const client = testDatabase("access-request");
+const testDb = client.db;
 
 let ip = "203.0.113.7";
 type Mail = { to: string; subject: string; text: string; replyTo?: string };
@@ -27,15 +22,11 @@ vi.mock("next/headers", () => ({ headers: async () => new Headers({ "cf-connecti
 const { requestAccess } = await import("./access-request");
 
 beforeAll(async () => {
-  await client.connect();
-  await client.query(`DROP SCHEMA IF EXISTS "${SCHEMA}" CASCADE`);
-  await client.query(`CREATE SCHEMA "${SCHEMA}"`);
-  await client.query(`SET search_path TO "${SCHEMA}"`);
   await client.query(`CREATE TABLE access_request (
     id text PRIMARY KEY, name text NOT NULL, email text NOT NULL, message text,
-    wants_beta boolean NOT NULL DEFAULT false, notify_free boolean NOT NULL DEFAULT false,
-    notify_paid boolean NOT NULL DEFAULT false, ip_hash text, status text NOT NULL DEFAULT 'new',
-    created_at timestamptz NOT NULL)`);
+    wants_beta integer NOT NULL DEFAULT false, notify_free integer NOT NULL DEFAULT false,
+    notify_paid integer NOT NULL DEFAULT false, ip_hash text, status text NOT NULL DEFAULT 'new',
+    created_at integer NOT NULL)`);
 });
 beforeEach(async () => {
   await client.query("DELETE FROM access_request");
@@ -44,8 +35,7 @@ beforeEach(async () => {
   process.env.FEEDBACK_NOTIFY_EMAIL = "owner@example.com";
 });
 afterAll(async () => {
-  await client.query(`DROP SCHEMA IF EXISTS "${SCHEMA}" CASCADE`);
-  await client.end();
+  client.close();
 });
 
 const base = { name: "Pat Parent", email: "Pat@Example.com", wantsBeta: true, notifyFree: false, notifyPaid: true };
@@ -55,7 +45,7 @@ describe("requestAccess", () => {
   it("stores the request and emails the owner with the visitor's opt-ins, replying to the visitor", async () => {
     expect(await requestAccess({ ...base, message: "Two kids, 7 and 10" })).toEqual({ ok: true });
     const [r] = await rows();
-    expect(r).toMatchObject({ name: "Pat Parent", email: "pat@example.com", wants_beta: true, notify_free: false, notify_paid: true, message: "Two kids, 7 and 10" });
+    expect(r).toMatchObject({ name: "Pat Parent", email: "pat@example.com", wants_beta: 1, notify_free: 0, notify_paid: 1, message: "Two kids, 7 and 10" });
     expect(r.ip_hash).toMatch(/^[0-9a-f]{32}$/);
     expect(r.ip_hash).not.toContain("203.0.113.7");
     expect(sendEmail).toHaveBeenCalledOnce();

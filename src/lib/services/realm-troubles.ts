@@ -80,18 +80,14 @@ async function recordTroubleClearRows(childId: string, date: string, rows: reado
  * The whole award as one write transaction (`withChildLock`): the per-minute limit, the day's
  * allowance, the award and its writes. Read-then-write outside a transaction let two calls at once (two tabs, a
  * replayed request) both read an untouched allowance and both bank it in full; the unique index
- * only stops the same home paying twice, not two calls paying different homes. Postgres's default
- * isolation does NOT take a write lock at BEGIN the way a libsql write transaction did, so the
- * transaction opens by taking a `pg_advisory_xact_lock` keyed on childId — the second call for the
- * same hero blocks until the first commits and releases it, then reads what the first wrote. Lock
- * scope is per-childId, so unrelated heroes never block each other, and it's released automatically
- * at COMMIT/ROLLBACK.
+ * only stops the same home paying twice, not two calls paying different homes. A libsql write
+ * transaction takes the write lock at BEGIN, so the second call reads what the first wrote.
  *
  * Calls for one hero in one server process also queue behind each other before they reach the
- * database, which is not only politeness but keeps one process from blocking its own event loop
- * on its own advisory lock. Across isolates (production on Cloudflare Workers) the advisory lock
- * is what serializes; withWriteRetry is a defensive retry for the rare Postgres deadlock or
- * serialization-failure error, not for routine contention (which blocks rather than erroring).
+ * database. That is not only politeness: the local libsql driver leaves a statement that failed
+ * on a busy lock un-reset on its connection, and the next COMMIT on that connection then fails
+ * too, holding the lock. Across processes (production's instances on Turso) the transaction is
+ * what serializes, and a busy lock is retried briefly.
  */
 export async function awardTroubleClears(
   childId: string,

@@ -1,24 +1,17 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeAll, beforeEach, afterAll } from "vitest";
-import { Client } from "pg";
-import { drizzle } from "drizzle-orm/node-postgres";
-import * as schema from "@/lib/db/schema";
+import { testDatabase } from "@/test/libsql-test-db";
 import { REALM_ACCESS_DDL, REALM_LEDGER_DDL, REALM_SETTINGS_DDL, REALM_TROUBLE_CLEAR_DDL } from "@/test/realm-db-ddl";
 
 /**
- * Opening a Realm day against a REAL Postgres database: the child's own first access check of
+ * Opening a Realm day against a REAL libsql database: the child's own first access check of
  * the server's day writes the free allowance and yesterday's bank exactly once (spec 2026-11-09
  * §4.2, §4.4). Only a real database shows the once-a-day guarantees holding — the partial unique
- * indexes and the child's advisory lock — and the carry chain reading back what an earlier day
- * actually left.
- *
- * Runs in its own schema so it can share a Postgres server with the other real-database tests.
+ * indexes and the child's write transaction — and the carry chain reading back what an earlier
+ * day actually left.
  */
-const SCHEMA = "test_realm_day_db";
-const client = new Client({
-  connectionString: process.env.DATABASE_URL || "postgres://postgres:postgres@localhost:5432/kingdomsandcrowns",
-});
-const testDb = drizzle(client, { schema });
+const client = testDatabase("realm-day-db");
+const testDb = client.db;
 
 vi.mock("@/lib/db", () => ({ db: testDb }));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
@@ -41,10 +34,6 @@ const { grantEarnedMinutesForCompletion } = await import("@/lib/services/realm-p
 const DDL = [...REALM_SETTINGS_DDL, ...REALM_LEDGER_DDL, ...REALM_TROUBLE_CLEAR_DDL, ...REALM_ACCESS_DDL];
 
 beforeAll(async () => {
-  await client.connect();
-  await client.query(`DROP SCHEMA IF EXISTS "${SCHEMA}" CASCADE`);
-  await client.query(`CREATE SCHEMA "${SCHEMA}"`);
-  await client.query(`SET search_path TO "${SCHEMA}"`);
   for (const sql of DDL) await client.query(sql);
 });
 
@@ -55,29 +44,28 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  await client.query(`DROP SCHEMA IF EXISTS "${SCHEMA}" CASCADE`);
-  await client.end();
+  client.close();
 });
 
 let seq = 0;
 async function row(date: string, kind: string, minutes: number) {
   await client.query(
-    "INSERT INTO realm_play_ledger (id, child_id, date, kind, minutes, created_at) VALUES ($1, 'c1', $2, $3, $4, NOW())",
+    "INSERT INTO realm_play_ledger (id, child_id, date, kind, minutes, created_at) VALUES (?1, 'c1', ?2, ?3, ?4, unixepoch())",
     [`r${++seq}`, date, kind, minutes],
   );
 }
 
-async function settings(cols: Record<string, string | number>) {
+async function settings(cols: Record<string, string | number | boolean>) {
   await client.query(
-    "INSERT INTO realm_settings (id, child_id, created_at, updated_at) VALUES ('s1', 'c1', NOW(), NOW()) ON CONFLICT DO NOTHING",
+    "INSERT INTO realm_settings (id, child_id, created_at, updated_at) VALUES ('s1', 'c1', unixepoch(), unixepoch()) ON CONFLICT DO NOTHING",
   );
-  for (const [col, v] of Object.entries(cols)) await client.query(`UPDATE realm_settings SET ${col} = $1 WHERE child_id = 'c1'`, [v]);
+  for (const [col, v] of Object.entries(cols)) await client.query(`UPDATE realm_settings SET ${col} = ?1 WHERE child_id = 'c1'`, [v]);
 }
 
 /** The opening rows written for `date`, by kind: `[minutes, …]` (more than one means written twice). */
 async function opening(date: string): Promise<{ allowance: number[]; carried: number[] }> {
   const r = await client.query(
-    "SELECT kind, minutes FROM realm_play_ledger WHERE child_id = 'c1' AND date = $1 AND kind IN ('allowance', 'carried') ORDER BY kind",
+    "SELECT kind, minutes FROM realm_play_ledger WHERE child_id = 'c1' AND date = ?1 AND kind IN ('allowance', 'carried') ORDER BY kind",
     [date],
   );
   const of = (k: string) => r.rows.filter((x) => x.kind === k).map((x) => Number(x.minutes));
@@ -151,7 +139,7 @@ describe("opening the day — the child's own first access check", () => {
   });
 
   it("writes nothing in scheduled or open mode, or with the Realm off", async () => {
-    const offs: Record<string, string>[] = [{ access_mode: "scheduled" }, { access_mode: "open" }, { enabled: "false" }];
+    const offs: Record<string, string | boolean>[] = [{ access_mode: "scheduled" }, { access_mode: "open" }, { enabled: false }];
     for (const cols of offs) {
       await client.query("DELETE FROM realm_settings");
       await settings(cols);
@@ -198,7 +186,7 @@ describe("every write to a day opens it first", () => {
       ["clear", () => recordTroubleClears("c1", ["rim-0"])],
     ];
     for (const [what, write] of writers) {
-      await client.query("DELETE FROM realm_play_ledger WHERE date = $1", [today]);
+      await client.query("DELETE FROM realm_play_ledger WHERE date = ?1", [today]);
       actor = CHILD;
       await write();
       expect(await opening(today), what).toEqual({ allowance: [10], carried: [4] });
@@ -230,7 +218,7 @@ describe("the quiet world", () => {
   });
 
   it("off hours at a 0 balance is real play: its clears are paid", async () => {
-    await settings({ off_hours_enabled: "true", daily_allowance_minutes: 0 });
+    await settings({ off_hours_enabled: true, daily_allowance_minutes: 0 });
     // No classes today, so it is outside school hours.
     expect(await getRealmAccess("c1")).toEqual({ allowed: true, minutesRemaining: 30, source: "off_hours" });
     expect((await recordTroubleClears("c1", ["rim-0"])).awarded).toBe(1);
