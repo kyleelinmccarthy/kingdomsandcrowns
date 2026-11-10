@@ -8,7 +8,7 @@ import type { SkillMeter } from "./mastery";
 import type { SkillArea } from "./skills";
 
 export type RunStart = {
-  runId: string; deed: { id: string; title: string; story: string; area: SkillArea }; questions: ClientTask[]; responses: (string | null)[];
+  runId: string; deed: { id: string; title: string; story: string; area: SkillArea | null }; questions: ClientTask[]; responses: (string | null)[];
   kind: RunKind;
   /** A resumed run left on a second chance: reopen there, the first pick ruled out and the hint shown. */
   pending: { index: number; ruledOut: string; hint: string } | null;
@@ -44,7 +44,8 @@ export type RunSummary = {
   /** Whether the side quest holds its crown after this run: a flawless Crown Challenge earns it. */
   crowned: boolean;
   kind: RunKind;
-  building: { label: string; done: number; total: number; complete: boolean; stars: number; maxStars: number };
+  /** Null for a run that raises nothing (a review run). */
+  building: { label: string; done: number; total: number; complete: boolean; stars: number; maxStars: number } | null;
   /** Realm play minutes this run paid (`sideQuestPay`): 0 for a challenge, a starless run or a grown-up's run. */
   minutesEarned: number;
   /** The day's side-quest minutes are all earned, so the card can say so instead of "+0". */

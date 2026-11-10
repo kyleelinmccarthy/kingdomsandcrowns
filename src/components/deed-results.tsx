@@ -7,7 +7,7 @@ import type { RunSummary } from "@/lib/utils/deed-run-types";
 import type { SkillArea } from "@/lib/utils/skills";
 import { SIDE_QUESTS_LOWER } from "@/lib/utils/side-quest-copy";
 
-export function DeedResults({ summary, deedTitle, area, onDone, doneLabel = `Back to ${SIDE_QUESTS_LOWER}` }: { summary: RunSummary; deedTitle: string; area: SkillArea; onDone: () => void; doneLabel?: string }) {
+export function DeedResults({ summary, deedTitle, area, onDone, doneLabel = `Back to ${SIDE_QUESTS_LOWER}` }: { summary: RunSummary; deedTitle: string; area: SkillArea | null; onDone: () => void; doneLabel?: string }) {
   const starsLine = resultStarsLine(summary);
   const minutesLine = resultMinutesLine(summary);
   return (
@@ -20,14 +20,14 @@ export function DeedResults({ summary, deedTitle, area, onDone, doneLabel = `Bac
       )}
       {starsLine && <p className="text-sm font-semibold">{starsLine}</p>}
       {minutesLine && <p className="text-sm font-semibold">{minutesLine}</p>}
-      <SubjectChip area={area} size="md" />
+      {area && <SubjectChip area={area} size="md" />}
       <p className="text-sm">{summary.correctCount} of {summary.total} right in {deedTitle}.</p>
       {summary.masteryChanges.length > 0 && (
         <ul className="space-y-1 text-sm">
           {summary.masteryChanges.map((c) => <li key={c}>{c}</li>)}
         </ul>
       )}
-      <p className="text-sm text-muted-foreground">{resultBuildingLine(summary.building)}</p>
+      {summary.building && <p className="text-sm text-muted-foreground">{resultBuildingLine(summary.building)}</p>}
       <Button onClick={onDone}>{doneLabel}</Button>
     </div>
   );

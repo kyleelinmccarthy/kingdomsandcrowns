@@ -432,13 +432,13 @@ export async function completeDeedRun(runId: string): Promise<RunSummary> {
   const pay = effects.earnsStars && stars > 0 && isChildActor(access) ? await payForRun(run.childId, runId, stars) : NO_SIDE_QUEST_PAY;
 
   const counted = effects.raisesBuilding && countsTowardBuilding(stars);
-  const deed = findDeed(run.deedId);
+  const deed = run.deedId ? findDeed(run.deedId) : null;
   const building = deed ? findBuilding(deed.buildingId) : null;
   const progress = building ? await buildingAfter(run.childId, building, counted, now) : { done: 0, total: 0, complete: false };
 
   // A challenge earns no stars, so it cannot move a best; a deed can only raise it.
   const deedBest = Math.max(previousBest, stars) as Stars;
-  const bestAfter = [...bestBefore.filter((b) => b.deedId !== run.deedId), { deedId: run.deedId, bestStars: deedBest }];
+  const bestAfter = [...bestBefore.filter((b) => b.deedId !== run.deedId), ...(run.deedId ? [{ deedId: run.deedId, bestStars: deedBest }] : [])];
   const buildingStarsNow = building ? buildingStars(building.id, bestAfter) : { stars: 0, maxStars: 0 };
 
   const masteryStart = JSON.parse(run.masteryStart) as Record<string, number>;
@@ -457,7 +457,8 @@ export async function completeDeedRun(runId: string): Promise<RunSummary> {
   revalidatePath("/loot");
   return {
     correctCount, total: questions.length, flawless, masteryChanges, stars, previousBest, deedBest, counted, crowned, kind: run.kind,
-    building: { label: building?.label ?? "the kingdom", ...progress, ...buildingStarsNow },
+    // A run owned by no side quest (a review) raises nothing, so it has no building to show.
+    building: run.deedId ? { label: building?.label ?? "the kingdom", ...progress, ...buildingStarsNow } : null,
     minutesEarned: pay.minutes, sideQuestPayFull: pay.full,
   };
 }

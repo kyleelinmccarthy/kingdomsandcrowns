@@ -55,7 +55,7 @@ const { requireChildAccess } = await import("@/lib/auth/access");
 // `activity_log` carry only the columns the school count reads.
 const DDL = [
   `CREATE TABLE deed_run (
-    id text PRIMARY KEY NOT NULL, child_id text NOT NULL, deed_id text NOT NULL, skill_ids text NOT NULL,
+    id text PRIMARY KEY NOT NULL, child_id text NOT NULL, deed_id text, source_ref text, skill_ids text NOT NULL,
     band text NOT NULL, questions text NOT NULL, responses text DEFAULT '[]' NOT NULL,
     mastery_start text DEFAULT '{}' NOT NULL, correct_count integer DEFAULT 0 NOT NULL,
     flawless integer DEFAULT false NOT NULL, started_at integer NOT NULL, completed_at integer,

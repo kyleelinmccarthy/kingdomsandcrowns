@@ -76,6 +76,16 @@ describe("run kinds", () => {
   it("a deed does everything", () => {
     expect(Object.values(RUN_EFFECTS.deed).every((v) => v === true)).toBe(true);
   });
+  it("a review moves mastery and feeds review, and raises nothing", () => {
+    expect(RUN_EFFECTS.review).toEqual({
+      raisesBuilding: false,
+      earnsStars: false,
+      movesMastery: true,
+      countsForSchool: false,
+      feedsReview: true,
+      allowsSecondChances: true,
+    });
+  });
   it("pins the challenge shape", () => {
     expect(CHALLENGE).toEqual({ questions: 3, levelBoost: 1 });
   });

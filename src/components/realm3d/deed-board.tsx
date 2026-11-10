@@ -48,7 +48,7 @@ type Profile = { readAloud: boolean; untimed: boolean };
  * the run counted, the side quest's new best and crown, and for a Crown Challenge whether it won.
  * All but the building are optional so a hand-raised building (the dev hook) still fits.
  */
-export type DeedResult = RunSummary["building"] & {
+export type DeedResult = NonNullable<RunSummary["building"]> & {
   counted?: boolean;
   deed?: { id: string; bestStars: Stars; crowned?: boolean };
   challenge?: { won: boolean };
@@ -59,7 +59,8 @@ export type DeedResult = RunSummary["building"] & {
 const CROWN_CHALLENGE = "Crown Challenge";
 
 /** A subject, as a coloured tag in the frame's own type. */
-function Subject({ area }: { area: SkillArea }) {
+function Subject({ area }: { area: SkillArea | null }) {
+  if (!area) return null;
   const { label, color } = AREA_LABELS[area];
   return (
     <span className="r3-subject" style={{ ["--r3-ink" as string]: color }}>
@@ -140,7 +141,7 @@ export function DeedBoard({
   if (run) {
     const title = run.kind === "challenge" ? `${CROWN_CHALLENGE}: ${run.deed.title}` : run.deed.title;
     const handUp = (done: RunSummary) =>
-      onResult(site.id, {
+      done.building && onResult(site.id, {
         ...done.building, counted: done.counted, minutesEarned: done.minutesEarned, deed: { id: run.deed.id, bestStars: done.deedBest, crowned: done.crowned },
         ...(done.kind === "challenge" ? { challenge: { won: done.flawless } } : {}),
       });
@@ -323,9 +324,11 @@ function DeedRun({
             ))}
           </ul>
         )}
-        <p className="r3-result-building">
-          <GameIcon name="house" className="r3-result-building-icon" /> {resultBuildingLine(summary.building)}
-        </p>
+        {summary.building && (
+          <p className="r3-result-building">
+            <GameIcon name="house" className="r3-result-building-icon" /> {resultBuildingLine(summary.building)}
+          </p>
+        )}
         <div className="r3-board-foot">
           <button type="button" className="r3-menu-item r3-menu-item--go" autoFocus onClick={onClose}>
             <GameIcon name="journey" className="r3-menu-icon" /> {doneLabel}

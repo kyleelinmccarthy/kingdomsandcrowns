@@ -95,7 +95,7 @@ export function DeedPlayer({
       action={!profile.untimed ? <span className="text-xs text-muted-foreground">{minutes} min</span> : undefined}
     >
       <div className="space-y-5">
-        <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground"><SubjectChip area={run.deed.area} /> {run.deed.story}</p>
+        <p className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">{run.deed.area && <SubjectChip area={run.deed.area} />} {run.deed.story}</p>
         <div className="flex items-center gap-1" aria-label={`Question ${index + 1} of ${run.questions.length}`} role="img">
           {run.questions.map((q, i) => (
             <span key={q.id} className={`size-2 rounded-full ${i < index ? "bg-[var(--gold-bright)]" : i === index ? "bg-primary" : "bg-muted"}`} />

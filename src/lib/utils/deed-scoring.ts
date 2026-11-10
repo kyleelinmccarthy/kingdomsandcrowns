@@ -7,7 +7,7 @@ export type Stars = 0 | 1 | 2 | 3;
 /** The most stars one side quest can hold. */
 export const MAX_STARS = 3;
 export type QuestionOutcome = "first" | "second" | "miss";
-export type RunKind = "deed" | "challenge";
+export type RunKind = "deed" | "challenge" | "review";
 
 export const SCORING = {
   firstTryPoints: 2,
@@ -52,6 +52,15 @@ export const RUN_EFFECTS: Record<RunKind, RunEffects> = {
     countsForSchool: false,
     feedsReview: false,
     allowsSecondChances: false,
+  },
+  /** A riddle stone or Quick review: it moves mastery and feeds review, but belongs to no building. */
+  review: {
+    raisesBuilding: false,
+    earnsStars: false,
+    movesMastery: true,
+    countsForSchool: false,
+    feedsReview: true,
+    allowsSecondChances: true,
   },
 };
 

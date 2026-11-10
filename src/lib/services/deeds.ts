@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, isNotNull, sql } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { loadRealmSettings } from "@/lib/services/realm-play";
@@ -154,9 +154,10 @@ export async function loadDeedBest(childId: string): Promise<DeedBest[]> {
       crowned: sql<number | null>`max(${run.kind} = 'challenge' and ${run.flawless} and ${run.completedAt} is not null)`,
     })
     .from(run)
-    .where(eq(run.childId, childId))
+    // A run owned by no side quest (a review) has no best to keep.
+    .where(and(eq(run.childId, childId), isNotNull(run.deedId)))
     .groupBy(run.deedId);
-  return rows.map((r) => ({ deedId: r.deedId, bestStars: (r.bestStars ?? 0) as Stars, crowned: Number(r.crowned) === 1 }));
+  return rows.map((r) => ({ deedId: r.deedId as string, bestStars: (r.bestStars ?? 0) as Stars, crowned: Number(r.crowned) === 1 }));
 }
 
 export async function loadKingdomOverview(childId: string): Promise<HeroLevels & { buildings: BuildingOverview[] }> {

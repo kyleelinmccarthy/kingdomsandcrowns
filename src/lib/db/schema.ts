@@ -1128,7 +1128,10 @@ export const deedRun = sqliteTable(
     childId: text("child_id")
       .notNull()
       .references(() => child.id, { onDelete: "cascade" }),
-    deedId: text("deed_id").notNull(),
+    // Null for a run that belongs to no side quest (a review run); `sourceRef` then names its owner.
+    deedId: text("deed_id"),
+    // What a non-deed run belongs to: a place id, an improvement id + level, an object id.
+    sourceRef: text("source_ref"),
     skillIds: text("skill_ids").notNull(), // JSON string[]
     band: text("band", { enum: ["k1", "g23", "g45", "g68", "g912"] }).notNull(),
     questions: text("questions").notNull(), // JSON Question[] incl. answers — server-side only
@@ -1141,7 +1144,7 @@ export const deedRun = sqliteTable(
     // Second-try answers, parallel to `responses` (JSON (string | null)[]).
     secondTries: text("second_tries").notNull().default("[]"),
     stars: integer("stars").notNull().default(0),
-    kind: text("kind", { enum: ["deed", "challenge"] }).notNull().default("deed"),
+    kind: text("kind", { enum: ["deed", "challenge", "review"] }).notNull().default("deed"),
     // Frozen at run start, so changing the setting never alters a run in flight.
     secondChances: integer("second_chances", { mode: "boolean" }).notNull().default(false),
     startedAt: integer("started_at", { mode: "timestamp" }).notNull(),
