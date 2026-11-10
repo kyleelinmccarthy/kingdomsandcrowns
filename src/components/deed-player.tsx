@@ -48,7 +48,7 @@ export function DeedPlayer({
 
   // Read-aloud is a side effect, not state: the profile asks for it, the effect obeys.
   useEffect(() => {
-    if (profile.readAloud && question) speak(question.readAloud ?? question.prompt);
+    if (profile.readAloud && question) speak(question.readAloud ?? question.view.prompt);
     return () => {
       if (canSpeak()) window.speechSynthesis.cancel();
     };
@@ -63,7 +63,7 @@ export function DeedPlayer({
 
   const nextRef = useRef<HTMLButtonElement>(null);
   const firstOpenChoice = useRef<HTMLButtonElement>(null);
-  const firstOpen = question.choices.findIndex((c) => !flow.ruledOut.includes(c));
+  const firstOpen = question.view.choices.findIndex((c) => !flow.ruledOut.includes(c));
   const feedback = flow.result ? attemptFeedback(flow.result, flow.ruledOut.length > 0) : null;
 
   // The hint is read once, when the second chance opens.
@@ -114,15 +114,15 @@ export function DeedPlayer({
         <DeedMeter meter={meter} streak={flow.streak} calm={calm} numerals />
         {error && <div className="rounded-md bg-destructive/10 p-2 text-sm text-destructive">{error} <Button size="xs" variant="ghost" onClick={() => setError("")}>Try again</Button></div>}
         <div className="flex items-start gap-3">
-          <p className="flex-1 text-xl font-medium">{question.prompt}</p>
+          <p className="flex-1 text-xl font-medium">{question.view.prompt}</p>
           {speakable && (
-            <Button size="sm" variant="outline" aria-label="Read aloud" onClick={() => speak(question.readAloud ?? question.prompt)}>
+            <Button size="sm" variant="outline" aria-label="Read aloud" onClick={() => speak(question.readAloud ?? question.view.prompt)}>
               <GameIcon name="sparkles" className="size-4" />
             </Button>
           )}
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
-          {question.choices.map((choice, i) => {
+          {question.view.choices.map((choice, i) => {
             const tone = choiceTone(flow, choice);
             const ruledOut = tone === "ruled-out";
             return (

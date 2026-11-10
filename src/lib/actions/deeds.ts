@@ -16,16 +16,16 @@ import {
   buildDeedRun,
   chooseSkills,
   gradeAnswer,
-  toClientQuestion,
   type PoolItem,
 } from "@/lib/utils/deed-engine";
 import { masteryChangeCopy, masteryLabel, parseRecentResults, progressToNextRung, recordResult } from "@/lib/utils/mastery";
 import type { Question } from "@/lib/utils/drill-generators";
+import { isTaskCorrect, kindOf, taskDef, toClientTask, type ResponseByKind, type Task, type TaskKind } from "@/lib/tasks/registry";
 import { CHALLENGE, MAX_STARS, RUN_EFFECTS, countsTowardBuilding, runPoints, starsFor, type QuestionOutcome, type RunKind, type Stars } from "@/lib/utils/deed-scoring";
 import { outcomeOf, records, refuseGiveUp, refuseRetry, resumeIndex, statusOf, type QuestionStatus } from "@/lib/utils/deed-attempts";
 import {
   ALREADY_ANSWERED, ANSWER_EVERY, ANSWER_FIRST, CHALLENGE_LOCKED, CHALLENGE_NOT_READY, CLOSED, FINISHED, HERO_ONLY, NONE_READY,
-  NOT_IN_CHRONICLE, NOT_IN_RUN, NOT_THROUGH,
+  NOT_IN_CHRONICLE, NOT_IN_RUN, NOT_THROUGH, PICK_SHOWN,
 } from "@/lib/utils/deed-refusals";
 import { overdueSkills } from "@/lib/utils/review-schedule";
 import type { AttemptResult, RunStart, RunSummary } from "@/lib/utils/deed-run-types";
@@ -144,7 +144,7 @@ export async function startDeedRun(
       : null;
     return {
       runId: open[0].id, deed: { id: deed.id, title: deed.title, story, area: deed.area },
-      questions: questions.map(toClientQuestion), responses, kind: open[0].kind, pending,
+      questions: questions.map(toClientTask), responses, kind: open[0].kind, pending,
     };
   }
 
@@ -208,7 +208,7 @@ export async function startDeedRun(
   });
   return {
     runId, deed: { id: deed.id, title: deed.title, story, area: deed.area },
-    questions: built.questions.map(toClientQuestion), responses: built.questions.map(() => null), kind, pending: null,
+    questions: built.questions.map(toClientTask), responses: built.questions.map(() => null), kind, pending: null,
   };
 }
 
@@ -224,7 +224,8 @@ async function loadRun(runId: string): Promise<{ run: DeedRunRow; access: Family
 
 /** A stored run's questions and both tries, read the same way by every action. */
 function parseRun(run: DeedRunRow) {
-  const questions = JSON.parse(run.questions) as Question[];
+  // Stored rows predate kinds: an absent `kind` reads as choice (`kindOf`).
+  const questions = JSON.parse(run.questions) as Task[];
   const responses = JSON.parse(run.responses) as (string | null)[];
   const secondTries = JSON.parse(run.secondTries) as (string | null)[];
   // The run's own snapshot, never today's setting; and a kind that allows none has none.
@@ -249,14 +250,20 @@ async function loadAttemptState(runId: string, index: number) {
  * What the browser may know about a question in this state: the answer only once it is resolved.
  * An open second chance echoes the stored first pick, so a late repeat rules out what was stored.
  */
-function resultFor(question: Question, status: QuestionStatus, firstPick?: string): AttemptResult {
+function resultFor(question: Task, status: QuestionStatus, firstPick?: string): AttemptResult {
   if (status === "unanswered") throw new Error(ANSWER_FIRST);
   if (status === "open") return { correct: false, secondChance: true, hint: hintFor(question.skillId), firstPick };
   const correct = status === "right-first" || status === "right-second";
-  const result: AttemptResult = { correct, secondChance: false, answer: question.answer };
+  const result: AttemptResult = { correct, secondChance: false, answer: taskDef(kindOf(question)).answerText(question) };
   if (question.explain) result.explain = question.explain;
   else if (!correct) result.hint = hintFor(question.skillId);
   return result;
+}
+
+/** The kind's coded note on a response, only when it has one: `none` is left off the result. */
+function feedbackOf(question: Task, parsed: ResponseByKind[TaskKind]): Pick<AttemptResult, "feedback"> {
+  const code = taskDef(kindOf(question)).feedback(question, parsed);
+  return code === "none" ? {} : { feedback: code };
 }
 
 /**
@@ -296,15 +303,23 @@ async function recordFirstTry(childId: string, skillId: string, correct: boolean
 // Bounds the re-read loop below; only answers racing on other questions of the same run retry.
 const ANSWER_WRITE_TRIES = 5;
 
-export async function answerDeedQuestion(runId: string, index: number, answer: string): Promise<AttemptResult> {
+/**
+ * `response` is untrusted: the task's kind parses it before anything is written, and a response
+ * that is not well formed for the task is refused with nothing stored and no mastery moved.
+ */
+export async function answerDeedQuestion(runId: string, index: number, response: unknown): Promise<AttemptResult> {
   for (let tries = 0; tries < ANSWER_WRITE_TRIES; tries++) {
     const { run, questions, responses, question, attempt, allows } = await loadAttemptState(runId, index);
+    const def = taskDef(kindOf(question));
+    const parsed = def.parseResponse(response, question);
+    if (parsed === null) throw new Error(PICK_SHOWN);
+    const answer = def.encode(parsed);
     // A repeat answer to the same question (double tap, or the loser of a race) is not re-graded:
     // it hears what was stored, and while a second chance is open that is still only a hint.
     if (attempt.first !== null) return resultFor(question, statusOf(question, attempt, allows), attempt.first);
     const next = questions.map((_, i) => responses[i] ?? null);
     next[index] = answer;
-    const correctCount = questions.filter((q, i) => next[i] !== null && gradeAnswer(q, next[i]!)).length;
+    const correctCount = questions.filter((q, i) => next[i] !== null && isTaskCorrect(q, next[i]!)).length;
     const now = new Date();
     // Conditional on the stored responses being the ones just read, so two first answers can
     // never both land; a call that loses re-reads, and either hears the winner or reapplies.
@@ -314,9 +329,9 @@ export async function answerDeedQuestion(runId: string, index: number, answer: s
       .where(and(eq(schema.deedRun.id, runId), eq(schema.deedRun.responses, run.responses), isNull(schema.deedRun.completedAt)))
       .returning({ id: schema.deedRun.id });
     if (written.length === 0) continue;
-    const correct = gradeAnswer(question, answer);
+    const correct = isTaskCorrect(question, answer);
     const moved = RUN_EFFECTS[run.kind].movesMastery ? await recordFirstTry(run.childId, question.skillId, correct, now) : {};
-    return { ...resultFor(question, statusOf(question, { first: answer, second: null }, allows), answer), ...moved };
+    return { ...resultFor(question, statusOf(question, { first: answer, second: null }, allows), answer), ...moved, ...feedbackOf(question, parsed) };
   }
   throw new Error(NOT_THROUGH);
 }
@@ -336,12 +351,17 @@ async function writeSecondTry(run: DeedRunRow, secondTries: (string | null)[], q
   if (written.length === 0) throw new Error(ALREADY_ANSWERED);
 }
 
-export async function retryDeedQuestion(runId: string, index: number, answer: string): Promise<AttemptResult> {
+export async function retryDeedQuestion(runId: string, index: number, response: unknown): Promise<AttemptResult> {
   const { run, questions, secondTries, question, attempt, allows } = await loadAttemptState(runId, index);
-  const refusal = refuseRetry(question, attempt, allows, answer);
+  // `refuseRetry` parses `response` with the task's kind (PICK_SHOWN when it is not well formed), before any write.
+  const refusal = refuseRetry(question, attempt, allows, response);
   if (refusal) throw new Error(refusal);
+  const def = taskDef(kindOf(question));
+  const parsed = def.parseResponse(response, question);
+  if (parsed === null) throw new Error(PICK_SHOWN);
+  const answer = def.encode(parsed);
   await writeSecondTry(run, secondTries, questions.length, index, answer);
-  return resultFor(question, statusOf(question, { ...attempt, second: answer }, allows));
+  return { ...resultFor(question, statusOf(question, { ...attempt, second: answer }, allows)), ...feedbackOf(question, parsed) };
 }
 
 /** "Show me": closes an open second chance as a miss. Safe to answer, because the try is spent. */

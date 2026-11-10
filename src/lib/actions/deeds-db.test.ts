@@ -672,3 +672,59 @@ describe("getSchoolCounts", () => {
     expect((await getSchoolCounts("c1")).form).toBe(1);
   });
 });
+
+describe("answers are parsed by their task kind, and the browser gets views", () => {
+  async function attemptTotal(): Promise<number> {
+    const r = await client.query("SELECT coalesce(sum(attempt_total), 0) AS n FROM skill_mastery WHERE child_id = 'c1'");
+    return Number(r.rows[0].n);
+  }
+
+  it("a run stored before tasks had kinds resumes, answers and completes", async () => {
+    // QUESTIONS are plain `Question` JSON with no `kind`, exactly as older rows hold them.
+    await seedRun();
+    const start = await startDeedRun("c1", "well-stones", "realm");
+    expect(start.runId).toBe("run1");
+    expect(start.questions[0]).toMatchObject({ kind: "choice", id: "q0", view: { prompt: "2 x 3?", choices: ["6", "5", "8", "9"] } });
+    expect(await answerDeedQuestion("run1", 0, "6")).toMatchObject({ correct: true, secondChance: false, answer: "6" });
+    for (const [i, a] of [[1, "9"], [2, "12"], [3, "15"]] as const) await answerDeedQuestion("run1", i, a);
+    expect(await completeDeedRun("run1")).toMatchObject({ correctCount: 4, flawless: true, stars: 3 });
+  });
+
+  it("a malformed answer is refused and writes nothing", async () => {
+    await seedRun();
+    const before = await stored();
+    const masteryBefore = await attemptTotal();
+    for (const bad of [{}, 42, "x".repeat(10_001), "nine", null]) {
+      await expect(answerDeedQuestion("run1", 0, bad)).rejects.toThrow("Pick one of the answers shown.");
+    }
+    expect(await stored()).toEqual(before);
+    expect(await attemptTotal()).toBe(masteryBefore);
+  });
+
+  it("a malformed retry is refused and writes nothing", async () => {
+    await seedRun();
+    await answerDeedQuestion("run1", 1, "6");
+    const before = await stored();
+    for (const bad of [{}, 42, "x".repeat(10_001)]) {
+      await expect(retryDeedQuestion("run1", 1, bad)).rejects.toThrow("Pick one of the answers shown.");
+    }
+    expect(await stored()).toEqual(before);
+  });
+
+  it("stores the answer as the trimmed choice and grades it", async () => {
+    await seedRun();
+    expect(await answerDeedQuestion("run1", 0, " 6 ")).toMatchObject({ correct: true });
+    expect(JSON.parse((await stored()).responses)[0]).toBe("6");
+  });
+
+  it("the browser never sees an answer before resolution", async () => {
+    await seedRun();
+    const resumed = await startDeedRun("c1", "well-stones", "realm");
+    expect(JSON.stringify(resumed.questions)).not.toMatch(/"answer"|"explain"/);
+    await client.query("DELETE FROM deed_run");
+    const fresh = await startDeedRun("c1", "well-stones", "realm");
+    expect(fresh.runId).not.toBe("run1");
+    expect(JSON.stringify(fresh.questions)).not.toMatch(/"answer"|"explain"/);
+    expect(fresh.questions.every((q) => q.kind === "choice")).toBe(true);
+  });
+});

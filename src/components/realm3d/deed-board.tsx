@@ -10,7 +10,7 @@
  * `answerDeedQuestion` after every answer (so mastery moves on every answer, and an abandoned run
  * still taught something), the same `completeDeedRun` (so the building's progress and the mastery
  * summary are the server's), a run left half-way resumes at its first unanswered question within
- * the hour, and read-aloud reads `question.readAloud ?? question.prompt` exactly as `DeedPlayer`
+ * the hour, and read-aloud reads `question.readAloud ?? question.view.prompt` exactly as `DeedPlayer`
  * does. What is new is the LOOK — the frame's timber and gold — and a conversation in front of
  * the side quests, so a child meets a person, hears what they need, and then chooses what to do.
  *
@@ -253,7 +253,7 @@ function DeedRun({
   const isLast = index === run.questions.length - 1;
   const nextRef = useRef<HTMLButtonElement>(null);
   const firstOpenChoice = useRef<HTMLButtonElement>(null);
-  const firstOpen = question.choices.findIndex((c) => !flow.ruledOut.includes(c));
+  const firstOpen = question.view.choices.findIndex((c) => !flow.ruledOut.includes(c));
   const feedback = flow.result ? attemptFeedback(flow.result, flow.ruledOut.length > 0, villagerName) : null;
 
   // Read-aloud, as `DeedPlayer` does it: the profile asks, the effect obeys, and leaving stops it —
@@ -264,7 +264,7 @@ function DeedRun({
     spoken.current = speak(text);
   };
   useEffect(() => {
-    if (profile.readAloud && question) spoken.current = speak(question.readAloud ?? question.prompt);
+    if (profile.readAloud && question) spoken.current = speak(question.readAloud ?? question.view.prompt);
     return () => stopSpeaking(spoken.current);
   }, [profile.readAloud, question]);
 
@@ -309,7 +309,7 @@ function DeedRun({
       if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
       if (!e.code.startsWith("Digit")) return;
       const n = Number(e.code.slice(5));
-      const choice = question?.choices[n - 1];
+      const choice = question?.view.choices[n - 1];
       if (!choice) return;
       e.preventDefault();
       void chooseRef.current(choice);
@@ -385,15 +385,15 @@ function DeedRun({
         </p>
       )}
       <div className="r3-question">
-        <p className="r3-question-text">{question.prompt}</p>
+        <p className="r3-question-text">{question.view.prompt}</p>
         {canSpeak() && (
-          <button type="button" className="r3-round r3-read" aria-label="Read aloud" title="Read aloud" onClick={() => say(question.readAloud ?? question.prompt)}>
+          <button type="button" className="r3-round r3-read" aria-label="Read aloud" title="Read aloud" onClick={() => say(question.readAloud ?? question.view.prompt)}>
             <GameIcon name="sparkles" className="r3-read-icon" />
           </button>
         )}
       </div>
       <div className="r3-choices">
-        {question.choices.map((choice, i) => {
+        {question.view.choices.map((choice, i) => {
           const tone = choiceTone(flow, choice);
           const ruledOut = tone === "ruled-out";
           const sparkle = !calm && tone === "answer" && flow.result?.correct ? " r3-choice--sparkle" : "";

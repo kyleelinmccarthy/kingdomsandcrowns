@@ -45,9 +45,6 @@ export type BuildRunInput = {
 
 export type BuiltRun = { skillIds: string[]; questions: Question[] };
 
-/** What the browser receives: everything but the answer and its explanation. */
-export type ClientQuestion = Omit<Question, "answer" | "explain">;
-
 /** Recent misses that may come back in one run; the rest of `REVIEW.maxTotal` is for due skills. */
 const MAX_MISSES = 2;
 
@@ -427,11 +424,4 @@ export function buildDeedRun(input: BuildRunInput): BuiltRun {
 
 export function gradeAnswer(question: Pick<Question, "answer">, answer: string): boolean {
   return question.answer.trim() === answer.trim();
-}
-
-export function toClientQuestion(question: Question): ClientQuestion {
-  // Built explicitly (not via destructuring-and-discarding `answer`) because
-  // this repo's ESLint config has no unused-var ignore pattern for that idiom.
-  const { id, skillId, prompt, choices, readAloud } = question;
-  return { id, skillId, prompt, choices, readAloud };
 }

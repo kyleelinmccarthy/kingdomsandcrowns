@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { buildDeedRun, chooseSkills, gradeAnswer, toClientQuestion, type BuildRunInput, type PoolItem } from "./deed-engine";
+import { buildDeedRun, chooseSkills, gradeAnswer, type BuildRunInput, type PoolItem } from "./deed-engine";
 import { findDeed } from "./deeds";
 import { REVIEW } from "./review-schedule";
 import { CHALLENGE } from "./deed-scoring";
@@ -184,19 +184,11 @@ describe("buildDeedRun", () => {
   });
 });
 
-describe("grading and client shape", () => {
+describe("grading", () => {
   it("grades by exact match after trimming", () => {
     const q: Question = { id: "q", skillId: "s", prompt: "p", choices: ["a", "b", "c", "d"], answer: "b" };
     expect(gradeAnswer(q, " b ")).toBe(true);
     expect(gradeAnswer(q, "B")).toBe(false);
-  });
-  it("strips the answer for the client", () => {
-    const q: Question = { id: "q", skillId: "s", prompt: "p", choices: ["a", "b", "c", "d"], answer: "b", readAloud: "pee" };
-    expect(toClientQuestion(q)).toEqual({ id: "q", skillId: "s", prompt: "p", choices: ["a", "b", "c", "d"], readAloud: "pee" });
-  });
-  it("never sends the explanation to the client", () => {
-    const q: Question = { id: "q", skillId: "s", prompt: "p", choices: ["a", "b", "c", "d"], answer: "b", explain: "x" };
-    expect("explain" in toClientQuestion(q)).toBe(false);
   });
 });
 
