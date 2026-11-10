@@ -27,18 +27,22 @@ vi.mock("@/lib/services/realm-play", async () => {
 });
 vi.mock("@/lib/services/realm-clock", () => ({ realmNow: async () => ({ date: "2026-11-09", timeOfDay: "10:00" }) }));
 vi.mock("@/lib/services/learning-profile", () => ({ loadLearningProfileRow: vi.fn(async () => null) }));
-vi.mock("@/lib/services/deeds", async () => ({
-  ...(await vi.importActual<typeof import("@/lib/services/deeds")>("@/lib/services/deeds")),
-  loadHeroLevels: vi.fn(async () => ({
-    enabled: true, tone: "gentle", band: "g23",
-    grades: { math: "3", reading: "3", language: "3", science: "3" },
-  })),
-}));
+vi.mock("@/lib/services/deeds", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/services/deeds")>("@/lib/services/deeds");
+  return {
+    ...actual,
+    loadDeedBest: vi.fn(actual.loadDeedBest),
+    loadHeroLevels: vi.fn(async () => ({
+      enabled: true, tone: "gentle", band: "g23",
+      grades: { math: "3", reading: "3", language: "3", science: "3" },
+    })),
+  };
+});
 
 const { startReviewRun, getReviewDue } = await import("./review");
 const { answerDeedQuestion, resolveDeedQuestion, completeDeedRun } = await import("./deeds");
 const { loadRecentMisses } = await import("@/lib/services/deed-run-store");
-const { loadDeedBest } = await import("@/lib/services/deeds");
+const { loadDeedBest, loadHeroLevels } = await import("@/lib/services/deeds");
 const { requireChildAccess } = await import("@/lib/auth/access");
 const { loadLearningProfileRow } = await import("@/lib/services/learning-profile");
 
@@ -163,6 +167,22 @@ describe("a riddle stone's review run", () => {
     const run = (await client.query("SELECT stars, completed_at FROM deed_run WHERE id = ?1", [runId])).rows[0];
     expect(run.stars).toBe(0);
     expect(run.completed_at).not.toBeNull();
+  });
+
+  it("finishing a review does not read the hero's best stars: it belongs to no deed", async () => {
+    await learn();
+    const { runId, questions } = await started();
+    for (const [i, q] of questions.entries()) await answerDeedQuestion(runId, i, q.answer);
+    vi.mocked(loadDeedBest).mockClear();
+    await completeDeedRun(runId);
+    expect(loadDeedBest).not.toHaveBeenCalled();
+  });
+
+  it("reads the hero's levels once: the focus picks are judged on the grades already in hand", async () => {
+    await learn();
+    vi.mocked(loadHeroLevels).mockClear();
+    await started();
+    expect(loadHeroLevels).toHaveBeenCalledTimes(1);
   });
 
   it("two tabs finishing one review complete it once", async () => {

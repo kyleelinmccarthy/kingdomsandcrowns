@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { REVIEW_RUN, buildReviewRun, reviewDue } from "./review-run";
 import { findSkill } from "./skills";
+import { MASTERY_MAX } from "./mastery";
 import type { PoolItem } from "./deed-engine";
 import type { Question } from "./drill-generators";
 
@@ -203,6 +204,16 @@ describe("the learning profile", () => {
     const fewer = run({ mastery, poolItems, seed: 4, profile: { ...profile, fewerChoices: true } });
     expect(fewer.questions.map((q) => q.id)).toEqual(plain.questions.map((q) => q.id));
     expect(fewer.skillIds).toEqual(plain.skillIds);
+  });
+
+  it("draws a level past the top of the ladder at the top rung", () => {
+    const items = [1, 2, 3, 4, 5, 6].flatMap((n) => [
+      { ...item("sight-k1", n), id: `lo-${n}`, level: 1 }, { ...item("sight-k1", n), id: `hi-${n}`, level: MASTERY_MAX },
+    ]);
+    for (let seed = 1; seed <= 10; seed++) {
+      const r = run({ mastery: [row("sight-k1", 9, 20)], poolItems: items, seed });
+      expect(r.questions.map((q) => q.id.slice(0, 3))).toEqual(["hi-"]);
+    }
   });
 
   it("a profile with fewer choices off is the same run as no profile", () => {

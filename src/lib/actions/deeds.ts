@@ -93,7 +93,7 @@ export async function startDeedRun(
   // The focus picks are read alongside the open-run check: which pools to load depends on them.
   const [open, focusSkillIds] = await Promise.all([
     findOpenRun(and(eq(schema.deedRun.childId, childId), eq(schema.deedRun.deedId, deedId), eq(schema.deedRun.kind, kind))),
-    loadFocusSkillIds(childId),
+    loadFocusSkillIds(childId, hero.grades),
   ]);
   if (open) return resumedStart(open, { id: deed.id, title: deed.title, story, area: deed.area });
 
@@ -339,8 +339,9 @@ export async function completeDeedRun(runId: string): Promise<RunSummary> {
   const flawless = correctCount === questions.length;
   const { points, max: maxPoints } = runPoints(outcomes);
   const stars: Stars = effects.earnsStars ? starsFor(points, maxPoints) : 0;
-  // Read before this run's stars are written, so a new best is never measured against itself.
-  const bestBefore = await loadDeedBest(run.childId);
+  // Read before this run's stars are written, so a new best is never measured against itself. A
+  // run of no deed (a review) has no best and no building to measure, so nothing is read for it.
+  const bestBefore = run.deedId === null ? [] : await loadDeedBest(run.childId);
   const before = bestBefore.find((b) => b.deedId === run.deedId);
   const previousBest = before?.bestStars ?? 0;
   // Mirrors `loadDeedBest`'s crown: a finished challenge with every question right first time.

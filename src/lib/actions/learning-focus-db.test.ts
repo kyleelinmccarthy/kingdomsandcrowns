@@ -100,6 +100,20 @@ describe("refusals write nothing", () => {
     expect(await stored()).toEqual(["mul-facts"]);
   });
 
+  it.each([
+    ["no list at all", null],
+    ["a bare string", "mul-facts"],
+    ["an object", { 0: "mul-facts", length: 1 }],
+    ["a number in the list", [1]],
+    ["a null in the list", ["mul-facts", null]],
+  ])("rejects %s before reading anything, and writes nothing", async (_name, skillIds) => {
+    await setFocusSkills("c1", ["mul-facts"]);
+    vi.mocked(loadHeroLevels).mockClear();
+    await expect(setFocusSkills("c1", skillIds as never)).rejects.toThrow("That skill isn't one this hero can focus on.");
+    expect(loadHeroLevels).not.toHaveBeenCalled();
+    expect(await stored()).toEqual(["mul-facts"]);
+  });
+
   it("rejects a skill two grades away", async () => {
     await expect(setFocusSkills("c1", ["frac-addsub"])).rejects.toThrow(
       "That skill isn't one this hero can focus on.",
@@ -117,6 +131,14 @@ describe("reading focus back", () => {
     expect(await loadFocusSkillIds("c1")).toEqual([]);
     // The row is left alone: a demotion later brings the pick back.
     expect(await stored()).toEqual(["mul-facts", "place-value"]);
+  });
+
+  it("judges against grades the caller already holds, without reading them again", async () => {
+    await setFocusSkills("c1", ["mul-facts", "place-value"]);
+    vi.mocked(loadHeroLevels).mockClear();
+    expect(await loadFocusSkillIds("c1", { math: "4", reading: "3", language: "3", science: "3" })).toEqual(["mul-facts", "place-value"]);
+    expect(await loadFocusSkillIds("c1", { math: "6", reading: "3", language: "3", science: "3" })).toEqual([]);
+    expect(loadHeroLevels).not.toHaveBeenCalled();
   });
 
   it("is empty for a hero with no picks", async () => {

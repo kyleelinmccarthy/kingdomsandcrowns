@@ -53,7 +53,7 @@ export async function startReviewRun(childId: string, origin: ReviewOrigin): Pro
   if (open) return resumedStart(open, header);
 
   const [masteryRows, recentMisses, settings, focusSkillIds, profileRow] = await Promise.all([
-    loadMasteryRows(childId), loadRecentMisses(childId), loadRealmSettings(childId), loadFocusSkillIds(childId),
+    loadMasteryRows(childId), loadRecentMisses(childId), loadRealmSettings(childId), loadFocusSkillIds(childId, hero.grades),
     // Memoized per request: the same round trip loadHeroLevels just made.
     loadLearningProfileRow(childId),
   ]);

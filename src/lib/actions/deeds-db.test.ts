@@ -46,7 +46,7 @@ vi.mock("@/lib/services/deeds", async () => ({
 const { answerDeedQuestion, retryDeedQuestion, resolveDeedQuestion, completeDeedRun, startDeedRun } = await import("./deeds");
 const { getSchoolCounts } = await import("./subjects");
 const { getRealmAccess, recordRealmPlay } = await import("./realm-play");
-const { loadDeedBest } = await import("@/lib/services/deeds");
+const { loadDeedBest, loadHeroLevels } = await import("@/lib/services/deeds");
 const { loadRealmSettings, paySideQuest } = await import("@/lib/services/realm-play");
 const { buildDeedRun } = await import("@/lib/utils/deed-engine");
 const { requireChildAccess } = await import("@/lib/auth/access");
@@ -544,8 +544,9 @@ describe("startDeedRun begins a fresh run on the grown-up's settings", () => {
   });
 
   it("hands the engine the hero's focus skills, and ignores a stored one outside their window", async () => {
-    // div-facts is a third-grade skill: inside the grade-3 window. read-k1 sits two grades away.
-    for (const [i, skill] of ["div-facts", "sight-k1"].entries()) {
+    // div-facts is a third-grade skill: inside the grade-3 window. sight-k1 sits three grades away,
+    // and "nope" is no skill at all.
+    for (const [i, skill] of ["div-facts", "sight-k1", "nope"].entries()) {
       await client.query("INSERT INTO learning_focus (id, child_id, skill_id, created_at) VALUES (?1, 'c1', ?2, unixepoch() + ?3)", [`f${i}`, skill, i]);
     }
     const r = await startDeedRun("c1", "well-stones", "realm");
@@ -585,6 +586,12 @@ describe("startDeedRun begins a fresh run on the grown-up's settings", () => {
       now.mockRestore();
       await client.query("DELETE FROM drill_item");
     }
+  });
+
+  it("reads the hero's levels once: the focus picks are judged on the grades already in hand", async () => {
+    vi.mocked(loadHeroLevels).mockClear();
+    await startDeedRun("c1", "well-stones", "realm");
+    expect(loadHeroLevels).toHaveBeenCalledTimes(1);
   });
 
   it("a miss put right on the second try still comes back", async () => {

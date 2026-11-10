@@ -35,7 +35,9 @@ import { BillingPanel } from "./billing-panel";
  * heroes; the service itself does no auth.
  */
 async function loadFocus(childId: string) {
-  const [levels, selected] = await Promise.all([loadHeroLevels(childId), loadFocusSkillIds(childId)]);
+  const levels = await loadHeroLevels(childId);
+  // The grades in hand are passed on, so the hero's levels are read once, not twice.
+  const selected = await loadFocusSkillIds(childId, levels.grades);
   const options = focusOptions(focusWindow(levels.grades));
   return { options, selected };
 }

@@ -2,6 +2,7 @@ import { seededRng, shuffle, type Question } from "./drill-generators";
 import { applyProfile, drawForSkill, type PoolItem, type ProfileLike } from "./deed-engine";
 import { overdueSkills, type MasteryTiming } from "./review-schedule";
 import { findSkill, type Skill } from "./skills";
+import { MASTERY_MAX } from "./mastery";
 
 /**
  * A review run is a short interleaved set across what a child has already learned: spaced,
@@ -76,7 +77,7 @@ export function buildReviewRun(input: {
     if (!priority.includes(id)) priority.push(id);
   }
 
-  const levelOf = (id: string) => Math.max(0, Math.min(4, Math.floor(rows.get(id)!.level)));
+  const levelOf = (id: string) => Math.max(0, Math.min(MASTERY_MAX, Math.floor(rows.get(id)!.level)));
   const excludeIds = new Set(missPicks.map((p) => p.question.id));
   const excludePrompts = new Set(missPicks.map((p) => p.question.prompt));
   const drawOne = (skill: Skill): Pick | null => {
