@@ -25,6 +25,8 @@ vi.mock("@/lib/services/realm-troubles", () => ({
 }));
 const loadReviewDue = vi.fn<(childId: string) => Promise<boolean>>(async () => false);
 vi.mock("@/lib/services/review", () => ({ loadReviewDue: (childId: string) => loadReviewDue(childId) }));
+const loadFocusSkillIds = vi.fn<(childId: string) => Promise<string[]>>(async () => []);
+vi.mock("@/lib/services/learning-focus", () => ({ loadFocusSkillIds: (childId: string) => loadFocusSkillIds(childId) }));
 vi.mock("@/lib/services/deeds", () => ({ loadKingdomOverview: async () => ({ tone: "gentle", buildings: [] }) }));
 vi.mock("@/lib/services/learning-profile", () => ({ loadLearningProfileRow: async () => null }));
 vi.mock("@/lib/services/spells", () => ({
@@ -146,6 +148,26 @@ describe("getRealmBundle — whether the riddle stones glow", () => {
     const b = await getRealmBundle("c1");
     spy.mockRestore();
     expect(b.reviewDue).toBe(false);
+  });
+});
+
+describe("getRealmBundle — the strands the beacon leans toward", () => {
+  it("hands over the strands of the hero's focus skills, with the bundle's own access", async () => {
+    requireChildAccess.mockResolvedValue(as("child:c1", "edit"));
+    loadFocusSkillIds.mockResolvedValueOnce(["mul-facts", "div-facts", "sight-k1"]);
+    const b = await getRealmBundle("c1");
+    expect(b.focusAreas).toEqual(["math", "reading"]);
+    expect(loadFocusSkillIds).toHaveBeenCalledWith("c1");
+    expect(requireChildAccess).toHaveBeenCalledTimes(1);
+  });
+
+  it("has none when the read fails, rather than closing the Realm", async () => {
+    requireChildAccess.mockResolvedValue(as("child:c1", "edit"));
+    loadFocusSkillIds.mockRejectedValueOnce(new Error("down"));
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const b = await getRealmBundle("c1");
+    spy.mockRestore();
+    expect(b.focusAreas).toEqual([]);
   });
 });
 

@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { buildDeedRun, chooseSkills, drawForSkill, gradeAnswer, type BuildRunInput, type PoolItem } from "./deed-engine";
+import { buildDeedRun, chooseSkills, drawForSkill, gradeAnswer, selectSkills, type BuildRunInput, type PoolItem } from "./deed-engine";
 import { findDeed } from "./deeds";
 import { REVIEW } from "./review-schedule";
 import { CHALLENGE } from "./deed-scoring";
 import { GENERATORS, seededRng } from "./drill-generators";
 import { SKILLS } from "./skills";
+import { FOCUS_WEIGHT } from "./focus";
 import { GRADES } from "./grade-levels";
 import { skillsFor } from "./skills";
 import type { Question } from "./drill-generators";
@@ -753,5 +754,44 @@ describe("drawForSkill", () => {
     const qs = drawForSkill(skill, 2, 4, seededRng(7), items, new Set(["read-g3-item-0"]), new Set());
     expect(qs).toHaveLength(4);
     expect(qs.every((q) => q.skillId === "read-g3" && q.id !== "read-g3-item-0")).toBe(true);
+  });
+});
+
+describe("selectSkills with focus skills", () => {
+  const two = ["mul-facts", "div-facts"].map((id) => SKILLS.find((s) => s.id === id)!);
+  const firstPick = (seed: number, focus?: ReadonlySet<string>) => selectSkills(two, {}, seededRng(seed), {}, focus)[0].id;
+
+  it("draws a focus skill at least 2.5 times as often as an equally-weighted one", () => {
+    let focused = 0;
+    for (let seed = 1; seed <= 1000; seed++) if (firstPick(seed, new Set(["mul-facts"])) === "mul-facts") focused++;
+    const other = 1000 - focused;
+    expect(focused).toBeGreaterThanOrEqual(2.5 * other);
+    expect(other).toBeGreaterThan(0); // a focus skill never locks the others out
+  });
+
+  it("is today's output, with the same rng use, when the focus set is empty or absent", () => {
+    const candidates = chooseSkills(deedMath, "3");
+    for (let seed = 1; seed <= 200; seed++) {
+      const plain = seededRng(seed);
+      const empty = seededRng(seed);
+      const a = selectSkills(candidates, { "mul-facts": 3 }, plain, { "mul-facts": 5 });
+      const b = selectSkills(candidates, { "mul-facts": 3 }, empty, { "mul-facts": 5 }, new Set());
+      expect(b.map((s) => s.id)).toEqual(a.map((s) => s.id));
+      expect(empty()).toBe(plain());
+    }
+  });
+
+  it("scales a focus skill's weight by FOCUS_WEIGHT whatever its mastery", () => {
+    expect(FOCUS_WEIGHT).toBe(3);
+  });
+
+  it("threads focusSkillIds through buildDeedRun", () => {
+    const base = input({ deed: deedMath, grade: "3", poolItems: [], questionCount: 1 });
+    const firstSkill = (seed: number, focusSkillIds?: string[]) => buildDeedRun({ ...base, seed, focusSkillIds }).skillIds[0];
+    let focused = 0;
+    for (let seed = 1; seed <= 300; seed++) if (firstSkill(seed, ["div-facts"]) === "div-facts") focused++;
+    let plain = 0;
+    for (let seed = 1; seed <= 300; seed++) if (firstSkill(seed) === "div-facts") plain++;
+    expect(focused).toBeGreaterThan(plain);
   });
 });

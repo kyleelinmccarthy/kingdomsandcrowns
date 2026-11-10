@@ -112,6 +112,8 @@ export default async function RealmPage({ searchParams }: { searchParams: Promis
     troubleClears: bundle.troubleClears ?? [],
     // Whether the riddle stones glow: something learned is due for review.
     reviewDue: bundle.reviewDue ?? false,
+    // The strands the beacon leans toward when two sites are otherwise tied.
+    focusAreas: bundle.focusAreas ?? [],
     ...(bundle.earning ? { earning: bundle.earning } : {}),
   };
 

@@ -33,6 +33,8 @@ export function buildReviewRun(input: {
   mastery: readonly MasteryTiming[];
   recentMisses: Question[];
   poolItems: PoolItem[];
+  /** The grown-up's focus skills: the learned ones come before least-recently-practised ones. */
+  focusSkillIds?: string[];
   now: number;
   seed: number;
 }): { skillIds: string[]; questions: Question[] } {
@@ -56,8 +58,9 @@ export function buildReviewRun(input: {
     missPicks.push({ skill, question: m, isMiss: true });
   }
 
-  // Then overdue skills, then everything learned, least recently practised first (never
-  // practised counts as oldest). A skill appears once, wherever it first qualifies.
+  // Then overdue skills, then learned focus skills (an unlearned one has nothing to review), then
+  // everything learned, least recently practised first (never practised counts as oldest). A
+  // skill appears once, wherever it first qualifies.
   const learned = [...rows.values()].filter((r) => r.level >= 1 && !missSkills.has(r.skillId));
   const oldestFirst = [...learned].sort(
     (a, b) => (a.lastPracticedAt ?? -Infinity) - (b.lastPracticedAt ?? -Infinity),
@@ -65,6 +68,7 @@ export function buildReviewRun(input: {
   const priority: string[] = [];
   for (const id of [
     ...overdueSkills(learned, learned.map((r) => r.skillId), now),
+    ...(input.focusSkillIds ?? []).filter((id) => learned.some((r) => r.skillId === id)),
     ...oldestFirst.map((r) => r.skillId),
   ]) {
     if (!priority.includes(id)) priority.push(id);

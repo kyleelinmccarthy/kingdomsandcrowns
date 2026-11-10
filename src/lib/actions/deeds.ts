@@ -31,6 +31,7 @@ import type { AttemptResult, RunStart, RunSummary } from "@/lib/utils/deed-run-t
 import { hintFor } from "@/lib/utils/skill-hints";
 import { findOpenRun, insertRun, loadMasteryRows, loadRecentMisses, parseRun, resumedStart, type DeedRunRow } from "@/lib/services/deed-run-store";
 import { buildingStars, gradeForDeed, loadDeedBest, loadHeroLevels, loadKingdomOverview, type BuildingOverview } from "@/lib/services/deeds";
+import { loadFocusSkillIds } from "@/lib/services/learning-focus";
 import { loadLearningProfileRow } from "@/lib/services/learning-profile";
 import { loadRealmSettings, paySideQuest } from "@/lib/services/realm-play";
 import { NO_SIDE_QUEST_PAY, type SideQuestPay } from "@/lib/utils/side-quest-pay";
@@ -97,7 +98,7 @@ export async function startDeedRun(
   const grade = gradeForDeed(hero, deed);
   const skills = chooseSkills(deed, grade);
   const poolSkillIds = skills.filter((s) => s.source.kind === "pool").map((s) => s.id);
-  const [profileRow, masteryRows, poolRows, recentMisses, settings] = await Promise.all([
+  const [profileRow, masteryRows, poolRows, recentMisses, settings, focusSkillIds] = await Promise.all([
     // Memoized per request, so this is the same round trip loadHeroLevels just made.
     loadLearningProfileRow(childId),
     loadMasteryRows(childId),
@@ -107,6 +108,7 @@ export async function startDeedRun(
     // A challenge mixes nothing in, so it needs no misses.
     challenge ? Promise.resolve([] as Question[]) : loadRecentMisses(childId),
     loadRealmSettings(childId),
+    loadFocusSkillIds(childId),
   ]);
   const profile = profileFromRow(profileRow);
   const masteryBySkill: Record<string, number> = {};
@@ -129,7 +131,7 @@ export async function startDeedRun(
     skills.map((s) => s.id), Date.now(),
   );
   const built = buildDeedRun({
-    deed, grade, masteryBySkill, lastPracticedBySkill, profile, seed: Date.now() >>> 0, poolItems,
+    deed, grade, masteryBySkill, lastPracticedBySkill, profile, seed: Date.now() >>> 0, poolItems, focusSkillIds,
     ...(challenge
       ? { recentMisses: [], dueSkillIds: [], questionCount: CHALLENGE.questions, levelBoost: CHALLENGE.levelBoost }
       : { recentMisses, dueSkillIds, questionCount: settings.sideQuestLength }),

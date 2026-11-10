@@ -24,6 +24,9 @@ import { DEFAULT_SOUND, type SoundSettings } from "@/lib/realm3d/sound/settings"
 import { loadPlacesFound } from "@/lib/services/realm-places";
 import { loadRecessRecord } from "@/lib/services/recess";
 import { loadReviewDue } from "@/lib/services/review";
+import { loadFocusSkillIds } from "@/lib/services/learning-focus";
+import { focusAreasOf } from "@/lib/utils/focus";
+import type { SkillArea } from "@/lib/utils/skills";
 import type { RecessRecord } from "@/lib/realm/recess/record";
 import type { RealmAccessMode } from "@/lib/utils/realm-access";
 import type { EarningSettings } from "@/lib/realm/spells/bounty";
@@ -94,6 +97,12 @@ export type RealmBundle = {
    * in tests need not carry it.
    */
   reviewDue?: boolean;
+  /**
+   * The strands a grown-up asked this hero to focus on: the beacon leans toward a site with a deed
+   * in one of them when two are otherwise tied. Empty when none, or when the read fails. Always set
+   * by `getRealmBundle`; optional only so hand-built bundles in tests need not carry it.
+   */
+  focusAreas?: SkillArea[];
 };
 
 const VILLAGERS_RESTING = "The villagers are resting. Try again.";
@@ -134,6 +143,11 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
   const reviewDueRead = loadReviewDue(childId).catch((err: unknown) => {
     console.error("Realm review due failed to load", err);
     return false;
+  });
+  // Which strands the beacon leans toward, on the same access: a failed read is "no focus".
+  const focusRead = loadFocusSkillIds(childId).then(focusAreasOf).catch((err: unknown) => {
+    console.error("Realm focus failed to load", err);
+    return [] as SkillArea[];
   });
   // Also hands back the flags it read (post-update), so the parallel batch below does not
   // pay a second `loadRealmFlags` round trip just to read `helpSeenAt`. On the (rare) failure
@@ -215,6 +229,7 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
     recess: await recessRead,
     troubleClears: await clearsRead,
     reviewDue: await reviewDueRead,
+    focusAreas: await focusRead,
     earning: {
       enabled: settings.enabled,
       accessMode: settings.accessMode,

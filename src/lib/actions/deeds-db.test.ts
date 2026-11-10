@@ -75,6 +75,8 @@ const DDL = [
   `CREATE UNIQUE INDEX kingdom_progress_child_building_idx ON kingdom_progress (child_id, building_id)`,
   `CREATE TABLE subject (id text PRIMARY KEY NOT NULL, spell_school text DEFAULT 'none' NOT NULL)`,
   `CREATE TABLE activity_log (id text PRIMARY KEY NOT NULL, child_id text NOT NULL, subject_id text NOT NULL)`,
+  `CREATE TABLE learning_focus (
+    id text PRIMARY KEY NOT NULL, child_id text NOT NULL, skill_id text NOT NULL, created_at integer NOT NULL)`,
   ...REALM_SETTINGS_DDL,
   ...REALM_LEDGER_DDL,
   ...REALM_ACCESS_DDL,
@@ -124,7 +126,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  for (const t of ["deed_run", "skill_mastery", "kingdom_progress", "realm_settings", "realm_play_ledger", "recess_block"]) await client.query(`DELETE FROM ${t}`);
+  for (const t of ["deed_run", "skill_mastery", "kingdom_progress", "realm_settings", "realm_play_ledger", "recess_block", "learning_focus"]) await client.query(`DELETE FROM ${t}`);
   vi.mocked(loadRealmSettings).mockResolvedValue({ ...DEFAULT_REALM_SETTINGS });
   vi.mocked(buildDeedRun).mockClear();
 });
@@ -536,6 +538,16 @@ describe("startDeedRun begins a fresh run on the grown-up's settings", () => {
     await startDeedRun("c1", "well-stones", "realm");
     const asked = vi.mocked(buildDeedRun).mock.calls[0][0].recentMisses.map((q) => q.id);
     expect(asked).toEqual(["deed-miss"]);
+  });
+
+  it("hands the engine the hero's focus skills, and ignores a stored one outside their window", async () => {
+    // div-facts is a third-grade skill: inside the grade-3 window. read-k1 sits two grades away.
+    for (const [i, skill] of ["div-facts", "sight-k1"].entries()) {
+      await client.query("INSERT INTO learning_focus (id, child_id, skill_id, created_at) VALUES (?1, 'c1', ?2, unixepoch() + ?3)", [`f${i}`, skill, i]);
+    }
+    const r = await startDeedRun("c1", "well-stones", "realm");
+    expect(r.questions.length).toBeGreaterThan(0);
+    expect(vi.mocked(buildDeedRun).mock.calls[0][0].focusSkillIds).toEqual(["div-facts"]);
   });
 
   it("a miss put right on the second try still comes back", async () => {

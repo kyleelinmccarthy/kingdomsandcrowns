@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { FOCUS_MAX, FOCUS_WEIGHT, focusWindow, validFocus } from "./focus";
+import { FOCUS_MAX, FOCUS_WEIGHT, focusAreasOf, focusWindow, validFocus } from "./focus";
 import type { Grade } from "./grade-levels";
 
 const ALL3 = { math: "3", reading: "3", language: "3", science: "3" } as const;
@@ -54,5 +54,12 @@ describe("validFocus", () => {
 describe("constants", () => {
   it("are three and three", () => {
     expect([FOCUS_MAX, FOCUS_WEIGHT]).toEqual([3, 3]);
+  });
+});
+
+describe("focusAreasOf", () => {
+  it("is the distinct strands of the known skills, in first-seen order", () => {
+    expect(focusAreasOf(["mul-facts", "div-facts", "sight-k1", "nope"])).toEqual(["math", "reading"]);
+    expect(focusAreasOf([])).toEqual([]);
   });
 });

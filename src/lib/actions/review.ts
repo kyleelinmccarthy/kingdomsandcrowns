@@ -15,6 +15,7 @@ import { QUICK_REVIEW_TITLE, REVIEW_STORY, stoneTitle } from "@/lib/utils/review
 import type { RunStart } from "@/lib/utils/deed-run-types";
 import { findOpenRun, insertRun, loadMasteryRows, loadRecentMisses, resumedStart } from "@/lib/services/deed-run-store";
 import { loadHeroLevels } from "@/lib/services/deeds";
+import { loadFocusSkillIds } from "@/lib/services/learning-focus";
 import { loadRealmSettings } from "@/lib/services/realm-play";
 import { loadReviewDue, masteryTiming } from "@/lib/services/review";
 
@@ -49,8 +50,8 @@ export async function startReviewRun(childId: string, origin: ReviewOrigin): Pro
   ));
   if (open) return resumedStart(open, header);
 
-  const [masteryRows, recentMisses, settings] = await Promise.all([
-    loadMasteryRows(childId), loadRecentMisses(childId), loadRealmSettings(childId),
+  const [masteryRows, recentMisses, settings, focusSkillIds] = await Promise.all([
+    loadMasteryRows(childId), loadRecentMisses(childId), loadRealmSettings(childId), loadFocusSkillIds(childId),
   ]);
   const poolSkillIds = masteryRows
     .filter((m) => findSkill(m.skillId)?.source.kind === "pool")
@@ -63,7 +64,7 @@ export async function startReviewRun(childId: string, origin: ReviewOrigin): Pro
     distractors: JSON.parse(r.distractors) as string[], readAloud: r.readAloud, level: r.level,
   }));
   const now = Date.now();
-  const built = buildReviewRun({ mastery: masteryRows.map(masteryTiming), recentMisses, poolItems, now, seed: now >>> 0 });
+  const built = buildReviewRun({ mastery: masteryRows.map(masteryTiming), recentMisses, poolItems, focusSkillIds, now, seed: now >>> 0 });
   // Nothing learned yet: there is nothing to review, and nothing is written.
   if (built.questions.length === 0) return { empty: true };
 

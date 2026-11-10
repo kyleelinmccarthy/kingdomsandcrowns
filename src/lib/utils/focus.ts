@@ -1,5 +1,5 @@
 import { gradeIndex, type Grade } from "./grade-levels";
-import { SKILLS, type Skill, type SkillArea } from "./skills";
+import { SKILLS, findSkill, type Skill, type SkillArea } from "./skills";
 
 /** A grown-up may ask for at most this many focus skills per hero. */
 export const FOCUS_MAX = 3;
@@ -34,4 +34,14 @@ export function validFocus(ids: readonly string[], window: readonly Skill[]): st
     if (kept.length === FOCUS_MAX) break;
   }
   return kept;
+}
+
+/** The strands the focus skills belong to, each once: what the Realm's beacon leans toward. */
+export function focusAreasOf(ids: readonly string[]): SkillArea[] {
+  const areas: SkillArea[] = [];
+  for (const id of ids) {
+    const area = findSkill(id)?.area;
+    if (area && !areas.includes(area)) areas.push(area);
+  }
+  return areas;
 }

@@ -25,6 +25,7 @@ import { surfacesFor, type RealmDepth } from "@/lib/realm/depth";
 import { applyDeedResult, type KingdomState } from "@/lib/realm/kingdom-state";
 import { buildWorldLayout } from "@/lib/realm/layout";
 import { hasObjectives, objectiveSpeech, objectiveState } from "@/lib/realm/objective";
+import type { SkillArea } from "@/lib/utils/skills";
 import { renderSettingsFor } from "@/lib/realm/render-settings";
 import { resolvePages, withEmptyPages } from "@/lib/realm/spells/pages";
 import { villagerById, villagerForBuilding } from "@/lib/realm/villagers";
@@ -155,6 +156,8 @@ export type RealmData = {
   troubleClears?: RecentClear[];
   /** Something learned is due for review (`bundle.reviewDue`): the riddle stones glow. */
   reviewDue?: boolean;
+  /** The strands a grown-up asked to focus on (`bundle.focusAreas`): the beacon leans toward them on a tie. */
+  focusAreas?: SkillArea[];
 };
 
 /** What the access check decided, for an open gate. */
@@ -259,7 +262,8 @@ export function RealmGame({
   // One objective state for the whole render: the card reads it and the layout marks its sites
   // from it, so the card and the world can never disagree about what to do next — the same
   // rule, and the same two calls, as `realm-shell.tsx`.
-  const objective = useMemo(() => objectiveState(kingdom.buildings, surfaces.trackedObjectives), [kingdom.buildings, surfaces.trackedObjectives]);
+  const focusAreas = useMemo(() => new Set(realm.focusAreas), [realm.focusAreas]);
+  const objective = useMemo(() => objectiveState(kingdom.buildings, surfaces.trackedObjectives, focusAreas), [kingdom.buildings, surfaces.trackedObjectives, focusAreas]);
   const objectiveKey = hasObjectives(objective) ? objective.objectives.map((o) => o.buildingId).join(",") : "";
   const layout = useMemo(
     () =>
@@ -535,7 +539,7 @@ export function RealmGame({
       kingdomRef.current = applied.state;
       const t0 = performance.now();
       setKingdom(applied.state);
-      const next = objectiveState(applied.state.buildings, trackedRef.current);
+      const next = objectiveState(applied.state.buildings, trackedRef.current, focusAreas);
       const words = deedToast({ site: before, after: result, rose: applied.rose, counted: result.counted, challenge: result.challenge, villagerName: villagerForBuilding(buildingId)?.name ?? null, next, numerals: surfaces.numerals || !realm.isChildView });
       setToast(words);
       if (readAloud) speak(words.spoken);
@@ -551,7 +555,7 @@ export function RealmGame({
         });
       }
     },
-    [readAloud, surfaces.numerals, realm.isChildView],
+    [readAloud, surfaces.numerals, realm.isChildView, focusAreas],
   );
 
   /* ---- the ceremony ---------------------------------------------------- */

@@ -2,6 +2,7 @@ import { GENERATORS, seededRng, shuffle, type Question, type Rng } from "./drill
 import { nearestGrades, type Grade } from "./grade-levels";
 import { MASTERY_MAX } from "./mastery";
 import { skillsFor, type Skill } from "./skills";
+import { FOCUS_WEIGHT } from "./focus";
 import type { Deed } from "./deeds";
 import { REVIEW } from "./review-schedule";
 import { kindForSkill, TASK_KINDS } from "@/lib/tasks/registry";
@@ -43,6 +44,8 @@ export type BuildRunInput = {
   questionCount?: number;
   /** Rungs above the child's own to draw every question at, capped at the top (the Crown Challenge). */
   levelBoost?: number;
+  /** The skills a grown-up asked this hero to focus on: each is `FOCUS_WEIGHT` times likelier to be drawn. */
+  focusSkillIds?: string[];
   /** The task kinds a run may present; every kind when absent. A deed's mechanic outside this is a choice. */
   enabledKinds?: ReadonlySet<TaskKind>;
 };
@@ -124,6 +127,7 @@ function weightsFor(
   pool: Skill[],
   masteryBySkill: Record<string, number>,
   lastPracticedBySkill: Record<string, number | null>,
+  focusIds: ReadonlySet<string>,
 ): number[] {
   const known = pool
     .map((s) => lastPracticedBySkill[s.id])
@@ -133,12 +137,14 @@ function weightsFor(
     // Clamped, because a caller may hand back a level from a longer ladder than this one.
     const level = Math.min(MASTERY_MAX, Math.max(0, Math.floor(masteryBySkill[s.id] ?? 0)));
     const mastery = MASTERY_MAX + 1 - level;
-    if (newest === null) return mastery;
+    // A grown-up's focus multiplies the whole weight, so it lifts a skill without ever fixing the draw.
+    const boost = focusIds.has(s.id) ? FOCUS_WEIGHT : 1;
+    if (newest === null) return mastery * boost;
     const at = lastPracticedBySkill[s.id];
     const gap = typeof at === "number" && Number.isFinite(at)
       ? Math.floor((newest - at) / DAY_MS)
       : STALE_DAYS_CAP;
-    return mastery + Math.min(STALE_DAYS_CAP, Math.max(0, gap));
+    return (mastery + Math.min(STALE_DAYS_CAP, Math.max(0, gap))) * boost;
   });
 }
 
@@ -168,9 +174,10 @@ export function selectSkills(
   masteryBySkill: Record<string, number>,
   rng: Rng,
   lastPracticedBySkill: Record<string, number | null> = {},
+  focusIds: ReadonlySet<string> = new Set(),
 ): Skill[] {
   const draw = (pool: Skill[]): Skill | undefined =>
-    weightedPick(pool, weightsFor(pool, masteryBySkill, lastPracticedBySkill), rng);
+    weightedPick(pool, weightsFor(pool, masteryBySkill, lastPracticedBySkill, focusIds), rng);
   const generator = draw(candidates.filter((s) => s.source.kind === "generator"));
   const pool = draw(candidates.filter((s) => s.source.kind === "pool"));
   const picked = [generator, pool].filter((s): s is Skill => !!s);
@@ -373,7 +380,7 @@ export function buildDeedRun(input: BuildRunInput): BuiltRun {
   const enabled = input.enabledKinds ?? new Set(Object.keys(TASK_KINDS) as TaskKind[]);
   const tag = (q: Question) => withKind(q, kindForSkill(deed.mechanic, q.skillId, enabled));
   const rng = seededRng(seed);
-  const skills = selectSkills(chooseSkills(deed, grade), masteryBySkill, rng, lastPracticedBySkill ?? {});
+  const skills = selectSkills(chooseSkills(deed, grade), masteryBySkill, rng, lastPracticedBySkill ?? {}, new Set(input.focusSkillIds));
   const skillIds = skills.map((s) => s.id);
   if (skills.length === 0) return { skillIds: [], questions: [] };
 

@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import { hasObjectives, objectiveRank, rankBuildings, objectiveState, riseToast, objectiveSpeech, type Objective, type ObjectiveState } from "./objective";
 import type { SiteProgress } from "./layout";
 import { BUILDINGS } from "@/lib/utils/kingdom";
+import { DEEDS } from "@/lib/utils/deeds";
+import type { SkillArea } from "@/lib/utils/skills";
 
 // Every building is 5 side quests today; slice 13 lowers the real counts and re-baselines this fixture (spec §3.8).
 const site = (id: string, done: number): SiteProgress => ({ id, done, total: 5, complete: done >= 5 });
@@ -186,5 +188,45 @@ describe("objectiveSpeech", () => {
 
   it("never puts the word deed in a child's ear", () => {
     expect(objectiveSpeech(objectiveState(newHero, 1))).not.toMatch(/deed/i);
+  });
+});
+
+describe("focus areas break ties toward a building with a deed in them", () => {
+  // Which buildings carry a deed in an area depends on the catalog; find two that differ.
+  const hasArea = (id: string, area: SkillArea) => DEEDS.some((d) => d.buildingId === id && d.area === area);
+  const pair = (() => {
+    for (const area of ["science", "language", "reading", "math"] as SkillArea[]) {
+      const withIt = BUILDINGS.filter((b) => hasArea(b.id, area));
+      const without = BUILDINGS.filter((b) => !hasArea(b.id, area));
+      // The one that WITHOUT the area comes first in BUILDINGS order, so a tie-break is visible.
+      for (const w of without) for (const f of withIt) if (BUILDINGS.indexOf(w) < BUILDINGS.indexOf(f)) return { area, plain: w.id, focus: f.id };
+    }
+    throw new Error("catalog has no usable pair");
+  })();
+  const focus = new Set<SkillArea>([pair.area]);
+
+  it("rankBuildings: within a rank the focus building leads; otherwise unchanged", () => {
+    const list = [site(pair.plain, 0), site(pair.focus, 0)];
+    expect(rankBuildings(list).map((b) => b.id)).toEqual([pair.plain, pair.focus]);
+    expect(rankBuildings(list, new Set()).map((b) => b.id)).toEqual([pair.plain, pair.focus]);
+    expect(rankBuildings(list, focus).map((b) => b.id)).toEqual([pair.focus, pair.plain]);
+  });
+
+  it("rankBuildings: never overrides the rank order", () => {
+    const list = [site(pair.plain, 2), site(pair.focus, 0)]; // work in progress outranks untouched
+    expect(rankBuildings(list, focus).map((b) => b.id)).toEqual([pair.plain, pair.focus]);
+  });
+
+  it("objectiveState: a full tie goes to the focus building", () => {
+    const tied = [site(pair.plain, 0), site(pair.focus, 0)];
+    const ids = (s: ObjectiveState) => (hasObjectives(s) ? s.objectives.map((o) => o.buildingId) : []);
+    expect(ids(objectiveState(tied, 2))).toEqual([pair.plain, pair.focus]);
+    expect(ids(objectiveState(tied, 2, focus))).toEqual([pair.focus, pair.plain]);
+  });
+
+  it("objectiveState: more work done still wins over focus", () => {
+    const list = [site(pair.plain, 3), site(pair.focus, 1)];
+    const first = objectiveState(list, 1, focus);
+    expect(hasObjectives(first) && first.objectives[0].buildingId).toBe(pair.plain);
   });
 });

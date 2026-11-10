@@ -61,6 +61,8 @@ const DDL = [
     deeds_done integer DEFAULT 0 NOT NULL, completed_at integer,
     created_at integer NOT NULL, updated_at integer NOT NULL)`,
   `CREATE UNIQUE INDEX kingdom_progress_child_building_idx ON kingdom_progress (child_id, building_id)`,
+  `CREATE TABLE learning_focus (
+    id text PRIMARY KEY NOT NULL, child_id text NOT NULL, skill_id text NOT NULL, created_at integer NOT NULL)`,
   ...REALM_SETTINGS_DDL,
   ...REALM_LEDGER_DDL,
   ...REALM_ACCESS_DDL,
@@ -97,7 +99,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  for (const t of ["deed_run", "skill_mastery", "kingdom_progress", "realm_settings", "realm_play_ledger"]) await client.query(`DELETE FROM ${t}`);
+  for (const t of ["deed_run", "skill_mastery", "kingdom_progress", "realm_settings", "realm_play_ledger", "learning_focus"]) await client.query(`DELETE FROM ${t}`);
 });
 
 afterAll(async () => {
@@ -105,6 +107,27 @@ afterAll(async () => {
 });
 
 describe("a riddle stone's review run", () => {
+  it("brings in a focus skill the hero learned, ahead of the ones practised longest ago", async () => {
+    // Nothing is overdue (all practised in the last few minutes), the focus skill the most recently.
+    for (const [i, [skillId, secondsAgo]] of ([["mul-facts", 300], ["div-facts", 200], ["add-100", 100], ["place-value", 0]] as const).entries()) {
+      await client.query(
+        `INSERT INTO skill_mastery (id, child_id, skill_id, level, last_practiced_at, created_at, updated_at)
+         VALUES (?1, 'c1', ?2, 1, unixepoch() - ?3, unixepoch(), unixepoch())`,
+        [`m${i}`, skillId, secondsAgo],
+      );
+    }
+    const skillsOf = async () => {
+      const r = await startReviewRun("c1", { kind: "page" });
+      if ("empty" in r) throw new Error("expected a run");
+      const row = await client.query("SELECT skill_ids FROM deed_run WHERE id = ?1", [r.runId]);
+      await client.query("DELETE FROM deed_run");
+      return JSON.parse(row.rows[0].skill_ids as string) as string[];
+    };
+    expect(await skillsOf()).not.toContain("place-value");
+    await client.query("INSERT INTO learning_focus (id, child_id, skill_id, created_at) VALUES ('f1', 'c1', 'place-value', unixepoch())");
+    expect(await skillsOf()).toContain("place-value");
+  });
+
   it("builds three tasks from what the hero has learned, with the stone's header", async () => {
     await learn();
     const r = await startReviewRun("c1", { kind: "stone", placeId: PLACE });

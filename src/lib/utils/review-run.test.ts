@@ -145,3 +145,39 @@ describe("determinism", () => {
     expect(r.skillIds).toEqual(r.questions.map((q) => q.skillId));
   });
 });
+
+describe("focus skills", () => {
+  // Five learned skills, none overdue, the focus one practised most recently: only focus can lift it.
+  const mastery = [
+    row("add-10", 1, 1.5), row("sub-10", 1, 1.4), row("count-seq", 1, 1.3), row("sight-k1", 1, 1.2), row("spell-g23", 1, 0),
+  ];
+  const poolItems = poolFor("sight-k1", "spell-g23");
+
+  it("a learned focus skill is preferred over least-recently-practised ones", () => {
+    expect(run({ mastery, poolItems }).skillIds).not.toContain("spell-g23");
+    for (let seed = 1; seed <= 20; seed++) {
+      expect(run({ mastery, poolItems, seed, focusSkillIds: ["spell-g23"] }).skillIds).toContain("spell-g23");
+    }
+  });
+
+  it("is still behind misses and overdue skills", () => {
+    const m = [...mastery, row("mul-facts", 2, 9)]; // overdue
+    const r = run({ mastery: m, poolItems, recentMisses: [miss("add-10", "m1")], focusSkillIds: ["spell-g23", "sight-k1"] });
+    expect(r.questions).toHaveLength(3);
+    expect(r.questions.map((q) => q.id)).toContain("m1");
+    expect(r.skillIds).toContain("mul-facts");
+    // misses (1) and overdue (1) leave one slot, which one focus skill takes.
+    expect(r.skillIds.filter((id) => id === "spell-g23" || id === "sight-k1")).toHaveLength(1);
+  });
+
+  it("never picks an unlearned (level 0) focus skill", () => {
+    const m = [...mastery, row("mul-facts", 0, null)];
+    for (let seed = 1; seed <= 20; seed++) {
+      expect(run({ mastery: m, poolItems, seed, focusSkillIds: ["mul-facts"] }).skillIds).not.toContain("mul-facts");
+    }
+  });
+
+  it("an empty focus list changes nothing", () => {
+    expect(run({ mastery, poolItems, focusSkillIds: [] })).toEqual(run({ mastery, poolItems }));
+  });
+});
