@@ -1,5 +1,5 @@
 import { seededRng, shuffle, type Question } from "./drill-generators";
-import { drawForSkill, type PoolItem } from "./deed-engine";
+import { applyProfile, drawForSkill, type PoolItem, type ProfileLike } from "./deed-engine";
 import { overdueSkills, type MasteryTiming } from "./review-schedule";
 import { findSkill, type Skill } from "./skills";
 
@@ -35,6 +35,8 @@ export function buildReviewRun(input: {
   poolItems: PoolItem[];
   /** The grown-up's focus skills: the learned ones come before least-recently-practised ones. */
   focusSkillIds?: string[];
+  /** The hero's learning profile, applied as a side quest applies it (`applyProfile`); none is the default profile. */
+  profile?: ProfileLike;
   now: number;
   seed: number;
 }): { skillIds: string[]; questions: Question[] } {
@@ -111,5 +113,7 @@ export function buildReviewRun(input: {
   }
 
   const ordered = shuffle(picks, rng);
-  return { skillIds: ordered.map((p) => p.skill.id), questions: ordered.map((p) => p.question) };
+  // After the shuffle, so a hero with the default profile gets exactly the run they always did.
+  const questions = applyProfile(ordered.map((p) => p.question), input.profile ?? { fewerChoices: false }, rng);
+  return { skillIds: ordered.map((p) => p.skill.id), questions };
 }

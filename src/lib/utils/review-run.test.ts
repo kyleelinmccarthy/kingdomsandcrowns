@@ -181,3 +181,31 @@ describe("focus skills", () => {
     expect(run({ mastery, poolItems, focusSkillIds: [] })).toEqual(run({ mastery, poolItems }));
   });
 });
+
+describe("the learning profile", () => {
+  const mastery = [row("add-10", 1, 20), row("sub-10", 2, 19), row("sight-k1", 1, 18), row("spell-g23", 1, 2)];
+  const poolItems = poolFor("sight-k1", "spell-g23");
+  const profile = { fewerChoices: false, predictableRoutine: false, untimed: false, readAloud: false };
+
+  it("with fewer choices, every task offers its answer and exactly one other, misses included", () => {
+    for (let seed = 1; seed <= 20; seed++) {
+      const r = run({ mastery, poolItems, seed, recentMisses: [miss("add-10", "m1")], profile: { ...profile, fewerChoices: true } });
+      expect(r.questions).toHaveLength(3);
+      for (const q of r.questions) {
+        expect(q.choices).toHaveLength(2);
+        expect(q.choices).toContain(q.answer);
+      }
+    }
+  });
+
+  it("asks the same tasks either way: only the options change", () => {
+    const plain = run({ mastery, poolItems, seed: 4 });
+    const fewer = run({ mastery, poolItems, seed: 4, profile: { ...profile, fewerChoices: true } });
+    expect(fewer.questions.map((q) => q.id)).toEqual(plain.questions.map((q) => q.id));
+    expect(fewer.skillIds).toEqual(plain.skillIds);
+  });
+
+  it("a profile with fewer choices off is the same run as no profile", () => {
+    expect(run({ mastery, poolItems, seed: 4, profile: { ...profile, predictableRoutine: true } })).toEqual(run({ mastery, poolItems, seed: 4 }));
+  });
+});

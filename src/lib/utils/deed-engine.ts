@@ -364,9 +364,25 @@ function drawGenerated(
   return out;
 }
 
-function trimChoices(q: Question, rng: Rng): Question {
+function trimChoices<T extends Question>(q: T, rng: Rng): T {
   const other = q.choices.find((c) => c !== q.answer) ?? q.answer;
   return { ...q, choices: shuffle([q.answer, other], rng) };
+}
+
+/**
+ * What a hero's learning profile does to a run's finished, ordered tasks, in one place for every
+ * builder (`buildDeedRun`, `buildReviewRun`), so a run is never built without it.
+ *
+ *  - **fewerChoices**: each task offers its answer and one other option, shuffled. Off, the tasks
+ *    come back as they are and no rng is drawn, so a run's output is exactly what it was.
+ *  - **predictableRoutine** is deliberately not here. In a side quest it is an ORDER: fresh
+ *    questions grouped skill by skill in catalog order, then the review ones, which `buildDeedRun`
+ *    decides before calling this. A review run has no such shape to keep: every task is review,
+ *    each from a different skill, and the set is mixed across strands by design (interleaved
+ *    retrieval is the point of it), so there is nothing to group and its order stays shuffled.
+ */
+export function applyProfile<T extends Question>(questions: T[], profile: Pick<ProfileLike, "fewerChoices">, rng: Rng): T[] {
+  return profile.fewerChoices ? questions.map((q) => trimChoices(q, rng)) : questions;
 }
 
 /**
@@ -475,8 +491,7 @@ export function buildDeedRun(input: BuildRunInput): BuiltRun {
     ordered = shuffle([...questions, ...nonFresh], rng);
   }
 
-  const finalQuestions = profile.fewerChoices ? ordered.map((q) => trimChoices(q, rng)) : ordered;
-  return { skillIds: allSkillIds, questions: finalQuestions };
+  return { skillIds: allSkillIds, questions: applyProfile(ordered, profile, rng) };
 }
 
 export function gradeAnswer(question: Pick<Question, "answer">, answer: string): boolean {

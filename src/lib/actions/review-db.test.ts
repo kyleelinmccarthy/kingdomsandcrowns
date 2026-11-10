@@ -26,7 +26,7 @@ vi.mock("@/lib/services/realm-play", async () => {
   return { ...actual, loadRealmSettings: vi.fn(async () => ({ ...DEFAULT_REALM_SETTINGS })) };
 });
 vi.mock("@/lib/services/realm-clock", () => ({ realmNow: async () => ({ date: "2026-11-09", timeOfDay: "10:00" }) }));
-vi.mock("@/lib/services/learning-profile", () => ({ loadLearningProfileRow: async () => null }));
+vi.mock("@/lib/services/learning-profile", () => ({ loadLearningProfileRow: vi.fn(async () => null) }));
 vi.mock("@/lib/services/deeds", async () => ({
   ...(await vi.importActual<typeof import("@/lib/services/deeds")>("@/lib/services/deeds")),
   loadHeroLevels: vi.fn(async () => ({
@@ -40,6 +40,7 @@ const { answerDeedQuestion, resolveDeedQuestion, completeDeedRun } = await impor
 const { loadRecentMisses } = await import("@/lib/services/deed-run-store");
 const { loadDeedBest } = await import("@/lib/services/deeds");
 const { requireChildAccess } = await import("@/lib/auth/access");
+const { loadLearningProfileRow } = await import("@/lib/services/learning-profile");
 
 const DDL = [
   `CREATE TABLE deed_run (
@@ -202,6 +203,17 @@ describe("a riddle stone's review run", () => {
     expect(await startReviewRun("c1", { kind: "page" })).toEqual({ empty: true });
     expect(await getReviewDue("c1")).toBe(false);
     expect(await count("SELECT count(*) AS n FROM deed_run")).toBe(0);
+  });
+
+  it("a hero with fewer choices sees two options on every task, the answer among them", async () => {
+    await learn();
+    vi.mocked(loadLearningProfileRow).mockResolvedValueOnce({ fewerChoices: true } as never);
+    const { questions } = await started();
+    expect(questions).toHaveLength(3);
+    for (const q of questions) {
+      expect(q.choices).toHaveLength(2);
+      expect(q.choices).toContain(q.answer);
+    }
   });
 
   it("skills only seen at level 0 are not reviewed", async () => {

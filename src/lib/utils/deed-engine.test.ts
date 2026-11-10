@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { buildDeedRun, chooseSkills, drawForSkill, gradeAnswer, runCandidates, selectSkills, type BuildRunInput, type PoolItem } from "./deed-engine";
+import { applyProfile, buildDeedRun, chooseSkills, drawForSkill, gradeAnswer, runCandidates, selectSkills, type BuildRunInput, type PoolItem } from "./deed-engine";
 import { findDeed } from "./deeds";
 import { REVIEW } from "./review-schedule";
 import { CHALLENGE } from "./deed-scoring";
@@ -845,5 +845,50 @@ describe("a focus skill a grade off the hero's own", () => {
       masteryBySkill: { "add-100": 4 }, lastPracticedBySkill: {}, seed: 7,
     }));
     expect(run.skillIds).toContain("add-100");
+  });
+});
+
+describe("applyProfile", () => {
+  const qs: Question[] = [
+    { id: "a", skillId: "mul-facts", prompt: "2 x 3?", choices: ["6", "5", "8", "9"], answer: "6" },
+    { id: "b", skillId: "mul-facts", prompt: "3 x 3?", choices: ["12", "9", "6", "8"], answer: "9" },
+    { id: "c", skillId: "read-g3", prompt: "Main idea?", choices: ["x", "y"], answer: "y" },
+  ];
+
+  it("leaves the tasks alone, and draws nothing, when fewer choices is off", () => {
+    const rng = seededRng(3);
+    const twin = seededRng(3);
+    const routine = { ...profile, predictableRoutine: true };
+    expect(applyProfile(qs, routine, rng)).toBe(qs);
+    expect(rng()).toBe(twin());
+  });
+
+  it("with fewer choices, every task offers its answer and exactly one other", () => {
+    const out = applyProfile(qs, { ...profile, fewerChoices: true }, seededRng(3));
+    expect(out.map((q) => q.id)).toEqual(["a", "b", "c"]);
+    for (const [i, q] of out.entries()) {
+      expect(q.choices).toHaveLength(2);
+      expect(q.choices).toContain(qs[i].answer);
+      expect(qs[i].choices).toEqual(expect.arrayContaining(q.choices));
+    }
+  });
+
+  it("is what buildDeedRun applies: recorded fewer-choices runs ask the same choices in the same order", () => {
+    // Recorded before the rule moved into applyProfile; they must not move.
+    const RECORDED: Record<string, string[]> = {
+      "well-stones@1": ["round-nearest:69@10=69|70", "round-nearest:99@10=100|98", "round-nearest:73@10=70|100", "round-nearest:46@10=40|50", "div-facts:6/1=6|16", "round-nearest:33@10=30|27", "round-nearest:723@10=700|720", "round-nearest:631@10=630|631"],
+      "well-stones@1+routine": ["round-nearest:46@10=40|50", "round-nearest:631@10=630|631", "round-nearest:99@10=100|98", "round-nearest:33@10=27|30", "round-nearest:723@10=700|720", "round-nearest:73@10=100|70", "round-nearest:69@10=69|70", "div-facts:6/1=16|6"],
+      "well-signs@1": ["read-g3-item-14=A14|C14", "read-g3-item-24=D24|A24", "read-g3-item-8=C8|A8", "read-g3-item-10=A10|B10", "read-g3-item-16=B16|A16", "read-g3-item-6=A6|B6", "read-g3-item-11=A11|D11", "read-g3-item-12=A12|B12"],
+      "well-signs@1+routine": ["read-g3-item-14=C14|A14", "read-g3-item-24=A24|D24", "read-g3-item-12=A12|B12", "read-g3-item-8=A8|C8", "read-g3-item-11=A11|D11", "read-g3-item-6=A6|B6", "read-g3-item-16=A16|B16", "read-g3-item-10=A10|B10"],
+    };
+    for (const [key, expected] of Object.entries(RECORDED)) {
+      const [deedId, rest] = key.split("@");
+      const routine = rest.endsWith("+routine");
+      const run = buildDeedRun(input({
+        deed: findDeed(deedId)!, seed: Number(rest.replace("+routine", "")), poolItems: poolItems("read-g3", 30),
+        dueSkillIds: ["div-facts", "read-g3"], profile: { ...profile, fewerChoices: true, predictableRoutine: routine },
+      }));
+      expect(run.questions.map((q) => `${q.id}=${q.choices.join("|")}`)).toEqual(expected);
+    }
   });
 });
