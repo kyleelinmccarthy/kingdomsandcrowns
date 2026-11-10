@@ -11,6 +11,8 @@ vi.mock("@/lib/actions/deeds", () => ({
   answerDeedQuestion: vi.fn(),
   completeDeedRun: vi.fn(),
 }));
+const startReviewRun = vi.fn();
+vi.mock("@/lib/actions/review", () => ({ startReviewRun: (...a: unknown[]) => startReviewRun(...a) }));
 
 const overview: DeedsOverview = {
   enabled: true, band: "g23", bandLabel: "Grades 2–3", tone: "gentle",
@@ -54,5 +56,36 @@ describe("DeedPicker", () => {
     await userEvent.click(screen.getByRole("button", { name: "All", pressed: false }));
     expect(screen.getByText("Grain Mill")).toBeInTheDocument();
     expect(document.body.textContent).not.toMatch(/deed/i);
+  });
+
+  describe("Quick review", () => {
+    it("starts a page review for the hero and mounts the player", async () => {
+      const user = userEvent.setup();
+      startReviewRun.mockResolvedValue({
+        runId: "rv1", deed: { id: "review:page", title: "Quick review", story: "Three riddles.", area: null },
+        questions: [{ kind: "choice", id: "q", skillId: "add-20", view: { prompt: "What is 2 + 2?", choices: ["4", "5"] } }],
+        responses: [null], kind: "review", pending: null,
+      });
+      render(<DeedPicker childId="c1" overview={overview} profile={profile} calm={false} />);
+      await user.click(screen.getByRole("button", { name: "Quick review" }));
+      expect(startReviewRun).toHaveBeenCalledWith("c1", { kind: "page" });
+      expect(await screen.findByText("What is 2 + 2?")).toBeInTheDocument();
+    });
+
+    it("says there is nothing to review yet, and clears the note on the next press", async () => {
+      const user = userEvent.setup();
+      startReviewRun.mockResolvedValueOnce({ empty: true });
+      render(<DeedPicker childId="c1" overview={overview} profile={profile} calm={false} />);
+      await user.click(screen.getByRole("button", { name: "Quick review" }));
+      expect(await screen.findByRole("status")).toHaveTextContent("Nothing to review yet. Finish a side quest first and it will come back here.");
+      expect(screen.getByText("Grain Mill")).toBeInTheDocument();
+      let release!: () => void;
+      startReviewRun.mockReturnValueOnce(new Promise((r) => { release = () => r({ empty: true }); }));
+      await user.click(screen.getByRole("button", { name: "Quick review" }));
+      expect(screen.queryByRole("status")).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Quick review" })).toBeDisabled();
+      release();
+      expect(await screen.findByRole("status")).toBeInTheDocument();
+    });
   });
 });

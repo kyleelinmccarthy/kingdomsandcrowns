@@ -2,3 +2,5 @@
 export const QUICK_REVIEW_TITLE = "Quick review";
 export const stoneTitle = (placeName: string): string => `${placeName} riddle stone`;
 export const REVIEW_STORY = "Three riddles from things you have learned. Answer them to keep them sharp.";
+/** The review card's one line: how many riddles were asked and how many were answered right. */
+export const reviewSummaryLine = (s: { total: number; correctCount: number }): string => `Reviewed ${s.total} · ${s.correctCount} right`;

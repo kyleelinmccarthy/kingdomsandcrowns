@@ -238,4 +238,33 @@ describe("DeedPlayer", () => {
       expect(document.body.textContent).not.toMatch(/minutes? earned/);
     });
   });
+  describe("a review run", () => {
+    const reviewRun: RunStart = {
+      ...run,
+      deed: { id: "review:page", title: "Quick review", story: "Three riddles from things you have learned.", area: null },
+      kind: "review",
+      responses: ["because", null],
+    };
+    const reviewSummary = { ...summary, correctCount: 2, total: 3, stars: 0, counted: false, kind: "review" as const, building: null, masteryChanges: [], sideQuestPayFull: true };
+
+    it("shows no subject chip while it is played", () => {
+      render(<DeedPlayer run={reviewRun} profile={profile} calm={false} onFinished={() => {}} />);
+      expect(screen.getByText("Quick review")).toBeInTheDocument();
+      expect(document.querySelector("[data-subject]")).not.toBeInTheDocument();
+    });
+
+    it("summarises without stars, a building line or minutes", async () => {
+      const user = userEvent.setup();
+      completeDeedRun.mockResolvedValue(reviewSummary);
+      render(<DeedPlayer run={reviewRun} profile={profile} calm={false} onFinished={() => {}} />);
+      await user.click(screen.getByRole("button", { name: "again" }));
+      await user.click(await screen.findByRole("button", { name: "Finish side quest" }));
+      expect(await screen.findByText("Reviewed 3 \u00B7 2 right")).toBeInTheDocument();
+      expect(screen.queryByText(/ of 3 right in/)).not.toBeInTheDocument();
+      expect(screen.queryByText(/stars?\b/i)).not.toBeInTheDocument();
+      expect(document.body.textContent).not.toMatch(/minutes?/i);
+      expect(document.body.textContent).not.toMatch(/built|Village Well/);
+      expect(document.querySelector("[data-subject]")).not.toBeInTheDocument();
+    });
+  });
 });

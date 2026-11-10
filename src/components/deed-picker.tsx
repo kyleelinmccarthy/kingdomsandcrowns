@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { GameIcon } from "@/components/game-icon";
 import { DeedPlayer } from "@/components/deed-player";
 import { SubjectChip } from "@/components/subject-chip";
+import { startReviewRun } from "@/lib/actions/review";
 import { startDeedRun, type DeedsOverview } from "@/lib/actions/deeds";
 import type { RunStart } from "@/lib/utils/deed-run-types";
 import { AREA_LABELS, type SkillArea } from "@/lib/utils/skills";
@@ -17,6 +18,7 @@ export function DeedPicker({ childId, overview, profile, calm }: { childId: stri
   const [run, setRun] = useState<RunStart | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [nothingToReview, setNothingToReview] = useState(false);
   const [area, setArea] = useState<SkillArea | "all">("all");
 
   // Work in progress leads, untouched buildings follow, finished ones rest at the end — the rank the world
@@ -38,6 +40,21 @@ export function DeedPicker({ childId, overview, profile, calm }: { childId: stri
     }
   }
 
+  async function review() {
+    setBusy(true);
+    setError("");
+    setNothingToReview(false);
+    try {
+      const started = await startReviewRun(childId, { kind: "page" });
+      if ("empty" in started) setNothingToReview(true);
+      else setRun(started);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "The enchantment failed.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (run) {
     return <DeedPlayer run={run} profile={profile} calm={calm} onFinished={() => { setRun(null); router.refresh(); }} />;
   }
@@ -45,6 +62,10 @@ export function DeedPicker({ childId, overview, profile, calm }: { childId: stri
   return (
     <div className="space-y-4">
       {error && <div className="rounded-md bg-destructive/10 p-2 text-sm text-destructive">{error}</div>}
+      <div>
+        <Button variant="outline" disabled={busy} onClick={() => void review()}>Quick review</Button>
+        {nothingToReview && <p role="status" className="mt-2 text-sm text-muted-foreground">Nothing to review yet. Finish a side quest first and it will come back here.</p>}
+      </div>
       <div className="flex flex-wrap gap-2" role="group" aria-label="Subject">
         {(["all", "math", "reading", "language", "science"] as const).map((a) => (
           <button key={a} type="button" aria-pressed={area === a} onClick={() => setArea(a)}
