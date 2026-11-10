@@ -13,6 +13,7 @@
 import type { InteractTarget } from "./hud-bus";
 import { ENTER_VERB, hasRoom } from "./doorways";
 import { villagerById } from "@/lib/realm/villagers";
+import { RIDDLE_STONE_RADIUS } from "@/lib/realm/riddle-stones";
 
 /** One thing in the world with a reach round it. */
 export type InteractSpot = {
@@ -115,7 +116,13 @@ export type SpotInput = {
   posts?: readonly { id: string; x: number; z: number }[];
   /** The Ring's arch (`recess/course.ts`), where E runs the Ring. Absent, there is none. */
   arch?: { x: number; z: number; halfSpan: number } | null;
+  /** The riddle stones (`lib/realm/riddle-stones.ts`), by the place each stands at. Absent, there are none. */
+  stones?: readonly { placeId: string; x: number; z: number }[];
 };
+
+/** What E at a riddle stone says: "Read the riddle stone". */
+export const RIDDLE_VERB = "Read";
+export const RIDDLE_LABEL = "the riddle stone";
 
 /** What E at the arch says to a child; the frame re-words it for a visiting grown-up (`recess/copy.ts`). */
 export const ARCH_VERB = "Run";
@@ -219,6 +226,20 @@ export function buildSpots(input: SpotInput): InteractSpot[] {
       reach: 2,
       bias: 0.3,
       ring: a.halfSpan + 0.6,
+    });
+  }
+  for (const s of input.stones ?? []) {
+    out.push({
+      target: { kind: "riddle", id: s.placeId, label: RIDDLE_LABEL, verb: RIDDLE_VERB },
+      x: s.x,
+      z: s.z,
+      hw: RIDDLE_STONE_RADIUS,
+      hd: RIDDLE_STONE_RADIUS,
+      round: true,
+      reach: 1.8,
+      // A stone stands inside a place's own reach: standing at it means the stone, not the place.
+      bias: 0.4,
+      ring: RIDDLE_STONE_RADIUS + 0.9,
     });
   }
   return out;

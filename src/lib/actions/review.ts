@@ -10,21 +10,16 @@ import { findSkill } from "@/lib/utils/skills";
 import type { PoolItem } from "@/lib/utils/deed-engine";
 import { RUN_EFFECTS } from "@/lib/utils/deed-scoring";
 import { CLOSED, HERO_ONLY, NOT_IN_CHRONICLE } from "@/lib/utils/deed-refusals";
-import { buildReviewRun, reviewDue } from "@/lib/utils/review-run";
+import { buildReviewRun } from "@/lib/utils/review-run";
 import { QUICK_REVIEW_TITLE, REVIEW_STORY, stoneTitle } from "@/lib/utils/review-copy";
 import type { RunStart } from "@/lib/utils/deed-run-types";
 import { findOpenRun, insertRun, loadMasteryRows, loadRecentMisses, resumedStart } from "@/lib/services/deed-run-store";
 import { loadHeroLevels } from "@/lib/services/deeds";
 import { loadRealmSettings } from "@/lib/services/realm-play";
+import { loadReviewDue, masteryTiming } from "@/lib/services/review";
 
 /** Where a review run is asked from: a riddle stone out in the Realm, or the Side Quests page. */
 export type ReviewOrigin = { kind: "stone"; placeId: string } | { kind: "page" };
-
-type MasteryRow = Awaited<ReturnType<typeof loadMasteryRows>>[number];
-
-const timing = (m: MasteryRow) => ({
-  skillId: m.skillId, level: m.level, lastPracticedAt: m.lastPracticedAt ? m.lastPracticedAt.getTime() : null,
-});
 
 /** A short interleaved set from what the hero has learned; it teaches and pays nothing. */
 export async function startReviewRun(childId: string, origin: ReviewOrigin): Promise<RunStart | { empty: true }> {
@@ -68,7 +63,7 @@ export async function startReviewRun(childId: string, origin: ReviewOrigin): Pro
     distractors: JSON.parse(r.distractors) as string[], readAloud: r.readAloud, level: r.level,
   }));
   const now = Date.now();
-  const built = buildReviewRun({ mastery: masteryRows.map(timing), recentMisses, poolItems, now, seed: now >>> 0 });
+  const built = buildReviewRun({ mastery: masteryRows.map(masteryTiming), recentMisses, poolItems, now, seed: now >>> 0 });
   // Nothing learned yet: there is nothing to review, and nothing is written.
   if (built.questions.length === 0) return { empty: true };
 
@@ -85,5 +80,5 @@ export async function startReviewRun(childId: string, origin: ReviewOrigin): Pro
 /** Whether anything the hero has learned is past its review interval (read access only). */
 export async function getReviewDue(childId: string): Promise<boolean> {
   await requireChildAccess(childId);
-  return reviewDue((await loadMasteryRows(childId)).map(timing), Date.now());
+  return loadReviewDue(childId);
 }

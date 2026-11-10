@@ -55,6 +55,7 @@ vi.mock("@/lib/actions/avatar", () => ({
 vi.mock("@/lib/actions/realm-sound", () => ({ saveRealmSound: vi.fn(async () => {}) }));
 vi.mock("@/lib/actions/deeds", () => ({ startDeedRun: vi.fn(), answerDeedQuestion: vi.fn(), completeDeedRun: vi.fn() }));
 vi.mock("@/lib/actions/seasons", () => ({ markCeremonySeen: vi.fn(async () => {}) }));
+vi.mock("@/lib/actions/review", () => ({ startReviewRun: vi.fn(), getReviewDue: vi.fn(async () => false) }));
 vi.mock("@/lib/actions/spells", () => ({ getSpellbook: vi.fn(async () => ({ spells: [], slots: 4, level: 3, unlocked: ["ember", "tide", "bolt", "orb"], schoolCounts: { element: 2, form: 0, modifier: 0 }, subjectNamesBySchool: { element: ["Math"], form: [], modifier: [] } })) }));
 vi.mock("@/lib/actions/realm", () => ({ getRealmKingdom: vi.fn() }));
 vi.mock("@/lib/actions/quest-assignments", () => ({ getAssignmentQuestInfo: vi.fn(async () => null) }));
@@ -80,6 +81,7 @@ import { updateAvatarConfig } from "@/lib/actions/avatar";
 import { getRealmKingdom } from "@/lib/actions/realm";
 import { markRealmHelpSeen, setTutorialStep } from "@/lib/actions/realm-settings";
 import { markCeremonySeen } from "@/lib/actions/seasons";
+import { startReviewRun } from "@/lib/actions/review";
 import { saveRealmSound } from "@/lib/actions/realm-sound";
 import { getRealmAccess, getTroubleBounty, recordTroubleClears } from "@/lib/actions/realm-play";
 import { stepRide, type RideBus } from "@/lib/realm3d/riding";
@@ -225,6 +227,32 @@ describe("the E prompt", () => {
     expect(bus.paused).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "Goodbye" }));
     expect(bus.paused).toBe(false);
+  });
+});
+
+describe("the riddle stones", () => {
+  const stone = { kind: "riddle" as const, id: "longwater", label: "the riddle stone", verb: "Read" };
+
+  it("hands the canvas whether a review is due, and E at a stone opens its board on a review there", async () => {
+    vi.mocked(startReviewRun).mockResolvedValue({ empty: true });
+    const { bus } = mount({ realm: { ...realm, reviewDue: true } });
+    expect(handed.props!.reviewDue).toBe(true);
+    act(() => bus.onNear(stone));
+    expect(screen.getByRole("button", { name: /Read the riddle stone/ })).toBeInTheDocument();
+    await act(async () => void bus.onInteract(stone));
+    expect(startReviewRun).toHaveBeenCalledWith("demo-child-1", { kind: "stone", placeId: "longwater" });
+    expect(screen.getByRole("dialog", { name: "Longwater riddle stone" })).toHaveTextContent("The stone is quiet today.");
+    expect(bus.paused).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Back to the Realm" }));
+    expect(bus.paused).toBe(false);
+  });
+
+  it("keeps the stones awake while the world is quiet", async () => {
+    vi.mocked(getRealmAccess).mockResolvedValue({ allowed: true, minutesRemaining: 0, source: "quiet" });
+    vi.mocked(startReviewRun).mockResolvedValue({ empty: true });
+    const { bus } = mount({ entry: { minutes: 0, visit: null, source: "quiet" } });
+    await act(async () => void bus.onInteract(stone));
+    expect(screen.getByRole("dialog", { name: "Longwater riddle stone" })).toBeInTheDocument();
   });
 });
 

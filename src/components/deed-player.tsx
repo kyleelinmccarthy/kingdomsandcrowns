@@ -15,6 +15,7 @@ import { TaskPresenter } from "@/components/tasks/presenters";
 import type { ProfileLike } from "@/lib/utils/deed-engine";
 import { canSpeak, speak } from "@/lib/utils/speech";
 import { SIDE_QUEST_LOWER } from "@/lib/utils/side-quest-copy";
+import { REVIEW_FINISH } from "@/lib/utils/review-copy";
 
 export function DeedPlayer({
   run,
@@ -37,7 +38,7 @@ export function DeedPlayer({
   const speakable = canSpeak();
   const question = run.questions[index];
   const isLast = index === run.questions.length - 1;
-  const finishLabel = run.kind === "review" ? "Finish review" : `Finish ${SIDE_QUEST_LOWER}`;
+  const finishLabel = run.kind === "review" ? REVIEW_FINISH : `Finish ${SIDE_QUEST_LOWER}`;
 
   // Read-aloud is a side effect, not state: the profile asks for it, the effect obeys.
   useEffect(() => {

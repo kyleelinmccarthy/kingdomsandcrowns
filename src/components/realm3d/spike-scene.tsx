@@ -96,6 +96,8 @@ import { ENTER_VERB } from "@/lib/realm3d/doorways";
 import { Interaction } from "./interaction";
 import { ConstructionSite } from "./construction-site";
 import { GildedPennants } from "./gilded-pennants";
+import { RiddleStones } from "./riddle-stones";
+import { RIDDLE_STONE_SPOTS, riddleStoneColliders } from "@/lib/realm/riddle-stones";
 import { Castle, CastleGrounds } from "./castle";
 import { castlePlan } from "@/lib/realm3d/castle-plan";
 import type { AvatarConfig } from "@/lib/utils/avatar-catalog";
@@ -1036,6 +1038,7 @@ const World = memo(function World({
     }
     const marks = landmarkColliders(world);
     built.solids.push(...marks.solids);
+    built.solids.push(...riddleStoneColliders(world.heightAt));
     return { ...built, fixedSolids: built.solids.length };
   }, [layout, scenery, world, castle, castleUnlocked]);
 
@@ -1083,7 +1086,7 @@ const World = memo(function World({
     const posts = ride ? travelGraphFor(world).posts : undefined;
     // The Ring's arch is an E spot too: E there opens the Ring's board.
     const arch = recess ? { x: recess.course.arch.x, z: recess.course.arch.z, halfSpan: ARCH_HALF_SPAN } : null;
-    return buildSpots({ props: layout.props, sitePlan: SITE_PLAN, landmarks: world.landmarks, landmarkRadius: landmarkRadii(world), castle: gate, posts, arch });
+    return buildSpots({ props: layout.props, sitePlan: SITE_PLAN, landmarks: world.landmarks, landmarkRadius: landmarkRadii(world), castle: gate, posts, arch, stones: RIDDLE_STONE_SPOTS });
   }, [layout, world, castle, castleUnlocked, ride, recess]);
   const heroRef = useRef(spawn);
   const yawRef = useRef(0);
@@ -1260,9 +1263,11 @@ export type RealmCanvasProps = {
   timeZone?: string | null;
   /** The buildings whose stars are all earned: each flies a gold pennant (`gilded-pennants.tsx`). */
   gilded?: readonly string[];
+  /** Something learned is due for review: the riddle stones' runes glow (`riddle-stones.tsx`). */
+  reviewDue?: boolean;
 };
 
-export default function SpikeScene({ avatar, close, world, layout, anchors, pages, bus, caster, fxPool, casts, viewer, castleUnlocked, frozen = false, calm = false, troubles, ride, lead, recess, timeZone, gilded }: RealmCanvasProps) {
+export default function SpikeScene({ avatar, close, world, layout, anchors, pages, bus, caster, fxPool, casts, viewer, castleUnlocked, frozen = false, calm = false, troubles, ride, lead, recess, timeZone, gilded, reviewDue = false }: RealmCanvasProps) {
   return (
     <Canvas
       frameloop={frozen ? "never" : "always"}
@@ -1296,6 +1301,7 @@ export default function SpikeScene({ avatar, close, world, layout, anchors, page
         timeZone={timeZone ?? null}
       />
       <GildedPennants layout={layout} gilded={gilded} sitePlan={SITE_PLAN} wallH={WALL_H} roofH={ROOF_H} />
+      <RiddleStones world={world} due={reviewDue} />
     </Canvas>
   );
 }

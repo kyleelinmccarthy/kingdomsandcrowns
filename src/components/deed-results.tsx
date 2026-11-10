@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button";
 import { GameIcon } from "@/components/game-icon";
 import { resultBuildingLine, resultMinutesLine, resultStarsLine } from "@/lib/realm3d/talk";
 import { StarRow } from "@/components/star-row";
-import { reviewSummaryLine } from "@/lib/utils/review-copy";
+import { REVIEW_DONE, reviewSummaryLine } from "@/lib/utils/review-copy";
 import { SubjectChip } from "@/components/subject-chip";
 import type { RunSummary } from "@/lib/utils/deed-run-types";
 import type { SkillArea } from "@/lib/utils/skills";
@@ -17,7 +17,7 @@ export function DeedResults({ summary, deedTitle, area, onDone, doneLabel = `Bac
     <div className="space-y-4 text-center">
       <GameIcon name={summary.flawless ? "star" : "check"} className="mx-auto size-10 text-[var(--gold-bright)]" />
       {/* Sentence case here (not the SIDE_QUEST title-case noun): matches "Flawless!" as a short exclamation, not a heading. */}
-      <h3 className="text-lg font-bold">{review ? "Review done!" : summary.flawless ? "Flawless!" : "Side quest done!"}</h3>
+      <h3 className="text-lg font-bold">{review ? REVIEW_DONE : summary.flawless ? "Flawless!" : "Side quest done!"}</h3>
       {summary.kind === "deed" && (
         <StarRow stars={summary.stars} className="flex justify-center gap-1" starClass="size-7" onClass="text-[var(--gold-bright)]" offClass="text-muted-foreground/30" />
       )}

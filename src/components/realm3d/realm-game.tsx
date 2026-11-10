@@ -68,6 +68,7 @@ import { DEFAULT_LEARNING_PROFILE, type LearningProfile } from "@/lib/utils/lear
 import type { SpellPage } from "@/lib/services/spells";
 import { usePlayClock, type CloseReason } from "@/components/realm/use-play-clock";
 import { DeedBoard, type DeedResult } from "./deed-board";
+import { RiddleStoneBoard } from "./riddle-stone-board";
 import { CeremonyCard, Coach, DeedToastBanner, TimerFinished, WelcomeCard, type CeremonyInfo } from "./guide-hud";
 import {
   ClockCorner,
@@ -152,6 +153,8 @@ export type RealmData = {
   recess?: RecessRecord | null;
   /** Each trouble home's latest clear, as an age (`bundle.troubleClears`): a reload keeps them cleared. */
   troubleClears?: RecentClear[];
+  /** Something learned is due for review (`bundle.reviewDue`): the riddle stones glow. */
+  reviewDue?: boolean;
 };
 
 /** What the access check decided, for an open gate. */
@@ -317,6 +320,8 @@ export function RealmGame({
   const [troubleBus] = useState(() => makeTroubleBus(undefined, heldClearsFor(realm.childId, realm.troubleClears, realm.isChildView)));
   // What the hero is wearing: the page's look, until the wardrobe saves a new one.
   const [worn, setWorn] = useState<AvatarConfig>(() => avatar ?? DEFAULT_AVATAR);
+  // Whether the riddle stones glow: the bundle's answer, asked again after each stone's review.
+  const [reviewDue, setReviewDue] = useState(realm.reviewDue ?? false);
   const hero = worn;
 
 
@@ -953,6 +958,7 @@ export function RealmGame({
         lead={companion.bus}
         recess={recess.bus}
         gilded={gilded}
+        reviewDue={reviewDue}
       />
       {outCount > 0 && !inside && <div key={outCount} className="r3-fade" aria-hidden="true" />}
       {inside && (
@@ -1149,7 +1155,10 @@ export function RealmGame({
               onClose={closeOverlay}
             />
           )}
-          {overlay?.kind === "interact" && !talkTo && (
+          {overlay?.kind === "interact" && overlay.target.kind === "riddle" && (
+            <RiddleStoneBoard childId={childId} placeId={overlay.target.id} viewer={who} numerals={numerals} profile={{ readAloud, untimed: profile.untimed }} calm={calm} onDue={setReviewDue} onClose={closeOverlay} />
+          )}
+          {overlay?.kind === "interact" && !talkTo && overlay.target.kind !== "riddle" && (
             <InteractPanel
               target={overlay.target}
               kingdom={kingdom}

@@ -23,6 +23,8 @@ vi.mock("@/lib/services/realm-play", () => ({
 vi.mock("@/lib/services/realm-troubles", () => ({
   loadRecentTroubleClears: (childId: string) => loadRecentTroubleClears(childId),
 }));
+const loadReviewDue = vi.fn<(childId: string) => Promise<boolean>>(async () => false);
+vi.mock("@/lib/services/review", () => ({ loadReviewDue: (childId: string) => loadReviewDue(childId) }));
 vi.mock("@/lib/services/deeds", () => ({ loadKingdomOverview: async () => ({ tone: "gentle", buildings: [] }) }));
 vi.mock("@/lib/services/learning-profile", () => ({ loadLearningProfileRow: async () => null }));
 vi.mock("@/lib/services/spells", () => ({
@@ -124,6 +126,26 @@ describe("getRealmBundle — the troubles cleared a moment ago", () => {
     const b = await getRealmBundle("c1");
     spy.mockRestore();
     expect(b.troubleClears).toEqual([]);
+  });
+});
+
+describe("getRealmBundle — whether the riddle stones glow", () => {
+  it("says whether anything learned is due for review, read once with the bundle's own access", async () => {
+    requireChildAccess.mockResolvedValue(as("child:c1", "edit"));
+    loadReviewDue.mockResolvedValueOnce(true);
+    const b = await getRealmBundle("c1");
+    expect(b.reviewDue).toBe(true);
+    expect(loadReviewDue).toHaveBeenCalledWith("c1");
+    expect(requireChildAccess).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves the stones dark when the read fails, rather than closing the Realm", async () => {
+    requireChildAccess.mockResolvedValue(as("child:c1", "edit"));
+    loadReviewDue.mockRejectedValueOnce(new Error("down"));
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const b = await getRealmBundle("c1");
+    spy.mockRestore();
+    expect(b.reviewDue).toBe(false);
   });
 });
 

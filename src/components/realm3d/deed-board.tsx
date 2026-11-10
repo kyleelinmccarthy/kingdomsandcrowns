@@ -40,6 +40,7 @@ import { useDeedFlow } from "@/components/use-deed-flow";
 import { AREA_LABELS, type SkillArea } from "@/lib/utils/skills";
 import { canSpeak, speak, stopSpeaking, type SpeechToken } from "@/lib/utils/speech";
 import { SIDE_QUEST_LOWER, SIDE_QUESTS_LOWER } from "@/lib/utils/side-quest-copy";
+import { REVIEW_FINISH } from "@/lib/utils/review-copy";
 import { Panel, Progress } from "./frame-hud";
 
 type Profile = { readAloud: boolean; untimed: boolean };
@@ -224,8 +225,10 @@ export function DeedBoard({
  * One run, question by question. `DeedPlayer`'s rules, in the frame's clothes, plus the number
  * keys: a child at a keyboard can answer with 1 to 4, the way they cast. A wrong pick on a
  * question with room for it gets a hint and a second try (`useDeedFlow`), or "Show me".
+ * Exported for the riddle stones' board (`riddle-stone-board.tsx`), which plays a review run here:
+ * no villager, no building, its own finish and leave words.
  */
-function DeedRun({
+export function DeedRun({
   run,
   villagerName,
   profile,
@@ -236,7 +239,8 @@ function DeedRun({
   doneLabel = "Back to the Realm",
 }: {
   run: RunStart;
-  villagerName: string;
+  /** Who is pleased by a right answer; absent (a riddle stone), nobody is named. */
+  villagerName?: string;
   profile: Profile;
   calm: boolean;
   numerals: boolean;
@@ -252,6 +256,8 @@ function DeedRun({
   const [now, setNow] = useState(() => Date.now());
   const question = run.questions[index];
   const isLast = index === run.questions.length - 1;
+  const what = run.kind === "review" ? "review" : SIDE_QUEST_LOWER;
+  const finishLabel = run.kind === "review" ? REVIEW_FINISH : `Finish ${SIDE_QUEST_LOWER}`;
   const nextRef = useRef<HTMLButtonElement>(null);
   const feedback = flow.result ? attemptFeedback(flow.result, flow.ruledOut.length > 0, villagerName) : null;
 
@@ -353,7 +359,7 @@ function DeedRun({
         </span>
         {!profile.untimed && <span className="r3-run-time">{minutes} min</span>}
         <button type="button" className="r3-link-button r3-run-leave" onClick={onClose}>
-          Leave the {SIDE_QUEST_LOWER}
+          Leave the {what}
         </button>
       </div>
       <DeedMeter meter={meter} streak={flow.streak} calm={calm} numerals={numerals} />
@@ -392,11 +398,11 @@ function DeedRun({
               ref={nextRef}
               type="button"
               className="r3-menu-item r3-menu-item--go"
-              aria-label={isLast ? `Finish ${SIDE_QUEST_LOWER}` : "Next question"}
+              aria-label={isLast ? finishLabel : "Next question"}
               disabled={busy}
               onClick={() => void advance()}
             >
-              {isLast ? `Finish ${SIDE_QUEST_LOWER}` : "Next"}
+              {isLast ? finishLabel : "Next"}
             </button>
           )}
         </div>

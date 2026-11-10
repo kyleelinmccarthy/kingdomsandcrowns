@@ -23,6 +23,7 @@ import { loadRealmSound } from "@/lib/services/realm-sound";
 import { DEFAULT_SOUND, type SoundSettings } from "@/lib/realm3d/sound/settings";
 import { loadPlacesFound } from "@/lib/services/realm-places";
 import { loadRecessRecord } from "@/lib/services/recess";
+import { loadReviewDue } from "@/lib/services/review";
 import type { RecessRecord } from "@/lib/realm/recess/record";
 import type { RealmAccessMode } from "@/lib/utils/realm-access";
 import type { EarningSettings } from "@/lib/realm/spells/bounty";
@@ -87,6 +88,12 @@ export type RealmBundle = {
    * settings row already read here — no extra query. Always set by `getRealmBundle`.
    */
   earning?: EarningSettings & { accessMode: RealmAccessMode };
+  /**
+   * Whether anything the hero has learned is due for review: the riddle stones glow when it is.
+   * False when the read fails. Always set by `getRealmBundle`; optional only so hand-built bundles
+   * in tests need not carry it.
+   */
+  reviewDue?: boolean;
 };
 
 const VILLAGERS_RESTING = "The villagers are resting. Try again.";
@@ -122,6 +129,11 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
   const clearsRead = loadRecentTroubleClears(childId).catch((err: unknown) => {
     console.error("Realm trouble clears failed to load", err);
     return [] as RecentClear[];
+  });
+  // Whether the riddle stones glow, on the access already checked above: a failed read is "dark".
+  const reviewDueRead = loadReviewDue(childId).catch((err: unknown) => {
+    console.error("Realm review due failed to load", err);
+    return false;
   });
   // Also hands back the flags it read (post-update), so the parallel batch below does not
   // pay a second `loadRealmFlags` round trip just to read `helpSeenAt`. On the (rare) failure
@@ -202,6 +214,7 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
     placesFound: await placesRead,
     recess: await recessRead,
     troubleClears: await clearsRead,
+    reviewDue: await reviewDueRead,
     earning: {
       enabled: settings.enabled,
       accessMode: settings.accessMode,

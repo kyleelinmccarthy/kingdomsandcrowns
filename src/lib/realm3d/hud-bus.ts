@@ -53,8 +53,9 @@ export type InteractTarget = {
    * Riding adds `post`: a hitching post, where fast travel starts (`lib/realm3d/travel.ts`); its id
    * is the destination it belongs to. Recess adds `arch`: the Ring's start and finish
    * (`lib/realm3d/recess/course.ts`), where a child runs the Ring and a grown-up sees their laps.
+   * `riddle` is a riddle stone (`lib/realm/riddle-stones.ts`); its id is the place it stands at.
    */
-  kind: "villager" | "site" | "castle" | "landmark" | "door" | "fixture" | "post" | "arch";
+  kind: "villager" | "site" | "castle" | "landmark" | "door" | "fixture" | "post" | "arch" | "riddle";
   id: string;
   /** What the prompt calls it: "Old Bram", "the Chapel", "Cloudfoot". */
   label: string;
