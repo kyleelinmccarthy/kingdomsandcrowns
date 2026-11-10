@@ -6,7 +6,7 @@ Kingdoms & Crowns gates a handful of features (more than 1 hero, more than 1 adu
 
 ## Environment Variables
 
-Add the following to your `.env.local` (and to the Cloudflare Worker's variables and secrets for production — see [deploy-cloudflare.md](./deploy-cloudflare.md)):
+Add the following to your `.env.local` (and to the Vercel project's Production environment variables — see [deploy-vercel.md](./deploy-vercel.md)):
 
 ```env
 STRIPE_SECRET_KEY=sk_test_your_key
@@ -83,7 +83,7 @@ stripe trigger checkout.session.completed
 
 1. Toggle to **live mode** in the Stripe dashboard.
 2. Repeat steps 2–5 in live mode (product/prices, Customer Portal config, webhook endpoint pointed at your real production domain) — test-mode and live-mode objects are entirely separate; nothing carries over automatically.
-3. Swap all four values on the Cloudflare Worker for their live-mode values (`sk_live_...`, live `price_...` ids, live webhook's `whsec_...`).
+3. Swap all four values in Vercel for their live-mode values (`sk_live_...`, live `price_...` ids, live webhook's `whsec_...`).
 
 ---
 

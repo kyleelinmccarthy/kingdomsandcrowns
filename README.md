@@ -31,4 +31,4 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 
 ## Deploying
 
-The app runs on Cloudflare Workers (via OpenNext, with Durable Objects and R2 backing Next's cache) and Postgres 18 (through Hyperdrive) for its database. It's in invite-only beta: see [docs/deploy-cloudflare.md](./docs/deploy-cloudflare.md) for the walkthrough, [docs/database-backups.md](./docs/database-backups.md) for the weekly backups, and [docs/stripe-setup.md](./docs/stripe-setup.md) for paid plans (built, not yet switched on).
+The app runs on Vercel with a Turso (libSQL) database, both on free plans. It's in invite-only beta: see [docs/deploy-vercel.md](./docs/deploy-vercel.md) for how production runs and releases, [docs/database-backups.md](./docs/database-backups.md) for the weekly backups, and [docs/stripe-setup.md](./docs/stripe-setup.md) for paid plans (built, not yet switched on). [docs/deploy-cloudflare.md](./docs/deploy-cloudflare.md) notes an optional move to Cloudflare Workers, which isn't in use.

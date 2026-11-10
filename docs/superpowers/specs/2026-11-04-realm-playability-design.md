@@ -239,7 +239,7 @@ Built on `realm-playability` (32 commits from dev 690dc03): 13 tasks, each revie
 
 Calls made during the build (beyond §10): recent misses keep their old cap of 2 inside the review budget of 3; the streak shows the flame without a digit at simple depth; in production any deed error reads as one friendly line ("That didn't work.") because Next hides server-action messages.
 
-**Before the Turso → Neon cutover:** the importer now skips missing source columns and runs the star backfill at the end (`migrate-data-from-turso.ts`). Run it once against a scratch database first.
+~~**Before the Turso → Neon cutover:** the importer now skips missing source columns and runs the star backfill at the end (`migrate-data-from-turso.ts`). Run it once against a scratch database first.~~ *Superseded 2026-11-10: production stays on Turso, so there is no cutover or importer. The star backfill now runs as the last statement of SQLite migration `0037`.*
 
 **Known follow-ups (judged safe to wait):**
 - Flat-Realm `deed-panel.tsx` and page `deed-picker.tsx` still show raw start errors; grown-up panels still say "The enchantment failed."

@@ -87,7 +87,7 @@ Back in **Credentials**, either:
 - Add the production redirect URI (`https://kingdomsandcrowns.com/api/auth/callback/google`) to the existing client, **or**
 - Create a separate "Production" Web application client so dev and prod credentials are isolated (recommended).
 
-Set the resulting client ID/secret on the Cloudflare Worker (as secrets) as `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`.
+Set the resulting client ID/secret in the Vercel project's Production environment variables as `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`.
 
 ---
 
@@ -113,7 +113,7 @@ You can't send from `kingdomsandcrowns.com` until Resend has verified you contro
 3. Copy the key (starts with `re_`) — you can't view it again.
 
 ### 4. Set env vars
-On the Cloudflare Worker (**Settings → Variables and Secrets**, or `npx wrangler secret put`):
+In the Vercel project (**Settings → Environment Variables**, Production):
 
 ```env
 RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxx
@@ -135,7 +135,7 @@ The Rookery (admin feedback inbox) is gated by user ID, not by role. After you c
 
 1. Sign in as yourself.
 2. Look up your user ID in the `user` table (or temporarily log it from `getSession()`).
-3. Set `ADMIN_USER_IDS=<your-user-id>` on the Cloudflare Worker (comma-separated for multiple admins).
+3. Set `ADMIN_USER_IDS=<your-user-id>` in the Vercel project's environment variables (comma-separated for multiple admins).
 4. Redeploy. You can now visit `/admin/feedback`.
 
 Non-admins hitting the route get a 404, not a 403, so the route isn't discoverable.
