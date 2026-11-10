@@ -6,6 +6,7 @@ import {
   SCORING,
   countsTowardBuilding,
   isGilded,
+  kindsThatFeedReview,
   runPoints,
   starsFor,
   type QuestionOutcome,
@@ -85,6 +86,9 @@ describe("run kinds", () => {
       feedsReview: true,
       allowsSecondChances: true,
     });
+  });
+  it("misses come back from a deed and a review, never from a challenge", () => {
+    expect(kindsThatFeedReview().sort()).toEqual(["deed", "review"]);
   });
   it("pins the challenge shape", () => {
     expect(CHALLENGE).toEqual({ questions: 3, levelBoost: 1 });

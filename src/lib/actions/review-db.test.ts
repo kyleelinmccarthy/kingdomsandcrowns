@@ -36,7 +36,8 @@ vi.mock("@/lib/services/deeds", async () => ({
 }));
 
 const { startReviewRun, getReviewDue } = await import("./review");
-const { answerDeedQuestion, completeDeedRun } = await import("./deeds");
+const { answerDeedQuestion, resolveDeedQuestion, completeDeedRun } = await import("./deeds");
+const { loadRecentMisses } = await import("@/lib/services/deed-run-store");
 const { loadDeedBest } = await import("@/lib/services/deeds");
 const { requireChildAccess } = await import("@/lib/auth/access");
 
@@ -199,6 +200,15 @@ describe("a riddle stone's review run", () => {
     expect("empty" in r).toBe(false);
   });
 
+  it.each([null, undefined, "stone", 7, {}, { kind: "garden" }, { kind: "stone" }, { kind: "stone", placeId: 7 }])(
+    "a malformed origin %j is refused before anything is read or written",
+    async (origin) => {
+      await learn();
+      await expect(startReviewRun("c1", origin as never)).rejects.toThrow(NOT_IN_CHRONICLE);
+      expect(await count("SELECT count(*) AS n FROM deed_run")).toBe(0);
+    },
+  );
+
   it("a place the Realm does not know is refused", async () => {
     await learn();
     await expect(startReviewRun("c1", { kind: "stone", placeId: "nowhere" })).rejects.toThrow(NOT_IN_CHRONICLE);
@@ -222,5 +232,35 @@ describe("a finished review run and the best a side quest keeps", () => {
     for (const [i, q] of questions.entries()) await answerDeedQuestion(runId, i, q.answer);
     await completeDeedRun(runId);
     expect(await loadDeedBest("c1")).toEqual([]);
+  });
+});
+
+describe("misses and what comes back", () => {
+  it("a first-try miss in a finished review run comes back in a later review", async () => {
+    await learn();
+    const { runId, questions } = await started();
+    const wrong = questions[0].choices.find((c) => c !== questions[0].answer)!;
+    await answerDeedQuestion(runId, 0, wrong);
+    await resolveDeedQuestion(runId, 0);
+    for (const [i, q] of questions.entries()) if (i > 0) await answerDeedQuestion(runId, i, q.answer);
+    await completeDeedRun(runId);
+
+    expect((await loadRecentMisses("c1")).map((q) => q.id)).toEqual([questions[0].id]);
+    const next = await startReviewRun("c1", { kind: "page" });
+    if ("empty" in next) throw new Error("expected a run");
+    const stored = await client.query("SELECT questions FROM deed_run WHERE id = ?1", [next.runId]);
+    expect((JSON.parse(stored.rows[0].questions as string) as Question[]).map((q) => q.id)).toContain(questions[0].id);
+  });
+
+  it("a miss in a Crown Challenge never comes back", async () => {
+    const q: Question = { id: "cq", skillId: "mul-facts", prompt: "2 x 3?", choices: ["6", "5", "8", "9"], answer: "6" };
+    await client.query(
+      `INSERT INTO deed_run (id, child_id, deed_id, skill_ids, band, questions, responses, mastery_start,
+         started_at, completed_at, created_at, updated_at, kind)
+       VALUES ('ch1', 'c1', 'well-stones', '["mul-facts"]', 'g23', ?1, '["5"]', '{}',
+         unixepoch(), unixepoch(), unixepoch(), unixepoch(), 'challenge')`,
+      [JSON.stringify([q])],
+    );
+    expect(await loadRecentMisses("c1")).toEqual([]);
   });
 });

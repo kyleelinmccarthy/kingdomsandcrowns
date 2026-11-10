@@ -31,16 +31,20 @@ export async function startReviewRun(childId: string, origin: ReviewOrigin): Pro
   const { access } = await requireChildAccess(childId, { write: true });
   let header: RunStart["deed"];
   let sourceRef: string;
-  if (origin.kind === "stone") {
+  // `origin` crosses the network: only the two known shapes are served, before any data is read.
+  const raw = (typeof origin === "object" && origin !== null ? origin : {}) as { kind?: unknown; placeId?: unknown };
+  if (raw.kind === "stone") {
     // In the world only the hero plays; a parent previewing the Realm never starts a run.
     if (!isChildActor(access)) throw new Error(HERO_ONLY);
-    const place = placeById(origin.placeId);
+    const place = typeof raw.placeId === "string" ? placeById(raw.placeId) : null;
     if (!place) throw new Error(NOT_IN_CHRONICLE);
     sourceRef = place.id;
     header = { id: `review:${place.id}`, title: stoneTitle(place.name), story: REVIEW_STORY, area: null };
-  } else {
+  } else if (raw.kind === "page") {
     sourceRef = "page";
     header = { id: "review:page", title: QUICK_REVIEW_TITLE, story: REVIEW_STORY, area: null };
+  } else {
+    throw new Error(NOT_IN_CHRONICLE);
   }
   const hero = await loadHeroLevels(childId);
   if (!hero.enabled) throw new Error(CLOSED);

@@ -1,9 +1,9 @@
-import { and, desc, eq, gt, isNotNull, isNull, type SQL } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNotNull, isNull, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { gradeAnswer } from "@/lib/utils/deed-engine";
 import type { Question } from "@/lib/utils/drill-generators";
-import { RUN_EFFECTS } from "@/lib/utils/deed-scoring";
+import { RUN_EFFECTS, kindsThatFeedReview } from "@/lib/utils/deed-scoring";
 import { records, resumeIndex, statusOf } from "@/lib/utils/deed-attempts";
 import { hintFor } from "@/lib/utils/skill-hints";
 import { toClientTask, type Task } from "@/lib/tasks/registry";
@@ -24,15 +24,16 @@ export async function loadMasteryRows(childId: string) {
 }
 
 /**
- * Questions the hero got wrong in their last five finished deeds, newest first. Only first
- * answers are read: a question put right on the second try still needed help. A Crown
- * Challenge's misses never come back (`RUN_EFFECTS.challenge.feedsReview`).
+ * Questions the hero got wrong in their last five finished runs of a kind that feeds review
+ * (`RUN_EFFECTS`: deeds and reviews), newest first. Only first answers are read: a question put
+ * right on the second try still needed help. A Crown Challenge's misses never come back
+ * (`RUN_EFFECTS.challenge.feedsReview` is false).
  */
 export async function loadRecentMisses(childId: string): Promise<Question[]> {
   const runs = await db
     .select({ questions: schema.deedRun.questions, responses: schema.deedRun.responses })
     .from(schema.deedRun)
-    .where(and(eq(schema.deedRun.childId, childId), isNotNull(schema.deedRun.completedAt), eq(schema.deedRun.kind, "deed")))
+    .where(and(eq(schema.deedRun.childId, childId), isNotNull(schema.deedRun.completedAt), inArray(schema.deedRun.kind, kindsThatFeedReview())))
     .orderBy(desc(schema.deedRun.completedAt))
     .limit(5);
   const misses: Question[] = [];
