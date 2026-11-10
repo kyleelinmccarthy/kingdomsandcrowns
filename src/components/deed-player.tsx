@@ -11,18 +11,10 @@ import type { RunStart, RunSummary } from "@/lib/utils/deed-run-types";
 import { DeedMeter } from "@/components/deed-meter";
 import { useDeedFlow } from "@/components/use-deed-flow";
 import { attemptFeedback } from "@/lib/realm3d/talk";
-import { choiceTone, type ChoiceTone } from "@/lib/utils/deed-run-flow";
+import { TaskPresenter } from "@/components/tasks/presenters";
 import type { ProfileLike } from "@/lib/utils/deed-engine";
 import { canSpeak, speak } from "@/lib/utils/speech";
 import { SIDE_QUEST_LOWER } from "@/lib/utils/side-quest-copy";
-
-const TONE_CLASS: Record<ChoiceTone, string> = {
-  plain: "border-gold-dim bg-muted/20",
-  answer: "border-[var(--gold-border)] bg-muted/40",
-  "ruled-out": "border-dashed border-gold-dim bg-muted/10 opacity-50 line-through",
-  "picked-wrong": "border-destructive/60 bg-destructive/10 opacity-70",
-  faded: "opacity-60",
-};
 
 export function DeedPlayer({
   run,
@@ -62,8 +54,6 @@ export function DeedPlayer({
   }, [profile.untimed]);
 
   const nextRef = useRef<HTMLButtonElement>(null);
-  const firstOpenChoice = useRef<HTMLButtonElement>(null);
-  const firstOpen = question.view.choices.findIndex((c) => !flow.ruledOut.includes(c));
   const feedback = flow.result ? attemptFeedback(flow.result, flow.ruledOut.length > 0) : null;
 
   // The hint is read once, when the second chance opens.
@@ -76,11 +66,11 @@ export function DeedPlayer({
     };
   }, [profile.readAloud, hint, index]);
 
-  // Focus follows the question: the first open choice (a second chance skips the crossed-out
-  // pick), Next once it is resolved.
+  // Focus follows the question: the choices take it when one is asked (see `ChoicePresenter`),
+  // Next once it is resolved.
   useEffect(() => {
     if (summary) return;
-    (phase === "resolved" ? nextRef.current : firstOpenChoice.current)?.focus();
+    if (phase === "resolved") nextRef.current?.focus();
   }, [phase, index, summary]);
 
   function advance() {
@@ -121,27 +111,7 @@ export function DeedPlayer({
             </Button>
           )}
         </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          {question.view.choices.map((choice, i) => {
-            const tone = choiceTone(flow, choice);
-            const ruledOut = tone === "ruled-out";
-            return (
-              <button
-                key={choice}
-                ref={i === firstOpen ? firstOpenChoice : undefined}
-                type="button"
-                data-tone={tone}
-                disabled={phase === "resolved" || ruledOut || busy}
-                aria-disabled={ruledOut || undefined}
-                onClick={() => void choose(choice)}
-                className={`min-h-16 rounded-lg border px-4 py-3 text-lg ${TONE_CLASS[tone]} ${!calm && tone === "answer" && flow.result?.correct ? "deed-sparkle" : ""}`}
-              >
-                {choice}
-                {ruledOut && <span className="sr-only"> (not this one)</span>}
-              </button>
-            );
-          })}
-        </div>
+        <TaskPresenter task={question} flow={flow} variant="page" numerals calm={calm} disabled={busy} onRespond={(choice) => void choose(choice)} />
         {feedback && (
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>

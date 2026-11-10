@@ -32,9 +32,9 @@ import type { BuildingOverview } from "@/lib/services/deeds";
 import type { Villager } from "@/lib/realm/villagers";
 import { attemptFeedback, resultBuildingLine, resultHeadline, resultMinutesLine, resultStarsLine, talkCopy, type Viewer } from "@/lib/realm3d/talk";
 import { MAX_STARS, type Stars } from "@/lib/utils/deed-scoring";
-import { choiceTone } from "@/lib/utils/deed-run-flow";
 import { deedErrorLine } from "@/lib/utils/deed-refusals";
 import { DeedMeter } from "@/components/deed-meter";
+import { TaskPresenter } from "@/components/tasks/presenters";
 import { StarRow } from "@/components/star-row";
 import { useDeedFlow } from "@/components/use-deed-flow";
 import { AREA_LABELS, type SkillArea } from "@/lib/utils/skills";
@@ -252,8 +252,6 @@ function DeedRun({
   const question = run.questions[index];
   const isLast = index === run.questions.length - 1;
   const nextRef = useRef<HTMLButtonElement>(null);
-  const firstOpenChoice = useRef<HTMLButtonElement>(null);
-  const firstOpen = question.view.choices.findIndex((c) => !flow.ruledOut.includes(c));
   const feedback = flow.result ? attemptFeedback(flow.result, flow.ruledOut.length > 0, villagerName) : null;
 
   // Read-aloud, as `DeedPlayer` does it: the profile asks, the effect obeys, and leaving stops it —
@@ -282,11 +280,11 @@ function DeedRun({
     return () => clearInterval(id);
   }, [profile.untimed]);
 
-  // Focus follows the question: the first open choice when one is asked (a second chance skips
-  // the crossed-out pick), Next once it is resolved.
+  // Focus follows the question: the choices take it when one is asked (see `ChoicePresenter`),
+  // Next once it is resolved.
   useEffect(() => {
     if (summary) return;
-    (phase === "resolved" ? nextRef.current : firstOpenChoice.current)?.focus();
+    if (phase === "resolved") nextRef.current?.focus();
   }, [phase, index, summary]);
 
   function advance() {
@@ -297,26 +295,6 @@ function DeedRun({
       onResult(done);
     });
   }
-
-  // The number row answers. Enter and Space belong to whichever button has focus.
-  const chooseRef = useRef(choose);
-  useEffect(() => {
-    chooseRef.current = choose;
-  });
-  useEffect(() => {
-    if (summary) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
-      if (!e.code.startsWith("Digit")) return;
-      const n = Number(e.code.slice(5));
-      const choice = question?.view.choices[n - 1];
-      if (!choice) return;
-      e.preventDefault();
-      void chooseRef.current(choice);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [question, summary]);
 
   if (summary) {
     const head = resultHeadline(summary, run.deed.title);
@@ -392,31 +370,7 @@ function DeedRun({
           </button>
         )}
       </div>
-      <div className="r3-choices">
-        {question.view.choices.map((choice, i) => {
-          const tone = choiceTone(flow, choice);
-          const ruledOut = tone === "ruled-out";
-          const sparkle = !calm && tone === "answer" && flow.result?.correct ? " r3-choice--sparkle" : "";
-          return (
-            <button
-              key={choice}
-              ref={i === firstOpen ? firstOpenChoice : undefined}
-              type="button"
-              className={`r3-choice r3-choice--${tone}${sparkle}`}
-              data-tone={tone}
-              disabled={phase === "resolved" || ruledOut || busy}
-              aria-disabled={ruledOut || undefined}
-              onClick={() => void choose(choice)}
-            >
-              <span className="r3-choice-key" aria-hidden="true">
-                {i + 1}
-              </span>
-              <span className="r3-choice-text">{choice}</span>
-              {ruledOut && <span className="sr-only"> (not this one)</span>}
-            </button>
-          );
-        })}
-      </div>
+      <TaskPresenter task={question} flow={flow} variant="board" numerals={numerals} calm={calm} disabled={busy} onRespond={(choice) => void choose(choice)} />
       {feedback && (
         <div className={`r3-feedback${flow.result?.correct ? " r3-feedback--right" : ""}`}>
           <div>
