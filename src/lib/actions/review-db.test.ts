@@ -1,0 +1,226 @@
+// @vitest-environment node
+import { describe, it, expect, vi, beforeAll, beforeEach, afterAll } from "vitest";
+import { testDatabase } from "@/test/libsql-test-db";
+import { DEFAULT_REALM_SETTINGS } from "@/lib/utils/realm-settings";
+import { HERO_ONLY, NOT_IN_CHRONICLE } from "@/lib/utils/deed-refusals";
+import { QUICK_REVIEW_TITLE, REVIEW_STORY, stoneTitle } from "@/lib/utils/review-copy";
+import type { Question } from "@/lib/utils/drill-generators";
+import { REALM_ACCESS_DDL, REALM_LEDGER_DDL, REALM_SETTINGS_DDL } from "@/test/realm-db-ddl";
+
+/**
+ * A review run against a REAL libsql database: it teaches (mastery moves on a first answer) and
+ * pays nothing (no ledger row, no kingdom progress, no stars), and finishing it twice at once
+ * completes it once.
+ */
+const client = testDatabase("review-db");
+const testDb = client.db;
+
+vi.mock("@/lib/db", () => ({ db: testDb }));
+vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
+vi.mock("@/lib/auth/access", () => ({
+  requireChildAccess: vi.fn(async () => ({ access: { userId: "child:c1" }, familyId: "f1" })),
+  isChildActor: (access: { userId: string }) => access.userId.startsWith("child:"),
+}));
+vi.mock("@/lib/services/realm-play", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/services/realm-play")>("@/lib/services/realm-play");
+  return { ...actual, loadRealmSettings: vi.fn(async () => ({ ...DEFAULT_REALM_SETTINGS })) };
+});
+vi.mock("@/lib/services/realm-clock", () => ({ realmNow: async () => ({ date: "2026-11-09", timeOfDay: "10:00" }) }));
+vi.mock("@/lib/services/learning-profile", () => ({ loadLearningProfileRow: async () => null }));
+vi.mock("@/lib/services/deeds", async () => ({
+  ...(await vi.importActual<typeof import("@/lib/services/deeds")>("@/lib/services/deeds")),
+  loadHeroLevels: vi.fn(async () => ({
+    enabled: true, tone: "gentle", band: "g23",
+    grades: { math: "3", reading: "3", language: "3", science: "3" },
+  })),
+}));
+
+const { startReviewRun, getReviewDue } = await import("./review");
+const { answerDeedQuestion, completeDeedRun } = await import("./deeds");
+const { loadDeedBest } = await import("@/lib/services/deeds");
+const { requireChildAccess } = await import("@/lib/auth/access");
+
+const DDL = [
+  `CREATE TABLE deed_run (
+    id text PRIMARY KEY NOT NULL, child_id text NOT NULL, deed_id text, source_ref text, skill_ids text NOT NULL,
+    band text NOT NULL, questions text NOT NULL, responses text DEFAULT '[]' NOT NULL,
+    mastery_start text DEFAULT '{}' NOT NULL, correct_count integer DEFAULT 0 NOT NULL,
+    flawless integer DEFAULT false NOT NULL, started_at integer NOT NULL, completed_at integer,
+    created_at integer NOT NULL, updated_at integer NOT NULL,
+    second_tries text DEFAULT '[]' NOT NULL, stars integer DEFAULT 0 NOT NULL,
+    kind text DEFAULT 'deed' NOT NULL, second_chances integer DEFAULT false NOT NULL)`,
+  `CREATE TABLE skill_mastery (
+    id text PRIMARY KEY NOT NULL, child_id text NOT NULL, skill_id text NOT NULL,
+    level integer DEFAULT 0 NOT NULL, recent_results text DEFAULT '[]' NOT NULL,
+    correct_total integer DEFAULT 0 NOT NULL, attempt_total integer DEFAULT 0 NOT NULL,
+    last_practiced_at integer, created_at integer NOT NULL, updated_at integer NOT NULL)`,
+  `CREATE UNIQUE INDEX skill_mastery_child_skill_idx ON skill_mastery (child_id, skill_id)`,
+  `CREATE TABLE kingdom_progress (
+    id text PRIMARY KEY NOT NULL, child_id text NOT NULL, building_id text NOT NULL,
+    deeds_done integer DEFAULT 0 NOT NULL, completed_at integer,
+    created_at integer NOT NULL, updated_at integer NOT NULL)`,
+  `CREATE UNIQUE INDEX kingdom_progress_child_building_idx ON kingdom_progress (child_id, building_id)`,
+  ...REALM_SETTINGS_DDL,
+  ...REALM_LEDGER_DDL,
+  ...REALM_ACCESS_DDL,
+];
+
+const LEARNED = ["mul-facts", "div-facts", "add-100", "place-value"];
+const LONG_AGO = 1_700_000_000;
+const PLACE = "ringstones";
+
+async function learn(skills = LEARNED, level = 1): Promise<void> {
+  for (const [i, skillId] of skills.entries()) {
+    await client.query(
+      `INSERT INTO skill_mastery (id, child_id, skill_id, level, last_practiced_at, created_at, updated_at)
+       VALUES (?1, 'c1', ?2, ?3, ?4, unixepoch(), unixepoch())`,
+      [`m${i}`, skillId, level, LONG_AGO],
+    );
+  }
+}
+
+async function started(): Promise<{ runId: string; questions: Question[] }> {
+  const r = await startReviewRun("c1", { kind: "stone", placeId: PLACE });
+  if ("empty" in r) throw new Error("expected a run");
+  const row = await client.query("SELECT questions FROM deed_run WHERE id = ?1", [r.runId]);
+  return { runId: r.runId, questions: JSON.parse(row.rows[0].questions as string) as Question[] };
+}
+
+async function count(sql: string): Promise<number> {
+  return Number((await client.query(sql)).rows[0].n);
+}
+const attemptTotal = () => count("SELECT coalesce(sum(attempt_total), 0) AS n FROM skill_mastery WHERE child_id = 'c1'");
+
+beforeAll(async () => {
+  for (const sql of DDL) await client.query(sql);
+});
+
+beforeEach(async () => {
+  for (const t of ["deed_run", "skill_mastery", "kingdom_progress", "realm_settings", "realm_play_ledger"]) await client.query(`DELETE FROM ${t}`);
+});
+
+afterAll(async () => {
+  client.close();
+});
+
+describe("a riddle stone's review run", () => {
+  it("builds three tasks from what the hero has learned, with the stone's header", async () => {
+    await learn();
+    const r = await startReviewRun("c1", { kind: "stone", placeId: PLACE });
+    if ("empty" in r) throw new Error("expected a run");
+    expect(r.questions).toHaveLength(3);
+    expect(r).toMatchObject({
+      kind: "review", pending: null,
+      deed: { id: `review:${PLACE}`, title: stoneTitle("The Ringstones"), story: REVIEW_STORY, area: null },
+    });
+    const row = (await client.query("SELECT deed_id, source_ref, kind, band FROM deed_run WHERE id = ?1", [r.runId])).rows[0];
+    expect(row).toMatchObject({ deed_id: null, source_ref: PLACE, kind: "review", band: "g23" });
+  });
+
+  it("the Quick review page wears its own header and names the page as its source", async () => {
+    await learn();
+    const r = await startReviewRun("c1", { kind: "page" });
+    if ("empty" in r) throw new Error("expected a run");
+    expect(r.deed).toEqual({ id: "review:page", title: QUICK_REVIEW_TITLE, story: REVIEW_STORY, area: null });
+    expect((await client.query("SELECT source_ref FROM deed_run WHERE id = ?1", [r.runId])).rows[0].source_ref).toBe("page");
+  });
+
+  it("answering moves skill_mastery, and finishing pays nothing: no ledger row, no kingdom progress, no stars", async () => {
+    await learn();
+    const { runId, questions } = await started();
+    for (const [i, q] of questions.entries()) await answerDeedQuestion(runId, i, q.answer);
+    expect(await attemptTotal()).toBe(3);
+
+    const s = await completeDeedRun(runId);
+    expect(s).toMatchObject({ kind: "review", stars: 0, counted: false, building: null, minutesEarned: 0, correctCount: 3, flawless: true });
+    expect(await count("SELECT count(*) AS n FROM realm_play_ledger")).toBe(0);
+    expect(await count("SELECT count(*) AS n FROM kingdom_progress")).toBe(0);
+    const run = (await client.query("SELECT stars, completed_at FROM deed_run WHERE id = ?1", [runId])).rows[0];
+    expect(run.stars).toBe(0);
+    expect(run.completed_at).not.toBeNull();
+  });
+
+  it("two tabs finishing one review complete it once", async () => {
+    await learn();
+    const { runId, questions } = await started();
+    for (const [i, q] of questions.entries()) await answerDeedQuestion(runId, i, q.answer);
+    const before = await attemptTotal();
+    const results = await Promise.allSettled([completeDeedRun(runId), completeDeedRun(runId)]);
+    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    expect(await attemptTotal()).toBe(before);
+    expect(await count("SELECT count(*) AS n FROM realm_play_ledger")).toBe(0);
+  });
+
+  it("an open review run for the same stone is resumed, a different stone starts its own", async () => {
+    await learn();
+    const first = await started();
+    const again = await startReviewRun("c1", { kind: "stone", placeId: PLACE });
+    if ("empty" in again) throw new Error("expected a run");
+    expect(again.runId).toBe(first.runId);
+    const other = await startReviewRun("c1", { kind: "stone", placeId: "highcairn" });
+    if ("empty" in other) throw new Error("expected a run");
+    expect(other.runId).not.toBe(first.runId);
+    expect(await count("SELECT count(*) AS n FROM deed_run")).toBe(2);
+  });
+
+  it("a finished review run is not resumed", async () => {
+    await learn();
+    const { runId, questions } = await started();
+    for (const [i, q] of questions.entries()) await answerDeedQuestion(runId, i, q.answer);
+    await completeDeedRun(runId);
+    const next = await startReviewRun("c1", { kind: "stone", placeId: PLACE });
+    if ("empty" in next) throw new Error("expected a run");
+    expect(next.runId).not.toBe(runId);
+  });
+
+  it("a brand-new child has nothing to review", async () => {
+    expect(await startReviewRun("c1", { kind: "stone", placeId: PLACE })).toEqual({ empty: true });
+    expect(await startReviewRun("c1", { kind: "page" })).toEqual({ empty: true });
+    expect(await getReviewDue("c1")).toBe(false);
+    expect(await count("SELECT count(*) AS n FROM deed_run")).toBe(0);
+  });
+
+  it("skills only seen at level 0 are not reviewed", async () => {
+    await learn(LEARNED, 0);
+    expect(await startReviewRun("c1", { kind: "page" })).toEqual({ empty: true });
+  });
+
+  it("a grown-up starting a stone review is refused, and nothing is written", async () => {
+    await learn();
+    vi.mocked(requireChildAccess).mockResolvedValueOnce({ access: { userId: "parent:u1" }, familyId: "f1" } as never);
+    await expect(startReviewRun("c1", { kind: "stone", placeId: PLACE })).rejects.toThrow(HERO_ONLY);
+    expect(await count("SELECT count(*) AS n FROM deed_run")).toBe(0);
+  });
+
+  it("a grown-up may start Quick review from the page, as they may a side quest", async () => {
+    await learn();
+    vi.mocked(requireChildAccess).mockResolvedValueOnce({ access: { userId: "parent:u1" }, familyId: "f1" } as never);
+    const r = await startReviewRun("c1", { kind: "page" });
+    expect("empty" in r).toBe(false);
+  });
+
+  it("a place the Realm does not know is refused", async () => {
+    await learn();
+    await expect(startReviewRun("c1", { kind: "stone", placeId: "nowhere" })).rejects.toThrow(NOT_IN_CHRONICLE);
+    expect(await count("SELECT count(*) AS n FROM deed_run")).toBe(0);
+  });
+});
+
+describe("getReviewDue", () => {
+  it("is true when something learned has rested past its interval, false when it was just practised", async () => {
+    await learn();
+    expect(await getReviewDue("c1")).toBe(true);
+    await client.query("UPDATE skill_mastery SET last_practiced_at = unixepoch()");
+    expect(await getReviewDue("c1")).toBe(false);
+  });
+});
+
+describe("a finished review run and the best a side quest keeps", () => {
+  it("loadDeedBest does not include it", async () => {
+    await learn();
+    const { runId, questions } = await started();
+    for (const [i, q] of questions.entries()) await answerDeedQuestion(runId, i, q.answer);
+    await completeDeedRun(runId);
+    expect(await loadDeedBest("c1")).toEqual([]);
+  });
+});

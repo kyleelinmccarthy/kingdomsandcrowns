@@ -1,6 +1,6 @@
 "use server";
 
-import { and, desc, eq, inArray, isNotNull, isNull, gt, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
@@ -15,14 +15,13 @@ import { deedStory, findDeed } from "@/lib/utils/deeds";
 import {
   buildDeedRun,
   chooseSkills,
-  gradeAnswer,
   type PoolItem,
 } from "@/lib/utils/deed-engine";
 import { masteryChangeCopy, masteryLabel, parseRecentResults, progressToNextRung, recordResult } from "@/lib/utils/mastery";
 import type { Question } from "@/lib/utils/drill-generators";
-import { isTaskCorrect, kindOf, taskDef, toClientTask, type ResponseByKind, type Task, type TaskKind } from "@/lib/tasks/registry";
+import { isTaskCorrect, kindOf, taskDef, type ResponseByKind, type Task, type TaskKind } from "@/lib/tasks/registry";
 import { CHALLENGE, MAX_STARS, RUN_EFFECTS, countsTowardBuilding, runPoints, starsFor, type QuestionOutcome, type RunKind, type Stars } from "@/lib/utils/deed-scoring";
-import { outcomeOf, records, refuseGiveUp, refuseRetry, resumeIndex, statusOf, type QuestionStatus } from "@/lib/utils/deed-attempts";
+import { outcomeOf, refuseGiveUp, refuseRetry, statusOf, type QuestionStatus } from "@/lib/utils/deed-attempts";
 import {
   ALREADY_ANSWERED, ANSWER_EVERY, ANSWER_FIRST, CHALLENGE_LOCKED, CHALLENGE_NOT_READY, CLOSED, FINISHED, HERO_ONLY, NONE_READY,
   NOT_IN_CHRONICLE, NOT_IN_RUN, NOT_THROUGH, PICK_SHOWN,
@@ -30,6 +29,7 @@ import {
 import { overdueSkills } from "@/lib/utils/review-schedule";
 import type { AttemptResult, RunStart, RunSummary } from "@/lib/utils/deed-run-types";
 import { hintFor } from "@/lib/utils/skill-hints";
+import { findOpenRun, insertRun, loadMasteryRows, loadRecentMisses, parseRun, resumedStart, type DeedRunRow } from "@/lib/services/deed-run-store";
 import { buildingStars, gradeForDeed, loadDeedBest, loadHeroLevels, loadKingdomOverview, type BuildingOverview } from "@/lib/services/deeds";
 import { loadLearningProfileRow } from "@/lib/services/learning-profile";
 import { loadRealmSettings, paySideQuest } from "@/lib/services/realm-play";
@@ -41,12 +41,6 @@ export type DeedsOverview = {
   buildings: BuildingOverview[]; mastery: MasteryRow[];
 };
 
-const RESUME_WINDOW_MS = 60 * 60 * 1000;
-
-async function loadMasteryRows(childId: string) {
-  return db.select().from(schema.skillMastery).where(eq(schema.skillMastery.childId, childId));
-}
-
 function masteryRow(row: typeof schema.skillMastery.$inferSelect): MasteryRow | null {
   const skill = findSkill(row.skillId);
   if (!skill) return null;
@@ -54,37 +48,6 @@ function masteryRow(row: typeof schema.skillMastery.$inferSelect): MasteryRow | 
     skillId: row.skillId, label: skill.label, area: skill.area, level: row.level,
     levelLabel: masteryLabel(row.level), lastPracticedAt: row.lastPracticedAt ? row.lastPracticedAt.toISOString() : null,
   };
-}
-
-/**
- * Questions the hero got wrong in their last five finished deeds, newest first. Only first
- * answers are read: a question put right on the second try still needed help. A Crown
- * Challenge's misses never come back (`RUN_EFFECTS.challenge.feedsReview`).
- */
-async function loadRecentMisses(childId: string): Promise<Question[]> {
-  const runs = await db
-    .select({ questions: schema.deedRun.questions, responses: schema.deedRun.responses })
-    .from(schema.deedRun)
-    .where(and(eq(schema.deedRun.childId, childId), isNotNull(schema.deedRun.completedAt), eq(schema.deedRun.kind, "deed")))
-    .orderBy(desc(schema.deedRun.completedAt))
-    .limit(5);
-  const misses: Question[] = [];
-  const seen = new Set<string>();
-  for (const run of runs) {
-    try {
-      const qs = JSON.parse(run.questions) as Question[];
-      const rs = JSON.parse(run.responses) as (string | null)[];
-      // Runs are newest first, so the first time an id is seen is its newest miss; a
-      // question missed again in an older run is not pushed a second time.
-      qs.forEach((q, i) => {
-        if (rs[i] !== null && rs[i] !== undefined && !gradeAnswer(q, rs[i]!) && !seen.has(q.id)) {
-          seen.add(q.id);
-          misses.push(q);
-        }
-      });
-    } catch { /* a malformed old run is skipped, never fatal */ }
-  }
-  return misses.slice(0, 5);
 }
 
 /** A hero may see their own deeds; a closed Realm shows as such rather than throwing. */
@@ -126,27 +89,8 @@ export async function startDeedRun(
   }
   const story = deedStory(deed, hero.tone);
 
-  // A run abandoned minutes ago is picked back up rather than restarted.
-  const since = new Date(Date.now() - RESUME_WINDOW_MS);
-  const open = await db
-    .select()
-    .from(schema.deedRun)
-    .where(and(
-      eq(schema.deedRun.childId, childId), eq(schema.deedRun.deedId, deedId), eq(schema.deedRun.kind, kind),
-      isNull(schema.deedRun.completedAt), gt(schema.deedRun.startedAt, since),
-    ))
-    .limit(1);
-  if (open[0]) {
-    const { questions, responses, attempts, statuses } = parseRun(open[0]);
-    const at = resumeIndex(statuses);
-    const pending = statuses[at] === "open"
-      ? { index: at, ruledOut: attempts[at].first ?? "", hint: hintFor(questions[at].skillId) }
-      : null;
-    return {
-      runId: open[0].id, deed: { id: deed.id, title: deed.title, story, area: deed.area },
-      questions: questions.map(toClientTask), responses, kind: open[0].kind, pending,
-    };
-  }
+  const open = await findOpenRun(and(eq(schema.deedRun.childId, childId), eq(schema.deedRun.deedId, deedId), eq(schema.deedRun.kind, kind)));
+  if (open) return resumedStart(open, { id: deed.id, title: deed.title, story, area: deed.area });
 
   // The deed's OWN strand decides the grade — never a fixed one, and never another
   // strand's. `gradeForDeed` is where that is pinned by test.
@@ -194,25 +138,15 @@ export async function startDeedRun(
   // A crown is three right answers, never fewer: a thin pool at the higher rung waits.
   if (challenge && built.questions.length < CHALLENGE.questions) throw new Error(CHALLENGE_NOT_READY);
 
-  const now = new Date();
-  const runId = nanoid();
   const masteryStart: Record<string, number> = {};
   for (const id of built.skillIds) masteryStart[id] = masteryBySkill[id] ?? 0;
-  await db.insert(schema.deedRun).values({
-    id: runId, childId, deedId, skillIds: JSON.stringify(built.skillIds), band: bandForGrade(grade),
-    questions: JSON.stringify(built.questions), responses: JSON.stringify(built.questions.map(() => null)),
-    masteryStart: JSON.stringify(masteryStart), correctCount: 0, flawless: false,
+  return insertRun({
+    id: nanoid(), childId, deedId, skillIds: JSON.stringify(built.skillIds), band: bandForGrade(grade),
+    masteryStart: JSON.stringify(masteryStart),
     // Snapshotted, so a grown-up changing the setting mid-run never changes this run's rules.
     kind, secondChances: RUN_EFFECTS[kind].allowsSecondChances && settings.secondChances,
-    startedAt: now, completedAt: null, createdAt: now, updatedAt: now,
-  });
-  return {
-    runId, deed: { id: deed.id, title: deed.title, story, area: deed.area },
-    questions: built.questions.map(toClientTask), responses: built.questions.map(() => null), kind, pending: null,
-  };
+  }, built.questions, { id: deed.id, title: deed.title, story, area: deed.area });
 }
-
-type DeedRunRow = typeof schema.deedRun.$inferSelect;
 
 /** A stored run, once the caller may act for its hero, and who the caller is. */
 async function loadRun(runId: string): Promise<{ run: DeedRunRow; access: FamilyAccess }> {
@@ -220,19 +154,6 @@ async function loadRun(runId: string): Promise<{ run: DeedRunRow; access: Family
   if (!rows[0]) throw new Error(NOT_IN_CHRONICLE);
   const { access } = await requireChildAccess(rows[0].childId, { write: true });
   return { run: rows[0], access };
-}
-
-/** A stored run's questions and both tries, read the same way by every action. */
-function parseRun(run: DeedRunRow) {
-  // Stored rows predate kinds: an absent `kind` reads as choice (`kindOf`).
-  const questions = JSON.parse(run.questions) as Task[];
-  const responses = JSON.parse(run.responses) as (string | null)[];
-  const secondTries = JSON.parse(run.secondTries) as (string | null)[];
-  // The run's own snapshot, never today's setting; and a kind that allows none has none.
-  const allows = run.secondChances && RUN_EFFECTS[run.kind].allowsSecondChances;
-  const attempts = records(questions.map((_, i) => responses[i] ?? null), secondTries);
-  const statuses = questions.map((q, i) => statusOf(q, attempts[i], allows));
-  return { questions, responses, secondTries, allows, attempts, statuses };
 }
 
 /** An open run and one question of it, with every guard every attempt action shares. */
