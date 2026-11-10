@@ -1,5 +1,4 @@
-import type { Question } from "./drill-generators";
-import { gradeAnswer } from "./deed-engine";
+import { isTaskCorrect, kindOf, taskDef, type Task } from "@/lib/tasks/registry";
 import type { QuestionOutcome } from "./deed-scoring";
 import { ALREADY_ANSWERED, ANSWER_FIRST, NO_SECOND_TRIES, PICK_SHOWN, TRY_DIFFERENT } from "./deed-refusals";
 
@@ -8,21 +7,17 @@ export type AttemptRecord = { first: string | null; second: string | null };
 
 export type QuestionStatus = "unanswered" | "right-first" | "open" | "right-second" | "missed";
 
-/** Two-choice questions (fewerChoices) never get a retry: one wrong pick would leave only the answer. */
-export function secondChanceAllowed(q: Pick<Question, "choices">, runAllows: boolean): boolean {
-  return runAllows && q.choices.length >= 3;
+/** Whether the run and the task's kind both allow a retry (a two-choice question never does: one wrong pick would leave only the answer). */
+export function secondChanceAllowed(t: Task, runAllows: boolean): boolean {
+  return runAllows && taskDef(kindOf(t)).allowsSecondChance(t);
 }
 
-export function statusOf(
-  q: Pick<Question, "answer" | "choices">,
-  rec: AttemptRecord,
-  runAllows: boolean,
-): QuestionStatus {
+export function statusOf(t: Task, rec: AttemptRecord, runAllows: boolean): QuestionStatus {
   if (rec.first === null) return "unanswered";
-  if (gradeAnswer(q, rec.first)) return "right-first";
-  if (!secondChanceAllowed(q, runAllows)) return "missed";
+  if (isTaskCorrect(t, rec.first)) return "right-first";
+  if (!secondChanceAllowed(t, runAllows)) return "missed";
   if (rec.second === null) return "open";
-  return gradeAnswer(q, rec.second) ? "right-second" : "missed";
+  return isTaskCorrect(t, rec.second) ? "right-second" : "missed";
 }
 
 export function outcomeOf(status: QuestionStatus): QuestionOutcome | null {
@@ -46,29 +41,22 @@ export function records(
   return responses.map((first, i) => ({ first, second: secondTries[i] ?? null }));
 }
 
-export function refuseRetry(
-  q: Pick<Question, "answer" | "choices">,
-  rec: AttemptRecord,
-  runAllows: boolean,
-  answer: string,
-): string | null {
+export function refuseRetry(t: Task, rec: AttemptRecord, runAllows: boolean, raw: unknown): string | null {
   if (rec.first === null) return ANSWER_FIRST;
-  if (gradeAnswer(q, rec.first)) return ALREADY_ANSWERED;
-  if (!secondChanceAllowed(q, runAllows)) return NO_SECOND_TRIES;
+  if (isTaskCorrect(t, rec.first)) return ALREADY_ANSWERED;
+  if (!secondChanceAllowed(t, runAllows)) return NO_SECOND_TRIES;
   if (rec.second !== null) return ALREADY_ANSWERED;
+  const def = taskDef(kindOf(t));
+  const picked = def.parseResponse(raw, t);
   // "" is how the server records a give-up, so it can never be a real retry.
-  const picked = answer.trim();
-  if (picked === "" || !q.choices.some((c) => c.trim() === picked)) return PICK_SHOWN;
-  if (picked === rec.first.trim()) return TRY_DIFFERENT;
+  if (picked === null || def.encode(picked) === "") return PICK_SHOWN;
+  const before = def.decode(rec.first);
+  if (before !== null && def.sameResponse(picked, before)) return TRY_DIFFERENT;
   return null;
 }
 
-export function refuseGiveUp(
-  q: Pick<Question, "answer" | "choices">,
-  rec: AttemptRecord,
-  runAllows: boolean,
-): string | null {
-  return statusOf(q, rec, runAllows) === "open" ? null : ALREADY_ANSWERED;
+export function refuseGiveUp(t: Task, rec: AttemptRecord, runAllows: boolean): string | null {
+  return statusOf(t, rec, runAllows) === "open" ? null : ALREADY_ANSWERED;
 }
 
 /** Where a resumed run reopens: the first question still waiting, else the last. */

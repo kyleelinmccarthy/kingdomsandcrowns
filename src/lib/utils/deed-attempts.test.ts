@@ -10,9 +10,12 @@ import {
   type AttemptRecord,
   type QuestionStatus,
 } from "./deed-attempts";
+import type { Task } from "@/lib/tasks/registry";
+import { ALREADY_ANSWERED, ANSWER_FIRST, NO_SECOND_TRIES, PICK_SHOWN, TRY_DIFFERENT } from "./deed-refusals";
 
-const four = { answer: "4", choices: ["1", "2", "3", "4"] };
-const two = { answer: "4", choices: ["3", "4"] };
+const base = { id: "add-10:2:2", skillId: "add-10", prompt: "2 + 2 = ?", answer: "4" };
+const four: Task = { ...base, choices: ["1", "2", "3", "4"] };
+const two: Task = { ...base, choices: ["3", "4"] };
 const rec = (first: string | null, second: string | null = null): AttemptRecord => ({ first, second });
 
 describe("secondChanceAllowed", () => {
@@ -94,6 +97,25 @@ describe("refuseRetry", () => {
 
   it("refuses a retry on a two-choice question", () => {
     expect(refuseRetry(two, rec("3"), true, "4")).toEqual(expect.any(String));
+  });
+
+  it("never takes a non-string response as a pick", () => {
+    expect(refuseRetry(four, rec("1"), true, 5)).toBe(PICK_SHOWN);
+    expect(refuseRetry(four, rec("1"), true, null)).toBe(PICK_SHOWN);
+    expect(refuseRetry(four, rec("1"), true, undefined)).toBe(PICK_SHOWN);
+    expect(refuseRetry(four, rec("1"), true, ["4"])).toBe(PICK_SHOWN);
+  });
+
+  it("asks for a different answer when the retry equals the first pick after trimming", () => {
+    expect(refuseRetry(four, rec("1"), true, " 1 ")).toBe(TRY_DIFFERENT);
+    expect(refuseRetry(four, rec(" 2 "), true, "2")).toBe(TRY_DIFFERENT);
+  });
+
+  it("keeps the order of checks", () => {
+    expect(refuseRetry(four, rec(null), true, 5)).toBe(ANSWER_FIRST);
+    expect(refuseRetry(four, rec("4"), true, 5)).toBe(ALREADY_ANSWERED);
+    expect(refuseRetry(four, rec("1"), false, 5)).toBe(NO_SECOND_TRIES);
+    expect(refuseRetry(four, rec("1", "2"), true, 5)).toBe(ALREADY_ANSWERED);
   });
 });
 

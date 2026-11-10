@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import { refuseRetry } from "./deed-attempts";
 import { ALREADY_ANSWERED, CLOSED, deedErrorLine, HERO_ONLY } from "./deed-refusals";
 
-const four = { answer: "4", choices: ["1", "2", "3", "4"] };
+const four = { id: "add-10:2:2", skillId: "add-10", prompt: "2 + 2 = ?", answer: "4", choices: ["1", "2", "3", "4"] };
 
 describe("deedErrorLine", () => {
   it("shows our own refusal text when it is one we know", () => {
