@@ -1,0 +1,147 @@
+import { describe, it, expect } from "vitest";
+import { REVIEW_RUN, buildReviewRun, reviewDue } from "./review-run";
+import { findSkill } from "./skills";
+import type { PoolItem } from "./deed-engine";
+import type { Question } from "./drill-generators";
+
+const DAY = 24 * 60 * 60 * 1000;
+const NOW = 1000 * DAY;
+const row = (skillId: string, level: number, daysAgo: number | null) => ({
+  skillId, level, lastPracticedAt: daysAgo === null ? null : NOW - daysAgo * DAY,
+});
+const item = (skillId: string, n: number): PoolItem => ({
+  id: `${skillId}-${n}`, skillId, prompt: `${skillId} prompt ${n}`, answer: "yes", distractors: ["a", "b", "c"], readAloud: null, level: 1,
+});
+const poolFor = (...skillIds: string[]): PoolItem[] => skillIds.flatMap((s) => [1, 2, 3, 4].map((n) => item(s, n)));
+const miss = (skillId: string, id: string): Question => ({ id, skillId, prompt: `miss ${id}`, choices: ["1", "2", "3", "4"], answer: "1" });
+const areaOf = (id: string) => findSkill(id)!.area;
+const run = (over: Partial<Parameters<typeof buildReviewRun>[0]> = {}) =>
+  buildReviewRun({ mastery: [], recentMisses: [], poolItems: [], now: NOW, seed: 7, ...over });
+
+describe("REVIEW_RUN", () => {
+  it("is three tasks", () => expect(REVIEW_RUN.tasks).toBe(3));
+});
+
+describe("nothing learned yet", () => {
+  it("builds nothing and is never due", () => {
+    expect(run().questions).toHaveLength(0);
+    expect(run().skillIds).toEqual([]);
+    expect(reviewDue([], NOW)).toBe(false);
+  });
+  it("ignores level-0 rows for the fill, and they are never due", () => {
+    const mastery = [row("add-10", 0, 50), row("sub-10", 0, 50)];
+    expect(run({ mastery }).questions).toHaveLength(0);
+    expect(reviewDue(mastery, NOW)).toBe(false);
+  });
+});
+
+describe("reviewDue", () => {
+  it("is true once a learned skill is past its interval", () => {
+    expect(reviewDue([row("add-10", 1, 3)], NOW)).toBe(true);
+    expect(reviewDue([row("add-10", 1, 1)], NOW)).toBe(false);
+  });
+  it("ignores unknown skill ids", () => {
+    expect(reviewDue([row("not-a-skill", 1, 300)], NOW)).toBe(false);
+  });
+});
+
+describe("order of picks", () => {
+  it("takes misses first (at most two, deduped), then overdue", () => {
+    const mastery = [
+      row("add-10", 1, 1), row("sub-10", 2, 1), row("count-seq", 1, 0), // count-seq fresh
+      row("sight-k1", 1, 0), row("spell-g23", 1, 9), // spell-g23 overdue
+    ];
+    const recentMisses = [miss("add-10", "m1"), miss("add-10", "m1"), miss("sub-10", "m2"), miss("sight-k1", "m3")];
+    const r = run({ mastery, recentMisses, poolItems: poolFor("sight-k1", "spell-g23") });
+    expect(r.questions).toHaveLength(3);
+    const ids = r.questions.map((q) => q.id);
+    expect(ids).toContain("m1");
+    expect(ids).toContain("m2");
+    expect(ids).not.toContain("m3");
+    expect([...r.skillIds].sort()).toEqual(["add-10", "spell-g23", "sub-10"]);
+  });
+
+  it("fills with the least recently practised level>=1 skills, null oldest, never one skill twice", () => {
+    const mastery = [row("add-10", 1, 0), row("sub-10", 1, 0.5), row("count-seq", 1, null), row("compare-num", 1, 1.5), row("sight-k1", 0, 90)];
+    const r = run({ mastery });
+    expect(new Set(r.skillIds).size).toBe(3);
+    expect(r.skillIds).not.toContain("sight-k1");
+    expect(r.skillIds).not.toContain("add-10");
+    expect(r.skillIds).toContain("count-seq");
+    expect(r.skillIds).toContain("compare-num");
+  });
+
+  it("returns fewer tasks when fewer skills are learned", () => {
+    const r = run({ mastery: [row("add-10", 1, 0)] });
+    expect(r.questions).toHaveLength(1);
+    expect(r.questions[0].skillId).toBe("add-10");
+  });
+});
+
+describe("recent misses", () => {
+  it("only counts misses for known skills the child has a mastery row for", () => {
+    const mastery = [row("add-10", 1, 0)];
+    const r = run({ mastery, recentMisses: [miss("nope", "x1"), miss("sub-10", "x2")] });
+    expect(r.questions.map((q) => q.id)).not.toContain("x1");
+    expect(r.questions.map((q) => q.id)).not.toContain("x2");
+    expect(r.questions).toHaveLength(1);
+  });
+  it("a miss on a level-0 skill still comes back", () => {
+    const r = run({ mastery: [row("add-10", 0, 0)], recentMisses: [miss("add-10", "m1")] });
+    expect(r.questions.map((q) => q.id)).toEqual(["m1"]);
+  });
+});
+
+describe("interleaving", () => {
+  it("is not all one area when due skills span two", () => {
+    // Three math skills are the most overdue; a reading skill is merely learned.
+    const mastery = [row("add-10", 1, 20), row("sub-10", 1, 19), row("count-seq", 1, 18), row("sight-k1", 1, 1)];
+    for (let seed = 1; seed <= 12; seed++) {
+      const r = run({ mastery, poolItems: poolFor("sight-k1"), seed });
+      expect(r.questions).toHaveLength(3);
+      expect(new Set(r.skillIds.map(areaOf)).size).toBeGreaterThan(1);
+    }
+  });
+  it("swaps out the last non-miss pick, keeping misses", () => {
+    const mastery = [row("add-10", 1, 20), row("sub-10", 1, 19), row("count-seq", 1, 18), row("compare-num", 1, 17), row("sight-k1", 1, 1)];
+    const r = run({ mastery, recentMisses: [miss("add-10", "m1")], poolItems: poolFor("sight-k1") });
+    expect(r.questions.map((q) => q.id)).toContain("m1");
+    expect(r.skillIds).toContain("sight-k1");
+    expect(r.skillIds).toContain("add-10");
+    expect(new Set(r.skillIds.map(areaOf)).size).toBeGreaterThan(1);
+  });
+  it("stays one area when only one area is learned", () => {
+    const mastery = [row("add-10", 1, 20), row("sub-10", 1, 19), row("count-seq", 1, 18), row("compare-num", 1, 17)];
+    const r = run({ mastery });
+    expect(r.questions).toHaveLength(3);
+    expect(new Set(r.skillIds.map(areaOf))).toEqual(new Set(["math"]));
+  });
+});
+
+describe("unknown skills and empty pools", () => {
+  it("ignores mastery rows for unknown skill ids", () => {
+    const r = run({ mastery: [row("gone-skill", 3, 400), row("add-10", 1, 5)] });
+    expect(r.skillIds).toEqual(["add-10"]);
+  });
+  it("skips a pool skill with no items and uses the next candidate", () => {
+    const mastery = [row("sight-k1", 1, 30), row("add-10", 1, 2), row("sub-10", 1, 1)];
+    const r = run({ mastery, poolItems: [] });
+    expect([...r.skillIds].sort()).toEqual(["add-10", "sub-10"]);
+    expect(r.questions).toHaveLength(2);
+  });
+});
+
+describe("determinism", () => {
+  const mastery = [row("add-10", 1, 20), row("sub-10", 2, 19), row("sight-k1", 1, 18), row("spell-g23", 1, 2), row("count-seq", 3, 1)];
+  const poolItems = poolFor("sight-k1", "spell-g23");
+  it("gives the same ids for the same seed", () => {
+    const a = run({ mastery, poolItems, seed: 99 });
+    const b = run({ mastery, poolItems, seed: 99 });
+    expect(a.questions.map((q) => q.id)).toEqual(b.questions.map((q) => q.id));
+    expect(a.skillIds).toEqual(b.skillIds);
+  });
+  it("keeps skillIds aligned with questions", () => {
+    const r = run({ mastery, poolItems, seed: 5 });
+    expect(r.skillIds).toEqual(r.questions.map((q) => q.skillId));
+  });
+});
