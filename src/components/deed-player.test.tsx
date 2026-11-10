@@ -61,6 +61,7 @@ describe("DeedPlayer", () => {
     expect(completeDeedRun).toHaveBeenCalledWith("r1");
     expect(await screen.findByText(/1 of 2/)).toBeInTheDocument();
     expect(screen.getByText("Sight words: getting stronger")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Side quest done!" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Back to side quests" }));
     expect(onFinished).toHaveBeenCalled();
   });
@@ -258,8 +259,12 @@ describe("DeedPlayer", () => {
       completeDeedRun.mockResolvedValue(reviewSummary);
       render(<DeedPlayer run={reviewRun} profile={profile} calm={false} onFinished={() => {}} />);
       await user.click(screen.getByRole("button", { name: "again" }));
-      await user.click(await screen.findByRole("button", { name: "Finish side quest" }));
-      expect(await screen.findByText("Reviewed 3 \u00B7 2 right")).toBeInTheDocument();
+      await user.click(await screen.findByRole("button", { name: "Finish review" }));
+      expect(screen.queryByRole("button", { name: "Finish side quest" })).not.toBeInTheDocument();
+      expect(await screen.findByRole("heading", { name: "Review done!" })).toBeInTheDocument();
+      expect(screen.queryByText("Side quest done!")).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Back to side quests" })).toBeInTheDocument();
+      expect(screen.getByText("Reviewed 3 \u00B7 2 right")).toBeInTheDocument();
       expect(screen.queryByText(/ of 3 right in/)).not.toBeInTheDocument();
       expect(screen.queryByText(/stars?\b/i)).not.toBeInTheDocument();
       expect(document.body.textContent).not.toMatch(/minutes?/i);

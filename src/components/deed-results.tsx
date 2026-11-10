@@ -17,7 +17,7 @@ export function DeedResults({ summary, deedTitle, area, onDone, doneLabel = `Bac
     <div className="space-y-4 text-center">
       <GameIcon name={summary.flawless ? "star" : "check"} className="mx-auto size-10 text-[var(--gold-bright)]" />
       {/* Sentence case here (not the SIDE_QUEST title-case noun): matches "Flawless!" as a short exclamation, not a heading. */}
-      <h3 className="text-lg font-bold">{summary.flawless ? "Flawless!" : "Side quest done!"}</h3>
+      <h3 className="text-lg font-bold">{review ? "Review done!" : summary.flawless ? "Flawless!" : "Side quest done!"}</h3>
       {summary.kind === "deed" && (
         <StarRow stars={summary.stars} className="flex justify-center gap-1" starClass="size-7" onClass="text-[var(--gold-bright)]" offClass="text-muted-foreground/30" />
       )}

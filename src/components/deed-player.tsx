@@ -37,6 +37,7 @@ export function DeedPlayer({
   const speakable = canSpeak();
   const question = run.questions[index];
   const isLast = index === run.questions.length - 1;
+  const finishLabel = run.kind === "review" ? "Finish review" : `Finish ${SIDE_QUEST_LOWER}`;
 
   // Read-aloud is a side effect, not state: the profile asks for it, the effect obeys.
   useEffect(() => {
@@ -122,8 +123,8 @@ export function DeedPlayer({
             {phase === "second-chance" ? (
               <Button variant="link" disabled={busy} onClick={() => void showMe()}>Show me</Button>
             ) : (
-              <Button ref={nextRef} aria-label={isLast ? `Finish ${SIDE_QUEST_LOWER}` : "Next question"} disabled={busy} onClick={() => void advance()}>
-                {isLast ? `Finish ${SIDE_QUEST_LOWER}` : "Next"}
+              <Button ref={nextRef} aria-label={isLast ? finishLabel : "Next question"} disabled={busy} onClick={() => void advance()}>
+                {isLast ? finishLabel : "Next"}
               </Button>
             )}
           </div>

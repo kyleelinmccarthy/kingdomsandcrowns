@@ -2,6 +2,7 @@ import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { render, screen, cleanup, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DeedPicker } from "./deed-picker";
+import { CLOSED } from "@/lib/utils/deed-refusals";
 import type { DeedsOverview } from "@/lib/actions/deeds";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
@@ -70,6 +71,15 @@ describe("DeedPicker", () => {
       await user.click(screen.getByRole("button", { name: "Quick review" }));
       expect(startReviewRun).toHaveBeenCalledWith("c1", { kind: "page" });
       expect(await screen.findByText("What is 2 + 2?")).toBeInTheDocument();
+    });
+
+    it("shows a refusal in the error banner and lets the hero try again", async () => {
+      const user = userEvent.setup();
+      startReviewRun.mockRejectedValueOnce(new Error(CLOSED));
+      render(<DeedPicker childId="c1" overview={overview} profile={profile} calm={false} />);
+      await user.click(screen.getByRole("button", { name: "Quick review" }));
+      expect(await screen.findByText(CLOSED)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Quick review" })).toBeEnabled();
     });
 
     it("says there is nothing to review yet, and clears the note on the next press", async () => {
