@@ -35,6 +35,7 @@ import { ChildUpkeepToggle } from "./child-upkeep-toggle";
 import { GameIcon } from "@/components/game-icon";
 import { SeasonPanel } from "./season-panel";
 import { LearningProfilePanel } from "./learning-profile-panel";
+import { FocusSkillsPanel, type FocusOption } from "./focus-skills-panel";
 import { RealmSettingsPanel } from "./realm-settings-panel";
 import { MasteryPanel } from "./mastery-panel";
 import { SubjectLevelsPanel } from "./subject-levels-panel";
@@ -139,6 +140,8 @@ type Child = {
   questUnlockedItems?: string[];
   seasons?: { open: SeasonWithCeremony | null; history: SeasonWithCeremony[] };
   learningProfile?: LearningProfile | null;
+  /** The skills a grown-up may focus this hero on, and the ones picked. Grown-up pages only. */
+  focus?: { options: FocusOption[]; selected: string[] } | null;
   realmSettings?: RealmSettings | null;
   realmPlay?: { date: string; balance: number; spent: number } | null;
   mastery?: MasteryRow[] | null;
@@ -534,6 +537,9 @@ function ChildDetail({
         )}
         {!isChildView && child.learningProfile && (
           <LearningProfilePanel childId={child.id} profile={child.learningProfile} />
+        )}
+        {!isChildView && child.focus && (
+          <FocusSkillsPanel childId={child.id} options={child.focus.options} selected={child.focus.selected} />
         )}
         {!isChildView && (
           <SubjectLevelsPanel

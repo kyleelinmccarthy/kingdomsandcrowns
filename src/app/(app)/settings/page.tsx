@@ -12,6 +12,9 @@ import { getLearningProfile } from "@/lib/actions/learning-profile";
 import { getRealmSettings } from "@/lib/actions/realm-settings";
 import { getRealmPlaySummary } from "@/lib/actions/realm-play";
 import { getMasteryOverview } from "@/lib/actions/deeds";
+import { loadHeroLevels } from "@/lib/services/deeds";
+import { loadFocusSkillIds } from "@/lib/services/learning-focus";
+import { focusWindow } from "@/lib/utils/focus";
 import { getMakeupDays } from "@/lib/actions/makeup";
 import { getFamilyMembers } from "@/lib/actions/guardians";
 import { getBillingStatus } from "@/lib/actions/billing";
@@ -25,6 +28,17 @@ import { FamilySwitcher } from "./family-switcher";
 import { FamilyLoginCode } from "./family-login-code";
 import { UpkeepSettingsPanel } from "./upkeep-settings-panel";
 import { BillingPanel } from "./billing-panel";
+
+/**
+ * What the focus panel needs for one hero: the skills inside their window (plain data) and the
+ * picks still standing. Only called for a grown-up, after the page's own auth has resolved the
+ * heroes; the service itself does no auth.
+ */
+async function loadFocus(childId: string) {
+  const [levels, selected] = await Promise.all([loadHeroLevels(childId), loadFocusSkillIds(childId)]);
+  const options = focusWindow(levels.grades).map(({ id, label, area }) => ({ id, label, area }));
+  return { options, selected };
+}
 
 export default async function SettingsPage() {
   const actor = await getActor();
@@ -81,7 +95,7 @@ export default async function SettingsPage() {
   // Fetch subjects, badges, avatar unlocks and catch-up days for each visible child.
   const childrenWithSubjects = await Promise.all(
     children.map(async (child) => {
-      const [subjects, earnedBadges, avatarUnlocks, seasons, learningProfile, realmSettings, realmPlay, mastery, makeupDays] = await Promise.all([
+      const [subjects, earnedBadges, avatarUnlocks, seasons, learningProfile, realmSettings, realmPlay, mastery, focus, makeupDays] = await Promise.all([
         getSubjects(child.id),
         getChildBadges(child.id),
         getChildAvatarUnlocks(child.id),
@@ -90,6 +104,7 @@ export default async function SettingsPage() {
         isChildView ? null : getRealmSettings(child.id),
         isChildView ? null : getRealmPlaySummary(child.id),
         isChildView ? null : getMasteryOverview(child.id),
+        isChildView ? null : loadFocus(child.id),
         getMakeupDays(child.id),
       ]);
       const { pinHash: _pinHash, ...rest } = child;
@@ -104,6 +119,7 @@ export default async function SettingsPage() {
         realmSettings,
         realmPlay,
         mastery,
+        focus,
         makeupDayDates: makeupDays.map((d) => ({ id: d.id, date: d.date, note: d.note })),
       };
     })
