@@ -18,7 +18,7 @@
  * has been verified. On failure it emails ALERT_EMAIL (default FEEDBACK_NOTIFY_EMAIL) through
  * Resend when RESEND_API_KEY is available, then exits non-zero.
  *
- * Restore: see docs/database-backups.md.
+ * Restore: see docs/deploy/database-backups.md.
  */
 import { createWriteStream, existsSync, readFileSync } from "node:fs";
 import { chmod, mkdir, readdir, rename, rm, stat } from "node:fs/promises";
@@ -115,7 +115,7 @@ async function alert(cfg, message) {
       from: cfg.alertFrom,
       to: cfg.alertTo,
       subject: "⚠ Kingdoms & Crowns weekly backup FAILED",
-      text: `The weekly database backup on ${hostname()} failed:\n\n${message}\n\nYour previous backups in ${cfg.dir} are untouched. Run \`npm run db:backup\` in the repo to retry, or see docs/database-backups.md.`,
+      text: `The weekly database backup on ${hostname()} failed:\n\n${message}\n\nYour previous backups in ${cfg.dir} are untouched. Run \`npm run db:backup\` in the repo to retry, or see docs/deploy/database-backups.md.`,
     }),
   }).catch(() => {});
 }

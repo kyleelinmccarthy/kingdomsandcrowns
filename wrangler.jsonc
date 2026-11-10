@@ -15,7 +15,7 @@
   },
   // The revalidation queue calls back into this same Worker; `service` must equal `name`.
   "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "kingdomsandcrowns" }],
-  // Next's page/data cache (the incremental cache). Create the bucket once: see docs/deploy-cloudflare.md.
+  // Next's page/data cache (the incremental cache). Create the bucket once: see docs/deploy/cloudflare.md.
   "r2_buckets": [
     { "binding": "NEXT_INC_CACHE_R2_BUCKET", "bucket_name": "kingdomsandcrowns-next-cache" }
   ],

@@ -11,9 +11,9 @@ The app is an **invite-only beta**: sign-ups are closed, and paid plans are buil
 | Schema changes | Committed SQL migrations, applied on production deploys | `src/lib/db/migrations`, `src/lib/db/migrate.mjs` |
 | Email (password resets, invites, ravens, access requests) | Resend | `RESEND_API_KEY` |
 | Weekly backups | Your own computer | [database-backups.md](./database-backups.md) |
-| Paid plans | Built, **switched off** | `src/lib/billing/config.ts`; see [stripe-setup.md](./stripe-setup.md) |
+| Paid plans | Built, **switched off** | `src/lib/billing/config.ts`; see [stripe.md](../setup/stripe.md) |
 
-> **Vercel Hobby is for non-commercial use only.** That's fine while the app is a free family beta. Before switching paid plans on, move to Vercel Pro or another host; [deploy-cloudflare.md](./deploy-cloudflare.md) notes how the Cloudflare option would work.
+> **Vercel Hobby is for non-commercial use only.** That's fine while the app is a free family beta. Before switching paid plans on, move to Vercel Pro or another host; [cloudflare.md](./cloudflare.md) notes how the Cloudflare option would work.
 
 ---
 
@@ -28,7 +28,7 @@ The app is an **invite-only beta**: sign-ups are closed, and paid plans are buil
 | `BETTER_AUTH_SECRET` | 32+ random characters (`openssl rand -base64 32`). Changing it signs everyone out |
 | `CHILD_SESSION_SECRET` | optional; heroes' sign-ins fall back to `BETTER_AUTH_SECRET` |
 | `BETTER_AUTH_URL`, `NEXT_PUBLIC_APP_URL` | `https://www.kingdomsandcrowns.com` (no trailing slash) |
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | production OAuth client ([oauth-setup.md](./oauth-setup.md)) |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | production OAuth client ([oauth.md](../setup/oauth.md)) |
 | `RESEND_API_KEY` | sends password resets, invites, ravens and access requests |
 | `EMAIL_FROM`, `FEEDBACK_FROM_EMAIL` | addresses on the verified Resend domain |
 | `FEEDBACK_NOTIFY_EMAIL` | **you**: receives ravens and access requests |
@@ -43,7 +43,7 @@ For **Preview** deployments, point `TURSO_*` at a separate Turso database, never
 
 ## Migrations
 
-`vercel.json` runs `npm run db:migrate` before `npm run build`, **on production deploys only**. [`src/lib/db/migrate.mjs`](../src/lib/db/migrate.mjs) applies every committed migration not yet recorded in `__drizzle_migrations`, in one batch, so a failed migration changes nothing and fails the build, and the old version stays up. It is safe to re-run.
+`vercel.json` runs `npm run db:migrate` before `npm run build`, **on production deploys only**. [`src/lib/db/migrate.mjs`](../../src/lib/db/migrate.mjs) applies every committed migration not yet recorded in `__drizzle_migrations`, in one batch, so a failed migration changes nothing and fails the build, and the old version stays up. It is safe to re-run.
 
 Run it by hand against production (for example, to check a migration before merging):
 
@@ -68,7 +68,7 @@ Rollback: **Vercel → Deployments → (previous) → Promote to Production** re
 
 ## Who can get in
 
-Sign-ups are **invite-only** ([src/lib/auth/signup-allowlist.ts](../src/lib/auth/signup-allowlist.ts)). A new account can be created only for an email with a pending, unexpired family invite, or a hero email with email/Google login turned on. Everyone else uses **Request access** (`/request-access`), which stores the request and emails `FEEDBACK_NOTIFY_EMAIL` their opt-ins (beta tester now, or notify when free or paid accounts open). Existing accounts are unaffected.
+Sign-ups are **invite-only** ([src/lib/auth/signup-allowlist.ts](../../src/lib/auth/signup-allowlist.ts)). A new account can be created only for an email with a pending, unexpired family invite, or a hero email with email/Google login turned on. Everyone else uses **Request access** (`/request-access`), which stores the request and emails `FEEDBACK_NOTIFY_EMAIL` their opt-ins (beta tester now, or notify when free or paid accounts open). Existing accounts are unaffected.
 
 To let someone in, invite them as a guardian from **The Hearth**.
 

@@ -1,6 +1,6 @@
 # Database backups
 
-A verified copy of the production Turso database is taken **weekly onto your own computer**, by [scripts/backup-db.mjs](../scripts/backup-db.mjs) on a systemd user timer.
+A verified copy of the production Turso database is taken **weekly onto your own computer**, by [scripts/backup-db.mjs](../../scripts/backup-db.mjs) on a systemd user timer.
 
 - **What:** `kingdoms-turso-<date>.sql.gz`, a full SQL script of every table.
 - **Verified:** every backup is replayed into a throwaway database, and its table and row counts are compared with the live database, before it's kept. A backup that doesn't restore is discarded and counts as a failure.

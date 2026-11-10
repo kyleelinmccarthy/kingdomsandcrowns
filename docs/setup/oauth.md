@@ -122,7 +122,7 @@ FEEDBACK_FROM_EMAIL=raven@kingdomsandcrowns.com  # must be on a verified domain
 ```
 
 ### 5. (Optional) Wire Better Auth password reset to Resend
-Email/password sign-in is enabled but no password-reset transport is configured. To finish that path, add a `sendResetPassword` callback to `betterAuth()` in [src/lib/auth/index.ts](../src/lib/auth/index.ts) that posts to `https://api.resend.com/emails`. The pattern is identical to the one used in [src/lib/actions/feedback.ts](../src/lib/actions/feedback.ts).
+Email/password sign-in is enabled but no password-reset transport is configured. To finish that path, add a `sendResetPassword` callback to `betterAuth()` in [src/lib/auth/index.ts](../../src/lib/auth/index.ts) that posts to `https://api.resend.com/emails`. The pattern is identical to the one used in [src/lib/actions/feedback.ts](../../src/lib/actions/feedback.ts).
 
 ### 6. Test
 Send yourself a test "Send a Raven" from the user menu — the email should arrive at `FEEDBACK_NOTIFY_EMAIL` within seconds.

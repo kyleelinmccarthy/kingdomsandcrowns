@@ -1,34 +1,23 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Kingdoms & Crowns
 
-## Getting Started
+A homeschool quest tracker. Parents set quests; kids earn crowns and play the Realm, a 3D game. Built with Next.js, Drizzle, and a Turso (libSQL) database. Currently an invite-only beta.
 
-First, run the development server:
+## Getting started
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+nvm use                  # Node 22
+npm install
+cp .env.example .env.local
+npm run db:migrate       # creates local.db
+npm run dev              # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Checks: `npm run lint`, `npm run typecheck`, `npm test`. CI runs the same.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Where things are
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+See [CLAUDE.md](./CLAUDE.md) for the repo layout and the rules for where new files go, and [docs/README.md](./docs/README.md) for the docs index.
 
 ## Deploying
 
-The app runs on Vercel with a Turso (libSQL) database, both on free plans. It's in invite-only beta: see [docs/deploy-vercel.md](./docs/deploy-vercel.md) for how production runs and releases, [docs/database-backups.md](./docs/database-backups.md) for the weekly backups, and [docs/stripe-setup.md](./docs/stripe-setup.md) for paid plans (built, not yet switched on). [docs/deploy-cloudflare.md](./docs/deploy-cloudflare.md) notes an optional move to Cloudflare Workers, which isn't in use.
+The app runs on Vercel with a Turso database, both on free plans. See [docs/deploy/vercel.md](./docs/deploy/vercel.md) for how production runs and releases, [docs/deploy/database-backups.md](./docs/deploy/database-backups.md) for the weekly backups, and [docs/setup/stripe.md](./docs/setup/stripe.md) for paid plans (built, not yet switched on). [docs/deploy/cloudflare.md](./docs/deploy/cloudflare.md) notes an optional move to Cloudflare Workers, which isn't in use.

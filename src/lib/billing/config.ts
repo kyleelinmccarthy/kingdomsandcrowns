@@ -3,6 +3,6 @@
  * (no hero or adult limits, weekly summaries save freely), Settings shows "coming soon" instead
  * of the upgrade buttons, and the checkout, portal and webhook endpoints are closed.
  *
- * To launch: finish docs/stripe-setup.md, then flip this to true.
+ * To launch: finish docs/setup/stripe.md, then flip this to true.
  */
 export const BILLING_ENABLED = false;
