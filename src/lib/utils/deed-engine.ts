@@ -1,7 +1,7 @@
 import { GENERATORS, seededRng, shuffle, type Question, type Rng } from "./drill-generators";
 import { nearestGrades, type Grade } from "./grade-levels";
 import { MASTERY_MAX } from "./mastery";
-import { skillsFor, type Skill } from "./skills";
+import { findSkill, skillsFor, type Skill } from "./skills";
 import { FOCUS_WEIGHT } from "./focus";
 import type { Deed } from "./deeds";
 import { REVIEW } from "./review-schedule";
@@ -87,6 +87,28 @@ export function chooseSkills(deed: Deed, grade: Grade): Skill[] {
     if (candidates.length > 0) return candidates;
   }
   return [];
+}
+
+/**
+ * What a run may practise: the deed's own `chooseSkills`, then each of the hero's focus skills in
+ * the deed's strand that is not already there. A focus skill may sit a grade either side of the
+ * hero's (`focusWindow`), which `chooseSkills` never reaches, so without this a grown-up's
+ * grade-off pick could never be drawn. The ids are trusted as window-checked already
+ * (`loadFocusSkillIds`); one from another strand, or unknown, is ignored.
+ *
+ * The focus skills go on the END, so with none the list (and every draw over it) is exactly
+ * `chooseSkills`'s.
+ */
+export function runCandidates(deed: Deed, grade: Grade, focusSkillIds: readonly string[] = []): Skill[] {
+  const base = chooseSkills(deed, grade);
+  const extra: Skill[] = [];
+  for (const id of focusSkillIds) {
+    const skill = findSkill(id);
+    if (!skill || skill.area !== deed.area) continue;
+    if (base.some((s) => s.id === id) || extra.some((s) => s.id === id)) continue;
+    extra.push(skill);
+  }
+  return [...base, ...extra];
 }
 
 /**
@@ -380,7 +402,8 @@ export function buildDeedRun(input: BuildRunInput): BuiltRun {
   const enabled = input.enabledKinds ?? new Set(Object.keys(TASK_KINDS) as TaskKind[]);
   const tag = (q: Question) => withKind(q, kindForSkill(deed.mechanic, q.skillId, enabled));
   const rng = seededRng(seed);
-  const skills = selectSkills(chooseSkills(deed, grade), masteryBySkill, rng, lastPracticedBySkill ?? {}, new Set(input.focusSkillIds));
+  const candidates = runCandidates(deed, grade, input.focusSkillIds);
+  const skills = selectSkills(candidates, masteryBySkill, rng, lastPracticedBySkill ?? {}, new Set(input.focusSkillIds));
   const skillIds = skills.map((s) => s.id);
   if (skills.length === 0) return { skillIds: [], questions: [] };
 
@@ -401,7 +424,6 @@ export function buildDeedRun(input: BuildRunInput): BuiltRun {
   const target = input.questionCount ?? deed.questionCount;
 
   // Due skills are drawn at their own level before the fresh ones, so fresh draws avoid them.
-  const candidates = chooseSkills(deed, grade);
   const dueCandidates = [...new Set(input.dueSkillIds ?? [])]
     .map((id) => candidates.find((s) => s.id === id))
     .filter((s): s is Skill => !!s && !skillIds.includes(s.id))

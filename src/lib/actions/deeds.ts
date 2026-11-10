@@ -14,7 +14,7 @@ import { buildingProgress, findBuilding, type Building } from "@/lib/utils/kingd
 import { deedStory, findDeed } from "@/lib/utils/deeds";
 import {
   buildDeedRun,
-  chooseSkills,
+  runCandidates,
   type PoolItem,
 } from "@/lib/utils/deed-engine";
 import { masteryChangeCopy, masteryLabel, parseRecentResults, progressToNextRung, recordResult } from "@/lib/utils/mastery";
@@ -90,15 +90,20 @@ export async function startDeedRun(
   }
   const story = deedStory(deed, hero.tone);
 
-  const open = await findOpenRun(and(eq(schema.deedRun.childId, childId), eq(schema.deedRun.deedId, deedId), eq(schema.deedRun.kind, kind)));
+  // The focus picks are read alongside the open-run check: which pools to load depends on them.
+  const [open, focusSkillIds] = await Promise.all([
+    findOpenRun(and(eq(schema.deedRun.childId, childId), eq(schema.deedRun.deedId, deedId), eq(schema.deedRun.kind, kind))),
+    loadFocusSkillIds(childId),
+  ]);
   if (open) return resumedStart(open, { id: deed.id, title: deed.title, story, area: deed.area });
 
   // The deed's OWN strand decides the grade — never a fixed one, and never another
-  // strand's. `gradeForDeed` is where that is pinned by test.
+  // strand's. `gradeForDeed` is where that is pinned by test. A focus skill in the deed's strand
+  // a grade either side joins the candidates (`runCandidates`), so its pool is loaded too.
   const grade = gradeForDeed(hero, deed);
-  const skills = chooseSkills(deed, grade);
+  const skills = runCandidates(deed, grade, focusSkillIds);
   const poolSkillIds = skills.filter((s) => s.source.kind === "pool").map((s) => s.id);
-  const [profileRow, masteryRows, poolRows, recentMisses, settings, focusSkillIds] = await Promise.all([
+  const [profileRow, masteryRows, poolRows, recentMisses, settings] = await Promise.all([
     // Memoized per request, so this is the same round trip loadHeroLevels just made.
     loadLearningProfileRow(childId),
     loadMasteryRows(childId),
@@ -108,7 +113,6 @@ export async function startDeedRun(
     // A challenge mixes nothing in, so it needs no misses.
     challenge ? Promise.resolve([] as Question[]) : loadRecentMisses(childId),
     loadRealmSettings(childId),
-    loadFocusSkillIds(childId),
   ]);
   const profile = profileFromRow(profileRow);
   const masteryBySkill: Record<string, number> = {};

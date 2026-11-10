@@ -77,6 +77,9 @@ const DDL = [
   `CREATE TABLE activity_log (id text PRIMARY KEY NOT NULL, child_id text NOT NULL, subject_id text NOT NULL)`,
   `CREATE TABLE learning_focus (
     id text PRIMARY KEY NOT NULL, child_id text NOT NULL, skill_id text NOT NULL, created_at integer NOT NULL)`,
+  `CREATE TABLE drill_item (
+    id text PRIMARY KEY NOT NULL, pool_id text NOT NULL, skill_id text NOT NULL, band text NOT NULL, prompt text NOT NULL,
+    answer text NOT NULL, distractors text NOT NULL, read_aloud text, level integer DEFAULT 2 NOT NULL, updated_at integer NOT NULL)`,
   ...REALM_SETTINGS_DDL,
   ...REALM_LEDGER_DDL,
   ...REALM_ACCESS_DDL,
@@ -548,6 +551,40 @@ describe("startDeedRun begins a fresh run on the grown-up's settings", () => {
     const r = await startDeedRun("c1", "well-stones", "realm");
     expect(r.questions.length).toBeGreaterThan(0);
     expect(vi.mocked(buildDeedRun).mock.calls[0][0].focusSkillIds).toEqual(["div-facts"]);
+  });
+
+  it("serves a focus skill a grade above the hero's own in the deed's strand, from its own pool", async () => {
+    // A grade-3 reader: read-g4 is inside the focus window but outside `chooseSkills`'s grade.
+    for (const skill of ["read-g3", "read-g4"]) {
+      for (let i = 0; i < 10; i++) {
+        await client.query(
+          `INSERT INTO drill_item (id, pool_id, skill_id, band, prompt, answer, distractors, level, updated_at)
+           VALUES (?1, ?2, ?2, 'g45', ?3, 'yes', '["no","maybe","never"]', 2, unixepoch())`,
+          [`${skill}-${i}`, skill, `${skill} prompt ${i}?`],
+        );
+      }
+    }
+    await client.query("INSERT INTO learning_focus (id, child_id, skill_id, created_at) VALUES ('f0', 'c1', 'read-g4', unixepoch())");
+    const now = vi.spyOn(Date, "now");
+    try {
+      let served: string[] | null = null;
+      // The run's seed is the clock; a few fixed clocks make the draw deterministic.
+      for (let t = 1_800_000_000_000; t < 1_800_000_000_020 && !served; t++) {
+        now.mockReturnValue(t);
+        vi.mocked(buildDeedRun).mockClear();
+        const r = await startDeedRun("c1", "well-signs", "realm");
+        const input = vi.mocked(buildDeedRun).mock.calls[0][0];
+        expect(new Set(input.poolItems.map((p) => p.skillId))).toEqual(new Set(["read-g3", "read-g4"]));
+        const row = await client.query("SELECT skill_ids FROM deed_run WHERE id = ?1", [r.runId]);
+        const ids = JSON.parse(row.rows[0].skill_ids as string) as string[];
+        if (ids.includes("read-g4")) served = r.questions.filter((q) => q.skillId === "read-g4").map((q) => q.id);
+        await client.query("DELETE FROM deed_run");
+      }
+      expect(served?.length).toBeGreaterThan(0);
+    } finally {
+      now.mockRestore();
+      await client.query("DELETE FROM drill_item");
+    }
   });
 
   it("a miss put right on the second try still comes back", async () => {

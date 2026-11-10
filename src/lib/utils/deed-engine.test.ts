@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { buildDeedRun, chooseSkills, drawForSkill, gradeAnswer, selectSkills, type BuildRunInput, type PoolItem } from "./deed-engine";
+import { buildDeedRun, chooseSkills, drawForSkill, gradeAnswer, runCandidates, selectSkills, type BuildRunInput, type PoolItem } from "./deed-engine";
 import { findDeed } from "./deeds";
 import { REVIEW } from "./review-schedule";
 import { CHALLENGE } from "./deed-scoring";
@@ -793,5 +793,57 @@ describe("selectSkills with focus skills", () => {
     let plain = 0;
     for (let seed = 1; seed <= 300; seed++) if (firstSkill(seed) === "div-facts") plain++;
     expect(focused).toBeGreaterThan(plain);
+  });
+});
+
+describe("a focus skill a grade off the hero's own", () => {
+  // The focus window reaches one grade either side; `chooseSkills` serves the hero's grade only.
+  const servedSkills = (over: Partial<BuildRunInput>, seeds = 300) => {
+    const seen = new Set<string>();
+    for (let seed = 1; seed <= seeds; seed++) for (const id of buildDeedRun(input({ ...over, seed })).skillIds) seen.add(id);
+    return seen;
+  };
+
+  it("adds nothing to chooseSkills when there is no focus, for every deed strand and grade", () => {
+    for (const deed of [deedMath, deedReading, deedLanguage, deedScience]) {
+      for (const g of GRADES) expect(runCandidates(deed, g, [])).toEqual(chooseSkills(deed, g));
+    }
+    expect(runCandidates(deedMath, "3", ["add-100", "read-g4", "nope", "add-100", "mul-facts"]).map((s) => s.id))
+      .toEqual([...chooseSkills(deedMath, "3").map((s) => s.id), "add-100"]);
+  });
+
+  it("is a candidate for a deed in its own strand: a grade-2 math focus comes up for a grade-3 hero", () => {
+    expect(chooseSkills(deedMath, "3").map((s) => s.id)).not.toContain("add-100");
+    expect(servedSkills({ deed: deedMath, grade: "3", poolItems: [], focusSkillIds: ["add-100"] })).toContain("add-100");
+  });
+
+  it("is a candidate for a pool strand too, drawing the focus pool's own items", () => {
+    const items = [...poolItems("read-g3", 30), ...poolItems("read-g4", 30)];
+    const run = (seed: number) => buildDeedRun(input({ deed: deedReading, grade: "3", poolItems: items, focusSkillIds: ["read-g4"], seed }));
+    let served = 0;
+    for (let seed = 1; seed <= 300; seed++) {
+      const r = run(seed);
+      if (!r.skillIds.includes("read-g4")) continue;
+      served++;
+      expect(r.questions.some((q) => q.skillId === "read-g4")).toBe(true);
+    }
+    expect(served).toBeGreaterThan(0);
+  });
+
+  it("never comes up in a deed of another strand", () => {
+    expect(servedSkills({ deed: deedMath, grade: "3", poolItems: [], focusSkillIds: ["read-g4", "spell-g45"] }))
+      .not.toContain("read-g4");
+    const reading = servedSkills({ deed: deedReading, grade: "3", focusSkillIds: ["add-100", "spell-g45"] });
+    expect(reading).not.toContain("add-100");
+    expect(reading).not.toContain("spell-g45");
+  });
+
+  it("can come back as a due skill once it is a candidate", () => {
+    // Mastered, so it is rarely the draw; when it is not, it arrives as one of the due skills.
+    const run = buildDeedRun(input({
+      deed: deedMath, grade: "3", poolItems: [], focusSkillIds: ["add-100"], dueSkillIds: ["add-100"],
+      masteryBySkill: { "add-100": 4 }, lastPracticedBySkill: {}, seed: 7,
+    }));
+    expect(run.skillIds).toContain("add-100");
   });
 });
