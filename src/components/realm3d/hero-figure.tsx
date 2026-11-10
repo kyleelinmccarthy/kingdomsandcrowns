@@ -1422,7 +1422,8 @@ function Accessory({ look, hatY, front }: { look: HeroLook; hatY: number; front:
       );
     case "face-mask":
       return (
-        <mesh castShadow position={[0, HEAD_Y - 0.14, FACE - 0.03]}>
+        // A band wrapped round the lower head, so it is centred on the head, not on the face.
+        <mesh castShadow position={[0, HEAD_Y - 0.14, 0]}>
           <boxGeometry args={[HEAD_W + 0.02, 0.22, HEAD_D + 0.02]} />
           <Flat color={c} />
         </mesh>

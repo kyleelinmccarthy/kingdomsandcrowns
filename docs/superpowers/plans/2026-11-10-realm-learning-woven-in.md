@@ -713,11 +713,12 @@ type MeasureTask = {
   mode: "assemble" | "cut"; unit: string;                       // "" when unitless
   pieces?: MeasurePiece[]; target?: MeasurePiece;               // assemble: offered pieces and the mark
   answer?: string; tolerance?: string;                          // cut: solution value; tolerance default "0"
+  step?: string; maxLength?: string;                            // cut: the stepper's increment and the ruler's length (view-safe)
   solution?: number[];                                          // assemble: one valid subset, for answerText/bridge only
   bridge: string;                                               // e.g. "1/2 + 1/4 = 3/4"
   explain?: string;
 };
-// view: { mode, unit, pieces?: string[] (labels), target?: string (label), maxLength?: string }   (never answer/solution/bridge)
+// view: { mode, unit, pieces?: string[] (labels), target?: string (label), step?: string, maxLength?: string }   (never answer/solution/bridge)
 // response: assemble → number[] (unique, sorted, in range); cut → string (raw typed, ≤ 20 chars, parseAnswer-able)
 // encode: assemble "a:0,2,3"; cut "c:<formatRational(parsed,'fraction')>"; never ""
 ```
