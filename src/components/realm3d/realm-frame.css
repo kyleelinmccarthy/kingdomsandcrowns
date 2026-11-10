@@ -1018,6 +1018,9 @@
   40% { box-shadow: 0 5px 0 #1f4a0c, 0 0 36px rgba(255, 216, 117, 0.95); transform: scale(1.04); }
   100% { box-shadow: 0 5px 0 #1f4a0c, 0 0 20px rgba(126, 222, 94, 0.6); transform: none; }
 }
+.r3-nudge { margin-top: 0.8rem; padding: 0.6rem 0.9rem; border-radius: 0.8rem; border: 2px solid rgba(255, 224, 138, 0.5); background: rgba(255, 224, 138, 0.12); }
+.r3-nudge-line { margin: 0; font-size: 1.05rem; font-weight: 800; color: #ffe08a; }
+.r3-nudge-hint { margin: 0.2rem 0 0; font-size: 1rem; font-weight: 700; color: #ffd9a8; }
 .r3-feedback { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.7rem; margin-top: 1rem; }
 .r3-feedback-text { margin: 0; font-size: 1.15rem; font-weight: 800; color: #ffd9a8; }
 .r3-feedback--right .r3-feedback-text { color: #b8f59a; }

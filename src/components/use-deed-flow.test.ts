@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useDeedFlow } from "./use-deed-flow";
 import type { RunStart } from "@/lib/utils/deed-run-types";
+import { NUDGE_LINE } from "@/lib/tasks/pace-guard";
+import { hintFor } from "@/lib/utils/skill-hints";
 
 const answerDeedQuestion = vi.fn();
 const retryDeedQuestion = vi.fn();
@@ -63,5 +65,100 @@ describe("useDeedFlow", () => {
     answerDeedQuestion.mockRejectedValueOnce(new Error("That question has already been answered."));
     await act(() => result.current.choose("a"));
     expect(result.current.error).toBe("That question has already been answered.");
+  });
+
+  describe("pace guard", () => {
+    const five: RunStart = { ...run, questions: [q("1"), q("2"), q("3"), q("4"), q("5")], responses: [null, null, null, null, null] };
+    const wrong = { correct: false, secondChance: false, answer: "a" };
+    const right = { correct: true, secondChance: false, answer: "a" };
+
+    /** A hook on a clock the test moves by hand. */
+    function clocked() {
+      let t = 0;
+      const hook = renderHook(() => useDeedFlow(five, undefined, () => t));
+      return { hook, at: (ms: number) => (t = ms) };
+    }
+    async function guess(h: ReturnType<typeof clocked>, ms: number, result: object) {
+      answerDeedQuestion.mockResolvedValueOnce(result);
+      h.at(ms);
+      await act(() => h.hook.result.current.choose("b"));
+      act(() => h.hook.result.current.next());
+    }
+
+    it("nudges after the third fast miss, with a clue for that skill, and clears on the next correct first answer", async () => {
+      const h = clocked();
+      expect(h.hook.result.current.nudge).toBeNull();
+      await guess(h, 0, wrong);
+      await guess(h, 3000, wrong);
+      expect(h.hook.result.current.nudge).toBeNull();
+      answerDeedQuestion.mockResolvedValueOnce(wrong);
+      h.at(6000);
+      await act(() => h.hook.result.current.choose("b"));
+      expect(h.hook.result.current.nudge).toEqual({ line: NUDGE_LINE, hint: hintFor("s") });
+      act(() => h.hook.result.current.next());
+      answerDeedQuestion.mockResolvedValueOnce(right);
+      await act(() => h.hook.result.current.choose("a"));
+      expect(h.hook.result.current.nudge).toBeNull();
+    });
+
+    it("does not nudge when the misses are slow", async () => {
+      const h = clocked();
+      await guess(h, 0, wrong);
+      await guess(h, 6000, wrong);
+      answerDeedQuestion.mockResolvedValueOnce(wrong);
+      h.at(12_000);
+      await act(() => h.hook.result.current.choose("b"));
+      expect(h.hook.result.current.nudge).toBeNull();
+    });
+
+    it("counts first answers only: a retry is a second chance, not a guess", async () => {
+      const h = clocked();
+      await guess(h, 0, wrong);
+      answerDeedQuestion.mockResolvedValueOnce({ correct: false, secondChance: true, hint: "Count.", firstPick: "b" });
+      retryDeedQuestion.mockResolvedValueOnce({ correct: false, secondChance: false, answer: "a" });
+      h.at(1000);
+      await act(() => h.hook.result.current.choose("b"));
+      h.at(2000);
+      await act(() => h.hook.result.current.choose("c"));
+      expect(h.hook.result.current.nudge).toBeNull();
+    });
+
+    it("starts the count over after a nudge, so one burst nudges once", async () => {
+      const h = clocked();
+      await guess(h, 0, wrong);
+      await guess(h, 1000, wrong);
+      answerDeedQuestion.mockResolvedValueOnce(wrong);
+      h.at(2000);
+      await act(() => h.hook.result.current.choose("b"));
+      const first = h.hook.result.current.nudge;
+      expect(first).not.toBeNull();
+      act(() => h.hook.result.current.next());
+      // The misses before the nudge are spent: one more is not a new burst of three, so no new nudge is made.
+      answerDeedQuestion.mockResolvedValueOnce(wrong);
+      h.at(3000);
+      await act(() => h.hook.result.current.choose("b"));
+      expect(h.hook.result.current.nudge).toBe(first); // still up until a right first answer
+    });
+
+    it("takes the nudge down when the run's last question is resolved", async () => {
+      const h = clocked();
+      await guess(h, 0, wrong);
+      await guess(h, 1000, wrong);
+      await guess(h, 2000, wrong);
+      await guess(h, 20_000, wrong); // a slow miss on the fourth question; the nudge stays up
+      expect(h.hook.result.current.nudge).not.toBeNull();
+      answerDeedQuestion.mockResolvedValueOnce(wrong);
+      h.at(40_000);
+      await act(() => h.hook.result.current.choose("b")); // the fifth and last question
+      expect(h.hook.result.current.flow).toMatchObject({ index: 4, phase: "resolved" });
+      expect(h.hook.result.current.nudge).toBeNull();
+    });
+
+    it("defaults to the browser clock and never sends a time to the server", async () => {
+      answerDeedQuestion.mockResolvedValueOnce(wrong);
+      const { result } = renderHook(() => useDeedFlow(five));
+      await act(() => result.current.choose("b"));
+      expect(answerDeedQuestion).toHaveBeenCalledWith("r1", 0, "b");
+    });
   });
 });

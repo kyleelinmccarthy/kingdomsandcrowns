@@ -29,7 +29,7 @@ export function DeedPlayer({
   doneLabel?: string;
   onFinished: (summary: RunSummary) => void;
 }) {
-  const { flow, meter, busy, error, setError, guarded, choose, showMe, next } = useDeedFlow(run);
+  const { flow, meter, nudge, busy, error, setError, guarded, choose, showMe, next } = useDeedFlow(run);
   const { index, phase } = flow;
   const [summary, setSummary] = useState<RunSummary | null>(null);
   const [startedAt] = useState(() => Date.now());
@@ -111,7 +111,7 @@ export function DeedPlayer({
             </Button>
           )}
         </div>
-        <TaskPresenter task={question} flow={flow} variant="page" numerals calm={calm} disabled={busy} onRespond={(choice) => void choose(choice)} />
+        <TaskPresenter task={question} flow={flow} variant="page" numerals calm={calm} disabled={busy} nudge={nudge} onRespond={(choice) => void choose(choice)} />
         {feedback && (
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>

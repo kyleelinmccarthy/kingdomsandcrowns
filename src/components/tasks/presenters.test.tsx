@@ -9,9 +9,9 @@ afterEach(cleanup);
 const task: ClientTask = { kind: "choice", id: "q1", skillId: "math-add", view: { prompt: "What is 2 + 4?", choices: ["5", "6", "7", "8"] } };
 const asking: FlowState = initialFlow({ questions: [{ id: "q1" }] as never, responses: [null], pending: null });
 
-function show(over: { flow?: FlowState; variant?: "board" | "page"; disabled?: boolean } = {}) {
+function show(over: { flow?: FlowState; variant?: "board" | "page"; disabled?: boolean; nudge?: { line: string; hint: string } | null } = {}) {
   const onRespond = vi.fn();
-  render(<TaskPresenter task={task} flow={over.flow ?? asking} variant={over.variant ?? "board"} numerals calm={false} disabled={over.disabled ?? false} onRespond={onRespond} />);
+  render(<TaskPresenter task={task} flow={over.flow ?? asking} variant={over.variant ?? "board"} numerals calm={false} disabled={over.disabled ?? false} nudge={over.nudge} onRespond={onRespond} />);
   return onRespond;
 }
 
@@ -51,5 +51,24 @@ describe("TaskPresenter (choice)", () => {
     fireEvent.keyDown(window, { code: "Digit1", repeat: true });
     fireEvent.keyDown(window, { code: "Digit9" });
     expect(onRespond).not.toHaveBeenCalled();
+  });
+});
+
+describe("TaskPresenter nudge", () => {
+  it.each(["board", "page"] as const)("shows the squire's line and the clue above the choices in the %s variant, as a status", (variant) => {
+    show({ variant, nudge: { line: "Slow down, friend.", hint: "Count up." } });
+    const status = screen.getByRole("status");
+    expect(status).toHaveTextContent("Slow down, friend.");
+    expect(status).toHaveTextContent("Count up.");
+    const firstChoice = screen.getAllByRole("button")[0];
+    expect(status.compareDocumentPosition(firstChoice) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("shows nothing without a nudge", () => {
+    show();
+    expect(screen.queryByRole("status")).toBeNull();
+    cleanup();
+    show({ nudge: null });
+    expect(screen.queryByRole("status")).toBeNull();
   });
 });

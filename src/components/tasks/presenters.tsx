@@ -22,6 +22,8 @@ export type PresenterProps<K extends TaskKind> = {
   calm: boolean;
   /** The player is busy with a server call. Resolved and ruled-out are the surface's own business. */
   disabled: boolean;
+  /** The pace guard's word and clue, shown above the surface while it is up. */
+  nudge?: { line: string; hint: string } | null;
   onRespond(response: ResponseByKind[K]): void;
 };
 
@@ -31,5 +33,17 @@ export const TASK_PRESENTERS: { [K in TaskKind]: ComponentType<PresenterProps<K>
 
 export function TaskPresenter(props: PresenterProps<TaskKind>) {
   const Presenter = TASK_PRESENTERS[props.task.kind] as ComponentType<PresenterProps<TaskKind>>;
-  return <Presenter {...props} />;
+  const { nudge, ...surface } = props;
+  const board = props.variant === "board";
+  return (
+    <>
+      {nudge && (
+        <div role="status" className={board ? "r3-nudge" : "rounded-md border border-gold-dim bg-muted/30 p-3 text-sm"}>
+          <p className={board ? "r3-nudge-line" : "font-semibold"}>{nudge.line}</p>
+          <p className={board ? "r3-nudge-hint" : "mt-1"}>{nudge.hint}</p>
+        </div>
+      )}
+      <Presenter {...surface} />
+    </>
+  );
 }
