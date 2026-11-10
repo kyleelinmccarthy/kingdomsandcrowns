@@ -1117,6 +1117,24 @@ export const skillMastery = sqliteTable(
 );
 
 /**
+ * The skills a grown-up has asked to see more of this month, up to three per hero. Only the
+ * choice is stored: whether a skill is still in the hero's window is judged when it is read, so
+ * a promotion or a moved strand quietly sets an out-of-window pick aside instead of erroring.
+ */
+export const learningFocus = sqliteTable(
+  "learning_focus",
+  {
+    id: text("id").primaryKey(),
+    childId: text("child_id")
+      .notNull()
+      .references(() => child.id, { onDelete: "cascade" }),
+    skillId: text("skill_id").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  },
+  (table) => [uniqueIndex("learning_focus_child_skill_idx").on(table.childId, table.skillId)]
+);
+
+/**
  * One play of a deed. The questions (with answers) live here so grading is
  * server-side; the client only ever sees prompts and choices. Runs are the
  * Realm's own record and never touch the learning log or XP.
