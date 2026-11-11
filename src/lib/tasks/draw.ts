@@ -8,15 +8,19 @@
  */
 import type { Rng } from "@/lib/utils/drill-generators";
 import type { Skill } from "@/lib/utils/skills";
+import { benchFor } from "./bench";
 import type { Task, TaskKind } from "./types";
 
 export type TaskDrawer = (skill: Skill, level: number, rng: Rng) => Task | null;
 
-/** The drawer for each kind that is not a choice. Empty until a second kind exists. */
-export const TASK_DRAWERS: { [K in Exclude<TaskKind, "choice">]: TaskDrawer } = {};
+/** The drawer for each kind that is not a choice. */
+export const TASK_DRAWERS: { [K in Exclude<TaskKind, "choice">]: TaskDrawer } = {
+  // The bench's generator for the skill; none (a skill the bench does not hold) draws nothing.
+  measure: (skill, level, rng) => benchFor(skill.id)?.(level, rng, skill.id) ?? null,
+};
 
-// Tests only: stand-ins keyed by a kind string, so the draw path can be exercised before a second
-// kind is registered. Empty in production.
+// Tests only: stand-ins keyed by a kind string, so the draw path can be exercised with a kind that
+// has no real drawer. Empty in production.
 const overrides = new Map<string, TaskDrawer>();
 
 /** Tests only. Registers (or, with `null`, removes) a drawer for `kind`; always reset it afterwards. */

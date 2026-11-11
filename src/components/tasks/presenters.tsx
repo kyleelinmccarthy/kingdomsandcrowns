@@ -10,6 +10,7 @@ import type { ComponentType } from "react";
 import type { ClientTask, TaskKind } from "@/lib/tasks/types";
 import type { FlowState } from "@/lib/utils/deed-run-flow";
 import { ChoicePresenter } from "./choice-presenter";
+import { MeasurePresenterPlaceholder } from "./measure-presenter-placeholder";
 
 export type PresenterProps<K extends TaskKind> = {
   task: Extract<ClientTask, { kind: K }>;
@@ -30,6 +31,7 @@ export type PresenterProps<K extends TaskKind> = {
 
 export const TASK_PRESENTERS: { [K in TaskKind]: ComponentType<PresenterProps<K>> } = {
   choice: ChoicePresenter,
+  measure: MeasurePresenterPlaceholder,
 };
 
 export function TaskPresenter(props: PresenterProps<TaskKind>) {

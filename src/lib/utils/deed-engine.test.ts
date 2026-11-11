@@ -9,7 +9,8 @@ import { FOCUS_WEIGHT } from "./focus";
 import { GRADES } from "./grade-levels";
 import { skillsFor } from "./skills";
 import type { Question } from "./drill-generators";
-import type { Task, TaskKind } from "@/lib/tasks/types";
+import type { ChoiceTask, MeasureTask, Task, TaskKind } from "@/lib/tasks/types";
+import { BENCH } from "@/lib/tasks/bench";
 import { TASK_KINDS, kindOf } from "@/lib/tasks/registry";
 import { __setDrawerForTest, type TaskDrawer } from "@/lib/tasks/draw";
 import { choiceKind } from "@/lib/tasks/choice";
@@ -29,6 +30,12 @@ const profile = { fewerChoices: false, predictableRoutine: false, untimed: false
 
 function input(over: Partial<BuildRunInput> = {}): BuildRunInput {
   return { deed: deedReading, grade: "3", masteryBySkill: {}, profile, seed: 1, poolItems: poolItems("read-g3", 30), recentMisses: [], ...over };
+}
+
+/** A choice-only run's tasks, as choices: asserts that none is another kind. */
+function choices(tasks: Task[]): ChoiceTask[] {
+  for (const t of tasks) expect(kindOf(t)).toBe("choice");
+  return tasks.filter((t): t is ChoiceTask => kindOf(t) === "choice");
 }
 
 describe("chooseSkills", () => {
@@ -91,7 +98,7 @@ describe("buildDeedRun", () => {
   it("returns the deed's question count with four distinct choices each", () => {
     const run = buildDeedRun(input());
     expect(run.questions).toHaveLength(8);
-    for (const q of run.questions) { expect(q.choices).toHaveLength(4); expect(q.choices).toContain(q.answer); }
+    for (const q of choices(run.questions)) { expect(q.choices).toHaveLength(4); expect(q.choices).toContain(q.answer); }
     expect(run.skillIds).toEqual(["read-g3"]);
   });
   it("is deterministic for a seed", () => {
@@ -125,7 +132,7 @@ describe("buildDeedRun", () => {
   });
   it("never re-asks a miss of a kind the deed is not played with (R-C6)", () => {
     // The deed's mechanic is choice, so a miss stored as another kind is dropped, enabled or not.
-    // ("measure" is not registered until C5; the kind is a stand-in, cast, which is all the filter reads.)
+    // (The measure task is cut down to what the filter reads, hence the cast.)
     const other = { kind: "measure", id: "miss-m", skillId: "read-g3", prompt: "Cut it", answer: "3/4" } as unknown as Task;
     const choice: Question = { id: "miss-c", skillId: "read-g3", prompt: "Miss", choices: ["x", "y", "z", "w"], answer: "x" };
     for (const enabledKinds of [undefined, new Set<TaskKind>(), new Set<TaskKind>(["choice"])]) {
@@ -140,7 +147,7 @@ describe("buildDeedRun", () => {
   });
   it("trims to two choices that include the answer under fewerChoices", () => {
     const run = buildDeedRun(input({ profile: { ...profile, fewerChoices: true } }));
-    for (const q of run.questions) { expect(q.choices).toHaveLength(2); expect(q.choices).toContain(q.answer); }
+    for (const q of choices(run.questions)) { expect(q.choices).toHaveLength(2); expect(q.choices).toContain(q.answer); }
   });
   it("groups by skill with review last under predictableRoutine", () => {
     const misses: Question[] = [{ id: "miss-0", skillId: "mul-facts", prompt: "6 × 7", choices: ["42", "41", "43", "40"], answer: "42" }];
@@ -540,7 +547,7 @@ describe("a miss stored under an older id shape is still not re-asked", () => {
   it("excludes the review question by its prompt, not only by its id", () => {
     const skill = chooseSkills(deedMath, "3")[0];
     const fresh = buildDeedRun(input({ deed: deedMath, grade: "3", poolItems: [], masteryBySkill: {}, seed: 11 }));
-    const target = fresh.questions[0];
+    const target = choices(fresh.questions)[0];
 
     const stale: Question = { ...target, id: `${target.skillId}:STALE-KEY:${target.id}` };
     const run = buildDeedRun(
@@ -574,7 +581,7 @@ describe("a skill whose question lives in its choices still fills a deed", () =>
       );
       if (!built.skillIds.includes(skillId)) continue;
       expect(built.questions.length, `${skillId} seed ${seed} filled only ${built.questions.length}`).toBe(8);
-      const texts = built.questions.map((q) => `${q.prompt}|${[...q.choices].sort().join(",")}`);
+      const texts = choices(built.questions).map((q) => `${q.prompt}|${[...q.choices].sort().join(",")}`);
       expect(new Set(texts).size, "repeated a question").toBe(texts.length);
     }
   });
@@ -686,7 +693,7 @@ describe("buildDeedRun keep-it-sharp review", () => {
     const flags = run.questions.map((q) => !own.includes(q.skillId));
     expect(flags.lastIndexOf(false)).toBeLessThan(flags.indexOf(true));
     expect(flags[flags.length - 1]).toBe(true);
-    for (const q of run.questions) expect(q.choices).toHaveLength(2);
+    for (const q of choices(run.questions)) expect(q.choices).toHaveLength(2);
   });
 });
 
@@ -903,15 +910,15 @@ describe("applyProfile", () => {
         deed: findDeed(deedId)!, seed: Number(rest.replace("+routine", "")), poolItems: poolItems("read-g3", 30),
         dueSkillIds: ["div-facts", "read-g3"], profile: { ...profile, fewerChoices: true, predictableRoutine: routine },
       }));
-      expect(run.questions.map((q) => `${q.id}=${q.choices.join("|")}`)).toEqual(expected);
+      expect(choices(run.questions).map((q) => `${q.id}=${q.choices.join("|")}`)).toEqual(expected);
     }
   });
 });
 
 describe("a draw knows the kind", () => {
-  // No second kind is registered until C5, so a stand-in kind is: its definition is put in the
+  // A stand-in kind, so the draw path is pinned apart from any real one: its definition is put in the
   // registry for the length of one test (the only registry seam, local to this file) and its drawer
-  // through `__setDrawerForTest`. `TaskKind` is only "choice" today, hence the casts.
+  // through `__setDrawerForTest`. "stub" is no `TaskKind`, hence the casts.
   const STUB = "stub" as unknown as TaskKind;
   const stubDeed = { ...deedMath, mechanic: STUB };
   const enabled = new Set<TaskKind>([STUB]);
@@ -1023,5 +1030,49 @@ describe("a draw knows the kind", () => {
       expect([mixed[0], mixed[2]]).toEqual(only);
       expect(withOdd()).toBe(alone());
     });
+  });
+});
+
+describe("a measure miss comes back only where the bench plays its skill (R-C6)", () => {
+  // No skill is on the bench until the generators land, so one is put there for each test.
+  const bench = BENCH as Record<string, unknown>;
+  const measureDeed = { ...deedReading, mechanic: "measure" as TaskKind };
+  let n = 0;
+  const benchTask = (skillId: string): MeasureTask => ({
+    kind: "measure", id: `bench:${skillId}:${n++}`, skillId, prompt: "Cut it", mode: "cut", unit: "ft", answer: "3/4", bridge: "3/4",
+  });
+  const miss: MeasureTask = { ...benchTask("read-g3"), id: "miss-m" };
+  const run = (enabledKinds: ReadonlySet<TaskKind> | undefined) =>
+    buildDeedRun(input({ deed: measureDeed, recentMisses: [miss], enabledKinds }));
+  const onBench = () => {
+    bench["read-g3"] = (_level: number, _rng: unknown, skillId: string) => benchTask(skillId);
+  };
+
+  afterEach(() => {
+    delete bench["read-g3"];
+  });
+
+  it("is kept when the deed is played by measuring, measuring is on, and the bench holds the skill", () => {
+    onBench();
+    for (const enabled of [undefined, new Set<TaskKind>(["measure"])]) {
+      const built = run(enabled);
+      expect(built.questions.map((q) => q.id)).toContain("miss-m");
+      expect(built.questions.every((q) => kindOf(q) === "measure")).toBe(true);
+    }
+  });
+
+  it("is dropped when measuring is off, and the run is all choices", () => {
+    onBench();
+    for (const enabled of [new Set<TaskKind>(), new Set<TaskKind>(["choice"])]) {
+      const built = run(enabled);
+      expect(built.questions.map((q) => q.id)).not.toContain("miss-m");
+      expect(choices(built.questions)).toHaveLength(8);
+    }
+  });
+
+  it("is dropped when the bench does not hold the skill, even with measuring on", () => {
+    const built = run(new Set<TaskKind>(["measure"]));
+    expect(built.questions.map((q) => q.id)).not.toContain("miss-m");
+    expect(choices(built.questions)).toHaveLength(8);
   });
 });

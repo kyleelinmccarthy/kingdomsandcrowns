@@ -18,9 +18,9 @@ describe("task kind registry", () => {
     expect(taskDefOf({ ...q, kind: "choice" })).toBe(taskDef("choice"));
   });
 
-  it("knows which kinds are registered, and nothing else (measure joins in C5)", () => {
+  it("knows which kinds are registered, and nothing else", () => {
     expect(isRegisteredKind("choice")).toBe(true);
-    expect(isRegisteredKind("measure")).toBe(false);
+    expect(isRegisteredKind("measure")).toBe(true);
     for (const k of ["nope", "", "toString", "constructor", "__proto__", "hasOwnProperty", 7, null, undefined, {}]) {
       expect(isRegisteredKind(k)).toBe(false);
     }

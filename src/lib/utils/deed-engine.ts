@@ -418,8 +418,16 @@ function drawByKind(kind: TaskKind, skill: Skill, level: number, count: number, 
  * this skill's and not in `excludeIds`. A review builder uses it to draw a single task.
  *
  * `kind` is how the skill is played. A choice is the path below, unchanged; any other kind is
- * drawn by its own drawer.
+ * drawn by its own drawer. Named as a choice, or left out, the draw is typed as choices.
  */
+export function drawForSkill(
+  skill: Skill, level: number, count: number, rng: Rng, poolItems: PoolItem[], excludeIds: Set<string>, excludePrompts: Set<string>,
+  kind?: "choice",
+): ChoiceTask[];
+export function drawForSkill(
+  skill: Skill, level: number, count: number, rng: Rng, poolItems: PoolItem[], excludeIds: Set<string>, excludePrompts: Set<string>,
+  kind: TaskKind,
+): Task[];
 export function drawForSkill(
   skill: Skill,
   level: number,

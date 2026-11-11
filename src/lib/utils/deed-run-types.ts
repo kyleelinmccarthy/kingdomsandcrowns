@@ -25,6 +25,8 @@ export type AttemptResult = {
   /** With an open second chance: the first pick the server stored (the child's own, safe to send). */
   firstPick?: string;
   feedback?: FeedbackCode;
+  /** The worked notation ("1/2 + 1/4 = 3/4"), only once a hands-on task resolves right; multiple choice has none. */
+  bridge?: string;
   /**
    * Only on a first answer that moved mastery: where the skill's pips stand now. On a first answer,
    * absent or null means there are no pips to show (the skill is at the top, or nothing moved), so

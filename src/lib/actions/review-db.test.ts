@@ -308,7 +308,7 @@ describe("misses and what comes back", () => {
   });
 
   it("a task of a kind this build does not know is skipped, and the choice miss beside it still comes back", async () => {
-    const odd = { kind: "measure", id: "m0", skillId: "mul-facts", prompt: "Cut it", answer: "3/4" };
+    const odd = { kind: "nope", id: "m0", skillId: "mul-facts", prompt: "Cut it", answer: "3/4" };
     const q: Question = { id: "cq", skillId: "mul-facts", prompt: "2 x 3?", choices: ["6", "5", "8", "9"], answer: "6" };
     await client.query(
       `INSERT INTO deed_run (id, child_id, deed_id, skill_ids, band, questions, responses, mastery_start,

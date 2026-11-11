@@ -181,7 +181,10 @@ function resultFor(question: Task, status: QuestionStatus, firstPick?: string): 
   if (status === "unanswered") throw new Error(ANSWER_FIRST);
   if (status === "open") return { correct: false, secondChance: true, hint: hintFor(question.skillId), firstPick };
   const correct = status === "right-first" || status === "right-second";
-  const result: AttemptResult = { correct, secondChance: false, answer: taskDefOf(question).answerText(question) };
+  const def = taskDefOf(question);
+  const result: AttemptResult = { correct, secondChance: false, answer: def.answerText(question) };
+  // The notation behind a hands-on task is the reward for solving it: sent on a right answer only (R-C8).
+  if (correct && def.bridge) result.bridge = def.bridge(question);
   if (question.explain) result.explain = question.explain;
   else if (!correct) result.hint = hintFor(question.skillId);
   return result;

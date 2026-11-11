@@ -72,3 +72,11 @@ describe("TaskPresenter nudge", () => {
     expect(screen.queryByRole("status")).toBeNull();
   });
 });
+
+describe("TaskPresenter (measure, until the bench lands)", () => {
+  it("shows a note rather than failing", () => {
+    const measure: ClientTask = { kind: "measure", id: "m1", skillId: "frac-addsub", prompt: "Cut it", view: { mode: "cut", unit: "ft", step: "1/4", maxLength: "2" } };
+    render(<TaskPresenter task={measure} flow={asking} variant="board" numerals calm={false} disabled={false} onRespond={vi.fn()} />);
+    expect(screen.getByText("Coming soon")).toBeTruthy();
+  });
+});

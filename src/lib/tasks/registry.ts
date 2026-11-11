@@ -1,4 +1,5 @@
 import { choiceKind } from "./choice";
+import { measureKind } from "./measure";
 import type { ClientTask, Task, TaskKind, TaskKindDef } from "./types";
 
 export type * from "./types";
@@ -6,6 +7,7 @@ export type * from "./types";
 /** The extension point: a new kind adds one entry here (and a key to each map in types.ts). */
 export const TASK_KINDS: { [K in TaskKind]: TaskKindDef<K> } = {
   choice: choiceKind,
+  measure: measureKind,
 };
 
 /** Typed accessor over `TASK_KINDS`. */

@@ -4,8 +4,9 @@ import { testDatabase } from "@/test/libsql-test-db";
 import { DEFAULT_REALM_SETTINGS } from "@/lib/utils/realm-settings";
 import { hintFor } from "@/lib/utils/skill-hints";
 import { CHALLENGE, starsFor } from "@/lib/utils/deed-scoring";
-import { CHALLENGE_NOT_READY } from "@/lib/utils/deed-refusals";
+import { CHALLENGE_NOT_READY, PICK_SHOWN, TRY_DIFFERENT } from "@/lib/utils/deed-refusals";
 import type { Question } from "@/lib/utils/drill-generators";
+import type { MeasureTask } from "@/lib/tasks/types";
 import { REALM_ACCESS_DDL, REALM_LEDGER_DDL, REALM_SETTINGS_DDL } from "@/test/realm-db-ddl";
 
 /**
@@ -595,12 +596,20 @@ describe("startDeedRun begins a fresh run on the grown-up's settings", () => {
   });
 
   it("a run holding a kind this build does not play still returns its choice miss; that task is skipped", async () => {
-    // "measure" is not registered until the bench lands, so it reads as a kind from elsewhere (R-C7).
-    // Before misses were graded by kind, the unknown task threw and dropped the whole run's misses.
-    const measure = { kind: "measure", id: "m0", skillId: SKILL, prompt: "Cut it", answer: "3/4" } as unknown as Question;
-    await seedRun({ id: "deed-old", questions: [measure, QUESTIONS[1]], responses: ["9/4", "6"], completed: true });
+    // A kind from a newer deploy (R-C7). Before misses were graded by kind, the unknown task threw and
+    // dropped the whole run's misses.
+    const newer = { kind: "nope", id: "n0", skillId: SKILL, prompt: "Cut it", answer: "3/4" } as unknown as Question;
+    await seedRun({ id: "deed-old", questions: [newer, QUESTIONS[1]], responses: ["9/4", "6"], completed: true });
     await startDeedRun("c1", "well-stones", "realm");
     expect(vi.mocked(buildDeedRun).mock.calls[0][0].recentMisses.map((q) => q.id)).toEqual(["q1"]);
+  });
+
+  it("a measure miss is graded by its kind and handed to the engine beside the choice one", async () => {
+    const cut = { kind: "measure", id: "m0", skillId: SKILL, prompt: "Cut it", mode: "cut", unit: "ft", answer: "3/4", bridge: "3/4" };
+    const right = { ...cut, id: "m1" };
+    await seedRun({ id: "deed-old", questions: [cut, right, QUESTIONS[1]] as unknown as Question[], responses: ["c:9/4", "c:3/4", "6"], completed: true });
+    await startDeedRun("c1", "well-stones", "realm");
+    expect(vi.mocked(buildDeedRun).mock.calls[0][0].recentMisses.map((q) => q.id)).toEqual(["m0", "q1"]);
   });
 
   it("a malformed stored run is skipped without hiding the others' misses", async () => {
@@ -744,6 +753,100 @@ describe("side quests pay play minutes by stars", () => {
     expect(error).toHaveBeenCalled();
     error.mockRestore();
     expect((await stored()).completed_at).not.toBeNull();
+  });
+});
+
+describe("a measure task in a run", () => {
+  // Seeded straight into the run: no skill is on the bench yet, so no start would draw one.
+  const CUT: MeasureTask = {
+    kind: "measure", id: "m-cut", skillId: SKILL, prompt: "Cut a board three quarters of a foot long.",
+    mode: "cut", unit: "ft", answer: "3/4", step: "1/4", maxLength: "2", bridge: "1/2 + 1/4 = 3/4",
+  };
+  const ASSEMBLE: MeasureTask = {
+    kind: "measure", id: "m-asm", skillId: SKILL, prompt: "Build a beam three quarters of a foot long.",
+    mode: "assemble", unit: "ft",
+    pieces: [{ label: "1/2 ft", value: "1/2" }, { label: "1/4 ft", value: "1/4" }, { label: "1/4 ft", value: "0.25" }, { label: "1/8 ft", value: "1/8" }],
+    target: { label: "3/4 ft", value: "3/4" }, solution: [0, 1], bridge: "1/2 + 1/4 = 3/4",
+  };
+  const seedMeasure = () => seedRun({ questions: [CUT, ASSEMBLE] as unknown as Question[] });
+  const masteryRows = async () => Number((await client.query("SELECT count(*) AS n FROM skill_mastery")).rows[0].n);
+
+  async function refusedBeforeAnyWrite(call: () => Promise<unknown>, message = PICK_SHOWN) {
+    const before = await stored();
+    const rows = await masteryRows();
+    await expect(call()).rejects.toThrow(message);
+    expect(await stored()).toEqual(before);
+    expect(await masteryRows()).toBe(rows);
+  }
+
+  it("a malformed response is refused before anything is written (Review Focus 2)", async () => {
+    await seedMeasure();
+    // index 0 is the cut, index 1 the assemble.
+    for (const raw of ["x".repeat(60), "1/0", "c:1/0", "", "a:0", [0], 0.75, null, {}]) {
+      await refusedBeforeAnyWrite(() => answerDeedQuestion("run1", 0, raw));
+    }
+    for (const raw of [[4], [-1], [0, 0], [], [0.5], "a:0,0", "a:9", "0,1", "c:3/4", "3/4", 7, {}]) {
+      await refusedBeforeAnyWrite(() => answerDeedQuestion("run1", 1, raw));
+    }
+    expect((await stored()).responses).toBe("[null,null]");
+  });
+
+  it("a malformed retry is refused before anything is written, and so is the same length written another way", async () => {
+    await seedMeasure();
+    await answerDeedQuestion("run1", 0, "c:1/2");
+    await answerDeedQuestion("run1", 1, "a:1,2");
+    for (const raw of ["x".repeat(60), "1/0", [0]]) await refusedBeforeAnyWrite(() => retryDeedQuestion("run1", 0, raw));
+    for (const raw of [[0, 0], [9], "c:3/4"]) await refusedBeforeAnyWrite(() => retryDeedQuestion("run1", 1, raw));
+    await refusedBeforeAnyWrite(() => retryDeedQuestion("run1", 0, "0.5"), TRY_DIFFERENT);
+    await refusedBeforeAnyWrite(() => retryDeedQuestion("run1", 1, "a:2,1"), TRY_DIFFERENT);
+  });
+
+  it.each(["3/4", "0.75", "6/8", "c:3/4"])("a cut of %s is right, stored in lowest terms, with the bridge (Review Focus 3)", async (raw) => {
+    await seedMeasure();
+    const r = await answerDeedQuestion("run1", 0, raw);
+    expect(r).toMatchObject({ correct: true, secondChance: false, answer: CUT.bridge, bridge: CUT.bridge });
+    expect(JSON.parse((await stored()).responses)[0]).toBe("c:3/4");
+  });
+
+  it("any set of pieces that hits the mark is right, not only the stored solution", async () => {
+    await seedMeasure();
+    const r = await answerDeedQuestion("run1", 1, "a:2,0");
+    expect(r).toMatchObject({ correct: true, bridge: ASSEMBLE.bridge });
+    expect(JSON.parse((await stored()).responses)[1]).toBe("a:0,2");
+  });
+
+  it("a wrong length opens a second chance with which way it is off, and nothing of the answer", async () => {
+    await seedMeasure();
+    const r = await answerDeedQuestion("run1", 0, "c:1/2");
+    expect(r).toMatchObject({ correct: false, secondChance: true, feedback: "too_short", firstPick: "c:1/2" });
+    for (const k of ["answer", "bridge", "explain"]) expect(k in r).toBe(false);
+    const long = await answerDeedQuestion("run1", 1, [0, 1, 2]);
+    expect(long).toMatchObject({ secondChance: true, feedback: "too_long" });
+    expect("bridge" in long).toBe(false);
+  });
+
+  it("the bridge comes with a right retry, and never with a wrong one or a give-up", async () => {
+    await seedMeasure();
+    await answerDeedQuestion("run1", 0, "1/2");
+    expect(await retryDeedQuestion("run1", 0, "6/8")).toMatchObject({ correct: true, bridge: CUT.bridge });
+
+    await answerDeedQuestion("run1", 1, "a:1,2");
+    const wrong = await retryDeedQuestion("run1", 1, [0, 1, 2]);
+    expect(wrong).toMatchObject({ correct: false, secondChance: false, feedback: "too_long", answer: ASSEMBLE.bridge });
+    expect("bridge" in wrong).toBe(false);
+  });
+
+  it("giving up resolves as a miss without the bridge", async () => {
+    await seedMeasure();
+    await answerDeedQuestion("run1", 0, "1");
+    const r = await resolveDeedQuestion("run1", 0);
+    expect(r).toMatchObject({ correct: false, secondChance: false });
+    expect("bridge" in r).toBe(false);
+  });
+
+  it("a choice result never carries a bridge", async () => {
+    await seedRun();
+    expect("bridge" in (await answerDeedQuestion("run1", 0, "6"))).toBe(false);
   });
 });
 
