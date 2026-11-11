@@ -60,3 +60,12 @@ export function cutWords(quantity: Quantity | undefined, unit: string): CutWords
   const { noun, a } = MEASURES[q];
   return { label: `${noun}${inUnit}`, hint: `Write ${a} like 3, 1/2 or 0.5.`, verb: "Set it", gauge: scale };
 }
+
+/**
+ * Which way a wrong cut is off, said on a second chance. A length is long or short (the board is
+ * trimmed or added to); an area, a volume, a weight or a count is never called long, only over or under.
+ */
+export function cutFeedbackLine(quantity: Quantity | undefined, code: "too_long" | "too_short"): string {
+  if ((quantity ?? "length") === "length") return code === "too_long" ? "A little long. Trim it." : "A little short. Add to it.";
+  return code === "too_long" ? "A little over. Bring it down." : "A little under. Bring it up.";
+}

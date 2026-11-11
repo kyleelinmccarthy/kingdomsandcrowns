@@ -16,7 +16,8 @@
  */
 
 import type { AttemptResult, RunSummary } from "@/lib/utils/deed-run-types";
-import type { ClientTask, FeedbackCode } from "@/lib/tasks/types";
+import { cutFeedbackLine } from "@/lib/tasks/measure-copy";
+import type { ClientTask } from "@/lib/tasks/types";
 import { MAX_STARS } from "@/lib/utils/deed-scoring";
 import type { ObjectiveState } from "@/lib/realm/objective";
 import { riseToast } from "@/lib/realm/objective";
@@ -208,12 +209,6 @@ export function resultMinutesLine(summary: Pick<RunSummary, "minutesEarned" | "s
   return summary.sideQuestPayFull ? SIDE_QUEST_PAY_FULL_LINE : null;
 }
 
-/** Which way a wrong length is off, said in place of "Not quite." on a bench second chance. */
-export const FEEDBACK_LINES: Record<Exclude<FeedbackCode, "none">, string> = {
-  too_long: "A little long. Trim it.",
-  too_short: "A little short. Add to it.",
-};
-
 /**
  * What to say after an answer. `retried` is true once a first pick was ruled out, so a right
  * answer then is "You got there!". A miss that has run out of tries reveals the answer, then
@@ -224,7 +219,9 @@ export const FEEDBACK_LINES: Record<Exclude<FeedbackCode, "none">, string> = {
  */
 export function attemptFeedback(result: AttemptResult, retried: boolean, villagerName?: string, task?: ClientTask): { heading: "Try again" | null; text: string } {
   if (result.secondChance) {
-    const lead = result.feedback && result.feedback !== "none" ? FEEDBACK_LINES[result.feedback] : "Not quite.";
+    // Which way a wrong cut is off, in the words of what it measures (a length is long; an area is over).
+    const quantity = task?.kind === "measure" ? task.view.quantity : undefined;
+    const lead = result.feedback && result.feedback !== "none" ? cutFeedbackLine(quantity, result.feedback) : "Not quite.";
     return { heading: "Try again", text: `${lead} ${result.hint ?? ""}`.trim() };
   }
   if (result.correct) {

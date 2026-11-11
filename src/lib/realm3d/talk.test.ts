@@ -222,6 +222,23 @@ describe("what a villager says after a bench answer", () => {
     expect(attemptFeedback({ correct: false, secondChance: true, hint: "Count on.", feedback: "too_short" }, false).text)
       .toBe("A little short. Add to it. Count on.");
   });
+  it("keeps the length words for a task that names a length, or no quantity", () => {
+    const length: ClientTask = { kind: "measure", id: "m", skillId: "s", prompt: "p", view: { mode: "cut", unit: "feet", quantity: "length" } };
+    const bare: ClientTask = { kind: "measure", id: "m", skillId: "s", prompt: "p", view: { mode: "cut", unit: "feet" } };
+    for (const task of [length, bare]) {
+      expect(attemptFeedback({ correct: false, secondChance: true, feedback: "too_long" }, false, undefined, task).text).toBe("A little long. Trim it.");
+      expect(attemptFeedback({ correct: false, secondChance: true, feedback: "too_short" }, false, undefined, task).text).toBe("A little short. Add to it.");
+    }
+  });
+  it("never calls an area, a count or a weight long or short: it is over or under", () => {
+    const task = (quantity: "area" | "count" | "weight" | "volume"): ClientTask => ({ kind: "measure", id: "m", skillId: "s", prompt: "p", view: { mode: "cut", unit: "u", quantity } });
+    expect(attemptFeedback({ correct: false, secondChance: true, hint: "Count on.", feedback: "too_long" }, false, undefined, task("area")))
+      .toEqual({ heading: "Try again", text: "A little over. Bring it down. Count on." });
+    expect(attemptFeedback({ correct: false, secondChance: true, hint: "Count on.", feedback: "too_short" }, false, undefined, task("count")).text)
+      .toBe("A little under. Bring it up. Count on.");
+    expect(attemptFeedback({ correct: false, secondChance: true, feedback: "too_long" }, false, undefined, task("weight")).text).toBe("A little over. Bring it down.");
+    expect(attemptFeedback({ correct: false, secondChance: true, feedback: "too_short" }, false, undefined, task("volume")).text).toBe("A little under. Bring it up.");
+  });
   it("shows the worked notation after a right answer, first try or retry", () => {
     expect(attemptFeedback({ correct: true, secondChance: false, answer: "x", bridge: "4 + 5 = 9" }, false).text).toBe("That's it! 4 + 5 = 9");
     expect(attemptFeedback({ correct: true, secondChance: false, answer: "x", bridge: "4 + 5 = 9" }, false, "Old Bram").text).toBe("That's it! Old Bram is pleased. 4 + 5 = 9");
