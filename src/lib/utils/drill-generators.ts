@@ -446,7 +446,7 @@ export function gcd(a: number, b: number): number {
  * thing to do to both sides is the operation the equation does not show — so it is what the
  * top rung is for rather than a wider span of the same three.
  */
-const ONE_STEP_KINDS = [
+export const ONE_STEP_KINDS = [
   ["add"], ["sub"], ["mul"], ["add", "sub", "mul"], ["add", "sub", "mul", "div"],
 ] as const;
 

@@ -126,9 +126,9 @@ export function multiStepEq(level: number, rng: Rng, skillId: string): Question 
 // ---------------------------------------------------------------------------
 
 /** Largest coefficient on either variable, per level. */
-const SYSTEM_COEF_MAX = [1, 1, 2, 3, 4];
+export const SYSTEM_COEF_MAX = [1, 1, 2, 3, 4];
 /** How far a solution may sit from zero, per level. */
-const SYSTEM_SOLUTION_MAX = [10, 10, 10, 10, 10];
+export const SYSTEM_SOLUTION_MAX = [10, 10, 10, 10, 10];
 
 /** "x", "2x", "-x" — a leading term, with a coefficient of one left unwritten. */
 const leadTerm = (coefficient: number, letter: string): string =>
@@ -543,9 +543,9 @@ export function anglePairs(level: number, rng: Rng, skillId: string): Question {
 // ---------------------------------------------------------------------------
 
 /** Largest scale factor between the two triangles, per level. */
-const SIMILAR_SCALE_MAX = [3, 4, 5, 6, 8];
+export const SIMILAR_SCALE_MAX = [3, 4, 5, 6, 8];
 /** Largest side on the first triangle, per level. */
-const SIMILAR_SIDE_MAX = [6, 7, 8, 9, 9];
+export const SIMILAR_SIDE_MAX = [6, 7, 8, 9, 9];
 
 /**
  * Similar triangles (grade 10). The first triangle's two sides are given along with the
@@ -629,7 +629,7 @@ const TRIG_RATIOS: readonly Ratio[][] = [
 ];
 /** How far a triple may be scaled up, and the largest hypotenuse in play, per level. */
 const TRIG_SCALE_MAX = [1, 1, 2, 2, 3];
-const TRIG_HYP_MAX = [25, 29, 40, 60, 90];
+export const TRIG_HYP_MAX = [25, 29, 40, 60, 90];
 
 const RATIO_WORDS: Record<Ratio, string> = { sin: "sine", cos: "cosine", tan: "tangent" };
 
@@ -940,7 +940,7 @@ export function distMidpoint(level: number, rng: Rng, skillId: string): Question
 
 /** How far a root may sit from zero, per level. */
 const QUAD_ROOT_LOW = [1, 1, -3, -6, -9];
-const QUAD_ROOT_HIGH = [5, 7, 7, 9, 9];
+export const QUAD_ROOT_HIGH = [5, 7, 7, 9, 9];
 
 /**
  * Quadratics with whole roots (grade 11). The equation is built from its roots and printed
@@ -1017,7 +1017,7 @@ export function quadFormula(level: number, rng: Rng, skillId: string): Question 
 // ---------------------------------------------------------------------------
 
 /** Largest number inside a factor, per level. */
-const POLY_SPAN = [5, 5, 8, 5, 8];
+export const POLY_SPAN = [5, 5, 8, 5, 8];
 /** Negatives inside a factor join at level 1; a trinomial factor joins at level 3. */
 const POLY_NEGATIVE = [false, true, true, true, true];
 const POLY_TRINOMIAL = [false, false, false, true, true];
@@ -1417,7 +1417,7 @@ const UNIT_CIRCLE_VALUES = ["1/2", "√2/2", "√3/2", "-1/2", "-√2/2", "-√3
  * rung is left narrow on purpose, and `high.test.ts` pins the reach so that widening it is a
  * deliberate decision rather than a way of hitting a pool-size target.
  */
-const UNIT_CIRCLE_REACH = [5, 9, 16, 16, 16];
+export const UNIT_CIRCLE_REACH = [5, 9, 16, 16, 16];
 /**
  * How far around the circle each level may ask in RADIANS, same count, zero meaning degrees
  * only. This is the second axis and the better one: levels 0-2 widen the angle, and levels 3
@@ -1500,11 +1500,11 @@ export function unitCircle(level: number, rng: Rng, skillId: string): Question {
  * Largest first term, per level. The geometric rungs start lower than the arithmetic ones and
  * are held there by the cap on the term itself: `9 × 3⁷` is 19683 and never gets drawn.
  */
-const SEQ_START_MAX = [9, 12, 15, 6, 9];
+export const SEQ_START_MAX = [9, 12, 15, 6, 9];
 /** Largest common difference, per level; the geometric rungs use the ratio cap instead. */
-const SEQ_DIFF_MAX = [5, 8, 9, 0, 0];
+export const SEQ_DIFF_MAX = [5, 8, 9, 0, 0];
 /** Largest term index in play, per level. */
-const SEQ_TERM_MAX = [8, 10, 12, 8, 8];
+export const SEQ_TERM_MAX = [8, 10, 12, 8, 8];
 /** Geometric from level 3, a negative common difference from 2, a negative ratio at 4. */
 const SEQ_GEOMETRIC = [false, false, false, true, true];
 const SEQ_NEGATIVE_DIFF = [false, false, true, false, false];
@@ -1514,8 +1514,8 @@ const SEQ_NEGATIVE_RATIO = [false, false, false, false, true];
  * them. `4 × 3⁷` is 8748 and `6 × 3⁷` is 13122: numbers a child copies out rather than reasons
  * about, and four near-misses around one of them is an exercise in reading digits.
  */
-const SEQ_RATIO_MAX = 3;
-const SEQ_TERM_VALUE_MAX = 6000;
+export const SEQ_RATIO_MAX = 3;
+export const SEQ_TERM_VALUE_MAX = 6000;
 
 /** "7th", "12th" — and "21st", should a level ever reach that far. */
 function ordinal(n: number): string {

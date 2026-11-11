@@ -39,10 +39,10 @@ const DIVIDE = "÷";
 const pick = <T>(rng: () => number, xs: readonly T[]): T => xs[randInt(rng, 0, xs.length - 1)];
 const feet = (n: number) => (n === 1 ? "1 foot" : `${n} feet`);
 /** Twice a length in whole or half units, as a string: 7 is "3.5", 8 is "4". */
-const halfString = (twice: number) => (twice % 2 === 0 ? String(twice / 2) : `${(twice - 1) / 2}.5`);
+export const halfString = (twice: number) => (twice % 2 === 0 ? String(twice / 2) : `${(twice - 1) / 2}.5`);
 
 /** The ruler: the next 1, 2 or 5 times a power of ten that leaves room above the answer. */
-const rulerFor = (answer: number): string => {
+export const rulerFor = (answer: number): string => {
   const need = answer * 1.25;
   for (let p = 1; ; p *= 10) {
     for (const m of [1, 2, 5]) if (m * p >= need) return String(m * p);
