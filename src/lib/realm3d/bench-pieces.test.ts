@@ -77,11 +77,14 @@ describe("the bench's elevation of a site going up", () => {
 
   it("paces the stage over the run's bench tasks, so a perfect run lays every piece (RC-l)", () => {
     expect(piecesLaid(0, 4, 10)).toBe(0);
-    expect(piecesLaid(1, 4, 10)).toBe(2);
+    expect(piecesLaid(1, 4, 10)).toBe(3);
     expect(piecesLaid(2, 4, 10)).toBe(5);
+    expect(piecesLaid(3, 4, 10)).toBe(8);
     expect(piecesLaid(4, 4, 10)).toBe(10);
     expect(piecesLaid(3, 12, 4)).toBe(1);
     expect(piecesLaid(12, 12, 4)).toBe(4);
+    // As many pieces as tasks: one each.
+    for (let s = 0; s <= 8; s++) expect(piecesLaid(s, 8, 8)).toBe(s);
     // Never more than the stage holds, and nothing for a run with no bench task.
     expect(piecesLaid(9, 4, 10)).toBe(10);
     expect(piecesLaid(1, 0, 10)).toBe(0);
@@ -90,6 +93,21 @@ describe("the bench's elevation of a site going up", () => {
         const all = benchPieces(stage, false).length;
         expect(piecesLaid(tasks, tasks, all)).toBe(all);
         for (let s = 0; s < tasks; s++) expect(piecesLaid(s + 1, tasks, all)).toBeGreaterThanOrEqual(piecesLaid(s, tasks, all));
+      }
+    }
+  });
+
+  it("lays a piece for the first right answer even when the stage has fewer pieces than the run has bench tasks", () => {
+    // Well stage 2 in the smoke test: 7 pieces over 8 bench tasks.
+    expect([0, 1, 2, 3, 4, 5, 6, 7, 8].map((s) => piecesLaid(s, 8, 7))).toEqual([0, 1, 2, 3, 4, 5, 6, 7, 7]);
+    // Many more tasks than pieces: the first right answer still lays one, and the stage ends full.
+    expect(piecesLaid(1, 12, 4)).toBe(1);
+    for (const tasks of [1, 2, 3, 5, 7, 8, 9, 12]) {
+      for (const stage of STAGES) {
+        const all = benchPieces(stage, false).length;
+        expect(piecesLaid(1, tasks, all), `${tasks} tasks, stage ${stage}`).toBeGreaterThanOrEqual(1);
+        expect(piecesLaid(tasks - 1, tasks, all), `${tasks} tasks, stage ${stage}`).toBeLessThanOrEqual(all);
+        if (tasks > 1 && all >= tasks) expect(piecesLaid(tasks - 1, tasks, all)).toBeLessThan(all);
       }
     }
   });

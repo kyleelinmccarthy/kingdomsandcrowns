@@ -115,8 +115,10 @@ export function benchPieces(stage: number, complete: boolean): BenchPiece[] {
  * How many of a stage's pieces are in, after `solved` of the run's `benchTasks` bench tasks were put
  * right (ruling RC-l): the stage is paced over the bench tasks, so a run with every one right lays
  * the whole stage, however many pieces it has, and choice tasks in the run neither lay nor hold back.
+ * The share rounds up, so the first right answer always lays a piece, even when the stage has fewer
+ * pieces than the run has bench tasks (then a later answer lays none); it never runs past the stage.
  */
 export function piecesLaid(solved: number, benchTasks: number, stagePieces: number): number {
   if (!(benchTasks > 0)) return 0;
-  return Math.min(stagePieces, Math.max(0, Math.floor((solved * stagePieces) / benchTasks)));
+  return Math.min(stagePieces, Math.max(0, Math.ceil((solved * stagePieces) / benchTasks)));
 }
