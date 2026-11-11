@@ -113,6 +113,17 @@ describe("bench catalog", () => {
         }
       });
 
+      it("never lets the stepper hand over a cut: the answer is at least two steps, on the step's own grid (RC-i)", () => {
+        for (const t of tasks.filter((x) => x.mode === "cut")) {
+          const answer = rat(t.answer!);
+          const step = rat(t.step!);
+          expect(leq({ n: step.n * BigInt(2), d: step.d }, answer), `${t.id}: answer ${t.answer} under two steps of ${t.step}`).toBe(true);
+          expect(sameValue(step, answer), t.id).toBe(false);
+          // answer / step is a whole number, so the stepper can land on it.
+          expect((answer.n * step.d) % (answer.d * step.n), `${t.id}: ${t.answer} is not a multiple of ${t.step}`).toBe(BigInt(0));
+        }
+      });
+
       it("builds the bridge from the task's own numbers", () => {
         for (const t of tasks) {
           const mark = t.mode === "assemble" ? t.target!.value : t.answer!;

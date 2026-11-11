@@ -117,15 +117,15 @@ describe("K-2 bench (R-C3)", () => {
   it("pins a concrete cut reading (sub-20, level 2, seed 5)", () => {
     expect(make("sub-20", 2, 5)).toMatchInlineSnapshot(`
       {
-        "answer": "3",
-        "bridge": "11 − 8 = 3",
-        "explain": "Take 8 from 11 and 3 is left: 11 − 8 = 3.",
-        "id": "sub-20:cut:11-8",
+        "answer": "4",
+        "bridge": "11 − 7 = 4",
+        "explain": "Take 7 from 11 and 4 is left: 11 − 7 = 4.",
+        "id": "sub-20:cut:11-7",
         "kind": "measure",
         "maxLength": "11",
         "mode": "cut",
-        "prompt": "The baker has a beam 11 blocks long. Cut off 8 blocks. How long is the piece that's left?",
-        "readAloud": "The baker has a beam eleven blocks long. Cut off eight blocks. How long is the piece that's left?",
+        "prompt": "The baker has a beam 11 blocks long. Cut off 7 blocks. How long is the piece that's left?",
+        "readAloud": "The baker has a beam eleven blocks long. Cut off seven blocks. How long is the piece that's left?",
         "skillId": "sub-20",
         "step": "1",
         "unit": "blocks",

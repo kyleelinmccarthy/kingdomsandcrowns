@@ -35,12 +35,6 @@ describe("grade 9-12 bench (R-C3)", () => {
     }
   });
 
-  it("never lets a cut's step give the answer away: the answer is at least two steps", () => {
-    for (const s of G912) {
-      for (const t of all(s)) expect(num(t.answer!), t.id).toBeGreaterThanOrEqual(2 * num(t.step!));
-    }
-  });
-
   it("uses one step per level and skill, so the step never says which task is which", () => {
     for (const s of G912) {
       for (const l of LEVELS) expect(new Set(tasksOf(s, l).map((t) => t.step)).size, `${s} level ${l}`).toBe(1);
@@ -180,6 +174,7 @@ describe("grade 9-12 bench (R-C3)", () => {
           expect(answer, t.id).toBeGreaterThan(h);
           expect(num(t.answer!), t.id).toBe(answer);
           expect(t.bridge, t.id).toBe(`${h} ÷ ${s} × ${shadow} = ${answer}`);
+          expect(t.id, t.id).toBe(`similar-tri:cut:${m[2]}-${m[4]}:${h}-${s}-${shadow}`); // the post and the tower vary the prompt, so they vary the id
         }
       }
     });
@@ -210,6 +205,8 @@ describe("grade 9-12 bench (R-C3)", () => {
           expect(m[3], t.id).toBe(value === "0.5" ? "=" : "≈");
           const length = Number(/(?:is|of) (\d+) feet/.exec(t.prompt)?.[1] ?? /(\d+) feet from/.exec(t.prompt)![1]);
           if (ratio !== "tan") expect(length, t.id).toBeLessThanOrEqual(TRIG_HYP_MAX[l]);
+          expect(length, t.id).toBeLessThanOrEqual(Math.min(40, TRIG_HYP_MAX[l]));
+          expect(num(t.answer!), t.id).toBeLessThanOrEqual(40); // a village's rafter, ramp or ladder
           expect(num(t.answer!) * 100, t.id).toBeCloseTo(length * stated, 6);
           expect(t.bridge, t.id).toBe(`${length} × ${value} = ${t.answer}`);
           expect(t.tolerance).toBe("0.01");

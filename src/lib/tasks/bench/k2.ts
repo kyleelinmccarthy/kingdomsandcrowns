@@ -4,7 +4,7 @@
  * - assemble: the mark is a sum; the villager offers 4-5 whole-number pieces, no two alike and none
  *   the mark's own length, of which two (the stored addends) make it; the others run shorter or
  *   (decoys) longer. Any subset that sums to the mark counts when graded.
- * - cut: a beam of `a` has `b` cut off; the piece left is `a - b`.
+ * - cut: a beam of `a` has `b` cut off; the piece left is `a - b`, at least 2.
  *
  * Sizes ride the same ceilings the choice generators use (`ADD_MAX`, `SUB_MAX`), so a level means
  * the same difficulty either way. The prompt's flavour is a function of the parameters (never the
@@ -74,8 +74,9 @@ const assemble: BenchGenerator = (level, rng, skillId) => {
 
 const cut: BenchGenerator = (level, rng, skillId) => {
   const s = SETTINGS[skillId];
-  const beam = randInt(rng, 2, SUB_MAX[skillId][level4(level)]);
-  const off = randInt(rng, 1, beam - 1);
+  // The piece left is at least 2 (RC-i): a 1 would be one press of the stepper.
+  const beam = randInt(rng, 3, SUB_MAX[skillId][level4(level)]);
+  const off = randInt(rng, 1, beam - 2);
   const left = beam - off;
 
   const ask = (say: (n: number) => string) =>

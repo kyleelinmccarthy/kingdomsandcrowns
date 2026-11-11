@@ -183,7 +183,7 @@ const similarTri: BenchGenerator = (level, rng, skillId) => {
   const post = pick(rng, POSTS);
   const tower = pick(rng, TOWERS);
   return {
-    kind: "measure", id: `${skillId}:cut:${tower}:${h}-${s}-${shadow}`, skillId,
+    kind: "measure", id: `${skillId}:cut:${post}-${tower}:${h}-${s}-${shadow}`, skillId,
     prompt: `${capitalAOrAn(String(h))} ${h}-foot ${post} casts ${aOrAn(String(s))} ${s}-foot shadow. The ${tower}'s shadow is ${shadow} feet long. How tall is the ${tower}?`,
     mode: "cut", unit: "feet", answer: String(answer), step: "1", maxLength: rulerFor(answer),
     bridge: `${h} ${DIVIDE} ${s} ${TIMES} ${shadow} = ${answer}`,
@@ -210,6 +210,8 @@ const TRIG_ANGLES: readonly (readonly number[])[] = [
 const TRIG_RATIOS: readonly (readonly ("sin" | "cos" | "tan")[])[] = [
   ["sin"], ["sin", "cos"], ["sin", "cos"], ["sin", "cos", "tan"], ["sin", "cos", "tan"],
 ];
+/** A village's rafter or ramp is no longer than this, and no ladder or ramp rises higher (feet). */
+const LENGTH_MAX = 40;
 /** A ramp's or ladder's run: a believable length for the tangent reading. */
 const RUN_MAX = 30;
 const STEEP_FROM = 50;
@@ -219,7 +221,10 @@ const trigRatios: BenchGenerator = (level, rng, skillId) => {
   const ratio = pick(rng, TRIG_RATIOS[L]);
   const deg = pick(rng, TRIG_ANGLES[L]);
   const hundredths = TRIG_TABLE[deg][ratio === "sin" ? 0 : ratio === "cos" ? 1 : 2];
-  const length = randInt(rng, 4, ratio === "tan" ? Math.min(RUN_MAX, TRIG_HYP_MAX[L]) : TRIG_HYP_MAX[L]);
+  // The rise (tan) stays within LENGTH_MAX, so a steep angle takes a short run: 75 degrees is at most 10 feet.
+  const longest = ratio === "tan" ? Math.min(RUN_MAX, TRIG_HYP_MAX[L], Math.floor((LENGTH_MAX * 100) / hundredths))
+    : Math.min(LENGTH_MAX, TRIG_HYP_MAX[L]);
+  const length = randInt(rng, 4, longest);
   const value = decString(hundredths, 2);
   const stated = `${ratio} ${deg}° ${value === "0.5" ? "=" : "≈"} ${value}`;
   const answer = decString(length * hundredths, 2);

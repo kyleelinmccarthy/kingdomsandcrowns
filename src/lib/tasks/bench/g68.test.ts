@@ -32,14 +32,6 @@ describe("grade 6-8 bench (R-C3)", () => {
     }
   });
 
-  it("never lets a cut's step give the answer away: the answer is at least two steps", () => {
-    for (const s of G68) {
-      for (const l of LEVELS) {
-        for (const t of tasksOf(s, l)) expect(num(t.answer!), t.id).toBeGreaterThanOrEqual(2 * num(t.step!));
-      }
-    }
-  });
-
   describe("ratio-rate", () => {
     const mixes = (l: number) => tasksOf("ratio-rate", l).filter((t) => t.id.includes(":mix:"));
     const rates = (l: number) => tasksOf("ratio-rate", l).filter((t) => t.id.includes(":rate:"));
