@@ -38,17 +38,20 @@ export async function loadRecentMisses(childId: string): Promise<Task[]> {
   const misses: Task[] = [];
   const seen = new Set<string>();
   for (const run of runs) {
-    let qs: Task[];
-    let rs: (string | null)[];
+    let qs: unknown;
+    let rs: unknown;
     try {
-      qs = JSON.parse(run.questions) as Task[];
-      rs = JSON.parse(run.responses) as (string | null)[];
+      qs = JSON.parse(run.questions);
+      rs = JSON.parse(run.responses);
     } catch {
       continue; // a malformed old row is skipped, never fatal
     }
+    // Valid JSON of the wrong shape (null, an object) is just as unreadable.
+    if (!Array.isArray(qs) || !Array.isArray(rs)) continue;
     // Runs are newest first, so the first time an id is seen is its newest miss; a
     // task missed again in an older run is not pushed a second time.
-    qs.forEach((q, i) => {
+    (qs as (Task | null)[]).forEach((q, i) => {
+      if (q == null || typeof q !== "object") return;
       if (q.kind !== undefined && !isRegisteredKind(q.kind)) return;
       const stored = rs[i];
       if (stored !== null && stored !== undefined && !isTaskCorrect(q, stored) && !seen.has(q.id)) {
@@ -98,7 +101,10 @@ export async function findOpenRun(where: SQL | undefined): Promise<DeedRunRow | 
   const open = await db
     .select()
     .from(schema.deedRun)
-    .where(and(where, isNull(schema.deedRun.completedAt), gt(schema.deedRun.startedAt, since)));
+    .where(and(where, isNull(schema.deedRun.completedAt), gt(schema.deedRun.startedAt, since)))
+    // Newest first so the pick is deterministic; the cap only bounds the scan (one open run is the norm).
+    .orderBy(desc(schema.deedRun.startedAt))
+    .limit(10);
   return open.find(isReadableRun) ?? null;
 }
 

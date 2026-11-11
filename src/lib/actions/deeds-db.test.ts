@@ -615,6 +615,23 @@ describe("startDeedRun begins a fresh run on the grown-up's settings", () => {
     expect(vi.mocked(buildDeedRun).mock.calls[0][0].recentMisses.map((q) => q.id)).toEqual(["q1"]);
   });
 
+  it("a stored run whose JSON parses to the wrong shape is skipped, and other runs' misses still come back", async () => {
+    await seedRun({ id: "deed-old", questions: [QUESTIONS[1]], responses: ["6"], completed: true });
+    const rawRun = (id: string, questions: string, responses: string, offset: number) => client.query(
+      `INSERT INTO deed_run (id, child_id, deed_id, skill_ids, band, questions, responses, mastery_start,
+         started_at, completed_at, created_at, updated_at, kind)
+       VALUES (?1, 'c1', 'well-stones', '[]', '3-5', ?2, ?3, '{}', unixepoch(), unixepoch() + ?4, unixepoch(), unixepoch(), 'deed')`,
+      [id, questions, responses, offset],
+    );
+    await rawRun("q-null", "null", "[]", 1);
+    await rawRun("q-object", "{}", "[]", 2);
+    await rawRun("r-null", JSON.stringify([QUESTIONS[0]]), "null", 3);
+    await rawRun("el-null", JSON.stringify([null, QUESTIONS[2]]), JSON.stringify(["x", "5"]), 4);
+    await startDeedRun("c1", "well-stones", "realm");
+    // The null element is skipped; the real task beside it is still a miss.
+    expect(vi.mocked(buildDeedRun).mock.calls[0][0].recentMisses.map((q) => q.id)).toEqual(["q2", "q1"]);
+  });
+
   it("a miss put right on the second try still comes back", async () => {
     await seedRun({ id: "deed-old", questions: [QUESTIONS[1]], responses: ["6"], secondTries: JSON.stringify(["9"]), completed: true });
     await startDeedRun("c1", "well-stones", "realm");
