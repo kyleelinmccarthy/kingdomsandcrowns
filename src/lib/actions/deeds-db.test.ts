@@ -594,6 +594,27 @@ describe("startDeedRun begins a fresh run on the grown-up's settings", () => {
     expect(loadHeroLevels).toHaveBeenCalledTimes(1);
   });
 
+  it("a run holding a kind this build does not play still returns its choice miss; that task is skipped", async () => {
+    // "measure" is not registered until the bench lands, so it reads as a kind from elsewhere (R-C7).
+    // Before misses were graded by kind, the unknown task threw and dropped the whole run's misses.
+    const measure = { kind: "measure", id: "m0", skillId: SKILL, prompt: "Cut it", answer: "3/4" } as unknown as Question;
+    await seedRun({ id: "deed-old", questions: [measure, QUESTIONS[1]], responses: ["9/4", "6"], completed: true });
+    await startDeedRun("c1", "well-stones", "realm");
+    expect(vi.mocked(buildDeedRun).mock.calls[0][0].recentMisses.map((q) => q.id)).toEqual(["q1"]);
+  });
+
+  it("a malformed stored run is skipped without hiding the others' misses", async () => {
+    await seedRun({ id: "deed-old", questions: [QUESTIONS[1]], responses: ["6"], completed: true });
+    await client.query(
+      `INSERT INTO deed_run (id, child_id, deed_id, skill_ids, band, questions, responses, mastery_start,
+         started_at, completed_at, created_at, updated_at, kind)
+       VALUES ('bad', 'c1', 'well-stones', '[]', '3-5', '{not json', '[]', '{}',
+         unixepoch(), unixepoch() + 5, unixepoch(), unixepoch(), 'deed')`,
+    );
+    await startDeedRun("c1", "well-stones", "realm");
+    expect(vi.mocked(buildDeedRun).mock.calls[0][0].recentMisses.map((q) => q.id)).toEqual(["q1"]);
+  });
+
   it("a miss put right on the second try still comes back", async () => {
     await seedRun({ id: "deed-old", questions: [QUESTIONS[1]], responses: ["6"], secondTries: JSON.stringify(["9"]), completed: true });
     await startDeedRun("c1", "well-stones", "realm");
@@ -718,6 +739,19 @@ describe("a run saved by a newer version", () => {
     await expect(answerDeedQuestion("run1", 0, "x")).rejects.toThrow(NEWER);
     await expect(completeDeedRun("run1")).rejects.toThrow(NEWER);
     expect((await stored()).responses).toBe("[null]");
+  });
+
+  it("an open run holding a kind this build does not know is treated as no open run on start", async () => {
+    const unknown = [{ kind: "nope", id: "n0", skillId: SKILL, prompt: "?", answer: "x" }] as unknown as Question[];
+    await seedRun({ id: "newer", questions: unknown });
+    const r = await startDeedRun("c1", "well-stones", "realm");
+    expect(r.runId).not.toBe("newer");
+    expect(r.questions.length).toBeGreaterThan(0);
+  });
+
+  it("an open choice run still resumes", async () => {
+    await seedRun({ id: "same" });
+    expect((await startDeedRun("c1", "well-stones", "realm")).runId).toBe("same");
   });
 
   it("parseRun throws that copy for an unregistered kind, and reads a choice-only run unchanged", async () => {

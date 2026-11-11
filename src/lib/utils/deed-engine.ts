@@ -5,7 +5,7 @@ import { findSkill, skillsFor, type Skill } from "./skills";
 import { FOCUS_WEIGHT } from "./focus";
 import type { Deed } from "./deeds";
 import { REVIEW } from "./review-schedule";
-import { kindForSkill, TASK_KINDS } from "@/lib/tasks/registry";
+import { kindForSkill, kindOf, TASK_KINDS } from "@/lib/tasks/registry";
 import type { Task, TaskKind } from "@/lib/tasks/types";
 
 export type ProfileLike = { fewerChoices: boolean; predictableRoutine: boolean; untimed: boolean; readAloud: boolean };
@@ -33,7 +33,7 @@ export type BuildRunInput = {
   profile: ProfileLike;
   seed: number;
   poolItems: PoolItem[];
-  recentMisses: Question[];
+  recentMisses: Task[];
   /**
    * Skills the child has learned that are due again, uncapped (see `overdueSkills`). Only those the
    * deed can serve at this grade and the run is not already practising are used, capped here at
@@ -426,7 +426,10 @@ export function buildDeedRun(input: BuildRunInput): BuiltRun {
   // A miss that recurs across runs (or a caller that hands back duplicates) is one
   // review question, not one per occurrence; the first occurrence wins.
   const seenMissIds = new Set<string>();
+  // A miss comes back only as the kind the deed would play that skill with now (R-C6); any other is
+  // dropped, and its skill can still be drawn fresh.
   const dedupedMisses = recentMisses.filter((m) => {
+    if (kindOf(m) !== kindForSkill(deed.mechanic, m.skillId, enabled)) return false;
     if (seenMissIds.has(m.id)) return false;
     seenMissIds.add(m.id);
     return true;

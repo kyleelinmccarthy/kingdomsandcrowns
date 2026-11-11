@@ -9,6 +9,7 @@ import { FOCUS_WEIGHT } from "./focus";
 import { GRADES } from "./grade-levels";
 import { skillsFor } from "./skills";
 import type { Question } from "./drill-generators";
+import type { Task, TaskKind } from "@/lib/tasks/types";
 
 const deedMath = findDeed("well-stones")!;      // math
 const deedReading = findDeed("well-signs")!;    // reading
@@ -118,6 +119,17 @@ describe("buildDeedRun", () => {
     expect(run.questions.filter((q) => q.id === "miss-dup")).toHaveLength(1);
     expect(run.questions).toHaveLength(8);
     expect(new Set(run.questions.map((q) => q.id)).size).toBe(8);
+  });
+  it("never re-asks a miss of a kind the deed is not played with (R-C6)", () => {
+    // The deed's mechanic is choice, so a miss stored as another kind is dropped, enabled or not.
+    // ("measure" is not registered until C5; the kind is a stand-in, cast, which is all the filter reads.)
+    const other = { kind: "measure", id: "miss-m", skillId: "read-g3", prompt: "Cut it", answer: "3/4" } as unknown as Task;
+    const choice: Question = { id: "miss-c", skillId: "read-g3", prompt: "Miss", choices: ["x", "y", "z", "w"], answer: "x" };
+    for (const enabledKinds of [undefined, new Set<TaskKind>(), new Set<TaskKind>(["choice"])]) {
+      const ids = buildDeedRun(input({ recentMisses: [other, choice], enabledKinds })).questions.map((q) => q.id);
+      expect(ids).not.toContain("miss-m");
+      expect(ids).toContain("miss-c");
+    }
   });
   it("ignores misses from other skills", () => {
     const misses: Question[] = [{ id: "miss-other", skillId: "mul-facts", prompt: "6 × 7", choices: ["42", "41", "43", "40"], answer: "42" }];

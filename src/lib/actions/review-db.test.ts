@@ -307,6 +307,34 @@ describe("misses and what comes back", () => {
     expect((JSON.parse(stored.rows[0].questions as string) as Question[]).map((q) => q.id)).toContain(questions[0].id);
   });
 
+  it("a task of a kind this build does not know is skipped, and the choice miss beside it still comes back", async () => {
+    const odd = { kind: "measure", id: "m0", skillId: "mul-facts", prompt: "Cut it", answer: "3/4" };
+    const q: Question = { id: "cq", skillId: "mul-facts", prompt: "2 x 3?", choices: ["6", "5", "8", "9"], answer: "6" };
+    await client.query(
+      `INSERT INTO deed_run (id, child_id, deed_id, skill_ids, band, questions, responses, mastery_start,
+         started_at, completed_at, created_at, updated_at, kind)
+       VALUES ('r1', 'c1', 'well-stones', '["mul-facts"]', 'g23', ?1, '["x","5"]', '{}',
+         unixepoch(), unixepoch(), unixepoch(), unixepoch(), 'deed')`,
+      [JSON.stringify([odd, q])],
+    );
+    expect((await loadRecentMisses("c1")).map((m) => m.id)).toEqual(["cq"]);
+  });
+
+  it("an open review run holding a kind this build does not know is not resumed: a fresh one starts", async () => {
+    await learn();
+    const odd = { kind: "nope", id: "n0", skillId: "mul-facts", prompt: "?", answer: "x" };
+    await client.query(
+      `INSERT INTO deed_run (id, child_id, deed_id, source_ref, skill_ids, band, questions, responses, mastery_start,
+         started_at, completed_at, created_at, updated_at, kind)
+       VALUES ('newer', 'c1', NULL, ?2, '["mul-facts"]', 'g23', ?1, '[null]', '{}',
+         unixepoch(), NULL, unixepoch(), unixepoch(), 'review')`,
+      [JSON.stringify([odd]), PLACE],
+    );
+    const r = await startReviewRun("c1", { kind: "stone", placeId: PLACE });
+    if ("empty" in r) throw new Error("expected a run");
+    expect(r.runId).not.toBe("newer");
+  });
+
   it("a miss in a Crown Challenge never comes back", async () => {
     const q: Question = { id: "cq", skillId: "mul-facts", prompt: "2 x 3?", choices: ["6", "5", "8", "9"], answer: "6" };
     await client.query(

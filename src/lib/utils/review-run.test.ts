@@ -4,6 +4,7 @@ import { findSkill } from "./skills";
 import { MASTERY_MAX } from "./mastery";
 import type { PoolItem } from "./deed-engine";
 import type { Question } from "./drill-generators";
+import type { Task } from "@/lib/tasks/types";
 
 const DAY = 24 * 60 * 60 * 1000;
 const NOW = 1000 * DAY;
@@ -86,6 +87,13 @@ describe("recent misses", () => {
     expect(r.questions.map((q) => q.id)).not.toContain("x1");
     expect(r.questions.map((q) => q.id)).not.toContain("x2");
     expect(r.questions).toHaveLength(1);
+  });
+  it("never re-asks a miss of another kind: a review run is choice only (R-C6)", () => {
+    const other = { kind: "measure", id: "mm", skillId: "add-10", prompt: "Cut it", answer: "3/4" } as unknown as Task;
+    const mastery = [row("add-10", 1, 0), row("sub-10", 1, 0)];
+    const r = run({ mastery, recentMisses: [other, miss("sub-10", "m2")] });
+    expect(r.questions.map((q) => q.id)).not.toContain("mm");
+    expect(r.questions.map((q) => q.id)).toContain("m2");
   });
   it("a miss on a level-0 skill still comes back", () => {
     const r = run({ mastery: [row("add-10", 0, 0)], recentMisses: [miss("add-10", "m1")] });

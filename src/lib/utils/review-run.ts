@@ -3,6 +3,7 @@ import { applyProfile, drawForSkill, type PoolItem, type ProfileLike } from "./d
 import { overdueSkills, type MasteryTiming } from "./review-schedule";
 import { findSkill, type Skill } from "./skills";
 import { MASTERY_MAX } from "./mastery";
+import type { Task } from "@/lib/tasks/types";
 
 /**
  * A review run is a short interleaved set across what a child has already learned: spaced,
@@ -32,7 +33,7 @@ export function reviewDue(mastery: readonly MasteryTiming[], now: number): boole
 
 export function buildReviewRun(input: {
   mastery: readonly MasteryTiming[];
-  recentMisses: Question[];
+  recentMisses: Task[];
   poolItems: PoolItem[];
   /** The grown-up's focus skills: the learned ones come before least-recently-practised ones. */
   focusSkillIds?: string[];
@@ -53,6 +54,9 @@ export function buildReviewRun(input: {
   const missSkills = new Set<string>();
   for (const m of input.recentMisses) {
     if (missPicks.length >= MAX_MISSES) break;
+    // A review run is choice only (R-C6): a miss of another kind is never re-asked.
+    // (Written as a discriminant test, not `kindOf`, so it narrows once other kinds join `Task`.)
+    if (m.kind !== undefined && m.kind !== "choice") continue;
     if (seenMissIds.has(m.id)) continue;
     seenMissIds.add(m.id);
     const skill = findSkill(m.skillId);
