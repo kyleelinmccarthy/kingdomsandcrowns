@@ -256,7 +256,7 @@ const MUL_OTHER_MAX = [10, 10, 12, 12, 12];
 const INT_MAX = [10, 20, 30, 40, 50];
 const PLACE_DIGITS = [2, 3, 4, 5, 6];
 const PLACES = ["ones", "tens", "hundreds", "thousands", "ten-thousands", "hundred-thousands"];
-const PERCENT_BASE_MAX = [100, 200, 300, 400, 500];
+export const PERCENT_BASE_MAX = [100, 200, 300, 400, 500];
 
 /** Half the even factor, then double: the doubling trick; with two odd factors, one group short and one more. */
 function explainTimes(a: number, b: number): string {

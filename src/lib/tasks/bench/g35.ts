@@ -281,7 +281,7 @@ const fracAddsub: BenchGenerator = (level, rng, skillId) => {
 // ---- dec-ops --------------------------------------------------------------------------------
 
 /** A scaled integer as a decimal string with no trailing zero: 125 at two places is "1.25", 50 is "0.5". */
-const decString = (scaled: number, places: number): string => {
+export const decString = (scaled: number, places: number): string => {
   const scale = 10 ** places;
   const whole = Math.floor(scaled / scale);
   const part = String(scaled % scale).padStart(places, "0").replace(/0+$/, "");
