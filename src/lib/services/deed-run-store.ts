@@ -27,8 +27,10 @@ export async function loadMasteryRows(childId: string) {
  * are read: a task put right on the second try still needed help. A Crown Challenge's misses never
  * come back (`RUN_EFFECTS.challenge.feedsReview` is false). A task of a kind this build does not
  * know (saved by a newer deploy) is skipped, not graded; a row that will not parse is skipped whole.
+ * `keep` says which misses the caller can re-ask (a review run takes choice only), and the cap of
+ * five counts only those, so misses the caller would drop never crowd out ones it would ask.
  */
-export async function loadRecentMisses(childId: string): Promise<Task[]> {
+export async function loadRecentMisses(childId: string, keep: (t: Task) => boolean = () => true): Promise<Task[]> {
   const runs = await db
     .select({ questions: schema.deedRun.questions, responses: schema.deedRun.responses })
     .from(schema.deedRun)
@@ -53,6 +55,7 @@ export async function loadRecentMisses(childId: string): Promise<Task[]> {
     (qs as (Task | null)[]).forEach((q, i) => {
       if (q == null || typeof q !== "object") return;
       if (q.kind !== undefined && !isRegisteredKind(q.kind)) return;
+      if (!keep(q)) return;
       const stored = rs[i];
       if (stored !== null && stored !== undefined && !isTaskCorrect(q, stored) && !seen.has(q.id)) {
         seen.add(q.id);

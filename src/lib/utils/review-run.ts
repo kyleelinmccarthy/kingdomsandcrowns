@@ -14,6 +14,13 @@ export const REVIEW_RUN = { tasks: 3 } as const;
 /** Recent misses that may come back in one review run. */
 const MAX_MISSES = 2;
 
+/**
+ * A review run is choice only (R-C6): a miss of another kind is never re-asked. Written as a
+ * discriminant test, not `kindOf`, so it narrows. The review action loads misses through it, so
+ * bench misses never use up the misses it reads (`loadRecentMisses`).
+ */
+export const reviewReasks = (t: Task): t is ChoiceTask => t.kind === undefined || t.kind === "choice";
+
 /** A review run is choice only (R-C6): every pick, miss or fresh, is a choice task. */
 type Pick = { skill: Skill; question: ChoiceTask; isMiss: boolean };
 
@@ -55,9 +62,7 @@ export function buildReviewRun(input: {
   const missSkills = new Set<string>();
   for (const m of input.recentMisses) {
     if (missPicks.length >= MAX_MISSES) break;
-    // A review run is choice only (R-C6): a miss of another kind is never re-asked.
-    // (Written as a discriminant test, not `kindOf`, so it narrows once other kinds join `Task`.)
-    if (m.kind !== undefined && m.kind !== "choice") continue;
+    if (!reviewReasks(m)) continue;
     if (seenMissIds.has(m.id)) continue;
     seenMissIds.add(m.id);
     const skill = findSkill(m.skillId);
