@@ -16,6 +16,7 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { TASK_CODECS, CUT_MAX_CHARS } from "@/lib/tasks/codecs";
 import { cutText, firstTryText, labelValue, piecesExpression, rulerTicks, stepLength, stepSizes } from "@/lib/tasks/measure-values";
+import { cutWords, type CutWords } from "@/lib/tasks/measure-copy";
 import { parseAnswer } from "@/lib/tasks/parse-answer";
 import type { MeasureView } from "@/lib/tasks/types";
 import type { FlowState } from "@/lib/utils/deed-run-flow";
@@ -141,6 +142,8 @@ function Cut({ view, flow, disabled, onRespond }: Surface) {
     if (flow.phase !== "resolved") input.current?.focus();
   }, [flow.phase]);
 
+  // What the number is called: a length is cut against a ruler; an area, a volume, a weight or a count is set on a scale.
+  const words = cutWords(view.quantity, view.unit);
   const readable = parseAnswer(text) !== null;
   const encoded = TASK_CODECS.measure.encode(text);
   const canCut = readable && !resolved && !disabled && !ruledOut(flow, encoded);
@@ -162,7 +165,7 @@ function Cut({ view, flow, disabled, onRespond }: Surface) {
       }}
     >
       <label htmlFor={id} className="bench-length-label">
-        {view.unit ? `Length in ${view.unit}` : "Length"}
+        {words.label}
       </label>
       <input
         ref={input}
@@ -184,30 +187,33 @@ function Cut({ view, flow, disabled, onRespond }: Surface) {
       />
       {text && !readable && (
         <p id={`${id}-how`} className="bench-how">
-          Write a length like 3, 1/2 or 0.5.
+          {words.hint}
         </p>
       )}
       <div className="bench-stepper">
         {stepper(-1)}
         {stepper(1)}
       </div>
-      <Ruler text={text} max={view.maxLength} step={view.step} unit={view.unit} />
+      <Ruler text={text} max={view.maxLength} step={view.step} name={words.gauge} />
       <button type="submit" className="bench-go" disabled={!canCut}>
-        Cut it
+        {words.verb}
       </button>
     </form>
   );
 }
 
-/** A ruler to the task's length, with the board drawn to the length typed (stopped at the ruler's end). */
-function Ruler({ text, max, step, unit }: { text: string; max?: string; step?: string; unit: string }) {
+/**
+ * A ruler to the task's length, with the board drawn to the length typed (stopped at the ruler's
+ * end). `name` is what it is called aloud: a ruler for a length, a scale for anything else.
+ */
+function Ruler({ text, max, step, name }: { text: string; max?: string; step?: string; name: CutWords["gauge"] }) {
   const end = max ? labelValue(max) : null;
   if (!end || end <= 0) return null;
   const typed = parseAnswer(text) ? labelValue(text) : null;
   const value = typed === null ? null : Math.max(0, Math.min(end, typed));
   const W = 200;
   const ticks = rulerTicks(end, step);
-  const label = `A ruler${unit ? ` in ${unit}` : ""}, to ${max}${typed === null ? "" : `, the board cut at ${text.trim()}`}`;
+  const label = name(max!, typed === null ? undefined : text.trim());
   return (
     <svg className="bench-ruler" viewBox={`0 0 ${W + 8} 34`} role="img" aria-label={label}>
       {value !== null && <rect className="bench-ruler-board" x={4} y={4} width={(value / end) * W} height={12} rx={2} />}

@@ -61,7 +61,7 @@ const oneStepEq: BenchGenerator = (level, rng, skillId) => {
   const kind = pick(rng, ONE_STEP_KINDS[L]);
   const span = ONE_STEP_SPAN[L];
   const thing = pick(rng, THINGS);
-  const base = { kind: "measure" as const, skillId, mode: "cut" as const, unit: "feet", step: stepFor(L) };
+  const base = { kind: "measure" as const, skillId, mode: "cut" as const, unit: "feet", quantity: "length" as const, step: stepFor(L) };
 
   if (kind === "add") {
     const x = randInt(rng, 2, span);
@@ -129,7 +129,7 @@ const systemsEq: BenchGenerator = (level, rng, skillId) => {
   const whom = askLong ? "long" : "short";
   const answer = askLong ? long : short;
   const base = {
-    kind: "measure" as const, skillId, mode: "cut" as const, unit: "feet", step: "1",
+    kind: "measure" as const, skillId, mode: "cut" as const, unit: "feet", quantity: "length" as const, step: "1",
     answer: String(answer), maxLength: rulerFor(answer),
   };
 
@@ -185,7 +185,7 @@ const similarTri: BenchGenerator = (level, rng, skillId) => {
   return {
     kind: "measure", id: `${skillId}:cut:${post}-${tower}:${h}-${s}-${shadow}`, skillId,
     prompt: `${capitalAOrAn(String(h))} ${h}-foot ${post} casts ${aOrAn(String(s))} ${s}-foot shadow. The ${tower}'s shadow is ${shadow} feet long. How tall is the ${tower}?`,
-    mode: "cut", unit: "feet", answer: String(answer), step: "1", maxLength: rulerFor(answer),
+    mode: "cut", unit: "feet", quantity: "length", answer: String(answer), step: "1", maxLength: rulerFor(answer),
     bridge: `${h} ${DIVIDE} ${s} ${TIMES} ${shadow} = ${answer}`,
     explain: `Same sun, same shape: the ${post} is ${h} ${DIVIDE} ${s} as tall as its shadow, so the ${tower} is ${h} ${DIVIDE} ${s} ${TIMES} ${shadow} = ${answer}.`,
   };
@@ -236,7 +236,7 @@ const trigRatios: BenchGenerator = (level, rng, skillId) => {
   return {
     kind: "measure", id: `${skillId}:cut:${ratio}${deg}:${length}`, skillId,
     prompt: `${lead} (${stated}). ${ask}`,
-    mode: "cut", unit: "feet", answer, tolerance: "0.01", step: "0.01", maxLength: rulerFor(Number(answer)),
+    mode: "cut", unit: "feet", quantity: "length", answer, tolerance: "0.01", step: "0.01", maxLength: rulerFor(Number(answer)),
     bridge: `${length} ${TIMES} ${value} = ${answer}`,
     explain: ratio === "tan"
       ? `Tangent is up over along: the rise is the run times tan ${deg}°, ${length} ${TIMES} ${value} = ${answer}.`
@@ -260,7 +260,7 @@ const quadFormula: BenchGenerator = (level, rng, skillId) => {
     return {
       kind: "measure", id: `${skillId}:cut:sq:${area}`, skillId,
       prompt: `A square yard is paved with ${area} flagstones, one to each square foot. How long is one side?`,
-      mode: "cut", unit: "feet", answer: String(side), step, maxLength: rulerFor(side),
+      mode: "cut", unit: "feet", quantity: "length", answer: String(side), step, maxLength: rulerFor(side),
       bridge: `x ${TIMES} x = ${area}, so x = ${side}`,
       explain: `A square's area is its side times itself: x ${TIMES} x = ${area}, and the positive root of x² = ${area} is ${side}.`,
     };
@@ -274,7 +274,7 @@ const quadFormula: BenchGenerator = (level, rng, skillId) => {
   return {
     kind: "measure", id: `${skillId}:cut:rect:${d}-${area}`, skillId,
     prompt: `A floor covers ${area} square feet and is ${feet(d)} longer than it is wide. How wide is it?`,
-    mode: "cut", unit: "feet", answer: x, step, maxLength: rulerFor(twice / 2),
+    mode: "cut", unit: "feet", quantity: "length", answer: x, step, maxLength: rulerFor(twice / 2),
     bridge: `x ${TIMES} (x + ${d}) = ${area}, so x = ${x}`,
     explain: `Call the width x, so the length is x + ${d}: x(x + ${d}) = ${area}. Only a positive width makes a floor, and that root is ${x}.`,
   };
@@ -315,7 +315,7 @@ const polyOps: BenchGenerator = (level, rng, skillId) => {
       return {
         kind: "measure", id: `${skillId}:cut:exp:${b}-${c}@${x}`, skillId,
         prompt: `The mason's floor covers x² ${b < 0 ? MINUS : "+"} ${bText} ${c < 0 ? MINUS : "+"} ${Math.abs(c)} square feet. If x = ${x}, how many square feet is that?`,
-        mode: "cut", unit: "square feet", answer: String(value), step: "1", maxLength: rulerFor(value),
+        mode: "cut", unit: "square feet", quantity: "area", answer: String(value), step: "1", maxLength: rulerFor(value),
         bridge: `${x}² ${b < 0 ? MINUS : "+"} ${bWork} ${c < 0 ? MINUS : "+"} ${Math.abs(c)} = ${value}`,
         explain: `Put ${x} in for x: ${x}² is ${x * x}, the middle term is ${b * x}, and the last is ${c}, so ${value}.`,
       };
@@ -332,7 +332,7 @@ const polyOps: BenchGenerator = (level, rng, skillId) => {
       prompt: chest
         ? `The joiner's chest holds ${written} cubic feet. If x = ${x}, how many cubic feet is that?`
         : `The mason's frame covers ${written} square feet. If x = ${x}, how many square feet is that?`,
-      mode: "cut", unit: chest ? "cubic feet" : "square feet", answer: String(value), step: "1", maxLength: rulerFor(value),
+      mode: "cut", unit: chest ? "cubic feet" : "square feet", quantity: chest ? "volume" : "area", answer: String(value), step: "1", maxLength: rulerFor(value),
       bridge: `${ps.map((p) => `(${x} ${p < 0 ? MINUS : "+"} ${Math.abs(p)})`).join(` ${TIMES} `)} = ${value}`,
       explain: `Put ${x} in for x in each bracket, ${values.join(` ${TIMES} `)}, then multiply: ${value}.`,
     };
@@ -349,7 +349,7 @@ const CAIRN = "Row 1 of the cairn has";
 
 const sequences: BenchGenerator = (level, rng, skillId) => {
   const L = level4(level);
-  const base = { kind: "measure" as const, skillId, mode: "cut" as const, unit: "stones", step: "1" };
+  const base = { kind: "measure" as const, skillId, mode: "cut" as const, unit: "stones", quantity: "count" as const, step: "1" };
 
   if (L < 3) {
     const n = randInt(rng, 5, SEQ_TERM_MAX[L]);
@@ -432,7 +432,7 @@ const unitCircle: BenchGenerator = (level, rng, skillId) => {
   return {
     kind: "measure", id: `${skillId}:cut:${deg}${radians ? "r" : "d"}@${r}`, skillId,
     prompt: `A ${cart ? "cart" : "water"} wheel of radius ${r} feet turns through ${angle}. ${cart ? "How far does it roll?" : "How far does a paddle travel?"} Use 3.14 for π.`,
-    mode: "cut", unit: "feet", answer, tolerance: "0.01", step: "0.01", maxLength: rulerFor(k * 3.14),
+    mode: "cut", unit: "feet", quantity: "length", answer, tolerance: "0.01", step: "0.01", maxLength: rulerFor(k * 3.14),
     bridge: `${working} = ${answer}`,
     explain: `The arc is the radius times the angle in radians (${deg}° is ${p > 1 ? p : ""}π${q > 1 ? `/${q}` : ""}): ${working} = ${answer}.`,
   };

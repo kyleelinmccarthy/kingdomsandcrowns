@@ -66,7 +66,7 @@ const areaPerimeter: BenchGenerator = (level, rng, skillId) => {
     return {
       kind: "measure", id: `${skillId}:cut:per:${w}x${d}`, skillId,
       prompt: `${STONEMASON} is laying stone round a footing ${w} by ${d} feet. How many feet of stone will it take?`,
-      mode: "cut", unit: "feet", answer: String(answer), step: "1", maxLength: String(5 * max),
+      mode: "cut", unit: "feet", quantity: "length", answer: String(answer), step: "1", maxLength: String(5 * max),
       bridge: `${w} + ${d} + ${w} + ${d} = ${answer}`,
       explain: `The footing has sides of ${w}, ${d}, ${w} and ${d}. Walk all the way round: ${w} + ${d} + ${w} + ${d} = ${answer} feet.`,
     };
@@ -75,7 +75,7 @@ const areaPerimeter: BenchGenerator = (level, rng, skillId) => {
   return {
     kind: "measure", id: `${skillId}:cut:area:${w}x${d}`, skillId,
     prompt: `${STONEMASON} is paving a floor ${w} by ${d} feet with flagstones, each 1 foot square. How many flagstones?`,
-    mode: "cut", unit: "flagstones", answer: String(answer), step: "1", maxLength: String(max * (max + 1)),
+    mode: "cut", unit: "flagstones", quantity: "area", answer: String(answer), step: "1", maxLength: String(max * (max + 1)),
     bridge: `${w} ${TIMES} ${d} = ${answer}`,
     explain: `${w} rows of ${d} flagstones fill the floor: ${w} ${TIMES} ${d} = ${answer}.`,
   };
@@ -103,7 +103,7 @@ const fracUnit: BenchGenerator = (level, rng, skillId) => {
   return {
     kind: "measure", id: `${skillId}:cut:${n}:${thing}`, skillId,
     prompt: `${who} has a 1-foot ${thing}. Cut it into ${n} equal parts. How long is each part?`,
-    mode: "cut", unit: "feet", answer, step: UNIT_STEP, maxLength: "1",
+    mode: "cut", unit: "feet", quantity: "length", answer, step: UNIT_STEP, maxLength: "1",
     bridge: `1 ${DIVIDE} ${n} = ${answer}`,
     explain: `A foot cut into ${n} equal parts has parts of 1/${n} foot each: 1 ${DIVIDE} ${n} = ${answer}.`,
   };
@@ -133,7 +133,7 @@ const mulMulti: BenchGenerator = (level, rng, skillId) => {
   return {
     kind: "measure", id: `${skillId}:cut:${r}x${c}`, skillId,
     prompt: `The mason lays ${r} rows of ${c} stones. How many stones is that in all?`,
-    mode: "cut", unit: "stones", answer: String(product), step: "1", maxLength: String(10 ** String(product).length),
+    mode: "cut", unit: "stones", quantity: "count", answer: String(product), step: "1", maxLength: String(10 ** String(product).length),
     bridge: `${r} ${TIMES} ${c} = ${product}`,
     explain: `Split it by place: ${working.join(", ")}. Add them up: ${r} ${TIMES} ${c} = ${product}.`,
   };
@@ -261,7 +261,7 @@ function fractionCut(rng: () => number, skillId: string, denMax: number, imprope
   return {
     kind: "measure", id: `${skillId}:cut:${beam}-${off}`, skillId,
     prompt: `${who} has a ${thing} ${feetText(beam)} long. Cut off ${feetText(off)}. How long is the piece that's left?`,
-    mode: "cut", unit: "feet", answer: left, step: `1/${2 * L}`, maxLength: beam,
+    mode: "cut", unit: "feet", quantity: "length", answer: left, step: `1/${2 * L}`, maxLength: beam,
     bridge: `${beam} ${MINUS} ${off} = ${left}`,
     explain: `Take ${off} from ${beam}. With matching parts that is ${a}/${L} ${MINUS} ${b}/${L} = ${a - b}/${L}${again(a - b, L, left)}`,
   };
@@ -341,7 +341,7 @@ const decOps: BenchGenerator = (level, rng, skillId) => {
   return {
     kind: "measure", id: `${skillId}:cut:${str(a)}-${str(b)}`, skillId,
     prompt: `${who} has a ${thing} ${feetText(str(a))} long. Cut off ${feetText(str(b))}. How long is the piece that's left?`,
-    mode: "cut", unit: "feet", answer: str(left), step: places === 1 ? "0.1" : "0.01", maxLength: str(a),
+    mode: "cut", unit: "feet", quantity: "length", answer: str(left), step: places === 1 ? "0.1" : "0.01", maxLength: str(a),
     bridge: `${str(a)} ${MINUS} ${str(b)} = ${str(left)}`,
     explain: `Line up the decimal points: ${str(a)} ${MINUS} ${str(b)} = ${str(left)}.`,
   };

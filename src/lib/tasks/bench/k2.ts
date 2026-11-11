@@ -83,7 +83,7 @@ const cut: BenchGenerator = (level, rng, skillId) => {
     `${s.who} has a ${s.thing} ${lengthText(beam, s, say)} long. Cut off ${lengthText(off, s, say)}. How long is the piece that's left?`;
   const task: MeasureTask = {
     kind: "measure", id: `${skillId}:cut:${beam}-${off}`, skillId, prompt: ask(String),
-    mode: "cut", unit: s.unit, answer: String(left), step: "1", maxLength: String(beam),
+    mode: "cut", unit: s.unit, quantity: "length", answer: String(left), step: "1", maxLength: String(beam),
     bridge: `${beam} ${minus} ${off} = ${left}`,
     explain: `Take ${off} from ${beam} and ${left} is left: ${beam} ${minus} ${off} = ${left}.`,
   };

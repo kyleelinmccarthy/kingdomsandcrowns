@@ -169,6 +169,14 @@ describe("measure: the rest of the definition", () => {
   });
 });
 
+describe("measure: what a cut measures reaches the bench", () => {
+  it("passes the quantity through to the view, and leaves it out when the task has none", () => {
+    expect(measureKind.toView({ ...cut, unit: "square feet", quantity: "area" }).quantity).toBe("area");
+    expect(measureKind.toView({ ...cut, unit: "pounds", quantity: "weight" }).quantity).toBe("weight");
+    expect("quantity" in measureKind.toView(cut)).toBe(false);
+  });
+});
+
 describe("measure: a cut miss says its answer once, and the equation once (in explain)", () => {
   const blocks: MeasureTask = {
     kind: "measure", id: "s:cut", skillId: "sub-10", prompt: "Cut 5 blocks off a 12-block beam.", mode: "cut", unit: "blocks",

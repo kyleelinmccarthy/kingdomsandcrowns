@@ -13,6 +13,9 @@ export type TaskKind = "choice" | "measure";
 /** Choice is today's `Question`; stored runs have no `kind`, which reads as "choice". */
 export type ChoiceTask = Question & { kind?: "choice" };
 
+/** What a cut's number measures, so the bench names it ("Area in square feet", "How many stones?"). */
+export type Quantity = "length" | "area" | "volume" | "count" | "weight";
+
 /** A length as stored: a decimal or "a/b" string (a `Rational` is bigint and will not serialise). */
 export type MeasurePiece = { label: string; value: string };
 
@@ -27,6 +30,7 @@ export type MeasureTask = {
   pieces?: MeasurePiece[]; target?: MeasurePiece;               // assemble: offered pieces and the mark
   answer?: string; tolerance?: string;                          // cut: solution value; tolerance default "0"
   step?: string; maxLength?: string;                            // cut: the stepper's increment and the ruler's length (view-safe)
+  quantity?: Quantity;                                          // cut: what the number measures (view-safe); absent reads as a length
   solution?: number[];                                          // assemble: one valid subset, for answerText/bridge only
   bridge: string;                                               // e.g. "1/2 + 1/4 = 3/4"
   explain?: string;
@@ -35,6 +39,7 @@ export type MeasureTask = {
 /** What the bench is shown: labels and the cut's tools, never a value, the answer or the bridge. */
 export type MeasureView = {
   mode: MeasureTask["mode"]; unit: string; pieces?: string[]; target?: string; step?: string; maxLength?: string;
+  quantity?: Quantity;
 };
 
 /** Assemble: the chosen piece indices (unique, sorted). Cut: the length as typed. */

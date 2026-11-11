@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, within } from "@testing-library/rea
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CUT_MAX_CHARS, TASK_CODECS } from "@/lib/tasks/codecs";
-import type { ClientTask } from "@/lib/tasks/types";
+import type { ClientTask, Quantity } from "@/lib/tasks/types";
 import { benchPieces } from "@/lib/realm3d/bench-pieces";
 import { initialFlow, type FlowState } from "@/lib/utils/deed-run-flow";
 import type { BenchSite } from "@/components/use-deed-flow";
@@ -223,6 +223,57 @@ describe("the bench: cutting to a length", () => {
     show({ task: CUT, flow: secondChance("c:3/2") });
     expect(screen.getByText("Your first try: 1 1/2")).toBeTruthy();
     expect(length().value).toBe("1 1/2");
+  });
+
+  describe("names what a cut measures, not always a length", () => {
+    const cutOf = (unit: string, quantity?: Quantity): Measure => ({
+      ...CUT, view: { mode: "cut", unit, step: "1", maxLength: "40", ...(quantity ? { quantity } : {}) },
+    });
+
+    it("a length keeps its box, its hint, its ruler and Cut it (and a task with no quantity is a length)", () => {
+      for (const task of [cutOf("feet", "length"), cutOf("feet")]) {
+        show({ task });
+        fireEvent.change(length(), { target: { value: "oops" } });
+        expect(screen.getByText("Write a length like 3, 1/2 or 0.5.")).toBeTruthy();
+        fireEvent.change(length(), { target: { value: "12" } });
+        expect(cutIt()).toBeEnabled();
+        expect(screen.getByRole("img", { name: "A ruler in feet, to 40, the board cut at 12" })).toBeTruthy();
+        cleanup();
+      }
+    });
+
+    it.each([
+      ["square feet", "area", "Area in square feet", "Write an area like 3, 1/2 or 0.5."],
+      ["cubic feet", "volume", "Volume in cubic feet", "Write a volume like 3, 1/2 or 0.5."],
+      ["pounds", "weight", "Weight in pounds", "Write a weight like 3, 1/2 or 0.5."],
+      ["stones", "count", "How many stones?", "Write a number like 3 or 12."],
+      ["flagstones", "area", "Area in flagstones", "Write an area like 3, 1/2 or 0.5."],
+    ] as const)("%s (%s): \"%s\", Set it, and a scale", (unit, quantity, label, hint) => {
+      const { onRespond } = show({ task: cutOf(unit, quantity) });
+      const box = screen.getByLabelText(label) as HTMLInputElement;
+      expect(screen.queryByText(/Length/)).toBeNull();
+      fireEvent.change(box, { target: { value: "oops" } });
+      expect(screen.getByText(hint)).toBeTruthy();
+      fireEvent.change(box, { target: { value: "12" } });
+      expect(screen.queryByRole("button", { name: "Cut it" })).toBeNull();
+      expect(screen.getByRole("img", { name: `A scale in ${unit}, to 40, set at 12` })).toBeTruthy();
+      expect(screen.queryByRole("img", { name: /ruler|board/ })).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "Set it" }));
+      expect(onRespond).toHaveBeenLastCalledWith("c:12");
+    });
+
+    it("a count with no unit still asks how many", () => {
+      show({ task: cutOf("", "count") });
+      expect(screen.getByLabelText("How many?")).toBeTruthy();
+    });
+
+    it("never tells the child they are behind or ahead", () => {
+      for (const q of ["length", "area", "volume", "weight", "count"] as const) {
+        show({ task: cutOf("stones", q) });
+        expect(document.body.textContent).not.toMatch(/\b(behind|ahead)\b/i);
+        cleanup();
+      }
+    });
   });
 
   it("a fraction length gets a keyboard with a slash on a phone; a decimal one, the number pad", () => {

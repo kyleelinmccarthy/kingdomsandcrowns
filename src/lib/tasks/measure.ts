@@ -79,6 +79,7 @@ export const measureKind: TaskKindDef<"measure"> = {
     if (t.target) view.target = t.target.label;
     if (t.step !== undefined) view.step = t.step;
     if (t.maxLength !== undefined) view.maxLength = t.maxLength;
+    if (t.quantity !== undefined) view.quantity = t.quantity;
     return view;
   },
   // The presenter sends the encoded string ("a:…" / "c:…"); a list or the length as typed is taken too.

@@ -8,7 +8,7 @@ import { BENCH, benchFor } from ".";
 import { measureKind } from "../measure";
 import { parseAnswer, sameValue, type Rational } from "../parse-answer";
 import { toClientTask } from "../registry";
-import type { MeasureTask } from "../types";
+import type { MeasureTask, Quantity } from "../types";
 
 const LEVELS = [0, 1, 2, 3, 4];
 const SEEDS = Array.from({ length: 200 }, (_, i) => i + 1);
@@ -16,6 +16,19 @@ const SEEDS = Array.from({ length: 200 }, (_, i) => i + 1);
 const INTEGER_SKILLS = new Set<string>();
 /** K-1: the child may not read the prompt, so it is spoken. */
 const READ_ALOUD_SKILLS = new Set(["add-10", "sub-10", "add-20", "sub-20"]);
+/**
+ * What a cut's unit measures. A square unit is an area and a cubic one a volume; every other unit a
+ * generator uses is named here, so a new unit fails until someone says what it measures.
+ */
+const UNIT_QUANTITY: Record<string, Quantity> = {
+  feet: "length", inches: "length", yards: "length", miles: "length", meters: "length", centimeters: "length", cm: "length", blocks: "length",
+  // Each flagstone is a foot square: the floor's area, counted in squares (area-perimeter).
+  flagstones: "area",
+  stones: "count", buckets: "count", pots: "count",
+  pounds: "weight", ounces: "weight",
+};
+const quantityOfUnit = (unit: string): Quantity | undefined =>
+  unit.startsWith("square ") ? "area" : unit.startsWith("cubic ") ? "volume" : UNIT_QUANTITY[unit];
 
 const draw = (skillId: string, level: number, seed: number): MeasureTask => {
   const t = BENCH[skillId](level, seededRng(seed), skillId);
@@ -102,6 +115,16 @@ describe("bench catalog", () => {
         for (const t of tasks) {
           const values = [...(t.pieces ?? []).map((p) => p.value), ...(t.target ? [t.target.value] : []), ...(t.answer !== undefined ? [t.answer] : [])];
           for (const v of values) expect(leq(zero, rat(v)), `${t.id}: ${v}`).toBe(true);
+        }
+      });
+
+      it("says what every cut measures, as its unit does, and shows the bench (I-3)", () => {
+        for (const t of tasks.filter((x) => x.mode === "cut")) {
+          const expected = quantityOfUnit(t.unit);
+          expect(expected, `${t.id}: what does "${t.unit}" measure? Add it to UNIT_QUANTITY`).toBeDefined();
+          expect(t.quantity, `${t.id} (${t.unit})`).toBe(expected);
+          const view = toClientTask(t).view as { quantity?: Quantity };
+          expect(view.quantity, t.id).toBe(t.quantity);
         }
       });
 

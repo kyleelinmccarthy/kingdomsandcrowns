@@ -79,7 +79,7 @@ const ratioRate: BenchGenerator = (level, rng, skillId) => {
     return {
       kind: "measure", id: `${skillId}:cut:mix:${mix.key}:${a}-${b}:${n}`, skillId,
       prompt: mix.say(a, b, n),
-      mode: "cut", unit: mix.unit, answer: String(answer), step: "1", maxLength: rulerFor(answer),
+      mode: "cut", unit: mix.unit, quantity: "count", answer: String(answer), step: "1", maxLength: rulerFor(answer),
       bridge: `${working} = ${answer}`,
       explain: `${n} is ${k} lots of ${a}, so the mix needs ${k} lots of ${b}: ${working} = ${answer}.`,
     };
@@ -91,7 +91,7 @@ const ratioRate: BenchGenerator = (level, rng, skillId) => {
   return {
     kind: "measure", id: `${skillId}:cut:rate:${job.key}:${total}/${hours}`, skillId,
     prompt: `${job.who} ${job.verb} ${total} feet of ${job.what} in ${hours} hours. How many feet is that an hour?`,
-    mode: "cut", unit: "feet", answer: String(speed), step: "1", maxLength: rulerFor(speed),
+    mode: "cut", unit: "feet", quantity: "length", answer: String(speed), step: "1", maxLength: rulerFor(speed),
     bridge: `${total} ${DIVIDE} ${hours} = ${speed}`,
     explain: `Share ${total} feet across ${hours} hours: ${total} ${DIVIDE} ${hours} = ${speed} feet an hour.`,
   };
@@ -132,7 +132,7 @@ const percentOf: BenchGenerator = (level, rng, skillId) => {
     prompt: beam
       ? `Trim ${p}% off ${aOrAn(String(n))} ${n}-foot beam. How long is the piece trimmed off?`
       : `${p}% of the ${n} stones in a wall are cracked. How many stones need replacing?`,
-    mode: "cut", unit: beam ? "feet" : "stones", answer: String(answer), step: "1", maxLength: String(n),
+    mode: "cut", unit: beam ? "feet" : "stones", quantity: beam ? "length" : "count", answer: String(answer), step: "1", maxLength: String(n),
     bridge: `${p}% ${TIMES} ${n} = ${answer}`,
     explain: `${p}% is ${p}/100 of the whole: ${p}% ${TIMES} ${n} = ${answer}.`,
   };
@@ -159,7 +159,7 @@ const proportion: BenchGenerator = (level, rng, skillId) => {
     return {
       kind: "measure", id: `${skillId}:cut:plan:${thing}:${w}x${k}`, skillId,
       prompt: `On the plan, 1 inch stands for ${k} feet. The ${thing} is ${w} inches on the plan. How long is the real ${thing}?`,
-      mode: "cut", unit: "feet", answer: String(answer), step: "1", maxLength: rulerFor(answer),
+      mode: "cut", unit: "feet", quantity: "length", answer: String(answer), step: "1", maxLength: rulerFor(answer),
       bridge: `${w} ${TIMES} ${k} = ${answer}`,
       explain: `Each inch on the plan is ${k} feet, so ${w} inches is ${w} ${TIMES} ${k} = ${answer} feet.`,
     };
@@ -174,7 +174,7 @@ const proportion: BenchGenerator = (level, rng, skillId) => {
   return {
     kind: "measure", id: `${skillId}:cut:weigh:${items}:${n1}-${n2}@${unit}`, skillId,
     prompt: `${n1} ${items} weigh ${given} pounds. How many pounds do ${n2} ${items} weigh?`,
-    mode: "cut", unit: "pounds", answer: String(answer), step: "1", maxLength: rulerFor(answer),
+    mode: "cut", unit: "pounds", quantity: "weight", answer: String(answer), step: "1", maxLength: rulerFor(answer),
     bridge: `${given} ${DIVIDE} ${n1} ${TIMES} ${n2} = ${answer}`,
     explain: `One weighs ${given} ${DIVIDE} ${n1} = ${unit} pounds, so ${n2} weigh ${unit} ${TIMES} ${n2} = ${answer}.`,
   };
@@ -198,7 +198,7 @@ const circleMeasure: BenchGenerator = (level, rng, skillId) => {
   const working = area ? `3.14 ${TIMES} ${r} ${TIMES} ${r}` : byDiameter ? `3.14 ${TIMES} ${2 * r}` : `2 ${TIMES} 3.14 ${TIMES} ${r}`;
   return {
     kind: "measure", id: `${skillId}:cut:${area ? "a" : "c"}${byDiameter ? "d" : "r"}${r}`, skillId,
-    prompt, mode: "cut", unit: area ? "square feet" : "feet",
+    prompt, mode: "cut", unit: area ? "square feet" : "feet", quantity: area ? "area" : "length",
     answer, tolerance: "0.01", step: "0.01", maxLength: rulerFor(hundredths / 100),
     bridge: `${working} = ${answer}`,
     explain: area
@@ -241,7 +241,7 @@ const pythagorean: BenchGenerator = (level, rng, skillId) => {
     return {
       kind: "measure", id: `${skillId}:cut:leg:${c}-${a}`, skillId,
       prompt: `${capitalAOrAn(String(c))} ${c}-foot brace spans the corner of a wall frame ${a} feet wide. How tall is the frame?`,
-      mode: "cut", unit: "feet", answer: String(b), step: "1", maxLength: String(c),
+      mode: "cut", unit: "feet", quantity: "length", answer: String(b), step: "1", maxLength: String(c),
       bridge: `√(${c}² ${MINUS} ${a}²) = ${b}`,
       explain: `The brace is the long side: ${c}² ${MINUS} ${a}² = ${c * c - a * a}, and the square root of ${c * c - a * a} is ${b}.`,
     };
@@ -249,7 +249,7 @@ const pythagorean: BenchGenerator = (level, rng, skillId) => {
   return {
     kind: "measure", id: `${skillId}:cut:brace:${a}x${b}`, skillId,
     prompt: `A brace runs corner to corner across a wall frame ${a} feet by ${b} feet. How long is the brace?`,
-    mode: "cut", unit: "feet", answer: String(c), step: "1", maxLength: String(a + b),
+    mode: "cut", unit: "feet", quantity: "length", answer: String(c), step: "1", maxLength: String(a + b),
     bridge: `√(${a}² + ${b}²) = ${c}`,
     explain: `${a}² + ${b}² = ${a * a + b * b}, and the square root of ${a * a + b * b} is ${c}.`,
   };
@@ -272,7 +272,7 @@ const linearEq: BenchGenerator = (level, rng, skillId) => {
   const family = L >= THREE_FROM ? (roll < 0.4 ? "diff" : roll < 0.7 ? "times" : "three")
     : L >= TIMES_FROM ? (roll < 0.5 ? "diff" : "times") : "diff";
   // A half-foot step for every task of the rungs that have half-foot answers, so the step never says which.
-  const base = { kind: "measure" as const, skillId, mode: "cut" as const, unit: "feet", step: L >= HALVES_FROM ? "0.5" : "1" };
+  const base = { kind: "measure" as const, skillId, mode: "cut" as const, unit: "feet", quantity: "length" as const, step: L >= HALVES_FROM ? "0.5" : "1" };
 
   if (family === "times") {
     const k = randInt(rng, 2, LINEAR_COEF_MAX[L] - 2);

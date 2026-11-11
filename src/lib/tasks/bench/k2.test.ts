@@ -125,6 +125,7 @@ describe("K-2 bench (R-C3)", () => {
         "maxLength": "11",
         "mode": "cut",
         "prompt": "The baker has a beam 11 blocks long. Cut off 7 blocks. How long is the piece that's left?",
+        "quantity": "length",
         "readAloud": "The baker has a beam eleven blocks long. Cut off seven blocks. How long is the piece that's left?",
         "skillId": "sub-20",
         "step": "1",
