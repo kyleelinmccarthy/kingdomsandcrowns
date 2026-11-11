@@ -17,6 +17,9 @@ import { hintFor } from "@/lib/utils/skill-hints";
 /** The pace guard's gentle word and clue, shown above the work surface. */
 export type Nudge = { line: string; hint: string };
 
+/** The run's site as the bench draws it: where the building stood, and how many pieces this sitting laid. */
+export type BenchSite = NonNullable<RunStart["site"]> & { placed: number };
+
 /**
  * `now` is the pace guard's clock (the browser's, by default). Its times stay in this hook:
  * they are never sent to the server or kept against the child.
@@ -37,6 +40,8 @@ export function useDeedFlow(run: RunStart, onAttempt?: (result: AttemptResult) =
   // First answers only (a retry is a second chance, not a guess), for the pace guard.
   const history = useRef<{ at: number; correct: boolean }[]>([]);
   const [nudgeUp, setNudgeUp] = useState(false);
+  // Bench tasks solved in this sitting: each lays the next piece in the bench's drawing of the site.
+  const [placed, setPlaced] = useState(0);
 
   /** One server call at a time; a refusal is said in one child-safe line and changes nothing. */
   async function guarded(work: () => Promise<void>) {
@@ -73,6 +78,7 @@ export function useDeedFlow(run: RunStart, onAttempt?: (result: AttemptResult) =
     return guarded(async () => {
       const result = await call(run.runId, index, choice);
       send({ type: "answered", choice, result });
+      if (result.correct && run.questions[index]?.kind === "measure") setPlaced((n) => n + 1);
       // A first answer always says where its skill stands: no meter means a skill already at the
       // top (or a challenge), so the last skill's pips go. A retry brings none and leaves them up.
       if (phase === "asking") {
@@ -94,5 +100,7 @@ export function useDeedFlow(run: RunStart, onAttempt?: (result: AttemptResult) =
   // The clue is for the question on the board now, not the one that earned the nudge.
   const skillId = run.questions[flow.index]?.skillId;
   const nudge: Nudge | null = nudgeUp && !finished && skillId ? { line: NUDGE_LINE, hint: hintFor(skillId) } : null;
-  return { flow, meter, nudge, busy, error, setError, guarded, choose, showMe, next: () => send({ type: "next" }) };
+  // Only a side quest's own run has a site (`RunStart.site`); the bench draws it with what this sitting laid.
+  const site: BenchSite | undefined = run.site ? { ...run.site, placed } : undefined;
+  return { flow, meter, nudge, site, busy, error, setError, guarded, choose, showMe, next: () => send({ type: "next" }) };
 }

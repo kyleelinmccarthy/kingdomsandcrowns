@@ -249,7 +249,7 @@ export function DeedRun({
   doneLabel?: string;
 }) {
   // A wrong answer is a soft low "hmm", a right one rises and resolves (`realm-sound.tsx`).
-  const { flow, meter, nudge, busy, error, setError, guarded, choose, showMe, next } = useDeedFlow(run, (r) => realmCue(r.correct ? "deed-right" : "deed-wrong"));
+  const { flow, meter, nudge, site, busy, error, setError, guarded, choose, showMe, next } = useDeedFlow(run, (r) => realmCue(r.correct ? "deed-right" : "deed-wrong"));
   const { index, phase } = flow;
   const [summary, setSummary] = useState<RunSummary | null>(null);
   const [startedAt] = useState(() => Date.now());
@@ -379,7 +379,7 @@ export function DeedRun({
           </button>
         )}
       </div>
-      <TaskPresenter task={question} flow={flow} variant="board" numerals={numerals} calm={calm} disabled={busy} nudge={nudge} onRespond={(encoded) => void choose(encoded)} />
+      <TaskPresenter task={question} flow={flow} variant="board" numerals={numerals} calm={calm} disabled={busy} nudge={nudge} site={site} onRespond={(encoded) => void choose(encoded)} />
       {feedback && (
         <div className={`r3-feedback${flow.result?.correct ? " r3-feedback--right" : ""}`}>
           <div>

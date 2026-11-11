@@ -73,10 +73,11 @@ describe("TaskPresenter nudge", () => {
   });
 });
 
-describe("TaskPresenter (measure, until the bench lands)", () => {
-  it("shows a note rather than failing", () => {
+describe("TaskPresenter (measure)", () => {
+  it("puts a measure task on the bench (`bench-presenter.test.tsx` has the rest)", () => {
     const measure: ClientTask = { kind: "measure", id: "m1", skillId: "frac-addsub", prompt: "Cut it", view: { mode: "cut", unit: "ft", step: "1/4", maxLength: "2" } };
     render(<TaskPresenter task={measure} flow={asking} variant="board" numerals calm={false} disabled={false} onRespond={vi.fn()} />);
-    expect(screen.getByText("Coming soon")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "The bench" })).toBeTruthy();
+    expect(screen.getByLabelText("Length in ft")).toBeTruthy();
   });
 });

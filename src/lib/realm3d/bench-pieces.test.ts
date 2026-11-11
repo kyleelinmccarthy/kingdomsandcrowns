@@ -38,8 +38,8 @@ describe("the bench's elevation of a site going up", () => {
       const s = p.shape;
       const xs = s.type === "box" ? [s.x, s.x + s.w] : [s.x1, s.x2];
       const ys = s.type === "box" ? [s.y, s.y + s.h] : [s.y1, s.y2];
-      for (const x of xs) expect(x).toBeGreaterThanOrEqual(0), expect(x).toBeLessThanOrEqual(BENCH_ELEVATION.width);
-      for (const y of ys) expect(y).toBeGreaterThanOrEqual(0), expect(y).toBeLessThanOrEqual(BENCH_ELEVATION.height);
+      for (const x of xs) expect(x >= 0 && x <= BENCH_ELEVATION.width, `${p.label} x ${x}`).toBe(true);
+      for (const y of ys) expect(y >= 0 && y <= BENCH_ELEVATION.height, `${p.label} y ${y}`).toBe(true);
     }
   });
 

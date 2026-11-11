@@ -67,6 +67,42 @@ describe("useDeedFlow", () => {
     expect(result.current.error).toBe("That question has already been answered.");
   });
 
+  describe("the site on the bench", () => {
+    const cut = (id: string) => ({ kind: "measure" as const, id, skillId: "s", prompt: id, view: { mode: "cut" as const, unit: "feet", step: "1", maxLength: "10" } });
+    const mixed: RunStart = { ...run, questions: [cut("m1"), q("c1"), cut("m2"), cut("m3")], responses: [null, null, null, null], site: { stage: 2, complete: false } };
+    const right = { correct: true, secondChance: false, answer: "x" };
+
+    it("lays a piece for each bench task solved, first try or second; a miss and a choice answer lay none", async () => {
+      answerDeedQuestion
+        .mockResolvedValueOnce(right) // m1: right
+        .mockResolvedValueOnce(right) // c1: a choice, right
+        .mockResolvedValueOnce({ correct: false, secondChance: true, hint: "h", firstPick: "c:1" }) // m2: wrong, then right
+        .mockResolvedValueOnce({ correct: false, secondChance: true, hint: "h", firstPick: "c:1" }); // m3: wrong twice
+      retryDeedQuestion.mockResolvedValueOnce(right).mockResolvedValueOnce({ correct: false, secondChance: false, answer: "x" });
+      const { result } = renderHook(() => useDeedFlow(mixed));
+      expect(result.current.site).toEqual({ stage: 2, complete: false, placed: 0 });
+      await act(() => result.current.choose("c:2"));
+      expect(result.current.site?.placed).toBe(1);
+      act(() => result.current.next());
+      await act(() => result.current.choose("a"));
+      expect(result.current.site?.placed).toBe(1);
+      act(() => result.current.next());
+      await act(() => result.current.choose("c:1"));
+      expect(result.current.site?.placed).toBe(1);
+      await act(() => result.current.choose("c:2"));
+      expect(result.current.site?.placed).toBe(2);
+      act(() => result.current.next());
+      await act(() => result.current.choose("c:1"));
+      await act(() => result.current.choose("c:3"));
+      expect(result.current.site?.placed).toBe(2);
+    });
+
+    it("a run with no site (a review, a Crown Challenge) has none", () => {
+      const { result } = renderHook(() => useDeedFlow(run));
+      expect(result.current.site).toBeUndefined();
+    });
+  });
+
   describe("pace guard", () => {
     const five: RunStart = { ...run, questions: [q("1"), q("2"), q("3"), q("4"), q("5")], responses: [null, null, null, null, null] };
     const wrong = { correct: false, secondChance: false, answer: "a" };

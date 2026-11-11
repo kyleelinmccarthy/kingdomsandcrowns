@@ -374,3 +374,56 @@ describe("the deed board", () => {
     });
   });
 });
+
+describe("a bench task on the board", () => {
+  const cut = {
+    ...run,
+    questions: [{ kind: "measure" as const, id: "m1", skillId: "frac-addsub", prompt: "Cut a board three quarters of a foot long.", view: { mode: "cut" as const, unit: "feet", step: "1/4", maxLength: "2" } }],
+    responses: [null] as (string | null)[],
+    site: { stage: 1, complete: false },
+  };
+  async function begin(onClose = vi.fn()) {
+    vi.mocked(startDeedRun).mockResolvedValue(cut);
+    board({ onClose });
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" })));
+    return onClose;
+  }
+
+  it("is played at the bench, beside the building going up; a right cut lays a piece and shows its worked sum", async () => {
+    vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: true, secondChance: false, answer: "1/2 + 1/4 = 3/4", bridge: "1/2 + 1/4 = 3/4" });
+    await begin();
+    expect(screen.getByRole("heading", { name: "The bench" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /^The site: 0 of/ })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Length in feet"), { target: { value: "0.75" } });
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Cut it" })));
+    expect(answerDeedQuestion).toHaveBeenCalledWith("run-1", 0, "c:3/4");
+    expect(screen.getByRole("img", { name: /^The site: 1 of/ })).toBeInTheDocument();
+    expect(screen.getByText("That's it! Old Bram is pleased. 1/2 + 1/4 = 3/4")).toBeInTheDocument();
+  });
+
+  it("a wrong cut says which way it is off, and the first try, and lays nothing", async () => {
+    vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: false, secondChance: true, hint: "Count the quarters.", firstPick: "c:1", feedback: "too_long" });
+    await begin();
+    fireEvent.change(screen.getByLabelText("Length in feet"), { target: { value: "1" } });
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Cut it" })));
+    expect(screen.getByText("A little long. Trim it. Count the quarters.")).toBeInTheDocument();
+    expect(screen.getByText("Your first try: 1")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: /^The site: 0 of/ })).toBeInTheDocument();
+  });
+
+  it("keys typed into the length stay there: no number key answers, and Esc does not leave (Review Focus 5)", async () => {
+    const game = vi.fn();
+    window.addEventListener("keydown", game);
+    try {
+      const onClose = await begin();
+      const box = screen.getByLabelText("Length in feet");
+      for (const [key, code] of [["w", "KeyW"], ["1", "Digit1"], ["Escape", "Escape"]]) fireEvent.keyDown(box, { key, code });
+      expect(game).not.toHaveBeenCalled();
+      expect(onClose).not.toHaveBeenCalled();
+      fireEvent.keyDown(window, { key: "1", code: "Digit1" });
+      expect(answerDeedQuestion).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener("keydown", game);
+    }
+  });
+});

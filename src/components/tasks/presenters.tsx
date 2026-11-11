@@ -9,8 +9,9 @@
 import type { ComponentType } from "react";
 import type { ClientTask, TaskKind } from "@/lib/tasks/types";
 import type { FlowState } from "@/lib/utils/deed-run-flow";
+import type { BenchSite } from "@/components/use-deed-flow";
+import { BenchPresenter } from "./bench-presenter";
 import { ChoicePresenter } from "./choice-presenter";
-import { MeasurePresenterPlaceholder } from "./measure-presenter-placeholder";
 
 export type PresenterProps<K extends TaskKind> = {
   task: Extract<ClientTask, { kind: K }>;
@@ -25,13 +26,15 @@ export type PresenterProps<K extends TaskKind> = {
   disabled: boolean;
   /** The pace guard's word and clue, shown above the surface while it is up. */
   nudge?: { line: string; hint: string } | null;
+  /** A side quest's building and what this sitting laid of it, drawn by the bench; a kind with no drawing ignores it. */
+  site?: BenchSite;
   /** The response, already encoded by the presenter with `TASK_CODECS[kind].encode`. */
   onRespond(encoded: string): void;
 };
 
 export const TASK_PRESENTERS: { [K in TaskKind]: ComponentType<PresenterProps<K>> } = {
   choice: ChoicePresenter,
-  measure: MeasurePresenterPlaceholder,
+  measure: BenchPresenter,
 };
 
 export function TaskPresenter(props: PresenterProps<TaskKind>) {
