@@ -228,9 +228,9 @@ export type Generator = (level: number, rng: Rng, skillId: string) => Question;
 
 const L = (level: number) => Math.min(4, Math.max(0, Math.floor(level)));
 
-// Sum ceilings per level, keyed by skill so one generator serves three skills.
-const ADD_MAX: Record<string, number[]> = { "add-10": [5, 6, 8, 9, 10], "add-20": [10, 12, 15, 18, 20], "add-100": [20, 40, 60, 80, 100] };
-const SUB_MAX: Record<string, number[]> = { "sub-10": [5, 6, 8, 9, 10], "sub-20": [10, 12, 15, 18, 20], "sub-100": [20, 40, 60, 80, 100] };
+// Sum ceilings per level, keyed by skill so one generator serves three skills (the bench reads them too).
+export const ADD_MAX: Record<string, number[]> = { "add-10": [5, 6, 8, 9, 10], "add-20": [10, 12, 15, 18, 20], "add-100": [20, 40, 60, 80, 100] };
+export const SUB_MAX: Record<string, number[]> = { "sub-10": [5, 6, 8, 9, 10], "sub-20": [10, 12, 15, 18, 20], "sub-100": [20, 40, 60, 80, 100] };
 const FACT_MAX = [2, 4, 6, 9, 12];
 
 /**

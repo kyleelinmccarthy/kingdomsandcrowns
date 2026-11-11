@@ -171,29 +171,30 @@ describe("measure: the rest of the definition", () => {
 
 describe("measure: what it presents, and how it draws", () => {
   const bench = BENCH as Record<string, unknown>;
-  const skill = SKILLS.find((s) => s.id === "frac-addsub")!;
+  const skill = SKILLS.find((s) => s.id === "mul-facts")!;
   afterEach(() => {
-    delete bench["frac-addsub"];
+    delete bench["mul-facts"];
   });
 
-  it("presents no skill while the bench is empty, and never an inherited key", () => {
-    expect(Object.keys(BENCH)).toEqual([]);
-    for (const id of ["frac-addsub", "add-10", "toString", "constructor", "__proto__"]) expect(measureKind.presents(id)).toBe(false);
-    expect(kindForSkill("measure", "frac-addsub", new Set<TaskKind>(["measure"]))).toBe("choice");
+  it("presents no skill that is not benched, and never an inherited key", () => {
+    // mul-facts is no bench skill (R-C3), so this holds as bands register theirs.
+    for (const id of ["mul-facts", "toString", "constructor", "__proto__"]) expect(measureKind.presents(id)).toBe(false);
+    expect(measureKind.presents("add-10")).toBe(true);
+    expect(kindForSkill("measure", "mul-facts", new Set<TaskKind>(["measure"]))).toBe("choice");
     expect(TASK_DRAWERS.measure(skill, 2, seededRng(1))).toBeNull();
   });
 
   it("presents a skill on the bench, and draws it from the bench's generator", () => {
     const calls: unknown[][] = [];
-    bench["frac-addsub"] = (...args: unknown[]) => {
+    bench["mul-facts"] = (...args: unknown[]) => {
       calls.push(args);
       return cut;
     };
-    expect(measureKind.presents("frac-addsub")).toBe(true);
-    expect(kindForSkill("measure", "frac-addsub", new Set<TaskKind>(["measure"]))).toBe("measure");
-    expect(kindForSkill("measure", "frac-addsub", new Set<TaskKind>())).toBe("choice");
+    expect(measureKind.presents("mul-facts")).toBe(true);
+    expect(kindForSkill("measure", "mul-facts", new Set<TaskKind>(["measure"]))).toBe("measure");
+    expect(kindForSkill("measure", "mul-facts", new Set<TaskKind>())).toBe("choice");
     const rng = seededRng(1);
     expect(TASK_DRAWERS.measure(skill, 3, rng)).toBe(cut);
-    expect(calls).toEqual([[3, rng, "frac-addsub"]]);
+    expect(calls).toEqual([[3, rng, "mul-facts"]]);
   });
 });
