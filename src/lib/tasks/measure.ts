@@ -9,7 +9,7 @@
 import { benchFor } from "./bench";
 import { MAX_RESPONSE_CHARS } from "./choice";
 import { CUT_MAX_CHARS, TASK_CODECS, cutBody, readPicks } from "./codecs";
-import { assembleReveal, bareLabel } from "./measure-copy";
+import { assembleReveal, bareLabel, cutReveal } from "./measure-copy";
 import { addRational, lessRational, parseAnswer, sameValue, type Rational } from "./parse-answer";
 import type { MeasureResponse, MeasureTask, MeasureView, TaskKindDef } from "./types";
 
@@ -102,8 +102,12 @@ export const measureKind: TaskKindDef<"measure"> = {
   isCorrect,
   allowsSecondChance: () => true,
   sameResponse: TASK_CODECS.measure.sameResponse,
-  // An assemble miss names the mark and one way to make it (the stored sum); a cut shows its worked line.
-  answerText: (t) => (t.mode === "assemble" && t.target ? assembleReveal(t.target.label, t.bridge) : t.bridge),
+  // An assemble miss names the mark and one way to make it (the stored sum). A cut names its length
+  // bare, and its explanation gives the worked line, so a miss says the equation once.
+  answerText: (t) => {
+    if (t.mode === "assemble" && t.target) return assembleReveal(t.target.label, t.bridge);
+    return t.mode === "cut" && t.answer !== undefined ? cutReveal(t.answer, t.unit) : t.bridge;
+  },
   feedback: (t, r) => {
     const v = measured(t, r);
     const mark = markOf(t);

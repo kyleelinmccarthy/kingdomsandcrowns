@@ -161,11 +161,31 @@ describe("measure: the codec", () => {
 });
 
 describe("measure: the rest of the definition", () => {
-  it("allows a second chance, names its answer by the bridge, and holds the bridge for a right answer", () => {
+  it("allows a second chance, names its answer bare with its unit, and holds the bridge for a right answer", () => {
     expect(measureKind.allowsSecondChance(cut)).toBe(true);
-    expect(measureKind.answerText(cut)).toBe(cut.bridge);
+    expect(measureKind.answerText(cut)).toBe("3/4 ft");
     expect(measureKind.bridge?.(cut, "3/4")).toBe(cut.bridge);
     expect(taskDefOf(cut)).toBe(measureKind);
+  });
+});
+
+describe("measure: a cut miss says its answer once, and the equation once (in explain)", () => {
+  const blocks: MeasureTask = {
+    kind: "measure", id: "s:cut", skillId: "sub-10", prompt: "Cut 5 blocks off a 12-block beam.", mode: "cut", unit: "blocks",
+    answer: "7", step: "1", maxLength: "12", bridge: "12 − 5 = 7", explain: "Take 5 from 12 and 7 is left: 12 − 5 = 7.",
+  };
+
+  it("is the bare answer with its unit, never the equation", () => {
+    expect(measureKind.answerText(blocks)).toBe("7 blocks");
+    expect(measureKind.answerText(blocks)).not.toContain("=");
+    expect(measureKind.answerText({ ...blocks, unit: "feet", answer: "9.42" })).toBe("9.42 feet");
+    expect(measureKind.answerText({ ...blocks, unit: "square feet", answer: "28.26" })).toBe("28.26 square feet");
+  });
+
+  it("says one of a unit in the singular, and a unitless answer bare", () => {
+    expect(measureKind.answerText({ ...blocks, unit: "feet", answer: "1" })).toBe("1 foot");
+    expect(measureKind.answerText({ ...blocks, unit: "blocks", answer: "1" })).toBe("1 block");
+    expect(measureKind.answerText({ ...blocks, unit: "", answer: "7" })).toBe("7");
   });
 });
 

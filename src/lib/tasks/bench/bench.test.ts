@@ -134,6 +134,14 @@ describe("bench catalog", () => {
         }
       });
 
+      it("names a missed cut bare and leaves the working to its explanation, so the equation is said once", () => {
+        for (const t of tasks.filter((x) => x.mode === "cut")) {
+          expect(t.explain, t.id).toBeTruthy();
+          expect(measureKind.answerText(t), t.id).not.toContain("=");
+          expect(measureKind.answerText(t).startsWith(t.answer!), t.id).toBe(true);
+        }
+      });
+
       it("has a short, kind prompt", () => {
         for (const t of tasks) {
           expect(t.prompt.length, t.id).toBeLessThanOrEqual(160);

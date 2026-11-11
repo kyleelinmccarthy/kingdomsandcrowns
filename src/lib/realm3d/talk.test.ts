@@ -245,7 +245,10 @@ describe("what a villager says after a bench answer", () => {
     expect(attemptFeedback({ correct: false, secondChance: false, answer: "The cat sat down." }, true).text).toBe("The answer was The cat sat down..");
     expect(attemptFeedback({ correct: false, secondChance: false, answer: "The cat sat down." }, true, undefined, choiceTask).text).toBe("The answer was The cat sat down..");
   });
-  it("a cut miss names its answer the usual way", () => {
-    expect(attemptFeedback({ correct: false, secondChance: false, answer: "1/2 + 1/4 = 3/4", feedback: "too_short" }, true, undefined, cutTask).text).toBe("The answer was 1/2 + 1/4 = 3/4.");
+  it("a cut miss names its answer the usual way, and says its equation once, in the explanation", () => {
+    expect(attemptFeedback({ correct: false, secondChance: false, answer: "3/4 feet", feedback: "too_short" }, true, undefined, cutTask).text).toBe("The answer was 3/4 feet.");
+    const text = attemptFeedback({ correct: false, secondChance: false, answer: "7 blocks", explain: "Take 5 from 12 and 7 is left: 12 − 5 = 7." }, true, "Old Bram", cutTask).text;
+    expect(text).toBe("The answer was 7 blocks. Take 5 from 12 and 7 is left: 12 − 5 = 7.");
+    expect(text.split("12 − 5 = 7")).toHaveLength(2);
   });
 });

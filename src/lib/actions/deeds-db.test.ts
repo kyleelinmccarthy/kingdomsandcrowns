@@ -941,7 +941,7 @@ describe("a measure task in a run", () => {
   it.each(["3/4", "0.75", "6/8", "c:3/4"])("a cut of %s is right, stored in lowest terms, with the bridge (Review Focus 3)", async (raw) => {
     await seedMeasure();
     const r = await answerDeedQuestion("run1", 0, raw);
-    expect(r).toMatchObject({ correct: true, secondChance: false, answer: CUT.bridge, bridge: CUT.bridge });
+    expect(r).toMatchObject({ correct: true, secondChance: false, answer: "3/4 ft", bridge: CUT.bridge });
     expect(JSON.parse((await stored()).responses)[0]).toBe("c:3/4");
   });
 
