@@ -5,7 +5,8 @@ import { loadRealmSettings } from "@/lib/services/realm-play";
 import { loadLearningProfileRow } from "@/lib/services/learning-profile";
 import { bandForGrade, effectiveGrade, ownGradeOf, type Grade, type SubjectOffsets } from "@/lib/utils/grade-levels";
 import { profileFromRow } from "@/lib/utils/learning-profile";
-import { BUILDINGS, buildingProgress } from "@/lib/utils/kingdom";
+import { BUILDINGS, buildingProgress, type Building } from "@/lib/utils/kingdom";
+import { siteStage } from "@/lib/realm3d/site-stages";
 import { deedsForBuilding, deedStory } from "@/lib/utils/deeds";
 import type { ContentBand } from "@/lib/utils/content-bands";
 import type { AgeMode } from "@/lib/utils/age-mode";
@@ -158,6 +159,17 @@ export async function loadDeedBest(childId: string): Promise<DeedBest[]> {
     .where(and(eq(run.childId, childId), isNotNull(run.deedId)))
     .groupBy(run.deedId);
   return rows.map((r) => ({ deedId: r.deedId as string, bestStars: (r.bestStars ?? 0) as Stars, crowned: Number(r.crowned) === 1 }));
+}
+
+/** Where a building's site stands, for the bench's drawing: its stage (`siteStage`, as the world draws it) and whether it is finished. */
+export async function loadSiteState(childId: string, building: Building): Promise<{ stage: number; complete: boolean }> {
+  const [row] = await db
+    .select({ deedsDone: schema.kingdomProgress.deedsDone })
+    .from(schema.kingdomProgress)
+    .where(and(eq(schema.kingdomProgress.childId, childId), eq(schema.kingdomProgress.buildingId, building.id)))
+    .limit(1);
+  const { done, total, complete } = buildingProgress(row?.deedsDone ?? 0, building);
+  return { stage: siteStage(done, total), complete };
 }
 
 export async function loadKingdomOverview(childId: string): Promise<HeroLevels & { buildings: BuildingOverview[] }> {

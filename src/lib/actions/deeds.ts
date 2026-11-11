@@ -30,7 +30,7 @@ import { overdueSkills } from "@/lib/utils/review-schedule";
 import type { AttemptResult, RunStart, RunSummary } from "@/lib/utils/deed-run-types";
 import { hintFor } from "@/lib/utils/skill-hints";
 import { findOpenRun, insertRun, loadMasteryRows, loadRecentMisses, parseRun, resumedStart, type DeedRunRow } from "@/lib/services/deed-run-store";
-import { buildingStars, gradeForDeed, loadDeedBest, loadHeroLevels, loadKingdomOverview, type BuildingOverview } from "@/lib/services/deeds";
+import { buildingStars, gradeForDeed, loadDeedBest, loadHeroLevels, loadKingdomOverview, loadSiteState, type BuildingOverview } from "@/lib/services/deeds";
 import { loadFocusSkillIds } from "@/lib/services/learning-focus";
 import { loadLearningProfileRow } from "@/lib/services/learning-profile";
 import { loadRealmSettings, paySideQuest } from "@/lib/services/realm-play";
@@ -91,11 +91,15 @@ export async function startDeedRun(
   const story = deedStory(deed, hero.tone);
 
   // The focus picks are read alongside the open-run check: which pools to load depends on them.
-  const [open, focusSkillIds] = await Promise.all([
+  // So is the building's site, for the bench's drawing: only a side quest's own run raises it.
+  const building = kind === "deed" ? findBuilding(deed.buildingId) : null;
+  const [open, focusSkillIds, site] = await Promise.all([
     findOpenRun(and(eq(schema.deedRun.childId, childId), eq(schema.deedRun.deedId, deedId), eq(schema.deedRun.kind, kind))),
     loadFocusSkillIds(childId, hero.grades),
+    building ? loadSiteState(childId, building) : Promise.resolve(null),
   ]);
-  if (open) return resumedStart(open, { id: deed.id, title: deed.title, story, area: deed.area });
+  const withSite = (start: RunStart): RunStart => (site ? { ...start, site } : start);
+  if (open) return withSite(resumedStart(open, { id: deed.id, title: deed.title, story, area: deed.area }));
 
   // The deed's OWN strand decides the grade — never a fixed one, and never another
   // strand's. `gradeForDeed` is where that is pinned by test. A focus skill in the deed's strand
@@ -146,12 +150,12 @@ export async function startDeedRun(
 
   const masteryStart: Record<string, number> = {};
   for (const id of built.skillIds) masteryStart[id] = masteryBySkill[id] ?? 0;
-  return insertRun({
+  return withSite(await insertRun({
     id: nanoid(), childId, deedId, skillIds: JSON.stringify(built.skillIds), band: bandForGrade(grade),
     masteryStart: JSON.stringify(masteryStart),
     // Snapshotted, so a grown-up changing the setting mid-run never changes this run's rules.
     kind, secondChances: RUN_EFFECTS[kind].allowsSecondChances && settings.secondChances,
-  }, built.questions, { id: deed.id, title: deed.title, story, area: deed.area });
+  }, built.questions, { id: deed.id, title: deed.title, story, area: deed.area }));
 }
 
 /** A stored run, once the caller may act for its hero, and who the caller is. */
@@ -247,10 +251,15 @@ export async function answerDeedQuestion(runId: string, index: number, response:
     if (parsed === null) throw new Error(PICK_SHOWN);
     const answer = def.encode(parsed);
     // A repeat answer to the same question (double tap, or the loser of a race) is not re-graded:
-    // it hears what was stored, and while a second chance is open that is still only a hint.
+    // it hears what was stored, and while a second chance is open that is still only a hint, and
+    // the stored answer's note (which way a length is off).
     if (attempt.first !== null) {
       const status = statusOf(question, attempt, allows);
-      return resultFor(question, status, attempt.first, status === "right-first" ? attempt.first : (attempt.second ?? undefined));
+      const storedFirst = def.decode(attempt.first);
+      return {
+        ...resultFor(question, status, attempt.first, status === "right-first" ? attempt.first : (attempt.second ?? undefined)),
+        ...(storedFirst !== null ? feedbackOf(question, storedFirst) : {}),
+      };
     }
     const next = questions.map((_, i) => responses[i] ?? null);
     next[index] = answer;

@@ -431,6 +431,32 @@ describe("startDeedRun resumes an open second chance", () => {
   });
 });
 
+describe("a side quest's run says where its building stands, for the bench's drawing", () => {
+  const progress = (done: number) => client.query(
+    `INSERT INTO kingdom_progress (id, child_id, building_id, deeds_done, completed_at, created_at, updated_at)
+     VALUES ('kp1', 'c1', 'well', ?1, NULL, unixepoch(), unixepoch())`, [done]);
+
+  it("a fresh run and a resumed one carry the site's stage, from the building's deeds", async () => {
+    expect((await startDeedRun("c1", "well-stones", "realm")).site).toEqual({ stage: 0, complete: false });
+    await client.query("DELETE FROM deed_run");
+    await progress(2); // 2 of the well's 5: stage 2 (`siteStage`)
+    expect((await startDeedRun("c1", "well-stones", "realm")).site).toEqual({ stage: 2, complete: false });
+    expect((await startDeedRun("c1", "well-stones", "realm")).site).toEqual({ stage: 2, complete: false }); // resumed
+  });
+
+  it("a finished building says so", async () => {
+    await progress(5);
+    expect((await startDeedRun("c1", "well-stones", "realm")).site).toEqual({ stage: 4, complete: true });
+  });
+
+  it("a Crown Challenge raises nothing, so it carries no site", async () => {
+    await progress(5);
+    await seedRun({ id: "earned", responses: ["6", "9", "12", "15"], completed: true, stars: 3 });
+    const r = await startDeedRun("c1", "well-stones", "realm", { challenge: true });
+    expect("site" in r).toBe(false);
+  });
+});
+
 describe("the Crown Challenge", () => {
   const runCount = async () => Number((await client.query("SELECT count(*) AS n FROM deed_run")).rows[0].n);
   const masteryCount = async () => Number((await client.query("SELECT count(*) AS n FROM skill_mastery")).rows[0].n);
@@ -848,6 +874,14 @@ describe("a measure task in a run", () => {
     const long = await answerDeedQuestion("run1", 1, [0, 1, 2]);
     expect(long).toMatchObject({ secondChance: true, feedback: "too_long" });
     expect("bridge" in long).toBe(false);
+  });
+
+  it("a repeat of a wrong first length still hears which way the stored one is off", async () => {
+    await seedMeasure();
+    await answerDeedQuestion("run1", 0, "c:1/2");
+    // A double tap, even of another length: it hears what was stored (too short), never a new grade.
+    expect(await answerDeedQuestion("run1", 0, "c:1/2")).toMatchObject({ secondChance: true, feedback: "too_short", firstPick: "c:1/2" });
+    expect(await answerDeedQuestion("run1", 0, "2")).toMatchObject({ secondChance: true, feedback: "too_short", firstPick: "c:1/2" });
   });
 
   it("the bridge comes with a right retry, and never with a wrong one or a give-up", async () => {

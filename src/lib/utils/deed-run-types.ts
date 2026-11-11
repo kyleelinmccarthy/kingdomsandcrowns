@@ -12,6 +12,12 @@ export type RunStart = {
   kind: RunKind;
   /** A resumed run left on a second chance: reopen there, the first pick ruled out and the hint shown. */
   pending: { index: number; ruledOut: string; hint: string } | null;
+  /**
+   * A side quest's building as the run begins, for the bench's drawing: its site stage
+   * (`siteStage`) and whether it is finished. Only a side quest's own run raises a building, so a
+   * review or a Crown Challenge has none.
+   */
+  site?: { stage: number; complete: boolean };
 };
 /**
  * `answer` and `explain` are present only once the question is resolved, so the answer never
