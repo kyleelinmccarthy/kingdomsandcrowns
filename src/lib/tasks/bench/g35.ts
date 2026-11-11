@@ -19,7 +19,7 @@
  * Values are stored as reduced "a/b" strings or decimal strings (no float ever holds a length that
  * is graded), and the prompt's flavour is a function of the parameters alone, so one id is always
  * one task. A cut's stepper counts on a finer grid than its answer can be (half the common
- * denominator of the lengths in play, or hundredths), so no answer is ever a single press.
+ * denominator of the lengths in play, or the level's own decimal place for dec-ops, with at least two steps left), so no answer is ever a single press.
  */
 import { gcd, randInt, shuffle } from "@/lib/utils/drill-generators";
 import {
@@ -91,7 +91,7 @@ const UNIT_THINGS = [
   { who: "The weaver", thing: "ribbon" },
 ];
 /** Grade 3 names halves to eighths (3.NF.1); twelfths join the upper rungs. All divide 24. */
-const UNIT_DENOMS = [[2, 3, 4], [2, 3, 4, 6, 8], [3, 4, 6, 8, 12], [4, 6, 8, 12, 3], [6, 8, 12, 4, 3]];
+const UNIT_DENOMS = [[2, 3, 4, 6], [2, 3, 4, 6, 8], [3, 4, 6, 8, 12], [4, 6, 8, 12, 3], [6, 8, 12, 4, 3]];
 /** Every denominator above divides 24, so the answer sits on this grid but is never one step. */
 const UNIT_STEP = "1/24";
 
@@ -336,12 +336,12 @@ const decOps: BenchGenerator = (level, rng, skillId) => {
   // The piece cut off is shorter than the beam, so something is left, and more than one step of the stepper.
   const bp = randInt(rng, 1, places);
   const unit = 10 ** (places - bp);
-  const b = randInt(rng, 1, Math.floor((a - 2) / unit)) * unit; // what is left is at least two hundredths
+  const b = randInt(rng, 1, Math.floor((a - 2) / unit)) * unit; // what is left is at least two steps of the stepper (0.2 at tenths, 0.02 at hundredths)
   const left = a - b;
   return {
     kind: "measure", id: `${skillId}:cut:${str(a)}-${str(b)}`, skillId,
     prompt: `${who} has a ${thing} ${feetText(str(a))} long. Cut off ${feetText(str(b))}. How long is the piece that's left?`,
-    mode: "cut", unit: "feet", answer: str(left), step: "0.01", maxLength: str(a),
+    mode: "cut", unit: "feet", answer: str(left), step: places === 1 ? "0.1" : "0.01", maxLength: str(a),
     bridge: `${str(a)} ${MINUS} ${str(b)} = ${str(left)}`,
     explain: `Line up the decimal points: ${str(a)} ${MINUS} ${str(b)} = ${str(left)}.`,
   };

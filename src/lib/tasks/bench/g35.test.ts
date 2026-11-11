@@ -93,6 +93,10 @@ describe("grade 3-5 bench (R-C3)", () => {
       }
     });
 
+    it("level 0 has at least four distinct answers (halves to sixths)", () => {
+      expect(new Set(tasksOf("frac-unit", 0).map((t) => t.answer)).size).toBeGreaterThanOrEqual(4);
+    });
+
     it("answers a quarter for a quarter, a half for a half", () => {
       const byN = new Map(tasksOf("frac-unit", 1).map((t) => [/into (\d+) equal/.exec(t.prompt)![1], t.answer]));
       expect(byN.get("4")).toBe("1/4");
@@ -248,13 +252,13 @@ describe("grade 3-5 bench (R-C3)", () => {
       }
     });
 
-    it("cut: beam minus the cut, on a hundredths stepper, with at least two steps left", () => {
+    it("cut: beam minus the cut, on the level's own grid (tenths, then hundredths), with at least two steps left", () => {
       for (const level of LEVELS) {
         for (const t of tasksOf("dec-ops", level).filter((x) => x.mode === "cut")) {
           const beam = t.maxLength!, off = cutOff(t);
           expect(t.bridge).toBe(`${beam} − ${off} = ${t.answer}`);
-          expect(t.step).toBe("0.01");
-          expect(num(t.answer!)).toBeGreaterThanOrEqual(0.02);
+          expect(t.step).toBe(level < 2 ? "0.1" : "0.01");
+          expect(num(t.answer!)).toBeGreaterThanOrEqual(2 * num(t.step!) - 1e-9);
           expect(num(beam)).toBeLessThanOrEqual(DEC_WHOLE_MAX[level] + 1);
           expect(num(t.answer!)).toBeGreaterThan(0);
         }
