@@ -135,14 +135,21 @@ const DEMO_GRADES: readonly string[] = ["K", "1", "2", "3"];
  * Whether the hero has answered a bench task in any run but `runId`: some task of kind measure with
  * a stored response, finished run or not. A run that merely held a bench task, left unanswered, is
  * not enough. Read in the database (SQLite's JSON functions), so it costs one row whatever the
- * history; a row whose JSON will not parse is passed over, never fatal.
+ * history; a row whose JSON will not parse, or parses to an odd shape (questions not an array, an
+ * element not an object), is passed over, never fatal.
  */
 async function hasAnsweredBench(childId: string, runId: string): Promise<boolean> {
   const { questions, responses } = schema.deedRun;
-  const answered = sql`CASE WHEN json_valid(${questions}) AND json_valid(${responses}) THEN EXISTS (
-    SELECT 1 FROM json_each(${questions}) AS task
-    WHERE json_extract(task.value, '$.kind') = 'measure' AND json_extract(${responses}, '$[' || task.key || ']') IS NOT NULL
-  ) ELSE 0 END = 1`;
+  // Valid JSON of the wrong shape throws in SQLite just as invalid JSON does (a string element is
+  // "malformed JSON" to json_extract; an object's keys make a bad `$[key]` path), and SQLite does
+  // not promise AND short-circuits, so every shape guard is a CASE, nested in the order it is needed.
+  const answered = sql`CASE WHEN json_valid(${questions}) AND json_valid(${responses}) THEN
+    CASE WHEN json_type(${questions}) = 'array' AND json_type(${responses}) = 'array' THEN EXISTS (
+      SELECT 1 FROM json_each(${questions}) AS task
+      WHERE CASE WHEN task.type = 'object' THEN json_extract(task.value, '$.kind') ELSE NULL END = 'measure'
+        AND json_extract(${responses}, '$[' || task.key || ']') IS NOT NULL
+    ) ELSE 0 END
+  ELSE 0 END = 1`;
   const rows = await db
     .select({ id: schema.deedRun.id })
     .from(schema.deedRun)
