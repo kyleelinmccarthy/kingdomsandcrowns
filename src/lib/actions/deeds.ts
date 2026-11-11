@@ -76,10 +76,12 @@ export async function startDeedRun(
   options?: { challenge?: boolean },
 ): Promise<RunStart> {
   const { access } = await requireChildAccess(childId, { write: true });
+  // `context` crosses the wire, so it is untrusted: anything but the two named worlds is the page.
+  const ctx = context === "realm" || context === "gate" ? context : "page";
   const challenge = options?.challenge === true;
   // In the world, or on the gate's board, only the hero plays; a parent previewing the Realm reads
   // stories but never starts a run. A Crown Challenge is the hero's alone wherever it is asked from.
-  if ((context === "realm" || context === "gate" || challenge) && !isChildActor(access)) throw new Error(HERO_ONLY);
+  if ((ctx === "realm" || ctx === "gate" || challenge) && !isChildActor(access)) throw new Error(HERO_ONLY);
   const kind: RunKind = challenge ? "challenge" : "deed";
   const deed = findDeed(deedId);
   if (!deed) throw new Error(NOT_IN_CHRONICLE);
@@ -143,7 +145,7 @@ export async function startDeedRun(
     deed, grade, masteryBySkill, lastPracticedBySkill, profile, seed: Date.now() >>> 0, poolItems, focusSkillIds,
     // The grown-up's switches decide which hands-on kinds a NEW run may draw (an open run is a
     // snapshot and never asks); the gate is multiple choice whatever they say (R-C4).
-    enabledKinds: context === "gate" ? new Set<TaskKind>() : enabledHandsOnKinds(settings),
+    enabledKinds: ctx === "gate" ? new Set<TaskKind>() : enabledHandsOnKinds(settings),
     ...(challenge
       ? { recentMisses: [], dueSkillIds: [], questionCount: CHALLENGE.questions, levelBoost: CHALLENGE.levelBoost }
       : { recentMisses, dueSkillIds, questionCount: settings.sideQuestLength }),

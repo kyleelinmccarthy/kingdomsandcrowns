@@ -28,6 +28,9 @@ function poolItems(skillId: string, n: number, level = 2): PoolItem[] {
 
 const profile = { fewerChoices: false, predictableRoutine: false, untimed: false, readAloud: false };
 
+/** Hands-on kinds off: the choice path, as stored runs and the gate have it. */
+const CHOICE_ONLY: ReadonlySet<TaskKind> = new Set<TaskKind>();
+
 function input(over: Partial<BuildRunInput> = {}): BuildRunInput {
   return { deed: deedReading, grade: "3", masteryBySkill: {}, profile, seed: 1, poolItems: poolItems("read-g3", 30), recentMisses: [], ...over };
 }
@@ -192,7 +195,7 @@ describe("buildDeedRun", () => {
       // those, so there is nothing here for them to say. Every generator skill the grade
       // offers has to be listed, or an unpinned one defaults to 0 and dilutes the bias.
       const run = buildDeedRun(input({
-        deed: deedMath, grade: "K", poolItems: [], recentMisses: misses, seed,
+        deed: deedMath, grade: "K", poolItems: [], recentMisses: misses, seed, enabledKinds: CHOICE_ONLY,
         masteryBySkill: { "add-10": 0, "sub-10": 4, "count-seq": 4, "compare-num": 4 },
       }));
       const ids = run.questions.map((q) => q.id);
@@ -546,12 +549,12 @@ describe("a miss stored under an older id shape is still not re-asked", () => {
    */
   it("excludes the review question by its prompt, not only by its id", () => {
     const skill = chooseSkills(deedMath, "3")[0];
-    const fresh = buildDeedRun(input({ deed: deedMath, grade: "3", poolItems: [], masteryBySkill: {}, seed: 11 }));
+    const fresh = buildDeedRun(input({ deed: deedMath, grade: "3", poolItems: [], masteryBySkill: {}, seed: 11, enabledKinds: CHOICE_ONLY }));
     const target = choices(fresh.questions)[0];
 
     const stale: Question = { ...target, id: `${target.skillId}:STALE-KEY:${target.id}` };
     const run = buildDeedRun(
-      input({ deed: deedMath, grade: "3", poolItems: [], masteryBySkill: {}, seed: 11, recentMisses: [stale] })
+      input({ deed: deedMath, grade: "3", poolItems: [], masteryBySkill: {}, seed: 11, recentMisses: [stale], enabledKinds: CHOICE_ONLY })
     );
 
     expect(skill, "grade 3 math must have a generator skill for this to mean anything").toBeDefined();
@@ -616,7 +619,7 @@ describe("which skills count their choices as part of the question", () => {
 describe("buildDeedRun keep-it-sharp review", () => {
   const mastery = { "mul-facts": 1, "div-facts": 2, "frac-unit": 2, "sub-1000": 2 };
   const mulInput = (over: Partial<BuildRunInput> = {}) =>
-    input({ deed: deedMath, grade: "3", poolItems: [], masteryBySkill: mastery, ...over });
+    input({ deed: deedMath, grade: "3", poolItems: [], masteryBySkill: mastery, enabledKinds: CHOICE_ONLY, ...over });
   const missOf = (i: number, skillId: string): Question => ({ id: `miss-${i}`, skillId, prompt: `Miss ${i}`, choices: ["x", "y", "z", "w"], answer: "x" });
   // Selection draws first from the seed, so a run without due skills names the run's own.
   const ownOf = (seed: number) => buildDeedRun(mulInput({ seed })).skillIds;
@@ -740,14 +743,17 @@ describe("buildDeedRun for a Crown Challenge (levelBoost)", () => {
 });
 
 describe("buildDeedRun keeps its output as deeds name a mechanic", () => {
-  // Question ids recorded BEFORE the engine was threaded with `mechanic`; they must not move.
+  // Question ids recorded BEFORE the engine was threaded with `mechanic`; they must not move. The
+  // math deeds are `measure` now, so a draw of a benched skill (area-perimeter, frac-unit, ...) is
+  // re-recorded below; every other entry here is byte-identical, and the choice path is pinned apart.
   const reading = poolItems("read-g3", 30);
-  const ids = (deed: typeof deedMath, seed: number) =>
-    buildDeedRun(input({ deed, seed, poolItems: reading, dueSkillIds: ["div-facts", "read-g3"] })).questions.map((q) => q.id);
+  const ids = (deed: typeof deedMath, seed: number, over: Partial<BuildRunInput> = {}) =>
+    buildDeedRun(input({ deed, seed, poolItems: reading, dueSkillIds: ["div-facts", "read-g3"], ...over })).questions.map((q) => q.id);
   const RECORDED: Record<string, string[]> = {
     "well-stones@1": ["round-nearest:69@10", "round-nearest:99@10", "round-nearest:73@10", "round-nearest:46@10", "div-facts:6/1", "round-nearest:33@10", "round-nearest:723@10", "round-nearest:631@10"],
     "well-stones@42": ["round-nearest:35@10", "round-nearest:63@10", "div-facts:11/1", "round-nearest:28@10", "round-nearest:155@10", "round-nearest:948@10", "round-nearest:37@10", "round-nearest:13@10"],
-    "well-stones@20261110": ["area-perimeter:4x2a", "area-perimeter:5x1a", "div-facts:10/1", "area-perimeter:4x3a", "area-perimeter:1x4a", "area-perimeter:3x2a", "area-perimeter:2x1a", "area-perimeter:8x4a"],
+    // Re-recorded: area-perimeter is on the bench, so the run is played there (the div-facts review stays choice).
+    "well-stones@20261110": ["area-perimeter:cut:area:5x2", "area-perimeter:cut:area:5x3", "area-perimeter:cut:per:2x2", "area-perimeter:cut:area:4x4", "area-perimeter:cut:per:4x4", "area-perimeter:cut:per:3x5", "area-perimeter:cut:per:5x3", "div-facts:10/1"],
     "well-signs@1": ["read-g3-item-14", "read-g3-item-24", "read-g3-item-8", "read-g3-item-10", "read-g3-item-16", "read-g3-item-6", "read-g3-item-11", "read-g3-item-12"],
     "well-signs@42": ["read-g3-item-26", "read-g3-item-25", "read-g3-item-1", "read-g3-item-16", "read-g3-item-28", "read-g3-item-7", "read-g3-item-2", "read-g3-item-27"],
     "well-signs@20261110": ["read-g3-item-18", "read-g3-item-10", "read-g3-item-14", "read-g3-item-19", "read-g3-item-5", "read-g3-item-28", "read-g3-item-16", "read-g3-item-23"],
@@ -756,8 +762,31 @@ describe("buildDeedRun keeps its output as deeds name a mechanic", () => {
     const [deedId, seed] = key.split("@");
     expect(ids(findDeed(deedId)!, Number(seed))).toEqual(expected);
   });
-  it("leaves `kind` off a choice task, as stored runs have none", () => {
-    const run = buildDeedRun(input({ deed: deedMath, grade: "3", poolItems: [] }));
+
+  // The choice path, proven unchanged: with hands-on kinds off, the math deed draws what it always drew.
+  const RECORDED_CHOICE: Record<string, string[]> = {
+    "well-stones@1": RECORDED["well-stones@1"],
+    "well-stones@42": RECORDED["well-stones@42"],
+    "well-stones@20261110": ["area-perimeter:4x2a", "area-perimeter:5x1a", "div-facts:10/1", "area-perimeter:4x3a", "area-perimeter:1x4a", "area-perimeter:3x2a", "area-perimeter:2x1a", "area-perimeter:8x4a"],
+  };
+  it.each(Object.entries(RECORDED_CHOICE))("%s with hands-on kinds off asks the old questions in the old order", (key, expected) => {
+    const [deedId, seed] = key.split("@");
+    expect(ids(findDeed(deedId)!, Number(seed), { enabledKinds: CHOICE_ONLY })).toEqual(expected);
+  });
+
+  it("leaves `kind` off a choice task, as stored runs have none, and puts it on a benched skill's task", () => {
+    // Seed 20261110 draws area-perimeter (benched) with a div-facts review (not benched).
+    const run = buildDeedRun(input({ deed: deedMath, grade: "3", poolItems: [], seed: 20261110, dueSkillIds: ["div-facts"] }));
+    const benched = run.questions.filter((q) => q.skillId in BENCH);
+    const rest = run.questions.filter((q) => !(q.skillId in BENCH));
+    expect(benched.length).toBeGreaterThan(0);
+    expect(rest.length).toBeGreaterThan(0);
+    for (const q of benched) expect((q as Task).kind).toBe("measure");
+    for (const q of rest) expect("kind" in q).toBe(false);
+  });
+  it("leaves `kind` off every task of a choice-pinned math run", () => {
+    const run = buildDeedRun(input({ deed: deedMath, grade: "3", poolItems: [], seed: 20261110, dueSkillIds: ["div-facts"], enabledKinds: CHOICE_ONLY }));
+    expect(run.questions.length).toBeGreaterThan(0);
     for (const q of run.questions) expect("kind" in q).toBe(false);
   });
 });

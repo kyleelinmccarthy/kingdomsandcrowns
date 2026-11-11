@@ -3,11 +3,12 @@ import { describe, it, expect, vi, beforeAll, beforeEach, afterEach, afterAll } 
 import { testDatabase } from "@/test/libsql-test-db";
 import { DEFAULT_REALM_SETTINGS } from "@/lib/utils/realm-settings";
 import { hintFor } from "@/lib/utils/skill-hints";
-import { CHALLENGE, starsFor } from "@/lib/utils/deed-scoring";
+import { CHALLENGE, SCORING, starsFor } from "@/lib/utils/deed-scoring";
 import { CHALLENGE_NOT_READY, HERO_ONLY, PICK_SHOWN, TRY_DIFFERENT } from "@/lib/utils/deed-refusals";
 import type { Question } from "@/lib/utils/drill-generators";
 import type { MeasureTask } from "@/lib/tasks/types";
-import { kindOf, type Task } from "@/lib/tasks/registry";
+import { isTaskCorrect, kindOf, type Task } from "@/lib/tasks/registry";
+import { BENCH } from "@/lib/tasks/bench";
 import { REALM_ACCESS_DDL, REALM_LEDGER_DDL, REALM_SETTINGS_DDL } from "@/test/realm-db-ddl";
 
 /**
@@ -51,6 +52,7 @@ const { getRealmAccess, recordRealmPlay } = await import("./realm-play");
 const { loadDeedBest, loadHeroLevels } = await import("@/lib/services/deeds");
 const { loadRealmSettings, paySideQuest } = await import("@/lib/services/realm-play");
 const { buildDeedRun } = await import("@/lib/utils/deed-engine");
+const { buildDeedRun: realBuildDeedRun } = await vi.importActual<typeof import("@/lib/utils/deed-engine")>("@/lib/utils/deed-engine");
 const { requireChildAccess } = await import("@/lib/auth/access");
 
 // The tables the run touches, as the migrations make them (foreign keys left out); `subject` and
@@ -116,6 +118,18 @@ async function seedRun(over: Seed = {}): Promise<string> {
   return id;
 }
 
+/** A right and a surely wrong response for any stored task, from its own solution (a run drawn at random may hold either kind). */
+function rightAndWrong(t: Task): { right: string | number[]; wrong: string | number[] } {
+  if (kindOf(t) === "choice") {
+    const q = t as Question;
+    return { right: q.answer, wrong: q.choices.find((c) => c !== q.answer)! };
+  }
+  const m = t as MeasureTask;
+  if (m.mode === "cut") return { right: m.answer!, wrong: "12345" };
+  const wrong = m.pieces!.map((_, i) => [i]).find((picks) => !isTaskCorrect(t, `a:${picks.join(",")}`));
+  return { right: m.solution!, wrong: wrong! };
+}
+
 async function stored(id = "run1"): Promise<{ responses: string; second_tries: string; stars: number; completed_at: number | null }> {
   const r = await client.query("SELECT responses, second_tries, stars, completed_at FROM deed_run WHERE id = ?1", [id]);
   return r.rows[0];
@@ -131,7 +145,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  for (const t of ["deed_run", "skill_mastery", "kingdom_progress", "realm_settings", "realm_play_ledger", "recess_block", "learning_focus"]) await client.query(`DELETE FROM ${t}`);
+  for (const t of ["deed_run", "skill_mastery", "kingdom_progress", "realm_settings", "realm_play_ledger", "recess_block", "learning_focus", "drill_item"]) await client.query(`DELETE FROM ${t}`);
   vi.mocked(loadRealmSettings).mockResolvedValue({ ...DEFAULT_REALM_SETTINGS });
   vi.mocked(buildDeedRun).mockClear();
 });
@@ -538,7 +552,11 @@ describe("a young hero watches Aldo do the first bench task (R-C9)", () => {
 
   it("is false when the first task is a choice, even for a grade-2 hero", async () => {
     gradeIs("2");
-    expect((await startDeedRun("c1", "well-stones", "realm")).demo).toBeFalsy();
+    // Math side quests are played at the bench now, so the grown-up's switch is what makes a run choice.
+    vi.mocked(loadRealmSettings).mockResolvedValue({ ...DEFAULT_REALM_SETTINGS, mechanics: { measure: false } });
+    const r = await startDeedRun("c1", "well-stones", "realm");
+    expect(r.questions.every((q) => q.kind === "choice")).toBe(true);
+    expect(r.demo).toBeFalsy();
   });
 
   it("is false in a Crown Challenge", async () => {
@@ -557,9 +575,10 @@ describe("the Crown Challenge", () => {
   async function playChallenge(right: boolean[]): Promise<string> {
     const r = await startDeedRun("c1", "well-stones", "realm", { challenge: true });
     const row = await client.query("SELECT questions FROM deed_run WHERE id = ?1", [r.runId]);
-    const qs = JSON.parse(row.rows[0].questions) as Question[];
+    const qs = JSON.parse(row.rows[0].questions) as Task[];
     for (const [i, q] of qs.entries()) {
-      await answerDeedQuestion(r.runId, i, right[i] ? q.answer : q.choices.find((c) => c !== q.answer)!);
+      const { right: yes, wrong } = rightAndWrong(q);
+      await answerDeedQuestion(r.runId, i, right[i] ? yes : wrong);
     }
     return r.runId;
   }
@@ -1072,6 +1091,147 @@ describe("the gate stays multiple choice (R-C4)", () => {
   });
 });
 
+describe("a grade-3 math side quest is played at the bench (slice 2, C13)", () => {
+  const MEASURE_OFF = { ...DEFAULT_REALM_SETTINGS, mechanics: { measure: false } };
+  const GROWN_UP = { access: { userId: "u-parent" }, familyId: "f1" } as unknown as Awaited<ReturnType<typeof requireChildAccess>>;
+  const benched = (skillId: string) => skillId in BENCH;
+
+  const runCount = async () => Number((await client.query("SELECT count(*) AS n FROM deed_run")).rows[0].n);
+  /** The tasks as stored on the run row: the only place the solution lives. */
+  async function storedTasks(id: string): Promise<Task[]> {
+    return JSON.parse((await client.query("SELECT questions FROM deed_run WHERE id = ?1", [id])).rows[0].questions) as Task[];
+  }
+  /** Div-facts has rested past its interval, so a run reviews it beside the skills it draws fresh. */
+  async function restedDivFacts() {
+    await client.query(
+      `INSERT INTO skill_mastery (id, child_id, skill_id, level, recent_results, correct_total, attempt_total, last_practiced_at, created_at, updated_at)
+       VALUES ('m1', 'c1', 'div-facts', 2, '[1,1]', 2, 2, unixepoch() - 864000, unixepoch(), unixepoch())`,
+    );
+  }
+  /** The REAL engine, started at a chosen seed (the action seeds from the clock). */
+  function atSeed(seed: number) {
+    vi.mocked(buildDeedRun).mockImplementationOnce((i) => realBuildDeedRun({ ...i, seed }));
+  }
+  /** Starts a fresh well-stones run at the first seed that mixes the bench with a choice review; then it is the open run. */
+  async function startMixed() {
+    await restedDivFacts();
+    for (let seed = 1; seed <= 200; seed++) {
+      atSeed(seed);
+      const start = await startDeedRun("c1", "well-stones", "realm");
+      const tasks = await storedTasks(start.runId);
+      if (tasks.some((t) => kindOf(t) === "measure") && tasks.some((t) => kindOf(t) === "choice")) return { start, tasks, seed };
+      await client.query("DELETE FROM deed_run");
+    }
+    throw new Error("no seed mixed measure and choice tasks");
+  }
+  it("holds measure tasks for the benched skills and choice tasks for every other skill, the browser seeing views only", async () => {
+    const { start, tasks } = await startMixed();
+    expect(tasks).toHaveLength(8);
+    for (const t of tasks) expect(kindOf(t), t.skillId).toBe(benched(t.skillId) ? "measure" : "choice");
+    expect(start.questions.map((q) => q.kind)).toEqual(tasks.map((t) => kindOf(t)));
+    expect(tasks.some((t) => ["area-perimeter", "frac-unit"].includes(t.skillId) && kindOf(t) === "measure")).toBe(true);
+    // The solution stays on the server.
+    for (const q of start.questions) expect(JSON.stringify(q)).not.toMatch(/"answer"|"solution"|"bridge"/);
+  });
+
+  it("answers, retries and completes through the real actions, with stars and pay as before", async () => {
+    const { start, tasks } = await startMixed();
+    const id = start.runId;
+    const slow = tasks.findIndex((t) => kindOf(t) === "measure");
+    expect(slow).toBeGreaterThanOrEqual(0);
+    for (const [i, t] of tasks.entries()) {
+      const { right, wrong } = rightAndWrong(t);
+      if (i === slow) {
+        // A wrong first try opens a second chance; the stored task's own answer then solves it.
+        const miss = await answerDeedQuestion(id, i, wrong);
+        expect(miss).toMatchObject({ correct: false, secondChance: true });
+        for (const k of ["answer", "bridge", "explain"]) expect(k in miss).toBe(false);
+        expect(await retryDeedQuestion(id, i, right)).toMatchObject({ correct: true, secondChance: false });
+      } else {
+        const r = await answerDeedQuestion(id, i, right);
+        expect(r).toMatchObject({ correct: true });
+        // Only a hands-on task teaches its notation.
+        expect("bridge" in r).toBe(kindOf(t) === "measure");
+      }
+    }
+    const points = (tasks.length - 1) * SCORING.firstTryPoints + SCORING.secondTryPoints;
+    const stars = starsFor(points, tasks.length * SCORING.firstTryPoints);
+    expect(stars).toBeGreaterThan(0);
+    vi.mocked(paySideQuest).mockClear();
+    const summary = await completeDeedRun(id);
+    expect(summary).toMatchObject({ kind: "deed", stars, correctCount: tasks.length - 1, total: tasks.length, flawless: false, counted: true });
+    expect(paySideQuest).toHaveBeenCalledWith("c1", id, stars);
+    const paid = await client.query("SELECT coalesce(sum(minutes), 0) AS n FROM realm_play_ledger WHERE child_id = 'c1' AND kind = 'practice' AND source_run_id = ?1", [id]);
+    expect(Number(paid.rows[0].n)).toBe(summary.minutesEarned);
+    expect(summary.minutesEarned).toBeGreaterThan(0);
+    expect(await deedsDone()).toBe(1);
+  });
+
+  it("pays a grown-up's run nothing, for a bench run as for any other", async () => {
+    const { start, tasks } = await startMixed();
+    for (const [i, t] of tasks.entries()) await answerDeedQuestion(start.runId, i, rightAndWrong(t).right);
+    vi.mocked(paySideQuest).mockClear();
+    vi.mocked(requireChildAccess).mockResolvedValueOnce(GROWN_UP);
+    expect(await completeDeedRun(start.runId)).toMatchObject({ stars: 3, minutesEarned: 0, sideQuestPayFull: false });
+    expect(paySideQuest).not.toHaveBeenCalled();
+  });
+
+  it("with building by measuring off, the same run is all choice (the real engine)", async () => {
+    const { seed, tasks } = await startMixed();
+    await client.query("DELETE FROM deed_run");
+    vi.mocked(loadRealmSettings).mockResolvedValue(MEASURE_OFF);
+    atSeed(seed);
+    const off = await startDeedRun("c1", "well-stones", "realm");
+    const offTasks = await storedTasks(off.runId);
+    expect(offTasks).toHaveLength(8);
+    // The same skills were drawn; only how they are played changed.
+    expect(new Set(offTasks.map((t) => t.skillId))).toEqual(new Set(tasks.map((t) => t.skillId)));
+    expect(tasks.some((t) => benched(t.skillId))).toBe(true);
+    for (const t of offTasks) expect(kindOf(t)).toBe("choice");
+    expect(off.questions.every((q) => q.kind === "choice")).toBe(true);
+  });
+
+  it("leaves a reading side quest exactly as it was: choice tasks, with no kind stored", async () => {
+    for (let i = 0; i < 30; i++) {
+      await client.query(
+        `INSERT INTO drill_item (id, pool_id, skill_id, band, prompt, answer, distractors, read_aloud, level, updated_at)
+         VALUES (?1, 'p1', 'read-g3', '3-5', ?2, ?3, ?4, NULL, 2, unixepoch())`,
+        [`read-g3-item-${i}`, `Prompt ${i}`, `A${i}`, JSON.stringify([`B${i}`, `C${i}`, `D${i}`])],
+      );
+    }
+    atSeed(1);
+    const start = await startDeedRun("c1", "well-signs", "realm");
+    const tasks = await storedTasks(start.runId);
+    // Recorded with this pool and seed 1 before any deed named a mechanic.
+    expect(tasks.map((t) => t.id)).toEqual(["read-g3-item-14", "read-g3-item-24", "read-g3-item-8", "read-g3-item-10", "read-g3-item-16", "read-g3-item-6", "read-g3-item-11", "read-g3-item-12"]);
+    for (const t of tasks) expect("kind" in t).toBe(false);
+    expect(start.questions.every((q) => q.kind === "choice")).toBe(true);
+    await client.query("DELETE FROM drill_item");
+  });
+
+  describe("the context is untrusted", () => {
+    it("an arbitrary string behaves as the page: a grown-up may start the run, and the bench is on", async () => {
+      vi.mocked(requireChildAccess).mockResolvedValueOnce(GROWN_UP);
+      await expect(startDeedRun("c1", "well-stones", "REALM" as never)).resolves.toBeDefined();
+      expect(vi.mocked(buildDeedRun).mock.calls[0][0].enabledKinds).toEqual(new Set(["measure"]));
+      expect(await runCount()).toBe(1);
+    });
+
+    it("is not the gate unless it says so exactly", async () => {
+      await startDeedRun("c1", "well-stones", "gate " as never);
+      expect(vi.mocked(buildDeedRun).mock.calls[0][0].enabledKinds).toEqual(new Set(["measure"]));
+    });
+
+    it("the two named worlds keep their rules: realm and gate refuse a grown-up", async () => {
+      for (const context of ["realm", "gate"] as const) {
+        vi.mocked(requireChildAccess).mockResolvedValueOnce(GROWN_UP);
+        await expect(startDeedRun("c1", "well-stones", context)).rejects.toThrow(HERO_ONLY);
+      }
+      expect(await runCount()).toBe(0);
+    });
+  });
+});
+
 describe("a run saved by a newer version", () => {
   const NEWER = "This side quest was saved by a newer version. Start it again.";
 
@@ -1188,6 +1348,7 @@ describe("answers are parsed by their task kind, and the browser gets views", ()
     const fresh = await startDeedRun("c1", "well-stones", "realm");
     expect(fresh.runId).not.toBe("run1");
     expect(JSON.stringify(fresh.questions)).not.toMatch(/"answer"|"explain"/);
-    expect(fresh.questions.every((q) => q.kind === "choice")).toBe(true);
+    // A grade-3 math run may hold bench tasks now; their views carry no answer either (asserted above).
+    expect(fresh.questions.every((q) => q.kind === "choice" || q.kind === "measure")).toBe(true);
   });
 });
