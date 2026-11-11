@@ -26,7 +26,7 @@ const overview: DeedsOverview = {
 };
 const profile = { fewerChoices: false, predictableRoutine: false, untimed: true, readAloud: false };
 
-beforeEach(() => { vi.clearAllMocks(); startDeedRun.mockResolvedValue({ runId: "r1", deed: { id: "bridge-planks", title: "Planks for the Bridge", story: "Measure.", area: "math", bestStars: 0 as const, crowned: false }, questions: [{ kind: "choice", id: "q", skillId: "add-20", view: { prompt: "What is 1 + 1?", choices: ["2", "3", "4", "5"] } }], responses: [null] }); });
+beforeEach(() => { vi.clearAllMocks(); startDeedRun.mockResolvedValue({ runId: "r1", deed: { id: "bridge-planks", title: "Planks for the Bridge", story: "Measure.", area: "math", bestStars: 0 as const, crowned: false }, questions: [{ kind: "choice", id: "q", skillId: "add-20", prompt: "What is 1 + 1?", view: { choices: ["2", "3", "4", "5"] } }], responses: [null] }); });
 afterEach(cleanup);
 
 describe("DeedPicker", () => {
@@ -64,7 +64,7 @@ describe("DeedPicker", () => {
       const user = userEvent.setup();
       startReviewRun.mockResolvedValue({
         runId: "rv1", deed: { id: "review:page", title: "Quick review", story: "Three riddles.", area: null },
-        questions: [{ kind: "choice", id: "q", skillId: "add-20", view: { prompt: "What is 2 + 2?", choices: ["4", "5"] } }],
+        questions: [{ kind: "choice", id: "q", skillId: "add-20", prompt: "What is 2 + 2?", view: { choices: ["4", "5"] } }],
         responses: [null], kind: "review", pending: null,
       });
       render(<DeedPicker childId="c1" overview={overview} profile={profile} calm={false} />);

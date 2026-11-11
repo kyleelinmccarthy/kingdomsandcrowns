@@ -6,7 +6,7 @@ import { TaskPresenter } from "./presenters";
 
 afterEach(cleanup);
 
-const task: ClientTask = { kind: "choice", id: "q1", skillId: "math-add", view: { prompt: "What is 2 + 4?", choices: ["5", "6", "7", "8"] } };
+const task: ClientTask = { kind: "choice", id: "q1", skillId: "math-add", prompt: "What is 2 + 4?", view: { choices: ["5", "6", "7", "8"] } };
 const asking: FlowState = initialFlow({ questions: [{ id: "q1" }] as never, responses: [null], pending: null });
 
 function show(over: { flow?: FlowState; variant?: "board" | "page"; disabled?: boolean; nudge?: { line: string; hint: string } | null } = {}) {

@@ -7,6 +7,7 @@
  * row (1 to 4), the way a child casts; Enter and Space belong to whichever button has focus.
  */
 import { useEffect, useRef } from "react";
+import { TASK_CODECS } from "@/lib/tasks/codecs";
 import { choiceTone, type ChoiceTone } from "@/lib/utils/deed-run-flow";
 import type { PresenterProps } from "./presenters";
 
@@ -44,7 +45,7 @@ export function ChoicePresenter({ task, flow, variant, disabled, calm, onRespond
       const choice = choices[Number(e.code.slice(5)) - 1];
       if (!choice) return;
       e.preventDefault();
-      respondRef.current(choice);
+      respondRef.current(TASK_CODECS.choice.encode(choice));
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -60,7 +61,7 @@ export function ChoicePresenter({ task, flow, variant, disabled, calm, onRespond
       "data-tone": tone,
       disabled: phase === "resolved" || ruledOut || disabled,
       "aria-disabled": ruledOut || undefined,
-      onClick: () => onRespond(choice),
+      onClick: () => onRespond(TASK_CODECS.choice.encode(choice)),
     };
     if (variant === "board") {
       return (

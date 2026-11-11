@@ -822,7 +822,7 @@ describe("answers are parsed by their task kind, and the browser gets views", ()
     await seedRun();
     const start = await startDeedRun("c1", "well-stones", "realm");
     expect(start.runId).toBe("run1");
-    expect(start.questions[0]).toMatchObject({ kind: "choice", id: "q0", view: { prompt: "2 x 3?", choices: ["6", "5", "8", "9"] } });
+    expect(start.questions[0]).toMatchObject({ kind: "choice", id: "q0", prompt: "2 x 3?", view: { choices: ["6", "5", "8", "9"] } });
     expect(await answerDeedQuestion("run1", 0, "6")).toMatchObject({ correct: true, secondChance: false, answer: "6" });
     for (const [i, a] of [[1, "9"], [2, "12"], [3, "15"]] as const) await answerDeedQuestion("run1", i, a);
     expect(await completeDeedRun("run1")).toMatchObject({ correctCount: 4, flawless: true, stars: 3 });

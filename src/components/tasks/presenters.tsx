@@ -7,7 +7,7 @@
  * for it as soon as `TaskKind` widens.
  */
 import type { ComponentType } from "react";
-import type { ClientTask, ResponseByKind, TaskKind } from "@/lib/tasks/types";
+import type { ClientTask, TaskKind } from "@/lib/tasks/types";
 import type { FlowState } from "@/lib/utils/deed-run-flow";
 import { ChoicePresenter } from "./choice-presenter";
 
@@ -24,7 +24,8 @@ export type PresenterProps<K extends TaskKind> = {
   disabled: boolean;
   /** The pace guard's word and clue, shown above the surface while it is up. */
   nudge?: { line: string; hint: string } | null;
-  onRespond(response: ResponseByKind[K]): void;
+  /** The response, already encoded by the presenter with `TASK_CODECS[kind].encode`. */
+  onRespond(encoded: string): void;
 };
 
 export const TASK_PRESENTERS: { [K in TaskKind]: ComponentType<PresenterProps<K>> } = {

@@ -38,8 +38,8 @@ const run = {
   runId: "run-1",
   deed: { id: "well-stones", title: "Count the Well Stones", story: "s", area: "math" as const },
   questions: [
-    { kind: "choice" as const, id: "q1", skillId: "add", view: { prompt: "What is 2 + 3?", choices: ["4", "5"] }, readAloud: "What is two plus three?" },
-    { kind: "choice" as const, id: "q2", skillId: "add", view: { prompt: "What is 4 + 4?", choices: ["8", "9"] } },
+    { kind: "choice" as const, id: "q1", skillId: "add", prompt: "What is 2 + 3?", view: { choices: ["4", "5"] }, readAloud: "What is two plus three?" },
+    { kind: "choice" as const, id: "q2", skillId: "add", prompt: "What is 4 + 4?", view: { choices: ["8", "9"] } },
   ],
   responses: ["5", null] as (string | null)[],
   kind: "deed" as const,
@@ -245,8 +245,8 @@ describe("the deed board", () => {
     const four = {
       ...run,
       questions: [
-        { kind: "choice" as const, id: "q1", skillId: "add", view: { prompt: "What is 2 + 3?", choices: ["4", "5", "6", "7"] } },
-        { kind: "choice" as const, id: "q2", skillId: "add", view: { prompt: "What is 4 + 4?", choices: ["8", "9"] } },
+        { kind: "choice" as const, id: "q1", skillId: "add", prompt: "What is 2 + 3?", view: { choices: ["4", "5", "6", "7"] } },
+        { kind: "choice" as const, id: "q2", skillId: "add", prompt: "What is 4 + 4?", view: { choices: ["8", "9"] } },
       ],
       responses: [null, null] as (string | null)[],
     };

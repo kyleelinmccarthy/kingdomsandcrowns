@@ -19,8 +19,8 @@ const run: RunStart = {
   runId: "r1",
   deed: { id: "well-signs", title: "Signs for the Well", story: "Help the sign-painter.", area: "reading" },
   questions: [
-    { kind: "choice" as const, id: "q1", skillId: "sight-g23", view: { prompt: 'Which word is "because"?', choices: ["because", "become", "beside", "before"] }, readAloud: "because" },
-    { kind: "choice" as const, id: "q2", skillId: "sight-g23", view: { prompt: 'Which word is "again"?', choices: ["again", "against"] } },
+    { kind: "choice" as const, id: "q1", skillId: "sight-g23", prompt: 'Which word is "because"?', view: { choices: ["because", "become", "beside", "before"] }, readAloud: "because" },
+    { kind: "choice" as const, id: "q2", skillId: "sight-g23", prompt: 'Which word is "again"?', view: { choices: ["again", "against"] } },
   ],
   responses: [null, null],
   kind: "deed",

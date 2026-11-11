@@ -14,7 +14,7 @@ vi.mock("@/lib/actions/deeds", () => ({
   resolveDeedQuestion: (...a: unknown[]) => resolveDeedQuestion(...a),
 }));
 
-const q = (id: string) => ({ kind: "choice" as const, id, skillId: "s", view: { prompt: id, choices: ["a", "b", "c", "d"] } });
+const q = (id: string) => ({ kind: "choice" as const, id, skillId: "s", prompt: id, view: { choices: ["a", "b", "c", "d"] } });
 const run: RunStart = {
   runId: "r1", deed: { id: "d", title: "D", story: "S", area: "math" },
   questions: [q("1"), q("2")], responses: [null, null], kind: "deed", pending: null,

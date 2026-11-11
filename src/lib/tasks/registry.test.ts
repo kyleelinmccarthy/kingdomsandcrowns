@@ -38,8 +38,10 @@ describe("task kind registry", () => {
       id: q.id,
       skillId: q.skillId,
       readAloud: q.readAloud,
-      view: { prompt: q.prompt, choices: q.choices },
+      prompt: q.prompt,
+      view: { choices: q.choices },
     });
+    expect(client.view).not.toHaveProperty("prompt");
     const json = JSON.stringify(client);
     expect(json).not.toContain('"answer"');
     expect(json).not.toContain("explain");

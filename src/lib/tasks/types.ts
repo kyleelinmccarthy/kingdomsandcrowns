@@ -16,14 +16,22 @@ export type ChoiceTask = Question & { kind?: "choice" };
 /** The server-side task, answer and all, per kind. */
 export type TaskByKind = { choice: ChoiceTask };
 /** What the client is shown to render a task: never the answer. */
-export type ViewByKind = { choice: { prompt: string; choices: string[] } };
+export type ViewByKind = { choice: { choices: string[] } };
 /** What the child hands back, per kind. */
 export type ResponseByKind = { choice: string };
 
 export type Task = TaskByKind[TaskKind];
 
 export type ClientTask = {
-  [K in TaskKind]: { kind: K; id: string; skillId: string; readAloud?: string; view: ViewByKind[K] };
+  [K in TaskKind]: {
+    kind: K;
+    id: string;
+    skillId: string;
+    /** What the child is asked: shown and spoken by the player, whatever the kind. */
+    prompt: string;
+    readAloud?: string;
+    view: ViewByKind[K];
+  };
 }[TaskKind];
 
 /** A coded, kind-specific note on a response; later kinds widen this. */

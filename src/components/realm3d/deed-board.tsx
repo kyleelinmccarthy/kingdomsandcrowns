@@ -10,7 +10,7 @@
  * `answerDeedQuestion` after every answer (so mastery moves on every answer, and an abandoned run
  * still taught something), the same `completeDeedRun` (so the building's progress and the mastery
  * summary are the server's), a run left half-way resumes at its first unanswered question within
- * the hour, and read-aloud reads `question.readAloud ?? question.view.prompt` exactly as `DeedPlayer`
+ * the hour, and read-aloud reads `question.readAloud ?? question.prompt` exactly as `DeedPlayer`
  * does. What is new is the LOOK — the frame's timber and gold — and a conversation in front of
  * the side quests, so a child meets a person, hears what they need, and then chooses what to do.
  *
@@ -269,7 +269,7 @@ export function DeedRun({
     spoken.current = speak(text);
   };
   useEffect(() => {
-    if (profile.readAloud && question) spoken.current = speak(question.readAloud ?? question.view.prompt);
+    if (profile.readAloud && question) spoken.current = speak(question.readAloud ?? question.prompt);
     return () => stopSpeaking(spoken.current);
   }, [profile.readAloud, question]);
 
@@ -372,14 +372,14 @@ export function DeedRun({
         </p>
       )}
       <div className="r3-question">
-        <p className="r3-question-text">{question.view.prompt}</p>
+        <p className="r3-question-text">{question.prompt}</p>
         {canSpeak() && (
-          <button type="button" className="r3-round r3-read" aria-label="Read aloud" title="Read aloud" onClick={() => say(question.readAloud ?? question.view.prompt)}>
+          <button type="button" className="r3-round r3-read" aria-label="Read aloud" title="Read aloud" onClick={() => say(question.readAloud ?? question.prompt)}>
             <GameIcon name="sparkles" className="r3-read-icon" />
           </button>
         )}
       </div>
-      <TaskPresenter task={question} flow={flow} variant="board" numerals={numerals} calm={calm} disabled={busy} nudge={nudge} onRespond={(choice) => void choose(choice)} />
+      <TaskPresenter task={question} flow={flow} variant="board" numerals={numerals} calm={calm} disabled={busy} nudge={nudge} onRespond={(encoded) => void choose(encoded)} />
       {feedback && (
         <div className={`r3-feedback${flow.result?.correct ? " r3-feedback--right" : ""}`}>
           <div>

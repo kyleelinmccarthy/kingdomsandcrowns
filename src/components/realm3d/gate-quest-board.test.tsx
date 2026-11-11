@@ -110,7 +110,7 @@ describe("the gate's quest board", () => {
     vi.mocked(startDeedRun).mockResolvedValue({
       runId: "run-1",
       deed: { id: "well-stones", title: "Count the Well Stones", story: "s", area: "math" as const },
-      questions: [{ kind: "choice" as const, id: "q1", skillId: "add", view: { prompt: "What is 2 + 3?", choices: ["4", "5"] } }],
+      questions: [{ kind: "choice" as const, id: "q1", skillId: "add", prompt: "What is 2 + 3?", view: { choices: ["4", "5"] } }],
       responses: [null],
       kind: "deed" as const,
       pending: null,

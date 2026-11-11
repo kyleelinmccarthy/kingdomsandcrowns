@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { choiceTone, flowReducer, initialFlow, type FlowState } from "./deed-run-flow";
 
-const q = (id: string) => ({ kind: "choice" as const, id, skillId: "s", view: { prompt: id, choices: ["a", "b", "c", "d"] } });
+const q = (id: string) => ({ kind: "choice" as const, id, skillId: "s", prompt: id, view: { choices: ["a", "b", "c", "d"] } });
 const run = { questions: [q("1"), q("2"), q("3")], responses: [null, null, null] as (string | null)[], pending: null };
 const right = { correct: true, secondChance: false, answer: "a" };
 const open = { correct: false, secondChance: true, hint: "Count again." };

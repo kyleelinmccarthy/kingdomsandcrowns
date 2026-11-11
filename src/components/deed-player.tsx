@@ -42,7 +42,7 @@ export function DeedPlayer({
 
   // Read-aloud is a side effect, not state: the profile asks for it, the effect obeys.
   useEffect(() => {
-    if (profile.readAloud && question) speak(question.readAloud ?? question.view.prompt);
+    if (profile.readAloud && question) speak(question.readAloud ?? question.prompt);
     return () => {
       if (canSpeak()) window.speechSynthesis.cancel();
     };
@@ -106,14 +106,14 @@ export function DeedPlayer({
         <DeedMeter meter={meter} streak={flow.streak} calm={calm} numerals />
         {error && <div className="rounded-md bg-destructive/10 p-2 text-sm text-destructive">{error} <Button size="xs" variant="ghost" onClick={() => setError("")}>Try again</Button></div>}
         <div className="flex items-start gap-3">
-          <p className="flex-1 text-xl font-medium">{question.view.prompt}</p>
+          <p className="flex-1 text-xl font-medium">{question.prompt}</p>
           {speakable && (
-            <Button size="sm" variant="outline" aria-label="Read aloud" onClick={() => speak(question.readAloud ?? question.view.prompt)}>
+            <Button size="sm" variant="outline" aria-label="Read aloud" onClick={() => speak(question.readAloud ?? question.prompt)}>
               <GameIcon name="sparkles" className="size-4" />
             </Button>
           )}
         </div>
-        <TaskPresenter task={question} flow={flow} variant="page" numerals calm={calm} disabled={busy} nudge={nudge} onRespond={(choice) => void choose(choice)} />
+        <TaskPresenter task={question} flow={flow} variant="page" numerals calm={calm} disabled={busy} nudge={nudge} onRespond={(encoded) => void choose(encoded)} />
         {feedback && (
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>

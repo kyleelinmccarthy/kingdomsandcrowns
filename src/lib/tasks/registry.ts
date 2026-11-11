@@ -39,7 +39,7 @@ export function toClientTask(t: Task): ClientTask {
   const kind = kindOf(t);
   // Built explicitly so nothing but the named fields can reach the client. The cast stands for the
   // kind/view correlation (see `taskDefOf`).
-  return { kind, id: t.id, skillId: t.skillId, readAloud: t.readAloud, view: taskDefOf(t).toView(t) } as ClientTask;
+  return { kind, id: t.id, skillId: t.skillId, prompt: t.prompt, readAloud: t.readAloud, view: taskDefOf(t).toView(t) } as ClientTask;
 }
 
 /** Grade a response as stored in the database; a response that will not decode is wrong. */
