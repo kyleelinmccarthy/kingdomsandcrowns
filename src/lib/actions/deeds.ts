@@ -35,6 +35,7 @@ import { loadFocusSkillIds } from "@/lib/services/learning-focus";
 import { loadLearningProfileRow } from "@/lib/services/learning-profile";
 import { loadRealmSettings, paySideQuest } from "@/lib/services/realm-play";
 import { NO_SIDE_QUEST_PAY, type SideQuestPay } from "@/lib/utils/side-quest-pay";
+import { enabledHandsOnKinds } from "@/lib/utils/realm-settings";
 
 export type MasteryRow = { skillId: string; label: string; area: SkillArea; level: number; levelLabel: string; lastPracticedAt: string | null };
 export type DeedsOverview = {
@@ -71,14 +72,14 @@ export async function getMasteryOverview(childId: string): Promise<MasteryRow[]>
 export async function startDeedRun(
   childId: string,
   deedId: string,
-  context: "page" | "realm" = "page",
+  context: "page" | "realm" | "gate" = "page",
   options?: { challenge?: boolean },
 ): Promise<RunStart> {
   const { access } = await requireChildAccess(childId, { write: true });
   const challenge = options?.challenge === true;
-  // In the world, only the hero plays; a parent previewing the Realm reads stories but never
-  // starts a run. A Crown Challenge is the hero's alone wherever it is asked from.
-  if ((context === "realm" || challenge) && !isChildActor(access)) throw new Error(HERO_ONLY);
+  // In the world, or on the gate's board, only the hero plays; a parent previewing the Realm reads
+  // stories but never starts a run. A Crown Challenge is the hero's alone wherever it is asked from.
+  if ((context === "realm" || context === "gate" || challenge) && !isChildActor(access)) throw new Error(HERO_ONLY);
   const kind: RunKind = challenge ? "challenge" : "deed";
   const deed = findDeed(deedId);
   if (!deed) throw new Error(NOT_IN_CHRONICLE);
@@ -140,6 +141,9 @@ export async function startDeedRun(
   );
   const built = buildDeedRun({
     deed, grade, masteryBySkill, lastPracticedBySkill, profile, seed: Date.now() >>> 0, poolItems, focusSkillIds,
+    // The grown-up's switches decide which hands-on kinds a NEW run may draw (an open run is a
+    // snapshot and never asks); the gate is multiple choice whatever they say (R-C4).
+    enabledKinds: context === "gate" ? new Set<TaskKind>() : enabledHandsOnKinds(settings),
     ...(challenge
       ? { recentMisses: [], dueSkillIds: [], questionCount: CHALLENGE.questions, levelBoost: CHALLENGE.levelBoost }
       : { recentMisses, dueSkillIds, questionCount: settings.sideQuestLength }),

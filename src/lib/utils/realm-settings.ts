@@ -1,6 +1,7 @@
 import type { RealmAccessMode } from "./realm-access";
 import { DEFAULT_DEPTH_OVERRIDE, isDepthOverride, type DepthOverride } from "@/lib/realm/depth";
 import { STORED_MAX } from "@/lib/realm3d/tutorial";
+import { HANDS_ON_KINDS, type HandsOnKind } from "@/lib/tasks/kinds";
 
 export type ToneMode = "gentle" | "monsters";
 
@@ -32,7 +33,19 @@ export type RealmSettings = {
   sideQuestDailyCapMinutes: number;
   /** The most minutes a day may carry into the next one (`BANK_CAP_RANGE`); 0 means nothing carries. */
   bankCapMinutes: number;
+  /**
+   * Which hands-on ways of answering a side quest are on (`HANDS_ON_KINDS`); multiple choice is
+   * always available. Stored as JSON text, null for "all on". Read by `startDeedRun` when a run is
+   * built: an open run is a snapshot and never changes.
+   */
+  mechanics: Record<HandsOnKind, boolean>;
 };
+
+/** What a grown-up's form may send: the mechanics switches one at a time, merged over the stored ones. */
+export type RealmSettingsPatch = Omit<Partial<RealmSettings>, "mechanics"> & { mechanics?: Partial<Record<HandsOnKind, boolean>> };
+
+/** Every hands-on kind switched on, as a fresh object each call (a default must never be shared and edited). */
+const allMechanicsOn = (): Record<HandsOnKind, boolean> => Object.fromEntries(HANDS_ON_KINDS.map((k) => [k, true])) as Record<HandsOnKind, boolean>;
 
 export const DEFAULT_REALM_SETTINGS: RealmSettings = {
   enabled: true,
@@ -50,6 +63,7 @@ export const DEFAULT_REALM_SETTINGS: RealmSettings = {
   minutesPerStar: 1,
   sideQuestDailyCapMinutes: 15,
   bankCapMinutes: 30,
+  mechanics: allMechanicsOn(),
 };
 
 const ACCESS_MODES: RealmAccessMode[] = ["earned", "scheduled", "both", "open"];
@@ -86,8 +100,32 @@ function storedTutorialStep(v: unknown): number {
   return Math.min(v, STORED_MAX);
 }
 
+/**
+ * Reading is kind: a switch is off only when the stored JSON says `false` for a kind this build
+ * knows. Null, junk, a non-object, a missing key or a non-boolean all read as on, so a bad column
+ * can never quietly take a hero's side quests away.
+ */
+function mechanicsFromStored(raw: unknown): Record<HandsOnKind, boolean> {
+  const out = allMechanicsOn();
+  if (typeof raw !== "string") return out;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return out;
+  }
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return out;
+  for (const kind of HANDS_ON_KINDS) if ((parsed as Record<string, unknown>)[kind] === false) out[kind] = false;
+  return out;
+}
+
+/** The hands-on kinds a new run may draw: the ones switched on. Multiple choice is not listed; it is always available. */
+export function enabledHandsOnKinds(settings: Pick<RealmSettings, "mechanics">): Set<HandsOnKind> {
+  return new Set(HANDS_ON_KINDS.filter((k) => settings.mechanics[k]));
+}
+
 export function settingsFromRow(row: Partial<Record<keyof RealmSettings, unknown>> | null | undefined): RealmSettings {
-  if (!row) return { ...DEFAULT_REALM_SETTINGS };
+  if (!row) return { ...DEFAULT_REALM_SETTINGS, mechanics: allMechanicsOn() };
   return {
     enabled: typeof row.enabled === "boolean" ? row.enabled : DEFAULT_REALM_SETTINGS.enabled,
     accessMode: ACCESS_MODES.includes(row.accessMode as RealmAccessMode) ? (row.accessMode as RealmAccessMode) : DEFAULT_REALM_SETTINGS.accessMode,
@@ -108,13 +146,14 @@ export function settingsFromRow(row: Partial<Record<keyof RealmSettings, unknown
       ? row.sideQuestDailyCapMinutes
       : DEFAULT_REALM_SETTINGS.sideQuestDailyCapMinutes,
     bankCapMinutes: inRange(row.bankCapMinutes, BANK_CAP_RANGE) ? row.bankCapMinutes : DEFAULT_REALM_SETTINGS.bankCapMinutes,
+    mechanics: mechanicsFromStored(row.mechanics),
   };
 }
 
 /** Strict: a grown-up's form must send exactly what the schema allows. */
-export function validateRealmSettingsPatch(patch: unknown): Partial<RealmSettings> {
+export function validateRealmSettingsPatch(patch: unknown): RealmSettingsPatch {
   if (!patch || typeof patch !== "object") throw new Error("Nothing to change.");
-  const out: Partial<RealmSettings> = {};
+  const out: RealmSettingsPatch = {};
   for (const [key, v] of Object.entries(patch as Record<string, unknown>)) {
     switch (key) {
       case "enabled":
@@ -171,6 +210,16 @@ export function validateRealmSettingsPatch(patch: unknown): Partial<RealmSetting
         if (!inRange(v, BANK_CAP_RANGE)) throw new Error(`The saved-minutes bank must be ${BANK_CAP_RANGE.min}–${BANK_CAP_RANGE.max} minutes.`);
         out.bankCapMinutes = v;
         break;
+      case "mechanics": {
+        if (!v || typeof v !== "object" || Array.isArray(v)) throw new Error("Unknown Realm setting: mechanics");
+        const clean: Partial<Record<HandsOnKind, boolean>> = {};
+        for (const [kind, on] of Object.entries(v)) {
+          if (!(HANDS_ON_KINDS as readonly string[]).includes(kind) || typeof on !== "boolean") throw new Error(`Unknown Realm setting: mechanics.${kind}`);
+          clean[kind as HandsOnKind] = on;
+        }
+        out.mechanics = clean;
+        break;
+      }
       default:
         throw new Error(`Unknown Realm setting: ${key}`);
     }

@@ -39,7 +39,7 @@ const DDL = [
     side_quest_length integer DEFAULT 8 NOT NULL, second_chances integer DEFAULT true NOT NULL,
     daily_allowance_minutes integer DEFAULT 10 NOT NULL, minutes_per_star integer DEFAULT 1 NOT NULL,
     side_quest_daily_cap_minutes integer DEFAULT 15 NOT NULL, bank_cap_minutes integer DEFAULT 30 NOT NULL,
-    sound text, created_at integer NOT NULL, updated_at integer NOT NULL)`,
+    sound text, mechanics text, created_at integer NOT NULL, updated_at integer NOT NULL)`,
   `CREATE TABLE realm_visitor_sound (
     user_id text PRIMARY KEY NOT NULL, sound text NOT NULL, updated_at integer NOT NULL)`,
 ];

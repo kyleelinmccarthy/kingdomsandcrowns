@@ -1,0 +1,1 @@
+ALTER TABLE `realm_settings` ADD `mechanics` text;

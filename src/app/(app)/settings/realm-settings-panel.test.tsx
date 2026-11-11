@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
-import { render, screen, cleanup, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { RealmSettingsPanel } from "./realm-settings-panel";
+import { HANDS_ON_KINDS } from "@/lib/tasks/kinds";
 import {
   ALLOWANCE_RANGE,
   BANK_CAP_RANGE,
@@ -98,6 +99,30 @@ describe("RealmSettingsPanel", () => {
     render(<RealmSettingsPanel childId="c1" settings={{ ...DEFAULT_REALM_SETTINGS, secondChances: false }} summary={summary} />);
     await user.click(screen.getByRole("switch", { name: "Second chances" }));
     expect(updateRealmSettings).toHaveBeenLastCalledWith("c1", { secondChances: true });
+  });
+
+  it("offers Building by measuring in the Side quests group, on by default, and saves only that kind", async () => {
+    const user = userEvent.setup();
+    render(<RealmSettingsPanel childId="c1" settings={DEFAULT_REALM_SETTINGS} summary={summary} />);
+    const group = screen.getByRole("group", { name: "Side quests" });
+    expect(within(group).getByText("Math side quests are played at the bench.")).toBeInTheDocument();
+    const sw = within(group).getByRole("switch", { name: "Building by measuring" });
+    expect(sw).toBeChecked();
+    await user.click(sw);
+    expect(updateRealmSettings).toHaveBeenCalledWith("c1", { mechanics: { measure: false } });
+    cleanup();
+    render(<RealmSettingsPanel childId="c1" settings={{ ...DEFAULT_REALM_SETTINGS, mechanics: { measure: false } }} summary={summary} />);
+    const off = screen.getByRole("switch", { name: "Building by measuring" });
+    expect(off).not.toBeChecked();
+    await user.click(off);
+    expect(updateRealmSettings).toHaveBeenLastCalledWith("c1", { mechanics: { measure: true } });
+  });
+
+  it("has one switch row for every hands-on kind", () => {
+    render(<RealmSettingsPanel childId="c1" settings={DEFAULT_REALM_SETTINGS} summary={summary} />);
+    const group = screen.getByRole("group", { name: "Side quests" });
+    // Second chances plus one per hands-on kind.
+    expect(within(group).getAllByRole("switch")).toHaveLength(1 + HANDS_ON_KINDS.length);
   });
 
   describe("Earning time", () => {

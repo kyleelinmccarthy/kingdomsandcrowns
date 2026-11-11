@@ -90,6 +90,7 @@ export function DeedBoard({
   onResult,
   onClose,
   doneLabel,
+  runContext = "realm",
 }: {
   childId: string | null;
   villager: Villager;
@@ -106,6 +107,8 @@ export function DeedBoard({
   onClose: () => void;
   /** The result card's way out, where it does not lead into the world (the gate's board). */
   doneLabel?: string;
+  /** Where the run is asked from. The gate's board is always multiple choice (R-C4); the world's is the default. */
+  runContext?: "realm" | "gate";
 }) {
   const [run, setRun] = useState<RunStart | null>(null);
   const [busy, setBusy] = useState(false);
@@ -126,7 +129,7 @@ export function DeedBoard({
     setBusy(true);
     setError("");
     try {
-      setRun(await (challenge ? startDeedRun(childId!, deedId, "realm", { challenge: true }) : startDeedRun(childId!, deedId, "realm")));
+      setRun(await (challenge ? startDeedRun(childId!, deedId, runContext, { challenge: true }) : startDeedRun(childId!, deedId, runContext)));
     } catch (err) {
       setError(deedErrorLine(err));
     } finally {

@@ -4,9 +4,10 @@ import { testDatabase } from "@/test/libsql-test-db";
 import { DEFAULT_REALM_SETTINGS } from "@/lib/utils/realm-settings";
 import { hintFor } from "@/lib/utils/skill-hints";
 import { CHALLENGE, starsFor } from "@/lib/utils/deed-scoring";
-import { CHALLENGE_NOT_READY, PICK_SHOWN, TRY_DIFFERENT } from "@/lib/utils/deed-refusals";
+import { CHALLENGE_NOT_READY, HERO_ONLY, PICK_SHOWN, TRY_DIFFERENT } from "@/lib/utils/deed-refusals";
 import type { Question } from "@/lib/utils/drill-generators";
 import type { MeasureTask } from "@/lib/tasks/types";
+import { kindOf, type Task } from "@/lib/tasks/registry";
 import { REALM_ACCESS_DDL, REALM_LEDGER_DDL, REALM_SETTINGS_DDL } from "@/test/realm-db-ddl";
 
 /**
@@ -1002,6 +1003,72 @@ describe("a measure task in a run", () => {
   it("a choice result never carries a bridge", async () => {
     await seedRun();
     expect("bridge" in (await answerDeedQuestion("run1", 0, "6"))).toBe(false);
+  });
+});
+
+describe("the grown-up's switch for building by measuring (Review Focus 4)", () => {
+  const MEASURE_OFF = { ...DEFAULT_REALM_SETTINGS, mechanics: { measure: false } };
+  const CUT: MeasureTask = {
+    kind: "measure", id: "m-cut", skillId: SKILL, prompt: "Cut a board three quarters of a foot long.",
+    mode: "cut", unit: "ft", answer: "3/4", step: "1/4", maxLength: "2", bridge: "1/2 + 1/4 = 3/4",
+  };
+  const enabledKindsOf = () => vi.mocked(buildDeedRun).mock.calls[0][0].enabledKinds;
+
+  it("offers the engine every hands-on kind that is on, and no choice entry (choice is always there)", async () => {
+    await startDeedRun("c1", "well-stones", "realm");
+    expect(enabledKindsOf()).toEqual(new Set(["measure"]));
+  });
+
+  it("turned off, offers the engine no hands-on kind: a new run is all choice", async () => {
+    vi.mocked(loadRealmSettings).mockResolvedValue(MEASURE_OFF);
+    const r = await startDeedRun("c1", "well-stones", "realm");
+    expect(enabledKindsOf()).toEqual(new Set());
+    const built = vi.mocked(buildDeedRun).mock.results[0].value;
+    expect((built.questions as Task[]).every((q) => kindOf(q) === "choice")).toBe(true);
+    expect(r.questions.length).toBeGreaterThan(0);
+  });
+
+  it("the setting applies on the page as it does in the world", async () => {
+    vi.mocked(loadRealmSettings).mockResolvedValue(MEASURE_OFF);
+    await startDeedRun("c1", "well-stones", "page");
+    expect(enabledKindsOf()).toEqual(new Set());
+  });
+
+  it("an open measure run still resumes and completes after the switch goes off (runs are snapshots)", async () => {
+    await seedRun({ questions: [CUT, QUESTIONS[0]] as unknown as Question[], secondChances: false });
+    vi.mocked(loadRealmSettings).mockResolvedValue(MEASURE_OFF);
+    const r = await startDeedRun("c1", "well-stones", "realm");
+    expect(r.runId).toBe("run1");
+    expect(vi.mocked(buildDeedRun)).not.toHaveBeenCalled();
+    expect(r.questions[0]).toMatchObject({ kind: "measure", view: { mode: "cut" } });
+    expect(await answerDeedQuestion("run1", 0, "3/4")).toMatchObject({ correct: true, bridge: CUT.bridge });
+    expect(await answerDeedQuestion("run1", 1, "6")).toMatchObject({ correct: true });
+    expect(await completeDeedRun("run1")).toMatchObject({ kind: "deed", flawless: true, stars: 3 });
+  });
+});
+
+describe("the gate stays multiple choice (R-C4)", () => {
+  const runCount = async () => Number((await client.query("SELECT count(*) AS n FROM deed_run")).rows[0].n);
+
+  it("builds a gate run with no hands-on kind, whatever the grown-up has switched on", async () => {
+    vi.mocked(loadRealmSettings).mockResolvedValue({ ...DEFAULT_REALM_SETTINGS, mechanics: { measure: true } });
+    const r = await startDeedRun("c1", "well-stones", "gate");
+    expect(vi.mocked(buildDeedRun).mock.calls[0][0].enabledKinds).toEqual(new Set());
+    expect(r.questions.length).toBeGreaterThan(0);
+    expect(r.questions.every((q) => q.kind === "choice")).toBe(true);
+    expect(await runCount()).toBe(1);
+  });
+
+  it("is the hero's alone, like the world", async () => {
+    vi.mocked(requireChildAccess).mockResolvedValueOnce({ access: { userId: "u-mom" }, familyId: "f1" } as never);
+    await expect(startDeedRun("c1", "well-stones", "gate")).rejects.toThrow(HERO_ONLY);
+    expect(await runCount()).toBe(0);
+    expect(vi.mocked(buildDeedRun)).not.toHaveBeenCalled();
+  });
+
+  it("keeps a Crown Challenge asked from the gate hero-only too", async () => {
+    vi.mocked(requireChildAccess).mockResolvedValueOnce({ access: { userId: "u-mom" }, familyId: "f1" } as never);
+    await expect(startDeedRun("c1", "well-stones", "gate", { challenge: true })).rejects.toThrow(HERO_ONLY);
   });
 });
 

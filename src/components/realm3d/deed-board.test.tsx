@@ -74,6 +74,17 @@ describe("the deed board", () => {
     expect(screen.getByRole("img", { name: "Question 2 of 2" })).toBeInTheDocument();
   });
 
+  it("begins in the world's context unless it is told it is the gate's, and a challenge follows the same context", async () => {
+    vi.mocked(startDeedRun).mockResolvedValue(run);
+    board();
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" })));
+    expect(startDeedRun).toHaveBeenLastCalledWith("demo-child-1", "well-stones", "realm");
+    cleanup();
+    board({ runContext: "gate" });
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" })));
+    expect(startDeedRun).toHaveBeenLastCalledWith("demo-child-1", "well-stones", "gate");
+  });
+
   it("reads each question aloud, the readAloud line first, for a child who asked for it", async () => {
     vi.mocked(startDeedRun).mockResolvedValue({ ...run, responses: [null, null] });
     board({ profile: { readAloud: true, untimed: true } });
