@@ -6,7 +6,8 @@ import { FOCUS_WEIGHT } from "./focus";
 import type { Deed } from "./deeds";
 import { REVIEW } from "./review-schedule";
 import { kindForSkill, kindOf, TASK_KINDS } from "@/lib/tasks/registry";
-import type { Task, TaskKind } from "@/lib/tasks/types";
+import { drawerFor } from "@/lib/tasks/draw";
+import type { ChoiceTask, Task, TaskKind } from "@/lib/tasks/types";
 
 export type ProfileLike = { fewerChoices: boolean; predictableRoutine: boolean; untimed: boolean; readAloud: boolean };
 
@@ -50,7 +51,7 @@ export type BuildRunInput = {
   enabledKinds?: ReadonlySet<TaskKind>;
 };
 
-export type BuiltRun = { skillIds: string[]; questions: Question[] };
+export type BuiltRun = { skillIds: string[]; questions: Task[] };
 
 /** Recent misses that may come back in one run; the rest of `REVIEW.maxTotal` is for due skills. */
 const MAX_MISSES = 2;
@@ -364,6 +365,11 @@ function drawGenerated(
   return out;
 }
 
+/** Narrowing for the choice-only rules (prompt dedupe, trimming); a stored task has no `kind`, so it is one. */
+function isChoice(t: Task): t is ChoiceTask {
+  return kindOf(t) === "choice";
+}
+
 function trimChoices<T extends Question>(q: T, rng: Rng): T {
   const other = q.choices.find((c) => c !== q.answer) ?? q.answer;
   return { ...q, choices: shuffle([q.answer, other], rng) };
@@ -373,21 +379,46 @@ function trimChoices<T extends Question>(q: T, rng: Rng): T {
  * What a hero's learning profile does to a run's finished, ordered tasks, in one place for every
  * builder (`buildDeedRun`, `buildReviewRun`), so a run is never built without it.
  *
- *  - **fewerChoices**: each task offers its answer and one other option, shuffled. Off, the tasks
- *    come back as they are and no rng is drawn, so a run's output is exactly what it was.
+ *  - **fewerChoices**: each choice task offers its answer and one other option, shuffled (other
+ *    kinds have no options and are left alone). Off, the tasks come back as they are and no rng is
+ *    drawn, so a run's output is exactly what it was.
  *  - **predictableRoutine** is deliberately not here. In a side quest it is an ORDER: fresh
  *    questions grouped skill by skill in catalog order, then the review ones, which `buildDeedRun`
  *    decides before calling this. A review run has no such shape to keep: every task is review,
  *    each from a different skill, and the set is mixed across strands by design (interleaved
  *    retrieval is the point of it), so there is nothing to group and its order stays shuffled.
  */
-export function applyProfile<T extends Question>(questions: T[], profile: Pick<ProfileLike, "fewerChoices">, rng: Rng): T[] {
-  return profile.fewerChoices ? questions.map((q) => trimChoices(q, rng)) : questions;
+export function applyProfile<T extends Task>(questions: T[], profile: Pick<ProfileLike, "fewerChoices">, rng: Rng): T[] {
+  // Only a choice has options to trim; any other kind passes through untouched and draws nothing.
+  return profile.fewerChoices ? questions.map((q) => (isChoice(q) ? trimChoices(q, rng) : q)) : questions;
+}
+
+/**
+ * Up to `count` tasks of a non-choice kind for one skill, from that kind's drawer. Deduped by id
+ * alone: the prompt filters are for choices, where the options can be the question. A drawer that
+ * has nothing to give (or none at all) yields fewer, never an error, and is asked at most
+ * `count * 20` times.
+ */
+function drawByKind(kind: TaskKind, skill: Skill, level: number, count: number, rng: Rng, exclude: Set<string>): Task[] {
+  const drawer = drawerFor(kind);
+  if (!drawer) return [];
+  const out: Task[] = [];
+  const seen = new Set<string>(exclude);
+  for (let guard = 0; out.length < count && guard < count * 20; guard += 1) {
+    const t = drawer(skill, levelForDraw(level, out.length), rng);
+    if (!t || seen.has(t.id)) continue;
+    seen.add(t.id);
+    out.push(t);
+  }
+  return out;
 }
 
 /**
  * One draw for any skill, whichever way it is sourced: a generator, or the pool items that are
  * this skill's and not in `excludeIds`. A review builder uses it to draw a single task.
+ *
+ * `kind` is how the skill is played. A choice is the path below, unchanged; any other kind is
+ * drawn by its own drawer.
  */
 export function drawForSkill(
   skill: Skill,
@@ -397,18 +428,12 @@ export function drawForSkill(
   poolItems: PoolItem[],
   excludeIds: Set<string>,
   excludePrompts: Set<string>,
-): Question[] {
+  kind: TaskKind = "choice",
+): Task[] {
+  if (kind !== "choice") return drawByKind(kind, skill, level, count, rng, excludeIds);
   return skill.source.kind === "generator"
     ? drawGenerated(skill, level, count, rng, excludeIds, excludePrompts)
     : drawPool(poolItems.filter((p) => p.skillId === skill.id && !excludeIds.has(p.id)), level, count, rng);
-}
-
-/**
- * Names a built task's kind, but only when it is not a choice: stored runs have no `kind` and
- * read as choice, so a choice stays untagged and today's runs are unchanged byte for byte.
- */
-function withKind(q: Question, kind: TaskKind): Task {
-  return kind === "choice" ? q : { ...q, kind };
 }
 
 export function buildDeedRun(input: BuildRunInput): BuiltRun {
@@ -416,7 +441,13 @@ export function buildDeedRun(input: BuildRunInput): BuiltRun {
   // The rung each skill is drawn at; selection still weighs the child's own mastery.
   const levelOf = (skillId: string) => Math.min((masteryBySkill[skillId] ?? 0) + (input.levelBoost ?? 0), MASTERY_MAX);
   const enabled = input.enabledKinds ?? new Set(Object.keys(TASK_KINDS) as TaskKind[]);
-  const tag = (q: Question) => withKind(q, kindForSkill(deed.mechanic, q.skillId, enabled));
+  // How each skill is played, worked out once and used for every draw of it (due, fresh and refill).
+  const kinds = new Map<string, TaskKind>();
+  const kindOfSkill = (skillId: string): TaskKind => {
+    let k = kinds.get(skillId);
+    if (!k) kinds.set(skillId, (k = kindForSkill(deed.mechanic, skillId, enabled)));
+    return k;
+  };
   const rng = seededRng(seed);
   const candidates = runCandidates(deed, grade, input.focusSkillIds);
   const skills = selectSkills(candidates, masteryBySkill, rng, lastPracticedBySkill ?? {}, new Set(input.focusSkillIds));
@@ -429,7 +460,7 @@ export function buildDeedRun(input: BuildRunInput): BuiltRun {
   // A miss comes back only as the kind the deed would play that skill with now (R-C6); any other is
   // dropped, and its skill can still be drawn fresh.
   const dedupedMisses = recentMisses.filter((m) => {
-    if (kindOf(m) !== kindForSkill(deed.mechanic, m.skillId, enabled)) return false;
+    if (kindOf(m) !== kindOfSkill(m.skillId)) return false;
     if (seenMissIds.has(m.id)) return false;
     seenMissIds.add(m.id);
     return true;
@@ -439,7 +470,7 @@ export function buildDeedRun(input: BuildRunInput): BuiltRun {
   const reviewIds = new Set(review.map((m) => m.id));
   // Also by prompt: a miss stored under an older id shape would otherwise be re-asked as a
   // fresh question in the same deed.
-  const reviewPrompts = new Set(review.map(questionText));
+  const reviewPrompts = new Set(review.filter(isChoice).map(questionText));
   const target = input.questionCount ?? deed.questionCount;
 
   // Due skills are drawn at their own level before the fresh ones, so fresh draws avoid them.
@@ -448,16 +479,16 @@ export function buildDeedRun(input: BuildRunInput): BuiltRun {
     .filter((s): s is Skill => !!s && !skillIds.includes(s.id))
     .slice(0, Math.min(REVIEW.maxDue, REVIEW.maxTotal - review.length, target - review.length));
   // One question per due skill: a reminder, not a second lesson.
-  const due: Question[] = [];
+  const due: Task[] = [];
   const dueSkillsUsed: string[] = [];
   for (const skill of dueCandidates) {
     const level = levelOf(skill.id);
-    const [drawn] = drawForSkill(skill, level, 1, rng, poolItems, reviewIds, reviewPrompts);
+    const [drawn] = drawForSkill(skill, level, 1, rng, poolItems, reviewIds, reviewPrompts, kindOfSkill(skill.id));
     if (!drawn) continue;
-    due.push(tag(drawn));
+    due.push(drawn);
     dueSkillsUsed.push(skill.id);
     reviewIds.add(drawn.id);
-    reviewPrompts.add(questionText(drawn));
+    if (isChoice(drawn)) reviewPrompts.add(questionText(drawn));
   }
   const nonFresh = [...review, ...due];
   const fresh = Math.max(0, target - nonFresh.length);
@@ -467,7 +498,7 @@ export function buildDeedRun(input: BuildRunInput): BuiltRun {
   const perSkill = skills.map((_, i) => Math.floor(fresh / skills.length) + (i < fresh % skills.length ? 1 : 0));
   const bySkill = skills.map((skill, i) => {
     const level = levelOf(skill.id);
-    return drawForSkill(skill, level, perSkill[i], rng, poolItems, reviewIds, reviewPrompts).map(tag);
+    return drawForSkill(skill, level, perSkill[i], rng, poolItems, reviewIds, reviewPrompts, kindOfSkill(skill.id));
   });
 
   // A skill that came up short (thin pool) hands its slots to the others.
@@ -476,17 +507,23 @@ export function buildDeedRun(input: BuildRunInput): BuiltRun {
     for (const skill of skills) {
       if (questions.length >= fresh) break;
       const have = new Set(questions.map((q) => q.id));
-      const havePrompts = new Set(questions.map(questionText));
-      const extra = skill.source.kind === "generator"
-        ? drawGenerated(skill, levelOf(skill.id), fresh - questions.length + have.size, rng, new Set([...have, ...reviewIds]), new Set([...havePrompts, ...reviewPrompts])).filter((q) => !have.has(q.id))
-        : drawPool(poolItems.filter((p) => p.skillId === skill.id && !have.has(p.id) && !reviewIds.has(p.id)), levelOf(skill.id), fresh - questions.length, rng);
-      questions = [...questions, ...extra.map(tag)].slice(0, fresh);
+      const kind = kindOfSkill(skill.id);
+      let extra: Task[];
+      if (kind !== "choice") {
+        extra = drawForSkill(skill, levelOf(skill.id), fresh - questions.length, rng, poolItems, new Set([...have, ...reviewIds]), new Set(), kind);
+      } else {
+        const havePrompts = new Set(questions.filter(isChoice).map(questionText));
+        extra = skill.source.kind === "generator"
+          ? drawGenerated(skill, levelOf(skill.id), fresh - questions.length + have.size, rng, new Set([...have, ...reviewIds]), new Set([...havePrompts, ...reviewPrompts])).filter((q) => !have.has(q.id))
+          : drawPool(poolItems.filter((p) => p.skillId === skill.id && !have.has(p.id) && !reviewIds.has(p.id)), levelOf(skill.id), fresh - questions.length, rng);
+      }
+      questions = [...questions, ...extra].slice(0, fresh);
     }
   }
 
   if (questions.length === 0 && nonFresh.length === 0) return { skillIds: allSkillIds, questions: [] };
 
-  let ordered: Question[];
+  let ordered: Task[];
   if (profile.predictableRoutine) {
     // Same shape every time: skills in catalog order, review at the end.
     ordered = [...skills.flatMap((s) => questions.filter((q) => q.skillId === s.id)), ...nonFresh];

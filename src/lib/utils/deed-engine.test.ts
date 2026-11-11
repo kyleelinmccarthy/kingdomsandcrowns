@@ -10,6 +10,9 @@ import { GRADES } from "./grade-levels";
 import { skillsFor } from "./skills";
 import type { Question } from "./drill-generators";
 import type { Task, TaskKind } from "@/lib/tasks/types";
+import { TASK_KINDS, kindOf } from "@/lib/tasks/registry";
+import { __setDrawerForTest, type TaskDrawer } from "@/lib/tasks/draw";
+import { choiceKind } from "@/lib/tasks/choice";
 
 const deedMath = findDeed("well-stones")!;      // math
 const deedReading = findDeed("well-signs")!;    // reading
@@ -902,5 +905,123 @@ describe("applyProfile", () => {
       }));
       expect(run.questions.map((q) => `${q.id}=${q.choices.join("|")}`)).toEqual(expected);
     }
+  });
+});
+
+describe("a draw knows the kind", () => {
+  // No second kind is registered until C5, so a stand-in kind is: its definition is put in the
+  // registry for the length of one test (the only registry seam, local to this file) and its drawer
+  // through `__setDrawerForTest`. `TaskKind` is only "choice" today, hence the casts.
+  const STUB = "stub" as unknown as TaskKind;
+  const stubDeed = { ...deedMath, mechanic: STUB };
+  const enabled = new Set<TaskKind>([STUB]);
+  const registry = TASK_KINDS as unknown as Record<string, unknown>;
+
+  function useStub(presents: (skillId: string) => boolean, drawer: TaskDrawer) {
+    registry.stub = { ...choiceKind, presents };
+    __setDrawerForTest("stub", drawer);
+  }
+  /** A stub task whose id is `n`, and which carries a field no choice task has. */
+  const stubTask = (skillId: string, n: number): Task =>
+    ({ kind: "stub", id: `stub:${skillId}:${n}`, skillId, prompt: "Same prompt", marker: true }) as unknown as Task;
+  const stubRun = (over: Partial<BuildRunInput> = {}) =>
+    buildDeedRun(input({ deed: stubDeed, enabledKinds: enabled, poolItems: [], ...over }));
+
+  afterEach(() => {
+    delete registry.stub;
+    __setDrawerForTest("stub", null);
+  });
+
+  it("draws a skill its kind presents through that kind's drawer, and does not relabel it", () => {
+    let n = 0;
+    useStub((id) => id === "div-facts", (skill) => stubTask(skill.id, n++));
+    const run = stubRun({ seed: 1, dueSkillIds: ["div-facts"] });
+    const stubs = run.questions.filter((q) => kindOf(q) === STUB);
+    expect(stubs).toHaveLength(1);
+    expect(stubs[0]).toMatchObject({ kind: "stub", skillId: "div-facts", marker: true });
+    // Every other skill stays a plain choice: no `kind` key, as stored runs have none.
+    const rest = run.questions.filter((q) => kindOf(q) !== STUB);
+    expect(rest).toHaveLength(7);
+    for (const q of rest) {
+      expect("kind" in q).toBe(false);
+      expect(q.skillId).not.toBe("div-facts");
+    }
+  });
+
+  it("draws the fresh questions through the drawer too, and keeps same-prompt tasks (the prompt filter is for choices)", () => {
+    let n = 0;
+    useStub(() => true, (skill) => stubTask(skill.id, n++));
+    const run = stubRun({ seed: 1 });
+    expect(run.questions).toHaveLength(8);
+    expect(run.questions.every((q) => kindOf(q) === STUB && "marker" in q)).toBe(true);
+    expect(new Set(run.questions.map((q) => q.id)).size).toBe(8);
+  });
+
+  it("deduplicates a drawer by id, and a drawer that runs dry gives a shorter run rather than an error", () => {
+    let n = 0;
+    useStub(() => true, (skill) => stubTask(skill.id, n++ % 3));
+    const run = stubRun({ seed: 1 });
+    expect(run.questions.map((q) => q.id).sort()).toHaveLength(3);
+    expect(new Set(run.questions.map((q) => q.id)).size).toBe(3);
+  });
+
+  it("refills a short skill through the drawer as well", () => {
+    // Two skills (one due, so one fresh pick plus one due pick would not short-fall); one skill
+    // alone that can only give 2 of its 8 and then none: the refill asks again and is still the kind.
+    const calls: number[] = [];
+    let n = 0;
+    useStub(() => true, (skill) => { calls.push(n); return n < 2 ? stubTask(skill.id, n++) : null; });
+    const run = stubRun({ seed: 1 });
+    expect(run.questions).toHaveLength(2);
+    expect(run.questions.every((q) => kindOf(q) === STUB)).toBe(true);
+    // The first pass asked up to its attempt bound and the refill asked again.
+    expect(calls.length).toBeGreaterThan(8 * 20);
+  });
+
+  it("ignores a stub kind that is not enabled: the skill is a choice", () => {
+    useStub(() => true, () => { throw new Error("must not draw"); });
+    const run = buildDeedRun(input({ deed: stubDeed, enabledKinds: new Set<TaskKind>(), poolItems: [] }));
+    expect(run.questions).toHaveLength(8);
+    expect(run.questions.every((q) => !("kind" in q))).toBe(true);
+  });
+
+  describe("drawForSkill", () => {
+    const skill = SKILLS.find((s) => s.id === "mul-facts")!;
+
+    it("draws a choice exactly as it did when no kind is named", () => {
+      const a = drawForSkill(skill, 2, 5, seededRng(7), [], new Set(), new Set());
+      const b = drawForSkill(skill, 2, 5, seededRng(7), [], new Set(), new Set(), "choice");
+      expect(b).toEqual(a);
+    });
+    it("asks the drawer for at most count * 20 tasks, deduping by id and honouring exclusions", () => {
+      let asked = 0;
+      useStub(() => true, (s) => { asked += 1; return stubTask(s.id, asked % 4); });
+      const kind = STUB;
+      const drawn = drawForSkill(skill, 2, 6, seededRng(7), [], new Set([`stub:mul-facts:0`]), new Set(), kind);
+      expect(drawn.map((t) => t.id).sort()).toEqual(["stub:mul-facts:1", "stub:mul-facts:2", "stub:mul-facts:3"]);
+      expect(asked).toBe(6 * 20);
+    });
+    it("returns nothing, and does not throw, for a kind with no drawer", () => {
+      expect(drawForSkill(skill, 2, 4, seededRng(7), [], new Set(), new Set(), "nothing" as unknown as TaskKind)).toEqual([]);
+    });
+  });
+
+  describe("applyProfile", () => {
+    const choices: Question[] = [
+      { id: "a", skillId: "mul-facts", prompt: "2 x 3?", choices: ["6", "5", "8", "9"], answer: "6" },
+      { id: "b", skillId: "mul-facts", prompt: "3 x 3?", choices: ["12", "9", "6", "8"], answer: "9" },
+    ];
+    const odd = { kind: "stub", id: "s", skillId: "mul-facts", prompt: "Cut", answer: "3/4" } as unknown as Task;
+    const fewer = { ...profile, fewerChoices: true };
+
+    it("leaves a non-choice task as it is, and draws for the choices alone", () => {
+      const withOdd = seededRng(3);
+      const alone = seededRng(3);
+      const mixed = applyProfile<Task>([choices[0], odd, choices[1]], fewer, withOdd);
+      const only = applyProfile(choices, fewer, alone);
+      expect(mixed[1]).toBe(odd);
+      expect([mixed[0], mixed[2]]).toEqual(only);
+      expect(withOdd()).toBe(alone());
+    });
   });
 });
