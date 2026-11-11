@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { CUT_MAX_CHARS, TASK_CODECS } from "@/lib/tasks/codecs";
 import type { ClientTask } from "@/lib/tasks/types";
@@ -39,12 +40,39 @@ const cutIt = () => screen.getByRole("button", { name: "Cut it" });
 const length = () => screen.getByLabelText("Length in feet") as HTMLInputElement;
 
 describe("the bench: fitting pieces to a mark", () => {
-  it.each(["board", "page"] as const)("is titled the bench and shows each piece as a toggle, the mark and what is picked so far (%s)", (variant) => {
+  it.each(["board", "page"] as const)("is titled the bench and shows each piece as a toggle and the mark (%s)", (variant) => {
     show({ variant });
     expect(screen.getByRole("heading", { name: "The bench" })).toBeTruthy();
     for (const label of ASSEMBLE.view.pieces!) expect(piece(label).getAttribute("aria-pressed")).toBe("false");
     expect(screen.getByText("9 blocks")).toBeTruthy();
-    expect(screen.getByText("So far: 0")).toBeTruthy();
+  });
+
+  /** Everything the bench says in words, but the pieces' own labels and the mark. */
+  const said = () => {
+    const region = screen.getByRole("region", { name: "The bench" });
+    const copy = region.cloneNode(true) as HTMLElement;
+    copy.querySelectorAll("button, .bench-mark").forEach((n) => n.remove());
+    return copy.textContent ?? "";
+  };
+
+  it("never adds the picked pieces up for the child, whatever is picked (RC-k)", () => {
+    show();
+    const labels = ASSEMBLE.view.pieces!;
+    // Every selection of the four pieces, one toggle at a time (a Gray code walks them all).
+    for (let n = 1; n < 1 << labels.length; n++) {
+      const flip = Math.log2(n & -n);
+      fireEvent.click(piece(labels[flip]));
+      expect(said()).not.toMatch(/=|so far|total|\b(9|10|11|12|13|14|15|17|18|19|23)\b/i);
+    }
+  });
+
+  it("lists the picked pieces as a sum to work out, in the order offered, as they are picked", () => {
+    show();
+    const live = screen.getByText((_, el) => el?.getAttribute("aria-live") === "polite" && el.classList.contains("bench-picked"));
+    expect(live.textContent).toBe("");
+    fireEvent.click(piece("5 blocks"));
+    fireEvent.click(piece("4 blocks"));
+    expect(live.textContent).toBe("Your pieces: 4 + 5");
   });
 
   it("Fit it waits for a piece to be picked", () => {
@@ -54,12 +82,11 @@ describe("the bench: fitting pieces to a mark", () => {
     expect(fit()).toBeEnabled();
   });
 
-  it("picking pieces 2 then 0 sends them encoded, and keeps a running total", () => {
+  it("picking pieces 2 then 0 sends them encoded", () => {
     const { onRespond } = show();
     fireEvent.click(piece("5 blocks"));
     fireEvent.click(piece("4 blocks"));
     expect(piece("5 blocks").getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByText("So far: 9")).toBeTruthy();
     fireEvent.click(fit());
     expect(onRespond).toHaveBeenCalledWith(TASK_CODECS.measure.encode([0, 2]));
     expect(onRespond).toHaveBeenCalledWith("a:0,2");
@@ -70,7 +97,7 @@ describe("the bench: fitting pieces to a mark", () => {
     fireEvent.click(piece("6 blocks"));
     fireEvent.click(piece("6 blocks"));
     expect(piece("6 blocks").getAttribute("aria-pressed")).toBe("false");
-    expect(screen.getByText("So far: 0")).toBeTruthy();
+    expect(screen.queryByText(/Your pieces/)).toBeNull();
     expect(fit()).toBeDisabled();
   });
 
@@ -114,10 +141,16 @@ describe("the bench: cutting to a length", () => {
     expect(onRespond).toHaveBeenCalledWith("c:3/4");
   });
 
-  it("Enter in the box cuts too", () => {
+  it("submitting the box cuts too", () => {
     const { onRespond } = show({ task: CUT });
     fireEvent.change(length(), { target: { value: "3/4" } });
     fireEvent.submit(length());
+    expect(onRespond).toHaveBeenCalledWith("c:3/4");
+  });
+
+  it("Enter typed in the box cuts", async () => {
+    const { onRespond } = show({ task: CUT });
+    await userEvent.type(length(), "6/8{Enter}");
     expect(onRespond).toHaveBeenCalledWith("c:3/4");
   });
 
@@ -174,7 +207,7 @@ describe("the bench: cutting to a length", () => {
     cleanup();
     show({ flow: secondChance("a:0,1") });
     expect(piece("6 blocks").getAttribute("aria-pressed")).toBe("true");
-    expect(screen.getByText("So far: 10")).toBeTruthy();
+    expect(screen.getByText("Your pieces: 4 + 6")).toBeTruthy();
   });
 
   it("a fraction length gets a keyboard with a slash on a phone; a decimal one, the number pad", () => {
@@ -189,6 +222,16 @@ describe("the bench: cutting to a length", () => {
     show({ task: CUT });
     fireEvent.change(length(), { target: { value: "1" } });
     expect(screen.getByRole("img", { name: "A ruler in feet, to 2, the board cut at 1" })).toBeTruthy();
+  });
+
+  it("a quarter-foot ruler to 2 has 9 ticks, at quarters; a whole-number ruler to 100 about ten", () => {
+    show({ task: CUT });
+    const ticks = () => screen.getByRole("img", { name: /^A ruler/ }).querySelectorAll(".bench-ruler-tick");
+    expect(ticks()).toHaveLength(9);
+    cleanup();
+    show({ task: { ...CUT, view: { mode: "cut", unit: "feet", step: "1", maxLength: "100" } } });
+    expect(ticks().length).toBeGreaterThanOrEqual(9);
+    expect(ticks().length).toBeLessThanOrEqual(12);
   });
 
   it("a key typed into the length never reaches the game, and Esc does not close the run (Review Focus 5)", () => {
@@ -208,7 +251,9 @@ describe("the bench: cutting to a length", () => {
 });
 
 describe("the bench: the site going up beside it", () => {
-  const site = (placed: number): BenchSite => ({ stage: 1, complete: false, placed });
+  // Stage 1 lays the sills and posts: 8 pieces, paced here over a run with 4 bench tasks.
+  const site = (solved: number, benchTasks = 4): BenchSite => ({ stage: 1, complete: false, solved, benchTasks });
+  const stage = benchPieces(1, false);
   const drawing = () => screen.getByRole("img", { name: /^The site/ });
   const laid = () => drawing().querySelectorAll("[data-laid]").length;
 
@@ -217,26 +262,31 @@ describe("the bench: the site going up beside it", () => {
     expect(screen.queryByRole("img", { name: /^The site/ })).toBeNull();
   });
 
-  it("lays one piece per bench task solved, and names the latest", () => {
+  it("before any right answer, promises only what is true: right answers raise the site", () => {
     show({ site: site(0) });
     expect(laid()).toBe(0);
-    cleanup();
-    show({ site: site(2) });
+    expect(screen.getByText("Right answers raise the next part of the site.")).toBeTruthy();
+  });
+
+  it("paces the stage over the run's bench tasks, and names the latest piece in (RC-l)", () => {
+    show({ site: site(1) });
     expect(laid()).toBe(2);
-    const [, second] = benchPieces(1, false);
-    expect(drawing().getAttribute("aria-label")).toBe(`The site: 2 of ${benchPieces(1, false).length} pieces laid`);
-    expect(screen.getByText(`${second.label[0].toUpperCase()}${second.label.slice(1)} is in place.`)).toBeTruthy();
+    expect(drawing().getAttribute("aria-label")).toBe(`The site: 2 of ${stage.length} pieces laid`);
+    expect(screen.getByText(`${stage[1].label[0].toUpperCase()}${stage[1].label.slice(1)} is in place.`)).toBeTruthy();
+    cleanup();
+    // A perfect run lays the whole stage.
+    show({ site: site(4) });
+    expect(laid()).toBe(stage.length);
   });
 
   it("never lays more pieces than the stage has", () => {
-    const all = benchPieces(1, false).length;
-    show({ site: site(all + 3) });
-    expect(laid()).toBe(all);
+    show({ site: site(7) });
+    expect(laid()).toBe(stage.length);
   });
 
-  it("keeps the new piece still in calm play", () => {
+  it("drops in what the latest right answer laid, and keeps it still in calm play", () => {
     show({ site: site(1) });
-    expect(drawing().querySelectorAll(".bench-piece--drop")).toHaveLength(1);
+    expect(drawing().querySelectorAll(".bench-piece--drop")).toHaveLength(2);
     cleanup();
     show({ site: site(1), calm: true });
     expect(drawing().querySelectorAll(".bench-piece--drop")).toHaveLength(0);

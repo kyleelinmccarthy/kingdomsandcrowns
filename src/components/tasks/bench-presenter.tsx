@@ -2,10 +2,12 @@
 
 /**
  * The bench: the work surface for a measure task. Assemble is pieces tapped on and off (each a
- * toggle) until they reach the mark, then "Fit it"; cut is a length typed (or stepped with − and +)
- * against a ruler, then "Cut it". No dragging, so a mouse, a finger, a keyboard and a screen reader
- * all work it (ruling R-C2). Beside it, a side quest's run draws its building going up a piece per
- * task solved (`SiteElevation`).
+ * toggle) until they reach the mark, then "Fit it"; the picked pieces are listed as a sum to work
+ * out, never totalled (the sum is what the task asks, RC-k), and laid to scale against the mark.
+ * Cut is a length typed (or stepped with − and +) against a ruler ticked at the task's step, then
+ * "Cut it". No dragging, so a mouse, a finger, a keyboard and a screen reader all work it (ruling
+ * R-C2). Beside it, a side quest's run draws its building going up as bench tasks are solved
+ * (`SiteElevation`).
  *
  * The bench is shown labels, never values or the answer (`MeasureView`), and hands back the response
  * encoded by `TASK_CODECS.measure`. It ignores `numerals`: it cannot work without numbers (R-C10).
@@ -13,7 +15,7 @@
  */
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { TASK_CODECS, CUT_MAX_CHARS } from "@/lib/tasks/codecs";
-import { firstTryText, labelValue, stepLength, stepSizes, sumOfLabels } from "@/lib/tasks/measure-values";
+import { firstTryText, labelValue, piecesExpression, rulerTicks, stepLength, stepSizes } from "@/lib/tasks/measure-values";
 import { parseAnswer } from "@/lib/tasks/parse-answer";
 import type { MeasureView } from "@/lib/tasks/types";
 import type { FlowState } from "@/lib/utils/deed-run-flow";
@@ -70,7 +72,8 @@ function Assemble({ view, flow, disabled, onRespond }: Surface) {
 
   const toggle = (i: number) => setPicked((p) => (p.includes(i) ? p.filter((x) => x !== i) : [...p, i]));
   const encoded = TASK_CODECS.measure.encode(picked);
-  const soFar = sumOfLabels(picked.map((i) => pieces[i]));
+  // The pieces as a sum to work out, never its total: the sum is what the task asks (RC-k).
+  const expression = piecesExpression(pieces, picked);
   const canFit = picked.length > 0 && !resolved && !disabled && !ruledOut(flow, encoded);
 
   return (
@@ -91,8 +94,8 @@ function Assemble({ view, flow, disabled, onRespond }: Surface) {
         ))}
       </div>
       <MarkTrack pieces={pieces} picked={picked} target={view.target} />
-      <p className="bench-so-far" aria-live="polite">
-        {soFar !== null && `So far: ${soFar}`}
+      <p className="bench-picked" aria-live="polite">
+        {expression && `Your pieces: ${expression}`}
       </p>
       <button type="button" className="bench-go" disabled={!canFit} onClick={() => onRespond(encoded)}>
         Fit it
@@ -187,7 +190,7 @@ function Cut({ view, flow, disabled, onRespond }: Surface) {
         {stepper(-1)}
         {stepper(1)}
       </div>
-      <Ruler text={text} max={view.maxLength} unit={view.unit} />
+      <Ruler text={text} max={view.maxLength} step={view.step} unit={view.unit} />
       <button type="submit" className="bench-go" disabled={!canCut}>
         Cut it
       </button>
@@ -196,13 +199,13 @@ function Cut({ view, flow, disabled, onRespond }: Surface) {
 }
 
 /** A ruler to the task's length, with the board drawn to the length typed (stopped at the ruler's end). */
-function Ruler({ text, max, unit }: { text: string; max?: string; unit: string }) {
+function Ruler({ text, max, step, unit }: { text: string; max?: string; step?: string; unit: string }) {
   const end = max ? labelValue(max) : null;
   if (!end || end <= 0) return null;
   const typed = parseAnswer(text) ? labelValue(text) : null;
   const value = typed === null ? null : Math.max(0, Math.min(end, typed));
   const W = 200;
-  const ticks = rulerTicks(end);
+  const ticks = rulerTicks(end, step);
   const label = `A ruler${unit ? ` in ${unit}` : ""}, to ${max}${typed === null ? "" : `, the board cut at ${text.trim()}`}`;
   return (
     <svg className="bench-ruler" viewBox={`0 0 ${W + 8} 34`} role="img" aria-label={label}>
@@ -215,14 +218,4 @@ function Ruler({ text, max, unit }: { text: string; max?: string; unit: string }
       <text className="bench-ruler-num" x={W + 4} y={33} textAnchor="end">{max}</text>
     </svg>
   );
-}
-
-/** About ten evenly spaced ticks at a round interval (1, 2 or 5 times a power of ten), and the end. */
-function rulerTicks(end: number): number[] {
-  const rough = end / 10;
-  const pow = 10 ** Math.floor(Math.log10(rough));
-  const every = [1, 2, 5, 10].map((m) => m * pow).find((s) => s >= rough) ?? rough;
-  const ticks: number[] = [];
-  for (let t = 0; t < end - 1e-9; t += every) ticks.push(Number(t.toFixed(6)));
-  return [...ticks, end];
 }

@@ -14,17 +14,19 @@ export type RunStart = {
   pending: { index: number; ruledOut: string; hint: string } | null;
   /**
    * A side quest's building as the run begins, for the bench's drawing: its site stage
-   * (`siteStage`) and whether it is finished. Only a side quest's own run raises a building, so a
-   * review or a Crown Challenge has none.
+   * (`siteStage`), whether it is finished, and `placed`, how many of the run's bench tasks were
+   * already put right (first try or second), so a run picked back up draws what it had laid. Only a
+   * side quest's own run raises a building, so a review or a Crown Challenge has none.
    */
-  site?: { stage: number; complete: boolean };
+  site?: { stage: number; complete: boolean; placed: number };
 };
 /**
  * `answer` and `explain` are present only once the question is resolved, so the answer never
  * reaches the browser while a try is still open. `hint` comes with an open second chance, and
  * with a resolved miss that has no explanation. `answer` is the right answer in words
- * (`answerText`). `feedback` is the task kind's coded note on the response just given; it is
- * omitted when the code is "none" (multiple choice never sets it).
+ * (`answerText`). `feedback` is the task kind's coded note on the response just given; on a
+ * repeated first answer, the stored first answer's note, and only while its second chance is open.
+ * It is omitted when the code is "none" (multiple choice never sets it).
  */
 export type AttemptResult = {
   correct: boolean; secondChance: boolean; answer?: string; explain?: string; hint?: string;

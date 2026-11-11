@@ -437,16 +437,34 @@ describe("a side quest's run says where its building stands, for the bench's dra
      VALUES ('kp1', 'c1', 'well', ?1, NULL, unixepoch(), unixepoch())`, [done]);
 
   it("a fresh run and a resumed one carry the site's stage, from the building's deeds", async () => {
-    expect((await startDeedRun("c1", "well-stones", "realm")).site).toEqual({ stage: 0, complete: false });
+    expect((await startDeedRun("c1", "well-stones", "realm")).site).toEqual({ stage: 0, complete: false, placed: 0 });
     await client.query("DELETE FROM deed_run");
     await progress(2); // 2 of the well's 5: stage 2 (`siteStage`)
-    expect((await startDeedRun("c1", "well-stones", "realm")).site).toEqual({ stage: 2, complete: false });
-    expect((await startDeedRun("c1", "well-stones", "realm")).site).toEqual({ stage: 2, complete: false }); // resumed
+    expect((await startDeedRun("c1", "well-stones", "realm")).site).toEqual({ stage: 2, complete: false, placed: 0 });
+    expect((await startDeedRun("c1", "well-stones", "realm")).site).toEqual({ stage: 2, complete: false, placed: 0 }); // resumed
   });
 
   it("a finished building says so", async () => {
     await progress(5);
-    expect((await startDeedRun("c1", "well-stones", "realm")).site).toEqual({ stage: 4, complete: true });
+    expect((await startDeedRun("c1", "well-stones", "realm")).site).toEqual({ stage: 4, complete: true, placed: 0 });
+  });
+
+  it("a resumed run counts the bench tasks it already put right, first try or second, so its drawing picks up where it was (RC-l)", async () => {
+    const cut = (id: string): MeasureTask => ({ kind: "measure", id, skillId: SKILL, prompt: "Cut it.", mode: "cut", unit: "ft", answer: "3/4", step: "1/4", maxLength: "2", bridge: "3/4" });
+    const assemble: MeasureTask = {
+      kind: "measure", id: "m-asm", skillId: SKILL, prompt: "Fit it.", mode: "assemble", unit: "ft",
+      pieces: [{ label: "1/2 ft", value: "1/2" }, { label: "1/4 ft", value: "1/4" }, { label: "1/8 ft", value: "1/8" }],
+      target: { label: "3/4 ft", value: "3/4" }, solution: [0, 1], bridge: "1/2 + 1/4 = 3/4",
+    };
+    await seedRun({
+      questions: [cut("m1"), cut("m2"), assemble, QUESTIONS[0], cut("m3")] as unknown as Question[],
+      // right first; right on the second try; missed twice; a choice put right (lays nothing); not yet answered
+      responses: ["c:3/4", "c:1/2", "a:0", "6", null],
+      secondTries: JSON.stringify([null, "c:3/4", "a:2", null, null]),
+    });
+    const r = await startDeedRun("c1", "well-stones", "realm");
+    expect(r.runId).toBe("run1");
+    expect(r.site).toEqual({ stage: 0, complete: false, placed: 2 });
   });
 
   it("a Crown Challenge raises nothing, so it carries no site", async () => {
@@ -882,6 +900,11 @@ describe("a measure task in a run", () => {
     // A double tap, even of another length: it hears what was stored (too short), never a new grade.
     expect(await answerDeedQuestion("run1", 0, "c:1/2")).toMatchObject({ secondChance: true, feedback: "too_short", firstPick: "c:1/2" });
     expect(await answerDeedQuestion("run1", 0, "2")).toMatchObject({ secondChance: true, feedback: "too_short", firstPick: "c:1/2" });
+    // Once the question is resolved, a late repeat hears the resolution only: no note about a try long gone.
+    await retryDeedQuestion("run1", 0, "3/4");
+    const late = await answerDeedQuestion("run1", 0, "c:1/2");
+    expect(late).toMatchObject({ correct: true, secondChance: false });
+    expect("feedback" in late).toBe(false);
   });
 
   it("the bridge comes with a right retry, and never with a wrong one or a give-up", async () => {

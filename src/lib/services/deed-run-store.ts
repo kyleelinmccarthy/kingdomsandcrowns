@@ -4,7 +4,7 @@ import * as schema from "@/lib/db/schema";
 import { RUN_EFFECTS, kindsThatFeedReview } from "@/lib/utils/deed-scoring";
 import { records, resumeIndex, statusOf } from "@/lib/utils/deed-attempts";
 import { hintFor } from "@/lib/utils/skill-hints";
-import { isRegisteredKind, isTaskCorrect, toClientTask, type Task } from "@/lib/tasks/registry";
+import { isRegisteredKind, isTaskCorrect, kindOf, toClientTask, type Task } from "@/lib/tasks/registry";
 import type { RunStart } from "@/lib/utils/deed-run-types";
 
 /**
@@ -108,14 +108,21 @@ export async function findOpenRun(where: SQL | undefined): Promise<DeedRunRow | 
   return open.find(isReadableRun) ?? null;
 }
 
-/** What the browser is handed when it picks an open run back up, reopening a second chance in place. */
-export function resumedStart(run: DeedRunRow, header: RunStart["deed"]): RunStart {
+/**
+ * What the browser is handed when it picks an open run back up, reopening a second chance in place.
+ * A side quest's run brings its `site`, with the bench tasks it already put right (first try or
+ * second) counted in, so the bench draws what was laid before.
+ */
+export function resumedStart(run: DeedRunRow, header: RunStart["deed"], site?: { stage: number; complete: boolean }): RunStart {
   const { questions, responses, attempts, statuses } = parseRun(run);
   const at = resumeIndex(statuses);
   const pending = statuses[at] === "open"
     ? { index: at, ruledOut: attempts[at].first ?? "", hint: hintFor(questions[at].skillId) }
     : null;
-  return { runId: run.id, deed: header, questions: questions.map(toClientTask), responses, kind: run.kind, pending };
+  const start: RunStart = { runId: run.id, deed: header, questions: questions.map(toClientTask), responses, kind: run.kind, pending };
+  if (!site) return start;
+  const placed = questions.filter((q, i) => kindOf(q) === "measure" && (statuses[i] === "right-first" || statuses[i] === "right-second")).length;
+  return { ...start, site: { ...site, placed } };
 }
 
 /** Writes a fresh, unanswered run and hands the browser its first screen. */

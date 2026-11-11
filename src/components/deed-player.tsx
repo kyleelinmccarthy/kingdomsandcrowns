@@ -56,7 +56,7 @@ export function DeedPlayer({
   }, [profile.untimed]);
 
   const nextRef = useRef<HTMLButtonElement>(null);
-  const feedback = flow.result ? attemptFeedback(flow.result, flow.ruledOut.length > 0) : null;
+  const feedback = flow.result ? attemptFeedback(flow.result, flow.ruledOut.length > 0, undefined, question) : null;
 
   // The hint is read once, when the second chance opens.
   const hint = phase === "second-chance" ? flow.result?.hint : undefined;

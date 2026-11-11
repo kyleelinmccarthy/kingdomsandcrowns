@@ -376,11 +376,13 @@ describe("the deed board", () => {
 });
 
 describe("a bench task on the board", () => {
+  const bench = (id: string) => ({ kind: "measure" as const, id, skillId: "frac-addsub", prompt: "Cut a board three quarters of a foot long.", view: { mode: "cut" as const, unit: "feet", step: "1/4", maxLength: "2" } });
+  // Two bench tasks and a choice: stage 1's 8 pieces are paced over the two bench tasks, 4 each.
   const cut = {
     ...run,
-    questions: [{ kind: "measure" as const, id: "m1", skillId: "frac-addsub", prompt: "Cut a board three quarters of a foot long.", view: { mode: "cut" as const, unit: "feet", step: "1/4", maxLength: "2" } }],
-    responses: [null] as (string | null)[],
-    site: { stage: 1, complete: false },
+    questions: [bench("m1"), run.questions[1], bench("m2")],
+    responses: [null, null, null] as (string | null)[],
+    site: { stage: 1, complete: false, placed: 0 },
   };
   async function begin(onClose = vi.fn()) {
     vi.mocked(startDeedRun).mockResolvedValue(cut);
@@ -397,7 +399,7 @@ describe("a bench task on the board", () => {
     fireEvent.change(screen.getByLabelText("Length in feet"), { target: { value: "0.75" } });
     await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Cut it" })));
     expect(answerDeedQuestion).toHaveBeenCalledWith("run-1", 0, "c:3/4");
-    expect(screen.getByRole("img", { name: /^The site: 1 of/ })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "The site: 4 of 8 pieces laid" })).toBeInTheDocument();
     expect(screen.getByText("That's it! Old Bram is pleased. 1/2 + 1/4 = 3/4")).toBeInTheDocument();
   });
 
@@ -409,6 +411,21 @@ describe("a bench task on the board", () => {
     expect(screen.getByText("A little long. Trim it. Count the quarters.")).toBeInTheDocument();
     expect(screen.getByText("Your first try: 1")).toBeInTheDocument();
     expect(screen.getByRole("img", { name: /^The site: 0 of/ })).toBeInTheDocument();
+  });
+
+  it("a missed assemble task says its answer as the sentence it is", async () => {
+    const answer = "Pieces that add up to 9 blocks, like 1 + 8 = 9.";
+    vi.mocked(startDeedRun).mockResolvedValue({
+      ...cut,
+      questions: [{ kind: "measure" as const, id: "a1", skillId: "add-10", prompt: "Build a beam 9 blocks long.", view: { mode: "assemble" as const, unit: "blocks", pieces: ["1 block", "4 blocks", "8 blocks"], target: "9 blocks" } }],
+      responses: [null],
+    });
+    vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: false, secondChance: false, answer, hint: "Count on." });
+    board();
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" })));
+    fireEvent.click(screen.getByRole("button", { name: "4 blocks" }));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Fit it" })));
+    expect(screen.getByText(`${answer} Count on.`)).toBeInTheDocument();
   });
 
   it("keys typed into the length stay there: no number key answers, and Esc does not leave (Review Focus 5)", async () => {

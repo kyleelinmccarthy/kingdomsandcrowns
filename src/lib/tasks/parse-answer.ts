@@ -93,6 +93,18 @@ export function parseAnswer(text: string): Rational | null {
   return null;
 }
 
+/** a + b, exactly, in lowest terms. */
+export function addRational(a: Rational, b: Rational): Rational {
+  return make(a.n * b.d + b.n * a.d, a.d * b.d)!;
+}
+
+/** True when a < b. */
+export function lessRational(a: Rational, b: Rational): boolean {
+  // Signs normalised onto the numerators (`make`), so cross-multiplying keeps the order.
+  const [x, y] = [make(a.n, a.d), make(b.n, b.d)];
+  return x !== null && y !== null && x.n * y.d < y.n * x.d;
+}
+
 /** True when |a - b| <= tolerance (inclusive). Tolerance defaults to exact equality. */
 export function sameValue(a: Rational, b: Rational, tolerance?: Rational): boolean {
   const diff = abs(a.n * b.d - b.n * a.d);

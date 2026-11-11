@@ -16,8 +16,7 @@
  */
 
 import type { AttemptResult, RunSummary } from "@/lib/utils/deed-run-types";
-import type { FeedbackCode } from "@/lib/tasks/types";
-import { isAssembleReveal } from "@/lib/tasks/measure-copy";
+import type { ClientTask, FeedbackCode } from "@/lib/tasks/types";
 import { MAX_STARS } from "@/lib/utils/deed-scoring";
 import type { ObjectiveState } from "@/lib/realm/objective";
 import { riseToast } from "@/lib/realm/objective";
@@ -220,8 +219,10 @@ export const FEEDBACK_LINES: Record<Exclude<FeedbackCode, "none">, string> = {
  * answer then is "You got there!". A miss that has run out of tries reveals the answer, then
  * the server's explanation, or its hint when it has none. A bench task adds its own: which way a
  * wrong length is off on a second chance, and the worked notation (`bridge`) once it is right.
+ * `task` is the task answered: an assemble task's missed answer is already a sentence
+ * (`assembleReveal`), so it is said as it is.
  */
-export function attemptFeedback(result: AttemptResult, retried: boolean, villagerName?: string): { heading: "Try again" | null; text: string } {
+export function attemptFeedback(result: AttemptResult, retried: boolean, villagerName?: string, task?: ClientTask): { heading: "Try again" | null; text: string } {
   if (result.secondChance) {
     const lead = result.feedback && result.feedback !== "none" ? FEEDBACK_LINES[result.feedback] : "Not quite.";
     return { heading: "Try again", text: `${lead} ${result.hint ?? ""}`.trim() };
@@ -232,6 +233,7 @@ export function attemptFeedback(result: AttemptResult, retried: boolean, village
   }
   const why = result.explain ?? result.hint;
   // An assemble miss's answer is already a sentence; every other answer (a choice's sentence too) reads as today.
-  const reveal = !result.answer ? "Not quite." : isAssembleReveal(result.answer) ? result.answer : `The answer was ${result.answer}.`;
+  const sentence = task?.kind === "measure" && task.view.mode === "assemble";
+  const reveal = !result.answer ? "Not quite." : sentence ? result.answer : `The answer was ${result.answer}.`;
   return { heading: null, text: [reveal, why].filter(Boolean).join(" ") };
 }

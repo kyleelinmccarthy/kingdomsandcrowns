@@ -3,7 +3,7 @@
  *
  * The villager's board covers the world during a side quest, so the bench carries its own small
  * elevation of the site (ruling R-C1): what already stands at the run's stage (`benchBase`), and the
- * pieces this run lays, in order (`benchPieces`), one for each bench task solved. The world's site
+ * pieces this run lays, in order (`benchPieces`), paced over its bench tasks (`piecesLaid`). The world's site
  * rises a stage when the board closes, as it always has; these are the same stages
  * (`site-stages.ts`) seen from the front:
  *
@@ -106,7 +106,17 @@ export function benchBase(stage: number, complete: boolean): BenchPiece[] {
   return [PAD, ...GROUPS.slice(0, clampStage(stage)).flat()];
 }
 
-/** The pieces a run at `stage` lays, in order, one per bench task solved; at a finished building, the repair. */
+/** The pieces a run at `stage` lays, in order; at a finished building, the repair. */
 export function benchPieces(stage: number, complete: boolean): BenchPiece[] {
   return complete ? REPAIR : GROUPS[clampStage(stage)];
+}
+
+/**
+ * How many of a stage's pieces are in, after `solved` of the run's `benchTasks` bench tasks were put
+ * right (ruling RC-l): the stage is paced over the bench tasks, so a run with every one right lays
+ * the whole stage, however many pieces it has, and choice tasks in the run neither lay nor hold back.
+ */
+export function piecesLaid(solved: number, benchTasks: number, stagePieces: number): number {
+  if (!(benchTasks > 0)) return 0;
+  return Math.min(stagePieces, Math.max(0, Math.floor((solved * stagePieces) / benchTasks)));
 }

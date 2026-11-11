@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BENCH_ELEVATION, benchBase, benchPieces, type BenchPiece } from "./bench-pieces";
+import { BENCH_ELEVATION, benchBase, benchPieces, piecesLaid, type BenchPiece } from "./bench-pieces";
 import { SITE_STAGES } from "./site-stages";
 
 const STAGES = Array.from({ length: SITE_STAGES }, (_, s) => s);
@@ -73,6 +73,25 @@ describe("the bench's elevation of a site going up", () => {
     expect(benchPieces(-1, false)).toEqual(benchPieces(0, false));
     expect(benchPieces(9, false)).toEqual(benchPieces(SITE_STAGES - 1, false));
     expect(benchBase(9, false)).toEqual(benchBase(SITE_STAGES - 1, false));
+  });
+
+  it("paces the stage over the run's bench tasks, so a perfect run lays every piece (RC-l)", () => {
+    expect(piecesLaid(0, 4, 10)).toBe(0);
+    expect(piecesLaid(1, 4, 10)).toBe(2);
+    expect(piecesLaid(2, 4, 10)).toBe(5);
+    expect(piecesLaid(4, 4, 10)).toBe(10);
+    expect(piecesLaid(3, 12, 4)).toBe(1);
+    expect(piecesLaid(12, 12, 4)).toBe(4);
+    // Never more than the stage holds, and nothing for a run with no bench task.
+    expect(piecesLaid(9, 4, 10)).toBe(10);
+    expect(piecesLaid(1, 0, 10)).toBe(0);
+    for (const tasks of [1, 3, 5, 8, 12]) {
+      for (const stage of STAGES) {
+        const all = benchPieces(stage, false).length;
+        expect(piecesLaid(tasks, tasks, all)).toBe(all);
+        for (let s = 0; s < tasks; s++) expect(piecesLaid(s + 1, tasks, all)).toBeGreaterThanOrEqual(piecesLaid(s, tasks, all));
+      }
+    }
   });
 
   it("the first stage stands on a bare pad", () => {

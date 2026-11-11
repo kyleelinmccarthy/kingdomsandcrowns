@@ -259,7 +259,7 @@ export function DeedRun({
   const what = run.kind === "review" ? "review" : SIDE_QUEST_LOWER;
   const finishLabel = run.kind === "review" ? REVIEW_FINISH : `Finish ${SIDE_QUEST_LOWER}`;
   const nextRef = useRef<HTMLButtonElement>(null);
-  const feedback = flow.result ? attemptFeedback(flow.result, flow.ruledOut.length > 0, villagerName) : null;
+  const feedback = flow.result ? attemptFeedback(flow.result, flow.ruledOut.length > 0, villagerName, question) : null;
 
   // Read-aloud, as `DeedPlayer` does it: the profile asks, the effect obeys, and leaving stops it —
   // but only this run's own line. The click that closes the board also says the building is

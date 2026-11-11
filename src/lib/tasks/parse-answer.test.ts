@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatRational, parseAnswer, sameValue, type Rational } from "./parse-answer";
+import { addRational, formatRational, lessRational, parseAnswer, sameValue, type Rational } from "./parse-answer";
 
 // tsconfig targets ES2017, so bigint literals (1n) are unavailable; build with BigInt().
 const r = (n: number, d: number): Rational => ({ n: BigInt(n), d: BigInt(d) });
@@ -135,5 +135,18 @@ describe("formatRational", () => {
     expect(formatRational(r(29999, 3), "decimal")).toBe("9999.6667");
     expect(formatRational(r(99999, 30000), "decimal")).toBe("3.3333");
     expect(formatRational(r(299999, 300000), "decimal")).toBe("1");
+  });
+});
+
+describe("adding and comparing lengths", () => {
+  it("adds exactly, in lowest terms", () => {
+    expect(addRational(r(1, 2), r(1, 4))).toEqual(r(3, 4));
+    expect(addRational(r(1, 3), r(-1, 3))).toEqual(r(0, 1));
+    expect(addRational(r(5, 1), r(1, 2))).toEqual(r(11, 2));
+  });
+  it("compares, whatever the denominators", () => {
+    expect(lessRational(r(1, 2), r(3, 4))).toBe(true);
+    expect(lessRational(r(3, 4), r(6, 8))).toBe(false);
+    expect(lessRational(r(-1, 2), r(0, 1))).toBe(true);
   });
 });

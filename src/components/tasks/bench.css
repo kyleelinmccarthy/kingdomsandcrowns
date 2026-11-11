@@ -69,7 +69,7 @@
 .bench--board .bench-go { border-color: #6b4410; background: linear-gradient(180deg, #ffd875, #e09b24); color: #3a2008; box-shadow: 0 5px 0 #7a4f14, inset 0 2px 0 rgba(255, 255, 255, 0.5); }
 .bench--page .bench-go { border-width: 1px; background: var(--primary); color: var(--primary-foreground); }
 
-/* ---- assemble: the mark and the running total ------------------------------------------ */
+/* ---- assemble: the mark and the pieces picked (never their total) ------------------------ */
 
 .bench-mark { margin-top: 0.7rem; }
 .bench-mark-label { font-size: 1rem; font-weight: 700; color: var(--bench-soft); }
@@ -78,7 +78,7 @@
 .bench-track-piece { height: 100%; background: #d9a55a; border-right: 2px solid #5a3510; }
 .bench-track-piece:first-child { border-radius: 6px 0 0 6px; }
 .bench-track-mark { position: absolute; top: -0.35rem; bottom: -0.35rem; width: 4px; margin-left: -2px; border-radius: 2px; background: var(--bench-gold); }
-.bench-so-far { min-height: 1.4em; margin: 0.4rem 0 0; font-size: 1.05rem; font-weight: 800; color: var(--bench-ink); }
+.bench-picked { min-height: 1.4em; margin: 0.4rem 0 0; font-size: 1.05rem; font-weight: 800; color: var(--bench-ink); }
 
 /* ---- cut: the length, the stepper and the ruler ---------------------------------------- */
 

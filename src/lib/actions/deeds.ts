@@ -98,8 +98,7 @@ export async function startDeedRun(
     loadFocusSkillIds(childId, hero.grades),
     building ? loadSiteState(childId, building) : Promise.resolve(null),
   ]);
-  const withSite = (start: RunStart): RunStart => (site ? { ...start, site } : start);
-  if (open) return withSite(resumedStart(open, { id: deed.id, title: deed.title, story, area: deed.area }));
+  if (open) return resumedStart(open, { id: deed.id, title: deed.title, story, area: deed.area }, site ?? undefined);
 
   // The deed's OWN strand decides the grade — never a fixed one, and never another
   // strand's. `gradeForDeed` is where that is pinned by test. A focus skill in the deed's strand
@@ -150,12 +149,14 @@ export async function startDeedRun(
 
   const masteryStart: Record<string, number> = {};
   for (const id of built.skillIds) masteryStart[id] = masteryBySkill[id] ?? 0;
-  return withSite(await insertRun({
+  const start = await insertRun({
     id: nanoid(), childId, deedId, skillIds: JSON.stringify(built.skillIds), band: bandForGrade(grade),
     masteryStart: JSON.stringify(masteryStart),
     // Snapshotted, so a grown-up changing the setting mid-run never changes this run's rules.
     kind, secondChances: RUN_EFFECTS[kind].allowsSecondChances && settings.secondChances,
-  }, built.questions, { id: deed.id, title: deed.title, story, area: deed.area }));
+  }, built.questions, { id: deed.id, title: deed.title, story, area: deed.area });
+  // A fresh run has laid nothing yet.
+  return site ? { ...start, site: { ...site, placed: 0 } } : start;
 }
 
 /** A stored run, once the caller may act for its hero, and who the caller is. */
@@ -251,15 +252,13 @@ export async function answerDeedQuestion(runId: string, index: number, response:
     if (parsed === null) throw new Error(PICK_SHOWN);
     const answer = def.encode(parsed);
     // A repeat answer to the same question (double tap, or the loser of a race) is not re-graded:
-    // it hears what was stored, and while a second chance is open that is still only a hint, and
-    // the stored answer's note (which way a length is off).
+    // it hears what was stored. While a second chance is open that is still only a hint, and the
+    // stored answer's note (which way a length is off); once resolved, the resolution alone.
     if (attempt.first !== null) {
       const status = statusOf(question, attempt, allows);
-      const storedFirst = def.decode(attempt.first);
-      return {
-        ...resultFor(question, status, attempt.first, status === "right-first" ? attempt.first : (attempt.second ?? undefined)),
-        ...(storedFirst !== null ? feedbackOf(question, storedFirst) : {}),
-      };
+      const result = resultFor(question, status, attempt.first, status === "right-first" ? attempt.first : (attempt.second ?? undefined));
+      const storedFirst = status === "open" ? def.decode(attempt.first) : null;
+      return storedFirst !== null ? { ...result, ...feedbackOf(question, storedFirst) } : result;
     }
     const next = questions.map((_, i) => responses[i] ?? null);
     next[index] = answer;

@@ -10,11 +10,10 @@ import { benchFor } from "./bench";
 import { MAX_RESPONSE_CHARS } from "./choice";
 import { CUT_MAX_CHARS, TASK_CODECS, cutBody, readPicks } from "./codecs";
 import { assembleReveal, bareLabel } from "./measure-copy";
-import { parseAnswer, sameValue, type Rational } from "./parse-answer";
+import { addRational, lessRational, parseAnswer, sameValue, type Rational } from "./parse-answer";
 import type { MeasureResponse, MeasureTask, MeasureView, TaskKindDef } from "./types";
 
 const ZERO: Rational = { n: BigInt(0), d: BigInt(1) };
-const add = (a: Rational, b: Rational): Rational => ({ n: a.n * b.d + b.n * a.d, d: a.d * b.d });
 
 /** A stored value as a rational; null for anything but a well-formed length string. */
 const valueOf = (v: unknown): Rational | null => (typeof v === "string" ? parseAnswer(v) : null);
@@ -36,7 +35,7 @@ function measured(t: MeasureTask, r: MeasureResponse): Rational | null {
     for (const i of r) {
       const v = valueOf(t.pieces[i]?.value);
       if (!v) return null;
-      sum = add(sum, v);
+      sum = addRational(sum, v);
     }
     return sum;
   }
@@ -109,8 +108,7 @@ export const measureKind: TaskKindDef<"measure"> = {
     const v = measured(t, r);
     const mark = markOf(t);
     if (v === null || mark === null || isCorrect(t, r)) return "none";
-    // Denominators are positive (parseAnswer normalises the sign onto the numerator).
-    return v.n * mark.d > mark.n * v.d ? "too_long" : "too_short";
+    return lessRational(mark, v) ? "too_long" : "too_short";
   },
   presents: (skillId) => benchFor(skillId) !== undefined,
   bridge: bridgeOf,
