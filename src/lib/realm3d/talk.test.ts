@@ -213,3 +213,28 @@ describe("what a villager says after an answer", () => {
     expect(attemptFeedback({ correct: false, secondChance: false, answer: "5" }, false).text).toBe("The answer was 5.");
   });
 });
+
+describe("what a villager says after a bench answer", () => {
+  it("says which way a wrong length is off on a second chance, before the hint", () => {
+    expect(attemptFeedback({ correct: false, secondChance: true, hint: "Count on.", feedback: "too_long" }, false))
+      .toEqual({ heading: "Try again", text: "A little long. Trim it. Count on." });
+    expect(attemptFeedback({ correct: false, secondChance: true, hint: "Count on.", feedback: "too_short" }, false).text)
+      .toBe("A little short. Add to it. Count on.");
+  });
+  it("shows the worked notation after a right answer, first try or retry", () => {
+    expect(attemptFeedback({ correct: true, secondChance: false, answer: "x", bridge: "4 + 5 = 9" }, false).text).toBe("That's it! 4 + 5 = 9");
+    expect(attemptFeedback({ correct: true, secondChance: false, answer: "x", bridge: "4 + 5 = 9" }, false, "Old Bram").text).toBe("That's it! Old Bram is pleased. 4 + 5 = 9");
+    expect(attemptFeedback({ correct: true, secondChance: false, answer: "x", bridge: "1/2 + 1/4 = 3/4" }, true).text).toBe("You got there! 1/2 + 1/4 = 3/4");
+  });
+  it("an assemble miss's answer is already a sentence, so it is said as it is", () => {
+    const answer = "Pieces that add up to 9 blocks, like 1 + 8 = 9.";
+    expect(attemptFeedback({ correct: false, secondChance: false, answer, feedback: "too_long" }, true).text).toBe(answer);
+    expect(attemptFeedback({ correct: false, secondChance: false, answer, hint: "Count on." }, true).text).toBe(`${answer} Count on.`);
+  });
+  it("a choice answer that is a sentence still reads exactly as it always has", () => {
+    expect(attemptFeedback({ correct: false, secondChance: false, answer: "The cat sat down." }, true).text).toBe("The answer was The cat sat down..");
+  });
+  it("a cut miss names its answer the usual way", () => {
+    expect(attemptFeedback({ correct: false, secondChance: false, answer: "1/2 + 1/4 = 3/4", feedback: "too_short" }, true).text).toBe("The answer was 1/2 + 1/4 = 3/4.");
+  });
+});

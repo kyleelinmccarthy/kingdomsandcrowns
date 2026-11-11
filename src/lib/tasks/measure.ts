@@ -9,6 +9,7 @@
 import { benchFor } from "./bench";
 import { MAX_RESPONSE_CHARS } from "./choice";
 import { CUT_MAX_CHARS, TASK_CODECS, cutBody, readPicks } from "./codecs";
+import { assembleReveal, bareLabel } from "./measure-copy";
 import { parseAnswer, sameValue, type Rational } from "./parse-answer";
 import type { MeasureResponse, MeasureTask, MeasureView, TaskKindDef } from "./types";
 
@@ -60,9 +61,6 @@ function isCorrect(t: MeasureTask, r: MeasureResponse): boolean {
   return v !== null && mark !== null && sameValue(v, mark, toleranceOf(t));
 }
 
-/** A label without its unit: "4 blocks" is "4", "1/2 ft" is "1/2". The notation reads as sums, not as words. */
-const bare = (label: string) => label.replace(/\s+[A-Za-z][A-Za-z.\s]*$/, "");
-
 /**
  * The sum the child actually built, in the order the pieces were offered ("4 + 5 = 9"), since any
  * subset that hits the mark is right, not only the stored `solution`. A cut keeps the task's own.
@@ -71,7 +69,7 @@ function bridgeOf(t: MeasureTask, r: MeasureResponse): string {
   if (t.mode !== "assemble" || !t.target || !Array.isArray(t.pieces) || !Array.isArray(r)) return t.bridge;
   const picks = validPicks(r, t);
   if (!picks) return t.bridge;
-  return `${picks.map((i) => bare(t.pieces![i].label)).join(" + ")} = ${bare(t.target.label)}`;
+  return `${picks.map((i) => bareLabel(t.pieces![i].label)).join(" + ")} = ${bareLabel(t.target.label)}`;
 }
 
 export const measureKind: TaskKindDef<"measure"> = {
@@ -106,7 +104,7 @@ export const measureKind: TaskKindDef<"measure"> = {
   allowsSecondChance: () => true,
   sameResponse: TASK_CODECS.measure.sameResponse,
   // An assemble miss names the mark and one way to make it (the stored sum); a cut shows its worked line.
-  answerText: (t) => (t.mode === "assemble" && t.target ? `Pieces that add up to ${t.target.label}, like ${t.bridge}.` : t.bridge),
+  answerText: (t) => (t.mode === "assemble" && t.target ? assembleReveal(t.target.label, t.bridge) : t.bridge),
   feedback: (t, r) => {
     const v = measured(t, r);
     const mark = markOf(t);
