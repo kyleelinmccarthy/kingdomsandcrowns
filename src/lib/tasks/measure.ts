@@ -60,6 +60,20 @@ function isCorrect(t: MeasureTask, r: MeasureResponse): boolean {
   return v !== null && mark !== null && sameValue(v, mark, toleranceOf(t));
 }
 
+/** A label without its unit: "4 blocks" is "4", "1/2 ft" is "1/2". The notation reads as sums, not as words. */
+const bare = (label: string) => label.replace(/\s+[A-Za-z][A-Za-z.\s]*$/, "");
+
+/**
+ * The sum the child actually built, in the order the pieces were offered ("4 + 5 = 9"), since any
+ * subset that hits the mark is right, not only the stored `solution`. A cut keeps the task's own.
+ */
+function bridgeOf(t: MeasureTask, r: MeasureResponse): string {
+  if (t.mode !== "assemble" || !t.target || !Array.isArray(t.pieces) || !Array.isArray(r)) return t.bridge;
+  const picks = validPicks(r, t);
+  if (!picks) return t.bridge;
+  return `${picks.map((i) => bare(t.pieces![i].label)).join(" + ")} = ${bare(t.target.label)}`;
+}
+
 export const measureKind: TaskKindDef<"measure"> = {
   // Built field by field, so a value, the answer, the solution or the bridge can never ride along.
   toView: (t) => {
@@ -91,7 +105,8 @@ export const measureKind: TaskKindDef<"measure"> = {
   isCorrect,
   allowsSecondChance: () => true,
   sameResponse: TASK_CODECS.measure.sameResponse,
-  answerText: (t) => t.bridge,
+  // An assemble miss names the mark and one way to make it (the stored sum); a cut shows its worked line.
+  answerText: (t) => (t.mode === "assemble" && t.target ? `Pieces that add up to ${t.target.label}, like ${t.bridge}.` : t.bridge),
   feedback: (t, r) => {
     const v = measured(t, r);
     const mark = markOf(t);
@@ -100,5 +115,5 @@ export const measureKind: TaskKindDef<"measure"> = {
     return v.n * mark.d > mark.n * v.d ? "too_long" : "too_short";
   },
   presents: (skillId) => benchFor(skillId) !== undefined,
-  bridge: (t) => t.bridge,
+  bridge: bridgeOf,
 };

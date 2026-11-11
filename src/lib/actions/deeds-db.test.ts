@@ -815,6 +815,31 @@ describe("a measure task in a run", () => {
     expect(JSON.parse((await stored()).responses)[1]).toBe("a:0,2");
   });
 
+  it("a child who hits the mark with another subset than the stored one gets their own pieces in the bridge (RC-g)", async () => {
+    const BEAM: MeasureTask = {
+      kind: "measure", id: "m-beam", skillId: SKILL, prompt: "The well-digger needs a beam 9 blocks long. Pick the pieces that make it.",
+      mode: "assemble", unit: "blocks",
+      pieces: [{ label: "6 blocks", value: "6" }, { label: "3 blocks", value: "3" }, { label: "12 blocks", value: "12" }, { label: "8 blocks", value: "8" }, { label: "1 block", value: "1" }],
+      target: { label: "9 blocks", value: "9" }, solution: [3, 4], bridge: "1 + 8 = 9",
+    };
+    await seedRun({ questions: [BEAM, BEAM] as unknown as Question[] });
+    // 6 + 3, not the stored 8 + 1.
+    expect(await answerDeedQuestion("run1", 0, [1, 0])).toMatchObject({ correct: true, bridge: "6 + 3 = 9", answer: "Pieces that add up to 9 blocks, like 1 + 8 = 9." });
+    // A repeat of the same answer hears the same bridge.
+    expect(await answerDeedQuestion("run1", 0, [1, 0])).toMatchObject({ correct: true, bridge: "6 + 3 = 9" });
+    // Right on the second try: the bridge is built from the retry.
+    await answerDeedQuestion("run1", 1, [0]);
+    expect(await retryDeedQuestion("run1", 1, [4, 3])).toMatchObject({ correct: true, bridge: "8 + 1 = 9" });
+  });
+
+  it("an assemble miss reads the pinned reveal and carries no bridge", async () => {
+    await seedMeasure();
+    await answerDeedQuestion("run1", 1, [0, 1, 2]);
+    const r = await retryDeedQuestion("run1", 1, [3]);
+    expect(r).toMatchObject({ correct: false, secondChance: false, answer: "Pieces that add up to 3/4 ft, like 1/2 + 1/4 = 3/4." });
+    expect("bridge" in r).toBe(false);
+  });
+
   it("a wrong length opens a second chance with which way it is off, and nothing of the answer", async () => {
     await seedMeasure();
     const r = await answerDeedQuestion("run1", 0, "c:1/2");
@@ -832,7 +857,7 @@ describe("a measure task in a run", () => {
 
     await answerDeedQuestion("run1", 1, "a:1,2");
     const wrong = await retryDeedQuestion("run1", 1, [0, 1, 2]);
-    expect(wrong).toMatchObject({ correct: false, secondChance: false, feedback: "too_long", answer: ASSEMBLE.bridge });
+    expect(wrong).toMatchObject({ correct: false, secondChance: false, feedback: "too_long", answer: "Pieces that add up to 3/4 ft, like 1/2 + 1/4 = 3/4." });
     expect("bridge" in wrong).toBe(false);
   });
 

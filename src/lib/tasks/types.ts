@@ -79,6 +79,6 @@ export interface TaskKindDef<K extends TaskKind> {
   feedback(t: TaskByKind[K], r: ResponseByKind[K]): FeedbackCode;
   /** Whether this kind can present the given skill. */
   presents(skillId: string): boolean;
-  /** The worked notation behind a task, sent only once it is solved right. A kind without one leaves it out. */
-  bridge?(t: TaskByKind[K]): string;
+  /** The worked notation behind a task, sent only once it is solved right, built from the response that solved it. A kind without one leaves it out. */
+  bridge?(t: TaskByKind[K], r: ResponseByKind[K]): string;
 }

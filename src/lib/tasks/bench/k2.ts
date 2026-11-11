@@ -1,9 +1,9 @@
 /**
  * The K-2 bench (R-C3): `add-*` is assembled, `sub-*` is cut.
  *
- * - assemble: the mark is a sum; the villager offers 4-5 whole-number pieces, no two alike, every
- *   one shorter than the mark, of which two (the stored addends) make it. Any subset that sums to
- *   the mark counts when graded.
+ * - assemble: the mark is a sum; the villager offers 4-5 whole-number pieces, no two alike and none
+ *   the mark's own length, of which two (the stored addends) make it; the others run shorter or
+ *   (decoys) longer. Any subset that sums to the mark counts when graded.
  * - cut: a beam of `a` has `b` cut off; the piece left is `a - b`.
  *
  * Sizes ride the same ceilings the choice generators use (`ADD_MAX`, `SUB_MAX`), so a level means
@@ -40,18 +40,23 @@ const minus = "−";
 /** "7 blocks", "1 block": the label a piece, mark or sentence uses. */
 const lengthText = (n: number, s: Setting, say: (n: number) => string = String) => `${say(n)} ${n === 1 ? s.one : s.unit}`;
 
-/** The shortest mark that can offer four distinct pieces all shorter than it. */
-const MIN_MARK = 5;
+/** The shortest mark with two different addends (1 + 2): equal ones would be two pieces of one value. */
+const MIN_MARK = 3;
+/** How far past the sum ceiling a too-long decoy may run. */
+const DECOY_REACH = 2;
 
 const assemble: BenchGenerator = (level, rng, skillId) => {
   const s = SETTINGS[skillId];
-  const mark = randInt(rng, MIN_MARK, ADD_MAX[skillId][level4(level)]);
-  // Two different addends: equal ones would be two pieces of one value.
+  const ceiling = ADD_MAX[skillId][level4(level)];
+  // Level 0 takes the small marks; above it the mark climbs with the ceiling.
+  const mark = randInt(rng, level4(level) === 0 ? MIN_MARK : Math.max(MIN_MARK, Math.ceil(ceiling / 2)), ceiling);
   const a = randInt(rng, 1, Math.floor((mark - 1) / 2));
   const b = mark - a;
-  const others = Array.from({ length: mark - 1 }, (_, i) => i + 1).filter((v) => v !== a && v !== b);
-  const total = Math.min(randInt(rng, 4, 5), others.length + 2);
-  const values = shuffle([a, b, ...shuffle(others, rng).slice(0, total - 2)], rng);
+  // Decoys run shorter or LONGER than the mark (a too-long piece can never be in a subset), never
+  // equal to it, so the mark is always built from two pieces. They also vary the task in content, not
+  // only in the order they are laid out.
+  const decoys = Array.from({ length: ceiling + DECOY_REACH }, (_, i) => i + 1).filter((v) => v !== a && v !== b && v !== mark);
+  const values = shuffle([a, b, ...shuffle(decoys, rng).slice(0, randInt(rng, 2, 3))], rng);
   const pieces: MeasurePiece[] = values.map((v) => ({ label: lengthText(v, s), value: String(v) }));
   const solution = [values.indexOf(a), values.indexOf(b)].sort((x, y) => x - y);
 

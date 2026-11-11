@@ -177,14 +177,16 @@ async function loadAttemptState(runId: string, index: number) {
  * What the browser may know about a question in this state: the answer only once it is resolved.
  * An open second chance echoes the stored first pick, so a late repeat rules out what was stored.
  */
-function resultFor(question: Task, status: QuestionStatus, firstPick?: string): AttemptResult {
+function resultFor(question: Task, status: QuestionStatus, firstPick?: string, rightPick?: string): AttemptResult {
   if (status === "unanswered") throw new Error(ANSWER_FIRST);
   if (status === "open") return { correct: false, secondChance: true, hint: hintFor(question.skillId), firstPick };
   const correct = status === "right-first" || status === "right-second";
   const def = taskDefOf(question);
   const result: AttemptResult = { correct, secondChance: false, answer: def.answerText(question) };
-  // The notation behind a hands-on task is the reward for solving it: sent on a right answer only (R-C8).
-  if (correct && def.bridge) result.bridge = def.bridge(question);
+  // The notation behind a hands-on task is the reward for solving it: sent on a right answer only (R-C8),
+  // and built from what the child did (`rightPick`, the stored response that solved it).
+  const solved = correct && rightPick !== undefined ? def.decode(rightPick) : null;
+  if (solved !== null && def.bridge) result.bridge = def.bridge(question, solved);
   if (question.explain) result.explain = question.explain;
   else if (!correct) result.hint = hintFor(question.skillId);
   return result;
@@ -246,7 +248,10 @@ export async function answerDeedQuestion(runId: string, index: number, response:
     const answer = def.encode(parsed);
     // A repeat answer to the same question (double tap, or the loser of a race) is not re-graded:
     // it hears what was stored, and while a second chance is open that is still only a hint.
-    if (attempt.first !== null) return resultFor(question, statusOf(question, attempt, allows), attempt.first);
+    if (attempt.first !== null) {
+      const status = statusOf(question, attempt, allows);
+      return resultFor(question, status, attempt.first, status === "right-first" ? attempt.first : (attempt.second ?? undefined));
+    }
     const next = questions.map((_, i) => responses[i] ?? null);
     next[index] = answer;
     const correctCount = questions.filter((q, i) => next[i] !== null && isTaskCorrect(q, next[i]!)).length;
@@ -261,7 +266,7 @@ export async function answerDeedQuestion(runId: string, index: number, response:
     if (written.length === 0) continue;
     const correct = isTaskCorrect(question, answer);
     const moved = RUN_EFFECTS[run.kind].movesMastery ? await recordFirstTry(run.childId, question.skillId, correct, now) : {};
-    return { ...resultFor(question, statusOf(question, { first: answer, second: null }, allows), answer), ...moved, ...feedbackOf(question, parsed) };
+    return { ...resultFor(question, statusOf(question, { first: answer, second: null }, allows), answer, answer), ...moved, ...feedbackOf(question, parsed) };
   }
   throw new Error(NOT_THROUGH);
 }
@@ -291,7 +296,7 @@ export async function retryDeedQuestion(runId: string, index: number, response: 
   if (parsed === null) throw new Error(PICK_SHOWN);
   const answer = def.encode(parsed);
   await writeSecondTry(run, secondTries, questions.length, index, answer);
-  return { ...resultFor(question, statusOf(question, { ...attempt, second: answer }, allows)), ...feedbackOf(question, parsed) };
+  return { ...resultFor(question, statusOf(question, { ...attempt, second: answer }, allows), undefined, answer), ...feedbackOf(question, parsed) };
 }
 
 /** "Show me": closes an open second chance as a miss. Safe to answer, because the try is spent. */

@@ -29,6 +29,29 @@ describe("K-2 bench (R-C3)", () => {
     }
   });
 
+  it("add-* pieces are whole, positive, never the mark's own length, and no two alike", () => {
+    for (const s of ["add-10", "add-20", "add-100"]) {
+      for (const level of [0, 1, 2, 3, 4]) {
+        for (const seed of seeds) {
+          const t = make(s, level, seed);
+          const vals = t.pieces!.map((p) => Number(p.value));
+          expect(vals.every((v) => Number.isInteger(v) && v >= 1)).toBe(true);
+          expect(vals).not.toContain(Number(t.target!.value));
+          expect(new Set(vals).size).toBe(vals.length);
+        }
+      }
+    }
+  });
+
+  it("level 0 add-10 is not one task shuffled: marks 3-5, with decoys longer than the mark (RC-f)", () => {
+    const tasks = seeds.map((seed) => make("add-10", 0, seed));
+    expect([...new Set(tasks.map((t) => t.target!.value))].sort()).toEqual(["3", "4", "5"]);
+    const sets = new Set(tasks.map((t) => `${t.target!.value}|${t.pieces!.map((p) => p.value).sort().join(",")}`));
+    expect(sets.size).toBeGreaterThanOrEqual(10);
+    expect(tasks.some((t) => t.pieces!.some((p) => Number(p.value) > Number(t.target!.value)))).toBe(true);
+    for (const t of tasks) expect(t.pieces!.length).toBeGreaterThanOrEqual(4);
+  });
+
   it("sub-* cuts: a - b is the answer, the ruler is the beam, the stepper counts by one", () => {
     for (const s of ["sub-10", "sub-20", "sub-100"]) {
       for (const seed of seeds) {
@@ -54,32 +77,32 @@ describe("K-2 bench (R-C3)", () => {
       {
         "bridge": "1 + 8 = 9",
         "explain": "1 block and 8 blocks make 9 blocks: 1 + 8 = 9.",
-        "id": "add-10:asm:9=4,1,7,8",
+        "id": "add-10:asm:9=8,3,12,1",
         "kind": "measure",
         "mode": "assemble",
         "pieces": [
           {
-            "label": "4 blocks",
-            "value": "4",
+            "label": "8 blocks",
+            "value": "8",
+          },
+          {
+            "label": "3 blocks",
+            "value": "3",
+          },
+          {
+            "label": "12 blocks",
+            "value": "12",
           },
           {
             "label": "1 block",
             "value": "1",
-          },
-          {
-            "label": "7 blocks",
-            "value": "7",
-          },
-          {
-            "label": "8 blocks",
-            "value": "8",
           },
         ],
         "prompt": "The well-digger needs a beam 9 blocks long. Pick the pieces that make it.",
         "readAloud": "The well-digger needs a beam nine blocks long. Pick the pieces that make it.",
         "skillId": "add-10",
         "solution": [
-          1,
+          0,
           3,
         ],
         "target": {

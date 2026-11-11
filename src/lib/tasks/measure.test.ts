@@ -163,9 +163,39 @@ describe("measure: the codec", () => {
 describe("measure: the rest of the definition", () => {
   it("allows a second chance, names its answer by the bridge, and holds the bridge for a right answer", () => {
     expect(measureKind.allowsSecondChance(cut)).toBe(true);
-    expect(measureKind.answerText(assemble)).toBe(assemble.bridge);
-    expect(measureKind.bridge?.(cut)).toBe(cut.bridge);
+    expect(measureKind.answerText(cut)).toBe(cut.bridge);
+    expect(measureKind.bridge?.(cut, "3/4")).toBe(cut.bridge);
     expect(taskDefOf(cut)).toBe(measureKind);
+  });
+});
+
+describe("measure: the miss reveal and the bridge are the child's own (RC-g)", () => {
+  const beam: MeasureTask = {
+    kind: "measure", id: "b:asm", skillId: "add-10", prompt: "The well-digger needs a beam 9 blocks long. Pick the pieces that make it.",
+    mode: "assemble", unit: "blocks",
+    pieces: [{ label: "6 blocks", value: "6" }, { label: "3 blocks", value: "3" }, { label: "12 blocks", value: "12" }, { label: "8 blocks", value: "8" }, { label: "1 block", value: "1" }],
+    target: { label: "9 blocks", value: "9" }, solution: [3, 4], bridge: "1 + 8 = 9",
+  };
+
+  it("an assemble miss reads 'Pieces that add up to {target}, like {the stored sum}.'", () => {
+    expect(measureKind.answerText(beam)).toBe("Pieces that add up to 9 blocks, like 1 + 8 = 9.");
+    expect(measureKind.answerText(assemble)).toBe("Pieces that add up to 3/4 ft, like 1/2 + 1/4 = 3/4.");
+  });
+
+  it("a different subset than the stored solution gets its own pieces, in the order offered", () => {
+    expect(measureKind.isCorrect(beam, [0, 1])).toBe(true);
+    expect(measureKind.bridge?.(beam, [1, 0])).toBe("6 + 3 = 9");
+    expect(measureKind.bridge?.(beam, [3, 4])).toBe("8 + 1 = 9");
+    expect(measureKind.bridge?.(beam, [0, 1, 3, 4]).split(" = ")[1]).toBe("9");
+  });
+
+  it("the units come off the labels, fractions and all", () => {
+    expect(measureKind.bridge?.(assemble, [2, 0])).toBe("1/2 + 1/4 = 3/4");
+  });
+
+  it("falls back to the task's own line for a response it cannot read", () => {
+    expect(measureKind.bridge?.(beam, [9])).toBe(beam.bridge);
+    expect(measureKind.bridge?.(beam, "a:0")).toBe(beam.bridge);
   });
 });
 

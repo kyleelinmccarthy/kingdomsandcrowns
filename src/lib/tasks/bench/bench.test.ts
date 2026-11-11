@@ -50,6 +50,13 @@ describe("bench catalog", () => {
         expect(new Set(tasks.map((t) => t.id)).size).toBeGreaterThanOrEqual(level === 0 ? 5 : 8);
       });
 
+      it("varies in content, not just order: >= 3 distinct tasks at level 0, >= 5 above", () => {
+        // The mark and the offered lengths (sorted, so a permutation is the same task); a cut is its beam and answer.
+        const content = (t: MeasureTask) =>
+          t.mode === "assemble" ? `${t.target!.value}|${t.pieces!.map((p) => p.value).sort().join(",")}` : `${t.maxLength}|${t.answer}`;
+        expect(new Set(tasks.map(content)).size).toBeGreaterThanOrEqual(level === 0 ? 3 : 5);
+      });
+
       it("is a measure task for this skill with a stable, skill-prefixed id", () => {
         for (const t of tasks) {
           expect(t.kind).toBe("measure");
@@ -80,11 +87,10 @@ describe("bench catalog", () => {
         }
       });
 
-      it("offers no two pieces of one value, none above the mark", () => {
+      it("offers no two pieces of one value (a decoy may run longer than the mark)", () => {
         for (const t of tasks.filter((x) => x.mode === "assemble")) {
           const vals = t.pieces!.map((p) => rat(p.value));
           for (let i = 0; i < vals.length; i++) {
-            expect(leq(vals[i], rat(t.target!.value)), t.id).toBe(true);
             for (let j = i + 1; j < vals.length; j++) expect(sameValue(vals[i], vals[j]), t.id).toBe(false);
           }
         }
@@ -110,7 +116,8 @@ describe("bench catalog", () => {
       it("builds the bridge from the task's own numbers", () => {
         for (const t of tasks) {
           const mark = t.mode === "assemble" ? t.target!.value : t.answer!;
-          expect(t.bridge, t.id).toContain(mark);
+          // The mark ends the line as a whole value (after "= "), not as a substring of another number.
+          expect(t.bridge.endsWith(`= ${mark}`), t.id).toBe(true);
           expect(t.bridge, t.id).toContain(t.mode === "assemble" ? "+" : "−");
         }
       });
