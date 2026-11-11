@@ -130,6 +130,19 @@ describe("bench catalog", () => {
         }
       });
 
+      it("writes a/an by how a number is spoken: never 'a 8', 'a 11', 'a 18', 'a 8x'; never 'an' before another number", () => {
+        // Eight, eleven, eighteen, eighty-x and eight hundred-x take "an"; any other number takes "a".
+        const AN_NUMBER = "(?:8|11|18|8\\d|8\\d\\d)";
+        const wrongA = new RegExp(`\\b[Aa] ${AN_NUMBER}\\b`);
+        const wrongAn = new RegExp(`\\b[Aa]n (?!${AN_NUMBER}\\b)\\d`);
+        for (const t of tasks) {
+          for (const text of [t.prompt, t.readAloud ?? "", t.explain ?? ""]) {
+            expect(text, t.id).not.toMatch(wrongA);
+            expect(text, t.id).not.toMatch(wrongAn);
+          }
+        }
+      });
+
       it("carries readAloud for K-1 skills", () => {
         if (!READ_ALOUD_SKILLS.has(skillId)) return;
         for (const t of tasks) {

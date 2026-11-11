@@ -28,6 +28,7 @@ import {
   CIRCLE_RADIUS_MAX, LINEAR_COEF_MAX, LINEAR_CONST_MAX, PROP_COUNT_MAX, PROP_UNIT_MAX, PYTHAGOREAN_TRIPLES,
   RATE_TOTAL_MAX, TRIPLE_HYP_MAX, TRIPLE_SCALE_MAX,
 } from "@/lib/utils/generators/middle";
+import { aOrAn, capitalAOrAn } from "./copy";
 import { decString } from "./g35";
 import type { BenchGenerator } from "./index";
 
@@ -129,7 +130,7 @@ const percentOf: BenchGenerator = (level, rng, skillId) => {
   return {
     kind: "measure", id: `${skillId}:cut:${beam ? "beam" : "stones"}:${p}%${n}`, skillId,
     prompt: beam
-      ? `Trim ${p}% off a ${n}-foot beam. How long is the piece trimmed off?`
+      ? `Trim ${p}% off ${aOrAn(String(n))} ${n}-foot beam. How long is the piece trimmed off?`
       : `${p}% of the ${n} stones in a wall are cracked. How many stones need replacing?`,
     mode: "cut", unit: beam ? "feet" : "stones", answer: String(answer), step: "1", maxLength: String(n),
     bridge: `${p}% ${TIMES} ${n} = ${answer}`,
@@ -239,7 +240,7 @@ const pythagorean: BenchGenerator = (level, rng, skillId) => {
   if (L >= LEG_FROM && rng() < 0.5) {
     return {
       kind: "measure", id: `${skillId}:cut:leg:${c}-${a}`, skillId,
-      prompt: `A ${c}-foot brace spans the corner of a wall frame ${a} feet wide. How tall is the frame?`,
+      prompt: `${capitalAOrAn(String(c))} ${c}-foot brace spans the corner of a wall frame ${a} feet wide. How tall is the frame?`,
       mode: "cut", unit: "feet", answer: String(b), step: "1", maxLength: String(c),
       bridge: `√(${c}² ${MINUS} ${a}²) = ${b}`,
       explain: `The brace is the long side: ${c}² ${MINUS} ${a}² = ${c * c - a * a}, and the square root of ${c * c - a * a} is ${b}.`,
@@ -279,7 +280,7 @@ const linearEq: BenchGenerator = (level, rng, skillId) => {
     const total = (k + 1) * x;
     return {
       ...base, id: `${skillId}:cut:times:${total}-${k}:${thing}`,
-      prompt: `A ${total}-foot ${thing} is cut in two; the longer piece is ${k} times as long as the shorter. How long is the shorter piece?`,
+      prompt: `${capitalAOrAn(String(total))} ${total}-foot ${thing} is cut in two; the longer piece is ${k} times as long as the shorter. How long is the shorter piece?`,
       answer: String(x), maxLength: String(total),
       bridge: `x + ${k}x = ${total}, x = ${x}`,
       explain: `Call the shorter piece x. The longer is ${k}x, so x + ${k}x = ${k + 1}x = ${total}, and x = ${total} ${DIVIDE} ${k + 1} = ${x}.`,
@@ -293,7 +294,7 @@ const linearEq: BenchGenerator = (level, rng, skillId) => {
     const total = 3 * x + a + b;
     return {
       ...base, id: `${skillId}:cut:three:${total}-${a}-${b}:${thing}`,
-      prompt: `A ${total}-foot ${thing} is cut into three pieces. The second is ${feet(a)} longer than the first, the third ${feet(b)} longer. How long is the first piece?`,
+      prompt: `${capitalAOrAn(String(total))} ${total}-foot ${thing} is cut into three pieces. The second is ${feet(a)} longer than the first, the third ${feet(b)} longer. How long is the first piece?`,
       answer: String(x), maxLength: String(total),
       bridge: `x + (x + ${a}) + (x + ${b}) = ${total}, x = ${x}`,
       explain: `Call the first piece x: x + (x + ${a}) + (x + ${b}) = 3x + ${a + b} = ${total}, so 3x = ${total - a - b} and x = ${x}.`,
@@ -306,7 +307,7 @@ const linearEq: BenchGenerator = (level, rng, skillId) => {
   const x = halfString(twice);
   return {
     ...base, id: `${skillId}:cut:diff:${total}-${d}:${thing}`,
-    prompt: `A ${total}-foot ${thing} is cut into two pieces; one is ${feet(d)} longer than the other. How long is the shorter piece?`,
+    prompt: `${capitalAOrAn(String(total))} ${total}-foot ${thing} is cut into two pieces; one is ${feet(d)} longer than the other. How long is the shorter piece?`,
     answer: x, maxLength: String(total),
     bridge: `x + (x + ${d}) = ${total}, x = ${x}`,
     explain: `Call the shorter piece x: x + (x + ${d}) = 2x + ${d} = ${total}, so 2x = ${twice} and x = ${x}.`,

@@ -83,7 +83,7 @@ describe("grade 6-8 bench (R-C3)", () => {
     it("takes p percent of a whole, within the choice ladder's base", () => {
       for (const l of LEVELS) {
         for (const t of tasksOf("percent-of", l)) {
-          const [p, n] = /(\d+)%[^.]*?(\d+)/.exec(t.prompt)?.slice(1).map(Number) ?? /Trim (\d+)% off a (\d+)-foot/.exec(t.prompt)!.slice(1).map(Number);
+          const [p, n] = /(\d+)%[^.]*?(\d+)/.exec(t.prompt)?.slice(1).map(Number) ?? /Trim (\d+)% off an? (\d+)-foot/.exec(t.prompt)!.slice(1).map(Number);
           expect(n, t.id).toBeLessThanOrEqual(PERCENT_BASE_MAX[l]);
           expect((p * n) % 100, t.id).toBe(0);
           expect(t.answer, t.id).toBe(String((p * n) / 100));
@@ -99,7 +99,7 @@ describe("grade 6-8 bench (R-C3)", () => {
       const beams = LEVELS.flatMap((l) => tasksOf("percent-of", l)).filter((t) => t.unit === "feet");
       expect(beams.length).toBeGreaterThan(100);
       for (const t of beams) {
-        expect(t.prompt).toMatch(/^Trim \d+% off a \d+-foot beam\./);
+        expect(t.prompt).toMatch(/^Trim \d+% off an? \d+-foot beam\./);
         expect(t.prompt).toMatch(/trimmed off\?$/);
         expect(nums(t.prompt)[1]).toBeLessThanOrEqual(60);
       }
@@ -243,7 +243,7 @@ describe("grade 6-8 bench (R-C3)", () => {
       for (const l of [0, 1]) {
         expect(kind(l, "diff")).toHaveLength(200);
         for (const t of kind(l, "diff")) {
-          const [total, d] = /^A (\d+)-foot \w+ is cut into two pieces; one is (\d+) (?:foot|feet) longer/.exec(t.prompt)!.slice(1).map(Number);
+          const [total, d] = /^An? (\d+)-foot \w+ is cut into two pieces; one is (\d+) (?:foot|feet) longer/.exec(t.prompt)!.slice(1).map(Number);
           const x = num(t.answer!);
           expect(2 * x + d, t.id).toBe(total);
           expect(Number.isInteger(x), t.id).toBe(true);
@@ -260,7 +260,7 @@ describe("grade 6-8 bench (R-C3)", () => {
       for (const l of [2, 3, 4]) {
         expect(kind(l, "times").length).toBeGreaterThan(20);
         for (const t of kind(l, "times")) {
-          const [total, k] = /^A (\d+)-foot \w+ is cut in two; the longer piece is (\d+) times/.exec(t.prompt)!.slice(1).map(Number);
+          const [total, k] = /^An? (\d+)-foot \w+ is cut in two; the longer piece is (\d+) times/.exec(t.prompt)!.slice(1).map(Number);
           expect(total).toBe((k + 1) * num(t.answer!));
           expect(t.bridge).toBe(`x + ${k}x = ${total}, x = ${t.answer}`);
         }
@@ -268,7 +268,7 @@ describe("grade 6-8 bench (R-C3)", () => {
       for (const l of [3, 4]) {
         expect(kind(l, "three").length).toBeGreaterThan(20);
         for (const t of kind(l, "three")) {
-          const [total, a, b] = /^A (\d+)-foot \w+ is cut into three pieces\. .*? (\d+) (?:foot|feet) longer than the first, the third (\d+) (?:foot|feet) longer/.exec(t.prompt)!.slice(1).map(Number);
+          const [total, a, b] = /^An? (\d+)-foot \w+ is cut into three pieces\. .*? (\d+) (?:foot|feet) longer than the first, the third (\d+) (?:foot|feet) longer/.exec(t.prompt)!.slice(1).map(Number);
           expect(a).not.toBe(b);
           expect(total).toBe(3 * num(t.answer!) + a + b);
           expect(t.bridge).toBe(`x + (x + ${a}) + (x + ${b}) = ${total}, x = ${t.answer}`);
