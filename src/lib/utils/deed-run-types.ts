@@ -20,10 +20,11 @@ export type RunStart = {
    */
   site?: { stage: number; complete: boolean; placed: number };
   /**
-   * Set (true) when the run opens on a bench task for a young hero who has never finished one: the
-   * board shows "Watch Aldo" first (R-C9). Absent otherwise, and absent once any answer is stored.
+   * Where "Watch Aldo" shows (R-C9): `at` is the index of the run's first bench task, for a young
+   * hero who has never answered one. The board shows the demo, for that task's mode, when the run
+   * reaches it. Absent otherwise, and absent once that task is answered. Holds only an index.
    */
-  demo?: boolean;
+  demo?: { at: number };
 };
 /**
  * `answer` and `explain` are present only once the question is resolved, so the answer never

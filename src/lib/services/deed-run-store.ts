@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, inArray, isNotNull, isNull, like, type SQL } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNotNull, isNull, like, ne, sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { RUN_EFFECTS, kindsThatFeedReview } from "@/lib/utils/deed-scoring";
@@ -132,19 +132,37 @@ export function resumedStart(run: DeedRunRow, header: RunStart["deed"], site?: {
 const DEMO_GRADES: readonly string[] = ["K", "1", "2", "3"];
 
 /**
- * Whether a side quest's run opens with Aldo's worked example: the strand's grade is K to 3, the
- * run's first task is a bench task and nothing has been answered yet, and the hero has never
- * finished a run that held one. A review or a Crown Challenge never has one. The cheap checks come
- * first, so the history is only read for a run that could show it.
+ * Whether the hero has answered a bench task in any run but `runId`: some task of kind measure with
+ * a stored response, finished run or not. A run that merely held a bench task, left unanswered, is
+ * not enough. Read in the database (SQLite's JSON functions), so it costs one row whatever the
+ * history; a row whose JSON will not parse is passed over, never fatal.
  */
-export async function benchDemoDue(childId: string, grade: string, run: Pick<RunStart, "kind" | "questions" | "responses">): Promise<boolean> {
-  if (run.kind !== "deed" || !DEMO_GRADES.includes(grade) || run.questions[0]?.kind !== "measure" || run.responses.some((r) => r !== null)) return false;
-  const done = await db
+async function hasAnsweredBench(childId: string, runId: string): Promise<boolean> {
+  const { questions, responses } = schema.deedRun;
+  const answered = sql`CASE WHEN json_valid(${questions}) AND json_valid(${responses}) THEN EXISTS (
+    SELECT 1 FROM json_each(${questions}) AS task
+    WHERE json_extract(task.value, '$.kind') = 'measure' AND json_extract(${responses}, '$[' || task.key || ']') IS NOT NULL
+  ) ELSE 0 END = 1`;
+  const rows = await db
     .select({ id: schema.deedRun.id })
     .from(schema.deedRun)
-    .where(and(eq(schema.deedRun.childId, childId), isNotNull(schema.deedRun.completedAt), like(schema.deedRun.questions, '%"kind":"measure"%')))
+    .where(and(eq(schema.deedRun.childId, childId), ne(schema.deedRun.id, runId), like(questions, '%"kind":"measure"%'), answered))
     .limit(1);
-  return done.length === 0;
+  return rows.length > 0;
+}
+
+/**
+ * Where a side quest's run shows Aldo's worked example, if it does (R-C9): at the run's first bench
+ * task, wherever it falls, for a hero whose grade in the strand is K to 3, while that task is still
+ * unanswered and the hero has never answered a bench task in another run. A review or a Crown
+ * Challenge never has one. The cheap checks come first, so the history is only read for a run that
+ * could show it.
+ */
+export async function benchDemoAt(childId: string, grade: string, run: Pick<RunStart, "runId" | "kind" | "questions" | "responses">): Promise<number | null> {
+  if (run.kind !== "deed" || !DEMO_GRADES.includes(grade)) return null;
+  const at = run.questions.findIndex((q) => q.kind === "measure");
+  if (at === -1 || (run.responses[at] ?? null) !== null) return null;
+  return (await hasAnsweredBench(childId, run.runId)) ? null : at;
 }
 
 /** Writes a fresh, unanswered run and hands the browser its first screen. */

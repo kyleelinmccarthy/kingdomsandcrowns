@@ -490,80 +490,116 @@ describe("a side quest's run says where its building stands, for the bench's dra
   });
 });
 
-describe("a young hero watches Aldo do the first bench task (R-C9)", () => {
+describe("a young hero watches Aldo before the run's first bench task (R-C9, I-1)", () => {
   const cut = (id: string): MeasureTask => ({ kind: "measure", id, skillId: SKILL, prompt: "Cut it.", mode: "cut", unit: "ft", answer: "3/4", step: "1/4", maxLength: "2", bridge: "3/4" });
   /** The next fresh run opens on a bench task, whatever the engine would have drawn (no skill is benched by the settings yet). */
   const benchFirst = (n = 2) => vi.mocked(buildDeedRun).mockReturnValueOnce({ skillIds: [SKILL], questions: [cut("m1"), ...QUESTIONS.slice(0, n - 1)] });
+  /** The next fresh run opens on two choice tasks and meets the bench third. */
+  const benchThird = () => vi.mocked(buildDeedRun).mockReturnValueOnce({ skillIds: [SKILL], questions: [QUESTIONS[0], QUESTIONS[1], cut("m1"), QUESTIONS[2]] });
   const gradeIs = (math: string) => vi.mocked(loadHeroLevels).mockResolvedValue({
     enabled: true, tone: "gentle", band: "3-5", grades: { math, reading: "3", language: "3", science: "3" },
   } as unknown as Awaited<ReturnType<typeof loadHeroLevels>>);
+  const demoOf = async () => (await startDeedRun("c1", "well-stones", "realm")).demo;
   afterEach(() => gradeIs("3"));
 
-  it("is true for a grade-2 hero with no prior measure run, on a fresh run and on its resume", async () => {
+  it("is at task 0 for a grade-2 hero with no bench task answered before, on a fresh run and on its resume", async () => {
     gradeIs("2");
     benchFirst();
-    expect((await startDeedRun("c1", "well-stones", "realm")).demo).toBe(true);
-    expect((await startDeedRun("c1", "well-stones", "realm")).demo).toBe(true); // resumed, still unanswered
+    expect(await demoOf()).toEqual({ at: 0 });
+    expect(await demoOf()).toEqual({ at: 0 }); // resumed, still unanswered
   });
 
-  it("is true for every grade from K to 3", async () => {
+  it("is at the run's first bench task, wherever it falls: a run that opens on choice meets Aldo at task 2", async () => {
+    gradeIs("K");
+    benchThird();
+    expect(await demoOf()).toEqual({ at: 2 });
+  });
+
+  it("stays due on a resume while only the choice tasks before it are answered, and goes once the bench task is", async () => {
+    gradeIs("2");
+    benchThird();
+    const r = await startDeedRun("c1", "well-stones", "realm");
+    await answerDeedQuestion(r.runId, 0, "6");
+    await answerDeedQuestion(r.runId, 1, "9");
+    expect(await demoOf()).toEqual({ at: 2 });
+    await answerDeedQuestion(r.runId, 2, "c:3/4");
+    expect(await demoOf()).toBeUndefined();
+  });
+
+  it("is due for every grade from K to 3", async () => {
     for (const g of ["K", "1", "3"]) {
       await client.query("DELETE FROM deed_run");
       gradeIs(g);
       benchFirst();
-      expect((await startDeedRun("c1", "well-stones", "realm")).demo, g).toBe(true);
+      expect(await demoOf(), g).toEqual({ at: 0 });
     }
   });
 
-  it("is false once any answer is stored: a resumed run does not show it again", async () => {
+  it("is gone once the demo task is answered: a resumed run does not show it again", async () => {
     gradeIs("2");
     benchFirst();
     const r = await startDeedRun("c1", "well-stones", "realm");
     await answerDeedQuestion(r.runId, 0, "c:3/4");
-    expect((await startDeedRun("c1", "well-stones", "realm")).demo).toBeFalsy();
+    expect(await demoOf()).toBeUndefined();
   });
 
-  it("is false after one completed measure run, and a completed choice run does not count", async () => {
+  it("is gone once the hero has answered a bench task in an earlier run, finished or not; a choice run does not count", async () => {
     gradeIs("2");
     await seedRun({ id: "choice-done", responses: ["6", "9", "12", "15"], completed: true });
     benchFirst();
-    expect((await startDeedRun("c1", "well-stones", "realm")).demo).toBe(true);
+    expect(await demoOf()).toEqual({ at: 0 });
     await client.query("DELETE FROM deed_run WHERE id != 'choice-done'");
-    await seedRun({ id: "bench-done", questions: [cut("old")] as unknown as Question[], responses: ["c:3/4"], completed: true });
+    await seedRun({ id: "bench-done", questions: [cut("old")] as unknown as Question[], responses: ["c:1/2"], completed: true });
     benchFirst();
-    expect((await startDeedRun("c1", "well-stones", "realm")).demo).toBeFalsy();
+    expect(await demoOf()).toBeUndefined();
+    // A run left open after a bench answer counts too: the hero has worked the bench.
+    await client.query("DELETE FROM deed_run WHERE id != 'choice-done'");
+    await seedRun({ id: "bench-half", questions: [QUESTIONS[0], cut("old")] as unknown as Question[], responses: [null, "c:3/4"] });
+    await client.query("UPDATE deed_run SET deed_id = 'mill-sacks' WHERE id = 'bench-half'");
+    benchFirst();
+    expect(await demoOf()).toBeUndefined();
   });
 
-  it("is not read from an unfinished measure run, nor from another hero's", async () => {
+  it("stays due after an earlier run that held a bench task the hero never answered", async () => {
+    gradeIs("2");
+    // Finished on its choice tasks, the bench task left unanswered.
+    await seedRun({ id: "skipped", questions: [QUESTIONS[0], cut("old"), QUESTIONS[1]] as unknown as Question[], responses: ["6", null, "9"], completed: true });
+    benchThird();
+    expect(await demoOf()).toEqual({ at: 2 });
+  });
+
+  it("is not read from another hero's runs, and a row that will not parse is passed over", async () => {
     gradeIs("2");
     await seedRun({ id: "half", questions: [cut("old")] as unknown as Question[], responses: [null] });
     await client.query("UPDATE deed_run SET deed_id = 'mill-sacks'");
     await seedRun({ id: "theirs", questions: [cut("old")] as unknown as Question[], responses: ["c:3/4"], completed: true });
     await client.query("UPDATE deed_run SET child_id = 'c2' WHERE id = 'theirs'");
+    await seedRun({ id: "broken", questions: [cut("old")] as unknown as Question[], responses: ["c:3/4"], completed: true });
+    await client.query(`UPDATE deed_run SET questions = '[{"kind":"measure"', responses = 'nope' WHERE id = 'broken'`);
     benchFirst();
-    expect((await startDeedRun("c1", "well-stones", "realm")).demo).toBe(true);
+    expect(await demoOf()).toEqual({ at: 0 });
   });
 
-  it("is false for a grade-5 hero", async () => {
+  it("is never due for a grade-5 hero", async () => {
     gradeIs("5");
-    benchFirst();
-    expect((await startDeedRun("c1", "well-stones", "realm")).demo).toBeFalsy();
+    benchThird();
+    expect(await demoOf()).toBeUndefined();
   });
 
-  it("is false when the first task is a choice, even for a grade-2 hero", async () => {
+  it("is never due in a run with no bench task, even for a grade-2 hero", async () => {
     gradeIs("2");
     // Math side quests are played at the bench now, so the grown-up's switch is what makes a run choice.
     vi.mocked(loadRealmSettings).mockResolvedValue({ ...DEFAULT_REALM_SETTINGS, mechanics: { measure: false } });
     const r = await startDeedRun("c1", "well-stones", "realm");
     expect(r.questions.every((q) => q.kind === "choice")).toBe(true);
-    expect(r.demo).toBeFalsy();
+    expect(r.demo).toBeUndefined();
   });
 
-  it("is false in a Crown Challenge", async () => {
+  it("is never due in a Crown Challenge", async () => {
     gradeIs("2");
     await seedRun({ id: "earned", responses: ["6", "9", "12", "15"], completed: true, stars: 3 });
     benchFirst(3);
-    expect((await startDeedRun("c1", "well-stones", "realm", { challenge: true })).demo).toBeFalsy();
+    expect((await startDeedRun("c1", "well-stones", "realm", { challenge: true })).demo).toBeUndefined();
   });
 });
 

@@ -43,10 +43,11 @@ describe("BenchDemo", () => {
 
 describe("useBenchDemo", () => {
   const task = (mode: "assemble" | "cut") => ({ kind: "measure" as const, id: "m1", skillId: "s", prompt: "p", view: { mode, unit: "ft" } });
-  const run = (over: Partial<RunStart> = {}) => ({ questions: [task("cut")], demo: true, ...over }) as RunStart;
+  const choice = { kind: "choice" as const, id: "q", skillId: "s", prompt: "p", view: { choices: ["a"] } };
+  const run = (over: Partial<RunStart> = {}) => ({ questions: [task("cut")], demo: { at: 0 }, ...over }) as RunStart;
 
-  it("shows the first task's mode once: after Got it it stays done", () => {
-    const { result, rerender } = renderHook(({ r }) => useBenchDemo(r), { initialProps: { r: run() } });
+  it("shows the demo task's mode once: after Got it it stays done", () => {
+    const { result, rerender } = renderHook(({ r }) => useBenchDemo(r, 0), { initialProps: { r: run() } });
     expect(result.current.mode).toBe("cut");
     act(() => result.current.finish());
     expect(result.current.mode).toBeNull();
@@ -54,13 +55,21 @@ describe("useBenchDemo", () => {
     expect(result.current.mode).toBeNull();
   });
 
-  it("is off for a run that was not marked", () => {
-    expect(renderHook(() => useBenchDemo(run({ demo: undefined }))).result.current.mode).toBeNull();
-    expect(renderHook(() => useBenchDemo(run({ demo: false }))).result.current.mode).toBeNull();
+  it("shows on reaching the demo's index, not before, in that task's mode", () => {
+    const mixed = run({ questions: [choice, choice, task("assemble")], demo: { at: 2 } });
+    const { result, rerender } = renderHook(({ i }) => useBenchDemo(mixed, i), { initialProps: { i: 0 } });
+    expect(result.current.mode).toBeNull();
+    rerender({ i: 1 });
+    expect(result.current.mode).toBeNull();
+    rerender({ i: 2 });
+    expect(result.current.mode).toBe("assemble");
   });
 
-  it("is off when the first task is not a bench task", () => {
-    const choice = { kind: "choice" as const, id: "q", skillId: "s", prompt: "p", view: { choices: ["a"] } };
-    expect(renderHook(() => useBenchDemo(run({ questions: [choice] }))).result.current.mode).toBeNull();
+  it("is off for a run that was not marked", () => {
+    expect(renderHook(() => useBenchDemo(run({ demo: undefined }), 0)).result.current.mode).toBeNull();
+  });
+
+  it("is off when the marked task is not a bench task", () => {
+    expect(renderHook(() => useBenchDemo(run({ questions: [choice] }), 0)).result.current.mode).toBeNull();
   });
 });

@@ -37,7 +37,7 @@ export function DeedPlayer({
   const [startedAt] = useState(() => Date.now());
   const [now, setNow] = useState(() => Date.now());
   const speakable = canSpeak();
-  const demo = useBenchDemo(run);
+  const demo = useBenchDemo(run, index);
   const question = run.questions[index];
   const isLast = index === run.questions.length - 1;
   const finishLabel = run.kind === "review" ? REVIEW_FINISH : `Finish ${SIDE_QUEST_LOWER}`;

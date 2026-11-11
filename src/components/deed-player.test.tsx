@@ -279,7 +279,7 @@ describe("DeedPlayer", () => {
 
   describe("Watch Aldo", () => {
     const bench = (id: string) => ({ kind: "measure" as const, id, skillId: "add-10", prompt: "Build a beam 9 blocks long.", readAloud: "Build a beam nine blocks long.", view: { mode: "assemble" as const, unit: "blocks", pieces: ["1 block", "4 blocks", "8 blocks"], target: "9 blocks" } });
-    const young: RunStart = { ...run, deed: { ...run.deed, area: "math" }, questions: [bench("m1"), bench("m2")], responses: [null, null], demo: true };
+    const young: RunStart = { ...run, deed: { ...run.deed, area: "math" }, questions: [bench("m1"), bench("m2")], responses: [null, null], demo: { at: 0 } };
 
     it("shows the worked example before the first task, and Got it brings the bench", async () => {
       const user = userEvent.setup();
@@ -309,6 +309,25 @@ describe("DeedPlayer", () => {
     it("is not shown for a run that is not marked", () => {
       render(<DeedPlayer run={{ ...young, demo: undefined }} profile={profile} calm={false} onFinished={() => {}} />);
       expect(screen.queryByRole("heading", { name: "Watch Aldo" })).not.toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "The bench" })).toBeInTheDocument();
+    });
+
+    it("waits for the run's first bench task: a run that opens on choice meets Aldo when it reaches the bench, not before", async () => {
+      const user = userEvent.setup();
+      answerDeedQuestion.mockResolvedValue({ correct: true, secondChance: false, answer: "x" });
+      const mixed: RunStart = { ...young, questions: [run.questions[0], run.questions[1], bench("m1")], responses: [null, null, null], demo: { at: 2 } };
+      render(<DeedPlayer run={mixed} profile={profile} calm={true} onFinished={() => {}} />);
+      expect(screen.queryByRole("heading", { name: "Watch Aldo" })).not.toBeInTheDocument();
+      expect(screen.getByText('Which word is "because"?')).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "because" }));
+      await user.click(await screen.findByRole("button", { name: "Next question" }));
+      expect(screen.queryByRole("heading", { name: "Watch Aldo" })).not.toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "again" }));
+      await user.click(await screen.findByRole("button", { name: "Next question" }));
+      expect(screen.getByRole("heading", { name: "Watch Aldo" })).toBeInTheDocument();
+      expect(screen.getByText(/^Aldo needs a beam 5 feet long\./)).toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: "The bench" })).not.toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "Got it" }));
       expect(screen.getByRole("heading", { name: "The bench" })).toBeInTheDocument();
     });
 

@@ -458,7 +458,7 @@ describe("a bench task on the board", () => {
 
 describe("Watch Aldo on the board", () => {
   const bench = (id: string) => ({ kind: "measure" as const, id, skillId: "add-10", prompt: "Cut a board three quarters of a foot long.", readAloud: "Cut three quarters.", view: { mode: "cut" as const, unit: "feet", step: "1/4", maxLength: "2" } });
-  const young = { ...run, questions: [bench("m1"), bench("m2")], responses: [null, null] as (string | null)[], demo: true };
+  const young = { ...run, questions: [bench("m1"), bench("m2")], responses: [null, null] as (string | null)[], demo: { at: 0 } };
   const begin = async (over: Partial<React.ComponentProps<typeof DeedBoard>> = {}) => {
     vi.mocked(startDeedRun).mockResolvedValue(young);
     board(over);
