@@ -95,7 +95,7 @@ const QUESTIONS: Question[] = [
 
 type Seed = {
   id?: string; questions?: Question[]; responses?: (string | null)[]; secondTries?: string;
-  secondChances?: boolean; completed?: boolean; stars?: number; kind?: "deed" | "challenge";
+  secondChances?: boolean; completed?: boolean; stars?: number; kind?: "deed" | "challenge" | "review";
 };
 
 async function seedRun(over: Seed = {}): Promise<string> {
@@ -683,6 +683,14 @@ describe("side quests pay play minutes by stars", () => {
     expect(await practiceRows()).toEqual([]);
   });
 
+  it("a review never pays, even with every answer right", async () => {
+    vi.mocked(paySideQuest).mockClear();
+    await seedRun({ ...ALL_RIGHT, id: "rv", kind: "review" });
+    expect(await completeDeedRun("rv")).toMatchObject({ kind: "review", minutesEarned: 0, sideQuestPayFull: false });
+    expect(paySideQuest).not.toHaveBeenCalled();
+    expect(await practiceRows()).toEqual([]);
+  });
+
   it("pays nothing where minutes mean nothing (scheduled)", async () => {
     await realmSettings({ access_mode: "scheduled" });
     await seedRun(ALL_RIGHT);
@@ -698,6 +706,29 @@ describe("side quests pay play minutes by stars", () => {
     expect(error).toHaveBeenCalled();
     error.mockRestore();
     expect((await stored()).completed_at).not.toBeNull();
+  });
+});
+
+describe("a run saved by a newer version", () => {
+  const NEWER = "This side quest was saved by a newer version. Start it again.";
+
+  it("is refused clearly by the actions that read it, and nothing is written", async () => {
+    const unknown = [{ kind: "nope", id: "n0", skillId: SKILL, prompt: "?", answer: "x" }] as unknown as Question[];
+    await seedRun({ questions: unknown });
+    await expect(answerDeedQuestion("run1", 0, "x")).rejects.toThrow(NEWER);
+    await expect(completeDeedRun("run1")).rejects.toThrow(NEWER);
+    expect((await stored()).responses).toBe("[null]");
+  });
+
+  it("parseRun throws that copy for an unregistered kind, and reads a choice-only run unchanged", async () => {
+    const { parseRun } = await import("@/lib/services/deed-run-store");
+    const row = (questions: unknown[]) => ({
+      questions: JSON.stringify(questions), responses: JSON.stringify(questions.map(() => null)), secondTries: "[]",
+      secondChances: true, kind: "deed",
+    }) as unknown as Parameters<typeof parseRun>[0];
+    expect(() => parseRun(row([{ kind: "nope", id: "n0", skillId: SKILL }]))).toThrow(NEWER);
+    expect(() => parseRun(row([{ kind: "toString", id: "n0", skillId: SKILL }]))).toThrow(NEWER);
+    expect(parseRun(row(QUESTIONS)).statuses).toEqual(["unanswered", "unanswered", "unanswered", "unanswered"]);
   });
 });
 

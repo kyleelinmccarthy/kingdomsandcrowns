@@ -85,7 +85,13 @@ describe("run kinds", () => {
       countsForSchool: false,
       feedsReview: true,
       allowsSecondChances: true,
+      paysMinutes: false,
     });
+  });
+  it("only a deed pays play minutes", () => {
+    expect(RUN_EFFECTS.deed.paysMinutes).toBe(true);
+    expect(RUN_EFFECTS.challenge.paysMinutes).toBe(false);
+    expect(RUN_EFFECTS.review.paysMinutes).toBe(false);
   });
   it("misses come back from a deed and a review, never from a challenge", () => {
     expect(kindsThatFeedReview().sort()).toEqual(["deed", "review"]);

@@ -13,6 +13,22 @@ export function taskDef<K extends TaskKind>(kind: K): TaskKindDef<K> {
   return TASK_KINDS[kind];
 }
 
+/** Whether `k` names a kind this build knows (a stored run from a newer deploy may not). Own keys only. */
+export function isRegisteredKind(k: unknown): k is TaskKind {
+  return typeof k === "string" && Object.prototype.hasOwnProperty.call(TASK_KINDS, k);
+}
+
+/**
+ * The definition for a task, whatever its kind: the one place the kind-to-definition correlation is
+ * cast. `taskDef(kindOf(t))` has no single `K` once a second kind exists, so it cannot type-check;
+ * the cast is sound because `TASK_KINDS[kindOf(t)]` is built for exactly the task shapes `t` can
+ * hold, and method bivariance lets each `TaskKindDef<K>` stand as a `TaskKindDef<TaskKind>`. Use
+ * this at every site that has a task, not a kind.
+ */
+export function taskDefOf(t: Task): TaskKindDef<TaskKind> {
+  return TASK_KINDS[kindOf(t)] as TaskKindDef<TaskKind>;
+}
+
 /** Stored runs predate kinds, so an absent `kind` is a choice task. */
 export function kindOf(t: Task): TaskKind {
   return t.kind ?? "choice";
@@ -21,13 +37,14 @@ export function kindOf(t: Task): TaskKind {
 /** What leaves the server: the view only, never `answer` or `explain`. */
 export function toClientTask(t: Task): ClientTask {
   const kind = kindOf(t);
-  // Built explicitly so nothing but the named fields can reach the client.
-  return { kind, id: t.id, skillId: t.skillId, readAloud: t.readAloud, view: taskDef(kind).toView(t) };
+  // Built explicitly so nothing but the named fields can reach the client. The cast stands for the
+  // kind/view correlation (see `taskDefOf`).
+  return { kind, id: t.id, skillId: t.skillId, readAloud: t.readAloud, view: taskDefOf(t).toView(t) } as ClientTask;
 }
 
 /** Grade a response as stored in the database; a response that will not decode is wrong. */
 export function isTaskCorrect(t: Task, stored: string): boolean {
-  const def = taskDef(kindOf(t));
+  const def = taskDefOf(t);
   const r = def.decode(stored);
   return r === null ? false : def.isCorrect(t, r);
 }

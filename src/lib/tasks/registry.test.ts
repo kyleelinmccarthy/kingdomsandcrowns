@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Question } from "@/lib/utils/drill-generators";
-import { TASK_KINDS, isTaskCorrect, kindForSkill, kindOf, taskDef, toClientTask } from "./registry";
+import { TASK_KINDS, isRegisteredKind, isTaskCorrect, kindForSkill, kindOf, taskDef, taskDefOf, toClientTask } from "./registry";
 
 const q: Question = {
   id: "add-10:3:3",
@@ -13,6 +13,19 @@ const q: Question = {
 };
 
 describe("task kind registry", () => {
+  it("hands back the one definition for a task, whatever its kind", () => {
+    expect(taskDefOf(q)).toBe(TASK_KINDS.choice);
+    expect(taskDefOf({ ...q, kind: "choice" })).toBe(taskDef("choice"));
+  });
+
+  it("knows which kinds are registered, and nothing else (measure joins in C5)", () => {
+    expect(isRegisteredKind("choice")).toBe(true);
+    expect(isRegisteredKind("measure")).toBe(false);
+    for (const k of ["nope", "", "toString", "constructor", "__proto__", "hasOwnProperty", 7, null, undefined, {}]) {
+      expect(isRegisteredKind(k)).toBe(false);
+    }
+  });
+
   it("treats a stored question with no kind as a choice task", () => {
     expect(kindOf({ ...q })).toBe("choice");
     expect(kindOf({ ...q, kind: "choice" })).toBe("choice");

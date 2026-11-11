@@ -19,7 +19,7 @@ import {
 } from "@/lib/utils/deed-engine";
 import { masteryChangeCopy, masteryLabel, parseRecentResults, progressToNextRung, recordResult } from "@/lib/utils/mastery";
 import type { Question } from "@/lib/utils/drill-generators";
-import { isTaskCorrect, kindOf, taskDef, type ResponseByKind, type Task, type TaskKind } from "@/lib/tasks/registry";
+import { isTaskCorrect, taskDefOf, type ResponseByKind, type Task, type TaskKind } from "@/lib/tasks/registry";
 import { CHALLENGE, MAX_STARS, RUN_EFFECTS, countsTowardBuilding, runPoints, starsFor, type QuestionOutcome, type RunKind, type Stars } from "@/lib/utils/deed-scoring";
 import { outcomeOf, refuseGiveUp, refuseRetry, statusOf, type QuestionStatus } from "@/lib/utils/deed-attempts";
 import {
@@ -181,7 +181,7 @@ function resultFor(question: Task, status: QuestionStatus, firstPick?: string): 
   if (status === "unanswered") throw new Error(ANSWER_FIRST);
   if (status === "open") return { correct: false, secondChance: true, hint: hintFor(question.skillId), firstPick };
   const correct = status === "right-first" || status === "right-second";
-  const result: AttemptResult = { correct, secondChance: false, answer: taskDef(kindOf(question)).answerText(question) };
+  const result: AttemptResult = { correct, secondChance: false, answer: taskDefOf(question).answerText(question) };
   if (question.explain) result.explain = question.explain;
   else if (!correct) result.hint = hintFor(question.skillId);
   return result;
@@ -189,7 +189,7 @@ function resultFor(question: Task, status: QuestionStatus, firstPick?: string): 
 
 /** The kind's coded note on a response, only when it has one: `none` is left off the result. */
 function feedbackOf(question: Task, parsed: ResponseByKind[TaskKind]): Pick<AttemptResult, "feedback"> {
-  const code = taskDef(kindOf(question)).feedback(question, parsed);
+  const code = taskDefOf(question).feedback(question, parsed);
   return code === "none" ? {} : { feedback: code };
 }
 
@@ -237,7 +237,7 @@ const ANSWER_WRITE_TRIES = 5;
 export async function answerDeedQuestion(runId: string, index: number, response: unknown): Promise<AttemptResult> {
   for (let tries = 0; tries < ANSWER_WRITE_TRIES; tries++) {
     const { run, questions, responses, question, attempt, allows } = await loadAttemptState(runId, index);
-    const def = taskDef(kindOf(question));
+    const def = taskDefOf(question);
     const parsed = def.parseResponse(response, question);
     if (parsed === null) throw new Error(PICK_SHOWN);
     const answer = def.encode(parsed);
@@ -283,7 +283,7 @@ export async function retryDeedQuestion(runId: string, index: number, response: 
   // `refuseRetry` parses `response` with the task's kind (PICK_SHOWN when it is not well formed), before any write.
   const refusal = refuseRetry(question, attempt, allows, response);
   if (refusal) throw new Error(refusal);
-  const def = taskDef(kindOf(question));
+  const def = taskDefOf(question);
   const parsed = def.parseResponse(response, question);
   if (parsed === null) throw new Error(PICK_SHOWN);
   const answer = def.encode(parsed);
@@ -354,10 +354,10 @@ export async function completeDeedRun(runId: string): Promise<RunSummary> {
     .returning({ id: schema.deedRun.id });
   // Two finishes racing: only the one that closed the run may raise the building, or be paid.
   if (finished.length === 0) throw new Error(FINISHED);
-  // Only the hero's own run pays play minutes (spec 2026-11-09 §2a); a challenge earns no stars.
+  // Only the hero's own run pays play minutes (spec 2026-11-09 §2a), and only a run kind that pays them (`paysMinutes`).
   // Paid now, after the win, and finished before the building is raised: SQLite has one write
   // lock, so the pay's transaction and the building's write must not overlap (`payForRun` never rejects).
-  const pay = effects.earnsStars && stars > 0 && isChildActor(access) ? await payForRun(run.childId, runId, stars) : NO_SIDE_QUEST_PAY;
+  const pay = effects.paysMinutes && stars > 0 && isChildActor(access) ? await payForRun(run.childId, runId, stars) : NO_SIDE_QUEST_PAY;
 
   const counted = effects.raisesBuilding && countsTowardBuilding(stars);
   const deed = run.deedId ? findDeed(run.deedId) : null;

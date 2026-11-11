@@ -28,6 +28,8 @@ export type RunEffects = {
   countsForSchool: boolean;
   feedsReview: boolean;
   allowsSecondChances: boolean;
+  /** Whether finishing it pays play minutes (still needs stars, and the hero as the player). */
+  paysMinutes: boolean;
 };
 
 /**
@@ -44,6 +46,7 @@ export const RUN_EFFECTS: Record<RunKind, RunEffects> = {
     countsForSchool: true,
     feedsReview: true,
     allowsSecondChances: true,
+    paysMinutes: true,
   },
   challenge: {
     raisesBuilding: false,
@@ -52,6 +55,7 @@ export const RUN_EFFECTS: Record<RunKind, RunEffects> = {
     countsForSchool: false,
     feedsReview: false,
     allowsSecondChances: false,
+    paysMinutes: false,
   },
   /** A riddle stone or Quick review: it moves mastery and feeds review, but belongs to no building. */
   review: {
@@ -61,6 +65,7 @@ export const RUN_EFFECTS: Record<RunKind, RunEffects> = {
     countsForSchool: false,
     feedsReview: true,
     allowsSecondChances: true,
+    paysMinutes: false,
   },
 };
 

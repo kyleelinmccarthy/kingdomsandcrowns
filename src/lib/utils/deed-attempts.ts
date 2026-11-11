@@ -1,4 +1,4 @@
-import { isTaskCorrect, kindOf, taskDef, type Task } from "@/lib/tasks/registry";
+import { isTaskCorrect, taskDefOf, type Task } from "@/lib/tasks/registry";
 import type { QuestionOutcome } from "./deed-scoring";
 import { ALREADY_ANSWERED, ANSWER_FIRST, NO_SECOND_TRIES, PICK_SHOWN, TRY_DIFFERENT } from "./deed-refusals";
 
@@ -9,7 +9,7 @@ export type QuestionStatus = "unanswered" | "right-first" | "open" | "right-seco
 
 /** Whether the run and the task's kind both allow a retry (a two-choice question never does: one wrong pick would leave only the answer). */
 export function secondChanceAllowed(t: Task, runAllows: boolean): boolean {
-  return runAllows && taskDef(kindOf(t)).allowsSecondChance(t);
+  return runAllows && taskDefOf(t).allowsSecondChance(t);
 }
 
 export function statusOf(t: Task, rec: AttemptRecord, runAllows: boolean): QuestionStatus {
@@ -46,7 +46,7 @@ export function refuseRetry(t: Task, rec: AttemptRecord, runAllows: boolean, raw
   if (isTaskCorrect(t, rec.first)) return ALREADY_ANSWERED;
   if (!secondChanceAllowed(t, runAllows)) return NO_SECOND_TRIES;
   if (rec.second !== null) return ALREADY_ANSWERED;
-  const def = taskDef(kindOf(t));
+  const def = taskDefOf(t);
   const picked = def.parseResponse(raw, t);
   // "" is how the server records a give-up, so it can never be a real retry.
   if (picked === null || def.encode(picked) === "") return PICK_SHOWN;

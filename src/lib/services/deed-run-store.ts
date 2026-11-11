@@ -6,7 +6,7 @@ import type { Question } from "@/lib/utils/drill-generators";
 import { RUN_EFFECTS, kindsThatFeedReview } from "@/lib/utils/deed-scoring";
 import { records, resumeIndex, statusOf } from "@/lib/utils/deed-attempts";
 import { hintFor } from "@/lib/utils/skill-hints";
-import { toClientTask, type Task } from "@/lib/tasks/registry";
+import { isRegisteredKind, toClientTask, type Task } from "@/lib/tasks/registry";
 import type { RunStart } from "@/lib/utils/deed-run-types";
 
 /**
@@ -55,10 +55,15 @@ export async function loadRecentMisses(childId: string): Promise<Question[]> {
   return misses.slice(0, 5);
 }
 
+/** Said when a stored run holds a task kind this build does not know. */
+export const NEWER_VERSION = "This side quest was saved by a newer version. Start it again.";
+
 /** A stored run's questions and both tries, read the same way by every action. */
 export function parseRun(run: DeedRunRow) {
   // Stored rows predate kinds: an absent `kind` reads as choice (`kindOf`).
   const questions = JSON.parse(run.questions) as Task[];
+  // Deploys are forward-only: a run saved by a newer build may hold a kind this one cannot grade or show.
+  if (questions.some((q) => q.kind !== undefined && !isRegisteredKind(q.kind))) throw new Error(NEWER_VERSION);
   const responses = JSON.parse(run.responses) as (string | null)[];
   const secondTries = JSON.parse(run.secondTries) as (string | null)[];
   // The run's own snapshot, never today's setting; and a kind that allows none has none.
