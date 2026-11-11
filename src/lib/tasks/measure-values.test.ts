@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { firstTryText, labelValue, piecesExpression, rulerTicks, stepLength, stepSizes } from "./measure-values";
+import { cutText, firstTryText, labelValue, piecesExpression, rulerTicks, stepLength, stepSizes } from "./measure-values";
 
 describe("the bench's arithmetic on what the child can see", () => {
   it("reads a piece's length off its label", () => {
@@ -59,7 +59,26 @@ describe("the bench's arithmetic on what the child can see", () => {
   it("says a first try back in the child's own terms", () => {
     expect(firstTryText({ pieces: ["4 blocks", "6 blocks", "5 blocks"] }, "a:0,2")).toBe("4 blocks + 5 blocks");
     // The length box is labelled with the unit, so a length goes without it.
-    expect(firstTryText({}, "c:1/2")).toBe("1/2");
+    expect(firstTryText({ step: "1/4" }, "c:1/2")).toBe("1/2");
     expect(firstTryText({}, "nonsense")).toBeNull();
+  });
+
+  it("says a cut back the way the child wrote it: decimals on a decimal step, mixed numbers on a fraction step", () => {
+    // Stored in lowest terms ("c:471/50"), said back as typed.
+    expect(firstTryText({ step: "0.01" }, "c:471/50")).toBe("9.42");
+    expect(firstTryText({ step: "0.1" }, "c:3/2")).toBe("1.5");
+    expect(firstTryText({ step: "1" }, "c:7")).toBe("7");
+    expect(firstTryText({ step: "1/4" }, "c:3/2")).toBe("1 1/2");
+    expect(firstTryText({ step: "1/4" }, "c:1/2")).toBe("1/2");
+    // A length no decimal can write exactly stays a fraction, never a rounded decimal.
+    expect(firstTryText({ step: "0.1" }, "c:1/3")).toBe("1/3");
+  });
+
+  it("writes a cut as its step does, the rule the stepper uses", () => {
+    expect(cutText({ step: "0.01" }, "471/50")).toBe("9.42");
+    expect(cutText({ step: "1/4" }, "3/2")).toBe("1 1/2");
+    expect(cutText({}, "3/2")).toBe("1.5");
+    expect(cutText({ step: "1" }, "oops")).toBeNull();
+    expect(stepLength(cutText({ step: "0.01" }, "471/50")!, "0.01", 1)).toBe("9.43");
   });
 });

@@ -15,7 +15,7 @@
  */
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { TASK_CODECS, CUT_MAX_CHARS } from "@/lib/tasks/codecs";
-import { firstTryText, labelValue, piecesExpression, rulerTicks, stepLength, stepSizes } from "@/lib/tasks/measure-values";
+import { cutText, firstTryText, labelValue, piecesExpression, rulerTicks, stepLength, stepSizes } from "@/lib/tasks/measure-values";
 import { parseAnswer } from "@/lib/tasks/parse-answer";
 import type { MeasureView } from "@/lib/tasks/types";
 import type { FlowState } from "@/lib/utils/deed-run-flow";
@@ -130,7 +130,8 @@ function MarkTrack({ pieces, picked, target }: { pieces: string[]; picked: numbe
 function Cut({ view, flow, disabled, onRespond }: Surface) {
   const [text, setText] = useState(() => {
     const first = openingTry(flow);
-    return typeof first === "string" ? first : "";
+    // Stored in lowest terms; put back in the box as the child wrote it ("9.42", not "471/50").
+    return typeof first === "string" ? (cutText(view, first) ?? first) : "";
   });
   const resolved = flow.phase === "resolved";
   const id = useId();

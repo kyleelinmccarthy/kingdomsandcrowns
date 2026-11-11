@@ -53,6 +53,9 @@ export function rulerTicks(end: number, step?: string): number[] {
   return [...ticks, end];
 }
 
+/** How the bench writes a length for a task: in mixed numbers when its step is a fraction, else in decimals. */
+export const lengthStyle = (step?: string): "mixed" | "decimal" => (step?.includes("/") ? "mixed" : "decimal");
+
 /**
  * The typed length, one step longer (`dir` 1) or shorter (-1). Nothing typed (or nothing a length)
  * steps from 0. Never below 0, and never stepped past the ruler's end (`max`); a length already
@@ -66,15 +69,29 @@ export function stepLength(text: string, step: string, dir: 1 | -1, max?: string
   if (lessRational(next, ZERO)) next = ZERO;
   const end = max ? parseAnswer(max) : null;
   if (dir > 0 && end && lessRational(end, next)) next = lessRational(now, end) ? end : now;
-  return formatRational(next, step.includes("/") || text.includes("/") ? "mixed" : "decimal");
+  return formatRational(next, text.includes("/") ? "mixed" : lengthStyle(step));
 }
 
 /**
- * A stored first try, said back in the child's terms: the pieces' labels, or the length as written.
+ * A stored cut ("471/50", kept in lowest terms so equal lengths compare equal) written the way the
+ * task's step writes lengths, which is how the child typed it: "9.42" on a hundredths step, "1 1/2"
+ * on a quarters step. A length no decimal writes exactly ("1/3") stays a fraction, never rounded.
+ * Null when it is no length.
+ */
+export function cutText(view: Pick<MeasureView, "step">, body: string): string | null {
+  const r = parseAnswer(body);
+  if (!r) return null;
+  if (lengthStyle(view.step) === "mixed") return formatRational(r, "mixed");
+  const decimal = formatRational(r, "decimal");
+  return sameValue(parseAnswer(decimal) ?? ZERO, r) ? decimal : formatRational(r, "mixed");
+}
+
+/**
+ * A stored first try, said back in the child's terms: the pieces' labels, or the length as written (`cutText`).
  * The length box is labelled with its unit, so the length goes without it (and never "1 feet").
  */
-export function firstTryText(view: Pick<MeasureView, "pieces">, encoded: string): string | null {
+export function firstTryText(view: Pick<MeasureView, "pieces" | "step">, encoded: string): string | null {
   const r = TASK_CODECS.measure.decode(encoded);
   if (r === null) return null;
-  return Array.isArray(r) ? r.map((i) => view.pieces?.[i] ?? "?").join(" + ") : r;
+  return Array.isArray(r) ? r.map((i) => view.pieces?.[i] ?? "?").join(" + ") : cutText(view, r);
 }

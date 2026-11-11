@@ -210,6 +210,21 @@ describe("the bench: cutting to a length", () => {
     expect(screen.getByText("Your pieces: 4 + 6")).toBeTruthy();
   });
 
+  it("a decimal cut picked back up on a second chance is said and seeded as the child wrote it, and steps in decimals", () => {
+    const decimal: Measure = { ...CUT, view: { mode: "cut", unit: "feet", step: "0.01", maxLength: "20" } };
+    show({ task: decimal, flow: secondChance("c:471/50") });
+    expect(screen.getByText("Your first try: 9.42")).toBeTruthy();
+    expect(length().value).toBe("9.42");
+    fireEvent.click(screen.getByRole("button", { name: "+0.01" }));
+    expect(length().value).toBe("9.43");
+  });
+
+  it("a mixed number picked back up is said and seeded as a mixed number", () => {
+    show({ task: CUT, flow: secondChance("c:3/2") });
+    expect(screen.getByText("Your first try: 1 1/2")).toBeTruthy();
+    expect(length().value).toBe("1 1/2");
+  });
+
   it("a fraction length gets a keyboard with a slash on a phone; a decimal one, the number pad", () => {
     show({ task: CUT });
     expect(length().inputMode).toBe("text");
