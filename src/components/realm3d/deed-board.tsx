@@ -35,6 +35,7 @@ import { MAX_STARS, type Stars } from "@/lib/utils/deed-scoring";
 import { deedErrorLine } from "@/lib/utils/deed-refusals";
 import { DeedMeter } from "@/components/deed-meter";
 import { TaskPresenter } from "@/components/tasks/presenters";
+import { BenchDemo, demoCopy, useBenchDemo } from "@/components/tasks/bench-demo";
 import { StarRow } from "@/components/star-row";
 import { useDeedFlow } from "@/components/use-deed-flow";
 import { AREA_LABELS, type SkillArea } from "@/lib/utils/skills";
@@ -255,6 +256,7 @@ export function DeedRun({
   const [startedAt] = useState(() => Date.now());
   const [now, setNow] = useState(() => Date.now());
   const question = run.questions[index];
+  const demo = useBenchDemo(run);
   const isLast = index === run.questions.length - 1;
   const what = run.kind === "review" ? "review" : SIDE_QUEST_LOWER;
   const finishLabel = run.kind === "review" ? REVIEW_FINISH : `Finish ${SIDE_QUEST_LOWER}`;
@@ -263,15 +265,15 @@ export function DeedRun({
 
   // Read-aloud, as `DeedPlayer` does it: the profile asks, the effect obeys, and leaving stops it —
   // but only this run's own line. The click that closes the board also says the building is
-  // rising, and that must be heard.
+  // rising, and that must be heard. Aldo's worked example is read first, when there is one.
   const spoken = useRef<SpeechToken | null>(null);
   const say = (text: string) => {
     spoken.current = speak(text);
   };
   useEffect(() => {
-    if (profile.readAloud && question) spoken.current = speak(question.readAloud ?? question.prompt);
+    if (profile.readAloud && question) spoken.current = speak(demo.mode ? demoCopy(demo.mode) : (question.readAloud ?? question.prompt));
     return () => stopSpeaking(spoken.current);
-  }, [profile.readAloud, question]);
+  }, [profile.readAloud, question, demo.mode]);
 
   // The hint is read once, when the second chance opens.
   const hint = phase === "second-chance" ? flow.result?.hint : undefined;
@@ -371,6 +373,7 @@ export function DeedRun({
           </button>
         </p>
       )}
+      {demo.mode ? <BenchDemo mode={demo.mode} calm={calm} onDone={demo.finish} /> : (<>
       <div className="r3-question">
         <p className="r3-question-text">{question.prompt}</p>
         {canSpeak() && (
@@ -380,6 +383,7 @@ export function DeedRun({
         )}
       </div>
       <TaskPresenter task={question} flow={flow} variant="board" numerals={numerals} calm={calm} disabled={busy} nudge={nudge} site={site} onRespond={(encoded) => void choose(encoded)} />
+      </>)}
       {feedback && (
         <div className={`r3-feedback${flow.result?.correct ? " r3-feedback--right" : ""}`}>
           <div>

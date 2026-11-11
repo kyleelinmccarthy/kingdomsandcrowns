@@ -444,3 +444,66 @@ describe("a bench task on the board", () => {
     }
   });
 });
+
+describe("Watch Aldo on the board", () => {
+  const bench = (id: string) => ({ kind: "measure" as const, id, skillId: "add-10", prompt: "Cut a board three quarters of a foot long.", readAloud: "Cut three quarters.", view: { mode: "cut" as const, unit: "feet", step: "1/4", maxLength: "2" } });
+  const young = { ...run, questions: [bench("m1"), bench("m2")], responses: [null, null] as (string | null)[], demo: true };
+  const begin = async (over: Partial<React.ComponentProps<typeof DeedBoard>> = {}) => {
+    vi.mocked(startDeedRun).mockResolvedValue(young);
+    board(over);
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" })));
+  };
+
+  it("shows the worked example first, with no bench, and Got it brings the first task", async () => {
+    await begin();
+    expect(screen.getByRole("heading", { name: "Watch Aldo" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Got it" })).toHaveFocus();
+    expect(screen.queryByRole("heading", { name: "The bench" })).toBeNull();
+    expect(screen.queryByText("Cut a board three quarters of a foot long.")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Got it" }));
+    expect(screen.queryByRole("heading", { name: "Watch Aldo" })).toBeNull();
+    expect(screen.getByRole("heading", { name: "The bench" })).toBeInTheDocument();
+    expect(screen.getByText("Cut a board three quarters of a foot long.")).toBeInTheDocument();
+  });
+
+  it("comes back for neither the next task nor a second chance", async () => {
+    vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: false, secondChance: true, hint: "Count the quarters.", firstPick: "c:1", feedback: "too_long" });
+    await begin();
+    fireEvent.click(screen.getByRole("button", { name: "Got it" }));
+    fireEvent.change(screen.getByLabelText("Length in feet"), { target: { value: "1" } });
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Cut it" })));
+    expect(screen.queryByRole("heading", { name: "Watch Aldo" })).toBeNull();
+    expect(screen.getByRole("heading", { name: "The bench" })).toBeInTheDocument();
+  });
+
+  it("is not shown for a run that is not marked", async () => {
+    vi.mocked(startDeedRun).mockResolvedValue({ ...young, demo: undefined });
+    board();
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" })));
+    expect(screen.queryByRole("heading", { name: "Watch Aldo" })).toBeNull();
+    expect(screen.getByRole("heading", { name: "The bench" })).toBeInTheDocument();
+  });
+
+  it("reads the demo aloud, then the first task once Got it is pressed, for a child with read-aloud on", async () => {
+    await begin({ profile: { readAloud: true, untimed: true } });
+    expect(speak).toHaveBeenLastCalledWith(expect.stringMatching(/^Aldo needs a board 3\/4 of a foot long\./));
+    fireEvent.click(screen.getByRole("button", { name: "Got it" }));
+    expect(speak).toHaveBeenLastCalledWith("Cut three quarters.");
+  });
+
+  it("takes no keys from the game: Esc and a number key still reach it, and no number key answers", async () => {
+    const game = vi.fn();
+    window.addEventListener("keydown", game);
+    try {
+      await begin();
+      const got = screen.getByRole("button", { name: "Got it" });
+      fireEvent.keyDown(got, { key: "1", code: "Digit1" });
+      fireEvent.keyDown(got, { key: "Escape", code: "Escape" });
+      expect(game).toHaveBeenCalledTimes(2);
+      expect(game.mock.calls.every(([e]) => !(e as KeyboardEvent).defaultPrevented)).toBe(true);
+      expect(answerDeedQuestion).not.toHaveBeenCalled();
+    } finally {
+      window.removeEventListener("keydown", game);
+    }
+  });
+});

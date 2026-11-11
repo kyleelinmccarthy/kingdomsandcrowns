@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, it, expect, vi, beforeAll, beforeEach, afterAll } from "vitest";
+import { describe, it, expect, vi, beforeAll, beforeEach, afterEach, afterAll } from "vitest";
 import { testDatabase } from "@/test/libsql-test-db";
 import { DEFAULT_REALM_SETTINGS } from "@/lib/utils/realm-settings";
 import { hintFor } from "@/lib/utils/skill-hints";
@@ -472,6 +472,79 @@ describe("a side quest's run says where its building stands, for the bench's dra
     await seedRun({ id: "earned", responses: ["6", "9", "12", "15"], completed: true, stars: 3 });
     const r = await startDeedRun("c1", "well-stones", "realm", { challenge: true });
     expect("site" in r).toBe(false);
+  });
+});
+
+describe("a young hero watches Aldo do the first bench task (R-C9)", () => {
+  const cut = (id: string): MeasureTask => ({ kind: "measure", id, skillId: SKILL, prompt: "Cut it.", mode: "cut", unit: "ft", answer: "3/4", step: "1/4", maxLength: "2", bridge: "3/4" });
+  /** The next fresh run opens on a bench task, whatever the engine would have drawn (no skill is benched by the settings yet). */
+  const benchFirst = (n = 2) => vi.mocked(buildDeedRun).mockReturnValueOnce({ skillIds: [SKILL], questions: [cut("m1"), ...QUESTIONS.slice(0, n - 1)] });
+  const gradeIs = (math: string) => vi.mocked(loadHeroLevels).mockResolvedValue({
+    enabled: true, tone: "gentle", band: "3-5", grades: { math, reading: "3", language: "3", science: "3" },
+  } as unknown as Awaited<ReturnType<typeof loadHeroLevels>>);
+  afterEach(() => gradeIs("3"));
+
+  it("is true for a grade-2 hero with no prior measure run, on a fresh run and on its resume", async () => {
+    gradeIs("2");
+    benchFirst();
+    expect((await startDeedRun("c1", "well-stones", "realm")).demo).toBe(true);
+    expect((await startDeedRun("c1", "well-stones", "realm")).demo).toBe(true); // resumed, still unanswered
+  });
+
+  it("is true for every grade from K to 3", async () => {
+    for (const g of ["K", "1", "3"]) {
+      await client.query("DELETE FROM deed_run");
+      gradeIs(g);
+      benchFirst();
+      expect((await startDeedRun("c1", "well-stones", "realm")).demo, g).toBe(true);
+    }
+  });
+
+  it("is false once any answer is stored: a resumed run does not show it again", async () => {
+    gradeIs("2");
+    benchFirst();
+    const r = await startDeedRun("c1", "well-stones", "realm");
+    await answerDeedQuestion(r.runId, 0, "c:3/4");
+    expect((await startDeedRun("c1", "well-stones", "realm")).demo).toBeFalsy();
+  });
+
+  it("is false after one completed measure run, and a completed choice run does not count", async () => {
+    gradeIs("2");
+    await seedRun({ id: "choice-done", responses: ["6", "9", "12", "15"], completed: true });
+    benchFirst();
+    expect((await startDeedRun("c1", "well-stones", "realm")).demo).toBe(true);
+    await client.query("DELETE FROM deed_run WHERE id != 'choice-done'");
+    await seedRun({ id: "bench-done", questions: [cut("old")] as unknown as Question[], responses: ["c:3/4"], completed: true });
+    benchFirst();
+    expect((await startDeedRun("c1", "well-stones", "realm")).demo).toBeFalsy();
+  });
+
+  it("is not read from an unfinished measure run, nor from another hero's", async () => {
+    gradeIs("2");
+    await seedRun({ id: "half", questions: [cut("old")] as unknown as Question[], responses: [null] });
+    await client.query("UPDATE deed_run SET deed_id = 'mill-sacks'");
+    await seedRun({ id: "theirs", questions: [cut("old")] as unknown as Question[], responses: ["c:3/4"], completed: true });
+    await client.query("UPDATE deed_run SET child_id = 'c2' WHERE id = 'theirs'");
+    benchFirst();
+    expect((await startDeedRun("c1", "well-stones", "realm")).demo).toBe(true);
+  });
+
+  it("is false for a grade-5 hero", async () => {
+    gradeIs("5");
+    benchFirst();
+    expect((await startDeedRun("c1", "well-stones", "realm")).demo).toBeFalsy();
+  });
+
+  it("is false when the first task is a choice, even for a grade-2 hero", async () => {
+    gradeIs("2");
+    expect((await startDeedRun("c1", "well-stones", "realm")).demo).toBeFalsy();
+  });
+
+  it("is false in a Crown Challenge", async () => {
+    gradeIs("2");
+    await seedRun({ id: "earned", responses: ["6", "9", "12", "15"], completed: true, stars: 3 });
+    benchFirst(3);
+    expect((await startDeedRun("c1", "well-stones", "realm", { challenge: true })).demo).toBeFalsy();
   });
 });
 

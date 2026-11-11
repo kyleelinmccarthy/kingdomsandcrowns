@@ -29,7 +29,7 @@ import {
 import { overdueSkills } from "@/lib/utils/review-schedule";
 import type { AttemptResult, RunStart, RunSummary } from "@/lib/utils/deed-run-types";
 import { hintFor } from "@/lib/utils/skill-hints";
-import { findOpenRun, insertRun, loadMasteryRows, loadRecentMisses, parseRun, resumedStart, type DeedRunRow } from "@/lib/services/deed-run-store";
+import { benchDemoDue, findOpenRun, insertRun, loadMasteryRows, loadRecentMisses, parseRun, resumedStart, type DeedRunRow } from "@/lib/services/deed-run-store";
 import { buildingStars, gradeForDeed, loadDeedBest, loadHeroLevels, loadKingdomOverview, loadSiteState, type BuildingOverview } from "@/lib/services/deeds";
 import { loadFocusSkillIds } from "@/lib/services/learning-focus";
 import { loadLearningProfileRow } from "@/lib/services/learning-profile";
@@ -98,12 +98,13 @@ export async function startDeedRun(
     loadFocusSkillIds(childId, hero.grades),
     building ? loadSiteState(childId, building) : Promise.resolve(null),
   ]);
-  if (open) return resumedStart(open, { id: deed.id, title: deed.title, story, area: deed.area }, site ?? undefined);
-
   // The deed's OWN strand decides the grade — never a fixed one, and never another
   // strand's. `gradeForDeed` is where that is pinned by test. A focus skill in the deed's strand
   // a grade either side joins the candidates (`runCandidates`), so its pool is loaded too.
   const grade = gradeForDeed(hero, deed);
+  // A young hero's first bench run opens with Aldo's worked example (R-C9), resumed or fresh.
+  const withDemo = async (start: RunStart): Promise<RunStart> => ((await benchDemoDue(childId, grade, start)) ? { ...start, demo: true } : start);
+  if (open) return withDemo(resumedStart(open, { id: deed.id, title: deed.title, story, area: deed.area }, site ?? undefined));
   const skills = runCandidates(deed, grade, focusSkillIds);
   const poolSkillIds = skills.filter((s) => s.source.kind === "pool").map((s) => s.id);
   const [profileRow, masteryRows, poolRows, recentMisses, settings] = await Promise.all([
@@ -156,7 +157,7 @@ export async function startDeedRun(
     kind, secondChances: RUN_EFFECTS[kind].allowsSecondChances && settings.secondChances,
   }, built.questions, { id: deed.id, title: deed.title, story, area: deed.area });
   // A fresh run has laid nothing yet.
-  return site ? { ...start, site: { ...site, placed: 0 } } : start;
+  return withDemo(site ? { ...start, site: { ...site, placed: 0 } } : start);
 }
 
 /** A stored run, once the caller may act for its hero, and who the caller is. */

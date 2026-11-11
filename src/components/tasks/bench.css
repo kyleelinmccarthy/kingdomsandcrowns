@@ -133,3 +133,23 @@ line.bench-site-piece--next { opacity: 0.3; stroke-dasharray: 4 4; }
 @media (prefers-reduced-motion: reduce) {
   .bench-piece--drop { animation: none; }
 }
+
+/* ---- Watch Aldo: the young hero's worked example (bench-demo.tsx) ------------------------- */
+
+.bench-demo-art { display: block; width: min(22rem, 100%); height: auto; margin: 0.3rem 0 0.6rem; overflow: visible; }
+.bench-demo-board { fill: #d9a55a; stroke: #5a3510; stroke-width: 1; }
+.bench-demo-board--b { fill: #c98f43; }
+.bench-demo-ruler { fill: none; stroke: var(--bench-ink); stroke-width: 1; }
+.bench-demo-tick { stroke: var(--bench-ink); stroke-width: 1.2; }
+.bench-demo-mark { stroke: var(--bench-gold); stroke-width: 2.4; stroke-linecap: round; }
+.bench-demo-num { fill: #2a1709; font-size: 7px; font-weight: 800; }
+.bench-demo-num--out { fill: var(--bench-soft); }
+.bench-demo-text { margin: 0 0 0.2rem; max-width: 34rem; font-size: 1.15rem; font-weight: 700; line-height: 1.4; color: var(--bench-ink); }
+.bench-demo-art--move .bench-demo-mark { animation: bench-demo-in 0.7s ease-out 0.2s both; }
+@keyframes bench-demo-in {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bench-demo-art--move .bench-demo-mark { animation: none; }
+}

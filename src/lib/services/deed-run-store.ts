@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, inArray, isNotNull, isNull, type SQL } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, isNotNull, isNull, like, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { RUN_EFFECTS, kindsThatFeedReview } from "@/lib/utils/deed-scoring";
@@ -123,6 +123,25 @@ export function resumedStart(run: DeedRunRow, header: RunStart["deed"], site?: {
   if (!site) return start;
   const placed = questions.filter((q, i) => kindOf(q) === "measure" && (statuses[i] === "right-first" || statuses[i] === "right-second")).length;
   return { ...start, site: { ...site, placed } };
+}
+
+/** The grades that watch Aldo first (R-C9): the hero's grade in the deed's strand, K to 3. */
+const DEMO_GRADES: readonly string[] = ["K", "1", "2", "3"];
+
+/**
+ * Whether a side quest's run opens with Aldo's worked example: the strand's grade is K to 3, the
+ * run's first task is a bench task and nothing has been answered yet, and the hero has never
+ * finished a run that held one. A review or a Crown Challenge never has one. The cheap checks come
+ * first, so the history is only read for a run that could show it.
+ */
+export async function benchDemoDue(childId: string, grade: string, run: Pick<RunStart, "kind" | "questions" | "responses">): Promise<boolean> {
+  if (run.kind !== "deed" || !DEMO_GRADES.includes(grade) || run.questions[0]?.kind !== "measure" || run.responses.some((r) => r !== null)) return false;
+  const done = await db
+    .select({ id: schema.deedRun.id })
+    .from(schema.deedRun)
+    .where(and(eq(schema.deedRun.childId, childId), isNotNull(schema.deedRun.completedAt), like(schema.deedRun.questions, '%"kind":"measure"%')))
+    .limit(1);
+  return done.length === 0;
 }
 
 /** Writes a fresh, unanswered run and hands the browser its first screen. */

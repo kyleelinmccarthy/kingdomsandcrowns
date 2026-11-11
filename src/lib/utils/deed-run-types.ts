@@ -19,6 +19,11 @@ export type RunStart = {
    * side quest's own run raises a building, so a review or a Crown Challenge has none.
    */
   site?: { stage: number; complete: boolean; placed: number };
+  /**
+   * Set (true) when the run opens on a bench task for a young hero who has never finished one: the
+   * board shows "Watch Aldo" first (R-C9). Absent otherwise, and absent once any answer is stored.
+   */
+  demo?: boolean;
 };
 /**
  * `answer` and `explain` are present only once the question is resolved, so the answer never

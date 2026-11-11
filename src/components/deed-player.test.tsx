@@ -3,6 +3,10 @@ import { render, screen, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DeedPlayer } from "./deed-player";
 import type { RunStart } from "@/lib/utils/deed-run-types";
+import { speak } from "@/lib/utils/speech";
+
+// Speech is spoken to a spy; the browser check stays the real one (jsdom cannot speak).
+vi.mock("@/lib/utils/speech", async (orig) => ({ ...(await orig<typeof import("@/lib/utils/speech")>()), speak: vi.fn() }));
 
 const answerDeedQuestion = vi.fn();
 const completeDeedRun = vi.fn();
@@ -270,6 +274,50 @@ describe("DeedPlayer", () => {
       expect(document.body.textContent).not.toMatch(/minutes?/i);
       expect(document.body.textContent).not.toMatch(/built|Village Well/);
       expect(document.querySelector("[data-subject]")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("Watch Aldo", () => {
+    const bench = (id: string) => ({ kind: "measure" as const, id, skillId: "add-10", prompt: "Build a beam 9 blocks long.", readAloud: "Build a beam nine blocks long.", view: { mode: "assemble" as const, unit: "blocks", pieces: ["1 block", "4 blocks", "8 blocks"], target: "9 blocks" } });
+    const young: RunStart = { ...run, deed: { ...run.deed, area: "math" }, questions: [bench("m1"), bench("m2")], responses: [null, null], demo: true };
+
+    it("shows the worked example before the first task, and Got it brings the bench", async () => {
+      const user = userEvent.setup();
+      render(<DeedPlayer run={young} profile={profile} calm={false} onFinished={() => {}} />);
+      expect(screen.getByRole("heading", { name: "Watch Aldo" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Got it" })).toHaveFocus();
+      expect(screen.queryByRole("heading", { name: "The bench" })).not.toBeInTheDocument();
+      expect(screen.queryByText("Build a beam 9 blocks long.")).not.toBeInTheDocument();
+      await user.keyboard("{Enter}");
+      expect(screen.queryByRole("heading", { name: "Watch Aldo" })).not.toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "The bench" })).toBeInTheDocument();
+      expect(screen.getByText("Build a beam 9 blocks long.")).toBeInTheDocument();
+    });
+
+    it("is shown once: a second chance and the next task go straight to the bench", async () => {
+      const user = userEvent.setup();
+      answerDeedQuestion.mockResolvedValue({ correct: false, secondChance: true, hint: "Count on.", firstPick: "a:1" });
+      render(<DeedPlayer run={young} profile={profile} calm={false} onFinished={() => {}} />);
+      await user.click(screen.getByRole("button", { name: "Got it" }));
+      await user.click(screen.getByRole("button", { name: "4 blocks" }));
+      await user.click(screen.getByRole("button", { name: "Fit it" }));
+      expect(await screen.findByText(/Count on\./)).toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: "Watch Aldo" })).not.toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "The bench" })).toBeInTheDocument();
+    });
+
+    it("is not shown for a run that is not marked", () => {
+      render(<DeedPlayer run={{ ...young, demo: undefined }} profile={profile} calm={false} onFinished={() => {}} />);
+      expect(screen.queryByRole("heading", { name: "Watch Aldo" })).not.toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "The bench" })).toBeInTheDocument();
+    });
+
+    it("reads the demo aloud, then the task, for a hero with read-aloud on", async () => {
+      const user = userEvent.setup();
+      render(<DeedPlayer run={young} profile={{ ...profile, readAloud: true }} calm={false} onFinished={() => {}} />);
+      expect(speak).toHaveBeenLastCalledWith(expect.stringMatching(/^Aldo needs a beam 5 feet long\./));
+      await user.click(screen.getByRole("button", { name: "Got it" }));
+      expect(speak).toHaveBeenLastCalledWith("Build a beam nine blocks long.");
     });
   });
 });
