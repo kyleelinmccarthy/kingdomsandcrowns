@@ -118,7 +118,8 @@ describe("bench catalog", () => {
           const mark = t.mode === "assemble" ? t.target!.value : t.answer!;
           // The mark ends the line as a whole value (after "= "), not as a substring of another number.
           expect(t.bridge.endsWith(`= ${mark}`), t.id).toBe(true);
-          expect(t.bridge, t.id).toContain(t.mode === "assemble" ? "+" : "−");
+          // A sum for assemble; a cut is a difference, a product or a quotient (area, rows, a unit fraction).
+          expect(t.bridge, t.id).toMatch(t.mode === "assemble" ? /\+/ : /[−×÷+]/);
         }
       });
 
