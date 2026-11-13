@@ -25,7 +25,7 @@ beforeEach(() => {
 const run = {
   runId: "review-1",
   deed: { id: "review:longwater", title: "Longwater riddle stone", story: "Three riddles from things you have learned.", area: null },
-  questions: [{ kind: "choice" as const, id: "q1", skillId: "add", view: { prompt: "What is 2 + 3?", choices: ["4", "5"] } }],
+  questions: [{ kind: "choice" as const, id: "q1", skillId: "add", prompt: "What is 2 + 3?", view: { choices: ["4", "5"] } }],
   responses: [null] as (string | null)[],
   kind: "review" as const,
   pending: null,

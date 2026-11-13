@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { requireChildAccess, isChildActor } from "@/lib/auth/access";
 import { loadRealmSettings } from "@/lib/services/realm-play";
-import { validateRealmSettingsPatch, type RealmSettings } from "@/lib/utils/realm-settings";
+import { validateRealmSettingsPatch, type RealmSettings, type RealmSettingsPatch } from "@/lib/utils/realm-settings";
 import { isDepthOverride, type DepthOverride } from "@/lib/realm/depth";
 import { STORED_MAX } from "@/lib/realm3d/tutorial";
 
@@ -16,14 +16,16 @@ export async function getRealmSettings(childId: string): Promise<RealmSettings> 
   return loadRealmSettings(childId);
 }
 
-export async function updateRealmSettings(childId: string, patch: Partial<RealmSettings>): Promise<void> {
+export async function updateRealmSettings(childId: string, patch: RealmSettingsPatch): Promise<void> {
   const { access } = await requireChildAccess(childId, { write: true });
   if (isChildActor(access)) throw new Error("Only a grown-up can change Realm settings.");
-  const clean = validateRealmSettingsPatch(patch);
-  await loadRealmSettings(childId);
+  const { mechanics, ...clean } = validateRealmSettingsPatch(patch);
+  const stored = await loadRealmSettings(childId);
   await db
     .update(schema.realmSettings)
-    .set({ ...clean, updatedAt: new Date() })
+    // The switches are one JSON column: the patch is merged over what is stored, so turning one
+    // kind off never turns another back on.
+    .set({ ...clean, ...(mechanics ? { mechanics: JSON.stringify({ ...stored.mechanics, ...mechanics }) } : {}), updatedAt: new Date() })
     .where(eq(schema.realmSettings.childId, childId));
   revalidatePath("/settings");
 }

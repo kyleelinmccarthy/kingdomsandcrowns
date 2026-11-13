@@ -12,19 +12,35 @@ export type RunStart = {
   kind: RunKind;
   /** A resumed run left on a second chance: reopen there, the first pick ruled out and the hint shown. */
   pending: { index: number; ruledOut: string; hint: string } | null;
+  /**
+   * A side quest's building as the run begins, for the bench's drawing: its site stage
+   * (`siteStage`), whether it is finished, and `placed`, how many of the run's bench tasks were
+   * already put right (first try or second), so a run picked back up draws what it had laid. Only a
+   * side quest's own run raises a building, so a review or a Crown Challenge has none.
+   */
+  site?: { stage: number; complete: boolean; placed: number };
+  /**
+   * Where "Watch Aldo" shows (R-C9): `at` is the index of the run's first bench task, for a young
+   * hero who has never answered one. The board shows the demo, for that task's mode, when the run
+   * reaches it. Absent otherwise, and absent once that task is answered. Holds only an index.
+   */
+  demo?: { at: number };
 };
 /**
  * `answer` and `explain` are present only once the question is resolved, so the answer never
  * reaches the browser while a try is still open. `hint` comes with an open second chance, and
  * with a resolved miss that has no explanation. `answer` is the right answer in words
- * (`answerText`). `feedback` is the task kind's coded note on the response just given; it is
- * omitted when the code is "none" (multiple choice never sets it).
+ * (`answerText`). `feedback` is the task kind's coded note on the response just given; on a
+ * repeated first answer, the stored first answer's note, and only while its second chance is open.
+ * It is omitted when the code is "none" (multiple choice never sets it).
  */
 export type AttemptResult = {
   correct: boolean; secondChance: boolean; answer?: string; explain?: string; hint?: string;
   /** With an open second chance: the first pick the server stored (the child's own, safe to send). */
   firstPick?: string;
   feedback?: FeedbackCode;
+  /** The worked notation ("1/2 + 1/4 = 3/4"), only once a hands-on task resolves right; multiple choice has none. */
+  bridge?: string;
   /**
    * Only on a first answer that moved mastery: where the skill's pips stand now. On a first answer,
    * absent or null means there are no pips to show (the skill is at the top, or nothing moved), so

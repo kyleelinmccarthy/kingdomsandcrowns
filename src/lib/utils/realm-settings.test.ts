@@ -162,3 +162,46 @@ describe("earning-time settings", () => {
     expect(validateRealmSettingsPatch({ bankCapMinutes: 240 })).toEqual({ bankCapMinutes: 240 });
   });
 });
+
+describe("mechanics (the hands-on kinds a grown-up can switch off)", () => {
+  it("is all on by default, and a default is never shared with a caller who edits it", () => {
+    expect(DEFAULT_REALM_SETTINGS.mechanics).toEqual({ measure: true });
+    const a = settingsFromRow(null);
+    a.mechanics.measure = false;
+    expect(DEFAULT_REALM_SETTINGS.mechanics.measure).toBe(true);
+    expect(settingsFromRow(null).mechanics.measure).toBe(true);
+    const b = settingsFromRow({ dailyCapMinutes: 45 });
+    b.mechanics.measure = false;
+    expect(settingsFromRow({ dailyCapMinutes: 45 }).mechanics.measure).toBe(true);
+  });
+
+  it("reads the stored JSON text leniently: null, junk, non-objects, non-booleans and missing keys are all on", () => {
+    for (const raw of [null, undefined, "", "not json", "{", "[]", "[true]", "true", "7", '"measure"', "null", "{}", '{"measure":"no"}', '{"measure":0}', '{"measure":null}', 5, {}]) {
+      expect(settingsFromRow({ mechanics: raw }).mechanics, String(raw)).toEqual({ measure: true });
+    }
+  });
+
+  it("reads an off switch, and ignores keys it does not know", () => {
+    expect(settingsFromRow({ mechanics: '{"measure":false}' }).mechanics).toEqual({ measure: false });
+    expect(settingsFromRow({ mechanics: '{"measure":true}' }).mechanics).toEqual({ measure: true });
+    expect(settingsFromRow({ mechanics: '{"measure":false,"origami":false}' }).mechanics).toEqual({ measure: false });
+  });
+
+  it("accepts a partial object of known kinds with boolean values, and returns a copy", () => {
+    expect(validateRealmSettingsPatch({ mechanics: { measure: false } })).toEqual({ mechanics: { measure: false } });
+    expect(validateRealmSettingsPatch({ mechanics: {} })).toEqual({ mechanics: {} });
+    const input = { measure: true };
+    expect(validateRealmSettingsPatch({ mechanics: input }).mechanics).not.toBe(input);
+  });
+
+  it("refuses an unknown kind, a non-boolean value, and anything that is not a plain object", () => {
+    for (const bad of [{ origami: true }, { measure: "off" }, { measure: 0 }, { measure: null }, { measure: false, origami: true }, null, undefined, "measure", 3, true, [], [true], ["measure"]]) {
+      expect(() => validateRealmSettingsPatch({ mechanics: bad }), JSON.stringify(bad)).toThrow(/mechanics/i);
+    }
+  });
+
+  it("a patch toggling measure leaves every other key alone", () => {
+    expect(Object.keys(validateRealmSettingsPatch({ mechanics: { measure: false } }))).toEqual(["mechanics"]);
+    expect(validateRealmSettingsPatch({ secondChances: false, mechanics: { measure: false } })).toEqual({ secondChances: false, mechanics: { measure: false } });
+  });
+});

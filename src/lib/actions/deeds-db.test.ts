@@ -1,11 +1,14 @@
 // @vitest-environment node
-import { describe, it, expect, vi, beforeAll, beforeEach, afterAll } from "vitest";
+import { describe, it, expect, vi, beforeAll, beforeEach, afterEach, afterAll } from "vitest";
 import { testDatabase } from "@/test/libsql-test-db";
 import { DEFAULT_REALM_SETTINGS } from "@/lib/utils/realm-settings";
 import { hintFor } from "@/lib/utils/skill-hints";
-import { CHALLENGE, starsFor } from "@/lib/utils/deed-scoring";
-import { CHALLENGE_NOT_READY } from "@/lib/utils/deed-refusals";
+import { CHALLENGE, SCORING, starsFor } from "@/lib/utils/deed-scoring";
+import { CHALLENGE_NOT_READY, HERO_ONLY, PICK_SHOWN, TRY_DIFFERENT } from "@/lib/utils/deed-refusals";
 import type { Question } from "@/lib/utils/drill-generators";
+import type { MeasureTask } from "@/lib/tasks/types";
+import { isTaskCorrect, kindOf, type Task } from "@/lib/tasks/registry";
+import { BENCH } from "@/lib/tasks/bench";
 import { REALM_ACCESS_DDL, REALM_LEDGER_DDL, REALM_SETTINGS_DDL } from "@/test/realm-db-ddl";
 
 /**
@@ -49,6 +52,7 @@ const { getRealmAccess, recordRealmPlay } = await import("./realm-play");
 const { loadDeedBest, loadHeroLevels } = await import("@/lib/services/deeds");
 const { loadRealmSettings, paySideQuest } = await import("@/lib/services/realm-play");
 const { buildDeedRun } = await import("@/lib/utils/deed-engine");
+const { buildDeedRun: realBuildDeedRun } = await vi.importActual<typeof import("@/lib/utils/deed-engine")>("@/lib/utils/deed-engine");
 const { requireChildAccess } = await import("@/lib/auth/access");
 
 // The tables the run touches, as the migrations make them (foreign keys left out); `subject` and
@@ -95,7 +99,7 @@ const QUESTIONS: Question[] = [
 
 type Seed = {
   id?: string; questions?: Question[]; responses?: (string | null)[]; secondTries?: string;
-  secondChances?: boolean; completed?: boolean; stars?: number; kind?: "deed" | "challenge";
+  secondChances?: boolean; completed?: boolean; stars?: number; kind?: "deed" | "challenge" | "review";
 };
 
 async function seedRun(over: Seed = {}): Promise<string> {
@@ -114,6 +118,18 @@ async function seedRun(over: Seed = {}): Promise<string> {
   return id;
 }
 
+/** A right and a surely wrong response for any stored task, from its own solution (a run drawn at random may hold either kind). */
+function rightAndWrong(t: Task): { right: string | number[]; wrong: string | number[] } {
+  if (kindOf(t) === "choice") {
+    const q = t as Question;
+    return { right: q.answer, wrong: q.choices.find((c) => c !== q.answer)! };
+  }
+  const m = t as MeasureTask;
+  if (m.mode === "cut") return { right: m.answer!, wrong: "12345" };
+  const wrong = m.pieces!.map((_, i) => [i]).find((picks) => !isTaskCorrect(t, `a:${picks.join(",")}`));
+  return { right: m.solution!, wrong: wrong! };
+}
+
 async function stored(id = "run1"): Promise<{ responses: string; second_tries: string; stars: number; completed_at: number | null }> {
   const r = await client.query("SELECT responses, second_tries, stars, completed_at FROM deed_run WHERE id = ?1", [id]);
   return r.rows[0];
@@ -129,7 +145,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  for (const t of ["deed_run", "skill_mastery", "kingdom_progress", "realm_settings", "realm_play_ledger", "recess_block", "learning_focus"]) await client.query(`DELETE FROM ${t}`);
+  for (const t of ["deed_run", "skill_mastery", "kingdom_progress", "realm_settings", "realm_play_ledger", "recess_block", "learning_focus", "drill_item"]) await client.query(`DELETE FROM ${t}`);
   vi.mocked(loadRealmSettings).mockResolvedValue({ ...DEFAULT_REALM_SETTINGS });
   vi.mocked(buildDeedRun).mockClear();
 });
@@ -430,6 +446,163 @@ describe("startDeedRun resumes an open second chance", () => {
   });
 });
 
+describe("a side quest's run says where its building stands, for the bench's drawing", () => {
+  const progress = (done: number) => client.query(
+    `INSERT INTO kingdom_progress (id, child_id, building_id, deeds_done, completed_at, created_at, updated_at)
+     VALUES ('kp1', 'c1', 'well', ?1, NULL, unixepoch(), unixepoch())`, [done]);
+
+  it("a fresh run and a resumed one carry the site's stage, from the building's deeds", async () => {
+    expect((await startDeedRun("c1", "well-stones", "realm")).site).toEqual({ stage: 0, complete: false, placed: 0 });
+    await client.query("DELETE FROM deed_run");
+    await progress(2); // 2 of the well's 5: stage 2 (`siteStage`)
+    expect((await startDeedRun("c1", "well-stones", "realm")).site).toEqual({ stage: 2, complete: false, placed: 0 });
+    expect((await startDeedRun("c1", "well-stones", "realm")).site).toEqual({ stage: 2, complete: false, placed: 0 }); // resumed
+  });
+
+  it("a finished building says so", async () => {
+    await progress(5);
+    expect((await startDeedRun("c1", "well-stones", "realm")).site).toEqual({ stage: 4, complete: true, placed: 0 });
+  });
+
+  it("a resumed run counts the bench tasks it already put right, first try or second, so its drawing picks up where it was (RC-l)", async () => {
+    const cut = (id: string): MeasureTask => ({ kind: "measure", id, skillId: SKILL, prompt: "Cut it.", mode: "cut", unit: "ft", answer: "3/4", step: "1/4", maxLength: "2", bridge: "3/4" });
+    const assemble: MeasureTask = {
+      kind: "measure", id: "m-asm", skillId: SKILL, prompt: "Fit it.", mode: "assemble", unit: "ft",
+      pieces: [{ label: "1/2 ft", value: "1/2" }, { label: "1/4 ft", value: "1/4" }, { label: "1/8 ft", value: "1/8" }],
+      target: { label: "3/4 ft", value: "3/4" }, solution: [0, 1], bridge: "1/2 + 1/4 = 3/4",
+    };
+    await seedRun({
+      questions: [cut("m1"), cut("m2"), assemble, QUESTIONS[0], cut("m3")] as unknown as Question[],
+      // right first; right on the second try; missed twice; a choice put right (lays nothing); not yet answered
+      responses: ["c:3/4", "c:1/2", "a:0", "6", null],
+      secondTries: JSON.stringify([null, "c:3/4", "a:2", null, null]),
+    });
+    const r = await startDeedRun("c1", "well-stones", "realm");
+    expect(r.runId).toBe("run1");
+    expect(r.site).toEqual({ stage: 0, complete: false, placed: 2 });
+  });
+
+  it("a Crown Challenge raises nothing, so it carries no site", async () => {
+    await progress(5);
+    await seedRun({ id: "earned", responses: ["6", "9", "12", "15"], completed: true, stars: 3 });
+    const r = await startDeedRun("c1", "well-stones", "realm", { challenge: true });
+    expect("site" in r).toBe(false);
+  });
+});
+
+describe("a young hero watches Aldo before the run's first bench task (R-C9, I-1)", () => {
+  const cut = (id: string): MeasureTask => ({ kind: "measure", id, skillId: SKILL, prompt: "Cut it.", mode: "cut", unit: "ft", answer: "3/4", step: "1/4", maxLength: "2", bridge: "3/4" });
+  /** The next fresh run opens on a bench task, whatever the engine would have drawn (no skill is benched by the settings yet). */
+  const benchFirst = (n = 2) => vi.mocked(buildDeedRun).mockReturnValueOnce({ skillIds: [SKILL], questions: [cut("m1"), ...QUESTIONS.slice(0, n - 1)] });
+  /** The next fresh run opens on two choice tasks and meets the bench third. */
+  const benchThird = () => vi.mocked(buildDeedRun).mockReturnValueOnce({ skillIds: [SKILL], questions: [QUESTIONS[0], QUESTIONS[1], cut("m1"), QUESTIONS[2]] });
+  const gradeIs = (math: string) => vi.mocked(loadHeroLevels).mockResolvedValue({
+    enabled: true, tone: "gentle", band: "3-5", grades: { math, reading: "3", language: "3", science: "3" },
+  } as unknown as Awaited<ReturnType<typeof loadHeroLevels>>);
+  const demoOf = async () => (await startDeedRun("c1", "well-stones", "realm")).demo;
+  afterEach(() => gradeIs("3"));
+
+  it("is at task 0 for a grade-2 hero with no bench task answered before, on a fresh run and on its resume", async () => {
+    gradeIs("2");
+    benchFirst();
+    expect(await demoOf()).toEqual({ at: 0 });
+    expect(await demoOf()).toEqual({ at: 0 }); // resumed, still unanswered
+  });
+
+  it("is at the run's first bench task, wherever it falls: a run that opens on choice meets Aldo at task 2", async () => {
+    gradeIs("K");
+    benchThird();
+    expect(await demoOf()).toEqual({ at: 2 });
+  });
+
+  it("stays due on a resume while only the choice tasks before it are answered, and goes once the bench task is", async () => {
+    gradeIs("2");
+    benchThird();
+    const r = await startDeedRun("c1", "well-stones", "realm");
+    await answerDeedQuestion(r.runId, 0, "6");
+    await answerDeedQuestion(r.runId, 1, "9");
+    expect(await demoOf()).toEqual({ at: 2 });
+    await answerDeedQuestion(r.runId, 2, "c:3/4");
+    expect(await demoOf()).toBeUndefined();
+  });
+
+  it("is due for every grade from K to 3", async () => {
+    for (const g of ["K", "1", "3"]) {
+      await client.query("DELETE FROM deed_run");
+      gradeIs(g);
+      benchFirst();
+      expect(await demoOf(), g).toEqual({ at: 0 });
+    }
+  });
+
+  it("is gone once the demo task is answered: a resumed run does not show it again", async () => {
+    gradeIs("2");
+    benchFirst();
+    const r = await startDeedRun("c1", "well-stones", "realm");
+    await answerDeedQuestion(r.runId, 0, "c:3/4");
+    expect(await demoOf()).toBeUndefined();
+  });
+
+  it("is gone once the hero has answered a bench task in an earlier run, finished or not; a choice run does not count", async () => {
+    gradeIs("2");
+    await seedRun({ id: "choice-done", responses: ["6", "9", "12", "15"], completed: true });
+    benchFirst();
+    expect(await demoOf()).toEqual({ at: 0 });
+    await client.query("DELETE FROM deed_run WHERE id != 'choice-done'");
+    await seedRun({ id: "bench-done", questions: [cut("old")] as unknown as Question[], responses: ["c:1/2"], completed: true });
+    benchFirst();
+    expect(await demoOf()).toBeUndefined();
+    // A run left open after a bench answer counts too: the hero has worked the bench.
+    await client.query("DELETE FROM deed_run WHERE id != 'choice-done'");
+    await seedRun({ id: "bench-half", questions: [QUESTIONS[0], cut("old")] as unknown as Question[], responses: [null, "c:3/4"] });
+    await client.query("UPDATE deed_run SET deed_id = 'mill-sacks' WHERE id = 'bench-half'");
+    benchFirst();
+    expect(await demoOf()).toBeUndefined();
+  });
+
+  it("stays due after an earlier run that held a bench task the hero never answered", async () => {
+    gradeIs("2");
+    // Finished on its choice tasks, the bench task left unanswered.
+    await seedRun({ id: "skipped", questions: [QUESTIONS[0], cut("old"), QUESTIONS[1]] as unknown as Question[], responses: ["6", null, "9"], completed: true });
+    benchThird();
+    expect(await demoOf()).toEqual({ at: 2 });
+  });
+
+  it("is not read from another hero's runs, and a row that will not parse is passed over", async () => {
+    gradeIs("2");
+    await seedRun({ id: "half", questions: [cut("old")] as unknown as Question[], responses: [null] });
+    await client.query("UPDATE deed_run SET deed_id = 'mill-sacks'");
+    await seedRun({ id: "theirs", questions: [cut("old")] as unknown as Question[], responses: ["c:3/4"], completed: true });
+    await client.query("UPDATE deed_run SET child_id = 'c2' WHERE id = 'theirs'");
+    await seedRun({ id: "broken", questions: [cut("old")] as unknown as Question[], responses: ["c:3/4"], completed: true });
+    await client.query(`UPDATE deed_run SET questions = '[{"kind":"measure"', responses = 'nope' WHERE id = 'broken'`);
+    benchFirst();
+    expect(await demoOf()).toEqual({ at: 0 });
+  });
+
+  it("is never due for a grade-5 hero", async () => {
+    gradeIs("5");
+    benchThird();
+    expect(await demoOf()).toBeUndefined();
+  });
+
+  it("is never due in a run with no bench task, even for a grade-2 hero", async () => {
+    gradeIs("2");
+    // Math side quests are played at the bench now, so the grown-up's switch is what makes a run choice.
+    vi.mocked(loadRealmSettings).mockResolvedValue({ ...DEFAULT_REALM_SETTINGS, mechanics: { measure: false } });
+    const r = await startDeedRun("c1", "well-stones", "realm");
+    expect(r.questions.every((q) => q.kind === "choice")).toBe(true);
+    expect(r.demo).toBeUndefined();
+  });
+
+  it("is never due in a Crown Challenge", async () => {
+    gradeIs("2");
+    await seedRun({ id: "earned", responses: ["6", "9", "12", "15"], completed: true, stars: 3 });
+    benchFirst(3);
+    expect((await startDeedRun("c1", "well-stones", "realm", { challenge: true })).demo).toBeUndefined();
+  });
+});
+
 describe("the Crown Challenge", () => {
   const runCount = async () => Number((await client.query("SELECT count(*) AS n FROM deed_run")).rows[0].n);
   const masteryCount = async () => Number((await client.query("SELECT count(*) AS n FROM skill_mastery")).rows[0].n);
@@ -438,9 +611,10 @@ describe("the Crown Challenge", () => {
   async function playChallenge(right: boolean[]): Promise<string> {
     const r = await startDeedRun("c1", "well-stones", "realm", { challenge: true });
     const row = await client.query("SELECT questions FROM deed_run WHERE id = ?1", [r.runId]);
-    const qs = JSON.parse(row.rows[0].questions) as Question[];
+    const qs = JSON.parse(row.rows[0].questions) as Task[];
     for (const [i, q] of qs.entries()) {
-      await answerDeedQuestion(r.runId, i, right[i] ? q.answer : q.choices.find((c) => c !== q.answer)!);
+      const { right: yes, wrong } = rightAndWrong(q);
+      await answerDeedQuestion(r.runId, i, right[i] ? yes : wrong);
     }
     return r.runId;
   }
@@ -594,6 +768,52 @@ describe("startDeedRun begins a fresh run on the grown-up's settings", () => {
     expect(loadHeroLevels).toHaveBeenCalledTimes(1);
   });
 
+  it("a run holding a kind this build does not play still returns its choice miss; that task is skipped", async () => {
+    // A kind from a newer deploy (R-C7). Before misses were graded by kind, the unknown task threw and
+    // dropped the whole run's misses.
+    const newer = { kind: "nope", id: "n0", skillId: SKILL, prompt: "Cut it", answer: "3/4" } as unknown as Question;
+    await seedRun({ id: "deed-old", questions: [newer, QUESTIONS[1]], responses: ["9/4", "6"], completed: true });
+    await startDeedRun("c1", "well-stones", "realm");
+    expect(vi.mocked(buildDeedRun).mock.calls[0][0].recentMisses.map((q) => q.id)).toEqual(["q1"]);
+  });
+
+  it("a measure miss is graded by its kind and handed to the engine beside the choice one", async () => {
+    const cut = { kind: "measure", id: "m0", skillId: SKILL, prompt: "Cut it", mode: "cut", unit: "ft", answer: "3/4", bridge: "3/4" };
+    const right = { ...cut, id: "m1" };
+    await seedRun({ id: "deed-old", questions: [cut, right, QUESTIONS[1]] as unknown as Question[], responses: ["c:9/4", "c:3/4", "6"], completed: true });
+    await startDeedRun("c1", "well-stones", "realm");
+    expect(vi.mocked(buildDeedRun).mock.calls[0][0].recentMisses.map((q) => q.id)).toEqual(["m0", "q1"]);
+  });
+
+  it("a malformed stored run is skipped without hiding the others' misses", async () => {
+    await seedRun({ id: "deed-old", questions: [QUESTIONS[1]], responses: ["6"], completed: true });
+    await client.query(
+      `INSERT INTO deed_run (id, child_id, deed_id, skill_ids, band, questions, responses, mastery_start,
+         started_at, completed_at, created_at, updated_at, kind)
+       VALUES ('bad', 'c1', 'well-stones', '[]', '3-5', '{not json', '[]', '{}',
+         unixepoch(), unixepoch() + 5, unixepoch(), unixepoch(), 'deed')`,
+    );
+    await startDeedRun("c1", "well-stones", "realm");
+    expect(vi.mocked(buildDeedRun).mock.calls[0][0].recentMisses.map((q) => q.id)).toEqual(["q1"]);
+  });
+
+  it("a stored run whose JSON parses to the wrong shape is skipped, and other runs' misses still come back", async () => {
+    await seedRun({ id: "deed-old", questions: [QUESTIONS[1]], responses: ["6"], completed: true });
+    const rawRun = (id: string, questions: string, responses: string, offset: number) => client.query(
+      `INSERT INTO deed_run (id, child_id, deed_id, skill_ids, band, questions, responses, mastery_start,
+         started_at, completed_at, created_at, updated_at, kind)
+       VALUES (?1, 'c1', 'well-stones', '[]', '3-5', ?2, ?3, '{}', unixepoch(), unixepoch() + ?4, unixepoch(), unixepoch(), 'deed')`,
+      [id, questions, responses, offset],
+    );
+    await rawRun("q-null", "null", "[]", 1);
+    await rawRun("q-object", "{}", "[]", 2);
+    await rawRun("r-null", JSON.stringify([QUESTIONS[0]]), "null", 3);
+    await rawRun("el-null", JSON.stringify([null, QUESTIONS[2]]), JSON.stringify(["x", "5"]), 4);
+    await startDeedRun("c1", "well-stones", "realm");
+    // The null element is skipped; the real task beside it is still a miss.
+    expect(vi.mocked(buildDeedRun).mock.calls[0][0].recentMisses.map((q) => q.id)).toEqual(["q2", "q1"]);
+  });
+
   it("a miss put right on the second try still comes back", async () => {
     await seedRun({ id: "deed-old", questions: [QUESTIONS[1]], responses: ["6"], secondTries: JSON.stringify(["9"]), completed: true });
     await startDeedRun("c1", "well-stones", "realm");
@@ -683,6 +903,14 @@ describe("side quests pay play minutes by stars", () => {
     expect(await practiceRows()).toEqual([]);
   });
 
+  it("a review never pays, even with every answer right", async () => {
+    vi.mocked(paySideQuest).mockClear();
+    await seedRun({ ...ALL_RIGHT, id: "rv", kind: "review" });
+    expect(await completeDeedRun("rv")).toMatchObject({ kind: "review", minutesEarned: 0, sideQuestPayFull: false });
+    expect(paySideQuest).not.toHaveBeenCalled();
+    expect(await practiceRows()).toEqual([]);
+  });
+
   it("pays nothing where minutes mean nothing (scheduled)", async () => {
     await realmSettings({ access_mode: "scheduled" });
     await seedRun(ALL_RIGHT);
@@ -698,6 +926,381 @@ describe("side quests pay play minutes by stars", () => {
     expect(error).toHaveBeenCalled();
     error.mockRestore();
     expect((await stored()).completed_at).not.toBeNull();
+  });
+});
+
+describe("a measure task in a run", () => {
+  // Seeded straight into the run: no skill is on the bench yet, so no start would draw one.
+  const CUT: MeasureTask = {
+    kind: "measure", id: "m-cut", skillId: SKILL, prompt: "Cut a board three quarters of a foot long.",
+    mode: "cut", unit: "ft", answer: "3/4", step: "1/4", maxLength: "2", bridge: "1/2 + 1/4 = 3/4",
+  };
+  const ASSEMBLE: MeasureTask = {
+    kind: "measure", id: "m-asm", skillId: SKILL, prompt: "Build a beam three quarters of a foot long.",
+    mode: "assemble", unit: "ft",
+    pieces: [{ label: "1/2 ft", value: "1/2" }, { label: "1/4 ft", value: "1/4" }, { label: "1/4 ft", value: "0.25" }, { label: "1/8 ft", value: "1/8" }],
+    target: { label: "3/4 ft", value: "3/4" }, solution: [0, 1], bridge: "1/2 + 1/4 = 3/4",
+  };
+  const seedMeasure = () => seedRun({ questions: [CUT, ASSEMBLE] as unknown as Question[] });
+  const masteryRows = async () => Number((await client.query("SELECT count(*) AS n FROM skill_mastery")).rows[0].n);
+
+  async function refusedBeforeAnyWrite(call: () => Promise<unknown>, message = PICK_SHOWN) {
+    const before = await stored();
+    const rows = await masteryRows();
+    await expect(call()).rejects.toThrow(message);
+    expect(await stored()).toEqual(before);
+    expect(await masteryRows()).toBe(rows);
+  }
+
+  it("a malformed response is refused before anything is written (Review Focus 2)", async () => {
+    await seedMeasure();
+    // index 0 is the cut, index 1 the assemble.
+    for (const raw of ["x".repeat(60), "1/0", "c:1/0", "", "a:0", [0], 0.75, null, {}]) {
+      await refusedBeforeAnyWrite(() => answerDeedQuestion("run1", 0, raw));
+    }
+    for (const raw of [[4], [-1], [0, 0], [], [0.5], "a:0,0", "a:9", "0,1", "c:3/4", "3/4", 7, {}]) {
+      await refusedBeforeAnyWrite(() => answerDeedQuestion("run1", 1, raw));
+    }
+    expect((await stored()).responses).toBe("[null,null]");
+  });
+
+  it("a malformed retry is refused before anything is written, and so is the same length written another way", async () => {
+    await seedMeasure();
+    await answerDeedQuestion("run1", 0, "c:1/2");
+    await answerDeedQuestion("run1", 1, "a:1,2");
+    for (const raw of ["x".repeat(60), "1/0", [0]]) await refusedBeforeAnyWrite(() => retryDeedQuestion("run1", 0, raw));
+    for (const raw of [[0, 0], [9], "c:3/4"]) await refusedBeforeAnyWrite(() => retryDeedQuestion("run1", 1, raw));
+    await refusedBeforeAnyWrite(() => retryDeedQuestion("run1", 0, "0.5"), TRY_DIFFERENT);
+    await refusedBeforeAnyWrite(() => retryDeedQuestion("run1", 1, "a:2,1"), TRY_DIFFERENT);
+  });
+
+  it.each(["3/4", "0.75", "6/8", "c:3/4"])("a cut of %s is right, stored in lowest terms, with the bridge (Review Focus 3)", async (raw) => {
+    await seedMeasure();
+    const r = await answerDeedQuestion("run1", 0, raw);
+    expect(r).toMatchObject({ correct: true, secondChance: false, answer: "3/4 ft", bridge: CUT.bridge });
+    expect(JSON.parse((await stored()).responses)[0]).toBe("c:3/4");
+  });
+
+  it("any set of pieces that hits the mark is right, not only the stored solution", async () => {
+    await seedMeasure();
+    const r = await answerDeedQuestion("run1", 1, "a:2,0");
+    expect(r).toMatchObject({ correct: true, bridge: ASSEMBLE.bridge });
+    expect(JSON.parse((await stored()).responses)[1]).toBe("a:0,2");
+  });
+
+  it("a child who hits the mark with another subset than the stored one gets their own pieces in the bridge (RC-g)", async () => {
+    const BEAM: MeasureTask = {
+      kind: "measure", id: "m-beam", skillId: SKILL, prompt: "The well-digger needs a beam 9 blocks long. Pick the pieces that make it.",
+      mode: "assemble", unit: "blocks",
+      pieces: [{ label: "6 blocks", value: "6" }, { label: "3 blocks", value: "3" }, { label: "12 blocks", value: "12" }, { label: "8 blocks", value: "8" }, { label: "1 block", value: "1" }],
+      target: { label: "9 blocks", value: "9" }, solution: [3, 4], bridge: "1 + 8 = 9",
+    };
+    await seedRun({ questions: [BEAM, BEAM] as unknown as Question[] });
+    // 6 + 3, not the stored 8 + 1.
+    expect(await answerDeedQuestion("run1", 0, [1, 0])).toMatchObject({ correct: true, bridge: "6 + 3 = 9", answer: "Pieces that add up to 9 blocks, like 1 + 8 = 9." });
+    // A repeat of the same answer hears the same bridge.
+    expect(await answerDeedQuestion("run1", 0, [1, 0])).toMatchObject({ correct: true, bridge: "6 + 3 = 9" });
+    // Right on the second try: the bridge is built from the retry.
+    await answerDeedQuestion("run1", 1, [0]);
+    expect(await retryDeedQuestion("run1", 1, [4, 3])).toMatchObject({ correct: true, bridge: "8 + 1 = 9" });
+  });
+
+  it("an assemble miss reads the pinned reveal and carries no bridge", async () => {
+    await seedMeasure();
+    await answerDeedQuestion("run1", 1, [0, 1, 2]);
+    const r = await retryDeedQuestion("run1", 1, [3]);
+    expect(r).toMatchObject({ correct: false, secondChance: false, answer: "Pieces that add up to 3/4 ft, like 1/2 + 1/4 = 3/4." });
+    expect("bridge" in r).toBe(false);
+  });
+
+  it("a wrong length opens a second chance with which way it is off, and nothing of the answer", async () => {
+    await seedMeasure();
+    const r = await answerDeedQuestion("run1", 0, "c:1/2");
+    expect(r).toMatchObject({ correct: false, secondChance: true, feedback: "too_short", firstPick: "c:1/2" });
+    for (const k of ["answer", "bridge", "explain"]) expect(k in r).toBe(false);
+    const long = await answerDeedQuestion("run1", 1, [0, 1, 2]);
+    expect(long).toMatchObject({ secondChance: true, feedback: "too_long" });
+    expect("bridge" in long).toBe(false);
+  });
+
+  it("a repeat of a wrong first length still hears which way the stored one is off", async () => {
+    await seedMeasure();
+    await answerDeedQuestion("run1", 0, "c:1/2");
+    // A double tap, even of another length: it hears what was stored (too short), never a new grade.
+    expect(await answerDeedQuestion("run1", 0, "c:1/2")).toMatchObject({ secondChance: true, feedback: "too_short", firstPick: "c:1/2" });
+    expect(await answerDeedQuestion("run1", 0, "2")).toMatchObject({ secondChance: true, feedback: "too_short", firstPick: "c:1/2" });
+    // Once the question is resolved, a late repeat hears the resolution only: no note about a try long gone.
+    await retryDeedQuestion("run1", 0, "3/4");
+    const late = await answerDeedQuestion("run1", 0, "c:1/2");
+    expect(late).toMatchObject({ correct: true, secondChance: false });
+    expect("feedback" in late).toBe(false);
+  });
+
+  it("the bridge comes with a right retry, and never with a wrong one or a give-up", async () => {
+    await seedMeasure();
+    await answerDeedQuestion("run1", 0, "1/2");
+    expect(await retryDeedQuestion("run1", 0, "6/8")).toMatchObject({ correct: true, bridge: CUT.bridge });
+
+    await answerDeedQuestion("run1", 1, "a:1,2");
+    const wrong = await retryDeedQuestion("run1", 1, [0, 1, 2]);
+    expect(wrong).toMatchObject({ correct: false, secondChance: false, feedback: "too_long", answer: "Pieces that add up to 3/4 ft, like 1/2 + 1/4 = 3/4." });
+    expect("bridge" in wrong).toBe(false);
+  });
+
+  it("giving up resolves as a miss without the bridge", async () => {
+    await seedMeasure();
+    await answerDeedQuestion("run1", 0, "1");
+    const r = await resolveDeedQuestion("run1", 0);
+    expect(r).toMatchObject({ correct: false, secondChance: false });
+    expect("bridge" in r).toBe(false);
+  });
+
+  it("a choice result never carries a bridge", async () => {
+    await seedRun();
+    expect("bridge" in (await answerDeedQuestion("run1", 0, "6"))).toBe(false);
+  });
+});
+
+describe("the grown-up's switch for building by measuring (Review Focus 4)", () => {
+  const MEASURE_OFF = { ...DEFAULT_REALM_SETTINGS, mechanics: { measure: false } };
+  const CUT: MeasureTask = {
+    kind: "measure", id: "m-cut", skillId: SKILL, prompt: "Cut a board three quarters of a foot long.",
+    mode: "cut", unit: "ft", answer: "3/4", step: "1/4", maxLength: "2", bridge: "1/2 + 1/4 = 3/4",
+  };
+  const enabledKindsOf = () => vi.mocked(buildDeedRun).mock.calls[0][0].enabledKinds;
+
+  it("offers the engine every hands-on kind that is on, and no choice entry (choice is always there)", async () => {
+    await startDeedRun("c1", "well-stones", "realm");
+    expect(enabledKindsOf()).toEqual(new Set(["measure"]));
+  });
+
+  it("turned off, offers the engine no hands-on kind: a new run is all choice", async () => {
+    vi.mocked(loadRealmSettings).mockResolvedValue(MEASURE_OFF);
+    const r = await startDeedRun("c1", "well-stones", "realm");
+    expect(enabledKindsOf()).toEqual(new Set());
+    const built = vi.mocked(buildDeedRun).mock.results[0].value;
+    expect((built.questions as Task[]).every((q) => kindOf(q) === "choice")).toBe(true);
+    expect(r.questions.length).toBeGreaterThan(0);
+  });
+
+  it("the setting applies on the page as it does in the world", async () => {
+    vi.mocked(loadRealmSettings).mockResolvedValue(MEASURE_OFF);
+    await startDeedRun("c1", "well-stones", "page");
+    expect(enabledKindsOf()).toEqual(new Set());
+  });
+
+  it("an open measure run still resumes and completes after the switch goes off (runs are snapshots)", async () => {
+    await seedRun({ questions: [CUT, QUESTIONS[0]] as unknown as Question[], secondChances: false });
+    vi.mocked(loadRealmSettings).mockResolvedValue(MEASURE_OFF);
+    const r = await startDeedRun("c1", "well-stones", "realm");
+    expect(r.runId).toBe("run1");
+    expect(vi.mocked(buildDeedRun)).not.toHaveBeenCalled();
+    expect(r.questions[0]).toMatchObject({ kind: "measure", view: { mode: "cut" } });
+    expect(await answerDeedQuestion("run1", 0, "3/4")).toMatchObject({ correct: true, bridge: CUT.bridge });
+    expect(await answerDeedQuestion("run1", 1, "6")).toMatchObject({ correct: true });
+    expect(await completeDeedRun("run1")).toMatchObject({ kind: "deed", flawless: true, stars: 3 });
+  });
+});
+
+describe("the gate stays multiple choice (R-C4)", () => {
+  const runCount = async () => Number((await client.query("SELECT count(*) AS n FROM deed_run")).rows[0].n);
+
+  it("builds a gate run with no hands-on kind, whatever the grown-up has switched on", async () => {
+    vi.mocked(loadRealmSettings).mockResolvedValue({ ...DEFAULT_REALM_SETTINGS, mechanics: { measure: true } });
+    const r = await startDeedRun("c1", "well-stones", "gate");
+    expect(vi.mocked(buildDeedRun).mock.calls[0][0].enabledKinds).toEqual(new Set());
+    expect(r.questions.length).toBeGreaterThan(0);
+    expect(r.questions.every((q) => q.kind === "choice")).toBe(true);
+    expect(await runCount()).toBe(1);
+  });
+
+  it("is the hero's alone, like the world", async () => {
+    vi.mocked(requireChildAccess).mockResolvedValueOnce({ access: { userId: "u-mom" }, familyId: "f1" } as never);
+    await expect(startDeedRun("c1", "well-stones", "gate")).rejects.toThrow(HERO_ONLY);
+    expect(await runCount()).toBe(0);
+    expect(vi.mocked(buildDeedRun)).not.toHaveBeenCalled();
+  });
+
+  it("keeps a Crown Challenge asked from the gate hero-only too", async () => {
+    vi.mocked(requireChildAccess).mockResolvedValueOnce({ access: { userId: "u-mom" }, familyId: "f1" } as never);
+    await expect(startDeedRun("c1", "well-stones", "gate", { challenge: true })).rejects.toThrow(HERO_ONLY);
+  });
+});
+
+describe("a grade-3 math side quest is played at the bench (slice 2, C13)", () => {
+  const MEASURE_OFF = { ...DEFAULT_REALM_SETTINGS, mechanics: { measure: false } };
+  const GROWN_UP = { access: { userId: "u-parent" }, familyId: "f1" } as unknown as Awaited<ReturnType<typeof requireChildAccess>>;
+  const benched = (skillId: string) => skillId in BENCH;
+
+  const runCount = async () => Number((await client.query("SELECT count(*) AS n FROM deed_run")).rows[0].n);
+  /** The tasks as stored on the run row: the only place the solution lives. */
+  async function storedTasks(id: string): Promise<Task[]> {
+    return JSON.parse((await client.query("SELECT questions FROM deed_run WHERE id = ?1", [id])).rows[0].questions) as Task[];
+  }
+  /** Div-facts has rested past its interval, so a run reviews it beside the skills it draws fresh. */
+  async function restedDivFacts() {
+    await client.query(
+      `INSERT INTO skill_mastery (id, child_id, skill_id, level, recent_results, correct_total, attempt_total, last_practiced_at, created_at, updated_at)
+       VALUES ('m1', 'c1', 'div-facts', 2, '[1,1]', 2, 2, unixepoch() - 864000, unixepoch(), unixepoch())`,
+    );
+  }
+  /** The REAL engine, started at a chosen seed (the action seeds from the clock). */
+  function atSeed(seed: number) {
+    vi.mocked(buildDeedRun).mockImplementationOnce((i) => realBuildDeedRun({ ...i, seed }));
+  }
+  /** Starts a fresh well-stones run at the first seed that mixes the bench with a choice review; then it is the open run. */
+  async function startMixed() {
+    await restedDivFacts();
+    for (let seed = 1; seed <= 200; seed++) {
+      atSeed(seed);
+      const start = await startDeedRun("c1", "well-stones", "realm");
+      const tasks = await storedTasks(start.runId);
+      if (tasks.some((t) => kindOf(t) === "measure") && tasks.some((t) => kindOf(t) === "choice")) return { start, tasks, seed };
+      await client.query("DELETE FROM deed_run");
+    }
+    throw new Error("no seed mixed measure and choice tasks");
+  }
+  it("holds measure tasks for the benched skills and choice tasks for every other skill, the browser seeing views only", async () => {
+    const { start, tasks } = await startMixed();
+    expect(tasks).toHaveLength(8);
+    for (const t of tasks) expect(kindOf(t), t.skillId).toBe(benched(t.skillId) ? "measure" : "choice");
+    expect(start.questions.map((q) => q.kind)).toEqual(tasks.map((t) => kindOf(t)));
+    expect(tasks.some((t) => ["area-perimeter", "frac-unit"].includes(t.skillId) && kindOf(t) === "measure")).toBe(true);
+    // The solution stays on the server.
+    for (const q of start.questions) expect(JSON.stringify(q)).not.toMatch(/"answer"|"solution"|"bridge"/);
+  });
+
+  it("answers, retries and completes through the real actions, with stars and pay as before", async () => {
+    const { start, tasks } = await startMixed();
+    const id = start.runId;
+    const slow = tasks.findIndex((t) => kindOf(t) === "measure");
+    expect(slow).toBeGreaterThanOrEqual(0);
+    for (const [i, t] of tasks.entries()) {
+      const { right, wrong } = rightAndWrong(t);
+      if (i === slow) {
+        // A wrong first try opens a second chance; the stored task's own answer then solves it.
+        const miss = await answerDeedQuestion(id, i, wrong);
+        expect(miss).toMatchObject({ correct: false, secondChance: true });
+        for (const k of ["answer", "bridge", "explain"]) expect(k in miss).toBe(false);
+        expect(await retryDeedQuestion(id, i, right)).toMatchObject({ correct: true, secondChance: false });
+      } else {
+        const r = await answerDeedQuestion(id, i, right);
+        expect(r).toMatchObject({ correct: true });
+        // Only a hands-on task teaches its notation.
+        expect("bridge" in r).toBe(kindOf(t) === "measure");
+      }
+    }
+    const points = (tasks.length - 1) * SCORING.firstTryPoints + SCORING.secondTryPoints;
+    const stars = starsFor(points, tasks.length * SCORING.firstTryPoints);
+    expect(stars).toBeGreaterThan(0);
+    vi.mocked(paySideQuest).mockClear();
+    const summary = await completeDeedRun(id);
+    expect(summary).toMatchObject({ kind: "deed", stars, correctCount: tasks.length - 1, total: tasks.length, flawless: false, counted: true });
+    expect(paySideQuest).toHaveBeenCalledWith("c1", id, stars);
+    const paid = await client.query("SELECT coalesce(sum(minutes), 0) AS n FROM realm_play_ledger WHERE child_id = 'c1' AND kind = 'practice' AND source_run_id = ?1", [id]);
+    expect(Number(paid.rows[0].n)).toBe(summary.minutesEarned);
+    expect(summary.minutesEarned).toBeGreaterThan(0);
+    expect(await deedsDone()).toBe(1);
+  });
+
+  it("pays a grown-up's run nothing, for a bench run as for any other", async () => {
+    const { start, tasks } = await startMixed();
+    for (const [i, t] of tasks.entries()) await answerDeedQuestion(start.runId, i, rightAndWrong(t).right);
+    vi.mocked(paySideQuest).mockClear();
+    vi.mocked(requireChildAccess).mockResolvedValueOnce(GROWN_UP);
+    expect(await completeDeedRun(start.runId)).toMatchObject({ stars: 3, minutesEarned: 0, sideQuestPayFull: false });
+    expect(paySideQuest).not.toHaveBeenCalled();
+  });
+
+  it("with building by measuring off, the same run is all choice (the real engine)", async () => {
+    const { seed, tasks } = await startMixed();
+    await client.query("DELETE FROM deed_run");
+    vi.mocked(loadRealmSettings).mockResolvedValue(MEASURE_OFF);
+    atSeed(seed);
+    const off = await startDeedRun("c1", "well-stones", "realm");
+    const offTasks = await storedTasks(off.runId);
+    expect(offTasks).toHaveLength(8);
+    // The same skills were drawn; only how they are played changed.
+    expect(new Set(offTasks.map((t) => t.skillId))).toEqual(new Set(tasks.map((t) => t.skillId)));
+    expect(tasks.some((t) => benched(t.skillId))).toBe(true);
+    for (const t of offTasks) expect(kindOf(t)).toBe("choice");
+    expect(off.questions.every((q) => q.kind === "choice")).toBe(true);
+  });
+
+  it("leaves a reading side quest exactly as it was: choice tasks, with no kind stored", async () => {
+    for (let i = 0; i < 30; i++) {
+      await client.query(
+        `INSERT INTO drill_item (id, pool_id, skill_id, band, prompt, answer, distractors, read_aloud, level, updated_at)
+         VALUES (?1, 'p1', 'read-g3', '3-5', ?2, ?3, ?4, NULL, 2, unixepoch())`,
+        [`read-g3-item-${i}`, `Prompt ${i}`, `A${i}`, JSON.stringify([`B${i}`, `C${i}`, `D${i}`])],
+      );
+    }
+    atSeed(1);
+    const start = await startDeedRun("c1", "well-signs", "realm");
+    const tasks = await storedTasks(start.runId);
+    // Recorded with this pool and seed 1 before any deed named a mechanic.
+    expect(tasks.map((t) => t.id)).toEqual(["read-g3-item-14", "read-g3-item-24", "read-g3-item-8", "read-g3-item-10", "read-g3-item-16", "read-g3-item-6", "read-g3-item-11", "read-g3-item-12"]);
+    for (const t of tasks) expect("kind" in t).toBe(false);
+    expect(start.questions.every((q) => q.kind === "choice")).toBe(true);
+    await client.query("DELETE FROM drill_item");
+  });
+
+  describe("the context is untrusted", () => {
+    it("an arbitrary string behaves as the page: a grown-up may start the run, and the bench is on", async () => {
+      vi.mocked(requireChildAccess).mockResolvedValueOnce(GROWN_UP);
+      await expect(startDeedRun("c1", "well-stones", "REALM" as never)).resolves.toBeDefined();
+      expect(vi.mocked(buildDeedRun).mock.calls[0][0].enabledKinds).toEqual(new Set(["measure"]));
+      expect(await runCount()).toBe(1);
+    });
+
+    it("is not the gate unless it says so exactly", async () => {
+      await startDeedRun("c1", "well-stones", "gate " as never);
+      expect(vi.mocked(buildDeedRun).mock.calls[0][0].enabledKinds).toEqual(new Set(["measure"]));
+    });
+
+    it("the two named worlds keep their rules: realm and gate refuse a grown-up", async () => {
+      for (const context of ["realm", "gate"] as const) {
+        vi.mocked(requireChildAccess).mockResolvedValueOnce(GROWN_UP);
+        await expect(startDeedRun("c1", "well-stones", context)).rejects.toThrow(HERO_ONLY);
+      }
+      expect(await runCount()).toBe(0);
+    });
+  });
+});
+
+describe("a run saved by a newer version", () => {
+  const NEWER = "This side quest was saved by a newer version. Start it again.";
+
+  it("is refused clearly by the actions that read it, and nothing is written", async () => {
+    const unknown = [{ kind: "nope", id: "n0", skillId: SKILL, prompt: "?", answer: "x" }] as unknown as Question[];
+    await seedRun({ questions: unknown });
+    await expect(answerDeedQuestion("run1", 0, "x")).rejects.toThrow(NEWER);
+    await expect(completeDeedRun("run1")).rejects.toThrow(NEWER);
+    expect((await stored()).responses).toBe("[null]");
+  });
+
+  it("an open run holding a kind this build does not know is treated as no open run on start", async () => {
+    const unknown = [{ kind: "nope", id: "n0", skillId: SKILL, prompt: "?", answer: "x" }] as unknown as Question[];
+    await seedRun({ id: "newer", questions: unknown });
+    const r = await startDeedRun("c1", "well-stones", "realm");
+    expect(r.runId).not.toBe("newer");
+    expect(r.questions.length).toBeGreaterThan(0);
+  });
+
+  it("an open choice run still resumes", async () => {
+    await seedRun({ id: "same" });
+    expect((await startDeedRun("c1", "well-stones", "realm")).runId).toBe("same");
+  });
+
+  it("parseRun throws that copy for an unregistered kind, and reads a choice-only run unchanged", async () => {
+    const { parseRun } = await import("@/lib/services/deed-run-store");
+    const row = (questions: unknown[]) => ({
+      questions: JSON.stringify(questions), responses: JSON.stringify(questions.map(() => null)), secondTries: "[]",
+      secondChances: true, kind: "deed",
+    }) as unknown as Parameters<typeof parseRun>[0];
+    expect(() => parseRun(row([{ kind: "nope", id: "n0", skillId: SKILL }]))).toThrow(NEWER);
+    expect(() => parseRun(row([{ kind: "toString", id: "n0", skillId: SKILL }]))).toThrow(NEWER);
+    expect(parseRun(row(QUESTIONS)).statuses).toEqual(["unanswered", "unanswered", "unanswered", "unanswered"]);
   });
 });
 
@@ -740,7 +1343,7 @@ describe("answers are parsed by their task kind, and the browser gets views", ()
     await seedRun();
     const start = await startDeedRun("c1", "well-stones", "realm");
     expect(start.runId).toBe("run1");
-    expect(start.questions[0]).toMatchObject({ kind: "choice", id: "q0", view: { prompt: "2 x 3?", choices: ["6", "5", "8", "9"] } });
+    expect(start.questions[0]).toMatchObject({ kind: "choice", id: "q0", prompt: "2 x 3?", view: { choices: ["6", "5", "8", "9"] } });
     expect(await answerDeedQuestion("run1", 0, "6")).toMatchObject({ correct: true, secondChance: false, answer: "6" });
     for (const [i, a] of [[1, "9"], [2, "12"], [3, "15"]] as const) await answerDeedQuestion("run1", i, a);
     expect(await completeDeedRun("run1")).toMatchObject({ correctCount: 4, flawless: true, stars: 3 });
@@ -781,6 +1384,7 @@ describe("answers are parsed by their task kind, and the browser gets views", ()
     const fresh = await startDeedRun("c1", "well-stones", "realm");
     expect(fresh.runId).not.toBe("run1");
     expect(JSON.stringify(fresh.questions)).not.toMatch(/"answer"|"explain"/);
-    expect(fresh.questions.every((q) => q.kind === "choice")).toBe(true);
+    // A grade-3 math run may hold bench tasks now; their views carry no answer either (asserted above).
+    expect(fresh.questions.every((q) => q.kind === "choice" || q.kind === "measure")).toBe(true);
   });
 });

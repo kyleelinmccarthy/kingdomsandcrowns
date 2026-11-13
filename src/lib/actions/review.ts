@@ -10,7 +10,7 @@ import { findSkill } from "@/lib/utils/skills";
 import type { PoolItem } from "@/lib/utils/deed-engine";
 import { RUN_EFFECTS } from "@/lib/utils/deed-scoring";
 import { CLOSED, HERO_ONLY, NOT_IN_CHRONICLE } from "@/lib/utils/deed-refusals";
-import { buildReviewRun } from "@/lib/utils/review-run";
+import { buildReviewRun, reviewReasks } from "@/lib/utils/review-run";
 import { QUICK_REVIEW_TITLE, REVIEW_STORY, stoneTitle } from "@/lib/utils/review-copy";
 import type { RunStart } from "@/lib/utils/deed-run-types";
 import { findOpenRun, insertRun, loadMasteryRows, loadRecentMisses, resumedStart } from "@/lib/services/deed-run-store";
@@ -53,7 +53,7 @@ export async function startReviewRun(childId: string, origin: ReviewOrigin): Pro
   if (open) return resumedStart(open, header);
 
   const [masteryRows, recentMisses, settings, focusSkillIds, profileRow] = await Promise.all([
-    loadMasteryRows(childId), loadRecentMisses(childId), loadRealmSettings(childId), loadFocusSkillIds(childId, hero.grades),
+    loadMasteryRows(childId), loadRecentMisses(childId, reviewReasks), loadRealmSettings(childId), loadFocusSkillIds(childId, hero.grades),
     // Memoized per request: the same round trip loadHeroLevels just made.
     loadLearningProfileRow(childId),
   ]);

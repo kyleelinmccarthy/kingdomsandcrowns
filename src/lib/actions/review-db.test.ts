@@ -307,6 +307,57 @@ describe("misses and what comes back", () => {
     expect((JSON.parse(stored.rows[0].questions as string) as Question[]).map((q) => q.id)).toContain(questions[0].id);
   });
 
+  it("a task of a kind this build does not know is skipped, and the choice miss beside it still comes back", async () => {
+    const odd = { kind: "nope", id: "m0", skillId: "mul-facts", prompt: "Cut it", answer: "3/4" };
+    const q: Question = { id: "cq", skillId: "mul-facts", prompt: "2 x 3?", choices: ["6", "5", "8", "9"], answer: "6" };
+    await client.query(
+      `INSERT INTO deed_run (id, child_id, deed_id, skill_ids, band, questions, responses, mastery_start,
+         started_at, completed_at, created_at, updated_at, kind)
+       VALUES ('r1', 'c1', 'well-stones', '["mul-facts"]', 'g23', ?1, '["x","5"]', '{}',
+         unixepoch(), unixepoch(), unixepoch(), unixepoch(), 'deed')`,
+      [JSON.stringify([odd, q])],
+    );
+    expect((await loadRecentMisses("c1")).map((m) => m.id)).toEqual(["cq"]);
+  });
+
+  it("an open review run holding a kind this build does not know is not resumed: a fresh one starts", async () => {
+    await learn();
+    const odd = { kind: "nope", id: "n0", skillId: "mul-facts", prompt: "?", answer: "x" };
+    await client.query(
+      `INSERT INTO deed_run (id, child_id, deed_id, source_ref, skill_ids, band, questions, responses, mastery_start,
+         started_at, completed_at, created_at, updated_at, kind)
+       VALUES ('newer', 'c1', NULL, ?2, '["mul-facts"]', 'g23', ?1, '[null]', '{}',
+         unixepoch(), NULL, unixepoch(), unixepoch(), 'review')`,
+      [JSON.stringify([odd]), PLACE],
+    );
+    const r = await startReviewRun("c1", { kind: "stone", placeId: PLACE });
+    if ("empty" in r) throw new Error("expected a run");
+    expect(r.runId).not.toBe("newer");
+  });
+
+  it("bench misses do not crowd a choice miss out of a review run: the cap counts only what review re-asks", async () => {
+    await learn();
+    const cut = (i: number) => ({
+      kind: "measure", id: `m${i}`, skillId: "add-100", prompt: "Cut it.", mode: "cut", unit: "feet",
+      answer: "7", step: "1", maxLength: "20", bridge: "12 − 5 = 7",
+    });
+    const q: Question = { id: "cq", skillId: "mul-facts", prompt: "2 x 3?", choices: ["6", "5", "8", "9"], answer: "6" };
+    const insert = (id: string, questions: unknown[], responses: string[], ago: number) => client.query(
+      `INSERT INTO deed_run (id, child_id, deed_id, skill_ids, band, questions, responses, mastery_start,
+         started_at, completed_at, created_at, updated_at, kind)
+       VALUES (?1, 'c1', 'well-stones', '["add-100"]', 'g23', ?2, ?3, '{}',
+         unixepoch() - ?4, unixepoch() - ?4, unixepoch(), unixepoch(), 'deed')`,
+      [id, JSON.stringify(questions), JSON.stringify(responses), ago],
+    );
+    await insert("older", [q], ["5"], 600); // the choice miss, in the older run
+    await insert("newer", [1, 2, 3, 4, 5].map(cut), ["c:8", "c:8", "c:8", "c:8", "c:8"], 60); // five bench misses since
+
+    const next = await startReviewRun("c1", { kind: "page" });
+    if ("empty" in next) throw new Error("expected a run");
+    const stored = await client.query("SELECT questions FROM deed_run WHERE id = ?1", [next.runId]);
+    expect((JSON.parse(stored.rows[0].questions as string) as Question[]).map((x) => x.id)).toContain("cq");
+  });
+
   it("a miss in a Crown Challenge never comes back", async () => {
     const q: Question = { id: "cq", skillId: "mul-facts", prompt: "2 x 3?", choices: ["6", "5", "8", "9"], answer: "6" };
     await client.query(

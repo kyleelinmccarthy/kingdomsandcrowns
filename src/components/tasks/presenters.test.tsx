@@ -6,7 +6,7 @@ import { TaskPresenter } from "./presenters";
 
 afterEach(cleanup);
 
-const task: ClientTask = { kind: "choice", id: "q1", skillId: "math-add", view: { prompt: "What is 2 + 4?", choices: ["5", "6", "7", "8"] } };
+const task: ClientTask = { kind: "choice", id: "q1", skillId: "math-add", prompt: "What is 2 + 4?", view: { choices: ["5", "6", "7", "8"] } };
 const asking: FlowState = initialFlow({ questions: [{ id: "q1" }] as never, responses: [null], pending: null });
 
 function show(over: { flow?: FlowState; variant?: "board" | "page"; disabled?: boolean; nudge?: { line: string; hint: string } | null } = {}) {
@@ -70,5 +70,14 @@ describe("TaskPresenter nudge", () => {
     cleanup();
     show({ nudge: null });
     expect(screen.queryByRole("status")).toBeNull();
+  });
+});
+
+describe("TaskPresenter (measure)", () => {
+  it("puts a measure task on the bench (`bench-presenter.test.tsx` has the rest)", () => {
+    const measure: ClientTask = { kind: "measure", id: "m1", skillId: "frac-addsub", prompt: "Cut it", view: { mode: "cut", unit: "ft", step: "1/4", maxLength: "2" } };
+    render(<TaskPresenter task={measure} flow={asking} variant="board" numerals calm={false} disabled={false} onRespond={vi.fn()} />);
+    expect(screen.getByRole("heading", { name: "The bench" })).toBeTruthy();
+    expect(screen.getByLabelText("Length in ft")).toBeTruthy();
   });
 });

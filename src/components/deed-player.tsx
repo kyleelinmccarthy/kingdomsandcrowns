@@ -12,6 +12,7 @@ import { DeedMeter } from "@/components/deed-meter";
 import { useDeedFlow } from "@/components/use-deed-flow";
 import { attemptFeedback } from "@/lib/realm3d/talk";
 import { TaskPresenter } from "@/components/tasks/presenters";
+import { BenchDemo, demoCopy, useBenchDemo } from "@/components/tasks/bench-demo";
 import type { ProfileLike } from "@/lib/utils/deed-engine";
 import { canSpeak, speak } from "@/lib/utils/speech";
 import { SIDE_QUEST_LOWER } from "@/lib/utils/side-quest-copy";
@@ -30,23 +31,25 @@ export function DeedPlayer({
   doneLabel?: string;
   onFinished: (summary: RunSummary) => void;
 }) {
-  const { flow, meter, nudge, busy, error, setError, guarded, choose, showMe, next } = useDeedFlow(run);
+  const { flow, meter, nudge, site, busy, error, setError, guarded, choose, showMe, next } = useDeedFlow(run);
   const { index, phase } = flow;
   const [summary, setSummary] = useState<RunSummary | null>(null);
   const [startedAt] = useState(() => Date.now());
   const [now, setNow] = useState(() => Date.now());
   const speakable = canSpeak();
+  const demo = useBenchDemo(run, index);
   const question = run.questions[index];
   const isLast = index === run.questions.length - 1;
   const finishLabel = run.kind === "review" ? REVIEW_FINISH : `Finish ${SIDE_QUEST_LOWER}`;
 
-  // Read-aloud is a side effect, not state: the profile asks for it, the effect obeys.
+  // Read-aloud is a side effect, not state: the profile asks for it, the effect obeys. Aldo's
+  // worked example is read first, when there is one, then the question.
   useEffect(() => {
-    if (profile.readAloud && question) speak(question.readAloud ?? question.view.prompt);
+    if (profile.readAloud && question) speak(demo.mode ? demoCopy(demo.mode) : (question.readAloud ?? question.prompt));
     return () => {
       if (canSpeak()) window.speechSynthesis.cancel();
     };
-  }, [profile.readAloud, question]);
+  }, [profile.readAloud, question, demo.mode]);
 
   // A soft elapsed-time chip when the hero hasn't asked for untimed play.
   useEffect(() => {
@@ -56,7 +59,7 @@ export function DeedPlayer({
   }, [profile.untimed]);
 
   const nextRef = useRef<HTMLButtonElement>(null);
-  const feedback = flow.result ? attemptFeedback(flow.result, flow.ruledOut.length > 0) : null;
+  const feedback = flow.result ? attemptFeedback(flow.result, flow.ruledOut.length > 0, undefined, question) : null;
 
   // The hint is read once, when the second chance opens.
   const hint = phase === "second-chance" ? flow.result?.hint : undefined;
@@ -105,15 +108,17 @@ export function DeedPlayer({
         </div>
         <DeedMeter meter={meter} streak={flow.streak} calm={calm} numerals />
         {error && <div className="rounded-md bg-destructive/10 p-2 text-sm text-destructive">{error} <Button size="xs" variant="ghost" onClick={() => setError("")}>Try again</Button></div>}
+        {demo.mode ? <BenchDemo mode={demo.mode} variant="page" calm={calm} onDone={demo.finish} /> : (<>
         <div className="flex items-start gap-3">
-          <p className="flex-1 text-xl font-medium">{question.view.prompt}</p>
+          <p className="flex-1 text-xl font-medium">{question.prompt}</p>
           {speakable && (
-            <Button size="sm" variant="outline" aria-label="Read aloud" onClick={() => speak(question.readAloud ?? question.view.prompt)}>
+            <Button size="sm" variant="outline" aria-label="Read aloud" onClick={() => speak(question.readAloud ?? question.prompt)}>
               <GameIcon name="sparkles" className="size-4" />
             </Button>
           )}
         </div>
-        <TaskPresenter task={question} flow={flow} variant="page" numerals calm={calm} disabled={busy} nudge={nudge} onRespond={(choice) => void choose(choice)} />
+        <TaskPresenter task={question} flow={flow} variant="page" numerals calm={calm} disabled={busy} nudge={nudge} site={site} onRespond={(encoded) => void choose(encoded)} />
+        </>)}
         {feedback && (
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>

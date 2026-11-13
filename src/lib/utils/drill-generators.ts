@@ -228,9 +228,9 @@ export type Generator = (level: number, rng: Rng, skillId: string) => Question;
 
 const L = (level: number) => Math.min(4, Math.max(0, Math.floor(level)));
 
-// Sum ceilings per level, keyed by skill so one generator serves three skills.
-const ADD_MAX: Record<string, number[]> = { "add-10": [5, 6, 8, 9, 10], "add-20": [10, 12, 15, 18, 20], "add-100": [20, 40, 60, 80, 100] };
-const SUB_MAX: Record<string, number[]> = { "sub-10": [5, 6, 8, 9, 10], "sub-20": [10, 12, 15, 18, 20], "sub-100": [20, 40, 60, 80, 100] };
+// Sum ceilings per level, keyed by skill so one generator serves three skills (the bench reads them too).
+export const ADD_MAX: Record<string, number[]> = { "add-10": [5, 6, 8, 9, 10], "add-20": [10, 12, 15, 18, 20], "add-100": [20, 40, 60, 80, 100] };
+export const SUB_MAX: Record<string, number[]> = { "sub-10": [5, 6, 8, 9, 10], "sub-20": [10, 12, 15, 18, 20], "sub-100": [20, 40, 60, 80, 100] };
 const FACT_MAX = [2, 4, 6, 9, 12];
 
 /**
@@ -256,7 +256,7 @@ const MUL_OTHER_MAX = [10, 10, 12, 12, 12];
 const INT_MAX = [10, 20, 30, 40, 50];
 const PLACE_DIGITS = [2, 3, 4, 5, 6];
 const PLACES = ["ones", "tens", "hundreds", "thousands", "ten-thousands", "hundred-thousands"];
-const PERCENT_BASE_MAX = [100, 200, 300, 400, 500];
+export const PERCENT_BASE_MAX = [100, 200, 300, 400, 500];
 
 /** Half the even factor, then double: the doubling trick; with two odd factors, one group short and one more. */
 function explainTimes(a: number, b: number): string {
@@ -446,7 +446,7 @@ export function gcd(a: number, b: number): number {
  * thing to do to both sides is the operation the equation does not show — so it is what the
  * top rung is for rather than a wider span of the same three.
  */
-const ONE_STEP_KINDS = [
+export const ONE_STEP_KINDS = [
   ["add"], ["sub"], ["mul"], ["add", "sub", "mul"], ["add", "sub", "mul", "div"],
 ] as const;
 

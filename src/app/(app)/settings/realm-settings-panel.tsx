@@ -18,7 +18,9 @@ import {
   SIDE_QUEST_PAY_CAP_RANGE,
   TROUBLE_BONUS_RANGE,
   type RealmSettings,
+  type RealmSettingsPatch,
 } from "@/lib/utils/realm-settings";
+import { HANDS_ON_KINDS, type HandsOnKind } from "@/lib/tasks/kinds";
 import { modeEarns, type RealmAccessMode } from "@/lib/utils/realm-access";
 import { DEPTH_OVERRIDES, type DepthOverride } from "@/lib/realm/depth";
 
@@ -43,6 +45,14 @@ const DEPTH_LABELS: Record<DepthOverride, { label: string; hint: string }> = {
   auto: { label: "Automatic", hint: "Simple at first, everything once they know the world." },
   simple: { label: "Simple", hint: "Fewer numbers, one thing at a time." },
   full: { label: "Everything", hint: "More numbers, more to do." },
+};
+
+/**
+ * The parent's words for each hands-on way of playing a side quest. Keyed by HandsOnKind, so a
+ * new kind fails the build until it has a row here.
+ */
+const MECHANIC_LABELS: Record<HandsOnKind, { label: string; hint: string }> = {
+  measure: { label: "Building by measuring", hint: "Math side quests are played at the bench." },
 };
 
 /** One saved number: edits stay local until Save, which sends only this field (the Earning time group). */
@@ -107,7 +117,7 @@ export function RealmSettingsPanel({
     }
   }
 
-  const save = (patch: Partial<RealmSettings>) => run(() => updateRealmSettings(childId, patch));
+  const save = (patch: RealmSettingsPatch) => run(() => updateRealmSettings(childId, patch));
   const usesEarned = modeEarns(settings.accessMode);
 
   return (
@@ -303,6 +313,20 @@ export function RealmSettingsPanel({
           </div>
           <Switch aria-label="Second chances" checked={settings.secondChances} disabled={busy} onCheckedChange={() => save({ secondChances: !settings.secondChances })} />
         </div>
+        {HANDS_ON_KINDS.map((kind) => (
+          <div key={kind} className="flex items-center justify-between gap-2">
+            <div>
+              <p className="text-sm">{MECHANIC_LABELS[kind].label}</p>
+              <p className="text-xs text-muted-foreground">{MECHANIC_LABELS[kind].hint}</p>
+            </div>
+            <Switch
+              aria-label={MECHANIC_LABELS[kind].label}
+              checked={settings.mechanics[kind]}
+              disabled={busy}
+              onCheckedChange={() => save({ mechanics: { [kind]: !settings.mechanics[kind] } })}
+            />
+          </div>
+        ))}
       </fieldset>
 
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gold-dim bg-muted/30 px-3 py-2.5">

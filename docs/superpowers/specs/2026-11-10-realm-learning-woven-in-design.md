@@ -68,6 +68,19 @@ This is a **programme of six slices** on one shared framework. Each slice gets i
 - **`logic` is a new `SkillArea`** with spell school `none`. It uses the child's grade with no per-strand offset column. A grown-up can pick it as a focus skill, and it appears on the Side Quests page and in parent reports like the other areas.
 - **The Puzzle Tower has one floor per band.** A floor opens when the child earns 3 stars on any lock deed at that band.
 
+### Calls settled for slice 2 (2026-11-10)
+
+- **R-C1: pieces show on the bench, not live in 3D.** The bench carries its own small SVG elevation and each solved task drops the next piece in; the 3D site advances when the board closes, through the existing hand-up/`raise` path.
+- **R-C2: no dragging.** Assemble is tapping pieces to toggle them; cut is a typed length with − / + steppers and a ruler drawing.
+- **R-C3: two bench skills per grade K–12** (named in the plan's Part C); any other math skill stays `choice` inside the same run.
+- **R-C4: the gate stays multiple choice.** `startDeedRun` gains a `"gate"` context with no enabled kinds, passed in by the gate board.
+- **R-C5: a client-safe codec per kind** (`TASK_CODECS`), separate from the server-only drawing; presenters encode a response, so the stored-string contract is unchanged.
+- **R-C6: misses respect the kind.** A miss is re-asked only if its kind is still the one its skill would be played with; review runs re-ask only `choice` misses.
+- **R-C7: rollback safety.** `loadRecentMisses` skips a stored task of an unregistered kind, and `parseRun` refuses one clearly (deploys are forward-only).
+- **R-C8: the notation bridge is sent on success.** A right answer carries the kind's `bridge(t)` when it defines one; choice has none, so choice runs read as today.
+- **R-C9: demo-first is decided by run history.** K–3 heroes see one worked example per mode before their first measure task, until a measure task appears in one of their completed runs.
+- **R-C10: the bench ignores `numerals`** and is titled "The bench"; Aldo appears only in the demo, so all eight math deeds read naturally.
+
 ---
 
 ## 3. Goals, non-goals, anti-goals

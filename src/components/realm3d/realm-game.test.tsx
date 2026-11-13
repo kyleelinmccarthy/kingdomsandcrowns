@@ -287,8 +287,8 @@ const run = {
   runId: "run-1",
   deed: { id: "well-stones", title: "Count the Well Stones", story: "Old Bram's bucket keeps coming up dry.", area: "math" as const },
   questions: [
-    { kind: "choice" as const, id: "q1", skillId: "add-20", view: { prompt: "What is 2 + 3?", choices: ["4", "5", "6", "7"] }, readAloud: "What is two plus three?" },
-    { kind: "choice" as const, id: "q2", skillId: "add-20", view: { prompt: "What is 4 + 4?", choices: ["6", "7", "8", "9"] } },
+    { kind: "choice" as const, id: "q1", skillId: "add-20", prompt: "What is 2 + 3?", view: { choices: ["4", "5", "6", "7"] }, readAloud: "What is two plus three?" },
+    { kind: "choice" as const, id: "q2", skillId: "add-20", prompt: "What is 4 + 4?", view: { choices: ["6", "7", "8", "9"] } },
   ],
   responses: [null, null],
   kind: "deed" as const,

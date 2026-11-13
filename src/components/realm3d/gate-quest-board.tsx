@@ -77,6 +77,7 @@ export function GateQuestBoard({
         onResult={onResult}
         onClose={() => setTalkingTo(null)}
         doneLabel={BACK_TO_LIST}
+        runContext="gate"
       />
     );
   }

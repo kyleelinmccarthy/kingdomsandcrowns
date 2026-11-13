@@ -845,6 +845,9 @@ export const realmSettings = sqliteTable(
     // (`lib/realm3d/sound/settings.ts`). Null is the defaults. A visiting grown-up's own are
     // `realm_visitor_sound`, kept per grown-up.
     sound: text("sound"),
+    // Which hands-on ways of answering a side quest are on, as JSON by kind (`lib/utils/realm-settings.ts`).
+    // Null is all on; a missing kind reads as on.
+    mechanics: text("mechanics"),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   }

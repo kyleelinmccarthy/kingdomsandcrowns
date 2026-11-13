@@ -178,7 +178,7 @@ export function fracUnit(level: number, rng: Rng, skillId: string): Question {
 }
 
 /** Longest side per level. */
-const RECT_MAX = [5, 8, 10, 12, 15];
+export const RECT_MAX = [5, 8, 10, 12, 15];
 
 /**
  * Area and perimeter of a rectangle (grade 3). Perimeter joins from level 2.
@@ -508,9 +508,9 @@ function explainWithin1000(a: number, op: "+" | "-", b: number): string {
  * The `zero` flag is what keeps the pairs of rungs disjoint: level 1 forbids what level 0
  * requires, so each really can ask what the one below it cannot.
  */
-type MulShape = { a: number; b: number; zero?: "required" | "forbidden" };
+export type MulShape = { a: number; b: number; zero?: "required" | "forbidden" };
 
-const MUL_SHAPES: Record<string, MulShape[]> = {
+export const MUL_SHAPES: Record<string, MulShape[]> = {
   "mul-multi": [{ a: 2, b: 1 }, { a: 3, b: 1 }, { a: 4, b: 1 }, { a: 2, b: 2 }, { a: 3, b: 2 }],
   "mul-standard": [
     { a: 3, b: 2, zero: "forbidden" },
@@ -871,7 +871,7 @@ const EQUIV_MULT_MAX = [2, 3, 4, 6, 8];
  * fractions instead of eleven. Every rung above shifts up by one to keep its own new
  * denominators, and the top of the ladder stays at twelfths where it was.
  */
-const EQUIV_DENOM_MAX = [8, 9, 10, 11, 12];
+export const EQUIV_DENOM_MAX = [8, 9, 10, 11, 12];
 
 /**
  * Equivalent fractions (grade 4). The choices ARE the data, as in `fractions-compare`.
@@ -1058,8 +1058,8 @@ export function factors(level: number, rng: Rng, skillId: string): Question {
 }
 
 /** Whether the two denominators match, and how big they get, per level. */
-const ADDSUB_LIKE = [true, true, true, false, false];
-const ADDSUB_DENOM_MAX = [6, 8, 10, 12, 12];
+export const ADDSUB_LIKE = [true, true, true, false, false];
+export const ADDSUB_DENOM_MAX = [6, 8, 10, 12, 12];
 
 /**
  * Whether the answer may reach or pass 1, per level.
@@ -1070,7 +1070,7 @@ const ADDSUB_DENOM_MAX = [6, 8, 10, 12, 12];
  * the harder half. The first three rungs stay under 1, where a child is still learning that
  * a common denominator is the point; the last two open up.
  */
-const ADDSUB_PAST_ONE = [false, false, false, true, true];
+export const ADDSUB_PAST_ONE = [false, false, false, true, true];
 
 /**
  * Whether an OPERAND may be greater than one, per level.
@@ -1086,7 +1086,7 @@ const ADDSUB_PAST_ONE = [false, false, false, true, true];
  * Written as improper fractions throughout, never as mixed numbers, so every choice on screen
  * is one shape and none can be picked out by looking.
  */
-const ADDSUB_IMPROPER = [false, false, false, false, true];
+export const ADDSUB_IMPROPER = [false, false, false, false, true];
 
 /**
  * Adding and subtracting fractions (grade 5).
@@ -1275,14 +1275,14 @@ export function fracMul(level: number, rng: Rng, skillId: string): Question {
  * fixed ceiling made levels 0 and 1 identical and levels 2 and 3 identical: a five-rung
  * ladder that was really three.
  */
-const DEC_PLACES = [1, 1, 2, 2, 2];
+export const DEC_PLACES = [1, 1, 2, 2, 2];
 
 /**
  * How large the whole part of an operand gets, per level — the axis that actually separates
  * the rungs, since the number of decimal places cannot climb past hundredths. Multiplication
  * keeps its own, much smaller ceiling: the point is placing the point, not long multiplication.
  */
-const DEC_WHOLE_MAX = [9, 20, 50, 99, 99];
+export const DEC_WHOLE_MAX = [9, 20, 50, 99, 99];
 
 /**
  * Every decimal in this generator is held as an integer scaled by 10 000, and no float ever

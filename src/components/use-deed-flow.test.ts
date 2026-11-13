@@ -14,7 +14,7 @@ vi.mock("@/lib/actions/deeds", () => ({
   resolveDeedQuestion: (...a: unknown[]) => resolveDeedQuestion(...a),
 }));
 
-const q = (id: string) => ({ kind: "choice" as const, id, skillId: "s", view: { prompt: id, choices: ["a", "b", "c", "d"] } });
+const q = (id: string) => ({ kind: "choice" as const, id, skillId: "s", prompt: id, view: { choices: ["a", "b", "c", "d"] } });
 const run: RunStart = {
   runId: "r1", deed: { id: "d", title: "D", story: "S", area: "math" },
   questions: [q("1"), q("2")], responses: [null, null], kind: "deed", pending: null,
@@ -65,6 +65,48 @@ describe("useDeedFlow", () => {
     answerDeedQuestion.mockRejectedValueOnce(new Error("That question has already been answered."));
     await act(() => result.current.choose("a"));
     expect(result.current.error).toBe("That question has already been answered.");
+  });
+
+  describe("the site on the bench", () => {
+    const cut = (id: string) => ({ kind: "measure" as const, id, skillId: "s", prompt: id, view: { mode: "cut" as const, unit: "feet", step: "1", maxLength: "10" } });
+    const mixed: RunStart = { ...run, questions: [cut("m1"), q("c1"), cut("m2"), cut("m3")], responses: [null, null, null, null], site: { stage: 2, complete: false, placed: 0 } };
+    const right = { correct: true, secondChance: false, answer: "x" };
+
+    it("counts the bench tasks solved, first try or second, out of the run's bench tasks; a miss and a choice answer count nothing", async () => {
+      answerDeedQuestion
+        .mockResolvedValueOnce(right) // m1: right
+        .mockResolvedValueOnce(right) // c1: a choice, right
+        .mockResolvedValueOnce({ correct: false, secondChance: true, hint: "h", firstPick: "c:1" }) // m2: wrong, then right
+        .mockResolvedValueOnce({ correct: false, secondChance: true, hint: "h", firstPick: "c:1" }); // m3: wrong twice
+      retryDeedQuestion.mockResolvedValueOnce(right).mockResolvedValueOnce({ correct: false, secondChance: false, answer: "x" });
+      const { result } = renderHook(() => useDeedFlow(mixed));
+      // Three of the four tasks are on the bench: the stage is paced over those three (RC-l).
+      expect(result.current.site).toEqual({ stage: 2, complete: false, solved: 0, benchTasks: 3 });
+      await act(() => result.current.choose("c:2"));
+      expect(result.current.site?.solved).toBe(1);
+      act(() => result.current.next());
+      await act(() => result.current.choose("a"));
+      expect(result.current.site?.solved).toBe(1);
+      act(() => result.current.next());
+      await act(() => result.current.choose("c:1"));
+      expect(result.current.site?.solved).toBe(1);
+      await act(() => result.current.choose("c:2"));
+      expect(result.current.site?.solved).toBe(2);
+      act(() => result.current.next());
+      await act(() => result.current.choose("c:1"));
+      await act(() => result.current.choose("c:3"));
+      expect(result.current.site?.solved).toBe(2);
+    });
+
+    it("a run picked back up starts from the bench tasks the server says it already solved", () => {
+      const { result } = renderHook(() => useDeedFlow({ ...mixed, responses: ["c:2", "a", null, null], site: { stage: 2, complete: false, placed: 1 } }));
+      expect(result.current.site).toEqual({ stage: 2, complete: false, solved: 1, benchTasks: 3 });
+    });
+
+    it("a run with no site (a review, a Crown Challenge) has none", () => {
+      const { result } = renderHook(() => useDeedFlow(run));
+      expect(result.current.site).toBeUndefined();
+    });
   });
 
   describe("pace guard", () => {

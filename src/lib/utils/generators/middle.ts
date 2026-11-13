@@ -85,7 +85,7 @@ export function pickDistinct(candidates: string[], answer: string): string[] {
 // ---------------------------------------------------------------------------
 
 /** Largest distance in play per level. */
-const RATE_TOTAL_MAX = [60, 120, 240, 360, 500];
+export const RATE_TOTAL_MAX = [60, 120, 240, 360, 500];
 
 /**
  * Unit rate (grade 6). The division is always exact, because a unit rate with a remainder
@@ -237,8 +237,8 @@ export function evalExpr(level: number, rng: Rng, skillId: string): Question {
 // ---------------------------------------------------------------------------
 
 /** Largest count of items, and largest price per item, per level. */
-const PROP_COUNT_MAX = [6, 8, 10, 12, 12];
-const PROP_UNIT_MAX = [5, 6, 8, 10, 12];
+export const PROP_COUNT_MAX = [6, 8, 10, 12, 12];
+export const PROP_UNIT_MAX = [5, 6, 8, 10, 12];
 const PROP_ITEMS = ["pencils", "apples", "notebooks", "markers", "stickers", "ribbons"];
 
 /**
@@ -546,7 +546,7 @@ export function twoStepEq(level: number, rng: Rng, skillId: string): Question {
  * TOP rung really did get bigger, to a radius of 20, and that is the price of leaving the
  * first rung with twenty questions. Nothing here leaves 7.G.4.
  */
-const CIRCLE_RADIUS_MAX = [12, 14, 16, 18, 20];
+export const CIRCLE_RADIUS_MAX = [12, 14, 16, 18, 20];
 
 /**
  * **Every circle measure in here is held as an exact integer number of HUNDREDTHS**, and no
@@ -643,9 +643,9 @@ export function circleMeasure(level: number, rng: Rng, skillId: string): Questio
 // ---------------------------------------------------------------------------
 
 /** Largest coefficient on either side of the equals sign, per level. */
-const LINEAR_COEF_MAX = [5, 6, 7, 8, 9];
+export const LINEAR_COEF_MAX = [5, 6, 7, 8, 9];
 /** Largest constant on the left, per level. */
-const LINEAR_CONST_MAX = [8, 10, 12, 12, 12];
+export const LINEAR_CONST_MAX = [8, 10, 12, 12, 12];
 
 /**
  * Linear equations in one variable (grade 8). The variable sits on one side at levels 0-1
@@ -865,9 +865,9 @@ export const PYTHAGOREAN_TRIPLES: readonly (readonly [number, number, number])[]
 ];
 
 /** How far a triple may be scaled up, per level. Three is the ceiling everywhere. */
-const TRIPLE_SCALE_MAX = [1, 1, 2, 2, 3];
+export const TRIPLE_SCALE_MAX = [1, 1, 2, 2, 3];
 /** Largest hypotenuse in play, per level, so a scaled triple cannot run away. */
-const TRIPLE_HYP_MAX = [17, 25, 29, 60, 90];
+export const TRIPLE_HYP_MAX = [17, 25, 29, 60, 90];
 
 /**
  * The Pythagorean theorem (grade 8). Legs come from the triple table above, scaled by the

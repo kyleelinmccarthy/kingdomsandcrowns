@@ -19,7 +19,7 @@ import {
 } from "@/lib/utils/deed-engine";
 import { masteryChangeCopy, masteryLabel, parseRecentResults, progressToNextRung, recordResult } from "@/lib/utils/mastery";
 import type { Question } from "@/lib/utils/drill-generators";
-import { isTaskCorrect, kindOf, taskDef, type ResponseByKind, type Task, type TaskKind } from "@/lib/tasks/registry";
+import { isTaskCorrect, taskDefOf, type ResponseByKind, type Task, type TaskKind } from "@/lib/tasks/registry";
 import { CHALLENGE, MAX_STARS, RUN_EFFECTS, countsTowardBuilding, runPoints, starsFor, type QuestionOutcome, type RunKind, type Stars } from "@/lib/utils/deed-scoring";
 import { outcomeOf, refuseGiveUp, refuseRetry, statusOf, type QuestionStatus } from "@/lib/utils/deed-attempts";
 import {
@@ -29,12 +29,13 @@ import {
 import { overdueSkills } from "@/lib/utils/review-schedule";
 import type { AttemptResult, RunStart, RunSummary } from "@/lib/utils/deed-run-types";
 import { hintFor } from "@/lib/utils/skill-hints";
-import { findOpenRun, insertRun, loadMasteryRows, loadRecentMisses, parseRun, resumedStart, type DeedRunRow } from "@/lib/services/deed-run-store";
-import { buildingStars, gradeForDeed, loadDeedBest, loadHeroLevels, loadKingdomOverview, type BuildingOverview } from "@/lib/services/deeds";
+import { benchDemoAt, findOpenRun, insertRun, loadMasteryRows, loadRecentMisses, parseRun, resumedStart, type DeedRunRow } from "@/lib/services/deed-run-store";
+import { buildingStars, gradeForDeed, loadDeedBest, loadHeroLevels, loadKingdomOverview, loadSiteState, type BuildingOverview } from "@/lib/services/deeds";
 import { loadFocusSkillIds } from "@/lib/services/learning-focus";
 import { loadLearningProfileRow } from "@/lib/services/learning-profile";
 import { loadRealmSettings, paySideQuest } from "@/lib/services/realm-play";
 import { NO_SIDE_QUEST_PAY, type SideQuestPay } from "@/lib/utils/side-quest-pay";
+import { enabledHandsOnKinds } from "@/lib/utils/realm-settings";
 
 export type MasteryRow = { skillId: string; label: string; area: SkillArea; level: number; levelLabel: string; lastPracticedAt: string | null };
 export type DeedsOverview = {
@@ -71,14 +72,16 @@ export async function getMasteryOverview(childId: string): Promise<MasteryRow[]>
 export async function startDeedRun(
   childId: string,
   deedId: string,
-  context: "page" | "realm" = "page",
+  context: "page" | "realm" | "gate" = "page",
   options?: { challenge?: boolean },
 ): Promise<RunStart> {
   const { access } = await requireChildAccess(childId, { write: true });
+  // `context` crosses the wire, so it is untrusted: anything but the two named worlds is the page.
+  const ctx = context === "realm" || context === "gate" ? context : "page";
   const challenge = options?.challenge === true;
-  // In the world, only the hero plays; a parent previewing the Realm reads stories but never
-  // starts a run. A Crown Challenge is the hero's alone wherever it is asked from.
-  if ((context === "realm" || challenge) && !isChildActor(access)) throw new Error(HERO_ONLY);
+  // In the world, or on the gate's board, only the hero plays; a parent previewing the Realm reads
+  // stories but never starts a run. A Crown Challenge is the hero's alone wherever it is asked from.
+  if ((ctx === "realm" || ctx === "gate" || challenge) && !isChildActor(access)) throw new Error(HERO_ONLY);
   const kind: RunKind = challenge ? "challenge" : "deed";
   const deed = findDeed(deedId);
   if (!deed) throw new Error(NOT_IN_CHRONICLE);
@@ -91,16 +94,23 @@ export async function startDeedRun(
   const story = deedStory(deed, hero.tone);
 
   // The focus picks are read alongside the open-run check: which pools to load depends on them.
-  const [open, focusSkillIds] = await Promise.all([
+  // So is the building's site, for the bench's drawing: only a side quest's own run raises it.
+  const building = kind === "deed" ? findBuilding(deed.buildingId) : null;
+  const [open, focusSkillIds, site] = await Promise.all([
     findOpenRun(and(eq(schema.deedRun.childId, childId), eq(schema.deedRun.deedId, deedId), eq(schema.deedRun.kind, kind))),
     loadFocusSkillIds(childId, hero.grades),
+    building ? loadSiteState(childId, building) : Promise.resolve(null),
   ]);
-  if (open) return resumedStart(open, { id: deed.id, title: deed.title, story, area: deed.area });
-
   // The deed's OWN strand decides the grade — never a fixed one, and never another
   // strand's. `gradeForDeed` is where that is pinned by test. A focus skill in the deed's strand
   // a grade either side joins the candidates (`runCandidates`), so its pool is loaded too.
   const grade = gradeForDeed(hero, deed);
+  // A young hero meets Aldo's worked example before their first bench task (R-C9), resumed or fresh.
+  const withDemo = async (start: RunStart): Promise<RunStart> => {
+    const at = await benchDemoAt(childId, grade, start);
+    return at === null ? start : { ...start, demo: { at } };
+  };
+  if (open) return withDemo(resumedStart(open, { id: deed.id, title: deed.title, story, area: deed.area }, site ?? undefined));
   const skills = runCandidates(deed, grade, focusSkillIds);
   const poolSkillIds = skills.filter((s) => s.source.kind === "pool").map((s) => s.id);
   const [profileRow, masteryRows, poolRows, recentMisses, settings] = await Promise.all([
@@ -136,6 +146,9 @@ export async function startDeedRun(
   );
   const built = buildDeedRun({
     deed, grade, masteryBySkill, lastPracticedBySkill, profile, seed: Date.now() >>> 0, poolItems, focusSkillIds,
+    // The grown-up's switches decide which hands-on kinds a NEW run may draw (an open run is a
+    // snapshot and never asks); the gate is multiple choice whatever they say (R-C4).
+    enabledKinds: ctx === "gate" ? new Set<TaskKind>() : enabledHandsOnKinds(settings),
     ...(challenge
       ? { recentMisses: [], dueSkillIds: [], questionCount: CHALLENGE.questions, levelBoost: CHALLENGE.levelBoost }
       : { recentMisses, dueSkillIds, questionCount: settings.sideQuestLength }),
@@ -146,12 +159,14 @@ export async function startDeedRun(
 
   const masteryStart: Record<string, number> = {};
   for (const id of built.skillIds) masteryStart[id] = masteryBySkill[id] ?? 0;
-  return insertRun({
+  const start = await insertRun({
     id: nanoid(), childId, deedId, skillIds: JSON.stringify(built.skillIds), band: bandForGrade(grade),
     masteryStart: JSON.stringify(masteryStart),
     // Snapshotted, so a grown-up changing the setting mid-run never changes this run's rules.
     kind, secondChances: RUN_EFFECTS[kind].allowsSecondChances && settings.secondChances,
   }, built.questions, { id: deed.id, title: deed.title, story, area: deed.area });
+  // A fresh run has laid nothing yet.
+  return withDemo(site ? { ...start, site: { ...site, placed: 0 } } : start);
 }
 
 /** A stored run, once the caller may act for its hero, and who the caller is. */
@@ -177,11 +192,16 @@ async function loadAttemptState(runId: string, index: number) {
  * What the browser may know about a question in this state: the answer only once it is resolved.
  * An open second chance echoes the stored first pick, so a late repeat rules out what was stored.
  */
-function resultFor(question: Task, status: QuestionStatus, firstPick?: string): AttemptResult {
+function resultFor(question: Task, status: QuestionStatus, firstPick?: string, rightPick?: string): AttemptResult {
   if (status === "unanswered") throw new Error(ANSWER_FIRST);
   if (status === "open") return { correct: false, secondChance: true, hint: hintFor(question.skillId), firstPick };
   const correct = status === "right-first" || status === "right-second";
-  const result: AttemptResult = { correct, secondChance: false, answer: taskDef(kindOf(question)).answerText(question) };
+  const def = taskDefOf(question);
+  const result: AttemptResult = { correct, secondChance: false, answer: def.answerText(question) };
+  // The notation behind a hands-on task is the reward for solving it: sent on a right answer only (R-C8),
+  // and built from what the child did (`rightPick`, the stored response that solved it).
+  const solved = correct && rightPick !== undefined ? def.decode(rightPick) : null;
+  if (solved !== null && def.bridge) result.bridge = def.bridge(question, solved);
   if (question.explain) result.explain = question.explain;
   else if (!correct) result.hint = hintFor(question.skillId);
   return result;
@@ -189,7 +209,7 @@ function resultFor(question: Task, status: QuestionStatus, firstPick?: string): 
 
 /** The kind's coded note on a response, only when it has one: `none` is left off the result. */
 function feedbackOf(question: Task, parsed: ResponseByKind[TaskKind]): Pick<AttemptResult, "feedback"> {
-  const code = taskDef(kindOf(question)).feedback(question, parsed);
+  const code = taskDefOf(question).feedback(question, parsed);
   return code === "none" ? {} : { feedback: code };
 }
 
@@ -237,13 +257,19 @@ const ANSWER_WRITE_TRIES = 5;
 export async function answerDeedQuestion(runId: string, index: number, response: unknown): Promise<AttemptResult> {
   for (let tries = 0; tries < ANSWER_WRITE_TRIES; tries++) {
     const { run, questions, responses, question, attempt, allows } = await loadAttemptState(runId, index);
-    const def = taskDef(kindOf(question));
+    const def = taskDefOf(question);
     const parsed = def.parseResponse(response, question);
     if (parsed === null) throw new Error(PICK_SHOWN);
     const answer = def.encode(parsed);
     // A repeat answer to the same question (double tap, or the loser of a race) is not re-graded:
-    // it hears what was stored, and while a second chance is open that is still only a hint.
-    if (attempt.first !== null) return resultFor(question, statusOf(question, attempt, allows), attempt.first);
+    // it hears what was stored. While a second chance is open that is still only a hint, and the
+    // stored answer's note (which way a length is off); once resolved, the resolution alone.
+    if (attempt.first !== null) {
+      const status = statusOf(question, attempt, allows);
+      const result = resultFor(question, status, attempt.first, status === "right-first" ? attempt.first : (attempt.second ?? undefined));
+      const storedFirst = status === "open" ? def.decode(attempt.first) : null;
+      return storedFirst !== null ? { ...result, ...feedbackOf(question, storedFirst) } : result;
+    }
     const next = questions.map((_, i) => responses[i] ?? null);
     next[index] = answer;
     const correctCount = questions.filter((q, i) => next[i] !== null && isTaskCorrect(q, next[i]!)).length;
@@ -258,7 +284,7 @@ export async function answerDeedQuestion(runId: string, index: number, response:
     if (written.length === 0) continue;
     const correct = isTaskCorrect(question, answer);
     const moved = RUN_EFFECTS[run.kind].movesMastery ? await recordFirstTry(run.childId, question.skillId, correct, now) : {};
-    return { ...resultFor(question, statusOf(question, { first: answer, second: null }, allows), answer), ...moved, ...feedbackOf(question, parsed) };
+    return { ...resultFor(question, statusOf(question, { first: answer, second: null }, allows), answer, answer), ...moved, ...feedbackOf(question, parsed) };
   }
   throw new Error(NOT_THROUGH);
 }
@@ -283,12 +309,12 @@ export async function retryDeedQuestion(runId: string, index: number, response: 
   // `refuseRetry` parses `response` with the task's kind (PICK_SHOWN when it is not well formed), before any write.
   const refusal = refuseRetry(question, attempt, allows, response);
   if (refusal) throw new Error(refusal);
-  const def = taskDef(kindOf(question));
+  const def = taskDefOf(question);
   const parsed = def.parseResponse(response, question);
   if (parsed === null) throw new Error(PICK_SHOWN);
   const answer = def.encode(parsed);
   await writeSecondTry(run, secondTries, questions.length, index, answer);
-  return { ...resultFor(question, statusOf(question, { ...attempt, second: answer }, allows)), ...feedbackOf(question, parsed) };
+  return { ...resultFor(question, statusOf(question, { ...attempt, second: answer }, allows), undefined, answer), ...feedbackOf(question, parsed) };
 }
 
 /** "Show me": closes an open second chance as a miss. Safe to answer, because the try is spent. */
@@ -354,10 +380,10 @@ export async function completeDeedRun(runId: string): Promise<RunSummary> {
     .returning({ id: schema.deedRun.id });
   // Two finishes racing: only the one that closed the run may raise the building, or be paid.
   if (finished.length === 0) throw new Error(FINISHED);
-  // Only the hero's own run pays play minutes (spec 2026-11-09 §2a); a challenge earns no stars.
+  // Only the hero's own run pays play minutes (spec 2026-11-09 §2a), and only a run kind that pays them (`paysMinutes`).
   // Paid now, after the win, and finished before the building is raised: SQLite has one write
   // lock, so the pay's transaction and the building's write must not overlap (`payForRun` never rejects).
-  const pay = effects.earnsStars && stars > 0 && isChildActor(access) ? await payForRun(run.childId, runId, stars) : NO_SIDE_QUEST_PAY;
+  const pay = effects.paysMinutes && stars > 0 && isChildActor(access) ? await payForRun(run.childId, runId, stars) : NO_SIDE_QUEST_PAY;
 
   const counted = effects.raisesBuilding && countsTowardBuilding(stars);
   const deed = run.deedId ? findDeed(run.deedId) : null;

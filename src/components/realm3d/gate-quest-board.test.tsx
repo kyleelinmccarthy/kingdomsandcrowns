@@ -106,11 +106,27 @@ describe("the gate's quest board", () => {
     expect(screen.getByRole("button", { name: "Back to the gate" })).toBeInTheDocument();
   });
 
+  it("begins a run in the gate's own context, which stays multiple choice (R-C4)", async () => {
+    vi.mocked(startDeedRun).mockResolvedValue({
+      runId: "run-1",
+      deed: { id: "well-stones", title: "Count the Well Stones", story: "s", area: "math" as const },
+      questions: [{ kind: "choice" as const, id: "q1", skillId: "add", prompt: "What is 2 + 3?", view: { choices: ["4", "5"] } }],
+      responses: [null],
+      kind: "deed" as const,
+      pending: null,
+    });
+    board();
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Talk to Old Bram" })));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" })));
+    expect(startDeedRun).toHaveBeenCalledTimes(1);
+    expect(startDeedRun).toHaveBeenCalledWith("demo-child-1", "well-stones", "gate");
+  });
+
   it("a finished run's card goes back to the side quests, and says so", async () => {
     vi.mocked(startDeedRun).mockResolvedValue({
       runId: "run-1",
       deed: { id: "well-stones", title: "Count the Well Stones", story: "s", area: "math" as const },
-      questions: [{ kind: "choice" as const, id: "q1", skillId: "add", view: { prompt: "What is 2 + 3?", choices: ["4", "5"] } }],
+      questions: [{ kind: "choice" as const, id: "q1", skillId: "add", prompt: "What is 2 + 3?", view: { choices: ["4", "5"] } }],
       responses: [null],
       kind: "deed" as const,
       pending: null,

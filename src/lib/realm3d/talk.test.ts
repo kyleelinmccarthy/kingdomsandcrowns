@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { objectiveState } from "@/lib/realm/objective";
 import { villagerById } from "@/lib/realm/villagers";
+import type { ClientTask } from "@/lib/tasks/types";
 import { attemptFeedback, deedToast, resultBuildingLine, resultHeadline, resultMinutesLine, resultStarsLine, starsLabel, starsLeftLine, talkCopy, type SiteState } from "./talk";
 
 const bram = villagerById("bram")!;
@@ -211,5 +212,60 @@ describe("what a villager says after an answer", () => {
     expect(attemptFeedback({ correct: false, secondChance: false, answer: "5", explain: "2 + 3 is 5." }, false).text).toBe("The answer was 5. 2 + 3 is 5.");
     expect(attemptFeedback({ correct: false, secondChance: false, answer: "5", hint: "Count on." }, true).text).toBe("The answer was 5. Count on.");
     expect(attemptFeedback({ correct: false, secondChance: false, answer: "5" }, false).text).toBe("The answer was 5.");
+  });
+});
+
+describe("what a villager says after a bench answer", () => {
+  it("says which way a wrong length is off on a second chance, before the hint", () => {
+    expect(attemptFeedback({ correct: false, secondChance: true, hint: "Count on.", feedback: "too_long" }, false))
+      .toEqual({ heading: "Try again", text: "A little long. Trim it. Count on." });
+    expect(attemptFeedback({ correct: false, secondChance: true, hint: "Count on.", feedback: "too_short" }, false).text)
+      .toBe("A little short. Add to it. Count on.");
+  });
+  it("keeps the length words for a task that names a length, or no quantity", () => {
+    const length: ClientTask = { kind: "measure", id: "m", skillId: "s", prompt: "p", view: { mode: "cut", unit: "feet", quantity: "length" } };
+    const bare: ClientTask = { kind: "measure", id: "m", skillId: "s", prompt: "p", view: { mode: "cut", unit: "feet" } };
+    for (const task of [length, bare]) {
+      expect(attemptFeedback({ correct: false, secondChance: true, feedback: "too_long" }, false, undefined, task).text).toBe("A little long. Trim it.");
+      expect(attemptFeedback({ correct: false, secondChance: true, feedback: "too_short" }, false, undefined, task).text).toBe("A little short. Add to it.");
+    }
+  });
+  it("never calls an area, a count or a weight long or short: it is over or under", () => {
+    const task = (quantity: "area" | "count" | "weight" | "volume"): ClientTask => ({ kind: "measure", id: "m", skillId: "s", prompt: "p", view: { mode: "cut", unit: "u", quantity } });
+    expect(attemptFeedback({ correct: false, secondChance: true, hint: "Count on.", feedback: "too_long" }, false, undefined, task("area")))
+      .toEqual({ heading: "Try again", text: "A little over. Bring it down. Count on." });
+    expect(attemptFeedback({ correct: false, secondChance: true, hint: "Count on.", feedback: "too_short" }, false, undefined, task("count")).text)
+      .toBe("A little under. Bring it up. Count on.");
+    expect(attemptFeedback({ correct: false, secondChance: true, feedback: "too_long" }, false, undefined, task("weight")).text).toBe("A little over. Bring it down.");
+    expect(attemptFeedback({ correct: false, secondChance: true, feedback: "too_short" }, false, undefined, task("volume")).text).toBe("A little under. Bring it up.");
+  });
+  it("shows the worked notation after a right answer, first try or retry", () => {
+    expect(attemptFeedback({ correct: true, secondChance: false, answer: "x", bridge: "4 + 5 = 9" }, false).text).toBe("That's it! 4 + 5 = 9");
+    expect(attemptFeedback({ correct: true, secondChance: false, answer: "x", bridge: "4 + 5 = 9" }, false, "Old Bram").text).toBe("That's it! Old Bram is pleased. 4 + 5 = 9");
+    expect(attemptFeedback({ correct: true, secondChance: false, answer: "x", bridge: "1/2 + 1/4 = 3/4" }, true).text).toBe("You got there! 1/2 + 1/4 = 3/4");
+  });
+  const assembleTask: ClientTask = { kind: "measure", id: "m", skillId: "add-10", prompt: "p", view: { mode: "assemble", unit: "blocks", pieces: ["1 block", "8 blocks"], target: "9 blocks" } };
+  const cutTask: ClientTask = { kind: "measure", id: "m", skillId: "frac-addsub", prompt: "p", view: { mode: "cut", unit: "feet", step: "1/4", maxLength: "2" } };
+  const choiceTask: ClientTask = { kind: "choice", id: "q", skillId: "add", prompt: "p", view: { choices: ["a", "b"] } };
+
+  it("an assemble miss's answer is already a sentence, so it is said as it is: the task on the bench says so", () => {
+    const answer = "Pieces that add up to 9 blocks, like 1 + 8 = 9.";
+    expect(attemptFeedback({ correct: false, secondChance: false, answer, feedback: "too_long" }, true, undefined, assembleTask).text).toBe(answer);
+    expect(attemptFeedback({ correct: false, secondChance: false, answer, hint: "Count on." }, true, "Old Bram", assembleTask).text).toBe(`${answer} Count on.`);
+  });
+  it("only the task's kind decides that, never the answer's words", () => {
+    const lookalike = "Pieces that add up to ten.";
+    expect(attemptFeedback({ correct: false, secondChance: false, answer: lookalike }, true, undefined, choiceTask).text).toBe(`The answer was ${lookalike}.`);
+    expect(attemptFeedback({ correct: false, secondChance: false, answer: lookalike }, true).text).toBe(`The answer was ${lookalike}.`);
+  });
+  it("a choice answer that is a sentence still reads exactly as it always has", () => {
+    expect(attemptFeedback({ correct: false, secondChance: false, answer: "The cat sat down." }, true).text).toBe("The answer was The cat sat down..");
+    expect(attemptFeedback({ correct: false, secondChance: false, answer: "The cat sat down." }, true, undefined, choiceTask).text).toBe("The answer was The cat sat down..");
+  });
+  it("a cut miss names its answer the usual way, and says its equation once, in the explanation", () => {
+    expect(attemptFeedback({ correct: false, secondChance: false, answer: "3/4 feet", feedback: "too_short" }, true, undefined, cutTask).text).toBe("The answer was 3/4 feet.");
+    const text = attemptFeedback({ correct: false, secondChance: false, answer: "7 blocks", explain: "Take 5 from 12 and 7 is left: 12 − 5 = 7." }, true, "Old Bram", cutTask).text;
+    expect(text).toBe("The answer was 7 blocks. Take 5 from 12 and 7 is left: 12 − 5 = 7.");
+    expect(text.split("12 − 5 = 7")).toHaveLength(2);
   });
 });

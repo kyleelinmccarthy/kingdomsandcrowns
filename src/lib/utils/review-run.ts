@@ -1,8 +1,9 @@
-import { seededRng, shuffle, type Question } from "./drill-generators";
+import { seededRng, shuffle } from "./drill-generators";
 import { applyProfile, drawForSkill, type PoolItem, type ProfileLike } from "./deed-engine";
 import { overdueSkills, type MasteryTiming } from "./review-schedule";
 import { findSkill, type Skill } from "./skills";
 import { MASTERY_MAX } from "./mastery";
+import type { ChoiceTask, Task } from "@/lib/tasks/types";
 
 /**
  * A review run is a short interleaved set across what a child has already learned: spaced,
@@ -13,7 +14,15 @@ export const REVIEW_RUN = { tasks: 3 } as const;
 /** Recent misses that may come back in one review run. */
 const MAX_MISSES = 2;
 
-type Pick = { skill: Skill; question: Question; isMiss: boolean };
+/**
+ * A review run is choice only (R-C6): a miss of another kind is never re-asked. Written as a
+ * discriminant test, not `kindOf`, so it narrows. The review action loads misses through it, so
+ * bench misses never use up the misses it reads (`loadRecentMisses`).
+ */
+export const reviewReasks = (t: Task): t is ChoiceTask => t.kind === undefined || t.kind === "choice";
+
+/** A review run is choice only (R-C6): every pick, miss or fresh, is a choice task. */
+type Pick = { skill: Skill; question: ChoiceTask; isMiss: boolean };
 
 /** Mastery rows for skills that exist; the first row for a skill wins. */
 function knownRows(mastery: readonly MasteryTiming[]): Map<string, MasteryTiming> {
@@ -32,7 +41,7 @@ export function reviewDue(mastery: readonly MasteryTiming[], now: number): boole
 
 export function buildReviewRun(input: {
   mastery: readonly MasteryTiming[];
-  recentMisses: Question[];
+  recentMisses: Task[];
   poolItems: PoolItem[];
   /** The grown-up's focus skills: the learned ones come before least-recently-practised ones. */
   focusSkillIds?: string[];
@@ -40,7 +49,7 @@ export function buildReviewRun(input: {
   profile?: ProfileLike;
   now: number;
   seed: number;
-}): { skillIds: string[]; questions: Question[] } {
+}): { skillIds: string[]; questions: ChoiceTask[] } {
   const { poolItems, now } = input;
   const rng = seededRng(input.seed);
   const rows = knownRows(input.mastery);
@@ -53,6 +62,7 @@ export function buildReviewRun(input: {
   const missSkills = new Set<string>();
   for (const m of input.recentMisses) {
     if (missPicks.length >= MAX_MISSES) break;
+    if (!reviewReasks(m)) continue;
     if (seenMissIds.has(m.id)) continue;
     seenMissIds.add(m.id);
     const skill = findSkill(m.skillId);
@@ -81,7 +91,8 @@ export function buildReviewRun(input: {
   const excludeIds = new Set(missPicks.map((p) => p.question.id));
   const excludePrompts = new Set(missPicks.map((p) => p.question.prompt));
   const drawOne = (skill: Skill): Pick | null => {
-    const [q] = drawForSkill(skill, levelOf(skill.id), 1, rng, poolItems, excludeIds, excludePrompts);
+    // Drawn as a choice, whatever a deed would play the skill with: a review never benches (R-C6).
+    const [q] = drawForSkill(skill, levelOf(skill.id), 1, rng, poolItems, excludeIds, excludePrompts, "choice");
     if (!q) return null;
     excludeIds.add(q.id);
     excludePrompts.add(q.prompt);
