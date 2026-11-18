@@ -50,7 +50,7 @@
 |---|---|---|---|
 | 1 | `realm-tasks-framework` | Task and presenter registries, with `choice` as the first kind; `parseAnswer`; pace guard; `Deed.mechanic`; run ownership (`review` runs, nullable `deed_id`); riddle stones at the 5 named places; Quick review on the Side Quests page; focus skills (table, panel, engine weight, beacon preference). | All existing deed, gate and page flows behave as before. Riddle stones and Quick review work end to end. Focus skills change what's drawn. |
 | 2 | `realm-measure` | `measure` kind (assemble and cut), bench generators per math skill, Aldo's bench presenter, site pieces placed per solved task, notation bridge, repair scaffold at finished buildings, math deeds become `measure`, demo-first for grades K–3, mechanic toggles (`realm_settings.mechanics` and the panel). | At least two bench skills per grade from K to 12; existing math deeds stay playable when the toggle is off. |
-| 3 | `realm-real-work` | Materials (catalog, `subject.material`, ledger, minting in `completeAssignment`, the welcome-delivery script), quest-card and Tavern pull, improvements and `build` runs, plaques, stockpile, delivery card, Chronicle hall with drawings and seals, villager mentions, quieter minutes, and slice 13's D13.1–D13.5 for core buildings. | Concurrent completions mint once; concurrent builds never overspend; the migration and welcome delivery are tested on a production backup copy. |
+| 3 | `realm-real-work`, then `realm-chronicle` (Part D) | Materials (catalog, `subject.material`, ledger, minting in `completeAssignment`, the welcome-delivery script), quest-card and Tavern pull, improvements and `build` runs, plaques, stockpile, delivery card, Chronicle hall with drawings and seals, villager mentions, quieter minutes, and slice 13's D13.1–D13.5 for core buildings. | Concurrent completions mint once; concurrent builds never overspend; the migration and welcome delivery are tested on a production backup copy. |
 | 4 | `realm-locks` | `lock` kind (pattern, grid, cage, sort), `logic` area and skills, sort pools, `realm_world_state`, chests/doors/gates with cycling, science deeds become `lock`, the Puzzle Tower. | Every lock generator's output is solvable (checked by a constraint solver in tests); sort pools pass the validator and blind pass. |
 | 5 | `realm-trails` | `trail` kind, world anchors, trail pools for k1–g912, walking-run tracker, picture runs off-world, narration, reading deeds become `trail`, `read-g6`/`read-g9` skills. | Every anchor id a pool references exists in the layout (test); a week of daily play per band without repeats. |
 | 6 | `realm-runes` | `rune` kind, rune stone presenter, at least 12 cycling rune objects, `RUNE_WORDS` pools by band, walking and picture runs, language deeds become `rune`, `spell-g1` skill. | Every effect has accepted words for every band; tiles always contain the word. |
@@ -854,3 +854,599 @@ One task per band; each has the same shape.
   - the toggle off giving choice;
   - a gate run all choice.
 - [ ] **Whole-branch review** (most capable model), one fix wave, then merge into `dev` on the owner's word.
+
+---
+
+# Part D: Slice 3, real work in the world (two branches)
+
+**Written 2026-11-18** against `dev` a0b318f (slices 1 and 2 merged). It is based on three read-only surveys of that code: completion and subjects, runs and D13, and the 3D Realm. File:line references come from those surveys.
+
+**Slice 3 ships as two branches**, each merged into `dev` on the owner's word:
+- **3a `realm-real-work`** (Tasks D1–D16):
+  - materials, minting and the welcome delivery;
+  - improvements, build runs and plaques;
+  - the record-of-the-work core rules (D13);
+  - the keep yard, with the plans board and stockpile;
+  - the delivery card, the satchel, quieter minutes, and the quest-card and Tavern pull.
+- **3b `realm-chronicle`** (Tasks E1–E7): drawings, the Chronicle book and its framed drawings, seals, and villager mentions.
+
+3b needs only 3a's material catalog and keep yard. Splitting keeps each whole-branch review to a size one reviewer can hold.
+
+## Rulings that shape this slice (spec adjustments; update spec §2a "Calls settled for slice 3" in D2's commit)
+
+- **R-D1: there is no Keep at the start, so slice 3 builds a keep yard.**
+  - The spec put the plans board and the Chronicle in "the Keep's great hall (the castle interior exists from the start)". In code, the great hall is `RoomKind "castle"`, and it is reachable only when `castleUnlocked` (level 50 or a castle row).
+  - Instead, the **keep yard** is open ground beside `CASTLE_POSITION`. `CastleGrounds` is drawn there even while the castle is locked.
+  - It holds the plans board, the stockpile, the Chronicle Hall improvement and (in 3b) the Scribe's lectern. Everything is reachable from day one.
+  - The great hall is untouched.
+  - Cost if wrong: the hall is the "proper" home for level-50 heroes; that is an additive move later.
+- **R-D2: minting is guarded by the database and never fails a quest.**
+  - `completeAssignment` has no transaction and no lock, and its minutes grant is its last line (`quest-assignments.ts:483`).
+  - `grantMaterialsForCompletion` runs **before** the minutes grant, inside `try/catch` (it logs and never throws to the child).
+  - It inserts inside `withChildLock` with `onConflictDoNothing`, against a partial unique index on `realm_material(source_assignment_id) WHERE kind = 'earned'`.
+  - It mints whenever `materialsPerQuest > 0`, whatever `enabled` or `accessMode` say: materials record work; they are not play time.
+  - The welcome script (D5) re-runs safely, so it doubles as the repair tool.
+- **R-D3: `subject.material` is nullable, and null means "from the name".**
+  - `resolveMaterial({ name, material })` returns the stored id when it is valid, else `defaultMaterialForSubject(name)`.
+  - No backfill is needed, and a renamed subject follows its new name until a grown-up picks a material.
+- **R-D4: timber is the wildcard.**
+  - Catalog costs use stone, ink, herbs, thread and dye only.
+  - When spending, any shortfall in a material is paid from timber. PE, life skills, music lessons and the like still build the kingdom.
+  - `allocateSpend` owns this rule.
+- **R-D5: an improvement on a building is offered once its host is raised.**
+  - Village and keep-yard improvements are always offered.
+  - Levels go in order: level n+1 is offered once level n is built.
+- **R-D6: a build run is 3 tasks on the bench, started from the plans board.**
+  - Skills are the hero's two bench skills for their math grade, drawn 2 + 1.
+  - The measure toggle is respected: off means the same skills as `choice`.
+  - The level is built on completion whatever the stars. The stars are recorded on the plaque.
+  - `RUN_EFFECTS.build`: `{ raisesBuilding: false, earnsStars: true, movesMastery: true, countsForSchool: false, feedsReview: true, allowsSecondChances: true, paysMinutes: false }`.
+  - K–3 heroes get Aldo's demo on a build run under the same rule as deed runs.
+  - The bench elevation draws the improvement's own boxes, through `RunStart.plan`.
+- **R-D7: spending is one locked transaction, idempotent by a unique index.**
+  - On completing a build run, `finishBuild` runs in `withChildLock`:
+    1. read the ledger;
+    2. `allocateSpend`;
+    3. if short, nothing is written, and the summary says so;
+    4. insert `realm_improvement` with `onConflictDoNothing` on `(child_id, improvement_id, level)`;
+    5. only when that insert wins, write the `spent` rows.
+  - `sources` is the FIFO list of quests whose earned materials paid for it, oldest first, capped at 12.
+- **R-D8: the record-of-the-work core rules (D13), as slice 3 needs them.**
+  - **Rules in scope:** D13.1–D13.5, D13.6 (announced in the world, not on the page), D13.7–D13.9 ("Raised by" snapshot, no name backfill) and D13.15 (a parent's preview writes nothing).
+  - **Rules out of scope:** D13.10–D13.14 and D13.16 (ceremony, session summary, clock reframing, figure marks).
+  - **Settled points:**
+    - `deeds_done` counts every completed `deed` run at the site, any stars (lifetime, display only).
+    - "Distinct completed" means a deed of the building's **current** list with best stars ≥ 1 on a `deed` run.
+    - The retro-completion data migration filters on `kind = 'deed' AND stars >= 1`, fixing the spec SQL that omitted this.
+    - The completion write becomes a conditional `UPDATE … WHERE completed_at IS NULL`.
+    - `child.banishedAt` exists (the spec says there is no retired flag); rule D13.8 still holds unchanged.
+- **R-D9: the delivery card shows earned rows created after `realm_settings.delivery_seen_at`.**
+  - A null value means everything.
+  - Rows the welcome script minted get the welcome copy.
+  - Dismissing it sends the newest `created_at` shown; the server clamps it to `now`.
+  - Order on entry: welcome (first visit ever), then delivery, then the season ceremony.
+- **R-D10: the beacon points to the plans board only while the pinned plan is affordable.** Otherwise it leads to the core objective, as today. Its goal id is `plan:<improvementId>`, so it can never equal a villager id.
+- **R-D11: building happens in the Realm.** The Tavern card shows plans, progress and a pin, and links to the Realm. This is the pull the owner asked for.
+- **R-D12 (3b): drawings are required "or".** With `requireNotes` on, a quest completes with meaningful notes **or** a valid drawing. The quest form's label becomes "Ask for Scribe's Notes or a drawing".
+
+## Global constraints for Part D
+
+Everything in this plan's Global Constraints still applies, plus:
+- **Never trust the client:**
+  - A forged request must never mint, spend, build, pin or mark anything seen.
+  - Minting happens only inside `completeAssignment`'s grant.
+  - Building, pinning and marking happen only in hero-only actions (`isChildActor`).
+  - A grown-up's preview writes nothing.
+- **Untouched rules:** materials are never removed by undoing a quest, never minted twice, and never come from anything but real quests. Minutes rules are untouched; a build run never pays minutes.
+- **Real-database tests** (`*-db.test.ts`) for: two concurrent completions minting once, two concurrent builds never overspending, and two tabs building a level once. New tables get shared DDL in `src/test/realm-db-ddl.ts`.
+- **Copy (exact):**
+  - Quest card: "+{n} {Material}" then " · {hint}"; link "Take it to the Realm".
+  - Kingdom lead line: "Your quests bring materials to build with."
+  - Delivery title: "The carts are in!"; welcome title: "The carts arrived with four weeks of your work".
+  - Plan states: "Ready to build", "Needs {n} more {Material}" (joined with " and "), "Raise the {host} first".
+  - Build results: "The {label} is built!" at level 1, "The {label} grows!" above.
+  - Raised by: "Raised by {name} · {Season Year}" (calendar season, e.g. "Spring 2026").
+  - Retro rise: "Your side quests already finished the {label}. It stands now!"
+- **Realm rules (`.superpowers/realm-rules.md`):**
+  - World and room additions are siblings of the memoised `World`, never new `buildWorldLayout` inputs.
+  - Canvas props stay referentially stable.
+  - New interact kinds follow the riddle-stone precedent.
+  - New HUD blocks go in new files, each with its own CSS, and are added to the `data-larger-text` list.
+
+## Review Focus (Part D)
+
+1. **A quest completed twice at once (two tabs, or the timer and the card)** mints its materials once. Pinned in D4.
+2. **Two build runs finishing for the last affordable plan at once** (a tablet and a laptop) spend once. The other run reports "not enough", and the balance never goes negative. Pinned in D8.
+3. **A hero whose subjects all map to one material, or who has only timber,** still gets offered plans and can build them. Pinned in D1 (`allocateSpend`) and D6 (`planState`).
+4. **A building the retro rule completes** rises with its "why" line on the next visit, exactly once, even if a grown-up previewed first. Pinned in D10.
+5. **A parent opening the Realm in preview** sees the hero's satchel and plaques but never consumes the delivery card or a rise, and cannot build or pin. Pinned in D11 and D12.
+
+## File map (Part D, 3a)
+
+| File | Responsibility |
+|---|---|
+| `src/lib/realm/materials.ts` (new, pure, client-safe) | `MATERIALS`, `MaterialId`, `defaultMaterialForSubject`, `resolveMaterial`, `materialBalance`, `allocateSpend`, `heapSize`, `materialPhrase` |
+| `src/lib/realm/improvements.ts` (new, pure, client-safe) | `IMPROVEMENTS`, `ImprovementId`, boxes and costs, `planState`, `planHint`, `planElevation` |
+| `src/lib/realm/keep-yard.ts` (new, pure) | the yard's spots (plans board, stockpile heaps, Chronicle Hall, lectern) and the village-decor improvement spots |
+| `src/lib/realm/season-phrase.ts` (new, pure) | `seasonPhrase(date, timeZone)`, `hemisphereForTimezone` |
+| `src/lib/db/schema.ts`, migrations 0041 (schema) and 0042 (custom data SQL) | tables and columns below |
+| `src/lib/services/realm-materials.ts` (new) | `grantMaterialsForCompletion`, `loadMaterialLedger`, `loadWorks` (balance, built levels, pin, delivery) |
+| `src/lib/services/improvements.ts` (new) | `finishBuild` (locked spend and level write) |
+| `src/lib/utils/build-run.ts` (new, pure) | `buildBuildRun` |
+| `src/lib/actions/improvements.ts` (new, "use server") | `startBuildRun`, `pinPlan`, `markDeliverySeen`, `markBuildingsAnnounced` |
+| `src/lib/db/welcome-materials.ts` (new script) + `package.json` | `db:welcome-materials` |
+| `src/lib/utils/kingdom.ts`, `services/deeds.ts`, `actions/deeds.ts` | D13 rules, raised-by, build hook |
+| `src/components/realm3d/keep-yard.tsx`, `improvements.tsx`, `plans-board.tsx`, `plaque-panel.tsx`, `satchel-hud.tsx` (+ css), `delivery-card.tsx` (new) | the world and HUD pieces |
+| `src/components/tasks/plan-elevation.tsx` (new) | the bench drawing for a build run |
+| `src/components/kingdom-plan-card.tsx` (new) | the Tavern card |
+
+**Schema (migration 0041, generated):**
+- `subject.material` (text, nullable).
+- `realm_material`:
+  - Columns: `id`, `child_id` (FK cascade), `material_id`, `amount` (int > 0), `kind` (`earned`|`spent`), `origin` (`quest`|`welcome`, default `quest`), `source_assignment_id` (nullable, **no FK**), `improvement_id` (nullable), `level` (nullable), `created_at`.
+  - Indexes: `(child_id, created_at)`, and the partial unique on `source_assignment_id` where `kind = 'earned'`.
+- `realm_improvement`:
+  - Columns: `id`, `child_id` (FK cascade), `improvement_id`, `level`, `stars`, `season_id` (nullable, no FK), `built_by_name`, `sources` (JSON text), `built_at`.
+  - Index: unique `(child_id, improvement_id, level)`.
+- `realm_settings`: `materials_per_quest` (int, default 1), `show_minutes_on_quests` (bool, default false), `pinned_plan` (text, nullable), `delivery_seen_at` (timestamp, nullable), `regraded_at` (timestamp, nullable).
+- `kingdom_progress`: `announced_at` (timestamp, nullable), `raised_by_name` (text, nullable), `raised_season_id` (text, nullable).
+- `deed_run.kind` enum gains `"build"`. This is a TypeScript-only change; confirm `db:generate` emits no SQL for it.
+
+### Task D1: Materials, pure rules
+
+**Files:** Create `src/lib/realm/materials.ts`, `materials.test.ts`.
+
+**Interfaces (produces):**
+- `type MaterialId = "stone" | "ink" | "herbs" | "thread" | "dye" | "timber"`
+- `MATERIALS: Record<MaterialId, { label: string; plural: string; color: string; icon: GameIconName }>`. Check that each icon exists in `GameIconName`.
+- `isMaterialId(v: unknown): v is MaterialId`
+- `defaultMaterialForSubject(name: string): MaterialId`. Whole-word match like `defaultSchoolForSubject`; first match wins; else `timber`.
+  - stone: math, mathematics, arithmetic, algebra, geometry, calculus
+  - ink: reading, writing, ela, english, language, spelling, grammar, literature, phonics, handwriting
+  - herbs: science, biology, chemistry, physics, nature
+  - thread: history, social, studies, geography, civics
+  - dye: art, music, drawing, painting
+- `resolveMaterial(subject: { name: string; material: string | null }): MaterialId`
+- `type MaterialRow = { materialId: string; amount: number; kind: "earned" | "spent"; sourceAssignmentId: string | null; createdAt: number }`
+- `materialBalance(rows: readonly MaterialRow[]): Record<MaterialId, number>`. Unknown ids are ignored; never negative.
+- `allocateSpend(cost: Partial<Record<MaterialId, number>>, rows: readonly MaterialRow[]): { ok: true; spend: Partial<Record<MaterialId, number>>; sources: string[] } | { ok: false; short: Partial<Record<MaterialId, number>> }`. Timber covers shortfalls (R-D4). `sources` is the assignment ids of the earned rows consumed, FIFO by `createdAt` after earlier spends are taken out, de-duplicated, at most 12.
+- `heapSize(n: number): 0 | 1 | 2 | 3`: 0, then 1–3, 4–9, 10+.
+
+- [ ] **Tests:**
+  - "Math 2" → stone; "Spanish" → timber; "Social Studies" → thread.
+  - The balance after earned 5 and spent 3 is 2.
+  - A cost of ink 4 with ink 1 and timber 5 is ok, spending ink 1 and timber 3.
+  - A short result names the missing amounts.
+  - FIFO sources skip rows already spent and stop at 12.
+  - Heap boundaries.
+- [ ] Implement, run, commit: `feat(realm): materials — what each subject's work brings, and how it is spent`.
+
+### Task D2: Schema, migration 0041, settings
+
+**Files:**
+- Modify: `schema.ts` (the Schema block above).
+- `npm run db:generate -- --name real_work`, then `npm run db:migrate`.
+- Modify: `src/test/realm-db-ddl.ts`:
+  - add `REALM_MATERIAL_DDL`, `REALM_IMPROVEMENT_DDL` and `KINGDOM_PROGRESS_DDL`, copied from the migration with its indexes;
+  - update `REALM_SETTINGS_DDL`;
+  - replace the hand-written `kingdom_progress` DDL in `deeds-db.test.ts:75` and `review-db.test.ts:64` with the shared one.
+- Modify: `utils/realm-settings.ts`:
+  - `materialsPerQuest` (`MATERIALS_PER_QUEST_RANGE = {min:0,max:3}`) and `showMinutesOnQuests`, both lenient read and strict write;
+  - `pinned_plan`, `delivery_seen_at` and `regraded_at` are **not** settings; the patch validator rejects them as unknown.
+- Modify: `realm-settings-panel.tsx`: a "Real work" fieldset with `NumberSetting` "Materials per quest" (hint "0 turns this off.") and a switch "Show Realm minutes on quests".
+- Modify: the spec (§2a, "Calls settled for slice 3", R-D1 to R-D12).
+
+- [ ] **Tests:**
+  - Settings defaults are 1 and false; an out-of-range read gives the default; a strict write rejects 4 and `pinnedPlan`.
+  - The panel saves both fields (bump the panel test's field counts).
+  - `realm-settings-db.test.ts` round-trips both.
+  - `migrations-journal.test.ts` passes.
+- [ ] Commit: `feat(realm): the tables for real work, and the grown-up's two dials`.
+
+### Task D3: A subject's material
+
+**Files:** `actions/subjects.ts`, `settings/child-list.tsx` (and its test).
+
+- `createSubject` and `updateSubject` accept `material?: MaterialId | null`.
+- Changing it is grown-up only ("Only a grown-up can choose what a subject's work brings.").
+- An invalid value is refused ("Choose a material from the list.").
+- `null` means "from the name".
+- In the subject row's edit mode, a `<Select aria-label="Material">` sits beside the school select. Its first option is "From the name ({Material})". View mode shows the resolved material label.
+
+- [ ] **Tests:** a hero is refused; a grown-up sets ink, then clears it to null; the row shows "Ink".
+- [ ] Commit: `feat(subjects): a grown-up can choose what each subject's work brings`.
+
+### Task D4: Minting on completion
+
+**Files:**
+- Create `services/realm-materials.ts`.
+- Modify `actions/quest-assignments.ts:481`.
+- Test `services/realm-materials-db.test.ts`.
+
+**Interfaces:**
+- `grantMaterialsForCompletion(childId: string, assignmentId: string): Promise<{ materialId: MaterialId; amount: number } | null>`:
+  - load the assignment's quest → subject (left join) and the settings;
+  - return null when `materialsPerQuest` is 0;
+  - inside `withChildLock`, insert the earned row (`origin: "quest"`) with `onConflictDoNothing`;
+  - return what was minted, or the existing row on a repeat.
+- `loadMaterialLedger(childId: string, exec?: Exec): Promise<MaterialRow[]>`.
+- In `completeAssignment`, before the minutes grant: `try { await grantMaterialsForCompletion(...) } catch (e) { console.error(...) }`. The return type stays `{ activityId }`, since the card reads from the server (D15).
+
+- [ ] **Tests (real DB, `isolate()` pattern from `realm-lock-db.test.ts`):**
+  - Two concurrent grants for one assignment → one row.
+  - A redo (same id) → no new row.
+  - A grown-up completing → minted.
+  - `materialsPerQuest` 0 → none.
+  - Realm `enabled: false` → still minted.
+  - A subject with material null named "Science" → herbs.
+  - A grant that throws doesn't fail `completeAssignment` (unit, mocked).
+- [ ] Commit: `feat(realm): finishing a quest brings its subject's material, once`.
+
+### Task D5: The welcome delivery script
+
+**Files:**
+- Create `src/lib/db/welcome-materials.ts` (pattern: `backfill-spell-schools.ts`: own client, relative imports, `--dry-run`, `--days N` default 28).
+- Add the `package.json` script `db:welcome-materials`.
+- Add a test.
+- Add a runbook line in `docs/deploy/vercel.md`.
+
+**Behaviour:**
+- For each child, take completed assignments with `completed_at` within N days of now that have no earned row.
+- Mint `materialsPerQuest` of `resolveMaterial(subject)` with `origin: "welcome"`, `created_at` = run time.
+- Print per-child counts. A second run mints nothing.
+
+- [ ] **Tests:** run the script's exported `welcomeMaterials(db, { now, days, dryRun })` against a test DB:
+  - minted once;
+  - an old completion is skipped;
+  - dry run writes nothing;
+  - a second run is a no-op.
+- [ ] Commit: `feat(realm): the welcome delivery — four weeks of quests reach the kingdom`.
+
+### Task D6: Improvements catalog
+
+**Files:** Create `src/lib/realm/improvements.ts`, `improvements.test.ts`, `src/lib/realm/keep-yard.ts`, `keep-yard.test.ts`.
+
+**Interfaces:**
+- `type ImprovementId` is a closed union of 13 ids:
+  - one per building, each hosted by its building:
+    - `well-house`, `mill-granary`, `bridge-arches`, `chapel-windows`
+    - `market-stalls`, `library-reading-wing`, `watchtower-beacon`, `garden-herb-house`
+  - `chronicle-hall` (host `keep`)
+  - `village-banners`, `village-lamps`, `village-fountain`, `village-statue` (host `village`)
+- `IMPROVEMENT_COLORS: Record<ImprovementColor, string>` (a small closed hex palette: stone, timber, plaster, roof, cloth, glass, gold, water) and `type ImprovementBox = { x; y; z; sx; sy; sz; color: ImprovementColor }`, in the host's frame. For a building host, the origin is the building centre on the ground and +z is the door side. For keep and village hosts, it is the spot centre.
+- `IMPROVEMENTS: Record<ImprovementId, { label: string; host: BuildingId | "keep" | "village"; primary: MaterialId; secondary: MaterialId; levels: { cost: Partial<Record<MaterialId, number>>; boxes: ImprovementBox[] }[] }>`:
+  - 3 levels each;
+  - costs L1 `{primary:4, secondary:2}`, L2 `{6,3}`, L3 `{8,4}`;
+  - never timber;
+  - primary materials: well-house stone, mill-granary herbs, bridge-arches stone, chapel-windows dye, market-stalls thread, library-reading-wing ink, watchtower-beacon stone, garden-herb-house herbs, chronicle-hall ink, banners dye, lamps thread, fountain stone, statue stone;
+  - secondaries are the implementer's choice, different from the primary.
+- `KEEP_YARD` and `VILLAGE_DECOR_SPOTS: Record<"village-banners" | …, {x,z}>` in `keep-yard.ts`. Coordinates are the implementer's, pinned by the tests below. The yard's spots are `plansBoard`, `stockpile` (6 heap spots), `chronicleHall` and `lectern`.
+- `type PlanStatus = { id; level: number; state: "ready" | "short" | "host" | "done"; short?: Partial<Record<MaterialId, number>> }`
+- `planState(input: { built: Record<string, number>; raised: ReadonlySet<string>; balance: Record<MaterialId, number> }): PlanStatus[]`:
+  - sorted ready first, then by fewest missing, then catalog order;
+  - "host" means the host is not raised;
+  - "short" uses `allocateSpend`, so timber counts.
+- `planLine(s: PlanStatus): string`, using the copy in Global constraints.
+- `planHint(made: MaterialId, plans: PlanStatus[], pinned: string | null): string | null`: the pinned plan first, else the nearest "short" plan that needs `made`. Produces e.g. "the Library's Reading Wing needs 3 more".
+- `planElevation(id, level): { base: Rect[]; added: Rect[] }`: a front projection (x, y, sx, sy) of earlier levels' boxes and this level's boxes, for the bench.
+
+- [ ] **Tests:**
+  - 13 ids, all with 3 levels.
+  - Costs follow the rule and never use timber.
+  - Each level's boxes rest on the ground or on a lower box (the site-stages rule).
+  - Building wings stay out of the host's 4.5 × 4.5 footprint and its door lane.
+  - Every yard and decor spot is clear of `DECOR_SPOTS`, sites (padded 2), the road corridor, the lap ring and the ceremony plaza (reuse the `layout.test.ts` helpers).
+  - `planState` with only timber 30 offers ready plans; a wing with an unraised host is "host".
+  - `planHint` prefers the pin.
+- [ ] Commit: `feat(realm): the kingdom's plans — wings, upgrades and decorations, and what each costs`.
+
+### Task D7: Build runs
+
+**Files:**
+- `utils/deed-scoring.ts`: `RunKind` gains `"build"`, with the R-D6 row; update `deed-scoring.test.ts:75-97`.
+- Create `utils/build-run.ts`: `buildBuildRun(input: { grade: Grade; masteryBySkill; seed: number; enabledKinds: ReadonlySet<TaskKind>; profile: ProfileLike }): BuiltRun`:
+  - candidates are `skillsFor("math", grade)` filtered by `benchFor`;
+  - 3 tasks, drawn 2 + 1 from the two skills;
+  - the kind comes from `kindForSkill("measure", …)`.
+- Create `actions/improvements.ts` with `startBuildRun(childId: string, improvementId: string): Promise<RunStart>`:
+  1. `requireChildAccess(write)`, then `isChildActor`, else `HERO_ONLY`;
+  2. hero enabled; a catalog id;
+  3. the next level, which must be "ready" from `planState`, else the error "That plan isn't ready yet.";
+  4. resume the open `build` run with `sourceRef = "${id}:${level}"`;
+  5. otherwise insert it.
+  - The `RunStart.plan?: { improvementId; level }`.
+- `deed-run-store.ts:168`: `benchDemoAt` also accepts `kind === "build"`.
+- `use-deed-flow.ts`, `bench-presenter.tsx`: when `run.plan` is set, render `PlanElevation` (create `components/tasks/plan-elevation.tsx` from `planElevation`, laying `piecesLaid(solved, benchTasks, added.length)` of the added boxes).
+- Kind branches for "build": `deed-results.tsx:13,21,35`, `deed-board.tsx:147,151,264,318,321`, `talk.ts:170,196`:
+  - the headline uses the build-result copy;
+  - the stars row is shown;
+  - no "New best!" line;
+  - no building hand-up.
+
+- [ ] **Tests:**
+  - `buildBuildRun` gives grade 3 → 3 measure tasks over area-perimeter and frac-unit; with toggle off, 3 choice tasks over the same skills; deterministic by seed.
+  - `startBuildRun`: a grown-up is refused; a plan that's not ready is refused; a second start resumes.
+  - `PlanElevation` lays boxes as answers come right.
+  - The build headline copy appears.
+- [ ] Commit: `feat(realm): building a plan is three tasks at the bench`.
+
+### Task D8: Finishing a build
+
+**Files:**
+- Create `services/improvements.ts`.
+- Modify `actions/deeds.ts`, `completeDeedRun`: after the complete-once update, `if (run.kind === "build") improvement = await finishBuild(...)` in `try/catch`, which reports `{ built: false, reason: "error" }`.
+- Modify `utils/deed-run-types.ts`: `RunSummary.improvement?: { id; label; level; built: boolean; reason?: "short" | "error"; balance: Record<MaterialId, number> }`.
+- Test `services/improvements-db.test.ts`.
+
+**Interfaces:**
+- `finishBuild(childId: string, ref: { improvementId; level }, stars: number, now: Date): Promise<NonNullable<RunSummary["improvement"]>>`, following R-D7.
+- `season_id` is the open season, or null.
+- `built_by_name` is `child.displayName` at that moment.
+- `sources` are quest titles with subject and date (join on `source_assignment_id`; a deleted assignment reads "A quest").
+
+- [ ] **Tests (real DB):**
+  - Two `finishBuild`s for one level at once → one improvement row and one set of spent rows.
+  - Two different plans racing for the last materials → one built, the other `short`, and the balance is never negative.
+  - Short at completion → nothing written.
+  - Sources are FIFO and capped at 12.
+  - Timber covers a shortfall.
+  - A build run pays no minutes and never touches `kingdom_progress`.
+- [ ] Commit: `feat(realm): a finished build spends its materials once and stands with its plaque`.
+
+### Task D9: The record-of-the-work core rules
+
+**Files:**
+- `utils/kingdom.ts`:
+  - `deedsToBuild`: well 3, mill 3, bridge 2, chapel 3, market 2, library 3, watchtower 2, garden 2;
+  - `type SiteTally = { distinctDone: number; runsDone: number; raised: boolean }`;
+  - `buildingProgress(tally: SiteTally, building): { done; total; complete }` with `complete = raised || distinctDone >= total`.
+- `services/deeds.ts`:
+  - `loadSiteState` (`:165`) and `loadKingdomOverview` (`:175`) build the tally from `loadDeedBest` and the row's `completedAt` and `deedsDone`;
+  - `BuildingOverview` gains `raisedBy: string | null` (snapshot, else the live name) and `raisedAt: number | null`.
+- `actions/deeds.ts` `buildingAfter` (`:330`):
+  - `deeds_done + 1` on every completed `deed` run;
+  - the completion write is conditional on `completed_at IS NULL`, setting `completed_at`, `raised_by_name` and `raised_season_id` (lookups in `try/catch` leave them null).
+- `RunSummary.building.practice: boolean`: true when the building was already complete before this run.
+- Create `src/lib/realm/season-phrase.ts`: `seasonPhrase(epochSeconds, timeZone): string`, e.g. "Spring 2026". The southern hemisphere covers `Australia/*`, `Pacific/Auckland`, `America/Argentina/*`, `America/Santiago`, `America/Sao_Paulo` and `Africa/Johannesburg`.
+- **Per-deed done marks:**
+  - `deed-picker.tsx` shows a check beside a deed with best ≥ 1 ("Done");
+  - a complete building's list says "Practise again".
+- Migration 0042: `npm run db:generate -- --custom --name record_of_the_work`. Its SQL is exported as `RECORD_OF_WORK_SQL` from `src/lib/db/record-of-work.ts` (the `star-backfill.ts` precedent). It does three things:
+  1. marks already-complete rows `announced_at = completed_at`;
+  2. completes rows whose distinct deeds (`kind='deed' AND stars>=1`, the building's deed ids listed in the SQL) reach the new totals, leaving those rows unannounced;
+  3. sets `realm_settings.regraded_at` for heroes who got such a row.
+
+- [ ] **Tests:**
+  - A guard: `deedsToBuild === deedsForBuilding(id).length` for all 8.
+  - Replaying one story 5 times does not raise a 3-story building; 3 distinct stories do.
+  - A raised building stays complete when `deedsToBuild` is raised.
+  - A 0-star run counts in `runsDone` only.
+  - Two different deeds completing a building at once write one name.
+  - Seasons: "Spring 2026" in Denver, "Autumn 2026" in Sydney for the same April date.
+  - `RECORD_OF_WORK_SQL` against a test DB: a hero with 2 distinct well deeds at 1+ stars gets the well completed and unannounced; one with a 0-star replay does not; already-complete rows are announced. The migration file contains the SQL.
+  - Update the fixtures that hard-code 5 (survey list: `deeds-db.test.ts:457`, `services/deeds.test.ts:11`, `site-stages.test.ts:16` and others).
+- [ ] Commit: `feat(realm): each story counts once, a raised building stays raised, and it remembers who raised it`.
+
+### Task D10: Rises announced in the world
+
+**Files:**
+- `actions/realm.ts` (`getRealmBundle`): `unannounced: string[]` and `regraded: boolean`.
+- `realm-game.tsx`: additive, via a new `use-rises.ts` hook.
+- `actions/improvements.ts`: `markBuildingsAnnounced(childId: string, ids: string[]): Promise<void>`. Hero only, ids validated against `BUILDINGS`; it sets `announced_at` where it is null.
+
+**Behaviour:**
+- On entry, in the child view only, after the overlays: each unannounced complete building plays the existing rise toast, one after another. The line is the retro copy when `regraded`, else `riseToast`. Then the ids are marked.
+- A board hand-up that rose marks its building at once.
+- The Side Quests page never marks.
+
+- [ ] **Tests:**
+  - The hook plays two rises in order and marks both.
+  - The parent view plays nothing and calls nothing.
+  - The action refuses a grown-up and an unknown id.
+  - A building completed through the page action is still unannounced afterwards (DB test).
+- [ ] Commit: `feat(realm): a building finished away from the Realm rises when the hero comes back`.
+
+### Task D11: The Realm's works data
+
+**Files:**
+- `services/realm-materials.ts`: `loadWorks(childId): Promise<Works>`, where `type Works = { balance: Record<MaterialId, number>; built: Record<string, number>; plaques: Plaque[]; pinned: string | null; delivery: Delivery | null }`, `type Plaque = { improvementId; level; label; builtBy: string; season: string | null; sources: string[]; stars: number }` (`season` is `seasonLabel` of the stored season, null when it is gone), and `type Delivery = { rows: { materialId: MaterialId; amount: number; title: string; origin: "quest" | "welcome" }[]; through: number }`.
+- `getRealmBundle` (`.catch` → empty works).
+- `RealmData.works?`.
+- `page.tsx`: a mapping line.
+- `actions/improvements.ts`:
+  - `pinPlan(childId, improvementId | null)`: hero only, catalog id or null;
+  - `markDeliverySeen(childId, through: number)`: hero only, clamped to now.
+- Create `src/lib/realm/works-state.ts` (pure): `applyBuild(works, summary.improvement): Works` and `deliveryLines(delivery): { title; lines: string[] }`. The lines read e.g. "2 Stone from *Fractions p.12* and *Times tables*" (at most 6), with the welcome title when every row is `welcome`.
+
+- [ ] **Tests:**
+  - `loadWorks` on a test DB with rows after `delivery_seen_at`.
+  - `pinPlan` refuses a grown-up and a bad id.
+  - `markDeliverySeen` clamps a future time.
+  - `deliveryLines` copy for both titles.
+  - `applyBuild` updates the balance and the built level.
+- [ ] Commit: `feat(realm): the Realm knows the hero's satchel, plans and deliveries`.
+
+### Task D12: The keep yard in the world
+
+**Files:**
+- Create `components/realm3d/keep-yard.tsx`:
+  - a plans board prop and 6 heap spots (`heapSize` → 0–3 box heaps per material, coloured from `MATERIALS`, non-solid);
+  - a sibling of `<World>` with props `works` and `heightAt`.
+- `interact.ts`: `SpotInput.plans`, `InteractTarget.kind` gains `"plans"` (`hud-bus.ts:49`, additive).
+- Create `components/realm3d/plans-board.tsx`:
+  - a `Panel` listing `planState` rows with `planLine`, a "Pin" toggle, and "Build" on ready rows;
+  - "Build" calls `startBuildRun`, then plays `<DeedRun>` (from `deed-board.tsx:235`) with the plan elevation;
+  - on the result, `applyBuild`.
+- `realm-game.tsx`: an overlay branch beside the riddle stone (`:1163`), plus the beacon composition: `planGoal(works, raised)` from a new pure `src/lib/realm3d/plan-goal.ts`, used when the pinned plan is "ready" (R-D10).
+- In the parent view, the board lists plans read-only.
+
+- [ ] **Tests:**
+  - `plan-goal.test.ts`: on only when the pin is ready; its id is never a villager id.
+  - `plans-board.test.tsx`: lists states; Pin calls `pinPlan`; Build starts the run; read-only for a parent.
+  - `interact.test.ts`: the plans spot is reachable.
+- [ ] Commit: `feat(realm): the keep yard — the plans board and the stockpile of the hero's work`.
+
+### Task D13: Improvements and plaques in the world
+
+**Files:**
+- Create `components/realm3d/improvements.tsx`: a sibling of `<World>` that merges every built level's boxes at its host. Building hosts use `prop.position` and `SITE_PLAN`, like `pennantSpots`; keep and village hosts use their spots.
+- Create `src/lib/realm3d/improvement-spots.ts` (pure).
+- `interact.ts`: `"plaque"` targets, one per built improvement at its host.
+- Create `plaque-panel.tsx`: "{label} · built by {name} · {2026–27} · from: {titles}" plus the stars.
+- `talk.ts` `talkCopy`: a complete building's `says` adds "Raised by {name} · {season}".
+
+- [ ] **Tests:**
+  - `improvement-spots.test.ts`: positions are deterministic and a wing sits beside its host.
+  - `plaque-panel.test.tsx`: the copy, and a missing season omits its part.
+  - `talk.test.ts`: the raised-by line; it falls back to the live name when the snapshot is null.
+- [ ] Commit: `feat(realm): built plans stand in the kingdom, each with a plaque naming the work behind it`.
+
+### Task D14: Satchel, delivery card, quieter minutes
+
+**Files:**
+- Create `satchel-hud.tsx` + `satchel.css`: a top-left block under the objective card. It shows material counts (icon and number; pips when `numerals` is off) and the pinned plan's `planLine`. Mount it in the `r3-frame` sibling list, and add the class to the `data-larger-text` list.
+- Create `delivery-card.tsx`: an `Overlay` kind `"delivery"` in `frame.ts`. The initial overlay chain in `realm-game.tsx:344` and `go()` becomes welcome → delivery → ceremony. Closing it calls `markDeliverySeen` in the child view only.
+- `frame-hud.tsx` `ClockCorner`: an additive `quiet?: boolean` prop renders the `.r3-chip` size. The child view passes `quiet`.
+- `bounty.ts` `earningLines`: takes `materialsPerQuest`, and leads with "Your quests bring materials to build with." when it is above 0. Update `bounty.test.ts`.
+
+- [ ] **Tests:**
+  - The satchel renders counts and the pin.
+  - The delivery card shows its lines and marks seen once, and never in the parent view.
+  - The chain order.
+  - The quiet clock has the chip class.
+  - `earningLines` gets the lead line.
+- [ ] Commit: `feat(realm): the satchel leads the HUD, the carts announce new work, and the clock steps back`.
+
+### Task D15: The quest card and the Tavern
+
+**Files:**
+- `services/realm-materials.ts`: `loadMadeLines(childId, assignmentIds: string[]): Promise<Record<string, string>>` (earned rows joined with `planState` and `planHint`).
+- `quest-assignment-card.tsx`: an optional `made?: string` on the data. On a completed card it shows the line plus the "Take it to the Realm" link (`/realm`, child view only, Realm enabled). With `showMinutesOnQuests` on, it also shows "+{n} min in the Realm" from the ledger.
+- The pages that render cards attach `made`: `quests/page.tsx`, `tavern/page.tsx`, `today-schedule.tsx`, `makeup-quests.tsx`, with their hand-declared types.
+- Create `components/kingdom-plan-card.tsx`: on the hero Tavern, the pinned plan (or the nearest), with its cost progress, the satchel counts, a "Pin" control for the hero, and a link to the Realm.
+
+- [ ] **Tests:**
+  - The card shows "+1 Ink · the Library's Reading Wing needs 3 more" and the link for a hero; a grown-up's view has no link.
+  - The minutes line appears only with the setting on.
+  - The plan card shows progress and pins.
+  - `loadMadeLines` on a test DB.
+- [ ] Commit: `feat(quests): a finished quest shows what it made and where it can go`.
+
+### Task D16: Verify, review, merge (3a)
+
+- [ ] **Full checks:** suite, `tsc`, `eslint src` (baseline only).
+- [ ] **Production copy:**
+  - Apply 0041–0042 to a copy of the latest weekly production backup; check the integrity check is ok and the re-run is a no-op.
+  - Count the retro-completed rows per hero.
+  - Run `db:welcome-materials --dry-run` on the copy and record the counts.
+- [ ] **Browser smoke** (screenshot notes):
+  - complete a quest, then see the made line and the link;
+  - enter the Realm: the delivery card, the satchel and the quiet clock;
+  - pin a ready plan, then the beacon, then the plans board → build run → plan elevation → plaque in the world;
+  - a retro rise with its line;
+  - a parent preview writes nothing;
+  - phone width.
+- [ ] **Whole-branch review** (most capable model), one fix wave, then merge into `dev` on the owner's word.
+- [ ] **Owner runbook (production, after deploy):** back up, deploy (the migrations run), then `npm run db:welcome-materials` once.
+
+---
+
+# Part E: Slice 3b, the Chronicle (branch `realm-chronicle`, cut from `dev` after 3a merges)
+
+**Global constraints:** Part D's, plus:
+- **A drawing is a strict stroke document:**
+  - `{ v: 1, strokes: { c: 0–7, w: 0–2, p: [x, y, …] }[] }`;
+  - at most 40 strokes and 2,000 points in total;
+  - integer coordinates in 0–320 × 0–240;
+  - the serialized form under 32 KB.
+- It is rendered only by our own SVG or canvas code. No client SVG or HTML is ever stored.
+
+## Review Focus (Part E)
+
+1. A forged drawing (41 strokes, a float coordinate, colour 9, a 40 KB string, an extra key) is refused before any write. Pinned in E1.
+2. A K–1 hero with `requireNotes` finishes with only a drawing. Pinned in E1 and E2.
+3. A seal is grown-up only, and a hero can't forge one. Pinned in E3.
+4. Mentions never repeat a quest twice in a day across villagers, and fall back to the greeting with no recent quests. Pinned in E6.
+5. A deleted quest or subject still renders its Chronicle entry (left joins). Pinned in E3.
+
+### Task E1: Drawings, stored and required "or"
+
+**Files:**
+- Create `src/lib/utils/drawing.ts`:
+  - `parseDrawing(raw: unknown): Drawing | null` (strict);
+  - `DRAWING_PALETTE` (8 hex), `DRAWING_WIDTHS` ([2, 5, 10]);
+  - `hasDrawing(d)`.
+- Schema: `quest_assignment.drawing` and `quest_assignment.seal` (both text, nullable; the seal is used in E3); migration 0043.
+- `completeAssignment` and `updateAssignmentNotes` accept `drawing?: unknown`, store `parseDrawing` output, and refuse a non-null invalid value ("That drawing couldn't be saved.").
+- `requireNotes` passes with notes **or** a drawing (R-D12).
+- The quest form label becomes "Ask for Scribe's Notes or a drawing".
+
+- [ ] **Tests:** the validator's edges (Review Focus 1); the "or" rule; storage round-trip.
+- [ ] Commit: `feat(quests): a quest can be told with a drawing`.
+
+### Task E2: The drawing pad
+
+**Files:**
+- Create `components/drawing-pad.tsx` + css:
+  - pointer events;
+  - an 8-swatch palette and 3 widths, plus Undo and Clear;
+  - 320×240 logical size, scaled to fit;
+  - it emits a `Drawing`, and its points are rounded and clamped.
+- Mount it beside the notes field in the card's quick-complete form and the edit-notes panel. The timer popup and the quest form keep notes only.
+
+- [ ] **Tests:** a stroke from pointer events; Undo and Clear; the 40-stroke cap stops input; it submits with the card.
+- [ ] Commit: `feat(quests): a drawing pad beside the Scribe's Notes`.
+
+### Task E3: Chronicle entries and seals
+
+**Files:**
+- The seal (column added in E1) is JSON `{ phrase?: 0–5; note?: string ≤ 60; by: string; at: number }`.
+- Create `src/lib/utils/seals.ts`: `SEAL_PHRASES` (6 short praise phrases) and `parseSeal`.
+- `actions/chronicle-seals.ts`: `sealEntry(assignmentId, seal)` (grown-up only) and `unsealEntry`.
+- `services/realm-chronicle.ts`: `loadChronicle(childId, { weeks = 8 })` → entries by ISO week: title, subject, material colour, notes, drawing, seal. Left joins, newest first.
+- A seal control on a grown-up's view of a completed quest card.
+
+- [ ] **Tests:** a hero is refused a seal; a 61-character note is refused; week grouping; a deleted subject renders as "A quest".
+- [ ] Commit: `feat(realm): the Chronicle's pages, and a grown-up's seal of praise`.
+
+### Task E4: The Chronicle book in the Realm
+
+**Files:**
+- `keep-yard.tsx` gains the Scribe's lectern; interact kind `"chronicle"`.
+- Create `chronicle-book.tsx`: a `Panel` paging by week, with entries rendered as text (never HTML) and drawings by an SVG renderer `drawing-view.tsx`, plus seals.
+- `getRealmBundle`: `chronicle` (`.catch` → empty).
+
+- [ ] **Tests:** the book pages; drawings render from strokes; empty-book copy; the parent view reads it.
+- [ ] Commit: `feat(realm): the Scribe's lectern holds the hero's Chronicle`.
+
+### Task E5: Framed drawings in the Chronicle Hall
+
+**Files:**
+- `improvements.ts`: the Chronicle Hall levels carry `frames: {x, y, z, ry}[]` (2 per level).
+- Create `src/lib/utils/draw-strokes.ts` (pure): `drawStrokes(ctx: Pick<CanvasRenderingContext2D, …>, d: Drawing, w, h)`.
+- Create `chronicle-frames.tsx`: a sibling of `<World>`. It shows the newest drawings, one `CanvasTexture` each, on `MeshBasicMaterial` planes, disposed on cleanup.
+
+- [ ] **Tests:** `drawStrokes` against a recording fake context; frame counts follow the built level.
+- [ ] Commit: `feat(realm): the Chronicle Hall hangs the hero's drawings`.
+
+### Task E6: Villagers mention real quests
+
+**Files:**
+- `villagers.ts`: `mentions: Partial<Record<MaterialId, string[]>>` per villager, using a `{quest}` token. For example, Hesper's ink line is "I hear you finished *{quest}*. Tell me what you learned sometime!"
+- Create `src/lib/realm/mentions.ts`: `pickMention({ villagerId, recent: {assignmentId, title, material}[], said: ReadonlySet<string>, date })`, deterministic by date. It returns `{ line, assignmentId } | null`.
+- `getRealmBundle`: `recentQuests` (7 days).
+- `talk.ts`: `says` uses the mention when there is one.
+- `said` is kept per day in `sessionStorage` (try/catch), keyed by the server's date.
+- Extract a shared `hashId` into `src/lib/utils/hash.ts` (DRY with `troubles.ts` and `troubles3d.ts`).
+
+- [ ] **Tests:** at most one mention per visit; never the same quest twice in a day; the fallback; text is never HTML.
+- [ ] Commit: `feat(realm): villagers have heard about the hero's real quests`.
+
+### Task E7: Verify, review, merge (3b)
+
+- [ ] Full checks; migration 0043 on the production copy.
+- [ ] **Browser smoke:**
+  - draw on a quest card (phone width) → the Chronicle book → a frame in the hall;
+  - a grown-up seals, and the hero sees it;
+  - a villager mention.
+- [ ] Whole-branch review, one fix wave, then merge on the owner's word.
