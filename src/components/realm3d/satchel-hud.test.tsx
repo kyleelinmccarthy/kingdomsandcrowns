@@ -128,13 +128,20 @@ describe("the satchel at phone width (the left stack must clear the spell bar)",
   };
   const rule = (block: string, selector: string) => new RegExp(`${selector.replace(/[.[\]="-]/g, "\\$&")}\\s*\\{([^}]*)\\}`).exec(block)?.[1] ?? "";
 
-  it("keeps every held material in one list and the pinned plan's name apart from its line, so a phone can fold the one and hide the other", () => {
+  it("is built so a phone can show one row of chips and the plan's name alone: headings, chips, name and line are each their own element", () => {
     const all = { stone: 1, ink: 4, herbs: 2, thread: 4, dye: 3, timber: 2 };
-    const { container } = render(<SatchelHud works={works({ balance: all, pinned: "village-fountain" })} raised={NONE} numerals />);
+    const { container } = render(<SatchelHud works={works({ balance: all, pinned: "village-statue" })} raised={NONE} numerals />);
+    // The headings the phone hides.
+    expect(container.querySelector(".r3-satchel-tab")).toHaveTextContent("Satchel");
+    expect(container.querySelector(".r3-satchel-plan-tab")).toHaveTextContent("Pinned plan");
+    // Six chips, each an icon and a number, in the one list the phone lays out as a single row.
     const lists = container.querySelectorAll(".r3-satchel-items");
     expect(lists).toHaveLength(1);
-    expect(lists[0].querySelectorAll(":scope > .r3-satchel-item")).toHaveLength(6);
-    expect(container.querySelector(".r3-satchel-plan-name")).toHaveTextContent("Fountain");
+    const chips = [...lists[0].querySelectorAll(":scope > .r3-satchel-item")];
+    expect(chips).toHaveLength(6);
+    expect(chips.every((c) => c.querySelector("svg") && c.querySelector(".r3-satchel-count"))).toBe(true);
+    // The plan's name in its own span (the phone ellipsizes it on one line), apart from its line.
+    expect(container.querySelector(".r3-satchel-plan-name .r3-satchel-plan-label")).toHaveTextContent(/^Statue$/);
     expect(container.querySelector(".r3-satchel-plan-line")).toHaveTextContent(/^Needs /);
     expect(container.querySelector(".r3-satchel-plan-name .r3-satchel-plan-line")).toBeNull();
   });
@@ -144,12 +151,21 @@ describe("the satchel at phone width (the left stack must clear the spell bar)",
     expect(rule(block, ".r3-left-stack")).toMatch(/max-height:\s*calc\(100% - 5\.6rem - [\d.]+rem\)/);
     expect(rule(block, ".r3-left-stack")).toMatch(/overflow:\s*hidden/);
     expect(rule(block, '.r3-root[data-larger-text="on"] .r3-left-stack')).toMatch(/max-height:\s*calc\(100% - 6\.72rem - [\d.]+rem\)/);
+    // The objective card's extra rows go, so the stack stays short.
+    expect(rule(block, ".r3-quest-extra")).toMatch(/display:\s*none/);
   });
 
-  it("folds the satchel to at most two rows of icons and counts under 480 px, and drops the plan's line but not its name", () => {
+  it("lays the satchel out as one row of six compact chips with no headings under 480 px, and the plan's name on one ellipsized line", () => {
     const block = phoneBlock(css("satchel.css"));
-    expect(rule(block, ".r3-satchel-items")).toMatch(/grid-template-columns:\s*repeat\(3,/);
+    expect(rule(block, ".r3-satchel-items")).toMatch(/grid-template-columns:\s*repeat\(6,/);
+    expect(rule(block, ".r3-satchel")).toMatch(/max-width:[^;]*100vw - 2rem/);
+    expect(rule(block, ".r3-satchel-tab")).toMatch(/display:\s*none/);
+    expect(rule(block, ".r3-satchel-plan-tab")).toMatch(/display:\s*none/);
     expect(rule(block, ".r3-satchel-plan-line")).toMatch(/display:\s*none/);
+    const label = rule(block, ".r3-satchel-plan-label");
+    expect(label).toMatch(/white-space:\s*nowrap/);
+    expect(label).toMatch(/overflow:\s*hidden/);
+    expect(label).toMatch(/text-overflow:\s*ellipsis/);
     expect(block).not.toMatch(/\.r3-satchel-plan-name[^{]*\{[^}]*display:\s*none/);
   });
 });

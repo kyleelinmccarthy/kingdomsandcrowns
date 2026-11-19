@@ -4,7 +4,8 @@ import { castlePlan } from "@/lib/realm3d/castle-plan";
 import { CASTLE_POSITION } from "./layout";
 import { MATERIAL_IDS } from "./materials";
 import { KEEP_YARD, VILLAGE_DECOR_SPOTS, YARD_RADIUS } from "./keep-yard";
-import { IMPROVEMENTS } from "./improvements";
+import { IMPROVEMENT_IDS, IMPROVEMENTS } from "./improvements";
+import { improvementPlacements } from "@/lib/realm3d/improvement-spots";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { CASTLE_TIER_IDS, canopyRadius, clearanceFailures, levelFailures, overlaps, overlapsPatch, ROAD, grow, rectAt, TREE_SCALE, type R } from "@/test/world-clearance";
@@ -74,6 +75,27 @@ describe("the keep yard", () => {
         for (const o of others) expect(overlaps(r, box(o)), `hall box and ${o.what}`).toBe(false);
       }
     }
+  });
+});
+
+describe("the keep yard against the village's own pieces (N-1)", () => {
+  /** The gap between two rectangles: 0 when they touch or share area. */
+  const gap = (a: R, b: R) => Math.hypot(Math.max(0, a.x0 - b.x1, b.x0 - a.x1), Math.max(0, a.z0 - b.z1, b.z0 - a.z1));
+  const hall = KEEP_YARD.chronicleHall;
+  const yard: { what: string; rect: R }[] = [
+    ...yardSpots().map((s) => ({ what: s.what, rect: box(s) })),
+    ...IMPROVEMENTS["chronicle-hall"].levels.flatMap((l, li) => l.boxes.map((b, bi) => ({ what: `hall L${li + 1} box ${bi}`, rect: rectAt(hall.x + b.x, hall.z + b.z, b.sx, b.sz) }))),
+  ];
+  // Every plan built to the top, so every plaque stands; the hall's own plaque belongs to the yard.
+  const plaques = improvementPlacements(Object.fromEntries(IMPROVEMENT_IDS.map((id) => [id, 3])), () => 0)
+    .filter((p) => p.id !== "chronicle-hall")
+    .map((p) => ({ what: `${p.id} plaque`, rect: rectAt(p.plaque.x, p.plaque.z, 0.7, 0.7) }));
+  const village = [...villageSpots().map((s) => ({ what: s.what, rect: box(s) })), ...plaques];
+
+  it("keeps every keep-yard spot and box at least 1.5 from every village decoration's spot and every improvement's plaque", () => {
+    const close: string[] = [];
+    for (const y of yard) for (const v of village) if (gap(y.rect, v.rect) < 1.5) close.push(`${y.what} is ${gap(y.rect, v.rect).toFixed(2)} from ${v.what}`);
+    expect(close).toEqual([]);
   });
 });
 

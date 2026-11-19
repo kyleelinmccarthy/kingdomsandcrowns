@@ -73,7 +73,8 @@ export function SatchelHud({
           <p className="r3-satchel-plan-tab">Pinned plan</p>
           <p className="r3-satchel-plan-name">
             <GameIcon name="scroll" className="r3-satchel-plan-icon" />
-            {IMPROVEMENTS[plan.id].label}
+            {/* Its own span, so a phone can keep the name to one line with an ellipsis (`satchel.css`). */}
+            <span className="r3-satchel-plan-label">{IMPROVEMENTS[plan.id].label}</span>
           </p>
           <p className="r3-satchel-plan-line">{planLine(plan)}</p>
         </div>

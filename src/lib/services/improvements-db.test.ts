@@ -156,18 +156,18 @@ describe("finishBuild", () => {
   });
 
   it("lets another material pay the secondary share (RD-t), and writes the spent rows under what was really taken", async () => {
-    // The fountain's first level: 4 stone and 2 herbs. 1 herbs in hand, no timber; ink pays the other herbs.
+    // The statue's first level: 4 stone and 2 ink. 1 ink in hand, no timber; herbs pay the other ink.
     await quest("st", "Fractions drill", "Math", "2026-11-02");
-    await quest("he", "Seeds", "Science", "2026-11-03");
-    await quest("in", "Read aloud", "Reading", "2026-11-04");
+    await quest("in", "Read aloud", "Reading", "2026-11-03");
+    await quest("he", "Seeds", "Science", "2026-11-04");
     await earn("stone", 4, "st");
-    await earn("herbs", 1, "he");
-    await earn("ink", 3, "in");
+    await earn("ink", 1, "in");
+    await earn("herbs", 3, "he");
     const { finishBuild } = await isolate();
-    const r = await finishBuild("c1", { improvementId: "village-fountain", level: 1 }, 3, NOW);
-    expect(r).toMatchObject({ built: true, balance: { stone: 0, herbs: 0, ink: 2, timber: 0 } });
+    const r = await finishBuild("c1", { improvementId: "village-statue", level: 1 }, 3, NOW);
+    expect(r).toMatchObject({ built: true, balance: { stone: 0, ink: 0, herbs: 2, timber: 0 } });
     expect((await spent()).map((s) => [s.material_id, Number(s.amount)])).toEqual([["herbs", 1], ["ink", 1], ["stone", 4]]);
-    expect(r.plaque?.sources).toEqual(["Fractions drill", "Seeds", "Read aloud"]);
+    expect(r.plaque?.sources).toEqual(["Fractions drill", "Read aloud", "Seeds"]);
   });
 
   it("refuses level 2 while level 1 is not built: error, and nothing is written", async () => {
@@ -199,22 +199,22 @@ describe("finishBuild", () => {
   });
 
   it("names its sources oldest first, only the quests that paid, and reads a deleted quest as 'a quest'", async () => {
-    // The fountain's third level costs 8 stone and 4 herbs: twelve quests' worth.
-    await builtLevel("village-fountain", 1);
-    await builtLevel("village-fountain", 2);
+    // The statue's third level costs 8 stone and 4 ink: twelve quests' worth.
+    await builtLevel("village-statue", 1);
+    await builtLevel("village-statue", 2);
     for (let i = 1; i <= 8; i++) {
       if (i !== 3) await quest(`s${i}`, `Stone quest ${i}`, i % 2 ? "Math" : null, `2026-10-${String(i).padStart(2, "0")}`);
       await earn("stone", 1, `s${i}`);
     }
     for (let i = 1; i <= 4; i++) {
       await quest(`h${i}`, `Herb quest ${i}`, "Science", `2026-10-2${i}`);
-      await earn("herbs", 1, `h${i}`);
+      await earn("ink", 1, `h${i}`);
     }
     // Newer surplus: not spent, so not a source.
     await quest("extra", "Later quest", "Math", "2026-11-01");
     await earn("stone", 2, "extra");
     const { finishBuild } = await isolate();
-    const r = await finishBuild("c1", { improvementId: "village-fountain", level: 3 }, 2, NOW);
+    const r = await finishBuild("c1", { improvementId: "village-statue", level: 3 }, 2, NOW);
     expect(r.built).toBe(true);
     const sources = JSON.parse((await improvements()).find((x) => Number(x.level) === 3)!.sources as string) as { title: string; subject: string | null; date: string | null }[];
     expect(sources).toHaveLength(12);

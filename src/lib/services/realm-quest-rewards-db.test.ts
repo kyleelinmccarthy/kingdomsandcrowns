@@ -115,9 +115,10 @@ describe("loadQuestRewards", () => {
 
   it("has no hint when no plan needs what was made", async () => {
     await settings("c1", {});
-    await earn("c1", "herbs", 3, "a1");
-    // Only the Fountain wants herbs (2) and three are in hand.
-    expect((await svc.loadQuestRewards("c1", ["a1"])).a1.made).toBe("+3 Herbs");
+    await earn("c1", "herbs", 6, "a1");
+    // Six herbs build the Fountain outright (4 herbs, and herbs pay its 2 stone); every other plan
+    // is short only of its own primary, which herbs cannot pay (RD-t).
+    expect((await svc.loadQuestRewards("c1", ["a1"])).a1.made).toBe("+6 Herbs");
   });
 
   it("reads the minutes a quest earned only when the setting is on", async () => {

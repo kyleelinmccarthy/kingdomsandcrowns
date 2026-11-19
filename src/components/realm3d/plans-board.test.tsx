@@ -92,8 +92,8 @@ describe("the plans board", () => {
     expect(wellHouse).toHaveTextContent("Raise the Village Well first");
     expect(within(wellHouse).queryByRole("button", { name: "Build" })).toBeNull();
     // Short of materials: what is missing, in the plan's own words.
-    // The Dye in hand pays the Herbs share (RD-t); nothing pays the Stone but Stone or Timber.
-    expect(within(row("Fountain")).getByText("Needs 4 more Stone")).toHaveClass("r3-plan-line");
+    // The Dye in hand pays the Stone share (RD-t); nothing pays the Herbs but Herbs or Timber.
+    expect(within(row("Fountain")).getByText("Needs 4 more Herbs")).toHaveClass("r3-plan-line");
     // Every level stands.
     expect(row("Lamps")).toHaveTextContent("Built");
     expect(within(row("Lamps")).queryByText("Level 3 of 3")).toBeNull();
@@ -155,17 +155,32 @@ describe("the plans board", () => {
   it("says what went wrong in the board, and stays open", async () => {
     vi.mocked(pinPlan).mockRejectedValue(new Error(PIN_HERO_ONLY));
     vi.mocked(startBuildRun).mockRejectedValue(new Error("the network is down"));
+    // The fresh look fails too: the board still says the first thing that went wrong.
+    vi.mocked(readWorks).mockRejectedValue(new Error("still down"));
     const onClose = vi.fn();
     render(<Harness onClose={onClose} />);
     await act(async () => void fireEvent.click(within(row("Banners")).getByRole("button", { name: "Pin" })));
     expect(screen.getByRole("alert")).toHaveTextContent(PIN_HERO_ONLY);
     expect(within(row("Banners")).getByRole("button", { name: "Pin" })).toHaveAttribute("aria-pressed", "false");
+    // A pin that fails is not a stale board: nothing is re-read.
+    expect(readWorks).not.toHaveBeenCalled();
     await act(async () => void fireEvent.click(within(row("Banners")).getByRole("button", { name: "Build" })));
     expect(screen.getByRole("alert")).toHaveTextContent("That didn't work.");
     expect(screen.getByRole("dialog", { name: "Kingdom plans" })).toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();
-    // A refusal that is not about stale plans never re-reads the works.
-    expect(readWorks).not.toHaveBeenCalled();
+    expect(row("Banners")).toHaveTextContent("Level 1 of 3");
+  });
+
+  it("takes a fresh look after any refusal to build, even one whose words production hides (RD-v)", async () => {
+    // In production Next replaces a server action's message, so the board cannot tell "the plans changed" by its words.
+    vi.mocked(startBuildRun).mockRejectedValue(new Error("An error occurred in the Server Components render. The specific message is omitted in production builds to avoid leaking sensitive details."));
+    vi.mocked(readWorks).mockResolvedValue({ ...WORKS, built: { ...WORKS.built, "village-banners": 1 }, balance: { ...EMPTY_WORKS.balance } });
+    render(<Harness />);
+    await act(async () => void fireEvent.click(within(row("Banners")).getByRole("button", { name: "Build" })));
+    expect(readWorks).toHaveBeenCalledWith("c1");
+    // The generic line, and the list as it stands now.
+    expect(screen.getByRole("alert")).toHaveTextContent("That didn't work.");
+    expect(row("Banners")).toHaveTextContent("Level 2 of 3");
   });
 
   it("asks to build the level it shows", async () => {

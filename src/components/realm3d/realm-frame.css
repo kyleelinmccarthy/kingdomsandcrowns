@@ -118,6 +118,8 @@
 @media (max-width: 480px) {
   .r3-left-stack { max-height: calc(100% - 5.6rem - 11rem); overflow: hidden; }
   .r3-root[data-larger-text="on"] .r3-left-stack { max-height: calc(100% - 6.72rem - 11rem); }
+  /* The card keeps its first objective only, so the stack stays short and nothing is clipped. */
+  .r3-quest-extra { display: none; }
 }
 .r3-quest-tab {
   margin: 0 0 0.2rem;

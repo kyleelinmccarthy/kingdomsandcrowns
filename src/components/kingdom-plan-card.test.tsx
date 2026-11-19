@@ -87,28 +87,28 @@ describe("KingdomPlanCard", () => {
   });
 
   it("notes that timber fills a gap on a short plan too, so a bar it covers is explained", () => {
-    // The Fountain needs 4 Stone and 2 Herbs; 1 Stone, 2 Herbs and 1 Timber leave it short of Stone.
-    render(<KingdomPlanCard {...base} pinned="village-fountain" balance={bal({ stone: 1, herbs: 2, timber: 1 })} />);
+    // The Statue needs 4 Stone and 2 Ink; 1 Stone, 2 Ink and 1 Timber leave it short of Stone.
+    render(<KingdomPlanCard {...base} pinned="village-statue" balance={bal({ stone: 1, ink: 2, timber: 1 })} />);
     expect(screen.getByText("Needs 2 more Stone")).toBeInTheDocument();
     expect(screen.getByText("Timber can fill any gap.")).toBeInTheDocument();
   });
 
   it("says any material can pay for the secondary when its bar is short and other materials could fill it (RD-t)", () => {
-    // Short of stone, and the herbs bar is short too; the Ink in hand can pay for Herbs.
-    const { rerender } = render(<KingdomPlanCard {...base} pinned="village-fountain" balance={bal({ stone: 1, herbs: 1, ink: 3 })} />);
-    expect(screen.getByRole("progressbar", { name: "Herbs: 1 of 2" })).toBeInTheDocument();
-    expect(screen.getByText("Any material can pay for the Herbs.")).toBeInTheDocument();
+    // Short of stone, and the ink bar is short too; the Herbs in hand can pay for Ink.
+    const { rerender } = render(<KingdomPlanCard {...base} pinned="village-statue" balance={bal({ stone: 1, ink: 1, herbs: 3 })} />);
+    expect(screen.getByRole("progressbar", { name: "Ink: 1 of 2" })).toBeInTheDocument();
+    expect(screen.getByText("Any material can pay for the Ink.")).toBeInTheDocument();
     expect(screen.queryByText("Timber can fill any gap.")).not.toBeInTheDocument();
-    // Ready because ink pays for the herbs.
-    rerender(<KingdomPlanCard {...base} pinned="village-fountain" balance={bal({ stone: 4, ink: 2 })} />);
+    // Ready because herbs pays for the ink.
+    rerender(<KingdomPlanCard {...base} pinned="village-statue" balance={bal({ stone: 4, herbs: 2 })} />);
     expect(screen.getByText("Ready to build")).toBeInTheDocument();
-    expect(screen.getByText("Any material can pay for the Herbs.")).toBeInTheDocument();
+    expect(screen.getByText("Any material can pay for the Ink.")).toBeInTheDocument();
   });
 
   it("leaves the secondary note out when nothing else could pay, or the secondary is not short", () => {
-    const { rerender } = render(<KingdomPlanCard {...base} pinned="village-fountain" balance={bal({ stone: 4 })} />);
+    const { rerender } = render(<KingdomPlanCard {...base} pinned="village-statue" balance={bal({ stone: 4 })} />);
     expect(screen.queryByText(/Any material can pay/)).not.toBeInTheDocument();
-    rerender(<KingdomPlanCard {...base} pinned="village-fountain" balance={bal({ stone: 1, herbs: 2, ink: 5 })} />);
+    rerender(<KingdomPlanCard {...base} pinned="village-statue" balance={bal({ stone: 1, ink: 2, herbs: 5 })} />);
     expect(screen.queryByText(/Any material can pay/)).not.toBeInTheDocument();
   });
 

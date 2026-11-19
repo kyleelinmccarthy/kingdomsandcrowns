@@ -200,7 +200,9 @@ const villageLamps = make("Lamps", "village", "thread", "stone", [
   [0, -1.3, 1.3].map((x) => bx("gold", x, 0, 0.15, 0.15, 2.52, 0.2)),
 ]);
 
-const villageFountain = make("Fountain", "village", "stone", "herbs", [
+// Herbs first (RD-u): every earnable material is the primary of a plan offered from day one, so a
+// hero whose quests bring only herbs (Science) can build before the mill or the garden stands.
+const villageFountain = make("Fountain", "village", "herbs", "stone", [
   [bx("stone", 0, 0, 3, 3, 0, 0.5), bx("water", 0, 0, 2.6, 2.6, 0.5, 0.08)],
   [bx("stone", 0, 0, 0.5, 0.5, 0.5, 1.2), bx("stone", 0, 0, 1.3, 1.3, 1.7, 0.2)],
   [bx("water", 0, 0, 1, 1, 1.9, 0.08), bx("gold", 0, 0, 0.2, 0.2, 1.9, 0.4), ...[[-1.75, -1.75], [1.75, -1.75], [-1.75, 1.75], [1.75, 1.75]].map(([x, z]) => bx("stone", x, z, 0.5, 0.5, 0, 0.7))],

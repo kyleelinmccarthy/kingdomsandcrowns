@@ -39,9 +39,10 @@ describe("rewardLines", () => {
   });
 
   it("has no hint when no plan wants it, and skips rows with no quest or a material the catalog lacks", () => {
-    const input = { built: {}, raised: new Set<string>(), balance: bal({ herbs: 3 }) };
-    const out = rewardLines([row("herbs", 3, "a1"), row("herbs", 1, null), row("mithril", 1, "a2")], input, null);
-    expect([...out.entries()]).toEqual([["a1", "+3 Herbs"]]);
+    // Six herbs build the Fountain outright (RD-u: herbs-primary); every other plan is short only of its own primary.
+    const input = { built: {}, raised: new Set<string>(), balance: bal({ herbs: 6 }) };
+    const out = rewardLines([row("herbs", 6, "a1"), row("herbs", 1, null), row("mithril", 1, "a2")], input, null);
+    expect([...out.entries()]).toEqual([["a1", "+6 Herbs"]]);
   });
 });
 

@@ -20,7 +20,7 @@ import { hostLabel, IMPROVEMENTS, LEVELS, planLine, planState, type PlanStatus }
 import { MATERIALS, MATERIAL_IDS, materialPhrase } from "@/lib/realm/materials";
 import type { Works } from "@/lib/realm/works-state";
 import type { RunStart, RunSummary } from "@/lib/utils/deed-run-types";
-import { BUILD_HERO_ONLY, deedErrorLine, PLAN_NOT_READY, PLANS_CHANGED } from "@/lib/utils/deed-refusals";
+import { BUILD_HERO_ONLY, deedErrorLine } from "@/lib/utils/deed-refusals";
 import { DeedRun } from "./deed-board";
 import { Panel } from "./frame-hud";
 
@@ -76,13 +76,17 @@ export function PlansBoard({
     const next = works.pinned === id ? null : id;
     act(pinPlan(childId!, next).then(() => onPinned(next)));
   };
-  // The board asks for the level it shows. If the plans moved on in another tab, it says so and
-  // takes a fresh look (M-4), so the list is the kingdom as it stands.
+  // The board asks for the level it shows. Any refusal may mean the plans moved on in another tab,
+  // and production hides a server action's words, so after ANY failure it takes a fresh look (M-4,
+  // RD-v): the list is the kingdom as it stands, and the line says what went wrong. A fresh look
+  // that fails too changes nothing.
   const build = (id: string, level: number) =>
     act(
       startBuildRun(childId!, id, level).then(setRun, async (err: unknown) => {
-        const message = err instanceof Error ? err.message : "";
-        if ((message === PLANS_CHANGED || message === PLAN_NOT_READY) && onWorks) onWorks(await readWorks(childId!));
+        if (onWorks) {
+          const fresh = await readWorks(childId!).catch(() => null);
+          if (fresh) onWorks(fresh);
+        }
         throw err;
       }),
     );

@@ -59,19 +59,20 @@
 .r3-satchel-plan-icon { flex: none; width: 1.1rem; height: 1.1rem; color: var(--r3-gold); }
 .r3-satchel-plan-line { margin: 0.1rem 0 0; font-size: 0.88rem; font-weight: 600; color: #f0d9a6; }
 
-/* A phone: the satchel folds small so the left stack clears the spell bar (`realm-frame.css`).
-   Smaller icons and counts, three to a row, so six materials take two rows at most; the plank
-   widens just enough to hold three (pips included). The pinned plan keeps its name and drops
-   its line (the plans board says what it waits on). */
+/* A phone: the satchel is one short strip so the left stack clears the spell bar (`realm-frame.css`).
+   No headings; six compact chips (icon and number) in ONE row, about 270 px at 390 wide; under
+   them the pinned plan's name on one line, cut with an ellipsis, and no line of what it waits on
+   (the plans board says that). */
 @media (max-width: 480px) {
-  .r3-satchel { width: max-content; min-width: min(19rem, 36vw); max-width: min(15rem, calc(100vw - 2rem)); padding: 0.35rem 0.6rem 0.45rem; }
-  .r3-satchel-tab,
-  .r3-satchel-plan-tab { margin-bottom: 0.15rem; }
-  .r3-satchel-items { display: grid; grid-template-columns: repeat(3, max-content); gap: 0.2rem 0.55rem; }
+  .r3-satchel { width: max-content; max-width: calc(100vw - 2rem); padding: 0.3rem 0.6rem 0.35rem; }
+  .r3-satchel-tab { display: none; }
+  .r3-satchel-plan-tab { display: none; }
+  .r3-satchel-items { display: grid; grid-template-columns: repeat(6, max-content); gap: 0 0.6rem; }
   .r3-satchel-item { gap: 0.2rem; }
   .r3-satchel-icon { width: 1rem; height: 1rem; }
   .r3-satchel-count { font-size: 0.85rem; }
-  .r3-satchel-plan { margin-top: 0.3rem; padding-top: 0.3rem; }
-  .r3-satchel-plan-name { font-size: 0.9rem; }
+  .r3-satchel-plan { margin-top: 0.25rem; padding-top: 0.25rem; }
+  .r3-satchel-plan-name { font-size: 0.9rem; min-width: 0; }
+  .r3-satchel-plan-label { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .r3-satchel-plan-line { display: none; }
 }

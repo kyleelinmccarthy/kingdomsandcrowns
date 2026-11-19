@@ -17,7 +17,8 @@ import type { Vec2 } from "./layout";
  *                  of three west of the board, nearest the board first (D16 smoke: a single row
  *                  at z 24.8 stood under the oaks and on the grove's edge)
  *   chronicleHall  the Chronicle Hall improvement is centred here, its tallest level kept 1.5
- *                  clear of the oaks' crowns (D16 smoke: its roof ran into them at z 23.5)
+ *                  clear of the oaks' crowns (D16 smoke: its roof ran into them at z 23.5), and
+ *                  east of the statue so it stands 1.5 clear of it and its plaque
  *   lectern        where the Scribe's lectern stands (the Chronicle, a later slice)
  */
 export const KEEP_YARD: {
@@ -35,7 +36,7 @@ export const KEEP_YARD: {
     { x: -11.2, z: 23.4 },
     { x: -13.6, z: 23.4 },
   ],
-  chronicleHall: { x: 10.5, z: 20.5 },
+  chronicleHall: { x: 14.8, z: 20.75 },
   lectern: { x: 5.5, z: 22.5 },
 };
 
