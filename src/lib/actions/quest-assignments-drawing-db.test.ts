@@ -28,19 +28,21 @@ vi.mock("@/lib/services/family-timezone", () => ({
 vi.mock("@/lib/services/realm-play", () => ({ grantEarnedMinutesForCompletion: vi.fn(async () => {}) }));
 vi.mock("@/lib/services/realm-materials", () => ({ grantMaterialsSafely: vi.fn(async () => {}) }));
 
-const { completeAssignment, updateAssignmentNotes } = await import("./quest-assignments");
+const { completeAssignment, updateAssignmentNotes, reviseAssignment } = await import("./quest-assignments");
+const { grantEarnedMinutesForCompletion } = await import("@/lib/services/realm-play");
+const { grantMaterialsSafely } = await import("@/lib/services/realm-materials");
 const { createActivity } = await import("@/lib/actions/activities");
 
 const DRAWING = { v: 1, strokes: [{ c: 2, w: 1, p: [10, 10, 50, 60, 120, 90] }] };
 const STORED = JSON.stringify(DRAWING);
 const GOOD_NOTES = "We measured the garden and wrote it down";
 
-async function seed(requireNotes: boolean, extra: { notes?: string | null; drawing?: string | null; status?: string } = {}) {
+async function seed(requireNotes: boolean, extra: { notes?: string | null; drawing?: string | null; seal?: string | null; status?: string } = {}) {
   await client.query("INSERT INTO quest (id, child_id, subject_id, title, require_notes, created_at, updated_at) VALUES ('q1', 'c1', 's1', 'Garden', ?1, unixepoch(), unixepoch())", [requireNotes]);
   await client.query(
-    `INSERT INTO quest_assignment (id, quest_id, child_id, date, status, activity_log_id, notes, drawing, created_at, updated_at)
-     VALUES ('a1', 'q1', 'c1', '2026-01-05', ?1, ?2, ?3, ?4, unixepoch(), unixepoch())`,
-    [extra.status ?? "pending", extra.status === "completed" ? "act-1" : null, extra.notes ?? null, extra.drawing ?? null],
+    `INSERT INTO quest_assignment (id, quest_id, child_id, date, status, activity_log_id, notes, drawing, seal, created_at, updated_at)
+     VALUES ('a1', 'q1', 'c1', '2026-01-05', ?1, ?2, ?3, ?4, ?5, unixepoch(), unixepoch())`,
+    [extra.status ?? "pending", extra.status === "completed" ? "act-1" : null, extra.notes ?? null, extra.drawing ?? null, extra.seal ?? null],
   );
 }
 
@@ -56,6 +58,8 @@ beforeAll(async () => {
 beforeEach(async () => {
   for (const t of ["quest_assignment", "quest"]) await client.query(`DELETE FROM ${t}`);
   vi.mocked(createActivity).mockClear();
+  vi.mocked(grantMaterialsSafely).mockClear();
+  vi.mocked(grantEarnedMinutesForCompletion).mockClear();
 });
 
 afterAll(() => {
@@ -121,6 +125,34 @@ describe("completeAssignment with a drawing", () => {
       expect(a).toEqual({ status: "pending", notes: null, drawing: null });
     }
     expect(createActivity).not.toHaveBeenCalled();
+    // A refused drawing must not have paid out anything either.
+    expect(grantMaterialsSafely).not.toHaveBeenCalled();
+    expect(grantEarnedMinutesForCompletion).not.toHaveBeenCalled();
+  });
+
+  it("pays out materials and minutes for a drawing-only completion", async () => {
+    await seed(true);
+    await completeAssignment("a1", { drawing: DRAWING });
+    expect(grantMaterialsSafely).toHaveBeenCalledWith("c1", "a1");
+    expect(grantEarnedMinutesForCompletion).toHaveBeenCalledWith("c1", "a1");
+  });
+});
+
+describe("reviseAssignment (undo)", () => {
+  async function sealAndDrawing(): Promise<{ drawing: string | null; seal: string | null; notes: string | null; status: string }> {
+    return (await client.query("SELECT status, notes, drawing, seal FROM quest_assignment WHERE id = 'a1'")).rows[0];
+  }
+
+  it("clears the drawing, the seal and the notes when a quest is re-opened", async () => {
+    await seed(true, { status: "completed", notes: GOOD_NOTES, drawing: STORED, seal: "star" });
+    await reviseAssignment("a1", "pending");
+    expect(await sealAndDrawing()).toEqual({ status: "pending", notes: null, drawing: null, seal: null });
+  });
+
+  it("clears them when a completed quest is revised to skipped", async () => {
+    await seed(false, { status: "completed", drawing: STORED, seal: "star" });
+    await reviseAssignment("a1", "skipped", "We ran out of time");
+    expect(await sealAndDrawing()).toMatchObject({ status: "skipped", drawing: null, seal: null });
   });
 });
 

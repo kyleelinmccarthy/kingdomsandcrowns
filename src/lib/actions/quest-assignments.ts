@@ -734,6 +734,10 @@ export async function reviseAssignment(
       status: next,
       // The old notes described work that is no longer on the record.
       notes: null,
+      // Likewise the drawing, and a grown-up's seal (a seal on a quest that is no longer done
+      // must not survive the undo).
+      drawing: null,
+      seal: null,
       statusReason,
       activityLogId: null,
       completedAt: null,

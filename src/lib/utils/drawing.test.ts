@@ -97,6 +97,12 @@ describe("parseDrawing", () => {
     expect(parseDrawing({ v: 1, strokes: [], pad: "x".repeat(40 * 1024) })).toBeNull();
   });
 
+  it("refuses a cyclic object", () => {
+    const loop: Record<string, unknown> = { v: 1, strokes: [] };
+    loop.self = loop;
+    expect(parseDrawing(loop)).toBeNull();
+  });
+
   it("refuses malformed JSON strings", () => {
     expect(parseDrawing("{not json")).toBeNull();
   });

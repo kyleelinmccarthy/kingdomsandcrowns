@@ -22,7 +22,8 @@ export const DRAWING_WIDTH = 320;
 export const DRAWING_HEIGHT = 240;
 export const DRAWING_MAX_STROKES = 40;
 export const DRAWING_MAX_POINTS = 2000;
-export const DRAWING_MAX_BYTES = 32 * 1024;
+/** The cap on the serialized form: 32K characters (what `.length` counts), checked before any parse. */
+export const DRAWING_MAX_CHARS = 32 * 1024;
 
 /** Line widths (in pad units) the three width indexes stand for. */
 export const DRAWING_WIDTHS = [2, 5, 10] as const;
@@ -56,7 +57,7 @@ function hasOnlyKeys(o: object, keys: string[]): boolean {
 export function parseDrawing(raw: unknown): Drawing | null {
   let value: unknown = raw;
   if (typeof raw === "string") {
-    if (raw.length > DRAWING_MAX_BYTES) return null;
+    if (raw.length > DRAWING_MAX_CHARS) return null;
     try {
       value = JSON.parse(raw);
     } catch {
@@ -69,7 +70,7 @@ export function parseDrawing(raw: unknown): Drawing | null {
     } catch {
       return null;
     }
-    if (size > DRAWING_MAX_BYTES) return null;
+    if (size > DRAWING_MAX_CHARS) return null;
   } else {
     return null;
   }
@@ -141,7 +142,8 @@ export function strokePoints(stroke: DrawingStroke): [number, number][] {
 
 /**
  * An SVG path for one stroke ("M x y L x y ..."). A single point becomes a hair-long line, which a
- * round line cap draws as a dot.
+ * round line cap draws as a dot. It expects a stroke that came from `parseDrawing`: it does not
+ * re-check the numbers.
  */
 export function strokePathD(stroke: DrawingStroke): string {
   const pts = strokePoints(stroke);
