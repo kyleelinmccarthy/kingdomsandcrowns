@@ -141,9 +141,18 @@ describe("the words, the slot and the map", () => {
     const board: LeadTarget = { kind: "villager", id: "plan:village-banners", name: PLANS_BOARD_NAME, x: -6, z: 21.5 };
     expect(leadWords.start("Fox", board)).toBe("Your Fox knows the way to the plans board. Follow!");
     expect(leadWords.arrive("Fox", board)).toBe("Here's the plans board! Press E to read it.");
-    expect(leadWords.here(PLANS_BOARD_NAME)).toBe("The plans board is right here! Press E to read it.");
+    expect(leadWords.here(board)).toBe("The plans board is right here! Press E to read it.");
     // A villager is still talked to.
-    expect(leadWords.here("Old Bram")).toBe("Old Bram is right here! Press E to talk.");
+    expect(leadWords.here({ id: "bram", name: "Old Bram" })).toBe("Old Bram is right here! Press E to talk.");
+  });
+
+  it("knows the plans board by the goal's id, not by what it is called", () => {
+    const named: LeadTarget = { kind: "villager", id: "plan:village-banners", name: "Banners", x: -6, z: 21.5 };
+    expect(leadWords.arrive("Fox", named)).toBe("Here's the plans board! Press E to read it.");
+    expect(leadWords.here(named)).toBe("The plans board is right here! Press E to read it.");
+    // A villager given the board's name is still a villager.
+    const bram: LeadTarget = { kind: "villager", id: "bram", name: PLANS_BOARD_NAME, x: 0, z: 0 };
+    expect(leadWords.arrive("Fox", bram)).toBe(`Here's ${PLANS_BOARD_NAME}! Press E to talk.`);
   });
 
   it("draws the pet's way on the map, and a paw at its end unless the gold ! is already there", () => {

@@ -60,6 +60,25 @@ describe("the objectives card", () => {
     expect(screen.queryByText(/Nothing is waiting/)).toBeNull();
   });
 
+  it("says the pinned plan is ready, and where the gold ! leads, in place of who is waiting (the plan beacon)", () => {
+    render(<ObjectiveCard objective={objectiveState(fresh, 3)} heroName="Emma" visiting={false} numerals plan="Banners" pet="Fox" />);
+    expect(screen.queryByText(/Old Bram is waiting/)).toBeNull();
+    expect(screen.queryByText(/press E to talk/)).toBeNull();
+    const lead = screen.getByText(/Your Banners is ready to build/);
+    expect(lead.closest("p")).toHaveTextContent("Your Banners is ready to build. Follow the gold ! to the plans board. Or press F, and your Fox will show you the way.");
+    // The objective's own rows stay as they are.
+    expect(screen.getByText("Village Well")).toBeInTheDocument();
+    expect(screen.getByText("0 of 5")).toBeInTheDocument();
+    expect(screen.getByText(/Grain Mill · 0 of 5/)).toBeInTheDocument();
+  });
+
+  it("tells a visiting grown-up whose plan is ready, with no directions to follow", () => {
+    render(<ObjectiveCard objective={objectiveState(fresh, 1)} heroName="Emma" visiting numerals plan="Banners" />);
+    expect(screen.getByText("Emma’s Banners is ready to build.")).toBeInTheDocument();
+    expect(screen.queryByText(/Old Bram is waiting/)).toBeNull();
+    expect(screen.queryByText(/Follow the gold/)).toBeNull();
+  });
+
   it("never tells a child their village is finished because it failed to load", () => {
     const { container } = render(<ObjectiveCard objective={objectiveState([], 3)} heroName="Emma" visiting={false} numerals />);
     expect(container).toBeEmptyDOMElement();
@@ -109,6 +128,19 @@ describe("the clock corner", () => {
   it("turns red on the last minute", () => {
     const { container } = corner({ warning: true, line: "1 min left!" });
     expect(container.querySelector(".r3-clock--warning")).toHaveTextContent("1 min left!");
+  });
+
+  it("steps back to a small chip when quiet (the hero's own view), keeping its pulse and its timer role", () => {
+    corner({ quiet: true, warning: true, line: "1 min left!" });
+    const clock = screen.getByRole("timer");
+    expect(clock).toHaveClass("r3-clock", "r3-clock--quiet", "r3-clock--warning");
+    expect(clock).toHaveAttribute("aria-live", "assertive");
+    expect(clock).toHaveTextContent("1 min left!");
+    cleanup();
+    // A grown-up's visit line keeps today's size.
+    corner({ line: "Emma has 30 min today" });
+    expect(screen.getByRole("timer")).not.toHaveClass("r3-clock--quiet");
+    expect(screen.getByRole("timer")).toHaveAttribute("aria-live", "off");
   });
 
   it("says when the clock lost track, and offers to try again", () => {

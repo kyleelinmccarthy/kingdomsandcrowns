@@ -14,7 +14,7 @@ export const TOAST_MS = 5200;
 const NO_FOCUS: ReadonlySet<SkillArea> = new Set();
 
 type Rises = {
-  /** The hero's own view: a grown-up visiting plays and marks nothing. */
+  /** The hero's own view (a hero, as the hero, `viewer === "child"`): anyone else plays and marks nothing. */
   isChild: boolean;
   /** What is on screen over the world; a rise plays only when nothing is (the entry chain has run its course). */
   overlay: Overlay | null;
@@ -28,6 +28,8 @@ type Rises = {
   show: (toast: DeedToast) => void;
   /** The strands the beacon leans toward, so the "Next:" in a rise agrees with a board hand-up's. */
   focusAreas?: ReadonlySet<SkillArea>;
+  /** How many objectives the frame tracks (`surfaces.trackedObjectives`), asked for as a hand-up asks. Absent, one. */
+  tracked?: number;
 };
 
 /**
@@ -40,7 +42,7 @@ type Rises = {
  * the ones shown are marked announced, in one call, so none rises twice. A mark that fails is logged
  * and costs nothing but a repeat next visit.
  */
-export function useRises({ isChild, overlay, unannounced, regraded, kingdom, childId, show, focusAreas = NO_FOCUS }: Rises): void {
+export function useRises({ isChild, overlay, unannounced, regraded, kingdom, childId, show, focusAreas = NO_FOCUS, tracked = 1 }: Rises): void {
   // The rises to play, fixed on entry (and only for buildings the kingdom lists): a later render
   // with a different list must never replay or skip one.
   const [queue] = useState(() => (isChild ? unannounced.flatMap((id) => kingdom.buildings.filter((b) => b.id === id)) : []));
@@ -50,6 +52,11 @@ export function useRises({ isChild, overlay, unannounced, regraded, kingdom, chi
   useEffect(() => {
     kingdomRef.current = kingdom;
   }, [kingdom]);
+  // Read when a rise is shown, like the kingdom: a depth change mid-sequence must not restart the wait.
+  const trackedRef = useRef(tracked);
+  useEffect(() => {
+    trackedRef.current = tracked;
+  }, [tracked]);
 
   useEffect(() => {
     if (!childId || overlay !== null || step >= queue.length) return;
@@ -58,7 +65,7 @@ export function useRises({ isChild, overlay, unannounced, regraded, kingdom, chi
       const site = queue[step];
       const sentence = regraded
         ? retroRiseSentence(site.label)
-        : riseToast(site.label, objectiveState(kingdomRef.current.buildings, 1, focusAreas));
+        : riseToast(site.label, objectiveState(kingdomRef.current.buildings, trackedRef.current, focusAreas));
       show(riseWords(sentence, site));
       // Everything shown is marked as soon as the last is on screen, so leaving during it is no repeat.
       if (step === queue.length - 1) {

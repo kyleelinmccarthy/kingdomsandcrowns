@@ -190,6 +190,10 @@
 }
 .r3-clock-icon { width: 1.6rem; height: 1.6rem; color: var(--r3-gold); filter: drop-shadow(0 0 6px rgba(245, 192, 74, 0.55)); }
 .r3-clock-text { font-size: 1.2rem; font-weight: 900; color: #fff6de; font-variant-numeric: tabular-nums; text-shadow: 0 2px 0 var(--r3-bark); }
+/* The hero's own clock, stepped back to the chip's size (slice 3, "minutes, quieter"). */
+.r3-clock--quiet { gap: 0.3rem; padding: 0.3rem 0.7rem; }
+.r3-clock--quiet .r3-clock-icon { width: 1.1rem; height: 1.1rem; }
+.r3-clock--quiet .r3-clock-text { font-size: 0.9rem; font-weight: 800; }
 .r3-clock--warning {
   border-color: #5c120c;
   background: linear-gradient(180deg, #b8372b, #6d1a12);
@@ -1158,7 +1162,7 @@
 /* The frame is in rem, so it cannot follow a font-size on the root; a child who asked for larger
    text gets every readable board and corner scaled whole instead. Nothing the driver positions
    (plates, the gold !) is scaled: their pixel positions are the world's. */
-.r3-root[data-larger-text="on"] :is(.r3-board, .r3-quest, .r3-village, .r3-corner, .r3-prompt, .r3-top-lane, .r3-who, .r3-bottom) { zoom: 1.2; }
+.r3-root[data-larger-text="on"] :is(.r3-board, .r3-quest, .r3-village, .r3-corner, .r3-prompt, .r3-top-lane, .r3-who, .r3-bottom, .r3-satchel) { zoom: 1.2; }
 /* The reading font, carried past `.game-shell` as the flat Realm's root carried it. */
 .r3-root[data-reading-font="on"] {
   --font-sans: var(--font-lexend);

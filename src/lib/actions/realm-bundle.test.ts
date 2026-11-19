@@ -119,6 +119,8 @@ describe("getRealmBundle — the places found, and the earning copy's settings",
       minutesPerStar: DEFAULT_REALM_SETTINGS.minutesPerStar,
       sideQuestDailyCapMinutes: DEFAULT_REALM_SETTINGS.sideQuestDailyCapMinutes,
       bankCapMinutes: DEFAULT_REALM_SETTINGS.bankCapMinutes,
+      // The kingdom lead line (`KINGDOM_LEAD_LINE`) reads it.
+      materialsPerQuest: DEFAULT_REALM_SETTINGS.materialsPerQuest,
     });
   });
 });

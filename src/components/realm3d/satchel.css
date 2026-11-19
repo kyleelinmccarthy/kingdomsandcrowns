@@ -1,0 +1,74 @@
+/* The satchel (`satchel-hud.tsx`): top left, under the objective card, in the frame's timber.
+
+   The objective card (`.r3-quest`) is positioned on its own; to stand the satchel under it whatever
+   the card's height, the frame puts both in `.r3-left-stack`, which takes the card's old place and
+   lets the card flow. The card keeps its own width, and under larger text the stack moves exactly
+   as the zoomed card used to. */
+
+.r3-left-stack {
+  position: absolute;
+  top: 5.6rem;
+  left: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.55rem;
+}
+.r3-left-stack > .r3-quest { position: relative; top: auto; left: auto; }
+.r3-root[data-larger-text="on"] .r3-left-stack { top: 6.72rem; left: 1.2rem; }
+
+.r3-satchel {
+  width: min(19rem, 36vw);
+  margin: 0;
+  padding: 0.45rem 0.9rem 0.6rem;
+  border-radius: 16px;
+}
+.r3-satchel-tab,
+.r3-satchel-plan-tab {
+  margin: 0 0 0.25rem;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--r3-gold);
+}
+.r3-satchel-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.8rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.r3-satchel-item { display: inline-flex; align-items: center; gap: 0.35rem; }
+.r3-satchel-icon {
+  flex: none;
+  width: 1.35rem;
+  height: 1.35rem;
+  color: var(--r3-material, var(--r3-gold));
+  filter: drop-shadow(0 1px 0 var(--r3-bark)) brightness(1.35);
+}
+.r3-satchel-count {
+  font-size: 1.05rem;
+  font-weight: 900;
+  color: #fff6de;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 2px 0 var(--r3-bark);
+}
+.r3-satchel-plan {
+  margin-top: 0.45rem;
+  padding-top: 0.4rem;
+  border-top: 2px dashed rgba(255, 238, 194, 0.18);
+}
+.r3-satchel-plan-name {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #fff6de;
+  text-shadow: 0 2px 0 var(--r3-bark);
+}
+.r3-satchel-plan-icon { flex: none; width: 1.1rem; height: 1.1rem; color: var(--r3-gold); }
+.r3-satchel-plan-line { margin: 0.1rem 0 0; font-size: 0.88rem; font-weight: 600; color: #f0d9a6; }

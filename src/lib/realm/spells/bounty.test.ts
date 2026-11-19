@@ -9,6 +9,7 @@ import {
   bountyStatusFor,
   bountySubCap,
   earningLines,
+  KINGDOM_LEAD_LINE,
   isTroubleHomeId,
   questMinutesToday,
   startPurse,
@@ -179,8 +180,8 @@ describe("the client's purse", () => {
 });
 
 describe("earningLines — the one place the Realm says how minutes are earned (spec §3.11)", () => {
-  // The earning-time settings at 0, so each older line is asserted alone; the new lines have their own tests below.
-  const settings = { enabled: true, earnedMinutesPerQuest: 5, dailyCapMinutes: 30, troubleBonusCapMinutes: 5, dailyAllowanceMinutes: 0, minutesPerStar: 0, sideQuestDailyCapMinutes: 0, bankCapMinutes: 0 };
+  // The earning-time settings (and the materials a quest brings) at 0, so each older line is asserted alone; the new lines have their own tests below.
+  const settings = { enabled: true, earnedMinutesPerQuest: 5, dailyCapMinutes: 30, troubleBonusCapMinutes: 5, dailyAllowanceMinutes: 0, minutesPerStar: 0, sideQuestDailyCapMinutes: 0, bankCapMinutes: 0, materialsPerQuest: 0 };
   const status = (over: Partial<BountyStatus> = {}): BountyStatus => ({
     enabled: true,
     capMinutes: 5,
@@ -311,5 +312,34 @@ describe("earningLines — the one place the Realm says how minutes are earned (
   it("promises none of them in scheduled or open mode, where minutes are never read", () => {
     expect(earningLines(earning, status({ enabled: false }), "scheduled")).toEqual(["Your Realm time comes from recess, not from quests."]);
     expect(earningLines(earning, status({ enabled: false }), "open")).toEqual(["Your Realm is open, up to 30 minutes a day."]);
+  });
+
+  /* ---- the kingdom first (slice 3, "minutes, quieter"): materials before minutes */
+  it("leads with the kingdom when quests bring materials, in every mode", () => {
+    const kingdom = { ...earning, materialsPerQuest: 2 };
+    expect(earningLines(kingdom, status(), "earned")).toEqual([
+      KINGDOM_LEAD_LINE,
+      "You get 10 free minutes every day.",
+      "Finish a quest and you earn 5 more minutes here.",
+      "Clearing troubles earns a minute each, up to 5 a day.",
+      "Side quests earn 1 minute per star, up to 15 a day.",
+      "Unspent minutes are kept for tomorrow, up to 30.",
+    ]);
+    expect(KINGDOM_LEAD_LINE).toBe("Your quests bring materials to build with.");
+    expect(earningLines(kingdom, null, "scheduled")).toEqual([KINGDOM_LEAD_LINE, "Your Realm time comes from recess, not from quests."]);
+    expect(earningLines(kingdom, null, "open")).toEqual([KINGDOM_LEAD_LINE, "Your Realm is open, up to 30 minutes a day."]);
+    expect(say(kingdom, status(), "both").startsWith("Your quests bring materials to build with. You get 10 free minutes")).toBe(true);
+  });
+
+  it("counts a missing materials setting as the default one a quest, so the line leads", () => {
+    const older = { ...earning, materialsPerQuest: undefined };
+    expect(earningLines(older, status(), "earned")[0]).toBe(KINGDOM_LEAD_LINE);
+  });
+
+  it("says nothing of materials when quests bring none, and nothing at all with the Realm off", () => {
+    expect(earningLines({ ...earning, materialsPerQuest: 0 }, status(), "earned")).not.toContain(KINGDOM_LEAD_LINE);
+    expect(earningLines({ ...earning, materialsPerQuest: 0 }, status(), "earned")[0]).toBe("You get 10 free minutes every day.");
+    expect(earningLines({ ...earning, materialsPerQuest: 0 }, null, "open")).toEqual(["Your Realm is open, up to 30 minutes a day."]);
+    expect(earningLines({ ...earning, materialsPerQuest: 3, enabled: false }, null, "earned")).toEqual([]);
   });
 });

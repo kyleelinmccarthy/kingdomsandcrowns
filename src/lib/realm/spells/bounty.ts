@@ -20,7 +20,7 @@
 import { minutesSpent, modeEarns, type LedgerRow, type RealmAccessMode } from "@/lib/utils/realm-access";
 import { practicePaidToday, sumKind } from "@/lib/utils/realm-ledger";
 import { PLACES } from "@/lib/realm/layout";
-import type { RealmSettings } from "@/lib/utils/realm-settings";
+import { DEFAULT_REALM_SETTINGS, type RealmSettings } from "@/lib/utils/realm-settings";
 import { minutesWord } from "@/lib/utils/minutes-copy";
 
 export const MINUTES_PER_CLEAR = 1;
@@ -229,7 +229,12 @@ export function applyStatus(purse: BountyPurse, status: BountyStatus, unsent: re
 
 /** What the earning copy reads from the hero's Realm settings: the bounty's, and earning time's (spec §4.8). */
 export type EarningSettings = Pick<BountySettings, "enabled" | "earnedMinutesPerQuest" | "dailyCapMinutes" | "troubleBonusCapMinutes"> &
-  Pick<RealmSettings, "dailyAllowanceMinutes" | "minutesPerStar" | "sideQuestDailyCapMinutes" | "bankCapMinutes">;
+  Pick<RealmSettings, "dailyAllowanceMinutes" | "minutesPerStar" | "sideQuestDailyCapMinutes" | "bankCapMinutes"> &
+  /** What a quest brings to build with (slice 3). Absent counts as the default, 1. */
+  Partial<Pick<RealmSettings, "materialsPerQuest">>;
+
+/** The kingdom first (slice 3, "minutes, quieter"): what quests build comes before what they pay. */
+export const KINGDOM_LEAD_LINE = "Your quests bring materials to build with.";
 
 /** Slice 6's line, unchanged, for scheduled mode (spec §3.11). */
 export const RECESS_EARNING_LINE = "Your Realm time comes from recess, not from quests.";
@@ -253,16 +258,22 @@ export const CLEARING_SPENT_LINE = "You've had all today's minutes from clearing
  *   - `open`: open, up to the daily cap — no promise of minutes, since nothing earns them;
  *   - the Realm switched off: nothing.
  *
+ * Whatever the mode, while quests bring materials (`materialsPerQuest` above 0, absent counting as
+ * the default 1) the kingdom leads: `KINGDOM_LEAD_LINE` comes first, since materials are minted
+ * whatever the access mode says.
+ *
  * `status` is the server's `BountyStatus` for today, or null before it has answered: then the
  * clearing sentence names no number rather than guessing one.
  */
 export function earningLines(settings: EarningSettings, status: BountyStatus | null, accessMode: RealmAccessMode): string[] {
   if (!settings.enabled) return [];
-  if (accessMode === "scheduled") return [RECESS_EARNING_LINE];
-  if (accessMode === "open") return [`Your Realm is open, up to ${settings.dailyCapMinutes} ${minutesWord(settings.dailyCapMinutes)} a day.`];
+  const lead = (settings.materialsPerQuest ?? DEFAULT_REALM_SETTINGS.materialsPerQuest) > 0 ? [KINGDOM_LEAD_LINE] : [];
+  if (accessMode === "scheduled") return [...lead, RECESS_EARNING_LINE];
+  if (accessMode === "open") return [...lead, `Your Realm is open, up to ${settings.dailyCapMinutes} ${minutesWord(settings.dailyCapMinutes)} a day.`];
 
   const { dailyAllowanceMinutes: free, minutesPerStar: star, sideQuestDailyCapMinutes: starCap, bankCapMinutes: bank } = settings;
   return [
+    ...lead,
     ...(free > 0 ? [`You get ${free} free ${minutesWord(free)} every day.`] : []),
     ...questAndClearingLines(settings, status, accessMode),
     ...(star > 0 && starCap > 0 ? [`Side quests earn ${star} ${minutesWord(star)} per star, up to ${starCap} a day.`] : []),

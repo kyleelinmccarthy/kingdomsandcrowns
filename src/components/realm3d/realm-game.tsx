@@ -20,7 +20,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { getRealmKingdom } from "@/lib/actions/realm";
 import { markRealmHelpSeen, setRealmDepth, setTutorialStep, updateRealmSettings } from "@/lib/actions/realm-settings";
 import { markCeremonySeen } from "@/lib/actions/seasons";
-import { markBuildingsAnnounced } from "@/lib/actions/improvements";
+import { markBuildingsAnnounced, markDeliverySeen } from "@/lib/actions/improvements";
 import { getSpellbook } from "@/lib/actions/spells";
 import { surfacesFor, type RealmDepth } from "@/lib/realm/depth";
 import { applyDeedResult, type KingdomState } from "@/lib/realm/kingdom-state";
@@ -74,6 +74,8 @@ import { RiddleStoneBoard } from "./riddle-stone-board";
 import { PlansBoard } from "./plans-board";
 import { PlaquePanel } from "./plaque-panel";
 import { useWorks } from "./use-works";
+import { SatchelHud } from "./satchel-hud";
+import { DeliveryCard } from "./delivery-card";
 import { isPlanGoal, planGoal, planGoalSpeech, PLANS_BOARD_NAME } from "@/lib/realm3d/plan-goal";
 import { CeremonyCard, Coach, DeedToastBanner, TimerFinished, WelcomeCard, type CeremonyInfo } from "./guide-hud";
 import {
@@ -334,6 +336,9 @@ export function RealmGame({
   }, [works, raisedIds, objective, layout.villagers]);
   /** Who the goal sends the child to by name, for the words that say "Find Old Bram": nobody, while it is a plan. */
   const waitingName = goal.on && !isPlanGoal(goal) ? goal.name : null;
+  /** Whether the gold ! is on the plans board, and the ready plan's name then: the objective card and the tutorial say so. */
+  const planBeaconOn = isPlanGoal(goal);
+  const beaconPlan = planBeaconOn ? goal.name : null;
   /** The pet leads to the same place, calling a plan's beacon what it is: the plans board. */
   const leadGoal = useMemo(() => (isPlanGoal(goal) ? { ...goal, name: PLANS_BOARD_NAME } : goal), [goal]);
 
@@ -354,6 +359,8 @@ export function RealmGame({
 
   const childId = realm.childId;
   const isChild = realm.isChildView && childId !== null;
+  /** The hero, as the hero: the only view whose visit writes anything the hero owns (a rise, the carts). */
+  const heroWrites = isChild && viewer === "child";
   const readAloud = realm.isChildView && profile.readAloud;
   const calm = profile.reducedMotion || profile.lowStimulus;
 
@@ -362,9 +369,13 @@ export function RealmGame({
   // take a crown away. A grown-up gets neither — no welcome, no tutorial, no ceremony.
   const [ceremony] = useState<CeremonyInfo | null>(() => (isChild ? realm.ceremony ?? null : null));
   const [welcomeFirst] = useState(() => isChild && realm.helpSeen === false);
+  // The carts (R-D9): what quests brought since the hero last looked. Snapshotted with the rest, and
+  // only in the hero's own view, so a grown-up never sees or uses them up.
+  const [delivery] = useState(() => (heroWrites && (realm.works?.delivery?.rows.length ?? 0) > 0 ? (realm.works?.delivery ?? null) : null));
 
   /* ---- the overlay, and pausing -------------------------------------- */
-  const [overlay, setOverlayState] = useState<Overlay | null>(() => (welcomeFirst ? { kind: "welcome" } : ceremony ? { kind: "ceremony" } : null));
+  // On entry: the welcome (a first visit), then the carts, then the ceremony (`go` hands each on); the rises wait for all of them.
+  const [overlay, setOverlayState] = useState<Overlay | null>(() => (welcomeFirst ? { kind: "welcome" } : delivery ? { kind: "delivery" } : ceremony ? { kind: "ceremony" } : null));
   const overlayRef = useRef(overlay);
   const [near, setNear] = useState<InteractTarget | null>(null);
   const paused = overlay !== null;
@@ -433,8 +444,9 @@ export function RealmGame({
       spell: firstSpell,
       emptyPage: pages.some((p) => !p.spell),
       mount: riding.access.ok ? riding.access.mount.label : null,
+      planBeacon: planBeaconOn,
     }),
-    [waitingName, kingdomError, layout.villagers.length, firstSpell, pages, riding.access],
+    [waitingName, kingdomError, layout.villagers.length, firstSpell, pages, riding.access, planBeaconOn],
   );
   const ctxRef = useRef(lessonCtx);
   useEffect(() => {
@@ -574,7 +586,7 @@ export function RealmGame({
       const words = deedToast({ site: before, after: result, rose: applied.rose, counted: result.counted, earned: result.earned, challenge: result.challenge, villagerName: villagerForBuilding(buildingId)?.name ?? null, next, numerals: surfaces.numerals || !realm.isChildView });
       showToast(words);
       // This rise is being shown now, so the world never announces it again on a later visit.
-      if (applied.rose && isChild && childId) {
+      if (applied.rose && heroWrites && childId) {
         void markBuildingsAnnounced(childId, [buildingId]).catch((err: unknown) => console.error("Realm rise could not be marked", err));
       }
       // Development only: how long raising a building takes to reach the screen. `commitMs` is
@@ -589,10 +601,10 @@ export function RealmGame({
         });
       }
     },
-    [showToast, surfaces.numerals, realm.isChildView, focusAreas, isChild, childId],
+    [showToast, surfaces.numerals, realm.isChildView, focusAreas, heroWrites, childId],
   );
   // A building finished away from the Realm rises, with the same toast, once no overlay is open.
-  useRises({ isChild, overlay, unannounced: realm.unannounced ?? [], regraded: realm.regraded ?? false, kingdom, childId, show: showToast, focusAreas });
+  useRises({ isChild: heroWrites, overlay, unannounced: realm.unannounced ?? [], regraded: realm.regraded ?? false, kingdom, childId, show: showToast, focusAreas, tracked: surfaces.trackedObjectives });
 
   /* ---- the ceremony ---------------------------------------------------- */
   const [ceremonySaving, setCeremonySaving] = useState(false);
@@ -601,11 +613,13 @@ export function RealmGame({
 
   /* ---- moving between overlays ---------------------------------------- */
   const helpMarked = useRef(!welcomeFirst);
+  const deliveryMarked = useRef(false);
   /**
    * EVERY change of overlay comes through here — a button, Esc, a click on the dim — so what has
    * to happen on the way OUT of a panel happens whichever way the child left it: a finished side
    * quest raises its building, the welcome is written down as seen and hands on to the ceremony
    * or the coach, and a ceremony left by Esc is recorded as the flat Realm's Skip recorded it.
+   * The carts sit between the two: written down as seen once, however they were closed.
    */
   const go = useCallback(
     (asked: Overlay | null) => {
@@ -622,6 +636,14 @@ export function RealmGame({
           void markRealmHelpSeen(childId).catch(() => {});
         }
         setCoachReady(true);
+        if (next === null && delivery && !deliveryMarked.current) next = { kind: "delivery" };
+        else if (next === null && ceremony && !ceremonyRecorded.current) next = { kind: "ceremony" };
+      }
+      if (from?.kind === "delivery" && next?.kind !== "delivery") {
+        if (!deliveryMarked.current && delivery && heroWrites && childId) {
+          deliveryMarked.current = true;
+          void markDeliverySeen(childId, delivery.through).catch((err: unknown) => console.error("The carts could not be marked seen", err));
+        }
         if (next === null && ceremony && !ceremonyRecorded.current) next = { kind: "ceremony" };
       }
       if (from?.kind === "ceremony" && next?.kind !== "ceremony" && ceremony && !ceremonyRecorded.current && childId) {
@@ -631,7 +653,7 @@ export function RealmGame({
       overlayRef.current = next;
       setOverlayState(next);
     },
-    [raise, childId, ceremony],
+    [raise, childId, ceremony, delivery, heroWrites],
   );
 
   const hail = useCallback(() => {
@@ -1045,15 +1067,19 @@ export function RealmGame({
           <TroublePlates tbus={troubleBus} />
           <LookReticle paused={paused} />
           <div className={`r3-frame${paused ? " r3-frame--paused" : ""}`}>
-            <ObjectiveCard
-              objective={objective}
-              heroName={heroName}
-              visiting={visiting}
-              numerals={numerals}
-              kingdomError={kingdomError || undefined}
-              onRetry={childId ? retryKingdom : undefined}
-              pet={companion.pet}
-            />
+            <div className="r3-left-stack">
+              <ObjectiveCard
+                objective={objective}
+                heroName={heroName}
+                visiting={visiting}
+                numerals={numerals}
+                kingdomError={kingdomError || undefined}
+                onRetry={childId ? retryKingdom : undefined}
+                pet={companion.pet}
+                plan={beaconPlan}
+              />
+              <SatchelHud works={works} raised={raisedIds} numerals={numerals} />
+            </div>
             <VillagePlank heroName={heroName} done={raised} total={kingdom.buildings.length} numerals={numerals} />
             <div className="r3-top-lane">
               {/* First in the lane, so every message after it stacks under it instead of over it. */}
@@ -1094,6 +1120,7 @@ export function RealmGame({
               onHelp={() => go({ kind: "howto", back: false })}
               onMenu={() => go({ kind: "pause" })}
               leaveHref="/tavern"
+              quiet={realm.isChildView}
             />
           </div>
           {overlay?.kind === "pause" && (
@@ -1243,6 +1270,7 @@ export function RealmGame({
               }}
             />
           )}
+          {overlay?.kind === "delivery" && delivery && <DeliveryCard delivery={delivery} onClose={closeOverlay} />}
           {overlay?.kind === "ceremony" && ceremony && (
             <CeremonyCard info={ceremony} heroName={heroName} calm={calm} saving={ceremonySaving} error={ceremonyError} onHail={hail} />
           )}

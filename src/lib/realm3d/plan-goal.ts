@@ -27,8 +27,13 @@ export function planGoal(works: Pick<Works, "balance" | "built" | "pinned">, rai
   return { on: true, x, z, name: IMPROVEMENTS[row.id].label, id: `${PLAN_GOAL_PREFIX}${row.id}` };
 }
 
+/** Whether a goal (or the pet's target made from it) is the plans board: by its id, never by its name. */
+export function isPlanId(id: string): boolean {
+  return id.startsWith(PLAN_GOAL_PREFIX);
+}
+
 export function isPlanGoal(goal: Pick<Goal, "on" | "id">): boolean {
-  return goal.on && goal.id.startsWith(PLAN_GOAL_PREFIX);
+  return goal.on && isPlanId(goal.id);
 }
 
 /** What read-aloud says on entering while the beacon is on the plans board. */

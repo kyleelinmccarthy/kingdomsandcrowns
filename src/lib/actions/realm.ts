@@ -273,6 +273,7 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
       minutesPerStar: settings.minutesPerStar,
       sideQuestDailyCapMinutes: settings.sideQuestDailyCapMinutes,
       bankCapMinutes: settings.bankCapMinutes,
+      materialsPerQuest: settings.materialsPerQuest,
     },
   };
 }

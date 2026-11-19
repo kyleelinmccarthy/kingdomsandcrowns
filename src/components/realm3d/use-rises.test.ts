@@ -13,6 +13,18 @@ const markBuildingsAnnounced = vi.fn<(childId: string, ids: unknown) => Promise<
 vi.mock("@/lib/actions/improvements", () => ({
   markBuildingsAnnounced: (childId: string, ids: unknown) => markBuildingsAnnounced(childId, ids),
 }));
+// The real rule, watched: a rise asks it for the frame's own number of tracked objectives.
+const objectiveCalls = vi.hoisted(() => [] as number[]);
+vi.mock("@/lib/realm/objective", async (orig) => {
+  const real = await orig<typeof import("@/lib/realm/objective")>();
+  return {
+    ...real,
+    objectiveState: (...args: Parameters<typeof real.objectiveState>) => {
+      objectiveCalls.push(args[1]);
+      return real.objectiveState(...args);
+    },
+  };
+});
 
 const site = (id: string, label: string, complete: boolean) => ({ id, label, description: "", icon: "box", done: complete ? 3 : 1, total: 3, complete, raisedBy: null, raisedAt: null, stars: 0, maxStars: 9, deeds: [] });
 const kingdom = {
@@ -21,7 +33,7 @@ const kingdom = {
 } as unknown as KingdomState;
 
 const PAUSE: Overlay = { kind: "pause" };
-type Props = { isChild: boolean; overlay: Overlay | null; unannounced: string[]; regraded: boolean };
+type Props = { isChild: boolean; overlay: Overlay | null; unannounced: string[]; regraded: boolean; tracked?: number };
 const base: Props = { isChild: true, overlay: null, unannounced: ["well", "mill"], regraded: false };
 
 function mount(props: Partial<Props> = {}) {
@@ -34,6 +46,7 @@ const later = (ms: number) => act(async () => { await vi.advanceTimersByTimeAsyn
 
 beforeEach(() => {
   vi.clearAllMocks();
+  objectiveCalls.length = 0;
   vi.useFakeTimers();
   markBuildingsAnnounced.mockResolvedValue(undefined);
 });
@@ -62,6 +75,13 @@ describe("useRises", () => {
   it("folds the next objective into a plain rise, as a board hand-up does", async () => {
     const { show } = mount({ unannounced: ["well"] });
     await flush();
+    expect(show.mock.calls[0][0].spoken).toBe("The Village Well stands. Next: the River Bridge, with Carpenter Aldo.");
+  });
+
+  it("asks for the frame's own number of tracked objectives, so its Next: is a hand-up's", async () => {
+    const { show } = mount({ unannounced: ["well"], tracked: 3 });
+    await flush();
+    expect(objectiveCalls).toEqual([3]);
     expect(show.mock.calls[0][0].spoken).toBe("The Village Well stands. Next: the River Bridge, with Carpenter Aldo.");
   });
 

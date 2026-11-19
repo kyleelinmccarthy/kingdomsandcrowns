@@ -176,7 +176,7 @@ describe("the Realm's door", () => {
     render(<RealmFrame {...p} realm={{ ...p.realm, earning }} />);
     await act(async () => {});
     await act(async () => {});
-    expect(screen.getByText("You get 10 free minutes every day. Finish a quest and you earn 5 more minutes here, up to 30 a day.")).toBeInTheDocument();
+    expect(screen.getByText("Your quests bring materials to build with. You get 10 free minutes every day. Finish a quest and you earn 5 more minutes here, up to 30 a day.")).toBeInTheDocument();
   });
 
   it("says how minutes are earned when minutes are what the child is missing (earningLines)", async () => {
@@ -186,7 +186,7 @@ describe("the Realm's door", () => {
     render(<RealmFrame {...p} realm={{ ...p.realm, earning }} />);
     await act(async () => {});
     await act(async () => {});
-    expect(screen.getByText("Finish a quest and you earn 5 more minutes here, up to 30 a day.")).toBeInTheDocument();
+    expect(screen.getByText("Your quests bring materials to build with. Finish a quest and you earn 5 more minutes here, up to 30 a day.")).toBeInTheDocument();
   });
 
   it("says nothing of earning when the gate is shut for another reason", async () => {
