@@ -140,6 +140,27 @@ describe("a review's result", () => {
   });
 });
 
+describe("a build run's result", () => {
+  const done = { correctCount: 2, total: 3, flawless: false, kind: "build" as const };
+  it("says the plan is built at level 1, and grows above it", () => {
+    expect(resultHeadline(done, "Banners", { level: 1 })).toEqual({ title: "The Banners is built!", line: "2 of 3 right." });
+    expect(resultHeadline(done, "Banners", { level: 2 }).title).toBe("The Banners grows!");
+    expect(resultHeadline(done, "Banners", { level: 3 }).title).toBe("The Banners grows!");
+  });
+  it("never says Flawless! or side quest, even for a perfect run", () => {
+    const head = resultHeadline({ ...done, correctCount: 3, flawless: true }, "Fountain", { level: 1 });
+    expect(head.title).toBe("The Fountain is built!");
+    expect(`${head.title} ${head.line}`).not.toMatch(/flawless|side quest/i);
+  });
+  it("is built at level 1 when the level is not known", () => {
+    expect(resultHeadline(done, "Banners").title).toBe("The Banners is built!");
+  });
+  it("never says 'New best!' or that the village will help, whatever the stars", () => {
+    expect(resultStarsLine({ stars: 3, previousBest: 0, counted: false, kind: "build" })).toBe("");
+    expect(resultStarsLine({ stars: 0, previousBest: 0, counted: false, kind: "build" })).toBe("");
+  });
+});
+
 describe("a Crown Challenge's result", () => {
   it("is crowned when every answer was right, and so close otherwise", () => {
     expect(resultHeadline({ correctCount: 3, total: 3, flawless: true, kind: "challenge" }, "Fill the Bucket")).toEqual({ title: "Crowned!", line: "3 of 3 right in Fill the Bucket." });

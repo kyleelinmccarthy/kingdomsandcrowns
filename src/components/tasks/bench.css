@@ -125,6 +125,14 @@ rect.bench-site-piece--next { fill: none; stroke: var(--bench-ink); stroke-width
 line.bench-site-piece--next { opacity: 0.3; stroke-dasharray: 4 4; }
 .bench-site-caption { margin-top: 0.3rem; font-size: 0.85rem; font-weight: 700; text-align: center; color: var(--bench-soft); }
 
+/* A build run's plan going up (plan-elevation.tsx): its own boxes, in the plan's colours. */
+.bench-plan svg { max-height: 13rem; }
+.bench-plan-ground { stroke: #6b5a3f; stroke-width: 2; vector-effect: non-scaling-stroke; }
+.bench-plan-box { stroke: rgba(0, 0, 0, 0.4); stroke-width: 0.8; vector-effect: non-scaling-stroke; }
+.bench-plan-box--base { opacity: 0.55; }
+.bench-plan-box--new { stroke: var(--bench-gold); stroke-width: 1.4; }
+.bench-plan-box--next { fill: none; stroke: var(--bench-ink); stroke-width: 1; stroke-dasharray: 3 3; opacity: 0.5; }
+
 .bench-piece--drop { transform-box: fill-box; animation: bench-drop 0.5s ease-out both; }
 @keyframes bench-drop {
   from { opacity: 0; transform: translateY(-14px); }

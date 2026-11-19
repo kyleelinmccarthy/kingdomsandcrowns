@@ -277,6 +277,38 @@ describe("DeedPlayer", () => {
     });
   });
 
+  describe("a build run", () => {
+    const buildRun = (level: number): RunStart => ({
+      ...run,
+      deed: { id: `build:village-banners:${level}`, title: "Banners", story: "Aldo has the plans ready.", area: "math" },
+      kind: "build", responses: ["because", null], plan: { improvementId: "village-banners", level, placed: 0 },
+    });
+    const buildSummary = { ...summary, correctCount: 2, total: 3, stars: 2, previousBest: 0, counted: false, kind: "build" as const, building: null, masteryChanges: [], sideQuestPayFull: false };
+
+    it("finishes with its own label, and says the plan is built at level 1", async () => {
+      const user = userEvent.setup();
+      completeDeedRun.mockResolvedValue(buildSummary);
+      render(<DeedPlayer run={buildRun(1)} profile={profile} calm={false} onFinished={() => {}} />);
+      await user.click(screen.getByRole("button", { name: "again" }));
+      expect(screen.queryByRole("button", { name: "Finish side quest" })).not.toBeInTheDocument();
+      await user.click(await screen.findByRole("button", { name: "Finish building" }));
+      expect(await screen.findByRole("heading", { name: "The Banners is built!" })).toBeInTheDocument();
+    });
+
+    it("says the plan grows above level 1, shows its stars, and never 'New best!' or a side quest", async () => {
+      const user = userEvent.setup();
+      completeDeedRun.mockResolvedValue(buildSummary);
+      render(<DeedPlayer run={buildRun(2)} profile={profile} calm={false} onFinished={() => {}} />);
+      await user.click(screen.getByRole("button", { name: "again" }));
+      await user.click(await screen.findByRole("button", { name: "Finish building" }));
+      expect(await screen.findByRole("heading", { name: "The Banners grows!" })).toBeInTheDocument();
+      expect(screen.getByText("2 of 3 right.")).toBeInTheDocument();
+      expect(screen.getByRole("img", { name: "2 of 3 stars" })).toBeInTheDocument();
+      expect(screen.queryByText("New best!")).not.toBeInTheDocument();
+      expect(document.body.textContent).not.toMatch(/side quest done|Flawless|minutes? earned/i);
+    });
+  });
+
   describe("Watch Aldo", () => {
     const bench = (id: string) => ({ kind: "measure" as const, id, skillId: "add-10", prompt: "Build a beam 9 blocks long.", readAloud: "Build a beam nine blocks long.", view: { mode: "assemble" as const, unit: "blocks", pieces: ["1 block", "4 blocks", "8 blocks"], target: "9 blocks" } });
     const young: RunStart = { ...run, deed: { ...run.deed, area: "math" }, questions: [bench("m1"), bench("m2")], responses: [null, null], demo: { at: 0 } };

@@ -10,7 +10,7 @@ import { completeDeedRun } from "@/lib/actions/deeds";
 import type { RunStart, RunSummary } from "@/lib/utils/deed-run-types";
 import { DeedMeter } from "@/components/deed-meter";
 import { useDeedFlow } from "@/components/use-deed-flow";
-import { attemptFeedback } from "@/lib/realm3d/talk";
+import { BUILD_FINISH, attemptFeedback } from "@/lib/realm3d/talk";
 import { TaskPresenter } from "@/components/tasks/presenters";
 import { BenchDemo, demoCopy, useBenchDemo } from "@/components/tasks/bench-demo";
 import type { ProfileLike } from "@/lib/utils/deed-engine";
@@ -40,7 +40,7 @@ export function DeedPlayer({
   const demo = useBenchDemo(run, index);
   const question = run.questions[index];
   const isLast = index === run.questions.length - 1;
-  const finishLabel = run.kind === "review" ? REVIEW_FINISH : `Finish ${SIDE_QUEST_LOWER}`;
+  const finishLabel = run.kind === "review" ? REVIEW_FINISH : run.kind === "build" ? BUILD_FINISH : `Finish ${SIDE_QUEST_LOWER}`;
 
   // Read-aloud is a side effect, not state: the profile asks for it, the effect obeys. Aldo's
   // worked example is read first, when there is one, then the question.
@@ -86,7 +86,7 @@ export function DeedPlayer({
   if (summary) {
     return (
       <GameFrame title={run.deed.title} icon={<GameIcon name="map" className="size-4 text-[var(--gold-bright)]" />}>
-        <DeedResults summary={summary} deedTitle={run.deed.title} area={run.deed.area} doneLabel={doneLabel} onDone={() => onFinished(summary)} />
+        <DeedResults summary={summary} deedTitle={run.deed.title} area={run.deed.area} plan={run.plan} doneLabel={doneLabel} onDone={() => onFinished(summary)} />
       </GameFrame>
     );
   }

@@ -205,6 +205,46 @@ describe("the deed board", () => {
     });
   });
 
+  describe("a build run", () => {
+    const build = {
+      ...run, kind: "build" as const, responses: ["5", null],
+      deed: { id: "build:village-banners:2", title: "Banners", story: "Aldo has the plans ready.", area: "math" as const },
+      plan: { improvementId: "village-banners" as const, level: 2, placed: 0 },
+    };
+    const built = {
+      correctCount: 2, total: 2, flawless: true, masteryChanges: [], stars: 3, previousBest: 0, deedBest: 0, counted: false, crowned: false, kind: "build" as const,
+      building: null, minutesEarned: 0, sideQuestPayFull: false,
+    };
+
+    async function playToTheEnd(summary: Omit<typeof built, "building"> & { building: unknown }) {
+      vi.mocked(startDeedRun).mockResolvedValue(build);
+      vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: true, secondChance: false, answer: "8" });
+      vi.mocked(completeDeedRun).mockResolvedValue(summary as never);
+      const onResult = vi.fn();
+      board({ onResult });
+      await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" })));
+      await act(async () => void fireEvent.click(screen.getByRole("button", { name: "8" })));
+      expect(screen.queryByRole("button", { name: "Finish side quest" })).toBeNull();
+      await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Finish building" })));
+      return onResult;
+    }
+
+    it("says the plan grows, shows its stars, and never 'New best!' or a side quest", async () => {
+      const onResult = await playToTheEnd(built);
+      expect(screen.getByText("The Banners grows!")).toBeInTheDocument();
+      expect(screen.getByRole("img", { name: "3 of 3 stars" })).toBeInTheDocument();
+      expect(screen.queryByText("New best!")).toBeNull();
+      expect(document.body.textContent).not.toMatch(/Flawless|side quest done/i);
+      expect(onResult).not.toHaveBeenCalled();
+    });
+
+    it("never hands a building up to be raised, even if a result carried one", async () => {
+      const onResult = await playToTheEnd({ ...built, building: { label: "Village Well", done: 5, total: 5, complete: true, stars: 9, maxStars: 9 } });
+      expect(screen.getByText("The Banners grows!")).toBeInTheDocument();
+      expect(onResult).not.toHaveBeenCalled();
+    });
+  });
+
   describe("the streak and the skill meter", () => {
     const meter = { skillLabel: "Addition", filled: 4, needed: 7 };
     const fresh = { ...run, responses: [null, null] };

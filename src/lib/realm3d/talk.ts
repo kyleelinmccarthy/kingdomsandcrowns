@@ -161,11 +161,20 @@ export function deedToast(input: {
   return { title, line, done: after.done, total: after.total, rose, spoken: `${title} ${line}` };
 }
 
+/** The last button of a build run, where a side quest's says "Finish side quest". */
+export const BUILD_FINISH = "Finish building";
+
 /** The result card's headline, as the flat Realm's `DeedResults` wrote it; a Crown Challenge is crowned or close. */
 export function resultHeadline(
   summary: { correctCount: number; total: number; flawless: boolean; kind?: RunSummary["kind"] },
   deedTitle: string,
+  /** A build run's level, from `RunStart.plan`; its `deedTitle` is the plan's name. */
+  plan?: { level: number },
 ): { title: string; line: string } {
+  // A build run is judged on the plaque, never as a side quest: the plan stands, and says so.
+  if (summary.kind === "build") {
+    return { title: (plan?.level ?? 1) > 1 ? `The ${deedTitle} grows!` : `The ${deedTitle} is built!`, line: `${summary.correctCount} of ${summary.total} right.` };
+  }
   // A review teaches and pays nothing: no "Flawless!" to chase, only how it went.
   if (summary.kind === "review") return { title: REVIEW_DONE, line: reviewSummaryLine(summary) };
   const challenge = summary.kind === "challenge";
@@ -192,6 +201,8 @@ export function starsLabel(stars: number): string {
  * celebrated; a side quest that earned nothing says someone will help, never that it failed.
  */
 export function resultStarsLine(summary: Pick<RunSummary, "stars" | "previousBest" | "counted" | "kind">, villagerName?: string | null): string {
+  // A build run has no best to beat and no side quest to try again: its stars go on the plaque.
+  if (summary.kind === "build") return "";
   if (summary.stars > summary.previousBest) return "New best!";
   if (!summary.counted && summary.kind === "deed") return `${villagerName ?? "The village"} will help you try again.`;
   return "";

@@ -103,6 +103,27 @@ describe("useDeedFlow", () => {
       expect(result.current.site).toEqual({ stage: 2, complete: false, solved: 1, benchTasks: 3 });
     });
 
+    it("a build run's bench site carries its plan, counting solved tasks as a side quest's does", async () => {
+      const build: RunStart = {
+        ...run, kind: "build", questions: [cut("m1"), cut("m2"), cut("m3")], responses: [null, null, null],
+        plan: { improvementId: "village-banners", level: 2, placed: 0 },
+      };
+      answerDeedQuestion.mockResolvedValueOnce(right);
+      const { result } = renderHook(() => useDeedFlow(build));
+      expect(result.current.site).toEqual({ stage: 0, complete: false, solved: 0, benchTasks: 3, plan: { improvementId: "village-banners", level: 2 } });
+      await act(() => result.current.choose("c:2"));
+      expect(result.current.site?.solved).toBe(1);
+    });
+
+    it("a build run picked back up starts from the bench tasks the server says it already solved", () => {
+      const build: RunStart = {
+        ...run, kind: "build", questions: [cut("m1"), cut("m2"), cut("m3")], responses: ["c:2", null, null],
+        plan: { improvementId: "village-banners", level: 1, placed: 1 },
+      };
+      const { result } = renderHook(() => useDeedFlow(build));
+      expect(result.current.site).toMatchObject({ solved: 1, benchTasks: 3 });
+    });
+
     it("a run with no site (a review, a Crown Challenge) has none", () => {
       const { result } = renderHook(() => useDeedFlow(run));
       expect(result.current.site).toBeUndefined();

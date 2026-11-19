@@ -30,7 +30,7 @@ import type { RunStart, RunSummary } from "@/lib/utils/deed-run-types";
 import { realmCue } from "@/lib/realm3d/sound/store";
 import type { BuildingOverview } from "@/lib/services/deeds";
 import type { Villager } from "@/lib/realm/villagers";
-import { attemptFeedback, resultBuildingLine, resultHeadline, resultMinutesLine, resultStarsLine, talkCopy, type Viewer } from "@/lib/realm3d/talk";
+import { BUILD_FINISH, attemptFeedback, resultBuildingLine, resultHeadline, resultMinutesLine, resultStarsLine, talkCopy, type Viewer } from "@/lib/realm3d/talk";
 import { MAX_STARS, type Stars } from "@/lib/utils/deed-scoring";
 import { deedErrorLine } from "@/lib/utils/deed-refusals";
 import { DeedMeter } from "@/components/deed-meter";
@@ -145,8 +145,9 @@ export function DeedBoard({
 
   if (run) {
     const title = run.kind === "challenge" ? `${CROWN_CHALLENGE}: ${run.deed.title}` : run.deed.title;
+    // A build run has no building to raise, so nothing of it ever reaches the raise path.
     const handUp = (done: RunSummary) =>
-      done.building && onResult(site.id, {
+      done.kind !== "build" && done.building && onResult(site.id, {
         ...done.building, counted: done.counted, minutesEarned: done.minutesEarned, deed: { id: run.deed.id, bestStars: done.deedBest, crowned: done.crowned },
         ...(done.kind === "challenge" ? { challenge: { won: done.flawless } } : {}),
       });
@@ -261,8 +262,8 @@ export function DeedRun({
   const question = run.questions[index];
   const demo = useBenchDemo(run, index);
   const isLast = index === run.questions.length - 1;
-  const what = run.kind === "review" ? "review" : SIDE_QUEST_LOWER;
-  const finishLabel = run.kind === "review" ? REVIEW_FINISH : `Finish ${SIDE_QUEST_LOWER}`;
+  const what = run.kind === "review" ? "review" : run.kind === "build" ? "build" : SIDE_QUEST_LOWER;
+  const finishLabel = run.kind === "review" ? REVIEW_FINISH : run.kind === "build" ? BUILD_FINISH : `Finish ${SIDE_QUEST_LOWER}`;
   const nextRef = useRef<HTMLButtonElement>(null);
   const feedback = flow.result ? attemptFeedback(flow.result, flow.ruledOut.length > 0, villagerName, question) : null;
 
@@ -309,7 +310,7 @@ export function DeedRun({
   }
 
   if (summary) {
-    const head = resultHeadline(summary, run.deed.title);
+    const head = resultHeadline(summary, run.deed.title, run.plan);
     const stars = resultStarsLine(summary, villagerName);
     const minutesLine = resultMinutesLine(summary);
     return (
@@ -318,7 +319,7 @@ export function DeedRun({
           <GameIcon name={summary.flawless ? (summary.kind === "challenge" ? "crown" : "star") : "check"} className="r3-result-icon" />
         </span>
         <h3 className="r3-result-title">{head.title}</h3>
-        {summary.kind === "deed" && <BoardStars stars={summary.stars} />}
+        {(summary.kind === "deed" || summary.kind === "build") && <BoardStars stars={summary.stars} />}
         {stars && <p className="r3-result-stars-line">{stars}</p>}
         {minutesLine && (
           <p className="r3-result-minutes">
