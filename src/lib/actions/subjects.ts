@@ -153,7 +153,7 @@ export async function getSchoolCounts(childId: string): Promise<Record<SpellScho
 
   // Completed deeds count too — practice in the Realm and logged schoolwork
   // pull spell parts open together. A run's school is its first skill's area.
-  // A Crown Challenge does not count (`RUN_EFFECTS.challenge.countsForSchool`).
+  // A Crown Challenge, a review and a build run do not count (`RUN_EFFECTS[kind].countsForSchool`): only a deed does.
   const runs = await db
     .select({ skillIds: schema.deedRun.skillIds })
     .from(schema.deedRun)

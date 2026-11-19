@@ -88,13 +88,25 @@ describe("run kinds", () => {
       paysMinutes: false,
     });
   });
+  it("a build run earns stars and moves mastery, and raises, pays and counts for nothing else", () => {
+    expect(RUN_EFFECTS.build).toEqual({
+      raisesBuilding: false,
+      earnsStars: true,
+      movesMastery: true,
+      countsForSchool: false,
+      feedsReview: true,
+      allowsSecondChances: true,
+      paysMinutes: false,
+    });
+  });
   it("only a deed pays play minutes", () => {
     expect(RUN_EFFECTS.deed.paysMinutes).toBe(true);
     expect(RUN_EFFECTS.challenge.paysMinutes).toBe(false);
     expect(RUN_EFFECTS.review.paysMinutes).toBe(false);
+    expect(RUN_EFFECTS.build.paysMinutes).toBe(false);
   });
-  it("misses come back from a deed and a review, never from a challenge", () => {
-    expect(kindsThatFeedReview().sort()).toEqual(["deed", "review"]);
+  it("misses come back from a deed, a review and a build, never from a challenge", () => {
+    expect(kindsThatFeedReview().sort()).toEqual(["build", "deed", "review"]);
   });
   it("pins the challenge shape", () => {
     expect(CHALLENGE).toEqual({ questions: 3, levelBoost: 1 });

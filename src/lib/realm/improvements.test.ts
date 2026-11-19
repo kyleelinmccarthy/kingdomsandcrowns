@@ -12,8 +12,10 @@ import {
   IMPROVEMENT_COLORS,
   IMPROVEMENT_IDS,
   planElevation,
+  parsePlanRef,
   planHint,
   planLine,
+  planRef,
   planState,
   type ImprovementBox,
   type ImprovementId,
@@ -328,5 +330,28 @@ describe("planElevation", () => {
     expect(() => planElevation("well-house", 0)).toThrow();
     expect(() => planElevation("well-house", 4)).toThrow();
     expect(() => planElevation("well-house", 1.5)).toThrow();
+  });
+});
+
+describe("planRef and parsePlanRef", () => {
+  it("writes a plan level as `<id>:<level>`", () => {
+    expect(planRef("well-house", 2)).toBe("well-house:2");
+  });
+
+  it("reads back what it wrote, for every plan and level", () => {
+    for (const id of ids) for (const level of [1, 2, 3]) expect(parsePlanRef(planRef(id, level))).toEqual({ improvementId: id, level });
+  });
+
+  it("is null for anything malformed: an unknown id, a level outside 1 to 3, a non-integer level, extra or missing parts", () => {
+    for (const bad of [
+      "", "well-house", "well-house:", ":1", "nope:1", "well-house:0", "well-house:4", "well-house:-1", "well-house:1.5", "well-house:one",
+      "well-house:1:2", "well-house:01", "well-house: 1", " well-house:1", "well-house:1 ", "WELL-HOUSE:1", "well-house:1e0", "well-house:+1", "__proto__:1", "constructor:1",
+    ]) {
+      expect(parsePlanRef(bad), bad).toBeNull();
+    }
+  });
+
+  it("is null for a value that is not a string", () => {
+    for (const bad of [null, undefined, 3, {}, ["well-house:1"]]) expect(parsePlanRef(bad as unknown as string)).toBeNull();
   });
 });

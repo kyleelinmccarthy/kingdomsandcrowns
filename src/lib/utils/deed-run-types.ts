@@ -4,6 +4,7 @@
  */
 import type { ClientTask, FeedbackCode } from "@/lib/tasks/registry";
 import type { RunKind, Stars } from "./deed-scoring";
+import type { ImprovementId } from "@/lib/realm/improvements";
 import type { SkillMeter } from "./mastery";
 import type { SkillArea } from "./skills";
 
@@ -19,6 +20,12 @@ export type RunStart = {
    * side quest's own run raises a building, so a review or a Crown Challenge has none.
    */
   site?: { stage: number; complete: boolean; placed: number };
+  /**
+   * A build run's plan: which improvement and which level it builds, and `placed`, how many of the
+   * run's bench tasks were already put right (as `site.placed` is for a side quest), so a run picked
+   * back up draws what it had laid. The bench draws the plan's own boxes (`PlanElevation`).
+   */
+  plan?: { improvementId: ImprovementId; level: number; placed: number };
   /**
    * Where "Watch Aldo" shows (R-C9): `at` is the index of the run's first bench task, for a young
    * hero who has never answered one. The board shows the demo, for that task's mode, when the run

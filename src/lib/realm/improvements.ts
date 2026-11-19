@@ -291,3 +291,23 @@ export function planElevation(id: ImprovementId, level: number): { base: Rect[];
     added: front(plan.levels[level - 1].boxes),
   };
 }
+
+/* ---- plan references ------------------------------------------------------- */
+
+/** What a build run's `sourceRef` holds: the plan and the level it builds, as `<id>:<level>`. */
+export function planRef(id: ImprovementId, level: number): string {
+  return `${id}:${level}`;
+}
+
+/**
+ * Reads a `planRef` back. Null for anything that `planRef` could not have written: not a string, an
+ * id outside the catalog, a level that is not a plain 1, 2 or 3, or a different number of parts.
+ */
+export function parsePlanRef(sourceRef: string): { improvementId: ImprovementId; level: number } | null {
+  if (typeof sourceRef !== "string") return null;
+  const parts = sourceRef.split(":");
+  if (parts.length !== 2) return null;
+  const [id, digits] = parts;
+  if (!Object.hasOwn(IMPROVEMENTS, id) || !/^[1-3]$/.test(digits)) return null;
+  return { improvementId: id as ImprovementId, level: Number(digits) };
+}

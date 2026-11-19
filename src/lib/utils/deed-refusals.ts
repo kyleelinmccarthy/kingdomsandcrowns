@@ -24,10 +24,13 @@ export const ANSWER_EVERY = `Answer every question before finishing the ${SIDE_Q
 /** Too few questions at the challenge's rung to make a whole Crown Challenge. */
 export const CHALLENGE_NOT_READY = `The Crown Challenge for this ${SIDE_QUEST_LOWER} isn't ready yet. Come back soon!`;
 
+/** A plan that is not in the catalog, or whose next level the hero cannot build yet. */
+export const PLAN_NOT_READY = "That plan isn't ready yet.";
+
 const KNOWN = new Set([
   ALREADY_ANSWERED, ANSWER_FIRST, NO_SECOND_TRIES, PICK_SHOWN, TRY_DIFFERENT, CLOSED, HERO_ONLY,
   CHALLENGE_LOCKED, NOT_IN_CHRONICLE, NONE_READY, FINISHED, NOT_IN_RUN, NOT_THROUGH, ANSWER_EVERY,
-  CHALLENGE_NOT_READY,
+  CHALLENGE_NOT_READY, PLAN_NOT_READY,
 ]);
 
 /** One child-safe line for any error a deed action threw: our own refusal, or a friendly fallback. */
