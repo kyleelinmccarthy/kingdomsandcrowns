@@ -135,8 +135,9 @@ describe("QuestAssignmentCard", () => {
     await user.click(screen.getByText("Quick Complete"));
     expect(screen.getByLabelText("Scribe's Notes")).toHaveAttribute(
       "placeholder",
-      expect.stringContaining("(required)"),
+      "Scribe's Notes, or a drawing (one is required) — what did you do?",
     );
+    expect(screen.getByLabelText("Scribe's Notes")).not.toBeRequired();
     expect(screen.getByText("Submit")).toBeDisabled();
     await user.type(screen.getByLabelText("Scribe's Notes"), "Read pages 50-75");
     expect(screen.getByText("Submit")).not.toBeDisabled();
@@ -600,6 +601,12 @@ describe("QuestAssignmentCard", () => {
       fireEvent(el, ev);
     }
 
+    /** Clear is a two-tap confirm. */
+    async function clearPad(user: ReturnType<typeof userEvent.setup>) {
+      await user.click(screen.getByRole("button", { name: "Clear" }));
+      await user.click(screen.getByRole("button", { name: "Tap again to clear" }));
+    }
+
     /** Draw a dot on the open pad. */
     function dot(x = 100, y = 80) {
       const pad = screen.getByRole("img", { name: "Your drawing" });
@@ -613,7 +620,7 @@ describe("QuestAssignmentCard", () => {
       render(<QuestAssignmentCard data={baseData} isChildView={true} />);
       await user.click(screen.getByText("Quick Complete"));
       expect(screen.queryByRole("img", { name: "Your drawing" })).not.toBeInTheDocument();
-      await user.click(screen.getByRole("button", { name: "Draw it instead" }));
+      await user.click(screen.getByRole("button", { name: "Add a drawing" }));
       expect(screen.getByRole("img", { name: "Your drawing" })).toBeInTheDocument();
       await user.click(screen.getByRole("button", { name: "Hide drawing" }));
       expect(screen.queryByRole("img", { name: "Your drawing" })).not.toBeInTheDocument();
@@ -625,7 +632,7 @@ describe("QuestAssignmentCard", () => {
       render(<QuestAssignmentCard data={data} isChildView={true} />);
       await user.click(screen.getByText("Quick Complete"));
       expect(screen.getByText("Submit")).toBeDisabled();
-      await user.click(screen.getByRole("button", { name: "Draw it instead" }));
+      await user.click(screen.getByRole("button", { name: "Add a drawing" }));
       dot();
       expect(screen.getByText("Submit")).not.toBeDisabled();
       await user.click(screen.getByText("Submit"));
@@ -648,9 +655,9 @@ describe("QuestAssignmentCard", () => {
       const user = userEvent.setup();
       render(<QuestAssignmentCard data={baseData} isChildView={true} />);
       await user.click(screen.getByText("Quick Complete"));
-      await user.click(screen.getByRole("button", { name: "Draw it instead" }));
+      await user.click(screen.getByRole("button", { name: "Add a drawing" }));
       dot();
-      await user.click(screen.getByRole("button", { name: "Clear" }));
+      await clearPad(user);
       await user.click(screen.getByText("Submit"));
       expect(vi.mocked(completeAssignment).mock.calls[0]![1]!.drawing).toBeUndefined();
     });
@@ -661,7 +668,7 @@ describe("QuestAssignmentCard", () => {
       await user.click(screen.getByText("Edit Notes"));
       const pad = screen.getByRole("img", { name: "Your drawing" });
       expect(pad.querySelectorAll("path")).toHaveLength(1);
-      await user.click(screen.getByRole("button", { name: "Clear" }));
+      await clearPad(user);
       await user.click(screen.getByText("Save Notes"));
       expect(updateAssignmentNotes).toHaveBeenCalledWith("qa1", "", null);
     });
@@ -681,8 +688,93 @@ describe("QuestAssignmentCard", () => {
       render(<QuestAssignmentCard data={data} isChildView={true} />);
       await user.click(screen.getByText("Edit Notes"));
       expect(screen.getByText("Save Notes")).not.toBeDisabled();
-      await user.click(screen.getByRole("button", { name: "Clear" }));
+      await clearPad(user);
       expect(screen.getByText("Save Notes")).toBeDisabled();
+    });
+
+    it("says a drawing counts, on both notes fields, when the quest asks for notes", async () => {
+      const user = userEvent.setup();
+      const ask = { ...baseData.quest, requireNotes: true };
+      const { unmount } = render(<QuestAssignmentCard data={{ ...baseData, quest: ask }} isChildView={true} />);
+      await user.click(screen.getByText("Quick Complete"));
+      expect(screen.getByLabelText("Scribe's Notes")).toHaveAttribute(
+        "placeholder",
+        "Scribe's Notes, or a drawing (one is required) — what did you do?",
+      );
+      unmount();
+      render(<QuestAssignmentCard data={{ ...completedWithDrawing, quest: ask }} isChildView={true} />);
+      await user.click(screen.getByText("Edit Notes"));
+      const field = screen.getByLabelText("Scribe's Notes");
+      expect(field).toHaveAttribute("placeholder", "Scribe's Notes, or a drawing (one is required) — what did you do?");
+      expect(field).not.toBeRequired();
+    });
+
+    it("keeps the optional wording when the quest does not ask for notes", async () => {
+      const user = userEvent.setup();
+      render(<QuestAssignmentCard data={baseData} isChildView={true} />);
+      await user.click(screen.getByText("Quick Complete"));
+      expect(screen.getByLabelText("Scribe's Notes")).toHaveAttribute(
+        "placeholder",
+        "Scribe's Notes (optional) — what did you do?",
+      );
+    });
+
+    it("shows that a hidden drawing is kept, with a small thumbnail, and shows it again on request", async () => {
+      const user = userEvent.setup();
+      render(<QuestAssignmentCard data={baseData} isChildView={true} />);
+      await user.click(screen.getByText("Quick Complete"));
+      expect(screen.queryByRole("button", { name: "Show drawing (kept)" })).not.toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "Add a drawing" }));
+      dot();
+      await user.click(screen.getByRole("button", { name: "Hide drawing" }));
+      expect(screen.queryByRole("img", { name: "Your drawing" })).not.toBeInTheDocument();
+      const kept = screen.getByRole("img", { name: "Your drawing, kept" });
+      expect(kept.querySelectorAll("path")).toHaveLength(1);
+      await user.click(screen.getByRole("button", { name: "Show drawing (kept)" }));
+      expect(screen.getByRole("img", { name: "Your drawing" }).querySelectorAll("path")).toHaveLength(1);
+      expect(screen.queryByRole("img", { name: "Your drawing, kept" })).not.toBeInTheDocument();
+    });
+
+    it("shows a kept drawing's thumbnail in the editor too when it is hidden", async () => {
+      const user = userEvent.setup();
+      render(<QuestAssignmentCard data={completedWithDrawing} isChildView={true} />);
+      await user.click(screen.getByText("Edit Notes"));
+      await user.click(screen.getByRole("button", { name: "Hide drawing" }));
+      expect(screen.getByRole("img", { name: "Your drawing, kept" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Show drawing (kept)" })).toBeInTheDocument();
+    });
+
+    it("starts the next quick complete with a closed, empty pad after a successful submit", async () => {
+      const user = userEvent.setup();
+      render(<QuestAssignmentCard data={baseData} isChildView={true} />);
+      await user.click(screen.getByText("Quick Complete"));
+      await user.click(screen.getByRole("button", { name: "Add a drawing" }));
+      dot();
+      await user.click(screen.getByText("Submit"));
+      expect(completeAssignment).toHaveBeenCalledTimes(1);
+      // The mocked refresh leaves the card pending, so the form can be opened again.
+      await user.click(screen.getByText("Quick Complete"));
+      expect(screen.queryByRole("img", { name: "Your drawing" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Show drawing (kept)" })).not.toBeInTheDocument();
+      await user.click(screen.getByText("Submit"));
+      expect(vi.mocked(completeAssignment).mock.calls[1]![1]!.drawing).toBeUndefined();
+    });
+
+    it("keeps the drawing when a submit fails", async () => {
+      const user = userEvent.setup();
+      vi.mocked(completeAssignment).mockRejectedValueOnce(new Error("Nope"));
+      render(<QuestAssignmentCard data={baseData} isChildView={true} />);
+      await user.click(screen.getByText("Quick Complete"));
+      await user.click(screen.getByRole("button", { name: "Add a drawing" }));
+      dot();
+      await user.click(screen.getByText("Submit"));
+      expect(await screen.findByText("Nope")).toBeInTheDocument();
+      expect(screen.getByRole("img", { name: "Your drawing" }).querySelectorAll("path")).toHaveLength(1);
+      await user.click(screen.getByText("Submit"));
+      expect(vi.mocked(completeAssignment).mock.calls[1]![1]!.drawing).toEqual({
+        v: 1,
+        strokes: [{ c: 0, w: 1, p: [100, 80] }],
+      });
     });
 
     it("shows a thumbnail of the drawing on a completed card, and none without one", () => {

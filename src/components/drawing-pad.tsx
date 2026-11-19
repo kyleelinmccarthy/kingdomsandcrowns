@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import {
   DRAWING_HEIGHT,
   DRAWING_MAX_POINTS,
@@ -20,6 +20,27 @@ const SWATCH_NAMES = ["Black", "Brown", "Red", "Orange", "Gold", "Green", "Blue"
 const WIDTH_NAMES = ["Thin", "Medium", "Thick"] as const;
 
 const FULL_LINE = "The page is full. Undo or clear to draw more.";
+
+const EMPTY: DrawingStroke[] = [];
+
+/** The committed strokes. Memoised on the array, so a pointer move re-renders only the live path. */
+const CommittedStrokes = memo(function CommittedStrokes({ strokes }: { strokes: DrawingStroke[] }) {
+  return (
+    <>
+      {strokes.map((s, i) => (
+        <path
+          key={i}
+          d={strokePathD(s)}
+          stroke={DRAWING_PALETTE[s.c]}
+          strokeWidth={DRAWING_WIDTHS[s.w]}
+          fill="none"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      ))}
+    </>
+  );
+});
 
 function pointCount(strokes: DrawingStroke[]): number {
   return strokes.reduce((n, s) => n + s.p.length / 2, 0);
@@ -45,8 +66,18 @@ export function DrawingPad({
   const [live, setLive] = useState<number[] | null>(null);
   const active = useRef<{ id: number; p: number[] } | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
+  /** Clear is a two-tap confirm: true for three seconds after the first tap. */
+  const [confirmClear, setConfirmClear] = useState(false);
+  const clearTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const strokes = value?.strokes ?? [];
+  useEffect(
+    () => () => {
+      if (clearTimer.current) clearTimeout(clearTimer.current);
+    },
+    [],
+  );
+
+  const strokes = value?.strokes ?? EMPTY;
   const used = pointCount(strokes);
   const full = strokes.length >= DRAWING_MAX_STROKES || used >= DRAWING_MAX_POINTS;
 
@@ -62,6 +93,8 @@ export function DrawingPad({
 
   function handleDown(e: React.PointerEvent<SVGSVGElement>) {
     if (disabled || full || active.current) return;
+    // A mouse draws with its main button only; a finger or pen always counts.
+    if (e.pointerType === "mouse" && e.button !== 0) return;
     const pt = toPad(e.clientX, e.clientY);
     if (!pt) return;
     try {
@@ -96,6 +129,25 @@ export function DrawingPad({
     onChange({ v: 1, strokes: [...strokes, stroke] });
   }
 
+  /** A cancelled stroke (a palm, a system gesture) is dropped, not kept half-drawn. */
+  function handleCancel(e: React.PointerEvent<SVGSVGElement>) {
+    const a = active.current;
+    if (!a || a.id !== e.pointerId) return;
+    active.current = null;
+    setLive(null);
+  }
+
+  function handleClear() {
+    if (!confirmClear) {
+      setConfirmClear(true);
+      clearTimer.current = setTimeout(() => setConfirmClear(false), 3000);
+      return;
+    }
+    if (clearTimer.current) clearTimeout(clearTimer.current);
+    setConfirmClear(false);
+    onChange(null);
+  }
+
   function undo() {
     const next = strokes.slice(0, -1);
     onChange(next.length > 0 ? { v: 1, strokes: next } : null);
@@ -116,19 +168,11 @@ export function DrawingPad({
         onPointerDown={handleDown}
         onPointerMove={handleMove}
         onPointerUp={handleEnd}
-        onPointerCancel={handleEnd}
+        onPointerCancel={handleCancel}
+        onLostPointerCapture={handleEnd}
+        onContextMenu={(e) => e.preventDefault()}
       >
-        {strokes.map((s, i) => (
-          <path
-            key={i}
-            d={strokePathD(s)}
-            stroke={DRAWING_PALETTE[s.c]}
-            strokeWidth={DRAWING_WIDTHS[s.w]}
-            fill="none"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        ))}
+        <CommittedStrokes strokes={strokes} />
         {live && (
           <path
             d={strokePathD({ c: color, w: width, p: live })}
@@ -189,8 +233,8 @@ export function DrawingPad({
         <button type="button" className="drawing-pad__tool" onClick={undo} disabled={disabled || empty}>
           Undo
         </button>
-        <button type="button" className="drawing-pad__tool" onClick={() => onChange(null)} disabled={disabled || empty}>
-          Clear
+        <button type="button" className="drawing-pad__tool" onClick={handleClear} disabled={disabled || empty}>
+          {confirmClear ? "Tap again to clear" : "Clear"}
         </button>
       </div>
     </div>

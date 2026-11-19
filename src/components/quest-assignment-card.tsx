@@ -56,6 +56,40 @@ type AssignmentWithDetails = {
   rewards?: QuestReward;
 };
 
+const NOTES_PLACEHOLDER_REQUIRED = "Scribe's Notes, or a drawing (one is required) — what did you do?";
+const NOTES_PLACEHOLDER_OPTIONAL = "Scribe's Notes (optional) — what did you do?";
+
+/**
+ * The drawing control beside the notes: a toggle for the pad. Closed, it still says when a drawing
+ * is being kept (and shows it small), because that drawing is saved with the notes.
+ */
+function DrawingField({
+  drawing,
+  open,
+  onToggle,
+  onChange,
+  disabled,
+}: {
+  drawing: Drawing | null;
+  open: boolean;
+  onToggle: () => void;
+  onChange: (d: Drawing | null) => void;
+  disabled: boolean;
+}) {
+  const kept = !open && hasDrawing(drawing);
+  return (
+    <>
+      <div className="flex items-center gap-2">
+        <Button type="button" size="sm" variant="outline" onClick={onToggle} disabled={disabled} aria-expanded={open}>
+          {open ? "Hide drawing" : kept ? "Show drawing (kept)" : "Add a drawing"}
+        </Button>
+        {kept && <DrawingView drawing={drawing} label="Your drawing, kept" className="w-16 shrink-0 border border-border/50" />}
+      </div>
+      {open && <DrawingPad value={drawing} onChange={onChange} disabled={disabled} />}
+    </>
+  );
+}
+
 export function QuestAssignmentCard({
   data,
   isChildView,
@@ -183,6 +217,8 @@ export function QuestAssignmentCard({
       });
       router.refresh();
       setShowQuickComplete(false);
+      setDrawing(null);
+      setShowPad(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not complete quest");
     } finally {
@@ -598,21 +634,16 @@ export function QuestAssignmentCard({
           <Input
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder={`Scribe's Notes ${quest.requireNotes ? "(required)" : "(optional)"} — what did you do?`}
-            required={quest.requireNotes}
+            placeholder={quest.requireNotes ? NOTES_PLACEHOLDER_REQUIRED : NOTES_PLACEHOLDER_OPTIONAL}
             aria-label="Scribe's Notes"
           />
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={() => setShowPad((v) => !v)}
+          <DrawingField
+            drawing={drawing}
+            open={showPad}
+            onToggle={() => setShowPad((v) => !v)}
+            onChange={setDrawing}
             disabled={acting}
-            aria-expanded={showPad}
-          >
-            {showPad ? "Hide drawing" : "Draw it instead"}
-          </Button>
-          {showPad && <DrawingPad value={drawing} onChange={setDrawing} disabled={acting} />}
+          />
           <div className="flex items-center gap-2">
             <Input
               type="number"
@@ -673,21 +704,16 @@ export function QuestAssignmentCard({
           <Input
             value={notesDraft}
             onChange={(e) => setNotesDraft(e.target.value)}
-            placeholder={`Scribe's Notes ${quest.requireNotes ? "(required)" : "(optional)"} — what did you do?`}
-            required={quest.requireNotes}
+            placeholder={quest.requireNotes ? NOTES_PLACEHOLDER_REQUIRED : NOTES_PLACEHOLDER_OPTIONAL}
             aria-label="Scribe's Notes"
           />
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={() => setShowDraftPad((v) => !v)}
+          <DrawingField
+            drawing={drawingDraft}
+            open={showDraftPad}
+            onToggle={() => setShowDraftPad((v) => !v)}
+            onChange={setDrawingDraft}
             disabled={acting}
-            aria-expanded={showDraftPad}
-          >
-            {showDraftPad ? "Hide drawing" : "Draw it instead"}
-          </Button>
-          {showDraftPad && <DrawingPad value={drawingDraft} onChange={setDrawingDraft} disabled={acting} />}
+          />
           <div className="flex items-center gap-2">
             <Button
               size="sm"
