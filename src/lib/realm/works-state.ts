@@ -48,21 +48,27 @@ export function applyBuild(works: Works, improvement: NonNullable<RunSummary["im
 }
 
 const MAX_LINES = 6;
+/** A line names this many quests (oldest first); `more` counts the rest. */
+const MAX_TITLES = 3;
 
 /**
  * What the delivery card says: a title, then one line per material (catalog order) with its total
  * ("2 Stone") and the distinct quests it came from, oldest first. The welcome title is for a delivery
  * of nothing but the welcome script's rows.
  */
-export function deliveryLines(delivery: Delivery): { title: string; lines: { phrase: string; titles: string[] }[] } {
+export function deliveryLines(delivery: Delivery): { title: string; lines: { phrase: string; titles: string[]; more: number }[] } {
   const welcome = delivery.rows.length > 0 && delivery.rows.every((r) => r.origin === "welcome");
-  const lines: { phrase: string; titles: string[] }[] = [];
+  const lines: { phrase: string; titles: string[]; more: number }[] = [];
   for (const id of MATERIAL_IDS) {
     const rows = delivery.rows.filter((r) => r.materialId === id);
     if (rows.length === 0) continue;
     const titles: string[] = [];
     for (const r of rows) if (!titles.includes(r.title)) titles.push(r.title);
-    lines.push({ phrase: materialPhrase(rows.reduce((n, r) => n + r.amount, 0), id), titles });
+    lines.push({
+      phrase: materialPhrase(rows.reduce((n, r) => n + r.amount, 0), id),
+      titles: titles.slice(0, MAX_TITLES),
+      more: Math.max(0, titles.length - MAX_TITLES),
+    });
   }
   return { title: welcome ? WELCOME_TITLE : CARTS_TITLE, lines: lines.slice(0, MAX_LINES) };
 }

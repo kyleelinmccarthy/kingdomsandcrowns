@@ -55,8 +55,8 @@ describe("deliveryLines", () => {
     expect(deliveryLines(d)).toEqual({
       title: "The carts are in!",
       lines: [
-        { phrase: "3 Stone", titles: ["Fractions p.12", "Times tables"] },
-        { phrase: "1 Ink", titles: ["Spelling"] },
+        { phrase: "3 Stone", titles: ["Fractions p.12", "Times tables"], more: 0 },
+        { phrase: "1 Ink", titles: ["Spelling"], more: 0 },
       ],
     });
     expect(CARTS_TITLE).toBe("The carts are in!");
@@ -67,6 +67,19 @@ describe("deliveryLines", () => {
       .toBe("The carts arrived with four weeks of your work");
     expect(WELCOME_TITLE).toBe("The carts arrived with four weeks of your work");
     expect(deliveryLines({ through: 1, rows: [row("stone", 2, "A", "welcome"), row("ink", 1, "B")] }).title).toBe("The carts are in!");
+  });
+
+  it("names the first three distinct quests oldest first and counts the rest", () => {
+    const rows = Array.from({ length: 8 }, (_, i) => row("stone", 1, `Quest ${i + 1}`));
+    const [line] = deliveryLines({ through: 1, rows }).lines;
+    expect(line.phrase).toBe("8 Stone");
+    expect(line.titles).toEqual(["Quest 1", "Quest 2", "Quest 3"]);
+    expect(line.more).toBe(5);
+  });
+
+  it("has no more when three or fewer quests came", () => {
+    const [line] = deliveryLines({ through: 1, rows: [row("ink", 1, "A"), row("ink", 1, "A"), row("ink", 1, "B")] }).lines;
+    expect(line).toEqual({ phrase: "3 Ink", titles: ["A", "B"], more: 0 });
   });
 
   it("keeps at most six lines", () => {

@@ -148,7 +148,7 @@ export async function loadWorks(childId: string): Promise<Works> {
       .where(and(
         eq(M.childId, childId),
         eq(M.kind, "earned"),
-        // Newer than the mark; no mark (or no settings row yet) is everything.
+        // Newer than the mark; no mark (or no settings row yet) is everything. A row minted in the same second as the last one shown can be missed on the card, but never from the balance (accepted).
         gt(M.createdAt, sql`coalesce((select ${S.deliverySeenAt} from ${S} where ${S.childId} = ${childId}), -1)`),
       ))
       .orderBy(asc(M.createdAt), asc(M.id)),
