@@ -121,21 +121,23 @@ export async function finishBuild(
       })
       .onConflictDoNothing()
       .returning({ id: I.id });
-    // Another call built it between our read and our insert: it spent, we do not.
-    if (won.length === 0) return { ...head, built: true, balance };
+    // Another call built it between our read and our insert: it spent, we do not. Read what it left.
+    if (won.length === 0) return { ...head, built: true, balance: materialBalance(await loadMaterialLedger(childId, tx)) };
 
     const M = schema.realmMaterial;
     const paid = MATERIAL_IDS.filter((id) => (alloc.spend[id] ?? 0) > 0);
-    if (paid.length > 0) {
-      await tx.insert(M).values(
-        paid.map((materialId) => ({
-          id: nanoid(), childId, materialId, amount: alloc.spend[materialId] ?? 0, kind: "spent" as const,
-          origin: "quest" as const, sourceAssignmentId: null, improvementId, level, createdAt: now,
-        })),
-      );
-    }
-    const after = { ...balance };
-    for (const id of paid) after[id] = Math.max(0, after[id] - (alloc.spend[id] ?? 0));
+    const spentRows = paid.map((materialId) => ({
+      id: nanoid(), childId, materialId, amount: alloc.spend[materialId] ?? 0, kind: "spent" as const,
+      origin: "quest" as const, sourceAssignmentId: null, improvementId, level, createdAt: now,
+    }));
+    if (spentRows.length > 0) await tx.insert(M).values(spentRows);
+    // The balance after the spend, by the one rule: the ledger as read plus the rows just written.
+    const after = materialBalance([
+      ...ledger,
+      ...spentRows.map((r) => ({
+        materialId: r.materialId, amount: r.amount, kind: r.kind, sourceAssignmentId: null, createdAt: Math.floor(now.getTime() / 1000),
+      })),
+    ]);
     return {
       ...head, built: true, balance: after,
       plaque: {

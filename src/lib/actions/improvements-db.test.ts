@@ -339,6 +339,36 @@ describe("startBuildRun", () => {
     expect(Number((await client.query("SELECT stars FROM deed_run WHERE id = ?1", [runId])).rows[0].stars)).toBe(3);
   });
 
+  it("only the hero can finish a build run: a grown-up is refused and nothing is written, then the hero finishes it", async () => {
+    await stockBanners();
+    const runId = await answeredRun();
+    vi.mocked(requireChildAccess).mockResolvedValueOnce({ access: { userId: "parent:u1" }, familyId: "f1" } as never);
+    await expect(completeDeedRun(runId)).rejects.toThrow(BUILD_HERO_ONLY);
+    expect((await client.query("SELECT completed_at FROM deed_run WHERE id = ?1", [runId])).rows[0].completed_at).toBeNull();
+    expect(await count("SELECT count(*) AS n FROM realm_improvement")).toBe(0);
+    expect(await count("SELECT count(*) AS n FROM realm_material WHERE kind = 'spent'")).toBe(0);
+    const s = await completeDeedRun(runId);
+    expect(s.improvement).toMatchObject({ built: true });
+    expect(await count("SELECT count(*) AS n FROM realm_improvement")).toBe(1);
+  });
+
+  it("a failed spend undoes the level: no improvement row remains, and the summary says error", async () => {
+    await stockBanners();
+    const runId = await answeredRun();
+    // The level insert wins, then the spent-row insert aborts: the whole transaction must roll back.
+    await client.query("CREATE TRIGGER no_spend BEFORE INSERT ON realm_material WHEN NEW.kind = 'spent' BEGIN SELECT RAISE(ABORT, 'x'); END");
+    const quiet = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const s = await completeDeedRun(runId);
+      expect(s.improvement).toMatchObject({ built: false, reason: "error", balance: { dye: 4, thread: 2 } });
+    } finally {
+      quiet.mockRestore();
+      await client.query("DROP TRIGGER no_spend");
+    }
+    expect(await count("SELECT count(*) AS n FROM realm_improvement")).toBe(0);
+    expect(await count("SELECT count(*) AS n FROM realm_material WHERE kind = 'spent'")).toBe(0);
+  });
+
   it("a build that throws reports 'error' with the balance, never throws out of completion, and spends nothing", async () => {
     await stockBanners();
     const runId = await answeredRun();

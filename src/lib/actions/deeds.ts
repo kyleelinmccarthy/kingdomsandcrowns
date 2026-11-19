@@ -23,7 +23,7 @@ import { isTaskCorrect, taskDefOf, type ResponseByKind, type Task, type TaskKind
 import { CHALLENGE, MAX_STARS, RUN_EFFECTS, countsTowardBuilding, runPoints, starsFor, type QuestionOutcome, type RunKind, type Stars } from "@/lib/utils/deed-scoring";
 import { outcomeOf, refuseGiveUp, refuseRetry, statusOf, type QuestionStatus } from "@/lib/utils/deed-attempts";
 import {
-  ALREADY_ANSWERED, ANSWER_EVERY, ANSWER_FIRST, CHALLENGE_LOCKED, CHALLENGE_NOT_READY, CLOSED, FINISHED, HERO_ONLY, NONE_READY,
+  ALREADY_ANSWERED, ANSWER_EVERY, ANSWER_FIRST, BUILD_HERO_ONLY, CHALLENGE_LOCKED, CHALLENGE_NOT_READY, CLOSED, FINISHED, HERO_ONLY, NONE_READY,
   NOT_IN_CHRONICLE, NOT_IN_RUN, NOT_THROUGH, PICK_SHOWN,
 } from "@/lib/utils/deed-refusals";
 import { overdueSkills } from "@/lib/utils/review-schedule";
@@ -364,6 +364,8 @@ export async function completeDeedRun(runId: string): Promise<RunSummary> {
   // An open second chance blocks finishing exactly as an unanswered question does.
   const outcomes = statuses.map(outcomeOf).filter((o): o is QuestionOutcome => o !== null);
   if (outcomes.length !== questions.length) throw new Error(ANSWER_EVERY);
+  // Building spends the hero's materials, so only the hero finishes a build run; refused before anything is written.
+  if (run.kind === "build" && !isChildActor(access)) throw new Error(BUILD_HERO_ONLY);
   const effects = RUN_EFFECTS[run.kind];
   const correctCount = statuses.filter((s) => s === "right-first").length;
   const flawless = correctCount === questions.length;
