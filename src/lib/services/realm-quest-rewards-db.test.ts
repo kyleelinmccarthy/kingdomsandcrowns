@@ -75,7 +75,7 @@ describe("loadQuestRewards", () => {
     await earn("c1", "stone", 2, "a2");
     // With 1 dye and 2 stone, the Banners (3 more dye), the Fountain and the Statue (each a secondary
     // share any material can pay, RD-t) want dye, all 3 short in all: the Banners come first.
-    expect((await svc.loadQuestRewards("c1", ["a1"])).a1.made).toBe("+1 Dye · the Banners needs 3 more");
+    expect((await svc.loadQuestRewards("c1", ["a1"])).a1.made).toBe("+1 Dye · the Banners need 3 more");
   });
 
   it("falls back from a pin that does not want the material", async () => {
@@ -83,14 +83,14 @@ describe("loadQuestRewards", () => {
     await settings("c1", { pinned: "chronicle-hall" });
     await earn("c1", "dye", 1, "a1");
     await earn("c1", "stone", 2, "a2");
-    expect((await svc.loadQuestRewards("c1", ["a1"])).a1.made).toBe("+1 Dye · the Banners needs 3 more");
+    expect((await svc.loadQuestRewards("c1", ["a1"])).a1.made).toBe("+1 Dye · the Banners need 3 more");
   });
 
   it("names a pinned plan whose secondary share the material can pay (RD-t)", async () => {
     await settings("c1", { pinned: "village-lamps" });
     await earn("c1", "dye", 1, "a1");
     // The Lamps want 4 thread and 2 stone; the dye pays a stone, so 1 more.
-    expect((await svc.loadQuestRewards("c1", ["a1"])).a1.made).toBe("+1 Dye · the Lamps needs 1 more");
+    expect((await svc.loadQuestRewards("c1", ["a1"])).a1.made).toBe("+1 Dye · the Lamps need 1 more");
   });
 
   it("ignores a pin on a plan that is fully built", async () => {
@@ -168,7 +168,7 @@ describe("loadQuestRewards", () => {
       built: {}, raised: [], balance: { stone: 0, ink: 1, herbs: 0, thread: 0, dye: 0, timber: 0 },
     };
     // The pin handed in is the Banners, whose thread share the ink pays for (RD-t), so 1 more: not the Statue the database pins.
-    expect(await svc.loadQuestRewards("c1", ["a1"], known)).toEqual({ a1: { made: "+1 Ink · the Banners needs 1 more", minutes: 5 } });
+    expect(await svc.loadQuestRewards("c1", ["a1"], known)).toEqual({ a1: { made: "+1 Ink · the Banners need 1 more", minutes: 5 } });
     // And with minutes off in what was handed in, none are read.
     expect((await svc.loadQuestRewards("c1", ["a1"], { ...known, showMinutes: false })).a1.minutes).toBeNull();
   });
@@ -210,14 +210,5 @@ describe("loadPlanCardData", () => {
   it("ignores another hero's rows", async () => {
     await earn("c2", "dye", 3, "a-other");
     expect((await svc.loadPlanCardData("c1")).balance.dye).toBe(0);
-  });
-});
-
-describe("loadRealmEnabled", () => {
-  it("reads the setting without creating a row, and is on for a hero with none", async () => {
-    expect(await svc.loadRealmEnabled("c1")).toBe(true);
-    expect(Number((await pool.query("SELECT count(*) AS n FROM realm_settings")).rows[0].n)).toBe(0);
-    await pool.query("INSERT INTO realm_settings (id, child_id, enabled, created_at, updated_at) VALUES ('s', 'c1', 0, 1, 1)");
-    expect(await svc.loadRealmEnabled("c1")).toBe(false);
   });
 });

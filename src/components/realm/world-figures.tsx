@@ -32,11 +32,11 @@ export type CastleTier = (typeof CASTLE_TIERS)[number];
 export const DECOR_KINDS = ["oak", "pine", "bush", "rock", "fence", "lantern", "signpost", "menhir", "boat", "scarecrow", "cart"] as const;
 export type DecorKind = (typeof DECOR_KINDS)[number];
 /**
- * The stages a site shows before it is built, one per deed still owed. A site
- * needs five deeds, so a child sees a different picture after EVERY deed: the
- * staked plot, the stone footing, the timber frame, the walls, the roof going
- * on — and then the building itself. `SITE_STAGES` is that count, not the deed
- * total; `SiteFigure` clamps anything outside it.
+ * The stages a site can show before it is built: the staked plot, the stone
+ * footing, the timber frame, the walls, the roof going on — and then the
+ * building itself. A site needs one deed per story (`deedsToBuild`, two or
+ * three), so each deed moves it up a stage. `SITE_STAGES` is the stage count,
+ * not the deed total; `SiteFigure` clamps anything outside it.
  */
 export const SITE_STAGES = 5;
 /**

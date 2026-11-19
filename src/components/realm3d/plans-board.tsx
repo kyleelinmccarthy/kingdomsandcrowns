@@ -15,12 +15,12 @@
 import "./plans-board.css";
 import { useId, useState, type CSSProperties } from "react";
 import { GameIcon } from "@/components/game-icon";
-import { pinPlan, startBuildRun } from "@/lib/actions/improvements";
+import { pinPlan, readWorks, startBuildRun } from "@/lib/actions/improvements";
 import { hostLabel, IMPROVEMENTS, LEVELS, planLine, planState, type PlanStatus } from "@/lib/realm/improvements";
 import { MATERIALS, MATERIAL_IDS, materialPhrase } from "@/lib/realm/materials";
 import type { Works } from "@/lib/realm/works-state";
 import type { RunStart, RunSummary } from "@/lib/utils/deed-run-types";
-import { BUILD_HERO_ONLY, deedErrorLine } from "@/lib/utils/deed-refusals";
+import { BUILD_HERO_ONLY, deedErrorLine, PLAN_NOT_READY, PLANS_CHANGED } from "@/lib/utils/deed-refusals";
 import { DeedRun } from "./deed-board";
 import { Panel } from "./frame-hud";
 
@@ -40,6 +40,7 @@ export function PlansBoard({
   calm,
   onPinned,
   onBuilt,
+  onWorks,
   onClose,
 }: {
   childId: string | null;
@@ -55,6 +56,8 @@ export function PlansBoard({
   onPinned: (id: string | null) => void;
   /** A build run finished: what it did, for the works to take in. */
   onBuilt: (improvement: Improvement) => void;
+  /** The works as they stand now, read again after the server said the plans changed. */
+  onWorks?: (works: Works) => void;
   onClose: () => void;
 }) {
   const canAct = !readOnly && childId !== null;
@@ -73,7 +76,16 @@ export function PlansBoard({
     const next = works.pinned === id ? null : id;
     act(pinPlan(childId!, next).then(() => onPinned(next)));
   };
-  const build = (id: string) => act(startBuildRun(childId!, id).then(setRun));
+  // The board asks for the level it shows. If the plans moved on in another tab, it says so and
+  // takes a fresh look (M-4), so the list is the kingdom as it stands.
+  const build = (id: string, level: number) =>
+    act(
+      startBuildRun(childId!, id, level).then(setRun, async (err: unknown) => {
+        const message = err instanceof Error ? err.message : "";
+        if ((message === PLANS_CHANGED || message === PLAN_NOT_READY) && onWorks) onWorks(await readWorks(childId!));
+        throw err;
+      }),
+    );
 
   if (run) {
     return (
@@ -129,7 +141,7 @@ function PlanRow({
   canAct: boolean;
   busy: boolean;
   onPin: (id: string) => void;
-  onBuild: (id: string) => void;
+  onBuild: (id: string, level: number) => void;
 }) {
   const plan = IMPROVEMENTS[status.id];
   const host = hostLabel(plan.host);
@@ -165,7 +177,7 @@ function PlanRow({
             </button>
           )}
           {status.state === "ready" && (
-            <button type="button" className="r3-menu-item r3-menu-item--go r3-plan-build" disabled={busy} onClick={() => onBuild(status.id)}>
+            <button type="button" className="r3-menu-item r3-menu-item--go r3-plan-build" disabled={busy} onClick={() => onBuild(status.id, status.level)}>
               Build
             </button>
           )}

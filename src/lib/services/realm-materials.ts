@@ -1,10 +1,10 @@
-import { and, asc, eq, gt, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, sql, type SQL } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { IMPROVEMENTS, type ImprovementId } from "@/lib/realm/improvements";
 import { materialBalance, resolveMaterial, type MaterialId, type MaterialRow } from "@/lib/realm/materials";
-import { EMPTY_WORKS, type Delivery, type Plaque, type Works } from "@/lib/realm/works-state";
+import type { Delivery, Plaque, Works } from "@/lib/realm/works-state";
 import { seasonLabel } from "@/lib/utils/seasons";
 import { settingsFromRow } from "@/lib/utils/realm-settings";
 import { BUILDINGS, buildingProgress } from "@/lib/utils/kingdom";
@@ -103,9 +103,6 @@ export async function loadMaterialLedger(childId: string, exec: Exec = db): Prom
   }));
 }
 
-export type { Delivery, Plaque, Works };
-export { EMPTY_WORKS };
-
 /** The quest titles a plaque keeps (D8's `sources` JSON: `{ title, subject, date }[]`). Bad JSON or a wrong shape is none. */
 function sourceTitles(json: string): string[] {
   try {
@@ -163,12 +160,29 @@ export async function loadPlaque(childId: string, improvementId: ImprovementId, 
  * highest level built of each plan with a plaque per built level, the pinned plan, and the delivery
  * (earned rows newer than `delivery_seen_at`; never seen means all of them). Reads only: it never
  * creates the settings row. Callers have authorized the child.
+ *
+ * A caller that reads the settings row anyway (`getRealmBundle`) hands it in as `settingsRow`, so
+ * the pin and the delivery mark come from that one read (M-5); null is a hero with no row yet.
+ * The delivery then waits on that row, off the page's critical path. Alone, the pin is its own
+ * small read and the mark a subquery, so everything is one round of parallel reads.
  */
-export async function loadWorks(childId: string): Promise<Works> {
+export async function loadWorks(
+  childId: string,
+  settingsRow?: Promise<{ pinnedPlan: string | null; deliverySeenAt: Date | null } | null>,
+): Promise<Works> {
   const M = schema.realmMaterial;
   const I = schema.realmImprovement;
   const S = schema.realmSettings;
-  const [ledger, built, settings, delivered] = await Promise.all([
+  // Newer than the mark; no mark (or no settings row yet) is everything. A row minted in the same second as the last one shown can be missed on the card, but never from the balance (accepted).
+  const deliveredAfter = (mark: SQL | Date | null) =>
+    db
+      .select({ materialId: M.materialId, amount: M.amount, origin: M.origin, createdAt: M.createdAt, title: schema.quest.title })
+      .from(M)
+      .leftJoin(schema.questAssignment, eq(M.sourceAssignmentId, schema.questAssignment.id))
+      .leftJoin(schema.quest, eq(schema.questAssignment.questId, schema.quest.id))
+      .where(and(eq(M.childId, childId), eq(M.kind, "earned"), mark === null ? undefined : gt(M.createdAt, mark)))
+      .orderBy(asc(M.createdAt), asc(M.id));
+  const [ledger, built, pinned, delivered] = await Promise.all([
     loadMaterialLedger(childId),
     db
       .select(plaqueColumns)
@@ -176,19 +190,12 @@ export async function loadWorks(childId: string): Promise<Works> {
       .leftJoin(schema.season, eq(I.seasonId, schema.season.id))
       .where(eq(I.childId, childId))
       .orderBy(asc(I.builtAt), asc(I.level)),
-    db.select({ pinnedPlan: S.pinnedPlan }).from(S).where(eq(S.childId, childId)).limit(1),
-    db
-      .select({ materialId: M.materialId, amount: M.amount, origin: M.origin, createdAt: M.createdAt, title: schema.quest.title })
-      .from(M)
-      .leftJoin(schema.questAssignment, eq(M.sourceAssignmentId, schema.questAssignment.id))
-      .leftJoin(schema.quest, eq(schema.questAssignment.questId, schema.quest.id))
-      .where(and(
-        eq(M.childId, childId),
-        eq(M.kind, "earned"),
-        // Newer than the mark; no mark (or no settings row yet) is everything. A row minted in the same second as the last one shown can be missed on the card, but never from the balance (accepted).
-        gt(M.createdAt, sql`coalesce((select ${S.deliverySeenAt} from ${S} where ${S.childId} = ${childId}), -1)`),
-      ))
-      .orderBy(asc(M.createdAt), asc(M.id)),
+    settingsRow
+      ? settingsRow.then((row) => row?.pinnedPlan ?? null)
+      : db.select({ pinnedPlan: S.pinnedPlan }).from(S).where(eq(S.childId, childId)).limit(1).then((rows) => rows[0]?.pinnedPlan ?? null),
+    settingsRow
+      ? settingsRow.then((row) => deliveredAfter(row?.deliverySeenAt ?? null))
+      : deliveredAfter(sql`coalesce((select ${S.deliverySeenAt} from ${S} where ${S.childId} = ${childId}), -1)`),
   ]);
 
   const levels: Record<string, number> = {};
@@ -201,7 +208,6 @@ export async function loadWorks(childId: string): Promise<Works> {
     plaques.push(plaqueFromRow({ ...r, improvementId: id }));
   }
 
-  const pinned = settings[0]?.pinnedPlan;
   const delivery: Delivery | null = delivered.length === 0
     ? null
     : {
@@ -363,10 +369,4 @@ export async function loadQuestRewards(childId: string, assignmentIds: string[],
     out[id] = { made: made.get(id) ?? null, minutes: minutes === null ? null : (earnedMinutes.get(id) ?? null) };
   }
   return out;
-}
-
-/** Whether the hero's Realm is on (the default for a hero with no settings row). Reads only: it never creates the row. */
-export async function loadRealmEnabled(childId: string): Promise<boolean> {
-  const [row] = await db.select().from(schema.realmSettings).where(eq(schema.realmSettings.childId, childId)).limit(1);
-  return settingsFromRow(row ?? null).enabled;
 }

@@ -83,7 +83,12 @@ export type Improvement = {
   secondary: MaterialId;
   /** Level n's boxes are drawn on top of every earlier level's, so each level only lists what it ADDS. */
   levels: { cost: Partial<Record<MaterialId, number>>; boxes: ImprovementBox[] }[];
+  /** The name is plural ("Lamps"), so the copy says "are", "grow" and "need" (`agree`). */
+  plural?: boolean;
 };
+
+/** The word that agrees with a plan's name: `one` for "the Fountain", `many` for "the Lamps". */
+export const agree = (id: ImprovementId, one: string, many: string): string => (IMPROVEMENTS[id]?.plural ? many : one);
 
 /* ---- box helpers ---------------------------------------------------------- */
 
@@ -202,15 +207,15 @@ const villageStatue = make("Statue", "village", "stone", "ink", [
 export const IMPROVEMENTS: Record<ImprovementId, Improvement> = {
   "well-house": wellHouse,
   "mill-granary": millGranary,
-  "bridge-arches": bridgeArches,
-  "chapel-windows": chapelWindows,
-  "market-stalls": marketStalls,
+  "bridge-arches": { ...bridgeArches, plural: true },
+  "chapel-windows": { ...chapelWindows, plural: true },
+  "market-stalls": { ...marketStalls, plural: true },
   "library-reading-wing": libraryReadingWing,
   "watchtower-beacon": watchtowerBeacon,
   "garden-herb-house": gardenHerbHouse,
   "chronicle-hall": chronicleHall,
-  "village-banners": villageBanners,
-  "village-lamps": villageLamps,
+  "village-banners": { ...villageBanners, plural: true },
+  "village-lamps": { ...villageLamps, plural: true },
   "village-fountain": villageFountain,
   "village-statue": villageStatue,
 };
@@ -332,7 +337,7 @@ export function planHint(made: MaterialId, plans: PlanStatus[], pinned: string |
   const needs = (p: PlanStatus) => wanted(p) > 0;
   const pin = pinned ? plans.find((p) => p.id === pinned && needs(p)) : undefined;
   const best = pin ?? plans.filter(needs).sort(nearestFirst)[0];
-  return best ? `${planName(best.id)} needs ${wanted(best)} more` : null;
+  return best ? `${planName(best.id)} ${agree(best.id, "needs", "need")} ${wanted(best)} more` : null;
 }
 
 /**
@@ -342,7 +347,7 @@ export function planHint(made: MaterialId, plans: PlanStatus[], pinned: string |
  */
 export function nearestPlanHint(plans: PlanStatus[]): string | null {
   const best = plans.filter((p) => p.state === "short").sort(nearestFirst)[0];
-  return best ? `${planName(best.id)} needs ${totalOf(best.short)} more` : null;
+  return best ? `${planName(best.id)} ${agree(best.id, "needs", "need")} ${totalOf(best.short)} more` : null;
 }
 
 /**

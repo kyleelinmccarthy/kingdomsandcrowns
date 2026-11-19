@@ -893,7 +893,7 @@ const World = memo(function World({ layout, textures, settings, surfaces, axisRe
   const worldTex = (key: string): THREE.CanvasTexture | undefined => textures.world[key];
   /**
    * How far up a site is, 0..SITE_STAGES-1, for the stage figure that stands on its plot.
-   * A site owes five deeds and there are five stages, so every deed changes the picture.
+   * A site owes one deed per story (`deedsToBuild`, two or three), fewer than the five stages, so every deed changes the picture.
    *
    * The count is read off the layout's villager placement rather than the prop, because
    * the prop carries progress only as the display string in `tag` and `layout.ts` is not

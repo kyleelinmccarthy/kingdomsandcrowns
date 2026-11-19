@@ -234,7 +234,7 @@ describe("the deed board", () => {
 
     it("says the plan grows, shows its stars, and never 'New best!' or a side quest", async () => {
       const onResult = await playToTheEnd(built);
-      expect(screen.getByText("The Banners grows!")).toBeInTheDocument();
+      expect(screen.getByText("The Banners grow!")).toBeInTheDocument();
       expect(screen.getByRole("img", { name: "3 of 3 stars" })).toBeInTheDocument();
       expect(screen.queryByText("New best!")).toBeNull();
       expect(document.body.textContent).not.toMatch(/Flawless|side quest done/i);
@@ -243,7 +243,7 @@ describe("the deed board", () => {
 
     it("never hands a building up to be raised, even if a result carried one", async () => {
       const onResult = await playToTheEnd({ ...built, building: { label: "Village Well", done: 5, total: 5, complete: true, stars: 9, maxStars: 9, practice: false } });
-      expect(screen.getByText("The Banners grows!")).toBeInTheDocument();
+      expect(screen.getByText("The Banners grow!")).toBeInTheDocument();
       expect(onResult).not.toHaveBeenCalled();
     });
   });

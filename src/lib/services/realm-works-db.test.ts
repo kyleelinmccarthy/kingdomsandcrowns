@@ -112,6 +112,21 @@ describe("loadWorks: the delivery", () => {
     expect(d?.through).toBe(200);
   });
 
+  it("takes the pin and the delivery mark from a settings row it is handed, rather than reading its own (M-5)", async () => {
+    // The database says: nothing seen, no pin. The row handed in says otherwise, and wins.
+    await settings({ seen: null, pinned: null });
+    await earned("stone", 1, 100, { title: "Old news" });
+    await earned("ink", 1, 300, { title: "Spelling" });
+    const handed = Promise.resolve({ pinnedPlan: "village-banners", deliverySeenAt: new Date(200 * 1000) });
+    const w = await loadWorks("c1", handed);
+    expect(w.pinned).toBe("village-banners");
+    expect(w.delivery?.rows.map((r) => r.title)).toEqual(["Spelling"]);
+    // A handed null is a hero with no row: everything is new, nothing pinned.
+    const none = await loadWorks("c1", Promise.resolve(null));
+    expect(none.pinned).toBeNull();
+    expect(none.delivery?.rows).toHaveLength(2);
+  });
+
   it("a hero with no settings row yet counts as null: all rows", async () => {
     await earned("stone", 1, 100, { title: "A" });
     expect((await loadWorks("c1")).delivery?.rows).toHaveLength(1);

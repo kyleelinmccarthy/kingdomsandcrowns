@@ -54,6 +54,10 @@ describe("the catalog", () => {
     ]);
   });
 
+  it("marks the plural names, so the copy agrees with them", () => {
+    expect(ids.filter((id) => IMPROVEMENTS[id].plural)).toEqual(["bridge-arches", "chapel-windows", "market-stalls", "village-banners", "village-lamps"]);
+  });
+
   it("takes its primary material from the brief and a different secondary", () => {
     const primary: Record<ImprovementId, MaterialId> = {
       "well-house": "stone", "mill-granary": "herbs", "bridge-arches": "stone", "chapel-windows": "dye", "market-stalls": "thread", "library-reading-wing": "ink",
@@ -334,7 +338,7 @@ describe("planHint", () => {
 
   it("names the nearest plan that wants what was just made", () => {
     const plans = [short("library-reading-wing", { ink: 3 }), short("village-banners", { ink: 1 }), short("well-house", { stone: 2 })];
-    expect(planHint("ink", plans, null)).toBe("the Banners needs 1 more");
+    expect(planHint("ink", plans, null)).toBe("the Banners need 1 more");
     expect(planHint("stone", plans, null)).toBe("the Village Well's Well House needs 2 more");
   });
 
@@ -350,7 +354,7 @@ describe("planHint", () => {
   it("falls back to the nearest when the pinned plan does not need it", () => {
     // The well house is short of stone, its primary: ink cannot pay for that (RD-t).
     const plans = [short("well-house", { stone: 3 }), short("village-banners", { ink: 1 })];
-    expect(planHint("ink", plans, "well-house")).toBe("the Banners needs 1 more");
+    expect(planHint("ink", plans, "well-house")).toBe("the Banners need 1 more");
   });
 
   it("names a plan short of its secondary, which any material can pay for (RD-t)", () => {
@@ -358,6 +362,12 @@ describe("planHint", () => {
     // Its primary is the stone itself: stone's surplus pays the herbs too.
     expect(planHint("stone", [short("village-fountain", { herbs: 2 })], null)).toBe("the Fountain needs 2 more");
     expect(planHint("ink", [short("village-fountain", { stone: 2, herbs: 1 })], null)).toBe("the Fountain needs 1 more");
+  });
+
+  it("agrees with a plural plan's name", () => {
+    expect(planHint("stone", [short("bridge-arches", { stone: 2 })], null)).toBe("the River Bridge's Stone Arches need 2 more");
+    expect(planHint("dye", [short("village-banners", { dye: 2 })], null)).toBe("the Banners need 2 more");
+    expect(nearestPlanHint([short("village-lamps", { thread: 3 })])).toBe("the Lamps need 3 more");
   });
 
   it("does not name a plan short only of its primary for another material", () => {
@@ -380,7 +390,7 @@ describe("planHint", () => {
     ];
     expect(planHint("ink", plans, null)).toBeNull();
     expect(planHint("ink", plans, "village-statue")).toBeNull();
-    expect(planHint("dye", plans, null)).toBe("the Banners needs 2 more");
+    expect(planHint("dye", plans, null)).toBe("the Banners need 2 more");
     expect(planHint("ink", [], null)).toBeNull();
   });
 });
@@ -390,7 +400,7 @@ describe("nearestPlanHint", () => {
 
   it("names the short plan with the smallest total shortfall, counting every material", () => {
     const plans = [short("library-reading-wing", { ink: 3, thread: 2 }), short("village-banners", { dye: 1, thread: 2 }), short("well-house", { stone: 4 })];
-    expect(nearestPlanHint(plans)).toBe("the Banners needs 3 more");
+    expect(nearestPlanHint(plans)).toBe("the Banners need 3 more");
   });
 
   it("uses the same wording as planHint for a building host", () => {

@@ -296,7 +296,7 @@ describe("DeedPlayer", () => {
       await user.click(screen.getByRole("button", { name: "again" }));
       expect(screen.queryByRole("button", { name: "Finish side quest" })).not.toBeInTheDocument();
       await user.click(await screen.findByRole("button", { name: "Finish building" }));
-      expect(await screen.findByRole("heading", { name: "The Banners is built!" })).toBeInTheDocument();
+      expect(await screen.findByRole("heading", { name: "The Banners are built!" })).toBeInTheDocument();
     });
 
     it("says the plan grows above level 1, shows its stars, and never 'New best!' or a side quest", async () => {
@@ -305,7 +305,7 @@ describe("DeedPlayer", () => {
       render(<DeedPlayer run={buildRun(2)} profile={profile} calm={false} onFinished={() => {}} />);
       await user.click(screen.getByRole("button", { name: "again" }));
       await user.click(await screen.findByRole("button", { name: "Finish building" }));
-      expect(await screen.findByRole("heading", { name: "The Banners grows!" })).toBeInTheDocument();
+      expect(await screen.findByRole("heading", { name: "The Banners grow!" })).toBeInTheDocument();
       expect(screen.getByText("2 of 3 right.")).toBeInTheDocument();
       expect(screen.getByRole("img", { name: "2 of 3 stars" })).toBeInTheDocument();
       expect(screen.queryByText("New best!")).not.toBeInTheDocument();

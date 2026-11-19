@@ -1261,6 +1261,8 @@ export const kingdomProgress = sqliteTable(
     announcedAt: integer("announced_at", { mode: "timestamp" }),
     // Who raised it and in which calendar season, snapshotted at the rise (D13.7-D13.9).
     raisedByName: text("raised_by_name"),
+    // Written now and read by nothing yet: "Raised by … · Spring 2026" is told from `completed_at`.
+    // Kept on purpose (spec D13.7): the grown-up's panel of a later slice lists raises by school season from it.
     raisedSeasonId: text("raised_season_id"),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),

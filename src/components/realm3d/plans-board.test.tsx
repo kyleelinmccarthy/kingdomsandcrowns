@@ -8,14 +8,14 @@ vi.mock("@/lib/actions/deeds", () => ({
   resolveDeedQuestion: vi.fn(),
   completeDeedRun: vi.fn(),
 }));
-vi.mock("@/lib/actions/improvements", () => ({ startBuildRun: vi.fn(), pinPlan: vi.fn() }));
+vi.mock("@/lib/actions/improvements", () => ({ startBuildRun: vi.fn(), pinPlan: vi.fn(), readWorks: vi.fn() }));
 vi.mock("@/lib/utils/speech", () => ({ canSpeak: () => false, speak: vi.fn(), stopSpeaking: vi.fn() }));
 
 import { answerDeedQuestion, completeDeedRun } from "@/lib/actions/deeds";
-import { pinPlan, startBuildRun } from "@/lib/actions/improvements";
+import { pinPlan, readWorks, startBuildRun } from "@/lib/actions/improvements";
 import { EMPTY_WORKS, type Works } from "@/lib/realm/works-state";
 import type { RunStart, RunSummary } from "@/lib/utils/deed-run-types";
-import { BUILD_HERO_ONLY, PIN_HERO_ONLY } from "@/lib/utils/deed-refusals";
+import { BUILD_HERO_ONLY, PIN_HERO_ONLY, PLANS_CHANGED } from "@/lib/utils/deed-refusals";
 import { PlansBoard } from "./plans-board";
 import { useWorks } from "./use-works";
 
@@ -59,6 +59,7 @@ function Harness({ readOnly = false, works = WORKS, onClose = () => {} }: { read
       calm={false}
       onPinned={w.setPinned}
       onBuilt={w.applyBuildResult}
+      onWorks={w.replaceWorks}
       onClose={onClose}
     />
   );
@@ -69,7 +70,7 @@ const row = (name: string) => screen.getByRole("listitem", { name });
 async function playTheRun() {
   vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: true, secondChance: false, answer: "5" });
   await act(async () => void fireEvent.click(within(row("Banners")).getByRole("button", { name: "Build" })));
-  expect(startBuildRun).toHaveBeenCalledWith("c1", "village-banners");
+  expect(startBuildRun).toHaveBeenCalledWith("c1", "village-banners", 1);
   expect(screen.getByText("What is 2 + 3?")).toBeInTheDocument();
   await act(async () => void fireEvent.click(screen.getByRole("button", { name: "5" })));
   await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Finish building" })));
@@ -124,7 +125,7 @@ describe("the plans board", () => {
     vi.mocked(completeDeedRun).mockResolvedValue(summary(BUILT));
     render(<Harness />);
     await playTheRun();
-    expect(screen.getByText("The Banners is built!")).toBeInTheDocument();
+    expect(screen.getByText("The Banners are built!")).toBeInTheDocument();
     await act(async () => void fireEvent.click(screen.getByRole("button", { name: /Back to the plans/ })));
     // The works took the build: the next level is on offer, and the satchel is spent.
     expect(row("Banners")).toHaveTextContent("Level 2 of 3");
@@ -163,5 +164,28 @@ describe("the plans board", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("That didn't work.");
     expect(screen.getByRole("dialog", { name: "Kingdom plans" })).toBeInTheDocument();
     expect(onClose).not.toHaveBeenCalled();
+    // A refusal that is not about stale plans never re-reads the works.
+    expect(readWorks).not.toHaveBeenCalled();
+  });
+
+  it("asks to build the level it shows", async () => {
+    vi.mocked(startBuildRun).mockResolvedValue(run);
+    render(<Harness works={{ ...WORKS, built: { ...WORKS.built, "village-banners": 1 }, balance: { ...WORKS.balance, dye: 6, thread: 3 } }} />);
+    await act(async () => void fireEvent.click(within(row("Banners")).getByRole("button", { name: "Build" })));
+    expect(startBuildRun).toHaveBeenCalledWith("c1", "village-banners", 2);
+  });
+
+  it("takes a fresh look when the plans changed (a stale tab): says so, and lists the works as they stand (M-4)", async () => {
+    vi.mocked(startBuildRun).mockRejectedValue(new Error(PLANS_CHANGED));
+    // Another tab built the Banners' first level and spent the dye.
+    const fresh: Works = { ...WORKS, built: { ...WORKS.built, "village-banners": 1 }, balance: { ...EMPTY_WORKS.balance } };
+    vi.mocked(readWorks).mockResolvedValue(fresh);
+    render(<Harness />);
+    expect(row("Banners")).toHaveTextContent("Level 1 of 3");
+    await act(async () => void fireEvent.click(within(row("Banners")).getByRole("button", { name: "Build" })));
+    expect(readWorks).toHaveBeenCalledWith("c1");
+    expect(screen.getByRole("alert")).toHaveTextContent(PLANS_CHANGED);
+    expect(row("Banners")).toHaveTextContent("Level 2 of 3");
+    expect(within(row("Banners")).queryByRole("button", { name: "Build" })).toBeNull();
   });
 });

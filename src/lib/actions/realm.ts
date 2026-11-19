@@ -4,7 +4,8 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { requireChildAccess, isChildActor } from "@/lib/auth/access";
-import { loadRealmSettings, loadRealmFlags } from "@/lib/services/realm-play";
+import { loadRealmSettingsRow, loadRealmFlags } from "@/lib/services/realm-play";
+import { settingsFromRow } from "@/lib/utils/realm-settings";
 import { loadRecentTroubleClears } from "@/lib/services/realm-troubles";
 import type { RecentClear } from "@/lib/realm3d/trouble-reload";
 import { loadKingdomOverview } from "@/lib/services/deeds";
@@ -170,13 +171,16 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
     console.error("Realm focus failed to load", err);
     return [] as SkillArea[];
   });
+  // The settings row, read ONCE for the whole bundle (M-5): the settings below, the works' pin and
+  // delivery mark, and the rises' `regraded_at` all come from it. In flight from here.
+  const settingsRead = loadRealmSettingsRow(childId);
   // Which buildings still owe the hero a rise, on the same access: a failed read is "none owed".
-  const risesRead = loadRises(childId).catch((err: unknown) => {
+  const risesRead = loadRises(childId, settingsRead).catch((err: unknown) => {
     console.error("Realm rises failed to load", err);
     return { unannounced: [] as string[], regraded: false };
   });
   // The satchel, plaques, pinned plan and delivery, on the same access: a failed read is "nothing yet".
-  const worksRead = loadWorks(childId).catch((err: unknown) => {
+  const worksRead = loadWorks(childId, settingsRead).catch((err: unknown) => {
     console.error("Realm works failed to load", err);
     return EMPTY_WORKS;
   });
@@ -199,7 +203,7 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
     db.select({ type: schema.castle.type }).from(schema.castle).where(eq(schema.castle.childId, childId)).limit(1),
     // Memoized per request; loadKingdomOverview below reads the same row for the hero's grades.
     loadLearningProfileRow(childId),
-    loadRealmSettings(childId),
+    settingsRead.then(settingsFromRow),
     loadKingdomState(childId).then((kingdom) => ({ kingdom, error: undefined as string | undefined })).catch((err: unknown) => {
       console.error("Realm kingdom failed to load", err);
       return { kingdom: { tone: "gentle" as const, buildings: [] }, error: VILLAGERS_RESTING };

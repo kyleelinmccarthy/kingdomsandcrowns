@@ -42,7 +42,7 @@ describe("KingdomPlanCard", () => {
     // Level 1 costs 4 Ink and 2 Thread; have 1 and 2.
     expect(screen.getByRole("progressbar", { name: "Ink: 1 of 4" })).toHaveAttribute("aria-valuenow", "1");
     expect(screen.getByRole("progressbar", { name: "Thread: 2 of 2" })).toHaveAttribute("aria-valuenow", "2");
-    expect(screen.getByRole("link", { name: "Build it in the Realm" })).toHaveAttribute("href", "/realm");
+    expect(screen.getByRole("link", { name: "Go to the Realm" })).toHaveAttribute("href", "/realm");
   });
 
   it("shows the satchel counts", () => {
@@ -58,6 +58,9 @@ describe("KingdomPlanCard", () => {
     render(<KingdomPlanCard {...base} balance={bal({ dye: 4, thread: 2 })} />);
     expect(screen.getByText("Banners")).toBeInTheDocument();
     expect(screen.getByText("Ready to build")).toBeInTheDocument();
+    // Ready: the link says what the hero can do there (M-7).
+    expect(screen.getByRole("link", { name: "Build it in the Realm" })).toHaveAttribute("href", "/realm");
+    expect(screen.queryByRole("link", { name: "Go to the Realm" })).not.toBeInTheDocument();
   });
 
   it("does not show a pin on a plan that is fully built, and never shows a plan that waits on its building or is done", () => {
@@ -111,14 +114,14 @@ describe("KingdomPlanCard", () => {
 
   it("hides the way to the Realm from a hero while the Realm is resting, but not the plan or the Pin", () => {
     render(<KingdomPlanCard {...base} realmEnabled={false} balance={bal({ dye: 3 })} />);
-    expect(screen.queryByRole("link", { name: "Build it in the Realm" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Realm/ })).not.toBeInTheDocument();
     expect(screen.getByText("Banners")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Pin" })).toBeInTheDocument();
   });
 
   it("keeps a grown-up's link to the hero's Realm whatever the Realm's state", () => {
     render(<KingdomPlanCard {...base} canPin={false} realmEnabled={false} />);
-    expect(screen.getByRole("link", { name: "Build it in the Realm" })).toHaveAttribute("href", "/realm?child=c1");
+    expect(screen.getByRole("link", { name: "Go to the Realm" })).toHaveAttribute("href", "/realm?child=c1");
   });
 
   it("shows a pinned plan only when it is ready or short: one waiting on its building gives way to the first that is", () => {
@@ -162,7 +165,7 @@ describe("KingdomPlanCard", () => {
     render(<KingdomPlanCard {...base} canPin={false} pinned="village-banners" balance={bal({ dye: 1 })} />);
     expect(screen.getByText("Banners")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Pin/ })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Build it in the Realm" })).toHaveAttribute("href", "/realm?child=c1");
+    expect(screen.getByRole("link", { name: "Go to the Realm" })).toHaveAttribute("href", "/realm?child=c1");
   });
 
   it("is hidden when quests bring nothing and nothing is in the satchel", () => {
@@ -180,6 +183,6 @@ describe("KingdomPlanCard", () => {
     render(<KingdomPlanCard {...base} built={built} />);
     expect(screen.getByText("Finish quests to bring materials to your kingdom.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^Pin/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: "Build it in the Realm" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Realm/ })).not.toBeInTheDocument();
   });
 });

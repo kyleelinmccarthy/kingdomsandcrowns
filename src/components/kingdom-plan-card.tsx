@@ -147,7 +147,8 @@ export function KingdomPlanCard({
           <div className="flex flex-wrap items-center gap-3">
             {showRealmLink && (
               <Link href={canPin ? "/realm" : `/realm?child=${childId}`} className="text-sm font-medium text-primary hover:underline">
-                Build it in the Realm
+                {/* A short plan has nothing to build yet: the link only says where the Realm is (M-7). */}
+                {plan.state === "ready" ? "Build it in the Realm" : "Go to the Realm"}
               </Link>
             )}
             {canPin && (

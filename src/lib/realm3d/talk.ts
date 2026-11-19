@@ -17,6 +17,7 @@
 
 import type { AttemptResult, RunSummary } from "@/lib/utils/deed-run-types";
 import { seasonPhrase } from "@/lib/realm/season-phrase";
+import { agree } from "@/lib/realm/improvements";
 import { cutFeedbackLine } from "@/lib/tasks/measure-copy";
 import type { ClientTask } from "@/lib/tasks/types";
 import { MAX_STARS, countsTowardBuilding } from "@/lib/utils/deed-scoring";
@@ -205,7 +206,7 @@ export function deedToast(input: {
 export const BUILD_FINISH = "Finish building";
 
 /** What the result card's headline reads of a build run's outcome (`RunSummary.improvement`). */
-type BuildOutcome = Pick<NonNullable<RunSummary["improvement"]>, "label" | "level" | "built" | "reason">;
+type BuildOutcome = Pick<NonNullable<RunSummary["improvement"]>, "id" | "label" | "level" | "built" | "reason">;
 
 /** The result card's headline, as the flat Realm's `DeedResults` wrote it; a Crown Challenge is crowned or close. */
 export function resultHeadline(
@@ -215,7 +216,11 @@ export function resultHeadline(
   // A build run is judged on what it built, never as a side quest: the plan stands, waits, or stopped.
   if (summary.kind === "build") {
     const b = summary.improvement;
-    if (b?.built) return { title: b.level > 1 ? `The ${b.label} grows!` : `The ${b.label} is built!`, line: `${summary.correctCount} of ${summary.total} right.` };
+    // "The Lamps are built!", "The Fountain grows!": the verb agrees with the plan's name.
+    if (b?.built) {
+      const title = b.level > 1 ? `The ${b.label} ${agree(b.id, "grows", "grow")}!` : `The ${b.label} ${agree(b.id, "is", "are")} built!`;
+      return { title, line: `${summary.correctCount} of ${summary.total} right.` };
+    }
     if (b?.reason === "short") return { title: "Not quite enough materials", line: "The plan will wait for you on the plans board." };
     // An error, or a summary with no outcome at all: nothing was spent either way.
     return { title: "The builders had to stop", line: "Nothing was spent. Try again from the plans board." };

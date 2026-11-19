@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeAll, beforeEach, afterAll } from "vitest";
 import { testDatabase } from "@/test/libsql-test-db";
 import { DEFAULT_REALM_SETTINGS } from "@/lib/utils/realm-settings";
-import { BUILD_HERO_ONLY, CLOSED, DELIVERY_HERO_ONLY, PIN_HERO_ONLY, PLAN_NOT_READY, RISE_HERO_ONLY } from "@/lib/utils/deed-refusals";
+import { BUILD_HERO_ONLY, CLOSED, DELIVERY_HERO_ONLY, PIN_HERO_ONLY, PLAN_NOT_READY, PLANS_CHANGED, RISE_HERO_ONLY } from "@/lib/utils/deed-refusals";
 import { TASK_CODECS } from "@/lib/tasks/codecs";
 import { kindOf } from "@/lib/tasks/registry";
 import type { MeasureTask, Task } from "@/lib/tasks/types";
@@ -41,7 +41,7 @@ vi.mock("@/lib/services/deeds", async () => {
   };
 });
 
-const { markBuildingsAnnounced, markDeliverySeen, pinPlan, startBuildRun } = await import("./improvements");
+const { markBuildingsAnnounced, markDeliverySeen, pinPlan, readWorks, startBuildRun } = await import("./improvements");
 const { answerDeedQuestion, completeDeedRun } = await import("./deeds");
 const { requireChildAccess } = await import("@/lib/auth/access");
 const { loadHeroLevels } = await import("@/lib/services/deeds");
@@ -184,7 +184,7 @@ describe("which buildings stand, for the plans board", () => {
 describe("startBuildRun", () => {
   it("starts a plan that is ready: three bench tasks, a build run owned by no deed, named by the plan and level", async () => {
     await stockBanners();
-    const r = await startBuildRun("c1", "village-banners");
+    const r = await startBuildRun("c1", "village-banners", 1);
     expect(r.kind).toBe("build");
     expect(r.questions).toHaveLength(3);
     expect(r.questions.map((q) => q.kind)).toEqual(["measure", "measure", "measure"]);
@@ -199,7 +199,7 @@ describe("startBuildRun", () => {
 
   it("draws the hero's two bench skills for their math grade", async () => {
     await stockBanners();
-    const r = await startBuildRun("c1", "village-banners");
+    const r = await startBuildRun("c1", "village-banners", 1);
     const skills = new Set((await storedTasks(r.runId)).map((t) => t.skillId));
     expect([...skills].sort()).toEqual(["area-perimeter", "frac-unit"]);
   });
@@ -207,16 +207,16 @@ describe("startBuildRun", () => {
   it("freezes the second-chance setting on the run, as a review does", async () => {
     await stockBanners();
     vi.mocked(loadRealmSettings).mockResolvedValue({ ...DEFAULT_REALM_SETTINGS, secondChances: false });
-    const r = await startBuildRun("c1", "village-banners");
+    const r = await startBuildRun("c1", "village-banners", 1);
     expect(Number((await client.query("SELECT second_chances FROM deed_run WHERE id = ?1", [r.runId])).rows[0].second_chances)).toBe(0);
   });
 
   it("a second start picks the same open run back up, with what was laid so far", async () => {
     await stockBanners();
-    const first = await startBuildRun("c1", "village-banners");
+    const first = await startBuildRun("c1", "village-banners", 1);
     const tasks = await storedTasks(first.runId);
     await answerDeedQuestion(first.runId, 0, rightResponse(tasks[0]));
-    const again = await startBuildRun("c1", "village-banners");
+    const again = await startBuildRun("c1", "village-banners", 1);
     expect(again.runId).toBe(first.runId);
     expect(again.plan).toEqual({ improvementId: "village-banners", level: 1, placed: 1 });
     expect(again.deed).toEqual(first.deed);
@@ -229,11 +229,11 @@ describe("startBuildRun", () => {
     await stockBanners();
     await earn("dye", 6);
     await earn("thread", 3);
-    const first = await startBuildRun("c1", "village-banners");
+    const first = await startBuildRun("c1", "village-banners", 1);
     const tasks = await storedTasks(first.runId);
     for (const [i, t] of tasks.entries()) await answerDeedQuestion(first.runId, i, rightResponse(t));
     await completeDeedRun(first.runId);
-    const next = await startBuildRun("c1", "village-banners");
+    const next = await startBuildRun("c1", "village-banners", 2);
     expect(next.runId).not.toBe(first.runId);
     expect(next.plan).toMatchObject({ level: 2 });
     expect(await runs()).toBe(2);
@@ -243,7 +243,7 @@ describe("startBuildRun", () => {
     await built("village-banners", 1);
     await earn("dye", 6);
     await earn("thread", 3);
-    const r = await startBuildRun("c1", "village-banners");
+    const r = await startBuildRun("c1", "village-banners", 2);
     expect(r.plan).toMatchObject({ level: 2 });
     expect(r.deed.id).toBe("build:village-banners:2");
     expect((await client.query("SELECT source_ref FROM deed_run WHERE id = ?1", [r.runId])).rows[0].source_ref).toBe("village-banners:2");
@@ -252,21 +252,21 @@ describe("startBuildRun", () => {
   it("starts a wing once its building is raised, and not before", async () => {
     await earn("thread", 2);
     await earn("stone", 4);
-    await expect(startBuildRun("c1", "well-house")).rejects.toThrow(PLAN_NOT_READY);
+    await expect(startBuildRun("c1", "well-house", 1)).rejects.toThrow(PLAN_NOT_READY);
     await raise("well");
-    const r = await startBuildRun("c1", "well-house");
+    const r = await startBuildRun("c1", "well-house", 1);
     expect(r.plan).toMatchObject({ improvementId: "well-house", level: 1 });
   });
 
   it("pays for a shortfall in one material with timber, as planState does", async () => {
     await earn("dye", 2);
     await earn("timber", 4);
-    expect((await startBuildRun("c1", "village-banners")).plan).toMatchObject({ level: 1 });
+    expect((await startBuildRun("c1", "village-banners", 1)).plan).toMatchObject({ level: 1 });
   });
 
   it("refuses a plan that is not ready, and writes nothing", async () => {
     await earn("dye", 1);
-    await expect(startBuildRun("c1", "village-banners")).rejects.toThrow(PLAN_NOT_READY);
+    await expect(startBuildRun("c1", "village-banners", 1)).rejects.toThrow(PLAN_NOT_READY);
     expect(await runs()).toBe(0);
   });
 
@@ -274,33 +274,56 @@ describe("startBuildRun", () => {
     for (const level of [1, 2, 3]) await built("village-banners", level);
     await earn("dye", 40);
     await earn("thread", 40);
-    await expect(startBuildRun("c1", "village-banners")).rejects.toThrow(PLAN_NOT_READY);
+    await expect(startBuildRun("c1", "village-banners", 1)).rejects.toThrow(PLAN_NOT_READY);
+  });
+
+  it("refuses a level the board no longer shows (a stale tab): the plans changed, and nothing is written (M-4)", async () => {
+    // Another tab built level 1; this one still shows level 1 as ready, and level 2 is affordable.
+    await built("village-banners", 1);
+    await earn("dye", 6);
+    await earn("thread", 3);
+    await expect(startBuildRun("c1", "village-banners", 1)).rejects.toThrow(PLANS_CHANGED);
+    expect(await runs()).toBe(0);
+    // And the level it shows after a fresh look builds.
+    expect((await startBuildRun("c1", "village-banners", 2)).plan).toMatchObject({ level: 2 });
+  });
+
+  it("refuses a level the board shows when that level is now short: the plans changed", async () => {
+    await built("village-banners", 1);
+    await earn("dye", 1);
+    await expect(startBuildRun("c1", "village-banners", 1)).rejects.toThrow(PLANS_CHANGED);
+  });
+
+  it.each([undefined, "1", Number.NaN, 1.5])("takes an expected level of %j as a plan that changed", async (level) => {
+    await stockBanners();
+    await expect(startBuildRun("c1", "village-banners", level as never)).rejects.toThrow(PLANS_CHANGED);
+    expect(await runs()).toBe(0);
   });
 
   it.each([null, undefined, 7, {}, "", "not-a-plan", "village-banners:1", "__proto__", "constructor"])("refuses %j, which is no plan in the catalog", async (id) => {
     await stockBanners();
-    await expect(startBuildRun("c1", id as never)).rejects.toThrow(PLAN_NOT_READY);
+    await expect(startBuildRun("c1", id as never, 1)).rejects.toThrow(PLAN_NOT_READY);
     expect(await runs()).toBe(0);
   });
 
   it("refuses a grown-up, and writes nothing", async () => {
     await stockBanners();
     vi.mocked(requireChildAccess).mockResolvedValueOnce({ access: { userId: "parent:u1" }, familyId: "f1" } as never);
-    await expect(startBuildRun("c1", "village-banners")).rejects.toThrow(BUILD_HERO_ONLY);
+    await expect(startBuildRun("c1", "village-banners", 1)).rejects.toThrow(BUILD_HERO_ONLY);
     expect(await runs()).toBe(0);
   });
 
   it("is closed for a hero whose Realm a grown-up has closed", async () => {
     await stockBanners();
     vi.mocked(loadHeroLevels).mockResolvedValueOnce({ enabled: false, tone: "gentle", band: "g23", grades: { math: "3", reading: "3", language: "3", science: "3" } } as never);
-    await expect(startBuildRun("c1", "village-banners")).rejects.toThrow(CLOSED);
+    await expect(startBuildRun("c1", "village-banners", 1)).rejects.toThrow(CLOSED);
     expect(await runs()).toBe(0);
   });
 
   it("with the measure toggle off asks the same skills as choice tasks", async () => {
     await stockBanners();
     vi.mocked(loadRealmSettings).mockResolvedValue(mechanics(false));
-    const r = await startBuildRun("c1", "village-banners");
+    const r = await startBuildRun("c1", "village-banners", 1);
     expect(r.questions).toHaveLength(3);
     expect(r.questions.map((q) => q.kind)).toEqual(["choice", "choice", "choice"]);
     expect([...new Set((await storedTasks(r.runId)).map((t) => t.skillId))].sort()).toEqual(["area-perimeter", "frac-unit"]);
@@ -310,24 +333,24 @@ describe("startBuildRun", () => {
   describe("Aldo's demo (R-D6)", () => {
     it("shows a K to 3 hero's first build run the demo at its first bench task", async () => {
       await stockBanners();
-      const r = await startBuildRun("c1", "village-banners");
+      const r = await startBuildRun("c1", "village-banners", 1);
       expect(r.demo).toEqual({ at: 0 });
     });
 
     it("shows it again on a resume until a bench task has been answered", async () => {
       await stockBanners();
-      const first = await startBuildRun("c1", "village-banners");
-      expect((await startBuildRun("c1", "village-banners")).demo).toEqual({ at: 0 });
+      const first = await startBuildRun("c1", "village-banners", 1);
+      expect((await startBuildRun("c1", "village-banners", 1)).demo).toEqual({ at: 0 });
       const tasks = await storedTasks(first.runId);
       await answerDeedQuestion(first.runId, 0, rightResponse(tasks[0]));
-      expect((await startBuildRun("c1", "village-banners")).demo).toBeUndefined();
+      expect((await startBuildRun("c1", "village-banners", 1)).demo).toBeUndefined();
     });
 
     it("does not show a grade 4 hero the demo", async () => {
       await stockBanners();
       vi.mocked(loadHeroLevels).mockResolvedValue({ enabled: true, tone: "gentle", band: "g45", grades: { math: "4", reading: "4", language: "4", science: "4" } } as never);
       try {
-        expect((await startBuildRun("c1", "village-banners")).demo).toBeUndefined();
+        expect((await startBuildRun("c1", "village-banners", 1)).demo).toBeUndefined();
       } finally {
         vi.mocked(loadHeroLevels).mockResolvedValue({ enabled: true, tone: "gentle", band: "g23", grades: { math: "3", reading: "3", language: "3", science: "3" } } as never);
       }
@@ -335,7 +358,7 @@ describe("startBuildRun", () => {
   });
 
   async function answeredRun(improvementId = "village-banners"): Promise<string> {
-    const r = await startBuildRun("c1", improvementId);
+    const r = await startBuildRun("c1", improvementId, 1);
     const tasks = await storedTasks(r.runId);
     for (const [i, t] of tasks.entries()) await answerDeedQuestion(r.runId, i, rightResponse(t));
     return r.runId;
@@ -360,7 +383,7 @@ describe("startBuildRun", () => {
     await stockBanners();
     // No second tries, so every wrong answer resolves at once.
     vi.mocked(loadRealmSettings).mockResolvedValue({ ...DEFAULT_REALM_SETTINGS, secondChances: false });
-    const r = await startBuildRun("c1", "village-banners");
+    const r = await startBuildRun("c1", "village-banners", 1);
     const tasks = await storedTasks(r.runId);
     for (const [i, t] of tasks.entries()) await answerDeedQuestion(r.runId, i, wrongResponse(t));
     const s = await completeDeedRun(r.runId);
@@ -444,7 +467,7 @@ describe("startBuildRun", () => {
 
   it("answering a build run moves skill_mastery", async () => {
     await stockBanners();
-    const r = await startBuildRun("c1", "village-banners");
+    const r = await startBuildRun("c1", "village-banners", 1);
     const tasks = await storedTasks(r.runId);
     expect(kindOf(tasks[0])).toBe("measure");
     await answerDeedQuestion(r.runId, 0, rightResponse(tasks[0]));
@@ -579,5 +602,24 @@ describe("markDeliverySeen: the hero takes the delivery", () => {
     expect(await seen()).toBe(1_700_000_500);
     await markDeliverySeen("c1", -5);
     expect(await seen()).toBe(1_700_000_500);
+  });
+});
+
+describe("readWorks: the plans board takes a fresh look (M-4)", () => {
+  it("reads the hero's works, writing nothing", async () => {
+    await built("village-banners", 1);
+    await earn("dye", 2);
+    const w = await readWorks("c1");
+    expect(w.built).toEqual({ "village-banners": 1 });
+    expect(w.balance.dye).toBe(2);
+    expect(await count("SELECT count(*) AS n FROM realm_settings")).toBe(0);
+    // A read: it asks for access without write.
+    expect(vi.mocked(requireChildAccess)).toHaveBeenLastCalledWith("c1");
+  });
+
+  it("lets a grown-up visiting read the same works", async () => {
+    await earn("stone", 3);
+    vi.mocked(requireChildAccess).mockResolvedValueOnce({ access: { userId: "parent:u1" }, familyId: "f1" } as never);
+    expect((await readWorks("c1")).balance.stone).toBe(3);
   });
 });

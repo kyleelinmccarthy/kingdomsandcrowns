@@ -17,8 +17,13 @@ vi.mock("@/lib/services/realm-sound", () => ({ loadRealmSound: (...a: unknown[])
 const loadPlacesFound = vi.fn(async (childId: string): Promise<string[]> => (childId ? ["farfurrow", "summit-6"] : []));
 vi.mock("@/lib/services/realm-places", () => ({ loadPlacesFound: (childId: string) => loadPlacesFound(childId) }));
 const loadRecentTroubleClears = vi.fn(async (childId: string) => childId ? [{ homeId: "rim-0", agoMs: 4_000 }] : []);
+/** The hero's settings row, read once for the whole bundle (M-5). Null is "no row": the defaults. */
+const SETTINGS_ROW = { pinnedPlan: "well-house", deliverySeenAt: null, regradedAt: new Date(1_700_000_000_000) };
+const loadRealmSettingsRow = vi.fn(async () => SETTINGS_ROW);
+const loadRealmSettings = vi.fn(async () => ({ ...DEFAULT_REALM_SETTINGS }));
 vi.mock("@/lib/services/realm-play", () => ({
-  loadRealmSettings: async () => ({ ...DEFAULT_REALM_SETTINGS }),
+  loadRealmSettings: () => loadRealmSettings(),
+  loadRealmSettingsRow: (...a: unknown[]) => (loadRealmSettingsRow as (...x: unknown[]) => unknown)(...a),
   loadRealmFlags: async () => ({ helpSeenAt: null, starterSpellAt: null }),
 }));
 vi.mock("@/lib/services/realm-troubles", () => ({
@@ -29,7 +34,7 @@ vi.mock("@/lib/services/review", () => ({ loadReviewDue: (childId: string) => lo
 const loadFocusSkillIds = vi.fn<(childId: string) => Promise<string[]>>(async () => []);
 vi.mock("@/lib/services/learning-focus", () => ({ loadFocusSkillIds: (childId: string) => loadFocusSkillIds(childId) }));
 const loadRises = vi.fn<(childId: string) => Promise<{ unannounced: string[]; regraded: boolean }>>(async () => ({ unannounced: ["well", "mill"], regraded: true }));
-vi.mock("@/lib/services/realm-rises", () => ({ loadRises: (childId: string) => loadRises(childId) }));
+vi.mock("@/lib/services/realm-rises", () => ({ loadRises: (...a: unknown[]) => (loadRises as (...x: unknown[]) => unknown)(...a) }));
 const SOME_WORKS: Works = {
   balance: { stone: 3, ink: 1, herbs: 0, thread: 0, dye: 0, timber: 0 },
   built: { "well-house": 1 },
@@ -38,7 +43,7 @@ const SOME_WORKS: Works = {
   delivery: { rows: [{ materialId: "stone", amount: 3, title: "Fractions", origin: "quest" }], through: 1_700_000_000 },
 };
 const loadWorks = vi.fn<(childId: string) => Promise<Works>>(async () => SOME_WORKS);
-vi.mock("@/lib/services/realm-materials", () => ({ loadWorks: (childId: string) => loadWorks(childId) }));
+vi.mock("@/lib/services/realm-materials", () => ({ loadWorks: (...a: unknown[]) => (loadWorks as (...x: unknown[]) => unknown)(...a) }));
 vi.mock("@/lib/services/deeds", () => ({ loadKingdomOverview: async () => ({ tone: "gentle", buildings: [] }) }));
 vi.mock("@/lib/services/learning-profile", () => ({ loadLearningProfileRow: async () => null }));
 vi.mock("@/lib/services/spells", () => ({
@@ -198,7 +203,7 @@ describe("getRealmBundle — the rises the world still owes the hero", () => {
     const b = await getRealmBundle("c1");
     expect(b.unannounced).toEqual(["well", "mill"]);
     expect(b.regraded).toBe(true);
-    expect(loadRises).toHaveBeenCalledWith("c1");
+    expect(loadRises).toHaveBeenCalledWith("c1", expect.any(Promise));
   });
 
   it("owes none when the read fails, rather than closing the Realm", async () => {
@@ -217,7 +222,21 @@ describe("getRealmBundle — the works: satchel, plaques, pinned plan, delivery"
     requireChildAccess.mockResolvedValue(as("child:c1", "edit"));
     const b = await getRealmBundle("c1");
     expect(b.works).toEqual(SOME_WORKS);
-    expect(loadWorks).toHaveBeenCalledWith("c1");
+    expect(loadWorks).toHaveBeenCalledWith("c1", expect.any(Promise));
+  });
+
+  it("reads the settings row once, and hands that one read to the works and the rises (M-5)", async () => {
+    requireChildAccess.mockResolvedValue(as("child:c1", "edit"));
+    loadRealmSettingsRow.mockClear();
+    loadRealmSettings.mockClear();
+    await getRealmBundle("c1");
+    expect(loadRealmSettingsRow).toHaveBeenCalledTimes(1);
+    expect(loadRealmSettingsRow).toHaveBeenCalledWith("c1");
+    expect(loadRealmSettings).not.toHaveBeenCalled();
+    const worksRow = loadWorks.mock.lastCall![1 as never] as unknown as Promise<unknown>;
+    const risesRow = loadRises.mock.lastCall![1 as never] as unknown as Promise<unknown>;
+    expect(worksRow).toBe(risesRow);
+    expect(await worksRow).toBe(SETTINGS_ROW);
   });
 
   it("is empty works when the read fails, rather than closing the Realm", async () => {

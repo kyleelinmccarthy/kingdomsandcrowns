@@ -65,6 +65,13 @@ describe("loadRises", () => {
     expect((await loadRises("c2")).regraded).toBe(false);
   });
 
+  it("takes regraded from a settings row it is handed, rather than reading its own (M-5)", async () => {
+    await settings("c1", null);
+    await site("c1", "well", 1_700_000_000, null);
+    expect(await loadRises("c1", Promise.resolve({ regradedAt: new Date(1_700_000_000_000) }))).toEqual({ unannounced: ["well"], regraded: true });
+    expect((await loadRises("c1", Promise.resolve(null))).regraded).toBe(false);
+  });
+
   it("is nothing for a hero with no kingdom yet", async () => {
     expect(await loadRises("c1")).toEqual({ unannounced: [], regraded: false });
   });

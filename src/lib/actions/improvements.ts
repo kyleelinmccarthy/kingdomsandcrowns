@@ -8,7 +8,7 @@ import { isChildActor, requireChildAccess } from "@/lib/auth/access";
 import { IMPROVEMENTS, planRef, planState, type ImprovementId } from "@/lib/realm/improvements";
 import { buildBuildRun } from "@/lib/utils/build-run";
 import { RUN_EFFECTS } from "@/lib/utils/deed-scoring";
-import { BUILD_HERO_ONLY, CLOSED, DELIVERY_HERO_ONLY, NONE_READY, PIN_HERO_ONLY, PLAN_NOT_READY, RISE_HERO_ONLY } from "@/lib/utils/deed-refusals";
+import { BUILD_HERO_ONLY, CLOSED, DELIVERY_HERO_ONLY, NONE_READY, PIN_HERO_ONLY, PLAN_NOT_READY, PLANS_CHANGED, RISE_HERO_ONLY } from "@/lib/utils/deed-refusals";
 import { BUILDINGS, findBuilding } from "@/lib/utils/kingdom";
 import { bandForGrade } from "@/lib/utils/grade-levels";
 import { enabledHandsOnKinds } from "@/lib/utils/realm-settings";
@@ -18,7 +18,8 @@ import { benchDemoAt, findOpenRun, insertRun, loadMasteryRows, resumedStart } fr
 import { loadHeroLevels } from "@/lib/services/deeds";
 import { loadLearningProfileRow } from "@/lib/services/learning-profile";
 import { loadRealmSettings } from "@/lib/services/realm-play";
-import { advanceDeliverySeen, loadPlanInput, setPinnedPlan } from "@/lib/services/realm-materials";
+import { advanceDeliverySeen, loadPlanInput, loadWorks, setPinnedPlan } from "@/lib/services/realm-materials";
+import type { Works } from "@/lib/realm/works-state";
 import { announceBuildings } from "@/lib/services/realm-rises";
 
 /** What Aldo says at the bench: one short line for the build run's header. */
@@ -30,8 +31,11 @@ const BUILD_STORY = "Aldo has the plans ready. Measure true and it will stand.";
  * hero alone. It writes only the run. Completing it, which spends materials and writes the level, is
  * the build hook's (`completeDeedRun`); starting never reserves or spends anything, so an abandoned
  * run costs the hero nothing.
+ *
+ * `expectedLevel` is the level the board showed. A board gone stale (another tab built or spent)
+ * is refused with `PLANS_CHANGED` rather than starting a level it never showed (M-4).
  */
-export async function startBuildRun(childId: string, improvementId: string): Promise<RunStart> {
+export async function startBuildRun(childId: string, improvementId: string, expectedLevel: number): Promise<RunStart> {
   const { access } = await requireChildAccess(childId, { write: true });
   // Building happens in the Realm, and only the hero plays there; a parent previewing never builds.
   if (!isChildActor(access)) throw new Error(BUILD_HERO_ONLY);
@@ -42,7 +46,10 @@ export async function startBuildRun(childId: string, improvementId: string): Pro
   const id = improvementId as ImprovementId;
   // The level on offer must be affordable and its building raised, judged from the hero's own rows.
   const status = planState(await loadPlanInput(childId)).find((p) => p.id === id);
-  if (!status || status.state !== "ready") throw new Error(PLAN_NOT_READY);
+  if (!status) throw new Error(PLAN_NOT_READY);
+  // A finished plan has no level to offer; any other plan must be at the level the board showed.
+  if (status.state !== "done" && status.level !== expectedLevel) throw new Error(PLANS_CHANGED);
+  if (status.state !== "ready") throw new Error(PLAN_NOT_READY);
   const plan = { improvementId: id, level: status.level };
   const sourceRef = planRef(id, status.level);
   const header: RunStart["deed"] = { id: `build:${sourceRef}`, title: IMPROVEMENTS[id].label, story: BUILD_STORY, area: BUILD_AREA };
@@ -83,6 +90,15 @@ export async function startBuildRun(childId: string, improvementId: string): Pro
   }, built.questions, header);
   // A fresh run has laid nothing yet.
   return withDemo({ ...start, plan: { ...plan, placed: 0 } });
+}
+
+/**
+ * The hero's works as they stand now, for a plans board that has gone stale (M-4). A read only:
+ * the hero or a grown-up visiting may ask, and nothing is written.
+ */
+export async function readWorks(childId: string): Promise<Works> {
+  await requireChildAccess(childId);
+  return loadWorks(childId);
 }
 
 /** The most buildings one call may mark: the kingdom has eight. */

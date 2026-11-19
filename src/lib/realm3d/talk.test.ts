@@ -189,14 +189,19 @@ describe("a review's result", () => {
 
 describe("a build run's result", () => {
   const done = { correctCount: 2, total: 3, flawless: false, kind: "build" as const };
-  const outcome = (level: number, extra: { built?: boolean; reason?: "short" | "error" } = {}) => ({ label: "Banners", level, built: true, ...extra });
-  it("says the plan is built at level 1, and grows above it", () => {
-    expect(resultHeadline({ ...done, improvement: outcome(1) }, "Banners")).toEqual({ title: "The Banners is built!", line: "2 of 3 right." });
-    expect(resultHeadline({ ...done, improvement: outcome(2) }, "Banners").title).toBe("The Banners grows!");
-    expect(resultHeadline({ ...done, improvement: outcome(3) }, "Banners").title).toBe("The Banners grows!");
+  const outcome = (level: number, extra: { built?: boolean; reason?: "short" | "error" } = {}) => ({ id: "village-banners" as const, label: "Banners", level, built: true, ...extra });
+  it("says the plan is built at level 1, and grows above it, agreeing with a plural name", () => {
+    expect(resultHeadline({ ...done, improvement: outcome(1) }, "Banners")).toEqual({ title: "The Banners are built!", line: "2 of 3 right." });
+    expect(resultHeadline({ ...done, improvement: outcome(2) }, "Banners").title).toBe("The Banners grow!");
+    expect(resultHeadline({ ...done, improvement: { ...outcome(1), id: "village-lamps" as const, label: "Lamps" } }, "Lamps").title).toBe("The Lamps are built!");
+  });
+  it("keeps a singular name singular", () => {
+    const fountain = (level: number) => ({ ...outcome(level), id: "village-fountain" as const, label: "Fountain" });
+    expect(resultHeadline({ ...done, improvement: fountain(1) }, "Fountain").title).toBe("The Fountain is built!");
+    expect(resultHeadline({ ...done, improvement: fountain(3) }, "Fountain").title).toBe("The Fountain grows!");
   });
   it("never says Flawless! or side quest, even for a perfect run", () => {
-    const head = resultHeadline({ ...done, correctCount: 3, flawless: true, improvement: { ...outcome(1), label: "Fountain" } }, "Fountain");
+    const head = resultHeadline({ ...done, correctCount: 3, flawless: true, improvement: { ...outcome(1), id: "village-fountain" as const, label: "Fountain" } }, "Fountain");
     expect(head.title).toBe("The Fountain is built!");
     expect(`${head.title} ${head.line}`).not.toMatch(/flawless|side quest/i);
   });

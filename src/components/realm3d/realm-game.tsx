@@ -298,7 +298,7 @@ export function RealmGame({
   const gildedKey = gildedFor(kingdom.buildings.filter(isGilded).map((b) => b.id), windowQuery(), process.env.NODE_ENV !== "production").join(",");
   const gilded = useMemo(() => (gildedKey ? gildedKey.split(",") : []), [gildedKey]);
   // The keep yard: the hero's works for the visit (`use-works.ts`), and the buildings that stand, which the plans wait on.
-  const { works, stockpile, built, applyBuildResult, setPinned } = useWorks(realm.works);
+  const { works, stockpile, built, applyBuildResult, setPinned, replaceWorks } = useWorks(realm.works);
   const raisedKey = kingdom.buildings.filter((b) => b.complete).map((b) => b.id).join(",");
   const raisedIds = useMemo<ReadonlySet<string>>(() => new Set(raisedKey ? raisedKey.split(",") : []), [raisedKey]);
 
@@ -1239,6 +1239,7 @@ export function RealmGame({
               calm={calm}
               onPinned={setPinned}
               onBuilt={applyBuildResult}
+              onWorks={replaceWorks}
               onClose={closeOverlay}
             />
           )}

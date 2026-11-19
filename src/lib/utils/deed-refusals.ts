@@ -34,8 +34,11 @@ export const CHALLENGE_NOT_READY = `The Crown Challenge for this ${SIDE_QUEST_LO
 
 /** A plan that is not in the catalog, or whose next level the hero cannot build yet. */
 export const PLAN_NOT_READY = "That plan isn't ready yet.";
+/** A stale board (another tab built, or spent): the level it shows is not the level on offer now. */
+export const PLANS_CHANGED = "The plans changed. Take another look at the board.";
 
 const KNOWN = new Set([
+  PLANS_CHANGED,
   ALREADY_ANSWERED, ANSWER_FIRST, NO_SECOND_TRIES, PICK_SHOWN, TRY_DIFFERENT, CLOSED, HERO_ONLY, BUILD_HERO_ONLY, RISE_HERO_ONLY, PIN_HERO_ONLY, DELIVERY_HERO_ONLY,
   CHALLENGE_LOCKED, NOT_IN_CHRONICLE, NONE_READY, FINISHED, NOT_IN_RUN, NOT_THROUGH, ANSWER_EVERY,
   CHALLENGE_NOT_READY, PLAN_NOT_READY,
