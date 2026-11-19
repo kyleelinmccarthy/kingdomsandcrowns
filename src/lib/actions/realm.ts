@@ -24,6 +24,7 @@ import { DEFAULT_SOUND, type SoundSettings } from "@/lib/realm3d/sound/settings"
 import { loadPlacesFound } from "@/lib/services/realm-places";
 import { loadRecessRecord } from "@/lib/services/recess";
 import { loadReviewDue } from "@/lib/services/review";
+import { loadRises } from "@/lib/services/realm-rises";
 import { loadFocusSkillIds } from "@/lib/services/learning-focus";
 import { focusAreasOf } from "@/lib/utils/focus";
 import type { SkillArea } from "@/lib/utils/skills";
@@ -103,6 +104,18 @@ export type RealmBundle = {
    * by `getRealmBundle`; optional only so hand-built bundles in tests need not carry it.
    */
   focusAreas?: SkillArea[];
+  /**
+   * The ids of buildings that stand but have not yet been shown rising (`kingdom_progress.announced_at`
+   * null), in `BUILDINGS` order: the world announces each once when the hero next enters. Empty when
+   * none, or when the read fails. Optional only so hand-built bundles in tests need not carry it.
+   */
+  unannounced?: string[];
+  /**
+   * Whether the retro-completion migration finished some of this hero's buildings
+   * (`realm_settings.regraded_at`), so their rise says their side quests already did. False when the
+   * read fails. Optional only so hand-built bundles in tests need not carry it.
+   */
+  regraded?: boolean;
 };
 
 const VILLAGERS_RESTING = "The villagers are resting. Try again.";
@@ -148,6 +161,11 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
   const focusRead = loadFocusSkillIds(childId).then(focusAreasOf).catch((err: unknown) => {
     console.error("Realm focus failed to load", err);
     return [] as SkillArea[];
+  });
+  // Which buildings still owe the hero a rise, on the same access: a failed read is "none owed".
+  const risesRead = loadRises(childId).catch((err: unknown) => {
+    console.error("Realm rises failed to load", err);
+    return { unannounced: [] as string[], regraded: false };
   });
   // Also hands back the flags it read (post-update), so the parallel batch below does not
   // pay a second `loadRealmFlags` round trip just to read `helpSeenAt`. On the (rare) failure
@@ -230,6 +248,7 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
     troubleClears: await clearsRead,
     reviewDue: await reviewDueRead,
     focusAreas: await focusRead,
+    ...(await risesRead), // `unannounced` and `regraded`
     earning: {
       enabled: settings.enabled,
       accessMode: settings.accessMode,

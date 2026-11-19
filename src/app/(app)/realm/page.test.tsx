@@ -60,3 +60,19 @@ describe("/realm — may the viewer write?", () => {
     expect((await realmProp()).viewerCanWrite).toBe(true);
   });
 });
+
+describe("/realm — the rises the world still owes", () => {
+  it("hands the frame the buildings waiting to rise and why, as the bundle read them", async () => {
+    getRealmBundle.mockResolvedValue({ ...bundle(true), unannounced: ["well", "mill"], regraded: true });
+    const realm = await realmProp();
+    expect(realm.unannounced).toEqual(["well", "mill"]);
+    expect(realm.regraded).toBe(true);
+  });
+
+  it("owes none, with no retro line, when a hand-built bundle carries neither", async () => {
+    getRealmBundle.mockResolvedValue(bundle(true));
+    const realm = await realmProp();
+    expect(realm.unannounced).toEqual([]);
+    expect(realm.regraded).toBe(false);
+  });
+});

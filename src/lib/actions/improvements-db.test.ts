@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeAll, beforeEach, afterAll } from "vitest";
 import { testDatabase } from "@/test/libsql-test-db";
 import { DEFAULT_REALM_SETTINGS } from "@/lib/utils/realm-settings";
-import { BUILD_HERO_ONLY, CLOSED, PLAN_NOT_READY } from "@/lib/utils/deed-refusals";
+import { BUILD_HERO_ONLY, CLOSED, PLAN_NOT_READY, RISE_HERO_ONLY } from "@/lib/utils/deed-refusals";
 import { TASK_CODECS } from "@/lib/tasks/codecs";
 import { kindOf } from "@/lib/tasks/registry";
 import type { MeasureTask, Task } from "@/lib/tasks/types";
@@ -41,7 +41,7 @@ vi.mock("@/lib/services/deeds", async () => {
   };
 });
 
-const { startBuildRun } = await import("./improvements");
+const { markBuildingsAnnounced, startBuildRun } = await import("./improvements");
 const { answerDeedQuestion, completeDeedRun } = await import("./deeds");
 const { requireChildAccess } = await import("@/lib/auth/access");
 const { loadHeroLevels } = await import("@/lib/services/deeds");
@@ -449,5 +449,61 @@ describe("startBuildRun", () => {
     expect(kindOf(tasks[0])).toBe("measure");
     await answerDeedQuestion(r.runId, 0, rightResponse(tasks[0]));
     expect(await count("SELECT coalesce(sum(attempt_total), 0) AS n FROM skill_mastery WHERE child_id = 'c1'")).toBe(1);
+  });
+});
+
+describe("markBuildingsAnnounced: the world says a rise once, for the hero alone", () => {
+  /** A kingdom row for `childId`: raised (with `announced` or not), or still rising. */
+  async function site(childId: string, buildingId: string, state: "rising" | "unannounced" | "announced"): Promise<void> {
+    n += 1;
+    await client.query(
+      `INSERT INTO kingdom_progress (id, child_id, building_id, deeds_done, completed_at, announced_at, created_at, updated_at)
+       VALUES (?1, ?2, ?3, 3, ?4, ?5, unixepoch(), unixepoch())`,
+      [`kp${n}`, childId, buildingId, state === "rising" ? null : 1_700_000_000, state === "announced" ? 1_700_000_500 : null],
+    );
+  }
+  const announced = async (childId: string, buildingId: string): Promise<number | null> =>
+    (await client.query("SELECT announced_at FROM kingdom_progress WHERE child_id = ?1 AND building_id = ?2", [childId, buildingId])).rows[0].announced_at as number | null;
+  const asGrownUp = () => vi.mocked(requireChildAccess).mockResolvedValueOnce({ access: { userId: "u-parent" }, familyId: "f1" } as unknown as Awaited<ReturnType<typeof requireChildAccess>>);
+
+  it("refuses a grown-up, and writes nothing", async () => {
+    await site("c1", "well", "unannounced");
+    asGrownUp();
+    await expect(markBuildingsAnnounced("c1", ["well"])).rejects.toThrow(RISE_HERO_ONLY);
+    expect(await announced("c1", "well")).toBeNull();
+  });
+
+  it("refuses an unknown id, a non-array and nine ids before any write", async () => {
+    await site("c1", "well", "unannounced");
+    const nine = ["well", "mill", "bridge", "chapel", "market", "library", "watchtower", "garden", "well"];
+    for (const bad of [["well", "not-a-building"], ["__proto__"], [7], "well", null, undefined, { 0: "well", length: 1 }, nine]) {
+      await expect(markBuildingsAnnounced("c1", bad), JSON.stringify(bad)).rejects.toThrow();
+    }
+    expect(await announced("c1", "well")).toBeNull();
+  });
+
+  it("marks only the complete, unannounced rows of this hero, with the server's clock", async () => {
+    await client.query("INSERT INTO child (id, family_id, display_name) VALUES ('c2', 'f1', 'Bo')");
+    await site("c1", "well", "unannounced");
+    await site("c1", "mill", "rising");
+    await site("c1", "bridge", "announced");
+    await site("c1", "chapel", "unannounced");
+    await site("c2", "well", "unannounced");
+    const before = Math.floor(Date.now() / 1000);
+    await markBuildingsAnnounced("c1", ["well", "mill", "bridge"]);
+    expect(await announced("c1", "well")).toBeGreaterThanOrEqual(before);
+    // Still rising: nothing to announce yet.
+    expect(await announced("c1", "mill")).toBeNull();
+    // Already announced: its first time stands.
+    expect(await announced("c1", "bridge")).toBe(1_700_000_500);
+    // Not asked for, and another hero's: left alone.
+    expect(await announced("c1", "chapel")).toBeNull();
+    expect(await announced("c2", "well")).toBeNull();
+  });
+
+  it("takes an empty list as nothing to do", async () => {
+    await site("c1", "well", "unannounced");
+    await markBuildingsAnnounced("c1", []);
+    expect(await announced("c1", "well")).toBeNull();
   });
 });

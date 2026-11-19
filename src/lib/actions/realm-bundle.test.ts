@@ -27,6 +27,8 @@ const loadReviewDue = vi.fn<(childId: string) => Promise<boolean>>(async () => f
 vi.mock("@/lib/services/review", () => ({ loadReviewDue: (childId: string) => loadReviewDue(childId) }));
 const loadFocusSkillIds = vi.fn<(childId: string) => Promise<string[]>>(async () => []);
 vi.mock("@/lib/services/learning-focus", () => ({ loadFocusSkillIds: (childId: string) => loadFocusSkillIds(childId) }));
+const loadRises = vi.fn<(childId: string) => Promise<{ unannounced: string[]; regraded: boolean }>>(async () => ({ unannounced: ["well", "mill"], regraded: true }));
+vi.mock("@/lib/services/realm-rises", () => ({ loadRises: (childId: string) => loadRises(childId) }));
 vi.mock("@/lib/services/deeds", () => ({ loadKingdomOverview: async () => ({ tone: "gentle", buildings: [] }) }));
 vi.mock("@/lib/services/learning-profile", () => ({ loadLearningProfileRow: async () => null }));
 vi.mock("@/lib/services/spells", () => ({
@@ -175,5 +177,25 @@ describe("getRealmBundle — the family's clock", () => {
   it("carries the family's timezone, for the island's day and night", async () => {
     requireChildAccess.mockResolvedValue(as("child:c1", "edit"));
     expect((await getRealmBundle("c1")).timezone).toBe("America/Chicago");
+  });
+});
+
+describe("getRealmBundle — the rises the world still owes the hero", () => {
+  it("carries the buildings waiting to be shown rising, and whether the migration finished them", async () => {
+    requireChildAccess.mockResolvedValue(as("child:c1", "edit"));
+    const b = await getRealmBundle("c1");
+    expect(b.unannounced).toEqual(["well", "mill"]);
+    expect(b.regraded).toBe(true);
+    expect(loadRises).toHaveBeenCalledWith("c1");
+  });
+
+  it("owes none when the read fails, rather than closing the Realm", async () => {
+    requireChildAccess.mockResolvedValue(as("child:c1", "edit"));
+    loadRises.mockRejectedValueOnce(new Error("down"));
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const b = await getRealmBundle("c1");
+    spy.mockRestore();
+    expect(b.unannounced).toEqual([]);
+    expect(b.regraded).toBe(false);
   });
 });

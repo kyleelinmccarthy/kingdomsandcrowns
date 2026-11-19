@@ -1,13 +1,15 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull } from "drizzle-orm";
 import { nanoid } from "nanoid";
+import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { isChildActor, requireChildAccess } from "@/lib/auth/access";
 import { IMPROVEMENTS, planRef, planState, type ImprovementId } from "@/lib/realm/improvements";
 import { buildBuildRun } from "@/lib/utils/build-run";
 import { RUN_EFFECTS } from "@/lib/utils/deed-scoring";
-import { BUILD_HERO_ONLY, CLOSED, NONE_READY, PLAN_NOT_READY } from "@/lib/utils/deed-refusals";
+import { BUILD_HERO_ONLY, CLOSED, NONE_READY, PLAN_NOT_READY, RISE_HERO_ONLY } from "@/lib/utils/deed-refusals";
+import { BUILDINGS, findBuilding } from "@/lib/utils/kingdom";
 import { bandForGrade } from "@/lib/utils/grade-levels";
 import { enabledHandsOnKinds } from "@/lib/utils/realm-settings";
 import { profileFromRow } from "@/lib/utils/learning-profile";
@@ -80,4 +82,31 @@ export async function startBuildRun(childId: string, improvementId: string): Pro
   }, built.questions, header);
   // A fresh run has laid nothing yet.
   return withDemo({ ...start, plan: { ...plan, placed: 0 } });
+}
+
+/** The most buildings one call may mark: the kingdom has eight. */
+const MAX_ANNOUNCED = BUILDINGS.length;
+
+/**
+ * The world has shown these buildings rising, so they never rise again (D13.6): stamps `announced_at`
+ * on the hero's own raised-and-unannounced rows among `ids`. The hero's Realm is the only caller; the
+ * Side Quests page never marks, and a grown-up previewing is refused so they cannot use up the
+ * moment. `ids` crosses the network, so it is checked whole before anything is written.
+ */
+export async function markBuildingsAnnounced(childId: string, ids: unknown): Promise<void> {
+  const { access } = await requireChildAccess(childId, { write: true });
+  if (!isChildActor(access)) throw new Error(RISE_HERO_ONLY);
+  if (!Array.isArray(ids) || ids.length > MAX_ANNOUNCED || !ids.every((id) => typeof id === "string" && findBuilding(id))) {
+    throw new Error("That is not a building.");
+  }
+  if (ids.length === 0) return;
+  await db
+    .update(schema.kingdomProgress)
+    .set({ announcedAt: new Date() })
+    .where(and(
+      eq(schema.kingdomProgress.childId, childId),
+      inArray(schema.kingdomProgress.buildingId, ids as string[]),
+      isNotNull(schema.kingdomProgress.completedAt),
+      isNull(schema.kingdomProgress.announcedAt),
+    ));
 }

@@ -117,6 +117,21 @@ export type DeedToast = {
   spoken: string;
 };
 
+/** A rise's sentences as a toast: the first one is the title, the rest the line. */
+export function riseWords(sentence: string, site: { done: number; total: number }): DeedToast {
+  const [title, ...rest] = sentence.split(/(?<=\.)\s/);
+  const line = rest.join(" ") || "Every building makes the village stronger.";
+  return { title: title.replace(/\.$/, "!"), line, done: site.done, total: site.total, rose: true, spoken: sentence };
+}
+
+/**
+ * What the toast says for a building the retro-completion migration finished while the hero was away
+ * (D13.5): their side quests already did the work, so the world only now shows it.
+ */
+export function retroRiseSentence(label: string): string {
+  return `Your side quests already finished the ${label}. It stands now!`;
+}
+
 /**
  * What the village says when a side quest is done. A building that rose gets `riseToast`'s own
  * sentence, with the next objective folded in, exactly as the flat Realm's toast did. A building
@@ -157,12 +172,7 @@ export function deedToast(input: {
     const title = `${villagerName ?? "The village"} will help you try again.`;
     return { title, line: "Every try teaches something.", done: after.done, total: after.total, rose: false, spoken: `${title} Every try teaches something.` };
   }
-  if (rose) {
-    const sentence = riseToast(site.label, next);
-    const [title, ...rest] = sentence.split(/(?<=\.)\s/);
-    const line = rest.join(" ") || "Every building makes the village stronger.";
-    return { title: title.replace(/\.$/, "!"), line, done: after.done, total: after.total, rose, spoken: sentence };
-  }
+  if (rose) return riseWords(riseToast(site.label, next), after);
   if (after.complete) {
     const title = `The ${site.label} stands.`;
     const line = starsLeftLine({ stars: after.stars ?? site.stars, maxStars: after.maxStars ?? site.maxStars }, numerals);

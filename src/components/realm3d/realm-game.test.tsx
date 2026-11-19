@@ -55,6 +55,7 @@ vi.mock("@/lib/actions/avatar", () => ({
 vi.mock("@/lib/actions/realm-sound", () => ({ saveRealmSound: vi.fn(async () => {}) }));
 vi.mock("@/lib/actions/deeds", () => ({ startDeedRun: vi.fn(), answerDeedQuestion: vi.fn(), completeDeedRun: vi.fn() }));
 vi.mock("@/lib/actions/seasons", () => ({ markCeremonySeen: vi.fn(async () => {}) }));
+vi.mock("@/lib/actions/improvements", () => ({ markBuildingsAnnounced: vi.fn(async () => {}) }));
 vi.mock("@/lib/actions/review", () => ({ startReviewRun: vi.fn(), getReviewDue: vi.fn(async () => false) }));
 vi.mock("@/lib/actions/spells", () => ({ getSpellbook: vi.fn(async () => ({ spells: [], slots: 4, level: 3, unlocked: ["ember", "tide", "bolt", "orb"], schoolCounts: { element: 2, form: 0, modifier: 0 }, subjectNamesBySchool: { element: ["Math"], form: [], modifier: [] } })) }));
 vi.mock("@/lib/actions/realm", () => ({ getRealmKingdom: vi.fn() }));
@@ -81,6 +82,7 @@ import { updateAvatarConfig } from "@/lib/actions/avatar";
 import { getRealmKingdom } from "@/lib/actions/realm";
 import { markRealmHelpSeen, setTutorialStep } from "@/lib/actions/realm-settings";
 import { markCeremonySeen } from "@/lib/actions/seasons";
+import { markBuildingsAnnounced } from "@/lib/actions/improvements";
 import { startReviewRun } from "@/lib/actions/review";
 import { saveRealmSound } from "@/lib/actions/realm-sound";
 import { getRealmAccess, getTroubleBounty, recordTroubleClears } from "@/lib/actions/realm-play";
@@ -437,6 +439,22 @@ describe("talking to a villager, and doing their side quest", () => {
     expect(screen.getByText("Next: the Grain Mill, with Miller Tessa.")).toBeInTheDocument();
     const layout = handed.props!.layout as { props: { id: string; kind: string }[] };
     expect(layout.props.find((p) => p.id === "well")!.kind).toBe("building");
+    // The hand-up showed the rise, so the world never owes it again.
+    expect(markBuildingsAnnounced).toHaveBeenCalledTimes(1);
+    expect(markBuildingsAnnounced).toHaveBeenCalledWith("demo-child-1", ["well"]);
+  });
+
+  it("marks nothing when a side quest only moved a building along", async () => {
+    vi.mocked(startDeedRun).mockResolvedValue({ ...run, questions: [run.questions[0]], responses: [null] });
+    vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: true, secondChance: false, answer: "5" });
+    vi.mocked(completeDeedRun).mockResolvedValue({ correctCount: 1, total: 1, flawless: true, masteryChanges: [], stars: 1, previousBest: 0, deedBest: 1, counted: true, crowned: false, kind: "deed" as const, building: { label: "Village Well", done: 3, total: 5, complete: false, stars: 0, maxStars: 0, practice: false }, minutesEarned: 0, sideQuestPayFull: false });
+    const { bus } = mount();
+    act(() => bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" })));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "5" })));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Finish side quest" })));
+    fireEvent.click(screen.getByRole("button", { name: /Back to the Realm/ }));
+    expect(markBuildingsAnnounced).not.toHaveBeenCalled();
   });
 
   it("a visiting grown-up reads the side quests and can begin none, and nothing is written", () => {
@@ -600,6 +618,37 @@ describe("a child's first visit", () => {
     esc();
     expect(markRealmHelpSeen).toHaveBeenCalledTimes(1);
     expect(screen.getByText("Walk around.")).toBeInTheDocument();
+  });
+});
+
+describe("a building finished away from the Realm", () => {
+  const stands = { ...realm, helpSeen: true, kingdom: { ...realm.kingdom, buildings: realm.kingdom.buildings.map((b) => (b.id === "well" ? { ...b, done: 5, complete: true } : b)) }, unannounced: ["well"] };
+
+  it("rises on entry with the rise toast, and is marked announced", async () => {
+    mount({ realm: stands });
+    expect(screen.getByText("The Village Well stands!")).toBeInTheDocument();
+    expect(markBuildingsAnnounced).toHaveBeenCalledWith("demo-child-1", ["well"]);
+  });
+
+  it("says the side quests already finished it when the migration did", () => {
+    mount({ realm: { ...stands, regraded: true } });
+    expect(screen.getByText("Your side quests already finished the Village Well!")).toBeInTheDocument();
+    expect(screen.getByText("It stands now!")).toBeInTheDocument();
+  });
+
+  it("waits for the welcome to be closed, and then rises", () => {
+    mount({ realm: { ...stands, tutorialStep: 0, helpSeen: false } });
+    expect(screen.queryByText("The Village Well stands!")).toBeNull();
+    expect(markBuildingsAnnounced).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "I know how to play" }));
+    expect(screen.getByText("The Village Well stands!")).toBeInTheDocument();
+    expect(markBuildingsAnnounced).toHaveBeenCalledTimes(1);
+  });
+
+  it("is not shown to a grown-up visiting, and does not use up the hero's moment", () => {
+    mount({ viewer: "parent", realm: { ...stands, isChildView: false } });
+    expect(screen.queryByText("The Village Well stands!")).toBeNull();
+    expect(markBuildingsAnnounced).not.toHaveBeenCalled();
   });
 });
 

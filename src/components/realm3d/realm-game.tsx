@@ -20,6 +20,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { getRealmKingdom } from "@/lib/actions/realm";
 import { markRealmHelpSeen, setRealmDepth, setTutorialStep, updateRealmSettings } from "@/lib/actions/realm-settings";
 import { markCeremonySeen } from "@/lib/actions/seasons";
+import { markBuildingsAnnounced } from "@/lib/actions/improvements";
 import { getSpellbook } from "@/lib/actions/spells";
 import { surfacesFor, type RealmDepth } from "@/lib/realm/depth";
 import { applyDeedResult, type KingdomState } from "@/lib/realm/kingdom-state";
@@ -98,6 +99,7 @@ import { LookControls, useLook } from "./look-controls";
 import { earningLines, type EarningSettings } from "@/lib/realm/spells/bounty";
 import type { RealmAccessMode } from "@/lib/utils/realm-access";
 import { useRecess } from "./use-recess";
+import { TOAST_MS, useRises } from "./use-rises";
 import { RecessBoard, RecessError, RecessMapMarks, RecessPop, RecessStrip, RingPanel } from "./recess-hud";
 import { bestFor, type RecessRecord } from "@/lib/realm/recess/record";
 import { RECESS_LAST_MINUTE, ringHelp } from "@/lib/realm/recess/copy";
@@ -158,6 +160,10 @@ export type RealmData = {
   reviewDue?: boolean;
   /** The strands a grown-up asked to focus on (`bundle.focusAreas`): the beacon leans toward them on a tie. */
   focusAreas?: SkillArea[];
+  /** Buildings that stand but were never shown rising (`bundle.unannounced`): each rises, once, when the hero enters. */
+  unannounced?: string[];
+  /** The migration finished them (`bundle.regraded`): the rise says the hero's side quests already did. */
+  regraded?: boolean;
 };
 
 /** What the access check decided, for an open gate. */
@@ -189,8 +195,6 @@ const NO_MOUNTS: readonly string[] = [];
 const SAVE_FAILED = "That didn't save. Try again.";
 const VILLAGERS_RESTING = "The villagers are resting. Try again.";
 const CEREMONY_FAILED = "The crown could not be recorded.";
-/** How long the village's answer to a side quest stays over the world. */
-const TOAST_MS = 5200;
 /**
  * How far over a villager's head the gold ! floats: its words hang under it, and the villager's
  * own nameplate is at 2.9, so this keeps the two from sitting on one another.
@@ -522,6 +526,14 @@ export function RealmGame({
   // is looking at it, not behind a board they are still reading. Keyed by building, so an answer
   // that lands while another building's board is open is kept, not overwritten.
   const pendingDeed = useRef(new Map<string, DeedResult>());
+  /** One toast over the world, read aloud when the hero has that on: a side quest's answer, or a rise. */
+  const showToast = useCallback(
+    (words: DeedToast) => {
+      setToast(words);
+      if (readAloud) speak(words.spoken);
+    },
+    [readAloud],
+  );
   /** A side quest paid minutes: re-ask the gate now, so a quiet world wakes (the clock's `refresh`, set below). */
   const askGate = useRef<() => void>(() => {});
   const trackedRef = useRef(surfaces.trackedObjectives);
@@ -541,8 +553,11 @@ export function RealmGame({
       setKingdom(applied.state);
       const next = objectiveState(applied.state.buildings, trackedRef.current, focusAreas);
       const words = deedToast({ site: before, after: result, rose: applied.rose, counted: result.counted, earned: result.earned, challenge: result.challenge, villagerName: villagerForBuilding(buildingId)?.name ?? null, next, numerals: surfaces.numerals || !realm.isChildView });
-      setToast(words);
-      if (readAloud) speak(words.spoken);
+      showToast(words);
+      // This rise is being shown now, so the world never announces it again on a later visit.
+      if (applied.rose && isChild && childId) {
+        void markBuildingsAnnounced(childId, [buildingId]).catch((err: unknown) => console.error("Realm rise could not be marked", err));
+      }
       // Development only: how long raising a building takes to reach the screen. `commitMs` is
       // the React commit (the memoised World re-rendering on the new layout) and `frameMs` is
       // that plus the next frame the canvas draws with it.
@@ -555,8 +570,10 @@ export function RealmGame({
         });
       }
     },
-    [readAloud, surfaces.numerals, realm.isChildView, focusAreas],
+    [showToast, surfaces.numerals, realm.isChildView, focusAreas, isChild, childId],
   );
+  // A building finished away from the Realm rises, with the same toast, once no overlay is open.
+  useRises({ isChild, overlay, unannounced: realm.unannounced ?? [], regraded: realm.regraded ?? false, kingdom, childId, show: showToast, focusAreas });
 
   /* ---- the ceremony ---------------------------------------------------- */
   const [ceremonySaving, setCeremonySaving] = useState(false);

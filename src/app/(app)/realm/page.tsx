@@ -114,6 +114,9 @@ export default async function RealmPage({ searchParams }: { searchParams: Promis
     reviewDue: bundle.reviewDue ?? false,
     // The strands the beacon leans toward when two sites are otherwise tied.
     focusAreas: bundle.focusAreas ?? [],
+    // The buildings that stand but were never shown rising, and whether the migration finished them.
+    unannounced: bundle.unannounced ?? [],
+    regraded: bundle.regraded ?? false,
     ...(bundle.earning ? { earning: bundle.earning } : {}),
   };
 
