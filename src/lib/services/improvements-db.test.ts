@@ -118,13 +118,14 @@ describe("finishBuild", () => {
     expect((await improvements())[0].season_id).toBeNull();
   });
 
-  it("says a level already built is built, spending nothing and returning no plaque (the two-tabs case)", async () => {
+  it("says a level already built is built, spending nothing, and hands back the plaque already on record (the two-tabs case)", async () => {
     await builtLevel("village-banners", 1, 3);
     await stockBanners();
     const { finishBuild } = await isolate();
     const r = await finishBuild("c1", BANNERS, 1, NOW);
     expect(r).toMatchObject({ id: "village-banners", level: 1, built: true, balance: { dye: 4, thread: 2 } });
-    expect(r.plaque).toBeUndefined();
+    // The client was never told of this level, so it gets the first build's own plaque: never a built level with none.
+    expect(r.plaque).toEqual({ improvementId: "village-banners", level: 1, label: "Banners", builtBy: "Old Name", season: null, sources: [], stars: 3 });
     expect(r.reason).toBeUndefined();
     expect(await count("SELECT count(*) AS n FROM realm_material WHERE kind = 'spent'")).toBe(0);
     // The first build's record stands, untouched.
@@ -231,8 +232,9 @@ describe("finishBuild, raced", () => {
     const [a, b] = [await isolate(), await isolate()];
     const results = await Promise.all([a.finishBuild("c1", BANNERS, 3, NOW), b.finishBuild("c1", BANNERS, 3, NOW)]);
     expect(results.every((r) => r.built && r.reason === undefined)).toBe(true);
-    // Exactly one call built it and carries the plaque; the other found it built.
-    expect(results.filter((r) => r.plaque)).toHaveLength(1);
+    // Exactly one call built it; the other found it built. Both carry the one plaque on record.
+    expect(results.every((r) => r.plaque)).toBe(true);
+    expect(results[0].plaque).toEqual(results[1].plaque);
     expect(await improvements()).toHaveLength(1);
     expect((await spent()).map((s) => [s.material_id, Number(s.amount)])).toEqual([["dye", 4], ["thread", 2]]);
   });
@@ -241,7 +243,7 @@ describe("finishBuild, raced", () => {
     await stockBanners();
     const [a, b] = [await isolate(), await isolate()];
     const results = await Promise.all([a.finishBuild("c1", BANNERS, 1, NOW), b.finishBuild("c1", BANNERS, 1, NOW)]);
-    expect(results.every((r) => r.built && r.reason === undefined)).toBe(true);
+    expect(results.every((r) => r.built && r.reason === undefined && r.plaque?.level === 1)).toBe(true);
     expect(await improvements()).toHaveLength(1);
     expect(await count("SELECT count(*) AS n FROM realm_material WHERE kind = 'spent'")).toBe(2);
   });

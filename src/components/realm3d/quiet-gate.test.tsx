@@ -18,8 +18,8 @@ vi.mock("@/lib/actions/realm", () => ({
   }),
 }));
 vi.mock("./gate-quest-board", () => ({
-  GateQuestBoard: (p: { onResult: (id: string, r: unknown) => void; onClose: () => void }) => (
-    <div role="dialog" aria-label="Side Quests">
+  GateQuestBoard: (p: { onResult: (id: string, r: unknown) => void; onClose: () => void; timezone?: string | null }) => (
+    <div role="dialog" aria-label="Side Quests" data-timezone={p.timezone ?? ""}>
       <button type="button" onClick={() => p.onResult("well", { done: 5, total: 5, complete: true, minutesEarned: 3 })}>
         finish a run
       </button>
@@ -45,9 +45,10 @@ beforeEach(() => {
 const well = { id: "well", label: "Village Well", description: "", icon: "box" as const, done: 4, total: 5, complete: false, raisedBy: null, raisedAt: null, stars: 0, maxStars: 15, deeds: [] };
 const kingdom: KingdomState = { tone: "gentle", buildings: [well] };
 
-function gate(onEnter = vi.fn()) {
+function gate(onEnter = vi.fn(), timezone?: string | null) {
   render(
     <QuietGate
+      timezone={timezone}
       childId="demo-child-1"
       heroName="Emma"
       portrait={null}
@@ -83,6 +84,12 @@ describe("the quiet gate", () => {
     expect(screen.getByRole("dialog", { name: "Side Quests" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Back to the gate" }));
     expect(screen.queryByRole("dialog", { name: "Side Quests" })).toBeNull();
+  });
+
+  it("hands the board the family's time zone, so a standing building tells its season there", () => {
+    gate(vi.fn(), "Australia/Sydney");
+    fireEvent.click(screen.getByRole("button", { name: "Side quests here" }));
+    expect(screen.getByRole("dialog", { name: "Side Quests" })).toHaveAttribute("data-timezone", "Australia/Sydney");
   });
 
   it("finishing a paying run re-asks the gate, and the second button becomes Enter the Realm", async () => {

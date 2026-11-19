@@ -36,6 +36,15 @@ describe("applyBuild", () => {
       .toEqual({ "well-house": 1, "village-lamps": 1 });
   });
 
+  it("does not add a plaque the works already hold for that level (another tab's build handed back)", () => {
+    const held = works({ plaques: [plaque] });
+    const next = applyBuild(held, { id: "well-house", label: "Well house", level: 2, built: true, balance: after, plaque: { ...plaque } });
+    expect(next.plaques).toEqual([plaque]);
+    // A different level of the same plan, or the same level of another plan, is a new plaque.
+    expect(applyBuild(held, { id: "well-house", label: "Well house", level: 3, built: true, balance: after, plaque: { ...plaque, level: 3 } }).plaques).toHaveLength(2);
+    expect(applyBuild(held, { id: "village-lamps", label: "Lamps", level: 2, built: true, balance: after, plaque: { ...plaque, improvementId: "village-lamps" } }).plaques).toHaveLength(2);
+  });
+
   it("a build that fell short updates the balance only", () => {
     const next = applyBuild(works(), { id: "well-house", label: "Well house", level: 2, built: false, reason: "short", balance: after, plaque });
     expect(next.balance).toEqual(after);

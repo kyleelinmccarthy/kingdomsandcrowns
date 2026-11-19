@@ -344,7 +344,7 @@ describe("the keep yard", () => {
 describe("built plans and their plaques", () => {
   const plaque = { improvementId: "village-banners" as const, level: 1, label: "Banners", builtBy: "Emma", season: "Autumn 2026", sources: ["Fractions p.12"], stars: 2 };
   const built: Works = { ...EMPTY_WORKS, built: { "village-banners": 1 }, plaques: [plaque] };
-  const stone = { kind: "plaque" as const, id: "village-banners", label: "Banners plaque", verb: "Read" };
+  const stone = { kind: "plaque" as const, id: "village-banners", label: "the Banners plaque", verb: "Read" };
 
   it("hands the canvas what the hero has built, the same object across a re-render", () => {
     const { view } = mount({ realm: { ...realm, works: built } });
@@ -357,7 +357,7 @@ describe("built plans and their plaques", () => {
   it("opens the plaque when E is pressed at it, and pauses the world", () => {
     const { bus } = mount({ realm: { ...realm, works: built } });
     act(() => bus.onNear(stone));
-    expect(screen.getByRole("button", { name: /Read Banners plaque/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Read the Banners plaque/ })).toBeInTheDocument();
     act(() => bus.onInteract(stone));
     const panel = screen.getByRole("dialog", { name: "Banners plaque" });
     expect(panel).toHaveTextContent("Banners · built by Emma · Autumn 2026 · from: Fractions p.12");

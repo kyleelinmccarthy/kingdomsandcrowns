@@ -154,7 +154,7 @@ export function RealmFrame(props: RealmFrameProps) {
   else if (phase.kind === "closed") content = <ClosedScreen heroName={snap.heroName} body={phase.body} portrait={snap.avatar} extra={earningExtra} />;
   else if (phase.kind === "quiet-gate" && childId)
     content = (
-      <QuietGate childId={childId} heroName={snap.heroName} portrait={snap.avatar} earning={earningExtra} kingdom={snap.realm.kingdom} profile={snap.realm.profile} depth={snap.realm.depth} onEnter={onEnter} />
+      <QuietGate childId={childId} heroName={snap.heroName} portrait={snap.avatar} earning={earningExtra} kingdom={snap.realm.kingdom} profile={snap.realm.profile} depth={snap.realm.depth} timezone={snap.realm.timezone} onEnter={onEnter} />
     );
   else {
     // A quiet gate with no child cannot happen (no child, no access check); it walks in quiet all the same.

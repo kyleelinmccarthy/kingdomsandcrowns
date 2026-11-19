@@ -118,6 +118,42 @@ function sourceTitles(json: string): string[] {
 
 const A_QUEST = "A quest";
 
+/** The columns a plaque is read from: a `realm_improvement` row and the start date of its season (null when it has none). */
+const plaqueColumns = {
+  improvementId: schema.realmImprovement.improvementId,
+  level: schema.realmImprovement.level,
+  stars: schema.realmImprovement.stars,
+  builtByName: schema.realmImprovement.builtByName,
+  sources: schema.realmImprovement.sources,
+  startDate: schema.season.startDate,
+};
+type PlaqueRow = { improvementId: ImprovementId; level: number; stars: number; builtByName: string; sources: string; startDate: string | null };
+
+/** The one shaping of a built level's row into its plaque: `loadWorks` and `finishBuild` both read through it. */
+export function plaqueFromRow(r: PlaqueRow): Plaque {
+  return {
+    improvementId: r.improvementId,
+    level: r.level,
+    label: IMPROVEMENTS[r.improvementId].label,
+    builtBy: r.builtByName,
+    season: r.startDate ? seasonLabel(r.startDate) : null,
+    sources: sourceTitles(r.sources),
+    stars: r.stars,
+  };
+}
+
+/** The plaque of one built level as it stands on record, or null when that level is not built. Reads through `exec` (a transaction, inside the lock). */
+export async function loadPlaque(childId: string, improvementId: ImprovementId, level: number, exec: Exec = db): Promise<Plaque | null> {
+  const I = schema.realmImprovement;
+  const [row] = await exec
+    .select(plaqueColumns)
+    .from(I)
+    .leftJoin(schema.season, eq(I.seasonId, schema.season.id))
+    .where(and(eq(I.childId, childId), eq(I.improvementId, improvementId), eq(I.level, level)))
+    .limit(1);
+  return row ? plaqueFromRow({ ...row, improvementId }) : null;
+}
+
 /**
  * What the Realm reads about the hero's works, in one round of parallel reads: the satchel, the
  * highest level built of each plan with a plaque per built level, the pinned plan, and the delivery
@@ -131,10 +167,7 @@ export async function loadWorks(childId: string): Promise<Works> {
   const [ledger, built, settings, delivered] = await Promise.all([
     loadMaterialLedger(childId),
     db
-      .select({
-        improvementId: I.improvementId, level: I.level, stars: I.stars, builtByName: I.builtByName, sources: I.sources,
-        startDate: schema.season.startDate,
-      })
+      .select(plaqueColumns)
       .from(I)
       .leftJoin(schema.season, eq(I.seasonId, schema.season.id))
       .where(eq(I.childId, childId))
@@ -161,15 +194,7 @@ export async function loadWorks(childId: string): Promise<Works> {
     if (!Object.hasOwn(IMPROVEMENTS, r.improvementId)) continue;
     const id = r.improvementId as ImprovementId;
     levels[id] = Math.max(levels[id] ?? 0, r.level);
-    plaques.push({
-      improvementId: id,
-      level: r.level,
-      label: IMPROVEMENTS[id].label,
-      builtBy: r.builtByName,
-      season: r.startDate ? seasonLabel(r.startDate) : null,
-      sources: sourceTitles(r.sources),
-      stars: r.stars,
-    });
+    plaques.push(plaqueFromRow({ ...r, improvementId: id }));
   }
 
   const pinned = settings[0]?.pinnedPlan;

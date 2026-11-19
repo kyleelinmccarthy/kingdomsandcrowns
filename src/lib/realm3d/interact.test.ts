@@ -139,7 +139,7 @@ describe("the plaques", () => {
   it("adds one spot per built improvement, at its plaque point, read with E", () => {
     expect(withPlaques.filter((s) => s.target.kind === "plaque")).toHaveLength(IMPROVEMENT_IDS.length);
     const well = withPlaques[at("well-house")];
-    expect(well.target).toEqual({ kind: "plaque", id: "well-house", label: "Well House plaque", verb: "Read" });
+    expect(well.target).toEqual({ kind: "plaque", id: "well-house", label: "the Well House plaque", verb: "Read" });
     expect(well).toMatchObject({ x: placements[0].plaque.x, z: placements[0].plaque.z, round: true });
   });
 

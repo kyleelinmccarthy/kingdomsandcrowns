@@ -125,7 +125,7 @@ export type SpotInput = {
   plaques?: readonly { id: string; label: string; x: number; z: number }[];
 };
 
-/** What E at a plaque says: "Read Well House plaque". */
+/** What E at a plaque says: "Read the Well House plaque". */
 export const PLAQUE_VERB = "Read";
 /** The plaque stone is 0.5 wide (`improvement-spots.ts`); this is the radius of the spot round it. */
 const PLAQUE_RADIUS = 0.35;
@@ -272,7 +272,7 @@ export function buildSpots(input: SpotInput): InteractSpot[] {
   }
   for (const p of input.plaques ?? []) {
     out.push({
-      target: { kind: "plaque", id: p.id, label: `${p.label} plaque`, verb: PLAQUE_VERB },
+      target: { kind: "plaque", id: p.id, label: siteLabel(`${p.label} plaque`), verb: PLAQUE_VERB },
       x: p.x,
       z: p.z,
       hw: PLAQUE_RADIUS,

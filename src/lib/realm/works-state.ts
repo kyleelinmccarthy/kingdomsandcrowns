@@ -36,8 +36,8 @@ export const EMPTY_WORKS: Works = {
 /**
  * The plan the hero is working toward: the pinned plan while it still has a level to build. Null
  * with nothing pinned, for an id outside the catalog, and once every level stands (a finished plan
- * is no goal, whatever was pinned before it finished). The beacon, the Tavern card and the satchel
- * all ask this, never `works.pinned` itself.
+ * is no goal, whatever was pinned before it finished). The beacon (`plan-goal.ts`) asks this rather
+ * than reading `works.pinned` itself; later readers should too.
  */
 export function activePin(works: Pick<Works, "built" | "pinned">): ImprovementId | null {
   const pinned = works.pinned;
@@ -48,6 +48,12 @@ export function activePin(works: Pick<Works, "built" | "pinned">): ImprovementId
 export const CARTS_TITLE = "The carts are in!";
 export const WELCOME_TITLE = "The carts arrived with four weeks of your work";
 
+/** The plaques with `plaque` added, unless that level of that plan already has one (a level another tab built is handed back to the tab that did not). */
+function addPlaque(plaques: readonly Plaque[], plaque: Plaque | undefined): Plaque[] {
+  if (!plaque || plaques.some((p) => p.improvementId === plaque.improvementId && p.level === plaque.level)) return [...plaques];
+  return [...plaques, plaque];
+}
+
 /** The Works after a build run's summary: the balance always; the level and plaque only when it was built. */
 export function applyBuild(works: Works, improvement: NonNullable<RunSummary["improvement"]>): Works {
   if (!improvement.built) return { ...works, balance: improvement.balance };
@@ -55,7 +61,7 @@ export function applyBuild(works: Works, improvement: NonNullable<RunSummary["im
     ...works,
     balance: improvement.balance,
     built: { ...works.built, [improvement.id]: Math.max(works.built[improvement.id] ?? 0, improvement.level) },
-    plaques: improvement.plaque ? [...works.plaques, improvement.plaque] : works.plaques,
+    plaques: addPlaque(works.plaques, improvement.plaque),
   };
 }
 

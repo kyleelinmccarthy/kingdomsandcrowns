@@ -36,6 +36,7 @@ export function QuietGate({
   kingdom: opened,
   profile,
   depth,
+  timezone,
   onEnter,
 }: {
   childId: string;
@@ -47,6 +48,8 @@ export function QuietGate({
   kingdom: KingdomState;
   profile: LearningProfile;
   depth: RealmDepth;
+  /** The family's zone, for the season a standing building says it was raised in (the gate's board). */
+  timezone?: string | null;
   /**
    * In: `access` is the gate's new answer once a run here has woken it (null walks in quiet);
    * `kingdom` is the village to open with after a run here (null when none was played).
@@ -113,6 +116,7 @@ export function QuietGate({
           numerals={surfacesFor(depth, profile).numerals}
           profile={{ readAloud: profile.readAloud, untimed: profile.untimed }}
           calm={!renderSettingsFor(profile, false).motion}
+          timezone={timezone}
           onResult={onResult}
           onClose={closeBoard}
         />

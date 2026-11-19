@@ -8,7 +8,7 @@ import type { RunSummary } from "@/lib/utils/deed-run-types";
 import { BUILDINGS, buildingProgress } from "@/lib/utils/kingdom";
 import { seasonLabel } from "@/lib/utils/seasons";
 import { loadDeedBest, siteTally } from "./deeds";
-import { loadMaterialLedger } from "./realm-materials";
+import { loadMaterialLedger, loadPlaque } from "./realm-materials";
 import { withChildLock, type Tx } from "./realm-play";
 
 /**
@@ -70,7 +70,8 @@ async function loadSourceQuests(childId: string, assignmentIds: string[], tx: Tx
  * after the other: the second reads what the first spent. Nothing here can overspend, and the
  * balance cannot go negative.
  *
- *  - A level already built is reported built, with no spend and no plaque (the two-tabs case).
+ *  - A level already built is reported built, with no spend, carrying the plaque already on record
+ *    (the two-tabs case: this client never heard of that level, so it must be handed its plaque).
  *  - A level whose predecessor is not built, or that is not in the catalog, is an "error".
  *  - Short of materials is "short"; nothing is written.
  *  - Otherwise the level row is inserted first (`onConflictDoNothing` on `(child, plan, level)`), and
@@ -92,12 +93,16 @@ export async function finishBuild(
     const head = { id: improvementId, label: plan?.label ?? improvementId, level };
 
     const I = schema.realmImprovement;
+    const onRecord = async () => {
+      const plaque = await loadPlaque(childId, improvementId, level, tx);
+      return plaque ? { plaque } : {};
+    };
     const stands = async (lvl: number) =>
       (await tx.select({ id: I.id }).from(I).where(and(eq(I.childId, childId), eq(I.improvementId, improvementId), eq(I.level, lvl))).limit(1)).length > 0;
 
     if (!plan || !Number.isInteger(level) || level < 1 || level > plan.levels.length) return { ...head, built: false, reason: "error", balance };
-    // Built already (another tab, or a retry): nothing to spend, nothing to announce.
-    if (await stands(level)) return { ...head, built: true, balance };
+    // Built already (another tab, or a retry): nothing to spend. Hand back the plaque on record, so the client never holds a built level with none.
+    if (await stands(level)) return { ...head, built: true, balance, ...(await onRecord()) };
     if (level > 1 && !(await stands(level - 1))) return { ...head, built: false, reason: "error", balance };
 
     const alloc = allocateSpend(plan.levels[level - 1].cost, ledger);
@@ -121,8 +126,8 @@ export async function finishBuild(
       })
       .onConflictDoNothing()
       .returning({ id: I.id });
-    // Another call built it between our read and our insert: it spent, we do not. Read what it left.
-    if (won.length === 0) return { ...head, built: true, balance: materialBalance(await loadMaterialLedger(childId, tx)) };
+    // Another call built it between our read and our insert: it spent, we do not. Read what it left, and its plaque.
+    if (won.length === 0) return { ...head, built: true, balance: materialBalance(await loadMaterialLedger(childId, tx)), ...(await onRecord()) };
 
     const M = schema.realmMaterial;
     const paid = MATERIAL_IDS.filter((id) => (alloc.spend[id] ?? 0) > 0);
