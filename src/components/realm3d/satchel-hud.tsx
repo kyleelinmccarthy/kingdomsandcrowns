@@ -17,16 +17,29 @@ import { MATERIALS, MATERIAL_IDS, materialPhrase } from "@/lib/realm/materials";
 import { activePin, type Works } from "@/lib/realm/works-state";
 import { Progress } from "./frame-hud";
 
-/** A big heap still fits the block: past this many, the pips stop and the count is said in full. */
+/** A big heap still fits the block: past this many, the pips stop, a "+" says there is more, and the count is said in full. */
 const MAX_PIPS = 10;
 
-export function SatchelHud({ works, raised, numerals }: { works: Works; raised: ReadonlySet<string>; numerals: boolean }) {
+export function SatchelHud({
+  works,
+  raised,
+  numerals,
+  heroName = "Hero",
+  visiting = false,
+}: {
+  works: Works;
+  raised: ReadonlySet<string>;
+  numerals: boolean;
+  heroName?: string;
+  /** A grown-up visiting: the block is named as the hero's satchel, not "yours". */
+  visiting?: boolean;
+}) {
   const held = MATERIAL_IDS.filter((m) => (works.balance[m] ?? 0) > 0);
   const pin = activePin(works);
   const plan = pin ? planState({ built: works.built, raised, balance: works.balance }).find((p) => p.id === pin) : undefined;
   if (held.length === 0 && !plan) return null;
   return (
-    <section className="r3-satchel r3-plank" aria-label="Your satchel">
+    <section className="r3-satchel r3-plank" aria-label={visiting ? `${heroName}'s satchel` : "Your satchel"}>
       <p className="r3-satchel-tab">Satchel</p>
       {held.length > 0 && (
         <ul className="r3-satchel-items">
@@ -41,7 +54,14 @@ export function SatchelHud({ works, raised, numerals }: { works: Works; raised: 
                     {n}
                   </span>
                 ) : (
-                  <Progress done={Math.min(n, MAX_PIPS)} total={Math.min(n, MAX_PIPS)} numerals={false} text="" label={phrase} />
+                  <>
+                    <Progress done={Math.min(n, MAX_PIPS)} total={Math.min(n, MAX_PIPS)} numerals={false} text="" label={phrase} />
+                    {n > MAX_PIPS && (
+                      <span className="r3-satchel-more" aria-hidden="true">
+                        +
+                      </span>
+                    )}
+                  </>
                 )}
               </li>
             );

@@ -23,7 +23,7 @@ const joiner = (i: number, n: number) => (i === 0 ? "" : i === n - 1 ? " and " :
 export function DeliveryCard({ delivery, onClose }: { delivery: Delivery; onClose: () => void }) {
   const { title, lines } = deliveryLines(delivery);
   return (
-    <Panel title={title} label={title} className="r3-board--delivery" icon={<GameIcon name="gift" className="r3-board-icon" />} onClose={onClose}>
+    <Panel title={title} label={title} icon={<GameIcon name="gift" className="r3-board-icon" />} onClose={onClose}>
       <ul className="r3-delivery-lines">
         {lines.map((line) => {
           const words = [...line.titles.map((t) => <em key={t}>{t}</em>), ...(line.more > 0 ? [`${line.more} more`] : [])];

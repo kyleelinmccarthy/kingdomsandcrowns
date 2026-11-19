@@ -98,6 +98,20 @@
   padding: 0.55rem 0.9rem 0.7rem;
   border-radius: 16px;
 }
+/* The top-left column: the objective card, and the satchel under it whatever the card's height. It
+   takes the card's place and lets the card flow, at its own width; under larger text it moves
+   exactly as the zoomed card used to (each block keeps its own zoom). */
+.r3-left-stack {
+  position: absolute;
+  top: 5.6rem;
+  left: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.55rem;
+}
+.r3-left-stack > .r3-quest { position: relative; top: auto; left: auto; }
+.r3-root[data-larger-text="on"] .r3-left-stack { top: 6.72rem; left: 1.2rem; }
 .r3-quest-tab {
   margin: 0 0 0.2rem;
   font-size: 0.68rem;

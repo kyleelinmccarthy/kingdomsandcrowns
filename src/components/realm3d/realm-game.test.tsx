@@ -497,7 +497,7 @@ describe("the carts, the satchel and the quiet clock (minutes, quieter)", () => 
 
   it("shows a visiting grown-up the hero's satchel too", () => {
     mount({ viewer: "parent", realm: { ...realm, isChildView: false, works: carts } });
-    expect(screen.getByRole("region", { name: "Your satchel" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Emma's satchel" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "2 Stone" })).toBeInTheDocument();
   });
 
@@ -512,7 +512,7 @@ describe("the carts, the satchel and the quiet clock (minutes, quieter)", () => 
   it("has the objective card say the plan is ready while the gold ! is on the plans board", () => {
     const rich: Works = { ...EMPTY_WORKS, balance: { ...EMPTY_WORKS.balance, dye: 4, thread: 2 }, pinned: "village-banners" };
     mount({ realm: { ...realm, works: rich } });
-    expect(screen.getByText(/Your Banners is ready to build\. Follow the gold ! to the plans board\./)).toBeInTheDocument();
+    expect(screen.getByText(/Everything for the Banners is ready\. Follow the gold ! to the plans board\./)).toBeInTheDocument();
     expect(screen.queryByText("Old Bram is waiting.")).toBeNull();
   });
 

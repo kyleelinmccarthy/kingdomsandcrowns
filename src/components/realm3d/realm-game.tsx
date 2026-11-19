@@ -1078,7 +1078,7 @@ export function RealmGame({
                 pet={companion.pet}
                 plan={beaconPlan}
               />
-              <SatchelHud works={works} raised={raisedIds} numerals={numerals} />
+              <SatchelHud works={works} raised={raisedIds} numerals={numerals} heroName={heroName} visiting={visiting} />
             </div>
             <VillagePlank heroName={heroName} done={raised} total={kingdom.buildings.length} numerals={numerals} />
             <div className="r3-top-lane">

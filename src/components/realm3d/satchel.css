@@ -1,21 +1,5 @@
-/* The satchel (`satchel-hud.tsx`): top left, under the objective card, in the frame's timber.
-
-   The objective card (`.r3-quest`) is positioned on its own; to stand the satchel under it whatever
-   the card's height, the frame puts both in `.r3-left-stack`, which takes the card's old place and
-   lets the card flow. The card keeps its own width, and under larger text the stack moves exactly
-   as the zoomed card used to. */
-
-.r3-left-stack {
-  position: absolute;
-  top: 5.6rem;
-  left: 1rem;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 0.55rem;
-}
-.r3-left-stack > .r3-quest { position: relative; top: auto; left: auto; }
-.r3-root[data-larger-text="on"] .r3-left-stack { top: 6.72rem; left: 1.2rem; }
+/* The satchel (`satchel-hud.tsx`): top left, under the objective card in the frame's left stack
+   (`.r3-left-stack`, in `realm-frame.css`), in the frame's timber. */
 
 .r3-satchel {
   width: min(19rem, 36vw);
@@ -55,6 +39,8 @@
   font-variant-numeric: tabular-nums;
   text-shadow: 0 2px 0 var(--r3-bark);
 }
+/* More than the pips can show (simple depth): a gold "+" after them. */
+.r3-satchel-more { margin-left: -0.15rem; font-size: 1rem; font-weight: 900; line-height: 1; color: var(--r3-gold); text-shadow: 0 2px 0 var(--r3-bark); }
 .r3-satchel-plan {
   margin-top: 0.45rem;
   padding-top: 0.4rem;

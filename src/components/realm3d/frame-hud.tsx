@@ -77,6 +77,26 @@ function PetOffer({ pet }: { pet: string | null }) {
   );
 }
 
+/**
+ * The pinned plan is ready and the gold ! is on the plans board (`plan-goal.ts`). Worded without
+ * "is/are", like `planGoalSpeech`, since many plans are plural ("Banners", "Stone Arches"). A visitor
+ * is told whose it is, with no directions to follow, as the villager line does.
+ */
+function PlanReady({ plan, heroName, visiting, pet }: { plan: string; heroName: string; visiting: boolean; pet: string | null }) {
+  if (visiting) return <p className="r3-quest-line">{`Everything for ${heroName}'s ${plan} is ready.`}</p>;
+  return (
+    <p className="r3-quest-lead">
+      <span className="r3-quest-bang" aria-hidden="true">
+        !
+      </span>
+      <span>
+        Everything for the {plan} is ready. Follow the gold ! to the plans board.
+        <PetOffer pet={pet} />
+      </span>
+    </p>
+  );
+}
+
 function ObjectiveRows({ objectives, heroName, visiting, numerals, pet = null, stars = false, plan = null }: { objectives: Objective[]; heroName: string; visiting: boolean; numerals: boolean; pet?: string | null; stars?: boolean; plan?: string | null }) {
   const [first, ...rest] = objectives;
   if (!first) return null;
@@ -87,18 +107,7 @@ function ObjectiveRows({ objectives, heroName, visiting, numerals, pet = null, s
         {first.label}
       </p>
       {/* The gold ! is on the plans board (`plan-goal.ts`): say so, not who is waiting. */}
-      {plan && visiting && <p className="r3-quest-line">{`${heroName}’s ${plan} is ready to build.`}</p>}
-      {plan && !visiting && (
-        <p className="r3-quest-lead">
-          <span className="r3-quest-bang" aria-hidden="true">
-            !
-          </span>
-          <span>
-            Your {plan} is ready to build. Follow the gold ! to the plans board.
-            <PetOffer pet={pet} />
-          </span>
-        </p>
-      )}
+      {plan && <PlanReady plan={plan} heroName={heroName} visiting={visiting} pet={pet} />}
       {!plan && first.villagerName && (
         <p className="r3-quest-line">{visiting ? `${first.villagerName} is waiting for ${heroName}.` : `${first.villagerName} is waiting.`}</p>
       )}
@@ -182,7 +191,7 @@ export function ObjectiveCard({
       {!hasObjectives(objective) ? (
         <>
           <p className="r3-quest-title">Every building is built.</p>
-          <p className="r3-quest-line">Nothing is waiting. Walk where you like.</p>
+          {plan ? <PlanReady plan={plan} heroName={heroName} visiting={visiting} pet={pet} /> : <p className="r3-quest-line">Nothing is waiting. Walk where you like.</p>}
         </>
       ) : (
         <ObjectiveRows objectives={objective.objectives} heroName={heroName} visiting={visiting} numerals={numerals} pet={pet} stars={objective.kind === "stars"} plan={plan} />

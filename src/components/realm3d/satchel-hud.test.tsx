@@ -34,10 +34,23 @@ describe("the satchel", () => {
     expect(screen.getByRole("img", { name: "3 Herbs" })).toBeInTheDocument();
   });
 
-  it("caps the pips for a big heap, the count still said in full", () => {
-    const { container } = render(<SatchelHud works={works({ balance: { ...EMPTY_WORKS.balance, timber: 25 } })} raised={NONE} numerals={false} />);
-    expect(container.querySelectorAll(".r3-pip--on")).toHaveLength(10);
+  it("caps the pips for a big heap and marks it with a +, the count still said in full", () => {
+    const { container } = render(<SatchelHud works={works({ balance: { ...EMPTY_WORKS.balance, timber: 25, stone: 10 } })} raised={NONE} numerals={false} />);
+    const [stone, timber] = [...container.querySelectorAll(".r3-satchel-item")];
+    expect(timber.querySelectorAll(".r3-pip--on")).toHaveLength(10);
+    expect(timber.querySelector(".r3-satchel-more")).toHaveTextContent("+");
     expect(screen.getByRole("img", { name: "25 Timber" })).toBeInTheDocument();
+    // Exactly ten is all there is: no +, so ten and more than ten read differently.
+    expect(stone.querySelectorAll(".r3-pip--on")).toHaveLength(10);
+    expect(stone.querySelector(".r3-satchel-more")).toBeNull();
+  });
+
+  it("is the hero's own satchel to a visiting grown-up", () => {
+    render(<SatchelHud works={works({ balance: { ...EMPTY_WORKS.balance, ink: 2 } })} raised={NONE} numerals heroName="Emma" visiting />);
+    expect(screen.getByRole("region", { name: "Emma's satchel" })).toBeInTheDocument();
+    cleanup();
+    render(<SatchelHud works={works({ balance: { ...EMPTY_WORKS.balance, ink: 2 } })} raised={NONE} numerals heroName="Emma" visiting={false} />);
+    expect(screen.getByRole("region", { name: "Your satchel" })).toBeInTheDocument();
   });
 
   it("shows the pinned plan with what it waits on", () => {

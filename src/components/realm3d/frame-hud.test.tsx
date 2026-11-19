@@ -64,8 +64,9 @@ describe("the objectives card", () => {
     render(<ObjectiveCard objective={objectiveState(fresh, 3)} heroName="Emma" visiting={false} numerals plan="Banners" pet="Fox" />);
     expect(screen.queryByText(/Old Bram is waiting/)).toBeNull();
     expect(screen.queryByText(/press E to talk/)).toBeNull();
-    const lead = screen.getByText(/Your Banners is ready to build/);
-    expect(lead.closest("p")).toHaveTextContent("Your Banners is ready to build. Follow the gold ! to the plans board. Or press F, and your Fox will show you the way.");
+    const lead = screen.getByText(/Everything for the Banners is ready/);
+    // Agreement-free, so a plural plan ("Banners", "Stone Arches") reads right.
+    expect(lead.closest("p")).toHaveTextContent("Everything for the Banners is ready. Follow the gold ! to the plans board. Or press F, and your Fox will show you the way.");
     // The objective's own rows stay as they are.
     expect(screen.getByText("Village Well")).toBeInTheDocument();
     expect(screen.getByText("0 of 5")).toBeInTheDocument();
@@ -74,9 +75,25 @@ describe("the objectives card", () => {
 
   it("tells a visiting grown-up whose plan is ready, with no directions to follow", () => {
     render(<ObjectiveCard objective={objectiveState(fresh, 1)} heroName="Emma" visiting numerals plan="Banners" />);
-    expect(screen.getByText("Emma’s Banners is ready to build.")).toBeInTheDocument();
+    expect(screen.getByText("Everything for Emma's Banners is ready.")).toBeInTheDocument();
     expect(screen.queryByText(/Old Bram is waiting/)).toBeNull();
     expect(screen.queryByText(/Follow the gold/)).toBeNull();
+  });
+
+  it("follows a ready plan even when every building stands and every star is earned", () => {
+    const allDone = fresh.map((b) => ({ ...b, done: 5, complete: true, stars: 9, maxStars: 9 }));
+    render(<ObjectiveCard objective={objectiveState(allDone, 3)} heroName="Emma" visiting={false} numerals plan="Banners" />);
+    expect(screen.getByText("Every building is built.")).toBeInTheDocument();
+    expect(screen.getByText(/Everything for the Banners is ready/).closest("p")).toHaveTextContent("Everything for the Banners is ready. Follow the gold ! to the plans board.");
+    expect(screen.queryByText(/Nothing is waiting/)).toBeNull();
+    cleanup();
+    render(<ObjectiveCard objective={objectiveState(allDone, 3)} heroName="Emma" visiting numerals plan="Banners" />);
+    expect(screen.getByText("Everything for Emma's Banners is ready.")).toBeInTheDocument();
+    expect(screen.queryByText(/Nothing is waiting/)).toBeNull();
+    cleanup();
+    // No plan: the finished village says so, as before.
+    render(<ObjectiveCard objective={objectiveState(allDone, 3)} heroName="Emma" visiting={false} numerals />);
+    expect(screen.getByText("Nothing is waiting. Walk where you like.")).toBeInTheDocument();
   });
 
   it("never tells a child their village is finished because it failed to load", () => {
