@@ -382,6 +382,10 @@ export const subject = sqliteTable(
     spellSchool: text("spell_school", { enum: ["element", "form", "modifier", "none"] })
       .notNull()
       .default("none"),
+    // The material this subject's work brings (`lib/realm/materials.ts`). Null means "from the
+    // name" (`resolveMaterial`), so a renamed subject follows its name until a grown-up picks one.
+    // Plain text: the values are validated in code, never by the database.
+    material: text("material"),
     sortOrder: integer("sort_order").notNull().default(0),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
   },
@@ -848,9 +852,75 @@ export const realmSettings = sqliteTable(
     // Which hands-on ways of answering a side quest are on, as JSON by kind (`lib/utils/realm-settings.ts`).
     // Null is all on; a missing kind reads as on.
     mechanics: text("mechanics"),
+    // Real work (docs/superpowers/specs/2026-11-10-realm-learning-woven-in-design.md §4.4): materials a
+    // finished quest brings (0 turns them off), and whether quest cards still show Realm minutes.
+    materialsPerQuest: integer("materials_per_quest").notNull().default(1),
+    showMinutesOnQuests: integer("show_minutes_on_quests", { mode: "boolean" }).notNull().default(false),
+    // Hero state kept beside the settings, but not settings: no grown-up form writes these, and
+    // `RealmSettings` leaves them out. The improvement the hero pinned on the plans board; when the
+    // delivery card was last dismissed (the newest material it showed); when a data fix-up last re-graded.
+    pinnedPlan: text("pinned_plan"),
+    deliverySeenAt: integer("delivery_seen_at", { mode: "timestamp" }),
+    regradedAt: integer("regraded_at", { mode: "timestamp" }),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   }
+);
+
+/**
+ * Materials a hero has earned from real quests and spent on improvements: an append-only ledger,
+ * the balance is the sum. `source_assignment_id` and `realm_improvement.season_id` have NO foreign
+ * key, on purpose: an assignment or a season can be deleted and the record of the work must survive.
+ * `material_id` is plain text (`MaterialId`, validated in code).
+ */
+export const realmMaterial = sqliteTable(
+  "realm_material",
+  {
+    id: text("id").primaryKey(),
+    childId: text("child_id")
+      .notNull()
+      .references(() => child.id, { onDelete: "cascade" }),
+    materialId: text("material_id").notNull(),
+    amount: integer("amount").notNull(), // always > 0; `kind` says which way it moves
+    kind: text("kind", { enum: ["earned", "spent"] }).notNull(),
+    // "welcome" rows are the one-off delivery of recent work (`db:welcome-materials`).
+    origin: text("origin", { enum: ["quest", "welcome"] }).notNull().default("quest"),
+    // The quest assignment an earned row came from (no FK, see above). One earned row per assignment.
+    sourceAssignmentId: text("source_assignment_id"),
+    // What a spent row paid for.
+    improvementId: text("improvement_id"),
+    level: integer("level"),
+    createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
+  },
+  (table) => [
+    index("realm_material_child_created_idx").on(table.childId, table.createdAt),
+    // What makes "a quest mints once" true under two tabs at once.
+    uniqueIndex("realm_material_earned_assignment_idx")
+      .on(table.sourceAssignmentId)
+      .where(sql`${table.kind} = 'earned'`),
+  ]
+);
+
+/** A level of an improvement a hero has built. One row per level, so two tabs building it write it once. */
+export const realmImprovement = sqliteTable(
+  "realm_improvement",
+  {
+    id: text("id").primaryKey(),
+    childId: text("child_id")
+      .notNull()
+      .references(() => child.id, { onDelete: "cascade" }),
+    improvementId: text("improvement_id").notNull(),
+    level: integer("level").notNull(),
+    stars: integer("stars").notNull(),
+    // The calendar season it was built in (no FK: a season can be deleted and the plaque stays).
+    seasonId: text("season_id"),
+    // A snapshot of the hero's name, so the plaque never changes if they are renamed.
+    builtByName: text("built_by_name").notNull(),
+    // JSON: the quests whose earned materials paid for it, oldest first, capped at 12.
+    sources: text("sources").notNull(),
+    builtAt: integer("built_at", { mode: "timestamp" }).notNull(),
+  },
+  (table) => [uniqueIndex("realm_improvement_child_level_idx").on(table.childId, table.improvementId, table.level)]
 );
 
 /**
@@ -1187,6 +1257,11 @@ export const kingdomProgress = sqliteTable(
     buildingId: text("building_id").notNull(),
     deedsDone: integer("deeds_done").notNull().default(0),
     completedAt: integer("completed_at", { mode: "timestamp" }),
+    // When the world last announced this building as raised, so a rise shows once (D13.6).
+    announcedAt: integer("announced_at", { mode: "timestamp" }),
+    // Who raised it and in which calendar season, snapshotted at the rise (D13.7-D13.9).
+    raisedByName: text("raised_by_name"),
+    raisedSeasonId: text("raised_season_id"),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   },

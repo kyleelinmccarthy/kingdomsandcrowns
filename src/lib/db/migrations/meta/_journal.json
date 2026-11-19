@@ -288,6 +288,13 @@
       "when": 1794417313300,
       "tag": "0040_realm_mechanics",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "6",
+      "when": 1795101061653,
+      "tag": "0041_real_work",
+      "breakpoints": true
     }
   ]
 }

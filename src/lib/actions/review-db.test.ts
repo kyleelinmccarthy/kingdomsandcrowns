@@ -5,7 +5,7 @@ import { DEFAULT_REALM_SETTINGS } from "@/lib/utils/realm-settings";
 import { HERO_ONLY, NOT_IN_CHRONICLE } from "@/lib/utils/deed-refusals";
 import { QUICK_REVIEW_TITLE, REVIEW_STORY, stoneTitle } from "@/lib/utils/review-copy";
 import type { Question } from "@/lib/utils/drill-generators";
-import { REALM_ACCESS_DDL, REALM_LEDGER_DDL, REALM_SETTINGS_DDL } from "@/test/realm-db-ddl";
+import { KINGDOM_PROGRESS_DDL, REALM_ACCESS_DDL, REALM_LEDGER_DDL, REALM_SETTINGS_DDL } from "@/test/realm-db-ddl";
 
 /**
  * A review run against a REAL libsql database: it teaches (mastery moves on a first answer) and
@@ -61,11 +61,7 @@ const DDL = [
     correct_total integer DEFAULT 0 NOT NULL, attempt_total integer DEFAULT 0 NOT NULL,
     last_practiced_at integer, created_at integer NOT NULL, updated_at integer NOT NULL)`,
   `CREATE UNIQUE INDEX skill_mastery_child_skill_idx ON skill_mastery (child_id, skill_id)`,
-  `CREATE TABLE kingdom_progress (
-    id text PRIMARY KEY NOT NULL, child_id text NOT NULL, building_id text NOT NULL,
-    deeds_done integer DEFAULT 0 NOT NULL, completed_at integer,
-    created_at integer NOT NULL, updated_at integer NOT NULL)`,
-  `CREATE UNIQUE INDEX kingdom_progress_child_building_idx ON kingdom_progress (child_id, building_id)`,
+  ...KINGDOM_PROGRESS_DDL,
   `CREATE TABLE learning_focus (
     id text PRIMARY KEY NOT NULL, child_id text NOT NULL, skill_id text NOT NULL, created_at integer NOT NULL)`,
   ...REALM_SETTINGS_DDL,

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { DEFAULT_REALM_SETTINGS, settingsFromRow, validateRealmSettingsPatch } from "./realm-settings";
+import { DEFAULT_REALM_SETTINGS, MATERIALS_PER_QUEST_RANGE, settingsFromRow, validateRealmSettingsPatch } from "./realm-settings";
 import { STORED_MAX } from "@/lib/realm3d/tutorial";
 
 const ROW = {
@@ -160,6 +160,44 @@ describe("earning-time settings", () => {
     expect(() => validateRealmSettingsPatch({ bankCapMinutes: 241 })).toThrow("The saved-minutes bank must be 0–240 minutes.");
     expect(validateRealmSettingsPatch({ bankCapMinutes: 0 })).toEqual({ bankCapMinutes: 0 });
     expect(validateRealmSettingsPatch({ bankCapMinutes: 240 })).toEqual({ bankCapMinutes: 240 });
+  });
+});
+
+describe("real-work settings (materials per quest, minutes on quest cards)", () => {
+  it("defaults to 1 material a quest and the minutes hidden on quests", () => {
+    expect(DEFAULT_REALM_SETTINGS.materialsPerQuest).toBe(1);
+    expect(DEFAULT_REALM_SETTINGS.showMinutesOnQuests).toBe(false);
+    expect(MATERIALS_PER_QUEST_RANGE).toEqual({ min: 0, max: 3 });
+    expect(settingsFromRow(null).materialsPerQuest).toBe(1);
+  });
+
+  it("reads an out-of-range, fractional or non-number count as the default and keeps the boundaries", () => {
+    for (const bad of [4, -1, 1.5, "2", null, undefined]) expect(settingsFromRow({ materialsPerQuest: bad }).materialsPerQuest, String(bad)).toBe(1);
+    expect(settingsFromRow({ materialsPerQuest: 0 }).materialsPerQuest).toBe(0);
+    expect(settingsFromRow({ materialsPerQuest: 3 }).materialsPerQuest).toBe(3);
+  });
+
+  it("reads a non-boolean minutes switch as the default", () => {
+    expect(settingsFromRow({ showMinutesOnQuests: "yes" }).showMinutesOnQuests).toBe(false);
+    expect(settingsFromRow({ showMinutesOnQuests: 1 }).showMinutesOnQuests).toBe(false);
+    expect(settingsFromRow({ showMinutesOnQuests: true }).showMinutesOnQuests).toBe(true);
+  });
+
+  it("rejects a bad write and accepts the boundaries", () => {
+    expect(() => validateRealmSettingsPatch({ materialsPerQuest: 4 })).toThrow("Materials per quest must be 0–3.");
+    expect(() => validateRealmSettingsPatch({ materialsPerQuest: -1 })).toThrow("Materials per quest must be 0–3.");
+    expect(() => validateRealmSettingsPatch({ materialsPerQuest: 1.5 })).toThrow();
+    expect(validateRealmSettingsPatch({ materialsPerQuest: 0 })).toEqual({ materialsPerQuest: 0 });
+    expect(validateRealmSettingsPatch({ materialsPerQuest: 3 })).toEqual({ materialsPerQuest: 3 });
+    expect(validateRealmSettingsPatch({ showMinutesOnQuests: true })).toEqual({ showMinutesOnQuests: true });
+    expect(() => validateRealmSettingsPatch({ showMinutesOnQuests: "yes" })).toThrow("showMinutesOnQuests must be on or off.");
+  });
+
+  it("keeps the pinned plan, the delivery mark and the regrade stamp out of the settings", () => {
+    for (const key of ["pinnedPlan", "deliverySeenAt", "regradedAt"]) {
+      expect(() => validateRealmSettingsPatch({ [key]: "x" }), key).toThrow(`Unknown Realm setting: ${key}`);
+      expect(DEFAULT_REALM_SETTINGS).not.toHaveProperty(key);
+    }
   });
 });
 

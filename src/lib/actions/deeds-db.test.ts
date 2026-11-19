@@ -9,7 +9,7 @@ import type { Question } from "@/lib/utils/drill-generators";
 import type { MeasureTask } from "@/lib/tasks/types";
 import { isTaskCorrect, kindOf, type Task } from "@/lib/tasks/registry";
 import { BENCH } from "@/lib/tasks/bench";
-import { REALM_ACCESS_DDL, REALM_LEDGER_DDL, REALM_SETTINGS_DDL } from "@/test/realm-db-ddl";
+import { KINGDOM_PROGRESS_DDL, REALM_ACCESS_DDL, REALM_LEDGER_DDL, REALM_SETTINGS_DDL } from "@/test/realm-db-ddl";
 
 /**
  * The second-chance contract against a REAL libsql database. Every rule here is enforced from
@@ -72,11 +72,7 @@ const DDL = [
     correct_total integer DEFAULT 0 NOT NULL, attempt_total integer DEFAULT 0 NOT NULL,
     last_practiced_at integer, created_at integer NOT NULL, updated_at integer NOT NULL)`,
   `CREATE UNIQUE INDEX skill_mastery_child_skill_idx ON skill_mastery (child_id, skill_id)`,
-  `CREATE TABLE kingdom_progress (
-    id text PRIMARY KEY NOT NULL, child_id text NOT NULL, building_id text NOT NULL,
-    deeds_done integer DEFAULT 0 NOT NULL, completed_at integer,
-    created_at integer NOT NULL, updated_at integer NOT NULL)`,
-  `CREATE UNIQUE INDEX kingdom_progress_child_building_idx ON kingdom_progress (child_id, building_id)`,
+  ...KINGDOM_PROGRESS_DDL,
   `CREATE TABLE subject (id text PRIMARY KEY NOT NULL, spell_school text DEFAULT 'none' NOT NULL)`,
   `CREATE TABLE activity_log (id text PRIMARY KEY NOT NULL, child_id text NOT NULL, subject_id text NOT NULL)`,
   `CREATE TABLE learning_focus (

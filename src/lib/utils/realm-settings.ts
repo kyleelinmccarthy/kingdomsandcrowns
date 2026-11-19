@@ -33,6 +33,10 @@ export type RealmSettings = {
   sideQuestDailyCapMinutes: number;
   /** The most minutes a day may carry into the next one (`BANK_CAP_RANGE`); 0 means nothing carries. */
   bankCapMinutes: number;
+  /** Materials a finished quest brings (`MATERIALS_PER_QUEST_RANGE`); 0 turns materials off. They are not minutes, so this holds in every access mode. */
+  materialsPerQuest: number;
+  /** Whether quest cards still show the Realm minutes a quest earns. Off by default: the card leads with materials. */
+  showMinutesOnQuests: boolean;
   /**
    * Which hands-on ways of answering a side quest are on (`HANDS_ON_KINDS`); multiple choice is
    * always available. Stored as JSON text, null for "all on". Read by `startDeedRun` when a run is
@@ -63,6 +67,8 @@ export const DEFAULT_REALM_SETTINGS: RealmSettings = {
   minutesPerStar: 1,
   sideQuestDailyCapMinutes: 15,
   bankCapMinutes: 30,
+  materialsPerQuest: 1,
+  showMinutesOnQuests: false,
   mechanics: allMechanicsOn(),
 };
 
@@ -76,6 +82,7 @@ export const ALLOWANCE_RANGE = { min: 0, max: 60 } as const;
 export const MINUTES_PER_STAR_RANGE = { min: 0, max: 5 } as const;
 export const SIDE_QUEST_PAY_CAP_RANGE = { min: 0, max: 120 } as const;
 export const BANK_CAP_RANGE = { min: 0, max: 240 } as const;
+export const MATERIALS_PER_QUEST_RANGE = { min: 0, max: 3 } as const;
 
 function inRange(v: unknown, r: { min: number; max: number }): v is number {
   return typeof v === "number" && Number.isInteger(v) && v >= r.min && v <= r.max;
@@ -146,6 +153,8 @@ export function settingsFromRow(row: Partial<Record<keyof RealmSettings, unknown
       ? row.sideQuestDailyCapMinutes
       : DEFAULT_REALM_SETTINGS.sideQuestDailyCapMinutes,
     bankCapMinutes: inRange(row.bankCapMinutes, BANK_CAP_RANGE) ? row.bankCapMinutes : DEFAULT_REALM_SETTINGS.bankCapMinutes,
+    materialsPerQuest: inRange(row.materialsPerQuest, MATERIALS_PER_QUEST_RANGE) ? row.materialsPerQuest : DEFAULT_REALM_SETTINGS.materialsPerQuest,
+    showMinutesOnQuests: typeof row.showMinutesOnQuests === "boolean" ? row.showMinutesOnQuests : DEFAULT_REALM_SETTINGS.showMinutesOnQuests,
     mechanics: mechanicsFromStored(row.mechanics),
   };
 }
@@ -159,6 +168,7 @@ export function validateRealmSettingsPatch(patch: unknown): RealmSettingsPatch {
       case "enabled":
       case "offHoursEnabled":
       case "secondChances":
+      case "showMinutesOnQuests":
         if (typeof v !== "boolean") throw new Error(`${key} must be on or off.`);
         out[key] = v;
         break;
@@ -209,6 +219,10 @@ export function validateRealmSettingsPatch(patch: unknown): RealmSettingsPatch {
       case "bankCapMinutes":
         if (!inRange(v, BANK_CAP_RANGE)) throw new Error(`The saved-minutes bank must be ${BANK_CAP_RANGE.min}–${BANK_CAP_RANGE.max} minutes.`);
         out.bankCapMinutes = v;
+        break;
+      case "materialsPerQuest":
+        if (!inRange(v, MATERIALS_PER_QUEST_RANGE)) throw new Error(`Materials per quest must be ${MATERIALS_PER_QUEST_RANGE.min}–${MATERIALS_PER_QUEST_RANGE.max}.`);
+        out.materialsPerQuest = v;
         break;
       case "mechanics": {
         if (!v || typeof v !== "object" || Array.isArray(v)) throw new Error("Unknown Realm setting: mechanics");

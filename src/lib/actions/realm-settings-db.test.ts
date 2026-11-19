@@ -65,6 +65,24 @@ describe("updateRealmSettings and the mechanics switches", () => {
     expect(await storedMechanics()).toBeUndefined(); // not even the settings row was made
   });
 
+  it("round-trips the two real-work dials, and reads them as 1 and off for a hero who never set them", async () => {
+    const fresh = await getRealmSettings("c1");
+    expect(fresh.materialsPerQuest).toBe(1);
+    expect(fresh.showMinutesOnQuests).toBe(false);
+    await updateRealmSettings("c1", { materialsPerQuest: 3, showMinutesOnQuests: true });
+    const s = await getRealmSettings("c1");
+    expect(s.materialsPerQuest).toBe(3);
+    expect(s.showMinutesOnQuests).toBe(true);
+    await updateRealmSettings("c1", { materialsPerQuest: 0 });
+    expect((await getRealmSettings("c1")).materialsPerQuest).toBe(0);
+    expect((await getRealmSettings("c1")).showMinutesOnQuests).toBe(true);
+  });
+
+  it("refuses a pinned plan as a setting, and a count out of range, before any write", async () => {
+    await expect(updateRealmSettings("c1", { pinnedPlan: "x" } as never)).rejects.toThrow("Unknown Realm setting: pinnedPlan");
+    await expect(updateRealmSettings("c1", { materialsPerQuest: 4 })).rejects.toThrow("Materials per quest must be 0–3.");
+  });
+
   it("is a grown-up's switch alone: the hero cannot turn a mechanic off", async () => {
     actor = { userId: "child:c1" };
     await expect(updateRealmSettings("c1", { mechanics: { measure: false } })).rejects.toThrow("Only a grown-up");

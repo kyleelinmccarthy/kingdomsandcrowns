@@ -7,6 +7,7 @@ import {
   ALLOWANCE_RANGE,
   BANK_CAP_RANGE,
   DEFAULT_REALM_SETTINGS,
+  MATERIALS_PER_QUEST_RANGE,
   MINUTES_PER_STAR_RANGE,
   SIDE_QUEST_LENGTH_RANGE,
   SIDE_QUEST_PAY_CAP_RANGE,
@@ -125,6 +126,53 @@ describe("RealmSettingsPanel", () => {
     expect(within(group).getAllByRole("switch")).toHaveLength(1 + HANDS_ON_KINDS.length);
   });
 
+  describe("Real work", () => {
+    it("is its own group, ahead of Side quests, with the materials count and the minutes switch", () => {
+      render(<RealmSettingsPanel childId="c1" settings={DEFAULT_REALM_SETTINGS} summary={summary} />);
+      const group = screen.getByRole("group", { name: "Real work" });
+      const field = screen.getByLabelText("Materials per quest");
+      expect(group).toContainElement(field);
+      expect(field).toHaveValue(DEFAULT_REALM_SETTINGS.materialsPerQuest);
+      expect(field).toHaveAttribute("min", String(MATERIALS_PER_QUEST_RANGE.min));
+      expect(field).toHaveAttribute("max", String(MATERIALS_PER_QUEST_RANGE.max));
+      expect(within(group).getByText("0 turns this off.")).toBeInTheDocument();
+      const sw = within(group).getByRole("switch", { name: "Show Realm minutes on quests" });
+      expect(sw).not.toBeChecked();
+      const side = screen.getByRole("group", { name: "Side quests" });
+      expect(group.compareDocumentPosition(side) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it("saves exactly materialsPerQuest when the count changes", async () => {
+      render(<RealmSettingsPanel childId="c1" settings={DEFAULT_REALM_SETTINGS} summary={summary} />);
+      const field = screen.getByLabelText("Materials per quest");
+      const save = field.closest("div.flex")!.querySelector("button")!;
+      expect(save).toBeDisabled();
+      fireEvent.change(field, { target: { value: "3" } });
+      fireEvent.click(save);
+      await waitFor(() => expect(updateRealmSettings).toHaveBeenCalledWith("c1", { materialsPerQuest: 3 }));
+      expect(updateRealmSettings).toHaveBeenCalledTimes(1);
+    });
+
+    it("saves the minutes switch, on and off", async () => {
+      const user = userEvent.setup();
+      render(<RealmSettingsPanel childId="c1" settings={DEFAULT_REALM_SETTINGS} summary={summary} />);
+      await user.click(screen.getByRole("switch", { name: "Show Realm minutes on quests" }));
+      expect(updateRealmSettings).toHaveBeenCalledWith("c1", { showMinutesOnQuests: true });
+      cleanup();
+      render(<RealmSettingsPanel childId="c1" settings={{ ...DEFAULT_REALM_SETTINGS, showMinutesOnQuests: true }} summary={summary} />);
+      const sw = screen.getByRole("switch", { name: "Show Realm minutes on quests" });
+      expect(sw).toBeChecked();
+      await user.click(sw);
+      expect(updateRealmSettings).toHaveBeenLastCalledWith("c1", { showMinutesOnQuests: false });
+    });
+
+    it.each(["scheduled", "open"] as const)("is shown in %s mode too (materials are not minutes)", (accessMode) => {
+      render(<RealmSettingsPanel childId="c1" settings={{ ...DEFAULT_REALM_SETTINGS, accessMode }} summary={summary} />);
+      expect(screen.getByLabelText("Materials per quest")).toBeInTheDocument();
+      expect(screen.getByRole("switch", { name: "Show Realm minutes on quests" })).toBeInTheDocument();
+    });
+  });
+
   describe("Earning time", () => {
     const FIELDS: { label: string; key: keyof RealmSettings; range: { min: number; max: number }; value: number }[] = [
       { label: "Free minutes each day", key: "dailyAllowanceMinutes", range: ALLOWANCE_RANGE, value: DEFAULT_REALM_SETTINGS.dailyAllowanceMinutes },
@@ -143,7 +191,9 @@ describe("RealmSettingsPanel", () => {
         expect(field).toHaveAttribute("min", String(f.range.min));
         expect(field).toHaveAttribute("max", String(f.range.max));
       }
-      expect(screen.getAllByText("0 turns this off.")).toHaveLength(4);
+      // Four in Earning time, one more under Real work's materials count.
+      expect(within(group).getAllByText("0 turns this off.")).toHaveLength(4);
+      expect(screen.getAllByText("0 turns this off.")).toHaveLength(5);
       // The per-quest rate is part of the group, not the access-mode picker.
       expect(group).toContainElement(screen.getByLabelText(/minutes per quest/i));
     });

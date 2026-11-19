@@ -13,6 +13,7 @@ import {
   BANK_CAP_RANGE,
   DAILY_CAP_RANGE,
   EARNED_MINUTES_RANGE,
+  MATERIALS_PER_QUEST_RANGE,
   MINUTES_PER_STAR_RANGE,
   SIDE_QUEST_LENGTH_RANGE,
   SIDE_QUEST_PAY_CAP_RANGE,
@@ -283,6 +284,31 @@ export function RealmSettingsPanel({
               </span>
             </label>
           ))}
+        </div>
+      </fieldset>
+
+      <fieldset className="space-y-3 rounded-lg border border-gold-dim bg-muted/30 px-3 py-2.5">
+        <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Real work</legend>
+        <NumberSetting
+          id={`materials-${childId}`}
+          label="Materials per quest"
+          range={MATERIALS_PER_QUEST_RANGE}
+          saved={settings.materialsPerQuest}
+          hint={OFF_HINT}
+          busy={busy}
+          onSave={(v) => save({ materialsPerQuest: v })}
+        />
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            <p className="text-sm">Show Realm minutes on quests</p>
+            <p className="text-xs text-muted-foreground">Quest cards lead with materials; turn this on to show the minutes a quest earns too.</p>
+          </div>
+          <Switch
+            aria-label="Show Realm minutes on quests"
+            checked={settings.showMinutesOnQuests}
+            disabled={busy}
+            onCheckedChange={() => save({ showMinutesOnQuests: !settings.showMinutesOnQuests })}
+          />
         </div>
       </fieldset>
 
