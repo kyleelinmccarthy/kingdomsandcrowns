@@ -105,6 +105,8 @@ export type LessonContext = {
   emptyPage: boolean;
   /** The mount the child can ride ("Pony"), or null: no mount, no riding lesson. */
   mount?: string | null;
+  /** The gold ! points at the plans board (a ready pinned plan), not at a villager: the find lesson says so. */
+  planBeacon?: boolean;
 };
 
 const clamp = (n: number) => Math.max(0, Math.min(LESSONS.length, Math.floor(Number.isFinite(n) ? n : 0)));
@@ -201,7 +203,7 @@ export function lessonCopy(done: number, ctx: LessonContext): LessonCopy | null 
       if (!ctx.villagers) return null;
       return ctx.waiting
         ? say(`Find ${ctx.waiting}.`, "Follow the gold ! — it is on your map too.")
-        : say("Find a villager.", "Anyone with a name over their head.");
+        : say("Find a villager.", ctx.planBeacon ? "Anyone with a name over their head. The gold ! is on the plans board for now." : "Anyone with a name over their head.");
     case "talk":
       if (!ctx.villagers) return null;
       return ctx.waiting ? say(`Talk to ${ctx.waiting}.`, "Stand close and press E.") : say("Talk to a villager.", "Stand close and press E.");

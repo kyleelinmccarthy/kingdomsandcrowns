@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
@@ -23,17 +23,23 @@ import { isTaskCorrect, taskDefOf, type ResponseByKind, type Task, type TaskKind
 import { CHALLENGE, MAX_STARS, RUN_EFFECTS, countsTowardBuilding, runPoints, starsFor, type QuestionOutcome, type RunKind, type Stars } from "@/lib/utils/deed-scoring";
 import { outcomeOf, refuseGiveUp, refuseRetry, statusOf, type QuestionStatus } from "@/lib/utils/deed-attempts";
 import {
-  ALREADY_ANSWERED, ANSWER_EVERY, ANSWER_FIRST, CHALLENGE_LOCKED, CHALLENGE_NOT_READY, CLOSED, FINISHED, HERO_ONLY, NONE_READY,
+  ALREADY_ANSWERED, ANSWER_EVERY, ANSWER_FIRST, BUILD_HERO_ONLY, CHALLENGE_LOCKED, CHALLENGE_NOT_READY, CLOSED, FINISHED, HERO_ONLY, NONE_READY,
   NOT_IN_CHRONICLE, NOT_IN_RUN, NOT_THROUGH, PICK_SHOWN,
 } from "@/lib/utils/deed-refusals";
 import { overdueSkills } from "@/lib/utils/review-schedule";
 import type { AttemptResult, RunStart, RunSummary } from "@/lib/utils/deed-run-types";
 import { hintFor } from "@/lib/utils/skill-hints";
 import { benchDemoAt, findOpenRun, insertRun, loadMasteryRows, loadRecentMisses, parseRun, resumedStart, type DeedRunRow } from "@/lib/services/deed-run-store";
-import { buildingStars, gradeForDeed, loadDeedBest, loadHeroLevels, loadKingdomOverview, loadSiteState, type BuildingOverview } from "@/lib/services/deeds";
+import {
+  buildingStars, gradeForDeed, loadDeedBest, loadHeroLevels, loadKingdomOverview, loadSiteState, siteTally, type BuildingOverview, type DeedBest,
+} from "@/lib/services/deeds";
 import { loadFocusSkillIds } from "@/lib/services/learning-focus";
 import { loadLearningProfileRow } from "@/lib/services/learning-profile";
 import { loadRealmSettings, paySideQuest } from "@/lib/services/realm-play";
+import { finishBuild } from "@/lib/services/improvements";
+import { loadMaterialLedger } from "@/lib/services/realm-materials";
+import { IMPROVEMENTS, parsePlanRef, type ImprovementId } from "@/lib/realm/improvements";
+import { MATERIAL_IDS, materialBalance, type MaterialId } from "@/lib/realm/materials";
 import { NO_SIDE_QUEST_PAY, type SideQuestPay } from "@/lib/utils/side-quest-pay";
 import { enabledHandsOnKinds } from "@/lib/utils/realm-settings";
 
@@ -326,12 +332,48 @@ export async function resolveDeedQuestion(runId: string, index: number): Promise
   return resultFor(question, "missed");
 }
 
-/** Raises the building when the run counts, and reads where it stands either way. */
-async function buildingAfter(childId: string, building: Building, counted: boolean, now: Date) {
-  if (counted) {
+/**
+ * Who raised a building, read as it rises: the hero's own name (never a grown-up's) and their open
+ * season. Each read is best effort and alone: a failure leaves that one null and the building rises
+ * anyway (D13.7). A hero with no grade has no open season, which is null too.
+ */
+async function raisedRecord(childId: string): Promise<{ raisedByName: string | null; raisedSeasonId: string | null }> {
+  const [name, season] = await Promise.all([
+    db.select({ displayName: schema.child.displayName }).from(schema.child).where(eq(schema.child.id, childId)).limit(1)
+      .then((rows) => rows[0]?.displayName ?? null)
+      .catch((err: unknown) => {
+        console.error("Raised-by name failed to load", err);
+        return null;
+      }),
+    db.select({ id: schema.season.id }).from(schema.season)
+      .where(and(eq(schema.season.childId, childId), isNull(schema.season.completedAt)))
+      .orderBy(desc(schema.season.ordinal))
+      .limit(1)
+      .then((rows) => rows[0]?.id ?? null)
+      .catch((err: unknown) => {
+        console.error("Raised-by season failed to load", err);
+        return null;
+      }),
+  ]);
+  return { raisedByName: name, raisedSeasonId: season };
+}
+
+/**
+ * Counts the run at its site and reads where the building stands, raising it the first time its
+ * stories are all done (D13). `countsRun` is a side quest's own run: every one finished counts in the
+ * site's lifetime runs (`deeds_done`, display only), stars or none. Progress is read from the stories'
+ * bests AFTER this run's own write, so this run's story counts, and of two stories finishing the
+ * building at once the later read sees both. `bestBefore` excludes this run: it says whether the
+ * building already stood, so the run was practice.
+ */
+async function buildingAfter(
+  childId: string, building: Building, countsRun: boolean, bestBefore: readonly DeedBest[], now: Date,
+): Promise<{ progress: { done: number; total: number; complete: boolean; practice: boolean }; bestNow: DeedBest[]; raisedHere: boolean }> {
+  const where = and(eq(schema.kingdomProgress.childId, childId), eq(schema.kingdomProgress.buildingId, building.id));
+  if (countsRun) {
     // Insert-first, then an unconditional atomic increment: two completions of the
     // same building racing each other can't both read deedsDone=0 and both write 1,
-    // losing a deed. The insert only ever seeds a fresh row (onConflictDoNothing),
+    // losing a run. The insert only ever seeds a fresh row (onConflictDoNothing),
     // so the +1 below always applies to whatever is already there.
     await db.insert(schema.kingdomProgress).values({
       id: nanoid(), childId, buildingId: building.id, deedsDone: 0,
@@ -339,18 +381,26 @@ async function buildingAfter(childId: string, building: Building, counted: boole
     }).onConflictDoNothing();
     await db.update(schema.kingdomProgress)
       .set({ deedsDone: sql`${schema.kingdomProgress.deedsDone} + 1`, updatedAt: now })
-      .where(and(eq(schema.kingdomProgress.childId, childId), eq(schema.kingdomProgress.buildingId, building.id)));
+      .where(where);
   }
-  const [row] = await db
-    .select()
-    .from(schema.kingdomProgress)
-    .where(and(eq(schema.kingdomProgress.childId, childId), eq(schema.kingdomProgress.buildingId, building.id)))
-    .limit(1);
-  const progress = buildingProgress(row?.deedsDone ?? 0, building);
+  const [rows, bestNow] = await Promise.all([
+    db.select().from(schema.kingdomProgress).where(where).limit(1),
+    loadDeedBest(childId),
+  ]);
+  const row = rows[0];
+  const practice = buildingProgress(siteTally(building.id, row, bestBefore), building).complete;
+  const progress = buildingProgress(siteTally(building.id, row, bestNow), building);
+  let raisedHere = false;
   if (row && progress.complete && row.completedAt === null) {
-    await db.update(schema.kingdomProgress).set({ completedAt: now }).where(eq(schema.kingdomProgress.id, row.id));
+    const record = await raisedRecord(childId);
+    // Raised once: of two finishes racing here, only the first write lands, so one name is written.
+    const raised = await db.update(schema.kingdomProgress)
+      .set({ completedAt: now, ...record, updatedAt: now })
+      .where(and(eq(schema.kingdomProgress.id, row.id), isNull(schema.kingdomProgress.completedAt)))
+      .returning({ id: schema.kingdomProgress.id });
+    raisedHere = raised.length > 0;
   }
-  return progress;
+  return { progress: { ...progress, practice }, bestNow, raisedHere };
 }
 
 export async function completeDeedRun(runId: string): Promise<RunSummary> {
@@ -360,6 +410,8 @@ export async function completeDeedRun(runId: string): Promise<RunSummary> {
   // An open second chance blocks finishing exactly as an unanswered question does.
   const outcomes = statuses.map(outcomeOf).filter((o): o is QuestionOutcome => o !== null);
   if (outcomes.length !== questions.length) throw new Error(ANSWER_EVERY);
+  // Building spends the hero's materials, so only the hero finishes a build run; refused before anything is written.
+  if (run.kind === "build" && !isChildActor(access)) throw new Error(BUILD_HERO_ONLY);
   const effects = RUN_EFFECTS[run.kind];
   const correctCount = statuses.filter((s) => s === "right-first").length;
   const flawless = correctCount === questions.length;
@@ -385,15 +437,21 @@ export async function completeDeedRun(runId: string): Promise<RunSummary> {
   // lock, so the pay's transaction and the building's write must not overlap (`payForRun` never rejects).
   const pay = effects.paysMinutes && stars > 0 && isChildActor(access) ? await payForRun(run.childId, runId, stars) : NO_SIDE_QUEST_PAY;
 
-  const counted = effects.raisesBuilding && countsTowardBuilding(stars);
+  // A build run spends and builds only now that it is closed, and after any pay (a build pays none).
+  const improvement = run.kind === "build" ? await finishBuildRun(run.childId, run.sourceRef, stars, now) : undefined;
+
   const deed = run.deedId ? findDeed(run.deedId) : null;
   const building = deed ? findBuilding(deed.buildingId) : null;
-  const progress = building ? await buildingAfter(run.childId, building, counted, now) : { done: 0, total: 0, complete: false };
-
   // A challenge earns no stars, so it cannot move a best; a deed can only raise it.
   const deedBest = Math.max(previousBest, stars) as Stars;
-  const bestAfter = [...bestBefore.filter((b) => b.deedId !== run.deedId), ...(run.deedId ? [{ deedId: run.deedId, bestStars: deedBest }] : [])];
-  const buildingStarsNow = building ? buildingStars(building.id, bestAfter) : { stars: 0, maxStars: 0 };
+  // Every side-quest run finished counts at its site, stars or none; a challenge counts none.
+  const site = building ? await buildingAfter(run.childId, building, effects.raisesBuilding, bestBefore, now) : null;
+  // Whether this run moved its building: its story's first star, or the write that raised it. A
+  // starred replay of a story already done is practice, so the world never calls it "rising".
+  const firstStar = !countsTowardBuilding(previousBest) && countsTowardBuilding(stars);
+  const counted = effects.raisesBuilding && (firstStar || (site?.raisedHere ?? false));
+  const progress = site?.progress ?? { done: 0, total: 0, complete: false, practice: false };
+  const buildingStarsNow = building && site ? buildingStars(building.id, site.bestNow) : { stars: 0, maxStars: 0 };
 
   const masteryStart = JSON.parse(run.masteryStart) as Record<string, number>;
   const skillIds = JSON.parse(run.skillIds) as string[];
@@ -414,7 +472,37 @@ export async function completeDeedRun(runId: string): Promise<RunSummary> {
     // A run owned by no side quest (a review) raises nothing, so it has no building to show.
     building: run.deedId ? { label: building?.label ?? "the kingdom", ...progress, ...buildingStarsNow } : null,
     minutesEarned: pay.minutes, sideQuestPayFull: pay.full,
+    ...(improvement ? { improvement } : {}),
   };
+}
+
+/**
+ * The build hook of `completeDeedRun`: the run is already closed, so whatever goes wrong here must
+ * not fail the finish. Any throw reads as "error" (nothing was spent: `finishBuild` is one
+ * transaction), with the balance from a fresh read, or zeros if that fails too.
+ */
+async function finishBuildRun(childId: string, sourceRef: string | null, stars: number, now: Date): Promise<NonNullable<RunSummary["improvement"]>> {
+  const ref = parsePlanRef(sourceRef ?? "");
+  // A ref that does not parse (it cannot, from `startBuildRun`) still gets a plan's shape in the summary.
+  const head = ref
+    ? { id: ref.improvementId, label: IMPROVEMENTS[ref.improvementId].label, level: ref.level }
+    : { id: "" as ImprovementId, label: "the plan", level: 1 };
+  const stopped = async (): Promise<NonNullable<RunSummary["improvement"]>> => {
+    let balance = Object.fromEntries(MATERIAL_IDS.map((id) => [id, 0])) as Record<MaterialId, number>;
+    try {
+      balance = materialBalance(await loadMaterialLedger(childId));
+    } catch {
+      // The zeros stand: the summary still tells the hero nothing was spent.
+    }
+    return { ...head, built: false, reason: "error", balance };
+  };
+  if (!ref) return stopped();
+  try {
+    return await finishBuild(childId, ref, stars, now);
+  } catch (err) {
+    console.error("finishing a build failed", { childId, sourceRef, err });
+    return stopped();
+  }
 }
 
 /**

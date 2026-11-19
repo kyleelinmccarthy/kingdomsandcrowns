@@ -6,6 +6,7 @@ import { records, resumeIndex, statusOf } from "@/lib/utils/deed-attempts";
 import { hintFor } from "@/lib/utils/skill-hints";
 import { isRegisteredKind, isTaskCorrect, kindOf, toClientTask, type Task } from "@/lib/tasks/registry";
 import type { RunStart } from "@/lib/utils/deed-run-types";
+import type { ImprovementId } from "@/lib/realm/improvements";
 
 /**
  * What every run start shares, whether the run belongs to a side quest (`actions/deeds.ts`) or to
@@ -23,7 +24,7 @@ export async function loadMasteryRows(childId: string) {
 
 /**
  * Tasks the hero got wrong in their last five finished runs of a kind that feeds review
- * (`RUN_EFFECTS`: deeds and reviews), newest first, each graded by its own kind. Only first answers
+ * (`RUN_EFFECTS`: deeds, builds and reviews), newest first, each graded by its own kind. Only first answers
  * are read: a task put right on the second try still needed help. A Crown Challenge's misses never
  * come back (`RUN_EFFECTS.challenge.feedsReview` is false). A task of a kind this build does not
  * know (saved by a newer deploy) is skipped, not graded; a row that will not parse is skipped whole.
@@ -113,19 +114,24 @@ export async function findOpenRun(where: SQL | undefined): Promise<DeedRunRow | 
 
 /**
  * What the browser is handed when it picks an open run back up, reopening a second chance in place.
- * A side quest's run brings its `site`, with the bench tasks it already put right (first try or
- * second) counted in, so the bench draws what was laid before.
+ * A side quest's run brings its `site`, and a build run its `plan`, each with the bench tasks it
+ * already put right (first try or second) counted in, so the bench draws what was laid before.
  */
-export function resumedStart(run: DeedRunRow, header: RunStart["deed"], site?: { stage: number; complete: boolean }): RunStart {
+export function resumedStart(
+  run: DeedRunRow,
+  header: RunStart["deed"],
+  site?: { stage: number; complete: boolean },
+  plan?: { improvementId: ImprovementId; level: number },
+): RunStart {
   const { questions, responses, attempts, statuses } = parseRun(run);
   const at = resumeIndex(statuses);
   const pending = statuses[at] === "open"
     ? { index: at, ruledOut: attempts[at].first ?? "", hint: hintFor(questions[at].skillId) }
     : null;
   const start: RunStart = { runId: run.id, deed: header, questions: questions.map(toClientTask), responses, kind: run.kind, pending };
-  if (!site) return start;
+  if (!site && !plan) return start;
   const placed = questions.filter((q, i) => kindOf(q) === "measure" && (statuses[i] === "right-first" || statuses[i] === "right-second")).length;
-  return { ...start, site: { ...site, placed } };
+  return { ...start, ...(site ? { site: { ...site, placed } } : {}), ...(plan ? { plan: { ...plan, placed } } : {}) };
 }
 
 /** The grades that watch Aldo first (R-C9): the hero's grade in the deed's strand, K to 3. */
@@ -161,12 +167,12 @@ async function hasAnsweredBench(childId: string, runId: string): Promise<boolean
 /**
  * Where a side quest's run shows Aldo's worked example, if it does (R-C9): at the run's first bench
  * task, wherever it falls, for a hero whose grade in the strand is K to 3, while that task is still
- * unanswered and the hero has never answered a bench task in another run. A review or a Crown
- * Challenge never has one. The cheap checks come first, so the history is only read for a run that
- * could show it.
+ * unanswered and the hero has never answered a bench task in another run. A build run's bench tasks
+ * count the same as a side quest's (R-D6). A review or a Crown Challenge never has one. The cheap
+ * checks come first, so the history is only read for a run that could show it.
  */
 export async function benchDemoAt(childId: string, grade: string, run: Pick<RunStart, "runId" | "kind" | "questions" | "responses">): Promise<number | null> {
-  if (run.kind !== "deed" || !DEMO_GRADES.includes(grade)) return null;
+  if ((run.kind !== "deed" && run.kind !== "build") || !DEMO_GRADES.includes(grade)) return null;
   const at = run.questions.findIndex((q) => q.kind === "measure");
   if (at === -1 || (run.responses[at] ?? null) !== null) return null;
   return (await hasAnsweredBench(childId, run.runId)) ? null : at;

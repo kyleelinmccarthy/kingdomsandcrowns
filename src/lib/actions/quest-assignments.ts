@@ -18,6 +18,7 @@ import { getNextStructuredQuest } from "@/lib/utils/quest-ordering";
 import { pruneStaleAssignmentsInRange } from "@/lib/services/quest-assignment-sync";
 import { recordQuestAlert } from "@/lib/services/parent-alerts";
 import { grantEarnedMinutesForCompletion } from "@/lib/services/realm-play";
+import { grantMaterialsSafely } from "@/lib/services/realm-materials";
 
 /**
  * A removed quest keeps its finished assignments — they're the hero's history
@@ -477,6 +478,10 @@ export async function completeAssignment(
       })
       .onConflictDoNothing();
   }
+
+  // Finishing a quest brings its subject's material to the Realm, once (the ledger's unique index
+  // guards it). It never fails the quest: errors are logged inside.
+  await grantMaterialsSafely(row.assignment.childId, assignmentId);
 
   // Finishing a quest can earn Realm play minutes; the service decides based
   // on the hero's Realm settings.

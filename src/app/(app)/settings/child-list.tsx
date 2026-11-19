@@ -79,6 +79,7 @@ import {
 } from "@/lib/utils/makeup";
 import { DAYS_OF_WEEK, DAY_LABELS, type DayOfWeek, localDateOf } from "@/lib/utils/schedule-days";
 import { SCHOOL_LABELS, SUBJECT_SCHOOLS, type SubjectSchool } from "@/lib/utils/spell-schools";
+import { MATERIAL_IDS, MATERIALS, defaultMaterialForSubject, isMaterialId, resolveMaterial, type MaterialId } from "@/lib/realm/materials";
 import { levelFromXp } from "@/lib/utils/level";
 import { findMount, type AvatarConfig } from "@/lib/utils/avatar-catalog";
 
@@ -96,6 +97,8 @@ type Subject = {
   isRequired: boolean;
   isActive: boolean;
   spellSchool: SubjectSchool;
+  /** Null means "from the name" (`resolveMaterial`). */
+  material: string | null;
 };
 
 export type MakeupDayRow = {
@@ -703,6 +706,8 @@ function SubjectManager({ childId, subjects }: { childId: string; subjects: Subj
   const [editName, setEditName] = useState("");
   const [editColor, setEditColor] = useState("");
   const [editSchool, setEditSchool] = useState<SubjectSchool>("none");
+  // "" is "from the name", which saves as null.
+  const [editMaterial, setEditMaterial] = useState<MaterialId | "">("");
   const [orderedSubjects, setOrderedSubjects] = useState(subjects);
   const [reorderError, setReorderError] = useState("");
 
@@ -730,10 +735,14 @@ function SubjectManager({ childId, subjects }: { childId: string; subjects: Subj
   }
 
   async function handleUpdateSubject(subjectId: string) {
+    const stored = orderedSubjects.find((s) => s.id === subjectId)?.material;
+    const storedMaterial = isMaterialId(stored) ? stored : "";
     await updateSubject(subjectId, {
       name: editName || undefined,
       color: editColor || undefined,
       spellSchool: editSchool,
+      // Sent only when changed, so an edit that leaves it alone never asks for the grown-up-only change.
+      ...(editMaterial !== storedMaterial ? { material: editMaterial === "" ? null : editMaterial } : {}),
     });
     setEditingId(null);
     router.refresh();
@@ -749,6 +758,7 @@ function SubjectManager({ childId, subjects }: { childId: string; subjects: Subj
     setEditName(subject.name);
     setEditColor(subject.color ?? "#6b7280");
     setEditSchool(subject.spellSchool ?? "none");
+    setEditMaterial(isMaterialId(subject.material) ? subject.material : "");
   }
 
   async function handleDragEnd(event: DragEndEvent) {
@@ -838,9 +848,11 @@ function SubjectManager({ childId, subjects }: { childId: string; subjects: Subj
                 editName={editName}
                 editColor={editColor}
                 editSchool={editSchool}
+                editMaterial={editMaterial}
                 onEditNameChange={setEditName}
                 onEditColorChange={setEditColor}
                 onEditSchoolChange={setEditSchool}
+                onEditMaterialChange={setEditMaterial}
                 onStartEdit={() => startEdit(subject)}
                 onCancelEdit={() => setEditingId(null)}
                 onSaveEdit={() => handleUpdateSubject(subject.id)}
@@ -860,9 +872,11 @@ function SortableSubjectRow({
   editName,
   editColor,
   editSchool,
+  editMaterial,
   onEditNameChange,
   onEditColorChange,
   onEditSchoolChange,
+  onEditMaterialChange,
   onStartEdit,
   onCancelEdit,
   onSaveEdit,
@@ -873,9 +887,11 @@ function SortableSubjectRow({
   editName: string;
   editColor: string;
   editSchool: SubjectSchool;
+  editMaterial: MaterialId | "";
   onEditNameChange: (value: string) => void;
   onEditColorChange: (value: string) => void;
   onEditSchoolChange: (value: SubjectSchool) => void;
+  onEditMaterialChange: (value: MaterialId | "") => void;
   onStartEdit: () => void;
   onCancelEdit: () => void;
   onSaveEdit: () => void;
@@ -948,6 +964,17 @@ function SortableSubjectRow({
               <option key={s} value={s}>{SCHOOL_LABELS[s]}</option>
             ))}
           </Select>
+          <Select
+            aria-label="Material"
+            value={editMaterial}
+            onChange={(e) => onEditMaterialChange(e.target.value as MaterialId | "")}
+            className="h-7 w-44 text-xs"
+          >
+            <option value="">From the name ({MATERIALS[defaultMaterialForSubject(editName || subject.name)].label})</option>
+            {MATERIAL_IDS.map((m) => (
+              <option key={m} value={m}>{MATERIALS[m].label}</option>
+            ))}
+          </Select>
           <Button size="xs" onClick={onSaveEdit}>Save</Button>
           <Button size="xs" variant="ghost" onClick={onCancelEdit}>Withdraw</Button>
         </>
@@ -961,6 +988,7 @@ function SortableSubjectRow({
           {subject.spellSchool && subject.spellSchool !== "none" && (
             <span className="text-xs text-muted-foreground">{SCHOOL_LABELS[subject.spellSchool]}</span>
           )}
+          <span className="text-xs text-muted-foreground">{MATERIALS[resolveMaterial(subject)].label}</span>
           {subject.isRequired && (
             <span className="text-xs text-muted-foreground">sacred</span>
           )}

@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, vi, beforeAll, beforeEach, afterAll } from "vitest";
 import { testDatabase } from "@/test/libsql-test-db";
+import { REALM_SETTINGS_DDL } from "@/test/realm-db-ddl";
 import { DEFAULT_SOUND } from "@/lib/realm3d/sound/settings";
 
 /**
@@ -29,17 +30,7 @@ const { saveRealmSound } = await import("./realm-sound");
 const { loadRealmSound } = await import("@/lib/services/realm-sound");
 
 const DDL = [
-  `CREATE TABLE realm_settings (
-    id text PRIMARY KEY NOT NULL, child_id text NOT NULL UNIQUE,
-    enabled integer DEFAULT true NOT NULL, access_mode text DEFAULT 'earned' NOT NULL,
-    earned_minutes_per_quest integer DEFAULT 5 NOT NULL, off_hours_enabled integer DEFAULT false NOT NULL,
-    daily_cap_minutes integer DEFAULT 30 NOT NULL, tone_mode text DEFAULT 'gentle' NOT NULL,
-    help_seen_at integer, starter_spell_at integer, depth_override text DEFAULT 'auto' NOT NULL,
-    tutorial_step integer DEFAULT 0 NOT NULL, trouble_bonus_cap_minutes integer DEFAULT 5 NOT NULL,
-    side_quest_length integer DEFAULT 8 NOT NULL, second_chances integer DEFAULT true NOT NULL,
-    daily_allowance_minutes integer DEFAULT 10 NOT NULL, minutes_per_star integer DEFAULT 1 NOT NULL,
-    side_quest_daily_cap_minutes integer DEFAULT 15 NOT NULL, bank_cap_minutes integer DEFAULT 30 NOT NULL,
-    sound text, mechanics text, created_at integer NOT NULL, updated_at integer NOT NULL)`,
+  ...REALM_SETTINGS_DDL,
   `CREATE TABLE realm_visitor_sound (
     user_id text PRIMARY KEY NOT NULL, sound text NOT NULL, updated_at integer NOT NULL)`,
 ];

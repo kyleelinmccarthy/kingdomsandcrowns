@@ -62,3 +62,20 @@ describe("benchDemoAt reads old runs of any shape", () => {
     await expect(benchDemoAt("unanswered", "2", current)).resolves.toBe(0);
   });
 });
+
+describe("benchDemoAt by run kind", () => {
+  it("shows Aldo's demo on a build run under the same young-hero rule as a side quest", async () => {
+    await expect(benchDemoAt("kinds", "2", { ...current, kind: "build" })).resolves.toBe(0);
+    await expect(benchDemoAt("kinds", "4", { ...current, kind: "build" })).resolves.toBeNull();
+  });
+
+  it("never shows it on a review or a Crown Challenge", async () => {
+    await expect(benchDemoAt("kinds", "2", { ...current, kind: "review" })).resolves.toBeNull();
+    await expect(benchDemoAt("kinds", "2", { ...current, kind: "challenge" })).resolves.toBeNull();
+  });
+
+  it("is not shown once the hero has answered a bench task in another run", async () => {
+    await seed("kinds-seen", JSON.stringify([measure]), JSON.stringify([[0, 1]]));
+    await expect(benchDemoAt("kinds-seen", "2", { ...current, kind: "build" })).resolves.toBeNull();
+  });
+});

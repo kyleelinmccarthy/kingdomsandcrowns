@@ -14,6 +14,7 @@ import { answerDeedQuestion, completeDeedRun, resolveDeedQuestion, retryDeedQues
 import { villagerById } from "@/lib/realm/villagers";
 import { speak } from "@/lib/utils/speech";
 import { DeedBoard } from "./deed-board";
+import { ALL_ANSWERED } from "@/lib/utils/deed-run-flow";
 
 afterEach(cleanup);
 beforeEach(() => {
@@ -32,6 +33,8 @@ const site = {
   complete: false,
   stars: 2,
   maxStars: 9,
+  raisedBy: null,
+  raisedAt: null,
   deeds: [{ id: "well-stones", title: "Count the Well Stones", story: "Old Bram's bucket keeps coming up dry.", area: "math" as const, bestStars: 2 as const, crowned: false }],
 };
 const run = {
@@ -175,7 +178,7 @@ describe("the deed board", () => {
       vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: true, secondChance: false, answer: "8" });
       vi.mocked(completeDeedRun).mockResolvedValue({
         correctCount: 2, total: 2, flawless: true, masteryChanges: [], stars: 0, previousBest: 3, deedBest: 3, counted: false, crowned: true, kind: "challenge",
-        building: { label: "Village Well", done: 5, total: 5, complete: true, stars: 9, maxStars: 9 }, minutesEarned: 0, sideQuestPayFull: false,
+        building: { label: "Village Well", done: 5, total: 5, complete: true, stars: 9, maxStars: 9, practice: false }, minutesEarned: 0, sideQuestPayFull: false,
       });
       const onResult = vi.fn();
       board({ onResult, site: { ...site, deeds: [{ ...site.deeds[0], bestStars: 3 }] } });
@@ -193,7 +196,7 @@ describe("the deed board", () => {
       vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: true, secondChance: false, answer: "8" });
       vi.mocked(completeDeedRun).mockResolvedValue({
         correctCount: 2, total: 2, flawless: true, masteryChanges: [], stars: 3, previousBest: 2, deedBest: 3, counted: true, crowned: false, kind: "deed",
-        building: { label: "Village Well", done: 3, total: 5, complete: false, stars: 6, maxStars: 9 }, minutesEarned: 0, sideQuestPayFull: false,
+        building: { label: "Village Well", done: 3, total: 5, complete: false, stars: 6, maxStars: 9, practice: false }, minutesEarned: 0, sideQuestPayFull: false,
       });
       const onResult = vi.fn();
       vi.mocked(startDeedRun).mockResolvedValue({ ...run, responses: ["5", null] });
@@ -201,7 +204,70 @@ describe("the deed board", () => {
       await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" })));
       await act(async () => void fireEvent.click(screen.getByRole("button", { name: "8" })));
       await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Finish side quest" })));
-      expect(onResult).toHaveBeenCalledWith("well", expect.objectContaining({ done: 3, stars: 6, maxStars: 9, counted: true, deed: { id: "well-stones", bestStars: 3, crowned: false } }));
+      expect(onResult).toHaveBeenCalledWith("well", expect.objectContaining({ done: 3, stars: 6, maxStars: 9, counted: true, earned: true, deed: { id: "well-stones", bestStars: 3, crowned: false } }));
+    });
+  });
+
+  describe("a build run", () => {
+    const build = {
+      ...run, kind: "build" as const, responses: ["5", null],
+      deed: { id: "build:village-banners:2", title: "Banners", story: "Aldo has the plans ready.", area: "math" as const },
+      plan: { improvementId: "village-banners" as const, level: 2, placed: 0 },
+    };
+    const built = {
+      correctCount: 2, total: 2, flawless: true, masteryChanges: [], stars: 3, previousBest: 0, deedBest: 0, counted: false, crowned: false, kind: "build" as const,
+      building: null, minutesEarned: 0, sideQuestPayFull: false,
+      improvement: { id: "village-banners" as const, label: "Banners", level: 2, built: true, balance: { stone: 0, ink: 0, herbs: 0, thread: 0, dye: 0, timber: 0 } },
+    };
+
+    async function playToTheEnd(summary: Omit<typeof built, "building"> & { building: unknown }) {
+      vi.mocked(startDeedRun).mockResolvedValue(build);
+      vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: true, secondChance: false, answer: "8" });
+      vi.mocked(completeDeedRun).mockResolvedValue(summary as never);
+      const onResult = vi.fn();
+      board({ onResult });
+      await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" })));
+      await act(async () => void fireEvent.click(screen.getByRole("button", { name: "8" })));
+      expect(screen.queryByRole("button", { name: "Finish side quest" })).toBeNull();
+      await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Finish building" })));
+      return onResult;
+    }
+
+    it("says the plan grows, shows its stars, and never 'New best!' or a side quest", async () => {
+      const onResult = await playToTheEnd(built);
+      expect(screen.getByText("The Banners grow!")).toBeInTheDocument();
+      expect(screen.getByRole("img", { name: "3 of 3 stars" })).toBeInTheDocument();
+      expect(screen.queryByText("New best!")).toBeNull();
+      expect(document.body.textContent).not.toMatch(/Flawless|side quest done/i);
+      expect(onResult).not.toHaveBeenCalled();
+    });
+
+    it("reopens a run whose every task is answered at its finish step, never asking again (the finish call failed)", async () => {
+      vi.mocked(startDeedRun).mockResolvedValue({ ...build, responses: ["5", "8"] });
+      vi.mocked(completeDeedRun).mockResolvedValue(built as never);
+      board();
+      await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" })));
+      expect(screen.getByText(ALL_ANSWERED)).toBeInTheDocument();
+      // The last task stands answered: nothing on it can be picked again.
+      for (const choice of screen.queryAllByRole("button", { name: /^\d+$/ })) expect(choice).toBeDisabled();
+      await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Finish building" })));
+      expect(answerDeedQuestion).not.toHaveBeenCalled();
+      expect(completeDeedRun).toHaveBeenCalledTimes(1);
+      expect(screen.getByText("The Banners grow!")).toBeInTheDocument();
+    });
+
+    it("does the same for a side quest's run, which shares the flow", async () => {
+      vi.mocked(startDeedRun).mockResolvedValue({ ...run, responses: ["5", "8"] });
+      board();
+      await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" })));
+      expect(screen.getByText(ALL_ANSWERED)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Finish side quest" })).toBeInTheDocument();
+    });
+
+    it("never hands a building up to be raised, even if a result carried one", async () => {
+      const onResult = await playToTheEnd({ ...built, building: { label: "Village Well", done: 5, total: 5, complete: true, stars: 9, maxStars: 9, practice: false } });
+      expect(screen.getByText("The Banners grow!")).toBeInTheDocument();
+      expect(onResult).not.toHaveBeenCalled();
     });
   });
 
@@ -354,7 +420,7 @@ describe("the deed board", () => {
 
     it("finishes with stars, a new best, and a villager who will help when nothing was earned", async () => {
       vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: true, secondChance: false, answer: "8" });
-      const summary = { correctCount: 2, total: 2, flawless: true, masteryChanges: [], stars: 3 as const, previousBest: 2 as const, deedBest: 3 as const, counted: true, crowned: false, kind: "deed" as const, building: { label: "Village Well", done: 3, total: 5, complete: false, stars: 3, maxStars: 15 }, minutesEarned: 3, sideQuestPayFull: false };
+      const summary = { correctCount: 2, total: 2, flawless: true, masteryChanges: [], stars: 3 as const, previousBest: 2 as const, deedBest: 3 as const, counted: true, crowned: false, kind: "deed" as const, building: { label: "Village Well", done: 3, total: 5, complete: false, stars: 3, maxStars: 15, practice: false }, minutesEarned: 3, sideQuestPayFull: false };
       vi.mocked(completeDeedRun).mockResolvedValue(summary);
       await begin({ ...four, responses: ["5", null] });
       await click("8");
@@ -366,7 +432,7 @@ describe("the deed board", () => {
 
     it("says gently when the day's side-quest minutes are all earned", async () => {
       vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: true, secondChance: false, answer: "8" });
-      vi.mocked(completeDeedRun).mockResolvedValue({ correctCount: 2, total: 2, flawless: true, masteryChanges: [], stars: 3, previousBest: 3, deedBest: 3, counted: true, crowned: false, kind: "deed", building: { label: "Village Well", done: 3, total: 5, complete: false, stars: 3, maxStars: 15 }, minutesEarned: 0, sideQuestPayFull: true });
+      vi.mocked(completeDeedRun).mockResolvedValue({ correctCount: 2, total: 2, flawless: true, masteryChanges: [], stars: 3, previousBest: 3, deedBest: 3, counted: true, crowned: false, kind: "deed", building: { label: "Village Well", done: 3, total: 5, complete: false, stars: 3, maxStars: 15, practice: false }, minutesEarned: 0, sideQuestPayFull: true });
       await begin({ ...four, responses: ["5", null] });
       await click("8");
       await click("Finish side quest");
@@ -376,7 +442,7 @@ describe("the deed board", () => {
 
     it("says the villager will help when a side quest earned no stars, never 'failed'", async () => {
       vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: false, secondChance: false, answer: "8" });
-      vi.mocked(completeDeedRun).mockResolvedValue({ correctCount: 0, total: 2, flawless: false, masteryChanges: [], stars: 0, previousBest: 0, deedBest: 0, counted: false, crowned: false, kind: "deed", building: { label: "Village Well", done: 2, total: 5, complete: false, stars: 0, maxStars: 15 }, minutesEarned: 0, sideQuestPayFull: false });
+      vi.mocked(completeDeedRun).mockResolvedValue({ correctCount: 0, total: 2, flawless: false, masteryChanges: [], stars: 0, previousBest: 0, deedBest: 0, counted: false, crowned: false, kind: "deed", building: { label: "Village Well", done: 2, total: 5, complete: false, stars: 0, maxStars: 15, practice: false }, minutesEarned: 0, sideQuestPayFull: false });
       await begin({ ...four, responses: ["5", null] });
       await click("9");
       await click("Finish side quest");

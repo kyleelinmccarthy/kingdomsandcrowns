@@ -1,4 +1,5 @@
 import { QuestAssignmentCard } from "@/components/quest-assignment-card";
+import type { QuestReward } from "@/lib/utils/quest-rewards";
 import { formatTimeOfDay } from "@/lib/utils/schedule-days";
 
 type ScheduleBlock = {
@@ -27,6 +28,7 @@ type AssignmentWithDetails = {
     requireNotes: boolean;
   };
   subject: { id: string; name: string; color: string | null };
+  rewards?: QuestReward;
 };
 
 /**
@@ -41,6 +43,7 @@ export function TodaySchedule({
   isChildView,
   structuredNext = null,
   allowChildSkip = false,
+  realmEnabled = false,
 }: {
   blocks: ScheduleBlock[];
   subjects: Subject[];
@@ -50,6 +53,8 @@ export function TodaySchedule({
   structuredNext?: { id: string; title: string } | null;
   /** Whether this hero's parent has allowed them to skip their own quests. */
   allowChildSkip?: boolean;
+  /** Whether this hero's Realm is on, forwarded to each card (a finished quest links there). */
+  realmEnabled?: boolean;
 }) {
   const subjectsById = new Map(subjects.map((s) => [s.id, s]));
 
@@ -116,6 +121,7 @@ export function TodaySchedule({
                         isChildView={isChildView}
                         structuredNext={structuredNext}
                         allowChildSkip={allowChildSkip}
+                        realmEnabled={realmEnabled}
                       />
                     ))}
                   </div>
@@ -151,6 +157,7 @@ export function TodaySchedule({
                 isChildView={isChildView}
                 structuredNext={structuredNext}
                 allowChildSkip={allowChildSkip}
+                realmEnabled={realmEnabled}
               />
             ))}
           </div>

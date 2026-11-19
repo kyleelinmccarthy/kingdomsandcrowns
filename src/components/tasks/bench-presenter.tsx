@@ -7,7 +7,7 @@
  * Cut is a length typed (or stepped with − and +) against a ruler ticked at the task's step, then
  * "Cut it". No dragging, so a mouse, a finger, a keyboard and a screen reader all work it (ruling
  * R-C2). Beside it, a side quest's run draws its building going up as bench tasks are solved
- * (`SiteElevation`).
+ * (`SiteElevation`), and a build run draws the plan going up (`PlanElevation`).
  *
  * The bench is shown labels, never values or the answer (`MeasureView`), and hands back the response
  * encoded by `TASK_CODECS.measure`. It ignores `numerals`: it cannot work without numbers (R-C10).
@@ -21,6 +21,7 @@ import { parseAnswer } from "@/lib/tasks/parse-answer";
 import type { MeasureView } from "@/lib/tasks/types";
 import type { FlowState } from "@/lib/utils/deed-run-flow";
 import type { PresenterProps } from "./presenters";
+import { PlanElevation } from "./plan-elevation";
 import { SiteElevation } from "./site-elevation";
 import "./bench.css";
 
@@ -45,7 +46,7 @@ function Bench({ task, flow, variant, calm, disabled, site, onRespond }: Present
           {view.mode === "assemble" ? <Assemble {...surface} /> : <Cut {...surface} />}
           {firstTry && <p className="bench-first">Your first try: {firstTry}</p>}
         </div>
-        {site && <SiteElevation site={site} calm={calm} />}
+        {site && (site.plan ? <PlanElevation site={site} calm={calm} /> : <SiteElevation site={site} calm={calm} />)}
       </div>
     </section>
   );

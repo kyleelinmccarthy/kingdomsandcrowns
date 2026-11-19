@@ -20,6 +20,8 @@ import { getFamilyTimezone } from "@/lib/services/family-timezone";
 import { weekdayOfDate, currentTimeOfDay } from "@/lib/utils/schedule-days";
 import { getStructuredCardLock } from "@/lib/utils/quest-ordering";
 import { levelFromXp } from "@/lib/utils/level";
+import { loadPlanCardData, loadQuestRewards, type PlanCardData } from "@/lib/services/realm-materials";
+import { orElse, withRewards } from "@/lib/utils/quest-rewards";
 import { ChildSelector } from "@/components/child-selector";
 import { GameFrame } from "@/components/game-frame";
 import { Avatar } from "@/components/avatar";
@@ -35,6 +37,7 @@ import { MakeupQuests } from "@/components/makeup-quests";
 import { MissedDays } from "@/components/missed-days";
 import { GameIcon, BADGE_ICONS } from "@/components/game-icon";
 import { ParentDashboard } from "./parent-dashboard";
+import { KingdomPlanCard } from "@/components/kingdom-plan-card";
 
 export default async function TavernPage({
   searchParams,
@@ -96,7 +99,7 @@ export default async function TavernPage({
   const today = todayInZone(timeZone);
   await generateAssignmentsFromSchedules(activeChild.id, today, today);
 
-  const [subjects, recentActivities, allBadges, earnedBadges, todayAssignments, quests, avatarUnlocks, allBlocks, latestStatusByQuestId, schoolingMode, seasons, makeup, missedDays, moveTargets] = await Promise.all([
+  const [subjects, recentActivities, allBadges, earnedBadges, todayAssignments, quests, avatarUnlocks, allBlocks, latestStatusByQuestId, schoolingMode, seasons, makeup, missedDays, moveTargets, planCard] = await Promise.all([
     getSubjects(activeChild.id),
     getRecentActivities(activeChild.id, 50),
     getBadges(),
@@ -112,11 +115,23 @@ export default async function TavernPage({
     getMissedDaysView(activeChild.id, today),
     // Only a grown-up can move a missed quest, so a hero's page skips the lookup.
     isChildView ? Promise.resolve([]) : getMoveTargets(activeChild.id, today),
+    // The kingdom's plans are a garnish: a failed read hides the card rather than breaking the page.
+    // It is the one read of the kingdom and the Realm's settings: the quest cards below reuse it.
+    loadPlanCardData(activeChild.id).catch(orElse<PlanCardData | null>("the kingdom's plans", null)),
   ]);
 
   // A hero only sees carried-over work on a day their parent has made a
   // catch-up day; a grown-up always sees what's still owed.
   const makeupAssignments = !isChildView || makeup.isMakeupDay ? makeup.assignments : [];
+
+  // What the finished quests made, read once for the whole page (a garnish: a failed read leaves
+  // the cards as they were).
+  const doneIds = [...todayAssignments, ...makeupAssignments].filter((a) => a.assignment.status === "completed").map((a) => a.assignment.id);
+  const rewards = await loadQuestRewards(activeChild.id, doneIds, planCard ?? undefined).catch(orElse("what the finished quests made", {}));
+  // Only a hero is offered the way into the Realm, and only while it is on.
+  const realmEnabled = isChildView && planCard?.enabled === true;
+  const todayCards = withRewards(todayAssignments, rewards);
+  const makeupCards = withRewards(makeupAssignments, rewards);
 
   // The day that ended the current streak, if it is inside the window a
   // grown-up can still act on.
@@ -209,20 +224,22 @@ export default async function TavernPage({
                 <TodaySchedule
                   blocks={todaysBlocks}
                   subjects={subjects}
-                  assignments={todayAssignments}
+                  assignments={todayCards}
                   isChildView={isChildView}
                   structuredNext={structuredNext}
                   allowChildSkip={allowChildSkip}
+                  realmEnabled={realmEnabled}
                 />
               ) : (
                 <div className="space-y-2">
-                  {todayAssignments.map((a) => (
+                  {todayCards.map((a) => (
                     <QuestAssignmentCard
                       key={a.assignment.id}
                       data={a}
                       isChildView={isChildView}
                       structuredNext={structuredNext}
                       allowChildSkip={allowChildSkip}
+                      realmEnabled={realmEnabled}
                     />
                   ))}
                 </div>
@@ -333,12 +350,13 @@ export default async function TavernPage({
       </div>
 
       <MakeupQuests
-        assignments={makeupAssignments}
+        assignments={makeupCards}
         today={today}
         isChildView={isChildView}
         allowChildSkip={allowChildSkip}
         reason={makeup.reason}
         moveTargets={moveTargets}
+        realmEnabled={realmEnabled}
       />
 
       {/* Grown-ups only: the ledger of days that didn't go to plan, and the one
@@ -459,6 +477,20 @@ export default async function TavernPage({
               </div>
             )}
           </GameFrame>
+
+          {planCard && (
+            <KingdomPlanCard
+              key={activeChild.id}
+              childId={activeChild.id}
+              canPin={isChildView}
+              realmEnabled={planCard.enabled}
+              materialsPerQuest={planCard.materialsPerQuest}
+              built={planCard.built}
+              raised={planCard.raised}
+              pinned={planCard.pinned}
+              balance={planCard.balance}
+            />
+          )}
 
           {/* Recent Adventures (quest log) */}
           <GameFrame

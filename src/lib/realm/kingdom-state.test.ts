@@ -4,8 +4,8 @@ import { applyDeedResult, type KingdomState } from "./kingdom-state";
 const state: KingdomState = {
   tone: "gentle",
   buildings: [
-    { id: "well", label: "Village Well", description: "", icon: "box", done: 4, total: 5, complete: false, stars: 4, maxStars: 9, deeds: [{ id: "well-stones", title: "T", story: "S", area: "math", bestStars: 1, crowned: false }] },
-    { id: "mill", label: "Grain Mill", description: "", icon: "compass", done: 5, total: 5, complete: true, stars: 9, maxStars: 9, deeds: [] },
+    { id: "well", label: "Village Well", description: "", icon: "box", done: 4, total: 5, complete: false, raisedBy: null, raisedAt: null, stars: 4, maxStars: 9, deeds: [{ id: "well-stones", title: "T", story: "S", area: "math", bestStars: 1, crowned: false }] },
+    { id: "mill", label: "Grain Mill", description: "", icon: "compass", done: 5, total: 5, complete: true, raisedBy: null, raisedAt: null, stars: 9, maxStars: 9, deeds: [] },
   ],
 };
 

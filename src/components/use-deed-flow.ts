@@ -7,8 +7,9 @@
  */
 import { useReducer, useRef, useState } from "react";
 import { answerDeedQuestion, resolveDeedQuestion, retryDeedQuestion } from "@/lib/actions/deeds";
+import type { ImprovementId } from "@/lib/realm/improvements";
 import type { AttemptResult, RunStart } from "@/lib/utils/deed-run-types";
-import { flowReducer, initialFlow, type FlowEvent } from "@/lib/utils/deed-run-flow";
+import { flowReducer, initialFlow, readyToFinish, type FlowEvent } from "@/lib/utils/deed-run-flow";
 import { deedErrorLine } from "@/lib/utils/deed-refusals";
 import type { SkillMeter } from "@/lib/utils/mastery";
 import { NUDGE_LINE, shouldNudge } from "@/lib/tasks/pace-guard";
@@ -19,9 +20,14 @@ export type Nudge = { line: string; hint: string };
 
 /**
  * The run's site as the bench draws it: where the building stood, how many of the run's bench tasks
- * are solved so far, and how many it has (the stage is paced over them, `piecesLaid`).
+ * are solved so far, and how many it has (the stage is paced over them, `piecesLaid`). A build run
+ * carries its `plan` instead of a building's stage: the bench then draws that level's own boxes
+ * (`PlanElevation`), and `stage` and `complete` are unused.
  */
-export type BenchSite = { stage: number; complete: boolean; solved: number; benchTasks: number };
+export type BenchSite = {
+  stage: number; complete: boolean; solved: number; benchTasks: number;
+  plan?: { improvementId: ImprovementId; level: number };
+};
 
 /**
  * `now` is the pace guard's clock (the browser's, by default). Its times stay in this hook:
@@ -44,7 +50,7 @@ export function useDeedFlow(run: RunStart, onAttempt?: (result: AttemptResult) =
   const history = useRef<{ at: number; correct: boolean }[]>([]);
   const [nudgeUp, setNudgeUp] = useState(false);
   // Bench tasks solved so far, first try or second: a run picked back up starts from the server's count.
-  const [solved, setSolved] = useState(() => run.site?.placed ?? 0);
+  const [solved, setSolved] = useState(() => run.site?.placed ?? run.plan?.placed ?? 0);
 
   /** One server call at a time; a refusal is said in one child-safe line and changes nothing. */
   async function guarded(work: () => Promise<void>) {
@@ -99,13 +105,17 @@ export function useDeedFlow(run: RunStart, onAttempt?: (result: AttemptResult) =
   }
 
   // The run is over once its last question is resolved: the nudge goes with it.
-  const finished = flow.phase === "resolved" && flow.index >= run.questions.length - 1;
+  const finished = readyToFinish(flow, run.questions.length);
   // The clue is for the question on the board now, not the one that earned the nudge.
   const skillId = run.questions[flow.index]?.skillId;
   const nudge: Nudge | null = nudgeUp && !finished && skillId ? { line: NUDGE_LINE, hint: hintFor(skillId) } : null;
-  // Only a side quest's own run has a site (`RunStart.site`); the bench draws it paced over the run's bench tasks.
+  // Only a side quest's own run has a site (`RunStart.site`) and only a build run a plan (`RunStart.plan`);
+  // the bench draws either paced over the run's bench tasks.
+  const benchTasks = run.questions.filter((q) => q.kind === "measure").length;
   const site: BenchSite | undefined = run.site
-    ? { stage: run.site.stage, complete: run.site.complete, solved, benchTasks: run.questions.filter((q) => q.kind === "measure").length }
-    : undefined;
+    ? { stage: run.site.stage, complete: run.site.complete, solved, benchTasks }
+    : run.plan
+      ? { stage: 0, complete: false, solved, benchTasks, plan: { improvementId: run.plan.improvementId, level: run.plan.level } }
+      : undefined;
   return { flow, meter, nudge, site, busy, error, setError, guarded, choose, showMe, next: () => send({ type: "next" }) };
 }

@@ -57,8 +57,8 @@ describe("world figures", () => {
   });
 
   describe("site stages", () => {
-    it("draws one figure per deed still owed, each keyed by its stage", () => {
-      // Five stages for five deeds: every deed a child finishes changes the picture.
+    it("draws one figure per stage a site can show, each keyed by its stage", () => {
+      // Five stages, more than any site's deeds (one per story, two or three): every deed a child finishes changes the picture.
       expect(SITE_STAGES).toBe(5);
       for (let stage = 0; stage < SITE_STAGES; stage++) {
         const { container } = render(<SiteFigure stage={stage} />);

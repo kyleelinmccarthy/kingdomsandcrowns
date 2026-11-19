@@ -2,7 +2,7 @@ import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { render, screen, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DeedPlayer } from "./deed-player";
-import type { RunStart } from "@/lib/utils/deed-run-types";
+import type { RunStart, RunSummary } from "@/lib/utils/deed-run-types";
 import { speak } from "@/lib/utils/speech";
 
 // Speech is spoken to a spy; the browser check stays the real one (jsdom cannot speak).
@@ -31,7 +31,7 @@ const run: RunStart = {
   pending: null,
 };
 const profile = { fewerChoices: false, predictableRoutine: false, untimed: true, readAloud: false };
-const summary = { correctCount: 1, total: 2, flawless: false, masteryChanges: ["Sight words: getting stronger"], stars: 1, previousBest: 0, counted: true, kind: "deed" as const, building: { label: "Village Well", done: 1, total: 5, complete: false, stars: 0, maxStars: 0 }, minutesEarned: 0, sideQuestPayFull: false };
+const summary = { correctCount: 1, total: 2, flawless: false, masteryChanges: ["Sight words: getting stronger"], stars: 1, previousBest: 0, counted: true, kind: "deed" as const, building: { label: "Village Well", done: 1, total: 5, complete: false, stars: 0, maxStars: 0, practice: false }, minutesEarned: 0, sideQuestPayFull: false };
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -274,6 +274,62 @@ describe("DeedPlayer", () => {
       expect(document.body.textContent).not.toMatch(/minutes?/i);
       expect(document.body.textContent).not.toMatch(/built|Village Well/);
       expect(document.querySelector("[data-subject]")).not.toBeInTheDocument();
+    });
+  });
+
+  describe("a build run", () => {
+    const buildRun = (level: number): RunStart => ({
+      ...run,
+      deed: { id: `build:village-banners:${level}`, title: "Banners", story: "Aldo has the plans ready.", area: "math" },
+      kind: "build", responses: ["because", null], plan: { improvementId: "village-banners", level, placed: 0 },
+    });
+    const balance = { stone: 0, ink: 0, herbs: 0, thread: 0, dye: 0, timber: 0 };
+    const buildSummary = (level: number, improvement: Partial<NonNullable<RunSummary["improvement"]>> = {}) => ({
+      ...summary, correctCount: 2, total: 3, stars: 2, previousBest: 0, counted: false, kind: "build" as const, building: null, masteryChanges: [], sideQuestPayFull: false,
+      improvement: { id: "village-banners", label: "Banners", level, built: true, balance, ...improvement },
+    });
+
+    it("finishes with its own label, and says the plan is built at level 1", async () => {
+      const user = userEvent.setup();
+      completeDeedRun.mockResolvedValue(buildSummary(1));
+      render(<DeedPlayer run={buildRun(1)} profile={profile} calm={false} onFinished={() => {}} />);
+      await user.click(screen.getByRole("button", { name: "again" }));
+      expect(screen.queryByRole("button", { name: "Finish side quest" })).not.toBeInTheDocument();
+      await user.click(await screen.findByRole("button", { name: "Finish building" }));
+      expect(await screen.findByRole("heading", { name: "The Banners are built!" })).toBeInTheDocument();
+    });
+
+    it("says the plan grows above level 1, shows its stars, and never 'New best!' or a side quest", async () => {
+      const user = userEvent.setup();
+      completeDeedRun.mockResolvedValue(buildSummary(2));
+      render(<DeedPlayer run={buildRun(2)} profile={profile} calm={false} onFinished={() => {}} />);
+      await user.click(screen.getByRole("button", { name: "again" }));
+      await user.click(await screen.findByRole("button", { name: "Finish building" }));
+      expect(await screen.findByRole("heading", { name: "The Banners grow!" })).toBeInTheDocument();
+      expect(screen.getByText("2 of 3 right.")).toBeInTheDocument();
+      expect(screen.getByRole("img", { name: "2 of 3 stars" })).toBeInTheDocument();
+      expect(screen.queryByText("New best!")).not.toBeInTheDocument();
+      expect(document.body.textContent).not.toMatch(/side quest done|Flawless|minutes? earned/i);
+    });
+
+    it("says there were not enough materials, and that the plan will wait", async () => {
+      const user = userEvent.setup();
+      completeDeedRun.mockResolvedValue(buildSummary(1, { built: false, reason: "short" }));
+      render(<DeedPlayer run={buildRun(1)} profile={profile} calm={false} onFinished={() => {}} />);
+      await user.click(screen.getByRole("button", { name: "again" }));
+      await user.click(await screen.findByRole("button", { name: "Finish building" }));
+      expect(await screen.findByRole("heading", { name: "Not quite enough materials" })).toBeInTheDocument();
+      expect(screen.getByText("The plan will wait for you on the plans board.")).toBeInTheDocument();
+    });
+
+    it("says the builders had to stop, and that nothing was spent, on an error", async () => {
+      const user = userEvent.setup();
+      completeDeedRun.mockResolvedValue(buildSummary(1, { built: false, reason: "error" }));
+      render(<DeedPlayer run={buildRun(1)} profile={profile} calm={false} onFinished={() => {}} />);
+      await user.click(screen.getByRole("button", { name: "again" }));
+      await user.click(await screen.findByRole("button", { name: "Finish building" }));
+      expect(await screen.findByRole("heading", { name: "The builders had to stop" })).toBeInTheDocument();
+      expect(screen.getByText("Nothing was spent. Try again from the plans board.")).toBeInTheDocument();
     });
   });
 

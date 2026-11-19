@@ -66,19 +66,53 @@ export function Progress({ done, total, numerals, text, label }: { done: number;
 
 /* ------------------------------------------------------------------ objectives */
 
-function ObjectiveRows({ objectives, heroName, visiting, numerals, pet = null, stars = false }: { objectives: Objective[]; heroName: string; visiting: boolean; numerals: boolean; pet?: string | null; stars?: boolean }) {
+/** "Or press F, and your Fox will show you the way." — the companion's offer, said where the ! is. */
+function PetOffer({ pet }: { pet: string | null }) {
+  if (!pet) return null;
+  return (
+    <>
+      {" "}
+      Or press <b>F</b>, and your {pet} will show you the way.
+    </>
+  );
+}
+
+/**
+ * The pinned plan is ready and the gold ! is on the plans board (`plan-goal.ts`). Worded without
+ * "is/are", like `planGoalSpeech`, since many plans are plural ("Banners", "Stone Arches"). A visitor
+ * is told whose it is, with no directions to follow, as the villager line does.
+ */
+function PlanReady({ plan, heroName, visiting, pet }: { plan: string; heroName: string; visiting: boolean; pet: string | null }) {
+  if (visiting) return <p className="r3-quest-line">{`Everything for ${heroName}'s ${plan} is ready.`}</p>;
+  return (
+    <p className="r3-quest-lead">
+      <span className="r3-quest-bang" aria-hidden="true">
+        !
+      </span>
+      <span>
+        Everything for the {plan} is ready. Follow the gold ! to the plans board.
+        <PetOffer pet={pet} />
+      </span>
+    </p>
+  );
+}
+
+function ObjectiveRows({ objectives, heroName, visiting, numerals, pet = null, stars = false, plan = null }: { objectives: Objective[]; heroName: string; visiting: boolean; numerals: boolean; pet?: string | null; stars?: boolean; plan?: string | null }) {
   const [first, ...rest] = objectives;
   if (!first) return null;
   return (
     <>
+      {/* The gold ! is on the plans board (`plan-goal.ts`): say so, not who is waiting. It leads the
+          card, so its ! never sits on the villager's row; the header below stays, bare. */}
+      {plan && <PlanReady plan={plan} heroName={heroName} visiting={visiting} pet={pet} />}
       <p className="r3-quest-title">
         <GameIcon name={findBuilding(first.buildingId)?.icon ?? "box"} className="r3-quest-icon" />
         {first.label}
       </p>
-      {first.villagerName && (
+      {!plan && first.villagerName && (
         <p className="r3-quest-line">{visiting ? `${first.villagerName} is waiting for ${heroName}.` : `${first.villagerName} is waiting.`}</p>
       )}
-      {first.villagerName && !visiting && (
+      {!plan && first.villagerName && !visiting && (
         <p className="r3-quest-lead">
           <span className="r3-quest-bang" aria-hidden="true">
             !
@@ -86,12 +120,7 @@ function ObjectiveRows({ objectives, heroName, visiting, numerals, pet = null, s
           <span>
             Follow the gold ! and press <b>E</b> to talk.
             {/* The companion leads (`companion-hud.tsx`): the other way to find them, said where the ! is. */}
-            {pet && (
-              <>
-                {" "}
-                Or press <b>F</b>, and your {pet} will show you the way.
-              </>
-            )}
+            <PetOffer pet={pet} />
           </span>
         </p>
       )}
@@ -126,6 +155,7 @@ export function ObjectiveCard({
   kingdomError,
   onRetry,
   pet = null,
+  plan = null,
 }: {
   objective: ObjectiveState;
   heroName: string;
@@ -136,6 +166,11 @@ export function ObjectiveCard({
   onRetry?: () => void;
   /** The child's companion ("Fox"), which can lead them to whoever is waiting (F). */
   pet?: string | null;
+  /**
+   * The pinned plan's name while the gold ! is on the plans board (a plan goal, `plan-goal.ts`):
+   * the card says it is ready to build in place of who is waiting. Its progress rows stay.
+   */
+  plan?: string | null;
 }) {
   if (objective.kind === "unknown") {
     if (!kingdomError) return null;
@@ -157,10 +192,10 @@ export function ObjectiveCard({
       {!hasObjectives(objective) ? (
         <>
           <p className="r3-quest-title">Every building is built.</p>
-          <p className="r3-quest-line">Nothing is waiting. Walk where you like.</p>
+          {plan ? <PlanReady plan={plan} heroName={heroName} visiting={visiting} pet={pet} /> : <p className="r3-quest-line">Nothing is waiting. Walk where you like.</p>}
         </>
       ) : (
-        <ObjectiveRows objectives={objective.objectives} heroName={heroName} visiting={visiting} numerals={numerals} pet={pet} stars={objective.kind === "stars"} />
+        <ObjectiveRows objectives={objective.objectives} heroName={heroName} visiting={visiting} numerals={numerals} pet={pet} stars={objective.kind === "stars"} plan={plan} />
       )}
     </section>
   );
@@ -213,6 +248,7 @@ export function ClockCorner({
   onHelp,
   onMenu,
   leaveHref,
+  quiet = false,
 }: {
   line: string;
   /** The last minute: the plank turns ember red, and says so. */
@@ -224,6 +260,11 @@ export function ClockCorner({
   onHelp: () => void;
   onMenu: () => void;
   leaveHref: string;
+  /**
+   * The hero's own view (slice 3, "minutes, quieter"): the kingdom is the headline, so the clock
+   * steps back to a small chip. A grown-up's visit line keeps its size. The pulse stays.
+   */
+  quiet?: boolean;
 }) {
   return (
     <div className="r3-corner">
@@ -238,7 +279,7 @@ export function ClockCorner({
       )}
       <div className="r3-corner-row">
         <QuestTimerChip />
-        <div className={`r3-clock r3-plank${warning ? " r3-clock--warning" : ""}`} role="timer" aria-live={warning ? "assertive" : "off"}>
+        <div className={`r3-clock r3-plank${quiet ? " r3-clock--quiet" : ""}${warning ? " r3-clock--warning" : ""}`} role="timer" aria-live={warning ? "assertive" : "off"}>
           <GameIcon name="hourglass" className="r3-clock-icon" />
           <span className="r3-clock-text">{line}</span>
         </div>

@@ -83,6 +83,17 @@ describe("the ladder", () => {
     expect(advanceLesson(at("find"), { kind: "near", villager: true, waiting: false }, done)).toBe(at("find") + 1);
     expect(lessonCopy(at("find"), done)?.title).toBe("Find a villager.");
   });
+
+  it("says where the gold ! is while it points at the plans board, and still takes any villager", () => {
+    const plan: LessonContext = { ...ctx, waiting: null, planBeacon: true };
+    expect(lessonCopy(at("find"), plan)).toMatchObject({
+      title: "Find a villager.",
+      how: "Anyone with a name over their head. The gold ! is on the plans board for now.",
+    });
+    expect(advanceLesson(at("find"), { kind: "near", villager: true, waiting: false }, plan)).toBe(at("find") + 1);
+    // Without the beacon on a plan, the line is as it was.
+    expect(lessonCopy(at("find"), { ...ctx, waiting: null })?.how).toBe("Anyone with a name over their head.");
+  });
 });
 
 describe("lessons the world cannot offer are stepped over, never shown", () => {

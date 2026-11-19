@@ -108,4 +108,12 @@ describe("MakeupQuests", () => {
     expect(screen.getAllByRole("button", { name: "Start" })).toHaveLength(2);
     expect(screen.queryByText(/first/)).not.toBeInTheDocument();
   });
+
+  it("passes the Realm's state to its cards, so a finished quest can lead there", () => {
+    const done = { ...assignment("a1", "2026-09-03", "completed"), rewards: { made: "+1 Ink", minutes: null } };
+    const { rerender } = render(<MakeupQuests assignments={[done]} today={TODAY} isChildView={true} realmEnabled />);
+    expect(screen.getByRole("link", { name: "Take it to the Realm" })).toHaveAttribute("href", "/realm");
+    rerender(<MakeupQuests assignments={[done]} today={TODAY} isChildView={true} />);
+    expect(screen.queryByRole("link", { name: "Take it to the Realm" })).not.toBeInTheDocument();
+  });
 });

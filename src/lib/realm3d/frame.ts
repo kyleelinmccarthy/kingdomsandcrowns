@@ -141,6 +141,8 @@ export type Overlay =
   | { kind: "page"; slot: number }
   /** A child's first visit: what the Realm is for, how much to show, and the way into the tutorial. */
   | { kind: "welcome" }
+  /** The carts: what quests brought since the hero last looked (`delivery-card.tsx`), after the welcome and before the ceremony. */
+  | { kind: "delivery" }
   /** A crown waiting for its ceremony. */
   | { kind: "ceremony" }
   /** A hitching post's fast-travel sheet, from the post (a destination id) the child stands at. */

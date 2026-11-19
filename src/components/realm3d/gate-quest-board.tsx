@@ -31,6 +31,7 @@ export function GateQuestBoard({
   numerals,
   profile,
   calm,
+  timezone,
   onResult,
   onClose,
 }: {
@@ -40,6 +41,8 @@ export function GateQuestBoard({
   numerals: boolean;
   profile: { readAloud: boolean; untimed: boolean };
   calm: boolean;
+  /** The family's zone, for the season a standing building says it was raised in. */
+  timezone?: string | null;
   onResult: (buildingId: string, result: DeedResult) => void;
   onClose: () => void;
 }) {
@@ -74,6 +77,7 @@ export function GateQuestBoard({
         numerals={numerals}
         profile={profile}
         calm={calm}
+        timezone={timezone}
         onResult={onResult}
         onClose={() => setTalkingTo(null)}
         doneLabel={BACK_TO_LIST}

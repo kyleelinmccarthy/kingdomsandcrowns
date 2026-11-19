@@ -162,7 +162,7 @@ describe("the how-to-play card says how minutes are earned (earningLines)", () =
     mount({ realm: { ...realm, earning: { ...earning, accessMode: "open" } } });
     await act(async () => {});
     openHelp();
-    expect(screen.getByText("Your Realm is open, up to 30 minutes a day.")).toBeInTheDocument();
+    expect(screen.getByText("Your quests bring materials to build with. Your Realm is open, up to 30 minutes a day.")).toBeInTheDocument();
     expect(screen.queryByText(/Clearing troubles/)).toBeNull();
   });
 

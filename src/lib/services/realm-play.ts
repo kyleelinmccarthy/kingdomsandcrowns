@@ -26,6 +26,15 @@ export type Exec = typeof db | Tx;
  * with no row yet takes the insert-if-missing (so two first reads can't make two rows) and the reselect.
  */
 export async function loadRealmSettings(childId: string, exec: Exec = db): Promise<RealmSettings> {
+  return settingsFromRow(await loadRealmSettingsRow(childId, exec));
+}
+
+/**
+ * The hero's whole settings row, as `loadRealmSettings` reads it (created if missing). For a caller
+ * that also needs the columns `RealmSettings` leaves out (the pin, the delivery mark, `regraded_at`),
+ * so one read serves them all (`getRealmBundle`, M-5).
+ */
+export async function loadRealmSettingsRow(childId: string, exec: Exec = db): Promise<typeof schema.realmSettings.$inferSelect | null> {
   const select = () => exec.select().from(schema.realmSettings).where(eq(schema.realmSettings.childId, childId)).limit(1);
   let rows = await select();
   if (!rows[0]) {
@@ -36,7 +45,7 @@ export async function loadRealmSettings(childId: string, exec: Exec = db): Promi
       .onConflictDoNothing();
     rows = await select();
   }
-  return settingsFromRow(rows[0] ?? null);
+  return rows[0] ?? null;
 }
 
 /**

@@ -1,0 +1,26 @@
+/* The carts on entry (`delivery-card.tsx`): one parchment line per material, inside the frame's own
+   timber board (`.r3-board`, already on the larger-text list). */
+
+.r3-delivery-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-height: min(22rem, calc(100vh - 14rem));
+  margin: 0.4rem 0 0;
+  padding: 0 0.2rem 0 0;
+  overflow-y: auto;
+  list-style: none;
+}
+.r3-delivery-line {
+  padding: 0.55rem 0.8rem;
+  border-radius: 14px;
+  border: 3px solid var(--r3-bark);
+  background: linear-gradient(180deg, rgba(255, 238, 194, 0.14), rgba(255, 238, 194, 0.05));
+  font-size: 1.05rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: #fff1d2;
+  overflow-wrap: anywhere;
+}
+.r3-delivery-phrase { font-weight: 900; color: var(--r3-gold); }
+.r3-delivery-line em { font-style: italic; font-weight: 700; color: #fff6de; }

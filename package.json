@@ -27,6 +27,7 @@
     "db:backfill-members": "npx tsx src/lib/db/backfill-members.ts",
     "db:backfill-streaks": "npx tsx src/lib/db/backfill-streaks.ts",
     "db:backfill-spell-schools": "npx tsx src/lib/db/backfill-spell-schools.ts",
+    "db:welcome-materials": "npx tsx src/lib/db/welcome-materials-run.ts",
     "db:backup": "node scripts/backup-db.mjs",
     "db:backup-install": "bash scripts/install-backup-timer.sh",
     "db:set-password": "node scripts/set-password.mjs"

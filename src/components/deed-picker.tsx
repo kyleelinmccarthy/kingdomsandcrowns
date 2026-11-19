@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { CheckIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { GameIcon } from "@/components/game-icon";
 import { DeedPlayer } from "@/components/deed-player";
@@ -11,6 +12,7 @@ import { startDeedRun, type DeedsOverview } from "@/lib/actions/deeds";
 import type { RunStart } from "@/lib/utils/deed-run-types";
 import { AREA_LABELS, type SkillArea } from "@/lib/utils/skills";
 import { rankBuildings } from "@/lib/realm/objective";
+import { countsTowardBuilding } from "@/lib/utils/deed-scoring";
 import type { ProfileLike } from "@/lib/utils/deed-engine";
 
 export function DeedPicker({ childId, overview, profile, calm }: { childId: string; overview: DeedsOverview; profile: ProfileLike; calm: boolean }) {
@@ -89,11 +91,21 @@ export function DeedPicker({ childId, overview, profile, calm }: { childId: stri
             )}
           </div>
           <div className="xp-bar-track mt-2"><div className="xp-bar-fill" style={{ width: `${(b.done / b.total) * 100}%` }} /></div>
-          <ul className="mt-3 space-y-2">
+          {/* A built building's stories are practice now: they teach, and the walls already stand. */}
+          {b.complete && <p className="mt-3 text-xs font-medium text-muted-foreground">Practise again</p>}
+          <ul className={`${b.complete ? "mt-2" : "mt-3"} space-y-2`}>
             {b.deeds.map((d) => (
               <li key={d.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-gold-dim px-3 py-2">
                 <div className="min-w-0">
-                  <p className="flex items-center gap-2 text-sm font-medium">{d.title} <SubjectChip area={d.area} /></p>
+                  <p className="flex flex-wrap items-center gap-2 text-sm font-medium">
+                    {d.title} <SubjectChip area={d.area} />
+                    {/* Done once it earned a star: that story has its place in the building. */}
+                    {countsTowardBuilding(d.bestStars) && (
+                      <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-[var(--gold-bright)]">
+                        <CheckIcon className="size-3.5" aria-hidden="true" />Done
+                      </span>
+                    )}
+                  </p>
                   <p className="text-xs text-muted-foreground">{d.story}</p>
                 </div>
                 <Button size="sm" aria-label={`Begin ${d.title}`} disabled={busy} onClick={() => begin(d.id)}>Begin</Button>

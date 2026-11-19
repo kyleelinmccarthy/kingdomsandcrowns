@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +19,7 @@ import { moveTargetLabel, type MoveTarget } from "@/lib/utils/makeup";
 import { formatMovedFrom } from "@/lib/utils/missed-days";
 import { getRewardItemLabel } from "@/lib/utils/avatar-catalog";
 import { hasMeaningfulNotes } from "@/lib/utils/sanitize";
+import type { QuestReward } from "@/lib/utils/quest-rewards";
 
 type AssignmentWithDetails = {
   assignment: {
@@ -45,6 +47,8 @@ type AssignmentWithDetails = {
     name: string;
     color: string | null;
   };
+  /** What the quest made, once it is finished (the page loads it for completed quests only). */
+  rewards?: QuestReward;
 };
 
 export function QuestAssignmentCard({
@@ -55,6 +59,7 @@ export function QuestAssignmentCard({
   missedFrom = null,
   moveTargets = [],
   today = null,
+  realmEnabled = false,
 }: {
   data: AssignmentWithDetails;
   isChildView: boolean;
@@ -88,6 +93,8 @@ export function QuestAssignmentCard({
    */
   moveTargets?: MoveTarget[];
   today?: string | null;
+  /** Whether this hero's Realm is on: a finished quest only offers the way there when it is. */
+  realmEnabled?: boolean;
 }) {
   const router = useRouter();
   const [acting, setActing] = useState(false);
@@ -373,6 +380,22 @@ export function QuestAssignmentCard({
           {isCompleted && (
             <>
               <span className="text-xs text-green-500">Completed</span>
+              {data.rewards?.made && (
+                <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-foreground/90">
+                  <span className="inline-flex items-center gap-1.5">
+                    <span aria-hidden="true" className="inline-block size-2 shrink-0 rounded-full bg-[var(--gold-bright)]" />
+                    <span>{data.rewards.made}</span>
+                  </span>
+                  {isChildView && realmEnabled && (
+                    <Link href="/realm" className="font-medium text-primary hover:underline">
+                      Take it to the Realm
+                    </Link>
+                  )}
+                </p>
+              )}
+              {data.rewards?.minutes != null && data.rewards.minutes > 0 && (
+                <p className="mt-0.5 text-xs text-muted-foreground">+{data.rewards.minutes} min in the Realm</p>
+              )}
               {assignment.notes && !showNotesEdit && (
                 <p className="mt-0.5 flex items-start gap-1 text-xs italic wrap-anywhere text-muted-foreground">
                   <GameIcon name="scroll" className="mt-0.5 size-3 shrink-0 text-[var(--gold-bright)]" />

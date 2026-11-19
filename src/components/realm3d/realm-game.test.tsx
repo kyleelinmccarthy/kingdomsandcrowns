@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { useEffect } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { HudBus } from "@/lib/realm3d/hud-bus";
@@ -55,6 +55,7 @@ vi.mock("@/lib/actions/avatar", () => ({
 vi.mock("@/lib/actions/realm-sound", () => ({ saveRealmSound: vi.fn(async () => {}) }));
 vi.mock("@/lib/actions/deeds", () => ({ startDeedRun: vi.fn(), answerDeedQuestion: vi.fn(), completeDeedRun: vi.fn() }));
 vi.mock("@/lib/actions/seasons", () => ({ markCeremonySeen: vi.fn(async () => {}) }));
+vi.mock("@/lib/actions/improvements", () => ({ markBuildingsAnnounced: vi.fn(async () => {}), markDeliverySeen: vi.fn(async () => {}), startBuildRun: vi.fn(), pinPlan: vi.fn(async () => {}) }));
 vi.mock("@/lib/actions/review", () => ({ startReviewRun: vi.fn(), getReviewDue: vi.fn(async () => false) }));
 vi.mock("@/lib/actions/spells", () => ({ getSpellbook: vi.fn(async () => ({ spells: [], slots: 4, level: 3, unlocked: ["ember", "tide", "bolt", "orb"], schoolCounts: { element: 2, form: 0, modifier: 0 }, subjectNamesBySchool: { element: ["Math"], form: [], modifier: [] } })) }));
 vi.mock("@/lib/actions/realm", () => ({ getRealmKingdom: vi.fn() }));
@@ -81,6 +82,11 @@ import { updateAvatarConfig } from "@/lib/actions/avatar";
 import { getRealmKingdom } from "@/lib/actions/realm";
 import { markRealmHelpSeen, setTutorialStep } from "@/lib/actions/realm-settings";
 import { markCeremonySeen } from "@/lib/actions/seasons";
+import { markBuildingsAnnounced, markDeliverySeen, pinPlan, startBuildRun } from "@/lib/actions/improvements";
+import { KEEP_YARD } from "@/lib/realm/keep-yard";
+import { EMPTY_WORKS, type Works } from "@/lib/realm/works-state";
+import { PLANS_TARGET } from "@/lib/realm3d/interact";
+import { BUILD_HERO_ONLY } from "@/lib/utils/deed-refusals";
 import { startReviewRun } from "@/lib/actions/review";
 import { saveRealmSound } from "@/lib/actions/realm-sound";
 import { getRealmAccess, getTroubleBounty, recordTroubleClears } from "@/lib/actions/realm-play";
@@ -108,6 +114,8 @@ const realm: RealmData = {
       deeds: id === "well" ? [{ id: "well-stones", title: "Count the Well Stones", story: "Old Bram's bucket keeps coming up dry.", area: "math" as const, bestStars: 0 as const, crowned: false }] : [],
       stars: 0,
       maxStars: id === "well" ? 3 : 0,
+      raisedBy: null,
+      raisedAt: null,
       done: id === "well" ? 2 : 0,
       total: 5,
       complete: false,
@@ -256,6 +264,266 @@ describe("the riddle stones", () => {
   });
 });
 
+describe("the keep yard", () => {
+  /** Enough for the Banners' first level (4 Dye and 2 Thread). */
+  const rich: Works = { ...EMPTY_WORKS, balance: { ...EMPTY_WORKS.balance, dye: 4, thread: 2 } };
+
+  it("hands the canvas the hero's satchel for the stockpile, the same object while it holds the same", () => {
+    const { view } = mount({ realm: { ...realm, works: rich } });
+    expect(handed.props!.stockpile).toEqual(rich.balance);
+    const first = handed.props!.stockpile;
+    view.rerender(<RealmGame heroName="Emma" spellbook={spellbook} realm={{ ...realm, works: rich }} entry={{ minutes: 240, visit: null, source: "earned" }} castleUnlocked={false} />);
+    expect(handed.props!.stockpile).toBe(first);
+  });
+
+  it("opens the plans board when E is pressed at it, and pauses the world", () => {
+    const { bus } = mount({ realm: { ...realm, works: rich } });
+    act(() => bus.onNear(PLANS_TARGET));
+    expect(screen.getByRole("button", { name: /Read Kingdom plans/ })).toBeInTheDocument();
+    act(() => bus.onInteract(PLANS_TARGET));
+    const board = screen.getByRole("dialog", { name: "Kingdom plans" });
+    expect(board).toHaveTextContent("Ready to build");
+    expect(screen.getAllByRole("button", { name: "Build" }).length).toBeGreaterThan(0);
+    expect(bus.paused).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Back to the Realm" }));
+    expect(bus.paused).toBe(false);
+  });
+
+  it("sends the gold ! to the plans board while the pinned plan is ready, and to the villager otherwise", () => {
+    const { bus, view } = mount({ realm: { ...realm, works: { ...rich, pinned: "village-banners" } } });
+    expect(bus.goal).toMatchObject({ on: true, x: KEEP_YARD.plansBoard.x, z: KEEP_YARD.plansBoard.z });
+    expect(view.container.querySelector(".r3-goal-name")).toHaveTextContent("Banners");
+    cleanup();
+    // Pinned but short: the villager, as before.
+    const short = mount({ realm: { ...realm, works: { ...EMPTY_WORKS, pinned: "village-banners" } } });
+    expect(short.bus.goal).not.toMatchObject({ x: KEEP_YARD.plansBoard.x, z: KEEP_YARD.plansBoard.z });
+    expect(short.view.container.querySelector(".r3-goal-name")).toHaveTextContent("Old Bram");
+  });
+
+  it("moves the gold ! to the board the moment the hero pins a ready plan there", async () => {
+    const { bus } = mount({ realm: { ...realm, works: rich } });
+    act(() => bus.onInteract(PLANS_TARGET));
+    const banners = screen.getByRole("listitem", { name: "Banners" });
+    await act(async () => void fireEvent.click(within(banners).getByRole("button", { name: "Pin" })));
+    expect(pinPlan).toHaveBeenCalledWith("demo-child-1", "village-banners");
+    expect(bus.goal).toMatchObject({ on: true, x: KEEP_YARD.plansBoard.x, z: KEEP_YARD.plansBoard.z });
+  });
+
+  it("says aloud on entry where the beacon leads when it is a plan", () => {
+    const said: string[] = [];
+    (window as unknown as { speechSynthesis: unknown }).speechSynthesis = { cancel: vi.fn(), speak: vi.fn((u: { text: string }) => said.push(u.text)) };
+    (globalThis as unknown as { SpeechSynthesisUtterance: unknown }).SpeechSynthesisUtterance = function (this: { text: string }, text: string) {
+      this.text = text;
+    };
+    try {
+      mount({ realm: { ...realm, works: { ...rich, pinned: "village-banners" }, profile: { ...realm.profile, readAloud: true } } });
+      expect(said).toContain("Everything for the Banners is here. Go to the plans board to build it.");
+      expect(said.some((s) => s.includes("Old Bram"))).toBe(false);
+    } finally {
+      delete (window as unknown as { speechSynthesis?: unknown }).speechSynthesis;
+    }
+  });
+
+  it("names no villager on the welcome card while the beacon is on a plan", () => {
+    mount({ realm: { ...realm, works: { ...rich, pinned: "village-banners" }, helpSeen: false } });
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.queryByText(/Banners is waiting/)).toBeNull();
+  });
+
+  it("shows a grown-up the plans, with no pin and no build", () => {
+    const { bus } = mount({ viewer: "parent", realm: { ...realm, isChildView: false, works: rich } });
+    act(() => bus.onInteract(PLANS_TARGET));
+    expect(screen.getByRole("dialog", { name: "Kingdom plans" })).toHaveTextContent("Ready to build");
+    expect(screen.queryByRole("button", { name: "Build" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Pin" })).toBeNull();
+    expect(screen.getByText(BUILD_HERO_ONLY)).toBeInTheDocument();
+    expect(startBuildRun).not.toHaveBeenCalled();
+  });
+});
+
+describe("built plans and their plaques", () => {
+  const plaque = { improvementId: "village-banners" as const, level: 1, label: "Banners", builtBy: "Emma", season: "Autumn 2026", sources: ["Fractions p.12"], stars: 2 };
+  const built: Works = { ...EMPTY_WORKS, built: { "village-banners": 1 }, plaques: [plaque] };
+  const stone = { kind: "plaque" as const, id: "village-banners", label: "the Banners plaque", verb: "Read" };
+
+  it("hands the canvas what the hero has built, the same object across a re-render", () => {
+    const { view } = mount({ realm: { ...realm, works: built } });
+    expect(handed.props!.built).toEqual({ "village-banners": 1 });
+    const first = handed.props!.built;
+    view.rerender(<RealmGame heroName="Emma" spellbook={spellbook} realm={{ ...realm, works: built }} entry={{ minutes: 240, visit: null, source: "earned" }} castleUnlocked={false} />);
+    expect(handed.props!.built).toBe(first);
+  });
+
+  it("opens the plaque when E is pressed at it, and pauses the world", () => {
+    const { bus } = mount({ realm: { ...realm, works: built } });
+    act(() => bus.onNear(stone));
+    expect(screen.getByRole("button", { name: /Read the Banners plaque/ })).toBeInTheDocument();
+    act(() => bus.onInteract(stone));
+    const panel = screen.getByRole("dialog", { name: "Banners plaque" });
+    expect(panel).toHaveTextContent("Banners · built by Emma · Autumn 2026 · from: Fractions p.12");
+    expect(screen.getByRole("img", { name: "2 of 3 stars" })).toBeInTheDocument();
+    expect(bus.paused).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Back to the Realm" }));
+    expect(bus.paused).toBe(false);
+  });
+
+  it("lets a visiting grown-up read the plaque too", () => {
+    const { bus } = mount({ viewer: "parent", realm: { ...realm, isChildView: false, works: built } });
+    act(() => bus.onInteract(stone));
+    expect(screen.getByRole("dialog", { name: "Banners plaque" })).toHaveTextContent("built by Emma");
+  });
+
+  it("has the keeper of a standing building say who raised it and in which season, in the family's zone", () => {
+    const standing = {
+      ...realm,
+      timezone: "Australia/Sydney",
+      kingdom: {
+        ...realm.kingdom,
+        buildings: realm.kingdom.buildings.map((b) => (b.id === "well" ? { ...b, done: 5, complete: true, raisedBy: "Emma", raisedAt: Date.parse("2026-04-15T18:00:00Z") / 1000 } : b)),
+      },
+    };
+    const { bus } = mount({ realm: standing });
+    act(() => bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
+    expect(screen.getByRole("dialog", { name: /Old Bram/ })).toHaveTextContent("Raised by Emma · Autumn 2026.");
+  });
+});
+
+describe("the carts, the satchel and the quiet clock (minutes, quieter)", () => {
+  const carts: Works = {
+    ...EMPTY_WORKS,
+    balance: { ...EMPTY_WORKS.balance, stone: 2, ink: 1 },
+    delivery: {
+      rows: [
+        { materialId: "stone", amount: 1, title: "Fractions p.12", origin: "quest" },
+        { materialId: "stone", amount: 1, title: "Times tables", origin: "quest" },
+        { materialId: "ink", amount: 1, title: "Volcanoes, part 2", origin: "quest" },
+      ],
+      through: 1_790_000_000,
+    },
+  };
+  const seen = { ...realm, helpSeen: true, works: carts };
+
+  it("brings the carts in on entry, pauses the world, and writes them down as seen once when closed", () => {
+    const { bus } = mount({ realm: seen });
+    const card = screen.getByRole("dialog", { name: "The carts are in!" });
+    expect(card).toHaveTextContent("2 Stone from Fractions p.12 and Times tables");
+    expect(card).toHaveTextContent("1 Ink from Volcanoes, part 2");
+    expect(bus.paused).toBe(true);
+    expect(markDeliverySeen).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "To the kingdom!" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(bus.paused).toBe(false);
+    expect(markDeliverySeen).toHaveBeenCalledTimes(1);
+    expect(markDeliverySeen).toHaveBeenCalledWith("demo-child-1", 1_790_000_000);
+    // Opening and closing something else afterwards writes nothing more.
+    esc();
+    esc();
+    expect(markDeliverySeen).toHaveBeenCalledTimes(1);
+  });
+
+  it("is written down as seen when skipped with Esc, too, and a failed write only logs", async () => {
+    vi.mocked(markDeliverySeen).mockRejectedValueOnce(new Error("down"));
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      mount({ realm: seen });
+      esc();
+      await act(async () => {});
+      expect(markDeliverySeen).toHaveBeenCalledTimes(1);
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(spy).toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("comes after the first-visit welcome and before the crown ceremony, and the rises wait for all three", async () => {
+    const all = {
+      ...realm,
+      helpSeen: false,
+      tutorialStep: 0,
+      works: carts,
+      ceremony: { seasonId: "season-1", crownId: "crown-copper", ordinal: 1, seasonLabel: "Autumn 2026" },
+      kingdom: { ...realm.kingdom, buildings: realm.kingdom.buildings.map((b) => (b.id === "well" ? { ...b, done: 5, complete: true } : b)) },
+      unannounced: ["well"],
+    };
+    mount({ realm: all });
+    expect(screen.getByRole("dialog", { name: "Welcome to your Realm" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "I know how to play" }));
+    expect(screen.getByRole("dialog", { name: "The carts are in!" })).toBeInTheDocument();
+    expect(screen.queryByText("The Village Well stands!")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "To the kingdom!" }));
+    expect(markDeliverySeen).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("dialog", { name: "The crown ceremony" })).toBeInTheDocument();
+    expect(screen.queryByText("The Village Well stands!")).toBeNull();
+    expect(markBuildingsAnnounced).not.toHaveBeenCalled();
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: /Wear it proudly/ })));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByText("The Village Well stands!")).toBeInTheDocument();
+    expect(markBuildingsAnnounced).toHaveBeenCalledWith("demo-child-1", ["well"]);
+  });
+
+  it("goes straight from the carts to the ceremony when the welcome was had before", () => {
+    mount({ realm: { ...seen, ceremony: { seasonId: "season-1", crownId: "crown-copper", ordinal: 1, seasonLabel: "Autumn 2026" } } });
+    fireEvent.click(screen.getByRole("button", { name: "To the kingdom!" }));
+    expect(screen.getByRole("dialog", { name: "The crown ceremony" })).toBeInTheDocument();
+  });
+
+  it("never shows a grown-up the carts, nor uses them up (a visit, or a parent's view of the hero's page)", () => {
+    mount({ viewer: "parent", realm: { ...seen, isChildView: false } });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    cleanup();
+    mount({ viewer: "parent", realm: seen });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(markDeliverySeen).not.toHaveBeenCalled();
+  });
+
+  it("shows no card for empty carts", () => {
+    mount({ realm: { ...seen, works: { ...carts, delivery: { rows: [], through: 5 } } } });
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(markDeliverySeen).not.toHaveBeenCalled();
+  });
+
+  it("stands the satchel under the objective card, and a pin on the board shows in it at once", async () => {
+    const { bus, view } = mount({ realm: { ...realm, works: { ...carts, delivery: null, balance: { ...EMPTY_WORKS.balance, dye: 4, thread: 2 } } } });
+    const stack = view.container.querySelector(".r3-frame > .r3-left-stack")!;
+    expect([...stack.children].map((c) => c.className)).toEqual(["r3-quest r3-plank", "r3-satchel r3-plank"]);
+    expect(screen.getByRole("img", { name: "4 Dye" })).toBeInTheDocument();
+    expect(view.container.querySelector(".r3-satchel-plan")).toBeNull();
+    act(() => bus.onInteract(PLANS_TARGET));
+    await act(async () => void fireEvent.click(within(screen.getByRole("listitem", { name: "Banners" })).getByRole("button", { name: "Pin" })));
+    expect(view.container.querySelector(".r3-satchel-plan")).toHaveTextContent("Banners");
+    expect(view.container.querySelector(".r3-satchel-plan")).toHaveTextContent("Ready to build");
+  });
+
+  it("shows a visiting grown-up the hero's satchel too", () => {
+    mount({ viewer: "parent", realm: { ...realm, isChildView: false, works: carts } });
+    expect(screen.getByRole("region", { name: "Emma's satchel" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "2 Stone" })).toBeInTheDocument();
+  });
+
+  it("steps the hero's clock back to a chip, and leaves a grown-up's visit line as it was", () => {
+    mount();
+    expect(screen.getByRole("timer")).toHaveClass("r3-clock--quiet");
+    cleanup();
+    mount({ viewer: "parent", realm: { ...realm, isChildView: false } });
+    expect(screen.getByRole("timer")).not.toHaveClass("r3-clock--quiet");
+  });
+
+  it("has the objective card say the plan is ready while the gold ! is on the plans board", () => {
+    const rich: Works = { ...EMPTY_WORKS, balance: { ...EMPTY_WORKS.balance, dye: 4, thread: 2 }, pinned: "village-banners" };
+    mount({ realm: { ...realm, works: rich } });
+    expect(screen.getByText(/Everything for the Banners is ready\. Follow the gold ! to the plans board\./)).toBeInTheDocument();
+    expect(screen.queryByText("Old Bram is waiting.")).toBeNull();
+  });
+
+  it("has the tutorial's find lesson say where the gold ! is while it is on the plans board", () => {
+    const rich: Works = { ...EMPTY_WORKS, balance: { ...EMPTY_WORKS.balance, dye: 4, thread: 2 }, pinned: "village-banners" };
+    mount({ realm: { ...realm, helpSeen: true, tutorialStep: LEGACY_STEPS + 3, works: rich } });
+    expect(screen.getByText("Find a villager.")).toBeInTheDocument();
+    expect(screen.getByText(/The gold ! is on the plans board/)).toBeInTheDocument();
+  });
+});
+
 describe("casting by click", () => {
   it("queues the page for the scene exactly as its number key does", () => {
     mount();
@@ -326,7 +594,7 @@ describe("talking to a villager, and doing their side quest", () => {
       counted: true,
       crowned: false,
       kind: "deed",
-      building: { label: "Village Well", done: 3, total: 5, complete: false, stars: 0, maxStars: 0 }, minutesEarned: 0, sideQuestPayFull: false,
+      building: { label: "Village Well", done: 3, total: 5, complete: false, stars: 0, maxStars: 0, practice: false }, minutesEarned: 0, sideQuestPayFull: false,
     });
     const { bus, view } = mount();
     act(() => bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
@@ -361,7 +629,7 @@ describe("talking to a villager, and doing their side quest", () => {
   it("a side quest that earned no star does not say the building rose, and the board keeps its stars", async () => {
     vi.mocked(startDeedRun).mockResolvedValue({ ...run, questions: [run.questions[0]], responses: [null] });
     vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: false, secondChance: false, answer: "5" });
-    vi.mocked(completeDeedRun).mockResolvedValue({ correctCount: 0, total: 1, flawless: false, masteryChanges: [], stars: 0, previousBest: 0, deedBest: 0, counted: false, crowned: false, kind: "deed" as const, building: { label: "Village Well", done: 2, total: 5, complete: false, stars: 0, maxStars: 3 }, minutesEarned: 0, sideQuestPayFull: false });
+    vi.mocked(completeDeedRun).mockResolvedValue({ correctCount: 0, total: 1, flawless: false, masteryChanges: [], stars: 0, previousBest: 0, deedBest: 0, counted: false, crowned: false, kind: "deed" as const, building: { label: "Village Well", done: 2, total: 5, complete: false, stars: 0, maxStars: 3, practice: false }, minutesEarned: 0, sideQuestPayFull: false });
     const { bus } = mount();
     act(() => bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
     await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" })));
@@ -375,7 +643,7 @@ describe("talking to a villager, and doing their side quest", () => {
   it("shows the new best when the child returns to the villager without a reload", async () => {
     vi.mocked(startDeedRun).mockResolvedValue({ ...run, questions: [run.questions[0]], responses: [null] });
     vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: true, secondChance: false, answer: "5" });
-    vi.mocked(completeDeedRun).mockResolvedValue({ correctCount: 1, total: 1, flawless: true, masteryChanges: [], stars: 3, previousBest: 0, deedBest: 3, counted: true, crowned: false, kind: "deed" as const, building: { label: "Village Well", done: 3, total: 5, complete: false, stars: 3, maxStars: 3 }, minutesEarned: 0, sideQuestPayFull: false });
+    vi.mocked(completeDeedRun).mockResolvedValue({ correctCount: 1, total: 1, flawless: true, masteryChanges: [], stars: 3, previousBest: 0, deedBest: 3, counted: true, crowned: false, kind: "deed" as const, building: { label: "Village Well", done: 3, total: 5, complete: false, stars: 3, maxStars: 3, practice: false }, minutesEarned: 0, sideQuestPayFull: false });
     const { bus } = mount();
     act(() => bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
     expect(screen.getByRole("img", { name: "0 of 3 stars" })).toBeInTheDocument();
@@ -391,7 +659,7 @@ describe("talking to a villager, and doing their side quest", () => {
     const starred = { ...realm, kingdom: { ...realm.kingdom, buildings: realm.kingdom.buildings.map((b) => (b.id === "well" ? { ...b, deeds: b.deeds.map((d) => ({ ...d, bestStars: 3 as const })) } : b)) } };
     vi.mocked(startDeedRun).mockResolvedValue({ ...run, kind: "challenge", questions: [run.questions[0]], responses: [null] });
     vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: true, secondChance: false, answer: "5" });
-    vi.mocked(completeDeedRun).mockResolvedValue({ correctCount: 1, total: 1, flawless: true, masteryChanges: [], stars: 0, previousBest: 3, deedBest: 3, counted: false, crowned: true, kind: "challenge" as const, building: { label: "Village Well", done: 2, total: 5, complete: false, stars: 3, maxStars: 3 }, minutesEarned: 0, sideQuestPayFull: false });
+    vi.mocked(completeDeedRun).mockResolvedValue({ correctCount: 1, total: 1, flawless: true, masteryChanges: [], stars: 0, previousBest: 3, deedBest: 3, counted: false, crowned: true, kind: "challenge" as const, building: { label: "Village Well", done: 2, total: 5, complete: false, stars: 3, maxStars: 3, practice: false }, minutesEarned: 0, sideQuestPayFull: false });
     const { bus } = mount({ realm: starred });
     act(() => bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
     expect(screen.queryByText("Crown earned")).toBeNull();
@@ -408,7 +676,7 @@ describe("talking to a villager, and doing their side quest", () => {
   it("still raises the site when the child leaves the results with Esc", async () => {
     vi.mocked(startDeedRun).mockResolvedValue({ ...run, questions: [run.questions[0]], responses: [null] });
     vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: true, secondChance: false, answer: "5" });
-    vi.mocked(completeDeedRun).mockResolvedValue({ correctCount: 1, total: 1, flawless: true, masteryChanges: [], stars: 1, previousBest: 0, deedBest: 1, counted: true, crowned: false, kind: "deed" as const, building: { label: "Village Well", done: 3, total: 5, complete: false, stars: 0, maxStars: 0 }, minutesEarned: 0, sideQuestPayFull: false });
+    vi.mocked(completeDeedRun).mockResolvedValue({ correctCount: 1, total: 1, flawless: true, masteryChanges: [], stars: 1, previousBest: 0, deedBest: 1, counted: true, crowned: false, kind: "deed" as const, building: { label: "Village Well", done: 3, total: 5, complete: false, stars: 0, maxStars: 0, practice: false }, minutesEarned: 0, sideQuestPayFull: false });
     const { bus, view } = mount();
     act(() => bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
     await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" })));
@@ -422,7 +690,7 @@ describe("talking to a villager, and doing their side quest", () => {
   it("raises a whole building, and the village plank counts it", async () => {
     vi.mocked(startDeedRun).mockResolvedValue({ ...run, questions: [run.questions[0]], responses: [null] });
     vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: true, secondChance: false, answer: "5" });
-    vi.mocked(completeDeedRun).mockResolvedValue({ correctCount: 1, total: 1, flawless: true, masteryChanges: [], stars: 1, previousBest: 0, deedBest: 1, counted: true, crowned: false, kind: "deed" as const, building: { label: "Village Well", done: 5, total: 5, complete: true, stars: 0, maxStars: 0 }, minutesEarned: 0, sideQuestPayFull: false });
+    vi.mocked(completeDeedRun).mockResolvedValue({ correctCount: 1, total: 1, flawless: true, masteryChanges: [], stars: 1, previousBest: 0, deedBest: 1, counted: true, crowned: false, kind: "deed" as const, building: { label: "Village Well", done: 5, total: 5, complete: true, stars: 0, maxStars: 0, practice: false }, minutesEarned: 0, sideQuestPayFull: false });
     const well = { ...realm, kingdom: { ...realm.kingdom, buildings: realm.kingdom.buildings.map((b) => (b.id === "well" ? { ...b, done: 4 } : b)) } };
     const { bus } = mount({ realm: well });
     act(() => bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
@@ -435,6 +703,31 @@ describe("talking to a villager, and doing their side quest", () => {
     expect(screen.getByText("Next: the Grain Mill, with Miller Tessa.")).toBeInTheDocument();
     const layout = handed.props!.layout as { props: { id: string; kind: string }[] };
     expect(layout.props.find((p) => p.id === "well")!.kind).toBe("building");
+    // The hand-up showed the rise, so the world never owes it again.
+    expect(markBuildingsAnnounced).toHaveBeenCalledTimes(1);
+    expect(markBuildingsAnnounced).toHaveBeenCalledWith("demo-child-1", ["well"]);
+  });
+
+  it("marks no rise from a hand-up outside the hero's own view (viewer parent)", () => {
+    const well = { ...realm, kingdom: { ...realm.kingdom, buildings: realm.kingdom.buildings.map((b) => (b.id === "well" ? { ...b, done: 4 } : b)) } };
+    mount({ viewer: "parent", realm: well });
+    // The finished side quest's answer as the board hands it up (`DeedResult`): the building's progress, rose.
+    act(() => window.__realmRaise!("well", { label: "Village Well", done: 5, total: 5, complete: true, practice: false, counted: true, minutesEarned: 0 }));
+    expect(screen.getByText("The Village Well stands!")).toBeInTheDocument();
+    expect(markBuildingsAnnounced).not.toHaveBeenCalled();
+  });
+
+  it("marks nothing when a side quest only moved a building along", async () => {
+    vi.mocked(startDeedRun).mockResolvedValue({ ...run, questions: [run.questions[0]], responses: [null] });
+    vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: true, secondChance: false, answer: "5" });
+    vi.mocked(completeDeedRun).mockResolvedValue({ correctCount: 1, total: 1, flawless: true, masteryChanges: [], stars: 1, previousBest: 0, deedBest: 1, counted: true, crowned: false, kind: "deed" as const, building: { label: "Village Well", done: 3, total: 5, complete: false, stars: 0, maxStars: 0, practice: false }, minutesEarned: 0, sideQuestPayFull: false });
+    const { bus } = mount();
+    act(() => bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" })));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "5" })));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Finish side quest" })));
+    fireEvent.click(screen.getByRole("button", { name: /Back to the Realm/ }));
+    expect(markBuildingsAnnounced).not.toHaveBeenCalled();
   });
 
   it("a visiting grown-up reads the side quests and can begin none, and nothing is written", () => {
@@ -601,6 +894,43 @@ describe("a child's first visit", () => {
   });
 });
 
+describe("a building finished away from the Realm", () => {
+  const stands = { ...realm, helpSeen: true, kingdom: { ...realm.kingdom, buildings: realm.kingdom.buildings.map((b) => (b.id === "well" ? { ...b, done: 5, complete: true } : b)) }, unannounced: ["well"] };
+
+  it("rises on entry with the rise toast, and is marked announced", async () => {
+    mount({ realm: stands });
+    expect(screen.getByText("The Village Well stands!")).toBeInTheDocument();
+    expect(markBuildingsAnnounced).toHaveBeenCalledWith("demo-child-1", ["well"]);
+  });
+
+  it("says the side quests already finished it when the migration did", () => {
+    mount({ realm: { ...stands, regraded: true } });
+    expect(screen.getByText("Your side quests already finished the Village Well!")).toBeInTheDocument();
+    expect(screen.getByText("It stands now!")).toBeInTheDocument();
+  });
+
+  it("waits for the welcome to be closed, and then rises", () => {
+    mount({ realm: { ...stands, tutorialStep: 0, helpSeen: false } });
+    expect(screen.queryByText("The Village Well stands!")).toBeNull();
+    expect(markBuildingsAnnounced).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "I know how to play" }));
+    expect(screen.getByText("The Village Well stands!")).toBeInTheDocument();
+    expect(markBuildingsAnnounced).toHaveBeenCalledTimes(1);
+  });
+
+  it("is not shown to a grown-up visiting, and does not use up the hero's moment", () => {
+    mount({ viewer: "parent", realm: { ...stands, isChildView: false } });
+    expect(screen.queryByText("The Village Well stands!")).toBeNull();
+    expect(markBuildingsAnnounced).not.toHaveBeenCalled();
+  });
+
+  it("is not used up by a parent's view of the hero's page either (viewer parent), like every other hero write", () => {
+    mount({ viewer: "parent", realm: stands });
+    expect(screen.queryByText("The Village Well stands!")).toBeNull();
+    expect(markBuildingsAnnounced).not.toHaveBeenCalled();
+  });
+});
+
 describe("the crown ceremony", () => {
   const crowned = { ...realm, helpSeen: true, ceremony: { seasonId: "season-1", crownId: "crown-copper", ordinal: 1, seasonLabel: "Autumn 2026" } };
 
@@ -732,7 +1062,7 @@ describe("read-aloud, as a side quest ends", () => {
     try {
       vi.mocked(startDeedRun).mockResolvedValue({ ...run, questions: [run.questions[0]], responses: [null] });
       vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: true, secondChance: false, answer: "5" });
-      vi.mocked(completeDeedRun).mockResolvedValue({ correctCount: 1, total: 1, flawless: true, masteryChanges: [], stars: 1, previousBest: 0, deedBest: 1, counted: true, crowned: false, kind: "deed" as const, building: { label: "Village Well", done: 3, total: 5, complete: false, stars: 0, maxStars: 0 }, minutesEarned: 0, sideQuestPayFull: false });
+      vi.mocked(completeDeedRun).mockResolvedValue({ correctCount: 1, total: 1, flawless: true, masteryChanges: [], stars: 1, previousBest: 0, deedBest: 1, counted: true, crowned: false, kind: "deed" as const, building: { label: "Village Well", done: 3, total: 5, complete: false, stars: 0, maxStars: 0, practice: false }, minutesEarned: 0, sideQuestPayFull: false });
       const { bus } = mount({ realm: { ...realm, profile: { ...realm.profile, readAloud: true } } });
       act(() => bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
       await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" })));
@@ -848,7 +1178,7 @@ describe("the quiet world (0 minutes in an earning mode)", () => {
   const quiet = { entry: { minutes: 0, visit: null, source: "quiet" as const }, avatar: { ...DEFAULT_AVATAR, mount: "pony" }, mounts: ["pony"] };
   const arch = { kind: "arch" as const, id: "ring", label: "the Ring", verb: "Run" };
   const one = { ...run, questions: [run.questions[0]], responses: [null] };
-  const paid = (minutesEarned: number) => ({ correctCount: 1, total: 1, flawless: true, masteryChanges: [], stars: 3 as const, previousBest: 0 as const, deedBest: 3 as const, counted: true, crowned: false, kind: "deed" as const, building: { label: "Village Well", done: 3, total: 5, complete: false, stars: 3, maxStars: 3 }, minutesEarned, sideQuestPayFull: false });
+  const paid = (minutesEarned: number) => ({ correctCount: 1, total: 1, flawless: true, masteryChanges: [], stars: 3 as const, previousBest: 0 as const, deedBest: 3 as const, counted: true, crowned: false, kind: "deed" as const, building: { label: "Village Well", done: 3, total: 5, complete: false, stars: 3, maxStars: 3, practice: false }, minutesEarned, sideQuestPayFull: false });
   const pressM = () => act(() => void fireEvent.keyDown(window, { code: "KeyM", key: "m" }));
   const ride = () => handed.props!.ride as RideBus;
   async function playPayingQuest(bus: HudBus, minutes: number) {

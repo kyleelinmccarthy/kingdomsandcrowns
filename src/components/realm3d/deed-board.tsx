@@ -30,14 +30,15 @@ import type { RunStart, RunSummary } from "@/lib/utils/deed-run-types";
 import { realmCue } from "@/lib/realm3d/sound/store";
 import type { BuildingOverview } from "@/lib/services/deeds";
 import type { Villager } from "@/lib/realm/villagers";
-import { attemptFeedback, resultBuildingLine, resultHeadline, resultMinutesLine, resultStarsLine, talkCopy, type Viewer } from "@/lib/realm3d/talk";
-import { MAX_STARS, type Stars } from "@/lib/utils/deed-scoring";
+import { BUILD_FINISH, attemptFeedback, resultBuildingLine, resultHeadline, resultMinutesLine, resultStarsLine, talkCopy, type Viewer } from "@/lib/realm3d/talk";
+import { MAX_STARS, countsTowardBuilding, type Stars } from "@/lib/utils/deed-scoring";
 import { deedErrorLine } from "@/lib/utils/deed-refusals";
 import { DeedMeter } from "@/components/deed-meter";
 import { TaskPresenter } from "@/components/tasks/presenters";
 import { BenchDemo, demoCopy, useBenchDemo } from "@/components/tasks/bench-demo";
 import { StarRow } from "@/components/star-row";
 import { useDeedFlow } from "@/components/use-deed-flow";
+import { ALL_ANSWERED } from "@/lib/utils/deed-run-flow";
 import { AREA_LABELS, type SkillArea } from "@/lib/utils/skills";
 import { canSpeak, speak, stopSpeaking, type SpeechToken } from "@/lib/utils/speech";
 import { SIDE_QUEST_LOWER, SIDE_QUESTS_LOWER } from "@/lib/utils/side-quest-copy";
@@ -52,6 +53,8 @@ type Profile = { readAloud: boolean; untimed: boolean };
  */
 export type DeedResult = NonNullable<RunSummary["building"]> & {
   counted?: boolean;
+  /** Whether the run itself earned a star: a starred run that did not count was practice (`deedToast`). */
+  earned?: boolean;
   deed?: { id: string; bestStars: Stars; crowned?: boolean };
   challenge?: { won: boolean };
   /** Realm minutes the run paid (`RunSummary.minutesEarned`): above 0, the frame re-asks the gate (the quiet world wakes). */
@@ -73,7 +76,7 @@ function Subject({ area }: { area: SkillArea | null }) {
 }
 
 /** The shared star row in the frame's clothes: the board's list and the result card alike. */
-function BoardStars({ stars, small }: { stars: number; small?: boolean }) {
+export function BoardStars({ stars, small }: { stars: number; small?: boolean }) {
   return <StarRow stars={stars} className={`r3-result-stars${small ? " r3-stars--small" : ""}`} starClass="r3-star" onClass="r3-star--on" />;
 }
 
@@ -91,6 +94,7 @@ export function DeedBoard({
   onClose,
   doneLabel,
   runContext = "realm",
+  timezone,
 }: {
   childId: string | null;
   villager: Villager;
@@ -109,11 +113,13 @@ export function DeedBoard({
   doneLabel?: string;
   /** Where the run is asked from. The gate's board is always multiple choice (R-C4); the world's is the default. */
   runContext?: "realm" | "gate";
+  /** The family's zone, for the season a standing building says it was raised in (`talkCopy`). */
+  timezone?: string | null;
 }) {
   const [run, setRun] = useState<RunStart | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const copy = talkCopy({ villager, site, viewer, heroName, waiting, numerals });
+  const copy = talkCopy({ villager, site, viewer, heroName, waiting, numerals, timezone });
   const canPlay = viewer === "child" && childId !== null;
 
   // The villager speaks, once, for a child who has read-aloud on: who they are and what they need.
@@ -145,9 +151,10 @@ export function DeedBoard({
 
   if (run) {
     const title = run.kind === "challenge" ? `${CROWN_CHALLENGE}: ${run.deed.title}` : run.deed.title;
+    // A build run has no building to raise, so nothing of it ever reaches the raise path.
     const handUp = (done: RunSummary) =>
-      done.building && onResult(site.id, {
-        ...done.building, counted: done.counted, minutesEarned: done.minutesEarned, deed: { id: run.deed.id, bestStars: done.deedBest, crowned: done.crowned },
+      done.kind !== "build" && done.building && onResult(site.id, {
+        ...done.building, counted: done.counted, earned: countsTowardBuilding(done.stars), minutesEarned: done.minutesEarned, deed: { id: run.deed.id, bestStars: done.deedBest, crowned: done.crowned },
         ...(done.kind === "challenge" ? { challenge: { won: done.flawless } } : {}),
       });
     return (
@@ -261,8 +268,8 @@ export function DeedRun({
   const question = run.questions[index];
   const demo = useBenchDemo(run, index);
   const isLast = index === run.questions.length - 1;
-  const what = run.kind === "review" ? "review" : SIDE_QUEST_LOWER;
-  const finishLabel = run.kind === "review" ? REVIEW_FINISH : `Finish ${SIDE_QUEST_LOWER}`;
+  const what = run.kind === "review" ? "review" : run.kind === "build" ? "build" : SIDE_QUEST_LOWER;
+  const finishLabel = run.kind === "review" ? REVIEW_FINISH : run.kind === "build" ? BUILD_FINISH : `Finish ${SIDE_QUEST_LOWER}`;
   const nextRef = useRef<HTMLButtonElement>(null);
   const feedback = flow.result ? attemptFeedback(flow.result, flow.ruledOut.length > 0, villagerName, question) : null;
 
@@ -318,7 +325,7 @@ export function DeedRun({
           <GameIcon name={summary.flawless ? (summary.kind === "challenge" ? "crown" : "star") : "check"} className="r3-result-icon" />
         </span>
         <h3 className="r3-result-title">{head.title}</h3>
-        {summary.kind === "deed" && <BoardStars stars={summary.stars} />}
+        {(summary.kind === "deed" || summary.kind === "build") && <BoardStars stars={summary.stars} />}
         {stars && <p className="r3-result-stars-line">{stars}</p>}
         {minutesLine && (
           <p className="r3-result-minutes">
@@ -387,12 +394,13 @@ export function DeedRun({
       </div>
       <TaskPresenter task={question} flow={flow} variant="board" numerals={numerals} calm={calm} disabled={busy} nudge={nudge} site={site} onRespond={(encoded) => void choose(encoded)} />
       </>)}
-      {feedback && (
+      {/* A resolved question with no result is a run picked back up with every answer in: its finish step. */}
+      {(feedback || phase === "resolved") && (
         <div className={`r3-feedback${flow.result?.correct ? " r3-feedback--right" : ""}`}>
           <div>
-            {feedback.heading && <p className="r3-feedback-heading">{feedback.heading}</p>}
+            {feedback?.heading && <p className="r3-feedback-heading">{feedback.heading}</p>}
             <p className="r3-feedback-text" role="status">
-              {feedback.text}
+              {feedback ? feedback.text : ALL_ANSWERED}
             </p>
             {flow.result?.rungChange && <p className="r3-feedback-rung">{flow.result.rungChange}</p>}
           </div>

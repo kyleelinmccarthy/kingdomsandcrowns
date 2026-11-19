@@ -15,6 +15,8 @@ import { addDays, todayInZone, weekStartOf } from "@/lib/utils/dates";
 import { getFamilyTimezone } from "@/lib/services/family-timezone";
 import { weekdayOfDate, currentTimeOfDay } from "@/lib/utils/schedule-days";
 import { getStructuredCardLock } from "@/lib/utils/quest-ordering";
+import { loadPlanCardData, loadQuestRewards, type PlanCardData } from "@/lib/services/realm-materials";
+import { orElse, withRewards } from "@/lib/utils/quest-rewards";
 import { ChildSelector } from "@/components/child-selector";
 import { GameFrame } from "@/components/game-frame";
 import { GameIcon } from "@/components/game-icon";
@@ -174,7 +176,7 @@ async function TodayView({
   const today = todayInZone(timeZone);
   await generateAssignmentsFromSchedules(childId, today, today);
 
-  const [subjects, activities, todayAssignments, quests, allBlocks, latestStatusByQuestId, schoolingMode, makeup, moveTargets] = await Promise.all([
+  const [subjects, activities, todayAssignments, quests, allBlocks, latestStatusByQuestId, schoolingMode, makeup, moveTargets, planCard] = await Promise.all([
     getSubjects(childId),
     getRecentActivities(childId, 50),
     getAssignmentsForDate(childId, today),
@@ -185,12 +187,26 @@ async function TodayView({
     getMakeupView(childId, today),
     // Only a grown-up can move a missed quest, so a hero's page skips the lookup.
     isChildView ? Promise.resolve([]) : getMoveTargets(childId, today),
+    // The kingdom (plans, satchel, pin and settings) needs no assignment ids, so it is read with
+    // everything else and handed to the rewards below, as the Tavern does: no second round trip.
+    // It also says whether the Realm is on. A failed read leaves the way in out and the hints to
+    // the rewards' own read.
+    loadPlanCardData(childId).catch(orElse<PlanCardData | null>("the kingdom's plans", null)),
   ]);
+  // Only a hero is offered the way into the Realm.
+  const realmEnabled = isChildView && (planCard?.enabled ?? false);
 
   // A hero only sees carried-over work on a day their parent has made a
   // catch-up day. A grown-up always sees what's outstanding — knowing their
   // hero is behind must not depend on a setting about the hero's own board.
   const makeupAssignments = !isChildView || makeup.isMakeupDay ? makeup.assignments : [];
+
+  // What the finished quests made, read once for the whole page. It is a garnish: a failed read
+  // leaves the cards as they were rather than breaking the page.
+  const doneIds = [...todayAssignments, ...makeupAssignments].filter((a) => a.assignment.status === "completed").map((a) => a.assignment.id);
+  const rewards = await loadQuestRewards(childId, doneIds, planCard ?? undefined).catch(orElse("what the finished quests made", {}));
+  const todayCards = withRewards(todayAssignments, rewards);
+  const makeupCards = withRewards(makeupAssignments, rewards);
 
   const todayWeekday = weekdayOfDate(today);
   const todaysBlocks = allBlocks.filter((b) => b.dayOfWeek === todayWeekday);
@@ -230,20 +246,22 @@ async function TodayView({
               <TodaySchedule
                 blocks={todaysBlocks}
                 subjects={subjects}
-                assignments={todayAssignments}
+                assignments={todayCards}
                 isChildView={isChildView}
                 structuredNext={structuredNext}
                 allowChildSkip={allowChildSkip}
+                realmEnabled={realmEnabled}
               />
             ) : (
               <div className="space-y-2">
-                {todayAssignments.map((a) => (
+                {todayCards.map((a) => (
                   <QuestAssignmentCard
                     key={a.assignment.id}
                     data={a}
                     isChildView={isChildView}
                     structuredNext={structuredNext}
                     allowChildSkip={allowChildSkip}
+                    realmEnabled={realmEnabled}
                   />
                 ))}
               </div>
@@ -267,12 +285,13 @@ async function TodayView({
       </div>
 
       <MakeupQuests
-        assignments={makeupAssignments}
+        assignments={makeupCards}
         today={today}
         isChildView={isChildView}
         allowChildSkip={allowChildSkip}
         reason={makeup.reason}
         moveTargets={moveTargets}
+        realmEnabled={realmEnabled}
       />
 
       <GameFrame title={isChildView ? "Adventure Log" : "Recent Adventures"} icon={<GameIcon name="book" className="size-5 text-[var(--gold-bright)]" />}>

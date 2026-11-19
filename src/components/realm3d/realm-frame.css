@@ -98,6 +98,29 @@
   padding: 0.55rem 0.9rem 0.7rem;
   border-radius: 16px;
 }
+/* The top-left column: the objective card, and the satchel under it whatever the card's height. It
+   takes the card's place and lets the card flow, at its own width; under larger text it moves
+   exactly as the zoomed card used to (each block keeps its own zoom). */
+.r3-left-stack {
+  position: absolute;
+  top: 5.6rem;
+  left: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.55rem;
+}
+.r3-left-stack > .r3-quest { position: relative; top: auto; left: auto; }
+.r3-root[data-larger-text="on"] .r3-left-stack { top: 6.72rem; left: 1.2rem; }
+/* A phone: the narrow card wraps tall, and a full satchel under it ran into the spell bar (D16
+   smoke, 390 px). The column stops 11rem above the bottom, clear of the mana bar and the spells
+   (`.r3-bottom`), and the satchel folds itself small (`satchel.css`). */
+@media (max-width: 480px) {
+  .r3-left-stack { max-height: calc(100% - 5.6rem - 11rem); overflow: hidden; }
+  .r3-root[data-larger-text="on"] .r3-left-stack { max-height: calc(100% - 6.72rem - 11rem); }
+  /* The card keeps its first objective only, so the stack stays short and nothing is clipped. */
+  .r3-quest-extra { display: none; }
+}
 .r3-quest-tab {
   margin: 0 0 0.2rem;
   font-size: 0.68rem;
@@ -190,6 +213,10 @@
 }
 .r3-clock-icon { width: 1.6rem; height: 1.6rem; color: var(--r3-gold); filter: drop-shadow(0 0 6px rgba(245, 192, 74, 0.55)); }
 .r3-clock-text { font-size: 1.2rem; font-weight: 900; color: #fff6de; font-variant-numeric: tabular-nums; text-shadow: 0 2px 0 var(--r3-bark); }
+/* The hero's own clock, stepped back to the chip's size (slice 3, "minutes, quieter"). */
+.r3-clock--quiet { gap: 0.3rem; padding: 0.3rem 0.7rem; }
+.r3-clock--quiet .r3-clock-icon { width: 1.1rem; height: 1.1rem; }
+.r3-clock--quiet .r3-clock-text { font-size: 0.9rem; font-weight: 800; }
 .r3-clock--warning {
   border-color: #5c120c;
   background: linear-gradient(180deg, #b8372b, #6d1a12);
@@ -1158,7 +1185,7 @@
 /* The frame is in rem, so it cannot follow a font-size on the root; a child who asked for larger
    text gets every readable board and corner scaled whole instead. Nothing the driver positions
    (plates, the gold !) is scaled: their pixel positions are the world's. */
-.r3-root[data-larger-text="on"] :is(.r3-board, .r3-quest, .r3-village, .r3-corner, .r3-prompt, .r3-top-lane, .r3-who, .r3-bottom) { zoom: 1.2; }
+.r3-root[data-larger-text="on"] :is(.r3-board, .r3-quest, .r3-village, .r3-corner, .r3-prompt, .r3-top-lane, .r3-who, .r3-bottom, .r3-satchel) { zoom: 1.2; }
 /* The reading font, carried past `.game-shell` as the flat Realm's root carried it. */
 .r3-root[data-reading-font="on"] {
   --font-sans: var(--font-lexend);

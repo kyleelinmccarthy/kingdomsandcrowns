@@ -1,12 +1,15 @@
 import { describe, it, expect } from "vitest";
 import { hasObjectives, objectiveRank, rankBuildings, objectiveState, riseToast, objectiveSpeech, type Objective, type ObjectiveState } from "./objective";
 import type { SiteProgress } from "./layout";
-import { BUILDINGS } from "@/lib/utils/kingdom";
+import { BUILDINGS, findBuilding } from "@/lib/utils/kingdom";
 import { DEEDS } from "@/lib/utils/deeds";
 import type { SkillArea } from "@/lib/utils/skills";
 
-// Every building is 5 side quests today; slice 13 lowers the real counts and re-baselines this fixture (spec §3.8).
-const site = (id: string, done: number): SiteProgress => ({ id, done, total: 5, complete: done >= 5 });
+// Each site at its real count: a building needs each of its stories once (D13.1).
+const site = (id: string, done: number): SiteProgress => {
+  const total = findBuilding(id)!.deedsToBuild;
+  return { id, done, total, complete: done >= total };
+};
 
 describe("objectiveRank", () => {
   it("ranks work in progress first, untouched second, finished last", () => {
@@ -21,8 +24,8 @@ describe("objectiveRank", () => {
 describe("rankBuildings", () => {
   // The eight buildings in six progress states.
   const fixture = [
-    site("well", 5), site("mill", 0), site("bridge", 2), site("chapel", 5),
-    site("market", 0), site("library", 4), site("watchtower", 1), site("garden", 3),
+    site("well", 3), site("mill", 0), site("bridge", 1), site("chapel", 3),
+    site("market", 0), site("library", 2), site("watchtower", 1), site("garden", 1),
   ];
 
   it("reproduces the order deed-picker's local rank produced", () => {
@@ -38,7 +41,7 @@ describe("rankBuildings", () => {
     const ranked = rankBuildings(fixture);
     expect(ranked).not.toBe(fixture);
     expect(fixture.map((b) => b.id)).toEqual(before);
-    // Equal ranks keep input order: library (4 of 5) does not overtake bridge (2 of 5). That tie-break
+    // Equal ranks keep input order: library (2 of 3) does not overtake bridge (1 of 2). That tie-break
     // belongs to objectiveState, not here — deed-picker's list order must not change in this task.
     expect(ranked.slice(0, 4).map((b) => b.id)).toEqual(["bridge", "library", "watchtower", "garden"]);
   });
@@ -51,19 +54,20 @@ const newHero: SiteProgress[] = BUILDINGS.map((b) => ({ id: b.id, done: 0, total
 
 describe("objectiveState", () => {
   it("gives a brand-new hero the well, the same way every time", () => {
-    const expected = { kind: "next", objectives: [{ buildingId: "well", villagerId: "bram", label: "Village Well", villagerName: "Old Bram", done: 0, total: 5 }] };
+    const expected = { kind: "next", objectives: [{ buildingId: "well", villagerId: "bram", label: "Village Well", villagerName: "Old Bram", done: 0, total: 3 }] };
     expect(objectiveState(newHero, 1)).toEqual(expected);
     expect(objectiveState(newHero, 1)).toEqual(expected);
     expect(objectiveState(newHero, 1)).toEqual(expected);
   });
 
   it("puts work in progress ahead of untouched sites, highest done first", () => {
-    const buildings = [site("well", 0), site("mill", 1), site("bridge", 0), site("chapel", 3), site("market", 0), site("library", 2), site("watchtower", 0), site("garden", 0)];
+    // Chapel and library tie at 2 done: the catalog order breaks it.
+    const buildings = [site("well", 0), site("mill", 1), site("bridge", 0), site("chapel", 2), site("market", 0), site("library", 2), site("watchtower", 0), site("garden", 0)];
     expect(ids(objectiveState(buildings, 8))).toEqual(["chapel", "library", "mill", "well", "bridge", "market", "watchtower", "garden"]);
   });
 
   it("never offers a building that is already raised", () => {
-    const buildings = [site("well", 5), site("mill", 5), site("bridge", 0), site("chapel", 4)];
+    const buildings = [site("well", 3), site("mill", 3), site("bridge", 0), site("chapel", 2)];
     expect(ids(objectiveState(buildings, 8))).toEqual(["chapel", "bridge"]);
   });
 
@@ -131,7 +135,7 @@ describe("hasObjectives", () => {
 });
 
 const objective = (buildingId: string, label: string, villagerId: string | null, villagerName: string | null): Objective =>
-  ({ buildingId, villagerId, label, villagerName, done: 0, total: 5 });
+  ({ buildingId, villagerId, label, villagerName, done: 0, total: 3 });
 
 describe("riseToast", () => {
   it("names the building that rose and the one that follows", () => {
@@ -213,7 +217,7 @@ describe("focus areas break ties toward a building with a deed in them", () => {
   });
 
   it("rankBuildings: never overrides the rank order", () => {
-    const list = [site(pair.plain, 2), site(pair.focus, 0)]; // work in progress outranks untouched
+    const list = [site(pair.plain, 1), site(pair.focus, 0)]; // work in progress outranks untouched
     expect(rankBuildings(list, focus).map((b) => b.id)).toEqual([pair.plain, pair.focus]);
   });
 
@@ -225,7 +229,9 @@ describe("focus areas break ties toward a building with a deed in them", () => {
   });
 
   it("objectiveState: more work done still wins over focus", () => {
-    const list = [site(pair.plain, 3), site(pair.focus, 1)];
+    // Both still rising, whatever their real counts: only how much is done decides here.
+    const rising = (id: string, done: number): SiteProgress => ({ id, done, total: done + 1, complete: false });
+    const list = [rising(pair.plain, 3), rising(pair.focus, 1)];
     const first = objectiveState(list, 1, focus);
     expect(hasObjectives(first) && first.objectives[0].buildingId).toBe(pair.plain);
   });

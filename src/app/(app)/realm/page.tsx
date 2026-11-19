@@ -11,6 +11,7 @@ import type { RealmData } from "@/components/realm3d/realm-game";
 import { SwitchHero } from "@/components/switch-hero";
 import { getCastle } from "@/lib/actions/castle";
 import { castleUnlocked } from "@/lib/realm3d/frame";
+import { EMPTY_WORKS } from "@/lib/realm/works-state";
 import { castleShown, mountsFor, one, overrideAvatar, viewerFor, type Query } from "@/lib/realm3d/overrides";
 import { DEFAULT_AVATAR } from "@/lib/utils/avatar-catalog";
 import { levelFromXp } from "@/lib/utils/level";
@@ -114,6 +115,12 @@ export default async function RealmPage({ searchParams }: { searchParams: Promis
     reviewDue: bundle.reviewDue ?? false,
     // The strands the beacon leans toward when two sites are otherwise tied.
     focusAreas: bundle.focusAreas ?? [],
+    // The buildings that stand but were never shown rising, and whether the migration finished them.
+    unannounced: bundle.unannounced ?? [],
+    regraded: bundle.regraded ?? false,
+    // The satchel, plaques, pinned plan and delivery. A grown-up previewing sees them too, and the
+    // hero-only actions (building, pinning, taking the delivery) refuse them.
+    works: bundle.works ?? EMPTY_WORKS,
     ...(bundle.earning ? { earning: bundle.earning } : {}),
   };
 

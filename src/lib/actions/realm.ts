@@ -4,7 +4,8 @@ import { eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { requireChildAccess, isChildActor } from "@/lib/auth/access";
-import { loadRealmSettings, loadRealmFlags } from "@/lib/services/realm-play";
+import { loadRealmSettingsRow, loadRealmFlags } from "@/lib/services/realm-play";
+import { settingsFromRow } from "@/lib/utils/realm-settings";
 import { loadRecentTroubleClears } from "@/lib/services/realm-troubles";
 import type { RecentClear } from "@/lib/realm3d/trouble-reload";
 import { loadKingdomOverview } from "@/lib/services/deeds";
@@ -24,6 +25,9 @@ import { DEFAULT_SOUND, type SoundSettings } from "@/lib/realm3d/sound/settings"
 import { loadPlacesFound } from "@/lib/services/realm-places";
 import { loadRecessRecord } from "@/lib/services/recess";
 import { loadReviewDue } from "@/lib/services/review";
+import { loadRises } from "@/lib/services/realm-rises";
+import { loadWorks } from "@/lib/services/realm-materials";
+import { EMPTY_WORKS, type Works } from "@/lib/realm/works-state";
 import { loadFocusSkillIds } from "@/lib/services/learning-focus";
 import { focusAreasOf } from "@/lib/utils/focus";
 import type { SkillArea } from "@/lib/utils/skills";
@@ -103,6 +107,24 @@ export type RealmBundle = {
    * by `getRealmBundle`; optional only so hand-built bundles in tests need not carry it.
    */
   focusAreas?: SkillArea[];
+  /**
+   * The ids of buildings that stand but have not yet been shown rising (`kingdom_progress.announced_at`
+   * null), in `BUILDINGS` order: the world announces each once when the hero next enters. Empty when
+   * none, or when the read fails. Optional only so hand-built bundles in tests need not carry it.
+   */
+  unannounced?: string[];
+  /**
+   * Whether the retro-completion migration finished some of this hero's buildings
+   * (`realm_settings.regraded_at`), so their rise says their side quests already did. False when the
+   * read fails. Optional only so hand-built bundles in tests need not carry it.
+   */
+  regraded?: boolean;
+  /**
+   * The hero's works: the satchel, the built levels and plaques, the pinned plan and the delivery
+   * not yet seen (`loadWorks`). Empty works when the read fails. Optional only so hand-built
+   * bundles in tests need not carry it; `getRealmBundle` always sets it.
+   */
+  works?: Works;
 };
 
 const VILLAGERS_RESTING = "The villagers are resting. Try again.";
@@ -149,6 +171,19 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
     console.error("Realm focus failed to load", err);
     return [] as SkillArea[];
   });
+  // The settings row, read ONCE for the whole bundle (M-5): the settings below, the works' pin and
+  // delivery mark, and the rises' `regraded_at` all come from it. In flight from here.
+  const settingsRead = loadRealmSettingsRow(childId);
+  // Which buildings still owe the hero a rise, on the same access: a failed read is "none owed".
+  const risesRead = loadRises(childId, settingsRead).catch((err: unknown) => {
+    console.error("Realm rises failed to load", err);
+    return { unannounced: [] as string[], regraded: false };
+  });
+  // The satchel, plaques, pinned plan and delivery, on the same access: a failed read is "nothing yet".
+  const worksRead = loadWorks(childId, settingsRead).catch((err: unknown) => {
+    console.error("Realm works failed to load", err);
+    return EMPTY_WORKS;
+  });
   // Also hands back the flags it read (post-update), so the parallel batch below does not
   // pay a second `loadRealmFlags` round trip just to read `helpSeenAt`. On the (rare) failure
   // path, fall back to a direct read so a starter-spell hiccup never misreports `helpSeen`.
@@ -168,7 +203,7 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
     db.select({ type: schema.castle.type }).from(schema.castle).where(eq(schema.castle.childId, childId)).limit(1),
     // Memoized per request; loadKingdomOverview below reads the same row for the hero's grades.
     loadLearningProfileRow(childId),
-    loadRealmSettings(childId),
+    settingsRead.then(settingsFromRow),
     loadKingdomState(childId).then((kingdom) => ({ kingdom, error: undefined as string | undefined })).catch((err: unknown) => {
       console.error("Realm kingdom failed to load", err);
       return { kingdom: { tone: "gentle" as const, buildings: [] }, error: VILLAGERS_RESTING };
@@ -230,6 +265,8 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
     troubleClears: await clearsRead,
     reviewDue: await reviewDueRead,
     focusAreas: await focusRead,
+    ...(await risesRead), // `unannounced` and `regraded`
+    works: await worksRead,
     earning: {
       enabled: settings.enabled,
       accessMode: settings.accessMode,
@@ -240,6 +277,7 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
       minutesPerStar: settings.minutesPerStar,
       sideQuestDailyCapMinutes: settings.sideQuestDailyCapMinutes,
       bankCapMinutes: settings.bankCapMinutes,
+      materialsPerQuest: settings.materialsPerQuest,
     },
   };
 }

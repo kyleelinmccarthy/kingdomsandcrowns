@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { DEFAULT_REALM_SETTINGS } from "@/lib/utils/realm-settings";
 import { DEFAULT_SOUND } from "@/lib/realm3d/sound/settings";
+import { EMPTY_WORKS, type Works } from "@/lib/realm/works-state";
 
 /**
  * What `getRealmBundle` tells the page about WHO is looking: whether they may change the child's
@@ -16,8 +17,13 @@ vi.mock("@/lib/services/realm-sound", () => ({ loadRealmSound: (...a: unknown[])
 const loadPlacesFound = vi.fn(async (childId: string): Promise<string[]> => (childId ? ["farfurrow", "summit-6"] : []));
 vi.mock("@/lib/services/realm-places", () => ({ loadPlacesFound: (childId: string) => loadPlacesFound(childId) }));
 const loadRecentTroubleClears = vi.fn(async (childId: string) => childId ? [{ homeId: "rim-0", agoMs: 4_000 }] : []);
+/** The hero's settings row, read once for the whole bundle (M-5). Null is "no row": the defaults. */
+const SETTINGS_ROW = { pinnedPlan: "well-house", deliverySeenAt: null, regradedAt: new Date(1_700_000_000_000) };
+const loadRealmSettingsRow = vi.fn(async () => SETTINGS_ROW);
+const loadRealmSettings = vi.fn(async () => ({ ...DEFAULT_REALM_SETTINGS }));
 vi.mock("@/lib/services/realm-play", () => ({
-  loadRealmSettings: async () => ({ ...DEFAULT_REALM_SETTINGS }),
+  loadRealmSettings: () => loadRealmSettings(),
+  loadRealmSettingsRow: (...a: unknown[]) => (loadRealmSettingsRow as (...x: unknown[]) => unknown)(...a),
   loadRealmFlags: async () => ({ helpSeenAt: null, starterSpellAt: null }),
 }));
 vi.mock("@/lib/services/realm-troubles", () => ({
@@ -27,6 +33,17 @@ const loadReviewDue = vi.fn<(childId: string) => Promise<boolean>>(async () => f
 vi.mock("@/lib/services/review", () => ({ loadReviewDue: (childId: string) => loadReviewDue(childId) }));
 const loadFocusSkillIds = vi.fn<(childId: string) => Promise<string[]>>(async () => []);
 vi.mock("@/lib/services/learning-focus", () => ({ loadFocusSkillIds: (childId: string) => loadFocusSkillIds(childId) }));
+const loadRises = vi.fn<(childId: string) => Promise<{ unannounced: string[]; regraded: boolean }>>(async () => ({ unannounced: ["well", "mill"], regraded: true }));
+vi.mock("@/lib/services/realm-rises", () => ({ loadRises: (...a: unknown[]) => (loadRises as (...x: unknown[]) => unknown)(...a) }));
+const SOME_WORKS: Works = {
+  balance: { stone: 3, ink: 1, herbs: 0, thread: 0, dye: 0, timber: 0 },
+  built: { "well-house": 1 },
+  plaques: [],
+  pinned: "well-house",
+  delivery: { rows: [{ materialId: "stone", amount: 3, title: "Fractions", origin: "quest" }], through: 1_700_000_000 },
+};
+const loadWorks = vi.fn<(childId: string) => Promise<Works>>(async () => SOME_WORKS);
+vi.mock("@/lib/services/realm-materials", () => ({ loadWorks: (...a: unknown[]) => (loadWorks as (...x: unknown[]) => unknown)(...a) }));
 vi.mock("@/lib/services/deeds", () => ({ loadKingdomOverview: async () => ({ tone: "gentle", buildings: [] }) }));
 vi.mock("@/lib/services/learning-profile", () => ({ loadLearningProfileRow: async () => null }));
 vi.mock("@/lib/services/spells", () => ({
@@ -107,6 +124,8 @@ describe("getRealmBundle — the places found, and the earning copy's settings",
       minutesPerStar: DEFAULT_REALM_SETTINGS.minutesPerStar,
       sideQuestDailyCapMinutes: DEFAULT_REALM_SETTINGS.sideQuestDailyCapMinutes,
       bankCapMinutes: DEFAULT_REALM_SETTINGS.bankCapMinutes,
+      // The kingdom lead line (`KINGDOM_LEAD_LINE`) reads it.
+      materialsPerQuest: DEFAULT_REALM_SETTINGS.materialsPerQuest,
     });
   });
 });
@@ -175,5 +194,57 @@ describe("getRealmBundle — the family's clock", () => {
   it("carries the family's timezone, for the island's day and night", async () => {
     requireChildAccess.mockResolvedValue(as("child:c1", "edit"));
     expect((await getRealmBundle("c1")).timezone).toBe("America/Chicago");
+  });
+});
+
+describe("getRealmBundle — the rises the world still owes the hero", () => {
+  it("carries the buildings waiting to be shown rising, and whether the migration finished them", async () => {
+    requireChildAccess.mockResolvedValue(as("child:c1", "edit"));
+    const b = await getRealmBundle("c1");
+    expect(b.unannounced).toEqual(["well", "mill"]);
+    expect(b.regraded).toBe(true);
+    expect(loadRises).toHaveBeenCalledWith("c1", expect.any(Promise));
+  });
+
+  it("owes none when the read fails, rather than closing the Realm", async () => {
+    requireChildAccess.mockResolvedValue(as("child:c1", "edit"));
+    loadRises.mockRejectedValueOnce(new Error("down"));
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const b = await getRealmBundle("c1");
+    spy.mockRestore();
+    expect(b.unannounced).toEqual([]);
+    expect(b.regraded).toBe(false);
+  });
+});
+
+describe("getRealmBundle — the works: satchel, plaques, pinned plan, delivery", () => {
+  it("carries the hero's works as loadWorks read them", async () => {
+    requireChildAccess.mockResolvedValue(as("child:c1", "edit"));
+    const b = await getRealmBundle("c1");
+    expect(b.works).toEqual(SOME_WORKS);
+    expect(loadWorks).toHaveBeenCalledWith("c1", expect.any(Promise));
+  });
+
+  it("reads the settings row once, and hands that one read to the works and the rises (M-5)", async () => {
+    requireChildAccess.mockResolvedValue(as("child:c1", "edit"));
+    loadRealmSettingsRow.mockClear();
+    loadRealmSettings.mockClear();
+    await getRealmBundle("c1");
+    expect(loadRealmSettingsRow).toHaveBeenCalledTimes(1);
+    expect(loadRealmSettingsRow).toHaveBeenCalledWith("c1");
+    expect(loadRealmSettings).not.toHaveBeenCalled();
+    const worksRow = loadWorks.mock.lastCall![1 as never] as unknown as Promise<unknown>;
+    const risesRow = loadRises.mock.lastCall![1 as never] as unknown as Promise<unknown>;
+    expect(worksRow).toBe(risesRow);
+    expect(await worksRow).toBe(SETTINGS_ROW);
+  });
+
+  it("is empty works when the read fails, rather than closing the Realm", async () => {
+    requireChildAccess.mockResolvedValue(as("child:c1", "edit"));
+    loadWorks.mockRejectedValueOnce(new Error("down"));
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const b = await getRealmBundle("c1");
+    spy.mockRestore();
+    expect(b.works).toEqual(EMPTY_WORKS);
   });
 });

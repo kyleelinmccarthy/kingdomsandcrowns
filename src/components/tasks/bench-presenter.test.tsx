@@ -358,6 +358,12 @@ describe("the bench: the site going up beside it", () => {
     expect(drawing().querySelectorAll(".bench-piece--drop")).toHaveLength(0);
   });
 
+  it("a build run draws its plan going up instead of a building's site", () => {
+    show({ site: { stage: 0, complete: false, solved: 1, benchTasks: 3, plan: { improvementId: "village-banners", level: 2 } } });
+    expect(screen.queryByRole("img", { name: /^The site/ })).toBeNull();
+    expect(screen.getByRole("img", { name: "The Banners, level 2, going up" })).toBeTruthy();
+  });
+
   it("sits beside the work on the page too", () => {
     show({ variant: "page", task: CUT, site: site(1) });
     expect(within(screen.getByRole("region", { name: "The bench" })).getByRole("img", { name: /^The site/ })).toBeTruthy();

@@ -16,9 +16,11 @@
  */
 
 import type { AttemptResult, RunSummary } from "@/lib/utils/deed-run-types";
+import { seasonPhrase } from "@/lib/realm/season-phrase";
+import { agree } from "@/lib/realm/improvements";
 import { cutFeedbackLine } from "@/lib/tasks/measure-copy";
 import type { ClientTask } from "@/lib/tasks/types";
-import { MAX_STARS } from "@/lib/utils/deed-scoring";
+import { MAX_STARS, countsTowardBuilding } from "@/lib/utils/deed-scoring";
 import type { ObjectiveState } from "@/lib/realm/objective";
 import { riseToast } from "@/lib/realm/objective";
 import type { Villager } from "@/lib/realm/villagers";
@@ -28,8 +30,16 @@ import { REVIEW_DONE, reviewSummaryLine } from "@/lib/utils/review-copy";
 
 export type Viewer = "child" | "parent";
 
-/** The building half of `BuildingOverview`, as much as a conversation needs. */
-export type SiteState = { id: string; label: string; done: number; total: number; complete: boolean; stars: number; maxStars: number };
+/**
+ * The building half of `BuildingOverview`, as much as a conversation needs. `raisedBy` and `raisedAt`
+ * (epoch seconds) are what the overview knows about who raised a complete building and when; a
+ * building raised during this visit has no name yet, and the live hero's name stands in.
+ */
+export type SiteState = {
+  id: string; label: string; done: number; total: number; complete: boolean; stars: number; maxStars: number;
+  raisedBy?: string | null;
+  raisedAt?: number | null;
+};
 
 export type TalkCopy = {
   /** "Old Bram" */
@@ -52,6 +62,13 @@ export function starsLeftLine(site: { stars: number; maxStars: number }, numeral
   return `${left} more ${left === 1 ? "star" : "stars"} to earn here.`;
 }
 
+/** "Raised by Emma · Spring 2026." The season is left out when the time is not known. */
+function raisedByLine(site: SiteState, heroName: string, timezone: string | null | undefined): string {
+  const name = site.raisedBy ?? heroName;
+  const season = site.raisedAt == null ? "" : seasonPhrase(site.raisedAt, timezone);
+  return `Raised by ${name}${season ? ` · ${season}` : ""}.`;
+}
+
 function areIs(n: number): string {
   return n === 1 ? "is" : "are";
 }
@@ -68,15 +85,17 @@ export function talkCopy(input: {
   heroName: string;
   waiting: boolean;
   numerals: boolean;
+  /** The family's zone, for the season a building was raised in; absent reads as UTC. */
+  timezone?: string | null;
 }): TalkCopy {
-  const { villager, site, viewer, heroName, waiting, numerals } = input;
+  const { villager, site, viewer, heroName, waiting, numerals, timezone } = input;
   const role = `Keeper of the ${site.label}`;
   const who = viewer === "parent" ? heroName : "you";
 
   let says: string;
   let need: string;
   if (site.complete) {
-    says = `The ${site.label} stands, and that is thanks to ${who}!`;
+    says = `The ${site.label} stands, and that is thanks to ${who}! ${raisedByLine(site, heroName, timezone)}`;
     need = starsLeftLine(site, numerals);
   } else {
     const hello = waiting ? (viewer === "parent" ? `I was hoping ${heroName} would come. ` : "There you are! ") : "";
@@ -117,19 +136,40 @@ export type DeedToast = {
   spoken: string;
 };
 
+/** A rise's sentences as a toast: the first one is the title, the rest the line. */
+export function riseWords(sentence: string, site: { done: number; total: number }): DeedToast {
+  const [title, ...rest] = sentence.split(/(?<=\.)\s/);
+  const line = rest.join(" ") || "Every building makes the village stronger.";
+  return { title: title.replace(/\.$/, "!"), line, done: site.done, total: site.total, rose: true, spoken: sentence };
+}
+
+/**
+ * What the toast says for a building the retro-completion migration finished while the hero was away
+ * (D13.5): their side quests already did the work, so the world only now shows it.
+ */
+export function retroRiseSentence(label: string): string {
+  return `Your side quests already finished the ${label}. It stands now!`;
+}
+
 /**
  * What the village says when a side quest is done. A building that rose gets `riseToast`'s own
  * sentence, with the next objective folded in, exactly as the flat Realm's toast did. A building
  * that is still rising says so, and names who is grateful. A run that earned no star built
- * nothing, so it never says the building rose or is rising. A counted run at a building that
+ * nothing, so it never says the building rose or is rising; a starred replay of a story already done
+ * is practice, and says a new story will raise it. A run at a building that
  * already stands says what stars are still to earn there, after this run.
  */
 export function deedToast(input: {
   site: SiteState;
   after: { done: number; total: number; complete: boolean; stars?: number; maxStars?: number };
   rose: boolean;
-  /** False when the run earned no star: it taught, but it did not build. Defaults to true. */
+  /** False when the run moved nothing: it taught, but it did not build. Defaults to true. */
   counted?: boolean;
+  /**
+   * Whether the run itself earned a star. A starred run that moved nothing replayed a story already
+   * done: it is practice, never "rising" and never "try again". Defaults to `counted`.
+   */
+  earned?: boolean;
   /** Set for a Crown Challenge, which never builds: whether it won the crown. */
   challenge?: { won: boolean };
   villagerName: string | null;
@@ -137,20 +177,21 @@ export function deedToast(input: {
   numerals: boolean;
 }): DeedToast {
   const { site, after, rose, villagerName, next, counted = true, challenge, numerals } = input;
+  const earned = input.earned ?? counted;
   if (challenge) {
     const [title, line] = challenge.won ? [CROWNED, "The crown shines beside your stars."] : ["So close!", "Try the challenge again any time."];
     return { title, line, done: after.done, total: after.total, rose: false, spoken: `${title} ${line}` };
   }
-  if (!counted) {
+  if (!counted && earned && !after.complete) {
+    const title = "Practised again!";
+    const line = `A new ${SIDE_QUEST_LOWER} will raise the ${site.label}.`;
+    return { title, line, done: after.done, total: after.total, rose: false, spoken: `${title} ${line}` };
+  }
+  if (!counted && !earned) {
     const title = `${villagerName ?? "The village"} will help you try again.`;
     return { title, line: "Every try teaches something.", done: after.done, total: after.total, rose: false, spoken: `${title} Every try teaches something.` };
   }
-  if (rose) {
-    const sentence = riseToast(site.label, next);
-    const [title, ...rest] = sentence.split(/(?<=\.)\s/);
-    const line = rest.join(" ") || "Every building makes the village stronger.";
-    return { title: title.replace(/\.$/, "!"), line, done: after.done, total: after.total, rose, spoken: sentence };
-  }
+  if (rose) return riseWords(riseToast(site.label, next), after);
   if (after.complete) {
     const title = `The ${site.label} stands.`;
     const line = starsLeftLine({ stars: after.stars ?? site.stars, maxStars: after.maxStars ?? site.maxStars }, numerals);
@@ -161,11 +202,29 @@ export function deedToast(input: {
   return { title, line, done: after.done, total: after.total, rose, spoken: `${title} ${line}` };
 }
 
+/** The last button of a build run, where a side quest's says "Finish side quest". */
+export const BUILD_FINISH = "Finish building";
+
+/** What the result card's headline reads of a build run's outcome (`RunSummary.improvement`). */
+type BuildOutcome = Pick<NonNullable<RunSummary["improvement"]>, "id" | "label" | "level" | "built" | "reason">;
+
 /** The result card's headline, as the flat Realm's `DeedResults` wrote it; a Crown Challenge is crowned or close. */
 export function resultHeadline(
-  summary: { correctCount: number; total: number; flawless: boolean; kind?: RunSummary["kind"] },
+  summary: { correctCount: number; total: number; flawless: boolean; kind?: RunSummary["kind"]; improvement?: BuildOutcome },
   deedTitle: string,
 ): { title: string; line: string } {
+  // A build run is judged on what it built, never as a side quest: the plan stands, waits, or stopped.
+  if (summary.kind === "build") {
+    const b = summary.improvement;
+    // "The Lamps are built!", "The Fountain grows!": the verb agrees with the plan's name.
+    if (b?.built) {
+      const title = b.level > 1 ? `The ${b.label} ${agree(b.id, "grows", "grow")}!` : `The ${b.label} ${agree(b.id, "is", "are")} built!`;
+      return { title, line: `${summary.correctCount} of ${summary.total} right.` };
+    }
+    if (b?.reason === "short") return { title: "Not quite enough materials", line: "The plan will wait for you on the plans board." };
+    // An error, or a summary with no outcome at all: nothing was spent either way.
+    return { title: "The builders had to stop", line: "Nothing was spent. Try again from the plans board." };
+  }
   // A review teaches and pays nothing: no "Flawless!" to chase, only how it went.
   if (summary.kind === "review") return { title: REVIEW_DONE, line: reviewSummaryLine(summary) };
   const challenge = summary.kind === "challenge";
@@ -177,8 +236,9 @@ export function resultHeadline(
   };
 }
 
-/** The result card's building line, word for word the flat Realm's. */
-export function resultBuildingLine(b: { label: string; done: number; total: number; complete: boolean }): string {
+/** The result card's building line, word for word the flat Realm's; a run on a building that already stood is practice. */
+export function resultBuildingLine(b: { label: string; done: number; total: number; complete: boolean; practice?: boolean }): string {
+  if (b.practice) return `Practised again. The ${b.label} stands strong.`;
   return b.complete ? `${b.label} is built!` : `${b.label}: ${b.done} of ${b.total} ${SIDE_QUESTS_LOWER}`;
 }
 
@@ -192,8 +252,11 @@ export function starsLabel(stars: number): string {
  * celebrated; a side quest that earned nothing says someone will help, never that it failed.
  */
 export function resultStarsLine(summary: Pick<RunSummary, "stars" | "previousBest" | "counted" | "kind">, villagerName?: string | null): string {
+  // A build run has no best to beat and no side quest to try again: its stars go on the plaque.
+  if (summary.kind === "build") return "";
   if (summary.stars > summary.previousBest) return "New best!";
-  if (!summary.counted && summary.kind === "deed") return `${villagerName ?? "The village"} will help you try again.`;
+  // Only a run that earned no star hears this: a starred replay that moved nothing was practice.
+  if (!countsTowardBuilding(summary.stars) && summary.kind === "deed") return `${villagerName ?? "The village"} will help you try again.`;
   return "";
 }
 

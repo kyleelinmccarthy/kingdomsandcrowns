@@ -66,7 +66,7 @@ const props = (isChildView: boolean): RealmFrameProps => ({
 });
 
 /** Every earning setting at 0: each test turns on only what it asserts. */
-const EARNING_OFF = { troubleBonusCapMinutes: 0, dailyAllowanceMinutes: 0, minutesPerStar: 0, sideQuestDailyCapMinutes: 0, bankCapMinutes: 0 };
+const EARNING_OFF = { troubleBonusCapMinutes: 0, dailyAllowanceMinutes: 0, minutesPerStar: 0, sideQuestDailyCapMinutes: 0, bankCapMinutes: 0, materialsPerQuest: 0 };
 
 async function open(isChildView: boolean, result: AccessResult) {
   access.result = result;
@@ -151,7 +151,7 @@ describe("the Realm's door", () => {
   });
 
   it("enters on the clock after a paying run at the gate, into the re-fetched village", async () => {
-    const well = { id: "well", label: "Village Well", description: "", icon: "box" as const, done: 5, total: 5, complete: true, stars: 0, maxStars: 15, deeds: [] };
+    const well = { id: "well", label: "Village Well", description: "", icon: "box" as const, done: 5, total: 5, complete: true, raisedBy: null, raisedAt: null, stars: 0, maxStars: 15, deeds: [] };
     access.kingdom = { tone: "gentle", buildings: [well] };
     await open(true, { allowed: true, minutesRemaining: 0, source: "quiet" });
     access.result = { allowed: true, minutesRemaining: 3, source: "earned" };
@@ -182,11 +182,11 @@ describe("the Realm's door", () => {
   it("says how minutes are earned when minutes are what the child is missing (earningLines)", async () => {
     access.result = { allowed: false, reason: "no_minutes" };
     const p = props(true);
-    const earning = { ...EARNING_OFF, enabled: true, accessMode: "earned" as const, earnedMinutesPerQuest: 5, dailyCapMinutes: 30 };
+    const earning = { ...EARNING_OFF, enabled: true, accessMode: "earned" as const, earnedMinutesPerQuest: 5, dailyCapMinutes: 30, materialsPerQuest: 1 };
     render(<RealmFrame {...p} realm={{ ...p.realm, earning }} />);
     await act(async () => {});
     await act(async () => {});
-    expect(screen.getByText("Finish a quest and you earn 5 more minutes here, up to 30 a day.")).toBeInTheDocument();
+    expect(screen.getByText("Your quests bring materials to build with. Finish a quest and you earn 5 more minutes here, up to 30 a day.")).toBeInTheDocument();
   });
 
   it("says nothing of earning when the gate is shut for another reason", async () => {

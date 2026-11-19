@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { choiceTone, flowReducer, initialFlow, type FlowState } from "./deed-run-flow";
+import { choiceTone, flowReducer, initialFlow, readyToFinish, type FlowState } from "./deed-run-flow";
 
 const q = (id: string) => ({ kind: "choice" as const, id, skillId: "s", prompt: id, view: { choices: ["a", "b", "c", "d"] } });
 const run = { questions: [q("1"), q("2"), q("3")], responses: [null, null, null] as (string | null)[], pending: null };
@@ -11,9 +11,16 @@ describe("initialFlow", () => {
   it("opens a fresh run on the first question, asking", () => {
     expect(initialFlow(run)).toEqual({ index: 0, phase: "asking", ruledOut: [], picked: null, result: null, streak: 0 });
   });
-  it("resumes at the first unanswered question, and on the last when none is left", () => {
-    expect(initialFlow({ ...run, responses: ["a", null, null] }).index).toBe(1);
-    expect(initialFlow({ ...run, responses: ["a", "a", "a"] }).index).toBe(2);
+  it("resumes at the first unanswered question, asking", () => {
+    expect(initialFlow({ ...run, responses: ["a", null, null] })).toMatchObject({ index: 1, phase: "asking" });
+  });
+  it("opens a run with every question answered at its finish step: the last question, resolved, never asked again", () => {
+    // The finish call failed after the last answer (a build run or a side quest's run alike).
+    const s = initialFlow({ ...run, responses: ["a", "a", "a"] });
+    expect(s).toMatchObject({ index: 2, phase: "resolved", result: null, ruledOut: [], picked: null });
+    expect(readyToFinish(s, run.questions.length)).toBe(true);
+    // A run still asking is not.
+    expect(readyToFinish(initialFlow(run), run.questions.length)).toBe(false);
   });
   it("restores an open second chance: that question, the pick crossed, the hint shown", () => {
     const s = initialFlow({ ...run, responses: ["a", "b", null], pending: { index: 1, ruledOut: "b", hint: "Try the tens." } });

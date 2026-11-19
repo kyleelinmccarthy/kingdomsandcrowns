@@ -30,6 +30,8 @@ const building = (id: string, label: string, deeds: { id: string; title: string 
   complete: false,
   stars: 0,
   maxStars: 15,
+  raisedBy: null,
+  raisedAt: null,
   deeds: deeds.map((d) => ({ ...d, story: "A story.", area: "math" as const, bestStars: 0 as const, crowned: false })),
 });
 
@@ -43,7 +45,7 @@ const buildings = [
   building("bridge", "Bridge", []),
 ];
 
-function board(onClose = () => {}, list: BuildingOverview[] = buildings) {
+function board(onClose = () => {}, list: BuildingOverview[] = buildings, timezone?: string | null) {
   return render(
     <GateQuestBoard
       childId="demo-child-1"
@@ -52,6 +54,7 @@ function board(onClose = () => {}, list: BuildingOverview[] = buildings) {
       numerals
       profile={{ readAloud: false, untimed: true }}
       calm={false}
+      timezone={timezone}
       onResult={() => {}}
       onClose={onClose}
     />,
@@ -66,6 +69,15 @@ describe("the gate's quest board", () => {
     expect(screen.getByRole("button", { name: "Talk to Old Bram" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Talk to Miller Tessa" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Talk to Carpenter Aldo" })).toBeNull();
+  });
+
+  it("tells a standing building's season in the hero's own time zone, not UTC's", async () => {
+    // 15 April, 02:00 UTC: autumn in Sydney (April 15, noon there) and spring by UTC's northern clock.
+    const raisedAt = Date.parse("2026-04-15T02:00:00Z") / 1000;
+    const standing = [{ ...buildings[0], done: 5, complete: true, raisedBy: "Emma", raisedAt }];
+    board(() => {}, standing, "Australia/Sydney");
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Talk to Old Bram" })));
+    expect(screen.getByText(/Raised by Emma · Autumn 2026\./)).toBeInTheDocument();
   });
 
   it("opens the villager's own board, where a side quest begins, and comes back to the list", async () => {
@@ -134,7 +146,7 @@ describe("the gate's quest board", () => {
     vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: true, secondChance: false, answer: "5" });
     vi.mocked(completeDeedRun).mockResolvedValue({
       correctCount: 1, total: 1, flawless: true, masteryChanges: [], stars: 3, previousBest: 0, deedBest: 3, counted: true, crowned: false, kind: "deed",
-      building: { label: "Village Well", done: 1, total: 5, complete: false, stars: 3, maxStars: 6 }, minutesEarned: 3, sideQuestPayFull: false,
+      building: { label: "Village Well", done: 1, total: 5, complete: false, stars: 3, maxStars: 6, practice: false }, minutesEarned: 3, sideQuestPayFull: false,
     });
     board();
     await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Talk to Old Bram" })));

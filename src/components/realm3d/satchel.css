@@ -1,0 +1,78 @@
+/* The satchel (`satchel-hud.tsx`): top left, under the objective card in the frame's left stack
+   (`.r3-left-stack`, in `realm-frame.css`), in the frame's timber. */
+
+.r3-satchel {
+  width: min(19rem, 36vw);
+  margin: 0;
+  padding: 0.45rem 0.9rem 0.6rem;
+  border-radius: 16px;
+}
+.r3-satchel-tab,
+.r3-satchel-plan-tab {
+  margin: 0 0 0.25rem;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--r3-gold);
+}
+.r3-satchel-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.8rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.r3-satchel-item { display: inline-flex; align-items: center; gap: 0.35rem; }
+.r3-satchel-icon {
+  flex: none;
+  width: 1.35rem;
+  height: 1.35rem;
+  color: var(--r3-material, var(--r3-gold));
+  filter: drop-shadow(0 1px 0 var(--r3-bark)) brightness(1.35);
+}
+.r3-satchel-count {
+  font-size: 1.05rem;
+  font-weight: 900;
+  color: #fff6de;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 2px 0 var(--r3-bark);
+}
+/* More than the pips can show (simple depth): a gold "+" after them. */
+.r3-satchel-more { margin-left: -0.15rem; font-size: 1rem; font-weight: 900; line-height: 1; color: var(--r3-gold); text-shadow: 0 2px 0 var(--r3-bark); }
+.r3-satchel-plan {
+  margin-top: 0.45rem;
+  padding-top: 0.4rem;
+  border-top: 2px dashed rgba(255, 238, 194, 0.18);
+}
+.r3-satchel-plan-name {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+  color: #fff6de;
+  text-shadow: 0 2px 0 var(--r3-bark);
+}
+.r3-satchel-plan-icon { flex: none; width: 1.1rem; height: 1.1rem; color: var(--r3-gold); }
+.r3-satchel-plan-line { margin: 0.1rem 0 0; font-size: 0.88rem; font-weight: 600; color: #f0d9a6; }
+
+/* A phone: the satchel is one short strip so the left stack clears the spell bar (`realm-frame.css`).
+   No headings; six compact chips (icon and number) in ONE row, about 270 px at 390 wide; under
+   them the pinned plan's name on one line, cut with an ellipsis, and no line of what it waits on
+   (the plans board says that). */
+@media (max-width: 480px) {
+  .r3-satchel { width: max-content; max-width: calc(100vw - 2rem); padding: 0.3rem 0.6rem 0.35rem; }
+  .r3-satchel-tab { display: none; }
+  .r3-satchel-plan-tab { display: none; }
+  .r3-satchel-items { display: grid; grid-template-columns: repeat(6, max-content); gap: 0 0.6rem; }
+  .r3-satchel-item { gap: 0.2rem; }
+  .r3-satchel-icon { width: 1rem; height: 1rem; }
+  .r3-satchel-count { font-size: 0.85rem; }
+  .r3-satchel-plan { margin-top: 0.25rem; padding-top: 0.25rem; }
+  .r3-satchel-plan-name { font-size: 0.9rem; min-width: 0; }
+  .r3-satchel-plan-label { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .r3-satchel-plan-line { display: none; }
+}

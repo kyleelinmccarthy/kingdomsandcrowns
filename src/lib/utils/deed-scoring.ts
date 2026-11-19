@@ -7,7 +7,7 @@ export type Stars = 0 | 1 | 2 | 3;
 /** The most stars one side quest can hold. */
 export const MAX_STARS = 3;
 export type QuestionOutcome = "first" | "second" | "miss";
-export type RunKind = "deed" | "challenge" | "review";
+export type RunKind = "deed" | "challenge" | "review" | "build";
 
 export const SCORING = {
   firstTryPoints: 2,
@@ -61,6 +61,19 @@ export const RUN_EFFECTS: Record<RunKind, RunEffects> = {
   review: {
     raisesBuilding: false,
     earnsStars: false,
+    movesMastery: true,
+    countsForSchool: false,
+    feedsReview: true,
+    allowsSecondChances: true,
+    paysMinutes: false,
+  },
+  /**
+   * Building a plan at the bench (R-D6): its stars go on the plaque and its answers move mastery,
+   * but it raises no core building and pays no minutes. The level stands whatever the stars.
+   */
+  build: {
+    raisesBuilding: false,
+    earnsStars: true,
     movesMastery: true,
     countsForSchool: false,
     feedsReview: true,

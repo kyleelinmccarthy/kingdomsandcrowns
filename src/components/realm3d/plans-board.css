@@ -1,0 +1,82 @@
+/* The plans board in the keep yard (`plans-board.tsx`): one row per plan, inside the frame's own
+   timber board (`.r3-board`, already on the larger-text list). Parchment rows, the ready ones lit
+   gold, the material chips in each material's own colour. */
+
+.r3-plans {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  max-height: min(26rem, calc(100vh - 14rem));
+  margin: 0.4rem 0 0;
+  padding: 0 0.2rem 0 0;
+  overflow-y: auto;
+  list-style: none;
+}
+
+.r3-plan {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.25rem 0.8rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: 14px;
+  border: 3px solid var(--r3-bark);
+  background: linear-gradient(180deg, rgba(255, 238, 194, 0.14), rgba(255, 238, 194, 0.05));
+}
+.r3-plan--ready {
+  border-color: #b9821f;
+  background: linear-gradient(180deg, rgba(255, 216, 117, 0.28), rgba(224, 155, 36, 0.12));
+}
+.r3-plan--host,
+.r3-plan--done { opacity: 0.82; }
+.r3-plan--pinned { box-shadow: inset 0 0 0 2px var(--r3-gold); }
+
+.r3-plan-head { grid-column: 1; display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.2rem 0.6rem; }
+.r3-plan-name { font-size: 1.15rem; font-weight: 900; color: #fff6de; }
+.r3-plan-host { font-size: 0.85rem; font-weight: 700; color: #e9c98c; }
+.r3-plan-level { font-size: 0.85rem; font-weight: 800; color: var(--r3-gold); }
+.r3-plan-line { grid-column: 1; margin: 0; font-size: 0.98rem; font-weight: 600; color: #fff1d2; }
+
+.r3-plan-cost { grid-column: 1; display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.r3-plan-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.1rem 0.55rem 0.1rem 0.35rem;
+  border-radius: 999px;
+  border: 2px solid var(--r3-bark);
+  background: var(--r3-chip, #9a6b3c);
+  color: #fff;
+  font-weight: 900;
+  text-shadow: 0 1px 0 rgba(0, 0, 0, 0.45);
+}
+.r3-plan-chip-icon { width: 1rem; height: 1rem; }
+
+.r3-plan-actions {
+  grid-column: 2;
+  grid-row: 1 / span 3;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.4rem;
+}
+.r3-plan-pin {
+  min-height: 2.4rem;
+  padding: 0 0.9rem;
+  border-radius: 12px;
+  border: 3px solid var(--r3-bark);
+  background: linear-gradient(180deg, #7a5433, #3e2713);
+  color: var(--r3-parchment);
+  font: inherit;
+  font-weight: 900;
+  cursor: var(--cursor-hand);
+}
+.r3-plan-pin[aria-pressed="true"] {
+  border-color: #6b4410;
+  background: linear-gradient(180deg, #ffd875, #e09b24);
+  color: #3a2008;
+}
+.r3-plan-pin:focus-visible { outline: 3px solid #fff6de; outline-offset: 3px; }
+.r3-plan-pin:disabled,
+.r3-plan-build:disabled { opacity: 0.6; cursor: default; }
+.r3-plan-build { min-height: 2.6rem; }
+.r3-plan-pinned { grid-column: 2; grid-row: 1; align-self: center; font-weight: 900; color: var(--r3-gold); }

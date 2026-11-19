@@ -18,9 +18,14 @@ vi.mock("@/lib/actions/review", () => ({ startReviewRun: (...a: unknown[]) => st
 const overview: DeedsOverview = {
   enabled: true, band: "g23", bandLabel: "Grades 2–3", tone: "gentle",
   buildings: [
-    { id: "well", label: "Village Well", description: "Water.", icon: "box", done: 5, total: 5, complete: true, stars: 0, maxStars: 3, deeds: [{ id: "well-signs", title: "Signs for the Well", story: "Help.", area: "reading", bestStars: 0 as const, crowned: false }] },
-    { id: "mill", label: "Grain Mill", description: "Flour.", icon: "compass", done: 0, total: 5, complete: false, stars: 0, maxStars: 3, deeds: [{ id: "mill-sacks", title: "Sacks at the Mill", story: "Count.", area: "math", bestStars: 0 as const, crowned: false }] },
-    { id: "bridge", label: "River Bridge", description: "Cross.", icon: "link", done: 2, total: 5, complete: false, stars: 0, maxStars: 3, deeds: [{ id: "bridge-planks", title: "Planks for the Bridge", story: "Measure.", area: "math", bestStars: 0 as const, crowned: false }] },
+    { id: "well", label: "Village Well", description: "Water.", icon: "box", done: 3, total: 3, complete: true, raisedBy: "Ada", raisedAt: 1_776_000_000, stars: 2, maxStars: 3, deeds: [{ id: "well-signs", title: "Signs for the Well", story: "Help.", area: "reading", bestStars: 2 as const, crowned: false }] },
+    { id: "mill", label: "Grain Mill", description: "Flour.", icon: "compass", done: 0, total: 3, complete: false, raisedBy: null, raisedAt: null, stars: 0, maxStars: 3, deeds: [{ id: "mill-sacks", title: "Sacks at the Mill", story: "Count.", area: "math", bestStars: 0 as const, crowned: false }] },
+    {
+      id: "bridge", label: "River Bridge", description: "Cross.", icon: "link", done: 1, total: 2, complete: false, raisedBy: null, raisedAt: null, stars: 1, maxStars: 6, deeds: [
+        { id: "bridge-planks", title: "Planks for the Bridge", story: "Measure.", area: "math", bestStars: 0 as const, crowned: false },
+        { id: "bridge-toll", title: "The Toll-Keeper's Words", story: "Greet.", area: "language", bestStars: 1 as const, crowned: false },
+      ],
+    },
   ],
   mastery: [],
 };
@@ -35,6 +40,19 @@ describe("DeedPicker", () => {
     const headings = screen.getAllByRole("heading", { level: 3 }).map((h) => h.textContent);
     expect(headings).toEqual(["River Bridge", "Grain Mill", "Village Well"]);
     expect(within(screen.getByText("Village Well").closest("section")!).getByText("Built")).toBeInTheDocument();
+  });
+
+  it("marks each story done once it has earned a star, and offers a built building's stories as practice", () => {
+    render(<DeedPicker childId="c1" overview={overview} profile={profile} calm={false} />);
+    const bridge = screen.getByText("River Bridge").closest("section")!;
+    const row = (title: string) => within(bridge).getByText(title).closest("li")!;
+    expect(within(row("The Toll-Keeper's Words")).getByText("Done")).toBeInTheDocument();
+    expect(within(row("Planks for the Bridge")).queryByText("Done")).not.toBeInTheDocument();
+    // Still rising: no practice line.
+    expect(within(bridge).queryByText("Practise again")).not.toBeInTheDocument();
+    const well = screen.getByText("Village Well").closest("section")!;
+    expect(within(well).getByText("Practise again")).toBeInTheDocument();
+    expect(within(well).getByText("Done")).toBeInTheDocument();
   });
 
   it("begins a deed and mounts the player", async () => {

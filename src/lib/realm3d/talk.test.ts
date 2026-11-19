@@ -36,10 +36,44 @@ describe("a villager's conversation", () => {
 
   it("thanks the child for a building that stands, and says how many stars are left to earn", () => {
     const t = talkCopy({ villager: bram, site: { ...well, done: 5, complete: true, stars: 7 }, viewer: "child", heroName: "Emma", waiting: false, numerals: true });
-    expect(t.says).toBe("The Village Well stands, and that is thanks to you!");
+    expect(t.says).toBe("The Village Well stands, and that is thanks to you! Raised by Emma.");
     expect(t.need).toBe("2 more stars to earn here.");
     expect(t.need).not.toContain("for practice");
     expect(t.ask).toBe("Pick one to play again.");
+  });
+
+  describe("who raised it", () => {
+    const stands: SiteState = { ...well, done: 5, complete: true, stars: 7, raisedBy: "Emma", raisedAt: Date.parse("2026-04-15T18:00:00Z") / 1000 };
+    const says = (site: SiteState, over: { timezone?: string | null; heroName?: string; viewer?: "child" | "parent" } = {}) =>
+      talkCopy({ villager: bram, site, viewer: over.viewer ?? "child", heroName: over.heroName ?? "Emma", waiting: false, numerals: true, timezone: over.timezone }).says;
+
+    it("adds a second sentence naming who raised it and the calendar season", () => {
+      expect(says(stands, { timezone: "America/Denver" })).toBe("The Village Well stands, and that is thanks to you! Raised by Emma · Spring 2026.");
+    });
+
+    it("reads the season where the family lives", () => {
+      expect(says(stands, { timezone: "Australia/Sydney" })).toMatch(/Raised by Emma · Autumn 2026\.$/);
+      expect(says(stands, { timezone: null })).toMatch(/Raised by Emma · Spring 2026\.$/);
+    });
+
+    it("keeps the name written when it rose, even after the hero is renamed", () => {
+      expect(says({ ...stands, raisedBy: "Em" }, { heroName: "Emma" })).toMatch(/Raised by Em ·/);
+    });
+
+    it("falls back to the live name for a building that rose this visit (no snapshot yet)", () => {
+      expect(says({ ...stands, raisedBy: null }, { heroName: "Noah" })).toMatch(/Raised by Noah ·/);
+      expect(says({ ...well, complete: true }, { heroName: "Noah" })).toBe("The Village Well stands, and that is thanks to you! Raised by Noah.");
+    });
+
+    it("leaves the season out when it is not known", () => {
+      expect(says({ ...stands, raisedAt: null })).toBe("The Village Well stands, and that is thanks to you! Raised by Emma.");
+      expect(says({ ...stands, raisedAt: Number.NaN })).toBe("The Village Well stands, and that is thanks to you! Raised by Emma.");
+    });
+
+    it("says it to a grown-up too, and never for a building that is still rising", () => {
+      expect(says(stands, { viewer: "parent", heroName: "Emma" })).toMatch(/thanks to Emma! Raised by Emma · /);
+      expect(says({ ...well, done: 2, raisedBy: "Emma", raisedAt: 1 })).not.toMatch(/Raised by/);
+    });
   });
 
   it("words the stars still to earn, down to none", () => {
@@ -118,6 +152,15 @@ describe("a side quest that earned no star", () => {
     const t = deedToast({ site: well, after: { done: 0, total: 5, complete: false }, rose: false, counted: false, villagerName: null, next: objectiveState(all(), 1), numerals: true });
     expect(t.title).toBe("The village will help you try again.");
   });
+  it("a starred replay of a story already done is practice: never 'rising', never 'try again'", () => {
+    const t = deedToast({ site: { ...well, done: 1, total: 3 }, after: { done: 1, total: 3, complete: false }, rose: false, counted: false, earned: true, villagerName: "Old Bram", next: objectiveState(all(), 1), numerals: true });
+    expect(t).toMatchObject({ title: "Practised again!", line: "A new side quest will raise the Village Well.", rose: false, done: 1, total: 3 });
+    expect(`${t.title} ${t.line} ${t.spoken}`).not.toMatch(/rising|rose|try again|fail/i);
+  });
+  it("a starred replay at a building that stands says it stands", () => {
+    const t = deedToast({ site: { ...well, done: 3, total: 3, complete: true }, after: { done: 3, total: 3, complete: true, stars: 7, maxStars: 9 }, rose: false, counted: false, earned: true, villagerName: "Old Bram", next: objectiveState(all(), 1), numerals: true });
+    expect(t.title).toBe("The Village Well stands.");
+  });
   it("still says the building is rising for a run that counted", () => {
     const t = deedToast({ site: well, after: { done: 1, total: 5, complete: false }, rose: false, counted: true, villagerName: "Old Bram", next: objectiveState(all(), 1), numerals: true });
     expect(t.title).toBe("The Village Well is rising!");
@@ -128,8 +171,12 @@ describe("the result card", () => {
   it("words a result as the flat Realm did", () => {
     expect(resultHeadline({ correctCount: 5, total: 5, flawless: true }, "Fill the Bucket")).toEqual({ title: "Flawless!", line: "5 of 5 right in Fill the Bucket." });
     expect(resultHeadline({ correctCount: 3, total: 5, flawless: false }, "Fill the Bucket").title).toBe("Side quest done!");
-    expect(resultBuildingLine({ label: "Village Well", done: 2, total: 5, complete: false })).toBe("Village Well: 2 of 5 side quests");
-    expect(resultBuildingLine({ label: "Village Well", done: 5, total: 5, complete: true })).toBe("Village Well is built!");
+    expect(resultBuildingLine({ label: "Village Well", done: 2, total: 3, complete: false, practice: false })).toBe("Village Well: 2 of 3 side quests");
+    expect(resultBuildingLine({ label: "Village Well", done: 3, total: 3, complete: true, practice: false })).toBe("Village Well is built!");
+  });
+
+  it("a run on a building that already stood is practice, and says so", () => {
+    expect(resultBuildingLine({ label: "Village Well", done: 3, total: 3, complete: true, practice: true })).toBe("Practised again. The Village Well stands strong.");
   });
 });
 
@@ -137,6 +184,40 @@ describe("a review's result", () => {
   it("is a review done, with how many were reviewed and how many right, flawless or not", () => {
     expect(resultHeadline({ correctCount: 3, total: 3, flawless: true, kind: "review" }, "Longwater riddle stone")).toEqual({ title: "Review done!", line: "Reviewed 3 · 3 right" });
     expect(resultHeadline({ correctCount: 1, total: 3, flawless: false, kind: "review" }, "Longwater riddle stone")).toEqual({ title: "Review done!", line: "Reviewed 3 · 1 right" });
+  });
+});
+
+describe("a build run's result", () => {
+  const done = { correctCount: 2, total: 3, flawless: false, kind: "build" as const };
+  const outcome = (level: number, extra: { built?: boolean; reason?: "short" | "error" } = {}) => ({ id: "village-banners" as const, label: "Banners", level, built: true, ...extra });
+  it("says the plan is built at level 1, and grows above it, agreeing with a plural name", () => {
+    expect(resultHeadline({ ...done, improvement: outcome(1) }, "Banners")).toEqual({ title: "The Banners are built!", line: "2 of 3 right." });
+    expect(resultHeadline({ ...done, improvement: outcome(2) }, "Banners").title).toBe("The Banners grow!");
+    expect(resultHeadline({ ...done, improvement: { ...outcome(1), id: "village-lamps" as const, label: "Lamps" } }, "Lamps").title).toBe("The Lamps are built!");
+  });
+  it("keeps a singular name singular", () => {
+    const fountain = (level: number) => ({ ...outcome(level), id: "village-fountain" as const, label: "Fountain" });
+    expect(resultHeadline({ ...done, improvement: fountain(1) }, "Fountain").title).toBe("The Fountain is built!");
+    expect(resultHeadline({ ...done, improvement: fountain(3) }, "Fountain").title).toBe("The Fountain grows!");
+  });
+  it("never says Flawless! or side quest, even for a perfect run", () => {
+    const head = resultHeadline({ ...done, correctCount: 3, flawless: true, improvement: { ...outcome(1), id: "village-fountain" as const, label: "Fountain" } }, "Fountain");
+    expect(head.title).toBe("The Fountain is built!");
+    expect(`${head.title} ${head.line}`).not.toMatch(/flawless|side quest/i);
+  });
+  it("says the plan will wait when the materials were not enough", () => {
+    expect(resultHeadline({ ...done, improvement: outcome(1, { built: false, reason: "short" }) }, "Banners")).toEqual({
+      title: "Not quite enough materials", line: "The plan will wait for you on the plans board.",
+    });
+  });
+  it("says the builders had to stop, and that nothing was spent, on an error or with no outcome", () => {
+    const stop = { title: "The builders had to stop", line: "Nothing was spent. Try again from the plans board." };
+    expect(resultHeadline({ ...done, improvement: outcome(1, { built: false, reason: "error" }) }, "Banners")).toEqual(stop);
+    expect(resultHeadline(done, "Banners")).toEqual(stop);
+  });
+  it("never says 'New best!' or that the village will help, whatever the stars", () => {
+    expect(resultStarsLine({ stars: 3, previousBest: 0, counted: false, kind: "build" })).toBe("");
+    expect(resultStarsLine({ stars: 0, previousBest: 0, counted: false, kind: "build" })).toBe("");
   });
 });
 
@@ -171,6 +252,10 @@ describe("the result card's stars", () => {
     expect(resultStarsLine(none, "Old Bram")).toBe("Old Bram will help you try again.");
     expect(resultStarsLine(none)).toBe("The village will help you try again.");
     expect(resultStarsLine(none)).not.toMatch(/fail/i);
+  });
+  it("says nothing about trying again to a starred replay that moved nothing", () => {
+    expect(resultStarsLine({ stars: 2, previousBest: 3, counted: false, kind: "deed" }, "Old Bram")).toBe("");
+    expect(resultStarsLine({ stars: 3, previousBest: 3, counted: false, kind: "deed" }, "Old Bram")).toBe("");
   });
   it("says nothing about trying again for a challenge", () => {
     expect(resultStarsLine({ stars: 0, previousBest: 0, counted: false, kind: "challenge" })).toBe("");

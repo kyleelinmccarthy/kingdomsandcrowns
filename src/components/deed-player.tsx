@@ -10,7 +10,8 @@ import { completeDeedRun } from "@/lib/actions/deeds";
 import type { RunStart, RunSummary } from "@/lib/utils/deed-run-types";
 import { DeedMeter } from "@/components/deed-meter";
 import { useDeedFlow } from "@/components/use-deed-flow";
-import { attemptFeedback } from "@/lib/realm3d/talk";
+import { ALL_ANSWERED } from "@/lib/utils/deed-run-flow";
+import { BUILD_FINISH, attemptFeedback } from "@/lib/realm3d/talk";
 import { TaskPresenter } from "@/components/tasks/presenters";
 import { BenchDemo, demoCopy, useBenchDemo } from "@/components/tasks/bench-demo";
 import type { ProfileLike } from "@/lib/utils/deed-engine";
@@ -40,7 +41,7 @@ export function DeedPlayer({
   const demo = useBenchDemo(run, index);
   const question = run.questions[index];
   const isLast = index === run.questions.length - 1;
-  const finishLabel = run.kind === "review" ? REVIEW_FINISH : `Finish ${SIDE_QUEST_LOWER}`;
+  const finishLabel = run.kind === "review" ? REVIEW_FINISH : run.kind === "build" ? BUILD_FINISH : `Finish ${SIDE_QUEST_LOWER}`;
 
   // Read-aloud is a side effect, not state: the profile asks for it, the effect obeys. Aldo's
   // worked example is read first, when there is one, then the question.
@@ -119,11 +120,12 @@ export function DeedPlayer({
         </div>
         <TaskPresenter task={question} flow={flow} variant="page" numerals calm={calm} disabled={busy} nudge={nudge} site={site} onRespond={(encoded) => void choose(encoded)} />
         </>)}
-        {feedback && (
+        {/* A resolved question with no result is a run picked back up with every answer in: its finish step. */}
+        {(feedback || phase === "resolved") && (
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              {feedback.heading && <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{feedback.heading}</p>}
-              <p className="text-sm" role="status">{feedback.text}</p>
+              {feedback?.heading && <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{feedback.heading}</p>}
+              <p className="text-sm" role="status">{feedback ? feedback.text : ALL_ANSWERED}</p>
               {flow.result?.rungChange && <p className="text-sm font-semibold text-[var(--gold-bright)]">{flow.result.rungChange}</p>}
             </div>
             {phase === "second-chance" ? (

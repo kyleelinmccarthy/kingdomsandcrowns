@@ -12,11 +12,15 @@ const overlapsXZ = (a: Piece, b: Piece) =>
   Math.abs(a.x - b.x) < (a.sx + b.sx) / 2 - 1e-6 && Math.abs(a.z - b.z) < (a.sz + b.sz) / 2 - 1e-6;
 
 describe("which stage a site is at", () => {
-  it("steps up with every deed of five, and a finished count is the roof frame", () => {
+  it("steps up with every story of three or of two, and a finished count is the roof frame", () => {
+    expect([0, 1, 2, 3].map((d) => siteStage(d, 3))).toEqual([0, 2, 3, SITE_STAGES - 1]);
+    expect([0, 1, 2].map((d) => siteStage(d, 2))).toEqual([0, 2, SITE_STAGES - 1]);
+    expect(siteStage(0, 0)).toBe(0);
+  });
+
+  it("is driven by the fraction, so any count steps up evenly", () => {
     expect([0, 1, 2, 3, 4].map((d) => siteStage(d, 5))).toEqual([0, 1, 2, 3, 4]);
     expect(siteStage(5, 5)).toBe(SITE_STAGES - 1);
-    expect(siteStage(1, 3)).toBeGreaterThanOrEqual(1);
-    expect(siteStage(0, 0)).toBe(0);
   });
 });
 

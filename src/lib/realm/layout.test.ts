@@ -24,8 +24,8 @@ describe("buildWorldLayout", () => {
     const layout = buildWorldLayout({
       castleType: "keep",
       buildings: [
-        { id: "well", done: 5, total: 5, complete: true },
-        { id: "library", done: 2, total: 5, complete: false },
+        { id: "well", done: 3, total: 3, complete: true },
+        { id: "library", done: 2, total: 3, complete: false },
         { id: "nope", done: 9, total: 9, complete: true },
       ],
     });
@@ -37,18 +37,18 @@ describe("buildWorldLayout", () => {
     expect(buildings[0].position).toEqual(BUILDING_SLOTS.well);
     expect(foundations.length).toBe(BUILDINGS.length - 1);
     const library = foundations.find((f) => f.id === "library")!;
-    expect(library.tag).toBe("2 of 5");
+    expect(library.tag).toBe("2 of 3");
     expect(library.solid).toBe(false);
     expect(library.size).toEqual({ ...buildingFootprint("library"), h: 0.2 });
     expect(library.color).toBe(FOUNDATION_COLOR);
     expect(library.label).toBe("Library");
     const mill = foundations.find((f) => f.id === "mill")!;
-    expect(mill.tag).toBe("0 of 5");
+    expect(mill.tag).toBe("0 of 3");
     expect(layout.props.some((p) => p.id === "nope")).toBe(false);
   });
 
   it("stands a villager at every site, south of the footprint, never as a collider", () => {
-    const layout = buildWorldLayout({ ...none, buildings: [{ id: "well", done: 5, total: 5, complete: true }] });
+    const layout = buildWorldLayout({ ...none, buildings: [{ id: "well", done: 3, total: 3, complete: true }] });
     expect(layout.villagers.length).toBe(BUILDINGS.length);
     const villagerProps = layout.props.filter((p) => p.kind === "villager");
     expect(villagerProps.length).toBe(BUILDINGS.length);
@@ -68,7 +68,7 @@ describe("buildWorldLayout", () => {
   it("omits villagers and site tags when villagers is false", () => {
     const layout = buildWorldLayout({
       castleType: "keep",
-      buildings: [{ id: "well", done: 5, total: 5, complete: true }],
+      buildings: [{ id: "well", done: 3, total: 3, complete: true }],
       villagers: false,
     });
     expect(layout.villagers.length).toBe(0);
@@ -208,10 +208,10 @@ describe("objective focus and villager status", () => {
   // The five fields §3.14(a) freezes: spawnTroubles, the gleam placement and the ceremony read only these.
   const strip = (p: Prop) => ({ id: p.id, kind: p.kind, position: p.position, size: p.size, solid: p.solid });
   const mixed = [
-    { id: "well", done: 5, total: 5, complete: true },
-    { id: "mill", done: 2, total: 5, complete: false },
-    { id: "bridge", done: 1, total: 5, complete: false },
-    { id: "chapel", done: 0, total: 5, complete: false },
+    { id: "well", done: 3, total: 3, complete: true },
+    { id: "mill", done: 2, total: 3, complete: false },
+    { id: "bridge", done: 1, total: 2, complete: false },
+    { id: "chapel", done: 0, total: 3, complete: false },
   ];
 
   it("adds nothing to the village: with and without objectiveIds every prop and every collider is identical", () => {
@@ -243,7 +243,7 @@ describe("objective focus and villager status", () => {
     expect(buildWorldLayout(none).props.every((p) => p.focus === undefined)).toBe(true);
     expect(buildWorldLayout({ ...none, objectiveIds: ["nope"] }).props.some((p) => p.focus === "objective")).toBe(false);
     // A raised site is never a quest, whatever the caller asks for.
-    const built = buildWorldLayout({ castleType: "keep", buildings: [{ id: "well", done: 5, total: 5, complete: true }], objectiveIds: ["well"] });
+    const built = buildWorldLayout({ castleType: "keep", buildings: [{ id: "well", done: 3, total: 3, complete: true }], objectiveIds: ["well"] });
     expect(built.props.find((p) => p.id === "well")!.focus).toBe("done");
     expect(built.villagers.find((v) => v.buildingId === "well")!.status).toBe("built");
   });
@@ -265,9 +265,9 @@ describe("objective focus and villager status", () => {
 
   it("gives every villager placement its site's name and progress", () => {
     const layout = buildWorldLayout({ castleType: "keep", buildings: mixed });
-    expect(layout.villagers.find((v) => v.buildingId === "well")).toMatchObject({ label: "Village Well", done: 5, total: 5, status: "built" });
-    expect(layout.villagers.find((v) => v.buildingId === "mill")).toMatchObject({ label: "Grain Mill", done: 2, total: 5, status: "work" });
-    expect(layout.villagers.find((v) => v.buildingId === "garden")).toMatchObject({ label: "Royal Garden", done: 0, total: 5, status: "work" });
+    expect(layout.villagers.find((v) => v.buildingId === "well")).toMatchObject({ label: "Village Well", done: 3, total: 3, status: "built" });
+    expect(layout.villagers.find((v) => v.buildingId === "mill")).toMatchObject({ label: "Grain Mill", done: 2, total: 3, status: "work" });
+    expect(layout.villagers.find((v) => v.buildingId === "garden")).toMatchObject({ label: "Royal Garden", done: 0, total: 2, status: "work" });
     expect(layout.villagers.every((v) => v.total > 0 && v.label.length > 0)).toBe(true);
   });
 });
