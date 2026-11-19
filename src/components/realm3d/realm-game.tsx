@@ -103,6 +103,7 @@ import { TOAST_MS, useRises } from "./use-rises";
 import { RecessBoard, RecessError, RecessMapMarks, RecessPop, RecessStrip, RingPanel } from "./recess-hud";
 import { bestFor, type RecessRecord } from "@/lib/realm/recess/record";
 import { RECESS_LAST_MINUTE, ringHelp } from "@/lib/realm/recess/copy";
+import type { Works } from "@/lib/realm/works-state";
 import { QUIET_LINE } from "@/lib/realm3d/quiet";
 import { useQuietWorld, useWake, WakeToast } from "./quiet-hud";
 
@@ -164,6 +165,8 @@ export type RealmData = {
   unannounced?: string[];
   /** The migration finished them (`bundle.regraded`): the rise says the hero's side quests already did. */
   regraded?: boolean;
+  /** The hero's satchel, plaques, pinned plan and unseen delivery (`bundle.works`). Absent counts as empty. */
+  works?: Works;
 };
 
 /** What the access check decided, for an open gate. */

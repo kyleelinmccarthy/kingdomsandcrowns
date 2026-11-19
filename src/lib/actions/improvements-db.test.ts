@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeAll, beforeEach, afterAll } from "vitest";
 import { testDatabase } from "@/test/libsql-test-db";
 import { DEFAULT_REALM_SETTINGS } from "@/lib/utils/realm-settings";
-import { BUILD_HERO_ONLY, CLOSED, PLAN_NOT_READY, RISE_HERO_ONLY } from "@/lib/utils/deed-refusals";
+import { BUILD_HERO_ONLY, CLOSED, DELIVERY_HERO_ONLY, PIN_HERO_ONLY, PLAN_NOT_READY, RISE_HERO_ONLY } from "@/lib/utils/deed-refusals";
 import { TASK_CODECS } from "@/lib/tasks/codecs";
 import { kindOf } from "@/lib/tasks/registry";
 import type { MeasureTask, Task } from "@/lib/tasks/types";
@@ -41,7 +41,7 @@ vi.mock("@/lib/services/deeds", async () => {
   };
 });
 
-const { markBuildingsAnnounced, startBuildRun } = await import("./improvements");
+const { markBuildingsAnnounced, markDeliverySeen, pinPlan, startBuildRun } = await import("./improvements");
 const { answerDeedQuestion, completeDeedRun } = await import("./deeds");
 const { requireChildAccess } = await import("@/lib/auth/access");
 const { loadHeroLevels } = await import("@/lib/services/deeds");
@@ -505,5 +505,79 @@ describe("markBuildingsAnnounced: the world says a rise once, for the hero alone
     await site("c1", "well", "unannounced");
     await markBuildingsAnnounced("c1", []);
     expect(await announced("c1", "well")).toBeNull();
+  });
+});
+
+const revalidate = vi.mocked((await import("next/cache")).revalidatePath);
+
+describe("pinPlan: the hero chooses what to build", () => {
+  const pinned = async (): Promise<string | null> =>
+    ((await client.query("SELECT pinned_plan FROM realm_settings WHERE child_id = 'c1'")).rows[0]?.pinned_plan as string | null | undefined) ?? null;
+  const asGrownUp = () => vi.mocked(requireChildAccess).mockResolvedValueOnce({ access: { userId: "u-parent" }, familyId: "f1" } as unknown as Awaited<ReturnType<typeof requireChildAccess>>);
+
+  it("pins a catalog plan for the hero and refreshes the Tavern", async () => {
+    revalidate.mockClear();
+    await pinPlan("c1", "well-house");
+    expect(await pinned()).toBe("well-house");
+    expect(revalidate).toHaveBeenCalledWith("/tavern");
+  });
+
+  it("null unpins", async () => {
+    await pinPlan("c1", "village-lamps");
+    await pinPlan("c1", null);
+    expect(await pinned()).toBeNull();
+  });
+
+  it("refuses a grown-up, and writes nothing", async () => {
+    asGrownUp();
+    await expect(pinPlan("c1", "well-house")).rejects.toThrow(PIN_HERO_ONLY);
+    expect(await pinned()).toBeNull();
+  });
+
+  it("refuses an id that is not in the catalog, before any write", async () => {
+    for (const bad of ["moat-of-doom", "__proto__", "constructor", "toString", 7, undefined, {}, ["well-house"], ""]) {
+      await expect(pinPlan("c1", bad), JSON.stringify(bad)).rejects.toThrow(PLAN_NOT_READY);
+    }
+    expect(await pinned()).toBeNull();
+  });
+});
+
+describe("markDeliverySeen: the hero takes the delivery", () => {
+  const seen = async (): Promise<number | null> =>
+    ((await client.query("SELECT delivery_seen_at FROM realm_settings WHERE child_id = 'c1'")).rows[0]?.delivery_seen_at as number | null | undefined) ?? null;
+  const asGrownUp = () => vi.mocked(requireChildAccess).mockResolvedValueOnce({ access: { userId: "u-parent" }, familyId: "f1" } as unknown as Awaited<ReturnType<typeof requireChildAccess>>);
+
+  it("marks the delivery seen through the given second", async () => {
+    await markDeliverySeen("c1", 1_700_000_000);
+    expect(await seen()).toBe(1_700_000_000);
+  });
+
+  it("refuses a grown-up, and writes nothing", async () => {
+    asGrownUp();
+    await expect(markDeliverySeen("c1", 1_700_000_000)).rejects.toThrow(DELIVERY_HERO_ONLY);
+    expect(await seen()).toBeNull();
+  });
+
+  it("refuses anything that is not a finite number of seconds", async () => {
+    for (const bad of [NaN, Infinity, -Infinity, "1700000000", null, undefined, {}, [5]]) {
+      await expect(markDeliverySeen("c1", bad), String(bad)).rejects.toThrow();
+    }
+    expect(await seen()).toBeNull();
+  });
+
+  it("clamps a future time to now", async () => {
+    const before = Math.floor(Date.now() / 1000);
+    await markDeliverySeen("c1", before + 86_400 * 365);
+    const stored = (await seen())!;
+    expect(stored).toBeGreaterThanOrEqual(before);
+    expect(stored).toBeLessThanOrEqual(Math.floor(Date.now() / 1000));
+  });
+
+  it("never moves the mark backwards", async () => {
+    await markDeliverySeen("c1", 1_700_000_500);
+    await markDeliverySeen("c1", 1_700_000_100);
+    expect(await seen()).toBe(1_700_000_500);
+    await markDeliverySeen("c1", -5);
+    expect(await seen()).toBe(1_700_000_500);
   });
 });

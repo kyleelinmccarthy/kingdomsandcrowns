@@ -16,6 +16,7 @@ vi.mock("@/components/realm3d/realm-frame", () => ({ RealmFrame: () => null }));
 vi.mock("@/components/child-selector", () => ({ ChildSelector: () => null }));
 vi.mock("@/components/switch-hero", () => ({ SwitchHero: () => null }));
 
+import { EMPTY_WORKS } from "@/lib/realm/works-state";
 import RealmPage from "./page";
 
 const emma = { id: "c1", currentXp: 0 };
@@ -74,5 +75,18 @@ describe("/realm — the rises the world still owes", () => {
     const realm = await realmProp();
     expect(realm.unannounced).toEqual([]);
     expect(realm.regraded).toBe(false);
+  });
+});
+
+describe("/realm — the works", () => {
+  it("hands the frame the works as the bundle read them", async () => {
+    const works = { ...EMPTY_WORKS, pinned: "well-house" };
+    getRealmBundle.mockResolvedValue({ ...bundle(true), works });
+    expect((await realmProp()).works).toEqual(works);
+  });
+
+  it("hands empty works when a hand-built bundle carries none", async () => {
+    getRealmBundle.mockResolvedValue(bundle(true));
+    expect((await realmProp()).works).toEqual(EMPTY_WORKS);
   });
 });

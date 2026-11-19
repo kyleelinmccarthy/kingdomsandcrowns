@@ -1,14 +1,14 @@
 "use server";
 
-import { and, eq, inArray, isNotNull, isNull } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
 import { nanoid } from "nanoid";
-import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { isChildActor, requireChildAccess } from "@/lib/auth/access";
 import { IMPROVEMENTS, planRef, planState, type ImprovementId } from "@/lib/realm/improvements";
 import { buildBuildRun } from "@/lib/utils/build-run";
 import { RUN_EFFECTS } from "@/lib/utils/deed-scoring";
-import { BUILD_HERO_ONLY, CLOSED, NONE_READY, PLAN_NOT_READY, RISE_HERO_ONLY } from "@/lib/utils/deed-refusals";
+import { BUILD_HERO_ONLY, CLOSED, DELIVERY_HERO_ONLY, NONE_READY, PIN_HERO_ONLY, PLAN_NOT_READY, RISE_HERO_ONLY } from "@/lib/utils/deed-refusals";
 import { BUILDINGS, findBuilding } from "@/lib/utils/kingdom";
 import { bandForGrade } from "@/lib/utils/grade-levels";
 import { enabledHandsOnKinds } from "@/lib/utils/realm-settings";
@@ -19,6 +19,8 @@ import { loadHeroLevels } from "@/lib/services/deeds";
 import { loadPlanInput } from "@/lib/services/improvements";
 import { loadLearningProfileRow } from "@/lib/services/learning-profile";
 import { loadRealmSettings } from "@/lib/services/realm-play";
+import { advanceDeliverySeen, setPinnedPlan } from "@/lib/services/realm-materials";
+import { announceBuildings } from "@/lib/services/realm-rises";
 
 /** What Aldo says at the bench: one short line for the build run's header. */
 const BUILD_AREA = "math" as const;
@@ -99,14 +101,32 @@ export async function markBuildingsAnnounced(childId: string, ids: unknown): Pro
   if (!Array.isArray(ids) || ids.length > MAX_ANNOUNCED || !ids.every((id) => typeof id === "string" && findBuilding(id))) {
     throw new Error("That is not a building.");
   }
-  if (ids.length === 0) return;
-  await db
-    .update(schema.kingdomProgress)
-    .set({ announcedAt: new Date() })
-    .where(and(
-      eq(schema.kingdomProgress.childId, childId),
-      inArray(schema.kingdomProgress.buildingId, ids as string[]),
-      isNotNull(schema.kingdomProgress.completedAt),
-      isNull(schema.kingdomProgress.announcedAt),
-    ));
+  await announceBuildings(childId, ids as string[]);
+}
+
+/**
+ * Pins the plan the hero is working toward (null clears it): the Tavern card and the Realm's beacon
+ * lean on it. The hero alone chooses; a grown-up previewing is refused. `improvementId` crosses the
+ * network, so only null or a catalog id (an own key, never `__proto__`) is written.
+ */
+export async function pinPlan(childId: string, improvementId: unknown): Promise<void> {
+  const { access } = await requireChildAccess(childId, { write: true });
+  if (!isChildActor(access)) throw new Error(PIN_HERO_ONLY);
+  if (improvementId !== null && (typeof improvementId !== "string" || !Object.hasOwn(IMPROVEMENTS, improvementId))) {
+    throw new Error(PLAN_NOT_READY);
+  }
+  await setPinnedPlan(childId, improvementId as ImprovementId | null);
+  revalidatePath("/tavern");
+}
+
+/**
+ * The hero has seen the delivery card for every row up to `through` (epoch seconds, the newest the
+ * card showed). Hero only, so a grown-up previewing never uses it up. The server clamps a future
+ * value to now and never moves the mark backwards (`advanceDeliverySeen`).
+ */
+export async function markDeliverySeen(childId: string, through: unknown): Promise<void> {
+  const { access } = await requireChildAccess(childId, { write: true });
+  if (!isChildActor(access)) throw new Error(DELIVERY_HERO_ONLY);
+  if (typeof through !== "number" || !Number.isFinite(through)) throw new Error("That is not a time.");
+  await advanceDeliverySeen(childId, through);
 }

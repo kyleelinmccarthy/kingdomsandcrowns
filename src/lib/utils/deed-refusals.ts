@@ -17,6 +17,10 @@ export const HERO_ONLY = "Side quests are for the hero to play.";
 export const BUILD_HERO_ONLY = "Building is for the hero to do.";
 /** A grown-up previewing the Realm never uses up the hero's moment of seeing a building rise. */
 export const RISE_HERO_ONLY = "Only the hero can see their kingdom rise.";
+/** A grown-up previewing the Realm cannot pin the hero's plan. */
+export const PIN_HERO_ONLY = "Only the hero can choose what to build.";
+/** A grown-up previewing the Realm never uses up the hero's delivery card. */
+export const DELIVERY_HERO_ONLY = "Only the hero can take the delivery.";
 /** The Crown Challenge opens only on a side quest with every star. */
 export const CHALLENGE_LOCKED = "Earn three stars on this side quest first.";
 export const NOT_IN_CHRONICLE = `That ${SIDE_QUEST_LOWER} is not in the chronicle.`;
@@ -32,7 +36,7 @@ export const CHALLENGE_NOT_READY = `The Crown Challenge for this ${SIDE_QUEST_LO
 export const PLAN_NOT_READY = "That plan isn't ready yet.";
 
 const KNOWN = new Set([
-  ALREADY_ANSWERED, ANSWER_FIRST, NO_SECOND_TRIES, PICK_SHOWN, TRY_DIFFERENT, CLOSED, HERO_ONLY, BUILD_HERO_ONLY, RISE_HERO_ONLY,
+  ALREADY_ANSWERED, ANSWER_FIRST, NO_SECOND_TRIES, PICK_SHOWN, TRY_DIFFERENT, CLOSED, HERO_ONLY, BUILD_HERO_ONLY, RISE_HERO_ONLY, PIN_HERO_ONLY, DELIVERY_HERO_ONLY,
   CHALLENGE_LOCKED, NOT_IN_CHRONICLE, NONE_READY, FINISHED, NOT_IN_RUN, NOT_THROUGH, ANSWER_EVERY,
   CHALLENGE_NOT_READY, PLAN_NOT_READY,
 ]);

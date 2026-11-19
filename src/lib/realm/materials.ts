@@ -16,6 +16,11 @@ export const MATERIALS: Record<MaterialId, { label: string; plural: string; colo
   timber: { label: "Timber", plural: "Timber", color: "#9a6b3c", icon: "box" },
 };
 
+/** "1 Ink", "2 Stone": a count and the material's name, in its plural unless there is exactly one. */
+export function materialPhrase(n: number, id: MaterialId): string {
+  return `${n} ${n === 1 ? MATERIALS[id].label : MATERIALS[id].plural}`;
+}
+
 export function isMaterialId(v: unknown): v is MaterialId {
   return typeof v === "string" && (MATERIAL_IDS as readonly string[]).includes(v);
 }

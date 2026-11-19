@@ -25,6 +25,8 @@ import { loadPlacesFound } from "@/lib/services/realm-places";
 import { loadRecessRecord } from "@/lib/services/recess";
 import { loadReviewDue } from "@/lib/services/review";
 import { loadRises } from "@/lib/services/realm-rises";
+import { loadWorks } from "@/lib/services/realm-materials";
+import { EMPTY_WORKS, type Works } from "@/lib/realm/works-state";
 import { loadFocusSkillIds } from "@/lib/services/learning-focus";
 import { focusAreasOf } from "@/lib/utils/focus";
 import type { SkillArea } from "@/lib/utils/skills";
@@ -116,6 +118,12 @@ export type RealmBundle = {
    * read fails. Optional only so hand-built bundles in tests need not carry it.
    */
   regraded?: boolean;
+  /**
+   * The hero's works: the satchel, the built levels and plaques, the pinned plan and the delivery
+   * not yet seen (`loadWorks`). Empty works when the read fails. Optional only so hand-built
+   * bundles in tests need not carry it; `getRealmBundle` always sets it.
+   */
+  works?: Works;
 };
 
 const VILLAGERS_RESTING = "The villagers are resting. Try again.";
@@ -166,6 +174,11 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
   const risesRead = loadRises(childId).catch((err: unknown) => {
     console.error("Realm rises failed to load", err);
     return { unannounced: [] as string[], regraded: false };
+  });
+  // The satchel, plaques, pinned plan and delivery, on the same access: a failed read is "nothing yet".
+  const worksRead = loadWorks(childId).catch((err: unknown) => {
+    console.error("Realm works failed to load", err);
+    return EMPTY_WORKS;
   });
   // Also hands back the flags it read (post-update), so the parallel batch below does not
   // pay a second `loadRealmFlags` round trip just to read `helpSeenAt`. On the (rare) failure
@@ -249,6 +262,7 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
     reviewDue: await reviewDueRead,
     focusAreas: await focusRead,
     ...(await risesRead), // `unannounced` and `regraded`
+    works: await worksRead,
     earning: {
       enabled: settings.enabled,
       accessMode: settings.accessMode,

@@ -6,6 +6,7 @@ import {
   heapSize,
   isMaterialId,
   materialBalance,
+  materialPhrase,
   resolveMaterial,
   type MaterialRow,
 } from "./materials";
@@ -182,5 +183,21 @@ describe("heapSize", () => {
 
   it("is empty for anything that is not a positive number", () => {
     expect([NaN, -3, Infinity, -Infinity].map(heapSize)).toEqual([0, 0, 0, 0]);
+  });
+});
+
+describe("materialPhrase", () => {
+  it("reads as a count and a name: the label for one, the plural otherwise", () => {
+    expect(materialPhrase(1, "ink")).toBe("1 Ink");
+    expect(materialPhrase(2, "stone")).toBe("2 Stone");
+    expect(materialPhrase(0, "stone")).toBe("0 Stone");
+    expect(materialPhrase(12, "timber")).toBe("12 Timber");
+  });
+
+  it("every material reads right in a phrase", () => {
+    for (const id of ["stone", "ink", "herbs", "thread", "dye", "timber"] as const) {
+      expect(materialPhrase(3, id)).toBe(`3 ${MATERIALS[id].plural}`);
+      expect(MATERIALS[id].plural).toMatch(/^[A-Z][a-z]+$/);
+    }
   });
 });

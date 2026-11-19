@@ -12,6 +12,7 @@ describe("deedErrorLine", () => {
     expect(deedErrorLine(new Error(CLOSED))).toBe(CLOSED);
     expect(deedErrorLine(new Error(HERO_ONLY))).toBe(HERO_ONLY);
     expect(deedErrorLine(new Error(BUILD_HERO_ONLY))).toBe("Building is for the hero to do.");
+    expect(deedErrorLine(new Error("Only the hero can choose what to build."))).toBe("Only the hero can choose what to build.");
     expect(deedErrorLine(new Error(refuseRetry(four, { first: "1", second: null }, true, "1")!))).toBe("Try a different answer this time.");
   });
   it("maps anything else — a production-redacted message, a non-Error — to one friendly line", () => {
