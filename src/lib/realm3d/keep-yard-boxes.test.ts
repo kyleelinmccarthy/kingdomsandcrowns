@@ -3,7 +3,7 @@ import { KEEP_YARD, YARD_RADIUS } from "@/lib/realm/keep-yard";
 import { SPAWN } from "@/lib/realm/layout";
 import { MATERIALS } from "@/lib/realm/materials";
 import { EMPTY_WORKS } from "@/lib/realm/works-state";
-import { heapBoxes, PLANS_BOARD_BOXES, PLANS_BOARD_YAW, stockpileHeaps, type HeapBox } from "./keep-yard-boxes";
+import { heapBoxes, LECTERN_BOXES, LECTERN_YAW, PLANS_BOARD_BOXES, PLANS_BOARD_YAW, stockpileHeaps, type HeapBox } from "./keep-yard-boxes";
 
 const top = (boxes: HeapBox[]) => Math.max(...boxes.map((b) => b.y + b.sy / 2));
 const spread = (boxes: HeapBox[]) => Math.max(...boxes.map((b) => Math.max(Math.abs(b.x) + b.sx / 2, Math.abs(b.z) + b.sz / 2)));
@@ -60,5 +60,26 @@ describe("the plans board", () => {
     const dx = SPAWN.x - x;
     const dz = SPAWN.z - z;
     expect((fx * dx + fz * dz) / Math.hypot(dx, dz)).toBeCloseTo(1);
+  });
+});
+
+describe("the Scribe's lectern", () => {
+  it("stands on the ground and keeps inside its spot whichever way it is turned", () => {
+    expect(Math.min(...LECTERN_BOXES.map((b) => b.y - b.sy / 2))).toBeCloseTo(0);
+    for (const b of LECTERN_BOXES) {
+      expect(Math.hypot(Math.abs(b.x) + b.sx / 2, Math.abs(b.z) + b.sz / 2)).toBeLessThanOrEqual(YARD_RADIUS.lectern);
+    }
+  });
+
+  it("is low enough to see over and holds an open book, a stand and a base", () => {
+    expect(Math.max(...LECTERN_BOXES.map((b) => b.y + b.sy / 2))).toBeLessThanOrEqual(1.6);
+    expect(LECTERN_BOXES.length).toBeGreaterThanOrEqual(4);
+  });
+
+  it("turns its face to the road the hero walks in on", () => {
+    const { x, z } = KEEP_YARD.lectern;
+    const dx = SPAWN.x - x;
+    const dz = SPAWN.z - z;
+    expect((Math.sin(LECTERN_YAW) * dx + Math.cos(LECTERN_YAW) * dz) / Math.hypot(dx, dz)).toBeCloseTo(1);
   });
 });

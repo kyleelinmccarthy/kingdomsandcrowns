@@ -134,6 +134,23 @@ describe("loadChronicle", () => {
     expect((await loadChronicle("c1", { weeks: 1, now: NOW })).flatMap((w) => w.entries.map((e) => e.assignmentId))).toEqual(["this"]);
   });
 
+  it("clamps the weeks asked for to 1 to 52, and reads NaN as 8", async () => {
+    await subject("s1", "Math");
+    await quest("q1", "Q", "s1");
+    // NOW is the week of 2026-11-16. Eight weeks reach back to 2026-09-28; the ninth is 2026-09-21.
+    await assignment("w8", "q1", "2026-09-29T09:00:00Z", { notes: "n" });
+    await assignment("w9", "q1", "2026-09-22T09:00:00Z", { notes: "n" });
+    await assignment("w52", "q1", "2025-11-25T09:00:00Z", { notes: "n" }); // week of 2025-11-24, the 52nd
+    await assignment("w53", "q1", "2025-11-18T09:00:00Z", { notes: "n" }); // week of 2025-11-17, the 53rd
+    const ids = async (weeks: number) => (await loadChronicle("c1", { weeks, now: NOW })).flatMap((w) => w.entries.map((e) => e.assignmentId));
+    expect(await ids(Number.NaN)).toEqual(["w8"]);
+    expect(await ids(0)).toEqual([]);
+    expect(await ids(-5)).toEqual([]);
+    expect(await ids(1000)).toEqual(["w8", "w9", "w52"]);
+    expect(await ids(Number.POSITIVE_INFINITY)).toEqual(["w8", "w9", "w52"]);
+    expect(await ids(52)).toEqual(["w8", "w9", "w52"]);
+  });
+
   it("dates an entry in the family's time zone", async () => {
     await subject("s1", "Math");
     await quest("q1", "Q", "s1");

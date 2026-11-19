@@ -2,11 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAssignmentAccess, isChildActor } from "@/lib/auth/access";
-import { isAssignmentCompleted, sealFor, writeSeal } from "@/lib/services/chronicle-seals";
+import { FINISHED_ONLY, isAssignmentCompleted, sealFor, writeSeal } from "@/lib/services/chronicle-seals";
 import { parseSealInput, SEAL_REFUSED } from "@/lib/utils/seals";
 
 const GROWN_UP_ONLY = "Only a grown-up can seal a page of the Chronicle.";
-const FINISHED_ONLY = "Only a finished quest can be sealed.";
 
 /** The gates both actions share: a grown-up, and a finished quest. Returns the acting user. */
 async function requireSealer(assignmentId: string): Promise<string> {

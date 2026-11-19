@@ -71,6 +71,7 @@ import type { SpellPage } from "@/lib/services/spells";
 import { usePlayClock, type CloseReason } from "@/components/realm/use-play-clock";
 import { DeedBoard, type DeedResult } from "./deed-board";
 import { RiddleStoneBoard } from "./riddle-stone-board";
+import { ChronicleBook } from "./chronicle-book";
 import { PlansBoard } from "./plans-board";
 import { PlaquePanel } from "./plaque-panel";
 import { useWorks } from "./use-works";
@@ -1243,8 +1244,11 @@ export function RealmGame({
               onClose={closeOverlay}
             />
           )}
+          {overlay?.kind === "interact" && overlay.target.kind === "chronicle" && childId && (
+            <ChronicleBook childId={childId} heroName={heroName} isHero={isChild && viewer === "child"} onClose={closeOverlay} />
+          )}
           {overlay?.kind === "interact" && overlay.target.kind === "plaque" && <PlaquePanel improvementId={overlay.target.id} plaques={works.plaques} onClose={closeOverlay} />}
-          {overlay?.kind === "interact" && !talkTo && overlay.target.kind !== "riddle" && overlay.target.kind !== "plans" && overlay.target.kind !== "plaque" && (
+          {overlay?.kind === "interact" && !talkTo && overlay.target.kind !== "riddle" && overlay.target.kind !== "plans" && overlay.target.kind !== "plaque" && overlay.target.kind !== "chronicle" && (
             <InteractPanel
               target={overlay.target}
               kingdom={kingdom}

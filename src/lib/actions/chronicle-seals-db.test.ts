@@ -19,6 +19,7 @@ vi.mock("@/lib/auth/access", () => ({
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 const { sealEntry, unsealEntry } = await import("./chronicle-seals");
+const { writeSeal } = await import("@/lib/services/chronicle-seals");
 const { requireAssignmentAccess } = await import("@/lib/auth/access");
 const { revalidatePath } = await import("next/cache");
 const { parseSeal, SEAL_PHRASES } = await import("@/lib/utils/seals");
@@ -109,11 +110,37 @@ describe("sealEntry", () => {
     expect(await storedSeal()).toBeNull();
   });
 
+  it("cuts a very long display name short, so the stored seal still reads", async () => {
+    await seed("completed");
+    await client.query("UPDATE user SET name = ?1 WHERE id = 'u1'", ["M".repeat(250)]);
+    await sealEntry("a1", { phrase: 0 });
+    const seal = parseSeal(await storedSeal());
+    expect(seal).not.toBeNull();
+    expect(seal!.by).toBe("M".repeat(100));
+  });
+
   it("names an unnamed grown-up plainly", async () => {
     await seed("completed");
     actor.userId = "ghost";
     await sealEntry("a1", { phrase: 0 });
     expect(parseSeal(await storedSeal())?.by).toBe("A grown-up");
+  });
+});
+
+describe("writeSeal", () => {
+  it("throws when the guarded write changes nothing (the quest was put back after the check)", async () => {
+    await seed("pending");
+    await expect(writeSeal("a1", JSON.stringify({ phrase: 1, by: "Dad", at: 5 }))).rejects.toThrow("Only a finished quest can be sealed.");
+    expect(await storedSeal()).toBeNull();
+    await expect(writeSeal("missing", null)).rejects.toThrow("Only a finished quest can be sealed.");
+  });
+
+  it("writes and lifts a seal on a finished quest", async () => {
+    await seed("completed");
+    await writeSeal("a1", "x");
+    expect(await storedSeal()).toBe("x");
+    await writeSeal("a1", null);
+    expect(await storedSeal()).toBeNull();
   });
 });
 

@@ -121,6 +121,8 @@ export type SpotInput = {
   stones?: readonly { placeId: string; x: number; z: number }[];
   /** The keep yard's plans board (`KEEP_YARD.plansBoard`), where E opens the kingdom's plans. Absent, there is none. */
   plans?: { x: number; z: number } | null;
+  /** The Scribe's lectern (`KEEP_YARD.lectern`), where E opens the hero's Chronicle. Absent, there is none. */
+  chronicle?: { x: number; z: number } | null;
   /** The plaques of what the hero has built (`improvement-spots.ts`), where E reads who built it. `label` is the plan's own ("Well House"). Absent, there are none. */
   plaques?: readonly { id: string; label: string; x: number; z: number }[];
 };
@@ -132,6 +134,9 @@ const PLAQUE_RADIUS = 0.35;
 
 /** What E at the plans board acts on: one target, built once, so every announcement hands the same object. */
 export const PLANS_TARGET: InteractTarget = { kind: "plans", id: "plans-board", label: "Kingdom plans", verb: "Read" };
+
+/** What E at the Scribe's lectern acts on: one target, built once, like the plans board's. */
+export const CHRONICLE_TARGET: InteractTarget = { kind: "chronicle", id: "lectern", label: "The Chronicle", verb: "Read" };
 
 /** What E at a riddle stone says: "Read the riddle stone". */
 export const RIDDLE_VERB = "Read";
@@ -268,6 +273,21 @@ export function buildSpots(input: SpotInput): InteractSpot[] {
       // The board stands in the open yard, but a hero beside it means the board.
       bias: 0.4,
       ring: r + 0.7,
+    });
+  }
+  if (input.chronicle) {
+    const r = YARD_RADIUS.lectern;
+    out.push({
+      target: CHRONICLE_TARGET,
+      x: input.chronicle.x,
+      z: input.chronicle.z,
+      hw: r,
+      hd: r,
+      round: true,
+      reach: 1.4,
+      // The lectern stands in the open yard, but a hero beside it means the book.
+      bias: 0.4,
+      ring: r + 0.6,
     });
   }
   for (const p of input.plaques ?? []) {

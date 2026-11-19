@@ -56,6 +56,7 @@ vi.mock("@/lib/actions/realm-sound", () => ({ saveRealmSound: vi.fn(async () => 
 vi.mock("@/lib/actions/deeds", () => ({ startDeedRun: vi.fn(), answerDeedQuestion: vi.fn(), completeDeedRun: vi.fn() }));
 vi.mock("@/lib/actions/seasons", () => ({ markCeremonySeen: vi.fn(async () => {}) }));
 vi.mock("@/lib/actions/improvements", () => ({ markBuildingsAnnounced: vi.fn(async () => {}), markDeliverySeen: vi.fn(async () => {}), startBuildRun: vi.fn(), pinPlan: vi.fn(async () => {}) }));
+vi.mock("@/lib/actions/chronicle", () => ({ getChronicle: vi.fn(async () => []) }));
 vi.mock("@/lib/actions/review", () => ({ startReviewRun: vi.fn(), getReviewDue: vi.fn(async () => false) }));
 vi.mock("@/lib/actions/spells", () => ({ getSpellbook: vi.fn(async () => ({ spells: [], slots: 4, level: 3, unlocked: ["ember", "tide", "bolt", "orb"], schoolCounts: { element: 2, form: 0, modifier: 0 }, subjectNamesBySchool: { element: ["Math"], form: [], modifier: [] } })) }));
 vi.mock("@/lib/actions/realm", () => ({ getRealmKingdom: vi.fn() }));
@@ -85,7 +86,8 @@ import { markCeremonySeen } from "@/lib/actions/seasons";
 import { markBuildingsAnnounced, markDeliverySeen, pinPlan, startBuildRun } from "@/lib/actions/improvements";
 import { KEEP_YARD } from "@/lib/realm/keep-yard";
 import { EMPTY_WORKS, type Works } from "@/lib/realm/works-state";
-import { PLANS_TARGET } from "@/lib/realm3d/interact";
+import { CHRONICLE_TARGET, PLANS_TARGET } from "@/lib/realm3d/interact";
+import { getChronicle } from "@/lib/actions/chronicle";
 import { BUILD_HERO_ONLY } from "@/lib/utils/deed-refusals";
 import { startReviewRun } from "@/lib/actions/review";
 import { saveRealmSound } from "@/lib/actions/realm-sound";
@@ -338,6 +340,31 @@ describe("the keep yard", () => {
     expect(screen.queryByRole("button", { name: "Pin" })).toBeNull();
     expect(screen.getByText(BUILD_HERO_ONLY)).toBeInTheDocument();
     expect(startBuildRun).not.toHaveBeenCalled();
+  });
+});
+
+describe("the Scribe's lectern", () => {
+  const week = { weekStart: "2026-11-16", entries: [{ assignmentId: "a1", date: "2026-11-17", title: "Fractions", subject: "Math", materialColor: "#888888", notes: "I did the hard ones.", drawing: null, seal: null }] };
+
+  it("opens the Chronicle when E is pressed at it, and pauses the world", async () => {
+    vi.mocked(getChronicle).mockResolvedValueOnce([week]);
+    const { bus } = mount();
+    act(() => bus.onNear(CHRONICLE_TARGET));
+    expect(screen.getByRole("button", { name: /Read The Chronicle/ })).toBeInTheDocument();
+    act(() => bus.onInteract(CHRONICLE_TARGET));
+    const book = screen.getByRole("dialog", { name: "Your Chronicle" });
+    expect(bus.paused).toBe(true);
+    expect(await within(book).findByText("Fractions")).toBeInTheDocument();
+    expect(getChronicle).toHaveBeenCalledWith("demo-child-1");
+    fireEvent.click(within(book).getByRole("button", { name: "Back to the Realm" }));
+    expect(bus.paused).toBe(false);
+  });
+
+  it("lets a grown-up read it under the hero's name", async () => {
+    const { bus } = mount({ viewer: "parent", realm: { ...realm, isChildView: false } });
+    act(() => bus.onInteract(CHRONICLE_TARGET));
+    expect(screen.getByRole("dialog", { name: "Emma's Chronicle" })).toBeInTheDocument();
+    expect(await screen.findByText("Emma's Chronicle is waiting for its first page.")).toBeInTheDocument();
   });
 });
 

@@ -4,7 +4,7 @@ import { KEEP_YARD } from "@/lib/realm/keep-yard";
 import { IMPROVEMENT_IDS, IMPROVEMENTS } from "@/lib/realm/improvements";
 import { HERO_RADIUS } from "./collision";
 import { improvementPlacements } from "./improvement-spots";
-import { buildSpots, edgeDistance, pickSpot, PLANS_TARGET, RIDDLE_LABEL, RIDDLE_VERB, siteLabel } from "./interact";
+import { buildSpots, edgeDistance, pickSpot, CHRONICLE_TARGET, PLANS_TARGET, RIDDLE_LABEL, RIDDLE_VERB, siteLabel } from "./interact";
 
 const layout = buildWorldLayout({
   castleType: "castle",
@@ -123,6 +123,33 @@ describe("the plans board", () => {
 
   it("has none when none is given", () => {
     expect(spots.some((s) => s.target.kind === "plans")).toBe(false);
+  });
+});
+
+describe("the Scribe's lectern", () => {
+  const lectern = KEEP_YARD.lectern;
+  const withLectern = buildSpots({ props: layout.props, sitePlan: 1.5, landmarks, castle: null, chronicle: lectern });
+
+  it("adds one spot at the lectern, read with E", () => {
+    const found = withLectern.filter((s) => s.target.kind === "chronicle");
+    expect(found.map((s) => s.target)).toEqual([{ kind: "chronicle", id: "lectern", label: "The Chronicle", verb: "Read" }]);
+    expect(found[0].target).toBe(CHRONICLE_TARGET);
+    expect(found[0]).toMatchObject({ x: lectern.x, z: lectern.z });
+  });
+
+  it("is what E acts on when the hero walks up to it, from any side", () => {
+    for (const [dx, dz] of [[0, 1.5], [1.5, 0], [0, -1.5], [-1.5, 0]]) {
+      expect(withLectern[pickSpot(withLectern, lectern.x + dx, lectern.z + dz, -1)]?.target, `${dx},${dz}`).toBe(CHRONICLE_TARGET);
+    }
+  });
+
+  it("lets go once the hero walks on", () => {
+    const i = withLectern.findIndex((s) => s.target.kind === "chronicle");
+    expect(pickSpot(withLectern, lectern.x + 6, lectern.z, i)).not.toBe(i);
+  });
+
+  it("has none when none is given", () => {
+    expect(spots.some((s) => s.target.kind === "chronicle")).toBe(false);
   });
 });
 

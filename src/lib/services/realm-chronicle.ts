@@ -29,6 +29,14 @@ export type ChronicleWeek = {
 
 const FALLBACK_TITLE = "A quest";
 const DAY_MS = 24 * 60 * 60 * 1000;
+const DEFAULT_WEEKS = 8;
+const MAX_WEEKS = 52;
+
+/** The weeks to read: a whole number from 1 to 52, and eight when it is not a number at all. */
+function clampWeeks(weeks: number): number {
+  if (Number.isNaN(weeks)) return DEFAULT_WEEKS;
+  return Math.min(MAX_WEEKS, Math.max(1, Math.floor(weeks)));
+}
 
 /**
  * The hero's Chronicle: finished quests from the last `weeks` weeks (this week counts as one) that
@@ -44,7 +52,7 @@ export async function loadChronicle(
   { weeks = 8, now = new Date() }: { weeks?: number; now?: Date } = {},
 ): Promise<ChronicleWeek[]> {
   const zone = await getTimezoneForChild(childId);
-  const firstWeek = addDays(weekStartOf(todayInZone(zone, now)), -7 * (Math.max(1, weeks) - 1));
+  const firstWeek = addDays(weekStartOf(todayInZone(zone, now)), -7 * (clampWeeks(weeks) - 1));
   // The week is a calendar date, the column an instant: read a day wider than any time zone can
   // shift it, then keep exactly the entries whose own date lands in the window.
   const since = new Date(new Date(`${firstWeek}T00:00:00Z`).getTime() - DAY_MS);
