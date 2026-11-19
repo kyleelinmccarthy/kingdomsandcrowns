@@ -104,10 +104,10 @@ const chapelWindows = make("Painted Windows", "chapel", "dye", "stone", [
 ]);
 
 const marketStalls = make("Cloth Stalls", "market", "thread", "dye", [
-  // A stall on the market's east side, near the front but off the door lane.
-  at(3.5, 2.5, [bx("timber", 0, 0.1, 1.6, 0.6, 0, 0.7), ...[[-0.85, -0.7], [0.85, -0.7], [-0.85, 0.7], [0.85, 0.7]].map(([x, z]) => bx("timber", x, z, 0.15, 0.15, 0, 1.7)), bx("cloth", 0, 0, 2, 1.6, 1.7, 0.12)]),
-  at(3.5, 2.5, [bx("timber", -0.55, 0.1, 0.5, 0.5, 0.7, 0.4), bx("timber", 0.55, 0.1, 0.5, 0.5, 0.7, 0.4), bx("cloth", 0, 0.1, 0.6, 0.4, 0.7, 0.3)]),
-  at(3.5, 2.5, [bx("gold", 0, -0.7, 0.8, 0.08, 1.82, 0.35), bx("plaster", -0.6, 0.65, 0.5, 0.5, 0, 0.5)]),
+  // A stall on the market's east side, near the front but off the door lane, the road and the plaza.
+  at(3.5, 3, [bx("timber", 0, 0.1, 1.6, 0.6, 0, 0.7), ...[[-0.85, -0.7], [0.85, -0.7], [-0.85, 0.7], [0.85, 0.7]].map(([x, z]) => bx("timber", x, z, 0.15, 0.15, 0, 1.7)), bx("cloth", 0, 0, 2, 1.6, 1.7, 0.12)]),
+  at(3.5, 3, [bx("timber", -0.55, 0.1, 0.5, 0.5, 0.7, 0.4), bx("timber", 0.55, 0.1, 0.5, 0.5, 0.7, 0.4), bx("cloth", 0, 0.1, 0.6, 0.4, 0.7, 0.3)]),
+  at(3.5, 3, [bx("gold", 0, -0.7, 0.8, 0.08, 1.82, 0.35), bx("plaster", -0.6, 0.65, 0.5, 0.5, 0, 0.5)]),
 ]);
 
 const libraryReadingWing = make("Reading Wing", "library", "ink", "thread", [
@@ -214,7 +214,8 @@ export function planState(input: { built: Record<string, number>; raised: Readon
   // One earned row per material, so `allocateSpend` stays the one rule for what can be paid.
   const rows: MaterialRow[] = MATERIAL_IDS.map((m) => ({ materialId: m, amount: input.balance[m] ?? 0, kind: "earned" as const, sourceAssignmentId: null, createdAt: 0 })).filter((r) => r.amount > 0);
   const plans = IMPROVEMENT_IDS.map((id): PlanStatus => {
-    const built = Math.max(0, Math.min(LEVELS, Math.floor(input.built[id] ?? 0)));
+    const raw = Math.floor(input.built[id] ?? 0);
+    const built = Number.isFinite(raw) ? Math.max(0, Math.min(LEVELS, raw)) : 0;
     if (built >= LEVELS) return { id, level: LEVELS, state: "done" };
     const level = built + 1;
     if (hostLabel(IMPROVEMENTS[id].host) !== null && !input.raised.has(IMPROVEMENTS[id].host)) return { id, level, state: "host" };

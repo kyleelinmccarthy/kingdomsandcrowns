@@ -3,7 +3,10 @@ import { BUILDINGS } from "@/lib/utils/kingdom";
 import { BUILDING_SLOTS, buildingFootprint } from "./layout";
 import { MATERIAL_IDS, MATERIALS, allocateSpend, type MaterialId } from "./materials";
 import { VILLAGE_DECOR_SPOTS, YARD_RADIUS } from "./keep-yard";
-import { clearanceFailures, DRAWN, overlaps, rectAt, type R } from "@/test/world-clearance";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { PLOT_SCALE } from "@/lib/realm3d/lead";
+import { CASTLE_TIER_IDS, castleBounds, clearanceFailures, DRAWN, grow, overlaps, rectAt, type R } from "@/test/world-clearance";
 import {
   IMPROVEMENTS,
   IMPROVEMENT_COLORS,
@@ -104,7 +107,7 @@ describe("the boxes", () => {
     }
   });
 
-  it("never sinks below the ground, and each level reaches no lower than the last", () => {
+  it("never sinks below the ground", () => {
     for (const id of ids) for (const b of upTo(id, 3)) expect(bottom(b), id).toBeGreaterThanOrEqual(-0.001);
   });
 
@@ -138,6 +141,19 @@ describe("the boxes", () => {
     expect(failures).toEqual([]);
     // ...and no wing runs into another's.
     for (const a of placed) for (const b of placed) if (a.id < b.id) expect(overlaps(a.rect, b.rect), `${a.id} and ${b.id}`).toBe(false);
+  });
+
+  it("keeps every wing box clear of the castle as it is really drawn, at every tier", () => {
+    for (const id of ids.slice(0, 8)) {
+      const slot = BUILDING_SLOTS[IMPROVEMENTS[id].host as string];
+      for (const b of upTo(id, 3)) for (const tier of CASTLE_TIER_IDS) expect(overlaps(rectAt(slot.x + b.x, slot.z + b.z, b.sx, b.sz), grow(castleBounds(tier), 1)), `${id} touches the ${tier} castle`).toBe(false);
+    }
+  });
+
+  it("draws sites at the scale the scene does", () => {
+    const scene = readFileSync(resolve(__dirname, "../../components/realm3d/spike-scene.tsx"), "utf8");
+    expect(Number(/^const SITE_PLAN = ([\d.]+);/m.exec(scene)?.[1])).toBe(PLOT_SCALE);
+    expect(DRAWN).toBe(PLOT_SCALE);
   });
 
   it("keeps every decoration's and the hall's boxes inside the square their spot keeps", () => {
@@ -202,19 +218,24 @@ describe("planState", () => {
       raised: new Set(["well", "mill", "bridge"]),
       balance: bal({ stone: 4, thread: 2, herbs: 4 }),
     });
-    const order = plans.map((p) => `${p.id}:${p.state}`);
-    // Ready: well-house (4 stone + 2 thread), mill-granary needs 4 herbs + 2 stone (stone left is 4: yes), bridge-arches 4 stone + 2 dye -> short.
-    expect(plans.filter((p) => p.state === "ready").map((p) => p.id)).toEqual(["well-house", "mill-granary", "village-lamps", "village-fountain"].filter((id) => plans.find((p) => p.id === id)!.state === "ready"));
-    const states = plans.map((p) => p.state);
-    const rank = { ready: 0, short: 1, host: 2, done: 3 } as const;
-    expect(states.map((s) => rank[s])).toEqual([...states.map((s) => rank[s])].sort((a, b) => a - b));
-    const shorts = plans.filter((p) => p.state === "short");
-    const missing = (p: PlanStatus) => Object.values(p.short ?? {}).reduce((n, v) => n + (v ?? 0), 0);
-    for (let i = 1; i < shorts.length; i++) expect(missing(shorts[i])).toBeGreaterThanOrEqual(missing(shorts[i - 1]));
-    expect(order[order.length - 1]).toBe("village-statue:done");
-    // Equal groups keep catalog order.
-    const hosts = plans.filter((p) => p.state === "host").map((p) => p.id);
-    expect(hosts).toEqual(IMPROVEMENT_IDS.filter((id) => hosts.includes(id)));
+    // Each plan is weighed against the whole balance on its own (4 stone, 2 thread, 4 herbs).
+    // Ready: well-house (4 stone + 2 thread), mill-granary (4 herbs + 2 stone), fountain (4 stone + 2 herbs).
+    // Short: bridge-arches lacks 2 dye, lamps 2 thread, hall 4 ink, banners 4 dye. Five wings wait on their buildings.
+    expect(plans.map((p) => `${p.id}:${p.state}`)).toEqual([
+      "well-house:ready", "mill-granary:ready", "village-fountain:ready",
+      "bridge-arches:short", "village-lamps:short", "chronicle-hall:short", "village-banners:short",
+      "chapel-windows:host", "market-stalls:host", "library-reading-wing:host", "watchtower-beacon:host", "garden-herb-house:host",
+      "village-statue:done",
+    ]);
+    expect(find(plans, "village-lamps").short).toEqual({ thread: 2 });
+    expect(find(plans, "chronicle-hall").short).toEqual({ ink: 4 });
+  });
+
+  it("treats a built count that is not a number as nothing built", () => {
+    const plans = planState({ built: { "well-house": Number.NaN, "village-lamps": Number.POSITIVE_INFINITY, "village-statue": -2 }, raised: allRaised, balance: empty() });
+    expect(find(plans, "well-house").level).toBe(1);
+    expect(find(plans, "village-lamps").level).toBe(1);
+    expect(find(plans, "village-statue").level).toBe(1);
   });
 
   it("treats a missing built entry as nothing built", () => {

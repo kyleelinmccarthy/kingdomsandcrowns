@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { CASTLE_POSITION, SPAWN } from "./layout";
+import { SPAWN } from "./layout";
+import { castlePlan } from "@/lib/realm3d/castle-plan";
+import { CASTLE_POSITION } from "./layout";
 import { MATERIAL_IDS } from "./materials";
 import { KEEP_YARD, VILLAGE_DECOR_SPOTS, YARD_RADIUS } from "./keep-yard";
 import { IMPROVEMENTS } from "./improvements";
-import { clearanceFailures, largestCastle, overlaps, ROAD, grow, rectAt, type R } from "@/test/world-clearance";
+import { CASTLE_TIER_IDS, clearanceFailures, levelFailures, overlaps, ROAD, grow, rectAt, type R } from "@/test/world-clearance";
 
 type Spot = { what: string; x: number; z: number; r: number };
 const yardSpots = (): Spot[] => [
@@ -23,19 +25,25 @@ describe("the keep yard", () => {
     expect(Object.keys(KEEP_YARD).sort()).toEqual(["chronicleHall", "lectern", "plansBoard", "stockpile"]);
   });
 
-  it("is open ground beside the castle: near it, behind the gate, off the road", () => {
-    for (const s of yardSpots()) {
-      expect(Math.hypot(s.x - CASTLE_POSITION.x, s.z - CASTLE_POSITION.z), s.what).toBeLessThan(16);
-      expect(s.z, `${s.what} is behind the castle's gate side`).toBeLessThan(CASTLE_POSITION.z);
-      expect(overlaps(box(s), grow(ROAD, 1)), s.what).toBe(false);
-    }
-    expect(SPAWN.z).toBeGreaterThan(KEEP_YARD.plansBoard.z);
+  it("is findable: the plans board is a short walk from where the hero arrives, and off the road", () => {
+    expect(Math.hypot(KEEP_YARD.plansBoard.x - SPAWN.x, KEEP_YARD.plansBoard.z - SPAWN.z)).toBeLessThanOrEqual(14);
+    for (const s of yardSpots()) expect(overlaps(box(s), grow(ROAD, 1)), s.what).toBe(false);
   });
 
-  it("clears the largest castle, every site, the lap ring, the plaza and the village's decorations", () => {
-    const failures = yardSpots().flatMap((s) => clearanceFailures(s.what, box(s)));
-    expect(failures).toEqual([]);
-    for (const s of yardSpots()) expect(overlaps(box(s), grow(largestCastle(), 1)), s.what).toBe(false);
+  it("clears the castle as it is really drawn, at every tier, with a margin of 1", () => {
+    for (const tier of CASTLE_TIER_IDS) {
+      const b = castlePlan(tier).bounds;
+      const castle: R = { x0: CASTLE_POSITION.x + b.x0, x1: CASTLE_POSITION.x + b.x1, z0: CASTLE_POSITION.z + b.z0, z1: CASTLE_POSITION.z + b.z1 };
+      for (const s of [...yardSpots(), ...villageSpots()]) expect(overlaps(box(s), grow(castle, 1)), `${s.what} touches the ${tier} castle`).toBe(false);
+      for (const solid of castlePlan(tier).solids) {
+        const r: R = { x0: CASTLE_POSITION.x + solid.x - solid.hw, x1: CASTLE_POSITION.x + solid.x + solid.hw, z0: CASTLE_POSITION.z + solid.z - solid.hd, z1: CASTLE_POSITION.z + solid.z + solid.hd };
+        for (const s of [...yardSpots(), ...villageSpots()]) expect(overlaps(box(s), r), `${s.what} is inside a ${tier} castle solid`).toBe(false);
+      }
+    }
+  });
+
+  it("clears every site, the road, the lap ring, the plaza, the scenery and the village's decorations, on level ground", () => {
+    expect(yardSpots().flatMap((s) => [...clearanceFailures(s.what, box(s)), ...levelFailures(s.what, box(s))])).toEqual([]);
   });
 
   it("keeps each piece clear of the others", () => {
@@ -67,7 +75,7 @@ describe("the village decoration spots", () => {
 
   it("clears every site, the road, the lap ring, the plaza and the village's decorations, and each other", () => {
     const spots = villageSpots();
-    expect(spots.flatMap((s) => clearanceFailures(s.what, box(s)))).toEqual([]);
+    expect(spots.flatMap((s) => [...clearanceFailures(s.what, box(s)), ...levelFailures(s.what, box(s))])).toEqual([]);
     for (let i = 0; i < spots.length; i++) for (let j = i + 1; j < spots.length; j++) expect(overlaps(grow(box(spots[i]), 0.5), box(spots[j])), `${spots[i].what} and ${spots[j].what}`).toBe(false);
   });
 

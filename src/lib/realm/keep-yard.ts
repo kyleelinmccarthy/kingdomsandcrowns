@@ -3,10 +3,13 @@
 import type { Vec2 } from "./layout";
 
 /**
- * The keep yard: open ground just north of the castle, clear of the LARGEST tier's footprint (a
- * citadel's back wall is at z = -18), the lap ring's northern waypoints and the ceremony plaza,
- * and well off the road and every gate. There is no Keep until a hero is level 50, so the yard
- * stands from day one and is reached round either flank of the castle.
+ * The keep yard: open, level ground just south of the village gate, beside the road the hero
+ * walks in on (`SPAWN` is (0, 15)), so it is in view on every visit. It is NOT beside the castle:
+ * the castle as drawn (`castlePlan`) is a walled compound some thirty units deep behind its
+ * gate, with a solid curtain interior, and it does not exist for a hero below level 50 anyway.
+ * The yard keeps well clear of every tier of it, of the road (including the south road, x within
+ * 3 of 0), of every site and decoration, of the row of oaks that hedges the village at z 27, and
+ * stands where the ground is flat (z 20 to 26 is held within 0.2 of the village floor).
  *
  *   plansBoard     where a hero reads what the kingdom could build, and starts a build
  *   stockpile      six heaps, one per material, in `MATERIAL_IDS` order, stone first
@@ -19,17 +22,17 @@ export const KEEP_YARD: {
   chronicleHall: Vec2;
   lectern: Vec2;
 } = {
-  plansBoard: { x: -5, z: -22 },
+  plansBoard: { x: -6, z: 21.5 },
   stockpile: [
-    { x: -9, z: -25.5 },
-    { x: -6.6, z: -25.5 },
-    { x: -4.2, z: -25.5 },
-    { x: -1.8, z: -25.5 },
-    { x: 0.6, z: -25.5 },
-    { x: 3, z: -25.5 },
+    { x: -14.2, z: 24.8 },
+    { x: -11.8, z: 24.8 },
+    { x: -9.4, z: 24.8 },
+    { x: -7, z: 24.8 },
+    { x: -4.6, z: 24.8 },
+    { x: -14.2, z: 22.4 },
   ],
-  chronicleHall: { x: 8.5, z: -23 },
-  lectern: { x: 3, z: -22 },
+  chronicleHall: { x: 10.5, z: 23.5 },
+  lectern: { x: 5.5, z: 22.5 },
 };
 
 /** Where each village decoration stands: its boxes are centred here. Open ground in the south and the flanks of the village. */
