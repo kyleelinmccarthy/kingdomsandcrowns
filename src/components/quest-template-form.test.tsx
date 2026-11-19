@@ -75,6 +75,22 @@ describe("QuestTemplateForm", () => {
     expect(screen.getByText("Update Quest")).toBeInTheDocument();
   });
 
+  it("asks for Scribe's Notes or a drawing", () => {
+    render(
+      <QuestTemplateForm
+        childId="c1"
+        subjects={subjects}
+        open={true}
+        onClose={vi.fn()}
+        schoolDays={schoolDays}
+        timeZone="America/Denver"
+      />
+    );
+    expect(screen.getByText("Ask for Scribe's Notes or a drawing")).toBeInTheDocument();
+    expect(screen.getByLabelText("Ask for Scribe's Notes or a drawing")).not.toBeChecked();
+    expect(screen.queryByText("Require Scribe's Notes")).not.toBeInTheDocument();
+  });
+
   it("shows subject options", () => {
     render(
       <QuestTemplateForm

@@ -5,6 +5,7 @@ import { eq, and, desc, sql, gte, lte } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { hasMeaningfulNotes, sanitizeName, sanitizeText } from "@/lib/utils/sanitize";
+import { hasDrawing, parseDrawing } from "@/lib/utils/drawing";
 import { addDays, todayInZone } from "@/lib/utils/dates";
 import { computeStreak, computeLongestStreak } from "@/lib/utils/streak";
 import { parseSchoolDays, parseStreakOptionalDays } from "@/lib/utils/schedule-days";
@@ -164,6 +165,7 @@ export async function updateActivity(
       : await db
           .select({
             assignmentId: schema.questAssignment.id,
+            drawing: schema.questAssignment.drawing,
             requireNotes: schema.quest.requireNotes,
           })
           .from(schema.activityLog)
@@ -175,9 +177,15 @@ export async function updateActivity(
           .where(eq(schema.activityLog.id, activityId))
           .limit(1);
 
-  // Editing must not be a way to strip notes a quest insists on having.
-  if (notes !== undefined && !hasMeaningfulNotes(notes) && linked[0]?.requireNotes) {
-    throw new Error("Scribe's Notes are required for this quest — describe what was done");
+  // Editing must not be a way to strip notes a quest insists on having. A drawing the quest
+  // already carries counts in their place.
+  if (
+    notes !== undefined &&
+    !hasMeaningfulNotes(notes) &&
+    !hasDrawing(parseDrawing(linked[0]?.drawing)) &&
+    linked[0]?.requireNotes
+  ) {
+    throw new Error("Scribe's Notes or a drawing are required for this quest — describe or draw what was done");
   }
 
   const now = new Date();

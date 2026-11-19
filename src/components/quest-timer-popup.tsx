@@ -8,6 +8,7 @@ import { Dialog, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui
 import { useQuestTimer, formatElapsed } from "@/hooks/use-quest-timer";
 import { useRealmOpen } from "@/hooks/use-realm-open";
 import { completeAssignment, getAssignmentQuestInfo } from "@/lib/actions/quest-assignments";
+import { NOTES_OR_DRAW_FROM_CARD_HINT } from "@/lib/utils/drawing";
 
 const BREAK_REMINDER_INTERVAL_SECONDS = 30 * 60;
 
@@ -137,7 +138,7 @@ export function QuestTimerPopup() {
           <Input
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder={`Scribe's Notes ${requireNotes ? "(required)" : "(optional)"} — what did you do?`}
+            placeholder={requireNotes ? NOTES_OR_DRAW_FROM_CARD_HINT : "Scribe's Notes (optional) — what did you do?"}
             required={requireNotes}
             aria-label="Scribe's Notes"
             className="w-64"
