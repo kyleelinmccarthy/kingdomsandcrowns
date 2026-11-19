@@ -1,7 +1,7 @@
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import * as schema from "@/lib/db/schema";
-import { allocatePlan, IMPROVEMENTS, type ImprovementId } from "@/lib/realm/improvements";
+import { allocatePlan, IMPROVEMENTS, UNKNOWN_QUEST_TITLE, type ImprovementId } from "@/lib/realm/improvements";
 import { materialBalance, MATERIAL_IDS } from "@/lib/realm/materials";
 import type { RunSummary } from "@/lib/utils/deed-run-types";
 import { seasonLabel } from "@/lib/utils/seasons";
@@ -12,9 +12,13 @@ import { withChildLock, type Tx } from "./realm-play";
 type SourceQuest = { title: string; subject: string | null; date: string | null };
 
 /** A quest whose assignment has since been deleted still stands on the plaque, by this name. */
-const UNKNOWN_QUEST: SourceQuest = { title: "A quest", subject: null, date: null };
+const UNKNOWN_QUEST: SourceQuest = { title: UNKNOWN_QUEST_TITLE, subject: null, date: null };
 
-/** The quests behind the spent materials, in the order given (the ledger's FIFO order). Reads through `tx`. */
+/**
+ * The quests behind the spent materials, in the order given (the ledger's FIFO order), each title
+ * once: two assignments of one quest are one line on the plaque, kept where it first paid. Reads
+ * through `tx`.
+ */
 async function loadSourceQuests(childId: string, assignmentIds: string[], tx: Tx): Promise<SourceQuest[]> {
   if (assignmentIds.length === 0) return [];
   const rows = await tx
@@ -24,10 +28,11 @@ async function loadSourceQuests(childId: string, assignmentIds: string[], tx: Tx
     .leftJoin(schema.subject, eq(schema.quest.subjectId, schema.subject.id))
     .where(and(eq(schema.questAssignment.childId, childId), inArray(schema.questAssignment.id, assignmentIds)));
   const byId = new Map(rows.map((r) => [r.id, r]));
-  return assignmentIds.map((id) => {
+  const quests = assignmentIds.map((id): SourceQuest => {
     const r = byId.get(id);
     return r ? { title: r.title ?? UNKNOWN_QUEST.title, subject: r.subject ?? null, date: r.date } : UNKNOWN_QUEST;
   });
+  return quests.filter((q, i) => quests.findIndex((other) => other.title === q.title) === i);
 }
 
 /**

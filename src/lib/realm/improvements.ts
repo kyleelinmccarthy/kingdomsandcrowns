@@ -48,9 +48,17 @@ export type Plaque = {
 export function plaqueLine(p: Pick<Plaque, "label" | "builtBy" | "season" | "sources">): string {
   const parts = [p.label, `built by ${p.builtBy}`];
   if (p.season) parts.push(p.season);
-  if (p.sources.length > 0) parts.push(`from: ${p.sources.join(", ")}`);
+  // A quest done twice paid twice, but the plaque names it once, in the order the quests paid.
+  if (p.sources.length > 0) parts.push(`from: ${[...new Set(p.sources)].join(", ")}`);
   return parts.join(" · ");
 }
+
+/**
+ * What a quest whose title is gone (a deleted quest or assignment) is called, wherever the Realm
+ * names quests. Lower case, because it is only ever read mid-line: "1 Dye from a quest",
+ * "from: a quest, Maps".
+ */
+export const UNKNOWN_QUEST_TITLE = "a quest";
 
 export type ImprovementColor = "stone" | "timber" | "plaster" | "roof" | "cloth" | "glass" | "gold" | "water";
 

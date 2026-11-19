@@ -371,7 +371,7 @@ describe("startBuildRun", () => {
     expect(s.improvement).toMatchObject({ id: "village-banners", label: "Banners", level: 1, built: true, balance: { dye: 0, thread: 0 } });
     expect(s.improvement?.reason).toBeUndefined();
     expect(s.improvement?.plaque).toEqual({
-      improvementId: "village-banners", level: 1, label: "Banners", builtBy: "Ada", season: null, sources: ["A quest", "A quest"], stars: 3,
+      improvementId: "village-banners", level: 1, label: "Banners", builtBy: "Ada", season: null, sources: ["a quest"], stars: 3,
     });
     expect(await count("SELECT count(*) AS n FROM realm_play_ledger")).toBe(0);
     expect(await count("SELECT count(*) AS n FROM kingdom_progress")).toBe(0);

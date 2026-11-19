@@ -28,9 +28,21 @@ export function initialFlow(run: Pick<RunStart, "questions" | "responses" | "pen
     const { index, ruledOut, hint } = run.pending;
     return { index, phase: "second-chance", ruledOut: [ruledOut], picked: ruledOut, result: { correct: false, secondChance: true, hint }, streak: 0 };
   }
-  // A run with nothing left unanswered opens on its last question.
   const first = run.responses.findIndex((r) => r === null);
-  return { index: first === -1 ? run.questions.length - 1 : first, phase: "asking", ruledOut: [], picked: null, result: null, streak: 0 };
+  // A run with nothing left unanswered (its finish call failed, and it was picked back up) opens at
+  // its finish step: the last question, resolved, with no result to show, so it is never asked again.
+  if (first === -1 && run.questions.length > 0) {
+    return { index: run.questions.length - 1, phase: "resolved", ruledOut: [], picked: null, result: null, streak: 0 };
+  }
+  return { index: Math.max(first, 0), phase: "asking", ruledOut: [], picked: null, result: null, streak: 0 };
+}
+
+/** What the finish step says when a run is picked back up with every question already answered. */
+export const ALL_ANSWERED = "Every answer is in.";
+
+/** Whether the run has nothing left to answer: its last question is resolved, so it can be finished. */
+export function readyToFinish(state: FlowState, questions: number): boolean {
+  return state.phase === "resolved" && state.index >= questions - 1;
 }
 
 export function flowReducer(state: FlowState, event: FlowEvent): FlowState {

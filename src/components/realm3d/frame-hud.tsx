@@ -102,12 +102,13 @@ function ObjectiveRows({ objectives, heroName, visiting, numerals, pet = null, s
   if (!first) return null;
   return (
     <>
+      {/* The gold ! is on the plans board (`plan-goal.ts`): say so, not who is waiting. It leads the
+          card, so its ! never sits on the villager's row; the header below stays, bare. */}
+      {plan && <PlanReady plan={plan} heroName={heroName} visiting={visiting} pet={pet} />}
       <p className="r3-quest-title">
         <GameIcon name={findBuilding(first.buildingId)?.icon ?? "box"} className="r3-quest-icon" />
         {first.label}
       </p>
-      {/* The gold ! is on the plans board (`plan-goal.ts`): say so, not who is waiting. */}
-      {plan && <PlanReady plan={plan} heroName={heroName} visiting={visiting} pet={pet} />}
       {!plan && first.villagerName && (
         <p className="r3-quest-line">{visiting ? `${first.villagerName} is waiting for ${heroName}.` : `${first.villagerName} is waiting.`}</p>
       )}

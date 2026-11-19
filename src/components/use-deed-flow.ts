@@ -9,7 +9,7 @@ import { useReducer, useRef, useState } from "react";
 import { answerDeedQuestion, resolveDeedQuestion, retryDeedQuestion } from "@/lib/actions/deeds";
 import type { ImprovementId } from "@/lib/realm/improvements";
 import type { AttemptResult, RunStart } from "@/lib/utils/deed-run-types";
-import { flowReducer, initialFlow, type FlowEvent } from "@/lib/utils/deed-run-flow";
+import { flowReducer, initialFlow, readyToFinish, type FlowEvent } from "@/lib/utils/deed-run-flow";
 import { deedErrorLine } from "@/lib/utils/deed-refusals";
 import type { SkillMeter } from "@/lib/utils/mastery";
 import { NUDGE_LINE, shouldNudge } from "@/lib/tasks/pace-guard";
@@ -105,7 +105,7 @@ export function useDeedFlow(run: RunStart, onAttempt?: (result: AttemptResult) =
   }
 
   // The run is over once its last question is resolved: the nudge goes with it.
-  const finished = flow.phase === "resolved" && flow.index >= run.questions.length - 1;
+  const finished = readyToFinish(flow, run.questions.length);
   // The clue is for the question on the board now, not the one that earned the nudge.
   const skillId = run.questions[flow.index]?.skillId;
   const nudge: Nudge | null = nudgeUp && !finished && skillId ? { line: NUDGE_LINE, hint: hintFor(skillId) } : null;

@@ -8,12 +8,16 @@ import type { Vec2 } from "./layout";
  * the castle as drawn (`castlePlan`) is a walled compound some thirty units deep behind its
  * gate, with a solid curtain interior, and it does not exist for a hero below level 50 anyway.
  * The yard keeps well clear of every tier of it, of the road (including the south road, x within
- * 3 of 0), of every site and decoration, of the row of oaks that hedges the village at z 27, and
- * stands where the ground is flat (z 20 to 26 is held within 0.2 of the village floor).
+ * 3 of 0), of every site and decoration, of the grove floor to the west (as it is drawn, turned),
+ * from under the crowns of the orchard oaks that hedge the village at z 27 (their crowns reach
+ * about two units, to z 24.9), and stands where the ground is flat.
  *
  *   plansBoard     where a hero reads what the kingdom could build, and starts a build
- *   stockpile      six heaps, one per material, in `MATERIAL_IDS` order, stone first
- *   chronicleHall  the Chronicle Hall improvement is centred here
+ *   stockpile      six heaps, one per material, in `MATERIAL_IDS` order, stone first: two rows
+ *                  of three west of the board, nearest the board first (D16 smoke: a single row
+ *                  at z 24.8 stood under the oaks and on the grove's edge)
+ *   chronicleHall  the Chronicle Hall improvement is centred here, its tallest level kept 1.5
+ *                  clear of the oaks' crowns (D16 smoke: its roof ran into them at z 23.5)
  *   lectern        where the Scribe's lectern stands (the Chronicle, a later slice)
  */
 export const KEEP_YARD: {
@@ -24,14 +28,14 @@ export const KEEP_YARD: {
 } = {
   plansBoard: { x: -6, z: 21.5 },
   stockpile: [
-    { x: -14.2, z: 24.8 },
-    { x: -11.8, z: 24.8 },
-    { x: -9.4, z: 24.8 },
-    { x: -7, z: 24.8 },
-    { x: -4.6, z: 24.8 },
-    { x: -14.2, z: 22.4 },
+    { x: -8.8, z: 21 },
+    { x: -11.2, z: 21 },
+    { x: -13.6, z: 21 },
+    { x: -8.8, z: 23.4 },
+    { x: -11.2, z: 23.4 },
+    { x: -13.6, z: 23.4 },
   ],
-  chronicleHall: { x: 10.5, z: 23.5 },
+  chronicleHall: { x: 10.5, z: 20.5 },
   lectern: { x: 5.5, z: 22.5 },
 };
 

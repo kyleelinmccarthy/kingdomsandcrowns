@@ -198,7 +198,7 @@ describe("finishBuild", () => {
     expect(await count("SELECT count(*) AS n FROM realm_improvement")).toBe(0);
   });
 
-  it("names its sources oldest first, only the quests that paid, and reads a deleted quest as 'A quest'", async () => {
+  it("names its sources oldest first, only the quests that paid, and reads a deleted quest as 'a quest'", async () => {
     // The fountain's third level costs 8 stone and 4 herbs: twelve quests' worth.
     await builtLevel("village-fountain", 1);
     await builtLevel("village-fountain", 2);
@@ -219,15 +219,32 @@ describe("finishBuild", () => {
     const sources = JSON.parse((await improvements()).find((x) => Number(x.level) === 3)!.sources as string) as { title: string; subject: string | null; date: string | null }[];
     expect(sources).toHaveLength(12);
     expect(sources.map((s) => s.title)).toEqual([
-      "Stone quest 1", "Stone quest 2", "A quest", "Stone quest 4", "Stone quest 5", "Stone quest 6", "Stone quest 7", "Stone quest 8",
+      "Stone quest 1", "Stone quest 2", "a quest", "Stone quest 4", "Stone quest 5", "Stone quest 6", "Stone quest 7", "Stone quest 8",
       "Herb quest 1", "Herb quest 2", "Herb quest 3", "Herb quest 4",
     ]);
     expect(sources[0]).toEqual({ title: "Stone quest 1", subject: "Math", date: "2026-10-01" });
     // A quest with no subject has none; a deleted one has neither subject nor date.
     expect(sources[1]).toEqual({ title: "Stone quest 2", subject: null, date: "2026-10-02" });
-    expect(sources[2]).toEqual({ title: "A quest", subject: null, date: null });
+    expect(sources[2]).toEqual({ title: "a quest", subject: null, date: null });
     expect(r.plaque?.sources).toEqual(sources.map((s) => s.title));
     expect(r.balance.stone).toBe(2);
+  });
+
+  it("names a quest done twice once on the plaque, keeping the order the quests paid in", async () => {
+    // Two assignments of one quest (two different days), then another quest: the plaque says each title once.
+    await quest("w1", "Science Worksheet", "Science", "2026-11-02");
+    await quest("m1", "Maps", "History", "2026-11-03");
+    await pool.query("INSERT INTO quest_assignment (id, quest_id, child_id, date) VALUES ('w2', 'q-w1', 'c1', '2026-11-04')");
+    await earn("dye", 2, "w1");
+    await earn("dye", 1, "m1");
+    await earn("dye", 1, "w2");
+    await quest("t1", "Spinning", "Art", "2026-11-05");
+    await earn("thread", 2, "t1");
+    const { finishBuild } = await isolate();
+    const r = await finishBuild("c1", BANNERS, 3, NOW);
+    expect(r.plaque?.sources).toEqual(["Science Worksheet", "Maps", "Spinning"]);
+    const stored = JSON.parse((await improvements())[0].sources as string) as { title: string }[];
+    expect(stored.map((s) => s.title)).toEqual(["Science Worksheet", "Maps", "Spinning"]);
   });
 
   it("with no child row, still builds (the name reads as a hero)", async () => {

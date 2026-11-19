@@ -15,6 +15,8 @@ import {
   planCost,
   planFillers,
   planElevation,
+  plaqueLine,
+  UNKNOWN_QUEST_TITLE,
   parsePlanRef,
   nearestPlanHint,
   planHint,
@@ -422,6 +424,22 @@ describe("nearestPlanHint", () => {
     ];
     expect(nearestPlanHint(plans)).toBeNull();
     expect(nearestPlanHint([])).toBeNull();
+  });
+});
+
+describe("plaqueLine", () => {
+  const plaque = { label: "Fountain", builtBy: "Emma", season: "2026–27", sources: ["Science Worksheet", "Maps", "Science Worksheet"] };
+
+  it("names each quest once, in the order they paid", () => {
+    expect(plaqueLine(plaque)).toBe("Fountain · built by Emma · 2026–27 · from: Science Worksheet, Maps");
+  });
+
+  it("leaves out the season and the quests when they are not known", () => {
+    expect(plaqueLine({ ...plaque, season: null, sources: [] })).toBe("Fountain · built by Emma");
+  });
+
+  it("reads a lost quest in lower case mid-line", () => {
+    expect(plaqueLine({ ...plaque, sources: [UNKNOWN_QUEST_TITLE, "Maps"] })).toBe("Fountain · built by Emma · 2026–27 · from: a quest, Maps");
   });
 });
 

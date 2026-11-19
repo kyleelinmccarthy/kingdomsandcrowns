@@ -14,6 +14,7 @@ import { answerDeedQuestion, completeDeedRun, resolveDeedQuestion, retryDeedQues
 import { villagerById } from "@/lib/realm/villagers";
 import { speak } from "@/lib/utils/speech";
 import { DeedBoard } from "./deed-board";
+import { ALL_ANSWERED } from "@/lib/utils/deed-run-flow";
 
 afterEach(cleanup);
 beforeEach(() => {
@@ -239,6 +240,28 @@ describe("the deed board", () => {
       expect(screen.queryByText("New best!")).toBeNull();
       expect(document.body.textContent).not.toMatch(/Flawless|side quest done/i);
       expect(onResult).not.toHaveBeenCalled();
+    });
+
+    it("reopens a run whose every task is answered at its finish step, never asking again (the finish call failed)", async () => {
+      vi.mocked(startDeedRun).mockResolvedValue({ ...build, responses: ["5", "8"] });
+      vi.mocked(completeDeedRun).mockResolvedValue(built as never);
+      board();
+      await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" })));
+      expect(screen.getByText(ALL_ANSWERED)).toBeInTheDocument();
+      // The last task stands answered: nothing on it can be picked again.
+      for (const choice of screen.queryAllByRole("button", { name: /^\d+$/ })) expect(choice).toBeDisabled();
+      await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Finish building" })));
+      expect(answerDeedQuestion).not.toHaveBeenCalled();
+      expect(completeDeedRun).toHaveBeenCalledTimes(1);
+      expect(screen.getByText("The Banners grow!")).toBeInTheDocument();
+    });
+
+    it("does the same for a side quest's run, which shares the flow", async () => {
+      vi.mocked(startDeedRun).mockResolvedValue({ ...run, responses: ["5", "8"] });
+      board();
+      await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" })));
+      expect(screen.getByText(ALL_ANSWERED)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Finish side quest" })).toBeInTheDocument();
     });
 
     it("never hands a building up to be raised, even if a result carried one", async () => {

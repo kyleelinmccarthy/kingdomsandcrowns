@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { act, cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { EMPTY_WORKS, type Works } from "@/lib/realm/works-state";
@@ -108,5 +110,46 @@ describe("the satchel", () => {
     expect(screen.queryByRole("img", { name: /Thread/ })).toBeNull();
     // Level 2 is on offer now, and the satchel says what it wants.
     expect(screen.getByText(/^Needs /)).toBeInTheDocument();
+  });
+});
+
+describe("the satchel at phone width (the left stack must clear the spell bar)", () => {
+  const css = (file: string) => readFileSync(resolve(__dirname, file), "utf8");
+  /** The body of the first `@media (max-width: 480px)` block in a stylesheet. */
+  const phoneBlock = (src: string): string => {
+    const start = src.indexOf("@media (max-width: 480px)");
+    if (start === -1) return "";
+    let depth = 0;
+    for (let i = src.indexOf("{", start); i < src.length; i++) {
+      if (src[i] === "{") depth++;
+      if (src[i] === "}" && --depth === 0) return src.slice(start, i + 1);
+    }
+    return "";
+  };
+  const rule = (block: string, selector: string) => new RegExp(`${selector.replace(/[.[\]="-]/g, "\\$&")}\\s*\\{([^}]*)\\}`).exec(block)?.[1] ?? "";
+
+  it("keeps every held material in one list and the pinned plan's name apart from its line, so a phone can fold the one and hide the other", () => {
+    const all = { stone: 1, ink: 4, herbs: 2, thread: 4, dye: 3, timber: 2 };
+    const { container } = render(<SatchelHud works={works({ balance: all, pinned: "village-fountain" })} raised={NONE} numerals />);
+    const lists = container.querySelectorAll(".r3-satchel-items");
+    expect(lists).toHaveLength(1);
+    expect(lists[0].querySelectorAll(":scope > .r3-satchel-item")).toHaveLength(6);
+    expect(container.querySelector(".r3-satchel-plan-name")).toHaveTextContent("Fountain");
+    expect(container.querySelector(".r3-satchel-plan-line")).toHaveTextContent(/^Needs /);
+    expect(container.querySelector(".r3-satchel-plan-name .r3-satchel-plan-line")).toBeNull();
+  });
+
+  it("caps the left stack above the spell bar under 480 px, at either text size", () => {
+    const block = phoneBlock(css("realm-frame.css"));
+    expect(rule(block, ".r3-left-stack")).toMatch(/max-height:\s*calc\(100% - 5\.6rem - [\d.]+rem\)/);
+    expect(rule(block, ".r3-left-stack")).toMatch(/overflow:\s*hidden/);
+    expect(rule(block, '.r3-root[data-larger-text="on"] .r3-left-stack')).toMatch(/max-height:\s*calc\(100% - 6\.72rem - [\d.]+rem\)/);
+  });
+
+  it("folds the satchel to at most two rows of icons and counts under 480 px, and drops the plan's line but not its name", () => {
+    const block = phoneBlock(css("satchel.css"));
+    expect(rule(block, ".r3-satchel-items")).toMatch(/grid-template-columns:\s*repeat\(3,/);
+    expect(rule(block, ".r3-satchel-plan-line")).toMatch(/display:\s*none/);
+    expect(block).not.toMatch(/\.r3-satchel-plan-name[^{]*\{[^}]*display:\s*none/);
   });
 });

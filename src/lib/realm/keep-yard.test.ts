@@ -5,7 +5,9 @@ import { CASTLE_POSITION } from "./layout";
 import { MATERIAL_IDS } from "./materials";
 import { KEEP_YARD, VILLAGE_DECOR_SPOTS, YARD_RADIUS } from "./keep-yard";
 import { IMPROVEMENTS } from "./improvements";
-import { CASTLE_TIER_IDS, clearanceFailures, levelFailures, overlaps, ROAD, grow, rectAt, type R } from "@/test/world-clearance";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+import { CASTLE_TIER_IDS, canopyRadius, clearanceFailures, levelFailures, overlaps, overlapsPatch, ROAD, grow, rectAt, TREE_SCALE, type R } from "@/test/world-clearance";
 
 type Spot = { what: string; x: number; z: number; r: number };
 const yardSpots = (): Spot[] => [
@@ -42,8 +44,8 @@ describe("the keep yard", () => {
     }
   });
 
-  it("clears every site, the road, the lap ring, the plaza, the scenery and the village's decorations, on level ground", () => {
-    expect(yardSpots().flatMap((s) => [...clearanceFailures(s.what, box(s)), ...levelFailures(s.what, box(s))])).toEqual([]);
+  it("clears every site, the road, the lap ring, the plaza, the scenery (and every tree crown) and the village's decorations, on level ground", () => {
+    expect(yardSpots().flatMap((s) => [...clearanceFailures(s.what, box(s), undefined, 0), ...levelFailures(s.what, box(s))])).toEqual([]);
   });
 
   it("keeps each piece clear of the others", () => {
@@ -55,16 +57,46 @@ describe("the keep yard", () => {
     }
   });
 
+  it("keeps the Chronicle Hall at its tallest at least 1.5 clear of every tree's crown (the oak hedge at z 27)", () => {
+    const hall = KEEP_YARD.chronicleHall;
+    for (const b of IMPROVEMENTS["chronicle-hall"].levels.flatMap((l) => l.boxes)) {
+      expect(clearanceFailures("hall box", rectAt(hall.x + b.x, hall.z + b.z, b.sx, b.sz), undefined, 1.5)).toEqual([]);
+    }
+  });
+
   it("holds the Chronicle Hall's boxes inside its own space, clear of the rest of the yard", () => {
     const hall = KEEP_YARD.chronicleHall;
     const others = yardSpots().filter((s) => s.what !== "chronicleHall");
     for (const level of IMPROVEMENTS["chronicle-hall"].levels) {
       for (const b of level.boxes) {
         const r = rectAt(hall.x + b.x, hall.z + b.z, b.sx, b.sz);
-        expect(clearanceFailures("hall box", r)).toEqual([]);
+        expect(clearanceFailures("hall box", r, undefined, 0)).toEqual([]);
         for (const o of others) expect(overlaps(r, box(o)), `hall box and ${o.what}`).toBe(false);
       }
     }
+  });
+});
+
+describe("the clearance check itself", () => {
+  it("sees a turned ground patch as turned, not as the square it would be unturned", () => {
+    // A 4 x 1 strip turned a quarter turn lies north-south: 1 wide, 4 deep.
+    const strip = { position: { x: 0, z: 0 }, size: { w: 4, d: 1 }, angle: Math.PI / 2 };
+    expect(overlapsPatch(rectAt(0, 1.6, 0.4, 0.4), strip)).toBe(true);
+    expect(overlapsPatch(rectAt(1.6, 0, 0.4, 0.4), strip)).toBe(false);
+    // An eighth turn: a corner of the unturned square is bare ground.
+    const square = { position: { x: 0, z: 0 }, size: { w: 2, d: 2 }, angle: Math.PI / 4 };
+    expect(overlapsPatch(rectAt(0.9, 0.9, 0.1, 0.1), square)).toBe(false);
+    expect(overlapsPatch(rectAt(0, 1.3, 0.1, 0.1), square)).toBe(true);
+    // Unturned is the plain rectangle test.
+    expect(overlapsPatch(rectAt(0.9, 0.9, 0.1, 0.1), { ...square, angle: 0 })).toBe(true);
+  });
+
+  it("measures a tree's crown at the scale the 3D scene draws trees", () => {
+    const scene = readFileSync(resolve(__dirname, "../../components/realm3d/spike-scene.tsx"), "utf8");
+    expect(Number(/^const TREE_SCALE = ([\d.]+);/m.exec(scene)?.[1])).toBe(TREE_SCALE);
+    // An orchard oak (scale 1.3) reaches a little over two units.
+    expect(canopyRadius({ variant: "oak", size: { h: 1.4 * 1.3 } })).toBeCloseTo(1.31 * 1.3 * 1.25);
+    expect(canopyRadius({ variant: "bush", size: { h: 1.4 } })).toBeNull();
   });
 });
 

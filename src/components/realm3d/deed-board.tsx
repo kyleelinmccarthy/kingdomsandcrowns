@@ -38,6 +38,7 @@ import { TaskPresenter } from "@/components/tasks/presenters";
 import { BenchDemo, demoCopy, useBenchDemo } from "@/components/tasks/bench-demo";
 import { StarRow } from "@/components/star-row";
 import { useDeedFlow } from "@/components/use-deed-flow";
+import { ALL_ANSWERED } from "@/lib/utils/deed-run-flow";
 import { AREA_LABELS, type SkillArea } from "@/lib/utils/skills";
 import { canSpeak, speak, stopSpeaking, type SpeechToken } from "@/lib/utils/speech";
 import { SIDE_QUEST_LOWER, SIDE_QUESTS_LOWER } from "@/lib/utils/side-quest-copy";
@@ -393,12 +394,13 @@ export function DeedRun({
       </div>
       <TaskPresenter task={question} flow={flow} variant="board" numerals={numerals} calm={calm} disabled={busy} nudge={nudge} site={site} onRespond={(encoded) => void choose(encoded)} />
       </>)}
-      {feedback && (
+      {/* A resolved question with no result is a run picked back up with every answer in: its finish step. */}
+      {(feedback || phase === "resolved") && (
         <div className={`r3-feedback${flow.result?.correct ? " r3-feedback--right" : ""}`}>
           <div>
-            {feedback.heading && <p className="r3-feedback-heading">{feedback.heading}</p>}
+            {feedback?.heading && <p className="r3-feedback-heading">{feedback.heading}</p>}
             <p className="r3-feedback-text" role="status">
-              {feedback.text}
+              {feedback ? feedback.text : ALL_ANSWERED}
             </p>
             {flow.result?.rungChange && <p className="r3-feedback-rung">{flow.result.rungChange}</p>}
           </div>

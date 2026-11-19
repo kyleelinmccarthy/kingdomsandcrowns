@@ -147,9 +147,9 @@ describe("loadWorks: the delivery", () => {
     expect(d?.rows).toHaveLength(2);
   });
 
-  it("reads 'A quest' when the quest's title is gone", async () => {
+  it("reads 'a quest' when the quest's title is gone", async () => {
     await earned("stone", 1, 100, { title: null });
-    expect((await loadWorks("c1")).delivery?.rows[0].title).toBe("A quest");
+    expect((await loadWorks("c1")).delivery?.rows[0].title).toBe("a quest");
   });
 
   it("ignores another hero's rows", async () => {

@@ -2,7 +2,7 @@ import { and, asc, eq, gt, inArray, sql, type SQL } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
-import { IMPROVEMENTS, type ImprovementId } from "@/lib/realm/improvements";
+import { IMPROVEMENTS, UNKNOWN_QUEST_TITLE, type ImprovementId } from "@/lib/realm/improvements";
 import { materialBalance, resolveMaterial, type MaterialId, type MaterialRow } from "@/lib/realm/materials";
 import type { Delivery, Plaque, Works } from "@/lib/realm/works-state";
 import { seasonLabel } from "@/lib/utils/seasons";
@@ -117,8 +117,6 @@ function sourceTitles(json: string): string[] {
   }
 }
 
-const A_QUEST = "A quest";
-
 /** The columns a plaque is read from: a `realm_improvement` row and the start date of its season (null when it has none). */
 const plaqueColumns = {
   improvementId: schema.realmImprovement.improvementId,
@@ -212,7 +210,7 @@ export async function loadWorks(
     ? null
     : {
         rows: delivered.map((r) => ({
-          materialId: r.materialId as MaterialId, amount: r.amount, title: r.title ?? A_QUEST, origin: r.origin,
+          materialId: r.materialId as MaterialId, amount: r.amount, title: r.title ?? UNKNOWN_QUEST_TITLE, origin: r.origin,
         })),
         // Rows come oldest first, so the last is the newest.
         through: Math.floor(delivered[delivered.length - 1].createdAt.getTime() / 1000),

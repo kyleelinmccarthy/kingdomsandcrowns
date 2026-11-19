@@ -50,13 +50,56 @@ export function levelFailures(what: string, rect: R): string[] {
   return out;
 }
 
+/**
+ * Whether a rectangle shares area with a ground patch as it is drawn: turned by its `angle` about
+ * its centre (natural ground, the grove floor among it, is never square to the world). The flat
+ * scene lays a patch with Euler (-PI/2, 0, angle), which puts a patch-local (u, v) at world
+ * (x + u cos + v sin, z - u sin + v cos). Separating axes: the world's two and the patch's two.
+ */
+export function overlapsPatch(rect: R, patch: { position: { x: number; z: number }; size: { w: number; d: number }; angle?: number }): boolean {
+  const a = patch.angle ?? 0;
+  const c = Math.cos(a);
+  const s = Math.sin(a);
+  const hw = patch.size.w / 2;
+  const hd = patch.size.d / 2;
+  const corners = [[-hw, -hd], [hw, -hd], [hw, hd], [-hw, hd]].map(([u, v]) => ({ x: patch.position.x + u * c + v * s, z: patch.position.z - u * s + v * c }));
+  const box = [{ x: rect.x0, z: rect.z0 }, { x: rect.x1, z: rect.z0 }, { x: rect.x1, z: rect.z1 }, { x: rect.x0, z: rect.z1 }];
+  for (const axis of [{ x: 1, z: 0 }, { x: 0, z: 1 }, { x: c, z: -s }, { x: s, z: c }]) {
+    const span = (pts: { x: number; z: number }[]) => {
+      const d = pts.map((p) => p.x * axis.x + p.z * axis.z);
+      return [Math.min(...d), Math.max(...d)];
+    };
+    const [a0, a1] = span(corners);
+    const [b0, b1] = span(box);
+    if (a1 <= b0 + 1e-9 || b1 <= a0 + 1e-9) return false;
+  }
+  return true;
+}
+
+/**
+ * How far a scenery tree's crown reaches from its trunk, as the 3D scene draws it: the oak's widest
+ * blob reaches 1.31 model units and the pine's lowest cone 1.0 (`geo-kit.ts`), scaled by the prop's
+ * size and the scene's `TREE_SCALE` (spike-scene.tsx; a test holds the two equal). Null for anything
+ * that is not a tree.
+ */
+export const TREE_SCALE = 1.25;
+const CROWN_REACH: Record<string, number> = { oak: 1.31, pine: 1.0 };
+export function canopyRadius(prop: { variant?: string; size: { h: number } }): number | null {
+  const reach = prop.variant ? CROWN_REACH[prop.variant] : undefined;
+  return reach === undefined ? null : reach * (prop.size.h / 1.4) * TREE_SCALE;
+}
+
 /** The road: two units wide, from the south gate to the nearest a castle's south face can be. */
 export const ROAD: R = { x0: -1, x1: 1, z0: -14, z1: 18 };
 /** The ceremony plaza: 4.5 either side of the middle, eight deep south of the castle's face, across every tier (checked with half a unit to spare). */
 export const PLAZA: R = { x0: -4.5, x1: 4.5, z0: -13, z1: -2 };
 
-/** Every reason a rectangle on open ground may not stand where it does. `host` is a building whose own site it belongs to. */
-export function clearanceFailures(what: string, rect: R, host?: string): string[] {
+/**
+ * Every reason a rectangle on open ground may not stand where it does. `host` is a building whose
+ * own site it belongs to. `canopyGap`, when given, also keeps it that far from any tree's crown
+ * (0: never under one); the keep yard, which stands against the orchard oaks, asks for it.
+ */
+export function clearanceFailures(what: string, rect: R, host?: string, canopyGap: number | null = null): string[] {
   const out: string[] = [];
   for (const b of BUILDINGS) {
     if (b.id === host) {
@@ -68,10 +111,17 @@ export function clearanceFailures(what: string, rect: R, host?: string): string[
   if (overlaps(rect, grow(PLAZA, 0.5))) out.push(`${what} is on the ceremony plaza`);
   for (const w of LAP_WAYPOINTS) if (distToRect(rect, w) < 2) out.push(`${what} is on the lap ring at ${w.x},${w.z}`);
   for (const d of DECOR_SPOTS) if (hasPoint(grow(rect, 1), d)) out.push(`${what} is by the ${d.kind} at ${d.x},${d.z}`);
-  for (const d of SCENERY) if (hasPoint(grow(rect, 0.5), d.position)) out.push(`${what} is on scenery ${d.id}`);
+  for (const d of SCENERY) {
+    if (hasPoint(grow(rect, 0.5), d.position)) out.push(`${what} is on scenery ${d.id}`);
+    // A tree's crown hangs over more than its trunk: when asked, nothing stands under one.
+    else if (canopyGap !== null) {
+      const crown = canopyRadius(d);
+      if (crown !== null && distToRect(rect, d.position) < crown + canopyGap) out.push(`${what} is under the crown of ${d.variant} ${d.id} at ${d.position.x.toFixed(1)},${d.position.z.toFixed(1)}`);
+    }
+  }
   for (const t of TERRAIN) {
     if (COSMETIC_TERRAIN.includes(t.kind)) continue;
-    if (overlaps(rect, rectAt(t.position.x, t.position.z, t.size.w, t.size.d))) out.push(`${what} is on ${t.kind} ${t.id}`);
+    if (overlapsPatch(rect, t)) out.push(`${what} is on ${t.kind} ${t.id}`);
   }
   return out;
 }

@@ -73,6 +73,23 @@ describe("the objectives card", () => {
     expect(screen.getByText(/Grain Mill · 0 of 5/)).toBeInTheDocument();
   });
 
+  it("keeps the gold ! off the villager's row while the beacon is on the plans board: the plan line leads, the header follows bare", () => {
+    const { container } = render(<ObjectiveCard objective={objectiveState(fresh, 3)} heroName="Emma" visiting={false} numerals plan="Banners" />);
+    const card = container.querySelector(".r3-quest")!;
+    const title = card.querySelector(".r3-quest-title")!;
+    const bangs = [...card.querySelectorAll(".r3-quest-bang")];
+    expect(title).toHaveTextContent("Village Well");
+    expect(bangs).toHaveLength(1);
+    // The one ! is the plan's, before the villager's header; nothing after the header carries one.
+    expect(bangs[0].compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(bangs[0].closest("p")).toHaveTextContent(/Everything for the Banners is ready/);
+    // Without a plan, the villager's own line keeps its ! under the header, as before.
+    cleanup();
+    const plain = render(<ObjectiveCard objective={objectiveState(fresh, 3)} heroName="Emma" visiting={false} numerals />).container;
+    const bang = plain.querySelector(".r3-quest-bang")!;
+    expect(plain.querySelector(".r3-quest-title")!.compareDocumentPosition(bang) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it("tells a visiting grown-up whose plan is ready, with no directions to follow", () => {
     render(<ObjectiveCard objective={objectiveState(fresh, 1)} heroName="Emma" visiting numerals plan="Banners" />);
     expect(screen.getByText("Everything for Emma's Banners is ready.")).toBeInTheDocument();

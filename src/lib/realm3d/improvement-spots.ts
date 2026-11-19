@@ -32,11 +32,11 @@ const PLAQUE_GAP = 0.8;
 
 /**
  * Plans whose front is not open ground (the granary's faces its mill, the arches' stands on a trail, the
- * reading wing's is crowded by the garden, the hall's meets the oaks): their plaque stands on the east
- * side instead. `improvement-spots.test.ts` holds every plaque spot clear of the world, so a catalog
- * change that closes a front fails there.
+ * reading wing's is crowded by the garden, the hall's meets the oaks, the beacon loft's is grove floor as
+ * it is drawn, turned): their plaque stands on the east side instead. `improvement-spots.test.ts` holds
+ * every plaque spot clear of the world, so a catalog change that closes a front fails there.
  */
-const PLAQUE_ON_EAST: ReadonlySet<ImprovementId> = new Set(["mill-granary", "bridge-arches", "library-reading-wing", "chronicle-hall"]);
+const PLAQUE_ON_EAST: ReadonlySet<ImprovementId> = new Set(["mill-granary", "bridge-arches", "library-reading-wing", "chronicle-hall", "watchtower-beacon"]);
 
 /** The plaque stone, in its own frame (centre on the ground; it fits a 0.7 square): a pedestal and a gold plate on its front. */
 export const PLAQUE_BOXES: readonly ImprovementBox[] = [

@@ -112,6 +112,13 @@
 }
 .r3-left-stack > .r3-quest { position: relative; top: auto; left: auto; }
 .r3-root[data-larger-text="on"] .r3-left-stack { top: 6.72rem; left: 1.2rem; }
+/* A phone: the narrow card wraps tall, and a full satchel under it ran into the spell bar (D16
+   smoke, 390 px). The column stops 11rem above the bottom, clear of the mana bar and the spells
+   (`.r3-bottom`), and the satchel folds itself small (`satchel.css`). */
+@media (max-width: 480px) {
+  .r3-left-stack { max-height: calc(100% - 5.6rem - 11rem); overflow: hidden; }
+  .r3-root[data-larger-text="on"] .r3-left-stack { max-height: calc(100% - 6.72rem - 11rem); }
+}
 .r3-quest-tab {
   margin: 0 0 0.2rem;
   font-size: 0.68rem;
