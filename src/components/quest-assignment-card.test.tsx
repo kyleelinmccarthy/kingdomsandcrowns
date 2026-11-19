@@ -15,6 +15,14 @@ vi.mock("@/lib/actions/quest-assignments", () => ({
   updateAssignmentNotes: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock("@/lib/actions/chronicle-seals", () => ({
+  sealEntry: vi.fn().mockResolvedValue(undefined),
+  unsealEntry: vi.fn().mockResolvedValue(undefined),
+}));
+
+import { sealEntry, unsealEntry } from "@/lib/actions/chronicle-seals";
+import { SEAL_PHRASES } from "@/lib/utils/seals";
+
 import {
   completeAssignment,
   markAssignmentStuck,
@@ -46,6 +54,8 @@ beforeEach(() => {
   vi.mocked(completeAssignment).mockClear();
   vi.mocked(markAssignmentStuck).mockClear();
   vi.mocked(reviseAssignment).mockClear();
+  vi.mocked(sealEntry).mockClear();
+  vi.mocked(unsealEntry).mockClear();
   mockTimerHook = {
     activeTimer: null,
     elapsedSeconds: 0,
@@ -62,7 +72,7 @@ beforeEach(() => {
 afterEach(cleanup);
 
 const baseData = {
-  assignment: { id: "qa1", status: "pending", notes: null, drawing: null, statusReason: null },
+  assignment: { id: "qa1", status: "pending", notes: null, drawing: null, seal: null, statusReason: null },
   quest: { id: "q1", title: "Read Chapter 5", description: "Pages 50-75", estimatedMinutes: 30, rewardXp: null, rewardDescription: null, rewardAvatarItem: null, requireNotes: false },
   subject: { id: "s1", name: "Math", color: "#ef4444" },
 };
@@ -368,7 +378,7 @@ describe("QuestAssignmentCard", () => {
   it("shows a stuck quest's reason, and gives the hero no buttons to press", () => {
     const stuck = {
       ...baseData,
-      assignment: { id: "qa1", status: "stuck", notes: null, drawing: null, statusReason: "I got lost on step 3" },
+      assignment: { id: "qa1", status: "stuck", notes: null, drawing: null, seal: null, statusReason: "I got lost on step 3" },
     };
     render(<QuestAssignmentCard data={stuck} isChildView={true} />);
     expect(screen.getByText(/Stuck — help is on the way: I got lost on step 3/)).toBeInTheDocument();
@@ -376,7 +386,7 @@ describe("QuestAssignmentCard", () => {
   });
 
   it("lets a grown-up finish, shelve or reopen a stuck quest", () => {
-    const stuck = { ...baseData, assignment: { id: "qa1", status: "stuck", notes: null, drawing: null, statusReason: null } };
+    const stuck = { ...baseData, assignment: { id: "qa1", status: "stuck", notes: null, drawing: null, seal: null, statusReason: null } };
     render(<QuestAssignmentCard data={stuck} isChildView={false} />);
     expect(screen.getByText(/Stuck — needs a grown-up/)).toBeInTheDocument();
     expect(screen.getByText("Mark Done")).toBeInTheDocument();
@@ -386,7 +396,7 @@ describe("QuestAssignmentCard", () => {
 
   it("asks a grown-up why before it shelves a stuck quest for the day", async () => {
     const user = userEvent.setup();
-    const stuck = { ...baseData, assignment: { id: "qa1", status: "stuck", notes: null, drawing: null, statusReason: "I got lost on step 3" } };
+    const stuck = { ...baseData, assignment: { id: "qa1", status: "stuck", notes: null, drawing: null, seal: null, statusReason: "I got lost on step 3" } };
     render(<QuestAssignmentCard data={stuck} isChildView={false} />);
     await user.click(screen.getByText("Skip for Today"));
     expect(screen.getByText("Skip Quest")).toBeDisabled();
@@ -398,7 +408,7 @@ describe("QuestAssignmentCard", () => {
   it("keeps the undo of a completion away from the hero who marked it done", () => {
     const completed = {
       ...baseData,
-      assignment: { id: "qa1", status: "completed", notes: null, drawing: null, statusReason: null },
+      assignment: { id: "qa1", status: "completed", notes: null, drawing: null, seal: null, statusReason: null },
     };
     render(<QuestAssignmentCard data={completed} isChildView={true} />);
     expect(screen.queryByText("Not Done")).not.toBeInTheDocument();
@@ -408,7 +418,7 @@ describe("QuestAssignmentCard", () => {
     const user = userEvent.setup();
     const completed = {
       ...baseData,
-      assignment: { id: "qa1", status: "completed", notes: "all done!", drawing: null, statusReason: null },
+      assignment: { id: "qa1", status: "completed", notes: "all done!", drawing: null, seal: null, statusReason: null },
     };
     render(<QuestAssignmentCard data={completed} isChildView={false} />);
     await user.click(screen.getByText("Not Done"));
@@ -425,7 +435,7 @@ describe("QuestAssignmentCard", () => {
     const user = userEvent.setup();
     const completed = {
       ...baseData,
-      assignment: { id: "qa1", status: "completed", notes: null, drawing: null, statusReason: null },
+      assignment: { id: "qa1", status: "completed", notes: null, drawing: null, seal: null, statusReason: null },
     };
     render(<QuestAssignmentCard data={completed} isChildView={false} />);
     await user.click(screen.getByText("Not Done"));
@@ -435,7 +445,7 @@ describe("QuestAssignmentCard", () => {
 
   it("lets a grown-up undo a skip", async () => {
     const user = userEvent.setup();
-    const skipped = { ...baseData, assignment: { id: "qa1", status: "skipped", notes: null, drawing: null, statusReason: null } };
+    const skipped = { ...baseData, assignment: { id: "qa1", status: "skipped", notes: null, drawing: null, seal: null, statusReason: null } };
     render(<QuestAssignmentCard data={skipped} isChildView={false} />);
     await user.click(screen.getByText("Undo Skip"));
     expect(reviseAssignment).toHaveBeenCalledWith("qa1", "pending", undefined);
@@ -463,7 +473,7 @@ describe("QuestAssignmentCard", () => {
     it("hands a hero back a quest they got stuck on", () => {
       const stuck = {
         ...baseData,
-        assignment: { id: "qa1", status: "stuck", notes: null, drawing: null, statusReason: "step 3" },
+        assignment: { id: "qa1", status: "stuck", notes: null, drawing: null, seal: null, statusReason: "step 3" },
       };
       render(<QuestAssignmentCard data={stuck} isChildView={true} missedFrom="Monday" />);
       expect(screen.getByText("Start")).toBeInTheDocument();
@@ -475,7 +485,7 @@ describe("QuestAssignmentCard", () => {
     it("leaves a stuck quest on its own day alone", () => {
       const stuck = {
         ...baseData,
-        assignment: { id: "qa1", status: "stuck", notes: null, drawing: null, statusReason: "step 3" },
+        assignment: { id: "qa1", status: "stuck", notes: null, drawing: null, seal: null, statusReason: "step 3" },
       };
       render(<QuestAssignmentCard data={stuck} isChildView={true} />);
       expect(screen.queryByText("Start")).not.toBeInTheDocument();
@@ -496,7 +506,7 @@ describe("QuestAssignmentCard", () => {
   describe("excused work", () => {
     const excused = {
       ...baseData,
-      assignment: { id: "qa1", status: "excused", notes: null, drawing: null, statusReason: "Sick day" },
+      assignment: { id: "qa1", status: "excused", notes: null, drawing: null, seal: null, statusReason: "Sick day" },
     };
 
     it("reads as excused to a hero, with nothing to undo", () => {
@@ -525,6 +535,7 @@ describe("QuestAssignmentCard", () => {
           status: "pending",
           notes: null,
           drawing: null,
+          seal: null,
           statusReason: null,
           originalDate: "2026-08-31",
         },
@@ -590,7 +601,7 @@ describe("QuestAssignmentCard", () => {
     const stored = { v: 1, strokes: [{ c: 2, w: 1, p: [10, 10, 60, 60] }] };
     const completedWithDrawing = {
       ...baseData,
-      assignment: { ...baseData.assignment, status: "completed", notes: null, drawing: JSON.stringify(stored) },
+      assignment: { ...baseData.assignment, status: "completed", notes: null, drawing: JSON.stringify(stored), seal: null },
     };
 
     function firePointer(el: Element, type: "pointerDown" | "pointerMove" | "pointerUp", x: number, y: number) {
@@ -790,5 +801,113 @@ describe("QuestAssignmentCard", () => {
       render(<QuestAssignmentCard data={bad} isChildView={true} />);
       expect(screen.queryByRole("img", { name: /drawing/i })).not.toBeInTheDocument();
     });
+  });
+});
+
+describe("a grown-up's seal", () => {
+  const completed = {
+    ...baseData,
+    assignment: { id: "qa1", status: "completed", notes: "we measured the garden", drawing: null, seal: null, statusReason: null },
+  };
+  const sealed = (seal: unknown) => ({ ...completed, assignment: { ...completed.assignment, seal: JSON.stringify(seal) } });
+
+  it("lets a grown-up seal a finished quest with a phrase", async () => {
+    const user = userEvent.setup();
+    render(<QuestAssignmentCard data={completed} isChildView={false} />);
+    await user.click(screen.getByRole("button", { name: "Seal it" }));
+    expect(SEAL_PHRASES).toHaveLength(6);
+    for (const phrase of SEAL_PHRASES) expect(screen.getByRole("button", { name: phrase })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Press the seal" })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: SEAL_PHRASES[2] }));
+    expect(screen.getByRole("button", { name: SEAL_PHRASES[2] })).toHaveAttribute("aria-pressed", "true");
+    await user.click(screen.getByRole("button", { name: "Press the seal" }));
+    expect(sealEntry).toHaveBeenCalledWith("qa1", { phrase: 2 });
+  });
+
+  it("lets a grown-up seal with a note, counting the characters live", async () => {
+    const user = userEvent.setup();
+    render(<QuestAssignmentCard data={completed} isChildView={false} />);
+    await user.click(screen.getByRole("button", { name: "Seal it" }));
+    expect(screen.getByText("0/60")).toBeInTheDocument();
+    const note = screen.getByLabelText("A note for the seal");
+    expect(note).toHaveAttribute("maxlength", "60");
+    await user.type(note, "You drew every tree");
+    expect(screen.getByText("19/60")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Press the seal" }));
+    expect(sealEntry).toHaveBeenCalledWith("qa1", { note: "You drew every tree" });
+  });
+
+  it("is exactly one of a phrase or a note: choosing one lets go of the other", async () => {
+    const user = userEvent.setup();
+    render(<QuestAssignmentCard data={completed} isChildView={false} />);
+    await user.click(screen.getByRole("button", { name: "Seal it" }));
+    await user.click(screen.getByRole("button", { name: SEAL_PHRASES[0] }));
+    await user.type(screen.getByLabelText("A note for the seal"), "Hi");
+    expect(screen.getByRole("button", { name: SEAL_PHRASES[0] })).toHaveAttribute("aria-pressed", "false");
+    await user.click(screen.getByRole("button", { name: SEAL_PHRASES[1] }));
+    expect(screen.getByLabelText("A note for the seal")).toHaveValue("");
+    await user.click(screen.getByRole("button", { name: "Press the seal" }));
+    expect(sealEntry).toHaveBeenCalledWith("qa1", { phrase: 1 });
+  });
+
+  it("closes the panel on Cancel without sealing", async () => {
+    const user = userEvent.setup();
+    render(<QuestAssignmentCard data={completed} isChildView={false} />);
+    await user.click(screen.getByRole("button", { name: "Seal it" }));
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("button", { name: "Press the seal" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Seal it" })).toBeInTheDocument();
+    expect(sealEntry).not.toHaveBeenCalled();
+  });
+
+  it("shows the server's refusal and keeps the panel open", async () => {
+    const user = userEvent.setup();
+    vi.mocked(sealEntry).mockRejectedValueOnce(new Error("Only a finished quest can be sealed."));
+    render(<QuestAssignmentCard data={completed} isChildView={false} />);
+    await user.click(screen.getByRole("button", { name: "Seal it" }));
+    await user.click(screen.getByRole("button", { name: SEAL_PHRASES[0] }));
+    await user.click(screen.getByRole("button", { name: "Press the seal" }));
+    expect(await screen.findByText("Only a finished quest can be sealed.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Press the seal" })).toBeInTheDocument();
+  });
+
+  it("shows the seal on the card to a hero, with who pressed it, and no controls", () => {
+    render(<QuestAssignmentCard data={sealed({ phrase: 1, by: "Mama Bear", at: 1_700_000_000 })} isChildView={true} />);
+    const badge = screen.getByTestId("chronicle-seal");
+    expect(badge).toHaveTextContent(SEAL_PHRASES[1]);
+    expect(badge).toHaveTextContent("— Mama Bear");
+    expect(screen.queryByRole("button", { name: "Seal it" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Remove seal" })).not.toBeInTheDocument();
+  });
+
+  it("shows a note seal's own words", () => {
+    render(<QuestAssignmentCard data={sealed({ note: "You drew every tree", by: "Dad", at: 5 })} isChildView={true} />);
+    expect(screen.getByTestId("chronicle-seal")).toHaveTextContent("You drew every tree");
+    expect(screen.getByTestId("chronicle-seal")).toHaveTextContent("— Dad");
+  });
+
+  it("gives a hero no seal controls on a finished quest, sealed or not", () => {
+    render(<QuestAssignmentCard data={completed} isChildView={true} />);
+    expect(screen.queryByRole("button", { name: "Seal it" })).not.toBeInTheDocument();
+    expect(screen.queryByTestId("chronicle-seal")).not.toBeInTheDocument();
+  });
+
+  it("offers a grown-up Remove seal on a sealed quest, and not Seal it", async () => {
+    const user = userEvent.setup();
+    render(<QuestAssignmentCard data={sealed({ phrase: 0, by: "Mama Bear", at: 1 })} isChildView={false} />);
+    expect(screen.getByTestId("chronicle-seal")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Seal it" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Remove seal" }));
+    expect(unsealEntry).toHaveBeenCalledWith("qa1");
+  });
+
+  it("shows nothing for a stored seal that is not the format", () => {
+    render(<QuestAssignmentCard data={{ ...completed, assignment: { ...completed.assignment, seal: "<b>oops</b>" } }} isChildView={true} />);
+    expect(screen.queryByTestId("chronicle-seal")).not.toBeInTheDocument();
+  });
+
+  it("offers no seal on a quest that is not finished", () => {
+    render(<QuestAssignmentCard data={baseData} isChildView={false} />);
+    expect(screen.queryByRole("button", { name: "Seal it" })).not.toBeInTheDocument();
   });
 });

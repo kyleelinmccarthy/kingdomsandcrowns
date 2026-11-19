@@ -34,7 +34,7 @@ afterEach(cleanup);
 const TODAY = "2026-09-04";
 
 const assignment = (id: string, date: string, status = "pending") => ({
-  assignment: { id, status, date, notes: null, drawing: null, statusReason: null },
+  assignment: { id, status, date, notes: null, drawing: null, seal: null, statusReason: null },
   quest: {
     id: `q-${id}`,
     title: `Quest ${id}`,

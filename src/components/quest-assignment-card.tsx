@@ -22,6 +22,9 @@ import { hasMeaningfulNotes } from "@/lib/utils/sanitize";
 import { hasDrawing, parseDrawing, type Drawing } from "@/lib/utils/drawing";
 import { DrawingPad } from "@/components/drawing-pad";
 import { DrawingView } from "@/components/drawing-view";
+import { SealBadge, SealPanel } from "@/components/chronicle-seal";
+import { unsealEntry } from "@/lib/actions/chronicle-seals";
+import { parseSeal } from "@/lib/utils/seals";
 import type { QuestReward } from "@/lib/utils/quest-rewards";
 
 type AssignmentWithDetails = {
@@ -32,6 +35,8 @@ type AssignmentWithDetails = {
     notes: string | null;
     /** The drawing that tells the quest: stored JSON, read only through `parseDrawing`. */
     drawing: string | null;
+    /** A grown-up's seal on the finished quest: stored JSON, read only through `parseSeal`. */
+    seal: string | null;
     /** Why the quest was skipped or set aside. Never Scribe's Notes. */
     statusReason: string | null;
     /** Set when a grown-up moved this quest off the day it was first set for. */
@@ -144,6 +149,7 @@ export function QuestAssignmentCard({
   const [showStuck, setShowStuck] = useState(false);
   const [showRevise, setShowRevise] = useState(false);
   const [showNotesEdit, setShowNotesEdit] = useState(false);
+  const [showSeal, setShowSeal] = useState(false);
   const [notesDraft, setNotesDraft] = useState("");
   const [drawingDraft, setDrawingDraft] = useState<Drawing | null>(null);
   const [showDraftPad, setShowDraftPad] = useState(false);
@@ -193,6 +199,7 @@ export function QuestAssignmentCard({
   // Scribe's Notes, or a drawing: a hero who can't type yet tells the quest by drawing it.
   const hasRequiredNotes = !quest.requireNotes || hasMeaningfulNotes(notes) || hasDrawing(drawing);
   const storedDrawing = parseDrawing(assignment.drawing);
+  const seal = parseSeal(assignment.seal);
 
   function openQuickComplete() {
     setManualDuration(quest.estimatedMinutes ? String(quest.estimatedMinutes) : "");
@@ -246,6 +253,20 @@ export function QuestAssignmentCard({
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save notes");
+    } finally {
+      setActing(false);
+    }
+  }
+
+  // A grown-up lifts a seal they (or another grown-up) pressed.
+  async function handleUnseal() {
+    setActing(true);
+    setError("");
+    try {
+      await unsealEntry(assignment.id);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not remove the seal");
     } finally {
       setActing(false);
     }
@@ -465,6 +486,7 @@ export function QuestAssignmentCard({
                   )}
                 </div>
               )}
+              {seal && <SealBadge seal={seal} />}
             </>
           )}
           {isSkipped && (
@@ -532,11 +554,16 @@ export function QuestAssignmentCard({
 
         {/* A finished quest is still the hero's to annotate — and, for a
             grown-up, still theirs to correct when it wasn't really done. */}
-        {isCompleted && !showNotesEdit && !showRevise && (
+        {isCompleted && !showNotesEdit && !showRevise && !showSeal && (
           <div className="flex flex-wrap gap-1 sm:ml-auto">
             <Button size="sm" variant="ghost" onClick={openNotesEdit} disabled={acting} className="text-muted-foreground">
               {assignment.notes || hasDrawing(storedDrawing) ? "Edit Notes" : "Add Notes"}
             </Button>
+            {!isChildView && (
+              <Button size="sm" variant="ghost" onClick={seal ? handleUnseal : () => setShowSeal(true)} disabled={acting} className="text-muted-foreground">
+                {seal ? "Remove seal" : "Seal it"}
+              </Button>
+            )}
             {!isChildView && (
               <Button size="sm" variant="ghost" onClick={openRevise} disabled={acting} className="text-muted-foreground">
                 Not Done
@@ -695,6 +722,11 @@ export function QuestAssignmentCard({
             </Button>
           </div>
         </div>
+      )}
+
+      {/* A grown-up's seal of praise on a finished quest */}
+      {isCompleted && !isChildView && showSeal && !seal && (
+        <SealPanel assignmentId={assignment.id} onClose={() => setShowSeal(false)} />
       )}
 
       {/* Scribe's Notes on an already-completed quest */}

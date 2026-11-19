@@ -119,7 +119,7 @@ describe("QuestsPage child switching", () => {
 
 describe("QuestsPage finished quests", () => {
   const entry = (id: string, status: string) => ({
-    assignment: { id, status, notes: null, drawing: null, statusReason: null },
+    assignment: { id, status, notes: null, drawing: null, seal: null, statusReason: null },
     quest: { id: `q-${id}`, title: id, description: null, estimatedMinutes: null, rewardXp: null, rewardDescription: null, rewardAvatarItem: null, requireNotes: false },
     subject: { id: "s1", name: "Math", color: null },
   });
