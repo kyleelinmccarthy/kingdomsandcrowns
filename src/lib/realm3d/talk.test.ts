@@ -118,6 +118,15 @@ describe("a side quest that earned no star", () => {
     const t = deedToast({ site: well, after: { done: 0, total: 5, complete: false }, rose: false, counted: false, villagerName: null, next: objectiveState(all(), 1), numerals: true });
     expect(t.title).toBe("The village will help you try again.");
   });
+  it("a starred replay of a story already done is practice: never 'rising', never 'try again'", () => {
+    const t = deedToast({ site: { ...well, done: 1, total: 3 }, after: { done: 1, total: 3, complete: false }, rose: false, counted: false, earned: true, villagerName: "Old Bram", next: objectiveState(all(), 1), numerals: true });
+    expect(t).toMatchObject({ title: "Practised again!", line: "A new side quest will raise the Village Well.", rose: false, done: 1, total: 3 });
+    expect(`${t.title} ${t.line} ${t.spoken}`).not.toMatch(/rising|rose|try again|fail/i);
+  });
+  it("a starred replay at a building that stands says it stands", () => {
+    const t = deedToast({ site: { ...well, done: 3, total: 3, complete: true }, after: { done: 3, total: 3, complete: true, stars: 7, maxStars: 9 }, rose: false, counted: false, earned: true, villagerName: "Old Bram", next: objectiveState(all(), 1), numerals: true });
+    expect(t.title).toBe("The Village Well stands.");
+  });
   it("still says the building is rising for a run that counted", () => {
     const t = deedToast({ site: well, after: { done: 1, total: 5, complete: false }, rose: false, counted: true, villagerName: "Old Bram", next: objectiveState(all(), 1), numerals: true });
     expect(t.title).toBe("The Village Well is rising!");
@@ -204,6 +213,10 @@ describe("the result card's stars", () => {
     expect(resultStarsLine(none, "Old Bram")).toBe("Old Bram will help you try again.");
     expect(resultStarsLine(none)).toBe("The village will help you try again.");
     expect(resultStarsLine(none)).not.toMatch(/fail/i);
+  });
+  it("says nothing about trying again to a starred replay that moved nothing", () => {
+    expect(resultStarsLine({ stars: 2, previousBest: 3, counted: false, kind: "deed" }, "Old Bram")).toBe("");
+    expect(resultStarsLine({ stars: 3, previousBest: 3, counted: false, kind: "deed" }, "Old Bram")).toBe("");
   });
   it("says nothing about trying again for a challenge", () => {
     expect(resultStarsLine({ stars: 0, previousBest: 0, counted: false, kind: "challenge" })).toBe("");

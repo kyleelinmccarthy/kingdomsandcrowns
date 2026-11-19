@@ -203,7 +203,7 @@ describe("the deed board", () => {
       await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" })));
       await act(async () => void fireEvent.click(screen.getByRole("button", { name: "8" })));
       await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Finish side quest" })));
-      expect(onResult).toHaveBeenCalledWith("well", expect.objectContaining({ done: 3, stars: 6, maxStars: 9, counted: true, deed: { id: "well-stones", bestStars: 3, crowned: false } }));
+      expect(onResult).toHaveBeenCalledWith("well", expect.objectContaining({ done: 3, stars: 6, maxStars: 9, counted: true, earned: true, deed: { id: "well-stones", bestStars: 3, crowned: false } }));
     });
   });
 

@@ -443,6 +443,32 @@ describe("the record of the work: each story once raises a building, and it reme
     expect((await well())!.completed_at).not.toBeNull();
   });
 
+  it("counts a run only when it moved the building: a story's first star does, a starred replay of it does not", async () => {
+    await seedRun({ id: "first", ...ALL_RIGHT });
+    expect(await completeDeedRun("first")).toMatchObject({ stars: 3, previousBest: 0, counted: true, building: { done: 1, complete: false } });
+    // The same story again, three stars again: practice, and the well stays at 1 of 3.
+    await seedRun({ id: "again", ...ALL_RIGHT });
+    expect(await completeDeedRun("again")).toMatchObject({ stars: 3, previousBest: 3, counted: false, building: { done: 1, complete: false, practice: false } });
+    // A new story's first star moves it on.
+    await seedRun({ id: "signs", deedId: "well-signs", ...ALL_RIGHT });
+    expect(await completeDeedRun("signs")).toMatchObject({ previousBest: 0, counted: true, building: { done: 2, complete: false } });
+    // Practice at a building that already stands moves nothing either.
+    await seedRun({ id: "water", deedId: "well-water", ...ALL_RIGHT });
+    expect(await completeDeedRun("water")).toMatchObject({ counted: true, building: { done: 3, complete: true, practice: false } });
+    await seedRun({ id: "after", deedId: "well-water", ...ALL_RIGHT });
+    expect(await completeDeedRun("after")).toMatchObject({ counted: false, building: { complete: true, practice: true } });
+  });
+
+  it("a run whose write raised the building counted, even on a story already done (a completion that was never written)", async () => {
+    await seedRun({ id: "stones", deedId: "well-stones", completed: true, stars: 1 });
+    await seedRun({ id: "signs", deedId: "well-signs", completed: true, stars: 1 });
+    await seedRun({ id: "water", deedId: "well-water", completed: true, stars: 1 });
+    await seedRun(ALL_RIGHT);
+    const s = await completeDeedRun("run1");
+    expect(s).toMatchObject({ previousBest: 1, counted: true, building: { complete: true } });
+    expect((await well())!.completed_at).not.toBeNull();
+  });
+
   it("a page run that finishes the building leaves it unannounced, for the world to raise on the next visit", async () => {
     await hero("Ada");
     await seedRun({ id: "stones", deedId: "well-stones", completed: true, stars: 1 });

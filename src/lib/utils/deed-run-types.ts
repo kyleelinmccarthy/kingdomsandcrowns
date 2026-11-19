@@ -63,7 +63,11 @@ export type RunSummary = {
   stars: Stars; previousBest: Stars;
   /** The best stars on this side quest after this run. */
   deedBest: Stars;
-  /** Whether this run earned its story a place in the building: a starless run teaches but does not build. */
+  /**
+   * Whether this run moved its building: its side quest's first star (best below 1 before, at least
+   * 1 now), or the write that raised the building. A starless run teaches but does not build; a
+   * starred replay of a story already done is practice and moves nothing either.
+   */
   counted: boolean;
   /** Whether the side quest holds its crown after this run: a flawless Crown Challenge earns it. */
   crowned: boolean;

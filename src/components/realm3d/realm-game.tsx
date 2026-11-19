@@ -540,7 +540,7 @@ export function RealmGame({
       const t0 = performance.now();
       setKingdom(applied.state);
       const next = objectiveState(applied.state.buildings, trackedRef.current, focusAreas);
-      const words = deedToast({ site: before, after: result, rose: applied.rose, counted: result.counted, challenge: result.challenge, villagerName: villagerForBuilding(buildingId)?.name ?? null, next, numerals: surfaces.numerals || !realm.isChildView });
+      const words = deedToast({ site: before, after: result, rose: applied.rose, counted: result.counted, earned: result.earned, challenge: result.challenge, villagerName: villagerForBuilding(buildingId)?.name ?? null, next, numerals: surfaces.numerals || !realm.isChildView });
       setToast(words);
       if (readAloud) speak(words.spoken);
       // Development only: how long raising a building takes to reach the screen. `commitMs` is

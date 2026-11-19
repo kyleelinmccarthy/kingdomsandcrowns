@@ -18,7 +18,7 @@
 import type { AttemptResult, RunSummary } from "@/lib/utils/deed-run-types";
 import { cutFeedbackLine } from "@/lib/tasks/measure-copy";
 import type { ClientTask } from "@/lib/tasks/types";
-import { MAX_STARS } from "@/lib/utils/deed-scoring";
+import { MAX_STARS, countsTowardBuilding } from "@/lib/utils/deed-scoring";
 import type { ObjectiveState } from "@/lib/realm/objective";
 import { riseToast } from "@/lib/realm/objective";
 import type { Villager } from "@/lib/realm/villagers";
@@ -121,15 +121,21 @@ export type DeedToast = {
  * What the village says when a side quest is done. A building that rose gets `riseToast`'s own
  * sentence, with the next objective folded in, exactly as the flat Realm's toast did. A building
  * that is still rising says so, and names who is grateful. A run that earned no star built
- * nothing, so it never says the building rose or is rising. A counted run at a building that
+ * nothing, so it never says the building rose or is rising; a starred replay of a story already done
+ * is practice, and says a new story will raise it. A run at a building that
  * already stands says what stars are still to earn there, after this run.
  */
 export function deedToast(input: {
   site: SiteState;
   after: { done: number; total: number; complete: boolean; stars?: number; maxStars?: number };
   rose: boolean;
-  /** False when the run earned no star: it taught, but it did not build. Defaults to true. */
+  /** False when the run moved nothing: it taught, but it did not build. Defaults to true. */
   counted?: boolean;
+  /**
+   * Whether the run itself earned a star. A starred run that moved nothing replayed a story already
+   * done: it is practice, never "rising" and never "try again". Defaults to `counted`.
+   */
+  earned?: boolean;
   /** Set for a Crown Challenge, which never builds: whether it won the crown. */
   challenge?: { won: boolean };
   villagerName: string | null;
@@ -137,11 +143,17 @@ export function deedToast(input: {
   numerals: boolean;
 }): DeedToast {
   const { site, after, rose, villagerName, next, counted = true, challenge, numerals } = input;
+  const earned = input.earned ?? counted;
   if (challenge) {
     const [title, line] = challenge.won ? [CROWNED, "The crown shines beside your stars."] : ["So close!", "Try the challenge again any time."];
     return { title, line, done: after.done, total: after.total, rose: false, spoken: `${title} ${line}` };
   }
-  if (!counted) {
+  if (!counted && earned && !after.complete) {
+    const title = "Practised again!";
+    const line = `A new ${SIDE_QUEST_LOWER} will raise the ${site.label}.`;
+    return { title, line, done: after.done, total: after.total, rose: false, spoken: `${title} ${line}` };
+  }
+  if (!counted && !earned) {
     const title = `${villagerName ?? "The village"} will help you try again.`;
     return { title, line: "Every try teaches something.", done: after.done, total: after.total, rose: false, spoken: `${title} Every try teaches something.` };
   }
@@ -210,7 +222,8 @@ export function resultStarsLine(summary: Pick<RunSummary, "stars" | "previousBes
   // A build run has no best to beat and no side quest to try again: its stars go on the plaque.
   if (summary.kind === "build") return "";
   if (summary.stars > summary.previousBest) return "New best!";
-  if (!summary.counted && summary.kind === "deed") return `${villagerName ?? "The village"} will help you try again.`;
+  // Only a run that earned no star hears this: a starred replay that moved nothing was practice.
+  if (!countsTowardBuilding(summary.stars) && summary.kind === "deed") return `${villagerName ?? "The village"} will help you try again.`;
   return "";
 }
 

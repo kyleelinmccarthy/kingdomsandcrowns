@@ -31,7 +31,7 @@ import { realmCue } from "@/lib/realm3d/sound/store";
 import type { BuildingOverview } from "@/lib/services/deeds";
 import type { Villager } from "@/lib/realm/villagers";
 import { BUILD_FINISH, attemptFeedback, resultBuildingLine, resultHeadline, resultMinutesLine, resultStarsLine, talkCopy, type Viewer } from "@/lib/realm3d/talk";
-import { MAX_STARS, type Stars } from "@/lib/utils/deed-scoring";
+import { MAX_STARS, countsTowardBuilding, type Stars } from "@/lib/utils/deed-scoring";
 import { deedErrorLine } from "@/lib/utils/deed-refusals";
 import { DeedMeter } from "@/components/deed-meter";
 import { TaskPresenter } from "@/components/tasks/presenters";
@@ -52,6 +52,8 @@ type Profile = { readAloud: boolean; untimed: boolean };
  */
 export type DeedResult = NonNullable<RunSummary["building"]> & {
   counted?: boolean;
+  /** Whether the run itself earned a star: a starred run that did not count was practice (`deedToast`). */
+  earned?: boolean;
   deed?: { id: string; bestStars: Stars; crowned?: boolean };
   challenge?: { won: boolean };
   /** Realm minutes the run paid (`RunSummary.minutesEarned`): above 0, the frame re-asks the gate (the quiet world wakes). */
@@ -148,7 +150,7 @@ export function DeedBoard({
     // A build run has no building to raise, so nothing of it ever reaches the raise path.
     const handUp = (done: RunSummary) =>
       done.kind !== "build" && done.building && onResult(site.id, {
-        ...done.building, counted: done.counted, minutesEarned: done.minutesEarned, deed: { id: run.deed.id, bestStars: done.deedBest, crowned: done.crowned },
+        ...done.building, counted: done.counted, earned: countsTowardBuilding(done.stars), minutesEarned: done.minutesEarned, deed: { id: run.deed.id, bestStars: done.deedBest, crowned: done.crowned },
         ...(done.kind === "challenge" ? { challenge: { won: done.flawless } } : {}),
       });
     return (

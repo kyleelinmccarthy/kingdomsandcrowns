@@ -368,7 +368,7 @@ async function raisedRecord(childId: string): Promise<{ raisedByName: string | n
  */
 async function buildingAfter(
   childId: string, building: Building, countsRun: boolean, bestBefore: readonly DeedBest[], now: Date,
-): Promise<{ progress: { done: number; total: number; complete: boolean; practice: boolean }; bestNow: DeedBest[] }> {
+): Promise<{ progress: { done: number; total: number; complete: boolean; practice: boolean }; bestNow: DeedBest[]; raisedHere: boolean }> {
   const where = and(eq(schema.kingdomProgress.childId, childId), eq(schema.kingdomProgress.buildingId, building.id));
   if (countsRun) {
     // Insert-first, then an unconditional atomic increment: two completions of the
@@ -390,14 +390,17 @@ async function buildingAfter(
   const row = rows[0];
   const practice = buildingProgress(siteTally(building.id, row, bestBefore), building).complete;
   const progress = buildingProgress(siteTally(building.id, row, bestNow), building);
+  let raisedHere = false;
   if (row && progress.complete && row.completedAt === null) {
     const record = await raisedRecord(childId);
     // Raised once: of two finishes racing here, only the first write lands, so one name is written.
-    await db.update(schema.kingdomProgress)
+    const raised = await db.update(schema.kingdomProgress)
       .set({ completedAt: now, ...record, updatedAt: now })
-      .where(and(eq(schema.kingdomProgress.id, row.id), isNull(schema.kingdomProgress.completedAt)));
+      .where(and(eq(schema.kingdomProgress.id, row.id), isNull(schema.kingdomProgress.completedAt)))
+      .returning({ id: schema.kingdomProgress.id });
+    raisedHere = raised.length > 0;
   }
-  return { progress: { ...progress, practice }, bestNow };
+  return { progress: { ...progress, practice }, bestNow, raisedHere };
 }
 
 export async function completeDeedRun(runId: string): Promise<RunSummary> {
@@ -437,13 +440,16 @@ export async function completeDeedRun(runId: string): Promise<RunSummary> {
   // A build run spends and builds only now that it is closed, and after any pay (a build pays none).
   const improvement = run.kind === "build" ? await finishBuildRun(run.childId, run.sourceRef, stars, now) : undefined;
 
-  const counted = effects.raisesBuilding && countsTowardBuilding(stars);
   const deed = run.deedId ? findDeed(run.deedId) : null;
   const building = deed ? findBuilding(deed.buildingId) : null;
   // A challenge earns no stars, so it cannot move a best; a deed can only raise it.
   const deedBest = Math.max(previousBest, stars) as Stars;
   // Every side-quest run finished counts at its site, stars or none; a challenge counts none.
   const site = building ? await buildingAfter(run.childId, building, effects.raisesBuilding, bestBefore, now) : null;
+  // Whether this run moved its building: its story's first star, or the write that raised it. A
+  // starred replay of a story already done is practice, so the world never calls it "rising".
+  const firstStar = !countsTowardBuilding(previousBest) && countsTowardBuilding(stars);
+  const counted = effects.raisesBuilding && (firstStar || (site?.raisedHere ?? false));
   const progress = site?.progress ?? { done: 0, total: 0, complete: false, practice: false };
   const buildingStarsNow = building && site ? buildingStars(building.id, site.bestNow) : { stars: 0, maxStars: 0 };
 
