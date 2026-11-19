@@ -62,6 +62,8 @@ node --env-file=.env.prod src/lib/db/migrate.mjs
 
 Breaking schema changes (renames, drops) need two releases: add the new column and write both, then switch reads and drop the old one. Migrations run *before* the new code is live, so the running version must cope with the migrated schema for a moment.
 
+One-time after the release that introduced materials: take a backup (`npm run db:backup`), then run the welcome delivery, which mints materials for quests finished in the last 28 days. Preview it first with `npx tsx --env-file=.env.prod src/lib/db/welcome-materials.ts --dry-run`, then run it again without `--dry-run` (`--days N` changes the window). Running it twice is safe: a quest that already has its materials is skipped.
+
 Rollback: **Vercel → Deployments → (previous) → Promote to Production** restores the old code instantly. It does not undo migrations.
 
 ---
