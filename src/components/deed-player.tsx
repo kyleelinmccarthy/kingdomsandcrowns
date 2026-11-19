@@ -86,7 +86,7 @@ export function DeedPlayer({
   if (summary) {
     return (
       <GameFrame title={run.deed.title} icon={<GameIcon name="map" className="size-4 text-[var(--gold-bright)]" />}>
-        <DeedResults summary={summary} deedTitle={run.deed.title} area={run.deed.area} plan={run.plan} doneLabel={doneLabel} onDone={() => onFinished(summary)} />
+        <DeedResults summary={summary} deedTitle={run.deed.title} area={run.deed.area} doneLabel={doneLabel} onDone={() => onFinished(summary)} />
       </GameFrame>
     );
   }

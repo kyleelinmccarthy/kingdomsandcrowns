@@ -310,7 +310,7 @@ export function DeedRun({
   }
 
   if (summary) {
-    const head = resultHeadline(summary, run.deed.title, run.plan);
+    const head = resultHeadline(summary, run.deed.title);
     const stars = resultStarsLine(summary, villagerName);
     const minutesLine = resultMinutesLine(summary);
     return (

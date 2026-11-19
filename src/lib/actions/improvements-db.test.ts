@@ -2,12 +2,12 @@
 import { describe, it, expect, vi, beforeAll, beforeEach, afterAll } from "vitest";
 import { testDatabase } from "@/test/libsql-test-db";
 import { DEFAULT_REALM_SETTINGS } from "@/lib/utils/realm-settings";
-import { CLOSED, HERO_ONLY, PLAN_NOT_READY } from "@/lib/utils/deed-refusals";
+import { BUILD_HERO_ONLY, CLOSED, PLAN_NOT_READY } from "@/lib/utils/deed-refusals";
 import { TASK_CODECS } from "@/lib/tasks/codecs";
 import { kindOf } from "@/lib/tasks/registry";
 import type { MeasureTask, Task } from "@/lib/tasks/types";
 import {
-  KINGDOM_PROGRESS_DDL, REALM_ACCESS_DDL, REALM_IMPROVEMENT_DDL, REALM_LEDGER_DDL, REALM_MATERIAL_DDL, REALM_SETTINGS_DDL,
+  KINGDOM_PROGRESS_DDL, REALM_ACCESS_DDL, REALM_IMPROVEMENT_DDL, REALM_LEDGER_DDL, REALM_MATERIAL_DDL, REALM_PLAQUE_DDL, REALM_SETTINGS_DDL,
 } from "@/test/realm-db-ddl";
 
 /**
@@ -70,9 +70,10 @@ const DDL = [
   ...REALM_ACCESS_DDL,
   ...REALM_MATERIAL_DDL,
   ...REALM_IMPROVEMENT_DDL,
+  ...REALM_PLAQUE_DDL,
 ];
 
-const TABLES = ["deed_run", "skill_mastery", "kingdom_progress", "realm_settings", "realm_play_ledger", "learning_focus", "realm_material", "realm_improvement"];
+const TABLES = ["deed_run", "skill_mastery", "kingdom_progress", "realm_settings", "realm_play_ledger", "learning_focus", "realm_material", "realm_improvement", "quest_assignment", "quest", "subject", "season", "child"];
 
 let n = 0;
 /** Earned materials in hand. */
@@ -118,12 +119,15 @@ const rightResponse = (t: Task): string => {
   return TASK_CODECS.measure.encode(m.mode === "cut" ? m.answer! : m.solution!);
 };
 
+const wrongResponse = (t: Task): string => TASK_CODECS.measure.encode((t as MeasureTask).mode === "cut" ? "999" : []);
+
 beforeAll(async () => {
   for (const sql of DDL) await client.query(sql);
 });
 
 beforeEach(async () => {
   for (const t of TABLES) await client.query(`DELETE FROM ${t}`);
+  await client.query("INSERT INTO child (id, family_id, display_name) VALUES ('c1', 'f1', 'Ada')");
   vi.mocked(loadRealmSettings).mockResolvedValue({ ...DEFAULT_REALM_SETTINGS });
 });
 
@@ -175,13 +179,17 @@ describe("startBuildRun", () => {
   });
 
   it("a finished build run is not resumed", async () => {
+    // Enough for level 1 and then level 2: finishing the first run builds level 1, so the next start is level 2.
     await stockBanners();
+    await earn("dye", 6);
+    await earn("thread", 3);
     const first = await startBuildRun("c1", "village-banners");
     const tasks = await storedTasks(first.runId);
     for (const [i, t] of tasks.entries()) await answerDeedQuestion(first.runId, i, rightResponse(t));
     await completeDeedRun(first.runId);
     const next = await startBuildRun("c1", "village-banners");
     expect(next.runId).not.toBe(first.runId);
+    expect(next.plan).toMatchObject({ level: 2 });
     expect(await runs()).toBe(2);
   });
 
@@ -232,7 +240,7 @@ describe("startBuildRun", () => {
   it("refuses a grown-up, and writes nothing", async () => {
     await stockBanners();
     vi.mocked(requireChildAccess).mockResolvedValueOnce({ access: { userId: "parent:u1" }, familyId: "f1" } as never);
-    await expect(startBuildRun("c1", "village-banners")).rejects.toThrow(HERO_ONLY);
+    await expect(startBuildRun("c1", "village-banners")).rejects.toThrow(BUILD_HERO_ONLY);
     expect(await runs()).toBe(0);
   });
 
@@ -280,19 +288,83 @@ describe("startBuildRun", () => {
     });
   });
 
-  it("finishing a build run records stars and pays nothing: no minutes, no kingdom progress", async () => {
-    await stockBanners();
-    const r = await startBuildRun("c1", "village-banners");
+  async function answeredRun(improvementId = "village-banners"): Promise<string> {
+    const r = await startBuildRun("c1", improvementId);
     const tasks = await storedTasks(r.runId);
     for (const [i, t] of tasks.entries()) await answerDeedQuestion(r.runId, i, rightResponse(t));
-    const s = await completeDeedRun(r.runId);
+    return r.runId;
+  }
+
+  it("finishing a build run builds the level, spends its cost and pays nothing: no minutes, no kingdom progress", async () => {
+    await stockBanners();
+    const s = await completeDeedRun(await answeredRun());
     expect(s).toMatchObject({ kind: "build", stars: 3, counted: false, building: null, minutesEarned: 0, correctCount: 3 });
+    expect(s.improvement).toMatchObject({ id: "village-banners", label: "Banners", level: 1, built: true, balance: { dye: 0, thread: 0 } });
+    expect(s.improvement?.reason).toBeUndefined();
+    expect(s.improvement?.plaque).toEqual({
+      improvementId: "village-banners", level: 1, label: "Banners", builtBy: "Ada", season: null, sources: ["A quest", "A quest"], stars: 3,
+    });
     expect(await count("SELECT count(*) AS n FROM realm_play_ledger")).toBe(0);
     expect(await count("SELECT count(*) AS n FROM kingdom_progress")).toBe(0);
-    // Completing it is D8's: nothing is spent and no level is written here.
+    expect(await count("SELECT count(*) AS n FROM realm_improvement")).toBe(1);
+    expect(await count("SELECT count(*) AS n FROM realm_material WHERE kind = 'spent'")).toBe(2);
+  });
+
+  it("builds the level whatever the stars, and records them on the plaque", async () => {
+    await stockBanners();
+    // No second tries, so every wrong answer resolves at once.
+    vi.mocked(loadRealmSettings).mockResolvedValue({ ...DEFAULT_REALM_SETTINGS, secondChances: false });
+    const r = await startBuildRun("c1", "village-banners");
+    const tasks = await storedTasks(r.runId);
+    for (const [i, t] of tasks.entries()) await answerDeedQuestion(r.runId, i, wrongResponse(t));
+    const s = await completeDeedRun(r.runId);
+    expect(s.stars).toBe(0);
+    expect(s.improvement).toMatchObject({ built: true });
+    expect(s.improvement?.plaque?.stars).toBe(0);
+    expect(Number((await client.query("SELECT stars FROM realm_improvement")).rows[0].stars)).toBe(0);
+  });
+
+  it("a build run finished short of materials builds nothing and spends nothing, and says so", async () => {
+    await stockBanners();
+    const runId = await answeredRun();
+    // The materials were spent on something else while the hero was at the bench.
+    await client.query("DELETE FROM realm_material");
+    await earn("dye", 1);
+    const s = await completeDeedRun(runId);
+    expect(s).toMatchObject({ kind: "build", stars: 3, improvement: { id: "village-banners", level: 1, built: false, reason: "short", balance: { dye: 1, thread: 0 } } });
+    expect(s.improvement?.plaque).toBeUndefined();
     expect(await count("SELECT count(*) AS n FROM realm_improvement")).toBe(0);
     expect(await count("SELECT count(*) AS n FROM realm_material WHERE kind = 'spent'")).toBe(0);
+    // The run itself is closed, its stars kept.
+    expect(Number((await client.query("SELECT stars FROM deed_run WHERE id = ?1", [runId])).rows[0].stars)).toBe(3);
   });
+
+  it("a build that throws reports 'error' with the balance, never throws out of completion, and spends nothing", async () => {
+    await stockBanners();
+    const runId = await answeredRun();
+    // The level table is gone: the build's transaction fails whole.
+    await client.query("ALTER TABLE realm_improvement RENAME TO realm_improvement_gone");
+    const quiet = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const s = await completeDeedRun(runId);
+      expect(s.improvement).toMatchObject({ id: "village-banners", level: 1, built: false, reason: "error", balance: { dye: 4, thread: 2 } });
+      expect(s.stars).toBe(3);
+    } finally {
+      quiet.mockRestore();
+      await client.query("ALTER TABLE realm_improvement_gone RENAME TO realm_improvement");
+    }
+    expect(await count("SELECT count(*) AS n FROM realm_material WHERE kind = 'spent'")).toBe(0);
+  });
+
+  it("two tabs finishing one build run build it once: the second is refused", async () => {
+    await stockBanners();
+    const runId = await answeredRun();
+    const results = await Promise.allSettled([completeDeedRun(runId), completeDeedRun(runId)]);
+    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    expect(await count("SELECT count(*) AS n FROM realm_improvement")).toBe(1);
+    expect(await count("SELECT count(*) AS n FROM realm_material WHERE kind = 'spent'")).toBe(2);
+  });
+
 
   it("answering a build run moves skill_mastery", async () => {
     await stockBanners();

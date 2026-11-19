@@ -4,7 +4,8 @@
  */
 import type { ClientTask, FeedbackCode } from "@/lib/tasks/registry";
 import type { RunKind, Stars } from "./deed-scoring";
-import type { ImprovementId } from "@/lib/realm/improvements";
+import type { ImprovementId, Plaque } from "@/lib/realm/improvements";
+import type { MaterialId } from "@/lib/realm/materials";
 import type { SkillMeter } from "./mastery";
 import type { SkillArea } from "./skills";
 
@@ -73,4 +74,14 @@ export type RunSummary = {
   minutesEarned: number;
   /** The day's side-quest minutes are all earned, so the card can say so instead of "+0". */
   sideQuestPayFull: boolean;
+  /**
+   * Only on a build run: what finishing it did. `built` is true when the level stands, whether this
+   * call built it or another tab already had; `plaque` is set only when this call built it. `reason`
+   * says why not: "short" (the materials were not there, nothing was spent) or "error" (nothing was
+   * spent). `balance` is what the hero holds afterwards.
+   */
+  improvement?: {
+    id: ImprovementId; label: string; level: number; built: boolean; reason?: "short" | "error";
+    balance: Record<MaterialId, number>; plaque?: Plaque;
+  };
 };

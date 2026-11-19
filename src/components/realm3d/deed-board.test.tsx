@@ -214,6 +214,7 @@ describe("the deed board", () => {
     const built = {
       correctCount: 2, total: 2, flawless: true, masteryChanges: [], stars: 3, previousBest: 0, deedBest: 0, counted: false, crowned: false, kind: "build" as const,
       building: null, minutesEarned: 0, sideQuestPayFull: false,
+      improvement: { id: "village-banners" as const, label: "Banners", level: 2, built: true, balance: { stone: 0, ink: 0, herbs: 0, thread: 0, dye: 0, timber: 0 } },
     };
 
     async function playToTheEnd(summary: Omit<typeof built, "building"> & { building: unknown }) {

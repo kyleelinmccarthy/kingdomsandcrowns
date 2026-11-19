@@ -34,6 +34,10 @@ import { buildingStars, gradeForDeed, loadDeedBest, loadHeroLevels, loadKingdomO
 import { loadFocusSkillIds } from "@/lib/services/learning-focus";
 import { loadLearningProfileRow } from "@/lib/services/learning-profile";
 import { loadRealmSettings, paySideQuest } from "@/lib/services/realm-play";
+import { finishBuild } from "@/lib/services/improvements";
+import { loadMaterialLedger } from "@/lib/services/realm-materials";
+import { IMPROVEMENTS, parsePlanRef, type ImprovementId } from "@/lib/realm/improvements";
+import { MATERIAL_IDS, materialBalance, type MaterialId } from "@/lib/realm/materials";
 import { NO_SIDE_QUEST_PAY, type SideQuestPay } from "@/lib/utils/side-quest-pay";
 import { enabledHandsOnKinds } from "@/lib/utils/realm-settings";
 
@@ -385,6 +389,9 @@ export async function completeDeedRun(runId: string): Promise<RunSummary> {
   // lock, so the pay's transaction and the building's write must not overlap (`payForRun` never rejects).
   const pay = effects.paysMinutes && stars > 0 && isChildActor(access) ? await payForRun(run.childId, runId, stars) : NO_SIDE_QUEST_PAY;
 
+  // A build run spends and builds only now that it is closed, and after any pay (a build pays none).
+  const improvement = run.kind === "build" ? await finishBuildRun(run.childId, run.sourceRef, stars, now) : undefined;
+
   const counted = effects.raisesBuilding && countsTowardBuilding(stars);
   const deed = run.deedId ? findDeed(run.deedId) : null;
   const building = deed ? findBuilding(deed.buildingId) : null;
@@ -414,7 +421,37 @@ export async function completeDeedRun(runId: string): Promise<RunSummary> {
     // A run owned by no side quest (a review) raises nothing, so it has no building to show.
     building: run.deedId ? { label: building?.label ?? "the kingdom", ...progress, ...buildingStarsNow } : null,
     minutesEarned: pay.minutes, sideQuestPayFull: pay.full,
+    ...(improvement ? { improvement } : {}),
   };
+}
+
+/**
+ * The build hook of `completeDeedRun`: the run is already closed, so whatever goes wrong here must
+ * not fail the finish. Any throw reads as "error" (nothing was spent: `finishBuild` is one
+ * transaction), with the balance from a fresh read, or zeros if that fails too.
+ */
+async function finishBuildRun(childId: string, sourceRef: string | null, stars: number, now: Date): Promise<NonNullable<RunSummary["improvement"]>> {
+  const ref = parsePlanRef(sourceRef ?? "");
+  // A ref that does not parse (it cannot, from `startBuildRun`) still gets a plan's shape in the summary.
+  const head = ref
+    ? { id: ref.improvementId, label: IMPROVEMENTS[ref.improvementId].label, level: ref.level }
+    : { id: "" as ImprovementId, label: "the plan", level: 1 };
+  const stopped = async (): Promise<NonNullable<RunSummary["improvement"]>> => {
+    let balance = Object.fromEntries(MATERIAL_IDS.map((id) => [id, 0])) as Record<MaterialId, number>;
+    try {
+      balance = materialBalance(await loadMaterialLedger(childId));
+    } catch {
+      // The zeros stand: the summary still tells the hero nothing was spent.
+    }
+    return { ...head, built: false, reason: "error", balance };
+  };
+  if (!ref) return stopped();
+  try {
+    return await finishBuild(childId, ref, stars, now);
+  } catch (err) {
+    console.error("finishing a build failed", { childId, sourceRef, err });
+    return stopped();
+  }
 }
 
 /**

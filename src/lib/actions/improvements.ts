@@ -7,7 +7,7 @@ import { isChildActor, requireChildAccess } from "@/lib/auth/access";
 import { IMPROVEMENTS, planRef, planState, type ImprovementId } from "@/lib/realm/improvements";
 import { buildBuildRun } from "@/lib/utils/build-run";
 import { RUN_EFFECTS } from "@/lib/utils/deed-scoring";
-import { CLOSED, HERO_ONLY, NONE_READY, PLAN_NOT_READY } from "@/lib/utils/deed-refusals";
+import { BUILD_HERO_ONLY, CLOSED, NONE_READY, PLAN_NOT_READY } from "@/lib/utils/deed-refusals";
 import { bandForGrade } from "@/lib/utils/grade-levels";
 import { enabledHandsOnKinds } from "@/lib/utils/realm-settings";
 import { profileFromRow } from "@/lib/utils/learning-profile";
@@ -31,7 +31,7 @@ const BUILD_STORY = "Aldo has the plans ready. Measure true and it will stand.";
 export async function startBuildRun(childId: string, improvementId: string): Promise<RunStart> {
   const { access } = await requireChildAccess(childId, { write: true });
   // Building happens in the Realm, and only the hero plays there; a parent previewing never builds.
-  if (!isChildActor(access)) throw new Error(HERO_ONLY);
+  if (!isChildActor(access)) throw new Error(BUILD_HERO_ONLY);
   const hero = await loadHeroLevels(childId);
   if (!hero.enabled) throw new Error(CLOSED);
   // `improvementId` crosses the network: only a catalog id gets as far as the ledger.

@@ -27,6 +27,20 @@ export const IMPROVEMENT_IDS: readonly ImprovementId[] = [
   "chronicle-hall", "village-banners", "village-lamps", "village-fountain", "village-statue",
 ];
 
+/**
+ * The plaque a built level carries: what was built, who built it and when (the season's label), the
+ * quests that paid for it (titles, oldest first) and the stars the building run earned.
+ */
+export type Plaque = {
+  improvementId: ImprovementId;
+  level: number;
+  label: string;
+  builtBy: string;
+  season: string | null;
+  sources: string[];
+  stars: number;
+};
+
 export type ImprovementColor = "stone" | "timber" | "plaster" | "roof" | "cloth" | "glass" | "gold" | "water";
 
 /** Low-poly colours, in the spirit of the construction site's: weathered stone, pale timber, warm plaster. */

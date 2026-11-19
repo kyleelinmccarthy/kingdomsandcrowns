@@ -142,18 +142,26 @@ describe("a review's result", () => {
 
 describe("a build run's result", () => {
   const done = { correctCount: 2, total: 3, flawless: false, kind: "build" as const };
+  const outcome = (level: number, extra: { built?: boolean; reason?: "short" | "error" } = {}) => ({ label: "Banners", level, built: true, ...extra });
   it("says the plan is built at level 1, and grows above it", () => {
-    expect(resultHeadline(done, "Banners", { level: 1 })).toEqual({ title: "The Banners is built!", line: "2 of 3 right." });
-    expect(resultHeadline(done, "Banners", { level: 2 }).title).toBe("The Banners grows!");
-    expect(resultHeadline(done, "Banners", { level: 3 }).title).toBe("The Banners grows!");
+    expect(resultHeadline({ ...done, improvement: outcome(1) }, "Banners")).toEqual({ title: "The Banners is built!", line: "2 of 3 right." });
+    expect(resultHeadline({ ...done, improvement: outcome(2) }, "Banners").title).toBe("The Banners grows!");
+    expect(resultHeadline({ ...done, improvement: outcome(3) }, "Banners").title).toBe("The Banners grows!");
   });
   it("never says Flawless! or side quest, even for a perfect run", () => {
-    const head = resultHeadline({ ...done, correctCount: 3, flawless: true }, "Fountain", { level: 1 });
+    const head = resultHeadline({ ...done, correctCount: 3, flawless: true, improvement: { ...outcome(1), label: "Fountain" } }, "Fountain");
     expect(head.title).toBe("The Fountain is built!");
     expect(`${head.title} ${head.line}`).not.toMatch(/flawless|side quest/i);
   });
-  it("is built at level 1 when the level is not known", () => {
-    expect(resultHeadline(done, "Banners").title).toBe("The Banners is built!");
+  it("says the plan will wait when the materials were not enough", () => {
+    expect(resultHeadline({ ...done, improvement: outcome(1, { built: false, reason: "short" }) }, "Banners")).toEqual({
+      title: "Not quite enough materials", line: "The plan will wait for you on the plans board.",
+    });
+  });
+  it("says the builders had to stop, and that nothing was spent, on an error or with no outcome", () => {
+    const stop = { title: "The builders had to stop", line: "Nothing was spent. Try again from the plans board." };
+    expect(resultHeadline({ ...done, improvement: outcome(1, { built: false, reason: "error" }) }, "Banners")).toEqual(stop);
+    expect(resultHeadline(done, "Banners")).toEqual(stop);
   });
   it("never says 'New best!' or that the village will help, whatever the stars", () => {
     expect(resultStarsLine({ stars: 3, previousBest: 0, counted: false, kind: "build" })).toBe("");

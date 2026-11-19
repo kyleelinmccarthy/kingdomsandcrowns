@@ -41,7 +41,7 @@ export const REALM_TROUBLE_CLEAR_DDL = [
 export const REALM_ACCESS_DDL = [
   `CREATE TABLE schedule_block (id text PRIMARY KEY, child_id text NOT NULL, day_of_week text NOT NULL, start_time text NOT NULL, end_time text NOT NULL)`,
   `CREATE TABLE recess_block (id text PRIMARY KEY, child_id text NOT NULL, day_of_week text NOT NULL, start_time text NOT NULL, end_time text NOT NULL)`,
-  `CREATE TABLE child (id text PRIMARY KEY, family_id text, school_days text)`,
+  `CREATE TABLE child (id text PRIMARY KEY, family_id text, school_days text, display_name text)`,
   `CREATE TABLE school_break (id text PRIMARY KEY, family_id text NOT NULL, start_date text NOT NULL, end_date text NOT NULL)`,
 ];
 
@@ -70,4 +70,15 @@ export const KINGDOM_PROGRESS_DDL = [
     deeds_done integer DEFAULT 0 NOT NULL, completed_at integer, announced_at integer,
     raised_by_name text, raised_season_id text, created_at integer NOT NULL, updated_at integer NOT NULL)`,
   `CREATE UNIQUE INDEX kingdom_progress_child_building_idx ON kingdom_progress (child_id, building_id)`,
+];
+
+/**
+ * What a plaque reads at the moment a level is built (`finishBuild`): the quests that paid for it
+ * (assignment, quest, subject) and the hero's open season. Only the columns those reads use.
+ */
+export const REALM_PLAQUE_DDL = [
+  `CREATE TABLE quest_assignment (id text PRIMARY KEY NOT NULL, quest_id text NOT NULL, child_id text NOT NULL, date text NOT NULL)`,
+  `CREATE TABLE quest (id text PRIMARY KEY NOT NULL, title text NOT NULL, subject_id text)`,
+  `CREATE TABLE subject (id text PRIMARY KEY NOT NULL, name text NOT NULL, material text)`,
+  `CREATE TABLE season (id text PRIMARY KEY NOT NULL, child_id text NOT NULL, ordinal integer DEFAULT 1 NOT NULL, start_date text NOT NULL, completed_at integer)`,
 ];

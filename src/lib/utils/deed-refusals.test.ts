@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { refuseRetry } from "./deed-attempts";
-import { ALREADY_ANSWERED, CLOSED, deedErrorLine, HERO_ONLY } from "./deed-refusals";
+import { ALREADY_ANSWERED, BUILD_HERO_ONLY, CLOSED, deedErrorLine, HERO_ONLY } from "./deed-refusals";
 
 const four = { id: "add-10:2:2", skillId: "add-10", prompt: "2 + 2 = ?", answer: "4", choices: ["1", "2", "3", "4"] };
 
@@ -11,6 +11,7 @@ describe("deedErrorLine", () => {
     expect(deedErrorLine(new Error(ALREADY_ANSWERED))).toBe(ALREADY_ANSWERED);
     expect(deedErrorLine(new Error(CLOSED))).toBe(CLOSED);
     expect(deedErrorLine(new Error(HERO_ONLY))).toBe(HERO_ONLY);
+    expect(deedErrorLine(new Error(BUILD_HERO_ONLY))).toBe("Building is for the hero to do.");
     expect(deedErrorLine(new Error(refuseRetry(four, { first: "1", second: null }, true, "1")!))).toBe("Try a different answer this time.");
   });
   it("maps anything else — a production-redacted message, a non-Error — to one friendly line", () => {

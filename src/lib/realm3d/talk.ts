@@ -164,16 +164,21 @@ export function deedToast(input: {
 /** The last button of a build run, where a side quest's says "Finish side quest". */
 export const BUILD_FINISH = "Finish building";
 
+/** What the result card's headline reads of a build run's outcome (`RunSummary.improvement`). */
+type BuildOutcome = Pick<NonNullable<RunSummary["improvement"]>, "label" | "level" | "built" | "reason">;
+
 /** The result card's headline, as the flat Realm's `DeedResults` wrote it; a Crown Challenge is crowned or close. */
 export function resultHeadline(
-  summary: { correctCount: number; total: number; flawless: boolean; kind?: RunSummary["kind"] },
+  summary: { correctCount: number; total: number; flawless: boolean; kind?: RunSummary["kind"]; improvement?: BuildOutcome },
   deedTitle: string,
-  /** A build run's level, from `RunStart.plan`; its `deedTitle` is the plan's name. */
-  plan?: { level: number },
 ): { title: string; line: string } {
-  // A build run is judged on the plaque, never as a side quest: the plan stands, and says so.
+  // A build run is judged on what it built, never as a side quest: the plan stands, waits, or stopped.
   if (summary.kind === "build") {
-    return { title: (plan?.level ?? 1) > 1 ? `The ${deedTitle} grows!` : `The ${deedTitle} is built!`, line: `${summary.correctCount} of ${summary.total} right.` };
+    const b = summary.improvement;
+    if (b?.built) return { title: b.level > 1 ? `The ${b.label} grows!` : `The ${b.label} is built!`, line: `${summary.correctCount} of ${summary.total} right.` };
+    if (b?.reason === "short") return { title: "Not quite enough materials", line: "The plan will wait for you on the plans board." };
+    // An error, or a summary with no outcome at all: nothing was spent either way.
+    return { title: "The builders had to stop", line: "Nothing was spent. Try again from the plans board." };
   }
   // A review teaches and pays nothing: no "Flawless!" to chase, only how it went.
   if (summary.kind === "review") return { title: REVIEW_DONE, line: reviewSummaryLine(summary) };

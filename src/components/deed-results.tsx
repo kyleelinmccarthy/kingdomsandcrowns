@@ -8,17 +8,15 @@ import type { RunSummary } from "@/lib/utils/deed-run-types";
 import type { SkillArea } from "@/lib/utils/skills";
 import { SIDE_QUESTS_LOWER } from "@/lib/utils/side-quest-copy";
 
-export function DeedResults({ summary, deedTitle, area, plan, onDone, doneLabel = `Back to ${SIDE_QUESTS_LOWER}` }: {
+export function DeedResults({ summary, deedTitle, area, onDone, doneLabel = `Back to ${SIDE_QUESTS_LOWER}` }: {
   summary: RunSummary; deedTitle: string; area: SkillArea | null;
-  /** A build run's level (`RunStart.plan`): its `deedTitle` is the plan's name. */
-  plan?: { level: number };
   onDone: () => void; doneLabel?: string;
 }) {
   // A review teaches and pays nothing: no stars, no minutes, no building, only how it went.
   const review = summary.kind === "review";
   // A build run says its plan stands, shows its stars, and is never a "New best!" or a side quest.
   const build = summary.kind === "build";
-  const buildHead = build ? resultHeadline(summary, deedTitle, plan) : null;
+  const buildHead = build ? resultHeadline(summary, deedTitle) : null;
   const starsLine = review ? "" : resultStarsLine(summary);
   const minutesLine = review ? null : resultMinutesLine(summary);
   return (
