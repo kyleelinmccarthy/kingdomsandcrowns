@@ -17,7 +17,8 @@ import { loadRealmSettings, withChildLock, type Exec } from "@/lib/services/real
  * time and reports the row that is already there. Undoing a quest never takes materials back.
  *
  * It mints whatever `enabled` and `accessMode` say: materials record work, they are not play time.
- * Returns null when nothing is minted (`materialsPerQuest` is 0, or the assignment is gone).
+ * Returns null when nothing is minted (`materialsPerQuest` is 0, or the assignment is gone or
+ * belongs to another hero: a quest only ever mints for the hero it belongs to).
  */
 export async function grantMaterialsForCompletion(
   childId: string,
@@ -29,7 +30,7 @@ export async function grantMaterialsForCompletion(
     .from(schema.questAssignment)
     .innerJoin(schema.quest, eq(schema.questAssignment.questId, schema.quest.id))
     .leftJoin(schema.subject, eq(schema.quest.subjectId, schema.subject.id))
-    .where(eq(schema.questAssignment.id, assignmentId))
+    .where(and(eq(schema.questAssignment.id, assignmentId), eq(schema.questAssignment.childId, childId)))
     .limit(1);
   const row = rows[0];
   if (!row) return null;
@@ -60,7 +61,7 @@ export async function grantMaterialsForCompletion(
     const [existing] = await tx
       .select({ materialId: M.materialId, amount: M.amount })
       .from(M)
-      .where(and(eq(M.kind, "earned"), eq(M.sourceAssignmentId, assignmentId)))
+      .where(and(eq(M.childId, childId), eq(M.kind, "earned"), eq(M.sourceAssignmentId, assignmentId)))
       .limit(1);
     return existing ? { materialId: existing.materialId as MaterialId, amount: existing.amount } : null;
   });

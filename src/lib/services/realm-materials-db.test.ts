@@ -119,6 +119,31 @@ describe("grantMaterialsForCompletion", () => {
     expect((await s.grantMaterialsForCompletion("c1", "a-none"))?.materialId).toBe("timber");
   });
 
+  it("another hero's grant for this quest mints nothing; the rightful hero's still does", async () => {
+    const s = await isolate();
+    expect(await s.grantMaterialsForCompletion("c2", "a-math")).toBeNull();
+    expect(await rows()).toHaveLength(0);
+    expect(await s.grantMaterialsForCompletion("c1", "a-math")).toEqual({ materialId: "stone", amount: 1 });
+    // Once minted, a stranger's repeat neither mints nor reads the hero's row.
+    expect(await s.grantMaterialsForCompletion("c2", "a-math")).toBeNull();
+    expect(await rows()).toHaveLength(1);
+  });
+
+  it("a failure at the insert step is swallowed by the safe wrapper", async () => {
+    const s = await isolate();
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    const tx = vi.spyOn(testDb, "transaction").mockRejectedValue(new Error("the write failed"));
+    try {
+      await expect(s.grantMaterialsSafely("c1", "a-math")).resolves.toBeUndefined();
+      expect(tx).toHaveBeenCalled();
+      expect(log).toHaveBeenCalledOnce();
+    } finally {
+      tx.mockRestore();
+      log.mockRestore();
+    }
+    expect(await rows()).toHaveLength(0);
+  });
+
   it("an unknown assignment mints nothing", async () => {
     const s = await isolate();
     expect(await s.grantMaterialsForCompletion("c1", "missing")).toBeNull();
