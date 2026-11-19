@@ -215,9 +215,11 @@ export type PlanStatus = {
   short?: Partial<Record<MaterialId, number>>;
 };
 
-const LEVELS = 3;
+/** How many levels every plan has. */
+export const LEVELS = 3;
 const totalOf = (m: Partial<Record<MaterialId, number>> | undefined): number => Object.values(m ?? {}).reduce<number>((n, v) => n + (v ?? 0), 0);
-const hostLabel = (host: ImprovementHost): string | null => BUILDINGS.find((b) => b.id === host)?.label ?? null;
+/** The building a wing stands on ("Village Well"); null for the keep yard's and the village's plans. */
+export const hostLabel = (host: ImprovementHost): string | null => BUILDINGS.find((b) => b.id === host)?.label ?? null;
 
 /**
  * Every plan's status for a hero. A wing is offered once its building is raised; the hall and the

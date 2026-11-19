@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildWorldLayout } from "@/lib/realm/layout";
-import { buildSpots, edgeDistance, pickSpot, RIDDLE_LABEL, RIDDLE_VERB, siteLabel } from "./interact";
+import { KEEP_YARD } from "@/lib/realm/keep-yard";
+import { buildSpots, edgeDistance, pickSpot, PLANS_TARGET, RIDDLE_LABEL, RIDDLE_VERB, siteLabel } from "./interact";
 
 const layout = buildWorldLayout({
   castleType: "castle",
@@ -92,5 +93,32 @@ describe("the riddle stones", () => {
 
   it("has none when none are given", () => {
     expect(spots.some((s) => s.target.kind === "riddle")).toBe(false);
+  });
+});
+
+describe("the plans board", () => {
+  const board = KEEP_YARD.plansBoard;
+  const withBoard = buildSpots({ props: layout.props, sitePlan: 1.5, landmarks, castle: null, plans: board });
+
+  it("adds one spot at the board, read with E", () => {
+    const plans = withBoard.filter((s) => s.target.kind === "plans");
+    expect(plans.map((s) => s.target)).toEqual([{ kind: "plans", id: "plans-board", label: "Kingdom plans", verb: "Read" }]);
+    expect(plans[0].target).toBe(PLANS_TARGET);
+    expect(plans[0]).toMatchObject({ x: board.x, z: board.z });
+  });
+
+  it("is what E acts on when the hero walks up to it, from any side", () => {
+    for (const [dx, dz] of [[0, 1.8], [1.8, 0], [0, -1.8], [-1.8, 0]]) {
+      expect(withBoard[pickSpot(withBoard, board.x + dx, board.z + dz, -1)]?.target, `${dx},${dz}`).toBe(PLANS_TARGET);
+    }
+  });
+
+  it("lets go once the hero walks on", () => {
+    const i = withBoard.findIndex((s) => s.target.kind === "plans");
+    expect(pickSpot(withBoard, board.x + 6, board.z, i)).not.toBe(i);
+  });
+
+  it("has none when none is given", () => {
+    expect(spots.some((s) => s.target.kind === "plans")).toBe(false);
   });
 });

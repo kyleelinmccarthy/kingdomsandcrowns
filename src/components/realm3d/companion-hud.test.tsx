@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { makeHudBus, type HudBus } from "@/lib/realm3d/hud-bus";
 import { controlRows, keyHints } from "@/lib/realm3d/frame";
 import type { Goal } from "@/lib/realm3d/guide";
+import { PLANS_BOARD_NAME } from "@/lib/realm3d/plan-goal";
 import type { LeadBus, LeadTarget } from "@/lib/realm3d/lead";
 import { CompanionSlot, LeadLine, LeadMapMarks, leadWords, petLabel, slotCaption, useCompanionLead, type CompanionLead } from "./companion-hud";
 
@@ -134,6 +135,15 @@ describe("the words, the slot and the map", () => {
     expect(controlRows(4, {}).some((r) => r.keys[0] === "F")).toBe(false);
     expect(keyHints(4, { pet: true }).map((h) => h.key)).toContain("F");
     expect(keyHints(4, {}).map((h) => h.key)).not.toContain("F");
+  });
+
+  it("leads to the plans board in the board's own words: E reads it, nobody is talked to", () => {
+    const board: LeadTarget = { kind: "villager", id: "plan:village-banners", name: PLANS_BOARD_NAME, x: -6, z: 21.5 };
+    expect(leadWords.start("Fox", board)).toBe("Your Fox knows the way to the plans board. Follow!");
+    expect(leadWords.arrive("Fox", board)).toBe("Here's the plans board! Press E to read it.");
+    expect(leadWords.here(PLANS_BOARD_NAME)).toBe("The plans board is right here! Press E to read it.");
+    // A villager is still talked to.
+    expect(leadWords.here("Old Bram")).toBe("Old Bram is right here! Press E to talk.");
   });
 
   it("draws the pet's way on the map, and a paw at its end unless the gold ! is already there", () => {

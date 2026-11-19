@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { useEffect } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import type { HudBus } from "@/lib/realm3d/hud-bus";
@@ -55,7 +55,7 @@ vi.mock("@/lib/actions/avatar", () => ({
 vi.mock("@/lib/actions/realm-sound", () => ({ saveRealmSound: vi.fn(async () => {}) }));
 vi.mock("@/lib/actions/deeds", () => ({ startDeedRun: vi.fn(), answerDeedQuestion: vi.fn(), completeDeedRun: vi.fn() }));
 vi.mock("@/lib/actions/seasons", () => ({ markCeremonySeen: vi.fn(async () => {}) }));
-vi.mock("@/lib/actions/improvements", () => ({ markBuildingsAnnounced: vi.fn(async () => {}) }));
+vi.mock("@/lib/actions/improvements", () => ({ markBuildingsAnnounced: vi.fn(async () => {}), startBuildRun: vi.fn(), pinPlan: vi.fn(async () => {}) }));
 vi.mock("@/lib/actions/review", () => ({ startReviewRun: vi.fn(), getReviewDue: vi.fn(async () => false) }));
 vi.mock("@/lib/actions/spells", () => ({ getSpellbook: vi.fn(async () => ({ spells: [], slots: 4, level: 3, unlocked: ["ember", "tide", "bolt", "orb"], schoolCounts: { element: 2, form: 0, modifier: 0 }, subjectNamesBySchool: { element: ["Math"], form: [], modifier: [] } })) }));
 vi.mock("@/lib/actions/realm", () => ({ getRealmKingdom: vi.fn() }));
@@ -82,7 +82,11 @@ import { updateAvatarConfig } from "@/lib/actions/avatar";
 import { getRealmKingdom } from "@/lib/actions/realm";
 import { markRealmHelpSeen, setTutorialStep } from "@/lib/actions/realm-settings";
 import { markCeremonySeen } from "@/lib/actions/seasons";
-import { markBuildingsAnnounced } from "@/lib/actions/improvements";
+import { markBuildingsAnnounced, pinPlan, startBuildRun } from "@/lib/actions/improvements";
+import { KEEP_YARD } from "@/lib/realm/keep-yard";
+import { EMPTY_WORKS, type Works } from "@/lib/realm/works-state";
+import { PLANS_TARGET } from "@/lib/realm3d/interact";
+import { BUILD_HERO_ONLY } from "@/lib/utils/deed-refusals";
 import { startReviewRun } from "@/lib/actions/review";
 import { saveRealmSound } from "@/lib/actions/realm-sound";
 import { getRealmAccess, getTroubleBounty, recordTroubleClears } from "@/lib/actions/realm-play";
@@ -257,6 +261,83 @@ describe("the riddle stones", () => {
     const { bus } = mount({ entry: { minutes: 0, visit: null, source: "quiet" } });
     await act(async () => void bus.onInteract(stone));
     expect(screen.getByRole("dialog", { name: "Longwater riddle stone" })).toBeInTheDocument();
+  });
+});
+
+describe("the keep yard", () => {
+  /** Enough for the Banners' first level (4 Dye and 2 Thread). */
+  const rich: Works = { ...EMPTY_WORKS, balance: { ...EMPTY_WORKS.balance, dye: 4, thread: 2 } };
+
+  it("hands the canvas the hero's satchel for the stockpile, the same object while it holds the same", () => {
+    const { view } = mount({ realm: { ...realm, works: rich } });
+    expect(handed.props!.stockpile).toEqual(rich.balance);
+    const first = handed.props!.stockpile;
+    view.rerender(<RealmGame heroName="Emma" spellbook={spellbook} realm={{ ...realm, works: rich }} entry={{ minutes: 240, visit: null, source: "earned" }} castleUnlocked={false} />);
+    expect(handed.props!.stockpile).toBe(first);
+  });
+
+  it("opens the plans board when E is pressed at it, and pauses the world", () => {
+    const { bus } = mount({ realm: { ...realm, works: rich } });
+    act(() => bus.onNear(PLANS_TARGET));
+    expect(screen.getByRole("button", { name: /Read Kingdom plans/ })).toBeInTheDocument();
+    act(() => bus.onInteract(PLANS_TARGET));
+    const board = screen.getByRole("dialog", { name: "Kingdom plans" });
+    expect(board).toHaveTextContent("Ready to build");
+    expect(screen.getAllByRole("button", { name: "Build" }).length).toBeGreaterThan(0);
+    expect(bus.paused).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Back to the Realm" }));
+    expect(bus.paused).toBe(false);
+  });
+
+  it("sends the gold ! to the plans board while the pinned plan is ready, and to the villager otherwise", () => {
+    const { bus, view } = mount({ realm: { ...realm, works: { ...rich, pinned: "village-banners" } } });
+    expect(bus.goal).toMatchObject({ on: true, x: KEEP_YARD.plansBoard.x, z: KEEP_YARD.plansBoard.z });
+    expect(view.container.querySelector(".r3-goal-name")).toHaveTextContent("Banners");
+    cleanup();
+    // Pinned but short: the villager, as before.
+    const short = mount({ realm: { ...realm, works: { ...EMPTY_WORKS, pinned: "village-banners" } } });
+    expect(short.bus.goal).not.toMatchObject({ x: KEEP_YARD.plansBoard.x, z: KEEP_YARD.plansBoard.z });
+    expect(short.view.container.querySelector(".r3-goal-name")).toHaveTextContent("Old Bram");
+  });
+
+  it("moves the gold ! to the board the moment the hero pins a ready plan there", async () => {
+    const { bus } = mount({ realm: { ...realm, works: rich } });
+    act(() => bus.onInteract(PLANS_TARGET));
+    const banners = screen.getByRole("listitem", { name: "Banners" });
+    await act(async () => void fireEvent.click(within(banners).getByRole("button", { name: "Pin" })));
+    expect(pinPlan).toHaveBeenCalledWith("demo-child-1", "village-banners");
+    expect(bus.goal).toMatchObject({ on: true, x: KEEP_YARD.plansBoard.x, z: KEEP_YARD.plansBoard.z });
+  });
+
+  it("says aloud on entry where the beacon leads when it is a plan", () => {
+    const said: string[] = [];
+    (window as unknown as { speechSynthesis: unknown }).speechSynthesis = { cancel: vi.fn(), speak: vi.fn((u: { text: string }) => said.push(u.text)) };
+    (globalThis as unknown as { SpeechSynthesisUtterance: unknown }).SpeechSynthesisUtterance = function (this: { text: string }, text: string) {
+      this.text = text;
+    };
+    try {
+      mount({ realm: { ...realm, works: { ...rich, pinned: "village-banners" }, profile: { ...realm.profile, readAloud: true } } });
+      expect(said).toContain("Everything for the Banners is here. Go to the plans board to build it.");
+      expect(said.some((s) => s.includes("Old Bram"))).toBe(false);
+    } finally {
+      delete (window as unknown as { speechSynthesis?: unknown }).speechSynthesis;
+    }
+  });
+
+  it("names no villager on the welcome card while the beacon is on a plan", () => {
+    mount({ realm: { ...realm, works: { ...rich, pinned: "village-banners" }, helpSeen: false } });
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.queryByText(/Banners is waiting/)).toBeNull();
+  });
+
+  it("shows a grown-up the plans, with no pin and no build", () => {
+    const { bus } = mount({ viewer: "parent", realm: { ...realm, isChildView: false, works: rich } });
+    act(() => bus.onInteract(PLANS_TARGET));
+    expect(screen.getByRole("dialog", { name: "Kingdom plans" })).toHaveTextContent("Ready to build");
+    expect(screen.queryByRole("button", { name: "Build" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Pin" })).toBeNull();
+    expect(screen.getByText(BUILD_HERO_ONLY)).toBeInTheDocument();
+    expect(startBuildRun).not.toHaveBeenCalled();
   });
 });
 

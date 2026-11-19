@@ -71,6 +71,9 @@ import type { SpellPage } from "@/lib/services/spells";
 import { usePlayClock, type CloseReason } from "@/components/realm/use-play-clock";
 import { DeedBoard, type DeedResult } from "./deed-board";
 import { RiddleStoneBoard } from "./riddle-stone-board";
+import { PlansBoard } from "./plans-board";
+import { useWorks } from "./use-works";
+import { isPlanGoal, planGoal, planGoalSpeech, PLANS_BOARD_NAME } from "@/lib/realm3d/plan-goal";
 import { CeremonyCard, Coach, DeedToastBanner, TimerFinished, WelcomeCard, type CeremonyInfo } from "./guide-hud";
 import {
   ClockCorner,
@@ -291,6 +294,10 @@ export function RealmGame({
   // Every star earned flies a pennant. Keyed on the ids as a string, so the canvas prop changes only when the set does.
   const gildedKey = gildedFor(kingdom.buildings.filter(isGilded).map((b) => b.id), windowQuery(), process.env.NODE_ENV !== "production").join(",");
   const gilded = useMemo(() => (gildedKey ? gildedKey.split(",") : []), [gildedKey]);
+  // The keep yard: the hero's works for the visit (`use-works.ts`), and the buildings that stand, which the plans wait on.
+  const { works, stockpile, applyBuildResult, setPinned } = useWorks(realm.works);
+  const raisedKey = kingdom.buildings.filter((b) => b.complete).map((b) => b.id).join(",");
+  const raisedIds = useMemo<ReadonlySet<string>>(() => new Set(raisedKey ? raisedKey.split(",") : []), [raisedKey]);
 
   /**
    * The child's REAL spells. `resolvePages` turns their saved rows into castable definitions
@@ -319,7 +326,15 @@ export function RealmGame({
    * over the world, the mark on the map, and the name in the tutorial's "Find Old Bram" all read
    * this one answer.
    */
-  const goal = useMemo(() => goalFor(objective, layout.villagers, (id) => villagerById(id)?.name ?? null), [objective, layout.villagers]);
+  const goal = useMemo(() => {
+    // Unless the pinned plan is ready to build: then the plans board (R-D10, `plan-goal.ts`).
+    const plan = planGoal(works, raisedIds);
+    return plan.on ? plan : goalFor(objective, layout.villagers, (id) => villagerById(id)?.name ?? null);
+  }, [works, raisedIds, objective, layout.villagers]);
+  /** Who the goal sends the child to by name, for the words that say "Find Old Bram": nobody, while it is a plan. */
+  const waitingName = goal.on && !isPlanGoal(goal) ? goal.name : null;
+  /** The pet leads to the same place, calling a plan's beacon what it is: the plans board. */
+  const leadGoal = useMemo(() => (isPlanGoal(goal) ? { ...goal, name: PLANS_BOARD_NAME } : goal), [goal]);
 
   // Built once, mutated for ever, shared across the canvas boundary. None of these is React
   // state and none of them can re-render anything.
@@ -389,7 +404,7 @@ export function RealmGame({
     places: places.store,
   });
   // The companion leads (`companion-hud.tsx`): F or the pet's slot, its words, its way on the map.
-  const companion = useCompanionLead({ avatar: hero, viewer, calm, readAloud, bus, goal, world, found: places.found, insideRef, breakOff: surfaces.troubleDetail && !profile.fewerChoices });
+  const companion = useCompanionLead({ avatar: hero, viewer, calm, readAloud, bus, goal: leadGoal, world, found: places.found, insideRef, breakOff: surfaces.troubleDetail && !profile.fewerChoices });
 
   // The ONE writer of `bus.paused`. Every panel is an overlay, so every panel pauses the
   // scene, and nothing can open a panel that forgets to. Indoors pauses the ISLAND too (its keys,
@@ -412,13 +427,13 @@ export function RealmGame({
   }, [pages]);
   const lessonCtx: LessonContext = useMemo(
     () => ({
-      waiting: goal.on ? goal.name : null,
+      waiting: waitingName,
       villagers: !kingdomError && layout.villagers.length > 0,
       spell: firstSpell,
       emptyPage: pages.some((p) => !p.spell),
       mount: riding.access.ok ? riding.access.mount.label : null,
     }),
-    [goal.on, goal.name, kingdomError, layout.villagers.length, firstSpell, pages, riding.access],
+    [waitingName, kingdomError, layout.villagers.length, firstSpell, pages, riding.access],
   );
   const ctxRef = useRef(lessonCtx);
   useEffect(() => {
@@ -765,12 +780,12 @@ export function RealmGame({
       return;
     }
     if (spokenObjective.current) return;
-    const line = objectiveSpeech(objective);
+    const line = isPlanGoal(goal) ? planGoalSpeech(goal) : objectiveSpeech(objective);
     if (!line) return;
     spokenObjective.current = true;
     // With a pet: the spec's "Your {companion} will show you the way.", and the key that asks it.
     speak(companion.pet && goal.on ? `${line} ${leadWords.objective(companion.pet)}` : line);
-  }, [readAloud, paused, coachCopy, objective, companion.pet, goal.on]);
+  }, [readAloud, paused, coachCopy, objective, companion.pet, goal]);
 
   /* ---- the play clock ------------------------------------------------- */
   const clockOn = realm.isChildView && childId !== null;
@@ -983,6 +998,7 @@ export function RealmGame({
         recess={recess.bus}
         gilded={gilded}
         reviewDue={reviewDue}
+        stockpile={stockpile}
       />
       {outCount > 0 && !inside && <div key={outCount} className="r3-fade" aria-hidden="true" />}
       {inside && (
@@ -1182,7 +1198,21 @@ export function RealmGame({
           {overlay?.kind === "interact" && overlay.target.kind === "riddle" && (
             <RiddleStoneBoard childId={childId} placeId={overlay.target.id} viewer={who} numerals={numerals} profile={{ readAloud, untimed: profile.untimed }} calm={calm} onDue={setReviewDue} onClose={closeOverlay} />
           )}
-          {overlay?.kind === "interact" && !talkTo && overlay.target.kind !== "riddle" && (
+          {overlay?.kind === "interact" && overlay.target.kind === "plans" && (
+            <PlansBoard
+              childId={childId}
+              works={works}
+              raised={raisedIds}
+              readOnly={!(isChild && viewer === "child")}
+              numerals={numerals}
+              profile={{ readAloud, untimed: profile.untimed }}
+              calm={calm}
+              onPinned={setPinned}
+              onBuilt={applyBuildResult}
+              onClose={closeOverlay}
+            />
+          )}
+          {overlay?.kind === "interact" && !talkTo && overlay.target.kind !== "riddle" && overlay.target.kind !== "plans" && (
             <InteractPanel
               target={overlay.target}
               kingdom={kingdom}
@@ -1196,7 +1226,7 @@ export function RealmGame({
           {overlay?.kind === "welcome" && (
             <WelcomeCard
               heroName={heroName}
-              waiting={goal.on ? goal.name : null}
+              waiting={waitingName}
               total={kingdom.buildings.length}
               depth={depth}
               onDepth={onDepth}

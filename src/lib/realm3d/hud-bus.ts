@@ -54,8 +54,9 @@ export type InteractTarget = {
    * is the destination it belongs to. Recess adds `arch`: the Ring's start and finish
    * (`lib/realm3d/recess/course.ts`), where a child runs the Ring and a grown-up sees their laps.
    * `riddle` is a riddle stone (`lib/realm/riddle-stones.ts`); its id is the place it stands at.
+   * `plans` is the keep yard's plans board (`lib/realm/keep-yard.ts`), where the hero builds.
    */
-  kind: "villager" | "site" | "castle" | "landmark" | "door" | "fixture" | "post" | "arch" | "riddle";
+  kind: "villager" | "site" | "castle" | "landmark" | "door" | "fixture" | "post" | "arch" | "riddle" | "plans";
   id: string;
   /** What the prompt calls it: "Old Bram", "the Chapel", "Cloudfoot". */
   label: string;

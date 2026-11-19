@@ -14,6 +14,7 @@ import type { InteractTarget } from "./hud-bus";
 import { ENTER_VERB, hasRoom } from "./doorways";
 import { villagerById } from "@/lib/realm/villagers";
 import { RIDDLE_STONE_RADIUS } from "@/lib/realm/riddle-stones";
+import { YARD_RADIUS } from "@/lib/realm/keep-yard";
 
 /** One thing in the world with a reach round it. */
 export type InteractSpot = {
@@ -118,7 +119,12 @@ export type SpotInput = {
   arch?: { x: number; z: number; halfSpan: number } | null;
   /** The riddle stones (`lib/realm/riddle-stones.ts`), by the place each stands at. Absent, there are none. */
   stones?: readonly { placeId: string; x: number; z: number }[];
+  /** The keep yard's plans board (`KEEP_YARD.plansBoard`), where E opens the kingdom's plans. Absent, there is none. */
+  plans?: { x: number; z: number } | null;
 };
+
+/** What E at the plans board acts on: one target, built once, so every announcement hands the same object. */
+export const PLANS_TARGET: InteractTarget = { kind: "plans", id: "plans-board", label: "Kingdom plans", verb: "Read" };
 
 /** What E at a riddle stone says: "Read the riddle stone". */
 export const RIDDLE_VERB = "Read";
@@ -240,6 +246,21 @@ export function buildSpots(input: SpotInput): InteractSpot[] {
       // A stone stands inside a place's own reach: standing at it means the stone, not the place.
       bias: 0.4,
       ring: RIDDLE_STONE_RADIUS + 0.9,
+    });
+  }
+  if (input.plans) {
+    const r = YARD_RADIUS.plansBoard;
+    out.push({
+      target: PLANS_TARGET,
+      x: input.plans.x,
+      z: input.plans.z,
+      hw: r,
+      hd: r,
+      round: true,
+      reach: 1.4,
+      // The board stands in the open yard, but a hero beside it means the board.
+      bias: 0.4,
+      ring: r + 0.7,
     });
   }
   return out;

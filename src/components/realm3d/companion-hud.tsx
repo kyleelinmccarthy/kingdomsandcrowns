@@ -15,6 +15,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { HudBus } from "@/lib/realm3d/hud-bus";
 import type { Goal } from "@/lib/realm3d/guide";
+import { PLANS_BOARD_NAME } from "@/lib/realm3d/plan-goal";
 import { askLead, askStopLead, chooseLead, makeLeadBus, setLeadBreakOff, setLeadNews, type ErrandKind, type LeadBus, type LeadMode, type LeadNews, type LeadTarget } from "@/lib/realm3d/lead";
 import type { Vec2 } from "@/lib/realm3d/travel";
 import type { RealmWorld } from "@/lib/realm3d/worldgen";
@@ -48,6 +49,8 @@ export const leadWords = {
     return `Your ${pet} knows the way home. Follow!`;
   },
   arrive(pet: string, t: LeadTarget): string {
+    // The gold ! on a ready plan (`plan-goal.ts`) is the plans board: E reads it, nobody is talked to.
+    if (t.kind === "villager" && t.name === PLANS_BOARD_NAME) return `Here's ${PLANS_BOARD_NAME}! Press E to read it.`;
     if (t.kind === "villager") return `Here's ${t.name}! Press E to talk.`;
     if (t.kind === "place") return `Your ${pet} found it: ${t.name}!`;
     return `Home again! Your ${pet} knew the way.`;
@@ -55,7 +58,7 @@ export const leadWords = {
   stopped: (pet: string) => `Your ${pet} comes back to you.`,
   lost: (pet: string) => `Your ${pet} lost you, so it came back. Press F to ask again.`,
   noway: (pet: string) => `Your ${pet} can't find a way from here. Try from a road.`,
-  here: (name: string) => `${name} is right here! Press E to talk.`,
+  here: (name: string) => (name === PLANS_BOARD_NAME ? "The plans board is right here! Press E to read it." : `${name} is right here! Press E to talk.`),
   nothing: (pet: string) => `You've found every place, and nobody is waiting. Your ${pet} is happy just to walk with you.`,
   indoors: (pet: string) => `Outside, your ${pet} will show you the way.`,
   /** The pet's own small jobs, said once a visit (sit, sniff) or each time (a trouble): never the only marker. */
