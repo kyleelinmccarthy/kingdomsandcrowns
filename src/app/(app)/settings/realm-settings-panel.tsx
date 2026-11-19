@@ -301,7 +301,7 @@ export function RealmSettingsPanel({
         <div className="flex items-center justify-between gap-2">
           <div>
             <p className="text-sm">Show Realm minutes on quests</p>
-            <p className="text-xs text-muted-foreground">Quest cards lead with materials; turn this on to show the minutes a quest earns too.</p>
+            <p className="text-xs text-muted-foreground">A finished quest shows what it made for the kingdom; turn this on to show the Realm minutes it earned too.</p>
           </div>
           <Switch
             aria-label="Show Realm minutes on quests"

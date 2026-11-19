@@ -1,4 +1,5 @@
 import { QuestAssignmentCard } from "@/components/quest-assignment-card";
+import type { QuestReward } from "@/lib/utils/quest-rewards";
 import { GameFrame } from "@/components/game-frame";
 import { GameIcon } from "@/components/game-icon";
 import { formatMissedDate, type MakeupReason, type MoveTarget } from "@/lib/utils/makeup";
@@ -22,6 +23,7 @@ type AssignmentWithDetails = {
     requireNotes: boolean;
   };
   subject: { id: string; name: string; color: string | null };
+  rewards?: QuestReward;
 };
 
 /**
@@ -44,6 +46,7 @@ export function MakeupQuests({
   allowChildSkip = false,
   reason = null,
   moveTargets = [],
+  realmEnabled = false,
 }: {
   assignments: AssignmentWithDetails[];
   /** The date the board is being shown for — what "Yesterday" is relative to. */
@@ -54,6 +57,8 @@ export function MakeupQuests({
   reason?: MakeupReason | null;
   /** Days left this week a grown-up may move a missed quest to. Parent view only. */
   moveTargets?: MoveTarget[];
+  /** Whether this hero's Realm is on, forwarded to each card (a finished quest links there). */
+  realmEnabled?: boolean;
 }) {
   if (assignments.length === 0) return null;
 
@@ -78,6 +83,7 @@ export function MakeupQuests({
             missedFrom={formatMissedDate(a.assignment.date, today)}
             moveTargets={isChildView ? [] : moveTargets}
             today={today}
+            realmEnabled={realmEnabled}
           />
         ))}
       </div>

@@ -15,6 +15,8 @@ import { addDays, todayInZone, weekStartOf } from "@/lib/utils/dates";
 import { getFamilyTimezone } from "@/lib/services/family-timezone";
 import { weekdayOfDate, currentTimeOfDay } from "@/lib/utils/schedule-days";
 import { getStructuredCardLock } from "@/lib/utils/quest-ordering";
+import { loadQuestRewards, loadRealmEnabled } from "@/lib/services/realm-materials";
+import { withRewards } from "@/lib/utils/quest-rewards";
 import { ChildSelector } from "@/components/child-selector";
 import { GameFrame } from "@/components/game-frame";
 import { GameIcon } from "@/components/game-icon";
@@ -192,6 +194,16 @@ async function TodayView({
   // hero is behind must not depend on a setting about the hero's own board.
   const makeupAssignments = !isChildView || makeup.isMakeupDay ? makeup.assignments : [];
 
+  // What the finished quests made, read once for the whole page. It is a garnish: a failed read
+  // leaves the cards as they were rather than breaking the page.
+  const doneIds = [...todayAssignments, ...makeupAssignments].filter((a) => a.assignment.status === "completed").map((a) => a.assignment.id);
+  const [rewards, realmEnabled] = await Promise.all([
+    loadQuestRewards(childId, doneIds).catch(() => ({})),
+    isChildView ? loadRealmEnabled(childId).catch(() => false) : Promise.resolve(false),
+  ]);
+  const todayCards = withRewards(todayAssignments, rewards);
+  const makeupCards = withRewards(makeupAssignments, rewards);
+
   const todayWeekday = weekdayOfDate(today);
   const todaysBlocks = allBlocks.filter((b) => b.dayOfWeek === todayWeekday);
 
@@ -230,20 +242,22 @@ async function TodayView({
               <TodaySchedule
                 blocks={todaysBlocks}
                 subjects={subjects}
-                assignments={todayAssignments}
+                assignments={todayCards}
                 isChildView={isChildView}
                 structuredNext={structuredNext}
                 allowChildSkip={allowChildSkip}
+                realmEnabled={realmEnabled}
               />
             ) : (
               <div className="space-y-2">
-                {todayAssignments.map((a) => (
+                {todayCards.map((a) => (
                   <QuestAssignmentCard
                     key={a.assignment.id}
                     data={a}
                     isChildView={isChildView}
                     structuredNext={structuredNext}
                     allowChildSkip={allowChildSkip}
+                    realmEnabled={realmEnabled}
                   />
                 ))}
               </div>
@@ -267,12 +281,13 @@ async function TodayView({
       </div>
 
       <MakeupQuests
-        assignments={makeupAssignments}
+        assignments={makeupCards}
         today={today}
         isChildView={isChildView}
         allowChildSkip={allowChildSkip}
         reason={makeup.reason}
         moveTargets={moveTargets}
+        realmEnabled={realmEnabled}
       />
 
       <GameFrame title={isChildView ? "Adventure Log" : "Recent Adventures"} icon={<GameIcon name="book" className="size-5 text-[var(--gold-bright)]" />}>

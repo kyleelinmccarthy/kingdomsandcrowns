@@ -281,6 +281,10 @@ function planName(id: ImprovementId): string {
   return building ? `the ${building}'s ${label}` : `the ${label}`;
 }
 
+/** The nearest first: the fewest missing in all, catalog order on a tie. */
+const nearestFirst = (a: PlanStatus, b: PlanStatus): number =>
+  totalOf(a.short) - totalOf(b.short) || IMPROVEMENT_IDS.indexOf(a.id) - IMPROVEMENT_IDS.indexOf(b.id);
+
 /**
  * What to say about a plan after a quest brought `made`: the pinned plan if it still wants that
  * material, otherwise the nearest plan that does (fewest missing in all, catalog order on a tie).
@@ -289,12 +293,18 @@ function planName(id: ImprovementId): string {
 export function planHint(made: MaterialId, plans: PlanStatus[], pinned: string | null): string | null {
   const needs = (p: PlanStatus) => p.state === "short" && (p.short?.[made] ?? 0) > 0;
   const pin = pinned ? plans.find((p) => p.id === pinned && needs(p)) : undefined;
-  const best =
-    pin ??
-    plans
-      .filter(needs)
-      .sort((a, b) => totalOf(a.short) - totalOf(b.short) || IMPROVEMENT_IDS.indexOf(a.id) - IMPROVEMENT_IDS.indexOf(b.id))[0];
+  const best = pin ?? plans.filter(needs).sort(nearestFirst)[0];
   return best ? `${planName(best.id)} needs ${best.short![made]} more` : null;
+}
+
+/**
+ * What to say after a quest brought timber, which no plan's cost names (it fills any gap): the
+ * nearest short plan overall, worded like `planHint` with the plan's whole shortfall. Null when
+ * no plan is short.
+ */
+export function nearestPlanHint(plans: PlanStatus[]): string | null {
+  const best = plans.filter((p) => p.state === "short").sort(nearestFirst)[0];
+  return best ? `${planName(best.id)} needs ${totalOf(best.short)} more` : null;
 }
 
 /**

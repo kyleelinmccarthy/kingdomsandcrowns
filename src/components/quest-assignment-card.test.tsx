@@ -534,4 +534,51 @@ describe("QuestAssignmentCard", () => {
       expect(screen.queryByText(/moved from/i)).not.toBeInTheDocument();
     });
   });
+
+  describe("what a finished quest made", () => {
+    const done = { ...baseData, assignment: { ...baseData.assignment, status: "completed" } };
+    const made = "+1 Ink \u00b7 the Library's Reading Wing needs 3 more";
+
+    it("shows the line and a link to the Realm to a hero", () => {
+      render(<QuestAssignmentCard data={{ ...done, rewards: { made, minutes: null } }} isChildView={true} realmEnabled />);
+      expect(screen.getByText(made)).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Take it to the Realm" })).toHaveAttribute("href", "/realm");
+    });
+
+    it("shows a grown-up the line but no link", () => {
+      render(<QuestAssignmentCard data={{ ...done, rewards: { made, minutes: null } }} isChildView={false} realmEnabled />);
+      expect(screen.getByText(made)).toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: "Take it to the Realm" })).not.toBeInTheDocument();
+    });
+
+    it("has no link when the Realm is off, and when the page did not say", () => {
+      const { rerender } = render(<QuestAssignmentCard data={{ ...done, rewards: { made, minutes: null } }} isChildView={true} realmEnabled={false} />);
+      expect(screen.getByText(made)).toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: "Take it to the Realm" })).not.toBeInTheDocument();
+      rerender(<QuestAssignmentCard data={{ ...done, rewards: { made, minutes: null } }} isChildView={true} />);
+      expect(screen.queryByRole("link", { name: "Take it to the Realm" })).not.toBeInTheDocument();
+    });
+
+    it("shows the Realm minutes the quest earned, when they come with it", () => {
+      render(<QuestAssignmentCard data={{ ...done, rewards: { made, minutes: 5 } }} isChildView={true} realmEnabled />);
+      expect(screen.getByText("+5 min in the Realm")).toBeInTheDocument();
+    });
+
+    it("shows no minutes line without minutes", () => {
+      render(<QuestAssignmentCard data={{ ...done, rewards: { made, minutes: null } }} isChildView={true} realmEnabled />);
+      expect(screen.queryByText(/min in the Realm/)).not.toBeInTheDocument();
+    });
+
+    it("shows nothing extra on a finished quest that made nothing", () => {
+      render(<QuestAssignmentCard data={{ ...done, rewards: { made: null, minutes: null } }} isChildView={true} realmEnabled />);
+      expect(screen.queryByRole("link", { name: "Take it to the Realm" })).not.toBeInTheDocument();
+    });
+
+    it("leaves a pending card as it was", () => {
+      render(<QuestAssignmentCard data={{ ...baseData, rewards: { made, minutes: 5 } }} isChildView={true} realmEnabled />);
+      expect(screen.queryByText(made)).not.toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: "Take it to the Realm" })).not.toBeInTheDocument();
+      expect(screen.queryByText(/min in the Realm/)).not.toBeInTheDocument();
+    });
+  });
 });

@@ -13,6 +13,7 @@ import {
   IMPROVEMENT_IDS,
   planElevation,
   parsePlanRef,
+  nearestPlanHint,
   planHint,
   planLine,
   planRef,
@@ -306,6 +307,36 @@ describe("planHint", () => {
     expect(planHint("ink", plans, "village-statue")).toBeNull();
     expect(planHint("dye", plans, null)).toBe("the Banners needs 2 more");
     expect(planHint("ink", [], null)).toBeNull();
+  });
+});
+
+describe("nearestPlanHint", () => {
+  const short = (id: ImprovementId, s: Partial<Record<MaterialId, number>>): PlanStatus => ({ id, level: 1, state: "short", short: s });
+
+  it("names the short plan with the smallest total shortfall, counting every material", () => {
+    const plans = [short("library-reading-wing", { ink: 3, thread: 2 }), short("village-banners", { dye: 1, thread: 2 }), short("well-house", { stone: 4 })];
+    expect(nearestPlanHint(plans)).toBe("the Banners needs 3 more");
+  });
+
+  it("uses the same wording as planHint for a building host", () => {
+    expect(nearestPlanHint([short("library-reading-wing", { ink: 3 })])).toBe("the Library's Reading Wing needs 3 more");
+  });
+
+  it("breaks a tie in catalog order, whatever order the plans arrive in", () => {
+    const a = short("village-lamps", { ink: 2 });
+    const b = short("chronicle-hall", { ink: 2 });
+    expect(nearestPlanHint([a, b])).toBe("the Chronicle Hall needs 2 more");
+    expect(nearestPlanHint([b, a])).toBe("the Chronicle Hall needs 2 more");
+  });
+
+  it("ignores plans that are ready, waiting on a host or done, and is null when none is short", () => {
+    const plans: PlanStatus[] = [
+      { id: "well-house", level: 1, state: "ready" },
+      { id: "mill-granary", level: 1, state: "host" },
+      { id: "village-statue", level: 3, state: "done" },
+    ];
+    expect(nearestPlanHint(plans)).toBeNull();
+    expect(nearestPlanHint([])).toBeNull();
   });
 });
 

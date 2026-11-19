@@ -1,11 +1,14 @@
-import { and, asc, eq, gt, sql } from "drizzle-orm";
+import { and, asc, eq, gt, inArray, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
-import { IMPROVEMENTS, type ImprovementId } from "@/lib/realm/improvements";
-import { materialBalance, resolveMaterial, type MaterialId, type MaterialRow } from "@/lib/realm/materials";
-import { EMPTY_WORKS, type Delivery, type Plaque, type Works } from "@/lib/realm/works-state";
+import { IMPROVEMENTS, nearestPlanHint, planHint, planState, type ImprovementId } from "@/lib/realm/improvements";
+import { isMaterialId, materialBalance, materialPhrase, resolveMaterial, type MaterialId, type MaterialRow } from "@/lib/realm/materials";
+import { activePin, EMPTY_WORKS, type Delivery, type Plaque, type Works } from "@/lib/realm/works-state";
 import { seasonLabel } from "@/lib/utils/seasons";
+import { settingsFromRow } from "@/lib/utils/realm-settings";
+import type { QuestReward } from "@/lib/utils/quest-rewards";
+import { loadPlanInput } from "@/lib/services/improvements";
 import { loadRealmSettings, withChildLock, type Exec } from "@/lib/services/realm-play";
 
 /**
@@ -243,4 +246,90 @@ export async function advanceDeliverySeen(childId: string, throughSeconds: numbe
       target: S.childId,
       set: { deliverySeenAt: sql`max(coalesce(${S.deliverySeenAt}, 0), ${target})`, updatedAt: now },
     });
+}
+
+/**
+ * What finished quests made, for their cards: "+1 Ink · the Library's Reading Wing needs 3 more"
+ * (the hint says where the material can go: the pinned plan if it wants it, else the nearest plan
+ * that does; timber, which fills any gap, points at the nearest short plan overall), and, when a
+ * grown-up turned `showMinutesOnQuests` on, the Realm minutes each quest earned. One entry per
+ * assignment asked about; at most a handful of queries whatever the number of ids. Reads only
+ * (it never creates the settings row); every row is scoped to `childId`.
+ */
+export async function loadQuestRewards(childId: string, assignmentIds: string[]): Promise<Record<string, QuestReward>> {
+  const ids = [...new Set(assignmentIds)];
+  if (ids.length === 0) return {};
+  const M = schema.realmMaterial;
+  const L = schema.realmPlayLedger;
+  const S = schema.realmSettings;
+  const [earned, input, { pinned, minutes }] = await Promise.all([
+    db
+      .select({ materialId: M.materialId, amount: M.amount, sourceAssignmentId: M.sourceAssignmentId })
+      .from(M)
+      .where(and(eq(M.childId, childId), eq(M.kind, "earned"), inArray(M.sourceAssignmentId, ids))),
+    loadPlanInput(childId),
+    // The settings, then (only when the setting is on) the minutes: one chain, overlapping the other reads.
+    db
+      .select({ pinnedPlan: S.pinnedPlan, showMinutes: S.showMinutesOnQuests })
+      .from(S)
+      .where(eq(S.childId, childId))
+      .limit(1)
+      .then(async ([row]) => {
+        const rows = row?.showMinutes
+          ? await db
+              .select({ assignmentId: L.sourceAssignmentId, minutes: sql<number>`sum(${L.minutes})` })
+              .from(L)
+              .where(and(eq(L.childId, childId), eq(L.kind, "earned"), inArray(L.sourceAssignmentId, ids)))
+              .groupBy(L.sourceAssignmentId)
+          : null;
+        return { pinned: row?.pinnedPlan ?? null, minutes: rows };
+      }),
+  ]);
+
+  const plans = planState(input);
+  const pin = activePin({ built: input.built, pinned });
+  const made = new Map<string, string>();
+  for (const r of earned) {
+    if (!r.sourceAssignmentId || !isMaterialId(r.materialId)) continue;
+    const hint = r.materialId === "timber" ? nearestPlanHint(plans) : planHint(r.materialId, plans, pin);
+    made.set(r.sourceAssignmentId, `+${materialPhrase(r.amount, r.materialId)}${hint ? ` · ${hint}` : ""}`);
+  }
+  const earnedMinutes = new Map((minutes ?? []).map((m) => [m.assignmentId, Number(m.minutes)]));
+
+  const out: Record<string, QuestReward> = {};
+  for (const id of ids) {
+    out[id] = { made: made.get(id) ?? null, minutes: minutes === null ? null : (earnedMinutes.get(id) ?? null) };
+  }
+  return out;
+}
+
+/** Whether the hero's Realm is on (the default for a hero with no settings row). Reads only: it never creates the row. */
+export async function loadRealmEnabled(childId: string): Promise<boolean> {
+  const [row] = await db.select().from(schema.realmSettings).where(eq(schema.realmSettings.childId, childId)).limit(1);
+  return settingsFromRow(row ?? null).enabled;
+}
+
+/**
+ * What the Tavern's plan card reads: the plans' inputs (built levels, buildings that stand, the
+ * satchel), the pin, and whether quests bring materials at all. Reads only; callers have
+ * authorized the child.
+ */
+export async function loadPlanCardData(childId: string): Promise<{
+  materialsPerQuest: number;
+  pinned: string | null;
+  built: Record<string, number>;
+  raised: string[];
+  balance: Record<MaterialId, number>;
+}> {
+  const [input, [row]] = await Promise.all([
+    loadPlanInput(childId),
+    db.select().from(schema.realmSettings).where(eq(schema.realmSettings.childId, childId)).limit(1),
+  ]);
+  return {
+    materialsPerQuest: settingsFromRow(row ?? null).materialsPerQuest,
+    pinned: row?.pinnedPlan ?? null,
+    built: input.built,
+    raised: [...input.raised],
+    balance: input.balance,
+  };
 }
