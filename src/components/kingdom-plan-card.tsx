@@ -24,11 +24,12 @@ function placeOf(host: ImprovementHost): string {
  * could build or are closest to), what it costs against what the satchel holds, and the way to
  * the Realm, where building happens. The hero may pin; a grown-up looking in sees it read-only.
  * Plans wait on nothing but the satchel here: one that needs its building raised first, or is
- * finished, is never the plan shown.
+ * finished, is never the plan shown, pinned or not.
  */
 export function KingdomPlanCard({
   childId,
   canPin,
+  realmEnabled,
   materialsPerQuest,
   built,
   raised,
@@ -38,6 +39,8 @@ export function KingdomPlanCard({
   childId: string;
   /** The hero's own view: only they pin. */
   canPin: boolean;
+  /** Whether the hero's Realm is on. While it rests the hero is not sent there; a grown-up's link stays. */
+  realmEnabled: boolean;
   /** Zero (quests bring nothing) hides the card until the satchel holds something. */
   materialsPerQuest: number;
   /** The highest level built of each plan. */
@@ -57,9 +60,10 @@ export function KingdomPlanCard({
   const plans = planState({ built, raised: new Set(raised), balance });
   const pin = activePin({ built, pinned });
   // The active pin, else the first plan that is ready or short (planState sorts those first, nearest first).
-  const plan: PlanStatus | undefined =
-    (pin ? plans.find((p) => p.id === pin) : undefined) ?? plans.find((p) => p.state === "ready" || p.state === "short");
+  const buildable = (p: PlanStatus) => p.state === "ready" || p.state === "short";
+  const plan: PlanStatus | undefined = (pin ? plans.find((p) => p.id === pin && buildable(p)) : undefined) ?? plans.find(buildable);
   const isPinned = plan !== undefined && plan.id === pin;
+  const showRealmLink = canPin ? realmEnabled : true;
 
   async function togglePin(target: PlanStatus) {
     setBusy(true);
@@ -136,9 +140,11 @@ export function KingdomPlanCard({
 
         {plan && (
           <div className="flex flex-wrap items-center gap-3">
-            <Link href={canPin ? "/realm" : `/realm?child=${childId}`} className="text-sm font-medium text-primary hover:underline">
-              Build it in the Realm
-            </Link>
+            {showRealmLink && (
+              <Link href={canPin ? "/realm" : `/realm?child=${childId}`} className="text-sm font-medium text-primary hover:underline">
+                Build it in the Realm
+              </Link>
+            )}
             {canPin && (
               <Button type="button" size="sm" variant={isPinned ? "default" : "outline"} aria-pressed={isPinned} disabled={busy} onClick={() => togglePin(plan)}>
                 {isPinned ? "Pinned" : "Pin"}

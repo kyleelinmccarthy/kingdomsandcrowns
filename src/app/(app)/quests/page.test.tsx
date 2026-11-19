@@ -182,9 +182,13 @@ describe("QuestsPage finished quests", () => {
   it("still renders the page when the rewards cannot be read", async () => {
     vi.mocked(loadQuestRewards).mockRejectedValue(new Error("db down"));
     vi.mocked(loadRealmEnabled).mockRejectedValue(new Error("db down"));
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
     const { cards } = await renderToday(true);
     expect(cards).toHaveLength(2);
     expect(cards[0].props.data).not.toHaveProperty("rewards");
     expect(cards[0].props.realmEnabled).toBe(false);
+    // Each failed read says so once.
+    expect(log).toHaveBeenCalledTimes(2);
+    log.mockRestore();
   });
 });

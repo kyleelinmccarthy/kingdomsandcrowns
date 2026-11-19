@@ -24,6 +24,7 @@ const allBuildings = BUILDINGS.map((b) => b.id);
 const base = {
   childId: "c1",
   canPin: true,
+  realmEnabled: true,
   materialsPerQuest: 1,
   built: {} as Record<string, number>,
   raised: [] as string[],
@@ -80,6 +81,28 @@ describe("KingdomPlanCard", () => {
     expect(screen.queryByText("Timber can fill any gap.")).not.toBeInTheDocument();
     rerender(<KingdomPlanCard {...base} pinned="village-banners" balance={bal({ dye: 1 })} />);
     expect(screen.queryByText("Timber can fill any gap.")).not.toBeInTheDocument();
+  });
+
+  it("hides the way to the Realm from a hero while the Realm is resting, but not the plan or the Pin", () => {
+    render(<KingdomPlanCard {...base} realmEnabled={false} balance={bal({ dye: 1 })} />);
+    expect(screen.queryByRole("link", { name: "Build it in the Realm" })).not.toBeInTheDocument();
+    expect(screen.getByText("Banners")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Pin" })).toBeInTheDocument();
+  });
+
+  it("keeps a grown-up's link to the hero's Realm whatever the Realm's state", () => {
+    render(<KingdomPlanCard {...base} canPin={false} realmEnabled={false} />);
+    expect(screen.getByRole("link", { name: "Build it in the Realm" })).toHaveAttribute("href", "/realm?child=c1");
+  });
+
+  it("shows a pinned plan only when it is ready or short: one waiting on its building gives way to the first that is", () => {
+    // The Reading Wing's Library has not been raised, so the pin cannot be built on yet.
+    render(<KingdomPlanCard {...base} pinned="library-reading-wing" balance={bal({ dye: 1 })} />);
+    expect(screen.queryByText("Reading Wing")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Raise the/)).not.toBeInTheDocument();
+    expect(screen.getByText("Banners")).toBeInTheDocument();
+    // The shown plan is not the pin, so it offers "Pin", not "Pinned".
+    expect(screen.getByRole("button", { name: "Pin" })).toHaveAttribute("aria-pressed", "false");
   });
 
   it("pins an unpinned plan: calls the action with the plan, then refreshes", async () => {

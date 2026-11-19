@@ -20,8 +20,8 @@ import { getFamilyTimezone } from "@/lib/services/family-timezone";
 import { weekdayOfDate, currentTimeOfDay } from "@/lib/utils/schedule-days";
 import { getStructuredCardLock } from "@/lib/utils/quest-ordering";
 import { levelFromXp } from "@/lib/utils/level";
-import { loadPlanCardData, loadQuestRewards, loadRealmEnabled } from "@/lib/services/realm-materials";
-import { withRewards } from "@/lib/utils/quest-rewards";
+import { loadPlanCardData, loadQuestRewards, type PlanCardData } from "@/lib/services/realm-materials";
+import { orElse, withRewards } from "@/lib/utils/quest-rewards";
 import { ChildSelector } from "@/components/child-selector";
 import { GameFrame } from "@/components/game-frame";
 import { Avatar } from "@/components/avatar";
@@ -117,7 +117,8 @@ export default async function TavernPage({
     // Only a grown-up can move a missed quest, so a hero's page skips the lookup.
     isChildView ? Promise.resolve([]) : getMoveTargets(activeChild.id, today),
     // The kingdom's plans are a garnish: a failed read hides the card rather than breaking the page.
-    loadPlanCardData(activeChild.id).catch(() => null),
+    // It is the one read of the kingdom and the Realm's settings: the quest cards below reuse it.
+    loadPlanCardData(activeChild.id).catch(orElse<PlanCardData | null>("the kingdom's plans", null)),
   ]);
 
   // A hero only sees carried-over work on a day their parent has made a
@@ -127,10 +128,9 @@ export default async function TavernPage({
   // What the finished quests made, read once for the whole page (a garnish: a failed read leaves
   // the cards as they were).
   const doneIds = [...todayAssignments, ...makeupAssignments].filter((a) => a.assignment.status === "completed").map((a) => a.assignment.id);
-  const [rewards, realmEnabled] = await Promise.all([
-    loadQuestRewards(activeChild.id, doneIds).catch(() => ({})),
-    isChildView ? loadRealmEnabled(activeChild.id).catch(() => false) : Promise.resolve(false),
-  ]);
+  const rewards = await loadQuestRewards(activeChild.id, doneIds, planCard ?? undefined).catch(orElse("what the finished quests made", {}));
+  // Only a hero is offered the way into the Realm, and only while it is on.
+  const realmEnabled = isChildView && planCard?.enabled === true;
   const todayCards = withRewards(todayAssignments, rewards);
   const makeupCards = withRewards(makeupAssignments, rewards);
 
@@ -484,6 +484,7 @@ export default async function TavernPage({
               key={activeChild.id}
               childId={activeChild.id}
               canPin={isChildView}
+              realmEnabled={planCard.enabled}
               materialsPerQuest={planCard.materialsPerQuest}
               built={planCard.built}
               raised={planCard.raised}

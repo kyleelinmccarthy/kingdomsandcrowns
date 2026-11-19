@@ -16,7 +16,7 @@ import { getFamilyTimezone } from "@/lib/services/family-timezone";
 import { weekdayOfDate, currentTimeOfDay } from "@/lib/utils/schedule-days";
 import { getStructuredCardLock } from "@/lib/utils/quest-ordering";
 import { loadQuestRewards, loadRealmEnabled } from "@/lib/services/realm-materials";
-import { withRewards } from "@/lib/utils/quest-rewards";
+import { orElse, withRewards } from "@/lib/utils/quest-rewards";
 import { ChildSelector } from "@/components/child-selector";
 import { GameFrame } from "@/components/game-frame";
 import { GameIcon } from "@/components/game-icon";
@@ -176,7 +176,7 @@ async function TodayView({
   const today = todayInZone(timeZone);
   await generateAssignmentsFromSchedules(childId, today, today);
 
-  const [subjects, activities, todayAssignments, quests, allBlocks, latestStatusByQuestId, schoolingMode, makeup, moveTargets] = await Promise.all([
+  const [subjects, activities, todayAssignments, quests, allBlocks, latestStatusByQuestId, schoolingMode, makeup, moveTargets, realmEnabled] = await Promise.all([
     getSubjects(childId),
     getRecentActivities(childId, 50),
     getAssignmentsForDate(childId, today),
@@ -187,6 +187,9 @@ async function TodayView({
     getMakeupView(childId, today),
     // Only a grown-up can move a missed quest, so a hero's page skips the lookup.
     isChildView ? Promise.resolve([]) : getMoveTargets(childId, today),
+    // Whether the Realm is on: only a hero is offered the way in, and it needs no assignment ids,
+    // so it is read with everything else. A failed read leaves the way in out.
+    isChildView ? loadRealmEnabled(childId).catch(orElse("whether the Realm is on", false)) : Promise.resolve(false),
   ]);
 
   // A hero only sees carried-over work on a day their parent has made a
@@ -197,10 +200,7 @@ async function TodayView({
   // What the finished quests made, read once for the whole page. It is a garnish: a failed read
   // leaves the cards as they were rather than breaking the page.
   const doneIds = [...todayAssignments, ...makeupAssignments].filter((a) => a.assignment.status === "completed").map((a) => a.assignment.id);
-  const [rewards, realmEnabled] = await Promise.all([
-    loadQuestRewards(childId, doneIds).catch(() => ({})),
-    isChildView ? loadRealmEnabled(childId).catch(() => false) : Promise.resolve(false),
-  ]);
+  const rewards = await loadQuestRewards(childId, doneIds).catch(orElse("what the finished quests made", {}));
   const todayCards = withRewards(todayAssignments, rewards);
   const makeupCards = withRewards(makeupAssignments, rewards);
 

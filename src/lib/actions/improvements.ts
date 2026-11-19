@@ -16,10 +16,9 @@ import { profileFromRow } from "@/lib/utils/learning-profile";
 import type { RunStart } from "@/lib/utils/deed-run-types";
 import { benchDemoAt, findOpenRun, insertRun, loadMasteryRows, resumedStart } from "@/lib/services/deed-run-store";
 import { loadHeroLevels } from "@/lib/services/deeds";
-import { loadPlanInput } from "@/lib/services/improvements";
 import { loadLearningProfileRow } from "@/lib/services/learning-profile";
 import { loadRealmSettings } from "@/lib/services/realm-play";
-import { advanceDeliverySeen, setPinnedPlan } from "@/lib/services/realm-materials";
+import { advanceDeliverySeen, loadPlanInput, setPinnedPlan } from "@/lib/services/realm-materials";
 import { announceBuildings } from "@/lib/services/realm-rises";
 
 /** What Aldo says at the bench: one short line for the build run's header. */

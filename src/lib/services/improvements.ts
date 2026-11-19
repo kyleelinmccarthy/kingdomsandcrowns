@@ -1,45 +1,12 @@
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { nanoid } from "nanoid";
-import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { IMPROVEMENTS, type ImprovementId } from "@/lib/realm/improvements";
-import { allocateSpend, materialBalance, MATERIAL_IDS, type MaterialId } from "@/lib/realm/materials";
+import { allocateSpend, materialBalance, MATERIAL_IDS } from "@/lib/realm/materials";
 import type { RunSummary } from "@/lib/utils/deed-run-types";
-import { BUILDINGS, buildingProgress } from "@/lib/utils/kingdom";
 import { seasonLabel } from "@/lib/utils/seasons";
-import { loadDeedBest, siteTally } from "./deeds";
 import { loadMaterialLedger, loadPlaque } from "./realm-materials";
 import { withChildLock, type Tx } from "./realm-play";
-
-/**
- * What `planState` reads for a hero, from the database: the highest level built of each plan, the
- * core buildings that stand (each of its stories done once, or ever marked complete), and the
- * materials in hand.
- */
-export async function loadPlanInput(childId: string): Promise<{
-  built: Record<string, number>;
-  raised: Set<string>;
-  balance: Record<MaterialId, number>;
-}> {
-  const [levels, progress, ledger, best] = await Promise.all([
-    db
-      .select({ improvementId: schema.realmImprovement.improvementId, level: schema.realmImprovement.level })
-      .from(schema.realmImprovement)
-      .where(eq(schema.realmImprovement.childId, childId)),
-    db
-      .select({ buildingId: schema.kingdomProgress.buildingId, deedsDone: schema.kingdomProgress.deedsDone, completedAt: schema.kingdomProgress.completedAt })
-      .from(schema.kingdomProgress)
-      .where(eq(schema.kingdomProgress.childId, childId)),
-    loadMaterialLedger(childId),
-    loadDeedBest(childId),
-  ]);
-  const built: Record<string, number> = {};
-  for (const r of levels) built[r.improvementId] = Math.max(built[r.improvementId] ?? 0, r.level);
-  // The world's own rule (`buildingProgress` over `siteTally`), so the plans board and the world never disagree.
-  const rowBy = new Map(progress.map((row) => [row.buildingId, row]));
-  const raised = new Set(BUILDINGS.filter((b) => buildingProgress(siteTally(b.id, rowBy.get(b.id), best), b).complete).map((b) => b.id));
-  return { built, raised, balance: materialBalance(ledger) };
-}
 
 /** What a plaque says about one quest that paid for a level (the `sources` column holds these as JSON). */
 type SourceQuest = { title: string; subject: string | null; date: string | null };

@@ -155,7 +155,7 @@ describe("which buildings stand, for the plans board", () => {
   }
 
   it("agrees with the world's rule: each story once raises it, a raised one stays raised, replays raise nothing", async () => {
-    const { loadPlanInput } = await import("@/lib/services/improvements");
+    const { loadPlanInput } = await import("@/lib/services/realm-materials");
     const { buildKingdomOverview, loadDeedBest } = await import("@/lib/services/deeds");
     const schema = await import("@/lib/db/schema");
     // The bridge: both its stories done once each, and no completion written yet.

@@ -147,6 +147,21 @@ describe("loadQuestRewards", () => {
     expect(out.a3).toEqual({ made: null, minutes: null });
   });
 
+  it("reads nothing about the kingdom or the settings when they are handed in: the line and the minutes follow what it was given", async () => {
+    // The database says: Statue pinned, minutes off. What is handed in says otherwise.
+    await settings("c1", { pinned: "village-statue" });
+    await earn("c1", "ink", 1, "a1");
+    await minutes("c1", "a1", 5);
+    const known = {
+      materialsPerQuest: 1, enabled: true, showMinutes: true, pinned: "village-banners",
+      built: {}, raised: [], balance: { stone: 0, ink: 1, herbs: 0, thread: 0, dye: 0, timber: 0 },
+    };
+    // Banners do not want ink, so the hint is the nearest plan that does (the Chronicle Hall, 3 more), not the Statue.
+    expect(await svc.loadQuestRewards("c1", ["a1"], known)).toEqual({ a1: { made: "+1 Ink · the Chronicle Hall needs 3 more", minutes: 5 } });
+    // And with minutes off in what was handed in, none are read.
+    expect((await svc.loadQuestRewards("c1", ["a1"], { ...known, showMinutes: false })).a1.minutes).toBeNull();
+  });
+
   it("works for a hero with no settings row", async () => {
     await earn("c1", "stone", 1, "a1");
     expect((await svc.loadQuestRewards("c1", ["a1"])).a1.made).toMatch(/^\+1 Stone · /);
@@ -156,13 +171,13 @@ describe("loadQuestRewards", () => {
 describe("loadPlanCardData", () => {
   it("is the defaults for a hero with nothing, and creates no settings row", async () => {
     const d = await svc.loadPlanCardData("c1");
-    expect(d).toMatchObject({ materialsPerQuest: 1, pinned: null, built: {}, raised: [] });
+    expect(d).toMatchObject({ materialsPerQuest: 1, enabled: true, showMinutes: false, pinned: null, built: {}, raised: [] });
     expect(d.balance).toEqual({ stone: 0, ink: 0, herbs: 0, thread: 0, dye: 0, timber: 0 });
     expect(Number((await pool.query("SELECT count(*) AS n FROM realm_settings")).rows[0].n)).toBe(0);
   });
 
   it("carries the pin, the setting, the built levels, the standing buildings and the satchel", async () => {
-    await pool.query("INSERT INTO realm_settings (id, child_id, materials_per_quest, pinned_plan, created_at, updated_at) VALUES ('s', 'c1', 0, 'village-banners', 1, 1)");
+    await pool.query("INSERT INTO realm_settings (id, child_id, enabled, show_minutes_on_quests, materials_per_quest, pinned_plan, created_at, updated_at) VALUES ('s', 'c1', 0, 1, 0, 'village-banners', 1, 1)");
     await earn("c1", "dye", 3, "a1");
     await pool.query(
       `INSERT INTO realm_improvement (id, child_id, improvement_id, level, stars, built_by_name, sources, built_at) VALUES ('i1', 'c1', 'village-lamps', 2, 1, 'Ada', '[]', 1)`,
@@ -172,6 +187,8 @@ describe("loadPlanCardData", () => {
     );
     expect(await svc.loadPlanCardData("c1")).toMatchObject({
       materialsPerQuest: 0,
+      enabled: false,
+      showMinutes: true,
       pinned: "village-banners",
       built: { "village-lamps": 2 },
       raised: ["library"],
