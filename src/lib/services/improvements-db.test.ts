@@ -155,6 +155,21 @@ describe("finishBuild", () => {
     expect((await spent()).map((s) => [s.material_id, Number(s.amount)])).toEqual([["dye", 1], ["timber", 5]]);
   });
 
+  it("lets another material pay the secondary share (RD-t), and writes the spent rows under what was really taken", async () => {
+    // The fountain's first level: 4 stone and 2 herbs. 1 herbs in hand, no timber; ink pays the other herbs.
+    await quest("st", "Fractions drill", "Math", "2026-11-02");
+    await quest("he", "Seeds", "Science", "2026-11-03");
+    await quest("in", "Read aloud", "Reading", "2026-11-04");
+    await earn("stone", 4, "st");
+    await earn("herbs", 1, "he");
+    await earn("ink", 3, "in");
+    const { finishBuild } = await isolate();
+    const r = await finishBuild("c1", { improvementId: "village-fountain", level: 1 }, 3, NOW);
+    expect(r).toMatchObject({ built: true, balance: { stone: 0, herbs: 0, ink: 2, timber: 0 } });
+    expect((await spent()).map((s) => [s.material_id, Number(s.amount)])).toEqual([["herbs", 1], ["ink", 1], ["stone", 4]]);
+    expect(r.plaque?.sources).toEqual(["Fractions drill", "Seeds", "Read aloud"]);
+  });
+
   it("refuses level 2 while level 1 is not built: error, and nothing is written", async () => {
     await earn("dye", 6);
     await earn("thread", 3);

@@ -57,7 +57,8 @@ describe("the satchel", () => {
     render(<SatchelHud works={works({ pinned: "village-banners", balance: { ...EMPTY_WORKS.balance, dye: 1 } })} raised={NONE} numerals />);
     const plan = screen.getByText("Banners").closest(".r3-satchel-plan")!;
     expect(plan).toHaveTextContent("Pinned plan");
-    expect(plan).toHaveTextContent("Needs 2 more Thread and 3 more Dye");
+    // The Banners short of their own Dye first, then the Thread share nothing else in the satchel can pay (RD-t).
+    expect(plan).toHaveTextContent("Needs 3 more Dye and 2 more Thread");
   });
 
   it("says a ready plan is ready, and shows a pin even with an empty satchel", () => {

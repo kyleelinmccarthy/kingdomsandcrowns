@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { BUILDINGS } from "@/lib/utils/kingdom";
 import { BUILDING_SLOTS, buildingFootprint } from "./layout";
-import { MATERIAL_IDS, MATERIALS, allocateSpend, type MaterialId } from "./materials";
+import { MATERIAL_IDS, MATERIALS, type MaterialId } from "./materials";
 import { VILLAGE_DECOR_SPOTS, YARD_RADIUS } from "./keep-yard";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -11,6 +11,9 @@ import {
   IMPROVEMENTS,
   IMPROVEMENT_COLORS,
   IMPROVEMENT_IDS,
+  allocatePlan,
+  planCost,
+  planFillers,
   planElevation,
   parsePlanRef,
   nearestPlanHint,
@@ -196,15 +199,74 @@ describe("planState", () => {
   });
 
   it("is short by what even timber cannot cover, and says what", () => {
-    // Level 1 of the well house wants 4 stone + 2 thread; 3 timber covers 3 of the 6.
+    // Level 1 of the well house wants 4 stone + 2 thread; 3 timber goes to the stone first (RD-t).
     const plans = planState({ built: {}, raised: allRaised, balance: bal({ timber: 3 }) });
     const well = find(plans, "well-house");
     expect(well.state).toBe("short");
     const rows = (b: Record<MaterialId, number>) => MATERIAL_IDS.map((m) => ({ materialId: m, amount: b[m], kind: "earned" as const, sourceAssignmentId: null, createdAt: 0 })).filter((r) => r.amount > 0);
-    const spend = allocateSpend(IMPROVEMENTS["well-house"].levels[0].cost, rows(bal({ timber: 3 })));
+    const spend = allocatePlan("well-house", 1, rows(bal({ timber: 3 })));
     expect(spend.ok).toBe(false);
     expect(well.short).toEqual(spend.ok ? {} : spend.short);
-    expect(well.short).toEqual({ stone: 3 });
+    expect(well.short).toEqual({ stone: 1, thread: 2 });
+  });
+
+  describe("RD-t: any material can pay a plan's secondary share", () => {
+    const ready = (balance: Record<MaterialId, number>) => planState({ built: {}, raised: allRaised, balance }).filter((p) => p.state === "ready").map((p) => p.id);
+
+    it("offers a hero who holds only stone something to build", () => {
+      expect(ready(bal({ stone: 100 })).length).toBeGreaterThan(0);
+    });
+
+    it("offers a hero who holds only ink and herbs something to build", () => {
+      expect(ready(bal({ ink: 50, herbs: 50 })).length).toBeGreaterThan(0);
+    });
+
+    it("offers a ready level-1 plan for every non-empty set of earnable materials", () => {
+      const earnable = MATERIAL_IDS.filter((m) => m !== "timber");
+      const subsets = Array.from({ length: (1 << earnable.length) - 1 }, (_, i) => earnable.filter((_, b) => (i + 1) & (1 << b)));
+      expect(subsets).toHaveLength(31);
+      for (const set of subsets) {
+        const plans = planState({ built: {}, raised: allRaised, balance: bal(Object.fromEntries(set.map((m) => [m, 50]))) });
+        expect(plans.some((p) => p.state === "ready" && p.level === 1), set.join("+")).toBe(true);
+      }
+    });
+
+    it("never lets another material pay the primary share", () => {
+      // The fountain's primary is stone: a mountain of ink does not stand in for it.
+      const fountain = find(planState({ built: {}, raised: allRaised, balance: bal({ ink: 100, herbs: 2 }) }), "village-fountain");
+      expect(fountain).toMatchObject({ state: "short", short: { stone: 4 } });
+    });
+
+    it("prices every plan level the one way: the catalog's secondary is the flexible share", () => {
+      for (const id of ids) {
+        for (const level of [1, 2, 3]) {
+          const { cost, flexible } = planCost(id, level);
+          expect(cost, `${id}:${level}`).toEqual(IMPROVEMENTS[id].levels[level - 1].cost);
+          expect(flexible).toBe(IMPROVEMENTS[id].secondary);
+        }
+      }
+    });
+  });
+
+  describe("planFillers: which gap notes apply", () => {
+    it("says nothing when the plan's own materials cover it", () => {
+      expect(planFillers("village-fountain", 1, bal({ stone: 4, herbs: 2, timber: 5, ink: 5 }))).toEqual({ timber: false, any: false });
+    });
+
+    it("names timber when timber fills a gap", () => {
+      expect(planFillers("village-fountain", 1, bal({ stone: 3, herbs: 2, timber: 1 }))).toEqual({ timber: true, any: false });
+    });
+
+    it("names the secondary when other materials could fill it after timber", () => {
+      // Level 2: 6 stone and 3 herbs. 1 stone, 1 herbs, 2 timber and some ink: timber goes to the stone.
+      expect(planFillers("village-fountain", 2, bal({ stone: 1, herbs: 1, timber: 2, ink: 1 }))).toEqual({ timber: true, any: true });
+      expect(planFillers("village-fountain", 1, bal({ stone: 4, ink: 2 }))).toEqual({ timber: false, any: true });
+    });
+
+    it("does not offer the secondary note when nothing else is spare, or timber already covers it", () => {
+      expect(planFillers("village-fountain", 1, bal({ stone: 4 }))).toEqual({ timber: false, any: false });
+      expect(planFillers("village-fountain", 1, bal({ stone: 4, timber: 2, ink: 3 }))).toEqual({ timber: true, any: false });
+    });
   });
 
   it("calls a wing whose building is not raised 'host', and offers keep and village plans anyway", () => {
@@ -222,11 +284,12 @@ describe("planState", () => {
       balance: bal({ stone: 4, thread: 2, herbs: 4 }),
     });
     // Each plan is weighed against the whole balance on its own (4 stone, 2 thread, 4 herbs).
-    // Ready: well-house (4 stone + 2 thread), mill-granary (4 herbs + 2 stone), fountain (4 stone + 2 herbs).
-    // Short: bridge-arches lacks 2 dye, lamps 2 thread, hall 4 ink, banners 4 dye. Five wings wait on their buildings.
+    // Ready: well-house (4 stone + 2 thread), mill-granary (4 herbs + 2 stone), bridge-arches (4 stone,
+    // and herbs pay its dye share, RD-t), fountain (4 stone + 2 herbs).
+    // Short: lamps 2 thread, hall 4 ink, banners 4 dye (primaries). Five wings wait on their buildings.
     expect(plans.map((p) => `${p.id}:${p.state}`)).toEqual([
-      "well-house:ready", "mill-granary:ready", "village-fountain:ready",
-      "bridge-arches:short", "village-lamps:short", "chronicle-hall:short", "village-banners:short",
+      "well-house:ready", "mill-granary:ready", "bridge-arches:ready", "village-fountain:ready",
+      "village-lamps:short", "chronicle-hall:short", "village-banners:short",
       "chapel-windows:host", "market-stalls:host", "library-reading-wing:host", "watchtower-beacon:host", "garden-herb-house:host",
       "village-statue:done",
     ]);
@@ -285,8 +348,20 @@ describe("planHint", () => {
   });
 
   it("falls back to the nearest when the pinned plan does not need it", () => {
-    const plans = [short("library-reading-wing", { thread: 3 }), short("village-banners", { ink: 1 })];
-    expect(planHint("ink", plans, "library-reading-wing")).toBe("the Banners needs 1 more");
+    // The well house is short of stone, its primary: ink cannot pay for that (RD-t).
+    const plans = [short("well-house", { stone: 3 }), short("village-banners", { ink: 1 })];
+    expect(planHint("ink", plans, "well-house")).toBe("the Banners needs 1 more");
+  });
+
+  it("names a plan short of its secondary, which any material can pay for (RD-t)", () => {
+    expect(planHint("ink", [short("village-fountain", { herbs: 2 })], null)).toBe("the Fountain needs 2 more");
+    // Its primary is the stone itself: stone's surplus pays the herbs too.
+    expect(planHint("stone", [short("village-fountain", { herbs: 2 })], null)).toBe("the Fountain needs 2 more");
+    expect(planHint("ink", [short("village-fountain", { stone: 2, herbs: 1 })], null)).toBe("the Fountain needs 1 more");
+  });
+
+  it("does not name a plan short only of its primary for another material", () => {
+    expect(planHint("ink", [short("village-fountain", { stone: 2 })], null)).toBeNull();
   });
 
   it("breaks a tie in catalog order, whatever order the plans arrive in", () => {

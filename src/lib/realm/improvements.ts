@@ -228,6 +228,41 @@ export type PlanStatus = {
 
 /** How many levels every plan has. */
 export const LEVELS = 3;
+
+/**
+ * What a plan's level costs, and its flexible share (RD-t): the catalog's secondary, which any
+ * material may pay for once timber is spent. The one way to price a plan, so `planState`, the
+ * hints, the Tavern card and `finishBuild` all weigh it by the same rule.
+ */
+export function planCost(id: ImprovementId, level: number): { cost: Partial<Record<MaterialId, number>>; flexible: MaterialId } {
+  const plan = IMPROVEMENTS[id];
+  return { cost: plan.levels[level - 1].cost, flexible: plan.secondary };
+}
+
+/** `allocateSpend` for a plan's level, with its flexible share marked (`planCost`). */
+export function allocatePlan(id: ImprovementId, level: number, rows: readonly MaterialRow[]): ReturnType<typeof allocateSpend> {
+  const { cost, flexible } = planCost(id, level);
+  return allocateSpend(cost, rows, { flexible });
+}
+
+/**
+ * Which of the gap notes a plan's cost bars need against a balance, so a bar that looks short is
+ * explained: `timber` when timber fills a gap, and `any` when the secondary is short even after
+ * timber and other materials have units this cost does not need, which pay for it (RD-t).
+ */
+export function planFillers(id: ImprovementId, level: number, balance: Record<MaterialId, number>): { timber: boolean; any: boolean } {
+  const { cost, flexible } = planCost(id, level);
+  const has = (m: MaterialId) => balance[m] ?? 0;
+  const gap = (m: MaterialId) => Math.max(0, (cost[m] ?? 0) - has(m));
+  const fixedGap = MATERIAL_IDS.reduce((n, m) => n + (m === flexible || m === "timber" ? 0 : gap(m)), 0);
+  const spareTimber = has("timber") - (cost.timber ?? 0);
+  const flexGap = gap(flexible);
+  const spare = MATERIAL_IDS.some((m) => m !== flexible && m !== "timber" && has(m) > (cost[m] ?? 0));
+  return {
+    timber: spareTimber > 0 && fixedGap + flexGap > 0,
+    any: spare && flexGap > Math.max(0, spareTimber - fixedGap),
+  };
+}
 const totalOf = (m: Partial<Record<MaterialId, number>> | undefined): number => Object.values(m ?? {}).reduce<number>((n, v) => n + (v ?? 0), 0);
 /** The building a wing stands on ("Village Well"); null for the keep yard's and the village's plans. */
 export const hostLabel = (host: ImprovementHost): string | null => BUILDINGS.find((b) => b.id === host)?.label ?? null;
@@ -246,7 +281,7 @@ export function planState(input: { built: Record<string, number>; raised: Readon
     if (built >= LEVELS) return { id, level: LEVELS, state: "done" };
     const level = built + 1;
     if (hostLabel(IMPROVEMENTS[id].host) !== null && !input.raised.has(IMPROVEMENTS[id].host)) return { id, level, state: "host" };
-    const spend = allocateSpend(IMPROVEMENTS[id].levels[level - 1].cost, rows);
+    const spend = allocatePlan(id, level, rows);
     return spend.ok ? { id, level, state: "ready" } : { id, level, state: "short", short: spend.short };
   });
   const rank = { ready: 0, short: 1, host: 2, done: 3 } as const;
@@ -288,13 +323,16 @@ const nearestFirst = (a: PlanStatus, b: PlanStatus): number =>
 /**
  * What to say about a plan after a quest brought `made`: the pinned plan if it still wants that
  * material, otherwise the nearest plan that does (fewest missing in all, catalog order on a tie).
- * Null when no plan needs it.
+ * A plan wants `made` when it is short of it, or short of its flexible share, which any material
+ * pays for (RD-t, `planCost`). Null when no plan needs it.
  */
 export function planHint(made: MaterialId, plans: PlanStatus[], pinned: string | null): string | null {
-  const needs = (p: PlanStatus) => p.state === "short" && (p.short?.[made] ?? 0) > 0;
+  const wanted = (p: PlanStatus): number =>
+    p.state === "short" ? (p.short?.[made] ?? 0) || (p.short?.[planCost(p.id, p.level).flexible] ?? 0) : 0;
+  const needs = (p: PlanStatus) => wanted(p) > 0;
   const pin = pinned ? plans.find((p) => p.id === pinned && needs(p)) : undefined;
   const best = pin ?? plans.filter(needs).sort(nearestFirst)[0];
-  return best ? `${planName(best.id)} needs ${best.short![made]} more` : null;
+  return best ? `${planName(best.id)} needs ${wanted(best)} more` : null;
 }
 
 /**

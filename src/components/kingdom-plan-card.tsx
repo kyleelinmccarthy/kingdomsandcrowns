@@ -7,12 +7,14 @@ import { GameFrame } from "@/components/game-frame";
 import { GameIcon } from "@/components/game-icon";
 import { Button } from "@/components/ui/button";
 import { pinPlan } from "@/lib/actions/improvements";
-import { IMPROVEMENTS, LEVELS, hostLabel, planLine, planState, type ImprovementHost, type PlanStatus } from "@/lib/realm/improvements";
+import { IMPROVEMENTS, LEVELS, hostLabel, planCost, planFillers, planLine, planState, type ImprovementHost, type PlanStatus } from "@/lib/realm/improvements";
 import { MATERIAL_IDS, MATERIALS, materialPhrase, type MaterialId } from "@/lib/realm/materials";
 import { activePin } from "@/lib/realm/works-state";
 
 export const PLAN_CARD_EMPTY = "Finish quests to bring materials to your kingdom.";
 export const TIMBER_NOTE = "Timber can fill any gap.";
+/** RD-t: the plan's secondary share takes any material once timber is spent. */
+export const anyMaterialNote = (secondary: MaterialId) => `Any material can pay for the ${MATERIALS[secondary].label}.`;
 
 /** Where a plan stands: the building it is built on, or the place that holds it. */
 function placeOf(host: ImprovementHost): string {
@@ -78,10 +80,12 @@ export function KingdomPlanCard({
     }
   }
 
-  const cost = plan ? IMPROVEMENTS[plan.id].levels[plan.level - 1].cost : {};
+  const priced = plan ? planCost(plan.id, plan.level) : null;
+  const cost = priced?.cost ?? {};
   const needs = MATERIAL_IDS.filter((m) => (cost[m] ?? 0) > 0);
-  // Ready only because timber fills a gap: say so, or the bars look short of a plan that says "Ready".
-  const timberFills = plan?.state === "ready" && needs.some((m) => (balance[m] ?? 0) < (cost[m] ?? 0));
+  // A bar that looks short is explained by what fills it (RD-t): timber fills any gap, and any
+  // material can pay for the secondary. Each note shows only when it applies.
+  const fillers = plan ? planFillers(plan.id, plan.level, balance) : { timber: false, any: false };
 
   return (
     <GameFrame title="Kingdom Plans" icon={<GameIcon name="castle" className="size-4 text-[var(--gold-bright)]" />}>
@@ -118,7 +122,8 @@ export function KingdomPlanCard({
                 );
               })}
             </ul>
-            {timberFills && <p className="text-xs text-muted-foreground">{TIMBER_NOTE}</p>}
+            {fillers.timber && <p className="text-xs text-muted-foreground">{TIMBER_NOTE}</p>}
+            {fillers.any && priced && <p className="text-xs text-muted-foreground">{anyMaterialNote(priced.flexible)}</p>}
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">{PLAN_CARD_EMPTY}</p>

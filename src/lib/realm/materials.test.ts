@@ -176,6 +176,54 @@ describe("allocateSpend", () => {
   });
 });
 
+describe("allocateSpend with a flexible share (RD-t)", () => {
+  it("pays the flexible share from its own balance first", () => {
+    const r = allocateSpend({ stone: 2, dye: 1 }, [earned("stone", 2, "s"), earned("dye", 1, "d"), earned("ink", 5, "i")], { flexible: "dye" });
+    expect(r).toMatchObject({ ok: true, spend: { stone: 2, dye: 1 } });
+  });
+
+  it("uses timber for the flexible share before any other material", () => {
+    const r = allocateSpend({ stone: 2, dye: 2 }, [earned("stone", 2, "s"), earned("timber", 1, "t"), earned("ink", 5, "i")], { flexible: "dye" });
+    expect(r).toMatchObject({ ok: true, spend: { stone: 2, timber: 1, ink: 1 } });
+  });
+
+  it("then takes the other materials in catalog order", () => {
+    const r = allocateSpend({ ink: 1, dye: 3 }, [earned("ink", 1, "i"), earned("thread", 1, "t"), earned("herbs", 1, "h"), earned("stone", 1, "s")], { flexible: "dye" });
+    // stone, then herbs, then thread (MATERIAL_IDS order), ink being all committed to its own share.
+    expect(r).toMatchObject({ ok: true, spend: { ink: 1, stone: 1, herbs: 1, thread: 1 } });
+  });
+
+  it("lets the primary's surplus pay the flexible share, never the units the primary itself needs", () => {
+    expect(allocateSpend({ stone: 4, dye: 2 }, [earned("stone", 6, "s")], { flexible: "dye" })).toMatchObject({ ok: true, spend: { stone: 6 } });
+    expect(allocateSpend({ stone: 4, dye: 2 }, [earned("stone", 5, "s")], { flexible: "dye" })).toEqual({ ok: false, short: { dye: 1 } });
+  });
+
+  it("never pays the primary share from another material", () => {
+    // Plenty of everything but stone, and no timber: the stone share stays short.
+    const rows = [earned("ink", 20, "i"), earned("herbs", 20, "h"), earned("dye", 2, "d")];
+    expect(allocateSpend({ stone: 4, dye: 2 }, rows, { flexible: "dye" })).toEqual({ ok: false, short: { stone: 4 } });
+  });
+
+  it("pays the primary's gap from timber before the flexible share sees any", () => {
+    const rows = [earned("stone", 1, "s"), earned("timber", 3, "t")];
+    // Stone wants 3 more and takes all the timber; the dye share has nothing left to draw on.
+    expect(allocateSpend({ stone: 4, dye: 2 }, rows, { flexible: "dye" })).toEqual({ ok: false, short: { dye: 2 } });
+  });
+
+  it("names what is still missing after every fill, primary and flexible alike", () => {
+    expect(allocateSpend({ stone: 4, dye: 2 }, [earned("stone", 1, "s"), earned("ink", 1, "i")], { flexible: "dye" })).toEqual({ ok: false, short: { stone: 3, dye: 1 } });
+  });
+
+  it("records the units actually taken, so sources follow them", () => {
+    const rows = [earned("stone", 4, "s", 1), earned("ink", 2, "i", 2)];
+    expect(allocateSpend({ stone: 4, dye: 2 }, rows, { flexible: "dye" })).toEqual({ ok: true, spend: { stone: 4, ink: 2 }, sources: ["s", "i"] });
+  });
+
+  it("without the option, behaves exactly as before: only timber fills a gap", () => {
+    expect(allocateSpend({ stone: 4, dye: 2 }, [earned("stone", 4, "s"), earned("ink", 5, "i")])).toEqual({ ok: false, short: { dye: 2 } });
+  });
+});
+
 describe("heapSize", () => {
   it("steps at 0, 1-3, 4-9, 10+", () => {
     expect([0, 1, 3, 4, 9, 10, 99].map(heapSize)).toEqual([0, 1, 1, 2, 2, 3, 3]);

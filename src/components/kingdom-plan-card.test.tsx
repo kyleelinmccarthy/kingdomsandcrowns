@@ -83,8 +83,34 @@ describe("KingdomPlanCard", () => {
     expect(screen.queryByText("Timber can fill any gap.")).not.toBeInTheDocument();
   });
 
+  it("notes that timber fills a gap on a short plan too, so a bar it covers is explained", () => {
+    // The Fountain needs 4 Stone and 2 Herbs; 1 Stone, 2 Herbs and 1 Timber leave it short of Stone.
+    render(<KingdomPlanCard {...base} pinned="village-fountain" balance={bal({ stone: 1, herbs: 2, timber: 1 })} />);
+    expect(screen.getByText("Needs 2 more Stone")).toBeInTheDocument();
+    expect(screen.getByText("Timber can fill any gap.")).toBeInTheDocument();
+  });
+
+  it("says any material can pay for the secondary when its bar is short and other materials could fill it (RD-t)", () => {
+    // Short of stone, and the herbs bar is short too; the Ink in hand can pay for Herbs.
+    const { rerender } = render(<KingdomPlanCard {...base} pinned="village-fountain" balance={bal({ stone: 1, herbs: 1, ink: 3 })} />);
+    expect(screen.getByRole("progressbar", { name: "Herbs: 1 of 2" })).toBeInTheDocument();
+    expect(screen.getByText("Any material can pay for the Herbs.")).toBeInTheDocument();
+    expect(screen.queryByText("Timber can fill any gap.")).not.toBeInTheDocument();
+    // Ready because ink pays for the herbs.
+    rerender(<KingdomPlanCard {...base} pinned="village-fountain" balance={bal({ stone: 4, ink: 2 })} />);
+    expect(screen.getByText("Ready to build")).toBeInTheDocument();
+    expect(screen.getByText("Any material can pay for the Herbs.")).toBeInTheDocument();
+  });
+
+  it("leaves the secondary note out when nothing else could pay, or the secondary is not short", () => {
+    const { rerender } = render(<KingdomPlanCard {...base} pinned="village-fountain" balance={bal({ stone: 4 })} />);
+    expect(screen.queryByText(/Any material can pay/)).not.toBeInTheDocument();
+    rerender(<KingdomPlanCard {...base} pinned="village-fountain" balance={bal({ stone: 1, herbs: 2, ink: 5 })} />);
+    expect(screen.queryByText(/Any material can pay/)).not.toBeInTheDocument();
+  });
+
   it("hides the way to the Realm from a hero while the Realm is resting, but not the plan or the Pin", () => {
-    render(<KingdomPlanCard {...base} realmEnabled={false} balance={bal({ dye: 1 })} />);
+    render(<KingdomPlanCard {...base} realmEnabled={false} balance={bal({ dye: 3 })} />);
     expect(screen.queryByRole("link", { name: "Build it in the Realm" })).not.toBeInTheDocument();
     expect(screen.getByText("Banners")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Pin" })).toBeInTheDocument();
@@ -97,7 +123,7 @@ describe("KingdomPlanCard", () => {
 
   it("shows a pinned plan only when it is ready or short: one waiting on its building gives way to the first that is", () => {
     // The Reading Wing's Library has not been raised, so the pin cannot be built on yet.
-    render(<KingdomPlanCard {...base} pinned="library-reading-wing" balance={bal({ dye: 1 })} />);
+    render(<KingdomPlanCard {...base} pinned="library-reading-wing" balance={bal({ dye: 3 })} />);
     expect(screen.queryByText("Reading Wing")).not.toBeInTheDocument();
     expect(screen.queryByText(/Raise the/)).not.toBeInTheDocument();
     expect(screen.getByText("Banners")).toBeInTheDocument();
@@ -107,7 +133,7 @@ describe("KingdomPlanCard", () => {
 
   it("pins an unpinned plan: calls the action with the plan, then refreshes", async () => {
     const user = userEvent.setup();
-    render(<KingdomPlanCard {...base} balance={bal({ dye: 1 })} />);
+    render(<KingdomPlanCard {...base} balance={bal({ dye: 3 })} />);
     await user.click(screen.getByRole("button", { name: "Pin" }));
     expect(pinPlan).toHaveBeenCalledWith("c1", "village-banners");
     await vi.waitFor(() => expect(refresh).toHaveBeenCalled());

@@ -1,8 +1,8 @@
 import { and, desc, eq, inArray, isNull } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import * as schema from "@/lib/db/schema";
-import { IMPROVEMENTS, type ImprovementId } from "@/lib/realm/improvements";
-import { allocateSpend, materialBalance, MATERIAL_IDS } from "@/lib/realm/materials";
+import { allocatePlan, IMPROVEMENTS, type ImprovementId } from "@/lib/realm/improvements";
+import { materialBalance, MATERIAL_IDS } from "@/lib/realm/materials";
 import type { RunSummary } from "@/lib/utils/deed-run-types";
 import { seasonLabel } from "@/lib/utils/seasons";
 import { loadMaterialLedger, loadPlaque } from "./realm-materials";
@@ -72,7 +72,8 @@ export async function finishBuild(
     if (await stands(level)) return { ...head, built: true, balance, ...(await onRecord()) };
     if (level > 1 && !(await stands(level - 1))) return { ...head, built: false, reason: "error", balance };
 
-    const alloc = allocateSpend(plan.levels[level - 1].cost, ledger);
+    // The one rule for what a plan costs and who may pay its secondary share (RD-t), as `planState` uses it.
+    const alloc = allocatePlan(improvementId, level, ledger);
     if (!alloc.ok) return { ...head, built: false, reason: "short", balance };
 
     const [openSeason] = await tx

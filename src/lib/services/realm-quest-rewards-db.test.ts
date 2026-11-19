@@ -72,14 +72,25 @@ describe("loadQuestRewards", () => {
   it("falls back to the nearest plan that wants the material when nothing is pinned", async () => {
     await settings("c1", {});
     await earn("c1", "dye", 1, "a1");
-    // Only the Banners want dye (4, so 3 more).
+    await earn("c1", "stone", 2, "a2");
+    // With 1 dye and 2 stone, the Banners (3 more dye), the Fountain and the Statue (each a secondary
+    // share any material can pay, RD-t) want dye, all 3 short in all: the Banners come first.
     expect((await svc.loadQuestRewards("c1", ["a1"])).a1.made).toBe("+1 Dye · the Banners needs 3 more");
   });
 
   it("falls back from a pin that does not want the material", async () => {
+    // The Chronicle Hall is short only of its own ink, which dye cannot pay for.
+    await settings("c1", { pinned: "chronicle-hall" });
+    await earn("c1", "dye", 1, "a1");
+    await earn("c1", "stone", 2, "a2");
+    expect((await svc.loadQuestRewards("c1", ["a1"])).a1.made).toBe("+1 Dye · the Banners needs 3 more");
+  });
+
+  it("names a pinned plan whose secondary share the material can pay (RD-t)", async () => {
     await settings("c1", { pinned: "village-lamps" });
     await earn("c1", "dye", 1, "a1");
-    expect((await svc.loadQuestRewards("c1", ["a1"])).a1.made).toBe("+1 Dye · the Banners needs 3 more");
+    // The Lamps want 4 thread and 2 stone; the dye pays a stone, so 1 more.
+    expect((await svc.loadQuestRewards("c1", ["a1"])).a1.made).toBe("+1 Dye · the Lamps needs 1 more");
   });
 
   it("ignores a pin on a plan that is fully built", async () => {
@@ -156,8 +167,8 @@ describe("loadQuestRewards", () => {
       materialsPerQuest: 1, enabled: true, showMinutes: true, pinned: "village-banners",
       built: {}, raised: [], balance: { stone: 0, ink: 1, herbs: 0, thread: 0, dye: 0, timber: 0 },
     };
-    // Banners do not want ink, so the hint is the nearest plan that does (the Chronicle Hall, 3 more), not the Statue.
-    expect(await svc.loadQuestRewards("c1", ["a1"], known)).toEqual({ a1: { made: "+1 Ink · the Chronicle Hall needs 3 more", minutes: 5 } });
+    // The pin handed in is the Banners, whose thread share the ink pays for (RD-t), so 1 more: not the Statue the database pins.
+    expect(await svc.loadQuestRewards("c1", ["a1"], known)).toEqual({ a1: { made: "+1 Ink · the Banners needs 1 more", minutes: 5 } });
     // And with minutes off in what was handed in, none are read.
     expect((await svc.loadQuestRewards("c1", ["a1"], { ...known, showMinutes: false })).a1.minutes).toBeNull();
   });

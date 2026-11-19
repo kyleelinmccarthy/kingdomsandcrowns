@@ -76,50 +76,72 @@ export function materialBalance(rows: readonly MaterialRow[]): Record<MaterialId
 const MAX_SOURCES = 12;
 
 /**
- * Plan a spend. Each costed material is paid from its own balance, and any shortfall from timber
- * (the wildcard, so PE and music lessons still build the kingdom). Sources are found by treating each
- * material's earned rows as a FIFO queue of units: earlier spends eat the oldest units, and this
- * spend takes the next ones; every earned row it touches names its quest, oldest first.
+ * Plan a spend. Each costed material is paid from its own balance, and a shortfall from timber
+ * (the wildcard, so PE and music lessons still build the kingdom). One share may be `flexible`
+ * (RD-t: a plan's secondary): it is paid from its own balance, then timber, then whatever the
+ * other materials have left once this cost's own shares are taken, in `MATERIAL_IDS` order. The
+ * other shares are paid first, and only ever from their own balance and timber, so the flexible
+ * share takes nothing this cost itself needs. `short` names what is still missing after every fill.
+ *
+ * Sources are found by treating each material's earned rows as a FIFO queue of units: earlier
+ * spends eat the oldest units, and this spend takes the next ones; every earned row it touches
+ * names its quest, oldest first.
  */
 export function allocateSpend(
   cost: Amounts,
   rows: readonly MaterialRow[],
+  opts: { flexible?: MaterialId } = {},
 ):
   | { ok: true; spend: Amounts; sources: string[] }
   | { ok: false; short: Amounts } {
-  const balance = materialBalance(rows);
-  const spend: Amounts = {};
-  const gap: Amounts = {}; // what each non-timber material lacks, to be paid from timber
   // A cost is whole and positive: negatives, fractions, NaN and Infinity never become a free or odd spend.
   const whole = (v: number | undefined) => (v !== undefined && Number.isFinite(v) && v > 0 ? Math.floor(v) : 0);
-  let timberNeed = whole(cost.timber);
-  for (const id of MATERIAL_IDS) {
-    if (id === "timber") continue;
-    const want = whole(cost[id]);
-    const own = Math.min(want, balance[id]);
-    if (own > 0) spend[id] = own;
-    if (want > own) {
-      gap[id] = want - own;
-      timberNeed += want - own;
+  const left = materialBalance(rows);
+  const spend: Amounts = {};
+  /** Takes up to `n` units of `id` from what is left, and says how many it took. */
+  const take = (id: MaterialId, n: number): number => {
+    const k = Math.min(n, left[id]);
+    if (k > 0) {
+      left[id] -= k;
+      spend[id] = (spend[id] ?? 0) + k;
     }
-  }
+    return k;
+  };
+  const flexible = opts.flexible !== undefined && whole(cost[opts.flexible]) > 0 ? opts.flexible : undefined;
 
-  const timberMissing = timberNeed - balance.timber;
-  if (timberMissing > 0) {
-    // Name the missing amounts against the materials that were short, then any timber asked for directly.
-    const short: Amounts = {};
-    let left = timberMissing;
-    for (const id of MATERIAL_IDS) {
-      const g = gap[id] ?? 0;
-      if (g > 0 && left > 0) {
-        short[id] = Math.min(g, left);
-        left -= short[id];
-      }
-    }
-    if (left > 0) short.timber = left;
-    return { ok: false, short };
+  // 1. Every fixed share from its own balance (a timber cost included).
+  const gap: Amounts = {};
+  for (const id of MATERIAL_IDS) {
+    if (id === flexible) continue;
+    const want = whole(cost[id]);
+    const missing = want - take(id, want);
+    if (missing > 0) gap[id] = missing;
   }
-  if (timberNeed > 0) spend.timber = timberNeed;
+  // 2. The fixed shares' gaps from timber. What even timber cannot cover is named against the
+  //    materials that were short, in catalog order, then any timber asked for directly.
+  const gapTotal = MATERIAL_IDS.reduce((n, id) => n + (id === "timber" ? 0 : (gap[id] ?? 0)), 0);
+  let missing = gapTotal - take("timber", gapTotal) + (gap.timber ?? 0);
+  const short: Amounts = {};
+  for (const id of MATERIAL_IDS) {
+    const g = id === "timber" ? 0 : (gap[id] ?? 0);
+    if (g > 0 && missing > 0) {
+      short[id] = Math.min(g, missing);
+      missing -= short[id];
+    }
+  }
+  if (missing > 0) short.timber = missing;
+  // 3. The flexible share: its own balance, then timber, then the other materials' leftovers.
+  if (flexible) {
+    let need = whole(cost[flexible]);
+    need -= take(flexible, need);
+    need -= take("timber", need);
+    for (const id of MATERIAL_IDS) {
+      if (need <= 0) break;
+      if (id !== flexible && id !== "timber") need -= take(id, need);
+    }
+    if (need > 0) short[flexible] = need;
+  }
+  if (Object.keys(short).length > 0) return { ok: false, short };
 
   const touched: { createdAt: number; order: number; id: string }[] = [];
   const sorted = rows

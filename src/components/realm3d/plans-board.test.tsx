@@ -91,7 +91,8 @@ describe("the plans board", () => {
     expect(wellHouse).toHaveTextContent("Raise the Village Well first");
     expect(within(wellHouse).queryByRole("button", { name: "Build" })).toBeNull();
     // Short of materials: what is missing, in the plan's own words.
-    expect(row("Fountain")).toHaveTextContent("Needs 4 more Stone and 2 more Herbs");
+    // The Dye in hand pays the Herbs share (RD-t); nothing pays the Stone but Stone or Timber.
+    expect(within(row("Fountain")).getByText("Needs 4 more Stone")).toHaveClass("r3-plan-line");
     // Every level stands.
     expect(row("Lamps")).toHaveTextContent("Built");
     expect(within(row("Lamps")).queryByText("Level 3 of 3")).toBeNull();
