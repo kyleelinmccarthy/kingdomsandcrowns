@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent, createEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QuestAssignmentCard } from "./quest-assignment-card";
 
@@ -16,6 +16,7 @@ vi.mock("@/lib/actions/quest-assignments", () => ({
 }));
 
 import {
+  completeAssignment,
   markAssignmentStuck,
   reviseAssignment,
   skipAssignment,
@@ -42,6 +43,7 @@ let mockTimerHook: {
 beforeEach(() => {
   vi.mocked(skipAssignment).mockClear();
   vi.mocked(updateAssignmentNotes).mockClear();
+  vi.mocked(completeAssignment).mockClear();
   vi.mocked(markAssignmentStuck).mockClear();
   vi.mocked(reviseAssignment).mockClear();
   mockTimerHook = {
@@ -60,7 +62,7 @@ beforeEach(() => {
 afterEach(cleanup);
 
 const baseData = {
-  assignment: { id: "qa1", status: "pending", notes: null, statusReason: null },
+  assignment: { id: "qa1", status: "pending", notes: null, drawing: null, statusReason: null },
   quest: { id: "q1", title: "Read Chapter 5", description: "Pages 50-75", estimatedMinutes: 30, rewardXp: null, rewardDescription: null, rewardAvatarItem: null, requireNotes: false },
   subject: { id: "s1", name: "Math", color: "#ef4444" },
 };
@@ -276,7 +278,7 @@ describe("QuestAssignmentCard", () => {
     await user.click(screen.getByText("Add Notes"));
     await user.type(screen.getByLabelText("Scribe's Notes"), "Finished the whole chapter");
     await user.click(screen.getByText("Save Notes"));
-    expect(updateAssignmentNotes).toHaveBeenCalledWith("qa1", "Finished the whole chapter");
+    expect(updateAssignmentNotes).toHaveBeenCalledWith("qa1", "Finished the whole chapter", null);
   });
 
   it("seeds the notes editor with the notes already on the quest", async () => {
@@ -365,7 +367,7 @@ describe("QuestAssignmentCard", () => {
   it("shows a stuck quest's reason, and gives the hero no buttons to press", () => {
     const stuck = {
       ...baseData,
-      assignment: { id: "qa1", status: "stuck", notes: null, statusReason: "I got lost on step 3" },
+      assignment: { id: "qa1", status: "stuck", notes: null, drawing: null, statusReason: "I got lost on step 3" },
     };
     render(<QuestAssignmentCard data={stuck} isChildView={true} />);
     expect(screen.getByText(/Stuck — help is on the way: I got lost on step 3/)).toBeInTheDocument();
@@ -373,7 +375,7 @@ describe("QuestAssignmentCard", () => {
   });
 
   it("lets a grown-up finish, shelve or reopen a stuck quest", () => {
-    const stuck = { ...baseData, assignment: { id: "qa1", status: "stuck", notes: null, statusReason: null } };
+    const stuck = { ...baseData, assignment: { id: "qa1", status: "stuck", notes: null, drawing: null, statusReason: null } };
     render(<QuestAssignmentCard data={stuck} isChildView={false} />);
     expect(screen.getByText(/Stuck — needs a grown-up/)).toBeInTheDocument();
     expect(screen.getByText("Mark Done")).toBeInTheDocument();
@@ -383,7 +385,7 @@ describe("QuestAssignmentCard", () => {
 
   it("asks a grown-up why before it shelves a stuck quest for the day", async () => {
     const user = userEvent.setup();
-    const stuck = { ...baseData, assignment: { id: "qa1", status: "stuck", notes: null, statusReason: "I got lost on step 3" } };
+    const stuck = { ...baseData, assignment: { id: "qa1", status: "stuck", notes: null, drawing: null, statusReason: "I got lost on step 3" } };
     render(<QuestAssignmentCard data={stuck} isChildView={false} />);
     await user.click(screen.getByText("Skip for Today"));
     expect(screen.getByText("Skip Quest")).toBeDisabled();
@@ -395,7 +397,7 @@ describe("QuestAssignmentCard", () => {
   it("keeps the undo of a completion away from the hero who marked it done", () => {
     const completed = {
       ...baseData,
-      assignment: { id: "qa1", status: "completed", notes: null, statusReason: null },
+      assignment: { id: "qa1", status: "completed", notes: null, drawing: null, statusReason: null },
     };
     render(<QuestAssignmentCard data={completed} isChildView={true} />);
     expect(screen.queryByText("Not Done")).not.toBeInTheDocument();
@@ -405,7 +407,7 @@ describe("QuestAssignmentCard", () => {
     const user = userEvent.setup();
     const completed = {
       ...baseData,
-      assignment: { id: "qa1", status: "completed", notes: "all done!", statusReason: null },
+      assignment: { id: "qa1", status: "completed", notes: "all done!", drawing: null, statusReason: null },
     };
     render(<QuestAssignmentCard data={completed} isChildView={false} />);
     await user.click(screen.getByText("Not Done"));
@@ -422,7 +424,7 @@ describe("QuestAssignmentCard", () => {
     const user = userEvent.setup();
     const completed = {
       ...baseData,
-      assignment: { id: "qa1", status: "completed", notes: null, statusReason: null },
+      assignment: { id: "qa1", status: "completed", notes: null, drawing: null, statusReason: null },
     };
     render(<QuestAssignmentCard data={completed} isChildView={false} />);
     await user.click(screen.getByText("Not Done"));
@@ -432,7 +434,7 @@ describe("QuestAssignmentCard", () => {
 
   it("lets a grown-up undo a skip", async () => {
     const user = userEvent.setup();
-    const skipped = { ...baseData, assignment: { id: "qa1", status: "skipped", notes: null, statusReason: null } };
+    const skipped = { ...baseData, assignment: { id: "qa1", status: "skipped", notes: null, drawing: null, statusReason: null } };
     render(<QuestAssignmentCard data={skipped} isChildView={false} />);
     await user.click(screen.getByText("Undo Skip"));
     expect(reviseAssignment).toHaveBeenCalledWith("qa1", "pending", undefined);
@@ -460,7 +462,7 @@ describe("QuestAssignmentCard", () => {
     it("hands a hero back a quest they got stuck on", () => {
       const stuck = {
         ...baseData,
-        assignment: { id: "qa1", status: "stuck", notes: null, statusReason: "step 3" },
+        assignment: { id: "qa1", status: "stuck", notes: null, drawing: null, statusReason: "step 3" },
       };
       render(<QuestAssignmentCard data={stuck} isChildView={true} missedFrom="Monday" />);
       expect(screen.getByText("Start")).toBeInTheDocument();
@@ -472,7 +474,7 @@ describe("QuestAssignmentCard", () => {
     it("leaves a stuck quest on its own day alone", () => {
       const stuck = {
         ...baseData,
-        assignment: { id: "qa1", status: "stuck", notes: null, statusReason: "step 3" },
+        assignment: { id: "qa1", status: "stuck", notes: null, drawing: null, statusReason: "step 3" },
       };
       render(<QuestAssignmentCard data={stuck} isChildView={true} />);
       expect(screen.queryByText("Start")).not.toBeInTheDocument();
@@ -493,7 +495,7 @@ describe("QuestAssignmentCard", () => {
   describe("excused work", () => {
     const excused = {
       ...baseData,
-      assignment: { id: "qa1", status: "excused", notes: null, statusReason: "Sick day" },
+      assignment: { id: "qa1", status: "excused", notes: null, drawing: null, statusReason: "Sick day" },
     };
 
     it("reads as excused to a hero, with nothing to undo", () => {
@@ -521,6 +523,7 @@ describe("QuestAssignmentCard", () => {
           id: "qa1",
           status: "pending",
           notes: null,
+          drawing: null,
           statusReason: null,
           originalDate: "2026-08-31",
         },
@@ -579,6 +582,121 @@ describe("QuestAssignmentCard", () => {
       expect(screen.queryByText(made)).not.toBeInTheDocument();
       expect(screen.queryByRole("link", { name: "Take it to the Realm" })).not.toBeInTheDocument();
       expect(screen.queryByText(/min in the Realm/)).not.toBeInTheDocument();
+    });
+  });
+  describe("drawing", () => {
+    const RECT = { left: 0, top: 0, width: 320, height: 240, right: 320, bottom: 240, x: 0, y: 0, toJSON: () => ({}) };
+    const stored = { v: 1, strokes: [{ c: 2, w: 1, p: [10, 10, 60, 60] }] };
+    const completedWithDrawing = {
+      ...baseData,
+      assignment: { ...baseData.assignment, status: "completed", notes: null, drawing: JSON.stringify(stored) },
+    };
+
+    function firePointer(el: Element, type: "pointerDown" | "pointerMove" | "pointerUp", x: number, y: number) {
+      const ev = createEvent[type](el, { bubbles: true });
+      Object.defineProperty(ev, "clientX", { value: x });
+      Object.defineProperty(ev, "clientY", { value: y });
+      Object.defineProperty(ev, "pointerId", { value: 1 });
+      fireEvent(el, ev);
+    }
+
+    /** Draw a dot on the open pad. */
+    function dot(x = 100, y = 80) {
+      const pad = screen.getByRole("img", { name: "Your drawing" });
+      pad.getBoundingClientRect = () => RECT as DOMRect;
+      firePointer(pad, "pointerDown", x, y);
+      firePointer(pad, "pointerUp", x, y);
+    }
+
+    it("keeps the pad closed on quick complete until asked, and can hide it again", async () => {
+      const user = userEvent.setup();
+      render(<QuestAssignmentCard data={baseData} isChildView={true} />);
+      await user.click(screen.getByText("Quick Complete"));
+      expect(screen.queryByRole("img", { name: "Your drawing" })).not.toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "Draw it instead" }));
+      expect(screen.getByRole("img", { name: "Your drawing" })).toBeInTheDocument();
+      await user.click(screen.getByRole("button", { name: "Hide drawing" }));
+      expect(screen.queryByRole("img", { name: "Your drawing" })).not.toBeInTheDocument();
+    });
+
+    it("lets a drawing alone complete a quest that asks for Scribe's Notes", async () => {
+      const user = userEvent.setup();
+      const data = { ...baseData, quest: { ...baseData.quest, requireNotes: true } };
+      render(<QuestAssignmentCard data={data} isChildView={true} />);
+      await user.click(screen.getByText("Quick Complete"));
+      expect(screen.getByText("Submit")).toBeDisabled();
+      await user.click(screen.getByRole("button", { name: "Draw it instead" }));
+      dot();
+      expect(screen.getByText("Submit")).not.toBeDisabled();
+      await user.click(screen.getByText("Submit"));
+      expect(completeAssignment).toHaveBeenCalledTimes(1);
+      const [id, payload] = vi.mocked(completeAssignment).mock.calls[0]!;
+      expect(id).toBe("qa1");
+      expect(payload!.drawing).toEqual({ v: 1, strokes: [{ c: 0, w: 1, p: [100, 80] }] });
+    });
+
+    it("sends no drawing when the pad was never used", async () => {
+      const user = userEvent.setup();
+      render(<QuestAssignmentCard data={baseData} isChildView={true} />);
+      await user.click(screen.getByText("Quick Complete"));
+      await user.click(screen.getByText("Submit"));
+      expect(completeAssignment).toHaveBeenCalledTimes(1);
+      expect(vi.mocked(completeAssignment).mock.calls[0]![1]!.drawing).toBeUndefined();
+    });
+
+    it("sends no drawing after the page is cleared", async () => {
+      const user = userEvent.setup();
+      render(<QuestAssignmentCard data={baseData} isChildView={true} />);
+      await user.click(screen.getByText("Quick Complete"));
+      await user.click(screen.getByRole("button", { name: "Draw it instead" }));
+      dot();
+      await user.click(screen.getByRole("button", { name: "Clear" }));
+      await user.click(screen.getByText("Submit"));
+      expect(vi.mocked(completeAssignment).mock.calls[0]![1]!.drawing).toBeUndefined();
+    });
+
+    it("opens the editor on the stored drawing and saves an emptied page as null", async () => {
+      const user = userEvent.setup();
+      render(<QuestAssignmentCard data={{ ...completedWithDrawing, quest: { ...baseData.quest, requireNotes: false } }} isChildView={true} />);
+      await user.click(screen.getByText("Edit Notes"));
+      const pad = screen.getByRole("img", { name: "Your drawing" });
+      expect(pad.querySelectorAll("path")).toHaveLength(1);
+      await user.click(screen.getByRole("button", { name: "Clear" }));
+      await user.click(screen.getByText("Save Notes"));
+      expect(updateAssignmentNotes).toHaveBeenCalledWith("qa1", "", null);
+    });
+
+    it("saves the stored drawing back unchanged when only the notes change", async () => {
+      const user = userEvent.setup();
+      render(<QuestAssignmentCard data={completedWithDrawing} isChildView={true} />);
+      await user.click(screen.getByText("Edit Notes"));
+      await user.type(screen.getByLabelText("Scribe's Notes"), "Drew a barn");
+      await user.click(screen.getByText("Save Notes"));
+      expect(updateAssignmentNotes).toHaveBeenCalledWith("qa1", "Drew a barn", stored);
+    });
+
+    it("lets a drawing stand in for notes when editing a quest that asks for them", async () => {
+      const user = userEvent.setup();
+      const data = { ...completedWithDrawing, quest: { ...baseData.quest, requireNotes: true } };
+      render(<QuestAssignmentCard data={data} isChildView={true} />);
+      await user.click(screen.getByText("Edit Notes"));
+      expect(screen.getByText("Save Notes")).not.toBeDisabled();
+      await user.click(screen.getByRole("button", { name: "Clear" }));
+      expect(screen.getByText("Save Notes")).toBeDisabled();
+    });
+
+    it("shows a thumbnail of the drawing on a completed card, and none without one", () => {
+      const { rerender } = render(<QuestAssignmentCard data={completedWithDrawing} isChildView={true} />);
+      const thumb = screen.getByRole("img", { name: /drawing/i });
+      expect(thumb.querySelectorAll("path")).toHaveLength(1);
+      rerender(<QuestAssignmentCard data={{ ...completedWithDrawing, assignment: { ...completedWithDrawing.assignment, drawing: null } }} isChildView={true} />);
+      expect(screen.queryByRole("img", { name: /drawing/i })).not.toBeInTheDocument();
+    });
+
+    it("shows no thumbnail for a stored drawing that is not the format", () => {
+      const bad = { ...completedWithDrawing, assignment: { ...completedWithDrawing.assignment, drawing: "<svg onload=alert(1)>" } };
+      render(<QuestAssignmentCard data={bad} isChildView={true} />);
+      expect(screen.queryByRole("img", { name: /drawing/i })).not.toBeInTheDocument();
     });
   });
 });

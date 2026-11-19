@@ -19,6 +19,9 @@ import { moveTargetLabel, type MoveTarget } from "@/lib/utils/makeup";
 import { formatMovedFrom } from "@/lib/utils/missed-days";
 import { getRewardItemLabel } from "@/lib/utils/avatar-catalog";
 import { hasMeaningfulNotes } from "@/lib/utils/sanitize";
+import { hasDrawing, parseDrawing, type Drawing } from "@/lib/utils/drawing";
+import { DrawingPad } from "@/components/drawing-pad";
+import { DrawingView } from "@/components/drawing-view";
 import type { QuestReward } from "@/lib/utils/quest-rewards";
 
 type AssignmentWithDetails = {
@@ -27,6 +30,8 @@ type AssignmentWithDetails = {
     status: string;
     /** Scribe's Notes — the record of work that was done. */
     notes: string | null;
+    /** The drawing that tells the quest: stored JSON, read only through `parseDrawing`. */
+    drawing: string | null;
     /** Why the quest was skipped or set aside. Never Scribe's Notes. */
     statusReason: string | null;
     /** Set when a grown-up moved this quest off the day it was first set for. */
@@ -106,6 +111,10 @@ export function QuestAssignmentCard({
   const [showRevise, setShowRevise] = useState(false);
   const [showNotesEdit, setShowNotesEdit] = useState(false);
   const [notesDraft, setNotesDraft] = useState("");
+  const [drawingDraft, setDrawingDraft] = useState<Drawing | null>(null);
+  const [showDraftPad, setShowDraftPad] = useState(false);
+  const [drawing, setDrawing] = useState<Drawing | null>(null);
+  const [showPad, setShowPad] = useState(false);
   const [skipReason, setSkipReason] = useState("");
   const [stuckReason, setStuckReason] = useState("");
   const [reviseNote, setReviseNote] = useState("");
@@ -147,11 +156,15 @@ export function QuestAssignmentCard({
   const parsedDuration = parseInt(manualDuration, 10);
   const isDurationValid =
     manualDuration.trim() !== "" && Number.isFinite(parsedDuration) && parsedDuration >= 1 && parsedDuration <= 480;
-  const hasRequiredNotes = !quest.requireNotes || hasMeaningfulNotes(notes);
+  // Scribe's Notes, or a drawing: a hero who can't type yet tells the quest by drawing it.
+  const hasRequiredNotes = !quest.requireNotes || hasMeaningfulNotes(notes) || hasDrawing(drawing);
+  const storedDrawing = parseDrawing(assignment.drawing);
 
   function openQuickComplete() {
     setManualDuration(quest.estimatedMinutes ? String(quest.estimatedMinutes) : "");
     setNotes("");
+    setDrawing(null);
+    setShowPad(false);
     setShowMove(false);
     setShowQuickComplete(true);
   }
@@ -166,6 +179,7 @@ export function QuestAssignmentCard({
         description: notes.trim() || (quest.description ?? undefined),
         durationMinutes: parsedDuration,
         source: "manual",
+        drawing: hasDrawing(drawing) ? drawing : undefined,
       });
       router.refresh();
       setShowQuickComplete(false);
@@ -178,6 +192,8 @@ export function QuestAssignmentCard({
 
   function openNotesEdit() {
     setNotesDraft(assignment.notes ?? "");
+    setDrawingDraft(storedDrawing);
+    setShowDraftPad(hasDrawing(storedDrawing));
     setError("");
     setShowNotesEdit(true);
   }
@@ -185,11 +201,11 @@ export function QuestAssignmentCard({
   // Scribe's Notes after the fact: a hero often only knows what to write once
   // the quest is behind them, so a finished card stays annotatable.
   async function handleSaveNotes() {
-    if (quest.requireNotes && !hasMeaningfulNotes(notesDraft)) return;
+    if (quest.requireNotes && !hasMeaningfulNotes(notesDraft) && !hasDrawing(drawingDraft)) return;
     setActing(true);
     setError("");
     try {
-      await updateAssignmentNotes(assignment.id, notesDraft);
+      await updateAssignmentNotes(assignment.id, notesDraft, hasDrawing(drawingDraft) ? drawingDraft : null);
       setShowNotesEdit(false);
       router.refresh();
     } catch (err) {
@@ -396,11 +412,22 @@ export function QuestAssignmentCard({
               {data.rewards?.minutes != null && data.rewards.minutes > 0 && (
                 <p className="mt-0.5 text-xs text-muted-foreground">+{data.rewards.minutes} min in the Realm</p>
               )}
-              {assignment.notes && !showNotesEdit && (
-                <p className="mt-0.5 flex items-start gap-1 text-xs italic wrap-anywhere text-muted-foreground">
-                  <GameIcon name="scroll" className="mt-0.5 size-3 shrink-0 text-[var(--gold-bright)]" />
-                  <span>{assignment.notes}</span>
-                </p>
+              {(assignment.notes || hasDrawing(storedDrawing)) && !showNotesEdit && (
+                <div className="mt-0.5 flex items-start gap-2">
+                  {assignment.notes && (
+                    <p className="flex min-w-0 flex-1 items-start gap-1 text-xs italic wrap-anywhere text-muted-foreground">
+                      <GameIcon name="scroll" className="mt-0.5 size-3 shrink-0 text-[var(--gold-bright)]" />
+                      <span>{assignment.notes}</span>
+                    </p>
+                  )}
+                  {hasDrawing(storedDrawing) && (
+                    <DrawingView
+                      drawing={storedDrawing}
+                      label={`Drawing of ${quest.title}`}
+                      className="w-24 shrink-0 border border-border/50"
+                    />
+                  )}
+                </div>
               )}
             </>
           )}
@@ -472,7 +499,7 @@ export function QuestAssignmentCard({
         {isCompleted && !showNotesEdit && !showRevise && (
           <div className="flex flex-wrap gap-1 sm:ml-auto">
             <Button size="sm" variant="ghost" onClick={openNotesEdit} disabled={acting} className="text-muted-foreground">
-              {assignment.notes ? "Edit Notes" : "Add Notes"}
+              {assignment.notes || hasDrawing(storedDrawing) ? "Edit Notes" : "Add Notes"}
             </Button>
             {!isChildView && (
               <Button size="sm" variant="ghost" onClick={openRevise} disabled={acting} className="text-muted-foreground">
@@ -575,6 +602,17 @@ export function QuestAssignmentCard({
             required={quest.requireNotes}
             aria-label="Scribe's Notes"
           />
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => setShowPad((v) => !v)}
+            disabled={acting}
+            aria-expanded={showPad}
+          >
+            {showPad ? "Hide drawing" : "Draw it instead"}
+          </Button>
+          {showPad && <DrawingPad value={drawing} onChange={setDrawing} disabled={acting} />}
           <div className="flex items-center gap-2">
             <Input
               type="number"
@@ -639,11 +677,22 @@ export function QuestAssignmentCard({
             required={quest.requireNotes}
             aria-label="Scribe's Notes"
           />
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => setShowDraftPad((v) => !v)}
+            disabled={acting}
+            aria-expanded={showDraftPad}
+          >
+            {showDraftPad ? "Hide drawing" : "Draw it instead"}
+          </Button>
+          {showDraftPad && <DrawingPad value={drawingDraft} onChange={setDrawingDraft} disabled={acting} />}
           <div className="flex items-center gap-2">
             <Button
               size="sm"
               onClick={handleSaveNotes}
-              disabled={acting || (quest.requireNotes && !hasMeaningfulNotes(notesDraft))}
+              disabled={acting || (quest.requireNotes && !hasMeaningfulNotes(notesDraft) && !hasDrawing(drawingDraft))}
             >
               {acting ? "Saving..." : "Save Notes"}
             </Button>

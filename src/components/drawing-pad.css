@@ -1,0 +1,88 @@
+.drawing-pad {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: 100%;
+  max-width: 28rem;
+}
+
+.drawing-pad__canvas {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  background: #f4e9cf;
+  border: 2px solid var(--gold-bright, #c9a30a);
+  border-radius: 0.5rem;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: crosshair;
+}
+
+.drawing-pad__canvas[data-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.drawing-pad__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.drawing-pad__swatch {
+  box-sizing: border-box;
+  width: 2.5rem;
+  height: 2.5rem;
+  min-width: 36px;
+  min-height: 36px;
+  padding: 0;
+  border: 2px solid transparent;
+  border-radius: 9999px;
+  box-shadow: 0 0 0 1px rgb(0 0 0 / 0.35);
+}
+
+.drawing-pad__swatch[aria-pressed="true"] {
+  border-color: #fff;
+  box-shadow: 0 0 0 3px var(--gold-bright, #c9a30a);
+}
+
+.drawing-pad__swatch:focus-visible,
+.drawing-pad__tool:focus-visible {
+  outline: 3px solid var(--gold-bright, #c9a30a);
+  outline-offset: 2px;
+}
+
+.drawing-pad__swatch:disabled,
+.drawing-pad__tool:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.drawing-pad__tool {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.5rem;
+  min-height: 2.5rem;
+  padding: 0 0.75rem;
+  font-size: 0.8125rem;
+  color: inherit;
+  background: transparent;
+  border: 1px solid currentColor;
+  border-radius: 0.5rem;
+}
+
+.drawing-pad__tool[aria-pressed="true"] {
+  background: var(--gold-bright, #c9a30a);
+  border-color: var(--gold-bright, #c9a30a);
+  color: #000;
+}
+
+.drawing-pad__full {
+  margin: 0;
+  font-size: 0.75rem;
+  font-style: italic;
+}
