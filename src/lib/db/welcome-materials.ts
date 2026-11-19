@@ -1,26 +1,19 @@
 /**
  * The welcome delivery: quests finished before materials shipped get the materials they would have
- * brought, once. Run it by hand after deploying the release that introduced materials:
- *
- *   npm run db:backup
- *   npx tsx --env-file=.env.prod src/lib/db/welcome-materials.ts --dry-run
- *   npx tsx --env-file=.env.prod src/lib/db/welcome-materials.ts
+ * brought, once. Importable and side-effect free; `welcome-materials-run.ts` is the command-line
+ * entry (see it for the runbook line).
  *
  * Idempotent: a quest that already has an earned row (from the live grant, or from an earlier run
  * of this script) is skipped, and the partial unique index on `source_assignment_id` backs that
- * up, so running it twice changes nothing. Options: `--dry-run` prints without writing, and
- * `--days N` sets how far back to look (default 28).
+ * up, so running it twice changes nothing.
  *
  * It applies the rule of `grantMaterialsForCompletion` (`lib/services/realm-materials.ts`) directly,
  * because that service binds the app's database and in-process lock: `materialsPerQuest` of the
  * quest's subject material, whatever `enabled` and `accessMode` say, none at 0.
  */
 import { and, eq, gte, inArray, sql } from "drizzle-orm";
-import { createClient } from "@libsql/client";
-import { drizzle, type LibSQLDatabase } from "drizzle-orm/libsql";
+import type { LibSQLDatabase } from "drizzle-orm/libsql";
 import { nanoid } from "nanoid";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import * as schema from "./schema";
 import { resolveMaterial } from "../realm/materials";
 import { settingsFromRow } from "../utils/realm-settings";
@@ -94,38 +87,30 @@ export async function welcomeMaterials(
   return { perChild, total };
 }
 
-function parseDays(argv: string[]): number {
-  const i = argv.indexOf("--days");
-  if (i === -1) return DEFAULT_WELCOME_DAYS;
-  const n = Number(argv[i + 1]);
-  if (!Number.isInteger(n) || n <= 0) throw new Error("--days takes a whole number of days, like --days 28.");
-  return n;
-}
+/** A mistake in how the script was started: reported as a message and a usage line, not a stack trace. */
+export class UsageError extends Error {}
 
-async function main() {
-  const dryRun = process.argv.includes("--dry-run");
-  const days = parseDays(process.argv);
-  const client = createClient({
-    url: process.env.TURSO_DATABASE_URL || "file:./local.db",
-    authToken: process.env.TURSO_AUTH_TOKEN,
-  });
-  try {
-    const db = drizzle(client, { schema });
-    const { perChild, total } = await welcomeMaterials(db, { now: new Date(), days, dryRun });
-    const prefix = dryRun ? "[dry-run] " : "";
-    for (const [childId, n] of Object.entries(perChild)) {
-      console.log(`${prefix}${childId}: ${n} quest(s)`);
-    }
-    console.log(`${total} quest(s) ${dryRun ? "would bring" : "brought"} materials (last ${days} days).`);
-  } finally {
-    client.close();
+export const WELCOME_USAGE = "Usage: welcome-materials-run.ts [--dry-run] [--days N]";
+
+/**
+ * Strict on purpose: this writes to production once, so a mistyped flag (`--dryrun`) must stop
+ * the run rather than be ignored and do a real write.
+ */
+export function parseArgs(argv: string[]): { dryRun: boolean; days: number } {
+  let dryRun = false;
+  let days = DEFAULT_WELCOME_DAYS;
+  const readDays = (raw: string | undefined) => {
+    const n = raw === undefined || raw.trim() === "" ? NaN : Number(raw);
+    if (!Number.isInteger(n) || n <= 0) throw new UsageError("--days takes a whole number of days above 0, like --days 28.");
+    days = n;
+  };
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    if (arg === "--dry-run") dryRun = true;
+    else if (arg === "--days") readDays(argv[++i]);
+    else if (arg.startsWith("--days=")) readDays(arg.slice("--days=".length));
+    else throw new UsageError(`Unknown option: ${arg}`);
   }
+  return { dryRun, days };
 }
 
-// Run only when started as a script, never when a test imports `welcomeMaterials`.
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  main().catch((err) => {
-    console.error(err);
-    process.exit(1);
-  });
-}

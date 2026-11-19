@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from "vitest";
 import { testDatabase } from "@/test/libsql-test-db";
 import { REALM_MATERIAL_DDL, REALM_SETTINGS_DDL } from "@/test/realm-db-ddl";
-import { welcomeMaterials } from "./welcome-materials";
+import { parseArgs, welcomeMaterials } from "./welcome-materials";
 
 /**
  * The welcome delivery against a REAL libsql database: quests finished before materials shipped
@@ -59,6 +59,30 @@ async function ledger() {
   const r = await pool.query("SELECT child_id, material_id, amount, kind, origin, source_assignment_id, created_at FROM realm_material ORDER BY source_assignment_id");
   return r.rows as { child_id: string; material_id: string; amount: number; kind: string; origin: string; source_assignment_id: string; created_at: number }[];
 }
+
+describe("parseArgs", () => {
+  it("defaults to a real run over 28 days", () => {
+    expect(parseArgs([])).toEqual({ dryRun: false, days: 28 });
+  });
+
+  it("reads --dry-run, and --days as two words or with an equals sign", () => {
+    expect(parseArgs(["--dry-run"])).toEqual({ dryRun: true, days: 28 });
+    expect(parseArgs(["--days", "7"])).toEqual({ dryRun: false, days: 7 });
+    expect(parseArgs(["--days=7", "--dry-run"])).toEqual({ dryRun: true, days: 7 });
+  });
+
+  it("needs --days to be a positive whole number", () => {
+    for (const bad of [["--days", "0"], ["--days", "-1"], ["--days", "abc"], ["--days", "1.5"], ["--days"], ["--days="], ["--days=abc"]]) {
+      expect(() => parseArgs(bad), bad.join(" ")).toThrow(/--days/);
+    }
+  });
+
+  it("refuses a mistyped flag rather than guessing, so a typo never does a real write", () => {
+    expect(() => parseArgs(["--dryrun"])).toThrow("Unknown option: --dryrun");
+    expect(() => parseArgs(["--dry-run", "--frobnicate"])).toThrow("Unknown option: --frobnicate");
+    expect(() => parseArgs(["7"])).toThrow("Unknown option: 7");
+  });
+});
 
 describe("welcomeMaterials", () => {
   it("mints a recent completion once, as a welcome earning stamped with the run time", async () => {
@@ -148,5 +172,54 @@ describe("welcomeMaterials", () => {
     await welcomeMaterials(pool.db, { now: NOW });
     const byAssignment = Object.fromEntries((await ledger()).map((r) => [r.source_assignment_id, r.material_id]));
     expect(byAssignment).toEqual({ "a-art": "dye", "a-math": "stone", "a-none": "timber" });
+  });
+
+  it("a dry run for a child whose materialsPerQuest is 0 reports nothing", async () => {
+    await setMaterialsPerQuest("c1", 0);
+    await assign("a1", "q-math", "c1", "completed", 1);
+    expect(await welcomeMaterials(pool.db, { now: NOW, dryRun: true })).toEqual({ perChild: {}, total: 0 });
+  });
+
+  it("does not count an earning that lands between its select and its insert", async () => {
+    await assign("a1", "q-math", "c1", "completed", 1);
+    await assign("a2", "q-math", "c1", "completed", 1);
+    // The live grant wins the race for a1: its earned row appears just before the script's insert runs.
+    let raced = false;
+    const racing = new Proxy(pool.db, {
+      get(target, prop, receiver) {
+        if (prop !== "insert") return Reflect.get(target, prop, receiver);
+        return (table: Parameters<typeof target.insert>[0]) => {
+          const builder = target.insert(table);
+          return {
+            values: (v: { sourceAssignmentId: string }) => ({
+              onConflictDoNothing: () => ({
+                returning: (cols: Parameters<ReturnType<typeof builder.values>["returning"]>[0]) => {
+                  const real = builder.values(v as never).onConflictDoNothing().returning(cols);
+                  return {
+                    then: async (res: (x: unknown) => unknown, rej: (e: unknown) => unknown) => {
+                      if (!raced && v.sourceAssignmentId === "a1") {
+                        raced = true;
+                        await pool.query(
+                          "INSERT INTO realm_material (id, child_id, material_id, amount, kind, origin, source_assignment_id, created_at) VALUES ('live', 'c1', 'stone', 1, 'earned', 'quest', 'a1', ?1)",
+                          [nowSec - 5],
+                        );
+                      }
+                      return real.then(res, rej);
+                    },
+                  };
+                },
+              }),
+            }),
+          };
+        };
+      },
+    });
+    const out = await welcomeMaterials(racing as typeof pool.db, { now: NOW });
+    expect(raced).toBe(true);
+    expect(out).toEqual({ perChild: { c1: 1 }, total: 1 });
+    expect((await ledger()).map((r) => [r.source_assignment_id, r.origin])).toEqual([
+      ["a1", "quest"],
+      ["a2", "welcome"],
+    ]);
   });
 });
