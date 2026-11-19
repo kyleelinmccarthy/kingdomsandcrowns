@@ -28,6 +28,7 @@ vi.mock("@/lib/actions/student-schedule", () => ({ setScheduleSelfManage: vi.fn(
 vi.mock("@/lib/actions/quest-assignments", () => ({ setSkipQuestsEnabled: vi.fn() }));
 vi.mock("@/lib/actions/learning-focus", () => ({ setFocusSkills: vi.fn() }));
 
+import { updateSubject } from "@/lib/actions/subjects";
 import { ChildList } from "./child-list";
 import { DEFAULT_LEARNING_PROFILE } from "@/lib/utils/learning-profile";
 import { DEFAULT_REALM_SETTINGS } from "@/lib/utils/realm-settings";
@@ -35,6 +36,7 @@ import { DEFAULT_REALM_SETTINGS } from "@/lib/utils/realm-settings";
 afterEach(() => {
   cleanup();
   updateChild.mockClear();
+  vi.mocked(updateSubject).mockClear();
 });
 
 const family = { id: "fam-1", name: "The Hearth" } as unknown as Parameters<typeof ChildList>[0]["family"];
@@ -214,5 +216,74 @@ describe("ChildList — the grade Subject Levels is anchored on", () => {
     // already know is missing, instead of setting the grade that actually fixes it.
     expect(screen.getByText(/grade 6 is our best guess/i)).toBeInTheDocument();
     expect(document.body.textContent).not.toMatch(/from age/i);
+  });
+});
+
+describe("ChildList — what a subject's work brings", () => {
+  function heroWithSubjects() {
+    const subject = (id: string, name: string, material: string | null) => ({
+      id, name, color: "#6b7280", icon: "book", isRequired: false, isActive: true, spellSchool: "none" as const, material,
+    });
+    return {
+      ...hero("demo-child-7", "Wren", "4"),
+      subjects: [subject("sub-math", "Math", null), subject("sub-latin", "Latin", "ink")],
+    };
+  }
+
+  function row(name: string): HTMLElement {
+    // The reorder handle names the subject in view and edit mode alike ("Math" also heads other panels).
+    const el = screen.getByLabelText(`Reorder ${name}`).closest<HTMLElement>(".flex.items-center");
+    if (!el) throw new Error(`No row for ${name}`);
+    return el;
+  }
+
+  function editRow(name: string): HTMLElement {
+    fireEvent.click(within(row(name)).getByRole("button", { name: "Edit" }));
+    // Edit mode swaps the name for an input, so find the row by its Save button.
+    const save = screen.getByRole("button", { name: "Save", hidden: false });
+    return save.closest<HTMLElement>(".flex.items-center") as HTMLElement;
+  }
+
+  it("shows the material the work brings: the stored one, or the name's default", () => {
+    render(<ChildList family={family} kids={[heroWithSubjects()]} />);
+    openHero("Wren");
+    expect(within(row("Latin")).getByText("Ink")).toBeInTheDocument();
+    expect(within(row("Math")).getByText("Stone")).toBeInTheDocument();
+  });
+
+  it("offers 'From the name' first, then every material, and saves the pick", () => {
+    render(<ChildList family={family} kids={[heroWithSubjects()]} />);
+    openHero("Wren");
+    const editing = editRow("Math");
+    const select = within(editing).getByLabelText("Material") as HTMLSelectElement;
+    const options = Array.from(select.options).map((o) => o.textContent);
+    expect(options).toEqual(["From the name (Stone)", "Stone", "Ink", "Herbs", "Thread", "Dye", "Timber"]);
+    expect(select.value).toBe("");
+
+    fireEvent.change(select, { target: { value: "ink" } });
+    fireEvent.click(within(editing).getByRole("button", { name: "Save" }));
+    expect(updateSubject).toHaveBeenCalledWith("sub-math", expect.objectContaining({ material: "ink" }));
+  });
+
+  it("saves null when 'From the name' is chosen again", () => {
+    render(<ChildList family={family} kids={[heroWithSubjects()]} />);
+    openHero("Wren");
+    const editing = editRow("Latin");
+    const select = within(editing).getByLabelText("Material") as HTMLSelectElement;
+    expect(select.value).toBe("ink");
+    expect(select.options[0].textContent).toBe("From the name (Timber)");
+
+    fireEvent.change(select, { target: { value: "" } });
+    fireEvent.click(within(editing).getByRole("button", { name: "Save" }));
+    expect(updateSubject).toHaveBeenCalledWith("sub-latin", expect.objectContaining({ material: null }));
+  });
+
+  it("does not send the material when it was not touched", () => {
+    render(<ChildList family={family} kids={[heroWithSubjects()]} />);
+    openHero("Wren");
+    const editing = editRow("Math");
+    fireEvent.click(within(editing).getByRole("button", { name: "Save" }));
+    expect(updateSubject).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(updateSubject).mock.calls[0][1]).not.toHaveProperty("material");
   });
 });

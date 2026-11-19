@@ -14,6 +14,7 @@ import {
   type SubjectSchool,
 } from "@/lib/utils/spell-schools";
 import { findSkill, AREA_SCHOOL } from "@/lib/utils/skills";
+import { isMaterialId, type MaterialId } from "@/lib/realm/materials";
 
 export async function getSubjects(childId: string) {
   await requireChildAccess(childId);
@@ -29,8 +30,9 @@ export async function createSubject(childId: string, data: {
   color?: string;
   icon?: string;
   spellSchool?: SubjectSchool;
+  material?: MaterialId | null;
 }) {
-  await requireChildAccess(childId, { write: true });
+  const { access } = await requireChildAccess(childId, { write: true });
   const id = nanoid();
   const name = sanitizeName(data.name);
   if (!name) throw new Error("Subject name is required");
@@ -52,6 +54,8 @@ export async function createSubject(childId: string, data: {
     isRequired: false,
     isActive: true,
     spellSchool: data.spellSchool && isSubjectSchool(data.spellSchool) ? data.spellSchool : defaultSchoolForSubject(name),
+    // A grown-up's valid pick only. Otherwise null, so the subject follows its name (`resolveMaterial`).
+    material: !isChildActor(access) && isMaterialId(data.material) ? data.material : null,
     sortOrder: maxSort + 1,
     createdAt: new Date(),
   });
@@ -65,6 +69,7 @@ export async function updateSubject(subjectId: string, data: {
   icon?: string;
   isActive?: boolean;
   spellSchool?: SubjectSchool;
+  material?: MaterialId | null;
 }) {
   const { access } = await requireSubjectAccess(subjectId, { write: true });
   const updates: Record<string, unknown> = {};
@@ -78,6 +83,13 @@ export async function updateSubject(subjectId: string, data: {
     if (isChildActor(access)) throw new Error("Only a grown-up can choose a discipline's school of magic.");
     if (!isSubjectSchool(data.spellSchool)) throw new Error("Choose a school of magic from the list.");
     updates.spellSchool = data.spellSchool;
+  }
+  if (data.material !== undefined) {
+    // What a subject's work brings decides what the kingdom can build, so it is a grown-up's call too.
+    // Null clears the choice: the subject follows its name again.
+    if (isChildActor(access)) throw new Error("Only a grown-up can choose what a subject's work brings.");
+    if (data.material !== null && !isMaterialId(data.material)) throw new Error("Choose a material from the list.");
+    updates.material = data.material;
   }
 
   await db
