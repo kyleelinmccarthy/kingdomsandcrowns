@@ -79,8 +79,12 @@ export function ChronicleBook({
   const week = weeks[page];
 
   return (
-    <Panel title={title} label={title} wide className="r3-board--chronicle" icon={<GameIcon name="scroll" className="r3-board-icon" />} onClose={onClose}>
-      {load.state === "loading" && <p className="r3-chron-empty">{OPENING}</p>}
+    <Panel title={title} label={title} wide icon={<GameIcon name="scroll" className="r3-board-icon" />} onClose={onClose}>
+      {load.state === "loading" && (
+        <p className="r3-chron-empty" role="status">
+          {OPENING}
+        </p>
+      )}
       {load.state === "error" && (
         <>
           <p className="r3-board-error" role="alert">

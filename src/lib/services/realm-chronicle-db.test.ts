@@ -18,7 +18,7 @@ vi.mock("@/lib/services/family-timezone", () => ({
   getTimezoneForChild: vi.fn(async () => zone),
 }));
 
-const { loadChronicle } = await import("./realm-chronicle");
+const { loadChronicle, loadHallDrawings } = await import("./realm-chronicle");
 
 const DRAWING = { v: 1, strokes: [{ c: 2, w: 1, p: [10, 10, 50, 60] }] };
 const SEAL = { phrase: 1, by: "Mama", at: 1_700_000_000 };
@@ -212,5 +212,58 @@ describe("loadChronicle", () => {
 
   it("answers an empty chronicle with no weeks", async () => {
     expect(await loadChronicle("c1", { now: NOW })).toEqual([]);
+  });
+});
+
+describe("loadHallDrawings", () => {
+  /** A drawing told apart by its one dot. */
+  const dot = (n: number) => ({ v: 1, strokes: [{ c: 0, w: 0, p: [n, n] }] });
+  const firsts = (ds: { strokes: { p: number[] }[] }[]) => ds.map((d) => d.strokes[0].p[0]);
+
+  beforeEach(async () => {
+    await subject("s1", "Math");
+    await quest("q1", "Q", "s1");
+  });
+
+  it("hands over the newest drawings first, no more than the limit", async () => {
+    await assignment("a1", "q1", "2026-11-10T09:00:00Z", { drawing: dot(1) });
+    await assignment("a2", "q1", "2026-11-17T09:00:00Z", { drawing: dot(2) });
+    await assignment("a3", "q1", "2026-11-12T09:00:00Z", { drawing: dot(3) });
+    await assignment("a4", "q1", "2026-11-14T09:00:00Z", { drawing: dot(4) });
+    expect(firsts(await loadHallDrawings("c1", 6))).toEqual([2, 4, 3, 1]);
+    expect(firsts(await loadHallDrawings("c1", 2))).toEqual([2, 4]);
+  });
+
+  it("skips what does not parse, a drawing with no strokes, and quests that are not finished", async () => {
+    await assignment("a1", "q1", "2026-11-17T09:00:00Z", { drawing: "garbage" });
+    await assignment("a2", "q1", "2026-11-16T09:00:00Z", { drawing: { v: 1, strokes: [{ c: 9, w: 0, p: [1, 1] }] } });
+    await assignment("a3", "q1", "2026-11-15T09:00:00Z", { drawing: { v: 1, strokes: [] } });
+    await assignment("a4", "q1", null, { drawing: dot(4), status: "pending" });
+    await assignment("a5", "q1", "2026-11-14T09:00:00Z", { drawing: dot(5) });
+    await assignment("a6", "q1", "2026-11-13T09:00:00Z", { notes: "words only" });
+    await assignment("a7", "q1", "2026-11-12T09:00:00Z", { drawing: dot(7) });
+    expect(firsts(await loadHallDrawings("c1", 2))).toEqual([5, 7]);
+  });
+
+  it("leaves out another child's drawings", async () => {
+    await subject("s2", "Math", { childId: "c2" });
+    await quest("q2", "Theirs", "s2", "c2");
+    await assignment("mine", "q1", "2026-11-10T09:00:00Z", { drawing: dot(1) });
+    await assignment("theirs", "q2", "2026-11-17T09:00:00Z", { drawing: dot(2), childId: "c2" });
+    expect(firsts(await loadHallDrawings("c1", 6))).toEqual([1]);
+  });
+
+  it("makes one query, and none at all when no frame hangs (the hall is not built)", async () => {
+    await assignment("a1", "q1", "2026-11-10T09:00:00Z", { drawing: dot(1) });
+    const select = vi.spyOn(testDb, "select");
+    try {
+      expect(await loadHallDrawings("c1", 0)).toEqual([]);
+      expect(await loadHallDrawings("c1", Number.NaN)).toEqual([]);
+      expect(select).not.toHaveBeenCalled();
+      await loadHallDrawings("c1", 2);
+      expect(select).toHaveBeenCalledTimes(1);
+    } finally {
+      select.mockRestore();
+    }
   });
 });

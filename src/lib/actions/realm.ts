@@ -27,6 +27,9 @@ import { loadRecessRecord } from "@/lib/services/recess";
 import { loadReviewDue } from "@/lib/services/review";
 import { loadRises } from "@/lib/services/realm-rises";
 import { loadWorks } from "@/lib/services/realm-materials";
+import { loadHallDrawings } from "@/lib/services/realm-chronicle";
+import { HALL_FRAMES_PER_LEVEL } from "@/lib/realm/improvements";
+import type { Drawing } from "@/lib/utils/drawing";
 import { EMPTY_WORKS, type Works } from "@/lib/realm/works-state";
 import { loadFocusSkillIds } from "@/lib/services/learning-focus";
 import { focusAreasOf } from "@/lib/utils/focus";
@@ -125,6 +128,12 @@ export type RealmBundle = {
    * bundles in tests need not carry it; `getRealmBundle` always sets it.
    */
   works?: Works;
+  /**
+   * The newest drawings the hero has made, newest first, for the Chronicle Hall's frames: two per
+   * built level (none while it is not built, or when the read fails). Optional only so hand-built
+   * bundles in tests need not carry it; `getRealmBundle` always sets it.
+   */
+  hallDrawings?: Drawing[];
 };
 
 const VILLAGERS_RESTING = "The villagers are resting. Try again.";
@@ -184,6 +193,14 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
     console.error("Realm works failed to load", err);
     return EMPTY_WORKS;
   });
+  // The drawings the Chronicle Hall hangs, two a built level: it waits only for the works' built
+  // levels, and asks for none (so reads nothing) while the hall is not built. A failed read is "none".
+  const hallDrawingsRead = worksRead
+    .then((w) => loadHallDrawings(childId, HALL_FRAMES_PER_LEVEL * (w.built["chronicle-hall"] ?? 0)))
+    .catch((err: unknown) => {
+      console.error("Realm hall drawings failed to load", err);
+      return [] as Drawing[];
+    });
   // Also hands back the flags it read (post-update), so the parallel batch below does not
   // pay a second `loadRealmFlags` round trip just to read `helpSeenAt`. On the (rare) failure
   // path, fall back to a direct read so a starter-spell hiccup never misreports `helpSeen`.
@@ -267,6 +284,7 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
     focusAreas: await focusRead,
     ...(await risesRead), // `unannounced` and `regraded`
     works: await worksRead,
+    hallDrawings: await hallDrawingsRead,
     earning: {
       enabled: settings.enabled,
       accessMode: settings.accessMode,

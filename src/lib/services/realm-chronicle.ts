@@ -49,7 +49,7 @@ function clampWeeks(weeks: number): number {
  */
 export async function loadChronicle(
   childId: string,
-  { weeks = 8, now = new Date() }: { weeks?: number; now?: Date } = {},
+  { weeks = DEFAULT_WEEKS, now = new Date() }: { weeks?: number; now?: Date } = {},
 ): Promise<ChronicleWeek[]> {
   const zone = await getTimezoneForChild(childId);
   const firstWeek = addDays(weekStartOf(todayInZone(zone, now)), -7 * (clampWeeks(weeks) - 1));
@@ -111,4 +111,39 @@ export async function loadChronicle(
   return [...byWeek.entries()]
     .sort(([a], [b]) => (a < b ? 1 : -1))
     .map(([weekStart, entries]) => ({ weekStart, entries }));
+}
+
+/** Rows read per frame wanted, so a few stored drawings that no longer parse do not leave a frame bare. */
+const HALL_READ_SLACK = 3;
+
+/**
+ * The drawings the Chronicle Hall hangs: the newest valid drawings of this hero's finished quests,
+ * newest first, at most `limit` (two a built level, so none when the hall is not built).
+ *
+ * ONE query, and none at all for a limit below 1. Each stored value is read through `parseDrawing`
+ * and one with no strokes is skipped, so only a well-formed drawing ever reaches the scene.
+ */
+export async function loadHallDrawings(childId: string, limit: number): Promise<Drawing[]> {
+  if (!(limit >= 1)) return [];
+  const want = Math.floor(limit);
+  const rows = await db
+    .select({ drawing: schema.questAssignment.drawing })
+    .from(schema.questAssignment)
+    .where(
+      and(
+        eq(schema.questAssignment.childId, childId),
+        eq(schema.questAssignment.status, "completed"),
+        isNotNull(schema.questAssignment.completedAt),
+        isNotNull(schema.questAssignment.drawing),
+      ),
+    )
+    .orderBy(desc(schema.questAssignment.completedAt), desc(schema.questAssignment.id))
+    .limit(want * HALL_READ_SLACK);
+  const out: Drawing[] = [];
+  for (const row of rows) {
+    const d = parseDrawing(row.drawing);
+    if (hasDrawing(d)) out.push(d);
+    if (out.length === want) break;
+  }
+  return out;
 }

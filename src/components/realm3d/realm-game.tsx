@@ -111,6 +111,7 @@ import { RecessBoard, RecessError, RecessMapMarks, RecessPop, RecessStrip, RingP
 import { bestFor, type RecessRecord } from "@/lib/realm/recess/record";
 import { RECESS_LAST_MINUTE, ringHelp } from "@/lib/realm/recess/copy";
 import type { Works } from "@/lib/realm/works-state";
+import type { Drawing } from "@/lib/utils/drawing";
 import { QUIET_LINE } from "@/lib/realm3d/quiet";
 import { useQuietWorld, useWake, WakeToast } from "./quiet-hud";
 
@@ -174,6 +175,8 @@ export type RealmData = {
   regraded?: boolean;
   /** The hero's satchel, plaques, pinned plan and unseen delivery (`bundle.works`). Absent counts as empty. */
   works?: Works;
+  /** The newest drawings, newest first (`bundle.hallDrawings`): the Chronicle Hall's frames hang them. A snapshot for the visit. */
+  hallDrawings?: Drawing[];
 };
 
 /** What the access check decided, for an open gate. */
@@ -1024,6 +1027,7 @@ export function RealmGame({
         reviewDue={reviewDue}
         stockpile={stockpile}
         built={built}
+        hallDrawings={realm.hallDrawings}
       />
       {outCount > 0 && !inside && <div key={outCount} className="r3-fade" aria-hidden="true" />}
       {inside && (
@@ -1245,7 +1249,7 @@ export function RealmGame({
             />
           )}
           {overlay?.kind === "interact" && overlay.target.kind === "chronicle" && childId && (
-            <ChronicleBook childId={childId} heroName={heroName} isHero={isChild && viewer === "child"} onClose={closeOverlay} />
+            <ChronicleBook key={childId} childId={childId} heroName={heroName} isHero={isChild && viewer === "child"} onClose={closeOverlay} />
           )}
           {overlay?.kind === "interact" && overlay.target.kind === "plaque" && <PlaquePanel improvementId={overlay.target.id} plaques={works.plaques} onClose={closeOverlay} />}
           {overlay?.kind === "interact" && !talkTo && overlay.target.kind !== "riddle" && overlay.target.kind !== "plans" && overlay.target.kind !== "plaque" && overlay.target.kind !== "chronicle" && (

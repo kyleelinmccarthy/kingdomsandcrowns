@@ -84,13 +84,30 @@ export type ImprovementBox = { x: number; y: number; z: number; sx: number; sy: 
 
 export type ImprovementHost = Building["id"] | "keep" | "village";
 
+/**
+ * A picture frame on a wall of the Chronicle Hall, in the hall's frame like its boxes: (`x`, `z`)
+ * is the BACK of the frame, flush on a wall face, `y` the centre height above the ground, and `ry`
+ * the turn about the vertical (0 faces +z, a quarter turn +x), so the frame faces away from its wall.
+ */
+export type HallFrame = { x: number; y: number; z: number; ry: number };
+
+/** A hall frame's outer size (4:3, like a drawing) and how far it stands off its wall. */
+export const FRAME_SIZE = { w: 0.96, h: 0.75 } as const;
+export const FRAME_DEPTH = 0.06;
+/** Each built level of the hall hangs this many frames, so the hall shows at most `3 * 2` drawings. */
+export const HALL_FRAMES_PER_LEVEL = 2;
+
 export type Improvement = {
   label: string;
   host: ImprovementHost;
   primary: MaterialId;
   secondary: MaterialId;
-  /** Level n's boxes are drawn on top of every earlier level's, so each level only lists what it ADDS. */
-  levels: { cost: Partial<Record<MaterialId, number>>; boxes: ImprovementBox[] }[];
+  /**
+   * Level n's boxes are drawn on top of every earlier level's, so each level only lists what it ADDS.
+   * `frames` (the Chronicle Hall only) are the picture frames that level adds, hung where they are
+   * seen from outside.
+   */
+  levels: { cost: Partial<Record<MaterialId, number>>; boxes: ImprovementBox[]; frames?: HallFrame[] }[];
   /** The name is plural ("Lamps"), so the copy says "are", "grow" and "need" (`agree`). */
   plural?: boolean;
 };
@@ -108,9 +125,9 @@ const at = (ax: number, az: number, boxes: ImprovementBox[]): ImprovementBox[] =
 const costs = (primary: MaterialId, secondary: MaterialId) =>
   ([[4, 2], [6, 3], [8, 4]] as const).map(([p, s]) => ({ [primary]: p, [secondary]: s }) as Partial<Record<MaterialId, number>>);
 
-function make(label: string, host: ImprovementHost, primary: MaterialId, secondary: MaterialId, boxes: [ImprovementBox[], ImprovementBox[], ImprovementBox[]]): Improvement {
+function make(label: string, host: ImprovementHost, primary: MaterialId, secondary: MaterialId, boxes: [ImprovementBox[], ImprovementBox[], ImprovementBox[]], frames?: [HallFrame[], HallFrame[], HallFrame[]]): Improvement {
   const c = costs(primary, secondary);
-  return { label, host, primary, secondary, levels: boxes.map((b, i) => ({ cost: c[i], boxes: b })) };
+  return { label, host, primary, secondary, levels: boxes.map((b, i) => ({ cost: c[i], boxes: b, ...(frames ? { frames: frames[i] } : {}) })) };
 }
 
 /* ---- the wings (each stands outside its building's drawn footprint, on a side or the back) --- */
@@ -172,6 +189,12 @@ const chronicleHall = make("Chronicle Hall", "keep", "ink", "stone", [
   [bx("stone", 0, 0, 5, 4, 0, 0.4), bx("plaster", 0, 0, 4.4, 3.4, 0.4, 1.8)],
   [bx("roof", 0, 0, 5, 4, 2.2, 0.7), bx("timber", 0, 1.73, 0.9, 0.06, 0.4, 1.3), bx("stone", 0, 2.25, 1.6, 0.5, 0, 0.2)],
   [bx("stone", 0, 0, 1.2, 1.2, 2.9, 0.9), bx("roof", 0, 0, 1.5, 1.5, 3.8, 0.4), bx("gold", 0, 0, 0.25, 0.25, 4.2, 0.5)],
+], [
+  // Two on the front wall either side of the door, then one on each side wall, then two on the back
+  // wall: every one on a plaster face (z or x of 1.7 or 2.2, plus the 0.02 the back stands off).
+  [{ x: -1.1, y: 1.4, z: 1.72, ry: 0 }, { x: 1.1, y: 1.4, z: 1.72, ry: 0 }],
+  [{ x: 2.22, y: 1.4, z: 0, ry: Math.PI / 2 }, { x: -2.22, y: 1.4, z: 0, ry: -Math.PI / 2 }],
+  [{ x: -1.1, y: 1.4, z: -1.72, ry: Math.PI }, { x: 1.1, y: 1.4, z: -1.72, ry: Math.PI }],
 ]);
 
 /** One banner: a stone foot, a pole, and a cloth hung beside it that rests on the foot. */

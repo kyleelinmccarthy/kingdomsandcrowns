@@ -121,6 +121,8 @@ export default async function RealmPage({ searchParams }: { searchParams: Promis
     // The satchel, plaques, pinned plan and delivery. A grown-up previewing sees them too, and the
     // hero-only actions (building, pinning, taking the delivery) refuse them.
     works: bundle.works ?? EMPTY_WORKS,
+    // The newest drawings, for the Chronicle Hall's frames.
+    hallDrawings: bundle.hallDrawings ?? [],
     ...(bundle.earning ? { earning: bundle.earning } : {}),
   };
 

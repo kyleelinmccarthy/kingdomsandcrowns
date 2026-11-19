@@ -5,7 +5,7 @@ import { KEEP_YARD, VILLAGE_DECOR_SPOTS } from "@/lib/realm/keep-yard";
 import { IMPROVEMENTS, IMPROVEMENT_IDS, type ImprovementId } from "@/lib/realm/improvements";
 import { VILLAGERS, villagerPosition } from "@/lib/realm/villagers";
 import { clearanceFailures, distToRect, drawnSite, overlaps, rectAt } from "@/test/world-clearance";
-import { improvementPlacements, PLAQUE_BOXES } from "./improvement-spots";
+import { hallFrameSlots, improvementPlacements, PLAQUE_BOXES } from "./improvement-spots";
 
 const flat = () => 0;
 const slope = (x: number, z: number) => 0.1 * x + 0.05 * z;
@@ -121,5 +121,33 @@ describe("the plaque spot", () => {
       expect(Math.abs(b.x) + b.sx / 2).toBeLessThanOrEqual(0.35);
       expect(Math.abs(b.z) + b.sz / 2).toBeLessThanOrEqual(0.35);
     }
+  });
+});
+
+describe("hallFrameSlots", () => {
+  const hall = KEEP_YARD.chronicleHall;
+
+  it("hangs two frames per built level, none before the hall stands", () => {
+    expect(hallFrameSlots(0, flat)).toEqual([]);
+    expect([1, 2, 3].map((n) => hallFrameSlots(n, flat).length)).toEqual([2, 4, 6]);
+  });
+
+  it("holds a level's frames in place as the hall grows, so a drawing keeps its slot", () => {
+    const three = hallFrameSlots(3, flat);
+    expect(hallFrameSlots(1, flat)).toEqual(three.slice(0, 2));
+    expect(hallFrameSlots(2, flat)).toEqual(three.slice(0, 4));
+  });
+
+  it("clamps a level that is not 0 to 3 whole, rather than inventing frames", () => {
+    expect(hallFrameSlots(9, flat)).toHaveLength(6);
+    expect(hallFrameSlots(-1, flat)).toEqual([]);
+    expect(hallFrameSlots(Number.NaN, flat)).toEqual([]);
+    expect(hallFrameSlots(1.5, flat)).toEqual([]);
+  });
+
+  it("moves each frame to the hall's spot in the world and its height above the ground there", () => {
+    const [first] = hallFrameSlots(1, slope);
+    const catalog = IMPROVEMENTS["chronicle-hall"].levels[0].frames![0];
+    expect(first).toEqual({ x: hall.x + catalog.x, y: slope(hall.x, hall.z) + catalog.y, z: hall.z + catalog.z, ry: catalog.ry });
   });
 });

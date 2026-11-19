@@ -90,3 +90,13 @@ describe("/realm — the works", () => {
     expect((await realmProp()).works).toEqual(EMPTY_WORKS);
   });
 });
+
+describe("/realm — the Chronicle Hall's drawings", () => {
+  it("hands the frame the drawings as the bundle read them, and none when a hand-built bundle carries none", async () => {
+    const hallDrawings = [{ v: 1 as const, strokes: [{ c: 1, w: 1, p: [5, 5] }] }];
+    getRealmBundle.mockResolvedValue({ ...bundle(true), hallDrawings });
+    expect((await realmProp()).hallDrawings).toEqual(hallDrawings);
+    getRealmBundle.mockResolvedValue(bundle(true));
+    expect((await realmProp()).hallDrawings).toEqual([]);
+  });
+});

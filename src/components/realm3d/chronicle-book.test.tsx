@@ -46,6 +46,8 @@ describe("the Chronicle book", () => {
     book();
     expect(screen.getByRole("dialog", { name: "Your Chronicle" })).toBeInTheDocument();
     expect(screen.getByText("Opening the Chronicle…")).toBeInTheDocument();
+    // A screen reader hears it as a status, not just a line of text.
+    expect(screen.getByRole("status")).toHaveTextContent("Opening the Chronicle…");
     expect(getChronicle).toHaveBeenCalledWith("c1");
     finish([THIS_WEEK]);
     expect(await screen.findByText("Week of 16 November")).toBeInTheDocument();

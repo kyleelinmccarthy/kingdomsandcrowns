@@ -100,6 +100,8 @@ import { RiddleStones } from "./riddle-stones";
 import { RIDDLE_STONE_SPOTS, riddleStoneColliders } from "@/lib/realm/riddle-stones";
 import { KeepYard } from "./keep-yard";
 import { Improvements } from "./improvements";
+import { ChronicleFrames } from "./chronicle-frames";
+import type { Drawing } from "@/lib/utils/drawing";
 import { improvementPlacements } from "@/lib/realm3d/improvement-spots";
 import { IMPROVEMENTS } from "@/lib/realm/improvements";
 import { KEEP_YARD } from "@/lib/realm/keep-yard";
@@ -1280,9 +1282,11 @@ export type RealmCanvasProps = {
   stockpile?: Readonly<Record<MaterialId, number>>;
   /** What the hero has built, the highest level per plan: the improvements stand in the world and each has a plaque to read (`improvements.tsx`). A new object only when a level is built. */
   built?: Readonly<Record<string, number>>;
+  /** The newest drawings, newest first, for the Chronicle Hall's frames (`chronicle-frames.tsx`). The visit's snapshot, so stable. */
+  hallDrawings?: readonly Drawing[];
 };
 
-export default function SpikeScene({ avatar, close, world, layout, anchors, pages, bus, caster, fxPool, casts, viewer, castleUnlocked, frozen = false, calm = false, troubles, ride, lead, recess, timeZone, gilded, reviewDue = false, stockpile, built }: RealmCanvasProps) {
+export default function SpikeScene({ avatar, close, world, layout, anchors, pages, bus, caster, fxPool, casts, viewer, castleUnlocked, frozen = false, calm = false, troubles, ride, lead, recess, timeZone, gilded, reviewDue = false, stockpile, built, hallDrawings }: RealmCanvasProps) {
   return (
     <Canvas
       frameloop={frozen ? "never" : "always"}
@@ -1320,6 +1324,7 @@ export default function SpikeScene({ avatar, close, world, layout, anchors, page
       <RiddleStones world={world} due={reviewDue} />
       <KeepYard stockpile={stockpile} heightAt={world.heightAt} />
       <Improvements built={built} heightAt={world.heightAt} />
+      <ChronicleFrames level={built?.["chronicle-hall"] ?? 0} drawings={hallDrawings} heightAt={world.heightAt} />
     </Canvas>
   );
 }
