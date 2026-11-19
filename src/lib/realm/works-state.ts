@@ -1,7 +1,7 @@
 // The hero's works as the Realm holds them: the satchel, the built levels and their plaques, the pinned
-// plan and the delivery not yet seen. Pure and client-safe (type imports only): the server loads it
+// plan and the delivery not yet seen. Pure and client-safe (the plan catalog and the material table, no server code): the server loads it
 // (`loadWorks`), and the HUD folds a finished build into it (`applyBuild`) without a reload.
-import type { Plaque } from "@/lib/realm/improvements";
+import { IMPROVEMENTS, LEVELS, type ImprovementId, type Plaque } from "@/lib/realm/improvements";
 import { MATERIAL_IDS, materialPhrase, type MaterialId } from "@/lib/realm/materials";
 import type { RunSummary } from "@/lib/utils/deed-run-types";
 
@@ -32,6 +32,18 @@ export const EMPTY_WORKS: Works = {
   pinned: null,
   delivery: null,
 };
+
+/**
+ * The plan the hero is working toward: the pinned plan while it still has a level to build. Null
+ * with nothing pinned, for an id outside the catalog, and once every level stands (a finished plan
+ * is no goal, whatever was pinned before it finished). The beacon, the Tavern card and the satchel
+ * all ask this, never `works.pinned` itself.
+ */
+export function activePin(works: Pick<Works, "built" | "pinned">): ImprovementId | null {
+  const pinned = works.pinned;
+  if (!pinned || !Object.hasOwn(IMPROVEMENTS, pinned)) return null;
+  return (works.built[pinned] ?? 0) >= LEVELS ? null : (pinned as ImprovementId);
+}
 
 export const CARTS_TITLE = "The carts are in!";
 export const WELCOME_TITLE = "The carts arrived with four weeks of your work";

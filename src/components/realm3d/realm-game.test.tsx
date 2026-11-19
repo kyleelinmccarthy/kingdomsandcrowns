@@ -341,6 +341,53 @@ describe("the keep yard", () => {
   });
 });
 
+describe("built plans and their plaques", () => {
+  const plaque = { improvementId: "village-banners" as const, level: 1, label: "Banners", builtBy: "Emma", season: "Autumn 2026", sources: ["Fractions p.12"], stars: 2 };
+  const built: Works = { ...EMPTY_WORKS, built: { "village-banners": 1 }, plaques: [plaque] };
+  const stone = { kind: "plaque" as const, id: "village-banners", label: "Banners plaque", verb: "Read" };
+
+  it("hands the canvas what the hero has built, the same object across a re-render", () => {
+    const { view } = mount({ realm: { ...realm, works: built } });
+    expect(handed.props!.built).toEqual({ "village-banners": 1 });
+    const first = handed.props!.built;
+    view.rerender(<RealmGame heroName="Emma" spellbook={spellbook} realm={{ ...realm, works: built }} entry={{ minutes: 240, visit: null, source: "earned" }} castleUnlocked={false} />);
+    expect(handed.props!.built).toBe(first);
+  });
+
+  it("opens the plaque when E is pressed at it, and pauses the world", () => {
+    const { bus } = mount({ realm: { ...realm, works: built } });
+    act(() => bus.onNear(stone));
+    expect(screen.getByRole("button", { name: /Read Banners plaque/ })).toBeInTheDocument();
+    act(() => bus.onInteract(stone));
+    const panel = screen.getByRole("dialog", { name: "Banners plaque" });
+    expect(panel).toHaveTextContent("Banners · built by Emma · Autumn 2026 · from: Fractions p.12");
+    expect(screen.getByRole("img", { name: "2 of 3 stars" })).toBeInTheDocument();
+    expect(bus.paused).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Back to the Realm" }));
+    expect(bus.paused).toBe(false);
+  });
+
+  it("lets a visiting grown-up read the plaque too", () => {
+    const { bus } = mount({ viewer: "parent", realm: { ...realm, isChildView: false, works: built } });
+    act(() => bus.onInteract(stone));
+    expect(screen.getByRole("dialog", { name: "Banners plaque" })).toHaveTextContent("built by Emma");
+  });
+
+  it("has the keeper of a standing building say who raised it and in which season, in the family's zone", () => {
+    const standing = {
+      ...realm,
+      timezone: "Australia/Sydney",
+      kingdom: {
+        ...realm.kingdom,
+        buildings: realm.kingdom.buildings.map((b) => (b.id === "well" ? { ...b, done: 5, complete: true, raisedBy: "Emma", raisedAt: Date.parse("2026-04-15T18:00:00Z") / 1000 } : b)),
+      },
+    };
+    const { bus } = mount({ realm: standing });
+    act(() => bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
+    expect(screen.getByRole("dialog", { name: /Old Bram/ })).toHaveTextContent("Raised by Emma · Autumn 2026.");
+  });
+});
+
 describe("casting by click", () => {
   it("queues the page for the scene exactly as its number key does", () => {
     mount();

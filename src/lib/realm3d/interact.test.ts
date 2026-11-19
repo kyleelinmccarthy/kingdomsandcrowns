@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { buildWorldLayout } from "@/lib/realm/layout";
 import { KEEP_YARD } from "@/lib/realm/keep-yard";
+import { IMPROVEMENT_IDS, IMPROVEMENTS } from "@/lib/realm/improvements";
+import { HERO_RADIUS } from "./collision";
+import { improvementPlacements } from "./improvement-spots";
 import { buildSpots, edgeDistance, pickSpot, PLANS_TARGET, RIDDLE_LABEL, RIDDLE_VERB, siteLabel } from "./interact";
 
 const layout = buildWorldLayout({
@@ -120,5 +123,47 @@ describe("the plans board", () => {
 
   it("has none when none is given", () => {
     expect(spots.some((s) => s.target.kind === "plans")).toBe(false);
+  });
+});
+
+describe("the plaques", () => {
+  const all = buildWorldLayout({
+    castleType: "castle",
+    buildings: ["well", "mill", "bridge", "chapel", "market", "library", "watchtower", "garden"].map((id) => ({ id, done: 5, total: 5, complete: true })),
+  });
+  const placements = improvementPlacements(Object.fromEntries(IMPROVEMENT_IDS.map((id) => [id, 3])), () => 0);
+  const plaques = placements.map((p) => ({ id: p.id, label: IMPROVEMENTS[p.id].label, ...p.plaque }));
+  const withPlaques = buildSpots({ props: all.props, sitePlan: 1.5, landmarks: [], castle: null, plaques });
+  const at = (id: string) => withPlaques.findIndex((s) => s.target.kind === "plaque" && s.target.id === id);
+
+  it("adds one spot per built improvement, at its plaque point, read with E", () => {
+    expect(withPlaques.filter((s) => s.target.kind === "plaque")).toHaveLength(IMPROVEMENT_IDS.length);
+    const well = withPlaques[at("well-house")];
+    expect(well.target).toEqual({ kind: "plaque", id: "well-house", label: "Well House plaque", verb: "Read" });
+    expect(well).toMatchObject({ x: placements[0].plaque.x, z: placements[0].plaque.z, round: true });
+  });
+
+  it("has none when none is given", () => {
+    expect(spots.some((s) => s.target.kind === "plaque")).toBe(false);
+  });
+
+  it("is what E acts on at every plaque, in a fully built village (no villager or site outranks it)", () => {
+    for (const p of placements) {
+      expect(withPlaques[pickSpot(withPlaques, p.plaque.x, p.plaque.z, -1)]?.target, p.id).toMatchObject({ kind: "plaque", id: p.id });
+    }
+  });
+
+  it("is reachable: the hero can stand at every plaque point, and a step toward it from the south", () => {
+    const blocked = (x: number, z: number) =>
+      all.colliders.some((c) => Math.abs(x - c.position.x) < c.size.w / 2 + HERO_RADIUS && Math.abs(z - c.position.z) < c.size.d / 2 + HERO_RADIUS);
+    for (const p of placements) {
+      expect(blocked(p.plaque.x, p.plaque.z), `${p.id} plaque point is walled off`).toBe(false);
+      expect(blocked(p.plaque.x, p.plaque.z + 1), `${p.id} plaque is walled off from the south`).toBe(false);
+    }
+  });
+
+  it("is let go once the hero walks on", () => {
+    const i = at("well-house");
+    expect(pickSpot(withPlaques, placements[0].plaque.x + 7, placements[0].plaque.z + 7, i)).not.toBe(i);
   });
 });

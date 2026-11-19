@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { applyBuild, deliveryLines, EMPTY_WORKS, WELCOME_TITLE, CARTS_TITLE, type Delivery, type Works } from "./works-state";
+import { activePin, applyBuild, deliveryLines, EMPTY_WORKS, WELCOME_TITLE, CARTS_TITLE, type Delivery, type Works } from "./works-state";
 import type { Plaque } from "./improvements";
 
 const works = (over: Partial<Works> = {}): Works => ({
@@ -98,5 +98,18 @@ describe("EMPTY_WORKS", () => {
     expect(EMPTY_WORKS.pinned).toBeNull();
     expect(EMPTY_WORKS.delivery).toBeNull();
     expect(Object.values(EMPTY_WORKS.balance).every((n) => n === 0)).toBe(true);
+  });
+});
+
+describe("activePin", () => {
+  it("is the pinned plan while it still has a level to build", () => {
+    expect(activePin(works({ pinned: "well-house", built: { "well-house": 2 } }))).toBe("well-house");
+    expect(activePin(works({ pinned: "village-banners", built: {} }))).toBe("village-banners");
+  });
+
+  it("is null with nothing pinned, for an unknown plan, and once every level stands", () => {
+    expect(activePin(works({ pinned: null }))).toBeNull();
+    expect(activePin(works({ pinned: "moat" }))).toBeNull();
+    expect(activePin(works({ pinned: "well-house", built: { "well-house": 3 } }))).toBeNull();
   });
 });

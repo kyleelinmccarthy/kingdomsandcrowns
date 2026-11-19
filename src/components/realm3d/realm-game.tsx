@@ -72,6 +72,7 @@ import { usePlayClock, type CloseReason } from "@/components/realm/use-play-cloc
 import { DeedBoard, type DeedResult } from "./deed-board";
 import { RiddleStoneBoard } from "./riddle-stone-board";
 import { PlansBoard } from "./plans-board";
+import { PlaquePanel } from "./plaque-panel";
 import { useWorks } from "./use-works";
 import { isPlanGoal, planGoal, planGoalSpeech, PLANS_BOARD_NAME } from "@/lib/realm3d/plan-goal";
 import { CeremonyCard, Coach, DeedToastBanner, TimerFinished, WelcomeCard, type CeremonyInfo } from "./guide-hud";
@@ -295,7 +296,7 @@ export function RealmGame({
   const gildedKey = gildedFor(kingdom.buildings.filter(isGilded).map((b) => b.id), windowQuery(), process.env.NODE_ENV !== "production").join(",");
   const gilded = useMemo(() => (gildedKey ? gildedKey.split(",") : []), [gildedKey]);
   // The keep yard: the hero's works for the visit (`use-works.ts`), and the buildings that stand, which the plans wait on.
-  const { works, stockpile, applyBuildResult, setPinned } = useWorks(realm.works);
+  const { works, stockpile, built, applyBuildResult, setPinned } = useWorks(realm.works);
   const raisedKey = kingdom.buildings.filter((b) => b.complete).map((b) => b.id).join(",");
   const raisedIds = useMemo<ReadonlySet<string>>(() => new Set(raisedKey ? raisedKey.split(",") : []), [raisedKey]);
 
@@ -999,6 +1000,7 @@ export function RealmGame({
         gilded={gilded}
         reviewDue={reviewDue}
         stockpile={stockpile}
+        built={built}
       />
       {outCount > 0 && !inside && <div key={outCount} className="r3-fade" aria-hidden="true" />}
       {inside && (
@@ -1186,6 +1188,7 @@ export function RealmGame({
               numerals={numerals}
               profile={{ readAloud, untimed: profile.untimed }}
               calm={calm}
+              timezone={realm.timezone ?? null}
               onResult={(buildingId, result) => {
                 // Finish can answer after the child has already left the board (Esc, Leave, the
                 // dim): then there is no board to close, and the building rises now.
@@ -1212,7 +1215,8 @@ export function RealmGame({
               onClose={closeOverlay}
             />
           )}
-          {overlay?.kind === "interact" && !talkTo && overlay.target.kind !== "riddle" && overlay.target.kind !== "plans" && (
+          {overlay?.kind === "interact" && overlay.target.kind === "plaque" && <PlaquePanel improvementId={overlay.target.id} plaques={works.plaques} onClose={closeOverlay} />}
+          {overlay?.kind === "interact" && !talkTo && overlay.target.kind !== "riddle" && overlay.target.kind !== "plans" && overlay.target.kind !== "plaque" && (
             <InteractPanel
               target={overlay.target}
               kingdom={kingdom}

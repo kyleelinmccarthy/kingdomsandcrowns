@@ -10,7 +10,7 @@
 
 import { IMPROVEMENTS, planState } from "@/lib/realm/improvements";
 import { KEEP_YARD } from "@/lib/realm/keep-yard";
-import type { Works } from "@/lib/realm/works-state";
+import { activePin, type Works } from "@/lib/realm/works-state";
 import { NO_GOAL, type Goal } from "./guide";
 
 export const PLAN_GOAL_PREFIX = "plan:";
@@ -19,8 +19,8 @@ export const PLAN_GOAL_PREFIX = "plan:";
 export const PLANS_BOARD_NAME = "the plans board";
 
 export function planGoal(works: Pick<Works, "balance" | "built" | "pinned">, raised: ReadonlySet<string>): Goal {
-  const pinned = works.pinned;
-  if (!pinned || !Object.hasOwn(IMPROVEMENTS, pinned)) return NO_GOAL;
+  const pinned = activePin(works);
+  if (!pinned) return NO_GOAL;
   const row = planState({ built: works.built, raised, balance: works.balance }).find((p) => p.id === pinned);
   if (row?.state !== "ready") return NO_GOAL;
   const { x, z } = KEEP_YARD.plansBoard;

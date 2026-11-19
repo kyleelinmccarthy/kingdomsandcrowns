@@ -121,7 +121,14 @@ export type SpotInput = {
   stones?: readonly { placeId: string; x: number; z: number }[];
   /** The keep yard's plans board (`KEEP_YARD.plansBoard`), where E opens the kingdom's plans. Absent, there is none. */
   plans?: { x: number; z: number } | null;
+  /** The plaques of what the hero has built (`improvement-spots.ts`), where E reads who built it. `label` is the plan's own ("Well House"). Absent, there are none. */
+  plaques?: readonly { id: string; label: string; x: number; z: number }[];
 };
+
+/** What E at a plaque says: "Read Well House plaque". */
+export const PLAQUE_VERB = "Read";
+/** The plaque stone is 0.5 wide (`improvement-spots.ts`); this is the radius of the spot round it. */
+const PLAQUE_RADIUS = 0.35;
 
 /** What E at the plans board acts on: one target, built once, so every announcement hands the same object. */
 export const PLANS_TARGET: InteractTarget = { kind: "plans", id: "plans-board", label: "Kingdom plans", verb: "Read" };
@@ -261,6 +268,20 @@ export function buildSpots(input: SpotInput): InteractSpot[] {
       // The board stands in the open yard, but a hero beside it means the board.
       bias: 0.4,
       ring: r + 0.7,
+    });
+  }
+  for (const p of input.plaques ?? []) {
+    out.push({
+      target: { kind: "plaque", id: p.id, label: `${p.label} plaque`, verb: PLAQUE_VERB },
+      x: p.x,
+      z: p.z,
+      hw: PLAQUE_RADIUS,
+      hd: PLAQUE_RADIUS,
+      round: true,
+      reach: 1.4,
+      // A plaque stands a step from the thing it names: a hero beside the stone means the stone.
+      bias: 0.4,
+      ring: PLAQUE_RADIUS + 0.55,
     });
   }
   return out;

@@ -36,10 +36,44 @@ describe("a villager's conversation", () => {
 
   it("thanks the child for a building that stands, and says how many stars are left to earn", () => {
     const t = talkCopy({ villager: bram, site: { ...well, done: 5, complete: true, stars: 7 }, viewer: "child", heroName: "Emma", waiting: false, numerals: true });
-    expect(t.says).toBe("The Village Well stands, and that is thanks to you!");
+    expect(t.says).toBe("The Village Well stands, and that is thanks to you! Raised by Emma.");
     expect(t.need).toBe("2 more stars to earn here.");
     expect(t.need).not.toContain("for practice");
     expect(t.ask).toBe("Pick one to play again.");
+  });
+
+  describe("who raised it", () => {
+    const stands: SiteState = { ...well, done: 5, complete: true, stars: 7, raisedBy: "Emma", raisedAt: Date.parse("2026-04-15T18:00:00Z") / 1000 };
+    const says = (site: SiteState, over: { timezone?: string | null; heroName?: string; viewer?: "child" | "parent" } = {}) =>
+      talkCopy({ villager: bram, site, viewer: over.viewer ?? "child", heroName: over.heroName ?? "Emma", waiting: false, numerals: true, timezone: over.timezone }).says;
+
+    it("adds a second sentence naming who raised it and the calendar season", () => {
+      expect(says(stands, { timezone: "America/Denver" })).toBe("The Village Well stands, and that is thanks to you! Raised by Emma · Spring 2026.");
+    });
+
+    it("reads the season where the family lives", () => {
+      expect(says(stands, { timezone: "Australia/Sydney" })).toMatch(/Raised by Emma · Autumn 2026\.$/);
+      expect(says(stands, { timezone: null })).toMatch(/Raised by Emma · Spring 2026\.$/);
+    });
+
+    it("keeps the name written when it rose, even after the hero is renamed", () => {
+      expect(says({ ...stands, raisedBy: "Em" }, { heroName: "Emma" })).toMatch(/Raised by Em ·/);
+    });
+
+    it("falls back to the live name for a building that rose this visit (no snapshot yet)", () => {
+      expect(says({ ...stands, raisedBy: null }, { heroName: "Noah" })).toMatch(/Raised by Noah ·/);
+      expect(says({ ...well, complete: true }, { heroName: "Noah" })).toBe("The Village Well stands, and that is thanks to you! Raised by Noah.");
+    });
+
+    it("leaves the season out when it is not known", () => {
+      expect(says({ ...stands, raisedAt: null })).toBe("The Village Well stands, and that is thanks to you! Raised by Emma.");
+      expect(says({ ...stands, raisedAt: Number.NaN })).toBe("The Village Well stands, and that is thanks to you! Raised by Emma.");
+    });
+
+    it("says it to a grown-up too, and never for a building that is still rising", () => {
+      expect(says(stands, { viewer: "parent", heroName: "Emma" })).toMatch(/thanks to Emma! Raised by Emma · /);
+      expect(says({ ...well, done: 2, raisedBy: "Emma", raisedAt: 1 })).not.toMatch(/Raised by/);
+    });
   });
 
   it("words the stars still to earn, down to none", () => {

@@ -16,6 +16,7 @@
  */
 
 import type { AttemptResult, RunSummary } from "@/lib/utils/deed-run-types";
+import { seasonPhrase } from "@/lib/realm/season-phrase";
 import { cutFeedbackLine } from "@/lib/tasks/measure-copy";
 import type { ClientTask } from "@/lib/tasks/types";
 import { MAX_STARS, countsTowardBuilding } from "@/lib/utils/deed-scoring";
@@ -28,8 +29,16 @@ import { REVIEW_DONE, reviewSummaryLine } from "@/lib/utils/review-copy";
 
 export type Viewer = "child" | "parent";
 
-/** The building half of `BuildingOverview`, as much as a conversation needs. */
-export type SiteState = { id: string; label: string; done: number; total: number; complete: boolean; stars: number; maxStars: number };
+/**
+ * The building half of `BuildingOverview`, as much as a conversation needs. `raisedBy` and `raisedAt`
+ * (epoch seconds) are what the overview knows about who raised a complete building and when; a
+ * building raised during this visit has no name yet, and the live hero's name stands in.
+ */
+export type SiteState = {
+  id: string; label: string; done: number; total: number; complete: boolean; stars: number; maxStars: number;
+  raisedBy?: string | null;
+  raisedAt?: number | null;
+};
 
 export type TalkCopy = {
   /** "Old Bram" */
@@ -52,6 +61,13 @@ export function starsLeftLine(site: { stars: number; maxStars: number }, numeral
   return `${left} more ${left === 1 ? "star" : "stars"} to earn here.`;
 }
 
+/** "Raised by Emma · Spring 2026." The season is left out when the time is not known. */
+function raisedByLine(site: SiteState, heroName: string, timezone: string | null | undefined): string {
+  const name = site.raisedBy ?? heroName;
+  const season = site.raisedAt == null ? "" : seasonPhrase(site.raisedAt, timezone);
+  return `Raised by ${name}${season ? ` · ${season}` : ""}.`;
+}
+
 function areIs(n: number): string {
   return n === 1 ? "is" : "are";
 }
@@ -68,15 +84,17 @@ export function talkCopy(input: {
   heroName: string;
   waiting: boolean;
   numerals: boolean;
+  /** The family's zone, for the season a building was raised in; absent reads as UTC. */
+  timezone?: string | null;
 }): TalkCopy {
-  const { villager, site, viewer, heroName, waiting, numerals } = input;
+  const { villager, site, viewer, heroName, waiting, numerals, timezone } = input;
   const role = `Keeper of the ${site.label}`;
   const who = viewer === "parent" ? heroName : "you";
 
   let says: string;
   let need: string;
   if (site.complete) {
-    says = `The ${site.label} stands, and that is thanks to ${who}!`;
+    says = `The ${site.label} stands, and that is thanks to ${who}! ${raisedByLine(site, heroName, timezone)}`;
     need = starsLeftLine(site, numerals);
   } else {
     const hello = waiting ? (viewer === "parent" ? `I was hoping ${heroName} would come. ` : "There you are! ") : "";

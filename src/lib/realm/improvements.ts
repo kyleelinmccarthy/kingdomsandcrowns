@@ -41,6 +41,17 @@ export type Plaque = {
   stars: number;
 };
 
+/**
+ * What a plaque reads, as one line: "Banners · built by Emma · Autumn 2026 · from: Fractions p.12, Maps".
+ * The season and the quests are left out when they are not known.
+ */
+export function plaqueLine(p: Pick<Plaque, "label" | "builtBy" | "season" | "sources">): string {
+  const parts = [p.label, `built by ${p.builtBy}`];
+  if (p.season) parts.push(p.season);
+  if (p.sources.length > 0) parts.push(`from: ${p.sources.join(", ")}`);
+  return parts.join(" · ");
+}
+
 export type ImprovementColor = "stone" | "timber" | "plaster" | "roof" | "cloth" | "glass" | "gold" | "water";
 
 /** Low-poly colours, in the spirit of the construction site's: weathered stone, pale timber, warm plaster. */

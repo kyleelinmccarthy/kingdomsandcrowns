@@ -55,8 +55,9 @@ export type InteractTarget = {
    * (`lib/realm3d/recess/course.ts`), where a child runs the Ring and a grown-up sees their laps.
    * `riddle` is a riddle stone (`lib/realm/riddle-stones.ts`); its id is the place it stands at.
    * `plans` is the keep yard's plans board (`lib/realm/keep-yard.ts`), where the hero builds.
+   * `plaque` is the plaque of a built plan (`lib/realm3d/improvement-spots.ts`); its id is the improvement's.
    */
-  kind: "villager" | "site" | "castle" | "landmark" | "door" | "fixture" | "post" | "arch" | "riddle" | "plans";
+  kind: "villager" | "site" | "castle" | "landmark" | "door" | "fixture" | "post" | "arch" | "riddle" | "plans" | "plaque";
   id: string;
   /** What the prompt calls it: "Old Bram", "the Chapel", "Cloudfoot". */
   label: string;

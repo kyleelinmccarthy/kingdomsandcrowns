@@ -75,7 +75,7 @@ function Subject({ area }: { area: SkillArea | null }) {
 }
 
 /** The shared star row in the frame's clothes: the board's list and the result card alike. */
-function BoardStars({ stars, small }: { stars: number; small?: boolean }) {
+export function BoardStars({ stars, small }: { stars: number; small?: boolean }) {
   return <StarRow stars={stars} className={`r3-result-stars${small ? " r3-stars--small" : ""}`} starClass="r3-star" onClass="r3-star--on" />;
 }
 
@@ -93,6 +93,7 @@ export function DeedBoard({
   onClose,
   doneLabel,
   runContext = "realm",
+  timezone,
 }: {
   childId: string | null;
   villager: Villager;
@@ -111,11 +112,13 @@ export function DeedBoard({
   doneLabel?: string;
   /** Where the run is asked from. The gate's board is always multiple choice (R-C4); the world's is the default. */
   runContext?: "realm" | "gate";
+  /** The family's zone, for the season a standing building says it was raised in (`talkCopy`). */
+  timezone?: string | null;
 }) {
   const [run, setRun] = useState<RunStart | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const copy = talkCopy({ villager, site, viewer, heroName, waiting, numerals });
+  const copy = talkCopy({ villager, site, viewer, heroName, waiting, numerals, timezone });
   const canPlay = viewer === "child" && childId !== null;
 
   // The villager speaks, once, for a child who has read-aloud on: who they are and what they need.

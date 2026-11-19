@@ -37,6 +37,16 @@ describe("seasonPhrase", () => {
     expect(seasonPhrase(at("2026-03-01T03:00:00Z"), "Not/AZone")).toBe("Spring 2026");
     expect(seasonPhrase(at("2026-03-01T03:00:00Z"), "")).toBe("Spring 2026");
   });
+
+  it("reads a missing zone (a family that never set one) as UTC", () => {
+    expect(seasonPhrase(at("2026-03-01T03:00:00Z"), null)).toBe("Spring 2026");
+    expect(seasonPhrase(at("2026-03-01T03:00:00Z"), undefined)).toBe("Spring 2026");
+  });
+
+  it("says nothing for an instant that is not a real time", () => {
+    expect(seasonPhrase(Number.NaN, "America/Denver")).toBe("");
+    expect(seasonPhrase(Number.POSITIVE_INFINITY, null)).toBe("");
+  });
 });
 
 describe("hemisphereForTimezone", () => {
@@ -50,5 +60,7 @@ describe("hemisphereForTimezone", () => {
     for (const tz of ["America/Denver", "Europe/London", "Asia/Tokyo", "UTC", "", "Not/AZone", "America/Argentinaish"]) {
       expect(hemisphereForTimezone(tz), tz).toBe("north");
     }
+    expect(hemisphereForTimezone(null)).toBe("north");
+    expect(hemisphereForTimezone(undefined)).toBe("north");
   });
 });
