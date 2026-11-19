@@ -85,10 +85,12 @@ export function allocateSpend(
   const balance = materialBalance(rows);
   const spend: Amounts = {};
   const gap: Amounts = {}; // what each non-timber material lacks, to be paid from timber
-  let timberNeed = cost.timber ?? 0;
+  // A cost is whole and positive: negatives, fractions, NaN and Infinity never become a free or odd spend.
+  const whole = (v: number | undefined) => (v !== undefined && Number.isFinite(v) && v > 0 ? Math.floor(v) : 0);
+  let timberNeed = whole(cost.timber);
   for (const id of MATERIAL_IDS) {
     if (id === "timber") continue;
-    const want = cost[id] ?? 0;
+    const want = whole(cost[id]);
     const own = Math.min(want, balance[id]);
     if (own > 0) spend[id] = own;
     if (want > own) {
@@ -145,7 +147,7 @@ export function allocateSpend(
 
 /** How tall a stockpile heap stands: empty, then 1-3, 4-9, 10 or more. */
 export function heapSize(n: number): 0 | 1 | 2 | 3 {
-  if (n <= 0) return 0;
+  if (!Number.isFinite(n) || n <= 0) return 0;
   if (n <= 3) return 1;
   if (n <= 9) return 2;
   return 3;

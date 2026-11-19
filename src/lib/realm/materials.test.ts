@@ -30,7 +30,10 @@ describe("catalog", () => {
   it("has the six materials, each with a label, plural, colour and icon", () => {
     expect(Object.keys(MATERIALS).sort()).toEqual(["dye", "herbs", "ink", "stone", "thread", "timber"]);
     for (const m of Object.values(MATERIALS)) {
-      expect(m.label && m.plural && m.color && m.icon).toBeTruthy();
+      expect(m.label).toBeTruthy();
+      expect(m.plural).toBeTruthy();
+      expect(m.color).toBeTruthy();
+      expect(m.icon).toBeTruthy();
     }
   });
 
@@ -149,6 +152,23 @@ describe("allocateSpend", () => {
     expect(r.ok && r.sources).toEqual(Array.from({ length: 12 }, (_, i) => `q${i}`));
   });
 
+  it("never treats a negative cost as a credit", () => {
+    expect(allocateSpend({ timber: -5, ink: 4 }, [])).toEqual({ ok: false, short: { ink: 4 } });
+  });
+
+  it("floors a fractional cost", () => {
+    expect(allocateSpend({ ink: 1.5 }, [earned("ink", 1, "a")])).toEqual({ ok: true, spend: { ink: 1 }, sources: ["a"] });
+  });
+
+  it("counts a NaN or infinite cost as nothing", () => {
+    expect(allocateSpend({ ink: NaN, stone: Infinity }, [])).toEqual({ ok: true, spend: {}, sources: [] });
+  });
+
+  it("treats a zero cost as an empty, ok spend", () => {
+    expect(allocateSpend({ ink: 0, timber: 0 }, [])).toEqual({ ok: true, spend: {}, sources: [] });
+    expect(allocateSpend({}, [earned("ink", 1, "a")])).toEqual({ ok: true, spend: {}, sources: [] });
+  });
+
   it("lists a quest once", () => {
     const rows = [earned("stone", 3, "only", 1)];
     expect(allocateSpend({ stone: 3 }, rows)).toMatchObject({ ok: true, sources: ["only"] });
@@ -158,5 +178,9 @@ describe("allocateSpend", () => {
 describe("heapSize", () => {
   it("steps at 0, 1-3, 4-9, 10+", () => {
     expect([0, 1, 3, 4, 9, 10, 99].map(heapSize)).toEqual([0, 1, 1, 2, 2, 3, 3]);
+  });
+
+  it("is empty for anything that is not a positive number", () => {
+    expect([NaN, -3, Infinity, -Infinity].map(heapSize)).toEqual([0, 0, 0, 0]);
   });
 });
