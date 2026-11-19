@@ -30,6 +30,8 @@ const building = (id: string, label: string, deeds: { id: string; title: string 
   complete: false,
   stars: 0,
   maxStars: 15,
+  raisedBy: null,
+  raisedAt: null,
   deeds: deeds.map((d) => ({ ...d, story: "A story.", area: "math" as const, bestStars: 0 as const, crowned: false })),
 });
 
@@ -134,7 +136,7 @@ describe("the gate's quest board", () => {
     vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: true, secondChance: false, answer: "5" });
     vi.mocked(completeDeedRun).mockResolvedValue({
       correctCount: 1, total: 1, flawless: true, masteryChanges: [], stars: 3, previousBest: 0, deedBest: 3, counted: true, crowned: false, kind: "deed",
-      building: { label: "Village Well", done: 1, total: 5, complete: false, stars: 3, maxStars: 6 }, minutesEarned: 3, sideQuestPayFull: false,
+      building: { label: "Village Well", done: 1, total: 5, complete: false, stars: 3, maxStars: 6, practice: false }, minutesEarned: 3, sideQuestPayFull: false,
     });
     board();
     await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Talk to Old Bram" })));

@@ -82,6 +82,8 @@ const realm: RealmData = {
       icon: "box" as const,
       stars: 0,
       maxStars: 0,
+      raisedBy: null,
+      raisedAt: null,
       deeds: id === "well" ? [{ id: "well-stones", title: "Count the Well Stones", story: "Old Bram's bucket keeps coming up dry.", area: "math" as const, bestStars: 0 as const, crowned: false }] : [],
       done: id === "well" ? 2 : 0,
       total: 5,

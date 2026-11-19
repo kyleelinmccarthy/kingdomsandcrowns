@@ -31,7 +31,7 @@ const run: RunStart = {
   pending: null,
 };
 const profile = { fewerChoices: false, predictableRoutine: false, untimed: true, readAloud: false };
-const summary = { correctCount: 1, total: 2, flawless: false, masteryChanges: ["Sight words: getting stronger"], stars: 1, previousBest: 0, counted: true, kind: "deed" as const, building: { label: "Village Well", done: 1, total: 5, complete: false, stars: 0, maxStars: 0 }, minutesEarned: 0, sideQuestPayFull: false };
+const summary = { correctCount: 1, total: 2, flawless: false, masteryChanges: ["Sight words: getting stronger"], stars: 1, previousBest: 0, counted: true, kind: "deed" as const, building: { label: "Village Well", done: 1, total: 5, complete: false, stars: 0, maxStars: 0, practice: false }, minutesEarned: 0, sideQuestPayFull: false };
 
 beforeEach(() => {
   vi.clearAllMocks();

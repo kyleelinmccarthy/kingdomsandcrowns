@@ -151,7 +151,7 @@ describe("the Realm's door", () => {
   });
 
   it("enters on the clock after a paying run at the gate, into the re-fetched village", async () => {
-    const well = { id: "well", label: "Village Well", description: "", icon: "box" as const, done: 5, total: 5, complete: true, stars: 0, maxStars: 15, deeds: [] };
+    const well = { id: "well", label: "Village Well", description: "", icon: "box" as const, done: 5, total: 5, complete: true, raisedBy: null, raisedAt: null, stars: 0, maxStars: 15, deeds: [] };
     access.kingdom = { tone: "gentle", buildings: [well] };
     await open(true, { allowed: true, minutesRemaining: 0, source: "quiet" });
     access.result = { allowed: true, minutesRemaining: 3, source: "earned" };

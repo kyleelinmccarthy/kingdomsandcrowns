@@ -12,7 +12,7 @@ import nextConfig from "../../../next.config";
 afterEach(cleanup);
 
 const building = {
-  id: "well", label: "Village Well", description: "Clean water for every doorstep.", icon: "box" as const, done: 2, total: 5, complete: false, stars: 0, maxStars: 3,
+  id: "well", label: "Village Well", description: "Clean water for every doorstep.", icon: "box" as const, done: 2, total: 5, complete: false, raisedBy: null, raisedAt: null, stars: 0, maxStars: 3,
   deeds: [{ id: "well-stones", title: "Count the Well Stones", story: "Old Bram's bucket keeps coming up dry.", area: "math" as const, bestStars: 0 as const, crowned: false }],
 };
 
@@ -28,7 +28,7 @@ describe("side quest copy", () => {
     const card = render(<SiteCard villager={VILLAGERS[0]} building={building} preview={true} busy={false} error="" onBegin={() => {}} onClearError={() => {}} onClose={() => {}} />);
     expect(card.container.textContent).not.toMatch(/deed/i);
     cleanup();
-    const results = render(<DeedResults summary={{ correctCount: 4, total: 5, flawless: false, masteryChanges: [], stars: 2, previousBest: 0, deedBest: 2, counted: true, crowned: false, kind: "deed", building: { label: "Village Well", done: 3, total: 5, complete: false, stars: 0, maxStars: 0 }, minutesEarned: 0, sideQuestPayFull: false }} deedTitle="Count the Well Stones" area="math" onDone={() => {}} />);
+    const results = render(<DeedResults summary={{ correctCount: 4, total: 5, flawless: false, masteryChanges: [], stars: 2, previousBest: 0, deedBest: 2, counted: true, crowned: false, kind: "deed", building: { label: "Village Well", done: 3, total: 5, complete: false, stars: 0, maxStars: 0, practice: false }, minutesEarned: 0, sideQuestPayFull: false }} deedTitle="Count the Well Stones" area="math" onDone={() => {}} />);
     expect(results.container.textContent).toContain("Side quest done!");
     expect(results.container.textContent).toContain("Village Well: 3 of 5 side quests");
     expect(results.container.textContent).toContain("Back to side quests");

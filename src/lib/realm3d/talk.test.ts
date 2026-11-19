@@ -128,8 +128,12 @@ describe("the result card", () => {
   it("words a result as the flat Realm did", () => {
     expect(resultHeadline({ correctCount: 5, total: 5, flawless: true }, "Fill the Bucket")).toEqual({ title: "Flawless!", line: "5 of 5 right in Fill the Bucket." });
     expect(resultHeadline({ correctCount: 3, total: 5, flawless: false }, "Fill the Bucket").title).toBe("Side quest done!");
-    expect(resultBuildingLine({ label: "Village Well", done: 2, total: 5, complete: false })).toBe("Village Well: 2 of 5 side quests");
-    expect(resultBuildingLine({ label: "Village Well", done: 5, total: 5, complete: true })).toBe("Village Well is built!");
+    expect(resultBuildingLine({ label: "Village Well", done: 2, total: 3, complete: false, practice: false })).toBe("Village Well: 2 of 3 side quests");
+    expect(resultBuildingLine({ label: "Village Well", done: 3, total: 3, complete: true, practice: false })).toBe("Village Well is built!");
+  });
+
+  it("a run on a building that already stood is practice, and says so", () => {
+    expect(resultBuildingLine({ label: "Village Well", done: 3, total: 3, complete: true, practice: true })).toBe("Practised again. The Village Well stands strong.");
   });
 });
 

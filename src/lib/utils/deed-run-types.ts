@@ -63,13 +63,17 @@ export type RunSummary = {
   stars: Stars; previousBest: Stars;
   /** The best stars on this side quest after this run. */
   deedBest: Stars;
-  /** Whether this run raised its building: a starless run teaches but does not build. */
+  /** Whether this run earned its story a place in the building: a starless run teaches but does not build. */
   counted: boolean;
   /** Whether the side quest holds its crown after this run: a flawless Crown Challenge earns it. */
   crowned: boolean;
   kind: RunKind;
   /** Null for a run that raises nothing (a review run). */
-  building: { label: string; done: number; total: number; complete: boolean; stars: number; maxStars: number } | null;
+  building: {
+    label: string; done: number; total: number; complete: boolean; stars: number; maxStars: number;
+    /** The building already stood before this run: the run was practice, and raised nothing. */
+    practice: boolean;
+  } | null;
   /** Realm play minutes this run paid (`sideQuestPay`): 0 for a challenge, a starless run or a grown-up's run. */
   minutesEarned: number;
   /** The day's side-quest minutes are all earned, so the card can say so instead of "+0". */

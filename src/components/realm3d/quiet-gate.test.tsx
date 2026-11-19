@@ -42,7 +42,7 @@ beforeEach(() => {
   server.kingdomFails = false;
 });
 
-const well = { id: "well", label: "Village Well", description: "", icon: "box" as const, done: 4, total: 5, complete: false, stars: 0, maxStars: 15, deeds: [] };
+const well = { id: "well", label: "Village Well", description: "", icon: "box" as const, done: 4, total: 5, complete: false, raisedBy: null, raisedAt: null, stars: 0, maxStars: 15, deeds: [] };
 const kingdom: KingdomState = { tone: "gentle", buildings: [well] };
 
 function gate(onEnter = vi.fn()) {

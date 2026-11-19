@@ -229,7 +229,7 @@ describe("an empty page", () => {
 
 describe("the interact panel", () => {
   const world = { landmarks: [{ id: "summit-1", name: "Cloudfoot", line: "The whole realm, from up here." }] } as unknown as RealmWorld;
-  const kingdom = { tone: "gentle" as const, buildings: fresh.map((b) => ({ ...b, label: b.id === "well" ? "Village Well" : b.id, description: "", icon: "box" as const, stars: 0, maxStars: 0, deeds: [] })) };
+  const kingdom = { tone: "gentle" as const, buildings: fresh.map((b) => ({ ...b, label: b.id === "well" ? "Village Well" : b.id, description: "", icon: "box" as const, raisedBy: null, raisedAt: null, stars: 0, maxStars: 0, deeds: [] })) };
 
   it("names a villager, says what they said, and how their site stands", () => {
     render(<InteractPanel target={{ kind: "villager", id: "bram", label: "Old Bram" }} kingdom={kingdom} world={world} castleType="campsite" heroName="Emma" viewer="child" onClose={() => {}} />);

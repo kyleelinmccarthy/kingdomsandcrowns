@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
@@ -30,7 +30,9 @@ import { overdueSkills } from "@/lib/utils/review-schedule";
 import type { AttemptResult, RunStart, RunSummary } from "@/lib/utils/deed-run-types";
 import { hintFor } from "@/lib/utils/skill-hints";
 import { benchDemoAt, findOpenRun, insertRun, loadMasteryRows, loadRecentMisses, parseRun, resumedStart, type DeedRunRow } from "@/lib/services/deed-run-store";
-import { buildingStars, gradeForDeed, loadDeedBest, loadHeroLevels, loadKingdomOverview, loadSiteState, type BuildingOverview } from "@/lib/services/deeds";
+import {
+  buildingStars, gradeForDeed, loadDeedBest, loadHeroLevels, loadKingdomOverview, loadSiteState, siteTally, type BuildingOverview, type DeedBest,
+} from "@/lib/services/deeds";
 import { loadFocusSkillIds } from "@/lib/services/learning-focus";
 import { loadLearningProfileRow } from "@/lib/services/learning-profile";
 import { loadRealmSettings, paySideQuest } from "@/lib/services/realm-play";
@@ -330,12 +332,48 @@ export async function resolveDeedQuestion(runId: string, index: number): Promise
   return resultFor(question, "missed");
 }
 
-/** Raises the building when the run counts, and reads where it stands either way. */
-async function buildingAfter(childId: string, building: Building, counted: boolean, now: Date) {
-  if (counted) {
+/**
+ * Who raised a building, read as it rises: the hero's own name (never a grown-up's) and their open
+ * season. Each read is best effort and alone: a failure leaves that one null and the building rises
+ * anyway (D13.7). A hero with no grade has no open season, which is null too.
+ */
+async function raisedRecord(childId: string): Promise<{ raisedByName: string | null; raisedSeasonId: string | null }> {
+  const [name, season] = await Promise.all([
+    db.select({ displayName: schema.child.displayName }).from(schema.child).where(eq(schema.child.id, childId)).limit(1)
+      .then((rows) => rows[0]?.displayName ?? null)
+      .catch((err: unknown) => {
+        console.error("Raised-by name failed to load", err);
+        return null;
+      }),
+    db.select({ id: schema.season.id }).from(schema.season)
+      .where(and(eq(schema.season.childId, childId), isNull(schema.season.completedAt)))
+      .orderBy(desc(schema.season.ordinal))
+      .limit(1)
+      .then((rows) => rows[0]?.id ?? null)
+      .catch((err: unknown) => {
+        console.error("Raised-by season failed to load", err);
+        return null;
+      }),
+  ]);
+  return { raisedByName: name, raisedSeasonId: season };
+}
+
+/**
+ * Counts the run at its site and reads where the building stands, raising it the first time its
+ * stories are all done (D13). `countsRun` is a side quest's own run: every one finished counts in the
+ * site's lifetime runs (`deeds_done`, display only), stars or none. Progress is read from the stories'
+ * bests AFTER this run's own write, so this run's story counts, and of two stories finishing the
+ * building at once the later read sees both. `bestBefore` excludes this run: it says whether the
+ * building already stood, so the run was practice.
+ */
+async function buildingAfter(
+  childId: string, building: Building, countsRun: boolean, bestBefore: readonly DeedBest[], now: Date,
+): Promise<{ progress: { done: number; total: number; complete: boolean; practice: boolean }; bestNow: DeedBest[] }> {
+  const where = and(eq(schema.kingdomProgress.childId, childId), eq(schema.kingdomProgress.buildingId, building.id));
+  if (countsRun) {
     // Insert-first, then an unconditional atomic increment: two completions of the
     // same building racing each other can't both read deedsDone=0 and both write 1,
-    // losing a deed. The insert only ever seeds a fresh row (onConflictDoNothing),
+    // losing a run. The insert only ever seeds a fresh row (onConflictDoNothing),
     // so the +1 below always applies to whatever is already there.
     await db.insert(schema.kingdomProgress).values({
       id: nanoid(), childId, buildingId: building.id, deedsDone: 0,
@@ -343,18 +381,23 @@ async function buildingAfter(childId: string, building: Building, counted: boole
     }).onConflictDoNothing();
     await db.update(schema.kingdomProgress)
       .set({ deedsDone: sql`${schema.kingdomProgress.deedsDone} + 1`, updatedAt: now })
-      .where(and(eq(schema.kingdomProgress.childId, childId), eq(schema.kingdomProgress.buildingId, building.id)));
+      .where(where);
   }
-  const [row] = await db
-    .select()
-    .from(schema.kingdomProgress)
-    .where(and(eq(schema.kingdomProgress.childId, childId), eq(schema.kingdomProgress.buildingId, building.id)))
-    .limit(1);
-  const progress = buildingProgress(row?.deedsDone ?? 0, building);
+  const [rows, bestNow] = await Promise.all([
+    db.select().from(schema.kingdomProgress).where(where).limit(1),
+    loadDeedBest(childId),
+  ]);
+  const row = rows[0];
+  const practice = buildingProgress(siteTally(building.id, row, bestBefore), building).complete;
+  const progress = buildingProgress(siteTally(building.id, row, bestNow), building);
   if (row && progress.complete && row.completedAt === null) {
-    await db.update(schema.kingdomProgress).set({ completedAt: now }).where(eq(schema.kingdomProgress.id, row.id));
+    const record = await raisedRecord(childId);
+    // Raised once: of two finishes racing here, only the first write lands, so one name is written.
+    await db.update(schema.kingdomProgress)
+      .set({ completedAt: now, ...record, updatedAt: now })
+      .where(and(eq(schema.kingdomProgress.id, row.id), isNull(schema.kingdomProgress.completedAt)));
   }
-  return progress;
+  return { progress: { ...progress, practice }, bestNow };
 }
 
 export async function completeDeedRun(runId: string): Promise<RunSummary> {
@@ -397,12 +440,12 @@ export async function completeDeedRun(runId: string): Promise<RunSummary> {
   const counted = effects.raisesBuilding && countsTowardBuilding(stars);
   const deed = run.deedId ? findDeed(run.deedId) : null;
   const building = deed ? findBuilding(deed.buildingId) : null;
-  const progress = building ? await buildingAfter(run.childId, building, counted, now) : { done: 0, total: 0, complete: false };
-
   // A challenge earns no stars, so it cannot move a best; a deed can only raise it.
   const deedBest = Math.max(previousBest, stars) as Stars;
-  const bestAfter = [...bestBefore.filter((b) => b.deedId !== run.deedId), ...(run.deedId ? [{ deedId: run.deedId, bestStars: deedBest }] : [])];
-  const buildingStarsNow = building ? buildingStars(building.id, bestAfter) : { stars: 0, maxStars: 0 };
+  // Every side-quest run finished counts at its site, stars or none; a challenge counts none.
+  const site = building ? await buildingAfter(run.childId, building, effects.raisesBuilding, bestBefore, now) : null;
+  const progress = site?.progress ?? { done: 0, total: 0, complete: false, practice: false };
+  const buildingStarsNow = building && site ? buildingStars(building.id, site.bestNow) : { stars: 0, maxStars: 0 };
 
   const masteryStart = JSON.parse(run.masteryStart) as Record<string, number>;
   const skillIds = JSON.parse(run.skillIds) as string[];

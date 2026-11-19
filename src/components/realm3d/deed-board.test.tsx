@@ -32,6 +32,8 @@ const site = {
   complete: false,
   stars: 2,
   maxStars: 9,
+  raisedBy: null,
+  raisedAt: null,
   deeds: [{ id: "well-stones", title: "Count the Well Stones", story: "Old Bram's bucket keeps coming up dry.", area: "math" as const, bestStars: 2 as const, crowned: false }],
 };
 const run = {
@@ -175,7 +177,7 @@ describe("the deed board", () => {
       vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: true, secondChance: false, answer: "8" });
       vi.mocked(completeDeedRun).mockResolvedValue({
         correctCount: 2, total: 2, flawless: true, masteryChanges: [], stars: 0, previousBest: 3, deedBest: 3, counted: false, crowned: true, kind: "challenge",
-        building: { label: "Village Well", done: 5, total: 5, complete: true, stars: 9, maxStars: 9 }, minutesEarned: 0, sideQuestPayFull: false,
+        building: { label: "Village Well", done: 5, total: 5, complete: true, stars: 9, maxStars: 9, practice: false }, minutesEarned: 0, sideQuestPayFull: false,
       });
       const onResult = vi.fn();
       board({ onResult, site: { ...site, deeds: [{ ...site.deeds[0], bestStars: 3 }] } });
@@ -193,7 +195,7 @@ describe("the deed board", () => {
       vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: true, secondChance: false, answer: "8" });
       vi.mocked(completeDeedRun).mockResolvedValue({
         correctCount: 2, total: 2, flawless: true, masteryChanges: [], stars: 3, previousBest: 2, deedBest: 3, counted: true, crowned: false, kind: "deed",
-        building: { label: "Village Well", done: 3, total: 5, complete: false, stars: 6, maxStars: 9 }, minutesEarned: 0, sideQuestPayFull: false,
+        building: { label: "Village Well", done: 3, total: 5, complete: false, stars: 6, maxStars: 9, practice: false }, minutesEarned: 0, sideQuestPayFull: false,
       });
       const onResult = vi.fn();
       vi.mocked(startDeedRun).mockResolvedValue({ ...run, responses: ["5", null] });
@@ -240,7 +242,7 @@ describe("the deed board", () => {
     });
 
     it("never hands a building up to be raised, even if a result carried one", async () => {
-      const onResult = await playToTheEnd({ ...built, building: { label: "Village Well", done: 5, total: 5, complete: true, stars: 9, maxStars: 9 } });
+      const onResult = await playToTheEnd({ ...built, building: { label: "Village Well", done: 5, total: 5, complete: true, stars: 9, maxStars: 9, practice: false } });
       expect(screen.getByText("The Banners grows!")).toBeInTheDocument();
       expect(onResult).not.toHaveBeenCalled();
     });
@@ -395,7 +397,7 @@ describe("the deed board", () => {
 
     it("finishes with stars, a new best, and a villager who will help when nothing was earned", async () => {
       vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: true, secondChance: false, answer: "8" });
-      const summary = { correctCount: 2, total: 2, flawless: true, masteryChanges: [], stars: 3 as const, previousBest: 2 as const, deedBest: 3 as const, counted: true, crowned: false, kind: "deed" as const, building: { label: "Village Well", done: 3, total: 5, complete: false, stars: 3, maxStars: 15 }, minutesEarned: 3, sideQuestPayFull: false };
+      const summary = { correctCount: 2, total: 2, flawless: true, masteryChanges: [], stars: 3 as const, previousBest: 2 as const, deedBest: 3 as const, counted: true, crowned: false, kind: "deed" as const, building: { label: "Village Well", done: 3, total: 5, complete: false, stars: 3, maxStars: 15, practice: false }, minutesEarned: 3, sideQuestPayFull: false };
       vi.mocked(completeDeedRun).mockResolvedValue(summary);
       await begin({ ...four, responses: ["5", null] });
       await click("8");
@@ -407,7 +409,7 @@ describe("the deed board", () => {
 
     it("says gently when the day's side-quest minutes are all earned", async () => {
       vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: true, secondChance: false, answer: "8" });
-      vi.mocked(completeDeedRun).mockResolvedValue({ correctCount: 2, total: 2, flawless: true, masteryChanges: [], stars: 3, previousBest: 3, deedBest: 3, counted: true, crowned: false, kind: "deed", building: { label: "Village Well", done: 3, total: 5, complete: false, stars: 3, maxStars: 15 }, minutesEarned: 0, sideQuestPayFull: true });
+      vi.mocked(completeDeedRun).mockResolvedValue({ correctCount: 2, total: 2, flawless: true, masteryChanges: [], stars: 3, previousBest: 3, deedBest: 3, counted: true, crowned: false, kind: "deed", building: { label: "Village Well", done: 3, total: 5, complete: false, stars: 3, maxStars: 15, practice: false }, minutesEarned: 0, sideQuestPayFull: true });
       await begin({ ...four, responses: ["5", null] });
       await click("8");
       await click("Finish side quest");
@@ -417,7 +419,7 @@ describe("the deed board", () => {
 
     it("says the villager will help when a side quest earned no stars, never 'failed'", async () => {
       vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: false, secondChance: false, answer: "8" });
-      vi.mocked(completeDeedRun).mockResolvedValue({ correctCount: 0, total: 2, flawless: false, masteryChanges: [], stars: 0, previousBest: 0, deedBest: 0, counted: false, crowned: false, kind: "deed", building: { label: "Village Well", done: 2, total: 5, complete: false, stars: 0, maxStars: 15 }, minutesEarned: 0, sideQuestPayFull: false });
+      vi.mocked(completeDeedRun).mockResolvedValue({ correctCount: 0, total: 2, flawless: false, masteryChanges: [], stars: 0, previousBest: 0, deedBest: 0, counted: false, crowned: false, kind: "deed", building: { label: "Village Well", done: 2, total: 5, complete: false, stars: 0, maxStars: 15, practice: false }, minutesEarned: 0, sideQuestPayFull: false });
       await begin({ ...four, responses: ["5", null] });
       await click("9");
       await click("Finish side quest");

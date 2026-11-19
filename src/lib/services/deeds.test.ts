@@ -1,18 +1,24 @@
 import { describe, it, expect } from "vitest";
-import { buildKingdomOverview, gradeForDeed, gradesFor, heroLevels, ownGradeOf } from "./deeds";
+import { buildKingdomOverview, gradeForDeed, gradesFor, heroLevels, ownGradeOf, siteTally } from "./deeds";
 import { findDeed } from "@/lib/utils/deeds";
 import { BUILDINGS } from "@/lib/utils/kingdom";
 import { bandForHero, type ContentBand } from "@/lib/utils/content-bands";
 import { bandForGrade, NO_OFFSETS } from "@/lib/utils/grade-levels";
 import type { AgeMode } from "@/lib/utils/age-mode";
 
+const row = (buildingId: string, deedsDone: number, over: { completedAt?: Date | null; raisedByName?: string | null } = {}) =>
+  ({ buildingId, deedsDone, completedAt: over.completedAt ?? null, raisedByName: over.raisedByName ?? null });
+const best = (deedId: string, bestStars: 0 | 1 | 2 | 3) => ({ deedId, bestStars, crowned: false });
+
 describe("buildKingdomOverview", () => {
-  it("lists every building with progress, clamped, and tone-aware stories", () => {
-    const gentle = buildKingdomOverview([{ buildingId: "well", deedsDone: 3 }, { buildingId: "bridge", deedsDone: 9 }], "gentle");
+  it("lists every building with progress from the stories done once each, and tone-aware stories", () => {
+    // Nine runs at the well, but only two of its three stories ever earned a star.
+    const bests = [best("well-stones", 2), best("well-signs", 1), best("well-water", 0), best("bridge-planks", 1), best("bridge-toll", 3)];
+    const gentle = buildKingdomOverview([row("well", 9), row("bridge", 2)], "gentle", bests);
     expect(gentle.length).toBe(BUILDINGS.length);
-    expect(gentle.find((b) => b.id === "well")).toMatchObject({ done: 3, total: 5, complete: false });
-    expect(gentle.find((b) => b.id === "bridge")).toMatchObject({ done: 5, total: 5, complete: true });
-    expect(gentle.find((b) => b.id === "mill")).toMatchObject({ done: 0, complete: false });
+    expect(gentle.find((b) => b.id === "well")).toMatchObject({ done: 2, total: 3, complete: false });
+    expect(gentle.find((b) => b.id === "bridge")).toMatchObject({ done: 2, total: 2, complete: true });
+    expect(gentle.find((b) => b.id === "mill")).toMatchObject({ done: 0, total: 3, complete: false });
     const planks = gentle.find((b) => b.id === "bridge")!.deeds.find((d) => d.id === "bridge-planks")!;
     const monsters = buildKingdomOverview([], "monsters").find((b) => b.id === "bridge")!.deeds.find((d) => d.id === "bridge-planks")!;
     expect(planks.story).not.toBe(monsters.story);
@@ -34,6 +40,34 @@ describe("buildKingdomOverview", () => {
 
   it("holds no stars when there are no runs", () => {
     for (const b of buildKingdomOverview([], "gentle")) expect(b).toMatchObject({ stars: 0, maxStars: 3 * b.deeds.length });
+  });
+
+  it("replaying one story is practice: five runs of it never raise the well", () => {
+    const well = buildKingdomOverview([row("well", 5)], "gentle", [best("well-stones", 3)]).find((b) => b.id === "well")!;
+    expect(well).toMatchObject({ done: 1, total: 3, complete: false });
+  });
+
+  it("a raised building stays complete with no story counted, and remembers who raised it and when", () => {
+    const at = new Date("2026-04-15T18:00:00Z");
+    const overview = buildKingdomOverview([row("well", 0, { completedAt: at, raisedByName: "Ada" }), row("mill", 4, { completedAt: at })], "gentle", [], "Rowan");
+    expect(overview.find((b) => b.id === "well")).toMatchObject({ done: 3, total: 3, complete: true, raisedBy: "Ada", raisedAt: at.getTime() / 1000 });
+    // Raised before names were kept (or by the migration): the live name stands in (D13.9).
+    expect(overview.find((b) => b.id === "mill")).toMatchObject({ complete: true, raisedBy: "Rowan", raisedAt: at.getTime() / 1000 });
+    // A building still rising has no one to name yet.
+    expect(overview.find((b) => b.id === "bridge")).toMatchObject({ complete: false, raisedBy: null, raisedAt: null });
+  });
+
+  it("counts only the building's current stories: a best on a story no longer told adds nothing", () => {
+    const well = buildKingdomOverview([row("well", 3)], "gentle", [best("well-stones", 1), best("well-retired", 3)]).find((b) => b.id === "well")!;
+    expect(well).toMatchObject({ done: 1, complete: false });
+  });
+});
+
+describe("siteTally", () => {
+  it("counts stories with a star once each, every run, and whether the site was ever raised", () => {
+    const bests = [best("well-stones", 1), best("well-signs", 0), best("mill-sacks", 3)];
+    expect(siteTally("well", undefined, bests)).toEqual({ distinctDone: 1, runsDone: 0, raised: false });
+    expect(siteTally("well", { deedsDone: 6, completedAt: new Date() }, bests)).toEqual({ distinctDone: 1, runsDone: 6, raised: true });
   });
 });
 

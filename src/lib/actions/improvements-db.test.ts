@@ -135,6 +135,52 @@ afterAll(async () => {
   client.close();
 });
 
+describe("which buildings stand, for the plans board", () => {
+  /** A finished side-quest run on `deedId` with `stars`. */
+  async function finished(deedId: string, stars: number): Promise<void> {
+    n += 1;
+    await client.query(
+      `INSERT INTO deed_run (id, child_id, deed_id, skill_ids, band, questions, started_at, completed_at, created_at, updated_at, stars, kind)
+       VALUES (?1, 'c1', ?2, '[]', 'g23', '[]', unixepoch(), unixepoch(), unixepoch(), unixepoch(), ?3, 'deed')`,
+      [`dr${n}`, deedId, stars],
+    );
+  }
+  async function progress(buildingId: string, deedsDone: number, completed: boolean): Promise<void> {
+    n += 1;
+    await client.query(
+      `INSERT INTO kingdom_progress (id, child_id, building_id, deeds_done, completed_at, created_at, updated_at)
+       VALUES (?1, 'c1', ?2, ?3, ?4, unixepoch(), unixepoch())`,
+      [`kp${n}`, buildingId, deedsDone, completed ? new Date() : null],
+    );
+  }
+
+  it("agrees with the world's rule: each story once raises it, a raised one stays raised, replays raise nothing", async () => {
+    const { loadPlanInput } = await import("@/lib/services/improvements");
+    const { buildKingdomOverview, loadDeedBest } = await import("@/lib/services/deeds");
+    const schema = await import("@/lib/db/schema");
+    // The bridge: both its stories done once each, and no completion written yet.
+    await finished("bridge-planks", 1);
+    await finished("bridge-toll", 2);
+    await progress("bridge", 2, false);
+    // The well: five runs of one story, which the old count of runs would have called raised.
+    for (let i = 0; i < 5; i++) await finished("well-stones", 3);
+    await progress("well", 5, false);
+    // The mill: raised long ago, with nothing counted since.
+    await progress("mill", 0, true);
+    // The chapel: two of its three stories, one of them starless.
+    await finished("chapel-bell", 1);
+    await finished("chapel-scroll", 0);
+    await progress("chapel", 2, false);
+
+    const { raised } = await loadPlanInput("c1");
+    // The world's overview, from the same rows (`loadKingdomOverview` composes exactly these).
+    const rows = await testDb.select().from(schema.kingdomProgress);
+    const buildings = buildKingdomOverview(rows, "gentle", await loadDeedBest("c1"));
+    expect([...raised].sort()).toEqual(["bridge", "mill"]);
+    for (const b of buildings) expect(raised.has(b.id), b.id).toBe(b.complete);
+  });
+});
+
 describe("startBuildRun", () => {
   it("starts a plan that is ready: three bench tasks, a build run owned by no deed, named by the plan and level", async () => {
     await stockBanners();

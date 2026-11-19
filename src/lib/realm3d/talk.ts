@@ -191,8 +191,9 @@ export function resultHeadline(
   };
 }
 
-/** The result card's building line, word for word the flat Realm's. */
-export function resultBuildingLine(b: { label: string; done: number; total: number; complete: boolean }): string {
+/** The result card's building line, word for word the flat Realm's; a run on a building that already stood is practice. */
+export function resultBuildingLine(b: { label: string; done: number; total: number; complete: boolean; practice?: boolean }): string {
+  if (b.practice) return `Practised again. The ${b.label} stands strong.`;
   return b.complete ? `${b.label} is built!` : `${b.label}: ${b.done} of ${b.total} ${SIDE_QUESTS_LOWER}`;
 }
 

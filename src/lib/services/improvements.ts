@@ -7,20 +7,21 @@ import { allocateSpend, materialBalance, MATERIAL_IDS, type MaterialId } from "@
 import type { RunSummary } from "@/lib/utils/deed-run-types";
 import { BUILDINGS, buildingProgress } from "@/lib/utils/kingdom";
 import { seasonLabel } from "@/lib/utils/seasons";
+import { loadDeedBest, siteTally } from "./deeds";
 import { loadMaterialLedger } from "./realm-materials";
 import { withChildLock, type Tx } from "./realm-play";
 
 /**
  * What `planState` reads for a hero, from the database: the highest level built of each plan, the
- * core buildings that stand (a building is raised once its quests are done, or once it was ever
- * marked complete), and the materials in hand.
+ * core buildings that stand (each of its stories done once, or ever marked complete), and the
+ * materials in hand.
  */
 export async function loadPlanInput(childId: string): Promise<{
   built: Record<string, number>;
   raised: Set<string>;
   balance: Record<MaterialId, number>;
 }> {
-  const [levels, progress, ledger] = await Promise.all([
+  const [levels, progress, ledger, best] = await Promise.all([
     db
       .select({ improvementId: schema.realmImprovement.improvementId, level: schema.realmImprovement.level })
       .from(schema.realmImprovement)
@@ -30,14 +31,13 @@ export async function loadPlanInput(childId: string): Promise<{
       .from(schema.kingdomProgress)
       .where(eq(schema.kingdomProgress.childId, childId)),
     loadMaterialLedger(childId),
+    loadDeedBest(childId),
   ]);
   const built: Record<string, number> = {};
   for (const r of levels) built[r.improvementId] = Math.max(built[r.improvementId] ?? 0, r.level);
-  const raised = new Set<string>();
-  for (const row of progress) {
-    const building = BUILDINGS.find((b) => b.id === row.buildingId);
-    if (building && (row.completedAt !== null || buildingProgress(row.deedsDone, building).complete)) raised.add(building.id);
-  }
+  // The world's own rule (`buildingProgress` over `siteTally`), so the plans board and the world never disagree.
+  const rowBy = new Map(progress.map((row) => [row.buildingId, row]));
+  const raised = new Set(BUILDINGS.filter((b) => buildingProgress(siteTally(b.id, rowBy.get(b.id), best), b).complete).map((b) => b.id));
   return { built, raised, balance: materialBalance(ledger) };
 }
 

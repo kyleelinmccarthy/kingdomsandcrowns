@@ -83,6 +83,8 @@ const DDL = [
   ...REALM_SETTINGS_DDL,
   ...REALM_LEDGER_DDL,
   ...REALM_ACCESS_DDL,
+  // The open season a raised building's record names (the columns `buildingAfter` reads).
+  `CREATE TABLE season (id text PRIMARY KEY NOT NULL, child_id text NOT NULL, ordinal integer DEFAULT 1 NOT NULL, start_date text NOT NULL, completed_at integer)`,
 ];
 
 const SKILL = "mul-facts";
@@ -96,6 +98,8 @@ const QUESTIONS: Question[] = [
 type Seed = {
   id?: string; questions?: Question[]; responses?: (string | null)[]; secondTries?: string;
   secondChances?: boolean; completed?: boolean; stars?: number; kind?: "deed" | "challenge" | "review";
+  /** The side quest the run is of; the Village Well's "Count the Well Stones" unless given. */
+  deedId?: string;
 };
 
 async function seedRun(over: Seed = {}): Promise<string> {
@@ -104,11 +108,11 @@ async function seedRun(over: Seed = {}): Promise<string> {
   await client.query(
     `INSERT INTO deed_run (id, child_id, deed_id, skill_ids, band, questions, responses, mastery_start,
        started_at, completed_at, created_at, updated_at, second_tries, stars, kind, second_chances)
-     VALUES (?1, 'c1', 'well-stones', ?2, '3-5', ?3, ?4, '{}', unixepoch(), ?5, unixepoch(), unixepoch(), ?6, ?7, ?9, ?8)`,
+     VALUES (?1, 'c1', ?10, ?2, '3-5', ?3, ?4, '{}', unixepoch(), ?5, unixepoch(), unixepoch(), ?6, ?7, ?9, ?8)`,
     [
       id, JSON.stringify([SKILL]), JSON.stringify(qs), JSON.stringify(over.responses ?? qs.map(() => null)),
       over.completed ? new Date() : null, over.secondTries ?? "[]", over.stars ?? 0, over.secondChances ?? true,
-      over.kind ?? "deed",
+      over.kind ?? "deed", over.deedId ?? "well-stones",
     ],
   );
   return id;
@@ -141,7 +145,7 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
-  for (const t of ["deed_run", "skill_mastery", "kingdom_progress", "realm_settings", "realm_play_ledger", "recess_block", "learning_focus", "drill_item"]) await client.query(`DELETE FROM ${t}`);
+  for (const t of ["deed_run", "skill_mastery", "kingdom_progress", "realm_settings", "realm_play_ledger", "recess_block", "learning_focus", "drill_item", "child", "season"]) await client.query(`DELETE FROM ${t}`);
   vi.mocked(loadRealmSettings).mockResolvedValue({ ...DEFAULT_REALM_SETTINGS });
   vi.mocked(buildDeedRun).mockClear();
 });
@@ -368,12 +372,20 @@ describe("stars on a finished run", () => {
   });
 
   it("a starless run teaches but does not build, and reports the best it did not beat", async () => {
+    await seedRun({ responses: ["5", "6", "7", "8"], secondTries: JSON.stringify(["", "", "", ""]) });
+    const s = await completeDeedRun("run1");
+    expect(s).toMatchObject({ stars: 0, previousBest: 0, deedBest: 0, counted: false });
+    expect(s.building).toMatchObject({ label: "Village Well", done: 0, total: 3, complete: false, practice: false, stars: 0, maxStars: 9 });
+    // It counts in the site's runs only (D13.3): the lifetime count, never the progress.
+    expect(await deedsDone()).toBe(1);
+  });
+
+  it("a starless replay of a story already done keeps its best and its one place in the building", async () => {
     await seedRun({ id: "old", responses: ["6", "9", "12", "15"], secondTries: "[]", completed: true, stars: 2 });
     await seedRun({ responses: ["5", "6", "7", "8"], secondTries: JSON.stringify(["", "", "", ""]) });
     const s = await completeDeedRun("run1");
     expect(s).toMatchObject({ stars: 0, previousBest: 2, deedBest: 2, counted: false });
-    expect(s.building).toMatchObject({ label: "Village Well", done: 0, stars: 2, maxStars: 9 });
-    expect(await deedsDone()).toBe(0);
+    expect(s.building).toMatchObject({ label: "Village Well", done: 1, stars: 2, maxStars: 9 });
   });
 
   it("an old run (no snapshot, no second tries) resolves a miss at once and completes from its first answers", async () => {
@@ -397,6 +409,109 @@ describe("stars on a finished run", () => {
     await completeDeedRun("run1");
     await expect(completeDeedRun("run1")).rejects.toThrow("already been finished");
     expect(await deedsDone()).toBe(1);
+  });
+});
+
+describe("the record of the work: each story once raises a building, and it remembers who raised it (D13)", () => {
+  const ALL_RIGHT = { responses: ["6", "9", "12", "15"] };
+  type Row = { deeds_done: number; completed_at: number | null; announced_at: number | null; raised_by_name: string | null; raised_season_id: string | null };
+  async function well(): Promise<Row | undefined> {
+    const r = await client.query("SELECT deeds_done, completed_at, announced_at, raised_by_name, raised_season_id FROM kingdom_progress WHERE child_id = 'c1' AND building_id = 'well'");
+    return r.rows[0];
+  }
+  async function hero(name: string): Promise<void> {
+    await client.query("INSERT INTO child (id, family_id, display_name) VALUES ('c1', 'f1', ?1)", [name]);
+    await client.query("INSERT INTO season (id, child_id, ordinal, start_date, completed_at) VALUES ('s-old', 'c1', 1, '2025-08-01', unixepoch())");
+    await client.query("INSERT INTO season (id, child_id, ordinal, start_date, completed_at) VALUES ('s-open', 'c1', 2, '2026-08-01', NULL)");
+  }
+
+  it("replaying one story five times does not raise the well; each of its three stories once does", async () => {
+    await hero("Ada");
+    for (const id of ["r1", "r2", "r3", "r4", "r5"]) {
+      await seedRun({ id, ...ALL_RIGHT });
+      expect((await completeDeedRun(id)).building).toMatchObject({ done: 1, total: 3, complete: false, practice: false });
+    }
+    expect(await well()).toMatchObject({ deeds_done: 5, completed_at: null });
+
+    await seedRun({ id: "signs", deedId: "well-signs", ...ALL_RIGHT });
+    expect((await completeDeedRun("signs")).building).toMatchObject({ done: 2, total: 3, complete: false });
+    await seedRun({ id: "water", deedId: "well-water", ...ALL_RIGHT });
+    const s = await completeDeedRun("water");
+    expect(s.building).toMatchObject({ label: "Village Well", done: 3, total: 3, complete: true, practice: false });
+    // Raised with the hero's name and open season, and left for the world to announce (D13.6).
+    expect(await well()).toMatchObject({ deeds_done: 7, raised_by_name: "Ada", raised_season_id: "s-open", announced_at: null });
+    expect((await well())!.completed_at).not.toBeNull();
+  });
+
+  it("a page run that finishes the building leaves it unannounced, for the world to raise on the next visit", async () => {
+    await hero("Ada");
+    await seedRun({ id: "stones", deedId: "well-stones", completed: true, stars: 1 });
+    await seedRun({ id: "signs", deedId: "well-signs", completed: true, stars: 2 });
+    // The page's own finish, by a grown-up beside the hero: the Side Quests page never announces a rise.
+    vi.mocked(requireChildAccess).mockResolvedValueOnce({ access: { userId: "u-parent" }, familyId: "f1" } as unknown as Awaited<ReturnType<typeof requireChildAccess>>);
+    await seedRun({ id: "water", deedId: "well-water", ...ALL_RIGHT });
+    expect((await completeDeedRun("water")).building).toMatchObject({ complete: true });
+    const row = await well();
+    expect(row!.completed_at).not.toBeNull();
+    expect(row!.announced_at).toBeNull();
+    // The hero's name, never the grown-up's.
+    expect(row!.raised_by_name).toBe("Ada");
+  });
+
+  it("a run on a raised building is practice: it counts a run, says so, and keeps the name it was raised with", async () => {
+    await hero("Rowan");
+    await client.query(
+      `INSERT INTO kingdom_progress (id, child_id, building_id, deeds_done, completed_at, raised_by_name, created_at, updated_at)
+       VALUES ('kp1', 'c1', 'well', 4, unixepoch() - 86400, 'Ada', unixepoch(), unixepoch())`,
+    );
+    const raisedAt = (await well())!.completed_at;
+    await seedRun(ALL_RIGHT);
+    const s = await completeDeedRun("run1");
+    expect(s.building).toMatchObject({ done: 3, total: 3, complete: true, practice: true });
+    expect(await well()).toMatchObject({ deeds_done: 5, completed_at: raisedAt, raised_by_name: "Ada", raised_season_id: null });
+  });
+
+  it("two stories finishing the building at once write one name", async () => {
+    await hero("Ada");
+    // Every write of a name is logged, so a second (overwriting) write would show.
+    await client.query("CREATE TABLE raise_log (n integer)");
+    await client.query("CREATE TRIGGER raise_logged AFTER UPDATE OF raised_by_name ON kingdom_progress BEGIN INSERT INTO raise_log VALUES (1); END");
+    try {
+      await seedRun({ id: "stones", deedId: "well-stones", completed: true, stars: 1 });
+      await seedRun({ id: "signs", deedId: "well-signs", ...ALL_RIGHT });
+      await seedRun({ id: "water", deedId: "well-water", ...ALL_RIGHT });
+      const [a, b] = await Promise.all([completeDeedRun("signs"), completeDeedRun("water")]);
+      // Whichever finished second sees both stories: the building is raised either way, never lost to the race.
+      expect([a.building!.complete, b.building!.complete]).toContain(true);
+      expect(await well()).toMatchObject({ deeds_done: 2, raised_by_name: "Ada" });
+      expect((await well())!.completed_at).not.toBeNull();
+      expect(Number((await client.query("SELECT count(*) AS n FROM raise_log")).rows[0].n)).toBe(1);
+    } finally {
+      await client.query("DROP TRIGGER raise_logged");
+      await client.query("DROP TABLE raise_log");
+    }
+  });
+
+  it("a failed name or season lookup still raises the building, with nothing written for it", async () => {
+    await seedRun({ id: "stones", deedId: "well-stones", completed: true, stars: 1 });
+    await seedRun({ id: "signs", deedId: "well-signs", completed: true, stars: 1 });
+    await seedRun({ id: "water", deedId: "well-water", ...ALL_RIGHT });
+    // No hero row (the name reads nothing) and no season table at all (the season read throws).
+    await client.query("ALTER TABLE season RENAME TO season_away");
+    try {
+      expect((await completeDeedRun("water")).building).toMatchObject({ complete: true });
+    } finally {
+      await client.query("ALTER TABLE season_away RENAME TO season");
+    }
+    expect(await well()).toMatchObject({ raised_by_name: null, raised_season_id: null, announced_at: null });
+    expect((await well())!.completed_at).not.toBeNull();
+  });
+
+  it("a Crown Challenge counts no run at the site", async () => {
+    await seedRun({ id: "earned", completed: true, stars: 3 });
+    await seedRun({ kind: "challenge", ...ALL_RIGHT });
+    expect((await completeDeedRun("run1")).building).toMatchObject({ done: 1, complete: false, practice: false });
+    expect(await deedsDone()).toBe(0);
   });
 });
 
@@ -443,20 +558,30 @@ describe("startDeedRun resumes an open second chance", () => {
 });
 
 describe("a side quest's run says where its building stands, for the bench's drawing", () => {
-  const progress = (done: number) => client.query(
+  /** The well's progress row: its lifetime runs, and whether it was ever raised. */
+  const progress = (runs: number, raised = false) => client.query(
     `INSERT INTO kingdom_progress (id, child_id, building_id, deeds_done, completed_at, created_at, updated_at)
-     VALUES ('kp1', 'c1', 'well', ?1, NULL, unixepoch(), unixepoch())`, [done]);
+     VALUES ('kp1', 'c1', 'well', ?1, ?2, unixepoch(), unixepoch())`, [runs, raised ? new Date() : null]);
 
-  it("a fresh run and a resumed one carry the site's stage, from the building's deeds", async () => {
+  it("a fresh run and a resumed one carry the site's stage, from the building's stories done", async () => {
     expect((await startDeedRun("c1", "well-stones", "realm")).site).toEqual({ stage: 0, complete: false, placed: 0 });
     await client.query("DELETE FROM deed_run");
-    await progress(2); // 2 of the well's 5: stage 2 (`siteStage`)
-    expect((await startDeedRun("c1", "well-stones", "realm")).site).toEqual({ stage: 2, complete: false, placed: 0 });
-    expect((await startDeedRun("c1", "well-stones", "realm")).site).toEqual({ stage: 2, complete: false, placed: 0 }); // resumed
+    // Two of the well's three stories done once each, after six runs: stage 3 (`siteStage(2, 3)`).
+    await seedRun({ id: "signs", deedId: "well-signs", completed: true, stars: 1 });
+    await seedRun({ id: "water", deedId: "well-water", completed: true, stars: 2 });
+    await progress(6);
+    expect((await startDeedRun("c1", "well-stones", "realm")).site).toEqual({ stage: 3, complete: false, placed: 0 });
+    expect((await startDeedRun("c1", "well-stones", "realm")).site).toEqual({ stage: 3, complete: false, placed: 0 }); // resumed
   });
 
-  it("a finished building says so", async () => {
+  it("many runs of one story are one story done", async () => {
+    for (const id of ["a", "b", "c", "d", "e"]) await seedRun({ id, deedId: "well-signs", completed: true, stars: 3 });
     await progress(5);
+    expect((await startDeedRun("c1", "well-stones", "realm")).site).toEqual({ stage: 2, complete: false, placed: 0 });
+  });
+
+  it("a finished building says so, even with no story counted since (raised stays raised)", async () => {
+    await progress(0, true);
     expect((await startDeedRun("c1", "well-stones", "realm")).site).toEqual({ stage: 4, complete: true, placed: 0 });
   });
 

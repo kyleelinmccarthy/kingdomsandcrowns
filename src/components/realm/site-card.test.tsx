@@ -7,7 +7,7 @@ afterEach(cleanup);
 
 const building = {
   id: "well", label: "Village Well", description: "Clean water for every doorstep.", icon: "box" as const,
-  done: 2, total: 5, complete: false, stars: 0, maxStars: 3,
+  done: 2, total: 5, complete: false, raisedBy: null, raisedAt: null, stars: 0, maxStars: 3,
   deeds: [
     { id: "well-stones", title: "Count the Well Stones", story: "Old Bram's bucket keeps coming up dry.", area: "math" as const, bestStars: 0 as const, crowned: false },
     { id: "well-signs", title: "Signs for the Well", story: "The well needs a sign every traveler can read.", area: "reading" as const, bestStars: 0 as const, crowned: false },

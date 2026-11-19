@@ -5,13 +5,13 @@ import { loadRealmSettings } from "@/lib/services/realm-play";
 import { loadLearningProfileRow } from "@/lib/services/learning-profile";
 import { bandForGrade, effectiveGrade, ownGradeOf, type Grade, type SubjectOffsets } from "@/lib/utils/grade-levels";
 import { profileFromRow } from "@/lib/utils/learning-profile";
-import { BUILDINGS, buildingProgress, type Building } from "@/lib/utils/kingdom";
+import { BUILDINGS, buildingProgress, type Building, type SiteTally } from "@/lib/utils/kingdom";
 import { siteStage } from "@/lib/realm3d/site-stages";
 import { deedsForBuilding, deedStory } from "@/lib/utils/deeds";
 import type { ContentBand } from "@/lib/utils/content-bands";
 import type { AgeMode } from "@/lib/utils/age-mode";
 import type { SkillArea } from "@/lib/utils/skills";
-import { MAX_STARS, type Stars } from "@/lib/utils/deed-scoring";
+import { MAX_STARS, countsTowardBuilding, type Stars } from "@/lib/utils/deed-scoring";
 import type { GameIconName } from "@/components/game-icon";
 
 /** What a hero has earned on one side quest: its best stars, and whether a Crown Challenge was ever flawless. */
@@ -20,6 +20,13 @@ export type DeedBest = { deedId: string; bestStars: Stars; crowned: boolean };
 export type BuildingOverview = {
   id: string; label: string; description: string; icon: GameIconName;
   done: number; total: number; complete: boolean;
+  /**
+   * Who raised a complete building: the name written when it rose, else the hero's live name
+   * (raised before names were kept); null while it is still rising.
+   */
+  raisedBy: string | null;
+  /** When it was raised, in epoch seconds (`kingdom_progress.completed_at`); null until then. */
+  raisedAt: number | null;
   /** Best stars summed over the building's side quests, out of `maxStars`. */
   stars: number; maxStars: number;
   deeds: { id: string; title: string; story: string; area: SkillArea; bestStars: Stars; crowned: boolean }[];
@@ -120,18 +127,44 @@ export function buildingStars(buildingId: string, best: readonly Pick<DeedBest, 
   return { stars: deeds.reduce((sum, d) => sum + (bestBy.get(d.id) ?? 0), 0), maxStars: deeds.length * MAX_STARS };
 }
 
-/** Every building with its progress and deeds, from raw progress rows. Pure, so the shape is testable without a database. */
+/** One `kingdom_progress` row, as the overview reads it. */
+export type ProgressRow = { buildingId: string; deedsDone: number; completedAt: Date | null; raisedByName: string | null };
+
+/**
+ * Where one site stands (D13.2–D13.4): the building's CURRENT stories finished with a star, once
+ * each (a story no longer told stops counting); every run ever finished there; and whether it was
+ * ever raised. Pure: the overview, the bench's drawing, a finished run and the plans board all read it.
+ */
+export function siteTally(
+  buildingId: string,
+  row: { deedsDone: number; completedAt: Date | null } | undefined,
+  best: readonly Pick<DeedBest, "deedId" | "bestStars">[],
+): SiteTally {
+  const bestBy = new Map(best.map((b) => [b.deedId, b.bestStars]));
+  const distinctDone = deedsForBuilding(buildingId).filter((d) => countsTowardBuilding(bestBy.get(d.id) ?? 0)).length;
+  return { distinctDone, runsDone: row?.deedsDone ?? 0, raised: (row?.completedAt ?? null) !== null };
+}
+
+/**
+ * Every building with its progress and deeds, from raw progress rows. Pure, so the shape is testable
+ * without a database. `heroName` is the live name a raised building falls back to when it holds no
+ * snapshot of its own (raised before names were kept, D13.9).
+ */
 export function buildKingdomOverview(
-  progress: { buildingId: string; deedsDone: number }[],
+  progress: readonly ProgressRow[],
   tone: "gentle" | "monsters",
   best: readonly DeedBest[] = [],
+  heroName: string | null = null,
 ): BuildingOverview[] {
-  const doneBy = new Map(progress.map((p) => [p.buildingId, p.deedsDone]));
+  const rowBy = new Map(progress.map((p) => [p.buildingId, p]));
   const bestBy = new Map(best.map((b) => [b.deedId, b]));
   return BUILDINGS.map((b) => {
-    const { done, total, complete } = buildingProgress(doneBy.get(b.id) ?? 0, b);
+    const row = rowBy.get(b.id);
+    const { done, total, complete } = buildingProgress(siteTally(b.id, row, best), b);
     return {
       id: b.id, label: b.label, description: b.description, icon: b.icon, done, total, complete,
+      raisedBy: complete ? (row?.raisedByName ?? heroName) : null,
+      raisedAt: row?.completedAt ? Math.floor(row.completedAt.getTime() / 1000) : null,
       ...buildingStars(b.id, best),
       deeds: deedsForBuilding(b.id).map((d) => ({
         id: d.id, title: d.title, story: deedStory(d, tone), area: d.area,
@@ -163,23 +196,41 @@ export async function loadDeedBest(childId: string): Promise<DeedBest[]> {
 
 /** Where a building's site stands, for the bench's drawing: its stage (`siteStage`, as the world draws it) and whether it is finished. */
 export async function loadSiteState(childId: string, building: Building): Promise<{ stage: number; complete: boolean }> {
-  const [row] = await db
-    .select({ deedsDone: schema.kingdomProgress.deedsDone })
-    .from(schema.kingdomProgress)
-    .where(and(eq(schema.kingdomProgress.childId, childId), eq(schema.kingdomProgress.buildingId, building.id)))
-    .limit(1);
-  const { done, total, complete } = buildingProgress(row?.deedsDone ?? 0, building);
+  const [rows, best] = await Promise.all([
+    db
+      .select({ deedsDone: schema.kingdomProgress.deedsDone, completedAt: schema.kingdomProgress.completedAt })
+      .from(schema.kingdomProgress)
+      .where(and(eq(schema.kingdomProgress.childId, childId), eq(schema.kingdomProgress.buildingId, building.id)))
+      .limit(1),
+    loadDeedBest(childId),
+  ]);
+  const { done, total, complete } = buildingProgress(siteTally(building.id, rows[0], best), building);
   return { stage: siteStage(done, total), complete };
 }
 
+/** The hero's live name, for a raised building with no name of its own; a failed read is no name, never a failed overview. */
+async function loadHeroName(childId: string): Promise<string | null> {
+  try {
+    const [row] = await db.select({ displayName: schema.child.displayName }).from(schema.child).where(eq(schema.child.id, childId)).limit(1);
+    return row?.displayName ?? null;
+  } catch (err) {
+    console.error("Hero name failed to load", err);
+    return null;
+  }
+}
+
 export async function loadKingdomOverview(childId: string): Promise<HeroLevels & { buildings: BuildingOverview[] }> {
-  const [hero, progress, best] = await Promise.all([
+  const [hero, progress, best, heroName] = await Promise.all([
     loadHeroLevels(childId),
     db
-      .select({ buildingId: schema.kingdomProgress.buildingId, deedsDone: schema.kingdomProgress.deedsDone })
+      .select({
+        buildingId: schema.kingdomProgress.buildingId, deedsDone: schema.kingdomProgress.deedsDone,
+        completedAt: schema.kingdomProgress.completedAt, raisedByName: schema.kingdomProgress.raisedByName,
+      })
       .from(schema.kingdomProgress)
       .where(eq(schema.kingdomProgress.childId, childId)),
     loadDeedBest(childId),
+    loadHeroName(childId),
   ]);
-  return { ...hero, buildings: buildKingdomOverview(progress, hero.tone, best) };
+  return { ...hero, buildings: buildKingdomOverview(progress, hero.tone, best, heroName) };
 }
