@@ -13,7 +13,6 @@ import {
   LAST_LAMP_LIT,
   nextMarkLine,
   parentArchLine,
-  recessTavernLine,
   ringHelp,
   startLine,
   RECESS_OVER,
@@ -162,12 +161,9 @@ describe("the board", () => {
     expect(lastRunLabel(new Date(2026, 2, 3), now)).toBe("3 March");
   });
 
-  it("captions the jar, and gives a family line only to a hero with a lap", () => {
+  it("captions the jar", () => {
     expect(jarCaption(10)).toBe("Gleam jar");
     expect(jarCaption(1000)).toBe("The jar is full.");
-    expect(recessTavernLine("Emma", empty)).toBeNull();
-    expect(recessTavernLine("Emma", rec({ bestLapMs: 38400 }))).toBe("Emma ran the Ring in 38.4 s.");
-    expect(recessTavernLine("Emma", rec({ bestMountedLapMs: 24100 }))).toBe("Emma ran the Ring riding in 24.1 s.");
   });
 });
 

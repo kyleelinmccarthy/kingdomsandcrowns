@@ -202,14 +202,3 @@ export const LAST_LAMP_LIT: RecessLine = {
 export function jarCaption(totalGleams: number): string {
   return totalGleams >= 1000 ? "The jar is full." : "Gleam jar";
 }
-
-/**
- * One sentence per hero for a family board, or null for a hero with no lap (the spec's Tavern
- * line). Used for the grown-up's view of the arch.
- */
-export function recessTavernLine(name: string, record: RecessRecord | null): string | null {
-  if (!record) return null;
-  if (record.bestLapMs !== null) return `${name} ran the Ring in ${formatLap(record.bestLapMs)} s.`;
-  if (record.bestMountedLapMs !== null) return `${name} ran the Ring riding in ${formatLap(record.bestMountedLapMs)} s.`;
-  return null;
-}

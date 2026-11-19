@@ -35,7 +35,6 @@ import { MakeupQuests } from "@/components/makeup-quests";
 import { MissedDays } from "@/components/missed-days";
 import { GameIcon, BADGE_ICONS } from "@/components/game-icon";
 import { ParentDashboard } from "./parent-dashboard";
-import { RecessTavernCard } from "@/components/realm/recess-tavern-card";
 
 export default async function TavernPage({
   searchParams,
@@ -460,8 +459,6 @@ export default async function TavernPage({
               </div>
             )}
           </GameFrame>
-
-          <RecessTavernCard heroes={[activeChild]} />
 
           {/* Recent Adventures (quest log) */}
           <GameFrame
