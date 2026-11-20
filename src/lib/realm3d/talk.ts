@@ -19,6 +19,7 @@ import type { AttemptResult, RunSummary } from "@/lib/utils/deed-run-types";
 import { seasonPhrase } from "@/lib/realm/season-phrase";
 import { agree } from "@/lib/realm/improvements";
 import { cutFeedbackLine } from "@/lib/tasks/measure-copy";
+import { isLockFeedback, lockFeedbackLine } from "@/lib/tasks/lock-copy";
 import type { ClientTask } from "@/lib/tasks/types";
 import { MAX_STARS, countsTowardBuilding } from "@/lib/utils/deed-scoring";
 import type { ObjectiveState } from "@/lib/realm/objective";
@@ -282,14 +283,20 @@ export function resultMinutesLine(summary: Pick<RunSummary, "minutesEarned" | "s
  * answer then is "You got there!". A miss that has run out of tries reveals the answer, then
  * the server's explanation, or its hint when it has none. A bench task adds its own: which way a
  * wrong length is off on a second chance, and the worked notation (`bridge`) once it is right.
+ * A lock says whether spaces are left or a rule is broken on a second chance (R-F3).
  * `task` is the task answered: an assemble task's missed answer is already a sentence
- * (`assembleReveal`), so it is said as it is.
+ * (`assembleReveal`), and so is a lock's ("Here is one way it fits.", said as its solved board is
+ * drawn), so each is said as it is.
  */
 export function attemptFeedback(result: AttemptResult, retried: boolean, villagerName?: string, task?: ClientTask): { heading: "Try again" | null; text: string } {
   if (result.secondChance) {
-    // Which way a wrong cut is off, in the words of what it measures (a length is long; an area is over).
+    const code = result.feedback;
+    // Only the bench's codes reach the bench's words, and only a lock's reach a lock's. Which way a
+    // wrong cut is off is said in the words of what it measures (a length is long; an area is over).
     const quantity = task?.kind === "measure" ? task.view.quantity : undefined;
-    const lead = result.feedback && result.feedback !== "none" ? cutFeedbackLine(quantity, result.feedback) : "Not quite.";
+    const lead = code === "too_long" || code === "too_short" ? cutFeedbackLine(quantity, code)
+      : isLockFeedback(code) ? lockFeedbackLine(code)
+      : "Not quite.";
     return { heading: "Try again", text: `${lead} ${result.hint ?? ""}`.trim() };
   }
   if (result.correct) {
@@ -297,8 +304,8 @@ export function attemptFeedback(result: AttemptResult, retried: boolean, village
     return { heading: null, text: result.bridge ? `${text} ${result.bridge}` : text };
   }
   const why = result.explain ?? result.hint;
-  // An assemble miss's answer is already a sentence; every other answer (a choice's sentence too) reads as today.
-  const sentence = task?.kind === "measure" && task.view.mode === "assemble";
+  // An assemble miss's answer and a lock's are already sentences; every other answer (a choice's sentence too) reads as today.
+  const sentence = (task?.kind === "measure" && task.view.mode === "assemble") || task?.kind === "lock";
   const reveal = !result.answer ? "Not quite." : sentence ? result.answer : `The answer was ${result.answer}.`;
   return { heading: null, text: [reveal, why].filter(Boolean).join(" ") };
 }

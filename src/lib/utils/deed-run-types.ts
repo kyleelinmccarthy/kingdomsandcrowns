@@ -50,6 +50,12 @@ export type AttemptResult = {
   /** The worked notation ("1/2 + 1/4 = 3/4"), only once a hands-on task resolves right; multiple choice has none. */
   bridge?: string;
   /**
+   * A lock's solved board (R-F2): its stored solution in the lock codec's form ("shapes3:1,2,3,…"),
+   * only once a lock task is resolved and missed. The lock's face decodes and draws it; `answer`
+   * stays the short sentence that goes with it. No other kind sets it.
+   */
+  reveal?: string;
+  /**
    * Only on a first answer that moved mastery: where the skill's pips stand now. On a first answer,
    * absent or null means there are no pips to show (the skill is at the top, or nothing moved), so
    * the board clears its meter; a retry never carries one and the board keeps the last.

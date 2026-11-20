@@ -9,6 +9,7 @@
 import type { Rng } from "@/lib/utils/drill-generators";
 import type { Skill } from "@/lib/utils/skills";
 import { benchFor } from "./bench";
+import { lockFor } from "./locks";
 import type { Task, TaskKind } from "./types";
 
 export type TaskDrawer = (skill: Skill, level: number, rng: Rng) => Task | null;
@@ -17,6 +18,8 @@ export type TaskDrawer = (skill: Skill, level: number, rng: Rng) => Task | null;
 export const TASK_DRAWERS: { [K in Exclude<TaskKind, "choice">]: TaskDrawer } = {
   // The bench's generator for the skill; none (a skill the bench does not hold) draws nothing.
   measure: (skill, level, rng) => benchFor(skill.id)?.(level, rng, skill.id) ?? null,
+  // The skill's lock generator (or, from F6, its sort pool); none draws nothing.
+  lock: (skill, level, rng) => lockFor(skill.id)?.(level, rng, skill.id) ?? null,
 };
 
 // Tests only: stand-ins keyed by a kind string, so the draw path can be exercised with a kind that

@@ -6,7 +6,9 @@ import { hintFor } from "@/lib/utils/skill-hints";
 import { CHALLENGE, SCORING, starsFor } from "@/lib/utils/deed-scoring";
 import { CHALLENGE_NOT_READY, HERO_ONLY, PICK_SHOWN, TRY_DIFFERENT } from "@/lib/utils/deed-refusals";
 import type { Question } from "@/lib/utils/drill-generators";
-import type { MeasureTask } from "@/lib/tasks/types";
+import type { LockTask, MeasureTask } from "@/lib/tasks/types";
+import { TASK_CODECS } from "@/lib/tasks/codecs";
+import { PATTERN } from "@/test/lock-stubs";
 import { isTaskCorrect, kindOf, type Task } from "@/lib/tasks/registry";
 import { BENCH } from "@/lib/tasks/bench";
 import { KINGDOM_PROGRESS_DDL, REALM_ACCESS_DDL, REALM_LEDGER_DDL, REALM_SETTINGS_DDL } from "@/test/realm-db-ddl";
@@ -736,7 +738,7 @@ describe("a young hero watches Aldo before the run's first bench task (R-C9, I-1
   it("is never due in a run with no bench task, even for a grade-2 hero", async () => {
     gradeIs("2");
     // Math side quests are played at the bench now, so the grown-up's switch is what makes a run choice.
-    vi.mocked(loadRealmSettings).mockResolvedValue({ ...DEFAULT_REALM_SETTINGS, mechanics: { measure: false } });
+    vi.mocked(loadRealmSettings).mockResolvedValue({ ...DEFAULT_REALM_SETTINGS, mechanics: { measure: false, lock: true } });
     const r = await startDeedRun("c1", "well-stones", "realm");
     expect(r.questions.every((q) => q.kind === "choice")).toBe(true);
     expect(r.demo).toBeUndefined();
@@ -1208,8 +1210,77 @@ describe("a measure task in a run", () => {
   });
 });
 
+describe("a lock task in a run (R-F1, R-F2)", () => {
+  // Seeded straight into the run: no skill is a lock yet (LOCKS is empty), so no start would draw one.
+  const LOCK: LockTask = { ...PATTERN, skillId: SKILL };
+  const SOLVED = TASK_CODECS.lock.encode(PATTERN.solution);
+  const seedLock = (over: { secondChances?: boolean } = {}) => seedRun({ questions: [LOCK, QUESTIONS[0]] as unknown as Question[], ...over });
+
+  it("a forged response is refused before anything is written (Review Focus 1)", async () => {
+    await seedLock();
+    for (const raw of ["pattern:1", "pattern:1,1,1", "pattern:4,4", "pattern:1.5,1", "cage4:1,1", "x".repeat(10_000), " pattern:1,1", [1, 1], { puzzle: "pattern", cells: [1, 1] }, null]) {
+      await expect(answerDeedQuestion("run1", 0, raw)).rejects.toThrow(PICK_SHOWN);
+    }
+    expect((await stored()).responses).toBe("[null,null]");
+  });
+
+  it("another valid fill than the stored one is right, and sends no reveal (Review Focus 2)", async () => {
+    await seedLock();
+    const r = await answerDeedQuestion("run1", 0, "pattern:1,1");
+    expect(r).toMatchObject({ correct: true, secondChance: false, answer: "Here is one way it fits." });
+    expect("reveal" in r).toBe(false);
+  });
+
+  it("an open second chance says what kind of wrong it is, and reveals nothing", async () => {
+    await seedLock();
+    const broken = await answerDeedQuestion("run1", 0, "pattern:3,1");
+    expect(broken).toMatchObject({ correct: false, secondChance: true, feedback: "rule_broken", firstPick: "pattern:3,1" });
+    for (const k of ["answer", "reveal", "explain"]) expect(k in broken).toBe(false);
+    // A repeat while the try is open hears the same, still with nothing revealed.
+    expect("reveal" in (await answerDeedQuestion("run1", 0, "pattern:3,1"))).toBe(false);
+  });
+
+  it("an unfinished first try hears that spaces are left", async () => {
+    await seedLock();
+    expect(await answerDeedQuestion("run1", 0, "pattern:3,0")).toMatchObject({ secondChance: true, feedback: "incomplete" });
+  });
+
+  it("a resolved miss sends the stored solution, encoded, as the reveal", async () => {
+    await seedLock();
+    await answerDeedQuestion("run1", 0, "pattern:3,1");
+    const r = await retryDeedQuestion("run1", 0, "pattern:2,1");
+    expect(r).toMatchObject({ correct: false, secondChance: false, answer: "Here is one way it fits.", reveal: SOLVED });
+    // A late repeat of the first answer replays the resolution, reveal and all.
+    expect(await answerDeedQuestion("run1", 0, "pattern:3,1")).toMatchObject({ correct: false, reveal: SOLVED });
+  });
+
+  it("a right retry sends no reveal", async () => {
+    await seedLock();
+    await answerDeedQuestion("run1", 0, "pattern:3,1");
+    const r = await retryDeedQuestion("run1", 0, "pattern:2,2");
+    expect(r).toMatchObject({ correct: true, secondChance: false });
+    expect("reveal" in r).toBe(false);
+  });
+
+  it("giving up, or a miss with no second chance, is a resolved miss: the reveal comes with it", async () => {
+    await seedLock();
+    await answerDeedQuestion("run1", 0, "pattern:3,1");
+    expect(await resolveDeedQuestion("run1", 0)).toMatchObject({ correct: false, secondChance: false, reveal: SOLVED });
+    await client.query("DELETE FROM deed_run");
+    await seedLock({ secondChances: false });
+    expect(await answerDeedQuestion("run1", 0, "pattern:3,1")).toMatchObject({ correct: false, secondChance: false, reveal: SOLVED });
+  });
+
+  it("a choice or measure miss never carries a reveal", async () => {
+    await seedLock({ secondChances: false });
+    const miss = await answerDeedQuestion("run1", 1, "5");
+    expect(miss).toMatchObject({ correct: false, secondChance: false });
+    expect("reveal" in miss).toBe(false);
+  });
+});
+
 describe("the grown-up's switch for building by measuring (Review Focus 4)", () => {
-  const MEASURE_OFF = { ...DEFAULT_REALM_SETTINGS, mechanics: { measure: false } };
+  const HANDS_ON_OFF = { ...DEFAULT_REALM_SETTINGS, mechanics: { measure: false, lock: false } };
   const CUT: MeasureTask = {
     kind: "measure", id: "m-cut", skillId: SKILL, prompt: "Cut a board three quarters of a foot long.",
     mode: "cut", unit: "ft", answer: "3/4", step: "1/4", maxLength: "2", bridge: "1/2 + 1/4 = 3/4",
@@ -1218,11 +1289,22 @@ describe("the grown-up's switch for building by measuring (Review Focus 4)", () 
 
   it("offers the engine every hands-on kind that is on, and no choice entry (choice is always there)", async () => {
     await startDeedRun("c1", "well-stones", "realm");
+    expect(enabledKindsOf()).toEqual(new Set(["measure", "lock"]));
+  });
+
+  it("each switch is its own: the bench off leaves the locks on, and the locks off leave the bench", async () => {
+    vi.mocked(loadRealmSettings).mockResolvedValueOnce({ ...DEFAULT_REALM_SETTINGS, mechanics: { measure: false, lock: true } });
+    await startDeedRun("c1", "well-stones", "realm");
+    expect(enabledKindsOf()).toEqual(new Set(["lock"]));
+    vi.mocked(buildDeedRun).mockClear();
+    await client.query("DELETE FROM deed_run");
+    vi.mocked(loadRealmSettings).mockResolvedValueOnce({ ...DEFAULT_REALM_SETTINGS, mechanics: { measure: true, lock: false } });
+    await startDeedRun("c1", "well-stones", "realm");
     expect(enabledKindsOf()).toEqual(new Set(["measure"]));
   });
 
   it("turned off, offers the engine no hands-on kind: a new run is all choice", async () => {
-    vi.mocked(loadRealmSettings).mockResolvedValue(MEASURE_OFF);
+    vi.mocked(loadRealmSettings).mockResolvedValue(HANDS_ON_OFF);
     const r = await startDeedRun("c1", "well-stones", "realm");
     expect(enabledKindsOf()).toEqual(new Set());
     const built = vi.mocked(buildDeedRun).mock.results[0].value;
@@ -1231,14 +1313,14 @@ describe("the grown-up's switch for building by measuring (Review Focus 4)", () 
   });
 
   it("the setting applies on the page as it does in the world", async () => {
-    vi.mocked(loadRealmSettings).mockResolvedValue(MEASURE_OFF);
+    vi.mocked(loadRealmSettings).mockResolvedValue(HANDS_ON_OFF);
     await startDeedRun("c1", "well-stones", "page");
     expect(enabledKindsOf()).toEqual(new Set());
   });
 
   it("an open measure run still resumes and completes after the switch goes off (runs are snapshots)", async () => {
     await seedRun({ questions: [CUT, QUESTIONS[0]] as unknown as Question[], secondChances: false });
-    vi.mocked(loadRealmSettings).mockResolvedValue(MEASURE_OFF);
+    vi.mocked(loadRealmSettings).mockResolvedValue(HANDS_ON_OFF);
     const r = await startDeedRun("c1", "well-stones", "realm");
     expect(r.runId).toBe("run1");
     expect(vi.mocked(buildDeedRun)).not.toHaveBeenCalled();
@@ -1253,7 +1335,7 @@ describe("the gate stays multiple choice (R-C4)", () => {
   const runCount = async () => Number((await client.query("SELECT count(*) AS n FROM deed_run")).rows[0].n);
 
   it("builds a gate run with no hands-on kind, whatever the grown-up has switched on", async () => {
-    vi.mocked(loadRealmSettings).mockResolvedValue({ ...DEFAULT_REALM_SETTINGS, mechanics: { measure: true } });
+    vi.mocked(loadRealmSettings).mockResolvedValue({ ...DEFAULT_REALM_SETTINGS, mechanics: { measure: true, lock: true } });
     const r = await startDeedRun("c1", "well-stones", "gate");
     expect(vi.mocked(buildDeedRun).mock.calls[0][0].enabledKinds).toEqual(new Set());
     expect(r.questions.length).toBeGreaterThan(0);
@@ -1275,7 +1357,7 @@ describe("the gate stays multiple choice (R-C4)", () => {
 });
 
 describe("a grade-3 math side quest is played at the bench (slice 2, C13)", () => {
-  const MEASURE_OFF = { ...DEFAULT_REALM_SETTINGS, mechanics: { measure: false } };
+  const MEASURE_OFF = { ...DEFAULT_REALM_SETTINGS, mechanics: { measure: false, lock: true } };
   const GROWN_UP = { access: { userId: "u-parent" }, familyId: "f1" } as unknown as Awaited<ReturnType<typeof requireChildAccess>>;
   const benched = (skillId: string) => skillId in BENCH;
 
@@ -1396,13 +1478,13 @@ describe("a grade-3 math side quest is played at the bench (slice 2, C13)", () =
     it("an arbitrary string behaves as the page: a grown-up may start the run, and the bench is on", async () => {
       vi.mocked(requireChildAccess).mockResolvedValueOnce(GROWN_UP);
       await expect(startDeedRun("c1", "well-stones", "REALM" as never)).resolves.toBeDefined();
-      expect(vi.mocked(buildDeedRun).mock.calls[0][0].enabledKinds).toEqual(new Set(["measure"]));
+      expect(vi.mocked(buildDeedRun).mock.calls[0][0].enabledKinds).toEqual(new Set(["measure", "lock"]));
       expect(await runCount()).toBe(1);
     });
 
     it("is not the gate unless it says so exactly", async () => {
       await startDeedRun("c1", "well-stones", "gate " as never);
-      expect(vi.mocked(buildDeedRun).mock.calls[0][0].enabledKinds).toEqual(new Set(["measure"]));
+      expect(vi.mocked(buildDeedRun).mock.calls[0][0].enabledKinds).toEqual(new Set(["measure", "lock"]));
     });
 
     it("the two named worlds keep their rules: realm and gate refuse a grown-up", async () => {

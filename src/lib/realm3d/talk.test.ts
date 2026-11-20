@@ -355,6 +355,37 @@ describe("what a villager says after a bench answer", () => {
   });
 });
 
+describe("what a villager says after a lock answer (R-F2, R-F3)", () => {
+  const lockTask: ClientTask = {
+    kind: "lock", id: "l", skillId: "logic-k1", prompt: "p",
+    view: { puzzle: "balance", weights: [1, 2, 3], target: 3 },
+  };
+
+  it("on a second chance, says a rule is broken or spaces are left, before the hint", () => {
+    expect(attemptFeedback({ correct: false, secondChance: true, hint: "Try the small ones.", feedback: "rule_broken" }, false, undefined, lockTask))
+      .toEqual({ heading: "Try again", text: "Something doesn't fit yet. Look at the marked rule. Try the small ones." });
+    expect(attemptFeedback({ correct: false, secondChance: true, feedback: "incomplete" }, false, undefined, lockTask).text).toBe("There are empty spaces left.");
+    expect(attemptFeedback({ correct: false, secondChance: true, hint: "Count on." }, false, undefined, lockTask).text).toBe("Not quite. Count on.");
+  });
+
+  it("a miss's line is a sentence of its own, never \"The answer was …\"", () => {
+    const answer = "Here is one way it fits.";
+    expect(attemptFeedback({ correct: false, secondChance: false, answer, reveal: "balance:1,1,0" }, true, undefined, lockTask).text).toBe(answer);
+    expect(attemptFeedback({ correct: false, secondChance: false, answer, hint: "Count on." }, true, "Old Bram", lockTask).text).toBe(`${answer} Count on.`);
+  });
+
+  it("a right answer is cheered as any other", () => {
+    expect(attemptFeedback({ correct: true, secondChance: false, answer: "Here is one way it fits." }, false, undefined, lockTask).text).toBe("That's it!");
+    expect(attemptFeedback({ correct: true, secondChance: false, answer: "Here is one way it fits." }, true, undefined, lockTask).text).toBe("You got there!");
+  });
+
+  it("the bench's lines never answer a lock, and a lock's never answer the bench", () => {
+    const cut: ClientTask = { kind: "measure", id: "m", skillId: "s", prompt: "p", view: { mode: "cut", unit: "feet" } };
+    expect(attemptFeedback({ correct: false, secondChance: true, feedback: "too_long" }, false, undefined, cut).text).toBe("A little long. Trim it.");
+    expect(attemptFeedback({ correct: false, secondChance: true, feedback: "rule_broken" }, false, undefined, lockTask).text).not.toMatch(/long|short|over|under/);
+  });
+});
+
 describe("a villager's mention of real work", () => {
   const MENTION = "I hear you finished “Volcanoes, part 2”. Tell me what you learned sometime!";
   const base = { villager: bram, viewer: "child" as const, heroName: "Emma", numerals: true };

@@ -20,6 +20,7 @@ import {
 import { masteryChangeCopy, masteryLabel, parseRecentResults, progressToNextRung, recordResult } from "@/lib/utils/mastery";
 import type { Question } from "@/lib/utils/drill-generators";
 import { isTaskCorrect, taskDefOf, type ResponseByKind, type Task, type TaskKind } from "@/lib/tasks/registry";
+import { TASK_CODECS } from "@/lib/tasks/codecs";
 import { CHALLENGE, MAX_STARS, RUN_EFFECTS, countsTowardBuilding, runPoints, starsFor, type QuestionOutcome, type RunKind, type Stars } from "@/lib/utils/deed-scoring";
 import { outcomeOf, refuseGiveUp, refuseRetry, statusOf, type QuestionStatus } from "@/lib/utils/deed-attempts";
 import {
@@ -208,6 +209,9 @@ function resultFor(question: Task, status: QuestionStatus, firstPick?: string, r
   // and built from what the child did (`rightPick`, the stored response that solved it).
   const solved = correct && rightPick !== undefined ? def.decode(rightPick) : null;
   if (solved !== null && def.bridge) result.bridge = def.bridge(question, solved);
+  // A missed lock shows its solved board (R-F2): the stored solution, encoded, once the task is
+  // resolved and missed. Never on an open try (returned above) or a right answer.
+  if (!correct && question.kind === "lock") result.reveal = TASK_CODECS.lock.encode(question.solution);
   if (question.explain) result.explain = question.explain;
   else if (!correct) result.hint = hintFor(question.skillId);
   return result;

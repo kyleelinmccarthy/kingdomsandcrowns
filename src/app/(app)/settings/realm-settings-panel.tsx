@@ -54,6 +54,7 @@ const DEPTH_LABELS: Record<DepthOverride, { label: string; hint: string }> = {
  */
 const MECHANIC_LABELS: Record<HandsOnKind, { label: string; hint: string }> = {
   measure: { label: "Building by measuring", hint: "Math side quests are played at the bench." },
+  lock: { label: "Solving logic locks", hint: "Science sorts and logic puzzles on a lock's face. Off: science plays as multiple choice." },
 };
 
 /** One saved number: edits stay local until Save, which sends only this field (the Earning time group). */

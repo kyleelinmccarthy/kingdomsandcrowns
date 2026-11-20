@@ -7,8 +7,11 @@
  * to `TASK_KINDS` in `registry.ts`. The compiler points at everything else.
  */
 import type { Question } from "@/lib/utils/drill-generators";
+import type { LockPuzzleData, LockResponse, LockView } from "./lock-rules";
 
-export type TaskKind = "choice" | "measure";
+export type { LockPuzzle, LockResponse, LockView } from "./lock-rules";
+
+export type TaskKind = "choice" | "measure" | "lock";
 
 /** Choice is today's `Question`; stored runs have no `kind`, which reads as "choice". */
 export type ChoiceTask = Question & { kind?: "choice" };
@@ -45,12 +48,24 @@ export type MeasureView = {
 /** Assemble: the chosen piece indices (unique, sorted). Cut: the length as typed. */
 export type MeasureResponse = number[] | string;
 
+/**
+ * A logic lock (slice 4): a puzzle checked against its rules, never against a stored answer, so
+ * every valid solution counts (R-F1). The puzzle's data and rules live in the client-safe
+ * `lock-rules.ts`, discriminated by `puzzle`. `solution` is one valid answer, kept on the server for
+ * the reveal after a miss (R-F2); a sort's `fits` is its answer and stays on the server too.
+ */
+export type LockTask = {
+  kind: "lock"; id: string; skillId: string; prompt: string; readAloud?: string;
+  solution: LockResponse;
+  explain?: string;
+} & LockPuzzleData;
+
 /** The server-side task, answer and all, per kind. */
-export type TaskByKind = { choice: ChoiceTask; measure: MeasureTask };
+export type TaskByKind = { choice: ChoiceTask; measure: MeasureTask; lock: LockTask };
 /** What the client is shown to render a task: never the answer. */
-export type ViewByKind = { choice: { choices: string[] }; measure: MeasureView };
+export type ViewByKind = { choice: { choices: string[] }; measure: MeasureView; lock: LockView };
 /** What the child hands back, per kind. */
-export type ResponseByKind = { choice: string; measure: MeasureResponse };
+export type ResponseByKind = { choice: string; measure: MeasureResponse; lock: LockResponse };
 
 export type Task = TaskByKind[TaskKind];
 
@@ -66,8 +81,11 @@ export type ClientTask = {
   };
 }[TaskKind];
 
-/** A coded, kind-specific note on a response: measure says which way a wrong length is off. */
-export type FeedbackCode = "none" | "too_long" | "too_short";
+/**
+ * A coded, kind-specific note on a response: measure says which way a wrong length is off; a lock
+ * says whether spaces are left or a rule is broken (never how to fix it: R-F3).
+ */
+export type FeedbackCode = "none" | "too_long" | "too_short" | "rule_broken" | "incomplete";
 
 export interface TaskKindDef<K extends TaskKind> {
   toView(t: TaskByKind[K]): ViewByKind[K];

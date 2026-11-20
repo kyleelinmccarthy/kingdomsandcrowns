@@ -96,6 +96,27 @@ This is a **programme of six slices** on one shared framework. Each slice gets i
 - **R-D11: building happens in the Realm.** The Tavern card shows plans, progress and a pin, and links to the Realm. This is the pull the owner asked for.
 - **R-D12 (slice 3b): drawings are required "or".** With `requireNotes` on, a quest completes with meaningful notes or a valid drawing. The quest form's label becomes "Ask for Scribe's Notes or a drawing".
 
+### Calls settled for slice 4 (2026-11-20)
+
+The owner's answers:
+- **Logic is practised on world locks, the Puzzle Tower and a "Puzzle practice" button.** It gets no new side quests.
+- **Decorations from chests appear at set spots.**
+- **This slice has chests, vault doors and the Tower.** Gates and locked rooms wait.
+- **Slice 4 ships as two branches.** 4a (`realm-locks`: the lock kind, its puzzles, sort pools, science deeds as locks, Puzzle practice) merges on passing; 4b (`realm-world-locks`: world state, chests, vault doors, the Tower) needs the owner's word.
+
+The builder's calls:
+- **R-F1: a lock is checked against its rules, never against a stored answer.** `isCorrect` checks the response against the puzzle's constraints, so every valid solution counts. Each task also stores one `solution`, server-only, for the reveal after a miss.
+- **R-F2: the reveal after a miss is the solved board.** `AttemptResult.reveal` carries the stored solution in the lock codec's form, sent only once the task is resolved and missed; the presenter draws it. `answerText` stays one short sentence, "Here is one way it fits.", for read-aloud and the text line.
+- **R-F3: rule highlighting happens on the client, from the visible puzzle.** Cages, clues and run counts are part of the view by nature, so the surface marks a broken rule without the server revealing anything. A sort's bins are its answer, so only the server can fault a sorted item. `FeedbackCode` gains `rule_broken` ("Something doesn't fit yet. Look at the marked rule.") and `incomplete` ("There are empty spaces left.").
+- **R-F4: puzzles by band**, sized by grade and `logic` mastery: K–1 `pattern` and `sort1`; 2–4 `shapes3`, `balance` and `sort2`; 5–8 `cage4` and `logic3`; 9–12 `cage5`, `nono5` and `logic4`. Every generated puzzle is checked by a brute-force solver in tests; cages, nonograms and logic grids have exactly one solution, while patterns and sorts take any rule-valid answer.
+- **R-F5: subject sorts come from JSON pools** (`src/content/sorts/<poolId>.json`) of science and vocabulary, each crediting an existing skill id, with their own validator and blind-pass sheet. A skill with no sort pool keeps playing as `choice`.
+- **R-F6: `logic` is a new `SkillArea`** with one row per band at the band's lowest grade (`logic-k1`, `-g23`, `-g45`, `-g68`, `-g912`), spell school `none`, and the hero's own grade with no offset. It is pickable as a focus skill and shown in the mastery and focus panels.
+- **R-F7: logic skills have their own `SkillSource`, `{ kind: "lock" }`.** They are never drawn as `choice`; with locks off, a logic skill draws nothing and Puzzle practice is hidden.
+- **R-F8: logic has no side quests** (the owner). The "every area has two deeds" tests exempt it by name. It is practised through Puzzle practice (a `world` run of 3 logic locks at the hero's grade, from the Side Quests page) and through world locks and the Tower (4b).
+- **R-F9: a `world` run moves mastery, feeds review and allows second chances**, and raises no building, earns no stars, counts for no school and pays no minutes. `tower` comes in 4b.
+- **R-F10: demo-first is generalised.** `demoAt` finds the first task of a hands-on kind the hero has never answered, for K–3; the demo copy is per kind and mode (the bench's stay; the lock's are `pattern` and `sort1`), and `hasAnsweredBench` becomes `hasAnsweredKind`.
+- **R-F11: the five science deeds become `mechanic: "lock"`** (well-water, mill-wheel, chapel-stars, watchtower-signals, garden-bees). Recorded snapshots that change get choice-pinned twins. Vocabulary stays `choice` inside `language` deeds, and vocabulary sorts are reached through a grown-up's focus skill and the world locks of 4b.
+
 ---
 
 ## 3. Goals, non-goals, anti-goals
