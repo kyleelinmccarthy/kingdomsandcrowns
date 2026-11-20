@@ -1,0 +1,95 @@
+{
+  "poolId": "sort-vocab-g45",
+  "skillId": "vocab-g45",
+  "grade": "5",
+  "sets": [
+    {
+      "id": "noun-verb",
+      "categories": ["Noun","Verb"],
+      "items": [
+        {"id":"vg45-noun-verb-teacher","label":"teacher","category":0,"level":0},
+        {"id":"vg45-noun-verb-pencil","label":"pencil","category":0,"level":0},
+        {"id":"vg45-noun-verb-river","label":"river","category":0,"level":1},
+        {"id":"vg45-noun-verb-kitchen","label":"kitchen","category":0,"level":1},
+        {"id":"vg45-noun-verb-mountain","label":"mountain","category":0,"level":2},
+        {"id":"vg45-noun-verb-library","label":"library","category":0,"level":3},
+        {"id":"vg45-noun-verb-courage","label":"courage","category":0,"level":3},
+        {"id":"vg45-noun-verb-friendship","label":"friendship","category":0,"level":4},
+        {"id":"vg45-noun-verb-arrive","label":"arrive","category":1,"level":0},
+        {"id":"vg45-noun-verb-borrow","label":"borrow","category":1,"level":0},
+        {"id":"vg45-noun-verb-decide","label":"decide","category":1,"level":1},
+        {"id":"vg45-noun-verb-explain","label":"explain","category":1,"level":1},
+        {"id":"vg45-noun-verb-remember","label":"remember","category":1,"level":2},
+        {"id":"vg45-noun-verb-celebrate","label":"celebrate","category":1,"level":3},
+        {"id":"vg45-noun-verb-discover","label":"discover","category":1,"level":3},
+        {"id":"vg45-noun-verb-investigate","label":"investigate","category":1,"level":4}
+      ]
+    },
+    {
+      "id": "big",
+      "categories": ["means big","opposite of big"],
+      "items": [
+        {"id":"vg45-big-large","label":"large","category":0,"level":0},
+        {"id":"vg45-big-huge","label":"huge","category":0,"level":0},
+        {"id":"vg45-big-giant","label":"giant","category":0,"level":1},
+        {"id":"vg45-big-enormous","label":"enormous","category":0,"level":1},
+        {"id":"vg45-big-gigantic","label":"gigantic","category":0,"level":2},
+        {"id":"vg45-big-massive","label":"massive","category":0,"level":3},
+        {"id":"vg45-big-immense","label":"immense","category":0,"level":3},
+        {"id":"vg45-big-colossal","label":"colossal","category":0,"level":4},
+        {"id":"vg45-big-small","label":"small","category":1,"level":0},
+        {"id":"vg45-big-tiny","label":"tiny","category":1,"level":0},
+        {"id":"vg45-big-little","label":"little","category":1,"level":1},
+        {"id":"vg45-big-miniature","label":"miniature","category":1,"level":1},
+        {"id":"vg45-big-teeny","label":"teeny","category":1,"level":2},
+        {"id":"vg45-big-petite","label":"petite","category":1,"level":3},
+        {"id":"vg45-big-microscopic","label":"microscopic","category":1,"level":3},
+        {"id":"vg45-big-diminutive","label":"diminutive","category":1,"level":4}
+      ]
+    },
+    {
+      "id": "happy",
+      "categories": ["means happy","opposite of happy"],
+      "items": [
+        {"id":"vg45-happy-glad","label":"glad","category":0,"level":0},
+        {"id":"vg45-happy-cheerful","label":"cheerful","category":0,"level":0},
+        {"id":"vg45-happy-joyful","label":"joyful","category":0,"level":1},
+        {"id":"vg45-happy-pleased","label":"pleased","category":0,"level":1},
+        {"id":"vg45-happy-merry","label":"merry","category":0,"level":2},
+        {"id":"vg45-happy-delighted","label":"delighted","category":0,"level":3},
+        {"id":"vg45-happy-thrilled","label":"thrilled","category":0,"level":3},
+        {"id":"vg45-happy-elated","label":"elated","category":0,"level":4},
+        {"id":"vg45-happy-sad","label":"sad","category":1,"level":0},
+        {"id":"vg45-happy-gloomy","label":"gloomy","category":1,"level":0},
+        {"id":"vg45-happy-miserable","label":"miserable","category":1,"level":1},
+        {"id":"vg45-happy-glum","label":"glum","category":1,"level":1},
+        {"id":"vg45-happy-sorrowful","label":"sorrowful","category":1,"level":2},
+        {"id":"vg45-happy-downcast","label":"downcast","category":1,"level":3},
+        {"id":"vg45-happy-dejected","label":"dejected","category":1,"level":3},
+        {"id":"vg45-happy-mournful","label":"mournful","category":1,"level":4}
+      ]
+    },
+    {
+      "id": "start",
+      "categories": ["means start","opposite of start"],
+      "items": [
+        {"id":"vg45-start-begin","label":"begin","category":0,"level":0},
+        {"id":"vg45-start-launch","label":"launch","category":0,"level":0},
+        {"id":"vg45-start-set-off","label":"set off","category":0,"level":1},
+        {"id":"vg45-start-kick-off","label":"kick off","category":0,"level":1},
+        {"id":"vg45-start-get-going","label":"get going","category":0,"level":2},
+        {"id":"vg45-start-commence","label":"commence","category":0,"level":3},
+        {"id":"vg45-start-initiate","label":"initiate","category":0,"level":3},
+        {"id":"vg45-start-inaugurate","label":"inaugurate","category":0,"level":4},
+        {"id":"vg45-start-stop","label":"stop","category":1,"level":0},
+        {"id":"vg45-start-end","label":"end","category":1,"level":0},
+        {"id":"vg45-start-finish","label":"finish","category":1,"level":1},
+        {"id":"vg45-start-halt","label":"halt","category":1,"level":1},
+        {"id":"vg45-start-quit","label":"quit","category":1,"level":2},
+        {"id":"vg45-start-cease","label":"cease","category":1,"level":3},
+        {"id":"vg45-start-conclude","label":"conclude","category":1,"level":3},
+        {"id":"vg45-start-terminate","label":"terminate","category":1,"level":4}
+      ]
+    }
+  ]
+}

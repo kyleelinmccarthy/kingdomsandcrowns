@@ -15,7 +15,16 @@ const DIR = path.join(__dirname, "../../content/sorts");
  * or a listed pool with no file, fails the suite. Each pool also needs one import and one entry in
  * `src/lib/tasks/locks/sort-pool-files.ts`, which a test below checks against this list.
  */
-const EXPECTED_SORT_POOLS: string[] = [];
+const EXPECTED_SORT_POOLS: string[] = [
+  "sort-science-k1",
+  "sort-science-g23",
+  "sort-science-g45",
+  "sort-science-g68",
+  "sort-science-g912",
+  "sort-vocab-g45",
+  "sort-vocab-g68",
+  "sort-vocab-g912",
+];
 
 function loadAll(): { file: string; parsed: SortPool }[] {
   if (!fs.existsSync(DIR)) return [];

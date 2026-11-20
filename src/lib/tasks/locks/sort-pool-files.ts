@@ -10,4 +10,22 @@
  *   import sortScienceG23 from "@/content/sorts/sort-science-g23.json";
  *   export const SORT_POOL_FILES: readonly unknown[] = [sortScienceG23];
  */
-export const SORT_POOL_FILES: readonly unknown[] = [];
+import sortScienceK1 from "@/content/sorts/sort-science-k1.json";
+import sortScienceG23 from "@/content/sorts/sort-science-g23.json";
+import sortScienceG45 from "@/content/sorts/sort-science-g45.json";
+import sortScienceG68 from "@/content/sorts/sort-science-g68.json";
+import sortScienceG912 from "@/content/sorts/sort-science-g912.json";
+import sortVocabG45 from "@/content/sorts/sort-vocab-g45.json";
+import sortVocabG68 from "@/content/sorts/sort-vocab-g68.json";
+import sortVocabG912 from "@/content/sorts/sort-vocab-g912.json";
+
+export const SORT_POOL_FILES: readonly unknown[] = [
+  sortScienceK1,
+  sortScienceG23,
+  sortScienceG45,
+  sortScienceG68,
+  sortScienceG912,
+  sortVocabG45,
+  sortVocabG68,
+  sortVocabG912,
+];

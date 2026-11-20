@@ -1,0 +1,95 @@
+{
+  "poolId": "sort-science-g45",
+  "skillId": "science-g45",
+  "grade": "4",
+  "sets": [
+    {
+      "id": "conductors",
+      "categories": ["Conductor","Insulator"],
+      "items": [
+        {"id":"sg45-conductors-copper-wire","label":"copper wire","category":0,"level":0},
+        {"id":"sg45-conductors-iron-nail","label":"iron nail","category":0,"level":0},
+        {"id":"sg45-conductors-aluminum-foil","label":"aluminum foil","category":0,"level":1},
+        {"id":"sg45-conductors-steel-key","label":"steel key","category":0,"level":1},
+        {"id":"sg45-conductors-gold-ring","label":"gold ring","category":0,"level":2},
+        {"id":"sg45-conductors-silver-spoon","label":"silver spoon","category":0,"level":3},
+        {"id":"sg45-conductors-brass-doorknob","label":"brass doorknob","category":0,"level":3},
+        {"id":"sg45-conductors-steel-spring","label":"steel spring","category":0,"level":4},
+        {"id":"sg45-conductors-rubber-glove","label":"rubber glove","category":1,"level":0},
+        {"id":"sg45-conductors-plastic-spoon","label":"plastic spoon","category":1,"level":0},
+        {"id":"sg45-conductors-wooden-spoon","label":"wooden spoon","category":1,"level":1},
+        {"id":"sg45-conductors-glass-cup","label":"glass cup","category":1,"level":1},
+        {"id":"sg45-conductors-cotton-shirt","label":"cotton shirt","category":1,"level":2},
+        {"id":"sg45-conductors-ceramic-mug","label":"ceramic mug","category":1,"level":3},
+        {"id":"sg45-conductors-wool-sock","label":"wool sock","category":1,"level":3},
+        {"id":"sg45-conductors-cork","label":"cork","category":1,"level":4}
+      ]
+    },
+    {
+      "id": "renewable",
+      "categories": ["Renewable","Not renewable"],
+      "items": [
+        {"id":"sg45-renewable-sunlight","label":"sunlight","category":0,"level":0},
+        {"id":"sg45-renewable-wind","label":"wind","category":0,"level":0},
+        {"id":"sg45-renewable-solar-power","label":"solar power","category":0,"level":1},
+        {"id":"sg45-renewable-hydropower","label":"hydropower","category":0,"level":1},
+        {"id":"sg45-renewable-geothermal-heat","label":"geothermal heat","category":0,"level":2},
+        {"id":"sg45-renewable-ocean-tides","label":"ocean tides","category":0,"level":3},
+        {"id":"sg45-renewable-wave-power","label":"wave power","category":0,"level":3},
+        {"id":"sg45-renewable-biofuel","label":"biofuel","category":0,"level":4},
+        {"id":"sg45-renewable-coal","label":"coal","category":1,"level":0},
+        {"id":"sg45-renewable-crude-oil","label":"crude oil","category":1,"level":0},
+        {"id":"sg45-renewable-natural-gas","label":"natural gas","category":1,"level":1},
+        {"id":"sg45-renewable-gasoline","label":"gasoline","category":1,"level":1},
+        {"id":"sg45-renewable-propane","label":"propane","category":1,"level":2},
+        {"id":"sg45-renewable-diesel-fuel","label":"diesel fuel","category":1,"level":3},
+        {"id":"sg45-renewable-uranium","label":"uranium","category":1,"level":3},
+        {"id":"sg45-renewable-kerosene","label":"kerosene","category":1,"level":4}
+      ]
+    },
+    {
+      "id": "vertebrates",
+      "categories": ["Vertebrate","Invertebrate"],
+      "items": [
+        {"id":"sg45-vertebrates-dog","label":"dog","category":0,"level":0},
+        {"id":"sg45-vertebrates-eagle","label":"eagle","category":0,"level":0},
+        {"id":"sg45-vertebrates-goldfish","label":"goldfish","category":0,"level":1},
+        {"id":"sg45-vertebrates-frog","label":"frog","category":0,"level":1},
+        {"id":"sg45-vertebrates-snake","label":"snake","category":0,"level":2},
+        {"id":"sg45-vertebrates-whale","label":"whale","category":0,"level":3},
+        {"id":"sg45-vertebrates-shark","label":"shark","category":0,"level":3},
+        {"id":"sg45-vertebrates-salamander","label":"salamander","category":0,"level":4},
+        {"id":"sg45-vertebrates-ant","label":"ant","category":1,"level":0},
+        {"id":"sg45-vertebrates-spider","label":"spider","category":1,"level":0},
+        {"id":"sg45-vertebrates-snail","label":"snail","category":1,"level":1},
+        {"id":"sg45-vertebrates-earthworm","label":"earthworm","category":1,"level":1},
+        {"id":"sg45-vertebrates-jellyfish","label":"jellyfish","category":1,"level":2},
+        {"id":"sg45-vertebrates-octopus","label":"octopus","category":1,"level":3},
+        {"id":"sg45-vertebrates-starfish","label":"starfish","category":1,"level":3},
+        {"id":"sg45-vertebrates-crab","label":"crab","category":1,"level":4}
+      ]
+    },
+    {
+      "id": "diet",
+      "categories": ["Herbivore","Carnivore"],
+      "items": [
+        {"id":"sg45-diet-cow","label":"cow","category":0,"level":0},
+        {"id":"sg45-diet-rabbit","label":"rabbit","category":0,"level":0},
+        {"id":"sg45-diet-deer","label":"deer","category":0,"level":1},
+        {"id":"sg45-diet-giraffe","label":"giraffe","category":0,"level":1},
+        {"id":"sg45-diet-zebra","label":"zebra","category":0,"level":2},
+        {"id":"sg45-diet-elephant","label":"elephant","category":0,"level":3},
+        {"id":"sg45-diet-goat","label":"goat","category":0,"level":3},
+        {"id":"sg45-diet-koala","label":"koala","category":0,"level":4},
+        {"id":"sg45-diet-lion","label":"lion","category":1,"level":0},
+        {"id":"sg45-diet-shark","label":"shark","category":1,"level":0},
+        {"id":"sg45-diet-tiger","label":"tiger","category":1,"level":1},
+        {"id":"sg45-diet-wolf","label":"wolf","category":1,"level":1},
+        {"id":"sg45-diet-eagle","label":"eagle","category":1,"level":2},
+        {"id":"sg45-diet-hawk","label":"hawk","category":1,"level":3},
+        {"id":"sg45-diet-crocodile","label":"crocodile","category":1,"level":3},
+        {"id":"sg45-diet-polar-bear","label":"polar bear","category":1,"level":4}
+      ]
+    }
+  ]
+}

@@ -27,11 +27,13 @@ describe("lock: registered, and presenting only where a generator exists", () =>
     expect(typeof TASK_DRAWERS.lock).toBe("function");
   });
 
-  it("only the skills with a lock generator present as locks; every other skill draws as before (RF-a)", () => {
+  it("only the skills with a lock generator or a sort pool present as locks; every other skill draws as before (RF-a)", () => {
     const registered = Object.keys(LOCKS).sort();
+    // F7: the science and vocabulary skills that a shipped sort pool credits.
+    const sorted = ["science-k1", "science-g23", "science-g45", "science-g68", "science-g912", "vocab-g45", "vocab-g68", "vocab-g912"];
     expect(registered).toEqual(expect.arrayContaining(["logic-g23", "logic-k1"]));
     for (const s of SKILLS) {
-      const lock = registered.includes(s.id);
+      const lock = registered.includes(s.id) || sorted.includes(s.id);
       expect(lockKind.presents(s.id), s.id).toBe(lock);
       if (lock) {
         expect(TASK_DRAWERS.lock(s, 2, seededRng(1))?.kind).toBe("lock");

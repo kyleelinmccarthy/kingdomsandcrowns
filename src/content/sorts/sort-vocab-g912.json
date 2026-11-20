@@ -1,0 +1,95 @@
+{
+  "poolId": "sort-vocab-g912",
+  "skillId": "vocab-g912",
+  "grade": "9",
+  "sets": [
+    {
+      "id": "frugal",
+      "categories": ["means frugal","opposite of frugal"],
+      "items": [
+        {"id":"vg912-frugal-thrifty","label":"thrifty","category":0,"level":0},
+        {"id":"vg912-frugal-economical","label":"economical","category":0,"level":0},
+        {"id":"vg912-frugal-sparing","label":"sparing","category":0,"level":1},
+        {"id":"vg912-frugal-saving","label":"saving","category":0,"level":1},
+        {"id":"vg912-frugal-prudent","label":"prudent","category":0,"level":2},
+        {"id":"vg912-frugal-penny-wise","label":"penny-wise","category":0,"level":3},
+        {"id":"vg912-frugal-scrimping","label":"scrimping","category":0,"level":3},
+        {"id":"vg912-frugal-parsimonious","label":"parsimonious","category":0,"level":4},
+        {"id":"vg912-frugal-wasteful","label":"wasteful","category":1,"level":0},
+        {"id":"vg912-frugal-extravagant","label":"extravagant","category":1,"level":0},
+        {"id":"vg912-frugal-lavish","label":"lavish","category":1,"level":1},
+        {"id":"vg912-frugal-prodigal","label":"prodigal","category":1,"level":1},
+        {"id":"vg912-frugal-profligate","label":"profligate","category":1,"level":2},
+        {"id":"vg912-frugal-spendthrift","label":"spendthrift","category":1,"level":3},
+        {"id":"vg912-frugal-improvident","label":"improvident","category":1,"level":3},
+        {"id":"vg912-frugal-free-spending","label":"free-spending","category":1,"level":4}
+      ]
+    },
+    {
+      "id": "candid",
+      "categories": ["means candid","opposite of candid"],
+      "items": [
+        {"id":"vg912-candid-frank","label":"frank","category":0,"level":0},
+        {"id":"vg912-candid-honest","label":"honest","category":0,"level":0},
+        {"id":"vg912-candid-blunt","label":"blunt","category":0,"level":1},
+        {"id":"vg912-candid-open","label":"open","category":0,"level":1},
+        {"id":"vg912-candid-forthright","label":"forthright","category":0,"level":2},
+        {"id":"vg912-candid-outspoken","label":"outspoken","category":0,"level":3},
+        {"id":"vg912-candid-straightforward","label":"straightforward","category":0,"level":3},
+        {"id":"vg912-candid-unreserved","label":"unreserved","category":0,"level":4},
+        {"id":"vg912-candid-deceitful","label":"deceitful","category":1,"level":0},
+        {"id":"vg912-candid-evasive","label":"evasive","category":1,"level":0},
+        {"id":"vg912-candid-devious","label":"devious","category":1,"level":1},
+        {"id":"vg912-candid-guarded","label":"guarded","category":1,"level":1},
+        {"id":"vg912-candid-secretive","label":"secretive","category":1,"level":2},
+        {"id":"vg912-candid-dishonest","label":"dishonest","category":1,"level":3},
+        {"id":"vg912-candid-duplicitous","label":"duplicitous","category":1,"level":3},
+        {"id":"vg912-candid-disingenuous","label":"disingenuous","category":1,"level":4}
+      ]
+    },
+    {
+      "id": "fleeting",
+      "categories": ["means fleeting","opposite of fleeting"],
+      "items": [
+        {"id":"vg912-fleeting-brief","label":"brief","category":0,"level":0},
+        {"id":"vg912-fleeting-momentary","label":"momentary","category":0,"level":0},
+        {"id":"vg912-fleeting-passing","label":"passing","category":0,"level":1},
+        {"id":"vg912-fleeting-temporary","label":"temporary","category":0,"level":1},
+        {"id":"vg912-fleeting-transient","label":"transient","category":0,"level":2},
+        {"id":"vg912-fleeting-short-lived","label":"short-lived","category":0,"level":3},
+        {"id":"vg912-fleeting-ephemeral","label":"ephemeral","category":0,"level":3},
+        {"id":"vg912-fleeting-evanescent","label":"evanescent","category":0,"level":4},
+        {"id":"vg912-fleeting-lasting","label":"lasting","category":1,"level":0},
+        {"id":"vg912-fleeting-enduring","label":"enduring","category":1,"level":0},
+        {"id":"vg912-fleeting-permanent","label":"permanent","category":1,"level":1},
+        {"id":"vg912-fleeting-eternal","label":"eternal","category":1,"level":1},
+        {"id":"vg912-fleeting-perpetual","label":"perpetual","category":1,"level":2},
+        {"id":"vg912-fleeting-everlasting","label":"everlasting","category":1,"level":3},
+        {"id":"vg912-fleeting-abiding","label":"abiding","category":1,"level":3},
+        {"id":"vg912-fleeting-undying","label":"undying","category":1,"level":4}
+      ]
+    },
+    {
+      "id": "meager",
+      "categories": ["means meager","opposite of meager"],
+      "items": [
+        {"id":"vg912-meager-scanty","label":"scanty","category":0,"level":0},
+        {"id":"vg912-meager-scant","label":"scant","category":0,"level":0},
+        {"id":"vg912-meager-skimpy","label":"skimpy","category":0,"level":1},
+        {"id":"vg912-meager-sparse","label":"sparse","category":0,"level":1},
+        {"id":"vg912-meager-paltry","label":"paltry","category":0,"level":2},
+        {"id":"vg912-meager-inadequate","label":"inadequate","category":0,"level":3},
+        {"id":"vg912-meager-insufficient","label":"insufficient","category":0,"level":3},
+        {"id":"vg912-meager-deficient","label":"deficient","category":0,"level":4},
+        {"id":"vg912-meager-ample","label":"ample","category":1,"level":0},
+        {"id":"vg912-meager-abundant","label":"abundant","category":1,"level":0},
+        {"id":"vg912-meager-plentiful","label":"plentiful","category":1,"level":1},
+        {"id":"vg912-meager-copious","label":"copious","category":1,"level":1},
+        {"id":"vg912-meager-profuse","label":"profuse","category":1,"level":2},
+        {"id":"vg912-meager-bountiful","label":"bountiful","category":1,"level":3},
+        {"id":"vg912-meager-plenteous","label":"plenteous","category":1,"level":3},
+        {"id":"vg912-meager-generous","label":"generous","category":1,"level":4}
+      ]
+    }
+  ]
+}

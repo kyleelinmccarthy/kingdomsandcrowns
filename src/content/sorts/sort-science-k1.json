@@ -1,0 +1,73 @@
+{
+  "poolId": "sort-science-k1",
+  "skillId": "science-k1",
+  "grade": "K",
+  "sets": [
+    {
+      "id": "living",
+      "categories": ["Living","Not living"],
+      "items": [
+        {"id":"sk1-living-dog","label":"dog","category":0,"level":0},
+        {"id":"sk1-living-tree","label":"tree","category":0,"level":0},
+        {"id":"sk1-living-bird","label":"bird","category":0,"level":1},
+        {"id":"sk1-living-flower","label":"flower","category":0,"level":1},
+        {"id":"sk1-living-fish","label":"fish","category":0,"level":2},
+        {"id":"sk1-living-frog","label":"frog","category":0,"level":3},
+        {"id":"sk1-living-bee","label":"bee","category":0,"level":3},
+        {"id":"sk1-living-snail","label":"snail","category":0,"level":4},
+        {"id":"sk1-living-rock","label":"rock","category":1,"level":0},
+        {"id":"sk1-living-ball","label":"ball","category":1,"level":0},
+        {"id":"sk1-living-chair","label":"chair","category":1,"level":1},
+        {"id":"sk1-living-spoon","label":"spoon","category":1,"level":1},
+        {"id":"sk1-living-shoe","label":"shoe","category":1,"level":2},
+        {"id":"sk1-living-pencil","label":"pencil","category":1,"level":3},
+        {"id":"sk1-living-drum","label":"drum","category":1,"level":3},
+        {"id":"sk1-living-toy-robot","label":"toy robot","category":1,"level":4}
+      ]
+    },
+    {
+      "id": "plants-animals",
+      "categories": ["Plants","Animals"],
+      "items": [
+        {"id":"sk1-plants-animals-tree","label":"tree","category":0,"level":0},
+        {"id":"sk1-plants-animals-rose","label":"rose","category":0,"level":0},
+        {"id":"sk1-plants-animals-grass","label":"grass","category":0,"level":1},
+        {"id":"sk1-plants-animals-tulip","label":"tulip","category":0,"level":1},
+        {"id":"sk1-plants-animals-daisy","label":"daisy","category":0,"level":2},
+        {"id":"sk1-plants-animals-cactus","label":"cactus","category":0,"level":3},
+        {"id":"sk1-plants-animals-fern","label":"fern","category":0,"level":3},
+        {"id":"sk1-plants-animals-ivy","label":"ivy","category":0,"level":4},
+        {"id":"sk1-plants-animals-dog","label":"dog","category":1,"level":0},
+        {"id":"sk1-plants-animals-cow","label":"cow","category":1,"level":0},
+        {"id":"sk1-plants-animals-duck","label":"duck","category":1,"level":1},
+        {"id":"sk1-plants-animals-fish","label":"fish","category":1,"level":1},
+        {"id":"sk1-plants-animals-frog","label":"frog","category":1,"level":2},
+        {"id":"sk1-plants-animals-snail","label":"snail","category":1,"level":3},
+        {"id":"sk1-plants-animals-spider","label":"spider","category":1,"level":3},
+        {"id":"sk1-plants-animals-starfish","label":"starfish","category":1,"level":4}
+      ]
+    },
+    {
+      "id": "land-sea",
+      "categories": ["On land","In the sea"],
+      "items": [
+        {"id":"sk1-land-sea-cow","label":"cow","category":0,"level":0},
+        {"id":"sk1-land-sea-horse","label":"horse","category":0,"level":0},
+        {"id":"sk1-land-sea-rabbit","label":"rabbit","category":0,"level":1},
+        {"id":"sk1-land-sea-deer","label":"deer","category":0,"level":1},
+        {"id":"sk1-land-sea-lion","label":"lion","category":0,"level":2},
+        {"id":"sk1-land-sea-elephant","label":"elephant","category":0,"level":3},
+        {"id":"sk1-land-sea-giraffe","label":"giraffe","category":0,"level":3},
+        {"id":"sk1-land-sea-squirrel","label":"squirrel","category":0,"level":4},
+        {"id":"sk1-land-sea-shark","label":"shark","category":1,"level":0},
+        {"id":"sk1-land-sea-whale","label":"whale","category":1,"level":0},
+        {"id":"sk1-land-sea-crab","label":"crab","category":1,"level":1},
+        {"id":"sk1-land-sea-starfish","label":"starfish","category":1,"level":1},
+        {"id":"sk1-land-sea-dolphin","label":"dolphin","category":1,"level":2},
+        {"id":"sk1-land-sea-octopus","label":"octopus","category":1,"level":3},
+        {"id":"sk1-land-sea-jellyfish","label":"jellyfish","category":1,"level":3},
+        {"id":"sk1-land-sea-seahorse","label":"seahorse","category":1,"level":4}
+      ]
+    }
+  ]
+}

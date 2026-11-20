@@ -1,7 +1,7 @@
 // @vitest-environment node
 /**
- * The sort-pool drawer (F6): a `sort` lock from one set of a pool that credits the skill. No pool ships
- * yet (F7), so these tests inject the fixture pool through `__setSortPoolsForTest`.
+ * The sort-pool drawer (F6): a `sort` lock from one set of a pool that credits the skill. The shipped pools (F7) are not these
+ * tests' subject, so they inject the fixture pool through `__setSortPoolsForTest`.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { seededRng } from "@/lib/utils/drill-generators";
@@ -32,14 +32,20 @@ const COUNT = [6, 6, 8, 8, 10];
 
 describe("when no pool credits a skill", () => {
   it("has no drawer, so the skill is not presented as a lock", () => {
+    __setSortPoolsForTest([]);
     expect(sortFor(FIXTURE_SKILL_ID)).toBeUndefined();
     expect(lockFor(FIXTURE_SKILL_ID)).toBeUndefined();
     expect(lockKind.presents(FIXTURE_SKILL_ID)).toBe(false);
   });
+});
 
-  it("ships no sort pools yet (F7 adds them): nothing is presented that is not a logic skill", () => {
-    expect(lockKind.presents("science-k1")).toBe(false);
-    expect(lockKind.presents("vocab-g45")).toBe(false);
+describe("the shipped pools (F7)", () => {
+  it("present every science and vocabulary skill that has a pool, and nothing else", () => {
+    for (const id of ["science-k1", "science-g23", "science-g45", "science-g68", "science-g912", "vocab-g45", "vocab-g68", "vocab-g912"]) {
+      expect(lockKind.presents(id), id).toBe(true);
+    }
+    expect(lockKind.presents("add-10")).toBe(false);
+    expect(lockKind.presents("spell-g45")).toBe(false);
   });
 });
 
