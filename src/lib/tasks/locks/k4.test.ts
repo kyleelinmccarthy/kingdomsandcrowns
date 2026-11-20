@@ -11,7 +11,7 @@ import { TASK_CODECS } from "../codecs";
 import type { LockTask } from "../types";
 import { LOCKS, lockFor } from ".";
 import { expectNoAnswerInView } from "@/test/lock-catalog";
-import { SHAPE_VOCAB, COLOR_VOCAB, tokenCode, tokenKey, valueLabel } from "./shapes";
+import { SHAPE_VOCAB, COLOR_VOCAB, tokenCode, tokenKey, valueLabel } from "../lock-shapes";
 import { solutions, sortAnswer } from "./solver";
 
 const LEVELS = [0, 1, 2, 3, 4];

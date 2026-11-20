@@ -1,0 +1,204 @@
+/* The lock's face (lock-presenter.tsx, lock-grids.tsx, lock-pieces.tsx): a puzzle tapped to solve.
+   Two coats, as the bench has: `lock--board` is the Realm board's timber and gold, `lock--page` the
+   Side Quests page's tokens. Squares are sized from the face's own width (container units), so a
+   5 × 5 board with its clues fits a 390 px phone and grows to the board's wide panel. A marked rule
+   is a dashed outline (shape, not colour alone); focus is a solid ring. Nothing moves in calm play
+   or when the system asks for reduced motion. */
+
+.lock {
+  container-type: inline-size;
+  margin-top: 0.8rem;
+  --lock-ink: #fff6de;
+  --lock-soft: #ffd9a8;
+  --lock-gold: #f5c04a;
+  --lock-timber: linear-gradient(180deg, #7a5433, #3e2713);
+  --lock-edge: #2a1709;
+  --lock-well: rgba(0, 0, 0, 0.28);
+  --lock-square: #fff3d6;
+  --lock-square-ink: #2a1709;
+  --lock-given: #e2c891;
+  --lock-mark: #ff9f43;
+  color: var(--lock-ink);
+}
+.lock--page {
+  --lock-ink: var(--foreground);
+  --lock-soft: var(--muted-foreground);
+  --lock-gold: var(--gold-bright);
+  --lock-timber: var(--muted);
+  --lock-edge: var(--gold-border);
+  --lock-well: var(--card);
+  --lock-square: var(--card);
+  --lock-square-ink: var(--foreground);
+  --lock-given: var(--muted);
+  --lock-mark: var(--destructive);
+}
+
+.lock-title { margin: 0 0 0.5rem; font-size: 0.85rem; font-weight: 900; letter-spacing: 0.06em; text-transform: uppercase; color: var(--lock-gold); }
+.lock-face { display: flex; flex-direction: column; align-items: flex-start; gap: 0.7rem; min-width: 0; }
+
+.lock button { font: inherit; color: inherit; cursor: var(--cursor-hand, pointer); }
+.lock button:disabled { cursor: default; }
+.lock button:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--lock-ink), 0 0 0 5px var(--lock-edge); position: relative; z-index: 1; }
+
+/* A marked rule (second chance only): a dashed outline round each part it covers. */
+.lock [data-broken="true"] { outline: 3px dashed var(--lock-mark); outline-offset: -4px; }
+.lock-clues [data-broken="true"],
+.lock th[data-broken="true"],
+.lock [class^="lock-clue-"][data-broken="true"] { outline-offset: 1px; border-radius: 6px; }
+
+/* ---- shapes ----------------------------------------------------------------------------- */
+
+.lock-shape { display: block; width: 100%; height: 100%; }
+.lock-legend { display: flex; gap: 0.4rem; }
+.lock-legend-shape { display: block; width: 2rem; height: 2rem; }
+
+/* ---- grids: shapes3, cage4, cage5 ------------------------------------------------------- */
+
+.lock-grid {
+  --cell: min(3.6rem, calc((100cqi - 0.5rem) / var(--side)));
+  display: grid;
+  grid-template-columns: repeat(var(--side), var(--cell));
+  grid-auto-rows: var(--cell);
+  border: 3px solid var(--lock-edge);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--lock-edge);
+  gap: 1px;
+}
+.lock-cell {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  padding: 0;
+  border: 0 solid var(--lock-edge);
+  background: var(--lock-square);
+  color: var(--lock-square-ink);
+  font-weight: 900;
+  font-size: calc(var(--cell, 2.75rem) * 0.48);
+  font-variant-numeric: tabular-nums;
+}
+.lock-cell:disabled { opacity: 1; }
+.lock-cell--given { background: var(--lock-given); }
+.lock-cell--given .lock-cell-value { text-decoration: underline; text-underline-offset: 0.12em; }
+.lock-grid--shapes .lock-cell { padding: 14%; }
+.lock-wall-t { border-top-width: 3px; }
+.lock-wall-r { border-right-width: 3px; }
+.lock-wall-b { border-bottom-width: 3px; }
+.lock-wall-l { border-left-width: 3px; }
+.lock-cage-label { position: absolute; top: 2px; left: 4px; font-size: max(0.62rem, calc(var(--cell) * 0.2)); font-weight: 800; line-height: 1; }
+.lock--move .lock-cell-value,
+.lock--move .lock-cell .lock-shape { animation: lock-pop 0.16s ease-out; }
+@keyframes lock-pop {
+  from { transform: scale(0.7); opacity: 0.4; }
+  to { transform: none; opacity: 1; }
+}
+
+/* ---- nonogram ---------------------------------------------------------------------------- */
+
+.lock-nono {
+  --cell: min(3rem, calc((100cqi - 4.5rem) / 5));
+  display: grid;
+  grid-template-columns: max-content repeat(5, var(--cell));
+  grid-auto-rows: var(--cell);
+  grid-template-rows: max-content;
+  gap: 2px;
+}
+.lock-nono-corner { display: block; }
+.lock-clue-col { display: flex; flex-direction: column; justify-content: flex-end; align-items: center; padding-bottom: 0.2rem; font-weight: 800; font-size: 0.95rem; line-height: 1.15; color: var(--lock-soft); }
+.lock-clue-row { display: flex; align-items: center; justify-content: flex-end; gap: 0.35rem; padding-right: 0.35rem; font-weight: 800; font-size: 0.95rem; color: var(--lock-soft); }
+.lock-cell--nono { border: 2px solid var(--lock-edge); border-radius: 4px; }
+.lock-cell--nono-1 { background: var(--lock-edge); }
+.lock--board .lock-cell--nono-1 { background: #3a2410; box-shadow: inset 0 0 0 3px var(--lock-gold); }
+.lock-cell--nono-2 { color: var(--lock-square-ink); font-size: calc(var(--cell) * 0.6); }
+
+/* ---- logic grid -------------------------------------------------------------------------- */
+
+.lock-clues { margin: 0; padding-left: 1.4rem; font-size: 1.02rem; font-weight: 700; line-height: 1.45; max-width: 36rem; }
+.lock-clues li { padding: 0.05rem 0.3rem; }
+.lock-logic { border-collapse: separate; border-spacing: 3px; width: min(100%, calc(7rem + var(--side) * 4rem)); table-layout: fixed; }
+.lock-logic th { font-size: 0.85rem; font-weight: 800; color: var(--lock-soft); overflow-wrap: anywhere; line-height: 1.15; padding: 0.15rem; }
+.lock-logic thead th { vertical-align: bottom; text-align: center; }
+.lock-logic tbody th { text-align: right; width: 6.5rem; }
+.lock-logic td { padding: 0; }
+.lock-cell--logic { width: 100%; min-height: 2.75rem; border: 2px solid var(--lock-edge); border-radius: 6px; font-size: 1.4rem; }
+.lock-cell--logic-1 { color: #1f7a3c; }
+.lock-cell--logic-2 { color: #9a2f2f; }
+.lock--page .lock-cell--logic-1 { color: var(--foreground); }
+.lock--page .lock-cell--logic-2 { color: var(--muted-foreground); }
+
+/* ---- pattern, tray and pieces --------------------------------------------------------------- */
+
+.lock-seq { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0; padding: 0; list-style: none; }
+.lock-seq-shape,
+.lock-gap { display: block; width: min(3.4rem, calc((100cqi - 3rem) / 8)); aspect-ratio: 1; min-width: 2.75rem; }
+.lock-gap { padding: 0.25rem; border: 3px dashed var(--lock-soft); border-radius: 10px; background: var(--lock-well); }
+.lock-gap[aria-pressed="true"] { border-style: solid; border-color: var(--lock-gold); box-shadow: 0 0 10px rgba(245, 192, 74, 0.5); }
+.lock-gap-mark { font-size: 1.4rem; font-weight: 900; color: var(--lock-soft); }
+
+.lock-tray { display: flex; flex-wrap: wrap; gap: 0.5rem; min-height: 2.75rem; }
+.lock-piece,
+.lock-stone,
+.lock-bin-lid,
+.lock-go {
+  min-height: 2.75rem;
+  border-radius: 12px;
+  border: 3px solid var(--lock-edge);
+  background: var(--lock-timber);
+  font-weight: 800;
+}
+.lock-piece { width: 3.3rem; height: 3.3rem; padding: 0.3rem; }
+.lock-piece--word { width: auto; min-width: 3.3rem; height: auto; padding: 0.35rem 0.8rem; font-size: 1.05rem; }
+.lock-piece[aria-pressed="true"],
+.lock-stone[aria-pressed="true"] {
+  border-color: #7a4f14;
+  background: linear-gradient(180deg, #ffe7a8, #e8b54a);
+  color: #3a2008;
+  box-shadow: 0 0 14px rgba(245, 192, 74, 0.55);
+}
+.lock--board .lock-piece,
+.lock--board .lock-stone { box-shadow: 0 4px 0 rgba(0, 0, 0, 0.35), inset 0 2px 0 rgba(255, 225, 170, 0.22); }
+.lock-piece:disabled,
+.lock-stone:disabled,
+.lock-bin-lid:disabled { opacity: 0.85; }
+
+/* ---- balance ------------------------------------------------------------------------------ */
+
+.lock-scale { width: min(24rem, 100%); }
+.lock-beam { height: 6px; margin: 0.3rem 1rem 0.5rem; border-radius: 3px; background: var(--lock-gold); transition: transform 0.25s ease-out; }
+.lock-scale--left .lock-beam { transform: rotate(-5deg); }
+.lock-scale--right .lock-beam { transform: rotate(5deg); }
+.lock:not(.lock--move) .lock-beam { transition: none; }
+.lock-pans { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+.lock-pan { display: flex; flex-direction: column; align-items: center; gap: 0.3rem; min-height: 5rem; padding: 0.4rem; border-radius: 0 0 40% 40%; background: var(--lock-well); border: 2px solid var(--lock-edge); }
+.lock-pan-name { font-size: 0.8rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--lock-soft); }
+.lock-pan-weight { font-size: 1.3rem; font-weight: 900; }
+.lock-pan-stones { display: flex; flex-wrap: wrap; justify-content: center; gap: 0.25rem; }
+.lock-pan-total { font-size: 1rem; font-weight: 800; }
+.lock-tilt { margin: 0.4rem 0 0; font-weight: 800; color: var(--lock-soft); }
+.lock-stone { min-width: 3rem; padding: 0.3rem 0.7rem; font-size: 1.2rem; border-radius: 999px; font-variant-numeric: tabular-nums; }
+.lock-pan-stones .lock-stone--on { min-width: 1.8rem; min-height: 1.8rem; display: inline-grid; place-items: center; font-size: 0.9rem; border: 2px solid var(--lock-edge); background: var(--lock-timber); border-radius: 999px; }
+
+/* ---- sorts --------------------------------------------------------------------------------- */
+
+.lock-bins { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(9rem, 100%), 1fr)); gap: 0.6rem; width: 100%; }
+.lock-bins--grid { grid-template-columns: 1fr 1fr; }
+.lock-bin { display: flex; flex-direction: column; gap: 0.4rem; min-height: 6rem; padding: 0.4rem; border-radius: 12px; background: var(--lock-well); border: 2px solid var(--lock-edge); }
+.lock-bin-lid { width: 100%; padding: 0.3rem 0.6rem; font-size: 1rem; overflow-wrap: anywhere; }
+.lock-bin-items { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+.lock-bin-items .lock-piece { width: 2.8rem; height: 2.8rem; }
+.lock-bin-items .lock-piece--word { width: auto; height: auto; }
+
+/* ---- check, and the solved board ------------------------------------------------------------ */
+
+.lock-go { display: block; min-width: 9rem; margin-top: 0.8rem; padding: 0.4rem 1.2rem; font-size: 1.15rem; }
+.lock-go:disabled { opacity: 0.55; }
+.lock--board .lock-go { border-color: #6b4410; background: linear-gradient(180deg, #ffd875, #e09b24); color: #3a2008; box-shadow: 0 5px 0 #7a4f14, inset 0 2px 0 rgba(255, 255, 255, 0.5); }
+.lock--page .lock-go { border-width: 1px; background: var(--primary); color: var(--primary-foreground); }
+.lock-reveal { margin: 0.6rem 0 0; font-size: 1rem; font-weight: 800; color: var(--lock-soft); }
+
+@media (prefers-reduced-motion: reduce) {
+  .lock--move .lock-cell-value,
+  .lock--move .lock-cell .lock-shape { animation: none; }
+  .lock-beam { transition: none; }
+}

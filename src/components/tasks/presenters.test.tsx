@@ -81,3 +81,12 @@ describe("TaskPresenter (measure)", () => {
     expect(screen.getByLabelText("Length in ft")).toBeTruthy();
   });
 });
+
+describe("TaskPresenter (lock)", () => {
+  it("puts a lock task on the lock's face (`lock-presenter.test.tsx` has the rest)", () => {
+    const lock: ClientTask = { kind: "lock", id: "l1", skillId: "logic-g23", prompt: "Balance it", view: { puzzle: "balance", weights: [1, 2, 3], target: 3, unit: "stones" } };
+    render(<TaskPresenter task={lock} flow={asking} variant="board" numerals calm={false} disabled={false} onRespond={vi.fn()} />);
+    expect(screen.getByRole("heading", { name: "The lock" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Check the lock" })).toBeDisabled();
+  });
+});

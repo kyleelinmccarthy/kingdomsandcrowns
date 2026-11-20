@@ -21,7 +21,7 @@
 import { checkTask } from "../lock";
 import { checkLock, type LockResponse, type LockShape, type LockView } from "../lock-rules";
 import type { LockTask } from "../types";
-import { ATTRS, VALUES, attrOf, valueLabel, type Attr } from "./shapes";
+import { ATTRS, VALUES, attrOf, valueLabel, type Attr } from "../lock-shapes";
 
 /** Every way to fill `slots` places each with 0..max (or 1..max when `blankOk` is false). */
 function* fills(slots: number, max: number, blankOk: boolean): Generator<number[]> {

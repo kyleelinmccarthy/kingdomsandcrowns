@@ -295,7 +295,7 @@ export function attemptFeedback(result: AttemptResult, retried: boolean, village
     // wrong cut is off is said in the words of what it measures (a length is long; an area is over).
     const quantity = task?.kind === "measure" ? task.view.quantity : undefined;
     const lead = code === "too_long" || code === "too_short" ? cutFeedbackLine(quantity, code)
-      : isLockFeedback(code) ? lockFeedbackLine(code)
+      : isLockFeedback(code) ? lockFeedbackLine(code, task?.kind === "lock" ? task.view.puzzle : undefined)
       : "Not quite.";
     return { heading: "Try again", text: `${lead} ${result.hint ?? ""}`.trim() };
   }

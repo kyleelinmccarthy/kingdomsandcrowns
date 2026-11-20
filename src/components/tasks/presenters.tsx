@@ -12,6 +12,7 @@ import type { FlowState } from "@/lib/utils/deed-run-flow";
 import type { BenchSite } from "@/components/use-deed-flow";
 import { BenchPresenter } from "./bench-presenter";
 import { ChoicePresenter } from "./choice-presenter";
+import { LockPresenter } from "./lock-presenter";
 
 export type PresenterProps<K extends TaskKind> = {
   task: Extract<ClientTask, { kind: K }>;
@@ -35,8 +36,7 @@ export type PresenterProps<K extends TaskKind> = {
 export const TASK_PRESENTERS: { [K in TaskKind]: ComponentType<PresenterProps<K>> } = {
   choice: ChoicePresenter,
   measure: BenchPresenter,
-  // The lock's face arrives in F4; until then this placeholder draws nothing.
-  lock: () => null,
+  lock: LockPresenter,
 };
 
 export function TaskPresenter(props: PresenterProps<TaskKind>) {

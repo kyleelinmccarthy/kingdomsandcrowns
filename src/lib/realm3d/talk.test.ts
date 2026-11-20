@@ -368,6 +368,17 @@ describe("what a villager says after a lock answer (R-F2, R-F3)", () => {
     expect(attemptFeedback({ correct: false, secondChance: true, hint: "Count on." }, false, undefined, lockTask).text).toBe("Not quite. Count on.");
   });
 
+  it("on a sort's second chance, nothing is marked, so it never points at a marked rule (RF-c)", () => {
+    for (const view of [
+      { puzzle: "sort1" as const, items: [{ shape: "circle" as const, color: "red" as const }], bins: ["Red", "Blue"] },
+      { puzzle: "sort" as const, categories: ["Alive", "Not alive"], items: [{ id: "a", label: "rock" }] },
+    ]) {
+      const sort: ClientTask = { kind: "lock", id: "s", skillId: "logic-k1", prompt: "p", view };
+      expect(attemptFeedback({ correct: false, secondChance: true, hint: "Look at the colours.", feedback: "rule_broken" }, false, undefined, sort))
+        .toEqual({ heading: "Try again", text: "Some of these are in the wrong place. Look again. Look at the colours." });
+    }
+  });
+
   it("a miss's line is a sentence of its own, never \"The answer was …\"", () => {
     const answer = "Here is one way it fits.";
     expect(attemptFeedback({ correct: false, secondChance: false, answer, reveal: "balance:1,1,0" }, true, undefined, lockTask).text).toBe(answer);

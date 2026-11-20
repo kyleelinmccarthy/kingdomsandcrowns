@@ -1,9 +1,10 @@
 /**
  * The small fixed vocabulary the youngest locks draw from (F2), named once so the generators, the
  * test solver and the lock's face (F4) agree on it. A subset of `LOCK_SHAPES` / `LOCK_COLORS`:
- * five shapes, four colours, two sizes. Pure; the words are the child's own ("Red", "Circles").
+ * five shapes, four colours, two sizes. Pure and client-safe (it sits beside `lock-rules`, outside the
+ * server-only `locks/`), so the face draws and names shapes with the generators' own words.
  */
-import type { LockShape } from "../lock-rules";
+import type { LockShape } from "./lock-rules";
 
 export const SHAPE_VOCAB = ["circle", "square", "triangle", "star", "heart"] as const satisfies readonly LockShape["shape"][];
 export const COLOR_VOCAB = ["red", "blue", "yellow", "green"] as const satisfies readonly LockShape["color"][];

@@ -65,6 +65,8 @@ describe("client boundary", () => {
     expect(serverOnlyValueImports(`import { x } from "@/lib/tasks/locks/k4";`, at)).toEqual(["@/lib/tasks/locks/k4"]);
     expect(serverOnlyValueImports(`import { checkLock } from "@/lib/tasks/lock-rules";`, at)).toEqual([]);
     expect(serverOnlyValueImports(`import { LOCK_MISS_LINE } from "@/lib/tasks/lock-copy";`, at)).toEqual([]);
+    expect(serverOnlyValueImports(`import { tokenName } from "@/lib/tasks/lock-shapes";`, at)).toEqual([]);
+    expect(serverOnlyValueImports(`import { lockBoard } from "@/lib/tasks/lock-board";`, at)).toEqual([]);
     // A sibling file that merely shares a name is not the server module.
     expect(serverOnlyValueImports(`import { x } from "./registry";`, at)).toEqual([]);
     expect(serverOnlyValueImports(`import { x } from "./registry";`, join(SRC, "lib/tasks/x.ts"))).toEqual(["./registry"]);

@@ -21,7 +21,7 @@ import type { LockGenerator } from "./index";
 import {
   ATTR_WORD, SAFE_PALETTES, SHAPE_VOCAB, VALUES, makeShape, tokenCode, tokenKey, tokenName, valueLabel,
   type Attr, type ColorId, type ShapeId, type SizeId,
-} from "./shapes";
+} from "../lock-shapes";
 import { clampLevel, pick, sample, weighted } from "./util";
 
 type Of<P extends LockTask["puzzle"]> = Extract<LockTask, { puzzle: P }>;
