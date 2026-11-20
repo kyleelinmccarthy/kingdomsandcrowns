@@ -10,6 +10,9 @@ afterEach(cleanup);
 
 const PATTERN = "Pip fits the next shape: red, blue, red, blue, … red!";
 const SORT = "Pip puts each shape where it belongs.";
+const WORDS = "Pip reads each word and puts it where it belongs: a dog is living, a stone is not.";
+const SHAPES = "Pip puts each shape once in every row and every column.";
+const BALANCE = "Pip puts stones on the pan until both sides weigh the same.";
 const ASSEMBLE = "Aldo needs a beam 5 feet long. He fits a 2-foot piece and a 3-foot piece: 2 + 3 = 5. Now you try!";
 
 const bench = (mode: "assemble" | "cut"): ClientTask => ({ kind: "measure", id: "m1", skillId: "s", prompt: "p", view: { mode, unit: "ft" } });
@@ -20,6 +23,8 @@ const sort1 = lock({ puzzle: "sort1", items: [{ shape: "circle", color: "red" }]
 const sort2 = lock({ puzzle: "sort2", items: [{ shape: "circle", color: "red" }], rows: ["Circles", "Stars"], cols: ["Red", "Blue"] });
 const balance = lock({ puzzle: "balance", weights: [1, 2], target: 3 });
 const wordSort = lock({ puzzle: "sort", categories: ["Alive", "Not alive"], items: [{ id: "r", label: "rock" }] });
+const shapes3 = lock({ puzzle: "shapes3", symbols: [{ shape: "circle", color: "red" }], givens: [1, 0, 0, 0, 0, 0, 0, 0, 0] });
+const cage4 = lock({ puzzle: "cage4", cages: [] });
 
 describe("LockDemo: Watch Pip", () => {
   it("shows Pip fitting the pattern, with a heading, a named picture and a Got it button that has focus", () => {
@@ -48,14 +53,24 @@ describe("LockDemo: Watch Pip", () => {
   it("says its words for read-aloud", () => {
     expect(lockDemoCopy("pattern")).toBe(PATTERN);
     expect(lockDemoCopy("sort")).toBe(SORT);
+    expect(lockDemoCopy("words")).toBe(WORDS);
+    expect(lockDemoCopy("shapes")).toBe(SHAPES);
+    expect(lockDemoCopy("balance")).toBe(BALANCE);
+  });
+
+  it.each([["words", WORDS], ["shapes", SHAPES], ["balance", BALANCE]] as const)("shows Pip's %s lock, with a named picture", (mode, words) => {
+    render(<LockDemo mode={mode} calm onDone={() => {}} />);
+    expect(screen.getByRole("heading", { name: "Watch Pip" })).toBeInTheDocument();
+    expect(screen.getByText(words)).toBeInTheDocument();
+    expect(screen.getByRole("img").getAttribute("aria-label")).toBeTruthy();
   });
 });
 
 describe("which demo a task has (demoKeyOf)", () => {
-  it("Aldo for a bench task's mode; Pip for a pattern or a shape sort; none for the rest", () => {
+  it("Aldo for a bench task's mode; Pip for every lock a K–3 hero can meet (RF-g); none for the rest", () => {
     expect([bench("assemble"), bench("cut")].map(demoKeyOf)).toEqual(["assemble", "cut"]);
-    expect([pattern, sort1, sort2].map(demoKeyOf)).toEqual(["pattern", "sort", "sort"]);
-    expect([balance, wordSort, choice, undefined].map(demoKeyOf)).toEqual([null, null, null, null]);
+    expect([pattern, sort1, sort2, wordSort, shapes3, balance].map(demoKeyOf)).toEqual(["pattern", "sort", "sort", "words", "shapes", "balance"]);
+    expect([cage4, choice, undefined].map(demoKeyOf)).toEqual([null, null, null]);
   });
 });
 
@@ -111,8 +126,13 @@ describe("useTaskDemo", () => {
     expect(renderHook(() => useTaskDemo(run({ questions: [pattern], demo: undefined }), 0)).result.current.demo).toBeNull();
   });
 
+  it.each([["words", wordSort], ["shapes", shapes3], ["balance", balance]] as const)("shows Pip before a first %s lock", (key, task) => {
+    const { result } = renderHook(() => useTaskDemo(run({ questions: [choice, task], demo: { at: 1 } }), 1));
+    expect(result.current.demo).toBe(key);
+  });
+
   it("is off when the marked task has no demo", () => {
     expect(renderHook(() => useTaskDemo(run({ questions: [choice] }), 0)).result.current.demo).toBeNull();
-    expect(renderHook(() => useTaskDemo(run({ questions: [balance] }), 0)).result.current.demo).toBeNull();
+    expect(renderHook(() => useTaskDemo(run({ questions: [cage4] }), 0)).result.current.demo).toBeNull();
   });
 });

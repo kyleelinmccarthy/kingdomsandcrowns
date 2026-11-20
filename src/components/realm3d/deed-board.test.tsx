@@ -630,6 +630,7 @@ describe("a lock on the board (F4)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Tray: red circle" }));
     await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Check the lock" })));
     expect(screen.getByRole("button", { name: "Space 5: red circle" })).toBeDisabled();
-    expect(screen.getAllByText(/Here is one way it fits\./).length).toBeGreaterThan(0);
+    // Said once, by the feedback line beside the solved board; the face draws, it does not repeat it.
+    expect(screen.getAllByText(/Here is one way it fits\./)).toHaveLength(1);
   });
 });

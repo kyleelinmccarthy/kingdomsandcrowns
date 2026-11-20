@@ -4,7 +4,7 @@
  * The lock's loose-piece surfaces (see `lock-presenter.tsx`): the pattern, the balance and the
  * sorts. Nothing is dragged: a piece is tapped to pick it, then its place is tapped.
  */
-import { useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { tokenName } from "@/lib/tasks/lock-shapes";
 import type { LockShape, LockView } from "@/lib/tasks/lock-rules";
 import type { SurfaceProps } from "./lock-presenter";
@@ -36,7 +36,7 @@ export function PatternSurface({ view, board, set, readOnly, marks }: SurfacePro
   let k = -1;
   return (
     <>
-      <ol className="lock-seq">
+      <ol className="lock-seq" style={{ "--count": view.sequence.length } as CSSProperties}>
         {view.sequence.map((s, i) => {
           if (s) return (
             <li key={i}>
@@ -151,19 +151,36 @@ function ItemFace({ item }: { item: Item }) {
 export function SortSurface({ view, board, set, readOnly }: SurfaceProps<SortView>) {
   const [picked, setPicked] = useState<number | null>(null);
   const { items, bins } = sortParts(view);
+  const root = useRef<HTMLDivElement>(null);
+  // Where focus goes once the board has redrawn: never dropped to the page as a button leaves.
+  // Every placement or take-out changes the board, so the item is focused once it has moved.
+  const focusItem = useRef<number | null>(null);
+  useEffect(() => {
+    if (focusItem.current === null) return;
+    root.current?.querySelector<HTMLButtonElement>(`[data-item="${focusItem.current}"]`)?.focus();
+    focusItem.current = null;
+  }, [board]);
   const put = (bin: number) => {
     if (picked === null) return;
     set(picked, bin + 1);
     setPicked(null);
+    // The next item still to sort, or (none left) the one just placed.
+    const next = board.findIndex((x, i) => x === 0 && i !== picked);
+    focusItem.current = next === -1 ? picked : next;
+  };
+  const takeOut = (i: number) => {
+    set(i, 0);
+    focusItem.current = i;
   };
   return (
-    <>
+    <div ref={root} className="lock-sort">
       <div className="lock-tray lock-tray--sort" role="group" aria-label="To sort">
         {items.map((item, i) => board[i] === 0 && (
           <button
             key={i}
             type="button"
             className={`lock-piece${item.word ? " lock-piece--word" : ""}`}
+            data-item={i}
             aria-label={item.name}
             aria-pressed={picked === i}
             disabled={readOnly}
@@ -185,9 +202,10 @@ export function SortSurface({ view, board, set, readOnly }: SurfaceProps<SortVie
                   key={i}
                   type="button"
                   className={`lock-piece lock-piece--placed${item.word ? " lock-piece--word" : ""}`}
+                  data-item={i}
                   aria-label={`${item.name}, in ${bin}`}
                   disabled={readOnly}
-                  onClick={() => set(i, 0)}
+                  onClick={() => takeOut(i)}
                 >
                   <ItemFace item={item} />
                 </button>
@@ -196,6 +214,6 @@ export function SortSurface({ view, board, set, readOnly }: SurfaceProps<SortVie
           </div>
         ))}
       </div>
-    </>
+    </div>
   );
 }

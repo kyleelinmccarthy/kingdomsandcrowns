@@ -214,10 +214,11 @@ describe("the rules are marked only after a check (R-F3)", () => {
 
 describe("after a miss, the solved board (R-F2)", () => {
   it.each([gen("cage4"), gen("shapes3"), gen("logic3"), gen("nono5"), gen("sort1"), gen("pattern"), gen("balance")].map((t) => [t.puzzle, t] as const))(
-    "%s: draws the reveal read-only with its line",
+    "%s: draws the reveal read-only, leaving its line to the player's feedback (said once, not twice)",
     (_, t) => {
       show(t, { flow: missed(t) });
-      expect(screen.getByText("Here is one way it fits.")).toBeInTheDocument();
+      expect(screen.queryByText(/Here is one way it fits/)).toBeNull();
+      expect(screen.getByRole("region", { name: "The lock" })).toHaveAttribute("data-solved", "true");
       for (const b of screen.getAllByRole("button")) expect(b).toBeDisabled();
       expect(screen.queryByRole("button", { name: "Check the lock" })).toBeNull();
     },
@@ -308,17 +309,74 @@ describe("keys on a grid", () => {
 });
 
 describe("the Realm's keys stay out of the lock", () => {
-  it.each([gen("cage4"), gen("logic3"), gen("pattern"), gen("sort1"), gen("balance")].map((t) => [t.puzzle, t] as const))("%s: no key typed on the face reaches the window", (_, t) => {
+  it.each([gen("cage4"), gen("logic3"), gen("pattern"), gen("sort1"), gen("balance")].map((t) => [t.puzzle, t] as const))("%s: the face's own keys never reach the window; Esc still does, to close the board", (_, t) => {
     const onWindowKey = vi.fn();
     window.addEventListener("keydown", onWindowKey);
     try {
       show(t);
       const target = screen.getAllByRole("button").find((b) => !(b as HTMLButtonElement).disabled)!;
-      for (const key of ["1", "3", "w", "e", "Escape", "ArrowRight", "ArrowDown", " "]) fireEvent.keyDown(target, { key });
+      for (const key of ["1", "3", "0", "ArrowRight", "ArrowDown", "ArrowLeft", "ArrowUp", " ", "Enter", "Backspace", "Delete"]) fireEvent.keyDown(target, { key });
       expect(onWindowKey).not.toHaveBeenCalled();
+      fireEvent.keyDown(target, { key: "Escape" });
+      expect(onWindowKey).toHaveBeenCalledTimes(1);
     } finally {
       window.removeEventListener("keydown", onWindowKey);
     }
+  });
+});
+
+describe("a nonogram's marks are the child's notes, never a new answer", () => {
+  it("a mark is sent as empty, so marking on a second chance never makes the first try new", () => {
+    const t = gen("nono5");
+    const first = TASK_CODECS.lock.encode(t.solution);
+    const { onRespond } = show(t, { flow: secondChance(first) });
+    const blank = t.solution.cells.findIndex((x) => x === 0);
+    const square = cell(Math.floor(blank / 5), blank % 5);
+    fireEvent.click(square);
+    expect(square.getAttribute("aria-label")).toMatch(/: filled/);
+    fireEvent.click(square);
+    expect(square.getAttribute("aria-label")).toMatch(/: marked empty/);
+    expect(check()).toBeDisabled();
+    fireEvent.click(check());
+    expect(onRespond).not.toHaveBeenCalled();
+  });
+
+  it("the same filled picture with marks is the same response, so the server refuses it as a repeat", () => {
+    const t = gen("nono5");
+    const { onRespond } = show(t);
+    enter(t, { puzzle: "nono5", cells: t.solution.cells.map((x) => (x === 1 ? 1 : 2)) } as LockResponse);
+    fireEvent.click(check());
+    const sent = onRespond.mock.calls[0][0];
+    expect(sent).toBe(TASK_CODECS.lock.encode(t.solution));
+    expect(sent).not.toMatch(/2/);
+    expect(lockKind.sameResponse(lockKind.decode(sent)!, t.solution)).toBe(true);
+  });
+});
+
+describe("focus", () => {
+  it("starts on the first open square, never on a given", () => {
+    const t = gen("cage4", 0, (x) => !!x.givens?.[0]);
+    show(t);
+    const first = t.givens!.findIndex((x) => x === 0);
+    expect(cell(Math.floor(first / 4), first % 4)).toHaveFocus();
+    expect(cell(Math.floor(first / 4), first % 4).tabIndex).toBe(0);
+  });
+
+  it("a sort hands focus to the next item to sort after a placement, and to the item sent back", () => {
+    const t = gen("sort1");
+    show(t);
+    const tray = () => within(screen.getByRole("group", { name: "To sort" })).getAllByRole("button");
+    fireEvent.click(tray()[0]);
+    fireEvent.click(screen.getByRole("button", { name: `Put in ${t.bins[0]}` }));
+    expect(tray()[0]).toHaveFocus();
+    const placed = screen.getByRole("button", { name: `${tokenName(t.items[0])}, in ${t.bins[0]}` });
+    fireEvent.click(placed);
+    expect(tray()[0]).toHaveFocus();
+    expect(tray()[0].getAttribute("aria-label")).toBe(tokenName(t.items[0]));
+    // With nothing left to sort, focus stays on the item just placed.
+    enter(t, t.solution);
+    expect(document.activeElement).not.toBe(document.body);
+    expect(document.activeElement?.getAttribute("aria-label")).toMatch(/, in /);
   });
 });
 
@@ -331,6 +389,22 @@ describe("every square and every shape is named", () => {
     const o = t.givens.findIndex((x) => x === 0);
     fireEvent.click(cell(Math.floor(o / 3), o % 3));
     expect(cell(Math.floor(o / 3), o % 3).getAttribute("aria-label")).toBe(`Row ${Math.floor(o / 3) + 1}, column ${(o % 3) + 1}: ${tokenName(t.symbols[0])}`);
+  });
+
+  it("a shape grid's legend shows the key for each shape", () => {
+    const t = gen("shapes3");
+    const { container } = show(t);
+    expect([...container.querySelectorAll(".lock-legend-key")].map((k) => k.textContent)).toEqual(["1", "2", "3"]);
+  });
+
+  it("a nonogram's clue says it doesn't fit yet in text a screen reader reads", () => {
+    const t = gen("nono5");
+    const wrong = { puzzle: "nono5", cells: t.solution.cells.map((x, i) => (i < 5 ? 1 : x)) } as LockResponse;
+    const { container } = show(t, { flow: secondChance(TASK_CODECS.lock.encode(wrong)) });
+    const clue = container.querySelector(".lock-clue-row[data-broken='true']")!;
+    expect(clue).not.toBeNull();
+    expect(clue.hasAttribute("aria-label")).toBe(false);
+    expect(clue.textContent).toMatch(/^Row 1 clue: .*, doesn't fit yet$/);
   });
 
   it("a cage square names its cage", () => {

@@ -5,6 +5,8 @@
  * A board is the response's cells, with one exception: a logic grid is edited as its whole
  * person × item table (0 blank, 1 ✓, 2 ✗, row by row), and its response is read from the ticks,
  * one per person. A row with no tick, or with two, answers nothing yet, so the board is not full.
+ * The ✗s, and a nonogram's marks (·), are the child's own notes: they stay on the board and are
+ * sent as empty, so a mark added or wiped is never a new answer (the second chance's repeat rule).
  */
 import { checkLock, lockSize, type LockCage, type LockPuzzle, type LockResponse, type LockView } from "./lock-rules";
 
@@ -60,6 +62,7 @@ export function boardFromCells(v: LockView, cells: readonly number[]): number[] 
 
 /** The response's cells a board stands for. */
 export function cellsFromBoard(v: LockView, board: readonly number[]): number[] {
+  if (v.puzzle === "nono5") return board.map((x) => (x === 1 ? 1 : 0));
   if (familyOf(v.puzzle) !== "logic") return [...board];
   const n = gridSide(v);
   return Array.from({ length: n }, (_, r) => {

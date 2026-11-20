@@ -16,16 +16,16 @@
  * marked (`checkLock`, from the visible puzzle alone: R-F3) only on a second chance, never before
  * the first check, so the face is no free solver; a sort marks nothing, since where an item belongs
  * is its answer (RF-c). A second chance opens on the first try, and the same board is not sent twice.
- * After a miss the solved board (`AttemptResult.reveal`, R-F2) is drawn read-only.
+ * After a miss the solved board (`AttemptResult.reveal`, R-F2) is drawn read-only; its words ("Here
+ * is one way it fits.") are the player's feedback line beside it, said once, never repeated here.
  *
- * Every key typed on the face stays on it: the Realm's keys (W to walk, E to act, Esc to leave)
- * never fire from here. The numbers on a lock are the puzzle itself (cage targets, run clues, stone
+ * The keys the face uses (digits, arrows, Enter, Space, Backspace, Delete) stay on it, so they never
+ * cast or walk in the Realm; every other key bubbles, so Esc still closes the board. The numbers on a lock are the puzzle itself (cage targets, run clues, stone
  * weights), so `numerals` changes only what the face adds: the balance's pan totals, which give way
  * to which side is heavier. Shape grids and patterns carry no numbers at all.
  */
 import { useEffect, useId, useRef, useState } from "react";
 import { TASK_CODECS } from "@/lib/tasks/codecs";
-import { LOCK_MISS_LINE } from "@/lib/tasks/lock-copy";
 import { checkLock, isSort, responseFits, type LockView } from "@/lib/tasks/lock-rules";
 import { blankBoard, boardFromCells, boardIsFull, familyOf, markedLines, NO_MARKS, responseOf, type MarkedLines } from "@/lib/tasks/lock-board";
 import type { FlowState } from "@/lib/utils/deed-run-flow";
@@ -57,6 +57,9 @@ function boardOf(view: LockView, encoded: string | undefined): number[] | null {
   return r && responseFits(view, r) ? boardFromCells(view, r.cells) : null;
 }
 
+/** The keys the face answers to; only these are kept from the game. */
+const FACE_KEYS = /^(?:[0-9]|Arrow(?:Up|Down|Left|Right)|Enter| |Spacebar|Backspace|Delete)$/;
+
 /** A face opens blank, or on the first try when a run is picked back up on its second chance. */
 const openingBoard = (view: LockView, flow: FlowState): number[] =>
   (flow.phase === "second-chance" ? boardOf(view, flow.ruledOut[0]) : null) ?? blankBoard(view);
@@ -79,10 +82,11 @@ function Lock({ task, flow, variant, numerals, calm, disabled, onRespond }: Pres
   const canCheck = boardIsFull(view, board) && !resolved && !disabled && !tried;
   const marks = flow.phase === "second-chance" && !isSort(view.puzzle) ? markedLines(checkLock(view, response).broken) : NO_MARKS;
 
-  // Focus follows the question: the face's first open place takes it (again on a second chance).
+  // Focus follows the question: the face's first open place takes it (again on a second chance),
+  // never a given square.
   useEffect(() => {
     if (flow.phase === "resolved") return;
-    face.current?.querySelector<HTMLButtonElement>("button:not(:disabled):not([tabindex='-1'])")?.focus();
+    face.current?.querySelector<HTMLButtonElement>("button:not(:disabled):not([tabindex='-1']):not([aria-disabled='true'])")?.focus();
   }, [flow.phase]);
 
   const surface: SurfaceProps = {
@@ -101,8 +105,11 @@ function Lock({ task, flow, variant, numerals, calm, disabled, onRespond }: Pres
     <section
       className={`lock lock--${variant}${calm ? "" : " lock--move"}`}
       aria-labelledby={titleId}
-      // Every key typed on the face is the face's: the game's keys stay out.
-      onKeyDown={(e) => e.stopPropagation()}
+      data-solved={reveal ? true : undefined}
+      // The face's own keys are the face's: they never reach the game. Esc and the rest bubble.
+      onKeyDown={(e) => {
+        if (FACE_KEYS.test(e.key)) e.stopPropagation();
+      }}
     >
       <h3 id={titleId} className="lock-title">
         The lock
@@ -110,7 +117,6 @@ function Lock({ task, flow, variant, numerals, calm, disabled, onRespond }: Pres
       <div ref={face} className="lock-face">
         <Surface {...surface} />
       </div>
-      {reveal && <p className="lock-reveal">{LOCK_MISS_LINE}</p>}
       {!resolved && (
         <button type="button" className="lock-go" disabled={!canCheck} onClick={() => canCheck && onRespond(encoded)}>
           Check the lock

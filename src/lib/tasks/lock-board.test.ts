@@ -56,6 +56,9 @@ describe("the board a lock's face edits", () => {
   it("hands back a response in the puzzle's own form", () => {
     expect(responseOf(viewOf(LOGIC3), boardFromCells(viewOf(LOGIC3), [2, 1, 3]))).toEqual({ puzzle: "logic3", cells: [2, 1, 3] });
     expect(responseOf(viewOf(PATTERN), [3, 3])).toEqual({ puzzle: "pattern", cells: [3, 3] });
+    // A nonogram's marks are notes: sent as empty, so the marked picture is the plain one.
+    const marked = NONO5.solution.cells.map((x) => (x === 1 ? 1 : 2));
+    expect(responseOf(viewOf(NONO5), marked)).toEqual(NONO5.solution);
   });
 
   it("outlines each cage and labels it in its top-left square", () => {

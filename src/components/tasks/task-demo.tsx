@@ -8,11 +8,11 @@
  */
 import { useState } from "react";
 import type { RunStart } from "@/lib/utils/deed-run-types";
-import { demoKeyOf, type DemoKey, type LockDemoKey } from "@/lib/tasks/demos";
+import { demoKeyOf, LOCK_DEMO_KEYS, type DemoKey, type LockDemoKey } from "@/lib/tasks/demos";
 import { BenchDemo, demoCopy } from "./bench-demo";
 import { LockDemo, lockDemoCopy } from "./lock-demo";
 
-const isLockDemo = (key: DemoKey): key is LockDemoKey => key === "pattern" || key === "sort";
+const isLockDemo = (key: DemoKey): key is LockDemoKey => (LOCK_DEMO_KEYS as readonly string[]).includes(key);
 
 /** The demo's words, for read-aloud. */
 export const taskDemoCopy = (key: DemoKey): string => (isLockDemo(key) ? lockDemoCopy(key) : demoCopy(key));

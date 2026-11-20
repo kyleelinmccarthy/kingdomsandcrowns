@@ -23,11 +23,12 @@ const NOT_YET = ", doesn't fit yet";
 const ARROWS: Record<string, [number, number]> = { ArrowUp: [-1, 0], ArrowDown: [1, 0], ArrowLeft: [0, -1], ArrowRight: [0, 1] };
 
 /**
- * A roving tab stop over a `rows` × `cols` board: the arrows move it (and the focus), stopping at the
- * edges. `keyed(i, e)` handles the arrows and hands any other key to the surface.
+ * A roving tab stop over a `rows` × `cols` board, starting on square `start` (a grid's first open
+ * one): the arrows move it (and the focus), stopping at the edges. `keyed(i, e)` handles the arrows
+ * and hands any other key to the surface.
  */
-function useRoving(rows: number, cols: number) {
-  const [active, setActive] = useState(0);
+function useRoving(rows: number, cols: number, start = 0) {
+  const [active, setActive] = useState(start);
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
   const keyed = (i: number, e: KeyboardEvent, other: (key: string) => boolean) => {
     const step = ARROWS[e.key];
@@ -67,7 +68,7 @@ const sideStyle = (side: number) => ({ "--side": side }) as CSSProperties;
 export function GridSurface({ view, board, set, readOnly, marks }: SurfaceProps<GridView>) {
   const side = gridSide(view);
   const max = view.puzzle === "shapes3" ? view.symbols.length : side;
-  const roving = useRoving(side, side);
+  const roving = useRoving(side, side, Math.max(0, board.findIndex((_, i) => !isGiven(view, i))));
   const cages = view.puzzle === "shapes3" ? null : cageLayout(view.cages, side);
   const words = (v: number) => (v === 0 ? "empty" : view.puzzle === "shapes3" ? tokenName(view.symbols[v - 1]) : String(v));
 
@@ -75,8 +76,12 @@ export function GridSurface({ view, board, set, readOnly, marks }: SurfaceProps<
     <>
       {view.puzzle === "shapes3" && (
         <div className="lock-legend">
+          {/* Each shape with its key: 1 to 3 put it in the square that has focus. */}
           {view.symbols.map((s, k) => (
-            <ShapePicture key={k} shape={s} label={tokenName(s)} className="lock-legend-shape" />
+            <span key={k} className="lock-legend-item">
+              <ShapePicture shape={s} label={`${tokenName(s)}, key ${k + 1}`} className="lock-legend-shape" />
+              <span className="lock-legend-key" aria-hidden="true">{k + 1}</span>
+            </span>
           ))}
         </div>
       )}
@@ -128,16 +133,14 @@ const clueText = (clue: number[], sep: string) => (clue.length ? clue.join(sep) 
 export function NonogramSurface({ view, board, set, readOnly, marks }: SurfaceProps<NonoView>) {
   const side = 5;
   const roving = useRoving(side, side);
+  // A clue is said in visually hidden words ("Row 2 clue: 2, 1, doesn't fit yet"); the numbers drawn are for the eye.
   const clue = (kind: "row" | "col", k: number, lines: number[][], broken: boolean): ReactNode => (
-    <span
-      key={`${kind}${k}`}
-      className={`lock-clue-${kind}`}
-      data-broken={broken || undefined}
-      aria-label={`${kind === "row" ? "Row" : "Column"} ${k + 1} clue: ${clueText(lines[k] ?? [], ", ")}${broken ? NOT_YET : ""}`}
-    >
+    <span key={`${kind}${k}`} className={`lock-clue-${kind}`} data-broken={broken || undefined}>
+      <span className="sr-only">{`${kind === "row" ? "Row" : "Column"} ${k + 1} clue: ${clueText(lines[k] ?? [], ", ")}`}</span>
       {(lines[k]?.length ? lines[k] : [0]).map((n, j) => (
-        <span key={j}>{n}</span>
+        <span key={j} aria-hidden="true">{n}</span>
       ))}
+      {broken && <span className="sr-only">{NOT_YET}</span>}
     </span>
   );
   return (

@@ -85,6 +85,9 @@ describe("demoAt for a lock (R-F10)", () => {
   const sort1 = { kind: "lock", id: "ls", skillId: "logic-k1", prompt: "p", view: { puzzle: "sort1", items: [], bins: ["Red", "Blue"] } };
   const balance = { kind: "lock", id: "lb", skillId: "logic-g23", prompt: "p", view: { puzzle: "balance", weights: [1], target: 1 } };
   const asked = { kind: "choice", id: "q", skillId: "add", prompt: "p", view: { choices: ["a"] } };
+  const shapes3 = { kind: "lock", id: "lg", skillId: "logic-g23", prompt: "p", view: { puzzle: "shapes3", symbols: [], givens: [] } };
+  const words = { kind: "lock", id: "lw", skillId: "science-k1", prompt: "p", view: { puzzle: "sort", categories: ["Living", "Not living"], items: [] } };
+  const cage4 = { kind: "lock", id: "lc", skillId: "logic-g45", prompt: "p", view: { puzzle: "cage4", cages: [] } };
   const storedLock = { kind: "lock", id: "old", skillId: "logic-k1", prompt: "p", puzzle: "pattern", sequence: [null], tray: [], solution: { puzzle: "pattern", cells: [1] } };
   const run = (questions: unknown[], responses?: (string | null)[]) =>
     ({ runId: "now", kind: "deed", questions, responses: responses ?? questions.map(() => null) }) as Pick<RunStart, "runId" | "kind" | "questions" | "responses">;
@@ -99,9 +102,15 @@ describe("demoAt for a lock (R-F10)", () => {
     await expect(demoAt("lock-new", "K", { ...run([pattern]), kind: "review" })).resolves.toBeNull();
   });
 
-  it("only a lock Pip can show: a balance first is passed over for the pattern after it", async () => {
-    await expect(demoAt("lock-new", "2", run([balance, pattern]))).resolves.toBe(1);
-    await expect(demoAt("lock-new", "2", run([balance]))).resolves.toBeNull();
+  it("every first lock a K–3 hero can meet has Pip (RF-g): a balance, a shape grid, a word sort", async () => {
+    await expect(demoAt("lock-new", "2", run([balance, pattern]))).resolves.toBe(0);
+    await expect(demoAt("lock-new", "2", run([asked, shapes3]))).resolves.toBe(1);
+    await expect(demoAt("lock-new", "1", run([words]))).resolves.toBe(0);
+  });
+
+  it("only a lock Pip can show: an older hero's cage first is passed over for the pattern after it", async () => {
+    await expect(demoAt("lock-new", "3", run([cage4, pattern]))).resolves.toBe(1);
+    await expect(demoAt("lock-new", "3", run([cage4]))).resolves.toBeNull();
   });
 
   it("not once a lock is answered, in another run or earlier in this one", async () => {
