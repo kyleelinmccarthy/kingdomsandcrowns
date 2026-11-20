@@ -6,6 +6,7 @@ import type { Drawing } from "@/lib/utils/drawing";
 import { todayInZone } from "@/lib/utils/dates";
 import { nowInZone } from "@/lib/services/realm-clock";
 import { DEFAULT_TIMEZONE } from "@/lib/services/family-timezone";
+import { EMPTY_WORLD_STATE } from "@/lib/realm/world-state";
 
 /**
  * What `getRealmBundle` tells the page about WHO is looking: whether they may change the child's
@@ -57,7 +58,21 @@ vi.mock("@/lib/services/realm-chronicle", () => ({
   loadHallDrawings: (...a: unknown[]) => (loadHallDrawings as (...x: unknown[]) => unknown)(...a),
   loadRecentQuests: (...a: unknown[]) => (loadRecentQuests as (...x: unknown[]) => unknown)(...a),
 }));
-vi.mock("@/lib/services/deeds", () => ({ loadKingdomOverview: async () => ({ tone: "gentle", buildings: [] }) }));
+/** The hero's grades come with the kingdom's overview (RG-e): one read, no second `loadHeroLevels`. */
+const GRADES4 = { math: "4", reading: "4", language: "4", science: "4", logic: "4" };
+const loadKingdomOverview = vi.fn(async (): Promise<unknown> => ({ tone: "gentle", buildings: [], grades: GRADES4 }));
+const loadHeroLevels = vi.fn();
+vi.mock("@/lib/services/deeds", () => ({ loadKingdomOverview: () => loadKingdomOverview(), loadHeroLevels: (...a: unknown[]) => loadHeroLevels(...a) }));
+/** The hero's world-state rows, read once in the first round; no 3-star science run yet (G5 reads those). */
+type Raw = { rows: { objectId: string; state: string; updatedAt: Date }[]; starred: ReadonlySet<string> };
+const loadWorldRaw = vi.fn(async (): Promise<Raw> => ({ rows: [], starred: new Set() }));
+vi.mock("@/lib/services/realm-world-state", () => ({ loadWorldRaw: (...a: unknown[]) => (loadWorldRaw as (...x: unknown[]) => unknown)(...a) }));
+/** The family's zone is read with the child's own row, never asked for again. */
+const getTimezoneForChild = vi.fn();
+vi.mock("@/lib/services/family-timezone", async (orig) => ({
+  ...(await orig<typeof import("@/lib/services/family-timezone")>()),
+  getTimezoneForChild: (...a: unknown[]) => getTimezoneForChild(...a),
+}));
 vi.mock("@/lib/services/learning-profile", () => ({ loadLearningProfileRow: async () => null }));
 vi.mock("@/lib/services/spells", () => ({
   loadSpellbookPages: async () => ({ spells: [], slots: 1 }),
@@ -354,5 +369,69 @@ describe("getRealmBundle: recent quests are for the hero's own view", () => {
     const b = await getRealmBundle("c1");
     expect(loadRecentQuests).not.toHaveBeenCalled();
     expect(b.recentQuests).toEqual([]);
+  });
+});
+
+describe("getRealmBundle: the world's locks (RG-h)", () => {
+  beforeEach(() => {
+    requireChildAccess.mockResolvedValue(as("child:c1", "edit"));
+    loadWorldRaw.mockClear();
+    loadHeroLevels.mockClear();
+    getTimezoneForChild.mockClear();
+  });
+
+  it("builds the world state from the raw rows, on the family's own day", async () => {
+    const now = new Date();
+    loadWorldRaw.mockResolvedValueOnce({
+      rows: [
+        { objectId: "chest:west-lane", state: "open", updatedAt: now },
+        { objectId: "decor:sundial", state: "placed", updatedAt: now },
+        { objectId: "door:highcairn", state: "shut", updatedAt: now },
+      ],
+      starred: new Set(),
+    });
+    const b = await getRealmBundle("c1");
+    expect(b.worldState).toMatchObject({ open: ["chest:west-lane"], decor: ["sundial"] });
+    expect(loadWorldRaw).toHaveBeenCalledTimes(1);
+    expect(loadWorldRaw).toHaveBeenCalledWith("c1");
+  });
+
+  it("offers the locks as the settings row's switch says", async () => {
+    expect((await getRealmBundle("c1")).worldState?.locksOn).toBe(true);
+    loadRealmSettingsRow.mockResolvedValueOnce({ ...SETTINGS_ROW, mechanics: JSON.stringify({ lock: false }) } as never);
+    expect((await getRealmBundle("c1")).worldState?.locksOn).toBe(false);
+  });
+
+  it("shows a grade-4 hero with no 3 stars yet their own floor, waiting", async () => {
+    const b = await getRealmBundle("c1");
+    expect(b.worldState?.tower).toEqual([{ band: "g45", open: false, solved: 0 }]);
+  });
+
+  it("shows no floors when the kingdom (and so the grades) failed to load", async () => {
+    loadKingdomOverview.mockRejectedValueOnce(new Error("down"));
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const b = await getRealmBundle("c1");
+    spy.mockRestore();
+    expect(b.kingdomError).toBeTruthy();
+    expect(b.worldState?.tower).toEqual([]);
+  });
+
+  it("draws nothing when the world read fails, rather than closing the Realm", async () => {
+    loadWorldRaw.mockRejectedValueOnce(new Error("down"));
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const b = await getRealmBundle("c1");
+    spy.mockRestore();
+    expect(b.worldState).toEqual(EMPTY_WORLD_STATE);
+  });
+
+  it("reads the world once, and asks no second time for the grades or the zone", async () => {
+    await getRealmBundle("c1");
+    expect(loadWorldRaw).toHaveBeenCalledTimes(1);
+    expect(loadHeroLevels).not.toHaveBeenCalled();
+    expect(getTimezoneForChild).not.toHaveBeenCalled();
+  });
+
+  it("carries the hero's grades on the kingdom, from the overview already read", async () => {
+    expect((await getRealmBundle("c1")).kingdom.grades).toEqual(GRADES4);
   });
 });

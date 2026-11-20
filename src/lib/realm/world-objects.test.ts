@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildWorldLayout, PLACES, placeById, SCENERY } from "./layout";
 import { realmWorld } from "@/lib/realm3d/worldgen";
 import { travelGraphFor, VILLAGE_TRACKS } from "@/lib/realm3d/travel";
-import { buildSpots, edgeDistance, type InteractSpot } from "@/lib/realm3d/interact";
+import { buildSpots, edgeDistance, lockSpot, type InteractSpot } from "@/lib/realm3d/interact";
 import { ROOM_KINDS } from "@/lib/realm3d/interiors";
 import { clearanceFailures, gap, levelFailures, rectAt, segmentDistance, villagePieces, yardPieces, type R } from "@/test/world-clearance";
 import { REALM_PLACE_IDS } from "./places-found";
@@ -10,6 +10,7 @@ import { LORE_IDS } from "./lore";
 import { PUZZLE_TOWER } from "./puzzle-tower";
 import { RIDDLE_STONE_SPOTS } from "./riddle-stones";
 import { CHEST_RESET_DAYS, DECOR, DECOR_IDS, isWorldObjectId, LOCK_SPOT, rewardKey, WORLD_OBJECTS, worldObjectById, type WorldObject } from "./world-objects";
+import { lockSpotView } from "./world-state";
 
 const chests = WORLD_OBJECTS.filter((o) => o.type === "chest");
 const doors = WORLD_OBJECTS.filter((o) => o.type === "door");
@@ -184,7 +185,8 @@ describe("the vault doors", () => {
     posts: travelGraphFor(world).posts,
     stones: RIDDLE_STONE_SPOTS,
   });
-  const spotOf = (o: WorldObject): InteractSpot => ({ target: { kind: "post", id: o.id, label: o.label }, x: o.x, z: o.z, hw: LOCK_SPOT.radius, hd: LOCK_SPOT.radius, round: true, reach: LOCK_SPOT.reach, bias: 0, ring: 1 });
+  // The real E spot the scene builds at a lock, shut or open alike.
+  const spotOf = (o: WorldObject): InteractSpot => lockSpot(lockSpotView(o, false));
 
   it("stands inside its place", () => {
     for (const o of doors) {
@@ -220,5 +222,18 @@ describe("the vault doors", () => {
       }
       for (const other of doors) if (other !== o) expect(edgeDistance(mine, other.x, other.z), `${o.id} and ${other.id}`).toBeGreaterThan(mine.reach);
     }
+  });
+
+  it("leaves every village chest outside every other spot's reach too, and the reverse, against the real E spot", () => {
+    const held: string[] = [];
+    for (const o of villageChests) {
+      const mine = spotOf(o);
+      for (const s of others) {
+        if (edgeDistance(s, o.x, o.z) <= s.reach) held.push(`${o.id} is in reach of ${s.target.kind} ${s.target.id}`);
+        if (edgeDistance(mine, s.x, s.z) <= mine.reach) held.push(`${s.target.kind} ${s.target.id} is in reach of ${o.id}`);
+      }
+      for (const other of [...villageChests, ...doors]) if (other !== o && edgeDistance(mine, other.x, other.z) <= mine.reach) held.push(`${o.id} and ${other.id}`);
+    }
+    expect(held).toEqual([]);
   });
 });

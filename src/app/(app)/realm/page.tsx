@@ -127,6 +127,8 @@ export default async function RealmPage({ searchParams }: { searchParams: Promis
     recentQuests: bundle.recentQuests ?? [],
     ...(bundle.today ? { today: bundle.today } : {}),
     ...(bundle.earning ? { earning: bundle.earning } : {}),
+    // The world's locks: what stands open, what was found, and whether the grown-up's switch offers any.
+    ...(bundle.worldState ? { worldState: bundle.worldState } : {}),
   };
 
   return (

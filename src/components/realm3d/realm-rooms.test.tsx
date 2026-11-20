@@ -31,6 +31,7 @@ vi.mock("@/lib/actions/realm-settings", () => ({
   markRealmHelpSeen: vi.fn(async () => {}),
 }));
 vi.mock("@/lib/actions/deeds", () => ({ startDeedRun: vi.fn(), answerDeedQuestion: vi.fn(), completeDeedRun: vi.fn() }));
+vi.mock("@/lib/actions/world-locks", () => ({ startWorldLockRun: vi.fn() }));
 vi.mock("@/lib/actions/seasons", () => ({ markCeremonySeen: vi.fn(async () => {}) }));
 vi.mock("@/lib/actions/spells", () => ({ getSpellbook: vi.fn(async () => ({ spells: [], slots: 4, level: 3, unlocked: [], schoolCounts: { element: 0, form: 0, modifier: 0 }, subjectNamesBySchool: { element: [], form: [], modifier: [] } })) }));
 vi.mock("@/lib/actions/realm", () => ({ getRealmKingdom: vi.fn() }));
@@ -50,6 +51,7 @@ vi.mock("@/lib/realm3d/worldgen", async (orig) => {
 import { findBuilding } from "@/lib/utils/kingdom";
 import { DEFAULT_AVATAR } from "@/lib/utils/avatar-catalog";
 import { RealmGame, type RealmData } from "./realm-game";
+import { roomChestFor, type WorldStateView } from "@/lib/realm/world-state";
 
 beforeAll(() => {
   HTMLCanvasElement.prototype.getContext = (() => null) as unknown as HTMLCanvasElement["getContext"];
@@ -183,6 +185,39 @@ describe("inside", () => {
     act(() => bus.onInteract(chapel));
     fireEvent.click(screen.getByRole("button", { name: /Ember Bolt/ }));
     expect(handed.casts!.n).toBe(0);
+  });
+});
+
+describe("a room's chest", () => {
+  const raised = { ...realm, kingdom: { ...realm.kingdom, buildings: realm.kingdom.buildings.map((b) => (b.id === "library" ? { ...b, done: 5, complete: true } : b)) } };
+  const library = { kind: "site" as const, id: "library", label: "the Library", verb: "Go into" };
+  const view: WorldStateView = { locksOn: true, open: ["chest:library"], decor: [], tower: [] };
+
+  it("the library's chest is handed to its room, open as the hero left it", () => {
+    const { bus } = mount({ realm: { ...raised, worldState: view } });
+    act(() => bus.onInteract(library));
+    expect(handed.room!.chest).toEqual(roomChestFor("library", view));
+    expect(handed.room!.chest).toMatchObject({ id: "chest:library", open: true });
+  });
+
+  it("a room with no chest gets none", () => {
+    const { bus } = mount({ realm: { ...raised, worldState: view } });
+    act(() => bus.onInteract(chapel));
+    expect(handed.room!.chest).toBeNull();
+  });
+
+  it("no chest is handed in with the locks switched off", () => {
+    const { bus } = mount({ realm: { ...raised, worldState: { ...view, locksOn: false } } });
+    act(() => bus.onInteract(library));
+    expect(handed.room!.chest).toBeNull();
+  });
+
+  it("E at the chest opens its board over the room", async () => {
+    const { bus } = mount({ realm: { ...raised, worldState: view } });
+    act(() => bus.onInteract(library));
+    await act(async () => void bus.onInteract({ kind: "lock", id: "chest:library", label: "the old chest", verb: "Look in" }));
+    expect(screen.getByRole("dialog", { name: "The old chest" })).toHaveTextContent("You opened this chest. A new lock comes next week.");
+    expect(screen.getByTestId("room")).toHaveAttribute("data-room", "library");
   });
 });
 

@@ -101,6 +101,8 @@ import { RIDDLE_STONE_SPOTS, riddleStoneColliders } from "@/lib/realm/riddle-sto
 import { KeepYard } from "./keep-yard";
 import { Improvements } from "./improvements";
 import { ChronicleFrames } from "./chronicle-frames";
+import { WorldLocks } from "./world-locks";
+import type { WorldCanvas } from "@/lib/realm/world-state";
 import type { Drawing } from "@/lib/utils/drawing";
 import { improvementPlacements } from "@/lib/realm3d/improvement-spots";
 import { IMPROVEMENTS } from "@/lib/realm/improvements";
@@ -976,6 +978,7 @@ const World = memo(function World({
   recess = null,
   timeZone,
   built,
+  worldLocks,
 }: {
   avatar: AvatarConfig;
   close: boolean;
@@ -998,6 +1001,8 @@ const World = memo(function World({
   timeZone: string | null;
   /** What the hero has built: each built plan has a plaque to read, an E spot (`improvement-spots.ts`). Stable until a level is built. */
   built?: Readonly<Record<string, number>>;
+  /** The world's locks (RG-a): each chest and vault door is an E spot. Stable until a lock opens. */
+  worldLocks?: WorldCanvas;
 }) {
   const day = useDayLight(timeZone);
   const look = useMemo(() => heroLook(avatar), [avatar]);
@@ -1099,8 +1104,8 @@ const World = memo(function World({
     const arch = recess ? { x: recess.course.arch.x, z: recess.course.arch.z, halfSpan: ARCH_HALF_SPAN } : null;
     // Each built plan has a plaque stone in front of it, where E reads who built it.
     const plaques = improvementPlacements(built ?? {}, world.heightAt).map((p) => ({ id: p.id, label: IMPROVEMENTS[p.id].label, ...p.plaque }));
-    return buildSpots({ props: layout.props, sitePlan: SITE_PLAN, landmarks: world.landmarks, landmarkRadius: landmarkRadii(world), castle: gate, posts, arch, stones: RIDDLE_STONE_SPOTS, plans: KEEP_YARD.plansBoard, chronicle: KEEP_YARD.lectern, plaques });
-  }, [layout, world, castle, castleUnlocked, ride, recess, built]);
+    return buildSpots({ props: layout.props, sitePlan: SITE_PLAN, landmarks: world.landmarks, landmarkRadius: landmarkRadii(world), castle: gate, posts, arch, stones: RIDDLE_STONE_SPOTS, plans: KEEP_YARD.plansBoard, chronicle: KEEP_YARD.lectern, plaques, locks: worldLocks?.locks });
+  }, [layout, world, castle, castleUnlocked, ride, recess, built, worldLocks]);
   const heroRef = useRef(spawn);
   const yawRef = useRef(0);
   const facingRef = useRef(0);
@@ -1284,9 +1289,11 @@ export type RealmCanvasProps = {
   built?: Readonly<Record<string, number>>;
   /** The newest drawings, newest first, for the Chronicle Hall's frames (`chronicle-frames.tsx`). The visit's snapshot, so stable. */
   hallDrawings?: readonly Drawing[];
+  /** The world's locks (`worldCanvas`): the chests and vault doors drawn and reached with E (`world-locks.tsx`). A new object only when a lock opens. */
+  worldLocks?: WorldCanvas;
 };
 
-export default function SpikeScene({ avatar, close, world, layout, anchors, pages, bus, caster, fxPool, casts, viewer, castleUnlocked, frozen = false, calm = false, troubles, ride, lead, recess, timeZone, gilded, reviewDue = false, stockpile, built, hallDrawings }: RealmCanvasProps) {
+export default function SpikeScene({ avatar, close, world, layout, anchors, pages, bus, caster, fxPool, casts, viewer, castleUnlocked, frozen = false, calm = false, troubles, ride, lead, recess, timeZone, gilded, reviewDue = false, stockpile, built, hallDrawings, worldLocks }: RealmCanvasProps) {
   return (
     <Canvas
       frameloop={frozen ? "never" : "always"}
@@ -1319,12 +1326,14 @@ export default function SpikeScene({ avatar, close, world, layout, anchors, page
         recess={recess ?? null}
         timeZone={timeZone ?? null}
         built={built}
+        worldLocks={worldLocks}
       />
       <GildedPennants layout={layout} gilded={gilded} sitePlan={SITE_PLAN} wallH={WALL_H} roofH={ROOF_H} />
       <RiddleStones world={world} due={reviewDue} />
       <KeepYard stockpile={stockpile} heightAt={world.heightAt} />
       <Improvements built={built} heightAt={world.heightAt} />
       <ChronicleFrames level={built?.["chronicle-hall"] ?? 0} drawings={hallDrawings} heightAt={world.heightAt} />
+      <WorldLocks locks={worldLocks?.locks} heightAt={world.heightAt} />
     </Canvas>
   );
 }

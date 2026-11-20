@@ -116,6 +116,10 @@ import type { Works } from "@/lib/realm/works-state";
 import type { Drawing } from "@/lib/utils/drawing";
 import { QUIET_LINE } from "@/lib/realm3d/quiet";
 import { useQuietWorld, useWake, WakeToast } from "./quiet-hud";
+import { useWorldState } from "./use-world-state";
+import { WorldLockBoard } from "./world-lock-board";
+import { roomChestFor, type WorldStateView } from "@/lib/realm/world-state";
+import { worldObjectById } from "@/lib/realm/world-objects";
 
 const RealmCanvas = dynamic(() => import("./spike-scene"), {
   ssr: false,
@@ -183,6 +187,8 @@ export type RealmData = {
   recentQuests?: RecentQuest[];
   /** The server's day (`bundle.today`), the key of what the villagers have already said. Absent: no mentions. */
   today?: string;
+  /** The world's locks (`bundle.worldState`): open chests and doors, decorations found, the locks switch. Absent: none drawn. */
+  worldState?: WorldStateView;
 };
 
 const NO_RECENT: RecentQuest[] = [];
@@ -311,6 +317,8 @@ export function RealmGame({
   const gilded = useMemo(() => (gildedKey ? gildedKey.split(",") : []), [gildedKey]);
   // The keep yard: the hero's works for the visit (`use-works.ts`), and the buildings that stand, which the plans wait on.
   const { works, stockpile, built, applyBuildResult, setPinned, replaceWorks } = useWorks(realm.works);
+  // The world's locks for the visit (`use-world-state.ts`): the canvas draws them, and an opening is mirrored at once.
+  const lockState = useWorldState(realm.worldState);
   const raisedKey = kingdom.buildings.filter((b) => b.complete).map((b) => b.id).join(",");
   const raisedIds = useMemo<ReadonlySet<string>>(() => new Set(raisedKey ? raisedKey.split(",") : []), [raisedKey]);
 
@@ -1013,6 +1021,8 @@ export function RealmGame({
   });
 
   const room = useMemo(() => (inside ? roomPlan(inside.room) : null), [inside]);
+  // The chest in the room the hero is in, if it has one and the locks are on (`roomChestFor`).
+  const roomChest = useMemo(() => (inside ? roomChestFor(inside.room, lockState.view) : null), [inside, lockState.view]);
   const roomColors = useMemo(() => ({ field: hero.backgroundColor || hero.outfitColor, charge: hero.accessoryColor || "#f4d27a" }), [hero]);
 
   return (
@@ -1042,10 +1052,11 @@ export function RealmGame({
         stockpile={stockpile}
         built={built}
         hallDrawings={realm.hallDrawings}
+        worldLocks={lockState.canvas}
       />
       {outCount > 0 && !inside && <div key={outCount} className="r3-fade" aria-hidden="true" />}
       {inside && (
-        <RoomCanvas visit={inside} avatar={hero} viewer={viewer} bus={bus} paused={paused} colors={roomColors} used={roomUses} onLeave={leave} />
+        <RoomCanvas visit={inside} avatar={hero} viewer={viewer} bus={bus} paused={paused} colors={roomColors} used={roomUses} onLeave={leave} chest={roomChest} />
       )}
       {!close && (
         <>
@@ -1267,7 +1278,20 @@ export function RealmGame({
             <ChronicleBook key={childId} childId={childId} heroName={heroName} isHero={isChild && viewer === "child"} onClose={closeOverlay} />
           )}
           {overlay?.kind === "interact" && overlay.target.kind === "plaque" && <PlaquePanel improvementId={overlay.target.id} plaques={works.plaques} onClose={closeOverlay} />}
-          {overlay?.kind === "interact" && !talkTo && overlay.target.kind !== "riddle" && overlay.target.kind !== "plans" && overlay.target.kind !== "plaque" && overlay.target.kind !== "chronicle" && (
+          {overlay?.kind === "interact" && overlay.target.kind === "lock" && worldObjectById(overlay.target.id) && (
+            <WorldLockBoard
+              childId={childId}
+              object={worldObjectById(overlay.target.id)!}
+              open={lockState.view.open.includes(overlay.target.id)}
+              viewer={who}
+              numerals={numerals}
+              profile={{ readAloud, untimed: profile.untimed }}
+              calm={calm}
+              onOutcome={lockState.applyWorldOutcome}
+              onClose={closeOverlay}
+            />
+          )}
+          {overlay?.kind === "interact" && !talkTo && overlay.target.kind !== "riddle" && overlay.target.kind !== "plans" && overlay.target.kind !== "plaque" && overlay.target.kind !== "chronicle" && overlay.target.kind !== "lock" && (
             <InteractPanel
               target={overlay.target}
               kingdom={kingdom}

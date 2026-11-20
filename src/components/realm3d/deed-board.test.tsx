@@ -231,6 +231,21 @@ describe("the deed board", () => {
     });
   });
 
+  describe("a chest's or vault door's run (RG-m)", () => {
+    it.each([["chest:west-lane", "The old chest"], ["door:ringstones", "The vault door"]])("%s finishes with Done and is left with Leave the lock", async (id, title) => {
+      const lock = { ...run, kind: "world" as const, responses: ["5", null], deed: { id, title, story: "Sealed with a puzzle.", area: "logic" as const } };
+      vi.mocked(startDeedRun).mockResolvedValue(lock);
+      vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: true, secondChance: false, answer: "8" });
+      board();
+      await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" })));
+      expect(screen.getByRole("button", { name: "Leave the lock" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Leave the puzzles/ })).toBeNull();
+      await act(async () => void fireEvent.click(screen.getByRole("button", { name: "8" })));
+      expect(screen.getByRole("button", { name: "Done" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Finish puzzles" })).toBeNull();
+    });
+  });
+
   describe("a build run", () => {
     const build = {
       ...run, kind: "build" as const, responses: ["5", null],

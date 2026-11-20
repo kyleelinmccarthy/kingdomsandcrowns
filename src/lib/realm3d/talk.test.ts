@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { objectiveState } from "@/lib/realm/objective";
 import { villagerById } from "@/lib/realm/villagers";
 import type { ClientTask } from "@/lib/tasks/types";
+import { CHEST_EMPTY, worldRewardLine } from "@/lib/utils/world-lock-copy";
 import { attemptFeedback, deedToast, finishLabel, leaveWhat,resultBuildingLine, resultHeadline, resultMinutesLine, resultStarsLine, starsLabel, starsLeftLine, talkCopy, type SiteState } from "./talk";
 
 const bram = villagerById("bram")!;
@@ -225,6 +226,43 @@ describe("a lock's run words (RG-m)", () => {
     expect(leaveWhat("build")).toBe("build");
     expect(leaveWhat("deed", "well-water")).toBe("side quest");
     expect(leaveWhat("challenge")).toBe("side quest");
+  });
+});
+
+describe("a chest's or vault door's result", () => {
+  const world = { correctCount: 1, total: 1, flawless: true, kind: "world" as const };
+  const chest = (rewards: Parameters<typeof worldRewardLine>[0]["rewards"]) => ({ ...world, world: { objectId: "chest:west-lane", opened: true, rewards } });
+
+  it("says the chest opens, and what was inside", () => {
+    expect(resultHeadline(chest([{ kind: "decor", id: "stone-bench" }]), "The old chest")).toEqual({ title: "The chest opens!", line: "Inside: a stone bench. Look for it in the village." });
+    expect(resultHeadline(chest([{ kind: "lore", id: "the-first-lock" }]), "The old chest")).toEqual({ title: "The chest opens!", line: "Inside: a page for your Chronicle, \u201cThe First Lock\u201d." });
+  });
+
+  it("says an emptied chest opens with nothing new, in exactly the owner's words", () => {
+    expect(resultHeadline(chest([]), "The old chest")).toEqual({ title: "The chest opens!", line: "You've found everything in this chest." });
+    expect(CHEST_EMPTY).toBe("You've found everything in this chest.");
+  });
+
+  it("says the vault door swings open, on a map and a page", () => {
+    const door = { ...world, world: { objectId: "door:ringstones", opened: true, rewards: [{ kind: "fragment" as const, placeId: "summit-7" }, { kind: "lore" as const, id: "ringstones-map" as const }] } };
+    expect(resultHeadline(door, "The vault door")).toEqual({ title: "The vault door swings open!", line: "Inside: a map and a page for your Chronicle." });
+  });
+
+  it("says the lock holds on a miss, and that a fresh one waits", () => {
+    const missed = { ...world, correctCount: 0, flawless: false, world: { objectId: "chest:west-lane", opened: false, reason: "missed" as const, rewards: [] } };
+    expect(resultHeadline(missed, "The old chest")).toEqual({ title: "The lock holds.", line: "Try again with a fresh lock." });
+  });
+
+  it("says it was already open, with nothing more", () => {
+    const already = { ...world, world: { objectId: "door:ringstones", opened: false, reason: "already-open" as const, rewards: [] } };
+    expect(resultHeadline(already, "The vault door")).toEqual({ title: "It was already open.", line: "" });
+  });
+
+  it("never names a grade, a band, stars or minutes", () => {
+    for (const rewards of [[], [{ kind: "decor" as const, id: "sundial" as const }]]) {
+      const head = resultHeadline(chest(rewards), "The old chest");
+      expect(`${head.title} ${head.line}`).not.toMatch(/grade|band|star|minute|behind|ahead/i);
+    }
   });
 });
 

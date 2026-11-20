@@ -1,7 +1,17 @@
 import type { BuildingOverview } from "@/lib/services/deeds";
 import type { Stars } from "@/lib/utils/deed-scoring";
+import type { Grade } from "@/lib/utils/grade-levels";
+import type { SkillArea } from "@/lib/utils/skills";
 
-export type KingdomState = { tone: "gentle" | "monsters"; buildings: BuildingOverview[] };
+export type KingdomState = {
+  tone: "gentle" | "monsters";
+  buildings: BuildingOverview[];
+  /**
+   * The grade each strand is taught at, as the overview read it (RG-e): the bundle derives the
+   * Tower's bands from it with no second read. Absent on a hand-built state or a failed read.
+   */
+  grades?: Record<SkillArea, Grade>;
+};
 export type BuildingProgress = { done: number; total: number; complete: boolean };
 
 /**

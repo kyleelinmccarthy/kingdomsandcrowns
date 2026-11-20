@@ -15,6 +15,9 @@ import { ENTER_VERB, hasRoom } from "./doorways";
 import { villagerById } from "@/lib/realm/villagers";
 import { RIDDLE_STONE_RADIUS } from "@/lib/realm/riddle-stones";
 import { YARD_RADIUS } from "@/lib/realm/keep-yard";
+import { LOCK_SPOT } from "@/lib/realm/world-objects";
+import type { LockSpotView } from "@/lib/realm/world-state";
+import { CHEST_VERBS, DOOR_VERBS } from "@/lib/utils/world-lock-copy";
 
 /** One thing in the world with a reach round it. */
 export type InteractSpot = {
@@ -125,7 +128,34 @@ export type SpotInput = {
   chronicle?: { x: number; z: number } | null;
   /** The plaques of what the hero has built (`improvement-spots.ts`), where E reads who built it. `label` is the plan's own ("Well House"). Absent, there are none. */
   plaques?: readonly { id: string; label: string; x: number; z: number }[];
+  /** The chests and vault doors out in the world (`worldCanvas`), shut or open. Absent, there are none. */
+  locks?: readonly LockSpotView[];
 };
+
+/** What E at a chest or vault door says: "Open the old chest" while shut, "Look in" or "Look through" once open. */
+export function lockTarget(l: LockSpotView): InteractTarget {
+  const verbs = l.type === "chest" ? CHEST_VERBS : DOOR_VERBS;
+  return { kind: "lock", id: l.id, label: l.label, verb: l.open ? verbs.open : verbs.shut };
+}
+
+/**
+ * A chest's or vault door's E spot, outdoors or in a room: round, its footprint `LOCK_SPOT.radius`
+ * and its reach `LOCK_SPOT.reach`, the very numbers `world-objects.test.ts` holds every lock's spot
+ * to. It stands a step from a lane or a place, so a hero beside it means the lock.
+ */
+export function lockSpot(l: LockSpotView): InteractSpot {
+  return {
+    target: lockTarget(l),
+    x: l.x,
+    z: l.z,
+    hw: LOCK_SPOT.radius,
+    hd: LOCK_SPOT.radius,
+    round: true,
+    reach: LOCK_SPOT.reach,
+    bias: 0.4,
+    ring: LOCK_SPOT.radius + 0.6,
+  };
+}
 
 /** What E at a plaque says: "Read the Well House plaque". */
 export const PLAQUE_VERB = "Read";
@@ -304,6 +334,7 @@ export function buildSpots(input: SpotInput): InteractSpot[] {
       ring: PLAQUE_RADIUS + 0.55,
     });
   }
+  for (const l of input.locks ?? []) out.push(lockSpot(l));
   return out;
 }
 

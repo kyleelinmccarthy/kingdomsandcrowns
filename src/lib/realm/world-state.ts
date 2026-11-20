@@ -9,8 +9,10 @@
 
 import { addDays, todayInZone } from "@/lib/utils/dates";
 import type { ContentBand } from "@/lib/utils/content-bands";
-import { DECOR_IDS, WORLD_OBJECTS, rewardKey, type DecorId, type WorldObject, type WorldReward } from "./world-objects";
+import { DECOR_IDS, WORLD_OBJECTS, rewardKey, worldObjectById, type DecorId, type WorldObject, type WorldReward } from "./world-objects";
 import { towerRef } from "./puzzle-tower";
+import type { RoomKind } from "@/lib/realm3d/doorways";
+import type { WorldOutcome } from "@/lib/utils/deed-run-types";
 
 export type WorldRow = { objectId: string; state: string; updatedAt: Date };
 
@@ -69,4 +71,54 @@ export function worldStateView(rows: readonly WorldRow[], floors: readonly { ban
   const decor = DECOR_IDS.filter((id) => byId.has(`decor:${id}`));
   const tower = floors.map((f) => ({ band: f.band, open: f.open, solved: solvedCount(byId.get(towerRef(f.band))?.state) }));
   return { locksOn, open, decor, tower };
+}
+
+/* ------------------------------------------------------------------ what the scene draws */
+
+/** A chest or vault door as the scene draws it and E reaches it: where, which way, and whether it stands open. */
+export type LockSpotView = { id: string; type: "chest" | "door"; label: string; x: number; z: number; ry: number; open: boolean };
+
+/**
+ * What the island's canvas draws from (RG-a): the chests and doors out in the world, the
+ * decorations found, and how many storeys the Tower has grown. Handed to the memoised `World`,
+ * so the frame keeps it the same object until one of these changes (`use-world-state.ts`).
+ */
+export type WorldCanvas = { locksOn: boolean; locks: readonly LockSpotView[]; decor: readonly DecorId[]; storeys: number };
+
+export function lockSpotView(o: WorldObject, open: boolean): LockSpotView {
+  return { id: o.id, type: o.type, label: o.label, x: o.x, z: o.z, ry: o.ry, open };
+}
+
+/**
+ * The island's canvas: every chest and door out in the world (a room's chest is the room's, see
+ * `roomChestFor`), or none at all with the locks switched off (R-G7), when nothing is drawn and
+ * nothing offered. What was found stays either way: the decorations and the Tower's open storeys.
+ */
+export function worldCanvas(view: WorldStateView): WorldCanvas {
+  const open = new Set(view.open);
+  const locks = view.locksOn ? WORLD_OBJECTS.filter((o) => !o.room).map((o) => lockSpotView(o, open.has(o.id))) : [];
+  return { locksOn: view.locksOn, locks, decor: view.decor, storeys: view.tower.filter((f) => f.open).length };
+}
+
+/** The chest standing in this room, in the room's own frame, or null: none there, or the locks are off. */
+export function roomChestFor(room: RoomKind, view: WorldStateView): LockSpotView | null {
+  if (!view.locksOn) return null;
+  const chest = WORLD_OBJECTS.find((o) => o.room === room);
+  return chest ? lockSpotView(chest, view.open.includes(chest.id)) : null;
+}
+
+/**
+ * The client's mirror of an opening the server wrote (PC-G2), so the chest stands open and its
+ * decoration appears without a reload. A miss, or a lock that was already open, changes nothing
+ * and gives back the same view. Catalog order is kept, as `worldStateView` gives it.
+ */
+export function applyWorldOutcome(view: WorldStateView, o: WorldOutcome): WorldStateView {
+  if (!o.opened || !worldObjectById(o.objectId)) return view;
+  const open = new Set([...view.open, o.objectId]);
+  const decor = new Set<DecorId>([...view.decor, ...o.rewards.flatMap((r) => (r.kind === "decor" ? [r.id] : []))]);
+  return {
+    ...view,
+    open: WORLD_OBJECTS.filter((x) => open.has(x.id)).map((x) => x.id),
+    decor: DECOR_IDS.filter((id) => decor.has(id)),
+  };
 }

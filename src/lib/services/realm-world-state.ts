@@ -10,6 +10,7 @@ import { rewardKey, type WorldObject } from "@/lib/realm/world-objects";
 import { lockedNow, nextRewards, type WorldRow } from "@/lib/realm/world-state";
 import type { QuestionOutcome } from "@/lib/utils/deed-scoring";
 import type { WorldOutcome } from "@/lib/utils/deed-run-types";
+import type { ContentBand } from "@/lib/utils/content-bands";
 
 /**
  * THE WORLD'S STATE on the server: reading a hero's `realm_world_state` rows and opening a chest or
@@ -32,6 +33,15 @@ export async function worldClock(childId: string, now: Date = new Date()): Promi
 export async function loadWorldRows(childId: string, exec: Exec = db): Promise<WorldRow[]> {
   const W = schema.realmWorldState;
   return exec.select({ objectId: W.objectId, state: W.state, updatedAt: W.updatedAt }).from(W).where(eq(W.childId, childId));
+}
+
+/**
+ * What the Realm's bundle reads of the world's state, in its first round (PC-G15): the hero's rows,
+ * and `starred`, the bands they have 3 stars at on a science lock side quest, which open the
+ * Tower's floors. One query: `starred` stays empty until the Tower's read joins it (G5).
+ */
+export async function loadWorldRaw(childId: string): Promise<{ rows: WorldRow[]; starred: ReadonlySet<ContentBand> }> {
+  return { rows: await loadWorldRows(childId), starred: new Set<ContentBand>() };
 }
 
 /** The state a reward's own row is written with (PC-G1). Fragments are found places, not rows here. */

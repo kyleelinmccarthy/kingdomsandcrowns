@@ -9,7 +9,7 @@
  *   doors    stand beside the five authored places and open once, giving everything at once:
  *            a map to a generated place and the lore page that tells of it.
  *
- * Rewards are never materials. A decoration stands at its own fixed spot in the village (`DECOR`),
+ * Rewards are never materials. A decoration stands at its own fixed spot in the village (`DECOR`, in `decor.ts`),
  * a lore page goes into the Chronicle (`lore.ts`), and a fragment is a generated place id the hero
  * now has on their map.
  */
@@ -18,6 +18,7 @@ import { CHEST_LABEL, DOOR_LABEL } from "@/lib/utils/world-lock-copy";
 import type { RoomKind } from "@/lib/realm3d/doorways";
 import { placeById } from "./layout";
 import type { LoreId } from "./lore";
+import type { DecorId } from "./decor";
 
 /** A chest locks again this many local days after it was opened. */
 export const CHEST_RESET_DAYS = 7;
@@ -25,34 +26,8 @@ export const CHEST_RESET_DAYS = 7;
 /** A chest's or door's footprint radius, and how far from its edge a hero may stand and open it: what E's reach is measured from. */
 export const LOCK_SPOT = { radius: 0.6, reach: 1.8 } as const;
 
-export type DecorId =
-  | "stone-bench"
-  | "sundial"
-  | "flower-cart"
-  | "bird-bath"
-  | "weather-vane"
-  | "hay-bales"
-  | "scarecrow"
-  | "barrel-stack"
-  | "herb-planter"
-  | "story-post";
-
-/** Where each decoration stands once found, and how it faces. `label` is what a reward line calls it. */
-export const DECOR: Readonly<Record<DecorId, { label: string; x: number; z: number; ry: number }>> = {
-  "stone-bench": { label: "a stone bench", x: -18, z: 8, ry: Math.PI / 2 },
-  sundial: { label: "a sundial", x: -20.5, z: 16, ry: 0 },
-  "flower-cart": { label: "a flower cart", x: 18.5, z: 6.5, ry: -Math.PI / 2 },
-  "bird-bath": { label: "a bird bath", x: 20.5, z: 13.5, ry: 0 },
-  // Moved from (19, -5): a wild bush stood on its square, and the riding track runs 0.7 from it. East flank, 2.6 from the nearest track.
-  "weather-vane": { label: "a weather vane", x: 21, z: 4, ry: 0 },
-  "hay-bales": { label: "a stack of hay bales", x: 22, z: 1.5, ry: 0 },
-  scarecrow: { label: "a scarecrow", x: 5, z: 17, ry: Math.PI },
-  "barrel-stack": { label: "a stack of barrels", x: -3.25, z: 26.5, ry: 0 },
-  "herb-planter": { label: "an herb planter", x: 7.5, z: -10.25, ry: 0 },
-  "story-post": { label: "a story post", x: -15, z: -31, ry: 0 },
-};
-
-export const DECOR_IDS = Object.keys(DECOR) as DecorId[];
+// The decorations live in their own module so the copy that names a find can read them without importing this one.
+export { DECOR, DECOR_IDS, type DecorId } from "./decor";
 
 export type WorldReward = { kind: "decor"; id: DecorId } | { kind: "lore"; id: LoreId } | { kind: "fragment"; placeId: string };
 

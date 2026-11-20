@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { addDays, todayInZone } from "@/lib/utils/dates";
-import { EMPTY_WORLD_STATE, lockedNow, nextRewards, worldStateView, type WorldRow } from "./world-state";
+import { applyWorldOutcome, EMPTY_WORLD_STATE, lockedNow, nextRewards, roomChestFor, worldCanvas, worldStateView, type WorldRow, type WorldStateView } from "./world-state";
 import { worldObjectById } from "./world-objects";
 
 const row = (objectId: string, state: string, updatedAt: Date): WorldRow => ({ objectId, state, updatedAt });
@@ -114,5 +114,80 @@ describe("worldStateView", () => {
 describe("EMPTY_WORLD_STATE", () => {
   it("draws nothing", () => {
     expect(EMPTY_WORLD_STATE).toEqual({ locksOn: false, open: [], decor: [], tower: [] });
+  });
+});
+
+describe("the canvas the world draws its locks from", () => {
+  const view: WorldStateView = {
+    locksOn: true,
+    open: ["chest:east-lane", "chest:library", "door:longwater"],
+    decor: ["stone-bench", "sundial"],
+    tower: [{ band: "k1", open: true, solved: 2 }, { band: "g23", open: true, solved: 0 }, { band: "g45", open: false, solved: 0 }],
+  };
+
+  it("lists the three village chests and the five vault doors, each open as the view says", () => {
+    const c = worldCanvas(view);
+    expect(c.locks.map((l) => l.id)).toEqual([
+      "chest:west-lane", "chest:east-lane", "chest:castle-back",
+      "door:ringstones", "door:highcairn", "door:longwater", "door:farfurrow", "door:appleway",
+    ]);
+    expect(c.locks.filter((l) => l.open).map((l) => l.id)).toEqual(["chest:east-lane", "door:longwater"]);
+    const west = worldObjectById("chest:west-lane")!;
+    expect(c.locks[0]).toEqual({ id: west.id, type: "chest", label: "the old chest", x: west.x, z: west.z, ry: west.ry, open: false });
+    expect(c.locks[3]).toMatchObject({ type: "door", label: "the vault door" });
+    expect(c).toMatchObject({ locksOn: true, decor: ["stone-bench", "sundial"], storeys: 2 });
+  });
+
+  it("draws no lock at all with the locks switched off, and keeps what was found and the Tower's storeys (R-G7)", () => {
+    expect(worldCanvas({ ...view, locksOn: false })).toEqual({ locksOn: false, locks: [], decor: ["stone-bench", "sundial"], storeys: 2 });
+  });
+
+  it("is nothing for the empty state", () => {
+    expect(worldCanvas(EMPTY_WORLD_STATE)).toEqual({ locksOn: false, locks: [], decor: [], storeys: 0 });
+  });
+});
+
+describe("a room's chest", () => {
+  const view: WorldStateView = { locksOn: true, open: ["chest:library"], decor: [], tower: [] };
+
+  it("is the library's in the library, open as the view says, in the room's own frame", () => {
+    const lib = worldObjectById("chest:library")!;
+    expect(roomChestFor("library", view)).toEqual({ id: "chest:library", type: "chest", label: "the old chest", x: lib.x, z: lib.z, ry: lib.ry, open: true });
+    expect(roomChestFor("garden", view)).toMatchObject({ id: "chest:garden", open: false });
+  });
+
+  it("is none in a room with no chest", () => {
+    expect(roomChestFor("mill", view)).toBeNull();
+    expect(roomChestFor("castle", view)).toBeNull();
+  });
+
+  it("is none with the locks switched off", () => {
+    expect(roomChestFor("library", { ...view, locksOn: false })).toBeNull();
+  });
+});
+
+describe("applyWorldOutcome: the client's mirror of an opening", () => {
+  const view: WorldStateView = { locksOn: true, open: ["door:longwater"], decor: ["sundial"], tower: [] };
+
+  it("returns the same view for a miss or a lock that was already open", () => {
+    expect(applyWorldOutcome(view, { objectId: "chest:west-lane", opened: false, reason: "missed", rewards: [] })).toBe(view);
+    expect(applyWorldOutcome(view, { objectId: "door:longwater", opened: false, reason: "already-open", rewards: [] })).toBe(view);
+  });
+
+  it("opens the object and places a decoration it gave, in catalog order", () => {
+    const next = applyWorldOutcome(view, { objectId: "chest:west-lane", opened: true, rewards: [{ kind: "decor", id: "stone-bench" }] });
+    expect(next).toEqual({ locksOn: true, open: ["chest:west-lane", "door:longwater"], decor: ["stone-bench", "sundial"], tower: [] });
+    expect(view.open).toEqual(["door:longwater"]);
+  });
+
+  it("opens an emptied chest, and a door, with nothing new placed", () => {
+    expect(applyWorldOutcome(view, { objectId: "chest:east-lane", opened: true, rewards: [] }).decor).toEqual(["sundial"]);
+    const door = applyWorldOutcome(view, { objectId: "door:ringstones", opened: true, rewards: [{ kind: "fragment", placeId: "summit-7" }, { kind: "lore", id: "ringstones-map" }] });
+    expect(door.open).toEqual(["door:ringstones", "door:longwater"]);
+    expect(door.decor).toEqual(["sundial"]);
+  });
+
+  it("ignores an id that is not in the catalog", () => {
+    expect(applyWorldOutcome(view, { objectId: "chest:nowhere", opened: true, rewards: [] }).open).toEqual(["door:longwater"]);
   });
 });

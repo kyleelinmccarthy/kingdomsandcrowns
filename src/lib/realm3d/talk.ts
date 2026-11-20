@@ -15,7 +15,7 @@
  * No `three`, no DOM.
  */
 
-import type { AttemptResult, RunSummary } from "@/lib/utils/deed-run-types";
+import type { AttemptResult, RunSummary, WorldOutcome } from "@/lib/utils/deed-run-types";
 import { seasonPhrase } from "@/lib/realm/season-phrase";
 import { agree } from "@/lib/realm/improvements";
 import { cutFeedbackLine } from "@/lib/tasks/measure-copy";
@@ -29,8 +29,8 @@ import { SIDE_QUEST_LOWER, SIDE_QUESTS, SIDE_QUESTS_LOWER } from "@/lib/utils/si
 import { minutesWord } from "@/lib/utils/minutes-copy";
 import { REVIEW_DONE, REVIEW_FINISH, reviewSummaryLine } from "@/lib/utils/review-copy";
 import { PRACTICE_FINISH, PUZZLES_SOLVED } from "@/lib/utils/practice-copy";
-import { LOCK_FINISH } from "@/lib/utils/world-lock-copy";
-import { isWorldObjectId } from "@/lib/realm/world-objects";
+import { ALREADY_OPEN, CHEST_OPENS, DOOR_OPENS, LOCK_FINISH, LOCK_HOLDS, LOCK_HOLDS_LINE, worldRewardLine } from "@/lib/utils/world-lock-copy";
+import { isWorldObjectId, worldObjectById } from "@/lib/realm/world-objects";
 
 export type Viewer = "child" | "parent";
 
@@ -250,9 +250,11 @@ type BuildOutcome = Pick<NonNullable<RunSummary["improvement"]>, "id" | "label" 
 
 /** The result card's headline, as the flat Realm's `DeedResults` wrote it; a Crown Challenge is crowned or close. */
 export function resultHeadline(
-  summary: { correctCount: number; total: number; flawless: boolean; kind?: RunSummary["kind"]; improvement?: BuildOutcome },
+  summary: { correctCount: number; total: number; flawless: boolean; kind?: RunSummary["kind"]; improvement?: BuildOutcome; world?: WorldOutcome },
   deedTitle: string,
 ): { title: string; line: string } {
+  // A chest or vault door is judged on whether it opened, and on what it gave: never a count of right answers.
+  if (summary.kind === "world" && summary.world) return worldHeadline(summary.world);
   // A build run is judged on what it built, never as a side quest: the plan stands, waits, or stopped.
   if (summary.kind === "build") {
     const b = summary.improvement;
@@ -276,6 +278,13 @@ export function resultHeadline(
       : summary.flawless ? "Flawless!" : "Side quest done!",
     line: `${summary.correctCount} of ${summary.total} right in ${deedTitle}.`,
   };
+}
+
+/** A chest's or vault door's result: it opened (and what was inside), the lock held, or it was already open. */
+function worldHeadline(o: WorldOutcome): { title: string; line: string } {
+  if (o.opened) return { title: worldObjectById(o.objectId)?.type === "door" ? DOOR_OPENS : CHEST_OPENS, line: worldRewardLine(o) };
+  if (o.reason === "already-open") return { title: ALREADY_OPEN, line: "" };
+  return { title: LOCK_HOLDS, line: LOCK_HOLDS_LINE };
 }
 
 /** The result card's building line, word for word the flat Realm's; a run on a building that already stood is practice. */
