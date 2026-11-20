@@ -11,6 +11,7 @@ import { TASK_CODECS } from "@/lib/tasks/codecs";
 import { checkTask } from "@/lib/tasks/lock";
 import type { LockResponse } from "@/lib/tasks/lock-rules";
 import { LOCKS } from "@/lib/tasks/locks";
+import { toClientTask } from "@/lib/tasks/registry";
 import { solutions } from "@/lib/tasks/locks/solver";
 import type { LockTask } from "@/lib/tasks/types";
 
@@ -31,8 +32,22 @@ export function untouched(t: LockTask): LockResponse {
   return { puzzle: t.puzzle, cells } as LockResponse;
 }
 
+/**
+ * What the browser is sent (`toClientTask`: id, prompt, view) never carries the answer: not the encoded
+ * solution, and (for an answer of 4 or more cells, where a match can't be chance) not its cells written out.
+ */
+export function expectNoAnswerInView(t: LockTask): void {
+  const json = JSON.stringify(toClientTask(t));
+  expect(json, t.id).not.toContain(TASK_CODECS.lock.encode(t.solution));
+  if (t.solution.cells.length >= 4) {
+    expect(json, t.id).not.toContain(t.solution.cells.join(""));
+    expect(json, t.id).not.toContain(t.solution.cells.join(","));
+  }
+}
+
 /** The checks every lock owes, whatever its puzzle. */
 export function expectSound(t: LockTask): void {
+  expectNoAnswerInView(t);
   expect(t.kind).toBe("lock");
   expect(t.prompt.length, t.id).toBeGreaterThan(0);
   expect(t.prompt.length, t.id).toBeLessThan(60);
@@ -46,11 +61,17 @@ export function expectSound(t: LockTask): void {
 
 /**
  * Generic catalog checks for one skill, levels 0-4 x 500 seeds, plus `more(level, tasks)` for the
- * skill's own puzzle checks. Tasks are drawn once per level.
+ * skill's own puzzle checks. `puzzlesAt` lists the puzzles a level draws (all of them, at least 5
+ * distinct ids each), or gives them per level. Tasks are drawn once per level.
  */
-export function describeCatalog(skillId: string, puzzles: readonly LockTask["puzzle"][], more: (level: number, tasks: LockTask[]) => void): void {
+export function describeCatalog(
+  skillId: string,
+  puzzlesAt: readonly LockTask["puzzle"][] | ((level: number) => readonly LockTask["puzzle"][]),
+  more: (level: number, tasks: LockTask[]) => void,
+): void {
   describe.each(LEVELS)(`${skillId} level %i`, (level) => {
     const tasks = SEEDS.map((seed) => drawLock(skillId, level, seed));
+    const puzzles = typeof puzzlesAt === "function" ? puzzlesAt(level) : puzzlesAt;
 
     it("is deterministic: the same seed gives the same task", () => {
       for (const seed of SEEDS) expect(drawLock(skillId, level, seed)).toEqual(tasks[seed - 1]);

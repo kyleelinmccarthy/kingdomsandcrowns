@@ -12,7 +12,7 @@ import { checkTask } from "../lock";
 import type { LockTask } from "../types";
 import { LOCKS, lockFor } from ".";
 import { fallbackCage, fallbackLogic } from "./g58";
-import { G912_LOCKS, fallbackNono } from "./g912";
+import { G912_LOCKS, fallbackNono, figureOf } from "./g912";
 import { solutions } from "./solver";
 
 const SKILL = "logic-g912";
@@ -22,6 +22,12 @@ const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
 
 /** The operations each level may use: `+ ×` first, then `−`, then `÷`. */
 const G912_OPS = [["=", "+", "×"], ["=", "+", "×", "-"], ["=", "+", "×", "-", "÷"], ["=", "+", "×", "-", "÷"], ["=", "+", "×", "-", "÷"]];
+/** The "is" clue counts a 4x4 grid may keep at each level (minimal 4x4 sets hold 2, 1 or 0). */
+const G912_IS = [[2], [2, 1], [1], [1, 0], [0]];
+/** Squares flipped off the figure at each level, as [fewest, most]. */
+const FLIPS = [[0, 0], [0, 1], [1, 1], [1, 2], [2, 2]];
+/** A nonogram's clues as its id spells them: lines split by `/`, runs by `.`, an empty line `-`. */
+const clueCode = (lines: number[][]) => lines.map((l) => (l.length ? l.join(".") : "-")).join("/");
 
 describe("the grade 9-12 lock registry", () => {
   it("registers logic-g912", () => {
@@ -51,8 +57,27 @@ describeCatalog(SKILL, ["cage5", "nono5", "logic4"], (level, tasks) => {
     for (const t of only("nono5", tasks)) expectNono(t);
   });
 
+  it("nono5: the id is spelled from the clues alone, never the picture or the figure's name", () => {
+    for (const t of only("nono5", tasks)) expect(t.id).toBe(`${SKILL}:nono5:${clueCode(t.rows)}:${clueCode(t.cols)}`);
+  });
+
+  it("nono5: flips are distinct squares, so a flipped picture is never a plain figure; the explanation names a figure only for a plain one", () => {
+    for (const t of only("nono5", tasks)) {
+      const figure = figureOf(t.solution.cells);
+      if (FLIPS[level][1] === 0) expect(figure, t.id).toBeDefined();
+      if (FLIPS[level][0] > 0) expect(figure, t.id).toBeUndefined();
+      expect(t.explain?.includes("The picture is a"), t.id).toBe(figure !== undefined);
+      if (figure) expect(t.explain).toContain(`The picture is a ${figure}.`);
+    }
+  });
+
   it("logic4: exactly one answer, a minimal clue set, at least one elimination, at most two 'is' clues", () => {
     for (const t of only("logic4", tasks)) expectLogic(t);
+  });
+
+  it("logic4: this level's 'is' clue counts, each of them used", () => {
+    const counts = new Set(only("logic4", tasks).map((t) => t.clues.filter((c) => c.type === "is").length));
+    expect([...counts].sort()).toEqual([...G912_IS[level]].sort());
   });
 });
 

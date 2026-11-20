@@ -5,8 +5,8 @@
  *   into connected cages of 1-3 squares. A single square says `=`; a pair takes `+ − × ÷` (`÷` only
  *   when it divides evenly); a trio takes `+` or `×`. The level sets the cage sizes, the operations
  *   and the givens.
- * - **Logic grids** (`logic3`, and `logic4` for `g912.ts`): n people, n items, and short clues that
- *   each state one pairing ("Ana does not play the lute.", "The baker wears the red cloak.").
+ * - **Logic grids** (`logic3`, `logic4`): n people, n items, and short clues that each state one
+ *   pairing ("Ana does not play the lute.", "The baker wears the red cloak.").
  *
  * Both must have exactly ONE answer. The generators count answers with their own search before a
  * task is returned: a cage puzzle that allows two gets a given on a square the two answers disagree
@@ -16,21 +16,22 @@
  * re-counts every one with the checker itself.
  *
  * Generation is bounded: after a fixed number of tries a generator returns its safe fallback, a
- * fixed puzzle that passes every check. Every id spells out the whole puzzle, so one id is one task.
+ * fixed puzzle that passes every check. Every id spells out the whole puzzle from what the child is
+ * shown (never the answer: the id reaches the browser), so one id is one task.
  *
  * Skills: `logic-g45` is mostly cages, easy ones at the low levels (more single squares and givens,
- * `+` only), with some 3x3 logic grids; `logic-g68` is cages and logic grids half and half.
+ * `+` only), with some 3x3 logic grids; `logic-g68` is cages and logic grids half and half, the grids
+ * starting at 3x3 with 3 clues and growing to 4x4 from level 1.
  */
 import { shuffle, type Rng } from "@/lib/utils/drill-generators";
 import type { LockCage, LogicClue } from "../lock-rules";
 import type { LockTask } from "../types";
 import type { LockGenerator } from "./index";
-import { clampLevel, pick, sample, weighted } from "./k4";
+import { clampLevel, pick, range, sample, weighted } from "./util";
 
 type CageOp = LockCage["op"];
 export type CageSide = 4 | 5;
 
-const range = (n: number): number[] => Array.from({ length: n }, (_, i) => i);
 
 // ---------------------------------------------------------------------------------------------
 // number cages
@@ -273,12 +274,15 @@ const THEMES: readonly Theme[] = [
   { key: "pet", ask: "Who keeps which pet?", items: ["cat", "dog", "owl", "goat", "frog", "hen"], noun: (x) => x, is: "keeps the", isNot: "does not keep the" },
 ];
 
-export type LogicStep = {
-  /** The most "is" clues the puzzle may keep (never more than n − 2, so an elimination is always needed). */
-  maxIs: number;
-  /** Drop "not" clues before "is" clues while pruning, so the "is" clues stay as anchors (easier). */
-  keepIs: boolean;
-};
+/**
+ * A rung of logic grids: the grid's size, and how many "is" clues it keeps (one of `is`, at random;
+ * never more than n − 2, so an elimination is always needed).
+ *
+ * The "is" count is the difficulty knob, because a minimal clue set has few shapes. Counted
+ * exhaustively: a minimal 3x3 set is 1 "is" + 1 "not" (2 clues) or 3 "not"s; a minimal 4x4 set (at
+ * most 2 "is") is 2 "is" + 1 "not", 1 "is" + 3 "not"s, or 6 "not"s.
+ */
+export type LogicStep = { n: 3 | 4; is: readonly number[] };
 
 type Fact = { type: LogicClue["type"]; a: [number, number] };
 
@@ -328,42 +332,48 @@ function logicOf(n: 3 | 4, people: People, theme: Theme, items: number[], facts:
     : { ...base, puzzle: "logic4", solution: { puzzle: "logic4", cells } };
 }
 
-function tryLogic(n: 3 | 4, step: LogicStep, rng: Rng, skillId: string): LockTask | null {
+function tryLogic(step: LogicStep, rng: Rng, skillId: string): LockTask | null {
+  const n = step.n;
   const answer = shuffle(range(n), rng);
   const people: People = rng() < 0.5 ? { key: "n", picks: sample(rng, range(NAMES.length), n) } : { key: "f", picks: sample(rng, range(FOLK.length), n) };
   const theme = pick(rng, THEMES);
   const items = sample(rng, range(theme.items.length), n);
-  const isFacts: Fact[] = sample(rng, range(n), Math.min(step.maxIs, n - 2)).map((r) => ({ type: "is", a: [r, answer[r]] }));
+  const isCount = Math.min(pick(rng, step.is), n - 2);
+  const isFacts: Fact[] = sample(rng, range(n), isCount).map((r) => ({ type: "is", a: [r, answer[r]] }));
   const nots: Fact[] = range(n).flatMap((r) => range(n).filter((col) => col !== answer[r]).map((col): Fact => ({ type: "isNot", a: [r, col] })));
-  // Every "not" fact settles the grid; drop facts one at a time while it stays settled. One pass
-  // leaves a minimal set: a fact kept once could not go, and with fewer facts around it still can't.
-  const order = step.keepIs ? [...shuffle(nots, rng), ...shuffle(isFacts, rng)] : shuffle([...nots, ...isFacts], rng);
+  // Every "not" fact settles the grid; drop facts one at a time while it stays settled, the "not"s
+  // first so the "is" anchors stay. One pass leaves a minimal set: a fact kept once could not go,
+  // and with fewer facts around it still can't.
+  const order = [...shuffle(nots, rng), ...shuffle(isFacts, rng)];
   let kept = [...order];
   for (const f of order) {
     const without = kept.filter((k) => k !== f);
     if (matchings(n, without) === 1) kept = without;
   }
-  if (!kept.some((f) => f.type === "isNot")) return null;
+  if (kept.filter((f) => f.type === "is").length !== isCount || !kept.some((f) => f.type === "isNot")) return null;
   return logicOf(n, people, theme, items, shuffle(kept, rng), answer, skillId);
 }
 
 const LOGIC_TRIES = 20;
 
 /** A logic grid with exactly one answer and a minimal clue set: up to `LOGIC_TRIES` tries, then the safe fallback. */
-export function logicTask(n: 3 | 4, step: LogicStep, rng: Rng, skillId: string): LockTask {
+export function logicTask(step: LogicStep, rng: Rng, skillId: string): LockTask {
   for (let attempt = 0; attempt < LOGIC_TRIES; attempt++) {
-    const t = tryLogic(n, step, rng, skillId);
+    const t = tryLogic(step, rng, skillId);
     if (t) return t;
   }
-  return fallbackLogic(n, skillId);
+  return fallbackLogic(step.n, skillId);
 }
 
-/** Fixed logic grids, one per size, each with exactly one answer and a minimal clue set (the catalog tests prove it). */
+/**
+ * Fixed logic grids, one per size, each with exactly one answer and a minimal clue set (the catalog
+ * tests prove it). The 3x3 one has 3 clues, so it suits every level of both 4-8 skills.
+ */
 const SAFE_LOGIC: Record<3 | 4, { people: People; theme: number; items: number[]; facts: Fact[]; answer: number[] }> = {
-  // Lou, Kit, Ivy; pipe, lute, drum. "Kit plays the pipe." "Ivy does not play the lute." So Ivy: drum, Lou: lute.
+  // Lou, Kit, Ivy; pipe, lute, drum. Ivy plays neither the pipe nor the lute, so the drum; Lou not the pipe, so the lute; Kit the pipe.
   3: {
     people: { key: "n", picks: [9, 8, 7] }, theme: 0, items: [5, 0, 1],
-    facts: [{ type: "is", a: [1, 0] }, { type: "isNot", a: [2, 1] }], answer: [1, 0, 2],
+    facts: [{ type: "isNot", a: [2, 0] }, { type: "isNot", a: [0, 0] }, { type: "isNot", a: [2, 1] }], answer: [1, 0, 2],
   },
   // Tailor, smith, fisher, weaver; owl, hen, frog, dog. Tailor: hen. Weaver: not dog, not owl, so frog. Fisher: not owl, so dog. Smith: owl.
   4: {
@@ -400,23 +410,35 @@ const G68_CAGES: readonly CageStep[] = [
   { sizes: [1, 4, 5], pair: ["+", "×", "-", "÷"], trio: ["+", "×"], givens: 0, maxGivens: 2 },
 ];
 
-/** 3x3 logic grids: an "is" clue kept as an anchor at first, eliminations only at the top. */
-const LOGIC3_STEPS: readonly LogicStep[] = [
-  { maxIs: 1, keepIs: true },
-  { maxIs: 1, keepIs: true },
-  { maxIs: 1, keepIs: false },
-  { maxIs: 1, keepIs: false },
-  { maxIs: 0, keepIs: false },
+/** `logic-g45`: 3x3 logic grids with an "is" anchor at first (2 clues), then eliminations only (3 clues). */
+const G45_LOGIC: readonly LogicStep[] = [
+  { n: 3, is: [1] },
+  { n: 3, is: [1] },
+  { n: 3, is: [1, 0] },
+  { n: 3, is: [0] },
+  { n: 3, is: [0] },
+];
+
+/**
+ * `logic-g68`: at least 3 clues from the start, and a distinct step at every level. A 3x3 grid with
+ * 3 clues is the hardest 3x3 there is, so the grid grows to 4x4 from level 1 and sheds its anchors.
+ */
+const G68_LOGIC: readonly LogicStep[] = [
+  { n: 3, is: [0] },
+  { n: 4, is: [2] },
+  { n: 4, is: [1] },
+  { n: 4, is: [1, 0] },
+  { n: 4, is: [0] },
 ];
 
 const logicG45: LockGenerator = (level, rng, skillId) => {
   const l = clampLevel(level);
-  return weighted(rng, [["cage", 3], ["logic", 1]] as const) === "cage" ? cageTask(4, G45_CAGES[l], rng, skillId) : logicTask(3, LOGIC3_STEPS[l], rng, skillId);
+  return weighted(rng, [["cage", 3], ["logic", 1]] as const) === "cage" ? cageTask(4, G45_CAGES[l], rng, skillId) : logicTask(G45_LOGIC[l], rng, skillId);
 };
 
 const logicG68: LockGenerator = (level, rng, skillId) => {
   const l = clampLevel(level);
-  return rng() < 0.5 ? cageTask(4, G68_CAGES[l], rng, skillId) : logicTask(3, LOGIC3_STEPS[l], rng, skillId);
+  return rng() < 0.5 ? cageTask(4, G68_CAGES[l], rng, skillId) : logicTask(G68_LOGIC[l], rng, skillId);
 };
 
 export const G58_LOCKS: Record<string, LockGenerator> = { "logic-g45": logicG45, "logic-g68": logicG68 };

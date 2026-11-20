@@ -3,20 +3,23 @@
  * in `g58.ts`, at the larger size) and 5x5 nonograms, a third each.
  *
  * **Nonograms.** A picture from a small library of simple figures (house, tree, crown, heart, arrow,
- * key, cup), mirrored or moved at random, with a square or two flipped at its edge from level 1, so
- * it still reads as a shape rather than noise. The clues are its row and column runs (`[]` for an
- * empty line). It is kept only when a line-by-line solver fills the whole board from the clues alone,
- * which proves the answer is unique and means it can be solved without guessing; it has at least 8
- * filled squares and is never solid. Bounded tries, then the safe fallback (a boat).
+ * key, cup), mirrored or moved at random, with a square or two (always different squares) flipped at
+ * its edge from level 1, so it still reads as a shape rather than noise. The clues are its row and
+ * column runs (`[]` for an empty line). It is kept only when a line-by-line solver fills the whole
+ * board from the clues alone, which proves the answer is unique and means it can be solved without
+ * guessing; it has at least 8 filled squares and is never solid. Bounded tries, then the safe
+ * fallback (a boat).
+ *
+ * The id is spelled from the clues, which the child sees and which settle the picture, never from the
+ * picture: the id reaches the browser.
  */
 import { randInt, type Rng } from "@/lib/utils/drill-generators";
 import type { LockTask } from "../types";
 import { cageTask, logicTask, type CageStep, type LogicStep } from "./g58";
 import type { LockGenerator } from "./index";
-import { clampLevel, pick, weighted } from "./k4";
+import { clampLevel, pick, range, sample, weighted } from "./util";
 
 const SIDE = 5;
-const range = (n: number): number[] => Array.from({ length: n }, (_, i) => i);
 
 // ---------------------------------------------------------------------------------------------
 // nonograms
@@ -88,33 +91,52 @@ function lineSolves(rows: readonly number[][], cols: readonly number[][]): boole
   return grid.every((x) => x !== -1);
 }
 
-/** The task for a picture. The id spells out the picture square by square; the clues follow from it. */
-function nonoOf(name: string, cells: number[], flipped: boolean, skillId: string): LockTask {
-  return {
-    kind: "lock", id: `${skillId}:nono5:${name}:${cells.join("")}`, skillId, puzzle: "nono5",
-    prompt: "Fill the squares so every line matches its numbers.",
-    explain: flipped
-      ? "Each number is a run of filled squares, in order along its line."
-      : `Each number is a run of filled squares, in order along its line. The picture is a ${name}.`,
-    rows: range(SIDE).map((r) => runsOf(rowOf(cells, r))),
-    cols: range(SIDE).map((c) => runsOf(colOf(cells, c))),
-    solution: { puzzle: "nono5", cells },
-  };
+/** Clue lines as an id spells them: lines split by `/`, runs by `.`, an empty line `-`. */
+const clueCode = (lines: readonly number[][]) => lines.map((l) => (l.length ? l.join(".") : "-")).join("/");
+
+/** Every way a figure can sit on the board (0/1, row-major): as drawn or mirrored, moved within its free rows and columns. */
+function placementsOf(name: string): number[][] {
+  const drawn = FIGURES[name].map((line) => [...line].map((ch) => (ch === "#" ? 1 : 0)));
+  const out = new Map<string, number[]>();
+  for (const rows of [drawn, drawn.map((line) => [...line].reverse())]) {
+    const filledRows = range(SIDE).filter((r) => rows[r].includes(1));
+    const filledCols = range(SIDE).filter((c) => rows.some((line) => line[c] === 1));
+    for (let dr = -filledRows[0]; dr <= SIDE - 1 - filledRows[filledRows.length - 1]; dr++) {
+      for (let dc = -filledCols[0]; dc <= SIDE - 1 - filledCols[filledCols.length - 1]; dc++) {
+        const cells: number[] = Array(SIDE * SIDE).fill(0);
+        rows.forEach((line, r) => line.forEach((x, c) => {
+          if (x === 1) cells[(r + dr) * SIDE + c + dc] = 1;
+        }));
+        out.set(cells.join(""), cells);
+      }
+    }
+  }
+  return [...out.values()];
 }
 
-/** A figure's squares (0/1, row-major), mirrored at random and moved within the free rows and columns. */
-function placed(name: string, rng: Rng): number[] {
-  let rows = FIGURES[name].map((line) => [...line].map((ch) => (ch === "#" ? 1 : 0)));
-  if (rng() < 0.5) rows = rows.map((line) => [...line].reverse());
-  const filledRows = range(SIDE).filter((r) => rows[r].includes(1));
-  const filledCols = range(SIDE).filter((c) => rows.some((line) => line[c] === 1));
-  const dr = randInt(rng, -filledRows[0], SIDE - 1 - filledRows[filledRows.length - 1]);
-  const dc = randInt(rng, -filledCols[0], SIDE - 1 - filledCols[filledCols.length - 1]);
-  const cells: number[] = Array(SIDE * SIDE).fill(0);
-  rows.forEach((line, r) => line.forEach((x, c) => {
-    if (x === 1) cells[(r + dr) * SIDE + c + dc] = 1;
-  }));
-  return cells;
+const PLACEMENTS: Record<string, number[][]> = Object.fromEntries(FIGURE_NAMES.map((name) => [name, placementsOf(name)]));
+const FIGURE_AT = new Map(FIGURE_NAMES.flatMap((name) => PLACEMENTS[name].map((cells) => [cells.join(""), name] as const)));
+
+/** The library figure a picture is, square for square, or undefined (a flipped picture, or the fallback). */
+export const figureOf = (cells: readonly number[]): string | undefined => FIGURE_AT.get(cells.join(""));
+
+/**
+ * The task for a picture. The id is spelled from the clues (which settle the picture), so it never
+ * carries the picture itself to the browser. The explanation names the figure only when the picture
+ * is one exactly.
+ */
+function nonoOf(cells: number[], skillId: string): LockTask {
+  const rows = range(SIDE).map((r) => runsOf(rowOf(cells, r)));
+  const cols = range(SIDE).map((c) => runsOf(colOf(cells, c)));
+  const figure = figureOf(cells);
+  const runs = "Each number is a run of filled squares, in order along its line.";
+  return {
+    kind: "lock", id: `${skillId}:nono5:${clueCode(rows)}:${clueCode(cols)}`, skillId, puzzle: "nono5",
+    prompt: "Fill the squares so every line matches its numbers.",
+    explain: figure ? `${runs} The picture is a ${figure}.` : runs,
+    rows, cols,
+    solution: { puzzle: "nono5", cells },
+  };
 }
 
 /** Squares on the figure's edge: each has a neighbour of the other kind, so flipping one keeps the shape. */
@@ -128,17 +150,16 @@ function edges(cells: number[]): number[] {
 }
 
 function tryNono(level: number, rng: Rng, skillId: string): LockTask | null {
-  const name = pick(rng, FIGURE_NAMES);
-  const cells = placed(name, rng);
+  const cells = [...pick(rng, PLACEMENTS[pick(rng, FIGURE_NAMES)])];
   const [lo, hi] = NONO_FLIPS[level];
-  const flips = randInt(rng, lo, hi);
-  for (let k = 0; k < flips; k++) {
-    const at = pick(rng, edges(cells));
-    cells[at] = 1 - cells[at];
-  }
+  // Different squares on the figure's edge, so two flips never cancel out.
+  const flips = sample(rng, edges(cells), randInt(rng, lo, hi));
+  for (const at of flips) cells[at] = 1 - cells[at];
   const filled = cells.filter((x) => x === 1).length;
   if (filled < MIN_FILLED || filled === SIDE * SIDE) return null;
-  const t = nonoOf(name, cells, flips > 0, skillId);
+  // A flipped picture that lands on another figure (an arrow's two side squares make a tree) is no flipped picture: roll again.
+  if (flips.length > 0 && figureOf(cells) !== undefined) return null;
+  const t = nonoOf(cells, skillId);
   return t.puzzle === "nono5" && lineSolves(t.rows, t.cols) ? t : null;
 }
 
@@ -152,11 +173,11 @@ function nonoTask(level: number, rng: Rng, skillId: string): LockTask {
   return fallbackNono(skillId);
 }
 
-/** The safe nonogram, a boat: outside the library, so its id says when it was used (line-solvable; the catalog tests prove it). */
+/** The safe nonogram, a boat: not in the library, so the picture is never generated otherwise (line-solvable; the catalog tests prove it). */
 const SAFE_BOAT = ["..#..", "..##.", "..#..", "#####", ".###."];
 
 export function fallbackNono(skillId: string): LockTask {
-  return nonoOf("boat", SAFE_BOAT.flatMap((line) => [...line].map((ch) => (ch === "#" ? 1 : 0))), false, skillId);
+  return nonoOf(SAFE_BOAT.flatMap((line) => [...line].map((ch) => (ch === "#" ? 1 : 0))), skillId);
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -171,20 +192,20 @@ const G912_CAGES: readonly CageStep[] = [
   { sizes: [1, 4, 4], pair: ["+", "×", "-", "÷"], trio: ["+", "×"], givens: 0, maxGivens: 4 },
 ];
 
-/** 4x4 logic grids: up to two "is" anchors at first, eliminations only at the top. */
-const LOGIC4_STEPS: readonly LogicStep[] = [
-  { maxIs: 2, keepIs: true },
-  { maxIs: 2, keepIs: false },
-  { maxIs: 1, keepIs: true },
-  { maxIs: 1, keepIs: false },
-  { maxIs: 0, keepIs: false },
+/** 4x4 logic grids: two "is" anchors at first (3 clues), then one (4 clues), then eliminations only (6 clues). */
+const G912_LOGIC: readonly LogicStep[] = [
+  { n: 4, is: [2] },
+  { n: 4, is: [2, 1] },
+  { n: 4, is: [1] },
+  { n: 4, is: [1, 0] },
+  { n: 4, is: [0] },
 ];
 
 const logicG912: LockGenerator = (level, rng, skillId) => {
   const l = clampLevel(level);
   const kind = weighted(rng, [["cage", 1], ["nono", 1], ["logic", 1]] as const);
   if (kind === "cage") return cageTask(5, G912_CAGES[l], rng, skillId);
-  return kind === "nono" ? nonoTask(l, rng, skillId) : logicTask(4, LOGIC4_STEPS[l], rng, skillId);
+  return kind === "nono" ? nonoTask(l, rng, skillId) : logicTask(G912_LOGIC[l], rng, skillId);
 };
 
 export const G912_LOCKS: Record<string, LockGenerator> = { "logic-g912": logicG912 };

@@ -10,7 +10,8 @@ import { checkLock, type LockResponse } from "../lock-rules";
 import { TASK_CODECS } from "../codecs";
 import type { LockTask } from "../types";
 import { LOCKS, lockFor } from ".";
-import { SHAPE_VOCAB, COLOR_VOCAB, tokenKey, valueLabel } from "./shapes";
+import { expectNoAnswerInView } from "@/test/lock-catalog";
+import { SHAPE_VOCAB, COLOR_VOCAB, tokenCode, tokenKey, valueLabel } from "./shapes";
 import { solutions, sortAnswer } from "./solver";
 
 const LEVELS = [0, 1, 2, 3, 4];
@@ -76,6 +77,17 @@ describe.each(SKILLS_UNDER_TEST)("%s", (skillId) => {
       for (const t of tasks) {
         expect(checkTask(t, t.solution), t.id).toMatchObject({ ok: true, broken: [], empty: 0 });
         expect(TASK_CODECS.lock.decode(TASK_CODECS.lock.encode(t.solution))).toEqual(t.solution);
+      }
+    });
+
+    it("the browser's copy (id, prompt, view) never carries the answer", () => {
+      for (const t of tasks) expectNoAnswerInView(t);
+    });
+
+    it("pattern: the id is built from what the child sees, the sequence (blanks as _) and the tray", () => {
+      for (const t of tasks) {
+        if (t.puzzle !== "pattern") continue;
+        expect(t.id).toBe(`${skillId}:pat:${t.sequence.map((s) => (s ? tokenCode(s) : "_")).join(",")}:${t.tray.map(tokenCode).join(",")}`);
       }
     });
 

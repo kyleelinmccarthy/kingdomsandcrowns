@@ -22,20 +22,9 @@ import {
   ATTR_WORD, SAFE_PALETTES, SHAPE_VOCAB, VALUES, makeShape, tokenCode, tokenKey, tokenName, valueLabel,
   type Attr, type ColorId, type ShapeId, type SizeId,
 } from "./shapes";
+import { clampLevel, pick, sample, weighted } from "./util";
 
 type Of<P extends LockTask["puzzle"]> = Extract<LockTask, { puzzle: P }>;
-
-export const clampLevel = (level: number): number => (Number.isFinite(level) ? Math.min(4, Math.max(0, Math.floor(level))) : 0);
-export const pick = <T>(rng: Rng, xs: readonly T[]): T => xs[Math.floor(rng() * xs.length)];
-/** `n` distinct picks from `xs`, in a random order. */
-export const sample = <T>(rng: Rng, xs: readonly T[], n: number): T[] => shuffle([...xs], rng).slice(0, n);
-/** Roll one of `options`, each with its weight. */
-export function weighted<T>(rng: Rng, options: readonly (readonly [T, number])[]): T {
-  const total = options.reduce((a, [, w]) => a + w, 0);
-  let roll = rng() * total;
-  for (const [value, w] of options) if ((roll -= w) < 0) return value;
-  return options[options.length - 1][0];
-}
 
 // ---------------------------------------------------------------------------------------------
 // pattern
@@ -118,7 +107,8 @@ function tryPattern(step: PatternStep, rng: Rng, skillId: string): Of<"pattern">
   if (valid !== 1 || !checkLock(view, solution).ok) return null;
 
   const atEnd = blanks.every((b, i) => b === length - blanks.length + i);
-  const id = `${skillId}:pat:${unitTokens.map(tokenCode).join(",")}:${length}:${blanks.join(",")}:${tray.map(tokenCode).join(",")}`;
+  // The id is built from what the child sees (the sequence, blanks as `_`, and the tray), never the repeat itself.
+  const id = `${skillId}:pat:${sequence.map((s) => (s ? tokenCode(s) : "_")).join(",")}:${tray.map(tokenCode).join(",")}`;
   return {
     kind: "lock", id, skillId, puzzle: "pattern",
     prompt: atEnd ? "What comes next?" : step.blanks === 1 ? "What fits in the empty spot?" : "What fits in the empty spots?",
