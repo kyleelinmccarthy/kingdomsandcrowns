@@ -13,7 +13,7 @@ import { useDeedFlow } from "@/components/use-deed-flow";
 import { ALL_ANSWERED } from "@/lib/utils/deed-run-flow";
 import { BUILD_FINISH, attemptFeedback } from "@/lib/realm3d/talk";
 import { TaskPresenter } from "@/components/tasks/presenters";
-import { BenchDemo, demoCopy, useBenchDemo } from "@/components/tasks/bench-demo";
+import { TaskDemo, taskDemoCopy, useTaskDemo } from "@/components/tasks/task-demo";
 import type { ProfileLike } from "@/lib/utils/deed-engine";
 import { canSpeak, speak } from "@/lib/utils/speech";
 import { SIDE_QUEST_LOWER } from "@/lib/utils/side-quest-copy";
@@ -38,19 +38,19 @@ export function DeedPlayer({
   const [startedAt] = useState(() => Date.now());
   const [now, setNow] = useState(() => Date.now());
   const speakable = canSpeak();
-  const demo = useBenchDemo(run, index);
+  const demo = useTaskDemo(run, index);
   const question = run.questions[index];
   const isLast = index === run.questions.length - 1;
   const finishLabel = run.kind === "review" ? REVIEW_FINISH : run.kind === "build" ? BUILD_FINISH : `Finish ${SIDE_QUEST_LOWER}`;
 
-  // Read-aloud is a side effect, not state: the profile asks for it, the effect obeys. Aldo's
-  // worked example is read first, when there is one, then the question.
+  // Read-aloud is a side effect, not state: the profile asks for it, the effect obeys. A worked
+  // example (Aldo's or Pip's) is read first, when there is one, then the question.
   useEffect(() => {
-    if (profile.readAloud && question) speak(demo.mode ? demoCopy(demo.mode) : (question.readAloud ?? question.prompt));
+    if (profile.readAloud && question) speak(demo.demo ? taskDemoCopy(demo.demo) : (question.readAloud ?? question.prompt));
     return () => {
       if (canSpeak()) window.speechSynthesis.cancel();
     };
-  }, [profile.readAloud, question, demo.mode]);
+  }, [profile.readAloud, question, demo.demo]);
 
   // A soft elapsed-time chip when the hero hasn't asked for untimed play.
   useEffect(() => {
@@ -109,7 +109,7 @@ export function DeedPlayer({
         </div>
         <DeedMeter meter={meter} streak={flow.streak} calm={calm} numerals />
         {error && <div className="rounded-md bg-destructive/10 p-2 text-sm text-destructive">{error} <Button size="xs" variant="ghost" onClick={() => setError("")}>Try again</Button></div>}
-        {demo.mode ? <BenchDemo mode={demo.mode} variant="page" calm={calm} onDone={demo.finish} /> : (<>
+        {demo.demo ? <TaskDemo demo={demo.demo} variant="page" calm={calm} onDone={demo.finish} /> : (<>
         <div className="flex items-start gap-3">
           <p className="flex-1 text-xl font-medium">{question.prompt}</p>
           {speakable && (
