@@ -19,7 +19,7 @@ import { checkLock, type LockResponse, type LockShape } from "../lock-rules";
 import type { LockTask } from "../types";
 import type { LockGenerator } from "./index";
 import {
-  ATTR_WORD, COLOR_VOCAB, SHAPE_VOCAB, VALUES, makeShape, tokenCode, tokenKey, tokenName, valueLabel,
+  ATTR_WORD, SAFE_PALETTES, SHAPE_VOCAB, VALUES, makeShape, tokenCode, tokenKey, tokenName, valueLabel,
   type Attr, type ColorId, type ShapeId, type SizeId,
 } from "./shapes";
 
@@ -75,10 +75,12 @@ function tryPattern(step: PatternStep, rng: Rng, skillId: string): Of<"pattern">
   const family = pick(rng, step.both ? (["shape", "color", "both"] as const) : (["shape", "color"] as const));
 
   // One shape per letter of the unit: they differ in shape, in colour, or in both.
-  const fixedColor = pick(rng, COLOR_VOCAB);
+  // Colours come from one colour-blind-safe palette, tray included: red and green never meet (RF-d).
+  const palette = pick(rng, SAFE_PALETTES);
+  const fixedColor = pick(rng, palette);
   const fixedShape = pick(rng, SHAPE_VOCAB);
   const shapes = sample(rng, SHAPE_VOCAB, distinct);
-  const colors = sample(rng, COLOR_VOCAB, distinct);
+  const colors = sample(rng, palette, distinct);
   const letters = [...new Set(unit)];
   const tokenOf = (i: number): LockShape =>
     family === "shape" ? makeShape(shapes[i], fixedColor) : family === "color" ? makeShape(fixedShape, colors[i]) : makeShape(shapes[i], colors[i]);
@@ -93,14 +95,17 @@ function tryPattern(step: PatternStep, rng: Rng, skillId: string): Of<"pattern">
 
   // The tray: the answers, plus near-miss shapes (same colour, or same shape) to fill 3-4 places.
   const answerKeys = new Set(answers.map(tokenKey));
-  const pool: LockShape[] = [];
-  for (const shape of SHAPE_VOCAB) for (const color of COLOR_VOCAB) {
+  const near: LockShape[] = [];
+  const far: LockShape[] = [];
+  for (const shape of SHAPE_VOCAB) for (const color of palette) {
     const token = makeShape(shape, color);
-    const near = family === "shape" ? color === fixedColor : family === "color" ? shape === fixedShape : true;
-    if (near && !answerKeys.has(tokenKey(token))) pool.push(token);
+    if (answerKeys.has(tokenKey(token))) continue;
+    const isNear = family === "shape" ? color === fixedColor : family === "color" ? shape === fixedShape : true;
+    (isNear ? near : far).push(token);
   }
   const trayLength = Math.max(distinct + 1, randInt(rng, 3, 4));
-  const tray = shuffle([...answers, ...sample(rng, pool, trayLength - distinct)], rng);
+  const distractors = [...shuffle(near, rng), ...shuffle(far, rng)].slice(0, trayLength - distinct);
+  const tray = shuffle([...answers, ...distractors], rng);
 
   const sequence = Array.from({ length }, (_, i): LockShape | null => (blanks.includes(i) ? null : unitTokens[i % unitTokens.length]));
   const intended = blanks.map((i) => 1 + tray.findIndex((s) => tokenKey(s) === tokenKey(unitTokens[i % unitTokens.length])));
@@ -128,6 +133,7 @@ function patternTask(level: number, rng: Rng, skillId: string): LockTask {
     const t = tryPattern(step, rng, skillId);
     if (t) return t;
   }
+  // Terminates: SAFE_PATTERN (AB, four shown, the fifth blank) has exactly one answer, so it never fails.
   for (;;) {
     const t = tryPattern(SAFE_PATTERN, rng, skillId);
     if (t) return t;
@@ -146,17 +152,20 @@ function sortItem(attrs: Partial<Record<Attr, string>>, palette: Palette, rng: R
   return makeShape(shape, color, withSize ? (attrs.size as SizeId) : undefined);
 }
 
+/** Two values of an attribute to sort by; colours come from one colour-blind-safe palette (RF-d). */
+const valuesFor = (rng: Rng, attr: Attr): string[] => sample(rng, attr === "color" ? pick(rng, SAFE_PALETTES) : VALUES[attr], 2);
+
 const SORT1_COUNTS = [6, 6, 7, 7, 8];
 const SORT2_COUNTS = [6, 7, 8, 8, 8];
 
 function sort1Task(level: number, rng: Rng, skillId: string): LockTask {
   // Colour first; shape from level 1; size from level 2.
   const attr = pick(rng, level === 0 ? (["color"] as const) : level === 1 ? (["color", "shape"] as const) : (["color", "shape", "size"] as const));
-  const values = sample(rng, VALUES[attr], 2);
+  const values = valuesFor(rng, attr);
   const n = SORT1_COUNTS[level];
   // Each bin gets at least two shapes.
   const inFirst = randInt(rng, 2, n - 2);
-  const palette: Palette = { shapes: sample(rng, SHAPE_VOCAB, 3), colors: sample(rng, COLOR_VOCAB, 2) };
+  const palette: Palette = { shapes: sample(rng, SHAPE_VOCAB, 3), colors: sample(rng, pick(rng, SAFE_PALETTES), 2) };
   const bins = shuffle([...Array(inFirst).fill(0), ...Array(n - inFirst).fill(1)] as number[], rng);
   const items = bins.map((b) => sortItem({ [attr]: values[b] }, palette, rng, attr === "size"));
   const labels = values.map((v) => valueLabel(attr, v));
@@ -174,11 +183,11 @@ function sort2Task(level: number, rng: Rng, skillId: string): LockTask {
   // Shape and colour first; any two of the three attributes from level 2.
   const [rowAttr, colAttr]: [Attr, Attr] =
     level < 2 ? (rng() < 0.5 ? ["shape", "color"] : ["color", "shape"]) : (sample(rng, ["color", "shape", "size"] as const, 2) as [Attr, Attr]);
-  const rowValues = sample(rng, VALUES[rowAttr], 2);
-  const colValues = sample(rng, VALUES[colAttr], 2);
+  const rowValues = valuesFor(rng, rowAttr);
+  const colValues = valuesFor(rng, colAttr);
   const withSize = rowAttr === "size" || colAttr === "size";
   // The attribute not being sorted by stays the same on every shape, so it never distracts.
-  const palette: Palette = { shapes: [pick(rng, SHAPE_VOCAB)], colors: [pick(rng, COLOR_VOCAB)] };
+  const palette: Palette = { shapes: [pick(rng, SHAPE_VOCAB)], colors: [pick(rng, pick(rng, SAFE_PALETTES))] };
   const n = SORT2_COUNTS[level];
   // Every bin gets a shape; the rest are anywhere.
   const bins = shuffle([0, 1, 2, 3, ...Array.from({ length: n - 4 }, () => randInt(rng, 0, 3))], rng);
@@ -218,7 +227,7 @@ const GRID_GIVENS = [5, 4, 4, 3, 3];
 
 function shapes3Task(level: number, rng: Rng, skillId: string): LockTask {
   const shapes = sample(rng, SHAPE_VOCAB, 3);
-  const colors = sample(rng, COLOR_VOCAB, 3);
+  const colors = sample(rng, pick(rng, SAFE_PALETTES), 3);
   const symbols = shapes.map((s, i) => makeShape(s, colors[i]));
   const solved = pick(rng, LATIN3);
   const want = GRID_GIVENS[level];
@@ -267,9 +276,22 @@ function smallestBalance(weights: number[], target: number): number[] | null {
   return null;
 }
 
+function balanceOf(weights: number[], target: number, cells: number[], skillId: string): LockTask {
+  const on = weights.filter((_, i) => cells[i] === 1);
+  return {
+    kind: "lock", id: `${skillId}:bal:${weights.join(",")}=${target}`, skillId, puzzle: "balance",
+    prompt: "Make both sides weigh the same.",
+    explain: `${on.join(" + ")} weigh the same as ${target}.`,
+    weights, target, unit: "stones", solution: { puzzle: "balance", cells },
+  };
+}
+
+/** Always a good balance: 1 + 4 makes 5, 2 + 4 is the tempting near miss, no stone is 5. */
+const SAFE_BALANCE = { weights: [1, 2, 3, 4], target: 5, cells: [1, 0, 0, 1] };
+
 function balanceTask(level: number, rng: Rng, skillId: string): LockTask {
   const step = BALANCE_STEPS[level];
-  for (;;) {
+  for (let attempt = 0; attempt < 200; attempt++) {
     const weights = sample(rng, Array.from({ length: step.max }, (_, i) => i + 1), step.count).sort((a, b) => a - b);
     const used = sample(rng, weights, randInt(rng, step.used[0], step.used[1]));
     const target = used.reduce((a, b) => a + b, 0);
@@ -278,15 +300,9 @@ function balanceTask(level: number, rng: Rng, skillId: string): LockTask {
     const pairs = weights.flatMap((a, i) => weights.slice(i + 1).map((b) => a + b));
     if (!pairs.some((s) => Math.abs(s - target) === 1)) continue;
     const cells = smallestBalance(weights, target);
-    if (!cells) continue;
-    const on = weights.filter((_, i) => cells[i] === 1);
-    return {
-      kind: "lock", id: `${skillId}:bal:${weights.join(",")}=${target}`, skillId, puzzle: "balance",
-      prompt: "Make both sides weigh the same.",
-      explain: `${on.join(" + ")} weigh the same as ${target}.`,
-      weights, target, unit: "stones", solution: { puzzle: "balance", cells },
-    };
+    if (cells) return balanceOf(weights, target, cells, skillId);
   }
+  return balanceOf(SAFE_BALANCE.weights, SAFE_BALANCE.target, SAFE_BALANCE.cells, skillId);
 }
 
 // ---------------------------------------------------------------------------------------------

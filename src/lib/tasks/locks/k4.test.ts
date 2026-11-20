@@ -10,7 +10,7 @@ import { checkLock, type LockResponse } from "../lock-rules";
 import { TASK_CODECS } from "../codecs";
 import type { LockTask } from "../types";
 import { LOCKS, lockFor } from ".";
-import { SHAPE_VOCAB, COLOR_VOCAB, tokenKey } from "./shapes";
+import { SHAPE_VOCAB, COLOR_VOCAB, tokenKey, valueLabel } from "./shapes";
 import { solutions, sortAnswer } from "./solver";
 
 const LEVELS = [0, 1, 2, 3, 4];
@@ -169,6 +169,29 @@ describe.each(SKILLS_UNDER_TEST)("%s", (skillId) => {
         expect(n).toBeLessThanOrEqual(8);
       }
     });
+  });
+});
+
+describe("the label tables, asserted literally (the oracle reuses them)", () => {
+  it("names shapes, colours and sizes as the child reads them", () => {
+    expect(SHAPE_VOCAB.map((v) => valueLabel("shape", v))).toEqual(["Circles", "Squares", "Triangles", "Stars", "Hearts"]);
+    expect(COLOR_VOCAB.map((v) => valueLabel("color", v))).toEqual(["Red", "Blue", "Yellow", "Green"]);
+    expect(["big", "small"].map((v) => valueLabel("size", v))).toEqual(["Big", "Small"]);
+  });
+});
+
+describe("colour-blind-safe puzzles (RF-d): red and green never share a puzzle", () => {
+  it("no pattern tray or sequence, no sort, no grid mixes red with green, at any seed or level", () => {
+    for (const skillId of SKILLS_UNDER_TEST) for (const level of LEVELS) for (const seed of SEEDS) {
+      const t = draw(skillId, level, seed);
+      const shapes = t.puzzle === "pattern" ? [...t.sequence, ...t.tray] : t.puzzle === "shapes3" ? t.symbols : t.puzzle === "sort1" || t.puzzle === "sort2" ? t.items : [];
+      const colors = new Set(shapes.flatMap((s) => (s ? [s.color] : [])));
+      expect(colors.has("red") && colors.has("green"), t.id).toBe(false);
+      if (t.puzzle === "sort1" || t.puzzle === "sort2") {
+        const labels = [...(t.puzzle === "sort1" ? t.bins : [...t.rows, ...t.cols])];
+        expect(labels.includes("Red") && labels.includes("Green"), t.id).toBe(false);
+      }
+    }
   });
 });
 

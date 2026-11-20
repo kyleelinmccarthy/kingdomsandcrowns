@@ -47,8 +47,13 @@ function toView(t: LockTask): LockView {
 export function checkTask(t: LockTask, r: LockResponse): LockCheck {
   const seen = checkLock(t, r);
   if (seen.broken.includes("response")) return seen;
-  if (!isSort(t.puzzle) || !("fits" in t)) return seen; // `fits` narrows `t` to a sort task for the compiler
-  const broken = [...seen.broken, ...sortBroken(t.fits, r.cells)];
+  if (!isSort(t.puzzle)) return seen;
+  // A sort with no usable key (malformed stored JSON) is never passed: fail closed, never to the view-only check.
+  const fits: unknown = (t as { fits?: unknown }).fits;
+  if (!Array.isArray(fits) || fits.length !== r.cells.length || !fits.every(Array.isArray)) {
+    return { ok: false, broken: [...seen.broken, "fits"], empty: seen.empty };
+  }
+  const broken = [...seen.broken, ...sortBroken(fits as number[][], r.cells)];
   return { ok: broken.length === 0 && seen.empty === 0, broken, empty: seen.empty };
 }
 

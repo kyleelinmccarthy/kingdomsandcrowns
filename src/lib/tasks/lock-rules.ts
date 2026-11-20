@@ -36,8 +36,8 @@
  *
  * `row:r`, `col:c` (grids; for a logic grid `col:c` is an item given twice), `cage:i` (index into
  * `cages`), `clue:i` (index into `clues`), `blank:k` (a pattern blank, index into the response),
- * `sum` (balance), `item:i` (a sort item, server-only), and `response` (the response does not fit
- * the puzzle at all). Ids come in that order: rows, columns, cages, clues.
+ * `sum` (balance), `item:i` (a sort item, server-only), `fits` (server-only: a sort stored without a
+ * usable key, never passed) and `response` (the response does not fit the puzzle at all). Ids come in that order: rows, columns, cages, clues.
  *
  * A row, column or cage is judged only once it is full, except that a repeat in a row or column is
  * broken as soon as it is there. `empty` counts the places still blank (for a nonogram, the squares

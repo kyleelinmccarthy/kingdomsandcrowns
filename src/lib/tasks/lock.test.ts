@@ -7,7 +7,7 @@ import {
 import { TASK_CODECS } from "./codecs";
 import { TASK_DRAWERS } from "./draw";
 import { HANDS_ON_KINDS } from "./kinds";
-import { lockKind } from "./lock";
+import { checkTask, lockKind } from "./lock";
 import { LOCK_MISS_LINE } from "./lock-copy";
 import { LOCKS, lockFor } from "./locks";
 import { TASK_KINDS, isTaskCorrect, kindForSkill, toClientTask } from "./registry";
@@ -185,6 +185,31 @@ describe("lock: checked against the rules, never the stored solution (R-F1, Revi
 
   it("every lock allows a second chance", () => {
     for (const t of STUBS) expect(lockKind.allowsSecondChance(t)).toBe(true);
+  });
+});
+
+describe("lock: a sort with no key is never passed", () => {
+  const wrong = (t: Extract<LockTask, { puzzle: "sort1" | "sort2" | "sort" }>, bins: number): LockResponse =>
+    ({ puzzle: t.puzzle, cells: t.solution.cells.map((c) => (c % bins) + 1) }) as LockResponse;
+  const keyless = (t: LockTask, over: Record<string, unknown> = {}) => {
+    const copy: Record<string, unknown> = { ...t, ...over };
+    if (!("fits" in over)) delete copy.fits;
+    return copy as unknown as LockTask;
+  };
+
+  it("a sort whose fits is missing, not a list, short, or holds a non-list is never ok, even when every item is misplaced", () => {
+    for (const [t, bins] of [[SORT1, 2], [SORT2, 4], [SORT, 2]] as const) {
+      const miss = wrong(t, bins);
+      expect(checkTask(t, miss).ok).toBe(false);
+      for (const bad of [keyless(t), keyless(t, { fits: "nope" }), keyless(t, { fits: t.fits.slice(1) }), keyless(t, { fits: t.fits.map(() => 0) }), keyless(t, { fits: [...t.fits, [0]] })]) {
+        const c = checkTask(bad, miss);
+        expect(c.ok, `${t.puzzle} ${JSON.stringify((bad as { fits?: unknown }).fits)}`).toBe(false);
+        expect(c.broken).toContain("fits");
+        // And not even the stored solution passes a sort with no key: nothing can be vouched for.
+        expect(checkTask(bad, t.solution).ok).toBe(false);
+        expect(lockKind.isCorrect(bad, t.solution)).toBe(false);
+      }
+    }
   });
 });
 

@@ -9,6 +9,12 @@ export const SHAPE_VOCAB = ["circle", "square", "triangle", "star", "heart"] as 
 export const COLOR_VOCAB = ["red", "blue", "yellow", "green"] as const satisfies readonly LockShape["color"][];
 export const SIZE_VOCAB = ["big", "small"] as const;
 
+/**
+ * Colour-blind-safe palettes (RF-d): red and green are never in one puzzle, since a hero who can't
+ * tell them apart couldn't tell the shapes apart. Every colour choice in a lock comes from one of these.
+ */
+export const SAFE_PALETTES: readonly (readonly ColorId[])[] = [["red", "blue", "yellow"], ["green", "blue", "yellow"]];
+
 export type ShapeId = (typeof SHAPE_VOCAB)[number];
 export type ColorId = (typeof COLOR_VOCAB)[number];
 export type SizeId = (typeof SIZE_VOCAB)[number];
