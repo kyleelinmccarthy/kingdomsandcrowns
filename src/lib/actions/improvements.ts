@@ -14,7 +14,7 @@ import { bandForGrade } from "@/lib/utils/grade-levels";
 import { enabledHandsOnKinds } from "@/lib/utils/realm-settings";
 import { profileFromRow } from "@/lib/utils/learning-profile";
 import type { RunStart } from "@/lib/utils/deed-run-types";
-import { benchDemoAt, findOpenRun, insertRun, loadMasteryRows, resumedStart } from "@/lib/services/deed-run-store";
+import { demoAt, findOpenRun, insertRun, loadMasteryRows, resumedStart } from "@/lib/services/deed-run-store";
 import { loadHeroLevels } from "@/lib/services/deeds";
 import { loadLearningProfileRow } from "@/lib/services/learning-profile";
 import { loadRealmSettings } from "@/lib/services/realm-play";
@@ -56,9 +56,9 @@ export async function startBuildRun(childId: string, improvementId: string, expe
 
   // The bench has content for math alone, so a build run is the hero's math grade, reached through its strand key, as `gradeForDeed` does.
   const grade = hero.grades[BUILD_AREA];
-  // A young hero meets Aldo's worked example before their first bench task (R-C9), resumed or fresh.
+  // A young hero meets a worked example before their first bench task or lock (R-C9, R-F10), resumed or fresh.
   const withDemo = async (start: RunStart): Promise<RunStart> => {
-    const at = await benchDemoAt(childId, grade, start);
+    const at = await demoAt(childId, grade, start);
     return at === null ? start : { ...start, demo: { at } };
   };
   const open = await findOpenRun(and(

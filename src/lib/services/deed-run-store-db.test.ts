@@ -4,14 +4,14 @@ import { testDatabase } from "@/test/libsql-test-db";
 import type { RunStart } from "@/lib/utils/deed-run-types";
 
 /**
- * Whether a hero has answered a bench task before, against a REAL libsql database: the question is
+ * Whether a hero has answered a hands-on task of a kind before (a bench task, a lock), against a REAL libsql database: the question is
  * asked in SQL over stored JSON, so an old row of an odd shape must be passed over, never throw
  * (a throw would block the child from starting any run).
  */
 const client = testDatabase("deed-run-store-db");
 vi.mock("@/lib/db", () => ({ db: client.db }));
 
-const { benchDemoAt } = await import("./deed-run-store");
+const { demoAt } = await import("./deed-run-store");
 
 const DDL = `CREATE TABLE deed_run (
   id text PRIMARY KEY NOT NULL, child_id text NOT NULL, deed_id text, source_ref text, skill_ids text NOT NULL,
@@ -42,40 +42,84 @@ const current: Pick<RunStart, "runId" | "kind" | "questions" | "responses"> = {
 beforeAll(async () => { await client.query(DDL); });
 afterAll(() => client.close());
 
-describe("benchDemoAt reads old runs of any shape", () => {
+describe("demoAt reads old runs of any shape", () => {
   it("passes over a string among the questions, and an object-shaped questions, without throwing", async () => {
     await seed("odd", '["a string", {"kind":"measure"}, 3, null]', '["x",null,"x","x"]');
     await seed("odd", '{"kind":"measure","0":{"kind":"measure"}}', '["x"]');
     await seed("odd", '"kind":"measure"', '["x"]'); // not JSON at all
-    await expect(benchDemoAt("odd", "2", current)).resolves.toBe(0);
+    await expect(demoAt("odd", "2", current)).resolves.toBe(0);
   });
 
   it("still finds a genuine answered bench run beside the odd ones", async () => {
     await seed("mixed", '["a string", {"kind":"measure"}]', '["x",null]');
     await seed("mixed", '{"kind":"measure"}', '["x"]');
     await seed("mixed", JSON.stringify([choice, measure]), JSON.stringify(["a", [0, 1]]));
-    await expect(benchDemoAt("mixed", "2", current)).resolves.toBeNull();
+    await expect(demoAt("mixed", "2", current)).resolves.toBeNull();
   });
 
   it("an unanswered bench task alone is not enough", async () => {
     await seed("unanswered", JSON.stringify([measure]), JSON.stringify([null]));
-    await expect(benchDemoAt("unanswered", "2", current)).resolves.toBe(0);
+    await expect(demoAt("unanswered", "2", current)).resolves.toBe(0);
   });
 });
 
-describe("benchDemoAt by run kind", () => {
+describe("demoAt by run kind", () => {
   it("shows Aldo's demo on a build run under the same young-hero rule as a side quest", async () => {
-    await expect(benchDemoAt("kinds", "2", { ...current, kind: "build" })).resolves.toBe(0);
-    await expect(benchDemoAt("kinds", "4", { ...current, kind: "build" })).resolves.toBeNull();
+    await expect(demoAt("kinds", "2", { ...current, kind: "build" })).resolves.toBe(0);
+    await expect(demoAt("kinds", "4", { ...current, kind: "build" })).resolves.toBeNull();
   });
 
   it("never shows it on a review or a Crown Challenge", async () => {
-    await expect(benchDemoAt("kinds", "2", { ...current, kind: "review" })).resolves.toBeNull();
-    await expect(benchDemoAt("kinds", "2", { ...current, kind: "challenge" })).resolves.toBeNull();
+    await expect(demoAt("kinds", "2", { ...current, kind: "review" })).resolves.toBeNull();
+    await expect(demoAt("kinds", "2", { ...current, kind: "challenge" })).resolves.toBeNull();
   });
 
   it("is not shown once the hero has answered a bench task in another run", async () => {
     await seed("kinds-seen", JSON.stringify([measure]), JSON.stringify([[0, 1]]));
-    await expect(benchDemoAt("kinds-seen", "2", { ...current, kind: "build" })).resolves.toBeNull();
+    await expect(demoAt("kinds-seen", "2", { ...current, kind: "build" })).resolves.toBeNull();
+  });
+});
+
+describe("demoAt for a lock (R-F10)", () => {
+  const pattern = { kind: "lock", id: "lp", skillId: "logic-k1", prompt: "p", view: { puzzle: "pattern", sequence: [null], tray: [] } };
+  const sort1 = { kind: "lock", id: "ls", skillId: "logic-k1", prompt: "p", view: { puzzle: "sort1", items: [], bins: ["Red", "Blue"] } };
+  const balance = { kind: "lock", id: "lb", skillId: "logic-g23", prompt: "p", view: { puzzle: "balance", weights: [1], target: 1 } };
+  const asked = { kind: "choice", id: "q", skillId: "add", prompt: "p", view: { choices: ["a"] } };
+  const storedLock = { kind: "lock", id: "old", skillId: "logic-k1", prompt: "p", puzzle: "pattern", sequence: [null], tray: [], solution: { puzzle: "pattern", cells: [1] } };
+  const run = (questions: unknown[], responses?: (string | null)[]) =>
+    ({ runId: "now", kind: "deed", questions, responses: responses ?? questions.map(() => null) }) as Pick<RunStart, "runId" | "kind" | "questions" | "responses">;
+
+  it("marks the first lock of a run for a young hero who has never answered one, wherever it falls", async () => {
+    await expect(demoAt("lock-new", "K", run([asked, pattern, sort1]))).resolves.toBe(1);
+    await expect(demoAt("lock-new", "3", run([sort1]))).resolves.toBe(0);
+  });
+
+  it("not for an older hero, nor on a review", async () => {
+    await expect(demoAt("lock-new", "4", run([pattern]))).resolves.toBeNull();
+    await expect(demoAt("lock-new", "K", { ...run([pattern]), kind: "review" })).resolves.toBeNull();
+  });
+
+  it("only a lock Pip can show: a balance first is passed over for the pattern after it", async () => {
+    await expect(demoAt("lock-new", "2", run([balance, pattern]))).resolves.toBe(1);
+    await expect(demoAt("lock-new", "2", run([balance]))).resolves.toBeNull();
+  });
+
+  it("not once a lock is answered, in another run or earlier in this one", async () => {
+    await seed("lock-seen", JSON.stringify([choice, storedLock]), JSON.stringify(["a", "pattern:1"]));
+    await expect(demoAt("lock-seen", "K", run([pattern]))).resolves.toBeNull();
+    await expect(demoAt("lock-mid", "K", run([balance, pattern], ["balance:1", null]))).resolves.toBeNull();
+  });
+
+  it("an answered bench task is not an answered lock, and the bench's demo still comes first in its own run", async () => {
+    await seed("bench-only", JSON.stringify([measure]), JSON.stringify([[0, 1]]));
+    await expect(demoAt("bench-only", "1", run([pattern]))).resolves.toBe(0);
+    const bench = current.questions[0];
+    await expect(demoAt("bench-only", "1", run([bench, pattern]))).resolves.toBe(1);
+    await expect(demoAt("fresh-both", "1", run([bench, pattern]))).resolves.toBe(0);
+  });
+
+  it("an unanswered lock in another run is not enough", async () => {
+    await seed("lock-left", JSON.stringify([storedLock]), JSON.stringify([null]));
+    await expect(demoAt("lock-left", "K", run([pattern]))).resolves.toBe(0);
   });
 });

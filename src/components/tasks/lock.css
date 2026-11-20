@@ -202,3 +202,21 @@
   .lock--move .lock-cell .lock-shape { animation: none; }
   .lock-beam { transition: none; }
 }
+
+/* ---- Watch Pip: the young hero's worked lock (lock-demo.tsx) -------------------------------- */
+
+.lock-demo-art { display: block; margin: 0.3rem 0 0.6rem; }
+.lock-demo-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 0.4rem; }
+.lock-demo-shape { display: block; width: 2.6rem; height: 2.6rem; }
+.lock-demo-shape--placed { border-radius: 10px; box-shadow: 0 0 0 3px var(--lock-gold); }
+.lock-demo-bin { display: flex; flex-direction: column; gap: 0.3rem; padding: 0.4rem; border-radius: 12px; background: var(--lock-well); border: 2px solid var(--lock-edge); }
+.lock-demo-bin-name { font-weight: 800; color: var(--lock-soft); }
+.lock-demo-text { margin: 0 0 0.2rem; max-width: 34rem; font-size: 1.15rem; font-weight: 700; line-height: 1.4; }
+.lock--move .lock-demo-shape--placed { animation: lock-demo-in 0.7s ease-out 0.2s both; }
+@keyframes lock-demo-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lock--move .lock-demo-shape--placed { animation: none; }
+}

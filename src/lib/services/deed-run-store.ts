@@ -5,6 +5,8 @@ import { RUN_EFFECTS, kindsThatFeedReview } from "@/lib/utils/deed-scoring";
 import { records, resumeIndex, statusOf } from "@/lib/utils/deed-attempts";
 import { hintFor } from "@/lib/utils/skill-hints";
 import { isRegisteredKind, isTaskCorrect, kindOf, toClientTask, type Task } from "@/lib/tasks/registry";
+import { demoKeyOf } from "@/lib/tasks/demos";
+import type { HandsOnKind } from "@/lib/tasks/kinds";
 import type { RunStart } from "@/lib/utils/deed-run-types";
 import type { ImprovementId } from "@/lib/realm/improvements";
 
@@ -134,17 +136,17 @@ export function resumedStart(
   return { ...start, ...(site ? { site: { ...site, placed } } : {}), ...(plan ? { plan: { ...plan, placed } } : {}) };
 }
 
-/** The grades that watch Aldo first (R-C9): the hero's grade in the deed's strand, K to 3. */
+/** The grades that watch a worked example first (R-C9, R-F10): the hero's grade in the run's strand, K to 3. */
 const DEMO_GRADES: readonly string[] = ["K", "1", "2", "3"];
 
 /**
- * Whether the hero has answered a bench task in any run but `runId`: some task of kind measure with
- * a stored response, finished run or not. A run that merely held a bench task, left unanswered, is
- * not enough. Read in the database (SQLite's JSON functions), so it costs one row whatever the
- * history; a row whose JSON will not parse, or parses to an odd shape (questions not an array, an
- * element not an object), is passed over, never fatal.
+ * Whether the hero has answered a task of `kind` (a hands-on kind: a bench task, a lock) in any run
+ * but `runId`: some task of that kind with a stored response, finished run or not. A run that merely
+ * held one, left unanswered, is not enough. Read in the database (SQLite's JSON functions), so it
+ * costs one row whatever the history; a row whose JSON will not parse, or parses to an odd shape
+ * (questions not an array, an element not an object), is passed over, never fatal.
  */
-async function hasAnsweredBench(childId: string, runId: string): Promise<boolean> {
+export async function hasAnsweredKind(childId: string, kind: HandsOnKind, runId: string): Promise<boolean> {
   const { questions, responses } = schema.deedRun;
   // Valid JSON of the wrong shape throws in SQLite just as invalid JSON does (a string element is
   // "malformed JSON" to json_extract; an object's keys make a bad `$[key]` path), and SQLite does
@@ -152,30 +154,38 @@ async function hasAnsweredBench(childId: string, runId: string): Promise<boolean
   const answered = sql`CASE WHEN json_valid(${questions}) AND json_valid(${responses}) THEN
     CASE WHEN json_type(${questions}) = 'array' AND json_type(${responses}) = 'array' THEN EXISTS (
       SELECT 1 FROM json_each(${questions}) AS task
-      WHERE CASE WHEN task.type = 'object' THEN json_extract(task.value, '$.kind') ELSE NULL END = 'measure'
+      WHERE CASE WHEN task.type = 'object' THEN json_extract(task.value, '$.kind') ELSE NULL END = ${kind}
         AND json_extract(${responses}, '$[' || task.key || ']') IS NOT NULL
     ) ELSE 0 END
   ELSE 0 END = 1`;
   const rows = await db
     .select({ id: schema.deedRun.id })
     .from(schema.deedRun)
-    .where(and(eq(schema.deedRun.childId, childId), ne(schema.deedRun.id, runId), like(questions, '%"kind":"measure"%'), answered))
+    .where(and(eq(schema.deedRun.childId, childId), ne(schema.deedRun.id, runId), like(questions, `%"kind":"${kind}"%`), answered))
     .limit(1);
   return rows.length > 0;
 }
 
 /**
- * Where a side quest's run shows Aldo's worked example, if it does (R-C9): at the run's first bench
- * task, wherever it falls, for a hero whose grade in the strand is K to 3, while that task is still
- * unanswered and the hero has never answered a bench task in another run. A build run's bench tasks
- * count the same as a side quest's (R-D6). A review or a Crown Challenge never has one. The cheap
- * checks come first, so the history is only read for a run that could show it.
+ * Where a run shows a worked example, if it does (R-C9, R-F10): Aldo at the bench, or Pip at a lock
+ * (`demoKeyOf` says which tasks have one). It is the first such task of a hands-on kind the hero has
+ * never answered, wherever it falls, for a hero whose grade in the strand is K to 3: never answered
+ * in another run (`hasAnsweredKind`), nor earlier in this one. A side quest's run and a build run
+ * show it (R-D6); a review or a Crown Challenge never has one. With a new bench task and a new lock
+ * in one run, the earlier is marked (one demo a run). The cheap checks come first, so the history is
+ * only read for a run that could show one.
  */
-export async function benchDemoAt(childId: string, grade: string, run: Pick<RunStart, "runId" | "kind" | "questions" | "responses">): Promise<number | null> {
+export async function demoAt(childId: string, grade: string, run: Pick<RunStart, "runId" | "kind" | "questions" | "responses">): Promise<number | null> {
   if ((run.kind !== "deed" && run.kind !== "build") || !DEMO_GRADES.includes(grade)) return null;
-  const at = run.questions.findIndex((q) => q.kind === "measure");
-  if (at === -1 || (run.responses[at] ?? null) !== null) return null;
-  return (await hasAnsweredBench(childId, run.runId)) ? null : at;
+  const tried = new Set<string>();
+  for (const [at, q] of run.questions.entries()) {
+    if (demoKeyOf(q) === null || tried.has(q.kind)) continue;
+    tried.add(q.kind);
+    const kind = q.kind as HandsOnKind;
+    const answeredHere = run.questions.some((x, j) => x?.kind === kind && (run.responses[j] ?? null) !== null);
+    if (!answeredHere && !(await hasAnsweredKind(childId, kind, run.runId))) return at;
+  }
+  return null;
 }
 
 /** Writes a fresh, unanswered run and hands the browser its first screen. */

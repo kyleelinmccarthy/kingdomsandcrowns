@@ -30,7 +30,7 @@ import {
 import { overdueSkills } from "@/lib/utils/review-schedule";
 import type { AttemptResult, RunStart, RunSummary } from "@/lib/utils/deed-run-types";
 import { hintFor } from "@/lib/utils/skill-hints";
-import { benchDemoAt, findOpenRun, insertRun, loadMasteryRows, loadRecentMisses, parseRun, resumedStart, type DeedRunRow } from "@/lib/services/deed-run-store";
+import { demoAt, findOpenRun, insertRun, loadMasteryRows, loadRecentMisses, parseRun, resumedStart, type DeedRunRow } from "@/lib/services/deed-run-store";
 import {
   buildingStars, gradeForDeed, loadDeedBest, loadHeroLevels, loadKingdomOverview, loadSiteState, siteTally, type BuildingOverview, type DeedBest,
 } from "@/lib/services/deeds";
@@ -112,9 +112,9 @@ export async function startDeedRun(
   // strand's. `gradeForDeed` is where that is pinned by test. A focus skill in the deed's strand
   // a grade either side joins the candidates (`runCandidates`), so its pool is loaded too.
   const grade = gradeForDeed(hero, deed);
-  // A young hero meets Aldo's worked example before their first bench task (R-C9), resumed or fresh.
+  // A young hero meets a worked example before their first bench task or lock (R-C9, R-F10), resumed or fresh.
   const withDemo = async (start: RunStart): Promise<RunStart> => {
-    const at = await benchDemoAt(childId, grade, start);
+    const at = await demoAt(childId, grade, start);
     return at === null ? start : { ...start, demo: { at } };
   };
   if (open) return withDemo(resumedStart(open, { id: deed.id, title: deed.title, story, area: deed.area }, site ?? undefined));
