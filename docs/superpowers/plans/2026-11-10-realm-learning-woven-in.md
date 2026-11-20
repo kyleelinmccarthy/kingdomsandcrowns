@@ -1770,7 +1770,11 @@ Every fact must be uncontroversial at its grade.
   - `"open"` with no `resetAfterDays` stays open;
   - with `resetAfterDays`, it locks again once `today − dayOf(updated_at) ≥ resetAfterDays`.
 - **R-G2: objects (`WORLD_OBJECTS`, pure catalog).**
-  - **Chests** (`resetAfterDays: 7`) stand at fixed village and room spots from the survey. Each refill's puzzle is seeded by `(objectId, cycle)`.
+  - **Chests** (`resetAfterDays: 7`) stand at fixed village and room spots from the survey. Each refill's puzzle is seeded by `(objectId, cycle)` (superseded by PC-G3).
+  - **An emptied chest keeps relocking weekly, with a fresh puzzle (owner, 2026-11-20).** Once the hero owns every reward it holds:
+    - opening it gives no reward and writes no reward row;
+    - its result line is exactly "You've found everything in this chest."
+
   - **Vault doors** (once) stand near the five authored places. Each reveals a generated place (a map fragment) and a lore page.
   - Every object's lock draws from the hero's logic skill. A chest in the library or garden draws a vocab or science sort instead, when those pools exist.
 - **R-G3: opening.**
@@ -1782,9 +1786,14 @@ Every fact must be uncontroversial at its grade.
   - **`lore`:** an entry in a `LORE` catalog of short pages, shown in a new "Found pages" section of the Chronicle book. `getChronicle` returns `lore`.
   - **`fragment`:** a generated place id, applied with `addPlacesFound`, plus the toast "You found a map to {place}!". The client store adds it too.
 - **R-G4b: Puzzle Tower runs.** `RUN_EFFECTS.tower` has every effect false. A tower run moves nothing but the tower record.
-- **R-G5: the Puzzle Tower.**
+- **R-G5: the Puzzle Tower** (floors and copy: owner, 2026-11-20).
   - A fixed structure at (25.5, 23.5), 8×8, the only free plot. It is not a `BUILDINGS` entry: it has its own catalog entry and clearance test.
-  - It has one floor per band. A floor opens after 3 stars on any lock deed at that band (`deed_run.kind='deed'`, `deed_id` among lock deeds, `band`, `stars = 3`), checked by one query.
+  - **Floors.** There is one floor per band. 3 stars on a science (lock) side quest at the hero's own band opens their floor **and every floor below it** (cumulative).
+    - Floors above the hero's band are never shown: not drawn as storeys, and not listed on the `TowerBoard`.
+    - With no 3-star run yet, only the hero's own floor shows, as waiting.
+    - "The hero's band" is defined in PC-G18.
+    - The stars are read by one query (`deed_run.kind='deed'`, `deed_id` among the lock deeds, `stars = 3`, distinct `band`).
+  - **Copy.** A waiting floor's line is exactly "Earn 3 stars on a science side quest to open this floor." It never names a grade or band.
   - Each open floor offers a bonus lock, harder by one level, as a `tower` run.
   - The record is `realm_world_state` `tower:<band>`, with state = solved count.
   - The exterior grows one storey per open floor.
@@ -1792,6 +1801,13 @@ Every fact must be uncontroversial at its grade.
   - New interact kinds: `"lock"` (chests and doors) and `"tower"`, added to the overlay chain's negative list.
   - Room chests get an optional third argument on `roomSpots`, so the existing three-spot tests keep their shape.
   - Chests and doors are non-solid (heaps precedent). A vault door's frame is drawn beside the path, not across it.
+- **R-G7: the grown-up's locks switch (owner, 2026-11-20).** With "Solving logic locks" off:
+  - chests and vault doors are not drawn;
+  - the Tower's bonus locks are not offered;
+  - `startWorldLockRun` and `startTowerRun` refuse with `WORLD_LOCKS_OFF`, mirroring `startPracticeRun`;
+  - everything already found stays: decorations, lore pages, found places and tower records.
+
+  Whether the Tower itself stays drawn is the planner's call, PC-G6.
 
 ### Planner calls (2026-11-20, against `dev` b4443b2; the code forced each one)
 
@@ -1811,16 +1827,13 @@ Every fact must be uncontroversial at its grade.
   - `draws: "vocab" | "science"`: the skill `${prefix}-${bandForGrade(grades[area])}` (area `language` or `science`), when `TASK_KINDS.lock.presents` it. Otherwise it is logic, as above.
   - Today: `science-*` has a pool at every band; `vocab-*` only at `g45`/`g68`/`g912` (grades 5, 6 and 9).
   - So a hero whose language grade is K–3 gets a **logic** lock at the library chest, never a vocab `choice` question.
-- **PC-G5: what a chest gives.** Each opening gives the first reward in the chest's `rewards` the hero does not yet own (one per opening). A vault door gives all of its rewards at once (it opens once). A chest whose rewards are all owned still opens, and gives nothing new (owner question Q3).
-- **PC-G6: with locks switched off**, follow R-F7 ("Puzzle practice is hidden"):
-  - chests and vault doors are neither drawn nor offered to E;
-  - `startWorldLockRun` and `startTowerRun` refuse with `WORLD_LOCKS_OFF`;
-  - the Tower is still drawn, with no E spot;
-  - decorations already won stay.
-
-  Owner question Q4 can change this; it is one pure function, `worldCanvas`.
+- **PC-G5: what a chest gives.** Each opening gives the first reward in the chest's `rewards` the hero does not yet own (one per opening). A vault door gives all of its rewards at once (it opens once). A chest whose rewards are all owned still opens weekly, gives `[]` and writes nothing new (R-G2, owner).
+- **PC-G6: with locks switched off, the Tower stays drawn, at its earned storeys, but has no E spot** (R-G7).
+  - *Reason:* R-F7 hides the *offer* of logic locks (the Puzzle practice button), not the hero's record. Here the offer is the Tower's E spot and its board.
+  - The Tower is a building whose storeys are the hero's tower record, which R-G7 keeps. Hiding it would make the village change shape when a grown-up flips a switch.
+  - `worldCanvas` gives `locks: []` and `locksOn: false`. The `tower` spot keys on `locksOn`.
 - **PC-G7: only the hero finishes a world-object or tower run.** `completeDeedRun` refuses a grown-up with `WORLD_HERO_ONLY` before anything is written, as it does build runs. A grown-up with edit access could otherwise finish the hero's open chest run. Puzzle practice (`sourceRef "practice"`) keeps 4a's behaviour.
-- **PC-G8: the floor query counts science deed runs by the deed's identity.** It counts `deed_id IN (the lock deeds)` whether that run played as sorts or, with locks off, as `choice`. *Reason:* this is R-G5's literal query. `deed_run.band` is set at start from `bandForGrade(gradeForDeed(hero, deed))`, so it is the hero's **science** band, offset included. Telling a sorts run from a choice run would need a JSON scan, and the Tower is unplayable with locks off anyway.
+- **PC-G8: the floor query counts science deed runs by the deed's identity.** It counts `deed_id IN (the lock deeds)` whether that run played as sorts or, with locks off, as `choice`. *Reason:* this is R-G5's query. Telling a sorts run from a choice run would need a JSON scan, and the Tower is unplayable with locks off anyway.
 - **PC-G9: E spots go through `World`, drawing through its siblings.** `buildSpots` runs inside the memoised `World` (`spike-scene.tsx`, the `spots` memo). So lock and tower spots need one new optional `World` prop, `locks`, added to that memo's deps, as `built` is. The chests, doors, decorations and Tower are drawn by siblings of `<World>` (`<WorldLocks>`, `<Decorations>`, `<PuzzleTower>`).
 
   `SpikeScene` takes one new stable prop, `worldLocks?: WorldCanvas`. The Tower's collider is static: one line in the `solids` memo, as `riddleStoneColliders` is.
@@ -1836,25 +1849,24 @@ Every fact must be uncontroversial at its grade.
 - **PC-G15: the world state is assembled after the child row is read**, from rows read in the first parallel round. The child row is already read for `today`, so the zone costs no extra round trip (G6 pins the read budget).
 - **PC-G16: `RunKind` gains `"tower"` in G2, together with `deed_run.kind`'s TS enum.** `insertRun` returns `values.kind` as a `RunKind`, so the two must change together. `db:generate` emits nothing for the enum (as with `world` in F9); 0044 holds only the table (G1).
 - **PC-G17: the world-lock hook runs only when `run.kind === "world" && isWorldObjectId(run.sourceRef)`.** So Puzzle practice gets no `world` outcome.
+- **PC-G18: "the hero's band" (R-G5).**
+  - **Which floors show:** the hero's **own grade's** band, `ownBand = bandForGrade(hero.grades.logic)`. Logic is the hero's own grade with no offset (R-F6), and the Tower's locks are logic locks.
+  - **What opens their floor:** a 3-star science side quest at the band their science side quests **draw at now**, `scienceBand = bandForGrade(hero.grades.science)`. That band is what `deed_run.band` stores (`bandForGrade(gradeForDeed(…))`).
+  - The two differ only when a grown-up's science offset crosses a band edge. Counting the band the hero actually plays at keeps the hero's floor reachable whatever the offset. A hero with science set down a band could otherwise never open their own floor.
+  - **History stays:** a 3-star run at any band `b ≤ ownBand` also opens the floors up to `b`, so a floor earned in an earlier grade stays open.
+  - A science band above `ownBand` (an offset up) opens nothing above `ownBand`.
+  - The rule is the pure `towerFloors(starred: ReadonlySet<ContentBand>, bands: { ownBand: ContentBand; scienceBand: ContentBand }): { band: ContentBand; open: boolean }[]`. It returns the visible floors, bottom first:
+    - `top` = `ownBand` if `starred.has(scienceBand)`, else the highest `b ∈ starred` with `b ≤ ownBand` (or none);
+    - the open floors are every band ≤ `top`;
+    - the visible floors are the open floors plus `ownBand`, which shows as waiting when it is not open.
+  - **Bundle cost:** none. The bundle already calls `loadKingdomOverview`, which carries `grades`. `loadKingdomState` hands them back alongside `{ tone, buildings }`, so the floors cost no extra read. When the kingdom read fails, `tower` is `[]`.
 
-### Owner questions (each answer changes one named function or constant; until answered, build the ruling as written)
+### Owner questions
 
-- **Q1, which floors a hero can open** (`towerFloorsOpen`, G5). A hero plays science side quests at one band only: their science grade's, offset included. Under R-G5 as written, every other floor waits for ever. The options:
-  - (a) as written;
-  - (b) 3 stars at band *b* opens every floor up to *b*;
-  - (c) the board shows only the hero's own science band's floor and floors already open.
-- **Q2, the waiting floor's copy** (`TOWER_WAITING`, G5). R-G5's "{band}" names a grade range ("Kindergarten – Grade 1") to a child. The options:
-  - (a) as written;
-  - (b) "Earn 3 stars on a science side quest to open this floor.", with no band;
-  - (c) floors named by their puzzles ("the Floor of Shapes"), with (b)'s line.
-- **Q3, what an emptied chest gives** (`nextRewards` and `CHEST_EMPTY`, G1/G3). The options:
-  - (a) it opens and gives nothing new, with a kind line;
-  - (b) it stops relocking once emptied and stays open;
-  - (c) more rewards are authored, so no chest empties within a school year.
-- **Q4, what locks-off does to the world** (`worldCanvas`, G3; PC-G6). The options:
-  - (a) chests and doors vanish, and the Tower has no prompt;
-  - (b) they stay and still play logic and sorts: the switch governs side quests only, and its hint text changes to say so;
-  - (c) they stay drawn, sealed, with "The locks are resting for now."
+None open. The owner answered Q1–Q4 on 2026-11-20:
+- Q1 and Q2 are now R-G5;
+- Q3 is in R-G2;
+- Q4 is R-G7.
 
 ## Global constraints for Part G
 
@@ -1915,7 +1927,7 @@ Part F's constraints still apply, plus:
   - "Inside: {decor label}. Look for it in the village."
   - "Inside: a page for your Chronicle, “{title}”."
   - "Inside: a map and a page for your Chronicle."
-  - `CHEST_EMPTY` = "You've found everything this chest holds. Its lock is still yours to solve." (Q3)
+  - `CHEST_EMPTY` = "You've found everything in this chest." (R-G2, owner; exact)
 
   **Board lines:**
   - `CHEST_OPEN_LINE` = "You opened this chest. A new lock comes next week."
@@ -1925,7 +1937,8 @@ Part F's constraints still apply, plus:
   - Toast: "You found a map to {place}!" / "Look for it on your map."
   - `TOWER_FINISH` = "Finish the climb".
   - The Chronicle's section: "Found pages".
-- **No child-facing grade or band label** outside the owner's answer to Q2.
+- **No child-facing grade or band label anywhere in Part G** (R-G5, owner).
+- `TOWER_WAITING` = "Earn 3 stars on a science side quest to open this floor." (exact, a constant). Floors are named by position: "The first floor" … "The fifth floor".
 
 ## Review Focus (Part G)
 
@@ -1945,7 +1958,7 @@ Part F's constraints still apply, plus:
 | `src/lib/realm/world-objects.ts`, `lore.ts`, `world-state.ts`, `puzzle-tower.ts` (new, pure, client-safe) | catalogs, `lockedNow`, `nextRewards`, the view and its mirror, the Tower's place and rules |
 | `src/lib/utils/world-lock-run.ts` (new, server: imports the registry) | `worldLockSkill`, `buildWorldLockRun` |
 | `src/lib/utils/world-lock-copy.ts` (new) | the copy above |
-| `src/lib/services/realm-world-state.ts` (new) | reads, `openWorldObject`, `bumpTowerRecord`, `loadTowerFloorsOpen`, `loadFoundPages`, `worldClock` |
+| `src/lib/services/realm-world-state.ts` (new) | reads, `openWorldObject`, `bumpTowerRecord`, `loadStarredBands`, `loadFoundPages`, `worldClock` |
 | `src/lib/actions/world-locks.ts` (new) | `startWorldLockRun`, `startTowerRun` |
 | `src/lib/realm3d/world-lock-boxes.ts` (new, pure) | chest, door, decor and tower boxes |
 | `src/components/realm3d/world-locks.tsx`, `decorations.tsx`, `puzzle-tower.tsx` (new) | painters, siblings of `World` |
@@ -1973,7 +1986,7 @@ Part F's constraints still apply, plus:
   `keep-yard.test.ts` and `riddle-stones.test.ts` import them; their local copies go (DRY).
 - Create `src/lib/realm/lore.ts`, `world-objects.ts`, `world-state.ts`, `puzzle-tower.ts`, each with a test.
 - Modify `src/lib/realm3d/interiors.test.ts`: a describe for the room chests.
-- Spec §2a: add "Calls settled for slice 4b": R-G1–R-G6 and PC-G1–PC-G17, one line each.
+- Spec §2a: add "Calls settled for slice 4b": the owner's answers of 2026-11-20 (R-G2's emptied chest, R-G5, R-G7), then R-G1–R-G7 and PC-G1–PC-G18, one line each.
 
 **Interfaces (produces):**
 - `lore.ts`:
@@ -1998,14 +2011,15 @@ Part F's constraints still apply, plus:
   - `type TowerFloorView = { band: ContentBand; open: boolean; solved: number }`;
   - `type WorldStateView = { locksOn: boolean; open: string[]; decor: DecorId[]; tower: TowerFloorView[] }`;
   - `EMPTY_WORLD_STATE`;
-  - `worldStateView(rows: readonly WorldRow[], floorsOpen: ReadonlySet<ContentBand>, clock: { today: string; zone: string }, locksOn: boolean): WorldStateView`.
+  - `worldStateView(rows: readonly WorldRow[], floors: readonly { band: ContentBand; open: boolean }[], clock: { today: string; zone: string }, locksOn: boolean): WorldStateView`. `tower` is exactly `floors` (visible floors only, bottom first), each given `solved` from its `tower:<band>` row.
 - `puzzle-tower.ts`:
   - `PUZZLE_TOWER = { x: 25.5, z: 23.5, plot: 8, body: 6, baseH: 3.2, storeyH: 2.4, door: { x: 22.2, z: 23.5 } }`;
   - `TOWER_FLOORS = CONTENT_BANDS`;
   - `towerRef(band) → "tower:<band>"`;
   - `bandOfTowerRef(ref: string | null): ContentBand | null`;
   - `towerSkillId(band) → "logic-<band>"`;
-  - `towerColliders(heightAt): Collider[]`.
+  - `towerColliders(heightAt): Collider[]`;
+  - `towerFloors(starred: ReadonlySet<ContentBand>, bands: { ownBand: ContentBand; scienceBand: ContentBand }): { band: ContentBand; open: boolean }[]`, the PC-G18 rule (R-G5).
 
 **The catalog** (positions are starting spots from the survey; the tests arbitrate):
 
@@ -2054,11 +2068,10 @@ Part F's constraints still apply, plus:
     - In `"UTC"`: `"2026-11-09"` gives `false` (Review Focus 2).
   - "a chest gives its next unowned reward, one at a time". For `chest:west-lane` with owned `{}`, `nextRewards` gives `[decor stone-bench]`. With `{"decor:stone-bench"}` it gives `[decor sundial]`. With all three owned it gives `[]`.
   - "a door gives everything at once": `door:ringstones` gives `[fragment summit-7, lore ringstones-map]`.
-  - "the view". Rows: `chest:west-lane` open today, `chest:east-lane` opened 8 days ago, `decor:sundial`, `tower:g23 = "2"`, `tower:k1 = "x"`; `floorsOpen = {g23}`. The view gives:
+  - "the view". Rows: `chest:west-lane` open today, `chest:east-lane` opened 8 days ago, `decor:sundial`, `tower:g23 = "2"`, `tower:k1 = "x"`; `floors = [{k1, open: true}, {g23, open: true}, {g45, open: false}]`. The view gives:
     - `open: ["chest:west-lane"]`;
     - `decor: ["sundial"]`;
-    - `tower`: `g23` is `{open:true, solved:2}`; `k1` is `{open:false, solved:0}`;
-    - five floors in `CONTENT_BANDS` order;
+    - `tower`: `[{k1, open: true, solved: 0}, {g23, open: true, solved: 2}, {g45, open: false, solved: 0}]`, exactly the floors given (no others);
     - unknown object ids are skipped.
 
   **`world-objects.test.ts`:**
@@ -2086,6 +2099,10 @@ Part F's constraints still apply, plus:
   - "the plot clears the village": `clearanceFailures("tower", rectAt(25.5, 23.5, 8, 8), undefined, 1.5)` is `[]`, `levelFailures` is `[]`, and nothing within 1.5 of `villagePieces()`.
   - "refs round-trip": `bandOfTowerRef(towerRef("g68")) === "g68"`; `bandOfTowerRef("tower:g7")`, `("chest:x")` and `(null)` all give `null`.
   - "every floor names a logic skill": `findSkill(towerSkillId(b))?.area === "logic"` for every band.
+  - "a grade-4 hero with 3 stars at their band opens K–1, 2–3 and 4–5, and nothing above shows" (R-G5, owner). `towerFloors(new Set(["g45"]), { ownBand: "g45", scienceBand: "g45" })` equals `[{k1, open: true}, {g23, open: true}, {g45, open: true}]`; no `g68` or `g912` entry.
+  - "with no 3-star run, only the hero's own floor shows, waiting": `towerFloors(new Set(), { ownBand: "g45", scienceBand: "g45" })` equals `[{ band: "g45", open: false }]`.
+  - "an earlier band's stars keep their floors; the own floor waits": `towerFloors(new Set(["k1"]), { ownBand: "g45", scienceBand: "g45" })` equals `[{k1, open: true}, {g45, open: false}]`.
+  - "the band science draws at opens the hero's floor, whatever the offset": `towerFloors(new Set(["g23"]), { ownBand: "g45", scienceBand: "g23" })` opens k1, g23 and g45. `towerFloors(new Set(["g68"]), { ownBand: "g45", scienceBand: "g68" })` opens k1–g45, and shows no `g68`.
   - "one collider": `towerColliders(() => 0)` equals `[{ x: 25.5, z: 23.5, hw: 3, hd: 3, round: false, base: -1, top: 3.2 + 5 * 2.4 }]`.
 
 - [ ] **Step 2:** `npx vitest run src/lib/realm/world-state.test.ts src/lib/realm/world-objects.test.ts src/lib/realm/puzzle-tower.test.ts src/lib/realm3d/interiors.test.ts src/lib/realm/keep-yard.test.ts src/lib/realm/riddle-stones.test.ts --maxWorkers=2`. Expected: FAIL. The new files fail with "Cannot find module"; the two refactored files fail on the missing `villagePieces` and `segmentDistance` exports.
@@ -2157,14 +2174,22 @@ Part F's constraints still apply, plus:
     - neither is ever `kind: "choice"`.
   - "the garden chest draws a science sort": science `"6"` gives `["science-g68"]`.
   - "refuses a grown-up, an unknown id, and `practice`, writing nothing": `WORLD_HERO_ONLY`, `NOT_IN_CHRONICLE`, `NOT_IN_CHRONICLE`; `deed_run` stays empty.
-  - "refuses while locks are off": `WORLD_LOCKS_OFF`.
+  - "refuses while locks are off, and keeps everything already found" (R-G7, owner):
+    - `WORLD_LOCKS_OFF`, with no run written;
+    - the existing `chest:`, `decor:` and `lore:` rows and the `realm_place_found` rows are byte-for-byte unchanged.
   - "refuses an open chest; it starts again on the seventh local day" (Review Focus 2):
     - a state row with `updated_at = 2026-11-03T06:30Z` (Denver: the 2nd) **starts** on 2026-11-09;
     - a row with `updated_at = 2026-11-03T18:00Z` gives `WORLD_OPEN`.
   - "a right answer opens the chest and gives its first reward". `summary.world` is `{ objectId: "chest:west-lane", opened: true, rewards: [{ kind: "decor", id: "stone-bench" }] }`; the rows are `chest:west-lane="open"` and `decor:stone-bench="placed"`.
   - "a second-try right answer opens it too".
   - "a miss leaves it locked, and the next start is a new run": `reason: "missed"`; no state rows; the new `runId` differs.
-  - "the next week's opening gives the next reward; with all three owned it opens and gives `[]`".
+  - "the next week's opening gives the next reward".
+  - "an emptied chest relocks weekly, opens with a fresh puzzle, and never writes a reward twice" (R-G2, owner). With all three rewards owned:
+    - the chest still starts once its 7 days pass, as a new `runId`;
+    - a right answer gives `world = { opened: true, rewards: [] }`;
+    - the chest's row is `"open"` with the new `updated_at`;
+    - the `decor:`/`lore:` row count is still 3, each `object_id` once;
+    - a second week does the same, and the count stays 3.
   - "a vault door marks its place found and gives its page, and never relocks":
     - `realm_place_found` has `summit-7`;
     - `lore:ringstones-map="found"`;
@@ -2198,13 +2223,14 @@ Part F's constraints still apply, plus:
 - **Bundle:** modify `src/lib/actions/realm.ts`.
   - `RealmBundle.worldState?: WorldStateView`.
   - The first parallel round: `const worldRead = loadWorldRaw(childId).catch(…→ null)`.
-  - After the child row (PC-G15): `worldState: raw ? worldStateView(raw.rows, raw.floorsOpen, { today, zone: usableTimeZone(child.timezone) }, settings.mechanics.lock) : EMPTY_WORLD_STATE`.
-  - `loadWorldRaw(childId): Promise<{ rows: WorldRow[]; floorsOpen: ReadonlySet<ContentBand> }>` goes in `realm-world-state.ts`. Until G5, `floorsOpen` is an empty set.
+  - `loadKingdomState` also returns the overview's `grades` (PC-G18; no extra read).
+  - After the child row (PC-G15): `worldState: raw ? worldStateView(raw.rows, grades ? towerFloors(raw.starred, { ownBand: bandForGrade(grades.logic), scienceBand: bandForGrade(grades.science) }) : [], { today, zone: usableTimeZone(child.timezone) }, settings.mechanics.lock) : EMPTY_WORLD_STATE`.
+  - `loadWorldRaw(childId): Promise<{ rows: WorldRow[]; starred: ReadonlySet<ContentBand> }>` goes in `realm-world-state.ts`. Until G5, `starred` is an empty set, so only the hero's own floor shows, waiting.
 - Modify `src/app/(app)/realm/page.tsx` and `RealmData` in `realm-game.tsx`: `worldState: bundle.worldState ?? EMPTY_WORLD_STATE`.
 - Modify `world-state.ts`:
   - `type LockSpotView = { id; type; label; x; z; ry; open: boolean }`;
   - `type WorldCanvas = { locksOn: boolean; locks: readonly LockSpotView[]; decor: readonly DecorId[]; storeys: number }`;
-  - `worldCanvas(view): WorldCanvas`: world objects only, none when `!locksOn` (PC-G6), `storeys` = open floors;
+  - `worldCanvas(view): WorldCanvas`: world objects only, none when `!locksOn` (R-G7, owner; the Tower stays drawn, PC-G6), `storeys` = the count of open visible floors;
   - `roomChestFor(room: RoomKind, view): LockSpotView | null`;
   - `applyWorldOutcome(view, o: WorldOutcome): WorldStateView`: the same object when `!o.opened`.
 - Modify `hud-bus.ts`: the `InteractTarget.kind` union gains `"lock"`, with a doc line.
@@ -2246,7 +2272,7 @@ Part F's constraints still apply, plus:
 
   **`world-state.test.ts`:**
   - `worldCanvas` lists the 3 village chests and 5 doors, with `open` set from `view.open`;
-  - with `locksOn: false`, `locks` is `[]` and `decor` is kept;
+  - with `locksOn: false` (R-G7, owner): `locks` is `[]`, `locksOn` is `false`, and `decor` and `storeys` are kept; `roomChestFor` gives `null`;
   - `roomChestFor("library", view)?.id === "chest:library"`; `roomChestFor("mill", view) === null`;
   - `applyWorldOutcome` adds the id and the decor; a missed outcome returns the same view object;
   - the locks stay awake in the quiet world: `Object.keys(quietSurfaces(true)).sort()` is still `["recess","riding","troubles"]`.
@@ -2285,10 +2311,13 @@ Part F's constraints still apply, plus:
 
   **`realm-bundle.test.ts`:**
   - `worldState` comes from the mocked raw rows;
+  - `tower` is `[{ band: "g45", open: false, solved: 0 }]` for a grade-4 overview with no stars, and `[]` when the kingdom read fails;
   - `locksOn` follows the settings row's `mechanics`;
   - a failed read gives `EMPTY_WORLD_STATE`.
 
-  **`talk.test.ts`:** the world headlines, all five outcomes.
+  **`talk.test.ts`:**
+  - the world headlines, all five outcomes;
+  - an opened chest with `rewards: []` reads "The chest opens!" / "You've found everything in this chest." exactly.
 - [ ] **Step 2:** run those files. Expected: FAIL (missing exports and modules).
 - [ ] **Step 3:** implement to the interfaces.
 - [ ] **Step 4:** run them again, then `npx tsc --noEmit` and `npx eslint` on the changed files. Expected: PASS, 0 errors.
@@ -2321,7 +2350,7 @@ Part F's constraints still apply, plus:
 - [ ] **Step 1: Write the failing tests.**
   - **`world-lock-boxes.test.ts`:** every `DECOR_IDS` entry has ≥1 box, sits within a 1.4 × 1.4 footprint, and stands at most 2.6 tall.
   - **`realm-world-state` DB tests** (a `describe` in `world-locks-db.test.ts`): `loadFoundPages` gives two pages in found order, and skips `lore:nope`.
-  - **`realm-chronicle.test.ts`:** a hero and a view-only visitor both get `lore`.
+  - **`realm-chronicle.test.ts`:** a hero and a view-only visitor both get `lore`, and so does a hero whose grown-up has locks off (R-G7: found pages stay).
   - **`chronicle-book.test.tsx`:**
     - no button without pages;
     - the button shows the pages;
@@ -2340,30 +2369,28 @@ Part F's constraints still apply, plus:
 
 **Files:**
 - Modify `realm-world-state.ts`:
-  - `loadTowerFloorsOpen(childId): Promise<ReadonlySet<ContentBand>>`. This is the floor query: `SELECT DISTINCT band FROM deed_run WHERE child_id = ? AND kind = 'deed' AND deed_id IN (<DEEDS with mechanic "lock">) AND stars = 3` (PC-G8).
-  - `loadWorldRaw` reads it in parallel with the rows.
+  - `loadStarredBands(childId): Promise<ReadonlySet<ContentBand>>`. This is R-G5's one query: `SELECT DISTINCT band FROM deed_run WHERE child_id = ? AND kind = 'deed' AND deed_id IN (<DEEDS with mechanic "lock">) AND stars = 3` (PC-G8).
+  - `loadWorldRaw` reads it, as `starred`, in parallel with the rows.
   - `bumpTowerRecord(childId, band, now): Promise<number>`: `insert … values(state "1") onConflictDoUpdate({ set: { state: sql\`CAST(CAST(state AS INTEGER) + 1 AS TEXT)\`, updatedAt: now } }) returning state`.
 - Add to `puzzle-tower.ts`, pure:
-  - `towerLevel(mastery: number): number` = `Math.min(mastery + 1, MASTERY_MAX)` (PC-G12);
-  - `towerFloorsOpen(starredBands: ReadonlySet<ContentBand>): ReadonlySet<ContentBand>`. Under R-G5 it is the identity; Q1's answer changes only this.
+  - `towerLevel(mastery: number): number` = `Math.min(mastery + 1, MASTERY_MAX)` (PC-G12).
 - Modify `actions/world-locks.ts`: `startTowerRun(childId: string, band: ContentBand): Promise<RunStart>`. The order:
   1. access, hero, `CLOSED`, `WORLD_LOCKS_OFF`;
   2. the band is validated against `CONTENT_BANDS`, else `NOT_IN_CHRONICLE`;
-  3. the floor is open, else `TOWER_SHUT`;
+  3. the floor is open, else `TOWER_SHUT`: `towerFloors(await loadStarredBands(childId), { ownBand: bandForGrade(hero.grades.logic), scienceBand: bandForGrade(hero.grades.science) })` holds `{ band, open: true }`. A floor above the hero's band is never in that list, so it is `TOWER_SHUT` too;
   4. resume on `sourceRef = towerRef(band)`, kind `"tower"`;
   5. the skill `towerSkillId(band)` at `towerLevel(mastery)`, through `buildWorldLockRun`, with header `{ id: towerRef(band), title: "The Puzzle Tower", story: TOWER_STORY, area: "logic" }`;
   6. `secondChances: false`; no demo.
 - Modify `deed-run-types.ts`: `type TowerOutcome = { band: ContentBand; solved: number; counted: boolean }`; `RunSummary.tower?`.
 - Modify `completeDeedRun`: `tower = run.kind === "tower" ? await finishTowerRun(...)`. On `outcomes[0] === "first"` it calls `bumpTowerRecord`; otherwise it reads the count. It is best-effort, like the world hook.
 - Modify `world-state.ts`: `applyTowerOutcome(view, o: TowerOutcome)`. `use-world-state.ts` returns it too.
-- `loadWorldRaw` and `startTowerRun` both pass `loadTowerFloorsOpen`'s set through `towerFloorsOpen`.
 - Modify `world-lock-copy.ts`:
   - `towerFloorName(i)`: "The first floor" … "The fifth floor";
   - `towerFloorLine(f: TowerFloorView, numerals)`:
     - open with `solved > 0` and numerals: "{n} solved here.";
     - open with `solved > 0`, no numerals: "You've solved puzzles here.";
     - open with 0: "A new puzzle waits.";
-    - waiting: `TOWER_WAITING(band)` = "Earn 3 stars on a lock side quest for {BAND_LABELS[band]} to open this floor." (R-G5, pending Q2).
+    - waiting: `TOWER_WAITING`, the exact constant (R-G5, owner).
 - Modify `talk.ts` `resultHeadline`: the tower branch.
 - Modify `deed-board.tsx`: `what` gives `"climb"` for `tower`.
 - Modify `world-lock-boxes.ts`: `towerBoxes(storeys: number): YardBox[]` (clamped 0–5).
@@ -2375,27 +2402,30 @@ Part F's constraints still apply, plus:
 - Modify `interact.ts`: `SpotInput.tower?: { x; z } | null` and `TOWER_TARGET = { kind: "tower", id: "puzzle-tower", label: "the Puzzle Tower", verb: "Climb" }`. The spot is hw 0.7, hd 0.9, reach 1.4, bias 0.4.
 - Modify `hud-bus.ts`: the union gains `"tower"`.
 - Create `src/components/realm3d/tower-board.tsx`: `TowerBoard({ childId, floors, viewer, numerals, profile, calm, onOutcome, onClose })`.
-  - It lists floors from the top down.
+  - It lists `floors` (the view's visible floors only) from the top down, named by `towerFloorName(CONTENT_BANDS.indexOf(band))`.
   - An open floor has a "Climb" button, for the hero only.
   - Climbing plays `startTowerRun` in `<DeedRun>`; `onResult` passes `s.tower` to `onOutcome`.
 - Modify `realm-game.tsx` (additive): the `tower` overlay branch, `!== "tower"` in the negative chain, and the hook's `applyTowerOutcome`.
 
 **Interfaces:**
 - **Consumes:** G2's start pattern and `buildWorldLockRun`; G3's hook, `WorldCanvas` and spot plumbing.
-- **Produces:** `startTowerRun`, `TowerOutcome`, `loadTowerFloorsOpen`, `towerFloorsOpen`, `bumpTowerRecord`.
+- **Produces:** `startTowerRun`, `TowerOutcome`, `loadStarredBands`, `bumpTowerRecord`. `towerFloors` comes from G1.
 
 - [ ] **Step 1: Write the failing tests.**
 
   **DB tests** (`world-locks-db.test.ts`, "the Puzzle Tower"):
-  - `loadTowerFloorsOpen` gives `{"g23"}` for a 3-star `well-water` run at `g23`. These give the empty set:
+  - `loadStarredBands` gives `{"g23"}` for a 3-star `well-water` run at `g23`. These give the empty set:
     - 2 stars on a science deed;
     - 3 stars on `well-stones` (math);
     - a `challenge` run;
     - a `world` run;
     - an open run.
   - `startTowerRun`:
-    - refuses `"g45"` with `TOWER_SHUT`, and a grown-up with `WORLD_HERO_ONLY`;
-    - opens `"g23"` with skill ids `["logic-g23"]`;
+    - refuses a grown-up with `WORLD_HERO_ONLY`;
+    - refuses with `WORLD_LOCKS_OFF` while locks are off, and writes nothing; the `tower:` rows are kept (R-G7, owner);
+    - for a grade-4 hero (logic and science `"4"`) with a 3-star `well-water` run at `g45`, opens `"k1"`, `"g23"` and `"g45"`. The `"g23"` run has skill ids `["logic-g23"]`;
+    - refuses `"g68"` with `TOWER_SHUT` (above the hero's band);
+    - with no 3-star run, refuses even `"g45"` with `TOWER_SHUT`;
     - `second_chances = 0`, `source_ref = 'tower:g23'`; resumes;
     - has no `demo` for a grade-2 hero.
   - Finishing:
@@ -2418,13 +2448,16 @@ Part F's constraints still apply, plus:
 
   **`tower-board.test.tsx`:**
   - a visitor sees floors and no "Climb";
-  - a waiting floor shows `TOWER_WAITING`;
+  - a waiting floor shows exactly "Earn 3 stars on a science side quest to open this floor.", and no text on the board matches `/grade|kindergarten/i`;
+  - only the floors given are listed: three floors in, three rows out, top down;
   - Climb starts `("c1", "g23")` once;
   - a result calls `onOutcome`.
 
   **`talk.test.ts`:** the tower headlines; `finishLabel("tower") === "Finish the climb"`.
 
-  **`realm-game.test.tsx`:** E at the Tower opens its board.
+  **`realm-game.test.tsx`:**
+  - E at the Tower opens its board;
+  - with `worldState.locksOn` false (R-G7): `handed.props.worldLocks` has `locksOn: false`, `locks: []`, and the decor and storeys of the bundle. The spot rules for that value are pinned by `worldCanvas` (G3) and by "none when `tower` is null" above.
 - [ ] **Step 2:** run them. Expected: FAIL.
 - [ ] **Step 3:** implement.
 - [ ] **Step 4:** run them again, plus `src/lib/actions/deeds-db.test.ts`; then `npx tsc --noEmit`. Expected: PASS.
@@ -2438,9 +2471,9 @@ Part F's constraints still apply, plus:
 - [ ] **Step 1: Write the tests.**
   - **`realm-bundle.test.ts`:**
     - `loadWorldRaw` is called exactly once per bundle;
-    - `loadRealmSettings` and `getTimezoneForChild` (spied through a partial mock of `@/lib/services/family-timezone`) are never called by it: the settings row and the child row serve (PC-G15).
+    - `loadRealmSettings`, `loadHeroLevels` and `getTimezoneForChild` (spied through a partial mock of `@/lib/services/family-timezone`) are never called by it: the settings row, the kingdom overview's `grades` and the child row serve (PC-G15, PC-G18).
   - **`world-locks-db.test.ts`:**
-    - `EXPLAIN QUERY PLAN` of `loadTowerFloorsOpen`'s SQL contains `USING INDEX deed_run_child_completed_idx`;
+    - `EXPLAIN QUERY PLAN` of `loadStarredBands`'s SQL contains `USING INDEX deed_run_child_completed_idx`;
     - the world rows read contains `USING INDEX realm_world_state_child_object_idx`.
 - [ ] **Step 2:** run them. Expected: PASS if G3 and G5 followed PC-G15. A failure names the extra read; fold it into the round it belongs to, then re-run.
 - [ ] **Step 3: Commit.** `test(realm): the world's locks add two reads to the Realm's load, both indexed`.
@@ -2462,4 +2495,4 @@ Part F's constraints still apply, plus:
   7. `?viewer=parent`: the state is shown, and every board refuses.
   8. Locks off: no chests or doors, and the Tower has no prompt.
   9. Phone width.
-- [ ] **Whole-branch review**, one fix wave, then merge into `dev` **on the owner's word** (with Q1–Q4 answered or explicitly deferred).
+- [ ] **Whole-branch review**, one fix wave, then merge into `dev` **on the owner's word** (with R-G5, R-G2's emptied chest and R-G7 seen in the smoke).
