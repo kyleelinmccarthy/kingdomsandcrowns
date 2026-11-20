@@ -28,6 +28,12 @@ describe("lockedNow", () => {
     expect(lockedNow(chest, opened, "2026-11-10", "UTC")).toBe(true);
   });
 
+  it("reads a row written in the future (clock skew) as open: a chest does not relock before it was opened", () => {
+    const skewed = { state: "open", updatedAt: new Date("2026-11-12T12:00:00Z") };
+    expect(lockedNow({ resetAfterDays: 7 }, skewed, "2026-11-09", "UTC")).toBe(false);
+    expect(lockedNow({}, skewed, "2026-11-09", "UTC")).toBe(false);
+  });
+
   it("agrees with the calendar: seven local days on, whatever the hour of the opening", () => {
     for (const at of ["2026-03-07T00:00:00Z", "2026-03-07T18:59:59Z", "2026-03-08T09:59:59Z", "2026-11-01T05:59:59Z"]) {
       const opened = { state: "open", updatedAt: new Date(at) };

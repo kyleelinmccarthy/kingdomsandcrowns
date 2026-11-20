@@ -43,8 +43,8 @@ export const DECOR: Readonly<Record<DecorId, { label: string; x: number; z: numb
   sundial: { label: "a sundial", x: -20.5, z: 16, ry: 0 },
   "flower-cart": { label: "a flower cart", x: 18.5, z: 6.5, ry: -Math.PI / 2 },
   "bird-bath": { label: "a bird bath", x: 20.5, z: 13.5, ry: 0 },
-  // Moved from (19, -5): a wild bush stood on its square.
-  "weather-vane": { label: "a weather vane", x: 18.25, z: -5, ry: 0 },
+  // Moved from (19, -5): a wild bush stood on its square, and the riding track runs 0.7 from it. East flank, 2.6 from the nearest track.
+  "weather-vane": { label: "a weather vane", x: 21, z: 4, ry: 0 },
   "hay-bales": { label: "a stack of hay bales", x: 22, z: 1.5, ry: 0 },
   scarecrow: { label: "a scarecrow", x: 5, z: 17, ry: Math.PI },
   "barrel-stack": { label: "a stack of barrels", x: -3.25, z: 26.5, ry: 0 },

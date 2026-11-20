@@ -138,6 +138,23 @@ describe("every village chest and decoration spot clears the village", () => {
     expect(spots.flatMap((s) => [...clearanceFailures(s.what, s.rect, undefined, 0), ...levelFailures(s.what, s.rect)])).toEqual([]);
   });
 
+  it("keeps more than 1.4 from every riding track's centreline", () => {
+    const close: string[] = [];
+    const spotsAt = [
+      ...villageChests.map((o) => ({ what: o.id, x: o.x, z: o.z })),
+      ...DECOR_IDS.map((id) => ({ what: `decor ${id}`, x: DECOR[id].x, z: DECOR[id].z })),
+    ];
+    for (const s of spotsAt) {
+      for (const [name, l] of Object.entries(VILLAGE_TRACKS)) {
+        for (let i = 0; i < l.length - 1; i++) {
+          const d = segmentDistance(s, l[i], l[i + 1]);
+          if (d <= 1.4) close.push(`${s.what} is ${d.toFixed(2)} from the ${name} track`);
+        }
+      }
+    }
+    expect(close).toEqual([]);
+  });
+
   it("keeps 1.0 from the keep yard and the village's own pieces", () => {
     const close: string[] = [];
     for (const s of spots) for (const p of [...yardPieces(), ...villagePieces()]) if (gap(s.rect, p.rect) < 1) close.push(`${s.what} is ${gap(s.rect, p.rect).toFixed(2)} from ${p.what}`);
