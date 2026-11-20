@@ -92,5 +92,8 @@ export const LECTERN_BOXES: readonly YardBox[] = [
   box(IMPROVEMENT_COLORS.cloth, 0.04, 0.17, 0.04, 0.1, 1.04, 0.02),
 ];
 
-/** Like the board, the lectern faces the road the hero walks in on. */
-export const LECTERN_YAW = Math.atan2(SPAWN.x - KEEP_YARD.lectern.x, SPAWN.z - KEEP_YARD.lectern.z);
+/**
+ * The lectern's open book faces +z: the default camera stands south of the hero looking north, so
+ * a child walking up sees the pages, not the back of the desk (as doors face +z for the same reason).
+ */
+export const LECTERN_YAW = 0;

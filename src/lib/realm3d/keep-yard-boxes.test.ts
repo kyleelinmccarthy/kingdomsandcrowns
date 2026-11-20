@@ -76,10 +76,13 @@ describe("the Scribe's lectern", () => {
     expect(LECTERN_BOXES.length).toBeGreaterThanOrEqual(4);
   });
 
-  it("turns its face to the road the hero walks in on", () => {
-    const { x, z } = KEEP_YARD.lectern;
-    const dx = SPAWN.x - x;
-    const dz = SPAWN.z - z;
-    expect((Math.sin(LECTERN_YAW) * dx + Math.cos(LECTERN_YAW) * dz) / Math.hypot(dx, dz)).toBeCloseTo(1);
+  it("turns its open book to +z, toward the default camera (it stands south of the hero, looking north)", () => {
+    // The boxes' front (the low edge of the desk, where the reader stands) is +z in its own frame.
+    expect(Math.sin(LECTERN_YAW)).toBeCloseTo(0);
+    expect(Math.cos(LECTERN_YAW)).toBeCloseTo(1);
+    const desk = LECTERN_BOXES.filter((b) => b.color === LECTERN_BOXES[2].color && b.y > 0.5);
+    const top = (b: (typeof LECTERN_BOXES)[number]) => b.y + b.sy / 2;
+    const [back, front] = [...desk].sort((a, b) => a.z - b.z);
+    expect(top(back)).toBeGreaterThan(top(front));
   });
 });

@@ -11,7 +11,8 @@
  * thing is built once per level (building the next level mid-visit hangs its frames; the drawings
  * stay the snapshot). One merged wooden geometry for every frame, one shared plane, and one
  * `CanvasTexture` per drawing painted by `drawStrokes` (the one stroke geometry every renderer
- * uses). No `useFrame`, nothing solid, and every texture, material and geometry is disposed.
+ * uses). The pictures are lit like the walls, so they dim with the day and never glow at night.
+ * No `useFrame`, nothing solid, and every texture, material and geometry is disposed.
  */
 
 import { useEffect, useMemo } from "react";
@@ -57,7 +58,7 @@ function borderParts(): THREE.BufferGeometry[] {
   ];
 }
 
-type Picture = { position: [number, number, number]; rotation: [number, number, number]; material: THREE.MeshBasicMaterial };
+type Picture = { position: [number, number, number]; rotation: [number, number, number]; material: THREE.MeshStandardMaterial };
 
 export function ChronicleFrames({ level, drawings = NONE, heightAt }: { level: number; drawings?: readonly Drawing[]; heightAt: (x: number, z: number) => number }) {
   const built = useMemo(() => {
@@ -65,13 +66,14 @@ export function ChronicleFrames({ level, drawings = NONE, heightAt }: { level: n
     if (slots.length === 0) return null;
     const parts: THREE.BufferGeometry[] = [];
     const textures: THREE.CanvasTexture[] = [];
-    const materials: THREE.MeshBasicMaterial[] = [];
+    const materials: THREE.MeshStandardMaterial[] = [];
     // The empty slots all show the same blank page, so it is painted once.
-    let blank: THREE.MeshBasicMaterial | null = null;
-    const materialFor = (drawing: Drawing | undefined): THREE.MeshBasicMaterial => {
+    let blank: THREE.MeshStandardMaterial | null = null;
+    const materialFor = (drawing: Drawing | undefined): THREE.MeshStandardMaterial => {
       if (!drawing && blank) return blank;
       const texture = textureOf(drawing ?? BLANK);
-      const material = new THREE.MeshBasicMaterial({ map: texture, toneMapped: false });
+      // Matte parchment under the same light as the plaster around it.
+      const material = new THREE.MeshStandardMaterial({ map: texture, roughness: 0.9, metalness: 0 });
       textures.push(texture);
       materials.push(material);
       if (!drawing) blank = material;

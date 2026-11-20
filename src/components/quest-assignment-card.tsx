@@ -61,7 +61,8 @@ type AssignmentWithDetails = {
   rewards?: QuestReward;
 };
 
-const NOTES_PLACEHOLDER_REQUIRED = "Scribe's Notes, or a drawing (one is required) — what did you do?";
+// Short enough to show whole in a phone-width card (390 px), the "(one needed)" included.
+const NOTES_PLACEHOLDER_REQUIRED = "Notes or a drawing (one needed): what did you do?";
 const NOTES_PLACEHOLDER_OPTIONAL = "Scribe's Notes (optional) — what did you do?";
 
 /**

@@ -156,7 +156,7 @@ describe("QuestAssignmentCard", () => {
     await user.click(screen.getByText("Quick Complete"));
     expect(screen.getByLabelText("Scribe's Notes")).toHaveAttribute(
       "placeholder",
-      "Scribe's Notes, or a drawing (one is required) — what did you do?",
+      "Notes or a drawing (one needed): what did you do?",
     );
     expect(screen.getByLabelText("Scribe's Notes")).not.toBeRequired();
     expect(screen.getByText("Submit")).toBeDisabled();
@@ -721,13 +721,13 @@ describe("QuestAssignmentCard", () => {
       await user.click(screen.getByText("Quick Complete"));
       expect(screen.getByLabelText("Scribe's Notes")).toHaveAttribute(
         "placeholder",
-        "Scribe's Notes, or a drawing (one is required) — what did you do?",
+        "Notes or a drawing (one needed): what did you do?",
       );
       unmount();
       render(<QuestAssignmentCard data={{ ...completedWithDrawing, quest: ask }} isChildView={true} />);
       await user.click(screen.getByText("Edit Notes"));
       const field = screen.getByLabelText("Scribe's Notes");
-      expect(field).toHaveAttribute("placeholder", "Scribe's Notes, or a drawing (one is required) — what did you do?");
+      expect(field).toHaveAttribute("placeholder", "Notes or a drawing (one needed): what did you do?");
       expect(field).not.toBeRequired();
     });
 

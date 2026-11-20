@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { pickMention, type RecentQuest } from "./mentions";
+import { mentionLine, pickMention, type RecentQuest } from "./mentions";
 import { VILLAGERS, villagerById } from "./villagers";
 import { MATERIAL_IDS } from "./materials";
 
@@ -82,14 +82,14 @@ describe("pickMention", () => {
   it("drops the full stop after the closing quote when the title already ends a sentence", () => {
     for (const end of [".", "?", "!"]) {
       const got = pickMention({ villagerId: "hesper", recent: [quest("a1", `Why do volcanoes erupt${end}`, "ink")], said: NONE, date: "2026-11-19" });
-      expect(got!.line).toContain(`erupt${end}”`);
-      expect(got!.line).not.toContain(`${end}”.`);
+      expect(got!.line).toContain(`erupt${end}’`);
+      expect(got!.line).not.toContain(`${end}’.`);
     }
   });
 
   it("leaves the villager's line exactly as written for a title that does not end in a stop", () => {
     const got = pickMention({ villagerId: "hesper", recent: [quest("a1", "Volcanoes", "ink")], said: NONE, date: "2026-11-19" });
-    expect(villagerById("hesper")!.mentions.ink!.map((l) => l.replace("{quest}", "Volcanoes"))).toContain(got!.line);
+    expect(villagerById("hesper")!.mentions.ink!.map((l) => l.replace("{quest}", "‘Volcanoes’"))).toContain(got!.line);
   });
 
   it("never doubles a stop, whichever line the villager says", () => {
@@ -98,7 +98,7 @@ describe("pickMention", () => {
         // Days 1 to 28 reach every line the villager has for the material.
         for (let day = 1; day <= 28; day++) {
           const got = pickMention({ villagerId: v.id, recent: [quest("a1", "Why?", material as RecentQuest["material"])], said: NONE, date: `2026-11-${String(day).padStart(2, "0")}` });
-          expect(got!.line, `${v.id} ${material} ${lines!.length}`).not.toMatch(/[.?!]”\./);
+          expect(got!.line, `${v.id} ${material} ${lines!.length}`).not.toMatch(/[.?!]’\./);
         }
       }
     }
@@ -107,12 +107,12 @@ describe("pickMention", () => {
   it("caps a long title at 60 characters with an ellipsis, and leaves a short one alone", () => {
     const long = "A very long quest title that goes on and on about the volcanoes of the world and more";
     const got = pickMention({ villagerId: "hesper", recent: [quest("a1", long, "ink")], said: NONE, date: "2026-11-19" });
-    const shown = /“([^”]*)”/.exec(got!.line)![1];
+    const shown = /‘([^’]*)’/.exec(got!.line)![1];
     expect(shown.length).toBeLessThanOrEqual(60);
     expect(shown.endsWith("…")).toBe(true);
     expect(long.startsWith(shown.slice(0, -1))).toBe(true);
     const exactly60 = "x".repeat(60);
-    expect(pickMention({ villagerId: "hesper", recent: [quest("a1", exactly60, "ink")], said: NONE, date: "2026-11-19" })!.line).toContain(`“${exactly60}”`);
+    expect(pickMention({ villagerId: "hesper", recent: [quest("a1", exactly60, "ink")], said: NONE, date: "2026-11-19" })!.line).toContain(`‘${exactly60}’`);
   });
 
   it("does not mention a quest with no title at all", () => {
@@ -123,6 +123,46 @@ describe("pickMention", () => {
     const recent = [quest("a1", "Fractions", "stone"), quest("a2", "Poems", "ink")];
     expect(pickMention({ villagerId: "hesper", recent, said: NONE, date: "2026-11-19" })?.assignmentId).toBe("a2");
     expect(pickMention({ villagerId: "gerd", recent, said: NONE, date: "2026-11-19" })?.assignmentId).toBe("a1");
+  });
+});
+
+describe("mentionLine: every authored line, as the talk panel shows it", () => {
+  const every = VILLAGERS.flatMap((v) => Object.values(v.mentions).flatMap((lines) => lines!.map((line) => ({ who: v.id, line }))));
+  const LONG = "A very long quest title that goes on and on about the volcanoes of the world and more";
+  const TITLES = ["Chapter Book Reading", "Map Drawing Day", "Why do volcanoes erupt?", "Done.", "Wow!", LONG];
+  const count = (text: string, ch: string) => text.split(ch).length - 1;
+
+  it("holds no quote marks of its own: the title is wrapped in code, once", () => {
+    expect(every.length).toBeGreaterThan(20);
+    for (const { who, line } of every) expect(line, `${who}: ${line}`).not.toMatch(/[“”‘’"]/);
+  });
+
+  it("wraps the title in exactly one opening and one closing quote, nested inside the speech's own quotes", () => {
+    for (const { who, line } of every) {
+      for (const title of TITLES) {
+        const said = mentionLine(line, title);
+        // The talk panel wraps the whole speech in double quotes (`deed-board.tsx`).
+        const speech = `“${said}”`;
+        const at = `${who}: ${speech}`;
+        expect(count(said, "‘"), at).toBe(1);
+        expect(count(said, "’"), at).toBe(1);
+        expect(count(speech, "“"), at).toBe(1);
+        expect(count(speech, "”"), at).toBe(1);
+        expect(speech, at).not.toMatch(/““|””/);
+        const shown = /‘([^’]*)’/.exec(said)![1];
+        expect(title === LONG ? shown.endsWith("…") && LONG.startsWith(shown.slice(0, -1)) : shown === title, at).toBe(true);
+      }
+    }
+  });
+
+  it("never doubles a stop or a comma around the title", () => {
+    for (const { who, line } of every) {
+      for (const title of TITLES) {
+        const said = mentionLine(line, title);
+        expect(said, `${who}: ${said}`).not.toMatch(/[.?!…]’[.,!?]/);
+        expect(said, `${who}: ${said}`).not.toMatch(/\.\.|,,|[.!?],|,[.!?]|\s[.,!?]/);
+      }
+    }
   });
 });
 

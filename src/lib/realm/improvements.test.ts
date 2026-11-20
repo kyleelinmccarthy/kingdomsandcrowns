@@ -524,12 +524,13 @@ describe("the Chronicle Hall's frames", () => {
     }
   });
 
-  it("hangs level 1's pair on the north face, toward the hero walking in from the spawn (+z is south, the door side)", () => {
+  it("hangs level 1's pair on the south face, the door side the default camera looks at (it stands south of the hero, looking north)", () => {
     const first = hall.levels[0].frames!;
     expect(first).toHaveLength(2);
-    for (const f of first) expect(normal(f.ry)).toEqual({ nx: 0, nz: -1 });
-    // And the door-side (south) face is hung last, once the door stands.
-    for (const f of hall.levels[2].frames!) expect(normal(f.ry)).toEqual({ nx: 0, nz: 1 });
+    for (const f of first) expect(normal(f.ry)).toEqual({ nx: 0, nz: 1 });
+    // Then the side walls, then the north face last.
+    expect(hall.levels[1].frames!.map((f) => normal(f.ry).nz)).toEqual([0, 0]);
+    for (const f of hall.levels[2].frames!) expect(normal(f.ry)).toEqual({ nx: 0, nz: -1 });
   });
 
   it("hangs each frame on an outward wall face of its own level's boxes or an earlier level's, facing away from it", () => {

@@ -12,6 +12,12 @@ const TOKEN = "{quest}";
 /** The longest title a villager will say; a longer one is cut and ends in an ellipsis. */
 const MAX_TITLE = 60;
 const ELLIPSIS = "…";
+/**
+ * The title's own quotes. The talk panel already wraps the whole speech in double quotes, so a
+ * title inside it takes single ones (a quote within a quote), and never a second “ beside the first.
+ */
+const OPEN = "‘";
+const CLOSE = "’";
 
 function sayable(title: string): string {
   const t = title.trim();
@@ -42,9 +48,17 @@ export function pickMention(input: {
   const quest = candidates[hashId(`${date}:${villagerId}`) % candidates.length];
   const lines = villager.mentions[quest.material] ?? [];
   const template = lines[hashId(`${date}:${villagerId}:${quest.assignmentId}`) % lines.length];
-  const title = sayable(quest.title);
-  // A title that already ends a sentence needs no full stop after its closing quote.
-  const line = (/[.?!]$/.test(title) ? template.replace(`${TOKEN}”.`, `${TOKEN}”`) : template).replace(TOKEN, () => title);
+  return { line: mentionLine(template, quest.title), assignmentId: quest.assignmentId };
+}
+
+/**
+ * A villager's line (`{quest}` bare in it) with the title said in it: cut to 60 characters and
+ * wrapped once, in single quotes. A title that already ends its own sentence (".", "?", "!" or the
+ * cut's "…") drops the stop or comma the line puts after it, so "‘Done.’." or "‘Why?’," never shows.
+ */
+export function mentionLine(template: string, title: string): string {
+  const said = sayable(title);
+  const line = /[.?!…]$/.test(said) ? template.replace(/\{quest\}[.,!?]/, TOKEN) : template;
   // A function replacer, so a title like "$&" is never read as a replacement pattern.
-  return { line, assignmentId: quest.assignmentId };
+  return line.replace(TOKEN, () => `${OPEN}${said}${CLOSE}`);
 }
