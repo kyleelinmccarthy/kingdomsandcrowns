@@ -123,6 +123,22 @@ describe("lock: forged responses are refused (Review Focus 1)", () => {
     expect(parse(enc(SHAPES3, [0, 2, 3, 2, 3, 1, 3, 1, 2]), SHAPES3)).toBeNull();
   });
 
+  it("a nonogram stored without five row clues and five column clues is refused, never passed (a missing line would read as empty)", () => {
+    const malformed = [
+      { ...NONO5, rows: NONO5.rows.slice(0, 4) },
+      { ...NONO5, cols: NONO5.cols.slice(0, 4) },
+      { ...NONO5, rows: [...NONO5.rows, []] },
+      { ...NONO5, cols: [...NONO5.cols, [1]] },
+      { ...NONO5, rows: [...NONO5.rows.slice(0, 4), "3"] },
+      { ...NONO5, cols: undefined },
+    ] as unknown as LockTask[];
+    for (const t of malformed) {
+      expect(parse(enc(t, NONO5.solution.cells), t)).toBeNull();
+      expect(checkTask(t, NONO5.solution)).toMatchObject({ ok: false, broken: ["response"] });
+    }
+    expect(parse(enc(NONO5, NONO5.solution.cells), NONO5)).toEqual(NONO5.solution);
+  });
+
   it("an unfinished board is well-formed (it is graded, not refused)", () => {
     expect(parse(enc(CAGE4, Array(16).fill(0)), CAGE4)).toEqual({ puzzle: "cage4", cells: Array(16).fill(0) });
     expect(parse(enc(SORT, [0, 0, 0, 0, 0]), SORT)).not.toBeNull();

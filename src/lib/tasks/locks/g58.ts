@@ -129,7 +129,7 @@ function cageMet(c: LockCage, vs: number[]): boolean {
  * the givens, no repeat within a row or column of the cage); then cages are placed fewest-choices
  * first, with a bitmask per row and column, so the search never walks the n^(n²) boards.
  */
-export function solveCages(n: number, cages: readonly LockCage[], givens: readonly number[], limit: number): number[][] {
+function solveCages(n: number, cages: readonly LockCage[], givens: readonly number[], limit: number): number[][] {
   const fillings = cages.map((c) => {
     const out: number[][] = [];
     const k = c.cells.length;
@@ -401,7 +401,7 @@ const G68_CAGES: readonly CageStep[] = [
 ];
 
 /** 3x3 logic grids: an "is" clue kept as an anchor at first, eliminations only at the top. */
-export const LOGIC3_STEPS: readonly LogicStep[] = [
+const LOGIC3_STEPS: readonly LogicStep[] = [
   { maxIs: 1, keepIs: true },
   { maxIs: 1, keepIs: true },
   { maxIs: 1, keepIs: false },

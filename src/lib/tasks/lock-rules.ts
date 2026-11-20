@@ -129,9 +129,18 @@ export function lockSize(v: LockView): { cells: number; max: number } {
 const givensOf = (v: LockView): number[] | undefined =>
   v.puzzle === "shapes3" || v.puzzle === "cage4" || v.puzzle === "cage5" ? v.givens : undefined;
 
-/** Whether `r` is a response to this puzzle: its puzzle, its size, whole numbers in range, the givens kept. */
+/**
+ * A nonogram's clues: five row lists and five column lists of whole numbers. The checker reads a
+ * missing line as empty, so a puzzle stored short of a line must be refused here, never graded.
+ */
+const nonoCluesFit = (v: Nono5View): boolean =>
+  [v.rows, v.cols].every((lines) =>
+    Array.isArray(lines) && lines.length === GRID_SIDE.nono5 && lines.every((l) => Array.isArray(l) && l.every((x) => Number.isInteger(x) && x >= 0)));
+
+/** Whether `r` is a response to this puzzle: its puzzle, its size, whole numbers in range, the givens kept (and a nonogram's clues whole). */
 export function responseFits(v: LockView, r: LockResponse): boolean {
   if (!r || r.puzzle !== v.puzzle || !Array.isArray(r.cells)) return false;
+  if (v.puzzle === "nono5" && !nonoCluesFit(v)) return false;
   const { cells, max } = lockSize(v);
   if (r.cells.length !== cells || cells === 0 || cells > LOCK_MAX_CELLS) return false;
   if (!r.cells.every((x) => Number.isInteger(x) && x >= 0 && x <= max)) return false;

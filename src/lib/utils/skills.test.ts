@@ -445,10 +445,8 @@ describe("the logic area", () => {
     );
   });
 
-  it("has a lock generator for every logic skill the generators have reached", () => {
-    // F3 adds the older bands. When it does, this list empties and the assertion below is the whole check.
-    const F3_PENDING = ["logic-g912"];
-    for (const id of LOGIC_SKILL_IDS.filter((i) => !F3_PENDING.includes(i))) expect(lockFor(id), id).toBeTypeOf("function");
-    expect(LOGIC_SKILL_IDS.filter((id) => !lockFor(id))).toEqual(F3_PENDING);
+  it("has a lock generator for every logic skill", () => {
+    for (const id of LOGIC_SKILL_IDS) expect(lockFor(id), id).toBeTypeOf("function");
+    expect(LOGIC_SKILL_IDS.filter((id) => !lockFor(id))).toEqual([]);
   });
 });
