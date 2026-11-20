@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { DECOR_IDS } from "@/lib/realm/decor";
-import { chestBoxes, CHEST_FOOTPRINT, decorBoxes, DOOR_FOOTPRINT, DOOR_OPENING, vaultDoorBoxes, type LockBox } from "./world-lock-boxes";
+import { PUZZLE_TOWER } from "@/lib/realm/puzzle-tower";
+import { chestBoxes, CHEST_FOOTPRINT, decorBoxes, DOOR_FOOTPRINT, DOOR_OPENING, towerBoxes, vaultDoorBoxes, type LockBox } from "./world-lock-boxes";
 
 const top = (b: LockBox) => b.y + b.sy / 2;
 const bottom = (b: LockBox) => b.y - b.sy / 2;
@@ -84,5 +85,53 @@ describe("a decoration", () => {
   it("gives every decoration its own shape", () => {
     const shapes = DECOR_IDS.map((id) => JSON.stringify(decorBoxes(id)));
     expect(new Set(shapes).size).toBe(DECOR_IDS.length);
+  });
+});
+
+describe("the Puzzle Tower", () => {
+  const { baseH, storeyH, body, door } = PUZZLE_TOWER;
+  const highest = (boxes: readonly LockBox[]) => Math.max(...boxes.map(top));
+
+  it("is the base alone with no floor open", () => {
+    expect(highest(towerBoxes(0))).toBeCloseTo(baseH);
+  });
+
+  it("grows one storey for each open floor", () => {
+    for (const n of [1, 2, 3, 4, 5]) expect(highest(towerBoxes(n)), `${n} open`).toBeCloseTo(baseH + n * storeyH);
+  });
+
+  it("holds the base and every lower storey unchanged as it grows", () => {
+    const same = (a: readonly LockBox[], b: readonly LockBox[]) => a.every((x) => b.some((y) => JSON.stringify(x) === JSON.stringify(y)));
+    for (const n of [0, 1, 2, 3, 4]) expect(same(towerBoxes(n), towerBoxes(n + 1)), `${n} within ${n + 1}`).toBe(true);
+  });
+
+  it("stops at five storeys, and never below the base", () => {
+    expect(towerBoxes(9)).toEqual(towerBoxes(5));
+    expect(towerBoxes(99)).toEqual(towerBoxes(5));
+    expect(towerBoxes(-3)).toEqual(towerBoxes(0));
+    expect(towerBoxes(2.9)).toEqual(towerBoxes(2));
+  });
+
+  it("stands on the ground, and every box keeps within the 6 by 6 body, with no zero-size box", () => {
+    for (let n = 0; n <= 5; n++) {
+      const boxes = towerBoxes(n);
+      expect(Math.min(...boxes.map(bottom)), `${n} open`).toBeCloseTo(0);
+      for (const b of boxes) {
+        expect(Math.abs(b.x) + b.sx / 2, JSON.stringify(b)).toBeLessThanOrEqual(body / 2 + 1e-9);
+        expect(Math.abs(b.z) + b.sz / 2, JSON.stringify(b)).toBeLessThanOrEqual(body / 2 + 1e-9);
+        for (const v of [b.sx, b.sy, b.sz]) expect(v).toBeGreaterThan(0);
+        expect(b.color).toMatch(/^#[0-9a-f]{6}$/i);
+      }
+    }
+  });
+
+  it("has a door on the west face, where E climbs: a slab flush with the body's west edge, on the plinth, narrower than the wall", () => {
+    expect(door.x - PUZZLE_TOWER.x).toBeLessThan(-body / 2);
+    const slabs = towerBoxes(0).filter((b) => Math.abs(b.x - b.sx / 2 + body / 2) < 1e-9 && b.sz < body / 2 && bottom(b) > 0 && bottom(b) < 0.5 && top(b) < baseH);
+    expect(slabs.length).toBeGreaterThan(0);
+  });
+
+  it("is one box more or fewer per floor, never a different tower: each storey adds boxes", () => {
+    for (let n = 0; n < 5; n++) expect(towerBoxes(n + 1).length).toBeGreaterThan(towerBoxes(n).length);
   });
 });

@@ -15,7 +15,7 @@
  * No `three`, no DOM.
  */
 
-import type { AttemptResult, RunSummary, WorldOutcome } from "@/lib/utils/deed-run-types";
+import type { AttemptResult, RunSummary, TowerOutcome, WorldOutcome } from "@/lib/utils/deed-run-types";
 import { seasonPhrase } from "@/lib/realm/season-phrase";
 import { agree } from "@/lib/realm/improvements";
 import { cutFeedbackLine } from "@/lib/tasks/measure-copy";
@@ -29,7 +29,7 @@ import { SIDE_QUEST_LOWER, SIDE_QUESTS, SIDE_QUESTS_LOWER } from "@/lib/utils/si
 import { minutesWord } from "@/lib/utils/minutes-copy";
 import { REVIEW_DONE, REVIEW_FINISH, reviewSummaryLine } from "@/lib/utils/review-copy";
 import { PRACTICE_FINISH, PUZZLES_SOLVED } from "@/lib/utils/practice-copy";
-import { ALREADY_OPEN, CHEST_OPENS, DOOR_OPENS, LOCK_FINISH, LOCK_HOLDS, LOCK_HOLDS_LINE, worldRewardLine } from "@/lib/utils/world-lock-copy";
+import { ALREADY_OPEN, CHEST_OPENS, DOOR_OPENS, LOCK_FINISH, LOCK_HOLDS, LOCK_HOLDS_LINE, TOWER_FLOOR_SOLVED, TOWER_HOLDS, TOWER_HOLDS_LINE, worldRewardLine } from "@/lib/utils/world-lock-copy";
 import { isWorldObjectId, worldObjectById } from "@/lib/realm/world-objects";
 
 export type Viewer = "child" | "parent";
@@ -259,11 +259,15 @@ type BuildOutcome = Pick<NonNullable<RunSummary["improvement"]>, "id" | "label" 
 
 /** The result card's headline, as the flat Realm's `DeedResults` wrote it; a Crown Challenge is crowned or close. */
 export function resultHeadline(
-  summary: { correctCount: number; total: number; flawless: boolean; kind?: RunSummary["kind"]; improvement?: BuildOutcome; world?: WorldOutcome },
+  summary: { correctCount: number; total: number; flawless: boolean; kind?: RunSummary["kind"]; improvement?: BuildOutcome; world?: WorldOutcome; tower?: TowerOutcome },
   deedTitle: string,
 ): { title: string; line: string } {
   // A chest or vault door is judged on whether it opened, and on what it gave: never a count of right answers.
   if (summary.kind === "world" && summary.world) return worldHeadline(summary.world);
+  // A Tower floor's bonus lock: solved or held, never a count of right answers, a star or a minute.
+  if (summary.kind === "tower" && summary.tower) {
+    return summary.tower.solvedNow ? { title: TOWER_FLOOR_SOLVED, line: "" } : { title: TOWER_HOLDS, line: TOWER_HOLDS_LINE };
+  }
   // A build run is judged on what it built, never as a side quest: the plan stands, waits, or stopped.
   if (summary.kind === "build") {
     const b = summary.improvement;
@@ -279,7 +283,7 @@ export function resultHeadline(
   // A review teaches and pays nothing: no "Flawless!" to chase, only how it went.
   if (summary.kind === "review") return { title: REVIEW_DONE, line: reviewSummaryLine(summary) };
   // Nor does Puzzle practice, and it is no side quest: the puzzles are solved, and this many right.
-  if (summary.kind === "world") return { title: PUZZLES_SOLVED, line: `${summary.correctCount} of ${summary.total} right.` };
+  if (summary.kind === "world" || summary.kind === "tower") return { title: PUZZLES_SOLVED, line: `${summary.correctCount} of ${summary.total} right.` };
   const challenge = summary.kind === "challenge";
   return {
     title: challenge

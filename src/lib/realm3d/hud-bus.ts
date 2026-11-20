@@ -58,8 +58,9 @@ export type InteractTarget = {
    * `chronicle` is the Scribe's lectern (`lib/realm/keep-yard.ts`), where E opens the hero's Chronicle book.
    * `plaque` is the plaque of a built plan (`lib/realm3d/improvement-spots.ts`); its id is the improvement's.
    * `lock` is a chest or vault door (`lib/realm/world-objects.ts`); its id is the object's (`chest:west-lane`).
+   * `tower` is the Puzzle Tower (`lib/realm/puzzle-tower.ts`), where E opens its floors; its id is "puzzle-tower".
    */
-  kind: "villager" | "site" | "castle" | "landmark" | "door" | "fixture" | "post" | "arch" | "riddle" | "plans" | "plaque" | "chronicle" | "lock";
+  kind: "villager" | "site" | "castle" | "landmark" | "door" | "fixture" | "post" | "arch" | "riddle" | "plans" | "plaque" | "chronicle" | "lock" | "tower";
   id: string;
   /** What the prompt calls it: "Old Bram", "the Chapel", "Cloudfoot". */
   label: string;

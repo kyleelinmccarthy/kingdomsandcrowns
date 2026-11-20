@@ -136,6 +136,24 @@ describe("useWorldState: a map fragment", () => {
     expect(o.say).not.toHaveBeenCalled();
   });
 
+  it("a solved floor sets its count in the view, and the canvas stays the same object (storeys are unchanged)", () => {
+    const { result } = renderHook(() => useWorldState(VIEW, options()));
+    const first = result.current.canvas;
+    act(() => result.current.applyTowerOutcome({ band: "g45", solved: 2, solvedNow: true }));
+    expect(result.current.view.tower).toEqual([{ band: "g45", open: true, solved: 2 }]);
+    expect(result.current.canvas).toBe(first);
+  });
+
+  it("a missed floor changes nothing, and applyTowerOutcome stays one function", () => {
+    const { result, rerender } = renderHook(() => useWorldState(VIEW, options()));
+    const apply = result.current.applyTowerOutcome;
+    const view = result.current.view;
+    act(() => apply({ band: "g45", solved: 1, solvedNow: false }));
+    expect(result.current.view).toBe(view);
+    rerender();
+    expect(result.current.applyTowerOutcome).toBe(apply);
+  });
+
   it("says a held toast through the latest say, not the one from when it was found", () => {
     const first = options({ overlayOpen: true });
     const later = options({ overlayOpen: false });

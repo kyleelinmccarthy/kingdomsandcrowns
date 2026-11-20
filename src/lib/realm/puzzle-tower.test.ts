@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { CONTENT_BANDS, type ContentBand } from "@/lib/utils/content-bands";
 import { findSkill } from "@/lib/utils/skills";
 import { clearanceFailures, gap, levelFailures, rectAt, villagePieces, yardPieces } from "@/test/world-clearance";
-import { bandOfTowerRef, PUZZLE_TOWER, TOWER_FLOORS, towerBands, towerColliders, towerFloors, towerRef, towerSkillId } from "./puzzle-tower";
+import { MASTERY_MAX } from "@/lib/utils/mastery";
+import { bandOfTowerRef, PUZZLE_TOWER, TOWER_FLOORS, towerBands, towerColliders, towerDoorFor, towerFloors, towerLevel, towerRef, towerSkillId } from "./puzzle-tower";
 
 describe("the Puzzle Tower's plot", () => {
   const plot = rectAt(PUZZLE_TOWER.x, PUZZLE_TOWER.z, PUZZLE_TOWER.plot, PUZZLE_TOWER.plot);
@@ -117,5 +118,25 @@ describe("towerFloors", () => {
     const f = towerFloors(new Set<ContentBand>(["g912"]), bands("g912", "g912"));
     expect(f.map((x) => x.band)).toEqual(CONTENT_BANDS);
     expect(f.every((x) => x.open)).toBe(true);
+  });
+});
+
+describe("towerDoorFor: the client's gating (R-G7, PC-G6)", () => {
+  it("offers the door while the locks are on", () => {
+    expect(towerDoorFor({ locksOn: true })).toBe(PUZZLE_TOWER.door);
+  });
+
+  it("offers nothing with the locks off, or no canvas at all: the Tower stays drawn but has no E spot", () => {
+    expect(towerDoorFor({ locksOn: false })).toBeNull();
+    expect(towerDoorFor(undefined)).toBeNull();
+  });
+});
+
+describe("towerLevel", () => {
+  it("is one rung above the hero's mastery of the floor's skill, never past the top", () => {
+    expect(towerLevel(0)).toBe(1);
+    expect(towerLevel(3)).toBe(4);
+    expect(towerLevel(4)).toBe(4);
+    expect(towerLevel(MASTERY_MAX)).toBe(MASTERY_MAX);
   });
 });

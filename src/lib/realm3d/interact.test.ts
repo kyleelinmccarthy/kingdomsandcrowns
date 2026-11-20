@@ -4,7 +4,8 @@ import { KEEP_YARD } from "@/lib/realm/keep-yard";
 import { IMPROVEMENT_IDS, IMPROVEMENTS } from "@/lib/realm/improvements";
 import { HERO_RADIUS } from "./collision";
 import { improvementPlacements } from "./improvement-spots";
-import { buildSpots, edgeDistance, lockSpot, pickSpot, CHRONICLE_TARGET, PLANS_TARGET, RIDDLE_LABEL, RIDDLE_VERB, siteLabel } from "./interact";
+import { buildSpots, edgeDistance, lockSpot, pickSpot, CHRONICLE_TARGET, PLANS_TARGET, RIDDLE_LABEL, RIDDLE_VERB, siteLabel, TOWER_TARGET } from "./interact";
+import { PUZZLE_TOWER } from "@/lib/realm/puzzle-tower";
 import { RIDDLE_STONE_SPOTS } from "@/lib/realm/riddle-stones";
 import { LOCK_SPOT } from "@/lib/realm/world-objects";
 import { worldCanvas, type LockSpotView } from "@/lib/realm/world-state";
@@ -247,6 +248,49 @@ describe("the world's locks", () => {
     const plaques = placements.map((p) => ({ id: p.id, label: IMPROVEMENTS[p.id].label, ...p.plaque }));
     const set = buildSpots({ props: [], sitePlan: 1.5, landmarks: [], castle: null, locks, stones: RIDDLE_STONE_SPOTS, plans: KEEP_YARD.plansBoard, chronicle: KEEP_YARD.lectern, plaques });
     expect(set).toHaveLength(locks.length + RIDDLE_STONE_SPOTS.length + 2 + plaques.length);
+    const held: string[] = [];
+    for (const a of set) {
+      for (const b of set) {
+        if (a !== b && edgeDistance(a, b.x, b.z) <= a.reach) held.push(`${a.target.kind} ${a.target.id} holds ${b.target.kind} ${b.target.id}`);
+      }
+    }
+    expect(held).toEqual([]);
+  });
+});
+
+describe("the Puzzle Tower", () => {
+  const door = PUZZLE_TOWER.door;
+  const withTower = buildSpots({ props: layout.props, sitePlan: 1.5, landmarks, castle: null, tower: door });
+  const towerAt = () => withTower.findIndex((s) => s.target.kind === "tower");
+
+  it("adds exactly one spot, at its door, with its own words", () => {
+    expect(withTower.filter((s) => s.target.kind === "tower")).toHaveLength(1);
+    expect(withTower[towerAt()].target).toEqual(TOWER_TARGET);
+    expect(TOWER_TARGET).toEqual({ kind: "tower", id: "puzzle-tower", label: "the Puzzle Tower", verb: "Climb" });
+    expect(withTower[towerAt()]).toMatchObject({ x: door.x, z: door.z, hw: 0.7, hd: 0.9, round: false, reach: 1.4, bias: 0.4 });
+  });
+
+  it("is what E acts on from the west, where the hero comes from", () => {
+    expect(pickSpot(withTower, door.x - 1.2, door.z, -1)).toBe(towerAt());
+    expect(pickSpot(withTower, door.x - 0.5, door.z + 0.6, -1)).toBe(towerAt());
+  });
+
+  it("lets go once the hero walks on", () => {
+    expect(pickSpot(withTower, door.x - 6, door.z, towerAt())).not.toBe(towerAt());
+  });
+
+  it("has none when the locks are off (null) or nothing is given", () => {
+    expect(buildSpots({ props: layout.props, sitePlan: 1.5, landmarks, castle: null, tower: null }).some((s) => s.target.kind === "tower")).toBe(false);
+    expect(buildSpots({ props: layout.props, sitePlan: 1.5, landmarks, castle: null }).some((s) => s.target.kind === "tower")).toBe(false);
+    expect(spots.some((s) => s.target.kind === "tower")).toBe(false);
+  });
+
+  it("no spot's reach holds another spot's centre: with every lock, riddle stone, the board, the lectern and every plaque at level 3 (F19)", () => {
+    const placements = improvementPlacements(Object.fromEntries(IMPROVEMENT_IDS.map((id) => [id, 3])), () => 0);
+    const plaques = placements.map((p) => ({ id: p.id, label: IMPROVEMENTS[p.id].label, ...p.plaque }));
+    const locks = worldCanvas({ locksOn: true, open: [], decor: [], tower: [] }).locks;
+    const set = buildSpots({ props: [], sitePlan: 1.5, landmarks: [], castle: null, locks, stones: RIDDLE_STONE_SPOTS, plans: KEEP_YARD.plansBoard, chronicle: KEEP_YARD.lectern, plaques, tower: door });
+    expect(set).toHaveLength(locks.length + RIDDLE_STONE_SPOTS.length + 2 + plaques.length + 1);
     const held: string[] = [];
     for (const a of set) {
       for (const b of set) {

@@ -9,6 +9,7 @@ import type { MaterialId } from "@/lib/realm/materials";
 import type { WorldReward } from "@/lib/realm/world-objects";
 import type { SkillMeter } from "./mastery";
 import type { SkillArea } from "./skills";
+import type { ContentBand } from "./content-bands";
 
 export type RunStart = {
   runId: string; deed: { id: string; title: string; story: string; area: SkillArea | null }; questions: ClientTask[]; responses: (string | null)[];
@@ -73,6 +74,13 @@ export type AttemptResult = {
  */
 export type WorldOutcome = { objectId: string; opened: boolean; reason?: "missed" | "already-open"; rewards: WorldReward[] };
 
+/**
+ * What finishing a Tower floor's run did (R-G5, R-G4b): the floor's `band`, how many bonus locks are
+ * solved there now (`solved`), and whether this finish added one (`solvedNow`: a right first try;
+ * a miss leaves the count as it was).
+ */
+export type TowerOutcome = { band: ContentBand; solved: number; solvedNow: boolean };
+
 export type RunSummary = {
   correctCount: number; total: number; flawless: boolean; masteryChanges: string[];
   stars: Stars; previousBest: Stars;
@@ -109,4 +117,6 @@ export type RunSummary = {
   };
   /** Only on a chest's or vault door's run: what finishing it did. Puzzle practice, also a world run, has none. */
   world?: WorldOutcome;
+  /** Only on a Tower floor's run: what finishing it did. */
+  tower?: TowerOutcome;
 };

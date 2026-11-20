@@ -103,6 +103,8 @@ import { Improvements } from "./improvements";
 import { ChronicleFrames } from "./chronicle-frames";
 import { WorldLocks } from "./world-locks";
 import { Decorations } from "./decorations";
+import { PuzzleTower } from "./puzzle-tower";
+import { towerColliders, towerDoorFor } from "@/lib/realm/puzzle-tower";
 import type { WorldCanvas } from "@/lib/realm/world-state";
 import type { Drawing } from "@/lib/utils/drawing";
 import { improvementPlacements } from "@/lib/realm3d/improvement-spots";
@@ -1056,6 +1058,7 @@ const World = memo(function World({
     const marks = landmarkColliders(world);
     built.solids.push(...marks.solids);
     built.solids.push(...riddleStoneColliders(world.heightAt));
+    built.solids.push(...towerColliders(world.heightAt));
     return { ...built, fixedSolids: built.solids.length };
   }, [layout, scenery, world, castle, castleUnlocked]);
 
@@ -1105,7 +1108,7 @@ const World = memo(function World({
     const arch = recess ? { x: recess.course.arch.x, z: recess.course.arch.z, halfSpan: ARCH_HALF_SPAN } : null;
     // Each built plan has a plaque stone in front of it, where E reads who built it.
     const plaques = improvementPlacements(built ?? {}, world.heightAt).map((p) => ({ id: p.id, label: IMPROVEMENTS[p.id].label, ...p.plaque }));
-    return buildSpots({ props: layout.props, sitePlan: SITE_PLAN, landmarks: world.landmarks, landmarkRadius: landmarkRadii(world), castle: gate, posts, arch, stones: RIDDLE_STONE_SPOTS, plans: KEEP_YARD.plansBoard, chronicle: KEEP_YARD.lectern, plaques, locks: worldLocks?.locks });
+    return buildSpots({ props: layout.props, sitePlan: SITE_PLAN, landmarks: world.landmarks, landmarkRadius: landmarkRadii(world), castle: gate, posts, arch, stones: RIDDLE_STONE_SPOTS, plans: KEEP_YARD.plansBoard, chronicle: KEEP_YARD.lectern, plaques, locks: worldLocks?.locks, tower: towerDoorFor(worldLocks) });
   }, [layout, world, castle, castleUnlocked, ride, recess, built, worldLocks]);
   const heroRef = useRef(spawn);
   const yawRef = useRef(0);
@@ -1336,6 +1339,7 @@ export default function SpikeScene({ avatar, close, world, layout, anchors, page
       <ChronicleFrames level={built?.["chronicle-hall"] ?? 0} drawings={hallDrawings} heightAt={world.heightAt} />
       <WorldLocks locks={worldLocks?.locks} heightAt={world.heightAt} />
       <Decorations decor={worldLocks?.decor} heightAt={world.heightAt} />
+      <PuzzleTower storeys={worldLocks?.storeys ?? 0} heightAt={world.heightAt} />
     </Canvas>
   );
 }

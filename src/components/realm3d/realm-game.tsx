@@ -118,6 +118,7 @@ import { QUIET_LINE } from "@/lib/realm3d/quiet";
 import { useQuietWorld, useWake, WakeToast } from "./quiet-hud";
 import { useWorldState } from "./use-world-state";
 import { WorldLockBoard } from "./world-lock-board";
+import { TowerBoard } from "./tower-board";
 import { roomChestFor, type WorldStateView } from "@/lib/realm/world-state";
 import { worldObjectById } from "@/lib/realm/world-objects";
 
@@ -1297,7 +1298,19 @@ export function RealmGame({
               onClose={closeOverlay}
             />
           )}
-          {overlay?.kind === "interact" && !talkTo && overlay.target.kind !== "riddle" && overlay.target.kind !== "plans" && overlay.target.kind !== "plaque" && overlay.target.kind !== "chronicle" && overlay.target.kind !== "lock" && (
+          {overlay?.kind === "interact" && overlay.target.kind === "tower" && (
+            <TowerBoard
+              childId={childId}
+              floors={lockState.view.tower}
+              viewer={who}
+              numerals={numerals}
+              profile={{ readAloud, untimed: profile.untimed }}
+              calm={calm}
+              onOutcome={lockState.applyTowerOutcome}
+              onClose={closeOverlay}
+            />
+          )}
+          {overlay?.kind === "interact" && !talkTo && overlay.target.kind !== "riddle" && overlay.target.kind !== "plans" && overlay.target.kind !== "plaque" && overlay.target.kind !== "chronicle" && overlay.target.kind !== "lock" && overlay.target.kind !== "tower" && (
             <InteractPanel
               target={overlay.target}
               kingdom={kingdom}

@@ -12,7 +12,7 @@ import type { ContentBand } from "@/lib/utils/content-bands";
 import { DECOR_IDS, WORLD_OBJECTS, rewardKey, worldObjectById, type DecorId, type WorldObject, type WorldReward } from "./world-objects";
 import { towerRef } from "./puzzle-tower";
 import type { RoomKind } from "@/lib/realm3d/doorways";
-import type { WorldOutcome } from "@/lib/utils/deed-run-types";
+import type { TowerOutcome, WorldOutcome } from "@/lib/utils/deed-run-types";
 
 export type WorldRow = { objectId: string; state: string; updatedAt: Date };
 
@@ -124,4 +124,16 @@ export function applyWorldOutcome(view: WorldStateView, o: WorldOutcome): WorldS
     open: WORLD_OBJECTS.filter((x) => open.has(x.id)).map((x) => x.id),
     decor: DECOR_IDS.filter((id) => decor.has(id)),
   };
+}
+
+/**
+ * The client's mirror of a Tower floor's solved count, so the board shows it without a reload. The
+ * server's count is taken as it stands (a miss carries the unchanged count, so the view comes back
+ * the same). A band the view does not show gives the same view, and no floor is ever opened here:
+ * only the bundle's `towerFloors` says which are.
+ */
+export function applyTowerOutcome(view: WorldStateView, o: TowerOutcome): WorldStateView {
+  const floor = view.tower.find((f) => f.band === o.band);
+  if (!floor || floor.solved === o.solved) return view;
+  return { ...view, tower: view.tower.map((f) => (f.band === o.band ? { ...f, solved: o.solved } : f)) };
 }

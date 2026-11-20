@@ -953,6 +953,10 @@
 .r3-talk-need { display: flex; flex-wrap: wrap; align-items: center; gap: 0.55rem; font-size: 0.98rem; font-weight: 700; color: #f0d9a6; }
 .r3-talk-ask { margin: 0.9rem 0 0.5rem; font-size: 1rem; font-weight: 700; color: #fff1d2; }
 .r3-board-error { margin: 0.4rem 0; padding: 0.4rem 0.7rem; border-radius: 10px; background: rgba(160, 40, 30, 0.45); color: #ffd9d2; font-weight: 700; }
+.r3-tower-floors { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+.r3-tower-floor { display: grid; gap: 0.3rem; justify-items: start; padding: 0.6rem 0.8rem; border-radius: 10px; background: rgba(255, 243, 214, 0.08); }
+.r3-tower-floor-name { margin: 0; font-size: 1rem; font-weight: 800; color: var(--r3-gold); }
+.r3-tower-floor-line { margin: 0; font-size: 0.98rem; color: #fff1d2; }
 .r3-deeds { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
 .r3-deed {
   display: flex;

@@ -17,7 +17,7 @@ import { RIDDLE_STONE_RADIUS } from "@/lib/realm/riddle-stones";
 import { YARD_RADIUS } from "@/lib/realm/keep-yard";
 import { LOCK_SPOT } from "@/lib/realm/world-objects";
 import type { LockSpotView } from "@/lib/realm/world-state";
-import { CHEST_VERBS, DOOR_VERBS } from "@/lib/utils/world-lock-copy";
+import { CHEST_VERBS, DOOR_VERBS, TOWER_LABEL, TOWER_VERB } from "@/lib/utils/world-lock-copy";
 
 /** One thing in the world with a reach round it. */
 export type InteractSpot = {
@@ -130,7 +130,12 @@ export type SpotInput = {
   plaques?: readonly { id: string; label: string; x: number; z: number }[];
   /** The chests and vault doors out in the world (`worldCanvas`), shut or open. Absent, there are none. */
   locks?: readonly LockSpotView[];
+  /** The Puzzle Tower's door (`PUZZLE_TOWER.door`), where E climbs. Null or absent, there is none: the grown-up has locks off. */
+  tower?: { x: number; z: number } | null;
 };
+
+/** What E at the Puzzle Tower says: "Climb the Puzzle Tower". */
+export const TOWER_TARGET: InteractTarget = { kind: "tower", id: "puzzle-tower", label: TOWER_LABEL, verb: TOWER_VERB };
 
 /** What E at a chest or vault door says: "Open the old chest" while shut, "Look in" or "Look through" once open. */
 export function lockTarget(l: LockSpotView): InteractTarget {
@@ -335,6 +340,20 @@ export function buildSpots(input: SpotInput): InteractSpot[] {
     });
   }
   for (const l of input.locks ?? []) out.push(lockSpot(l));
+  if (input.tower) {
+    out.push({
+      target: TOWER_TARGET,
+      x: input.tower.x,
+      z: input.tower.z,
+      hw: 0.7,
+      hd: 0.9,
+      round: false,
+      reach: 1.4,
+      // The door stands a step from the plot's edge and the village's open ground: a hero beside it means the Tower.
+      bias: 0.4,
+      ring: 1.3,
+    });
+  }
   return out;
 }
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { addDays, todayInZone } from "@/lib/utils/dates";
-import { applyWorldOutcome, EMPTY_WORLD_STATE, lockedNow, nextRewards, roomChestFor, worldCanvas, worldStateView, type WorldRow, type WorldStateView } from "./world-state";
+import { applyTowerOutcome, applyWorldOutcome, EMPTY_WORLD_STATE, lockedNow, nextRewards, roomChestFor, worldCanvas, worldStateView, type WorldRow, type WorldStateView } from "./world-state";
 import { worldObjectById } from "./world-objects";
 
 const row = (objectId: string, state: string, updatedAt: Date): WorldRow => ({ objectId, state, updatedAt });
@@ -196,5 +196,39 @@ describe("applyWorldOutcome: the client's mirror of an opening", () => {
 
   it("ignores an id that is not in the catalog", () => {
     expect(applyWorldOutcome(view, { objectId: "chest:nowhere", opened: true, rewards: [] }).open).toEqual(["door:longwater"]);
+  });
+});
+
+describe("applyTowerOutcome: the client's mirror of a floor's solved count", () => {
+  const view: WorldStateView = {
+    locksOn: true, open: [], decor: [],
+    tower: [{ band: "k1", open: true, solved: 2 }, { band: "g23", open: true, solved: 0 }, { band: "g45", open: false, solved: 0 }],
+  };
+
+  it("sets that floor's count, and returns a new view without touching the old one", () => {
+    const next = applyTowerOutcome(view, { band: "g23", solved: 1, solvedNow: true });
+    expect(next).not.toBe(view);
+    expect(next.tower).toEqual([{ band: "k1", open: true, solved: 2 }, { band: "g23", open: true, solved: 1 }, { band: "g45", open: false, solved: 0 }]);
+    expect(view.tower[1].solved).toBe(0);
+    expect(next.open).toBe(view.open);
+    expect(next.decor).toBe(view.decor);
+  });
+
+  it("takes the server's count as it stands, so a later solve counts on", () => {
+    const one = applyTowerOutcome(view, { band: "k1", solved: 3, solvedNow: true });
+    expect(applyTowerOutcome(one, { band: "k1", solved: 4, solvedNow: true }).tower[0].solved).toBe(4);
+  });
+
+  it("returns the same view for a miss that changed nothing", () => {
+    expect(applyTowerOutcome(view, { band: "k1", solved: 2, solvedNow: false })).toBe(view);
+  });
+
+  it("returns the same view for a band the view does not show", () => {
+    expect(applyTowerOutcome(view, { band: "g912", solved: 1, solvedNow: true })).toBe(view);
+    expect(applyTowerOutcome(EMPTY_WORLD_STATE, { band: "k1", solved: 1, solvedNow: true })).toBe(EMPTY_WORLD_STATE);
+  });
+
+  it("never opens a floor: the count of a waiting floor is set, its lock stays shut", () => {
+    expect(applyTowerOutcome(view, { band: "g45", solved: 1, solvedNow: true }).tower[2]).toEqual({ band: "g45", open: false, solved: 1 });
   });
 });

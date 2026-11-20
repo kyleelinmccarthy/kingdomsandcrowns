@@ -43,6 +43,37 @@ export const CHEST_EMPTY = "You've found everything in this chest.";
 /** A vault door's line: it always gives its map and its page together. */
 export const DOOR_REWARD_LINE = "Inside: a map and a page for your Chronicle.";
 
+/** What E says at the Puzzle Tower ("Climb the Puzzle Tower"), and its board's and run's header. */
+export const TOWER_VERB = "Climb";
+export const TOWER_LABEL = "the Puzzle Tower";
+export const TOWER_TITLE = "The Puzzle Tower";
+export const TOWER_STORY = "A bonus puzzle, just for the joy of it.";
+
+/** A floor's result card: solved (a title alone), or the puzzle held. */
+export const TOWER_FLOOR_SOLVED = "Floor solved!";
+export const TOWER_HOLDS = "The puzzle holds.";
+export const TOWER_HOLDS_LINE = "Every climb makes you sharper.";
+
+/** A waiting floor's line, exactly (owner, R-G5). It never names a grade or a band. */
+export const TOWER_WAITING = "Earn 3 stars on a science side quest to open this floor.";
+
+const FLOOR_WORDS = ["first", "second", "third", "fourth", "fifth"] as const;
+
+/** A floor, named by its place in the Tower and never by a grade: "The first floor" ... "The fifth floor". */
+export function towerFloorName(index: number): string {
+  return `The ${FLOOR_WORDS[index]} floor`;
+}
+
+/**
+ * What a floor says under its name: how many bonus puzzles are solved there (with numerals on, else
+ * a plain line), that a new one waits, or, for a floor not yet open, `TOWER_WAITING`.
+ */
+export function towerFloorLine(f: { open: boolean; solved: number }, numerals: boolean): string {
+  if (!f.open) return TOWER_WAITING;
+  if (f.solved <= 0) return "A new puzzle waits.";
+  return numerals ? `${f.solved} solved here.` : "You've solved puzzles here.";
+}
+
 /**
  * What an opening gave, as the result card says it. A vault door gives a map and a page at once;
  * a chest gives one thing (a decoration, or a page for the Chronicle), or, once emptied, nothing.

@@ -1,4 +1,4 @@
-import { and, asc, eq, like } from "drizzle-orm";
+import { and, asc, eq, inArray, like, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
@@ -9,8 +9,10 @@ import type { Exec, Tx } from "@/lib/services/realm-play";
 import { LORE, LORE_IDS, type LoreId } from "@/lib/realm/lore";
 import { rewardKey, type WorldObject } from "@/lib/realm/world-objects";
 import { lockedNow, nextRewards, type WorldRow } from "@/lib/realm/world-state";
+import { towerRef } from "@/lib/realm/puzzle-tower";
+import { DEEDS } from "@/lib/utils/deeds";
 import type { QuestionOutcome } from "@/lib/utils/deed-scoring";
-import type { WorldOutcome } from "@/lib/utils/deed-run-types";
+import type { TowerOutcome, WorldOutcome } from "@/lib/utils/deed-run-types";
 import type { ContentBand } from "@/lib/utils/content-bands";
 
 /**
@@ -28,12 +30,20 @@ export async function worldClock(childId: string, now: Date = new Date()): Promi
 }
 
 /**
+ * The query behind `loadWorldRows`: every world-state row this hero has, searched by hero through
+ * `realm_world_state_child_object_idx` (the query-plan test pins it). Exposed so the plan can be read.
+ */
+export function worldRowsQuery(childId: string, exec: Exec = db) {
+  const W = schema.realmWorldState;
+  return exec.select({ objectId: W.objectId, state: W.state, updatedAt: W.updatedAt }).from(W).where(eq(W.childId, childId));
+}
+
+/**
  * Every world-state row this hero has. `updatedAt` comes through the column's own timestamp mode,
  * epoch seconds read as the instant they were written; nothing here converts it by hand.
  */
 export async function loadWorldRows(childId: string, exec: Exec = db): Promise<WorldRow[]> {
-  const W = schema.realmWorldState;
-  return exec.select({ objectId: W.objectId, state: W.state, updatedAt: W.updatedAt }).from(W).where(eq(W.childId, childId));
+  return worldRowsQuery(childId, exec);
 }
 
 const LORE_PREFIX = "lore:";
@@ -58,13 +68,37 @@ export async function loadFoundPages(childId: string): Promise<{ id: LoreId; tit
   });
 }
 
+/** The science side quests played as locks (`mechanic: "lock"`): the ones whose 3 stars open the Tower (PC-G8). */
+const LOCK_DEED_IDS = DEEDS.filter((d) => d.mechanic === "lock").map((d) => d.id);
+
+/**
+ * The query behind `loadStarredBands` (R-G5): the distinct bands of this hero's finished 3-star runs
+ * of a science lock side quest. `kind = 'deed'` leaves out Crown Challenges, world runs and tower
+ * runs; `stars = 3` is written only when a run closes, so an open run is never counted. It reads the
+ * deed's identity, whether the run played as sorts or as `choice` (PC-G8). Searched by hero through
+ * `deed_run_child_completed_idx` (the query-plan test pins it).
+ */
+export function starredBandsQuery(childId: string) {
+  const R = schema.deedRun;
+  return db
+    .selectDistinct({ band: R.band })
+    .from(R)
+    .where(and(eq(R.childId, childId), eq(R.kind, "deed"), inArray(R.deedId, LOCK_DEED_IDS), eq(R.stars, 3)));
+}
+
+/** The bands this hero has 3 stars at on a science lock side quest: what opens the Tower's floors. */
+export async function loadStarredBands(childId: string): Promise<ReadonlySet<ContentBand>> {
+  return new Set((await starredBandsQuery(childId)).map((r) => r.band));
+}
+
 /**
  * What the Realm's bundle reads of the world's state, in its first round (PC-G15): the hero's rows,
  * and `starred`, the bands they have 3 stars at on a science lock side quest, which open the
- * Tower's floors. One query: `starred` stays empty until the Tower's read joins it (G5).
+ * Tower's floors. Two queries, in parallel.
  */
 export async function loadWorldRaw(childId: string): Promise<{ rows: WorldRow[]; starred: ReadonlySet<ContentBand> }> {
-  return { rows: await loadWorldRows(childId), starred: new Set<ContentBand>() };
+  const [rows, starred] = await Promise.all([loadWorldRows(childId), loadStarredBands(childId)]);
+  return { rows, starred };
 }
 
 /** The state a reward's own row is written with (PC-G1). Fragments are found places, not rows here. */
@@ -96,4 +130,30 @@ export async function openWorldObject(
   if (kept.length > 0) await tx.insert(W).values(kept).onConflictDoNothing({ target });
   await addPlacesFound(childId, rewards.flatMap((r) => (r.kind === "fragment" ? [r.placeId] : [])), tx);
   return { objectId: object.id, opened: true, rewards };
+}
+
+/**
+ * Counts one solved bonus lock on a floor inside the caller's locked transaction: the floor's
+ * record, `tower:<band>`, is created holding "1" or has its count raised by one in the one
+ * statement, so a count is never read, added to and written back. Returns the count now.
+ */
+export async function bumpTowerRecord(tx: Tx, childId: string, band: ContentBand, now: Date): Promise<number> {
+  const W = schema.realmWorldState;
+  const [row] = await tx.insert(W).values({ id: nanoid(), childId, objectId: towerRef(band), state: "1", updatedAt: now })
+    .onConflictDoUpdate({ target: [W.childId, W.objectId], set: { state: sql`CAST(CAST(${W.state} AS INTEGER) + 1 AS TEXT)`, updatedAt: now } })
+    .returning({ state: W.state });
+  return Number(row.state);
+}
+
+/**
+ * What finishing a Tower floor's run did, inside the caller's locked transaction (R-G4b, RG-n),
+ * after the caller has closed the run in it. A right first try counts one solved
+ * (`bumpTowerRecord`); a miss writes nothing and reports the count as it stands (0 for a floor
+ * never solved). Anything that throws rolls the whole transaction back, the run's close included.
+ */
+export async function recordTowerSolve(tx: Tx, childId: string, band: ContentBand, outcome: QuestionOutcome, now: Date): Promise<TowerOutcome> {
+  if (outcome === "first") return { band, solved: await bumpTowerRecord(tx, childId, band, now), solvedNow: true };
+  const W = schema.realmWorldState;
+  const [row] = await tx.select({ state: W.state }).from(W).where(and(eq(W.childId, childId), eq(W.objectId, towerRef(band))));
+  return { band, solved: row ? Number(row.state) || 0 : 0, solvedNow: false };
 }

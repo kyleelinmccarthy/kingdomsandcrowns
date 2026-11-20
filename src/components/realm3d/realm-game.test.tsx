@@ -58,7 +58,7 @@ vi.mock("@/lib/actions/seasons", () => ({ markCeremonySeen: vi.fn(async () => {}
 vi.mock("@/lib/actions/improvements", () => ({ markBuildingsAnnounced: vi.fn(async () => {}), markDeliverySeen: vi.fn(async () => {}), startBuildRun: vi.fn(), pinPlan: vi.fn(async () => {}) }));
 vi.mock("@/lib/actions/realm-chronicle", () => ({ getChronicle: vi.fn(async () => ({ weeks: [], canSeal: false, lore: [] })) }));
 vi.mock("@/lib/actions/review", () => ({ startReviewRun: vi.fn(), getReviewDue: vi.fn(async () => false) }));
-vi.mock("@/lib/actions/world-locks", () => ({ startWorldLockRun: vi.fn() }));
+vi.mock("@/lib/actions/world-locks", () => ({ startWorldLockRun: vi.fn(), startTowerRun: vi.fn() }));
 vi.mock("@/lib/actions/spells", () => ({ getSpellbook: vi.fn(async () => ({ spells: [], slots: 4, level: 3, unlocked: ["ember", "tide", "bolt", "orb"], schoolCounts: { element: 2, form: 0, modifier: 0 }, subjectNamesBySchool: { element: ["Math"], form: [], modifier: [] } })) }));
 vi.mock("@/lib/actions/realm", () => ({ getRealmKingdom: vi.fn() }));
 vi.mock("@/lib/actions/quest-assignments", () => ({ getAssignmentQuestInfo: vi.fn(async () => null) }));
@@ -91,7 +91,7 @@ import { CHRONICLE_TARGET, PLANS_TARGET } from "@/lib/realm3d/interact";
 import { getChronicle } from "@/lib/actions/realm-chronicle";
 import { BUILD_HERO_ONLY } from "@/lib/utils/deed-refusals";
 import { startReviewRun } from "@/lib/actions/review";
-import { startWorldLockRun } from "@/lib/actions/world-locks";
+import { startTowerRun, startWorldLockRun } from "@/lib/actions/world-locks";
 import { worldCanvas, type WorldStateView } from "@/lib/realm/world-state";
 import { saveRealmSound } from "@/lib/actions/realm-sound";
 import { getRealmAccess, getTroubleBounty, recordTroubleClears } from "@/lib/actions/realm-play";
@@ -311,6 +311,81 @@ describe("the world's locks", () => {
     await act(async () => void bus.onInteract(door));
     expect(screen.getByRole("dialog", { name: "The vault door" })).toHaveTextContent("The vault stands open. Its map is yours.");
     expect(startWorldLockRun).not.toHaveBeenCalled();
+  });
+
+  describe("the Puzzle Tower", () => {
+    const tower = { kind: "tower" as const, id: "puzzle-tower", label: "the Puzzle Tower", verb: "Climb" };
+    const withTower: WorldStateView = {
+      ...view,
+      tower: [{ band: "k1", open: true, solved: 2 }, { band: "g23", open: true, solved: 0 }, { band: "g45", open: false, solved: 0 }],
+    };
+    const towerRun = {
+      runId: "tower-1",
+      deed: { id: "tower:g23", title: "The Puzzle Tower", story: "A bonus puzzle, just for the joy of it.", area: "logic" as const },
+      questions: [{ kind: "choice" as const, id: "q1", skillId: "logic-g23", prompt: "Which shape comes next?", view: { choices: ["circle", "square"] } }],
+      responses: [null] as (string | null)[],
+      kind: "tower" as const,
+      pending: null,
+    };
+
+    it("opens the Tower's board when E is pressed at it, over one dialog, and pauses the world", async () => {
+      const { bus } = mount({ realm: { ...realm, worldState: withTower } });
+      act(() => bus.onNear(tower));
+      expect(screen.getByRole("button", { name: /Climb the Puzzle Tower/ })).toBeInTheDocument();
+      await act(async () => void bus.onInteract(tower));
+      // One board, the Tower's own: never the generic card as well.
+      expect(screen.getAllByRole("dialog")).toHaveLength(1);
+      const board = screen.getByRole("dialog", { name: "The Puzzle Tower" });
+      expect(within(board).getAllByRole("listitem")).toHaveLength(3);
+      expect(board).toHaveTextContent("Earn 3 stars on a science side quest to open this floor.");
+      expect(bus.paused).toBe(true);
+      fireEvent.click(screen.getByRole("button", { name: "Back to the Realm" }));
+      expect(bus.paused).toBe(false);
+    });
+
+    it("starts a floor's run from the board, for the hero", async () => {
+      vi.mocked(startTowerRun).mockResolvedValue(towerRun);
+      const { bus } = mount({ realm: { ...realm, worldState: withTower } });
+      await act(async () => void bus.onInteract(tower));
+      const second = within(screen.getByRole("dialog")).getAllByRole("listitem")[1];
+      await act(async () => void fireEvent.click(within(second).getByRole("button", { name: /climb/i })));
+      expect(startTowerRun).toHaveBeenCalledWith("demo-child-1", "g23");
+      expect(screen.getByRole("dialog", { name: "The Puzzle Tower" })).toHaveTextContent("Which shape comes next?");
+    });
+
+    it("mirrors a solved floor's count into the view the board reads", async () => {
+      vi.mocked(startTowerRun).mockResolvedValue(towerRun);
+      vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: true, secondChance: false, answer: "circle" });
+      vi.mocked(completeDeedRun).mockResolvedValue({
+        correctCount: 1, total: 1, flawless: true, masteryChanges: [], stars: 0, previousBest: 0, deedBest: 0, counted: false, crowned: false,
+        kind: "tower", building: null, minutesEarned: 0, sideQuestPayFull: false, tower: { band: "g23", solved: 1, solvedNow: true },
+      });
+      const { bus } = mount({ realm: { ...realm, worldState: withTower } });
+      await act(async () => void bus.onInteract(tower));
+      await act(async () => void fireEvent.click(within(within(screen.getByRole("dialog")).getAllByRole("listitem")[1]).getByRole("button", { name: /climb/i })));
+      await act(async () => void fireEvent.click(screen.getByRole("button", { name: "circle" })));
+      await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Finish puzzles" })));
+      expect(screen.getByText("Floor solved!")).toBeInTheDocument();
+      await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Back to the floors" })));
+      expect(screen.getByText("1 solved here.")).toBeInTheDocument();
+    });
+
+    it("hands the canvas one storey for each open floor, and keeps them with the locks off (R-G7)", () => {
+      mount({ realm: { ...realm, worldState: withTower } });
+      expect(handed.props!.worldLocks).toMatchObject({ locksOn: true, storeys: 2 });
+      cleanup();
+      mount({ realm: { ...realm, worldState: { ...withTower, locksOn: false } } });
+      expect(handed.props!.worldLocks).toMatchObject({ locksOn: false, locks: [], storeys: 2 });
+    });
+
+    it("shows a visiting grown-up the floors with no Climb", async () => {
+      const { bus } = mount({ viewer: "parent", realm: { ...realm, isChildView: false, worldState: withTower } });
+      await act(async () => void bus.onInteract(tower));
+      const board = screen.getByRole("dialog", { name: "The Puzzle Tower" });
+      expect(within(board).getAllByRole("listitem")).toHaveLength(3);
+      expect(within(board).queryByRole("button", { name: /climb/i })).toBeNull();
+      expect(startTowerRun).not.toHaveBeenCalled();
+    });
   });
 
   it("the canvas's locks follow the switch, not the clock (RG-l)", () => {

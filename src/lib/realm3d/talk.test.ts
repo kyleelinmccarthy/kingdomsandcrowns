@@ -266,6 +266,37 @@ describe("a chest's or vault door's result", () => {
   });
 });
 
+describe("a Tower floor's result", () => {
+  const tower = { correctCount: 1, total: 1, flawless: true, kind: "tower" as const };
+  const solved = { ...tower, tower: { band: "g23" as const, solved: 2, solvedNow: true } };
+  const held = { ...tower, correctCount: 0, flawless: false, tower: { band: "g23" as const, solved: 2, solvedNow: false } };
+
+  it("says the floor is solved, with nothing more", () => {
+    expect(resultHeadline(solved, "The Puzzle Tower")).toEqual({ title: "Floor solved!", line: "" });
+  });
+
+  it("says the puzzle holds on a miss, and that every climb helps", () => {
+    expect(resultHeadline(held, "The Puzzle Tower")).toEqual({ title: "The puzzle holds.", line: "Every climb makes you sharper." });
+  });
+
+  it("is told from a chest's or practice's result by the run's kind", () => {
+    expect(resultHeadline({ ...tower, world: { objectId: "chest:west-lane", opened: true, rewards: [] } }, "x").title).not.toBe("The chest opens!");
+    expect(resultHeadline({ correctCount: 2, total: 3, flawless: false, kind: "world" }, "Puzzle practice").title).not.toBe("Floor solved!");
+  });
+
+  it("never names a grade, a band, stars or minutes", () => {
+    for (const s of [solved, held]) {
+      const head = resultHeadline(s, "The Puzzle Tower");
+      expect(`${head.title} ${head.line}`).not.toMatch(/grade|band|star|minute|behind|ahead|k1|g23/i);
+    }
+  });
+
+  it("finishes its puzzles and leaves the puzzles, as Puzzle practice does (RG-m)", () => {
+    expect(finishLabel("tower", "tower:g23")).toBe(finishLabel("world", "practice"));
+    expect(leaveWhat("tower", "tower:g23")).toBe("puzzles");
+  });
+});
+
 describe("a map fragment's toast", () => {
   it("says a map to the place was found, and where to look, with the map icon and no pips", () => {
     expect(fragmentToast("Thunder Head")).toEqual({

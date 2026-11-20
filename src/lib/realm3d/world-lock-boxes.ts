@@ -9,6 +9,7 @@
 
 import type { DecorId } from "@/lib/realm/decor";
 import { IMPROVEMENT_COLORS } from "@/lib/realm/improvements";
+import { PUZZLE_TOWER, TOWER_FLOORS } from "@/lib/realm/puzzle-tower";
 import type { YardBox } from "./keep-yard-boxes";
 
 /** `lid` and `leaf` are what open; `inside` is what an open chest shows. Untagged boxes never move. */
@@ -25,7 +26,7 @@ const LID_WOOD = "#8a5d38";
 const IRON = "#3d3b3a";
 const DARK_STONE = "#6f6a60";
 const VOID = "#151214";
-const { gold: GOLD, stone: STONE } = IMPROVEMENT_COLORS;
+const { gold: GOLD, stone: STONE, timber: TIMBER, plaster: PLASTER, glass: GLASS } = IMPROVEMENT_COLORS;
 
 /** A box by its centre on the ground, footprint, the height of its bottom, and its height. */
 const box = (color: string, x: number, z: number, sx: number, sz: number, y0: number, sy: number, part?: LockBox["part"]): LockBox => ({
@@ -91,10 +92,66 @@ export function vaultDoorBoxes(open: boolean): LockBox[] {
   return [...DOOR_FRAME, ...leaves(open)];
 }
 
+/* ------------------------------------------------------------------ the Puzzle Tower */
+
+const { body: BODY, baseH: BASE_H, storeyH: STOREY_H } = PUZZLE_TOWER;
+/** One cornice band at the head of the base and of every storey: as wide as the body, so a storey's wall sits a little in. */
+const BAND = 0.2;
+const WALL = BODY - 0.4;
+/** Where a window is centred on a wall: its own half-depth proud of it, so it never floats and never leaves the body. */
+const FACE = WALL / 2 + 0.06;
+
+/** A window on one face of a storey, flush with the wall and standing a little proud of it: `x`/`z` its centre on that face. */
+const window = (x: number, z: number, onX: boolean, y0: number): LockBox =>
+  box(GLASS, x, z, onX ? 0.12 : 0.6, onX ? 0.6 : 0.12, y0, 0.9);
+
+/**
+ * The ground floor: a plinth, a stone wall and its cornice, a timber door and lintel on the west
+ * face (where E climbs, `PUZZLE_TOWER.door`), and a window on each of the other faces. Its top is
+ * `baseH`, so a Tower with no floor open is this alone.
+ */
+const TOWER_BASE: readonly LockBox[] = [
+  box(DARK_STONE, 0, 0, BODY, BODY, 0, 0.3),
+  box(STONE, 0, 0, WALL, WALL, 0.3, BASE_H - 0.3 - BAND),
+  box(DARK_STONE, 0, 0, BODY, BODY, BASE_H - BAND, BAND),
+  // The door and its lintel, flush with the west face, a step above the plinth.
+  box(TIMBER, -BODY / 2 + 0.1, 0, 0.2, 1.4, 0.3, 1.9),
+  box(IRON, -BODY / 2 + 0.1, 0, 0.2, 1.7, 2.2, 0.2),
+  window(0, FACE, false, 1.2),
+  window(0, -FACE, false, 1.2),
+  window(FACE, 0, true, 1.2),
+];
+
+/** One storey's boxes, standing on `y0`: a wall of its own tone, windows on every face, and the cornice. */
+function storey(i: number, y0: number): LockBox[] {
+  const wall = i % 2 === 0 ? PLASTER : STONE;
+  const y = y0 + 0.1;
+  return [
+    box(wall, 0, 0, WALL, WALL, y0, STOREY_H - BAND),
+    box(DARK_STONE, 0, 0, BODY, BODY, y0 + STOREY_H - BAND, BAND),
+    window(-FACE, -1.4, true, y + 0.6),
+    window(-FACE, 1.4, true, y + 0.6),
+    window(FACE, 0, true, y + 0.6),
+    window(-1.2, FACE, false, y + 0.6),
+    window(1.2, FACE, false, y + 0.6),
+    window(-1.2, -FACE, false, y + 0.6),
+    window(1.2, -FACE, false, y + 0.6),
+  ];
+}
+
+/**
+ * The Tower as the scene draws it, in its own frame about the plot's centre, the door on the west
+ * (-x) face: the ground floor, and one storey above it for each open floor (`storeys`, clamped to
+ * the five floors the Tower has). Every box keeps within the 6 by 6 body, so the one static collider
+ * (`towerColliders`) holds the lot.
+ */
+export function towerBoxes(storeys: number): LockBox[] {
+  const n = Number.isFinite(storeys) ? Math.max(0, Math.min(TOWER_FLOORS.length, Math.floor(storeys))) : 0;
+  return [...TOWER_BASE, ...Array.from({ length: n }, (_, i) => storey(i, BASE_H + i * STOREY_H)).flat()];
+}
+
 /* ------------------------------------------------------------------ decorations */
 
-const TIMBER = IMPROVEMENT_COLORS.timber;
-const PLASTER = IMPROVEMENT_COLORS.plaster;
 const ROOF = IMPROVEMENT_COLORS.roof;
 const CLOTH = IMPROVEMENT_COLORS.cloth;
 const WATER = IMPROVEMENT_COLORS.water;

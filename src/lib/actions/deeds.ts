@@ -28,7 +28,7 @@ import {
   NOT_IN_CHRONICLE, NOT_IN_RUN, NOT_THROUGH, PICK_SHOWN, WORLD_HERO_ONLY,
 } from "@/lib/utils/deed-refusals";
 import { overdueSkills } from "@/lib/utils/review-schedule";
-import type { AttemptResult, RunStart, RunSummary, WorldOutcome } from "@/lib/utils/deed-run-types";
+import type { AttemptResult, RunStart, RunSummary, TowerOutcome, WorldOutcome } from "@/lib/utils/deed-run-types";
 import { taskHint } from "@/lib/utils/skill-hints";
 import { demoAt, findOpenRun, insertRun, loadMasteryRows, loadRecentMisses, parseRun, resumedStart, type DeedRunRow } from "@/lib/services/deed-run-store";
 import {
@@ -37,7 +37,8 @@ import {
 import { loadFocusSkillIds } from "@/lib/services/learning-focus";
 import { loadLearningProfileRow } from "@/lib/services/learning-profile";
 import { loadRealmSettings, paySideQuest, withChildLock, type Exec } from "@/lib/services/realm-play";
-import { openWorldObject, worldClock } from "@/lib/services/realm-world-state";
+import { openWorldObject, recordTowerSolve, worldClock } from "@/lib/services/realm-world-state";
+import { bandOfTowerRef } from "@/lib/realm/puzzle-tower";
 import { isWorldObjectId, worldObjectById } from "@/lib/realm/world-objects";
 import { finishBuild } from "@/lib/services/improvements";
 import { loadMaterialLedger } from "@/lib/services/realm-materials";
@@ -445,15 +446,19 @@ export async function completeDeedRun(runId: string): Promise<RunSummary> {
     .returning({ id: schema.deedRun.id });
   // A chest or vault door: the close, its "open" and its rewards are one locked transaction (PC-G2,
   // RG-c), so of two finishes only one opens it, and a throw while opening leaves the run open to
-  // finish again (RG-n). Puzzle practice, a world run of no object, closes as every run does (PC-G17).
+  // finish again (RG-n). A Tower floor's run takes the same path, counting its solve there. Puzzle
+  // practice, a world run of no object, closes as every run does (PC-G17).
   const object = run.kind === "world" ? worldObjectById(run.sourceRef) : null;
-  let world: WorldOutcome | undefined;
-  if (object) {
-    const clock = await worldClock(run.childId, now);
-    world = await withChildLock(run.childId, async (tx) => {
+  const floor = run.kind === "tower" ? bandOfTowerRef(run.sourceRef) : null;
+  let opened: { world?: WorldOutcome; tower?: TowerOutcome } = {};
+  if (object || floor) {
+    const clock = object ? await worldClock(run.childId, now) : null;
+    opened = await withChildLock(run.childId, async (tx) => {
       // Two finishes racing: the second waits for the lock, then finds the run closed.
       if ((await closeRun(tx)).length === 0) throw new Error(FINISHED);
-      return openWorldObject(tx, run.childId, object, outcomes[0], now, clock);
+      return object && clock
+        ? { world: await openWorldObject(tx, run.childId, object, outcomes[0], now, clock) }
+        : { tower: await recordTowerSolve(tx, run.childId, floor!, outcomes[0], now) };
     });
   } else if ((await closeRun(db)).length === 0) {
     // Two finishes racing: only the one that closed the run may raise the building, or be paid.
@@ -500,7 +505,8 @@ export async function completeDeedRun(runId: string): Promise<RunSummary> {
     building: run.deedId ? { label: building?.label ?? "the kingdom", ...progress, ...buildingStarsNow } : null,
     minutesEarned: pay.minutes, sideQuestPayFull: pay.full,
     ...(improvement ? { improvement } : {}),
-    ...(world ? { world } : {}),
+    ...(opened.world ? { world: opened.world } : {}),
+    ...(opened.tower ? { tower: opened.tower } : {}),
   };
 }
 
