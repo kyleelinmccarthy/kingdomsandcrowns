@@ -13,6 +13,7 @@ import { getSchoolDays, getScheduleBlocks } from "@/lib/actions/student-schedule
 import { getSchoolingModeForDate } from "@/lib/actions/schooling-mode";
 import { requireChildAccess, requireAssignmentAccess, isChildActor } from "@/lib/auth/access";
 import { hasMeaningfulNotes, sanitizeText } from "@/lib/utils/sanitize";
+import { DRAWING_REFUSED, drawingToStore, hasDrawing, parseDrawing, readDrawingField } from "@/lib/utils/drawing";
 import { weekdayOfDate } from "@/lib/utils/schedule-days";
 import { getNextStructuredQuest } from "@/lib/utils/quest-ordering";
 import { pruneStaleAssignmentsInRange } from "@/lib/services/quest-assignment-sync";
@@ -370,6 +371,8 @@ export async function completeAssignment(
     startedAt?: Date;
     endedAt?: Date;
     source?: "manual" | "timer";
+    /** A hero's drawing of the quest (see `parseDrawing`). Absent or null means none. */
+    drawing?: unknown;
   } = {}
 ) {
   const { access } = await requireAssignmentAccess(assignmentId, { write: true });
@@ -399,9 +402,14 @@ export async function completeAssignment(
     isChildActor(access)
   );
 
+  // Both are checked before anything is written: a forged drawing must never leave a half-finished
+  // quest behind.
+  const drawing = readDrawingField(activityData.drawing);
+  if (drawing === "invalid") throw new Error(DRAWING_REFUSED);
   const notes = activityData.description ? sanitizeText(activityData.description) : "";
-  if (row.quest.requireNotes && !hasMeaningfulNotes(notes)) {
-    throw new Error("Scribe's Notes are required to complete this quest — describe what was done");
+  // Notes or a drawing: a hero who cannot type yet can tell the quest by drawing it.
+  if (row.quest.requireNotes && !hasMeaningfulNotes(notes) && !hasDrawing(drawing)) {
+    throw new Error("Scribe's Notes or a drawing are required to complete this quest — describe or draw what was done");
   }
 
   // Catch-up work is chronicled on the day it was actually done, not the day it
@@ -438,6 +446,9 @@ export async function completeAssignment(
       activityLogId: activityId,
       completedAt: now,
       notes: notes || null,
+      drawing: drawingToStore(drawing),
+      // A seal praises what was told; a completion (again) tells something new, so it starts unsealed.
+      seal: null,
       // Finishing settles whatever set the quest aside — a stuck quest a
       // grown-up came and helped with is no longer stuck for any reason.
       statusReason: null,
@@ -500,13 +511,18 @@ export async function completeAssignment(
  * the learning log tell the same story — completeAssignment writes both, and
  * so must every later edit.
  */
-export async function updateAssignmentNotes(assignmentId: string, notes: string) {
+export async function updateAssignmentNotes(assignmentId: string, notes: string, drawing?: unknown) {
   await requireAssignmentAccess(assignmentId, { write: true });
+
+  // `undefined` leaves the stored drawing alone, `null` clears it, anything else must be valid.
+  const nextDrawing = readDrawingField(drawing);
+  if (nextDrawing === "invalid") throw new Error(DRAWING_REFUSED);
 
   const rows = await db
     .select({
       status: schema.questAssignment.status,
       activityLogId: schema.questAssignment.activityLogId,
+      drawing: schema.questAssignment.drawing,
       requireNotes: schema.quest.requireNotes,
     })
     .from(schema.questAssignment)
@@ -521,15 +537,21 @@ export async function updateAssignmentNotes(assignmentId: string, notes: string)
   }
 
   const note = notes ? sanitizeText(notes) : "";
-  // Editing must not be a way to strip notes a quest insists on having.
-  if (!hasMeaningfulNotes(note) && row.requireNotes) {
-    throw new Error("Scribe's Notes are required for this quest — describe what was done");
+  // Editing must not be a way to strip what a quest insists on having: notes, or a drawing. The
+  // drawing that counts is the one the quest will have afterwards.
+  const drawingAfter = nextDrawing === undefined ? parseDrawing(row.drawing) : nextDrawing;
+  if (!hasMeaningfulNotes(note) && !hasDrawing(drawingAfter) && row.requireNotes) {
+    throw new Error("Scribe's Notes or a drawing are required for this quest — describe or draw what was done");
   }
 
   const now = new Date();
   await db
     .update(schema.questAssignment)
-    .set({ notes: note || null, updatedAt: now })
+    .set({
+      notes: note || null,
+      ...(nextDrawing === undefined ? {} : { drawing: drawingToStore(nextDrawing) }),
+      updatedAt: now,
+    })
     .where(eq(schema.questAssignment.id, assignmentId));
 
   if (row.activityLogId) {
@@ -714,6 +736,10 @@ export async function reviseAssignment(
       status: next,
       // The old notes described work that is no longer on the record.
       notes: null,
+      // Likewise the drawing, and a grown-up's seal (a seal on a quest that is no longer done
+      // must not survive the undo).
+      drawing: null,
+      seal: null,
       statusReason,
       activityLogId: null,
       completedAt: null,

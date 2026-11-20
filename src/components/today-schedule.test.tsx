@@ -33,7 +33,7 @@ afterEach(cleanup);
 const subjects = [{ id: "s1", name: "Reading", color: "#ef4444" }];
 const blocks = [{ id: "b1", subjectId: "s1", startTime: "09:00", endTime: "09:30" }];
 const done = {
-  assignment: { id: "a1", status: "completed", notes: null, statusReason: null },
+  assignment: { id: "a1", status: "completed", notes: null, drawing: null, seal: null, statusReason: null },
   quest: {
     id: "q1", title: "Read a chapter", description: null, estimatedMinutes: null,
     rewardXp: null, rewardDescription: null, rewardAvatarItem: null, requireNotes: false,

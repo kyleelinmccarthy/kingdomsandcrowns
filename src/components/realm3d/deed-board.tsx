@@ -95,6 +95,7 @@ export function DeedBoard({
   doneLabel,
   runContext = "realm",
   timezone,
+  mention,
 }: {
   childId: string | null;
   villager: Villager;
@@ -115,11 +116,13 @@ export function DeedBoard({
   runContext?: "realm" | "gate";
   /** The family's zone, for the season a standing building says it was raised in (`talkCopy`). */
   timezone?: string | null;
+  /** What this villager has heard of a quest the hero finished (`pickMention`), as plain text; the hero's own visit only. */
+  mention?: string | null;
 }) {
   const [run, setRun] = useState<RunStart | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const copy = talkCopy({ villager, site, viewer, heroName, waiting, numerals, timezone });
+  const copy = talkCopy({ villager, site, viewer, heroName, waiting, numerals, timezone, mention });
   const canPlay = viewer === "child" && childId !== null;
 
   // The villager speaks, once, for a child who has read-aloud on: who they are and what they need.

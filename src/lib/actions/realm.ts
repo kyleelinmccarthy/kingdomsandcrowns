@@ -27,6 +27,12 @@ import { loadRecessRecord } from "@/lib/services/recess";
 import { loadReviewDue } from "@/lib/services/review";
 import { loadRises } from "@/lib/services/realm-rises";
 import { loadWorks } from "@/lib/services/realm-materials";
+import { loadHallDrawings, loadRecentQuests } from "@/lib/services/realm-chronicle";
+import type { RecentQuest } from "@/lib/realm/mentions";
+import { nowInZone } from "@/lib/services/realm-clock";
+import { DEFAULT_TIMEZONE } from "@/lib/services/family-timezone";
+import { HALL_FRAMES_PER_LEVEL } from "@/lib/realm/improvements";
+import type { Drawing } from "@/lib/utils/drawing";
 import { EMPTY_WORKS, type Works } from "@/lib/realm/works-state";
 import { loadFocusSkillIds } from "@/lib/services/learning-focus";
 import { focusAreasOf } from "@/lib/utils/focus";
@@ -125,6 +131,20 @@ export type RealmBundle = {
    * bundles in tests need not carry it; `getRealmBundle` always sets it.
    */
   works?: Works;
+  /**
+   * The newest drawings the hero has made, newest first, for the Chronicle Hall's frames: two per
+   * built level (none while it is not built, or when the read fails). Optional only so hand-built
+   * bundles in tests need not carry it; `getRealmBundle` always sets it.
+   */
+  hallDrawings?: Drawing[];
+  /**
+   * The quests the hero finished in the last 7 days, newest first, at most 20: what the villagers
+   * may mention (`pickMention`). Empty when the read fails. Optional only so hand-built bundles in
+   * tests need not carry it; `getRealmBundle` always sets it.
+   */
+  recentQuests?: RecentQuest[];
+  /** The server's day in the hero's family's time zone (YYYY-MM-DD), never the device's: the key of "said today". */
+  today?: string;
 };
 
 const VILLAGERS_RESTING = "The villagers are resting. Try again.";
@@ -183,6 +203,20 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
   const worksRead = loadWorks(childId, settingsRead).catch((err: unknown) => {
     console.error("Realm works failed to load", err);
     return EMPTY_WORKS;
+  });
+  // The drawings the Chronicle Hall hangs, two a built level: it waits only for the works' built
+  // levels, and asks for none (so reads nothing) while the hall is not built. A failed read is "none".
+  const hallDrawingsRead = worksRead
+    .then((w) => loadHallDrawings(childId, HALL_FRAMES_PER_LEVEL * (w.built["chronicle-hall"] ?? 0)))
+    .catch((err: unknown) => {
+      console.error("Realm hall drawings failed to load", err);
+      return [] as Drawing[];
+    });
+  // The quests finished this week, for the villagers' mentions: the hero's own view only (a grown-up's
+  // visit is told nothing, so it reads nothing). A failed read is "none", never a closed Realm.
+  const recentRead = (isChildActor(access) ? loadRecentQuests(childId) : Promise.resolve([] as RecentQuest[])).catch((err: unknown) => {
+    console.error("Realm recent quests failed to load", err);
+    return [] as RecentQuest[];
   });
   // Also hands back the flags it read (post-update), so the parallel batch below does not
   // pay a second `loadRealmFlags` round trip just to read `helpSeenAt`. On the (rare) failure
@@ -267,6 +301,10 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
     focusAreas: await focusRead,
     ...(await risesRead), // `unannounced` and `regraded`
     works: await worksRead,
+    hallDrawings: await hallDrawingsRead,
+    recentQuests: await recentRead,
+    // The Realm's one clock (`realmNow`): an unusable stored zone (a legacy "Denver") reads as the default.
+    today: nowInZone(child.timezone ?? DEFAULT_TIMEZONE).date,
     earning: {
       enabled: settings.enabled,
       accessMode: settings.accessMode,

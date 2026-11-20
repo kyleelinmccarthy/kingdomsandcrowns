@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,12 @@ import { moveTargetLabel, type MoveTarget } from "@/lib/utils/makeup";
 import { formatMovedFrom } from "@/lib/utils/missed-days";
 import { getRewardItemLabel } from "@/lib/utils/avatar-catalog";
 import { hasMeaningfulNotes } from "@/lib/utils/sanitize";
+import { hasDrawing, parseDrawing, type Drawing } from "@/lib/utils/drawing";
+import { DrawingPad } from "@/components/drawing-pad";
+import { DrawingView } from "@/components/drawing-view";
+import { SealBadge, SealPanel } from "@/components/chronicle-seal";
+import { unsealEntry } from "@/lib/actions/chronicle-seals";
+import { parseSeal } from "@/lib/utils/seals";
 import type { QuestReward } from "@/lib/utils/quest-rewards";
 
 type AssignmentWithDetails = {
@@ -27,6 +33,10 @@ type AssignmentWithDetails = {
     status: string;
     /** Scribe's Notes — the record of work that was done. */
     notes: string | null;
+    /** The drawing that tells the quest: stored JSON, read only through `parseDrawing`. */
+    drawing: string | null;
+    /** A grown-up's seal on the finished quest: stored JSON, read only through `parseSeal`. */
+    seal: string | null;
     /** Why the quest was skipped or set aside. Never Scribe's Notes. */
     statusReason: string | null;
     /** Set when a grown-up moved this quest off the day it was first set for. */
@@ -50,6 +60,41 @@ type AssignmentWithDetails = {
   /** What the quest made, once it is finished (the page loads it for completed quests only). */
   rewards?: QuestReward;
 };
+
+// Short enough to show whole in a phone-width card (390 px), the "(one needed)" included.
+const NOTES_PLACEHOLDER_REQUIRED = "Notes or a drawing (one needed): what did you do?";
+const NOTES_PLACEHOLDER_OPTIONAL = "Scribe's Notes (optional) — what did you do?";
+
+/**
+ * The drawing control beside the notes: a toggle for the pad. Closed, it still says when a drawing
+ * is being kept (and shows it small), because that drawing is saved with the notes.
+ */
+function DrawingField({
+  drawing,
+  open,
+  onToggle,
+  onChange,
+  disabled,
+}: {
+  drawing: Drawing | null;
+  open: boolean;
+  onToggle: () => void;
+  onChange: (d: Drawing | null) => void;
+  disabled: boolean;
+}) {
+  const kept = !open && hasDrawing(drawing);
+  return (
+    <>
+      <div className="flex items-center gap-2">
+        <Button type="button" size="sm" variant="outline" onClick={onToggle} disabled={disabled} aria-expanded={open}>
+          {open ? "Hide drawing" : kept ? "Show drawing (kept)" : "Add a drawing"}
+        </Button>
+        {kept && <DrawingView drawing={drawing} label="Your drawing, kept" className="w-16 shrink-0 border border-border/50" />}
+      </div>
+      {open && <DrawingPad value={drawing} onChange={onChange} disabled={disabled} />}
+    </>
+  );
+}
 
 export function QuestAssignmentCard({
   data,
@@ -105,7 +150,12 @@ export function QuestAssignmentCard({
   const [showStuck, setShowStuck] = useState(false);
   const [showRevise, setShowRevise] = useState(false);
   const [showNotesEdit, setShowNotesEdit] = useState(false);
+  const [showSeal, setShowSeal] = useState(false);
   const [notesDraft, setNotesDraft] = useState("");
+  const [drawingDraft, setDrawingDraft] = useState<Drawing | null>(null);
+  const [showDraftPad, setShowDraftPad] = useState(false);
+  const [drawing, setDrawing] = useState<Drawing | null>(null);
+  const [showPad, setShowPad] = useState(false);
   const [skipReason, setSkipReason] = useState("");
   const [stuckReason, setStuckReason] = useState("");
   const [reviseNote, setReviseNote] = useState("");
@@ -147,11 +197,17 @@ export function QuestAssignmentCard({
   const parsedDuration = parseInt(manualDuration, 10);
   const isDurationValid =
     manualDuration.trim() !== "" && Number.isFinite(parsedDuration) && parsedDuration >= 1 && parsedDuration <= 480;
-  const hasRequiredNotes = !quest.requireNotes || hasMeaningfulNotes(notes);
+  // Scribe's Notes, or a drawing: a hero who can't type yet tells the quest by drawing it.
+  const hasRequiredNotes = !quest.requireNotes || hasMeaningfulNotes(notes) || hasDrawing(drawing);
+  // Read once per stored value, not on every keystroke (a full drawing is ~16 KB of JSON).
+  const storedDrawing = useMemo(() => parseDrawing(assignment.drawing), [assignment.drawing]);
+  const seal = useMemo(() => parseSeal(assignment.seal), [assignment.seal]);
 
   function openQuickComplete() {
     setManualDuration(quest.estimatedMinutes ? String(quest.estimatedMinutes) : "");
     setNotes("");
+    setDrawing(null);
+    setShowPad(false);
     setShowMove(false);
     setShowQuickComplete(true);
   }
@@ -166,9 +222,12 @@ export function QuestAssignmentCard({
         description: notes.trim() || (quest.description ?? undefined),
         durationMinutes: parsedDuration,
         source: "manual",
+        drawing: hasDrawing(drawing) ? drawing : undefined,
       });
       router.refresh();
       setShowQuickComplete(false);
+      setDrawing(null);
+      setShowPad(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not complete quest");
     } finally {
@@ -178,6 +237,8 @@ export function QuestAssignmentCard({
 
   function openNotesEdit() {
     setNotesDraft(assignment.notes ?? "");
+    setDrawingDraft(storedDrawing);
+    setShowDraftPad(hasDrawing(storedDrawing));
     setError("");
     setShowNotesEdit(true);
   }
@@ -185,15 +246,29 @@ export function QuestAssignmentCard({
   // Scribe's Notes after the fact: a hero often only knows what to write once
   // the quest is behind them, so a finished card stays annotatable.
   async function handleSaveNotes() {
-    if (quest.requireNotes && !hasMeaningfulNotes(notesDraft)) return;
+    if (quest.requireNotes && !hasMeaningfulNotes(notesDraft) && !hasDrawing(drawingDraft)) return;
     setActing(true);
     setError("");
     try {
-      await updateAssignmentNotes(assignment.id, notesDraft);
+      await updateAssignmentNotes(assignment.id, notesDraft, hasDrawing(drawingDraft) ? drawingDraft : null);
       setShowNotesEdit(false);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save notes");
+    } finally {
+      setActing(false);
+    }
+  }
+
+  // A grown-up lifts a seal they (or another grown-up) pressed.
+  async function handleUnseal() {
+    setActing(true);
+    setError("");
+    try {
+      await unsealEntry(assignment.id);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not remove the seal");
     } finally {
       setActing(false);
     }
@@ -396,12 +471,24 @@ export function QuestAssignmentCard({
               {data.rewards?.minutes != null && data.rewards.minutes > 0 && (
                 <p className="mt-0.5 text-xs text-muted-foreground">+{data.rewards.minutes} min in the Realm</p>
               )}
-              {assignment.notes && !showNotesEdit && (
-                <p className="mt-0.5 flex items-start gap-1 text-xs italic wrap-anywhere text-muted-foreground">
-                  <GameIcon name="scroll" className="mt-0.5 size-3 shrink-0 text-[var(--gold-bright)]" />
-                  <span>{assignment.notes}</span>
-                </p>
+              {(assignment.notes || hasDrawing(storedDrawing)) && !showNotesEdit && (
+                <div className="mt-0.5 flex items-start gap-2">
+                  {assignment.notes && (
+                    <p className="flex min-w-0 flex-1 items-start gap-1 text-xs italic wrap-anywhere text-muted-foreground">
+                      <GameIcon name="scroll" className="mt-0.5 size-3 shrink-0 text-[var(--gold-bright)]" />
+                      <span>{assignment.notes}</span>
+                    </p>
+                  )}
+                  {hasDrawing(storedDrawing) && (
+                    <DrawingView
+                      drawing={storedDrawing}
+                      label={`Drawing of ${quest.title}`}
+                      className="w-24 shrink-0 border border-border/50"
+                    />
+                  )}
+                </div>
               )}
+              {seal && <SealBadge seal={seal} />}
             </>
           )}
           {isSkipped && (
@@ -469,11 +556,16 @@ export function QuestAssignmentCard({
 
         {/* A finished quest is still the hero's to annotate — and, for a
             grown-up, still theirs to correct when it wasn't really done. */}
-        {isCompleted && !showNotesEdit && !showRevise && (
+        {isCompleted && !showNotesEdit && !showRevise && !showSeal && (
           <div className="flex flex-wrap gap-1 sm:ml-auto">
             <Button size="sm" variant="ghost" onClick={openNotesEdit} disabled={acting} className="text-muted-foreground">
-              {assignment.notes ? "Edit Notes" : "Add Notes"}
+              {assignment.notes || hasDrawing(storedDrawing) ? "Edit Notes" : "Add Notes"}
             </Button>
+            {!isChildView && (
+              <Button size="sm" variant="ghost" onClick={seal ? handleUnseal : () => setShowSeal(true)} disabled={acting} className="text-muted-foreground">
+                {seal ? "Remove seal" : "Seal it"}
+              </Button>
+            )}
             {!isChildView && (
               <Button size="sm" variant="ghost" onClick={openRevise} disabled={acting} className="text-muted-foreground">
                 Not Done
@@ -571,9 +663,15 @@ export function QuestAssignmentCard({
           <Input
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            placeholder={`Scribe's Notes ${quest.requireNotes ? "(required)" : "(optional)"} — what did you do?`}
-            required={quest.requireNotes}
+            placeholder={quest.requireNotes ? NOTES_PLACEHOLDER_REQUIRED : NOTES_PLACEHOLDER_OPTIONAL}
             aria-label="Scribe's Notes"
+          />
+          <DrawingField
+            drawing={drawing}
+            open={showPad}
+            onToggle={() => setShowPad((v) => !v)}
+            onChange={setDrawing}
+            disabled={acting}
           />
           <div className="flex items-center gap-2">
             <Input
@@ -628,6 +726,11 @@ export function QuestAssignmentCard({
         </div>
       )}
 
+      {/* A grown-up's seal of praise on a finished quest */}
+      {isCompleted && !isChildView && showSeal && !seal && (
+        <SealPanel assignmentId={assignment.id} onClose={() => setShowSeal(false)} />
+      )}
+
       {/* Scribe's Notes on an already-completed quest */}
       {isCompleted && showNotesEdit && (
         <div className="mt-2 space-y-2 border-t border-border/30 pt-2">
@@ -635,15 +738,21 @@ export function QuestAssignmentCard({
           <Input
             value={notesDraft}
             onChange={(e) => setNotesDraft(e.target.value)}
-            placeholder={`Scribe's Notes ${quest.requireNotes ? "(required)" : "(optional)"} — what did you do?`}
-            required={quest.requireNotes}
+            placeholder={quest.requireNotes ? NOTES_PLACEHOLDER_REQUIRED : NOTES_PLACEHOLDER_OPTIONAL}
             aria-label="Scribe's Notes"
+          />
+          <DrawingField
+            drawing={drawingDraft}
+            open={showDraftPad}
+            onToggle={() => setShowDraftPad((v) => !v)}
+            onChange={setDrawingDraft}
+            disabled={acting}
           />
           <div className="flex items-center gap-2">
             <Button
               size="sm"
               onClick={handleSaveNotes}
-              disabled={acting || (quest.requireNotes && !hasMeaningfulNotes(notesDraft))}
+              disabled={acting || (quest.requireNotes && !hasMeaningfulNotes(notesDraft) && !hasDrawing(drawingDraft))}
             >
               {acting ? "Saving..." : "Save Notes"}
             </Button>

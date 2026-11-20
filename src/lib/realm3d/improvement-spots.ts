@@ -52,6 +52,24 @@ function originOf(id: ImprovementId): Vec2 | null {
   return BUILDING_SLOTS[host] ?? null;
 }
 
+/** One hung frame in the world: (`x`, `z`) the back of the frame on its wall, `y` its centre height, `ry` its facing. */
+export type FrameSlot = { x: number; y: number; z: number; ry: number };
+
+/**
+ * Where the Chronicle Hall's frames hang for a hall of `level` (0 = not built): every built
+ * level's frames, in catalog order, in the world. Slot i is the hero's i-th newest drawing, and the
+ * earlier slots never move as the hall grows. A level that is not a whole number from 1 to 3 hangs none.
+ */
+export function hallFrameSlots(level: number, heightAt: (x: number, z: number) => number): FrameSlot[] {
+  if (!Number.isInteger(level) || level < 1) return [];
+  const origin = KEEP_YARD.chronicleHall;
+  const ground = heightAt(origin.x, origin.z);
+  return IMPROVEMENTS["chronicle-hall"].levels
+    .slice(0, Math.min(level, LEVELS))
+    .flatMap((l) => l.frames ?? [])
+    .map((f) => ({ x: origin.x + f.x, y: ground + f.y, z: origin.z + f.z, ry: f.ry }));
+}
+
 export function improvementPlacements(built: Readonly<Record<string, number>>, heightAt: (x: number, z: number) => number): Placement[] {
   const out: Placement[] = [];
   for (const id of IMPROVEMENT_IDS) {

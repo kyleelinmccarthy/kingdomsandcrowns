@@ -229,7 +229,7 @@ export function QuestTemplateList({
                           {q.requireNotes && (
                             <span
                               className="ml-2 inline-flex items-center gap-0.5 text-xs text-[var(--gold-bright)]"
-                              title="Requires Scribe's Notes to complete"
+                              title="Asks for Scribe's Notes or a drawing"
                             >
                               <GameIcon name="pencil" className="size-3" />
                             </span>

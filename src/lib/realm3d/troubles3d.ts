@@ -73,6 +73,7 @@ import { DAZZLE_MS } from "@/lib/realm/spells/focus";
 import { SHIELD_MS, SUMMON_SENSE, SUMMON_SHOT_MS } from "@/lib/realm/spells/effects";
 import { MANA_PER_CLEAR } from "@/lib/realm/spells/mana";
 import { seededRng } from "@/lib/utils/drill-generators";
+import { hashId } from "@/lib/utils/hash";
 import type { SpellDefinition, StatusKind } from "@/lib/utils/spell-catalog";
 import type { Collider } from "./collision";
 import { endBolt, fxPhase, fxScale, lockFx, spawnFx, type FxSlot } from "./spell-fx";
@@ -208,12 +209,6 @@ export const SPAWN_CLEAR = 22;
 /** The outskirts ring: from just past the village's keep-out to a short walk beyond. */
 export const RIM_NEAR = VILLAGE_KEEP + 7;
 export const RIM_FAR = VILLAGE_KEEP + 17;
-
-function hashId(s: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
-  return h >>> 0;
-}
 
 /**
  * Every home, once, in a fixed order: the outskirts first, then the places in the world's own

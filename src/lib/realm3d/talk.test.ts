@@ -354,3 +354,39 @@ describe("what a villager says after a bench answer", () => {
     expect(text.split("12 − 5 = 7")).toHaveLength(2);
   });
 });
+
+describe("a villager's mention of real work", () => {
+  const MENTION = "I hear you finished “Volcanoes, part 2”. Tell me what you learned sometime!";
+  const base = { villager: bram, viewer: "child" as const, heroName: "Emma", numerals: true };
+
+  it("replaces the greeting on a rising building", () => {
+    const t = talkCopy({ ...base, site: well, waiting: false, mention: MENTION });
+    expect(t.says).toBe(MENTION);
+    expect(t.says).not.toContain(bram.greeting);
+  });
+
+  it("keeps the hello when the villager is waiting, then the mention in the greeting's place", () => {
+    const t = talkCopy({ ...base, site: well, waiting: true, mention: MENTION });
+    expect(t.says).toBe(`There you are! ${MENTION}`);
+  });
+
+  it("follows the 'Raised by' sentence on a finished building", () => {
+    const stands: SiteState = { ...well, done: 5, complete: true, stars: 7 };
+    const t = talkCopy({ ...base, site: stands, waiting: false, mention: MENTION });
+    expect(t.says).toBe(`The Village Well stands, and that is thanks to you! Raised by Emma. ${MENTION}`);
+  });
+
+  it("leaves every other part of the copy unchanged", () => {
+    const plain = talkCopy({ ...base, site: well, waiting: false });
+    const withMention = talkCopy({ ...base, site: well, waiting: false, mention: MENTION });
+    expect({ ...withMention, says: "" }).toEqual({ ...plain, says: "" });
+  });
+
+  it("with no mention (absent, null or empty) the copy is exactly what it was", () => {
+    const plain = talkCopy({ ...base, site: well, waiting: true });
+    expect(talkCopy({ ...base, site: well, waiting: true, mention: null })).toEqual(plain);
+    expect(talkCopy({ ...base, site: well, waiting: true, mention: "" })).toEqual(plain);
+    const stands: SiteState = { ...well, done: 5, complete: true, stars: 7 };
+    expect(talkCopy({ ...base, site: stands, waiting: false, mention: null })).toEqual(talkCopy({ ...base, site: stands, waiting: false }));
+  });
+});

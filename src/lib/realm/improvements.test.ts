@@ -23,6 +23,9 @@ import {
   planLine,
   planRef,
   planState,
+  FRAME_DEPTH,
+  FRAME_SIZE,
+  type HallFrame,
   type ImprovementBox,
   type ImprovementId,
   type PlanStatus,
@@ -495,5 +498,71 @@ describe("planRef and parsePlanRef", () => {
 
   it("is null for a value that is not a string", () => {
     for (const bad of [null, undefined, 3, {}, ["well-house:1"]]) expect(parsePlanRef(bad as unknown as string)).toBeNull();
+  });
+});
+
+describe("the Chronicle Hall's frames", () => {
+  const hall = IMPROVEMENTS["chronicle-hall"];
+  const normal = (ry: number) => ({ nx: Math.round(Math.sin(ry)), nz: Math.round(Math.cos(ry)) });
+  /** The slab a frame fills: its back at its (x, z), FRAME_DEPTH out along its facing. */
+  const slab = (f: HallFrame) => {
+    const { nx, nz } = normal(f.ry);
+    const hx = nx !== 0 ? FRAME_DEPTH / 2 : FRAME_SIZE.w / 2;
+    const hz = nz !== 0 ? FRAME_DEPTH / 2 : FRAME_SIZE.w / 2;
+    const cx = f.x + (nx * FRAME_DEPTH) / 2;
+    const cz = f.z + (nz * FRAME_DEPTH) / 2;
+    return { x0: cx - hx, x1: cx + hx, y0: f.y - FRAME_SIZE.h / 2, y1: f.y + FRAME_SIZE.h / 2, z0: cz - hz, z1: cz + hz };
+  };
+  const boxSlab = (b: ImprovementBox) => ({ x0: b.x - b.sx / 2, x1: b.x + b.sx / 2, y0: b.y - b.sy / 2, y1: b.y + b.sy / 2, z0: b.z - b.sz / 2, z1: b.z + b.sz / 2 });
+  const meet = (a: ReturnType<typeof slab>, b: ReturnType<typeof slab>) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1 && a.z0 < b.z1 && b.z0 < a.z1;
+  const all = hall.levels.flatMap((l, i) => (l.frames ?? []).map((f) => ({ f, level: i + 1 })));
+
+  it("holds two frames per level, and no other plan hangs any", () => {
+    expect(hall.levels.map((l) => l.frames?.length)).toEqual([2, 2, 2]);
+    for (const id of IMPROVEMENT_IDS.filter((i) => i !== "chronicle-hall")) {
+      for (const l of IMPROVEMENTS[id].levels) expect(l.frames).toBeUndefined();
+    }
+  });
+
+  it("hangs level 1's pair on the south face, the door side the default camera looks at (it stands south of the hero, looking north)", () => {
+    const first = hall.levels[0].frames!;
+    expect(first).toHaveLength(2);
+    for (const f of first) expect(normal(f.ry)).toEqual({ nx: 0, nz: 1 });
+    // Then the side walls, then the north face last.
+    expect(hall.levels[1].frames!.map((f) => normal(f.ry).nz)).toEqual([0, 0]);
+    for (const f of hall.levels[2].frames!) expect(normal(f.ry)).toEqual({ nx: 0, nz: -1 });
+  });
+
+  it("hangs each frame on an outward wall face of its own level's boxes or an earlier level's, facing away from it", () => {
+    for (const { f, level } of all) {
+      const { nx, nz } = normal(f.ry);
+      expect(Math.abs(nx) + Math.abs(nz)).toBe(1);
+      const sign = nx !== 0 ? nx : nz;
+      const boxes = hall.levels.slice(0, level).flatMap((l) => l.boxes);
+      const hung = boxes.some((b) => {
+        const face = nx === 1 ? b.x + b.sx / 2 : nx === -1 ? b.x - b.sx / 2 : nz === 1 ? b.z + b.sz / 2 : b.z - b.sz / 2;
+        // How far the frame's back stands outside that face: 0 to 0.15.
+        const out = ((nx !== 0 ? f.x : f.z) - face) * sign;
+        if (out < 0 || out > 0.15) return false;
+        const tangent = nx !== 0 ? f.z : f.x;
+        const [lo, hi] = nx !== 0 ? [b.z - b.sz / 2, b.z + b.sz / 2] : [b.x - b.sx / 2, b.x + b.sx / 2];
+        return tangent - FRAME_SIZE.w / 2 >= lo && tangent + FRAME_SIZE.w / 2 <= hi && f.y - FRAME_SIZE.h / 2 >= b.y - b.sy / 2 && f.y + FRAME_SIZE.h / 2 <= b.y + b.sy / 2;
+      });
+      expect(hung, `a frame of level ${level} at ${f.x},${f.z}`).toBe(true);
+    }
+  });
+
+  it("hangs at a child's eye height, centres 1.0 to 2.2 above the ground", () => {
+    for (const { f } of all) {
+      expect(f.y).toBeGreaterThanOrEqual(1);
+      expect(f.y).toBeLessThanOrEqual(2.2);
+    }
+  });
+
+  it("overlaps no other frame, and sinks into none of the hall's boxes", () => {
+    for (let i = 0; i < all.length; i++) {
+      for (let j = i + 1; j < all.length; j++) expect(meet(slab(all[i].f), slab(all[j].f)), `frames ${i} and ${j}`).toBe(false);
+      for (const b of hall.levels.flatMap((l) => l.boxes)) expect(meet(slab(all[i].f), boxSlab(b)), `frame ${i} in a box`).toBe(false);
+    }
   });
 });

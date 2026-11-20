@@ -18,6 +18,7 @@ import { useQuestTimer } from "@/hooks/use-quest-timer";
 import { useBrowserToday } from "@/hooks/use-browser-today";
 import { formatTimeOfDay } from "@/lib/utils/schedule-days";
 import { hasMeaningfulNotes } from "@/lib/utils/sanitize";
+import { NOTES_OR_DRAW_FROM_CARD_HINT } from "@/lib/utils/drawing";
 import {
   earliestBlockBySubject,
   blockStatus,
@@ -398,7 +399,7 @@ export function QuestForm({
             id="quest-notes"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            placeholder="e.g. Learned how to multiply fractions"
+            placeholder={notesRequired ? NOTES_OR_DRAW_FROM_CARD_HINT : "e.g. Learned how to multiply fractions"}
             required={notesRequired}
           />
         </div>

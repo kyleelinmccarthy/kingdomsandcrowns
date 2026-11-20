@@ -71,3 +71,29 @@ export const PLANS_BOARD_BOXES: readonly YardBox[] = [
 
 /** The board faces the road the hero walks in on, so its sheets are what they see from the spawn. */
 export const PLANS_BOARD_YAW = Math.atan2(SPAWN.x - KEEP_YARD.plansBoard.x, SPAWN.z - KEEP_YARD.plansBoard.z);
+
+const LEATHER = "#5b3a24";
+
+/**
+ * The Scribe's lectern, front to +z: a low plank base, a post, a stepped desk top (the back higher,
+ * so the book leans toward the reader) and an open book on it, two parchment pages over a leather
+ * cover with a red ribbon. A little under hero height, so the hero sees over it. It fits its spot
+ * (`YARD_RADIUS.lectern`) at any turn.
+ */
+export const LECTERN_BOXES: readonly YardBox[] = [
+  box(PLANK, 0, 0, 0.7, 0.6, 0, 0.08),
+  box(IMPROVEMENT_COLORS.timber, 0, 0, 0.2, 0.2, 0.08, 0.78),
+  box(PLANK, 0, -0.1, 1, 0.3, 0.86, 0.14),
+  box(PLANK, 0, 0.14, 1, 0.22, 0.86, 0.08),
+  box(LEATHER, 0, -0.04, 0.96, 0.44, 1, 0.04),
+  box(PARCHMENT, -0.23, -0.04, 0.42, 0.36, 1.04, 0.03),
+  box(PARCHMENT, 0.23, -0.04, 0.42, 0.36, 1.04, 0.03),
+  box(LEATHER, 0, -0.04, 0.04, 0.38, 1.04, 0.04),
+  box(IMPROVEMENT_COLORS.cloth, 0.04, 0.17, 0.04, 0.1, 1.04, 0.02),
+];
+
+/**
+ * The lectern's open book faces +z: the default camera stands south of the hero looking north, so
+ * a child walking up sees the pages, not the back of the desk (as doors face +z for the same reason).
+ */
+export const LECTERN_YAW = 0;

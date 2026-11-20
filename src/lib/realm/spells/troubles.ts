@@ -1,6 +1,7 @@
 import { WORLD_SIZE, type Prop, type Vec2, type WorldLayout } from "../layout";
 import { HERO_RADIUS } from "../movement";
 import { seededRng } from "@/lib/utils/drill-generators";
+import { hashId } from "@/lib/utils/hash";
 import type { SpellDefinition, StatusKind } from "@/lib/utils/spell-catalog";
 
 export type TroubleKind = "fog" | "cursed-stone" | "shadow-blob";
@@ -63,12 +64,6 @@ function insideProp(p: Vec2, prop: Prop, pad: number): boolean {
 function unit(v: Vec2): Vec2 {
   const len = Math.hypot(v.x, v.z);
   return len === 0 ? { x: 0, z: -1 } : { x: v.x / len, z: v.z / len };
-}
-
-function hashId(s: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
-  return h >>> 0;
 }
 
 export type SpawnInput = {

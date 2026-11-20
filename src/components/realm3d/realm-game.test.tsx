@@ -56,6 +56,7 @@ vi.mock("@/lib/actions/realm-sound", () => ({ saveRealmSound: vi.fn(async () => 
 vi.mock("@/lib/actions/deeds", () => ({ startDeedRun: vi.fn(), answerDeedQuestion: vi.fn(), completeDeedRun: vi.fn() }));
 vi.mock("@/lib/actions/seasons", () => ({ markCeremonySeen: vi.fn(async () => {}) }));
 vi.mock("@/lib/actions/improvements", () => ({ markBuildingsAnnounced: vi.fn(async () => {}), markDeliverySeen: vi.fn(async () => {}), startBuildRun: vi.fn(), pinPlan: vi.fn(async () => {}) }));
+vi.mock("@/lib/actions/realm-chronicle", () => ({ getChronicle: vi.fn(async () => ({ weeks: [], canSeal: false })) }));
 vi.mock("@/lib/actions/review", () => ({ startReviewRun: vi.fn(), getReviewDue: vi.fn(async () => false) }));
 vi.mock("@/lib/actions/spells", () => ({ getSpellbook: vi.fn(async () => ({ spells: [], slots: 4, level: 3, unlocked: ["ember", "tide", "bolt", "orb"], schoolCounts: { element: 2, form: 0, modifier: 0 }, subjectNamesBySchool: { element: ["Math"], form: [], modifier: [] } })) }));
 vi.mock("@/lib/actions/realm", () => ({ getRealmKingdom: vi.fn() }));
@@ -85,7 +86,8 @@ import { markCeremonySeen } from "@/lib/actions/seasons";
 import { markBuildingsAnnounced, markDeliverySeen, pinPlan, startBuildRun } from "@/lib/actions/improvements";
 import { KEEP_YARD } from "@/lib/realm/keep-yard";
 import { EMPTY_WORKS, type Works } from "@/lib/realm/works-state";
-import { PLANS_TARGET } from "@/lib/realm3d/interact";
+import { CHRONICLE_TARGET, PLANS_TARGET } from "@/lib/realm3d/interact";
+import { getChronicle } from "@/lib/actions/realm-chronicle";
 import { BUILD_HERO_ONLY } from "@/lib/utils/deed-refusals";
 import { startReviewRun } from "@/lib/actions/review";
 import { saveRealmSound } from "@/lib/actions/realm-sound";
@@ -94,6 +96,7 @@ import { stepRide, type RideBus } from "@/lib/realm3d/riding";
 import { LEGACY_STEPS, LESSONS, STORED_MAX } from "@/lib/realm3d/tutorial";
 import { findBuilding } from "@/lib/utils/kingdom";
 import { RealmGame, type RealmData } from "./realm-game";
+import type { RecentQuest } from "@/lib/realm/mentions";
 
 beforeAll(() => {
   HTMLCanvasElement.prototype.getContext = (() => null) as unknown as HTMLCanvasElement["getContext"];
@@ -338,6 +341,31 @@ describe("the keep yard", () => {
     expect(screen.queryByRole("button", { name: "Pin" })).toBeNull();
     expect(screen.getByText(BUILD_HERO_ONLY)).toBeInTheDocument();
     expect(startBuildRun).not.toHaveBeenCalled();
+  });
+});
+
+describe("the Scribe's lectern", () => {
+  const week = { weekStart: "2026-11-16", entries: [{ assignmentId: "a1", date: "2026-11-17", title: "Fractions", subject: "Math", materialColor: "#888888", notes: "I did the hard ones.", drawing: null, seal: null }] };
+
+  it("opens the Chronicle when E is pressed at it, and pauses the world", async () => {
+    vi.mocked(getChronicle).mockResolvedValueOnce({ weeks: [week], canSeal: false });
+    const { bus } = mount();
+    act(() => bus.onNear(CHRONICLE_TARGET));
+    expect(screen.getByRole("button", { name: /Read The Chronicle/ })).toBeInTheDocument();
+    act(() => bus.onInteract(CHRONICLE_TARGET));
+    const book = screen.getByRole("dialog", { name: "Your Chronicle" });
+    expect(bus.paused).toBe(true);
+    expect(await within(book).findByText("Fractions")).toBeInTheDocument();
+    expect(getChronicle).toHaveBeenCalledWith("demo-child-1");
+    fireEvent.click(within(book).getByRole("button", { name: "Back to the Realm" }));
+    expect(bus.paused).toBe(false);
+  });
+
+  it("lets a grown-up read it under the hero's name", async () => {
+    const { bus } = mount({ viewer: "parent", realm: { ...realm, isChildView: false } });
+    act(() => bus.onInteract(CHRONICLE_TARGET));
+    expect(screen.getByRole("dialog", { name: "Emma's Chronicle" })).toBeInTheDocument();
+    expect(await screen.findByText("Emma's Chronicle is waiting for its first page.")).toBeInTheDocument();
   });
 });
 
@@ -1283,5 +1311,93 @@ describe("the quiet world (0 minutes in an earning mode)", () => {
     const { view } = mount({ ...quiet, realm: { ...realm, profile: { ...DEFAULT_LEARNING_PROFILE, lowStimulus: true, reducedMotion: true } } });
     expect(view.container.querySelector(".r3-clock-text")).toHaveTextContent(QUIET);
     expect(handed.props!.troubles).toBeUndefined();
+  });
+});
+
+describe("the villagers have heard about real quests", () => {
+  const TODAY = "2026-11-19";
+  const FRACTIONS: RecentQuest = { assignmentId: "a-frac", title: "Fractions of a Pizza", material: "stone" };
+  const withQuests = (...recentQuests: RecentQuest[]): RealmData => ({ ...realm, recentQuests, today: TODAY });
+  const GERD = "Stones to count before the lantern's lit.";
+
+  beforeEach(() => sessionStorage.clear());
+
+  it("has the villager mention a quest the hero finished, in their trade, in place of the greeting", () => {
+    const { bus } = mount({ realm: withQuests(FRACTIONS) });
+    act(() => bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
+    const dialog = screen.getByRole("dialog", { name: /Old Bram/ });
+    expect(dialog).toHaveTextContent("Fractions of a Pizza");
+    expect(dialog).not.toHaveTextContent("The bucket's dry again");
+    // The objective's hello stays: Bram is the villager the gold ! led the hero to.
+    expect(dialog).toHaveTextContent("There you are!");
+  });
+
+  it("shows the title as plain text, never as markup", () => {
+    const title = "<b>Bold</b> & <img src=x>";
+    const { bus } = mount({ realm: withQuests({ ...FRACTIONS, title }) });
+    act(() => bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
+    const dialog = screen.getByRole("dialog", { name: /Old Bram/ });
+    expect(dialog).toHaveTextContent(title);
+    expect(dialog.querySelector("b, img")).toBeNull();
+  });
+
+  it("greets as always when no recent quest is in the villager's trade, or there are none", () => {
+    const { bus } = mount({ realm: withQuests({ ...FRACTIONS, material: "ink" }) });
+    act(() => bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
+    expect(screen.getByRole("dialog", { name: /Old Bram/ })).toHaveTextContent("The bucket's dry again");
+    cleanup();
+    sessionStorage.clear();
+    const bare = mount({ realm: { ...realm, today: TODAY } });
+    act(() => bare.bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
+    expect(screen.getByRole("dialog", { name: /Old Bram/ })).toHaveTextContent("The bucket's dry again");
+  });
+
+  it("gives a grown-up's visit no mention, and writes nothing to the day's memory", () => {
+    const { bus } = mount({ viewer: "parent", realm: { ...withQuests(FRACTIONS), isChildView: false } });
+    act(() => bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
+    const dialog = screen.getByRole("dialog", { name: /Old Bram/ });
+    expect(dialog).not.toHaveTextContent("Fractions of a Pizza");
+    expect(dialog).toHaveTextContent("The bucket's dry again");
+    expect(sessionStorage.length).toBe(0);
+  });
+
+  it("gives the hero seen as a visitor (viewer=parent) no mention either", () => {
+    const { bus } = mount({ viewer: "parent", realm: withQuests(FRACTIONS) });
+    act(() => bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
+    expect(screen.getByRole("dialog", { name: /Old Bram/ })).not.toHaveTextContent("Fractions of a Pizza");
+    expect(sessionStorage.length).toBe(0);
+  });
+
+  it("does not repeat the quest to a second villager the same day", () => {
+    const { bus } = mount({ realm: withQuests(FRACTIONS) });
+    act(() => bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
+    expect(screen.getByRole("dialog", { name: /Old Bram/ })).toHaveTextContent("Fractions of a Pizza");
+    esc();
+    // Gerd cares about stone too; the quest is spoken for, so he greets.
+    act(() => bus.onInteract({ kind: "villager", id: "gerd", label: "Mason Gerd" }));
+    const dialog = screen.getByRole("dialog", { name: /Mason Gerd/ });
+    expect(dialog).not.toHaveTextContent("Fractions of a Pizza");
+    expect(dialog).toHaveTextContent(GERD);
+  });
+
+  it("keeps the line steady while the board is open, and does not use up a second quest on a re-render", () => {
+    const second: RecentQuest = { assignmentId: "a-two", title: "Long Division", material: "stone" };
+    const { bus, view } = mount({ realm: withQuests(FRACTIONS, second) });
+    act(() => bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
+    const said = screen.getByRole("dialog", { name: /Old Bram/ }).textContent;
+    view.rerender(<RealmGame heroName="Emma" spellbook={spellbook} realm={withQuests(FRACTIONS, second)} entry={{ minutes: 240, visit: null, source: "earned" }} castleUnlocked={false} />);
+    expect(screen.getByRole("dialog", { name: /Old Bram/ }).textContent).toBe(said);
+    expect(JSON.parse(sessionStorage.getItem("realm-mentions:demo-child-1:2026-11-19")!)).toHaveLength(1);
+  });
+
+  it("on a finished building, follows the 'Raised by' sentence", () => {
+    const standing: RealmData = {
+      ...withQuests(FRACTIONS),
+      kingdom: { ...realm.kingdom, buildings: realm.kingdom.buildings.map((b) => (b.id === "well" ? { ...b, complete: true, done: 5, raisedBy: "Emma", raisedAt: null } : b)) },
+    };
+    const { bus } = mount({ realm: standing });
+    act(() => bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
+    const says = screen.getByRole("dialog", { name: /Old Bram/ }).textContent ?? "";
+    expect(says).toMatch(/Raised by Emma\.\s+\S.*Fractions of a Pizza/);
   });
 });

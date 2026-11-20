@@ -361,15 +361,15 @@ export function QuestTemplateForm({
           </div>
           <div className="flex items-center justify-between rounded-lg border border-dashed border-border p-3">
             <div className="space-y-0.5">
-              <Label htmlFor="quest-require-notes">Require Scribe&apos;s Notes</Label>
+              <Label htmlFor="quest-require-notes">Ask for Scribe&apos;s Notes or a drawing</Label>
               <p className="text-[10px] text-muted-foreground">
-                Hero must describe what they did before this quest can be marked complete
+                Hero must describe or draw what they did before this quest can be marked complete
               </p>
             </div>
             <Switch
               checked={requireNotes}
               onCheckedChange={() => setRequireNotes((v) => !v)}
-              aria-label="Require Scribe's Notes"
+              aria-label="Ask for Scribe's Notes or a drawing"
             />
           </div>
 

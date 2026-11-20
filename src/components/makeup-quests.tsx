@@ -10,6 +10,8 @@ type AssignmentWithDetails = {
     status: string;
     date: string;
     notes: string | null;
+    drawing: string | null;
+    seal: string | null;
     statusReason: string | null;
   };
   quest: {

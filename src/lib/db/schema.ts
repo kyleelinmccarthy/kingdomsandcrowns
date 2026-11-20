@@ -648,6 +648,11 @@ export const questAssignment = sqliteTable(
     // of work that was done, and they feed the learning log. A reason for not
     // doing the work is a different claim and must never be able to pass as one.
     statusReason: text("status_reason"),
+    // A small drawing that tells the quest, as strict stroke-document JSON (see
+    // `src/lib/utils/drawing.ts`). Only ever written through `parseDrawing`.
+    drawing: text("drawing"),
+    // A grown-up's seal on the finished quest (the Chronicle). Grown-up only.
+    seal: text("seal"),
     createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
   },
