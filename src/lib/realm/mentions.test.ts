@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { pickMention, type RecentQuest } from "./mentions";
-import { VILLAGERS } from "./villagers";
+import { VILLAGERS, villagerById } from "./villagers";
 import { MATERIAL_IDS } from "./materials";
 
 const quest = (assignmentId: string, title: string, material: RecentQuest["material"]): RecentQuest => ({ assignmentId, title, material });
@@ -63,7 +63,7 @@ describe("pickMention", () => {
   });
 
   it("never repeats a quest across villagers in one day when each said is fed to the next", () => {
-    // Every villager cares about something here; the hero finished one quest in each of three materials.
+    // The hero finished one quest in each of four materials; every villager is asked in turn.
     const recent = [quest("q-ink", "Spelling", "ink"), quest("q-herbs", "Seeds", "herbs"), quest("q-stone", "Fractions", "stone"), quest("q-timber", "Carpentry", "timber")];
     const said = new Set<string>();
     const heard: string[] = [];
@@ -75,8 +75,48 @@ describe("pickMention", () => {
       heard.push(got.assignmentId);
     }
     expect(new Set(heard).size).toBe(heard.length);
-    expect(heard.length).toBeGreaterThan(0);
-    expect(heard.length).toBeLessThanOrEqual(recent.length);
+    // Each of the four quests is heard by some villager, none is left out and none twice.
+    expect([...heard].sort()).toEqual(["q-herbs", "q-ink", "q-stone", "q-timber"]);
+  });
+
+  it("drops the full stop after the closing quote when the title already ends a sentence", () => {
+    for (const end of [".", "?", "!"]) {
+      const got = pickMention({ villagerId: "hesper", recent: [quest("a1", `Why do volcanoes erupt${end}`, "ink")], said: NONE, date: "2026-11-19" });
+      expect(got!.line).toContain(`erupt${end}”`);
+      expect(got!.line).not.toContain(`${end}”.`);
+    }
+  });
+
+  it("leaves the villager's line exactly as written for a title that does not end in a stop", () => {
+    const got = pickMention({ villagerId: "hesper", recent: [quest("a1", "Volcanoes", "ink")], said: NONE, date: "2026-11-19" });
+    expect(villagerById("hesper")!.mentions.ink!.map((l) => l.replace("{quest}", "Volcanoes"))).toContain(got!.line);
+  });
+
+  it("never doubles a stop, whichever line the villager says", () => {
+    for (const v of VILLAGERS) {
+      for (const [material, lines] of Object.entries(v.mentions)) {
+        // Days 1 to 28 reach every line the villager has for the material.
+        for (let day = 1; day <= 28; day++) {
+          const got = pickMention({ villagerId: v.id, recent: [quest("a1", "Why?", material as RecentQuest["material"])], said: NONE, date: `2026-11-${String(day).padStart(2, "0")}` });
+          expect(got!.line, `${v.id} ${material} ${lines!.length}`).not.toMatch(/[.?!]”\./);
+        }
+      }
+    }
+  });
+
+  it("caps a long title at 60 characters with an ellipsis, and leaves a short one alone", () => {
+    const long = "A very long quest title that goes on and on about the volcanoes of the world and more";
+    const got = pickMention({ villagerId: "hesper", recent: [quest("a1", long, "ink")], said: NONE, date: "2026-11-19" });
+    const shown = /“([^”]*)”/.exec(got!.line)![1];
+    expect(shown.length).toBeLessThanOrEqual(60);
+    expect(shown.endsWith("…")).toBe(true);
+    expect(long.startsWith(shown.slice(0, -1))).toBe(true);
+    const exactly60 = "x".repeat(60);
+    expect(pickMention({ villagerId: "hesper", recent: [quest("a1", exactly60, "ink")], said: NONE, date: "2026-11-19" })!.line).toContain(`“${exactly60}”`);
+  });
+
+  it("does not mention a quest with no title at all", () => {
+    expect(pickMention({ villagerId: "hesper", recent: [quest("a1", "", "ink"), quest("a2", "   ", "ink")], said: NONE, date: "2026-11-19" })).toBeNull();
   });
 
   it("falls to the quest in the trade, not to the newest one that is not", () => {

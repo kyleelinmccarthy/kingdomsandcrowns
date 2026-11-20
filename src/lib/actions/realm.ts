@@ -29,7 +29,8 @@ import { loadRises } from "@/lib/services/realm-rises";
 import { loadWorks } from "@/lib/services/realm-materials";
 import { loadHallDrawings, loadRecentQuests } from "@/lib/services/realm-chronicle";
 import type { RecentQuest } from "@/lib/realm/mentions";
-import { todayInZone } from "@/lib/utils/dates";
+import { nowInZone } from "@/lib/services/realm-clock";
+import { DEFAULT_TIMEZONE } from "@/lib/services/family-timezone";
 import { HALL_FRAMES_PER_LEVEL } from "@/lib/realm/improvements";
 import type { Drawing } from "@/lib/utils/drawing";
 import { EMPTY_WORKS, type Works } from "@/lib/realm/works-state";
@@ -211,8 +212,9 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
       console.error("Realm hall drawings failed to load", err);
       return [] as Drawing[];
     });
-  // The quests finished this week, for the villagers' mentions: a failed read is "none", never a closed Realm.
-  const recentRead = loadRecentQuests(childId).catch((err: unknown) => {
+  // The quests finished this week, for the villagers' mentions: the hero's own view only (a grown-up's
+  // visit is told nothing, so it reads nothing). A failed read is "none", never a closed Realm.
+  const recentRead = (isChildActor(access) ? loadRecentQuests(childId) : Promise.resolve([] as RecentQuest[])).catch((err: unknown) => {
     console.error("Realm recent quests failed to load", err);
     return [] as RecentQuest[];
   });
@@ -301,7 +303,8 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
     works: await worksRead,
     hallDrawings: await hallDrawingsRead,
     recentQuests: await recentRead,
-    today: todayInZone(child.timezone ?? "UTC", new Date()),
+    // The Realm's one clock (`realmNow`): an unusable stored zone (a legacy "Denver") reads as the default.
+    today: nowInZone(child.timezone ?? DEFAULT_TIMEZONE).date,
     earning: {
       enabled: settings.enabled,
       accessMode: settings.accessMode,

@@ -9,6 +9,14 @@ export type RecentQuest = { assignmentId: string; title: string; material: Mater
 export type Mention = { line: string; assignmentId: string };
 
 const TOKEN = "{quest}";
+/** The longest title a villager will say; a longer one is cut and ends in an ellipsis. */
+const MAX_TITLE = 60;
+const ELLIPSIS = "…";
+
+function sayable(title: string): string {
+  const t = title.trim();
+  return t.length <= MAX_TITLE ? t : `${t.slice(0, MAX_TITLE - 1).trimEnd()}${ELLIPSIS}`;
+}
 
 /**
  * At most one mention for one visit with `villagerId`: a line about a quest in `recent` (newest
@@ -28,11 +36,15 @@ export function pickMention(input: {
   const { villagerId, recent, said, date } = input;
   const villager = villagerById(villagerId);
   if (!villager) return null;
-  const candidates = recent.filter((r) => !said.has(r.assignmentId) && (villager.mentions[r.material]?.length ?? 0) > 0);
+  // A quest with no title is never mentioned: "I hear you finished a quest" says nothing.
+  const candidates = recent.filter((r) => r.title.trim() !== "" && !said.has(r.assignmentId) && (villager.mentions[r.material]?.length ?? 0) > 0);
   if (candidates.length === 0) return null;
   const quest = candidates[hashId(`${date}:${villagerId}`) % candidates.length];
   const lines = villager.mentions[quest.material] ?? [];
   const template = lines[hashId(`${date}:${villagerId}:${quest.assignmentId}`) % lines.length];
+  const title = sayable(quest.title);
+  // A title that already ends a sentence needs no full stop after its closing quote.
+  const line = (/[.?!]$/.test(title) ? template.replace(`${TOKEN}”.`, `${TOKEN}”`) : template).replace(TOKEN, () => title);
   // A function replacer, so a title like "$&" is never read as a replacement pattern.
-  return { line: template.replace(TOKEN, () => quest.title), assignmentId: quest.assignmentId };
+  return { line, assignmentId: quest.assignmentId };
 }

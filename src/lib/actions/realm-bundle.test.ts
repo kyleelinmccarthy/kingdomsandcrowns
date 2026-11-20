@@ -4,6 +4,8 @@ import { DEFAULT_SOUND } from "@/lib/realm3d/sound/settings";
 import { EMPTY_WORKS, type Works } from "@/lib/realm/works-state";
 import type { Drawing } from "@/lib/utils/drawing";
 import { todayInZone } from "@/lib/utils/dates";
+import { nowInZone } from "@/lib/services/realm-clock";
+import { DEFAULT_TIMEZONE } from "@/lib/services/family-timezone";
 
 /**
  * What `getRealmBundle` tells the page about WHO is looking: whether they may change the child's
@@ -64,8 +66,10 @@ vi.mock("@/lib/services/spells", () => ({
 vi.mock("@/lib/services/mounts", () => ({ loadUnlockedMountIds: async () => [] }));
 vi.mock("@/lib/services/crowns", () => ({ loadSeasons: async () => [] }));
 // Two selects: the child's row, then the castle's.
+/** The family's stored zone, as `family.timezone` could hold it: a real zone, a legacy free-text value, or null. */
+const family = vi.hoisted(() => ({ timezone: "America/Chicago" as string | null }));
 vi.mock("@/lib/db", () => {
-  const rows = [[{ displayName: "Emma", avatarConfig: null, timezone: "America/Chicago" }], []];
+  const rows = [[{ displayName: "Emma", avatarConfig: null, get timezone() { return family.timezone; } }], []];
   let n = 0;
   const chain = { from: () => chain, leftJoin: () => chain, where: () => chain, limit: async () => rows[n++ % 2] };
   return { db: { select: () => chain } };
@@ -78,6 +82,8 @@ const as = (userId: string, permission: "edit" | "view") => ({ access: { userId,
 beforeEach(() => {
   requireChildAccess.mockReset();
   loadHallDrawings.mockClear();
+  loadRecentQuests.mockClear();
+  family.timezone = "America/Chicago";
   loadRealmSound.mockClear();
 });
 
@@ -315,6 +321,38 @@ describe("getRealmBundle — what the villagers have heard", () => {
     const spy = vi.spyOn(console, "error").mockImplementation(() => {});
     const b = await getRealmBundle("c1");
     spy.mockRestore();
+    expect(b.recentQuests).toEqual([]);
+  });
+});
+
+describe("getRealmBundle: the day, on any stored zone", () => {
+  it("never throws on a legacy zone like 'Denver': the day is the default zone's, as realmNow gives it", async () => {
+    requireChildAccess.mockResolvedValue(as("child:c1", "edit"));
+    family.timezone = "Denver";
+    const b = await getRealmBundle("c1");
+    expect(b.today).toBe(nowInZone(DEFAULT_TIMEZONE).date);
+  });
+
+  it("falls to the default zone when the family has none", async () => {
+    requireChildAccess.mockResolvedValue(as("child:c1", "edit"));
+    family.timezone = null;
+    const b = await getRealmBundle("c1");
+    expect(b.today).toBe(nowInZone(DEFAULT_TIMEZONE).date);
+    expect(b.timezone).toBeNull();
+  });
+
+  it("is the same day realmNow gives for a good zone", async () => {
+    requireChildAccess.mockResolvedValue(as("child:c1", "edit"));
+    family.timezone = "Pacific/Auckland";
+    expect((await getRealmBundle("c1")).today).toBe(nowInZone("Pacific/Auckland").date);
+  });
+});
+
+describe("getRealmBundle: recent quests are for the hero's own view", () => {
+  it("reads none for a grown-up, who is never told them", async () => {
+    requireChildAccess.mockResolvedValue(as("u-mom", "edit"));
+    const b = await getRealmBundle("c1");
+    expect(loadRecentQuests).not.toHaveBeenCalled();
     expect(b.recentQuests).toEqual([]);
   });
 });

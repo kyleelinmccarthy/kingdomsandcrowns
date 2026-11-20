@@ -324,19 +324,21 @@ describe("loadRecentQuests", () => {
     expect((await loadRecentQuests("c1", NOW)).map((r) => r.assignmentId)).toEqual(["mine"]);
   });
 
-  it("left-joins: a deleted quest reads 'a quest' in timber, a deleted subject reads timber", async () => {
+  it("left-joins the subject: a deleted subject still counts, in timber", async () => {
     await quest("q-gone-subject", "Orphan quest", "s-missing");
     await assignment("nosubject", "q-gone-subject", "2026-11-17T10:00:00Z");
-    await assignment("noquest", "q-deleted", "2026-11-17T11:00:00Z");
-    const by = Object.fromEntries((await loadRecentQuests("c1", NOW)).map((r) => [r.assignmentId, r]));
-    expect(by.nosubject).toEqual({ assignmentId: "nosubject", title: "Orphan quest", material: "timber" });
-    expect(by.noquest).toEqual({ assignmentId: "noquest", title: "a quest", material: "timber" });
+    expect(await loadRecentQuests("c1", NOW)).toEqual([{ assignmentId: "nosubject", title: "Orphan quest", material: "timber" }]);
   });
 
-  it("reads a blank title as 'a quest'", async () => {
+  it("skips a quest with no title: a deleted quest or a blank one is never mentioned, and takes no place in the 20", async () => {
     await subject("s1", "Math");
-    await quest("q1", "   ", "s1");
-    await assignment("a1", "q1", "2026-11-17T09:00:00Z");
-    expect((await loadRecentQuests("c1", NOW))[0].title).toBe("a quest");
+    await quest("q-blank", "   ", "s1");
+    await quest("q-ok", "Fractions", "s1");
+    await assignment("noquest", "q-deleted", "2026-11-17T11:00:00Z");
+    await assignment("blank", "q-blank", "2026-11-17T10:00:00Z");
+    await assignment("ok", "q-ok", "2026-11-16T10:00:00Z");
+    expect((await loadRecentQuests("c1", NOW)).map((r) => r.assignmentId)).toEqual(["ok"]);
+    for (let i = 0; i < 20; i++) await assignment(`gone${i}`, "q-deleted", `2026-11-17T12:${String(i).padStart(2, "0")}:00Z`);
+    expect((await loadRecentQuests("c1", NOW)).map((r) => r.assignmentId)).toEqual(["ok"]);
   });
 });
