@@ -19,6 +19,9 @@ describe("DEEDS", () => {
   });
   it("gives every building at least two deeds and uses every area at least twice", () => {
     for (const b of BUILDINGS) expect(deedsForBuilding(b.id).length).toBeGreaterThanOrEqual(2);
+    // `logic` is exempt by name: the owner decided logic is practised on locks and Puzzle
+    // practice, never on side quests, so no deed is ever written for it.
+    expect(DEEDS.filter((d) => (d.area as string) === "logic")).toEqual([]);
     for (const area of ["math", "reading", "language", "science"]) {
       expect(DEEDS.filter((d) => d.area === area).length).toBeGreaterThanOrEqual(2);
     }

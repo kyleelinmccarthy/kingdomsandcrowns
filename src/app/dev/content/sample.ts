@@ -42,7 +42,8 @@ export type SampledLevel = { level: number; questions: SampledQuestion[] };
 
 export type SampledSkill =
   | { skill: Skill; kind: "generator"; generatorId: string; levels: SampledLevel[]; disagreements: number }
-  | { skill: Skill; kind: "pool"; poolId: string };
+  | { skill: Skill; kind: "pool"; poolId: string }
+  | { skill: Skill; kind: "lock" };
 
 export function verdictFor(generatorId: string, question: Question): Verdict {
   const verify = VERIFIERS[generatorId];
@@ -90,6 +91,7 @@ function drawLevel(skillId: string, generatorId: string, level: number): Sampled
 export function sampleGrade(area: SkillArea, grade: Grade): SampledSkill[] {
   return skillsFor(area, grade).map((skill) => {
     if (skill.source.kind === "pool") return { skill, kind: "pool", poolId: skill.source.poolId };
+    if (skill.source.kind === "lock") return { skill, kind: "lock" };
     const generatorId = skill.source.generatorId;
     const levels = LEVELS.map((level) => ({ level, questions: drawLevel(skill.id, generatorId, level) }));
     const disagreements = levels.reduce(

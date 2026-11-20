@@ -149,4 +149,9 @@ describe("validateSubjectOffset", () => {
     expect(() => validateSubjectOffset("history", 1)).toThrow(/subject doesn't look right/i);
     expect(() => validateSubjectOffset("mathOffset", 1)).toThrow(/subject doesn't look right/i);
   });
+
+  it("refuses logic: it is taught at the hero's own grade, so it has no gap to set", () => {
+    expect(() => validateSubjectOffset("logic", 0)).toThrow(/subject doesn't look right/i);
+    expect(SUBJECT_AREAS).not.toContain("logic");
+  });
 });

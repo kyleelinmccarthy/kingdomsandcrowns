@@ -78,7 +78,9 @@ describe("chooseSkills", () => {
     // strand. Asked through `chooseSkills` itself rather than through a second copy of the
     // walk: what is being inventoried is what a hero is actually handed.
     const byArea = [[deedMath, "math"], [deedReading, "reading"], [deedLanguage, "language"], [deedScience, "science"]] as const;
-    expect(byArea.map(([, area]) => area).sort()).toEqual([...new Set(SKILLS.map((s) => s.area))].sort());
+    // `logic` is exempt by name: the owner decided it is practised on locks and Puzzle practice,
+    // not side quests, so it has no deed (and `chooseSkills` is asked for it in the logic tests).
+    expect(byArea.map(([, area]) => area).sort()).toEqual([...new Set(SKILLS.map((s) => s.area))].filter((a) => a !== "logic").sort());
 
     const climbing: string[] = [];
     for (const [deed, area] of byArea) {
@@ -1103,5 +1105,23 @@ describe("a measure miss comes back only where the bench plays its skill (R-C6)"
     const built = run(new Set<TaskKind>(["measure"]));
     expect(built.questions.map((q) => q.id)).not.toContain("miss-m");
     expect(choices(built.questions)).toHaveLength(8);
+  });
+});
+
+describe("a logic skill is never drawn as choice", () => {
+  const logic = skillsFor("logic", "2")[0];
+
+  it("draws nothing as choice, and does not throw", () => {
+    expect(logic.id).toBe("logic-g23");
+    expect(() => drawForSkill(logic, 2, 5, seededRng(7), [], new Set(), new Set())).not.toThrow();
+    expect(drawForSkill(logic, 2, 5, seededRng(7), [], new Set(), new Set(), "choice")).toEqual([]);
+  });
+
+  it("is never picked by selectSkills, whatever else is on offer", () => {
+    expect(selectSkills([logic], {}, seededRng(1))).toEqual([]);
+    const mixed = [...skillsFor("math", "3"), logic];
+    for (let seed = 1; seed <= 50; seed++) {
+      expect(selectSkills(mixed, {}, seededRng(seed), {}, new Set([logic.id])).map((s) => s.id)).not.toContain(logic.id);
+    }
   });
 });

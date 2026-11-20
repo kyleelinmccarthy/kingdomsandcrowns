@@ -1559,6 +1559,12 @@ describe("getSchoolCounts", () => {
     await seedRun({ id: "crown-done", responses: ["6", "9", "12", "15"], completed: true, kind: "challenge" });
     expect((await getSchoolCounts("c1")).form).toBe(1);
   });
+
+  it("ignores a logic run: logic belongs to no spell school", async () => {
+    await seedRun({ id: "deed-done", responses: ["6", "9", "12", "15"], completed: true });
+    await client.query("UPDATE deed_run SET skill_ids = '[\"logic-g23\"]' WHERE id = 'deed-done'");
+    expect(await getSchoolCounts("c1")).toEqual({ form: 0, element: 0, modifier: 0 });
+  });
 });
 
 describe("answers are parsed by their task kind, and the browser gets views", () => {

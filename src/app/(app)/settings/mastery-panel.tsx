@@ -3,7 +3,7 @@ import { AREA_LABELS, type SkillArea } from "@/lib/utils/skills";
 import { SIDE_QUESTS, SIDE_QUESTS_LOWER } from "@/lib/utils/side-quest-copy";
 
 /** Same order as the coloured chip's areas; this panel just needs the label, not the colour. */
-const AREA_ORDER: SkillArea[] = ["math", "reading", "language", "science"];
+const AREA_ORDER: SkillArea[] = ["math", "reading", "language", "science", "logic"];
 
 export function MasteryPanel({ mastery }: { mastery: MasteryRow[] }) {
   const areas = AREA_ORDER.filter((a) => mastery.some((m) => m.area === a));

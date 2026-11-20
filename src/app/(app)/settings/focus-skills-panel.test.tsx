@@ -22,6 +22,7 @@ const options: FocusOption[] = [
   { id: "m2", label: "Subtract within 10", area: "math", grade: "3" },
   { id: "r1", label: "Rhyming words", area: "reading", grade: "3" },
   { id: "l1", label: "Nouns", area: "language", grade: "3" },
+  { id: "g1", label: "Shape grids and balances", area: "logic", grade: "2" },
 ];
 
 function box(label: string) {
@@ -38,7 +39,9 @@ describe("FocusSkillsPanel", () => {
       ),
     ).toBeInTheDocument();
     const names = screen.getAllByRole("group").map((g) => g.getAttribute("aria-label"));
-    expect(names).toEqual(["Math", "Reading", "Language Arts", "Science"]);
+    expect(names).toEqual(["Math", "Reading", "Language Arts", "Science", "Logic"]);
+    const logic = screen.getByRole("group", { name: "Logic" });
+    expect(within(logic).getByRole("checkbox", { name: "Shape grids and balances" })).toBeInTheDocument();
     const math = screen.getByRole("group", { name: "Math" });
     expect(within(math).getByText("Math")).toBeInTheDocument();
     expect(within(math).getByRole("checkbox", { name: "Add within 10" })).toBeInTheDocument();

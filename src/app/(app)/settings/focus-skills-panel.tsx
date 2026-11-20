@@ -10,7 +10,7 @@ import { AREA_LABELS, type SkillArea } from "@/lib/utils/skills";
 
 export type { FocusOption };
 
-const AREA_ORDER: SkillArea[] = ["math", "reading", "language", "science"];
+const AREA_ORDER: SkillArea[] = ["math", "reading", "language", "science", "logic"];
 
 function sameSet(a: readonly string[], b: readonly string[]) {
   return a.length === b.length && a.every((id) => b.includes(id));

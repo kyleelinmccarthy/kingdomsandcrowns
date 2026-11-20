@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
-import { SKILLS, skillsFor, findSkill, skillForPool, AREA_SCHOOL, AREA_LABELS, type SkillArea } from "./skills";
+import { SKILLS, skillsFor, findSkill, skillForPool, schoolLines, AREA_SCHOOL, AREA_LABELS, LOGIC_SKILL_IDS, type SkillArea } from "./skills";
 import { GENERATORS } from "./drill-generators";
 import { GRADES, gradeIndex } from "./grade-levels";
 import { chooseSkills } from "./deed-engine";
@@ -13,6 +13,7 @@ describe("SKILLS", () => {
     expect(new Set(ids).size).toBe(ids.length);
     for (const s of SKILLS) {
       if (s.source.kind === "generator") expect(GENERATORS[s.source.generatorId]).toBeTypeOf("function");
+      else if (s.source.kind === "lock") expect(s.area, `${s.id} is a lock skill outside logic`).toBe("logic");
       else expect(fs.existsSync(path.join(__dirname, "../../content/drills", `${s.source.poolId}.json`))).toBe(true);
     }
   });
@@ -20,7 +21,7 @@ describe("SKILLS", () => {
     expect(AREA_LABELS.language.label).toBe("Language Arts");
   });
   it("maps every area to a school", () => {
-    expect(AREA_SCHOOL).toEqual({ reading: "element", language: "element", math: "form", science: "modifier" });
+    expect(AREA_SCHOOL).toEqual({ reading: "element", language: "element", math: "form", science: "modifier", logic: "none" });
   });
   it("finds skills by area and grade, and pools by id", () => {
     expect(skillsFor("math", "3").map((s) => s.id).sort())
@@ -156,6 +157,7 @@ describe("which grade each strand is actually served at", () => {
  * would be a second thing to keep true.
  */
 const MAP_STRANDS: Record<string, SkillArea> = {
+  Logic: "logic",
   Reading: "reading",
   "Language Arts": "language",
   Science: "science",
@@ -189,6 +191,7 @@ function mapRows(file: string): MapRow[] {
 
 const mathMapRows = () => mapRows("math-skill-map.md");
 const elaMapRows = () => mapRows("ela-science-skill-map.md");
+const logicMapRows = () => mapRows("logic-skill-map.md");
 
 describe("the math skill table follows the skill map", () => {
   it("finds every row in the map, so the comparison below is not vacuous", () => {
@@ -396,5 +399,49 @@ describe("the invariants the map comparison cannot state", () => {
   it("retires fractions-compare rather than deleting it, so its mastery rows still resolve", () => {
     expect(findSkill("fractions-compare")?.grades).toEqual([]);
     for (const grade of GRADES) expect(skillsFor("math", grade).map((s) => s.id)).not.toContain("fractions-compare");
+  });
+});
+
+describe("the logic area", () => {
+  it("has one row per band, each at the band's lowest grade and played on a lock", () => {
+    const rows = SKILLS.filter((s) => s.area === "logic");
+    expect(rows.map((s) => [s.id, s.grades, s.label])).toEqual([
+      ["logic-k1", ["K"], "Patterns and sorting"],
+      ["logic-g23", ["2"], "Shape grids and balances"],
+      ["logic-g45", ["4"], "Number cages"],
+      ["logic-g68", ["6"], "Cages and logic grids"],
+      ["logic-g912", ["9"], "Cages, nonograms and logic"],
+    ]);
+    for (const s of rows) expect(s.source, s.id).toEqual({ kind: "lock" });
+    expect([...LOGIC_SKILL_IDS]).toEqual(rows.map((s) => s.id));
+  });
+
+  it("is labelled Logic, and no other area is played on a lock", () => {
+    expect(AREA_LABELS.logic).toEqual({ label: "Logic", color: "#0ea5e9" });
+    expect(SKILLS.filter((s) => s.source.kind === "lock").map((s) => s.area)).toEqual(Array(5).fill("logic"));
+  });
+
+  it("resolves the other grades to the nearest band, easier first", () => {
+    const at = (g: string) => chooseSkills({ area: "logic" } as Deed, g as never).map((s) => s.id);
+    expect(at("K")).toEqual(["logic-k1"]);
+    expect(at("1")).toEqual(["logic-k1"]);
+    expect(at("3")).toEqual(["logic-g23"]);
+    expect(at("5")).toEqual(["logic-g45"]);
+    expect(at("8")).toEqual(["logic-g68"]);
+    expect(at("12")).toEqual(["logic-g912"]);
+  });
+
+  it("belongs to no spell school", () => {
+    expect(schoolLines().flatMap((l) => l.areas)).not.toContain("logic");
+  });
+
+  it("follows docs/content/logic-skill-map.md, row for row", () => {
+    const rows = logicMapRows();
+    expect(rows.length, "the logic map is not 5 rows").toBe(5);
+    expect(rows.filter((r) => r.strand !== "logic").map((r) => r.skillId)).toEqual([]);
+    expect(rows.map((r) => [r.grade, r.skillId])).toEqual(
+      SKILLS.filter((s) => s.area === "logic").map((s) => [s.grades[0], s.id]),
+    );
+    // TODO(F2): assert that `LOCKS` has a generator for every id in LOGIC_SKILL_IDS.
   });
 });

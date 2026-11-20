@@ -125,12 +125,19 @@ function SkillBlock({ sampled }: { sampled: SampledSkill }) {
                 : `${LEVELS.length * DRAWS_PER_LEVEL} verified`}
             </span>
           </>
+        ) : sampled.kind === "lock" ? (
+          <code className="text-xs text-zinc-500">lock puzzle</code>
         ) : (
           <code className="text-xs text-zinc-500">pool: {sampled.poolId}</code>
         )}
       </h2>
 
-      {sampled.kind === "pool" ? (
+      {sampled.kind === "lock" ? (
+        <p data-testid="lock-note" className="mt-2 text-zinc-400">
+          Logic skills are played on lock puzzles, never as multiple choice, so there are no questions to
+          read here. Each lock generator is checked by a brute-force solver in its own tests.
+        </p>
+      ) : sampled.kind === "pool" ? (
         <p data-testid="pool-note" className="mt-2 text-zinc-400">
           Authored pools arrive in a later plan. This page does not read the database, so there is
           nothing to check by eye here yet.

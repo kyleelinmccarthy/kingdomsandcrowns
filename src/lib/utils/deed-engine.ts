@@ -204,11 +204,11 @@ export function selectSkills(
   const generator = draw(candidates.filter((s) => s.source.kind === "generator"));
   const pool = draw(candidates.filter((s) => s.source.kind === "pool"));
   const picked = [generator, pool].filter((s): s is Skill => !!s);
-  // Unreachable today: `SkillSource` is exactly generator | pool, so a non-empty
-  // `candidates` always yields at least one pick. It is kept as the guard for a third
-  // source kind — which would otherwise fall through both filters and hand a hero an
-  // empty run rather than something to do.
-  return picked.length > 0 ? picked : candidates.slice(0, 1);
+  // A `lock` skill is practised on lock puzzles only and is never drawn as choice, so it is
+  // never picked here: a run whose candidates are all locks has nothing to draw and is empty.
+  // Anything else that fell through both filters (a source kind added later) still gets one
+  // pick rather than handing a hero an empty run.
+  return picked.length > 0 ? picked : candidates.filter((s) => s.source.kind !== "lock").slice(0, 1);
 }
 
 function poolQuestion(item: PoolItem, rng: Rng): Question {
@@ -439,6 +439,8 @@ export function drawForSkill(
   kind: TaskKind = "choice",
 ): Task[] {
   if (kind !== "choice") return drawByKind(kind, skill, level, count, rng, excludeIds);
+  // A lock skill has no choice questions: nothing to draw, and nothing to throw about.
+  if (skill.source.kind === "lock") return [];
   return skill.source.kind === "generator"
     ? drawGenerated(skill, level, count, rng, excludeIds, excludePrompts)
     : drawPool(poolItems.filter((p) => p.skillId === skill.id && !excludeIds.has(p.id)), level, count, rng);

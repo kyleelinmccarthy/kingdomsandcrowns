@@ -162,7 +162,8 @@ export async function getSchoolCounts(childId: string): Promise<Record<SpellScho
     let first: string | undefined;
     try { first = (JSON.parse(run.skillIds) as string[])[0]; } catch { first = undefined; }
     const skill = first ? findSkill(first) : null;
-    if (skill) counts[AREA_SCHOOL[skill.area]] += 1;
+    const school = skill ? AREA_SCHOOL[skill.area] : "none";
+    if (school !== "none") counts[school] += 1;
   }
   return counts;
 }
