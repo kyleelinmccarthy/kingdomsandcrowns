@@ -201,7 +201,6 @@
 .lock-go:disabled { opacity: 0.55; }
 .lock--board .lock-go { border-color: #6b4410; background: linear-gradient(180deg, #ffd875, #e09b24); color: #3a2008; box-shadow: 0 5px 0 #7a4f14, inset 0 2px 0 rgba(255, 255, 255, 0.5); }
 .lock--page .lock-go { border-width: 1px; background: var(--primary); color: var(--primary-foreground); }
-.lock-reveal { margin: 0.6rem 0 0; font-size: 1rem; font-weight: 800; color: var(--lock-soft); }
 
 @media (prefers-reduced-motion: reduce) {
   .lock--move .lock-cell-value,

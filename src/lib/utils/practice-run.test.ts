@@ -38,6 +38,20 @@ describe("buildPracticeRun", () => {
     expect(ids(5)).toEqual(ids(5));
   });
 
+  it("prefers the grown-up's logic focus skill when the hero is within its window", () => {
+    // A grade-3 hero: logic-g45 (grade 4) is a step away, so it can be their focus.
+    const r = buildPracticeRun(input({ grade: "3", focusSkillIds: ["mul-facts", "logic-g45"] }));
+    expect(r.skillIds).toEqual(["logic-g45"]);
+    expect(r.questions).toHaveLength(3);
+    for (const t of r.questions) expect(t.skillId).toBe("logic-g45");
+  });
+
+  it("keeps the hero's own logic skill when the focus is out of reach, in another strand, or not set", () => {
+    for (const focusSkillIds of [["logic-g912"], ["mul-facts"], [], undefined]) {
+      expect(buildPracticeRun(input({ grade: "3", focusSkillIds })).skillIds, String(focusSkillIds)).toEqual(["logic-g23"]);
+    }
+  });
+
   it("with locks off draws nothing, and never throws (a logic skill has no choice questions)", () => {
     for (const grade of GRADES) {
       const r = buildPracticeRun(input({ grade, enabledKinds: new Set<TaskKind>(["measure"]) }));

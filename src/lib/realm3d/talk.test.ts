@@ -208,7 +208,7 @@ describe("a world run's result (Puzzle practice)", () => {
 });
 
 describe("a build run's result", () => {
-  const done ={ correctCount: 2, total: 3, flawless: false, kind: "build" as const };
+  const done = { correctCount: 2, total: 3, flawless: false, kind: "build" as const };
   const outcome = (level: number, extra: { built?: boolean; reason?: "short" | "error" } = {}) => ({ id: "village-banners" as const, label: "Banners", level, built: true, ...extra });
   it("says the plan is built at level 1, and grows above it, agreeing with a plural name", () => {
     expect(resultHeadline({ ...done, improvement: outcome(1) }, "Banners")).toEqual({ title: "The Banners are built!", line: "2 of 3 right." });

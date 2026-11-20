@@ -49,12 +49,10 @@ describe("validateSortPool", () => {
       expect(rulesOf(e)).toContain(R.shape);
     });
 
-    it("allows readAloud as a string, and only as a string", () => {
+    it("refuses readAloud on an item: nothing reads it, so it is an unknown key", () => {
       const a = clone();
-      a.sets[0].items[0].readAloud = "dog";
-      expect(validateSortPool(a)).toEqual([]);
-      (a.sets[0].items[0] as { readAloud: unknown }).readAloud = 3;
-      expect(rulesOf(a)).toContain(R.shape);
+      (a.sets[0].items[0] as { readAloud?: unknown }).readAloud = "dog";
+      expect(validateSortPool(a)).toEqual([expect.objectContaining({ rule: R.shape, detail: expect.stringContaining('unexpected key "readAloud"') })]);
     });
   });
 

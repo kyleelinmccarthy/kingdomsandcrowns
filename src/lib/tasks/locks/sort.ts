@@ -9,7 +9,7 @@
  *
  * The id is `<skill>:sort:<poolId>:<setId>:<opaque ids, comma-separated>`, in the order shown, and the
  * lock's view carries the same opaque ids (RF-h). An opaque id is `opaqueItemId(setId, itemId)`: 8 hex
- * characters that the server alone can map back to the author's item id (`sortTaskFromId`). Author ids
+ * characters that only the server's pools can map back to the author's item id. Author ids
  * never reach the browser, because they can lean on the answer in ways no validator can list (q1/q3 in
  * one bin, q2/q4 in the other; a trailing a/b). The id names the items but never a bin, so it can be sent
  * to the browser. One id is one puzzle: the prompt, the bins and `fits` all follow from the pool.
@@ -98,6 +98,10 @@ export function sortSetOfId(id: string): string | null {
 }
 
 /**
+ * TEST ORACLE: used by tests to pin one id = one puzzle; not called in production (a run stores its
+ * whole task, so nothing needs rebuilding). It lives here, not in `src/test/`, because it reads the
+ * module's active pools.
+ *
  * The task a sort id names, rebuilt from the pools: each opaque id is resolved back by hashing the set's
  * items. An id that is not ours, names no pool or set, repeats an item, names one the set lacks, or
  * lists fewer than 2 or more than 10 items gives null, as does a skill no pool credits.

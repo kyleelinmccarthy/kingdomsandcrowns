@@ -14,6 +14,7 @@ import { enabledHandsOnKinds } from "@/lib/utils/realm-settings";
 import type { RunStart } from "@/lib/utils/deed-run-types";
 import { demoAt, findOpenRun, insertRun, loadMasteryRows, resumedStart } from "@/lib/services/deed-run-store";
 import { loadHeroLevels } from "@/lib/services/deeds";
+import { loadFocusSkillIds } from "@/lib/services/learning-focus";
 import { loadLearningProfileRow } from "@/lib/services/learning-profile";
 import { loadRealmSettings } from "@/lib/services/realm-play";
 
@@ -21,8 +22,8 @@ import { loadRealmSettings } from "@/lib/services/realm-play";
 const PRACTICE_REF = "practice";
 
 /**
- * Puzzle practice (R-F8): a `world` run of three logic locks at the hero's own grade
- * (`buildPracticeRun`), from the Side Quests page. It pays nothing and raises nothing; its answers
+ * Puzzle practice (R-F8): a `world` run of three logic locks at the hero's own grade, or of the
+ * grown-up's logic focus skill a grade either side (`buildPracticeRun`), from the Side Quests page. It pays nothing and raises nothing; its answers
  * move the hero's logic mastery (`RUN_EFFECTS.world`). The hero's alone: a grown-up looking at the
  * page is refused, as at the bench. Refused too while the grown-up has locks switched off, even with a
  * practice run open, since logic is played on locks alone (R-F7). A second start picks the open
@@ -47,15 +48,16 @@ export async function startPracticeRun(childId: string): Promise<RunStart> {
   ));
   if (open) return withDemo(resumedStart(open, header));
 
-  const [masteryRows, profileRow] = await Promise.all([
+  const [masteryRows, profileRow, focusSkillIds] = await Promise.all([
     loadMasteryRows(childId),
     // Memoized per request: the same round trip loadHeroLevels just made.
     loadLearningProfileRow(childId),
+    loadFocusSkillIds(childId, hero.grades),
   ]);
   const masteryBySkill: Record<string, number> = {};
   for (const m of masteryRows) masteryBySkill[m.skillId] = m.level;
   const built = buildPracticeRun({
-    grade, masteryBySkill, seed: Date.now() >>> 0, enabledKinds: enabledHandsOnKinds(settings), profile: profileFromRow(profileRow),
+    grade, masteryBySkill, seed: Date.now() >>> 0, enabledKinds: enabledHandsOnKinds(settings), profile: profileFromRow(profileRow), focusSkillIds,
   });
   if (built.questions.length === 0) throw new Error(NONE_READY);
 

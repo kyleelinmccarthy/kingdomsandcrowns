@@ -20,7 +20,7 @@ describe("lock puzzles and their sizes", () => {
     expect(lockSize(view(BALANCE))).toEqual({ cells: 5, max: 1 });
     expect(lockSize(view(CAGE4))).toEqual({ cells: 16, max: 4 });
     expect(lockSize({ puzzle: "cage5", cages: [] })).toEqual({ cells: 25, max: 5 });
-    expect(lockSize(view(NONO5))).toEqual({ cells: 25, max: 2 });
+    expect(lockSize(view(NONO5))).toEqual({ cells: 25, max: 1 });
     expect(lockSize(view(LOGIC3))).toEqual({ cells: 3, max: 3 });
     expect(lockSize({ puzzle: "logic4", rows: ["a", "b", "c", "d"], cols: ["w", "x", "y", "z"], clues: [] })).toEqual({ cells: 4, max: 4 });
   });
@@ -126,9 +126,13 @@ describe("checkLock: what the visible puzzle can judge (R-F3)", () => {
   });
 
   describe("nono5: each row and column run clue", () => {
-    it("takes the picture, with blanks left empty or marked", () => {
+    it("takes the picture, with blanks left empty", () => {
       expect(checkLock(view(NONO5), NONO5.solution)).toEqual({ ok: true, broken: [], empty: 0 });
-      expect(checkLock(view(NONO5), r("nono5", NONO5.solution.cells.map((v) => (v === 1 ? 1 : 2)))).ok).toBe(true);
+    });
+    it("refuses a cell of 2: a mark (·) is the child's note and is sent as empty, so 2 is no response", () => {
+      const marked = r("nono5", NONO5.solution.cells.map((v) => (v === 1 ? 1 : 2)));
+      expect(responseFits(view(NONO5), marked)).toBe(false);
+      expect(checkLock(view(NONO5), marked)).toEqual({ ok: false, broken: ["response"], empty: 0 });
     });
     it("marks an overfilled row and column", () => {
       const cells = [...NONO5.solution.cells];
@@ -144,7 +148,6 @@ describe("checkLock: what the visible puzzle can judge (R-F3)", () => {
     });
     it("counts the squares still to fill, and judges no short line", () => {
       expect(checkLock(view(NONO5), r("nono5", Array(25).fill(0)))).toEqual({ ok: false, broken: [], empty: 12 });
-      expect(checkLock(view(NONO5), r("nono5", Array(25).fill(2)))).toEqual({ ok: false, broken: [], empty: 12 });
     });
   });
 

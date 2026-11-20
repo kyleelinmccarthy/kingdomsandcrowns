@@ -70,8 +70,10 @@ const DDL = [
   ...REALM_SETTINGS_DDL,
   ...REALM_LEDGER_DDL,
   ...REALM_ACCESS_DDL,
+  `CREATE TABLE learning_focus (
+    id text PRIMARY KEY NOT NULL, child_id text NOT NULL, skill_id text NOT NULL, created_at integer NOT NULL)`,
 ];
-const TABLES = ["deed_run", "skill_mastery", "kingdom_progress", "realm_settings", "realm_play_ledger", "child"];
+const TABLES = ["deed_run", "skill_mastery", "kingdom_progress", "realm_settings", "realm_play_ledger", "child", "learning_focus"];
 
 const GROWN_UP = { access: { userId: "u-parent" }, familyId: "f1" } as unknown as Awaited<ReturnType<typeof requireChildAccess>>;
 const LOCKS_OFF = { ...DEFAULT_REALM_SETTINGS, mechanics: { measure: true, lock: false } };
@@ -132,6 +134,13 @@ describe("startPracticeRun", () => {
     vi.mocked(loadHeroLevels).mockResolvedValue(HERO("9") as never);
     const r = await startPracticeRun("c1");
     expect(new Set((await storedTasks(r.runId)).map((t) => t.skillId))).toEqual(new Set(["logic-g912"]));
+  });
+
+  it("practises the grown-up's logic focus skill when the hero is within its window", async () => {
+    // A grade-5 hero is a step from logic-g68 (grade 6), so a grown-up could pick it.
+    await client.query("INSERT INTO learning_focus (id, child_id, skill_id, created_at) VALUES ('f1', 'c1', 'logic-g68', 1)");
+    const r = await startPracticeRun("c1");
+    expect(new Set((await storedTasks(r.runId)).map((t) => t.skillId))).toEqual(new Set(["logic-g68"]));
   });
 
   it("freezes the second-chance setting on the run", async () => {

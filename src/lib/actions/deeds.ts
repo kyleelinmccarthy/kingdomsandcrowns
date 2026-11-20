@@ -11,7 +11,7 @@ import { BAND_LABELS, type ContentBand } from "@/lib/utils/content-bands";
 import { bandForGrade } from "@/lib/utils/grade-levels";
 import { findSkill, type SkillArea } from "@/lib/utils/skills";
 import { buildingProgress, findBuilding, type Building } from "@/lib/utils/kingdom";
-import { deedRunLength, deedStory, findDeed } from "@/lib/utils/deeds";
+import { deedStory, findDeed } from "@/lib/utils/deeds";
 import {
   buildDeedRun,
   runCandidates,
@@ -130,8 +130,9 @@ export async function startDeedRun(
     poolSkillIds.length > 0
       ? db.select().from(schema.drillItem).where(inArray(schema.drillItem.skillId, poolSkillIds))
       : Promise.resolve([] as (typeof schema.drillItem.$inferSelect)[]),
-    // A challenge mixes nothing in, so it needs no misses.
-    challenge ? Promise.resolve([] as Question[]) : loadRecentMisses(childId),
+    // A challenge mixes nothing in, so it needs no misses. Only this side quest's candidate skills
+    // count toward the cap, so another strand's misses (Puzzle practice's logic) never crowd them out.
+    challenge ? Promise.resolve([] as Question[]) : loadRecentMisses(childId, (t) => skills.some((s) => s.id === t.skillId)),
     loadRealmSettings(childId),
   ]);
   const profile = profileFromRow(profileRow);
@@ -161,8 +162,8 @@ export async function startDeedRun(
     deed, grade, masteryBySkill, lastPracticedBySkill, profile, seed: Date.now() >>> 0, poolItems, focusSkillIds, enabledKinds,
     ...(challenge
       ? { recentMisses: [], dueSkillIds: [], questionCount: CHALLENGE.questions, levelBoost: CHALLENGE.levelBoost }
-      // The grown-up's length, as this side quest takes it: a science side quest's sorts are half (RF-j).
-      : { recentMisses, dueSkillIds, questionCount: deedRunLength(deed, settings.sideQuestLength, enabledKinds) }),
+      // The grown-up's length, which the engine scales for this side quest: a science side quest's sorts are half (RF-j).
+      : { recentMisses, dueSkillIds, sideQuestLength: settings.sideQuestLength }),
   });
   if (built.questions.length === 0) throw new Error(NONE_READY);
   // A crown is three right answers, never fewer: a thin pool at the higher rung waits.

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { seededRng } from "@/lib/utils/drill-generators";
 import { SKILLS } from "@/lib/utils/skills";
 import {
-  BALANCE, BALANCE_ALT, CAGE4, LOGIC3, NONO5, NONO5_MARKED, PATTERN, PATTERN_ALT, SHAPES3, SHAPES3_ALT, SORT, SORT1, SORT2, SORT_ALT,
+  BALANCE, BALANCE_ALT, CAGE4, LOGIC3, NONO5, PATTERN, PATTERN_ALT, SHAPES3, SHAPES3_ALT, SORT, SORT1, SORT2, SORT_ALT,
 } from "@/test/lock-stubs";
 import { TASK_CODECS } from "./codecs";
 import { TASK_DRAWERS } from "./draw";
@@ -120,6 +120,11 @@ describe("lock: forged responses are refused (Review Focus 1)", () => {
     expect(parse(`sort:1,1,2,2,1;4:2`, SORT)).toBeNull();
   });
 
+  it("a nonogram refuses a marked square (2): marks stay on the face and are sent as empty", () => {
+    expect(parse(enc(NONO5, NONO5.solution.cells.map((v) => (v === 1 ? 1 : 2))), NONO5)).toBeNull();
+    expect(parse(enc(NONO5, NONO5.solution.cells), NONO5)).not.toBeNull();
+  });
+
   it("a grid refuses a changed given, even when the board it makes is otherwise valid", () => {
     expect(parse(enc(SHAPES3, [2, 1, 3, 1, 3, 2, 3, 2, 1]), SHAPES3)).toBeNull();
     expect(parse(enc(SHAPES3, [0, 2, 3, 2, 3, 1, 3, 1, 2]), SHAPES3)).toBeNull();
@@ -160,7 +165,6 @@ describe("lock: checked against the rules, never the stored solution (R-F1, Revi
     ["balance", BALANCE, BALANCE_ALT],
     ["balance (three weights)", BALANCE, { puzzle: "balance", cells: [1, 1, 0, 1, 0] }],
     ["sort", SORT, SORT_ALT],
-    ["nono5 (blanks marked)", NONO5, NONO5_MARKED],
   ] as [string, LockTask, LockResponse][])("%s: another valid solution is right too", (_, t, alt) => {
     expect(codec.sameResponse(alt, t.solution)).toBe(false);
     expect(lockKind.isCorrect(t, alt)).toBe(true);

@@ -35,7 +35,6 @@ export type SortPoolItem = {
   /** Which of the set's two categories the item belongs to. */
   category: 0 | 1;
   level: SortLevel;
-  readAloud?: string;
 };
 
 export type SortSet = {
@@ -174,13 +173,12 @@ function checkShape(raw: unknown): Problem[] {
       const at = isRecord(item) && typeof item.id === "string" ? item.id : null;
       const here = `${where}, item ${i + 1}`;
       if (!isRecord(item)) return bad(null, `${here} is an object`);
-      const itemKeys = exactKeys(item, ["id", "label", "category", "level"], ["readAloud"]);
+      const itemKeys = exactKeys(item, ["id", "label", "category", "level"]);
       if (itemKeys) bad(at, `${here}: ${itemKeys}`);
       if (typeof item.id !== "string") bad(at, `${here}: id is a string`);
       if (typeof item.label !== "string") bad(at, `${here}: label is a string`);
       if (item.category !== 0 && item.category !== 1) bad(at, `${here}: category is 0 or 1`);
       if (!(LEVELS as readonly unknown[]).includes(item.level)) bad(at, `${here}: level is 0, 1, 2, 3 or 4`);
-      if ("readAloud" in item && typeof item.readAloud !== "string") bad(at, `${here}: readAloud is a string`);
     });
   });
   return problems;

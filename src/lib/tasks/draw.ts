@@ -18,7 +18,7 @@ export type TaskDrawer = (skill: Skill, level: number, rng: Rng) => Task | null;
 export const TASK_DRAWERS: { [K in Exclude<TaskKind, "choice">]: TaskDrawer } = {
   // The bench's generator for the skill; none (a skill the bench does not hold) draws nothing.
   measure: (skill, level, rng) => benchFor(skill.id)?.(level, rng, skill.id) ?? null,
-  // The skill's lock generator (or, from F6, its sort pool); none draws nothing.
+  // The skill's lock: a logic generator, or a draw from the sort pool that credits it (`lockFor`); none draws nothing.
   lock: (skill, level, rng) => lockFor(skill.id)?.(level, rng, skill.id) ?? null,
 };
 

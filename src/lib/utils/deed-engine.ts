@@ -42,7 +42,9 @@ export type BuildRunInput = {
    * `REVIEW.maxDue`, and their questions take the place of fresh ones — never added to the count.
    */
   dueSkillIds?: string[];
-  /** The grown-up's side-quest length; the deed's own count when absent. */
+  /** The grown-up's side-quest length, which the run scales for its deed (`deedRunLength`); the default length when absent. */
+  sideQuestLength?: number;
+  /** An exact task count, in place of the side-quest length (the Crown Challenge). */
   questionCount?: number;
   /** Rungs above the child's own to draw every question at, capped at the top (the Crown Challenge). */
   levelBoost?: number;
@@ -517,8 +519,10 @@ export function buildDeedRun(input: BuildRunInput): BuiltRun {
   // Also by prompt: a miss stored under an older id shape would otherwise be re-asked as a
   // fresh question in the same deed.
   const reviewPrompts = new Set(review.filter(isChoice).map(questionText));
-  // A caller with the grown-up's length passes `deedRunLength` of it; without one, the default length.
-  const target = input.questionCount ?? deedRunLength(deed, SIDE_QUEST_QUESTIONS, enabled);
+  // The grown-up's length, as this deed takes it: halved for a science side quest only when the
+  // skills it practises are played as its mechanic, the sorts (RF-j); an exact count wins.
+  const drawsMechanic = skills.some((s) => kindOfSkill(s.id) === deed.mechanic);
+  const target = input.questionCount ?? deedRunLength(deed, input.sideQuestLength ?? SIDE_QUEST_QUESTIONS, drawsMechanic);
 
   // Due skills are drawn at their own level before the fresh ones, so fresh draws avoid them.
   const dueCandidates = [...new Set(input.dueSkillIds ?? [])]

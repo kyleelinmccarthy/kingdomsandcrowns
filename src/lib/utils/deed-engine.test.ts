@@ -1175,12 +1175,23 @@ describe("science side quests sort on a lock's face (R-F11)", () => {
     }
   });
 
-  it("a science skill no sort pool credits falls back to choice, and the run still fills", () => {
+  it("a science skill no sort pool credits falls back to choice at the whole length: half is for sorts only (RF-j)", () => {
     __setSortPoolsForTest([]);
     const { items } = scienceAt("2");
     const run = buildDeedRun(input({ deed: deedScience, grade: "2", poolItems: items, seed: 11, enabledKinds: LOCKS_ON }));
-    expect(run.questions.length).toBe(deedScience.questionCount);
+    expect(run.questions.length).toBe(SIDE_QUEST_QUESTIONS);
     choices(run.questions);
+    const longer = buildDeedRun(input({ deed: deedScience, grade: "2", poolItems: items, seed: 11, enabledKinds: LOCKS_ON, sideQuestLength: 12 }));
+    expect(longer.questions.length).toBe(12);
+  });
+
+  it("a science run that draws sorts is half the grown-up's length, rounded (RF-j)", () => {
+    const { items } = scienceAt("2");
+    for (const [length, sorts] of [[8, 4], [12, 6], [5, 3]] as const) {
+      const run = buildDeedRun(input({ deed: deedScience, grade: "2", poolItems: items, seed: 11, enabledKinds: LOCKS_ON, sideQuestLength: length }));
+      expect(run.questions.length, `${length}`).toBe(sorts);
+      for (const t of run.questions) expect(kindOf(t)).toBe("lock");
+    }
   });
 
   // Recorded AFTER the science deeds named `lock`, and re-recorded for RF-j (four sorts, each from its

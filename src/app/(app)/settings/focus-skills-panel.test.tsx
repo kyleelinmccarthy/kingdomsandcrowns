@@ -49,6 +49,13 @@ describe("FocusSkillsPanel", () => {
     expect(within(math).queryByRole("checkbox", { name: "Nouns" })).not.toBeInTheDocument();
   });
 
+  it("says where a logic focus is practiced, under logic only", () => {
+    render(<FocusSkillsPanel childId="c1" options={options} selected={[]} />);
+    const line = "Practiced in Puzzle practice and, soon, the Realm's locks.";
+    expect(within(screen.getByRole("group", { name: "Logic" })).getByText(line)).toBeInTheDocument();
+    expect(screen.getAllByText(line)).toHaveLength(1);
+  });
+
   it("starts with the saved picks checked and Save disabled", () => {
     render(<FocusSkillsPanel childId="c1" options={options} selected={["m1"]} />);
     expect(box("Add within 10").checked).toBe(true);

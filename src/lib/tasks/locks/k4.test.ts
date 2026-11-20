@@ -56,6 +56,8 @@ describe.each(SKILLS_UNDER_TEST)("%s", (skillId) => {
         expect(t.prompt.length).toBeGreaterThan(0);
         expect(t.prompt.length).toBeLessThan(60);
         expect(`${t.prompt} ${t.explain ?? ""}`).not.toMatch(/behind|ahead/i);
+        // US spelling, as the rest of the app: "color", never "colour".
+        expect(`${t.prompt} ${t.explain ?? ""}`).not.toMatch(/colour/i);
       }
     });
 

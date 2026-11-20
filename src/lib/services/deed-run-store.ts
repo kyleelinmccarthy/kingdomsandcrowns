@@ -26,7 +26,8 @@ export async function loadMasteryRows(childId: string) {
 
 /**
  * Tasks the hero got wrong in their last five finished runs of a kind that feeds review
- * (`RUN_EFFECTS`: deeds, builds and reviews), newest first, each graded by its own kind. Only first answers
+ * (`RUN_EFFECTS`: deeds, builds, reviews and world runs such as Puzzle practice), newest first,
+ * each graded by its own kind. Only first answers
  * are read: a task put right on the second try still needed help. A Crown Challenge's misses never
  * come back (`RUN_EFFECTS.challenge.feedsReview` is false). A task of a kind this build does not
  * know (saved by a newer deploy) is skipped, not graded; a row that will not parse is skipped whole.

@@ -25,7 +25,7 @@ export type Attr = "color" | "shape" | "size";
 export const ATTRS: readonly Attr[] = ["color", "shape", "size"];
 export const VALUES: Record<Attr, readonly string[]> = { color: COLOR_VOCAB, shape: SHAPE_VOCAB, size: SIZE_VOCAB };
 /** How an attribute is named in a prompt. */
-export const ATTR_WORD: Record<Attr, string> = { color: "colour", shape: "shape", size: "size" };
+export const ATTR_WORD: Record<Attr, string> = { color: "color", shape: "shape", size: "size" };
 
 const SHAPE_LABEL: Record<ShapeId, string> = { circle: "Circles", square: "Squares", triangle: "Triangles", star: "Stars", heart: "Hearts" };
 const COLOR_LABEL: Record<ColorId, string> = { red: "Red", blue: "Blue", yellow: "Yellow", green: "Green" };

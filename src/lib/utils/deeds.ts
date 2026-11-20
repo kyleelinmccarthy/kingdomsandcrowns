@@ -66,12 +66,12 @@ export function deedStory(deed: Deed, tone: "gentle" | "monsters"): string {
 /**
  * How many tasks a run of `deed` asks, given the grown-up's side-quest length (RF-j). A deed of the
  * full eight asks exactly that length. A shorter deed asks its share of it (four of eight is half),
- * rounded, and never fewer than one — but only while its mechanic is on: a science side quest played
- * as multiple choice (locks off, or the gate, where `enabledKinds` is empty) is the whole length it
- * always was, since its shortness is for the sorts.
+ * rounded, and never fewer than one — but only when the run actually draws its mechanic
+ * (`drawsMechanic`, decided by the engine from the skills it practises): a science side quest that
+ * falls back to multiple choice (locks off, the gate, or a skill no sort pool credits) is the whole
+ * length it always was, since its shortness is for the sorts.
  */
-export function deedRunLength(deed: Pick<Deed, "questionCount" | "mechanic">, sideQuestLength: number, enabledKinds: ReadonlySet<TaskKind>): number {
-  const played = deed.mechanic === "choice" || enabledKinds.has(deed.mechanic);
-  if (!played) return sideQuestLength;
+export function deedRunLength(deed: Pick<Deed, "questionCount">, sideQuestLength: number, drawsMechanic: boolean): number {
+  if (!drawsMechanic) return sideQuestLength;
   return Math.max(1, Math.round((sideQuestLength * deed.questionCount) / SIDE_QUEST_QUESTIONS));
 }

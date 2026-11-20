@@ -23,7 +23,7 @@ export const PATTERN: Stub<"pattern"> = {
 };
 export const PATTERN_ALT: LockResponse = { puzzle: "pattern", cells: [1, 1] };
 
-/** Sort shapes by colour: red or blue. */
+/** Sort shapes by color: red or blue. */
 export const SORT1: Stub<"sort1"> = {
   ...base("sort1"), puzzle: "sort1",
   items: [A, { shape: "circle", color: "blue" }, { shape: "square", color: "red" }, B],
@@ -31,7 +31,7 @@ export const SORT1: Stub<"sort1"> = {
   solution: { puzzle: "sort1", cells: [1, 2, 1, 2] },
 };
 
-/** Sort by shape (rows) and colour (columns): bin = 2 × row + column. */
+/** Sort by shape (rows) and color (columns): bin = 2 × row + column. */
 export const SORT2: Stub<"sort2"> = {
   ...base("sort2"), puzzle: "sort2",
   items: [A, B, { shape: "circle", color: "blue" }, { shape: "square", color: "red" }],
@@ -83,8 +83,6 @@ export const NONO5: Stub<"nono5"> = {
   cols: [[2, 1], [1, 1], [1, 1], [1, 1], [2, 1]],
   solution: { puzzle: "nono5", cells: [1, 1, 0, 1, 1, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 1, 0] },
 };
-/** The same picture with every blank marked: marks are not filled, so it is just as right. */
-export const NONO5_MARKED: LockResponse = { puzzle: "nono5", cells: NONO5.solution.cells.map((v) => (v === 1 ? 1 : 2)) };
 
 /** Ben has the lute; Ana does not; Cy does not have the harp. So Ana: harp, Ben: lute, Cy: drum. */
 export const LOGIC3: Stub<"logic3"> = {

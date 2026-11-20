@@ -971,6 +971,19 @@ describe("startDeedRun begins a fresh run on the grown-up's settings", () => {
     await startDeedRun("c1", "well-stones", "realm");
     expect(vi.mocked(buildDeedRun).mock.calls[0][0].recentMisses.map((q) => q.id)).toEqual(["q1"]);
   });
+
+  it("Puzzle practice's logic misses never crowd out the side quest's own (only its candidate skills count)", async () => {
+    await seedRun({ id: "deed-old", questions: [QUESTIONS[1]], responses: ["6"], completed: true });
+    // Two newer practice runs: six logic misses, more than the cap of five.
+    const logic = (i: number) => ({ ...PATTERN, id: `logic-${i}`, skillId: "logic-g23" });
+    for (const [n, id] of ["practice-1", "practice-2"].entries()) {
+      const tasks = [0, 1, 2].map((i) => logic(3 * n + i));
+      await seedRun({ id, questions: tasks as unknown as Question[], responses: tasks.map(() => "pattern:3,1"), completed: true });
+      await client.query(`UPDATE deed_run SET kind = 'world', deed_id = NULL, completed_at = unixepoch() + ?2 WHERE id = ?1`, [id, n + 1]);
+    }
+    await startDeedRun("c1", "well-stones", "realm");
+    expect(vi.mocked(buildDeedRun).mock.calls[0][0].recentMisses.map((q) => q.id)).toEqual(["q1"]);
+  });
 });
 
 describe("side quests pay play minutes by stars", () => {

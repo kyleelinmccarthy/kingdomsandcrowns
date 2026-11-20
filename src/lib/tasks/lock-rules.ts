@@ -14,7 +14,7 @@
  * | `sort1`, `sort2`, `sort` | item, in order             | 1 + the bin index (`sort2`: bin = 2 × row + col)   |
  * | `shapes3`          | square, row by row (9)           | 1 + the `symbols` index                            |
  * | `cage4`, `cage5`   | square, row by row (16, 25)      | the number 1..n                                    |
- * | `nono5`            | square, row by row (25)          | 1 filled, 2 marked empty (a mark counts as empty)  |
+ * | `nono5`            | square, row by row (25)          | 1 filled, 0 empty (a mark · is sent as 0)          |
  * | `logic3`, `logic4` | row (person), in order           | 1 + the `cols` index they are matched with         |
  * | `balance`          | weight, in order                 | 1 on the pan, 0 off                                |
  *
@@ -121,7 +121,7 @@ export function lockSize(v: LockView): { cells: number; max: number } {
     case "shapes3": return { cells: 9, max: v.symbols.length };
     case "balance": return { cells: v.weights.length, max: 1 };
     case "cage4": case "cage5": return { cells: GRID_SIDE[v.puzzle] ** 2, max: GRID_SIDE[v.puzzle] };
-    case "nono5": return { cells: 25, max: 2 };
+    case "nono5": return { cells: 25, max: 1 };
     case "logic3": case "logic4": return { cells: v.rows.length, max: v.cols.length };
   }
 }
