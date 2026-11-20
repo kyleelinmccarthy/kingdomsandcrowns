@@ -10,7 +10,7 @@ import { AREA_LABELS, type SkillArea } from "@/lib/utils/skills";
 
 export type { FocusOption };
 
-const AREA_ORDER: SkillArea[] = ["math", "reading", "language", "science"];
+const AREA_ORDER: SkillArea[] = ["math", "reading", "language", "science", "logic"];
 
 function sameSet(a: readonly string[], b: readonly string[]) {
   return a.length === b.length && a.every((id) => b.includes(id));
@@ -99,6 +99,10 @@ export function FocusSkillsPanel({
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             {AREA_LABELS[area].label}
           </p>
+          {/* Logic feeds no side quest: say where a logic focus does show up. */}
+          {area === "logic" && (
+            <p className="mb-2 text-xs text-muted-foreground">Practiced in Puzzle practice and, soon, the Realm&apos;s locks.</p>
+          )}
           <ul className="space-y-1.5">
             {skills.map((skill) => {
               const on = picked.includes(skill.id);

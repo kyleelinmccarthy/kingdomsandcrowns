@@ -1,0 +1,95 @@
+{
+  "poolId": "sort-science-g68",
+  "skillId": "science-g68",
+  "grade": "6",
+  "sets": [
+    {
+      "id": "change",
+      "categories": ["Physical change","Chemical change"],
+      "items": [
+        {"id":"sg68-change-melting-ice","label":"melting ice","category":0,"level":0},
+        {"id":"sg68-change-tearing-paper","label":"tearing paper","category":0,"level":0},
+        {"id":"sg68-change-breaking-a-plate","label":"breaking a plate","category":0,"level":1},
+        {"id":"sg68-change-boiling-water","label":"boiling water","category":0,"level":1},
+        {"id":"sg68-change-crushing-a-can","label":"crushing a can","category":0,"level":2},
+        {"id":"sg68-change-freezing-juice","label":"freezing juice","category":0,"level":3},
+        {"id":"sg68-change-bending-a-wire","label":"bending a wire","category":0,"level":3},
+        {"id":"sg68-change-evaporating-a-puddle","label":"evaporating a puddle","category":0,"level":4},
+        {"id":"sg68-change-burning-wood","label":"burning wood","category":1,"level":0},
+        {"id":"sg68-change-baking-a-cake","label":"baking a cake","category":1,"level":0},
+        {"id":"sg68-change-rusting-iron","label":"rusting iron","category":1,"level":1},
+        {"id":"sg68-change-cooking-an-egg","label":"cooking an egg","category":1,"level":1},
+        {"id":"sg68-change-rotting-fruit","label":"rotting fruit","category":1,"level":2},
+        {"id":"sg68-change-souring-milk","label":"souring milk","category":1,"level":3},
+        {"id":"sg68-change-tarnishing-silver","label":"tarnishing silver","category":1,"level":3},
+        {"id":"sg68-change-lighting-a-match","label":"lighting a match","category":1,"level":4}
+      ]
+    },
+    {
+      "id": "mixtures",
+      "categories": ["Pure substance","Mixture"],
+      "items": [
+        {"id":"sg68-mixtures-gold","label":"gold","category":0,"level":0},
+        {"id":"sg68-mixtures-sugar","label":"sugar","category":0,"level":0},
+        {"id":"sg68-mixtures-silver","label":"silver","category":0,"level":1},
+        {"id":"sg68-mixtures-copper","label":"copper","category":0,"level":1},
+        {"id":"sg68-mixtures-aluminum","label":"aluminum","category":0,"level":2},
+        {"id":"sg68-mixtures-oxygen","label":"oxygen","category":0,"level":3},
+        {"id":"sg68-mixtures-helium","label":"helium","category":0,"level":3},
+        {"id":"sg68-mixtures-distilled-water","label":"distilled water","category":0,"level":4},
+        {"id":"sg68-mixtures-salad","label":"salad","category":1,"level":0},
+        {"id":"sg68-mixtures-trail-mix","label":"trail mix","category":1,"level":0},
+        {"id":"sg68-mixtures-muddy-water","label":"muddy water","category":1,"level":1},
+        {"id":"sg68-mixtures-soil","label":"soil","category":1,"level":1},
+        {"id":"sg68-mixtures-lemonade","label":"lemonade","category":1,"level":2},
+        {"id":"sg68-mixtures-salt-water","label":"salt water","category":1,"level":3},
+        {"id":"sg68-mixtures-air","label":"air","category":1,"level":3},
+        {"id":"sg68-mixtures-granite","label":"granite","category":1,"level":4}
+      ]
+    },
+    {
+      "id": "elements",
+      "categories": ["Element","Compound"],
+      "items": [
+        {"id":"sg68-elements-gold","label":"gold","category":0,"level":0},
+        {"id":"sg68-elements-iron","label":"iron","category":0,"level":0},
+        {"id":"sg68-elements-oxygen","label":"oxygen","category":0,"level":1},
+        {"id":"sg68-elements-carbon","label":"carbon","category":0,"level":1},
+        {"id":"sg68-elements-copper","label":"copper","category":0,"level":2},
+        {"id":"sg68-elements-helium","label":"helium","category":0,"level":3},
+        {"id":"sg68-elements-sodium","label":"sodium","category":0,"level":3},
+        {"id":"sg68-elements-neon","label":"neon","category":0,"level":4},
+        {"id":"sg68-elements-water","label":"water","category":1,"level":0},
+        {"id":"sg68-elements-table-salt","label":"table salt","category":1,"level":0},
+        {"id":"sg68-elements-carbon-dioxide","label":"carbon dioxide","category":1,"level":1},
+        {"id":"sg68-elements-sugar","label":"sugar","category":1,"level":1},
+        {"id":"sg68-elements-baking-soda","label":"baking soda","category":1,"level":2},
+        {"id":"sg68-elements-ammonia","label":"ammonia","category":1,"level":3},
+        {"id":"sg68-elements-methane","label":"methane","category":1,"level":3},
+        {"id":"sg68-elements-hydrogen-peroxide","label":"hydrogen peroxide","category":1,"level":4}
+      ]
+    },
+    {
+      "id": "producers",
+      "categories": ["Producer","Consumer"],
+      "items": [
+        {"id":"sg68-producers-grass","label":"grass","category":0,"level":0},
+        {"id":"sg68-producers-oak-tree","label":"oak tree","category":0,"level":0},
+        {"id":"sg68-producers-sunflower","label":"sunflower","category":0,"level":1},
+        {"id":"sg68-producers-cactus","label":"cactus","category":0,"level":1},
+        {"id":"sg68-producers-fern","label":"fern","category":0,"level":2},
+        {"id":"sg68-producers-algae","label":"algae","category":0,"level":3},
+        {"id":"sg68-producers-kelp","label":"kelp","category":0,"level":3},
+        {"id":"sg68-producers-phytoplankton","label":"phytoplankton","category":0,"level":4},
+        {"id":"sg68-producers-rabbit","label":"rabbit","category":1,"level":0},
+        {"id":"sg68-producers-cow","label":"cow","category":1,"level":0},
+        {"id":"sg68-producers-lion","label":"lion","category":1,"level":1},
+        {"id":"sg68-producers-deer","label":"deer","category":1,"level":1},
+        {"id":"sg68-producers-hawk","label":"hawk","category":1,"level":2},
+        {"id":"sg68-producers-frog","label":"frog","category":1,"level":3},
+        {"id":"sg68-producers-grasshopper","label":"grasshopper","category":1,"level":3},
+        {"id":"sg68-producers-shark","label":"shark","category":1,"level":4}
+      ]
+    }
+  ]
+}

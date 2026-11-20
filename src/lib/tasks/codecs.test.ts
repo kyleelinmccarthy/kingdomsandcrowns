@@ -4,7 +4,7 @@ import { choiceKind } from "./choice";
 
 describe("TASK_CODECS", () => {
   it("has a codec for every kind", () => {
-    expect(Object.keys(TASK_CODECS)).toEqual(["choice", "measure"]);
+    expect(Object.keys(TASK_CODECS)).toEqual(["choice", "measure", "lock"]);
   });
 
   it("choice trims on the way in and out, and compares trimmed", () => {

@@ -1,10 +1,12 @@
 import { and, desc, eq, gt, inArray, isNotNull, isNull, like, ne, sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
-import { RUN_EFFECTS, kindsThatFeedReview } from "@/lib/utils/deed-scoring";
+import { RUN_EFFECTS, kindsThatFeedReview, type RunKind } from "@/lib/utils/deed-scoring";
 import { records, resumeIndex, statusOf } from "@/lib/utils/deed-attempts";
-import { hintFor } from "@/lib/utils/skill-hints";
+import { taskHint } from "@/lib/utils/skill-hints";
 import { isRegisteredKind, isTaskCorrect, kindOf, toClientTask, type Task } from "@/lib/tasks/registry";
+import { demoKeyOf, isLockDemo, LOCK_DEMO_PUZZLES, type DemoKey } from "@/lib/tasks/demos";
+import type { HandsOnKind } from "@/lib/tasks/kinds";
 import type { RunStart } from "@/lib/utils/deed-run-types";
 import type { ImprovementId } from "@/lib/realm/improvements";
 
@@ -24,7 +26,8 @@ export async function loadMasteryRows(childId: string) {
 
 /**
  * Tasks the hero got wrong in their last five finished runs of a kind that feeds review
- * (`RUN_EFFECTS`: deeds, builds and reviews), newest first, each graded by its own kind. Only first answers
+ * (`RUN_EFFECTS`: deeds, builds, reviews and world runs such as Puzzle practice), newest first,
+ * each graded by its own kind. Only first answers
  * are read: a task put right on the second try still needed help. A Crown Challenge's misses never
  * come back (`RUN_EFFECTS.challenge.feedsReview` is false). A task of a kind this build does not
  * know (saved by a newer deploy) is skipped, not graded; a row that will not parse is skipped whole.
@@ -126,7 +129,7 @@ export function resumedStart(
   const { questions, responses, attempts, statuses } = parseRun(run);
   const at = resumeIndex(statuses);
   const pending = statuses[at] === "open"
-    ? { index: at, ruledOut: attempts[at].first ?? "", hint: hintFor(questions[at].skillId) }
+    ? { index: at, ruledOut: attempts[at].first ?? "", hint: taskHint(questions[at]) }
     : null;
   const start: RunStart = { runId: run.id, deed: header, questions: questions.map(toClientTask), responses, kind: run.kind, pending };
   if (!site && !plan) return start;
@@ -134,48 +137,75 @@ export function resumedStart(
   return { ...start, ...(site ? { site: { ...site, placed } } : {}), ...(plan ? { plan: { ...plan, placed } } : {}) };
 }
 
-/** The grades that watch Aldo first (R-C9): the hero's grade in the deed's strand, K to 3. */
+/** The grades that watch a worked example first (R-C9, R-F10): the hero's grade in the run's strand, K to 3. */
 const DEMO_GRADES: readonly string[] = ["K", "1", "2", "3"];
+/** The runs that show one: a side quest's, a build run, and a world run (Puzzle practice); never a review or a Crown Challenge. */
+const DEMO_RUN_KINDS: readonly RunKind[] = ["deed", "build", "world"];
 
 /**
- * Whether the hero has answered a bench task in any run but `runId`: some task of kind measure with
- * a stored response, finished run or not. A run that merely held a bench task, left unanswered, is
- * not enough. Read in the database (SQLite's JSON functions), so it costs one row whatever the
- * history; a row whose JSON will not parse, or parses to an odd shape (questions not an array, an
- * element not an object), is passed over, never fatal.
+ * Which demos one answered task counts as seen: Aldo's two are one, so any bench task (as since
+ * R-C9); each of Pip's is its own puzzles (`LOCK_DEMO_PUZZLES`, RF-g), so a word sort answered
+ * never hides the shape grid's demo.
  */
-async function hasAnsweredBench(childId: string, runId: string): Promise<boolean> {
+const demoGroup = (key: DemoKey): string => (isLockDemo(key) ? key : "bench");
+
+/**
+ * Whether the hero has answered a task of demo `key`'s group (`demoGroup`) in any run but `runId`:
+ * for a bench key any bench task, for a lock key a lock of one of its puzzles, with a stored
+ * response, finished run or not. A run that merely held one, left unanswered, is not enough. Read
+ * in the database (SQLite's JSON functions, on the stored task's own `kind` and `puzzle`), so it
+ * costs one row whatever the history; a row whose JSON will not parse, or parses to an odd shape
+ * (questions not an array, an element not an object), is passed over, never fatal.
+ */
+export async function hasAnsweredDemo(childId: string, key: DemoKey, runId: string): Promise<boolean> {
   const { questions, responses } = schema.deedRun;
+  const kind: HandsOnKind = isLockDemo(key) ? "lock" : "measure";
+  const field = (path: string) => sql`CASE WHEN task.type = 'object' THEN json_extract(task.value, ${path}) ELSE NULL END`;
+  const ofPuzzle = isLockDemo(key)
+    ? sql` AND ${field("$.puzzle")} IN (${sql.join(LOCK_DEMO_PUZZLES[key].map((p) => sql`${p}`), sql`, `)})`
+    : sql``;
   // Valid JSON of the wrong shape throws in SQLite just as invalid JSON does (a string element is
   // "malformed JSON" to json_extract; an object's keys make a bad `$[key]` path), and SQLite does
   // not promise AND short-circuits, so every shape guard is a CASE, nested in the order it is needed.
   const answered = sql`CASE WHEN json_valid(${questions}) AND json_valid(${responses}) THEN
     CASE WHEN json_type(${questions}) = 'array' AND json_type(${responses}) = 'array' THEN EXISTS (
       SELECT 1 FROM json_each(${questions}) AS task
-      WHERE CASE WHEN task.type = 'object' THEN json_extract(task.value, '$.kind') ELSE NULL END = 'measure'
+      WHERE ${field("$.kind")} = ${kind}${ofPuzzle}
         AND json_extract(${responses}, '$[' || task.key || ']') IS NOT NULL
     ) ELSE 0 END
   ELSE 0 END = 1`;
   const rows = await db
     .select({ id: schema.deedRun.id })
     .from(schema.deedRun)
-    .where(and(eq(schema.deedRun.childId, childId), ne(schema.deedRun.id, runId), like(questions, '%"kind":"measure"%'), answered))
+    .where(and(eq(schema.deedRun.childId, childId), ne(schema.deedRun.id, runId), like(questions, `%"kind":"${kind}"%`), answered))
     .limit(1);
   return rows.length > 0;
 }
 
 /**
- * Where a side quest's run shows Aldo's worked example, if it does (R-C9): at the run's first bench
- * task, wherever it falls, for a hero whose grade in the strand is K to 3, while that task is still
- * unanswered and the hero has never answered a bench task in another run. A build run's bench tasks
- * count the same as a side quest's (R-D6). A review or a Crown Challenge never has one. The cheap
- * checks come first, so the history is only read for a run that could show it.
+ * Where a run shows a worked example, if it does (R-C9, R-F10): Aldo at the bench, or Pip at a lock
+ * (`demoKeyOf` says which tasks have one). For a hero whose grade in the strand is K to 3, it is the
+ * first task whose demo the hero has never seen in another run (`hasAnsweredDemo`, per demo: Aldo's
+ * once, each of Pip's once), wherever it falls. That is the run's one demo: once a task of that demo
+ * is answered in this run (a resumed run, past it), the run shows none, never a second. A side
+ * quest's run, a build run (R-D6) and a world run (Puzzle practice) show it; a review or a Crown
+ * Challenge never has one. The cheap checks come first, so the history is only read for a run that
+ * could show one.
  */
-export async function benchDemoAt(childId: string, grade: string, run: Pick<RunStart, "runId" | "kind" | "questions" | "responses">): Promise<number | null> {
-  if ((run.kind !== "deed" && run.kind !== "build") || !DEMO_GRADES.includes(grade)) return null;
-  const at = run.questions.findIndex((q) => q.kind === "measure");
-  if (at === -1 || (run.responses[at] ?? null) !== null) return null;
-  return (await hasAnsweredBench(childId, run.runId)) ? null : at;
+export async function demoAt(childId: string, grade: string, run: Pick<RunStart, "runId" | "kind" | "questions" | "responses">): Promise<number | null> {
+  if (!DEMO_RUN_KINDS.includes(run.kind) || !DEMO_GRADES.includes(grade)) return null;
+  const keys = run.questions.map(demoKeyOf);
+  const groups = keys.map((k) => (k === null ? null : demoGroup(k)));
+  const tried = new Set<string>();
+  for (const [at, key] of keys.entries()) {
+    const group = groups[at];
+    if (key === null || group === null || tried.has(group)) continue;
+    tried.add(group);
+    if (await hasAnsweredDemo(childId, key, run.runId)) continue;
+    const answeredHere = groups.some((g, j) => g === group && (run.responses[j] ?? null) !== null);
+    return answeredHere ? null : at;
+  }
+  return null;
 }
 
 /** Writes a fresh, unanswered run and hands the browser its first screen. */

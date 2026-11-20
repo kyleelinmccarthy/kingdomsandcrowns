@@ -4,11 +4,9 @@
  * "Watch Aldo": a young hero meets one worked example before their first bench task (R-C9),
  * wherever it falls in the run. One fixed example per mode, a small still drawing of it, and a
  * "Got it" button that takes the focus, so Enter or Space carries on. Nothing moves in calm play.
- * `useBenchDemo` is the players' side of it: it shows the demo once per run, when the run reaches
- * the task the server marked (`RunStart.demo`), for that task's mode.
+ * `useTaskDemo` (task-demo.tsx) is the players' side of it, for the bench and the lock alike.
  */
-import { useEffect, useId, useRef, useState } from "react";
-import type { RunStart } from "@/lib/utils/deed-run-types";
+import { useEffect, useId, useRef } from "react";
 import type { MeasureView } from "@/lib/tasks/types";
 import "./bench.css";
 
@@ -73,17 +71,4 @@ export function BenchDemo({ mode, onDone, calm, variant = "board" }: { mode: Dem
       </button>
     </section>
   );
-}
-
-/**
- * Whether the demo shows now, at task `index`, and for which mode: the marked task's, once the run
- * reaches it (`run.demo.at`), never before. It shows once: after `finish` it is gone for the rest
- * of the run, through next questions and second chances.
- */
-export function useBenchDemo(run: Pick<RunStart, "demo" | "questions">, index: number): { mode: DemoMode | null; finish(): void } {
-  const [done, setDone] = useState(false);
-  const at = run.demo?.at;
-  const task = at === undefined ? undefined : run.questions[at];
-  const mode = !done && index === at && task?.kind === "measure" ? task.view.mode : null;
-  return { mode, finish: () => setDone(true) };
 }

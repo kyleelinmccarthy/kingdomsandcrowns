@@ -27,6 +27,14 @@ describe("focusWindow", () => {
     expect(ids).not.toContain("add-100");
   });
 
+  it("offers logic at the hero's own grade and the one either side", () => {
+    const ids = focusWindow({ ...ALL3, logic: "3" }).filter((s) => s.area === "logic").map((s) => s.id);
+    expect(ids).toEqual(["logic-g23", "logic-g45"]); // grades 2 and 4, each one step from 3
+    const at4 = focusWindow({ ...ALL3, logic: "4" }).filter((s) => s.area === "logic").map((s) => s.id);
+    expect(at4).toEqual(["logic-g45"]);
+    expect(focusWindow(ALL3).some((s) => s.area === "logic")).toBe(false); // missing from grades: nothing
+  });
+
   it("offers nothing for a strand missing from the grades", () => {
     expect(focusWindow({ math: "3" }).every((s) => s.area === "math")).toBe(true);
     expect(focusWindow({})).toEqual([]);

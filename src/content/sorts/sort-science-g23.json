@@ -1,0 +1,95 @@
+{
+  "poolId": "sort-science-g23",
+  "skillId": "science-g23",
+  "grade": "2",
+  "sets": [
+    {
+      "id": "solid-liquid",
+      "categories": ["Solid","Liquid"],
+      "items": [
+        {"id":"sg23-solid-liquid-rock","label":"rock","category":0,"level":0},
+        {"id":"sg23-solid-liquid-ice-cube","label":"ice cube","category":0,"level":0},
+        {"id":"sg23-solid-liquid-spoon","label":"spoon","category":0,"level":1},
+        {"id":"sg23-solid-liquid-brick","label":"brick","category":0,"level":1},
+        {"id":"sg23-solid-liquid-coin","label":"coin","category":0,"level":2},
+        {"id":"sg23-solid-liquid-key","label":"key","category":0,"level":3},
+        {"id":"sg23-solid-liquid-chalk","label":"chalk","category":0,"level":3},
+        {"id":"sg23-solid-liquid-wooden-block","label":"wooden block","category":0,"level":4},
+        {"id":"sg23-solid-liquid-milk","label":"milk","category":1,"level":0},
+        {"id":"sg23-solid-liquid-juice","label":"juice","category":1,"level":0},
+        {"id":"sg23-solid-liquid-rainwater","label":"rainwater","category":1,"level":1},
+        {"id":"sg23-solid-liquid-oil","label":"oil","category":1,"level":1},
+        {"id":"sg23-solid-liquid-vinegar","label":"vinegar","category":1,"level":2},
+        {"id":"sg23-solid-liquid-lemonade","label":"lemonade","category":1,"level":3},
+        {"id":"sg23-solid-liquid-syrup","label":"syrup","category":1,"level":3},
+        {"id":"sg23-solid-liquid-salt-water","label":"salt water","category":1,"level":4}
+      ]
+    },
+    {
+      "id": "living",
+      "categories": ["Living","Not living"],
+      "items": [
+        {"id":"sg23-living-ant","label":"ant","category":0,"level":0},
+        {"id":"sg23-living-oak-tree","label":"oak tree","category":0,"level":0},
+        {"id":"sg23-living-goldfish","label":"goldfish","category":0,"level":1},
+        {"id":"sg23-living-tulip","label":"tulip","category":0,"level":1},
+        {"id":"sg23-living-spider","label":"spider","category":0,"level":2},
+        {"id":"sg23-living-earthworm","label":"earthworm","category":0,"level":3},
+        {"id":"sg23-living-mushroom","label":"mushroom","category":0,"level":3},
+        {"id":"sg23-living-seaweed","label":"seaweed","category":0,"level":4},
+        {"id":"sg23-living-bicycle","label":"bicycle","category":1,"level":0},
+        {"id":"sg23-living-rock","label":"rock","category":1,"level":0},
+        {"id":"sg23-living-cloud","label":"cloud","category":1,"level":1},
+        {"id":"sg23-living-sand","label":"sand","category":1,"level":1},
+        {"id":"sg23-living-river","label":"river","category":1,"level":2},
+        {"id":"sg23-living-wind","label":"wind","category":1,"level":3},
+        {"id":"sg23-living-rainbow","label":"rainbow","category":1,"level":3},
+        {"id":"sg23-living-volcano","label":"volcano","category":1,"level":4}
+      ]
+    },
+    {
+      "id": "magnetic",
+      "categories": ["Magnetic","Not magnetic"],
+      "items": [
+        {"id":"sg23-magnetic-iron-nail","label":"iron nail","category":0,"level":0},
+        {"id":"sg23-magnetic-paper-clip","label":"paper clip","category":0,"level":0},
+        {"id":"sg23-magnetic-steel-nail","label":"steel nail","category":0,"level":1},
+        {"id":"sg23-magnetic-iron-skillet","label":"iron skillet","category":0,"level":1},
+        {"id":"sg23-magnetic-iron-bolt","label":"iron bolt","category":0,"level":2},
+        {"id":"sg23-magnetic-iron-filings","label":"iron filings","category":0,"level":3},
+        {"id":"sg23-magnetic-iron-fence","label":"iron fence","category":0,"level":3},
+        {"id":"sg23-magnetic-steel-wrench","label":"steel wrench","category":0,"level":4},
+        {"id":"sg23-magnetic-wooden-spoon","label":"wooden spoon","category":1,"level":0},
+        {"id":"sg23-magnetic-plastic-cup","label":"plastic cup","category":1,"level":0},
+        {"id":"sg23-magnetic-paper","label":"paper","category":1,"level":1},
+        {"id":"sg23-magnetic-cotton-ball","label":"cotton ball","category":1,"level":1},
+        {"id":"sg23-magnetic-rubber-eraser","label":"rubber eraser","category":1,"level":2},
+        {"id":"sg23-magnetic-glass-marble","label":"glass marble","category":1,"level":3},
+        {"id":"sg23-magnetic-copper-wire","label":"copper wire","category":1,"level":3},
+        {"id":"sg23-magnetic-aluminum-foil","label":"aluminum foil","category":1,"level":4}
+      ]
+    },
+    {
+      "id": "plants-animals",
+      "categories": ["Plants","Animals"],
+      "items": [
+        {"id":"sg23-plants-animals-oak-tree","label":"oak tree","category":0,"level":0},
+        {"id":"sg23-plants-animals-daisy","label":"daisy","category":0,"level":0},
+        {"id":"sg23-plants-animals-cactus","label":"cactus","category":0,"level":1},
+        {"id":"sg23-plants-animals-pine-tree","label":"pine tree","category":0,"level":1},
+        {"id":"sg23-plants-animals-fern","label":"fern","category":0,"level":2},
+        {"id":"sg23-plants-animals-bamboo","label":"bamboo","category":0,"level":3},
+        {"id":"sg23-plants-animals-ivy","label":"ivy","category":0,"level":3},
+        {"id":"sg23-plants-animals-wheat","label":"wheat","category":0,"level":4},
+        {"id":"sg23-plants-animals-ant","label":"ant","category":1,"level":0},
+        {"id":"sg23-plants-animals-butterfly","label":"butterfly","category":1,"level":0},
+        {"id":"sg23-plants-animals-snail","label":"snail","category":1,"level":1},
+        {"id":"sg23-plants-animals-spider","label":"spider","category":1,"level":1},
+        {"id":"sg23-plants-animals-earthworm","label":"earthworm","category":1,"level":2},
+        {"id":"sg23-plants-animals-jellyfish","label":"jellyfish","category":1,"level":3},
+        {"id":"sg23-plants-animals-octopus","label":"octopus","category":1,"level":3},
+        {"id":"sg23-plants-animals-bat","label":"bat","category":1,"level":4}
+      ]
+    }
+  ]
+}

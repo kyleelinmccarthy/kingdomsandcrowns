@@ -1,4 +1,5 @@
 import { GRADES, NO_OFFSETS, type SubjectOffsets } from "./grade-levels";
+import type { SkillArea } from "./skills";
 
 export type InputMode = "auto" | "touch" | "keyboard";
 const INPUT_MODES: InputMode[] = ["auto", "touch", "keyboard"];
@@ -149,8 +150,8 @@ export function validateProfilePatch(patch: unknown): Partial<LearningProfile> {
   return out;
 }
 
-/** The four strands a grade gap can be set on. */
-export type SubjectArea = keyof SubjectOffsets;
+/** The four strands a grade gap can be set on: every area but logic, which is taught at the hero's own grade. */
+export type SubjectArea = Exclude<SkillArea, "logic">;
 export const SUBJECT_AREAS: SubjectArea[] = ["math", "reading", "language", "science"];
 
 export type SubjectOffsetColumn = "mathOffset" | "readingOffset" | "languageOffset" | "scienceOffset";

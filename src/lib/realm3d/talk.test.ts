@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { objectiveState } from "@/lib/realm/objective";
 import { villagerById } from "@/lib/realm/villagers";
 import type { ClientTask } from "@/lib/tasks/types";
-import { attemptFeedback, deedToast, resultBuildingLine, resultHeadline, resultMinutesLine, resultStarsLine, starsLabel, starsLeftLine, talkCopy, type SiteState } from "./talk";
+import { attemptFeedback, deedToast, finishLabel, resultBuildingLine, resultHeadline, resultMinutesLine, resultStarsLine, starsLabel, starsLeftLine, talkCopy, type SiteState } from "./talk";
 
 const bram = villagerById("bram")!;
 const well: SiteState = { id: "well", label: "Village Well", done: 0, total: 5, complete: false, stars: 0, maxStars: 9 };
@@ -187,6 +187,26 @@ describe("a review's result", () => {
   });
 });
 
+describe("a world run's result (Puzzle practice)", () => {
+  const world = { correctCount: 2, total: 3, flawless: false, kind: "world" as const, stars: 0 as const, previousBest: 0 as const, counted: false };
+  it("is puzzles solved, with how many were right, flawless or not, and never a side quest", () => {
+    expect(resultHeadline(world, "Puzzle practice")).toEqual({ title: "Puzzles solved!", line: "2 of 3 right." });
+    const perfect = resultHeadline({ ...world, correctCount: 3, flawless: true }, "Puzzle practice");
+    expect(perfect.title).toBe("Puzzles solved!");
+    expect(`${perfect.title} ${perfect.line}`).not.toMatch(/flawless|side quest/i);
+  });
+  it("has no stars line: no best to beat, and no villager to try again with", () => {
+    expect(resultStarsLine(world, "Old Bram")).toBe("");
+  });
+  it("finishes with its own button", () => {
+    expect(finishLabel("world")).toBe("Finish puzzles");
+    expect(finishLabel("deed")).toBe("Finish side quest");
+    expect(finishLabel("challenge")).toBe("Finish side quest");
+    expect(finishLabel("review")).toBe("Finish review");
+    expect(finishLabel("build")).toBe("Finish building");
+  });
+});
+
 describe("a build run's result", () => {
   const done = { correctCount: 2, total: 3, flawless: false, kind: "build" as const };
   const outcome = (level: number, extra: { built?: boolean; reason?: "short" | "error" } = {}) => ({ id: "village-banners" as const, label: "Banners", level, built: true, ...extra });
@@ -352,6 +372,48 @@ describe("what a villager says after a bench answer", () => {
     const text = attemptFeedback({ correct: false, secondChance: false, answer: "7 blocks", explain: "Take 5 from 12 and 7 is left: 12 − 5 = 7." }, true, "Old Bram", cutTask).text;
     expect(text).toBe("The answer was 7 blocks. Take 5 from 12 and 7 is left: 12 − 5 = 7.");
     expect(text.split("12 − 5 = 7")).toHaveLength(2);
+  });
+});
+
+describe("what a villager says after a lock answer (R-F2, R-F3)", () => {
+  const lockTask: ClientTask = {
+    kind: "lock", id: "l", skillId: "logic-k1", prompt: "p",
+    view: { puzzle: "balance", weights: [1, 2, 3], target: 3 },
+  };
+
+  it("on a second chance, says a rule is broken or spaces are left, before the hint", () => {
+    expect(attemptFeedback({ correct: false, secondChance: true, hint: "Try the small ones.", feedback: "rule_broken" }, false, undefined, lockTask))
+      .toEqual({ heading: "Try again", text: "Something doesn't fit yet. Look at the marked rule. Try the small ones." });
+    expect(attemptFeedback({ correct: false, secondChance: true, feedback: "incomplete" }, false, undefined, lockTask).text).toBe("There are empty spaces left.");
+    expect(attemptFeedback({ correct: false, secondChance: true, hint: "Count on." }, false, undefined, lockTask).text).toBe("Not quite. Count on.");
+  });
+
+  it("on a sort's second chance, nothing is marked, so it never points at a marked rule (RF-c)", () => {
+    for (const view of [
+      { puzzle: "sort1" as const, items: [{ shape: "circle" as const, color: "red" as const }], bins: ["Red", "Blue"] },
+      { puzzle: "sort" as const, categories: ["Alive", "Not alive"], items: [{ id: "a", label: "rock" }] },
+    ]) {
+      const sort: ClientTask = { kind: "lock", id: "s", skillId: "logic-k1", prompt: "p", view };
+      expect(attemptFeedback({ correct: false, secondChance: true, hint: "Look at the colours.", feedback: "rule_broken" }, false, undefined, sort))
+        .toEqual({ heading: "Try again", text: "Some of these are in the wrong place. Look again. Look at the colours." });
+    }
+  });
+
+  it("a miss's line is a sentence of its own, never \"The answer was …\"", () => {
+    const answer = "Here is one way it fits.";
+    expect(attemptFeedback({ correct: false, secondChance: false, answer, reveal: "balance:1,1,0" }, true, undefined, lockTask).text).toBe(answer);
+    expect(attemptFeedback({ correct: false, secondChance: false, answer, hint: "Count on." }, true, "Old Bram", lockTask).text).toBe(`${answer} Count on.`);
+  });
+
+  it("a right answer is cheered as any other", () => {
+    expect(attemptFeedback({ correct: true, secondChance: false, answer: "Here is one way it fits." }, false, undefined, lockTask).text).toBe("That's it!");
+    expect(attemptFeedback({ correct: true, secondChance: false, answer: "Here is one way it fits." }, true, undefined, lockTask).text).toBe("You got there!");
+  });
+
+  it("the bench's lines never answer a lock, and a lock's never answer the bench", () => {
+    const cut: ClientTask = { kind: "measure", id: "m", skillId: "s", prompt: "p", view: { mode: "cut", unit: "feet" } };
+    expect(attemptFeedback({ correct: false, secondChance: true, feedback: "too_long" }, false, undefined, cut).text).toBe("A little long. Trim it.");
+    expect(attemptFeedback({ correct: false, secondChance: true, feedback: "rule_broken" }, false, undefined, lockTask).text).not.toMatch(/long|short|over|under/);
   });
 });
 

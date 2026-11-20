@@ -30,19 +30,18 @@ import type { RunStart, RunSummary } from "@/lib/utils/deed-run-types";
 import { realmCue } from "@/lib/realm3d/sound/store";
 import type { BuildingOverview } from "@/lib/services/deeds";
 import type { Villager } from "@/lib/realm/villagers";
-import { BUILD_FINISH, attemptFeedback, resultBuildingLine, resultHeadline, resultMinutesLine, resultStarsLine, talkCopy, type Viewer } from "@/lib/realm3d/talk";
+import { attemptFeedback, finishLabel, resultBuildingLine, resultHeadline, resultMinutesLine, resultStarsLine, talkCopy, type Viewer } from "@/lib/realm3d/talk";
 import { MAX_STARS, countsTowardBuilding, type Stars } from "@/lib/utils/deed-scoring";
 import { deedErrorLine } from "@/lib/utils/deed-refusals";
 import { DeedMeter } from "@/components/deed-meter";
 import { TaskPresenter } from "@/components/tasks/presenters";
-import { BenchDemo, demoCopy, useBenchDemo } from "@/components/tasks/bench-demo";
+import { TaskDemo, taskDemoCopy, useTaskDemo } from "@/components/tasks/task-demo";
 import { StarRow } from "@/components/star-row";
 import { useDeedFlow } from "@/components/use-deed-flow";
 import { ALL_ANSWERED } from "@/lib/utils/deed-run-flow";
 import { AREA_LABELS, type SkillArea } from "@/lib/utils/skills";
 import { canSpeak, speak, stopSpeaking, type SpeechToken } from "@/lib/utils/speech";
 import { SIDE_QUEST_LOWER, SIDE_QUESTS_LOWER } from "@/lib/utils/side-quest-copy";
-import { REVIEW_FINISH } from "@/lib/utils/review-copy";
 import { Panel, Progress } from "./frame-hud";
 
 type Profile = { readAloud: boolean; untimed: boolean };
@@ -269,24 +268,24 @@ export function DeedRun({
   const [startedAt] = useState(() => Date.now());
   const [now, setNow] = useState(() => Date.now());
   const question = run.questions[index];
-  const demo = useBenchDemo(run, index);
+  const demo = useTaskDemo(run, index);
   const isLast = index === run.questions.length - 1;
-  const what = run.kind === "review" ? "review" : run.kind === "build" ? "build" : SIDE_QUEST_LOWER;
-  const finishLabel = run.kind === "review" ? REVIEW_FINISH : run.kind === "build" ? BUILD_FINISH : `Finish ${SIDE_QUEST_LOWER}`;
+  const what = run.kind === "review" ? "review" : run.kind === "build" ? "build" : run.kind === "world" ? "puzzles" : SIDE_QUEST_LOWER;
+  const finish = finishLabel(run.kind);
   const nextRef = useRef<HTMLButtonElement>(null);
   const feedback = flow.result ? attemptFeedback(flow.result, flow.ruledOut.length > 0, villagerName, question) : null;
 
   // Read-aloud, as `DeedPlayer` does it: the profile asks, the effect obeys, and leaving stops it —
   // but only this run's own line. The click that closes the board also says the building is
-  // rising, and that must be heard. Aldo's worked example is read first, when there is one.
+  // rising, and that must be heard. A worked example (Aldo's or Pip's) is read first, when there is one.
   const spoken = useRef<SpeechToken | null>(null);
   const say = (text: string) => {
     spoken.current = speak(text);
   };
   useEffect(() => {
-    if (profile.readAloud && question) spoken.current = speak(demo.mode ? demoCopy(demo.mode) : (question.readAloud ?? question.prompt));
+    if (profile.readAloud && question) spoken.current = speak(demo.demo ? taskDemoCopy(demo.demo) : (question.readAloud ?? question.prompt));
     return () => stopSpeaking(spoken.current);
-  }, [profile.readAloud, question, demo.mode]);
+  }, [profile.readAloud, question, demo.demo]);
 
   // The hint is read once, when the second chance opens.
   const hint = phase === "second-chance" ? flow.result?.hint : undefined;
@@ -386,7 +385,7 @@ export function DeedRun({
           </button>
         </p>
       )}
-      {demo.mode ? <BenchDemo mode={demo.mode} calm={calm} onDone={demo.finish} /> : (<>
+      {demo.demo ? <TaskDemo demo={demo.demo} calm={calm} onDone={demo.finish} /> : (<>
       <div className="r3-question">
         <p className="r3-question-text">{question.prompt}</p>
         {canSpeak() && (
@@ -395,7 +394,7 @@ export function DeedRun({
           </button>
         )}
       </div>
-      <TaskPresenter task={question} flow={flow} variant="board" numerals={numerals} calm={calm} disabled={busy} nudge={nudge} site={site} onRespond={(encoded) => void choose(encoded)} />
+      <TaskPresenter task={question} flow={flow} variant="board" numerals={numerals} calm={calm} readAloud={profile.readAloud} disabled={busy} nudge={nudge} site={site} onRespond={(encoded) => void choose(encoded)} />
       </>)}
       {/* A resolved question with no result is a run picked back up with every answer in: its finish step. */}
       {(feedback || phase === "resolved") && (
@@ -416,11 +415,11 @@ export function DeedRun({
               ref={nextRef}
               type="button"
               className="r3-menu-item r3-menu-item--go"
-              aria-label={isLast ? finishLabel : "Next question"}
+              aria-label={isLast ? finish : "Next question"}
               disabled={busy}
               onClick={() => void advance()}
             >
-              {isLast ? finishLabel : "Next"}
+              {isLast ? finish : "Next"}
             </button>
           )}
         </div>

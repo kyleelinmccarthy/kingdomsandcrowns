@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { applyProfile, buildDeedRun, chooseSkills, drawForSkill, gradeAnswer, runCandidates, selectSkills, type BuildRunInput, type PoolItem } from "./deed-engine";
-import { findDeed } from "./deeds";
+import { DEEDS, SIDE_QUEST_QUESTIONS, findDeed } from "./deeds";
 import { REVIEW } from "./review-schedule";
 import { CHALLENGE } from "./deed-scoring";
 import { GENERATORS, seededRng } from "./drill-generators";
@@ -9,11 +9,12 @@ import { FOCUS_WEIGHT } from "./focus";
 import { GRADES } from "./grade-levels";
 import { skillsFor } from "./skills";
 import type { Question } from "./drill-generators";
-import type { ChoiceTask, MeasureTask, Task, TaskKind } from "@/lib/tasks/types";
+import type { ChoiceTask, LockTask, MeasureTask, Task, TaskKind } from "@/lib/tasks/types";
 import { BENCH } from "@/lib/tasks/bench";
 import { TASK_KINDS, kindOf } from "@/lib/tasks/registry";
 import { __setDrawerForTest, type TaskDrawer } from "@/lib/tasks/draw";
 import { choiceKind } from "@/lib/tasks/choice";
+import { __setSortPoolsForTest, sortTaskFromId } from "@/lib/tasks/locks/sort";
 
 const deedMath = findDeed("well-stones")!;      // math
 const deedReading = findDeed("well-signs")!;    // reading
@@ -78,7 +79,9 @@ describe("chooseSkills", () => {
     // strand. Asked through `chooseSkills` itself rather than through a second copy of the
     // walk: what is being inventoried is what a hero is actually handed.
     const byArea = [[deedMath, "math"], [deedReading, "reading"], [deedLanguage, "language"], [deedScience, "science"]] as const;
-    expect(byArea.map(([, area]) => area).sort()).toEqual([...new Set(SKILLS.map((s) => s.area))].sort());
+    // `logic` is exempt by name: the owner decided it is practised on locks and Puzzle practice,
+    // not side quests, so it has no deed (and `chooseSkills` is asked for it in the logic tests).
+    expect(byArea.map(([, area]) => area).sort()).toEqual([...new Set(SKILLS.map((s) => s.area))].filter((a) => a !== "logic").sort());
 
     const climbing: string[] = [];
     for (const [deed, area] of byArea) {
@@ -863,6 +866,13 @@ describe("a focus skill a grade off the hero's own", () => {
       .toEqual([...chooseSkills(deedMath, "3").map((s) => s.id), "add-100"]);
   });
 
+  it("leaves a science deed's candidates unchanged for a logic focus id", () => {
+    for (const g of GRADES) {
+      expect(runCandidates(deedScience, g, ["logic-g23", "logic-g45"]).map((s) => s.id))
+        .toEqual(chooseSkills(deedScience, g).map((s) => s.id));
+    }
+  });
+
   it("is a candidate for a deed in its own strand: a grade-2 math focus comes up for a grade-3 hero", () => {
     expect(chooseSkills(deedMath, "3").map((s) => s.id)).not.toContain("add-100");
     expect(servedSkills({ deed: deedMath, grade: "3", poolItems: [], focusSkillIds: ["add-100"] })).toContain("add-100");
@@ -1103,5 +1113,207 @@ describe("a measure miss comes back only where the bench plays its skill (R-C6)"
     const built = run(new Set<TaskKind>(["measure"]));
     expect(built.questions.map((q) => q.id)).not.toContain("miss-m");
     expect(choices(built.questions)).toHaveLength(8);
+  });
+});
+
+describe("a logic skill is never drawn as choice", () => {
+  const logic = skillsFor("logic", "2")[0];
+
+  it("draws nothing as choice, and does not throw", () => {
+    expect(logic.id).toBe("logic-g23");
+    expect(() => drawForSkill(logic, 2, 5, seededRng(7), [], new Set(), new Set())).not.toThrow();
+    expect(drawForSkill(logic, 2, 5, seededRng(7), [], new Set(), new Set(), "choice")).toEqual([]);
+  });
+
+  it("is never picked by selectSkills, whatever else is on offer", () => {
+    expect(selectSkills([logic], {}, seededRng(1))).toEqual([]);
+    const mixed = [...skillsFor("math", "3"), logic];
+    for (let seed = 1; seed <= 50; seed++) {
+      expect(selectSkills(mixed, {}, seededRng(seed), {}, new Set([logic.id])).map((s) => s.id)).not.toContain(logic.id);
+    }
+  });
+});
+
+describe("science side quests sort on a lock's face (R-F11)", () => {
+  afterEach(() => __setSortPoolsForTest(null));
+  const LOCKS_ON: ReadonlySet<TaskKind> = new Set<TaskKind>(["measure", "lock"]);
+  const SCIENCE_DEEDS = ["well-water", "mill-wheel", "chapel-stars", "watchtower-signals", "garden-bees"];
+  /** The science pool skill a grade's science side quest asks, with 30 choice items of its own (for the choice path). */
+  const scienceAt = (grade: (typeof GRADES)[number]) => {
+    const [skill] = chooseSkills(deedScience, grade);
+    return { skill, items: poolItems(skill.id, 30) };
+  };
+
+  it("names the five science side quests as locks, and only them", () => {
+    expect(DEEDS.filter((d) => d.mechanic === "lock").map((d) => d.id).sort()).toEqual([...SCIENCE_DEEDS].sort());
+    for (const d of DEEDS.filter((x) => x.area === "science")) expect(d.mechanic, d.id).toBe("lock");
+  });
+
+  it("plays every grade's science side quest as sorts from that grade's pool, the solution kept off the view", () => {
+    for (const grade of GRADES) {
+      const { skill, items } = scienceAt(grade);
+      for (const deedId of SCIENCE_DEEDS) {
+        const run = buildDeedRun(input({ deed: findDeed(deedId)!, grade, poolItems: items, seed: 11, enabledKinds: LOCKS_ON }));
+        expect(run.questions.length, `${deedId} at ${grade}`).toBe(deedScience.questionCount);
+        for (const t of run.questions) {
+          expect(t.skillId).toBe(skill.id);
+          expect(kindOf(t)).toBe("lock");
+          expect((t as LockTask).puzzle).toBe("sort");
+          expect(JSON.stringify(TASK_KINDS.lock.toView(t as LockTask))).not.toMatch(/solution|fits/);
+        }
+      }
+    }
+  });
+
+  it("with locks off (or at the gate) is the multiple-choice side quest it always was, at every grade", () => {
+    for (const grade of GRADES) {
+      const { skill, items } = scienceAt(grade);
+      const run = buildDeedRun(input({ deed: deedScience, grade, poolItems: items, seed: 11, enabledKinds: new Set<TaskKind>(["measure"]) }));
+      // The whole length a multiple-choice side quest always had (RF-j shortens only the sorts).
+      expect(run.questions.length).toBe(SIDE_QUEST_QUESTIONS);
+      for (const t of choices(run.questions)) expect(t.skillId).toBe(skill.id);
+    }
+  });
+
+  it("a science skill no sort pool credits falls back to choice at the whole length: half is for sorts only (RF-j)", () => {
+    __setSortPoolsForTest([]);
+    const { items } = scienceAt("2");
+    const run = buildDeedRun(input({ deed: deedScience, grade: "2", poolItems: items, seed: 11, enabledKinds: LOCKS_ON }));
+    expect(run.questions.length).toBe(SIDE_QUEST_QUESTIONS);
+    choices(run.questions);
+    const longer = buildDeedRun(input({ deed: deedScience, grade: "2", poolItems: items, seed: 11, enabledKinds: LOCKS_ON, sideQuestLength: 12 }));
+    expect(longer.questions.length).toBe(12);
+  });
+
+  it("a science run that draws sorts is half the grown-up's length, rounded (RF-j)", () => {
+    const { items } = scienceAt("2");
+    for (const [length, sorts] of [[8, 4], [12, 6], [5, 3]] as const) {
+      const run = buildDeedRun(input({ deed: deedScience, grade: "2", poolItems: items, seed: 11, enabledKinds: LOCKS_ON, sideQuestLength: length }));
+      expect(run.questions.length, `${length}`).toBe(sorts);
+      for (const t of run.questions) expect(kindOf(t)).toBe("lock");
+    }
+  });
+
+  // Recorded AFTER the science deeds named `lock`, and re-recorded for RF-j (four sorts, each from its
+  // own set), with the default `enabledKinds`, every kind on: the same seeds ask the same sorts in the same order. The ids name sort-pool sets and items, so an edit to
+  // `sort-science-g23.json` that adds or renames items re-records this; the twin below never moves.
+  const SCIENCE_LOCK: Record<string, string[]> = {
+    "well-water@1": [
+      "science-g23:sort:sort-science-g23:solid-liquid:fa4635be,73cc7d76,a40bf1f0,fcb6a3ab,be6c25fa,80034cfe",
+      "science-g23:sort:sort-science-g23:living:f372e4e9,d9644242,4b58189c,379e5fc0,5f1320b6,0eb5a579",
+      "science-g23:sort:sort-science-g23:plants-animals:d712267a,6c899331,0e5f43b8,fd007e8a,09c59ea2,47292f7e",
+      "science-g23:sort:sort-science-g23:magnetic:3a198686,b9ffe423,00e27cd7,b1d89406,fcf3772e,dfefd155",
+    ],
+    "well-water@42": [
+      "science-g23:sort:sort-science-g23:solid-liquid:a40bf1f0,73cc7d76,be6c25fa,80034cfe,44c34c87,48b01616",
+      "science-g23:sort:sort-science-g23:magnetic:b1d89406,dfefd155,1cad23d2,fcf3772e,00e27cd7,b5d709a0",
+      "science-g23:sort:sort-science-g23:plants-animals:4b670274,d712267a,0e5f43b8,25b9afd5,3bef5f1c,a7a4a268",
+      "science-g23:sort:sort-science-g23:living:77698475,5f1320b6,14952583,59d6749e,e791167b,f372e4e9",
+    ],
+    "well-water@20261110": [
+      "science-g23:sort:sort-science-g23:magnetic:00e27cd7,b1d89406,b9ffe423,1cad23d2,dfefd155,fcf3772e",
+      "science-g23:sort:sort-science-g23:plants-animals:0e5f43b8,3bef5f1c,25b9afd5,a7a4a268,4b670274,47292f7e",
+      "science-g23:sort:sort-science-g23:solid-liquid:fcb6a3ab,73cc7d76,80034cfe,a40bf1f0,48b01616,44c34c87",
+      "science-g23:sort:sort-science-g23:living:77698475,e791167b,5f1320b6,f372e4e9,59d6749e,14952583",
+    ],
+  };
+
+  // Recorded BEFORE the science deeds named `lock` (the default `enabledKinds`, every kind on): with
+  // locks off the same seeds ask the same pool items in the same order (the choice-pinned twin).
+  const SCIENCE_CHOICE: Record<string, string[]> = {
+    "well-water@1": ["science-g23-item-14", "science-g23-item-24", "science-g23-item-8", "science-g23-item-10", "science-g23-item-16", "science-g23-item-6", "science-g23-item-11", "science-g23-item-12"],
+    "well-water@42": ["science-g23-item-26", "science-g23-item-25", "science-g23-item-1", "science-g23-item-16", "science-g23-item-28", "science-g23-item-7", "science-g23-item-2", "science-g23-item-27"],
+    "well-water@20261110": ["science-g23-item-18", "science-g23-item-10", "science-g23-item-14", "science-g23-item-19", "science-g23-item-5", "science-g23-item-28", "science-g23-item-16", "science-g23-item-23"],
+  };
+  const scienceIds = (seed: number, over: Partial<BuildRunInput> = {}) =>
+    buildDeedRun(input({ deed: deedScience, grade: "2", seed, poolItems: poolItems("science-g23", 30), ...over })).questions.map((q) => q.id);
+
+  it.each(Object.entries(SCIENCE_LOCK))("%s asks the same sorts in the same order", (key, expected) => {
+    expect(scienceIds(Number(key.split("@")[1]))).toEqual(expected);
+  });
+
+  it.each(Object.entries(SCIENCE_CHOICE))("%s with hands-on kinds off asks the old questions in the old order", (key, expected) => {
+    expect(scienceIds(Number(key.split("@")[1]), { enabledKinds: CHOICE_ONLY })).toEqual(expected);
+  });
+});
+
+describe("a science side quest's sorts each come from their own set (RF-j)", () => {
+  /** "pool:set" of a sort lock's id (`<skill>:sort:<pool>:<set>:<items>`). */
+  const setOf = (t: Task) => t.id.split(":").slice(2, 4).join(":");
+  /** How many sets each science skill's pool holds, from the shipped pools. */
+  const setsIn = (skillId: string) => new Set(Array.from({ length: 400 }, (_, seed) =>
+    drawForSkill(SKILLS.find((s) => s.id === skillId)!, 2, 1, seededRng(seed), [], new Set(), new Set(), "lock").map(setOf)).flat()).size;
+  const run = (grade: (typeof GRADES)[number], seed: number) =>
+    buildDeedRun(input({ deed: deedScience, grade, seed, poolItems: [] })).questions;
+
+  it("a grade-2 run's four sorts use four different sets, its pool having four", () => {
+    expect(setsIn("science-g23")).toBe(4);
+    for (const seed of [1, 42, 20261110]) {
+      const tasks = run("2", seed);
+      expect(tasks).toHaveLength(4);
+      expect(new Set(tasks.map(setOf)).size).toBe(4);
+    }
+  });
+
+  it("across 50 seeds and every band, no run repeats a set while its pool still has one unused", () => {
+    for (const grade of ["K", "2", "4", "6", "9"] as const) {
+      const [skill] = chooseSkills(deedScience, grade);
+      const pool = setsIn(skill.id);
+      for (let seed = 1; seed <= 50; seed++) {
+        const sets = run(grade, seed).map(setOf);
+        const distinct = new Set(sets).size;
+        expect(distinct, `${grade} seed ${seed}: ${sets.join(" ")}`).toBe(Math.min(sets.length, pool));
+      }
+    }
+  });
+
+  it("is the same run for the same seed", () => {
+    for (const seed of [3, 4, 5]) expect(run("2", seed).map((t) => t.id)).toEqual(run("2", seed).map((t) => t.id));
+  });
+
+  it("keeps the rule that one id is one puzzle: every drawn sort rebuilds from its id alone", () => {
+    for (const t of run("6", 7)) expect(sortTaskFromId(t.id)).toEqual(t);
+  });
+});
+
+describe("a grown-up's vocabulary focus is sorted on a lock's face (R-F11)", () => {
+  const LOCKS_ON: ReadonlySet<TaskKind> = new Set<TaskKind>(["measure", "lock"]);
+  const items = [...poolItems("spell-g45", 30), ...poolItems("vocab-g45", 30)];
+  /** Every task a grade-5 language side quest asked of `skillId` across seeds, with the given focus and switches. */
+  function tasksOf(skillId: string, focusSkillIds: string[], enabledKinds: ReadonlySet<TaskKind>): Task[] {
+    const out: Task[] = [];
+    for (let seed = 1; seed <= 40; seed++) {
+      const run = buildDeedRun(input({ deed: deedLanguage, grade: "5", poolItems: items, seed, focusSkillIds, enabledKinds }));
+      out.push(...run.questions.filter((q) => q.skillId === skillId));
+    }
+    return out;
+  }
+
+  it("asks a focused vocabulary skill as word sorts in a language side quest", () => {
+    const tasks = tasksOf("vocab-g45", ["vocab-g45"], LOCKS_ON);
+    expect(tasks.length).toBeGreaterThan(0);
+    for (const t of tasks) {
+      expect(kindOf(t)).toBe("lock");
+      expect((t as LockTask).puzzle).toBe("sort");
+    }
+  });
+
+  it("leaves vocabulary as multiple choice when it is not a focus, or when locks are off", () => {
+    const plain = tasksOf("vocab-g45", [], LOCKS_ON);
+    expect(plain.length).toBeGreaterThan(0);
+    choices(plain);
+    const off = tasksOf("vocab-g45", ["vocab-g45"], new Set<TaskKind>(["measure"]));
+    expect(off.length).toBeGreaterThan(0);
+    choices(off);
+  });
+
+  it("leaves a focus no lock presents as it was: spelling stays choice, and a benched math focus stays on the bench", () => {
+    const spelling = tasksOf("spell-g45", ["spell-g45"], LOCKS_ON);
+    expect(spelling.length).toBeGreaterThan(0);
+    choices(spelling);
+    const math = buildDeedRun(input({ deed: deedMath, grade: "3", poolItems: [], seed: 20261110, focusSkillIds: ["area-perimeter"], enabledKinds: LOCKS_ON }));
+    const benched = math.questions.filter((q) => q.skillId === "area-perimeter");
+    expect(benched.length).toBeGreaterThan(0);
+    for (const t of benched) expect(kindOf(t)).toBe("measure");
   });
 });

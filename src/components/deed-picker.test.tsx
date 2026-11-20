@@ -2,7 +2,9 @@ import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { render, screen, cleanup, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DeedPicker } from "./deed-picker";
-import { CLOSED } from "@/lib/utils/deed-refusals";
+import { CLOSED, PRACTICE_OFF } from "@/lib/utils/deed-refusals";
+import { toClientTask } from "@/lib/tasks/registry";
+import { PATTERN } from "@/test/lock-stubs";
 import type { DeedsOverview } from "@/lib/actions/deeds";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
@@ -14,6 +16,8 @@ vi.mock("@/lib/actions/deeds", () => ({
 }));
 const startReviewRun = vi.fn();
 vi.mock("@/lib/actions/review", () => ({ startReviewRun: (...a: unknown[]) => startReviewRun(...a) }));
+const startPracticeRun = vi.fn();
+vi.mock("@/lib/actions/practice", () => ({ startPracticeRun: (...a: unknown[]) => startPracticeRun(...a) }));
 
 const overview: DeedsOverview = {
   enabled: true, band: "g23", bandLabel: "Grades 2–3", tone: "gentle",
@@ -28,6 +32,7 @@ const overview: DeedsOverview = {
     },
   ],
   mastery: [],
+  puzzlePractice: false,
 };
 const profile = { fewerChoices: false, predictableRoutine: false, untimed: true, readAloud: false };
 
@@ -114,6 +119,38 @@ describe("DeedPicker", () => {
       expect(screen.getByRole("button", { name: "Quick review" })).toBeDisabled();
       release();
       expect(await screen.findByRole("status")).toBeInTheDocument();
+    });
+  });
+  describe("Puzzle practice", () => {
+    const practice = { ...overview, puzzlePractice: true };
+
+    it("is offered only when the overview says the hero may practise (locks on, the hero playing)", () => {
+      const { unmount } = render(<DeedPicker childId="c1" overview={overview} profile={profile} calm={false} />);
+      expect(screen.queryByRole("button", { name: "Puzzle practice" })).not.toBeInTheDocument();
+      unmount();
+      render(<DeedPicker childId="c1" overview={practice} profile={profile} calm={false} />);
+      expect(screen.getByRole("button", { name: "Puzzle practice" })).toBeInTheDocument();
+    });
+
+    it("starts three logic locks and plays them in the page player", async () => {
+      const user = userEvent.setup();
+      startPracticeRun.mockResolvedValue({
+        runId: "pr1", deed: { id: "practice", title: "Puzzle practice", story: "Three puzzles.", area: "logic" },
+        questions: [toClientTask(PATTERN)], responses: [null], kind: "world", pending: null,
+      });
+      render(<DeedPicker childId="c1" overview={practice} profile={profile} calm={false} />);
+      await user.click(screen.getByRole("button", { name: "Puzzle practice" }));
+      expect(startPracticeRun).toHaveBeenCalledWith("c1");
+      expect(await screen.findByText(PATTERN.prompt)).toBeInTheDocument();
+    });
+
+    it("shows a refusal in the error banner", async () => {
+      const user = userEvent.setup();
+      startPracticeRun.mockRejectedValueOnce(new Error(PRACTICE_OFF));
+      render(<DeedPicker childId="c1" overview={practice} profile={profile} calm={false} />);
+      await user.click(screen.getByRole("button", { name: "Puzzle practice" }));
+      expect(await screen.findByText(PRACTICE_OFF)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Puzzle practice" })).toBeEnabled();
     });
   });
 });

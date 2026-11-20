@@ -1,9 +1,17 @@
 import type { Grade } from "./grade-levels";
 import type { SpellSchool } from "./spell-schools";
 
-export type SkillArea = "math" | "reading" | "language" | "science";
+export type SkillArea = "math" | "reading" | "language" | "science" | "logic";
 
-export type SkillSource = { kind: "generator"; generatorId: string } | { kind: "pool"; poolId: string };
+/**
+ * How a skill's tasks are made. A `lock` skill is practised only on lock puzzles, whose
+ * generators are keyed by the skill id (`LOCKS` in `src/lib/tasks/locks/`): it has no choice
+ * questions, so it is never drawn as `choice` and a choice draw of it is empty.
+ */
+export type SkillSource =
+  | { kind: "generator"; generatorId: string }
+  | { kind: "pool"; poolId: string }
+  | { kind: "lock" };
 
 /**
  * `grades` is readonly. Nothing shares an array any more — every row names its own single
@@ -13,12 +21,17 @@ export type SkillSource = { kind: "generator"; generatorId: string } | { kind: "
  */
 export type Skill = { id: string; label: string; area: SkillArea; grades: readonly Grade[]; source: SkillSource };
 
-/** Same mapping the subject defaults use, so deeds and schoolwork pull one way. */
-export const AREA_SCHOOL: Record<SkillArea, SpellSchool> = {
+/**
+ * Same mapping the subject defaults use, so deeds and schoolwork pull one way. `none` is for an
+ * area that feeds no spell school: logic is practised on locks, not side quests, so it makes
+ * no magic. Whatever reads this must skip `none` rather than index a count by it.
+ */
+export const AREA_SCHOOL: Record<SkillArea, SpellSchool | "none"> = {
   reading: "element",
   language: "element",
   math: "form",
   science: "modifier",
+  logic: "none",
 };
 
 /** What a child sees on a side quest: the subject's name and chip colour. */
@@ -27,18 +40,20 @@ export const AREA_LABELS: Record<SkillArea, { label: string; color: string }> = 
   reading: { label: "Reading", color: "#22c55e" },
   language: { label: "Language Arts", color: "#a855f7" },
   science: { label: "Science", color: "#f97316" },
+  logic: { label: "Logic", color: "#0ea5e9" },
 };
 
 const SCHOOL_ORDER: SpellSchool[] = ["form", "element", "modifier"];
 
 /** Which subjects feed each spell school, for the "How side quests make magic" lines. */
 export function schoolLines(): { school: SpellSchool; areas: SkillArea[] }[] {
-  const areas = Object.keys(AREA_SCHOOL) as SkillArea[];
+  const areas = (Object.keys(AREA_SCHOOL) as SkillArea[]).filter((a) => AREA_SCHOOL[a] !== "none");
   return SCHOOL_ORDER.map((school) => ({ school, areas: areas.filter((a) => AREA_SCHOOL[a] === school) }));
 }
 
 const gen = (generatorId: string): SkillSource => ({ kind: "generator", generatorId });
 const pool = (poolId: string): SkillSource => ({ kind: "pool", poolId });
+const lock = (): SkillSource => ({ kind: "lock" });
 
 export const SKILLS: Skill[] = [
   { id: "add-10", label: "Addition within 10", area: "math", grades: ["K"], source: gen("add") },
@@ -172,7 +187,21 @@ export const SKILLS: Skill[] = [
   { id: "read-g1", label: "Sounds and sight words", area: "reading", grades: ["1"], source: pool("read-g1") },
   { id: "read-g3", label: "Main idea", area: "reading", grades: ["3"], source: pool("read-g3") },
   { id: "read-g4", label: "Reading between the lines", area: "reading", grades: ["4"], source: pool("read-g4") },
+
+  /**
+   * Logic: one row per band at the band's lowest grade (the carried-forward science-pool
+   * convention), so other grades resolve through `nearestGrades`. Played only on lock puzzles;
+   * the generators are keyed by these ids. `docs/content/logic-skill-map.md` lists them.
+   */
+  { id: "logic-k1", label: "Patterns and sorting", area: "logic", grades: ["K"], source: lock() },
+  { id: "logic-g23", label: "Shape grids and balances", area: "logic", grades: ["2"], source: lock() },
+  { id: "logic-g45", label: "Number cages", area: "logic", grades: ["4"], source: lock() },
+  { id: "logic-g68", label: "Cages and logic grids", area: "logic", grades: ["6"], source: lock() },
+  { id: "logic-g912", label: "Cages, nonograms and logic", area: "logic", grades: ["9"], source: lock() },
 ];
+
+/** The ids a lock generator must be registered under: one per `lock` skill. */
+export const LOGIC_SKILL_IDS: readonly string[] = SKILLS.filter((s) => s.source.kind === "lock").map((s) => s.id);
 
 export function skillsFor(area: SkillArea, grade: Grade): Skill[] {
   return SKILLS.filter((s) => s.area === area && s.grades.includes(grade));

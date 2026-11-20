@@ -20,6 +20,7 @@ import {
 import { masteryChangeCopy, masteryLabel, parseRecentResults, progressToNextRung, recordResult } from "@/lib/utils/mastery";
 import type { Question } from "@/lib/utils/drill-generators";
 import { isTaskCorrect, taskDefOf, type ResponseByKind, type Task, type TaskKind } from "@/lib/tasks/registry";
+import { TASK_CODECS } from "@/lib/tasks/codecs";
 import { CHALLENGE, MAX_STARS, RUN_EFFECTS, countsTowardBuilding, runPoints, starsFor, type QuestionOutcome, type RunKind, type Stars } from "@/lib/utils/deed-scoring";
 import { outcomeOf, refuseGiveUp, refuseRetry, statusOf, type QuestionStatus } from "@/lib/utils/deed-attempts";
 import {
@@ -28,8 +29,8 @@ import {
 } from "@/lib/utils/deed-refusals";
 import { overdueSkills } from "@/lib/utils/review-schedule";
 import type { AttemptResult, RunStart, RunSummary } from "@/lib/utils/deed-run-types";
-import { hintFor } from "@/lib/utils/skill-hints";
-import { benchDemoAt, findOpenRun, insertRun, loadMasteryRows, loadRecentMisses, parseRun, resumedStart, type DeedRunRow } from "@/lib/services/deed-run-store";
+import { taskHint } from "@/lib/utils/skill-hints";
+import { demoAt, findOpenRun, insertRun, loadMasteryRows, loadRecentMisses, parseRun, resumedStart, type DeedRunRow } from "@/lib/services/deed-run-store";
 import {
   buildingStars, gradeForDeed, loadDeedBest, loadHeroLevels, loadKingdomOverview, loadSiteState, siteTally, type BuildingOverview, type DeedBest,
 } from "@/lib/services/deeds";
@@ -47,6 +48,8 @@ export type MasteryRow = { skillId: string; label: string; area: SkillArea; leve
 export type DeedsOverview = {
   enabled: boolean; band: ContentBand; bandLabel: string; tone: "gentle" | "monsters";
   buildings: BuildingOverview[]; mastery: MasteryRow[];
+  /** Whether the page offers Puzzle practice: the hero is the one playing, and locks are on (`startPracticeRun` asks the same). */
+  puzzlePractice: boolean;
 };
 
 function masteryRow(row: typeof schema.skillMastery.$inferSelect): MasteryRow | null {
@@ -60,13 +63,14 @@ function masteryRow(row: typeof schema.skillMastery.$inferSelect): MasteryRow | 
 
 /** A hero may see their own deeds; a closed Realm shows as such rather than throwing. */
 export async function getDeedsOverview(childId: string): Promise<DeedsOverview> {
-  await requireChildAccess(childId);
-  const [kingdom, mastery] = await Promise.all([loadKingdomOverview(childId), loadMasteryRows(childId)]);
+  const { access } = await requireChildAccess(childId);
+  const [kingdom, mastery, settings] = await Promise.all([loadKingdomOverview(childId), loadMasteryRows(childId), loadRealmSettings(childId)]);
   return {
     // The page's one coarse label still describes the hero themselves, not any one
     // strand's gap; the per-strand grades reach the engine, not this header.
     enabled: kingdom.enabled, band: kingdom.band, bandLabel: BAND_LABELS[kingdom.band], tone: kingdom.tone,
     buildings: kingdom.buildings, mastery: mastery.map(masteryRow).filter((m): m is MasteryRow => m !== null),
+    puzzlePractice: isChildActor(access) && settings.mechanics.lock,
   };
 }
 
@@ -111,9 +115,9 @@ export async function startDeedRun(
   // strand's. `gradeForDeed` is where that is pinned by test. A focus skill in the deed's strand
   // a grade either side joins the candidates (`runCandidates`), so its pool is loaded too.
   const grade = gradeForDeed(hero, deed);
-  // A young hero meets Aldo's worked example before their first bench task (R-C9), resumed or fresh.
+  // A young hero meets a worked example before their first bench task or lock (R-C9, R-F10), resumed or fresh.
   const withDemo = async (start: RunStart): Promise<RunStart> => {
-    const at = await benchDemoAt(childId, grade, start);
+    const at = await demoAt(childId, grade, start);
     return at === null ? start : { ...start, demo: { at } };
   };
   if (open) return withDemo(resumedStart(open, { id: deed.id, title: deed.title, story, area: deed.area }, site ?? undefined));
@@ -126,8 +130,9 @@ export async function startDeedRun(
     poolSkillIds.length > 0
       ? db.select().from(schema.drillItem).where(inArray(schema.drillItem.skillId, poolSkillIds))
       : Promise.resolve([] as (typeof schema.drillItem.$inferSelect)[]),
-    // A challenge mixes nothing in, so it needs no misses.
-    challenge ? Promise.resolve([] as Question[]) : loadRecentMisses(childId),
+    // A challenge mixes nothing in, so it needs no misses. Only this side quest's candidate skills
+    // count toward the cap, so another strand's misses (Puzzle practice's logic) never crowd them out.
+    challenge ? Promise.resolve([] as Question[]) : loadRecentMisses(childId, (t) => skills.some((s) => s.id === t.skillId)),
     loadRealmSettings(childId),
   ]);
   const profile = profileFromRow(profileRow);
@@ -150,14 +155,15 @@ export async function startDeedRun(
     masteryRows.map((m) => ({ skillId: m.skillId, level: m.level, lastPracticedAt: lastPracticedBySkill[m.skillId] })),
     skills.map((s) => s.id), Date.now(),
   );
+  // The grown-up's switches decide which hands-on kinds a NEW run may draw (an open run is a
+  // snapshot and never asks); the gate is multiple choice whatever they say (R-C4).
+  const enabledKinds: ReadonlySet<TaskKind> = ctx === "gate" ? new Set<TaskKind>() : enabledHandsOnKinds(settings);
   const built = buildDeedRun({
-    deed, grade, masteryBySkill, lastPracticedBySkill, profile, seed: Date.now() >>> 0, poolItems, focusSkillIds,
-    // The grown-up's switches decide which hands-on kinds a NEW run may draw (an open run is a
-    // snapshot and never asks); the gate is multiple choice whatever they say (R-C4).
-    enabledKinds: ctx === "gate" ? new Set<TaskKind>() : enabledHandsOnKinds(settings),
+    deed, grade, masteryBySkill, lastPracticedBySkill, profile, seed: Date.now() >>> 0, poolItems, focusSkillIds, enabledKinds,
     ...(challenge
       ? { recentMisses: [], dueSkillIds: [], questionCount: CHALLENGE.questions, levelBoost: CHALLENGE.levelBoost }
-      : { recentMisses, dueSkillIds, questionCount: settings.sideQuestLength }),
+      // The grown-up's length, which the engine scales for this side quest: a science side quest's sorts are half (RF-j).
+      : { recentMisses, dueSkillIds, sideQuestLength: settings.sideQuestLength }),
   });
   if (built.questions.length === 0) throw new Error(NONE_READY);
   // A crown is three right answers, never fewer: a thin pool at the higher rung waits.
@@ -200,7 +206,7 @@ async function loadAttemptState(runId: string, index: number) {
  */
 function resultFor(question: Task, status: QuestionStatus, firstPick?: string, rightPick?: string): AttemptResult {
   if (status === "unanswered") throw new Error(ANSWER_FIRST);
-  if (status === "open") return { correct: false, secondChance: true, hint: hintFor(question.skillId), firstPick };
+  if (status === "open") return { correct: false, secondChance: true, hint: taskHint(question), firstPick };
   const correct = status === "right-first" || status === "right-second";
   const def = taskDefOf(question);
   const result: AttemptResult = { correct, secondChance: false, answer: def.answerText(question) };
@@ -208,8 +214,11 @@ function resultFor(question: Task, status: QuestionStatus, firstPick?: string, r
   // and built from what the child did (`rightPick`, the stored response that solved it).
   const solved = correct && rightPick !== undefined ? def.decode(rightPick) : null;
   if (solved !== null && def.bridge) result.bridge = def.bridge(question, solved);
+  // A missed lock shows its solved board (R-F2): the stored solution, encoded, once the task is
+  // resolved and missed. Never on an open try (returned above) or a right answer.
+  if (!correct && question.kind === "lock") result.reveal = TASK_CODECS.lock.encode(question.solution);
   if (question.explain) result.explain = question.explain;
-  else if (!correct) result.hint = hintFor(question.skillId);
+  else if (!correct) result.hint = taskHint(question);
   return result;
 }
 

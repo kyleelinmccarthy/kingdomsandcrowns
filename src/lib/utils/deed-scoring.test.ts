@@ -99,14 +99,26 @@ describe("run kinds", () => {
       paysMinutes: false,
     });
   });
+  it("a world run (Puzzle practice, a world lock) moves mastery and feeds review, and earns, pays and raises nothing (R-F9)", () => {
+    expect(RUN_EFFECTS.world).toEqual({
+      raisesBuilding: false,
+      earnsStars: false,
+      movesMastery: true,
+      countsForSchool: false,
+      feedsReview: true,
+      allowsSecondChances: true,
+      paysMinutes: false,
+    });
+  });
   it("only a deed pays play minutes", () => {
     expect(RUN_EFFECTS.deed.paysMinutes).toBe(true);
     expect(RUN_EFFECTS.challenge.paysMinutes).toBe(false);
     expect(RUN_EFFECTS.review.paysMinutes).toBe(false);
     expect(RUN_EFFECTS.build.paysMinutes).toBe(false);
+    expect(RUN_EFFECTS.world.paysMinutes).toBe(false);
   });
-  it("misses come back from a deed, a review and a build, never from a challenge", () => {
-    expect(kindsThatFeedReview().sort()).toEqual(["build", "deed", "review"]);
+  it("misses come back from a deed, a review, a build and a world run, never from a challenge", () => {
+    expect(kindsThatFeedReview().sort()).toEqual(["build", "deed", "review", "world"]);
   });
   it("pins the challenge shape", () => {
     expect(CHALLENGE).toEqual({ questions: 3, levelBoost: 1 });

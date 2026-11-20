@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
  */
 const SRC = join(process.cwd(), "src");
 const COMPONENTS = join(SRC, "components");
-const SERVER_ONLY = ["registry", "draw", "measure", "bench"].map((m) => join(SRC, "lib/tasks", m));
+const SERVER_ONLY = ["registry", "draw", "measure", "bench", "lock", "locks"].map((m) => join(SRC, "lib/tasks", m));
 
 function walk(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
@@ -59,12 +59,20 @@ describe("client boundary", () => {
     expect(serverOnlyValueImports(`import { type Task } from "@/lib/tasks/registry";`, at)).toEqual([]);
     expect(serverOnlyValueImports(`import { TASK_CODECS } from "@/lib/tasks/codecs";`, at)).toEqual([]);
     expect(serverOnlyValueImports(`import type { ClientTask } from "@/lib/tasks/types";`, at)).toEqual([]);
+    // The lock's definition and generators are server-only; its rules and words are client-safe.
+    expect(serverOnlyValueImports(`import { lockKind } from "@/lib/tasks/lock";`, at)).toEqual(["@/lib/tasks/lock"]);
+    expect(serverOnlyValueImports(`import { LOCKS } from "@/lib/tasks/locks";`, at)).toEqual(["@/lib/tasks/locks"]);
+    expect(serverOnlyValueImports(`import { x } from "@/lib/tasks/locks/k4";`, at)).toEqual(["@/lib/tasks/locks/k4"]);
+    expect(serverOnlyValueImports(`import { checkLock } from "@/lib/tasks/lock-rules";`, at)).toEqual([]);
+    expect(serverOnlyValueImports(`import { LOCK_MISS_LINE } from "@/lib/tasks/lock-copy";`, at)).toEqual([]);
+    expect(serverOnlyValueImports(`import { tokenName } from "@/lib/tasks/lock-shapes";`, at)).toEqual([]);
+    expect(serverOnlyValueImports(`import { lockBoard } from "@/lib/tasks/lock-board";`, at)).toEqual([]);
     // A sibling file that merely shares a name is not the server module.
     expect(serverOnlyValueImports(`import { x } from "./registry";`, at)).toEqual([]);
     expect(serverOnlyValueImports(`import { x } from "./registry";`, join(SRC, "lib/tasks/x.ts"))).toEqual(["./registry"]);
   });
 
-  it("no \"use client\" module under src/components imports a value from registry, draw, measure or bench", () => {
+  it("no \"use client\" module under src/components imports a value from registry, draw, measure, bench, lock or locks", () => {
     const offenders = walk(COMPONENTS)
       .map((f) => ({ f, src: readFileSync(f, "utf8") }))
       .filter(({ src }) => isUseClient(src))

@@ -112,11 +112,26 @@ describe("RealmSettingsPanel", () => {
     await user.click(sw);
     expect(updateRealmSettings).toHaveBeenCalledWith("c1", { mechanics: { measure: false } });
     cleanup();
-    render(<RealmSettingsPanel childId="c1" settings={{ ...DEFAULT_REALM_SETTINGS, mechanics: { measure: false } }} summary={summary} />);
+    render(<RealmSettingsPanel childId="c1" settings={{ ...DEFAULT_REALM_SETTINGS, mechanics: { measure: false, lock: true } }} summary={summary} />);
     const off = screen.getByRole("switch", { name: "Building by measuring" });
     expect(off).not.toBeChecked();
     await user.click(off);
     expect(updateRealmSettings).toHaveBeenLastCalledWith("c1", { mechanics: { measure: true } });
+  });
+
+  it("offers Solving logic locks beside it, on by default, and saves only that kind", async () => {
+    const user = userEvent.setup();
+    render(<RealmSettingsPanel childId="c1" settings={DEFAULT_REALM_SETTINGS} summary={summary} />);
+    const group = screen.getByRole("group", { name: "Side quests" });
+    expect(within(group).getByText("Science sorts and logic puzzles on a lock's face. Off: science plays as multiple choice.")).toBeInTheDocument();
+    const sw = within(group).getByRole("switch", { name: "Solving logic locks" });
+    expect(sw).toBeChecked();
+    await user.click(sw);
+    expect(updateRealmSettings).toHaveBeenLastCalledWith("c1", { mechanics: { lock: false } });
+    cleanup();
+    render(<RealmSettingsPanel childId="c1" settings={{ ...DEFAULT_REALM_SETTINGS, mechanics: { measure: true, lock: false } }} summary={summary} />);
+    expect(screen.getByRole("switch", { name: "Solving logic locks" })).not.toBeChecked();
+    expect(screen.getByRole("switch", { name: "Building by measuring" })).toBeChecked();
   });
 
   it("has one switch row for every hands-on kind", () => {

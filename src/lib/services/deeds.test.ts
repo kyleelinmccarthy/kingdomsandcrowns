@@ -133,12 +133,12 @@ describe("gradesFor", () => {
   it("moves each strand by its OWN gap, never another strand's", () => {
     // Four distinct offsets, so a cross-wired strand cannot pass by coincidence.
     expect(gradesFor("3", { math: 1, reading: -1, language: 0, science: 2 })).toEqual({
-      math: "4", reading: "2", language: "3", science: "5",
+      math: "4", reading: "2", language: "3", science: "5", logic: "3",
     });
   });
 
   it("leaves every strand at the hero's own grade when no grown-up has set a gap", () => {
-    expect(gradesFor("6", NO_OFFSETS)).toEqual({ math: "6", reading: "6", language: "6", science: "6" });
+    expect(gradesFor("6", NO_OFFSETS)).toEqual({ math: "6", reading: "6", language: "6", science: "6", logic: "6" });
   });
 
   it("is what reaches multiplication: +1 math at grade 3 asks the grades 4-5 band", () => {
@@ -167,12 +167,19 @@ describe("heroLevels — the whole composition, without a database", () => {
     // the profile row would leave all four at Grade 3 and every level ever set would be
     // dead, with the rest of the suite still green.
     const levels = heroLevels(hero, { mathOffset: 2, readingOffset: -1, languageOffset: 0, scienceOffset: 1 }, settings);
-    expect(levels.grades).toEqual({ math: "5", reading: "2", language: "3", science: "4" });
+    expect(levels.grades).toEqual({ math: "5", reading: "2", language: "3", science: "4", logic: "3" });
+  });
+
+  it("puts logic at the hero's own grade, whatever offsets are set", () => {
+    const offsets = { mathOffset: 4, readingOffset: -3, languageOffset: 2, scienceOffset: -2 };
+    expect(heroLevels(hero, offsets, settings).grades.logic).toBe("3");
+    expect(heroLevels(hero, null, settings).grades.logic).toBe("3");
+    expect(gradesFor("7", { math: 5, reading: -5, language: 5, science: -5 }).logic).toBe("7");
   });
 
   it("leaves a hero with no profile row at their own grade, and carries the Realm settings", () => {
     const levels = heroLevels(hero, null, settings);
-    expect(levels.grades).toEqual({ math: "3", reading: "3", language: "3", science: "3" });
+    expect(levels.grades).toEqual({ math: "3", reading: "3", language: "3", science: "3", logic: "3" });
     expect(levels.band).toBe("g23");
     expect(levels.enabled).toBe(true);
     expect(levels.tone).toBe("gentle");
@@ -190,7 +197,7 @@ describe("gradeForDeed", () => {
     // Reading and math are deliberately different grades, so a run that reached for the
     // wrong strand — or for a fixed one — lands on a visibly wrong grade rather than
     // passing because every strand happened to be the same year.
-    const grades = { math: "6" as const, reading: "2" as const, language: "3" as const, science: "4" as const };
+    const grades = { math: "6" as const, reading: "2" as const, language: "3" as const, science: "4" as const, logic: "3" as const };
     const readingDeed = findDeed("well-signs")!;
     expect(readingDeed.area).toBe("reading");
     expect(gradeForDeed({ grades }, readingDeed)).toBe("2");

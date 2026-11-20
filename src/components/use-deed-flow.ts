@@ -13,7 +13,7 @@ import { flowReducer, initialFlow, readyToFinish, type FlowEvent } from "@/lib/u
 import { deedErrorLine } from "@/lib/utils/deed-refusals";
 import type { SkillMeter } from "@/lib/utils/mastery";
 import { NUDGE_LINE, shouldNudge } from "@/lib/tasks/pace-guard";
-import { hintFor } from "@/lib/utils/skill-hints";
+import { taskHint } from "@/lib/utils/skill-hints";
 
 /** The pace guard's gentle word and clue, shown above the work surface. */
 export type Nudge = { line: string; hint: string };
@@ -106,9 +106,9 @@ export function useDeedFlow(run: RunStart, onAttempt?: (result: AttemptResult) =
 
   // The run is over once its last question is resolved: the nudge goes with it.
   const finished = readyToFinish(flow, run.questions.length);
-  // The clue is for the question on the board now, not the one that earned the nudge.
-  const skillId = run.questions[flow.index]?.skillId;
-  const nudge: Nudge | null = nudgeUp && !finished && skillId ? { line: NUDGE_LINE, hint: hintFor(skillId) } : null;
+  // The clue is for the question on the board now, not the one that earned the nudge, worded for its face.
+  const onBoard = run.questions[flow.index];
+  const nudge: Nudge | null = nudgeUp && !finished && onBoard?.skillId ? { line: NUDGE_LINE, hint: taskHint(onBoard) } : null;
   // Only a side quest's own run has a site (`RunStart.site`) and only a build run a plan (`RunStart.plan`);
   // the bench draws either paced over the run's bench tasks.
   const benchTasks = run.questions.filter((q) => q.kind === "measure").length;

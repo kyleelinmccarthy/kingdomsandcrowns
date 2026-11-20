@@ -39,24 +39,34 @@ afterAll(async () => {
 
 describe("updateRealmSettings and the mechanics switches", () => {
   it("reads all on for a hero who has never set them", async () => {
-    expect((await getRealmSettings("c1")).mechanics).toEqual({ measure: true });
+    expect((await getRealmSettings("c1")).mechanics).toEqual({ measure: true, lock: true });
     expect(await storedMechanics()).toBeNull();
   });
 
   it("stores a switched-off kind as JSON text, and reads it back", async () => {
     await updateRealmSettings("c1", { mechanics: { measure: false } });
-    expect(await storedMechanics()).toBe('{"measure":false}');
-    expect((await getRealmSettings("c1")).mechanics).toEqual({ measure: false });
+    expect(await storedMechanics()).toBe('{"measure":false,"lock":true}');
+    expect((await getRealmSettings("c1")).mechanics).toEqual({ measure: false, lock: true });
   });
 
   it("merges over what is stored: switching it back on, and leaving every other setting alone", async () => {
     await updateRealmSettings("c1", { secondChances: false, mechanics: { measure: false } });
     await updateRealmSettings("c1", { sideQuestLength: 5 });
-    expect((await getRealmSettings("c1")).mechanics).toEqual({ measure: false });
+    expect((await getRealmSettings("c1")).mechanics).toEqual({ measure: false, lock: true });
     await updateRealmSettings("c1", { mechanics: { measure: true } });
-    expect(await storedMechanics()).toBe('{"measure":true}');
+    expect(await storedMechanics()).toBe('{"measure":true,"lock":true}');
     const s = await getRealmSettings("c1");
-    expect(s).toEqual({ ...DEFAULT_REALM_SETTINGS, secondChances: false, sideQuestLength: 5, mechanics: { measure: true } });
+    expect(s).toEqual({ ...DEFAULT_REALM_SETTINGS, secondChances: false, sideQuestLength: 5, mechanics: { measure: true, lock: true } });
+  });
+
+  it("switches the locks alone, and a row stored before locks existed reads them on", async () => {
+    await updateRealmSettings("c1", { secondChances: false });
+    await client.query(`UPDATE realm_settings SET mechanics = '{"measure":false}' WHERE child_id = 'c1'`);
+    expect((await getRealmSettings("c1")).mechanics).toEqual({ measure: false, lock: true });
+    await updateRealmSettings("c1", { mechanics: { lock: false } });
+    expect((await getRealmSettings("c1")).mechanics).toEqual({ measure: false, lock: false });
+    await updateRealmSettings("c1", { mechanics: { lock: true } });
+    expect((await getRealmSettings("c1")).mechanics).toEqual({ measure: false, lock: true });
   });
 
   it("refuses an unknown kind or a non-boolean before any write", async () => {

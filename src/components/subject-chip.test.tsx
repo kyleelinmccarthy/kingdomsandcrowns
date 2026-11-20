@@ -7,7 +7,7 @@ afterEach(cleanup);
 
 describe("SubjectChip", () => {
   it("names the subject in its colour for every area", () => {
-    for (const area of ["math", "reading", "language", "science"] as const) {
+    for (const area of ["math", "reading", "language", "science", "logic"] as const) {
       const { container } = render(<SubjectChip area={area} />);
       // Queried by the chip's own `data-subject` attribute rather than getByText/getByLabelText:
       // the visible label is combined with a leading sr-only "Subject: " prefix (not an aria-label
@@ -24,6 +24,7 @@ describe("SubjectChip", () => {
       reading: { label: "Reading", color: "#22c55e" },
       language: { label: "Language Arts", color: "#a855f7" },
       science: { label: "Science", color: "#f97316" },
+      logic: { label: "Logic", color: "#0ea5e9" },
     });
   });
 });

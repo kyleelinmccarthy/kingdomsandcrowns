@@ -3,10 +3,11 @@ import { nearestGrades, type Grade } from "./grade-levels";
 import { MASTERY_MAX } from "./mastery";
 import { findSkill, skillsFor, type Skill } from "./skills";
 import { FOCUS_WEIGHT } from "./focus";
-import type { Deed } from "./deeds";
+import { SIDE_QUEST_QUESTIONS, deedRunLength, type Deed } from "./deeds";
 import { REVIEW } from "./review-schedule";
 import { kindForSkill, kindOf, TASK_KINDS } from "@/lib/tasks/registry";
 import { drawerFor } from "@/lib/tasks/draw";
+import { sortSetOfId } from "@/lib/tasks/locks/sort";
 import type { ChoiceTask, Task, TaskKind } from "@/lib/tasks/types";
 
 export type ProfileLike = { fewerChoices: boolean; predictableRoutine: boolean; untimed: boolean; readAloud: boolean };
@@ -41,7 +42,9 @@ export type BuildRunInput = {
    * `REVIEW.maxDue`, and their questions take the place of fresh ones — never added to the count.
    */
   dueSkillIds?: string[];
-  /** The grown-up's side-quest length; the deed's own count when absent. */
+  /** The grown-up's side-quest length, which the run scales for its deed (`deedRunLength`); the default length when absent. */
+  sideQuestLength?: number;
+  /** An exact task count, in place of the side-quest length (the Crown Challenge). */
   questionCount?: number;
   /** Rungs above the child's own to draw every question at, capped at the top (the Crown Challenge). */
   levelBoost?: number;
@@ -55,6 +58,14 @@ export type BuiltRun = { skillIds: string[]; questions: Task[] };
 
 /** Recent misses that may come back in one run; the rest of `REVIEW.maxTotal` is for due skills. */
 const MAX_MISSES = 2;
+
+/**
+ * How many sorts from a set the run already holds one slot may pass over before it takes one anyway
+ * (RF-j). A pool has 3 or 4 sets, so the last slot of a four-sort run finds the one set left about a
+ * quarter of the time per try; 32 tries miss it about once in ten thousand runs, where 8 would miss it
+ * one run in ten.
+ */
+const SET_TRIES = 32;
 
 /**
  * Every skill for the deed's area at the hero's grade, or at the nearest grade that has any.
@@ -82,7 +93,7 @@ const MAX_MISSES = 2;
  * grade 2 and nowhere above, so a grade-9 hero's reading quest is grade-2 work. That is the
  * walk doing what it says.
  */
-export function chooseSkills(deed: Deed, grade: Grade): Skill[] {
+export function chooseSkills(deed: Pick<Deed, "area">, grade: Grade): Skill[] {
   for (const g of nearestGrades(grade)) {
     const candidates = skillsFor(deed.area, g);
     if (candidates.length > 0) return candidates;
@@ -204,11 +215,11 @@ export function selectSkills(
   const generator = draw(candidates.filter((s) => s.source.kind === "generator"));
   const pool = draw(candidates.filter((s) => s.source.kind === "pool"));
   const picked = [generator, pool].filter((s): s is Skill => !!s);
-  // Unreachable today: `SkillSource` is exactly generator | pool, so a non-empty
-  // `candidates` always yields at least one pick. It is kept as the guard for a third
-  // source kind — which would otherwise fall through both filters and hand a hero an
-  // empty run rather than something to do.
-  return picked.length > 0 ? picked : candidates.slice(0, 1);
+  // A `lock` skill is practised on lock puzzles only and is never drawn as choice, so it is
+  // never picked here: a run whose candidates are all locks has nothing to draw and is empty.
+  // Anything else that fell through both filters (a source kind added later) still gets one
+  // pick rather than handing a hero an empty run.
+  return picked.length > 0 ? picked : candidates.filter((s) => s.source.kind !== "lock").slice(0, 1);
 }
 
 function poolQuestion(item: PoolItem, rng: Rng): Question {
@@ -397,16 +408,35 @@ export function applyProfile<T extends Task>(questions: T[], profile: Pick<Profi
  * Up to `count` tasks of a non-choice kind for one skill, from that kind's drawer. Deduped by id
  * alone: the prompt filters are for choices, where the options can be the question. A drawer that
  * has nothing to give (or none at all) yields fewer, never an error, and is asked at most
- * `count * 20` times.
+ * `count * 20` times, besides the set pass-overs below.
+ *
+ * A sort whose category set the run already holds is passed over and redrawn, up to `SET_TRIES`
+ * times for each slot, then taken anyway: a pool whose sets are all used repeats one rather than
+ * come up short. The redraws come from the same seeded rng, so one seed is still one run, and a
+ * task id still names exactly its puzzle. Only sorts carry a set, so every other draw (and its rng
+ * use) is exactly as it was.
  */
 function drawByKind(kind: TaskKind, skill: Skill, level: number, count: number, rng: Rng, exclude: Set<string>): Task[] {
   const drawer = drawerFor(kind);
   if (!drawer) return [];
   const out: Task[] = [];
   const seen = new Set<string>(exclude);
+  // The sort sets already in the run (a miss brought back is in `exclude`), so each sort comes from
+  // a set of its own while the pool has one unused (RF-j).
+  const sets = new Set([...exclude].map(sortSetOfId).filter((s): s is string => s !== null));
+  // A set pass-over is a draw of its own, bounded per slot, so it never eats the id-dedupe guard.
+  let passedOver = 0;
   for (let guard = 0; out.length < count && guard < count * 20; guard += 1) {
     const t = drawer(skill, levelForDraw(level, out.length), rng);
     if (!t || seen.has(t.id)) continue;
+    const set = sortSetOfId(t.id);
+    if (set !== null && sets.has(set) && passedOver < SET_TRIES) {
+      passedOver += 1;
+      guard -= 1;
+      continue;
+    }
+    if (set !== null) sets.add(set);
+    passedOver = 0;
     seen.add(t.id);
     out.push(t);
   }
@@ -439,6 +469,8 @@ export function drawForSkill(
   kind: TaskKind = "choice",
 ): Task[] {
   if (kind !== "choice") return drawByKind(kind, skill, level, count, rng, excludeIds);
+  // A lock skill has no choice questions: nothing to draw, and nothing to throw about.
+  if (skill.source.kind === "lock") return [];
   return skill.source.kind === "generator"
     ? drawGenerated(skill, level, count, rng, excludeIds, excludePrompts)
     : drawPool(poolItems.filter((p) => p.skillId === skill.id && !excludeIds.has(p.id)), level, count, rng);
@@ -451,14 +483,22 @@ export function buildDeedRun(input: BuildRunInput): BuiltRun {
   const enabled = input.enabledKinds ?? new Set(Object.keys(TASK_KINDS) as TaskKind[]);
   // How each skill is played, worked out once and used for every draw of it (due, fresh and refill).
   const kinds = new Map<string, TaskKind>();
+  const focus = new Set(input.focusSkillIds);
   const kindOfSkill = (skillId: string): TaskKind => {
     let k = kinds.get(skillId);
-    if (!k) kinds.set(skillId, (k = kindForSkill(deed.mechanic, skillId, enabled)));
+    if (!k) {
+      k = kindForSkill(deed.mechanic, skillId, enabled);
+      // A grown-up's focus skill that a lock presents is sorted on the lock's face where the deed
+      // would ask it as choice (R-F11): a vocabulary focus in a language side quest. Locks off, or
+      // the gate, still give choice; a skill no lock presents is left as the deed plays it.
+      if (k === "choice" && focus.has(skillId)) k = kindForSkill("lock", skillId, enabled);
+      kinds.set(skillId, k);
+    }
     return k;
   };
   const rng = seededRng(seed);
   const candidates = runCandidates(deed, grade, input.focusSkillIds);
-  const skills = selectSkills(candidates, masteryBySkill, rng, lastPracticedBySkill ?? {}, new Set(input.focusSkillIds));
+  const skills = selectSkills(candidates, masteryBySkill, rng, lastPracticedBySkill ?? {}, focus);
   const skillIds = skills.map((s) => s.id);
   if (skills.length === 0) return { skillIds: [], questions: [] };
 
@@ -479,7 +519,10 @@ export function buildDeedRun(input: BuildRunInput): BuiltRun {
   // Also by prompt: a miss stored under an older id shape would otherwise be re-asked as a
   // fresh question in the same deed.
   const reviewPrompts = new Set(review.filter(isChoice).map(questionText));
-  const target = input.questionCount ?? deed.questionCount;
+  // The grown-up's length, as this deed takes it: halved for a science side quest only when the
+  // skills it practises are played as its mechanic, the sorts (RF-j); an exact count wins.
+  const drawsMechanic = skills.some((s) => kindOfSkill(s.id) === deed.mechanic);
+  const target = input.questionCount ?? deedRunLength(deed, input.sideQuestLength ?? SIDE_QUEST_QUESTIONS, drawsMechanic);
 
   // Due skills are drawn at their own level before the fresh ones, so fresh draws avoid them.
   const dueCandidates = [...new Set(input.dueSkillIds ?? [])]

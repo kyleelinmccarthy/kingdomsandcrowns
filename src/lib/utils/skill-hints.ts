@@ -2,8 +2,11 @@
  * One way of thinking per skill, shown to a child after a miss and before the second try.
  * A hint teaches a method and never names a fact or answer from any question, so it is safe
  * to show for every question the skill can ask. Written for the youngest year each skill
- * serves; the length and banned-word guards live in `skill-hints.test.ts`.
+ * serves; the length and banned-word guards live in `skill-hints.test.ts`. A task's hint comes from
+ * `taskHint`, which words it for the task's face: a word sort has its own lines (`SORT_HINTS`).
  */
+import type { ClientTask, Task } from "@/lib/tasks/types";
+
 export const SKILL_HINTS: Readonly<Record<string, string>> = {
   // Math, kindergarten to grade 2
   "add-10": "Start with the bigger number, then count up by the smaller one. Use your fingers to keep track.",
@@ -104,11 +107,52 @@ export const SKILL_HINTS: Readonly<Record<string, string>> = {
   "science-g45": "Think about how the parts connect, like cause and effect. Cross out choices that do not fit.",
   "science-g68": "Think about the key word in the question. Say what it means in your own words, then pick the choice that matches.",
   "science-g912": "Find the key term in the question and recall its definition. Then rule out the choices that describe something else.",
+
+  // Logic: shown on a missed or second-chance lock, after "Here is one way it fits."
+  "logic-k1": "Say the pattern out loud and listen for the part that repeats. Then ask what comes next, or which group each piece belongs to.",
+  "logic-g23": "Start with what you know for certain. Then let each rule narrow down the rest, one step at a time.",
+  "logic-g45": "Start with the box that has the fewest ways to fill it. Each row and column uses every number only once.",
+  "logic-g68": "Fill in what you are sure of first. Then use each clue to rule out what cannot be, and see what is left.",
+  "logic-g912": "Find the clue that tells you the most and use it first. Every new thing you know makes the next one easier to find.",
+};
+
+/**
+ * A word sort (a lock's `sort` puzzle: science and vocabulary) shows words and two groups, never
+ * choices, so it has its own way of thinking per skill. Vocabulary sorts are about meaning.
+ * Keys are exactly the skills a sort pool credits (`skill-hints.test.ts`).
+ */
+export const SORT_HINTS: Readonly<Record<string, string>> = {
+  "science-k1": "Say each word, then think about which group it belongs in.",
+  "science-g23": "Say each word, then think about which group it belongs in.",
+  "science-g45": "Read each word and think about what it is or what it does. Then put it with the group it fits.",
+  "science-g68": "Say what each term means in your own words. Then ask which group that meaning belongs to.",
+  "science-g912": "Recall what each term means. Then place it in the group its definition fits, and check the ones you are least sure of.",
+  "vocab-g45": "Think about what each word means. Look for a part of it you know, then put it with the group its meaning fits.",
+  "vocab-g68": "Use roots and prefixes you know to work out what each word means. Then sort it by that meaning.",
+  "vocab-g912": "Break each word into roots and prefixes to find its meaning. Then place it in the group that meaning fits.",
 };
 
 /** For a skill with no authored hint: still a way of thinking, never a fact. */
 export const GENERIC_HINT = "Read the question again slowly. Cross out the choices you know are wrong, then pick from the rest.";
+/** A sort for a skill with no sort hint. */
+export const GENERIC_SORT_HINT = "Say each word, then think about which group it belongs in.";
+/** Any other board (the bench, a logic lock) for a skill with no authored hint: no choices to cross out. */
+export const GENERIC_BOARD_HINT = "Look again slowly, one step at a time. Start with the part you are surest of.";
 
+/** The hint for a skill shown as multiple choice. */
 export function hintFor(skillId: string): string {
   return SKILL_HINTS[skillId] ?? GENERIC_HINT;
+}
+
+/**
+ * The hint for a task, worded for what the child is looking at: a choice task keeps its skill's
+ * hint; a word sort gets its sort line; any other board (the bench, a logic lock) its skill's hint,
+ * none of which talks about choices. Reads a stored task (a lock's `puzzle`) or the browser's
+ * (`view.puzzle`) alike.
+ */
+export function taskHint(t: Task | ClientTask): string {
+  if (t.kind === undefined || t.kind === "choice") return hintFor(t.skillId);
+  const puzzle = t.kind === "lock" ? ("view" in t ? t.view.puzzle : t.puzzle) : null;
+  if (puzzle === "sort") return SORT_HINTS[t.skillId] ?? GENERIC_SORT_HINT;
+  return SKILL_HINTS[t.skillId] ?? GENERIC_BOARD_HINT;
 }

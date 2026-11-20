@@ -70,6 +70,13 @@ describe("/dev/content", () => {
     expect(screen.queryAllByTestId("question")).toHaveLength(0);
   });
 
+  it("shows a logic skill as a lock, with no questions and no crash", async () => {
+    await show("4", "Logic");
+    expect(screen.getAllByTestId("skill").map((el) => el.getAttribute("data-skill"))).toEqual(["logic-g45"]);
+    expect(screen.getByTestId("lock-note")).toHaveTextContent(/lock/i);
+    expect(screen.queryAllByTestId("question")).toHaveLength(0);
+  });
+
   it.each(GRADES)(
     "marks exactly one choice as the answer for every question it renders (grade %s)",
     async (grade) => {

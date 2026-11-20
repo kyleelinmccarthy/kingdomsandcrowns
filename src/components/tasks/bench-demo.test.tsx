@@ -1,7 +1,6 @@
-import { act, cleanup, fireEvent, render, renderHook, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { RunStart } from "@/lib/utils/deed-run-types";
-import { BenchDemo, demoCopy, useBenchDemo } from "./bench-demo";
+import { BenchDemo, demoCopy } from "./bench-demo";
 
 afterEach(cleanup);
 
@@ -38,38 +37,5 @@ describe("BenchDemo", () => {
   it("says the demo's words in demoCopy, for read-aloud", () => {
     expect(demoCopy("assemble")).toBe(ASSEMBLE);
     expect(demoCopy("cut")).toBe(CUT);
-  });
-});
-
-describe("useBenchDemo", () => {
-  const task = (mode: "assemble" | "cut") => ({ kind: "measure" as const, id: "m1", skillId: "s", prompt: "p", view: { mode, unit: "ft" } });
-  const choice = { kind: "choice" as const, id: "q", skillId: "s", prompt: "p", view: { choices: ["a"] } };
-  const run = (over: Partial<RunStart> = {}) => ({ questions: [task("cut")], demo: { at: 0 }, ...over }) as RunStart;
-
-  it("shows the demo task's mode once: after Got it it stays done", () => {
-    const { result, rerender } = renderHook(({ r }) => useBenchDemo(r, 0), { initialProps: { r: run() } });
-    expect(result.current.mode).toBe("cut");
-    act(() => result.current.finish());
-    expect(result.current.mode).toBeNull();
-    rerender({ r: run() });
-    expect(result.current.mode).toBeNull();
-  });
-
-  it("shows on reaching the demo's index, not before, in that task's mode", () => {
-    const mixed = run({ questions: [choice, choice, task("assemble")], demo: { at: 2 } });
-    const { result, rerender } = renderHook(({ i }) => useBenchDemo(mixed, i), { initialProps: { i: 0 } });
-    expect(result.current.mode).toBeNull();
-    rerender({ i: 1 });
-    expect(result.current.mode).toBeNull();
-    rerender({ i: 2 });
-    expect(result.current.mode).toBe("assemble");
-  });
-
-  it("is off for a run that was not marked", () => {
-    expect(renderHook(() => useBenchDemo(run({ demo: undefined }), 0)).result.current.mode).toBeNull();
-  });
-
-  it("is off when the marked task is not a bench task", () => {
-    expect(renderHook(() => useBenchDemo(run({ questions: [choice] }), 0)).result.current.mode).toBeNull();
   });
 });

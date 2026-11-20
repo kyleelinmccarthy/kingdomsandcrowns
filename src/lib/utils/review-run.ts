@@ -24,11 +24,18 @@ export const reviewReasks = (t: Task): t is ChoiceTask => t.kind === undefined |
 /** A review run is choice only (R-C6): every pick, miss or fresh, is a choice task. */
 type Pick = { skill: Skill; question: ChoiceTask; isMiss: boolean };
 
-/** Mastery rows for skills that exist; the first row for a skill wins. */
+/**
+ * Mastery rows for skills that exist and can be reviewed; the first row for a skill wins. A
+ * `lock` skill is left out: a review run is choice only and a lock skill has no choice
+ * questions, so counting it would light the riddle stones for a run that comes back empty.
+ */
 function knownRows(mastery: readonly MasteryTiming[]): Map<string, MasteryTiming> {
   const rows = new Map<string, MasteryTiming>();
   for (const r of mastery) {
-    if (!rows.has(r.skillId) && findSkill(r.skillId)) rows.set(r.skillId, r);
+    if (!rows.has(r.skillId)) {
+      const skill = findSkill(r.skillId);
+      if (skill && skill.source.kind !== "lock") rows.set(r.skillId, r);
+    }
   }
   return rows;
 }

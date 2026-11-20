@@ -71,6 +71,8 @@ export function gradesFor(ownGrade: Grade, offsets: SubjectOffsets): Record<Skil
     reading: effectiveGrade(ownGrade, offsets.reading),
     language: effectiveGrade(ownGrade, offsets.language),
     science: effectiveGrade(ownGrade, offsets.science),
+    // Logic has no gap to set: it is always the hero's own grade (see `SubjectArea`).
+    logic: ownGrade,
   };
 }
 

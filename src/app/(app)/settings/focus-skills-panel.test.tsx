@@ -22,6 +22,7 @@ const options: FocusOption[] = [
   { id: "m2", label: "Subtract within 10", area: "math", grade: "3" },
   { id: "r1", label: "Rhyming words", area: "reading", grade: "3" },
   { id: "l1", label: "Nouns", area: "language", grade: "3" },
+  { id: "g1", label: "Shape grids and balances", area: "logic", grade: "2" },
 ];
 
 function box(label: string) {
@@ -38,12 +39,21 @@ describe("FocusSkillsPanel", () => {
       ),
     ).toBeInTheDocument();
     const names = screen.getAllByRole("group").map((g) => g.getAttribute("aria-label"));
-    expect(names).toEqual(["Math", "Reading", "Language Arts", "Science"]);
+    expect(names).toEqual(["Math", "Reading", "Language Arts", "Science", "Logic"]);
+    const logic = screen.getByRole("group", { name: "Logic" });
+    expect(within(logic).getByRole("checkbox", { name: "Shape grids and balances" })).toBeInTheDocument();
     const math = screen.getByRole("group", { name: "Math" });
     expect(within(math).getByText("Math")).toBeInTheDocument();
     expect(within(math).getByRole("checkbox", { name: "Add within 10" })).toBeInTheDocument();
     expect(within(math).getByRole("checkbox", { name: "Subtract within 10" })).toBeInTheDocument();
     expect(within(math).queryByRole("checkbox", { name: "Nouns" })).not.toBeInTheDocument();
+  });
+
+  it("says where a logic focus is practiced, under logic only", () => {
+    render(<FocusSkillsPanel childId="c1" options={options} selected={[]} />);
+    const line = "Practiced in Puzzle practice and, soon, the Realm's locks.";
+    expect(within(screen.getByRole("group", { name: "Logic" })).getByText(line)).toBeInTheDocument();
+    expect(screen.getAllByText(line)).toHaveLength(1);
   });
 
   it("starts with the saved picks checked and Save disabled", () => {

@@ -208,6 +208,29 @@ describe("the deed board", () => {
     });
   });
 
+  describe("a world run (logic locks; Puzzle practice)", () => {
+    it("finishes with its own button, says the puzzles are solved, and shows no stars or building", async () => {
+      const world = { ...run, kind: "world" as const, responses: ["5", null], deed: { id: "practice", title: "Puzzle practice", story: "Three puzzles.", area: "logic" as const } };
+      vi.mocked(startDeedRun).mockResolvedValue(world);
+      vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: true, secondChance: false, answer: "8" });
+      vi.mocked(completeDeedRun).mockResolvedValue({
+        correctCount: 2, total: 2, flawless: true, masteryChanges: [], stars: 0, previousBest: 0, deedBest: 0, counted: false, crowned: false,
+        kind: "world", building: null, minutesEarned: 0, sideQuestPayFull: false,
+      });
+      const onResult = vi.fn();
+      board({ onResult });
+      await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" })));
+      expect(screen.getByRole("button", { name: /Leave the puzzles/ })).toBeInTheDocument();
+      await act(async () => void fireEvent.click(screen.getByRole("button", { name: "8" })));
+      expect(screen.queryByRole("button", { name: "Finish side quest" })).toBeNull();
+      await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Finish puzzles" })));
+      expect(screen.getByText("Puzzles solved!")).toBeInTheDocument();
+      expect(screen.queryByRole("img", { name: /of 3 stars/ })).toBeNull();
+      expect(document.body.textContent).not.toMatch(/Flawless|side quest done|New best/i);
+      expect(onResult).not.toHaveBeenCalled();
+    });
+  });
+
   describe("a build run", () => {
     const build = {
       ...run, kind: "build" as const, responses: ["5", null],
@@ -582,5 +605,65 @@ describe("Watch Aldo on the board", () => {
     } finally {
       window.removeEventListener("keydown", game);
     }
+  });
+});
+
+describe("a lock on the board (F4)", () => {
+  const red = { shape: "circle" as const, color: "red" as const };
+  const blue = { shape: "circle" as const, color: "blue" as const };
+  const pattern = {
+    kind: "lock" as const, id: "logic-k1:pat:x", skillId: "logic-k1", prompt: "What comes next?",
+    view: { puzzle: "pattern" as const, sequence: [red, blue, red, blue, null], tray: [blue, red] },
+  };
+  const locks = { ...run, questions: [pattern], responses: [null] as (string | null)[], demo: { at: 0 } as { at: number } | undefined };
+  const begin = async (over: Partial<React.ComponentProps<typeof DeedBoard>> = {}, start: Awaited<ReturnType<typeof startDeedRun>> = locks) => {
+    vi.mocked(startDeedRun).mockResolvedValue(start);
+    board(over);
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" })));
+  };
+
+  it("a young hero's first lock opens on Watch Pip, read aloud, and Got it brings the lock", async () => {
+    await begin({ profile: { readAloud: true, untimed: true } });
+    expect(screen.getByRole("heading", { name: "Watch Pip" })).toBeInTheDocument();
+    expect(speak).toHaveBeenLastCalledWith("Pip fits the next shape: red, blue, red, blue, … red!");
+    expect(screen.queryByRole("heading", { name: "The lock" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Got it" }));
+    expect(screen.getByRole("heading", { name: "The lock" })).toBeInTheDocument();
+    expect(screen.getByText("What comes next?")).toBeInTheDocument();
+  });
+
+  it.each([[true, 1], [false, 0]])("hands the hero's read-aloud setting (%s) to a word sort, so a pick speaks the word (%s times)", async (readAloud, times) => {
+    const sort = {
+      kind: "lock" as const, id: "sci-k:sort:x", skillId: "sci-k", prompt: "Sort these: living or not living?",
+      view: { puzzle: "sort" as const, categories: ["Living", "Not living"], items: [{ id: "a", label: "dog" }, { id: "b", label: "rock" }] },
+    };
+    await begin({ profile: { readAloud, untimed: true } }, { ...run, questions: [sort], responses: [null] });
+    fireEvent.click(screen.getByRole("button", { name: "dog" }));
+    expect(vi.mocked(speak).mock.calls.filter(([w]) => w === "dog")).toHaveLength(times);
+  });
+
+  it("no Pip for a run that is not marked", async () => {
+    await begin({}, { ...locks, demo: undefined });
+    expect(screen.queryByRole("heading", { name: "Watch Pip" })).toBeNull();
+    expect(screen.getByRole("heading", { name: "The lock" })).toBeInTheDocument();
+  });
+
+  it("is answered through the face: the second chance keeps the first try, and a miss draws the solved board", async () => {
+    vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: false, secondChance: true, hint: "Say the colours.", firstPick: "pattern:1", feedback: "rule_broken" });
+    vi.mocked(retryDeedQuestion).mockResolvedValue({ correct: false, secondChance: false, answer: "Here is one way it fits.", reveal: "pattern:2" });
+    await begin({}, { ...locks, demo: undefined });
+    fireEvent.click(screen.getByRole("button", { name: "Tray: blue circle" }));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Check the lock" })));
+    expect(answerDeedQuestion).toHaveBeenCalledWith(expect.any(String), 0, "pattern:1");
+    expect(screen.getByText(/Look at the marked rule\. Say the colours\./)).toBeInTheDocument();
+    const gap = screen.getByRole("button", { name: /^Space 5: blue circle, doesn't fit yet/ });
+    expect(gap).toHaveAttribute("data-broken", "true");
+    expect(screen.getByRole("button", { name: "Check the lock" })).toBeDisabled();
+    fireEvent.click(gap);
+    fireEvent.click(screen.getByRole("button", { name: "Tray: red circle" }));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Check the lock" })));
+    expect(screen.getByRole("button", { name: "Space 5: red circle" })).toBeDisabled();
+    // Said once, by the feedback line beside the solved board; the face draws, it does not repeat it.
+    expect(screen.getAllByText(/Here is one way it fits\./)).toHaveLength(1);
   });
 });

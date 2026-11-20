@@ -1,4 +1,5 @@
 import { choiceKind } from "./choice";
+import { lockKind } from "./lock";
 import { measureKind } from "./measure";
 import type { ClientTask, Task, TaskKind, TaskKindDef } from "./types";
 
@@ -8,6 +9,7 @@ export type * from "./types";
 export const TASK_KINDS: { [K in TaskKind]: TaskKindDef<K> } = {
   choice: choiceKind,
   measure: measureKind,
+  lock: lockKind,
 };
 
 /** Typed accessor over `TASK_KINDS`. */

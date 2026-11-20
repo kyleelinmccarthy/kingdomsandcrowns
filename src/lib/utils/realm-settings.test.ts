@@ -203,7 +203,7 @@ describe("real-work settings (materials per quest, minutes on quest cards)", () 
 
 describe("mechanics (the hands-on kinds a grown-up can switch off)", () => {
   it("is all on by default, and a default is never shared with a caller who edits it", () => {
-    expect(DEFAULT_REALM_SETTINGS.mechanics).toEqual({ measure: true });
+    expect(DEFAULT_REALM_SETTINGS.mechanics).toEqual({ measure: true, lock: true });
     const a = settingsFromRow(null);
     a.mechanics.measure = false;
     expect(DEFAULT_REALM_SETTINGS.mechanics.measure).toBe(true);
@@ -215,14 +215,20 @@ describe("mechanics (the hands-on kinds a grown-up can switch off)", () => {
 
   it("reads the stored JSON text leniently: null, junk, non-objects, non-booleans and missing keys are all on", () => {
     for (const raw of [null, undefined, "", "not json", "{", "[]", "[true]", "true", "7", '"measure"', "null", "{}", '{"measure":"no"}', '{"measure":0}', '{"measure":null}', 5, {}]) {
-      expect(settingsFromRow({ mechanics: raw }).mechanics, String(raw)).toEqual({ measure: true });
+      expect(settingsFromRow({ mechanics: raw }).mechanics, String(raw)).toEqual({ measure: true, lock: true });
     }
   });
 
   it("reads an off switch, and ignores keys it does not know", () => {
-    expect(settingsFromRow({ mechanics: '{"measure":false}' }).mechanics).toEqual({ measure: false });
-    expect(settingsFromRow({ mechanics: '{"measure":true}' }).mechanics).toEqual({ measure: true });
-    expect(settingsFromRow({ mechanics: '{"measure":false,"origami":false}' }).mechanics).toEqual({ measure: false });
+    expect(settingsFromRow({ mechanics: '{"measure":false}' }).mechanics).toEqual({ measure: false, lock: true });
+    expect(settingsFromRow({ mechanics: '{"measure":true}' }).mechanics).toEqual({ measure: true, lock: true });
+    expect(settingsFromRow({ mechanics: '{"measure":false,"origami":false}' }).mechanics).toEqual({ measure: false, lock: true });
+    expect(settingsFromRow({ mechanics: '{"lock":false}' }).mechanics).toEqual({ measure: true, lock: false });
+  });
+
+  it("a row stored before locks existed reads locks on: the column is JSON, so no migration (slice 4)", () => {
+    expect(settingsFromRow({ mechanics: '{"measure":false}' }).mechanics.lock).toBe(true);
+    expect(validateRealmSettingsPatch({ mechanics: { lock: false } })).toEqual({ mechanics: { lock: false } });
   });
 
   it("accepts a partial object of known kinds with boolean values, and returns a copy", () => {

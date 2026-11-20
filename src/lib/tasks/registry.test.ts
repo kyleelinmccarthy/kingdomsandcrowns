@@ -21,6 +21,7 @@ describe("task kind registry", () => {
   it("knows which kinds are registered, and nothing else", () => {
     expect(isRegisteredKind("choice")).toBe(true);
     expect(isRegisteredKind("measure")).toBe(true);
+    expect(isRegisteredKind("lock")).toBe(true);
     for (const k of ["nope", "", "toString", "constructor", "__proto__", "hasOwnProperty", 7, null, undefined, {}]) {
       expect(isRegisteredKind(k)).toBe(false);
     }
