@@ -56,7 +56,7 @@ export const LETTERS = ["A", "B", "C", "D"] as const;
 // ---------------------------------------------------------------------------------------
 
 /** FNV-1a. Small, dependency-free, and good enough to spread item ids over a seed space. */
-function hash32(input: string): number {
+export function hash32(input: string): number {
   let h = 0x811c9dc5;
   for (let i = 0; i < input.length; i++) {
     h ^= input.charCodeAt(i);
@@ -504,6 +504,7 @@ export function formatReport(report: BlindPassReport): string {
 
 import fs from "node:fs";
 import path from "node:path";
+import { SORT_POOL_PREFIX } from "./sort-pools";
 
 export const DRILLS_DIR = path.join(__dirname, "../../content/drills");
 export const REVIEW_DIR = path.join(__dirname, "../../content/review");
@@ -525,12 +526,16 @@ export function loadResolutions(poolId: string): Resolution[] {
   return (JSON.parse(fs.readFileSync(file, "utf8")) as ResolutionFile).resolutions ?? [];
 }
 
-/** Every pool that has a sheet on disk. */
+/**
+ * Every drill pool that has a sheet on disk. Sort pools keep their sheets in this same directory
+ * under `sort-<skill>` ids (`SORT_POOL_PREFIX`) and have their own pass (`sort-blind-pass.ts`), so
+ * they are not drill sheets and are skipped here.
+ */
 export function poolsWithSheets(): string[] {
   if (!fs.existsSync(REVIEW_DIR)) return [];
   return fs
     .readdirSync(REVIEW_DIR)
-    .filter((f) => f.endsWith(".blind.md"))
+    .filter((f) => f.endsWith(".blind.md") && !f.startsWith(SORT_POOL_PREFIX))
     .map((f) => f.replace(/\.blind\.md$/, ""))
     .sort();
 }

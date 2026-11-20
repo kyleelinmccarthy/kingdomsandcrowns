@@ -4,7 +4,7 @@
  *
  * Each band registers its `logic-*` skills here: K-4 (`logic-k1`, `logic-g23`, in `k4.ts`), 4-8
  * (`logic-g45`, `logic-g68`, in `g58.ts`) and 9-12 (`logic-g912`, in `g912.ts`), so every logic skill
- * has one; the science and vocabulary sort pools come after them (F6). A skill
+ * has one; the science and vocabulary skills get theirs from the sort pools (`sort.ts`, via `lockFor`). A skill
  * with no entry presents as `choice`, so a run draws exactly as before (ruling RF-a). Generators are
  * seeded and pure (the `Rng` only, never `Math.random`), and each task id encodes its parameters, so
  * one id is one puzzle.
@@ -14,13 +14,17 @@ import type { LockTask } from "../types";
 import { G58_LOCKS } from "./g58";
 import { G912_LOCKS } from "./g912";
 import { K4_LOCKS } from "./k4";
+import { sortFor } from "./sort";
 
 /** One lock for `skillId` at mastery `level`, or null when it has none to give at this rung. */
 export type LockGenerator = (level: number, rng: Rng, skillId: string) => LockTask | null;
 
 export const LOCKS: Record<string, LockGenerator> = { ...K4_LOCKS, ...G58_LOCKS, ...G912_LOCKS };
 
-/** The lock generator for a skill, if it has one. Own keys only: "toString" is no skill. */
+/**
+ * The lock generator for a skill, if it has one: a logic generator in `LOCKS` first, else the sort
+ * drawer when a sort pool credits the skill (`sort.ts`). Own keys only: "toString" is no skill.
+ */
 export function lockFor(skillId: string): LockGenerator | undefined {
-  return Object.prototype.hasOwnProperty.call(LOCKS, skillId) ? LOCKS[skillId] : undefined;
+  return Object.prototype.hasOwnProperty.call(LOCKS, skillId) ? LOCKS[skillId] : sortFor(skillId);
 }
