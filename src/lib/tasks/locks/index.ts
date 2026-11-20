@@ -10,12 +10,13 @@
  */
 import type { Rng } from "@/lib/utils/drill-generators";
 import type { LockTask } from "../types";
+import { G58_LOCKS } from "./g58";
 import { K4_LOCKS } from "./k4";
 
 /** One lock for `skillId` at mastery `level`, or null when it has none to give at this rung. */
 export type LockGenerator = (level: number, rng: Rng, skillId: string) => LockTask | null;
 
-export const LOCKS: Record<string, LockGenerator> = { ...K4_LOCKS };
+export const LOCKS: Record<string, LockGenerator> = { ...K4_LOCKS, ...G58_LOCKS };
 
 /** The lock generator for a skill, if it has one. Own keys only: "toString" is no skill. */
 export function lockFor(skillId: string): LockGenerator | undefined {

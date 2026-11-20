@@ -25,12 +25,12 @@ import {
 
 type Of<P extends LockTask["puzzle"]> = Extract<LockTask, { puzzle: P }>;
 
-const clampLevel = (level: number): number => (Number.isFinite(level) ? Math.min(4, Math.max(0, Math.floor(level))) : 0);
-const pick = <T>(rng: Rng, xs: readonly T[]): T => xs[Math.floor(rng() * xs.length)];
+export const clampLevel = (level: number): number => (Number.isFinite(level) ? Math.min(4, Math.max(0, Math.floor(level))) : 0);
+export const pick = <T>(rng: Rng, xs: readonly T[]): T => xs[Math.floor(rng() * xs.length)];
 /** `n` distinct picks from `xs`, in a random order. */
-const sample = <T>(rng: Rng, xs: readonly T[], n: number): T[] => shuffle([...xs], rng).slice(0, n);
+export const sample = <T>(rng: Rng, xs: readonly T[], n: number): T[] => shuffle([...xs], rng).slice(0, n);
 /** Roll one of `options`, each with its weight. */
-function weighted<T>(rng: Rng, options: readonly (readonly [T, number])[]): T {
+export function weighted<T>(rng: Rng, options: readonly (readonly [T, number])[]): T {
   const total = options.reduce((a, [, w]) => a + w, 0);
   let roll = rng() * total;
   for (const [value, w] of options) if ((roll -= w) < 0) return value;
