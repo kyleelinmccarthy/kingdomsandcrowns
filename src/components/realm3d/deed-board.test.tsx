@@ -208,6 +208,29 @@ describe("the deed board", () => {
     });
   });
 
+  describe("a world run (logic locks; Puzzle practice)", () => {
+    it("finishes with its own button, says the puzzles are solved, and shows no stars or building", async () => {
+      const world = { ...run, kind: "world" as const, responses: ["5", null], deed: { id: "practice", title: "Puzzle practice", story: "Three puzzles.", area: "logic" as const } };
+      vi.mocked(startDeedRun).mockResolvedValue(world);
+      vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: true, secondChance: false, answer: "8" });
+      vi.mocked(completeDeedRun).mockResolvedValue({
+        correctCount: 2, total: 2, flawless: true, masteryChanges: [], stars: 0, previousBest: 0, deedBest: 0, counted: false, crowned: false,
+        kind: "world", building: null, minutesEarned: 0, sideQuestPayFull: false,
+      });
+      const onResult = vi.fn();
+      board({ onResult });
+      await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" })));
+      expect(screen.getByRole("button", { name: /Leave the puzzles/ })).toBeInTheDocument();
+      await act(async () => void fireEvent.click(screen.getByRole("button", { name: "8" })));
+      expect(screen.queryByRole("button", { name: "Finish side quest" })).toBeNull();
+      await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Finish puzzles" })));
+      expect(screen.getByText("Puzzles solved!")).toBeInTheDocument();
+      expect(screen.queryByRole("img", { name: /of 3 stars/ })).toBeNull();
+      expect(document.body.textContent).not.toMatch(/Flawless|side quest done|New best/i);
+      expect(onResult).not.toHaveBeenCalled();
+    });
+  });
+
   describe("a build run", () => {
     const build = {
       ...run, kind: "build" as const, responses: ["5", null],

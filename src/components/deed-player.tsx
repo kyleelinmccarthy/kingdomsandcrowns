@@ -11,13 +11,11 @@ import type { RunStart, RunSummary } from "@/lib/utils/deed-run-types";
 import { DeedMeter } from "@/components/deed-meter";
 import { useDeedFlow } from "@/components/use-deed-flow";
 import { ALL_ANSWERED } from "@/lib/utils/deed-run-flow";
-import { BUILD_FINISH, attemptFeedback } from "@/lib/realm3d/talk";
+import { attemptFeedback, finishLabel } from "@/lib/realm3d/talk";
 import { TaskPresenter } from "@/components/tasks/presenters";
 import { TaskDemo, taskDemoCopy, useTaskDemo } from "@/components/tasks/task-demo";
 import type { ProfileLike } from "@/lib/utils/deed-engine";
 import { canSpeak, speak } from "@/lib/utils/speech";
-import { SIDE_QUEST_LOWER } from "@/lib/utils/side-quest-copy";
-import { REVIEW_FINISH } from "@/lib/utils/review-copy";
 
 export function DeedPlayer({
   run,
@@ -41,7 +39,7 @@ export function DeedPlayer({
   const demo = useTaskDemo(run, index);
   const question = run.questions[index];
   const isLast = index === run.questions.length - 1;
-  const finishLabel = run.kind === "review" ? REVIEW_FINISH : run.kind === "build" ? BUILD_FINISH : `Finish ${SIDE_QUEST_LOWER}`;
+  const finish = finishLabel(run.kind);
 
   // Read-aloud is a side effect, not state: the profile asks for it, the effect obeys. A worked
   // example (Aldo's or Pip's) is read first, when there is one, then the question.
@@ -131,8 +129,8 @@ export function DeedPlayer({
             {phase === "second-chance" ? (
               <Button variant="link" disabled={busy} onClick={() => void showMe()}>Show me</Button>
             ) : (
-              <Button ref={nextRef} aria-label={isLast ? finishLabel : "Next question"} disabled={busy} onClick={() => void advance()}>
-                {isLast ? finishLabel : "Next"}
+              <Button ref={nextRef} aria-label={isLast ? finish : "Next question"} disabled={busy} onClick={() => void advance()}>
+                {isLast ? finish : "Next"}
               </Button>
             )}
           </div>

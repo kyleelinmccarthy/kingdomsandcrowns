@@ -8,6 +8,8 @@ import { GameIcon } from "@/components/game-icon";
 import { DeedPlayer } from "@/components/deed-player";
 import { SubjectChip } from "@/components/subject-chip";
 import { startReviewRun } from "@/lib/actions/review";
+import { startPracticeRun } from "@/lib/actions/practice";
+import { PUZZLE_PRACTICE } from "@/lib/utils/practice-copy";
 import { startDeedRun, type DeedsOverview } from "@/lib/actions/deeds";
 import type { RunStart } from "@/lib/utils/deed-run-types";
 import { AREA_LABELS, type SkillArea } from "@/lib/utils/skills";
@@ -30,24 +32,13 @@ export function DeedPicker({ childId, overview, profile, calm }: { childId: stri
     .map((b) => ({ ...b, deeds: b.deeds.filter((d) => area === "all" || d.area === area) }))
     .filter((b) => b.deeds.length > 0);
 
-  async function begin(deedId: string) {
-    setBusy(true);
-    setError("");
-    try {
-      setRun(await startDeedRun(childId, deedId));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "The enchantment failed.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function review() {
+  /** Starts a run from one of the page's buttons: the player takes over, or a review says there is nothing yet. */
+  async function start(next: () => Promise<RunStart | { empty: true }>) {
     setBusy(true);
     setError("");
     setNothingToReview(false);
     try {
-      const started = await startReviewRun(childId, { kind: "page" });
+      const started = await next();
       if ("empty" in started) setNothingToReview(true);
       else setRun(started);
     } catch (err) {
@@ -56,6 +47,9 @@ export function DeedPicker({ childId, overview, profile, calm }: { childId: stri
       setBusy(false);
     }
   }
+  const begin = (deedId: string) => start(() => startDeedRun(childId, deedId));
+  const review = () => start(() => startReviewRun(childId, { kind: "page" }));
+  const practise = () => start(() => startPracticeRun(childId));
 
   if (run) {
     return <DeedPlayer run={run} profile={profile} calm={calm} onFinished={() => { setRun(null); router.refresh(); }} />;
@@ -65,7 +59,11 @@ export function DeedPicker({ childId, overview, profile, calm }: { childId: stri
     <div className="space-y-4">
       {error && <div className="rounded-md bg-destructive/10 p-2 text-sm text-destructive">{error}</div>}
       <div>
-        <Button variant="outline" disabled={busy} onClick={() => void review()}>Quick review</Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" disabled={busy} onClick={() => void review()}>Quick review</Button>
+          {/* Logic is practised on locks (R-F8): offered to the hero while the grown-up has locks on. */}
+          {overview.puzzlePractice && <Button variant="outline" disabled={busy} onClick={() => void practise()}>{PUZZLE_PRACTICE}</Button>}
+        </div>
         {nothingToReview && <p role="status" className="mt-2 text-sm text-muted-foreground">Nothing to review yet. Finish a side quest first and it will come back here.</p>}
       </div>
       <div className="flex flex-wrap gap-2" role="group" aria-label="Subject">

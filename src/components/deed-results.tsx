@@ -16,22 +16,23 @@ export function DeedResults({ summary, deedTitle, area, onDone, doneLabel = `Bac
   const review = summary.kind === "review";
   // A build run says its plan stands, shows its stars, and is never a "New best!" or a side quest.
   const build = summary.kind === "build";
-  const buildHead = build ? resultHeadline(summary, deedTitle) : null;
+  // Puzzle practice (a world run) is no side quest either: its puzzles are solved, with no stars, minutes or building.
+  const ownHead = build || summary.kind === "world" ? resultHeadline(summary, deedTitle) : null;
   const starsLine = review ? "" : resultStarsLine(summary);
   const minutesLine = review ? null : resultMinutesLine(summary);
   return (
     <div className="space-y-4 text-center">
       <GameIcon name={summary.flawless ? "star" : "check"} className="mx-auto size-10 text-[var(--gold-bright)]" />
       {/* Sentence case here (not the SIDE_QUEST title-case noun): matches "Flawless!" as a short exclamation, not a heading. */}
-      <h3 className="text-lg font-bold">{buildHead ? buildHead.title : review ? REVIEW_DONE : summary.flawless ? "Flawless!" : "Side quest done!"}</h3>
+      <h3 className="text-lg font-bold">{ownHead ? ownHead.title : review ? REVIEW_DONE : summary.flawless ? "Flawless!" : "Side quest done!"}</h3>
       {(summary.kind === "deed" || build) && (
         <StarRow stars={summary.stars} className="flex justify-center gap-1" starClass="size-7" onClass="text-[var(--gold-bright)]" offClass="text-muted-foreground/30" />
       )}
       {starsLine && <p className="text-sm font-semibold">{starsLine}</p>}
       {minutesLine && <p className="text-sm font-semibold">{minutesLine}</p>}
       {area && <SubjectChip area={area} size="md" />}
-      {buildHead
-        ? <p className="text-sm">{buildHead.line}</p>
+      {ownHead
+        ? <p className="text-sm">{ownHead.line}</p>
         : review
           ? <p className="text-sm">{reviewSummaryLine(summary)}</p>
           : <p className="text-sm">{summary.correctCount} of {summary.total} right in {deedTitle}.</p>}

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { objectiveState } from "@/lib/realm/objective";
 import { villagerById } from "@/lib/realm/villagers";
 import type { ClientTask } from "@/lib/tasks/types";
-import { attemptFeedback, deedToast, resultBuildingLine, resultHeadline, resultMinutesLine, resultStarsLine, starsLabel, starsLeftLine, talkCopy, type SiteState } from "./talk";
+import { attemptFeedback, deedToast, finishLabel, resultBuildingLine, resultHeadline, resultMinutesLine, resultStarsLine, starsLabel, starsLeftLine, talkCopy, type SiteState } from "./talk";
 
 const bram = villagerById("bram")!;
 const well: SiteState = { id: "well", label: "Village Well", done: 0, total: 5, complete: false, stars: 0, maxStars: 9 };
@@ -187,8 +187,28 @@ describe("a review's result", () => {
   });
 });
 
+describe("a world run's result (Puzzle practice)", () => {
+  const world = { correctCount: 2, total: 3, flawless: false, kind: "world" as const, stars: 0 as const, previousBest: 0 as const, counted: false };
+  it("is puzzles solved, with how many were right, flawless or not, and never a side quest", () => {
+    expect(resultHeadline(world, "Puzzle practice")).toEqual({ title: "Puzzles solved!", line: "2 of 3 right." });
+    const perfect = resultHeadline({ ...world, correctCount: 3, flawless: true }, "Puzzle practice");
+    expect(perfect.title).toBe("Puzzles solved!");
+    expect(`${perfect.title} ${perfect.line}`).not.toMatch(/flawless|side quest/i);
+  });
+  it("has no stars line: no best to beat, and no villager to try again with", () => {
+    expect(resultStarsLine(world, "Old Bram")).toBe("");
+  });
+  it("finishes with its own button", () => {
+    expect(finishLabel("world")).toBe("Finish puzzles");
+    expect(finishLabel("deed")).toBe("Finish side quest");
+    expect(finishLabel("challenge")).toBe("Finish side quest");
+    expect(finishLabel("review")).toBe("Finish review");
+    expect(finishLabel("build")).toBe("Finish building");
+  });
+});
+
 describe("a build run's result", () => {
-  const done = { correctCount: 2, total: 3, flawless: false, kind: "build" as const };
+  const done ={ correctCount: 2, total: 3, flawless: false, kind: "build" as const };
   const outcome = (level: number, extra: { built?: boolean; reason?: "short" | "error" } = {}) => ({ id: "village-banners" as const, label: "Banners", level, built: true, ...extra });
   it("says the plan is built at level 1, and grows above it, agreeing with a plural name", () => {
     expect(resultHeadline({ ...done, improvement: outcome(1) }, "Banners")).toEqual({ title: "The Banners are built!", line: "2 of 3 right." });

@@ -1,7 +1,7 @@
 import { and, desc, eq, gt, inArray, isNotNull, isNull, like, ne, sql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
-import { RUN_EFFECTS, kindsThatFeedReview } from "@/lib/utils/deed-scoring";
+import { RUN_EFFECTS, kindsThatFeedReview, type RunKind } from "@/lib/utils/deed-scoring";
 import { records, resumeIndex, statusOf } from "@/lib/utils/deed-attempts";
 import { hintFor } from "@/lib/utils/skill-hints";
 import { isRegisteredKind, isTaskCorrect, kindOf, toClientTask, type Task } from "@/lib/tasks/registry";
@@ -138,6 +138,8 @@ export function resumedStart(
 
 /** The grades that watch a worked example first (R-C9, R-F10): the hero's grade in the run's strand, K to 3. */
 const DEMO_GRADES: readonly string[] = ["K", "1", "2", "3"];
+/** The runs that show one: a side quest's, a build run, and a world run (Puzzle practice); never a review or a Crown Challenge. */
+const DEMO_RUN_KINDS: readonly RunKind[] = ["deed", "build", "world"];
 
 /**
  * Whether the hero has answered a task of `kind` (a hands-on kind: a bench task, a lock) in any run
@@ -170,13 +172,13 @@ export async function hasAnsweredKind(childId: string, kind: HandsOnKind, runId:
  * Where a run shows a worked example, if it does (R-C9, R-F10): Aldo at the bench, or Pip at a lock
  * (`demoKeyOf` says which tasks have one). It is the first such task of a hands-on kind the hero has
  * never answered, wherever it falls, for a hero whose grade in the strand is K to 3: never answered
- * in another run (`hasAnsweredKind`), nor earlier in this one. A side quest's run and a build run
- * show it (R-D6); a review or a Crown Challenge never has one. With a new bench task and a new lock
+ * in another run (`hasAnsweredKind`), nor earlier in this one. A side quest's run, a build run (R-D6)
+ * and a world run (Puzzle practice) show it; a review or a Crown Challenge never has one. With a new bench task and a new lock
  * in one run, the earlier is marked (one demo a run). The cheap checks come first, so the history is
  * only read for a run that could show one.
  */
 export async function demoAt(childId: string, grade: string, run: Pick<RunStart, "runId" | "kind" | "questions" | "responses">): Promise<number | null> {
-  if ((run.kind !== "deed" && run.kind !== "build") || !DEMO_GRADES.includes(grade)) return null;
+  if (!DEMO_RUN_KINDS.includes(run.kind) || !DEMO_GRADES.includes(grade)) return null;
   const tried = new Set<string>();
   for (const [at, q] of run.questions.entries()) {
     if (demoKeyOf(q) === null || tried.has(q.kind)) continue;

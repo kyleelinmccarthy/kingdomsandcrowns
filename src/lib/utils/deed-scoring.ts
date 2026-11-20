@@ -7,7 +7,7 @@ export type Stars = 0 | 1 | 2 | 3;
 /** The most stars one side quest can hold. */
 export const MAX_STARS = 3;
 export type QuestionOutcome = "first" | "second" | "miss";
-export type RunKind = "deed" | "challenge" | "review" | "build";
+export type RunKind = "deed" | "challenge" | "review" | "build" | "world";
 
 export const SCORING = {
   firstTryPoints: 2,
@@ -74,6 +74,20 @@ export const RUN_EFFECTS: Record<RunKind, RunEffects> = {
   build: {
     raisesBuilding: false,
     earnsStars: true,
+    movesMastery: true,
+    countsForSchool: false,
+    feedsReview: true,
+    allowsSecondChances: true,
+    paysMinutes: false,
+  },
+  /**
+   * Logic locks out in the world (R-F9): Puzzle practice on the Side Quests page now, a chest or a
+   * vault door from 4b. Its answers move mastery and feed review, with second chances as a side
+   * quest has them; it earns no star, pays no minutes and belongs to no building or spell school.
+   */
+  world: {
+    raisesBuilding: false,
+    earnsStars: false,
     movesMastery: true,
     countsForSchool: false,
     feedsReview: true,

@@ -48,6 +48,8 @@ export type MasteryRow = { skillId: string; label: string; area: SkillArea; leve
 export type DeedsOverview = {
   enabled: boolean; band: ContentBand; bandLabel: string; tone: "gentle" | "monsters";
   buildings: BuildingOverview[]; mastery: MasteryRow[];
+  /** Whether the page offers Puzzle practice: the hero is the one playing, and locks are on (`startPracticeRun` asks the same). */
+  puzzlePractice: boolean;
 };
 
 function masteryRow(row: typeof schema.skillMastery.$inferSelect): MasteryRow | null {
@@ -61,13 +63,14 @@ function masteryRow(row: typeof schema.skillMastery.$inferSelect): MasteryRow | 
 
 /** A hero may see their own deeds; a closed Realm shows as such rather than throwing. */
 export async function getDeedsOverview(childId: string): Promise<DeedsOverview> {
-  await requireChildAccess(childId);
-  const [kingdom, mastery] = await Promise.all([loadKingdomOverview(childId), loadMasteryRows(childId)]);
+  const { access } = await requireChildAccess(childId);
+  const [kingdom, mastery, settings] = await Promise.all([loadKingdomOverview(childId), loadMasteryRows(childId), loadRealmSettings(childId)]);
   return {
     // The page's one coarse label still describes the hero themselves, not any one
     // strand's gap; the per-strand grades reach the engine, not this header.
     enabled: kingdom.enabled, band: kingdom.band, bandLabel: BAND_LABELS[kingdom.band], tone: kingdom.tone,
     buildings: kingdom.buildings, mastery: mastery.map(masteryRow).filter((m): m is MasteryRow => m !== null),
+    puzzlePractice: isChildActor(access) && settings.mechanics.lock,
   };
 }
 

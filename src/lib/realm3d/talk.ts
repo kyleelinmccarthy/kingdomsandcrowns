@@ -21,13 +21,14 @@ import { agree } from "@/lib/realm/improvements";
 import { cutFeedbackLine } from "@/lib/tasks/measure-copy";
 import { isLockFeedback, lockFeedbackLine } from "@/lib/tasks/lock-copy";
 import type { ClientTask } from "@/lib/tasks/types";
-import { MAX_STARS, countsTowardBuilding } from "@/lib/utils/deed-scoring";
+import { MAX_STARS, countsTowardBuilding, type RunKind } from "@/lib/utils/deed-scoring";
 import type { ObjectiveState } from "@/lib/realm/objective";
 import { riseToast } from "@/lib/realm/objective";
 import type { Villager } from "@/lib/realm/villagers";
 import { SIDE_QUEST_LOWER, SIDE_QUESTS, SIDE_QUESTS_LOWER } from "@/lib/utils/side-quest-copy";
 import { minutesWord } from "@/lib/utils/minutes-copy";
-import { REVIEW_DONE, reviewSummaryLine } from "@/lib/utils/review-copy";
+import { REVIEW_DONE, REVIEW_FINISH, reviewSummaryLine } from "@/lib/utils/review-copy";
+import { PRACTICE_FINISH, PUZZLES_SOLVED } from "@/lib/utils/practice-copy";
 
 export type Viewer = "child" | "parent";
 
@@ -209,7 +210,18 @@ export function deedToast(input: {
 }
 
 /** The last button of a build run, where a side quest's says "Finish side quest". */
-export const BUILD_FINISH = "Finish building";
+const BUILD_FINISH = "Finish building";
+
+/** The last button of a run, by its kind: one source for the page's player and the Realm's board. */
+export function finishLabel(kind: RunKind): string {
+  switch (kind) {
+    case "review": return REVIEW_FINISH;
+    case "build": return BUILD_FINISH;
+    case "world": return PRACTICE_FINISH;
+    case "deed":
+    case "challenge": return `Finish ${SIDE_QUEST_LOWER}`;
+  }
+}
 
 /** What the result card's headline reads of a build run's outcome (`RunSummary.improvement`). */
 type BuildOutcome = Pick<NonNullable<RunSummary["improvement"]>, "id" | "label" | "level" | "built" | "reason">;
@@ -233,6 +245,8 @@ export function resultHeadline(
   }
   // A review teaches and pays nothing: no "Flawless!" to chase, only how it went.
   if (summary.kind === "review") return { title: REVIEW_DONE, line: reviewSummaryLine(summary) };
+  // Nor does Puzzle practice, and it is no side quest: the puzzles are solved, and this many right.
+  if (summary.kind === "world") return { title: PUZZLES_SOLVED, line: `${summary.correctCount} of ${summary.total} right.` };
   const challenge = summary.kind === "challenge";
   return {
     title: challenge

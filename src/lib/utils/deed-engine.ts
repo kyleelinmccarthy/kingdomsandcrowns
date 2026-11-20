@@ -82,7 +82,7 @@ const MAX_MISSES = 2;
  * grade 2 and nowhere above, so a grade-9 hero's reading quest is grade-2 work. That is the
  * walk doing what it says.
  */
-export function chooseSkills(deed: Deed, grade: Grade): Skill[] {
+export function chooseSkills(deed: Pick<Deed, "area">, grade: Grade): Skill[] {
   for (const g of nearestGrades(grade)) {
     const candidates = skillsFor(deed.area, g);
     if (candidates.length > 0) return candidates;
@@ -453,14 +453,22 @@ export function buildDeedRun(input: BuildRunInput): BuiltRun {
   const enabled = input.enabledKinds ?? new Set(Object.keys(TASK_KINDS) as TaskKind[]);
   // How each skill is played, worked out once and used for every draw of it (due, fresh and refill).
   const kinds = new Map<string, TaskKind>();
+  const focus = new Set(input.focusSkillIds);
   const kindOfSkill = (skillId: string): TaskKind => {
     let k = kinds.get(skillId);
-    if (!k) kinds.set(skillId, (k = kindForSkill(deed.mechanic, skillId, enabled)));
+    if (!k) {
+      k = kindForSkill(deed.mechanic, skillId, enabled);
+      // A grown-up's focus skill that a lock presents is sorted on the lock's face where the deed
+      // would ask it as choice (R-F11): a vocabulary focus in a language side quest. Locks off, or
+      // the gate, still give choice; a skill no lock presents is left as the deed plays it.
+      if (k === "choice" && focus.has(skillId)) k = kindForSkill("lock", skillId, enabled);
+      kinds.set(skillId, k);
+    }
     return k;
   };
   const rng = seededRng(seed);
   const candidates = runCandidates(deed, grade, input.focusSkillIds);
-  const skills = selectSkills(candidates, masteryBySkill, rng, lastPracticedBySkill ?? {}, new Set(input.focusSkillIds));
+  const skills = selectSkills(candidates, masteryBySkill, rng, lastPracticedBySkill ?? {}, focus);
   const skillIds = skills.map((s) => s.id);
   if (skills.length === 0) return { skillIds: [], questions: [] };
 

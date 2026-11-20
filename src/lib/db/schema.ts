@@ -1240,7 +1240,7 @@ export const deedRun = sqliteTable(
     // Second-try answers, parallel to `responses` (JSON (string | null)[]).
     secondTries: text("second_tries").notNull().default("[]"),
     stars: integer("stars").notNull().default(0),
-    kind: text("kind", { enum: ["deed", "challenge", "review", "build"] }).notNull().default("deed"),
+    kind: text("kind", { enum: ["deed", "challenge", "review", "build", "world"] }).notNull().default("deed"),
     // Frozen at run start, so changing the setting never alters a run in flight.
     secondChances: integer("second_chances", { mode: "boolean" }).notNull().default(false),
     startedAt: integer("started_at", { mode: "timestamp" }).notNull(),

@@ -30,7 +30,7 @@ import type { RunStart, RunSummary } from "@/lib/utils/deed-run-types";
 import { realmCue } from "@/lib/realm3d/sound/store";
 import type { BuildingOverview } from "@/lib/services/deeds";
 import type { Villager } from "@/lib/realm/villagers";
-import { BUILD_FINISH, attemptFeedback, resultBuildingLine, resultHeadline, resultMinutesLine, resultStarsLine, talkCopy, type Viewer } from "@/lib/realm3d/talk";
+import { attemptFeedback, finishLabel, resultBuildingLine, resultHeadline, resultMinutesLine, resultStarsLine, talkCopy, type Viewer } from "@/lib/realm3d/talk";
 import { MAX_STARS, countsTowardBuilding, type Stars } from "@/lib/utils/deed-scoring";
 import { deedErrorLine } from "@/lib/utils/deed-refusals";
 import { DeedMeter } from "@/components/deed-meter";
@@ -42,7 +42,6 @@ import { ALL_ANSWERED } from "@/lib/utils/deed-run-flow";
 import { AREA_LABELS, type SkillArea } from "@/lib/utils/skills";
 import { canSpeak, speak, stopSpeaking, type SpeechToken } from "@/lib/utils/speech";
 import { SIDE_QUEST_LOWER, SIDE_QUESTS_LOWER } from "@/lib/utils/side-quest-copy";
-import { REVIEW_FINISH } from "@/lib/utils/review-copy";
 import { Panel, Progress } from "./frame-hud";
 
 type Profile = { readAloud: boolean; untimed: boolean };
@@ -271,8 +270,8 @@ export function DeedRun({
   const question = run.questions[index];
   const demo = useTaskDemo(run, index);
   const isLast = index === run.questions.length - 1;
-  const what = run.kind === "review" ? "review" : run.kind === "build" ? "build" : SIDE_QUEST_LOWER;
-  const finishLabel = run.kind === "review" ? REVIEW_FINISH : run.kind === "build" ? BUILD_FINISH : `Finish ${SIDE_QUEST_LOWER}`;
+  const what = run.kind === "review" ? "review" : run.kind === "build" ? "build" : run.kind === "world" ? "puzzles" : SIDE_QUEST_LOWER;
+  const finish = finishLabel(run.kind);
   const nextRef = useRef<HTMLButtonElement>(null);
   const feedback = flow.result ? attemptFeedback(flow.result, flow.ruledOut.length > 0, villagerName, question) : null;
 
@@ -416,11 +415,11 @@ export function DeedRun({
               ref={nextRef}
               type="button"
               className="r3-menu-item r3-menu-item--go"
-              aria-label={isLast ? finishLabel : "Next question"}
+              aria-label={isLast ? finish : "Next question"}
               disabled={busy}
               onClick={() => void advance()}
             >
-              {isLast ? finishLabel : "Next"}
+              {isLast ? finish : "Next"}
             </button>
           )}
         </div>
