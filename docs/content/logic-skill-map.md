@@ -27,5 +27,5 @@ a grade-12 hero gets `logic-g912`.
 | K | `logic-k1` | Patterns (AB AB ?), sorting shapes by one attribute | new |
 | 2 | `logic-g23` | 3×3 shape grids, balances, sorting by two attributes | new |
 | 4 | `logic-g45` | 4×4 number cages (KenKen-style), easy at first (`+` only); some 3×3 logic grids | new |
-| 6 | `logic-g68` | 4×4 cages, 3×3 logic grids | new |
+| 6 | `logic-g68` | 4×4 cages, 3×3 then 4×4 logic grids | new |
 | 9 | `logic-g912` | 5×5 cages, 5×5 nonograms, 4×4 logic grids | new |
