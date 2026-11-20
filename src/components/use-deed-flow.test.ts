@@ -3,7 +3,7 @@ import { renderHook, act } from "@testing-library/react";
 import { useDeedFlow } from "./use-deed-flow";
 import type { RunStart } from "@/lib/utils/deed-run-types";
 import { NUDGE_LINE } from "@/lib/tasks/pace-guard";
-import { hintFor } from "@/lib/utils/skill-hints";
+import { hintFor, SORT_HINTS } from "@/lib/utils/skill-hints";
 
 const answerDeedQuestion = vi.fn();
 const retryDeedQuestion = vi.fn();
@@ -231,6 +231,21 @@ describe("useDeedFlow", () => {
       act(() => result.current.next());
       expect(result.current.nudge).toEqual({ line: NUDGE_LINE, hint: hintFor("frac-unit") });
       expect(hintFor("frac-unit")).not.toBe(hintFor("mul-facts"));
+    });
+
+    it("a word sort on the board gets the sort line, never a choice-worded clue", async () => {
+      const sort = { kind: "lock" as const, id: "4", skillId: "science-g23", prompt: "Sort", view: { puzzle: "sort" as const, categories: ["A", "B"], items: [] } };
+      const mixed: RunStart = { ...five, questions: [q("1"), q("2"), q("3"), sort, q("5")] };
+      let t = 0;
+      const { result } = renderHook(() => useDeedFlow(mixed, undefined, () => t));
+      for (const ms of [0, 1000, 2000]) {
+        answerDeedQuestion.mockResolvedValueOnce(wrong);
+        t = ms;
+        await act(() => result.current.choose("b"));
+        act(() => result.current.next());
+      }
+      expect(result.current.nudge).toEqual({ line: NUDGE_LINE, hint: SORT_HINTS["science-g23"] });
+      expect(result.current.nudge?.hint).not.toMatch(/choice/i);
     });
 
     it("reads the browser clock by default, and never sends a time to the server", async () => {

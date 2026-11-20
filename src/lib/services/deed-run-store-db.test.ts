@@ -4,7 +4,7 @@ import { testDatabase } from "@/test/libsql-test-db";
 import type { RunStart } from "@/lib/utils/deed-run-types";
 
 /**
- * Whether a hero has answered a hands-on task of a kind before (a bench task, a lock), against a REAL libsql database: the question is
+ * Whether a hero has seen a demo before (any bench task; a lock of one of the demo's puzzles), against a REAL libsql database: the question is
  * asked in SQL over stored JSON, so an old row of an odd shape must be passed over, never throw
  * (a throw would block the child from starting any run).
  */
@@ -130,5 +130,50 @@ describe("demoAt for a lock (R-F10)", () => {
   it("an unanswered lock in another run is not enough", async () => {
     await seed("lock-left", JSON.stringify([storedLock]), JSON.stringify([null]));
     await expect(demoAt("lock-left", "K", run([pattern]))).resolves.toBe(0);
+  });
+});
+
+describe("each of Pip's demos shows once, by its own puzzles (RF-g)", () => {
+  // Stored as the server keeps them: `puzzle` on the task itself.
+  const stored = (puzzle: string, id = puzzle) => ({ kind: "lock", id, skillId: "logic-g23", prompt: "p", puzzle, solution: { puzzle, cells: [1] } });
+  const view = (puzzle: string, id = puzzle) => ({ kind: "lock", id, skillId: "logic-g23", prompt: "p", view: { puzzle } });
+  const run = (questions: unknown[], responses?: (string | null)[], kind: RunStart["kind"] = "deed") =>
+    ({ runId: "now", kind, questions, responses: responses ?? questions.map(() => null) }) as Pick<RunStart, "runId" | "kind" | "questions" | "responses">;
+
+  it("a hero who answered a word sort earlier still meets Pip at their first shape grid", async () => {
+    await seed("words-then-shapes", JSON.stringify([stored("sort")]), JSON.stringify(["sort:1"]));
+    await expect(demoAt("words-then-shapes", "2", run([view("shapes3")]))).resolves.toBe(0);
+    // In Puzzle practice too (a world run).
+    await expect(demoAt("words-then-shapes", "2", run([view("shapes3")], undefined, "world"))).resolves.toBe(0);
+    // A later word sort has no demo: that one is seen.
+    await expect(demoAt("words-then-shapes", "2", run([view("sort"), view("shapes3")]))).resolves.toBe(1);
+  });
+
+  it("a hero who answered a shape grid gets no shape-grid demo again", async () => {
+    await seed("shapes-seen", JSON.stringify([stored("shapes3")]), JSON.stringify(["shapes3:1"]));
+    await expect(demoAt("shapes-seen", "2", run([view("shapes3")]))).resolves.toBeNull();
+  });
+
+  it("the two shape sorts are one demo: an answered sort2 covers a sort1", async () => {
+    await seed("sort2-seen", JSON.stringify([stored("sort2")]), JSON.stringify(["sort2:1"]));
+    await expect(demoAt("sort2-seen", "2", run([view("sort1")]))).resolves.toBeNull();
+    await expect(demoAt("sort2-seen", "2", run([view("sort1"), view("balance")]))).resolves.toBe(1);
+  });
+
+  it("still one demo a run: the first new one, and none once the run is past it", async () => {
+    await expect(demoAt("fresh-locks", "1", run([view("sort"), view("shapes3")]))).resolves.toBe(0);
+    // Resumed after the word sort was answered: the shape grid is not a second demo.
+    await expect(demoAt("fresh-locks", "1", run([view("sort"), view("shapes3")], ["sort:1", null]))).resolves.toBeNull();
+    // A seen word sort first, then a new shape grid: the grid is the run's demo, before and after the sort is answered.
+    await seed("words-seen", JSON.stringify([stored("sort")]), JSON.stringify(["sort:1"]));
+    await expect(demoAt("words-seen", "1", run([view("sort"), view("shapes3")], ["sort:1", null]))).resolves.toBe(1);
+  });
+
+  it("the bench is unchanged: any answered bench task, assemble or cut, ends Aldo's demos", async () => {
+    await seed("cut-seen", JSON.stringify([{ ...measure, mode: "cut" }]), JSON.stringify(["c:3"]));
+    await expect(demoAt("cut-seen", "2", current)).resolves.toBeNull();
+    const cut = { kind: "measure", id: "c", skillId: "sub-10", prompt: "p", view: { mode: "cut", unit: "blocks" } };
+    await expect(demoAt("fresh-bench", "2", run([cut, current.questions[0]]))).resolves.toBe(0);
+    await expect(demoAt("fresh-bench", "2", run([cut, current.questions[0]], ["c:3", null]))).resolves.toBeNull();
   });
 });

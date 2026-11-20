@@ -29,7 +29,7 @@ import {
 } from "@/lib/utils/deed-refusals";
 import { overdueSkills } from "@/lib/utils/review-schedule";
 import type { AttemptResult, RunStart, RunSummary } from "@/lib/utils/deed-run-types";
-import { hintFor } from "@/lib/utils/skill-hints";
+import { taskHint } from "@/lib/utils/skill-hints";
 import { demoAt, findOpenRun, insertRun, loadMasteryRows, loadRecentMisses, parseRun, resumedStart, type DeedRunRow } from "@/lib/services/deed-run-store";
 import {
   buildingStars, gradeForDeed, loadDeedBest, loadHeroLevels, loadKingdomOverview, loadSiteState, siteTally, type BuildingOverview, type DeedBest,
@@ -205,7 +205,7 @@ async function loadAttemptState(runId: string, index: number) {
  */
 function resultFor(question: Task, status: QuestionStatus, firstPick?: string, rightPick?: string): AttemptResult {
   if (status === "unanswered") throw new Error(ANSWER_FIRST);
-  if (status === "open") return { correct: false, secondChance: true, hint: hintFor(question.skillId), firstPick };
+  if (status === "open") return { correct: false, secondChance: true, hint: taskHint(question), firstPick };
   const correct = status === "right-first" || status === "right-second";
   const def = taskDefOf(question);
   const result: AttemptResult = { correct, secondChance: false, answer: def.answerText(question) };
@@ -217,7 +217,7 @@ function resultFor(question: Task, status: QuestionStatus, firstPick?: string, r
   // resolved and missed. Never on an open try (returned above) or a right answer.
   if (!correct && question.kind === "lock") result.reveal = TASK_CODECS.lock.encode(question.solution);
   if (question.explain) result.explain = question.explain;
-  else if (!correct) result.hint = hintFor(question.skillId);
+  else if (!correct) result.hint = taskHint(question);
   return result;
 }
 

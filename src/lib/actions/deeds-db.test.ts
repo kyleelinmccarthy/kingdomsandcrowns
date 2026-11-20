@@ -2,7 +2,9 @@
 import { describe, it, expect, vi, beforeAll, beforeEach, afterEach, afterAll } from "vitest";
 import { testDatabase } from "@/test/libsql-test-db";
 import { DEFAULT_REALM_SETTINGS } from "@/lib/utils/realm-settings";
-import { hintFor } from "@/lib/utils/skill-hints";
+import { hintFor, SORT_HINTS } from "@/lib/utils/skill-hints";
+import { seededRng } from "@/lib/utils/drill-generators";
+import { lockFor } from "@/lib/tasks/locks";
 import { CHALLENGE, SCORING, starsFor } from "@/lib/utils/deed-scoring";
 import { CHALLENGE_NOT_READY, HERO_ONLY, PICK_SHOWN, TRY_DIFFERENT } from "@/lib/utils/deed-refusals";
 import type { Question } from "@/lib/utils/drill-generators";
@@ -1606,6 +1608,46 @@ describe("a science side quest sorts on a lock's face (R-F11)", () => {
     for (const i of [1, 2]) expect(await answerDeedQuestion("sci", i, `A${i}`)).toMatchObject({ correct: true });
     expect(await completeDeedRun("sci")).toMatchObject({ kind: "deed", flawless: true, stars: 3, counted: true });
     expect(await runCountOf("c1")).toBe(1);
+  });
+});
+
+describe("a sort's hint talks about groups, never choices", () => {
+  // Real sorts from the shipped pools, beside choice questions of the same skills.
+  const sortOf = (skillId: string) => lockFor(skillId)!(0, seededRng(7), skillId)!;
+  const choiceOf = (skillId: string, i: number): Question => ({ id: `${skillId}-q${i}`, skillId, prompt: "Which?", choices: ["A", "B", "C", "D"], answer: "A" });
+  const TASKS = [sortOf("science-g23"), choiceOf("science-g23", 1), sortOf("vocab-g45"), choiceOf("vocab-g45", 3)];
+  const wrong = (t: Task) => (kindOf(t) === "choice" ? "B" : TASK_CODECS.lock.encode({ puzzle: "sort", cells: (t as LockTask).solution.cells.map((c) => 3 - c) } as LockTask["solution"]));
+  const seedSorts = () => seedRun({ questions: TASKS as unknown as Question[] });
+
+  it("a science sort's second chance and miss say the sort line; its choice question keeps the old hint", async () => {
+    await seedSorts();
+    const open = await answerDeedQuestion("run1", 0, wrong(TASKS[0]));
+    expect(open).toMatchObject({ secondChance: true, hint: "Say each word, then think about which group it belongs in." });
+    const miss = await resolveDeedQuestion("run1", 0);
+    expect(miss).toMatchObject({ correct: false, secondChance: false, hint: "Say each word, then think about which group it belongs in." });
+    for (const r of [open, miss]) expect(r.hint).not.toMatch(/choice/i);
+    expect(await answerDeedQuestion("run1", 1, "B")).toMatchObject({ secondChance: true, hint: hintFor("science-g23") });
+    expect(await resolveDeedQuestion("run1", 1)).toMatchObject({ correct: false, hint: hintFor("science-g23") });
+    expect(hintFor("science-g23")).toMatch(/choice/i);
+  });
+
+  it("the same for vocabulary: a sort is about meaning, a choice question keeps its hint", async () => {
+    await seedSorts();
+    const open = await answerDeedQuestion("run1", 2, wrong(TASKS[2]));
+    expect(open).toMatchObject({ secondChance: true, hint: SORT_HINTS["vocab-g45"] });
+    const miss = await resolveDeedQuestion("run1", 2);
+    expect(miss).toMatchObject({ correct: false, hint: SORT_HINTS["vocab-g45"] });
+    for (const r of [open, miss]) expect(r.hint).not.toMatch(/choice/i);
+    expect(SORT_HINTS["vocab-g45"]).toMatch(/mean/i);
+    expect(await answerDeedQuestion("run1", 3, "B")).toMatchObject({ secondChance: true, hint: hintFor("vocab-g45") });
+    expect(await resolveDeedQuestion("run1", 3)).toMatchObject({ correct: false, hint: hintFor("vocab-g45") });
+  });
+
+  it("a resumed second chance on a sort brings the sort line back", async () => {
+    await seedSorts();
+    await answerDeedQuestion("run1", 0, wrong(TASKS[0]));
+    const r = await startDeedRun("c1", "well-stones", "realm");
+    expect(r.pending).toMatchObject({ index: 0, hint: "Say each word, then think about which group it belongs in." });
   });
 });
 

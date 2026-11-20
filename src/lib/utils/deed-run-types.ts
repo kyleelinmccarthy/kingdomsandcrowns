@@ -29,7 +29,7 @@ export type RunStart = {
   plan?: { improvementId: ImprovementId; level: number; placed: number };
   /**
    * Where a worked example shows (R-C9, R-F10): `at` is the index of the run's first bench task or
-   * lock with a demo (`demoKeyOf`), of a kind a young hero has never answered (`demoAt`). The board
+   * lock with a demo (`demoKeyOf`) a young hero has never seen (`demoAt`: Aldo's once, each of Pip's once). The board
    * shows that task's demo, "Watch Aldo" or "Watch Pip", when the run reaches it. Absent otherwise,
    * and absent once that task is answered. Holds only an index.
    */
