@@ -16,7 +16,7 @@ type Item = SortPool["sets"][number]["items"][number];
 function itemsOf(prefix: string, zero: string[], one: string[]): Item[] {
   const make = (labels: string[], category: 0 | 1): Item[] =>
     labels.map((label, i) => ({
-      // Ids come from the label, so they do not run in bin order (see the `id-tells-category` rule).
+      // Ids come from the label, so they do not run in bin order (any id works: the browser only sees an opaque one).
       id: `${prefix}-${label.replace(/ /g, "-")}`,
       label,
       category,

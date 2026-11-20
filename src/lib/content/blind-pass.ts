@@ -34,6 +34,9 @@
 // The pool, as it sits on disk
 // ---------------------------------------------------------------------------------------
 
+import { hash32 } from "./hash32";
+import { SORT_POOL_PREFIX } from "./sort-pools";
+
 export type PoolItem = {
   id: string;
   prompt: string;
@@ -55,15 +58,7 @@ export const LETTERS = ["A", "B", "C", "D"] as const;
 // Stable, key-free choice order
 // ---------------------------------------------------------------------------------------
 
-/** FNV-1a. Small, dependency-free, and good enough to spread item ids over a seed space. */
-export function hash32(input: string): number {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < input.length; i++) {
-    h ^= input.charCodeAt(i);
-    h = Math.imul(h, 0x01000193);
-  }
-  return h >>> 0;
-}
+export { hash32 };
 
 /** mulberry32 — a seeded PRNG, so a sheet re-run on unchanged content is byte-identical. */
 function mulberry32(seed: number): () => number {
@@ -504,7 +499,6 @@ export function formatReport(report: BlindPassReport): string {
 
 import fs from "node:fs";
 import path from "node:path";
-import { SORT_POOL_PREFIX } from "./sort-pools";
 
 export const DRILLS_DIR = path.join(__dirname, "../../content/drills");
 export const REVIEW_DIR = path.join(__dirname, "../../content/review");

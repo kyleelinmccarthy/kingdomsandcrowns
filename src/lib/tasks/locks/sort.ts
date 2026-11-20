@@ -7,17 +7,19 @@
  * come first, and the rest fill in nearest-level first. Every item's bin is the pool's key, held in
  * `fits` and the stored `solution`, both server-only.
  *
- * The id is `<skill>:sort:<poolId>:<setId>:<item ids, comma-separated>`, in the order shown: it names
- * the items but never a bin, so it can be sent to the browser. (An item id must not give a bin away
- * either; `validateSortPool` checks the ids as well as the labels.) One id is one puzzle: the prompt,
- * the bins and `fits` all follow from the pool.
+ * The id is `<skill>:sort:<poolId>:<setId>:<opaque ids, comma-separated>`, in the order shown, and the
+ * lock's view carries the same opaque ids (RF-h). An opaque id is `opaqueItemId(setId, itemId)`: 8 hex
+ * characters that the server alone can map back to the author's item id (`sortTaskFromId`). Author ids
+ * never reach the browser, because they can lean on the answer in ways no validator can list (q1/q3 in
+ * one bin, q2/q4 in the other; a trailing a/b). The id names the items but never a bin, so it can be sent
+ * to the browser. One id is one puzzle: the prompt, the bins and `fits` all follow from the pool.
  *
  * Seeded and pure: the `Rng` only, never `Math.random`. A pool that fails `validateSortPool` is never
  * loaded: it throws under test (so a bad file fails the suite) and is skipped, with a logged error,
  * in production (so one bad file cannot take the lock kind down).
  */
 import { shuffle, type Rng } from "@/lib/utils/drill-generators";
-import { formatSortProblems, validateSortPool, type SortPool, type SortPoolItem, type SortSet } from "@/lib/content/sort-pools";
+import { formatSortProblems, opaqueItemId, validateSortPool, type SortPool, type SortPoolItem, type SortSet } from "@/lib/content/sort-pools";
 import type { LockTask } from "../types";
 import type { LockGenerator } from "./index";
 import { SORT_POOL_FILES } from "./sort-pool-files";
@@ -69,6 +71,46 @@ function take(items: readonly SortPoolItem[], k: number, level: number, rng: Rng
   return [...near, ...far].slice(0, k);
 }
 
+/** The task for these items of one set, in the order shown. Everything about it follows from the pool. */
+function buildTask(skillId: string, pool: SortPool, set: SortSet, chosen: readonly SortPoolItem[]): LockTask {
+  const opaque = chosen.map((i) => opaqueItemId(set.id, i.id));
+  const [first, second] = set.categories;
+  return {
+    kind: "lock",
+    id: `${skillId}:sort:${pool.poolId}:${set.id}:${opaque.join(",")}`,
+    skillId,
+    puzzle: "sort",
+    prompt: `Sort these: ${first} or ${second}?`,
+    categories: [first, second],
+    items: chosen.map((i, n) => ({ id: opaque[n], label: i.label })),
+    fits: chosen.map((i) => [i.category]),
+    solution: { puzzle: "sort", cells: chosen.map((i) => i.category + 1) },
+  } satisfies LockTask;
+}
+
+/**
+ * The task a sort id names, rebuilt from the pools: each opaque id is resolved back by hashing the set's
+ * items. An id that is not ours, names no pool or set, repeats an item, names one the set lacks, or
+ * lists fewer than 2 or more than 10 items gives null, as does a skill no pool credits.
+ */
+export function sortTaskFromId(id: string): LockTask | null {
+  const parts = id.split(":");
+  if (parts.length !== 5 || parts[1] !== "sort") return null;
+  const [skillId, , poolId, setId, list] = parts;
+  const entry = active.get(skillId)?.find((e) => e.pool.poolId === poolId && e.set.id === setId);
+  if (!entry) return null;
+  const byOpaque = new Map(entry.set.items.map((i) => [opaqueItemId(entry.set.id, i.id), i]));
+  const opaque = list.split(",");
+  if (opaque.length < 2 || opaque.length > 10 || new Set(opaque).size !== opaque.length) return null;
+  const chosen: SortPoolItem[] = [];
+  for (const o of opaque) {
+    const item = byOpaque.get(o);
+    if (!item) return null;
+    chosen.push(item);
+  }
+  return buildTask(skillId, entry.pool, entry.set, chosen);
+}
+
 const drawSort: LockGenerator = (level, rng, skillId) => {
   const entries = active.get(skillId);
   if (!entries || entries.length === 0) return null;
@@ -76,23 +118,13 @@ const drawSort: LockGenerator = (level, rng, skillId) => {
   const { pool, set } = pick(rng, entries);
 
   const n = COUNT_AT_LEVEL[l];
+  // The clamp below relies on the validator's minimums: sets of at least 16 items with each bin 40-60%, so each bin has at least 7 and n/2 + 1 <= 6 always fits.
   const side = [set.items.filter((i) => i.category === 0), set.items.filter((i) => i.category === 1)];
   // Half and half, give or take one: always exactly half would itself be a tell.
   const zeros = Math.min(side[0].length, Math.max(n - side[1].length, n / 2 + pick(rng, [-1, 0, 0, 1])));
   const chosen = shuffle([...take(side[0], zeros, l, rng), ...take(side[1], n - zeros, l, rng)], rng);
 
-  const [first, second] = set.categories;
-  return {
-    kind: "lock",
-    id: `${skillId}:sort:${pool.poolId}:${set.id}:${chosen.map((i) => i.id).join(",")}`,
-    skillId,
-    puzzle: "sort",
-    prompt: `Sort these: ${first} or ${second}?`,
-    categories: [first, second],
-    items: chosen.map((i) => ({ id: i.id, label: i.label })),
-    fits: chosen.map((i) => [i.category]),
-    solution: { puzzle: "sort", cells: chosen.map((i) => i.category + 1) },
-  } satisfies LockTask;
+  return buildTask(skillId, pool, set, chosen);
 };
 
 /** The drawer for a skill that a sort pool credits, else undefined (the skill plays as `choice`). Own keys only. */

@@ -22,6 +22,7 @@
  */
 import { GRADES, type Grade } from "../utils/grade-levels";
 import { SKILLS, findSkill } from "../utils/skills";
+import { hash32 } from "./hash32";
 import type { Problem } from "./pool-validate";
 
 export type { Problem } from "./pool-validate";
@@ -68,7 +69,8 @@ export const SORT_POOL_RULES = {
   duplicateLabel: "duplicate-label",
   labelLength: "label-length",
   categoryWord: "category-word-in-label",
-  idTellsCategory: "id-tells-category",
+  opaqueCollision: "opaque-id-collision",
+  characters: "unsafe-characters",
 } as const;
 const R = SORT_POOL_RULES;
 
@@ -84,16 +86,51 @@ export const MAX_CATEGORY_CHARS = 20;
 export const MAX_CATEGORY_WORDS = 3;
 const LEVELS: readonly SortLevel[] = [0, 1, 2, 3, 4];
 const SKILL_AREAS = new Set(["science", "language"]);
-/** Taken in id order, the two categories must change at least this many times, or the ids run bin by bin. */
-export const MIN_ID_SWITCHES = 3;
-/** Ids sit inside a task id, where `:` and `,` are separators. */
+/** A set id sits inside a task id, where `:` and `,` are separators; item ids keep to the same charset so the hash input is plain. */
 const ID_FORMAT = /^[A-Za-z0-9._-]+$/;
 
-const ID_ORDER = new Intl.Collator("en", { numeric: true });
-const norm = (s: string): string => s.trim().toLowerCase().replace(/\s+/g, " ");
+/**
+ * The one way a label is normalised: trimmed, lower-cased, runs of whitespace collapsed. The duplicate-label
+ * rule and the blind pass's `itemCode` both use it, so "two labels the validator calls the same" and "two
+ * labels the sheet gives one code" are the same thing by construction.
+ */
+export const normLabel = (s: string): string => s.trim().toLowerCase().replace(/\s+/g, " ");
+const norm = normLabel;
+/** Control characters (a newline would break the sheet's one-line-per-item format) and backticks (its code fences). */
+const UNSAFE_CHARS = /[\u0000-\u001f\u007f`]/;
+const CONTROL_CHARS = /[\u0000-\u001f\u007f]/g;
 const words = (s: string): string[] => s.trim().split(/\s+/).filter(Boolean);
 /** Lower-case alphanumeric runs: a hyphen, dot or underscore is a word boundary, so "non-living" has "living" in it. */
 const tokens = (s: string): string[] => s.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+
+// ---------------------------------------------------------------------------
+// Opaque item ids (RF-h)
+// ---------------------------------------------------------------------------
+
+/**
+ * What the browser sees of an item: 8 lower-case hex characters, from the set id and the author's item
+ * id. An author's id may lean on the answer in ways no validator can list (q1/q3 in one bin, q2/q4 in the
+ * other; a trailing a/b), so author ids never leave the server: the lock's view and its task id carry only
+ * this. Two items of one set must not share one (see `findOpaqueCollisions`).
+ */
+export const opaqueItemId = (setId: string, itemId: string): string => hash32(`${setId}/${itemId}`).toString(16).padStart(8, "0");
+
+/** Item ids of one set whose opaque ids coincide, as `[first, second]` pairs. `hash` is injectable for tests. */
+export function findOpaqueCollisions(
+  setId: string,
+  itemIds: readonly string[],
+  hash: (setId: string, itemId: string) => string = opaqueItemId,
+): [string, string][] {
+  const seen = new Map<string, string>();
+  const collisions: [string, string][] = [];
+  for (const id of itemIds) {
+    const key = hash(setId, id);
+    const first = seen.get(key);
+    if (first !== undefined) collisions.push([first, id]);
+    else seen.set(key, id);
+  }
+  return collisions;
+}
 
 // ---------------------------------------------------------------------------
 // 1. Shape: exact, no extra keys. Everything after this assumes it holds.
@@ -172,14 +209,17 @@ function checkIdentity(pool: SortPool): Problem[] {
   return problems;
 }
 
-/** Whether `text` holds a whole-word category phrase or any of its meaningful words. */
+/** The same word, give or take a plural: "solid" and "solids", "glass" and "glasses". */
+const sameWord = (x: string, y: string): boolean => x === y || x === `${y}s` || y === `${x}s` || x === `${y}es` || y === `${x}es`;
+
+/** Whether `text` holds a whole-word category phrase or any of its meaningful words (singular or plural). */
 function categoryWordIn(text: string, category: string): string | null {
   const have = tokens(text);
   const phrase = tokens(category);
-  const hit = (seq: string[]): boolean => seq.length > 0 && have.some((_, i) => seq.every((w, j) => have[i + j] === w));
+  const hit = (seq: string[]): boolean => seq.length > 0 && have.some((_, i) => seq.every((w, j) => i + j < have.length && sameWord(have[i + j], w)));
   if (hit(phrase)) return category;
   // Short joiners ("non", "of", "in") carry no meaning on their own.
-  const word = phrase.find((w) => w.length >= 4 && have.includes(w));
+  const word = phrase.find((w) => w.length >= 4 && have.some((t) => sameWord(t, w)));
   return word ?? null;
 }
 
@@ -192,6 +232,7 @@ function checkSet(set: SortSet): Problem[] {
 
   const [a, b] = set.categories;
   for (const c of set.categories) {
+    if (UNSAFE_CHARS.test(c)) bad(null, R.characters, `${where}: category "${c.replace(CONTROL_CHARS, "?")}" has a control character or a backtick`);
     if (norm(c) === "" || c.length > MAX_CATEGORY_CHARS || words(c).length > MAX_CATEGORY_WORDS) {
       bad(null, R.categories, `${where}: category "${c}" must be 1-${MAX_CATEGORY_WORDS} words and at most ${MAX_CATEGORY_CHARS} characters`);
     }
@@ -214,29 +255,23 @@ function checkSet(set: SortSet): Problem[] {
     if (label === "" || words(label).length > MAX_LABEL_WORDS || label.length > MAX_LABEL_CHARS) {
       bad(item.id, R.labelLength, `${where}: label "${item.label}" must be 1-${MAX_LABEL_WORDS} words and at most ${MAX_LABEL_CHARS} characters`);
     }
-    const key = norm(item.label);
+    if (UNSAFE_CHARS.test(item.label)) bad(item.id, R.characters, `${where}: label "${item.label.replace(CONTROL_CHARS, "?")}" has a control character or a backtick`);
+    const key = normLabel(item.label);
     const first = seenLabel.get(key);
     if (first !== undefined) bad(item.id, R.duplicateLabel, `${where}: label "${item.label}" is already used by ${first}`);
     else seenLabel.set(key, item.id);
 
     if (!ID_FORMAT.test(item.id)) bad(item.id, R.idFormat, `${where}: item id "${item.id}" must be letters, digits, dots, dashes and underscores`);
-    // The label AND the id reach the browser (the id rides in the lock's view and its task id), so neither may name a bin.
-    for (const [what, text] of [["label", item.label], ["id", item.id]] as const) {
-      for (const c of set.categories) {
-        const found = categoryWordIn(text, c);
-        if (found) bad(item.id, R.categoryWord, `${where}: the ${what} "${text}" contains "${found}", a word of the category "${c}", which gives the answer away`);
-      }
+    // The label reaches the browser, so it may not name a bin. (Item ids never do: the view and the task id
+    // carry opaque ids, so an id is free to say anything.)
+    for (const c of set.categories) {
+      const found = categoryWordIn(item.label, c);
+      if (found) bad(item.id, R.categoryWord, `${where}: the label "${item.label}" contains "${found}", a word of the category "${c}", which gives the answer away`);
     }
   }
 
-  // The ids reach the browser too. Numbered bin by bin (liv-1 ... liv-12 living, liv-13 ... non-living) they
-  // would hand over the answer, so taken in id order the categories must be well mixed.
-  if (set.items.length >= MIN_SET_SIZE) {
-    const byId = [...set.items].sort((x, y) => ID_ORDER.compare(x.id, y.id));
-    const switches = byId.filter((item, i) => i > 0 && item.category !== byId[i - 1].category).length;
-    if (switches < MIN_ID_SWITCHES) {
-      bad(null, R.idTellsCategory, `${where}: in id order the items change category only ${switches} time(s); ids that run bin by bin give the answer away. Name ids after the item (e.g. "${set.id}-oak-tree"), not by number`);
-    }
+  for (const [first, second] of findOpaqueCollisions(set.id, set.items.map((i) => i.id))) {
+    bad(second, R.opaqueCollision, `${where}: item ids "${first}" and "${second}" hash to the same opaque id; rename one`);
   }
   return problems;
 }

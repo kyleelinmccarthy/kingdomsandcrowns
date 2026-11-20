@@ -25,8 +25,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import { seededRng, shuffle } from "../utils/drill-generators";
-import { REVIEW_DIR, hash32, loadResolutions, resolutionsPath, sheetPath, type Resolution } from "./blind-pass";
-import { SORT_POOL_PREFIX, formatSortProblems, validateSortPool, type SortPool, type SortPoolItem, type SortSet } from "./sort-pools";
+import { hash32 } from "./hash32";
+import { REVIEW_DIR, loadResolutions, resolutionsPath, sheetPath, type Resolution } from "./blind-pass";
+import { SORT_POOL_PREFIX, formatSortProblems, normLabel, validateSortPool, type SortPool, type SortPoolItem, type SortSet } from "./sort-pools";
 
 export { resolutionsPath };
 export type { Resolution, ResolutionVerdict } from "./blind-pass";
@@ -42,7 +43,7 @@ export type { Resolution, ResolutionVerdict } from "./blind-pass";
  * (resolutions pin the key separately, through `keyAt`).
  */
 export function itemCode(set: SortSet, item: SortPoolItem): string {
-  return hash32([set.categories[0], set.categories[1], item.label.trim()].join("\u0000")).toString(16).padStart(8, "0");
+  return hash32([set.categories[0], set.categories[1], normLabel(item.label)].join("\u0000")).toString(16).padStart(8, "0");
 }
 
 export type SortSheetItem = { code: string; label: string };

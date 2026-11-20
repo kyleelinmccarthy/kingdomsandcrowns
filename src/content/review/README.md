@@ -115,5 +115,6 @@ it beside every flag.
 `extract` refuses a pool that fails `validateSortPool`, and refuses to overwrite a sheet that has
 answers on it unless you pass `--force` (answers to items that did not change are carried over).
 The validator (`src/lib/content/sort-pools.ts`) checks the shape and the rules (set and pool size,
-balance, levels, label length, no category word in a label or an item id, ids that do not run bin by
-bin); read its header for the full list.
+balance, levels, label length, no category word (or its plural) in a label, no control characters or
+backticks, no two items of a set whose opaque ids coincide); read its header for the full list. Item
+ids are server-only: the browser is sent an opaque hash of each, so they may say anything.

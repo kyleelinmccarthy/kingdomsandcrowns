@@ -5,13 +5,14 @@
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { seededRng } from "@/lib/utils/drill-generators";
+import { opaqueItemId, type SortPool, type SortSet } from "@/lib/content/sort-pools";
 import { fixtureSortPool, FIXTURE_SKILL_ID } from "@/test/sort-pool-fixture";
 import { expectNoAnswerInView, expectSound, LEVELS, SEEDS, untouched } from "@/test/lock-catalog";
 import { toClientTask } from "../registry";
 import { checkTask, lockKind } from "../lock";
 import type { LockTask } from "../types";
 import { LOCKS, lockFor } from ".";
-import { __setSortPoolsForTest, loadSortPools, sortFor } from "./sort";
+import { __setSortPoolsForTest, loadSortPools, sortFor, sortTaskFromId } from "./sort";
 
 type SortTask = Extract<LockTask, { puzzle: "sort" }>;
 
@@ -25,6 +26,8 @@ const draw = (level: number, seed: number): SortTask => {
   if (!t || t.puzzle !== "sort") throw new Error(`no sort at level ${level}, seed ${seed}`);
   return t;
 };
+/** The set's items by the opaque id the browser sees. */
+const opaqueMap = (set: SortSet) => new Map(set.items.map((i) => [opaqueItemId(set.id, i.id), i]));
 const COUNT = [6, 6, 8, 8, 10];
 
 describe("when no pool credits a skill", () => {
@@ -84,7 +87,7 @@ describe("with a pool injected", () => {
         sets.add(set.id);
         expect(t.items).toHaveLength(COUNT[level]);
         expect(new Set(t.items.map((i) => i.id)).size).toBe(t.items.length);
-        const byId = new Map(set.items.map((i) => [i.id, i]));
+        const byId = opaqueMap(set);
         for (const item of t.items) {
           expect(byId.get(item.id), `${item.id} is in set ${set.id}`).toBeDefined();
           expect(byId.get(item.id)!.label).toBe(item.label);
@@ -102,7 +105,7 @@ describe("with a pool injected", () => {
       for (const seed of SEEDS.slice(0, 100)) {
         const t = draw(level, seed);
         const set = setOf(t);
-        const byId = new Map(set.items.map((i) => [i.id, i]));
+        const byId = opaqueMap(set);
         for (const c of [0, 1] as const) {
           const chosen = t.items.map((i) => byId.get(i.id)!).filter((i) => i.category === c);
           const nearAvailable = set.items.filter((i) => i.category === c && Math.abs(i.level - level) <= 1).length;
@@ -116,7 +119,7 @@ describe("with a pool injected", () => {
       __setSortPoolsForTest([pool]);
       for (const seed of SEEDS) {
         const t = draw(level, seed);
-        const byId = new Map(setOf(t).items.map((i) => [i.id, i]));
+        const byId = opaqueMap(setOf(t));
         expect(t.fits).toEqual(t.items.map((i) => [byId.get(i.id)!.category]));
         expect(t.solution).toEqual({ puzzle: "sort", cells: t.items.map((i) => byId.get(i.id)!.category + 1) });
         expectSound(t);
@@ -131,6 +134,20 @@ describe("with a pool injected", () => {
         const sent = JSON.stringify(toClientTask(t));
         expect(sent).not.toMatch(/fits|category|solution|"cells"/);
         expect(t.id).toBe(`${FIXTURE_SKILL_ID}:sort:${pool.poolId}:${setOf(t).id}:${t.items.map((i) => i.id).join(",")}`);
+      }
+    });
+
+    it("sends only opaque ids: no author item id is in the view or in the task id", () => {
+      __setSortPoolsForTest([pool]);
+      for (const seed of SEEDS) {
+        const t = draw(level, seed);
+        const set = setOf(t);
+        const sent = JSON.stringify(toClientTask(t));
+        for (const item of set.items) {
+          expect(sent, item.id).not.toContain(item.id);
+          expect(t.id, item.id).not.toContain(item.id);
+        }
+        for (const item of t.items) expect(item.id).toMatch(/^[0-9a-f]{8}$/);
       }
     });
 
@@ -180,6 +197,74 @@ describe("with a pool injected", () => {
     expect((gen(99, seededRng(1), FIXTURE_SKILL_ID) as SortTask).items).toHaveLength(10);
     expect((gen(-3, seededRng(1), FIXTURE_SKILL_ID) as SortTask).items).toHaveLength(6);
     expect((gen(NaN, seededRng(1), FIXTURE_SKILL_ID) as SortTask).items).toHaveLength(6);
+  });
+});
+
+/** The fixture with every item's id rewritten by `name(category, index)`: the author's ids can say anything. */
+function withIds(name: (category: 0 | 1, n: number) => string): SortPool {
+  const p = JSON.parse(JSON.stringify(pool)) as SortPool;
+  let n = 0; // runs on across the sets: ids are unique across a pool
+  for (const set of p.sets) for (const item of set.items) item.id = name(item.category, n++);
+  return p;
+}
+
+describe("author ids that lean on the answer never reach the client (RF-h)", () => {
+  const cases: [string, SortPool][] = [
+    ["parity (q1/q3 in one bin, q2/q4 in the other)", withIds((c, n) => `q${2 * n + 1 + c}`)],
+    ["a bin suffix (a / b)", withIds((c, n) => `item-${n}${c === 0 ? "a" : "b"}`)],
+    ["numbered bin by bin", withIds((_c, n) => `n${n + 1}`)],
+    ["a category word", withIds((c, n) => `${c === 0 ? "living" : "solid"}-${n}`)],
+  ];
+
+  it.each(cases)("%s: drawn locks leak no raw id and pass the answer-in-view check", (_name, p) => {
+    __setSortPoolsForTest([p]);
+    for (const level of LEVELS) {
+      for (const seed of SEEDS.slice(0, 100)) {
+        const t = draw(level, seed);
+        expectNoAnswerInView(t);
+        const sent = JSON.stringify(toClientTask(t));
+        for (const set of p.sets) for (const item of set.items) {
+          expect(sent, item.id).not.toContain(`"${item.id}"`);
+          expect(t.id.split(":")[4].split(","), item.id).not.toContain(item.id);
+        }
+        // Both bins are drawn, and nothing in what is sent says which is which.
+        const set = p.sets.find((x) => t.id.split(":")[3] === x.id)!;
+        const bins = t.items.map((i) => opaqueMap(set).get(i.id)!.category);
+        expect(new Set(bins).size).toBe(2);
+      }
+    }
+  });
+});
+
+describe("a sort id round-trips (RF-h)", () => {
+  it("lockFor draws the same JSON twice for one seed, and sortTaskFromId rebuilds exactly that task", () => {
+    __setSortPoolsForTest([pool]);
+    for (const level of LEVELS) {
+      for (const seed of SEEDS.slice(0, 100)) {
+        const a = lockFor(FIXTURE_SKILL_ID)!(level, seededRng(seed), FIXTURE_SKILL_ID);
+        const b = lockFor(FIXTURE_SKILL_ID)!(level, seededRng(seed), FIXTURE_SKILL_ID);
+        expect(JSON.stringify(a)).toBe(JSON.stringify(b));
+        expect(JSON.stringify(sortTaskFromId(a!.id))).toBe(JSON.stringify(a));
+      }
+    }
+  });
+
+  it("gives no task for an unknown or duplicate opaque id, a wrong pool or set, or a skill no pool credits", () => {
+    __setSortPoolsForTest([pool]);
+    const t = draw(2, 5);
+    const [skill, sort, poolId, setId, list] = t.id.split(":");
+    const ids = list.split(",");
+    const mk = (l: string, p = poolId, s = setId, k = skill) => [k, sort, p, s, l].join(":");
+    expect(sortTaskFromId(mk(ids.join(",")))).not.toBeNull();
+    expect(sortTaskFromId(mk([...ids.slice(1), "deadbeef"].join(",")))).toBeNull(); // unknown
+    expect(sortTaskFromId(mk([ids[0], ...ids].join(",")))).toBeNull(); // duplicate
+    expect(sortTaskFromId(mk(pool.sets[0].items[0].id + "," + pool.sets[0].items[1].id))).toBeNull(); // raw author ids
+    expect(sortTaskFromId(mk(ids[0]))).toBeNull(); // too few
+    expect(sortTaskFromId(mk(ids.join(","), "sort-nope"))).toBeNull();
+    expect(sortTaskFromId(mk(ids.join(","), poolId, "no-set"))).toBeNull();
+    expect(sortTaskFromId(mk(ids.join(","), poolId, setId, "science-g45"))).toBeNull();
+    expect(sortTaskFromId("not an id")).toBeNull();
+    expect(sortTaskFromId(`${skill}:pat:${list}`)).toBeNull();
   });
 });
 

@@ -1,7 +1,8 @@
 // @vitest-environment node
 import { describe, expect, it } from "vitest";
 import { fixtureSortPool } from "@/test/sort-pool-fixture";
-import { SORT_POOL_RULES as R, validateSortPool, type SortPool } from "./sort-pools";
+import { itemCode } from "./sort-blind-pass";
+import { SORT_POOL_RULES as R, findOpaqueCollisions, normLabel, opaqueItemId, validateSortPool, type SortPool } from "./sort-pools";
 
 const clone = (): SortPool => JSON.parse(JSON.stringify(fixtureSortPool())) as SortPool;
 const rulesOf = (pool: unknown): string[] => [...new Set(validateSortPool(pool).map((p) => p.rule))];
@@ -153,20 +154,62 @@ describe("validateSortPool", () => {
       expect(rulesOf(c)).not.toContain(R.categoryWord);
     });
 
-    it("keeps a category word out of an item id too (the id is sent with the lock)", () => {
-      const p = clone();
-      p.sets[0].items[0].id = "living-dog";
-      expect(rulesOf(p)).toContain(R.categoryWord);
+    it("matches a category word in its simple singular or plural form too", () => {
+      const a = clone();
+      a.sets[1].items[0].label = "a solid"; // the state set's own category, singular: caught as before
+      expect(rulesOf(a)).toContain(R.categoryWord);
+      const b = clone();
+      b.sets[1].categories = ["Solids", "Liquids"];
+      b.sets[1].items[0].label = "a solid";
+      expect(validateSortPool(b).filter((x) => x.rule === R.categoryWord).map((x) => x.itemId)).toContain(b.sets[1].items[0].id);
+      const c = clone();
+      c.sets[1].items[1].label = "liquids"; // category "Liquid", label plural
+      expect(rulesOf(c)).toContain(R.categoryWord);
+      const d = clone();
+      d.sets[0].categories = ["Glass", "Metal"];
+      d.sets[0].items[0].label = "glasses";
+      expect(rulesOf(d)).toContain(R.categoryWord);
+      const e = clone();
+      e.sets[1].items[0].label = "solidify"; // a different word, not a plural
+      expect(rulesOf(e)).not.toContain(R.categoryWord);
     });
 
-    it("refuses ids numbered bin by bin, which would give the answer away in the browser", () => {
+    it("lets an item id say anything: ids never reach the browser (they are opaque there)", () => {
       const p = clone();
-      p.sets[0].items.forEach((item, n) => (item.id = `liv-${n + 1}`)); // 1-12 living, 13-24 non-living
-      const found = validateSortPool(p).filter((x) => x.rule === R.idTellsCategory);
-      expect(found).toHaveLength(1);
-      expect(found[0].detail).toContain("living");
-      // Ids named after the item are fine: the fixture passes.
-      expect(rulesOf(fixtureSortPool())).toEqual([]);
+      p.sets[0].items[0].id = "living-dog"; // a category word
+      p.sets[0].items.forEach((item, n) => {
+        if (n > 0) item.id = `liv-${n + 1}`; // numbered bin by bin, the old contiguous-run tell
+      });
+      expect(validateSortPool(p)).toEqual([]);
+      const parity = clone();
+      parity.sets[0].items.forEach((item, n) => (item.id = `q${2 * n + 1 + item.category}`)); // bin by parity
+      expect(validateSortPool(parity)).toEqual([]);
+      const suffix = clone();
+      suffix.sets[0].items.forEach((item, n) => (item.id = `liv-${n}${item.category === 0 ? "a" : "b"}`)); // bin by suffix
+      expect(validateSortPool(suffix)).toEqual([]);
+    });
+
+    it("rejects control characters and backticks in labels and in category names", () => {
+      for (const bad of ["dog\ncat", "do\tg", "do\u0000g", "do\u007fg", "a `dog`"]) {
+        const p = clone();
+        p.sets[0].items[0].label = bad;
+        expect(rulesOf(p), JSON.stringify(bad)).toContain(R.characters);
+      }
+      const c = clone();
+      c.sets[0].categories = ["Living", "Non\nliving"];
+      expect(rulesOf(c)).toContain(R.characters);
+      const d = clone();
+      d.sets[0].categories = ["Living", "Non `living`"];
+      expect(rulesOf(d)).toContain(R.characters);
+    });
+
+    it("normalises a label one way for the duplicate rule and for the sheet's item code", () => {
+      expect(normLabel("  Oak   TREE ")).toBe("oak tree");
+      const p = clone();
+      const set = p.sets[0];
+      set.items[1].label = "  DOG ";
+      expect(rulesOf(p)).toContain(R.duplicateLabel);
+      expect(itemCode(set, set.items[0])).toBe(itemCode(set, set.items[1]));
     });
 
     it("checks each set against its own categories only", () => {
@@ -223,6 +266,25 @@ describe("validateSortPool", () => {
       const p = clone();
       p.poolId = "science-g23"; // a drill pool's id: its sheet would collide in src/content/review
       expect(rulesOf(p)).toContain(R.poolId);
+    });
+  });
+
+  describe("opaque ids (RF-h)", () => {
+    it("is 8 lower-case hex characters, a function of the set id and the item id", () => {
+      expect(opaqueItemId("living", "liv-dog")).toMatch(/^[0-9a-f]{8}$/);
+      expect(opaqueItemId("living", "liv-dog")).toBe(opaqueItemId("living", "liv-dog"));
+      expect(opaqueItemId("living", "liv-dog")).not.toBe(opaqueItemId("state", "liv-dog"));
+      expect(opaqueItemId("living", "liv-dog")).not.toContain("dog");
+    });
+
+    it("finds two items of a set that share an opaque id (hash injected, since a real collision is rare)", () => {
+      expect(findOpaqueCollisions("s", ["a", "b", "c"])).toEqual([]);
+      expect(findOpaqueCollisions("s", ["a", "b", "c"], () => "same")).toEqual([["a", "b"], ["a", "c"]]);
+      expect(findOpaqueCollisions("s", ["a", "b", "c"], (_set, id) => (id === "c" ? "x" : "y"))).toEqual([["a", "b"]]);
+    });
+
+    it("has no collision in the fixture pool", () => {
+      for (const set of fixtureSortPool().sets) expect(findOpaqueCollisions(set.id, set.items.map((i) => i.id))).toEqual([]);
     });
   });
 
