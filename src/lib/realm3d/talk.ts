@@ -29,6 +29,8 @@ import { SIDE_QUEST_LOWER, SIDE_QUESTS, SIDE_QUESTS_LOWER } from "@/lib/utils/si
 import { minutesWord } from "@/lib/utils/minutes-copy";
 import { REVIEW_DONE, REVIEW_FINISH, reviewSummaryLine } from "@/lib/utils/review-copy";
 import { PRACTICE_FINISH, PUZZLES_SOLVED } from "@/lib/utils/practice-copy";
+import { LOCK_FINISH } from "@/lib/utils/world-lock-copy";
+import { isWorldObjectId } from "@/lib/realm/world-objects";
 
 export type Viewer = "child" | "parent";
 
@@ -212,14 +214,34 @@ export function deedToast(input: {
 /** The last button of a build run, where a side quest's says "Finish side quest". */
 const BUILD_FINISH = "Finish building";
 
-/** The last button of a run, by its kind: one source for the page's player and the Realm's board. */
-export function finishLabel(kind: RunKind): string {
+/** A chest's or vault door's run, told from Puzzle practice (also `world`) by what owns it: the run's `deed.id`. */
+const isLockRun = (kind: RunKind, ownerId?: string): boolean => kind === "world" && isWorldObjectId(ownerId);
+
+/**
+ * The last button of a run, by its kind and, for a world run, its owner (`run.deed.id`): one
+ * source for the page's player and the Realm's board. A chest or door says "Done" (RG-m); Puzzle
+ * practice and the Tower's bonus locks finish their puzzles.
+ */
+export function finishLabel(kind: RunKind, ownerId?: string): string {
   switch (kind) {
     case "review": return REVIEW_FINISH;
     case "build": return BUILD_FINISH;
-    case "world": return PRACTICE_FINISH;
+    case "world": return isLockRun(kind, ownerId) ? LOCK_FINISH : PRACTICE_FINISH;
+    case "tower": return PRACTICE_FINISH;
     case "deed":
     case "challenge": return `Finish ${SIDE_QUEST_LOWER}`;
+  }
+}
+
+/** What a run's leave link leaves: "Leave the lock", "Leave the puzzles", "Leave the side quest". */
+export function leaveWhat(kind: RunKind, ownerId?: string): string {
+  switch (kind) {
+    case "review": return "review";
+    case "build": return "build";
+    case "world": return isLockRun(kind, ownerId) ? "lock" : "puzzles";
+    case "tower": return "puzzles";
+    case "deed":
+    case "challenge": return SIDE_QUEST_LOWER;
   }
 }
 

@@ -7,7 +7,7 @@ export type Stars = 0 | 1 | 2 | 3;
 /** The most stars one side quest can hold. */
 export const MAX_STARS = 3;
 export type QuestionOutcome = "first" | "second" | "miss";
-export type RunKind = "deed" | "challenge" | "review" | "build" | "world";
+export type RunKind = "deed" | "challenge" | "review" | "build" | "world" | "tower";
 
 export const SCORING = {
   firstTryPoints: 2,
@@ -92,6 +92,19 @@ export const RUN_EFFECTS: Record<RunKind, RunEffects> = {
     countsForSchool: false,
     feedsReview: true,
     allowsSecondChances: true,
+    paysMinutes: false,
+  },
+  /**
+   * A bonus lock on an open floor of the Puzzle Tower (R-G4b): a puzzle for the joy of it, a level
+   * above the hero. It moves nothing but the floor's solved count, which its finish keeps itself.
+   */
+  tower: {
+    raisesBuilding: false,
+    earnsStars: false,
+    movesMastery: false,
+    countsForSchool: false,
+    feedsReview: false,
+    allowsSecondChances: false,
     paysMinutes: false,
   },
 };

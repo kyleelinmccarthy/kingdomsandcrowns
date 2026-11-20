@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { objectiveState } from "@/lib/realm/objective";
 import { villagerById } from "@/lib/realm/villagers";
 import type { ClientTask } from "@/lib/tasks/types";
-import { attemptFeedback, deedToast, finishLabel, resultBuildingLine, resultHeadline, resultMinutesLine, resultStarsLine, starsLabel, starsLeftLine, talkCopy, type SiteState } from "./talk";
+import { attemptFeedback, deedToast, finishLabel, leaveWhat,resultBuildingLine, resultHeadline, resultMinutesLine, resultStarsLine, starsLabel, starsLeftLine, talkCopy, type SiteState } from "./talk";
 
 const bram = villagerById("bram")!;
 const well: SiteState = { id: "well", label: "Village Well", done: 0, total: 5, complete: false, stars: 0, maxStars: 9 };
@@ -204,6 +204,27 @@ describe("a world run's result (Puzzle practice)", () => {
     expect(finishLabel("challenge")).toBe("Finish side quest");
     expect(finishLabel("review")).toBe("Finish review");
     expect(finishLabel("build")).toBe("Finish building");
+  });
+});
+
+describe("a lock's run words (RG-m)", () => {
+  it("a chest's or vault door's run finishes with Done, Puzzle practice and the Tower with Finish puzzles", () => {
+    expect(finishLabel("world", "chest:west-lane")).toBe("Done");
+    expect(finishLabel("world", "door:ringstones")).toBe("Done");
+    expect(finishLabel("world", "practice")).toBe("Finish puzzles");
+    expect(finishLabel("world")).toBe("Finish puzzles");
+    expect(finishLabel("tower")).toBe("Finish puzzles");
+    // An id that only looks like an object's is not one.
+    expect(finishLabel("world", "chest:nowhere")).toBe("Finish puzzles");
+  });
+  it("leaves the lock, the puzzles, the review, the build or the side quest", () => {
+    expect(leaveWhat("world", "chest:west-lane")).toBe("lock");
+    expect(leaveWhat("world", "practice")).toBe("puzzles");
+    expect(leaveWhat("tower")).toBe("puzzles");
+    expect(leaveWhat("review")).toBe("review");
+    expect(leaveWhat("build")).toBe("build");
+    expect(leaveWhat("deed", "well-water")).toBe("side quest");
+    expect(leaveWhat("challenge")).toBe("side quest");
   });
 });
 

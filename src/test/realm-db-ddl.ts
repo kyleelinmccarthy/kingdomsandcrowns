@@ -81,6 +81,40 @@ export const REALM_WORLD_STATE_DDL = [
 ];
 
 /**
+ * A run of any kind (side quest, review, build, world, tower), in the column order the migrations
+ * leave it, with the (child, completed) index the recent-runs reads use (RG-i). `realm-db-ddl.test.ts`
+ * holds this and the two below to the migrated tables.
+ */
+export const DEED_RUN_DDL = [
+  `CREATE TABLE deed_run (
+    id text PRIMARY KEY NOT NULL, child_id text NOT NULL, deed_id text, skill_ids text NOT NULL,
+    band text NOT NULL, questions text NOT NULL, responses text DEFAULT '[]' NOT NULL,
+    mastery_start text DEFAULT '{}' NOT NULL, correct_count integer DEFAULT 0 NOT NULL,
+    flawless integer DEFAULT false NOT NULL, started_at integer NOT NULL, completed_at integer,
+    created_at integer NOT NULL, updated_at integer NOT NULL,
+    second_tries text DEFAULT '[]' NOT NULL, stars integer DEFAULT 0 NOT NULL,
+    kind text DEFAULT 'deed' NOT NULL, second_chances integer DEFAULT false NOT NULL, source_ref text)`,
+  `CREATE INDEX deed_run_child_completed_idx ON deed_run (child_id, completed_at)`,
+];
+
+/** A hero's mastery of each skill; the unique index is what lets two first answers race to one row. */
+export const SKILL_MASTERY_DDL = [
+  `CREATE TABLE skill_mastery (
+    id text PRIMARY KEY NOT NULL, child_id text NOT NULL, skill_id text NOT NULL,
+    level integer DEFAULT 0 NOT NULL, recent_results text DEFAULT '[]' NOT NULL,
+    correct_total integer DEFAULT 0 NOT NULL, attempt_total integer DEFAULT 0 NOT NULL,
+    last_practiced_at integer, created_at integer NOT NULL, updated_at integer NOT NULL)`,
+  `CREATE UNIQUE INDEX skill_mastery_child_skill_idx ON skill_mastery (child_id, skill_id)`,
+];
+
+/** The places a hero has found; the unique index makes a place found twice one row. */
+export const REALM_PLACE_FOUND_DDL = [
+  `CREATE TABLE realm_place_found (
+    id text PRIMARY KEY NOT NULL, child_id text NOT NULL, place_id text NOT NULL, found_at integer NOT NULL)`,
+  `CREATE UNIQUE INDEX realm_place_found_child_place_idx ON realm_place_found (child_id, place_id)`,
+];
+
+/**
  * What a plaque reads at the moment a level is built (`finishBuild`): the quests that paid for it
  * (assignment, quest, subject) and the hero's open season. Only the columns those reads use.
  */

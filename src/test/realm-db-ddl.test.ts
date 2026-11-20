@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { testDatabase } from "./libsql-test-db";
 import { applyMigrations } from "./apply-migrations";
-import { REALM_WORLD_STATE_DDL } from "./realm-db-ddl";
+import { DEED_RUN_DDL, REALM_PLACE_FOUND_DDL, REALM_WORLD_STATE_DDL, SKILL_MASTERY_DDL } from "./realm-db-ddl";
 
 // A hand-written copy of a table is only worth having while it is the table the migrations make.
 const open: ReturnType<typeof testDatabase>[] = [];
@@ -17,7 +17,7 @@ async function shape(pool: ReturnType<typeof testDatabase>, table: string) {
   return { columns, indexes, keys };
 }
 
-describe("the world state's test DDL", () => {
+describe("the shared test DDL", () => {
   it("builds the table migration 0044 builds", async () => {
     const real = testDatabase("ddl-real");
     const copy = testDatabase("ddl-copy");
@@ -27,6 +27,20 @@ describe("the world state's test DDL", () => {
     const want = await shape(real, "realm_world_state");
     expect(want.columns.map((c) => c.name)).toEqual(["id", "child_id", "object_id", "state", "updated_at"]);
     expect(await shape(copy, "realm_world_state")).toEqual(want);
+  });
+
+  // RG-i, RG-j: the shared copies the lock tests build from are the tables the migrations make.
+  it.each([
+    ["deed_run", DEED_RUN_DDL],
+    ["skill_mastery", SKILL_MASTERY_DDL],
+    ["realm_place_found", REALM_PLACE_FOUND_DDL],
+  ] as const)("builds %s as the migrations build it, indexes and all", async (table, ddl) => {
+    const real = testDatabase("ddl-real");
+    const copy = testDatabase("ddl-copy");
+    open.push(real, copy);
+    await applyMigrations(real);
+    for (const stmt of ddl) await copy.client.execute(stmt);
+    expect(await shape(copy, table)).toEqual(await shape(real, table));
   });
 
   it("keeps one row per hero and object", async () => {

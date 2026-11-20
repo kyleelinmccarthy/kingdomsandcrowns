@@ -1260,7 +1260,8 @@ export const deedRun = sqliteTable(
     // Second-try answers, parallel to `responses` (JSON (string | null)[]).
     secondTries: text("second_tries").notNull().default("[]"),
     stars: integer("stars").notNull().default(0),
-    kind: text("kind", { enum: ["deed", "challenge", "review", "build", "world"] }).notNull().default("deed"),
+    // A TS enum only: SQLite stores any text, so adding "tower" (PC-G16) needs no migration.
+    kind: text("kind", { enum: ["deed", "challenge", "review", "build", "world", "tower"] }).notNull().default("deed"),
     // Frozen at run start, so changing the setting never alters a run in flight.
     secondChances: integer("second_chances", { mode: "boolean" }).notNull().default(false),
     startedAt: integer("started_at", { mode: "timestamp" }).notNull(),
