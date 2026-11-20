@@ -865,6 +865,13 @@ describe("a focus skill a grade off the hero's own", () => {
       .toEqual([...chooseSkills(deedMath, "3").map((s) => s.id), "add-100"]);
   });
 
+  it("leaves a science deed's candidates unchanged for a logic focus id", () => {
+    for (const g of GRADES) {
+      expect(runCandidates(deedScience, g, ["logic-g23", "logic-g45"]).map((s) => s.id))
+        .toEqual(chooseSkills(deedScience, g).map((s) => s.id));
+    }
+  });
+
   it("is a candidate for a deed in its own strand: a grade-2 math focus comes up for a grade-3 hero", () => {
     expect(chooseSkills(deedMath, "3").map((s) => s.id)).not.toContain("add-100");
     expect(servedSkills({ deed: deedMath, grade: "3", poolItems: [], focusSkillIds: ["add-100"] })).toContain("add-100");

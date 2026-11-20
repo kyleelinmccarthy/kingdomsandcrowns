@@ -42,6 +42,20 @@ describe("reviewDue", () => {
     expect(reviewDue([row("add-10", 1, 3)], NOW)).toBe(true);
     expect(reviewDue([row("add-10", 1, 1)], NOW)).toBe(false);
   });
+  it("ignores a logic skill: it is played on locks, so a review run could draw nothing for it", () => {
+    expect(reviewDue([row("logic-g23", 2, 300)], NOW)).toBe(false);
+    expect(reviewDue([row("logic-g23", 2, 300), row("science-g23", 1, 3)], NOW)).toBe(true);
+  });
+  it("reviews only the science when overdue logic and science rows are mixed", () => {
+    const mastery = [row("logic-g23", 2, 300), row("logic-k1", 1, null), row("science-g23", 1, 9)];
+    const r = run({ mastery, poolItems: poolFor("science-g23") });
+    expect(r.skillIds).toEqual(["science-g23"]);
+    expect(r.questions.length).toBeGreaterThan(0);
+    expect(r.questions.every((q) => q.skillId === "science-g23")).toBe(true);
+  });
+  it("builds nothing for a hero with only logic rows", () => {
+    expect(run({ mastery: [row("logic-g23", 2, 300)] })).toEqual({ skillIds: [], questions: [] });
+  });
   it("ignores unknown skill ids", () => {
     expect(reviewDue([row("not-a-skill", 1, 300)], NOW)).toBe(false);
   });

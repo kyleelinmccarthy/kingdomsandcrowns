@@ -107,10 +107,10 @@ export const SKILL_HINTS: Readonly<Record<string, string>> = {
 
   // Logic: shown on a missed or second-chance lock, after "Here is one way it fits."
   "logic-k1": "Say the pattern out loud and listen for the part that repeats. Then ask what comes next, or which group each piece belongs to.",
-  "logic-g23": "Try one row at a time. Each shape fits only once in every row and column.",
+  "logic-g23": "Start with what you know for certain. Then let each rule narrow down the rest, one step at a time.",
   "logic-g45": "Start with the box that has the fewest ways to fill it. Each row and column uses every number only once.",
   "logic-g68": "Fill in what you are sure of first. Then use each clue to rule out what cannot be, and see what is left.",
-  "logic-g912": "Look for the line with the clearest clue and fill it in first. Each new square you know makes the next one easier to find.",
+  "logic-g912": "Find the clue that tells you the most and use it first. Every new thing you know makes the next one easier to find.",
 };
 
 /** For a skill with no authored hint: still a way of thinking, never a fact. */

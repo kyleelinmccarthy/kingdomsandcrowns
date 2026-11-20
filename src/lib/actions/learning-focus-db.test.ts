@@ -15,7 +15,7 @@ vi.mock("@/lib/auth/access", () => ({
   isChildActor: (access: { userId: string }) => access.userId.startsWith("child:"),
 }));
 vi.mock("@/lib/services/deeds", () => ({
-  loadHeroLevels: vi.fn(async () => ({ grades: { math: "3", reading: "3", language: "3", science: "3" } })),
+  loadHeroLevels: vi.fn(async () => ({ grades: { math: "3", reading: "3", language: "3", science: "3", logic: "3" } })),
 }));
 // `cache` memoizes per request; outside a request it would hold a stale read across tests.
 vi.mock("react", async () => ({ ...(await vi.importActual<typeof import("react")>("react")), cache: <T,>(fn: T) => fn }));
@@ -61,6 +61,11 @@ describe("a grown-up setting focus skills", () => {
     expect(await stored()).toEqual(["add-100", "div-facts"]);
     await setFocusSkills("c1", []);
     expect(await stored()).toEqual([]);
+  });
+
+  it("accepts a logic skill inside the window (the hero's own grade, one step either side)", async () => {
+    await setFocusSkills("c1", ["logic-g23", "mul-facts"]);
+    expect(await stored()).toEqual(["logic-g23", "mul-facts"]);
   });
 
   it("keeps one row for a repeated id", async () => {
@@ -112,6 +117,11 @@ describe("refusals write nothing", () => {
     await expect(setFocusSkills("c1", skillIds as never)).rejects.toThrow("That skill isn't one this hero can focus on.");
     expect(loadHeroLevels).not.toHaveBeenCalled();
     expect(await stored()).toEqual(["mul-facts"]);
+  });
+
+  it("rejects a logic skill two grades away", async () => {
+    await expect(setFocusSkills("c1", ["logic-g68"])).rejects.toThrow("That skill isn't one this hero can focus on.");
+    expect(await stored()).toEqual([]);
   });
 
   it("rejects a skill two grades away", async () => {

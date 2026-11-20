@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { DEEDS, deedsForBuilding, deedStory, findDeed } from "./deeds";
 import { BUILDINGS } from "./kingdom";
+import { AREA_LABELS } from "./skills";
 import { TASK_KINDS } from "@/lib/tasks/registry";
 
 describe("DEEDS", () => {
@@ -22,7 +23,8 @@ describe("DEEDS", () => {
     // `logic` is exempt by name: the owner decided logic is practised on locks and Puzzle
     // practice, never on side quests, so no deed is ever written for it.
     expect(DEEDS.filter((d) => (d.area as string) === "logic")).toEqual([]);
-    for (const area of ["math", "reading", "language", "science"]) {
+    // Every area but logic, derived, so a future area with no deeds fails here.
+    for (const area of Object.keys(AREA_LABELS).filter((a) => a !== "logic")) {
       expect(DEEDS.filter((d) => d.area === area).length).toBeGreaterThanOrEqual(2);
     }
   });
