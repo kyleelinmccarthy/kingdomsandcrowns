@@ -51,7 +51,7 @@
 | 1 | `realm-tasks-framework` | Task and presenter registries, with `choice` as the first kind; `parseAnswer`; pace guard; `Deed.mechanic`; run ownership (`review` runs, nullable `deed_id`); riddle stones at the 5 named places; Quick review on the Side Quests page; focus skills (table, panel, engine weight, beacon preference). | All existing deed, gate and page flows behave as before. Riddle stones and Quick review work end to end. Focus skills change what's drawn. |
 | 2 | `realm-measure` | `measure` kind (assemble and cut), bench generators per math skill, Aldo's bench presenter, site pieces placed per solved task, notation bridge, repair scaffold at finished buildings, math deeds become `measure`, demo-first for grades K–3, mechanic toggles (`realm_settings.mechanics` and the panel). | At least two bench skills per grade from K to 12; existing math deeds stay playable when the toggle is off. |
 | 3 | `realm-real-work`, then `realm-chronicle` (Part D) | Materials (catalog, `subject.material`, ledger, minting in `completeAssignment`, the welcome-delivery script), quest-card and Tavern pull, improvements and `build` runs, plaques, stockpile, delivery card, Chronicle hall with drawings and seals, villager mentions, quieter minutes, and slice 13's D13.1–D13.5 for core buildings. | Concurrent completions mint once; concurrent builds never overspend; the migration and welcome delivery are tested on a production backup copy. |
-| 4 | `realm-locks` | `lock` kind (pattern, grid, cage, sort), `logic` area and skills, sort pools, `realm_world_state`, chests/doors/gates with cycling, science deeds become `lock`, the Puzzle Tower. | Every lock generator's output is solvable (checked by a constraint solver in tests); sort pools pass the validator and blind pass. |
+| 4 | `realm-locks`, then `realm-world-locks` (Parts F, G) | `lock` kind (pattern, grid, cage, sort), `logic` area and skills, sort pools, `realm_world_state`, chests/doors/gates with cycling, science deeds become `lock`, the Puzzle Tower. | Every lock generator's output is solvable (checked by a constraint solver in tests); sort pools pass the validator and blind pass. |
 | 5 | `realm-trails` | `trail` kind, world anchors, trail pools for k1–g912, walking-run tracker, picture runs off-world, narration, reading deeds become `trail`, `read-g6`/`read-g9` skills. | Every anchor id a pool references exists in the layout (test); a week of daily play per band without repeats. |
 | 6 | `realm-runes` | `rune` kind, rune stone presenter, at least 12 cycling rune objects, `RUNE_WORDS` pools by band, walking and picture runs, language deeds become `rune`, `spell-g1` skill. | Every effect has accepted words for every band; tiles always contain the word. |
 
@@ -1450,3 +1450,375 @@ Everything in this plan's Global Constraints still applies, plus:
   - a grown-up seals, and the hero sees it;
   - a villager mention.
 - [ ] Whole-branch review, one fix wave, then merge on the owner's word.
+
+---
+
+# Part F: Slice 4a, the lock puzzles (branch `realm-locks`)
+
+**Written 2026-11-20** against `dev` 122d23d (slices 1–3 merged). It draws on two read-only surveys: the task framework and skills, and the world.
+
+**Owner's answers (2026-11-20):**
+- Logic is practised on world locks, the Puzzle Tower, and a "Puzzle practice" button. It gets no new side quests.
+- Decorations from chests appear at set spots.
+- This slice has chests, vault doors and the Tower. Gates and locked rooms wait.
+- Slice 4 ships as two branches. 4a merges on passing; 4b needs the owner's word.
+
+**Slice 4 ships as two branches:**
+- **4a `realm-locks` (F1–F10):** the `lock` task kind and its puzzle generators, the surface, the `logic` area, sort pools for science and vocabulary, science deeds becoming locks, and Puzzle practice.
+- **4b `realm-world-locks` (G1–G7):** `realm_world_state`, chests and vault doors in the world and in rooms, what they open (decorations, lore pages, map fragments), and the Puzzle Tower.
+
+## Rulings that shape slice 4 (record them in spec §2a, "Calls settled for slice 4", in F1's commit)
+
+- **R-F1: a lock is checked against its rules, never against a stored answer.**
+  - `isCorrect(t, r)` checks the response against the puzzle's constraints, so every valid solution counts.
+  - Each task also stores one `solution` (server-only), used for the miss reveal.
+- **R-F2: the reveal after a miss is the solved board.**
+  - `AttemptResult` gains `reveal?: string`: the stored solution encoded with the kind's codec. It is sent only once the task is resolved and missed.
+  - The presenter decodes it and draws the solved board.
+  - `answerText` stays a short sentence ("Here is one way it fits.") for read-aloud and the text line.
+- **R-F3: rule highlighting happens on the client, from the visible puzzle.**
+  - A lock's rules (cages, clues, row and column counts) are part of its view by nature, so the surface can highlight a broken rule without the server revealing anything.
+  - `FeedbackCode` gains `rule_broken` and `incomplete`, with lines "Something doesn't fit yet. Look at the marked rule." and "There are empty spaces left."
+- **R-F4: puzzle kinds by band**, with size and difficulty set by the hero's grade and mastery of their `logic` skill:
+  - K–1: `pattern` (AB AB ?), `sort1` (sort shapes by one attribute)
+  - 2–4: `shapes3` (3×3 shape grid, each shape once per row and column), `balance` (pick weights that balance), `sort2` (a 2×2 grid by two attributes)
+  - 5–8: `cage4` (4×4 KenKen-style), `logic3` (3×3 logic-grid deduction)
+  - 9–12: `cage5` (5×5), `nono5` (5×5 nonogram), `logic4` (4×4 logic grid)
+  - Ship bar: every generated puzzle is checked by a brute-force solver in tests. Cages, nonograms and logic grids must have exactly one solution. Patterns and sorts may accept any rule-valid answer.
+- **R-F5: subject sorts.**
+  - `sort` tasks carry science content (living/non-living, conductors/insulators, …) and vocabulary content (synonyms/antonyms, …).
+  - They are drawn from new JSON pools `src/content/sorts/<poolId>.json`. Each pool credits an existing skill id (`skillId` field) and holds one or more category sets.
+  - They have their own validator and blind-pass sheet. The drill tooling is four-choice only.
+  - A skill with no sort pool keeps playing as `choice`, through `presents()`.
+- **R-F6: `logic` is a new `SkillArea`, with one row per band at the band's lowest grade** (the existing science-pool convention):
+  - rows: `logic-k1` (K), `logic-g23` (2), `logic-g45` (4), `logic-g68` (6), `logic-g912` (9);
+  - other grades resolve by `nearestGrades`;
+  - spell school `none` (`AREA_SCHOOL` widens, and `getSchoolCounts` skips `none`);
+  - the hero's own grade applies, with no offset (`SubjectOffsets` stays the four strands, `SubjectArea = Exclude<SkillArea, "logic">`, `gradesFor` adds `logic: ownGrade`);
+  - pickable as a focus skill;
+  - shown in the mastery panel and the focus panel.
+- **R-F7: logic skills have a new `SkillSource` kind, `{ kind: "lock" }`.** They are never drawn as `choice`. With locks switched off, a logic skill draws nothing, and Puzzle practice is hidden.
+- **R-F8: logic has no side quests** (owner). The "every area has ≥2 deeds" tests exempt `logic` by name, with the reason. Logic is practised through:
+  - **Puzzle practice**, a button on the Side Quests page that starts a `world` run of 3 logic locks at the hero's grade, with `sourceRef "practice"`;
+  - world locks and the Tower (4b).
+- **R-F9: `RUN_EFFECTS.world = { raisesBuilding: false, earnsStars: false, movesMastery: true, countsForSchool: false, feedsReview: true, allowsSecondChances: true, paysMinutes: false }`.** `tower` comes in 4b.
+- **R-F10: demo-first is generalised.**
+  - `benchDemoAt` becomes `demoAt`: the first task of a hands-on kind the hero has never answered, for K–3.
+  - The demo copy is per kind and mode: the bench demos stay, and the lock demos are `pattern` and `sort1`.
+  - `hasAnsweredBench` becomes `hasAnsweredKind(childId, kind, runId)`.
+- **R-F11: science deeds become `mechanic: "lock"`.**
+  - The five deeds are well-water, mill-wheel, chapel-stars, watchtower-signals and garden-bees.
+  - Recorded snapshots that change get choice-pinned twins (slice 2's discipline).
+  - Vocabulary stays inside `language` deeds as `choice`. Vocab sorts are reached when a grown-up picks a vocab focus skill, and by world locks in 4b.
+
+## Global constraints for Part F
+
+Everything in this plan's Global Constraints still applies, plus:
+- **No dragging** (R-C2): tap to select, then tap to place; tap a cell to cycle it. Every surface works with touch, keyboard and a screen reader, and fits a phone at 390 px.
+- **A lock's solution never reaches the browser before resolution.** `toView` builds the view field by field. `reveal` and `answerText` are sent only once the task is resolved.
+- **Generators are pure, seeded and solver-checked.** No `Math.random`. Each task id encodes its parameters, so the same id means the same puzzle.
+- **Copy:**
+  - Feedback lines are as in R-F3.
+  - Miss line: "Here is one way it fits."
+  - Practice button: "Puzzle practice".
+  - Mechanics switch: "Solving logic locks", with hint "Science sorts and logic puzzles on a lock's face. Off: science plays as multiple choice."
+
+## Review Focus (Part F)
+
+1. **A forged lock response** must be refused before any write:
+   - a grid of the wrong size;
+   - a cell value out of range;
+   - a sort that assigns an item twice or to an unknown bin;
+   - a 10 KB string.
+   
+   Pinned in F1.
+2. **A second valid solution must count as right.** A pattern or sort that obeys every rule but differs from the stored `solution` is right. Pinned in F1 and F2.
+3. **Every generated puzzle is checked across 500 seeds × every level**:
+   - unique-solution kinds have exactly one solution;
+   - none are trivially pre-solved.
+   
+   Pinned in F2 and F3.
+4. **Locks turned off.** Science deeds play as `choice`, Puzzle practice is hidden, and a logic skill never throws in a choice draw. Pinned in F5 and F9.
+5. **A run stored before the deploy still resumes**, including science choice runs. Pinned in F9.
+
+**Execution order:** F1, F5, F2, F3, F4, F6, F7, F8, F9, F10. The logic skill rows (F5) exist before the generators keyed by them.
+
+## File map (Part F)
+
+| File | Responsibility |
+|---|---|
+| `src/lib/tasks/types.ts`, `registry.ts`, `codecs.ts`, `kinds.ts`, `draw.ts` | the `lock` kind (types, def, codec, hands-on list, drawer) |
+| `src/lib/tasks/lock.ts` (new, server) | `lockKind: TaskKindDef<"lock">` |
+| `src/lib/tasks/lock-rules.ts` (new, client-safe, pure) | per-puzzle rule checks, shared by the server's `isCorrect` and the surface's highlighting |
+| `src/lib/tasks/locks/` (new, server) | generators by band, `LOCKS` registry, sort-pool drawer, test solver (`solver.ts`, test-only) |
+| `src/lib/content/sort-pools.ts` + `sort-blind-pass.ts` (new) | sort pool validator and blind-pass sheets |
+| `src/content/sorts/*.json` (new) | 8 pools: science-k1, -g23, -g45, -g68, -g912; vocab-g45, -g68, -g912 |
+| `src/components/tasks/lock-presenter.tsx` + `lock.css` + `lock-demo.tsx` (new) | the lock surfaces |
+| `src/lib/utils/skills.ts`, `skill-hints.ts`, `grade-levels.ts`, `learning-profile.ts`, `services/deeds.ts` | the `logic` area |
+| `docs/content/logic-skill-map.md` (new) | the logic map, read by its own test |
+| `src/lib/actions/practice.ts` (new) | `startPracticeRun` |
+
+### Task F1: The `lock` kind
+
+**Files:**
+- Modify: `types.ts`, adding `LockTask`, `LockView` and `LockResponse` (discriminated by `puzzle: LockPuzzle`); adding `"lock"` to every `…ByKind`; adding `rule_broken` and `incomplete` to `FeedbackCode`.
+- Create: `lock.ts`, `lock-rules.ts`.
+- Modify: `registry.ts`, `codecs.ts` (the lock codec), `kinds.ts` (`HANDS_ON_KINDS = ["measure", "lock"]`), `draw.ts` (`lock: (skill, level, rng) => lockFor(skill.id)?.(level, rng, skill.id) ?? null`).
+- Modify: `client-boundary.test.ts`, adding `lock` and `locks` to `SERVER_ONLY`.
+- Modify: `deed-run-types.ts` (`AttemptResult.reveal?`) and `actions/deeds.ts` `resultFor`: a resolved miss sends `reveal = codec.encode(t.solution)` (R-F2).
+- Modify: `talk.ts` `attemptFeedback`. The lock branch uses the R-F3 lines on a second chance, and "Here is one way it fits." on a miss. Narrow `cutFeedbackLine` to the measure codes by kind.
+- Modify: `realm-settings-panel.tsx` `MECHANIC_LABELS.lock`, and update the ~12 tests that pin `{ measure: true }` (survey list).
+- Spec §2a: add the slice-4 calls (R-F1–R-F11).
+
+**Interfaces (produces):**
+- `type LockPuzzle = "pattern" | "sort1" | "sort2" | "shapes3" | "balance" | "cage4" | "cage5" | "logic3" | "logic4" | "nono5" | "sort"`. Here `sort` is the subject sort from pools; `sort1`/`sort2` are abstract shapes.
+- Each `LockTask` has `{ kind: "lock"; id; skillId; prompt; readAloud?; puzzle; …puzzle data…; solution: LockResponse; explain? }`.
+- `LockView` is the puzzle data minus `solution`.
+- `checkLock(view: LockView, r: LockResponse): { ok: boolean; broken: string[]; empty: number }` lives in `lock-rules.ts` and is pure. `broken` names rule ids the surface can highlight.
+- The response format per puzzle is the implementer's, documented in `lock-rules.ts` (for example, a grid is a flat `number[]` and a sort is `number[]` of bin indexes). It is bounded: at most 25 cells, values within the puzzle's range, and the encoded form at most 200 chars.
+
+- [ ] **Tests:**
+  - `parseResponse` refuses every Review Focus 1 shape.
+  - `isCorrect` accepts a second valid solution (Review Focus 2) and refuses a rule break.
+  - `feedback` gives `incomplete` versus `rule_broken`.
+  - `toView` never carries `solution`.
+  - `reveal` is sent only on a resolved miss.
+  - The `attemptFeedback` lock lines.
+  - The settings panel shows the new switch.
+  - Use a stub `pattern` task built inline; generators come in F2.
+- [ ] Commit: `feat(tasks): the lock kind — puzzles checked against their rules, never a stored answer`.
+
+### Task F2: Generators, K–4
+
+**Files:**
+- Create: `src/lib/tasks/locks/{index,k4,shapes,solver}.ts` + tests.
+- `LOCKS: Record<string, LockGenerator>` is keyed by logic skill id. `lockFor(skillId)` covers both the logic generators and (from F6) the sort-pool drawer.
+
+**Generators:**
+- `pattern`: K uses AB/ABB/ABC repeats of 4–6 shapes with one blank; 1st grade has two blanks. The answer is the missing shape(s) from a 3–4 option tray.
+- `sort1`: 6–8 shapes, sorted into 2 bins by colour or shape (the rule is stated).
+- `sort2`: 2×2 bins by two attributes.
+- `shapes3`: a 3×3 grid of 3 shapes, each once per row and column, with 3–5 givens by level.
+- `balance`: pick a set of weights from 4–6 to balance a given weight. Any subset that works is right.
+- **Level mapping:** levels 0–4 set the size and givens. `logic-k1` gives pattern and sort1. `logic-g23` gives shapes3, balance and sort2, with level steering the mix.
+
+- [ ] **Tests (solver harness over 500 seeds × levels 0–4 per skill):**
+  - every puzzle is solvable;
+  - none is pre-solved;
+  - ids are deterministic and vary (≥5 distinct at each level);
+  - `shapes3` has a unique solution;
+  - `balance` and the sorts accept every valid answer the solver finds.
+- [ ] Commit: `feat(locks): pattern, sort, shape-grid and balance locks for the youngest heroes`.
+
+### Task F3: Generators, 5–12
+
+**Files:** `locks/{g58,g912}.ts` + tests (the same harness).
+
+**Generators:**
+- **`cage4`/`cage5`:** a Latin square plus cages (sizes 1–3, operations `+ − × ÷` with ÷/− only on 2-cell cages). Generated from a random Latin square, then cages are merged until the solver finds a unique solution. Bounded attempts, so a seed that can't converge retries deterministically.
+- **`logic3`/`logic4`:** n people × n items with short clues ("Ana does not have the lute", "The baker has the red cloak"), pruned to a minimal set that leaves exactly one solution. The response is a permutation.
+- **`nono5`:** a 5×5 picture with row and column clues, and a unique solution.
+- **Skill mapping:** `logic-g45` → cage4 at the small levels, plus logic3. `logic-g68` → cage4 and logic3. `logic-g912` → cage5, nono5 and logic4.
+
+- [ ] **Tests:**
+  - uniqueness for all of these kinds;
+  - generation time is bounded: 500 seeds complete inside the test timeout;
+  - clue text has no answer leaks (no clue names the full solution).
+- [ ] Commit: `feat(locks): cages, logic grids and nonograms for older heroes`.
+
+### Task F4: The lock surface
+
+**Files:**
+- Create `components/tasks/lock-presenter.tsx`, `lock.css` and `lock-demo.tsx`.
+- Register `lock` in `presenters.tsx`.
+- Generalise the demo per R-F10: `deed-run-store.ts` gets `demoAt`/`hasAnsweredKind`, and the bench demo plus the new lock demo are chosen by kind.
+
+**Behaviour (per puzzle):**
+- Grids: tap a cell to cycle its value; givens are fixed.
+- Sorts and bins: tap an item, then tap a bin.
+- Pattern: tap the tray choice into the blank.
+- Balance: tap weights on and off the pan.
+- Nonogram: tap to fill, mark or clear.
+- A "Check the lock" button sends the response.
+- Live rule highlighting comes from `checkLock`, as a light outline, shown only after the first check so it isn't a free solver.
+- On a second chance, it opens on the first try with the broken rules marked.
+- On a miss, it draws `reveal` as the solved board.
+- Keyboard: arrows move, number keys set values. Every cell has an aria-label (row, column, value).
+- It stops propagation so the Realm's keys don't fire. It fits the board's wide panel and 390 px.
+- **Demos (K–3):** pattern ("Pip fits the next shape: red, blue, red, blue, … red!") and sort ("Pip puts each shape where it belongs.").
+
+- [ ] **Tests:**
+  - each puzzle's surface builds and encodes the response;
+  - highlighting appears only after a check;
+  - the second chance and the reveal;
+  - keyboard entry;
+  - typing doesn't reach game keys;
+  - the demo shows once for K–3 on the first lock and not after an answered lock;
+  - the bench demo is unchanged.
+- [ ] Commit: `feat(locks): the lock's face — tap to solve, with the rules marked after a check`.
+
+### Task F5: The `logic` area
+
+**Files:**
+- `skills.ts`: area, labels (`logic: { label: "Logic", color: "#0ea5e9" }`), `AREA_SCHOOL` widened, `SkillSource` gains `{ kind: "lock" }`, plus the 5 rows.
+- `spell-schools.ts` / `actions/subjects.ts`: skip `none`.
+- `grade-levels.ts` / `learning-profile.ts` (`SubjectArea`), `services/deeds.ts` `gradesFor` (`logic: ownGrade`).
+- `skill-hints.ts`: 5 hints, following the hint rules.
+- `focus.ts` window: logic is present.
+- Mastery and focus panels: add logic to `AREA_ORDER`.
+- `deed-engine.ts` `selectSkills` and `drawForSkill`: a `lock` source never draws as choice, giving `[]`.
+- `app/dev/content/sample.ts`: handle the new source.
+- `docs/content/logic-skill-map.md`, plus a test reading it.
+- The exemptions in `deeds.test.ts` and `deed-engine.test.ts` per R-F8, each with its reason.
+
+- [ ] **Tests:**
+  - the logic rows;
+  - `nearestGrades` gives grade 3 → `logic-g23`;
+  - a choice draw of a logic skill gives no task and doesn't throw (Review Focus 4);
+  - school counts ignore logic;
+  - offsets refuse "logic";
+  - the focus window offers logic at the hero's own grade;
+  - the panels list it.
+- [ ] Commit: `feat(skills): logic joins the skill catalog, practised on locks`.
+
+### Task F6: Sort pools — format, validator, blind pass, drawer
+
+**Files:**
+- Create `src/lib/content/sort-pools.ts`. It defines the pool type `{ poolId; skillId; grade; sets: { id; categories: [string, string]; items: { id; label; category: 0 | 1; level: 0–4; readAloud? }[] }[] }` and `validateSortPool(pool): Problem[]`. The rules:
+  - each set has at least 16 items, balanced 40–60% per category;
+  - the pool has at least 40 items in all, and every level 0–4 is present;
+  - no duplicate labels;
+  - labels are readable for the grade (reuse the Flesch–Kincaid check);
+  - no label contains its category's word;
+  - the grade equals the credited skill's grade.
+- Create `sort-blind-pass.ts` + its CLI: a key-free sheet listing each set's categories and items in shuffled order; the reviewer writes 0 or 1 per item; the comparison must reach 100% once resolutions are applied. Mirror `blind-pass.ts` with sort-specific paths.
+- The sort drawer (`locks/sort.ts`) builds a `sort` lock of 6–10 items from one set, by level, and is registered for skills that have a pool.
+- Add a sibling of `drills-content.test.ts` for `sorts/`.
+
+- [ ] **Tests:**
+  - the validator's rules, on fixtures;
+  - the sheet round-trips;
+  - the drawer is deterministic and only uses one set;
+  - `presents("science-g23")` is true only when its pool exists.
+- [ ] Commit: `feat(content): sort pools — a format, a validator and a blind pass of their own`.
+
+### Task F7: Sort content
+
+**Files:** `src/content/sorts/{science-k1,science-g23,science-g45,science-g68,science-g912,vocab-g45,vocab-g68,vocab-g912}.json`.
+
+**Suggested category sets** (the author may add more):
+- living / non-living
+- plants / animals
+- conductors / insulators
+- solids / liquids
+- renewable / non-renewable
+- prokaryote / eukaryote (g912)
+- synonym / antonym of a stated word, one set per word group
+- noun / verb (vocab-g45)
+
+Every fact must be uncontroversial at its grade.
+
+- [ ] All eight pass the validator.
+- [ ] Commit: `content(sorts): science and vocabulary sorts for every band`.
+
+### Task F8: Sort blind pass (a different agent from F7's author)
+
+- [ ] Extract the sheets, answer them without opening the pools, compare, and resolve disagreements in `<poolId>.resolved.json`, as the drills README describes. The gate test requires a PASS for all eight.
+- [ ] Commit: `content(sorts): blind pass for every sort pool`.
+
+### Task F9: Science deeds become locks, and Puzzle practice
+
+**Files:**
+- `deeds.ts`: the five science deeds become `mechanic: "lock"`.
+- Re-record only the snapshots that change, adding choice-pinned twins.
+- `RUN_EFFECTS.world` (R-F9), its schema enum entry (TS-only; confirm `db:generate` emits nothing), and the UI kind branches for `world` (headline "Puzzles solved!", no stars row, no building).
+- Create `actions/practice.ts`: `startPracticeRun(childId)`.
+  - hero only;
+  - refused when locks are off;
+  - 3 tasks from the hero's logic skill at their grade, via `kindForSkill("lock", …)`;
+  - resumes `sourceRef "practice"`.
+- A Side Quests page button "Puzzle practice", shown when locks are on, playing in the page player.
+
+- [ ] **Tests:**
+  - a grade-2 science run with sorts plays and completes with stars and pay;
+  - locks off gives all choice, and the practice button is hidden;
+  - a stored pre-deploy science choice run still resumes (Review Focus 5);
+  - practice pays nothing, moves mastery, and refuses a grown-up.
+- [ ] Commit: `feat(deeds): science side quests sort on a lock's face; logic gets Puzzle practice`.
+
+### Task F10: Verify, review, merge (4a)
+
+- [ ] Full checks.
+- [ ] Browser smoke:
+  - a K hero's first lock demo, then a pattern;
+  - a grade-3 science sort with a wrong bin, then the marked rule, then a right retry;
+  - a grade-6 cage with a miss, then the solved board revealed;
+  - a grade-10 nonogram;
+  - Puzzle practice;
+  - locks off gives choice;
+  - phone width.
+- [ ] Whole-branch review, one fix wave, then merge into `dev` (pre-authorized when green).
+
+---
+
+# Part G: Slice 4b, the world's locks (branch `realm-world-locks`, cut from `dev` after 4a merges)
+
+## Rulings
+
+- **R-G1:** `realm_world_state (id, child_id → child cascade, object_id, state text, updated_at)`, unique on `(child_id, object_id)`, in migration 0044. A pure `lockedNow(object, row, today, zone)`:
+  - an object with no row is locked;
+  - `"open"` with no `resetAfterDays` stays open;
+  - with `resetAfterDays`, it locks again once `today − dayOf(updated_at) ≥ resetAfterDays`.
+- **R-G2: objects (`WORLD_OBJECTS`, pure catalog).**
+  - **Chests** (`resetAfterDays: 7`) stand at fixed village and room spots from the survey. Each refill's puzzle is seeded by `(objectId, cycle)`.
+  - **Vault doors** (once) stand near the five authored places. Each reveals a generated place (a map fragment) and a lore page.
+  - Every object's lock draws from the hero's logic skill. A chest in the library or garden draws a vocab or science sort instead, when those pools exist.
+- **R-G3: opening.**
+  - A `world` run of ONE lock task, started by `startWorldLockRun(childId, objectId)`: hero only; refused while the object is still open; resumes on `sourceRef = objectId`.
+  - In the completion hook, when the task resolved right (first or second try), upsert the state `"open"` and apply the reward, both idempotent through the unique index.
+  - A miss leaves the object locked, and the hero can try again with a fresh puzzle.
+- **R-G4: rewards.** Never materials.
+  - **`decor`:** an entry in a small `DECOR` catalog of boxes, drawn at its fixed spot (owner: "appear at set spots"). The spot is held clear by `world-clearance.ts`.
+  - **`lore`:** an entry in a `LORE` catalog of short pages, shown in a new "Found pages" section of the Chronicle book. `getChronicle` returns `lore`.
+  - **`fragment`:** a generated place id, applied with `addPlacesFound`, plus the toast "You found a map to {place}!". The client store adds it too.
+- **R-G4b: Puzzle Tower runs.** `RUN_EFFECTS.tower` has every effect false. A tower run moves nothing but the tower record.
+- **R-G5: the Puzzle Tower.**
+  - A fixed structure at (25.5, 23.5), 8×8, the only free plot. It is not a `BUILDINGS` entry: it has its own catalog entry and clearance test.
+  - It has one floor per band. A floor opens after 3 stars on any lock deed at that band (`deed_run.kind='deed'`, `deed_id` among lock deeds, `band`, `stars = 3`), checked by one query.
+  - Each open floor offers a bonus lock, harder by one level, as a `tower` run.
+  - The record is `realm_world_state` `tower:<band>`, with state = solved count.
+  - The exterior grows one storey per open floor.
+- **R-G6: interactables.**
+  - New interact kinds: `"lock"` (chests and doors) and `"tower"`, added to the overlay chain's negative list.
+  - Room chests get an optional third argument on `roomSpots`, so the existing three-spot tests keep their shape.
+  - Chests and doors are non-solid (heaps precedent). A vault door's frame is drawn beside the path, not across it.
+
+## Tasks
+
+Each G task gets its full Files, Interfaces and Tests detail at the start of 4b, written against 4a's merged code, as Part E was for 3b.
+
+- **G1:** the schema (0044), the shared DDL, the pure `WORLD_OBJECTS` / `DECOR` / `LORE` catalogs, `lockedNow`, the tower catalog, and the clearance tests for every spot (world and room).
+- **G2:** `startWorldLockRun` plus `finishWorldLock` in `completeDeedRun` (hero only; idempotent; rewards applied; `RunSummary.world?`), and `RUN_EFFECTS.tower` (R-G4b). DB tests:
+  - two tabs open a chest once;
+  - a chest that is still open refuses;
+  - the weekly refill comes back locked with a new puzzle;
+  - a fragment marks the place found;
+  - nothing ever writes `realm_material`.
+- **G3:** the bundle's `worldState` (one query) and a `use-world-state` hook. Chests and doors are drawn as siblings of `World`, closed or open. The `"lock"` interact kind and a `LockBoard` play the run with `DeedRun` and mirror the open state client-side. Room chests appear through the `roomSpots` third argument.
+- **G4:** rewards in the world:
+  - `Decorations` (a `World` sibling);
+  - "Found pages" in the Chronicle book;
+  - the fragment toast and the places-store add.
+- **G5:** the Puzzle Tower:
+  - floor rule and query;
+  - a `TowerBoard` (floors open or waiting, with the copy "Earn 3 stars on a lock side quest for {band} to open this floor.");
+  - `tower` runs;
+  - the record;
+  - the exterior with its storeys.
+- **G6:** the bundle and performance pass. Count the per-load queries and fold reads into existing ones where possible.
+- **G7:** verify:
+  - full checks;
+  - prod-copy 0044;
+  - browser smoke (a chest, a vault door that reveals a place, a lore page, a decoration appearing, a tower floor, the weekly refill simulated by date, a parent visitor);
+  - whole-branch review and one fix wave;
+  - merge on the owner's word.
