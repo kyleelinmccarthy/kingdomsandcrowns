@@ -31,6 +31,19 @@ export type ChronicleWeek = {
 
 const FALLBACK_TITLE = "A quest";
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * How long after its planned day a quest may be finished and still be read here. The reads below
+ * select by when a quest was finished, which no index covers; this prefilter on the planned day
+ * rides `assignment_status_idx (child_id, status, date)` so a read touches recent rows only, not
+ * the hero's whole history. Catch-up reaches back 7 days, so 60 is far wider than real use.
+ */
+const PLANNED_SLACK_DAYS = 60;
+
+/** Planned no more than `PLANNED_SLACK_DAYS` before `day` (YYYY-MM-DD). */
+function plannedSince(day: string) {
+  return gte(schema.questAssignment.date, addDays(day, -PLANNED_SLACK_DAYS));
+}
 const DEFAULT_WEEKS = 8;
 const MAX_WEEKS = 52;
 
@@ -89,6 +102,7 @@ export async function loadChronicle(
       and(
         eq(schema.questAssignment.childId, childId),
         eq(schema.questAssignment.status, "completed"),
+        plannedSince(firstWeek),
         isNotNull(schema.questAssignment.completedAt),
         gte(schema.questAssignment.completedAt, since),
         or(isNotNull(schema.questAssignment.notes), isNotNull(schema.questAssignment.drawing), isNotNull(schema.questAssignment.seal)),
@@ -131,13 +145,14 @@ export async function loadChronicle(
 const HALL_READ_SLACK = 3;
 
 /**
- * The drawings the Chronicle Hall hangs: the newest valid drawings of this hero's finished quests,
- * newest first, at most `limit` (two a built level, so none when the hall is not built).
+ * The drawings the Chronicle Hall hangs: the newest valid drawings of this hero's finished quests
+ * planned in the last 60 days (`plannedSince`), newest first, at most `limit` (two a built level,
+ * so none when the hall is not built).
  *
  * ONE query, and none at all for a limit below 1. Each stored value is read through `parseDrawing`
  * and one with no strokes is skipped, so only a well-formed drawing ever reaches the scene.
  */
-export async function loadHallDrawings(childId: string, limit: number): Promise<Drawing[]> {
+export async function loadHallDrawings(childId: string, limit: number, now: Date = new Date()): Promise<Drawing[]> {
   if (!(limit >= 1)) return [];
   const want = Math.floor(limit);
   const rows = await db
@@ -147,6 +162,7 @@ export async function loadHallDrawings(childId: string, limit: number): Promise<
       and(
         eq(schema.questAssignment.childId, childId),
         eq(schema.questAssignment.status, "completed"),
+        plannedSince(todayInZone("UTC", now)),
         isNotNull(schema.questAssignment.completedAt),
         isNotNull(schema.questAssignment.drawing),
       ),
@@ -189,6 +205,7 @@ export async function loadRecentQuests(childId: string, now: Date = new Date()):
       and(
         eq(schema.questAssignment.childId, childId),
         eq(schema.questAssignment.status, "completed"),
+        plannedSince(todayInZone("UTC", since)),
         isNotNull(schema.questAssignment.completedAt),
         gte(schema.questAssignment.completedAt, since),
         isNotNull(schema.quest.title),

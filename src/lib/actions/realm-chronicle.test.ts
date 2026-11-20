@@ -9,7 +9,7 @@ vi.mock("@/lib/services/realm-chronicle", () => ({ loadChronicle: vi.fn() }));
 
 import { requireChildAccess, type FamilyAccess } from "@/lib/auth/access";
 import { loadChronicle } from "@/lib/services/realm-chronicle";
-import { getChronicle } from "./chronicle";
+import { getChronicle } from "./realm-chronicle";
 
 const WEEKS = [{ weekStart: "2026-11-16", entries: [] }];
 

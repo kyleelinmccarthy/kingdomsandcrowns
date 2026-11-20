@@ -20,8 +20,19 @@ vi.mock("@/lib/actions/chronicle-seals", () => ({
   unsealEntry: vi.fn().mockResolvedValue(undefined),
 }));
 
+// The real parsers, watched: the card reads what is stored once, not on every keystroke.
+vi.mock("@/lib/utils/drawing", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/lib/utils/drawing")>();
+  return { ...real, parseDrawing: vi.fn(real.parseDrawing) };
+});
+vi.mock("@/lib/utils/seals", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/lib/utils/seals")>();
+  return { ...real, parseSeal: vi.fn(real.parseSeal) };
+});
+
 import { sealEntry, unsealEntry } from "@/lib/actions/chronicle-seals";
-import { SEAL_PHRASES } from "@/lib/utils/seals";
+import { parseDrawing } from "@/lib/utils/drawing";
+import { parseSeal, SEAL_PHRASES } from "@/lib/utils/seals";
 
 import {
   completeAssignment,
@@ -801,6 +812,24 @@ describe("QuestAssignmentCard", () => {
       render(<QuestAssignmentCard data={bad} isChildView={true} />);
       expect(screen.queryByRole("img", { name: /drawing/i })).not.toBeInTheDocument();
     });
+  });
+});
+
+describe("reading what is stored", () => {
+  it("parses the stored drawing and seal once, not again on every keystroke", async () => {
+    const user = userEvent.setup();
+    const drawing = JSON.stringify({ v: 1, strokes: [{ c: 2, w: 1, p: [10, 10, 60, 60] }] });
+    const seal = JSON.stringify({ phrase: 1, by: "Mama", at: 1_700_000_000 });
+    const data = { ...baseData, assignment: { ...baseData.assignment, status: "completed", notes: "we did it", drawing, seal } };
+    render(<QuestAssignmentCard data={data} isChildView={false} />);
+    await user.click(screen.getByText("Edit Notes"));
+    const reads = () => [
+      vi.mocked(parseDrawing).mock.calls.filter(([v]) => v === drawing).length,
+      vi.mocked(parseSeal).mock.calls.filter(([v]) => v === seal).length,
+    ];
+    const before = reads();
+    await user.type(screen.getByLabelText("Scribe's Notes"), " together");
+    expect(reads()).toEqual(before);
   });
 });
 

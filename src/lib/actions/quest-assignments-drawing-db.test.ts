@@ -130,6 +130,15 @@ describe("completeAssignment with a drawing", () => {
     expect(grantEarnedMinutesForCompletion).not.toHaveBeenCalled();
   });
 
+  it("lifts an old seal when a finished but unlinked quest is completed again: new content, no borrowed praise", async () => {
+    // Deleting the activity leaves the quest completed with no activity, so it can be completed again.
+    await seed(false, { status: "completed", notes: "old words", drawing: STORED, seal: JSON.stringify({ phrase: 1, by: "Mama", at: 1_700_000_000 }) });
+    await client.query("UPDATE quest_assignment SET activity_log_id = NULL WHERE id = 'a1'");
+    await completeAssignment("a1", { description: GOOD_NOTES });
+    const r = await client.query("SELECT notes, drawing, seal FROM quest_assignment WHERE id = 'a1'");
+    expect(r.rows[0]).toEqual({ notes: GOOD_NOTES, drawing: null, seal: null });
+  });
+
   it("pays out materials and minutes for a drawing-only completion", async () => {
     await seed(true);
     await completeAssignment("a1", { drawing: DRAWING });

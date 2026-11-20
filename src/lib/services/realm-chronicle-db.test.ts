@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeAll, beforeEach, afterAll } from "vites
 import { testDatabase } from "@/test/libsql-test-db";
 import { applyMigrations } from "@/test/apply-migrations";
 import { MATERIALS } from "@/lib/realm/materials";
+import { addDays } from "@/lib/utils/dates";
 
 /**
  * The Chronicle's pages, against a REAL libsql database built from the real migrations: which
@@ -49,7 +50,7 @@ async function assignment(
   id: string,
   questId: string,
   completedAt: string | null,
-  extra: { notes?: string | null; drawing?: unknown; seal?: unknown; status?: string; childId?: string } = {},
+  extra: { notes?: string | null; drawing?: unknown; seal?: unknown; status?: string; childId?: string; date?: string } = {},
 ) {
   const j = (v: unknown) => (v === undefined || v === null ? null : typeof v === "string" ? v : JSON.stringify(v));
   await client.query(
@@ -59,8 +60,9 @@ async function assignment(
       id,
       questId,
       extra.childId ?? "c1",
-      // The planned day is not what the Chronicle reads, but (child, quest, date) is unique.
-      new Date(Date.UTC(2025, 0, 1 + seq++)).toISOString().slice(0, 10),
+      // The planned day: within the last few days before NOW, one apart because (child, quest,
+      // date) is unique. The reads only prefilter on it (`plannedSince`), so any recent day will do.
+      extra.date ?? addDays(NOW.toISOString().slice(0, 10), -seq++),
       extra.status ?? "completed",
       completedAt ? at(completedAt) : null,
       extra.notes ?? null,
@@ -77,6 +79,7 @@ beforeAll(async () => {
 beforeEach(async () => {
   for (const t of ["quest_assignment", "quest", "subject"]) await client.query(`DELETE FROM ${t}`);
   zone = "UTC";
+  seq = 0;
 });
 
 afterAll(() => {
@@ -228,6 +231,16 @@ describe("loadChronicle", () => {
     expect(await loadChronicle("c1", { now: NOW })).toEqual([]);
   });
 
+  it("reads only quests planned no more than 60 days before the window (the date prefilter)", async () => {
+    await subject("s1", "Math");
+    await quest("q1", "Q", "s1");
+    // Eight weeks from NOW start on 2026-09-28; sixty days before that is 2026-07-30.
+    await assignment("edge", "q1", "2026-11-17T09:00:00Z", { notes: "n", date: "2026-07-30" });
+    await assignment("stale", "q1", "2026-11-17T10:00:00Z", { notes: "n", date: "2026-07-29" });
+    const ids = (await loadChronicle("c1", { now: NOW })).flatMap((w) => w.entries.map((e) => e.assignmentId));
+    expect(ids).toEqual(["edge"]);
+  });
+
   it("answers an empty chronicle with no weeks", async () => {
     expect(await loadChronicle("c1", { now: NOW })).toEqual([]);
   });
@@ -248,8 +261,8 @@ describe("loadHallDrawings", () => {
     await assignment("a2", "q1", "2026-11-17T09:00:00Z", { drawing: dot(2) });
     await assignment("a3", "q1", "2026-11-12T09:00:00Z", { drawing: dot(3) });
     await assignment("a4", "q1", "2026-11-14T09:00:00Z", { drawing: dot(4) });
-    expect(firsts(await loadHallDrawings("c1", 6))).toEqual([2, 4, 3, 1]);
-    expect(firsts(await loadHallDrawings("c1", 2))).toEqual([2, 4]);
+    expect(firsts(await loadHallDrawings("c1", 6, NOW))).toEqual([2, 4, 3, 1]);
+    expect(firsts(await loadHallDrawings("c1", 2, NOW))).toEqual([2, 4]);
   });
 
   it("skips what does not parse, a drawing with no strokes, and quests that are not finished", async () => {
@@ -260,7 +273,14 @@ describe("loadHallDrawings", () => {
     await assignment("a5", "q1", "2026-11-14T09:00:00Z", { drawing: dot(5) });
     await assignment("a6", "q1", "2026-11-13T09:00:00Z", { notes: "words only" });
     await assignment("a7", "q1", "2026-11-12T09:00:00Z", { drawing: dot(7) });
-    expect(firsts(await loadHallDrawings("c1", 2))).toEqual([5, 7]);
+    expect(firsts(await loadHallDrawings("c1", 2, NOW))).toEqual([5, 7]);
+  });
+
+  it("hangs only drawings of quests planned in the last 60 days (the date prefilter)", async () => {
+    // NOW is 2026-11-18; sixty days before is 2026-09-19.
+    await assignment("edge", "q1", "2026-11-10T09:00:00Z", { drawing: dot(1), date: "2026-09-19" });
+    await assignment("stale", "q1", "2026-11-17T09:00:00Z", { drawing: dot(2), date: "2026-09-18" });
+    expect(firsts(await loadHallDrawings("c1", 6, NOW))).toEqual([1]);
   });
 
   it("leaves out another child's drawings", async () => {
@@ -268,17 +288,17 @@ describe("loadHallDrawings", () => {
     await quest("q2", "Theirs", "s2", "c2");
     await assignment("mine", "q1", "2026-11-10T09:00:00Z", { drawing: dot(1) });
     await assignment("theirs", "q2", "2026-11-17T09:00:00Z", { drawing: dot(2), childId: "c2" });
-    expect(firsts(await loadHallDrawings("c1", 6))).toEqual([1]);
+    expect(firsts(await loadHallDrawings("c1", 6, NOW))).toEqual([1]);
   });
 
   it("makes one query, and none at all when no frame hangs (the hall is not built)", async () => {
     await assignment("a1", "q1", "2026-11-10T09:00:00Z", { drawing: dot(1) });
     const select = vi.spyOn(testDb, "select");
     try {
-      expect(await loadHallDrawings("c1", 0)).toEqual([]);
-      expect(await loadHallDrawings("c1", Number.NaN)).toEqual([]);
+      expect(await loadHallDrawings("c1", 0, NOW)).toEqual([]);
+      expect(await loadHallDrawings("c1", Number.NaN, NOW)).toEqual([]);
       expect(select).not.toHaveBeenCalled();
-      await loadHallDrawings("c1", 2);
+      await loadHallDrawings("c1", 2, NOW);
       expect(select).toHaveBeenCalledTimes(1);
     } finally {
       select.mockRestore();
@@ -311,6 +331,15 @@ describe("loadRecentQuests", () => {
     await assignment("outside", "q1", "2026-11-11T11:59:59Z");
     await assignment("old", "q1", "2026-10-01T09:00:00Z");
     expect((await loadRecentQuests("c1", NOW)).map((r) => r.assignmentId)).toEqual(["inside"]);
+  });
+
+  it("reads only quests planned no more than 60 days before the 7-day window (the date prefilter)", async () => {
+    await subject("s1", "Math");
+    await quest("q1", "Q", "s1");
+    // The window opens 2026-11-11; sixty days before is 2026-09-12.
+    await assignment("edge", "q1", "2026-11-17T09:00:00Z", { date: "2026-09-12" });
+    await assignment("stale", "q1", "2026-11-17T10:00:00Z", { date: "2026-09-11" });
+    expect((await loadRecentQuests("c1", NOW)).map((r) => r.assignmentId)).toEqual(["edge"]);
   });
 
   it("reads only completed quests, not planned or skipped ones", async () => {

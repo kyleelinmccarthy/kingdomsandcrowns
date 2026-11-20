@@ -1,13 +1,13 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/actions/chronicle", () => ({ getChronicle: vi.fn() }));
+vi.mock("@/lib/actions/realm-chronicle", () => ({ getChronicle: vi.fn() }));
 // A grown-up who may seal presses (or lifts) seals from the book through these actions.
 vi.mock("@/lib/actions/chronicle-seals", () => ({ sealEntry: vi.fn(), unsealEntry: vi.fn() }));
 const refresh = vi.fn();
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
 
-import { getChronicle } from "@/lib/actions/chronicle";
+import { getChronicle } from "@/lib/actions/realm-chronicle";
 import { sealEntry, unsealEntry } from "@/lib/actions/chronicle-seals";
 import type { ChronicleEntry, ChronicleWeek } from "@/lib/services/realm-chronicle";
 import { ChronicleBook, weekLabel } from "./chronicle-book";

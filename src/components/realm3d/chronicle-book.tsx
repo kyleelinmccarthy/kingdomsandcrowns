@@ -18,7 +18,7 @@ import { useCallback, useEffect, useState } from "react";
 import { SealBadge, SealPanel } from "@/components/chronicle-seal";
 import { DrawingView } from "@/components/drawing-view";
 import { GameIcon } from "@/components/game-icon";
-import { getChronicle } from "@/lib/actions/chronicle";
+import { getChronicle } from "@/lib/actions/realm-chronicle";
 import { unsealEntry } from "@/lib/actions/chronicle-seals";
 import type { ChronicleEntry, ChronicleWeek } from "@/lib/services/realm-chronicle";
 import { Panel } from "./frame-hud";

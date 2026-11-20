@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -198,8 +198,9 @@ export function QuestAssignmentCard({
     manualDuration.trim() !== "" && Number.isFinite(parsedDuration) && parsedDuration >= 1 && parsedDuration <= 480;
   // Scribe's Notes, or a drawing: a hero who can't type yet tells the quest by drawing it.
   const hasRequiredNotes = !quest.requireNotes || hasMeaningfulNotes(notes) || hasDrawing(drawing);
-  const storedDrawing = parseDrawing(assignment.drawing);
-  const seal = parseSeal(assignment.seal);
+  // Read once per stored value, not on every keystroke (a full drawing is ~16 KB of JSON).
+  const storedDrawing = useMemo(() => parseDrawing(assignment.drawing), [assignment.drawing]);
+  const seal = useMemo(() => parseSeal(assignment.seal), [assignment.seal]);
 
   function openQuickComplete() {
     setManualDuration(quest.estimatedMinutes ? String(quest.estimatedMinutes) : "");

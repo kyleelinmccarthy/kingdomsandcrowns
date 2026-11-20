@@ -447,6 +447,8 @@ export async function completeAssignment(
       completedAt: now,
       notes: notes || null,
       drawing: drawingToStore(drawing),
+      // A seal praises what was told; a completion (again) tells something new, so it starts unsealed.
+      seal: null,
       // Finishing settles whatever set the quest aside — a stuck quest a
       // grown-up came and helped with is no longer stuck for any reason.
       statusReason: null,

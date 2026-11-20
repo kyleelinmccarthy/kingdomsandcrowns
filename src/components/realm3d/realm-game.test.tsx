@@ -56,7 +56,7 @@ vi.mock("@/lib/actions/realm-sound", () => ({ saveRealmSound: vi.fn(async () => 
 vi.mock("@/lib/actions/deeds", () => ({ startDeedRun: vi.fn(), answerDeedQuestion: vi.fn(), completeDeedRun: vi.fn() }));
 vi.mock("@/lib/actions/seasons", () => ({ markCeremonySeen: vi.fn(async () => {}) }));
 vi.mock("@/lib/actions/improvements", () => ({ markBuildingsAnnounced: vi.fn(async () => {}), markDeliverySeen: vi.fn(async () => {}), startBuildRun: vi.fn(), pinPlan: vi.fn(async () => {}) }));
-vi.mock("@/lib/actions/chronicle", () => ({ getChronicle: vi.fn(async () => ({ weeks: [], canSeal: false })) }));
+vi.mock("@/lib/actions/realm-chronicle", () => ({ getChronicle: vi.fn(async () => ({ weeks: [], canSeal: false })) }));
 vi.mock("@/lib/actions/review", () => ({ startReviewRun: vi.fn(), getReviewDue: vi.fn(async () => false) }));
 vi.mock("@/lib/actions/spells", () => ({ getSpellbook: vi.fn(async () => ({ spells: [], slots: 4, level: 3, unlocked: ["ember", "tide", "bolt", "orb"], schoolCounts: { element: 2, form: 0, modifier: 0 }, subjectNamesBySchool: { element: ["Math"], form: [], modifier: [] } })) }));
 vi.mock("@/lib/actions/realm", () => ({ getRealmKingdom: vi.fn() }));
@@ -87,7 +87,7 @@ import { markBuildingsAnnounced, markDeliverySeen, pinPlan, startBuildRun } from
 import { KEEP_YARD } from "@/lib/realm/keep-yard";
 import { EMPTY_WORKS, type Works } from "@/lib/realm/works-state";
 import { CHRONICLE_TARGET, PLANS_TARGET } from "@/lib/realm3d/interact";
-import { getChronicle } from "@/lib/actions/chronicle";
+import { getChronicle } from "@/lib/actions/realm-chronicle";
 import { BUILD_HERO_ONLY } from "@/lib/utils/deed-refusals";
 import { startReviewRun } from "@/lib/actions/review";
 import { saveRealmSound } from "@/lib/actions/realm-sound";
