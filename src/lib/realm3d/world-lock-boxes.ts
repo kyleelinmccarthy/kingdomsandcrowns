@@ -3,9 +3,11 @@
  * old chest and a vault door, each shut or open. Pure, so how they open and that they keep to
  * their footprint are tested here (`world-lock-boxes.test.ts`) and the scene only paints, turns
  * and merges. Boxes are in the lock's own frame, front to +z: `x`/`z` the centre on the ground,
- * `y` the centre height, `sx`/`sy`/`sz` the size (`YardBox`). `part` names what moves.
+ * `y` the centre height, `sx`/`sy`/`sz` the size (`YardBox`). `part` names what moves. The
+ * decorations a chest gives (`decorBoxes`) are here too: the same boxes, one more kind of find.
  */
 
+import type { DecorId } from "@/lib/realm/decor";
 import { IMPROVEMENT_COLORS } from "@/lib/realm/improvements";
 import type { YardBox } from "./keep-yard-boxes";
 
@@ -87,4 +89,99 @@ function leaves(open: boolean): LockBox[] {
 
 export function vaultDoorBoxes(open: boolean): LockBox[] {
   return [...DOOR_FRAME, ...leaves(open)];
+}
+
+/* ------------------------------------------------------------------ decorations */
+
+const TIMBER = IMPROVEMENT_COLORS.timber;
+const PLASTER = IMPROVEMENT_COLORS.plaster;
+const ROOF = IMPROVEMENT_COLORS.roof;
+const CLOTH = IMPROVEMENT_COLORS.cloth;
+const WATER = IMPROVEMENT_COLORS.water;
+const HAY = "#d4b85a";
+const SOIL = "#4a3626";
+const LEAF_GREEN = "#4f9a3a";
+const DEEP_GREEN = "#3a7a2c";
+const SACK = "#b6863f";
+
+/**
+ * What each found decoration looks like, in its own frame (front to +z, standing at its spot's
+ * centre): the spots are the clearance-tested ones in `decor.ts`, so every shape keeps within 0.7 of
+ * its centre (a 1.4 by 1.4 footprint) and under 2.6 tall (`world-lock-boxes.test.ts`). Nothing
+ * here is solid; the hero walks past.
+ */
+const DECOR_BOXES: Readonly<Record<DecorId, readonly YardBox[]>> = {
+  "stone-bench": [
+    box(STONE, -0.5, 0, 0.2, 0.4, 0, 0.4),
+    box(STONE, 0.5, 0, 0.2, 0.4, 0, 0.4),
+    box(STONE, 0, 0, 1.3, 0.46, 0.4, 0.12),
+  ],
+  sundial: [
+    box(STONE, 0, 0, 0.5, 0.5, 0, 0.7),
+    box(DARK_STONE, 0, 0, 0.8, 0.8, 0.7, 0.08),
+    box(GOLD, 0, -0.1, 0.06, 0.4, 0.78, 0.3),
+  ],
+  "flower-cart": [
+    box(TIMBER, 0, 0, 1.1, 0.7, 0.3, 0.35),
+    box(WOOD, -0.62, 0, 0.08, 0.5, 0, 0.5),
+    box(WOOD, 0.62, 0, 0.08, 0.5, 0, 0.5),
+    box(TIMBER, 0, 0.5, 0.1, 0.4, 0.45, 0.1),
+    box(CLOTH, -0.3, 0, 0.3, 0.3, 0.65, 0.2),
+    box(GOLD, 0, 0.05, 0.3, 0.3, 0.65, 0.28),
+    box(PLASTER, 0.3, -0.05, 0.3, 0.3, 0.65, 0.22),
+  ],
+  "bird-bath": [
+    box(STONE, 0, 0, 0.3, 0.3, 0, 0.7),
+    box(STONE, 0, 0, 0.8, 0.8, 0.7, 0.12),
+    box(WATER, 0, 0, 0.64, 0.64, 0.82, 0.04),
+  ],
+  "weather-vane": [
+    box(STONE, 0, 0, 0.5, 0.5, 0, 0.2),
+    box(TIMBER, 0, 0, 0.12, 0.12, 0.2, 2.2),
+    box(IRON, 0, 0, 0.9, 0.06, 2.0, 0.06),
+    box(GOLD, 0.42, 0, 0.16, 0.12, 1.96, 0.14),
+    box(IRON, -0.4, 0, 0.1, 0.1, 1.95, 0.3),
+  ],
+  "hay-bales": [
+    box(HAY, -0.33, 0, 0.64, 0.6, 0, 0.45),
+    box(HAY, 0.33, 0, 0.64, 0.6, 0, 0.45),
+    box(HAY, 0, 0, 0.64, 0.6, 0.45, 0.45),
+    box(TIMBER, -0.33, 0, 0.66, 0.08, 0.2, 0.05),
+    box(TIMBER, 0.33, 0, 0.66, 0.08, 0.2, 0.05),
+  ],
+  scarecrow: [
+    box(TIMBER, 0, 0, 0.1, 0.1, 0, 1.8),
+    box(TIMBER, 0, 0, 1.3, 0.1, 1.3, 0.1),
+    box(SACK, 0, 0, 0.4, 0.3, 0.8, 0.55),
+    box(HAY, 0, 0, 0.28, 0.28, 1.6, 0.28),
+    box(CLOTH, 0, 0, 0.5, 0.5, 1.88, 0.06),
+    box(CLOTH, 0, 0, 0.3, 0.3, 1.94, 0.2),
+  ],
+  "barrel-stack": [
+    box(WOOD, -0.3, 0, 0.56, 0.56, 0, 0.7),
+    box(WOOD, 0.3, 0, 0.56, 0.56, 0, 0.7),
+    box(WOOD, 0, 0, 0.56, 0.56, 0.7, 0.7),
+    box(IRON, -0.3, 0, 0.6, 0.6, 0.15, 0.06),
+    box(IRON, 0.3, 0, 0.6, 0.6, 0.15, 0.06),
+    box(IRON, 0, 0, 0.6, 0.6, 0.85, 0.06),
+  ],
+  "herb-planter": [
+    box(TIMBER, 0, 0, 1.2, 0.5, 0, 0.4),
+    box(SOIL, 0, 0, 1.1, 0.4, 0.4, 0.04),
+    box(LEAF_GREEN, -0.4, 0, 0.2, 0.2, 0.44, 0.3),
+    box(DEEP_GREEN, -0.13, 0, 0.2, 0.2, 0.44, 0.38),
+    box(LEAF_GREEN, 0.13, 0, 0.2, 0.2, 0.44, 0.26),
+    box(DEEP_GREEN, 0.4, 0, 0.2, 0.2, 0.44, 0.34),
+  ],
+  "story-post": [
+    box(STONE, 0, 0, 0.5, 0.5, 0, 0.2),
+    box(TIMBER, 0, 0, 0.2, 0.2, 0.2, 2.0),
+    box(PLASTER, 0, 0.14, 0.9, 0.08, 1.3, 0.5),
+    box(ROOF, 0, 0, 0.6, 0.5, 2.2, 0.12),
+  ],
+};
+
+/** A found decoration's boxes, in its own frame. */
+export function decorBoxes(id: DecorId): YardBox[] {
+  return [...DECOR_BOXES[id]];
 }

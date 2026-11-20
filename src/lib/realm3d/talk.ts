@@ -143,7 +143,16 @@ export type DeedToast = {
   rose: boolean;
   /** Everything above, as one sentence for read-aloud. */
   spoken: string;
+  /** The icon, when it is not a side quest's house or castle: a found map. A toast with it and no `total` shows no pips. */
+  icon?: "map";
 };
+
+/** A vault door's map: the place it leads to is on the hero's map now (`use-world-state.ts` marks it). */
+export function fragmentToast(placeName: string): DeedToast {
+  const title = `You found a map to ${placeName}!`;
+  const line = "Look for it on your map.";
+  return { title, line, done: 0, total: 0, rose: false, icon: "map", spoken: `${title} ${line}` };
+}
 
 /** A rise's sentences as a toast: the first one is the title, the rest the line. */
 export function riseWords(sentence: string, site: { done: number; total: number }): DeedToast {

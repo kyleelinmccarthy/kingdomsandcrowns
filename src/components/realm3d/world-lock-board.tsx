@@ -12,6 +12,9 @@
  * (`onOutcome`) the moment it answers, so the frame mirrors the opening; whether the board shows
  * the open line is decided once, when it opens, so the result card stays put while the chest
  * behind it swings open.
+ *
+ * A start the server refuses as already open (another run opened it) means the frame drew the lock
+ * shut when it stands open: that is reported up as an "already-open" outcome, so the frame mirrors it.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -20,7 +23,7 @@ import { startWorldLockRun } from "@/lib/actions/world-locks";
 import type { WorldObject } from "@/lib/realm/world-objects";
 import type { Viewer } from "@/lib/realm3d/talk";
 import type { RunStart, WorldOutcome } from "@/lib/utils/deed-run-types";
-import { deedErrorLine, WORLD_HERO_ONLY } from "@/lib/utils/deed-refusals";
+import { deedErrorLine, WORLD_HERO_ONLY, WORLD_OPEN } from "@/lib/utils/deed-refusals";
 import { CHEST_OPEN_LINE, CHEST_STORY, CHEST_TITLE, DOOR_OPEN_LINE, DOOR_STORY, DOOR_TITLE } from "@/lib/utils/world-lock-copy";
 import { DeedRun } from "./deed-board";
 import { Panel } from "./frame-hud";
@@ -58,8 +61,12 @@ export function WorldLockBoard({
   const start = useCallback(() => {
     startWorldLockRun(childId!, object.id)
       .then((run) => setState({ kind: "run", run }))
-      .catch((err: unknown) => setState({ kind: "error", line: deedErrorLine(err) }));
-  }, [childId, object.id]);
+      .catch((err: unknown) => {
+        const line = deedErrorLine(err);
+        if (line === WORLD_OPEN) onOutcome({ objectId: object.id, opened: false, reason: "already-open", rewards: [] });
+        setState({ kind: "error", line });
+      });
+  }, [childId, object.id, onOutcome]);
   // Once per opening, and only for a shut lock the hero is at: a development double-mount must not start two runs.
   const asked = useRef(false);
   useEffect(() => {

@@ -14,7 +14,7 @@ vi.mock("@/lib/utils/speech", () => ({ canSpeak: () => false, speak: vi.fn(), st
 
 import { answerDeedQuestion, completeDeedRun } from "@/lib/actions/deeds";
 import { startWorldLockRun } from "@/lib/actions/world-locks";
-import { WORLD_HERO_ONLY, WORLD_OPEN } from "@/lib/utils/deed-refusals";
+import { WORLD_HERO_ONLY, WORLD_LOCKS_OFF, WORLD_OPEN } from "@/lib/utils/deed-refusals";
 import { CHEST_OPEN_LINE, DOOR_OPEN_LINE } from "@/lib/utils/world-lock-copy";
 import type { RunSummary } from "@/lib/utils/deed-run-types";
 import { WorldLockBoard } from "./world-lock-board";
@@ -136,5 +136,21 @@ describe("a chest's or vault door's lock board", () => {
     vi.mocked(startWorldLockRun).mockRejectedValue(new Error(WORLD_OPEN));
     await act(async () => void board());
     expect(screen.getByRole("alert")).toHaveTextContent("That's already open.");
+  });
+
+  it("tells the frame a lock is open when the server refuses its start as already open, so it stops drawing it shut", async () => {
+    vi.mocked(startWorldLockRun).mockRejectedValue(new Error(WORLD_OPEN));
+    const onOutcome = vi.fn();
+    await act(async () => void board({ onOutcome }));
+    expect(onOutcome).toHaveBeenCalledTimes(1);
+    expect(onOutcome).toHaveBeenCalledWith({ objectId: "chest:west-lane", opened: false, reason: "already-open", rewards: [] });
+  });
+
+  it("tells the frame nothing for any other refusal", async () => {
+    vi.mocked(startWorldLockRun).mockRejectedValue(new Error(WORLD_LOCKS_OFF));
+    const onOutcome = vi.fn();
+    await act(async () => void board({ onOutcome }));
+    expect(screen.getByRole("alert")).toHaveTextContent("The locks are resting for now.");
+    expect(onOutcome).not.toHaveBeenCalled();
   });
 });

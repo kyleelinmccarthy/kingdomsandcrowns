@@ -102,6 +102,7 @@ import { KeepYard } from "./keep-yard";
 import { Improvements } from "./improvements";
 import { ChronicleFrames } from "./chronicle-frames";
 import { WorldLocks } from "./world-locks";
+import { Decorations } from "./decorations";
 import type { WorldCanvas } from "@/lib/realm/world-state";
 import type { Drawing } from "@/lib/utils/drawing";
 import { improvementPlacements } from "@/lib/realm3d/improvement-spots";
@@ -1334,6 +1335,7 @@ export default function SpikeScene({ avatar, close, world, layout, anchors, page
       <Improvements built={built} heightAt={world.heightAt} />
       <ChronicleFrames level={built?.["chronicle-hall"] ?? 0} drawings={hallDrawings} heightAt={world.heightAt} />
       <WorldLocks locks={worldLocks?.locks} heightAt={world.heightAt} />
+      <Decorations decor={worldLocks?.decor} heightAt={world.heightAt} />
     </Canvas>
   );
 }

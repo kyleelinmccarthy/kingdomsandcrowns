@@ -56,7 +56,7 @@ vi.mock("@/lib/services/deeds", async () => {
 const { startWorldLockRun } = await import("./world-locks");
 const { startPracticeRun } = await import("./practice");
 const { answerDeedQuestion, completeDeedRun, resolveDeedQuestion, retryDeedQuestion } = await import("./deeds");
-const { loadWorldRows, worldClock } = await import("@/lib/services/realm-world-state");
+const { loadFoundPages, loadWorldRows, worldClock } = await import("@/lib/services/realm-world-state");
 const { requireChildAccess } = await import("@/lib/auth/access");
 const { loadHeroLevels } = await import("@/lib/services/deeds");
 const { loadRealmSettings, paySideQuest } = await import("@/lib/services/realm-play");
@@ -146,6 +146,58 @@ describe("the world's clock and rows", () => {
     const rows = await loadWorldRows("c1");
     expect(rows).toEqual([{ objectId: "chest:west-lane", state: "open", updatedAt: at }]);
     expect(rows[0].updatedAt.getTime()).toBe(at.getTime());
+  });
+});
+
+describe("found pages", () => {
+  const lore = (id: string, at: Date, row: string) =>
+    client.query("INSERT INTO realm_world_state (id, child_id, object_id, state, updated_at) VALUES (?1, 'c1', ?2, 'found', ?3)", [row, `lore:${id}`, at]);
+
+  it("lists the hero's pages in the order they were found, with their title and text", async () => {
+    await lore("the-locksmith", new Date("2026-11-05T12:00:00Z"), "p2");
+    await lore("the-first-lock", new Date("2026-11-03T12:00:00Z"), "p1");
+    const pages = await loadFoundPages("c1");
+    expect(pages.map((p) => p.id)).toEqual(["the-first-lock", "the-locksmith"]);
+    expect(pages[0]).toEqual({ id: "the-first-lock", title: "The First Lock", text: expect.stringContaining("smith") });
+  });
+
+  it("breaks a tie on the time by object id, so the order never wobbles", async () => {
+    const at = new Date("2026-11-03T12:00:00Z");
+    await lore("the-locksmith", at, "p2");
+    await lore("the-first-lock", at, "p1");
+    await lore("the-castle-cellar", at, "p3");
+    expect((await loadFoundPages("c1")).map((p) => p.id)).toEqual(["the-castle-cellar", "the-first-lock", "the-locksmith"]);
+  });
+
+  it("skips an id that is not in the catalog, and rows that are not pages", async () => {
+    await lore("nope", new Date("2026-11-03T12:00:00Z"), "p1");
+    await lore("the-first-lock", new Date("2026-11-04T12:00:00Z"), "p2");
+    await client.query("INSERT INTO realm_world_state (id, child_id, object_id, state, updated_at) VALUES ('d1', 'c1', 'decor:sundial', 'placed', ?1)", [new Date()]);
+    await client.query("INSERT INTO realm_world_state (id, child_id, object_id, state, updated_at) VALUES ('d2', 'c1', 'chest:west-lane', 'open', ?1)", [new Date()]);
+    expect((await loadFoundPages("c1")).map((p) => p.id)).toEqual(["the-first-lock"]);
+  });
+
+  it("reads only this hero's pages", async () => {
+    await client.query("INSERT INTO child (id, family_id, display_name) VALUES ('c2', 'f1', 'Bo')");
+    await client.query("INSERT INTO realm_world_state (id, child_id, object_id, state, updated_at) VALUES ('o1', 'c2', 'lore:the-locksmith', 'found', ?1)", [new Date()]);
+    await lore("the-first-lock", new Date(), "p1");
+    expect((await loadFoundPages("c1")).map((p) => p.id)).toEqual(["the-first-lock"]);
+    expect((await loadFoundPages("c2")).map((p) => p.id)).toEqual(["the-locksmith"]);
+  });
+
+  it("is empty for a hero who has found none", async () => {
+    expect(await loadFoundPages("c1")).toEqual([]);
+  });
+
+  it("gives the pages whatever the locks switch says (R-G7: what was found stays)", async () => {
+    await lore("the-first-lock", new Date("2026-11-04T12:00:00Z"), "p1");
+    vi.mocked(loadRealmSettings).mockResolvedValue(LOCKS_OFF as never);
+    expect((await loadFoundPages("c1")).map((p) => p.id)).toEqual(["the-first-lock"]);
+  });
+
+  it("the pages a door and a chest really gave are the pages found", async () => {
+    await open("door:ringstones");
+    expect((await loadFoundPages("c1")).map((p) => p.id)).toEqual(["ringstones-map"]);
   });
 });
 

@@ -3,7 +3,7 @@ import { objectiveState } from "@/lib/realm/objective";
 import { villagerById } from "@/lib/realm/villagers";
 import type { ClientTask } from "@/lib/tasks/types";
 import { CHEST_EMPTY, worldRewardLine } from "@/lib/utils/world-lock-copy";
-import { attemptFeedback, deedToast, finishLabel, leaveWhat,resultBuildingLine, resultHeadline, resultMinutesLine, resultStarsLine, starsLabel, starsLeftLine, talkCopy, type SiteState } from "./talk";
+import { attemptFeedback, deedToast, finishLabel, fragmentToast, leaveWhat,resultBuildingLine, resultHeadline, resultMinutesLine, resultStarsLine, starsLabel, starsLeftLine, talkCopy, type SiteState } from "./talk";
 
 const bram = villagerById("bram")!;
 const well: SiteState = { id: "well", label: "Village Well", done: 0, total: 5, complete: false, stars: 0, maxStars: 9 };
@@ -263,6 +263,25 @@ describe("a chest's or vault door's result", () => {
       const head = resultHeadline(chest(rewards), "The old chest");
       expect(`${head.title} ${head.line}`).not.toMatch(/grade|band|star|minute|behind|ahead/i);
     }
+  });
+});
+
+describe("a map fragment's toast", () => {
+  it("says a map to the place was found, and where to look, with the map icon and no pips", () => {
+    expect(fragmentToast("Thunder Head")).toEqual({
+      title: "You found a map to Thunder Head!",
+      line: "Look for it on your map.",
+      done: 0,
+      total: 0,
+      rose: false,
+      icon: "map",
+      spoken: "You found a map to Thunder Head! Look for it on your map.",
+    });
+  });
+
+  it("never names a grade, a band or a count", () => {
+    const t = fragmentToast("a far place");
+    expect(`${t.title} ${t.line}`).not.toMatch(/grade|band|star|minute|behind|ahead/i);
   });
 });
 

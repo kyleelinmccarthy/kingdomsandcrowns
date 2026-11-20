@@ -109,11 +109,14 @@ export function roomChestFor(room: RoomKind, view: WorldStateView): LockSpotView
 
 /**
  * The client's mirror of an opening the server wrote (PC-G2), so the chest stands open and its
- * decoration appears without a reload. A miss, or a lock that was already open, changes nothing
- * and gives back the same view. Catalog order is kept, as `worldStateView` gives it.
+ * decoration appears without a reload. A miss changes nothing and gives back the same view. A lock
+ * the server says was already open (another run opened it, or its start was refused as open) is
+ * shown open too, with nothing new placed; if the view already shows it open, that is the same view
+ * as well. Catalog order is kept, as `worldStateView` gives it.
  */
 export function applyWorldOutcome(view: WorldStateView, o: WorldOutcome): WorldStateView {
-  if (!o.opened || !worldObjectById(o.objectId)) return view;
+  const nowOpen = o.opened || o.reason === "already-open";
+  if (!nowOpen || !worldObjectById(o.objectId) || (!o.opened && view.open.includes(o.objectId))) return view;
   const open = new Set([...view.open, o.objectId]);
   const decor = new Set<DecorId>([...view.decor, ...o.rewards.flatMap((r) => (r.kind === "decor" ? [r.id] : []))]);
   return {

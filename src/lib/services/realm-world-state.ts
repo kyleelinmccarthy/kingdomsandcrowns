@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, asc, eq, like } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
@@ -6,6 +6,7 @@ import { getTimezoneForChild, usableTimeZone } from "@/lib/services/family-timez
 import { realmNow } from "@/lib/services/realm-clock";
 import { addPlacesFound } from "@/lib/services/realm-places";
 import type { Exec, Tx } from "@/lib/services/realm-play";
+import { LORE, LORE_IDS, type LoreId } from "@/lib/realm/lore";
 import { rewardKey, type WorldObject } from "@/lib/realm/world-objects";
 import { lockedNow, nextRewards, type WorldRow } from "@/lib/realm/world-state";
 import type { QuestionOutcome } from "@/lib/utils/deed-scoring";
@@ -33,6 +34,28 @@ export async function worldClock(childId: string, now: Date = new Date()): Promi
 export async function loadWorldRows(childId: string, exec: Exec = db): Promise<WorldRow[]> {
   const W = schema.realmWorldState;
   return exec.select({ objectId: W.objectId, state: W.state, updatedAt: W.updatedAt }).from(W).where(eq(W.childId, childId));
+}
+
+const LORE_PREFIX = "lore:";
+
+/**
+ * The lore pages this hero has found, in the order they were found (`updated_at`, then `object_id`
+ * so a tie never wobbles), each with its title and text. An id that is not in the catalog is
+ * skipped. Whatever the locks switch says: a page found stays found (R-G7), and a grown-up visiting
+ * reads the same pages, so the caller has already authorised read access and nothing here asks.
+ */
+export async function loadFoundPages(childId: string): Promise<{ id: LoreId; title: string; text: string }[]> {
+  const W = schema.realmWorldState;
+  const rows = await db
+    .select({ objectId: W.objectId })
+    .from(W)
+    .where(and(eq(W.childId, childId), like(W.objectId, `${LORE_PREFIX}%`)))
+    .orderBy(asc(W.updatedAt), asc(W.objectId));
+  const known = new Set<string>(LORE_IDS);
+  return rows.flatMap((r) => {
+    const id = r.objectId.slice(LORE_PREFIX.length);
+    return known.has(id) ? [{ id: id as LoreId, ...LORE[id as LoreId] }] : [];
+  });
 }
 
 /**

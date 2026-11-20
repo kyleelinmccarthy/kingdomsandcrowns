@@ -317,8 +317,6 @@ export function RealmGame({
   const gilded = useMemo(() => (gildedKey ? gildedKey.split(",") : []), [gildedKey]);
   // The keep yard: the hero's works for the visit (`use-works.ts`), and the buildings that stand, which the plans wait on.
   const { works, stockpile, built, applyBuildResult, setPinned, replaceWorks } = useWorks(realm.works);
-  // The world's locks for the visit (`use-world-state.ts`): the canvas draws them, and an opening is mirrored at once.
-  const lockState = useWorldState(realm.worldState);
   const raisedKey = kingdom.buildings.filter((b) => b.complete).map((b) => b.id).join(",");
   const raisedIds = useMemo<ReadonlySet<string>>(() => new Set(raisedKey ? raisedKey.split(",") : []), [raisedKey]);
 
@@ -589,6 +587,14 @@ export function RealmGame({
     },
     [readAloud],
   );
+  // The world's locks for the visit (`use-world-state.ts`): the canvas draws them, an opening is mirrored at once,
+  // and a vault door's map goes on the map now, with its toast held until the board closes.
+  const lockState = useWorldState(realm.worldState, {
+    addPlace: places.store.add,
+    say: showToast,
+    placeName: (id) => world.landmarks.find((l) => l.id === id)?.name ?? "a far place",
+    overlayOpen: overlay !== null,
+  });
   /** A side quest paid minutes: re-ask the gate now, so a quiet world wakes (the clock's `refresh`, set below). */
   const askGate = useRef<() => void>(() => {});
   const trackedRef = useRef(surfaces.trackedObjectives);

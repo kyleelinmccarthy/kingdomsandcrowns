@@ -24,9 +24,13 @@ const THIS_WEEK: ChronicleWeek = { weekStart: "2026-11-16", entries: [entry(), e
 const LAST_WEEK: ChronicleWeek = { weekStart: "2026-11-09", entries: [entry({ assignmentId: "a3", title: "Decimals", subject: "Math", notes: "Hard." })] };
 const OLDER: ChronicleWeek = { weekStart: "2025-12-29", entries: [entry({ assignmentId: "a4", title: "Latin chant", notes: "Ave." })] };
 
-/** What `getChronicle` answers: the weeks, and whether this reader may seal (a hero never). */
-function pages(weeks: ChronicleWeek[], canSeal = false) {
-  return { weeks, canSeal };
+type FoundPage = { id: "the-first-lock" | "ringstones-map"; title: string; text: string };
+const PAGE_ONE: FoundPage = { id: "the-first-lock", title: "The First Lock", text: "Long ago a smith made a lock with no key." };
+const PAGE_TWO: FoundPage = { id: "ringstones-map", title: "A Map of the High Country", text: "The ringstone keepers drew a map of the highest ground." };
+
+/** What `getChronicle` answers: the weeks, whether this reader may seal (a hero never), and the found pages. */
+function pages(weeks: ChronicleWeek[], canSeal = false, lore: FoundPage[] = []) {
+  return { weeks, canSeal, lore };
 }
 
 function book(over: Partial<React.ComponentProps<typeof ChronicleBook>> = {}) {
@@ -216,5 +220,53 @@ describe("the Chronicle book", () => {
     await waitFor(() => expect(screen.queryByText("Opening the Chronicle…")).toBeNull());
     fireEvent.click(screen.getByRole("button", { name: "Back to the Realm" }));
     expect(onClose).toHaveBeenCalled();
+  });
+});
+
+describe("Found pages", () => {
+  it("has no button without pages", async () => {
+    vi.mocked(getChronicle).mockResolvedValue(pages([THIS_WEEK]));
+    book();
+    await screen.findByText("Week of 16 November");
+    expect(screen.queryByRole("button", { name: "Found pages" })).toBeNull();
+  });
+
+  it("opens the pages, in found order, as text, and goes back to the weeks", async () => {
+    vi.mocked(getChronicle).mockResolvedValue(pages([THIS_WEEK], false, [PAGE_ONE, PAGE_TWO]));
+    book();
+    await screen.findByText("Week of 16 November");
+    fireEvent.click(screen.getByRole("button", { name: "Found pages" }));
+    expect(screen.queryByText("Week of 16 November")).toBeNull();
+    const headings = screen.getAllByRole("heading", { level: 4 }).map((h) => h.textContent);
+    expect(headings).toEqual(["The First Lock", "A Map of the High Country"]);
+    expect(screen.getByText(PAGE_ONE.text)).toBeInTheDocument();
+    expect(screen.getByText(PAGE_TWO.text)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Back to the weeks" }));
+    expect(screen.getByText("Week of 16 November")).toBeInTheDocument();
+    expect(screen.queryByText(PAGE_ONE.text)).toBeNull();
+  });
+
+  it("renders markup in a page as literal text", async () => {
+    vi.mocked(getChronicle).mockResolvedValue(pages([THIS_WEEK], false, [{ ...PAGE_ONE, title: "<b>x</b>", text: "<b>x</b>" }]));
+    const { container } = render(<ChronicleBook childId="c1" heroName="Emma" isHero now={NOW} onClose={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Found pages" }));
+    expect(screen.getAllByText("<b>x</b>").length).toBe(2);
+    expect(container.querySelector("b")).toBeNull();
+  });
+
+  it("is there on an empty Chronicle with one page, and the empty line still shows on the weeks", async () => {
+    vi.mocked(getChronicle).mockResolvedValue(pages([], false, [PAGE_ONE]));
+    book();
+    expect(await screen.findByText(/Your Chronicle is waiting/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Found pages" }));
+    expect(screen.getByText(PAGE_ONE.text)).toBeInTheDocument();
+    expect(screen.queryByText(/Your Chronicle is waiting/)).toBeNull();
+  });
+
+  it("shows a visiting grown-up the same pages", async () => {
+    vi.mocked(getChronicle).mockResolvedValue(pages([THIS_WEEK], false, [PAGE_ONE]));
+    book({ isHero: false });
+    fireEvent.click(await screen.findByRole("button", { name: "Found pages" }));
+    expect(screen.getByText(PAGE_ONE.text)).toBeInTheDocument();
   });
 });

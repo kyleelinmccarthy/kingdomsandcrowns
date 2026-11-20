@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { chestBoxes, CHEST_FOOTPRINT, DOOR_FOOTPRINT, DOOR_OPENING, vaultDoorBoxes, type LockBox } from "./world-lock-boxes";
+import { DECOR_IDS } from "@/lib/realm/decor";
+import { chestBoxes, CHEST_FOOTPRINT, decorBoxes, DOOR_FOOTPRINT, DOOR_OPENING, vaultDoorBoxes, type LockBox } from "./world-lock-boxes";
 
 const top = (b: LockBox) => b.y + b.sy / 2;
 const bottom = (b: LockBox) => b.y - b.sy / 2;
@@ -59,5 +60,29 @@ describe("every lock's boxes", () => {
       expect(Math.abs(b.z) + b.sz / 2, JSON.stringify(b)).toBeLessThanOrEqual(foot.hd + 1e-9);
       for (const n of [b.sx, b.sy, b.sz]) expect(n).toBeGreaterThan(0);
     }
+  });
+});
+
+describe("a decoration", () => {
+  /** A found decoration stands at a spot the village holds clear to this size (G1's clearance tests). */
+  const FOOT = 0.7;
+  const MAX_TALL = 2.6;
+
+  it.each(DECOR_IDS)("%s has boxes, stands on the ground, and fits a 1.4 by 1.4 footprint, at most 2.6 tall", (id) => {
+    const boxes = decorBoxes(id);
+    expect(boxes.length).toBeGreaterThan(0);
+    expect(Math.min(...boxes.map(bottom))).toBeCloseTo(0);
+    expect(Math.max(...boxes.map(top))).toBeLessThanOrEqual(MAX_TALL);
+    for (const b of boxes) {
+      expect(Math.abs(b.x) + b.sx / 2, JSON.stringify(b)).toBeLessThanOrEqual(FOOT + 1e-9);
+      expect(Math.abs(b.z) + b.sz / 2, JSON.stringify(b)).toBeLessThanOrEqual(FOOT + 1e-9);
+      for (const n of [b.sx, b.sy, b.sz]) expect(n).toBeGreaterThan(0);
+      expect(b.color).toMatch(/^#[0-9a-f]{6}$/i);
+    }
+  });
+
+  it("gives every decoration its own shape", () => {
+    const shapes = DECOR_IDS.map((id) => JSON.stringify(decorBoxes(id)));
+    expect(new Set(shapes).size).toBe(DECOR_IDS.length);
   });
 });

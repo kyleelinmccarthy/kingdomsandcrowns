@@ -169,9 +169,16 @@ describe("a room's chest", () => {
 describe("applyWorldOutcome: the client's mirror of an opening", () => {
   const view: WorldStateView = { locksOn: true, open: ["door:longwater"], decor: ["sundial"], tower: [] };
 
-  it("returns the same view for a miss or a lock that was already open", () => {
+  it("returns the same view for a miss, and for a lock the view already shows open", () => {
     expect(applyWorldOutcome(view, { objectId: "chest:west-lane", opened: false, reason: "missed", rewards: [] })).toBe(view);
     expect(applyWorldOutcome(view, { objectId: "door:longwater", opened: false, reason: "already-open", rewards: [] })).toBe(view);
+  });
+
+  it("shows a lock open when the server says it was already open (another run opened it), adding nothing it gave", () => {
+    const next = applyWorldOutcome(view, { objectId: "chest:west-lane", opened: false, reason: "already-open", rewards: [] });
+    expect(next).toEqual({ locksOn: true, open: ["chest:west-lane", "door:longwater"], decor: ["sundial"], tower: [] });
+    expect(view.open).toEqual(["door:longwater"]);
+    expect(applyWorldOutcome(view, { objectId: "chest:nowhere", opened: false, reason: "already-open", rewards: [] })).toBe(view);
   });
 
   it("opens the object and places a decoration it gave, in catalog order", () => {
