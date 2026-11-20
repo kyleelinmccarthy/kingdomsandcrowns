@@ -11,6 +11,7 @@ import { TASK_CODECS } from "@/lib/tasks/codecs";
 import { PATTERN } from "@/test/lock-stubs";
 import { isTaskCorrect, kindOf, type Task } from "@/lib/tasks/registry";
 import { BENCH } from "@/lib/tasks/bench";
+import { findDeed } from "@/lib/utils/deeds";
 import { KINGDOM_PROGRESS_DDL, REALM_ACCESS_DDL, REALM_LEDGER_DDL, REALM_SETTINGS_DDL } from "@/test/realm-db-ddl";
 
 /**
@@ -1530,7 +1531,9 @@ describe("a science side quest sorts on a lock's face (R-F11)", () => {
   it("a grade-2 science run is word sorts from its own pool, plays through the real actions, and completes with stars and pay", async () => {
     const start = await startDeedRun("c1", "well-water", "realm");
     const tasks = await storedTasks(start.runId);
-    expect(tasks).toHaveLength(DEFAULT_REALM_SETTINGS.sideQuestLength);
+    // The side quest's own four sorts at the grown-up's default length (RF-j), each from its own set.
+    expect(tasks).toHaveLength(findDeed("well-water")!.questionCount);
+    expect(new Set(tasks.map((t) => t.id.split(":")[3])).size).toBe(tasks.length);
     for (const t of tasks) {
       expect(kindOf(t)).toBe("lock");
       expect((t as LockTask).puzzle).toBe("sort");
@@ -1558,6 +1561,19 @@ describe("a science side quest sorts on a lock's face (R-F11)", () => {
     expect(paySideQuest).toHaveBeenCalledWith("c1", start.runId, stars);
     expect(summary.minutesEarned).toBeGreaterThan(0);
     expect(await deedsDone()).toBe(1);
+  });
+
+  it("follows the grown-up's side-quest length at half: twelve questions is six sorts (RF-j)", async () => {
+    vi.mocked(loadRealmSettings).mockResolvedValue({ ...DEFAULT_REALM_SETTINGS, sideQuestLength: 12 });
+    const start = await startDeedRun("c1", "well-water", "realm");
+    expect(await storedTasks(start.runId)).toHaveLength(6);
+  });
+
+  it("at the gate it is multiple choice at the grown-up's whole length, as before (R-C4)", async () => {
+    await sciencePool();
+    const start = await startDeedRun("c1", "well-water", "gate");
+    expect(await storedTasks(start.runId)).toHaveLength(DEFAULT_REALM_SETTINGS.sideQuestLength);
+    expect(start.questions.every((q) => q.kind === "choice")).toBe(true);
   });
 
   it("with locks off, the same side quest is multiple choice from the science pool (Review Focus 4)", async () => {

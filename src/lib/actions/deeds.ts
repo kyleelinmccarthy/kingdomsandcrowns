@@ -11,7 +11,7 @@ import { BAND_LABELS, type ContentBand } from "@/lib/utils/content-bands";
 import { bandForGrade } from "@/lib/utils/grade-levels";
 import { findSkill, type SkillArea } from "@/lib/utils/skills";
 import { buildingProgress, findBuilding, type Building } from "@/lib/utils/kingdom";
-import { deedStory, findDeed } from "@/lib/utils/deeds";
+import { deedRunLength, deedStory, findDeed } from "@/lib/utils/deeds";
 import {
   buildDeedRun,
   runCandidates,
@@ -154,14 +154,15 @@ export async function startDeedRun(
     masteryRows.map((m) => ({ skillId: m.skillId, level: m.level, lastPracticedAt: lastPracticedBySkill[m.skillId] })),
     skills.map((s) => s.id), Date.now(),
   );
+  // The grown-up's switches decide which hands-on kinds a NEW run may draw (an open run is a
+  // snapshot and never asks); the gate is multiple choice whatever they say (R-C4).
+  const enabledKinds: ReadonlySet<TaskKind> = ctx === "gate" ? new Set<TaskKind>() : enabledHandsOnKinds(settings);
   const built = buildDeedRun({
-    deed, grade, masteryBySkill, lastPracticedBySkill, profile, seed: Date.now() >>> 0, poolItems, focusSkillIds,
-    // The grown-up's switches decide which hands-on kinds a NEW run may draw (an open run is a
-    // snapshot and never asks); the gate is multiple choice whatever they say (R-C4).
-    enabledKinds: ctx === "gate" ? new Set<TaskKind>() : enabledHandsOnKinds(settings),
+    deed, grade, masteryBySkill, lastPracticedBySkill, profile, seed: Date.now() >>> 0, poolItems, focusSkillIds, enabledKinds,
     ...(challenge
       ? { recentMisses: [], dueSkillIds: [], questionCount: CHALLENGE.questions, levelBoost: CHALLENGE.levelBoost }
-      : { recentMisses, dueSkillIds, questionCount: settings.sideQuestLength }),
+      // The grown-up's length, as this side quest takes it: a science side quest's sorts are half (RF-j).
+      : { recentMisses, dueSkillIds, questionCount: deedRunLength(deed, settings.sideQuestLength, enabledKinds) }),
   });
   if (built.questions.length === 0) throw new Error(NONE_READY);
   // A crown is three right answers, never fewer: a thin pool at the higher rung waits.

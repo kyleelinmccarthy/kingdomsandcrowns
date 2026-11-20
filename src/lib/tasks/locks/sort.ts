@@ -89,6 +89,15 @@ function buildTask(skillId: string, pool: SortPool, set: SortSet, chosen: readon
 }
 
 /**
+ * The category set a sort id is drawn from, as "pool:set", or null for any other id. Read off the id
+ * alone (no pool lookup), so a run can tell two sorts from one set apart (RF-j) before or after drawing.
+ */
+export function sortSetOfId(id: string): string | null {
+  const parts = id.split(":");
+  return parts.length === 5 && parts[1] === "sort" ? `${parts[2]}:${parts[3]}` : null;
+}
+
+/**
  * The task a sort id names, rebuilt from the pools: each opaque id is resolved back by hashing the set's
  * items. An id that is not ours, names no pool or set, repeats an item, names one the set lacks, or
  * lists fewer than 2 or more than 10 items gives null, as does a skill no pool credits.

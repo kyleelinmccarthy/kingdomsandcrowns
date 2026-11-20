@@ -3,10 +3,11 @@ import { nearestGrades, type Grade } from "./grade-levels";
 import { MASTERY_MAX } from "./mastery";
 import { findSkill, skillsFor, type Skill } from "./skills";
 import { FOCUS_WEIGHT } from "./focus";
-import type { Deed } from "./deeds";
+import { SIDE_QUEST_QUESTIONS, deedRunLength, type Deed } from "./deeds";
 import { REVIEW } from "./review-schedule";
 import { kindForSkill, kindOf, TASK_KINDS } from "@/lib/tasks/registry";
 import { drawerFor } from "@/lib/tasks/draw";
+import { sortSetOfId } from "@/lib/tasks/locks/sort";
 import type { ChoiceTask, Task, TaskKind } from "@/lib/tasks/types";
 
 export type ProfileLike = { fewerChoices: boolean; predictableRoutine: boolean; untimed: boolean; readAloud: boolean };
@@ -55,6 +56,14 @@ export type BuiltRun = { skillIds: string[]; questions: Task[] };
 
 /** Recent misses that may come back in one run; the rest of `REVIEW.maxTotal` is for due skills. */
 const MAX_MISSES = 2;
+
+/**
+ * How many sorts from a set the run already holds one slot may pass over before it takes one anyway
+ * (RF-j). A pool has 3 or 4 sets, so the last slot of a four-sort run finds the one set left about a
+ * quarter of the time per try; 32 tries miss it about once in ten thousand runs, where 8 would miss it
+ * one run in ten.
+ */
+const SET_TRIES = 32;
 
 /**
  * Every skill for the deed's area at the hero's grade, or at the nearest grade that has any.
@@ -397,16 +406,35 @@ export function applyProfile<T extends Task>(questions: T[], profile: Pick<Profi
  * Up to `count` tasks of a non-choice kind for one skill, from that kind's drawer. Deduped by id
  * alone: the prompt filters are for choices, where the options can be the question. A drawer that
  * has nothing to give (or none at all) yields fewer, never an error, and is asked at most
- * `count * 20` times.
+ * `count * 20` times, besides the set pass-overs below.
+ *
+ * A sort whose category set the run already holds is passed over and redrawn, up to `SET_TRIES`
+ * times for each slot, then taken anyway: a pool whose sets are all used repeats one rather than
+ * come up short. The redraws come from the same seeded rng, so one seed is still one run, and a
+ * task id still names exactly its puzzle. Only sorts carry a set, so every other draw (and its rng
+ * use) is exactly as it was.
  */
 function drawByKind(kind: TaskKind, skill: Skill, level: number, count: number, rng: Rng, exclude: Set<string>): Task[] {
   const drawer = drawerFor(kind);
   if (!drawer) return [];
   const out: Task[] = [];
   const seen = new Set<string>(exclude);
+  // The sort sets already in the run (a miss brought back is in `exclude`), so each sort comes from
+  // a set of its own while the pool has one unused (RF-j).
+  const sets = new Set([...exclude].map(sortSetOfId).filter((s): s is string => s !== null));
+  // A set pass-over is a draw of its own, bounded per slot, so it never eats the id-dedupe guard.
+  let passedOver = 0;
   for (let guard = 0; out.length < count && guard < count * 20; guard += 1) {
     const t = drawer(skill, levelForDraw(level, out.length), rng);
     if (!t || seen.has(t.id)) continue;
+    const set = sortSetOfId(t.id);
+    if (set !== null && sets.has(set) && passedOver < SET_TRIES) {
+      passedOver += 1;
+      guard -= 1;
+      continue;
+    }
+    if (set !== null) sets.add(set);
+    passedOver = 0;
     seen.add(t.id);
     out.push(t);
   }
@@ -489,7 +517,8 @@ export function buildDeedRun(input: BuildRunInput): BuiltRun {
   // Also by prompt: a miss stored under an older id shape would otherwise be re-asked as a
   // fresh question in the same deed.
   const reviewPrompts = new Set(review.filter(isChoice).map(questionText));
-  const target = input.questionCount ?? deed.questionCount;
+  // A caller with the grown-up's length passes `deedRunLength` of it; without one, the default length.
+  const target = input.questionCount ?? deedRunLength(deed, SIDE_QUEST_QUESTIONS, enabled);
 
   // Due skills are drawn at their own level before the fresh ones, so fresh draws avoid them.
   const dueCandidates = [...new Set(input.dueSkillIds ?? [])]

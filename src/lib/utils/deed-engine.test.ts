@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { applyProfile, buildDeedRun, chooseSkills, drawForSkill, gradeAnswer, runCandidates, selectSkills, type BuildRunInput, type PoolItem } from "./deed-engine";
-import { DEEDS, findDeed } from "./deeds";
+import { DEEDS, SIDE_QUEST_QUESTIONS, findDeed } from "./deeds";
 import { REVIEW } from "./review-schedule";
 import { CHALLENGE } from "./deed-scoring";
 import { GENERATORS, seededRng } from "./drill-generators";
@@ -14,7 +14,7 @@ import { BENCH } from "@/lib/tasks/bench";
 import { TASK_KINDS, kindOf } from "@/lib/tasks/registry";
 import { __setDrawerForTest, type TaskDrawer } from "@/lib/tasks/draw";
 import { choiceKind } from "@/lib/tasks/choice";
-import { __setSortPoolsForTest } from "@/lib/tasks/locks/sort";
+import { __setSortPoolsForTest, sortTaskFromId } from "@/lib/tasks/locks/sort";
 
 const deedMath = findDeed("well-stones")!;      // math
 const deedReading = findDeed("well-signs")!;    // reading
@@ -1169,7 +1169,8 @@ describe("science side quests sort on a lock's face (R-F11)", () => {
     for (const grade of GRADES) {
       const { skill, items } = scienceAt(grade);
       const run = buildDeedRun(input({ deed: deedScience, grade, poolItems: items, seed: 11, enabledKinds: new Set<TaskKind>(["measure"]) }));
-      expect(run.questions.length).toBe(deedScience.questionCount);
+      // The whole length a multiple-choice side quest always had (RF-j shortens only the sorts).
+      expect(run.questions.length).toBe(SIDE_QUEST_QUESTIONS);
       for (const t of choices(run.questions)) expect(t.skillId).toBe(skill.id);
     }
   });
@@ -1182,38 +1183,26 @@ describe("science side quests sort on a lock's face (R-F11)", () => {
     choices(run.questions);
   });
 
-  // Recorded AFTER the science deeds named `lock` (the default `enabledKinds`, every kind on): the same
-  // seeds ask the same sorts in the same order. The ids name sort-pool sets and items, so an edit to
+  // Recorded AFTER the science deeds named `lock`, and re-recorded for RF-j (four sorts, each from its
+  // own set), with the default `enabledKinds`, every kind on: the same seeds ask the same sorts in the same order. The ids name sort-pool sets and items, so an edit to
   // `sort-science-g23.json` that adds or renames items re-records this; the twin below never moves.
   const SCIENCE_LOCK: Record<string, string[]> = {
     "well-water@1": [
       "science-g23:sort:sort-science-g23:solid-liquid:fa4635be,73cc7d76,a40bf1f0,fcb6a3ab,be6c25fa,80034cfe",
-      "science-g23:sort:sort-science-g23:magnetic:b9ffe423,b1d89406,dfefd155,3a198686,1cad23d2,fcf3772e",
-      "science-g23:sort:sort-science-g23:solid-liquid:44c34c87,fa4635be,48b01616,269c0560,72cc7f79,be6c25fa",
-      "science-g23:sort:sort-science-g23:solid-liquid:48b01616,44c34c87,fcb6a3ab,fa4635be,73cc7d76,a40bf1f0",
       "science-g23:sort:sort-science-g23:living:f372e4e9,d9644242,4b58189c,379e5fc0,5f1320b6,0eb5a579",
-      "science-g23:sort:sort-science-g23:living:f372e4e9,5f1320b6,e791167b,4b58189c,77698475,14952583",
-      "science-g23:sort:sort-science-g23:solid-liquid:48b01616,fa4635be,73cc7d76,269c0560,44c34c87,a40bf1f0",
+      "science-g23:sort:sort-science-g23:plants-animals:d712267a,6c899331,0e5f43b8,fd007e8a,09c59ea2,47292f7e",
       "science-g23:sort:sort-science-g23:magnetic:3a198686,b9ffe423,00e27cd7,b1d89406,fcf3772e,dfefd155",
     ],
     "well-water@42": [
-      "science-g23:sort:sort-science-g23:plants-animals:0e5f43b8,fd007e8a,6c899331,d712267a,09c59ea2,25b9afd5",
+      "science-g23:sort:sort-science-g23:solid-liquid:a40bf1f0,73cc7d76,be6c25fa,80034cfe,44c34c87,48b01616",
       "science-g23:sort:sort-science-g23:magnetic:b1d89406,dfefd155,1cad23d2,fcf3772e,00e27cd7,b5d709a0",
-      "science-g23:sort:sort-science-g23:living:77698475,5f1320b6,14952583,59d6749e,e791167b,f372e4e9",
-      "science-g23:sort:sort-science-g23:living:e791167b,4b58189c,59d6749e,d9644242,f372e4e9,0eb5a579",
       "science-g23:sort:sort-science-g23:plants-animals:4b670274,d712267a,0e5f43b8,25b9afd5,3bef5f1c,a7a4a268",
-      "science-g23:sort:sort-science-g23:plants-animals:fd007e8a,d712267a,47292f7e,09c59ea2,0e5f43b8,25b9afd5",
-      "science-g23:sort:sort-science-g23:plants-animals:d712267a,09c59ea2,4b670274,25b9afd5,47292f7e,0e5f43b8",
-      "science-g23:sort:sort-science-g23:plants-animals:0e5f43b8,3bef5f1c,fd007e8a,a7a4a268,6c899331,d712267a",
+      "science-g23:sort:sort-science-g23:living:77698475,5f1320b6,14952583,59d6749e,e791167b,f372e4e9",
     ],
     "well-water@20261110": [
       "science-g23:sort:sort-science-g23:magnetic:00e27cd7,b1d89406,b9ffe423,1cad23d2,dfefd155,fcf3772e",
-      "science-g23:sort:sort-science-g23:magnetic:b5d709a0,bd72a67a,1cad23d2,b9ffe423,00e27cd7,b1d89406",
       "science-g23:sort:sort-science-g23:plants-animals:0e5f43b8,3bef5f1c,25b9afd5,a7a4a268,4b670274,47292f7e",
-      "science-g23:sort:sort-science-g23:magnetic:00e27cd7,b1d89406,fcf3772e,b9ffe423,b5d709a0,1cad23d2",
-      "science-g23:sort:sort-science-g23:magnetic:b5d709a0,fcf3772e,00e27cd7,b1d89406,b9ffe423,3a198686",
-      "science-g23:sort:sort-science-g23:plants-animals:4b670274,0e5f43b8,d712267a,3bef5f1c,09c59ea2,6c899331",
-      "science-g23:sort:sort-science-g23:living:14952583,f372e4e9,d9644242,e791167b,4b58189c,5f1320b6",
+      "science-g23:sort:sort-science-g23:solid-liquid:fcb6a3ab,73cc7d76,80034cfe,a40bf1f0,48b01616,44c34c87",
       "science-g23:sort:sort-science-g23:living:77698475,e791167b,5f1320b6,f372e4e9,59d6749e,14952583",
     ],
   };
@@ -1234,6 +1223,45 @@ describe("science side quests sort on a lock's face (R-F11)", () => {
 
   it.each(Object.entries(SCIENCE_CHOICE))("%s with hands-on kinds off asks the old questions in the old order", (key, expected) => {
     expect(scienceIds(Number(key.split("@")[1]), { enabledKinds: CHOICE_ONLY })).toEqual(expected);
+  });
+});
+
+describe("a science side quest's sorts each come from their own set (RF-j)", () => {
+  /** "pool:set" of a sort lock's id (`<skill>:sort:<pool>:<set>:<items>`). */
+  const setOf = (t: Task) => t.id.split(":").slice(2, 4).join(":");
+  /** How many sets each science skill's pool holds, from the shipped pools. */
+  const setsIn = (skillId: string) => new Set(Array.from({ length: 400 }, (_, seed) =>
+    drawForSkill(SKILLS.find((s) => s.id === skillId)!, 2, 1, seededRng(seed), [], new Set(), new Set(), "lock").map(setOf)).flat()).size;
+  const run = (grade: (typeof GRADES)[number], seed: number) =>
+    buildDeedRun(input({ deed: deedScience, grade, seed, poolItems: [] })).questions;
+
+  it("a grade-2 run's four sorts use four different sets, its pool having four", () => {
+    expect(setsIn("science-g23")).toBe(4);
+    for (const seed of [1, 42, 20261110]) {
+      const tasks = run("2", seed);
+      expect(tasks).toHaveLength(4);
+      expect(new Set(tasks.map(setOf)).size).toBe(4);
+    }
+  });
+
+  it("across 50 seeds and every band, no run repeats a set while its pool still has one unused", () => {
+    for (const grade of ["K", "2", "4", "6", "9"] as const) {
+      const [skill] = chooseSkills(deedScience, grade);
+      const pool = setsIn(skill.id);
+      for (let seed = 1; seed <= 50; seed++) {
+        const sets = run(grade, seed).map(setOf);
+        const distinct = new Set(sets).size;
+        expect(distinct, `${grade} seed ${seed}: ${sets.join(" ")}`).toBe(Math.min(sets.length, pool));
+      }
+    }
+  });
+
+  it("is the same run for the same seed", () => {
+    for (const seed of [3, 4, 5]) expect(run("2", seed).map((t) => t.id)).toEqual(run("2", seed).map((t) => t.id));
+  });
+
+  it("keeps the rule that one id is one puzzle: every drawn sort rebuilds from its id alone", () => {
+    for (const t of run("6", 7)) expect(sortTaskFromId(t.id)).toEqual(t);
   });
 });
 
