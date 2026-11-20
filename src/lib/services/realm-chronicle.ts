@@ -39,10 +39,15 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  * the hero's whole history. Catch-up reaches back 7 days, so 60 is far wider than real use.
  */
 const PLANNED_SLACK_DAYS = 60;
+/**
+ * The hall hangs the newest drawings however long ago they were made, so its window is a year:
+ * a hero who has not drawn for months still sees their pictures (ruling RE-m).
+ */
+const HALL_PLANNED_DAYS = 365;
 
-/** Planned no more than `PLANNED_SLACK_DAYS` before `day` (YYYY-MM-DD). */
-function plannedSince(day: string) {
-  return gte(schema.questAssignment.date, addDays(day, -PLANNED_SLACK_DAYS));
+/** Planned no more than `slack` days (default `PLANNED_SLACK_DAYS`) before `day` (YYYY-MM-DD). */
+function plannedSince(day: string, slack: number = PLANNED_SLACK_DAYS) {
+  return gte(schema.questAssignment.date, addDays(day, -slack));
 }
 const DEFAULT_WEEKS = 8;
 const MAX_WEEKS = 52;
@@ -146,7 +151,7 @@ const HALL_READ_SLACK = 3;
 
 /**
  * The drawings the Chronicle Hall hangs: the newest valid drawings of this hero's finished quests
- * planned in the last 60 days (`plannedSince`), newest first, at most `limit` (two a built level,
+ * planned in the last year (`HALL_PLANNED_DAYS`), newest first, at most `limit` (two a built level,
  * so none when the hall is not built).
  *
  * ONE query, and none at all for a limit below 1. Each stored value is read through `parseDrawing`
@@ -162,7 +167,7 @@ export async function loadHallDrawings(childId: string, limit: number, now: Date
       and(
         eq(schema.questAssignment.childId, childId),
         eq(schema.questAssignment.status, "completed"),
-        plannedSince(todayInZone("UTC", now)),
+        plannedSince(todayInZone("UTC", now), HALL_PLANNED_DAYS),
         isNotNull(schema.questAssignment.completedAt),
         isNotNull(schema.questAssignment.drawing),
       ),

@@ -276,11 +276,12 @@ describe("loadHallDrawings", () => {
     expect(firsts(await loadHallDrawings("c1", 2, NOW))).toEqual([5, 7]);
   });
 
-  it("hangs only drawings of quests planned in the last 60 days (the date prefilter)", async () => {
-    // NOW is 2026-11-18; sixty days before is 2026-09-19.
-    await assignment("edge", "q1", "2026-11-10T09:00:00Z", { drawing: dot(1), date: "2026-09-19" });
-    await assignment("stale", "q1", "2026-11-17T09:00:00Z", { drawing: dot(2), date: "2026-09-18" });
-    expect(firsts(await loadHallDrawings("c1", 6, NOW))).toEqual([1]);
+  it("hangs drawings of quests planned up to a year back (a lapsed hero's pictures still hang)", async () => {
+    // NOW is 2026-11-18; a year before is 2025-11-18. A drawing from four months ago still hangs.
+    await assignment("months", "q1", "2026-07-20T09:00:00Z", { drawing: dot(3), date: "2026-07-20" });
+    await assignment("edge", "q1", "2025-11-19T09:00:00Z", { drawing: dot(1), date: "2025-11-18" });
+    await assignment("stale", "q1", "2026-11-17T09:00:00Z", { drawing: dot(2), date: "2025-11-17" });
+    expect(firsts(await loadHallDrawings("c1", 6, NOW))).toEqual([3, 1]);
   });
 
   it("leaves out another child's drawings", async () => {
