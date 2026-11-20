@@ -10,7 +10,7 @@
  */
 import { LOCK_MAX_CHARS, TASK_CODECS } from "./codecs";
 import { LOCK_MISS_LINE } from "./lock-copy";
-import { checkLock, responseFits, sortBroken, type BalanceView, type LockCheck, type LockShape, type LockView } from "./lock-rules";
+import { checkLock, isSort, responseFits, sortBroken, type BalanceView, type LockCheck, type LockShape, type LockView } from "./lock-rules";
 import { lockFor } from "./locks";
 import type { LockResponse, LockTask, TaskKindDef } from "./types";
 
@@ -47,7 +47,7 @@ function toView(t: LockTask): LockView {
 export function checkTask(t: LockTask, r: LockResponse): LockCheck {
   const seen = checkLock(t, r);
   if (seen.broken.includes("response")) return seen;
-  if (t.puzzle !== "sort1" && t.puzzle !== "sort2" && t.puzzle !== "sort") return seen;
+  if (!isSort(t.puzzle) || !("fits" in t)) return seen; // `fits` narrows `t` to a sort task for the compiler
   const broken = [...seen.broken, ...sortBroken(t.fits, r.cells)];
   return { ok: broken.length === 0 && seen.empty === 0, broken, empty: seen.empty };
 }

@@ -20,19 +20,26 @@ const parse = (raw: unknown, t: LockTask) => lockKind.parseResponse(raw, t);
 /** The stored solution with one cell changed to `v`. */
 const withCell = (t: LockTask, i: number, v: number) => t.solution.cells.map((x, j) => (j === i ? v : x));
 
-describe("lock: registered, and presenting nothing until its generators arrive", () => {
+describe("lock: registered, and presenting only where a generator exists", () => {
   it("is a registered, hands-on kind with a codec and a drawer", () => {
     expect(TASK_KINDS.lock).toBe(lockKind);
     expect(HANDS_ON_KINDS).toEqual(["measure", "lock"]);
     expect(typeof TASK_DRAWERS.lock).toBe("function");
   });
 
-  it("the LOCKS registry starts empty, so no skill is a lock yet and every run draws as before (RF-a)", () => {
-    expect(Object.keys(LOCKS)).toEqual([]);
+  it("only the skills with a lock generator present as locks; every other skill draws as before (RF-a)", () => {
+    const registered = Object.keys(LOCKS).sort();
+    expect(registered).toEqual(expect.arrayContaining(["logic-g23", "logic-k1"]));
     for (const s of SKILLS) {
-      expect(lockKind.presents(s.id), s.id).toBe(false);
-      expect(TASK_DRAWERS.lock(s, 2, seededRng(1))).toBeNull();
-      expect(kindForSkill("lock", s.id, new Set<TaskKind>(["lock", "measure"]))).toBe("choice");
+      const lock = registered.includes(s.id);
+      expect(lockKind.presents(s.id), s.id).toBe(lock);
+      if (lock) {
+        expect(TASK_DRAWERS.lock(s, 2, seededRng(1))?.kind).toBe("lock");
+        expect(kindForSkill("lock", s.id, new Set<TaskKind>(["lock", "measure"]))).toBe("lock");
+      } else {
+        expect(TASK_DRAWERS.lock(s, 2, seededRng(1))).toBeNull();
+        expect(kindForSkill("lock", s.id, new Set<TaskKind>(["lock", "measure"]))).toBe("choice");
+      }
     }
     expect(lockFor("toString")).toBeUndefined();
   });

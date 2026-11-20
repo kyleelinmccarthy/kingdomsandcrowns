@@ -35,8 +35,7 @@ export type PresenterProps<K extends TaskKind> = {
 export const TASK_PRESENTERS: { [K in TaskKind]: ComponentType<PresenterProps<K>> } = {
   choice: ChoicePresenter,
   measure: BenchPresenter,
-  // The lock's face arrives in F4. Until then no skill presents as a lock (`LOCKS` is empty), so no
-  // run holds one and this placeholder is never mounted.
+  // The lock's face arrives in F4; until then this placeholder draws nothing.
   lock: () => null,
 };
 

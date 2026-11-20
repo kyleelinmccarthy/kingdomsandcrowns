@@ -108,7 +108,8 @@ export type LockCheck = { ok: boolean; broken: string[]; empty: number };
 
 const GRID_SIDE = { shapes3: 3, cage4: 4, cage5: 5, nono5: 5 } as const;
 
-const isSort = (p: LockPuzzle): p is SortPuzzle => p === "sort1" || p === "sort2" || p === "sort";
+/** Whether a puzzle is one of the sorts: the ones whose answer (`fits`) only the server holds. */
+export const isSort = (p: LockPuzzle): p is SortPuzzle => p === "sort1" || p === "sort2" || p === "sort";
 
 /** How many cells a response to this view holds, and the largest value a cell may take. */
 export function lockSize(v: LockView): { cells: number; max: number } {

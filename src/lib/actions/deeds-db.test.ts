@@ -1211,7 +1211,7 @@ describe("a measure task in a run", () => {
 });
 
 describe("a lock task in a run (R-F1, R-F2)", () => {
-  // Seeded straight into the run: no skill is a lock yet (LOCKS is empty), so no start would draw one.
+  // Seeded straight into the run, so the test holds a fixed lock rather than whatever a start would draw.
   const LOCK: LockTask = { ...PATTERN, skillId: SKILL };
   const SOLVED = TASK_CODECS.lock.encode(PATTERN.solution);
   const seedLock = (over: { secondChances?: boolean } = {}) => seedRun({ questions: [LOCK, QUESTIONS[0]] as unknown as Question[], ...over });

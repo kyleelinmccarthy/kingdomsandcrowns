@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { SKILLS, skillsFor, findSkill, skillForPool, schoolLines, AREA_SCHOOL, AREA_LABELS, LOGIC_SKILL_IDS, type SkillArea } from "./skills";
 import { GENERATORS } from "./drill-generators";
+import { lockFor } from "@/lib/tasks/locks";
 import { GRADES, gradeIndex } from "./grade-levels";
 import { chooseSkills } from "./deed-engine";
 import type { Deed } from "./deeds";
@@ -442,6 +443,12 @@ describe("the logic area", () => {
     expect(rows.map((r) => [r.grade, r.skillId])).toEqual(
       SKILLS.filter((s) => s.area === "logic").map((s) => [s.grades[0], s.id]),
     );
-    // TODO(F2): assert that `LOCKS` has a generator for every id in LOGIC_SKILL_IDS.
+  });
+
+  it("has a lock generator for every logic skill the generators have reached", () => {
+    // F3 adds the older bands. When it does, this list empties and the assertion below is the whole check.
+    const F3_PENDING = ["logic-g45", "logic-g68", "logic-g912"];
+    for (const id of LOGIC_SKILL_IDS.filter((i) => !F3_PENDING.includes(i))) expect(lockFor(id), id).toBeTypeOf("function");
+    expect(LOGIC_SKILL_IDS.filter((id) => !lockFor(id))).toEqual(F3_PENDING);
   });
 });
