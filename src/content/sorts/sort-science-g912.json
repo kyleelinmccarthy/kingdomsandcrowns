@@ -77,7 +77,7 @@
         {"id":"sg912-ph-vinegar","label":"vinegar","category":0,"level":0},
         {"id":"sg912-ph-orange-juice","label":"orange juice","category":0,"level":1},
         {"id":"sg912-ph-cola","label":"cola","category":0,"level":1},
-        {"id":"sg912-ph-pickle-brine","label":"pickle brine","category":0,"level":2},
+        {"id":"sg912-ph-lime-juice","label":"lime juice","category":0,"level":2},
         {"id":"sg912-ph-gastric-juice","label":"gastric juice","category":0,"level":3},
         {"id":"sg912-ph-hcl-solution","label":"HCl solution","category":0,"level":3},
         {"id":"sg912-ph-h2so4-solution","label":"H2SO4 solution","category":0,"level":4},

@@ -74,7 +74,7 @@
       "categories": ["means meager","opposite of meager"],
       "items": [
         {"id":"vg912-meager-scanty","label":"scanty","category":0,"level":0},
-        {"id":"vg912-meager-limited","label":"limited","category":0,"level":0},
+        {"id":"vg912-meager-measly","label":"measly","category":0,"level":0},
         {"id":"vg912-meager-skimpy","label":"skimpy","category":0,"level":1},
         {"id":"vg912-meager-scarce","label":"scarce","category":0,"level":1},
         {"id":"vg912-meager-paltry","label":"paltry","category":0,"level":2},

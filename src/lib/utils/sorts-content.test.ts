@@ -3,6 +3,7 @@ import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
 import { formatSortProblems, validateSortPool, type SortPool } from "@/lib/content/sort-pools";
+import { sortPoolsWithSheets } from "@/lib/content/sort-blind-pass";
 import { SORT_POOL_FILES } from "@/lib/tasks/locks/sort-pool-files";
 import { loadSortPools } from "@/lib/tasks/locks/sort";
 import { skillForPool } from "./skills";
@@ -39,6 +40,11 @@ describe("sort pool content", () => {
 
   it("ships every expected pool and nothing unexpected", () => {
     expect(pools.map((p) => p.parsed.poolId).sort()).toEqual([...EXPECTED_SORT_POOLS].sort());
+  });
+
+  it("has a blind-pass sheet for every pool, so no pool ships unread", () => {
+    // The sheet gate (`sort-blind-pass.test.ts`) settles each sheet that exists; this makes sure one exists.
+    expect(sortPoolsWithSheets().sort()).toEqual([...EXPECTED_SORT_POOLS].sort());
   });
 
   it("names each file after its pool", () => {
