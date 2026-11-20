@@ -15,6 +15,7 @@
 
 import * as THREE from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
+import type { YardBox } from "@/lib/realm3d/keep-yard-boxes";
 import { AIM_Y, DEGENERATE, HERO_R, NEAR_HERO, SOFT } from "@/lib/realm3d/see-through";
 
 /** Bake a flat colour into a geometry so many parts can share one vertex-coloured material. */
@@ -31,6 +32,30 @@ export function paint(geo: THREE.BufferGeometry, hex: string): THREE.BufferGeome
   }
   g.setAttribute("color", new THREE.BufferAttribute(arr, 3));
   return g;
+}
+
+/** A set of boxes (`keep-yard-boxes.ts`' `YardBox`, in their host's own frame) standing at (x, y, z) in the world, turned `yaw` about it. */
+export type BoxHost = { boxes: readonly YardBox[]; x: number; y: number; z: number; yaw: number };
+
+/**
+ * Every host's boxes painted, turned by the host's `yaw`, set down at the host's spot, and merged
+ * into one geometry (a single draw), or `null` when there is no box at all. The one paint, turn,
+ * place and merge that the keep yard, the world's locks and the decorations share. The caller owns
+ * the result and disposes it.
+ */
+export function mergeBoxHosts(hosts: readonly BoxHost[]): THREE.BufferGeometry | null {
+  const parts = hosts.flatMap((h) =>
+    h.boxes.map((b) =>
+      paint(new THREE.BoxGeometry(b.sx, b.sy, b.sz), b.color)
+        .translate(b.x, b.y, b.z)
+        .rotateY(h.yaw)
+        .translate(h.x, h.y, h.z),
+    ),
+  );
+  if (parts.length === 0) return null;
+  const merged = merge(parts);
+  for (const p of parts) p.dispose();
+  return merged;
 }
 
 /** Move a part into place within its own model. */

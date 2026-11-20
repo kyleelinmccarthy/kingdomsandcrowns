@@ -13,51 +13,29 @@
  * path, so the hero brushes past rather than snagging.
  */
 
-import { useEffect, useMemo } from "react";
-import * as THREE from "three";
+import { useMemo } from "react";
 import type { LockSpotView } from "@/lib/realm/world-state";
 import { chestBoxes, vaultDoorBoxes, type LockBox } from "@/lib/realm3d/world-lock-boxes";
-import { litMaterial, merge, paint } from "./geo-kit";
+import { mergeBoxHosts, type BoxHost } from "./geo-kit";
+import { MergedMesh } from "./merged-mesh";
 
 /** Sunk a little, so a lock on a slope never shows daylight under its downhill side. */
 const SINK = 0.05;
 
-/** Every box painted, turned by `yaw` about its lock and set down at (x, y, z), merged into one geometry. */
-function mergedBoxes(locks: readonly { boxes: readonly LockBox[]; x: number; y: number; z: number; yaw: number }[]): THREE.BufferGeometry | null {
-  const parts = locks.flatMap((l) =>
-    l.boxes.map((b) =>
-      paint(new THREE.BoxGeometry(b.sx, b.sy, b.sz), b.color)
-        .translate(b.x, b.y, b.z)
-        .rotateY(l.yaw)
-        .translate(l.x, l.y, l.z),
-    ),
-  );
-  if (parts.length === 0) return null;
-  const merged = merge(parts);
-  for (const p of parts) p.dispose();
-  return merged;
-}
-
-function LockMesh({ geometry }: { geometry: THREE.BufferGeometry | null }) {
-  const material = useMemo(() => litMaterial(), []);
-  useEffect(() => () => geometry?.dispose(), [geometry]);
-  useEffect(() => () => material.dispose(), [material]);
-  return geometry ? <mesh geometry={geometry} material={material} castShadow receiveShadow /> : null;
-}
+/** A lock's boxes, turned by its `yaw` and set down at (x, y, z). */
+const host = (boxes: readonly LockBox[], x: number, y: number, z: number, yaw: number): BoxHost => ({ boxes, x, y, z, yaw });
 
 export function WorldLocks({ locks, heightAt }: { locks?: readonly LockSpotView[]; heightAt: (x: number, z: number) => number }) {
   const geometry = useMemo(
     () =>
-      mergedBoxes(
-        (locks ?? []).map((l) => ({ boxes: l.type === "chest" ? chestBoxes(l.open) : vaultDoorBoxes(l.open), x: l.x, y: heightAt(l.x, l.z) - SINK, z: l.z, yaw: l.ry })),
-      ),
+      mergeBoxHosts((locks ?? []).map((l) => host(l.type === "chest" ? chestBoxes(l.open) : vaultDoorBoxes(l.open), l.x, heightAt(l.x, l.z) - SINK, l.z, l.ry))),
     [locks, heightAt],
   );
-  return <LockMesh geometry={geometry} />;
+  return <MergedMesh geometry={geometry} />;
 }
 
 /** One chest at the origin, front to +z: a room places and turns it. */
 export function ChestMesh({ open }: { open: boolean }) {
-  const geometry = useMemo(() => mergedBoxes([{ boxes: chestBoxes(open), x: 0, y: 0, z: 0, yaw: 0 }]), [open]);
-  return <LockMesh geometry={geometry} />;
+  const geometry = useMemo(() => mergeBoxHosts([host(chestBoxes(open), 0, 0, 0, 0)]), [open]);
+  return <MergedMesh geometry={geometry} />;
 }
