@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,16 @@ import { ANYTIME_LABEL, describeSchedule } from "@/lib/utils/schedule-summary";
 import { findMissingScheduleDays, formatDayList } from "@/lib/utils/schedule-gaps";
 
 const HIDE_COMPLETED_KEY = "kingdomsandcrowns-hide-completed-quests";
+
+const noSubscribe = () => () => {};
+/** The stored "hide completed" choice, or null when none is stored (or storage is unavailable). */
+function readHideCompleted(): string | null {
+  try {
+    return localStorage.getItem(HIDE_COMPLETED_KEY);
+  } catch {
+    return null;
+  }
+}
 
 type Subject = { id: string; name: string; color: string | null };
 
@@ -66,16 +76,19 @@ export function QuestTemplateList({
   const router = useRouter();
   const [showAdd, setShowAdd] = useState(false);
   const [editingQuest, setEditingQuest] = useState<Quest | null>(null);
-  const [hideCompleted, setHideCompleted] = useState(true);
-
-  useEffect(() => {
-    const stored = localStorage.getItem(HIDE_COMPLETED_KEY);
-    if (stored !== null) setHideCompleted(stored === "true");
-  }, []);
+  // The stored choice is read after hydration (the server renders the default), and a toggle this
+  // visit overrides it, so no effect has to copy storage into state.
+  const stored = useSyncExternalStore(noSubscribe, readHideCompleted, () => null);
+  const [toggled, setToggled] = useState<boolean | null>(null);
+  const hideCompleted = toggled ?? (stored === null ? true : stored === "true");
 
   function toggleHideCompleted(checked: boolean) {
-    setHideCompleted(checked);
-    localStorage.setItem(HIDE_COMPLETED_KEY, String(checked));
+    setToggled(checked);
+    try {
+      localStorage.setItem(HIDE_COMPLETED_KEY, String(checked));
+    } catch {
+      // Storage unavailable: the choice holds for this visit only.
+    }
   }
 
   const scheduleByQuestId = new Map(schedules.map((s) => [s.questId, s]));
