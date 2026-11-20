@@ -107,6 +107,8 @@ import { earningLines, type EarningSettings } from "@/lib/realm/spells/bounty";
 import type { RealmAccessMode } from "@/lib/utils/realm-access";
 import { useRecess } from "./use-recess";
 import { TOAST_MS, useRises } from "./use-rises";
+import { useMentions } from "./use-mentions";
+import type { RecentQuest } from "@/lib/realm/mentions";
 import { RecessBoard, RecessError, RecessMapMarks, RecessPop, RecessStrip, RingPanel } from "./recess-hud";
 import { bestFor, type RecessRecord } from "@/lib/realm/recess/record";
 import { RECESS_LAST_MINUTE, ringHelp } from "@/lib/realm/recess/copy";
@@ -177,7 +179,13 @@ export type RealmData = {
   works?: Works;
   /** The newest drawings, newest first (`bundle.hallDrawings`): the Chronicle Hall's frames hang them. A snapshot for the visit. */
   hallDrawings?: Drawing[];
+  /** The quests the hero finished this week, newest first (`bundle.recentQuests`): what the villagers may mention. Absent counts as none. */
+  recentQuests?: RecentQuest[];
+  /** The server's day (`bundle.today`), the key of what the villagers have already said. Absent: no mentions. */
+  today?: string;
 };
+
+const NO_RECENT: RecentQuest[] = [];
 
 /** What the access check decided, for an open gate. */
 export type OpenEntry = {
@@ -365,6 +373,10 @@ export function RealmGame({
   const isChild = realm.isChildView && childId !== null;
   /** The hero, as the hero: the only view whose visit writes anything the hero owns (a rise, the carts). */
   const heroWrites = isChild && viewer === "child";
+  // What the villagers have heard of the hero's real quests (E6): picked once as a board opens, in the
+  // hero's own view only, and held until the board closes. A grown-up's visit is told nothing.
+  const takeMention = useMentions({ childId, today: realm.today, recent: realm.recentQuests ?? NO_RECENT });
+  const [mention, setMention] = useState<string | null>(null);
   const readAloud = realm.isChildView && profile.readAloud;
   const calm = profile.reducedMotion || profile.lowStimulus;
 
@@ -735,11 +747,13 @@ export function RealmGame({
         enter(visit);
         return;
       }
-      go({ kind: "interact", target: t });
       const v = t.kind === "villager" ? villagerById(t.id) : t.kind === "site" ? villagerForBuilding(t.id) : null;
-      if (v && kingdomRef.current.buildings.some((b) => b.id === v.buildingId)) signal({ kind: "talked" });
+      const talks = v !== null && kingdomRef.current.buildings.some((b) => b.id === v.buildingId);
+      setMention(heroWrites && talks ? takeMention(v.id) : null);
+      go({ kind: "interact", target: t });
+      if (talks) signal({ kind: "talked" });
     },
-    [go, signal, leave, enter, castleUnlocked, heroName, atPost],
+    [go, signal, leave, enter, castleUnlocked, heroName, atPost, heroWrites, takeMention],
   );
 
   // What the scene tells the frame: what is in reach, that E was pressed at it, that a spell
@@ -1221,6 +1235,7 @@ export function RealmGame({
               profile={{ readAloud, untimed: profile.untimed }}
               calm={calm}
               timezone={realm.timezone ?? null}
+              mention={mention}
               onResult={(buildingId, result) => {
                 // Finish can answer after the child has already left the board (Esc, Leave, the
                 // dim): then there is no board to close, and the building rises now.

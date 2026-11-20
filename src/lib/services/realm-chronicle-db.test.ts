@@ -18,7 +18,7 @@ vi.mock("@/lib/services/family-timezone", () => ({
   getTimezoneForChild: vi.fn(async () => zone),
 }));
 
-const { loadChronicle, loadHallDrawings } = await import("./realm-chronicle");
+const { loadChronicle, loadHallDrawings, loadRecentQuests } = await import("./realm-chronicle");
 
 const DRAWING = { v: 1, strokes: [{ c: 2, w: 1, p: [10, 10, 50, 60] }] };
 const SEAL = { phrase: 1, by: "Mama", at: 1_700_000_000 };
@@ -265,5 +265,78 @@ describe("loadHallDrawings", () => {
     } finally {
       select.mockRestore();
     }
+  });
+});
+
+describe("loadRecentQuests", () => {
+  it("reads quests finished in the last 7 days, newest first, with the material of their subject", async () => {
+    await subject("s1", "Math");
+    await subject("s2", "Reading");
+    await subject("s3", "Anything", { material: "dye" });
+    await quest("q1", "Fractions", "s1");
+    await quest("q2", "Poems", "s2");
+    await quest("q3", "Sketching", "s3");
+    await assignment("a1", "q1", "2026-11-15T09:00:00Z");
+    await assignment("a2", "q2", "2026-11-17T09:00:00Z");
+    await assignment("a3", "q3", "2026-11-16T09:00:00Z");
+    expect(await loadRecentQuests("c1", NOW)).toEqual([
+      { assignmentId: "a2", title: "Poems", material: "ink" },
+      { assignmentId: "a3", title: "Sketching", material: "dye" },
+      { assignmentId: "a1", title: "Fractions", material: "stone" },
+    ]);
+  });
+
+  it("keeps the 7-day window: a quest finished just inside is read, just outside is not", async () => {
+    await subject("s1", "Math");
+    await quest("q1", "Q", "s1");
+    await assignment("inside", "q1", "2026-11-11T12:00:01Z"); // 7 days minus a second before NOW
+    await assignment("outside", "q1", "2026-11-11T11:59:59Z");
+    await assignment("old", "q1", "2026-10-01T09:00:00Z");
+    expect((await loadRecentQuests("c1", NOW)).map((r) => r.assignmentId)).toEqual(["inside"]);
+  });
+
+  it("reads only completed quests, not planned or skipped ones", async () => {
+    await subject("s1", "Math");
+    await quest("q1", "Q", "s1");
+    await assignment("done", "q1", "2026-11-17T09:00:00Z");
+    await assignment("planned", "q1", null, { status: "pending" });
+    await assignment("pendingButStamped", "q1", "2026-11-17T10:00:00Z", { status: "pending" });
+    expect((await loadRecentQuests("c1", NOW)).map((r) => r.assignmentId)).toEqual(["done"]);
+  });
+
+  it("reads at most 20", async () => {
+    await subject("s1", "Math");
+    await quest("q1", "Q", "s1");
+    for (let i = 0; i < 25; i++) await assignment(`a${String(i).padStart(2, "0")}`, "q1", `2026-11-17T09:${String(i).padStart(2, "0")}:00Z`);
+    const got = await loadRecentQuests("c1", NOW);
+    expect(got).toHaveLength(20);
+    // Newest first: the last-finished is first.
+    expect(got[0].assignmentId).toBe("a24");
+  });
+
+  it("excludes another child's quests", async () => {
+    await subject("s1", "Math");
+    await subject("s9", "Math", { childId: "c2" });
+    await quest("q1", "Mine", "s1");
+    await quest("q9", "Theirs", "s9", "c2");
+    await assignment("mine", "q1", "2026-11-17T09:00:00Z");
+    await assignment("theirs", "q9", "2026-11-17T10:00:00Z", { childId: "c2" });
+    expect((await loadRecentQuests("c1", NOW)).map((r) => r.assignmentId)).toEqual(["mine"]);
+  });
+
+  it("left-joins: a deleted quest reads 'a quest' in timber, a deleted subject reads timber", async () => {
+    await quest("q-gone-subject", "Orphan quest", "s-missing");
+    await assignment("nosubject", "q-gone-subject", "2026-11-17T10:00:00Z");
+    await assignment("noquest", "q-deleted", "2026-11-17T11:00:00Z");
+    const by = Object.fromEntries((await loadRecentQuests("c1", NOW)).map((r) => [r.assignmentId, r]));
+    expect(by.nosubject).toEqual({ assignmentId: "nosubject", title: "Orphan quest", material: "timber" });
+    expect(by.noquest).toEqual({ assignmentId: "noquest", title: "a quest", material: "timber" });
+  });
+
+  it("reads a blank title as 'a quest'", async () => {
+    await subject("s1", "Math");
+    await quest("q1", "   ", "s1");
+    await assignment("a1", "q1", "2026-11-17T09:00:00Z");
+    expect((await loadRecentQuests("c1", NOW))[0].title).toBe("a quest");
   });
 });

@@ -190,11 +190,13 @@ const chronicleHall = make("Chronicle Hall", "keep", "ink", "stone", [
   [bx("roof", 0, 0, 5, 4, 2.2, 0.7), bx("timber", 0, 1.73, 0.9, 0.06, 0.4, 1.3), bx("stone", 0, 2.25, 1.6, 0.5, 0, 0.2)],
   [bx("stone", 0, 0, 1.2, 1.2, 2.9, 0.9), bx("roof", 0, 0, 1.5, 1.5, 3.8, 0.4), bx("gold", 0, 0, 0.25, 0.25, 4.2, 0.5)],
 ], [
-  // Two on the front wall either side of the door, then one on each side wall, then two on the back
-  // wall: every one on a plaster face (z or x of 1.7 or 2.2, plus the 0.02 the back stands off).
-  [{ x: -1.1, y: 1.4, z: 1.72, ry: 0 }, { x: 1.1, y: 1.4, z: 1.72, ry: 0 }],
-  [{ x: 2.22, y: 1.4, z: 0, ry: Math.PI / 2 }, { x: -2.22, y: 1.4, z: 0, ry: -Math.PI / 2 }],
+  // The hero walks in from the north (+z is south, the door's side), so the first pair hangs on the
+  // north wall they meet; then one on each side wall; then two on the south wall either side of the
+  // door, which stands from level 2. Every one on a plaster face (z or x of 1.7 or 2.2, plus the 0.02
+  // the back stands off).
   [{ x: -1.1, y: 1.4, z: -1.72, ry: Math.PI }, { x: 1.1, y: 1.4, z: -1.72, ry: Math.PI }],
+  [{ x: 2.22, y: 1.4, z: 0, ry: Math.PI / 2 }, { x: -2.22, y: 1.4, z: 0, ry: -Math.PI / 2 }],
+  [{ x: -1.1, y: 1.4, z: 1.72, ry: 0 }, { x: 1.1, y: 1.4, z: 1.72, ry: 0 }],
 ]);
 
 /** One banner: a stone foot, a pole, and a cloth hung beside it that rests on the foot. */

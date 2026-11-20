@@ -100,3 +100,17 @@ describe("/realm — the Chronicle Hall's drawings", () => {
     expect((await realmProp()).hallDrawings).toEqual([]);
   });
 });
+
+describe("/realm: what the villagers have heard", () => {
+  it("hands the frame the recent quests and the server's day, and none when a hand-built bundle carries none", async () => {
+    const recentQuests = [{ assignmentId: "a1", title: "Volcanoes", material: "ink" as const }];
+    getRealmBundle.mockResolvedValue({ ...bundle(true), recentQuests, today: "2026-11-19" });
+    const realm = await realmProp();
+    expect(realm.recentQuests).toEqual(recentQuests);
+    expect(realm.today).toBe("2026-11-19");
+    getRealmBundle.mockResolvedValue(bundle(true));
+    const bare = await realmProp();
+    expect(bare.recentQuests).toEqual([]);
+    expect(bare.today).toBeUndefined();
+  });
+});

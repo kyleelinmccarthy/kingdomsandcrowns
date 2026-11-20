@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { drawStrokes, DRAWING_PARCHMENT } from "./draw-strokes";
+import { drawStrokes } from "./draw-strokes";
+import { DRAWING_PARCHMENT } from "./drawing";
 import { DRAWING_PALETTE, DRAWING_WIDTHS, type Drawing } from "./drawing";
 
 /** A canvas context that only records what it was told, in order. */

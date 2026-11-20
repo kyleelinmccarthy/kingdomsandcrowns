@@ -1,7 +1,4 @@
-import { DRAWING_HEIGHT, DRAWING_PALETTE, DRAWING_WIDTH, DRAWING_WIDTHS, strokePoints, type Drawing } from "./drawing";
-
-/** The page a drawing is made on: the same parchment the drawing view shows it on. */
-export const DRAWING_PARCHMENT = "#f4e9cf";
+import { DRAWING_HEIGHT, DRAWING_PALETTE, DRAWING_PARCHMENT, DRAWING_WIDTH, DRAWING_WIDTHS, strokePoints, type Drawing } from "./drawing";
 
 /** The slice of a 2D canvas context `drawStrokes` uses, so a test can pass a recording fake. */
 export type StrokeContext = Pick<

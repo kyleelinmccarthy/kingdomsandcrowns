@@ -87,19 +87,24 @@ export function talkCopy(input: {
   numerals: boolean;
   /** The family's zone, for the season a building was raised in; absent reads as UTC. */
   timezone?: string | null;
+  /**
+   * A line about a quest the hero really finished (`pickMention`), the hero's own visit only. On a
+   * rising building it stands in for the greeting; on a finished one it follows "Raised by". Plain text.
+   */
+  mention?: string | null;
 }): TalkCopy {
-  const { villager, site, viewer, heroName, waiting, numerals, timezone } = input;
+  const { villager, site, viewer, heroName, waiting, numerals, timezone, mention } = input;
   const role = `Keeper of the ${site.label}`;
   const who = viewer === "parent" ? heroName : "you";
 
   let says: string;
   let need: string;
   if (site.complete) {
-    says = `The ${site.label} stands, and that is thanks to ${who}! ${raisedByLine(site, heroName, timezone)}`;
+    says = `The ${site.label} stands, and that is thanks to ${who}! ${raisedByLine(site, heroName, timezone)}${mention ? ` ${mention}` : ""}`;
     need = starsLeftLine(site, numerals);
   } else {
     const hello = waiting ? (viewer === "parent" ? `I was hoping ${heroName} would come. ` : "There you are! ") : "";
-    says = `${hello}${villager.greeting}`;
+    says = `${hello}${mention || villager.greeting}`;
     const left = Math.max(0, site.total - site.done);
     if (!numerals) {
       need = site.done === 0 ? `The ${site.label} needs ${SIDE_QUESTS_LOWER} to rise.` : `The ${site.label} is rising. Keep going!`;

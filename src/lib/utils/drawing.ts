@@ -25,6 +25,9 @@ export const DRAWING_MAX_POINTS = 2000;
 /** The cap on the serialized form: 32K characters (what `.length` counts), checked before any parse. */
 export const DRAWING_MAX_CHARS = 32 * 1024;
 
+/** The page a drawing is made on: the pad, the SVG view and the canvas painter all use this one colour (`drawing-pad.css` repeats it for its own canvas). */
+export const DRAWING_PARCHMENT = "#f4e9cf";
+
 /** Line widths (in pad units) the three width indexes stand for. */
 export const DRAWING_WIDTHS = [2, 5, 10] as const;
 

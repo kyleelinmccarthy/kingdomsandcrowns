@@ -96,6 +96,7 @@ import { stepRide, type RideBus } from "@/lib/realm3d/riding";
 import { LEGACY_STEPS, LESSONS, STORED_MAX } from "@/lib/realm3d/tutorial";
 import { findBuilding } from "@/lib/utils/kingdom";
 import { RealmGame, type RealmData } from "./realm-game";
+import type { RecentQuest } from "@/lib/realm/mentions";
 
 beforeAll(() => {
   HTMLCanvasElement.prototype.getContext = (() => null) as unknown as HTMLCanvasElement["getContext"];
@@ -1310,5 +1311,93 @@ describe("the quiet world (0 minutes in an earning mode)", () => {
     const { view } = mount({ ...quiet, realm: { ...realm, profile: { ...DEFAULT_LEARNING_PROFILE, lowStimulus: true, reducedMotion: true } } });
     expect(view.container.querySelector(".r3-clock-text")).toHaveTextContent(QUIET);
     expect(handed.props!.troubles).toBeUndefined();
+  });
+});
+
+describe("the villagers have heard about real quests", () => {
+  const TODAY = "2026-11-19";
+  const FRACTIONS: RecentQuest = { assignmentId: "a-frac", title: "Fractions of a Pizza", material: "stone" };
+  const withQuests = (...recentQuests: RecentQuest[]): RealmData => ({ ...realm, recentQuests, today: TODAY });
+  const GERD = "Stones to count before the lantern's lit.";
+
+  beforeEach(() => sessionStorage.clear());
+
+  it("has the villager mention a quest the hero finished, in their trade, in place of the greeting", () => {
+    const { bus } = mount({ realm: withQuests(FRACTIONS) });
+    act(() => bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
+    const dialog = screen.getByRole("dialog", { name: /Old Bram/ });
+    expect(dialog).toHaveTextContent("Fractions of a Pizza");
+    expect(dialog).not.toHaveTextContent("The bucket's dry again");
+    // The objective's hello stays: Bram is the villager the gold ! led the hero to.
+    expect(dialog).toHaveTextContent("There you are!");
+  });
+
+  it("shows the title as plain text, never as markup", () => {
+    const title = "<b>Bold</b> & <img src=x>";
+    const { bus } = mount({ realm: withQuests({ ...FRACTIONS, title }) });
+    act(() => bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
+    const dialog = screen.getByRole("dialog", { name: /Old Bram/ });
+    expect(dialog).toHaveTextContent(title);
+    expect(dialog.querySelector("b, img")).toBeNull();
+  });
+
+  it("greets as always when no recent quest is in the villager's trade, or there are none", () => {
+    const { bus } = mount({ realm: withQuests({ ...FRACTIONS, material: "ink" }) });
+    act(() => bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
+    expect(screen.getByRole("dialog", { name: /Old Bram/ })).toHaveTextContent("The bucket's dry again");
+    cleanup();
+    sessionStorage.clear();
+    const bare = mount({ realm: { ...realm, today: TODAY } });
+    act(() => bare.bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
+    expect(screen.getByRole("dialog", { name: /Old Bram/ })).toHaveTextContent("The bucket's dry again");
+  });
+
+  it("gives a grown-up's visit no mention, and writes nothing to the day's memory", () => {
+    const { bus } = mount({ viewer: "parent", realm: { ...withQuests(FRACTIONS), isChildView: false } });
+    act(() => bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
+    const dialog = screen.getByRole("dialog", { name: /Old Bram/ });
+    expect(dialog).not.toHaveTextContent("Fractions of a Pizza");
+    expect(dialog).toHaveTextContent("The bucket's dry again");
+    expect(sessionStorage.length).toBe(0);
+  });
+
+  it("gives the hero seen as a visitor (viewer=parent) no mention either", () => {
+    const { bus } = mount({ viewer: "parent", realm: withQuests(FRACTIONS) });
+    act(() => bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
+    expect(screen.getByRole("dialog", { name: /Old Bram/ })).not.toHaveTextContent("Fractions of a Pizza");
+    expect(sessionStorage.length).toBe(0);
+  });
+
+  it("does not repeat the quest to a second villager the same day", () => {
+    const { bus } = mount({ realm: withQuests(FRACTIONS) });
+    act(() => bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
+    expect(screen.getByRole("dialog", { name: /Old Bram/ })).toHaveTextContent("Fractions of a Pizza");
+    esc();
+    // Gerd cares about stone too; the quest is spoken for, so he greets.
+    act(() => bus.onInteract({ kind: "villager", id: "gerd", label: "Mason Gerd" }));
+    const dialog = screen.getByRole("dialog", { name: /Mason Gerd/ });
+    expect(dialog).not.toHaveTextContent("Fractions of a Pizza");
+    expect(dialog).toHaveTextContent(GERD);
+  });
+
+  it("keeps the line steady while the board is open, and does not use up a second quest on a re-render", () => {
+    const second: RecentQuest = { assignmentId: "a-two", title: "Long Division", material: "stone" };
+    const { bus, view } = mount({ realm: withQuests(FRACTIONS, second) });
+    act(() => bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
+    const said = screen.getByRole("dialog", { name: /Old Bram/ }).textContent;
+    view.rerender(<RealmGame heroName="Emma" spellbook={spellbook} realm={withQuests(FRACTIONS, second)} entry={{ minutes: 240, visit: null, source: "earned" }} castleUnlocked={false} />);
+    expect(screen.getByRole("dialog", { name: /Old Bram/ }).textContent).toBe(said);
+    expect(JSON.parse(sessionStorage.getItem("realm-mentions:demo-child-1:2026-11-19")!)).toHaveLength(1);
+  });
+
+  it("on a finished building, follows the 'Raised by' sentence", () => {
+    const standing: RealmData = {
+      ...withQuests(FRACTIONS),
+      kingdom: { ...realm.kingdom, buildings: realm.kingdom.buildings.map((b) => (b.id === "well" ? { ...b, complete: true, done: 5, raisedBy: "Emma", raisedAt: null } : b)) },
+    };
+    const { bus } = mount({ realm: standing });
+    act(() => bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
+    const says = screen.getByRole("dialog", { name: /Old Bram/ }).textContent ?? "";
+    expect(says).toMatch(/Raised by Emma\.\s+\S.*Fractions of a Pizza/);
   });
 });

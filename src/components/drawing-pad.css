@@ -10,6 +10,7 @@
   display: block;
   width: 100%;
   aspect-ratio: 4 / 3;
+  /* The same parchment as DRAWING_PARCHMENT in src/lib/utils/drawing.ts: keep the two in step. */
   background: #f4e9cf;
   border: 2px solid var(--gold-bright, #c9a30a);
   border-radius: 0.5rem;

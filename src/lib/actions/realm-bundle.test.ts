@@ -3,6 +3,7 @@ import { DEFAULT_REALM_SETTINGS } from "@/lib/utils/realm-settings";
 import { DEFAULT_SOUND } from "@/lib/realm3d/sound/settings";
 import { EMPTY_WORKS, type Works } from "@/lib/realm/works-state";
 import type { Drawing } from "@/lib/utils/drawing";
+import { todayInZone } from "@/lib/utils/dates";
 
 /**
  * What `getRealmBundle` tells the page about WHO is looking: whether they may change the child's
@@ -48,7 +49,12 @@ vi.mock("@/lib/services/realm-materials", () => ({ loadWorks: (...a: unknown[]) 
 /** The drawings the hall hangs: the service owns the limit, so the mock honours it like the real one. */
 const HALL_DRAWINGS: Drawing[] = [1, 2, 3, 4, 5, 6].map((n) => ({ v: 1, strokes: [{ c: 0, w: 0, p: [n, n] }] }));
 const loadHallDrawings = vi.fn<(childId: string, limit: number) => Promise<Drawing[]>>(async (_childId, limit) => HALL_DRAWINGS.slice(0, Math.max(0, limit)));
-vi.mock("@/lib/services/realm-chronicle", () => ({ loadHallDrawings: (...a: unknown[]) => (loadHallDrawings as (...x: unknown[]) => unknown)(...a) }));
+const RECENT = [{ assignmentId: "a1", title: "Volcanoes, part 2", material: "ink" as const }];
+const loadRecentQuests = vi.fn<(childId: string) => Promise<typeof RECENT>>(async () => RECENT);
+vi.mock("@/lib/services/realm-chronicle", () => ({
+  loadHallDrawings: (...a: unknown[]) => (loadHallDrawings as (...x: unknown[]) => unknown)(...a),
+  loadRecentQuests: (...a: unknown[]) => (loadRecentQuests as (...x: unknown[]) => unknown)(...a),
+}));
 vi.mock("@/lib/services/deeds", () => ({ loadKingdomOverview: async () => ({ tone: "gentle", buildings: [] }) }));
 vi.mock("@/lib/services/learning-profile", () => ({ loadLearningProfileRow: async () => null }));
 vi.mock("@/lib/services/spells", () => ({
@@ -289,5 +295,26 @@ describe("getRealmBundle — the drawings the Chronicle Hall hangs", () => {
     spy.mockRestore();
     expect(loadHallDrawings).toHaveBeenCalledWith("c1", 0);
     expect(b.hallDrawings).toEqual([]);
+  });
+});
+
+describe("getRealmBundle — what the villagers have heard", () => {
+  it("carries the quests finished lately, as read, and the family's day", async () => {
+    requireChildAccess.mockResolvedValue(as("child:c1", "edit"));
+    const b = await getRealmBundle("c1");
+    expect(loadRecentQuests).toHaveBeenCalledWith("c1");
+    expect(b.recentQuests).toEqual(RECENT);
+    // The server's day in the hero's own time zone (the mock's family is in Chicago), never the device's.
+    expect(b.today).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(b.today).toBe(todayInZone("America/Chicago", new Date()));
+  });
+
+  it("is none when the read fails, rather than closing the Realm", async () => {
+    requireChildAccess.mockResolvedValue(as("child:c1", "edit"));
+    loadRecentQuests.mockRejectedValueOnce(new Error("down"));
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const b = await getRealmBundle("c1");
+    spy.mockRestore();
+    expect(b.recentQuests).toEqual([]);
   });
 });

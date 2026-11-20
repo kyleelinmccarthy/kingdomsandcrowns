@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import {
   DRAWING_PALETTE,
+  DRAWING_PARCHMENT,
   DRAWING_WIDTHS,
   hasDrawing,
   parseDrawing,
@@ -124,6 +125,11 @@ describe("palette and paths", () => {
     expect(DRAWING_PALETTE.map((c) => c.toLowerCase())).toContain("#000000");
     expect(new Set(DRAWING_PALETTE).size).toBe(8);
     expect([...DRAWING_WIDTHS]).toEqual([2, 5, 10]);
+  });
+
+  it("names the one parchment every renderer paints a drawing on", () => {
+    expect(DRAWING_PARCHMENT).toBe("#f4e9cf");
+    expect(DRAWING_PALETTE).not.toContain(DRAWING_PARCHMENT);
   });
 
   it("pairs a stroke's points", () => {

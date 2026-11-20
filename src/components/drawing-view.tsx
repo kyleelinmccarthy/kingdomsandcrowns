@@ -1,6 +1,7 @@
 import {
   DRAWING_HEIGHT,
   DRAWING_PALETTE,
+  DRAWING_PARCHMENT,
   DRAWING_WIDTH,
   DRAWING_WIDTHS,
   strokePathD,
@@ -26,7 +27,7 @@ export function DrawingView({
       role="img"
       aria-label={label}
       className={className}
-      style={{ background: "#f4e9cf", aspectRatio: "4 / 3", borderRadius: 4, display: "block" }}
+      style={{ background: DRAWING_PARCHMENT, aspectRatio: "4 / 3", borderRadius: 4, display: "block" }}
     >
       {drawing.strokes.map((s, i) => (
         <path

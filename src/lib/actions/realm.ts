@@ -27,7 +27,9 @@ import { loadRecessRecord } from "@/lib/services/recess";
 import { loadReviewDue } from "@/lib/services/review";
 import { loadRises } from "@/lib/services/realm-rises";
 import { loadWorks } from "@/lib/services/realm-materials";
-import { loadHallDrawings } from "@/lib/services/realm-chronicle";
+import { loadHallDrawings, loadRecentQuests } from "@/lib/services/realm-chronicle";
+import type { RecentQuest } from "@/lib/realm/mentions";
+import { todayInZone } from "@/lib/utils/dates";
 import { HALL_FRAMES_PER_LEVEL } from "@/lib/realm/improvements";
 import type { Drawing } from "@/lib/utils/drawing";
 import { EMPTY_WORKS, type Works } from "@/lib/realm/works-state";
@@ -134,6 +136,14 @@ export type RealmBundle = {
    * bundles in tests need not carry it; `getRealmBundle` always sets it.
    */
   hallDrawings?: Drawing[];
+  /**
+   * The quests the hero finished in the last 7 days, newest first, at most 20: what the villagers
+   * may mention (`pickMention`). Empty when the read fails. Optional only so hand-built bundles in
+   * tests need not carry it; `getRealmBundle` always sets it.
+   */
+  recentQuests?: RecentQuest[];
+  /** The server's day in the hero's family's time zone (YYYY-MM-DD), never the device's: the key of "said today". */
+  today?: string;
 };
 
 const VILLAGERS_RESTING = "The villagers are resting. Try again.";
@@ -201,6 +211,11 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
       console.error("Realm hall drawings failed to load", err);
       return [] as Drawing[];
     });
+  // The quests finished this week, for the villagers' mentions: a failed read is "none", never a closed Realm.
+  const recentRead = loadRecentQuests(childId).catch((err: unknown) => {
+    console.error("Realm recent quests failed to load", err);
+    return [] as RecentQuest[];
+  });
   // Also hands back the flags it read (post-update), so the parallel batch below does not
   // pay a second `loadRealmFlags` round trip just to read `helpSeenAt`. On the (rare) failure
   // path, fall back to a direct read so a starter-spell hiccup never misreports `helpSeen`.
@@ -285,6 +300,8 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
     ...(await risesRead), // `unannounced` and `regraded`
     works: await worksRead,
     hallDrawings: await hallDrawingsRead,
+    recentQuests: await recentRead,
+    today: todayInZone(child.timezone ?? "UTC", new Date()),
     earning: {
       enabled: settings.enabled,
       accessMode: settings.accessMode,

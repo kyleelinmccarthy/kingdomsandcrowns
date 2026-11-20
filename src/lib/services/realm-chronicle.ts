@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { getTimezoneForChild } from "@/lib/services/family-timezone";
 import { resolveMaterial, MATERIALS } from "@/lib/realm/materials";
+import type { RecentQuest } from "@/lib/realm/mentions";
 import { addDays, todayInZone, weekStartOf } from "@/lib/utils/dates";
 import { parseDrawing, hasDrawing, type Drawing } from "@/lib/utils/drawing";
 import { parseSeal, type Seal } from "@/lib/utils/seals";
@@ -146,4 +147,44 @@ export async function loadHallDrawings(childId: string, limit: number): Promise<
     if (out.length === want) break;
   }
   return out;
+}
+
+
+const RECENT_DAYS = 7;
+const RECENT_MAX = 20;
+const RECENT_FALLBACK_TITLE = "a quest";
+
+/**
+ * The quests this hero finished in the last 7 days, newest first, at most 20: what the villagers
+ * may mention (`pickMention`). ONE query; the quest and subject are LEFT-joined, so a quest or
+ * subject deleted since still counts (a missing title reads "a quest", a missing subject timber).
+ * The window is an instant, `now` minus seven days, so no time zone is involved.
+ */
+export async function loadRecentQuests(childId: string, now: Date = new Date()): Promise<RecentQuest[]> {
+  const since = new Date(now.getTime() - RECENT_DAYS * DAY_MS);
+  const rows = await db
+    .select({
+      id: schema.questAssignment.id,
+      title: schema.quest.title,
+      subjectName: schema.subject.name,
+      subjectMaterial: schema.subject.material,
+    })
+    .from(schema.questAssignment)
+    .leftJoin(schema.quest, eq(schema.quest.id, schema.questAssignment.questId))
+    .leftJoin(schema.subject, eq(schema.subject.id, schema.quest.subjectId))
+    .where(
+      and(
+        eq(schema.questAssignment.childId, childId),
+        eq(schema.questAssignment.status, "completed"),
+        isNotNull(schema.questAssignment.completedAt),
+        gte(schema.questAssignment.completedAt, since),
+      ),
+    )
+    .orderBy(desc(schema.questAssignment.completedAt), desc(schema.questAssignment.id))
+    .limit(RECENT_MAX);
+  return rows.map((row) => ({
+    assignmentId: row.id,
+    title: row.title?.trim() || RECENT_FALLBACK_TITLE,
+    material: row.subjectName ? resolveMaterial({ name: row.subjectName, material: row.subjectMaterial }) : "timber",
+  }));
 }
