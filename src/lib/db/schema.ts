@@ -1095,6 +1095,26 @@ export const realmPlaceFound = sqliteTable(
 );
 
 /**
+ * The world's state, one row per hero and thing in it (`lib/realm/world-state.ts`). `object_id` is
+ * namespaced: `chest:<id>` and `door:<place>` (state "open", relocked by the clock for a chest),
+ * `decor:<id>` ("placed") and `lore:<id>` ("found") for what a lock gave, which stays whatever the
+ * chest does next, and `tower:<band>` (the solved count, as text). Written only by the hero.
+ */
+export const realmWorldState = sqliteTable(
+  "realm_world_state",
+  {
+    id: text("id").primaryKey(),
+    childId: text("child_id")
+      .notNull()
+      .references(() => child.id, { onDelete: "cascade" }),
+    objectId: text("object_id").notNull(),
+    state: text("state").notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp" }).notNull(),
+  },
+  (table) => [uniqueIndex("realm_world_state_child_object_idx").on(table.childId, table.objectId)]
+);
+
+/**
  * The Ring: one durable row per hero — what recess adds up to (`lib/realm/recess/record.ts`).
  * Gleams and laps are cumulative and never reset by anything except a course change, which
  * clears the lap bests only. Foot and ridden bests are kept apart. These are NOT currency:

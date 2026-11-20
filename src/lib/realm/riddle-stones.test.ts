@@ -4,6 +4,7 @@ import { realmWorld } from "@/lib/realm3d/worldgen";
 import { travelGraphFor, VILLAGE_TRACKS } from "@/lib/realm3d/travel";
 import { buildSpots, edgeDistance } from "@/lib/realm3d/interact";
 import { quietSurfaces } from "@/lib/realm3d/quiet";
+import { segmentDistance } from "@/test/world-clearance";
 import { RIDDLE_STONE_HEIGHT, RIDDLE_STONE_RADIUS, RIDDLE_STONE_SPOTS, RIDDLE_STONES, riddleStoneColliders, riddleStonePosition } from "./riddle-stones";
 
 const world = realmWorld();
@@ -16,13 +17,6 @@ const others = buildSpots({
   castle: { x: 0, z: -12, hw: 3, hd: 1, label: "your castle" },
   posts: travelGraphFor(world).posts,
 });
-
-function segmentDistance(p: { x: number; z: number }, a: { x: number; z: number }, b: { x: number; z: number }): number {
-  const dx = b.x - a.x;
-  const dz = b.z - a.z;
-  const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.z - a.z) * dz) / (dx * dx + dz * dz || 1)));
-  return Math.hypot(p.x - (a.x + dx * t), p.z - (a.z + dz * t));
-}
 
 describe("the riddle stones", () => {
   it("stands one stone at every named place, and no more", () => {

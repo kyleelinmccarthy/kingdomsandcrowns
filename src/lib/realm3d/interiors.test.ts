@@ -5,6 +5,7 @@ import { fixtureLine, roomPlan, ROOM_KINDS, GALLERY_Y, LOOKOUT_Y, type RoomPlan 
 import { hiddenWalls, leavingRoom, makeHidden, pickRoomSpot, roomBlocks, roomBuried, roomSlide, roomSpots, LEVEL_REACH } from "./room-rules";
 import { edgeDistance } from "./interact";
 import { ROOM_OF } from "./doorways";
+import { WORLD_OBJECTS } from "@/lib/realm/world-objects";
 
 /**
  * Where a child can get to in a room, walking and climbing by the same rules the scene uses:
@@ -172,6 +173,25 @@ describe("up and down", () => {
     const throne = rs.spots.findIndex((s) => s.target.id === "throne");
     expect(edgeDistance(rs.spots[throne], 0, plan.fixture.z + 2)).toBeLessThan(1.5);
     expect(pickRoomSpot(rs, 0, plan.fixture.z + 2, plan.fixture.floor, -1)).toBe(throne);
+  });
+});
+
+describe("the room chests", () => {
+  const roomChests = WORLD_OBJECTS.filter((o) => o.room);
+
+  it("stand in the library and the garden", () => {
+    expect(roomChests.map((o) => o.room)).toEqual(["library", "garden"]);
+  });
+
+  it.each(roomChests.map((o) => [o.id, o] as const))("%s stands where a child can walk, clear of everything the room already offers", (_id, chest) => {
+    const plan = roomPlan(chest.room!);
+    const seen = reachable(plan);
+    expect(canReach(plan, seen, chest.x, chest.z, 0, 0.2, 0), "not on the floor a child can reach").toBe(true);
+    expect(Math.hypot(chest.x - plan.fixture.x, chest.z - plan.fixture.z), "too near the fixture").toBeGreaterThanOrEqual(2.5);
+    expect(Math.hypot(chest.x - plan.door.x, chest.z - plan.D / 2), "too near the door").toBeGreaterThanOrEqual(2.5);
+    expect(Math.hypot(chest.x - plan.spawn.x, chest.z - plan.spawn.z), "too near the spawn").toBeGreaterThanOrEqual(2.5);
+    if (plan.keeper) expect(Math.hypot(chest.x - plan.keeper.x, chest.z - plan.keeper.z), "too near the keeper").toBeGreaterThanOrEqual(2.5);
+    expect(roomBuried(plan.solids, chest.x, chest.z, 0, 1.3), "buried in something").toBe(false);
   });
 });
 

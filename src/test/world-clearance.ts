@@ -4,6 +4,12 @@
 // layout.test.ts, which spells them inline; these are the same constants, written as rectangles.
 import { BUILDINGS } from "@/lib/utils/kingdom";
 import { BUILDING_SLOTS, CASTLE_POSITION, COSMETIC_TERRAIN, DECOR_SPOTS, SCENERY, TERRAIN, buildingFootprint } from "@/lib/realm/layout";
+import { KEEP_YARD, VILLAGE_DECOR_SPOTS, YARD_RADIUS } from "@/lib/realm/keep-yard";
+import { IMPROVEMENT_IDS, IMPROVEMENTS } from "@/lib/realm/improvements";
+import { VILLAGERS, villagerPosition } from "@/lib/realm/villagers";
+import { improvementPlacements } from "@/lib/realm3d/improvement-spots";
+import { VILLAGE_POST } from "@/lib/realm3d/travel";
+import { ARCH, ARCH_HALF_SPAN } from "@/lib/realm3d/recess/course";
 import { LAP_WAYPOINTS } from "@/lib/realm/recess/recess";
 import { CASTLE_TIERS, castlePlan } from "@/lib/realm3d/castle-plan";
 import { heightAt } from "@/lib/realm3d/heightfield";
@@ -124,4 +130,62 @@ export function clearanceFailures(what: string, rect: R, host?: string, canopyGa
     if (overlapsPatch(rect, t)) out.push(`${what} is on ${t.kind} ${t.id}`);
   }
   return out;
+}
+
+/** The gap between two rectangles: 0 when they touch or share area. */
+export const gap = (a: R, b: R): number => Math.hypot(Math.max(0, a.x0 - b.x1, b.x0 - a.x1), Math.max(0, a.z0 - b.z1, b.z0 - a.z1));
+
+/** The distance from a point to the segment a-b. */
+export function segmentDistance(p: { x: number; z: number }, a: { x: number; z: number }, b: { x: number; z: number }): number {
+  const dx = b.x - a.x;
+  const dz = b.z - a.z;
+  const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.z - a.z) * dz) / (dx * dx + dz * dz || 1)));
+  return Math.hypot(p.x - (a.x + dx * t), p.z - (a.z + dz * t));
+}
+
+/** A named rectangle the village or the keep yard keeps for itself. */
+export type Piece = { what: string; rect: R };
+
+const spotBox = (what: string, at: { x: number; z: number }, radius: number): Piece => ({ what, rect: rectAt(at.x, at.z, radius * 2, radius * 2) });
+
+/** The four village decorations' own squares (`YARD_RADIUS`). */
+export function villageDecorPieces(): Piece[] {
+  return (["village-banners", "village-lamps", "village-fountain", "village-statue"] as const).map((id) => spotBox(id, VILLAGE_DECOR_SPOTS[id], YARD_RADIUS[id]));
+}
+
+/** The keep yard's own spots (board, six heaps, hall, lectern), every box of the Chronicle Hall (all three levels) and its plaque. */
+export function yardPieces(): Piece[] {
+  const hall = KEEP_YARD.chronicleHall;
+  return [
+    spotBox("plansBoard", KEEP_YARD.plansBoard, YARD_RADIUS.plansBoard),
+    ...KEEP_YARD.stockpile.map((s, i) => spotBox(`heap ${i}`, s, YARD_RADIUS.heap)),
+    spotBox("chronicleHall", hall, YARD_RADIUS.chronicleHall),
+    spotBox("lectern", KEEP_YARD.lectern, YARD_RADIUS.lectern),
+    ...IMPROVEMENTS["chronicle-hall"].levels.flatMap((l, li) => l.boxes.map((b, bi) => ({ what: `hall L${li + 1} box ${bi}`, rect: rectAt(hall.x + b.x, hall.z + b.z, b.sx, b.sz) }))),
+    ...improvementPlacements({ "chronicle-hall": 3 }, () => 0).map((p) => ({ what: "hall plaque", rect: rectAt(p.plaque.x, p.plaque.z, 0.7, 0.7) })),
+  ];
+}
+
+/**
+ * Everything else the village stands on open ground: the four decorations, every improvement's
+ * boxes and plaque built to the top (the hall's belong to the yard), every villager, the village's
+ * hitching post and the Ring's arch.
+ */
+export function villagePieces(): Piece[] {
+  const built = improvementPlacements(Object.fromEntries(IMPROVEMENT_IDS.map((id) => [id, 3])), () => 0).filter((p) => p.id !== "chronicle-hall");
+  return [
+    ...villageDecorPieces(),
+    ...built.flatMap((p) => [
+      ...p.boxes.map((b, i) => ({ what: `${p.id} box ${i}`, rect: rectAt(b.x, b.z, b.sx, b.sz) })),
+      { what: `${p.id} plaque`, rect: rectAt(p.plaque.x, p.plaque.z, 0.7, 0.7) },
+    ]),
+    ...VILLAGERS.flatMap((v) => {
+      const slot = BUILDING_SLOTS[v.buildingId];
+      if (!slot) return [];
+      const at = villagerPosition(slot, buildingFootprint(v.buildingId));
+      return [{ what: `villager ${v.id}`, rect: rectAt(at.x, at.z, 0.9, 0.9) }];
+    }),
+    { what: "hitching post", rect: rectAt(VILLAGE_POST.x, VILLAGE_POST.z, 0.8, 0.8) },
+    { what: "arch", rect: rectAt(ARCH.x, ARCH.z, ARCH_HALF_SPAN * 2, 0.8) },
+  ];
 }

@@ -72,6 +72,14 @@ export const KINGDOM_PROGRESS_DDL = [
   `CREATE UNIQUE INDEX kingdom_progress_child_building_idx ON kingdom_progress (child_id, building_id)`,
 ];
 
+/** The world's state (migration 0044). The unique index is what keeps one row per hero and object under two tabs. */
+export const REALM_WORLD_STATE_DDL = [
+  `CREATE TABLE realm_world_state (
+    id text PRIMARY KEY NOT NULL, child_id text NOT NULL, object_id text NOT NULL, state text NOT NULL,
+    updated_at integer NOT NULL)`,
+  `CREATE UNIQUE INDEX realm_world_state_child_object_idx ON realm_world_state (child_id, object_id)`,
+];
+
 /**
  * What a plaque reads at the moment a level is built (`finishBuild`): the quests that paid for it
  * (assignment, quest, subject) and the hero's open season. Only the columns those reads use.

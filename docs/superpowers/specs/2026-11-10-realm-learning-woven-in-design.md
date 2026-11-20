@@ -118,6 +118,60 @@ The builder's calls:
 - **R-F11: the five science deeds become `mechanic: "lock"`** (well-water, mill-wheel, chapel-stars, watchtower-signals, garden-bees). Recorded snapshots that change get choice-pinned twins. Vocabulary stays `choice` inside `language` deeds, and vocabulary sorts are reached through a grown-up's focus skill and the world locks of 4b.
 - **RF-j: a science side quest played as locks is half as long.** It runs half the grown-up's side-quest length, rounded (8 gives 4 sorts, 12 gives 6), because each sort places 6 to 10 items. No sort set repeats in a run while its pool has an unused one. The half applies only when the run actually draws sorts. A run that falls back to multiple choice keeps the whole length: locks off, the gate, or a skill no sort pool credits.
 
+### Calls settled for slice 4b (2026-11-20)
+
+The owner's answers:
+- **An emptied chest keeps relocking weekly, with a fresh puzzle (R-G2).** Once the hero owns every reward it holds, opening it gives no reward and writes no reward row; its line is exactly "You've found everything in this chest."
+- **The Tower's floors (R-G5).** One floor per band. 3 stars on a science (lock) side quest at the hero's own band opens their floor and every floor below it. Floors above the hero's band are never shown. A waiting floor reads exactly "Earn 3 stars on a science side quest to open this floor." and never names a grade or band.
+- **The grown-up's locks switch (R-G7).** With "Solving logic locks" off, chests and vault doors are not drawn, the Tower's bonus locks are not offered, and the two start actions refuse with `WORLD_LOCKS_OFF`. Everything already found stays.
+
+The rulings:
+- **R-G1: `realm_world_state (id, child_id, object_id, state, updated_at)`**, unique on `(child_id, object_id)`, every column but `id` `notNull`, in migration 0044. A pure `lockedNow(object, row, today, zone)`: no row is locked; `"open"` with no `resetAfterDays` stays open; with it, the object locks again once `today - dayOf(updated_at) >= resetAfterDays`.
+- **R-G2: objects are a pure catalog (`WORLD_OBJECTS`).** Chests (`resetAfterDays: 7`) stand at fixed village and room spots; vault doors (once) stand beside the five authored places and each reveal a generated place and a lore page. Every lock draws from the hero's logic skill, except a library chest (vocabulary) and a garden chest (science) when those pools exist.
+- **R-G3: opening is a `world` run of one lock task**, started by `startWorldLockRun(childId, objectId)`: hero only, refused while the object is open, resumed on `sourceRef = objectId`. The close, the open and the rewards are written together, in one `withChildLock` transaction, when the task resolved right (first or second try). A miss leaves it locked and the hero tries again with a fresh puzzle.
+- **R-G4: rewards are never materials.** `decor` is a box at a fixed spot (`DECOR`), `lore` a page in the Chronicle's new "Found pages" section, `fragment` a generated place id applied with `addPlacesFound` and announced by a toast.
+- **R-G4b: `RUN_EFFECTS.tower` has every effect false.** A tower run moves nothing but the tower record.
+- **R-G5: the Puzzle Tower** is a fixed structure at (25.5, 23.5), 8 by 8, the village's one free plot. It is not a `BUILDINGS` entry: it has its own catalog entry and clearance test. Each open floor offers a bonus lock one level harder, as a `tower` run; the record is `tower:<band>`, holding the solved count; the exterior grows one storey per open floor.
+- **R-G6: interactables.** New interact kinds `"lock"` and `"tower"` join the overlay chain's negative list. Room chests take an optional third argument on `roomSpots`. Chests and doors are non-solid; a door's frame stands beside the path, never across it.
+- **R-G7: see the owner's answer above.**
+
+The controller's rulings (pre-flight scan):
+- **RG-a:** `World` takes `worldLocks?: WorldCanvas`, and its `spots` memo depends on that one prop.
+- **RG-b:** the clearance helpers are `yardPieces()` (the keep yard's spots and hall boxes) and `villagePieces()` (everything else); `keep-yard.test.ts` compares the first against the second, and the new spots are tested against both.
+- **RG-c:** `withChildLock` serialises across instances, so finishing is a plain read-check-write inside it, with no compare-and-set. A second finish is a no-op and writes no second reward row.
+- **RG-d:** every `worldLockSkill` test case spells out the hero's full `grades`.
+- **RG-e:** `EMPTY_WORLD_STATE.locksOn` is `false`, so a failed read draws nothing; `KingdomState` gains an optional `grades`; `RealmData.worldState` is optional.
+- **RG-f:** every chest has an `ry`, every decoration a `label` and `ry`; `lore.test.ts` holds ten unique pages of 2 to 4 sentences and at most 320 characters, a title of at most 40, and no grade, kindergarten, "behind", "ahead" or markup.
+- **RG-g:** G5 tests `applyTowerOutcome`, every `towerFloorLine`, a bad band id, and that a tower `RunStart` carries no `"solution"`.
+- **RG-h:** G6's tests move into G3 (the bundle's reads) and G5 (`EXPLAIN QUERY PLAN`), each written red first; G7's review counts the per-load queries.
+- **RG-i:** the test `DEED_RUN_DDL` includes the `(child_id, completed_at)` index.
+- **RG-j:** practice, world locks and the Tower share one run builder (`lockRun`), one band derivation (`towerBands`), one set of copy constants (`world-lock-copy.ts`) and one start skeleton (`startLockRun`); test DDL comes from `src/test/realm-db-ddl.ts`.
+- **RG-k:** G7's smoke shows an emptied chest's exact line, the exact waiting-floor line, and that no floor above the hero's band shows.
+- **RG-l:** a `realm-game` test of `handed.props.worldLocks` replaces the vacuous `quietSurfaces(true)` test. In the quiet world (0 minutes) the canvas is the bundle's, unchanged: locks pay nothing, so they are learning, which stays on.
+- **RG-m:** a chest or door run's finish button reads "Done" and its leave link "Leave the lock"; tower runs keep Puzzle practice's copy.
+- **RG-n:** the open and the run's close share one `withChildLock` transaction; if opening throws, both roll back, and the tower's count bump takes the same path. There is no `"error"` outcome.
+- **RG-o:** `worldLockSkill` resolves a subject skill through the catalog, never by building an id string, walking `nearestGrades` within the grade's own band.
+
+The planner's calls (the code forced each one):
+- **PC-G1: one table, namespaced ids.** `chest:<id>` and `door:<place>` (state `"open"`), `decor:<id>` (`"placed"`), `lore:<id>` (`"found"`) and `tower:<band>` (the solved count as text); a chest relocks weekly but what it gave stays, so rewards have rows of their own.
+- **PC-G2: finishing a lock run is one locked transaction:** close the run, read the world rows, check `lockedNow`, upsert the object to `"open"`, write the rewards (`onConflictDoNothing`; fragments through `addPlacesFound(…, exec)`).
+- **PC-G3: each lock run start is seeded with `Date.now() >>> 0`**, as every run start is, so a miss brings a fresh puzzle; a resumed run keeps one stable for 60 minutes.
+- **PC-G4: which skill a lock draws** (`WorldObject.draws` is an area). Logic uses `practiceSkill(grades.logic, focusSkillIds)`; language and science walk the catalog (RG-o). A K-3 language hero finds no skill in their band and gets a logic lock, never a vocabulary `choice`.
+- **PC-G5: what a chest gives.** The first reward in its list the hero does not own; a door gives all at once; an emptied chest opens weekly and gives nothing, writing no reward row.
+- **PC-G6: with locks off the Tower stays drawn at its earned storeys, with no E spot**, because the earned storeys are the record R-G7 keeps.
+- **PC-G7: only the hero finishes a world-object or tower run;** `completeDeedRun` refuses a grown-up with `WORLD_HERO_ONLY`. A grown-up can still answer the hero's open chest run, as with Puzzle practice and side quests today.
+- **PC-G8: the floor query counts science deed runs by the deed's identity**, whether the run played as sorts or as `choice`.
+- **PC-G9: E spots go through `World`, which draws through its siblings** `<WorldLocks>`, `<Decorations>` and `<PuzzleTower>`; `SpikeScene` hands the same stable `worldLocks` prop to both; the Tower's collider is static.
+- **PC-G10: an open chest or door keeps its E spot** ("Look in", "Look through"); its board says it is open and starts nothing.
+- **PC-G11: the component is `WorldLockBoard`**, because `src/lib/tasks/lock-board.ts` already exists.
+- **PC-G12: the Tower.** The base is always drawn and one storey is added per open visible floor (at most 5); the body is 6 by 6 on the 8 by 8 plot with one static collider as tall as five storeys; a floor's lock is `logic-<band>` at `towerLevel(mastery) = min(mastery + 1, MASTERY_MAX)`; no demo, no second chances.
+- **PC-G13: the fragment toast reuses `DeedToast`** with an optional `icon: "map"`, held until the board closes.
+- **PC-G14: vault doors.** A door's id is `door:<placeId>`; its position is the place's plus an offset from a local `DOOR_OFFSETS` table, resolved at module load; the riddle-stone tests arbitrate, and an implementer may move a door at most 3 units.
+- **PC-G15: the world state is assembled after the child row is read,** from rows read in the first parallel round, at no extra read.
+- **PC-G16: `RunKind` gains `"tower"` in G2** with `deed_run.kind`'s TS enum; `db:generate` emits nothing for the enum, so 0044 holds only the table.
+- **PC-G17: the world-lock path runs only when `run.kind === "world" && isWorldObjectId(run.sourceRef)`,** so Puzzle practice is untouched.
+- **PC-G18: "the hero's band".** `towerBands(grades)` gives `ownBand` (the band of the logic grade, which has no offset) and `scienceBand` (where science side quests draw now). `towerFloors(starred, bands)`: the top open floor is `ownBand` if the science band is starred, else the highest starred band at or below `ownBand`; every floor up to it is open; the visible floors are the open ones plus `ownBand`.
+
 ---
 
 ## 3. Goals, non-goals, anti-goals
