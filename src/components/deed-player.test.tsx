@@ -396,3 +396,19 @@ describe("DeedPlayer", () => {
     });
   });
 });
+
+describe("DeedPlayer (a word sort lock)", () => {
+  const sort = {
+    kind: "lock" as const, id: "q1", skillId: "sci-k", prompt: "Sort these: living or not living?",
+    view: { puzzle: "sort" as const, categories: ["Living", "Not living"], items: [{ id: "a", label: "dog" }, { id: "b", label: "rock" }] },
+  };
+  const sortRun: RunStart = { ...run, questions: [sort], responses: [null] };
+
+  it.each([[true, 1], [false, 0]])("hands the hero's read-aloud setting (%s) to the lock, so a pick speaks the word (%s times)", async (readAloud, times) => {
+    const user = userEvent.setup();
+    render(<DeedPlayer run={sortRun} profile={{ ...profile, readAloud }} calm={false} onFinished={() => {}} />);
+    await user.click(screen.getByRole("button", { name: "dog" }));
+    expect(vi.mocked(speak).mock.calls.filter(([w]) => w === "dog")).toHaveLength(times);
+  });
+});
+

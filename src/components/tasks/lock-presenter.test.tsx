@@ -9,10 +9,17 @@ import { tokenName } from "@/lib/tasks/lock-shapes";
 import type { ClientTask, LockTask } from "@/lib/tasks/types";
 import { seededRng } from "@/lib/utils/drill-generators";
 import { initialFlow, type FlowState } from "@/lib/utils/deed-run-flow";
+import { speak } from "@/lib/utils/speech";
 import { SORT } from "@/test/lock-stubs";
 import { TaskPresenter } from "./presenters";
 
-afterEach(cleanup);
+// Speech is spoken to a spy; nothing here can speak for real.
+vi.mock("@/lib/utils/speech", async (orig) => ({ ...(await orig<typeof import("@/lib/utils/speech")>()), speak: vi.fn() }));
+
+afterEach(() => {
+  cleanup();
+  vi.clearAllMocks();
+});
 
 type Lock = Extract<ClientTask, { kind: "lock" }>;
 type Puzzle = LockTask["puzzle"];
@@ -38,12 +45,12 @@ const missed = (t: LockTask): FlowState => ({
   ...asking, phase: "resolved", ruledOut: ["x"], result: { correct: false, secondChance: false, answer: "Here is one way it fits.", reveal: TASK_CODECS.lock.encode(t.solution) },
 });
 
-type Over = { task?: LockTask; flow?: FlowState; variant?: "board" | "page"; disabled?: boolean; calm?: boolean; numerals?: boolean };
+type Over = { task?: LockTask; flow?: FlowState; variant?: "board" | "page"; disabled?: boolean; calm?: boolean; numerals?: boolean; readAloud?: boolean };
 function show(t: LockTask, over: Over = {}) {
   const onRespond = vi.fn();
   const props = (o: Over) => ({
     task: client(o.task ?? t), flow: o.flow ?? asking, variant: o.variant ?? ("board" as const), numerals: o.numerals ?? true,
-    calm: o.calm ?? false, disabled: o.disabled ?? false, onRespond,
+    calm: o.calm ?? false, disabled: o.disabled ?? false, readAloud: o.readAloud, onRespond,
   });
   const view = render(<TaskPresenter {...props(over)} />);
   return { onRespond, container: view.container, rerender: (o: Over) => view.rerender(<TaskPresenter {...props({ ...over, ...o })} />) };
@@ -451,6 +458,66 @@ describe("every square and every shape is named", () => {
   it("a subject sort's items are its words", () => {
     show(SORT);
     for (const item of SORT.items) expect(within(screen.getByRole("group", { name: "To sort" })).getByRole("button", { name: item.label })).toHaveTextContent(item.label);
+  });
+});
+
+describe("read-aloud on a sort", () => {
+  const tray = () => within(screen.getByRole("group", { name: "To sort" })).getAllByRole("button");
+
+  it("a word sort speaks exactly the picked word, once, when read-aloud is on", () => {
+    show(SORT, { readAloud: true });
+    fireEvent.click(screen.getByRole("button", { name: "dog" }));
+    expect(speak).toHaveBeenCalledTimes(1);
+    expect(speak).toHaveBeenCalledWith("dog");
+  });
+
+  it("the keyboard path speaks too: a pick is a button press", async () => {
+    const { default: userEvent } = await import("@testing-library/user-event");
+    const user = userEvent.setup();
+    show(SORT, { readAloud: true });
+    screen.getByRole("button", { name: "horse" }).focus();
+    await user.keyboard("{Enter}");
+    expect(speak).toHaveBeenCalledTimes(1);
+    expect(speak).toHaveBeenCalledWith("horse");
+  });
+
+  it.each([[false], [undefined]])("a word sort speaks nothing when read-aloud is %s", (readAloud) => {
+    show(SORT, { readAloud });
+    fireEvent.click(screen.getByRole("button", { name: "dog" }));
+    expect(speak).not.toHaveBeenCalled();
+  });
+
+  it("a shape sort stays silent, read-aloud or not", () => {
+    show(gen("sort1"), { readAloud: true });
+    fireEvent.click(tray()[0]);
+    expect(speak).not.toHaveBeenCalled();
+  });
+
+  it("putting a word in a bin and sending it back speak nothing", () => {
+    show(SORT, { readAloud: true });
+    fireEvent.click(screen.getByRole("button", { name: "fish" }));
+    vi.mocked(speak).mockClear();
+    fireEvent.click(screen.getByRole("button", { name: "Put in Lives in water" }));
+    fireEvent.click(screen.getByRole("button", { name: "fish, in Lives in water" }));
+    expect(speak).not.toHaveBeenCalled();
+  });
+
+  it("putting the picked word down again (a second tap) speaks nothing", () => {
+    show(SORT, { readAloud: true });
+    const fish = screen.getByRole("button", { name: "fish" });
+    fireEvent.click(fish);
+    vi.mocked(speak).mockClear();
+    fireEvent.click(fish);
+    expect(speak).not.toHaveBeenCalled();
+  });
+
+  it("a read-only face (busy, or resolved) speaks nothing", () => {
+    show(SORT, { readAloud: true, disabled: true });
+    fireEvent.click(screen.getByRole("button", { name: "dog" }));
+    cleanup();
+    show(SORT, { readAloud: true, flow: missed(SORT) });
+    for (const b of screen.queryAllByRole("button")) fireEvent.click(b);
+    expect(speak).not.toHaveBeenCalled();
   });
 });
 

@@ -7,6 +7,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { tokenName } from "@/lib/tasks/lock-shapes";
 import type { LockShape, LockView } from "@/lib/tasks/lock-rules";
+import { speak } from "@/lib/utils/speech";
 import type { SurfaceProps } from "./lock-presenter";
 import { ShapeGlyph, ShapePicture } from "./lock-shape";
 
@@ -148,7 +149,7 @@ function ItemFace({ item }: { item: Item }) {
  * is a 2 × 2 of them, row by row); a subject sort's items are words. Nothing is ever marked on a
  * sort (RF-c).
  */
-export function SortSurface({ view, board, set, readOnly }: SurfaceProps<SortView>) {
+export function SortSurface({ view, board, set, readOnly, readAloud }: SurfaceProps<SortView>) {
   const [picked, setPicked] = useState<number | null>(null);
   const { items, bins } = sortParts(view);
   const root = useRef<HTMLDivElement>(null);
@@ -168,6 +169,13 @@ export function SortSurface({ view, board, set, readOnly }: SurfaceProps<SortVie
     const next = board.findIndex((x, i) => x === 0 && i !== picked);
     focusItem.current = next === -1 ? picked : next;
   };
+  // Picking a word (not putting it down again) reads it to a player who cannot yet: only a word sort has words.
+  const pick = (i: number) => {
+    if (picked === i) return setPicked(null);
+    setPicked(i);
+    const word = items[i].word;
+    if (readAloud && !readOnly && word) speak(word);
+  };
   const takeOut = (i: number) => {
     set(i, 0);
     focusItem.current = i;
@@ -184,7 +192,7 @@ export function SortSurface({ view, board, set, readOnly }: SurfaceProps<SortVie
             aria-label={item.name}
             aria-pressed={picked === i}
             disabled={readOnly}
-            onClick={() => setPicked(picked === i ? null : i)}
+            onClick={() => pick(i)}
           >
             <ItemFace item={item} />
           </button>

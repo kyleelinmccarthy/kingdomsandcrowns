@@ -395,7 +395,7 @@ export function DeedRun({
           </button>
         )}
       </div>
-      <TaskPresenter task={question} flow={flow} variant="board" numerals={numerals} calm={calm} disabled={busy} nudge={nudge} site={site} onRespond={(encoded) => void choose(encoded)} />
+      <TaskPresenter task={question} flow={flow} variant="board" numerals={numerals} calm={calm} readAloud={profile.readAloud} disabled={busy} nudge={nudge} site={site} onRespond={(encoded) => void choose(encoded)} />
       </>)}
       {/* A resolved question with no result is a run picked back up with every answer in: its finish step. */}
       {(feedback || phase === "resolved") && (

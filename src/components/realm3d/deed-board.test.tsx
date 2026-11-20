@@ -593,7 +593,7 @@ describe("a lock on the board (F4)", () => {
     view: { puzzle: "pattern" as const, sequence: [red, blue, red, blue, null], tray: [blue, red] },
   };
   const locks = { ...run, questions: [pattern], responses: [null] as (string | null)[], demo: { at: 0 } as { at: number } | undefined };
-  const begin = async (over: Partial<React.ComponentProps<typeof DeedBoard>> = {}, start = locks) => {
+  const begin = async (over: Partial<React.ComponentProps<typeof DeedBoard>> = {}, start: Awaited<ReturnType<typeof startDeedRun>> = locks) => {
     vi.mocked(startDeedRun).mockResolvedValue(start);
     board(over);
     await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" })));
@@ -607,6 +607,16 @@ describe("a lock on the board (F4)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Got it" }));
     expect(screen.getByRole("heading", { name: "The lock" })).toBeInTheDocument();
     expect(screen.getByText("What comes next?")).toBeInTheDocument();
+  });
+
+  it.each([[true, 1], [false, 0]])("hands the hero's read-aloud setting (%s) to a word sort, so a pick speaks the word (%s times)", async (readAloud, times) => {
+    const sort = {
+      kind: "lock" as const, id: "sci-k:sort:x", skillId: "sci-k", prompt: "Sort these: living or not living?",
+      view: { puzzle: "sort" as const, categories: ["Living", "Not living"], items: [{ id: "a", label: "dog" }, { id: "b", label: "rock" }] },
+    };
+    await begin({ profile: { readAloud, untimed: true } }, { ...run, questions: [sort], responses: [null] });
+    fireEvent.click(screen.getByRole("button", { name: "dog" }));
+    expect(vi.mocked(speak).mock.calls.filter(([w]) => w === "dog")).toHaveLength(times);
   });
 
   it("no Pip for a run that is not marked", async () => {

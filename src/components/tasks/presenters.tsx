@@ -25,6 +25,8 @@ export type PresenterProps<K extends TaskKind> = {
   calm: boolean;
   /** The player is busy with a server call. Resolved and ruled-out are the surface's own business. */
   disabled: boolean;
+  /** The player's read-aloud setting: a kind with words to read may speak them on a tap. */
+  readAloud?: boolean;
   /** The pace guard's word and clue, shown above the surface while it is up. */
   nudge?: { line: string; hint: string } | null;
   /** A side quest's building and what this sitting laid of it, drawn by the bench; a kind with no drawing ignores it. */

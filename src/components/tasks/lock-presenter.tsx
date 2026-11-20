@@ -10,7 +10,8 @@
  * - logic grids: tap a person × item square through ✓, ✗ and blank; the ✓s are the answer;
  * - patterns: tap a shape in the tray, then a gap (or the gap, then the shape);
  * - the balance: tap stones on and off the pan;
- * - sorts: tap an item, then a bin; tap a placed item to take it out again.
+ * - sorts: tap an item, then a bin; tap a placed item to take it out again. With read-aloud on, a
+ *   word sort speaks each word as it is picked (the shape sorts are pictures, and stay silent).
  *
  * "Check the lock" waits for a full board, so an unfinished one never spends a try. The rules are
  * marked (`checkLock`, from the visible puzzle alone: R-F3) only on a second chance, never before
@@ -48,6 +49,8 @@ export type SurfaceProps<V extends LockView = LockView> = {
   readOnly: boolean;
   marks: MarkedLines;
   numerals: boolean;
+  /** The player's read-aloud setting: a word sort speaks each word as it is picked. */
+  readAloud: boolean;
 };
 
 /** A stored response as a board for this puzzle, or null when it is not one (never trusted blindly). */
@@ -64,7 +67,7 @@ const FACE_KEYS = /^(?:[0-9]|Arrow(?:Up|Down|Left|Right)|Enter| |Spacebar|Backsp
 const openingBoard = (view: LockView, flow: FlowState): number[] =>
   (flow.phase === "second-chance" ? boardOf(view, flow.ruledOut[0]) : null) ?? blankBoard(view);
 
-function Lock({ task, flow, variant, numerals, calm, disabled, onRespond }: PresenterProps<"lock">) {
+function Lock({ task, flow, variant, numerals, calm, disabled, readAloud = false, onRespond }: PresenterProps<"lock">) {
   const { view } = task;
   const [board, setBoard] = useState(() => openingBoard(view, flow));
   const titleId = useId();
@@ -95,6 +98,7 @@ function Lock({ task, flow, variant, numerals, calm, disabled, onRespond }: Pres
     readOnly: resolved || disabled,
     marks: reveal ? NO_MARKS : marks,
     numerals,
+    readAloud,
     set: (i, value) => {
       if (resolved || disabled) return;
       setBoard((b) => b.map((x, j) => (j === i ? value : x)));
