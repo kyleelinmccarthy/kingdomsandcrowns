@@ -31,7 +31,7 @@
       "items": [
         {"id":"sg68-mixtures-gold","label":"gold","category":0,"level":0},
         {"id":"sg68-mixtures-sugar","label":"sugar","category":0,"level":0},
-        {"id":"sg68-mixtures-table-salt","label":"table salt","category":0,"level":1},
+        {"id":"sg68-mixtures-silver","label":"silver","category":0,"level":1},
         {"id":"sg68-mixtures-copper","label":"copper","category":0,"level":1},
         {"id":"sg68-mixtures-aluminum","label":"aluminum","category":0,"level":2},
         {"id":"sg68-mixtures-oxygen","label":"oxygen","category":0,"level":3},

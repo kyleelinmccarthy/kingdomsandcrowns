@@ -10,8 +10,8 @@
         {"id":"vg912-frugal-thrifty","label":"thrifty","category":0,"level":0},
         {"id":"vg912-frugal-economical","label":"economical","category":0,"level":0},
         {"id":"vg912-frugal-sparing","label":"sparing","category":0,"level":1},
-        {"id":"vg912-frugal-saving","label":"saving","category":0,"level":1},
-        {"id":"vg912-frugal-prudent","label":"prudent","category":0,"level":2},
+        {"id":"vg912-frugal-budget-minded","label":"budget-minded","category":0,"level":1},
+        {"id":"vg912-frugal-provident","label":"provident","category":0,"level":2},
         {"id":"vg912-frugal-penny-wise","label":"penny-wise","category":0,"level":3},
         {"id":"vg912-frugal-scrimping","label":"scrimping","category":0,"level":3},
         {"id":"vg912-frugal-parsimonious","label":"parsimonious","category":0,"level":4},
@@ -42,7 +42,7 @@
         {"id":"vg912-candid-devious","label":"devious","category":1,"level":1},
         {"id":"vg912-candid-guarded","label":"guarded","category":1,"level":1},
         {"id":"vg912-candid-secretive","label":"secretive","category":1,"level":2},
-        {"id":"vg912-candid-dishonest","label":"dishonest","category":1,"level":3},
+        {"id":"vg912-candid-two-faced","label":"two-faced","category":1,"level":3},
         {"id":"vg912-candid-duplicitous","label":"duplicitous","category":1,"level":3},
         {"id":"vg912-candid-disingenuous","label":"disingenuous","category":1,"level":4}
       ]
@@ -74,9 +74,9 @@
       "categories": ["means meager","opposite of meager"],
       "items": [
         {"id":"vg912-meager-scanty","label":"scanty","category":0,"level":0},
-        {"id":"vg912-meager-scant","label":"scant","category":0,"level":0},
+        {"id":"vg912-meager-limited","label":"limited","category":0,"level":0},
         {"id":"vg912-meager-skimpy","label":"skimpy","category":0,"level":1},
-        {"id":"vg912-meager-sparse","label":"sparse","category":0,"level":1},
+        {"id":"vg912-meager-scarce","label":"scarce","category":0,"level":1},
         {"id":"vg912-meager-paltry","label":"paltry","category":0,"level":2},
         {"id":"vg912-meager-inadequate","label":"inadequate","category":0,"level":3},
         {"id":"vg912-meager-insufficient","label":"insufficient","category":0,"level":3},

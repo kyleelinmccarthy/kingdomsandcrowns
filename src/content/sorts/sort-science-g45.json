@@ -42,7 +42,7 @@
         {"id":"sg45-renewable-natural-gas","label":"natural gas","category":1,"level":1},
         {"id":"sg45-renewable-gasoline","label":"gasoline","category":1,"level":1},
         {"id":"sg45-renewable-propane","label":"propane","category":1,"level":2},
-        {"id":"sg45-renewable-diesel-fuel","label":"diesel fuel","category":1,"level":3},
+        {"id":"sg45-renewable-fuel-oil","label":"fuel oil","category":1,"level":3},
         {"id":"sg45-renewable-uranium","label":"uranium","category":1,"level":3},
         {"id":"sg45-renewable-kerosene","label":"kerosene","category":1,"level":4}
       ]
@@ -88,7 +88,7 @@
         {"id":"sg45-diet-eagle","label":"eagle","category":1,"level":2},
         {"id":"sg45-diet-hawk","label":"hawk","category":1,"level":3},
         {"id":"sg45-diet-crocodile","label":"crocodile","category":1,"level":3},
-        {"id":"sg45-diet-polar-bear","label":"polar bear","category":1,"level":4}
+        {"id":"sg45-diet-leopard","label":"leopard","category":1,"level":4}
       ]
     }
   ]

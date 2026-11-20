@@ -22,7 +22,7 @@
         {"id":"vg68-brave-spineless","label":"spineless","category":1,"level":2},
         {"id":"vg68-brave-craven","label":"craven","category":1,"level":3},
         {"id":"vg68-brave-fainthearted","label":"fainthearted","category":1,"level":3},
-        {"id":"vg68-brave-pusillanimous","label":"pusillanimous","category":1,"level":4}
+        {"id":"vg68-brave-chicken-hearted","label":"chicken-hearted","category":1,"level":4}
       ]
     },
     {
@@ -31,8 +31,8 @@
       "items": [
         {"id":"vg68-generous-giving","label":"giving","category":0,"level":0},
         {"id":"vg68-generous-charitable","label":"charitable","category":0,"level":0},
-        {"id":"vg68-generous-lavish","label":"lavish","category":0,"level":1},
-        {"id":"vg68-generous-bountiful","label":"bountiful","category":0,"level":1},
+        {"id":"vg68-generous-big-hearted","label":"big-hearted","category":0,"level":1},
+        {"id":"vg68-generous-kind-hearted","label":"kind-hearted","category":0,"level":1},
         {"id":"vg68-generous-unselfish","label":"unselfish","category":0,"level":2},
         {"id":"vg68-generous-benevolent","label":"benevolent","category":0,"level":3},
         {"id":"vg68-generous-openhanded","label":"openhanded","category":0,"level":3},
@@ -77,9 +77,9 @@
         {"id":"vg68-tone-graceful","label":"graceful","category":0,"level":0},
         {"id":"vg68-tone-curious","label":"curious","category":0,"level":1},
         {"id":"vg68-tone-confident","label":"confident","category":0,"level":1},
-        {"id":"vg68-tone-childlike","label":"childlike","category":0,"level":2},
+        {"id":"vg68-tone-polite","label":"polite","category":0,"level":2},
         {"id":"vg68-tone-thrifty","label":"thrifty","category":0,"level":3},
-        {"id":"vg68-tone-slender","label":"slender","category":0,"level":3},
+        {"id":"vg68-tone-gentle","label":"gentle","category":0,"level":3},
         {"id":"vg68-tone-resourceful","label":"resourceful","category":0,"level":4},
         {"id":"vg68-tone-bossy","label":"bossy","category":1,"level":0},
         {"id":"vg68-tone-stingy","label":"stingy","category":1,"level":0},
