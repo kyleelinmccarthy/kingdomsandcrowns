@@ -27,9 +27,10 @@ export function SealBadge({ seal }: { seal: Seal }) {
 
 /**
  * The grown-up's small inline panel for pressing a seal: one of six phrases, or a short note
- * (never both: choosing one lets go of the other). The server checks it all again.
+ * (never both: choosing one lets go of the other). The server checks it all again. Once pressed,
+ * the page refreshes, or `onSealed` runs instead (the Chronicle book reads its own pages again).
  */
-export function SealPanel({ assignmentId, onClose }: { assignmentId: string; onClose: () => void }) {
+export function SealPanel({ assignmentId, onClose, onSealed }: { assignmentId: string; onClose: () => void; onSealed?: () => void }) {
   const router = useRouter();
   const [phrase, setPhrase] = useState<number | null>(null);
   const [note, setNote] = useState("");
@@ -45,7 +46,8 @@ export function SealPanel({ assignmentId, onClose }: { assignmentId: string; onC
     try {
       await sealEntry(assignmentId, phrase !== null ? { phrase } : { note });
       onClose();
-      router.refresh();
+      if (onSealed) onSealed();
+      else router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not press the seal");
     } finally {

@@ -56,7 +56,7 @@ vi.mock("@/lib/actions/realm-sound", () => ({ saveRealmSound: vi.fn(async () => 
 vi.mock("@/lib/actions/deeds", () => ({ startDeedRun: vi.fn(), answerDeedQuestion: vi.fn(), completeDeedRun: vi.fn() }));
 vi.mock("@/lib/actions/seasons", () => ({ markCeremonySeen: vi.fn(async () => {}) }));
 vi.mock("@/lib/actions/improvements", () => ({ markBuildingsAnnounced: vi.fn(async () => {}), markDeliverySeen: vi.fn(async () => {}), startBuildRun: vi.fn(), pinPlan: vi.fn(async () => {}) }));
-vi.mock("@/lib/actions/chronicle", () => ({ getChronicle: vi.fn(async () => []) }));
+vi.mock("@/lib/actions/chronicle", () => ({ getChronicle: vi.fn(async () => ({ weeks: [], canSeal: false })) }));
 vi.mock("@/lib/actions/review", () => ({ startReviewRun: vi.fn(), getReviewDue: vi.fn(async () => false) }));
 vi.mock("@/lib/actions/spells", () => ({ getSpellbook: vi.fn(async () => ({ spells: [], slots: 4, level: 3, unlocked: ["ember", "tide", "bolt", "orb"], schoolCounts: { element: 2, form: 0, modifier: 0 }, subjectNamesBySchool: { element: ["Math"], form: [], modifier: [] } })) }));
 vi.mock("@/lib/actions/realm", () => ({ getRealmKingdom: vi.fn() }));
@@ -348,7 +348,7 @@ describe("the Scribe's lectern", () => {
   const week = { weekStart: "2026-11-16", entries: [{ assignmentId: "a1", date: "2026-11-17", title: "Fractions", subject: "Math", materialColor: "#888888", notes: "I did the hard ones.", drawing: null, seal: null }] };
 
   it("opens the Chronicle when E is pressed at it, and pauses the world", async () => {
-    vi.mocked(getChronicle).mockResolvedValueOnce([week]);
+    vi.mocked(getChronicle).mockResolvedValueOnce({ weeks: [week], canSeal: false });
     const { bus } = mount();
     act(() => bus.onNear(CHRONICLE_TARGET));
     expect(screen.getByRole("button", { name: /Read The Chronicle/ })).toBeInTheDocument();

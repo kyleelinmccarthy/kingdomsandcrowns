@@ -8,15 +8,18 @@
  * The pages load when the book opens (`getChronicle`) and never ride along with the Realm's bundle.
  * Everything on a page is text a person wrote, so it is rendered as text and never as markup, and
  * drawings are drawn by `DrawingView` from validated strokes. A grown-up visiting reads the same
- * book; sealing stays on the quest card, so there is no seal control here.
+ * book, and one who may seal (`canSeal`: edit access, never the hero) presses or lifts a seal on any
+ * page here, since the quest card is gone from the board once its day has passed. After a seal the
+ * book reads its pages again, staying on the same week.
  */
 
 import "./chronicle-book.css";
 import { useCallback, useEffect, useState } from "react";
-import { SealBadge } from "@/components/chronicle-seal";
+import { SealBadge, SealPanel } from "@/components/chronicle-seal";
 import { DrawingView } from "@/components/drawing-view";
 import { GameIcon } from "@/components/game-icon";
 import { getChronicle } from "@/lib/actions/chronicle";
+import { unsealEntry } from "@/lib/actions/chronicle-seals";
 import type { ChronicleEntry, ChronicleWeek } from "@/lib/services/realm-chronicle";
 import { Panel } from "./frame-hud";
 
@@ -32,7 +35,7 @@ export function weekLabel(weekStart: string, now: Date): string {
   return `Week of ${d} ${MONTHS[m - 1]}${y === now.getFullYear() ? "" : ` ${y}`}`;
 }
 
-type Load = { state: "loading" } | { state: "error" } | { state: "ready"; weeks: ChronicleWeek[] };
+type Load = { state: "loading" } | { state: "error" } | { state: "ready"; weeks: ChronicleWeek[]; canSeal: boolean };
 
 export function ChronicleBook({
   childId,
@@ -57,10 +60,11 @@ export function ChronicleBook({
   useEffect(() => {
     let live = true;
     getChronicle(childId).then(
-      (weeks) => {
+      ({ weeks, canSeal }) => {
         if (!live) return;
-        setPage(0);
-        setLoad({ state: "ready", weeks });
+        // Reading the pages again after a seal keeps the reader on the same week.
+        setPage((p) => Math.min(p, Math.max(0, weeks.length - 1)));
+        setLoad({ state: "ready", weeks, canSeal });
       },
       () => live && setLoad({ state: "error" }),
     );
@@ -73,10 +77,13 @@ export function ChronicleBook({
     setLoad({ state: "loading" });
     setAttempt((n) => n + 1);
   }, []);
+  /** Reads the pages again without the "opening" line, so a seal shows where it was pressed. */
+  const reread = useCallback(() => setAttempt((n) => n + 1), []);
 
   const title = isHero ? "Your Chronicle" : `${heroName}'s Chronicle`;
   const weeks = load.state === "ready" ? load.weeks : [];
   const week = weeks[page];
+  const canSeal = load.state === "ready" && load.canSeal;
 
   return (
     <Panel title={title} label={title} wide icon={<GameIcon name="scroll" className="r3-board-icon" />} onClose={onClose}>
@@ -113,7 +120,7 @@ export function ChronicleBook({
           </div>
           <ul className="r3-chron-entries">
             {week.entries.map((e) => (
-              <Entry key={e.assignmentId} entry={e} />
+              <Entry key={e.assignmentId} entry={e} canSeal={canSeal} onSealed={reread} />
             ))}
           </ul>
         </>
@@ -127,7 +134,7 @@ export function ChronicleBook({
   );
 }
 
-function Entry({ entry }: { entry: ChronicleEntry }) {
+function Entry({ entry, canSeal, onSealed }: { entry: ChronicleEntry; canSeal: boolean; onSealed: () => void }) {
   return (
     <li className="r3-chron-entry">
       <h4 className="r3-chron-title">{entry.title}</h4>
@@ -144,6 +151,43 @@ function Entry({ entry }: { entry: ChronicleEntry }) {
           <SealBadge seal={entry.seal} />
         </div>
       )}
+      {canSeal && <SealTools entry={entry} onSealed={onSealed} />}
     </li>
+  );
+}
+
+/** A grown-up's seal controls on a page: "Seal it" opens the seal panel, "Remove seal" lifts one. */
+function SealTools({ entry, onSealed }: { entry: ChronicleEntry; onSealed: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [acting, setActing] = useState(false);
+  const [error, setError] = useState("");
+
+  async function unseal() {
+    setActing(true);
+    setError("");
+    try {
+      await unsealEntry(entry.assignmentId);
+      onSealed();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not remove the seal");
+    } finally {
+      setActing(false);
+    }
+  }
+
+  if (open && !entry.seal) {
+    return (
+      <div className="r3-chron-seal-tools">
+        <SealPanel assignmentId={entry.assignmentId} onClose={() => setOpen(false)} onSealed={onSealed} />
+      </div>
+    );
+  }
+  return (
+    <div className="r3-chron-seal-tools">
+      {error && <p className="r3-chron-seal-error">{error}</p>}
+      <button type="button" className="r3-chron-seal-btn" disabled={acting} onClick={entry.seal ? unseal : () => setOpen(true)}>
+        {entry.seal ? "Remove seal" : "Seal it"}
+      </button>
+    </div>
   );
 }

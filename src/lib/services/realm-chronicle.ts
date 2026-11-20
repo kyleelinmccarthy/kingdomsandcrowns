@@ -7,6 +7,7 @@ import type { RecentQuest } from "@/lib/realm/mentions";
 import { addDays, todayInZone, weekStartOf } from "@/lib/utils/dates";
 import { parseDrawing, hasDrawing, type Drawing } from "@/lib/utils/drawing";
 import { parseSeal, type Seal } from "@/lib/utils/seals";
+import { sanitizeText } from "@/lib/utils/sanitize";
 
 /** One page of the Chronicle: a finished quest the hero told in notes, a drawing, or a grown-up's seal. */
 export type ChronicleEntry = {
@@ -33,6 +34,17 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_WEEKS = 8;
 const MAX_WEEKS = 52;
 
+/**
+ * The notes the hero told the Scribe, or null. A quick completion with no notes of the hero's own
+ * stores the quest's description as the notes (the learning log wants it), so notes that are just
+ * that description, as the completion sanitized it, are the grown-up's words and not a page.
+ */
+function heroNotes(notes: string | null, description: string | null): string | null {
+  const told = notes?.trim();
+  if (!told || told === sanitizeText(description ?? "").trim()) return null;
+  return notes;
+}
+
 /** The weeks to read: a whole number from 1 to 52, and eight when it is not a number at all. */
 function clampWeeks(weeks: number): number {
   if (Number.isNaN(weeks)) return DEFAULT_WEEKS;
@@ -41,7 +53,7 @@ function clampWeeks(weeks: number): number {
 
 /**
  * The hero's Chronicle: finished quests from the last `weeks` weeks (this week counts as one) that
- * have Scribe's Notes, a drawing or a seal, grouped by Monday-start week, newest week first and
+ * have Scribe's Notes of the hero's own (not the quest's description), a drawing or a seal, grouped by Monday-start week, newest week first and
  * newest entry first.
  *
  * One query. The quest and subject are LEFT-joined, so a quest or subject that has since been
@@ -66,6 +78,7 @@ export async function loadChronicle(
       drawing: schema.questAssignment.drawing,
       seal: schema.questAssignment.seal,
       title: schema.quest.title,
+      description: schema.quest.description,
       subjectName: schema.subject.name,
       subjectMaterial: schema.subject.material,
     })
@@ -88,7 +101,7 @@ export async function loadChronicle(
     if (!row.completedAt) continue;
     const date = todayInZone(zone, row.completedAt);
     if (date < firstWeek) continue;
-    const notes = row.notes?.trim() ? row.notes : null;
+    const notes = heroNotes(row.notes, row.description);
     const drawing = parseDrawing(row.drawing);
     const seal = parseSeal(row.seal);
     const kept = hasDrawing(drawing) ? drawing : null;

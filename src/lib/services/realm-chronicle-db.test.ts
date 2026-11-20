@@ -38,8 +38,11 @@ async function subject(id: string, name: string, extra: { material?: string | nu
   );
 }
 
-async function quest(id: string, title: string, subjectId: string, childId = "c1") {
-  await client.query("INSERT INTO quest (id, child_id, subject_id, title, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, unixepoch(), unixepoch())", [id, childId, subjectId, title]);
+async function quest(id: string, title: string, subjectId: string, childId = "c1", description: string | null = null) {
+  await client.query(
+    "INSERT INTO quest (id, child_id, subject_id, title, description, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, unixepoch(), unixepoch())",
+    [id, childId, subjectId, title, description],
+  );
 }
 
 async function assignment(
@@ -108,6 +111,21 @@ describe("loadChronicle", () => {
     await assignment("pending", "q1", null, { notes: "not done", status: "pending" });
     const ids = (await loadChronicle("c1", { now: NOW })).flatMap((w) => w.entries.map((e) => e.assignmentId));
     expect(ids).toEqual(["sealed", "drawn", "notes"]);
+  });
+
+  it("never shows the quest's own description as the hero's notes", async () => {
+    // A quick completion with no notes of the hero's own sends the quest's description, and the
+    // completion stores that (sanitized) as the notes: it is the grown-up's words, not the hero's.
+    await subject("s1", "Math");
+    await quest("q1", "Lesson 42", "s1", "c1", "  Complete <b>Lesson 42</b>, pages 3-5  ");
+    await assignment("borrowed", "q1", "2026-11-17T09:00:00Z", { notes: "Complete Lesson 42, pages 3-5" });
+    await assignment("drawnBorrowed", "q1", "2026-11-17T10:00:00Z", { notes: "Complete Lesson 42, pages 3-5", drawing: DRAWING });
+    await assignment("own", "q1", "2026-11-17T11:00:00Z", { notes: "I did pages 3 to 5 with Dad" });
+    const entries = (await loadChronicle("c1", { now: NOW })).flatMap((w) => w.entries);
+    const by = Object.fromEntries(entries.map((e) => [e.assignmentId, e]));
+    expect(entries.map((e) => e.assignmentId)).toEqual(["own", "drawnBorrowed"]);
+    expect(by.drawnBorrowed).toMatchObject({ notes: null, drawing: DRAWING });
+    expect(by.own.notes).toBe("I did pages 3 to 5 with Dad");
   });
 
   it("leaves out another child's entries", async () => {

@@ -52,6 +52,27 @@
 .r3-chron-seal p span { color: #2a1709; }
 .r3-chron-seal p .text-muted-foreground { color: #6b4a1e; }
 
+/* A grown-up's seal controls on a page (`SealTools`): the shared seal panel sits on the parchment,
+   so its buttons and input keep dark text on light ground. */
+.r3-chron-seal-tools { margin-top: 0.5rem; }
+.r3-chron-seal-tools button,
+.r3-chron-seal-tools input { color: #2a1709; }
+.r3-chron-seal-tools input { background: #fffaf0; }
+.r3-chron-seal-tools .text-muted-foreground { color: #6b4a1e; }
+.r3-chron-seal-btn {
+  min-height: 2.2rem;
+  padding: 0 0.8rem;
+  border-radius: 10px;
+  border: 2px solid rgba(90, 53, 16, 0.55);
+  background: #f3e2bb;
+  font: inherit;
+  font-weight: 800;
+  cursor: var(--cursor-hand);
+}
+.r3-chron-seal-btn:disabled { opacity: 0.55; cursor: default; }
+.r3-chron-seal-btn:focus-visible { outline: 3px solid #5a3510; outline-offset: 2px; }
+.r3-chron-seal-error { margin: 0 0 0.3rem; font-size: 0.9rem; font-weight: 700; color: #8a1c12; }
+
 .r3-chron-empty { margin: 0.6rem 0; font-size: 1.1rem; font-weight: 600; line-height: 1.5; color: #fff1d2; }
 
 @media (max-width: 40rem) {
