@@ -12,7 +12,8 @@
  * shows only the clue: before a clue is resolved nothing on it says anything about any place.
  *
  * The frame mounts it keyed by `walk.key` and only hides it (`hidden`) under a panel, so the pause
- * menu or another villager's talk never loses the clue the hero is on.
+ * menu or another villager's talk never loses the clue the hero is on. Its card is the shared
+ * `WalkCard` (RI-a / S14), which the rune walk wears too.
  */
 
 import { useEffect, useState, type MutableRefObject } from "react";
@@ -28,7 +29,7 @@ import { readyToFinish } from "@/lib/utils/deed-run-flow";
 import type { RunSummary } from "@/lib/utils/deed-run-types";
 import { canSpeak, speak, stopSpeaking } from "@/lib/utils/speech";
 import type { TrailWalkOn } from "./use-trail-walk";
-import "./trail-walk.css";
+import { WalkCard } from "./walk-card";
 
 export function TrailWalk({
   walk,
@@ -141,85 +142,72 @@ export function TrailWalk({
 
   const count = trailClueCount(shown + 1, total);
   return (
-    <section className={`trail-walk r3-plank${calm ? " trail-walk--calm" : ""}`} role="region" aria-label={TRAIL_TRACKER_LABEL} hidden={hidden}>
-      <div className="trail-walk-head">
-        <GameIcon name="scroll" className="trail-walk-icon" />
-        <span className="r3-run-dots trail-walk-dots" role="img" aria-label={count}>
-          {run.questions.map((q, i) => {
-            const done = i < flow.index || (i === flow.index && flow.phase === "resolved");
-            return <span key={q.id} className={`r3-run-dot${done ? " r3-run-dot--done" : i === shown ? " r3-run-dot--now" : ""}`} />;
-          })}
-        </span>
-        {numerals && (
-          <span className="trail-walk-count" aria-hidden="true">
-            {count}
+    <WalkCard
+      label={TRAIL_TRACKER_LABEL}
+      icon="scroll"
+      head={
+        <>
+          <span className="r3-run-dots trail-walk-dots" role="img" aria-label={count}>
+            {run.questions.map((q, i) => {
+              const done = i < flow.index || (i === flow.index && flow.phase === "resolved");
+              return <span key={q.id} className={`r3-run-dot${done ? " r3-run-dot--done" : i === shown ? " r3-run-dot--now" : ""}`} />;
+            })}
           </span>
-        )}
-        {/* Compact icon buttons, so the head is one row at every size (their words are their names and titles).
-            In the head, never in the scrolling body, so they are always in reach (a short phone, larger text). */}
-        <button
-          type="button"
-          className="r3-round trail-walk-btn trail-walk-fold"
-          aria-label={folded ? TRAIL_SHOW : TRAIL_HIDE}
-          title={folded ? TRAIL_SHOW : TRAIL_HIDE}
-          aria-expanded={!folded}
-          onClick={() => setFolded((f) => !f)}
-        >
-          <span className="trail-walk-chevron" aria-hidden="true" />
-        </button>
-        {!folded && canSpeak() && (
+          {numerals && (
+            <span className="trail-walk-count" aria-hidden="true">
+              {count}
+            </span>
+          )}
+        </>
+      }
+      tools={
+        canSpeak() && (
           <button type="button" className="r3-round r3-read trail-walk-btn trail-walk-read" aria-label={TRAIL_READ_ALOUD} title={TRAIL_READ_ALOUD} onClick={() => speak(clueWords)}>
             <GameIcon name="sparkles" className="r3-read-icon" />
           </button>
-        )}
-      </div>
-      {/* The head and the foot are pinned; only the body (the lines and the clue) scrolls when the card is capped. */}
-      {!folded && (
-        <div className="trail-walk-body">
-          {line && (
-            <p className={`trail-walk-line${flow.result?.correct ? " trail-walk-line--right" : ""}`} role="status">
-              {line}
-            </p>
-          )}
-          {lookedHere && <p className="trail-walk-line">{TRAIL_LOOKED_HERE}</p>}
-          <p className="trail-walk-text" aria-live="polite">
-            {clue?.prompt}
-          </p>
-        </div>
-      )}
-      {/* Pinned with the foot: a failed finish's "Finish the trail" never scrolls out of reach. */}
-      {!folded && error && (
-        <p className="r3-board-error trail-walk-error" role="alert">
-          {error}{" "}
-          {ready && (
-            <button type="button" className="r3-link-button" disabled={busy} onClick={() => void finish()}>
-              {TRAIL_FINISH}
-            </button>
-          )}
+        )
+      }
+      folded={folded}
+      onFold={() => setFolded((f) => !f)}
+      hideLabel={TRAIL_HIDE}
+      showLabel={TRAIL_SHOW}
+      foot={
+        flow.phase === "second-chance" && (
+          <button
+            type="button"
+            className="r3-link-button"
+            disabled={busy}
+            onClick={() => {
+              setSearchedHere(true);
+              setLookedHere(false);
+              void showMe();
+            }}
+          >
+            Show me
+          </button>
+        )
+      }
+      leaveLabel={TRAIL_LEAVE}
+      onLeave={onLeave}
+      // Not while the finish is out: the run is done on the server, and its result board must open.
+      leaveDisabled={ready && busy}
+      // A failed finish's "Finish the trail" is pinned with the foot, never scrolled out of reach.
+      error={error}
+      retryLabel={ready ? TRAIL_FINISH : undefined}
+      onRetry={() => void finish()}
+      retryDisabled={busy}
+      hidden={hidden}
+      calm={calm}
+    >
+      {line && (
+        <p className={`trail-walk-line${flow.result?.correct ? " trail-walk-line--right" : ""}`} role="status">
+          {line}
         </p>
       )}
-      {!folded && (
-        <div className="trail-walk-foot">
-          {flow.phase === "second-chance" && (
-            <button
-              type="button"
-              className="r3-link-button"
-              disabled={busy}
-              onClick={() => {
-                setSearchedHere(true);
-                setLookedHere(false);
-                void showMe();
-              }}
-            >
-              Show me
-            </button>
-          )}
-          {/* Not while the finish is out: the run is done on the server, and its result board must open. */}
-          <button type="button" className="r3-link-button trail-walk-leave" disabled={ready && busy} onClick={onLeave}>
-            {TRAIL_LEAVE}
-          </button>
-        </div>
-      )}
-    </section>
+      {lookedHere && <p className="trail-walk-line">{TRAIL_LOOKED_HERE}</p>}
+      <p className="trail-walk-text" aria-live="polite">
+        {clue?.prompt}
+      </p>
+    </WalkCard>
   );
 }
