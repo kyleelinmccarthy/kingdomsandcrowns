@@ -1486,7 +1486,7 @@
           ]
         },
         {
-          "text": "The keep's steward writes: 'Wagons for the feast must come up the road to its very end, where the great doors will be opened for them.'",
+          "text": "The keep's steward writes: 'Guests for the feast must come up the road to its very end, where the great doors will be opened for them.'",
           "answer": "landmark:castle-gate",
           "redirect": "This is not where the north road ends. Read the note again.",
           "why": "The great doors at the end of the road lead into the castle: the castle gate.",

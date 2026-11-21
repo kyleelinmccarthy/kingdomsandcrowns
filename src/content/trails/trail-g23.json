@@ -13,7 +13,7 @@
           "redirect": "This is not where the bell rings. Read the first sentence again."
         },
         {
-          "text": "Miller Tessa makes flour here for the baker. Go and find her.",
+          "text": "Tessa makes flour here for the baker. Go and find her.",
           "answer": "landmark:mill",
           "redirect": "No grain is ground into flour here. What is the clue mostly about?"
         }
