@@ -152,19 +152,23 @@ describe("the rune kind (R-I5)", () => {
   });
 
   it("presents a skill only while a pool credits it, and draws only then (F-7, RI-a / S10)", () => {
-    // With no pool loaded nothing is presented, and nothing is drawn.
-    __setRunePoolsForTest([]);
-    expect(runeKind.presents("spell-g23")).toBe(false);
-    expect(runeKind.presents("lang-gk")).toBe(false);
-    expect(TASK_DRAWERS.rune(findSkill("spell-g23")!, 1, seededRng(1))).toBeNull();
-    // A pool credits its band's skills and no others.
-    __setRunePoolsForTest([cloneRunePool("g23")]);
-    expect(runeKind.presents("spell-g23")).toBe(true);
-    expect(runeKind.presents("lang-g3")).toBe(true);
-    expect(runeKind.presents("lang-gk")).toBe(false);
-    expect(TASK_DRAWERS.rune(findSkill("spell-g23")!, 1, seededRng(1))).toMatchObject({ kind: "rune", skillId: "spell-g23" });
-    // null restores the pools that ship (I5): a skill is presented exactly when one of them credits it.
-    __setRunePoolsForTest(null);
+    try {
+      // With no pool loaded nothing is presented, and nothing is drawn.
+      __setRunePoolsForTest([]);
+      expect(runeKind.presents("spell-g23")).toBe(false);
+      expect(runeKind.presents("lang-gk")).toBe(false);
+      expect(TASK_DRAWERS.rune(findSkill("spell-g23")!, 1, seededRng(1))).toBeNull();
+      // A pool credits its band's skills and no others.
+      __setRunePoolsForTest([cloneRunePool("g23")]);
+      expect(runeKind.presents("spell-g23")).toBe(true);
+      expect(runeKind.presents("lang-g3")).toBe(true);
+      expect(runeKind.presents("lang-gk")).toBe(false);
+      expect(TASK_DRAWERS.rune(findSkill("spell-g23")!, 1, seededRng(1))).toMatchObject({ kind: "rune", skillId: "spell-g23" });
+    } finally {
+      // null restores the pools that ship (I5), even when an assertion above failed.
+      __setRunePoolsForTest(null);
+    }
+    // A skill is presented exactly when a shipped pool credits it.
     const ships = (id: string): boolean => RUNE_POOL_FILES.some((f) => (f as { skillIds: string[] }).skillIds.includes(id));
     expect(runeKind.presents("spell-g23")).toBe(ships("spell-g23"));
     expect(runeKind.presents("lang-gk")).toBe(ships("lang-gk"));

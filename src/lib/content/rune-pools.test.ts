@@ -72,6 +72,32 @@ describe("validateRunePool: shape and identity", () => {
     expect(rulesOf(effect)).toEqual(new Set([R.shape]));
   });
 
+  it("refuses sparse arrays as a shape problem, never a throw (I4 fix round 1)", () => {
+    const holes = cloneRunePool() as unknown as { entries: unknown[]; skillIds: unknown[] };
+    holes.entries = new Array(3);
+    expect(() => validateRunePool(holes)).not.toThrow();
+    expect(rulesOf(holes)).toEqual(new Set([R.shape]));
+    const skillHoles = cloneRunePool() as unknown as { skillIds: unknown[] };
+    skillHoles.skillIds = new Array(2);
+    expect(rulesOf(skillHoles)).toEqual(new Set([R.shape]));
+    const tileHoles = cloneRunePool() as unknown as { entries: { tiles: unknown[]; words: unknown[] }[] };
+    tileHoles.entries[0].tiles = new Array(6);
+    tileHoles.entries[1].words = new Array(1);
+    expect(() => validateRunePool(tileHoles)).not.toThrow();
+    expect(rulesOf(tileHoles)).toEqual(new Set([R.shape]));
+  });
+
+  it("fails an entry id that holds one of its words from g45 up: a task id hashes the entry id, which can be guessed (I4 fix round 1)", () => {
+    const { pool, id } = withEntry("g45", { id: "zyxwvt-wagon" });
+    expect(rulesAt(pool, id)).toContain(R.idNamesWord);
+    const g912 = withEntry("g912", { id: "fx-zyxwvt-1" });
+    expect(rulesAt(g912.pool, g912.id)).toContain(R.idNamesWord);
+    expect(rulesAt(withEntry("g45", { id: "fx-mend-01" }).pool, "fx-mend-01")).not.toContain(R.idNamesWord);
+    // A dictation's word is spoken anyway, so a k1 word that is an effect's name may sit in fx-<effect>-NN.
+    const k1 = withEntry("k1", { id: "fx-mend-01", words: ["mend"], readAloud: "Mend. Build mend.", tiles: ["m", "e", "n", "d", "a", "i", "o"] });
+    expect(rulesAt(k1.pool, k1.id)).not.toContain(R.idNamesWord);
+  });
+
   it("names the pool after its band, and credits the band's skills, in order", () => {
     expect(rulesOf({ ...cloneRunePool("g23"), poolId: "rune-g45" })).toContain(R.poolId);
     expect(rulesOf({ ...cloneRunePool("k1"), skillIds: ["spell-g1", "lang-gk"] })).toContain(R.skill);
@@ -172,6 +198,13 @@ describe("validateRunePool: tiles (R-I17)", () => {
     expect(rulesAt(pool, id)).toContain(R.notBuildable);
   });
 
+  it("fails a tile that holds an accepted word with more letters around it (I4 fix round 1)", () => {
+    const { pool, id } = withEntry("g68", { words: ["restore"], tiles: ["re", "store", "de", "pre", "scrib", "restores"] });
+    expect(rulesAt(pool, id)).toContain(R.wholeWordTile);
+    const inner = withEntry("g68", { words: ["restore"], tiles: ["re", "store", "de", "pre", "scrib", "unrestore"] });
+    expect(rulesAt(inner.pool, inner.id)).toContain(R.wholeWordTile);
+  });
+
   it("fails a tile that is a whole word, and a word built from one tile", () => {
     const { pool, id } = withEntry("g45", { words: ["zyxwvt"], tiles: ["zyx", "wvt", "zyxwvt", "a", "e", "i"] });
     expect(rulesAt(pool, id)).toContain(R.wholeWordTile);
@@ -202,9 +235,24 @@ describe("validateRunePool: tiles (R-I17)", () => {
     expect(fallbackTiles(["c", "b", "a", "o", "u", "y"])).toEqual(["a", "b", "c", "o", "u", "y"]);
     expect(rulesAt(pool, id)).toContain(R.unshufflable);
     // A decoy that sorts between two of the word's tiles breaks the run.
+    // The word plus more letters is a tell too (I4 fix round 1): built as "r · estore", but sorted A-Z the decoys
+    // "re · stored" sit side by side and read "restored". No run equals the word, so only "starts with" catches it.
+    const tiles = ["r", "estore", "re", "stored", "de"];
+    expect(fallbackTiles(tiles)).toEqual(["de", "estore", "r", "re", "stored"]);
+    const sortsLonger = withEntry("g68", { words: ["restore"], tiles }, "grow");
+    expect(rulesAt(sortsLonger.pool, sortsLonger.id)).toContain(R.unshufflable);
     const between = withEntry("k1", { words: ["ace"], readAloud: "ace. Build ace.", tiles: ["e", "c", "a", "b", "u", "y"] });
     expect(hasSpelledRun(fallbackTiles(["e", "c", "a", "b", "u", "y"]), ["ace"])).toBe(false);
     expect(rulesAt(between.pool, between.id)).not.toContain(R.unshufflable);
+  });
+});
+
+describe("validateRunePool: cost", () => {
+  it("does not try to shuffle a tray past the cap: 300 extra tiles are refused at once (I4 fix round 1)", () => {
+    const { pool, id } = withEntry("g68", { tiles: [...cloneRunePool("g68").entries[0].tiles, ...Array.from({ length: 300 }, () => "q")] });
+    const started = performance.now();
+    expect(rulesAt(pool, id)).toContain(R.tileCount);
+    expect(performance.now() - started).toBeLessThan(400);
   });
 });
 
@@ -367,8 +415,10 @@ describe("keys, ids and counts", () => {
     expect(opaqueRuneId("rune-k1", "lit-lantern")).toMatch(/^[0-9a-f]{8}$/);
   });
 
-  it("counts the decoys against the first word's fewest-tile tiling", () => {
+  it("counts the decoys against the first word's fewest-tile tiling, and is null (never a throw) when it cannot be built", () => {
     expect(decoyCount({ words: ["light"], tiles: ["l", "igh", "t", "i", "g", "h", "a"] } as RuneEntry)).toBe(4);
+    expect(decoyCount({ words: ["light"], tiles: ["l", "t", "a"] } as RuneEntry)).toBeNull();
+    expect(decoyCount({ words: [], tiles: ["l", "t", "a"] } as unknown as RuneEntry)).toBeNull();
   });
 
   it("sorts the fallback A-Z, ties by authored index, and leaves the input alone", () => {

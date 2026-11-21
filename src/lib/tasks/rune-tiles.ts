@@ -64,14 +64,22 @@ export function spelled(tiles: readonly string[], picks: readonly number[]): str
   return lower(picks.map((i) => tiles[i] ?? "").join(""));
 }
 
-/** Whether some run of adjacent tiles, read left to right, spells one of `words` (a single tile counts). */
+/**
+ * Whether some run of adjacent tiles, read left to right, starts with one of `words` (a single tile
+ * counts). A run that reads the word and then more letters shows it as plainly as the word alone:
+ * "re · stor · ed" reads "restored", and "m · e · nds" reads "mends" (I4 fix round 1). A run is read from
+ * a tile's first letter, so a word that begins inside a tile ("p · re · store", from "pre") is not counted.
+ */
 export function hasSpelledRun(tiles: readonly string[], words: readonly string[]): boolean {
-  const wanted = new Set(words.map(lower));
+  const wanted = words.map(lower).filter((w) => w.length > 0);
+  if (wanted.length === 0) return false;
+  const longest = Math.max(...wanted.map((w) => w.length));
   for (let i = 0; i < tiles.length; i++) {
     let run = "";
-    for (let j = i; j < tiles.length; j++) {
+    // Once a run is as long as the longest word, a longer run shares its start: nothing more can match.
+    for (let j = i; j < tiles.length && run.length < longest; j++) {
       run += lower(tiles[j]);
-      if (wanted.has(run)) return true;
+      if (wanted.some((w) => run.startsWith(w))) return true;
     }
   }
   return false;

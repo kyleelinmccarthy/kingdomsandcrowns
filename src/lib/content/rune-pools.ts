@@ -99,6 +99,7 @@ export const RUNE_POOL_RULES = {
   poolId: "pool-id",
   skill: "credited-skill",
   entryId: "entry-id",
+  idNamesWord: "id-names-word",
   duplicateEntry: "duplicate-entry",
   opaqueCollision: "opaque-id-collision",
   duplicatePrompt: "duplicate-prompt",
@@ -160,8 +161,9 @@ export const effectKey = (e: RuneEffect): string => `effect:${e}`;
 
 /**
  * What the browser sees of an entry in a task id: 8 lower-case hex characters, from the pool and the
- * author's entry id (which can lean on the word, `lit-lantern`). For task ids ONLY: a sheet's per-entry
- * code is `runeCode`, which follows what is shown, not this.
+ * author's entry id. A hash of a guessable id can be matched by guessing, so the validator holds every
+ * entry id clear of its own words (`id-names-word`): `fx-light-07`, never `lit-lantern`. For task ids
+ * ONLY: a sheet's per-entry code is `runeCode`, which follows what is shown, not this.
  */
 export const opaqueRuneId = (poolId: string, entryId: string): string => hex8(hash32(runeKey(poolId, entryId)));
 
@@ -175,9 +177,14 @@ export function runeCode(poolId: string, entry: Pick<RuneEntry, "effect" | "prom
   return hex8(hash32([poolId, entry.effect, normLabel(entry.prompt), normLabel(entry.readAloud ?? ""), [...entry.tiles].sort().join(" ")].join("\u0000")));
 }
 
-/** How many tiles of the tray the first word does not use: its fewest-tile tiling's leftovers. */
-export function decoyCount(entry: Pick<RuneEntry, "words" | "tiles">): number {
-  return entry.tiles.length - runeTiling(entry.words[0], entry.tiles)!.length;
+/**
+ * How many tiles of the tray the first word does not use: its fewest-tile tiling's leftovers. Null,
+ * never a throw, when the entry has no first word or the tiles cannot build it (`not-buildable` says so).
+ */
+export function decoyCount(entry: Pick<RuneEntry, "words" | "tiles">): number | null {
+  const word = entry.words[0];
+  const tiling = typeof word === "string" ? runeTiling(word, entry.tiles) : null;
+  return tiling ? entry.tiles.length - tiling.length : null;
 }
 
 // ---------------------------------------------------------------------------
@@ -222,7 +229,12 @@ export function shuffleTiles(tiles: readonly string[], words: readonly string[],
 // ---------------------------------------------------------------------------
 
 const isRecord = (x: unknown): x is Record<string, unknown> => typeof x === "object" && x !== null && !Array.isArray(x);
-const isStringList = (x: unknown): x is string[] => Array.isArray(x) && x.every((s) => typeof s === "string");
+/** Every index read, so a hole in a sparse array (`new Array(3)`) is a problem here, not a throw later (`every` skips holes). */
+function isStringList(x: unknown): x is string[] {
+  if (!Array.isArray(x)) return false;
+  for (let i = 0; i < x.length; i++) if (typeof x[i] !== "string") return false;
+  return true;
+}
 
 function exactKeys(x: Record<string, unknown>, required: readonly string[], optional: readonly string[] = []): string | null {
   const extra = Object.keys(x).filter((k) => !required.includes(k) && !optional.includes(k));
@@ -247,9 +259,14 @@ function checkShape(raw: unknown): Problem[] {
     bad(null, "entries is an array");
     return problems;
   }
-  raw.entries.forEach((entry: unknown, n) => {
+  // An indexed loop, not `forEach`: a hole in a sparse array is an entry that is not an object.
+  for (let n = 0; n < raw.entries.length; n++) {
+    const entry: unknown = raw.entries[n];
     const at = isRecord(entry) && typeof entry.id === "string" ? entry.id : `entry ${n + 1}`;
-    if (!isRecord(entry)) return bad(null, `${at} is an object`);
+    if (!isRecord(entry)) {
+      bad(null, `${at} is an object`);
+      continue;
+    }
     const keys = exactKeys(entry, ["id", "effect", "level", "prompt", "words", "tiles", "hint"], ["readAloud", "why"]);
     if (keys) bad(at, keys);
     if (typeof entry.id !== "string") bad(at, "id is a string");
@@ -259,7 +276,7 @@ function checkShape(raw: unknown): Problem[] {
     for (const k of ["readAloud", "why"]) if (k in entry && typeof entry[k] !== "string") bad(at, `${k} is a string`);
     if (!isStringList(entry.words)) bad(at, "words is a list of strings");
     if (!isStringList(entry.tiles)) bad(at, "tiles is a list of strings");
-  });
+  }
   return problems;
 }
 
@@ -304,6 +321,12 @@ function checkEntry(pool: RunePool, entry: RuneEntry): Problem[] {
 
   // The id.
   if (!ENTRY_ID.test(entry.id)) bad(R.entryId, `entry id "${entry.id}" must be 3-40 lower-case letters, digits and dashes`);
+  // A task id is a hash of the entry id, and a hash of a guessable id can be matched by guessing (I4 fix round 1).
+  // From g45 up only: a dictation's word is spoken by design (R-I18), so its id gives nothing away, and a
+  // k1 word may be an effect's own name ("mend" in `fx-mend-03`).
+  if (!listen) for (const w of entry.words) {
+    if (w.length > 0 && entry.id.toLowerCase().includes(w.toLowerCase())) bad(R.idNamesWord, `entry id "${entry.id}" holds the word "${w}"; name it by effect and number (fx-light-07)`);
+  }
 
   // The words.
   const wordsWanted = listen ? "exactly 1" : `1-${MAX_WORDS}`;
@@ -319,7 +342,8 @@ function checkEntry(pool: RunePool, entry: RuneEntry): Problem[] {
   const tiles = entry.tiles.map((t) => t.toLowerCase());
   const tileCapOk = entry.tiles.length <= RUNE_MAX_TILES;
   for (const w of words) {
-    if (tiles.includes(w)) bad(R.wholeWordTile, `tile "${w}" is a whole accepted word`);
+    // A tile that holds the word, alone or with more letters ("restores"), shows it wherever it stands.
+    for (const t of tiles) if (t.includes(w)) bad(R.wholeWordTile, `tile "${t}" holds the accepted word "${w}"`);
     if (!tileCapOk) continue; // runeTiling refuses a tray past the cap; tile-count has said so
     const tiling = runeTiling(w, entry.tiles);
     if (!tiling) {
@@ -335,10 +359,14 @@ function checkEntry(pool: RunePool, entry: RuneEntry): Problem[] {
     const decoys = decoysFor(words[0], entry.tiles);
     if (decoys && !decoys.some((d) => VOWEL.test(d))) bad(R.vowelDecoy, `no decoy holds a vowel, so the tray's vowels are all the word's`);
   }
-  if (words.length > 0) {
+  // Past the cap the tray is refused already (tile-count), and shuffling it would cost O(n³) for nothing.
+  if (words.length > 0 && tileCapOk) {
     if (hasSpelledRun(fallbackTiles(entry.tiles), words)) {
-      bad(R.unshufflable, `the tiles sorted A-Z [${fallbackTiles(entry.tiles).join(", ")}] spell a word: put a decoy that sorts between two of its tiles`);
+      bad(R.unshufflable, `the tiles sorted A-Z [${fallbackTiles(entry.tiles).join(", ")}] read a word (or a word and more letters): put a decoy that sorts between two of its tiles`);
     } else {
+      // Belt and braces, mandated by the plan (RI-a / S16): with a clean fallback this cannot fail, since
+      // `shuffleTiles` returns either an order that spells nothing or the fallback. It guards `shuffleTiles`
+      // itself, should it ever change.
       for (let seed = 1; seed <= SHUFFLE_PROOF_SEEDS; seed++) {
         const shown = shuffleTiles(entry.tiles, words, seededRng(seed));
         if (hasSpelledRun(shown, words)) {
@@ -435,7 +463,7 @@ export function validateRunePool(raw: unknown): Problem[] {
   }
 
   // The decoy count is no tell (R-I17, N17): spread over at least 3 values, none more than LENGTH_TELL_MAX_SHARE.
-  const counts = pool.entries.filter((e) => e.words.length > 0 && e.tiles.length <= RUNE_MAX_TILES && runeTiling(e.words[0], e.tiles) !== null).map(decoyCount);
+  const counts = pool.entries.filter((e) => e.tiles.length <= RUNE_MAX_TILES).map(decoyCount).filter((c): c is number => c !== null);
   if (counts.length > 0) {
     const byCount = new Map<number, number>();
     for (const c of counts) byCount.set(c, (byCount.get(c) ?? 0) + 1);

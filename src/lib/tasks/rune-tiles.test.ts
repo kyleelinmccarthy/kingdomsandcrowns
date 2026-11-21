@@ -73,6 +73,15 @@ describe("hasSpelledRun: whether the tray's order gives a word away", () => {
   it("reads without regard to case", () => {
     expect(hasSpelledRun(["M", "e", "ND"], ["mend"])).toBe(true);
   });
+
+  it("finds a word at the start of a longer run or tile (I4 fix round 1: the word plus more letters still shows it)", () => {
+    expect(hasSpelledRun(["un", "re", "stor", "ed", "pre"], ["restore"])).toBe(true);
+    expect(hasSpelledRun(["un", "restores"], ["restore"])).toBe(true);
+    expect(hasSpelledRun(["a", "m", "e", "nds", "i"], ["mend"])).toBe(true);
+    expect(hasSpelledRun(["sub", "ir", "rig", "at", "ed", "de"], ["irrigate"])).toBe(true);
+    // Broken before the word ends: no tell.
+    expect(hasSpelledRun(["re", "stor", "un", "ed"], ["restore"])).toBe(false);
+  });
 });
 
 describe("runeTiling's bounds (I2 review): it runs on the request path, so it refuses what no pool can hold", () => {

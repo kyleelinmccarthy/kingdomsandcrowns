@@ -292,6 +292,20 @@ describe("shuffleTiles (RI-a / S16)", () => {
   });
 });
 
+describe("the reviewer's probes (I4 fix round 1): a tray never shows the word inside a longer run", () => {
+  /** True when some run of adjacent tiles reads the word and then more letters (or exactly the word). */
+  const shows = (tiles: readonly string[], word: string): boolean =>
+    tiles.some((_, i) => tiles.slice(i).reduce<string[]>((runs, t) => [...runs, (runs[runs.length - 1] ?? "") + t], []).some((run) => run.startsWith(word)));
+
+  it.each([
+    ["restore", ["re", "stor", "e", "ed", "un", "pre"]],
+    ["mend", ["m", "e", "nd", "nds", "a", "i"]],
+    ["irrigate", ["ir", "rig", "at", "e", "ed", "de", "sub"]],
+  ] as const)("%s: 1,000 seeded trays show no run starting with it", (word, tiles) => {
+    for (let seed = 1; seed <= 1000; seed++) expect(shows(shuffleTiles(tiles, [word], seededRng(seed)), word), `seed ${seed}`).toBe(false);
+  });
+});
+
 describe("drawRuneFor: one word of one effect", () => {
   it("gives a light entry, near and fresh first", () => {
     const pool = use();
