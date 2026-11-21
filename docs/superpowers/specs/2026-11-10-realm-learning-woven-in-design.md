@@ -172,6 +172,66 @@ The planner's calls (the code forced each one):
 - **PC-G17: the world-lock path runs only when `run.kind === "world" && isWorldObjectId(run.sourceRef)`,** so Puzzle practice is untouched.
 - **PC-G18: "the hero's band".** `towerBands(grades)` gives `ownBand` (the band of the logic grade, which has no offset) and `scienceBand` (where science side quests draw now). `towerFloors(starred, bands)`: the top open floor is `ownBand` if the science band is starred, else the highest starred band at or below `ownBand`; every floor up to it is open; the visible floors are the open ones plus `ownBand`.
 
+### Calls settled for slice 5 (2026-11-21)
+
+The owner's answers:
+- **A wrong place on a trail works like the other puzzles.** The first wrong place gets a gentle redirect and a second try; the second resolves a miss, reveals the answer and moves on.
+- **Trails reach the village only.** No trail sends anyone to the five named places or into a room.
+- **Rune objects can be fixed any time, like chests (Part I).**
+- **Slice 5 merges into `dev` when green** (full checks and the whole-branch review), pre-authorized; slice 6 needs the owner's word.
+- **K–2 readers' trails come from one grade up, and a Kindergarten hero always hears every clue read aloud** (R-H17, R-H21).
+- **A reading focus that no trail can play wins:** that side quest plays as multiple choice (R-H22).
+- **With runes off, rune objects are not drawn** (R-I13).
+
+The rulings:
+- **R-H1:** `trailKind.allowsSecondChance` is `true`. The first wrong anchor resolves `open` with `feedback: "wrong_place"` and the clue's redirect for that anchor as the hint; the second resolves `missed` with `reveal` the answer's anchor id and `answer` "It was {label}.", and the trail moves on. Stars, mastery and minutes follow `RUN_EFFECTS.deed`.
+- **R-H2:** the village only. Every answer is one of 14 anchors: the eight building sites, the castle gate, the Puzzle Tower and four new small objects.
+- **R-H3:** merging is pre-authorized (see the owner's answer above).
+- **R-H4:** anchors are a pure catalog (`ANCHORS`, `src/lib/realm/anchors.ts`), ids `landmark:<id>` or `object:<id>`, never renamed or reused. Every anchor looks the same to every child; the hitching post, the Ring's arch, scenery and reward decorations or chests are not anchors.
+- **R-H5:** the `trail` kind: the response is an anchor id, the view is `{}`, the clue is the task's `prompt` and `readAloud`. The answer, redirects, `trail` and `explain` stay on the server until resolution. The task id is opaque: `<skillId>:trail:<8 hex>`.
+- **R-H6:** every anchor is a candidate everywhere: all 14 stakes have E spots, the picture map shows all 14, and `parseResponse` accepts any anchor id.
+- **R-H7:** `TaskKindDef` gains optional `reveal?(t)` and `retryLine?(t, r)`; `secondChanceHint(t, firstPick)` is the one place `resultFor` and `resumedStart` read a second-chance line from.
+- **R-H8:** `SkillSource` gains `{ kind: "trail" }`; `read-g6` and `read-g9` are trail-only rows; `choiceDrawable(s)` replaces each lock test that meant "has no choice questions"; `runCandidates` keeps only skills the run can play. With trails off, or at the gate, reading is `read-g4` multiple choice exactly as today.
+- **R-H9:** walking runs: `WALKING_KINDS = ["trail"]`. The candidates are the skills the mechanic presents (the band's skill when the hero's own grade has none); a focus skill the mechanic does not present leaves the walk for the whole run; review of other kinds is left out; clues keep their drawn order and review clues come last.
+- **R-H10:** a trail side quest is half the grown-up's length (`questionCount: TRAIL_CLUES` = 4), only when the run draws trails.
+- **R-H11:** a week without repeats: the drawer passes over trails met in the hero's last `TRAIL_MEMORY_RUNS = 21` reading side quests, and uses them only after every other trail is used. Pools hold at least 45 trails, 100 clues and 9 trails per level.
+- **R-H12:** trail pools `src/content/trails/trail-<band>.json`, each crediting one skill (k1 `read-g1`, g23 `read-g3`, g45 `read-g4`, g68 `read-g6`, g912 `read-g9`); a trail is 2–4 clues (k1: 2–3); every clue can be answered from its own text alone, by one anchor only.
+- **R-H13:** comprehension by band: k1 literal and decodable; g23 main idea, never naming the place; g45 inference and vocabulary in context; g68 purpose and point of view with two or more facts; g912 tone and word choice with facts.
+- **R-H14:** the walking run in the Realm: the villager's board starts the run, "Set off" hands it to the frame's `TrailWalk` tracker, E at a stake answers the current clue, "Leave the trail" ends the walk with the run still open. The tracker does not survive a reload and adds no per-load query.
+- **R-H15:** the picture run off-world: an SVG village map with all 14 anchors as buttons; a tap selects, "Search here" sends; a ruled-out place is "Not here"; a resolved miss marks the answer "It was here."; it fits 390 px.
+- **R-H16:** `DemoKey` gains `"trail"`, one demo, "Watch Pip", shown to a K–3 hero before their first clue.
+- **R-H17:** a Kindergarten hero always hears every clue, its second-chance line and its miss line read aloud; every other hero hears it unprompted only with read-aloud on. One pure rule, `autoSpeaks(task, readAloud, narrateClues)`.
+- **R-H18:** the switch "Reading trails" (`mechanics.trail`) defaults on; off, reading plays as multiple choice. The gate, riddle stones and Quick review stay multiple choice.
+- **R-H19:** no migration and no per-load query; a reading run start with trails on costs one more query, `loadRecentTrailIds`, in its second parallel round.
+- **R-H20:** the reading deeds' stories are unchanged; the walk's words come from `trail-copy.ts`.
+- **R-H21:** K–2 readers' trails come from one grade up: a K hero draws `read-g1` trails, a grade-2 hero `read-g3` trails; their sight-word skills stay in review and in a focus.
+- **R-H22:** a reading focus no trail can play (`sight-k1`, `sight-g23`) wins: that side quest plays as multiple choice and is the grown-up's whole length.
+
+The controller's rulings (pre-flight scan, adopted as RH-a for F-1 to F-23):
+- **F-1:** one shared list, `NON_DRILL_SHEET_PREFIXES = ["sort-", "trail-"]`, drives the drill blind-pass gate.
+- **F-2:** a sheet's per-clue code fingerprints what the reader sees (`clueCode`), never the identity hash; `carryTrailForward` keeps unchanged answers and blanks an edited clue's.
+- **F-3:** on the board and the page, a trail task speaks its second-chance and miss lines through `autoSpeaks`, as the tracker does.
+- **F-4:** building stakes start 2.2 past the drawn site's north edge, at least 2.0 and at most 3.5; H1 runs the full-village "no spot holds a stake, no stake holds a spot" check, so the catalog is final at H1.
+- **F-5:** H3's candidate tests use a local fixture `{ ...findDeed("well-signs")!, mechanic: "choice" }` and define `ALL_ON`.
+- **F-6:** the blind sheet takes an anchor id, `both` or `?`; `CONFUSABLE_ANCHORS` names the well and the water trough, the garden and the beehives, the notice board and the library; a clue using a pair's shared word carries `parts` ruling the partner out.
+- **F-7:** H4 rewrites H2's `presents` assertion under `__setTrailPoolsForTest([])`; H7 and H8 land together before any manual play.
+- **F-8:** `walked` is cleared whenever the overlay leaves `interact`.
+- **F-9:** this spec's §4.6 and §8 carry the village-only and narration fixes.
+- **F-10:** forged anchors go through `answerDeedQuestion`, and a resumed start's JSON is checked against the stored answers.
+- **F-11:** the no-repeats bar is tested on the database path: 7 days of three reading side quests a day, per band.
+- **F-12:** one shared skill-map parser (`src/test/skill-map.ts`) and shared blind-pass helpers (`src/lib/content/sheet-kit.ts`).
+- **F-13:** the map's controls are real `<button>`s over an `aria-hidden` `<svg>`, never inside it.
+- **F-14:** H3 lists `skills.test.ts`'s "resolvable sources" branch and `content-review.tsx` among its files.
+- **F-15:** H5 commits no sheets; H6 cuts, answers and settles them, so the gate is never red at an H5 commit.
+- **F-16:** grade words are matched on word boundaries, `/grades?|kindergarten/i`.
+- **F-17:** `TrailWalk` passes `result.reveal` on only when `isAnchorId` holds.
+- **F-18:** with second chances off, a first wrong place resolves a miss with its reveal; E while the clue is resolved does nothing.
+- **F-19:** the backdrop's plots fit the map; a building stake stands on its slot's own x (a catalog convention).
+- **F-20:** a clue with no `why` gets the band's generic line, `TRAIL_GENERIC_WHY[band]`, as its `explain`.
+- **F-21:** the content page's trail sample lives in `sample.ts`/`content-review.tsx`; `simulateTrailWeek` in `src/test/trail-week.ts`; `bandTopGrade` gives the readability ceiling; `TRAIL_MEMORY_RUNS` lives in `deed-run-store.ts`; `avoid` reaches the refill draw too.
+- **F-22:** H5 and H6 each start red (the expected-pool list, then "every pool has a sheet"); H3's grade-7 `deeds-db` case is a regression guard.
+- **F-23:** the validator tests a `redirects[...]` value that names the answer.
+
 ---
 
 ## 3. Goals, non-goals, anti-goals
@@ -358,11 +418,11 @@ interface TaskKindDef<K extends TaskKind> {
 
 ### 4.6 Reading clue trails (slice 5)
 
-- **A trail** is 2–4 short clue texts at the child's reading level, found on signboards, letters from villagers and notes in rooms. Each clue's answer is **a place or object in the world**, chosen by walking to it and interacting. Reading *is* the navigation.
+- **A trail** is 2–4 short clue texts at the child's reading level, found on signboards, letters from villagers and notes in the village. Each clue's answer is **a place or object in the village** (village only, owner, 2026-11-21), chosen by walking to it and interacting. Reading *is* the navigation.
 - **Content:** validated JSON pools `src/content/trails/*.json` per band (k1, g23, g45, g68, g912).
-  - Each clue references world anchors by id (`landmark:mill`, `place:longwater`, `object:three-marked-stone`), never raw coordinates, so trails survive layout changes. A test asserts that every referenced anchor exists.
+  - Each clue references world anchors by id (`landmark:mill`, `object:notice-board`; ~~`place:longwater`~~ struck: no trail reaches the five named places), never raw coordinates, so trails survive layout changes. A test asserts that every referenced anchor exists.
   - Comprehension is built into the clue: literal at k1–g23, inference and vocabulary-in-context at g45 and up, and multi-clue synthesis at g68 and up. A wrong choice leads somewhere with a gentle redirect line, not a red X.
-- **Narration** (`readAloud`, the existing speech path) for k1 and on request at any band.
+- **Narration** (`readAloud`, the existing speech path): a Kindergarten hero always hears every clue; others hear it on request, or with read-aloud on.
 - `trail` is a task kind. A trail run is an ordinary deed run whose tasks are clues; the response is an anchor id, checked server-side. Reading deeds become trail deeds (`Deed.mechanic = "trail"`). In the world it is a walking run, and off-world a picture run (§4.10).
 - **Skill ids:** trail pools credit the existing reading ids for k1–g45 (`read-g1`, `read-g3`, `read-g4`) and two new rows, `read-g6` and `read-g9`, for the bands reading lacks today.
 - The existing reading pools (`read-g1`, `read-g3`, `read-g4`, sight words) stay as `choice` review.
@@ -473,7 +533,7 @@ Minutes are still earned only by side quests (as today), real quests, the daily 
 | 2 | **Building by measuring** | `measure` kind with bench generators per skill, the bench presenter, site pieces placed per solved task, notation bridge, math deeds → measure. | 1 |
 | 3 | **Real work in the world** | Materials (catalog, subject mapping, ledger, minting), quest-card and Tavern pull, improvements and build runs, plaques, stockpile, delivery card, Chronicle hall with drawings and seals, villager mentions, minutes quieter. | 1, 2 |
 | 4 | **Logic locks** | `lock` kind (pattern, grid, cage, sort), `logic` skills, sort pools, locks on chests/doors/gates, `realm_world_state`, science deeds → lock, Puzzle Tower. | 1 |
-| 5 | **Reading clue trails** | `trail` kind, world anchors, trail pools per band, narration, reading deeds → trail. | 1, 4 (`realm_world_state`) |
+| 5 | **Reading clue trails** | `trail` kind, world anchors, trail pools per band, narration, reading deeds → trail. | 1, 4 |
 | 6 | **Rune spellcraft** | `rune` kind, rune stone presenter, rune objects, `RUNE_WORDS` pools, language deeds → rune. | 1, 4 |
 
 Each slice ships on its own branch, merges into `dev` when green, and leaves the app fully working. A slice whose mechanic is turned off falls back to `choice`.
