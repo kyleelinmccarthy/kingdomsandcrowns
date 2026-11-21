@@ -19,7 +19,7 @@ export const TRAIL_ANCHOR_FACTS: Readonly<Record<AnchorId, readonly string[]>> =
   "landmark:garden": ["The Royal Garden grows herbs and keeps bees, with a bench in the sun.", "Keeper Ivy looks after it."],
   "landmark:castle-gate": ["The way into the castle, at the north end of the road."],
   "landmark:puzzle-tower": ["A tall stone tower of bonus puzzles, at the south-east edge of the village."],
-  "object:notice-board": ["Villagers pin up news and notes here.", "It stands by the road in the south of the village."],
+  "object:notice-board": ["Villagers pin up news and notes here.", "It stands by the village's southern entrance."],
   "object:water-trough": ["Animals drink here.", "It is a long wooden trough filled with water, at the south edge of the village."],
   "object:beehives": ["Bees live here and make honey.", "The hives stand at the south-west edge of the village."],
   "object:hay-cart": ["A farm cart piled with hay.", "It stands at the east edge of the village."],
@@ -33,5 +33,6 @@ export const TRAIL_ANCHOR_FACTS: Readonly<Record<AnchorId, readonly string[]>> =
 export const CONFUSABLE_ANCHORS: readonly { anchors: readonly [AnchorId, AnchorId]; shared: readonly string[] }[] = [
   { anchors: ["landmark:well", "object:water-trough"], shared: ["water", "drink", "drinks", "bucket"] },
   { anchors: ["landmark:garden", "object:beehives"], shared: ["bee", "bees", "honey", "flower", "flowers"] },
+  { anchors: ["landmark:watchtower", "landmark:puzzle-tower"], shared: ["tower"] },
   { anchors: ["object:notice-board", "landmark:library"], shared: ["note", "notes", "read", "reading", "scroll", "scrolls", "news"] },
 ];

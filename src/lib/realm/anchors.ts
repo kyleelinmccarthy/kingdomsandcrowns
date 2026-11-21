@@ -78,6 +78,9 @@ const CATALOG: readonly Anchor[] = [
   landmark("library", "the library", ["library"], "book", 8.5, -9.5),
   landmark("watchtower", "the watchtower", ["watchtower", "watch tower"], "watchtower", -11.0, -13.7),
   landmark("garden", "the garden", ["garden"], "flower", 13.5, -3.0),
+  // The gate's stake stands inside the ceremony plaza's x range on purpose (RH-b): the gate's own E spot
+  // reaches 2.6, the citadel's collider runs down to z -10 and the stake may stand at most 3.5 from the gate,
+  // so only this strip south of the gate is left. `anchors.test.ts` keeps it 1.0 from every ceremony mark.
   landmark("castle-gate", "the castle gate", ["castle gate", "castle"], "castle", 1.5, -9.25),
   landmark("puzzle-tower", "the Puzzle Tower", ["puzzle tower"], "lock", 25.5, 18.8),
   small("notice-board", "the notice board", ["notice board", "board"], "scroll", 7.0, 15.6, { x: 7.0, z: 14.5, ry: 0 }),

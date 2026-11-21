@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { BUILDINGS } from "@/lib/utils/kingdom";
 import { CONFUSABLE_ANCHORS, TRAIL_ANCHOR_FACTS } from "@/lib/content/trail-anchor-facts";
 import { buildWorldLayout, CASTLE_POSITION } from "./layout";
+import { ceremonyMarks } from "./ceremony/ceremony";
 import { DECOR, DECOR_IDS } from "./decor";
 import { IMPROVEMENT_IDS, IMPROVEMENTS } from "./improvements";
 import { KEEP_YARD } from "./keep-yard";
@@ -137,6 +138,19 @@ describe("the anchors catalog", () => {
     expect(inside).toEqual([]);
   });
 
+  it("keeps the gate's stake 1.0 from every crown-ceremony mark, the hero's and each villager's, at every castle tier (RH-b)", () => {
+    const gate = anchor("landmark:castle-gate");
+    const near: string[] = [];
+    for (const castleType of CASTLE_TIER_IDS) {
+      const marks = ceremonyMarks(buildWorldLayout({ castleType, buildings: [] }));
+      for (const [who, m] of [["hero", marks.hero], ...Object.entries(marks.villagers)] as [string, { x: number; z: number }][]) {
+        const d = Math.hypot(gate.x - m.x, gate.z - m.z);
+        if (d < 1.0) near.push(`the gate's stake is ${d.toFixed(2)} from ${who}'s mark (${castleType})`);
+      }
+    }
+    expect(near).toEqual([]);
+  });
+
   it("lists the stakes as spots, one constant with one identity", () => {
     expect(ANCHOR_SPOT).toEqual({ radius: 0.5, reach: 1.4 });
     expect(ANCHOR_SPOTS.map((s) => s.id)).toEqual([...ANCHOR_IDS]);
@@ -183,9 +197,11 @@ describe("the anchors' facts", () => {
     expect(has("landmark:well", "object:water-trough")).toBe(true);
     expect(has("landmark:garden", "object:beehives")).toBe(true);
     expect(has("object:notice-board", "landmark:library")).toBe(true);
+    expect(has("landmark:watchtower", "landmark:puzzle-tower")).toBe(true);
     const pair = (a: AnchorId, b: AnchorId) => CONFUSABLE_ANCHORS.find((p) => p.anchors.includes(a) && p.anchors.includes(b))!;
     expect(pair("landmark:well", "object:water-trough").shared).toEqual(expect.arrayContaining(["water", "drink", "drinks", "bucket"]));
     expect(pair("landmark:garden", "object:beehives").shared).toEqual(expect.arrayContaining(["bee", "bees", "honey", "flower", "flowers"]));
+    expect(pair("landmark:watchtower", "landmark:puzzle-tower").shared).toEqual(["tower"]);
     expect(pair("object:notice-board", "landmark:library").shared).toEqual(expect.arrayContaining(["note", "notes", "read", "reading", "scroll", "scrolls", "news"]));
   });
 });
@@ -212,6 +228,7 @@ describe("no spot in the village holds a stake, and no stake holds a spot (F-4, 
   const locks = worldCanvas({ locksOn: true, open: [], decor: [], tower: [] }).locks;
 
   const held: string[] = [];
+  const kinds = new Set<string>();
   const label = (s: InteractSpot) => `${s.target.kind} ${s.target.id}`;
   for (const castleType of CASTLE_TIER_IDS) {
     for (const built of [true, false]) {
@@ -236,6 +253,7 @@ describe("no spot in the village holds a stake, and no stake holds a spot (F-4, 
       });
       for (const s of stakes) {
         for (const o of others) {
+          kinds.add(o.target.kind);
           const tag = `(${castleType}, ${built ? "built" : "bare"})`;
           if (edgeDistance(o, s.x, s.z) <= o.reach) held.push(`${label(o)} holds the stake ${s.target.id} ${tag}`);
           if (edgeDistance(s, o.x, o.z) <= s.reach) held.push(`the stake ${s.target.id} holds ${label(o)} ${tag}`);
@@ -246,6 +264,10 @@ describe("no spot in the village holds a stake, and no stake holds a spot (F-4, 
 
   it("holds none of the village's own spots, built or bare, at every castle tier", () => {
     expect([...new Set(held)]).toEqual([]);
+  });
+
+  it("checks every kind of spot the village builds, so a buildSpots change that drops one fails here", () => {
+    expect([...kinds].sort()).toEqual(["arch", "castle", "chronicle", "lock", "plans", "plaque", "post", "riddle", "site", "tower", "villager"]);
   });
 
   it("holds no stake in another stake's reach", () => {

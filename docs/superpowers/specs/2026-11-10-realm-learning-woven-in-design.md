@@ -231,6 +231,7 @@ The controller's rulings (pre-flight scan, adopted as RH-a for F-1 to F-23):
 - **F-21:** the content page's trail sample lives in `sample.ts`/`content-review.tsx`; `simulateTrailWeek` in `src/test/trail-week.ts`; `bandTopGrade` gives the readability ceiling; `TRAIL_MEMORY_RUNS` lives in `deed-run-store.ts`; `avoid` reaches the refill draw too.
 - **F-22:** H5 and H6 each start red (the expected-pool list, then "every pool has a sheet"); H3's grade-7 `deeds-db` case is a regression guard.
 - **F-23:** the validator tests a `redirects[...]` value that names the answer.
+- **RH-b (H1 review):** the castle gate's stake stands at (1.5, -9.25), inside the ceremony plaza's x range, on purpose: the gate's reach, the citadel collider and the 3.5 cap leave only that strip. A test keeps it at least 1.0 from every crown-ceremony mark. The towers (`landmark:watchtower`, `landmark:puzzle-tower`) join `CONFUSABLE_ANCHORS` on the shared word "tower".
 
 ---
 
