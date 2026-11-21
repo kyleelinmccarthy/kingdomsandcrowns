@@ -5,6 +5,7 @@ import { TRAIL, WELL_REDIRECT } from "@/test/trail-stubs";
 import { RUNE, RUNE_HINT } from "@/test/rune-stubs";
 import { isWalkingKind, isWalkingRun, WALKING_KINDS } from "./kinds";
 import { PATTERN } from "@/test/lock-stubs";
+import { __setRunePoolsForTest } from "./runes";
 import { __setTrailPoolsForTest } from "./trails";
 import { TASK_KINDS, isRegisteredKind, isTaskCorrect, kindForSkill, kindOf, secondChanceHint, storedFeedback, taskDef, taskDefOf, toClientTask } from "./registry";
 import type { TaskKind } from "./types";
@@ -112,8 +113,14 @@ describe("task kind registry", () => {
 
   it("falls back to choice for a rune while no pool presents the skill (R-I5)", () => {
     const ALL = new Set<TaskKind>(["choice", "measure", "lock", "trail", "rune"]);
-    expect(kindForSkill("rune", "spell-g23", ALL)).toBe("choice");
-    expect(kindForSkill("rune", "lang-gk", ALL)).toBe("choice");
+    // With no pool loaded (RI-a / S10): green before and after I5 ships the pools.
+    __setRunePoolsForTest([]);
+    try {
+      expect(kindForSkill("rune", "spell-g23", ALL)).toBe("choice");
+      expect(kindForSkill("rune", "lang-gk", ALL)).toBe("choice");
+    } finally {
+      __setRunePoolsForTest(null);
+    }
   });
 });
 

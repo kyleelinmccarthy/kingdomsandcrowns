@@ -1,6 +1,6 @@
 /**
  * The rune (slice 6, R-I5): a word built from tiles at a rune stone. Server-only, like the registry:
- * a rune task holds its accepted words, and the pools that `presents` will read (I4) hold every word.
+ * a rune task holds its accepted words, and the pools that `presents` reads (`runes/`) hold every word.
  *
  * The leak rule (R-I17): the view is the effect, the object, the tray and whether the word is heard,
  * built field by field, so no accepted word, its length, the entry or the hint can ride along. The
@@ -14,6 +14,7 @@
 import { RUNE_MAX_CHARS, TASK_CODECS } from "./codecs";
 import { runeAnswerText } from "./rune-copy";
 import { runeTiling, spelled } from "./rune-tiles";
+import { runePoolFor } from "./runes";
 import type { RuneResponse, RuneTask, RuneView, TaskKindDef } from "./types";
 
 /**
@@ -62,8 +63,8 @@ export const runeKind: TaskKindDef<"rune"> = {
   sameResponse: TASK_CODECS.rune.sameResponse,
   answerText: (t) => runeAnswerText(wordsOf(t)[0] ?? ""),
   feedback: (t, r) => (isCorrect(t, r) ? "none" : "wrong_word"),
-  // No rune pool exists yet (I4 reads `runePoolFor`), so no skill is played as runes and no run changes.
-  presents: () => false,
+  // A skill is played as runes exactly while a loaded rune pool credits it (F-7).
+  presents: (id) => runePoolFor(id) !== undefined,
   // A missed rune shows one accepted word built on its tray: the first word that tiles. A stored task
   // whose words no longer tile (a content change) reveals nothing, and never throws (Review Focus 4).
   reveal: (t) => {

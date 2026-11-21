@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { ContentReview } from "./content-review";
+import { sampleRunes } from "./sample-runes";
 import { sampleTrails } from "./sample-trails";
 
 /**
@@ -13,6 +14,6 @@ import { sampleTrails } from "./sample-trails";
  */
 export default function DevContentPage() {
   if (process.env.NODE_ENV === "production") notFound();
-  // The trail pools are server-only (they hold every answer), so their sample is drawn here and passed down.
-  return <ContentReview trails={sampleTrails()} />;
+  // The trail and rune pools are server-only (they hold every answer), so their samples are drawn here and passed down.
+  return <ContentReview trails={sampleTrails()} runes={sampleRunes()} />;
 }

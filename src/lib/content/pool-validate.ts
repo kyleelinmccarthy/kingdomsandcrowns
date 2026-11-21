@@ -18,6 +18,53 @@
  */
 import { GRADES, gradeIndex, type Grade } from "../utils/grade-levels";
 
+// ---------------------------------------------------------------------------
+// The one whole-word matcher (RI-a / S12): trails, runes and their content tests
+// ---------------------------------------------------------------------------
+
+const escapeRe = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
+
+/** Below this many letters a word is matched with its plurals only, even with `inflections`, so "tow" never meets "tower". */
+const INFLECT_MIN_LETTERS = 4;
+const VOWEL = /[aeiou]/;
+
+/**
+ * The forms a word is matched in (R-I17, RI-a / S15). Always the word and its `s`/`es` plurals; a
+ * plural is also cut back to its stem while the stem keeps four letters ("hives" meets "hive", but
+ * "news" never turns into "new"). With `inflections`, a word of four letters or more also meets the
+ * word, or the word without a final `e`, followed by `s`, `es`, `d`, `ed`, `ing`, `er` or `ly`
+ * ("mending", "restored"), plus the doubled final consonant ("stopped") and a final `y` turned to `i`
+ * ("carried"), so a hint cannot slip the word past the rule in a spelling the list forgot.
+ */
+function wordForms(word: string, inflections: boolean): string[] {
+  const stems = new Set([word]);
+  for (const end of ["es", "s"]) if (word.endsWith(end) && word.length - end.length >= INFLECT_MIN_LETTERS) stems.add(word.slice(0, -end.length));
+  const forms = [...stems].map((stem) => `${escapeRe(stem)}(?:e?s)?`);
+  if (inflections && word.length >= INFLECT_MIN_LETTERS && !/\s/.test(word)) {
+    const w = escapeRe(word);
+    forms.push(`${w}(?:s|es|d|ed|ing|er|ly)`);
+    if (word.endsWith("e")) forms.push(`${escapeRe(word.slice(0, -1))}(?:s|es|d|ed|ing|er|ly)`);
+    const last = word[word.length - 1];
+    if (!VOWEL.test(last) && last !== "y" && last !== "w" && last !== "x") forms.push(`${w}${escapeRe(last)}(?:ed|ing|er)`);
+    if (word.endsWith("y")) forms.push(`${escapeRe(word.slice(0, -1))}i(?:es|ed|er|ly)`);
+  }
+  return forms;
+}
+
+/**
+ * A whole-word pattern for `word` (global, case-insensitive), in the forms `wordForms` lists: on
+ * letter-and-digit boundaries, so "amend" never meets "mend" and "farewell" never meets "well". Global
+ * so a name can be blanked out of a text (`text.replace(wordRegex(name), " ")`).
+ */
+export function wordRegex(word: string, opts: { inflections?: boolean } = {}): RegExp {
+  const alternatives = wordForms(word, opts.inflections === true).join("|");
+  return new RegExp(`(?<![a-z0-9])(?:${alternatives})(?![a-z0-9])`, "gi");
+}
+
+/** Whether `text` holds `word` as a whole word (see `wordRegex`), case-insensitively. */
+export const containsWord = (text: string, word: string, opts: { inflections?: boolean } = {}): boolean =>
+  new RegExp(wordRegex(word, opts).source, "i").test(text);
+
 export type PoolItem = {
   id: string;
   prompt: string;

@@ -5,17 +5,31 @@
  * away (R-I17). Letters are compared in lower case.
  */
 
+import { RUNE_MAX_TILES } from "./codecs";
+
 const lower = (s: string): string => s.toLowerCase();
 
 /**
+ * The longest word a rune may ask for, in letters. The validator's word form (`/^[a-z]{2,16}$/`, I4)
+ * holds every pool to it, and `runeTiling` refuses anything longer. Why 16: the longest word the
+ * pools are planned around is 12 letters ("rehabilitate"), and 16 leaves room for a longer root word
+ * ("reconstruction" is 14) while keeping the search small. The search places at most one tile per
+ * step and never reuses one, so its depth is at most min(word letters, RUNE_MAX_TILES), and each
+ * step tries only the distinct tiles that fit at that point of the word.
+ */
+export const RUNE_MAX_WORD = 16;
+
+/**
  * The tiling of `word` that uses the fewest tiles, each tile index at most once, as the indices in
- * the order placed; `null` when the tray cannot build it. Found by depth-first search over the
+ * the order placed; `null` when the tray cannot build it, or when the word or the tray is past the caps
+ * no pool can reach (`RUNE_MAX_WORD`, `RUNE_MAX_TILES`): the search runs on the request path (`reveal`),
+ * so a stored or forged task can never make it slow. Found by depth-first search over the
  * indices in ascending order, so among tilings of the same size the one that is lowest index by
  * index (the lower first index) is kept. An empty tile builds nothing and is passed over.
  */
 export function runeTiling(word: string, tiles: readonly string[]): number[] | null {
   const target = lower(word);
-  if (target.length === 0) return null;
+  if (target.length === 0 || target.length > RUNE_MAX_WORD || tiles.length > RUNE_MAX_TILES) return null;
   const tray = tiles.map(lower);
   const used = new Array<boolean>(tray.length).fill(false);
   const path: number[] = [];

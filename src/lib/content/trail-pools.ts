@@ -26,9 +26,9 @@ import { ANCHORS, ANCHOR_IDS, isAnchorId, type AnchorId } from "../realm/anchors
 import { CONTENT_BANDS, type ContentBand } from "../utils/content-bands";
 import { bandTopGrade, gradeIndex } from "../utils/grade-levels";
 import { findSkill } from "../utils/skills";
-import { hash32 } from "./hash32";
+import { hash32, hex8 } from "./hash32";
 import { CONFUSABLE_ANCHORS } from "./trail-anchor-facts";
-import { READABILITY_MAX_ABOVE, READABILITY_MIN_WORDS, countWords, fleschKincaidGrade, type Problem } from "./pool-validate";
+import { READABILITY_MAX_ABOVE, READABILITY_MIN_WORDS, containsWord, countWords, fleschKincaidGrade, wordRegex, type Problem } from "./pool-validate";
 import { normLabel } from "./sort-pools";
 
 export type { Problem } from "./pool-validate";
@@ -124,8 +124,6 @@ const CONTROL_CHARS = /[\u0000-\u001f\u007f]/g;
 /** `<poolId>/<trailId>`: how a run remembers which trail a clue came from (`avoid`, R-H11). */
 export const trailKey = (poolId: string, trailId: string): string => `${poolId}/${trailId}`;
 
-const hex8 = (n: number): string => n.toString(16).padStart(8, "0");
-
 /**
  * What the browser sees of a clue in a task id: 8 lower-case hex characters, from the pool, the
  * author's trail id and the clue's place in the trail. An author's trail id can lean on the answer
@@ -215,29 +213,15 @@ function checkShape(raw: unknown): Problem[] {
 // 2. Everything else, on a pool whose shape is known to be right
 // ---------------------------------------------------------------------------
 
-const escapeRe = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
-
-/**
- * A whole-word matcher for a name or shared word, give or take a plural (the sort validator's `sameWord`
- * idea, done as a pattern so a name can also be blanked out of a text): "well" also meets "wells",
- * "bucket" "buckets", "hives" "hive", "tower" "towers". A stem is cut from a plural only while it keeps
- * four letters, so "news" does not turn into the common word "new".
- */
-function nameRegex(name: string): RegExp {
-  const stems = new Set([name]);
-  for (const end of ["es", "s"]) if (name.endsWith(end) && name.length - end.length >= 4) stems.add(name.slice(0, -end.length));
-  const alternatives = [...stems].map((stem) => `${escapeRe(stem)}(?:e?s)?`).join("|");
-  return new RegExp(`(?<![a-z0-9])(?:${alternatives})(?![a-z0-9])`, "gi");
-}
-
-const wordIn = (text: string, word: string): boolean => new RegExp(nameRegex(word).source, "i").test(text);
+// The whole-word matcher (a name or shared word, give or take a plural) is `pool-validate.ts`'s
+// `containsWord`/`wordRegex`, shared with the rune pools (RI-a / S12).
 
 /** `text` with every whole-word occurrence of any of `names` blanked out, longest name first ("watch tower" before "tower"). */
 const withoutNames = (text: string, names: readonly string[]): string =>
-  [...names].sort((a, b) => b.length - a.length).reduce((t, n) => t.replace(nameRegex(n), " "), text);
+  [...names].sort((a, b) => b.length - a.length).reduce((t, n) => t.replace(wordRegex(n), " "), text);
 
 /** Which of `names` the text holds as a whole word, case-insensitively, or null. */
-const nameIn = (text: string, names: readonly string[]): string | null => names.find((n) => wordIn(text, n)) ?? null;
+const nameIn = (text: string, names: readonly string[]): string | null => names.find((n) => containsWord(text, n)) ?? null;
 
 /** The anchors every part lists, in catalog order. Parts that are not anchors count as listing nothing. */
 function intersection(parts: readonly (readonly string[])[]): string[] {
@@ -316,7 +300,7 @@ function checkClue(pool: TrailPool, trail: Trail, index: number): Problem[] {
       const other = pair.anchors[0] === clue.answer ? pair.anchors[1] : pair.anchors[0];
       // Either a word the pair shares, or the partner itself by name ("Go to the garden near the beehives."):
       // both leave a reader unsure which of the two is meant, unless a part rules the partner out.
-      const shared = pair.shared.find((w) => wordIn(heard, w));
+      const shared = pair.shared.find((w) => containsWord(heard, w));
       const partner = nameIn(heard, ANCHORS[other].names);
       if (!shared && !partner) continue;
       const rulesOut = (clue.parts ?? []).some((p) => p.includes(other)) && !intersection(clue.parts ?? []).includes(other);

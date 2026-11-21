@@ -20,6 +20,9 @@ import { __setSortPoolsForTest, sortTaskFromId } from "@/lib/tasks/locks/sort";
 import { __setTrailPoolsForTest, trailPoolFor, trailTaskOf } from "@/lib/tasks/trails";
 import { TRAIL_SKILLS, trailKey } from "@/lib/content/trail-pools";
 import { fixtureTrailPool } from "@/test/trail-pool-fixture";
+import { __setRunePoolsForTest } from "@/lib/tasks/runes";
+import { runeKey } from "@/lib/content/rune-pools";
+import { fixtureRunePool } from "@/test/rune-pool-fixture";
 
 const deedMath = findDeed("well-stones")!;      // math
 const deedReading = findDeed("well-signs")!;    // reading
@@ -1631,6 +1634,84 @@ describe("a trail run: whole trails of the skill's pool (H4, R-H9, R-H11)", () =
     expect(buildDeedRun(input({ deed: deedMath, grade: "3", seed: 21, enabledKinds: ALL_ON, recentTrails: ["trail-g23/fx-01-trail"] }))).toEqual(base);
     const sci = buildDeedRun(input({ deed: deedScience, grade: "3", seed: 5, enabledKinds: ALL_ON }));
     expect(buildDeedRun(input({ deed: deedScience, grade: "3", seed: 5, enabledKinds: ALL_ON, recentTrails: ["trail-g23/fx-01-trail"] }))).toEqual(sci);
+  });
+});
+
+describe("a rune run: words spread over the effects (I4, R-I19)", () => {
+  // N12: a stub language deed played as runes. `stops: RUNE_STOPS` joins the Deed type in I11, where the
+  // real deeds turn to runes; until then `questionCount: 3` is the whole of the stub's length.
+  const runeDeed = { ...findDeed("mill-ledger")!, mechanic: "rune" as const, questionCount: 3 };
+  const real = TASK_RUN_DRAWERS.rune!;
+  afterEach(() => {
+    TASK_RUN_DRAWERS.rune = real;
+    __setRunePoolsForTest(null);
+  });
+  const runeKeyOf = (q: Task): string => (q as { entry: string }).entry;
+
+  it("rune-run: a mechanic-rune language deed at grade K with the fixture pool draws 3 tasks of kind rune (N12)", () => {
+    __setRunePoolsForTest([fixtureRunePool("k1")]);
+    const run = buildDeedRun(input({ deed: runeDeed, grade: "K", enabledKinds: ALL_ON }));
+    expect(run.skillIds).toEqual(["lang-gk"]);
+    expect(run.questions).toHaveLength(3);
+    for (const q of run.questions) expect(kindOf(q)).toBe("rune");
+    for (const q of run.questions) expect(q.id).toMatch(/^lang-gk:rune:[0-9a-f]{8}$/);
+    expect(new Set(run.questions.map((q) => (q as { effect: string }).effect)).size).toBe(3);
+  });
+
+  it("plays as choice, exactly as before, when no pool credits the skill", () => {
+    __setRunePoolsForTest([]);
+    const run = buildDeedRun(input({ deed: runeDeed, grade: "K", enabledKinds: ALL_ON, poolItems: poolItems("lang-gk", 30) }));
+    expect(run.questions.length).toBeGreaterThan(0);
+    for (const q of run.questions) expect(kindOf(q)).toBe("choice");
+  });
+
+  it("passes recentRunes to the draw as avoid, beside recentTrails, and the draw keeps off them", () => {
+    const pool = fixtureRunePool("k1");
+    __setRunePoolsForTest([pool]);
+    const recent = pool.entries.filter((e) => e.level <= 1).map((e) => runeKey(pool.poolId, e.id));
+    const trails = ["trail-g23/fx-01-trail"];
+    const calls: string[][] = [];
+    TASK_RUN_DRAWERS.rune = (skill, level, count, rng, exclude, avoid) => {
+      calls.push([...avoid].sort());
+      return real(skill, level, count, rng, exclude, avoid);
+    };
+    for (const seed of [1, 2, 3]) {
+      const run = buildDeedRun(input({ deed: runeDeed, grade: "K", seed, enabledKinds: ALL_ON, recentRunes: recent, recentTrails: trails }));
+      expect(run.questions).toHaveLength(3);
+      for (const q of run.questions) expect(recent, `seed ${seed}`).not.toContain(runeKeyOf(q));
+    }
+    expect(calls.length).toBeGreaterThan(0);
+    for (const avoid of calls) expect(avoid).toEqual([...recent, ...trails].sort());
+  });
+
+  it("recentRunes reaches the refill: with every near entry recent and the first draw short, the top-up draws no avoided entry while others remain", () => {
+    const pool = fixtureRunePool("k1");
+    __setRunePoolsForTest([pool]);
+    // Mastery 0 draws near levels 0-1. Every near entry is recent, so the fresh ones are the far ones.
+    const recent = pool.entries.filter((e) => e.level <= 1).map((e) => runeKey(pool.poolId, e.id));
+    const calls: { count: number; avoid: string[] }[] = [];
+    TASK_RUN_DRAWERS.rune = (skill, level, count, rng, exclude, avoid) => {
+      calls.push({ count, avoid: [...avoid].sort() });
+      const drawn = real(skill, level, count, rng, exclude, avoid);
+      // The first draw comes up one short, so the engine goes back for the rest.
+      return calls.length === 1 ? drawn.slice(0, count - 1) : drawn;
+    };
+    const run = buildDeedRun(input({ deed: runeDeed, grade: "K", seed: 9, enabledKinds: ALL_ON, recentRunes: recent }));
+    expect(calls.length).toBeGreaterThanOrEqual(2);
+    expect(calls[1].count).toBe(1);
+    for (const call of calls) expect(call.avoid).toEqual([...recent].sort());
+    expect(run.questions).toHaveLength(3);
+    for (const q of run.questions) expect(recent).not.toContain(runeKeyOf(q));
+  });
+
+  it("leaves the measure, sort and trail draws alone: recentRunes moves no recorded id", () => {
+    const base = buildDeedRun(input({ deed: deedMath, grade: "3", seed: 21, enabledKinds: ALL_ON }));
+    expect(buildDeedRun(input({ deed: deedMath, grade: "3", seed: 21, enabledKinds: ALL_ON, recentRunes: ["rune-k1/fx-mend-01"] }))).toEqual(base);
+    const sci = buildDeedRun(input({ deed: deedScience, grade: "3", seed: 5, enabledKinds: ALL_ON }));
+    expect(buildDeedRun(input({ deed: deedScience, grade: "3", seed: 5, enabledKinds: ALL_ON, recentRunes: ["rune-k1/fx-mend-01"] }))).toEqual(sci);
+    const reading = findDeed("well-signs")!;
+    const trail = buildDeedRun(input({ deed: reading, grade: "3", seed: 4, enabledKinds: ALL_ON }));
+    expect(buildDeedRun(input({ deed: reading, grade: "3", seed: 4, enabledKinds: ALL_ON, recentRunes: ["rune-k1/fx-mend-01"] }))).toEqual(trail);
   });
 });
 

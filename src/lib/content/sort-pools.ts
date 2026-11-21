@@ -22,7 +22,7 @@
  */
 import { GRADES, type Grade } from "../utils/grade-levels";
 import { SKILLS, findSkill } from "../utils/skills";
-import { hash32 } from "./hash32";
+import { hash32, hex8 } from "./hash32";
 import type { Problem } from "./pool-validate";
 
 export type { Problem } from "./pool-validate";
@@ -112,7 +112,7 @@ const tokens = (s: string): string[] => s.toLowerCase().split(/[^a-z0-9]+/).filt
  * other; a trailing a/b), so author ids never leave the server: the lock's view and its task id carry only
  * this. Two items of one set must not share one (see `findOpaqueCollisions`).
  */
-export const opaqueItemId = (setId: string, itemId: string): string => hash32(`${setId}/${itemId}`).toString(16).padStart(8, "0");
+export const opaqueItemId = (setId: string, itemId: string): string => hex8(hash32(`${setId}/${itemId}`));
 
 /** Item ids of one set whose opaque ids coincide, as `[first, second]` pairs. `hash` is injectable for tests. */
 export function findOpaqueCollisions(

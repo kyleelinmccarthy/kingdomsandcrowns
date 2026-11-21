@@ -91,8 +91,17 @@ describe("client boundary", () => {
     expect(offenders).toEqual([]);
   });
 
-  it("the client half of /dev/content imports no trail pool, drawer or kind (the pools hold every answer)", () => {
-    const FORBIDDEN = ["lib/tasks/trails", "lib/tasks/trail", "lib/content/trail-pools", "lib/content/trail-blind-pass"].map((m) => join(SRC, m));
+  it("the client half of /dev/content imports no trail or rune pool, drawer or kind (the pools hold every answer)", () => {
+    const FORBIDDEN = [
+      "lib/tasks/trails",
+      "lib/tasks/trail",
+      "lib/content/trail-pools",
+      "lib/content/trail-blind-pass",
+      "lib/tasks/runes",
+      "lib/tasks/rune",
+      "lib/content/rune-pools",
+      "lib/content/rune-blind-pass",
+    ].map((m) => join(SRC, m));
     for (const name of ["sample.ts", "content-review.tsx"]) {
       const file = join(SRC, "app/dev/content", name);
       const src = readFileSync(file, "utf8");
@@ -104,6 +113,7 @@ describe("client boundary", () => {
     }
     // The server half is where the pools are read.
     expect(readFileSync(join(SRC, "app/dev/content/sample-trails.ts"), "utf8")).toContain("@/lib/tasks/trails");
+    expect(readFileSync(join(SRC, "app/dev/content/sample-runes.ts"), "utf8")).toContain("@/lib/tasks/runes");
   });
 
   it("really walks the client modules", () => {

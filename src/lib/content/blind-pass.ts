@@ -34,7 +34,7 @@
 // The pool, as it sits on disk
 // ---------------------------------------------------------------------------------------
 
-import { hash32 } from "./hash32";
+import { hash32, hex8 } from "./hash32";
 
 export type PoolItem = {
   id: string;
@@ -103,7 +103,7 @@ export function choicesFor(item: PoolItem): string[] {
  */
 export function questionCode(item: PoolItem): string {
   const shown = [item.prompt, ...choicesFor(item)].join("\u0000");
-  return hash32(shown).toString(16).padStart(8, "0").slice(0, 6);
+  return hex8(hash32(shown)).slice(0, 6);
 }
 
 // ---------------------------------------------------------------------------------------
@@ -521,12 +521,13 @@ export function loadResolutions(poolId: string): Resolution[] {
 
 /**
  * The id prefixes of every pool that is not a drill pool and has a blind pass of its own: sort pools
- * (`SORT_POOL_PREFIX`, `sort-blind-pass.ts`) and trail pools (`TRAIL_POOL_PREFIX`, `trail-blind-pass.ts`).
+ * (`SORT_POOL_PREFIX`, `sort-blind-pass.ts`), trail pools (`TRAIL_POOL_PREFIX`, `trail-blind-pass.ts`) and rune
+ * pools (`RUNE_POOL_PREFIX`, `rune-blind-pass.ts`).
  * Their sheets sit in this same directory, so this one list is what keeps them out of the drill gate
  * (F-1). A new kind of pool adds its prefix here; a test holds each pool module's prefix to this list.
  * Literals, not imports: this module must not depend on the pool modules that depend on it.
  */
-export const NON_DRILL_SHEET_PREFIXES = ["sort-", "trail-"] as const;
+export const NON_DRILL_SHEET_PREFIXES = ["sort-", "trail-", "rune-"] as const;
 
 /**
  * Every drill pool that has a sheet on disk. The other kinds of pool keep their sheets in this same

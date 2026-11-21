@@ -25,7 +25,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { seededRng, shuffle } from "../utils/drill-generators";
-import { hash32 } from "./hash32";
+import { hash32, hex8 } from "./hash32";
 import { REVIEW_DIR, loadResolutions, resolutionsPath, sheetPath, type Resolution } from "./blind-pass";
 import { ANSWER_LINE, carryForwardByCode, closingLines, findResolution, flagLines, readAnswer, unresolvedOf } from "./sheet-kit";
 import { SORT_POOL_PREFIX, formatSortProblems, normLabel, validateSortPool, type SortPool, type SortPoolItem, type SortSet } from "./sort-pools";
@@ -44,7 +44,7 @@ export type { Resolution, ResolutionVerdict } from "./blind-pass";
  * (resolutions pin the key separately, through `keyAt`).
  */
 export function itemCode(set: SortSet, item: SortPoolItem): string {
-  return hash32([set.categories[0], set.categories[1], normLabel(item.label)].join("\u0000")).toString(16).padStart(8, "0");
+  return hex8(hash32([set.categories[0], set.categories[1], normLabel(item.label)].join("\u0000")));
 }
 
 export type SortSheetItem = { code: string; label: string };

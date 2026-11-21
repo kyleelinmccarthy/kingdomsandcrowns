@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { hasSpelledRun, runeTiling, spelled } from "./rune-tiles";
+import { RUNE_MAX_TILES } from "./codecs";
+import { RUNE_MAX_WORD, hasSpelledRun, runeTiling, spelled } from "./rune-tiles";
 
 describe("runeTiling: how a word is built from a tray", () => {
   it("uses the fewest tiles", () => {
@@ -71,5 +72,32 @@ describe("hasSpelledRun: whether the tray's order gives a word away", () => {
 
   it("reads without regard to case", () => {
     expect(hasSpelledRun(["M", "e", "ND"], ["mend"])).toBe(true);
+  });
+});
+
+describe("runeTiling's bounds (I2 review): it runs on the request path, so it refuses what no pool can hold", () => {
+  it("returns null for a tray of more than RUNE_MAX_TILES tiles, even when the word could be built", () => {
+    const tray = Array.from({ length: RUNE_MAX_TILES + 1 }, (_, i) => (i === 0 ? "m" : i === 1 ? "end" : "x"));
+    expect(runeTiling("mend", tray)).toBeNull();
+    expect(runeTiling("mend", tray.slice(0, RUNE_MAX_TILES))).toEqual([0, 1]);
+  });
+
+  it("returns null for a word longer than RUNE_MAX_WORD letters", () => {
+    expect(RUNE_MAX_WORD).toBe(16);
+    const word = "ab".repeat(8) + "c";
+    expect(word).toHaveLength(RUNE_MAX_WORD + 1);
+    expect(runeTiling(word, [word.slice(0, 9), word.slice(9)])).toBeNull();
+    expect(runeTiling(word.slice(0, RUNE_MAX_WORD), [word.slice(0, 9), word.slice(9, RUNE_MAX_WORD)])).toEqual([0, 1]);
+  });
+
+  it("finishes at once on an adversarial tray within the caps: every tile a different-length run of one letter", () => {
+    // Each tile is a prefix of the word at every position, and no two read alike, so de-duplication cannot help.
+    const tray = Array.from({ length: RUNE_MAX_TILES }, (_, i) => "a".repeat(i + 1));
+    const started = performance.now();
+    const tiling = runeTiling("a".repeat(RUNE_MAX_WORD), tray);
+    expect(performance.now() - started).toBeLessThan(500);
+    expect(tiling).toEqual([15]);
+    expect(runeTiling("a".repeat(RUNE_MAX_WORD - 1) + "b", tray)).toBeNull();
+    expect(performance.now() - started).toBeLessThan(1000);
   });
 });

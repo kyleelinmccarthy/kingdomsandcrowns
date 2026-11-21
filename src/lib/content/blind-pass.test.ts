@@ -475,21 +475,21 @@ describe("re-cutting a sheet keeps the answers that are still valid", () => {
 });
 
 describe("the drill gate skips every non-drill sheet (F-1)", () => {
-  it("lists the sort and trail prefixes in one place", () => {
-    expect([...NON_DRILL_SHEET_PREFIXES]).toEqual(["sort-", "trail-"]);
+  it("lists the sort, trail and rune prefixes in one place", () => {
+    expect([...NON_DRILL_SHEET_PREFIXES]).toEqual(["sort-", "trail-", "rune-"]);
   });
 
-  it("lists a drill sheet only, given a review dir that also holds a trail sheet and a sort sheet", () => {
+  it("lists a drill sheet only, given a review dir that also holds a trail sheet, a sort sheet and a rune sheet", () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), "review-"));
     try {
-      for (const f of ["trail-k1.blind.md", "sort-science-k1.blind.md", "vocab-g45.blind.md", "trail-k1.resolved.json", "notes.md"]) fs.writeFileSync(path.join(dir, f), "x");
+      for (const f of ["trail-k1.blind.md", "sort-science-k1.blind.md", "rune-k1.blind.md", "rune-g45.resolved.json", "vocab-g45.blind.md", "trail-k1.resolved.json", "notes.md"]) fs.writeFileSync(path.join(dir, f), "x");
       expect(poolsWithSheets(dir)).toEqual(["vocab-g45"]);
     } finally {
       fs.rmSync(dir, { recursive: true, force: true });
     }
   });
 
-  it("never lists a trail sheet or a sort sheet from the real review folder", () => {
+  it("never lists a trail, sort or rune sheet from the real review folder", () => {
     for (const id of poolsWithSheets()) for (const prefix of NON_DRILL_SHEET_PREFIXES) expect(id.startsWith(prefix), id).toBe(false);
   });
 });

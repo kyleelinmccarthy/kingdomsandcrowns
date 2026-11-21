@@ -60,6 +60,12 @@ export type BuildRunInput = {
    * draw of the run gets it: fresh, due and refill (F-21).
    */
   recentTrails?: readonly string[];
+  /**
+   * The rune entries (`<poolId>/<entryId>`) the hero met in their last rune runs (R-I19), and any
+   * `effect:<e>` an effect with no broken object to bind to is passed over by (R-I22). Joined with
+   * `recentTrails` into the one `avoid` every run drawer is handed; only the rune drawer reads these keys.
+   */
+  recentRunes?: readonly string[];
 };
 
 export type BuiltRun = { skillIds: string[]; questions: Task[] };
@@ -454,9 +460,9 @@ export function applyProfile<T extends Task>(questions: T[], profile: Pick<Profi
  * use) is exactly as it was.
  */
 function drawByKind(kind: TaskKind, skill: Skill, level: number, count: number, rng: Rng, exclude: Set<string>, avoid: ReadonlySet<string> = new Set()): Task[] {
-  // A kind that draws a run together (a trail's clues, whole and in order) draws it all here, by its own
-  // rule for which tasks and in what order; `avoid` (the trails met lately) is its alone. The loop below
-  // is the per-task path, so the measure and sort draws are untouched.
+  // A kind that draws a run together (a trail's clues, whole and in order; a rune run's words, spread over
+  // the effects) draws it all here, by its own rule; `avoid` (the trails and rune entries met lately) is the
+  // run drawers' alone. The loop below is the per-task path, so the measure and sort draws are untouched.
   const runDrawer = runDrawerFor(kind);
   if (runDrawer) return runDrawer(skill, level, count, rng, exclude, avoid);
   const drawer = drawerFor(kind);
@@ -525,7 +531,7 @@ export function buildDeedRun(input: BuildRunInput): BuiltRun {
   const levelOf = (skillId: string) => Math.min((masteryBySkill[skillId] ?? 0) + (input.levelBoost ?? 0), MASTERY_MAX);
   const enabled = input.enabledKinds ?? new Set(Object.keys(TASK_KINDS) as TaskKind[]);
   const focus = new Set(input.focusSkillIds);
-  const avoid: ReadonlySet<string> = new Set(input.recentTrails ?? []);
+  const avoid: ReadonlySet<string> = new Set([...(input.recentTrails ?? []), ...(input.recentRunes ?? [])]);
   const rng = seededRng(seed);
   const candidates = runCandidates(deed, grade, input.focusSkillIds, enabled);
   const skills = selectSkills(candidates, masteryBySkill, rng, lastPracticedBySkill ?? {}, focus);
