@@ -147,10 +147,16 @@ export type DeedToast = {
   icon?: "map";
 };
 
-/** A vault door's map: the place it leads to is on the hero's map now (`use-world-state.ts` marks it). */
-export function fragmentToast(placeName: string): DeedToast {
-  const title = `You found a map to ${placeName}!`;
-  const line = "Look for it on your map.";
+/**
+ * A vault door's map: the place it leads to is on the hero's map now (`use-world-state.ts` marks it).
+ * Several maps at once are named in the one toast ("You found maps to A and B!"), so none is lost to
+ * the next toast replacing it.
+ */
+export function fragmentToast(...placeNames: string[]): DeedToast {
+  const many = placeNames.length > 1;
+  const names = many ? `${placeNames.slice(0, -1).join(", ")} and ${placeNames[placeNames.length - 1]}` : placeNames[0];
+  const title = many ? `You found maps to ${names}!` : `You found a map to ${names}!`;
+  const line = many ? "Look for them on your map." : "Look for it on your map.";
   return { title, line, done: 0, total: 0, rose: false, icon: "map", spoken: `${title} ${line}` };
 }
 

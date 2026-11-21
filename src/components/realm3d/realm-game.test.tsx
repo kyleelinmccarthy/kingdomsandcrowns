@@ -309,7 +309,8 @@ describe("the world's locks", () => {
     const door = { kind: "lock" as const, id: "door:longwater", label: "the vault door", verb: "Look through" };
     const { bus } = mount({ viewer: "parent", realm: { ...realm, isChildView: false, worldState: view } });
     await act(async () => void bus.onInteract(door));
-    expect(screen.getByRole("dialog", { name: "The vault door" })).toHaveTextContent("The vault stands open. Its map is yours.");
+    expect(screen.getByRole("dialog", { name: "The vault door" })).toHaveTextContent("The vault stands open. Its map has been found.");
+    expect(screen.getByRole("dialog", { name: "The vault door" })).not.toHaveTextContent(/yours/);
     expect(startWorldLockRun).not.toHaveBeenCalled();
   });
 
@@ -402,7 +403,7 @@ describe("the world's locks", () => {
 
   it("draws no locks when the bundle sent no world state", () => {
     mount();
-    expect(handed.props!.worldLocks).toEqual({ locksOn: false, locks: [], decor: [], storeys: 0 });
+    expect(handed.props!.worldLocks).toEqual({ locksOn: false, locks: [], decor: [], storeys: 0, towerKnown: false });
   });
 });
 

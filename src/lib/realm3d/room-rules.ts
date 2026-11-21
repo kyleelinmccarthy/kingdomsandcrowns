@@ -76,7 +76,7 @@ export type RoomSpots = { spots: InteractSpot[]; floors: number[] };
  * out; and a fourth in a room with a chest (`roomChestFor`), on the floor, before the door. Built
  * once per room; each spot carries its own prebuilt target, as the island's do.
  */
-export function roomSpots(plan: RoomPlan, keeperName: string | null, chest?: LockSpotView | null): RoomSpots {
+export function roomSpots(plan: RoomPlan, keeperName: string | null, chest?: LockSpotView | null, viewer: "child" | "parent" = "child"): RoomSpots {
   const spots: InteractSpot[] = [];
   const floors: number[] = [];
   if (plan.keeper && keeperName) {
@@ -87,7 +87,7 @@ export function roomSpots(plan: RoomPlan, keeperName: string | null, chest?: Loc
   spots.push({ target: { kind: "fixture", id: f.id, label: f.label, verb: f.verb }, x: f.x, z: f.z, hw: f.r, hd: f.r, round: true, reach: 1.5, bias: 0.3, ring: f.r + 0.55 });
   floors.push(f.floor);
   if (chest) {
-    spots.push(lockSpot(chest));
+    spots.push(lockSpot(chest, viewer));
     floors.push(0);
   }
   spots.push({ target: { kind: "door", id: "door", label: "outside", verb: "Go" }, x: plan.door.x, z: plan.D / 2, hw: plan.door.hw, hd: 0.2, round: false, reach: 1.4, bias: 0, ring: plan.door.hw + 0.4 });

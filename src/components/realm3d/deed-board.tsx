@@ -30,7 +30,7 @@ import type { RunStart, RunSummary } from "@/lib/utils/deed-run-types";
 import { realmCue } from "@/lib/realm3d/sound/store";
 import type { BuildingOverview } from "@/lib/services/deeds";
 import type { Villager } from "@/lib/realm/villagers";
-import { attemptFeedback, finishLabel, leaveWhat,resultBuildingLine, resultHeadline, resultMinutesLine, resultStarsLine, talkCopy, type Viewer } from "@/lib/realm3d/talk";
+import { attemptFeedback, finishLabel, leaveWhat, resultBuildingLine, resultHeadline, resultMinutesLine, resultStarsLine, talkCopy, type Viewer } from "@/lib/realm3d/talk";
 import { MAX_STARS, countsTowardBuilding, type Stars } from "@/lib/utils/deed-scoring";
 import { deedErrorLine } from "@/lib/utils/deed-refusals";
 import { DeedMeter } from "@/components/deed-meter";
@@ -334,9 +334,12 @@ export function DeedRun({
             <GameIcon name="hourglass" className="r3-result-building-icon" /> {minutesLine}
           </p>
         )}
-        <p className="r3-result-line">
-          <Subject area={run.deed.area} /> {head.line}
-        </p>
+        {/* A title alone ("It was already open.", "Floor solved!") has no line, and no lone subject seal. */}
+        {head.line && (
+          <p className="r3-result-line">
+            <Subject area={run.deed.area} /> {head.line}
+          </p>
+        )}
         {summary.masteryChanges.length > 0 && (
           <ul className="r3-result-mastery">
             {summary.masteryChanges.map((c) => (

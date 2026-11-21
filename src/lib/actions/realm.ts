@@ -40,6 +40,7 @@ import { EMPTY_WORKS, type Works } from "@/lib/realm/works-state";
 import { loadFocusSkillIds } from "@/lib/services/learning-focus";
 import { focusAreasOf } from "@/lib/utils/focus";
 import type { SkillArea } from "@/lib/utils/skills";
+import type { Grade } from "@/lib/utils/grade-levels";
 import type { RecessRecord } from "@/lib/realm/recess/record";
 import type { RealmAccessMode } from "@/lib/utils/realm-access";
 import type { EarningSettings } from "@/lib/realm/spells/bounty";
@@ -160,16 +161,20 @@ export type RealmBundle = {
 
 const VILLAGERS_RESTING = "The villagers are resting. Try again.";
 
-async function loadKingdomState(childId: string): Promise<KingdomState> {
+/**
+ * The kingdom, and beside it the hero's per-strand grades from the same overview read (RG-e): the
+ * bundle builds the Tower's floors from them with no second read, and only the kingdom goes to the
+ * page, so the grades stay on the server (final f3).
+ */
+async function loadKingdom(childId: string): Promise<{ kingdom: KingdomState; grades: Record<SkillArea, Grade> }> {
   const overview = await loadKingdomOverview(childId);
-  // The grades ride along (RG-e): the Tower's bands come from them, with no second read.
-  return { tone: overview.tone, buildings: overview.buildings, grades: overview.grades };
+  return { kingdom: { tone: overview.tone, buildings: overview.buildings }, grades: overview.grades };
 }
 
 /** The kingdom alone, for the HUD's retry after a failed bundle load. */
 export async function getRealmKingdom(childId: string): Promise<KingdomState> {
   await requireChildAccess(childId);
-  return loadKingdomState(childId);
+  return (await loadKingdom(childId)).kingdom;
 }
 
 /** Everything the Realm page needs, in one round of parallel reads. A hero may read their own. */
@@ -230,8 +235,9 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
     console.error("Realm recent quests failed to load", err);
     return [] as RecentQuest[];
   });
-  // The world's locks, on the same access: the hero's world-state rows (one query). The view is
-  // built once the child's row has given the zone and the kingdom the grades, at no extra read.
+  // The world's locks, on the same access: the hero's world-state rows and the bands they have 3
+  // stars at (two queries, in parallel, `loadWorldRaw`). The view is built once the child's row has
+  // given the zone and the kingdom's overview the grades, at no extra read; the grades stay here.
   // A failed read draws no lock and offers none (`EMPTY_WORLD_STATE`), never a closed Realm.
   const worldRead = loadWorldRaw(childId).catch((err: unknown) => {
     console.error("Realm world state failed to load", err);
@@ -257,9 +263,9 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
     // Memoized per request; loadKingdomOverview below reads the same row for the hero's grades.
     loadLearningProfileRow(childId),
     settingsRead.then(settingsFromRow),
-    loadKingdomState(childId).then((kingdom) => ({ kingdom, error: undefined as string | undefined })).catch((err: unknown) => {
+    loadKingdom(childId).then(({ kingdom, grades }) => ({ kingdom, grades: grades as Record<SkillArea, Grade> | null, error: undefined as string | undefined })).catch((err: unknown) => {
       console.error("Realm kingdom failed to load", err);
-      return { kingdom: { tone: "gentle" as const, buildings: [] }, error: VILLAGERS_RESTING };
+      return { kingdom: { tone: "gentle" as const, buildings: [] }, grades: null, error: VILLAGERS_RESTING };
     }),
     loadSpellbookPages(childId),
     loadUnlockedMountIds(childId),
@@ -288,10 +294,10 @@ export async function getRealmBundle(childId: string): Promise<RealmBundle> {
   // The Realm's one clock (`realmNow`): an unusable stored zone (a legacy "Denver") reads as the default.
   const zone = usableTimeZone(child.timezone);
   const today = nowInZone(zone).date;
-  const kingdom: KingdomState = kingdomResult.kingdom;
+  const { grades } = kingdomResult;
   const raw = await worldRead;
   const worldState = raw
-    ? worldStateView(raw.rows, kingdom.grades ? towerFloors(raw.starred, towerBands(kingdom.grades)) : [], { today, zone }, settings.mechanics.lock)
+    ? worldStateView(raw.rows, grades ? towerFloors(raw.starred, towerBands(grades)) : [], { today, zone }, settings.mechanics.lock)
     : EMPTY_WORLD_STATE;
 
   return {

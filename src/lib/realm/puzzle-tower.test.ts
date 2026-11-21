@@ -122,13 +122,17 @@ describe("towerFloors", () => {
 });
 
 describe("towerDoorFor: the client's gating (R-G7, PC-G6)", () => {
-  it("offers the door while the locks are on", () => {
-    expect(towerDoorFor({ locksOn: true })).toBe(PUZZLE_TOWER.door);
+  it("offers the door while the locks are on and the floors are known", () => {
+    expect(towerDoorFor({ locksOn: true, towerKnown: true })).toBe(PUZZLE_TOWER.door);
   });
 
   it("offers nothing with the locks off, or no canvas at all: the Tower stays drawn but has no E spot", () => {
-    expect(towerDoorFor({ locksOn: false })).toBeNull();
+    expect(towerDoorFor({ locksOn: false, towerKnown: true })).toBeNull();
     expect(towerDoorFor(undefined)).toBeNull();
+  });
+
+  it("offers nothing when the floors are unknown (the kingdom read failed): no board with no floor on it (final f2)", () => {
+    expect(towerDoorFor({ locksOn: true, towerKnown: false })).toBeNull();
   });
 });
 

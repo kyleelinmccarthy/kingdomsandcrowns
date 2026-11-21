@@ -3,7 +3,8 @@ import { supportHeight, HERO_RADIUS, type Collider } from "./collision";
 import { villagerById } from "@/lib/realm/villagers";
 import { fixtureLine, roomPlan, ROOM_KINDS, GALLERY_Y, LOOKOUT_Y, type RoomPlan } from "./interiors";
 import { hiddenWalls, leavingRoom, makeHidden, pickRoomSpot, roomBlocks, roomBuried, roomSlide, roomSpots, LEVEL_REACH } from "./room-rules";
-import { edgeDistance } from "./interact";
+import { edgeDistance, makeNearMemo, nearChanged } from "./interact";
+import { interactVerb } from "./frame";
 import { ROOM_OF } from "./doorways";
 import { WORLD_OBJECTS } from "@/lib/realm/world-objects";
 import { roomChestFor } from "@/lib/realm/world-state";
@@ -208,6 +209,32 @@ describe("the room chests", () => {
     expect(rs.spots[pickRoomSpot(rs, plan.spawn.x, plan.spawn.z + 0.6, 0, -1)]?.target.kind).toBe("door");
     // Walked up to, it is what E does.
     expect(rs.spots[pickRoomSpot(rs, chest.x, chest.z + 1, 0, -1)]?.target.kind).toBe("lock");
+  });
+
+  it.each(roomChests.map((o) => [o.id, o] as const))("%s: solved under the hero's nose, E's prompt turns from Open to Look in (smoke bug 1)", (_id, chest) => {
+    const plan = roomPlan(chest.room!);
+    const keeper = plan.keeper ? villagerById(plan.keeper.villager) : null;
+    const before = roomSpots(plan, keeper?.name ?? null, roomChestFor(chest.room!, { locksOn: true, open: [], decor: [], tower: [] }));
+    const after = roomSpots(plan, keeper?.name ?? null, roomChestFor(chest.room!, { locksOn: true, open: [chest.id], decor: [], tower: [] }));
+    const memo = makeNearMemo();
+    const i = pickRoomSpot(before, chest.x, chest.z + 1, 0, memo.i);
+    expect(nearChanged(memo, i, before.spots[i].target)).toBe(true);
+    expect(interactVerb(memo.target!)).toBe("Open the old chest");
+    // The same spot, picked again from the rebuilt spots: the prompt is told the new words.
+    const j = pickRoomSpot(after, chest.x, chest.z + 1, 0, memo.i);
+    expect(j).toBe(i);
+    expect(nearChanged(memo, j, after.spots[j].target)).toBe(true);
+    expect(interactVerb(memo.target!)).toBe("Look in the old chest");
+  });
+
+  it("asks a visiting grown-up to look at a room's chest, never to open it (smoke bug 3)", () => {
+    const chest = roomChests[0];
+    const plan = roomPlan(chest.room!);
+    const view = roomChestFor(chest.room!, { locksOn: true, open: [], decor: [], tower: [] });
+    const lock = (viewer?: "child" | "parent") => roomSpots(plan, null, view, viewer).spots.find((s) => s.target.kind === "lock")!.target;
+    expect(interactVerb(lock("parent"))).toBe("Look at the old chest");
+    expect(interactVerb(lock("child"))).toBe("Open the old chest");
+    expect(lock()).toEqual(lock("child"));
   });
 
   it("is no spot at all when there is no chest", () => {

@@ -90,7 +90,7 @@ vi.mock("@/lib/db", () => {
   return { db: { select: () => chain } };
 });
 
-import { getRealmBundle } from "./realm";
+import { getRealmBundle, getRealmKingdom } from "./realm";
 
 const as = (userId: string, permission: "edit" | "view") => ({ access: { userId, permission }, familyId: "f1" });
 
@@ -431,7 +431,16 @@ describe("getRealmBundle: the world's locks (RG-h)", () => {
     expect(getTimezoneForChild).not.toHaveBeenCalled();
   });
 
-  it("carries the hero's grades on the kingdom, from the overview already read", async () => {
-    expect((await getRealmBundle("c1")).kingdom.grades).toEqual(GRADES4);
+  it("keeps the hero's per-strand grades on the server: the Tower's floors are built from them, and they never reach the page (final f3)", async () => {
+    const b = await getRealmBundle("c1");
+    expect(b.worldState?.tower).toEqual([{ band: "g45", open: false, solved: 0 }]);
+    expect(b.kingdom).not.toHaveProperty("grades");
+    expect(JSON.stringify(b)).not.toMatch(/"grades"/);
+  });
+
+  it("keeps the grades out of the kingdom the HUD's retry reads too", async () => {
+    const k = await getRealmKingdom("c1");
+    expect(k).not.toHaveProperty("grades");
+    expect(k).toEqual({ tone: "gentle", buildings: [] });
   });
 });

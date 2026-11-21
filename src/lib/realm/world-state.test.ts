@@ -135,15 +135,19 @@ describe("the canvas the world draws its locks from", () => {
     const west = worldObjectById("chest:west-lane")!;
     expect(c.locks[0]).toEqual({ id: west.id, type: "chest", label: "the old chest", x: west.x, z: west.z, ry: west.ry, open: false });
     expect(c.locks[3]).toMatchObject({ type: "door", label: "the vault door" });
-    expect(c).toMatchObject({ locksOn: true, decor: ["stone-bench", "sundial"], storeys: 2 });
+    expect(c).toMatchObject({ locksOn: true, decor: ["stone-bench", "sundial"], storeys: 2, towerKnown: true });
+  });
+
+  it("knows the Tower's floors only when the view lists some: a failed kingdom read lists none (final f2)", () => {
+    expect(worldCanvas({ ...view, tower: [] })).toMatchObject({ locksOn: true, storeys: 0, towerKnown: false });
   });
 
   it("draws no lock at all with the locks switched off, and keeps what was found and the Tower's storeys (R-G7)", () => {
-    expect(worldCanvas({ ...view, locksOn: false })).toEqual({ locksOn: false, locks: [], decor: ["stone-bench", "sundial"], storeys: 2 });
+    expect(worldCanvas({ ...view, locksOn: false })).toEqual({ locksOn: false, locks: [], decor: ["stone-bench", "sundial"], storeys: 2, towerKnown: true });
   });
 
   it("is nothing for the empty state", () => {
-    expect(worldCanvas(EMPTY_WORLD_STATE)).toEqual({ locksOn: false, locks: [], decor: [], storeys: 0 });
+    expect(worldCanvas(EMPTY_WORLD_STATE)).toEqual({ locksOn: false, locks: [], decor: [], storeys: 0, towerKnown: false });
   });
 });
 
@@ -179,6 +183,14 @@ describe("applyWorldOutcome: the client's mirror of an opening", () => {
     expect(next).toEqual({ locksOn: true, open: ["chest:west-lane", "door:longwater"], decor: ["sundial"], tower: [] });
     expect(view.open).toEqual(["door:longwater"]);
     expect(applyWorldOutcome(view, { objectId: "chest:nowhere", opened: false, reason: "already-open", rewards: [] })).toBe(view);
+  });
+
+  it("places nothing an outcome that did not open carries: only an opening's rewards are folded in (G4 m1)", () => {
+    const decor = [{ kind: "decor" as const, id: "stone-bench" as const }];
+    const shut = applyWorldOutcome(view, { objectId: "chest:west-lane", opened: false, reason: "already-open", rewards: decor });
+    expect(shut.open).toEqual(["chest:west-lane", "door:longwater"]);
+    expect(shut.decor).toEqual(["sundial"]);
+    expect(applyWorldOutcome(view, { objectId: "chest:west-lane", opened: false, reason: "missed", rewards: decor })).toBe(view);
   });
 
   it("opens the object and places a decoration it gave, in catalog order", () => {

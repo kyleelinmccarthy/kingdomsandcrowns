@@ -1,8 +1,11 @@
-// What a child reads at a chest or a vault door. Pure and client-safe. The catalog
-// (`lib/realm/world-objects.ts`) takes its labels from here; the verbs, headlines and reward lines
-// join them as the surfaces that use them are built. The refusals live in `deed-refusals.ts`.
-// It reads the decorations and pages it names from `decor.ts` and `lore.ts`, never from
-// `world-objects.ts`, which reads its labels from here.
+// The world's locks' words, for the hero and for a visiting grown-up: the chests and vault doors
+// (labels, E verbs, board titles and stories, the open lines, the result card's headlines and
+// reward lines) and the Puzzle Tower (its verb, title, floor names and floor lines). Pure and
+// client-safe. The catalog (`lib/realm/world-objects.ts`) takes its labels from here; the E spots
+// (`lib/realm3d/interact.ts`), the boards and `talk.ts`'s result card take the rest. The refusals
+// live in `deed-refusals.ts`, and a found map's toast in `talk.ts` (`fragmentToast`). It reads the
+// decorations and pages it names from `decor.ts` and `lore.ts`, never from `world-objects.ts`,
+// which reads its labels from here.
 
 import { DECOR } from "@/lib/realm/decor";
 import { LORE } from "@/lib/realm/lore";
@@ -27,9 +30,27 @@ export const CHEST_VERBS = { shut: "Open", open: "Look in" } as const;
 /** What E says at a vault door: "Open the vault door", then "Look through the vault door". */
 export const DOOR_VERBS = { shut: "Open", open: "Look through" } as const;
 
-/** What an open chest's or vault door's board says, to anyone: it starts nothing. */
+/** What an open chest's or vault door's board says to the hero. */
 export const CHEST_OPEN_LINE = "You opened this chest. A new lock comes next week.";
 export const DOOR_OPEN_LINE = "The vault stands open. Its map is yours.";
+/** The same, to a visiting grown-up, who opened nothing and owns no map (smoke bug 3). */
+export const CHEST_OPEN_LINE_VISITOR = "This chest stands open. A new lock comes next week.";
+export const DOOR_OPEN_LINE_VISITOR = "The vault stands open. Its map has been found.";
+
+/** An open lock's board line, by what it is and who is looking. */
+export function lockOpenLine(door: boolean, visitor: boolean): string {
+  if (door) return visitor ? DOOR_OPEN_LINE_VISITOR : DOOR_OPEN_LINE;
+  return visitor ? CHEST_OPEN_LINE_VISITOR : CHEST_OPEN_LINE;
+}
+
+/**
+ * What E says to a visiting grown-up at a chest, a vault door or the Tower, open or shut: "Look at
+ * the old chest", "Look at the Puzzle Tower". They look; the hero opens and climbs.
+ */
+export const VISITOR_VERB = "Look at";
+
+/** A shut lock's board when no hero is named (a child view with no `childId`): neutral, never "the hero's". */
+export const LOCK_NOT_NOW = "This lock can't be opened just now.";
 
 /** The result card's titles and lines (`resultHeadline`). */
 export const CHEST_OPENS = "The chest opens!";

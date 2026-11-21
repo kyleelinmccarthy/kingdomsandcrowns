@@ -4,7 +4,8 @@ import { KEEP_YARD } from "@/lib/realm/keep-yard";
 import { IMPROVEMENT_IDS, IMPROVEMENTS } from "@/lib/realm/improvements";
 import { HERO_RADIUS } from "./collision";
 import { improvementPlacements } from "./improvement-spots";
-import { buildSpots, edgeDistance, lockSpot, pickSpot, CHRONICLE_TARGET, PLANS_TARGET, RIDDLE_LABEL, RIDDLE_VERB, siteLabel, TOWER_TARGET } from "./interact";
+import { buildSpots, edgeDistance, lockSpot, makeNearMemo, nearChanged, pickSpot, CHRONICLE_TARGET, PLANS_TARGET, RIDDLE_LABEL, RIDDLE_VERB, siteLabel, TOWER_TARGET } from "./interact";
+import { interactVerb } from "./frame";
 import { PUZZLE_TOWER } from "@/lib/realm/puzzle-tower";
 import { RIDDLE_STONE_SPOTS } from "@/lib/realm/riddle-stones";
 import { LOCK_SPOT } from "@/lib/realm/world-objects";
@@ -298,5 +299,53 @@ describe("the Puzzle Tower", () => {
       }
     }
     expect(held).toEqual([]);
+  });
+});
+
+describe("a visiting grown-up's words at the locks and the Tower (smoke bug 3)", () => {
+  const locks = worldCanvas({ locksOn: true, open: ["chest:east-lane", "door:longwater"], decor: [], tower: [] }).locks;
+  const prompts = (viewer?: "child" | "parent") =>
+    buildSpots({ props: [], sitePlan: 1.5, landmarks: [], castle: null, locks, tower: PUZZLE_TOWER.door, viewer })
+      .filter((s) => s.target.kind === "lock" || s.target.kind === "tower")
+      .map((s) => interactVerb(s.target));
+
+  it("asks a grown-up to look, never to open or climb, at every chest, vault door and the Tower, open or shut", () => {
+    const said = prompts("parent");
+    expect(said.length).toBe(locks.length + 1);
+    for (const p of said) expect(p).toMatch(/^Look at (the old chest|the vault door|the Puzzle Tower)$/);
+    expect(said).toContain("Look at the Puzzle Tower");
+  });
+
+  it("keeps the hero's own verbs, and a viewer left out is the hero", () => {
+    expect(prompts("child")).toEqual(prompts());
+    expect(prompts("child")).toContain("Open the old chest");
+    expect(prompts("child")).toContain("Climb the Puzzle Tower");
+  });
+});
+
+describe("announcing what E will act on", () => {
+  const shut = { kind: "lock" as const, id: "chest:library", label: "the old chest", verb: "Open" };
+
+  it("announces the first target, then nothing while the same one stays in reach", () => {
+    const memo = makeNearMemo();
+    expect(nearChanged(memo, 2, shut)).toBe(true);
+    expect(nearChanged(memo, 2, shut)).toBe(false);
+    expect(nearChanged(memo, 2, { ...shut })).toBe(false);
+  });
+
+  it("announces a new index, and nothing in reach", () => {
+    const memo = makeNearMemo();
+    nearChanged(memo, 2, shut);
+    expect(nearChanged(memo, -1, null)).toBe(true);
+    expect(nearChanged(memo, -1, null)).toBe(false);
+    expect(nearChanged(memo, 3, shut)).toBe(true);
+  });
+
+  it("announces the same index once its words change: a chest solved under the hero's nose", () => {
+    const memo = makeNearMemo();
+    nearChanged(memo, 2, shut);
+    expect(nearChanged(memo, 2, { ...shut, verb: "Look in" })).toBe(true);
+    expect(memo.target?.verb).toBe("Look in");
+    expect(nearChanged(memo, 2, { ...shut, verb: "Look in", label: "the vault door" })).toBe(true);
   });
 });

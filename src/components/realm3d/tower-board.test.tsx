@@ -130,6 +130,8 @@ describe("the Puzzle Tower's board", () => {
     expect(onOutcome).toHaveBeenCalledTimes(1);
     expect(onOutcome).toHaveBeenCalledWith(solvedNow);
     expect(screen.getByText("Floor solved!")).toBeInTheDocument();
+    // A title alone: no empty line, and no lone subject seal, under it (G5 m4).
+    expect(document.querySelector(".r3-result-line")).toBeNull();
   });
 
   it("hands up nothing for a summary with no outcome", async () => {

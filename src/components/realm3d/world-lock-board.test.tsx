@@ -15,7 +15,7 @@ vi.mock("@/lib/utils/speech", () => ({ canSpeak: () => false, speak: vi.fn(), st
 import { answerDeedQuestion, completeDeedRun } from "@/lib/actions/deeds";
 import { startWorldLockRun } from "@/lib/actions/world-locks";
 import { WORLD_HERO_ONLY, WORLD_LOCKS_OFF, WORLD_OPEN } from "@/lib/utils/deed-refusals";
-import { CHEST_OPEN_LINE, DOOR_OPEN_LINE } from "@/lib/utils/world-lock-copy";
+import { CHEST_OPEN_LINE, CHEST_OPEN_LINE_VISITOR, DOOR_OPEN_LINE, DOOR_OPEN_LINE_VISITOR, LOCK_NOT_NOW } from "@/lib/utils/world-lock-copy";
 import type { RunSummary } from "@/lib/utils/deed-run-types";
 import { WorldLockBoard } from "./world-lock-board";
 
@@ -72,22 +72,54 @@ describe("a chest's or vault door's lock board", () => {
     expect(WORLD_HERO_ONLY).toBe("Locks are for the hero to open.");
   });
 
-  it("shows an open chest's line to the hero and to a visitor, and starts nothing", async () => {
-    for (const viewer of ["child", "parent"] as const) {
-      await act(async () => void board({ open: true, viewer }));
-      expect(screen.getByText(CHEST_OPEN_LINE)).toBeInTheDocument();
-      expect(screen.queryByText(WORLD_HERO_ONLY)).toBeNull();
-      cleanup();
-    }
-    expect(CHEST_OPEN_LINE).toBe("You opened this chest. A new lock comes next week.");
+  it("shows a visiting grown-up an open chest's line in their own words, and starts nothing", async () => {
+    await act(async () => void board({ open: true, viewer: "parent" }));
+    expect(screen.getByText(CHEST_OPEN_LINE_VISITOR)).toBeInTheDocument();
+    expect(screen.queryByText(CHEST_OPEN_LINE)).toBeNull();
+    expect(screen.queryByText(WORLD_HERO_ONLY)).toBeNull();
+    expect(CHEST_OPEN_LINE_VISITOR).toBe("This chest stands open. A new lock comes next week.");
     expect(startWorldLockRun).not.toHaveBeenCalled();
   });
 
-  it("shows an open vault door's own line, under its own name", async () => {
+  it("never tells a visiting grown-up an open vault door's map is theirs (smoke bug 3)", async () => {
+    await act(async () => void board({ object: DOOR, open: true, viewer: "parent" }));
+    expect(screen.getByRole("heading", { name: "The vault door" })).toBeInTheDocument();
+    expect(screen.getByText(DOOR_OPEN_LINE_VISITOR)).toBeInTheDocument();
+    expect(document.body.textContent).not.toMatch(/\byours?\b/i);
+    expect(startWorldLockRun).not.toHaveBeenCalled();
+  });
+
+  it("asks the server about an open chest the hero walks up to: still open, it says the open line (final f1)", async () => {
+    vi.mocked(startWorldLockRun).mockRejectedValue(new Error(WORLD_OPEN));
+    const onOutcome = vi.fn();
+    await act(async () => void board({ open: true, onOutcome }));
+    expect(startWorldLockRun).toHaveBeenCalledWith("c1", "chest:west-lane");
+    expect(screen.getByText(CHEST_OPEN_LINE)).toBeInTheDocument();
+    expect(CHEST_OPEN_LINE).toBe("You opened this chest. A new lock comes next week.");
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(onOutcome).not.toHaveBeenCalled();
+  });
+
+  it("plays the lock when the server says an open chest has relocked since the page loaded (final f1)", async () => {
+    vi.mocked(startWorldLockRun).mockResolvedValue(run);
+    await act(async () => void board({ open: true }));
+    expect(startWorldLockRun).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("Which shape comes next?")).toBeInTheDocument();
+    expect(screen.queryByText(CHEST_OPEN_LINE)).toBeNull();
+  });
+
+  it("shows the hero an open vault door's own line, under its own name, once the server says it stands open", async () => {
+    vi.mocked(startWorldLockRun).mockRejectedValue(new Error(WORLD_OPEN));
     await act(async () => void board({ object: DOOR, open: true }));
     expect(screen.getByRole("heading", { name: "The vault door" })).toBeInTheDocument();
     expect(screen.getByText(DOOR_OPEN_LINE)).toBeInTheDocument();
     expect(DOOR_OPEN_LINE).toBe("The vault stands open. Its map is yours.");
+  });
+
+  it("tells a child view with no hero named a neutral line, never that locks are the hero's, and starts nothing (G3 m4)", async () => {
+    await act(async () => void board({ childId: null }));
+    expect(screen.getByText(LOCK_NOT_NOW)).toBeInTheDocument();
+    expect(screen.queryByText(WORLD_HERO_ONLY)).toBeNull();
     expect(startWorldLockRun).not.toHaveBeenCalled();
   });
 
@@ -105,7 +137,18 @@ describe("a chest's or vault door's lock board", () => {
     view.rerender(<WorldLockBoard {...props({ onOutcome, open: true })} />);
     expect(screen.getByText("The chest opens!")).toBeInTheDocument();
     expect(screen.getByText(/Inside: a stone bench\. Look for it in the village\./)).toBeInTheDocument();
+    expect(document.querySelector(".r3-result-line")).toHaveTextContent(/Inside: a stone bench/);
     expect(screen.queryByText(CHEST_OPEN_LINE)).toBeNull();
+  });
+
+  it("shows an already-open finish as its title alone, with no empty line under it (G3 m3)", async () => {
+    vi.mocked(startWorldLockRun).mockResolvedValue(run);
+    vi.mocked(answerDeedQuestion).mockResolvedValue({ correct: true, secondChance: false, answer: "circle" });
+    vi.mocked(completeDeedRun).mockResolvedValue({ ...summary, world: { objectId: "chest:west-lane", opened: false, reason: "already-open", rewards: [] } });
+    await act(async () => void board());
+    await playToDone();
+    expect(screen.getByText("It was already open.")).toBeInTheDocument();
+    expect(document.querySelector(".r3-result-line")).toBeNull();
   });
 
   it("hands up nothing for a summary with no outcome", async () => {

@@ -80,10 +80,12 @@ export type LockSpotView = { id: string; type: "chest" | "door"; label: string; 
 
 /**
  * What the island's canvas draws from (RG-a): the chests and doors out in the world, the
- * decorations found, and how many storeys the Tower has grown. Handed to the memoised `World`,
- * so the frame keeps it the same object until one of these changes (`use-world-state.ts`).
+ * decorations found, how many storeys the Tower has grown, and whether its floors are known at all
+ * (`towerKnown`: a failed kingdom read lists none, and then the Tower offers no board). Handed to
+ * the memoised `World`, so the frame keeps it the same object until one of these changes
+ * (`use-world-state.ts`).
  */
-export type WorldCanvas = { locksOn: boolean; locks: readonly LockSpotView[]; decor: readonly DecorId[]; storeys: number };
+export type WorldCanvas = { locksOn: boolean; locks: readonly LockSpotView[]; decor: readonly DecorId[]; storeys: number; towerKnown: boolean };
 
 export function lockSpotView(o: WorldObject, open: boolean): LockSpotView {
   return { id: o.id, type: o.type, label: o.label, x: o.x, z: o.z, ry: o.ry, open };
@@ -97,7 +99,7 @@ export function lockSpotView(o: WorldObject, open: boolean): LockSpotView {
 export function worldCanvas(view: WorldStateView): WorldCanvas {
   const open = new Set(view.open);
   const locks = view.locksOn ? WORLD_OBJECTS.filter((o) => !o.room).map((o) => lockSpotView(o, open.has(o.id))) : [];
-  return { locksOn: view.locksOn, locks, decor: view.decor, storeys: view.tower.filter((f) => f.open).length };
+  return { locksOn: view.locksOn, locks, decor: view.decor, storeys: view.tower.filter((f) => f.open).length, towerKnown: view.tower.length > 0 };
 }
 
 /** The chest standing in this room, in the room's own frame, or null: none there, or the locks are off. */
@@ -118,7 +120,9 @@ export function applyWorldOutcome(view: WorldStateView, o: WorldOutcome): WorldS
   const nowOpen = o.opened || o.reason === "already-open";
   if (!nowOpen || !worldObjectById(o.objectId) || (!o.opened && view.open.includes(o.objectId))) return view;
   const open = new Set([...view.open, o.objectId]);
-  const decor = new Set<DecorId>([...view.decor, ...o.rewards.flatMap((r) => (r.kind === "decor" ? [r.id] : []))]);
+  // Only an opening gives anything: an "already-open" answer shows the lock open and places nothing.
+  const given = o.opened ? o.rewards : [];
+  const decor = new Set<DecorId>([...view.decor, ...given.flatMap((r) => (r.kind === "decor" ? [r.id] : []))]);
   return {
     ...view,
     open: WORLD_OBJECTS.filter((x) => open.has(x.id)).map((x) => x.id),

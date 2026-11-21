@@ -17,7 +17,7 @@ import { RIDDLE_STONE_RADIUS } from "@/lib/realm/riddle-stones";
 import { YARD_RADIUS } from "@/lib/realm/keep-yard";
 import { LOCK_SPOT } from "@/lib/realm/world-objects";
 import type { LockSpotView } from "@/lib/realm/world-state";
-import { CHEST_VERBS, DOOR_VERBS, TOWER_LABEL, TOWER_VERB } from "@/lib/utils/world-lock-copy";
+import { CHEST_VERBS, DOOR_VERBS, TOWER_LABEL, TOWER_VERB, VISITOR_VERB } from "@/lib/utils/world-lock-copy";
 
 /** One thing in the world with a reach round it. */
 export type InteractSpot = {
@@ -101,6 +101,32 @@ function yields(spots: readonly InteractSpot[], s: InteractSpot, x: number, z: n
   return edgeDistance(t, x, z) <= t.reach;
 }
 
+/* ------------------------------------------------------------------ announcing */
+
+/**
+ * What the HUD was last told E will act on (`bus.onNear`), so a frame loop announces a CHANGE and
+ * never every frame: a new index, or the same index now carrying other words. The spots are rebuilt
+ * when what they stand for changes (a building goes up under the child's feet, a chest is solved in
+ * front of them), and the same index then names a new thing: "Look in the old chest" where it said
+ * "Open". The island (`interaction.tsx`) and a room (`interior-scene.tsx`) each keep one.
+ */
+export type NearMemo = { i: number; target: InteractTarget | null };
+
+export function makeNearMemo(): NearMemo {
+  return { i: -1, target: null };
+}
+
+const sameWords = (a: InteractTarget | null, b: InteractTarget | null): boolean =>
+  a === b || (a !== null && b !== null && a.kind === b.kind && a.id === b.id && a.label === b.label && a.verb === b.verb);
+
+/** Whether (`i`, `target`) is news to the HUD; if so, it is remembered as what was last announced. */
+export function nearChanged(memo: NearMemo, i: number, target: InteractTarget | null): boolean {
+  if (i === memo.i && sameWords(target, memo.target)) return false;
+  memo.i = i;
+  memo.target = target;
+  return true;
+}
+
 /* ------------------------------------------------------------------ building */
 
 type SiteProp = { id: string; kind: string; label: string; position: { x: number; z: number }; size: { w: number; d: number } };
@@ -132,15 +158,23 @@ export type SpotInput = {
   locks?: readonly LockSpotView[];
   /** The Puzzle Tower's door (`PUZZLE_TOWER.door`), where E climbs. Null or absent, there is none: the grown-up has locks off. */
   tower?: { x: number; z: number } | null;
+  /** Who is walking: a visiting grown-up looks at the locks and the Tower, never opens or climbs. Absent, the hero. */
+  viewer?: "child" | "parent";
 };
 
 /** What E at the Puzzle Tower says: "Climb the Puzzle Tower". */
 export const TOWER_TARGET: InteractTarget = { kind: "tower", id: "puzzle-tower", label: TOWER_LABEL, verb: TOWER_VERB };
+/** ...and to a visiting grown-up, who looks: "Look at the Puzzle Tower". */
+export const TOWER_VISITOR_TARGET: InteractTarget = { ...TOWER_TARGET, verb: VISITOR_VERB };
 
-/** What E at a chest or vault door says: "Open the old chest" while shut, "Look in" or "Look through" once open. */
-export function lockTarget(l: LockSpotView): InteractTarget {
+/**
+ * What E at a chest or vault door says: "Open the old chest" while shut, "Look in" or "Look through"
+ * once open; to a visiting grown-up, "Look at the old chest" either way.
+ */
+export function lockTarget(l: LockSpotView, viewer: "child" | "parent" = "child"): InteractTarget {
   const verbs = l.type === "chest" ? CHEST_VERBS : DOOR_VERBS;
-  return { kind: "lock", id: l.id, label: l.label, verb: l.open ? verbs.open : verbs.shut };
+  const verb = viewer === "parent" ? VISITOR_VERB : l.open ? verbs.open : verbs.shut;
+  return { kind: "lock", id: l.id, label: l.label, verb };
 }
 
 /**
@@ -148,9 +182,9 @@ export function lockTarget(l: LockSpotView): InteractTarget {
  * and its reach `LOCK_SPOT.reach`, the very numbers `world-objects.test.ts` holds every lock's spot
  * to. It stands a step from a lane or a place, so a hero beside it means the lock.
  */
-export function lockSpot(l: LockSpotView): InteractSpot {
+export function lockSpot(l: LockSpotView, viewer: "child" | "parent" = "child"): InteractSpot {
   return {
-    target: lockTarget(l),
+    target: lockTarget(l, viewer),
     x: l.x,
     z: l.z,
     hw: LOCK_SPOT.radius,
@@ -339,10 +373,10 @@ export function buildSpots(input: SpotInput): InteractSpot[] {
       ring: PLAQUE_RADIUS + 0.55,
     });
   }
-  for (const l of input.locks ?? []) out.push(lockSpot(l));
+  for (const l of input.locks ?? []) out.push(lockSpot(l, input.viewer));
   if (input.tower) {
     out.push({
-      target: TOWER_TARGET,
+      target: input.viewer === "parent" ? TOWER_VISITOR_TARGET : TOWER_TARGET,
       x: input.tower.x,
       z: input.tower.z,
       hw: 0.7,

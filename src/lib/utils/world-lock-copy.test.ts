@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { CONTENT_BANDS, type ContentBand } from "./content-bands";
 import {
+  CHEST_OPEN_LINE, CHEST_OPEN_LINE_VISITOR, DOOR_OPEN_LINE, DOOR_OPEN_LINE_VISITOR, LOCK_NOT_NOW, lockOpenLine, VISITOR_VERB,
   TOWER_FLOOR_SOLVED, TOWER_HOLDS, TOWER_HOLDS_LINE, TOWER_LABEL, TOWER_STORY, TOWER_TITLE, TOWER_VERB, TOWER_WAITING, towerFloorLine, towerFloorName,
 } from "./world-lock-copy";
 
@@ -52,5 +53,24 @@ describe("the Puzzle Tower's copy", () => {
       for (const numerals of [true, false]) for (const solved of [0, 4]) for (const open of [true, false]) lines.push(towerFloorLine({ open, solved }, numerals));
     }
     for (const line of lines) expect(line, line).not.toMatch(GRADE_WORDS);
+  });
+});
+
+describe("a visiting grown-up's words at the locks (smoke bug 3)", () => {
+  it("has its own open lines, which never say the grown-up opened it or owns its map", () => {
+    expect(lockOpenLine(false, true)).toBe(CHEST_OPEN_LINE_VISITOR);
+    expect(lockOpenLine(true, true)).toBe(DOOR_OPEN_LINE_VISITOR);
+    for (const line of [CHEST_OPEN_LINE_VISITOR, DOOR_OPEN_LINE_VISITOR]) expect(line, line).not.toMatch(/\byou(rs?)?\b/i);
+  });
+
+  it("keeps the hero's own open lines for the hero", () => {
+    expect(lockOpenLine(false, false)).toBe(CHEST_OPEN_LINE);
+    expect(lockOpenLine(true, false)).toBe(DOOR_OPEN_LINE);
+  });
+
+  it("looks, never opens or climbs, and a child view with no hero is told plainly", () => {
+    expect(VISITOR_VERB).toBe("Look at");
+    expect(LOCK_NOT_NOW).toBe("This lock can't be opened just now.");
+    expect(LOCK_NOT_NOW).not.toMatch(/hero/i);
   });
 });

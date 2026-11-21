@@ -61,6 +61,7 @@ import { hipTurn, keepMotion, makeMotion, makeStride as makeLegs, readStride, st
 import { typingInto } from "@/lib/realm3d/typing";
 import { roomPlan, type RoomColors, type RoomPart, type RoomPlan, type WallSide } from "@/lib/realm3d/interiors";
 import { hiddenWalls, leavingRoom, makeHidden, pickRoomSpot, roomSlide, roomSpots, ROOM_LOOK, type RoomSpots } from "@/lib/realm3d/room-rules";
+import { makeNearMemo, nearChanged, type NearMemo } from "@/lib/realm3d/interact";
 import type { RoomVisit } from "@/lib/realm3d/doorways";
 import type { HudBus } from "@/lib/realm3d/hud-bus";
 import { villagerById } from "@/lib/realm/villagers";
@@ -180,7 +181,7 @@ const RoomWorld = memo(function RoomWorld({
   const view = useRef<LookState>({ pitch: plan.view.pitch, dist: plan.view.dist, held: false, lastLookAt: -1e9 });
   const lookPaused = useCallback(() => roomPaused(live), [live]);
   const walls = useRef<Record<WallSide, THREE.Group | null>>({ n: null, s: null, e: null, w: null });
-  const spots = useMemo(() => roomSpots(plan, keeperName, chest), [plan, keeperName, chest]);
+  const spots = useMemo(() => roomSpots(plan, keeperName, chest, viewer), [plan, keeperName, chest, viewer]);
   // The pet follows the child's own footsteps here, so it goes up the stair after them rather than
   // standing on the floor under the lookout or the gallery; and it stands on the step it is on.
   const petTrail = useMemo(() => makePetTrail(), []);
@@ -651,7 +652,9 @@ function RoomHero({
 /* ------------------------------------------------------------------ E */
 
 function RoomInteract({ spots, local, keys, bus, live }: { spots: RoomSpots; local: React.RefObject<{ x: number; y: number; z: number }>; keys: React.RefObject<Keys>; bus: HudBus; live: Live }) {
-  const current = useRef(-1);
+  // What the prompt was last told (`nearChanged`): a chest solved here rebuilds the spots, and the
+  // same index then says "Look in" where it said "Open", so a change of words is announced too.
+  const near = useRef<NearMemo>(makeNearMemo());
   // No "nothing in reach" on the way out: the frame hands back what was in reach at the door
   // (`leave` in realm-game.tsx), and a late null from here would wipe it.
   useFrame(() => {
@@ -661,10 +664,11 @@ function RoomInteract({ spots, local, keys, bus, live }: { spots: RoomSpots; loc
       return;
     }
     const L = local.current;
-    const i = pickRoomSpot(spots, L.x, L.z, L.y, current.current);
-    if (i !== current.current) {
-      current.current = i;
-      bus.onNear(i < 0 ? null : spots.spots[i].target);
+    const memo = near.current;
+    const i = pickRoomSpot(spots, L.x, L.z, L.y, memo.i);
+    const target = i < 0 ? null : spots.spots[i].target;
+    if (nearChanged(memo, i, target)) {
+      bus.onNear(target);
       ringAt(spots, i);
     }
     if (eat(k, "interact") && i >= 0) {

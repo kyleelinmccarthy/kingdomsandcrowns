@@ -25,7 +25,7 @@ describe("useWorldState", () => {
   it("is the empty state when the bundle sent none", () => {
     const { result } = renderHook(() => useWorldState(undefined, options()));
     expect(result.current.view).toBe(EMPTY_WORLD_STATE);
-    expect(result.current.canvas).toEqual({ locksOn: false, locks: [], decor: [], storeys: 0 });
+    expect(result.current.canvas).toEqual({ locksOn: false, locks: [], decor: [], storeys: 0, towerKnown: false });
   });
 
   it("keeps the canvas the same object across a re-render, and across an equal bundle", () => {
@@ -152,6 +152,35 @@ describe("useWorldState: a map fragment", () => {
     expect(result.current.view).toBe(view);
     rerender();
     expect(result.current.applyTowerOutcome).toBe(apply);
+  });
+
+  it("marks and says only a place the places store knows: a made-up id is neither added nor toasted (G4 m2)", () => {
+    const o = options();
+    const { result } = renderHook(() => useWorldState(VIEW, o));
+    act(() => result.current.applyWorldOutcome({ ...DOOR, rewards: [{ kind: "fragment", placeId: "nowhere-99" }] }));
+    expect(o.addPlace).not.toHaveBeenCalled();
+    expect(o.say).not.toHaveBeenCalled();
+    // The door still stands open in the view.
+    expect(result.current.view.open).toContain("door:ringstones");
+  });
+
+  it("names every map an outcome gave, in one toast, whether said at once or held (G4 m3)", () => {
+    const names: Record<string, string> = { "summit-7": "Thunder Head", "cove-12": "Driftwood Cove" };
+    const two = { ...DOOR, rewards: [{ kind: "fragment" as const, placeId: "summit-7" }, { kind: "fragment" as const, placeId: "cove-12" }] };
+    const now = options({ placeName: (id) => names[id] });
+    const a = renderHook(() => useWorldState(VIEW, now));
+    act(() => a.result.current.applyWorldOutcome(two));
+    expect(now.addPlace).toHaveBeenCalledTimes(2);
+    expect(now.say).toHaveBeenCalledTimes(1);
+    expect(now.say).toHaveBeenCalledWith(expect.objectContaining({ title: "You found maps to Thunder Head and Driftwood Cove!" }));
+
+    const held = options({ placeName: (id) => names[id] });
+    const b = renderHook(({ open }) => useWorldState(VIEW, { ...held, overlayOpen: open }), { initialProps: { open: true } });
+    act(() => b.result.current.applyWorldOutcome(two));
+    expect(held.say).not.toHaveBeenCalled();
+    b.rerender({ open: false });
+    expect(held.say).toHaveBeenCalledTimes(1);
+    expect(held.say).toHaveBeenCalledWith(expect.objectContaining({ title: "You found maps to Thunder Head and Driftwood Cove!" }));
   });
 
   it("says a held toast through the latest say, not the one from when it was found", () => {

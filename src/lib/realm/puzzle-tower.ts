@@ -87,9 +87,11 @@ export function towerLevel(mastery: number): number {
 
 /**
  * Where E climbs, or none: the Tower is offered only while the grown-up's "Solving logic locks" is on
- * (R-G7, PC-G6). Off, the Tower still stands drawn at its earned storeys, but has no E spot. Reads
- * the canvas the frame hands the scene, so absent (no world state) is off.
+ * (R-G7, PC-G6), and only when its floors are known (`towerKnown`; a failed kingdom read lists none,
+ * and a board with no floor on it is no use). Otherwise the Tower still stands drawn at its earned
+ * storeys, but has no E spot. Reads the canvas the frame hands the scene, so absent (no world state)
+ * is off.
  */
-export function towerDoorFor(canvas: { locksOn: boolean } | undefined): { x: number; z: number } | null {
-  return canvas?.locksOn ? PUZZLE_TOWER.door : null;
+export function towerDoorFor(canvas: { locksOn: boolean; towerKnown: boolean } | undefined): { x: number; z: number } | null {
+  return canvas?.locksOn && canvas.towerKnown ? PUZZLE_TOWER.door : null;
 }

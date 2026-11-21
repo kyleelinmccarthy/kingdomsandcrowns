@@ -3,7 +3,7 @@ import { objectiveState } from "@/lib/realm/objective";
 import { villagerById } from "@/lib/realm/villagers";
 import type { ClientTask } from "@/lib/tasks/types";
 import { CHEST_EMPTY, worldRewardLine } from "@/lib/utils/world-lock-copy";
-import { attemptFeedback, deedToast, finishLabel, fragmentToast, leaveWhat,resultBuildingLine, resultHeadline, resultMinutesLine, resultStarsLine, starsLabel, starsLeftLine, talkCopy, type SiteState } from "./talk";
+import { attemptFeedback, deedToast, finishLabel, fragmentToast, leaveWhat, resultBuildingLine, resultHeadline, resultMinutesLine, resultStarsLine, starsLabel, starsLeftLine, talkCopy, type SiteState } from "./talk";
 
 const bram = villagerById("bram")!;
 const well: SiteState = { id: "well", label: "Village Well", done: 0, total: 5, complete: false, stars: 0, maxStars: 9 };
@@ -308,6 +308,12 @@ describe("a map fragment's toast", () => {
       icon: "map",
       spoken: "You found a map to Thunder Head! Look for it on your map.",
     });
+  });
+
+  it("names every place when one opening gave several maps (G4 m3)", () => {
+    expect(fragmentToast("Thunder Head", "Driftwood Cove").title).toBe("You found maps to Thunder Head and Driftwood Cove!");
+    expect(fragmentToast("A", "B", "C").spoken).toBe("You found maps to A, B and C! Look for them on your map.");
+    expect(fragmentToast("A", "B").line).toBe("Look for them on your map.");
   });
 
   it("never names a grade, a band or a count", () => {
