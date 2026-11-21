@@ -1,0 +1,1081 @@
+{
+  "poolId": "trail-k1",
+  "skillId": "read-g1",
+  "band": "k1",
+  "trails": [
+    {
+      "id": "go-mill-well",
+      "level": 0,
+      "clues": [
+        {
+          "text": "Go to the mill.",
+          "answer": "landmark:mill",
+          "redirect": "Not this one. Read the last word again.",
+          "redirects": {
+            "landmark:well": "This is Old Bram's spot. Read the last word again."
+          },
+          "readAloud": "Go to the mill."
+        },
+        {
+          "text": "Go to the well.",
+          "answer": "landmark:well",
+          "redirect": "Not this one. Read the last word again.",
+          "redirects": {
+            "landmark:mill": "This is the place that makes flour. Read the last word again."
+          },
+          "readAloud": "Go to the well."
+        }
+      ]
+    },
+    {
+      "id": "walk-bridge-chapel",
+      "level": 0,
+      "clues": [
+        {
+          "text": "Walk to the bridge.",
+          "answer": "landmark:bridge",
+          "redirect": "Not this one. Read the last word again.",
+          "readAloud": "Walk to the bridge."
+        },
+        {
+          "text": "Walk to the chapel.",
+          "answer": "landmark:chapel",
+          "redirect": "Not this one. Read the last word again.",
+          "readAloud": "Walk to the chapel."
+        }
+      ]
+    },
+    {
+      "id": "go-market-garden-cart",
+      "level": 0,
+      "clues": [
+        {
+          "text": "Go to the market.",
+          "answer": "landmark:market",
+          "redirect": "Not this one. Read the last word again.",
+          "readAloud": "Go to the market."
+        },
+        {
+          "text": "Go to the garden.",
+          "answer": "landmark:garden",
+          "redirect": "Not this one. Read the last word again.",
+          "readAloud": "Go to the garden."
+        },
+        {
+          "text": "Go to the hay cart.",
+          "answer": "object:hay-cart",
+          "redirect": "Not this one. Read the last words again.",
+          "readAloud": "Go to the hay cart."
+        }
+      ]
+    },
+    {
+      "id": "go-library-gate",
+      "level": 0,
+      "clues": [
+        {
+          "text": "Go to the library.",
+          "answer": "landmark:library",
+          "redirect": "Not this one. Read the last word again.",
+          "readAloud": "Go to the library."
+        },
+        {
+          "text": "Go to the castle gate.",
+          "answer": "landmark:castle-gate",
+          "redirect": "Not this one. Read the last words again.",
+          "readAloud": "Go to the castle gate."
+        }
+      ]
+    },
+    {
+      "id": "go-watch-hives",
+      "level": 0,
+      "clues": [
+        {
+          "text": "Go to the watchtower.",
+          "answer": "landmark:watchtower",
+          "redirect": "Not this one. Read the last word again.",
+          "readAloud": "Go to the watchtower."
+        },
+        {
+          "text": "Go to the beehives.",
+          "answer": "object:beehives",
+          "redirect": "Not this one. Read the last word again.",
+          "redirects": {
+            "landmark:garden": "This is Keeper Ivy's garden. Read the last word again."
+          },
+          "readAloud": "Go to the beehives."
+        }
+      ]
+    },
+    {
+      "id": "go-ptower-board-trough",
+      "level": 0,
+      "clues": [
+        {
+          "text": "Go to the Puzzle Tower.",
+          "answer": "landmark:puzzle-tower",
+          "redirect": "Not this one. Read the last words again.",
+          "readAloud": "Go to the Puzzle Tower."
+        },
+        {
+          "text": "Go to the notice board.",
+          "answer": "object:notice-board",
+          "redirect": "Not this one. Read the last words again.",
+          "readAloud": "Go to the notice board."
+        },
+        {
+          "text": "Go to the water trough.",
+          "answer": "object:water-trough",
+          "redirect": "Not this one. Read the last words again.",
+          "redirects": {
+            "landmark:well": "This is Old Bram's spot. Read the last two words again."
+          },
+          "readAloud": "Go to the water trough."
+        }
+      ]
+    },
+    {
+      "id": "walk-cart-run-bridge",
+      "level": 0,
+      "clues": [
+        {
+          "text": "Walk to the hay cart.",
+          "answer": "object:hay-cart",
+          "redirect": "Not this one. Read the last words again.",
+          "readAloud": "Walk to the hay cart."
+        },
+        {
+          "text": "Run to the bridge.",
+          "answer": "landmark:bridge",
+          "redirect": "Not this one. Read the last word again.",
+          "readAloud": "Run to the bridge."
+        }
+      ]
+    },
+    {
+      "id": "run-well-chapel-market",
+      "level": 0,
+      "clues": [
+        {
+          "text": "Run to the well.",
+          "answer": "landmark:well",
+          "redirect": "Not this one. Read the last word again.",
+          "readAloud": "Run to the well."
+        },
+        {
+          "text": "Run to the chapel.",
+          "answer": "landmark:chapel",
+          "redirect": "Not this one. Read the last word again.",
+          "readAloud": "Run to the chapel."
+        },
+        {
+          "text": "Walk to the market.",
+          "answer": "landmark:market",
+          "redirect": "Not this one. Read the last word again.",
+          "readAloud": "Walk to the market."
+        }
+      ]
+    },
+    {
+      "id": "walk-garden-mill",
+      "level": 0,
+      "clues": [
+        {
+          "text": "Walk to the garden.",
+          "answer": "landmark:garden",
+          "redirect": "Not this one. Read the last word again.",
+          "redirects": {
+            "object:beehives": "These are the hives. Read the last word again."
+          },
+          "readAloud": "Walk to the garden."
+        },
+        {
+          "text": "Walk to the mill.",
+          "answer": "landmark:mill",
+          "redirect": "Not this one. Read the last word again.",
+          "readAloud": "Walk to the mill."
+        }
+      ]
+    },
+    {
+      "id": "walk-trough-library-hives",
+      "level": 0,
+      "clues": [
+        {
+          "text": "Walk to the water trough.",
+          "answer": "object:water-trough",
+          "redirect": "Not this one. Read the last words again.",
+          "readAloud": "Walk to the water trough."
+        },
+        {
+          "text": "Walk to the library.",
+          "answer": "landmark:library",
+          "redirect": "Not this one. Read the last word again.",
+          "readAloud": "Walk to the library."
+        },
+        {
+          "text": "Walk to the beehives.",
+          "answer": "object:beehives",
+          "redirect": "Not this one. Read the last word again.",
+          "readAloud": "Walk to the beehives."
+        }
+      ]
+    },
+    {
+      "id": "find-gate-watch",
+      "level": 1,
+      "clues": [
+        {
+          "text": "Can you find the castle gate?",
+          "answer": "landmark:castle-gate",
+          "redirect": "Not this one. Read the last words again.",
+          "readAloud": "Can you find the castle gate?"
+        },
+        {
+          "text": "Can you find the watchtower?",
+          "answer": "landmark:watchtower",
+          "redirect": "Not this one. Read the last word again.",
+          "redirects": {
+            "landmark:puzzle-tower": "This is the Puzzle Tower. Read the last word again."
+          },
+          "readAloud": "Can you find the watchtower?"
+        }
+      ]
+    },
+    {
+      "id": "look-ptower-board-hives",
+      "level": 1,
+      "clues": [
+        {
+          "text": "Look for the Puzzle Tower.",
+          "answer": "landmark:puzzle-tower",
+          "redirect": "Not this one. Read the last words again.",
+          "redirects": {
+            "landmark:watchtower": "This is the watchtower. Read the last two words again."
+          },
+          "readAloud": "Look for the Puzzle Tower."
+        },
+        {
+          "text": "Look for the notice board.",
+          "answer": "object:notice-board",
+          "redirect": "Not this one. Read the last words again.",
+          "redirects": {
+            "landmark:library": "This is the library. Read the last two words again."
+          },
+          "readAloud": "Look for the notice board."
+        },
+        {
+          "text": "Look for the beehives.",
+          "answer": "object:beehives",
+          "redirect": "Not this one. Read the last word again.",
+          "readAloud": "Look for the beehives."
+        }
+      ]
+    },
+    {
+      "id": "find-trough-cart",
+      "level": 1,
+      "clues": [
+        {
+          "text": "Can you find the water trough?",
+          "answer": "object:water-trough",
+          "redirect": "Not this one. Read the last words again.",
+          "readAloud": "Can you find the water trough?"
+        },
+        {
+          "text": "Can you find the hay cart?",
+          "answer": "object:hay-cart",
+          "redirect": "Not this one. Read the last words again.",
+          "readAloud": "Can you find the hay cart?"
+        }
+      ]
+    },
+    {
+      "id": "visit-mill-chapel-garden",
+      "level": 1,
+      "clues": [
+        {
+          "text": "Now visit the mill.",
+          "answer": "landmark:mill",
+          "redirect": "Not this one. Read the last word again.",
+          "readAloud": "Now visit the mill."
+        },
+        {
+          "text": "Now visit the chapel.",
+          "answer": "landmark:chapel",
+          "redirect": "Not this one. Read the last word again.",
+          "readAloud": "Now visit the chapel."
+        },
+        {
+          "text": "Now visit the garden.",
+          "answer": "landmark:garden",
+          "redirect": "Not this one. Read the last word again.",
+          "readAloud": "Now visit the garden."
+        }
+      ]
+    },
+    {
+      "id": "look-well-market",
+      "level": 1,
+      "clues": [
+        {
+          "text": "Look for the well.",
+          "answer": "landmark:well",
+          "redirect": "Not this one. Read the last word again.",
+          "readAloud": "Look for the well."
+        },
+        {
+          "text": "Look for the market.",
+          "answer": "landmark:market",
+          "redirect": "Not this one. Read the last word again.",
+          "readAloud": "Look for the market."
+        }
+      ]
+    },
+    {
+      "id": "stop-bridge-library-gate",
+      "level": 1,
+      "clues": [
+        {
+          "text": "Stop at the bridge.",
+          "answer": "landmark:bridge",
+          "redirect": "Not this one. Read the last word again.",
+          "readAloud": "Stop at the bridge."
+        },
+        {
+          "text": "Stop at the library.",
+          "answer": "landmark:library",
+          "redirect": "Not this one. Read the last word again.",
+          "redirects": {
+            "object:notice-board": "This is the notice board. Read the last word again."
+          },
+          "readAloud": "Stop at the library."
+        },
+        {
+          "text": "Stop at the castle gate.",
+          "answer": "landmark:castle-gate",
+          "redirect": "Not this one. Read the last words again.",
+          "readAloud": "Stop at the castle gate."
+        }
+      ]
+    },
+    {
+      "id": "hop-watch-board",
+      "level": 1,
+      "clues": [
+        {
+          "text": "Hop to the watchtower.",
+          "answer": "landmark:watchtower",
+          "redirect": "Not this one. Read the last word again.",
+          "readAloud": "Hop to the watchtower."
+        },
+        {
+          "text": "Hop to the notice board.",
+          "answer": "object:notice-board",
+          "redirect": "Not this one. Read the last words again.",
+          "readAloud": "Hop to the notice board."
+        }
+      ]
+    },
+    {
+      "id": "hop-ptower-trough-hives",
+      "level": 1,
+      "clues": [
+        {
+          "text": "Hop to the Puzzle Tower.",
+          "answer": "landmark:puzzle-tower",
+          "redirect": "Not this one. Read the last words again.",
+          "readAloud": "Hop to the Puzzle Tower."
+        },
+        {
+          "text": "Hop to the water trough.",
+          "answer": "object:water-trough",
+          "redirect": "Not this one. Read the last words again.",
+          "readAloud": "Hop to the water trough."
+        },
+        {
+          "text": "Hop to the beehives.",
+          "answer": "object:beehives",
+          "redirect": "Not this one. Read the last word again.",
+          "readAloud": "Hop to the beehives."
+        }
+      ]
+    },
+    {
+      "id": "skip-cart-mill",
+      "level": 1,
+      "clues": [
+        {
+          "text": "Skip to the hay cart.",
+          "answer": "object:hay-cart",
+          "redirect": "Not this one. Read the last words again.",
+          "readAloud": "Skip to the hay cart."
+        },
+        {
+          "text": "Skip to the mill.",
+          "answer": "landmark:mill",
+          "redirect": "Not this one. Read the last word again.",
+          "readAloud": "Skip to the mill."
+        }
+      ]
+    },
+    {
+      "id": "skip-chapel-well",
+      "level": 1,
+      "clues": [
+        {
+          "text": "Skip to the chapel.",
+          "answer": "landmark:chapel",
+          "redirect": "Not this one. Read the last word again.",
+          "readAloud": "Skip to the chapel."
+        },
+        {
+          "text": "Skip to the well.",
+          "answer": "landmark:well",
+          "redirect": "Not this one. Read the last word again.",
+          "redirects": {
+            "object:water-trough": "This trough is for the animals. Read the last word again."
+          },
+          "readAloud": "Skip to the well."
+        }
+      ]
+    },
+    {
+      "id": "bell-flour",
+      "level": 2,
+      "clues": [
+        {
+          "text": "It has a bell. Go to the chapel.",
+          "answer": "landmark:chapel",
+          "redirect": "Not this one. Find the name of the place in the clue.",
+          "readAloud": "It has a bell. Go to the chapel."
+        },
+        {
+          "text": "It makes flour. Go to the mill.",
+          "answer": "landmark:mill",
+          "redirect": "Not this one. Find the name of the place in the clue.",
+          "readAloud": "It makes flour. Go to the mill."
+        }
+      ]
+    },
+    {
+      "id": "hay-hill-lamp",
+      "level": 2,
+      "clues": [
+        {
+          "text": "It is full of hay. Go to the hay cart.",
+          "answer": "object:hay-cart",
+          "redirect": "Not this one. Find the name of the place in the clue.",
+          "readAloud": "It is full of hay. Go to the hay cart."
+        },
+        {
+          "text": "It looks at the hills. Go to the watchtower.",
+          "answer": "landmark:watchtower",
+          "redirect": "Not this one. Find the name of the place in the clue.",
+          "readAloud": "It looks at the hills. Go to the watchtower."
+        },
+        {
+          "text": "It has stalls. Go to the market.",
+          "answer": "landmark:market",
+          "redirect": "Not this one. Find the name of the place in the clue.",
+          "readAloud": "It has stalls. Go to the market."
+        }
+      ]
+    },
+    {
+      "id": "river-books",
+      "level": 2,
+      "clues": [
+        {
+          "text": "It goes over the river. Go to the bridge.",
+          "answer": "landmark:bridge",
+          "redirect": "Not this one. Find the name of the place in the clue.",
+          "readAloud": "It goes over the river. Go to the bridge."
+        },
+        {
+          "text": "It has lots of books. Go to the library.",
+          "answer": "landmark:library",
+          "redirect": "Not this one. Find the name of the place in the clue.",
+          "readAloud": "It has lots of books. Go to the library."
+        }
+      ]
+    },
+    {
+      "id": "herbs-puzzles",
+      "level": 2,
+      "clues": [
+        {
+          "text": "Herbs grow in it. Go to the garden.",
+          "answer": "landmark:garden",
+          "redirect": "Not this one. Find the name of the place in the clue.",
+          "readAloud": "Herbs grow in it. Go to the garden."
+        },
+        {
+          "text": "It is full of puzzles. Go to the Puzzle Tower.",
+          "answer": "landmark:puzzle-tower",
+          "redirect": "Not this one. Find the name of the place in the clue.",
+          "readAloud": "It is full of puzzles. Go to the Puzzle Tower."
+        }
+      ]
+    },
+    {
+      "id": "pin-deep-north",
+      "level": 2,
+      "clues": [
+        {
+          "text": "Pin up a sign on it. Go to the notice board.",
+          "answer": "object:notice-board",
+          "redirect": "Not this one. Find the name of the place in the clue.",
+          "readAloud": "Pin up a sign on it. Go to the notice board."
+        },
+        {
+          "text": "It is deep. Go to the well.",
+          "answer": "landmark:well",
+          "redirect": "Not this one. Find the name of the place in the clue.",
+          "readAloud": "It is deep. Go to the well."
+        },
+        {
+          "text": "The road ends here. Go to the castle gate.",
+          "answer": "landmark:castle-gate",
+          "redirect": "Not this one. Find the name of the place in the clue.",
+          "readAloud": "The road ends here. Go to the castle gate."
+        }
+      ]
+    },
+    {
+      "id": "sip-hum",
+      "level": 2,
+      "clues": [
+        {
+          "text": "Animals sip from it. Go to the water trough.",
+          "answer": "object:water-trough",
+          "redirect": "Not this one. Find the name of the place in the clue.",
+          "readAloud": "Animals sip from it. Go to the water trough."
+        },
+        {
+          "text": "It hums. Go to the beehives.",
+          "answer": "object:beehives",
+          "redirect": "Not this one. Find the name of the place in the clue.",
+          "redirects": {
+            "landmark:garden": "This is the garden, where herbs grow. Find the name in the clue."
+          },
+          "readAloud": "It hums. Go to the beehives."
+        }
+      ]
+    },
+    {
+      "id": "stone-wood-stalls",
+      "level": 2,
+      "clues": [
+        {
+          "text": "It is tall and made of stone. Go to the Puzzle Tower.",
+          "answer": "landmark:puzzle-tower",
+          "redirect": "Not this one. Find the name of the place in the clue.",
+          "readAloud": "It is tall and made of stone. Go to the Puzzle Tower."
+        },
+        {
+          "text": "It has wheels. Go to the hay cart.",
+          "answer": "object:hay-cart",
+          "redirect": "Not this one. Find the name of the place in the clue.",
+          "readAloud": "It has wheels. Go to the hay cart."
+        },
+        {
+          "text": "You walk over it. Go to the bridge.",
+          "answer": "landmark:bridge",
+          "redirect": "Not this one. Find the name of the place in the clue.",
+          "readAloud": "You walk over it. Go to the bridge."
+        }
+      ]
+    },
+    {
+      "id": "bench-shelves",
+      "level": 2,
+      "clues": [
+        {
+          "text": "It has a bench in the sun. Go to the garden.",
+          "answer": "landmark:garden",
+          "redirect": "Not this one. Find the name of the place in the clue.",
+          "readAloud": "It has a bench in the sun. Go to the garden."
+        },
+        {
+          "text": "It has tall shelves. Go to the library.",
+          "answer": "landmark:library",
+          "redirect": "Not this one. Find the name of the place in the clue.",
+          "readAloud": "It has tall shelves. Go to the library."
+        }
+      ]
+    },
+    {
+      "id": "ring-sell",
+      "level": 2,
+      "clues": [
+        {
+          "text": "Ding, dong! Go to the chapel.",
+          "answer": "landmark:chapel",
+          "redirect": "Not this one. Find the name of the place in the clue.",
+          "readAloud": "Ding, dong! Go to the chapel."
+        },
+        {
+          "text": "It smells of bread. Go to the market.",
+          "answer": "landmark:market",
+          "redirect": "Not this one. Find the name of the place in the clue.",
+          "readAloud": "It smells of bread. Go to the market."
+        },
+        {
+          "text": "It is long and made of wood. Go to the water trough.",
+          "answer": "object:water-trough",
+          "redirect": "Not this one. Find the name of the place in the clue.",
+          "readAloud": "It is long and made of wood. Go to the water trough."
+        }
+      ]
+    },
+    {
+      "id": "rope-lamp",
+      "level": 2,
+      "clues": [
+        {
+          "text": "Pull up the rope. Go to the well.",
+          "answer": "landmark:well",
+          "redirect": "Not this one. Find the name of the place in the clue.",
+          "readAloud": "Pull up the rope. Go to the well."
+        },
+        {
+          "text": "It has a lamp at night. Go to the watchtower.",
+          "answer": "landmark:watchtower",
+          "redirect": "Not this one. Find the name of the place in the clue.",
+          "readAloud": "It has a lamp at night. Go to the watchtower."
+        }
+      ]
+    },
+    {
+      "id": "bram-tessa",
+      "level": 3,
+      "clues": [
+        {
+          "text": "Old Bram looks after the well. Go to it.",
+          "answer": "landmark:well",
+          "redirect": "Not this one. Find the name of the place in the clue.",
+          "readAloud": "Old Bram looks after the well. Go to it."
+        },
+        {
+          "text": "Miller Tessa works at the mill. Go there.",
+          "answer": "landmark:mill",
+          "redirect": "Not this one. Find the name of the place in the clue.",
+          "readAloud": "Miller Tessa works at the mill. Go there."
+        }
+      ]
+    },
+    {
+      "id": "aldo-wren-pip",
+      "level": 3,
+      "clues": [
+        {
+          "text": "Carpenter Aldo fixes the bridge. Go to it.",
+          "answer": "landmark:bridge",
+          "redirect": "Not this one. Find the name of the place in the clue.",
+          "readAloud": "Carpenter Aldo fixes the bridge. Go to it."
+        },
+        {
+          "text": "Sister Wren rings the bell at the chapel. Go there.",
+          "answer": "landmark:chapel",
+          "redirect": "Not this one. Find the name of the place in the clue.",
+          "readAloud": "Sister Wren rings the bell at the chapel. Go there."
+        },
+        {
+          "text": "Crier Pip calls out at the market. Go there.",
+          "answer": "landmark:market",
+          "redirect": "Not this one. Find the name of the place in the clue.",
+          "readAloud": "Crier Pip calls out at the market. Go there."
+        }
+      ]
+    },
+    {
+      "id": "hesper-gerd",
+      "level": 3,
+      "clues": [
+        {
+          "text": "Hesper keeps the books at the library. Go there.",
+          "answer": "landmark:library",
+          "redirect": "Not this one. Find the name of the place in the clue.",
+          "readAloud": "Hesper keeps the books at the library. Go there."
+        },
+        {
+          "text": "Mason Gerd looks after the watchtower. Go to it.",
+          "answer": "landmark:watchtower",
+          "redirect": "Not this one. Find the name of the place in the clue.",
+          "readAloud": "Mason Gerd looks after the watchtower. Go to it."
+        }
+      ]
+    },
+    {
+      "id": "ivy-gate",
+      "level": 3,
+      "clues": [
+        {
+          "text": "Keeper Ivy grows herbs in the garden. Go there.",
+          "answer": "landmark:garden",
+          "redirect": "Not this one. Find the name of the place in the clue.",
+          "readAloud": "Keeper Ivy grows herbs in the garden. Go there."
+        },
+        {
+          "text": "The road ends at the castle gate. Go to it.",
+          "answer": "landmark:castle-gate",
+          "redirect": "Not this one. Find the name of the place in the clue.",
+          "readAloud": "The road ends at the castle gate. Go to it."
+        }
+      ]
+    },
+    {
+      "id": "goats-pins-hay",
+      "level": 3,
+      "clues": [
+        {
+          "text": "The goats sip at the water trough. Go there.",
+          "answer": "object:water-trough",
+          "redirect": "Not this one. Find the name of the place in the clue.",
+          "readAloud": "The goats sip at the water trough. Go there."
+        },
+        {
+          "text": "We pin signs on the notice board. Go to it.",
+          "answer": "object:notice-board",
+          "redirect": "Not this one. Find the name of the place in the clue.",
+          "readAloud": "We pin signs on the notice board. Go to it."
+        },
+        {
+          "text": "The hay cart is at the east side. Go there.",
+          "answer": "object:hay-cart",
+          "redirect": "Not this one. Find the name of the place in the clue.",
+          "readAloud": "The hay cart is at the east side. Go there."
+        }
+      ]
+    },
+    {
+      "id": "hives-ptower",
+      "level": 3,
+      "clues": [
+        {
+          "text": "The beehives sit at the edge. Go there.",
+          "answer": "object:beehives",
+          "redirect": "Not this one. Find the name of the place in the clue.",
+          "readAloud": "The beehives sit at the edge. Go there."
+        },
+        {
+          "text": "The Puzzle Tower stands at the edge. Go to it.",
+          "answer": "landmark:puzzle-tower",
+          "redirect": "Not this one. Find the name of the place in the clue.",
+          "readAloud": "The Puzzle Tower stands at the edge. Go to it."
+        }
+      ]
+    },
+    {
+      "id": "tessa-ivy-gerd",
+      "level": 3,
+      "clues": [
+        {
+          "text": "Tessa makes flour at the mill. Go to her.",
+          "answer": "landmark:mill",
+          "redirect": "Not this one. Find the name of the place in the clue.",
+          "readAloud": "Tessa makes flour at the mill. Go to her."
+        },
+        {
+          "text": "Ivy sits on the bench in the garden. Go to her.",
+          "answer": "landmark:garden",
+          "redirect": "Not this one. Find the name of the place in the clue.",
+          "readAloud": "Ivy sits on the bench in the garden. Go to her."
+        },
+        {
+          "text": "Gerd sets a lamp in the watchtower. Go to him.",
+          "answer": "landmark:watchtower",
+          "redirect": "Not this one. Find the name of the place in the clue.",
+          "readAloud": "Gerd sets a lamp in the watchtower. Go to him."
+        }
+      ]
+    },
+    {
+      "id": "pip-aldo",
+      "level": 3,
+      "clues": [
+        {
+          "text": "Pip sings at the market. Go to him.",
+          "answer": "landmark:market",
+          "redirect": "Not this one. Find the name of the place in the clue.",
+          "readAloud": "Pip sings at the market. Go to him."
+        },
+        {
+          "text": "Aldo is at the bridge. Go to him.",
+          "answer": "landmark:bridge",
+          "redirect": "Not this one. Find the name of the place in the clue.",
+          "readAloud": "Aldo is at the bridge. Go to him."
+        }
+      ]
+    },
+    {
+      "id": "wren-bram-board",
+      "level": 3,
+      "clues": [
+        {
+          "text": "Wren is in the chapel. Go to her.",
+          "answer": "landmark:chapel",
+          "redirect": "Not this one. Find the name of the place in the clue.",
+          "readAloud": "Wren is in the chapel. Go to her."
+        },
+        {
+          "text": "Bram is at the well. Go to him.",
+          "answer": "landmark:well",
+          "redirect": "Not this one. Find the name of the place in the clue.",
+          "readAloud": "Bram is at the well. Go to him."
+        },
+        {
+          "text": "A new sign is on the notice board. Go and look.",
+          "answer": "object:notice-board",
+          "redirect": "Not this one. Find the name of the place in the clue.",
+          "readAloud": "A new sign is on the notice board. Go and look."
+        }
+      ]
+    },
+    {
+      "id": "hesper-hives",
+      "level": 3,
+      "clues": [
+        {
+          "text": "Hesper is at the library. Go to her.",
+          "answer": "landmark:library",
+          "redirect": "Not this one. Find the name of the place in the clue.",
+          "readAloud": "Hesper is at the library. Go to her."
+        },
+        {
+          "text": "Keep away from the stings! Go to the beehives with care.",
+          "answer": "object:beehives",
+          "redirect": "Not this one. Find the name of the place in the clue.",
+          "readAloud": "Keep away from the stings! Go to the beehives with care."
+        }
+      ]
+    },
+    {
+      "id": "bell-flour-hay",
+      "level": 4,
+      "clues": [
+        {
+          "text": "Go to the place with the bell.",
+          "answer": "landmark:chapel",
+          "redirect": "Not this one. This place has no bell.",
+          "readAloud": "Go to the place with the bell."
+        },
+        {
+          "text": "Go to the place that makes flour.",
+          "answer": "landmark:mill",
+          "redirect": "Not this one. Flour is not made here.",
+          "readAloud": "Go to the place that makes flour."
+        },
+        {
+          "text": "Find the cart full of hay.",
+          "answer": "object:hay-cart",
+          "redirect": "Not this one. Look for the hay.",
+          "readAloud": "Find the cart full of hay."
+        }
+      ]
+    },
+    {
+      "id": "river-herbs",
+      "level": 4,
+      "clues": [
+        {
+          "text": "Find the way over the river.",
+          "answer": "landmark:bridge",
+          "redirect": "Not this one. This does not go over the river.",
+          "readAloud": "Find the way over the river."
+        },
+        {
+          "text": "Find the place where herbs grow.",
+          "answer": "landmark:garden",
+          "redirect": "Not this one. Herbs do not grow here.",
+          "redirects": {
+            "object:beehives": "These hives do not grow herbs. Look again."
+          },
+          "readAloud": "Find the place where herbs grow."
+        }
+      ]
+    },
+    {
+      "id": "lamp-stalls",
+      "level": 4,
+      "clues": [
+        {
+          "text": "Find the place with a lamp on top at night.",
+          "answer": "landmark:watchtower",
+          "redirect": "Not this one. There is no lamp up high here.",
+          "redirects": {
+            "landmark:puzzle-tower": "This is full of puzzles, not a lamp. Look again."
+          },
+          "readAloud": "Find the place with a lamp on top at night."
+        },
+        {
+          "text": "Find the stalls.",
+          "answer": "landmark:market",
+          "redirect": "Not this one. There are no stalls here.",
+          "readAloud": "Find the stalls."
+        }
+      ]
+    },
+    {
+      "id": "bram-shelves-pins",
+      "level": 4,
+      "clues": [
+        {
+          "text": "Go where Old Bram works.",
+          "answer": "landmark:well",
+          "redirect": "Not this one. Old Bram works at a different place.",
+          "redirects": {
+            "object:water-trough": "Old Bram does not work at this trough. Look again."
+          },
+          "readAloud": "Go where Old Bram works."
+        },
+        {
+          "text": "Go where the books sit on shelves.",
+          "answer": "landmark:library",
+          "redirect": "Not this one. There are no shelves of books here.",
+          "redirects": {
+            "object:notice-board": "Signs are pinned here, not books. Look again."
+          },
+          "readAloud": "Go where the books sit on shelves."
+        },
+        {
+          "text": "Go where you pin up a sign.",
+          "answer": "object:notice-board",
+          "redirect": "Not this one. This is not where signs are pinned.",
+          "readAloud": "Go where you pin up a sign."
+        }
+      ]
+    },
+    {
+      "id": "puzzles-sip",
+      "level": 4,
+      "clues": [
+        {
+          "text": "Go where the bonus puzzles are.",
+          "answer": "landmark:puzzle-tower",
+          "redirect": "Not this one. There are no puzzles here.",
+          "redirects": {
+            "landmark:watchtower": "This one has a lamp, not puzzles. Look again."
+          },
+          "readAloud": "Go where the bonus puzzles are."
+        },
+        {
+          "text": "Go where the animals sip.",
+          "answer": "object:water-trough",
+          "redirect": "Not this one. Animals do not sip here.",
+          "redirects": {
+            "landmark:well": "People fill pails here. Find where the animals sip."
+          },
+          "readAloud": "Go where the animals sip."
+        }
+      ]
+    },
+    {
+      "id": "hum-end-road",
+      "level": 4,
+      "clues": [
+        {
+          "text": "Go where the hives hum.",
+          "answer": "object:beehives",
+          "redirect": "Not this one. Nothing hums here.",
+          "redirects": {
+            "landmark:garden": "This is where herbs grow. Look for the hum."
+          },
+          "readAloud": "Go where the hives hum."
+        },
+        {
+          "text": "Go to the way into the castle.",
+          "answer": "landmark:castle-gate",
+          "redirect": "Not this one. This is not the way in.",
+          "readAloud": "Go to the way into the castle."
+        }
+      ]
+    },
+    {
+      "id": "tessa-wren",
+      "level": 4,
+      "clues": [
+        {
+          "text": "Go where Miller Tessa works.",
+          "answer": "landmark:mill",
+          "redirect": "Not this one. Tessa works at a different place.",
+          "readAloud": "Go where Miller Tessa works."
+        },
+        {
+          "text": "Go where Sister Wren works.",
+          "answer": "landmark:chapel",
+          "redirect": "Not this one. Wren works at a different place.",
+          "readAloud": "Go where Sister Wren works."
+        }
+      ]
+    },
+    {
+      "id": "ivy-gerd-pip",
+      "level": 4,
+      "clues": [
+        {
+          "text": "Go where Keeper Ivy works.",
+          "answer": "landmark:garden",
+          "redirect": "Not this one. Ivy works at a different place.",
+          "readAloud": "Go where Keeper Ivy works."
+        },
+        {
+          "text": "Go where Mason Gerd works.",
+          "answer": "landmark:watchtower",
+          "redirect": "Not this one. Gerd works at a different place.",
+          "readAloud": "Go where Mason Gerd works."
+        },
+        {
+          "text": "Go where Crier Pip works.",
+          "answer": "landmark:market",
+          "redirect": "Not this one. Pip works at a different place.",
+          "readAloud": "Go where Crier Pip works."
+        }
+      ]
+    },
+    {
+      "id": "aldo-hesper",
+      "level": 4,
+      "clues": [
+        {
+          "text": "Go where Carpenter Aldo works.",
+          "answer": "landmark:bridge",
+          "redirect": "Not this one. Aldo works at a different place.",
+          "readAloud": "Go where Carpenter Aldo works."
+        },
+        {
+          "text": "Go where Hesper works.",
+          "answer": "landmark:library",
+          "redirect": "Not this one. Hesper works at a different place.",
+          "readAloud": "Go where Hesper works."
+        }
+      ]
+    },
+    {
+      "id": "hay-sip-pins",
+      "level": 4,
+      "clues": [
+        {
+          "text": "Go to the hay.",
+          "answer": "object:hay-cart",
+          "redirect": "Not this one. There is no hay here.",
+          "readAloud": "Go to the hay."
+        },
+        {
+          "text": "Find the long wood box that the goats sip from.",
+          "answer": "object:water-trough",
+          "redirect": "Not this one. The goats do not sip here.",
+          "readAloud": "Find the long wood box that the goats sip from."
+        },
+        {
+          "text": "Go to the north end of the road.",
+          "answer": "landmark:castle-gate",
+          "redirect": "Not this one. This is not the end of the road.",
+          "readAloud": "Go to the north end of the road."
+        }
+      ]
+    }
+  ]
+}

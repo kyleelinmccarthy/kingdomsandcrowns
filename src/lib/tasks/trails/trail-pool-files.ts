@@ -10,4 +10,6 @@
  *   import trailK1 from "@/content/trails/trail-k1.json";
  *   export const TRAIL_POOL_FILES: readonly unknown[] = [trailK1];
  */
-export const TRAIL_POOL_FILES: readonly unknown[] = [];
+import trailK1 from "@/content/trails/trail-k1.json";
+
+export const TRAIL_POOL_FILES: readonly unknown[] = [trailK1];
