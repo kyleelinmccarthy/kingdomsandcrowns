@@ -910,6 +910,22 @@ describe("a rune on the board (R-I11, R-I18)", () => {
     expect(speak).toHaveBeenLastCalledWith("The word was mend. Mend means to make whole.");
   });
 
+  it("a miss line and Show me are brought into the board's view on a short screen (smoke bug 1)", async () => {
+    const into = vi.fn();
+    const was = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = into;
+    try {
+      vi.mocked(answerDeedQuestion).mockResolvedValue(OPEN);
+      await begin(runeRun([k1(1), k1(2, LANTERN)]));
+      expect(into).not.toHaveBeenCalled();
+      await castWord("m", "a", "n", "d");
+      expect(into).toHaveBeenCalledWith({ block: "nearest" });
+      expect(into.mock.contexts.at(-1)).toBe(document.querySelector(".r3-feedback"));
+    } finally {
+      Element.prototype.scrollIntoView = was;
+    }
+  });
+
   it("a two-rune walking run in the Realm shows Set off with both labels, which hands the run to the walk", async () => {
     const onWalk = vi.fn();
     const two = runeRun([k1(1), k1(2, LANTERN)]);

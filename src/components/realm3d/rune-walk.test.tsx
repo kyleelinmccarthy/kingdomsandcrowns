@@ -318,6 +318,23 @@ describe("RuneWalk, the stone at a stop", () => {
     expect(speak).toHaveBeenLastCalledWith("Not that word. It rhymes with send.");
   });
 
+  it("a miss line and Show me are brought into the stone's view on a short screen (smoke bug 1, review I-2)", async () => {
+    const into = vi.fn();
+    const was = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = into;
+    try {
+      vi.mocked(answerDeedQuestion).mockResolvedValue(OPEN);
+      show({ casting: true });
+      expect(into).not.toHaveBeenCalled();
+      await castWord("m", "a", "n", "d");
+      expect(into).toHaveBeenCalledWith({ block: "nearest" });
+      expect(into.mock.contexts.at(-1)).toBe(stone().querySelector(".r3-feedback"));
+      expect(within(into.mock.contexts.at(-1) as HTMLElement).getByRole("button", { name: "Show me" })).toBeInTheDocument();
+    } finally {
+      Element.prototype.scrollIntoView = was;
+    }
+  });
+
   it("Esc (the stone closed by the frame) keeps the flow: the same stop reopens on its second chance", async () => {
     vi.mocked(answerDeedQuestion).mockResolvedValue(OPEN);
     const { props, rerender } = show({ casting: true });

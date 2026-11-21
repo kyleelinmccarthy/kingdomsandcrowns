@@ -33,6 +33,7 @@
 import { useEffect, useRef, useState } from "react";
 import { VillagerFigure } from "@/components/avatar";
 import { GameIcon, type GameIconName } from "@/components/game-icon";
+import { useBringIntoView } from "@/hooks/use-bring-into-view";
 import { completeDeedRun, startDeedRun } from "@/lib/actions/deeds";
 import type { RuneOutcome, RunStart, RunSummary } from "@/lib/utils/deed-run-types";
 import { realmCue } from "@/lib/realm3d/sound/store";
@@ -387,6 +388,12 @@ export function DeedRun({
   const finish = finishLabel(run.kind, run.deed.id);
   const nextRef = useRef<HTMLButtonElement>(null);
   const feedback = flow.result ? attemptFeedback(flow.result, flow.ruledOut.length > 0, villagerName, question) : null;
+  // A miss line and Show me (or Next) are brought into the board's view on a short phone (smoke I12).
+  const feedbackRef = useRef<HTMLDivElement>(null);
+  useBringIntoView(feedbackRef, feedback?.text);
+  // A world run of one task (a chest's lock, a rune object's word) has nothing to count: no progress
+  // dots, no minutes and no skill meter (I12 smoke, final review).
+  const single = run.kind === "world" && run.questions.length === 1;
 
   // The walk is offered only to a run every task of which walks, and for runes only when every one
   // has its object (RI-a / N5): anything else is answered here, on the map or the stone.
@@ -451,17 +458,19 @@ export function DeedRun({
         <Subject area={run.deed.area} /> {run.deed.story}
       </p>
       <div className="r3-run-meta">
-        <span className="r3-run-dots" role="img" aria-label={`Question ${index + 1} of ${run.questions.length}`}>
-          {run.questions.map((q, i) => (
-            <span key={q.id} className={`r3-run-dot${i < index ? " r3-run-dot--done" : i === index ? " r3-run-dot--now" : ""}`} />
-          ))}
-        </span>
-        {!profile.untimed && <span className="r3-run-time">{minutes} min</span>}
+        {!single && (
+          <span className="r3-run-dots" role="img" aria-label={`Question ${index + 1} of ${run.questions.length}`}>
+            {run.questions.map((q, i) => (
+              <span key={q.id} className={`r3-run-dot${i < index ? " r3-run-dot--done" : i === index ? " r3-run-dot--now" : ""}`} />
+            ))}
+          </span>
+        )}
+        {!profile.untimed && !single && <span className="r3-run-time">{minutes} min</span>}
         <button type="button" className="r3-link-button r3-run-leave" onClick={onClose}>
           Leave the {what}
         </button>
       </div>
-      <DeedMeter meter={meter} streak={flow.streak} calm={calm} numerals={numerals} />
+      {!single && <DeedMeter meter={meter} streak={flow.streak} calm={calm} numerals={numerals} />}
       {error && (
         <p className="r3-board-error" role="alert">
           {error}{" "}
@@ -487,7 +496,7 @@ export function DeedRun({
       </>)}
       {/* A resolved question with no result is a run picked back up with every answer in: its finish step. */}
       {(feedback || phase === "resolved") && (
-        <div className={`r3-feedback${flow.result?.correct ? " r3-feedback--right" : ""}`}>
+        <div ref={feedbackRef} className={`r3-feedback${flow.result?.correct ? " r3-feedback--right" : ""}`}>
           <div>
             {feedback?.heading && <p className="r3-feedback-heading">{feedback.heading}</p>}
             <p className="r3-feedback-text" role="status">

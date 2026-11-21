@@ -60,7 +60,7 @@ describe("the rune copy", () => {
     expect(copy.RUNE_SAME_WORD).toBe("You cast that word already. Try another.");
     expect(copy.RUNE_ROW_LABEL).toBe("Your word");
     expect(copy.RUNE_TRAY_LABEL).toBe("Runes to tap");
-    expect(copy.runeTakeBack("igh")).toBe("Take back igh");
+    expect(copy.RUNE_TAKE_BACK).toBe("Tap a rune in your word to take it back.");
     expect(copy.RUNE_RETRY_LEAD).toBe("Not that word.");
     expect(copy.runeAnswerText("mend")).toBe("The word was mend.");
     expect(copy.RUNE_TRACKER_LABEL).toBe("Rune walk");

@@ -29,6 +29,7 @@
 import { useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import { createPortal } from "react-dom";
 import { GameIcon } from "@/components/game-icon";
+import { useBringIntoView } from "@/hooks/use-bring-into-view";
 import { TaskPresenter } from "@/components/tasks/presenters";
 import { useDeedFlow } from "@/components/use-deed-flow";
 import { completeDeedRun } from "@/lib/actions/deeds";
@@ -173,8 +174,8 @@ export function RuneWalk({
   };
   useEffect(() => {
     if (!casting) return;
-    const line = heard;
-    return () => stopSpeaking(line.current);
+    const last = heard;
+    return () => stopSpeaking(last.current);
   }, [casting]);
 
   // Done or Finish takes the focus once the stop is resolved, so Enter moves on.
@@ -182,6 +183,9 @@ export function RuneWalk({
   useEffect(() => {
     if (casting && flow.phase === "resolved") goRef.current?.focus();
   }, [casting, flow.phase, flow.index]);
+  // A miss line and Show me (or Done) are brought into the stone's view on a short phone (smoke I12).
+  const feedbackRef = useRef<HTMLDivElement>(null);
+  useBringIntoView(feedbackRef, casting ? line?.text : null);
 
   const current = stops[flow.index];
   const count = runeStopCount(Math.min(flow.index + 1, total), total);
@@ -292,7 +296,7 @@ export function RuneWalk({
             />
             {/* A resolved stop with no result is a walk picked back up with every word cast: its finish step. */}
             {(line || flow.phase === "resolved") && (
-              <div className={`r3-feedback${flow.result?.correct ? " r3-feedback--right" : ""}`}>
+              <div ref={feedbackRef} className={`r3-feedback${flow.result?.correct ? " r3-feedback--right" : ""}`}>
                 <div>
                   {line?.heading && <p className="r3-feedback-heading">{line.heading}</p>}
                   <p className="r3-feedback-text" role="status">

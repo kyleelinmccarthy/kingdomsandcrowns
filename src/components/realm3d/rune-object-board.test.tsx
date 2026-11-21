@@ -106,6 +106,24 @@ describe("a rune object's board", () => {
     expect(onOutcome).toHaveBeenCalledWith([]);
   });
 
+  it("a run of one word shows no progress dots, no minutes and no skill meter: there is nothing to count (smoke, final review)", async () => {
+    vi.mocked(startRuneObjectRun).mockResolvedValue(run);
+    vi.mocked(answerDeedQuestion).mockResolvedValue({
+      correct: false, secondChance: true, hint: "It rhymes with send.", feedback: "wrong_word", firstPick: "r:1,2,4,0",
+      meter: { skillLabel: "Vocabulary", filled: 1, needed: 7 },
+    } as never);
+    const { container } = await act(async () => board({ profile: { readAloud: false, untimed: false } }));
+    expect(container.querySelector(".r3-run-dots")).toBeNull();
+    expect(container.querySelector(".r3-run-time")).toBeNull();
+    for (const t of ["m", "a", "n", "d"]) await act(async () => void fireEvent.click(screen.getByRole("button", { name: t })));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: RUNE_CAST })));
+    expect(screen.getByText("Not that word. It rhymes with send.")).toBeInTheDocument();
+    expect(container.querySelector(".deed-meter")).toBeNull();
+    expect(screen.queryByText("Vocabulary")).toBeNull();
+    // Leave is still there.
+    expect(screen.getByRole("button", { name: "Leave the rune" })).toBeInTheDocument();
+  });
+
   it("the run's finish button reads Done and its leave link reads Leave the rune", async () => {
     vi.mocked(startRuneObjectRun).mockResolvedValue(run);
     answeredRight();

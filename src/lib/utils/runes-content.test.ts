@@ -13,7 +13,7 @@ import {
   RUNE_EMPTY_ROW,
   RUNE_ROW_LABEL,
   RUNE_TRAY_LABEL,
-  runeTakeBack,
+  RUNE_TAKE_BACK,
   RUNE_HEAR,
   RUNE_HEAR_MEANING,
   RUNE_HELP,
@@ -136,7 +136,7 @@ describe("rune pool content", () => {
     const copy = [
       RUNE_VERB, RUNE_LOOK_VERB, RUNE_STORY, RUNE_TITLE, RUNE_HELP, RUNE_HEAR, RUNE_HEAR_MEANING, RUNE_NO_SOUND_LEAD, RUNE_EMPTY_ROW, RUNE_SAME_WORD, RUNE_DEMO_COPY,
       // The stone's own words (I8): its buttons, its labels, and the demo's steps.
-      RUNE_CAST, RUNE_CLEAR, RUNE_ROW_LABEL, RUNE_TRAY_LABEL, runeTakeBack(""), ...RUNE_DEMO_STEPS,
+      RUNE_CAST, RUNE_CLEAR, RUNE_ROW_LABEL, RUNE_TRAY_LABEL, RUNE_TAKE_BACK, ...RUNE_DEMO_STEPS,
     ];
     const texts = [...labels, ...copy, ...setOff];
     for (const { parsed } of pools) {

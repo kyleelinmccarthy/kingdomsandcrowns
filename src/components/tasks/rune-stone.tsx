@@ -17,15 +17,16 @@
  *
  * The leak rule (R-I17): nothing here shows how many tiles the word takes, which tiles are decoys,
  * or the effect as text (RI-d, the picture shows it). The built row grows as tiles are placed and
- * is a polite live region, so a screen reader hears each one (RI-a / N18). A resolved miss fills
+ * is a polite live region, so a screen reader hears each one, as the tile itself; that a tap takes it
+ * back is its description, kept outside the row (RI-a / N18, m-5). A resolved miss fills
  * the row with the word's tiles (`reveal`); a right cast mends the picture.
  */
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
 import { GameIcon } from "@/components/game-icon";
 import { runeObjectById } from "@/lib/realm/rune-objects";
 import { TASK_CODECS } from "@/lib/tasks/codecs";
 import {
-  RUNE_CAST, RUNE_CLEAR, RUNE_EMPTY_ROW, RUNE_HEAR, RUNE_HEAR_MEANING, RUNE_HELP, RUNE_NO_SOUND_LEAD, RUNE_ROW_LABEL, RUNE_SAME_WORD, RUNE_STONE_LABEL, RUNE_TRAY_LABEL, runeTakeBack,
+  RUNE_CAST, RUNE_CLEAR, RUNE_EMPTY_ROW, RUNE_HEAR, RUNE_HEAR_MEANING, RUNE_HELP, RUNE_NO_SOUND_LEAD, RUNE_ROW_LABEL, RUNE_SAME_WORD, RUNE_STONE_LABEL, RUNE_TAKE_BACK, RUNE_TRAY_LABEL,
 } from "@/lib/tasks/rune-copy";
 import { spelled } from "@/lib/tasks/rune-tiles";
 import type { ClientTask } from "@/lib/tasks/types";
@@ -61,6 +62,7 @@ export function RuneStone({ task, flow, variant, disabled, calm, say = speak, on
   const trayRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const castRef = useRef<HTMLButtonElement>(null);
   const clearRef = useRef<HTMLButtonElement>(null);
+  const takeBackId = useId();
   // A tile taken back, and Cast once the last tile is placed, are enabled (or not) only on the next
   // render; the focus moves then: to the tile, or to Cast, or to Clear while Cast stays shut (a word
   // already ruled out), never to a disabled button.
@@ -155,7 +157,7 @@ export function RuneStone({ task, flow, variant, disabled, calm, say = speak, on
                 {resolved ? (
                   <span className="rune-tile rune-tile--set">{tiles[i]}</span>
                 ) : (
-                  <button type="button" className="rune-tile rune-tile--set" aria-label={runeTakeBack(tiles[i])} disabled={disabled} onClick={() => takeBack(at)}>
+                  <button type="button" className="rune-tile rune-tile--set" aria-describedby={takeBackId} disabled={disabled} onClick={() => takeBack(at)}>
                     {tiles[i]}
                   </button>
                 )}
@@ -164,6 +166,10 @@ export function RuneStone({ task, flow, variant, disabled, calm, say = speak, on
           </ol>
         )}
       </div>
+      {/* Outside the live row, so placing a tile is heard as the tile alone (final review m-5). */}
+      <span id={takeBackId} className="sr-only">
+        {RUNE_TAKE_BACK}
+      </span>
 
       <div className="rune-tray" role="group" aria-label={RUNE_TRAY_LABEL}>
         {tiles.map((t, i) => {
@@ -186,7 +192,8 @@ export function RuneStone({ task, flow, variant, disabled, calm, say = speak, on
         })}
       </div>
 
-      {!resolved && <p className="rune-help">{RUNE_HELP}</p>}
+      {/* While the word is asked: on a second chance the miss line below has its place (smoke bug 1). */}
+      {flow.phase === "asking" && <p className="rune-help">{RUNE_HELP}</p>}
       {sameWord && !resolved && (
         <p className="rune-same" role="status">
           {RUNE_SAME_WORD}

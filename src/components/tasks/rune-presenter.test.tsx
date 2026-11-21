@@ -10,7 +10,7 @@ import { canSpeak, speak } from "@/lib/utils/speech";
 import { RUNE_EFFECT_IDS, RUNE_OBJECTS, type RuneEffect } from "@/lib/realm/rune-objects";
 import { toClientTask } from "@/lib/tasks/registry";
 import {
-  RUNE_CAST, RUNE_CLEAR, RUNE_EMPTY_ROW, RUNE_HEAR, RUNE_HEAR_MEANING, RUNE_HELP, RUNE_NO_SOUND_LEAD, RUNE_ROW_LABEL, RUNE_SAME_WORD, RUNE_STONE_LABEL, RUNE_TRAY_LABEL, runeTakeBack,
+  RUNE_CAST, RUNE_CLEAR, RUNE_EMPTY_ROW, RUNE_HEAR, RUNE_HEAR_MEANING, RUNE_HELP, RUNE_NO_SOUND_LEAD, RUNE_ROW_LABEL, RUNE_SAME_WORD, RUNE_STONE_LABEL, RUNE_TAKE_BACK, RUNE_TRAY_LABEL,
 } from "@/lib/tasks/rune-copy";
 import type { ClientTask, RuneTask } from "@/lib/tasks/types";
 import { initialFlow, type FlowState } from "@/lib/utils/deed-run-flow";
@@ -125,7 +125,7 @@ describe("the rune stone (R-I12)", () => {
     fireEvent.keyDown(tile("a"), { key: "Backspace" });
     expect(placed()).toEqual(["m", "e", "n"]);
     expect(tile("d")).toBeEnabled();
-    fireEvent.click(within(row()).getByRole("button", { name: runeTakeBack("e") }));
+    fireEvent.click(within(row()).getByRole("button", { name: "e" }));
     expect(placed()).toEqual(["m", "n"]);
     fireEvent.click(screen.getByRole("button", { name: RUNE_CLEAR }));
     expect(placed()).toEqual([]);
@@ -210,6 +210,23 @@ describe("the rune stone (R-I12)", () => {
   it("the built row is a live region, so each tile placed is heard (RI-a / N18)", () => {
     show(MEND);
     expect(row()).toHaveAttribute("aria-live", "polite");
+  });
+
+  it("a placed tile is heard as itself, and its take-back is described, outside the live row (final review m-5)", () => {
+    show(MEND);
+    fireEvent.click(tile("m"));
+    const back = within(row()).getByRole("button", { name: "m" });
+    expect(back).not.toHaveAttribute("aria-label");
+    expect(back).toHaveAccessibleDescription(RUNE_TAKE_BACK);
+    expect(row()).not.toHaveTextContent(RUNE_TAKE_BACK);
+  });
+
+  it("the help line shows while the word is asked; on a second chance the miss line has its place (smoke bug 1)", () => {
+    show(MEND);
+    expect(screen.getByText(RUNE_HELP)).toBeInTheDocument();
+    cleanup();
+    show(MEND, { flow: { ...asking(MEND), phase: "second-chance", ruledOut: ["r:1,2,4,0"], picked: "r:1,2,4,0", result: { correct: false, secondChance: true, hint: "h" } } });
+    expect(screen.queryByText(RUNE_HELP)).toBeNull();
   });
 });
 
@@ -389,6 +406,34 @@ describe("keys and layout", () => {
     for (let i = 0; i < 6; i++) await user.keyboard("{Enter}");
     expect(cast()).toBeEnabled();
     expect(cast()).toHaveFocus();
+  });
+
+  it("keeps Hear, Clear and Cast in reach on a short screen: pinned to the board's foot, the picture beside its label and smaller (smoke bugs 1, 2; review I-2)", () => {
+    const css = readFileSync(resolve(__dirname, "rune.css"), "utf8");
+    /** The declarations of `sel` in `css`, read as written. */
+    const decls = (text: string, sel: string) => new RegExp(`(?:^|[\\n{}])\\s*${sel.replace(/[.[\]="()>:-]/g, "\\$&")}\\s*\\{([^}]*)\\}`).exec(text)?.[1] ?? null;
+    /** One `@media` block's body, by its query. */
+    const media = (query: string) => {
+      const start = css.indexOf(`@media ${query}`);
+      if (start < 0) return "";
+      let depth = 0;
+      for (let i = css.indexOf("{", start); i < css.length; i++) {
+        if (css[i] === "{") depth++;
+        if (css[i] === "}" && --depth === 0) return css.slice(start, i + 1);
+      }
+      return "";
+    };
+    // On the board (a scrolling panel), the acts stay on screen as the stone scrolls, on a fill of their own.
+    const acts = decls(css, ".rune--board .rune-acts");
+    expect(acts).toMatch(/position:\s*sticky/);
+    expect(acts).toMatch(/bottom:\s*0/);
+    expect(acts).toMatch(/background:/);
+    // A short screen (390×667, and 844 or 800 tall with larger text): the picture stands beside its label, at most 12vh.
+    const short = media("(max-height: 900px)");
+    expect(short).not.toBe("");
+    expect(decls(short, ".rune-scene")).toMatch(/flex-(?:direction|flow):\s*row/);
+    expect(decls(short, ".rune-scene .rune-pic")).toMatch(/max-height:\s*12vh/);
+    expect(decls(short, ".rune")).toMatch(/gap:/);
   });
 
   it("fits a 390 px phone and larger text: the tray wraps, every tile is a 40 px target at least, nothing is dragged", () => {
