@@ -3809,101 +3809,1238 @@ Parts F and G's constraints still apply, plus:
 
 ---
 
-# Part I: Slice 6, rune spellcraft (branch realm-runes, cut from dev after slice 5 merges)
+# Part I: Slice 6, rune spellcraft (branch realm-runes)
 
-**Written 2026-11-21 as rulings and an outline only.** The full task detail (Files, Interfaces, test-first steps, commands and commits) is written at the start of slice 6, against slice 5's merged code, as Part G was for 4b. Slice 6 reuses slice 4's world-object machinery and slice 5's walking-run machinery, so their final names decide its interfaces.
+**Written 2026-11-21** against `dev` ab1559e (slices 1–5 merged) plus 7139b0a, on branch `realm-runes`. Every name below was read in that code. Slice 6 reuses slice 4b's world-object machinery and slice 5's walking-run machinery; where either needs widening, the widening is its own step with the old tests kept green.
+
+**Owner's answers (2026-11-21):**
+- Rune objects can be fixed any time, like chests: a `world` run that pays nothing and moves mastery. Language side quests also send the hero to 2–3 rune objects. Objects cycle through `resetAfterDays` in `realm_world_state`; a fixed object stays fixed for that child until it breaks again. The launch catalog has at least 12 rune objects across the village and the named places.
+- With runes off, rune objects are not drawn, as with locks. Fixed records stay (R-I13).
+- Focus wins for runes too: a language side quest that would draw a grown-up's focus skill no rune pool can play (today `lang-g1`) plays as multiple choice at full length (R-I8, mirroring R-H22).
+- Slice 6 merges into `dev` only on the owner's word (R-I16).
 
 ## Rulings (record them in spec §2a, "Calls settled for slice 6", in I1's commit)
 
 - **R-I1: rune objects can be fixed any time, like chests (owner, 2026-11-21).**
   - Outside a side quest, fixing one is a `world` run of one rune task (`RUN_EFFECTS.world`: no pay, no stars, moves mastery, feeds review, second chances).
-  - It is started by `startRuneObjectRun(childId, objectId)` on slice 4's shared start skeleton: hero only, refused while the object is fixed, resumed on `sourceRef = objectId`.
-  - The fix, the run's close and the world row are one `withChildLock` transaction (PC-G2, RG-n).
-- **R-I2: language side quests also send the hero to 2–3 rune objects (owner, 2026-11-21).**
-  - A language side quest with runes on is a walking run (R-H9): the villager names the objects, and the tracker lists them.
-  - E at a named object opens the rune stone for that object's task.
-  - Each task is bound to its object. The object's id is part of the question, never the answer, so it rides in the task's view.
-- **R-I3: objects cycle, and a fix stays per child until the object breaks again (owner, 2026-11-21).**
-  - `realm_world_state` rows `rune:<id>`, state `"fixed"`.
-  - A broken/fixed rule shares slice 4's cycling rule, generalised from `lockedNow` with the open state as a parameter. The lock tests stay unchanged.
-  - Every rune object has `resetAfterDays: 4` (planner call: "a few days").
-  - A rune task solved right inside a side quest fixes its object too, in the same locked finish.
-- **R-I4: one table and one catalog pattern, generalised, not duplicated (planner call).**
-  - "World locks" become "world objects": `WORLD_OBJECTS`' type gains `"rune"` (with an `effect`); `isWorldObjectId` covers `rune:`; the world-object path in `completeDeedRun` handles both.
-  - Chests, doors and the Tower behave exactly as before, pinned by slice 4's tests run unchanged.
+  - It is started by `startRuneObjectRun(childId, objectId)` on slice 4's shared start skeleton, `startLockRun`, widened in I7 (R-I4). It is the hero's alone, refused with runes off (`RUNES_OFF`) and while the object holds (`RUNE_FIXED`), and resumed on `sourceRef = objectId`.
+  - The fix and the run's close are one `withChildLock` transaction (PC-G2, RG-n). A miss leaves the object broken, and the hero tries again with a fresh word.
+- **R-I2: language side quests send the hero to 2–3 rune objects (owner, 2026-11-21).**
+  - A language side quest with runes on is a walking run (R-H9). The villager's board names the objects, "Set off" hands the run to the rune walk's tracker, and E at the current object opens the rune stone for its word.
+  - Each task is bound to its object at the run's start (`bindRuneObjects`, R-I22). The object is part of the question, never the answer, so it rides in the task's view.
+- **R-I3: objects cycle, and a fix holds per child until the object breaks again (owner, 2026-11-21).**
+  - Rows are `rune:<name>` in `realm_world_state`, with state `"fixed"`.
+  - One cycling rule serves both: `heldNow(object, row, held, today, zone)`. `lockedNow` becomes `!heldNow(…, "open", …)` with unchanged output, and `brokenNow` is `!heldNow(…, "fixed", …)`. The lock tests run unchanged.
+  - Every rune object has `resetAfterDays: RUNE_RESET_DAYS = 4` (*planner call:* the spec's "a few days"; half a chest's week, so a hero who plays most days always finds some broken).
+- **R-I4: one table, one cycling rule, one start skeleton, one locked finish; a sibling catalog (planner call, revising the outline's "widen `WORLD_OBJECTS`").**
+  - Rune objects live in their own pure catalog, `RUNE_OBJECTS` (`src/lib/realm/rune-objects.ts`).
+  - *Why not widen `WORLD_OBJECTS`:* its type is lock-only (`draws`, `rewards`, `type: "chest" | "door"`), and seven readers treat it as "the locks": `worldCanvas`, `roomChestFor`, `applyWorldOutcome`, `nextRewards`, `lockSpotView`, `worldLockSkill` and the clearance tests. Widening it would put a type guard in each, against slice 4's tests.
+  - What is shared: the table, the id namespace (`rune:` can never collide with `chest:` or `door:`), `heldNow`, `startLockRun` (widened by `mechanic` and `draw`, I7) and the locked finish in `completeDeedRun`. `isWorldObjectId` stays locks-only, so PC-G17's path is untouched.
 - **R-I5: the `rune` kind.**
-  - The response is the sequence of tile indices placed.
-  - `isCorrect` checks the spelled word against the task's accepted words for its effect and band, so any accepted word counts (R-F1's spirit).
-  - The view is the effect, the object, the prompt (the definition, or at K–1 a picture plus a spoken prompt), and the tiles with distractors. It is never an accepted word.
-  - `allowsSecondChance` is true. `feedback` is `"incomplete"` (no tiles) or `"wrong_word"`, a new `FeedbackCode`.
-  - `reveal` is one accepted word's tiles, sent only on a resolved miss (R-H7's member).
-- **R-I6: `RUNE_WORDS`, validated JSON** (`src/content/runes/rune-<band>.json`), effect × band → accepted words, tile sets, definitions.
-  - **Effects:** `mend`, `light`, `water`, `open`, `grow` (spec §4.7).
-  - **Tiles by band:**
+  - The response is the sequence of tile indices placed, encoded `"r:3,0,5"`.
+  - `isCorrect` joins the placed tiles and checks the result against the task's accepted words, so any accepted word counts, however it is tiled (R-F1's spirit).
+  - The view is `{ effect, object, tiles, listen }` and never an accepted word, the entry or the hint (R-I17).
+  - `allowsSecondChance` is `true`. `feedback` is `"none"` or `"wrong_word"`, a new `FeedbackCode`. An empty cast is refused by `parseResponse`, so there is no `incomplete`.
+  - `retryLine` is the entry's own `hint` (R-H7's member). `reveal` is one accepted word's tiling as encoded indices, sent only on a resolved miss. `answerText` is "The word was {word}."
+  - The task id is opaque: `<skillId>:rune:<8 hex>` (RF-h's pattern).
+- **R-I6: rune pools, the spec's `RUNE_WORDS`, are validated JSON** (`src/content/runes/rune-<band>.json`): effect × band → accepted words, tiles and prompts. The validated set is read through `runePoolFor(skillId)`.
+  - **Effects:** `mend`, `light`, `water`, `open`, `grow` (`RUNE_EFFECT_IDS`; spec §4.7).
+  - **By band:**
 
-    | Band | Tiles |
-    |---|---|
-    | k1 | letters |
-    | g23 | phonograms |
-    | g45 | spelling-pool words, built letter by letter |
-    | g68 | morphemes |
-    | g912 | Greek and Latin roots |
+    | Band | Pool | Credits | Tiles | Prompt |
+    |---|---|---|---|---|
+    | k1 | `rune-k1` | `lang-gk` (K), `spell-g1` (1) | single letters | picture and a spoken word (R-I18) |
+    | g23 | `rune-g23` | `spell-g23` (2), `lang-g3` (3) | phonograms (`m`, `e`, `nd`; `l`, `igh`, `t`) | picture and a spoken word (R-I18) |
+    | g45 | `rune-g45` | `spell-g45` (4), `vocab-g45` (5) | letters and common chunks | a short meaning (R-I18) |
+    | g68 | `rune-g68` | `vocab-g68` (6–8) | morphemes: prefix, root, suffix (`re`, `store`) | a definition |
+    | g912 | `rune-g912` | `vocab-g912` (9–12) | Greek and Latin roots and affixes (`re`, `habilit`, `ate`) | a definition |
 
-  - **Ship bar:**
-    - every effect has accepted words for every band;
-    - every tile set contains every accepted word's tiles exactly (validator);
-    - every set has distractors;
-    - k1 entries have `readAloud`;
-    - blind pass: a reader given the definition and the tiles builds an accepted word.
+  - **Ship bar** (validator, I4):
+    - every effect has accepted words at every band;
+    - every accepted word can be built from its entry's tiles (the spec's "tiles always contain the word");
+    - every entry has distractors (R-I17);
+    - k1 and g23 entries have `readAloud`.
+    - The blind pass (I6) must show that a reader given the prompt and the tiles builds an accepted word, and no other word that fits.
 - **R-I7: skills.**
-  - Rune pools credit `lang-gk` (K), `spell-g1` (1, a new rune-only row, `SkillSource { kind: "rune" }`), `spell-g23` (2), `lang-g3` (3), `spell-g45` (4), `vocab-g45` (5), `vocab-g68` (6–8) and `vocab-g912` (9–12).
-  - R-H9's walking rules pick the presented skill. At grade 1, `[lang-g1, spell-g1]` becomes `[spell-g1]`.
-  - The spelling and vocabulary drill pools stay as choice review.
-- **R-I8: a vocabulary focus inside a rune deed (planner call, the 4a conflict).**
-  - R-H22's rule is written for walking kinds, so it reaches rune deeds too. A drawn language focus that no rune pool presents (today only `lang-g1`, at grades K–2) turns that side quest to its own kind: choice, or a sort by 4a's rule. The owner answered this for reading; confirm it for runes when Part I is written in full.
-  - In a rune deed, the rune wins when a rune pool presents the skill.
-  - The 4a focus-sort rule (`buildDeedRun`'s `kindOfSkill`: a choice-played focus skill a lock presents is sorted) still fires only when the skill would otherwise be `choice`. That covers runes off, or a vocab skill no rune pool credits.
+  - `SkillSource` gains `{ kind: "rune" }`. `spell-g1` is a new rune-only row: `{ id: "spell-g1", label: "Spelling", area: "language", grades: ["1"], source: rune() }` (spec §4.7: `lang-g1` is not spelling).
+  - `choiceDrawable` is unchanged, so `spell-g1` is never drawn as multiple choice, never offered in review, and never a candidate with runes off (R-H8).
+  - `selectSkills`' content pick takes `pool`, `trail` and `rune` sources in one weighted pick.
+  - **The ELA map gains one row.** `docs/content/ela-science-skill-map.md` gets `spell-g1` at grade 1, so the map is 40 rows, not 39. This plan is the ruling the test's comment asks for: the spec named `spell-g1` (§2a "Calls settled after the builder check", §4.7), and the owner approved it.
+  - **R-H9's walking rules pick the presented skill:**
+    - at grade 1, `[lang-g1, spell-g1]` becomes `[spell-g1]`;
+    - every language grade K–12 has a presented skill at or below it, so `bandSkill` never fires for language.
+  - **RH-c fits unchanged.** No rune skill a run draws sits above the hero's language grade unless it is a focus pick, so review (choice only, `choiceDrawable`) behaves as before. `spell-g1` is never reviewed.
+  - The spelling and vocabulary drill pools stay as choice review (riddle stones, Quick review, the gate).
+- **R-I8: focus wins, and the rune wins over 4a's sort (owner for the first part, 2026-11-21; planner for the second).**
+  - **Focus wins.** R-H22's rule is written for walking kinds, so it reaches rune deeds as soon as `rune` is in `WALKING_KINDS`. A drawn language focus that no rune pool presents (today only `lang-g1`, pickable by heroes in grades K–2 through `focusWindow`) turns that side quest to multiple choice at the grown-up's whole length. Other language side quests stay rune walks.
+  - **The rune wins inside a rune deed.** 4a's focus-sort rule in `buildDeedRun`'s `kindOfSkill` fires only when the skill would otherwise be `choice`. In a rune deed a vocabulary focus that a rune pool presents (`vocab-g45`, `-g68`, `-g912`) is a rune, never a sort. With runes off it is choice, and so 4a's sort applies again when locks are on.
   - Library chests keep drawing vocabulary sorts (`worldLockSkill`, unchanged).
-  - This is what the code already does once language deeds name `rune`; I8's tests pin it.
+  - No engine code changes for this: it is what `kindOfSkill` and `focusOffWalk` already do once the deeds name `rune`. I11's tests pin it.
 - **R-I9: run length (planner call).**
-  - A rune side quest asks `min(3, max(2, round(sideQuestLength × 3 / 8)))` tasks: 4 → 2, 8 → 3, 12 → 3. That is the owner's "2–3 objects".
-  - The Crown Challenge stays at 3.
-  - Choice keeps the whole length.
+  - A rune side quest asks `clamp(round(L × 3 / 8), 2, 3)` tasks, where `L` is the grown-up's side-quest length: 4 → 2, 8 → 3, 12 → 3. Language deeds take `questionCount: 3` and `stops: RUNE_STOPS = { min: 2, max: 3 }`, and `deedRunLength` clamps a deed that has `stops`.
+  - The clamp applies only when the run draws runes. Choice keeps the whole length (RF-j's rule).
+  - The Crown Challenge stays at 3 (`CHALLENGE.questions`).
+  - *Why:* each stop is a walk to an object (20–40 s) plus building a word (30–60 s), so three stops take about as long as the old eight taps. The owner set 2–3 objects, and a fourth walk at length 12 would drag. Stars on 2–3 tasks are the rule science and reading already live with (RF-j, R-H10).
 - **R-I10: rune objects in the world.**
-  - At least 12 objects across the village and the five named places (spec §4.7), each a small low-poly broken/fixed pair of boxes (pure `rune-boxes.ts`).
-  - The objects are held by slice 4's clearance and reach tests (`yardPieces`, `villagePieces`, the F19 overlap test, the riddle-stone rules for the places).
-  - A side quest names only objects in the village (R-H2's reach). It names broken ones first, and fixed ones only when fewer than two are broken.
-- **R-I11: where it is played.** In the Realm:
-  - the side quest's walk uses slice 5's tracker (generalised from trails to walking runs);
-  - E at a named object opens the rune stone overlay for that task;
-  - the effect plays in 3D on the object's next draw.
-
-  Off-world, the picture run shows the object's picture with the rune stone beside it. The gate stays multiple choice.
-- **R-I12: the rune stone surface** is DOM/SVG, with no dragging (R-C2):
-  - tap a tile to place it; tap a placed tile to take it back;
-  - "Cast" sends;
-  - keyboard and screen reader;
+  - There are 15: ten in the village (two per effect) and one at each of the five named places. They are low-poly broken/fixed box pairs from the pure `rune-boxes.ts`, never solid, and always drawn while runes are on, in every palette.
+  - They are held by slice 4's clearance and reach tests (`clearanceFailures`, `levelFailures`, `yardPieces`, `villagePieces`, `VILLAGE_TRACKS`, the door and riddle-stone reach rules) and by slice 5's stake rule (no stake holds a rune spot, and no rune spot holds a stake).
+  - **Labels:**
+    - a village object's label holds no trail anchor's name as a whole word (no "cart", "gate", "well", "board"…), so a k1 clue "Go to the cart" can mean only the hay cart;
+    - no label holds any rune pool's accepted word (I5's content test).
+  - Rune objects stand only outdoors. `roomSpots` is untouched.
+- **R-I11: where it is played.**
+  - In the Realm, the side quest's walk uses the rune walk's tracker. E at the current stop opens the rune stone. A right cast plays the effect on the object at once (R-I21).
+  - Off-world, the picture run shows the object's picture with the rune stone beside it.
+  - The gate stays multiple choice.
+- **R-I12: the rune stone surface** is DOM, with no dragging (R-C2):
+  - tap a tile to place it at the end of the word; tap a placed tile to take it back;
+  - "Clear" takes every tile back, and "Cast" sends;
+  - keyboard: every tile is a `<button>`, Backspace takes back the last tile, and Enter and Space never reach the Realm;
   - it fits 390 px.
 
-  A K–3 hero sees one "Watch Pip" rune demo first (R-F10).
+  A K–3 hero sees one "Watch Pip" rune demo before their first rune task (R-F10's rule, `DemoKey` `"rune"`).
 - **R-I13: runes off (owner, 2026-11-21).** The switch "Rune spellcraft" (`mechanics.rune`) defaults on. With it off:
   - language plays as multiple choice;
-  - rune objects are not drawn, the same as chests and doors with locks off (R-G7), and `startRuneObjectRun` refuses `RUNES_OFF`;
-  - fixed records stay: the `rune:` rows are kept, and when runes are turned back on each object is drawn as its row says.
+  - rune objects are not drawn and have no E spot, and `startRuneObjectRun` refuses `RUNES_OFF`;
+  - fixed records stay: the `rune:` rows are kept, and when runes come back on each object is drawn as its row says.
+
+  A run started before the switch went off can still be finished, as with locks (G2's m5).
 - **R-I14: language deeds become `mechanic: "rune"`:** `mill-ledger`, `bridge-toll`, `market-crier` and `library-scribe`.
   - Recorded snapshots that change get choice-pinned twins.
-  - A language choice run stored before the deploy still resumes.
-- **R-I15: copy.** It never names a grade or band, and never says "behind" or "ahead". The exact strings are fixed in I1's commit (`rune-copy.ts`).
+  - A language choice run stored before the deploy still resumes and completes.
+- **R-I15: copy.** It never names a grade or band, and never says "behind" or "ahead". The exact strings are in `src/lib/tasks/rune-copy.ts` (Global constraints below).
 - **R-I16: merging (owner, 2026-11-21).** Slice 6 merges into `dev` only on the owner's word.
+- **R-I17: the leak rule for runes (planner call).** The tiles must contain the word (R-I6), so the rule is that nothing around the tiles gives it away:
+  - **The view carries no shape of the word.** No slot count, no word length, no first tile and no marking of which tiles are decoys. The built row grows as tiles are placed; while empty it shows `RUNE_EMPTY_ROW`.
+  - **The order is no tell.** The drawer shuffles the tiles with the run's seeded `Rng`. It reshuffles (up to 8 tries, then rotates one place at a time) until no run of adjacent tiles, read left to right, spells an accepted word. The stored task keeps that order, so a resume shows the same tray.
+  - **The count is no tell.** Every entry has at least `RUNE_MIN_DECOYS` (3) distractors and at least ⌈0.4 × the word's tiles⌉. Across a pool, distractor counts take at least 3 different values, and no one value is more than half the entries, so "tiles minus a constant" never gives the length.
+  - **The decoys are plausible.** At k1 and g23 at least one distractor holds a vowel (a, e, i, o, u), so the vowels in the tray are not all the word's. No tile equals an accepted word, and every word takes at least 2 tiles.
+  - **The words around it are clean.** No accepted word appears as a whole word (simple plurals included) in:
+    - a prompt, at any band;
+    - a hint, at any band;
+    - a `readAloud` from g45 up;
+    - an object's label;
+    - any rune copy shown before resolution.
+  - **The id, the entry and the hint stay on the server.** The id is opaque; `entry` and `words` never leave; `hint` leaves only as an open second chance's line; `reveal` leaves only on a resolved miss.
+  - **One exception: dictation (R-I18).** At k1 and g23 the word is the spoken prompt, so it reaches the browser inside `readAloud`, which is spoken and never printed. This is the spelling pools' existing contract (`spelling-g23`'s items send `readAloud: "friend"`).
+- **R-I18: dictation, meaning and narration (planner call).**
+  - **k1 and g23 are dictation:** a picture, a shown line that never holds the word ("The lantern is dark. Build the word you hear."), and a `readAloud` that says it ("Lit. The lantern is lit. Lit."). The view marks such a task `listen: true`.
+    - *Why:* the spec gives K–1 "picture plus spoken prompt". The skills credited at 2–3 (`spell-g23`, `lang-g3` "Spelling and verbs") are spelling, and their choice pools are dictation already. Building "mend" from tiles needs the hearer to know the word is "mend"; a meaning prompt at seven would turn a spelling skill into a vocabulary guess.
+  - **g45 and up build from a meaning:** a short meaning (g45) or a definition (g68, g912), shown, and spoken only with read-aloud on. `listen: false`.
+    - *Why:* the band credits `vocab-g45` at grade 5. Recognising the word from its meaning, then spelling it chunk by chunk, practises both rows the band credits.
+  - **A `listen` task is always spoken, whatever `profile.readAloud` says.** That covers its prompt when the stone opens and the "Hear the word" button, on the board, on the page and at the stone in the Realm.
+    - So every Kindergarten hero hears every rune (R-H17's spirit, met through the task rather than the run). So does every grade 1–3 hero, since a dictation cannot be answered unheard. `RunStart.narrateClues` stays trail-only.
+    - The one rule stays `autoSpeaks`: `readAloud || (narrateClues && task.kind === "trail") || listens(task)`.
+  - The second-chance line (the hint) and the miss line are spoken when `autoSpeaks` holds, as a trail's are (F-3). The hint never holds the word, so a second chance is a fresh listen with the button.
+- **R-I19: no repeats for a week (planner call; sized by spec §9).**
+  - The drawer passes over entries met in the hero's last `RUNE_MEMORY_RUNS = 21` rune runs (`loadRecentRuneKeys`: language side quests and rune world runs together), and uses them only once nothing else is left.
+  - A pool holds at least 13 entries per effect (65 per band), with at least 2 per effect at every level 0–4.
+  - The drawer spreads effects, taking the effects with the most unmet entries first. So 21 runs of at most 3 words never meet an entry twice. This is tested on the database path (I11).
+  - A fourth rune run a day, or a hero who fixes the same few objects over and over, may bring a repeat sooner. That is accepted: spelling a word again is practice, not a spoiled puzzle.
+- **R-I20: no migration and no per-load query.**
+  - Rune state is rows of the existing `realm_world_state`, read by the bundle's existing `loadWorldRaw`, so the Realm's load reads nothing new.
+  - A language side quest's start with runes on adds, in its second parallel round, `loadRecentRuneKeys`, `loadWorldRows` and `worldClock`.
+  - A rune world run's start reads the same three in its `check`, as a chest's does.
+  - The owner's note (an index on `deed_run (child_id, deed_id, started_at)` at the next migration) stays parked: slice 6 has no migration.
+- **R-I21: the effect plays at once; the record lands at the finish (planner call).**
+  - In a walk, a right cast marks its object mended on the walk's own state (`mended`), and the canvas draws its fixed boxes at once. The rows are written when the run finishes, in the locked finish (`fixRuneObjects`), and the frame mirrors them (`applyRuneOutcomes`).
+  - "Leave the rune walk" drops the walk's marks, so the objects show as their rows say until the run is finished. A run picked back up does not re-mark the stops it already cast (no extra query, R-H14's call).
+  - A world run's object shows fixed when its result arrives.
+- **R-I22: binding a side quest's tasks to objects (planner call).**
+  - The run is drawn first, spreading effects. Effects with no broken village object are passed over through `effect:<e>` keys in the drawer's pass-over set (`runePassOver`).
+  - Then each rune task, in order, is bound to an unused village object of its effect, broken ones first, chosen with the run's seeded `Rng`. If none of its effect is broken, a fixed one is named, and a right cast there renews it (the rows are written fixed with today's date).
+  - A task whose effect has no unused village object left (two review misses and a fresh word of one effect) is dropped. If the first task cannot be bound, the start refuses `NONE_READY`; it never can be, since every effect has two village objects.
+  - Every right cast in a `deed` or `challenge` run fixes its object. *Planner call:* a Crown Challenge's casts fix too. The table in spec §4.10 lists no world effect for a challenge, and the walk has already shown the object mended.
+  - A `review` run never holds a rune.
 
-## Outline
+## Global constraints for Part I
 
-- **I1: World objects, generalised.** `lockedNow` becomes a cycling rule with the state as a parameter; the catalog type gains `rune`; the shared start skeleton and the locked finish take any world object. Slice 4's tests run unchanged and green.
-- **I2: The `rune` kind and `spell-g1`.** Covers the types, codec, definition (accepted words, `wrong_word`, reveal), the rune-only `SkillSource`, the skill row with its map line, and the switch label.
-- **I3: Rune pools: format, validator, blind pass, drawer.** The validator enforces the ship bar: words for every effect and band, and tiles that always contain the word.
-- **I4: Rune content.** Five bands × five effects.
-- **I5: Rune blind pass.** By a different agent from I4's author, who never opens `src/content/runes/`.
-- **I6: Rune objects in the world.** At least 12 objects, with boxes, painter, spots, the `useWorldState` mirror, and the any-time `world` run through a rune stone board.
-- **I7: The rune stone surface.** The picture run and Pip's rune demo.
-- **I8: Language side quests become rune walks.** The engine (length, object binding, R-I8's focus rule, twins), the walk tracker generalised to runes, and the side-quest fix in the locked finish.
-- **I9: Verify, review, merge.** Full checks, the browser smoke, a whole-branch review and one fix wave, then a merge into `dev` on the owner's word.
+Parts F, G and H's constraints still apply, plus:
+
+- **The leak rule (R-I17).** A rune task reaches the browser only through `toClientTask`, and its view is `{ effect, object, tiles, listen }`.
+  - `words`, `entry` and `explain` never leave the server before resolution.
+  - `hint` leaves only as an open second chance's line.
+  - `reveal` leaves only on a resolved miss.
+  - From g45 up, no accepted word reaches the browser before resolution in any field. At k1 and g23 it is only in `readAloud` (R-I18).
+- **Content never shows the word.** The validator (I4) and the content test (I5) match accepted words as whole words, simple plurals included, case-insensitively, in every field and string R-I17 names.
+- **The Realm rules:**
+  - additive, local lines only in `realm-game.tsx`, `spike-scene.tsx` and `hud-bus.ts`; `frame-hud.tsx` and `hud.tsx` are not touched;
+  - the painter, the boards and the tracker are new files;
+  - no `three` under Vitest: boxes live in the pure `rune-boxes.ts`;
+  - `World` stays memoised and takes no new prop: the rune spots ride in the `worldLocks` canvas it already has (RG-a);
+  - no `Math.random`: the drawer, the shuffle and the binding take the seeded `Rng`;
+  - browser checks press keys and never click the canvas.
+- **No new way to earn minutes.** A rune world run pays nothing (`RUN_EFFECTS.world`). A rune side quest is a `deed` run, paid by stars as every side quest is.
+- **Tests:** every `npx vitest run` has `--maxWorkers=2`.
+- **No child-facing grade or band word,** and nobody is "behind" or "ahead". The validator enforces this on the content (`/\bgrades?\b|\bkindergarten\b/i`, `/\b(behind|ahead)\b/i`, F-16).
+- **No migration:** `npm run db:generate` reports no schema changes at I12.
+- **Copy** (`src/lib/tasks/rune-copy.ts`, client-safe; exact):
+  - **E and boards:**
+    - `RUNE_VERB = "Cast a rune at"` ("Cast a rune at the dark lantern"); `RUNE_LOOK_VERB = "Look at"` (a fixed object, and a visiting grown-up).
+    - `RUNE_TITLE = "The rune stone"`; `RUNE_STORY = "Something here needs a rune. Build the word and cast it."`
+    - `RUNE_HOLDS_LINE = "The rune holds. In a few days it will need a fresh one."`; `RUNE_HOLDS_LINE_VISITOR = "The rune holds here."`; `RUNE_NOT_NOW = "No rune can be cast here just now."`
+  - **The stone:**
+    - `RUNE_STONE_LABEL = "The rune stone"`.
+    - `RUNE_HELP = "Tap the runes in order to build the word, then Cast."`
+    - `RUNE_CAST = "Cast"`; `RUNE_CLEAR = "Clear"`; `RUNE_HEAR = "Hear the word"`; `RUNE_EMPTY_ROW = "Your word goes here"`.
+    - `RUNE_SAME_WORD = "You cast that word already. Try another."`
+  - **Answers:**
+    - `RUNE_RETRY_LEAD = "Not that word."` (the second-chance line is the lead, then the hint).
+    - `runeAnswerText(word)` gives "The word was {word}."
+  - **The walk:**
+    - `runeSetOffLine(labels)`: with 3 labels, "Three things in the village need a rune: {a}, {b} and {c}. Walk to each one and cast it there." With 2, "Two things in the village need a rune: {a} and {b}. Walk to each one and cast it there." With 1, "Something in the village needs a rune: {a}. Walk to it and cast it there."
+    - `RUNE_TRACKER_LABEL = "Rune walk"`; `runeStopCount(n, of)` gives "Rune {n} of {of}"; `runeNextLine(label)` gives "Next: {label}".
+    - `runeFirstLine(label)` gives "First, {label}."; `RUNE_HOLDS_HERE = "The rune holds here."`
+    - `RUNE_LEAVE = "Leave the rune walk"`; `RUNE_FINISH = "Finish the rune walk"`; `RUNE_DONE = "Done"`.
+    - `RUNE_HIDE = "Hide the list"`; `RUNE_SHOW = "Show the list"`.
+  - **Results:**
+    - `RUNE_WORKS = "The rune works!"`.
+    - `RUNE_FADES = "The rune fades."`; `RUNE_FADES_LINE = "Try again with a fresh word."`
+    - `RUNE_ALREADY = "The rune already held."`
+  - **The demo:** `RUNE_DEMO_COPY = "Watch Pip build a rune. Pip hears the word hop, taps h, then o, then p, and casts it. It works!"`; `RUNE_DEMO_STEPS = ["Hear the word", "Tap the runes in order", "Cast"]`.
+  - **After a miss:** `RUNE_GENERIC_WHY` (a resolved miss with no `why`):
+
+    | Band | Line |
+    |---|---|
+    | k1 | "Say the word slowly: each sound is one rune." |
+    | g23 | "Some sounds take two or three letters together. Listen for them." |
+    | g45 | "Think what the meaning asks for, then spell it part by part." |
+    | g68 | "A word's parts carry its meaning: the start, the root and the end." |
+    | g912 | "Old roots carry the meaning; the start and the end shape the word." |
+  - **Elsewhere:**
+    - `GENERIC_RUNE_HINT = "Say the word slowly and listen for each part."` (`skill-hints.ts`).
+    - Refusals (`deed-refusals.ts`, in `KNOWN`): `RUNE_HERO_ONLY = "Runes are for the hero to cast."`; `RUNES_OFF = "The runes are resting for now."`; `RUNE_FIXED = "That rune still holds."`
+    - The settings switch: "Rune spellcraft". Its hint is "Language side quests become rune spellcraft: your hero builds a word from rune tiles to set something right in the village; on the Side Quests page they build it beside a picture. Off: language plays as multiple choice, and the rune objects rest. Anything already fixed stays."
+
+## Review Focus (Part I)
+
+1. **No accepted word reaches the browser before it should.** This covers:
+   - a fresh start and a resumed one;
+   - an open second chance (its line is the hint);
+   - the task id;
+   - the view's tile order;
+   - `readAloud` from g45 up.
+
+   None of them carries an accepted word, the entry or the word's length, and no run of adjacent tiles spells the word. Pinned in I2 (`toClientTask`), I4 (validator and shuffle) and I11 (the start JSON against the stored words, per band).
+2. **A forged cast is refused, with nothing written.** The forged values are `"r:0,0"` (a tile twice), `"r:99"` (out of range), `"r:"`, `"r:1,"`, `"toString"`, `"__proto__"`, `42`, `{}`, `[0, 1]` (an array, not the encoded string), `""` and a 10 KB string. Each is refused with `PICK_SHOWN`; no response is stored, `second_tries` is unchanged and no mastery moves. Pinned in I2 and I11.
+3. **Language falls back to today's choice run, never an empty run**, when:
+   - runes are off;
+   - the run is at the gate;
+   - a drawn `lang-g1` focus takes the walk off (R-I8).
+
+   Every grade from K to 12 gets a non-empty run with the pre-slice skill. Pinned in I3 and I11.
+4. **A language choice run stored before the deploy resumes and completes as before.** A stored rune task whose object has left the catalog grades, finishes and fixes nothing, never throwing; one whose words no longer tile still grades by its stored words. Pinned in I2, I7 and I11.
+5. **E at rune objects during a walk goes where the child means.** At the current stop it opens the stone. At a later stop the tracker says "First, …" and nothing opens. At a mended stop it says `RUNE_HOLDS_HERE`. At any other object it opens that object's own board. With no walk, every object opens its board, and E does nothing while a cast is in flight. Pinned in I10.
+
+**Execution order:**
+- I1, I2, I3, I4, I5, then I6 and I7 side by side (I6 touches only sheets, resolutions and entry text; I7 touches no content).
+- Then I8, I9, I10, and I11 last.
+- The deeds flip to `rune` in I11, after every surface that plays them exists. Until I11 no side quest draws a rune, and nothing between I2 and I8 renders the null stub presenter except the any-time board, which lands in I9 after the stone (I8).
+
+## File map (Part I)
+
+| File | Responsibility |
+|---|---|
+| **New, pure, client-safe** | |
+| `src/lib/realm/rune-objects.ts` | `RuneEffect`, `RUNE_EFFECT_IDS`, `RUNE_OBJECTS`, `VILLAGE_RUNE_OBJECTS`, `RUNE_SPOT`, `RUNE_RESET_DAYS`, lookups |
+| `src/lib/realm3d/rune-boxes.ts` | broken/fixed boxes per effect; the stop mark |
+| `src/lib/tasks/rune-copy.ts` | Part I's copy |
+| `src/lib/tasks/rune-tiles.ts` | `runeTiling`, `spelled`, `hasSpelledRun` |
+| `src/lib/tasks/rune-stops.ts` | `runeStops`, `runeStopOf` |
+| **New, tooling** | |
+| `src/lib/content/rune-pools.ts`, `rune-blind-pass.ts`, `rune-blind-pass-cli.ts` | format, validator, blind pass (on `sheet-kit.ts`) |
+| `src/test/rune-week.ts`, `rune-stubs.ts`, `rune-pool-fixture.ts` | the week harness; stub tasks; a valid 65-entry fixture pool |
+| **New, server** | |
+| `src/lib/tasks/rune.ts` | `runeKind` |
+| `src/lib/tasks/runes/{index,draw,rune-pool-files}.ts` | the loader, `runePoolFor`, `drawRuneWords`, `drawRuneFor`, `shuffleTiles` |
+| `src/lib/utils/rune-run.ts` | `runeSkill`, `runeObjectRun`, `bindRuneObjects`, `runePassOver` |
+| `src/lib/actions/rune-objects.ts` | `startRuneObjectRun` |
+| **New, content and docs** | |
+| `src/content/runes/rune-{k1,g23,g45,g68,g912}.json` (I5); `src/content/review/rune-*.blind.md` and `rune-*.resolved.json` (I6) | the pools; their sheets and resolutions |
+| `docs/content/rune-skill-map.md` | the grade → skill → pool map, read by its test |
+| **New, client** | |
+| `src/components/tasks/rune-presenter.tsx`, `rune-stone.tsx`, `rune-picture.tsx`, `rune-demo.tsx`, `rune.css` | the stone, the picture run, Set off, the demo |
+| `src/components/realm3d/rune-objects.tsx`, `rune-object-board.tsx` | the painter (a sibling of `World`); the any-time board |
+| `src/components/realm3d/use-walk.ts`, `use-rune-walk.ts`, `rune-walk.tsx`, `rune-walk.css` | the shared walk state; the rune walk's state and its tracker |
+| **Modified** | |
+| `src/lib/realm/world-state.ts`, `src/lib/utils/deed-run-types.ts` | `heldNow`, `brokenNow`, the view and canvas's runes, `applyRuneOutcomes`; `RuneOutcome`, `RunSummary.runes` |
+| `src/lib/tasks/types.ts`, `registry.ts`, `codecs.ts`, `kinds.ts`, `draw.ts`, `demos.ts`, `narration.ts`, `client-boundary.test.ts` | the kind, walking kinds, the drawers, the demo key, `listens` |
+| `src/lib/utils/skills.ts`, `deed-engine.ts`, `deeds.ts`, `focus.ts`, `skill-hints.ts`, `practice-run.ts` (types only), `app/dev/content/sample.ts`, `content-review.tsx` | `spell-g1`, content pick, `recentRunes`, the deeds, `stops`, `runeOnly`, the sample |
+| `src/lib/content/blind-pass.ts`, `src/content/review/README.md` | `NON_DRILL_SHEET_PREFIXES` gains `"rune-"` |
+| `src/lib/services/lock-runs.ts`, `realm-world-state.ts`, `deed-run-store.ts` | `mechanic`/`draw`; `fixRuneObjects`; `loadRecentRuneKeys`, `collectTaskKeys` |
+| `src/lib/actions/deeds.ts`, `realm.ts`, `src/lib/utils/deed-refusals.ts` | the start's binding, the locked finish's fixes, `worldOwned`; the bundle's `runesOn`; refusals |
+| `src/lib/realm3d/talk.ts`, `interact.ts`, `hud-bus.ts` | feedback and result words; rune spots; the union |
+| `src/components/tasks/presenters.tsx`, `task-demo.tsx`, `src/components/realm3d/deed-board.tsx`, `deed-player.tsx`, `use-trail-walk.ts`, `use-world-state.ts`, `spike-scene.tsx`, `realm-game.tsx`, `src/app/(app)/settings/realm-settings-panel.tsx`, `focus-skills-panel.tsx` | wiring |
+| `docs/content/ela-science-skill-map.md`, `src/lib/utils/skills.test.ts` | the `spell-g1` row (40 rows), its status, the snapshot line |
+
+## Tasks
+
+### Task I1: Rune objects, the cycling rule and the world view (pure)
+
+**Files:**
+- Create `src/lib/realm/rune-objects.ts` + `rune-objects.test.ts`.
+- Create `src/lib/realm3d/rune-boxes.ts` + `rune-boxes.test.ts`.
+- Create `src/lib/tasks/rune-copy.ts` + `rune-copy.test.ts`.
+- `src/lib/realm/world-state.ts` + `world-state.test.ts`: `heldNow`, `brokenNow`, the view's and canvas's runes, `applyRuneOutcomes`.
+- `src/lib/utils/deed-run-types.ts`: `RuneOutcome`, `RunSummary.runes?`.
+- Spec §2a: add "Calls settled for slice 6 (2026-11-21)" with the owner's answers and R-I1–R-I22, one line each.
+- Spec §4.7: the g23 and g45 prompt lines (R-I18); "a sibling catalog, `RUNE_OBJECTS`" (R-I4); "side quests name village objects; the named places' objects are fixed any time" (R-I10).
+- Spec §8: slice 6 "Depends on" becomes "1, 4, 5" (the walk).
+
+**Interfaces (produces):**
+- `type RuneEffect = "mend" | "light" | "water" | "open" | "grow"`; `RUNE_EFFECT_IDS: readonly RuneEffect[]` in that order.
+- `RUNE_RESET_DAYS = 4`; `RUNE_SPOT = { radius: 0.6, reach: 1.6 } as const`.
+- `type RuneObject = { id: \`rune:${string}\`; effect: RuneEffect; label: string; x: number; z: number; ry: number; place: string | null; resetAfterDays: number }`, where `place` is a named place's id, or `null` in the village.
+- `RUNE_OBJECTS: readonly RuneObject[]` in catalog order; `VILLAGE_RUNE_OBJECTS` (those with `place === null`).
+- `runeObjectById(id: string | null | undefined): RuneObject | null`; `isRuneObjectId(id: unknown): id is string`. Both read own entries only.
+- `heldNow(object: { resetAfterDays?: number }, row: Pick<WorldRow, "state" | "updatedAt"> | null, held: string, today: string, zone: string): boolean`.
+- `lockedNow(o, row, today, zone)` is `!heldNow(o, row, "open", today, zone)`, its signature and output unchanged. `brokenNow(o, row, today, zone)` is `!heldNow(o, row, "fixed", today, zone)`.
+- `WorldStateView` gains `runesOn: boolean; fixed: string[]` (catalog order). `EMPTY_WORLD_STATE` gains `runesOn: false, fixed: []`.
+- `worldStateView(rows, floors, clock, locksOn, runesOn = false)`: `fixed` is every `RUNE_OBJECTS` id with `!brokenNow`.
+- `type RuneSpotView = { id: string; effect: RuneEffect; label: string; x: number; z: number; ry: number; fixed: boolean }`.
+- `WorldCanvas` gains `runes: readonly RuneSpotView[]`: every rune object while `view.runesOn`, else `[]`.
+- `type RuneOutcome = { objectId: string; fixed: boolean; reason?: "missed" | "already-fixed" }`; `RunSummary.runes?: RuneOutcome[]`.
+- `applyRuneOutcomes(view: WorldStateView, outcomes: readonly RuneOutcome[]): WorldStateView`. It adds each known id with `fixed || reason === "already-fixed"`, in catalog order. It returns the same view object when nothing changes.
+- `runeObjectBoxes(effect: RuneEffect, fixed: boolean): YardBox[]`; `runeMarkBoxes(): YardBox[]`.
+- Every constant in Global constraints' copy list, from `rune-copy.ts`.
+
+**The catalog.** The points are starting points, and the tests arbitrate. A failing point moves to the nearest passing point on a 0.25 grid, at most 4.0 from its start (H1's rule). Record each move in the commit.
+
+| id | effect | label | start (x, z) | ry |
+|---|---|---|---|---|
+| `rune:west-wagon` | mend | the broken wagon | (−10.0, 14.5) | π/2 |
+| `rune:east-barrow` | mend | the broken barrow | (12.0, 21.0) | 0 |
+| `rune:lane-lantern` | light | the dark lantern | (−8.0, 20.5) | 0 |
+| `rune:yard-brazier` | light | the cold brazier | (16.0, 15.0) | −π/2 |
+| `rune:flower-bed` | water | the dry flower bed | (−22.0, 4.0) | π/2 |
+| `rune:pumpkin-patch` | water | the dry pumpkin patch | (17.5, −14.0) | 0 |
+| `rune:shed-hatch` | open | the stuck hatch | (−20.0, −8.0) | π/2 |
+| `rune:store-shed` | open | the stuck shed | (22.0, −10.0) | −π/2 |
+| `rune:old-tree` | grow | the wilted tree | (−13.0, 22.0) | 0 |
+| `rune:lane-vine` | grow | the drooping vine | (11.0, 18.0) | 0 |
+| `rune:appleway-cart` | mend | the broken apple cart | Appleway + (−5, 3) | faces the place |
+| `rune:ringstones-oak` | grow | the wilted oak | Ringstones + (4, −5) | faces the place |
+| `rune:highcairn-beacon` | light | the cold beacon | Highcairn + (5, 4) | faces the place |
+| `rune:longwater-reeds` | water | the dry reed bed | Longwater + (−6, −4) | faces the place |
+| `rune:farfurrow-gate` | open | the stuck field gate | Farfurrow + (−5, −5) | faces the place |
+
+A place object's position is its place's plus a local `RUNE_PLACE_OFFSETS` table, resolved at module load (PC-G14's pattern); `ry` is `Math.atan2(-dx || 0, -dz || 0)`.
+
+- [ ] **Step 1: Write the failing tests.**
+
+  **`rune-objects.test.ts`:**
+  - "fifteen objects, prefixed, unique": 15 ids, each matching `/^rune:[a-z-]+$/`; ten have `place: null`; each effect has exactly 2 village objects and 1 place object; every `resetAfterDays` is 4.
+  - "a place object stands inside its place, on dry ground, and one per place": for each of the five `placeById` places, exactly one object; distance from the place centre is below `place.radius`; `waterLevelAt − heightAt < 0`.
+  - "own keys only": `isRuneObjectId` is `false` for `"toString"`, `"__proto__"`, `"chest:west-lane"`, `"rune:nope"`, `42` and `null`, and `true` for `"rune:west-wagon"`. `runeObjectById("__proto__")` is `null`.
+  - "a village label names no trail anchor": for every village object and every `ANCHORS[*].names` entry, the name does not occur in the label as a whole word, case-insensitively.
+  - "labels are short and clean": each starts with "the ", is at most 28 characters, and matches none of F-16's patterns.
+  - "the village objects clear the village" (`src/test/world-clearance.ts`), for each village object at `rectAt(o.x, o.z, 1.4, 1.4)`:
+    - `clearanceFailures(id, rect, undefined, 0)` and `levelFailures(id, rect)` are `[]`;
+    - it is more than 1.4 from every `VILLAGE_TRACKS` segment;
+    - it is at least 1.0 from every `yardPieces()` and `villagePieces()` rect, every `DECOR` spot, every village chest, every anchor stake and anchor object, and every other rune object;
+    - it is at least 1.5 from the Puzzle Tower's plot;
+    - inside the village: `|x| <= 26` and `-16 <= z <= 26`.
+  - "the place objects clear their places": more than 3 from every track and road (the vault doors' rule), more than 1 clear of every solid `SCENERY` piece, and at least 1.5 from that place's vault door and riddle stone.
+  - "E at a rune object means the rune object". With `RUNE_SPOT`'s round spot (radius 0.6, reach 1.6) for each object, against `buildSpots` with:
+    - `props` from `buildWorldLayout` with every building complete, and again with none;
+    - the castle gate for every `CASTLE_TIER_IDS` type;
+    - every lock (`worldCanvas` of a view with locks on), every riddle stone, the plans board, the lectern, every plaque at level 3, the Tower's door and `anchors: ANCHOR_SPOTS`;
+    - every post from `travelGraphFor(world)`.
+
+    For every pair holding a rune object, `edgeDistance(a, b.x, b.z) <= a.reach` must not hold, either way. Rune objects are checked against each other too.
+
+  **`world-state.test.ts`:**
+  - "heldNow is the one rule": every existing `lockedNow` case passes unchanged.
+  - "a rune object with no row is broken; fixed holds four local days": `brokenNow` is `true` with no row and with state `"open"`; it is `false` on the day of the fix and on day 3; it is `true` on day 4, whatever the hour of the fix in the family's zone.
+  - "a future `updatedAt` reads fixed".
+  - "the view lists fixed rune objects in catalog order, and carries the switch": `worldStateView(rows, [], clock, true, true)` lists `fixed` in catalog order whatever the row order; `runesOn` is `true`; with the fifth argument absent, `runesOn` is `false`.
+  - "the canvas draws every rune object with runes on, none with them off, and keeps the locks as they were": the fifteen objects with their `fixed` flags; `[]` with `runesOn: false`; `locks`, `decor`, `storeys` and `towerKnown` are equal to before for the same view.
+  - "applyRuneOutcomes": a miss gives back the same object; `fixed: true` adds the id in catalog order; `reason: "already-fixed"` adds it; an unknown id and an id already fixed give back the same object.
+  - The existing literals of `EMPTY_WORLD_STATE` and of each view gain only `runesOn` and `fixed`. No other expectation changes.
+
+  **`rune-boxes.test.ts`:**
+  - every effect's broken and fixed sets have 2–10 boxes inside a 1.6 × 1.6 footprint, at most 2.4 tall;
+  - broken and fixed differ for every effect;
+  - `runeMarkBoxes()` floats between 2.0 and 3.0 above the ground and is at most 0.6 across.
+
+  **`rune-copy.test.ts`:**
+  - every string constant and every function's output, for 1–3 labels, matches none of F-16's patterns and holds no `<`;
+  - `runeSetOffLine` gives the three exact sentences above;
+  - `RUNE_DEMO_COPY` holds "hop".
+- [ ] **Step 2:** `npx vitest run src/lib/realm/rune-objects.test.ts src/lib/realm/world-state.test.ts src/lib/realm3d/rune-boxes.test.ts src/lib/tasks/rune-copy.test.ts --maxWorkers=2`. Expected: FAIL, "Cannot find module".
+- [ ] **Step 3: Implement.** Move failing points as described. If a village object cannot be placed within 4.0 of its start, pick another start in open village ground rather than loosen a test.
+- [ ] **Step 4:** the same command, plus `src/lib/realm/world-objects.test.ts src/lib/realm/anchors.test.ts src/components/realm3d/use-world-state.test.ts`, then `npx tsc --noEmit`. Expected: PASS, 0 errors.
+- [ ] **Step 5: Commit.** `feat(realm): fifteen things that need a rune — a catalog, a cycling rule shared with the locks, and the world's view of them`.
+
+### Task I2: The `rune` kind
+
+**Files:**
+- **`src/lib/tasks/types.ts`:**
+  - `TaskKind` gains `"rune"`;
+  - add `RuneTask`, `RuneView` and `RuneResponse`, each `…ByKind` gaining `rune`;
+  - `FeedbackCode` gains `"wrong_word"`.
+- **Create:**
+  - `src/lib/tasks/rune.ts` (server) and `rune.test.ts`;
+  - `src/lib/tasks/rune-tiles.ts` (client-safe) and `rune-tiles.test.ts`;
+  - `src/test/rune-stubs.ts`.
+- **`codecs.ts`:** the rune codec, `RUNE_MAX_CHARS = 64` and `RUNE_MAX_TILES = 16`.
+- **`registry.ts`:** `rune: runeKind`.
+- **`kinds.ts`:** `HANDS_ON_KINDS = ["measure", "lock", "trail", "rune"]`. `WALKING_KINDS` is unchanged here; I10 adds `"rune"`.
+- **`draw.ts`:** `TASK_DRAWERS.rune`, returning `null` until I4.
+- **`skill-hints.ts`:** `taskHint` gives `GENERIC_RUNE_HINT` for a rune task.
+- **`narration.ts`:**
+  - `listens(task: { kind: string; view?: unknown }): boolean`, true only for a rune task whose `view.listen === true`;
+  - `autoSpeaks(task: Pick<ClientTask, "kind"> & { view?: unknown }, readAloud, narrateClues)` gives `readAloud || (narrateClues && task.kind === "trail") || listens(task)`;
+  - `attemptSpeech`'s trail branch becomes `task.kind === "trail" || task.kind === "rune"`.
+- **`talk.ts`:** `attemptFeedback`:
+  - a second chance with `wrong_word`, or on a rune task, leads with `RUNE_RETRY_LEAD`;
+  - a resolved rune miss is a sentence (`result.answer` as is).
+- **`components/tasks/presenters.tsx`:** the `rune` stub renders `null` until I8. `demoKeyOf` returns `null` for a rune task until I8.
+- **Settings:** `realm-settings-panel.tsx` `MECHANIC_LABELS.rune`. Add `rune: true` to the tests that pin the mechanics record: `grep -rln "trail: true" src --include=*.test.*` (7 files).
+- **`client-boundary.test.ts`:** `SERVER_ONLY` gains `"rune"` and `"runes"`.
+
+**Interfaces:**
+- **Consumes:** I1's `RuneEffect` and copy.
+- **Produces:**
+
+  ```ts
+  export type RuneTask = {
+    kind: "rune"; id: string; skillId: string; prompt: string; readAloud?: string;
+    effect: RuneEffect;
+    /** Bound at the run's start (R-I22); null only for a task drawn outside a run. */
+    object: { id: string; label: string } | null;
+    /** In the order shown: shuffled at draw time by the leak rule (R-I17), and stored. */
+    tiles: string[];
+    /** A dictation (k1, g23): the word is spoken, never shown (R-I18). */
+    listen: boolean;
+    /** Server only. */
+    words: string[]; hint: string;
+    /** `<poolId>/<entryId>`, for the week's memory. Server only. */
+    entry: string;
+    explain?: string;
+  };
+  export type RuneView = { effect: RuneEffect; object: { id: string; label: string } | null; tiles: string[]; listen: boolean };
+  export type RuneResponse = number[];
+  ```
+
+  - `runeTiling(word: string, tiles: readonly string[]): number[] | null`: the tiling of `word` that uses the fewest tiles, each tile index at most once, found by depth-first search with ties broken by the lower first index. `null` when the word cannot be built.
+  - `spelled(tiles: readonly string[], picks: readonly number[]): string`: the picks joined, lower case.
+  - `hasSpelledRun(tiles: readonly string[], words: readonly string[]): boolean`: some run of adjacent tiles, read left to right, spells a word.
+  - The codec:
+    - `encode(r) = "r:" + r.join(",")`;
+    - `decode(s)` accepts only `/^r:(?:0|[1-9]\d?)(?:,(?:0|[1-9]\d?)){0,15}$/` with distinct indices, else `null`;
+    - `sameResponse` compares the encodings.
+
+**`runeKind`:**
+- `toView`: built from `effect`, `object`, `tiles` and `listen` only.
+- `parseResponse(raw, t)`: a string of at most `RUNE_MAX_CHARS` that decodes, with every index below `t.tiles.length`; otherwise `null`. It never trims or coerces, and an array is `null`.
+- `isCorrect(t, r)`: `t.words.includes(spelled(t.tiles, r))`.
+- `allowsSecondChance`: `() => true`.
+- `feedback`: `"none"` when right, else `"wrong_word"`.
+- `answerText`: `runeAnswerText(t.words[0])`.
+- `reveal`: the encoded `runeTiling` of the first word in `t.words` that tiles; `""` when none does (a stored task after a content change), never a throw.
+- `retryLine`: `(t) => t.hint`.
+- `presents`: `() => false` here; I4 makes it `(id) => runePoolFor(id) !== undefined` (H2's pattern). So no run changes before pools exist.
+
+- [ ] **Step 1: Write the failing tests.** They use `runeStub()` from `src/test/rune-stubs.ts`: `effect: "mend"`, `object: { id: "rune:west-wagon", label: "the broken wagon" }`, `tiles: ["d", "m", "a", "e", "n", "i"]`, `words: ["mend"]`, `hint: "It rhymes with send."`, `entry: "rune-k1/mend-wagon"`, `listen: true`, `readAloud: "Mend. Mend the wagon. Mend."`, `prompt: "The wagon is broken. Build the word you hear."`.
+
+  **`rune.test.ts`:**
+  - "never shows the word": `toClientTask(stub)` deep-equals `{ kind: "rune", id, skillId, prompt, readAloud, view: { effect: "mend", object, tiles, listen: true } }`. Its JSON outside `readAloud` holds neither `"mend"` nor `"mend-wagon"`, nor the hint.
+  - "refuses every forged cast" (Review Focus 2): `parseResponse` is `null` for `"r:0,0"`, `"r:99"`, `"r:6"`, `"r:"`, `"r:1,"`, `" r:1"`, `"toString"`, `"__proto__"`, `42`, `{}`, `[0, 1]`, `""` and `"r:" + "1,".repeat(5_000)`. It is `[1, 3, 4, 0]` for `"r:1,3,4,0"`.
+  - "right and wrong": `"r:1,3,4,0"` (m-e-n-d) is right; `"r:0,3,4,1"` (d-e-n-m) is `wrong_word`; a right one's feedback is `"none"`.
+  - "any accepted word counts, however it is tiled": with `words: ["mend", "fix"]` and tiles holding f, i, x, the f-i-x picks are right.
+  - "the second chance is the hint, and the miss says the word": `retryLine(stub, [0]) === "It rhymes with send."`; `answerText(stub) === "The word was mend."`; `reveal(stub) === "r:1,3,4,0"`.
+  - "a stored task whose words no longer tile still grades, never throws" (Review Focus 4): with `tiles: ["x", "y", "z"]`, `isTaskCorrect(t, "r:0") === false` and `reveal(t) === ""`.
+  - "presents nothing before pools exist": `presents("spell-g23") === false`.
+
+  **`rune-tiles.test.ts`:**
+  - `runeTiling("light", ["t", "l", "igh", "i", "g", "h"])` is `[1, 2, 0]` (fewest tiles);
+  - `runeTiling("letter", ["l", "e", "t", "e", "r"])` is `null` (one `t`);
+  - `runeTiling("letter", ["l", "e", "t", "t", "e", "r"])` uses six distinct indices;
+  - `hasSpelledRun(["m", "e", "nd", "a"], ["mend"])` is `true`;
+  - `hasSpelledRun(["e", "m", "nd", "a"], ["mend"])` is `false`.
+
+  **`codecs.test.ts`:** the rune codec round-trips and is idempotent, and `decode("r:01")` is `null`.
+
+  **`registry.test.ts`:**
+  - `secondChanceHint(stub, "r:0")` is the hint;
+  - `storedFeedback(stub, "r:0") === "wrong_word"`;
+  - `kindForSkill("rune", "spell-g23", ALL)` is `"choice"` while no pool exists.
+
+  **`talk.test.ts`:**
+  - `attemptFeedback({ correct: false, secondChance: true, feedback: "wrong_word", hint: "It rhymes with send." }, false)` gives `{ heading: "Try again", text: "Not that word. It rhymes with send." }`;
+  - a rune miss with `answer: "The word was mend."` and `explain: "Mend means to make whole."` gives `"The word was mend. Mend means to make whole."`.
+
+  **`narration.test.ts`:**
+  - `autoSpeaks({ kind: "rune", view: { listen: true } }, false, false)` is `true`;
+  - with `listen: false` it is `false`, and with `readAloud: true` it is `true`;
+  - `listens({ kind: "trail" })` is `false`;
+  - `attemptSpeech` on a rune second chance gives the feedback text;
+  - every existing case is unchanged.
+
+  **`skill-hints.test.ts`:** a rune task's hint is `GENERIC_RUNE_HINT`.
+
+  **`realm-settings-panel.test.tsx`:** the switch "Rune spellcraft" with its hint, on by default. **`realm-settings.test.ts`:** a stored `{"measure":true,"lock":true,"trail":true}` reads `rune: true`.
+- [ ] **Step 2:** `npx vitest run src/lib/tasks/rune.test.ts src/lib/tasks/rune-tiles.test.ts src/lib/tasks/codecs.test.ts src/lib/tasks/registry.test.ts src/lib/tasks/client-boundary.test.ts src/lib/realm3d/talk.test.ts src/lib/tasks/narration.test.ts src/lib/utils/skill-hints.test.ts src/lib/utils/realm-settings.test.ts "src/app/(app)/settings/realm-settings-panel.test.tsx" --maxWorkers=2`. Expected: FAIL.
+- [ ] **Step 3:** implement to the interfaces.
+- [ ] **Step 4:** the same command, plus `src/lib/tasks/trail.test.ts src/lib/tasks/lock.test.ts src/lib/actions/deeds-db.test.ts`, then `npx tsc --noEmit`. Expected: PASS, 0 errors.
+- [ ] **Step 5: Commit.** `feat(tasks): the rune kind — a word built from tiles, checked against every accepted word, with the word shown only after a miss`.
+
+### Task I3: `spell-g1`, and rune skills in the run's pick
+
+**Files:**
+- **`skills.ts`:**
+  - `SkillSource` gains `{ kind: "rune" }`, with `const rune = (): SkillSource => ({ kind: "rune" })`;
+  - the `spell-g1` row (R-I7), after `lang-g1`, with a comment saying why it is rune-only.
+- **`deed-engine.ts`:** `selectSkills`' content pick is `s.source.kind === "pool" || s.source.kind === "trail" || s.source.kind === "rune"`; update its doc paragraph.
+- **`focus.ts`:**
+  - `FocusOption` gains `runeOnly?: true`, set for a rune-source skill;
+  - `focus-skills-panel.tsx` shows the note "Played only as rune spellcraft" beside it, as `trailOnly` shows its note.
+- **`skill-hints.ts`:** a hint for `spell-g1`, following the hint rules.
+- **`app/dev/content/sample.ts` and `content-review.tsx`:** a rune-source skill gives `{ skill, kind: "rune" }` and shows "No sample yet", with no throw. I4 replaces it.
+- **Docs:**
+  - `docs/content/ela-science-skill-map.md`: a Language Arts row `| 1 | \`spell-g1\` | Spelling: building short words from letters | L.1.2d, L.1.2e | new — played as rune spellcraft; no multiple-choice pool yet |`;
+  - the map's opening count line becomes 40 rows, with the reason (R-I7).
+- **`skills.test.ts`:**
+  - "resolvable sources" accepts `rune` in `language` only;
+  - the row count becomes 40, citing R-I7, and the carried-forward count stays 12;
+  - the inline snapshot's language `"1"` gains `"spell-g1"`, and nothing else in it moves;
+  - "every skill is choice-drawable unless it is a lock, trail or rune skill";
+  - a "rune-only rows" test.
+
+**Interfaces (produces):** `FocusOption.runeOnly?: true`. `selectSkills` is unchanged in signature.
+
+- [ ] **Step 1: Write the failing tests.**
+
+  **`skills.test.ts`:**
+  - "adds spelling at grade 1 as a rune-only row": `findSkill("spell-g1")` deep-equals the row; `skillsFor("language", "1").map(id)` is `["lang-g1", "spell-g1"]`; only `spell-g1` uses the rune source; `choiceDrawable(spell-g1)` is `false`;
+  - the map tests above.
+
+  **`deed-engine.test.ts`** (with `ALL_ON` and a local fixture `const choiceLanguage = { ...findDeed("mill-ledger")!, mechanic: "choice" as const }`):
+  - "language stays multiple choice where runes cannot play" (Review Focus 3): for every grade K–12, `runCandidates(choiceLanguage, g, [], ALL_ON).map(id)` equals the pre-slice list. Grade 1 is `["lang-g1"]`.
+  - "a choice draw of a rune skill is empty, never a throw": `drawForSkill(spell-g1, 0, 3, rng, [], new Set(), new Set())` is `[]`.
+  - "selectSkills draws a rune skill alongside a pool skill": candidates `[lang-g1, spell-g1]` with equal mastery give each at least once over seeds 1–40.
+  - Every existing case that compares `runCandidates` for `deedLanguage` with an unfiltered `chooseSkills` ("adds nothing to chooseSkills when there is no focus", "math, science and language candidates are unchanged") compares against `chooseSkills(d, g, choiceDrawable)` for language, because grade 1 now holds a rune-only row. Say so in a comment. The climb inventories stay `[]`.
+
+  **`review-run.test.ts`:** a hero with a `spell-g1` mastery row is never offered it as review.
+
+  **`focus.test.ts`:** a grade-1 window lists `spell-g1` with `runeOnly: true`, and `lang-g1` without it.
+
+  **`focus-skills-panel.test.tsx`:** the note shows beside `spell-g1` only.
+- [ ] **Step 2:** `npx vitest run src/lib/utils/skills.test.ts src/lib/utils/deed-engine.test.ts src/lib/utils/review-run.test.ts src/lib/utils/focus.test.ts "src/app/(app)/settings/focus-skills-panel.test.tsx" --maxWorkers=2`. Expected: FAIL.
+- [ ] **Step 3:** implement. Add the row first and watch the map tests fail, then add the map row.
+- [ ] **Step 4:** the same command, plus `src/lib/actions/deeds-db.test.ts src/lib/utils/deeds.test.ts src/lib/actions/review-db.test.ts`, then `npx tsc --noEmit`. Expected: PASS.
+- [ ] **Step 5: Commit.** `feat(skills): spelling at grade one joins the catalog, played only as runes; a run's content pick takes rune skills too`.
+
+### Task I4: Rune pools — format, validator, blind pass, drawer
+
+**Files:**
+- **Create:**
+  - `src/lib/content/rune-pools.ts` + `rune-pools.test.ts`;
+  - `src/lib/content/rune-blind-pass.ts` + `rune-blind-pass-cli.ts` + `rune-blind-pass.test.ts`, built on `sheet-kit.ts`'s `answerSlots`, `readAnswer`, `carryForwardByCode`, `findResolution`, `unresolvedOf`, `flagLines` and `closingLines` (F-12: no copies);
+  - `src/lib/tasks/runes/{index,draw,rune-pool-files}.ts` + `draw.test.ts`. `rune-pool-files.ts` starts as `[]`, with the "ADDING A POOL" comment of `trail-pool-files.ts`;
+  - `src/test/rune-pool-fixture.ts` (a valid `rune-k1` fixture of 65 entries, 13 per effect, 2+ per effect per level) and `src/test/rune-week.ts`;
+  - `docs/content/rune-skill-map.md`: one table under `## Language Arts`, `| Grade | Skill id | Pool | Tiles and prompt | Status |`, with the eight rows of R-I6. `rune-pools.test.ts` reads it with `mapRows`;
+  - `src/lib/utils/runes-content.test.ts`: `EXPECTED_RUNE_POOLS = []` (I5 fills it); the folder and `RUNE_POOL_FILES` must agree; every pool passes the validator. The "every pool has a sheet" check is I6's (F-15).
+- **`blind-pass.ts`:** `NON_DRILL_SHEET_PREFIXES = ["sort-", "trail-", "rune-"]`. Add a "Rune pools" section to `src/content/review/README.md`.
+- **`draw.ts`:** `TASK_RUN_DRAWERS.rune = drawRuneWords`; `TASK_DRAWERS.rune` gives `drawRuneWords(skill, level, 1, rng, ∅, ∅)[0] ?? null`.
+- **`deed-engine.ts`:**
+  - `BuildRunInput.recentRunes?: readonly string[]`;
+  - `avoid` becomes the union of `recentTrails` and `recentRunes`. No other path changes: `drawByKind` already hands a run drawer `avoid`.
+- **`app/dev/content/sample.ts` and `content-review.tsx`:** one sampled entry per rune pool, drawn server-side: the prompt, `readAloud`, the tiles in shown order and the words. This replaces I3's placeholder.
+- **`rune.ts`:** `presents` becomes `(id) => runePoolFor(id) !== undefined`. **`rune.test.ts`:** I2's `presents` assertion runs under `__setRunePoolsForTest([])` (F-7's pattern).
+
+**Interfaces:**
+- **Consumes:** I1's effects, catalog and copy; I2's `RuneTask`, `runeTiling` and `hasSpelledRun`.
+- **Produces:**
+
+  ```ts
+  export type RuneLevel = 0 | 1 | 2 | 3 | 4;
+  export type RuneEntry = {
+    id: string; effect: RuneEffect; level: RuneLevel;
+    prompt: string; readAloud?: string;
+    words: string[]; tiles: string[];
+    hint: string; why?: string;
+  };
+  export type RunePool = { poolId: string; band: ContentBand; skillIds: string[]; entries: RuneEntry[] };
+  ```
+
+  - `RUNE_POOL_PREFIX = "rune-"`.
+  - `RUNE_SKILLS: Readonly<Record<ContentBand, readonly string[]>> = { k1: ["lang-gk", "spell-g1"], g23: ["spell-g23", "lang-g3"], g45: ["spell-g45", "vocab-g45"], g68: ["vocab-g68"], g912: ["vocab-g912"] }`.
+  - `LISTEN_BANDS: readonly ContentBand[] = ["k1", "g23"]`.
+  - `RUNE_MIN_PER_EFFECT = 13`; `RUNE_MIN_PER_EFFECT_LEVEL = 2`; `RUNE_MIN_DECOYS = 3`.
+  - `RUNE_MAX_TILES_BY_BAND = { k1: 8, g23: 9, g45: 12, g68: 8, g912: 8 }`.
+  - `RUNE_TILE_FORM = { k1: /^[a-z]$/, g23: /^[a-z]{1,4}$/, g45: /^[a-z]{1,3}$/, g68: /^[a-z]{1,8}$/, g912: /^[a-z]{1,8}$/ }`.
+  - `validateRunePool(raw: unknown): Problem[]`; `formatRuneProblems(problems): string`.
+  - `runeKey(poolId: string, entryId: string): string`: `"<poolId>/<entryId>"`.
+  - `opaqueRuneId(poolId: string, entryId: string): string`: `hash32` as 8 hex characters, for task ids only.
+  - `runeCode(poolId: string, entry: RuneEntry): string` (F-2's pattern). It fingerprints what the reader is shown: `hash32([poolId, entry.effect, normLabel(entry.prompt), normLabel(entry.readAloud ?? ""), [...entry.tiles].sort().join(" ")].join("\u0000"))` as 8 hex characters.
+  - `effectKey(e: RuneEffect): string`: `"effect:<e>"`.
+  - `decoyCount(entry: RuneEntry): number`: `entry.tiles.length − runeTiling(entry.words[0], entry.tiles)!.length`.
+  - `loadRunePools(raws, strict = NODE_ENV === "test"): RunePool[]`; `__setRunePoolsForTest(raws | null): void`.
+  - `runePoolFor(skillId: string): RunePool | undefined`: the pool whose `skillIds` holds it, from a `Map`.
+  - `shuffleTiles(tiles: readonly string[], words: readonly string[], rng: Rng): string[]`: a seeded shuffle; while `hasSpelledRun` holds, reshuffle up to 8 times, then rotate by one until it does not. It always terminates: the validator guarantees an order exists, because there are at least 3 decoys.
+  - `runeTaskOf(pool: RunePool, entry: RuneEntry, skillId: string, rng: Rng): RuneTask`:
+    - `id = \`${skillId}:rune:${opaqueRuneId(…)}\``;
+    - `object: null`;
+    - `tiles = shuffleTiles(…)`;
+    - `listen = LISTEN_BANDS.includes(pool.band)`;
+    - `entry = runeKey(…)`;
+    - `explain = entry.why ?? RUNE_GENERIC_WHY[pool.band]`.
+  - `drawRuneWords: RunDrawer` and `drawRuneFor(skill: Skill, level: number, effect: RuneEffect, rng: Rng, avoid: ReadonlySet<string>): RuneTask | null`.
+  - `simulateRuneWeek(pool: RunePool, level: number, seed: number, perRun = 3, runs = 21): string[][]` (`src/test/rune-week.ts`): each run's entry keys, each run avoiding every earlier run's keys.
+  - Blind pass:
+    - `extractRuneSheet(pool)`, `renderRuneSheet(sheet)`, `parseRuneSheet(md)`;
+    - `compareRuneSheet(pool, answers, resolutions)`, `formatRuneReport(r)`;
+    - `carryRuneForward(next, existing)`;
+    - `runRunePool(id)`, `writeRuneSheet(pool, force)`, `allRunePoolIds()`, `runePoolsWithSheets()`.
+
+**The validator** (rule ids in `RUNE_POOL_RULES`):
+- **Shape and identity:**
+  - `poolId === RUNE_POOL_PREFIX + band`, with `band` in `CONTENT_BANDS`;
+  - `skillIds` deep-equals `RUNE_SKILLS[band]`, and each is a `language` skill in the catalog;
+  - entry ids are unique and match `/^[a-z0-9-]{3,40}$/`;
+  - no two `opaqueRuneId`s collide, and no two entries share a normalised prompt (so `runeCode`s are unique).
+- **Size (R-I19):** each effect has at least `RUNE_MIN_PER_EFFECT` (13) entries, and at least `RUNE_MIN_PER_EFFECT_LEVEL` (2) at every level 0–4.
+- **Words:**
+  - 1–3 per entry; exactly 1 at k1 and g23;
+  - each matches `/^[a-z]{2,16}$/`, with no repeats.
+- **Tiles (R-I17):**
+  - each matches `RUNE_TILE_FORM[band]`, with at most `RUNE_MAX_TILES_BY_BAND[band]` per entry;
+  - every word tiles (`runeTiling` is not `null`), using at least 2 tiles;
+  - no tile equals a word;
+  - `decoyCount ≥ RUNE_MIN_DECOYS` and `≥ ⌈0.4 × the word's tiles⌉`;
+  - at k1 and g23, some decoy holds a vowel.
+- **Count tells (R-I17):** across the pool, `decoyCount` takes at least 3 values, and no value is held by more than half the entries.
+- **Prompts:**
+  - `prompt` is non-empty, at most 80 (k1), 100 (g23), 140 (g45), 160 (g68) or 180 (g912) characters;
+  - at 12 words or more, `fleschKincaidGrade(prompt) ≤ gradeIndex(bandTopGrade(band)) + READABILITY_MAX_ABOVE`;
+  - the `hint` is required, at most 140 characters;
+  - `why` is required from g45 up, at most 200 characters.
+- **Dictation (R-I18):**
+  - at k1 and g23, `readAloud` is required and holds `words[0]` as a whole word;
+  - from g45 up, `readAloud` (if any) holds no word.
+- **Never showing the word:** no word occurs as a whole word, or with a plain `s`/`es` plural, case-insensitively, in the `prompt` or the `hint`, at any band.
+- **Clean words (F-16):** no field matches `/\bgrades?\b|\bkindergarten\b/i` or `/\b(behind|ahead)\b/i`, and none holds `<`, a backtick or a control character.
+
+**The drawer** (`drawRuneWords(skill, level, count, rng, exclude, avoid)`):
+1. The candidates are the pool's entries whose task id is not in `exclude`.
+2. An entry is *fresh* when its `runeKey` is not in `avoid`. It is *near* when `|entry.level − level| ≤ 1`.
+3. The effects are `shuffle(RUNE_EFFECT_IDS, rng)`, then stably sorted:
+   - effects whose `effectKey` is not in `avoid` first;
+   - then by the number of fresh candidates, most first.
+4. For each of `count` slots, take the next effect in that order, cycling. Pick that effect's first untaken entry in tier order (near and fresh, far and fresh, near and avoided, far and avoided), each tier shuffled once. An effect with none left passes to the next.
+5. It returns at most `count` tasks, in slot order. `drawRuneFor` is the same tiers within one effect.
+
+**The sheet:**
+- **The header:** what the reader does: build the word from the shown tiles, as the child would, given the shown line, or, for a dictation, the heard line.
+- **One line per entry**, shuffled by a seed from the pool id:
+
+  `` - `#<code>` (a picture of <the effect's object>) Shown: "<prompt>" | Heard: "<readAloud>" | Tiles: <tiles sorted A–Z, joined " · "> | Answer: ``
+
+  It never shows an entry id, the words, the hint or `why`. The picture phrase is per effect ("something broken", "something dark", "something dry", "something stuck", "something wilted").
+- **The answer line**, in sheet-kit's words:
+  - one word;
+  - `both`, followed by every word that fits and can be built from the tiles;
+  - `?` ("no word fits").
+- **Compare:**
+  - a word in `entry.words` agrees;
+  - a word not in it is a `disagree` flag;
+  - a word that cannot be built from the tiles is a `not-buildable` flag;
+  - `both` passes only when every word listed is in `entry.words`, and is otherwise an `ambiguous` flag;
+  - `?` is an `unanswerable` flag;
+  - unanswered, stale and unknown codes are reported as the other sheets report them.
+
+  It must reach 100% once resolutions are applied.
+
+- [ ] **Step 1: Write the failing tests.**
+
+  **`rune-pools.test.ts`**, with one valid fixture and one mutation per rule. These include:
+  - a g45 prompt "To water the plants." with `words: ["water"]` fails `shows-word`, and so does a hint "Think of waters.";
+  - a k1 `readAloud` that lacks the word fails `listen-word`;
+  - a g68 `readAloud` that holds it fails `shows-word`;
+  - tiles `["m", "e", "n"]` for "mend" fail `not-buildable`;
+  - two decoys fail `few-decoys`;
+  - a k1 entry whose decoys are all consonants fails `vowel-decoy`;
+  - a pool where every entry has 3 decoys fails `count-tell`;
+  - a tile equal to the word fails `whole-word-tile`;
+  - 12 entries of one effect fail `pool-size`, and a level with one entry of an effect fails;
+  - "a gradual climb" passes, while "a grade" and "kindergarten" fail (F-16);
+  - a g23 tile `"tion"` passes `RUNE_TILE_FORM`, and a k1 tile `"sh"` fails it;
+  - the map file parses to the eight rows of `RUNE_SKILLS`;
+  - `NON_DRILL_SHEET_PREFIXES` contains `RUNE_POOL_PREFIX`.
+
+  **`draw.test.ts`**, with the fixture through `__setRunePoolsForTest`:
+  - deterministic per seed;
+  - three words of three different effects whenever three effects have candidates;
+  - an `effectKey` in `avoid` is taken last;
+  - `exclude` drops an entry;
+  - `avoid` keys are used only after the rest are exhausted;
+  - "the order never spells the word" (R-I17): for 1,000 seeds, no drawn task has `hasSpelledRun(task.tiles, task.words)`;
+  - "the tiles are the entry's, reordered": the sorted tiles equal the sorted entry tiles;
+  - ids are opaque: they hold no word, no entry id and no effect name;
+  - `explain` is `why`, else `RUNE_GENERIC_WHY[band]`;
+  - `listen` is `true` for k1 and g23 and `false` for g45 up;
+  - `presents("spell-g1")` is true while the fixture credits it, and `__setRunePoolsForTest([])` makes it false;
+  - "a week without repeats": `simulateRuneWeek(fixture, level, seed)` (21 runs of 3) meets no key twice, for levels 0–4 and seeds 1–20;
+  - `drawRuneFor(…, "light", …)` gives a light entry, and `null` from an empty pool.
+
+  **`rune-blind-pass.test.ts`:**
+  - the sheet round-trips;
+  - it holds no key: no entry's words, id or hint appear anywhere in the sheet;
+  - "a code follows what is shown" (F-2): reordering an entry's authored tiles keeps its `runeCode`, while editing its prompt or a tile changes it;
+  - "re-extracting keeps every unchanged answer and blanks an edited entry's";
+  - `compare` flags a disagreement, a `not-buildable` word, an `ambiguous` `both`, a `?` and a stale code; it passes a `both` of two accepted words, and accepts a resolution;
+  - "compare passes every sheet on disk" (vacuous until I6).
+
+  **`blind-pass.test.ts`:** `poolsWithSheets()` never lists a `rune-*` sheet.
+
+  **`deed-engine.test.ts`:**
+  - "rune-run": a stub `mechanic: "rune"` language deed with the fixture pool draws 3 tasks of kind `"rune"` at the default length;
+  - recorded measure, sort and trail runs are unchanged;
+  - "recentRunes reaches the refill": with every near entry in `recentRunes` and a thin near level, the refill draws no avoided entry while others remain.
+
+  **`runes-content.test.ts`:** green, with `EXPECTED_RUNE_POOLS = []`.
+- [ ] **Step 2:** `npx vitest run src/lib/content/rune-pools.test.ts src/lib/content/rune-blind-pass.test.ts src/lib/content/blind-pass.test.ts src/lib/content/trail-blind-pass.test.ts src/lib/tasks/runes/draw.test.ts src/lib/tasks/rune.test.ts src/lib/utils/runes-content.test.ts src/lib/utils/deed-engine.test.ts src/lib/tasks/client-boundary.test.ts --maxWorkers=2`. Expected: FAIL.
+- [ ] **Step 3:** implement.
+- [ ] **Step 4:** the same command, plus `src/lib/content/sort-blind-pass.test.ts src/lib/content/sheet-kit.test.ts src/lib/utils/trails-content.test.ts`, then `npx tsc --noEmit`. Expected: PASS, sort and trail tooling unchanged.
+- [ ] **Step 5: Commit.** `feat(content): rune pools — a format, a validator that keeps the word out of sight, a blind pass and a drawer that spreads the effects`.
+
+### Task I5: Rune content
+
+**Files:**
+- `src/content/runes/rune-{k1,g23,g45,g68,g912}.json`;
+- `rune-pool-files.ts` (five imports);
+- `runes-content.test.ts`: `EXPECTED_RUNE_POOLS`, a week without repeats, and the cross-checks below.
+
+**I5 commits no sheets (F-15).** I6 cuts, answers and settles them, so the blind gate is never red at an I5 commit.
+
+**Work from:**
+- **R-I6's table** for each band's tiles and prompts, and **R-I18** for dictation versus meaning.
+- **Words by band:** a common, decodable word at k1 (`fix`, `lit`, `dig`, `wet`, `sun`); phonogram words at g23 (`mend`, `light`, `bright`, `spray`, `bloom`); spelling-level words at g45 (`repair`, `water`, `unlock`, `sprout`); morpheme words at g68 (`restore`, `illuminate`, `irrigate`, `unfasten`, `regenerate`); root words at g912 (`rehabilitate`, `irrigate`, `kindle`, `disclose`, `germinate`).
+- **A word fits its effect.** It names the effect or a step of it: a mending word for `mend`, a light word for `light`, and so on. A dictation word may be any word a child would say about it ("glue" for `mend`).
+- **Size (R-I19):** at least 13 entries per effect per band, with at least 2 at every level 0–4.
+- **Every word that fits and can be built is accepted** (g45 up). Where a reader could build another fitting word from the tiles, either add it to `words` or change the tiles.
+- **Decoys (R-I17):** vary the count (3, 4, 5…). At k1 and g23 include a vowel. From g68 up, use real affixes and roots as decoys (`de`, `pre`, `ful`, `ment`, `port`).
+- **Hints:** a sound, a rhyme, a part's meaning; never the word.
+- **Labels:** no accepted word may be one of the rune objects' label words ("wagon", "lantern", "brazier", "bed", "patch", "hatch", "shed", "tree", "vine", "cart", "oak", "beacon", "reed", "gate", and the adjectives "broken", "dark", "cold", "dry", "stuck", "wilted", "drooping"). Nor may it be a word of the pre-resolution copy, or "hop" (the demo's word).
+- **Commits:** a band at a time is allowed, each commit green.
+
+**One model per band** (the author checks each against the validator):
+- **k1, light, level 0:**
+  - prompt "The lantern is dark. Build the word you hear."; readAloud "Lit. The lantern is lit. Lit.";
+  - words `["lit"]`; tiles `["l", "i", "t", "a", "o", "p"]`;
+  - hint "Three sounds. The first one is l.".
+- **g23, mend:**
+  - prompt "The wagon is broken. Build the word you hear."; readAloud "Mend. Please mend the wagon. Mend.";
+  - words `["mend"]`; tiles `["m", "e", "nd", "a", "i", "ck", "sh"]`;
+  - hint "It rhymes with send.".
+- **g45, water:**
+  - prompt "To give thirsty plants a drink.";
+  - words `["water"]`; tiles `["w", "a", "t", "er", "or", "ar", "d"]`;
+  - hint "It ends with the sound in her."; why "To water plants is to give them a drink.".
+- **g68, mend:**
+  - prompt "To bring something back to how it was before it was harmed.";
+  - words `["restore"]`; tiles `["re", "store", "de", "pre", "ful"]`;
+  - hint "The first part means again."; why "Re- means again: to restore is to make a thing stand as it was again.".
+- **g912, water:**
+  - prompt "To bring water to dry land through channels and ditches.";
+  - words `["irrigate"]`; tiles `["ir", "rig", "ate", "de", "hydr", "ous", "sub"]`;
+  - hint "A Latin root for watering sits in the middle."; why "Ir- (into), rig (to water, from Latin rigare), -ate (to make): to bring water into the land.".
+
+**Steps:**
+- [ ] **Step 1 (red first, F-22):** set `EXPECTED_RUNE_POOLS` to the band's pool id (or all five), with these tests:
+  - "a week without repeats": `simulateRuneWeek(pool, level, seed)` meets no key twice, for levels 0–4 and seeds 1–20;
+  - "no word hides in plain sight" (R-I17): no accepted word of any pool occurs as a whole word, or with a plain plural, in:
+    - any `RUNE_OBJECTS` label;
+    - `RUNE_VERB`, `RUNE_STORY`, `RUNE_TITLE`, `RUNE_HELP`, `RUNE_HEAR`, `RUNE_EMPTY_ROW`, `RUNE_SAME_WORD` or `RUNE_DEMO_COPY`;
+    - `runeSetOffLine` of any three labels;
+  - "every effect has words at every band": each pool's effects are all five.
+
+  Run `npx vitest run src/lib/utils/runes-content.test.ts --maxWorkers=2`. Expected: FAIL, the folder lacks the pool.
+- [ ] **Step 2:** author the pool(s), and add the imports to `rune-pool-files.ts`.
+- [ ] **Step 3:** `npx vitest run src/lib/utils/runes-content.test.ts src/lib/content/rune-pools.test.ts src/lib/tasks/runes/draw.test.ts --maxWorkers=2`. Expected: PASS.
+- [ ] **Step 4: Commit** (per band, or once). `content(runes): words of mending, light, water, opening and growing for every band`.
+
+### Task I6: Rune blind pass (a different agent from I5's author, who never opens `src/content/runes/` or I5's report)
+
+- [ ] **Step 1 (red first, F-22, F-15):** add "every pool has a sheet" to `runes-content.test.ts`: each `EXPECTED_RUNE_POOLS` id has `src/content/review/<poolId>.blind.md`. Run `npx vitest run src/lib/utils/runes-content.test.ts --maxWorkers=2`. Expected: FAIL.
+- [ ] **Step 2:** the controller (not the reader) cuts the sheets: `npx tsx src/lib/content/rune-blind-pass-cli.ts extract --all`.
+- [ ] **Step 3:** the reader answers every `rune-*.blind.md` from the sheet alone. They build the word as the child would, writing `both` (with every fitting, buildable word) or `?` wherever true.
+- [ ] **Step 4: Settle.** Run `compare --all`. The author or the controller settles each flag:
+  - in `rune-<band>.resolved.json`;
+  - or by editing the entry (adding a fitting word to `words`, or changing a tile) and running `extract --force`, which carries every unchanged answer forward and blanks the edited ones. The reader then answers only the blank codes.
+- [ ] **Step 5: Gate:** `npx vitest run src/lib/content/rune-blind-pass.test.ts src/lib/utils/runes-content.test.ts src/lib/content/rune-pools.test.ts --maxWorkers=2` is green, and `compare --all` passes all five.
+- [ ] **Step 6: Commit** the sheets, the resolutions, any entry edits and the test. `content(runes): blind pass for every rune pool`.
+
+### Task I7: Rune objects on the server — the any-time fix
+
+**Files:**
+- **`src/lib/services/lock-runs.ts`:** `LockRunSpec` gains:
+  - `mechanic?: "lock" | "rune"` (default `"lock"`). The off refusal reads `settings.mechanics[spec.mechanic ?? "lock"]`;
+  - `draw?: (input: { skill: Skill; level: number; seed: number; enabledKinds: ReadonlySet<TaskKind>; profile: ProfileLike }) => BuiltRun`. By default it is `lockRun({ ...input, count: spec.count })`.
+
+  Puzzle practice, chests, doors and the Tower pass neither, and their tests run unchanged.
+- **Create `src/lib/utils/rune-run.ts`** + `rune-run.test.ts`: `runeSkill` and `runeObjectRun` (I11 adds the binding).
+- **Create `src/lib/actions/rune-objects.ts`** (`"use server"`): `startRuneObjectRun`.
+- **`src/lib/services/realm-world-state.ts`:** `fixRuneObjects`.
+- **`src/lib/services/deed-run-store.ts`:**
+  - `collectTaskKeys(rows: readonly { questions: string }[], kind: "trail" | "rune", field: "trail" | "entry"): string[]`, the JSON walk moved out of `loadRecentTrailIds`, whose tests stay green;
+  - `loadRecentRuneKeys`; `RUNE_MEMORY_RUNS = 21`.
+- **`src/lib/utils/deeds.ts`:** `RUNE_DEED_IDS` (empty until I11 flips the deeds).
+- **`src/lib/actions/deeds.ts` `completeDeedRun`:**
+  - a `world` run whose `sourceRef` is a rune object (`runeObjectById`) closes and fixes in one `withChildLock` transaction: `fixRuneObjects(tx, …, [{ objectId, outcome: outcomes[0] }], now, clock, false)`;
+  - the summary carries `runes`;
+  - `worldOwned` gains `|| (run.kind === "world" && isRuneObjectId(run.sourceRef))`, so only the hero finishes it (PC-G7).
+- **`src/lib/actions/realm.ts`:** `worldStateView(…, settings.mechanics.lock, settings.mechanics.rune)`.
+- **`deed-refusals.ts`:** `RUNE_HERO_ONLY`, `RUNES_OFF` and `RUNE_FIXED`, in `KNOWN`.
+- **`talk.ts`:**
+  - `resultHeadline`: a `world` run with `runes` gives `{ RUNE_WORKS, "" }` when fixed, `{ RUNE_FADES, RUNE_FADES_LINE }` when missed and `{ RUNE_WORKS, RUNE_ALREADY }` when already fixed;
+  - `finishLabel("world", runeId)` is `"Done"`, and `leaveWhat("world", runeId)` is `"rune"`.
+
+**Interfaces:**
+- **Consumes:** I1's catalog, `brokenNow` and `RuneOutcome`; I4's `drawRuneFor` and `runeTaskOf`.
+- **Produces:**
+  - `runeSkill(grade: Grade, focusSkillIds: readonly string[]): Skill | null`. It gives the first focus pick in `focusWindow({ language: grade })` that `TASK_KINDS.rune.presents`, else `chooseSkills({ area: "language" }, grade, (s) => TASK_KINDS.rune.presents(s.id))[0] ?? null`.
+  - `runeObjectRun(input: { skill: Skill; level: number; object: RuneObject; seed: number; enabledKinds: ReadonlySet<TaskKind>; profile: ProfileLike; avoid: ReadonlySet<string> }): BuiltRun`. It is empty unless `kindForSkill("rune", skill.id, enabledKinds) === "rune"`; otherwise it is one `drawRuneFor(…, object.effect, …)` task with `object: { id, label }`.
+  - `startRuneObjectRun(childId: string, objectId: string): Promise<RunStart>`. Through `startLockRun`:
+    - `kind: "world"`, `sourceRef: object.id`, `mechanic: "rune"`;
+    - `refusals: { heroOnly: RUNE_HERO_ONLY, off: RUNES_OFF }`;
+    - `check` reads `worldClock`, `loadWorldRows` and `loadRecentRuneKeys` in one `Promise.all`. It throws `RUNE_FIXED` unless `brokenNow`, and keeps the keys for `draw`;
+    - `pick` gives `runeSkill(hero.grades.language, focus)`, with `grade: skill.grades[0]` and `boost: 0`;
+    - `draw` gives `runeObjectRun({ ...input, object, avoid })`;
+    - `count: 1`, `demo: true`;
+    - `header` gives `{ id: object.id, title: RUNE_TITLE, story: RUNE_STORY, area: "language" }`.
+
+    An unknown id is `NOT_IN_CHRONICLE` before anything is read.
+  - `fixRuneObjects(tx: Tx, childId: string, fixes: readonly { objectId: string; outcome: QuestionOutcome }[], now: Date, clock: WorldClock, renew: boolean): Promise<RuneOutcome[]>`:
+    - an unknown object id gives no outcome, and only the first entry for an id counts;
+    - a miss gives `{ fixed: false, reason: "missed" }`;
+    - a right answer upserts `"fixed"` with `now` when `renew` is true or the object is `brokenNow`, giving `{ fixed: true }`; otherwise it gives `{ fixed: false, reason: "already-fixed" }` and writes nothing.
+
+    It reads the rows once.
+  - `loadRecentRuneKeys(childId: string): Promise<string[]>`. One query: the hero's runs with `deed_id IN RUNE_DEED_IDS` or (`kind = 'world'` and `source_ref LIKE 'rune:%'`), newest `started_at` first, `LIMIT RUNE_MEMORY_RUNS`. It returns `collectTaskKeys(rows, "rune", "entry")`.
+
+- [ ] **Step 1: Write the failing tests.**
+
+  **`rune-run.test.ts`:**
+  - `runeSkill` gives, by grade: K `lang-gk`; 1 `spell-g1`; 2 `spell-g23`; 3 `lang-g3`; 4 `spell-g45`; 5 `vocab-g45`; 6–8 `vocab-g68`; 9–12 `vocab-g912`;
+  - a grade-4 hero with a `vocab-g45` focus gets `vocab-g45`; a `lang-g1` focus at grade 1 is passed over for `spell-g1`;
+  - `runeObjectRun` is one task with the object's effect and `{ id, label }`, and empty with runes off.
+
+  **`world-runes-db.test.ts`** (new; the `world-locks-db.test.ts` pattern, DDL from `src/test/realm-db-ddl.ts`):
+  - "a broken object starts a world run of one rune at the hero's language skill": `kind: "world"`; the task is a rune with the object's effect and `object.id`; `JSON.stringify(start)` holds none of the stored task's `words`, `entry` or `hint`;
+  - "the same object resumes; another object starts its own";
+  - "refusals": a grown-up gets `RUNE_HERO_ONLY`; runes off gets `RUNES_OFF`, even for an open run; a fixed object gets `RUNE_FIXED`; `"rune:nope"` and `"chest:west-lane"` get `NOT_IN_CHRONICLE`; a closed Realm gets `CLOSED`;
+  - "a right cast fixes it in the same transaction": complete, then the row is `"fixed"` with now; `summary.runes` is `[{ objectId, fixed: true }]`; `minutesEarned` is 0 and `stars` is 0; a mastery row moved;
+  - "a miss leaves it broken, and a fresh start draws a fresh word": no row is written, and the next start's task id differs (seeds mocked apart);
+  - "two finishes fix once" (RG-c): two concurrent `completeDeedRun` calls give one success and one `FINISHED`, with one row;
+  - "a throw while fixing rolls the close back" (RG-n): with `fixRuneObjects` mocked to throw, the run stays open and can be finished again;
+  - "only the hero finishes it": a grown-up gets `WORLD_HERO_ONLY`;
+  - "runes off after the start: the run still finishes and fixes" (R-I13);
+  - "the object breaks again on its fourth local day": with `realmNow` stepped, a start is refused on day 3 and allowed on day 4;
+  - "chests and doors are untouched": `world-locks-db.test.ts` and `practice-db.test.ts` run unchanged and green.
+
+  **`deed-run-store-db.test.ts`:**
+  - `loadRecentRuneKeys` reads only rune world runs while `RUNE_DEED_IDS` is empty;
+  - 22 seeded runs give 21 runs' keys;
+  - a chest run and a row with `questions = 'nope'` are ignored;
+  - `loadRecentTrailIds` is unchanged.
+
+  **`realm-bundle.test.ts`:** with `mechanics.rune` off, `worldState.runesOn` is `false`. With it on, `fixed` lists a fixed row's object. The bundle's query count is unchanged.
+
+  **`talk.test.ts`:** the three rune headlines, `finishLabel` and `leaveWhat`.
+- [ ] **Step 2:** `npx vitest run src/lib/utils/rune-run.test.ts src/lib/actions/world-runes-db.test.ts src/lib/services/deed-run-store-db.test.ts src/lib/actions/realm-bundle.test.ts src/lib/realm3d/talk.test.ts --maxWorkers=2`. Expected: FAIL.
+- [ ] **Step 3:** implement.
+- [ ] **Step 4:** the same command, plus `src/lib/actions/world-locks-db.test.ts src/lib/actions/practice-db.test.ts src/lib/actions/deeds-db.test.ts src/lib/utils/deed-refusals.test.ts`, then `npx tsc --noEmit`. Expected: PASS.
+- [ ] **Step 5: Commit.** `feat(realm): a rune object is fixed any time — a world run of one word, closed and recorded in one locked finish`.
+
+### Task I8: The rune stone — the picture run, Set off and Pip's demo
+
+**Files:**
+- **Create:**
+  - `src/components/tasks/rune-presenter.tsx`, `rune-stone.tsx`, `rune-picture.tsx`, `rune-demo.tsx` and `rune.css`;
+  - `src/lib/tasks/rune-stops.ts` + `rune-stops.test.ts`.
+- **Register** `TASK_PRESENTERS.rune = RunePresenter`.
+- **`presenters.tsx`:** `PresenterProps.stops?: readonly string[]` (a walking run's object labels, for Set off).
+- **`demos.ts`:** `DemoKey` gains `"rune"`; `demoKeyOf` gives `"rune"` for a rune task; `demoKind("rune") === "rune"`.
+- **`deed-run-store.ts`:** `demoGroup("rune") === "rune"`. `hasAnsweredDemo` needs no change: it already reads `demoKind`.
+- **`task-demo.tsx`:** the `"rune"` case, with `taskDemoCopy("rune") === RUNE_DEMO_COPY`.
+- **`deed-board.tsx` `DeedRun`:**
+  - passes `stops={runeStops(run).map((s) => s.label)}` with `onWalk`;
+  - the board's unprompted speech and the read-aloud button go through `autoSpeaks(question, …)` with the full task (R-I18);
+  - a rune task's second-chance and miss lines are spoken through `attemptSpeech`, as a trail's are.
+- **`deed-player.tsx`:** the same speech rule on the page.
+
+**Interfaces:**
+- **Consumes:** I2's codec, `spelled`, `listens` and copy; I1's `RuneEffect`.
+- **Produces:**
+  - `runeStops(run: Pick<RunStart, "questions">): { id: string; label: string }[]`: every rune task's bound object, in order. A task with `object: null` is skipped.
+  - `runeStopOf(stops: readonly { id: string }[], at: number, id: string): "current" | "later" | "done" | null`.
+  - `RunePresenter(props: PresenterProps<"rune">)`: `variant === "board" && onWalk` shows `RuneSetOff`; otherwise `RuneStone`. A run picked back up at its finish step shows nothing on the board, as a trail does.
+  - `RuneSetOff({ stops, onWalk })`: `runeSetOffLine(stops)` and a `TRAIL_SET_OFF` button that takes focus, as `TrailSetOff` does.
+  - `RuneStone({ task, flow, variant, disabled, calm, onRespond })`, `role="group"`, `aria-label` `RUNE_STONE_LABEL`. It holds:
+    - `RunePicture`;
+    - the object's label, under the picture, when it has one;
+    - the built row;
+    - the tray;
+    - `RUNE_HELP`;
+    - "Hear the word" (`RUNE_HEAR`, only when `view.listen`), which speaks `task.readAloud`;
+    - "Clear" and "Cast".
+  - `RunePicture({ effect, fixed }: { effect: RuneEffect; fixed: boolean })`: an `aria-hidden` inline `<svg viewBox="0 0 120 90">`, one drawing per effect in a broken and a fixed form.
+  - `RuneDemo({ calm, variant, onDone })`: `RUNE_DEMO_STEPS` and `RUNE_DEMO_COPY`, as `TrailDemo` shows its own.
+
+**The stone's behaviour:**
+- **Building the word:**
+  - Tapping a tray tile appends its index, and the tile shows as placed (`aria-pressed`, disabled in the tray).
+  - Tapping a placed tile in the row removes that one.
+  - Backspace removes the last tile.
+  - Enter and Space keydowns stop propagation; Esc bubbles.
+- **Casting:**
+  - "Cast" sends `TASK_CODECS.rune.encode(picks)`.
+  - It is disabled while nothing is placed, while `disabled`, once the task is resolved, and while the picks' encoding is in `flow.ruledOut`; in that last case `RUNE_SAME_WORD` shows.
+- **Results:**
+  - On a resolved miss, the row shows `flow.result.reveal` decoded (when it decodes and fits).
+  - On a right answer, the picture turns to its fixed form.
+- **Layout:**
+  - While the row is empty it shows `RUNE_EMPTY_ROW`. Nothing on the stone shows how many tiles the word takes (R-I17).
+  - 390 px: the tray wraps, and every tile is at least 40 px square.
+
+- [ ] **Step 1: Write the failing tests.**
+
+  **`rune-presenter.test.tsx`:**
+  - the board with `onWalk` and two stops shows "Two things in the village need a rune: … and …" and "Set off"; a click calls `onWalk` once;
+  - the page shows the stone: the picture, "the broken wagon" and six tile buttons;
+  - tapping m, e, nd, then Cast gives `onRespond("r:…")` with those indices in order;
+  - Cast is disabled with nothing placed;
+  - Backspace takes back the last tile, and a tap on a placed tile takes back that one;
+  - with `flow.ruledOut` holding the current picks, Cast is disabled and `RUNE_SAME_WORD` shows;
+  - a resolved miss with `reveal: "r:1,3,4,0"` fills the row with m, e, n, d;
+  - "the stone never shows the word's length" (R-I17): before any tap the row holds only `RUNE_EMPTY_ROW`, and no element's text or attribute holds the tile count of the word;
+  - "Hear the word" shows only for a `listen` task, and speaks `readAloud`;
+  - Enter on a tile does not reach a window keydown listener;
+  - Tab moves through the tiles in tray order.
+
+  **`rune-stops.test.ts`:**
+  - `runeStops` of a three-rune run gives three `{ id, label }` in order and skips `object: null`;
+  - `runeStopOf(stops, 1, stops[1].id) === "current"`, `stops[2].id` gives `"later"`, `stops[0].id` gives `"done"`, and `"rune:other"` gives `null`.
+
+  **`task-demo.test.tsx`:** the rune demo's copy and steps; Done calls `onDone`.
+
+  **`deed-run-store-db.test.ts`:**
+  - `demoAt` marks a grade-2 hero's first rune;
+  - after a rune answered in another run, it gives `null`;
+  - a lock or trail answered elsewhere does not hide the rune demo.
+
+  **`deed-board.test.tsx`:**
+  - "a dictation is spoken with read-aloud off": a rune run whose task has `listen: true` and `profile.readAloud: false` calls `speak` with its `readAloud`;
+  - "a meaning is not spoken unless asked": a `listen: false` task makes no `speak` call until the read-aloud button;
+  - "the board speaks a rune's second-chance and miss lines": a first wrong cast speaks "Not that word. …";
+  - a two-rune walking run in the realm shows "Set off", which calls `onWalk(run)`, with both labels in the line;
+  - other kinds' speech is unchanged.
+
+  **`deed-player.test.tsx`:**
+  - a rune task on the page plays on the stone and answers through `answerDeedQuestion(runId, 0, "r:…")`;
+  - a dictation is spoken with read-aloud off.
+- [ ] **Step 2:** `npx vitest run src/components/tasks/rune-presenter.test.tsx src/lib/tasks/rune-stops.test.ts src/components/tasks/task-demo.test.tsx src/lib/services/deed-run-store-db.test.ts src/components/realm3d/deed-board.test.tsx src/components/deed-player.test.tsx src/components/tasks/presenters.test.tsx --maxWorkers=2`. Expected: FAIL.
+- [ ] **Step 3:** implement.
+- [ ] **Step 4:** the same command, `npx eslint` on the changed files, then `npx tsc --noEmit`. Expected: PASS, 0 errors.
+- [ ] **Step 5: Commit.** `feat(runes): the rune stone — tiles to tap, a picture of what needs the word, Set off for the Realm, and Pip's first rune`.
+
+### Task I9: Rune objects in the Realm — the painter, E spots and the any-time board
+
+**Files:**
+- **`hud-bus.ts`:** `InteractTarget.kind` gains `"rune"`, with its line in the doc comment.
+- **`interact.ts`:**
+  - `SpotInput.runes?: readonly RuneSpotView[]`;
+  - `runeTarget(r, viewer)`;
+  - `runeSpot(r, viewer)`: round, `RUNE_SPOT.radius` and `.reach`, bias 0.4, ring radius + 0.6;
+  - `buildSpots` pushes one per rune.
+- **`spike-scene.tsx`** (additive):
+  - `World`'s `buildSpots` call gains `runes: worldLocks?.runes`. The `spots` deps already hold `worldLocks`, so `World` takes no new prop;
+  - `RealmCanvasProps.runeWalk?: { named: readonly string[]; mended: readonly string[] } | null`;
+  - `<RuneObjects runes={worldLocks?.runes} named={runeWalk?.named} mended={runeWalk?.mended} heightAt={world.heightAt} />` beside `<WorldLocks>`.
+- **Create:**
+  - `src/components/realm3d/rune-objects.tsx`: `RuneObjects`, merged boxes through `mergeBoxHosts`, no colliders. A `fixed` or mended object draws `runeObjectBoxes(effect, true)`, others `false`. A named, unmended object adds `runeMarkBoxes()`;
+  - `src/components/realm3d/rune-object-board.tsx` + `.test.tsx`.
+- **`use-world-state.ts`:** `applyRuneOutcomes(o: readonly RuneOutcome[])`.
+- **`realm-game.tsx`** (additive):
+  - the overlay chain's negative list gains `overlay.target.kind !== "rune"`;
+  - `{overlay?.kind === "interact" && overlay.target.kind === "rune" && !runeCasting && runeObjectById(overlay.target.id) && <RuneObjectBoard … />}`, where `runeCasting` is `false` until I10.
+
+**Interfaces:**
+- **Consumes:** I1's view, canvas, boxes and copy; I7's `startRuneObjectRun`; I8's stone (through `DeedRun`).
+- **Produces:**
+  - `runeTarget(r: RuneSpotView, viewer: "child" | "parent" = "child"): InteractTarget`. It is `{ kind: "rune", id: r.id, label: r.label, verb }`, where `verb` is `RUNE_LOOK_VERB` for a grown-up or a fixed object, else `RUNE_VERB`.
+  - `runeSpot(r: RuneSpotView, viewer?): InteractSpot`.
+  - `RuneObjectBoard({ childId, object, fixed, viewer, numerals, profile, calm, onOutcome, onClose })`. It mirrors `WorldLockBoard`:
+    - it reads `fixed` once when it opens;
+    - a broken object, for the hero, starts `startRuneObjectRun` once (double-mount guarded) and plays it in `DeedRun`, under `RUNE_TITLE` with the `"sparkles"` icon;
+    - a refusal of `RUNE_FIXED` at an object drawn broken reports `{ objectId, fixed: false, reason: "already-fixed" }` up, and shows `RUNE_HOLDS_LINE`;
+    - a fixed object shows `RUNE_HOLDS_LINE`, or `RUNE_HOLDS_LINE_VISITOR` to a grown-up, and starts nothing;
+    - a child view with no hero shows `RUNE_NOT_NOW`;
+    - the finish hands `summary.runes` to `onOutcome`.
+  - `useWorldState(…).applyRuneOutcomes(o: readonly RuneOutcome[]): void`.
+
+- [ ] **Step 1: Write the failing tests.**
+
+  **`interact.test.ts` "the rune objects":**
+  - fifteen spots with runes on and none when `runes` is absent;
+  - a broken object reads "Cast a rune at the broken wagon", a fixed one "Look at the broken wagon", and a grown-up always gets "Look at";
+  - each is reachable from every side and lets go once walked away from;
+  - "no rune spot holds another spot, and no spot holds a rune spot": I1's check re-run through the real `buildSpots`, with `runes` from `worldCanvas` and `anchors: ANCHOR_SPOTS`. A failing object moves under I1's rule, and I1's tests are re-run.
+
+  **`rune-object-board.test.tsx`** (actions mocked):
+  - a broken object starts its run once and shows the stone;
+  - a right cast's finish calls `onOutcome([{ objectId, fixed: true }])`;
+  - a fixed object shows `RUNE_HOLDS_LINE`, and `startRuneObjectRun` is not called;
+  - a refused `RUNE_FIXED` at an object drawn broken reports `already-fixed` and shows the line;
+  - a grown-up sees `RUNE_HOLDS_LINE_VISITOR` at a fixed object and `RUNE_HERO_ONLY` at a broken one, and nothing is called;
+  - the run's finish button reads "Done" and its leave link "Leave the rune".
+
+  **`use-world-state.test.ts`:** `applyRuneOutcomes` moves `view.fixed` and the canvas's `fixed` flag, and keeps the canvas the same object for a miss.
+
+  **`realm-game.test.tsx`:**
+  - "E at a broken rune object opens its board, not the look panel": `bus.onInteract({ kind: "rune", id: "rune:west-wagon", label: "the broken wagon", verb: "Cast a rune at" })` shows the rune stone's title, and no `InteractPanel`;
+  - "the canvas has the rune objects with runes on and none with them off": `handed.props.worldLocks.runes` has 15 entries with `worldState.runesOn` and 0 without;
+  - "a fixed rune's board does not reach the server".
+
+  **`hud-bus.test.ts`:** the union accepts `"rune"`.
+- [ ] **Step 2:** `npx vitest run src/lib/realm3d/interact.test.ts src/lib/realm/rune-objects.test.ts src/components/realm3d/rune-object-board.test.tsx src/components/realm3d/use-world-state.test.ts src/components/realm3d/realm-game.test.tsx src/lib/realm3d/hud-bus.test.ts --maxWorkers=2`. Expected: FAIL.
+- [ ] **Step 3:** implement.
+- [ ] **Step 4:** the same command, plus `src/lib/realm/anchors.test.ts src/lib/realm/world-objects.test.ts src/lib/realm3d/rune-boxes.test.ts`, `npx eslint` on the changed files, then `npx tsc --noEmit`. Expected: PASS, 0 errors.
+- [ ] **Step 5: Commit.** `feat(realm): rune objects stand in the village and the five places — E casts a rune at one, any time`.
+
+### Task I10: The rune walk in the Realm
+
+**Files:**
+- **`kinds.ts`:** `WALKING_KINDS = ["trail", "rune"] as const`. No deed is a rune yet (I11), so no production run changes.
+- **Create `src/components/realm3d/use-walk.ts`:** the walk-agnostic half of `useTrailWalk`, moved and not copied:
+  - `walk`, `walked`, `begin`, `finish`, `leave` and `clearWalked`;
+  - F-8's clearing of `walked`;
+  - the key counter.
+
+  `use-trail-walk.ts` becomes `useWalk` plus `answerRef` and `revealed`. Its types `TrailWalkOn` and `TrailWalked` are kept as aliases of `WalkOn` and `Walked`, and `use-trail-walk.test.ts` runs unchanged.
+- **Create:**
+  - `src/components/realm3d/use-rune-walk.ts` + `.test.ts`;
+  - `src/components/realm3d/rune-walk.tsx`, `rune-walk.css` + `rune-walk.test.tsx`.
+- **`realm-game.tsx`** (additive and local):
+  - `const runeWalk = useRuneWalk(overlay?.kind ?? null)`;
+  - `openTarget`'s rune branch, first after the overlay guard;
+  - `DeedBoard`'s `onWalk` routes by kind: a run whose tasks are runes leaves the trail walk and begins the rune walk; any other run leaves the rune walk and begins the trail walk, as today;
+  - `walked` is `trail.walked ?? runeWalk.walked` for that villager;
+  - `runeCasting` (below);
+  - `<RuneWalk>` mounted while `runeWalk.walk`;
+  - `onRuneFinished`;
+  - the canvas's `runeWalk` prop from `runeWalk.canvas`.
+
+**Interfaces:**
+- **Consumes:** I8's `runeStops`, `runeStopOf`, `RuneStone` (through `TaskPresenter`) and `deedResultOf`; I9's `applyRuneOutcomes`, canvas prop and board.
+- **Produces:**
+  - `useWalk(overlayKind: string | null): { walk: WalkOn | null; walked: Walked | null; begin; finish; leave; clearWalked }`, with `WalkOn` and `Walked` as `TrailWalkOn` and `TrailWalked` are today.
+  - `useRuneWalk(overlayKind: string | null)`. It returns `useWalk`'s fields plus:
+
+    ```ts
+    {
+      at: number;                                   // the stop on now, set by the tracker
+      mended: readonly string[];                    // object ids cast right on this walk
+      canvas: { named: readonly string[]; mended: readonly string[] } | null; // memoised; null with no walk
+      setAt(i: number): void;
+      markMended(id: string): void;
+      stopOf(id: string): "current" | "later" | "done" | null; // runeStopOf over the walk's stops, `mended` counted as done
+      sayRef: MutableRefObject<((line: string) => void) | null>;
+    }
+    // begin() and leave() reset `at` to 0 and `mended` to [].
+    ```
+
+  - `RuneWalk({ walk, profile, calm, numerals, hidden, casting, onAt, onMended, onCastClose, onFinished, onLeave, sayRef })`. It is keyed by `walk.key` and owns `useDeedFlow(walk.run, cue)`. While mounted, it sets `sayRef.current` to show a line on the card, and clears it on unmount.
+
+**`RuneWalk`'s rules:**
+- **The card** (when `!casting`):
+  - `role="region"`, `aria-label` `RUNE_TRACKER_LABEL`;
+  - the stops as a list, each with its label and a check once mended; with `numerals`, `runeStopCount`;
+  - `runeNextLine(current label)`, or the line said through `sayRef`;
+  - `RUNE_HIDE`/`RUNE_SHOW` and `RUNE_LEAVE`.
+  - It never takes focus by itself. At 390 px it uses `trail-walk.css`'s layout rules (the round-3 header and foot), shared through one class, not copied.
+- **The stone** (when `casting`): a `Panel` titled `RUNE_TITLE`, holding:
+  - the task's prompt;
+  - the read-aloud button;
+  - `TaskPresenter` (variant `"board"`, no `onWalk`), answering through `choose`;
+  - the feedback line (`attemptFeedback`);
+  - "Show me" on a second chance.
+- **Resolving a stop:**
+  - A right answer calls `onMended(object.id)`.
+  - A resolved stop that is not the last shows `RUNE_DONE`, which calls `next()`, then `onAt(index + 1)`, then `onCastClose()`.
+  - The last shows `RUNE_FINISH`, which calls `completeDeedRun(runId)` once, then `onFinished(summary)`. A rejected finish shows `deedErrorLine` and the button again.
+  - Esc closes the stone (the frame's `closeOverlay`) and keeps the flow's state, so the same stop reopens on its second chance.
+- **Speech:** when the stone opens, the prompt is spoken when `autoSpeaks(task, profile.readAloud, false)` holds (always for a dictation, R-I18). The second-chance and miss lines follow `attemptSpeech`.
+
+**The frame:**
+- **`openTarget(t)`, first after the overlay guard:**
+
+  ```ts
+  if (t.kind === "rune" && runeWalk.walk) {
+    const stop = runeWalk.stopOf(t.id);
+    if (stop === "later") { runeWalk.sayRef.current?.(runeFirstLine(currentLabel)); return; }
+    if (stop === "done") { runeWalk.sayRef.current?.(RUNE_HOLDS_HERE); return; }
+  }
+  ```
+
+  Everything else falls through to `go({ kind: "interact", target: t })` as today.
+- **`runeCasting`** is `overlay?.kind === "interact" && overlay.target.kind === "rune" && runeWalk.stopOf(overlay.target.id) === "current"`. I9's board renders only when it is false.
+- **Mounting:** `<RuneWalk casting={runeCasting} hidden={paused || (overlay !== null && !runeCasting)} …>`.
+- **`onRuneFinished(summary)`**, in order:
+  1. `lockState.applyRuneOutcomes(summary.runes ?? [])`;
+  2. `const r = deedResultOf(summary, walk.run.deed.id)`;
+  3. `runeWalk.finish(summary)`;
+  4. `go({ kind: "interact", target: { kind: "villager", … } })`;
+  5. `if (r) pendingDeed.current.set(walk.buildingId, r)`.
+
+- [ ] **Step 1: Write the failing tests.**
+
+  **`registry.test.ts`:** `[rune, rune]` is a walking run; `[rune, choice]` is not; `[trail, rune]` is.
+
+  **`use-trail-walk.test.ts`:** unchanged and green.
+
+  **`use-rune-walk.test.ts`:**
+  - `begin` sets the walk, bumps `key`, and resets `at` and `mended`;
+  - `stopOf` gives `"current"`, `"later"`, `"done"` (by `at`, and by `mended`) and `null`;
+  - `canvas` is the same object across renders until `at` or `mended` changes, and `null` with no walk;
+  - `walked` clears when the overlay leaves `"interact"` (F-8).
+
+  **`rune-walk.test.tsx`** (actions mocked):
+  - the card lists the three labels, with the first as "Next: …";
+  - `casting` shows the stone; a right cast calls `answerDeedQuestion("r1", 0, "r:…")`, then `onMended("rune:west-wagon")`, then Done calls `onAt(1)` and `onCastClose`;
+  - a first wrong cast shows "Not that word. …" and "Show me";
+  - "a dictation is spoken when the stone opens, with read-aloud off";
+  - "a cast while a call is in flight makes no second call";
+  - the last stop's `RUNE_FINISH` calls `completeDeedRun` once, then `onFinished(summary)`; a rejected finish shows "That didn't work." and retries;
+  - `RUNE_LEAVE` calls `onLeave`;
+  - `hidden` hides the card and keeps the stop;
+  - unmounting clears `sayRef`.
+
+  **`realm-game.test.tsx`:**
+  - "Set off on a rune run closes the board, shows the rune tracker, and names the stops on the canvas": `handed.props.runeWalk.named` holds the three ids;
+  - "E at the current stop opens the stone, not the any-time board" (Review Focus 5);
+  - "E at a later stop says 'First, …' and opens nothing";
+  - "E at a mended stop says the rune holds";
+  - "E at a rune object that is not a stop opens its own board";
+  - "a right cast mends the object on the canvas at once": `handed.props.runeWalk.mended` holds it;
+  - "a finished rune walk mirrors the fixes, opens the villager's board on its result, and raises the building when it closes";
+  - "beginning a rune walk ends a trail walk, and the reverse";
+  - "Leave the rune walk: `runeWalk` is null on the canvas, and the mended marks are gone";
+  - every existing trail walk test is unchanged and green.
+- [ ] **Step 2:** `npx vitest run src/lib/tasks/registry.test.ts src/components/realm3d/use-trail-walk.test.ts src/components/realm3d/use-rune-walk.test.ts src/components/realm3d/rune-walk.test.tsx src/components/realm3d/realm-game.test.tsx src/components/realm3d/trail-walk.test.tsx --maxWorkers=2`. Expected: FAIL.
+- [ ] **Step 3:** implement.
+- [ ] **Step 4:** the same command, plus `src/components/realm3d/deed-board.test.tsx src/lib/utils/deed-engine.test.ts`, `npx eslint` on the changed files, then `npx tsc --noEmit`. Expected: PASS, 0 errors.
+- [ ] **Step 5: Commit.** `feat(realm): a rune walk — the tracker names the stops, E at each opens the rune stone, and a right word mends it where it stands`.
+
+### Task I11: Language side quests become rune walks
+
+**Files:**
+- **`deeds.ts`:**
+  - `mill-ledger`, `bridge-toll`, `market-crier` and `library-scribe` take `mechanic: "rune"`, `questionCount: 3` and `stops: RUNE_STOPS`;
+  - export `RUNE_STOPS = { min: 2, max: 3 } as const`;
+  - `Deed` gains `stops?: { min: number; max: number }`;
+  - `deedRunLength` clamps a deed with `stops` when `drawsMechanic` (R-I9). `RUNE_DEED_IDS` now holds the four.
+- **`rune-run.ts`:**
+  - `bindRuneObjects(tasks: readonly Task[], objects: readonly RuneObject[], broken: ReadonlySet<string>, rng: Rng): Task[]` (R-I22);
+  - `runePassOver(objects: readonly RuneObject[], broken: ReadonlySet<string>): string[]`: the `effectKey` of every effect with no broken object among `objects`.
+- **`actions/deeds.ts` `startDeedRun`:**
+  - `readsRunes = deed.mechanic === "rune" && enabledKinds.has("rune")`;
+  - in the second parallel round, when `readsRunes`: `loadRecentRuneKeys`, `loadWorldRows` and `worldClock`;
+  - `broken` is the set of `VILLAGE_RUNE_OBJECTS` ids that are `brokenNow`;
+  - `recentRunes = [...keys, ...runePassOver(VILLAGE_RUNE_OBJECTS, broken)]`;
+  - after `buildDeedRun`, when any task is a rune: `bindRuneObjects(built.questions, VILLAGE_RUNE_OBJECTS, broken, seededRng(seed ^ 0x9e3779b9))`, where `seed` is the one built with. An empty result is `NONE_READY`.
+- **`actions/deeds.ts` `completeDeedRun`:** for a `deed` or `challenge` run with rune tasks bound to catalog objects, the close and `fixRuneObjects(tx, …, fixes, now, clock, true)` share one `withChildLock` transaction. Pay and the building follow it, outside the transaction, as today. The summary carries `runes`.
+- **Re-record:**
+  - the language deeds' entries of "keeps its output as deeds name a mechanic" as rune ids, with a choice-pinned twin (`enabledKinds: CHOICE_ONLY`) holding today's ids unchanged;
+  - the fewer-choices recorded loop pinned to `CHOICE_ONLY`, ids unchanged;
+  - `deeds.test.ts`'s area/mechanic expectations;
+  - every other `deed-engine.test.ts` case that uses `deedLanguage` with every kind on (`runCandidates` or `buildDeedRun`): it moves to a local `choiceLanguage` fixture (I3's) or pins `CHOICE_ONLY` when it is about the choice path, or is re-recorded as runes, each with its reason in a comment;
+  - "a grown-up's vocabulary focus is sorted on a lock's face (R-F11)" runs unchanged: its `LOCKS_ON` lacks `rune`, so it is now the runes-off case.
+
+**Interfaces:**
+- **Consumes:** I1–I10.
+- **Produces:**
+  - `RUNE_STOPS`; `Deed.stops?`; `deedRunLength(deed: Pick<Deed, "questionCount" | "stops">, sideQuestLength: number, drawsMechanic: boolean): number`.
+  - `bindRuneObjects` and `runePassOver` as above.
+
+- [ ] **Step 1: Write the failing tests.**
+
+  **`deeds.test.ts`:**
+  - the four language deeds are `rune` with `stops`;
+  - `deedRunLength` gives 2, 3 and 3 at lengths 4, 8 and 12 when drawing, and the length itself when not;
+  - every other deed's lengths are unchanged.
+
+  **`rune-run.test.ts`:**
+  - `bindRuneObjects` gives each rune task a distinct village object of its effect, broken first;
+  - with both `mend` objects fixed, a `mend` task is bound to a fixed one;
+  - three `mend` tasks bind two and drop the third;
+  - choice tasks pass through untouched;
+  - deterministic per seed;
+  - `runePassOver` lists exactly the effects with nothing broken.
+
+  **`deed-engine.test.ts`:**
+  - "a speller's rune skill at every grade, with runes on": K `lang-gk`; 1 `spell-g1`; 2 `spell-g23`; 3 `lang-g3`; 4 `spell-g45`; 5 `vocab-g45`; 6–8 `vocab-g68`; 9–12 `vocab-g912`. Runes off gives I3's choice table (Review Focus 3).
+  - "a rune run is three words of three effects": grade 3, seed 1, the default length; all `"rune"`.
+  - "a walking rune run takes no other kind": a `spell-g23` choice miss is absent.
+  - "runes off: eight multiple-choice questions, as before". "The gate is multiple choice."
+  - "a Crown Challenge is three runes".
+  - "a drawn `lang-g1` focus makes the side quest multiple choice" (R-I8, owner): grade 1, `focusSkillIds: ["lang-g1"]`, and a seed where `selectSkills` picks `lang-g1` (find one and record it). The run is 8 tasks at the default length, none `"rune"`; at length 12 it is 12.
+  - "the same focus left undrawn keeps the walk": a seed where `spell-g1` is drawn gives 3 runes.
+  - "a vocabulary focus a rune presents stays a rune, never a sort" (R-I8): grade 6, `focusSkillIds: ["vocab-g68"]`, locks on; every recorded seed gives only `"rune"` tasks.
+  - "with runes off, 4a's sort still takes a vocabulary focus": the same input with `enabledKinds` lacking `rune` gives a `lock` sort task, as before slice 6.
+  - "the focus rule waits for runes": with runes off, the grade-1 `lang-g1` focus run is the same with and without the rule.
+  - "recentRunes": with every near entry in it, the run draws far entries; with an `effectKey` in it, that effect comes last.
+  - The re-recorded table and its choice twin.
+
+  **`deeds-db.test.ts`:**
+  - "a grade-3 language side quest is three runes at three village objects, and the start never shows a word" (Review Focus 1): each task's `view.object` is a village object of its effect; `JSON.stringify(start)` holds no stored task's `words`, `entry` or `hint`, and outside `readAloud` no word. The same holds for a grade-7 hero, whose `readAloud` holds none either.
+  - "broken objects are named first": with rows fixing both `light` objects, the start's tasks hold no `light` task while three other effects have broken objects.
+  - "a right side quest fixes its objects in the finish, and pays by stars": after three right casts, three `"fixed"` rows dated now; `summary.runes` has three `{ fixed: true }`; `minutesEarned` is `sideQuestPay`'s.
+  - "a fixed object named in a side quest is renewed": its `updated_at` moves to now.
+  - "a missed cast leaves its object broken".
+  - "a Crown Challenge's right casts fix too" (R-I22).
+  - "a stored rune task whose object left the catalog grades and finishes, fixing nothing" (Review Focus 4).
+  - "a forged cast is refused and writes nothing" (Review Focus 2): on a real rune start, each forged value through `answerDeedQuestion(runId, 0, …)` rejects `PICK_SHOWN`; `responses` stays all null, `second_tries` is unchanged and no `skill_mastery` row exists.
+  - "a resumed start never shows a word": answer stop 1 wrong, start again, and the resumed JSON holds no word except the hint as `pending.hint`.
+  - "a language choice run stored before the deploy resumes and completes" (Review Focus 4).
+  - "runes off: a grade-6 speller's side quest is eight multiple-choice `vocab-g68` questions".
+  - "a grown-up's `lang-g1` focus turns a grade-1 hero's language side quest to choice" (R-I8): with a `learning_focus` row and `Date.now` mocked to a recorded seed, the stored questions have no `kind`, and there are 8.
+  - "a week of three language side quests a day never repeats a word" (R-I19, per band): one hero per band (grades K, 2, 4, 6 and 9, runes on) starts `mill-ledger`, `bridge-toll` and `market-crier` each day for 7 days. `vi.setSystemTime` steps 8 hours between starts; runs are left open, since the memory reads open runs. The 21 runs' entry keys are all distinct.
+  - "the next run passes over the last one's words".
+- [ ] **Step 2:** `npx vitest run src/lib/utils/deed-engine.test.ts src/lib/utils/deeds.test.ts src/lib/utils/rune-run.test.ts src/lib/actions/deeds-db.test.ts src/lib/services/deed-run-store-db.test.ts --maxWorkers=2`. Expected: FAIL.
+- [ ] **Step 3:** implement.
+- [ ] **Step 4:** the same command, plus `src/lib/actions/practice-db.test.ts src/lib/actions/world-locks-db.test.ts src/lib/actions/world-runes-db.test.ts src/lib/actions/review-db.test.ts src/components/realm3d/realm-game.test.tsx`, then `npx tsc --noEmit`. Expected: PASS.
+- [ ] **Step 5: Commit.** `feat(deeds): language side quests are rune walks — two or three words, cast at things in the village that need them`.
+
+### Task I12: Verify, review, merge (slice 6)
+
+- [ ] **Full checks:**
+  - `npx vitest run --maxWorkers=2` (re-run the known flakes alone if they are the only failures);
+  - `npx tsc --noEmit`;
+  - `npx eslint src`: 0 errors.
+- [ ] **No migration:** `npm run db:generate` reports no schema changes.
+- [ ] **Browser smoke.** Use `NEXT_DIST_DIR=.next-agent`, a throwaway env and a fresh migrated, demo-seeded `local.db` (F10's way). Press keys only, never click the canvas, and look at every image.
+  1. A K hero with read-aloud OFF at Clerk Odo's "The Miller's Ledger": Pip's rune demo, then "Set off" naming two or three things. The rune tracker lists them, and the fifteen rune objects are drawn (`?at=` near each named place for its own).
+  2. Walk to the first named object and press E: the stone opens, and the word is spoken anyway (R-I18). Tap the letters and Cast. Right: the object turns fixed at once, and Done moves the tracker on.
+  3. E at a later stop says "First, …"; E at a mended stop says the rune holds; E at an object not on the walk opens its own board.
+  4. A grade-7 hero: the definition is shown, not spoken. A wrong word gives "Not that word." and the hint. A second wrong word gives "The word was …", with the tiles shown in the row.
+  5. The last stop: "Finish the rune walk", then the villager's board shows the result, and closing it raises the building. Reload: the fixed objects stay fixed.
+  6. "Leave the rune walk", then talk again: the run resumes at its stop.
+  7. The any-time fix: E at a broken object at Appleway opens the stone. Right: "The rune works!", and the object is fixed. E again shows `RUNE_HOLDS_LINE`.
+  8. The Side Quests page, a grade-4 speller: the picture run at 390 px. The tray wraps, tiles are at least 40 px, and Backspace and Clear work.
+  9. The settings switch "Rune spellcraft" off: language is multiple choice in the Realm and on the page, and no rune object is drawn. On again: the fixed ones are still fixed.
+  10. The gate board: language is multiple choice.
+  11. A grade-1 hero with a grown-up's `lang-g1` focus: start language side quests until one draws it. That one is eight multiple-choice questions on the board; one that does not draw it is a rune walk (R-I8).
+  12. `?calm=1`: the rune objects still stand.
+  13. The tracker and the stone at 390×667 and 540×800, at normal and larger text: nothing clipped, the foot buttons in reach (slice 5's round-3 bar).
+- [ ] **Whole-branch review** (opus) on `ab1559e..HEAD`. It checks:
+  - the leak rule end to end, including the shuffle and the dictation exception;
+  - that no path pays minutes besides the side quest's stars;
+  - that the added Realm lines are additive;
+  - that chests, doors, the Tower and trails behave as before;
+  - no per-load query, and the three reads per rune start.
+- [ ] **One fix wave**, then a scoped re-review.
+- [ ] **Merge on the owner's word** (R-I16). Present the finishing options; merge into `dev` only when the owner says so. Then delete the branch and its worktree as CLAUDE.md says, asking first if the generated `AGENTS.md` blocks removal, as for slices 4 and 5.
