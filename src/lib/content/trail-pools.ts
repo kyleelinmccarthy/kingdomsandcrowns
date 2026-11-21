@@ -215,9 +215,22 @@ function checkShape(raw: unknown): Problem[] {
 // 2. Everything else, on a pool whose shape is known to be right
 // ---------------------------------------------------------------------------
 
-const wordIn = (text: string, word: string): boolean => new RegExp(nameRegex(word).source, "i").test(text);
+const escapeRe = (s: string): string => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+");
 
-const nameRegex = (name: string): RegExp => new RegExp(`(?<![a-z0-9])${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+")}(?![a-z0-9])`, "gi");
+/**
+ * A whole-word matcher for a name or shared word, give or take a plural (the sort validator's `sameWord`
+ * idea, done as a pattern so a name can also be blanked out of a text): "well" also meets "wells",
+ * "bucket" "buckets", "hives" "hive", "tower" "towers". A stem is cut from a plural only while it keeps
+ * four letters, so "news" does not turn into the common word "new".
+ */
+function nameRegex(name: string): RegExp {
+  const stems = new Set([name]);
+  for (const end of ["es", "s"]) if (name.endsWith(end) && name.length - end.length >= 4) stems.add(name.slice(0, -end.length));
+  const alternatives = [...stems].map((stem) => `${escapeRe(stem)}(?:e?s)?`).join("|");
+  return new RegExp(`(?<![a-z0-9])(?:${alternatives})(?![a-z0-9])`, "gi");
+}
+
+const wordIn = (text: string, word: string): boolean => new RegExp(nameRegex(word).source, "i").test(text);
 
 /** `text` with every whole-word occurrence of any of `names` blanked out, longest name first ("watch tower" before "tower"). */
 const withoutNames = (text: string, names: readonly string[]): string =>
@@ -296,15 +309,21 @@ function checkClue(pool: TrailPool, trail: Trail, index: number): Problem[] {
   if (known) {
     // A k1 clue may name its place, and a place's own name can hold a shared word ("water trough",
     // "puzzle tower"). Saying a place by its own name is no overlap, so those names are set aside
-    // before the shared words are looked for; the word has to turn up anywhere else in the clue.
+    // before the shared words and the partner's names are looked for; they must not turn up anywhere else in the clue.
     const heard = withoutNames(`${clue.text}\n${clue.readAloud ?? ""}`, ANCHORS[clue.answer as AnchorId].names);
     for (const pair of CONFUSABLE_ANCHORS) {
       if (!pair.anchors.includes(clue.answer as AnchorId)) continue;
       const other = pair.anchors[0] === clue.answer ? pair.anchors[1] : pair.anchors[0];
+      // Either a word the pair shares, or the partner itself by name ("Go to the garden near the beehives."):
+      // both leave a reader unsure which of the two is meant, unless a part rules the partner out.
       const shared = pair.shared.find((w) => wordIn(heard, w));
-      if (!shared) continue;
+      const partner = nameIn(heard, ANCHORS[other].names);
+      if (!shared && !partner) continue;
       const rulesOut = (clue.parts ?? []).some((p) => p.includes(other)) && !intersection(clue.parts ?? []).includes(other);
-      if (!rulesOut) bad(R.confusable, `the clue says "${shared}", which ${clue.answer} and ${other} share, and carries no parts that rule ${other} out`);
+      if (!rulesOut) {
+        const what = shared ? `says "${shared}", which ${clue.answer} and ${other} share,` : `names ${other} ("${partner}"),`;
+        bad(R.confusable, `the clue ${what} and carries no parts that rule ${other} out`);
+      }
     }
   }
 

@@ -514,7 +514,7 @@ export function buildDeedRun(input: BuildRunInput): BuiltRun {
   const kinds = new Map<string, TaskKind>();
   const focus = new Set(input.focusSkillIds);
   const avoid: ReadonlySet<string> = new Set(input.recentSets ?? []);
-  const kindOfSkill =(skillId: string): TaskKind => {
+  const kindOfSkill = (skillId: string): TaskKind => {
     let k = kinds.get(skillId);
     if (!k) {
       k = kindForSkill(deed.mechanic, skillId, enabled);

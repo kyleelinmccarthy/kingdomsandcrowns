@@ -325,12 +325,6 @@ describe("validateTrailPool", () => {
       });
       expect(validateTrailPool(tower)).toEqual([]);
       // The shared word anywhere else in the clue still counts, and so does the partner's own name.
-      const other = withClue("k1", (c) => {
-        c.answer = "object:water-trough";
-        c.text = "Go to the water trough, not the well.";
-        c.readAloud = "Go to the water trough, not the well.";
-      });
-      expect(validateTrailPool(other)).toEqual([]);
       const wellName = withClue("k1", (c) => {
         c.answer = "landmark:well";
         c.text = "Go to the water trough.";
@@ -343,6 +337,63 @@ describe("validateTrailPool", () => {
         c.readAloud = "Go to the water trough for water.";
       });
       expect(rulesOf(spare)).toContain(R.confusable);
+    });
+
+    it.each([
+      ["object:water-trough", "Go to the trough, not the well."],
+      ["landmark:garden", "Go to the garden near the beehives."],
+      ["object:beehives", "Go to the beehives near the garden."],
+      ["landmark:library", "Go to the library, not the notice board."],
+      ["object:notice-board", "Go to the board by the library."],
+      ["landmark:watchtower", "Go to the watchtower, not the Puzzle Tower."],
+      ["landmark:puzzle-tower", "Go to the Puzzle Tower, not the watchtower."],
+      ["landmark:well", "Go to the well, not the wells or the water trough."],
+    ] as const)("a k1 clue that names the partner fails: %s, %s", (answer, text) => {
+      const pool = withClue("k1", (c) => {
+        c.answer = answer;
+        c.text = text;
+        c.readAloud = text;
+      });
+      // (Some also trip a shared word, and the library answer repeats the fixture trail's second place: only the rule is read.)
+      expect(rulesOf(pool)).toContain(R.confusable);
+    });
+
+    it("says which: the partner's name, with no shared word in play", () => {
+      const pool = withClue("k1", (c) => {
+        c.answer = "landmark:garden";
+        c.text = "Go to the garden near the beehives.";
+        c.readAloud = c.text;
+      });
+      expect(validateTrailPool(pool)).toEqual([expect.objectContaining({ rule: R.confusable, detail: expect.stringContaining('names object:beehives ("beehive")') })]);
+    });
+
+    it("lets a part that rules the partner out carry a clue that names it", () => {
+      const ok = withClue("k1", (c) => {
+        c.answer = "landmark:garden";
+        c.text = "Go to the garden near the beehives.";
+        c.readAloud = c.text;
+        c.parts = [["landmark:garden", "object:beehives"], ["landmark:garden", "landmark:market"]];
+      });
+      expect(validateTrailPool(ok)).toEqual([]);
+      // Parts that never list the partner, or that keep it in the intersection, do not.
+      const no = withClue("k1", (c) => {
+        c.answer = "landmark:garden";
+        c.text = "Go to the garden near the beehives.";
+        c.readAloud = c.text;
+        c.parts = [["landmark:garden", "landmark:market"], ["landmark:garden", "landmark:mill"]];
+      });
+      expect(rulesOf(no)).toEqual([R.confusable]);
+    });
+
+    it("matches simple plurals, either way: wells, mills, buckets, hive, towers, gates", () => {
+      expect(rulesOf(withClue("g23", (c) => { c.answer = "landmark:well"; c.text = "Trail step 1: find the wells of the village."; }))).toContain(R.namesAnswer);
+      expect(rulesOf(withClue("g23", (c) => { c.answer = "landmark:mill"; c.text = "Trail step 1: find the mills of the village."; }))).toContain(R.namesAnswer);
+      expect(rulesOf(withClue("g23", (c) => { c.answer = "landmark:castle-gate"; c.text = "Trail step 1: find the gate of the king."; }))).toContain(R.namesAnswer);
+      expect(rulesOf(withClue("g23", (c) => { c.answer = "object:beehives"; c.text = "Trail step 1: find a hive of striped workers."; }))).toContain(R.namesAnswer);
+      expect(rulesOf(withClue("g45", (c) => { c.answer = "landmark:well"; c.text = "Trail step 1: find where buckets are filled."; c.why = "x"; }))).toContain(R.confusable);
+      expect(rulesOf(withClue("g45", (c) => { c.answer = "landmark:watchtower"; c.text = "Trail step 1: find where the towers stand."; c.why = "x"; }))).toContain(R.confusable);
+      // A stem is not cut below four letters: "news" does not make "new" a shared word.
+      expect(rulesOf(withClue("g45", (c) => { c.answer = "landmark:library"; c.text = "Trail step 1: find a place with a new look."; c.why = "x"; }))).not.toContain(R.confusable);
     });
 
     it("leaves alone a clue whose answer is neither place of the pair", () => {

@@ -63,7 +63,7 @@ export function trailTaskOf(pool: TrailPool, trail: Trail, index: number): Trail
     ...(clue.readAloud !== undefined ? { readAloud: clue.readAloud } : {}),
     answer: clue.answer as AnchorId,
     redirect: clue.redirect,
-    ...(clue.redirects !== undefined ? { redirects: clue.redirects as Partial<Record<AnchorId, string>> } : {}),
+    ...(clue.redirects !== undefined ? { redirects: { ...clue.redirects } as Partial<Record<AnchorId, string>> } : {}),
     trail: trailKey(pool.poolId, trail.id),
     explain: clue.why ?? TRAIL_GENERIC_WHY[pool.band],
   };

@@ -50,6 +50,9 @@ export type ReadAnswer =
  * Interprets the text after `Answer:`, however carefully or carelessly it was written: trailing
  * punctuation, case and spacing do not matter. A pass that rejects an honest answer over punctuation
  * costs a re-read and will quietly stop being run.
+ *
+ * "both <anything>" reads as `both` (the trail sheet takes the ids after it; the sort sheet ignores them), and
+ * no sort category starts with "both" or "either", so no sort answer is mistaken for it.
  */
 export function readAnswer(text: string): ReadAnswer {
   const raw = text.trim().replace(/[).:,]+$/, "").trim().toLowerCase();
