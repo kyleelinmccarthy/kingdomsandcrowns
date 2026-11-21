@@ -12,7 +12,7 @@ vi.mock("@/lib/utils/speech", () => ({ canSpeak: () => true, speak: vi.fn(), sto
 
 import { answerDeedQuestion, completeDeedRun, resolveDeedQuestion, retryDeedQuestion, startDeedRun } from "@/lib/actions/deeds";
 import { villagerById } from "@/lib/realm/villagers";
-import { speak } from "@/lib/utils/speech";
+import { speak, stopSpeaking } from "@/lib/utils/speech";
 import { DeedBoard, deedResultOf, RunResultCard } from "./deed-board";
 import { ALL_ANSWERED } from "@/lib/utils/deed-run-flow";
 import type { RunStart } from "@/lib/utils/deed-run-types";
@@ -932,10 +932,27 @@ describe("a rune on the board (R-I11, R-I18)", () => {
     expect(screen.getByText("The wagon is broken. Build the word you hear.")).toHaveClass("r3-question-text");
   });
 
-  it("nothing is spoken at Set off, even a dictation with read-aloud on (RI-a / S5)", async () => {
+  it("no task word is spoken at Set off, even a dictation with read-aloud on; the walk's card says the destination once Set off is pressed (RI-a / S5, review I-1, rune-walk.test)", async () => {
     await begin(runeRun([k1(1), k1(2, LANTERN)]), { onWalk: vi.fn(), profile: { readAloud: true, untimed: true } });
     expect(screen.getByRole("button", { name: "Set off" })).toBeInTheDocument();
     expect(speak).not.toHaveBeenCalled();
+  });
+
+  it("a run picked back up at its finish step speaks nothing unprompted: there is nothing left to cast (I8 parked)", async () => {
+    await begin(runeRun([k1(1), k1(2, LANTERN)], { responses: ["r:1,3,4,0", "r:1,3,4,0"] }), { profile: { readAloud: true, untimed: true } });
+    expect(screen.getByText("Every answer is in.")).toBeInTheDocument();
+    expect(speak).not.toHaveBeenCalled();
+  });
+
+  it("Hear the word on the board's stone is the board's own line: closing the board stops it (I8 parked)", async () => {
+    const token = { said: "Mend. Mend the wagon. Mend." };
+    await begin(runeRun([k1(1), k1(2, LANTERN)]));
+    vi.mocked(speak).mockReturnValue(token as never);
+    fireEvent.click(screen.getByRole("button", { name: "Hear the word" }));
+    vi.mocked(stopSpeaking).mockClear();
+    cleanup();
+    expect(stopSpeaking).toHaveBeenCalledWith(token);
+    vi.mocked(speak).mockReturnValue(undefined as never);
   });
 
   it("a rune run with a stop that left the catalog is not walked: it plays on the stone (RI-a / N5)", async () => {

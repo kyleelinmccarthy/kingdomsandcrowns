@@ -39,6 +39,8 @@ export type PresenterProps<K extends TaskKind> = {
   onWalk?: () => void;
   /** A walking run's object labels, in order, for its Set off line (a rune walk's stops). A kind that names none ignores it. */
   stops?: readonly string[];
+  /** The host's speech: a kind's own read control (the rune stone's Hear) speaks through it, so closing the host stops it. Absent, it speaks directly. */
+  say?: (text: string) => void;
 };
 
 export const TASK_PRESENTERS: { [K in TaskKind]: ComponentType<PresenterProps<K>> } = {

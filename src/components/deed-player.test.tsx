@@ -538,6 +538,12 @@ describe("DeedPlayer (the picture run: a rune on the page, R-I11)", () => {
     expect(screen.getByRole("button", { name: "Read aloud" })).toBeInTheDocument();
   });
 
+  it("a run picked back up at its finish step speaks nothing unprompted (I8 parked)", () => {
+    render(<DeedPlayer run={{ ...runeRun, responses: ["r:2,4,0"] }} profile={profile} calm={false} onFinished={() => {}} />);
+    expect(screen.getByText("Every answer is in.")).toBeInTheDocument();
+    expect(speak).not.toHaveBeenCalled();
+  });
+
   it("without speech, the dictation's word is printed under its picture (RI-a / S6)", () => {
     render(<DeedPlayer run={runeRun} profile={profile} calm={false} onFinished={() => {}} />);
     expect(screen.getByText("Sound is off. Read the word:", { exact: false })).toHaveTextContent("Sound is off. Read the word: Light. Light the lantern. Light.");

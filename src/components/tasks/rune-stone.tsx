@@ -46,24 +46,32 @@ function picksOf(encoded: string | null | undefined, tiles: readonly string[]): 
   return picks && picks.every((i) => i < tiles.length) ? picks : null;
 }
 
-export function RuneStone({ task, flow, variant, disabled, calm, onRespond }: {
+export function RuneStone({ task, flow, variant, disabled, calm, say = speak, onRespond }: {
   task: RuneClient;
   flow: FlowState;
   variant: "board" | "page";
   disabled: boolean;
   calm: boolean;
+  /** The host's speech, so closing the host stops "Hear the word" (`PresenterProps.say`). */
+  say?: (text: string) => void;
   onRespond(encoded: string): void;
 }) {
   const { effect, object, tiles, listen } = task.view;
   const [picks, setPicks] = useState<number[]>([]);
   const trayRefs = useRef<(HTMLButtonElement | null)[]>([]);
   const castRef = useRef<HTMLButtonElement>(null);
-  // A tile taken back is enabled only on the next render; it takes the focus then.
-  const focusAfter = useRef<number | null>(null);
+  const clearRef = useRef<HTMLButtonElement>(null);
+  // A tile taken back, and Cast once the last tile is placed, are enabled (or not) only on the next
+  // render; the focus moves then: to the tile, or to Cast, or to Clear while Cast stays shut (a word
+  // already ruled out), never to a disabled button.
+  const focusAfter = useRef<number | "cast" | null>(null);
   useEffect(() => {
-    if (focusAfter.current === null) return;
-    trayRefs.current[focusAfter.current]?.focus();
+    const at = focusAfter.current;
+    if (at === null) return;
     focusAfter.current = null;
+    if (at !== "cast") return trayRefs.current[at]?.focus();
+    if (castRef.current && !castRef.current.disabled) castRef.current.focus();
+    else clearRef.current?.focus();
   });
 
   const resolved = flow.phase === "resolved";
@@ -93,7 +101,7 @@ export function RuneStone({ task, flow, variant, disabled, calm, onRespond }: {
       const i = (from + k) % tiles.length;
       if (!taken.includes(i)) return trayRefs.current[i]?.focus();
     }
-    castRef.current?.focus();
+    focusAfter.current = "cast";
   }
 
   function place(i: number) {
@@ -187,13 +195,13 @@ export function RuneStone({ task, flow, variant, disabled, calm, onRespond }: {
 
       <div className="rune-acts">
         {speakable && (
-          <button type="button" className="rune-act rune-act--hear" onClick={() => speak(task.readAloud ?? task.prompt)}>
+          <button type="button" className="rune-act rune-act--hear" onClick={() => say(task.readAloud ?? task.prompt)}>
             <GameIcon name="bell" className="rune-act-icon" /> {listen ? RUNE_HEAR : RUNE_HEAR_MEANING}
           </button>
         )}
         {!resolved && (
           <>
-            <button type="button" className="rune-act" disabled={locked || picks.length === 0} onClick={clear}>
+            <button ref={clearRef} type="button" className="rune-act" disabled={locked || picks.length === 0} onClick={clear}>
               {RUNE_CLEAR}
             </button>
             <button ref={castRef} type="button" className="rune-act rune-act--cast" disabled={!canCast} onClick={() => canCast && onRespond(TASK_CODECS.rune.encode(picks))}>

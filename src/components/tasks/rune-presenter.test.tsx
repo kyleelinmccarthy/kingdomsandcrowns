@@ -39,12 +39,12 @@ const MEANING = client({
 
 const asking = (task: RuneClient): FlowState => initialFlow({ questions: [task], responses: [null], pending: null });
 
-function show(task: RuneClient, over: { flow?: FlowState; variant?: "board" | "page"; disabled?: boolean; onWalk?: () => void; stops?: readonly string[] } = {}) {
+function show(task: RuneClient, over: { flow?: FlowState; variant?: "board" | "page"; disabled?: boolean; onWalk?: () => void; stops?: readonly string[]; say?: (text: string) => void } = {}) {
   const onRespond = vi.fn();
   const utils = render(
     <TaskPresenter
       task={task} flow={over.flow ?? asking(task)} variant={over.variant ?? "page"} numerals calm={false} disabled={over.disabled ?? false}
-      onWalk={over.onWalk} stops={over.stops} onRespond={onRespond}
+      onWalk={over.onWalk} stops={over.stops} say={over.say} onRespond={onRespond}
     />,
   );
   return { onRespond, ...utils };
@@ -297,6 +297,14 @@ describe("the one read control (RI-a / S4)", () => {
     expect(speak).toHaveBeenCalledWith("To make a broken thing whole.");
   });
 
+  it("speaks through its host's line when the host gives one, so closing the host stops it (I8 parked)", () => {
+    const say = vi.fn();
+    show(MEND, { say });
+    fireEvent.click(screen.getByRole("button", { name: RUNE_HEAR }));
+    expect(say).toHaveBeenCalledWith("Mend. Mend the wagon. Mend.");
+    expect(speak).not.toHaveBeenCalled();
+  });
+
   it("the stone says nothing by itself: its host decides (S5)", () => {
     show(MEND);
     expect(speak).not.toHaveBeenCalled();
@@ -366,6 +374,21 @@ describe("keys and layout", () => {
     await user.keyboard("{Backspace}");
     expect(placed()).toEqual([]);
     expect(tile("d")).toHaveFocus();
+  });
+
+  it("the last tile placed hands the focus to Cast, or to Clear while Cast is shut (a word already ruled out): never to a disabled button (I8 parked)", async () => {
+    const user = userEvent.setup();
+    const all = "r:0,1,2,3,4,5";
+    show(MEND, { flow: { ...asking(MEND), phase: "second-chance", ruledOut: [all], picked: all } });
+    for (let i = 0; i < 6; i++) await user.keyboard("{Enter}");
+    expect(placed()).toEqual(["d", "m", "a", "e", "n", "i"]);
+    expect(cast()).toBeDisabled();
+    expect(screen.getByRole("button", { name: RUNE_CLEAR })).toHaveFocus();
+    cleanup();
+    show(MEND);
+    for (let i = 0; i < 6; i++) await user.keyboard("{Enter}");
+    expect(cast()).toBeEnabled();
+    expect(cast()).toHaveFocus();
   });
 
   it("fits a 390 px phone and larger text: the tray wraps, every tile is a 40 px target at least, nothing is dragged", () => {

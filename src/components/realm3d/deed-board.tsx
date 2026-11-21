@@ -47,7 +47,7 @@ import { TaskDemo, taskDemoCopy, useTaskDemo } from "@/components/tasks/task-dem
 import { RunePicture } from "@/components/tasks/rune-picture";
 import { StarRow } from "@/components/star-row";
 import { useDeedFlow } from "@/components/use-deed-flow";
-import { ALL_ANSWERED } from "@/lib/utils/deed-run-flow";
+import { ALL_ANSWERED, atFinishStep } from "@/lib/utils/deed-run-flow";
 import { runeObjectById } from "@/lib/realm/rune-objects";
 import { isWalkingRun } from "@/lib/tasks/kinds";
 import { isRuneWalk, runeStops } from "@/lib/tasks/rune-stops";
@@ -398,12 +398,13 @@ export function DeedRun({
   // run, and for a rune dictation the task: `autoSpeaks`, R-H17, R-I18), the effect obeys, and
   // leaving stops it — but only this run's own line. The click that closes the board also says the
   // building is rising, and that must be heard. A worked example (Aldo's or Pip's) is read first,
-  // when there is one.
+  // when there is one. A run picked back up at its finish step asks nothing, so it says nothing. A
+  // task's own read control (the rune stone's Hear) speaks through `say`, so leaving stops it too.
   const spoken = useRef<SpeechToken | null>(null);
   const say = (text: string) => {
     spoken.current = speak(text);
   };
-  const speaks = question && !settingOff ? autoSpeaks(question, profile.readAloud, run.narrateClues === true) : false;
+  const speaks = question && !settingOff && !atFinishStep(flow) ? autoSpeaks(question, profile.readAloud, run.narrateClues === true) : false;
   useEffect(() => {
     if (speaks && question) spoken.current = speak(demo.demo ? taskDemoCopy(demo.demo) : (question.readAloud ?? question.prompt));
     return () => stopSpeaking(spoken.current);
@@ -482,7 +483,7 @@ export function DeedRun({
         )}
       </div>
       )}
-      <TaskPresenter task={question} flow={flow} variant="board" numerals={numerals} calm={calm} readAloud={profile.readAloud} disabled={busy} nudge={nudge} site={site} onRespond={(encoded) => void choose(encoded)} onWalk={walk} stops={walk ? runeStops(run).map((s) => s.label) : undefined} />
+      <TaskPresenter task={question} flow={flow} variant="board" numerals={numerals} calm={calm} readAloud={profile.readAloud} disabled={busy} nudge={nudge} site={site} say={say} onRespond={(encoded) => void choose(encoded)} onWalk={walk} stops={walk ? runeStops(run).map((s) => s.label) : undefined} />
       </>)}
       {/* A resolved question with no result is a run picked back up with every answer in: its finish step. */}
       {(feedback || phase === "resolved") && (

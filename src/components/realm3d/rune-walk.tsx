@@ -19,9 +19,10 @@
  *   does, and a finish left open is offered on the card, so Leave never strands it.
  *
  * The stop on now is the flow's, reported up (`onAt`) on mount and whenever it changes, so a walk
- * picked back up starts at its own stop (RI-a / S1). Nothing is spoken when the walk begins (RI-a /
- * S5): the stop's word is spoken when its stone opens, always for a dictation (R-I18) and for a
- * meaning with read-aloud on (`autoSpeaks`); the second-chance and miss lines follow `attemptSpeech`.
+ * picked back up starts at its own stop (RI-a / S1). No word is spoken when the walk begins (RI-a /
+ * S5), only where to go ("Next: …", review I-1): the stop's word is spoken when its stone opens, always
+ * for a dictation (R-I18) and for a meaning with read-aloud on (`autoSpeaks`); the second-chance and
+ * miss lines follow `attemptSpeech`, and the stone's Hear stops when the stone closes.
  * A cast while a call is out sends nothing (the flow's one-call guard, and Cast shut while `busy`).
  */
 
@@ -38,7 +39,7 @@ import { RUNE_DONE, RUNE_FINISH, RUNE_HIDE, RUNE_LEAVE, RUNE_SHOW, RUNE_TITLE, R
 import { runeStops } from "@/lib/tasks/rune-stops";
 import { ALL_ANSWERED, readyToFinish } from "@/lib/utils/deed-run-flow";
 import type { RunSummary } from "@/lib/utils/deed-run-types";
-import { speak, stopSpeaking } from "@/lib/utils/speech";
+import { speak, stopSpeaking, type SpeechToken } from "@/lib/utils/speech";
 import { Panel } from "./frame-hud";
 import type { WalkOn } from "./use-walk";
 import { WalkCard } from "./walk-card";
@@ -165,6 +166,16 @@ export function RuneWalk({
     const token = speak(words);
     return () => stopSpeaking(token);
   }, [words]);
+  // The stone's "Hear the word" is the walk's own line: closing the stone stops it (I8 parked).
+  const heard = useRef<SpeechToken | null>(null);
+  const hear = (text: string) => {
+    heard.current = speak(text);
+  };
+  useEffect(() => {
+    if (!casting) return;
+    const line = heard;
+    return () => stopSpeaking(line.current);
+  }, [casting]);
 
   // Done or Finish takes the focus once the stop is resolved, so Enter moves on.
   const goRef = useRef<HTMLButtonElement>(null);
@@ -176,10 +187,10 @@ export function RuneWalk({
   const count = runeStopCount(Math.min(flow.index + 1, total), total);
   const nextLine = current && !ready ? runeNextLine(current.label) : null;
   const cardLine = said ?? nextLine;
-  // "Next: …" is said once the walk has moved on from where it began, with the stone closed; never at
-  // the walk's start (RI-a / S5), and never over a line the frame just said.
-  const [startedAt] = useState(flow.index);
-  const nextWords = speaksCard && !casting && !said && flow.index !== startedAt ? (nextLine ?? undefined) : undefined;
+  // "Next: …" is said whenever the card shows it with the stone closed: at the walk's start too, so a
+  // pre-reader hears where to go (review I-1; it names an object, never a word, RI-a / S5), and never
+  // over a line the frame just said.
+  const nextWords = speaksCard && !casting && !said ? (nextLine ?? undefined) : undefined;
   useEffect(() => {
     if (!nextWords) return;
     const token = speak(nextWords);
@@ -273,6 +284,7 @@ export function RuneWalk({
               calm={calm}
               readAloud={profile.readAloud}
               disabled={busy}
+              say={hear}
               onRespond={(encoded) => {
                 setCastHere(true);
                 void choose(encoded);

@@ -15,11 +15,11 @@ import type { PresenterProps } from "./presenters";
 import { RuneStone } from "./rune-stone";
 import { SetOff } from "./set-off";
 
-export function RunePresenter({ task, flow, variant, disabled, calm, stops, onWalk, onRespond }: PresenterProps<"rune">) {
+export function RunePresenter({ task, flow, variant, disabled, calm, stops, say, onWalk, onRespond }: PresenterProps<"rune">) {
   if (variant === "board" && onWalk) {
     // A run picked back up with every rune cast is at its finish step: nothing is left to walk to.
     return flow.phase === "resolved" ? null : <SetOff line={runeSetOffLine(stops ?? [])} onWalk={onWalk} />;
   }
   // A fresh stone for every word, and for its second chance: the word that missed is taken back.
-  return <RuneStone key={`${flow.index}:${task.id}:${flow.ruledOut.length}`} task={task} flow={flow} variant={variant} disabled={disabled} calm={calm} onRespond={onRespond} />;
+  return <RuneStone key={`${flow.index}:${task.id}:${flow.ruledOut.length}`} task={task} flow={flow} variant={variant} disabled={disabled} calm={calm} say={say} onRespond={onRespond} />;
 }

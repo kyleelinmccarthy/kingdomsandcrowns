@@ -13,7 +13,7 @@ vi.mock("@/lib/actions/deeds", () => ({
 vi.mock("@/lib/utils/speech", () => ({ canSpeak: () => true, speak: vi.fn(), stopSpeaking: vi.fn() }));
 
 import { answerDeedQuestion, completeDeedRun, retryDeedQuestion } from "@/lib/actions/deeds";
-import { speak } from "@/lib/utils/speech";
+import { speak, stopSpeaking } from "@/lib/utils/speech";
 import { villagerById } from "@/lib/realm/villagers";
 import { RUNE_DONE, RUNE_FINISH, RUNE_HIDE, RUNE_LEAVE, RUNE_SHOW, RUNE_TITLE, RUNE_TRACKER_LABEL, runeFirstLine } from "@/lib/tasks/rune-copy";
 import type { RunStart } from "@/lib/utils/deed-run-types";
@@ -236,12 +236,20 @@ describe("RuneWalk, the stone at a stop", () => {
     expect(answerDeedQuestion).toHaveBeenCalledTimes(1);
   });
 
-  it("a dictation is spoken when the stone opens, with read-aloud off, and nothing is spoken before (RI-a / S5)", () => {
+  it("no task word is spoken at the walk's start; the destination is, and a dictation's word is spoken when the stone opens (RI-a / S5, review I-1)", () => {
     const { rerender } = show();
-    expect(speak).not.toHaveBeenCalled();
-    rerender({ casting: true });
     expect(speak).toHaveBeenCalledTimes(1);
-    expect(speak).toHaveBeenCalledWith("Mend. Mend the wagon. Mend.");
+    expect(speak).toHaveBeenCalledWith("Next: the broken wagon");
+    expect(vi.mocked(speak).mock.calls.flat().join(" ")).not.toMatch(/\bmend\b/i);
+    rerender({ casting: true });
+    expect(speak).toHaveBeenCalledTimes(2);
+    expect(speak).toHaveBeenLastCalledWith("Mend. Mend the wagon. Mend.");
+  });
+
+  it("a walk picked back up says where it goes next, once, at its start", () => {
+    show({ r: runeWalkRun({ responses: [MEND, null, null] }) });
+    expect(speak).toHaveBeenCalledTimes(1);
+    expect(speak).toHaveBeenCalledWith("Next: the dark lantern");
   });
 
   it("a meaning is spoken when the stone opens only with read-aloud on", () => {
@@ -254,11 +262,11 @@ describe("RuneWalk, the stone at a stop", () => {
     expect(speak).toHaveBeenCalledWith("Mend. Mend the wagon. Mend.");
   });
 
-  it("a young hero (a dictation) hears the card's lines with read-aloud off: First, …, and Next once the walk moves on (fix round 1)", async () => {
+  it("a young hero (a dictation) hears the card's lines with read-aloud off: where to go at the start, First, …, and Next as the walk moves on (fix round 1, review I-1)", async () => {
     vi.mocked(answerDeedQuestion).mockResolvedValue(RIGHT);
     const { sayRef, rerender } = show();
-    // Nothing at the walk's start (RI-a / S5).
-    expect(speak).not.toHaveBeenCalled();
+    // The destination at the walk's start, never a word (RI-a / S5).
+    expect(speak).toHaveBeenCalledWith("Next: the broken wagon");
     act(() => sayRef.current?.(runeFirstLine("the broken wagon")));
     expect(speak).toHaveBeenLastCalledWith("First, the broken wagon.");
     rerender({ casting: true });
@@ -282,6 +290,25 @@ describe("RuneWalk, the stone at a stop", () => {
     rerender({ casting: false, profile: { readAloud: true } });
     act(() => sayRef.current?.("The rune holds here."));
     expect(speak).toHaveBeenLastCalledWith("The rune holds here.");
+  });
+
+  it("an older hero with read-aloud on hears where to go at the walk's start (review I-1)", () => {
+    const meaning = runeWalkRun();
+    meaning.questions = meaning.questions.map((q) => (q.kind === "rune" ? { ...q, view: { ...q.view, listen: false } } : q));
+    show({ r: meaning, profile: { readAloud: true } });
+    expect(speak).toHaveBeenCalledTimes(1);
+    expect(speak).toHaveBeenCalledWith("Next: the broken wagon");
+  });
+
+  it("Hear the word on the stone is the walk's own line: closing the stone stops it (I8 parked)", () => {
+    const { rerender } = show({ casting: true });
+    const token = { said: "Mend. Mend the wagon. Mend." };
+    vi.mocked(speak).mockReturnValue(token as never);
+    fireEvent.click(screen.getByRole("button", { name: "Hear the word" }));
+    expect(speak).toHaveBeenLastCalledWith("Mend. Mend the wagon. Mend.");
+    vi.mocked(stopSpeaking).mockClear();
+    rerender({ casting: false });
+    expect(stopSpeaking).toHaveBeenCalledWith(token);
   });
 
   it("the second-chance line is spoken, as the board's is", async () => {

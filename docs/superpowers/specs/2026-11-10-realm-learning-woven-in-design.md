@@ -262,7 +262,7 @@ The rulings:
 - **R-I15:** copy never names a grade or band, and never says "behind" or "ahead".
 - **R-I16:** slice 6 merges into `dev` only on the owner's word.
 - **R-I17:** the leak rule: the view carries no shape of the word (no slot count, length, first tile or decoy marking); the tile order is no tell (a capped seeded shuffle, with a validated fallback); the decoy count is no tell; decoys are plausible; no accepted word, nor inflection of one, appears in a prompt, a hint, a g45-and-up `readAloud`, an object's label or any rune copy shown before resolution; the id, entry and hint stay on the server. **The one exception is dictation (R-I18):** at k1 and g23 the word is the spoken prompt, so it reaches the browser inside `readAloud`, spoken and printed only when speech is unavailable. This is the spelling pools' existing contract, and the one exception to §5's "solutions never leave the server before a task is resolved" (RI-a / N16).
-- **R-I18:** k1 and g23 are dictation (the object's picture, a shown line that never holds the word, a spoken `readAloud`; the view marks it `listen: true`); g45 and up build from a shown meaning or definition; a `listen` task is always spoken; nothing is spoken at Set off; without speech the word is shown.
+- **R-I18:** k1 and g23 are dictation (the object's picture, a shown line that never holds the word, a spoken `readAloud`; the view marks it `listen: true`); g45 and up build from a shown meaning or definition; a `listen` task is always spoken; no task word is spoken at Set off (the walk's card says where to go, "Next: …", whenever `autoSpeaks` holds, review I-1); without speech the word is shown.
 - **R-I19:** no repeats for a week: the drawer passes over entries met in the hero's last `RUNE_MEMORY_RUNS = 21` rune runs; pools hold at least 16 entries per effect and 3 per effect per level.
 - **R-I20:** no migration and no per-load query: rune state is rows of `realm_world_state`, read by the bundle's existing `loadWorldRaw`.
 - **R-I21:** the effect plays at once; the record lands at the finish: a right cast marks its object mended on the walk, and the rows are written in the locked finish.
@@ -271,7 +271,7 @@ The rulings:
 The controller's rulings (pre-flight scan, adopted as RI-a for B1–B4, S1–S18 and S20, N1–N18):
 - **B1–B4:** the walk's stone stays open after a right cast; `hidden` hides the tracker's card only; `WALKING_KINDS` gains `"rune"` in I8; at k1 and g23 the blind sheet shows `Heard:`.
 - **S1–S3:** the walk reports its stop through `onAt`; a stop is done only when mended on this walk; E cannot act during a cast.
-- **S4–S7:** one read-aloud control, the stone's; nothing spoken at Set off; without speech a dictation shows its word; a run started before runes went off is offered no walk.
+- **S4–S7:** one read-aloud control, the stone's; no task word spoken at Set off (the destination is); without speech a dictation shows its word; a run started before runes went off is offered no walk.
 - **S8–S9:** deed and challenge fixes apply only when the hero finishes; binding happens before the size checks.
 - **S10–S13:** I2's registry test runs under `__setRunePoolsForTest([])`; the dev content page draws its rune samples on the server; one matcher, `containsWord`; one Set off card.
 - **S14:** shared shells, `WalkCard` and `ObjectRunBoard`, with slice 4b's and slice 5's tests kept green unchanged.
