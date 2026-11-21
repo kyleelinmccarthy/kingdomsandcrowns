@@ -12,8 +12,9 @@
  * - `casts(id)` is whether the stone is the one open at `id`: by the stop's index alone, mended or
  *   not, so the stone stays after a right cast until Done (RI-a / B1).
  * - `canvas` is `{ named, mended }` for the painter: the stops still ahead (a passed stop is no longer
- *   one the walk is going to) and what was mended. The same object until either changes; null with
- *   no walk, so the memoised `World`'s sibling never redraws for nothing.
+ *   one the walk is going to) and what was mended; none named for a walk picked back up with every
+ *   word cast (its finish step). The same object until either changes; null with no walk, so the
+ *   memoised `World`'s sibling never redraws for nothing.
  *
  * Every begin, finish and leave starts again at stop 0 with nothing mended: "Leave the rune walk"
  * drops the marks, and the objects show as their rows say until a run is finished (R-I21).
@@ -23,6 +24,7 @@
 import { useCallback, useMemo, useRef, useState, type MutableRefObject } from "react";
 import type { Villager } from "@/lib/realm/villagers";
 import { runeStopOf, runeStops, type RuneStop } from "@/lib/tasks/rune-stops";
+import { initialFlow, readyToFinish } from "@/lib/utils/deed-run-flow";
 import type { RunStart, RunSummary } from "@/lib/utils/deed-run-types";
 import { useWalk, type WalkState } from "./use-walk";
 
@@ -85,9 +87,11 @@ export function useRuneWalk(overlayKind: string | null): RuneWalkState {
   const markMended = useCallback((id: string) => setMended((m) => (m.includes(id) ? m : [...m, id])), []);
 
   const stops = useMemo(() => (walk ? runeStops(walk.run) : []), [walk]);
+  // A walk picked back up at its finish step (every word cast) has nothing left to walk to: no mark.
+  const allCast = useMemo(() => walk !== null && readyToFinish(initialFlow(walk.run), walk.run.questions.length), [walk]);
   const stopOf = useCallback((id: string) => (walk ? runeStopOf(stops, at, mended, id) : null), [walk, stops, at, mended]);
   const casts = useCallback((id: string) => walk !== null && stops[at]?.id === id, [walk, stops, at]);
-  const canvas = useMemo(() => (walk ? { named: stops.slice(at).map((s) => s.id), mended } : null), [walk, stops, at, mended]);
+  const canvas = useMemo(() => (walk ? { named: allCast ? NONE : stops.slice(at).map((s) => s.id), mended } : null), [walk, allCast, stops, at, mended]);
 
   return { walk, walked, begin, finish, leave, clearWalked, stops, at, mended, canvas, setAt, markMended, stopOf, casts, sayRef };
 }

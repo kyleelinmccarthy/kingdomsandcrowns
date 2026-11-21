@@ -115,26 +115,29 @@ export function RuneWalk({
     if (mendedNow) onMended(mendedNow);
   }, [mendedNow, onMended]);
 
-  // The frame's lines on the card, while mounted; read aloud for a hero who has that on.
-  const readAloud = profile.readAloud;
+  // The card's lines are spoken by the narration rule the stone follows (`autoSpeaks`, R-I18): always
+  // for a dictation's hero (K–3), who needs to hear where to go, otherwise with read-aloud on.
+  const speaksCard = task ? autoSpeaks(task, profile.readAloud, false) : profile.readAloud;
+  // The frame's lines on the card ("First, …", "The rune holds here."), while mounted.
   useEffect(() => {
     const say = (line: string) => {
       setSaid(line);
-      if (readAloud) speak(line);
+      if (speaksCard) speak(line);
     };
     sayRef.current = say;
     return () => {
       if (sayRef.current === say) sayRef.current = null;
     };
-  }, [sayRef, readAloud]);
+  }, [sayRef, speaksCard]);
 
-  // The stone closed on a resolved stop that is not the last moves on, as Done does: the next E is at
-  // the next stop. (Done itself moved on already, so this finds the stop asking and does nothing.)
+  // A resolved stop that is not the last moves on whenever the stone is closed, as Done does: closed
+  // after the answer, or closed while the cast was out and the answer landed after (fix round 1). An
+  // open second chance stays, and the last stop is never finished by itself (its Finish is on the card).
+  // `next` moves only a resolved stop, so Done (which moved on already) finds nothing to do here.
+  const moveOn = !casting && flow.phase === "resolved" && flow.index < total - 1;
   useEffect(() => {
-    if (!casting && flow.phase === "resolved" && flow.index < total - 1) next();
-    // Only when the stone closes; `next` is a no-op on anything but a resolved stop.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [casting]);
+    if (moveOn) next();
+  }, [moveOn, next]);
 
   // The run finished once, then handed up; a refused finish is said, and Finish asks again
   // (`guarded`: one call at a time, so a second press sends nothing).
@@ -171,7 +174,17 @@ export function RuneWalk({
 
   const current = stops[flow.index];
   const count = runeStopCount(Math.min(flow.index + 1, total), total);
-  const cardLine = said ?? (current && !ready ? runeNextLine(current.label) : null);
+  const nextLine = current && !ready ? runeNextLine(current.label) : null;
+  const cardLine = said ?? nextLine;
+  // "Next: …" is said once the walk has moved on from where it began, with the stone closed; never at
+  // the walk's start (RI-a / S5), and never over a line the frame just said.
+  const [startedAt] = useState(flow.index);
+  const nextWords = speaksCard && !casting && !said && flow.index !== startedAt ? (nextLine ?? undefined) : undefined;
+  useEffect(() => {
+    if (!nextWords) return;
+    const token = speak(nextWords);
+    return () => stopSpeaking(token);
+  }, [nextWords]);
   const card = (
     <WalkCard
       label={RUNE_TRACKER_LABEL}

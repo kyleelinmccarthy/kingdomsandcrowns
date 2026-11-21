@@ -2042,6 +2042,22 @@ describe("a rune walk in the Realm (R-I2, R-I11, I10)", () => {
     expect(startRuneObjectRun).not.toHaveBeenCalled();
   });
 
+  it("Esc while the cast is in flight: the answer lands, the object is mended, and E at the next stop opens its stone (fix round 1)", async () => {
+    let settle!: (r: typeof RIGHT) => void;
+    vi.mocked(answerDeedQuestion).mockReturnValue(new Promise((r) => (settle = r)) as never);
+    await setOff();
+    await press(stop(0));
+    await castMend();
+    esc();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    await act(async () => settle(RIGHT));
+    expect(canvasWalk()).toEqual({ named: [LANTERN, FLOWERS], mended: [WAGON] });
+    expect(card()).toHaveTextContent("Next: the dark lantern");
+    await press(stop(1));
+    expect(stone()).toHaveTextContent("The rune stone");
+    expect(startRuneObjectRun).not.toHaveBeenCalled();
+  });
+
   it("the walk survives the pause menu: hidden under it, and back after", async () => {
     await setOff();
     esc();

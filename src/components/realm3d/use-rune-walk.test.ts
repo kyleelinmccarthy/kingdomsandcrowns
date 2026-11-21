@@ -106,6 +106,20 @@ describe("useRuneWalk", () => {
     expect(result.current.canvas).toEqual({ named: [LANTERN, FLOWERS], mended: [WAGON] });
   });
 
+  it("a walk picked back up at its finish step (every word cast) marks nothing on the canvas (fix round 1)", () => {
+    const { result } = setup();
+    act(() => result.current.begin(runeWalkRun({ responses: ["r:1", "r:1", "r:1"] }), bram, "mill"));
+    act(() => result.current.setAt(2));
+    expect(result.current.canvas).toEqual({ named: [], mended: [] });
+    // One still to cast (or open on a second chance) keeps its mark.
+    act(() => result.current.begin(runeWalkRun({ responses: ["r:1", "r:1", null] }), bram, "mill"));
+    act(() => result.current.setAt(2));
+    expect(result.current.canvas).toEqual({ named: [FLOWERS], mended: [] });
+    act(() => result.current.begin(runeWalkRun({ responses: ["r:1", "r:1", null], pending: { index: 2, ruledOut: "r:2", hint: "h" } }), bram, "mill"));
+    act(() => result.current.setAt(2));
+    expect(result.current.canvas).toEqual({ named: [FLOWERS], mended: [] });
+  });
+
   it("finish moves the run to walked, for its villager, and clears the walk and its marks", () => {
     const { result, rerender } = setup();
     act(() => result.current.begin(run, bram, "mill"));

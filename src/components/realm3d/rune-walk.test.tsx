@@ -254,6 +254,36 @@ describe("RuneWalk, the stone at a stop", () => {
     expect(speak).toHaveBeenCalledWith("Mend. Mend the wagon. Mend.");
   });
 
+  it("a young hero (a dictation) hears the card's lines with read-aloud off: First, …, and Next once the walk moves on (fix round 1)", async () => {
+    vi.mocked(answerDeedQuestion).mockResolvedValue(RIGHT);
+    const { sayRef, rerender } = show();
+    // Nothing at the walk's start (RI-a / S5).
+    expect(speak).not.toHaveBeenCalled();
+    act(() => sayRef.current?.(runeFirstLine("the broken wagon")));
+    expect(speak).toHaveBeenLastCalledWith("First, the broken wagon.");
+    rerender({ casting: true });
+    await castMend();
+    await click(RUNE_DONE);
+    rerender({ casting: false });
+    expect(speak).toHaveBeenLastCalledWith("Next: the dark lantern");
+  });
+
+  it("an older hero (a meaning) with read-aloud off hears none of the card's lines; with it on, they are said", async () => {
+    vi.mocked(answerDeedQuestion).mockResolvedValue(RIGHT);
+    const meaning = runeWalkRun();
+    meaning.questions = meaning.questions.map((q) => (q.kind === "rune" ? { ...q, view: { ...q.view, listen: false } } : q));
+    const { sayRef, rerender } = show({ r: meaning });
+    act(() => sayRef.current?.(runeFirstLine("the broken wagon")));
+    rerender({ casting: true });
+    await castMend();
+    await click(RUNE_DONE);
+    rerender({ casting: false });
+    expect(speak).not.toHaveBeenCalled();
+    rerender({ casting: false, profile: { readAloud: true } });
+    act(() => sayRef.current?.("The rune holds here."));
+    expect(speak).toHaveBeenLastCalledWith("The rune holds here.");
+  });
+
   it("the second-chance line is spoken, as the board's is", async () => {
     vi.mocked(answerDeedQuestion).mockResolvedValue(OPEN);
     show({ casting: true });
@@ -272,6 +302,43 @@ describe("RuneWalk, the stone at a stop", () => {
     expect(stone()).toHaveTextContent("Not that word. It rhymes with send.");
     expect(within(stone()).getByRole("button", { name: "Show me" })).toBeInTheDocument();
     expect(props.onAt).not.toHaveBeenCalledWith(1);
+  });
+
+  it("Esc while the cast is in flight: the answer lands with the stone closed, and the walk still moves on (fix round 1)", async () => {
+    let settle!: (r: typeof RIGHT) => void;
+    vi.mocked(answerDeedQuestion).mockReturnValue(new Promise((r) => (settle = r)) as never);
+    const { props, rerender } = show({ casting: true });
+    await castMend();
+    rerender({ casting: false });
+    vi.mocked(props.onAt).mockClear();
+    await act(async () => settle(RIGHT));
+    expect(props.onMended).toHaveBeenCalledWith(WAGON);
+    expect(props.onAt).toHaveBeenCalledWith(1);
+    expect(props.onAt).not.toHaveBeenCalledWith(2);
+    expect(card()).toHaveTextContent("Next: the dark lantern");
+  });
+
+  it("Esc while the cast is in flight and the answer is a second chance: the stop stays, to be tried again", async () => {
+    let settle!: (r: typeof OPEN) => void;
+    vi.mocked(answerDeedQuestion).mockReturnValue(new Promise((r) => (settle = r)) as never);
+    const { props, rerender } = show({ casting: true });
+    await castWord("m", "a", "n", "d");
+    rerender({ casting: false });
+    await act(async () => settle(OPEN));
+    expect(props.onAt).not.toHaveBeenCalledWith(1);
+    expect(card()).toHaveTextContent("Next: the broken wagon");
+  });
+
+  it("the last stop resolved with the stone closed is never finished by itself: the card offers Finish", async () => {
+    let settle!: (r: typeof RIGHT) => void;
+    vi.mocked(answerDeedQuestion).mockReturnValue(new Promise((r) => (settle = r)) as never);
+    const { props, rerender } = show({ r: runeWalkRun({ responses: [MEND, MEND, null] }), casting: true });
+    await castMend();
+    rerender({ casting: false });
+    await act(async () => settle(RIGHT));
+    expect(completeDeedRun).not.toHaveBeenCalled();
+    expect(props.onAt).not.toHaveBeenCalledWith(3);
+    expect(within(card()).getByRole("button", { name: RUNE_FINISH })).toBeInTheDocument();
   });
 
   it("the stone closed on a resolved stop moves on, as Done does", async () => {
@@ -354,9 +421,20 @@ describe("the rune walk's layout (slice 5's tracker fixes, kept for both walks)"
       expect(decls(trailCss, trail), trail).not.toBeNull();
       expect(decls(trailCss, slot), slot).toBe(decls(trailCss, trail));
     }
-    // On a phone too: under the minimap, above the E prompt.
-    const phone = trailCss.slice(trailCss.indexOf("@media (max-width: 480px)"));
-    for (const [, slot] of pairs.slice(1)) expect(decls(phone, slot), slot).toMatch(/top:\s*14rem/);
+    // On a phone too, declaration for declaration: under the minimap, above the E prompt.
+    const phone = (() => {
+      const start = trailCss.indexOf("@media (max-width: 480px)");
+      let depth = 0;
+      for (let i = trailCss.indexOf("{", start); i < trailCss.length; i++) {
+        if (trailCss[i] === "{") depth++;
+        if (trailCss[i] === "}" && --depth === 0) return trailCss.slice(start, i + 1);
+      }
+      return "";
+    })();
+    for (const [trail, slot] of pairs.slice(1)) {
+      expect(decls(phone, trail), trail).toMatch(/top:\s*14rem/);
+      expect(decls(phone, slot), slot).toBe(decls(phone, trail));
+    }
     // The slot itself draws no box: the card is the column's item.
     expect(decls(trailCss, ".r3-walk-slot")).toMatch(/display:\s*contents/);
   });
