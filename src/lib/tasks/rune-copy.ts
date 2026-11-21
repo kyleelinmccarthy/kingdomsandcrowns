@@ -31,6 +31,10 @@ export const RUNE_CAST = "Cast";
 export const RUNE_CLEAR = "Clear";
 /** The built row's text while no tile is placed. */
 export const RUNE_EMPTY_ROW = "Your word goes here";
+/** What a screen reader calls the built row, the tray, and a placed tile (a tap takes it back). */
+export const RUNE_ROW_LABEL = "Your word";
+export const RUNE_TRAY_LABEL = "Runes to tap";
+export const runeTakeBack = (tile: string): string => `Take back ${tile}`;
 /** The stone's one read-aloud control: a dictation's word, or a meaning's. */
 export const RUNE_HEAR = "Hear the word";
 export const RUNE_HEAR_MEANING = "Hear the meaning";

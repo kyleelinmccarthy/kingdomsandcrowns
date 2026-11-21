@@ -27,6 +27,8 @@ const wordSort = lock({ puzzle: "sort", categories: ["Alive", "Not alive"], item
 const shapes3 = lock({ puzzle: "shapes3", symbols: [{ shape: "circle", color: "red" }], givens: [1, 0, 0, 0, 0, 0, 0, 0, 0] });
 const cage4 = lock({ puzzle: "cage4", cages: [] });
 const clue: ClientTask = { kind: "trail", id: "read-g1:trail:0a1b2c3d", skillId: "read-g1", prompt: "Go to the mill.", view: {} };
+const rune: ClientTask = { kind: "rune", id: "lang-gk:rune:4e1f0a9c", skillId: "lang-gk", prompt: "The wagon is broken. Build the word you hear.", view: { effect: "mend", object: { id: "rune:west-wagon", label: "the broken wagon" }, tiles: ["d", "m", "a", "e", "n", "i"], listen: true } };
+const RUNE = "Watch Pip build a rune. Pip hears the word hop, taps h, then o, then p, and casts it. It works!";
 
 describe("LockDemo: Watch Pip", () => {
   it("shows Pip fitting the pattern, with a heading, a named picture and a Got it button that has focus", () => {
@@ -176,5 +178,39 @@ describe("useTaskDemo", () => {
   it("is off when the marked task has no demo", () => {
     expect(renderHook(() => useTaskDemo(run({ questions: [choice] }), 0)).result.current.demo).toBeNull();
     expect(renderHook(() => useTaskDemo(run({ questions: [cage4] }), 0)).result.current.demo).toBeNull();
+  });
+});
+
+describe("Watch Pip build a rune (R-I12)", () => {
+  it("a rune's demo is the rune's, of the rune kind", () => {
+    expect(demoKeyOf(rune)).toBe("rune");
+    expect(demoKind("rune")).toBe("rune");
+  });
+
+  it("shows Pip's steps, says its words, and Got it, with the focus, hands over", () => {
+    const onDone = vi.fn();
+    render(<TaskDemo demo="rune" calm onDone={onDone} />);
+    expect(screen.getByRole("heading", { name: "Watch Pip" })).toBeInTheDocument();
+    expect(screen.getByText(RUNE)).toBeInTheDocument();
+    expect(taskDemoCopy("rune")).toBe(RUNE);
+    const steps = screen.getByRole("list", { name: "What Pip does" });
+    expect(within(steps).getAllByRole("listitem").map((li) => li.textContent)).toEqual(["Hear the word", "Tap the runes in order", "Cast"]);
+    const go = screen.getByRole("button", { name: "Got it" });
+    expect(go).toHaveFocus();
+    fireEvent.click(go);
+    expect(onDone).toHaveBeenCalledTimes(1);
+  });
+
+  it("on the page too, and draws nothing that moves when calm", () => {
+    const { container, rerender } = render(<TaskDemo demo="rune" calm variant="page" onDone={() => {}} />);
+    expect(container.querySelector(".trail--page")).not.toBeNull();
+    expect(container.querySelector(".trail--move")).toBeNull();
+    rerender(<TaskDemo demo="rune" calm={false} variant="page" onDone={() => {}} />);
+    expect(container.querySelector(".trail--move")).not.toBeNull();
+  });
+
+  it("shows before a run's first rune", () => {
+    const { result } = renderHook(() => useTaskDemo({ questions: [rune, rune], demo: { at: 0 } } as unknown as RunStart, 0));
+    expect(result.current.demo).toBe("rune");
   });
 });

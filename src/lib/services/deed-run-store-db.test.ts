@@ -218,6 +218,36 @@ describe("demoAt for a trail: Watch Pip follow a clue (R-H16)", () => {
   });
 });
 
+describe("demoAt for a rune: Watch Pip build a rune (R-I12)", () => {
+  // As the browser is shown a rune, and as the server stores one.
+  const shown = (id = "r1") => ({ kind: "rune", id, skillId: "spell-g23", prompt: "The wagon is broken. Build the word you hear.", view: { effect: "mend", object: { id: "rune:west-wagon", label: "the broken wagon" }, tiles: ["d", "m", "a", "e", "n", "i"], listen: true } });
+  const stored = {
+    kind: "rune", id: "old", skillId: "spell-g23", prompt: "p", effect: "mend", object: { id: "rune:west-wagon", label: "the broken wagon" },
+    tiles: ["d", "m", "a", "e", "n", "i"], listen: true, words: ["mend"], hint: "h", entry: "rune-g23/fx-mend-01",
+  };
+  const storedClue = { kind: "trail", id: "oc", skillId: "read-g1", prompt: "Go to the mill.", answer: "landmark:mill", redirect: "r", trail: "trail-k1/mill" };
+  const storedLock = { kind: "lock", id: "lk", skillId: "logic-k1", prompt: "p", puzzle: "pattern", sequence: [null], tray: [], solution: { puzzle: "pattern", cells: [1] } };
+  const run = (questions: unknown[], responses?: (string | null)[]) =>
+    ({ runId: "now", kind: "deed", questions, responses: responses ?? questions.map(() => null) }) as Pick<RunStart, "runId" | "kind" | "questions" | "responses">;
+
+  it("marks a grade-2 hero's first rune, and a K hero's, never an older hero's", async () => {
+    await expect(demoAt("rune-new", "2", run([shown("a"), shown("b")]))).resolves.toBe(0);
+    await expect(demoAt("rune-new", "K", run([shown()]))).resolves.toBe(0);
+    await expect(demoAt("rune-new", "4", run([shown()]))).resolves.toBeNull();
+  });
+
+  it("is not shown after a rune answered in another run", async () => {
+    await seed("rune-seen", JSON.stringify([stored]), JSON.stringify(["r:1,3,4,0"]));
+    await expect(demoAt("rune-seen", "2", run([shown()]))).resolves.toBeNull();
+  });
+
+  it("a lock or a clue answered elsewhere does not hide it", async () => {
+    await seed("rune-others", JSON.stringify([storedLock]), JSON.stringify(["pattern:1"]));
+    await seed("rune-others", JSON.stringify([storedClue]), JSON.stringify(["landmark:mill"]));
+    await expect(demoAt("rune-others", "2", run([shown()]))).resolves.toBe(0);
+  });
+});
+
 describe("loadRecentTrailIds: the trails a hero met in their last reading side quests (R-H11)", () => {
   /** A stored clue of trail `key`, as the server keeps it. */
   const clue = (key: string, i = 0) => ({

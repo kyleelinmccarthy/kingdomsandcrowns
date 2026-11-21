@@ -226,7 +226,8 @@ const DEMO_RUN_KINDS: readonly RunKind[] = ["deed", "build", "world"];
 /**
  * Which demos one answered task counts as seen: Aldo's two are one, so any bench task (as since
  * R-C9); each of Pip's is its own puzzles (`LOCK_DEMO_PUZZLES`, RF-g), so a word sort answered
- * never hides the shape grid's demo; and Pip's clue is any trail task (R-H16).
+ * never hides the shape grid's demo; Pip's clue is any trail task (R-H16); and Pip's rune any rune
+ * task (`demoGroup("rune") === "rune"`).
  */
 const demoGroup = (key: DemoKey): string => (demoKind(key) === "measure" ? "bench" : key);
 

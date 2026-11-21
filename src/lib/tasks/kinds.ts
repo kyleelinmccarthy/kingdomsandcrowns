@@ -8,8 +8,8 @@ export const HANDS_ON_KINDS = ["measure", "lock", "trail", "rune"] as const;
 
 export type HandsOnKind = (typeof HANDS_ON_KINDS)[number];
 
-/** The kinds answered by walking the Realm to a place (R-H9); slice 6 adds the rune. */
-export const WALKING_KINDS = ["trail"] as const;
+/** The kinds answered by walking the Realm to a place (R-H9): a clue's anchor, a rune's object (RI-a / B3). */
+export const WALKING_KINDS = ["trail", "rune"] as const;
 
 export const isWalkingKind = (k: TaskKind): boolean => (WALKING_KINDS as readonly string[]).includes(k);
 

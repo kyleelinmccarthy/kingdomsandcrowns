@@ -153,13 +153,15 @@ describe("the stored note on a response (storedFeedback)", () => {
   });
 });
 
-describe("walking kinds (R-H9)", () => {
+describe("walking kinds (R-H9, RI-a / B3)", () => {
   const trail = { kind: "trail" as const };
+  const rune = { kind: "rune" as const };
   const choice = { kind: "choice" as const };
 
-  it("are the trail, and nothing else yet", () => {
-    expect(WALKING_KINDS).toEqual(["trail"]);
+  it("are the trail and the rune, and nothing else", () => {
+    expect(WALKING_KINDS).toEqual(["trail", "rune"]);
     expect(isWalkingKind("trail")).toBe(true);
+    expect(isWalkingKind("rune")).toBe(true);
     for (const k of ["choice", "measure", "lock"] as const) expect(isWalkingKind(k)).toBe(false);
   });
 
@@ -169,5 +171,10 @@ describe("walking kinds (R-H9)", () => {
     expect(isWalkingRun({ questions: [trail, trail] })).toBe(true);
     expect(isWalkingRun({ questions: [trail, choice] })).toBe(false);
     expect(isWalkingRun({ questions: [choice] })).toBe(false);
+  });
+
+  it("a run of runes walks; a rune beside a choice does not", () => {
+    expect(isWalkingRun({ questions: [rune, rune] })).toBe(true);
+    expect(isWalkingRun({ questions: [rune, choice] })).toBe(false);
   });
 });

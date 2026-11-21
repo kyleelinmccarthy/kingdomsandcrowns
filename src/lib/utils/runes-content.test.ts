@@ -6,8 +6,14 @@ import { containsWord } from "@/lib/content/pool-validate";
 import { LISTEN_BANDS, RUNE_SKILLS, formatRuneProblems, validateRunePool, type RunePool } from "@/lib/content/rune-pools";
 import { RUNE_EFFECT_IDS, RUNE_OBJECTS, VILLAGE_RUNE_OBJECTS } from "@/lib/realm/rune-objects";
 import {
+  RUNE_CAST,
+  RUNE_CLEAR,
   RUNE_DEMO_COPY,
+  RUNE_DEMO_STEPS,
   RUNE_EMPTY_ROW,
+  RUNE_ROW_LABEL,
+  RUNE_TRAY_LABEL,
+  runeTakeBack,
   RUNE_HEAR,
   RUNE_HEAR_MEANING,
   RUNE_HELP,
@@ -127,7 +133,11 @@ describe("rune pool content", () => {
         for (let c = b + 1; c < village.length; c++) setOff.push(runeSetOffLine([village[a], village[b], village[c]]));
       }
     }
-    const copy = [RUNE_VERB, RUNE_LOOK_VERB, RUNE_STORY, RUNE_TITLE, RUNE_HELP, RUNE_HEAR, RUNE_HEAR_MEANING, RUNE_NO_SOUND_LEAD, RUNE_EMPTY_ROW, RUNE_SAME_WORD, RUNE_DEMO_COPY];
+    const copy = [
+      RUNE_VERB, RUNE_LOOK_VERB, RUNE_STORY, RUNE_TITLE, RUNE_HELP, RUNE_HEAR, RUNE_HEAR_MEANING, RUNE_NO_SOUND_LEAD, RUNE_EMPTY_ROW, RUNE_SAME_WORD, RUNE_DEMO_COPY,
+      // The stone's own words (I8): its buttons, its labels, and the demo's steps.
+      RUNE_CAST, RUNE_CLEAR, RUNE_ROW_LABEL, RUNE_TRAY_LABEL, runeTakeBack(""), ...RUNE_DEMO_STEPS,
+    ];
     const texts = [...labels, ...copy, ...setOff];
     for (const { parsed } of pools) {
       for (const e of parsed.entries) {

@@ -43,8 +43,8 @@ export function DeedPlayer({
   const finish = finishLabel(run.kind);
 
   // Read-aloud is a side effect, not state: the profile asks for it (or, for a Kindergarten hero's
-  // clue, the run: `autoSpeaks`, R-H17), the effect obeys. A worked example (Aldo's or Pip's) is read
-  // first, when there is one, then the question.
+  // clue, the run, and for a rune dictation the task: `autoSpeaks`, R-H17, R-I18), the effect obeys.
+  // A worked example (Aldo's or Pip's) is read first, when there is one, then the question.
   const speaks = question ? autoSpeaks(question, profile.readAloud, run.narrateClues === true) : false;
   useEffect(() => {
     if (speaks && question) speak(demo.demo ? taskDemoCopy(demo.demo) : (question.readAloud ?? question.prompt));
@@ -115,7 +115,8 @@ export function DeedPlayer({
         {demo.demo ? <TaskDemo demo={demo.demo} variant="page" calm={calm} onDone={demo.finish} /> : (<>
         <div className="flex items-start gap-3">
           <p className="flex-1 text-xl font-medium">{question.prompt}</p>
-          {speakable && (
+          {/* A rune's one read control is the stone's own (RI-a / S4). */}
+          {speakable && question.kind !== "rune" && (
             <Button size="sm" variant="outline" aria-label="Read aloud" onClick={() => speak(question.readAloud ?? question.prompt)}>
               <GameIcon name="sparkles" className="size-4" />
             </Button>
