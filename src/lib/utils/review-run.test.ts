@@ -17,8 +17,11 @@ const item = (skillId: string, n: number): PoolItem => ({
 const poolFor = (...skillIds: string[]): PoolItem[] => skillIds.flatMap((s) => [1, 2, 3, 4].map((n) => item(s, n)));
 const miss = (skillId: string, id: string): Question => ({ id, skillId, prompt: `miss ${id}`, choices: ["1", "2", "3", "4"], answer: "1" });
 const areaOf = (id: string) => findSkill(id)!.area;
+/** A hero taught every strand at the top grade: nothing is above them, so only the other rules filter. */
+const TOP = { math: "12", reading: "12", language: "12", science: "12" } as const;
+const ANY = { grades: TOP };
 const run = (over: Partial<Parameters<typeof buildReviewRun>[0]> = {}) =>
-  buildReviewRun({ mastery: [], recentMisses: [], poolItems: [], now: NOW, seed: 7, ...over });
+  buildReviewRun({ mastery: [], recentMisses: [], poolItems: [], grades: TOP, now: NOW, seed: 7, ...over });
 
 describe("REVIEW_RUN", () => {
   it("is three tasks", () => expect(REVIEW_RUN.tasks).toBe(3));
@@ -28,23 +31,23 @@ describe("nothing learned yet", () => {
   it("builds nothing and is never due", () => {
     expect(run().questions).toHaveLength(0);
     expect(run().skillIds).toEqual([]);
-    expect(reviewDue([], NOW)).toBe(false);
+    expect(reviewDue([], NOW, ANY)).toBe(false);
   });
   it("ignores level-0 rows for the fill, and they are never due", () => {
     const mastery = [row("add-10", 0, 50), row("sub-10", 0, 50)];
     expect(run({ mastery }).questions).toHaveLength(0);
-    expect(reviewDue(mastery, NOW)).toBe(false);
+    expect(reviewDue(mastery, NOW, ANY)).toBe(false);
   });
 });
 
 describe("reviewDue", () => {
   it("is true once a learned skill is past its interval", () => {
-    expect(reviewDue([row("add-10", 1, 3)], NOW)).toBe(true);
-    expect(reviewDue([row("add-10", 1, 1)], NOW)).toBe(false);
+    expect(reviewDue([row("add-10", 1, 3)], NOW, ANY)).toBe(true);
+    expect(reviewDue([row("add-10", 1, 1)], NOW, ANY)).toBe(false);
   });
   it("ignores a logic skill: it is played on locks, so a review run could draw nothing for it", () => {
-    expect(reviewDue([row("logic-g23", 2, 300)], NOW)).toBe(false);
-    expect(reviewDue([row("logic-g23", 2, 300), row("science-g23", 1, 3)], NOW)).toBe(true);
+    expect(reviewDue([row("logic-g23", 2, 300)], NOW, ANY)).toBe(false);
+    expect(reviewDue([row("logic-g23", 2, 300), row("science-g23", 1, 3)], NOW, ANY)).toBe(true);
   });
   it("reviews only the science when overdue logic and science rows are mixed", () => {
     const mastery = [row("logic-g23", 2, 300), row("logic-k1", 1, null), row("science-g23", 1, 9)];
@@ -54,8 +57,8 @@ describe("reviewDue", () => {
     expect(r.questions.every((q) => q.skillId === "science-g23")).toBe(true);
   });
   it("ignores a trail skill: a review run is choice only, and read-g6 has no choice questions", () => {
-    expect(reviewDue([row("read-g6", 2, 300), row("read-g9", 1, null)], NOW)).toBe(false);
-    expect(reviewDue([row("read-g6", 2, 300), row("science-g23", 1, 3)], NOW)).toBe(true);
+    expect(reviewDue([row("read-g6", 2, 300), row("read-g9", 1, null)], NOW, ANY)).toBe(false);
+    expect(reviewDue([row("read-g6", 2, 300), row("science-g23", 1, 3)], NOW, ANY)).toBe(true);
     expect(run({ mastery: [row("read-g6", 2, 300), row("read-g9", 2, 300)], poolItems: poolFor("read-g6", "read-g9") }))
       .toEqual({ skillIds: [], questions: [] });
   });
@@ -68,7 +71,70 @@ describe("reviewDue", () => {
     expect(run({ mastery: [row("logic-g23", 2, 300)] })).toEqual({ skillIds: [], questions: [] });
   });
   it("ignores unknown skill ids", () => {
-    expect(reviewDue([row("not-a-skill", 1, 300)], NOW)).toBe(false);
+    expect(reviewDue([row("not-a-skill", 1, 300)], NOW, ANY)).toBe(false);
+  });
+});
+
+describe("never above the hero's own grade in a strand (RH-c)", () => {
+  // With trails on, K walks read-g1's trails and grade 2 read-g3's (`runCandidates`, R-H21): those
+  // rows are mastery the hero earned walking, never as multiple choice, and K's are not narrated.
+  const K = { math: "K", reading: "K", language: "K", science: "K" } as const;
+  const G2 = { math: "2", reading: "2", language: "2", science: "2" } as const;
+  const G3 = { math: "3", reading: "3", language: "3", science: "3" } as const;
+  const seeds = Array.from({ length: 20 }, (_, i) => i + 1);
+
+  it("a K hero's read-g1 mastery from trails is never reviewed, and never lights the riddle stones", () => {
+    const mastery = [row("read-g1", 2, 300)];
+    expect(reviewDue(mastery, NOW, { grades: K })).toBe(false);
+    expect(run({ mastery, grades: K, poolItems: poolFor("read-g1") })).toEqual({ skillIds: [], questions: [] });
+    // Beside the hero's own sight words, only those come back.
+    const both = [row("read-g1", 2, 300), row("sight-k1", 1, 9)];
+    for (const seed of seeds) {
+      expect(run({ mastery: both, grades: K, seed, poolItems: poolFor("read-g1", "sight-k1") }).skillIds).toEqual(["sight-k1"]);
+    }
+  });
+
+  it("a stored read-g1 miss does not bring it back for a K hero either", () => {
+    const r = run({ mastery: [row("read-g1", 2, 300), row("sight-k1", 1, 9)], grades: K, recentMisses: [miss("read-g1", "r1")], poolItems: poolFor("read-g1", "sight-k1") });
+    expect(r.questions.map((q) => q.id)).not.toContain("r1");
+    expect(r.skillIds).toEqual(["sight-k1"]);
+  });
+
+  it("a grade-2 hero's read-g3 mastery from trails is not reviewed", () => {
+    expect(reviewDue([row("read-g3", 2, 300)], NOW, { grades: G2 })).toBe(false);
+    expect(run({ mastery: [row("read-g3", 2, 300)], grades: G2, poolItems: poolFor("read-g3") }).skillIds).toEqual([]);
+  });
+
+  it("a K hero whose grown-up picked read-g1 as a focus still reviews it, and the stones glow for it", () => {
+    const mastery = [row("read-g1", 2, 300)];
+    expect(reviewDue(mastery, NOW, { grades: K, focusSkillIds: ["read-g1"] })).toBe(true);
+    expect(run({ mastery, grades: K, focusSkillIds: ["read-g1"], poolItems: poolFor("read-g1") }).skillIds).toEqual(["read-g1"]);
+  });
+
+  it("a grade-3 hero's read-g3 review is unchanged", () => {
+    const mastery = [row("read-g3", 2, 300)];
+    expect(reviewDue(mastery, NOW, { grades: G3 })).toBe(true);
+    expect(run({ mastery, grades: G3, poolItems: poolFor("read-g3") })).toEqual(run({ mastery, poolItems: poolFor("read-g3") }));
+    expect(run({ mastery, grades: G3, poolItems: poolFor("read-g3") }).skillIds).toEqual(["read-g3"]);
+  });
+
+  it("math, science and language at or below the hero's grade review as before", () => {
+    const k = [row("add-10", 1, 9), row("science-k1", 1, 8), row("lang-gk", 1, 7)];
+    const g3 = [row("mul-facts", 1, 9), row("science-g23", 1, 8), row("lang-g3", 1, 7), row("add-10", 2, 6)];
+    for (const seed of seeds) {
+      expect(run({ mastery: k, grades: K, seed, poolItems: poolFor("science-k1", "lang-gk") }))
+        .toEqual(run({ mastery: k, seed, poolItems: poolFor("science-k1", "lang-gk") }));
+      expect(run({ mastery: g3, grades: G3, seed, poolItems: poolFor("science-g23", "lang-g3") }))
+        .toEqual(run({ mastery: g3, seed, poolItems: poolFor("science-g23", "lang-g3") }));
+    }
+    expect(reviewDue(k, NOW, { grades: K })).toBe(true);
+    expect(reviewDue(g3, NOW, { grades: G3 })).toBe(true);
+  });
+
+  it("judges each strand on its own grade: a hero taught reading a grade up reviews read-g1", () => {
+    const mastery = [row("read-g1", 2, 300)];
+    expect(reviewDue(mastery, NOW, { grades: { ...K, reading: "1" } })).toBe(true);
+    expect(run({ mastery, grades: { ...K, reading: "1" }, poolItems: poolFor("read-g1") }).skillIds).toEqual(["read-g1"]);
   });
 });
 

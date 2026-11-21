@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, it, expect, vi, beforeAll, beforeEach, afterAll } from "vitest";
+import { describe, it, expect, vi, beforeAll, beforeEach, afterEach, afterAll } from "vitest";
 import { testDatabase } from "@/test/libsql-test-db";
 import { DEFAULT_REALM_SETTINGS } from "@/lib/utils/realm-settings";
 import { HERO_ONLY, NOT_IN_CHRONICLE } from "@/lib/utils/deed-refusals";
@@ -64,6 +64,9 @@ const DDL = [
   ...KINGDOM_PROGRESS_DDL,
   `CREATE TABLE learning_focus (
     id text PRIMARY KEY NOT NULL, child_id text NOT NULL, skill_id text NOT NULL, created_at integer NOT NULL)`,
+  `CREATE TABLE drill_item (
+    id text PRIMARY KEY NOT NULL, pool_id text NOT NULL, skill_id text NOT NULL, band text NOT NULL, prompt text NOT NULL,
+    answer text NOT NULL, distractors text NOT NULL, read_aloud text, level integer DEFAULT 2 NOT NULL, updated_at integer NOT NULL)`,
   ...REALM_SETTINGS_DDL,
   ...REALM_LEDGER_DDL,
   ...REALM_ACCESS_DDL,
@@ -264,6 +267,43 @@ describe("a riddle stone's review run", () => {
     await learn();
     await expect(startReviewRun("c1", { kind: "stone", placeId: "nowhere" })).rejects.toThrow(NOT_IN_CHRONICLE);
     expect(await count("SELECT count(*) AS n FROM deed_run")).toBe(0);
+  });
+});
+
+describe("never above the hero's own grade (RH-c): a K hero's read-g1 from trails", () => {
+  const K = { enabled: true, tone: "gentle" as const, band: "k1" as const, grades: { math: "K", reading: "K", language: "K", science: "K", logic: "K" } as const };
+  beforeEach(async () => {
+    await client.query("DELETE FROM drill_item");
+    for (const n of [1, 2, 3, 4]) {
+      await client.query(
+        `INSERT INTO drill_item (id, pool_id, skill_id, band, prompt, answer, distractors, level, updated_at)
+         VALUES (?1, 'read-g1', 'read-g1', 'k1', ?2, 'cat', '["dog","sun","hat"]', 1, unixepoch())`,
+        [`rg1-${n}`, `Which word is cat? ${n}`],
+      );
+    }
+    await learn(["read-g1"], 2);
+    vi.mocked(loadHeroLevels).mockResolvedValue(K as never);
+  });
+  afterEach(() => {
+    vi.mocked(loadHeroLevels).mockReset();
+    vi.mocked(loadHeroLevels).mockResolvedValue({ enabled: true, tone: "gentle", band: "g23", grades: { math: "3", reading: "3", language: "3", science: "3" } } as never);
+  });
+
+  it("is not reviewed at a riddle stone or on Quick review, and does not light the stones", async () => {
+    expect(await startReviewRun("c1", { kind: "stone", placeId: PLACE })).toEqual({ empty: true });
+    expect(await startReviewRun("c1", { kind: "page" })).toEqual({ empty: true });
+    expect(await getReviewDue("c1")).toBe(false);
+  });
+
+  it("is reviewed, and lights the stones, when a grown-up picked it as a focus", async () => {
+    await client.query("INSERT INTO learning_focus (id, child_id, skill_id, created_at) VALUES ('f1', 'c1', 'read-g1', unixepoch())");
+    expect(await getReviewDue("c1")).toBe(true);
+    for (const origin of [{ kind: "stone", placeId: PLACE }, { kind: "page" }] as const) {
+      const r = await startReviewRun("c1", origin);
+      if ("empty" in r) throw new Error("expected a run");
+      const row = await client.query("SELECT skill_ids FROM deed_run WHERE id = ?1", [r.runId]);
+      expect(JSON.parse(row.rows[0].skill_ids as string)).toEqual(["read-g1"]);
+    }
   });
 });
 

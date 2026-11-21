@@ -1,7 +1,8 @@
 import { seededRng, shuffle } from "./drill-generators";
 import { applyProfile, drawForSkill, type PoolItem, type ProfileLike } from "./deed-engine";
 import { overdueSkills, type MasteryTiming } from "./review-schedule";
-import { choiceDrawable, findSkill, type Skill } from "./skills";
+import { choiceDrawable, findSkill, type Skill, type SkillArea } from "./skills";
+import { gradeIndex, type Grade } from "./grade-levels";
 import { MASTERY_MAX } from "./mastery";
 import type { ChoiceTask, Task } from "@/lib/tasks/types";
 
@@ -25,24 +26,50 @@ export const reviewReasks = (t: Task): t is ChoiceTask => t.kind === undefined |
 type Pick = { skill: Skill; question: ChoiceTask; isMiss: boolean };
 
 /**
+ * Whose review this is (RH-c): the grade each strand is taught at (`HeroLevels.grades`) and the
+ * grown-up's focus picks. A review never asks above the hero's own grade in a strand, unless a
+ * grown-up picked that skill.
+ */
+export type ReviewScope = {
+  grades: Partial<Record<SkillArea, Grade>>;
+  focusSkillIds?: readonly string[];
+};
+
+/**
+ * True when a skill is taught above the hero's grade in its strand. With trails on, K walks
+ * `read-g1`'s trails and grade 2 `read-g3`'s (`runCandidates`, R-H21): that mastery was earned
+ * walking, never as multiple choice (and for K, not narrated), so review must not ask it as a
+ * choice. A strand missing from `grades`, or a skill offered at no grade, is never "above".
+ */
+function aboveHero(skill: Skill, grades: ReviewScope["grades"]): boolean {
+  const at = grades[skill.area];
+  if (at === undefined || skill.grades.length === 0) return false;
+  return Math.min(...skill.grades.map(gradeIndex)) > gradeIndex(at);
+}
+
+/**
  * Mastery rows for skills that exist and can be reviewed; the first row for a skill wins. A
  * `lock` skill is left out: a review run is choice only and a lock skill has no choice
- * questions, so counting it would light the riddle stones for a run that comes back empty.
+ * questions, so counting it would light the riddle stones for a run that comes back empty. A
+ * skill above the hero's grade in its strand is left out too, unless it is a focus pick (RH-c).
  */
-function knownRows(mastery: readonly MasteryTiming[]): Map<string, MasteryTiming> {
+function knownRows(mastery: readonly MasteryTiming[], scope: ReviewScope): Map<string, MasteryTiming> {
   const rows = new Map<string, MasteryTiming>();
+  const focus = new Set(scope.focusSkillIds ?? []);
   for (const r of mastery) {
     if (!rows.has(r.skillId)) {
       const skill = findSkill(r.skillId);
-      if (skill && choiceDrawable(skill)) rows.set(r.skillId, r);
+      if (!skill || !choiceDrawable(skill)) continue;
+      if (aboveHero(skill, scope.grades) && !focus.has(skill.id)) continue;
+      rows.set(r.skillId, r);
     }
   }
   return rows;
 }
 
-/** True when any learned (level 1+) skill is past its review interval. */
-export function reviewDue(mastery: readonly MasteryTiming[], now: number): boolean {
-  const learned = [...knownRows(mastery).values()].filter((r) => r.level >= 1);
+/** True when any learned (level 1+) skill this hero may review (`knownRows`) is past its review interval. */
+export function reviewDue(mastery: readonly MasteryTiming[], now: number, scope: ReviewScope): boolean {
+  const learned = [...knownRows(mastery, scope).values()].filter((r) => r.level >= 1);
   return overdueSkills(learned, learned.map((r) => r.skillId), now).length > 0;
 }
 
@@ -50,8 +77,10 @@ export function buildReviewRun(input: {
   mastery: readonly MasteryTiming[];
   recentMisses: Task[];
   poolItems: PoolItem[];
-  /** The grown-up's focus skills: the learned ones come before least-recently-practised ones. */
+  /** The grown-up's focus skills: the learned ones come before least-recently-practised ones, and may sit above the hero's grade. */
   focusSkillIds?: string[];
+  /** The grade each strand is taught at (`HeroLevels.grades`): nothing above it is reviewed but a focus pick (RH-c). */
+  grades: ReviewScope["grades"];
   /** The hero's learning profile, applied as a side quest applies it (`applyProfile`); none is the default profile. */
   profile?: ProfileLike;
   now: number;
@@ -59,7 +88,7 @@ export function buildReviewRun(input: {
 }): { skillIds: string[]; questions: ChoiceTask[] } {
   const { poolItems, now } = input;
   const rng = seededRng(input.seed);
-  const rows = knownRows(input.mastery);
+  const rows = knownRows(input.mastery, { grades: input.grades, focusSkillIds: input.focusSkillIds });
   if (rows.size === 0) return { skillIds: [], questions: [] };
 
   // Misses first: known skills the child has a row for, deduped by question id (first wins),
