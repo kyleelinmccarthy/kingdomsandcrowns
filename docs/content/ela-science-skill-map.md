@@ -67,6 +67,7 @@ older; both strands of work run under one skill per grade.
 |---|---|---|---|---|
 | K | `lang-gk` | Letter names, where a word ends, plural `-s` | L.K.1 | new |
 | 1 | `lang-g1` | Capital letters, end punctuation, nouns and verbs | L.1.1, L.1.2 | new |
+| 1 | `spell-g1` | Spelling: building short words from letters | L.1.2d, L.1.2e | new — played as rune spellcraft; no multiple-choice pool yet |
 | 2 | `spell-g23` | Spelling patterns, collective nouns, irregular plurals | L.2.1, L.2.2 | **carried forward** |
 | 3 | `lang-g3` | Spelling, regular and irregular verbs, subject–verb agreement | L.3.1 | new |
 | 4 | `spell-g45` | Spelling, prepositional phrases, homophones | L.4.1 | **carried forward** |
@@ -102,8 +103,11 @@ is how these are actually taught.
 
 ## Totals
 
-**39 skills across 13 grades and 3 strands** — 12 carried forward with their items and their history,
-**27 new**. At 45 items per new pool that is **about 1,215 new questions**, against 572 today.
+**40 skills across 13 grades and 3 strands** — 12 carried forward with their items and their history,
+**27 new** pool skills, and one more row, `spell-g1` (grade 1 spelling), added for slice 6's rune
+spellcraft (R-I7). It is played only as words built from rune tiles and has no multiple-choice pool, so
+it adds no questions to the count. At 45 items per new pool that is **about 1,215 new questions**,
+against 572 today.
 
 No existing skill id is renamed, reused or deleted, and no existing item is thrown away. Every carried
 pool keeps every question it has; it simply stops covering a band and starts covering one grade.
@@ -115,4 +119,5 @@ pool keeps every question it has; it simply stops covering a band and starts cov
   Splitting item by item would be better content, but it is a judgement call per question and a worse
   use of the effort than writing the eleven missing grades.
 - **Add a second skill per grade.** One pool per strand per grade, each with far more items than a
-  deed can ask, is enough variety; a second skill is a later decision if a grade feels thin.
+  deed can ask, is enough variety; a second skill is a later decision if a grade feels thin. (`spell-g1` is the one
+  exception: a rune-only row beside `lang-g1`, because `lang-g1` is not spelling.)

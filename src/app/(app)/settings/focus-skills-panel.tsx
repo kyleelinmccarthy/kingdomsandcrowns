@@ -14,6 +14,8 @@ const AREA_ORDER: SkillArea[] = ["math", "reading", "language", "science", "logi
 
 /** Beside a trail-only skill: it has no multiple choice, so with Reading trails off it is never drawn. */
 const FOCUS_TRAIL_ONLY_NOTE = "Played only as reading trails";
+/** Beside a rune-only skill: it has no multiple choice, so with Rune spellcraft off it is never drawn. */
+const FOCUS_RUNE_ONLY_NOTE = "Played only as rune spellcraft";
 
 function sameSet(a: readonly string[], b: readonly string[]) {
   return a.length === b.length && a.every((id) => b.includes(id));
@@ -109,7 +111,8 @@ export function FocusSkillsPanel({
           <ul className="space-y-1.5">
             {skills.map((skill) => {
               const on = picked.includes(skill.id);
-              const noteId = skill.trailOnly ? `focus-trail-${skill.id}` : undefined;
+              const note = skill.trailOnly ? FOCUS_TRAIL_ONLY_NOTE : skill.runeOnly ? FOCUS_RUNE_ONLY_NOTE : undefined;
+              const noteId = note ? `focus-${skill.trailOnly ? "trail" : "rune"}-${skill.id}` : undefined;
               return (
                 <li key={skill.id} className="flex flex-wrap items-center gap-x-2">
                   <label className="flex items-center gap-2 text-sm">
@@ -124,7 +127,7 @@ export function FocusSkillsPanel({
                   </label>
                   {noteId && (
                     <span id={noteId} className="text-xs text-muted-foreground">
-                      {FOCUS_TRAIL_ONLY_NOTE}
+                      {note}
                     </span>
                   )}
                 </li>

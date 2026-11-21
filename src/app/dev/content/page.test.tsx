@@ -79,6 +79,17 @@ describe("/dev/content", () => {
     expect(screen.queryAllByTestId("question")).toHaveLength(0);
   });
 
+  it("shows a rune skill as rune spellcraft with no sample yet, beside lang-g1, and no crash (R-I7)", async () => {
+    await show("1", "Language Arts");
+    expect(screen.getAllByTestId("skill").map((el) => el.getAttribute("data-skill"))).toEqual(["lang-g1", "spell-g1"]);
+    const section = screen.getAllByTestId("skill").find((el) => el.getAttribute("data-skill") === "spell-g1")!;
+    expect(within(section).getByTestId("rune-note")).toHaveTextContent(/no sample yet/i);
+    expect(within(section).getByText("rune spellcraft")).toBeInTheDocument();
+    expect(within(section).queryAllByTestId("question")).toHaveLength(0);
+    // lang-g1 is untouched: it keeps its pool note.
+    expect(within(screen.getAllByTestId("skill")[0]).getByTestId("pool-note")).toBeInTheDocument();
+  });
+
   it.each([["6", "read-g6"], ["9", "read-g9"]] as const)(
     "shows a trail skill with no sample yet while no pool credits it, and no crash (F-14, grade %s)",
     async (grade, skillId) => {

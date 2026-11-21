@@ -97,6 +97,8 @@ export const SKILL_HINTS: Readonly<Record<string, string>> = {
   // Language arts
   "lang-gk": "Say the word slowly and point to each letter. Think about the first sound, the last sound, and the letters in between.",
   "lang-g1": "Read the whole sentence out loud. Ask what job each word does, then check the capital letters and the end mark.",
+  // Played only as runes (R-I7): a word built from tiles, so nothing here talks about choices.
+  "spell-g1": "Say the word slowly and listen to each sound. Then find a letter for each sound, in order.",
   "lang-g3": "Say it in your head and listen for what sounds right. Then check the ending, the spelling or the verb time.",
   "spell-g23": "Sound the word out in small chunks. Then ask which spelling looks right to your eyes.",
   "spell-g45": "Break the word into parts. Look for the tricky part, then try each choice and check it.",

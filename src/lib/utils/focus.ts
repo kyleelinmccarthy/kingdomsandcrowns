@@ -25,14 +25,17 @@ export function focusWindow(grades: Partial<Record<SkillArea, Grade>>): Skill[] 
  * One skill a grown-up may pick, as plain data a server page can hand to the client panel.
  * `trailOnly`: the skill has no multiple choice and is played only as reading trails (`read-g6`,
  * `read-g9`), so with the Reading trails switch off a pick of it is never drawn; the panel says so
- * beside the box rather than hiding it (H3).
+ * beside the box rather than hiding it (H3). `runeOnly` is the same for a skill played only as rune
+ * spellcraft (`spell-g1`, R-I7): with that switch off a pick of it is never drawn.
  */
-export type FocusOption = { id: string; label: string; area: SkillArea; grade: Grade; trailOnly?: true };
+export type FocusOption = { id: string; label: string; area: SkillArea; grade: Grade; trailOnly?: true; runeOnly?: true };
 
 /** The window as panel options. A window skill is offered at exactly one grade, so it is that one. */
 export function focusOptions(window: readonly Skill[]): FocusOption[] {
   return window.map(({ id, label, area, grades, source }) => ({
-    id, label, area, grade: grades[0], ...(source.kind === "trail" ? { trailOnly: true as const } : {}),
+    id, label, area, grade: grades[0],
+    ...(source.kind === "trail" ? { trailOnly: true as const } : {}),
+    ...(source.kind === "rune" ? { runeOnly: true as const } : {}),
   }));
 }
 

@@ -48,7 +48,9 @@ export type SampledSkill =
   /** `clues`: a pool skill a trail pool also credits (`read-g1`, `read-g3`, `read-g4`) is walked as a trail where trails are on. */
   | { skill: Skill; kind: "pool"; poolId: string; clues: SampledTrailClue[] }
   | { skill: Skill; kind: "lock" }
-  | { skill: Skill; kind: "trail"; clues: SampledTrailClue[] };
+  | { skill: Skill; kind: "trail"; clues: SampledTrailClue[] }
+  /** A rune skill (R-I7): played as rune spellcraft, never as multiple choice. No sample yet; I4 draws its words on the server. */
+  | { skill: Skill; kind: "rune" };
 
 export function verdictFor(generatorId: string, question: Question): Verdict {
   const verify = VERIFIERS[generatorId];
@@ -104,6 +106,7 @@ export function sampleGrade(area: SkillArea, grade: Grade, trails: Readonly<Reco
     if (skill.source.kind === "pool") return { skill, kind: "pool", poolId: skill.source.poolId, clues };
     if (skill.source.kind === "lock") return { skill, kind: "lock" };
     if (skill.source.kind === "trail") return { skill, kind: "trail", clues };
+    if (skill.source.kind === "rune") return { skill, kind: "rune" };
     const generatorId = skill.source.generatorId;
     const levels = LEVELS.map((level) => ({ level, questions: drawLevel(skill.id, generatorId, level) }));
     const disagreements = levels.reduce(

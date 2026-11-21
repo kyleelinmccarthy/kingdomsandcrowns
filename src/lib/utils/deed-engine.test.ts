@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
+import { createHash } from "node:crypto";
 import { applyProfile, buildDeedRun, chooseSkills, drawForSkill, gradeAnswer, runCandidates, selectSkills, type BuildRunInput, type PoolItem } from "./deed-engine";
 import { DEEDS, SIDE_QUEST_QUESTIONS, TRAIL_CLUES, findDeed, type Deed } from "./deeds";
 import { REVIEW } from "./review-schedule";
@@ -24,6 +25,12 @@ const deedMath = findDeed("well-stones")!;      // math
 const deedReading = findDeed("well-signs")!;    // reading
 const deedLanguage = findDeed("mill-ledger")!;  // language
 const deedScience = findDeed("well-water")!;     // science
+/**
+ * Language as multiple choice, which is what a run that cannot play runes is (runes off, the gate). The
+ * language deeds flip to `rune` in I11, so the candidate cases about what a choice run can draw use this
+ * fixture and keep meaning the same thing after the flip.
+ */
+const choiceLanguage: Deed = { ...findDeed("mill-ledger")!, mechanic: "choice" };
 
 function poolItems(skillId: string, n: number, level = 2): PoolItem[] {
   return Array.from({ length: n }, (_, i) => ({
@@ -887,8 +894,10 @@ describe("a focus skill a grade off the hero's own", () => {
 
   it("adds nothing to chooseSkills when there is no focus, for every deed strand and grade", () => {
     // Reading is left out: its trail-only rows are filtered by `runCandidates` and not by `chooseSkills` (R-H8, below).
+    // Language is compared against `chooseSkills(d, g, choiceDrawable)`, because grade 1 now holds a rune-only row
+    // (`spell-g1`, R-I7) that a choice run cannot play and the unfiltered walk still lists.
     for (const deed of [deedMath, deedLanguage, deedScience]) {
-      for (const g of GRADES) expect(runCandidates(deed, g, [])).toEqual(chooseSkills(deed, g));
+      for (const g of GRADES) expect(runCandidates(deed, g, [])).toEqual(chooseSkills(deed, g, choiceDrawable));
     }
     for (const g of ["K", "1", "2", "3", "4", "5"] as const) expect(runCandidates(choiceReading, g, [])).toEqual(chooseSkills(choiceReading, g));
     expect(runCandidates(deedMath, "3", ["add-100", "read-g4", "nope", "add-100", "mul-facts"]).map((s) => s.id))
@@ -1368,14 +1377,70 @@ describe("a run draws only what it can play (R-H8)", () => {
   });
 
   it("changes nothing for math, science and language at any grade, with every kind on, none on, or no set at all", () => {
+    // Language is compared against the choice-drawable walk, for the reason in "adds nothing to chooseSkills" above (R-I7).
     for (const deed of [deedMath, deedLanguage, deedScience]) {
       for (const g of GRADES) {
-        const all = chooseSkills(deed, g).map((s) => s.id);
+        const all = chooseSkills(deed, g, choiceDrawable).map((s) => s.id);
         expect(ids(deed, g), `${deed.area} ${g} all on`).toEqual(all);
         expect(runCandidates(deed, g, [], CHOICE_ONLY).map((s) => s.id), `${deed.area} ${g} none on`).toEqual(all);
         expect(runCandidates(deed, g).map((s) => s.id), `${deed.area} ${g} no set`).toEqual(all);
       }
     }
+  });
+
+  /** What a language choice run drew before `spell-g1` joined the catalog, pinned literally (Review Focus 3). */
+  const LANGUAGE_BEFORE: Record<(typeof GRADES)[number], string[]> = {
+    K: ["lang-gk"], "1": ["lang-g1"], "2": ["spell-g23"], "3": ["lang-g3"], "4": ["spell-g45"], "5": ["vocab-g45"],
+    "6": ["vocab-g68"], "7": ["vocab-g68"], "8": ["vocab-g68"], "9": ["vocab-g912"], "10": ["vocab-g912"], "11": ["vocab-g912"], "12": ["vocab-g912"],
+  };
+
+  it("language stays multiple choice where runes cannot play: every grade K to 12 draws what it drew before, never an empty run", () => {
+    for (const g of GRADES) {
+      expect(ids(choiceLanguage, g), `grade ${g} all on`).toEqual(LANGUAGE_BEFORE[g]);
+      expect(ids(choiceLanguage, g, [], CHOICE_ONLY), `grade ${g} none on`).toEqual(LANGUAGE_BEFORE[g]);
+      expect(runCandidates(choiceLanguage, g).map((s) => s.id), `grade ${g} no set`).toEqual(LANGUAGE_BEFORE[g]);
+      expect(runCandidates(choiceLanguage, g, [], ALL_ON).length, `grade ${g} is empty`).toBeGreaterThan(0);
+    }
+    expect(ids(choiceLanguage, "1")).toEqual(["lang-g1"]);
+  });
+
+  it("never offers a rune skill to a choice run, even as a grown-up's focus pick", () => {
+    expect(ids(choiceLanguage, "1", ["spell-g1"])).toEqual(["lang-g1"]);
+    expect(ids(choiceLanguage, "2", ["spell-g1"])).toEqual(["spell-g23"]);
+    expect(ids(choiceLanguage, "1", ["spell-g1"], CHOICE_ONLY)).toEqual(["lang-g1"]);
+  });
+
+  it("draws nothing for a rune skill as multiple choice, and never throws", () => {
+    const rune = SKILLS.find((s) => s.id === "spell-g1")!;
+    expect(drawForSkill(rune, 0, 3, seededRng(1), [], new Set(), new Set())).toEqual([]);
+    expect(drawForSkill(rune, 4, 3, seededRng(2), poolItems("spell-g1", 10), new Set(), new Set())).toEqual([]);
+  });
+
+  describe("selectSkills takes a rune skill in the content pick", () => {
+    const lang = SKILLS.find((s) => s.id === "lang-g1")!;
+    const rune = SKILLS.find((s) => s.id === "spell-g1")!;
+
+    it("draws a rune skill alongside a pool skill, each at least once over seeds 1 to 40", () => {
+      const seen = new Set<string>();
+      for (let seed = 1; seed <= 40; seed++) for (const s of selectSkills([lang, rune], {}, seededRng(seed))) seen.add(s.id);
+      expect([...seen].sort()).toEqual(["lang-g1", "spell-g1"]);
+    });
+
+    it("draws one content skill, not one of each", () => {
+      for (let seed = 1; seed <= 40; seed++) expect(selectSkills([lang, rune], {}, seededRng(seed))).toHaveLength(1);
+    });
+
+    it("draws a lone rune skill, and a generator skill beside it", () => {
+      expect(selectSkills([rune], {}, seededRng(1)).map((s) => s.id)).toEqual(["spell-g1"]);
+      const add = SKILLS.find((s) => s.id === "add-10")!;
+      expect(selectSkills([add, rune], {}, seededRng(1)).map((s) => s.id)).toEqual(["add-10", "spell-g1"]);
+    });
+
+    it("weights it like any content skill: a grown-up's focus lifts it", () => {
+      const firsts = (focus: ReadonlySet<string>) =>
+        Array.from({ length: 200 }, (_, i) => selectSkills([lang, rune], {}, seededRng(i + 1), {}, focus)[0].id).filter((id) => id === "spell-g1").length;
+      expect(firsts(new Set(["spell-g1"]))).toBeGreaterThan(firsts(new Set()));
+    });
   });
 
   it("leaves a grade-6+ reading focus on a trail skill out of a choice run, and keeps one a choice run can draw", () => {
@@ -1792,5 +1857,32 @@ describe("reading side quests are clue trails (H7: R-H9, R-H10, R-H21, R-H22)", 
       expect(r.questions).toHaveLength(4);
       for (const q of r.questions) expect(CLUE_AT.get(q.id)!.level, `seed ${seed}`).toBeGreaterThanOrEqual(2);
     }
+  });
+});
+
+/**
+ * Review Focus 3 and the I3 brief: a run with no rune candidate is byte-identical to what it was before
+ * `spell-g1` joined the catalog. The digests below were taken at the commit before I3 (925f6a0), with the
+ * same inputs, so they pin the whole built run (skills, tasks, choice order) for every grade and seed.
+ * If one moves, a choice run changed: that needs a person's ruling, not a new digest.
+ */
+describe("a language choice run is byte-identical to before the rune row (I3)", () => {
+  const LANGUAGE_SKILLS = ["lang-gk", "lang-g1", "lang-g3", "spell-g23", "spell-g45", "vocab-g45", "vocab-g68", "vocab-g912"];
+  const items = LANGUAGE_SKILLS.flatMap((id) => [0, 1, 2, 3, 4].flatMap((level) => poolItems(`${id}`, 12, level).map((it) => ({ ...it, id: `${it.id}-L${level}`, level }))));
+  const digest = (over: Partial<BuildRunInput>): string => {
+    const runs = GRADES.flatMap((grade) =>
+      Array.from({ length: 6 }, (_, i) =>
+        buildDeedRun(input({ deed: choiceLanguage, grade, seed: 1000 + i * 37, poolItems: items, enabledKinds: ALL_ON, ...over })),
+      ),
+    );
+    return createHash("sha256").update(JSON.stringify(runs)).digest("hex").slice(0, 16);
+  };
+
+  it("holds for every grade and six seeds, with every kind on", () => {
+    expect(digest({})).toBe("2d959e9cc6b8f325");
+  });
+
+  it("holds with a rune focus pick, which a choice run drops", () => {
+    expect(digest({ focusSkillIds: ["spell-g1"] })).toBe(digest({}));
   });
 });

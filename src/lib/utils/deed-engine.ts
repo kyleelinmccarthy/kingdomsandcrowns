@@ -234,12 +234,13 @@ function weightedPick(pool: Skill[], weights: number[], rng: Rng): Skill | undef
  * fresh mastery everywhere still meets all of their grade's skills, and a hero with one hard
  * skill is not handed it every day.
  *
- * A content skill is one whose tasks come from authored content: a `pool` (multiple choice) or a
- * `trail` (clue trails, R-H8). They are drawn in ONE weighted pick, so a trail-only skill competes
- * with a pool skill on equal terms: a grade-5 reader's `read-g6` focus beside `read-g4`, or a grade-7
- * reader's `read-g4` focus beside `read-g6`, is drawn as often as its weight says. (Drawn apart, the
- * trail skill was never picked whenever a pool skill was on offer.) `runCandidates` offers a trail
- * skill only when trails can play, so a choice run never meets one here.
+ * A content skill is one whose tasks come from authored content: a `pool` (multiple choice), a
+ * `trail` (clue trails, R-H8) or a `rune` (rune spellcraft, R-I7). They are drawn in ONE weighted pick,
+ * so a trail-only or rune-only skill competes with a pool skill on equal terms: a grade-5 reader's
+ * `read-g6` focus beside `read-g4`, or a grade-7 reader's `read-g4` focus beside `read-g6`, is drawn as
+ * often as its weight says. (Drawn apart, the trail skill was never picked whenever a pool skill was
+ * on offer.) `runCandidates` offers a trail or rune skill only when its kind can play, so a choice run
+ * never meets one here.
  *
  * A `lock` skill is practised on lock puzzles only and is never drawn as choice, so it is never
  * picked here: a run whose candidates are all locks has nothing to draw and is empty.
@@ -254,7 +255,7 @@ export function selectSkills(
   const draw = (pool: Skill[]): Skill | undefined =>
     weightedPick(pool, weightsFor(pool, masteryBySkill, lastPracticedBySkill, focusIds), rng);
   const generator = draw(candidates.filter((s) => s.source.kind === "generator"));
-  const content = draw(candidates.filter((s) => s.source.kind === "pool" || s.source.kind === "trail"));
+  const content = draw(candidates.filter((s) => s.source.kind === "pool" || s.source.kind === "trail" || s.source.kind === "rune"));
   return [generator, content].filter((s): s is Skill => !!s);
 }
 
