@@ -193,7 +193,7 @@ describe("inside", () => {
 describe("a room's chest", () => {
   const raised = { ...realm, kingdom: { ...realm.kingdom, buildings: realm.kingdom.buildings.map((b) => (b.id === "library" ? { ...b, done: 5, complete: true } : b)) } };
   const library = { kind: "site" as const, id: "library", label: "the Library", verb: "Go into" };
-  const view: WorldStateView = { locksOn: true, open: ["chest:library"], decor: [], tower: [] };
+  const view: WorldStateView = { locksOn: true, runesOn: false, open: ["chest:library"], fixed: [], decor: [], tower: [] };
 
   it("the library's chest is handed to its room, open as the hero left it", () => {
     const { bus } = mount({ realm: { ...raised, worldState: view } });

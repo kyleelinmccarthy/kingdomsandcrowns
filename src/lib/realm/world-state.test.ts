@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { addDays, todayInZone } from "@/lib/utils/dates";
-import { applyTowerOutcome, applyWorldOutcome, EMPTY_WORLD_STATE, lockedNow, nextRewards, roomChestFor, solvedCount, worldCanvas, worldStateView, type WorldRow, type WorldStateView } from "./world-state";
-import { worldObjectById } from "./world-objects";
+import { applyRuneOutcomes, applyTowerOutcome, applyWorldOutcome, brokenNow, EMPTY_WORLD_STATE, heldNow, lockedNow, nextRewards, roomChestFor, solvedCount, worldCanvas, worldStateView, type WorldRow, type WorldStateView } from "./world-state";
+import { worldObjectById, WORLD_OBJECTS } from "./world-objects";
+import { RUNE_OBJECTS } from "./rune-objects";
 
 const row = (objectId: string, state: string, updatedAt: Date): WorldRow => ({ objectId, state, updatedAt });
 
@@ -85,7 +86,9 @@ describe("worldStateView", () => {
   it("lists what stands open now, the decorations found and each floor's solved count", () => {
     expect(worldStateView(rows, floors, clock, true)).toEqual({
       locksOn: true,
+      runesOn: false,
       open: ["chest:west-lane"],
+      fixed: [],
       decor: ["sundial"],
       tower: [
         { band: "k1", open: true, solved: 0 },
@@ -113,14 +116,16 @@ describe("worldStateView", () => {
 
 describe("EMPTY_WORLD_STATE", () => {
   it("draws nothing", () => {
-    expect(EMPTY_WORLD_STATE).toEqual({ locksOn: false, open: [], decor: [], tower: [] });
+    expect(EMPTY_WORLD_STATE).toEqual({ locksOn: false, runesOn: false, open: [], fixed: [], decor: [], tower: [] });
   });
 });
 
 describe("the canvas the world draws its locks from", () => {
   const view: WorldStateView = {
     locksOn: true,
+    runesOn: false,
     open: ["chest:east-lane", "chest:library", "door:longwater"],
+    fixed: [],
     decor: ["stone-bench", "sundial"],
     tower: [{ band: "k1", open: true, solved: 2 }, { band: "g23", open: true, solved: 0 }, { band: "g45", open: false, solved: 0 }],
   };
@@ -143,16 +148,16 @@ describe("the canvas the world draws its locks from", () => {
   });
 
   it("draws no lock at all with the locks switched off, and keeps what was found and the Tower's storeys (R-G7)", () => {
-    expect(worldCanvas({ ...view, locksOn: false })).toEqual({ locksOn: false, locks: [], decor: ["stone-bench", "sundial"], storeys: 2, towerKnown: true });
+    expect(worldCanvas({ ...view, locksOn: false })).toEqual({ locksOn: false, locks: [], runes: [], decor: ["stone-bench", "sundial"], storeys: 2, towerKnown: true });
   });
 
   it("is nothing for the empty state", () => {
-    expect(worldCanvas(EMPTY_WORLD_STATE)).toEqual({ locksOn: false, locks: [], decor: [], storeys: 0, towerKnown: false });
+    expect(worldCanvas(EMPTY_WORLD_STATE)).toEqual({ locksOn: false, locks: [], runes: [], decor: [], storeys: 0, towerKnown: false });
   });
 });
 
 describe("a room's chest", () => {
-  const view: WorldStateView = { locksOn: true, open: ["chest:library"], decor: [], tower: [] };
+  const view: WorldStateView = { locksOn: true, runesOn: false, open: ["chest:library"], fixed: [], decor: [], tower: [] };
 
   it("is the library's in the library, open as the view says, in the room's own frame", () => {
     const lib = worldObjectById("chest:library")!;
@@ -171,7 +176,7 @@ describe("a room's chest", () => {
 });
 
 describe("applyWorldOutcome: the client's mirror of an opening", () => {
-  const view: WorldStateView = { locksOn: true, open: ["door:longwater"], decor: ["sundial"], tower: [] };
+  const view: WorldStateView = { locksOn: true, runesOn: false, open: ["door:longwater"], fixed: [], decor: ["sundial"], tower: [] };
 
   it("returns the same view for a miss, and for a lock the view already shows open", () => {
     expect(applyWorldOutcome(view, { objectId: "chest:west-lane", opened: false, reason: "missed", rewards: [] })).toBe(view);
@@ -180,7 +185,7 @@ describe("applyWorldOutcome: the client's mirror of an opening", () => {
 
   it("shows a lock open when the server says it was already open (another run opened it), adding nothing it gave", () => {
     const next = applyWorldOutcome(view, { objectId: "chest:west-lane", opened: false, reason: "already-open", rewards: [] });
-    expect(next).toEqual({ locksOn: true, open: ["chest:west-lane", "door:longwater"], decor: ["sundial"], tower: [] });
+    expect(next).toEqual({ locksOn: true, runesOn: false, open: ["chest:west-lane", "door:longwater"], fixed: [], decor: ["sundial"], tower: [] });
     expect(view.open).toEqual(["door:longwater"]);
     expect(applyWorldOutcome(view, { objectId: "chest:nowhere", opened: false, reason: "already-open", rewards: [] })).toBe(view);
   });
@@ -195,7 +200,7 @@ describe("applyWorldOutcome: the client's mirror of an opening", () => {
 
   it("opens the object and places a decoration it gave, in catalog order", () => {
     const next = applyWorldOutcome(view, { objectId: "chest:west-lane", opened: true, rewards: [{ kind: "decor", id: "stone-bench" }] });
-    expect(next).toEqual({ locksOn: true, open: ["chest:west-lane", "door:longwater"], decor: ["stone-bench", "sundial"], tower: [] });
+    expect(next).toEqual({ locksOn: true, runesOn: false, open: ["chest:west-lane", "door:longwater"], fixed: [], decor: ["stone-bench", "sundial"], tower: [] });
     expect(view.open).toEqual(["door:longwater"]);
   });
 
@@ -222,7 +227,7 @@ describe("solvedCount: the one reading of a floor's record (final f5)", () => {
 
 describe("applyTowerOutcome: the client's mirror of a floor's solved count", () => {
   const view: WorldStateView = {
-    locksOn: true, open: [], decor: [],
+    locksOn: true, runesOn: false, open: [], fixed: [], decor: [],
     tower: [{ band: "k1", open: true, solved: 2 }, { band: "g23", open: true, solved: 0 }, { band: "g45", open: false, solved: 0 }],
   };
 
@@ -251,5 +256,165 @@ describe("applyTowerOutcome: the client's mirror of a floor's solved count", () 
 
   it("never opens a floor: the count of a waiting floor is set, its lock stays shut", () => {
     expect(applyTowerOutcome(view, { band: "g45", solved: 1, solvedNow: true }).tower[2]).toEqual({ band: "g45", open: false, solved: 1 });
+  });
+});
+
+describe("heldNow is the one rule (R-I3)", () => {
+  const open = (iso: string) => ({ state: "open", updatedAt: new Date(iso) });
+
+  it("holds what the row's state says, for as long as the object's reset allows", () => {
+    expect(heldNow({}, null, "open", "2026-11-09", "UTC")).toBe(false);
+    expect(heldNow({}, { state: "shut", updatedAt: new Date("2026-01-01T12:00:00Z") }, "open", "2026-11-09", "UTC")).toBe(false);
+    expect(heldNow({}, open("2026-01-01T12:00:00Z"), "open", "2027-06-01", "UTC")).toBe(true);
+    expect(heldNow({ resetAfterDays: 7 }, open("2026-11-03T06:30:00Z"), "open", "2026-11-09", "UTC")).toBe(true);
+    expect(heldNow({ resetAfterDays: 7 }, open("2026-11-03T06:30:00Z"), "open", "2026-11-10", "UTC")).toBe(false);
+  });
+
+  it("reads the state it is asked about: a fixed row does not hold an open lock, nor the reverse", () => {
+    const fixed = { state: "fixed", updatedAt: new Date("2026-11-09T12:00:00Z") };
+    expect(heldNow({ resetAfterDays: 4 }, fixed, "fixed", "2026-11-09", "UTC")).toBe(true);
+    expect(heldNow({ resetAfterDays: 4 }, fixed, "open", "2026-11-09", "UTC")).toBe(false);
+    expect(heldNow({ resetAfterDays: 4 }, open("2026-11-09T12:00:00Z"), "fixed", "2026-11-09", "UTC")).toBe(false);
+  });
+
+  it("makes lockedNow its negation for open, on every chest and door, row or none, day by day", () => {
+    const rows = [null, open("2026-11-03T06:30:00Z"), { state: "shut", updatedAt: new Date("2026-11-03T06:30:00Z") }, open("2026-11-12T12:00:00Z")];
+    for (const o of WORLD_OBJECTS) {
+      for (const r of rows) {
+        for (const today of ["2026-11-03", "2026-11-09", "2026-11-10", "2027-03-01"]) {
+          expect(lockedNow(o, r, today, "America/Denver"), `${o.id} ${today}`).toBe(!heldNow(o, r, "open", today, "America/Denver"));
+        }
+      }
+    }
+  });
+});
+
+describe("brokenNow: a rune object's cycle (R-I3)", () => {
+  const rune = { resetAfterDays: 4 };
+  const fixedAt = (iso: string) => ({ state: "fixed", updatedAt: new Date(iso) });
+
+  it("is broken with no row, and for a row that is not fixed", () => {
+    expect(brokenNow(rune, null, "2026-11-09", "UTC")).toBe(true);
+    expect(brokenNow(rune, { state: "open", updatedAt: new Date("2026-11-09T12:00:00Z") }, "2026-11-09", "UTC")).toBe(true);
+  });
+
+  it("holds fixed on the day of the fix and through day 3, and breaks on day 4", () => {
+    const row = fixedAt("2026-11-09T12:00:00Z");
+    expect(brokenNow(rune, row, "2026-11-09", "UTC")).toBe(false);
+    expect(brokenNow(rune, row, "2026-11-12", "UTC")).toBe(false);
+    expect(brokenNow(rune, row, "2026-11-13", "UTC")).toBe(true);
+  });
+
+  it("agrees with the calendar in the family's zone, whatever the hour of the fix", () => {
+    for (const at of ["2026-03-07T00:00:00Z", "2026-03-07T18:59:59Z", "2026-03-08T09:59:59Z", "2026-11-01T05:59:59Z"]) {
+      const row = fixedAt(at);
+      const day = todayInZone("America/Denver", row.updatedAt);
+      expect(brokenNow(rune, row, day, "America/Denver"), at).toBe(false);
+      expect(brokenNow(rune, row, addDays(day, 3), "America/Denver"), at).toBe(false);
+      expect(brokenNow(rune, row, addDays(day, 4), "America/Denver"), at).toBe(true);
+    }
+  });
+
+  it("reads a row written in the future (clock skew) as fixed", () => {
+    expect(brokenNow(rune, fixedAt("2026-11-12T12:00:00Z"), "2026-11-09", "UTC")).toBe(false);
+  });
+});
+
+describe("the view's rune objects", () => {
+  const now = new Date("2026-11-09T18:00:00Z");
+  const clock = { today: todayInZone("UTC", now), zone: "UTC" };
+  const ago = (days: number) => new Date(now.getTime() - days * 86_400_000);
+
+  it("lists the fixed ones in catalog order, whatever order the rows come in, and carries the switch", () => {
+    const rows: WorldRow[] = [
+      row("rune:lane-vine", "fixed", now),
+      row("rune:west-wagon", "fixed", ago(2)),
+      row("rune:east-barrow", "fixed", ago(5)),
+      row("rune:nope", "fixed", now),
+      row("rune:flower-bed", "open", now),
+    ];
+    const v = worldStateView(rows, [], clock, true, true);
+    expect(v.fixed).toEqual(["rune:west-wagon", "rune:lane-vine"]);
+    expect(v.runesOn).toBe(true);
+  });
+
+  it("carries runesOn false when the fifth argument is absent, and still lists what is fixed (the records stay, R-I13)", () => {
+    const v = worldStateView([row("rune:west-wagon", "fixed", now)], [], clock, true);
+    expect(v.runesOn).toBe(false);
+    expect(v.fixed).toEqual(["rune:west-wagon"]);
+  });
+
+  it("keeps the two lists apart: a rune row is never open, a chest row never fixed", () => {
+    const v = worldStateView([row("rune:west-wagon", "fixed", now), row("chest:west-lane", "open", now)], [], clock, true, true);
+    expect(v.open).toEqual(["chest:west-lane"]);
+    expect(v.fixed).toEqual(["rune:west-wagon"]);
+  });
+});
+
+describe("the canvas's rune objects", () => {
+  const view: WorldStateView = {
+    locksOn: true,
+    runesOn: true,
+    open: ["chest:east-lane"],
+    fixed: ["rune:west-wagon", "rune:ringstones-oak"],
+    decor: ["sundial"],
+    tower: [{ band: "k1", open: true, solved: 1 }],
+  };
+
+  it("draws all fifteen with runes on, each fixed as the view says, labelled for its state (RI-a / N8)", () => {
+    const c = worldCanvas(view);
+    expect(c.runes.map((r) => r.id)).toEqual(RUNE_OBJECTS.map((o) => o.id));
+    expect(c.runes.filter((r) => r.fixed).map((r) => r.id)).toEqual(["rune:west-wagon", "rune:ringstones-oak"]);
+    const wagon = RUNE_OBJECTS[0];
+    expect(c.runes[0]).toEqual({ id: wagon.id, effect: "mend", label: "the wagon", x: wagon.x, z: wagon.z, ry: wagon.ry, fixed: true });
+    expect(c.runes[1]).toMatchObject({ id: "rune:east-barrow", label: "the broken barrow", fixed: false });
+  });
+
+  it("draws none with runes off, and keeps the locks, decorations, storeys and Tower as they were", () => {
+    const off = worldCanvas({ ...view, runesOn: false });
+    expect(off.runes).toEqual([]);
+    expect({ ...off, runes: worldCanvas(view).runes }).toEqual(worldCanvas(view));
+    expect(off).toMatchObject({ locksOn: true, decor: ["sundial"], storeys: 1, towerKnown: true });
+    expect(off.locks.filter((l) => l.open).map((l) => l.id)).toEqual(["chest:east-lane"]);
+  });
+
+  it("keeps the two switches apart: runes on with the locks off draws every rune object and no lock", () => {
+    const c = worldCanvas({ ...view, locksOn: false });
+    expect(c.locks).toEqual([]);
+    expect(c.runes).toHaveLength(15);
+  });
+});
+
+describe("applyRuneOutcomes: the client's mirror of a fix", () => {
+  const view: WorldStateView = { locksOn: true, runesOn: true, open: [], fixed: ["rune:lane-vine"], decor: [], tower: [] };
+
+  it("gives back the same view for a miss, an unknown id and an object the view already shows fixed", () => {
+    expect(applyRuneOutcomes(view, [{ objectId: "rune:west-wagon", fixed: false, reason: "missed" }])).toBe(view);
+    expect(applyRuneOutcomes(view, [{ objectId: "rune:nope", fixed: true }])).toBe(view);
+    expect(applyRuneOutcomes(view, [{ objectId: "rune:lane-vine", fixed: true }])).toBe(view);
+    expect(applyRuneOutcomes(view, [{ objectId: "rune:lane-vine", fixed: false, reason: "already-fixed" }])).toBe(view);
+    expect(applyRuneOutcomes(view, [])).toBe(view);
+  });
+
+  it("adds a fixed object in catalog order, without touching the old view", () => {
+    const next = applyRuneOutcomes(view, [{ objectId: "rune:west-wagon", fixed: true }]);
+    expect(next).not.toBe(view);
+    expect(next.fixed).toEqual(["rune:west-wagon", "rune:lane-vine"]);
+    expect(view.fixed).toEqual(["rune:lane-vine"]);
+    expect(next.open).toBe(view.open);
+    expect(next.decor).toBe(view.decor);
+  });
+
+  it("shows an object another run already fixed as fixed too", () => {
+    expect(applyRuneOutcomes(view, [{ objectId: "rune:east-barrow", fixed: false, reason: "already-fixed" }]).fixed).toEqual(["rune:east-barrow", "rune:lane-vine"]);
+  });
+
+  it("folds several outcomes in one pass", () => {
+    const next = applyRuneOutcomes(view, [
+      { objectId: "rune:farfurrow-gate", fixed: true },
+      { objectId: "rune:old-tree", fixed: false, reason: "missed" },
+      { objectId: "rune:lane-lantern", fixed: true },
+    ]);
+    expect(next.fixed).toEqual(["rune:lane-lantern", "rune:lane-vine", "rune:farfurrow-gate"]);
   });
 });

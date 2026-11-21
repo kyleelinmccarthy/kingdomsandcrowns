@@ -1098,7 +1098,9 @@ export const realmPlaceFound = sqliteTable(
  * The world's state, one row per hero and thing in it (`lib/realm/world-state.ts`). `object_id` is
  * namespaced: `chest:<id>` and `door:<place>` (state "open", relocked by the clock for a chest),
  * `decor:<id>` ("placed") and `lore:<id>` ("found") for what a lock gave, which stays whatever the
- * chest does next, and `tower:<band>` (the solved count, as text). Written only by the hero.
+ * chest does next, `tower:<band>` (the solved count, as text) and `rune:<name>` ("fixed": a rune
+ * object, broken again a few local days after `updated_at`, `lib/realm/rune-objects.ts`). Written
+ * only by the hero.
  */
 export const realmWorldState = sqliteTable(
   "realm_world_state",

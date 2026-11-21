@@ -90,6 +90,13 @@ export type WorldOutcome = { objectId: string; opened: boolean; reason?: "missed
  */
 export type TowerOutcome = { band: ContentBand; solved: number; solvedNow: boolean };
 
+/**
+ * What finishing a rune run did to one object (R-I21, R-I22): `fixed` when this finish fixed it (a
+ * right cast, or a renewal of one already fixed). Not fixed, `reason` says why: "missed" (the word
+ * did not hold; the object stays broken) or "already-fixed" (another run fixed it first).
+ */
+export type RuneOutcome = { objectId: string; fixed: boolean; reason?: "missed" | "already-fixed" };
+
 export type RunSummary = {
   correctCount: number; total: number; flawless: boolean; masteryChanges: string[];
   stars: Stars; previousBest: Stars;
@@ -128,4 +135,6 @@ export type RunSummary = {
   world?: WorldOutcome;
   /** Only on a Tower floor's run: what finishing it did. */
   tower?: TowerOutcome;
+  /** Only on a rune run (a rune object's world run, or a side quest or challenge that drew runes): what finishing it did to each object it named. */
+  runes?: RuneOutcome[];
 };

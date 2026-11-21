@@ -225,7 +225,7 @@ describe("no spot in the village holds a stake, and no stake holds a spot (F-4, 
   }));
   const placements = improvementPlacements(Object.fromEntries(IMPROVEMENT_IDS.map((id) => [id, 3])), () => 0);
   const plaques = placements.map((p) => ({ id: p.id, label: IMPROVEMENTS[p.id].label, ...p.plaque }));
-  const locks = worldCanvas({ locksOn: true, open: [], decor: [], tower: [] }).locks;
+  const locks = worldCanvas({ locksOn: true, runesOn: false, open: [], fixed: [], decor: [], tower: [] }).locks;
 
   const held: string[] = [];
   const kinds = new Set<string>();

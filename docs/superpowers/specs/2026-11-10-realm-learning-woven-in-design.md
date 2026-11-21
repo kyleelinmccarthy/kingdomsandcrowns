@@ -233,6 +233,51 @@ The controller's rulings (pre-flight scan, adopted as RH-a for F-1 to F-23):
 - **F-23:** the validator tests a `redirects[...]` value that names the answer.
 - **RH-b (H1 review):** the castle gate's stake stands at (1.5, -9.25), inside the ceremony plaza's x range, on purpose: the gate's reach, the citadel collider and the 3.5 cap leave only that strip. A test keeps it at least 1.0 from every crown-ceremony mark. The towers (`landmark:watchtower`, `landmark:puzzle-tower`) join `CONFUSABLE_ANCHORS` on the shared word "tower".
 
+### Calls settled for slice 6 (2026-11-21)
+
+The owner's answers:
+- **Rune objects can be fixed any time, like chests.** Outside a side quest, fixing one is a `world` run that pays nothing and moves mastery. Language side quests also send the hero to 2–3 rune objects.
+- **Objects cycle.** A fixed object stays fixed for that child until it breaks again, through `resetAfterDays` in `realm_world_state`. The launch catalog has at least 12 rune objects across the village and the named places (15).
+- **With runes off, rune objects are not drawn,** as with locks. Fixed records stay (R-I13).
+- **Focus wins for runes too:** a language side quest that would draw a grown-up's focus skill no rune pool can play (today `lang-g1`) plays as multiple choice at full length (R-I8, mirroring R-H22).
+- **Slice 6 merges into `dev` only on the owner's word** (R-I16).
+- **Grades 2–3 build the word they hear:** the word is always spoken (dictation), with the object's picture, as at K–1 (R-I18).
+
+The rulings:
+- **R-I1:** rune objects can be fixed any time: a `world` run of one rune task, started by `startRuneObjectRun(childId, objectId)` on the shared lock start skeleton; the hero's alone; refused with runes off (`RUNES_OFF`) and while the object holds (`RUNE_FIXED`); the fix and the run's close are one `withChildLock` transaction. A miss leaves it broken.
+- **R-I2:** a language side quest with runes on is a walking run: the board names the objects, "Set off" hands the run to the rune walk's tracker, E at the current object opens the rune stone. Each task is bound to its object at the run's start (R-I22); the object is part of the question, never the answer.
+- **R-I3:** rows are `rune:<name>` with state `"fixed"`; one cycling rule serves both, `heldNow(object, row, held, today, zone)`; `lockedNow` is `!heldNow(…, "open", …)` with unchanged output and `brokenNow` is `!heldNow(…, "fixed", …)`. Every rune object has `resetAfterDays: RUNE_RESET_DAYS = 4`.
+- **R-I4:** a sibling catalog, `RUNE_OBJECTS` (`src/lib/realm/rune-objects.ts`), not a widened `WORLD_OBJECTS`, whose type is lock-only and which seven readers treat as "the locks". Shared: the table, the id namespace, `heldNow`, the start skeleton and the locked finish.
+- **R-I5:** the `rune` kind: the response is the tile indices placed (`"r:3,0,5"`); any accepted word counts however it is tiled; the view is `{ effect, object, tiles, listen }`; second chances are on; the task id is opaque.
+- **R-I6:** rune pools are validated JSON (`src/content/runes/rune-<band>.json`), effect × band → accepted words, tiles and prompts, for five effects (`mend`, `light`, `water`, `open`, `grow`); every accepted word can be built from its entry's tiles.
+- **R-I7:** `SkillSource` gains `{ kind: "rune" }`; `spell-g1` is a new rune-only row (the ELA map has 40 rows); at grade 1 the walking rules present `spell-g1`; the spelling and vocabulary drill pools stay as choice review.
+- **R-I8:** focus wins, and inside a rune deed a vocabulary focus a rune pool presents is a rune, never a sort.
+- **R-I9:** a rune side quest asks `clamp(round(L × 3 / 8), 2, 3)` tasks; language deeds take `questionCount: 3` and `stops: RUNE_STOPS = { min: 2, max: 3 }`; choice keeps the whole length; the Crown Challenge stays at 3.
+- **R-I10:** 15 rune objects: ten in the village (two per effect) and one at each named place; never solid, always drawn while runes are on, in every palette; held by slice 4's clearance and reach tests and slice 5's stake rule; no village label holds a trail anchor's name, and no label holds an accepted word.
+- **R-I11:** in the Realm the walk uses the rune walk's tracker and a right cast plays the effect at once; off-world the picture run shows the object's picture with the rune stone beside it; the gate stays multiple choice.
+- **R-I12:** the rune stone is DOM with no dragging: tap to place, tap to take back, Clear, Cast; keyboard-complete; the built row is an `aria-live` region; one read-aloud control replaces the host's generic button; it fits 390 px; a K–3 hero sees one "Watch Pip" demo first.
+- **R-I13:** the switch "Rune spellcraft" (`mechanics.rune`) defaults on; off, language is multiple choice, rune objects are not drawn or offered, fixed records stay; a run started before the switch went off can still be finished on the board's stone.
+- **R-I14:** the language deeds (`mill-ledger`, `bridge-toll`, `market-crier`, `library-scribe`) become `mechanic: "rune"`; recorded snapshots that change get choice-pinned twins; a stored language choice run still resumes.
+- **R-I15:** copy never names a grade or band, and never says "behind" or "ahead".
+- **R-I16:** slice 6 merges into `dev` only on the owner's word.
+- **R-I17:** the leak rule: the view carries no shape of the word (no slot count, length, first tile or decoy marking); the tile order is no tell (a capped seeded shuffle, with a validated fallback); the decoy count is no tell; decoys are plausible; no accepted word, nor inflection of one, appears in a prompt, a hint, a g45-and-up `readAloud`, an object's label or any rune copy shown before resolution; the id, entry and hint stay on the server. **The one exception is dictation (R-I18):** at k1 and g23 the word is the spoken prompt, so it reaches the browser inside `readAloud`, spoken and printed only when speech is unavailable. This is the spelling pools' existing contract, and the one exception to §5's "solutions never leave the server before a task is resolved" (RI-a / N16).
+- **R-I18:** k1 and g23 are dictation (the object's picture, a shown line that never holds the word, a spoken `readAloud`; the view marks it `listen: true`); g45 and up build from a shown meaning or definition; a `listen` task is always spoken; nothing is spoken at Set off; without speech the word is shown.
+- **R-I19:** no repeats for a week: the drawer passes over entries met in the hero's last `RUNE_MEMORY_RUNS = 21` rune runs; pools hold at least 16 entries per effect and 3 per effect per level.
+- **R-I20:** no migration and no per-load query: rune state is rows of `realm_world_state`, read by the bundle's existing `loadWorldRaw`.
+- **R-I21:** the effect plays at once; the record lands at the finish: a right cast marks its object mended on the walk, and the rows are written in the locked finish.
+- **R-I22:** a side quest's tasks are bound to unused village objects of their effect, broken ones first, with the run's seeded `Rng`; a task with no object left is dropped; every right cast in a `deed` or `challenge` run fixes its object only when the hero finishes the run; a `review` run never holds a rune.
+
+The controller's rulings (pre-flight scan, adopted as RI-a for B1–B4, S1–S18 and S20, N1–N18):
+- **B1–B4:** the walk's stone stays open after a right cast; `hidden` hides the tracker's card only; `WALKING_KINDS` gains `"rune"` in I8; at k1 and g23 the blind sheet shows `Heard:`.
+- **S1–S3:** the walk reports its stop through `onAt`; a stop is done only when mended on this walk; E cannot act during a cast.
+- **S4–S7:** one read-aloud control, the stone's; nothing spoken at Set off; without speech a dictation shows its word; a run started before runes went off is offered no walk.
+- **S8–S9:** deed and challenge fixes apply only when the hero finishes; binding happens before the size checks.
+- **S10–S13:** I2's registry test runs under `__setRunePoolsForTest([])`; the dev content page draws its rune samples on the server; one matcher, `containsWord`; one Set off card.
+- **S14:** shared shells, `WalkCard` and `ObjectRunBoard`, with slice 4b's and slice 5's tests kept green unchanged.
+- **S15–S18:** inflections count as the word; the shuffle is capped and the validator proves every entry can be arranged; the leak test runs at grades K, 3, 5, 7 and 10; 16 entries per effect and 3 per level.
+- **S20:** the rune board asks the server even at an object drawn fixed.
+- **N1–N18:** the pinning and naming fixes: `runeTarget` cases pin the union; `spelled` compares ruled-out words; a stored rune task whose object left the catalog fixes nothing; `runeStops` keeps catalog objects; a fixed object reads by its `fixedLabel`; copy homes named; the walk routing lives in `use-walks.ts`; the dictation exception is recorded here; the count-tell share is `LENGTH_TELL_MAX_SHARE`; the built row is a live region.
+
 ---
 
 ## 3. Goals, non-goals, anti-goals
@@ -430,17 +475,17 @@ interface TaskKindDef<K extends TaskKind> {
 
 ### 4.7 Rune spellcraft (slice 6)
 
-- **Rune objects in the world** each want an effect: a broken cart (mend), a dark lamp (light), a dry bed (water), a stuck gate (open), a wilted tree (grow).
+- **Rune objects in the world** (a sibling catalog, `RUNE_OBJECTS`, R-I4) each want an effect: a broken cart (mend), a dark lamp (light), a dry bed (water), a stuck gate (open), a wilted tree (grow).
 - **The child builds the word from rune tiles at the rune stone,** then casts it at the object. A correct word *is* the effect (cart mended, lamp lit). Each fixed object stays fixed and is recorded per child.
 - **Grade scaling** (catalog `RUNE_WORDS`: effect × band → accepted words, tile sets, definitions):
   - K–1: letter tiles, picture plus spoken prompt (fix, lit, dig).
-  - Grades 2–3: phonogram tiles (m-e-n-d, l-igh-t).
-  - Grades 4–5: spelling-pool words (repair, water).
+  - Grades 2–3: phonogram tiles (m-e-n-d, l-igh-t); the child hears the word, always spoken, with the object's picture (owner, 2026-11-21).
+  - Grades 4–5: spelling-pool words (repair, water), built from a short meaning (R-I18).
   - Grades 6–8: morphemes, i.e. prefix + root + suffix from a definition (re-store, il-lumin-ate).
   - Grades 9–12: Greek and Latin roots from a definition (re-habilit-ate, ir-rig-ate).
   - Tiles include distractors. Content is validated JSON (`src/content/runes/*.json`) with the pool validator.
 - `rune` is a task kind. Language deeds become rune deeds (`Deed.mechanic = "rune"`). Spelling and vocabulary pools stay as `choice` review.
-- **In the world it is a walking run:** the villager names two or three rune objects nearby, and interacting with each one opens the rune stone surface for its word. Off-world, the object is shown as a picture (§4.10).
+- **In the world it is a walking run:** the villager names two or three rune objects nearby, and interacting with each one opens the rune stone surface for its word. Side quests name village objects; the named places' objects are fixed any time (R-I10). Off-world, the object is shown as a picture (§4.10).
 - **Objects cycle:** a fixed object breaks again after a few days (`resetAfterDays` in the catalog, recorded in `realm_world_state`) and then wants a fresh word, so a rune deed always has something to mend. The launch catalog has at least 12 rune objects across the village and the named places.
 - **Skill ids:** rune words credit existing language ids by band (`lang-gk`, `spell-g23`, `lang-g3`, `spell-g45`, `vocab-g45`, `vocab-g68`, `vocab-g912`) plus one new row, `spell-g1`, because `lang-g1` ("Sentences and word kinds") is not spelling.
 - This is separate from the parts-based spellbook (element / form / modifier), which is unchanged.
@@ -504,7 +549,7 @@ Minutes are still earned only by side quests (as today), real quests, the daily 
   - Children act only for themselves.
   - Minting happens only inside `completeAssignment`.
   - Improvement builds, world-object state and focus skills each have one narrow action. Focus skills are grown-up only. Builds and world state are child-only (`isChildActor`), as with Realm runs today.
-- **Solutions never leave the server** before a task is resolved, as with `Question.answer` today. `explain` is released after resolution.
+- **Solutions never leave the server** before a task is resolved, as with `Question.answer` today. `explain` is released after resolution. One exception: a dictation rune task (k1 and g23) sends its word inside `readAloud`, as the spelling pools do (§2a, R-I17).
 - **Every response passes the kind's `parseResponse`** (shape, size and range) before `check`. Typed answers are capped in length, and drawings are validated as in §4.4.
 - **Ledger writes that read-then-write** (spending materials, build completion) run in `withChildLock`. Unique indexes stand behind once-per-assignment minting, once-per-level builds and once-per-object state.
 - **The server's day** (`realmNow`) dates everything, as in the earning-time round.
@@ -535,7 +580,7 @@ Minutes are still earned only by side quests (as today), real quests, the daily 
 | 3 | **Real work in the world** | Materials (catalog, subject mapping, ledger, minting), quest-card and Tavern pull, improvements and build runs, plaques, stockpile, delivery card, Chronicle hall with drawings and seals, villager mentions, minutes quieter. | 1, 2 |
 | 4 | **Logic locks** | `lock` kind (pattern, grid, cage, sort), `logic` skills, sort pools, locks on chests/doors/gates, `realm_world_state`, science deeds → lock, Puzzle Tower. | 1 |
 | 5 | **Reading clue trails** | `trail` kind, world anchors, trail pools per band, narration, reading deeds → trail. | 1, 4 |
-| 6 | **Rune spellcraft** | `rune` kind, rune stone presenter, rune objects, `RUNE_WORDS` pools, language deeds → rune. | 1, 4 |
+| 6 | **Rune spellcraft** | `rune` kind, rune stone presenter, rune objects, `RUNE_WORDS` pools, language deeds → rune. | 1, 4, 5 (the walk) |
 
 Each slice ships on its own branch, merges into `dev` when green, and leaves the app fully working. A slice whose mechanic is turned off falls back to `choice`.
 

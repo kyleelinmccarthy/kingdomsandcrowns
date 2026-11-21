@@ -181,7 +181,7 @@ describe("the how-to-play card says how minutes are earned (earningLines)", () =
 
 describe("a vault door's map marks its place at once", () => {
   // Longwater's door is shut; its map leads to cove-12, "Driftwood Cove" in this stubbed world.
-  const shut: WorldStateView = { locksOn: true, open: [], decor: [], tower: [] };
+  const shut: WorldStateView = { locksOn: true, runesOn: false, open: [], fixed: [], decor: [], tower: [] };
   const door = { kind: "lock" as const, id: "door:longwater", label: "the vault door", verb: "Open" };
   const run = {
     runId: "lock-1",

@@ -199,7 +199,7 @@ describe("the room chests", () => {
   it.each(roomChests.map((o) => [o.id, o] as const))("%s is a fourth thing to press E at, before the door, on the floor, and the door is still what E does from the spawn", (_id, chest) => {
     const plan = roomPlan(chest.room!);
     const keeper = plan.keeper ? villagerById(plan.keeper.villager) : null;
-    const view = roomChestFor(chest.room!, { locksOn: true, open: [], decor: [], tower: [] })!;
+    const view = roomChestFor(chest.room!, { locksOn: true, runesOn: false, open: [], fixed: [], decor: [], tower: [] })!;
     const rs = roomSpots(plan, keeper?.name ?? null, view);
     expect(rs.spots.map((s) => s.target.kind)).toEqual(["villager", "fixture", "lock", "door"]);
     const i = rs.spots.findIndex((s) => s.target.kind === "lock");
@@ -214,8 +214,8 @@ describe("the room chests", () => {
   it.each(roomChests.map((o) => [o.id, o] as const))("%s: solved under the hero's nose, E's prompt turns from Open to Look in (smoke bug 1)", (_id, chest) => {
     const plan = roomPlan(chest.room!);
     const keeper = plan.keeper ? villagerById(plan.keeper.villager) : null;
-    const before = roomSpots(plan, keeper?.name ?? null, roomChestFor(chest.room!, { locksOn: true, open: [], decor: [], tower: [] }));
-    const after = roomSpots(plan, keeper?.name ?? null, roomChestFor(chest.room!, { locksOn: true, open: [chest.id], decor: [], tower: [] }));
+    const before = roomSpots(plan, keeper?.name ?? null, roomChestFor(chest.room!, { locksOn: true, runesOn: false, open: [], fixed: [], decor: [], tower: [] }));
+    const after = roomSpots(plan, keeper?.name ?? null, roomChestFor(chest.room!, { locksOn: true, runesOn: false, open: [chest.id], fixed: [], decor: [], tower: [] }));
     const memo = makeNearMemo();
     const i = pickRoomSpot(before, chest.x, chest.z + 1, 0, memo.i);
     expect(nearChanged(memo, i, before.spots[i].target)).toBe(true);
@@ -230,7 +230,7 @@ describe("the room chests", () => {
   it("asks a visiting grown-up to look at a room's chest, never to open it (smoke bug 3)", () => {
     const chest = roomChests[0];
     const plan = roomPlan(chest.room!);
-    const view = roomChestFor(chest.room!, { locksOn: true, open: [], decor: [], tower: [] });
+    const view = roomChestFor(chest.room!, { locksOn: true, runesOn: false, open: [], fixed: [], decor: [], tower: [] });
     const lock = (viewer?: "child" | "parent") => roomSpots(plan, null, view, viewer).spots.find((s) => s.target.kind === "lock")!.target;
     expect(interactVerb(lock("parent"))).toBe("Look at the old chest");
     expect(interactVerb(lock("child"))).toBe("Open the old chest");

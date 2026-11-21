@@ -212,7 +212,7 @@ describe("the world's locks", () => {
     castleType: "castle",
     buildings: ["well", "mill", "bridge", "chapel", "market", "library", "watchtower", "garden"].map((id) => ({ id, done: 5, total: 5, complete: true })),
   });
-  const locks = worldCanvas({ locksOn: true, open: ["chest:east-lane", "door:longwater"], decor: [], tower: [] }).locks;
+  const locks = worldCanvas({ locksOn: true, runesOn: false, open: ["chest:east-lane", "door:longwater"], fixed: [], decor: [], tower: [] }).locks;
   const withLocks = buildSpots({ props: all.props, sitePlan: 1.5, landmarks: [], castle: null, locks });
   const at = (l: LockSpotView) => withLocks.findIndex((s) => s.target.kind === "lock" && s.target.id === l.id);
 
@@ -296,7 +296,7 @@ describe("the Puzzle Tower", () => {
   it("no spot's reach holds another spot's centre: with every lock, riddle stone, the board, the lectern and every plaque at level 3 (F19)", () => {
     const placements = improvementPlacements(Object.fromEntries(IMPROVEMENT_IDS.map((id) => [id, 3])), () => 0);
     const plaques = placements.map((p) => ({ id: p.id, label: IMPROVEMENTS[p.id].label, ...p.plaque }));
-    const locks = worldCanvas({ locksOn: true, open: [], decor: [], tower: [] }).locks;
+    const locks = worldCanvas({ locksOn: true, runesOn: false, open: [], fixed: [], decor: [], tower: [] }).locks;
     const set = buildSpots({ props: [], sitePlan: 1.5, landmarks: [], castle: null, locks, stones: RIDDLE_STONE_SPOTS, plans: KEEP_YARD.plansBoard, chronicle: KEEP_YARD.lectern, plaques, tower: door });
     expect(set).toHaveLength(locks.length + RIDDLE_STONE_SPOTS.length + 2 + plaques.length + 1);
     const held: string[] = [];
@@ -310,7 +310,7 @@ describe("the Puzzle Tower", () => {
 });
 
 describe("a visiting grown-up's words at the locks and the Tower (smoke bug 3)", () => {
-  const locks = worldCanvas({ locksOn: true, open: ["chest:east-lane", "door:longwater"], decor: [], tower: [] }).locks;
+  const locks = worldCanvas({ locksOn: true, runesOn: false, open: ["chest:east-lane", "door:longwater"], fixed: [], decor: [], tower: [] }).locks;
   const prompts = (viewer?: "child" | "parent") =>
     buildSpots({ props: [], sitePlan: 1.5, landmarks: [], castle: null, locks, tower: PUZZLE_TOWER.door, viewer })
       .filter((s) => s.target.kind === "lock" || s.target.kind === "tower")
@@ -383,7 +383,7 @@ function villageWithStakes(castleType: (typeof CASTLE_TIER_IDS)[number], built: 
     plans: KEEP_YARD.plansBoard,
     chronicle: KEEP_YARD.lectern,
     plaques: placements.map((p) => ({ id: p.id, label: IMPROVEMENTS[p.id].label, ...p.plaque })),
-    locks: worldCanvas({ locksOn: true, open: [], decor: [], tower: [] }).locks,
+    locks: worldCanvas({ locksOn: true, runesOn: false, open: [], fixed: [], decor: [], tower: [] }).locks,
     tower: PUZZLE_TOWER.door,
     anchors: anchors ?? undefined,
   });

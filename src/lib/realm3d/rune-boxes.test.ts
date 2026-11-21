@@ -1,0 +1,49 @@
+import { describe, expect, it } from "vitest";
+import { RUNE_EFFECT_IDS } from "@/lib/realm/rune-objects";
+import { runeMarkBoxes, runeObjectBoxes } from "./rune-boxes";
+
+const top = (b: { y: number; sy: number }) => b.y + b.sy / 2;
+const bottom = (b: { y: number; sy: number }) => b.y - b.sy / 2;
+
+describe("a rune object's boxes", () => {
+  it("have two to ten boxes each, inside a 1.6 by 1.6 footprint and at most 2.4 tall, broken and fixed", () => {
+    for (const effect of RUNE_EFFECT_IDS) {
+      for (const fixed of [false, true]) {
+        const boxes = runeObjectBoxes(effect, fixed);
+        const what = `${effect} ${fixed ? "fixed" : "broken"}`;
+        expect(boxes.length, what).toBeGreaterThanOrEqual(2);
+        expect(boxes.length, what).toBeLessThanOrEqual(10);
+        for (const b of boxes) {
+          expect(Math.abs(b.x) + b.sx / 2, what).toBeLessThanOrEqual(0.8 + 1e-9);
+          expect(Math.abs(b.z) + b.sz / 2, what).toBeLessThanOrEqual(0.8 + 1e-9);
+          expect(top(b), what).toBeLessThanOrEqual(2.4);
+          expect(bottom(b), what).toBeGreaterThanOrEqual(0);
+          expect(b.color, what).toMatch(/^#[0-9a-f]{6}$/);
+        }
+      }
+    }
+  });
+
+  it("differ between broken and fixed for every effect", () => {
+    for (const effect of RUNE_EFFECT_IDS) expect(runeObjectBoxes(effect, true), effect).not.toEqual(runeObjectBoxes(effect, false));
+  });
+
+  it("hands back a fresh copy each call, so a caller cannot change the shape", () => {
+    const a = runeObjectBoxes("mend", false);
+    a[0].x = 99;
+    expect(runeObjectBoxes("mend", false)[0].x).not.toBe(99);
+  });
+});
+
+describe("the stop mark", () => {
+  it("floats between 2.0 and 3.0 above the ground and is at most 0.6 across", () => {
+    const boxes = runeMarkBoxes();
+    expect(boxes.length).toBeGreaterThan(0);
+    for (const b of boxes) {
+      expect(bottom(b)).toBeGreaterThanOrEqual(2.0);
+      expect(top(b)).toBeLessThanOrEqual(3.0);
+      expect(Math.abs(b.x) + b.sx / 2).toBeLessThanOrEqual(0.3 + 1e-9);
+      expect(Math.abs(b.z) + b.sz / 2).toBeLessThanOrEqual(0.3 + 1e-9);
+    }
+  });
+});

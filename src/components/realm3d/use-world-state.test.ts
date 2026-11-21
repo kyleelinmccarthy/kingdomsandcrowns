@@ -8,7 +8,7 @@ import { useWorldState, type WorldStateOptions } from "./use-world-state";
  * locks open, and the canvas the scene draws from, which must stay the same object until what it
  * draws changes (the memoised `World` builds its E spots from it).
  */
-const VIEW: WorldStateView = { locksOn: true, open: ["door:longwater"], decor: ["sundial"], tower: [{ band: "g45", open: true, solved: 1 }] };
+const VIEW: WorldStateView = { locksOn: true, runesOn: false, open: ["door:longwater"], fixed: [], decor: ["sundial"], tower: [{ band: "g45", open: true, solved: 1 }] };
 
 /** What the frame hands the hook: the places store's add, the toast, the place names, whether a panel is open. */
 function options(over: Partial<WorldStateOptions> = {}): WorldStateOptions {
@@ -25,7 +25,7 @@ describe("useWorldState", () => {
   it("is the empty state when the bundle sent none", () => {
     const { result } = renderHook(() => useWorldState(undefined, options()));
     expect(result.current.view).toBe(EMPTY_WORLD_STATE);
-    expect(result.current.canvas).toEqual({ locksOn: false, locks: [], decor: [], storeys: 0, towerKnown: false });
+    expect(result.current.canvas).toEqual({ locksOn: false, locks: [], runes: [], decor: [], storeys: 0, towerKnown: false });
   });
 
   it("keeps the canvas the same object across a re-render, and across an equal bundle", () => {

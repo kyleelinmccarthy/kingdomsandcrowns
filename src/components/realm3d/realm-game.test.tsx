@@ -271,7 +271,7 @@ describe("the riddle stones", () => {
 });
 
 describe("the world's locks", () => {
-  const view: WorldStateView = { locksOn: true, open: ["door:longwater"], decor: ["sundial"], tower: [] };
+  const view: WorldStateView = { locksOn: true, runesOn: false, open: ["door:longwater"], fixed: [], decor: ["sundial"], tower: [] };
   const chest = { kind: "lock" as const, id: "chest:west-lane", label: "the old chest", verb: "Open" };
   const lockRun = {
     runId: "lock-1",
@@ -403,7 +403,7 @@ describe("the world's locks", () => {
 
   it("draws no locks when the bundle sent no world state", () => {
     mount();
-    expect(handed.props!.worldLocks).toEqual({ locksOn: false, locks: [], decor: [], storeys: 0, towerKnown: false });
+    expect(handed.props!.worldLocks).toEqual({ locksOn: false, locks: [], runes: [], decor: [], storeys: 0, towerKnown: false });
   });
 });
 
