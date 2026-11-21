@@ -1,10 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { ANCHORS } from "./anchors";
 import { PLACES, placeById } from "./layout";
-import { realmWorld } from "@/lib/realm3d/worldgen";
 import { edgeDistance } from "@/lib/realm3d/interact";
 import { RUNE_EFFECT_IDS, RUNE_OBJECTS, RUNE_RESET_DAYS, RUNE_SPOT, VILLAGE_RUNE_OBJECTS, isRuneObjectId, runeObjectById } from "./rune-objects";
-import { runeSpotAt, runeSpotFailures } from "@/test/rune-spots";
+import { placeGroundFailures, runeSpotAt, runeSpotFailures } from "@/test/rune-spots";
 
 const wholeWord = (word: string, text: string) => new RegExp(`(^|[^a-z])${word}([^a-z]|$)`, "i").test(text);
 const placeObjects = RUNE_OBJECTS.filter((o) => o.place !== null);
@@ -31,11 +30,11 @@ describe("the rune objects' catalog", () => {
 
   it("stands one object at each named place, inside it, on dry ground", () => {
     expect(placeObjects.map((o) => o.place).sort()).toEqual(PLACES.map((p) => p.id).sort());
-    const world = realmWorld();
     for (const o of placeObjects) {
       const place = placeById(o.place!)!;
       expect(Math.hypot(o.x - place.position.x, o.z - place.position.z), o.id).toBeLessThan(place.radius);
-      expect(world.waterLevelAt(o.x, o.z) - world.heightAt(o.x, o.z), `${o.id} is wet`).toBeLessThan(0);
+      // The whole footprint, not just its middle: every corner dry, and the ground level across it.
+      expect(placeGroundFailures(o), o.id).toEqual([]);
     }
   });
 

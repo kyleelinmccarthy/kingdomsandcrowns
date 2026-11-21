@@ -72,7 +72,7 @@ const RUNE_PLACE_OFFSETS: Readonly<Record<string, { x: number; z: number }>> = {
   appleway: { x: -5.75, z: 4.25 },
   ringstones: { x: 2, z: -5 },
   highcairn: { x: 6.5, z: 4.5 },
-  longwater: { x: -9.25, z: -4 },
+  longwater: { x: 3.75, z: 4 },
   farfurrow: { x: -5.5, z: -5 },
 };
 

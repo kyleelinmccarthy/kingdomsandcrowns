@@ -21,7 +21,7 @@ import { PLOT_SCALE } from "@/lib/realm3d/lead";
 import { ARCH, ARCH_HALF_SPAN } from "@/lib/realm3d/recess/course";
 import { travelGraphFor, VILLAGE_POST, VILLAGE_TRACKS } from "@/lib/realm3d/travel";
 import { realmWorld } from "@/lib/realm3d/worldgen";
-import { CASTLE_TIER_IDS, clearanceFailures, gap, levelFailures, rectAt, segmentDistance, villagePieces, yardPieces } from "./world-clearance";
+import { CASTLE_TIER_IDS, clearanceFailures, gap, LEVEL_TOLERANCE, levelFailures, rectAt, segmentDistance, villagePieces, yardPieces } from "./world-clearance";
 
 /** What a rune object's position is checked from: where it stands, and which place (null: the village). */
 export type RuneSpotAt = { id: string; x: number; z: number; place: string | null };
@@ -129,13 +129,39 @@ function villageFailures(o: RuneSpotAt): string[] {
   return out;
 }
 
+/** How wide the boxes of a rune object stand (`rune-boxes.ts` keeps them inside this). */
+export const RUNE_FOOTPRINT = 1.6;
+/** How far the ground may rise or fall across a place object's footprint, as a village object's is held (`LEVEL_TOLERANCE`). */
+export const PLACE_LEVEL_SPAN = LEVEL_TOLERANCE;
+
+/**
+ * Whether a place object's whole footprint stands on dry, level ground: all four corners and the
+ * middle are above the water, and the ground across them differs by at most `PLACE_LEVEL_SPAN`.
+ * A single dry centre can sit on a shore with half its boxes under water.
+ */
+export function placeGroundFailures(o: { id: string; x: number; z: number }): string[] {
+  const world = realmWorld();
+  const h = RUNE_FOOTPRINT / 2;
+  const points = [[0, 0], [-h, -h], [-h, h], [h, -h], [h, h]].map(([dx, dz]) => ({ x: o.x + dx, z: o.z + dz }));
+  const out: string[] = [];
+  const heights: number[] = [];
+  for (const p of points) {
+    const ground = world.heightAt(p.x, p.z);
+    heights.push(ground);
+    if (world.waterLevelAt(p.x, p.z) - ground >= 0) out.push(`${o.id} is wet at ${p.x.toFixed(2)},${p.z.toFixed(2)}`);
+  }
+  const span = Math.max(...heights) - Math.min(...heights);
+  if (span > PLACE_LEVEL_SPAN) out.push(`${o.id} stands on sloping ground (${span.toFixed(2)} across its footprint)`);
+  return out;
+}
+
 function placeFailures(o: RuneSpotAt): string[] {
   const out: string[] = [];
   const place = placeById(o.place ?? "");
   if (!place) return [`${o.id} has no place ${o.place}`];
   const world = realmWorld();
   if (Math.hypot(o.x - place.position.x, o.z - place.position.z) >= place.radius) out.push(`${o.id} is outside ${place.id}`);
-  if (world.waterLevelAt(o.x, o.z) - world.heightAt(o.x, o.z) >= 0) out.push(`${o.id} is wet`);
+  out.push(...placeGroundFailures(o));
   for (const l of [...Object.values(VILLAGE_TRACKS), ...world.roads.map((r) => r.points)]) {
     for (let i = 0; i < l.length - 1; i++) if (segmentDistance(o, l[i], l[i + 1]) <= 3) out.push(`${o.id} is within 3 of a track`);
   }
