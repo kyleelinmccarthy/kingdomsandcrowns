@@ -1484,7 +1484,8 @@ describe("a trail run: whole trails of the skill's pool (H4, R-H9, R-H11)", () =
     }
   });
 
-  it("plays as choice, exactly as before, when no pool credits the skill (as shipped)", () => {
+  it("plays as choice, exactly as before, when no pool credits the skill", () => {
+    __setTrailPoolsForTest([]);
     const run = buildDeedRun(input({ deed: trailDeed, questionCount: 4, enabledKinds: ALL_ON }));
     for (const q of run.questions) expect(kindOf(q)).toBe("choice");
     expect(run.questions).toHaveLength(4);

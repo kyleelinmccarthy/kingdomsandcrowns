@@ -12,9 +12,12 @@ import { TRAIL_GENERIC_WHY } from "../trail-copy";
 import type { TrailTask } from "../types";
 import { drawFromPool, drawTrailClues } from "./draw";
 import { __setTrailPoolsForTest, loadTrailPools, trailPoolFor, trailTaskOf } from "./index";
+import { TRAIL_POOL_FILES } from "./trail-pool-files";
 
 const skill = findSkill("read-g3")!;
 const none = new Set<string>();
+/** Whether a pool that ships (`TRAIL_POOL_FILES`, H5) credits the skill. */
+const ships = (skillId: string): boolean => TRAIL_POOL_FILES.some((f) => (f as { skillId: string }).skillId === skillId);
 
 afterEach(() => __setTrailPoolsForTest(null));
 
@@ -34,7 +37,8 @@ function use(band: "g23" | "g45" | "k1" = "g23"): TrailPool {
 const keysOf = (tasks: readonly TrailTask[]): string[] => [...new Set(tasks.map((t) => t.trail))];
 
 describe("the trail pools a skill reads (R-H12)", () => {
-  it("is empty as shipped: no pool credits any skill, so nothing presents a trail yet", () => {
+  it("is empty while no pool is loaded: no pool credits any skill, so nothing presents a trail", () => {
+    __setTrailPoolsForTest([]);
     expect(trailPoolFor("read-g3")).toBeUndefined();
     expect(TASK_KINDS.trail.presents("read-g3")).toBe(false);
     expect(drawTrailClues(skill, 2, 4, seededRng(1), none, none)).toEqual([]);
@@ -53,8 +57,9 @@ describe("the trail pools a skill reads (R-H12)", () => {
     __setTrailPoolsForTest([cloneTrailPool("g45")]);
     expect(TASK_KINDS.trail.presents("read-g3")).toBe(false);
     expect(TASK_KINDS.trail.presents("read-g4")).toBe(true);
+    // null restores the pools that ship, and only they present.
     __setTrailPoolsForTest(null);
-    expect(TASK_KINDS.trail.presents("read-g4")).toBe(false);
+    for (const id of ["read-g1", "read-g3", "read-g4", "read-g6", "read-g9"]) expect(TASK_KINDS.trail.presents(id), id).toBe(ships(id));
   });
 
   it("registers the run drawer and the one-task drawer for the trail kind", () => {

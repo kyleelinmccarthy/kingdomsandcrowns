@@ -4,6 +4,7 @@ import { taskHint } from "@/lib/utils/skill-hints";
 import { TRAIL, WELL_REDIRECT } from "@/test/trail-stubs";
 import { isWalkingKind, isWalkingRun, WALKING_KINDS } from "./kinds";
 import { PATTERN } from "@/test/lock-stubs";
+import { __setTrailPoolsForTest } from "./trails";
 import { TASK_KINDS, isRegisteredKind, isTaskCorrect, kindForSkill, kindOf, secondChanceHint, taskDef, taskDefOf, toClientTask } from "./registry";
 
 const q: Question = {
@@ -97,8 +98,13 @@ describe("task kind registry", () => {
     expect(TASK_KINDS.choice.presents("anything")).toBe(true);
   });
 
-  it("falls back to choice for a trail before any pool presents a skill", () => {
-    expect(kindForSkill("trail", "read-g3", new Set(["trail"]))).toBe("choice");
+  it("falls back to choice for a trail while no pool presents the skill", () => {
+    __setTrailPoolsForTest([]);
+    try {
+      expect(kindForSkill("trail", "read-g3", new Set(["trail"]))).toBe("choice");
+    } finally {
+      __setTrailPoolsForTest(null);
+    }
   });
 });
 

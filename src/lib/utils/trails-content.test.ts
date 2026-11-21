@@ -19,7 +19,7 @@ const DIR = path.join(__dirname, "../../content/trails");
  * (The check that every pool has a blind-pass sheet is H6's: it is added once the pools exist, so this
  * gate is never red between H5 and H6.)
  */
-const EXPECTED_TRAIL_POOLS: string[] = ["trail-k1"];
+const EXPECTED_TRAIL_POOLS: string[] = ["trail-k1", "trail-g23"];
 
 /** No place answers more than this share of a pool's clues, so a trail's answers are spread over the whole village. */
 const MAX_ANCHOR_SHARE = 0.15;

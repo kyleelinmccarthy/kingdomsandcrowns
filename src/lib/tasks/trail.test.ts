@@ -8,6 +8,7 @@ import { TASK_DRAWERS, runDrawerFor } from "./draw";
 import { TASK_KINDS, isTaskCorrect, taskDefOf, toClientTask } from "./registry";
 import { trailKind } from "./trail";
 import { __setTrailPoolsForTest } from "./trails";
+import { TRAIL_POOL_FILES } from "./trails/trail-pool-files";
 import { TRAIL_RETRY_LEAD, TRAIL_UNKNOWN_ANSWER, trailAnswerText } from "./trail-copy";
 import type { TrailTask } from "./types";
 
@@ -82,15 +83,17 @@ describe("the trail kind (R-H5)", () => {
   });
 
   it("presents a skill only while a pool credits it (F-7)", () => {
-    // As shipped no pool exists (H5 writes them), and with none loaded nothing is presented.
+    // With no pool loaded nothing is presented.
     __setTrailPoolsForTest([]);
     expect(trailKind.presents("read-g3")).toBe(false);
     expect(trailKind.presents("read-g1")).toBe(false);
     __setTrailPoolsForTest([cloneTrailPool("g23")]);
     expect(trailKind.presents("read-g3")).toBe(true);
     expect(trailKind.presents("read-g1")).toBe(false);
+    // null restores the pools that ship (H5): the skill is presented exactly when one of them credits it.
     __setTrailPoolsForTest(null);
-    expect(trailKind.presents("read-g3")).toBe(false);
+    const ships = TRAIL_POOL_FILES.some((f) => (f as { skillId: string }).skillId === "read-g3");
+    expect(trailKind.presents("read-g3")).toBe(ships);
   });
 
   it("keeps the second-chance lead in the shared copy", () => {
