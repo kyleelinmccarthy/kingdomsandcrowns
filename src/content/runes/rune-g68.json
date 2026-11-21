@@ -9,20 +9,21 @@
       "id": "fx-mend-01",
       "effect": "mend",
       "level": 0,
-      "prompt": "To put right something broken, so it works again.",
+      "prompt": "So strong that it can never be cracked or snapped.",
       "words": [
-        "repair"
+        "unbreakable"
       ],
       "tiles": [
-        "re",
-        "pair",
-        "de",
-        "pre",
-        "ful",
-        "ment"
+        "un",
+        "break",
+        "able",
+        "ible",
+        "ness",
+        "ive",
+        "ate"
       ],
-      "hint": "The first part means again.",
-      "why": "Re- means again. Repair comes from a Latin word meaning to make ready again."
+      "hint": "-able at the end means able to be.",
+      "why": "Un- (not) + break + -able (able to be): not able to be broken."
     },
     {
       "id": "fx-mend-02",
@@ -104,39 +105,39 @@
       "id": "fx-mend-06",
       "effect": "mend",
       "level": 1,
-      "prompt": "To make something like new again.",
+      "prompt": "To make a loose bolt or rope firm.",
       "words": [
-        "renew"
+        "tighten"
       ],
       "tiles": [
-        "re",
-        "new",
+        "tight",
+        "en",
         "ness",
-        "dis",
-        "fore",
-        "ly"
+        "ure",
+        "ive",
+        "ate"
       ],
-      "hint": "The root is the opposite of old.",
-      "why": "Re- (again) + new: to make a thing new again."
+      "hint": "The root is the opposite of loose.",
+      "why": "Tight + -en (to make): to make tight."
     },
     {
       "id": "fx-mend-07",
       "effect": "mend",
       "level": 1,
-      "prompt": "To mend and equip a ship again, for another voyage.",
+      "prompt": "To make something firm so it will not bend or sag.",
       "words": [
-        "refit"
+        "stiffen"
       ],
       "tiles": [
-        "re",
-        "fit",
+        "stiff",
+        "en",
         "ness",
-        "ment",
-        "mis",
+        "ly",
+        "ure",
         "ive"
       ],
-      "hint": "Re- means again; the root means to suit.",
-      "why": "Re- (again) + fit: to fit a ship out again, mended and ready."
+      "hint": "-en at the end means to make.",
+      "why": "Stiff + -en (to make): to make stiff."
     },
     {
       "id": "fx-mend-08",
@@ -150,7 +151,7 @@
         "re",
         "in",
         "force",
-        "en",
+        "ous",
         "ful",
         "de"
       ],
@@ -174,28 +175,28 @@
         "ness",
         "ive"
       ],
-      "hint": "-en at the end means to make.",
+      "hint": "The root names how strong a thing is.",
       "why": "Strength + -en (to make): to make a thing stronger."
     },
     {
       "id": "fx-mend-10",
       "effect": "mend",
       "level": 2,
-      "prompt": "To fix a fallen part on once more.",
+      "prompt": "To make something set firm, as glue does as it dries.",
       "words": [
-        "reattach"
+        "harden"
       ],
       "tiles": [
-        "re",
-        "attach",
-        "de",
-        "dis",
-        "ex",
-        "ful",
+        "hard",
+        "en",
+        "ness",
+        "ship",
+        "ware",
+        "ure",
         "ive"
       ],
-      "hint": "The root means to fasten on.",
-      "why": "Re- (again) + attach (to fasten on): to fasten a part on again."
+      "hint": "The root is the opposite of soft.",
+      "why": "Hard + -en (to make): to make hard."
     },
     {
       "id": "fx-mend-11",
@@ -219,21 +220,20 @@
       "id": "fx-mend-12",
       "effect": "mend",
       "level": 3,
-      "prompt": "To bring a worn machine or tool back into good working order.",
+      "prompt": "To turn from a liquid into a solid, as melted wax does as it cools.",
       "words": [
-        "recondition"
+        "solidify"
       ],
       "tiles": [
-        "re",
-        "condit",
-        "ion",
-        "pre",
-        "al",
-        "ance",
+        "solid",
+        "ify",
+        "ity",
+        "ure",
+        "ate",
         "ive"
       ],
-      "hint": "Condition means the state a thing is in.",
-      "why": "Re- (again) + condition (the state of a thing): to bring a thing back into good condition."
+      "hint": "-ify at the end means to make.",
+      "why": "Solid + -ify (to make): to make solid."
     },
     {
       "id": "fx-mend-13",
@@ -269,7 +269,7 @@
         "out",
         "sub"
       ],
-      "hint": "Two words joined: one means above, one means to pull.",
+      "hint": "Its first part means above.",
       "why": "Over + haul: to go over a machine part by part and set it right."
     },
     {
@@ -309,9 +309,9 @@
         "ex",
         "ject",
         "ure",
-        "ism"
+        "ate"
       ],
-      "hint": "Con- means together; the root means to bind.",
+      "hint": "The root nect means to bind.",
       "why": "Re- (again) + con- (together) + nect (to bind): to bind two parts together again."
     },
     {
@@ -374,7 +374,7 @@
       "id": "fx-light-04",
       "effect": "light",
       "level": 0,
-      "prompt": "Bright with the light of the sun.",
+      "prompt": "Bright with daylight from a clear sky.",
       "words": [
         "sunlit"
       ],
@@ -385,7 +385,7 @@
         "less",
         "ful"
       ],
-      "hint": "Two short words joined: what shines by day, and what a lamp is once it burns.",
+      "hint": "Two short words joined; the first names what shines by day.",
       "why": "Sun + lit: lit up by the sun."
     },
     {
@@ -403,7 +403,7 @@
         "ous",
         "ity",
         "ure",
-        "ism"
+        "ate"
       ],
       "hint": "The root means flame.",
       "why": "Flamm (flame) + -able (able to): able to burst into flame."
@@ -443,7 +443,7 @@
         "er",
         "ful"
       ],
-      "hint": "Two words: a wax light, and what it is once it burns.",
+      "hint": "Its first part is a stick of wax with a wick.",
       "why": "Candle + lit: lit by candles."
     },
     {
@@ -456,12 +456,12 @@
       ],
       "tiles": [
         "re",
-        "kind",
-        "le",
+        "kindl",
+        "e",
         "ness",
         "un",
-        "red",
-        "ism"
+        "ful",
+        "ure"
       ],
       "hint": "Re- means again; the root is an old word for setting alight.",
       "why": "Re- (again) + kindle (to set alight): to set a fire burning again."
@@ -515,9 +515,9 @@
         "il",
         "lumin",
         "ate",
-        "ance",
+        "al",
         "ex",
-        "ism",
+        "ion",
         "ure",
         "ive"
       ],
@@ -574,9 +574,9 @@
         "lumin",
         "os",
         "ity",
-        "ance",
+        "ate",
         "ive",
-        "ism",
+        "ion",
         "ure"
       ],
       "hint": "-ity makes a word into a thing, as in purity.",
@@ -594,7 +594,7 @@
         "il",
         "lumin",
         "ation",
-        "ance",
+        "ize",
         "ive",
         "ex",
         "ism"
@@ -693,7 +693,7 @@
         "de",
         "ous",
         "sub",
-        "ism"
+        "ion"
       ],
       "hint": "-ation makes it a thing, not an action.",
       "why": "Ir- (into) + rig (to water) + -ation (the act of): the act of bringing water into the land."
@@ -732,7 +732,7 @@
         "side",
         "ward"
       ],
-      "hint": "Two words: one means toward the ground, one means to tip out.",
+      "hint": "Its second part means to tip out.",
       "why": "Down + pour: rain pouring down."
     },
     {
@@ -749,10 +749,10 @@
         "under",
         "out",
         "ward",
-        "ism",
+        "ate",
         "ure"
       ],
-      "hint": "Two words: one means above, one means to run like a river.",
+      "hint": "Its second part means to run like a river.",
       "why": "Over + flow: to flow over the brim."
     },
     {
@@ -807,7 +807,7 @@
         "ent",
         "con",
         "ion",
-        "ism",
+        "ate",
         "ive"
       ],
       "hint": "-ent means doing, so the word says what the thing does.",
@@ -864,7 +864,7 @@
         "ex",
         "de",
         "al",
-        "ism",
+        "ion",
         "ure"
       ],
       "hint": "Im- means in; the root means to dip.",
@@ -908,7 +908,7 @@
         "de"
       ],
       "hint": "The root plen means full, as in plenty.",
-      "why": "Re- (again) + plen (full) + -ish (to make): to make full again."
+      "why": "Re- (again) + plen (full) + -ish, a verb ending: to fill up again."
     },
     {
       "id": "fx-water-16",
@@ -943,7 +943,7 @@
         "smith",
         "dis",
         "pre",
-        "ism"
+        "ate"
       ],
       "hint": "Un- means to undo.",
       "why": "Un- (undo) + lock: to undo a lock."
@@ -990,21 +990,21 @@
       "id": "fx-open-04",
       "effect": "open",
       "level": 0,
-      "prompt": "To open out a map or a cloth that was creased flat.",
+      "prompt": "To make something less tight, so it can move.",
       "words": [
-        "unfold"
+        "loosen"
       ],
       "tiles": [
-        "un",
-        "fold",
-        "dis",
-        "pre",
-        "mis",
-        "ism",
-        "ure"
+        "loos",
+        "en",
+        "ness",
+        "ure",
+        "ive",
+        "ate",
+        "ion"
       ],
-      "hint": "Un- means to undo.",
-      "why": "Un- (undo) + fold: to undo the folds."
+      "hint": "-en at the end means to make.",
+      "why": "Loose + -en (to make): to make loose."
     },
     {
       "id": "fx-open-05",
@@ -1022,27 +1022,27 @@
         "dis",
         "ward"
       ],
-      "hint": "Un- undoes; -en means to make; the root means firm.",
+      "hint": "The root means firm.",
       "why": "Un- (undo) + fast (firm) + -en (to make): to undo what was made firm."
     },
     {
       "id": "fx-open-06",
       "effect": "open",
       "level": 1,
-      "prompt": "To break the wax that closes a letter.",
+      "prompt": "To make a gap or an opening broader.",
       "words": [
-        "unseal"
+        "widen"
       ],
       "tiles": [
-        "un",
-        "seal",
-        "dis",
-        "ant",
-        "pre",
-        "ism"
+        "wid",
+        "en",
+        "ness",
+        "ure",
+        "ive",
+        "ate"
       ],
-      "hint": "The root names the wax that closes a letter.",
-      "why": "Un- (undo) + seal: to break the seal."
+      "hint": "The root means broad.",
+      "why": "Wide + -en (to make): to make wide."
     },
     {
       "id": "fx-open-07",
@@ -1058,9 +1058,9 @@
         "ward",
         "let",
         "pre",
-        "ism"
+        "ate"
       ],
-      "hint": "Un- means to undo.",
+      "hint": "The root names a lid or a cloth laid over.",
       "why": "Un- (undo) + cover: to take the cover off."
     },
     {
@@ -1085,41 +1085,41 @@
       "id": "fx-open-09",
       "effect": "open",
       "level": 2,
-      "prompt": "To clear away whatever is in the way.",
+      "prompt": "To knock something free from where it is stuck.",
       "words": [
-        "unblock"
+        "dislodge"
       ],
       "tiles": [
-        "un",
-        "block",
-        "ade",
         "dis",
-        "pre",
-        "ism",
-        "ure"
+        "lodge",
+        "ure",
+        "ive",
+        "ate",
+        "en",
+        "ion"
       ],
-      "hint": "Un- means to undo.",
-      "why": "Un- (undo) + block: to clear what blocks the way."
+      "hint": "Dis- means away.",
+      "why": "Dis- (away) + lodge (to settle): to knock a thing away from where it settled."
     },
     {
       "id": "fx-open-10",
       "effect": "open",
       "level": 2,
-      "prompt": "To lift away the beam that holds a door shut.",
+      "prompt": "To unfasten a part and take it off.",
       "words": [
-        "unbar"
+        "detach"
       ],
       "tiles": [
-        "un",
-        "bar",
-        "dis",
-        "pre",
-        "ex",
-        "ism",
-        "ure"
+        "de",
+        "tach",
+        "ure",
+        "ive",
+        "ate",
+        "ion",
+        "ous"
       ],
-      "hint": "The root names a long beam.",
-      "why": "Un- (undo) + bar: to take the bar off a door."
+      "hint": "De- means off or away.",
+      "why": "De- (off) + tach (to fasten): to unfasten."
     },
     {
       "id": "fx-open-11",
@@ -1136,46 +1136,46 @@
         "per",
         "dis"
       ],
-      "hint": "Un- means to undo.",
+      "hint": "There is a silent w in the root.",
       "why": "Un- (undo) + wrap: to take the wrapping off."
     },
     {
       "id": "fx-open-12",
       "effect": "open",
       "level": 3,
-      "prompt": "To free threads or ropes that are knotted together.",
+      "prompt": "To uncover something so it can be seen.",
       "words": [
-        "untangle"
+        "reveal"
       ],
       "tiles": [
+        "re",
+        "veal",
         "un",
-        "tangle",
-        "pre",
-        "ex",
-        "ment",
-        "ism"
+        "ive",
+        "ate",
+        "ion"
       ],
-      "hint": "Un- means to undo.",
-      "why": "Un- (undo) + tangle: to undo a tangle."
+      "hint": "The root comes from a Latin word for a veil.",
+      "why": "Re- (back) + veal (from the Latin velum, a veil): to draw back the veil."
     },
     {
       "id": "fx-open-13",
       "effect": "open",
       "level": 3,
-      "prompt": "To undo the metal fastener on a belt or strap.",
+      "prompt": "To draw out something that is stuck fast inside.",
       "words": [
-        "unbuckle"
+        "extract"
       ],
       "tiles": [
-        "un",
-        "buckle",
-        "dis",
-        "pre",
         "ex",
-        "ism"
+        "tract",
+        "ure",
+        "ate",
+        "al",
+        "ous"
       ],
-      "hint": "The root names a belt's metal fastener.",
-      "why": "Un- (undo) + buckle: to undo a buckle."
+      "hint": "The root tract means to pull.",
+      "why": "Ex- (out) + tract (to pull): to pull out."
     },
     {
       "id": "fx-open-14",
@@ -1194,7 +1194,7 @@
         "ion",
         "con"
       ],
-      "hint": "Struct means to build; ob- means against; un- means not.",
+      "hint": "The root struct means to build.",
       "why": "Un- (not) + ob- (against) + struct (built) + -ed: with nothing built against the way."
     },
     {
@@ -1232,10 +1232,10 @@
         "pre",
         "ex",
         "ive",
-        "ism",
+        "ate",
         "ure"
       ],
-      "hint": "Dis- means apart; en- means into.",
+      "hint": "Dis- at the start means apart.",
       "why": "Dis- (apart) + en- (into) + tangle: to take a thing out of a tangle."
     },
     {
@@ -1289,7 +1289,7 @@
         "less",
         "ful",
         "ward",
-        "ism"
+        "ate"
       ],
       "hint": "-ling means small or young.",
       "why": "Sap + -ling (small, young): a young tree."
@@ -1346,7 +1346,7 @@
         "de",
         "im",
         "ure",
-        "ism",
+        "ate",
         "ive"
       ],
       "hint": "Ex- means out.",
@@ -1387,7 +1387,7 @@
         "ism"
       ],
       "hint": "The root comes from a Latin word meaning to feed.",
-      "why": "Nour (to feed) + -ish (to make): to feed a thing so it grows."
+      "why": "From the Latin nutrire, to feed; -ish is a verb ending: to feed a thing so it grows."
     },
     {
       "id": "fx-grow-09",
@@ -1403,7 +1403,7 @@
         "ity",
         "ous",
         "ment",
-        "ism"
+        "ate"
       ],
       "hint": "-ize means to make.",
       "why": "Fertil (fruitful) + -ize (to make): to make the soil fruitful."
@@ -1414,7 +1414,8 @@
       "level": 2,
       "prompt": "To make soil better, so plants can grow.",
       "words": [
-        "enrich"
+        "enrich",
+        "richen"
       ],
       "tiles": [
         "en",
@@ -1460,7 +1461,7 @@
         "port",
         "ation",
         "form",
-        "ism",
+        "ate",
         "ure"
       ],
       "hint": "Trans- means across.",

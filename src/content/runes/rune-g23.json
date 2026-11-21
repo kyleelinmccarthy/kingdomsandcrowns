@@ -484,7 +484,7 @@
         "ie",
         "a"
       ],
-      "hint": "It starts with br and rhymes with night."
+      "hint": "It rhymes with night."
     },
     {
       "id": "fx-light-09",
@@ -755,7 +755,7 @@
       "effect": "water",
       "level": 1,
       "prompt": "Help it get a drink. Build the word you hear.",
-      "readAloud": "Spill. Do not spill it. Spill.",
+      "readAloud": "Spill. Some water will spill over. Spill.",
       "words": [
         "spill"
       ],
@@ -847,7 +847,7 @@
         "mm",
         "a"
       ],
-      "hint": "It starts with str and rhymes with dream."
+      "hint": "It rhymes with dream."
     },
     {
       "id": "fx-water-11",
@@ -1253,7 +1253,7 @@
         "e",
         "u"
       ],
-      "hint": "It starts with un and ends with tch."
+      "hint": "It ends with tch, as in catch."
     },
     {
       "id": "fx-open-15",
@@ -1294,7 +1294,7 @@
         "ol",
         "t"
       ],
-      "hint": "It starts with un and rhymes with colt at the end."
+      "hint": "Its end rhymes with colt."
     },
     {
       "id": "fx-grow-01",
@@ -1615,7 +1615,7 @@
         "f",
         "ee"
       ],
-      "hint": "It starts with thr and rhymes with five."
+      "hint": "It rhymes with five."
     }
   ]
 }

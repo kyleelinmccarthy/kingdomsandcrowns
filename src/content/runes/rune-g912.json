@@ -20,7 +20,7 @@
         "ice",
         "el",
         "ty",
-        "ism"
+        "ion"
       ],
       "hint": "The root nov means new.",
       "why": "Re- (again) + nov (new) + -ate (to make): to make new again."
@@ -39,9 +39,9 @@
         "struct",
         "de",
         "in",
-        "ure"
+        "al"
       ],
-      "hint": "Struct means to build; con- means together.",
+      "hint": "The root struct means to build.",
       "why": "Re- (again) + con- (together) + struct (to build): to build together again."
     },
     {
@@ -79,7 +79,7 @@
         "de",
         "ous",
         "ant",
-        "ism",
+        "ate",
         "ure"
       ],
       "hint": "The root furb means to polish.",
@@ -135,7 +135,7 @@
         "stabil",
         "ize",
         "ity",
-        "ism",
+        "ate",
         "ous",
         "ure"
       ],
@@ -165,22 +165,22 @@
       "id": "fx-mend-09",
       "effect": "mend",
       "level": 2,
-      "prompt": "Something that puts right a harm or cures an illness.",
+      "prompt": "Sticking together well, so the parts hold as one.",
       "words": [
-        "remedy"
+        "cohesive"
       ],
       "tiles": [
-        "re",
-        "med",
-        "y",
-        "ic",
-        "al",
-        "ia",
-        "ism",
-        "ure"
+        "co",
+        "hes",
+        "ive",
+        "ion",
+        "ate",
+        "ous",
+        "ure",
+        "al"
       ],
-      "hint": "The root med means to heal.",
-      "why": "Re- (again) + med (to heal) + -y: what heals or sets right."
+      "hint": "The root hes means to stick.",
+      "why": "Co- (together) + hes (to stick) + -ive: sticking together."
     },
     {
       "id": "fx-mend-10",
@@ -193,7 +193,7 @@
       "tiles": [
         "salv",
         "age",
-        "ation",
+        "ate",
         "ous",
         "ary",
         "ism",
@@ -245,20 +245,22 @@
       "id": "fx-mend-13",
       "effect": "mend",
       "level": 3,
-      "prompt": "To set right a wrong or an unfair harm.",
+      "prompt": "To make a wall or a frame stronger by adding support.",
       "words": [
-        "redress"
+        "reinforce"
       ],
       "tiles": [
         "re",
-        "dress",
-        "ex",
-        "ure",
-        "ive",
-        "ism"
+        "in",
+        "forc",
+        "e",
+        "ous",
+        "ate",
+        "ion",
+        "ive"
       ],
-      "hint": "Re- means again; the root here means to make straight.",
-      "why": "Re- (again) + dress (to make straight): to set right again."
+      "hint": "The root forc means strength.",
+      "why": "Re- (again) + in- + forc (strength): to put strength in again."
     },
     {
       "id": "fx-mend-14",
@@ -276,7 +278,7 @@
         "ion",
         "al"
       ],
-      "hint": "The root cuper means to take back.",
+      "hint": "The root cuper means to take.",
       "why": "Re- (back) + cuper (to take) + -ate: to take back your strength."
     },
     {
@@ -294,7 +296,7 @@
         "ity",
         "ous",
         "ent",
-        "ism",
+        "ate",
         "ure"
       ],
       "hint": "The root par means to make ready.",
@@ -306,7 +308,8 @@
       "level": 4,
       "prompt": "To make a bad thing better.",
       "words": [
-        "ameliorate"
+        "ameliorate",
+        "meliorate"
       ],
       "tiles": [
         "a",
@@ -333,9 +336,9 @@
         "il",
         "lumin",
         "ate",
-        "ance",
+        "al",
         "ex",
-        "ism"
+        "ion"
       ],
       "hint": "The root lumin means light.",
       "why": "Il- (upon) + lumin (light) + -ate (to make): to throw light upon."
@@ -353,7 +356,7 @@
         "ous",
         "micro",
         "il",
-        "ance",
+        "ize",
         "ity"
       ],
       "hint": "The root lumin means light.",
@@ -389,7 +392,7 @@
       "tiles": [
         "ign",
         "ition",
-        "ism",
+        "ion",
         "eous",
         "al"
       ],
@@ -422,16 +425,18 @@
       "level": 1,
       "prompt": "Glowing white with heat.",
       "words": [
-        "incandescent"
+        "incandescent",
+        "candescent"
       ],
       "tiles": [
         "in",
         "candesc",
         "ent",
+        "de",
         "ance",
         "ous",
         "ible",
-        "ism"
+        "ate"
       ],
       "hint": "The root cand means to shine white.",
       "why": "In- + candesc (to begin to glow white) + -ent: glowing white with heat."
@@ -452,8 +457,8 @@
         "ive",
         "ant"
       ],
-      "hint": "The root bust means to burn.",
-      "why": "Com- (fully) + bust (to burn) + -ion (the act of): the act of burning."
+      "hint": "It comes from the Latin comburere, to burn up.",
+      "why": "From the Latin comburere, to burn up: the act of burning."
     },
     {
       "id": "fx-light-08",
@@ -466,13 +471,13 @@
       "tiles": [
         "lumin",
         "escent",
-        "ance",
+        "ate",
         "ity",
         "ible",
         "ism"
       ],
       "hint": "-escent means beginning to be.",
-      "why": "Lumin (light) + -escent (giving off): giving off light without heat."
+      "why": "Lumin (light) + -escent (becoming): beginning to glow, without heat."
     },
     {
       "id": "fx-light-09",
@@ -480,16 +485,17 @@
       "level": 2,
       "prompt": "Shining brilliantly; dazzling to look at.",
       "words": [
-        "resplendent"
+        "resplendent",
+        "splendent"
       ],
       "tiles": [
         "re",
         "splend",
         "ent",
-        "or",
+        "ate",
         "ous",
         "ive",
-        "ism"
+        "ion"
       ],
       "hint": "The root splend means to shine.",
       "why": "Re- (again, intensely) + splend (to shine) + -ent: shining out brilliantly."
@@ -531,7 +537,7 @@
         "ure"
       ],
       "hint": "-escent means beginning to be.",
-      "why": "Fluor + -escent (giving off): glowing when rays strike it."
+      "why": "Fluor + -escent (becoming): beginning to glow when rays strike it."
     },
     {
       "id": "fx-light-12",
@@ -547,7 +553,7 @@
         "ion",
         "ous",
         "ent",
-        "ism",
+        "ive",
         "ure"
       ],
       "hint": "The root scintill means a spark.",
@@ -564,7 +570,7 @@
       "tiles": [
         "lumin",
         "ary",
-        "ance",
+        "al",
         "ity",
         "ism"
       ],
@@ -586,30 +592,30 @@
         "us",
         "ate",
         "ic",
-        "ism"
+        "ion"
       ],
-      "hint": "Phos means light, and phor means to carry.",
+      "hint": "The first part, phos, means light.",
       "why": "Phos (light) + phor (to carry) + -escent: carrying light, glowing on in the dark."
     },
     {
       "id": "fx-light-15",
       "effect": "light",
       "level": 4,
-      "prompt": "Shining out brilliantly; radiant.",
+      "prompt": "A huge fire that spreads and burns far and wide.",
       "words": [
-        "effulgent"
+        "conflagration"
       ],
       "tiles": [
-        "ef",
-        "fulg",
-        "ent",
+        "con",
+        "flagr",
+        "ation",
         "ous",
-        "ance",
         "ive",
-        "ism"
+        "ure",
+        "al"
       ],
-      "hint": "The root fulg means to flash.",
-      "why": "Ef- (out) + fulg (to flash) + -ent: flashing out light."
+      "hint": "The root flagr means to blaze.",
+      "why": "Con- (fully) + flagr (to blaze) + -ation: a fire blazing on every side."
     },
     {
       "id": "fx-light-16",
@@ -664,7 +670,7 @@
         "ant",
         "ology",
         "ic",
-        "ism",
+        "ion",
         "ure"
       ],
       "hint": "The root hydr means water.",
@@ -685,7 +691,7 @@
         "con",
         "ive"
       ],
-      "hint": "Aque means water; duct means to lead.",
+      "hint": "The first part means water.",
       "why": "Aque (water) + duct (to lead): a channel that leads water."
     },
     {
@@ -759,7 +765,7 @@
         "ation",
         "ist",
         "ous",
-        "ism",
+        "ate",
         "ure"
       ],
       "hint": "The root reserv means to keep back.",
@@ -783,7 +789,7 @@
         "ism",
         "ure"
       ],
-      "hint": "Per- means through; the root col means to strain.",
+      "hint": "The root col means to strain.",
       "why": "Per- (through) + col (to strain) + -ate: to strain through slowly."
     },
     {
@@ -820,7 +826,7 @@
         "ion",
         "ous",
         "ent",
-        "ism"
+        "ive"
       ],
       "hint": "Per- means through.",
       "why": "Per- (through) + me (to pass) + -ate: to pass all the way through."
@@ -829,21 +835,20 @@
       "id": "fx-water-11",
       "effect": "water",
       "level": 3,
-      "prompt": "The soaking of rain down into the ground.",
+      "prompt": "A layer of rock or sand underground that holds water.",
       "words": [
-        "infiltration"
+        "aquifer"
       ],
       "tiles": [
-        "in",
-        "filtr",
-        "ation",
+        "aqui",
+        "fer",
         "ous",
-        "ive",
-        "ure",
-        "ism"
+        "ate",
+        "ion",
+        "ive"
       ],
-      "hint": "The root filtr means to strain, as through felt.",
-      "why": "In- (into) + filtr (to strain) + -ation: water straining into the ground."
+      "hint": "The root aqui means water.",
+      "why": "Aqui (water) + fer (to carry): a layer that carries water."
     },
     {
       "id": "fx-water-12",
@@ -861,7 +866,7 @@
         "al",
         "ent"
       ],
-      "hint": "Im- means in; mers means to dip.",
+      "hint": "The root mers means to dip.",
       "why": "Im- (in) + mers (to dip) + -ion (the act of): the act of dipping in."
     },
     {
@@ -897,9 +902,9 @@
         "cipit",
         "ation",
         "ous",
-        "ance",
         "ive",
-        "ism"
+        "al",
+        "ure"
       ],
       "hint": "Pre- means before; cipit comes from the Latin for head, as in headlong.",
       "why": "Pre- + cipit (head) + -ation: water falling headlong from the sky."
@@ -921,7 +926,7 @@
         "ous"
       ],
       "hint": "The root plen means full.",
-      "why": "Re- (again) + plen (full) + -ish (to make): to make full again."
+      "why": "Re- (again) + plen (full) + -ish, a verb ending: to fill up again."
     },
     {
       "id": "fx-water-16",
@@ -939,7 +944,7 @@
         "ous",
         "ant",
         "ology",
-        "ism"
+        "ion"
       ],
       "hint": "The root hydr means water.",
       "why": "Re- (again) + hydr (water) + -ate (to make): to give water again."
@@ -996,7 +1001,7 @@
         "al",
         "ty",
         "ous",
-        "ism",
+        "ion",
         "ure"
       ],
       "hint": "The root liber means free.",
@@ -1055,7 +1060,7 @@
         "ion",
         "al",
         "ive",
-        "ism"
+        "ate"
       ],
       "hint": "The root aper means to open.",
       "why": "Aper (to open) + -ture (the thing): an opening."
@@ -1097,7 +1102,7 @@
         "ex",
         "ous"
       ],
-      "hint": "Dis- means apart; engage means to hook together.",
+      "hint": "The first part means apart.",
       "why": "Dis- (apart) + engage (to hook together): to unhook."
     },
     {
@@ -1114,10 +1119,10 @@
         "ex",
         "pro",
         "ion",
-        "ism",
+        "ate",
         "ure"
       ],
-      "hint": "E- means out; gress means to step.",
+      "hint": "Its first part means out.",
       "why": "E- (out) + gress (to step): a way to step out."
     },
     {
@@ -1137,7 +1142,7 @@
         "ism",
         "ure"
       ],
-      "hint": "In- means in; gress means to step.",
+      "hint": "Its first part means in.",
       "why": "In- (in) + gress (to step): a way to step in."
     },
     {
@@ -1231,7 +1236,7 @@
         "some",
         "ex",
         "ive",
-        "ism"
+        "ate"
       ],
       "hint": "Cumber means to weigh down.",
       "why": "Un- (undo) + en- (in) + cumber (to weigh down): to take off a heavy load."
@@ -1288,10 +1293,10 @@
         "ate",
         "ion",
         "ent",
-        "ism",
+        "ive",
         "ure"
       ],
-      "hint": "The root proli means offspring, and fer means to bear.",
+      "hint": "The root proli means offspring.",
       "why": "Proli (offspring) + fer (to bear) + -ate (to make): to bear more and more, and spread."
     },
     {
@@ -1346,7 +1351,7 @@
         "ur",
         "ust",
         "ive",
-        "ism"
+        "ate"
       ],
       "hint": "The root aug means to increase.",
       "why": "Aug (to increase) + -ment: to make greater."
@@ -1365,7 +1370,7 @@
         "able",
         "ive",
         "ous",
-        "ism",
+        "ent",
         "ure"
       ],
       "hint": "The root veget means to be lively.",
@@ -1406,7 +1411,7 @@
         "tic",
         "ism"
       ],
-      "hint": "Photo means light; synthesis means putting together.",
+      "hint": "The first part means light.",
       "why": "Photo (light) + synthesis (putting together): building food with light."
     },
     {
@@ -1423,10 +1428,10 @@
         "ure",
         "ist",
         "al",
-        "ism",
+        "ate",
         "ive"
       ],
-      "hint": "Horti means garden; cult means to tend.",
+      "hint": "The first part means garden.",
       "why": "Horti (garden) + cult (to tend) + -ure: the tending of gardens."
     },
     {
@@ -1458,7 +1463,7 @@
       "tiles": [
         "luxuri",
         "ant",
-        "ism",
+        "ent",
         "ive",
         "al",
         "ure"
@@ -1470,21 +1475,21 @@
       "id": "fx-grow-12",
       "effect": "grow",
       "level": 3,
-      "prompt": "To bear fruit.",
+      "prompt": "One small step by which an amount grows.",
       "words": [
-        "fructify"
+        "increment"
       ],
       "tiles": [
-        "fruct",
-        "ify",
-        "gen",
-        "ose",
-        "al",
-        "ism",
+        "in",
+        "cre",
+        "ment",
+        "ous",
+        "ive",
+        "ion",
         "ure"
       ],
-      "hint": "The root fruct means fruit.",
-      "why": "Fruct (fruit) + -ify (to make): to make fruit."
+      "hint": "The root cre means to grow.",
+      "why": "In- (on) + cre (to grow) + -ment: a growth, one step larger."
     },
     {
       "id": "fx-grow-13",
@@ -1511,7 +1516,8 @@
       "level": 4,
       "prompt": "A bursting into flower; full bloom.",
       "words": [
-        "efflorescence"
+        "efflorescence",
+        "florescence"
       ],
       "tiles": [
         "ef",
@@ -1529,20 +1535,21 @@
       "id": "fx-grow-15",
       "effect": "grow",
       "level": 4,
-      "prompt": "To give life to; to make lively.",
+      "prompt": "To bring back to life, as rain does for a wilted plant.",
       "words": [
-        "vivify"
+        "revive"
       ],
       "tiles": [
+        "re",
         "viv",
-        "ify",
-        "id",
-        "ace",
+        "e",
         "ous",
-        "ism"
+        "ion",
+        "ent",
+        "ure"
       ],
       "hint": "The root viv means life.",
-      "why": "Viv (life) + -ify (to make): to give life."
+      "why": "Re- (again) + viv (life): to give life again."
     },
     {
       "id": "fx-grow-16",

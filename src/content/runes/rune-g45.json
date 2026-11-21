@@ -10,39 +10,41 @@
       "id": "fx-mend-01",
       "effect": "mend",
       "level": 0,
-      "prompt": "To make a broken thing work again.",
+      "prompt": "To fasten something firmly so it cannot slip or fall.",
       "words": [
-        "fix"
+        "secure"
       ],
       "tiles": [
-        "f",
-        "i",
-        "x",
-        "e",
-        "ks",
-        "a",
-        "v"
+        "se",
+        "c",
+        "ure",
+        "sh",
+        "ur",
+        "er",
+        "a"
       ],
-      "hint": "It rhymes with six.",
-      "why": "To fix a thing is to make it work again after it breaks."
+      "hint": "It ends like cure.",
+      "why": "To secure a thing is to fix it firmly in place, so it holds."
     },
     {
       "id": "fx-mend-02",
       "effect": "mend",
       "level": 0,
-      "prompt": "A sticky paste that holds broken pieces together.",
+      "prompt": "A sticky substance, such as glue or paste, that holds things together.",
       "words": [
-        "glue"
+        "adhesive"
       ],
       "tiles": [
-        "gl",
-        "ue",
-        "oo",
-        "ew",
-        "u"
+        "ad",
+        "he",
+        "s",
+        "ive",
+        "iv",
+        "z",
+        "e"
       ],
-      "hint": "It starts like glad and ends like blue.",
-      "why": "Glue is a sticky paste. It holds pieces together as it dries."
+      "hint": "It ends like massive.",
+      "why": "An adhesive is anything sticky, like glue or paste, that holds things together."
     },
     {
       "id": "fx-mend-03",
@@ -69,22 +71,22 @@
       "id": "fx-mend-04",
       "effect": "mend",
       "level": 0,
-      "prompt": "A thin metal spike you hammer in to join two boards.",
+      "prompt": "A straight strip of wood tied on to hold a cracked pole still.",
       "words": [
-        "nail"
+        "splint"
       ],
       "tiles": [
-        "n",
-        "ai",
-        "l",
-        "ay",
-        "a",
-        "le",
+        "spl",
+        "i",
+        "nt",
         "e",
-        "ae"
+        "nd",
+        "a",
+        "int",
+        "o"
       ],
-      "hint": "It rhymes with tail.",
-      "why": "A nail is a thin metal spike. You hammer it in to hold wood together."
+      "hint": "It rhymes with print.",
+      "why": "A splint is a straight strip of wood, tied on to hold a broken part still while it mends."
     },
     {
       "id": "fx-mend-05",
@@ -108,41 +110,42 @@
       "id": "fx-mend-06",
       "effect": "mend",
       "level": 1,
-      "prompt": "A tool with a heavy head, for driving in nails.",
+      "prompt": "Strong and solid, and not easily broken.",
       "words": [
-        "hammer"
+        "sturdy"
       ],
       "tiles": [
-        "h",
-        "a",
-        "mm",
+        "st",
+        "ur",
+        "dy",
         "er",
-        "m",
-        "ar",
-        "or",
-        "u"
+        "ir",
+        "di",
+        "ee"
       ],
-      "hint": "Two m's sit in the middle.",
-      "why": "A hammer has a heavy head. You swing it to drive in nails."
+      "hint": "Its middle sounds like the ur in fur.",
+      "why": "Something sturdy is strong and solid, so it does not break easily."
     },
     {
       "id": "fx-mend-07",
       "effect": "mend",
       "level": 1,
-      "prompt": "A metal pin with a twisting ridge, turned in to hold wood tight.",
+      "prompt": "A paste that sets as hard as stone and joins bricks together.",
       "words": [
-        "screw"
+        "cement"
       ],
       "tiles": [
-        "scr",
-        "ew",
-        "oo",
-        "ue",
-        "u",
-        "oa"
+        "c",
+        "e",
+        "m",
+        "ent",
+        "s",
+        "ant",
+        "i",
+        "o"
       ],
-      "hint": "It starts like scrub.",
-      "why": "A screw has a twisting ridge, so it grips the wood as it is turned in."
+      "hint": "It starts with a c that sounds like s.",
+      "why": "Cement is a paste that dries as hard as stone, joining bricks and stones together."
     },
     {
       "id": "fx-mend-08",
@@ -223,7 +226,7 @@
         "se",
         "ay"
       ],
-      "hint": "It starts with re- and ends like face.",
+      "hint": "It ends like face.",
       "why": "To replace a part is to take the old one out and put a new one in its place."
     },
     {
@@ -335,20 +338,21 @@
       "id": "fx-light-01",
       "effect": "light",
       "level": 0,
-      "prompt": "A small light that burns oil, with a wick.",
+      "prompt": "To shine with a wet, sparkling light, as dew does.",
       "words": [
-        "lamp"
+        "glisten"
       ],
       "tiles": [
-        "l",
-        "a",
-        "mp",
-        "m",
-        "p",
-        "u"
+        "gl",
+        "is",
+        "t",
+        "en",
+        "iss",
+        "on",
+        "e"
       ],
-      "hint": "It rhymes with camp.",
-      "why": "A lamp holds oil and a wick. The wick burns to give light."
+      "hint": "There is a quiet t in it.",
+      "why": "To glisten is to shine with a wet, sparkling light."
     },
     {
       "id": "fx-light-02",
@@ -375,81 +379,85 @@
       "id": "fx-light-03",
       "effect": "light",
       "level": 0,
-      "prompt": "A burning stick you carry to see in the dark.",
+      "prompt": "To shine with a soft light that seems to move.",
       "words": [
-        "torch"
+        "shimmer"
       ],
       "tiles": [
-        "t",
-        "or",
-        "ch",
-        "ar",
-        "tch",
+        "sh",
+        "i",
+        "mm",
+        "er",
+        "m",
         "ur",
-        "sh"
+        "ea",
+        "e"
       ],
-      "hint": "It rhymes with porch.",
-      "why": "A torch is a stick with a flame at one end, carried to light the way."
+      "hint": "Two m's sit in the middle.",
+      "why": "To shimmer is to shine with a soft, wavering light, like moonlight on water."
     },
     {
       "id": "fx-light-04",
       "effect": "light",
       "level": 0,
-      "prompt": "To give off a soft, steady light without flames.",
+      "prompt": "To shine so brightly that it is hard to see.",
       "words": [
-        "glow"
+        "dazzle"
       ],
       "tiles": [
-        "gl",
-        "ow",
-        "oa",
-        "o",
-        "oe"
+        "d",
+        "a",
+        "zz",
+        "le",
+        "z",
+        "el",
+        "u"
       ],
-      "hint": "It rhymes with snow.",
-      "why": "To glow is to shine softly and steadily, as hot coals do."
+      "hint": "Two z's sit in the middle.",
+      "why": "To dazzle is to shine so brightly that it almost blinds you."
     },
     {
       "id": "fx-light-05",
       "effect": "light",
       "level": 1,
-      "prompt": "To give off bright light, as the sun does at noon.",
+      "prompt": "To blaze up suddenly with a bright flame.",
       "words": [
-        "shine"
+        "flare"
       ],
       "tiles": [
-        "sh",
-        "i",
-        "ne",
-        "y",
-        "ie",
-        "n",
+        "fl",
+        "are",
+        "ear",
+        "ar",
         "e",
-        "a"
+        "a",
+        "ai"
       ],
-      "hint": "It rhymes with fine.",
-      "why": "To shine is to give off bright light."
+      "hint": "It rhymes with stare.",
+      "why": "To flare is to blaze up in a sudden, bright flame."
     },
     {
       "id": "fx-light-06",
       "effect": "light",
       "level": 1,
-      "prompt": "The bright, hot tongue of a fire.",
+      "prompt": "Very bright and shining.",
       "words": [
-        "flame"
+        "brilliant"
       ],
       "tiles": [
-        "fl",
+        "br",
+        "i",
+        "ll",
+        "i",
+        "ant",
+        "l",
+        "ent",
+        "ia",
         "a",
-        "me",
-        "ai",
-        "ay",
-        "m",
-        "e",
-        "u"
+        "e"
       ],
-      "hint": "It rhymes with game.",
-      "why": "A flame is the bright, moving part of a fire."
+      "hint": "There are two l's in the middle.",
+      "why": "Something brilliant shines very brightly."
     },
     {
       "id": "fx-light-07",
@@ -677,60 +685,65 @@
       "id": "fx-water-02",
       "effect": "water",
       "level": 0,
-      "prompt": "To tip a jug so the water flows out.",
+      "prompt": "To wet a cloth or the soil lightly.",
       "words": [
-        "pour"
-      ],
-      "tiles": [
-        "p",
-        "our",
-        "aw",
-        "ow",
-        "ur",
-        "a",
-        "o"
-      ],
-      "hint": "It sounds like four.",
-      "why": "To pour is to tip a jug or a can so the water runs out of it."
-    },
-    {
-      "id": "fx-water-03",
-      "effect": "water",
-      "level": 0,
-      "prompt": "To throw drops of water about with a slap.",
-      "words": [
-        "splash"
-      ],
-      "tiles": [
-        "spl",
-        "a",
-        "sh",
-        "ch",
-        "e",
-        "i"
-      ],
-      "hint": "It rhymes with crash.",
-      "why": "To splash is to send drops of water flying."
-    },
-    {
-      "id": "fx-water-04",
-      "effect": "water",
-      "level": 0,
-      "prompt": "A little wet, but not soaked through.",
-      "words": [
-        "damp"
+        "dampen"
       ],
       "tiles": [
         "d",
         "a",
         "mp",
+        "en",
+        "on",
+        "in",
         "u",
-        "m",
-        "p",
-        "e"
+        "e",
+        "ai"
       ],
-      "hint": "It rhymes with stamp.",
-      "why": "Something damp is a little wet."
+      "hint": "It ends with -en, which means to make.",
+      "why": "To dampen is to make a thing a little wet."
+    },
+    {
+      "id": "fx-water-03",
+      "effect": "water",
+      "level": 0,
+      "prompt": "A long, open box that holds water for animals to drink.",
+      "words": [
+        "trough"
+      ],
+      "tiles": [
+        "tr",
+        "ou",
+        "gh",
+        "ow",
+        "f",
+        "ff"
+      ],
+      "hint": "It rhymes with cough.",
+      "why": "A trough is a long, open box of water, where farm animals drink."
+    },
+    {
+      "id": "fx-water-04",
+      "effect": "water",
+      "level": 0,
+      "prompt": "How much water comes down from the clouds on a place.",
+      "words": [
+        "rainfall"
+      ],
+      "tiles": [
+        "r",
+        "ai",
+        "n",
+        "f",
+        "a",
+        "ll",
+        "ay",
+        "l",
+        "e",
+        "o"
+      ],
+      "hint": "It is two words joined into one.",
+      "why": "Rainfall is how much rain falls on a place."
     },
     {
       "id": "fx-water-05",
@@ -757,21 +770,22 @@
       "id": "fx-water-06",
       "effect": "water",
       "level": 1,
-      "prompt": "A pail with a handle, for carrying water.",
+      "prompt": "A very heavy fall of rain.",
       "words": [
-        "bucket"
+        "downpour"
       ],
       "tiles": [
-        "b",
-        "u",
-        "ck",
-        "et",
-        "it",
-        "k",
-        "a"
+        "d",
+        "ow",
+        "n",
+        "p",
+        "our",
+        "ou",
+        "aw",
+        "er"
       ],
-      "hint": "Its last part rhymes with jet.",
-      "why": "A bucket is a pail with a handle. You carry water in it."
+      "hint": "Its second part means to tip out.",
+      "why": "A downpour is a heavy fall of rain that pours down."
     },
     {
       "id": "fx-water-07",
@@ -798,23 +812,24 @@
       "id": "fx-water-08",
       "effect": "water",
       "level": 2,
-      "prompt": "To make something a little wet.",
+      "prompt": "To soak something so fully it can hold no more water.",
       "words": [
-        "moisten"
+        "saturate"
       ],
       "tiles": [
-        "m",
-        "oi",
-        "st",
-        "en",
-        "oy",
-        "on",
-        "in",
-        "ai",
-        "e"
+        "s",
+        "a",
+        "t",
+        "ur",
+        "ate",
+        "er",
+        "ch",
+        "i",
+        "e",
+        "o"
       ],
-      "hint": "Listen for oi, as in coin; the t is quiet.",
-      "why": "To moisten is to make a thing a little wet, not soaked."
+      "hint": "It ends like the ate in skate.",
+      "why": "To saturate a thing is to soak it so fully that it can take in no more water."
     },
     {
       "id": "fx-water-09",
@@ -1005,61 +1020,66 @@
       "id": "fx-open-02",
       "effect": "open",
       "level": 0,
-      "prompt": "A small metal tool that fits a lock.",
+      "prompt": "To undo the metal fastener on a belt.",
       "words": [
-        "key"
+        "unbuckle"
       ],
       "tiles": [
+        "un",
+        "b",
+        "u",
+        "ck",
+        "le",
         "k",
-        "ey",
-        "ee",
-        "ea",
-        "i"
+        "el",
+        "o"
       ],
-      "hint": "It rhymes with sea.",
-      "why": "A key fits a lock. Turn it, and the lock lets go."
+      "hint": "Its first part means undo.",
+      "why": "To unbuckle is to undo a buckle."
     },
     {
       "id": "fx-open-03",
       "effect": "open",
       "level": 0,
-      "prompt": "To undo a knot in a rope.",
+      "prompt": "To spread out a map or a cloth that was creased flat.",
       "words": [
-        "untie"
+        "unfold"
       ],
       "tiles": [
         "un",
-        "t",
-        "ie",
-        "igh",
-        "ye",
-        "i",
-        "a",
-        "e"
+        "f",
+        "o",
+        "ld",
+        "ol",
+        "l",
+        "oa",
+        "e",
+        "a"
       ],
-      "hint": "It starts with un-, and ends like pie.",
-      "why": "To untie is to undo a knot."
+      "hint": "Its end rhymes with gold.",
+      "why": "To unfold is to open out what was folded."
     },
     {
       "id": "fx-open-04",
       "effect": "open",
       "level": 0,
-      "prompt": "To raise something up, such as a latch or a lid.",
+      "prompt": "To pull something out, as a cork from a jar.",
       "words": [
-        "lift"
+        "extract"
       ],
       "tiles": [
-        "l",
-        "i",
-        "ft",
+        "ex",
+        "tr",
+        "a",
+        "ct",
+        "x",
+        "ck",
         "e",
-        "ff",
-        "t",
-        "ph",
-        "a"
+        "u",
+        "i"
       ],
-      "hint": "It rhymes with gift.",
-      "why": "To lift is to raise a thing up."
+      "hint": "It starts with ex-, which means out.",
+      "why": "To extract is to pull a thing out."
     },
     {
       "id": "fx-open-05",
@@ -1085,22 +1105,22 @@
       "id": "fx-open-06",
       "effect": "open",
       "level": 1,
-      "prompt": "The joint that a door swings on.",
+      "prompt": "To make a gap or a doorway broader.",
       "words": [
-        "hinge"
+        "widen"
       ],
       "tiles": [
-        "h",
+        "w",
         "i",
-        "n",
-        "ge",
-        "j",
-        "ie",
-        "dge",
-        "e"
+        "d",
+        "en",
+        "ide",
+        "y",
+        "on",
+        "a"
       ],
-      "hint": "It rhymes with fringe.",
-      "why": "A hinge is the joint a door turns on as it swings."
+      "hint": "It ends with -en, which means to make.",
+      "why": "To widen is to make a thing wider."
     },
     {
       "id": "fx-open-07",
@@ -1204,7 +1224,7 @@
         "e",
         "ai"
       ],
-      "hint": "Un- means undo, and there is a quiet t.",
+      "hint": "There is a quiet t after the s.",
       "why": "To unfasten is to undo whatever holds a thing shut."
     },
     {
@@ -1265,14 +1285,14 @@
         "ie",
         "c"
       ],
-      "hint": "Un- means undo; the rest names what keeps a letter shut.",
+      "hint": "Its first part means undo.",
       "why": "To unseal is to break the seal, the wax that keeps a letter closed."
     },
     {
       "id": "fx-open-15",
       "effect": "open",
       "level": 4,
-      "prompt": "To undo the metal catch on a cloak or a book.",
+      "prompt": "To undo the metal catch on a book or a purse.",
       "words": [
         "unclasp"
       ],
@@ -1281,11 +1301,11 @@
         "cl",
         "a",
         "sp",
-        "k",
         "ps",
         "e",
         "o",
-        "c"
+        "c",
+        "i"
       ],
       "hint": "Its end rhymes with grasp.",
       "why": "A clasp is a metal catch. To unclasp is to undo it."
@@ -1335,60 +1355,64 @@
       "id": "fx-grow-02",
       "effect": "grow",
       "level": 0,
-      "prompt": "The small part of a plant that a new plant comes from.",
+      "prompt": "To care for something young as it grows.",
       "words": [
-        "seed"
+        "nurture"
       ],
       "tiles": [
-        "s",
-        "ee",
-        "d",
-        "ea",
-        "e",
-        "c",
-        "t"
+        "n",
+        "ur",
+        "t",
+        "ure",
+        "er",
+        "ch",
+        "ir",
+        "e"
       ],
-      "hint": "It rhymes with need.",
-      "why": "A seed is the small part of a plant that a new plant grows from."
+      "hint": "It ends like capture.",
+      "why": "To nurture is to feed and care for a young thing as it grows."
     },
     {
       "id": "fx-grow-03",
       "effect": "grow",
       "level": 0,
-      "prompt": "The part of a plant that grows under the soil.",
+      "prompt": "To gather in the crops when they are ripe.",
       "words": [
-        "root"
+        "harvest"
       ],
       "tiles": [
-        "r",
-        "oo",
-        "t",
-        "ou",
+        "h",
+        "ar",
+        "v",
+        "e",
+        "st",
+        "or",
+        "i",
         "u",
-        "ew",
-        "e"
+        "a"
       ],
-      "hint": "It rhymes with boot.",
-      "why": "A root grows down into the soil and drinks up water."
+      "hint": "It starts like hard.",
+      "why": "To harvest is to gather the crops once they have grown and ripened."
     },
     {
       "id": "fx-grow-04",
       "effect": "grow",
       "level": 0,
-      "prompt": "To open up into flowers.",
+      "prompt": "A field of fruit trees.",
       "words": [
-        "bloom"
+        "orchard"
       ],
       "tiles": [
-        "bl",
-        "oo",
-        "m",
-        "u",
-        "ue",
-        "me"
+        "or",
+        "ch",
+        "ar",
+        "d",
+        "er",
+        "a",
+        "tch"
       ],
-      "hint": "It rhymes with room.",
-      "why": "To bloom is to open into flowers."
+      "hint": "It starts like order.",
+      "why": "An orchard is a field where fruit trees grow."
     },
     {
       "id": "fx-grow-05",
@@ -1514,7 +1538,7 @@
         "oa",
         "a"
       ],
-      "hint": "It starts like comb.",
+      "hint": "It starts with the same three letters as comb.",
       "why": "Compost is rotted leaves and scraps. Dug into the soil, it feeds the plants."
     },
     {
@@ -1596,7 +1620,7 @@
         "sh",
         "i"
       ],
-      "hint": "It starts like flour for bread.",
+      "hint": "It starts with the letters of flour.",
       "why": "To flourish is to grow strongly and well."
     },
     {
