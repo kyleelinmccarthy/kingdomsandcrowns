@@ -2,10 +2,28 @@
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
+import { containsWord } from "@/lib/content/pool-validate";
 import { LISTEN_BANDS, RUNE_SKILLS, formatRuneProblems, validateRunePool, type RunePool } from "@/lib/content/rune-pools";
+import { RUNE_EFFECT_IDS, RUNE_OBJECTS, VILLAGE_RUNE_OBJECTS } from "@/lib/realm/rune-objects";
+import {
+  RUNE_DEMO_COPY,
+  RUNE_EMPTY_ROW,
+  RUNE_HEAR,
+  RUNE_HEAR_MEANING,
+  RUNE_HELP,
+  RUNE_LOOK_VERB,
+  RUNE_NO_SOUND_LEAD,
+  RUNE_SAME_WORD,
+  RUNE_STORY,
+  RUNE_TITLE,
+  RUNE_VERB,
+  runeSetOffLine,
+} from "@/lib/tasks/rune-copy";
 import { runeTiling } from "@/lib/tasks/rune-tiles";
 import { RUNE_POOL_FILES } from "@/lib/tasks/runes/rune-pool-files";
 import { loadRunePools } from "@/lib/tasks/runes";
+import { simulateRuneWeek } from "@/test/rune-week";
+import { CONTENT_BANDS } from "./content-bands";
 import { skillForPool } from "./skills";
 
 const DIR = path.join(__dirname, "../../content/runes");
@@ -19,7 +37,7 @@ const DIR = path.join(__dirname, "../../content/runes");
  * (The check that every pool has a blind-pass sheet is I6's (F-15): it is added once the pools exist,
  * so this gate is never red between I5 and I6.)
  */
-const EXPECTED_RUNE_POOLS: string[] = [];
+const EXPECTED_RUNE_POOLS: string[] = ["rune-k1", "rune-g23", "rune-g45", "rune-g68", "rune-g912"];
 
 function loadAll(): { file: string; parsed: RunePool }[] {
   if (!fs.existsSync(DIR)) return [];
@@ -68,6 +86,48 @@ describe("rune pool content", () => {
           const where = `${parsed.poolId} ${e.id} "${w}" (${e.effect})`;
           expect(w.includes(e.effect) || e.effect.includes(w), where).toBe(false);
           for (const i of runeTiling(w, e.tiles) ?? []) expect(e.tiles[i].includes(e.effect), where).toBe(false);
+        }
+      }
+    }
+  });
+
+  it("ships a pool for every band, and every pool has words for all five effects", () => {
+    expect(pools.map((p) => p.parsed.band).sort()).toEqual([...CONTENT_BANDS].sort());
+    for (const { parsed } of pools) {
+      for (const effect of RUNE_EFFECT_IDS) expect(parsed.entries.some((e) => e.effect === effect && e.words.length > 0), `${parsed.poolId} ${effect}`).toBe(true);
+    }
+  });
+
+  it("meets no entry twice in a week of rune runs (21 runs of 3 words), at every level and seed (R-I19)", () => {
+    for (const { parsed } of pools) {
+      for (let level = 0; level <= 4; level++) {
+        for (let seed = 1; seed <= 20; seed++) {
+          const keys = simulateRuneWeek(parsed, level, seed).flat();
+          expect(keys.length, `${parsed.poolId} level ${level} seed ${seed}`).toBe(63);
+          expect(new Set(keys).size, `${parsed.poolId} level ${level} seed ${seed}`).toBe(63);
+        }
+      }
+    }
+  });
+
+  it("hides no accepted word in plain sight: not in an object's label, the rune copy or a Set off line (R-I17)", () => {
+    const labels = RUNE_OBJECTS.flatMap((o) => [o.label, o.fixedLabel]);
+    const village = VILLAGE_RUNE_OBJECTS.map((o) => o.label);
+    const setOff: string[] = [];
+    for (let a = 0; a < village.length; a++) {
+      setOff.push(runeSetOffLine([village[a]]));
+      for (let b = a + 1; b < village.length; b++) {
+        setOff.push(runeSetOffLine([village[a], village[b]]));
+        for (let c = b + 1; c < village.length; c++) setOff.push(runeSetOffLine([village[a], village[b], village[c]]));
+      }
+    }
+    const copy = [RUNE_VERB, RUNE_LOOK_VERB, RUNE_STORY, RUNE_TITLE, RUNE_HELP, RUNE_HEAR, RUNE_HEAR_MEANING, RUNE_NO_SOUND_LEAD, RUNE_EMPTY_ROW, RUNE_SAME_WORD, RUNE_DEMO_COPY];
+    const texts = [...labels, ...copy, ...setOff];
+    for (const { parsed } of pools) {
+      for (const e of parsed.entries) {
+        for (const w of e.words) {
+          const hit = texts.find((t) => containsWord(t, w, { inflections: true }));
+          expect(hit, `${parsed.poolId} ${e.id} "${w}"`).toBeUndefined();
         }
       }
     }
