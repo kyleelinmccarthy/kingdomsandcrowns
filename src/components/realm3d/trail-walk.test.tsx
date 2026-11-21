@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { createRef, type MutableRefObject } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -386,5 +388,56 @@ describe("TrailWalk, the tracker", () => {
     expect(answerRef.current).toBeTypeOf("function");
     view.unmount();
     expect(answerRef.current).toBeNull();
+  });
+});
+
+describe("the tracker's layout (H10 smoke: larger text at 390 px, the 1280 px header, the minimap)", () => {
+  const css = readFileSync(resolve(__dirname, "trail-walk.css"), "utf8");
+  /** The body of the `@media (max-width: 480px)` block. */
+  const phone = (() => {
+    const start = css.indexOf("@media (max-width: 480px)");
+    if (start === -1) return "";
+    let depth = 0;
+    for (let i = css.indexOf("{", start); i < css.length; i++) {
+      if (css[i] === "{") depth++;
+      if (css[i] === "}" && --depth === 0) return css.slice(start, i + 1);
+    }
+    return "";
+  })();
+  const rule = (block: string, selector: string) => new RegExp(`(?:^|[\\n{}])\\s*${selector.replace(/[.[\]="()>:-]/g, "\\$&")}\\s*\\{([^}]*)\\}`).exec(block)?.[1] ?? "";
+  const walking = ".r3-left-stack:has(> .trail-walk:not([hidden]))";
+  const larger = '.r3-root[data-larger-text="on"]';
+
+  it("at larger text on a phone, is as wide as the screen less its gutters once zoomed, never wider", () => {
+    // Zoom 1.2 scales the width too, so the unzoomed width is the gutters' share divided by 1.2.
+    expect(rule(css, `${larger} .trail-walk`)).toMatch(/zoom:\s*1\.2/);
+    expect(rule(phone, ".trail-walk")).toMatch(/width:\s*calc\(100vw - 32px\)/);
+    expect(rule(phone, `${larger} .trail-walk`)).toMatch(/width:\s*calc\(\(100vw - 2\.2rem\) \/ 1\.2\)/);
+  });
+
+  it("never squeezes a word onto two lines: the count and the buttons keep to one line, and wrap as a whole onto their own row", () => {
+    expect(rule(css, ".trail-walk-head")).toMatch(/flex-wrap:\s*wrap/);
+    expect(rule(css, ".trail-walk-foot")).toMatch(/flex-wrap:\s*wrap/);
+    for (const sel of [".trail-walk-count", ".trail-walk-fold", ".trail-walk-foot .r3-link-button"]) {
+      expect(rule(css, sel), sel).toMatch(/white-space:\s*nowrap/);
+    }
+    expect(rule(css, ".trail-walk-count")).toMatch(/flex:\s*none/);
+  });
+
+  it("on a phone, sits under the minimap while a walk is shown, with the objective card stepping aside, and the column still clears the spell bar", () => {
+    // The minimap is 12.5rem at 1rem from the top (`.r3-map`): the column starts below its foot.
+    for (const sel of [walking, `${larger} ${walking}`]) {
+      expect(rule(phone, sel), sel).toMatch(/top:\s*14rem/);
+      expect(rule(phone, sel), sel).toMatch(/max-height:\s*calc\(100% - 14rem - 11rem\)/);
+    }
+    expect(rule(phone, `${walking} > .r3-quest`)).toMatch(/display:\s*none/);
+  });
+
+  it("renders the parts those rules hold: the count, the fold, and the foot's buttons", () => {
+    const { view } = show();
+    // The tracker is the column's direct child in the frame (`realm-game.tsx`), which `:has(> .trail-walk)` reads.
+    expect(view.container.querySelector(".trail-walk-head .trail-walk-count, .trail-walk-head .r3-run-dots")).not.toBeNull();
+    expect(view.container.querySelector(".trail-walk-head .trail-walk-fold")).not.toBeNull();
+    expect(view.container.querySelector(".trail-walk-foot .r3-link-button.trail-walk-leave")).not.toBeNull();
   });
 });

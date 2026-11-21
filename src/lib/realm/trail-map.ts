@@ -51,6 +51,27 @@ const SCALE = (W - 2 * TRAIL_MAP_HIT) / (EXTENT.x1 - EXTENT.x0);
 /** The picture's size: 360 wide, as tall as the village's extent needs. */
 export const TRAIL_MAP_VIEW = { w: W, h: Math.ceil((EXTENT.z1 - EXTENT.z0) * SCALE + 2 * TRAIL_MAP_HIT) } as const;
 
+/**
+ * A place's tag ("Not here", "It was here.") as the map must fit it, in map units: sized for the
+ * widest tag (about 88 px) on the narrowest map (a 326 px box on a 390 px phone, 0.9 px a unit).
+ */
+export const TRAIL_MAP_TAG = { w: 100, h: 18 } as const;
+
+/** Where a tag sits by its button: centred under it, unless that would cross an edge of the map (H8). */
+export type TrailMapTagPlace = { x: "start" | "center" | "end"; y: "below" | "above" };
+
+/**
+ * Where a place's tag sits, so it stays inside the map: flush with the button's left (or right)
+ * edge near the map's left (or right), and over the button near its foot. Judged as if the tag
+ * began at the button's own edge, which the CSS's 92% only brings closer.
+ */
+export function trailMapTagPlace(p: { x: number; y: number }): TrailMapTagPlace {
+  const { w, h } = TRAIL_MAP_TAG;
+  const x = p.x - w / 2 < 0 ? "start" : p.x + w / 2 > TRAIL_MAP_VIEW.w ? "end" : "center";
+  const y = p.y + TRAIL_MAP_HIT + h > TRAIL_MAP_VIEW.h ? "above" : "below";
+  return { x, y };
+}
+
 /** Where a world point falls on the map: north (smaller z) is up, east (larger x) is right. */
 export function trailMapPoint(x: number, z: number): { x: number; y: number } {
   return { x: TRAIL_MAP_HIT + (x - EXTENT.x0) * SCALE, y: TRAIL_MAP_HIT + (z - EXTENT.z0) * SCALE };

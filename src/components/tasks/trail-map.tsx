@@ -17,32 +17,46 @@
  * Enter and Space stay on the map, so they never act in the Realm behind the board; Esc and every
  * other key bubble, so Esc still closes it.
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState, type CSSProperties } from "react";
 import { GameIcon } from "@/components/game-icon";
 import { ANCHOR_IDS, ANCHORS, isAnchorId, type AnchorId } from "@/lib/realm/anchors";
-import { TRAIL_MAP_VIEW, trailMapBackdrop, trailMapPoint } from "@/lib/realm/trail-map";
+import { TRAIL_MAP_HIT, TRAIL_MAP_VIEW, trailMapBackdrop, trailMapPoint, trailMapTagPlace } from "@/lib/realm/trail-map";
 import { TASK_CODECS } from "@/lib/tasks/codecs";
-import { TRAIL_MAP_HELP, TRAIL_MAP_REVEAL, TRAIL_MAP_RULED_OUT, TRAIL_MAP_SEARCH } from "@/lib/tasks/trail-copy";
+import { TRAIL_MAP_HELP, TRAIL_MAP_LABEL, TRAIL_MAP_REVEAL, TRAIL_MAP_RULED_OUT, TRAIL_MAP_SEARCH } from "@/lib/tasks/trail-copy";
 import type { FlowState } from "@/lib/utils/deed-run-flow";
 import "./trail.css";
 
 const { w: W, h: H } = TRAIL_MAP_VIEW;
 const BACKDROP = trailMapBackdrop();
 
-/** Each place's button: its label, icon and spot on the picture, as percentages of the box. */
+/**
+ * Each place's button: its label, icon and spot on the picture, as percentages of the box, and
+ * where its tag sits so it stays inside the map (`trailMapTagPlace`, H8).
+ */
 const SPOTS = ANCHOR_IDS.map((id) => {
   const a = ANCHORS[id];
   const p = trailMapPoint(a.x, a.z);
-  return { id, label: a.label, icon: a.icon, left: `${(p.x / W) * 100}%`, top: `${(p.y / H) * 100}%` };
+  const tag = trailMapTagPlace(p);
+  return {
+    id, label: a.label, icon: a.icon, left: `${(p.x / W) * 100}%`, top: `${(p.y / H) * 100}%`,
+    tagClass: `trail-spot-tag--x-${tag.x} trail-spot-tag--y-${tag.y}`,
+  };
 });
 
-/** The keys the map keeps from the game. */
-const MAP_KEYS = /^(?:Enter| |Spacebar)$/;
+/**
+ * The box's size and the spots' own share of it, from the map's geometry (H8): a button is
+ * 2 x `TRAIL_MAP_HIT` of the picture's `W` units, so the CSS never repeats those numbers.
+ */
+const BOX_STYLE = { aspectRatio: `${W} / ${H}`, "--trail-spot-size": `${((2 * TRAIL_MAP_HIT) / W) * 100}%` } as CSSProperties;
+
+/** The keys a trail's surfaces (the map, Set off) keep from the game; Esc and the rest bubble. */
+export const TRAIL_KEEP_KEYS = /^(?:Enter| |Spacebar)$/;
 
 type Tone = "ruled-out" | "answer" | "right";
 
 export function TrailMap({ flow, disabled, onRespond, variant = "page" }: { flow: FlowState; disabled: boolean; onRespond(encoded: string): void; variant?: "board" | "page" }) {
   const [selected, setSelected] = useState<AnchorId | null>(null);
+  const tagIds = useId();
   const box = useRef<HTMLDivElement>(null);
   const resolved = flow.phase === "resolved";
   const result = flow.result;
@@ -69,12 +83,12 @@ export function TrailMap({ flow, disabled, onRespond, variant = "page" }: { flow
   return (
     <section
       className={`trail trail--${variant} trail-map`}
-      aria-label="The village map"
+      aria-label={TRAIL_MAP_LABEL}
       onKeyDown={(e) => {
-        if (MAP_KEYS.test(e.key)) e.stopPropagation();
+        if (TRAIL_KEEP_KEYS.test(e.key)) e.stopPropagation();
       }}
     >
-      <div ref={box} className="trail-map-box" style={{ aspectRatio: `${W} / ${H}` }}>
+      <div ref={box} className="trail-map-box" style={BOX_STYLE}>
         <svg className="trail-map-art" viewBox={`0 0 ${W} ${H}`} aria-hidden="true" focusable="false">
           {BACKDROP.road.map((r, i) => (
             <line key={i} className="trail-map-road" x1={r.x1} y1={r.y1} x2={r.x2} y2={r.y2} />
@@ -85,6 +99,9 @@ export function TrailMap({ flow, disabled, onRespond, variant = "page" }: { flow
         </svg>
         {SPOTS.map((s) => {
           const tone = toneOf(s.id);
+          // The tag's words are the place's state, so its button is described by them (H8).
+          const tag = tone === "ruled-out" ? TRAIL_MAP_RULED_OUT : tone === "answer" ? TRAIL_MAP_REVEAL : null;
+          const tagId = tag ? `${tagIds}-${s.id}` : undefined;
           return (
             <button
               key={s.id}
@@ -94,6 +111,7 @@ export function TrailMap({ flow, disabled, onRespond, variant = "page" }: { flow
               aria-label={s.label}
               title={s.label}
               aria-pressed={chosen === s.id}
+              aria-describedby={tagId}
               data-tone={tone}
               disabled={locked || tone === "ruled-out"}
               onClick={() => setSelected(s.id)}
@@ -102,8 +120,11 @@ export function TrailMap({ flow, disabled, onRespond, variant = "page" }: { flow
                 <GameIcon name={s.icon} className="trail-spot-icon" />
               </span>
               {tone === "right" && <GameIcon name="check" className="trail-spot-check" />}
-              {tone === "ruled-out" && <span className="trail-spot-tag">{TRAIL_MAP_RULED_OUT}</span>}
-              {tone === "answer" && <span className="trail-spot-tag trail-spot-tag--answer">{TRAIL_MAP_REVEAL}</span>}
+              {tag && (
+                <span id={tagId} className={`trail-spot-tag ${s.tagClass}${tone === "answer" ? " trail-spot-tag--answer" : ""}`}>
+                  {tag}
+                </span>
+              )}
             </button>
           );
         })}

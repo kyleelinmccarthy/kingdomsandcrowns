@@ -5,7 +5,8 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ClientTask } from "@/lib/tasks/types";
 import { ANCHOR_IDS, ANCHORS } from "@/lib/realm/anchors";
-import { TRAIL_MAP_VIEW, trailMapPoint } from "@/lib/realm/trail-map";
+import { TRAIL_MAP_HIT, TRAIL_MAP_VIEW, trailMapPoint, trailMapTagPlace } from "@/lib/realm/trail-map";
+import { TRAIL_MAP_LABEL } from "@/lib/tasks/trail-copy";
 import { initialFlow, type FlowState } from "@/lib/utils/deed-run-flow";
 import { TaskPresenter } from "./presenters";
 
@@ -191,11 +192,40 @@ describe("the village map (the picture run, R-H15)", () => {
     const rule = (sel: string) => css.match(new RegExp(`(?:^|\\n)${sel.replace(/[.]/g, "\\.")} \\{([^}]*)\\}`))?.[1] ?? "";
     // The box is the map's own width, never wider than its column.
     expect(rule(".trail-map-box")).toMatch(/width: 100%/);
-    // A place is 40 px square at least, and grows with the map (40 of its 360 units) above that.
-    expect(rule(".trail-spot")).toMatch(/width: max\(40px, calc\(40 \/ 360 \* 100%\)\)/);
+    // A place is 40 px square at least, and grows with the map (a button's 2 x TRAIL_MAP_HIT of its
+    // TRAIL_MAP_VIEW.w units, handed to the CSS by the box, H8) above that.
+    expect(rule(".trail-spot")).toMatch(/width: max\(40px, var\(--trail-spot-size\)\)/);
+    expect(css).not.toMatch(/40 \/ 360/);
+    const mapBox = document.querySelector<HTMLElement>(".trail-map-box")!;
+    expect(mapBox.style.getPropertyValue("--trail-spot-size")).toBe(`${((2 * TRAIL_MAP_HIT) / TRAIL_MAP_VIEW.w) * 100}%`);
     expect(rule(".trail-spot")).toMatch(/aspect-ratio: 1/);
     expect(rule(".trail-spot")).toMatch(/translate\(-50%, -50%\)/);
     expect(css).not.toMatch(/draggable|touch-action: none/);
+  });
+
+  it("a tag sits inside the map: flipped to the edge it is near, as `trailMapTagPlace` says (H8)", () => {
+    for (const id of ANCHOR_IDS) {
+      const flow: FlowState = { ...asking, phase: "resolved", picked: id, result: { correct: false, secondChance: false, answer: "It was somewhere.", reveal: id } };
+      show({ flow });
+      const place = trailMapTagPlace(trailMapPoint(ANCHORS[id].x, ANCHORS[id].z));
+      const tag = screen.getByText("It was here.");
+      expect(tag, id).toHaveClass(`trail-spot-tag--x-${place.x}`, `trail-spot-tag--y-${place.y}`);
+      cleanup();
+    }
+    const css = readFileSync(resolve(__dirname, "trail.css"), "utf8");
+    const rule = (sel: string) => css.match(new RegExp(`(?:^|\\n)${sel.replace(/[.]/g, "\\.")} \\{([^}]*)\\}`))?.[1] ?? "";
+    expect(rule(".trail-spot-tag--x-start")).toMatch(/left: 0;[^}]*transform: none/);
+    expect(rule(".trail-spot-tag--x-end")).toMatch(/left: auto;[^}]*right: 0;[^}]*transform: none/);
+    expect(rule(".trail-spot-tag--y-above")).toMatch(/top: auto;[^}]*bottom: 92%/);
+  });
+
+  it("a place's state is in what a screen reader hears: the tag describes its button (H8)", () => {
+    const flow: FlowState = { ...asking, phase: "resolved", picked: "landmark:well", ruledOut: ["landmark:well"], result: { correct: false, secondChance: false, answer: "It was the mill.", reveal: "landmark:mill" } };
+    show({ flow });
+    expect(screen.getByRole("button", { name: "the mill" })).toHaveAccessibleDescription("It was here.");
+    expect(screen.getByRole("button", { name: "the well" })).toHaveAccessibleDescription("Not here");
+    expect(screen.getByRole("button", { name: "the garden" })).not.toHaveAttribute("aria-describedby");
+    expect(screen.getByRole("region", { name: TRAIL_MAP_LABEL })).toBeInTheDocument();
   });
 
   it("a fresh map for the next clue: nothing selected carries over", () => {

@@ -22,11 +22,15 @@ export const TRAIL_MAP_HELP = "Tap the place the clue tells of, then Search here
 export const TRAIL_MAP_SEARCH = "Search here";
 export const TRAIL_MAP_REVEAL = "It was here.";
 export const TRAIL_MAP_RULED_OUT = "Not here";
+/** The map's own name, for a screen reader. */
+export const TRAIL_MAP_LABEL = "The village map";
 
 /** Pip's worked example before a young hero's first clue (R-H16), shown and, for read-aloud, said. */
 export const TRAIL_DEMO_COPY = "Watch Pip follow a clue. The clue says: Go to the well. Pip reads it, walks to the well, and searches there. Found it!";
 /** The demo's picture, as three steps in order (`TRAIL_DEMO_COPY` says them in full). */
 export const TRAIL_DEMO_STEPS = ["Read the clue", "Walk to the well", "Search there"] as const;
+/** The steps' list, named for a screen reader. */
+export const TRAIL_DEMO_STEPS_LABEL = "What Pip does";
 
 /** E at a stake, in the Realm: "Search the mill" (the verb, then the place's label). */
 export const TRAIL_SEARCH_VERB = "Search";

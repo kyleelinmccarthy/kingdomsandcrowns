@@ -1579,9 +1579,11 @@ describe("a reading trail, walked in the Realm (R-H14)", () => {
     expect(handed.props!.trailOn).toBe(false);
     expect(handed.props!.trailRevealed).toBeNull();
     cleanup();
-    const { bus } = await setOff();
+    const { bus, view } = await setOff();
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(tracker()).toHaveTextContent("Go where the big wheel turns.");
+    // The column's own child, ahead of the objective card: what the phone layout's `:has(> .trail-walk)` reads (trail-walk.css).
+    expect(view.container.querySelector(".r3-left-stack > .trail-walk + .r3-quest")).not.toBeNull();
     expect(handed.props!.trailOn).toBe(true);
     // The world is played, not paused: the clock runs while the hero walks (§4.10).
     expect(bus.paused).toBe(false);

@@ -8,7 +8,7 @@
  */
 import { useEffect, useId, useRef } from "react";
 import { GameIcon, type GameIconName } from "@/components/game-icon";
-import { TRAIL_DEMO_COPY, TRAIL_DEMO_STEPS } from "@/lib/tasks/trail-copy";
+import { TRAIL_DEMO_COPY, TRAIL_DEMO_STEPS, TRAIL_DEMO_STEPS_LABEL } from "@/lib/tasks/trail-copy";
 import "./trail.css";
 
 const STEP_ICONS: readonly GameIconName[] = ["scroll", "journey", "check"];
@@ -22,7 +22,7 @@ export function TrailDemo({ onDone, calm, variant = "board" }: { onDone(): void;
       <h3 id={titleId} className="trail-title">
         Watch Pip
       </h3>
-      <ol className="trail-demo-steps" aria-label="What Pip does">
+      <ol className="trail-demo-steps" aria-label={TRAIL_DEMO_STEPS_LABEL}>
         {TRAIL_DEMO_STEPS.map((step, i) => (
           <li key={step} className="trail-demo-step">
             <GameIcon name={STEP_ICONS[i]} className="trail-demo-step-icon" />

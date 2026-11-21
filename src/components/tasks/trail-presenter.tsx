@@ -14,11 +14,8 @@ import { useEffect, useRef } from "react";
 import { GameIcon } from "@/components/game-icon";
 import { TRAIL_SET_OFF, TRAIL_SET_OFF_LINE } from "@/lib/tasks/trail-copy";
 import type { PresenterProps } from "./presenters";
-import { TrailMap } from "./trail-map";
+import { TRAIL_KEEP_KEYS, TrailMap } from "./trail-map";
 import "./trail.css";
-
-/** Enter and Space press Set off; they never act in the Realm behind the board. Esc bubbles. */
-const SET_OFF_KEYS = /^(?:Enter| |Spacebar)$/;
 
 export function TrailPresenter({ task, flow, variant, disabled, onWalk, onRespond }: PresenterProps<"trail">) {
   if (variant === "board" && onWalk) {
@@ -36,7 +33,8 @@ function TrailSetOff({ onWalk }: { onWalk(): void }) {
     <section
       className="trail trail--board trail-set-off"
       onKeyDown={(e) => {
-        if (SET_OFF_KEYS.test(e.key)) e.stopPropagation();
+        // Enter and Space press Set off; they never act in the Realm behind the board. Esc bubbles.
+        if (TRAIL_KEEP_KEYS.test(e.key)) e.stopPropagation();
       }}
     >
       <p className="trail-set-off-line">{TRAIL_SET_OFF_LINE}</p>

@@ -84,10 +84,11 @@
 .trail-map-plot { fill: var(--trail-plot); opacity: 0.55; }
 .trail-map-road { stroke: var(--trail-road); stroke-width: 6; stroke-linecap: round; opacity: 0.8; }
 
-/* A place: a round 40 px target at least (40 of the map's 360 units above that), centred on its spot. */
+/* A place: a round 40 px target at least (above that, its share of the map, `--trail-spot-size`,
+   which the box sets from TRAIL_MAP_HIT and TRAIL_MAP_VIEW.w), centred on its spot. */
 .trail-spot {
   position: absolute;
-  width: max(40px, calc(40 / 360 * 100%));
+  width: max(40px, var(--trail-spot-size));
   aspect-ratio: 1;
   transform: translate(-50%, -50%);
   display: grid;
@@ -133,6 +134,11 @@
   white-space: nowrap;
   pointer-events: none;
 }
+/* Near an edge of the map a tag flips so it stays inside (`trailMapTagPlace`, H8): flush with its
+   button's left or right edge, and over the button near the map's foot. */
+.trail-spot-tag--x-start { left: 0; transform: none; }
+.trail-spot-tag--x-end { left: auto; right: 0; transform: none; }
+.trail-spot-tag--y-above { top: auto; bottom: 92%; }
 .trail--page .trail-spot-tag { background: var(--foreground); color: var(--background); }
 .trail-spot-tag--answer { background: var(--trail-gold); color: #3a2008; }
 .trail--page .trail-spot-tag--answer { background: var(--trail-gold); color: #3a2008; }

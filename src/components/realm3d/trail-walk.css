@@ -1,6 +1,10 @@
 /* The walk's tracker (`trail-walk.tsx`): a small plank at the head of the top-left column, over the
    world, holding the clue while the hero walks. It takes the pointer (the frame does not) and never
-   the focus. On a phone it spans the width less the 16 px gutters. */
+   the focus. On a phone it spans the width less the 16 px gutters, under the minimap.
+
+   No word is ever squeezed onto two lines (H10 smoke: "Clue 1 of 4" and "Hide the clue" did at
+   1280 px): the count and every button keep to one line, and when a row is too narrow for them a
+   button wraps whole onto its own row. */
 
 .trail-walk {
   pointer-events: auto;
@@ -13,27 +17,59 @@
 
 .trail-walk-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.25rem 0.5rem;
 }
 .trail-walk-icon { flex: none; width: 1.2rem; height: 1.2rem; color: var(--r3-gold); }
-.trail-walk-count { font-size: 0.8rem; font-weight: 800; color: #d9bf87; }
-.trail-walk-fold { margin-left: auto; font-size: 0.8rem; color: #d9bf87; }
+/* The dots a little smaller than a board's, so the head keeps one row at the column's width. */
+.trail-walk-dots { flex: none; gap: 0.2rem; }
+.trail-walk-dots .r3-run-dot { width: 0.65rem; height: 0.65rem; }
+.trail-walk-count {
+  flex: none;
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: #d9bf87;
+  white-space: nowrap;
+}
+.trail-walk-fold {
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: #d9bf87;
+  white-space: nowrap;
+}
 
 .trail-walk-body { display: flex; flex-direction: column; gap: 0.4rem; margin-top: 0.45rem; }
 .trail-walk-line { margin: 0; font-size: 0.85rem; font-weight: 700; color: #f1d9a6; }
 .trail-walk-line--right { color: #c9f0a2; }
 .trail-walk-clue { display: flex; align-items: flex-start; gap: 0.5rem; }
-.trail-walk-text { flex: 1; margin: 0; font-size: 1.05rem; font-weight: 800; line-height: 1.35; color: #fff6de; text-shadow: 0 1px 0 var(--r3-bark); }
+.trail-walk-text { flex: 1; min-width: 0; margin: 0; font-size: 1.05rem; font-weight: 800; line-height: 1.35; color: #fff6de; text-shadow: 0 1px 0 var(--r3-bark); overflow-wrap: anywhere; }
 .trail-walk-read { flex: none; width: 2.3rem; height: 2.3rem; }
 .trail-walk-error { margin: 0; font-size: 0.85rem; }
-.trail-walk-foot { display: flex; align-items: center; gap: 0.8rem; font-size: 0.85rem; }
+.trail-walk-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem 0.8rem;
+  font-size: 0.85rem;
+}
+.trail-walk-foot .r3-link-button { white-space: nowrap; }
 .trail-walk-leave { margin-left: auto; color: #d9bf87; }
 
 .r3-root[data-larger-text="on"] .trail-walk { zoom: 1.2; }
 
 @media (max-width: 480px) {
   .trail-walk { width: calc(100vw - 32px); }
+  /* Larger text: zoom 1.2 scales the width as well, so the width before zoom is the screen less the
+     column's 1.2rem and the right gutter's 1rem, over 1.2. Zoomed, it ends 16 px from the edge. */
+  .r3-root[data-larger-text="on"] .trail-walk { width: calc((100vw - 2.2rem) / 1.2); }
+  /* While a walk is shown the column starts under the minimap (`.r3-map`: 1rem from the top, 12.5rem
+     tall), never over it, and still stops 11rem above the bottom, clear of the spell bar. */
+  .r3-left-stack:has(> .trail-walk:not([hidden])) { top: 14rem; max-height: calc(100% - 14rem - 11rem); }
+  .r3-root[data-larger-text="on"] .r3-left-stack:has(> .trail-walk:not([hidden])) { top: 14rem; max-height: calc(100% - 14rem - 11rem); }
+  /* The tracker is the objective while walking: the card steps aside, so nothing is pushed down
+     under the E prompt. It is back the moment the walk ends (or under the pause menu). */
+  .r3-left-stack:has(> .trail-walk:not([hidden])) > .r3-quest { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
