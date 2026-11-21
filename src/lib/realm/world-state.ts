@@ -55,8 +55,11 @@ export type WorldStateView = {
 /** Nothing found and nothing offered: what a failed read draws. */
 export const EMPTY_WORLD_STATE: WorldStateView = { locksOn: false, open: [], decor: [], tower: [] };
 
-/** A tower record's state is the solved count as text; anything that is not a whole count is none. */
-function solvedCount(state: string | undefined): number {
+/**
+ * A tower record's state is the solved count as text; anything that is not a whole count is none.
+ * The one reading of it: the view here, and the server's bump and miss (`realm-world-state.ts`).
+ */
+export function solvedCount(state: string | undefined): number {
   return state !== undefined && /^\d{1,9}$/.test(state) ? Number(state) : 0;
 }
 

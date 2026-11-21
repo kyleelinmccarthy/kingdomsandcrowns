@@ -4,8 +4,7 @@ import * as schema from "@/lib/db/schema";
 import { isChildActor, requireChildAccess } from "@/lib/auth/access";
 import { bandForGrade, type Grade } from "@/lib/utils/grade-levels";
 import { profileFromRow } from "@/lib/utils/learning-profile";
-import { MASTERY_MAX } from "@/lib/utils/mastery";
-import { lockRun } from "@/lib/utils/practice-run";
+import { lockLevel, lockRun } from "@/lib/utils/practice-run";
 import { RUN_EFFECTS } from "@/lib/utils/deed-scoring";
 import { CLOSED, NONE_READY } from "@/lib/utils/deed-refusals";
 import { enabledHandsOnKinds } from "@/lib/utils/realm-settings";
@@ -91,9 +90,8 @@ export async function startLockRun(childId: string, spec: LockRunSpec): Promise<
   const pick = spec.pick(hero, focusSkillIds);
   if (!pick) throw new Error(NONE_READY);
   const mastery = masteryRows.find((m) => m.skillId === pick.skill.id)?.level ?? 0;
-  const level = Math.min(Math.min(mastery, MASTERY_MAX) + pick.boost, MASTERY_MAX);
   const built = lockRun({
-    skill: pick.skill, level, count: spec.count, seed: Date.now() >>> 0, enabledKinds: enabledHandsOnKinds(settings), profile: profileFromRow(profileRow),
+    skill: pick.skill, level: lockLevel(mastery, pick.boost), count: spec.count, seed: Date.now() >>> 0, enabledKinds: enabledHandsOnKinds(settings), profile: profileFromRow(profileRow),
   });
   if (built.questions.length === 0) throw new Error(NONE_READY);
 

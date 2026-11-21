@@ -37,6 +37,14 @@ export function paint(geo: THREE.BufferGeometry, hex: string): THREE.BufferGeome
 /** A set of boxes (`keep-yard-boxes.ts`' `YardBox`, in their host's own frame) standing at (x, y, z) in the world, turned `yaw` about it. */
 export type BoxHost = { boxes: readonly YardBox[]; x: number; y: number; z: number; yaw: number };
 
+/** How far a thing set on the ground is sunk into it, so on a slope it never shows daylight under its downhill side. */
+export const SINK = 0.05;
+
+/** `boxes` standing on the ground at (x, z), turned `yaw`: set down `SINK` below `heightAt` there. */
+export function groundHost(boxes: readonly YardBox[], x: number, z: number, yaw: number, heightAt: (x: number, z: number) => number): BoxHost {
+  return { boxes, x, y: heightAt(x, z) - SINK, z, yaw };
+}
+
 /**
  * Every host's boxes painted, turned by the host's `yaw`, set down at the host's spot, and merged
  * into one geometry (a single draw), or `null` when there is no box at all. The one paint, turn,

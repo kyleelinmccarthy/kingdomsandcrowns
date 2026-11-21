@@ -16,19 +16,15 @@
 import { useMemo } from "react";
 import type { LockSpotView } from "@/lib/realm/world-state";
 import { chestBoxes, vaultDoorBoxes, type LockBox } from "@/lib/realm3d/world-lock-boxes";
-import { mergeBoxHosts, type BoxHost } from "./geo-kit";
+import { groundHost, mergeBoxHosts } from "./geo-kit";
 import { MergedMesh } from "./merged-mesh";
 
-/** Sunk a little, so a lock on a slope never shows daylight under its downhill side. */
-const SINK = 0.05;
-
-/** A lock's boxes, turned by its `yaw` and set down at (x, y, z). */
-const host = (boxes: readonly LockBox[], x: number, y: number, z: number, yaw: number): BoxHost => ({ boxes, x, y, z, yaw });
+const lockBoxes = (type: LockSpotView["type"], open: boolean): LockBox[] => (type === "chest" ? chestBoxes(open) : vaultDoorBoxes(open));
 
 export function WorldLocks({ locks, heightAt }: { locks?: readonly LockSpotView[]; heightAt: (x: number, z: number) => number }) {
   const geometry = useMemo(
     () =>
-      mergeBoxHosts((locks ?? []).map((l) => host(l.type === "chest" ? chestBoxes(l.open) : vaultDoorBoxes(l.open), l.x, heightAt(l.x, l.z) - SINK, l.z, l.ry))),
+      mergeBoxHosts((locks ?? []).map((l) => groundHost(lockBoxes(l.type, l.open), l.x, l.z, l.ry, heightAt))),
     [locks, heightAt],
   );
   return <MergedMesh geometry={geometry} />;
@@ -36,6 +32,6 @@ export function WorldLocks({ locks, heightAt }: { locks?: readonly LockSpotView[
 
 /** One chest at the origin, front to +z: a room places and turns it. */
 export function ChestMesh({ open }: { open: boolean }) {
-  const geometry = useMemo(() => mergeBoxHosts([host(chestBoxes(open), 0, 0, 0, 0)]), [open]);
+  const geometry = useMemo(() => mergeBoxHosts([{ boxes: chestBoxes(open), x: 0, y: 0, z: 0, yaw: 0 }]), [open]);
   return <MergedMesh geometry={geometry} />;
 }

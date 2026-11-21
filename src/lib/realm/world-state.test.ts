@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { addDays, todayInZone } from "@/lib/utils/dates";
-import { applyTowerOutcome, applyWorldOutcome, EMPTY_WORLD_STATE, lockedNow, nextRewards, roomChestFor, worldCanvas, worldStateView, type WorldRow, type WorldStateView } from "./world-state";
+import { applyTowerOutcome, applyWorldOutcome, EMPTY_WORLD_STATE, lockedNow, nextRewards, roomChestFor, solvedCount, worldCanvas, worldStateView, type WorldRow, type WorldStateView } from "./world-state";
 import { worldObjectById } from "./world-objects";
 
 const row = (objectId: string, state: string, updatedAt: Date): WorldRow => ({ objectId, state, updatedAt });
@@ -208,6 +208,15 @@ describe("applyWorldOutcome: the client's mirror of an opening", () => {
 
   it("ignores an id that is not in the catalog", () => {
     expect(applyWorldOutcome(view, { objectId: "chest:nowhere", opened: true, rewards: [] }).open).toEqual(["door:longwater"]);
+  });
+});
+
+describe("solvedCount: the one reading of a floor's record (final f5)", () => {
+  it("reads a whole count, and anything else as none", () => {
+    expect(solvedCount("0")).toBe(0);
+    expect(solvedCount("7")).toBe(7);
+    expect(solvedCount("123456789")).toBe(123456789);
+    for (const junk of [undefined, "", "-1", "1.5", "abc", " 3", "1234567890"]) expect(solvedCount(junk), String(junk)).toBe(0);
   });
 });
 

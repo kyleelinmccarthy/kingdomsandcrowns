@@ -10,7 +10,8 @@
  * questions (R-F7), so the run comes back empty; the action refuses before it gets here.
  *
  * `lockRun` is the draw every lock run shares (RG-j): Puzzle practice, a chest or vault door, and a
- * Tower floor.
+ * Tower floor; `lockLevel` is the rung each is drawn at. `startLockRun` (`services/lock-runs.ts`)
+ * puts them together with the skill each kind of run picks (`practiceSkill` for practice).
  */
 import { kindForSkill } from "@/lib/tasks/registry";
 import type { TaskKind } from "@/lib/tasks/types";
@@ -46,21 +47,13 @@ export function lockRun(input: {
   return { skillIds: [skill.id], questions: applyProfile(questions, input.profile, rng) };
 }
 
-export function buildPracticeRun(input: {
-  /** The hero's logic grade: their own grade, with no offset (`gradesFor`). */
-  grade: Grade;
-  masteryBySkill: Record<string, number>;
-  seed: number;
-  /** The hands-on kinds the grown-up has left on (`enabledHandsOnKinds`). */
-  enabledKinds: ReadonlySet<TaskKind>;
-  profile: ProfileLike;
-  /** The grown-up's focus picks (`loadFocusSkillIds`); the first logic one in the hero's window is practised. */
-  focusSkillIds?: readonly string[];
-}): BuiltRun {
-  const skill = practiceSkill(input.grade, input.focusSkillIds ?? []);
-  if (!skill) return EMPTY;
-  const level = Math.min(input.masteryBySkill[skill.id] ?? 0, MASTERY_MAX);
-  return lockRun({ skill, level, count: PRACTICE_RUN.tasks, seed: input.seed, enabledKinds: input.enabledKinds, profile: input.profile });
+/**
+ * The rung a lock run is drawn at: the hero's mastery of its skill, capped, plus `boost` rungs, capped
+ * again. Puzzle practice and the world's chests and doors draw at the hero's mastery (`boost` 0); a
+ * Tower floor's bonus lock one harder (`boost` 1, PC-G12).
+ */
+export function lockLevel(mastery: number, boost: number): number {
+  return Math.min(Math.min(mastery, MASTERY_MAX) + boost, MASTERY_MAX);
 }
 
 /** The logic skill a practice run draws: the first logic focus pick in the hero's window, else their own grade's. */

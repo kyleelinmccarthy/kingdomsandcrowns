@@ -12,7 +12,6 @@
 import type { Collider } from "@/lib/realm3d/collision";
 import { CONTENT_BANDS, type ContentBand } from "@/lib/utils/content-bands";
 import { bandForGrade, type Grade } from "@/lib/utils/grade-levels";
-import { MASTERY_MAX } from "@/lib/utils/mastery";
 import type { SkillArea } from "@/lib/utils/skills";
 
 /**
@@ -75,14 +74,6 @@ export function towerFloors(starred: ReadonlySet<ContentBand>, bands: TowerBands
   return TOWER_FLOORS.slice(0, own + 1)
     .map((band, i) => ({ band, open: i <= top }))
     .filter((f, i) => f.open || i === own);
-}
-
-/**
- * The rung a floor's lock is drawn at: one above the hero's mastery of the floor's skill, never past
- * the top (PC-G12). `startLockRun` gets the same number from the mastery and a `boost` of 1.
- */
-export function towerLevel(mastery: number): number {
-  return Math.min(mastery + 1, MASTERY_MAX);
 }
 
 /**

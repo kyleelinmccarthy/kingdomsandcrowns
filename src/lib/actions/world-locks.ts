@@ -44,7 +44,7 @@ export async function startWorldLockRun(childId: string, objectId: string): Prom
 
 /**
  * Starts, or picks back up, a Tower floor's bonus lock (R-G5, PC-G12): a `tower` run of ONE lock a
- * level harder than the hero's mastery of the floor's logic skill (`towerLevel`), named by the
+ * level harder than the hero's mastery of the floor's logic skill (`lockLevel` with a boost of 1), named by the
  * floor's ref (`tower:<band>`). The hero's alone, refused while the grown-up has locks off (R-G7),
  * and refused for a floor that is not open: its band must be among the hero's visible floors and
  * open (`towerFloors`, from the hero's grades and the 3-star runs `loadStarredBands` finds). `band`
@@ -63,7 +63,7 @@ export async function startTowerRun(childId: string, band: string): Promise<RunS
       const floors = towerFloors(await loadStarredBands(childId), towerBands(hero.grades));
       if (!floors.some((f) => f.band === floor && f.open)) throw new Error(TOWER_SHUT);
     },
-    // The floor's own skill and band, whatever the hero's grade; one rung above their mastery (`towerLevel`), capped by `startLockRun`.
+    // The floor's own skill and band, whatever the hero's grade; one rung above their mastery (`lockLevel`, in `startLockRun`).
     pick: () => {
       const skill = findSkill(towerSkillId(floor));
       return skill ? { skill, grade: skill.grades[0], boost: 1 } : null;

@@ -16,17 +16,14 @@ import { useEffect, useMemo } from "react";
 import { KEEP_YARD } from "@/lib/realm/keep-yard";
 import type { MaterialId } from "@/lib/realm/materials";
 import { heapBoxes, LECTERN_BOXES, LECTERN_YAW, PLANS_BOARD_BOXES, PLANS_BOARD_YAW, stockpileHeaps, type YardBox } from "@/lib/realm3d/keep-yard-boxes";
-import { litMaterial, mergeBoxHosts, type BoxHost } from "./geo-kit";
-
-/** Sunk a little, so a heap or a post on a slope never shows daylight under its downhill side. */
-const SINK = 0.05;
+import { groundHost, litMaterial, mergeBoxHosts, type BoxHost } from "./geo-kit";
 
 export function KeepYard({ stockpile, heightAt }: { stockpile?: Readonly<Record<MaterialId, number>>; heightAt: (x: number, z: number) => number }) {
   const heaps = useMemo(() => (stockpile ? stockpileHeaps(stockpile) : []), [stockpile]);
   const geometry = useMemo(() => {
     const { x, z } = KEEP_YARD.plansBoard;
     const lectern = KEEP_YARD.lectern;
-    const at = (spot: { x: number; z: number }, boxes: readonly YardBox[], yaw: number): BoxHost => ({ boxes, x: spot.x, y: heightAt(spot.x, spot.z) - SINK, z: spot.z, yaw });
+    const at = (spot: { x: number; z: number }, boxes: readonly YardBox[], yaw: number): BoxHost => groundHost(boxes, spot.x, spot.z, yaw, heightAt);
     return mergeBoxHosts([
       at({ x, z }, PLANS_BOARD_BOXES, PLANS_BOARD_YAW),
       at(lectern, LECTERN_BOXES, LECTERN_YAW),

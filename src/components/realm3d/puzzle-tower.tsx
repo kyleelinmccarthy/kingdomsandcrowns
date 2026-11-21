@@ -15,15 +15,12 @@
 import { useMemo } from "react";
 import { PUZZLE_TOWER } from "@/lib/realm/puzzle-tower";
 import { towerBoxes } from "@/lib/realm3d/world-lock-boxes";
-import { mergeBoxHosts } from "./geo-kit";
+import { groundHost, mergeBoxHosts } from "./geo-kit";
 import { MergedMesh } from "./merged-mesh";
-
-/** Sunk a little, so the plinth never shows daylight under its downhill side. */
-const SINK = 0.05;
 
 export function PuzzleTower({ storeys, heightAt }: { storeys: number; heightAt: (x: number, z: number) => number }) {
   const geometry = useMemo(
-    () => mergeBoxHosts([{ boxes: towerBoxes(storeys), x: PUZZLE_TOWER.x, y: heightAt(PUZZLE_TOWER.x, PUZZLE_TOWER.z) - SINK, z: PUZZLE_TOWER.z, yaw: 0 }]),
+    () => mergeBoxHosts([groundHost(towerBoxes(storeys), PUZZLE_TOWER.x, PUZZLE_TOWER.z, 0, heightAt)]),
     [storeys, heightAt],
   );
   return <MergedMesh geometry={geometry} />;

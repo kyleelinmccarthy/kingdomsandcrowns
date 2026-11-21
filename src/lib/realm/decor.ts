@@ -4,6 +4,10 @@
  * locks (`world-objects.ts`, which re-exports it) and the copy that names a find
  * (`utils/world-lock-copy.ts`) can read it without importing each other.
  * `world-objects.test.ts` holds every spot to the clearance rules of the village.
+ *
+ * Not to be confused with the village's scenery "decor": the trees and props at `DECOR_SPOTS`
+ * (`layout.ts`), which are always there, and the built improvements at `VILLAGE_DECOR_SPOTS`
+ * (`keep-yard.ts`). These are rewards: drawn only once a chest has given them.
  */
 
 export type DecorId =

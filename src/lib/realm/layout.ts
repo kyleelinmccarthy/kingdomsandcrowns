@@ -146,7 +146,10 @@ const DECOR_COLOR = "#2f7a3d";
 /** The sprite a standard-sized decoration draws at; anything bigger scales off these by its footprint. */
 const TREE_SPRITE = { w: 1.2, h: 1.6 };
 const PROP_SPRITE = { w: 0.9, h: 0.9 };
-/** Twelve fixed spots in the VILLAGE, clear of the path corridor, every site (padded 2), the lap ring, and the ceremony plaza. */
+/**
+ * Twelve fixed spots in the VILLAGE, clear of the path corridor, every site (padded 2), the lap ring, and the ceremony plaza.
+ * Scenery, always drawn; not the decorations a chest gives as a reward (`DECOR` in `decor.ts`).
+ */
 export const DECOR_SPOTS: { kind: string; x: number; z: number }[] = [
   { kind: "oak", x: -15, z: 14 },
   { kind: "pine", x: 15, z: 14 },

@@ -17,10 +17,7 @@ import { useEffect, useMemo } from "react";
 import * as THREE from "three";
 import { IMPROVEMENT_COLORS, type ImprovementBox } from "@/lib/realm/improvements";
 import { improvementPlacements, PLAQUE_BOXES } from "@/lib/realm3d/improvement-spots";
-import { litMaterial, merge, paint } from "./geo-kit";
-
-/** Sunk a little, so a wing on a slope never shows daylight under its downhill side. */
-const SINK = 0.05;
+import { litMaterial, merge, paint, SINK } from "./geo-kit";
 
 function boxGeometry(b: ImprovementBox, dx: number, dy: number, dz: number): THREE.BufferGeometry {
   return paint(new THREE.BoxGeometry(b.sx, b.sy, b.sz), IMPROVEMENT_COLORS[b.color]).translate(b.x + dx, b.y + dy, b.z + dz);

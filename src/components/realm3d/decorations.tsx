@@ -15,15 +15,12 @@
 import { useMemo } from "react";
 import { DECOR, type DecorId } from "@/lib/realm/decor";
 import { decorBoxes } from "@/lib/realm3d/world-lock-boxes";
-import { mergeBoxHosts } from "./geo-kit";
+import { groundHost, mergeBoxHosts } from "./geo-kit";
 import { MergedMesh } from "./merged-mesh";
-
-/** Sunk a little, so a decoration on a slope never shows daylight under its downhill side. */
-const SINK = 0.05;
 
 export function Decorations({ decor, heightAt }: { decor?: readonly DecorId[]; heightAt: (x: number, z: number) => number }) {
   const geometry = useMemo(
-    () => mergeBoxHosts((decor ?? []).map((id) => ({ boxes: decorBoxes(id), x: DECOR[id].x, y: heightAt(DECOR[id].x, DECOR[id].z) - SINK, z: DECOR[id].z, yaw: DECOR[id].ry }))),
+    () => mergeBoxHosts((decor ?? []).map((id) => groundHost(decorBoxes(id), DECOR[id].x, DECOR[id].z, DECOR[id].ry, heightAt))),
     [decor, heightAt],
   );
   return <MergedMesh geometry={geometry} />;

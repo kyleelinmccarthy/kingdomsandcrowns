@@ -8,7 +8,7 @@ import { addPlacesFound } from "@/lib/services/realm-places";
 import type { Exec, Tx } from "@/lib/services/realm-play";
 import { LORE, LORE_IDS, type LoreId } from "@/lib/realm/lore";
 import { rewardKey, type WorldObject } from "@/lib/realm/world-objects";
-import { lockedNow, nextRewards, type WorldRow } from "@/lib/realm/world-state";
+import { lockedNow, nextRewards, solvedCount, type WorldRow } from "@/lib/realm/world-state";
 import { towerRef } from "@/lib/realm/puzzle-tower";
 import { DEEDS } from "@/lib/utils/deeds";
 import type { QuestionOutcome } from "@/lib/utils/deed-scoring";
@@ -78,17 +78,17 @@ const LOCK_DEED_IDS = DEEDS.filter((d) => d.mechanic === "lock").map((d) => d.id
  * deed's identity, whether the run played as sorts or as `choice` (PC-G8). Searched by hero through
  * `deed_run_child_completed_idx` (the query-plan test pins it).
  */
-export function starredBandsQuery(childId: string) {
+export function starredBandsQuery(childId: string, exec: Exec = db) {
   const R = schema.deedRun;
-  return db
+  return exec
     .selectDistinct({ band: R.band })
     .from(R)
     .where(and(eq(R.childId, childId), eq(R.kind, "deed"), inArray(R.deedId, LOCK_DEED_IDS), eq(R.stars, 3)));
 }
 
 /** The bands this hero has 3 stars at on a science lock side quest: what opens the Tower's floors. */
-export async function loadStarredBands(childId: string): Promise<ReadonlySet<ContentBand>> {
-  return new Set((await starredBandsQuery(childId)).map((r) => r.band));
+export async function loadStarredBands(childId: string, exec: Exec = db): Promise<ReadonlySet<ContentBand>> {
+  return new Set((await starredBandsQuery(childId, exec)).map((r) => r.band));
 }
 
 /**
@@ -142,7 +142,7 @@ export async function bumpTowerRecord(tx: Tx, childId: string, band: ContentBand
   const [row] = await tx.insert(W).values({ id: nanoid(), childId, objectId: towerRef(band), state: "1", updatedAt: now })
     .onConflictDoUpdate({ target: [W.childId, W.objectId], set: { state: sql`CAST(CAST(${W.state} AS INTEGER) + 1 AS TEXT)`, updatedAt: now } })
     .returning({ state: W.state });
-  return Number(row.state);
+  return solvedCount(row.state);
 }
 
 /**
@@ -155,5 +155,5 @@ export async function recordTowerSolve(tx: Tx, childId: string, band: ContentBan
   if (outcome === "first") return { band, solved: await bumpTowerRecord(tx, childId, band, now), solvedNow: true };
   const W = schema.realmWorldState;
   const [row] = await tx.select({ state: W.state }).from(W).where(and(eq(W.childId, childId), eq(W.objectId, towerRef(band))));
-  return { band, solved: row ? Number(row.state) || 0 : 0, solvedNow: false };
+  return { band, solved: solvedCount(row?.state), solvedNow: false };
 }

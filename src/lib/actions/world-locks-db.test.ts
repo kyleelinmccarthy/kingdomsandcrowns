@@ -6,9 +6,8 @@ import { DEFAULT_REALM_SETTINGS, enabledHandsOnKinds } from "@/lib/utils/realm-s
 import { FINISHED, NOT_IN_CHRONICLE, TOWER_SHUT, WORLD_HERO_ONLY, WORLD_LOCKS_OFF, WORLD_OPEN } from "@/lib/utils/deed-refusals";
 import { CHEST_STORY, DOOR_STORY, TOWER_STORY } from "@/lib/utils/world-lock-copy";
 import { profileFromRow } from "@/lib/utils/learning-profile";
-import { lockRun } from "@/lib/utils/practice-run";
+import { lockLevel, lockRun } from "@/lib/utils/practice-run";
 import { findSkill, type SkillArea } from "@/lib/utils/skills";
-import { towerLevel } from "@/lib/realm/puzzle-tower";
 import { worldObjectById } from "@/lib/realm/world-objects";
 import type { ClientTask, Task } from "@/lib/tasks/types";
 import type { Grade } from "@/lib/utils/grade-levels";
@@ -658,7 +657,7 @@ describe("the Puzzle Tower", () => {
             );
           }
           const start = await startTowerRun("c1", "g23");
-          const expected = lockRun({ skill: findSkill("logic-g23")!, level: towerLevel(mastery), count: 1, seed: 4242, enabledKinds, profile });
+          const expected = lockRun({ skill: findSkill("logic-g23")!, level: lockLevel(mastery, 1), count: 1, seed: 4242, enabledKinds, profile });
           expect(start.questions[0].id, `mastery ${mastery}`).toBe(expected.questions[0].id);
         }
       } finally {

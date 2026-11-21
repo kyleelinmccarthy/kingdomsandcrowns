@@ -2,8 +2,7 @@ import { describe, expect, it } from "vitest";
 import { CONTENT_BANDS, type ContentBand } from "@/lib/utils/content-bands";
 import { findSkill } from "@/lib/utils/skills";
 import { clearanceFailures, gap, levelFailures, rectAt, villagePieces, yardPieces } from "@/test/world-clearance";
-import { MASTERY_MAX } from "@/lib/utils/mastery";
-import { bandOfTowerRef, PUZZLE_TOWER, TOWER_FLOORS, towerBands, towerColliders, towerDoorFor, towerFloors, towerLevel, towerRef, towerSkillId } from "./puzzle-tower";
+import { bandOfTowerRef, PUZZLE_TOWER, TOWER_FLOORS, towerBands, towerColliders, towerDoorFor, towerFloors, towerRef, towerSkillId } from "./puzzle-tower";
 
 describe("the Puzzle Tower's plot", () => {
   const plot = rectAt(PUZZLE_TOWER.x, PUZZLE_TOWER.z, PUZZLE_TOWER.plot, PUZZLE_TOWER.plot);
@@ -133,14 +132,5 @@ describe("towerDoorFor: the client's gating (R-G7, PC-G6)", () => {
 
   it("offers nothing when the floors are unknown (the kingdom read failed): no board with no floor on it (final f2)", () => {
     expect(towerDoorFor({ locksOn: true, towerKnown: false })).toBeNull();
-  });
-});
-
-describe("towerLevel", () => {
-  it("is one rung above the hero's mastery of the floor's skill, never past the top", () => {
-    expect(towerLevel(0)).toBe(1);
-    expect(towerLevel(3)).toBe(4);
-    expect(towerLevel(4)).toBe(4);
-    expect(towerLevel(MASTERY_MAX)).toBe(MASTERY_MAX);
   });
 });
