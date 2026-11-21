@@ -65,22 +65,13 @@ export function spelled(tiles: readonly string[], picks: readonly number[]): str
 }
 
 /**
- * Whether some run of adjacent tiles, read left to right, starts with one of `words` (a single tile
- * counts). A run that reads the word and then more letters shows it as plainly as the word alone:
- * "re · stor · ed" reads "restored", and "m · e · nds" reads "mends" (I4 fix round 1). A run is read from
- * a tile's first letter, so a word that begins inside a tile ("p · re · store", from "pre") is not counted.
+ * Whether some run of adjacent tiles, read left to right, holds one of `words` anywhere in its letters
+ * (a single tile counts). The word shows however it sits in the row: alone, with more letters after it
+ * ("re · stor · ed" reads "restored"), or beginning inside a tile ("p · re · store" reads "restore") (I4 fix
+ * round 1). Every stretch of the row's letters lies in some run, so this is the row's joined letters
+ * holding the word.
  */
 export function hasSpelledRun(tiles: readonly string[], words: readonly string[]): boolean {
-  const wanted = words.map(lower).filter((w) => w.length > 0);
-  if (wanted.length === 0) return false;
-  const longest = Math.max(...wanted.map((w) => w.length));
-  for (let i = 0; i < tiles.length; i++) {
-    let run = "";
-    // Once a run is as long as the longest word, a longer run shares its start: nothing more can match.
-    for (let j = i; j < tiles.length && run.length < longest; j++) {
-      run += lower(tiles[j]);
-      if (wanted.some((w) => run.startsWith(w))) return true;
-    }
-  }
-  return false;
+  const row = lower(tiles.join(""));
+  return words.some((w) => w.length > 0 && row.includes(lower(w)));
 }

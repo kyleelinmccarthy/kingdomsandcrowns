@@ -82,6 +82,12 @@ describe("hasSpelledRun: whether the tray's order gives a word away", () => {
     // Broken before the word ends: no tell.
     expect(hasSpelledRun(["re", "stor", "un", "ed"], ["restore"])).toBe(false);
   });
+
+  it("finds a word that begins inside a tile: p · re · store reads restore (I4 fix round 1, controller)", () => {
+    expect(hasSpelledRun(["un", "pre", "store", "de"], ["restore"])).toBe(true);
+    expect(hasSpelledRun(["x", "am", "end"], ["mend"])).toBe(true);
+    expect(hasSpelledRun(["pre", "un", "store"], ["restore"])).toBe(false);
+  });
 });
 
 describe("runeTiling's bounds (I2 review): it runs on the request path, so it refuses what no pool can hold", () => {
