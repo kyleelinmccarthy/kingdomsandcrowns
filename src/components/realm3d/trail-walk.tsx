@@ -59,6 +59,9 @@ export function TrailWalk({
   const { flow, busy, error, guarded, choose, showMe, next } = useDeedFlow(run, (r) => realmCue(r.correct ? "deed-right" : "deed-wrong"));
   const [lookedHere, setLookedHere] = useState(false);
   const [folded, setFolded] = useState(false);
+  // Whether the hero has searched (or asked to be shown) on this tracker: a walk picked back up on a
+  // second chance has not, so its clue is said before the second-chance line.
+  const [searchedHere, setSearchedHere] = useState(false);
 
   const total = run.questions.length;
   const ready = readyToFinish(flow, total);
@@ -74,11 +77,14 @@ export function TrailWalk({
   /** E at a stake. Nothing while a call is out or the run is finishing; a place already ruled out is said, not sent. */
   function answer(id: AnchorId) {
     if (busy || ready) return;
+    setSearchedHere(true);
     if (flow.phase === "second-chance" && flow.ruledOut.includes(id)) {
       setLookedHere(true);
       return;
     }
     setLookedHere(false);
+    // Two presses before a render both see `movedOn`; the flow moves on only from a resolved clue, so
+    // the second `next` is nothing and the second search is refused as one already out (`useDeedFlow`).
     if (movedOn) next();
     void choose(id);
   }
@@ -111,15 +117,22 @@ export function TrailWalk({
   // Unprompted speech (R-H17): a new clue, a second-chance line and a miss line, when `autoSpeaks`
   // says so (always for a Kindergarten hero's trail). A miss and the clue after it are one line, so
   // the second never cuts the first off; nothing is said while a search is out.
+  // A walk picked back up on a second chance (`pending`) has heard nothing yet: its clue goes first.
   const speaks = clue ? autoSpeaks(clue, profile.readAloud, run.narrateClues === true) : false;
   const after = attemptSpeech(answered, flow, line ?? undefined);
-  const words = lookedHere
-    ? TRAIL_LOOKED_HERE
-    : flow.phase === "asking"
-      ? busy ? undefined : clueWords
-      : movedOn
-        ? [after, clueWords].filter(Boolean).join(" ")
-        : after;
+  const searching = busy && !ready;
+  const oneLine = (...parts: (string | undefined)[]) => parts.filter(Boolean).join(" ");
+  const words = searching
+    ? undefined
+    : lookedHere
+      ? TRAIL_LOOKED_HERE
+      : flow.phase === "asking"
+        ? clueWords
+        : flow.phase === "second-chance"
+          ? searchedHere ? after : oneLine(clueWords, after)
+          : movedOn
+            ? oneLine(after, clueWords)
+            : after;
   useEffect(() => {
     if (!speaks || !words) return;
     const token = speak(words);
@@ -181,6 +194,7 @@ export function TrailWalk({
                 className="r3-link-button"
                 disabled={busy}
                 onClick={() => {
+                  setSearchedHere(true);
                   setLookedHere(false);
                   void showMe();
                 }}
@@ -188,7 +202,8 @@ export function TrailWalk({
                 Show me
               </button>
             )}
-            <button type="button" className="r3-link-button trail-walk-leave" onClick={onLeave}>
+            {/* Not while the finish is out: the run is done on the server, and its result board must open. */}
+            <button type="button" className="r3-link-button trail-walk-leave" disabled={ready && busy} onClick={onLeave}>
               {TRAIL_LEAVE}
             </button>
           </div>

@@ -282,6 +282,71 @@ describe("TrailWalk, the tracker", () => {
     expect(props.onFinished).toHaveBeenCalledWith(summary);
   });
 
+  it("two searches before a re-render send one answer and skip no clue (fix round 1)", async () => {
+    const CLUE_3 = clue(3, "Go where the cart of hay waits.");
+    vi.mocked(answerDeedQuestion).mockResolvedValue(RIGHT);
+    vi.mocked(completeDeedRun).mockReturnValue(new Promise(() => {}));
+    const { answerRef, search } = show({ r: { ...run, questions: [CLUE_1, CLUE_2, CLUE_3], responses: [null, null, null] } });
+    await search("landmark:mill");
+    // Clue 2 is on show; two E presses land in one tick, before React renders again.
+    await act(async () => {
+      answerRef.current?.("object:beehives");
+      answerRef.current?.("landmark:well");
+    });
+    expect(vi.mocked(answerDeedQuestion).mock.calls).toEqual([
+      ["r1", 0, "landmark:mill"],
+      ["r1", 1, "object:beehives"],
+    ]);
+    expect(screen.getByText("Go where the cart of hay waits.")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Clue 3 of 3" })).toBeInTheDocument();
+    expect(completeDeedRun).not.toHaveBeenCalled();
+    await search("object:hay-cart");
+    expect(answerDeedQuestion).toHaveBeenLastCalledWith("r1", 2, "object:hay-cart");
+    expect(completeDeedRun).toHaveBeenCalledTimes(1);
+  });
+
+  it("Leave the trail cannot be pressed while the finish is out, so a finished run is never stranded (fix round 1)", async () => {
+    vi.mocked(answerDeedQuestion).mockResolvedValue(RIGHT);
+    let settle!: (s: RunSummary) => void;
+    vi.mocked(completeDeedRun).mockReturnValueOnce(new Promise((r) => (settle = r))).mockRejectedValueOnce(new Error("network"));
+    const { search, props } = show({ r: { ...run, questions: [CLUE_1], responses: [null] } });
+    await search("landmark:mill");
+    expect(screen.getByRole("button", { name: TRAIL_LEAVE })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: TRAIL_LEAVE }));
+    expect(props.onLeave).not.toHaveBeenCalled();
+    await act(async () => settle(summary));
+    expect(props.onFinished).toHaveBeenCalledWith(summary);
+  });
+
+  it("after a refused finish, Leave the trail is there again", async () => {
+    vi.mocked(answerDeedQuestion).mockResolvedValue(RIGHT);
+    vi.mocked(completeDeedRun).mockRejectedValue(new Error("network"));
+    const { search, props } = show({ r: { ...run, questions: [CLUE_1], responses: [null] } });
+    await search("landmark:mill");
+    expect(card()).toHaveTextContent("That didn't work.");
+    fireEvent.click(screen.getByRole("button", { name: TRAIL_LEAVE }));
+    expect(props.onLeave).toHaveBeenCalledTimes(1);
+  });
+
+  it("nothing is said while a search is out: the second-chance line is not said again (fix round 1)", async () => {
+    vi.mocked(answerDeedQuestion).mockResolvedValue(OPEN);
+    vi.mocked(retryDeedQuestion).mockReturnValue(new Promise(() => {}));
+    const { search } = show({ r: { ...run, narrateClues: true } });
+    await search("landmark:well");
+    await search("landmark:well");
+    expect(said()).toEqual(["Go where the big wheel turns, and grain becomes flour.", "Not here. That is where water is drawn.", TRAIL_LOOKED_HERE]);
+    await search("landmark:garden");
+    expect(retryDeedQuestion).toHaveBeenCalledWith("r1", 0, "landmark:garden");
+    expect(said()).toHaveLength(3);
+  });
+
+  it("a K walk picked back up on a second chance says the clue, then the second-chance line, as one line (fix round 1)", () => {
+    show({ r: { ...run, narrateClues: true, pending: { index: 0, ruledOut: "landmark:well", hint: "That is where water is drawn." } } });
+    expect(said()).toEqual(["Go where the big wheel turns, and grain becomes flour. Not here. That is where water is drawn."]);
+    expect(card()).toHaveTextContent("Not here. That is where water is drawn.");
+    expect(screen.getByRole("button", { name: "Show me" })).toBeInTheDocument();
+  });
+
   it("a refused answer is said, and the clue stays", async () => {
     vi.mocked(answerDeedQuestion).mockRejectedValue(new Error("network"));
     const { search } = show();

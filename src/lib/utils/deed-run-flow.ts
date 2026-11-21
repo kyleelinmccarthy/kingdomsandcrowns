@@ -61,6 +61,8 @@ export function flowReducer(state: FlowState, event: FlowEvent): FlowState {
     case "gave-up":
       return { ...state, phase: "resolved", result: event.result };
     case "next":
+      // Only a resolved question moves on: a second "next" (two key presses before a render) never skips one.
+      if (state.phase !== "resolved") return state;
       return { index: state.index + 1, phase: "asking", ruledOut: [], picked: null, result: null, streak: state.streak };
   }
 }

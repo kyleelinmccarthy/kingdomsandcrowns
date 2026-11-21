@@ -1705,6 +1705,39 @@ describe("a reading trail, walked in the Realm (R-H14)", () => {
     expect(answerDeedQuestion).toHaveBeenLastCalledWith("r1", 1, "object:beehives");
   });
 
+  it("a walk picked back up on an open second chance: the line is on show, the place already searched is refused, another is the retry", async () => {
+    vi.mocked(retryDeedQuestion).mockResolvedValue(MISS);
+    const { bus } = await setOff();
+    fireEvent.click(screen.getByRole("button", { name: "Leave the trail" }));
+    vi.mocked(startDeedRun).mockResolvedValue({ ...trailRun, pending: { index: 0, ruledOut: "landmark:well", hint: "That is where water is drawn." } });
+    act(() => bus.onInteract({ kind: "villager", id: "bram", label: "Old Bram" }));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Begin Count the Well Stones" })));
+    await act(async () => void fireEvent.click(screen.getByRole("button", { name: "Set off" })));
+    expect(tracker()).toHaveTextContent("Not here. That is where water is drawn.");
+    expect(within(tracker()!).getByRole("button", { name: "Show me" })).toBeInTheDocument();
+    await act(async () => bus.onInteract({ ...mill, id: "landmark:well", label: "the well" }));
+    expect(tracker()).toHaveTextContent("You searched here already. Try somewhere else.");
+    expect(answerDeedQuestion).not.toHaveBeenCalled();
+    expect(retryDeedQuestion).not.toHaveBeenCalled();
+    await act(async () => bus.onInteract({ ...mill, id: "landmark:garden", label: "the garden" }));
+    expect(retryDeedQuestion).toHaveBeenCalledWith("r1", 0, "landmark:garden");
+    expect(handed.props!.trailRevealed).toBe("landmark:mill");
+    expect(tracker()).toHaveTextContent("Go where the bees make honey.");
+  });
+
+  it("Leave the trail waits while the finish is out, and the result board still opens", async () => {
+    vi.mocked(answerDeedQuestion).mockResolvedValue(RIGHT);
+    let settle!: (s: typeof walkedSummary) => void;
+    vi.mocked(completeDeedRun).mockReturnValue(new Promise((r) => (settle = r)) as never);
+    const { bus } = await setOff();
+    await act(async () => bus.onInteract(mill));
+    await act(async () => bus.onInteract(beehives));
+    fireEvent.click(screen.getByRole("button", { name: "Leave the trail" }));
+    expect(tracker()).not.toBeNull();
+    await act(async () => settle(walkedSummary));
+    expect(screen.getByRole("dialog", { name: /Signs for the Well/ })).toHaveTextContent("Flawless!");
+  });
+
   it("walks in the quiet world too: a side quest is how minutes are earned, and the quiet clock charges nothing", async () => {
     vi.mocked(answerDeedQuestion).mockResolvedValue(RIGHT);
     const { bus, view } = await setOff({ entry: { minutes: 0, visit: null, source: "quiet" } });

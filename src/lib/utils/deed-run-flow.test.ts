@@ -59,6 +59,15 @@ describe("flowReducer", () => {
     const done = flowReducer({ ...asking, streak: 2 }, { type: "answered", choice: "a", result: right });
     expect(flowReducer(done, { type: "next" })).toEqual({ index: 1, phase: "asking", ruledOut: [], picked: null, result: null, streak: 3 });
   });
+  it("next does nothing unless the question is resolved: a second next, or one while asking or on a second chance, never skips a question", () => {
+    const asked = initialFlow(run);
+    expect(flowReducer(asked, { type: "next" })).toBe(asked);
+    const second = flowReducer(asked, { type: "answered", choice: "b", result: open });
+    expect(flowReducer(second, { type: "next" })).toBe(second);
+    const moved = flowReducer(flowReducer(asked, { type: "answered", choice: "a", result: right }), { type: "next" });
+    expect(moved.index).toBe(1);
+    expect(flowReducer(moved, { type: "next" })).toBe(moved);
+  });
   it("counts the streak over first tries only: right, right, wrong then right, right is 1, 2, 0, 1", () => {
     let s: FlowState = asking;
     const seen: number[] = [];
