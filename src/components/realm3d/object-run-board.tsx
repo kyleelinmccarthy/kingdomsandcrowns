@@ -2,30 +2,31 @@
 
 /**
  * THE SHELL OF A WORLD OBJECT'S BOARD: E at a chest, a vault door or a rune object. What differs
- * between them is passed in (the start, the refusal that means "it already holds", the copy and the
- * icon); the state machine is one (RI-a / S14, taken out of `WorldLockBoard` rather than copied):
+ * between them is passed in (the start, the copy and the icon); the state machine is one (RI-a / S14,
+ * taken out of `WorldLockBoard` rather than copied):
  *
  * - A shut or broken object starts its run of one puzzle at once (`start`): walking up and pressing E
  *   was the choice. The run is the villager board's own `DeedRun`, so the surface, second chances and
  *   read-aloud are the same everywhere.
  * - The page's view of what holds can be a day old (a chest relocks weekly and a rune breaks again on
  *   the server's day), so the hero's board asks the server even at an object the frame draws held
- *   (final f1, S20): a refusal as held says the held line, and a run that starts is the object
- *   renewed, played at once.
+ *   (final f1, S20): the server's held answer (`{ held: true }`, a value, never a thrown error, so
+ *   nothing is logged: smoke I12) says the held line, and a run that starts is the object renewed,
+ *   played at once.
  * - A visiting grown-up asks nothing: a held object says so in their own words, and one not held
  *   says it is the hero's (the server refuses them anyway). A child view with no hero named is told
  *   plainly it can't be done now.
  * - What the server wrote is handed up (`onSummary`) the moment it answers, so the frame mirrors it.
  *   Whether the object was held is read once, when the board opens, so the result card stays put
  *   while the object behind it changes.
- * - A start refused as held, at an object the frame drew not held (another run did it), is reported
- *   up (`onHeldRefused`), so the frame mirrors that too.
+ * - A held answer at an object the frame drew not held (another run did it) is reported up
+ *   (`onHeldRefused`), so the frame mirrors that too, and says `copy.refusedLine`.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { GameIcon, type GameIconName } from "@/components/game-icon";
 import type { Viewer } from "@/lib/realm3d/talk";
-import type { RunStart, RunSummary } from "@/lib/utils/deed-run-types";
+import { isHeld, type ObjectRunStart, type RunStart, type RunSummary } from "@/lib/utils/deed-run-types";
 import { deedErrorLine } from "@/lib/utils/deed-refusals";
 import { DeedRun } from "./deed-board";
 import { Panel } from "./frame-hud";
@@ -42,9 +43,8 @@ export type ObjectRunBoardProps = {
   calm: boolean;
   /** The object stands open or fixed now, as the frame's view says. Read once, when the board opens. */
   held: boolean;
-  start(childId: string): Promise<RunStart>;
-  /** The refusal that means "it already holds": WORLD_OPEN or RUNE_FIXED. */
-  heldRefusal: string;
+  /** A run, or `{ held: true }` when the object already holds: an answer, never an error (smoke I12). */
+  start(childId: string): Promise<ObjectRunStart>;
   copy: {
     title: string;
     story: string;
@@ -53,16 +53,16 @@ export type ObjectRunBoardProps = {
     notNow: string;
     heroOnly: string;
     heldLine(visitor: boolean): string;
-    /** What a held refusal says at an object the frame drew not held. Absent, the refusal's own line. */
-    refusedLine?: string;
+    /** What a held answer says at an object the frame drew not held. */
+    refusedLine: string;
   };
-  /** A refusal as held at an object the frame drew not held: the frame mirrors it. */
+  /** A held answer at an object the frame drew not held: the frame mirrors it. */
   onHeldRefused(): void;
   onSummary(s: RunSummary): void;
   onClose(): void;
 };
 
-export function ObjectRunBoard({ childId, viewer, numerals, profile, calm, held, start, heldRefusal, copy, onHeldRefused, onSummary, onClose }: ObjectRunBoardProps) {
+export function ObjectRunBoard({ childId, viewer, numerals, profile, calm, held, start, copy, onHeldRefused, onSummary, onClose }: ObjectRunBoardProps) {
   const visitor = viewer === "parent";
   const canPlay = viewer === "child" && childId !== null;
   // Whether the frame drew the object held when the board opened: read once, as the result card must stay put.
@@ -73,15 +73,15 @@ export function ObjectRunBoard({ childId, viewer, numerals, profile, calm, held,
 
   const ask = useCallback(() => {
     start(childId!)
-      .then((run) => setState({ kind: "run", run }))
-      .catch((err: unknown) => {
-        const line = deedErrorLine(err);
+      .then((answer) => {
+        if (!isHeld(answer)) return setState({ kind: "run", run: answer });
         // Held as the frame drew it: say so, as ever. Drawn not held but held: the frame mirrors it.
-        if (line === heldRefusal && openedHeld) return setState({ kind: "held" });
-        if (line === heldRefusal) onHeldRefused();
-        setState({ kind: "error", line: line === heldRefusal ? (copy.refusedLine ?? line) : line });
-      });
-  }, [childId, start, heldRefusal, openedHeld, onHeldRefused, copy.refusedLine]);
+        if (openedHeld) return setState({ kind: "held" });
+        onHeldRefused();
+        setState({ kind: "error", line: copy.refusedLine });
+      })
+      .catch((err: unknown) => setState({ kind: "error", line: deedErrorLine(err) }));
+  }, [childId, start, openedHeld, onHeldRefused, copy.refusedLine]);
   // Once per opening, and only for an object the hero is at: a development double-mount must not start two runs.
   const asked = useRef(false);
   useEffect(() => {

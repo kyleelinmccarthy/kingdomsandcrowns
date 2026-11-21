@@ -5,7 +5,8 @@ import { runeRight as right, runeWrong as wrong } from "@/test/rune-answers";
 import { lockRight } from "@/test/lock-answers";
 import { runeStub } from "@/test/rune-stubs";
 import { DEFAULT_REALM_SETTINGS } from "@/lib/utils/realm-settings";
-import { FINISHED, NOT_IN_CHRONICLE, RUNE_FIXED, RUNE_HERO_ONLY, RUNES_OFF } from "@/lib/utils/deed-refusals";
+import { FINISHED, NOT_IN_CHRONICLE, RUNE_HERO_ONLY, RUNES_OFF } from "@/lib/utils/deed-refusals";
+import { HELD, asRun } from "@/test/object-start";
 import { RUNE_STORY, RUNE_TITLE } from "@/lib/tasks/rune-copy";
 import { RUNE_OBJECTS, VILLAGE_RUNE_OBJECTS } from "@/lib/realm/rune-objects";
 import type { SkillArea } from "@/lib/utils/skills";
@@ -56,8 +57,10 @@ vi.mock("@/lib/services/deeds", async () => {
   return { ...actual, loadHeroLevels: vi.fn(async () => HERO()) };
 });
 
-const { startRuneObjectRun } = await import("./rune-objects");
-const { startWorldLockRun } = await import("./world-locks");
+const runeObjects = await import("./rune-objects");
+// The starts as runs; the held answer itself is asked of the action (`runeObjects.startRuneObjectRun`).
+const startRuneObjectRun = asRun(runeObjects.startRuneObjectRun);
+const startWorldLockRun = asRun((await import("./world-locks")).startWorldLockRun);
 const { answerDeedQuestion, completeDeedRun, resolveDeedQuestion, retryDeedQuestion } = await import("./deeds");
 const realmWorldState = await import("@/lib/services/realm-world-state");
 const { fixRuneObjects, worldClock } = realmWorldState;
@@ -282,7 +285,7 @@ describe("startRuneObjectRun", () => {
 
   it("refuses an object whose rune still holds, writing nothing", async () => {
     await insertFixed(WAGON, new Date("2026-11-09T18:00:00Z"));
-    await expect(startRuneObjectRun("c1", WAGON)).rejects.toThrow(RUNE_FIXED);
+    await expect(runeObjects.startRuneObjectRun("c1", WAGON)).resolves.toEqual(HELD);
     expect(await runs()).toBe(0);
     // Another object is its own.
     expect((await startRuneObjectRun("c1", LANTERN)).deed.id).toBe(LANTERN);
@@ -301,7 +304,7 @@ describe("startRuneObjectRun", () => {
     await fixedAt(WAGON, new Date("2026-11-09T18:00:00Z"));
     for (const date of ["2026-11-09", "2026-11-10", "2026-11-12"]) {
       vi.mocked(realmNow).mockResolvedValue({ date, timeOfDay: "10:00" });
-      await expect(startRuneObjectRun("c1", WAGON), date).rejects.toThrow(RUNE_FIXED);
+      await expect(runeObjects.startRuneObjectRun("c1", WAGON), date).resolves.toEqual(HELD);
     }
     vi.mocked(realmNow).mockResolvedValue({ date: "2026-11-13", timeOfDay: "10:00" });
     expect((await startRuneObjectRun("c1", WAGON)).deed.id).toBe(WAGON);
@@ -310,7 +313,7 @@ describe("startRuneObjectRun", () => {
   it("judges the day in the family's zone: fixed 23:30 in Denver (06:30 UTC the next day) breaks on the 13th, not the 14th", async () => {
     await insertFixed(WAGON, new Date("2026-11-10T06:30:00Z"));
     vi.mocked(realmNow).mockResolvedValue({ date: "2026-11-12", timeOfDay: "10:00" });
-    await expect(startRuneObjectRun("c1", WAGON)).rejects.toThrow(RUNE_FIXED);
+    await expect(runeObjects.startRuneObjectRun("c1", WAGON)).resolves.toEqual(HELD);
     vi.mocked(realmNow).mockResolvedValue({ date: "2026-11-13", timeOfDay: "10:00" });
     expect((await startRuneObjectRun("c1", WAGON)).kind).toBe("world");
   });
@@ -342,7 +345,7 @@ describe("finishing a rune object's run", () => {
     const mastery = (await client.query("SELECT skill_id, attempt_total, correct_total FROM skill_mastery WHERE child_id = 'c1'")).rows;
     expect(mastery).toEqual([expect.objectContaining({ skill_id: "vocab-g68", attempt_total: 1, correct_total: 1 })]);
     // And now it holds.
-    await expect(startRuneObjectRun("c1", WAGON)).rejects.toThrow(RUNE_FIXED);
+    await expect(runeObjects.startRuneObjectRun("c1", WAGON)).resolves.toEqual(HELD);
   });
 
   it("a second-try right cast fixes it too", async () => {

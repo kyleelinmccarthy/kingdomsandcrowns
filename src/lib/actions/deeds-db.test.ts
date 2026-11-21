@@ -6,7 +6,8 @@ import { hintFor, SORT_HINTS } from "@/lib/utils/skill-hints";
 import { seededRng } from "@/lib/utils/drill-generators";
 import { lockFor } from "@/lib/tasks/locks";
 import { CHALLENGE, SCORING, starsFor } from "@/lib/utils/deed-scoring";
-import { CHALLENGE_NOT_READY, HERO_ONLY, PICK_SHOWN, RUNE_FIXED, TRY_DIFFERENT } from "@/lib/utils/deed-refusals";
+import { CHALLENGE_NOT_READY, HERO_ONLY, PICK_SHOWN, TRY_DIFFERENT } from "@/lib/utils/deed-refusals";
+import { HELD, asRun } from "@/test/object-start";
 import type { Question } from "@/lib/utils/drill-generators";
 import type { ClientTask, LockTask, MeasureTask, RuneTask, TrailTask } from "@/lib/tasks/types";
 import { ANCHOR_IDS, type AnchorId } from "@/lib/realm/anchors";
@@ -73,7 +74,8 @@ const { loadRealmSettings, paySideQuest } = await import("@/lib/services/realm-p
 const { buildDeedRun } = await import("@/lib/utils/deed-engine");
 const { buildDeedRun: realBuildDeedRun } = await vi.importActual<typeof import("@/lib/utils/deed-engine")>("@/lib/utils/deed-engine");
 const { requireChildAccess } = await import("@/lib/auth/access");
-const { startRuneObjectRun } = await import("./rune-objects");
+const runeObjects = await import("./rune-objects");
+const startRuneObjectRun = asRun(runeObjects.startRuneObjectRun);
 const { realmNow } = await import("@/lib/services/realm-clock");
 const { loadWorldRows, worldClock } = await import("@/lib/services/realm-world-state");
 const { brokenNow } = await import("@/lib/realm/world-state");
@@ -2660,7 +2662,7 @@ describe("language side quests are rune walks (I11: R-I2, R-I8, R-I14, R-I17, R-
     expect(Object.keys(await worldRows())).toHaveLength(3);
   });
 
-  it("an open rune world run at an object a side quest fixes is refused RUNE_FIXED at start, and finishing it writes nothing (I7's open run)", async () => {
+  it("an open rune world run at an object a side quest fixes is answered as holding at start, and finishing it writes nothing (I7's open run)", async () => {
     // Every village object but the wagon holds, so the side quest's one broken object is the wagon.
     for (const o of VILLAGE_RUNE_OBJECTS.filter((x) => x.id !== WAGON)) await insertFixed(o.id, new Date("2026-11-09T09:00:00Z"));
     const open = await startRuneObjectRun("c1", WAGON);
@@ -2671,7 +2673,7 @@ describe("language side quests are rune walks (I11: R-I2, R-I8, R-I14, R-I17, R-
     const fixedAt = (await worldRows())[WAGON];
     expect(fixedAt.state).toBe("fixed");
     // The wagon holds, so its board says so; the open run is left to age out, never resumed.
-    await expect(startRuneObjectRun("c1", WAGON)).rejects.toThrow(RUNE_FIXED);
+    await expect(runeObjects.startRuneObjectRun("c1", WAGON)).resolves.toEqual(HELD);
     expect((await stored(open.runId)).completed_at).toBeNull();
     // Should the hero still hold its stone open, a right cast there finishes as "already held" and writes nothing.
     const [task] = await runesOf(open.runId);

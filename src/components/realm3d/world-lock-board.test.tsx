@@ -14,7 +14,8 @@ vi.mock("@/lib/utils/speech", () => ({ canSpeak: () => false, speak: vi.fn(), st
 
 import { answerDeedQuestion, completeDeedRun } from "@/lib/actions/deeds";
 import { startWorldLockRun } from "@/lib/actions/world-locks";
-import { WORLD_HERO_ONLY, WORLD_LOCKS_OFF, WORLD_OPEN } from "@/lib/utils/deed-refusals";
+import { WORLD_HERO_ONLY, WORLD_LOCKS_OFF } from "@/lib/utils/deed-refusals";
+import { HELD } from "@/test/object-start";
 import { CHEST_OPEN_LINE, CHEST_OPEN_LINE_VISITOR, DOOR_OPEN_LINE, DOOR_OPEN_LINE_VISITOR, LOCK_NOT_NOW } from "@/lib/utils/world-lock-copy";
 import type { RunSummary } from "@/lib/utils/deed-run-types";
 import { WorldLockBoard } from "./world-lock-board";
@@ -90,7 +91,7 @@ describe("a chest's or vault door's lock board", () => {
   });
 
   it("asks the server about an open chest the hero walks up to: still open, it says the open line (final f1)", async () => {
-    vi.mocked(startWorldLockRun).mockRejectedValue(new Error(WORLD_OPEN));
+    vi.mocked(startWorldLockRun).mockResolvedValue(HELD);
     const onOutcome = vi.fn();
     await act(async () => void board({ open: true, onOutcome }));
     expect(startWorldLockRun).toHaveBeenCalledWith("c1", "chest:west-lane");
@@ -109,7 +110,7 @@ describe("a chest's or vault door's lock board", () => {
   });
 
   it("shows the hero an open vault door's own line, under its own name, once the server says it stands open", async () => {
-    vi.mocked(startWorldLockRun).mockRejectedValue(new Error(WORLD_OPEN));
+    vi.mocked(startWorldLockRun).mockResolvedValue(HELD);
     await act(async () => void board({ object: DOOR, open: true }));
     expect(screen.getByRole("heading", { name: "The vault door" })).toBeInTheDocument();
     expect(screen.getByText(DOOR_OPEN_LINE)).toBeInTheDocument();
@@ -175,14 +176,14 @@ describe("a chest's or vault door's lock board", () => {
     expect(onOutcome).toHaveBeenCalledWith(opened);
   });
 
-  it("says a refused start plainly", async () => {
-    vi.mocked(startWorldLockRun).mockRejectedValue(new Error(WORLD_OPEN));
+  it("says an open answer at a chest drawn shut plainly", async () => {
+    vi.mocked(startWorldLockRun).mockResolvedValue(HELD);
     await act(async () => void board());
     expect(screen.getByRole("alert")).toHaveTextContent("That's already open.");
   });
 
   it("tells the frame a lock is open when the server refuses its start as already open, so it stops drawing it shut", async () => {
-    vi.mocked(startWorldLockRun).mockRejectedValue(new Error(WORLD_OPEN));
+    vi.mocked(startWorldLockRun).mockResolvedValue(HELD);
     const onOutcome = vi.fn();
     await act(async () => void board({ onOutcome }));
     expect(onOutcome).toHaveBeenCalledTimes(1);

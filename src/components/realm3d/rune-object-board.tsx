@@ -9,10 +9,10 @@
  * rune"; the result card says whether the rune worked (`talk.ts`).
  *
  * The page's view of what holds can be days old (an object breaks again on the server's day), so the
- * hero's board asks the server even at an object drawn fixed (RI-a / S20): a refusal as fixed says
+ * hero's board asks the server even at an object drawn fixed (RI-a / S20): a held answer says
  * the holds line, and a run that starts is the object broken again, played at once. A visiting
  * grown-up asks nothing. What the server wrote is handed up (`onOutcome`) the moment it answers, so
- * the frame mirrors the fix; a start refused as fixed at an object the frame drew broken (another
+ * the frame mirrors the fix; a held answer at an object the frame drew broken (another
  * run fixed it) is reported up as "already-fixed".
  *
  * A grown-up cannot reach the hero-only finish refusal through here (they never start a run); the
@@ -24,7 +24,7 @@ import type { RuneObject } from "@/lib/realm/rune-objects";
 import type { Viewer } from "@/lib/realm3d/talk";
 import { RUNE_HOLDS_LINE, RUNE_HOLDS_LINE_VISITOR, RUNE_NOT_NOW, RUNE_READING, RUNE_STORY, RUNE_TITLE } from "@/lib/tasks/rune-copy";
 import type { RuneOutcome } from "@/lib/utils/deed-run-types";
-import { RUNE_FIXED, RUNE_HERO_ONLY } from "@/lib/utils/deed-refusals";
+import { RUNE_HERO_ONLY } from "@/lib/utils/deed-refusals";
 import { ObjectRunBoard } from "./object-run-board";
 
 export function RuneObjectBoard({
@@ -59,7 +59,6 @@ export function RuneObjectBoard({
       calm={calm}
       held={fixed}
       start={(c) => startRuneObjectRun(c, object.id)}
-      heldRefusal={RUNE_FIXED}
       copy={{
         title: RUNE_TITLE,
         story: RUNE_STORY,

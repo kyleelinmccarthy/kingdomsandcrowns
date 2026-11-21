@@ -53,6 +53,15 @@ export type RunStart = {
   narrateClues?: true;
 };
 /**
+ * A world object's start (a chest or vault door, a rune object) when the object already holds on the
+ * server's day: an expected answer, handed back as a value rather than thrown, so the server logs no
+ * error for it (smoke I12). Anything else a start refuses is still thrown (`deed-refusals.ts`).
+ */
+export type ObjectHeld = { held: true };
+export type ObjectRunStart = RunStart | ObjectHeld;
+export const isHeld = (start: ObjectRunStart): start is ObjectHeld => "held" in start && start.held === true;
+
+/**
  * `answer` and `explain` are present only once the question is resolved, so the answer never
  * reaches the browser while a try is still open. `hint` comes with an open second chance, and
  * with a resolved miss that has no explanation. `answer` is the right answer in words

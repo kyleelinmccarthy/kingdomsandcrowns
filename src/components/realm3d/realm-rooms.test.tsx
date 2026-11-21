@@ -53,7 +53,7 @@ import { DEFAULT_AVATAR } from "@/lib/utils/avatar-catalog";
 import { RealmGame, type RealmData } from "./realm-game";
 import { roomChestFor, type WorldStateView } from "@/lib/realm/world-state";
 import { startWorldLockRun } from "@/lib/actions/world-locks";
-import { WORLD_OPEN } from "@/lib/utils/deed-refusals";
+import { HELD } from "@/test/object-start";
 
 beforeAll(() => {
   HTMLCanvasElement.prototype.getContext = (() => null) as unknown as HTMLCanvasElement["getContext"];
@@ -216,7 +216,7 @@ describe("a room's chest", () => {
 
   it("E at the chest opens its board over the room", async () => {
     // Drawn open, the board still asks the server (final f1), which says it stands open.
-    vi.mocked(startWorldLockRun).mockRejectedValue(new Error(WORLD_OPEN));
+    vi.mocked(startWorldLockRun).mockResolvedValue(HELD);
     const { bus } = mount({ realm: { ...raised, worldState: view } });
     act(() => bus.onInteract(library));
     await act(async () => void bus.onInteract({ kind: "lock", id: "chest:library", label: "the old chest", verb: "Look in" }));

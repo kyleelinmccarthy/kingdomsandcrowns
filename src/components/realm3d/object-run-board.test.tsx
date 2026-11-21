@@ -13,7 +13,7 @@ vi.mock("@/lib/utils/speech", () => ({ canSpeak: () => false, speak: vi.fn(), st
 
 import { answerDeedQuestion, completeDeedRun } from "@/lib/actions/deeds";
 import type { RunStart, RunSummary } from "@/lib/utils/deed-run-types";
-import { RUNE_FIXED } from "@/lib/utils/deed-refusals";
+import { HELD } from "@/test/object-start";
 import { ObjectRunBoard } from "./object-run-board";
 
 afterEach(cleanup);
@@ -22,7 +22,6 @@ beforeEach(() => {
   (window as unknown as { speechSynthesis: { cancel: () => void } }).speechSynthesis = { cancel: () => {} };
 });
 
-const HELD = RUNE_FIXED;
 const COPY = {
   title: "The stub object",
   story: "A stub object waits for a puzzle.",
@@ -31,6 +30,7 @@ const COPY = {
   notNow: "Not now.",
   heroOnly: "For the hero only.",
   heldLine: (visitor: boolean) => (visitor ? "It holds (visitor)." : "It holds (hero)."),
+  refusedLine: "It holds already.",
 };
 
 const run: RunStart = {
@@ -50,7 +50,7 @@ type Props = React.ComponentProps<typeof ObjectRunBoard>;
 function props(over: Partial<Props> = {}): Props {
   return {
     childId: "c1", viewer: "child", numerals: true, profile: { readAloud: false, untimed: true }, calm: false,
-    held: false, start: vi.fn().mockResolvedValue(run), heldRefusal: HELD, copy: COPY,
+    held: false, start: vi.fn().mockResolvedValue(run), copy: COPY,
     onHeldRefused: vi.fn(), onSummary: vi.fn(), onClose: vi.fn(), ...over,
   };
 }
@@ -93,23 +93,16 @@ describe("the object-board shell", () => {
     expect(screen.queryByText(COPY.heldLine(false))).toBeNull();
   });
 
-  it("a held refusal at an object drawn held says the held line and reports nothing", async () => {
-    const { p } = board({ held: true, start: vi.fn().mockRejectedValue(new Error(HELD)) });
+  it("the server's held answer (a value, not an error: smoke I12) at an object drawn held says the held line and reports nothing", async () => {
+    const { p } = board({ held: true, start: vi.fn().mockResolvedValue(HELD) });
     await act(async () => {});
     expect(screen.getByText("It holds (hero).")).toBeInTheDocument();
     expect(screen.queryByRole("alert")).toBeNull();
     expect(p.onHeldRefused).not.toHaveBeenCalled();
   });
 
-  it("a held refusal at an object drawn not held reports it once, and says the refusal's own line", async () => {
-    const { p } = board({ start: vi.fn().mockRejectedValue(new Error(HELD)) });
-    await act(async () => {});
-    expect(p.onHeldRefused).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole("alert")).toHaveTextContent(HELD);
-  });
-
-  it("a held refusal shows the caller's own line, when it names one, at an object drawn not held", async () => {
-    const { p } = board({ start: vi.fn().mockRejectedValue(new Error(HELD)), copy: { ...COPY, refusedLine: "It holds already." } });
+  it("a held answer at an object drawn not held reports it once, and says the caller's line", async () => {
+    const { p } = board({ start: vi.fn().mockResolvedValue(HELD) });
     await act(async () => {});
     expect(p.onHeldRefused).toHaveBeenCalledTimes(1);
     expect(screen.getByRole("alert")).toHaveTextContent("It holds already.");

@@ -3,7 +3,8 @@ import { describe, it, expect, vi, beforeAll, beforeEach, afterAll } from "vites
 import { testDatabase } from "@/test/libsql-test-db";
 import { lockRight as right, lockWrong as wrong } from "@/test/lock-answers";
 import { DEFAULT_REALM_SETTINGS, enabledHandsOnKinds } from "@/lib/utils/realm-settings";
-import { FINISHED, NOT_IN_CHRONICLE, TOWER_SHUT, WORLD_HERO_ONLY, WORLD_LOCKS_OFF, WORLD_OPEN } from "@/lib/utils/deed-refusals";
+import { FINISHED, NOT_IN_CHRONICLE, TOWER_SHUT, WORLD_HERO_ONLY, WORLD_LOCKS_OFF } from "@/lib/utils/deed-refusals";
+import { HELD, asRun } from "@/test/object-start";
 import { CHEST_STORY, DOOR_STORY, TOWER_STORY } from "@/lib/utils/world-lock-copy";
 import { profileFromRow } from "@/lib/utils/learning-profile";
 import { lockLevel, lockRun } from "@/lib/utils/practice-run";
@@ -59,7 +60,10 @@ vi.mock("@/lib/services/deeds", async () => {
   return { ...actual, loadHeroLevels: vi.fn(async () => HERO()) };
 });
 
-const { startTowerRun, startWorldLockRun } = await import("./world-locks");
+const worldLocks = await import("./world-locks");
+const { startTowerRun } = worldLocks;
+// The start as a run; the held answer itself is asked of the action (`worldLocks.startWorldLockRun`).
+const startWorldLockRun = asRun(worldLocks.startWorldLockRun);
 const { startPracticeRun } = await import("./practice");
 const { answerDeedQuestion, completeDeedRun, resolveDeedQuestion, retryDeedQuestion } = await import("./deeds");
 const { loadFoundPages, loadStarredBands, loadWorldRaw, loadWorldRows, recordTowerSolve, starredBandsQuery, worldClock, worldRowsQuery } = await import("@/lib/services/realm-world-state");
@@ -317,7 +321,7 @@ describe("startWorldLockRun", () => {
     expect((await startWorldLockRun("c1", "chest:west-lane")).kind).toBe("world");
     await client.query("DELETE FROM deed_run");
     await openedAt("chest:west-lane", new Date("2026-11-03T18:00:00Z"));
-    await expect(startWorldLockRun("c1", "chest:west-lane")).rejects.toThrow(WORLD_OPEN);
+    await expect(worldLocks.startWorldLockRun("c1", "chest:west-lane")).resolves.toEqual(HELD);
     expect(await runs()).toBe(0);
   });
 });
@@ -417,7 +421,7 @@ describe("finishing a chest or vault door's run", () => {
 
   it("the next week's opening gives the next reward", async () => {
     await open("chest:west-lane");
-    await expect(startWorldLockRun("c1", "chest:west-lane")).rejects.toThrow(WORLD_OPEN);
+    await expect(worldLocks.startWorldLockRun("c1", "chest:west-lane")).resolves.toEqual(HELD);
     await openedAt("chest:west-lane", LAST_WEEK);
     expect((await open("chest:west-lane")).world?.rewards).toEqual([{ kind: "decor", id: "sundial" }]);
     await openedAt("chest:west-lane", LAST_WEEK);
@@ -440,7 +444,7 @@ describe("finishing a chest or vault door's run", () => {
     expect(first.world).toEqual({ objectId: "chest:west-lane", opened: true, rewards: [] });
     expect(await rewardRows()).toBe(3);
     expect(await objectIds()).toEqual(owned);
-    await expect(startWorldLockRun("c1", "chest:west-lane")).rejects.toThrow(WORLD_OPEN);
+    await expect(worldLocks.startWorldLockRun("c1", "chest:west-lane")).resolves.toEqual(HELD);
     await openedAt("chest:west-lane", LAST_WEEK);
     const second = await open("chest:west-lane");
     expect(second.world).toMatchObject({ opened: true, rewards: [] });
@@ -457,7 +461,7 @@ describe("finishing a chest or vault door's run", () => {
     expect(await worldState()).toEqual({ "door:ringstones": "open", "lore:ringstones-map": "found" });
     vi.mocked(realmNow).mockResolvedValue({ date: "2026-12-09", timeOfDay: "10:00" });
     await openedAt("door:ringstones", LAST_WEEK);
-    await expect(startWorldLockRun("c1", "door:ringstones")).rejects.toThrow(WORLD_OPEN);
+    await expect(worldLocks.startWorldLockRun("c1", "door:ringstones")).resolves.toEqual(HELD);
   });
 
   describe("a second finish is a no-op (RG-c, Review Focus 1)", () => {

@@ -11,7 +11,7 @@ import { enabledHandsOnKinds } from "@/lib/utils/realm-settings";
 import { findSkill, type Skill } from "@/lib/utils/skills";
 import type { BuiltRun, ProfileLike } from "@/lib/utils/deed-engine";
 import type { TaskKind } from "@/lib/tasks/types";
-import type { RunStart } from "@/lib/utils/deed-run-types";
+import type { ObjectRunStart, RunStart } from "@/lib/utils/deed-run-types";
 import { demoAt, findOpenRun, insertRun, loadMasteryRows, resumedStart, type DeedRunRow } from "@/lib/services/deed-run-store";
 import { loadHeroLevels, type HeroLevels } from "@/lib/services/deeds";
 import { loadFocusSkillIds } from "@/lib/services/learning-focus";
@@ -44,6 +44,28 @@ export type LockRunSpec = {
   /** Whether a young hero meets Pip before their first lock of a kind (R-F10). */
   demo: boolean;
 };
+
+/** What a spec's `check` throws for an object that already holds; `startObjectRun` answers it as a value. */
+class Held extends Error {}
+
+/** For a world object's `check`: the chest stands open, or the rune still holds (on the server's day). */
+export function refuseHeld(): never {
+  throw new Held();
+}
+
+/**
+ * A world object's start (a chest or vault door, a rune object): `startLockRun`, with "it already
+ * holds" (`refuseHeld`) answered as `{ held: true }` rather than thrown, so an expected answer is
+ * never logged as a server error (smoke I12). Every other refusal still throws, as before.
+ */
+export async function startObjectRun(childId: string, spec: LockRunSpec): Promise<ObjectRunStart> {
+  try {
+    return await startLockRun(childId, spec);
+  } catch (err) {
+    if (err instanceof Held) return { held: true };
+    throw err;
+  }
+}
 
 /** The skill an open run was drawn from (one per lock run), or null if this build no longer has it. */
 function storedSkill(run: DeedRunRow): Skill | null {

@@ -17,7 +17,8 @@ import { startRuneObjectRun } from "@/lib/actions/rune-objects";
 import { runeObjectById } from "@/lib/realm/rune-objects";
 import { toClientTask } from "@/lib/tasks/registry";
 import { RUNE_CAST, RUNE_HOLDS_LINE, RUNE_HOLDS_LINE_VISITOR, RUNE_NOT_NOW, RUNE_READING, RUNE_STORY, RUNE_TITLE } from "@/lib/tasks/rune-copy";
-import { RUNE_FIXED, RUNE_HERO_ONLY, RUNES_OFF } from "@/lib/utils/deed-refusals";
+import { RUNE_HERO_ONLY, RUNES_OFF } from "@/lib/utils/deed-refusals";
+import { HELD } from "@/test/object-start";
 import type { RunStart, RunSummary } from "@/lib/utils/deed-run-types";
 import { runeStub } from "@/test/rune-stubs";
 import { RuneObjectBoard } from "./rune-object-board";
@@ -134,8 +135,8 @@ describe("a rune object's board", () => {
   });
 
   describe("an object drawn fixed is still asked about (RI-a / S20)", () => {
-    it("the hero's board calls startRuneObjectRun, and a RUNE_FIXED refusal shows the holds line and reports nothing", async () => {
-      vi.mocked(startRuneObjectRun).mockRejectedValue(new Error(RUNE_FIXED));
+    it("the hero's board calls startRuneObjectRun, and the held answer shows the holds line and reports nothing", async () => {
+      vi.mocked(startRuneObjectRun).mockResolvedValue(HELD);
       const onOutcome = vi.fn();
       await act(async () => void board({ fixed: true, onOutcome }));
       expect(startRuneObjectRun).toHaveBeenCalledWith("c1", "rune:west-wagon");
@@ -161,8 +162,8 @@ describe("a rune object's board", () => {
     });
   });
 
-  it("a RUNE_FIXED refusal at an object drawn broken reports already-fixed and shows the holds line", async () => {
-    vi.mocked(startRuneObjectRun).mockRejectedValue(new Error(RUNE_FIXED));
+  it("a held answer at an object drawn broken reports already-fixed and shows the holds line", async () => {
+    vi.mocked(startRuneObjectRun).mockResolvedValue(HELD);
     const onOutcome = vi.fn();
     await act(async () => void board({ onOutcome }));
     expect(onOutcome).toHaveBeenCalledTimes(1);

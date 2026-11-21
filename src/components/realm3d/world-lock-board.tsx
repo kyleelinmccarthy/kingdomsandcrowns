@@ -11,8 +11,8 @@
  * objects' board stands on too); this is its start and its copy. The page's view of what stands open
  * can be a day old (a chest relocks weekly, on the server's day), so the hero's board asks the
  * server even at a lock the frame draws open (final f1). What the server wrote is handed up
- * (`onOutcome`) the moment it answers, so the frame mirrors the opening; a start the server refuses
- * as already open, at a lock the frame drew shut, is reported up as an "already-open" outcome.
+ * (`onOutcome`) the moment it answers, so the frame mirrors the opening; the server's answer that it
+ * stands open (`{ held: true }`), at a lock the frame drew shut, is reported up as an "already-open" outcome.
  */
 
 import { startWorldLockRun } from "@/lib/actions/world-locks";
@@ -56,7 +56,6 @@ export function WorldLockBoard({
       calm={calm}
       held={open}
       start={(c) => startWorldLockRun(c, object.id)}
-      heldRefusal={WORLD_OPEN}
       copy={{
         title: door ? DOOR_TITLE : CHEST_TITLE,
         story: door ? DOOR_STORY : CHEST_STORY,
@@ -65,6 +64,7 @@ export function WorldLockBoard({
         notNow: LOCK_NOT_NOW,
         heroOnly: WORLD_HERO_ONLY,
         heldLine: (visitor) => lockOpenLine(door, visitor),
+        refusedLine: WORLD_OPEN,
       }}
       onHeldRefused={() => onOutcome({ objectId: object.id, opened: false, reason: "already-open", rewards: [] })}
       onSummary={(s) => s.world && onOutcome(s.world)}

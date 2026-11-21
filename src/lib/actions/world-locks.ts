@@ -4,33 +4,34 @@ import { towerBands, towerFloors, towerRef, towerSkillId } from "@/lib/realm/puz
 import { worldObjectById } from "@/lib/realm/world-objects";
 import { lockedNow } from "@/lib/realm/world-state";
 import { CONTENT_BANDS } from "@/lib/utils/content-bands";
-import { NOT_IN_CHRONICLE, TOWER_SHUT, WORLD_HERO_ONLY, WORLD_LOCKS_OFF, WORLD_OPEN } from "@/lib/utils/deed-refusals";
+import { NOT_IN_CHRONICLE, TOWER_SHUT, WORLD_HERO_ONLY, WORLD_LOCKS_OFF } from "@/lib/utils/deed-refusals";
 import { findSkill } from "@/lib/utils/skills";
 import { CHEST_STORY, CHEST_TITLE, DOOR_STORY, DOOR_TITLE, TOWER_STORY, TOWER_TITLE } from "@/lib/utils/world-lock-copy";
 import { worldLockSkill } from "@/lib/utils/world-lock-run";
-import type { RunStart } from "@/lib/utils/deed-run-types";
-import { startLockRun } from "@/lib/services/lock-runs";
+import type { ObjectRunStart, RunStart } from "@/lib/utils/deed-run-types";
+import { refuseHeld, startLockRun, startObjectRun } from "@/lib/services/lock-runs";
 import { loadStarredBands, loadWorldRows, worldClock } from "@/lib/services/realm-world-state";
 
 /**
  * Starts the lock on a chest or vault door (R-G3): a `world` run of ONE lock, named by the object
  * (`sourceRef`), so a second start picks it back up. The hero's alone, refused while the grown-up
- * has locks off (R-G7) and while the object still stands open (on the server's day, in the family's
- * zone). `objectId` crosses the wire, so only a catalog id is a lock; "practice" is not one. What it
+ * has locks off (R-G7). While the object still stands open (on the server's day, in the family's
+ * zone) it answers `{ held: true }`, an expected answer and not an error, so nothing is logged (smoke
+ * I12). `objectId` crosses the wire, so only a catalog id is a lock; "practice" is not one. What it
  * draws is `worldLockSkill`. Finishing it, and what opening gives, is `completeDeedRun`'s.
  */
-export async function startWorldLockRun(childId: string, objectId: string): Promise<RunStart> {
+export async function startWorldLockRun(childId: string, objectId: string): Promise<ObjectRunStart> {
   const object = worldObjectById(objectId);
   if (!object) throw new Error(NOT_IN_CHRONICLE);
   const door = object.type === "door";
-  return startLockRun(childId, {
+  return startObjectRun(childId, {
     kind: "world",
     sourceRef: object.id,
     refusals: { heroOnly: WORLD_HERO_ONLY, off: WORLD_LOCKS_OFF },
     check: async () => {
       const [clock, rows] = await Promise.all([worldClock(childId), loadWorldRows(childId)]);
       const row = rows.find((r) => r.objectId === object.id) ?? null;
-      if (!lockedNow(object, row, clock.today, clock.zone)) throw new Error(WORLD_OPEN);
+      if (!lockedNow(object, row, clock.today, clock.zone)) refuseHeld();
     },
     pick: (hero, focusSkillIds) => {
       const pick = worldLockSkill(object, hero.grades, focusSkillIds);

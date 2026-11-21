@@ -60,7 +60,7 @@ import { answerDeedQuestion, completeDeedRun } from "@/lib/actions/deeds";
 import { recordPlacesFound } from "@/lib/actions/realm-places";
 import { startWorldLockRun } from "@/lib/actions/world-locks";
 import type { WorldStateView } from "@/lib/realm/world-state";
-import { WORLD_OPEN } from "@/lib/utils/deed-refusals";
+import { HELD } from "@/test/object-start";
 import type { RunSummary } from "@/lib/utils/deed-run-types";
 import type { RideBus } from "@/lib/realm3d/riding";
 import { RealmGame, type RealmData } from "./realm-game";
@@ -236,7 +236,7 @@ describe("a vault door's map marks its place at once", () => {
   });
 
   it("a door the server says is already open is drawn open at once, with no toast (G3 review 2)", async () => {
-    vi.mocked(startWorldLockRun).mockRejectedValue(new Error(WORLD_OPEN));
+    vi.mocked(startWorldLockRun).mockResolvedValue(HELD);
     const bus = mount({ realm: { ...realm, worldState: shut } });
     await act(async () => void bus.onInteract(door));
     expect(screen.getByRole("alert")).toHaveTextContent("That's already open.");

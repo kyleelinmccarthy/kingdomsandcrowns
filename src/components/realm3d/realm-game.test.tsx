@@ -101,7 +101,7 @@ import { startTowerRun, startWorldLockRun } from "@/lib/actions/world-locks";
 import { startRuneObjectRun } from "@/lib/actions/rune-objects";
 import { toClientTask } from "@/lib/tasks/registry";
 import { RUNE_HOLDS_LINE, RUNE_TITLE } from "@/lib/tasks/rune-copy";
-import { RUNE_FIXED } from "@/lib/utils/deed-refusals";
+import { HELD } from "@/test/object-start";
 import { runeStub } from "@/test/rune-stubs";
 import { applyRuneOutcomes, worldCanvas, type WorldStateView } from "@/lib/realm/world-state";
 import { RUNE_DONE, RUNE_FINISH, RUNE_HOLDS_HERE, RUNE_LEAVE, RUNE_TRACKER_LABEL } from "@/lib/tasks/rune-copy";
@@ -458,7 +458,7 @@ describe("the rune objects", () => {
   });
 
   it("E at a fixed rune object asks the server, as at an open chest (RI-a / S20)", async () => {
-    vi.mocked(startRuneObjectRun).mockRejectedValue(new Error(RUNE_FIXED));
+    vi.mocked(startRuneObjectRun).mockResolvedValue(HELD);
     const { bus } = mount({ realm: { ...realm, worldState: view } });
     await act(async () => void bus.onInteract(lantern));
     expect(startRuneObjectRun).toHaveBeenCalledWith("demo-child-1", "rune:lane-lantern");
