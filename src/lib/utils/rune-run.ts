@@ -4,15 +4,17 @@
  *
  * A rune object is fixed any time by a `world` run of ONE word (`runeObjectRun`), drawn for the
  * object's effect at the hero's language skill (`runeSkill`); `startRuneObjectRun`
- * (`actions/rune-objects.ts`) puts them on the shared start skeleton, `startLockRun`. I11 adds the
- * binding of a language side quest's words to village objects here.
+ * (`actions/rune-objects.ts`) puts them on the shared start skeleton, `startLockRun`. A language side
+ * quest's words are bound to village objects here too (`bindRuneObjects`, R-I22), after the draw has
+ * passed over the effects with nothing broken to bind to (`runePassOver`).
  */
-import { kindForSkill, TASK_KINDS } from "@/lib/tasks/registry";
+import { kindForSkill, kindOf, TASK_KINDS } from "@/lib/tasks/registry";
 import { drawRuneFor } from "@/lib/tasks/runes/draw";
-import type { TaskKind } from "@/lib/tasks/types";
-import type { RuneObject } from "@/lib/realm/rune-objects";
+import { effectKey } from "@/lib/content/rune-pools";
+import type { RuneTask, Task, TaskKind } from "@/lib/tasks/types";
+import { RUNE_EFFECT_IDS, type RuneObject } from "@/lib/realm/rune-objects";
 import { chooseSkills, type BuiltRun, type ProfileLike } from "./deed-engine";
-import { seededRng } from "./drill-generators";
+import { seededRng, type Rng } from "./drill-generators";
 import { focusWindow } from "./focus";
 import type { Grade } from "./grade-levels";
 import type { Skill } from "./skills";
@@ -53,4 +55,42 @@ export function runeObjectRun(input: {
   const task = drawRuneFor(skill, input.level, object.effect, seededRng(input.seed), input.avoid);
   if (!task) return EMPTY;
   return { skillIds: [skill.id], questions: [{ ...task, object: { id: object.id, label: object.label } }] };
+}
+
+/**
+ * The effect keys (`effect:<e>`) of every effect with no broken object among `objects` (R-I22): handed
+ * to the drawer in `recentRunes`, so a side quest's words go to effects that have something to mend
+ * first, and an effect with nothing broken is drawn only once the others are used. In the effects' order.
+ */
+export function runePassOver(objects: readonly RuneObject[], broken: ReadonlySet<string>): string[] {
+  return RUNE_EFFECT_IDS.filter((e) => !objects.some((o) => o.effect === e && broken.has(o.id))).map(effectKey);
+}
+
+/**
+ * Binds each rune task, in order, to an unused object of its effect among `objects` (the village's, for
+ * a side quest, R-I22): a broken one when any is left, chosen with the run's seeded `rng`, else a fixed
+ * one, which a right cast renews. A broken object is named by its `label` ("the broken wagon"), a fixed
+ * one by its `fixedLabel` ("the wagon", RI-a / N8), as the hero sees it. A rune task whose effect has no
+ * unused object left is dropped (three of one effect, two objects). A task of another kind passes
+ * through untouched and draws nothing, so one seed is one binding. A task already bound (a miss
+ * brought back) is bound afresh.
+ */
+export function bindRuneObjects(tasks: readonly Task[], objects: readonly RuneObject[], broken: ReadonlySet<string>, rng: Rng): Task[] {
+  const used = new Set<string>();
+  const out: Task[] = [];
+  for (const task of tasks) {
+    if (kindOf(task) !== "rune") {
+      out.push(task);
+      continue;
+    }
+    const rune = task as RuneTask;
+    const free = objects.filter((o) => o.effect === rune.effect && !used.has(o.id));
+    const fresh = free.filter((o) => broken.has(o.id));
+    const from = fresh.length > 0 ? fresh : free;
+    if (from.length === 0) continue;
+    const object = from[Math.floor(rng() * from.length)];
+    used.add(object.id);
+    out.push({ ...rune, object: { id: object.id, label: broken.has(object.id) ? object.label : object.fixedLabel } });
+  }
+  return out;
 }

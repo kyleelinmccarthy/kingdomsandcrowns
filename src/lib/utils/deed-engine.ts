@@ -129,7 +129,7 @@ export function chooseSkills(deed: Pick<Deed, "area">, grade: Grade, playable: (
  * base walk and the focus extras are held to it.
  *
  * **A walking run is all the mechanic's (R-H9).** When the deed's mechanic is a walking kind (a
- * trail) and it is on, the base is only the skills it presents. A grade whose own skills it does not
+ * trail or a rune) and it is on, the base is only the skills it presents. A grade whose own skills it does not
  * present (sight words at K and 2) walks the hero's band instead (`bandSkill`, R-H21): K walks
  * `read-g1`'s trails and grade 2 `read-g3`'s. A band with none keeps the choice base, so the run is
  * never empty. Focus extras are held only to `playable`, presented or not: whether a drawn one takes
@@ -539,8 +539,8 @@ export function buildDeedRun(input: BuildRunInput): BuiltRun {
   if (skills.length === 0) return { skillIds: [], questions: [] };
 
   // A grown-up's focus that the deed's walking kind cannot play wins (R-H22): when the fresh draw
-  // picked one (a sight-word focus in a reading side quest), the whole side quest is multiple choice.
-  // Other reading side quests, which did not draw it, stay trails.
+  // picked one (a sight-word focus in a reading side quest, a `lang-g1` focus in a language one, R-I8), the
+  // whole side quest is multiple choice. Other side quests, which did not draw it, stay trails or runes.
   const focusOffWalk = isWalkingKind(deed.mechanic) && skills.some((s) => focus.has(s.id) && !TASK_KINDS[deed.mechanic].presents(s.id));
   // How each skill is played, worked out once and used for every draw of it (due, fresh and refill).
   const kinds = new Map<string, TaskKind>();
@@ -551,6 +551,8 @@ export function buildDeedRun(input: BuildRunInput): BuiltRun {
       // A grown-up's focus skill that a lock presents is sorted on the lock's face where the deed
       // would ask it as choice (R-F11): a vocabulary focus in a language side quest. Locks off, or
       // the gate, still give choice; a skill no lock presents is left as the deed plays it.
+      // It reads only a choice: in a rune side quest a vocabulary focus a rune presents is a rune, never
+      // a sort (R-I8); with runes off it is choice again, and this sorts it as before slice 6.
       if (k === "choice" && focus.has(skillId)) k = kindForSkill("lock", skillId, enabled);
       kinds.set(skillId, k);
     }

@@ -348,9 +348,19 @@ describe("loadRecentRuneKeys: the rune entries a hero met in their last rune run
     );
   }
 
-  it("is a week of three rune runs a day, and no side quest plays runes yet", () => {
+  it("is a week of three rune runs a day, and the language side quests play runes (I11)", () => {
     expect(RUNE_MEMORY_RUNS).toBe(21);
-    expect([...RUNE_DEED_IDS]).toEqual([]);
+    expect([...RUNE_DEED_IDS]).toEqual(["mill-ledger", "bridge-toll", "market-crier", "library-scribe"]);
+  });
+
+  it("reads rune side quests and rune world runs together, newest first, 21 in all (R-I19)", async () => {
+    // 22 runs, alternating a language side quest and a rune object, oldest first: run 0 falls out.
+    for (let i = 0; i < 22; i++) {
+      const deedId = RUNE_DEED_IDS[i % RUNE_DEED_IDS.length];
+      await run("both", JSON.stringify([word(`rune-g68/b${i}`)]), i % 2 === 0 ? { kind: "deed", deedId, sourceRef: null } : {});
+    }
+    const keys = await loadRecentRuneKeys("both");
+    expect(keys).toEqual(Array.from({ length: 21 }, (_, k) => `rune-g68/b${21 - k}`));
   });
 
   it("reads the last 21 rune world runs only, open or finished, newest first", async () => {
@@ -364,16 +374,19 @@ describe("loadRecentRuneKeys: the rune entries a hero met in their last rune run
     expect(keys).not.toContain("rune-g68/w0");
   });
 
-  it("ignores a chest's run, Puzzle practice, a tower run, a side quest, another hero's runs, and a row that will not parse", async () => {
+  it("ignores a chest's run, Puzzle practice, a tower run, a side quest of another strand, another hero's runs, and a row that will not parse", async () => {
     await run("mixed", JSON.stringify([word("rune-g68/kept")]));
     await run("mixed", JSON.stringify([word("rune-g68/chest")]), { sourceRef: "chest:west-lane" });
     await run("mixed", JSON.stringify([word("rune-g68/practice")]), { sourceRef: "practice" });
     await run("mixed", JSON.stringify([word("rune-g68/no-ref")]), { sourceRef: null });
     await run("mixed", JSON.stringify([word("rune-g68/tower")]), { kind: "tower", sourceRef: "rune:west-wagon" });
+    // A language side quest is a rune run since I11 (any kind of it: deed or challenge); a math one is not.
     await run("mixed", JSON.stringify([word("rune-g68/side-quest")]), { kind: "deed", deedId: "mill-ledger", sourceRef: null });
+    await run("mixed", JSON.stringify([word("rune-g68/crown")]), { kind: "challenge", deedId: "library-scribe", sourceRef: null });
+    await run("mixed", JSON.stringify([word("rune-g68/math")]), { kind: "deed", deedId: "well-stones", sourceRef: null });
     await run("mixed", "nope");
     await run("someone-else", JSON.stringify([word("rune-g68/theirs")]));
-    expect(await loadRecentRuneKeys("mixed")).toEqual(["rune-g68/kept"]);
+    expect(await loadRecentRuneKeys("mixed")).toEqual(["rune-g68/crown", "rune-g68/side-quest", "rune-g68/kept"]);
   });
 
   it("never lets other runs crowd the memory: newer chest runs push no rune run out", async () => {
