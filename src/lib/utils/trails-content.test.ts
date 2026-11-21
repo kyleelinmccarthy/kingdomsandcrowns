@@ -6,6 +6,7 @@ import { TRAIL_SKILLS, formatTrailProblems, validateTrailPool, type TrailPool } 
 import { ANCHOR_IDS } from "@/lib/realm/anchors";
 import { simulateTrailWeek } from "@/test/trail-week";
 import { TRAIL_POOL_FILES } from "@/lib/tasks/trails/trail-pool-files";
+import { trailPoolsWithSheets } from "@/lib/content/trail-blind-pass";
 import { loadTrailPools } from "@/lib/tasks/trails";
 import { skillForPool } from "./skills";
 
@@ -37,6 +38,11 @@ describe("trail pool content", () => {
 
   it("ships every expected pool and nothing unexpected", () => {
     expect(pools.map((p) => p.parsed.poolId).sort()).toEqual([...EXPECTED_TRAIL_POOLS].sort());
+  });
+
+  it("has a blind-pass sheet for every pool, so no pool ships unread (F-15)", () => {
+    // The sheet gate (`trail-blind-pass.test.ts`) settles each sheet that exists; this makes sure one exists.
+    expect(trailPoolsWithSheets().sort()).toEqual([...EXPECTED_TRAIL_POOLS].sort());
   });
 
   it("names each file after its pool", () => {
