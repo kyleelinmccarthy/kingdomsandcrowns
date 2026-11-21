@@ -13,10 +13,10 @@ import { PUZZLE_TOWER } from "@/lib/realm/puzzle-tower";
 import { RIDDLE_STONE_SPOTS } from "@/lib/realm/riddle-stones";
 import { RUNE_SPOT } from "@/lib/realm/rune-objects";
 import { WORLD_OBJECTS } from "@/lib/realm/world-objects";
-import { worldCanvas } from "@/lib/realm/world-state";
+import { worldCanvas, type RuneSpotView } from "@/lib/realm/world-state";
 import { castlePlan } from "@/lib/realm3d/castle-plan";
 import { improvementPlacements } from "@/lib/realm3d/improvement-spots";
-import { buildSpots, edgeDistance, type InteractSpot } from "@/lib/realm3d/interact";
+import { buildSpots, edgeDistance, runeSpot, type InteractSpot } from "@/lib/realm3d/interact";
 import { PLOT_SCALE } from "@/lib/realm3d/lead";
 import { ARCH, ARCH_HALF_SPAN } from "@/lib/realm3d/recess/course";
 import { travelGraphFor, VILLAGE_POST, VILLAGE_TRACKS } from "@/lib/realm3d/travel";
@@ -27,22 +27,12 @@ import { CASTLE_TIER_IDS, clearanceFailures, gap, LEVEL_TOLERANCE, levelFailures
 export type RuneSpotAt = { id: string; x: number; z: number; place: string | null };
 
 /**
- * The E spot a rune object will have: round, `RUNE_SPOT.radius` across its footprint and
- * `RUNE_SPOT.reach` from its edge. Its target kind is a stand-in (`lock`) until the rune kind joins
- * `InteractTarget` with the spot itself; only the geometry is read here.
+ * The E spot a rune object has: the real `runeSpot` (`interact.ts`), so the reach rules these
+ * checks hold can never drift from the spot the scene builds. Given a bare point, the other fields
+ * of the view are placeholders; only the geometry is read here.
  */
-export function runeSpotAt(o: { id: string; x: number; z: number }): InteractSpot {
-  return {
-    target: { kind: "lock", id: o.id, label: o.id },
-    x: o.x,
-    z: o.z,
-    hw: RUNE_SPOT.radius,
-    hd: RUNE_SPOT.radius,
-    round: true,
-    reach: RUNE_SPOT.reach,
-    bias: 0.4,
-    ring: RUNE_SPOT.radius + 0.6,
-  };
+export function runeSpotAt(o: { id: string; x: number; z: number } & Partial<RuneSpotView>): InteractSpot {
+  return runeSpot({ effect: "mend", label: o.id, ry: 0, fixed: false, ...o });
 }
 
 let spotSets: InteractSpot[][] | null = null;

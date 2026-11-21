@@ -5,7 +5,7 @@ import { runeRight as right, runeWrong as wrong } from "@/test/rune-answers";
 import { lockRight } from "@/test/lock-answers";
 import { runeStub } from "@/test/rune-stubs";
 import { DEFAULT_REALM_SETTINGS } from "@/lib/utils/realm-settings";
-import { FINISHED, NOT_IN_CHRONICLE, RUNE_FIXED, RUNE_HERO_ONLY, RUNES_OFF, WORLD_HERO_ONLY } from "@/lib/utils/deed-refusals";
+import { FINISHED, NOT_IN_CHRONICLE, RUNE_FIXED, RUNE_HERO_ONLY, RUNES_OFF } from "@/lib/utils/deed-refusals";
 import { RUNE_STORY, RUNE_TITLE } from "@/lib/tasks/rune-copy";
 import { RUNE_OBJECTS, VILLAGE_RUNE_OBJECTS } from "@/lib/realm/rune-objects";
 import type { SkillArea } from "@/lib/utils/skills";
@@ -429,7 +429,7 @@ describe("finishing a rune object's run", () => {
   it("only the hero finishes it: a grown-up is refused and nothing is written", async () => {
     const id = await cast(WAGON);
     vi.mocked(requireChildAccess).mockResolvedValueOnce(GROWN_UP);
-    await expect(completeDeedRun(id)).rejects.toThrow(WORLD_HERO_ONLY);
+    await expect(completeDeedRun(id)).rejects.toThrow(RUNE_HERO_ONLY);
     expect(await completedAt(id)).toBeNull();
     expect(await stateRows()).toBe(0);
     expect((await completeDeedRun(id)).runes?.[0].fixed).toBe(true);

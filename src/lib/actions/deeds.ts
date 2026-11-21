@@ -24,7 +24,7 @@ import { CHALLENGE, MAX_STARS, RUN_EFFECTS, countsTowardBuilding, runPoints, sta
 import { outcomeOf, refuseGiveUp, refuseRetry, statusOf, type QuestionStatus } from "@/lib/utils/deed-attempts";
 import {
   ALREADY_ANSWERED, ANSWER_EVERY, ANSWER_FIRST, BUILD_HERO_ONLY, CHALLENGE_LOCKED, CHALLENGE_NOT_READY, CLOSED, FINISHED, HERO_ONLY, NONE_READY,
-  NOT_IN_CHRONICLE, NOT_IN_RUN, NOT_THROUGH, PICK_SHOWN, WORLD_HERO_ONLY,
+  NOT_IN_CHRONICLE, NOT_IN_RUN, NOT_THROUGH, PICK_SHOWN, RUNE_HERO_ONLY, WORLD_HERO_ONLY,
 } from "@/lib/utils/deed-refusals";
 import { overdueSkills } from "@/lib/utils/review-schedule";
 import type { AttemptResult, RunStart, RunSummary, RuneOutcome, TowerOutcome, WorldOutcome } from "@/lib/utils/deed-run-types";
@@ -433,7 +433,7 @@ export async function completeDeedRun(runId: string): Promise<RunSummary> {
   // Building spends the hero's materials, so only the hero finishes a build run; refused before anything is written.
   if (run.kind === "build" && !isChildActor(access)) throw new Error(BUILD_HERO_ONLY);
   // A chest, a vault door or a Tower floor is opened, and a rune object fixed, by the hero alone (PC-G7); refused before anything is written.
-  if (worldOwned(run) && !isChildActor(access)) throw new Error(WORLD_HERO_ONLY);
+  if (worldOwned(run) && !isChildActor(access)) throw new Error(isRuneObjectId(run.sourceRef) ? RUNE_HERO_ONLY : WORLD_HERO_ONLY);
   const effects = RUN_EFFECTS[run.kind];
   const correctCount = statuses.filter((s) => s === "right-first").length;
   const flawless = correctCount === questions.length;

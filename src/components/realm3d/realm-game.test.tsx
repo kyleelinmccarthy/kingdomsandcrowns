@@ -59,6 +59,7 @@ vi.mock("@/lib/actions/improvements", () => ({ markBuildingsAnnounced: vi.fn(asy
 vi.mock("@/lib/actions/realm-chronicle", () => ({ getChronicle: vi.fn(async () => ({ weeks: [], canSeal: false, lore: [] })) }));
 vi.mock("@/lib/actions/review", () => ({ startReviewRun: vi.fn(), getReviewDue: vi.fn(async () => false) }));
 vi.mock("@/lib/actions/world-locks", () => ({ startWorldLockRun: vi.fn(), startTowerRun: vi.fn() }));
+vi.mock("@/lib/actions/rune-objects", () => ({ startRuneObjectRun: vi.fn() }));
 vi.mock("@/lib/actions/spells", () => ({ getSpellbook: vi.fn(async () => ({ spells: [], slots: 4, level: 3, unlocked: ["ember", "tide", "bolt", "orb"], schoolCounts: { element: 2, form: 0, modifier: 0 }, subjectNamesBySchool: { element: ["Math"], form: [], modifier: [] } })) }));
 vi.mock("@/lib/actions/realm", () => ({ getRealmKingdom: vi.fn() }));
 vi.mock("@/lib/actions/quest-assignments", () => ({ getAssignmentQuestInfo: vi.fn(async () => null) }));
@@ -92,6 +93,11 @@ import { getChronicle } from "@/lib/actions/realm-chronicle";
 import { BUILD_HERO_ONLY } from "@/lib/utils/deed-refusals";
 import { startReviewRun } from "@/lib/actions/review";
 import { startTowerRun, startWorldLockRun } from "@/lib/actions/world-locks";
+import { startRuneObjectRun } from "@/lib/actions/rune-objects";
+import { toClientTask } from "@/lib/tasks/registry";
+import { RUNE_HOLDS_LINE, RUNE_TITLE } from "@/lib/tasks/rune-copy";
+import { RUNE_FIXED } from "@/lib/utils/deed-refusals";
+import { runeStub } from "@/test/rune-stubs";
 import { worldCanvas, type WorldStateView } from "@/lib/realm/world-state";
 import { saveRealmSound } from "@/lib/actions/realm-sound";
 import { getRealmAccess, getTroubleBounty, recordTroubleClears } from "@/lib/actions/realm-play";
@@ -404,6 +410,66 @@ describe("the world's locks", () => {
   it("draws no locks when the bundle sent no world state", () => {
     mount();
     expect(handed.props!.worldLocks).toEqual({ locksOn: false, locks: [], runes: [], decor: [], storeys: 0, towerKnown: false });
+  });
+});
+
+describe("the rune objects", () => {
+  const view: WorldStateView = { locksOn: true, runesOn: true, open: [], fixed: ["rune:lane-lantern"], decor: [], tower: [] };
+  const wagon = { kind: "rune" as const, id: "rune:west-wagon", label: "the broken wagon", verb: "Cast a rune at" };
+  const lantern = { kind: "rune" as const, id: "rune:lane-lantern", label: "the lantern", verb: "Look at" };
+  const runeRun = {
+    runId: "rune-1",
+    deed: { id: "rune:west-wagon", title: RUNE_TITLE, story: "Something here needs a rune. Build the word and cast it.", area: "language" as const },
+    questions: [toClientTask(runeStub())],
+    responses: [null] as (string | null)[],
+    kind: "world" as const,
+    pending: null,
+  };
+
+  it("the canvas has the fifteen rune objects with runes on, and none with them off", () => {
+    mount({ realm: { ...realm, worldState: view } });
+    expect((handed.props!.worldLocks as ReturnType<typeof worldCanvas>).runes).toHaveLength(15);
+    expect(handed.props!.worldLocks).toEqual(worldCanvas(view));
+    cleanup();
+    mount({ realm: { ...realm, worldState: { ...view, runesOn: false } } });
+    expect((handed.props!.worldLocks as ReturnType<typeof worldCanvas>).runes).toHaveLength(0);
+    // The records stay: the lock's own canvas is unchanged either way.
+    expect(handed.props!.worldLocks).toMatchObject({ locksOn: true });
+  });
+
+  it("E at a broken rune object opens its board, not the look panel, and starts its run", async () => {
+    vi.mocked(startRuneObjectRun).mockResolvedValue(runeRun);
+    const { bus } = mount({ realm: { ...realm, worldState: view } });
+    await act(async () => void bus.onInteract(wagon));
+    expect(startRuneObjectRun).toHaveBeenCalledWith("demo-child-1", "rune:west-wagon");
+    expect(screen.getAllByRole("dialog")).toHaveLength(1);
+    expect(screen.getByRole("dialog", { name: RUNE_TITLE })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "The rune stone" })).toBeInTheDocument();
+    expect(bus.paused).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Leave the rune" }));
+    expect(bus.paused).toBe(false);
+  });
+
+  it("E at a fixed rune object asks the server, as at an open chest (RI-a / S20)", async () => {
+    vi.mocked(startRuneObjectRun).mockRejectedValue(new Error(RUNE_FIXED));
+    const { bus } = mount({ realm: { ...realm, worldState: view } });
+    await act(async () => void bus.onInteract(lantern));
+    expect(startRuneObjectRun).toHaveBeenCalledWith("demo-child-1", "rune:lane-lantern");
+    expect(screen.getByRole("dialog", { name: RUNE_TITLE })).toHaveTextContent(RUNE_HOLDS_LINE);
+  });
+
+  it("a visiting grown-up looks at an object and starts nothing", async () => {
+    const { bus } = mount({ viewer: "parent", realm: { ...realm, isChildView: false, worldState: view } });
+    await act(async () => void bus.onInteract(lantern));
+    expect(screen.getByRole("dialog", { name: RUNE_TITLE })).toHaveTextContent("The rune holds here.");
+    expect(startRuneObjectRun).not.toHaveBeenCalled();
+  });
+
+  it("an object id outside the catalog opens no rune board", async () => {
+    const { bus } = mount({ realm: { ...realm, worldState: view } });
+    await act(async () => void bus.onInteract({ ...wagon, id: "rune:nope" }));
+    expect(startRuneObjectRun).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog", { name: RUNE_TITLE })).toBeNull();
   });
 });
 

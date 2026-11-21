@@ -16,7 +16,9 @@ import { villagerById } from "@/lib/realm/villagers";
 import { RIDDLE_STONE_RADIUS } from "@/lib/realm/riddle-stones";
 import { YARD_RADIUS } from "@/lib/realm/keep-yard";
 import { LOCK_SPOT } from "@/lib/realm/world-objects";
-import type { LockSpotView } from "@/lib/realm/world-state";
+import type { LockSpotView, RuneSpotView } from "@/lib/realm/world-state";
+import { RUNE_SPOT } from "@/lib/realm/rune-objects";
+import { RUNE_LOOK_VERB, RUNE_VERB } from "@/lib/tasks/rune-copy";
 import { CHEST_VERBS, DOOR_VERBS, TOWER_LABEL, TOWER_VERB, VISITOR_VERB } from "@/lib/utils/world-lock-copy";
 import { ANCHOR_SPOT, type AnchorId } from "@/lib/realm/anchors";
 import { TRAIL_SEARCH_VERB } from "@/lib/tasks/trail-copy";
@@ -167,6 +169,8 @@ export type SpotInput = {
    * so the right place is never the only place E searches (R-H6). Absent, there are none.
    */
   anchors?: readonly { id: AnchorId; label: string; x: number; z: number }[];
+  /** The rune objects (`worldCanvas`'s `runes`), broken or fixed: where E casts a rune. Absent or empty (runes off), there are none. */
+  runes?: readonly RuneSpotView[];
 };
 
 /** What E at the Puzzle Tower says: "Climb the Puzzle Tower". */
@@ -200,6 +204,34 @@ export function lockSpot(l: LockSpotView, viewer: "child" | "parent" = "child"):
     reach: LOCK_SPOT.reach,
     bias: 0.4,
     ring: LOCK_SPOT.radius + 0.6,
+  };
+}
+
+/**
+ * What E at a rune object says: "Cast a rune at the broken wagon" while it is broken, "Look at the
+ * wagon" once fixed (the view already carries its `fixedLabel`); to a visiting grown-up, "Look at"
+ * either way, as at a lock.
+ */
+export function runeTarget(r: RuneSpotView, viewer: "child" | "parent" = "child"): InteractTarget {
+  return { kind: "rune", id: r.id, label: r.label, verb: viewer === "parent" || r.fixed ? RUNE_LOOK_VERB : RUNE_VERB };
+}
+
+/**
+ * A rune object's E spot, outdoors only: round, its footprint `RUNE_SPOT.radius` and its reach
+ * `RUNE_SPOT.reach`, the numbers `rune-objects.test.ts` holds every object to against every other
+ * spot. It stands a step from a lane or a place, so a hero beside it means the object.
+ */
+export function runeSpot(r: RuneSpotView, viewer: "child" | "parent" = "child"): InteractSpot {
+  return {
+    target: runeTarget(r, viewer),
+    x: r.x,
+    z: r.z,
+    hw: RUNE_SPOT.radius,
+    hd: RUNE_SPOT.radius,
+    round: true,
+    reach: RUNE_SPOT.reach,
+    bias: 0.4,
+    ring: RUNE_SPOT.radius + 0.6,
   };
 }
 
@@ -417,6 +449,7 @@ export function buildSpots(input: SpotInput): InteractSpot[] {
       ring: ANCHOR_SPOT.radius + 0.6,
     });
   }
+  for (const r of input.runes ?? []) out.push(runeSpot(r, input.viewer));
   return out;
 }
 

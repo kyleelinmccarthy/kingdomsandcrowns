@@ -193,3 +193,41 @@ describe("useWorldState: a map fragment", () => {
     expect(later.say).toHaveBeenCalledTimes(1);
   });
 });
+
+describe("useWorldState: the rune objects", () => {
+  const RUNES_ON: WorldStateView = { ...VIEW, runesOn: true };
+
+  it("a fix moves the view's fixed list and the canvas's fixed flag, in a new canvas", () => {
+    const { result } = renderHook(() => useWorldState(RUNES_ON, options()));
+    const first = result.current.canvas;
+    expect(first.runes.find((r) => r.id === "rune:west-wagon")).toMatchObject({ fixed: false, label: "the broken wagon" });
+    act(() => result.current.applyRuneOutcomes([{ objectId: "rune:west-wagon", fixed: true }]));
+    expect(result.current.view.fixed).toEqual(["rune:west-wagon"]);
+    expect(result.current.canvas).not.toBe(first);
+    expect(result.current.canvas.runes.find((r) => r.id === "rune:west-wagon")).toMatchObject({ fixed: true, label: "the wagon" });
+  });
+
+  it("an object the server says already held is shown fixed too", () => {
+    const { result } = renderHook(() => useWorldState(RUNES_ON, options()));
+    act(() => result.current.applyRuneOutcomes([{ objectId: "rune:old-tree", fixed: false, reason: "already-fixed" }]));
+    expect(result.current.view.fixed).toEqual(["rune:old-tree"]);
+  });
+
+  it("a miss changes nothing, the canvas stays the same object, and applyRuneOutcomes stays one function", () => {
+    const { result, rerender } = renderHook(() => useWorldState(RUNES_ON, options()));
+    const first = result.current.canvas;
+    const apply = result.current.applyRuneOutcomes;
+    act(() => apply([{ objectId: "rune:west-wagon", fixed: false, reason: "missed" }]));
+    expect(result.current.view).toBe(RUNES_ON);
+    expect(result.current.canvas).toBe(first);
+    rerender();
+    expect(result.current.applyRuneOutcomes).toBe(apply);
+  });
+
+  it("with runes off the records move but the canvas draws none", () => {
+    const { result } = renderHook(() => useWorldState(VIEW, options()));
+    act(() => result.current.applyRuneOutcomes([{ objectId: "rune:west-wagon", fixed: true }]));
+    expect(result.current.view.fixed).toEqual(["rune:west-wagon"]);
+    expect(result.current.canvas.runes).toEqual([]);
+  });
+});

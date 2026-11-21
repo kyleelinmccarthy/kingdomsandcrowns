@@ -125,6 +125,8 @@ import { WorldLockBoard } from "./world-lock-board";
 import { TowerBoard } from "./tower-board";
 import { roomChestFor, type WorldStateView } from "@/lib/realm/world-state";
 import { worldObjectById } from "@/lib/realm/world-objects";
+import { runeObjectById } from "@/lib/realm/rune-objects";
+import { RuneObjectBoard } from "./rune-object-board";
 
 const RealmCanvas = dynamic(() => import("./spike-scene"), {
   ssr: false,
@@ -602,6 +604,8 @@ export function RealmGame({
     placeName: (id) => world.landmarks.find((l) => l.id === id)?.name ?? "a far place",
     overlayOpen: overlay !== null,
   });
+  /** A rune walk's stone is open (I10): E at a rune object opens no board of its own while it is. */
+  const runeCasting = false;
   /** A side quest paid minutes: re-ask the gate now, so a quiet world wakes (the clock's `refresh`, set below). */
   const askGate = useRef<() => void>(() => {});
   const trackedRef = useRef(surfaces.trackedObjectives);
@@ -1335,6 +1339,19 @@ export function RealmGame({
               onClose={closeOverlay}
             />
           )}
+          {overlay?.kind === "interact" && overlay.target.kind === "rune" && !runeCasting && runeObjectById(overlay.target.id) && (
+            <RuneObjectBoard
+              childId={childId}
+              object={runeObjectById(overlay.target.id)!}
+              fixed={lockState.view.fixed.includes(overlay.target.id)}
+              viewer={who}
+              numerals={numerals}
+              profile={{ readAloud, untimed: profile.untimed }}
+              calm={calm}
+              onOutcome={lockState.applyRuneOutcomes}
+              onClose={closeOverlay}
+            />
+          )}
           {overlay?.kind === "interact" && overlay.target.kind === "tower" && (
             <TowerBoard
               childId={childId}
@@ -1347,7 +1364,7 @@ export function RealmGame({
               onClose={closeOverlay}
             />
           )}
-          {overlay?.kind === "interact" && !talkTo && overlay.target.kind !== "riddle" && overlay.target.kind !== "plans" && overlay.target.kind !== "plaque" && overlay.target.kind !== "chronicle" && overlay.target.kind !== "lock" && overlay.target.kind !== "tower" && (
+          {overlay?.kind === "interact" && !talkTo && overlay.target.kind !== "riddle" && overlay.target.kind !== "plans" && overlay.target.kind !== "plaque" && overlay.target.kind !== "chronicle" && overlay.target.kind !== "lock" && overlay.target.kind !== "rune" && overlay.target.kind !== "tower" && (
             <InteractPanel
               target={overlay.target}
               kingdom={kingdom}

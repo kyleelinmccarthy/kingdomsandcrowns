@@ -22,8 +22,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fragmentToast, type DeedToast } from "@/lib/realm3d/talk";
 import { isRealmPlaceId } from "@/lib/realm/places-found";
-import { applyTowerOutcome as applyTower, applyWorldOutcome as applyOutcome, EMPTY_WORLD_STATE, worldCanvas, type WorldCanvas, type WorldStateView } from "@/lib/realm/world-state";
-import type { TowerOutcome, WorldOutcome } from "@/lib/utils/deed-run-types";
+import { applyRuneOutcomes as applyRunes, applyTowerOutcome as applyTower, applyWorldOutcome as applyOutcome, EMPTY_WORLD_STATE, worldCanvas, type WorldCanvas, type WorldStateView } from "@/lib/realm/world-state";
+import type { RuneOutcome, TowerOutcome, WorldOutcome } from "@/lib/utils/deed-run-types";
 
 export type WorldStateOptions = {
   /** Marks a place found on the map (the places store's `add`). */
@@ -45,6 +45,8 @@ export function useWorldState(
   applyWorldOutcome: (o: WorldOutcome) => void;
   /** A Tower floor's solved count, as the server gave it. */
   applyTowerOutcome: (o: TowerOutcome) => void;
+  /** The fixes a finished run wrote (R-I21): each object stands fixed at once. A miss changes nothing. */
+  applyRuneOutcomes: (o: readonly RuneOutcome[]) => void;
 } {
   const [view, setView] = useState<WorldStateView>(() => initial ?? EMPTY_WORLD_STATE);
   const key = useMemo(() => JSON.stringify(worldCanvas(view)), [view]);
@@ -79,5 +81,7 @@ export function useWorldState(
 
   const applyTowerOutcome = useCallback((o: TowerOutcome) => setView((v) => applyTower(v, o)), []);
 
-  return { view, canvas, applyWorldOutcome, applyTowerOutcome };
+  const applyRuneOutcomes = useCallback((o: readonly RuneOutcome[]) => setView((v) => applyRunes(v, o)), []);
+
+  return { view, canvas, applyWorldOutcome, applyTowerOutcome, applyRuneOutcomes };
 }

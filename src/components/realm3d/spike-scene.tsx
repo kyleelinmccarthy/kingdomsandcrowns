@@ -102,6 +102,7 @@ import { KeepYard } from "./keep-yard";
 import { Improvements } from "./improvements";
 import { ChronicleFrames } from "./chronicle-frames";
 import { WorldLocks } from "./world-locks";
+import { RuneObjects } from "./rune-objects";
 import { Decorations } from "./decorations";
 import { PuzzleTower } from "./puzzle-tower";
 import { towerColliders, towerDoorFor } from "@/lib/realm/puzzle-tower";
@@ -1114,7 +1115,7 @@ const World = memo(function World({
     const arch = recess ? { x: recess.course.arch.x, z: recess.course.arch.z, halfSpan: ARCH_HALF_SPAN } : null;
     // Each built plan has a plaque stone in front of it, where E reads who built it.
     const plaques = improvementPlacements(built ?? {}, world.heightAt).map((p) => ({ id: p.id, label: IMPROVEMENTS[p.id].label, ...p.plaque }));
-    return buildSpots({ props: layout.props, sitePlan: SITE_PLAN, landmarks: world.landmarks, landmarkRadius: landmarkRadii(world), castle: gate, posts, arch, stones: RIDDLE_STONE_SPOTS, plans: KEEP_YARD.plansBoard, chronicle: KEEP_YARD.lectern, plaques, locks: worldLocks?.locks, tower: towerDoorFor(worldLocks), viewer, anchors: trailOn ? ANCHOR_SPOTS : undefined });
+    return buildSpots({ props: layout.props, sitePlan: SITE_PLAN, landmarks: world.landmarks, landmarkRadius: landmarkRadii(world), castle: gate, posts, arch, stones: RIDDLE_STONE_SPOTS, plans: KEEP_YARD.plansBoard, chronicle: KEEP_YARD.lectern, plaques, locks: worldLocks?.locks, tower: towerDoorFor(worldLocks), viewer, anchors: trailOn ? ANCHOR_SPOTS : undefined, runes: worldLocks?.runes });
   }, [layout, world, castle, castleUnlocked, ride, recess, built, worldLocks, viewer, trailOn]);
   const heroRef = useRef(spawn);
   const yawRef = useRef(0);
@@ -1305,9 +1306,11 @@ export type RealmCanvasProps = {
   trailOn?: boolean;
   /** A missed clue's answer: its stake's sign and cap turn gold (`trail-stakes.tsx`). */
   trailRevealed?: AnchorId | null;
+  /** A rune walk is on (`use-rune-walk.ts`): the objects it names wear the gold mark until cast right (`mended`), when they draw fixed at once. Ids only, so the geometry holds across equal arrays (`rune-objects.tsx`). */
+  runeWalk?: { named: readonly string[]; mended: readonly string[] } | null;
 };
 
-export default function SpikeScene({ avatar, close, world, layout, anchors, pages, bus, caster, fxPool, casts, viewer, castleUnlocked, frozen = false, calm = false, troubles, ride, lead, recess, timeZone, gilded, reviewDue = false, stockpile, built, hallDrawings, worldLocks, trailOn = false, trailRevealed = null }: RealmCanvasProps) {
+export default function SpikeScene({ avatar, close, world, layout, anchors, pages, bus, caster, fxPool, casts, viewer, castleUnlocked, frozen = false, calm = false, troubles, ride, lead, recess, timeZone, gilded, reviewDue = false, stockpile, built, hallDrawings, worldLocks, trailOn = false, trailRevealed = null, runeWalk = null }: RealmCanvasProps) {
   return (
     <Canvas
       frameloop={frozen ? "never" : "always"}
@@ -1349,6 +1352,7 @@ export default function SpikeScene({ avatar, close, world, layout, anchors, page
       <Improvements built={built} heightAt={world.heightAt} />
       <ChronicleFrames level={built?.["chronicle-hall"] ?? 0} drawings={hallDrawings} heightAt={world.heightAt} />
       <WorldLocks locks={worldLocks?.locks} heightAt={world.heightAt} />
+      <RuneObjects runes={worldLocks?.runes} named={runeWalk?.named} mended={runeWalk?.mended} heightAt={world.heightAt} />
       <Decorations decor={worldLocks?.decor} heightAt={world.heightAt} />
       <PuzzleTower storeys={worldLocks?.storeys ?? 0} heightAt={world.heightAt} />
       <TrailObjects heightAt={world.heightAt} />
