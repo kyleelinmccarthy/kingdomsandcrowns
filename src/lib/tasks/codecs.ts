@@ -1,11 +1,12 @@
+import { isAnchorId } from "@/lib/realm/anchors";
 import { LOCK_MAX_CELLS, LOCK_PUZZLES, type LockPuzzle } from "./lock-rules";
 import { formatRational, parseAnswer } from "./parse-answer";
-import type { LockResponse, MeasureResponse, ResponseByKind, TaskKind } from "./types";
+import type { LockResponse, MeasureResponse, ResponseByKind, TaskKind, TrailResponse } from "./types";
 
 /**
  * How a response is written down, read back and compared, per kind. Client-safe: the presenters
  * encode with it and the server's definitions delegate to it, so the two cannot drift. Beyond types
- * it imports only the pure `parse-answer` and `lock-rules`, so it never pulls the server-only registry, drawing or
+ * it imports only the pure `parse-answer`, `lock-rules` and the anchor catalog, so it never pulls the server-only registry, drawing or
  * bench code into the browser bundle (`client-boundary.test.ts` guards that).
  */
 export type TaskCodec<K extends TaskKind> = {
@@ -81,6 +82,12 @@ function decodeLock(s: string): LockResponse | null {
   return { puzzle: m[1] as LockPuzzle, cells } as LockResponse;
 }
 
+/** The longest trail response accepted: every anchor id is far shorter. */
+export const TRAIL_MAX_CHARS = 40;
+
+/** A trail: the anchor id as it is, read back only when it is one of the village's anchors (own keys). */
+const decodeTrail = (s: string): TrailResponse | null => (isAnchorId(s) ? s : null);
+
 export const TASK_CODECS: { [K in TaskKind]: TaskCodec<K> } = {
   // Responses are the trimmed choice text, so rows stored before kinds existed keep grading
   // exactly as trimmed equality does.
@@ -98,5 +105,10 @@ export const TASK_CODECS: { [K in TaskKind]: TaskCodec<K> } = {
     encode: encodeLock,
     decode: decodeLock,
     sameResponse: (a, b) => encodeLock(a) === encodeLock(b),
+  },
+  trail: {
+    encode: (r) => r,
+    decode: decodeTrail,
+    sameResponse: (a, b) => a === b,
   },
 };

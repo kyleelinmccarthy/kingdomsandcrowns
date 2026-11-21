@@ -3,8 +3,7 @@ import { db } from "@/lib/db";
 import * as schema from "@/lib/db/schema";
 import { RUN_EFFECTS, kindsThatFeedReview, type RunKind } from "@/lib/utils/deed-scoring";
 import { records, resumeIndex, statusOf } from "@/lib/utils/deed-attempts";
-import { taskHint } from "@/lib/utils/skill-hints";
-import { isRegisteredKind, isTaskCorrect, kindOf, toClientTask, type Task } from "@/lib/tasks/registry";
+import { isRegisteredKind, isTaskCorrect, kindOf, secondChanceHint, toClientTask, type Task } from "@/lib/tasks/registry";
 import { demoKeyOf, isLockDemo, LOCK_DEMO_PUZZLES, type DemoKey } from "@/lib/tasks/demos";
 import type { HandsOnKind } from "@/lib/tasks/kinds";
 import type { RunStart } from "@/lib/utils/deed-run-types";
@@ -129,7 +128,7 @@ export function resumedStart(
   const { questions, responses, attempts, statuses } = parseRun(run);
   const at = resumeIndex(statuses);
   const pending = statuses[at] === "open"
-    ? { index: at, ruledOut: attempts[at].first ?? "", hint: taskHint(questions[at]) }
+    ? { index: at, ruledOut: attempts[at].first ?? "", hint: secondChanceHint(questions[at], attempts[at].first) }
     : null;
   const start: RunStart = { runId: run.id, deed: header, questions: questions.map(toClientTask), responses, kind: run.kind, pending };
   if (!site && !plan) return start;

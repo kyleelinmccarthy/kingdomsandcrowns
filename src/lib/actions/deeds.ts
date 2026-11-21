@@ -19,8 +19,7 @@ import {
 } from "@/lib/utils/deed-engine";
 import { masteryChangeCopy, masteryLabel, parseRecentResults, progressToNextRung, recordResult } from "@/lib/utils/mastery";
 import type { Question } from "@/lib/utils/drill-generators";
-import { isTaskCorrect, taskDefOf, type ResponseByKind, type Task, type TaskKind } from "@/lib/tasks/registry";
-import { TASK_CODECS } from "@/lib/tasks/codecs";
+import { isTaskCorrect, secondChanceHint, taskDefOf, type ResponseByKind, type Task, type TaskKind } from "@/lib/tasks/registry";
 import { CHALLENGE, MAX_STARS, RUN_EFFECTS, countsTowardBuilding, runPoints, starsFor, type QuestionOutcome, type RunKind, type Stars } from "@/lib/utils/deed-scoring";
 import { outcomeOf, refuseGiveUp, refuseRetry, statusOf, type QuestionStatus } from "@/lib/utils/deed-attempts";
 import {
@@ -209,7 +208,7 @@ async function loadAttemptState(runId: string, index: number) {
  */
 function resultFor(question: Task, status: QuestionStatus, firstPick?: string, rightPick?: string): AttemptResult {
   if (status === "unanswered") throw new Error(ANSWER_FIRST);
-  if (status === "open") return { correct: false, secondChance: true, hint: taskHint(question), firstPick };
+  if (status === "open") return { correct: false, secondChance: true, hint: secondChanceHint(question, firstPick), firstPick };
   const correct = status === "right-first" || status === "right-second";
   const def = taskDefOf(question);
   const result: AttemptResult = { correct, secondChance: false, answer: def.answerText(question) };
@@ -217,9 +216,9 @@ function resultFor(question: Task, status: QuestionStatus, firstPick?: string, r
   // and built from what the child did (`rightPick`, the stored response that solved it).
   const solved = correct && rightPick !== undefined ? def.decode(rightPick) : null;
   if (solved !== null && def.bridge) result.bridge = def.bridge(question, solved);
-  // A missed lock shows its solved board (R-F2): the stored solution, encoded, once the task is
-  // resolved and missed. Never on an open try (returned above) or a right answer.
-  if (!correct && question.kind === "lock") result.reveal = TASK_CODECS.lock.encode(question.solution);
+  // A miss shows the kind's reveal, if it has one: a lock's solved board (R-F2), a trail's place
+  // (R-H1). Only once the task is resolved and missed: never on an open try (returned above) or a right answer.
+  if (!correct && def.reveal) result.reveal = def.reveal(question);
   if (question.explain) result.explain = question.explain;
   else if (!correct) result.hint = taskHint(question);
   return result;

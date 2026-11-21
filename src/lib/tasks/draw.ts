@@ -20,7 +20,24 @@ export const TASK_DRAWERS: { [K in Exclude<TaskKind, "choice">]: TaskDrawer } = 
   measure: (skill, level, rng) => benchFor(skill.id)?.(level, rng, skill.id) ?? null,
   // The skill's lock: a logic generator, or a draw from the sort pool that credits it (`lockFor`); none draws nothing.
   lock: (skill, level, rng) => lockFor(skill.id)?.(level, rng, skill.id) ?? null,
+  // No pool holds a clue until H4; a trail's clues are then drawn whole, in order (`TASK_RUN_DRAWERS`).
+  trail: () => null,
 };
+
+/**
+ * A kind that draws a run's tasks together, in order (a trail's clues, R-H9), rather than one per
+ * call: `count` tasks for the skill, none of the ids in `exclude`, and the keys in `avoid` (trails met
+ * lately, R-H11) only once nothing else is left.
+ */
+export type RunDrawer = (skill: Skill, level: number, count: number, rng: Rng, exclude: ReadonlySet<string>, avoid: ReadonlySet<string>) => Task[];
+
+/** The run drawer for each kind that has one. Empty until the trail pools (H4). */
+export const TASK_RUN_DRAWERS: Partial<Record<Exclude<TaskKind, "choice">, RunDrawer>> = {};
+
+/** The run drawer a kind draws with, if it has one. Own keys only. */
+export function runDrawerFor(kind: string): RunDrawer | undefined {
+  return Object.prototype.hasOwnProperty.call(TASK_RUN_DRAWERS, kind) ? (TASK_RUN_DRAWERS as Record<string, RunDrawer>)[kind] : undefined;
+}
 
 // Tests only: stand-ins keyed by a kind string, so the draw path can be exercised with a kind that
 // has no real drawer. Empty in production.

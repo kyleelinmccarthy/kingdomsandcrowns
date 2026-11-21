@@ -80,4 +80,6 @@ export const lockKind: TaskKindDef<"lock"> = {
     return c.empty > 0 ? "incomplete" : "rule_broken";
   },
   presents: (skillId) => lockFor(skillId) !== undefined,
+  // A missed lock shows its solved board (R-F2): one valid solution, encoded.
+  reveal: (t) => TASK_CODECS.lock.encode(t.solution),
 };

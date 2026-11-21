@@ -23,7 +23,7 @@ const withCell = (t: LockTask, i: number, v: number) => t.solution.cells.map((x,
 describe("lock: registered, and presenting only where a generator exists", () => {
   it("is a registered, hands-on kind with a codec and a drawer", () => {
     expect(TASK_KINDS.lock).toBe(lockKind);
-    expect(HANDS_ON_KINDS).toEqual(["measure", "lock"]);
+    expect(HANDS_ON_KINDS).toEqual(["measure", "lock", "trail"]);
     expect(typeof TASK_DRAWERS.lock).toBe("function");
   });
 
@@ -258,5 +258,12 @@ describe("lock codec", () => {
     expect(codec.sameResponse({ puzzle: "pattern", cells: [1, 1] }, { puzzle: "pattern", cells: [1, 1] })).toBe(true);
     expect(codec.sameResponse({ puzzle: "pattern", cells: [1, 1] }, { puzzle: "pattern", cells: [1, 2] })).toBe(false);
     expect(codec.sameResponse({ puzzle: "logic3", cells: [1, 2, 3] }, { puzzle: "shapes3", cells: [1, 2, 3] })).toBe(false);
+  });
+});
+
+describe("lock: the reveal after a miss (R-F2, moved onto the definition by R-H7)", () => {
+  it("is the stored solution, encoded", () => {
+    expect(lockKind.reveal!(PATTERN)).toBe(TASK_CODECS.lock.encode(PATTERN.solution));
+    expect(lockKind.reveal!(PATTERN)).toBe("pattern:3,3");
   });
 });

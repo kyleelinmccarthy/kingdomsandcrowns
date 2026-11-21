@@ -567,3 +567,17 @@ describe("a villager's mention of real work", () => {
     expect(talkCopy({ ...base, site: stands, waiting: false, mention: null })).toEqual(talkCopy({ ...base, site: stands, waiting: false }));
   });
 });
+
+describe("what a villager says after a search on a trail (R-H1)", () => {
+  const clue: ClientTask = { kind: "trail", id: "t", skillId: "read-g1", prompt: "Go where the big wheel turns.", view: {} };
+
+  it("says the place is not here, then the chosen place's redirect, on a second chance", () => {
+    expect(attemptFeedback({ correct: false, secondChance: true, feedback: "wrong_place", hint: "That is where water is drawn." }, false))
+      .toEqual({ heading: "Try again", text: "Not here. That is where water is drawn." });
+  });
+
+  it("says where it was as a sentence, then why, after a miss", () => {
+    const miss = { correct: false, secondChance: false, answer: "It was the mill.", explain: "Flour is ground at the mill.", reveal: "landmark:mill" };
+    expect(attemptFeedback(miss, false, undefined, clue).text).toBe("It was the mill. Flour is ground at the mill.");
+  });
+});

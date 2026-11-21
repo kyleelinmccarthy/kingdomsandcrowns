@@ -7,11 +7,12 @@
  * to `TASK_KINDS` in `registry.ts`. The compiler points at everything else.
  */
 import type { Question } from "@/lib/utils/drill-generators";
+import type { AnchorId } from "@/lib/realm/anchors";
 import type { LockPuzzleData, LockResponse, LockView } from "./lock-rules";
 
 export type { LockPuzzle, LockResponse, LockView } from "./lock-rules";
 
-export type TaskKind = "choice" | "measure" | "lock";
+export type TaskKind = "choice" | "measure" | "lock" | "trail";
 
 /** Choice is today's `Question`; stored runs have no `kind`, which reads as "choice". */
 export type ChoiceTask = Question & { kind?: "choice" };
@@ -60,12 +61,32 @@ export type LockTask = {
   explain?: string;
 } & LockPuzzleData;
 
+/**
+ * A reading clue (slice 5, R-H5): the clue is the `prompt`, and the child answers by searching one of
+ * the village's anchors. The answer and everything that could point at it stay on the server: the
+ * `answer`, the general `redirect`, the per-place `redirects`, the `trail` it came from, and
+ * `explain` until the clue is resolved. The second-chance line is the redirect for the place chosen.
+ */
+export type TrailTask = {
+  kind: "trail"; id: string; skillId: string; prompt: string; readAloud?: string;
+  answer: AnchorId; redirect: string; redirects?: Partial<Record<AnchorId, string>>;
+  /** `<poolId>/<trailId>`: which trail it came from, for the week's memory. Server only. */
+  trail: string;
+  explain?: string;
+};
+
+/** A clue shows nothing beyond its prompt: every anchor is a candidate, everywhere (R-H6). */
+export type TrailView = Record<string, never>;
+
+/** The anchor searched. */
+export type TrailResponse = AnchorId;
+
 /** The server-side task, answer and all, per kind. */
-export type TaskByKind = { choice: ChoiceTask; measure: MeasureTask; lock: LockTask };
+export type TaskByKind = { choice: ChoiceTask; measure: MeasureTask; lock: LockTask; trail: TrailTask };
 /** What the client is shown to render a task: never the answer. */
-export type ViewByKind = { choice: { choices: string[] }; measure: MeasureView; lock: LockView };
+export type ViewByKind = { choice: { choices: string[] }; measure: MeasureView; lock: LockView; trail: TrailView };
 /** What the child hands back, per kind. */
-export type ResponseByKind = { choice: string; measure: MeasureResponse; lock: LockResponse };
+export type ResponseByKind = { choice: string; measure: MeasureResponse; lock: LockResponse; trail: TrailResponse };
 
 export type Task = TaskByKind[TaskKind];
 
@@ -83,9 +104,10 @@ export type ClientTask = {
 
 /**
  * A coded, kind-specific note on a response: measure says which way a wrong length is off; a lock
- * says whether spaces are left or a rule is broken (never how to fix it: R-F3).
+ * says whether spaces are left or a rule is broken (never how to fix it: R-F3); a trail says the
+ * place searched is not the one (never which one is).
  */
-export type FeedbackCode = "none" | "too_long" | "too_short" | "rule_broken" | "incomplete";
+export type FeedbackCode = "none" | "too_long" | "too_short" | "rule_broken" | "incomplete" | "wrong_place";
 
 export interface TaskKindDef<K extends TaskKind> {
   toView(t: TaskByKind[K]): ViewByKind[K];
@@ -104,4 +126,8 @@ export interface TaskKindDef<K extends TaskKind> {
   presents(skillId: string): boolean;
   /** The worked notation behind a task, sent only once it is solved right, built from the response that solved it. A kind without one leaves it out. */
   bridge?(t: TaskByKind[K], r: ResponseByKind[K]): string;
+  /** What a resolved miss shows of the answer (`AttemptResult.reveal`): a lock's solved board, a trail's place. Sent on a resolved miss only. */
+  reveal?(t: TaskByKind[K]): string;
+  /** The kind's own second-chance line for the response given (read through `secondChanceHint`); a kind without one hears `taskHint`. */
+  retryLine?(t: TaskByKind[K], r: ResponseByKind[K]): string;
 }
