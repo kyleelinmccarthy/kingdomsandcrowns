@@ -11,7 +11,8 @@ import type { RunStart } from "@/lib/utils/deed-run-types";
 const client = testDatabase("deed-run-store-db");
 vi.mock("@/lib/db", () => ({ db: client.db }));
 
-const { demoAt } = await import("./deed-run-store");
+const { demoAt, loadRecentTrailIds, TRAIL_MEMORY_RUNS } = await import("./deed-run-store");
+const { TRAIL_DEED_IDS } = await import("@/lib/utils/deeds");
 
 const DDL = `CREATE TABLE deed_run (
   id text PRIMARY KEY NOT NULL, child_id text NOT NULL, deed_id text, source_ref text, skill_ids text NOT NULL,
@@ -175,5 +176,66 @@ describe("each of Pip's demos shows once, by its own puzzles (RF-g)", () => {
     const cut = { kind: "measure", id: "c", skillId: "sub-10", prompt: "p", view: { mode: "cut", unit: "blocks" } };
     await expect(demoAt("fresh-bench", "2", run([cut, current.questions[0]]))).resolves.toBe(0);
     await expect(demoAt("fresh-bench", "2", run([cut, current.questions[0]], ["c:3", null]))).resolves.toBeNull();
+  });
+});
+
+describe("loadRecentTrailIds: the trails a hero met in their last reading side quests (R-H11)", () => {
+  /** A stored clue of trail `key`, as the server keeps it. */
+  const clue = (key: string, i = 0) => ({
+    kind: "trail", id: `read-g3:trail:${key.length.toString(16).padStart(4, "0")}${i}`, skillId: "read-g3", prompt: "p",
+    answer: "landmark:mill", redirect: "r", trail: key,
+  });
+  let startedAt = 1000;
+  async function reading(childId: string, deedId: string, questions: string, over: { completed?: boolean; kind?: string } = {}) {
+    n += 1;
+    startedAt += 60;
+    await client.query(
+      `INSERT INTO deed_run (id, child_id, deed_id, skill_ids, band, questions, responses, started_at, completed_at, created_at, updated_at, kind)
+       VALUES (?1, ?2, ?3, '[]', 'g23', ?4, '[]', ?5, ?6, ?5, ?5, ?7)`,
+      [`trail${n}`, childId, deedId, questions, startedAt, over.completed ? startedAt + 30 : null, over.kind ?? "deed"],
+    );
+  }
+
+  it("is a week of three reading side quests a day, and names the three reading deeds", () => {
+    expect(TRAIL_MEMORY_RUNS).toBe(21);
+    expect([...TRAIL_DEED_IDS]).toEqual(["well-signs", "chapel-scroll", "library-catalog"]);
+  });
+
+  it("reads the last 21 reading runs only, open or finished, of any kind, and ignores every other side quest", async () => {
+    // 22 reading runs, oldest first: run 0 falls out of the memory.
+    for (let i = 0; i < 22; i++) {
+      const deed = TRAIL_DEED_IDS[i % 3];
+      await reading("mem", deed, JSON.stringify([clue(`trail-g23/r${i}a`), clue(`trail-g23/r${i}a`, 1), clue(`trail-g23/r${i}b`)]), {
+        completed: i % 2 === 0, kind: i === 5 ? "challenge" : "deed",
+      });
+    }
+    // A newer side quest of another deed that somehow held a trail task: not a reading run, not read.
+    await reading("mem", "well-stones", JSON.stringify([clue("trail-g23/stones")]));
+    // Another hero's reading run.
+    await reading("other", "well-signs", JSON.stringify([clue("trail-g23/theirs")]));
+
+    const ids = await loadRecentTrailIds("mem", TRAIL_DEED_IDS);
+    const expected = Array.from({ length: 21 }, (_, k) => 21 - k).flatMap((i) => [`trail-g23/r${i}a`, `trail-g23/r${i}b`]);
+    expect(ids).toEqual(expected);
+    expect(ids).not.toContain("trail-g23/r0a");
+    expect(ids).not.toContain("trail-g23/stones");
+    expect(ids).not.toContain("trail-g23/theirs");
+  });
+
+  it("skips a row that will not parse or has an odd shape, and reads the trail tasks of the rest", async () => {
+    await reading("odd", "well-signs", "nope");
+    await reading("odd", "chapel-scroll", '{"kind":"trail","trail":"trail-g23/object"}');
+    await reading("odd", "library-catalog", JSON.stringify([
+      "a string", null, 7, { kind: "trail", trail: 5 }, { kind: "choice", trail: "trail-g23/not-a-trail-task" }, { trail: "trail-g23/no-kind" },
+      clue("trail-g23/kept"),
+    ]));
+    await reading("odd", "well-signs", JSON.stringify([{ id: "q", skillId: "read-g3", prompt: "p", choices: ["a", "b"], answer: "a" }]));
+    await expect(loadRecentTrailIds("odd", TRAIL_DEED_IDS)).resolves.toEqual(["trail-g23/kept"]);
+  });
+
+  it("is empty for a hero with no reading runs, or when asked of no deed", async () => {
+    await expect(loadRecentTrailIds("nobody", TRAIL_DEED_IDS)).resolves.toEqual([]);
+    await reading("asked-none", "well-signs", JSON.stringify([clue("trail-g23/x")]));
+    await expect(loadRecentTrailIds("asked-none", [])).resolves.toEqual([]);
   });
 });

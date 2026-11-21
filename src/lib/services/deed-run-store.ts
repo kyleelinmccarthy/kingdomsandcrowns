@@ -69,6 +69,47 @@ export async function loadRecentMisses(childId: string, keep: (t: Task) => boole
   return misses.slice(0, 5);
 }
 
+/**
+ * How many of a hero's latest reading side quests the trail drawer remembers (R-H11, RH-a / F-11): a
+ * week of three a day, one per reading deed. A run at the default length uses at most two trails, so
+ * 21 runs use at most 42, and every pool holds at least 45: a week of reading side quests never meets
+ * the same trail twice.
+ */
+export const TRAIL_MEMORY_RUNS = 21;
+
+/**
+ * The trails (`<poolId>/<trailId>`) the hero met in their last `TRAIL_MEMORY_RUNS` runs of `deedIds`
+ * (`TRAIL_DEED_IDS`), newest run first, each key once. One query. Every run counts, of any kind and
+ * open or finished, since a trail was read whether or not the run was. Only a stored task of kind
+ * `"trail"` whose `trail` is a string is read; a row that will not parse, or parses to another shape,
+ * is skipped, never fatal.
+ */
+export async function loadRecentTrailIds(childId: string, deedIds: readonly string[]): Promise<string[]> {
+  if (deedIds.length === 0) return [];
+  const runs = await db
+    .select({ questions: schema.deedRun.questions })
+    .from(schema.deedRun)
+    .where(and(eq(schema.deedRun.childId, childId), inArray(schema.deedRun.deedId, [...deedIds])))
+    .orderBy(desc(schema.deedRun.startedAt))
+    .limit(TRAIL_MEMORY_RUNS);
+  const keys = new Set<string>();
+  for (const run of runs) {
+    let qs: unknown;
+    try {
+      qs = JSON.parse(run.questions);
+    } catch {
+      continue;
+    }
+    if (!Array.isArray(qs)) continue;
+    for (const q of qs as unknown[]) {
+      if (typeof q !== "object" || q === null) continue;
+      const { kind, trail } = q as { kind?: unknown; trail?: unknown };
+      if (kind === "trail" && typeof trail === "string") keys.add(trail);
+    }
+  }
+  return [...keys];
+}
+
 /** Said when a stored run holds a task kind this build does not know. */
 export const NEWER_VERSION = "This side quest was saved by a newer version. Start it again.";
 

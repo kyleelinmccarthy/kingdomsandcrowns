@@ -8,13 +8,15 @@ import { lockFor } from "@/lib/tasks/locks";
 import { CHALLENGE, SCORING, starsFor } from "@/lib/utils/deed-scoring";
 import { CHALLENGE_NOT_READY, HERO_ONLY, PICK_SHOWN, TRY_DIFFERENT } from "@/lib/utils/deed-refusals";
 import type { Question } from "@/lib/utils/drill-generators";
-import type { LockTask, MeasureTask } from "@/lib/tasks/types";
+import type { LockTask, MeasureTask, TrailTask } from "@/lib/tasks/types";
+import { ANCHOR_IDS, type AnchorId } from "@/lib/realm/anchors";
+import { sideQuestPay } from "@/lib/utils/side-quest-pay";
 import { TASK_CODECS } from "@/lib/tasks/codecs";
 import { PATTERN } from "@/test/lock-stubs";
 import { TRAIL, TRAIL_REDIRECT, WELL_REDIRECT } from "@/test/trail-stubs";
 import { isTaskCorrect, kindOf, type Task } from "@/lib/tasks/registry";
 import { BENCH } from "@/lib/tasks/bench";
-import { findDeed } from "@/lib/utils/deeds";
+import { TRAIL_DEED_IDS, findDeed } from "@/lib/utils/deeds";
 import { KINGDOM_PROGRESS_DDL, REALM_ACCESS_DDL, REALM_LEDGER_DDL, REALM_SETTINGS_DDL } from "@/test/realm-db-ddl";
 
 /**
@@ -1639,7 +1641,9 @@ describe("a grade-3 math side quest is played at the bench (slice 2, C13)", () =
     expect(off.questions.every((q) => q.kind === "choice")).toBe(true);
   });
 
-  it("leaves a reading side quest exactly as it was: choice tasks, with no kind stored", async () => {
+  it("leaves a reading side quest with trails off exactly as it was: choice tasks, with no kind stored", async () => {
+    // Pinned to trails off: a reading side quest is a trail since H7 (its trail runs are pinned below).
+    vi.mocked(loadRealmSettings).mockResolvedValue({ ...DEFAULT_REALM_SETTINGS, mechanics: { measure: true, lock: true, trail: false } });
     for (let i = 0; i < 30; i++) {
       await client.query(
         `INSERT INTO drill_item (id, pool_id, skill_id, band, prompt, answer, distractors, read_aloud, level, updated_at)
@@ -1959,5 +1963,245 @@ describe("answers are parsed by their task kind, and the browser gets views", ()
     expect(JSON.stringify(fresh.questions)).not.toMatch(/"answer"|"explain"/);
     // A grade-3 math run may hold bench tasks now; their views carry no answer either (asserted above).
     expect(fresh.questions.every((q) => q.kind === "choice" || q.kind === "measure")).toBe(true);
+  });
+});
+
+describe("reading side quests are clue trails (H7)", () => {
+  const GRADE_3 = { enabled: true, tone: "gentle", band: "3-5", grades: { math: "3", reading: "3", language: "3", science: "3" } };
+  const readerAt = (reading: string, science = "3") =>
+    vi.mocked(loadHeroLevels).mockResolvedValue({ ...GRADE_3, grades: { ...GRADE_3.grades, reading, science } } as never);
+  const TRAILS_OFF = { ...DEFAULT_REALM_SETTINGS, mechanics: { measure: true, lock: true, trail: false } };
+  const storedTasks = async (id: string) => JSON.parse((await client.query("SELECT questions FROM deed_run WHERE id = ?1", [id])).rows[0].questions as string) as Task[];
+  const storedSkills = async (id: string) => JSON.parse((await client.query("SELECT skill_ids FROM deed_run WHERE id = ?1", [id])).rows[0].skill_ids as string) as string[];
+  /** The stored tasks as clues, holding that every one is. */
+  const clues = (tasks: Task[]): TrailTask[] => tasks.map((t) => {
+    expect(kindOf(t)).toBe("trail");
+    return t as TrailTask;
+  });
+  /** Everything about the stored clues that stays on the server: each place, trail, redirect and why. */
+  const secretsOf = (tasks: TrailTask[]) => tasks.flatMap((t) => [t.answer, t.trail, t.redirect, ...Object.values(t.redirects ?? {}), ...(t.explain ? [t.explain] : [])]);
+  const keysOf = (tasks: Task[]) => [...new Set(clues(tasks).map((t) => t.trail))];
+  const SERVER_KEYS = /"answer"|"redirects?"|"trail":|"explain"|"why"/;
+  /** The REAL engine at a chosen seed (the action seeds from the clock). */
+  const atSeed = (seed: number) => vi.mocked(buildDeedRun).mockImplementationOnce((i) => realBuildDeedRun({ ...i, seed }));
+  async function readingItems(skillId: string) {
+    for (let i = 0; i < 30; i++) {
+      await client.query(
+        `INSERT INTO drill_item (id, pool_id, skill_id, band, prompt, answer, distractors, read_aloud, level, updated_at)
+         VALUES (?1, ?2, ?2, 'g23', ?3, ?4, ?5, NULL, 2, unixepoch())`,
+        [`${skillId}-item-${i}`, skillId, `Passage ${i}?`, `A${i}`, JSON.stringify([`B${i}`, `C${i}`, `D${i}`])],
+      );
+    }
+  }
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.mocked(loadHeroLevels).mockResolvedValue(GRADE_3 as never);
+  });
+
+  it("a grade-3 reading side quest is four clues, and the start never carries an answer (Review Focus 1)", async () => {
+    const start = await startDeedRun("c1", "well-signs", "realm");
+    const tasks = clues(await storedTasks(start.runId));
+    expect(tasks).toHaveLength(4);
+    expect(await storedSkills(start.runId)).toEqual(["read-g3"]);
+    for (const t of tasks) expect(t.skillId).toBe("read-g3");
+    expect(start.questions.map((q) => q.kind)).toEqual(["trail", "trail", "trail", "trail"]);
+    const json = JSON.stringify(start);
+    for (const secret of secretsOf(tasks)) expect(json, secret).not.toContain(secret);
+    for (const id of ANCHOR_IDS) expect(json, id).not.toContain(id);
+    expect(json).not.toMatch(SERVER_KEYS);
+    // Not a K hero: the clues are spoken only on request or with read-aloud on (R-H17).
+    expect("narrateClues" in start).toBe(false);
+  });
+
+  it("a K reader walks read-g1 trails, and a grade-11 reader read-g9's (R-H21)", async () => {
+    for (const [grade, skill] of [["K", "read-g1"], ["11", "read-g9"]] as const) {
+      await client.query("DELETE FROM deed_run");
+      readerAt(grade);
+      const start = await startDeedRun("c1", "chapel-scroll", "realm");
+      expect(await storedSkills(start.runId), `grade ${grade}`).toEqual([skill]);
+      const tasks = clues(await storedTasks(start.runId));
+      expect(tasks, `grade ${grade}`).toHaveLength(4);
+      for (const t of tasks) expect(t.skillId, `grade ${grade}`).toBe(skill);
+    }
+  });
+
+  it("the next run passes over the last one's trails, from the same seed (R-H11)", async () => {
+    atSeed(1);
+    const first = await startDeedRun("c1", "well-signs", "realm");
+    const firstTasks = clues(await storedTasks(first.runId));
+    for (const [i, t] of firstTasks.entries()) await answerDeedQuestion(first.runId, i, t.answer);
+    await completeDeedRun(first.runId);
+    atSeed(1);
+    const second = await startDeedRun("c1", "library-catalog", "realm");
+    // The memory is every reading deed's, so another reading deed reads it too.
+    expect(vi.mocked(buildDeedRun).mock.calls[1][0].recentSets).toEqual(keysOf(firstTasks));
+    const secondKeys = keysOf(await storedTasks(second.runId));
+    for (const k of keysOf(firstTasks)) expect(secondKeys).not.toContain(k);
+  });
+
+  it("asks the memory only for a reading side quest with trails on (R-H19)", async () => {
+    await startDeedRun("c1", "well-stones", "realm");
+    expect(vi.mocked(buildDeedRun).mock.calls[0][0].recentSets).toBeUndefined();
+    vi.mocked(loadRealmSettings).mockResolvedValue(TRAILS_OFF);
+    await readingItems("read-g3");
+    await startDeedRun("c1", "well-signs", "realm");
+    expect(vi.mocked(buildDeedRun).mock.calls[1][0].recentSets).toBeUndefined();
+    await client.query("DELETE FROM deed_run");
+    await startDeedRun("c1", "well-signs", "gate");
+    expect(vi.mocked(buildDeedRun).mock.calls[2][0].recentSets).toBeUndefined();
+  });
+
+  it("a week of three reading side quests a day never repeats a trail, at every band (F-11)", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const HOURS_8 = 8 * 60 * 60 * 1000;
+    for (const grade of ["K", "2", "4", "6", "9"]) {
+      readerAt(grade);
+      const child = `week-${grade}`;
+      const runs: string[][] = [];
+      // Three starts a day, eight hours apart, so no start finds an open run to resume; all are left open.
+      let at = new Date("2026-11-23T06:00:00Z").getTime();
+      for (let day = 0; day < 7; day++) {
+        for (const deedId of TRAIL_DEED_IDS) {
+          vi.setSystemTime(at);
+          at += HOURS_8;
+          const start = await startDeedRun(child, deedId, "realm");
+          const tasks = await storedTasks(start.runId);
+          expect(tasks, `grade ${grade} day ${day} ${deedId}`).toHaveLength(4);
+          runs.push(keysOf(tasks));
+        }
+      }
+      expect(runs).toHaveLength(21);
+      const all = runs.flat();
+      expect(new Set(all).size, `grade ${grade}: a trail came back within the week`).toBe(all.length);
+    }
+  });
+
+  it("a forged anchor is refused on a real trail start, and nothing is written (F-10, Review Focus 2)", async () => {
+    const start = await startDeedRun("c1", "well-signs", "realm");
+    for (const raw of ["landmark:longwater", "toString", "__proto__", 42, {}, "", "x".repeat(10_000)]) {
+      await expect(answerDeedQuestion(start.runId, 0, raw), String(raw).slice(0, 20)).rejects.toThrow(PICK_SHOWN);
+    }
+    expect(JSON.parse((await stored(start.runId)).responses)).toEqual([null, null, null, null]);
+    expect(Number((await client.query("SELECT count(*) AS n FROM skill_mastery")).rows[0].n)).toBe(0);
+  });
+
+  it("a resumed start never carries an answer: only the open redirect for the place chosen (F-10, Review Focus 1)", async () => {
+    const start = await startDeedRun("c1", "well-signs", "realm");
+    const tasks = clues(await storedTasks(start.runId));
+    const first = tasks[0];
+    // A wrong place with a line of its own when the clue has one; else any other place.
+    const wrong = (Object.keys(first.redirects ?? {})[0] ?? ANCHOR_IDS.find((id) => id !== first.answer)!) as AnchorId;
+    const hint = first.redirects?.[wrong] ?? first.redirect;
+    expect(await answerDeedQuestion(start.runId, 0, wrong)).toMatchObject({ correct: false, secondChance: true, hint });
+    const resumed = await startDeedRun("c1", "well-signs", "realm");
+    expect(resumed.runId).toBe(start.runId);
+    expect(resumed.pending).toEqual({ index: 0, ruledOut: wrong, hint });
+    const json = JSON.stringify(resumed);
+    // The child's own pick and the line for it may be there; nothing else of the clues is.
+    for (const secret of secretsOf(tasks).filter((s) => s !== hint && s !== wrong)) expect(json, secret).not.toContain(secret);
+    expect(json).not.toContain(first.answer);
+    expect(json).not.toMatch(SERVER_KEYS);
+  });
+
+  it("a reading choice run stored before the deploy resumes, takes answers and completes with stars (Review Focus 4)", async () => {
+    const before: Question[] = [0, 1, 2, 3].map((i) => ({
+      id: `read-g3-item-${i}`, skillId: "read-g3", prompt: `Passage ${i}?`, choices: [`A${i}`, `B${i}`, `C${i}`, `D${i}`], answer: `A${i}`,
+    }));
+    await seedRun({ id: "old-read", deedId: "well-signs", questions: before });
+    await client.query("UPDATE deed_run SET skill_ids = '[\"read-g3\"]' WHERE id = 'old-read'");
+    await answerDeedQuestion("old-read", 0, "A0");
+    const resumed = await startDeedRun("c1", "well-signs", "realm");
+    expect(resumed.runId).toBe("old-read");
+    expect(vi.mocked(buildDeedRun)).not.toHaveBeenCalled();
+    expect(resumed.questions.map((q) => q.kind)).toEqual(["choice", "choice", "choice", "choice"]);
+    expect(resumed.questions[1]).toMatchObject({ id: "read-g3-item-1", view: { choices: ["A1", "B1", "C1", "D1"] } });
+    expect("narrateClues" in resumed).toBe(false);
+    for (const i of [1, 2, 3]) expect(await answerDeedQuestion("old-read", i, `A${i}`)).toMatchObject({ correct: true });
+    expect(await completeDeedRun("old-read")).toMatchObject({ kind: "deed", flawless: true, stars: 3, counted: true });
+  });
+
+  it("a right trail run pays by stars, as any side quest", async () => {
+    const start = await startDeedRun("c1", "well-signs", "realm");
+    const tasks = clues(await storedTasks(start.runId));
+    for (const [i, t] of tasks.entries()) expect(await answerDeedQuestion(start.runId, i, t.answer)).toMatchObject({ correct: true });
+    vi.mocked(paySideQuest).mockClear();
+    const summary = await completeDeedRun(start.runId);
+    expect(summary).toMatchObject({ kind: "deed", stars: 3, flawless: true, total: 4, counted: true });
+    expect(paySideQuest).toHaveBeenCalledWith("c1", start.runId, 3);
+    expect(summary.minutesEarned).toBe(sideQuestPay(3, DEFAULT_REALM_SETTINGS, 0).minutes);
+    expect(summary.minutesEarned).toBeGreaterThan(0);
+  });
+
+  it("trails switched off on their own: measure and lock stay on, and reading plays as multiple choice (H2's review)", async () => {
+    readerAt("3", "2");
+    vi.mocked(loadRealmSettings).mockResolvedValue(TRAILS_OFF);
+    await readingItems("read-g3");
+    const start = await startDeedRun("c1", "well-signs", "realm");
+    expect(vi.mocked(buildDeedRun).mock.calls[0][0].enabledKinds).toEqual(new Set(["measure", "lock"]));
+    const tasks = await storedTasks(start.runId);
+    expect(tasks).toHaveLength(8);
+    for (const t of tasks) {
+      expect("kind" in t).toBe(false);
+      expect(t.skillId).toBe("read-g3");
+    }
+    expect(start.questions.every((q) => q.kind === "choice")).toBe(true);
+    // The same settings still sort a science side quest on a lock's face.
+    const science = await startDeedRun("c1", "well-water", "realm");
+    expect(vi.mocked(buildDeedRun).mock.calls[1][0].enabledKinds).toEqual(new Set(["measure", "lock"]));
+    expect((await storedTasks(science.runId)).every((t) => kindOf(t) === "lock")).toBe(true);
+  });
+
+  it("a K hero's trail start is narrated, fresh and resumed; a grade-1 hero's is not, nor a K hero's choice run (R-H17)", async () => {
+    readerAt("K");
+    const fresh = await startDeedRun("c1", "well-signs", "realm");
+    expect(fresh.questions.every((q) => q.kind === "trail")).toBe(true);
+    expect(fresh.narrateClues).toBe(true);
+    const resumed = await startDeedRun("c1", "well-signs", "realm");
+    expect(resumed.runId).toBe(fresh.runId);
+    expect(resumed.narrateClues).toBe(true);
+
+    await client.query("DELETE FROM deed_run");
+    readerAt("1");
+    const first = await startDeedRun("c1", "well-signs", "realm");
+    expect(first.questions.every((q) => q.kind === "trail")).toBe(true);
+    expect("narrateClues" in first).toBe(false);
+
+    await client.query("DELETE FROM deed_run");
+    readerAt("K");
+    vi.mocked(loadRealmSettings).mockResolvedValue(TRAILS_OFF);
+    await readingItems("sight-k1");
+    const choice = await startDeedRun("c1", "well-signs", "realm");
+    expect(choice.questions.every((q) => q.kind === "choice")).toBe(true);
+    expect("narrateClues" in choice).toBe(false);
+  });
+
+  it("a grown-up's sight-word focus turns a grade-2 hero's reading side quest to multiple choice (R-H22)", async () => {
+    readerAt("2");
+    await readingItems("sight-g23");
+    await readingItems("read-g3");
+    await client.query("INSERT INTO learning_focus (id, child_id, skill_id, created_at) VALUES ('fs', 'c1', 'sight-g23', unixepoch())");
+    // read-g3 has rested past its interval, so it comes back as a due reminder beside the focus.
+    await client.query(
+      `INSERT INTO skill_mastery (id, child_id, skill_id, level, recent_results, correct_total, attempt_total, last_practiced_at, created_at, updated_at)
+       VALUES ('m3', 'c1', 'read-g3', 2, '[1,1]', 2, 2, unixepoch() - 864000, unixepoch(), unixepoch())`,
+    );
+    // Seed 1 draws the focus (recorded in deed-engine.test.ts).
+    atSeed(1);
+    const start = await startDeedRun("c1", "well-signs", "realm");
+    expect(vi.mocked(buildDeedRun).mock.calls[0][0].focusSkillIds).toEqual(["sight-g23"]);
+    expect(vi.mocked(buildDeedRun).mock.calls[0][0].dueSkillIds).toContain("read-g3");
+    const tasks = await storedTasks(start.runId);
+    expect(tasks).toHaveLength(8);
+    // The whole side quest is choice, the due read-g3 reminder included.
+    for (const t of tasks) expect("kind" in t, t.skillId).toBe(false);
+    expect(tasks.some((t) => t.skillId === "read-g3")).toBe(true);
+    expect(await storedSkills(start.runId)).toEqual(["sight-g23", "read-g3"]);
+    expect(start.questions.every((q) => q.kind === "choice")).toBe(true);
+    // Seed 7 draws read-g3 (with no mastery to weigh, as recorded), and the same hero walks.
+    await client.query("DELETE FROM deed_run");
+    await client.query("DELETE FROM skill_mastery");
+    atSeed(7);
+    const walked = await startDeedRun("c1", "well-signs", "realm");
+    expect(clues(await storedTasks(walked.runId))).toHaveLength(4);
   });
 });

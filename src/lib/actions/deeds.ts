@@ -11,7 +11,7 @@ import { BAND_LABELS, type ContentBand } from "@/lib/utils/content-bands";
 import { bandForGrade } from "@/lib/utils/grade-levels";
 import { findSkill, type SkillArea } from "@/lib/utils/skills";
 import { buildingProgress, findBuilding, type Building } from "@/lib/utils/kingdom";
-import { deedStory, findDeed } from "@/lib/utils/deeds";
+import { TRAIL_DEED_IDS, deedStory, findDeed } from "@/lib/utils/deeds";
 import {
   buildDeedRun,
   runCandidates,
@@ -29,7 +29,7 @@ import {
 import { overdueSkills } from "@/lib/utils/review-schedule";
 import type { AttemptResult, RunStart, RunSummary, TowerOutcome, WorldOutcome } from "@/lib/utils/deed-run-types";
 import { taskHint } from "@/lib/utils/skill-hints";
-import { demoAt, findOpenRun, insertRun, loadMasteryRows, loadRecentMisses, parseRun, resumedStart, type DeedRunRow } from "@/lib/services/deed-run-store";
+import { demoAt, findOpenRun, insertRun, loadMasteryRows, loadRecentMisses, loadRecentTrailIds, parseRun, resumedStart, type DeedRunRow } from "@/lib/services/deed-run-store";
 import {
   buildingStars, gradeForDeed, loadDeedBest, loadHeroLevels, loadKingdomOverview, loadSiteState, siteTally, type BuildingOverview, type DeedBest,
 } from "@/lib/services/deeds";
@@ -119,10 +119,12 @@ export async function startDeedRun(
   // strand's. `gradeForDeed` is where that is pinned by test. A focus skill in the deed's strand
   // a grade either side joins the candidates (`runCandidates`), so its pool is loaded too.
   const grade = gradeForDeed(hero, deed);
-  // A young hero meets a worked example before their first bench task or lock (R-C9, R-F10), resumed or fresh.
+  // A young hero meets a worked example before their first bench task or lock (R-C9, R-F10), resumed or
+  // fresh. A Kindergarten hero hears every clue of a trail run read aloud (R-H17), resumed or fresh.
   const withDemo = async (start: RunStart): Promise<RunStart> => {
     const at = await demoAt(childId, grade, start);
-    return at === null ? start : { ...start, demo: { at } };
+    const narrated = grade === "K" && start.questions.some((q) => q.kind === "trail");
+    return { ...start, ...(at === null ? {} : { demo: { at } }), ...(narrated ? { narrateClues: true as const } : {}) };
   };
   if (open) return withDemo(resumedStart(open, { id: deed.id, title: deed.title, story, area: deed.area }, site ?? undefined));
   // The grown-up's switches decide which hands-on kinds a NEW run may draw (an open run is a
@@ -131,7 +133,9 @@ export async function startDeedRun(
   const enabledKinds: ReadonlySet<TaskKind> = ctx === "gate" ? new Set<TaskKind>() : enabledHandsOnKinds(settings);
   const skills = runCandidates(deed, grade, focusSkillIds, enabledKinds);
   const poolSkillIds = skills.filter((s) => s.source.kind === "pool").map((s) => s.id);
-  const [profileRow, masteryRows, poolRows, recentMisses] = await Promise.all([
+  // The trails met lately, so a reading side quest passes over them (R-H11): asked only when this run can draw trails.
+  const readsTrails = deed.mechanic === "trail" && enabledKinds.has("trail");
+  const [profileRow, masteryRows, poolRows, recentMisses, recentTrails] = await Promise.all([
     // Memoized per request, so this is the same round trip loadHeroLevels just made.
     loadLearningProfileRow(childId),
     loadMasteryRows(childId),
@@ -141,6 +145,7 @@ export async function startDeedRun(
     // A challenge mixes nothing in, so it needs no misses. Only this side quest's candidate skills
     // count toward the cap, so another strand's misses (Puzzle practice's logic) never crowd them out.
     challenge ? Promise.resolve([] as Question[]) : loadRecentMisses(childId, (t) => skills.some((s) => s.id === t.skillId)),
+    readsTrails ? loadRecentTrailIds(childId, TRAIL_DEED_IDS) : Promise.resolve(null),
   ]);
   const profile = profileFromRow(profileRow);
   const masteryBySkill: Record<string, number> = {};
@@ -164,9 +169,11 @@ export async function startDeedRun(
   );
   const built = buildDeedRun({
     deed, grade, masteryBySkill, lastPracticedBySkill, profile, seed: Date.now() >>> 0, poolItems, focusSkillIds, enabledKinds,
+    ...(recentTrails ? { recentSets: recentTrails } : {}),
     ...(challenge
       ? { recentMisses: [], dueSkillIds: [], questionCount: CHALLENGE.questions, levelBoost: CHALLENGE.levelBoost }
-      // The grown-up's length, which the engine scales for this side quest: a science side quest's sorts are half (RF-j).
+      // The grown-up's length, which the engine scales for this side quest: a science side quest's sorts
+      // and a reading side quest's clues are half (RF-j, R-H10).
       : { recentMisses, dueSkillIds, sideQuestLength: settings.sideQuestLength }),
   });
   if (built.questions.length === 0) throw new Error(NONE_READY);

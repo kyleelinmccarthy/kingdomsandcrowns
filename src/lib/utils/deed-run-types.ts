@@ -36,6 +36,12 @@ export type RunStart = {
    * and absent once that task is answered. Holds only an index.
    */
   demo?: { at: number };
+  /**
+   * Every clue of this run is read aloud unprompted, whatever `profile.readAloud` says (R-H17): set
+   * when the hero's grade in the run's strand is K and the run holds a trail task, on a fresh start and
+   * a resumed one alike. Absent otherwise. The browser's one rule is `autoSpeaks`.
+   */
+  narrateClues?: true;
 };
 /**
  * `answer` and `explain` are present only once the question is resolved, so the answer never

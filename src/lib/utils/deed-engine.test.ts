@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { applyProfile, buildDeedRun, chooseSkills, drawForSkill, gradeAnswer, runCandidates, selectSkills, type BuildRunInput, type PoolItem } from "./deed-engine";
-import { DEEDS, SIDE_QUEST_QUESTIONS, findDeed, type Deed } from "./deeds";
+import { DEEDS, SIDE_QUEST_QUESTIONS, TRAIL_CLUES, findDeed, type Deed } from "./deeds";
 import { REVIEW } from "./review-schedule";
 import { CHALLENGE } from "./deed-scoring";
 import { GENERATORS, seededRng } from "./drill-generators";
 import { SKILLS, choiceDrawable } from "./skills";
-import { FOCUS_WEIGHT } from "./focus";
+import { FOCUS_WEIGHT, focusWindow } from "./focus";
 import { GRADES } from "./grade-levels";
 import { skillsFor } from "./skills";
 import type { Question } from "./drill-generators";
@@ -16,7 +16,8 @@ import { HANDS_ON_KINDS } from "@/lib/tasks/kinds";
 import { __setDrawerForTest, TASK_RUN_DRAWERS, type TaskDrawer } from "@/lib/tasks/draw";
 import { choiceKind } from "@/lib/tasks/choice";
 import { __setSortPoolsForTest, sortTaskFromId } from "@/lib/tasks/locks/sort";
-import { __setTrailPoolsForTest } from "@/lib/tasks/trails";
+import { __setTrailPoolsForTest, trailPoolFor, trailTaskOf } from "@/lib/tasks/trails";
+import { TRAIL_SKILLS, trailKey } from "@/lib/content/trail-pools";
 import { fixtureTrailPool } from "@/test/trail-pool-fixture";
 
 const deedMath = findDeed("well-stones")!;      // math
@@ -31,10 +32,11 @@ function poolItems(skillId: string, n: number, level = 2): PoolItem[] {
 }
 
 /**
- * Reading as multiple choice, whatever the real deed's mechanic is (F-5): H7 flips `well-signs` to
- * trails, and the candidate cases below are about what a run can PLAY, so they use this fixture.
+ * Reading as multiple choice, as `well-signs` was before H7 made it a trail of four clues (F-5): the
+ * eight-question choice deed. The candidate cases below are about what a run can PLAY, and the older
+ * cases about what a choice run is, so they use this fixture; the trail cases use the real deed.
  */
-const choiceReading = { ...findDeed("well-signs")!, mechanic: "choice" as const };
+const choiceReading: Deed = { ...findDeed("well-signs")!, mechanic: "choice", questionCount: SIDE_QUEST_QUESTIONS };
 /** Every hands-on kind on: the run asks for no restriction beyond what it can play. */
 const ALL_ON: ReadonlySet<TaskKind> = new Set<TaskKind>(HANDS_ON_KINDS);
 
@@ -43,8 +45,9 @@ const profile = { fewerChoices: false, predictableRoutine: false, untimed: false
 /** Hands-on kinds off: the choice path, as stored runs and the gate have it. */
 const CHOICE_ONLY: ReadonlySet<TaskKind> = new Set<TaskKind>();
 
+/** A grade-3 multiple-choice reading run by default (the choice fixture: the real reading deeds are trails since H7). */
 function input(over: Partial<BuildRunInput> = {}): BuildRunInput {
-  return { deed: deedReading, grade: "3", masteryBySkill: {}, profile, seed: 1, poolItems: poolItems("read-g3", 30), recentMisses: [], ...over };
+  return { deed: choiceReading, grade: "3", masteryBySkill: {}, profile, seed: 1, poolItems: poolItems("read-g3", 30), recentMisses: [], ...over };
 }
 
 /** A choice-only run's tasks, as choices: asserts that none is another kind. */
@@ -311,7 +314,8 @@ describe("every skill at a hero's grade can actually be served", () => {
    */
   const AREA_DEEDS = [
     ["math", deedMath],
-    ["reading", deedReading],
+    // The choice path's reach; the trail path's is pinned with the trail runs (H7, below).
+    ["reading", choiceReading],
     ["language", deedLanguage],
     ["science", deedScience],
   ] as const;
@@ -774,20 +778,26 @@ describe("buildDeedRun keeps its output as deeds name a mechanic", () => {
     "well-stones@42": ["round-nearest:35@10", "round-nearest:63@10", "div-facts:11/1", "round-nearest:28@10", "round-nearest:155@10", "round-nearest:948@10", "round-nearest:37@10", "round-nearest:13@10"],
     // Re-recorded: area-perimeter is on the bench, so the run is played there (the div-facts review stays choice).
     "well-stones@20261110": ["area-perimeter:cut:area:5x2", "area-perimeter:cut:area:5x3", "area-perimeter:cut:per:2x2", "area-perimeter:cut:area:4x4", "area-perimeter:cut:per:4x4", "area-perimeter:cut:per:3x5", "area-perimeter:cut:per:5x3", "div-facts:10/1"],
-    "well-signs@1": ["read-g3-item-14", "read-g3-item-24", "read-g3-item-8", "read-g3-item-10", "read-g3-item-16", "read-g3-item-6", "read-g3-item-11", "read-g3-item-12"],
-    "well-signs@42": ["read-g3-item-26", "read-g3-item-25", "read-g3-item-1", "read-g3-item-16", "read-g3-item-28", "read-g3-item-7", "read-g3-item-2", "read-g3-item-27"],
-    "well-signs@20261110": ["read-g3-item-18", "read-g3-item-10", "read-g3-item-14", "read-g3-item-19", "read-g3-item-5", "read-g3-item-28", "read-g3-item-16", "read-g3-item-23"],
+    // Re-recorded (H7): the reading side quest is a trail, so a grade-3 run is four `read-g3` clues of
+    // whole trails, in trail order. Its choice twin below holds the ids it drew before, unchanged.
+    "well-signs@1": ["read-g3:trail:091c3f6f", "read-g3:trail:081c3ddc", "read-g3:trail:0b1c4295", "read-g3:trail:0858f428"],
+    "well-signs@42": ["read-g3:trail:d3141c67", "read-g3:trail:d2141ad4", "read-g3:trail:d5141f8d", "read-g3:trail:0858f428"],
+    "well-signs@20261110": ["read-g3:trail:25cb3885", "read-g3:trail:24cb36f2", "read-g3:trail:23cb355f", "read-g3:trail:948a2acf"],
   };
   it.each(Object.entries(RECORDED))("%s asks the same questions in the same order", (key, expected) => {
     const [deedId, seed] = key.split("@");
     expect(ids(findDeed(deedId)!, Number(seed))).toEqual(expected);
   });
 
-  // The choice path, proven unchanged: with hands-on kinds off, the math deed draws what it always drew.
+  // The choice path, proven unchanged: with hands-on kinds off, each deed draws what it always drew.
   const RECORDED_CHOICE: Record<string, string[]> = {
     "well-stones@1": RECORDED["well-stones@1"],
     "well-stones@42": RECORDED["well-stones@42"],
     "well-stones@20261110": ["area-perimeter:4x2a", "area-perimeter:5x1a", "div-facts:10/1", "area-perimeter:4x3a", "area-perimeter:1x4a", "area-perimeter:3x2a", "area-perimeter:2x1a", "area-perimeter:8x4a"],
+    // Recorded before any deed named a mechanic; a trail deed with trails off is the eight it always was.
+    "well-signs@1": ["read-g3-item-14", "read-g3-item-24", "read-g3-item-8", "read-g3-item-10", "read-g3-item-16", "read-g3-item-6", "read-g3-item-11", "read-g3-item-12"],
+    "well-signs@42": ["read-g3-item-26", "read-g3-item-25", "read-g3-item-1", "read-g3-item-16", "read-g3-item-28", "read-g3-item-7", "read-g3-item-2", "read-g3-item-27"],
+    "well-signs@20261110": ["read-g3-item-18", "read-g3-item-10", "read-g3-item-14", "read-g3-item-19", "read-g3-item-5", "read-g3-item-28", "read-g3-item-16", "read-g3-item-23"],
   };
   it.each(Object.entries(RECORDED_CHOICE))("%s with hands-on kinds off asks the old questions in the old order", (key, expected) => {
     const [deedId, seed] = key.split("@");
@@ -880,7 +890,7 @@ describe("a focus skill a grade off the hero's own", () => {
     for (const deed of [deedMath, deedLanguage, deedScience]) {
       for (const g of GRADES) expect(runCandidates(deed, g, [])).toEqual(chooseSkills(deed, g));
     }
-    for (const g of ["K", "1", "2", "3", "4", "5"] as const) expect(runCandidates(deedReading, g, [])).toEqual(chooseSkills(deedReading, g));
+    for (const g of ["K", "1", "2", "3", "4", "5"] as const) expect(runCandidates(choiceReading, g, [])).toEqual(chooseSkills(choiceReading, g));
     expect(runCandidates(deedMath, "3", ["add-100", "read-g4", "nope", "add-100", "mul-facts"]).map((s) => s.id))
       .toEqual([...chooseSkills(deedMath, "3").map((s) => s.id), "add-100"]);
   });
@@ -899,7 +909,7 @@ describe("a focus skill a grade off the hero's own", () => {
 
   it("is a candidate for a pool strand too, drawing the focus pool's own items", () => {
     const items = [...poolItems("read-g3", 30), ...poolItems("read-g4", 30)];
-    const run = (seed: number) => buildDeedRun(input({ deed: deedReading, grade: "3", poolItems: items, focusSkillIds: ["read-g4"], seed }));
+    const run = (seed: number) => buildDeedRun(input({ deed: choiceReading, grade: "3", poolItems: items, focusSkillIds: ["read-g4"], seed }));
     let served = 0;
     for (let seed = 1; seed <= 300; seed++) {
       const r = run(seed);
@@ -913,7 +923,7 @@ describe("a focus skill a grade off the hero's own", () => {
   it("never comes up in a deed of another strand", () => {
     expect(servedSkills({ deed: deedMath, grade: "3", poolItems: [], focusSkillIds: ["read-g4", "spell-g45"] }))
       .not.toContain("read-g4");
-    const reading = servedSkills({ deed: deedReading, grade: "3", focusSkillIds: ["add-100", "spell-g45"] });
+    const reading = servedSkills({ deed: choiceReading, grade: "3", focusSkillIds: ["add-100", "spell-g45"] });
     expect(reading).not.toContain("add-100");
     expect(reading).not.toContain("spell-g45");
   });
@@ -954,7 +964,8 @@ describe("applyProfile", () => {
   });
 
   it("is what buildDeedRun applies: recorded fewer-choices runs ask the same choices in the same order", () => {
-    // Recorded before the rule moved into applyProfile; they must not move.
+    // Recorded before the rule moved into applyProfile; they must not move. Pinned to the choice path
+    // (hands-on kinds off), since `well-signs` is a trail since H7 and these are about choices.
     const RECORDED: Record<string, string[]> = {
       "well-stones@1": ["round-nearest:69@10=69|70", "round-nearest:99@10=100|98", "round-nearest:73@10=70|100", "round-nearest:46@10=40|50", "div-facts:6/1=6|16", "round-nearest:33@10=30|27", "round-nearest:723@10=700|720", "round-nearest:631@10=630|631"],
       "well-stones@1+routine": ["round-nearest:46@10=40|50", "round-nearest:631@10=630|631", "round-nearest:99@10=100|98", "round-nearest:33@10=27|30", "round-nearest:723@10=700|720", "round-nearest:73@10=100|70", "round-nearest:69@10=69|70", "div-facts:6/1=16|6"],
@@ -966,7 +977,7 @@ describe("applyProfile", () => {
       const routine = rest.endsWith("+routine");
       const run = buildDeedRun(input({
         deed: findDeed(deedId)!, seed: Number(rest.replace("+routine", "")), poolItems: poolItems("read-g3", 30),
-        dueSkillIds: ["div-facts", "read-g3"], profile: { ...profile, fewerChoices: true, predictableRoutine: routine },
+        dueSkillIds: ["div-facts", "read-g3"], profile: { ...profile, fewerChoices: true, predictableRoutine: routine }, enabledKinds: CHOICE_ONLY,
       }));
       expect(choices(run.questions).map((q) => `${q.id}=${q.choices.join("|")}`)).toEqual(expected);
     }
@@ -1554,5 +1565,231 @@ describe("a trail run: whole trails of the skill's pool (H4, R-H9, R-H11)", () =
     expect(buildDeedRun(input({ deed: deedMath, grade: "3", seed: 21, enabledKinds: ALL_ON, recentSets: ["trail-g23/fx-01-trail"] }))).toEqual(base);
     const sci = buildDeedRun(input({ deed: deedScience, grade: "3", seed: 5, enabledKinds: ALL_ON }));
     expect(buildDeedRun(input({ deed: deedScience, grade: "3", seed: 5, enabledKinds: ALL_ON, recentSets: ["trail-g23/fx-01-trail"] }))).toEqual(sci);
+  });
+});
+
+describe("reading side quests are clue trails (H7: R-H9, R-H10, R-H21, R-H22)", () => {
+  // The real deed, a trail since H7, drawing from the shipped pools.
+  const reading = findDeed("well-signs")!;
+  const TRAILS_OFF: ReadonlySet<TaskKind> = new Set<TaskKind>(["measure", "lock"]);
+  type G = (typeof GRADES)[number];
+  /** The skill a reader's trail credits, by grade: K and 1 walk `read-g1`'s trails, 2 and 3 `read-g3`'s (R-H21). */
+  const TRAIL_SKILL_AT: Record<G, string> = {
+    K: "read-g1", 1: "read-g1", 2: "read-g3", 3: "read-g3", 4: "read-g4", 5: "read-g4",
+    6: "read-g6", 7: "read-g6", 8: "read-g6", 9: "read-g9", 10: "read-g9", 11: "read-g9", 12: "read-g9",
+  };
+  /** H3's choice table: what the same side quest plays with trails off or at the gate. */
+  const CHOICE_SKILL_AT: Record<G, string> = {
+    K: "sight-k1", 1: "read-g1", 2: "sight-g23", 3: "read-g3", 4: "read-g4", 5: "read-g4",
+    6: "read-g4", 7: "read-g4", 8: "read-g4", 9: "read-g4", 10: "read-g4", 11: "read-g4", 12: "read-g4",
+  };
+  const READING_ITEMS = ["sight-k1", "sight-g23", "read-g1", "read-g3", "read-g4"].flatMap((id) => poolItems(id, 30));
+  /** Every shipped clue's place, by task id: its trail key, the trail's level, and its index in the trail. */
+  const CLUE_AT = new Map<string, { trail: string; level: number; index: number }>();
+  for (const skillId of Object.values(TRAIL_SKILLS)) {
+    const pool = trailPoolFor(skillId)!;
+    for (const t of pool.trails) t.clues.forEach((_, index) => CLUE_AT.set(trailTaskOf(pool, t, index).id, { trail: trailKey(pool.poolId, t.id), level: t.level, index }));
+  }
+  const run = (over: Partial<BuildRunInput> = {}) => buildDeedRun(input({ deed: reading, enabledKinds: ALL_ON, poolItems: READING_ITEMS, ...over }));
+  const kinds = (r: { questions: Task[] }) => r.questions.map(kindOf);
+  const allTrail = (r: { questions: Task[] }) => r.questions.length > 0 && kinds(r).every((k) => k === "trail");
+  /** What the fresh draw picks for this input, from the same seeded rng `buildDeedRun` starts with. */
+  const drawn = (g: G, focus: string[], seed: number) =>
+    selectSkills(runCandidates(reading, g, focus, ALL_ON), {}, seededRng(seed), {}, new Set(focus)).map((s) => s.id);
+  afterEach(() => __setTrailPoolsForTest(null));
+
+  it("a reader's trail skill at every grade, with trails on: K-1 read-g1, 2-3 read-g3, 4-5 read-g4, 6-8 read-g6, 9-12 read-g9", () => {
+    for (const g of GRADES) {
+      expect(runCandidates(reading, g, [], ALL_ON).map((s) => s.id), `grade ${g}`).toEqual([TRAIL_SKILL_AT[g]]);
+      expect(runCandidates(reading, g, [], new Set<TaskKind>(["trail"])).map((s) => s.id), `grade ${g} trails alone`).toEqual([TRAIL_SKILL_AT[g]]);
+      expect(runCandidates(reading, g).map((s) => s.id), `grade ${g} no set`).toEqual([TRAIL_SKILL_AT[g]]);
+    }
+  });
+
+  it("trails off, or the gate, gives H3's choice table at every grade, never an empty run (Review Focus 3)", () => {
+    for (const g of GRADES) {
+      for (const on of [TRAILS_OFF, CHOICE_ONLY]) expect(runCandidates(reading, g, [], on).map((s) => s.id), `grade ${g}`).toEqual([CHOICE_SKILL_AT[g]]);
+    }
+  });
+
+  it("every grade's run is four clues of its trail skill; grade 7 draws read-g6 clues", () => {
+    for (const g of GRADES) {
+      const r = run({ grade: g, seed: 1 });
+      expect(r.skillIds, `grade ${g}`).toEqual([TRAIL_SKILL_AT[g]]);
+      expect(r.questions, `grade ${g}`).toHaveLength(TRAIL_CLUES);
+      expect(allTrail(r), `grade ${g}`).toBe(true);
+      for (const q of r.questions) expect(q.skillId, `grade ${g}`).toBe(TRAIL_SKILL_AT[g]);
+    }
+    const seventh = run({ grade: "7", seed: 3, poolItems: [] });
+    expect(seventh.questions.map((q) => q.skillId)).toEqual(["read-g6", "read-g6", "read-g6", "read-g6"]);
+  });
+
+  it("reaches every trail skill a reader's run may hold, at every grade, read-g6 and read-g9 included (H3's review)", () => {
+    const reached = new Set<string>();
+    for (const g of GRADES) {
+      // The hero's own trail skill, and every focus a grown-up may pick that a trail presents.
+      const focus = focusWindow({ reading: g }).map((s) => s.id);
+      const offered = runCandidates(reading, g, focus, ALL_ON).filter((s) => TASK_KINDS.trail.presents(s.id)).map((s) => s.id);
+      expect(offered, `grade ${g}`).toContain(TRAIL_SKILL_AT[g]);
+      const served = new Set<string>();
+      for (let seed = 1; seed <= 200; seed++) {
+        for (const q of run({ grade: g, seed, focusSkillIds: focus }).questions) if (kindOf(q) === "trail") served.add(q.skillId);
+      }
+      expect(offered.filter((id) => !served.has(id)), `grade ${g} never walks`).toEqual([]);
+      for (const id of served) reached.add(id);
+    }
+    expect([...reached].sort()).toEqual(Object.values(TRAIL_SKILLS).sort());
+  });
+
+  describe("selectSkills draws a trail skill beside a pool skill (H3's review)", () => {
+    const servedOver = (over: Partial<BuildRunInput>) => {
+      const served = new Set<string>();
+      for (let seed = 1; seed <= 100; seed++) {
+        const r = run({ ...over, seed });
+        expect(allTrail(r), `seed ${seed}`).toBe(true);
+        expect(r.skillIds, `seed ${seed}: one skill a run`).toHaveLength(1);
+        for (const q of r.questions) expect(q.skillId, `seed ${seed}`).toBe(r.skillIds[0]);
+        served.add(r.skillIds[0]);
+      }
+      return [...served].sort();
+    };
+
+    it("a grade-5 reader with a read-g6 focus walks read-g6 trails as well as read-g4's", () => {
+      expect(runCandidates(reading, "5", ["read-g6"], ALL_ON).map((s) => s.id)).toEqual(["read-g4", "read-g6"]);
+      expect(servedOver({ grade: "5", focusSkillIds: ["read-g6"] })).toEqual(["read-g4", "read-g6"]);
+    });
+
+    it("a grade-7 reader (base read-g6) with a read-g4 focus extra walks both, never only read-g4: a trail can play the focus, so it stays a trail", () => {
+      expect(runCandidates(reading, "7", ["read-g4"], ALL_ON).map((s) => s.id)).toEqual(["read-g6", "read-g4"]);
+      expect(servedOver({ grade: "7", focusSkillIds: ["read-g4"] })).toEqual(["read-g4", "read-g6"]);
+    });
+
+    it("weighs a trail-only skill and a pool skill in one draw, a focus three times over", () => {
+      const pair = ["read-g4", "read-g6"].map((id) => SKILLS.find((s) => s.id === id)!);
+      let focused = 0;
+      for (let seed = 1; seed <= 600; seed++) {
+        const picked = selectSkills(pair, {}, seededRng(seed), {}, new Set(["read-g6"]));
+        expect(picked).toHaveLength(1);
+        if (picked[0].id === "read-g6") focused++;
+      }
+      expect(focused).toBeGreaterThanOrEqual(2.5 * (600 - focused));
+      expect(600 - focused).toBeGreaterThan(0);
+    });
+  });
+
+  it("a trail run is four clues of whole trails, in trail order, never shuffled; 6 at length 12, 2 at length 4 (R-H10)", () => {
+    for (let seed = 1; seed <= 20; seed++) {
+      const r = run({ grade: "3", seed });
+      expect(r.questions, `seed ${seed}`).toHaveLength(4);
+      expect(allTrail(r), `seed ${seed}`).toBe(true);
+      const at = r.questions.map((q) => CLUE_AT.get(q.id)!);
+      at.forEach((c, i) => {
+        // A trail starts at its first clue and goes on one clue at a time; once it ends it never comes back.
+        if (i === 0 || c.trail !== at[i - 1].trail) {
+          expect(c.index, `seed ${seed} task ${i}`).toBe(0);
+          expect(at.slice(0, i).some((p) => p.trail === c.trail), `seed ${seed} task ${i}`).toBe(false);
+        } else {
+          expect(c.index, `seed ${seed} task ${i}`).toBe(at[i - 1].index + 1);
+        }
+      });
+    }
+    expect(run({ grade: "3", seed: 1, sideQuestLength: 12 }).questions).toHaveLength(6);
+    expect(run({ grade: "3", seed: 1, sideQuestLength: 4 }).questions).toHaveLength(2);
+  });
+
+  it("a walking run takes no other kind: a choice miss and a due skill no trail presents are left out", () => {
+    const miss = (skillId: string, i: number): ChoiceTask => ({ id: `${skillId}-item-${i}`, skillId, prompt: `Prompt ${i}`, choices: [`A${i}`, `B${i}`], answer: `A${i}` });
+    // Seed 7 draws read-g3 fresh, not the read-g4 focus (recorded); read-g4 is then due.
+    const asked: Partial<BuildRunInput> = {
+      grade: "3", seed: 7, focusSkillIds: ["read-g4"], dueSkillIds: ["read-g4"], recentMisses: [miss("sight-g23", 0), miss("read-g3", 3)],
+    };
+    expect(drawn("3", ["read-g4"], 7)).toEqual(["read-g3"]);
+    // Only read-g3 has a pool here, so read-g4 would be a choice question: the walk leaves it out.
+    __setTrailPoolsForTest([fixtureTrailPool("g23")]);
+    const fixtured = run(asked);
+    expect(fixtured.questions).toHaveLength(4);
+    expect(allTrail(fixtured)).toBe(true);
+    expect(fixtured.questions.some((q) => q.skillId === "read-g4" || q.skillId === "sight-g23")).toBe(false);
+    // With the real pools a trail presents read-g4, so its due clue comes along, last.
+    __setTrailPoolsForTest(null);
+    const real = run(asked);
+    expect(real.questions).toHaveLength(4);
+    expect(allTrail(real)).toBe(true);
+    expect(real.questions.map((q) => q.skillId)).toEqual(["read-g3", "read-g3", "read-g3", "read-g4"]);
+  });
+
+  it("trails off: eight multiple-choice questions, as before", () => {
+    const r = run({ grade: "3", seed: 1, enabledKinds: TRAILS_OFF, poolItems: poolItems("read-g3", 30) });
+    expect(r.questions).toHaveLength(8);
+    expect(r.skillIds).toEqual(["read-g3"]);
+    choices(r.questions);
+    expect(r).toEqual(buildDeedRun(input({ seed: 1, enabledKinds: TRAILS_OFF, poolItems: poolItems("read-g3", 30) })));
+  });
+
+  it("the gate is multiple choice, at the grown-up's whole length", () => {
+    const r = run({ grade: "3", seed: 1, enabledKinds: CHOICE_ONLY });
+    expect(r.questions).toHaveLength(8);
+    choices(r.questions);
+    expect(run({ grade: "3", seed: 1, enabledKinds: CHOICE_ONLY, sideQuestLength: 12 }).questions).toHaveLength(12);
+  });
+
+  it("a Crown Challenge is three clues", () => {
+    const r = run({ grade: "3", seed: 1, questionCount: CHALLENGE.questions, levelBoost: CHALLENGE.levelBoost, recentMisses: [], dueSkillIds: [] });
+    expect(r.questions).toHaveLength(3);
+    expect(allTrail(r)).toBe(true);
+  });
+
+  describe("a grown-up's reading focus no trail can play wins (R-H22)", () => {
+    it("a drawn sight-word focus makes the side quest multiple choice, at the whole length", () => {
+      // Seed 1 draws the sight-word focus (recorded); read-g3 is due beside it.
+      expect(drawn("2", ["sight-g23"], 1)).toEqual(["sight-g23"]);
+      const asked: Partial<BuildRunInput> = { grade: "2", seed: 1, focusSkillIds: ["sight-g23"], dueSkillIds: ["read-g3"] };
+      const r = run(asked);
+      expect(r.questions).toHaveLength(8);
+      expect(kinds(r)).not.toContain("trail");
+      choices(r.questions);
+      expect(r.questions.some((q) => q.skillId === "read-g3"), "the due skill is asked as choice too").toBe(true);
+      const long = run({ ...asked, sideQuestLength: 12 });
+      expect(long.questions).toHaveLength(12);
+      expect(kinds(long)).not.toContain("trail");
+    });
+
+    it("the same focus left undrawn keeps the trail, and a due sight-word skill is left out", () => {
+      // Seed 7 draws read-g3 (recorded).
+      expect(drawn("2", ["sight-g23"], 7)).toEqual(["read-g3"]);
+      const r = run({ grade: "2", seed: 7, focusSkillIds: ["sight-g23"], dueSkillIds: ["sight-g23"] });
+      expect(r.questions).toHaveLength(4);
+      expect(allTrail(r)).toBe(true);
+      expect(r.questions.some((q) => q.skillId === "sight-g23")).toBe(false);
+    });
+
+    it("a focus a trail presents keeps the trail", () => {
+      for (let seed = 1; seed <= 30; seed++) {
+        const r = run({ grade: "3", seed, focusSkillIds: ["read-g4"], dueSkillIds: ["read-g3", "read-g4"] });
+        expect(allTrail(r), `seed ${seed}`).toBe(true);
+        expect(r.questions, `seed ${seed}`).toHaveLength(4);
+      }
+    });
+
+    it("waits for trails: with trails off the sight-word focus run is the multiple-choice run it always was", () => {
+      for (let seed = 1; seed <= 20; seed++) {
+        const asked: Partial<BuildRunInput> = { grade: "2", seed, focusSkillIds: ["sight-g23"], dueSkillIds: ["read-g3"], enabledKinds: TRAILS_OFF };
+        expect(run(asked), `seed ${seed}`).toEqual(buildDeedRun(input({ ...asked, deed: choiceReading, poolItems: READING_ITEMS })));
+      }
+    });
+  });
+
+  it("passes over the trails met lately: with every near trail in recentSets, the run walks far ones", () => {
+    const pool = trailPoolFor("read-g3")!;
+    // Mastery 0: the near levels are 0 and 1.
+    const recent = pool.trails.filter((t) => t.level <= 1).map((t) => trailKey(pool.poolId, t.id));
+    expect(recent.length).toBeGreaterThanOrEqual(18);
+    for (let seed = 1; seed <= 10; seed++) {
+      const fresh = run({ grade: "3", seed });
+      expect(fresh.questions.some((q) => CLUE_AT.get(q.id)!.level <= 1), `seed ${seed} draws near without recentSets`).toBe(true);
+      const r = run({ grade: "3", seed, recentSets: recent });
+      expect(r.questions).toHaveLength(4);
+      for (const q of r.questions) expect(CLUE_AT.get(q.id)!.level, `seed ${seed}`).toBeGreaterThanOrEqual(2);
+    }
   });
 });
