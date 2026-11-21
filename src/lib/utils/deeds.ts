@@ -63,6 +63,13 @@ export const DEEDS: Deed[] = [
  */
 export const TRAIL_DEED_IDS: readonly string[] = DEEDS.filter((d) => d.mechanic === "trail").map((d) => d.id);
 
+/**
+ * The side quests played as runes (R-I14): the language ones, once slice 6 flips them (I11); none
+ * before. The rune entries a hero met lately are read from these runs and from rune world runs
+ * together (`loadRecentRuneKeys`), so the memory spans side quests and objects fixed any time.
+ */
+export const RUNE_DEED_IDS: readonly string[] = DEEDS.filter((d) => d.mechanic === "rune").map((d) => d.id);
+
 export function findDeed(id: string): Deed | null {
   return DEEDS.find((d) => d.id === id) ?? null;
 }

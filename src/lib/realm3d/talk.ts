@@ -15,13 +15,13 @@
  * No `three`, no DOM.
  */
 
-import type { AttemptResult, RunSummary, TowerOutcome, WorldOutcome } from "@/lib/utils/deed-run-types";
+import type { AttemptResult, RunSummary, RuneOutcome, TowerOutcome, WorldOutcome } from "@/lib/utils/deed-run-types";
 import { seasonPhrase } from "@/lib/realm/season-phrase";
 import { agree } from "@/lib/realm/improvements";
 import { cutFeedbackLine } from "@/lib/tasks/measure-copy";
 import { isLockFeedback, lockFeedbackLine } from "@/lib/tasks/lock-copy";
 import { TRAIL_RETRY_LEAD } from "@/lib/tasks/trail-copy";
-import { RUNE_RETRY_LEAD } from "@/lib/tasks/rune-copy";
+import { RUNE_ALREADY, RUNE_DONE, RUNE_FADES, RUNE_FADES_LINE, RUNE_RETRY_LEAD, RUNE_WORKS } from "@/lib/tasks/rune-copy";
 import type { ClientTask } from "@/lib/tasks/types";
 import { MAX_STARS, countsTowardBuilding, type RunKind } from "@/lib/utils/deed-scoring";
 import type { ObjectiveState } from "@/lib/realm/objective";
@@ -33,6 +33,7 @@ import { REVIEW_DONE, REVIEW_FINISH, reviewSummaryLine } from "@/lib/utils/revie
 import { PRACTICE_FINISH, PUZZLES_SOLVED } from "@/lib/utils/practice-copy";
 import { ALREADY_OPEN, CHEST_OPENS, DOOR_OPENS, LOCK_FINISH, LOCK_HOLDS, LOCK_HOLDS_LINE, TOWER_FLOOR_SOLVED, TOWER_HOLDS, TOWER_HOLDS_LINE, worldRewardLine } from "@/lib/utils/world-lock-copy";
 import { isWorldObjectId, worldObjectById } from "@/lib/realm/world-objects";
+import { isRuneObjectId } from "@/lib/realm/rune-objects";
 
 export type Viewer = "child" | "parent";
 
@@ -233,6 +234,8 @@ const BUILD_FINISH = "Finish building";
 
 /** A chest's or vault door's run, told from Puzzle practice (also `world`) by what owns it: the run's `deed.id`. */
 const isLockRun = (kind: RunKind, ownerId?: string): boolean => kind === "world" && isWorldObjectId(ownerId);
+/** A rune object's run (R-I1), told the same way: its owner is a rune object. */
+const isRuneRun = (kind: RunKind, ownerId?: string): boolean => kind === "world" && isRuneObjectId(ownerId);
 
 /**
  * The last button of a run, by its kind and, for a world run, its owner (`run.deed.id`): one
@@ -243,7 +246,7 @@ export function finishLabel(kind: RunKind, ownerId?: string): string {
   switch (kind) {
     case "review": return REVIEW_FINISH;
     case "build": return BUILD_FINISH;
-    case "world": return isLockRun(kind, ownerId) ? LOCK_FINISH : PRACTICE_FINISH;
+    case "world": return isLockRun(kind, ownerId) ? LOCK_FINISH : isRuneRun(kind, ownerId) ? RUNE_DONE : PRACTICE_FINISH;
     case "tower": return PRACTICE_FINISH;
     case "deed":
     case "challenge": return `Finish ${SIDE_QUEST_LOWER}`;
@@ -255,7 +258,7 @@ export function leaveWhat(kind: RunKind, ownerId?: string): string {
   switch (kind) {
     case "review": return "review";
     case "build": return "build";
-    case "world": return isLockRun(kind, ownerId) ? "lock" : "puzzles";
+    case "world": return isLockRun(kind, ownerId) ? "lock" : isRuneRun(kind, ownerId) ? "rune" : "puzzles";
     case "tower": return "puzzles";
     case "deed":
     case "challenge": return SIDE_QUEST_LOWER;
@@ -267,11 +270,16 @@ type BuildOutcome = Pick<NonNullable<RunSummary["improvement"]>, "id" | "label" 
 
 /** The result card's headline, as the flat Realm's `DeedResults` wrote it; a Crown Challenge is crowned or close. */
 export function resultHeadline(
-  summary: { correctCount: number; total: number; flawless: boolean; kind?: RunSummary["kind"]; improvement?: BuildOutcome; world?: WorldOutcome; tower?: TowerOutcome },
+  summary: {
+    correctCount: number; total: number; flawless: boolean; kind?: RunSummary["kind"]; improvement?: BuildOutcome; world?: WorldOutcome; tower?: TowerOutcome; runes?: RuneOutcome[];
+  },
   deedTitle: string,
 ): { title: string; line: string } {
   // A chest or vault door is judged on whether it opened, and on what it gave: never a count of right answers.
   if (summary.kind === "world" && summary.world) return worldHeadline(summary.world);
+  // A rune object, on whether the rune worked: never a count, a star or a minute (R-I1).
+  const rune = summary.kind === "world" ? summary.runes?.[0] : undefined;
+  if (rune) return runeHeadline(rune);
   // A Tower floor's bonus lock: solved or held, never a count of right answers, a star or a minute.
   if (summary.kind === "tower" && summary.tower) {
     return summary.tower.solvedNow ? { title: TOWER_FLOOR_SOLVED, line: "" } : { title: TOWER_HOLDS, line: TOWER_HOLDS_LINE };
@@ -306,6 +314,12 @@ function worldHeadline(o: WorldOutcome): { title: string; line: string } {
   if (o.opened) return { title: worldObjectById(o.objectId)?.type === "door" ? DOOR_OPENS : CHEST_OPENS, line: worldRewardLine(o) };
   if (o.reason === "already-open") return { title: ALREADY_OPEN, line: "" };
   return { title: LOCK_HOLDS, line: LOCK_HOLDS_LINE };
+}
+
+function runeHeadline(o: RuneOutcome): { title: string; line: string } {
+  if (o.fixed) return { title: RUNE_WORKS, line: "" };
+  if (o.reason === "already-fixed") return { title: RUNE_WORKS, line: RUNE_ALREADY };
+  return { title: RUNE_FADES, line: RUNE_FADES_LINE };
 }
 
 /** The result card's building line, word for word the flat Realm's; a run on a building that already stood is practice. */

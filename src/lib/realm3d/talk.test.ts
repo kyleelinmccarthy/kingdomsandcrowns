@@ -267,6 +267,46 @@ describe("a chest's or vault door's result", () => {
   });
 });
 
+describe("a rune object's run (R-I1)", () => {
+  const world = { correctCount: 1, total: 1, flawless: true, kind: "world" as const };
+  const rune = (o: { fixed: boolean; reason?: "missed" | "already-fixed" }) => ({ ...world, runes: [{ objectId: "rune:west-wagon", ...o }] });
+
+  it("says the rune works when it fixed the object, with nothing more", () => {
+    expect(resultHeadline(rune({ fixed: true }), "The rune stone")).toEqual({ title: "The rune works!", line: "" });
+  });
+
+  it("says the rune fades on a miss, and that a fresh word waits", () => {
+    const missed = { ...rune({ fixed: false, reason: "missed" }), correctCount: 0, flawless: false };
+    expect(resultHeadline(missed, "The rune stone")).toEqual({ title: "The rune fades.", line: "Try again with a fresh word." });
+  });
+
+  it("says the rune works, and already held, when another run fixed it first", () => {
+    expect(resultHeadline(rune({ fixed: false, reason: "already-fixed" }), "The rune stone")).toEqual({ title: "The rune works!", line: "The rune already held." });
+  });
+
+  it("is told from Puzzle practice and a chest by its outcome", () => {
+    expect(resultHeadline(world, "Puzzle practice").title).toBe("Puzzles solved!");
+    expect(resultHeadline({ ...world, world: { objectId: "chest:west-lane", opened: true, rewards: [] }, runes: [] }, "x").title).toBe("The chest opens!");
+  });
+
+  it("finishes with Done and leaves the rune; an id that only looks like one is Puzzle practice's", () => {
+    expect(finishLabel("world", "rune:west-wagon")).toBe("Done");
+    expect(finishLabel("world", "rune:appleway-cart")).toBe("Done");
+    expect(leaveWhat("world", "rune:west-wagon")).toBe("rune");
+    expect(finishLabel("world", "rune:nope")).toBe("Finish puzzles");
+    expect(leaveWhat("world", "rune:nope")).toBe("puzzles");
+    // The chest's words are its own still.
+    expect(leaveWhat("world", "chest:west-lane")).toBe("lock");
+  });
+
+  it("never names a grade, a band, stars or minutes", () => {
+    for (const o of [{ fixed: true }, { fixed: false, reason: "missed" as const }, { fixed: false, reason: "already-fixed" as const }]) {
+      const head = resultHeadline(rune(o), "The rune stone");
+      expect(`${head.title} ${head.line}`).not.toMatch(/grade|band|star|minute|behind|ahead/i);
+    }
+  });
+});
+
 describe("a Tower floor's result", () => {
   const tower = { correctCount: 1, total: 1, flawless: true, kind: "tower" as const };
   const solved = { ...tower, tower: { band: "g23" as const, solved: 2, solvedNow: true } };

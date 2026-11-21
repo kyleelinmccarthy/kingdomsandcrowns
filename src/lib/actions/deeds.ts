@@ -27,7 +27,7 @@ import {
   NOT_IN_CHRONICLE, NOT_IN_RUN, NOT_THROUGH, PICK_SHOWN, WORLD_HERO_ONLY,
 } from "@/lib/utils/deed-refusals";
 import { overdueSkills } from "@/lib/utils/review-schedule";
-import type { AttemptResult, RunStart, RunSummary, TowerOutcome, WorldOutcome } from "@/lib/utils/deed-run-types";
+import type { AttemptResult, RunStart, RunSummary, RuneOutcome, TowerOutcome, WorldOutcome } from "@/lib/utils/deed-run-types";
 import { taskHint } from "@/lib/utils/skill-hints";
 import { demoAt, findOpenRun, insertRun, loadMasteryRows, loadRecentMisses, loadRecentTrailIds, parseRun, resumedStart, type DeedRunRow } from "@/lib/services/deed-run-store";
 import {
@@ -36,9 +36,10 @@ import {
 import { loadFocusSkillIds } from "@/lib/services/learning-focus";
 import { loadLearningProfileRow } from "@/lib/services/learning-profile";
 import { loadRealmSettings, paySideQuest, withChildLock, type Exec } from "@/lib/services/realm-play";
-import { openWorldObject, recordTowerSolve, worldClock } from "@/lib/services/realm-world-state";
+import { fixRuneObjects, openWorldObject, recordTowerSolve, worldClock } from "@/lib/services/realm-world-state";
 import { bandOfTowerRef } from "@/lib/realm/puzzle-tower";
 import { isWorldObjectId, worldObjectById } from "@/lib/realm/world-objects";
+import { isRuneObjectId, runeObjectById } from "@/lib/realm/rune-objects";
 import { finishBuild } from "@/lib/services/improvements";
 import { loadMaterialLedger } from "@/lib/services/realm-materials";
 import { IMPROVEMENTS, parsePlanRef, type ImprovementId } from "@/lib/realm/improvements";
@@ -431,7 +432,7 @@ export async function completeDeedRun(runId: string): Promise<RunSummary> {
   if (outcomes.length !== questions.length) throw new Error(ANSWER_EVERY);
   // Building spends the hero's materials, so only the hero finishes a build run; refused before anything is written.
   if (run.kind === "build" && !isChildActor(access)) throw new Error(BUILD_HERO_ONLY);
-  // A chest, a vault door or a Tower floor is opened by the hero alone (PC-G7); refused before anything is written.
+  // A chest, a vault door or a Tower floor is opened, and a rune object fixed, by the hero alone (PC-G7); refused before anything is written.
   if (worldOwned(run) && !isChildActor(access)) throw new Error(WORLD_HERO_ONLY);
   const effects = RUN_EFFECTS[run.kind];
   const correctCount = statuses.filter((s) => s === "right-first").length;
@@ -453,19 +454,21 @@ export async function completeDeedRun(runId: string): Promise<RunSummary> {
     .returning({ id: schema.deedRun.id });
   // A chest or vault door: the close, its "open" and its rewards are one locked transaction (PC-G2,
   // RG-c), so of two finishes only one opens it, and a throw while opening leaves the run open to
-  // finish again (RG-n). A Tower floor's run takes the same path, counting its solve there. Puzzle
-  // practice, a world run of no object, closes as every run does (PC-G17).
+  // finish again (RG-n). A Tower floor's run takes the same path, counting its solve there, and so
+  // does a rune object's, writing its fix there (R-I1). Puzzle practice, a world run of no object,
+  // closes as every run does (PC-G17), as does a rune run whose object has left the catalog.
   const object = run.kind === "world" ? worldObjectById(run.sourceRef) : null;
+  const runeObject = run.kind === "world" ? runeObjectById(run.sourceRef) : null;
   const floor = run.kind === "tower" ? bandOfTowerRef(run.sourceRef) : null;
-  let opened: { world?: WorldOutcome; tower?: TowerOutcome } = {};
-  if (object || floor) {
-    const clock = object ? await worldClock(run.childId, now) : null;
+  let opened: { world?: WorldOutcome; tower?: TowerOutcome; runes?: RuneOutcome[] } = {};
+  if (object || runeObject || floor) {
+    const clock = object || runeObject ? await worldClock(run.childId, now) : null;
     opened = await withChildLock(run.childId, async (tx) => {
       // Two finishes racing: the second waits for the lock, then finds the run closed.
       if ((await closeRun(tx)).length === 0) throw new Error(FINISHED);
-      return object && clock
-        ? { world: await openWorldObject(tx, run.childId, object, outcomes[0], now, clock) }
-        : { tower: await recordTowerSolve(tx, run.childId, floor!, outcomes[0], now) };
+      if (object && clock) return { world: await openWorldObject(tx, run.childId, object, outcomes[0], now, clock) };
+      if (runeObject && clock) return { runes: await fixRuneObjects(tx, run.childId, [{ objectId: runeObject.id, outcome: outcomes[0] }], now, clock, false) };
+      return { tower: await recordTowerSolve(tx, run.childId, floor!, outcomes[0], now) };
     });
   } else if ((await closeRun(db)).length === 0) {
     // Two finishes racing: only the one that closed the run may raise the building, or be paid.
@@ -514,12 +517,16 @@ export async function completeDeedRun(runId: string): Promise<RunSummary> {
     ...(improvement ? { improvement } : {}),
     ...(opened.world ? { world: opened.world } : {}),
     ...(opened.tower ? { tower: opened.tower } : {}),
+    ...(opened.runes ? { runes: opened.runes } : {}),
   };
 }
 
-/** A run that opens something in the world: a chest's or vault door's, or a Tower floor's. Puzzle practice is not one. */
+/**
+ * A run that opens or fixes something in the world: a chest's or vault door's, a Tower floor's, or
+ * a rune object's (R-I1). Puzzle practice is not one.
+ */
 function worldOwned(run: Pick<DeedRunRow, "kind" | "sourceRef">): boolean {
-  return run.kind === "tower" || (run.kind === "world" && isWorldObjectId(run.sourceRef));
+  return run.kind === "tower" || (run.kind === "world" && (isWorldObjectId(run.sourceRef) || isRuneObjectId(run.sourceRef)));
 }
 
 /**

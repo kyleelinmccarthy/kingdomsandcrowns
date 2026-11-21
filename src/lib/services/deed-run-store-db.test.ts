@@ -11,8 +11,8 @@ import type { RunStart } from "@/lib/utils/deed-run-types";
 const client = testDatabase("deed-run-store-db");
 vi.mock("@/lib/db", () => ({ db: client.db }));
 
-const { demoAt, loadRecentTrailIds, TRAIL_MEMORY_RUNS } = await import("./deed-run-store");
-const { TRAIL_DEED_IDS } = await import("@/lib/utils/deeds");
+const { collectTaskKeys, demoAt, loadRecentRuneKeys, loadRecentTrailIds, RUNE_MEMORY_RUNS, TRAIL_MEMORY_RUNS } = await import("./deed-run-store");
+const { RUNE_DEED_IDS, TRAIL_DEED_IDS } = await import("@/lib/utils/deeds");
 
 const DDL = `CREATE TABLE deed_run (
   id text PRIMARY KEY NOT NULL, child_id text NOT NULL, deed_id text, source_ref text, skill_ids text NOT NULL,
@@ -276,5 +276,85 @@ describe("loadRecentTrailIds: the trails a hero met in their last reading side q
     await expect(loadRecentTrailIds("nobody", TRAIL_DEED_IDS)).resolves.toEqual([]);
     await reading("asked-none", "well-signs", JSON.stringify([clue("trail-g23/x")]));
     await expect(loadRecentTrailIds("asked-none", [])).resolves.toEqual([]);
+  });
+});
+
+describe("collectTaskKeys: the keys a hero's stored runs hold, of one kind", () => {
+  const rows = (...qs: unknown[]) => qs.map((q) => ({ questions: typeof q === "string" ? q : JSON.stringify(q) }));
+
+  it("reads one field of one kind's tasks, row by row, each key once", () => {
+    const keys = collectTaskKeys(rows(
+      [{ kind: "rune", entry: "rune-g68/b" }, { kind: "trail", trail: "trail-g23/t" }, { kind: "rune", entry: "rune-g68/a" }],
+      [{ kind: "rune", entry: "rune-g68/a" }, { kind: "rune", entry: "rune-g68/c" }],
+    ), "rune", "entry");
+    expect(keys).toEqual(["rune-g68/b", "rune-g68/a", "rune-g68/c"]);
+    expect(collectTaskKeys(rows([{ kind: "trail", trail: "trail-g23/t" }, { kind: "rune", entry: "x" }]), "trail", "trail")).toEqual(["trail-g23/t"]);
+  });
+
+  it("skips a row that will not parse or has an odd shape, never throwing", () => {
+    expect(collectTaskKeys(rows(
+      "nope", '{"kind":"rune","entry":"rune-k1/object"}', "null",
+      ["a string", null, 7, { kind: "rune", entry: 5 }, { kind: "trail", entry: "rune-k1/a-trail" }, { entry: "rune-k1/no-kind" }, { kind: "rune", entry: "rune-k1/kept" }],
+    ), "rune", "entry")).toEqual(["rune-k1/kept"]);
+    expect(collectTaskKeys([], "rune", "entry")).toEqual([]);
+  });
+});
+
+describe("loadRecentRuneKeys: the rune entries a hero met in their last rune runs (R-I19)", () => {
+  /** A stored rune task of entry `key`, as the server keeps it. */
+  const word = (key: string) => ({
+    kind: "rune", id: `vocab-g68:rune:${key.length.toString(16).padStart(8, "0")}`, skillId: "vocab-g68", prompt: "p", effect: "mend",
+    object: { id: "rune:west-wagon", label: "the broken wagon" }, tiles: ["a", "b"], listen: false, words: ["ab"], hint: "h", entry: key,
+  });
+  let startedAt = 5000;
+  async function run(childId: string, questions: string, over: { kind?: string; sourceRef?: string | null; deedId?: string | null; completed?: boolean } = {}) {
+    n += 1;
+    startedAt += 60;
+    await client.query(
+      `INSERT INTO deed_run (id, child_id, deed_id, source_ref, skill_ids, band, questions, responses, started_at, completed_at, created_at, updated_at, kind)
+       VALUES (?1, ?2, ?3, ?4, '[]', 'g68', ?5, '[]', ?6, ?7, ?6, ?6, ?8)`,
+      [`rune${n}`, childId, over.deedId ?? null, over.sourceRef === undefined ? "rune:west-wagon" : over.sourceRef, questions, startedAt,
+        over.completed ? startedAt + 30 : null, over.kind ?? "world"],
+    );
+  }
+
+  it("is a week of three rune runs a day, and no side quest plays runes yet", () => {
+    expect(RUNE_MEMORY_RUNS).toBe(21);
+    expect([...RUNE_DEED_IDS]).toEqual([]);
+  });
+
+  it("reads the last 21 rune world runs only, open or finished, newest first", async () => {
+    // 22 rune world runs, oldest first, on several objects: run 0 falls out of the memory.
+    const objects = ["rune:west-wagon", "rune:lane-lantern", "rune:appleway-cart"];
+    for (let i = 0; i < 22; i++) {
+      await run("mem", JSON.stringify([word(`rune-g68/w${i}`)]), { sourceRef: objects[i % 3], completed: i % 2 === 0 });
+    }
+    const keys = await loadRecentRuneKeys("mem");
+    expect(keys).toEqual(Array.from({ length: 21 }, (_, k) => `rune-g68/w${21 - k}`));
+    expect(keys).not.toContain("rune-g68/w0");
+  });
+
+  it("ignores a chest's run, Puzzle practice, a tower run, a side quest, another hero's runs, and a row that will not parse", async () => {
+    await run("mixed", JSON.stringify([word("rune-g68/kept")]));
+    await run("mixed", JSON.stringify([word("rune-g68/chest")]), { sourceRef: "chest:west-lane" });
+    await run("mixed", JSON.stringify([word("rune-g68/practice")]), { sourceRef: "practice" });
+    await run("mixed", JSON.stringify([word("rune-g68/no-ref")]), { sourceRef: null });
+    await run("mixed", JSON.stringify([word("rune-g68/tower")]), { kind: "tower", sourceRef: "rune:west-wagon" });
+    await run("mixed", JSON.stringify([word("rune-g68/side-quest")]), { kind: "deed", deedId: "mill-ledger", sourceRef: null });
+    await run("mixed", "nope");
+    await run("someone-else", JSON.stringify([word("rune-g68/theirs")]));
+    expect(await loadRecentRuneKeys("mixed")).toEqual(["rune-g68/kept"]);
+  });
+
+  it("never lets other runs crowd the memory: newer chest runs push no rune run out", async () => {
+    for (let i = 0; i < 21; i++) await run("crowd", JSON.stringify([word(`rune-g68/c${i}`)]));
+    for (let i = 0; i < 5; i++) await run("crowd", JSON.stringify([word("rune-g68/chest")]), { sourceRef: "chest:east-lane" });
+    const keys = await loadRecentRuneKeys("crowd");
+    expect(keys).toHaveLength(21);
+    expect(keys).toContain("rune-g68/c0");
+  });
+
+  it("is empty for a hero with no rune runs", async () => {
+    await expect(loadRecentRuneKeys("nobody")).resolves.toEqual([]);
   });
 });

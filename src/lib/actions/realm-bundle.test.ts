@@ -422,6 +422,37 @@ describe("getRealmBundle: the world's locks (RG-h)", () => {
     expect((await getRealmBundle("c1")).worldState?.locksOn).toBe(false);
   });
 
+  it("offers the runes as the settings row's switch says, on by default (R-I13)", async () => {
+    expect((await getRealmBundle("c1")).worldState?.runesOn).toBe(true);
+    loadRealmSettingsRow.mockResolvedValueOnce({ ...SETTINGS_ROW, mechanics: JSON.stringify({ rune: false }) } as never);
+    const off = (await getRealmBundle("c1")).worldState;
+    expect(off?.runesOn).toBe(false);
+    // The runes have their own switch: the locks stay on.
+    expect(off?.locksOn).toBe(true);
+  });
+
+  it("lists a fixed rune object from the rows it already read, with no read of its own (R-I20)", async () => {
+    const now = new Date();
+    loadWorldRaw.mockResolvedValueOnce({
+      rows: [
+        { objectId: "rune:west-wagon", state: "fixed", updatedAt: now },
+        { objectId: "chest:west-lane", state: "open", updatedAt: now },
+      ],
+      starred: new Set(),
+    });
+    const b = await getRealmBundle("c1");
+    expect(b.worldState).toMatchObject({ runesOn: true, fixed: ["rune:west-wagon"], open: ["chest:west-lane"] });
+    expect(loadWorldRaw).toHaveBeenCalledTimes(1);
+    expect(loadHeroLevels).not.toHaveBeenCalled();
+    expect(getTimezoneForChild).not.toHaveBeenCalled();
+  });
+
+  it("keeps the fixed records with the runes off: only the drawing rests (R-I13)", async () => {
+    loadWorldRaw.mockResolvedValueOnce({ rows: [{ objectId: "rune:lane-lantern", state: "fixed", updatedAt: new Date() }], starred: new Set() });
+    loadRealmSettingsRow.mockResolvedValueOnce({ ...SETTINGS_ROW, mechanics: JSON.stringify({ rune: false }) } as never);
+    expect((await getRealmBundle("c1")).worldState).toMatchObject({ runesOn: false, fixed: ["rune:lane-lantern"] });
+  });
+
   it("shows a grade-4 hero with no 3 stars yet their own floor, waiting", async () => {
     const b = await getRealmBundle("c1");
     expect(b.worldState?.tower).toEqual([{ band: "g45", open: false, solved: 0 }]);
