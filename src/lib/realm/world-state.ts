@@ -137,6 +137,27 @@ export function worldCanvas(view: WorldStateView): WorldCanvas {
   return { locksOn: view.locksOn, locks, runes, decor: view.decor, storeys: view.tower.filter((f) => f.open).length, towerKnown: view.tower.length > 0 };
 }
 
+/**
+ * A rune walk's view of its objects (owner, 2026-11-21): every object the walk still `named` is drawn
+ * broken, by its broken label and with the cast verb, whatever its record says, until its word is
+ * cast on this walk (`mended`), when it shows mended at once. Anything else keeps its record. Only
+ * the canvas changes: the record, and the renewal a right cast writes at the finish (R-I22), are the
+ * server's. The same canvas comes back when the walk changes nothing, so the memoised `World` is not
+ * redrawn for nothing; with no walk it is the canvas itself.
+ */
+export function withRuneWalk(canvas: WorldCanvas, walk: { named: readonly string[]; mended: readonly string[] } | null): WorldCanvas {
+  if (!walk) return canvas;
+  let changed = false;
+  const runes = canvas.runes.map((r) => {
+    const fixed = walk.mended.includes(r.id) ? true : walk.named.includes(r.id) ? false : r.fixed;
+    const object = fixed === r.fixed ? null : runeObjectById(r.id);
+    if (!object) return r;
+    changed = true;
+    return runeSpotView(object, fixed);
+  });
+  return changed ? { ...canvas, runes } : canvas;
+}
+
 /** The chest standing in this room, in the room's own frame, or null: none there, or the locks are off. */
 export function roomChestFor(room: RoomKind, view: WorldStateView): LockSpotView | null {
   if (!view.locksOn) return null;

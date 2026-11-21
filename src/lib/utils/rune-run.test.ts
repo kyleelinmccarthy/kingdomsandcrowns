@@ -102,14 +102,14 @@ describe("bindRuneObjects: each rune of a side quest at a village object of its 
     }
   });
 
-  it("takes the broken object of an effect first, then a fixed one by its fixed label (RI-a / N8)", () => {
+  it("takes the broken object of an effect first, then a fixed one, by its broken label too: the walk draws it broken until cast (owner, 2026-11-21)", () => {
     const [wagon, barrow] = of("mend");
     const broken = new Set([...ALL].filter((id) => id !== wagon.id));
     for (let seed = 1; seed <= 20; seed++) {
       expect(objectOf(bindRuneObjects([word("mend", 1)], VILLAGE_RUNE_OBJECTS, broken, seededRng(seed))[0])!.id, `seed ${seed}`).toBe(barrow.id);
     }
     const two = bindRuneObjects([word("mend", 1), word("mend", 2)], VILLAGE_RUNE_OBJECTS, broken, seededRng(4)).map(objectOf);
-    expect(two).toEqual([{ id: barrow.id, label: barrow.label }, { id: wagon.id, label: wagon.fixedLabel }]);
+    expect(two).toEqual([{ id: barrow.id, label: barrow.label }, { id: wagon.id, label: wagon.label }]);
   });
 
   it("names a fixed object when none of its effect is broken, so a right cast there renews it", () => {
@@ -118,7 +118,7 @@ describe("bindRuneObjects: each rune of a side quest at a village object of its 
       const [t] = bindRuneObjects([word("mend", 1)], VILLAGE_RUNE_OBJECTS, NONE, seededRng(seed)) as RuneTask[];
       const object = runeObjectById(t.object!.id)!;
       expect(object.effect).toBe("mend");
-      expect(t.object!.label).toBe(object.fixedLabel);
+      expect(t.object!.label).toBe(object.label);
       seen.add(object.id);
     }
     // Either may be named: the run's rng chooses.

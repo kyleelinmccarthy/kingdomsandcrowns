@@ -69,8 +69,8 @@ export function runePassOver(objects: readonly RuneObject[], broken: ReadonlySet
 /**
  * Binds each rune task, in order, to an unused object of its effect among `objects` (the village's, for
  * a side quest, R-I22): a broken one when any is left, chosen with the run's seeded `rng`, else a fixed
- * one, which a right cast renews. A broken object is named by its `label` ("the broken wagon"), a fixed
- * one by its `fixedLabel` ("the wagon", RI-a / N8), as the hero sees it. A rune task whose effect has no
+ * one, which a right cast renews. Either is named by its broken `label` ("the broken wagon"): the walk
+ * draws every object it names broken until its word is cast (owner, 2026-11-21). A rune task whose effect has no
  * unused object left is dropped (three of one effect, two objects). A task of another kind passes
  * through untouched and draws nothing, so one seed is one binding. A task already bound (a miss
  * brought back) is bound afresh.
@@ -90,7 +90,7 @@ export function bindRuneObjects(tasks: readonly Task[], objects: readonly RuneOb
     if (from.length === 0) continue;
     const object = from[Math.floor(rng() * from.length)];
     used.add(object.id);
-    out.push({ ...rune, object: { id: object.id, label: broken.has(object.id) ? object.label : object.fixedLabel } });
+    out.push({ ...rune, object: { id: object.id, label: object.label } });
   }
   return out;
 }

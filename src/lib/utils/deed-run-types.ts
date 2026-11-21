@@ -20,6 +20,12 @@ export type RunStart = {
    */
   pending: { index: number; ruledOut: string; hint: string; feedback?: FeedbackCode } | null;
   /**
+   * A rune run picked back up: the objects its tasks already cast right (first try or second), in
+   * order, so a walk picked back up checks them on its card and draws them mended (smoke bug 3).
+   * Absent when none is.
+   */
+  mended?: string[];
+  /**
    * A side quest's building as the run begins, for the bench's drawing: its site stage
    * (`siteStage`), whether it is finished, and `placed`, how many of the run's bench tasks were
    * already put right (first try or second), so a run picked back up draws what it had laid. Only a

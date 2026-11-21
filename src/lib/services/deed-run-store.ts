@@ -6,6 +6,7 @@ import { records, resumeIndex, statusOf } from "@/lib/utils/deed-attempts";
 import { isRegisteredKind, isTaskCorrect, kindOf, secondChanceHint, storedFeedback, toClientTask, type Task } from "@/lib/tasks/registry";
 import { demoKeyOf, demoKind, isLockDemo, LOCK_DEMO_PUZZLES, type DemoKey } from "@/lib/tasks/demos";
 import type { HandsOnKind } from "@/lib/tasks/kinds";
+import type { RuneTask } from "@/lib/tasks/types";
 import type { RunStart } from "@/lib/utils/deed-run-types";
 import type { ImprovementId } from "@/lib/realm/improvements";
 import { RUNE_DEED_IDS } from "@/lib/utils/deeds";
@@ -212,9 +213,12 @@ export function resumedStart(
   const pending = statuses[at] === "open"
     ? { index: at, ruledOut: attempts[at].first ?? "", hint: secondChanceHint(questions[at], attempts[at].first), ...(feedback ? { feedback } : {}) }
     : null;
-  const start: RunStart = { runId: run.id, deed: header, questions: questions.map(toClientTask), responses, kind: run.kind, pending };
+  const right = (i: number) => statuses[i] === "right-first" || statuses[i] === "right-second";
+  // The rune objects already cast right, so a walk picked back up checks them on its card (smoke bug 3).
+  const mended = questions.flatMap((q, i) => (kindOf(q) === "rune" && right(i) && (q as RuneTask).object ? [(q as RuneTask).object!.id] : []));
+  const start: RunStart = { runId: run.id, deed: header, questions: questions.map(toClientTask), responses, kind: run.kind, pending, ...(mended.length > 0 ? { mended } : {}) };
   if (!site && !plan) return start;
-  const placed = questions.filter((q, i) => kindOf(q) === "measure" && (statuses[i] === "right-first" || statuses[i] === "right-second")).length;
+  const placed = questions.filter((q, i) => kindOf(q) === "measure" && right(i)).length;
   return { ...start, ...(site ? { site: { ...site, placed } } : {}), ...(plan ? { plan: { ...plan, placed } } : {}) };
 }
 

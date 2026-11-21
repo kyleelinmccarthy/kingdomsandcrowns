@@ -75,6 +75,8 @@ const { buildDeedRun: realBuildDeedRun } = await vi.importActual<typeof import("
 const { requireChildAccess } = await import("@/lib/auth/access");
 const { startRuneObjectRun } = await import("./rune-objects");
 const { realmNow } = await import("@/lib/services/realm-clock");
+const { loadWorldRows, worldClock } = await import("@/lib/services/realm-world-state");
+const { brokenNow } = await import("@/lib/realm/world-state");
 
 // The tables the run touches, as the migrations make them (foreign keys left out); `subject` and
 // `activity_log` carry only the columns the school count reads.
@@ -2442,12 +2444,12 @@ describe("language side quests are rune walks (I11: R-I2, R-I8, R-I14, R-I17, R-
     expect(await worldRows()).toEqual(rows);
   });
 
-  it("a fixed object named in a side quest is renewed: its row moves to now, by its fixed label", async () => {
+  it("a fixed object named in a side quest is renewed: its row moves to now; it is named by its broken label, as the walk draws it (owner, 2026-11-21)", async () => {
     const earlier = new Date("2026-11-08T12:00:00Z");
     for (const o of VILLAGE_RUNE_OBJECTS) await insertFixed(o.id, earlier);
     const start = await startDeedRun("c1", "mill-ledger", "realm");
     const tasks = await castAll(start.runId);
-    for (const t of tasks) expect(t.object!.label).toBe(runeObjectById(t.object!.id)!.fixedLabel);
+    for (const t of tasks) expect(t.object!.label).toBe(runeObjectById(t.object!.id)!.label);
     const summary = await completeDeedRun(start.runId);
     expect(summary.runes).toEqual(tasks.map((t) => ({ objectId: t.object!.id, fixed: true })));
     const rows = await worldRows();
@@ -2457,6 +2459,24 @@ describe("language side quests are rune walks (I11: R-I2, R-I8, R-I14, R-I17, R-
       if (named.has(id)) expect(row.at, id).toBeGreaterThan(earlier.getTime() / 1000);
       else expect(row.at, id).toBe(earlier.getTime() / 1000);
     }
+  });
+
+  it("a rune run picked back up names the objects it already cast right, so the walk's card keeps their ticks (smoke bug 3)", async () => {
+    const start = await startDeedRun("c1", "mill-ledger", "realm");
+    expect(start).not.toHaveProperty("mended");
+    const tasks = await runesOf(start.runId);
+    await answerDeedQuestion(start.runId, 0, runeRight(tasks[0]));
+    // A resolved miss is not mended.
+    const first = runeWrong(tasks[1]);
+    await answerDeedQuestion(start.runId, 1, first);
+    await retryDeedQuestion(start.runId, 1, otherWrong(tasks[1], first));
+    const resumed = await startDeedRun("c1", "mill-ledger", "realm");
+    expect(resumed.runId).toBe(start.runId);
+    expect(resumed.mended).toEqual([tasks[0].object!.id]);
+    // Right on the second try is mended too.
+    await answerDeedQuestion(start.runId, 2, runeWrong(tasks[2]));
+    await retryDeedQuestion(start.runId, 2, runeRight(tasks[2]));
+    expect((await startDeedRun("c1", "mill-ledger", "realm")).mended).toEqual([tasks[0].object!.id, tasks[2].object!.id]);
   });
 
   it("a missed cast leaves its object broken; the others are fixed", async () => {
@@ -2679,6 +2699,9 @@ describe("language side quests are rune walks (I11: R-I2, R-I8, R-I14, R-I17, R-
         for (const deedId of deeds) {
           vi.setSystemTime(at);
           at += HOURS_8;
+          // What stood fixed as the run began, by the server's own rule: every stop is named by its broken label now.
+          const [rows, clock] = await Promise.all([loadWorldRows(child), worldClock(child)]);
+          const fixedAtStart = (id: string) => !brokenNow(runeObjectById(id)!, rows.find((r) => r.objectId === id) ?? null, clock.today, clock.zone);
           const start = await startDeedRun(child, deedId, "realm");
           const tasks = await runesOf(start.runId);
           expect(tasks, `grade ${grade} day ${day} ${deedId}`).toHaveLength(3);
@@ -2686,8 +2709,8 @@ describe("language side quests are rune walks (I11: R-I2, R-I8, R-I14, R-I17, R-
           const summary = await completeDeedRun(start.runId);
           expect(summary.runes?.map((r) => r.fixed), `grade ${grade} day ${day} ${deedId}`).toEqual([true, true, true]);
           for (const t of tasks) {
-            const brokenLabel = t.object!.label === runeObjectById(t.object!.id)!.label;
-            if (!brokenLabel) renewed.push(t.object!.id);
+            expect(t.object!.label).toBe(runeObjectById(t.object!.id)!.label);
+            if (fixedAtStart(t.object!.id)) renewed.push(t.object!.id);
             else if (fixedOnce.has(t.object!.id)) brokeAgain.push(`${t.object!.id} day ${day}`);
             fixedOnce.add(t.object!.id);
           }

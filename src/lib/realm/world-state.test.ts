@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { addDays, todayInZone } from "@/lib/utils/dates";
-import { applyRuneOutcomes, applyTowerOutcome, applyWorldOutcome, brokenNow, EMPTY_WORLD_STATE, heldNow, lockedNow, nextRewards, roomChestFor, solvedCount, worldCanvas, worldStateView, type WorldRow, type WorldStateView } from "./world-state";
+import { applyRuneOutcomes, applyTowerOutcome, applyWorldOutcome, brokenNow, withRuneWalk, EMPTY_WORLD_STATE, heldNow, lockedNow, nextRewards, roomChestFor, solvedCount, worldCanvas, worldStateView, type WorldRow, type WorldStateView } from "./world-state";
 import { worldObjectById, WORLD_OBJECTS } from "./world-objects";
 import { RUNE_OBJECTS } from "./rune-objects";
 
@@ -416,5 +416,42 @@ describe("applyRuneOutcomes: the client's mirror of a fix", () => {
       { objectId: "rune:lane-lantern", fixed: true },
     ]);
     expect(next.fixed).toEqual(["rune:lane-lantern", "rune:lane-vine", "rune:farfurrow-gate"]);
+  });
+});
+
+describe("withRuneWalk: a rune walk's view of its objects (owner, 2026-11-21)", () => {
+  // The lantern, the flower bed and the tree stand fixed on their records; the wagon is broken.
+  const view: WorldStateView = { ...EMPTY_WORLD_STATE, runesOn: true, fixed: ["rune:lane-lantern", "rune:flower-bed", "rune:old-tree"] };
+  const canvas = worldCanvas(view);
+  const spot = (c: ReturnType<typeof worldCanvas>, id: string) => c.runes.find((r) => r.id === id)!;
+
+  it("no walk is the canvas itself", () => {
+    expect(withRuneWalk(canvas, null)).toBe(canvas);
+  });
+
+  it("every object the walk still names is drawn broken, by its broken label, whatever its record says", () => {
+    const walked = withRuneWalk(canvas, { named: ["rune:west-wagon", "rune:lane-lantern", "rune:flower-bed"], mended: [] });
+    expect(spot(walked, "rune:lane-lantern")).toMatchObject({ fixed: false, label: "the dark lantern" });
+    expect(spot(walked, "rune:flower-bed")).toMatchObject({ fixed: false, label: "the dry flower bed" });
+    expect(spot(walked, "rune:west-wagon")).toEqual(spot(canvas, "rune:west-wagon"));
+    // An object the walk does not name keeps its record: the tree stands fixed.
+    expect(spot(walked, "rune:old-tree")).toBe(spot(canvas, "rune:old-tree"));
+    expect(walked.locks).toBe(canvas.locks);
+  });
+
+  it("an object cast right on this walk shows mended, by its fixed label, even while it is still named", () => {
+    const walked = withRuneWalk(canvas, { named: ["rune:west-wagon", "rune:lane-lantern"], mended: ["rune:west-wagon"] });
+    expect(spot(walked, "rune:west-wagon")).toMatchObject({ fixed: true, label: "the wagon" });
+    expect(spot(walked, "rune:lane-lantern")).toMatchObject({ fixed: false, label: "the dark lantern" });
+  });
+
+  it("a walk that changes nothing gives back the same canvas, so the memoised World is not redrawn", () => {
+    expect(withRuneWalk(canvas, { named: ["rune:west-wagon"], mended: [] })).toBe(canvas);
+    expect(withRuneWalk(canvas, { named: [], mended: ["rune:lane-lantern"] })).toBe(canvas);
+  });
+
+  it("runes off: nothing is drawn, walk or not", () => {
+    const off = worldCanvas({ ...view, runesOn: false });
+    expect(withRuneWalk(off, { named: ["rune:lane-lantern"], mended: [] })).toBe(off);
   });
 });

@@ -123,7 +123,7 @@ import { useQuietWorld, useWake, WakeToast } from "./quiet-hud";
 import { useWorldState } from "./use-world-state";
 import { WorldLockBoard } from "./world-lock-board";
 import { TowerBoard } from "./tower-board";
-import { roomChestFor, type WorldStateView } from "@/lib/realm/world-state";
+import { roomChestFor, withRuneWalk, type WorldStateView } from "@/lib/realm/world-state";
 import { worldObjectById } from "@/lib/realm/world-objects";
 import { runeObjectById } from "@/lib/realm/rune-objects";
 import { RuneObjectBoard } from "./rune-object-board";
@@ -1090,6 +1090,8 @@ export function RealmGame({
   const room = useMemo(() => (inside ? roomPlan(inside.room) : null), [inside]);
   // The chest in the room the hero is in, if it has one and the locks are on (`roomChestFor`).
   const roomChest = useMemo(() => (inside ? roomChestFor(inside.room, lockState.view) : null), [inside, lockState.view]);
+  // What the island draws: during a rune walk, the objects it names broken until cast, and those cast on it mended (owner, 2026-11-21).
+  const worldLocks = useMemo(() => withRuneWalk(lockState.canvas, runeWalk.canvas), [lockState.canvas, runeWalk.canvas]);
   const roomColors = useMemo(() => ({ field: hero.backgroundColor || hero.outfitColor, charge: hero.accessoryColor || "#f4d27a" }), [hero]);
 
   return (
@@ -1119,7 +1121,7 @@ export function RealmGame({
         stockpile={stockpile}
         built={built}
         hallDrawings={realm.hallDrawings}
-        worldLocks={lockState.canvas}
+        worldLocks={worldLocks}
         trailOn={trail.walk !== null}
         trailRevealed={trail.revealed}
         runeWalk={runeWalk.canvas}

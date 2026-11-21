@@ -242,6 +242,7 @@ The owner's answers:
 - **Focus wins for runes too:** a language side quest that would draw a grown-up's focus skill no rune pool can play (today `lang-g1`) plays as multiple choice at full length (R-I8, mirroring R-H22).
 - **Slice 6 merges into `dev` only on the owner's word** (R-I16).
 - **Grades 2–3 build the word they hear:** the word is always spoken (dictation), with the object's picture, as at K–1 (R-I18).
+- **A side quest shows its named objects broken until cast (2026-11-21):** during a rune walk every object it still names is drawn broken, by its broken label and with the cast verb, whatever its record says, and shows mended once its word is cast on this walk; it is a client view of the walk (`withRuneWalk`), and any-time fixes and the server's renewal writes (R-I22) are unchanged.
 
 The rulings:
 - **R-I1:** rune objects can be fixed any time: a `world` run of one rune task, started by `startRuneObjectRun(childId, objectId)` on the shared lock start skeleton; the hero's alone; refused with runes off (`RUNES_OFF`) and while the object holds (`RUNE_FIXED`); the fix and the run's close are one `withChildLock` transaction. A miss leaves it broken.

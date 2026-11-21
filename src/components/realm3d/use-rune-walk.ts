@@ -16,9 +16,12 @@
  *   word cast (its finish step). The same object until either changes; null with no walk, so the
  *   memoised `World`'s sibling never redraws for nothing.
  *
- * Every begin, finish and leave starts again at stop 0 with nothing mended: "Leave the rune walk"
- * drops the marks, and the objects show as their rows say until a run is finished (R-I21).
- * Client state only, as the trail's.
+ * Every begin, finish and leave starts again at stop 0 with nothing mended but what the server says
+ * a walk picked back up already cast right (`run.mended`): "Leave the rune walk" drops the marks, and
+ * the objects show as their rows say until a run is finished (R-I21). While the walk is on, the frame
+ * draws its objects through `canvas` (`withRuneWalk`, owner 2026-11-21): every stop still ahead broken,
+ * whatever its record says, and each one mended on this walk fixed, so E's verb and label follow.
+ * Client state otherwise, as the trail's.
  */
 
 import { useCallback, useMemo, useRef, useState, type MutableRefObject } from "react";
@@ -62,13 +65,13 @@ export function useRuneWalk(overlayKind: string | null): RuneWalkState {
     setMended(NONE);
   }, []);
 
-  const begin = useCallback(
-    (run: RunStart, villager: Villager, buildingId: string) => {
-      beginWalk(run, villager, buildingId);
-      reset();
-    },
-    [beginWalk, reset],
-  );
+  // A walk picked back up starts with what the server says it already cast right (`run.mended`), so
+  // its card keeps those ticks and the canvas draws them mended (smoke bug 3).
+  const begin = useCallback((run: RunStart, villager: Villager, buildingId: string) => {
+    beginWalk(run, villager, buildingId);
+    setAtState(0);
+    setMended(run.mended ?? NONE);
+  }, [beginWalk]);
 
   const finish = useCallback(
     (summary: RunSummary) => {

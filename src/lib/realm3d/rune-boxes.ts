@@ -1,7 +1,7 @@
 /**
  * THE RUNE OBJECTS' SHAPES, as boxes the scene merges (`components/realm3d/rune-objects.tsx`): a
- * low-poly pair for each of the five effects, broken and fixed, and the mark that floats over the
- * walk's current stop. Pure, so that every box keeps to its footprint and its height is tested here
+ * low-poly pair for each of the five effects, broken and fixed, and the mark that floats over each
+ * stop the walk is still going to. Pure, so that every box keeps to its footprint and its height is tested here
  * (`rune-boxes.test.ts`) and the scene only paints and merges. Boxes are in the thing's own frame,
  * front to +z: `x`/`z` the centre on the ground, `y` the centre height, `sx`/`sy`/`sz` the size
  * (`YardBox`). One shape serves every object of an effect: the label says which it is, never the
@@ -135,7 +135,7 @@ export function runeObjectBoxes(effect: RuneEffect, fixed: boolean): YardBox[] {
 }
 
 /**
- * The mark that floats over the walk's current stop: a gold arrow pointing down, between 2.0 and 3.0
+ * The mark that floats over each stop the walk is still going to: a gold arrow pointing down, between 2.0 and 3.0
  * above the ground and under 0.6 across, so it reads from across the village and never hides the object.
  */
 export function runeMarkBoxes(): YardBox[] {
@@ -149,8 +149,9 @@ export type RunePaint = { id: string; x: number; z: number; ry: number; boxes: Y
  * What the painter (`rune-objects.tsx`) draws for each rune object, pure so it is tested here
  * without `three`. An object is drawn fixed when its record says so or it was `mended` on this walk
  * (R-I21: the right cast shows at once, before the record lands). A `named` object the walk is still
- * going to, and not yet mended, wears the gold mark over it, a fixed one too (its rune is renewed,
- * R-I22). With runes off the canvas lists no runes, so nothing is drawn.
+ * going to, and not yet mended, wears the gold mark over it; the frame hands every one of them over
+ * broken, whatever its record says (`withRuneWalk`, owner 2026-11-21). With runes off the canvas lists
+ * no runes, so nothing is drawn.
  */
 export function runeObjectPaint(
   runes: readonly { id: string; effect: RuneEffect; x: number; z: number; ry: number; fixed: boolean }[] | undefined,

@@ -1,7 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { villagerById } from "@/lib/realm/villagers";
-import { RUNE_WALK_SUMMARY, WALK_STOPS, runeWalkRun } from "@/test/rune-walk-run";
+import { MEND, RUNE_WALK_SUMMARY, WALK_STOPS, runeWalkRun } from "@/test/rune-walk-run";
 import { useRuneWalk } from "./use-rune-walk";
 
 const run = runeWalkRun();
@@ -33,6 +33,19 @@ describe("useRuneWalk", () => {
     act(() => result.current.begin(run, bram, "mill"));
     expect(result.current.walk?.key).toBe(2);
     expect(result.current.at).toBe(0);
+    expect(result.current.mended).toEqual([]);
+  });
+
+  it("a walk picked back up starts with the objects the server says it cast right, so the card keeps their ticks (smoke bug 3)", () => {
+    const { result } = setup();
+    act(() => result.current.begin(runeWalkRun({ responses: [MEND, null, null], mended: [WAGON] }), bram, "mill"));
+    expect(result.current.mended).toEqual([WAGON]);
+    // The tracker reports its own stop (RI-a / S1).
+    act(() => result.current.setAt(1));
+    expect(result.current.stopOf(WAGON)).toBe("done");
+    expect(result.current.canvas).toEqual({ named: [LANTERN, FLOWERS], mended: [WAGON] });
+    // A fresh begin has none.
+    act(() => result.current.begin(run, bram, "mill"));
     expect(result.current.mended).toEqual([]);
   });
 

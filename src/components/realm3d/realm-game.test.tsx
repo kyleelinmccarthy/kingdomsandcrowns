@@ -93,7 +93,7 @@ import { markCeremonySeen } from "@/lib/actions/seasons";
 import { markBuildingsAnnounced, markDeliverySeen, pinPlan, startBuildRun } from "@/lib/actions/improvements";
 import { KEEP_YARD } from "@/lib/realm/keep-yard";
 import { EMPTY_WORKS, type Works } from "@/lib/realm/works-state";
-import { CHRONICLE_TARGET, PLANS_TARGET } from "@/lib/realm3d/interact";
+import { CHRONICLE_TARGET, PLANS_TARGET, runeTarget } from "@/lib/realm3d/interact";
 import { getChronicle } from "@/lib/actions/realm-chronicle";
 import { BUILD_HERO_ONLY } from "@/lib/utils/deed-refusals";
 import { startReviewRun } from "@/lib/actions/review";
@@ -1970,7 +1970,46 @@ describe("a rune walk in the Realm (R-I2, R-I11, I10)", () => {
     await press(stop(0));
     await castMend();
     expect(canvasWalk()!.mended).toEqual([WAGON]);
-    expect(drawnFixed(WAGON)).toBe(false);
+    // Drawn mended at once, by the walk's view; its record (the view) is still broken until the finish.
+    expect(drawnFixed(WAGON)).toBe(true);
+    expect(applyRuneOutcomes).not.toHaveBeenCalled();
+  });
+
+  it("a named object fixed on its record is drawn broken until its cast, then mended; an object the walk does not name keeps its record, and the record stands after the walk (owner, 2026-11-21)", async () => {
+    vi.mocked(answerDeedQuestion).mockResolvedValue(RIGHT);
+    await setOff(runeWalkRun(), withRunes({ ...runesOn, fixed: [WAGON, LANTERN, "rune:old-tree"] }));
+    const spot = (id: string) => (handed.props!.worldLocks as ReturnType<typeof worldCanvas>).runes.find((r) => r.id === id)!;
+    // Named and fixed on its record: broken, by its broken label, with the cast verb.
+    expect(spot(WAGON)).toMatchObject({ fixed: false, label: "the broken wagon" });
+    expect(runeTarget(spot(WAGON)).verb).toBe("Cast a rune at");
+    expect(spot(LANTERN)).toMatchObject({ fixed: false, label: "the dark lantern" });
+    // Not named: as its record says.
+    expect(spot("rune:old-tree")).toMatchObject({ fixed: true, label: "the tree" });
+    expect(runeTarget(spot("rune:old-tree")).verb).toBe("Look at");
+    await press(stop(0));
+    await castMend();
+    // Cast right on this walk: mended at once, and E there says "Look at" (smoke bug 4).
+    expect(spot(WAGON)).toMatchObject({ fixed: true, label: "the wagon" });
+    expect(runeTarget(spot(WAGON)).verb).toBe("Look at");
+    await click(RUNE_DONE);
+    expect(spot(WAGON).fixed).toBe(true);
+    expect(spot(LANTERN).fixed).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: RUNE_LEAVE }));
+    // The walk is over: every object as its record says.
+    expect(spot(WAGON)).toMatchObject({ fixed: true, label: "the wagon" });
+    expect(spot(LANTERN)).toMatchObject({ fixed: true, label: "the lantern" });
+  });
+
+  it("a walk picked back up after a reload keeps the ticks of the stops the server says it cast right (smoke bug 3)", async () => {
+    await setOff(runeWalkRun({ responses: [MEND, null, null], mended: [WAGON] }));
+    const [wagon, lantern] = within(card()!).getAllByRole("listitem");
+    expect(wagon).toHaveClass("rune-walk-stop--mended");
+    expect(wagon).toHaveTextContent("mended");
+    expect(lantern).not.toHaveClass("rune-walk-stop--mended");
+    expect(card()).toHaveTextContent("Next: the dark lantern");
+    expect(drawnFixed(WAGON)).toBe(true);
+    await press(stop(0));
+    expect(card()).toHaveTextContent(RUNE_HOLDS_HERE);
   });
 
   it("E at a later stop says 'First, …' and opens nothing", async () => {
