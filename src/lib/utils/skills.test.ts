@@ -255,9 +255,9 @@ describe("the ELA and science skill tables follow the skill map", () => {
   });
 
   /**
-   * **The content progress bar for this plan.** These are the map's 27 rows that no pool has
-   * been written for yet — this task moves the existing twelve onto grades and authors
-   * nothing. **It must reach `[]` by the end of this plan.** Each later task that writes a
+   * **The content progress bar for this plan.** These are the map's rows that no pool has been
+   * written for yet (27 when the plan began; the map's `spell-g1` row is played as runes and is
+   * not one of them). **It must reach `[]` by the end of this plan.** Each later task that writes a
    * pool deletes its line here; the test below fails until the line goes, and it also fails
    * if a line is deleted without the pool actually arriving, so the list cannot be fudged in
    * either direction. When it is empty, the comparison below is the map, unfiltered.

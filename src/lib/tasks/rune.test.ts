@@ -14,6 +14,7 @@ import type { RuneTask } from "./types";
 import { seededRng } from "@/lib/utils/drill-generators";
 import { findSkill } from "@/lib/utils/skills";
 import { cloneRunePool } from "@/test/rune-pool-fixture";
+import { GENERIC_RUNE_HINT } from "@/lib/utils/skill-hints";
 
 /** Every forged cast Review Focus 2 names, and a few more. */
 const FORGED: readonly unknown[] = [
@@ -124,6 +125,10 @@ describe("the rune kind (R-I5)", () => {
     expect(runeKind.retryLine!(RUNE, [0])).toBe("It rhymes with send.");
     expect(runeKind.answerText(RUNE)).toBe("The word was mend.");
     expect(runeKind.reveal!(RUNE)).toBe("r:1,3,4,0");
+  });
+
+  it("a stored entry with no hint of its own falls back to the rune's hint, never an empty line (I2 parked)", () => {
+    expect(runeKind.retryLine!(runeStub({ hint: "" }), [0])).toBe(GENERIC_RUNE_HINT);
   });
 
   it("reveals the first accepted word that tiles", () => {

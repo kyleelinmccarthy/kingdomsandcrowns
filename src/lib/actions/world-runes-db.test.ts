@@ -4,6 +4,7 @@ import { testDatabase } from "@/test/libsql-test-db";
 import { runeRight as right, runeWrong as wrong } from "@/test/rune-answers";
 import { lockRight } from "@/test/lock-answers";
 import { runeStub } from "@/test/rune-stubs";
+import { isTaskCorrect } from "@/lib/tasks/registry";
 import { DEFAULT_REALM_SETTINGS } from "@/lib/utils/realm-settings";
 import { FINISHED, NOT_IN_CHRONICLE, RUNE_HERO_ONLY, RUNES_OFF } from "@/lib/utils/deed-refusals";
 import { HELD, asRun } from "@/test/object-start";
@@ -227,6 +228,9 @@ describe("startRuneObjectRun", () => {
     expect(again.correct).toBe(false);
     expect(again.secondChance).toBe(false);
     expect(again.answer).toContain(task.words[0]);
+    // And the row is filled with one accepted word's tiles: `reveal` arrives only now, and it is right.
+    expect(again.reveal).toMatch(/^r:\d+(,\d+)*$/);
+    expect(isTaskCorrect(task, again.reveal!)).toBe(true);
   });
 
   it("the same object resumes; another object starts its own", async () => {

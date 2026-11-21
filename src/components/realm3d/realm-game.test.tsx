@@ -463,6 +463,9 @@ describe("the rune objects", () => {
     await act(async () => void bus.onInteract(lantern));
     expect(startRuneObjectRun).toHaveBeenCalledWith("demo-child-1", "rune:lane-lantern");
     expect(screen.getByRole("dialog", { name: RUNE_TITLE })).toHaveTextContent(RUNE_HOLDS_LINE);
+    // Held as drawn: nothing is reported, and the world is drawn as it was (I9 parked).
+    expect(applyRuneOutcomes).not.toHaveBeenCalled();
+    expect(handed.props!.worldLocks).toEqual(worldCanvas(view));
   });
 
   it("a visiting grown-up looks at an object and starts nothing", async () => {

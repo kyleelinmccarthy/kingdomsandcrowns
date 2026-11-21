@@ -15,6 +15,7 @@ import { RUNE_MAX_CHARS, TASK_CODECS } from "./codecs";
 import { runeAnswerText } from "./rune-copy";
 import { runeTiling, spelled } from "./rune-tiles";
 import { runePoolFor } from "./runes";
+import { taskHint } from "@/lib/utils/skill-hints";
 import type { RuneResponse, RuneTask, RuneView, TaskKindDef } from "./types";
 
 /**
@@ -75,5 +76,6 @@ export const runeKind: TaskKindDef<"rune"> = {
     }
     return "";
   },
-  retryLine: (t) => t.hint,
+  // The entry's own hint; a stored entry with none falls back to the rune's, never an empty line.
+  retryLine: (t) => t.hint || taskHint(t),
 };

@@ -12,10 +12,11 @@ export type { FocusOption };
 
 const AREA_ORDER: SkillArea[] = ["math", "reading", "language", "science", "logic"];
 
-/** Beside a trail-only skill: it has no multiple choice, so with Reading trails off it is never drawn. */
-const FOCUS_TRAIL_ONLY_NOTE = "Played only as reading trails";
-/** Beside a rune-only skill: it has no multiple choice, so with Rune spellcraft off it is never drawn. */
-const FOCUS_RUNE_ONLY_NOTE = "Played only as rune spellcraft";
+/**
+ * Beside a skill with no multiple choice, by the one way it is played: with that mechanic's switch
+ * off (Reading trails, Rune spellcraft) it is never drawn.
+ */
+const FOCUS_ONLY_NOTES = { trail: "Played only as reading trails", rune: "Played only as rune spellcraft" } as const;
 
 function sameSet(a: readonly string[], b: readonly string[]) {
   return a.length === b.length && a.every((id) => b.includes(id));
@@ -111,8 +112,9 @@ export function FocusSkillsPanel({
           <ul className="space-y-1.5">
             {skills.map((skill) => {
               const on = picked.includes(skill.id);
-              const note = skill.trailOnly ? FOCUS_TRAIL_ONLY_NOTE : skill.runeOnly ? FOCUS_RUNE_ONLY_NOTE : undefined;
-              const noteId = note ? `focus-${skill.trailOnly ? "trail" : "rune"}-${skill.id}` : undefined;
+              const only = skill.trailOnly ? "trail" : skill.runeOnly ? "rune" : null;
+              const note = only ? FOCUS_ONLY_NOTES[only] : undefined;
+              const noteId = only ? `focus-${only}-${skill.id}` : undefined;
               return (
                 <li key={skill.id} className="flex flex-wrap items-center gap-x-2">
                   <label className="flex items-center gap-2 text-sm">

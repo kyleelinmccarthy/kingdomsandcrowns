@@ -104,7 +104,7 @@ is how these are actually taught.
 ## Totals
 
 **40 skills across 13 grades and 3 strands** — 12 carried forward with their items and their history,
-**27 new** pool skills, and one more row, `spell-g1` (grade 1 spelling), added for slice 6's rune
+**27 new** skills, and one more row, `spell-g1` (grade 1 spelling), added for slice 6's rune
 spellcraft (R-I7). It is played only as words built from rune tiles and has no multiple-choice pool, so
 it adds no questions to the count. At 45 items per new pool that is **about 1,215 new questions**,
 against 572 today.

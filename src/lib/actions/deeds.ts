@@ -20,7 +20,6 @@ import {
 import { masteryChangeCopy, masteryLabel, parseRecentResults, progressToNextRung, recordResult } from "@/lib/utils/mastery";
 import { seededRng, type Question } from "@/lib/utils/drill-generators";
 import { isTaskCorrect, kindOf, secondChanceHint, taskDefOf, type ResponseByKind, type Task, type TaskKind } from "@/lib/tasks/registry";
-import type { RuneTask } from "@/lib/tasks/types";
 import { CHALLENGE, MAX_STARS, RUN_EFFECTS, countsTowardBuilding, runPoints, starsFor, type QuestionOutcome, type RunKind, type Stars } from "@/lib/utils/deed-scoring";
 import { outcomeOf, refuseGiveUp, refuseRetry, statusOf, type QuestionStatus } from "@/lib/utils/deed-attempts";
 import {
@@ -43,8 +42,8 @@ import { fixRuneObjects, loadWorldRows, openWorldObject, recordTowerSolve, world
 import { brokenNow } from "@/lib/realm/world-state";
 import { bandOfTowerRef } from "@/lib/realm/puzzle-tower";
 import { isWorldObjectId, worldObjectById } from "@/lib/realm/world-objects";
-import { VILLAGE_RUNE_OBJECTS, isRuneObjectId, runeObjectById } from "@/lib/realm/rune-objects";
-import { bindRuneObjects, runePassOver } from "@/lib/utils/rune-run";
+import { VILLAGE_RUNE_OBJECTS, isRuneObjectId } from "@/lib/realm/rune-objects";
+import { bindRuneObjects, runeFixesOf, runePassOver } from "@/lib/utils/rune-run";
 import { finishBuild } from "@/lib/services/improvements";
 import { loadMaterialLedger } from "@/lib/services/realm-materials";
 import { IMPROVEMENTS, parsePlanRef, type ImprovementId } from "@/lib/realm/improvements";
@@ -544,29 +543,6 @@ export async function completeDeedRun(runId: string): Promise<RunSummary> {
     ...(opened.tower ? { tower: opened.tower } : {}),
     ...(opened.runes ? { runes: opened.runes } : {}),
   };
-}
-
-/**
- * The rune objects a finish fixes, with whether a right cast renews one already fixed, or null for none:
- *  - a rune world run's own object, fixed only while it is broken on the server's day (R-I1, `renew` false);
- *  - a side quest's or Crown Challenge's runes, each at the object it was bound to at the start, renewed
- *    even when fixed (R-I22, `renew` true), but only when the hero finishes: a grown-up finishing a
- *    page run mends nothing (RI-a / S8).
- * A task whose object has left the catalog fixes nothing (Review Focus 4), so neither does a run of only those.
- */
-function runeFixesOf(
-  run: Pick<DeedRunRow, "kind" | "sourceRef">, questions: readonly Task[], outcomes: readonly QuestionOutcome[], byHero: boolean,
-): { fixes: { objectId: string; outcome: QuestionOutcome }[]; renew: boolean } | null {
-  if (run.kind === "world") {
-    const object = runeObjectById(run.sourceRef);
-    return object ? { fixes: [{ objectId: object.id, outcome: outcomes[0] }], renew: false } : null;
-  }
-  if ((run.kind !== "deed" && run.kind !== "challenge") || !byHero) return null;
-  const fixes = questions.flatMap((q, i) => {
-    const objectId = kindOf(q) === "rune" ? (q as RuneTask).object?.id : undefined;
-    return runeObjectById(objectId) ? [{ objectId: objectId!, outcome: outcomes[i] }] : [];
-  });
-  return fixes.length > 0 ? { fixes, renew: true } : null;
 }
 
 /**

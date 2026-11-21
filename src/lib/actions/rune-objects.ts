@@ -11,7 +11,7 @@ import { refuseHeld, startObjectRun } from "@/lib/services/lock-runs";
 import { loadWorldRows, worldClock } from "@/lib/services/realm-world-state";
 import type { SkillArea } from "@/lib/utils/skills";
 
-/** A rune's strand: its grade is the hero's in it, never named by hand (`strand-grade-access.test.ts`). */
+/** A rune's strand, always language: the run's own area, so its grade is read as `hero.grades[RUNE_AREA]` (the form `strand-grade-access.test.ts` allows) and the header names it. */
 const RUNE_AREA: SkillArea = "language";
 
 /**

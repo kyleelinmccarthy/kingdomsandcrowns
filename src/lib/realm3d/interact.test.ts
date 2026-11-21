@@ -515,7 +515,7 @@ describe("the rune objects", () => {
 
   it("says Cast a rune at a broken object, Look at a fixed one by its fixed name, and Look at to a grown-up", () => {
     const target = (id: string, viewer?: "child" | "parent") => runeTarget(runes.find((r) => r.id === id)!, viewer);
-    expect(target("rune:west-wagon".replace("west-wagon", "east-barrow"))).toEqual({ kind: "rune", id: "rune:east-barrow", label: "the broken barrow", verb: "Cast a rune at" });
+    expect(target("rune:east-barrow")).toEqual({ kind: "rune", id: "rune:east-barrow", label: "the broken barrow", verb: "Cast a rune at" });
     expect(target("rune:west-wagon")).toEqual({ kind: "rune", id: "rune:west-wagon", label: "the wagon", verb: "Look at" });
     expect(target("rune:east-barrow", "parent").verb).toBe("Look at");
     expect(target("rune:west-wagon", "parent").verb).toBe("Look at");

@@ -7,7 +7,7 @@ import { runeStub } from "@/test/rune-stubs";
 import { seededRng } from "./drill-generators";
 import { GRADES, type Grade } from "./grade-levels";
 import { findSkill, type Skill } from "./skills";
-import { bindRuneObjects, runeObjectRun, runePassOver, runeSkill } from "./rune-run";
+import { bindRuneObjects, runeFixesOf, runeObjectRun, runePassOver, runeSkill } from "./rune-run";
 
 const ALL_ON: ReadonlySet<TaskKind> = new Set<TaskKind>(["measure", "lock", "trail", "rune"]);
 const RUNES_OFF: ReadonlySet<TaskKind> = new Set<TaskKind>(["measure", "lock", "trail"]);
@@ -177,5 +177,36 @@ describe("runePassOver: the effects a side quest's draw takes last (R-I22)", () 
   it("reads only the objects it is given: a broken object at a named place keeps no effect off it", () => {
     const places = RUNE_OBJECTS.filter((o) => o.place !== null).map((o) => o.id);
     expect(runePassOver(VILLAGE_RUNE_OBJECTS, new Set(places))).toEqual(RUNE_EFFECT_IDS.map(effectKey));
+  });
+});
+
+describe("runeFixesOf: the rune objects a finish fixes (R-I1, R-I22, RI-a / S8; moved out of the deed actions, I11 parked)", () => {
+  const at = (id: string) => runeStub({ object: { id, label: runeObjectById(id)?.label ?? "the gone thing" } });
+  const choice: ChoiceTask = { id: "lang-gk-item-1", skillId: "lang-gk", prompt: "Which?", choices: ["a", "b"], answer: "a" };
+
+  it("a rune world run fixes its own object by its first outcome, and renews nothing", () => {
+    expect(runeFixesOf({ kind: "world", sourceRef: wagon.id }, [at(wagon.id)], ["second"], true)).toEqual({ fixes: [{ objectId: wagon.id, outcome: "second" }], renew: false });
+    // A chest's world run and Puzzle practice fix no rune.
+    expect(runeFixesOf({ kind: "world", sourceRef: "chest:west-lane" }, [choice], ["first"], true)).toBeNull();
+    expect(runeFixesOf({ kind: "world", sourceRef: "practice" }, [choice], ["first"], true)).toBeNull();
+  });
+
+  it("a side quest or Crown Challenge the hero finishes fixes each rune at its own object, outcome by outcome, and renews", () => {
+    const tasks: Task[] = [at("rune:lane-lantern"), choice, at("rune:old-tree")];
+    for (const kind of ["deed", "challenge"] as const) {
+      expect(runeFixesOf({ kind, sourceRef: null }, tasks, ["first", "first", "miss"], true), kind).toEqual({
+        fixes: [{ objectId: "rune:lane-lantern", outcome: "first" }, { objectId: "rune:old-tree", outcome: "miss" }],
+        renew: true,
+      });
+    }
+  });
+
+  it("fixes nothing for a grown-up's finish, a review, or a run whose objects all left the catalog", () => {
+    const tasks: Task[] = [at("rune:lane-lantern")];
+    expect(runeFixesOf({ kind: "deed", sourceRef: null }, tasks, ["first"], false)).toBeNull();
+    expect(runeFixesOf({ kind: "review", sourceRef: null }, tasks, ["first"], true)).toBeNull();
+    expect(runeFixesOf({ kind: "deed", sourceRef: null }, [at("rune:gone")], ["first"], true)).toBeNull();
+    // One gone among the rest is passed over.
+    expect(runeFixesOf({ kind: "deed", sourceRef: null }, [at("rune:gone"), at("rune:lane-vine")], ["first", "first"], true)).toEqual({ fixes: [{ objectId: "rune:lane-vine", outcome: "first" }], renew: true });
   });
 });

@@ -12,7 +12,8 @@ import { kindForSkill, kindOf, TASK_KINDS } from "@/lib/tasks/registry";
 import { drawRuneFor } from "@/lib/tasks/runes/draw";
 import { effectKey } from "@/lib/content/rune-pools";
 import type { RuneTask, Task, TaskKind } from "@/lib/tasks/types";
-import { RUNE_EFFECT_IDS, type RuneObject } from "@/lib/realm/rune-objects";
+import { RUNE_EFFECT_IDS, runeObjectById, type RuneObject } from "@/lib/realm/rune-objects";
+import type { QuestionOutcome, RunKind } from "./deed-scoring";
 import { chooseSkills, type BuiltRun, type ProfileLike } from "./deed-engine";
 import { seededRng, type Rng } from "./drill-generators";
 import { focusWindow } from "./focus";
@@ -55,6 +56,30 @@ export function runeObjectRun(input: {
   const task = drawRuneFor(skill, input.level, object.effect, seededRng(input.seed), input.avoid);
   if (!task) return EMPTY;
   return { skillIds: [skill.id], questions: [{ ...task, object: { id: object.id, label: object.label } }] };
+}
+
+/**
+ * The rune objects a finish fixes, with whether a right cast renews one already fixed, or null for none:
+ *  - a rune world run's own object, fixed only while it is broken on the server's day (R-I1, `renew` false);
+ *  - a side quest's or Crown Challenge's runes, each at the object it was bound to at the start, renewed
+ *    even when fixed (R-I22, `renew` true), but only when the hero finishes: a grown-up finishing a
+ *    page run mends nothing (RI-a / S8).
+ * A task whose object has left the catalog fixes nothing (Review Focus 4), so neither does a run of only
+ * those. Pure: `completeDeedRun` hands it the run, its tasks, their outcomes and who is finishing.
+ */
+export function runeFixesOf(
+  run: { kind: RunKind; sourceRef: string | null }, questions: readonly Task[], outcomes: readonly QuestionOutcome[], byHero: boolean,
+): { fixes: { objectId: string; outcome: QuestionOutcome }[]; renew: boolean } | null {
+  if (run.kind === "world") {
+    const object = runeObjectById(run.sourceRef);
+    return object ? { fixes: [{ objectId: object.id, outcome: outcomes[0] }], renew: false } : null;
+  }
+  if ((run.kind !== "deed" && run.kind !== "challenge") || !byHero) return null;
+  const fixes = questions.flatMap((q, i) => {
+    const objectId = kindOf(q) === "rune" ? (q as RuneTask).object?.id : undefined;
+    return runeObjectById(objectId) ? [{ objectId: objectId!, outcome: outcomes[i] }] : [];
+  });
+  return fixes.length > 0 ? { fixes, renew: true } : null;
 }
 
 /**

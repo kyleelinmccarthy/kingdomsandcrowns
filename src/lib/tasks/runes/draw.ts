@@ -24,8 +24,6 @@ import type { Skill } from "@/lib/utils/skills";
 import type { RuneTask } from "../types";
 import { runePoolFor, runeTaskId, runeTaskOf } from "./index";
 
-export { fallbackTiles, shuffleTiles } from "@/lib/content/rune-pools";
-
 /** An entry is near the hero's level when it is within this many rungs of it. */
 const NEAR = 1;
 
