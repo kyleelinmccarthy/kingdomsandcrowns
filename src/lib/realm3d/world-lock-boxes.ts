@@ -26,6 +26,10 @@ const LID_WOOD = "#8a5d38";
 const IRON = "#3d3b3a";
 const DARK_STONE = "#6f6a60";
 const VOID = "#151214";
+/** A vault door's warm sandstone trim, so it stands out from the grey rock round it. */
+const TRIM = "#c8a165";
+/** The lamplight inside an open vault: the clearest sign that the door stands open. */
+const LAMPLIT = "#f2d28a";
 const { gold: GOLD, stone: STONE, timber: TIMBER, plaster: PLASTER, glass: GLASS } = IMPROVEMENT_COLORS;
 
 /** A box by its centre on the ground, footprint, the height of its bottom, and its height. */
@@ -50,12 +54,12 @@ export function chestBoxes(open: boolean): LockBox[] {
   return open ? [...CHEST_BODY, LID_OPEN, GOLD_INSIDE] : [...CHEST_BODY, LID_SHUT];
 }
 
-/** The stone frame: two pillars, a lintel with its keystone, a step, and the dark of the vault behind the leaves. */
+/** The stone frame: two pillars, a warm lintel with its gold keystone, a step, and the dark of the vault behind the leaves. */
 const DOOR_FRAME: readonly LockBox[] = [
   box(STONE, -0.62, 0, 0.26, 0.4, 0, 2.3),
   box(STONE, 0.62, 0, 0.26, 0.4, 0, 2.3),
-  box(STONE, 0, 0, 1.5, 0.44, 2.3, 0.3),
-  box(DARK_STONE, 0, 0, 0.3, 0.48, 2.4, 0.36),
+  box(TRIM, 0, 0, 1.5, 0.44, 2.3, 0.3),
+  box(GOLD, 0, 0, 0.3, 0.48, 2.4, 0.36),
   box(DARK_STONE, 0, 0, 1.0, 0.4, 0, 0.08),
   box(VOID, 0, -0.12, 0.98, 0.04, 0.08, 2.2),
 ];
@@ -88,8 +92,11 @@ function leaves(open: boolean): LockBox[] {
   return out;
 }
 
+/** Open, the vault behind the leaves is lit: warm light fills the opening, just in front of its dark. */
+const VAULT_LIGHT = box(LAMPLIT, 0, -0.08, 0.96, 0.04, 0.08, 2.18, "inside");
+
 export function vaultDoorBoxes(open: boolean): LockBox[] {
-  return [...DOOR_FRAME, ...leaves(open)];
+  return open ? [...DOOR_FRAME, VAULT_LIGHT, ...leaves(true)] : [...DOOR_FRAME, ...leaves(false)];
 }
 
 /* ------------------------------------------------------------------ the Puzzle Tower */
@@ -105,6 +112,11 @@ const FACE = WALL / 2 + 0.06;
 const window = (x: number, z: number, onX: boolean, y0: number): LockBox =>
   box(GLASS, x, z, onX ? 0.12 : 0.6, onX ? 0.6 : 0.12, y0, 0.9);
 
+/** A band of colour round the wall just under a cornice, a little proud of the wall and inside the body. */
+const trim = (y0: number): LockBox => box(GOLD, 0, 0, WALL + 0.12, WALL + 0.12, y0, 0.12);
+/** Each storey's banner, hung on the west face toward the village: one colour a storey, so the count reads at a glance. */
+const BANNERS = [IMPROVEMENT_COLORS.cloth, IMPROVEMENT_COLORS.water, IMPROVEMENT_COLORS.roof, GOLD, IMPROVEMENT_COLORS.cloth] as const;
+
 /**
  * The ground floor: a plinth, a stone wall and its cornice, a timber door and lintel on the west
  * face (where E climbs, `PUZZLE_TOWER.door`), and a window on each of the other faces. Its top is
@@ -114,21 +126,24 @@ const TOWER_BASE: readonly LockBox[] = [
   box(DARK_STONE, 0, 0, BODY, BODY, 0, 0.3),
   box(STONE, 0, 0, WALL, WALL, 0.3, BASE_H - 0.3 - BAND),
   box(DARK_STONE, 0, 0, BODY, BODY, BASE_H - BAND, BAND),
-  // The door and its lintel, flush with the west face, a step above the plinth.
-  box(TIMBER, -BODY / 2 + 0.1, 0, 0.2, 1.4, 0.3, 1.9),
+  trim(BASE_H - BAND - 0.12),
+  // The door (painted red) and its lintel, flush with the west face, a step above the plinth.
+  box(IMPROVEMENT_COLORS.cloth, -BODY / 2 + 0.1, 0, 0.2, 1.4, 0.3, 1.9),
   box(IRON, -BODY / 2 + 0.1, 0, 0.2, 1.7, 2.2, 0.2),
   window(0, FACE, false, 1.2),
   window(0, -FACE, false, 1.2),
   window(FACE, 0, true, 1.2),
 ];
 
-/** One storey's boxes, standing on `y0`: a wall of its own tone, windows on every face, and the cornice. */
+/** One storey's boxes, standing on `y0`: a wall of its own tone, windows on every face, its banner, a gold trim and the cornice. */
 function storey(i: number, y0: number): LockBox[] {
   const wall = i % 2 === 0 ? PLASTER : STONE;
   const y = y0 + 0.1;
   return [
     box(wall, 0, 0, WALL, WALL, y0, STOREY_H - BAND),
     box(DARK_STONE, 0, 0, BODY, BODY, y0 + STOREY_H - BAND, BAND),
+    trim(y0 + STOREY_H - BAND - 0.12),
+    box(BANNERS[i % BANNERS.length], -WALL / 2 - 0.05, 0, 0.1, 0.8, y0 + 0.35, STOREY_H - BAND - 0.6),
     window(-FACE, -1.4, true, y + 0.6),
     window(-FACE, 1.4, true, y + 0.6),
     window(FACE, 0, true, y + 0.6),
@@ -168,10 +183,14 @@ const SACK = "#b6863f";
  * here is solid; the hero walks past.
  */
 const DECOR_BOXES: Readonly<Record<DecorId, readonly YardBox[]>> = {
+  // Two dark legs under a paler seat that overhangs them, and a low back: a bench from any side, end-on included.
   "stone-bench": [
-    box(STONE, -0.5, 0, 0.2, 0.4, 0, 0.4),
-    box(STONE, 0.5, 0, 0.2, 0.4, 0, 0.4),
-    box(STONE, 0, 0, 1.3, 0.46, 0.4, 0.12),
+    box(DARK_STONE, -0.45, 0.04, 0.2, 0.34, 0, 0.38),
+    box(DARK_STONE, 0.45, 0.04, 0.2, 0.34, 0, 0.38),
+    box(PLASTER, 0, 0.04, 1.3, 0.48, 0.38, 0.1),
+    box(DARK_STONE, -0.45, -0.2, 0.16, 0.1, 0.48, 0.36),
+    box(DARK_STONE, 0.45, -0.2, 0.16, 0.1, 0.48, 0.36),
+    box(PLASTER, 0, -0.2, 1.2, 0.08, 0.7, 0.18),
   ],
   sundial: [
     box(STONE, 0, 0, 0.5, 0.5, 0, 0.7),

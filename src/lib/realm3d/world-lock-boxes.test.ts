@@ -6,6 +6,15 @@ import { chestBoxes, CHEST_FOOTPRINT, decorBoxes, DOOR_FOOTPRINT, DOOR_OPENING, 
 const top = (b: LockBox) => b.y + b.sy / 2;
 const bottom = (b: LockBox) => b.y - b.sy / 2;
 const parts = (boxes: readonly LockBox[], part: LockBox["part"]) => boxes.filter((b) => b.part === part);
+/** A colour's lightness and saturation (HSL), 0..1: how bright, and how far from grey. */
+function hsl(hex: string): { l: number; s: number; warm: boolean } {
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  const s = max === min ? 0 : (max - min) / (1 - Math.abs(2 * l - 1));
+  return { l, s, warm: r > b + 0.1 };
+}
 /** Is the box's centre inside the door's opening, between its posts and in the frame's own plane? */
 const inOpening = (b: LockBox) => Math.abs(b.x) < DOOR_OPENING.hw && Math.abs(b.z) < DOOR_OPENING.hd;
 
@@ -41,8 +50,24 @@ describe("a vault door", () => {
   });
 
   it("keeps the same frame, open or shut", () => {
-    const frame = (open: boolean) => vaultDoorBoxes(open).filter((b) => b.part !== "leaf");
+    const frame = (open: boolean) => vaultDoorBoxes(open).filter((b) => b.part !== "leaf" && b.part !== "inside");
     expect(frame(true)).toEqual(frame(false));
+  });
+
+  it("shows a lit opening when open, and none when shut, so open never looks like shut (smoke cosmetic)", () => {
+    expect(parts(vaultDoorBoxes(false), "inside")).toEqual([]);
+    const lit = parts(vaultDoorBoxes(true), "inside");
+    expect(lit.length).toBeGreaterThan(0);
+    for (const b of lit) {
+      expect(inOpening(b), JSON.stringify(b)).toBe(true);
+      expect(hsl(b.color).l, b.color).toBeGreaterThan(0.6);
+      expect(hsl(b.color).warm, b.color).toBe(true);
+    }
+  });
+
+  it("has a warm trim on its frame, so it stands out from grey rock", () => {
+    const frame = vaultDoorBoxes(false).filter((b) => !b.part);
+    expect(frame.some((b) => hsl(b.color).warm && hsl(b.color).s > 0.3), frame.map((b) => b.color).join(" ")).toBe(true);
   });
 });
 
@@ -80,6 +105,17 @@ describe("a decoration", () => {
       for (const n of [b.sx, b.sy, b.sz]) expect(n).toBeGreaterThan(0);
       expect(b.color).toMatch(/^#[0-9a-f]{6}$/i);
     }
+  });
+
+  it("a stone bench reads as a bench: a seat wider than its legs, standing on them, and a back above it (smoke cosmetic)", () => {
+    const boxes = decorBoxes("stone-bench");
+    const seat = boxes.reduce((a, b) => (b.sx * b.sz > a.sx * a.sz ? b : a));
+    const legs = boxes.filter((b) => top(b) <= bottom(seat) + 1e-9 && bottom(b) < 1e-9);
+    expect(legs.length).toBeGreaterThanOrEqual(2);
+    for (const l of legs) expect(l.sx).toBeLessThan(seat.sx / 2);
+    const back = boxes.filter((b) => bottom(b) >= top(seat) - 1e-9 && b.z < 0);
+    expect(back.length).toBeGreaterThan(0);
+    expect(new Set(boxes.map((b) => b.color)).size, "the seat and the legs are two tones").toBeGreaterThan(1);
   });
 
   it("gives every decoration its own shape", () => {
@@ -129,6 +165,18 @@ describe("the Puzzle Tower", () => {
     expect(door.x - PUZZLE_TOWER.x).toBeLessThan(-body / 2);
     const slabs = towerBoxes(0).filter((b) => Math.abs(b.x - b.sx / 2 + body / 2) < 1e-9 && b.sz < body / 2 && bottom(b) > 0 && bottom(b) < 0.5 && top(b) < baseH);
     expect(slabs.length).toBeGreaterThan(0);
+  });
+
+  it("has a coloured door, and a coloured banner and trim on every storey, so it is no drab grey box (smoke cosmetic)", () => {
+    const coloured = (boxes: readonly LockBox[]) => boxes.filter((b) => b.color !== "#9ccfe3" && hsl(b.color).s > 0.45);
+    // The ground floor's door, flush with the west face.
+    expect(coloured(towerBoxes(0)).some((b) => b.x - b.sx / 2 <= -body / 2 + 1e-9), "a coloured door").toBe(true);
+    for (let n = 1; n <= 5; n++) {
+      const added = towerBoxes(n).filter((b) => !towerBoxes(n - 1).some((a) => JSON.stringify(a) === JSON.stringify(b)));
+      expect(coloured(added).length, `storey ${n}`).toBeGreaterThanOrEqual(2);
+      // The banner hangs on the west face, toward the village, under the storey's cornice.
+      expect(added.some((b) => coloured([b]).length === 1 && b.x < -body / 2 + 0.3 && b.sz < 1.2), `storey ${n} banner`).toBe(true);
+    }
   });
 
   it("is one box more or fewer per floor, never a different tower: each storey adds boxes", () => {
