@@ -1,9 +1,17 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it } from "vitest";
 import { testDatabase } from "./libsql-test-db";
 import { applyMigrations } from "./apply-migrations";
 import { DEED_RUN_DDL, REALM_PLACE_FOUND_DDL, REALM_WORLD_STATE_DDL, SKILL_MASTERY_DDL } from "./realm-db-ddl";
 
 // A hand-written copy of a table is only worth having while it is the table the migrations make.
+// The migrated database is built once for the file: applying every migration per test timed out under
+// the full suite's load (it passes alone; dev ab1559e, 4 of 5 at the 5 s limit).
+let real: ReturnType<typeof testDatabase>;
+beforeAll(async () => {
+  real = testDatabase("ddl-real");
+  await applyMigrations(real);
+}, 60_000);
+afterAll(() => real?.close());
 const open: ReturnType<typeof testDatabase>[] = [];
 afterEach(() => {
   while (open.length) open.pop()!.close();
@@ -19,10 +27,8 @@ async function shape(pool: ReturnType<typeof testDatabase>, table: string) {
 
 describe("the shared test DDL", () => {
   it("builds the table migration 0044 builds", async () => {
-    const real = testDatabase("ddl-real");
     const copy = testDatabase("ddl-copy");
-    open.push(real, copy);
-    await applyMigrations(real);
+    open.push(copy);
     for (const stmt of REALM_WORLD_STATE_DDL) await copy.client.execute(stmt);
     const want = await shape(real, "realm_world_state");
     expect(want.columns.map((c) => c.name)).toEqual(["id", "child_id", "object_id", "state", "updated_at"]);
@@ -35,10 +41,8 @@ describe("the shared test DDL", () => {
     ["skill_mastery", SKILL_MASTERY_DDL],
     ["realm_place_found", REALM_PLACE_FOUND_DDL],
   ] as const)("builds %s as the migrations build it, indexes and all", async (table, ddl) => {
-    const real = testDatabase("ddl-real");
     const copy = testDatabase("ddl-copy");
-    open.push(real, copy);
-    await applyMigrations(real);
+    open.push(copy);
     for (const stmt of ddl) await copy.client.execute(stmt);
     expect(await shape(copy, table)).toEqual(await shape(real, table));
   });
