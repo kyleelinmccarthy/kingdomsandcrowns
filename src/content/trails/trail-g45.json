@@ -161,7 +161,7 @@
       "level": 0,
       "clues": [
         {
-          "text": "The baker's ovens are cold because his flour bin is empty. Find the place that refills it.",
+          "text": "The baker's ovens are cold because his flour bin is empty. Find the place that grinds grain into the flour he needs.",
           "answer": "landmark:mill",
           "redirect": "No grain is ground into flour here. Read the clue again.",
           "why": "Flour for the baker's ovens comes from the mill."
@@ -467,7 +467,7 @@
           "why": "Mason Gerd's lantern burns at night over the hills, at the watchtower."
         },
         {
-          "text": "Ivy is snipping sage for the inn's kitchen. Help her where the herbs grow.",
+          "text": "Ivy is snipping sage for a sick neighbour's tea. Help her where the herbs grow.",
           "answer": "landmark:garden",
           "redirect": "No herbs grow here. Read the clue again.",
           "redirects": {
@@ -590,13 +590,13 @@
           "why": "Seedlings are young plants, and Keeper Ivy's herb beds are in the garden."
         },
         {
-          "text": "The road runs north past every house and ends at heavy doors that guard the keep. Wait there.",
+          "text": "The road runs north and ends at the way into the keep. Wait there to greet the visitors.",
           "answer": "landmark:castle-gate",
           "redirect": "This is not where the road ends. Think about what the clue's harder words mean.",
-          "why": "Heavy doors at the north end of the road are the castle gate."
+          "why": "The way into the castle, at the north end of the road, is the castle gate."
         },
         {
-          "text": "A riddle-lover has a tip. The trickiest bonus brain-teasers wait up the stone steps at the south-east edge.",
+          "text": "A riddle-lover has a tip. The trickiest bonus brain-teasers wait inside the tall stone place at the south-east edge.",
           "answer": "landmark:puzzle-tower",
           "redirect": "There are no bonus puzzles here. Read the clue again.",
           "redirects": {
@@ -842,10 +842,10 @@
           "why": "Fragrant means sweet-smelling; Keeper Ivy grows herbs by a sunny bench in the garden."
         },
         {
-          "text": "To enter the keep, go to the end of the road. There the portcullis is raised each morning.",
+          "text": "The threshold of the keep, the spot where you step inside, lies at the north end of the road. Go and stand on it.",
           "answer": "landmark:castle-gate",
           "redirect": "This is not where the road ends. Think about what the clue's harder words mean.",
-          "why": "A portcullis is a heavy grate that guards a way in; the castle gate stands at the end of the road."
+          "why": "A threshold is where you step in; the way into the castle at the north end of the road is the castle gate."
         }
       ]
     },
@@ -986,10 +986,10 @@
           "why": "A sunny bench among herbs, tended by Keeper Ivy, is in the garden."
         },
         {
-          "text": "Riders heading for the keep go north along the road until it ends at a pair of heavy doors.",
+          "text": "Riders heading for the keep go north along the road until it ends. There they pass inside. Go and wait for them.",
           "answer": "landmark:castle-gate",
           "redirect": "This is not where the road ends. Which words in the clue tell you the most?",
-          "why": "The heavy doors at the north end of the road are the castle gate."
+          "why": "The way into the castle, at the north end of the road, is the castle gate."
         },
         {
           "text": "Lost: one grey kitten. A sheet pinned up by the southern way into the village asks everyone to search their sheds.",
@@ -1085,10 +1085,10 @@
           "why": "Rosemary is an herb, and Keeper Ivy's herb beds lie in the sun in the garden."
         },
         {
-          "text": "The heavy portcullis rumbles up at dawn. It lets visitors into the keep from the north end of the road.",
+          "text": "Each dawn the keep admits its visitors at the north end of the road. To admit someone is to let them in. Go where they are admitted.",
           "answer": "landmark:castle-gate",
           "redirect": "This is not where the road ends. Think about what the clue's harder words mean.",
-          "why": "A portcullis guards a way in; the way into the castle at the north end of the road is the castle gate."
+          "why": "To admit is to let in; the castle lets visitors in at the north end of the road, at the castle gate."
         }
       ]
     },
@@ -1097,7 +1097,7 @@
       "level": 4,
       "clues": [
         {
-          "text": "The day's quests are done, yet your mind still itches for a challenge. Seek the stone steps at the south-east edge.",
+          "text": "The day's quests are done, yet your mind still itches for a challenge. Seek the tall stone place at the south-east edge.",
           "answer": "landmark:puzzle-tower",
           "redirect": "There are no bonus puzzles here. Read the clue again.",
           "redirects": {

@@ -150,7 +150,7 @@
       "level": 0,
       "clues": [
         {
-          "text": "A cook at the inn writes: 'My stew needs fresh thyme. Fetch it from where it grows, near the bench that sits in the sun.'",
+          "text": "A cook writes: 'My stew needs fresh thyme. Fetch it from where it grows, near the bench that sits in the sun.'",
           "answer": "landmark:garden",
           "redirect": "No herbs grow here. Read the note again.",
           "redirects": {
@@ -169,7 +169,7 @@
           ]
         },
         {
-          "text": "A messenger writes: 'I carry a letter for the keep. Show me where the road ends at the north and the great doors let visitors in.'",
+          "text": "A messenger writes: 'I carry a letter for the keep. Show me where the road ends at the north, where visitors go into the keep.'",
           "answer": "landmark:castle-gate",
           "redirect": "This is not where the north road ends. Which place fits every part of the note?",
           "why": "The way into the castle, at the north end of the road, is the castle gate.",
@@ -664,7 +664,7 @@
       "level": 1,
       "clues": [
         {
-          "text": "An innkeeper writes: 'My guests say the soup is dull. Fetch rosemary from where Keeper Ivy grows it.'",
+          "text": "A grandfather writes: 'My grandchildren say my soup is dull. Fetch rosemary from where Keeper Ivy grows it.'",
           "answer": "landmark:garden",
           "redirect": "No herbs grow here. Read the note again.",
           "redirects": {
@@ -976,10 +976,10 @@
       "level": 1,
       "clues": [
         {
-          "text": "A herald writes: 'The new lord arrives at dawn. Wait for him where the road ends and the great doors open into the keep.'",
+          "text": "A herald writes: 'The new lord arrives at dawn. Wait for him where the north road ends and the way into the keep begins.'",
           "answer": "landmark:castle-gate",
           "redirect": "This is not where the north road ends. Read the note again.",
-          "why": "The great doors into the castle where the road ends are the castle gate.",
+          "why": "The way into the castle, at the north end of the road, is the castle gate.",
           "parts": [
             [
               "landmark:castle-gate",
@@ -1133,13 +1133,13 @@
           ]
         },
         {
-          "text": "A student writes: 'I must not speak above a whisper there, and I must put each volume back where I found it. Come and study with me.'",
+          "text": "A student writes: 'I must keep my voice low there, and I must put each book back on its shelf. Come and study with me.'",
           "answer": "landmark:library",
           "redirect": "No shelves of old records are kept here. Which place fits every part of the note?",
           "redirects": {
             "object:notice-board": "Signs are pinned up on this for passers-by, but nothing is shelved here. Which place fits every part of the note?"
           },
-          "why": "A whispering place where volumes go back on shelves is the library.",
+          "why": "A place where books go back on their shelves is the library.",
           "parts": [
             [
               "landmark:library",
@@ -1196,7 +1196,7 @@
           ]
         },
         {
-          "text": "A traveller writes: 'They told me to follow the road north until I could go no farther, then knock and wait to be let in.'",
+          "text": "A traveller writes: 'They told me to follow the road north until I could go no farther, then wait there to be let into the keep.'",
           "answer": "landmark:castle-gate",
           "redirect": "This is not where the north road ends. Which place fits every part of the note?",
           "why": "The way in at the north end of the road is the castle gate.",
@@ -1220,13 +1220,13 @@
       "level": 2,
       "clues": [
         {
-          "text": "A tired hero writes: 'My quests are done, but my mind is restless. I will climb the stone steps at the south-east edge and try the extra challenges.'",
+          "text": "A tired hero writes: 'My quests are done, but my mind is restless. I will go to the tall stone place at the south-east edge and try the extra challenges.'",
           "answer": "landmark:puzzle-tower",
           "redirect": "There are no bonus puzzles here. What does the writer want?",
           "redirects": {
             "landmark:watchtower": "This is Mason Gerd's lookout over the hills, not a place of puzzles. What does the writer want?"
           },
-          "why": "Extra challenges up stone steps at the south-east edge are the Puzzle Tower's bonus puzzles.",
+          "why": "Extra challenges in the tall stone place at the south-east edge are the Puzzle Tower's bonus puzzles.",
           "parts": [
             [
               "landmark:puzzle-tower",
@@ -1486,10 +1486,10 @@
           ]
         },
         {
-          "text": "The keep's steward writes: 'Guests for the feast must come up the road to its very end, where the great doors will be opened for them.'",
+          "text": "The keep's steward writes: 'Guests for the feast must come up the north road to its very end, where they will be let into the keep.'",
           "answer": "landmark:castle-gate",
           "redirect": "This is not where the north road ends. Read the note again.",
-          "why": "The great doors at the end of the road lead into the castle: the castle gate.",
+          "why": "The way into the castle, at the north end of the road, is the castle gate.",
           "parts": [
             [
               "landmark:castle-gate",
@@ -1687,10 +1687,10 @@
           ]
         },
         {
-          "text": "Crier Pip writes: 'Tomorrow I must announce the lord's return. Wait at the end of the north road, where he will ride in through the great doors.'",
+          "text": "Crier Pip writes: 'Tomorrow I must announce the lord's return. Wait at the end of the north road, where he will ride into the keep.'",
           "answer": "landmark:castle-gate",
           "redirect": "This is not where the north road ends. Which place fits every part of the note?",
-          "why": "The great doors at the end of the north road are the castle gate.",
+          "why": "The way into the castle, at the north end of the road, is the castle gate.",
           "parts": [
             [
               "landmark:castle-gate",
@@ -2164,10 +2164,10 @@
           ]
         },
         {
-          "text": "Carry this grumble to the place it is about: 'I walked the north road to its very end, only to find the great doors to the keep shut until dawn.'",
+          "text": "A traveller grumbles: 'I walked the north road to its very end, and the keep would not let me in until dawn.' Go where the traveller waited.",
           "answer": "landmark:castle-gate",
           "redirect": "This is not where the north road ends. Which place fits every part of the note?",
-          "why": "The great doors to the castle at the end of the north road are the castle gate.",
+          "why": "The way into the castle, at the north end of the road, is the castle gate.",
           "parts": [
             [
               "landmark:castle-gate",
@@ -2187,13 +2187,13 @@
       "level": 4,
       "clues": [
         {
-          "text": "Carry this boast to the place it is about: 'I climbed the stone steps at the south-east edge and solved every bonus puzzle inside. Bet you can't!'",
+          "text": "A boast chalked on a wall: 'I went into the tall stone place at the south-east edge and solved every bonus puzzle in it. Bet you can't!' Go and try.",
           "answer": "landmark:puzzle-tower",
           "redirect": "There are no bonus puzzles here. What does the writer want?",
           "redirects": {
             "landmark:watchtower": "This is Mason Gerd's lookout over the hills, not a place of puzzles. What does the writer want?"
           },
-          "why": "Bonus puzzles up stone steps at the south-east edge are in the Puzzle Tower.",
+          "why": "Bonus puzzles in the tall stone place at the south-east edge are in the Puzzle Tower.",
           "parts": [
             [
               "landmark:puzzle-tower",
@@ -2206,13 +2206,13 @@
           ]
         },
         {
-          "text": "Carry this grumble from Crier Pip to the place it is about: 'Everyone reads the signs by the southern entrance now, and nobody listens to me!'",
+          "text": "Crier Pip grumbles: 'Nobody stops to hear me any more. They all crowd round the papers pinned up by the southern entrance.' Go where the crowd has gone.",
           "answer": "object:notice-board",
           "redirect": "Nothing is pinned up here for passers-by. Read the note again.",
           "redirects": {
             "landmark:library": "Hesper keeps her shelves here, but nobody pins up signs. Read the note again."
           },
-          "why": "The signs by the southern entrance are pinned on the notice board; nothing is pinned at the library.",
+          "why": "Papers pinned up by the southern entrance are on the notice board, not at Pip's market.",
           "parts": [
             [
               "object:notice-board",
@@ -2220,7 +2220,9 @@
             ],
             [
               "object:notice-board",
-              "landmark:castle-gate"
+              "object:water-trough",
+              "object:beehives",
+              "landmark:puzzle-tower"
             ]
           ]
         }
@@ -2231,13 +2233,13 @@
       "level": 4,
       "clues": [
         {
-          "text": "Carry this grumble from Old Bram to the place it is about: 'Those oxen splashed my clean pails again! They have their own long wooden basin at the south edge.'",
+          "text": "Old Bram shouts after the oxen: 'Keep out of my pails! Your own long wooden basin waits at the south edge.' Go where he sends them.",
           "answer": "object:water-trough",
           "redirect": "This is not where the animals stop for a slurp. Which place fits every part of the note?",
           "redirects": {
             "landmark:well": "Old Bram fills pails for people here, not for animals. Which place fits every part of the note?"
           },
-          "why": "The oxen's own long wooden basin at the south edge is the water trough.",
+          "why": "Bram sends the oxen away from his pails to their own long wooden basin at the south edge: the water trough.",
           "parts": [
             [
               "object:water-trough",

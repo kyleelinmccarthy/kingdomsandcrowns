@@ -1070,10 +1070,10 @@
           "readAloud": "Find the long wood box that the goats sip from."
         },
         {
-          "text": "Go to the north end of the road.",
+          "text": "Find the way in to the castle.",
           "answer": "landmark:castle-gate",
-          "redirect": "Not this one. This is not the end of the road.",
-          "readAloud": "Go to the north end of the road."
+          "redirect": "Not this one. This is not the way in.",
+          "readAloud": "Find the way in to the castle."
         }
       ]
     }

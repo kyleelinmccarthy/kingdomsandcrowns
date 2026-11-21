@@ -125,7 +125,7 @@
           ]
         },
         {
-          "text": "A shepherd's thanks: 'That stone sentinel never blinks. All night its single bright eye stares across the hills for wolves.'",
+          "text": "A shepherd's thanks: 'That tall sentinel never blinks. All night its single bright eye stares across the hills for wolves.'",
           "answer": "landmark:watchtower",
           "redirect": "No lantern keeps watch over the hills from here. What do the writer's words really mean?",
           "redirects": {
@@ -169,10 +169,10 @@
           ]
         },
         {
-          "text": "A herald's decree: 'Let every guest who seeks the keep follow the north road until it runs out of village, and there wait upon the great doors.'",
+          "text": "A herald's decree: 'Let every guest who seeks the keep follow the north road until it runs out of village, and there wait to be let in.'",
           "answer": "landmark:castle-gate",
           "redirect": "This is not where the north road ends. Picture what the words describe.",
-          "why": "The great doors into the castle at the north end of the road are the castle gate.",
+          "why": "The way into the castle, at the north end of the road, is the castle gate.",
           "parts": [
             [
               "landmark:castle-gate",
@@ -418,13 +418,13 @@
           ]
         },
         {
-          "text": "A child's description: 'It is a stone giant that stays up all night holding a candle, so the hills cannot sneak up on us.'",
+          "text": "A child's description: 'It is a giant that never goes to bed, holding a candle up high so the hills cannot sneak up on us.'",
           "answer": "landmark:watchtower",
           "redirect": "No lantern keeps watch over the hills from here. Picture what the words describe.",
           "redirects": {
             "landmark:puzzle-tower": "This tall place holds puzzles, not a lookout. Picture what the words describe."
           },
-          "why": "A stone giant with a light all night, watching the hills, is the watchtower.",
+          "why": "A giant holding a light up high all night, watching the hills, is the watchtower.",
           "parts": [
             [
               "landmark:watchtower",
@@ -569,10 +569,10 @@
           ]
         },
         {
-          "text": "A sleepy child: 'Why must the bronze throat above the house of whispers clang every evening, just as I drift off?'",
+          "text": "A sleepy child: 'Why must the bell above Sister Wren's house of whispers clang every evening, just as I drift off?'",
           "answer": "landmark:chapel",
           "redirect": "No bell calls the village to stillness from here. What do the writer's words really mean?",
-          "why": "A bronze throat that clangs is a bell, and the house of whispers is the quiet chapel.",
+          "why": "Sister Wren's bell hangs above her quiet house, the chapel.",
           "parts": [
             [
               "landmark:chapel",
@@ -670,10 +670,10 @@
           ]
         },
         {
-          "text": "A guard's boast: 'No one enters the keep without passing beneath my iron teeth at the end of the north road.'",
+          "text": "A proud herald: 'The north road is one long sentence, and the way into the keep is its full stop.'",
           "answer": "landmark:castle-gate",
           "redirect": "This is not where the north road ends. Picture what the words describe.",
-          "why": "Iron teeth are a portcullis; the way into the castle at the end of the north road is the castle gate.",
+          "why": "A full stop ends a sentence; the north road ends at the way into the castle, the castle gate.",
           "parts": [
             [
               "landmark:castle-gate",
@@ -694,13 +694,13 @@
       "level": 1,
       "clues": [
         {
-          "text": "A tired scholar: 'I thought my mind had done enough today, until I saw the stone stack of riddles at the south-east edge winking at me.'",
+          "text": "A tired scholar: 'I thought my mind had done enough today, until that tall grey riddler at the south-east edge winked at me.'",
           "answer": "landmark:puzzle-tower",
           "redirect": "There are no bonus puzzles here. What do the writer's words really mean?",
           "redirects": {
             "landmark:watchtower": "This is Mason Gerd's lookout over the hills, not a place of puzzles. What do the writer's words really mean?"
           },
-          "why": "A stone stack of riddles at the south-east edge is the Puzzle Tower.",
+          "why": "A tall riddler at the south-east edge is the Puzzle Tower, full of bonus puzzles.",
           "parts": [
             [
               "landmark:puzzle-tower",
@@ -732,13 +732,13 @@
           ]
         },
         {
-          "text": "A horse's opinion, according to its rider: 'The finest inn in the village is a long wooden basin at the south edge, open all hours, and it never runs dry.'",
+          "text": "A horse's opinion, according to its rider: 'The best spot in the village is a long wooden basin at the south edge, open all hours, and it never runs dry.'",
           "answer": "object:water-trough",
           "redirect": "This is not where the beasts come to slurp. Picture what the words describe.",
           "redirects": {
             "landmark:well": "Old Bram draws pails for people here, not for beasts. Picture what the words describe."
           },
-          "why": "An inn for a horse that never runs dry is the long wooden water trough at the south edge.",
+          "why": "A spot for a horse that never runs dry is the long wooden water trough at the south edge.",
           "parts": [
             [
               "object:water-trough",
@@ -918,13 +918,13 @@
           ]
         },
         {
-          "text": "A worried mother, relieved: 'I could not see my son in the fog, but the tireless star on top of the stone sentinel led him home from the hills.'",
+          "text": "A worried mother, relieved: 'I could not see my son in the fog, but the tireless star on top of the lookout led him home from the hills.'",
           "answer": "landmark:watchtower",
           "redirect": "No lantern keeps watch over the hills from here. Picture what the words describe.",
           "redirects": {
             "landmark:puzzle-tower": "This tall place holds puzzles, not a lookout. Picture what the words describe."
           },
-          "why": "A tireless star on a stone sentinel is the watchtower's lantern over the hills.",
+          "why": "A tireless star on a lookout over the hills is the watchtower's lantern.",
           "parts": [
             [
               "landmark:watchtower",
@@ -962,10 +962,10 @@
           ]
         },
         {
-          "text": "A tired messenger: 'The road ran north and north until it simply stopped, staring up at a pair of doors fit for giants.'",
+          "text": "A tired messenger: 'The road ran north and north until it simply stopped, as if bowing to the keep it serves.'",
           "answer": "landmark:castle-gate",
           "redirect": "This is not where the north road ends. Read the note again, slowly.",
-          "why": "Giant doors where the north road stops are the castle gate.",
+          "why": "The road stops at the north end, where the way into the castle is: the castle gate.",
           "parts": [
             [
               "landmark:castle-gate",
@@ -1120,13 +1120,13 @@
           ]
         },
         {
-          "text": "A wolf's lament in a children's tale: 'I would raid the sheepfolds, but the one-eyed stone giant keeps its light on the hills all night.'",
+          "text": "A wolf's lament in a children's tale: 'I would raid the sheepfolds, but the one-eyed giant keeps its light on the hills all night.'",
           "answer": "landmark:watchtower",
           "redirect": "No lantern keeps watch over the hills from here. What do the writer's words really mean?",
           "redirects": {
             "landmark:puzzle-tower": "This tall place holds puzzles, not a lookout. What do the writer's words really mean?"
           },
-          "why": "A one-eyed stone giant with a light on the hills is the watchtower.",
+          "why": "A one-eyed giant with a light on the hills all night is the watchtower.",
           "parts": [
             [
               "landmark:watchtower",
@@ -1164,10 +1164,10 @@
           ]
         },
         {
-          "text": "A sulky page: 'They sent me to the very end of the north road, to stand by those iron-toothed doors and greet every guest of the keep.'",
+          "text": "A sulky page: 'They sent me to the very end of the north road, to stand where the keep takes in its guests and bow to every one.'",
           "answer": "landmark:castle-gate",
           "redirect": "This is not where the north road ends. Picture what the words describe.",
-          "why": "Iron-toothed doors at the end of the north road are the castle gate.",
+          "why": "The way into the castle, at the north end of the road, is the castle gate.",
           "parts": [
             [
               "landmark:castle-gate",
@@ -1372,7 +1372,7 @@
           ]
         },
         {
-          "text": "A visiting lord, sniffing: 'Such a vulgar racket of hawkers and fiddles! Still, I confess the bread smells divine.'",
+          "text": "A fussy visitor: 'Such a clamour of hawkers and fiddles! Still, I confess the bread smells divine.'",
           "answer": "landmark:market",
           "redirect": "No hawkers or stalls fill this spot. What do the writer's words really mean?",
           "why": "Hawkers, fiddles and the smell of bread mean the market.",
@@ -1413,13 +1413,13 @@
           ]
         },
         {
-          "text": "A night owl: 'I am not the only one awake. Up high, the stone sentinel keeps its lantern burning, its gaze fixed on the hills.'",
+          "text": "A night owl: 'I am not the only one awake. Up high, Mason Gerd's lantern keeps burning, its gaze fixed on the hills.'",
           "answer": "landmark:watchtower",
           "redirect": "No lantern keeps watch over the hills from here. Picture what the words describe.",
           "redirects": {
             "landmark:puzzle-tower": "This tall place holds puzzles, not a lookout. Picture what the words describe."
           },
-          "why": "A stone sentinel with a lantern watching the hills is the watchtower.",
+          "why": "Mason Gerd's lantern up high, watching the hills, is at the watchtower.",
           "parts": [
             [
               "landmark:watchtower",
@@ -1562,10 +1562,10 @@
           ]
         },
         {
-          "text": "A solemn proclamation: 'At dusk the bronze voice shall sound from the house of stillness, and all who hear it may lay down their work.'",
+          "text": "A solemn proclamation: 'At dusk the great bell shall sound over Sister Wren's sanctuary, and all who hear it may lay down their work.'",
           "answer": "landmark:chapel",
           "redirect": "No bell calls the village to stillness from here. What do the writer's words really mean?",
-          "why": "A bronze voice sounding from a still house is the chapel's bell.",
+          "why": "A sanctuary is a holy, peaceful place; Sister Wren's, with its bell, is the chapel.",
           "parts": [
             [
               "landmark:chapel",
@@ -1663,10 +1663,10 @@
           ]
         },
         {
-          "text": "A court poet: 'The road, having wandered through every lane, at last arrives at the iron-toothed mouth of the keep, and there falls silent.'",
+          "text": "A court poet: 'The road, having wandered the whole village, at last reaches the threshold of the keep in the north, and there falls silent.'",
           "answer": "landmark:castle-gate",
           "redirect": "This is not where the north road ends. Picture what the words describe.",
-          "why": "The iron-toothed mouth of the castle, where the road ends, is the castle gate.",
+          "why": "A threshold is where you step in; the castle's, at the north end of the road, is the castle gate.",
           "parts": [
             [
               "landmark:castle-gate",
@@ -1686,13 +1686,13 @@
       "level": 3,
       "clues": [
         {
-          "text": "A smug riddler: 'Think you are clever? Then climb my stone stack at the south-east edge and prove it, one bonus puzzle at a time.'",
+          "text": "A smug riddler: 'Think you are clever? Then visit my tall stone home at the south-east edge and prove it, one bonus puzzle at a time.'",
           "answer": "landmark:puzzle-tower",
           "redirect": "There are no bonus puzzles here. What do the writer's words really mean?",
           "redirects": {
             "landmark:watchtower": "This is Mason Gerd's lookout over the hills, not a place of puzzles. What do the writer's words really mean?"
           },
-          "why": "Bonus puzzles in a stone stack at the south-east edge are in the Puzzle Tower.",
+          "why": "A tall stone home of bonus puzzles at the south-east edge is the Puzzle Tower.",
           "parts": [
             [
               "landmark:puzzle-tower",
@@ -1870,7 +1870,7 @@
           ]
         },
         {
-          "text": "A jealous rival crier: 'Pip's voice is not even that loud. The crowd only gathers because his square smells of fresh bread.'",
+          "text": "A friendly rival crier: 'I shout as loud as Pip, but his crowd is always bigger. I think it is the smell of fresh bread drifting over his square.'",
           "answer": "landmark:market",
           "redirect": "No hawkers or stalls fill this spot. What do the writer's words really mean?",
           "why": "Crier Pip's square that smells of bread is the market.",
@@ -1911,13 +1911,13 @@
           ]
         },
         {
-          "text": "A soldier's toast: 'To the stone sentinel and its keeper, whose lantern never blinks and whose gaze never leaves the hills.'",
+          "text": "A soldier's toast: 'To the sentinel above our roofs and its keeper, whose lantern never blinks and whose gaze never leaves the hills.'",
           "answer": "landmark:watchtower",
           "redirect": "No lantern keeps watch over the hills from here. Picture what the words describe.",
           "redirects": {
             "landmark:puzzle-tower": "This tall place holds puzzles, not a lookout. Picture what the words describe."
           },
-          "why": "A stone sentinel whose lantern watches the hills is the watchtower.",
+          "why": "A sentinel is a guard; one above the roofs whose lantern watches the hills is the watchtower.",
           "parts": [
             [
               "landmark:watchtower",
@@ -1955,10 +1955,10 @@
           ]
         },
         {
-          "text": "A fussy steward: 'All guests of the keep must present themselves where the north road ends. Do not knock; the guards will see you.'",
+          "text": "A fussy steward: 'All guests of the keep must present themselves where the north road ends. Punctuality is a courtesy; do not keep the keep waiting.'",
           "answer": "landmark:castle-gate",
           "redirect": "This is not where the north road ends. Read the note again, slowly.",
-          "why": "Guests enter the castle where the north road ends: the castle gate.",
+          "why": "The way into the castle, at the north end of the road, is the castle gate.",
           "parts": [
             [
               "landmark:castle-gate",
@@ -1972,10 +1972,10 @@
           ]
         },
         {
-          "text": "A runaway's confession in a story: 'I hid in the golden heap on the wagon at the east edge, and the ponies nearly ate me.'",
+          "text": "A runaway's confession in a story: 'I hid in the scratchy, sweet-smelling load on the wagon at the east edge, and the ponies nearly ate me.'",
           "answer": "object:hay-cart",
           "redirect": "There is no hay here. Picture what the words describe.",
-          "why": "A golden heap on a wagon at the east edge, that ponies eat, is the hay cart.",
+          "why": "A scratchy, sweet-smelling load that ponies eat, on a wagon at the east edge, is the hay cart.",
           "parts": [
             [
               "object:hay-cart",
@@ -2111,13 +2111,13 @@
           ]
         },
         {
-          "text": "A fable's moral: 'The stone sentinel dozes by day and stares by night, its lantern pinned to the dark above the hills. Go where the wolves fear to look.'",
+          "text": "A fable's moral: 'The sentinel dozes by day and stares by night, its lantern pinned to the dark above the hills. Go where the wolves fear to look.'",
           "answer": "landmark:watchtower",
           "redirect": "No lantern keeps watch over the hills from here. What do the writer's words really mean?",
           "redirects": {
             "landmark:puzzle-tower": "This tall place holds puzzles, not a lookout. What do the writer's words really mean?"
           },
-          "why": "A stone sentinel whose lantern watches the hills at night is the watchtower.",
+          "why": "A sentinel whose lantern watches the hills at night is the watchtower.",
           "parts": [
             [
               "landmark:watchtower",
@@ -2155,10 +2155,10 @@
           ]
         },
         {
-          "text": "A child's view of the keep: 'At the end of the north road it opens its mouth each morning, shows its iron teeth and swallows the guests one by one.'",
+          "text": "A child's view of the keep: 'It sits at the top of the north road like a mother hen, and every morning it gathers its guests in, one by one.'",
           "answer": "landmark:castle-gate",
           "redirect": "This is not where the north road ends. Picture what the words describe.",
-          "why": "The castle's mouth with iron teeth at the end of the north road is the castle gate.",
+          "why": "The keep takes in its guests at the top of the north road: the way into the castle, the castle gate.",
           "parts": [
             [
               "landmark:castle-gate",
@@ -2345,10 +2345,10 @@
           ]
         },
         {
-          "text": "A grumbling cat in a tale: 'Every evening the bronze voice above that hushed house booms, and every human stops whatever they are doing. Even Sister Wren.'",
+          "text": "A grumbling cat in a tale: 'Every evening the big bell over Sister Wren's place booms, and every human stops whatever they are doing.'",
           "answer": "landmark:chapel",
           "redirect": "No bell calls the village to stillness from here. Picture what the words describe.",
-          "why": "A bronze voice over a hushed house is the bell of Sister Wren's chapel.",
+          "why": "The big bell over Sister Wren's place is the chapel's.",
           "parts": [
             [
               "landmark:chapel",
@@ -2446,10 +2446,10 @@
           ]
         },
         {
-          "text": "An impatient lord: 'The north road has run out, the doors to the keep are bolted, and the sun is setting. Someone come and wait with me.'",
+          "text": "An impatient lord: 'The north road has run out, the keep will not let me in before dawn, and the sun is setting. Someone come and wait with me.'",
           "answer": "landmark:castle-gate",
           "redirect": "This is not where the north road ends. Read the note again, slowly.",
-          "why": "Bolted doors to the castle where the north road ends are the castle gate.",
+          "why": "The way into the castle, at the north end of the road, is the castle gate.",
           "parts": [
             [
               "landmark:castle-gate",

@@ -332,7 +332,7 @@
           }
         },
         {
-          "text": "The farm horses look hot and tired. Take them where they can have a long, cool sip.",
+          "text": "The farm horses are hot and tired. Lead them to the long wooden box where the animals sip.",
           "answer": "object:water-trough",
           "redirect": "This is not where the animals stop for a sip. Read it once more and picture the place.",
           "redirects": {
@@ -532,7 +532,7 @@
           }
         },
         {
-          "text": "A message says: Walk north up the road until it ends. Wait by the great doors there.",
+          "text": "A message says: Walk north up the road until it ends. That is the way into the keep. Wait there.",
           "answer": "landmark:castle-gate",
           "redirect": "This is not where the road ends. Read it once more and picture the place."
         },
@@ -651,7 +651,7 @@
           }
         },
         {
-          "text": "The road runs north through the village. At its very end are the big doors to the stone keep. Go there.",
+          "text": "The road runs north through the village. At its very end is the way into the keep. Go there.",
           "answer": "landmark:castle-gate",
           "redirect": "This is not where the road ends. Read the clue again."
         }
@@ -670,7 +670,7 @@
           }
         },
         {
-          "text": "Stone steps, tricky puzzles and a bonus prize! Find the tall place at the south-east edge.",
+          "text": "Hard puzzles, bonus puzzles, more puzzles! Find the tall stone place at the south-east edge.",
           "answer": "landmark:puzzle-tower",
           "redirect": "There are no bonus puzzles here. Read it once more and picture the place.",
           "redirects": {
@@ -759,7 +759,7 @@
           }
         },
         {
-          "text": "Follow the road north, past every house. When the road ends, you will see two great doors. That is where you must go.",
+          "text": "Follow the road north as far as it goes. Where it ends, you can go into the keep. That is where you must go.",
           "answer": "landmark:castle-gate",
           "redirect": "This is not where the road ends. Read it once more and picture the place."
         },
@@ -964,7 +964,7 @@
           }
         },
         {
-          "text": "The sun is going down over the hills. Mason Gerd climbs his steps. Soon his lantern will shine out high above the village.",
+          "text": "The sun is going down over the hills. Mason Gerd gets his lantern ready. Soon it will shine out high above the village.",
           "answer": "landmark:watchtower",
           "redirect": "No lantern looks out over the hills from here. Read the clue again.",
           "redirects": {
@@ -986,7 +986,7 @@
           }
         },
         {
-          "text": "The road through the village is long. It runs all the way north and then stops. There, great doors lead in to the stone keep.",
+          "text": "The road through the village is long. It runs all the way north and then stops. There you will find the way into the keep.",
           "answer": "landmark:castle-gate",
           "redirect": "This is not where the road ends. Read it once more and picture the place."
         }
@@ -1100,7 +1100,7 @@
           }
         },
         {
-          "text": "Riders come and go along the north road. Where the road ends, big doors open into the keep. Go and wait there.",
+          "text": "Riders come and go along the north road. Where the road ends, they ride into the keep. Go and wait there.",
           "answer": "landmark:castle-gate",
           "redirect": "This is not where the road ends. Read it once more and picture the place."
         }
