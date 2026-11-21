@@ -70,7 +70,8 @@
       "level": 0,
       "prompt": "To clean, mend and freshen something so it looks new.",
       "words": [
-        "refurbish"
+        "refurbish",
+        "furbish"
       ],
       "tiles": [
         "re",
@@ -80,7 +81,7 @@
         "ous",
         "ant",
         "ate",
-        "ure"
+        "ion"
       ],
       "hint": "The root furb means to polish.",
       "why": "Re- (again) + furb (to polish) + -ish: to polish and freshen a thing again."
@@ -165,7 +166,7 @@
       "id": "fx-mend-09",
       "effect": "mend",
       "level": 2,
-      "prompt": "Sticking together well, so the parts hold as one.",
+      "prompt": "Able to stick together well, so the parts hold as one.",
       "words": [
         "cohesive"
       ],

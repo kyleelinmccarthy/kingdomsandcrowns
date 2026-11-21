@@ -22,6 +22,7 @@ import {
 import { runeTiling } from "@/lib/tasks/rune-tiles";
 import { RUNE_POOL_FILES } from "@/lib/tasks/runes/rune-pool-files";
 import { loadRunePools } from "@/lib/tasks/runes";
+import { runePoolsWithSheets } from "@/lib/content/rune-blind-pass";
 import { simulateRuneWeek } from "@/test/rune-week";
 import { CONTENT_BANDS } from "./content-bands";
 import { skillForPool } from "./skills";
@@ -52,6 +53,11 @@ describe("rune pool content", () => {
 
   it("ships every expected pool and nothing unexpected", () => {
     expect(pools.map((p) => p.parsed.poolId).sort()).toEqual([...EXPECTED_RUNE_POOLS].sort());
+  });
+
+  it("has a blind-pass sheet for every pool, so no pool ships unread (F-15)", () => {
+    // The sheet gate (`rune-blind-pass.test.ts`) settles each sheet that exists; this makes sure one exists.
+    expect(runePoolsWithSheets().sort()).toEqual([...EXPECTED_RUNE_POOLS].sort());
   });
 
   it("names each file after its pool", () => {
