@@ -23,6 +23,8 @@ export const TASK_DRAWERS: { [K in Exclude<TaskKind, "choice">]: TaskDrawer } = 
   lock: (skill, level, rng) => lockFor(skill.id)?.(level, rng, skill.id) ?? null,
   // One clue of the skill's trail pool (none when no pool credits it). A run draws its clues whole, in order, through `TASK_RUN_DRAWERS`.
   trail: (skill, level, rng) => drawTrailClues(skill, level, 1, rng, new Set(), new Set())[0] ?? null,
+  // No rune pool exists yet (I4 draws from them), so a rune draws nothing.
+  rune: () => null,
 };
 
 /**

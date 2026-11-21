@@ -43,6 +43,8 @@ export const TASK_PRESENTERS: { [K in TaskKind]: ComponentType<PresenterProps<K>
   measure: BenchPresenter,
   lock: LockPresenter,
   trail: TrailPresenter,
+  // The rune stone lands in I8; until then no run draws a rune, and this renders nothing.
+  rune: () => null,
 };
 
 export function TaskPresenter(props: PresenterProps<TaskKind>) {

@@ -4,7 +4,15 @@ import { choiceKind } from "./choice";
 
 describe("TASK_CODECS", () => {
   it("has a codec for every kind", () => {
-    expect(Object.keys(TASK_CODECS)).toEqual(["choice", "measure", "lock", "trail"]);
+    expect(Object.keys(TASK_CODECS)).toEqual(["choice", "measure", "lock", "trail", "rune"]);
+  });
+
+  it("rune writes the indices placed and reads back only that form, so a leading zero is no index (R-I5)", () => {
+    const c = TASK_CODECS.rune;
+    expect(c.encode([1, 3, 4, 0])).toBe("r:1,3,4,0");
+    expect(c.decode(c.encode([1, 3, 4, 0]))).toEqual([1, 3, 4, 0]);
+    expect(c.encode(c.decode("r:12,0")!)).toBe("r:12,0");
+    expect(c.decode("r:01")).toBeNull();
   });
 
   it("choice trims on the way in and out, and compares trimmed", () => {

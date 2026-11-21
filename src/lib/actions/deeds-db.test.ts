@@ -744,7 +744,7 @@ describe("a young hero watches Aldo before the run's first bench task (R-C9, I-1
   it("is never due in a run with no bench task, even for a grade-2 hero", async () => {
     gradeIs("2");
     // Math side quests are played at the bench now, so the grown-up's switch is what makes a run choice.
-    vi.mocked(loadRealmSettings).mockResolvedValue({ ...DEFAULT_REALM_SETTINGS, mechanics: { measure: false, lock: true, trail: true } });
+    vi.mocked(loadRealmSettings).mockResolvedValue({ ...DEFAULT_REALM_SETTINGS, mechanics: { measure: false, lock: true, trail: true, rune: true } });
     const r = await startDeedRun("c1", "well-stones", "realm");
     expect(r.questions.every((q) => q.kind === "choice")).toBe(true);
     expect(r.demo).toBeUndefined();
@@ -1410,7 +1410,7 @@ describe("a trail task in a run (R-H1, slice 5)", () => {
 });
 
 describe("the grown-up's switch for building by measuring (Review Focus 4)", () => {
-  const HANDS_ON_OFF = { ...DEFAULT_REALM_SETTINGS, mechanics: { measure: false, lock: false, trail: false } };
+  const HANDS_ON_OFF = { ...DEFAULT_REALM_SETTINGS, mechanics: { measure: false, lock: false, trail: false, rune: false } };
   const CUT: MeasureTask = {
     kind: "measure", id: "m-cut", skillId: SKILL, prompt: "Cut a board three quarters of a foot long.",
     mode: "cut", unit: "ft", answer: "3/4", step: "1/4", maxLength: "2", bridge: "1/2 + 1/4 = 3/4",
@@ -1419,18 +1419,18 @@ describe("the grown-up's switch for building by measuring (Review Focus 4)", () 
 
   it("offers the engine every hands-on kind that is on, and no choice entry (choice is always there)", async () => {
     await startDeedRun("c1", "well-stones", "realm");
-    expect(enabledKindsOf()).toEqual(new Set(["measure", "lock", "trail"]));
+    expect(enabledKindsOf()).toEqual(new Set(["measure", "lock", "trail", "rune"]));
   });
 
   it("each switch is its own: the bench off leaves the locks on, and the locks off leave the bench", async () => {
-    vi.mocked(loadRealmSettings).mockResolvedValueOnce({ ...DEFAULT_REALM_SETTINGS, mechanics: { measure: false, lock: true, trail: true } });
+    vi.mocked(loadRealmSettings).mockResolvedValueOnce({ ...DEFAULT_REALM_SETTINGS, mechanics: { measure: false, lock: true, trail: true, rune: true } });
     await startDeedRun("c1", "well-stones", "realm");
-    expect(enabledKindsOf()).toEqual(new Set(["lock", "trail"]));
+    expect(enabledKindsOf()).toEqual(new Set(["lock", "trail", "rune"]));
     vi.mocked(buildDeedRun).mockClear();
     await client.query("DELETE FROM deed_run");
-    vi.mocked(loadRealmSettings).mockResolvedValueOnce({ ...DEFAULT_REALM_SETTINGS, mechanics: { measure: true, lock: false, trail: true } });
+    vi.mocked(loadRealmSettings).mockResolvedValueOnce({ ...DEFAULT_REALM_SETTINGS, mechanics: { measure: true, lock: false, trail: true, rune: true } });
     await startDeedRun("c1", "well-stones", "realm");
-    expect(enabledKindsOf()).toEqual(new Set(["measure", "trail"]));
+    expect(enabledKindsOf()).toEqual(new Set(["measure", "trail", "rune"]));
   });
 
   it("turned off, offers the engine no hands-on kind: a new run is all choice", async () => {
@@ -1465,7 +1465,7 @@ describe("the gate stays multiple choice (R-C4)", () => {
   const runCount = async () => Number((await client.query("SELECT count(*) AS n FROM deed_run")).rows[0].n);
 
   it("builds a gate run with no hands-on kind, whatever the grown-up has switched on", async () => {
-    vi.mocked(loadRealmSettings).mockResolvedValue({ ...DEFAULT_REALM_SETTINGS, mechanics: { measure: true, lock: true, trail: true } });
+    vi.mocked(loadRealmSettings).mockResolvedValue({ ...DEFAULT_REALM_SETTINGS, mechanics: { measure: true, lock: true, trail: true, rune: true } });
     const r = await startDeedRun("c1", "well-stones", "gate");
     expect(vi.mocked(buildDeedRun).mock.calls[0][0].enabledKinds).toEqual(new Set());
     expect(r.questions.length).toBeGreaterThan(0);
@@ -1495,7 +1495,7 @@ describe("a grade 6 to 12 reading side quest stays multiple choice where trails 
    * It names no trail mechanic and starts the real `well-signs` with trails off or at the gate, so
    * H7's flip of that deed to `trail` leaves it alone (F-5).
    */
-  const TRAILS_OFF = { ...DEFAULT_REALM_SETTINGS, mechanics: { measure: true, lock: true, trail: false } };
+  const TRAILS_OFF = { ...DEFAULT_REALM_SETTINGS, mechanics: { measure: true, lock: true, trail: false, rune: true } };
   const readerAt = (reading: string) => vi.mocked(loadHeroLevels).mockResolvedValue({
     enabled: true, tone: "gentle", band: "6-8", grades: { math: "3", reading, language: "3", science: "3" },
   } as unknown as Awaited<ReturnType<typeof loadHeroLevels>>);
@@ -1552,12 +1552,12 @@ describe("a grade 6 to 12 reading side quest stays multiple choice where trails 
     readerAt("7");
     vi.mocked(loadRealmSettings).mockResolvedValue(TRAILS_OFF);
     await startDeedRun("c1", "well-signs", "realm");
-    expect(vi.mocked(buildDeedRun).mock.calls[0][0].enabledKinds).toEqual(new Set(["measure", "lock"]));
+    expect(vi.mocked(buildDeedRun).mock.calls[0][0].enabledKinds).toEqual(new Set(["measure", "lock", "rune"]));
   });
 });
 
 describe("a grade-3 math side quest is played at the bench (slice 2, C13)", () => {
-  const MEASURE_OFF = { ...DEFAULT_REALM_SETTINGS, mechanics: { measure: false, lock: true, trail: true } };
+  const MEASURE_OFF = { ...DEFAULT_REALM_SETTINGS, mechanics: { measure: false, lock: true, trail: true, rune: true } };
   const GROWN_UP = { access: { userId: "u-parent" }, familyId: "f1" } as unknown as Awaited<ReturnType<typeof requireChildAccess>>;
   const benched = (skillId: string) => skillId in BENCH;
 
@@ -1658,7 +1658,7 @@ describe("a grade-3 math side quest is played at the bench (slice 2, C13)", () =
 
   it("leaves a reading side quest with trails off exactly as it was: choice tasks, with no kind stored", async () => {
     // Pinned to trails off: a reading side quest is a trail since H7 (its trail runs are pinned below).
-    vi.mocked(loadRealmSettings).mockResolvedValue({ ...DEFAULT_REALM_SETTINGS, mechanics: { measure: true, lock: true, trail: false } });
+    vi.mocked(loadRealmSettings).mockResolvedValue({ ...DEFAULT_REALM_SETTINGS, mechanics: { measure: true, lock: true, trail: false, rune: true } });
     for (let i = 0; i < 30; i++) {
       await client.query(
         `INSERT INTO drill_item (id, pool_id, skill_id, band, prompt, answer, distractors, read_aloud, level, updated_at)
@@ -1680,13 +1680,13 @@ describe("a grade-3 math side quest is played at the bench (slice 2, C13)", () =
     it("an arbitrary string behaves as the page: a grown-up may start the run, and the bench is on", async () => {
       vi.mocked(requireChildAccess).mockResolvedValueOnce(GROWN_UP);
       await expect(startDeedRun("c1", "well-stones", "REALM" as never)).resolves.toBeDefined();
-      expect(vi.mocked(buildDeedRun).mock.calls[0][0].enabledKinds).toEqual(new Set(["measure", "lock", "trail"]));
+      expect(vi.mocked(buildDeedRun).mock.calls[0][0].enabledKinds).toEqual(new Set(["measure", "lock", "trail", "rune"]));
       expect(await runCount()).toBe(1);
     });
 
     it("is not the gate unless it says so exactly", async () => {
       await startDeedRun("c1", "well-stones", "gate " as never);
-      expect(vi.mocked(buildDeedRun).mock.calls[0][0].enabledKinds).toEqual(new Set(["measure", "lock", "trail"]));
+      expect(vi.mocked(buildDeedRun).mock.calls[0][0].enabledKinds).toEqual(new Set(["measure", "lock", "trail", "rune"]));
     });
 
     it("the two named worlds keep their rules: realm and gate refuse a grown-up", async () => {
@@ -1701,7 +1701,7 @@ describe("a grade-3 math side quest is played at the bench (slice 2, C13)", () =
 
 describe("a science side quest sorts on a lock's face (R-F11)", () => {
   const GRADE_3 = { enabled: true, tone: "gentle", band: "3-5", grades: { math: "3", reading: "3", language: "3", science: "3" } };
-  const LOCKS_OFF = { ...DEFAULT_REALM_SETTINGS, mechanics: { measure: true, lock: false, trail: true } };
+  const LOCKS_OFF = { ...DEFAULT_REALM_SETTINGS, mechanics: { measure: true, lock: false, trail: true, rune: true } };
   async function storedTasks(id: string): Promise<Task[]> {
     return JSON.parse((await client.query("SELECT questions FROM deed_run WHERE id = ?1", [id])).rows[0].questions) as Task[];
   }
@@ -1993,7 +1993,7 @@ describe("reading side quests are clue trails (H7)", () => {
   const GRADE_3 = { enabled: true, tone: "gentle", band: "3-5", grades: { math: "3", reading: "3", language: "3", science: "3" } };
   const readerAt = (reading: string, science = "3") =>
     vi.mocked(loadHeroLevels).mockResolvedValue({ ...GRADE_3, grades: { ...GRADE_3.grades, reading, science } } as never);
-  const TRAILS_OFF = { ...DEFAULT_REALM_SETTINGS, mechanics: { measure: true, lock: true, trail: false } };
+  const TRAILS_OFF = { ...DEFAULT_REALM_SETTINGS, mechanics: { measure: true, lock: true, trail: false, rune: true } };
   const storedTasks = async (id: string) => JSON.parse((await client.query("SELECT questions FROM deed_run WHERE id = ?1", [id])).rows[0].questions as string) as Task[];
   const storedSkills = async (id: string) => JSON.parse((await client.query("SELECT skill_ids FROM deed_run WHERE id = ?1", [id])).rows[0].skill_ids as string) as string[];
   /** The stored tasks as clues, holding that every one is. */
@@ -2179,7 +2179,7 @@ describe("reading side quests are clue trails (H7)", () => {
     vi.mocked(loadRealmSettings).mockResolvedValue(TRAILS_OFF);
     await readingItems("read-g3");
     const start = await startDeedRun("c1", "well-signs", "realm");
-    expect(vi.mocked(buildDeedRun).mock.calls[0][0].enabledKinds).toEqual(new Set(["measure", "lock"]));
+    expect(vi.mocked(buildDeedRun).mock.calls[0][0].enabledKinds).toEqual(new Set(["measure", "lock", "rune"]));
     const tasks = await storedTasks(start.runId);
     expect(tasks).toHaveLength(8);
     for (const t of tasks) {
@@ -2189,7 +2189,7 @@ describe("reading side quests are clue trails (H7)", () => {
     expect(start.questions.every((q) => q.kind === "choice")).toBe(true);
     // The same settings still sort a science side quest on a lock's face.
     const science = await startDeedRun("c1", "well-water", "realm");
-    expect(vi.mocked(buildDeedRun).mock.calls[1][0].enabledKinds).toEqual(new Set(["measure", "lock"]));
+    expect(vi.mocked(buildDeedRun).mock.calls[1][0].enabledKinds).toEqual(new Set(["measure", "lock", "rune"]));
     expect((await storedTasks(science.runId)).every((t) => kindOf(t) === "lock")).toBe(true);
   });
 

@@ -9,7 +9,7 @@ import { describe, expect, it } from "vitest";
  */
 const SRC = join(process.cwd(), "src");
 const COMPONENTS = join(SRC, "components");
-const SERVER_ONLY = ["registry", "draw", "measure", "bench", "lock", "locks", "trail", "trails"].map((m) => join(SRC, "lib/tasks", m));
+const SERVER_ONLY = ["registry", "draw", "measure", "bench", "lock", "locks", "trail", "trails", "rune", "runes"].map((m) => join(SRC, "lib/tasks", m));
 
 function walk(dir: string): string[] {
   return readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
@@ -72,12 +72,18 @@ describe("client boundary", () => {
     expect(serverOnlyValueImports(`import { trailPoolFor } from "@/lib/tasks/trails";`, at)).toEqual(["@/lib/tasks/trails"]);
     expect(serverOnlyValueImports(`import { x } from "@/lib/tasks/trails/draw";`, at)).toEqual(["@/lib/tasks/trails/draw"]);
     expect(serverOnlyValueImports(`import { TRAIL_RETRY_LEAD } from "@/lib/tasks/trail-copy";`, at)).toEqual([]);
+    // The rune's definition and pools are server-only (they hold the words); its words, tiles and stops are client-safe.
+    expect(serverOnlyValueImports(`import { runeKind } from "@/lib/tasks/rune";`, at)).toEqual(["@/lib/tasks/rune"]);
+    expect(serverOnlyValueImports(`import { runePoolFor } from "@/lib/tasks/runes";`, at)).toEqual(["@/lib/tasks/runes"]);
+    expect(serverOnlyValueImports(`import { x } from "@/lib/tasks/runes/draw";`, at)).toEqual(["@/lib/tasks/runes/draw"]);
+    expect(serverOnlyValueImports(`import { RUNE_CAST } from "@/lib/tasks/rune-copy";`, at)).toEqual([]);
+    expect(serverOnlyValueImports(`import { spelled } from "@/lib/tasks/rune-tiles";`, at)).toEqual([]);
     // A sibling file that merely shares a name is not the server module.
     expect(serverOnlyValueImports(`import { x } from "./registry";`, at)).toEqual([]);
     expect(serverOnlyValueImports(`import { x } from "./registry";`, join(SRC, "lib/tasks/x.ts"))).toEqual(["./registry"]);
   });
 
-  it("no \"use client\" module under src/components imports a value from registry, draw, measure, bench, lock, locks, trail or trails", () => {
+  it("no \"use client\" module under src/components imports a value from registry, draw, measure, bench, lock, locks, trail, trails, rune or runes", () => {
     const offenders = walk(COMPONENTS)
       .map((f) => ({ f, src: readFileSync(f, "utf8") }))
       .filter(({ src }) => isUseClient(src))

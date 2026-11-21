@@ -2,6 +2,7 @@ import { taskHint } from "@/lib/utils/skill-hints";
 import { choiceKind } from "./choice";
 import { lockKind } from "./lock";
 import { measureKind } from "./measure";
+import { runeKind } from "./rune";
 import { trailKind } from "./trail";
 import type { ClientTask, FeedbackCode, Task, TaskKind, TaskKindDef } from "./types";
 
@@ -13,6 +14,7 @@ export const TASK_KINDS: { [K in TaskKind]: TaskKindDef<K> } = {
   measure: measureKind,
   lock: lockKind,
   trail: trailKind,
+  rune: runeKind,
 };
 
 /** Typed accessor over `TASK_KINDS`. */

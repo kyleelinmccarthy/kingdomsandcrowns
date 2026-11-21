@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 import type { Question } from "@/lib/utils/drill-generators";
 import { taskHint } from "@/lib/utils/skill-hints";
 import { TRAIL, WELL_REDIRECT } from "@/test/trail-stubs";
+import { RUNE, RUNE_HINT } from "@/test/rune-stubs";
 import { isWalkingKind, isWalkingRun, WALKING_KINDS } from "./kinds";
 import { PATTERN } from "@/test/lock-stubs";
 import { __setTrailPoolsForTest } from "./trails";
-import { TASK_KINDS, isRegisteredKind, isTaskCorrect, kindForSkill, kindOf, secondChanceHint, taskDef, taskDefOf, toClientTask } from "./registry";
+import { TASK_KINDS, isRegisteredKind, isTaskCorrect, kindForSkill, kindOf, secondChanceHint, storedFeedback, taskDef, taskDefOf, toClientTask } from "./registry";
+import type { TaskKind } from "./types";
 
 const q: Question = {
   id: "add-10:3:3",
@@ -28,6 +30,7 @@ describe("task kind registry", () => {
     expect(isRegisteredKind("measure")).toBe(true);
     expect(isRegisteredKind("lock")).toBe(true);
     expect(isRegisteredKind("trail")).toBe(true);
+    expect(isRegisteredKind("rune")).toBe(true);
     for (const k of ["nope", "", "toString", "constructor", "__proto__", "hasOwnProperty", 7, null, undefined, {}]) {
       expect(isRegisteredKind(k)).toBe(false);
     }
@@ -106,9 +109,20 @@ describe("task kind registry", () => {
       __setTrailPoolsForTest(null);
     }
   });
+
+  it("falls back to choice for a rune while no pool presents the skill (R-I5)", () => {
+    const ALL = new Set<TaskKind>(["choice", "measure", "lock", "trail", "rune"]);
+    expect(kindForSkill("rune", "spell-g23", ALL)).toBe("choice");
+    expect(kindForSkill("rune", "lang-gk", ALL)).toBe("choice");
+  });
 });
 
 describe("the second-chance line (secondChanceHint, R-H7)", () => {
+  it("is the entry's own hint for a rune, whatever was cast (R-I5)", () => {
+    expect(secondChanceHint(RUNE, "r:0")).toBe(RUNE_HINT);
+    expect(secondChanceHint(RUNE, "r:0,3,4,1")).toBe(RUNE_HINT);
+  });
+
   it("is the chosen place's redirect for a trail", () => {
     expect(secondChanceHint(TRAIL, "landmark:well")).toBe(WELL_REDIRECT);
     expect(secondChanceHint(TRAIL, "landmark:garden")).toBe(TRAIL.redirect);
@@ -121,6 +135,14 @@ describe("the second-chance line (secondChanceHint, R-H7)", () => {
   it("is the task's hint for a kind with no line of its own", () => {
     expect(secondChanceHint(q, "5")).toBe(taskHint(q));
     expect(secondChanceHint(PATTERN, "pattern:3,1")).toBe(taskHint(PATTERN));
+  });
+});
+
+describe("the stored note on a response (storedFeedback)", () => {
+  it("is a rune's wrong word, and nothing for a right cast or one that will not decode (R-I5)", () => {
+    expect(storedFeedback(RUNE, "r:0")).toBe("wrong_word");
+    expect(storedFeedback(RUNE, "r:1,3,4,0")).toBeUndefined();
+    for (const s of ["", "r:0,0", "toString", null, undefined]) expect(storedFeedback(RUNE, s)).toBeUndefined();
   });
 });
 

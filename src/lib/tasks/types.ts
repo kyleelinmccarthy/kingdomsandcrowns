@@ -8,11 +8,12 @@
  */
 import type { Question } from "@/lib/utils/drill-generators";
 import type { AnchorId } from "@/lib/realm/anchors";
+import type { RuneEffect } from "@/lib/realm/rune-objects";
 import type { LockPuzzleData, LockResponse, LockView } from "./lock-rules";
 
 export type { LockPuzzle, LockResponse, LockView } from "./lock-rules";
 
-export type TaskKind = "choice" | "measure" | "lock" | "trail";
+export type TaskKind = "choice" | "measure" | "lock" | "trail" | "rune";
 
 /** Choice is today's `Question`; stored runs have no `kind`, which reads as "choice". */
 export type ChoiceTask = Question & { kind?: "choice" };
@@ -81,12 +82,41 @@ export type TrailView = Record<string, never>;
 /** The anchor searched. */
 export type TrailResponse = AnchorId;
 
+/**
+ * A rune (slice 6, R-I5): a word built from tiles at a rune stone, checked against every accepted
+ * word, so any of them counts however it is tiled. The words, the entry it came from, the hint and
+ * `explain` stay on the server; the tiles are shuffled at draw time so no run of them spells a word
+ * (R-I17). At a dictation (`listen`) the word is the spoken prompt, so it reaches the browser in
+ * `readAloud` alone (R-I18).
+ */
+export type RuneTask = {
+  kind: "rune"; id: string; skillId: string; prompt: string; readAloud?: string;
+  effect: RuneEffect;
+  /** Bound at the run's start (R-I22); null only for a task drawn outside a run. */
+  object: { id: string; label: string } | null;
+  /** In the order shown: shuffled at draw time by the leak rule (R-I17), and stored. */
+  tiles: string[];
+  /** A dictation (k1, g23): the word is spoken, never shown (R-I18). */
+  listen: boolean;
+  /** Server only. */
+  words: string[]; hint: string;
+  /** `<poolId>/<entryId>`, for the week's memory. Server only. */
+  entry: string;
+  explain?: string;
+};
+
+/** What the stone is shown: the effect, the object, the tray and whether it is heard. Never a word, its length or the hint. */
+export type RuneView = { effect: RuneEffect; object: { id: string; label: string } | null; tiles: string[]; listen: boolean };
+
+/** The tile indices placed, in order. */
+export type RuneResponse = number[];
+
 /** The server-side task, answer and all, per kind. */
-export type TaskByKind = { choice: ChoiceTask; measure: MeasureTask; lock: LockTask; trail: TrailTask };
+export type TaskByKind = { choice: ChoiceTask; measure: MeasureTask; lock: LockTask; trail: TrailTask; rune: RuneTask };
 /** What the client is shown to render a task: never the answer. */
-export type ViewByKind = { choice: { choices: string[] }; measure: MeasureView; lock: LockView; trail: TrailView };
+export type ViewByKind = { choice: { choices: string[] }; measure: MeasureView; lock: LockView; trail: TrailView; rune: RuneView };
 /** What the child hands back, per kind. */
-export type ResponseByKind = { choice: string; measure: MeasureResponse; lock: LockResponse; trail: TrailResponse };
+export type ResponseByKind = { choice: string; measure: MeasureResponse; lock: LockResponse; trail: TrailResponse; rune: RuneResponse };
 
 export type Task = TaskByKind[TaskKind];
 
@@ -105,9 +135,9 @@ export type ClientTask = {
 /**
  * A coded, kind-specific note on a response: measure says which way a wrong length is off; a lock
  * says whether spaces are left or a rule is broken (never how to fix it: R-F3); a trail says the
- * place searched is not the one (never which one is).
+ * place searched is not the one (never which one is); a rune that the word cast is not the one.
  */
-export type FeedbackCode = "none" | "too_long" | "too_short" | "rule_broken" | "incomplete" | "wrong_place";
+export type FeedbackCode = "none" | "too_long" | "too_short" | "rule_broken" | "incomplete" | "wrong_place" | "wrong_word";
 
 export interface TaskKindDef<K extends TaskKind> {
   toView(t: TaskByKind[K]): ViewByKind[K];

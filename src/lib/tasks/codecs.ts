@@ -1,7 +1,7 @@
 import { isAnchorId } from "@/lib/realm/anchors";
 import { LOCK_MAX_CELLS, LOCK_PUZZLES, type LockPuzzle } from "./lock-rules";
 import { formatRational, parseAnswer } from "./parse-answer";
-import type { LockResponse, MeasureResponse, ResponseByKind, TaskKind, TrailResponse } from "./types";
+import type { LockResponse, MeasureResponse, ResponseByKind, RuneResponse, TaskKind, TrailResponse } from "./types";
 
 /**
  * How a response is written down, read back and compared, per kind. Client-safe: the presenters
@@ -88,6 +88,28 @@ export const TRAIL_MAX_CHARS = 40;
 /** A trail: the anchor id as it is, read back only when it is one of the village's anchors (own keys). */
 const decodeTrail = (s: string): TrailResponse | null => (isAnchorId(s) ? s : null);
 
+/** The longest encoded rune cast accepted: sixteen two-digit indices fit well inside it. */
+export const RUNE_MAX_CHARS = 64;
+/** The most tiles one cast may place. */
+export const RUNE_MAX_TILES = 16;
+
+/** A rune: "r:" and the tile indices placed, in order ("r:3,0,5"). Never "" (the give-up marker). */
+const encodeRune = (r: RuneResponse): string => `r:${r.join(",")}`;
+
+const RUNE_INDEX = String.raw`(?:0|[1-9]\d?)`;
+const RUNE_FORM = new RegExp(`^r:${RUNE_INDEX}(?:,${RUNE_INDEX}){0,${RUNE_MAX_TILES - 1}}$`);
+
+/**
+ * Reads the one canonical form only: 1 to RUNE_MAX_TILES indices of 0–99, no sign, no leading zero
+ * and none twice, so one cast has exactly one string and encoding is idempotent. The definition
+ * checks the indices against the task's tray.
+ */
+function decodeRune(s: string): RuneResponse | null {
+  if (typeof s !== "string" || s.length > RUNE_MAX_CHARS || !RUNE_FORM.test(s)) return null;
+  const picks = s.slice(2).split(",").map(Number);
+  return new Set(picks).size === picks.length ? picks : null;
+}
+
 export const TASK_CODECS: { [K in TaskKind]: TaskCodec<K> } = {
   // Responses are the trimmed choice text, so rows stored before kinds existed keep grading
   // exactly as trimmed equality does.
@@ -110,5 +132,10 @@ export const TASK_CODECS: { [K in TaskKind]: TaskCodec<K> } = {
     encode: (r) => r,
     decode: decodeTrail,
     sameResponse: (a, b) => a === b,
+  },
+  rune: {
+    encode: encodeRune,
+    decode: decodeRune,
+    sameResponse: (a, b) => encodeRune(a) === encodeRune(b),
   },
 };

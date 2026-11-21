@@ -597,3 +597,26 @@ describe("what a villager says after a search on a trail (R-H1)", () => {
     expect(attemptFeedback(miss, false, undefined, clue).text).toBe("It was the mill. Flour is ground at the mill.");
   });
 });
+
+describe("what a villager says after a cast at the rune stone (R-I5)", () => {
+  const rune: ClientTask = {
+    kind: "rune", id: "lang-gk:rune:4e1f0a9c", skillId: "lang-gk", prompt: "The wagon is broken. Build the word you hear.",
+    view: { effect: "mend", object: { id: "rune:west-wagon", label: "the broken wagon" }, tiles: ["d", "m", "a", "e", "n", "i"], listen: true },
+  };
+
+  it("says it is not that word, then the entry's hint, on a second chance", () => {
+    expect(attemptFeedback({ correct: false, secondChance: true, feedback: "wrong_word", hint: "It rhymes with send." }, false))
+      .toEqual({ heading: "Try again", text: "Not that word. It rhymes with send." });
+  });
+
+  it("a second chance picked back up still says Not that word., though the stored cast carries no feedback code", () => {
+    const flow = initialFlow({ questions: [rune], responses: ["r:0,3,4,1"], pending: { index: 0, ruledOut: "r:0,3,4,1", hint: "It rhymes with send." } });
+    expect(flow.result?.feedback).toBeUndefined();
+    expect(attemptFeedback(flow.result!, true, "Old Bram", rune)).toEqual({ heading: "Try again", text: "Not that word. It rhymes with send." });
+  });
+
+  it("says the word as a sentence, then why, after a miss", () => {
+    const miss = { correct: false, secondChance: false, answer: "The word was mend.", explain: "Mend means to make whole.", reveal: "r:1,3,4,0" };
+    expect(attemptFeedback(miss, false, undefined, rune).text).toBe("The word was mend. Mend means to make whole.");
+  });
+});

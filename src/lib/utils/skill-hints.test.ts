@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { GRADES } from "./grade-levels";
-import { GENERIC_HINT, GENERIC_TRAIL_HINT, hintFor, SKILL_HINTS, SORT_HINTS, taskHint } from "./skill-hints";
+import { GENERIC_HINT, GENERIC_RUNE_HINT, GENERIC_TRAIL_HINT, hintFor, SKILL_HINTS, SORT_HINTS, taskHint } from "./skill-hints";
 import { SKILLS, skillsFor } from "./skills";
 import type { ClientTask, Task } from "@/lib/tasks/types";
 import { BENCH } from "@/lib/tasks/bench";
@@ -8,6 +8,7 @@ import { LOCKS } from "@/lib/tasks/locks";
 import { SORT_POOL_FILES } from "@/lib/tasks/locks/sort-pool-files";
 import { PATTERN } from "@/test/lock-stubs";
 import { TRAIL } from "@/test/trail-stubs";
+import { RUNE } from "@/test/rune-stubs";
 
 // Whole words only, so "already" or "leveled-off" style substrings do not trip the guard.
 const BANNED = ["behind", "ahead", "level", "grade", "rung", "review", "failed"];
@@ -108,6 +109,15 @@ describe("a hint fits the task's face (taskHint)", () => {
     expect(taskHint({ kind: "trail", id: "t", skillId: "read-g3", prompt: "p", view: {} })).toBe(GENERIC_TRAIL_HINT);
     expect(GENERIC_TRAIL_HINT.length).toBeLessThanOrEqual(160);
     expect(GENERIC_TRAIL_HINT).not.toMatch(bannedRe);
+  });
+
+  it("a rune hears the rune's own line, on the server and in the browser, never its skill's choice hint (R-I5)", () => {
+    expect(GENERIC_RUNE_HINT).toBe("Say the word slowly and listen for each part.");
+    expect(taskHint(RUNE)).toBe(GENERIC_RUNE_HINT);
+    expect(taskHint({ ...RUNE, skillId: "spell-g45" })).toBe(GENERIC_RUNE_HINT);
+    expect(taskHint({ kind: "rune", id: "r", skillId: "vocab-g68", prompt: "p", view: { effect: "mend", object: null, tiles: [], listen: false } })).toBe(GENERIC_RUNE_HINT);
+    expect(GENERIC_RUNE_HINT.length).toBeLessThanOrEqual(160);
+    expect(GENERIC_RUNE_HINT).not.toMatch(bannedRe);
   });
 
   it("reads a lock's puzzle from the browser's view too", () => {

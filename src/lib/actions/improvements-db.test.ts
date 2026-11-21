@@ -108,7 +108,7 @@ async function count(sql: string): Promise<number> {
   return Number((await client.query(sql)).rows[0].n);
 }
 const runs = () => count("SELECT count(*) AS n FROM deed_run");
-const mechanics = (measure: boolean) => ({ ...DEFAULT_REALM_SETTINGS, mechanics: { measure, lock: true, trail: true } });
+const mechanics = (measure: boolean) => ({ ...DEFAULT_REALM_SETTINGS, mechanics: { measure, lock: true, trail: true, rune: true } });
 
 async function storedTasks(runId: string): Promise<Task[]> {
   const row = await client.query("SELECT questions FROM deed_run WHERE id = ?1", [runId]);
