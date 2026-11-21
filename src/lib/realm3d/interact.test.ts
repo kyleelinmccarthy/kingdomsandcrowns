@@ -1,15 +1,22 @@
 import { describe, expect, it } from "vitest";
-import { buildWorldLayout } from "@/lib/realm/layout";
+import { buildWorldLayout, CASTLE_POSITION } from "@/lib/realm/layout";
 import { KEEP_YARD } from "@/lib/realm/keep-yard";
 import { IMPROVEMENT_IDS, IMPROVEMENTS } from "@/lib/realm/improvements";
 import { HERO_RADIUS } from "./collision";
 import { improvementPlacements } from "./improvement-spots";
-import { buildSpots, edgeDistance, lockSpot, makeNearMemo, nearChanged, pickSpot, CHRONICLE_TARGET, PLANS_TARGET, RIDDLE_LABEL, RIDDLE_VERB, siteLabel, TOWER_TARGET } from "./interact";
+import { anchorTarget, buildSpots, edgeDistance, lockSpot, makeNearMemo, nearChanged, pickSpot, CHRONICLE_TARGET, PLANS_TARGET, RIDDLE_LABEL, RIDDLE_VERB, siteLabel, TOWER_TARGET, type InteractSpot } from "./interact";
 import { interactVerb } from "./frame";
 import { PUZZLE_TOWER } from "@/lib/realm/puzzle-tower";
 import { RIDDLE_STONE_SPOTS } from "@/lib/realm/riddle-stones";
 import { LOCK_SPOT } from "@/lib/realm/world-objects";
 import { worldCanvas, type LockSpotView } from "@/lib/realm/world-state";
+import { ANCHOR_SPOT, ANCHOR_SPOTS, ANCHORS } from "@/lib/realm/anchors";
+import { BUILDINGS } from "@/lib/utils/kingdom";
+import { castlePlan } from "./castle-plan";
+import { ARCH, ARCH_HALF_SPAN } from "./recess/course";
+import { VILLAGE_POST } from "./travel";
+import { TRAIL_SEARCH_VERB } from "@/lib/tasks/trail-copy";
+import { CASTLE_TIER_IDS } from "@/test/world-clearance";
 
 const layout = buildWorldLayout({
   castleType: "castle",
@@ -347,5 +354,139 @@ describe("announcing what E will act on", () => {
     expect(nearChanged(memo, 2, { ...shut, verb: "Look in" })).toBe(true);
     expect(memo.target?.verb).toBe("Look in");
     expect(nearChanged(memo, 2, { ...shut, verb: "Look in", label: "the vault door" })).toBe(true);
+  });
+});
+
+/* ------------------------------------------------------------------ the trail's stakes (H9) */
+
+/**
+ * The whole village's spots, as the scene builds them, plus the stakes: every building built or
+ * bare, the castle gate at the given tier, the hitching post and the Ring's arch (riding and recess
+ * can be on), every lock, riddle stone, the plans board, the lectern, every plaque at level 3 and
+ * the Tower's door.
+ */
+function villageWithStakes(castleType: (typeof CASTLE_TIER_IDS)[number], built: boolean, anchors: typeof ANCHOR_SPOTS | null = ANCHOR_SPOTS): InteractSpot[] {
+  const village = buildWorldLayout({
+    castleType,
+    buildings: BUILDINGS.map((b) => ({ id: b.id, done: built ? b.deedsToBuild : 0, total: b.deedsToBuild, complete: built })),
+  });
+  const g = castlePlan(castleType).gate;
+  const placements = improvementPlacements(Object.fromEntries(IMPROVEMENT_IDS.map((id) => [id, 3])), () => 0);
+  return buildSpots({
+    props: village.props,
+    sitePlan: 1.5,
+    landmarks: [],
+    castle: { x: CASTLE_POSITION.x + g.x, z: CASTLE_POSITION.z + g.z, hw: g.hw, hd: g.hd, label: "your castle", verb: "Go into" },
+    posts: [{ id: "village", ...VILLAGE_POST }],
+    arch: { x: ARCH.x, z: ARCH.z, halfSpan: ARCH_HALF_SPAN },
+    stones: RIDDLE_STONE_SPOTS,
+    plans: KEEP_YARD.plansBoard,
+    chronicle: KEEP_YARD.lectern,
+    plaques: placements.map((p) => ({ id: p.id, label: IMPROVEMENTS[p.id].label, ...p.plaque })),
+    locks: worldCanvas({ locksOn: true, open: [], decor: [], tower: [] }).locks,
+    tower: PUZZLE_TOWER.door,
+    anchors: anchors ?? undefined,
+  });
+}
+
+describe("the trail's stakes", () => {
+  const withStakes = villageWithStakes("castle", true);
+  const stakeAt = (id: string) => withStakes.findIndex((s) => s.target.kind === "anchor" && s.target.id === id);
+
+  it("adds fourteen round spots, one per anchor, each searched with E: \"Search the mill\"", () => {
+    const stakes = withStakes.filter((s) => s.target.kind === "anchor");
+    expect(stakes).toHaveLength(14);
+    expect(TRAIL_SEARCH_VERB).toBe("Search");
+    for (const a of ANCHOR_SPOTS) {
+      const s = withStakes[stakeAt(a.id)];
+      expect(s, a.id).toMatchObject({ x: a.x, z: a.z, round: true, hw: ANCHOR_SPOT.radius, hd: ANCHOR_SPOT.radius, reach: ANCHOR_SPOT.reach, bias: 0.4, ring: ANCHOR_SPOT.radius + 0.6 });
+      expect(s.target).toEqual(anchorTarget(a));
+    }
+    expect(anchorTarget(ANCHOR_SPOTS.find((a) => a.id === "landmark:mill")!)).toEqual({ kind: "anchor", id: "landmark:mill", label: "the mill", verb: "Search" });
+    expect(interactVerb(withStakes[stakeAt("landmark:mill")].target)).toBe("Search the mill");
+  });
+
+  it("labels every stake the same way: only the place's own name differs, never anything about the clue", () => {
+    for (const s of withStakes.filter((t) => t.target.kind === "anchor")) {
+      expect(Object.keys(s.target).sort()).toEqual(["id", "kind", "label", "verb"]);
+      expect(s.target.verb).toBe(TRAIL_SEARCH_VERB);
+      expect(s.target.label).toBe(ANCHORS[s.target.id as keyof typeof ANCHORS].label);
+      expect({ ...s, target: null, x: 0, z: 0 }).toEqual({ ...withStakes[stakeAt("landmark:well")], target: null, x: 0, z: 0 });
+    }
+  });
+
+  it("is what E acts on when the hero walks up to it, from every side, in a village built or not", () => {
+    // A step from the stake's edge on every side. (Two stakes stand near a plan's level-3 plaque, the
+    // well's and the garden's: from their south, past 0.8 from the stake's edge, the plaque is nearer.)
+    const d = ANCHOR_SPOT.radius + 0.6;
+    const unbuilt = villageWithStakes("campsite", false);
+    for (const a of ANCHOR_SPOTS) {
+      for (const [dx, dz] of [[0, d], [d, 0], [0, -d], [-d, 0]]) {
+        expect(withStakes[pickSpot(withStakes, a.x + dx, a.z + dz, -1)]?.target.id, `${a.id} from ${dx},${dz}`).toBe(a.id);
+        expect(unbuilt[pickSpot(unbuilt, a.x + dx, a.z + dz, -1)]?.target.id, `${a.id} from ${dx},${dz}, unbuilt`).toBe(a.id);
+      }
+      expect(withStakes[pickSpot(withStakes, a.x, a.z, -1)]?.target.id, `${a.id} on it`).toBe(a.id);
+    }
+  });
+
+  it("lets go once the hero walks on", () => {
+    for (const a of ANCHOR_SPOTS) expect(pickSpot(withStakes, a.x + 6, a.z + 6, stakeAt(a.id)), a.id).not.toBe(stakeAt(a.id));
+  });
+
+  it("has none when anchors is absent: no walk, no stakes", () => {
+    expect(villageWithStakes("castle", true, null).some((s) => s.target.kind === "anchor")).toBe(false);
+    expect(spots.some((s) => s.target.kind === "anchor")).toBe(false);
+  });
+
+  it("no anchor holds another spot, and no spot holds an anchor: the whole village, built and bare, at every castle tier (F19, F-4)", () => {
+    const held: string[] = [];
+    const kinds = new Set<string>();
+    const name = (s: InteractSpot) => `${s.target.kind} ${s.target.id}`;
+    for (const castleType of CASTLE_TIER_IDS) {
+      for (const built of [true, false]) {
+        const set = villageWithStakes(castleType, built);
+        for (const a of set) {
+          kinds.add(a.target.kind);
+          for (const b of set) {
+            if (a === b || (a.target.kind !== "anchor" && b.target.kind !== "anchor")) continue;
+            if (edgeDistance(a, b.x, b.z) <= a.reach) held.push(`${name(a)} holds ${name(b)} (${castleType}, ${built ? "built" : "bare"})`);
+          }
+        }
+      }
+    }
+    expect([...new Set(held)]).toEqual([]);
+    expect([...kinds].sort()).toEqual(["anchor", "arch", "castle", "chronicle", "lock", "plans", "plaque", "post", "riddle", "site", "tower", "villager"]);
+  });
+
+  describe("the castle gate's stake, in front of the gate (H1's RH-b): the castle keeps its own E at the door", () => {
+    it("the stake is what E acts on as the hero comes up the road, from the south, east and west, at every tier", () => {
+      const gate = ANCHORS["landmark:castle-gate"];
+      for (const castleType of CASTLE_TIER_IDS) {
+        const set = villageWithStakes(castleType, true);
+        for (const [x, z] of [[gate.x, gate.z], [gate.x, gate.z + 1.5], [gate.x + 1.5, gate.z], [gate.x - 1.5, gate.z]]) {
+          expect(set[pickSpot(set, x, z, -1)]?.target.id, `${castleType} at ${x},${z}`).toBe("landmark:castle-gate");
+        }
+      }
+    });
+
+    it("at the castle door (z ≤ -10.5, across the door) E still goes into the castle, never searches", () => {
+      for (const castleType of CASTLE_TIER_IDS) {
+        const set = villageWithStakes(castleType, true);
+        const door = [-1.5, -0.75, 0].flatMap((x) => [-10.5, -11, -11.5].map((z) => [x, z])).concat([[0.75, -11.5], [1.5, -11.5]]);
+        for (const [x, z] of door) expect(set[pickSpot(set, x, z, -1)]?.target.kind, `${castleType} at ${x},${z}`).toBe("castle");
+      }
+    });
+
+    it("walking north up the road: the stake's prompt first, then the castle's at the door, and nothing flickers", () => {
+      const set = villageWithStakes("castle", true);
+      const seen: string[] = [];
+      let i = -1;
+      for (let z = -5; z >= -11.9; z -= 0.1) {
+        i = pickSpot(set, 0.8, z, i);
+        const k = i < 0 ? "none" : set[i].target.kind;
+        if (seen[seen.length - 1] !== k) seen.push(k);
+      }
+      expect(seen).toEqual(["none", "anchor", "castle"]);
+    });
   });
 });

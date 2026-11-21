@@ -28,6 +28,19 @@ export const TRAIL_DEMO_COPY = "Watch Pip follow a clue. The clue says: Go to th
 /** The demo's picture, as three steps in order (`TRAIL_DEMO_COPY` says them in full). */
 export const TRAIL_DEMO_STEPS = ["Read the clue", "Walk to the well", "Search there"] as const;
 
+/** E at a stake, in the Realm: "Search the mill" (the verb, then the place's label). */
+export const TRAIL_SEARCH_VERB = "Search";
+
+/** The walk's tracker (R-H14): its name, a second search of a place already ruled out, and its buttons. */
+export const TRAIL_TRACKER_LABEL = "Reading trail";
+export const TRAIL_LOOKED_HERE = "You searched here already. Try somewhere else.";
+export const TRAIL_LEAVE = "Leave the trail";
+export const TRAIL_FINISH = "Finish the trail";
+export const TRAIL_HIDE = "Hide the clue";
+export const TRAIL_SHOW = "Show the clue";
+/** Where the walk is: "Clue 2 of 4", shown with numerals on and said to a screen reader always. */
+export const trailClueCount = (n: number, of: number): string => `Clue ${n} of ${of}`;
+
 /**
  * What a clue says after a miss when the author wrote no `why` of their own (F-20), by band, so a
  * resolved miss never falls back to the skill hint.

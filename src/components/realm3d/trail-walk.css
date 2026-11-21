@@ -1,0 +1,41 @@
+/* The walk's tracker (`trail-walk.tsx`): a small plank at the head of the top-left column, over the
+   world, holding the clue while the hero walks. It takes the pointer (the frame does not) and never
+   the focus. On a phone it spans the width less the 16 px gutters. */
+
+.trail-walk {
+  pointer-events: auto;
+  width: min(19rem, 36vw);
+  margin: 0;
+  padding: 0.5rem 0.8rem 0.6rem;
+  border-radius: 16px;
+}
+.trail-walk[hidden] { display: none; }
+
+.trail-walk-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.trail-walk-icon { flex: none; width: 1.2rem; height: 1.2rem; color: var(--r3-gold); }
+.trail-walk-count { font-size: 0.8rem; font-weight: 800; color: #d9bf87; }
+.trail-walk-fold { margin-left: auto; font-size: 0.8rem; color: #d9bf87; }
+
+.trail-walk-body { display: flex; flex-direction: column; gap: 0.4rem; margin-top: 0.45rem; }
+.trail-walk-line { margin: 0; font-size: 0.85rem; font-weight: 700; color: #f1d9a6; }
+.trail-walk-line--right { color: #c9f0a2; }
+.trail-walk-clue { display: flex; align-items: flex-start; gap: 0.5rem; }
+.trail-walk-text { flex: 1; margin: 0; font-size: 1.05rem; font-weight: 800; line-height: 1.35; color: #fff6de; text-shadow: 0 1px 0 var(--r3-bark); }
+.trail-walk-read { flex: none; width: 2.3rem; height: 2.3rem; }
+.trail-walk-error { margin: 0; font-size: 0.85rem; }
+.trail-walk-foot { display: flex; align-items: center; gap: 0.8rem; font-size: 0.85rem; }
+.trail-walk-leave { margin-left: auto; color: #d9bf87; }
+
+.r3-root[data-larger-text="on"] .trail-walk { zoom: 1.2; }
+
+@media (max-width: 480px) {
+  .trail-walk { width: calc(100vw - 32px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .trail-walk * { transition: none; }
+}

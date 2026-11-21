@@ -59,8 +59,9 @@ export type InteractTarget = {
    * `plaque` is the plaque of a built plan (`lib/realm3d/improvement-spots.ts`); its id is the improvement's.
    * `lock` is a chest or vault door (`lib/realm/world-objects.ts`); its id is the object's (`chest:west-lane`).
    * `tower` is the Puzzle Tower (`lib/realm/puzzle-tower.ts`), where E opens its floors; its id is "puzzle-tower".
+   * `anchor` is a reading trail's search stake (`lib/realm/anchors.ts`), there only while a walk is on; its id is the anchor's (`landmark:mill`).
    */
-  kind: "villager" | "site" | "castle" | "landmark" | "door" | "fixture" | "post" | "arch" | "riddle" | "plans" | "plaque" | "chronicle" | "lock" | "tower";
+  kind: "villager" | "site" | "castle" | "landmark" | "door" | "fixture" | "post" | "arch" | "riddle" | "plans" | "plaque" | "chronicle" | "lock" | "tower" | "anchor";
   id: string;
   /** What the prompt calls it: "Old Bram", "the Chapel", "Cloudfoot". */
   label: string;
