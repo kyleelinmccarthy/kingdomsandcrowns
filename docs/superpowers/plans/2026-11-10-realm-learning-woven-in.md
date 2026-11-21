@@ -2681,6 +2681,11 @@ Part F's constraints still apply, plus:
 - Rune objects can be fixed any time, like chests (Part I).
 - Slice 5 merges into `dev` when green, pre-authorized; slice 6 needs the owner's word.
 
+**Owner's answers to the planner's questions (2026-11-21), with the plan approved:**
+- K–2 readers' trails come from one grade up, and a Kindergarten hero always hears every clue (R-H17, R-H21).
+- A reading focus that no trail can play wins: that side quest plays as multiple choice (R-H22).
+- With runes off, rune objects are not drawn (R-I13).
+
 ## Rulings (record them in spec §2a, "Calls settled for slice 5", in H1's commit)
 
 - **R-H1: a wrong place works like the other puzzles (owner, 2026-11-21).**
@@ -2728,11 +2733,12 @@ Part F's constraints still apply, plus:
   - `choiceDrawable(s)` (true for `generator` and `pool`) replaces each `source.kind === "lock"` test that means "has no choice questions".
   - `runCandidates` keeps only skills the run can play. Those are the choice-drawable skills, plus skills the deed's mechanic presents when it is on.
   - With trails off (or at the gate), a grade 6–12 reading side quest is `read-g4` multiple choice, exactly as today.
-- **R-H9: walking runs (planner call).** `WALKING_KINDS = ["trail"]`; slice 6 adds `"rune"`. When the deed's mechanic is a walking kind and it is on:
+- **R-H9: walking runs (planner call; R-H21 and R-H22 are the owner's parts of it).** `WALKING_KINDS = ["trail"]`; slice 6 adds `"rune"`. When the deed's mechanic is a walking kind and it is on:
   - the candidates are the skills it presents;
-  - if the hero's own grade has none, the candidates are the band's skill instead (`bandSkill`, the walk RG-o uses), so a K reader gets `read-g1` trails and a grade-2 reader `read-g3`;
-  - focus skills it does not present are left out;
-  - review misses and due tasks of any other kind are left out, so the run is all clues;
+  - if the hero's own grade has none, the candidates are the band's skill instead (`bandSkill`, the walk RG-o uses; R-H21);
+  - focus extras stay candidates when they are playable (R-H8), whether the mechanic presents them or not;
+  - when the fresh draw picks a focus skill the mechanic does not present, the whole run leaves the walk (R-H22);
+  - otherwise, review misses and due tasks of any other kind are left out, so the run is all clues;
   - the clues keep their drawn order (whole trails, in order), and review clues come last.
 - **R-H10: a trail side quest is half the grown-up's length (planner call).**
   - The reading deeds take `questionCount: TRAIL_CLUES` (4), so `deedRunLength` gives 8 → 4, 12 → 6 and 4 → 2, only when the run draws trails. Choice keeps the whole length (RF-j's rule, unchanged).
@@ -2772,9 +2778,12 @@ Part F's constraints still apply, plus:
   - a resolved miss marks the answer "It was here.";
   - it fits 390 px.
 - **R-H16: demo-first.** `DemoKey` gains `"trail"`, with one demo, "Watch Pip", shown to a K–3 hero before their first clue (R-F10's rule, unchanged).
-- **R-H17: narration.**
-  - Every k1 clue carries `readAloud` (validator). Other bands may.
-  - A clue is spoken unprompted only when `profile.readAloud` is on, and the read-aloud button is always there (`canSpeak()`).
+- **R-H17: narration (owner, 2026-11-21).**
+  - **A Kindergarten hero always hears every clue read aloud, whatever `profile.readAloud` says.** That covers the clue, its second-chance line and its miss line, on the board, on the page and in the tracker, and Pip's trail demo before the first clue.
+  - Every other hero, grade 1 included, hears a clue unprompted only with `profile.readAloud` on. The read-aloud button is always there (`canSpeak()`).
+  - The server marks the run: `RunStart.narrateClues: true` when the hero's grade in the run's strand is K and the run holds a trail task, on a fresh start and a resumed one alike.
+  - The browser decides with one pure rule, `autoSpeaks(task, readAloud, narrateClues)`: `readAloud || (narrateClues && task.kind === "trail")`.
+  - Every k1 clue carries `readAloud` (validator), so a K clue is always spoken in its narration form. Other bands may.
   - The tracker, the board and the page share the existing speech path.
 - **R-H18: the switch.**
   - "Reading trails" (`mechanics.trail`) defaults on. Off, reading plays as multiple choice.
@@ -2784,6 +2793,15 @@ Part F's constraints still apply, plus:
   - Trails keep no world state, so `realm_world_state` is untouched.
   - A reading run start with trails on costs one more query, `loadRecentTrailIds`, in its second parallel round.
 - **R-H20: the reading deeds' stories are unchanged.** The walk's own words come from `trail-copy.ts`.
+- **R-H21: K–2 readers' trails come from one grade up (owner, 2026-11-21).**
+  - With trails on, a K hero's reading side quest draws `read-g1` trails and a grade-2 hero's draws `read-g3` trails (R-H9's band walk), and those skills' mastery moves.
+  - Their sight-word skills stay in review (riddle stones, Quick review) and in a grown-up's focus (R-H22).
+- **R-H22: a reading focus no trail can play wins (owner, 2026-11-21).**
+  - When the fresh draw of a reading side quest (`selectSkills`) picks a grown-up's focus skill that no trail pool presents (`sight-k1`, `sight-g23`), that side quest plays as multiple choice. Other reading side quests stay trails.
+  - It mirrors 4a's vocabulary-focus rule in `buildDeedRun`'s kind choice, in the other direction. `focusOffWalk = isWalkingKind(deed.mechanic) && skills.some((s) => focus.has(s.id) && !TASK_KINDS[deed.mechanic].presents(s.id))` is worked out right after `selectSkills`. When it is true, `kindOfSkill` starts from `"choice"` for every skill, and 4a's lock fallback still applies after it.
+  - A non-presented focus skill that is only due, in a run that stays a trail, is left out like any due task of another kind.
+  - Length: `drawsMechanic` is then false, so the run is the grown-up's whole length (RF-j's fix: half only when the run actually draws the hands-on kind).
+  - A focus skill a trail does present (`read-g4` for a grade-3 hero) leaves the run a trail.
 
 ## Global constraints for Part H
 
@@ -2855,6 +2873,7 @@ Parts F and G's constraints still apply, plus:
 | `src/lib/realm/trail-map.ts` | the picture run's projection and backdrop |
 | `src/lib/realm3d/anchor-boxes.ts` | stake and object boxes |
 | `src/lib/tasks/trail-copy.ts` | Part H's copy |
+| `src/lib/tasks/narration.ts` | `autoSpeaks`, the one rule for unprompted speech (R-H17) |
 | **New, tooling** | |
 | `src/lib/content/trail-anchor-facts.ts` | the always-true facts authors and blind readers work from |
 | `src/lib/content/trail-pools.ts`, `trail-blind-pass.ts`, `trail-blind-pass-cli.ts` | format, validator, blind pass |
@@ -2871,7 +2890,8 @@ Parts F and G's constraints still apply, plus:
 | **Modified** | |
 | `src/lib/tasks/types.ts`, `registry.ts`, `codecs.ts`, `kinds.ts`, `draw.ts`, `demos.ts`, `lock.ts`, `client-boundary.test.ts` | the kind; `reveal`/`retryLine`; walking kinds; the run drawer; the demo key |
 | `src/lib/utils/skills.ts`, `band-skill.ts` (new), `world-lock-run.ts`, `deed-engine.ts`, `review-run.ts`, `deeds.ts`, `skill-hints.ts`, `app/dev/content/sample.ts` | trail skills, candidates, walking runs, reading deeds |
-| `src/lib/actions/deeds.ts`, `src/lib/services/deed-run-store.ts` | `resultFor`, the start's order, `loadRecentTrailIds`, `resumedStart`'s hint, `demoAt` |
+| `src/lib/actions/deeds.ts`, `src/lib/services/deed-run-store.ts`, `src/lib/utils/deed-run-types.ts` | `resultFor`, the start's order, `loadRecentTrailIds`, `resumedStart`'s hint, `demoAt`, `RunStart.narrateClues` |
+| `src/components/deed-player.tsx` | the page's unprompted speech through `autoSpeaks` |
 | `src/lib/realm3d/talk.ts`, `interact.ts`, `hud-bus.ts` | feedback words; anchor spots; the union |
 | `src/components/tasks/presenters.tsx`, `task-demo.tsx`, `src/components/realm3d/deed-board.tsx`, `spike-scene.tsx`, `realm-game.tsx`, `src/app/(app)/settings/realm-settings-panel.tsx` | wiring |
 | `docs/content/ela-science-skill-map.md`, `src/lib/utils/skills.test.ts` | `read-g6`/`read-g9` status, and the unwritten-pool list |
@@ -2885,7 +2905,7 @@ Parts F and G's constraints still apply, plus:
 - Create `src/lib/realm/trail-map.ts` + `trail-map.test.ts`.
 - Create `src/lib/realm3d/anchor-boxes.ts` + `anchor-boxes.test.ts`.
 - Create `src/lib/content/trail-anchor-facts.ts` (tested in `anchors.test.ts`).
-- Spec §2a: add "Calls settled for slice 5 (2026-11-21)", with the owner's answers and R-H1–R-H20, one line each. Spec §4.6: strike the `place:longwater` example and say "village only (owner, 2026-11-21)".
+- Spec §2a: add "Calls settled for slice 5 (2026-11-21)", with the owner's answers and R-H1–R-H22, one line each. Spec §4.6: strike the `place:longwater` example and say "village only (owner, 2026-11-21)".
 
 **Interfaces (produces):**
 - `type AnchorId`: the 14 ids below.
@@ -3323,11 +3343,15 @@ Parts F and G's constraints still apply, plus:
   - `runCandidates`'s walking rules (R-H9);
   - `BuildRunInput.recentSets?: readonly string[]`, threaded as `avoid`;
   - in `buildDeedRun`:
+    - `focusOffWalk` (R-H22), worked out right after `selectSkills`; when true, `kindOfSkill` starts from `"choice"`;
     - `walking = isWalkingKind(deed.mechanic) && drawsMechanic`, worked out before the review selection;
     - when `walking`, misses and due skills are kept only where `kindOfSkill(id) === deed.mechanic`;
     - the order is `[...questions, ...nonFresh]`, never shuffled.
 - **`deed-run-store.ts`:** `loadRecentTrailIds`.
-- **`actions/deeds.ts` `startDeedRun`:** `loadRecentTrailIds` in the second round when `deed.mechanic === "trail" && enabledKinds.has("trail")`, passed as `recentSets`.
+- **`actions/deeds.ts` `startDeedRun`:**
+  - `loadRecentTrailIds` in the second round when `deed.mechanic === "trail" && enabledKinds.has("trail")`, passed as `recentSets`;
+  - `narrateClues: true` on the returned start (fresh and resumed, through the same wrapper as `withDemo`) when `grade === "K"` and a question is of kind `"trail"`.
+- **`deed-run-types.ts`:** `RunStart.narrateClues?: true`.
 - **Re-record:**
   - the `well-signs` entries of "keeps its output as deeds name a mechanic" as trail ids, with a choice-pinned twin (`enabledKinds: CHOICE_ONLY`) holding today's ids unchanged;
   - the fewer-choices recorded loop pinned to `CHOICE_ONLY`, with its ids unchanged;
@@ -3339,11 +3363,12 @@ Parts F and G's constraints still apply, plus:
   - `TRAIL_CLUES = 4`.
   - `TRAIL_DEED_IDS: readonly string[]`.
   - `TRAIL_MEMORY_RUNS = 7`.
+  - `RunStart.narrateClues?: true`: set only for a K hero's run with a trail task (R-H17). Absent otherwise.
   - `loadRecentTrailIds(childId: string, deedIds: readonly string[]): Promise<string[]>`. One query: the hero's runs with `deed_id IN deedIds`, newest `started_at` first, `LIMIT 7`, any kind and open or not. From each run's questions, it collects the `trail` of every object task of kind `"trail"` whose `trail` is a string. A malformed row is skipped.
 - **The walking rules in `runCandidates`**, when `isWalkingKind(m) && on(m)`:
   - `base = presented(base)`;
   - if that is empty, `bandSkill(deed.area, grade, presents)?.skill`, else the choice base;
-  - focus extras must be presented.
+  - focus extras must be playable (R-H8), presented or not. Whether a drawn one takes the run off the walk is `buildDeedRun`'s call (R-H22).
 
 - [ ] **Step 1: Write the failing tests.**
 
@@ -3361,6 +3386,10 @@ Parts F and G's constraints still apply, plus:
   - "trails off: eight multiple-choice questions, as before".
   - "the gate is multiple choice": `enabledKinds: ∅` gives choice.
   - "a Crown Challenge is three clues".
+  - "a drawn sight-word focus makes the side quest multiple choice" (R-H22): grade 2, `focusSkillIds: ["sight-g23"]`, and a seed where `selectSkills` picks `sight-g23` (find one and record it in the test). The run is 8 tasks at the default length, none of kind `"trail"`; at length 12 it is 12.
+  - "the same focus left undrawn keeps the trail": the same input with a seed where the draw picks `read-g3` gives 4 clues, all `"trail"`, and no `sight-g23` task.
+  - "a focus a trail presents keeps the trail": grade 3, `focusSkillIds: ["read-g4"]`, and every recorded seed gives only `"trail"` tasks.
+  - "the focus rule waits for trails": with trails off, the grade-2 `sight-g23` focus run is the same multiple-choice run with and without the rule.
   - "recentSets": with every trail of the near level in `recentSets`, the run draws far-level trails.
   - The re-recorded table and its choice twin.
 
@@ -3372,6 +3401,8 @@ Parts F and G's constraints still apply, plus:
   - "a reading choice run stored before the deploy resumes and completes" (Review Focus 4): a row with `kind`-less choice questions resumes, takes answers and completes with stars.
   - "a right trail run pays by stars as any side quest": `minutesEarned` is `sideQuestPay`'s.
   - "trails off: a grade-7 reader's side quest is `read-g4` choice, eight questions".
+  - "a K hero's trail start is narrated; a grade-1 hero's is not" (R-H17): a K hero's fresh start and its resumed start both have `narrateClues: true`; a grade-1 hero's has no `narrateClues`; a K hero's start with trails off (choice) has none.
+  - "a grown-up's sight-word focus turns a grade-2 hero's reading side quest to choice" (R-H22): with a `learning_focus` row for `sight-g23` and `Date.now` mocked to a seed where the draw picks it, the stored questions have no `kind`, and there are 8.
 - [ ] **Step 2:** `npx vitest run src/lib/utils/deed-engine.test.ts src/lib/utils/deeds.test.ts src/lib/actions/deeds-db.test.ts src/lib/services/deed-run-store-db.test.ts --maxWorkers=2`. Expected: FAIL.
 - [ ] **Step 3:** implement.
 - [ ] **Step 4:** the same command, plus `src/lib/actions/practice-db.test.ts src/lib/actions/world-locks-db.test.ts src/lib/actions/review-db.test.ts`, then `npx tsc --noEmit`. Expected: PASS.
@@ -3381,6 +3412,7 @@ Parts F and G's constraints still apply, plus:
 
 **Files:**
 - Create `src/components/tasks/trail-presenter.tsx`, `trail-map.tsx`, `trail-demo.tsx` and `trail.css`. Register `TASK_PRESENTERS.trail = TrailPresenter`.
+- Create `src/lib/tasks/narration.ts` + `narration.test.ts` (R-H17). `DeedRun`'s read-aloud effects (the task or its demo, and the second-chance hint) and `deed-player.tsx`'s use `autoSpeaks(question, profile.readAloud, run.narrateClues === true)` in place of `profile.readAloud`. Nothing else about their speech changes.
 - **`presenters.tsx`:** `PresenterProps.onWalk?: () => void`.
 - **`demos.ts`:**
   - `DemoKey` gains `"trail"`;
@@ -3397,7 +3429,7 @@ Parts F and G's constraints still apply, plus:
   - `DeedBoard` gains `onWalk?` and `walked?`.
 
 **Interfaces:**
-- **Consumes:** H1's `ANCHORS`, `ANCHOR_IDS`, `trailMapPoint`, `trailMapBackdrop`, `TRAIL_MAP_VIEW` and `TRAIL_MAP_HIT`; H2's codec and copy.
+- **Consumes:** H1's `ANCHORS`, `ANCHOR_IDS`, `trailMapPoint`, `trailMapBackdrop`, `TRAIL_MAP_VIEW` and `TRAIL_MAP_HIT`; H2's codec and copy; H7's `RunStart.narrateClues`.
 - **Produces:**
   - `TrailPresenter(props: PresenterProps<"trail">)`: `variant === "board" && onWalk` shows `TrailSetOff`; otherwise `TrailMap`.
   - `TrailMap({ flow, disabled, onRespond })`: one `<button>` per anchor (`aria-label` is the label, `aria-pressed` the selection), in catalog order, inside an `<svg viewBox="0 0 360 h" width="100%">` with the backdrop.
@@ -3408,6 +3440,7 @@ Parts F and G's constraints still apply, plus:
     - `onWalk?: (run: RunStart) => void`, passed to `DeedRun` only for `runContext === "realm"`;
     - `walked?: { run: RunStart; summary: RunSummary } | null`, which, when set, renders `<Panel>` with `RunResultCard` in place of the talk.
   - `demoKind(key: DemoKey): HandsOnKind`.
+  - `autoSpeaks(task: Pick<ClientTask, "kind">, readAloud: boolean, narrateClues: boolean): boolean`: `readAloud || (narrateClues && task.kind === "trail")`.
 
 **The map's behaviour:**
 - A tap selects. "Search here" is disabled until there is a selection.
@@ -3431,6 +3464,12 @@ Parts F and G's constraints still apply, plus:
 
   **`task-demo.test.tsx`:** the trail demo's copy and steps; Done calls `onDone`.
 
+  **`narration.test.ts`:**
+  - `autoSpeaks(trail, false, true)` is `true` (a K clue, read-aloud off);
+  - `autoSpeaks(trail, false, false)` is `false` (a grade-1 clue, read-aloud off);
+  - `autoSpeaks(choice, false, true)` is `false`;
+  - `autoSpeaks(choice, true, false)` is `true`.
+
   **`deed-run-store-db.test.ts`:**
   - `demoAt` marks a K hero's first trail;
   - after a trail answered in another run, it gives `null`;
@@ -3441,10 +3480,14 @@ Parts F and G's constraints still apply, plus:
   - a two-clue trail run in the realm shows "Set off", which calls `onWalk(run)`;
   - a mixed run shows no "Set off";
   - `walked` renders the result card titled by the deed;
-  - `deedResultOf` matches the old `handUp` for a deed, a challenge and a build (null).
+  - `deedResultOf` matches the old `handUp` for a deed, a challenge and a build (null);
+  - "a K hero hears the clue with read-aloud off": a trail run with `narrateClues: true` and `profile.readAloud: false` calls `speak` with the clue's `readAloud`, and with the hint once a second chance opens;
+  - "a grade-1 hero's clue is not spoken unless asked": the same run without `narrateClues` makes no `speak` call until the read-aloud button is pressed, which speaks the clue.
 
-  **`deed-player.test.tsx`:** a trail task on the page plays on the map and answers through `answerDeedQuestion(runId, 0, "landmark:mill")`.
-- [ ] **Step 2:** `npx vitest run src/components/tasks/trail-presenter.test.tsx src/components/tasks/task-demo.test.tsx src/lib/services/deed-run-store-db.test.ts src/components/realm3d/deed-board.test.tsx src/components/deed-player.test.tsx src/components/tasks/presenters.test.tsx --maxWorkers=2`. Expected: FAIL.
+  **`deed-player.test.tsx`:**
+  - a trail task on the page plays on the map and answers through `answerDeedQuestion(runId, 0, "landmark:mill")`;
+  - a K run (`narrateClues: true`) speaks the clue with read-aloud off; the same run without `narrateClues` does not.
+- [ ] **Step 2:** `npx vitest run src/components/tasks/trail-presenter.test.tsx src/components/tasks/task-demo.test.tsx src/lib/services/deed-run-store-db.test.ts src/components/realm3d/deed-board.test.tsx src/components/deed-player.test.tsx src/components/tasks/presenters.test.tsx src/lib/tasks/narration.test.ts --maxWorkers=2`. Expected: FAIL.
 - [ ] **Step 3:** implement.
 - [ ] **Step 4:** the same command, `npx eslint` on the changed files, then `npx tsc --noEmit`. Expected: PASS, 0 errors.
 - [ ] **Step 5: Commit.** `feat(trails): a village map to answer a clue on, Set off for the Realm, and Pip's first clue`.
@@ -3475,7 +3518,7 @@ Parts F and G's constraints still apply, plus:
   - `trailOn` and `trailRevealed` passed to the canvas.
 
 **Interfaces:**
-- **Consumes:** H1's `ANCHOR_SPOTS`, `ANCHOR_SPOT`, boxes and `isAnchorId`; H8's `deedResultOf`, `RunResultCard`, `DeedBoard`'s `onWalk`/`walked`, and `useDeedFlow`.
+- **Consumes:** H1's `ANCHOR_SPOTS`, `ANCHOR_SPOT`, boxes and `isAnchorId`; H8's `deedResultOf`, `RunResultCard`, `DeedBoard`'s `onWalk`/`walked`, `autoSpeaks` and `useDeedFlow`; H7's `RunStart.narrateClues`.
 - **Produces:**
   - `anchorTarget(a): InteractTarget`: `{ kind: "anchor", id: a.id, label: a.label, verb: TRAIL_SEARCH_VERB }`.
   - `useTrailWalk()`:
@@ -3515,7 +3558,7 @@ Parts F and G's constraints still apply, plus:
   - `TRAIL_HIDE`/`TRAIL_SHOW`, which collapse it to its dots;
   - `TRAIL_LEAVE`.
   - It never takes focus by itself, so the game's keys keep working. At 390 px it spans the width less the 16 px gutters.
-- **Speech:** a new clue, a second-chance line and a miss line are spoken when `profile.readAloud` is on.
+- **Speech:** a new clue, a second-chance line and a miss line are spoken unprompted when `autoSpeaks(task, profile.readAloud, walk.run.narrateClues === true)` holds (R-H17), so always for a K hero. The read-aloud button speaks the clue on request.
 
 **The frame:**
 - `openTarget(t)`: `if (t.kind === "anchor") { if (isAnchorId(t.id)) trail.answerRef.current?.(t.id); return; }`.
@@ -3550,6 +3593,8 @@ Parts F and G's constraints still apply, plus:
 
   **`trail-walk.test.tsx`** (actions mocked):
   - shows clue 1 and its dots, and speaks it with `readAloud`;
+  - "a K hero hears every clue with read-aloud off": a run with `narrateClues: true` and `readAloud: false` speaks clue 1, the second-chance line, the miss line and clue 2;
+  - "a grade-1 hero's clue is not spoken unless asked": without `narrateClues`, no `speak` call until the read-aloud button, which speaks the clue;
   - `answerRef.current("landmark:mill")` calls `answerDeedQuestion("r1", 0, "landmark:mill")`;
   - right: the line reads "That's it! Old Bram is pleased." and clue 2 shows;
   - a first wrong place: "Not here. That is where water is drawn." and "Show me";
@@ -3582,7 +3627,7 @@ Parts F and G's constraints still apply, plus:
   - `npx eslint src`: 0 errors.
 - [ ] **No migration:** `npm run db:generate` reports no schema changes.
 - [ ] **Browser smoke.** Use `NEXT_DIST_DIR=.next-agent`, a throwaway env and a fresh migrated, demo-seeded `local.db` (F10's way). Press keys only, never click the canvas, and look at every image.
-  1. A K hero at Old Bram's "Signs for the Well": Pip's trail demo, then "Set off". The tracker shows a clue and reads it aloud with read-aloud on. The four objects and the 14 stakes are drawn.
+  1. A K hero at Old Bram's "Signs for the Well", with read-aloud OFF: Pip's trail demo, then "Set off". The tracker shows a clue, and it is read aloud anyway (R-H17). The four objects and the 14 stakes are drawn.
   2. Walk (`?at=` near the mill) and press E. Right: the next clue shows at once.
   3. A grade-3 hero:
      - a wrong place gives "Not here." and its redirect;
@@ -3596,6 +3641,8 @@ Parts F and G's constraints still apply, plus:
   8. The settings switch "Reading trails" off: reading is multiple choice in the Realm and on the page, and no stakes are drawn.
   9. The gate board: reading is multiple choice.
   10. `?calm=1`: the four objects still stand.
+  11. A grade-1 hero with read-aloud off: the clue is not spoken until the read-aloud button is pressed.
+  12. A grade-2 hero with a grown-up's sight-word focus: start reading side quests until one draws the focus. That one is eight multiple-choice questions on the board; one that does not draw it is a trail (R-H22).
 - [ ] **Whole-branch review** (opus) on `7e74872..HEAD`. It checks:
   - the leak rule end to end;
   - that no path pays minutes besides the side quest's stars;
@@ -3657,6 +3704,7 @@ Parts F and G's constraints still apply, plus:
   - R-H9's walking rules pick the presented skill. At grade 1, `[lang-g1, spell-g1]` becomes `[spell-g1]`.
   - The spelling and vocabulary drill pools stay as choice review.
 - **R-I8: a vocabulary focus inside a rune deed (planner call, the 4a conflict).**
+  - R-H22's rule is written for walking kinds, so it reaches rune deeds too. A drawn language focus that no rune pool presents (today only `lang-g1`, at grades K–2) turns that side quest to its own kind: choice, or a sort by 4a's rule. The owner answered this for reading; confirm it for runes when Part I is written in full.
   - In a rune deed, the rune wins when a rune pool presents the skill.
   - The 4a focus-sort rule (`buildDeedRun`'s `kindOfSkill`: a choice-played focus skill a lock presents is sorted) still fires only when the skill would otherwise be `choice`. That covers runes off, or a vocab skill no rune pool credits.
   - Library chests keep drawing vocabulary sorts (`worldLockSkill`, unchanged).
@@ -3682,10 +3730,10 @@ Parts F and G's constraints still apply, plus:
   - it fits 390 px.
 
   A K–3 hero sees one "Watch Pip" rune demo first (R-F10).
-- **R-I13: the switch "Rune spellcraft"** (`mechanics.rune`) defaults on.
-  - Off, language plays as multiple choice.
-  - Rune objects are not drawn, and `startRuneObjectRun` refuses `RUNES_OFF`.
-  - Anything fixed stays recorded. This mirrors the owner's R-G7 answer for locks.
+- **R-I13: runes off (owner, 2026-11-21).** The switch "Rune spellcraft" (`mechanics.rune`) defaults on. With it off:
+  - language plays as multiple choice;
+  - rune objects are not drawn, the same as chests and doors with locks off (R-G7), and `startRuneObjectRun` refuses `RUNES_OFF`;
+  - fixed records stay: the `rune:` rows are kept, and when runes are turned back on each object is drawn as its row says.
 - **R-I14: language deeds become `mechanic: "rune"`:** `mill-ledger`, `bridge-toll`, `market-crier` and `library-scribe`.
   - Recorded snapshots that change get choice-pinned twins.
   - A language choice run stored before the deploy still resumes.
