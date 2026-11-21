@@ -39,7 +39,7 @@ export const TASK_PRESENTERS: { [K in TaskKind]: ComponentType<PresenterProps<K>
   choice: ChoicePresenter,
   measure: BenchPresenter,
   lock: LockPresenter,
-  // Nothing until the trail's presenter lands (H8): no run draws a trail before then (F-7).
+  // A placeholder until the trail's presenter lands (H8): it draws nothing. H7 and H8 land together (F-7).
   trail: () => null,
 };
 

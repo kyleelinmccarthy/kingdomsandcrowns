@@ -13,9 +13,11 @@ import type { ChoiceTask, LockTask, MeasureTask, Task, TaskKind } from "@/lib/ta
 import { BENCH } from "@/lib/tasks/bench";
 import { TASK_KINDS, kindOf } from "@/lib/tasks/registry";
 import { HANDS_ON_KINDS } from "@/lib/tasks/kinds";
-import { __setDrawerForTest, type TaskDrawer } from "@/lib/tasks/draw";
+import { __setDrawerForTest, TASK_RUN_DRAWERS, type TaskDrawer } from "@/lib/tasks/draw";
 import { choiceKind } from "@/lib/tasks/choice";
 import { __setSortPoolsForTest, sortTaskFromId } from "@/lib/tasks/locks/sort";
+import { __setTrailPoolsForTest } from "@/lib/tasks/trails";
+import { fixtureTrailPool } from "@/test/trail-pool-fixture";
 
 const deedMath = findDeed("well-stones")!;      // math
 const deedReading = findDeed("well-signs")!;    // reading
@@ -1373,9 +1375,10 @@ describe("a run draws only what it can play (R-H8)", () => {
   describe("when the deed's mechanic presents a trail skill", () => {
     const trailReading = { ...choiceReading, mechanic: "trail" as const };
     const TRAILS_ON: ReadonlySet<TaskKind> = new Set<TaskKind>(["trail"]);
-    afterEach(() => vi.restoreAllMocks());
-    const presenting = (...skillIds: string[]) =>
-      vi.spyOn(TASK_KINDS.trail, "presents").mockImplementation((id: string) => skillIds.includes(id));
+    afterEach(() => __setTrailPoolsForTest(null));
+    // The real kind presents a skill when a pool credits it, so these load fixture pools (F-7) rather than spy.
+    const BAND_OF: Record<string, "k1" | "g23" | "g45" | "g68" | "g912"> = { "read-g1": "k1", "read-g3": "g23", "read-g4": "g45", "read-g6": "g68", "read-g9": "g912" };
+    const presenting = (...skillIds: string[]) => __setTrailPoolsForTest(skillIds.map((id) => fixtureTrailPool(BAND_OF[id])));
 
     it("keeps the trail skill while its switch is on, and drops it with the switch off or at the gate", () => {
       presenting("read-g6");
@@ -1447,5 +1450,108 @@ describe("what a trail skill's choice draw is, and what buildDeedRun hands the c
   it("a trail skill that is a run's one candidate is still picked by selectSkills (H7 relies on it); a lock skill is not", () => {
     expect(selectSkills([SKILLS.find((s) => s.id === "read-g6")!], {}, seededRng(1)).map((s) => s.id)).toEqual(["read-g6"]);
     expect(selectSkills([SKILLS.find((s) => s.id === "logic-g45")!], {}, seededRng(1))).toEqual([]);
+  });
+});
+
+describe("a trail run: whole trails of the skill's pool (H4, R-H9, R-H11)", () => {
+  const trailDeed = { ...findDeed("well-signs")!, mechanic: "trail" as const };
+  const real = TASK_RUN_DRAWERS.trail!;
+  afterEach(() => {
+    TASK_RUN_DRAWERS.trail = real;
+    __setTrailPoolsForTest(null);
+  });
+  const calm = { ...profile, predictableRoutine: true };
+
+  it("trail-run: a mechanic-trail deed with the fixture pool draws 4 clues of kind trail", () => {
+    __setTrailPoolsForTest([fixtureTrailPool("g23")]);
+    const run = buildDeedRun(input({ deed: trailDeed, questionCount: 4, enabledKinds: ALL_ON }));
+    expect(run.skillIds).toEqual(["read-g3"]);
+    expect(run.questions).toHaveLength(4);
+    for (const q of run.questions) expect(kindOf(q)).toBe("trail");
+    expect(new Set(run.questions.map((q) => q.id)).size).toBe(4);
+    for (const q of run.questions) expect(q.id).toMatch(/^read-g3:trail:[0-9a-f]{8}$/);
+  });
+
+  it("keeps a trail's clues in order when the run is not shuffled (predictable routine), and is one run per seed", () => {
+    __setTrailPoolsForTest([fixtureTrailPool("g23")]);
+    for (const seed of [1, 2, 3, 4, 5]) {
+      const a = buildDeedRun(input({ deed: trailDeed, seed, questionCount: 4, enabledKinds: ALL_ON, profile: calm }));
+      const b = buildDeedRun(input({ deed: trailDeed, seed, questionCount: 4, enabledKinds: ALL_ON, profile: calm }));
+      expect(a).toEqual(b);
+      const trails = a.questions.map((q) => (q as { trail: string }).trail);
+      // A trail's clues are together: no trail comes back after another began.
+      expect(trails.filter((t, i) => i > 0 && t !== trails[i - 1]).length, `seed ${seed}`).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it("plays as choice, exactly as before, when no pool credits the skill (as shipped)", () => {
+    const run = buildDeedRun(input({ deed: trailDeed, questionCount: 4, enabledKinds: ALL_ON }));
+    for (const q of run.questions) expect(kindOf(q)).toBe("choice");
+    expect(run.questions).toHaveLength(4);
+  });
+
+  it("passes the week's trails as `avoid` to the fresh draw, and the draw keeps off them", () => {
+    const pool = fixtureTrailPool("g23");
+    __setTrailPoolsForTest([pool]);
+    const recent = pool.trails.filter((t) => t.level <= 1).map((t) => `${pool.poolId}/${t.id}`);
+    const calls: string[][] = [];
+    TASK_RUN_DRAWERS.trail = (skill, level, count, rng, exclude, avoid) => {
+      calls.push([...avoid].sort());
+      return real(skill, level, count, rng, exclude, avoid);
+    };
+    // Mastery 0 draws near levels 0-1: every near trail is avoided, so the draw falls to the far ones.
+    for (const seed of [1, 2, 3]) {
+      const run = buildDeedRun(input({ deed: trailDeed, seed, questionCount: 4, enabledKinds: ALL_ON, recentSets: recent }));
+      expect(run.questions).toHaveLength(4);
+      for (const q of run.questions) expect(recent, `seed ${seed}`).not.toContain((q as { trail: string }).trail);
+    }
+    expect(calls.length).toBeGreaterThan(0);
+    for (const avoid of calls) expect(avoid).toEqual([...recent].sort());
+  });
+
+  it("the refill passes avoid: a draw that comes up short is topped up without an avoided trail while others remain", () => {
+    const pool = fixtureTrailPool("g23");
+    __setTrailPoolsForTest([pool]);
+    const recent = pool.trails.filter((t) => t.level <= 1).map((t) => `${pool.poolId}/${t.id}`);
+    const calls: { count: number; avoid: string[] }[] = [];
+    TASK_RUN_DRAWERS.trail = (skill, level, count, rng, exclude, avoid) => {
+      calls.push({ count, avoid: [...avoid].sort() });
+      const drawn = real(skill, level, count, rng, exclude, avoid);
+      // The first draw comes up one short, so the engine goes back for the rest.
+      return calls.length === 1 ? drawn.slice(0, count - 1) : drawn;
+    };
+    const run = buildDeedRun(input({ deed: trailDeed, seed: 9, questionCount: 4, enabledKinds: ALL_ON, recentSets: recent }));
+    expect(calls.length).toBeGreaterThanOrEqual(2);
+    expect(calls[1].count).toBe(1);
+    for (const call of calls) expect(call.avoid).toEqual([...recent].sort());
+    expect(run.questions).toHaveLength(4);
+    for (const q of run.questions) expect(recent).not.toContain((q as { trail: string }).trail);
+  });
+
+  it("the due draw gets avoid too", () => {
+    __setTrailPoolsForTest([fixtureTrailPool("g23"), fixtureTrailPool("g45")]);
+    const recent = ["trail-g23/fx-01-trail", "trail-g45/fx-02-trail"];
+    const calls: { skillId: string; count: number; avoid: string[] }[] = [];
+    TASK_RUN_DRAWERS.trail = (skill, level, count, rng, exclude, avoid) => {
+      calls.push({ skillId: skill.id, count, avoid: [...avoid].sort() });
+      return real(skill, level, count, rng, exclude, avoid);
+    };
+    // Grade 4 with a grade-3 focus: both skills are candidates, one is picked, the other comes back as a due reminder.
+    const run = buildDeedRun(input({
+      deed: trailDeed, grade: "4", seed: 3, questionCount: 4, enabledKinds: ALL_ON, recentSets: recent,
+      focusSkillIds: ["read-g3"], dueSkillIds: ["read-g3", "read-g4"], poolItems: [...poolItems("read-g3", 30), ...poolItems("read-g4", 30)],
+    }));
+    expect(new Set(calls.map((c) => c.skillId)).size, "both skills were drawn from: one fresh, one due").toBe(2);
+    expect(calls.some((c) => c.count === 1)).toBe(true);
+    for (const call of calls) expect(call.avoid).toEqual([...recent].sort());
+    expect(run.questions.length).toBeGreaterThan(0);
+  });
+
+  it("leaves the measure and sort draws alone: threading avoid moves no recorded id", () => {
+    // `avoid` is the trail drawer's alone: handing it to a run must not move a measure or sort run's ids.
+    const base = buildDeedRun(input({ deed: deedMath, grade: "3", seed: 21, enabledKinds: ALL_ON }));
+    expect(buildDeedRun(input({ deed: deedMath, grade: "3", seed: 21, enabledKinds: ALL_ON, recentSets: ["trail-g23/fx-01-trail"] }))).toEqual(base);
+    const sci = buildDeedRun(input({ deed: deedScience, grade: "3", seed: 5, enabledKinds: ALL_ON }));
+    expect(buildDeedRun(input({ deed: deedScience, grade: "3", seed: 5, enabledKinds: ALL_ON, recentSets: ["trail-g23/fx-01-trail"] }))).toEqual(sci);
   });
 });

@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { seededRng } from "@/lib/utils/drill-generators";
 import { findSkill } from "@/lib/utils/skills";
+import { cloneTrailPool } from "@/test/trail-pool-fixture";
 import { TRAIL, TRAIL_REDIRECT, WELL_REDIRECT } from "@/test/trail-stubs";
 import { TRAIL_MAX_CHARS, TASK_CODECS } from "./codecs";
 import { TASK_DRAWERS, runDrawerFor } from "./draw";
 import { TASK_KINDS, isTaskCorrect, taskDefOf, toClientTask } from "./registry";
 import { trailKind } from "./trail";
+import { __setTrailPoolsForTest } from "./trails";
 import { TRAIL_RETRY_LEAD, TRAIL_UNKNOWN_ANSWER, trailAnswerText } from "./trail-copy";
 import type { TrailTask } from "./types";
 
@@ -79,9 +81,16 @@ describe("the trail kind (R-H5)", () => {
     expect(isTaskCorrect(TRAIL, "landmark:mill")).toBe(true);
   });
 
-  it("presents nothing before pools exist", () => {
+  it("presents a skill only while a pool credits it (F-7)", () => {
+    // As shipped no pool exists (H5 writes them), and with none loaded nothing is presented.
+    __setTrailPoolsForTest([]);
     expect(trailKind.presents("read-g3")).toBe(false);
     expect(trailKind.presents("read-g1")).toBe(false);
+    __setTrailPoolsForTest([cloneTrailPool("g23")]);
+    expect(trailKind.presents("read-g3")).toBe(true);
+    expect(trailKind.presents("read-g1")).toBe(false);
+    __setTrailPoolsForTest(null);
+    expect(trailKind.presents("read-g3")).toBe(false);
   });
 
   it("keeps the second-chance lead in the shared copy", () => {
@@ -113,13 +122,16 @@ describe("the trail codec", () => {
   });
 });
 
-describe("drawing trails, before the pools (H4)", () => {
-  it("draws nothing one task at a time, and has no run drawer yet", () => {
+describe("drawing trails (H4)", () => {
+  it("draws nothing while no pool credits the skill, one task at a time or as a run", () => {
+    __setTrailPoolsForTest([]);
     expect(TASK_DRAWERS.trail(findSkill("read-g3")!, 2, seededRng(1))).toBeNull();
-    expect(runDrawerFor("trail")).toBeUndefined();
+    expect(runDrawerFor("trail")!(findSkill("read-g3")!, 2, 4, seededRng(1), new Set(), new Set())).toEqual([]);
+    __setTrailPoolsForTest(null);
   });
 
-  it("finds a run drawer by its own keys only", () => {
+  it("has a run drawer for the trail kind, found by its own keys only", () => {
+    expect(runDrawerFor("trail")).toBeDefined();
     for (const k of ["toString", "__proto__", "constructor", "hasOwnProperty", "choice", ""]) expect(runDrawerFor(k), k).toBeUndefined();
   });
 });

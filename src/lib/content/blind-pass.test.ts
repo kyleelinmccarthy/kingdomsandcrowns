@@ -1,6 +1,9 @@
 import { describe, it, expect } from "vitest";
 import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import {
+  NON_DRILL_SHEET_PREFIXES,
   carryForward,
   choicesFor,
   compareSheet,
@@ -468,5 +471,25 @@ describe("re-cutting a sheet keeps the answers that are still valid", () => {
 
     expect(byId["keep-1"].choice, "an untouched question lost its answer").not.toBeNull();
     expect(byId["edit-me"].choice, "an EDITED question kept a stale answer").toBeNull();
+  });
+});
+
+describe("the drill gate skips every non-drill sheet (F-1)", () => {
+  it("lists the sort and trail prefixes in one place", () => {
+    expect([...NON_DRILL_SHEET_PREFIXES]).toEqual(["sort-", "trail-"]);
+  });
+
+  it("lists a drill sheet only, given a review dir that also holds a trail sheet and a sort sheet", () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), "review-"));
+    try {
+      for (const f of ["trail-k1.blind.md", "sort-science-k1.blind.md", "vocab-g45.blind.md", "trail-k1.resolved.json", "notes.md"]) fs.writeFileSync(path.join(dir, f), "x");
+      expect(poolsWithSheets(dir)).toEqual(["vocab-g45"]);
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("never lists a trail sheet or a sort sheet from the real review folder", () => {
+    for (const id of poolsWithSheets()) for (const prefix of NON_DRILL_SHEET_PREFIXES) expect(id.startsWith(prefix), id).toBe(false);
   });
 });

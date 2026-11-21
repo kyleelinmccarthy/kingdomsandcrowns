@@ -27,6 +27,7 @@ import path from "node:path";
 import { seededRng, shuffle } from "../utils/drill-generators";
 import { hash32 } from "./hash32";
 import { REVIEW_DIR, loadResolutions, resolutionsPath, sheetPath, type Resolution } from "./blind-pass";
+import { ANSWER_LINE, carryForwardByCode, closingLines, findResolution, flagLines, readAnswer, unresolvedOf } from "./sheet-kit";
 import { SORT_POOL_PREFIX, formatSortProblems, normLabel, validateSortPool, type SortPool, type SortPoolItem, type SortSet } from "./sort-pools";
 
 export { resolutionsPath };
@@ -124,9 +125,6 @@ export type SortSheetAnswer = {
   both: boolean;
 };
 
-const BOTH = new Set(["both", "either"]);
-const NEITHER = new Set(["?", "none", "neither", "n/a", "na", "unsure", "-", "--"]);
-
 /**
  * Reads a rendered sheet back, however carefully or carelessly it was filled in: `1`, `1.`, `1)` and
  * the bin's own name all mean bin 1. A pass that rejects an honest answer over punctuation costs a
@@ -140,25 +138,26 @@ export function parseSortSheet(markdown: string): { poolId: string | null; answe
     if (!setId) continue;
     const bins = [block.match(/^Bin 0:\s*(.*)$/m)?.[1]?.trim() ?? "", block.match(/^Bin 1:\s*(.*)$/m)?.[1]?.trim() ?? ""];
     for (const line of block.split("\n")) {
-      const m = /^- `#([0-9a-f]+)` .*\| Answer:(.*)$/.exec(line);
+      const m = ANSWER_LINE.exec(line);
       if (!m) continue;
-      const raw = m[2].trim().replace(/[).:,]+$/, "").trim().toLowerCase();
+      const read = readAnswer(m[2]);
       let choice: 0 | 1 | null = null;
       let refused = false;
       let both = false;
-      if (raw === "") {
-        // left blank: counted as missing
-      } else if (raw === "0" || raw === "1") {
-        choice = raw === "0" ? 0 : 1;
-      } else if (BOTH.has(raw)) {
+      if (read.kind === "both") {
         both = true;
-      } else if (NEITHER.has(raw)) {
+      } else if (read.kind === "refused") {
         refused = true;
-      } else {
-        const named = bins.findIndex((b) => b !== "" && b.toLowerCase() === raw);
-        if (named === 0 || named === 1) choice = named;
-        else refused = true; // something we cannot read is not an answer to trust
+      } else if (read.kind === "value") {
+        if (read.value === "0" || read.value === "1") {
+          choice = read.value === "0" ? 0 : 1;
+        } else {
+          const named = bins.findIndex((b) => b !== "" && b.toLowerCase() === read.value);
+          if (named === 0 || named === 1) choice = named;
+          else refused = true; // something we cannot read is not an answer to trust
+        }
       }
+      // A blank stays blank: counted as missing.
       answers.push({ setId, code: m[1], choice, refused, both });
     }
   }
@@ -239,7 +238,7 @@ export function compareSortSheet(pool: SortPool, answers: SortSheetAnswer[], res
     checked++;
 
     const keyName = set.categories[item.category];
-    const settled = resolutions.find((r) => r.itemId === item.id && r.code === answer.code && r.keyAt === keyName);
+    const settled = findResolution(resolutions, item.id, answer.code, keyName);
     const flag = (kind: SortFlagKind): void => {
       flags.push({
         itemId: item.id,
@@ -260,7 +259,7 @@ export function compareSortSheet(pool: SortPool, answers: SortSheetAnswer[], res
   }
 
   const missing = pool.sets.flatMap((s) => s.items.map((i) => i.id)).filter((id) => !answered.has(id));
-  const unresolved = flags.filter((f) => !f.resolution);
+  const unresolved = unresolvedOf(flags);
   return {
     poolId: pool.poolId,
     total: pool.sets.reduce((n, s) => n + s.items.length, 0),
@@ -283,18 +282,15 @@ export function formatSortReport(report: SortBlindPassReport): string {
       `${report.flags.length} flagged (${report.unresolved.length} unresolved)`,
   );
   for (const flag of report.flags) {
-    const mark = flag.resolution ? `resolved: ${flag.resolution.verdict}` : "UNRESOLVED";
-    lines.push(`  [${flag.kind}] ${flag.itemId} — ${mark}`);
-    lines.push(`      "${flag.label}" in set ${flag.setId}  (#${flag.code})`);
-    if (flag.kind === "disagreement") lines.push(`      key: ${flag.key}   reviewer: ${flag.reviewerChoice}`);
-    else if (flag.kind === "ambiguity") lines.push(`      key: ${flag.key}   reviewer: either bin is defensible`);
-    else lines.push(`      key: ${flag.key}   reviewer: could not place it`);
-    if (flag.resolution) lines.push(`      ${flag.resolution.note} (${flag.resolution.resolvedBy})`);
+    const verdict =
+      flag.kind === "disagreement"
+        ? `key: ${flag.key}   reviewer: ${flag.reviewerChoice}`
+        : flag.kind === "ambiguity"
+          ? `key: ${flag.key}   reviewer: either bin is defensible`
+          : `key: ${flag.key}   reviewer: could not place it`;
+    lines.push(...flagLines(flag, [`"${flag.label}" in set ${flag.setId}  (#${flag.code})`, verdict]));
   }
-  if (report.missing.length) lines.push(`  unanswered: ${report.missing.join(", ")}`);
-  if (report.stale.length) lines.push(`  answered before the item changed: ${report.stale.join(", ")}`);
-  if (report.unknown.length) lines.push(`  not in the pool: ${report.unknown.join(", ")}`);
-  lines.push(report.ok ? "  PASS" : "  FAIL");
+  lines.push(...closingLines(report));
   return lines.join("\n");
 }
 
@@ -308,26 +304,11 @@ export function formatSortReport(report: SortBlindPassReport): string {
  * unchanged code means they answered exactly this item. An edited item comes back blank.
  */
 export function carrySortForward(next: string, existing: string): string {
-  const byKey = new Map<string, SortSheetAnswer>();
+  const carried = new Map<string, string>();
   for (const a of parseSortSheet(existing).answers) {
-    if (a.choice !== null || a.refused || a.both) byKey.set(`${a.setId}/${a.code}`, a);
+    if (a.choice !== null || a.refused || a.both) carried.set(`${a.setId}/${a.code}`, a.both ? "both" : a.refused ? "?" : String(a.choice));
   }
-  if (byKey.size === 0) return next;
-  let setId: string | null = null;
-  return next
-    .split("\n")
-    .map((line) => {
-      const heading = /^## Set \d+\. `([^`]+)`/.exec(line);
-      if (heading) {
-        setId = heading[1];
-        return line;
-      }
-      const m = /^- `#([0-9a-f]+)` .*\| Answer:$/.exec(line);
-      const carried = m && setId ? byKey.get(`${setId}/${m[1]}`) : undefined;
-      if (!carried) return line;
-      return `${line} ${carried.both ? "both" : carried.refused ? "?" : String(carried.choice)}`;
-    })
-    .join("\n");
+  return carryForwardByCode(next, carried, /^## Set \d+\. `([^`]+)`/);
 }
 
 // ---------------------------------------------------------------------------------------

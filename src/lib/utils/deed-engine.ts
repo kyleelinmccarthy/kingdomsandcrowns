@@ -6,7 +6,7 @@ import { FOCUS_WEIGHT } from "./focus";
 import { SIDE_QUEST_QUESTIONS, deedRunLength, type Deed } from "./deeds";
 import { REVIEW } from "./review-schedule";
 import { kindForSkill, kindOf, TASK_KINDS } from "@/lib/tasks/registry";
-import { drawerFor } from "@/lib/tasks/draw";
+import { drawerFor, runDrawerFor } from "@/lib/tasks/draw";
 import { sortSetOfId } from "@/lib/tasks/locks/sort";
 import type { ChoiceTask, Task, TaskKind } from "@/lib/tasks/types";
 
@@ -52,6 +52,12 @@ export type BuildRunInput = {
   focusSkillIds?: string[];
   /** The task kinds a run may present; every kind when absent. A deed's mechanic outside this is a choice. */
   enabledKinds?: ReadonlySet<TaskKind>;
+  /**
+   * The trails (`<poolId>/<trailId>`) the hero met in their last reading side quests (R-H11). A kind
+   * that draws trails passes over them until every other trail is used; no other kind reads it. Every
+   * draw of the run gets it: fresh, due and refill (F-21).
+   */
+  recentSets?: readonly string[];
 };
 
 export type BuiltRun = { skillIds: string[]; questions: Task[] };
@@ -433,7 +439,12 @@ export function applyProfile<T extends Task>(questions: T[], profile: Pick<Profi
  * task id still names exactly its puzzle. Only sorts carry a set, so every other draw (and its rng
  * use) is exactly as it was.
  */
-function drawByKind(kind: TaskKind, skill: Skill, level: number, count: number, rng: Rng, exclude: Set<string>): Task[] {
+function drawByKind(kind: TaskKind, skill: Skill, level: number, count: number, rng: Rng, exclude: Set<string>, avoid: ReadonlySet<string> = new Set()): Task[] {
+  // A kind that draws a run together (a trail's clues, whole and in order) draws it all here, by its own
+  // rule for which tasks and in what order; `avoid` (the trails met lately) is its alone. The loop below
+  // is the per-task path, so the measure and sort draws are untouched.
+  const runDrawer = runDrawerFor(kind);
+  if (runDrawer) return runDrawer(skill, level, count, rng, exclude, avoid);
   const drawer = drawerFor(kind);
   if (!drawer) return [];
   const out: Task[] = [];
@@ -469,11 +480,11 @@ function drawByKind(kind: TaskKind, skill: Skill, level: number, count: number, 
  */
 export function drawForSkill(
   skill: Skill, level: number, count: number, rng: Rng, poolItems: PoolItem[], excludeIds: Set<string>, excludePrompts: Set<string>,
-  kind?: "choice",
+  kind?: "choice", avoid?: ReadonlySet<string>,
 ): ChoiceTask[];
 export function drawForSkill(
   skill: Skill, level: number, count: number, rng: Rng, poolItems: PoolItem[], excludeIds: Set<string>, excludePrompts: Set<string>,
-  kind: TaskKind,
+  kind: TaskKind, avoid?: ReadonlySet<string>,
 ): Task[];
 export function drawForSkill(
   skill: Skill,
@@ -484,8 +495,9 @@ export function drawForSkill(
   excludeIds: Set<string>,
   excludePrompts: Set<string>,
   kind: TaskKind = "choice",
+  avoid?: ReadonlySet<string>,
 ): Task[] {
-  if (kind !== "choice") return drawByKind(kind, skill, level, count, rng, excludeIds);
+  if (kind !== "choice") return drawByKind(kind, skill, level, count, rng, excludeIds, avoid);
   // A lock or trail skill has no choice questions: nothing to draw, and nothing to throw about.
   if (!choiceDrawable(skill)) return [];
   return skill.source.kind === "generator"
@@ -501,7 +513,8 @@ export function buildDeedRun(input: BuildRunInput): BuiltRun {
   // How each skill is played, worked out once and used for every draw of it (due, fresh and refill).
   const kinds = new Map<string, TaskKind>();
   const focus = new Set(input.focusSkillIds);
-  const kindOfSkill = (skillId: string): TaskKind => {
+  const avoid: ReadonlySet<string> = new Set(input.recentSets ?? []);
+  const kindOfSkill =(skillId: string): TaskKind => {
     let k = kinds.get(skillId);
     if (!k) {
       k = kindForSkill(deed.mechanic, skillId, enabled);
@@ -551,7 +564,7 @@ export function buildDeedRun(input: BuildRunInput): BuiltRun {
   const dueSkillsUsed: string[] = [];
   for (const skill of dueCandidates) {
     const level = levelOf(skill.id);
-    const [drawn] = drawForSkill(skill, level, 1, rng, poolItems, reviewIds, reviewPrompts, kindOfSkill(skill.id));
+    const [drawn] = drawForSkill(skill, level, 1, rng, poolItems, reviewIds, reviewPrompts, kindOfSkill(skill.id), avoid);
     if (!drawn) continue;
     due.push(drawn);
     dueSkillsUsed.push(skill.id);
@@ -566,7 +579,7 @@ export function buildDeedRun(input: BuildRunInput): BuiltRun {
   const perSkill = skills.map((_, i) => Math.floor(fresh / skills.length) + (i < fresh % skills.length ? 1 : 0));
   const bySkill = skills.map((skill, i) => {
     const level = levelOf(skill.id);
-    return drawForSkill(skill, level, perSkill[i], rng, poolItems, reviewIds, reviewPrompts, kindOfSkill(skill.id));
+    return drawForSkill(skill, level, perSkill[i], rng, poolItems, reviewIds, reviewPrompts, kindOfSkill(skill.id), avoid);
   });
 
   // A skill that came up short (thin pool) hands its slots to the others.
@@ -578,7 +591,7 @@ export function buildDeedRun(input: BuildRunInput): BuiltRun {
       const kind = kindOfSkill(skill.id);
       let extra: Task[];
       if (kind !== "choice") {
-        extra = drawForSkill(skill, levelOf(skill.id), fresh - questions.length, rng, poolItems, new Set([...have, ...reviewIds]), new Set(), kind);
+        extra = drawForSkill(skill, levelOf(skill.id), fresh - questions.length, rng, poolItems, new Set([...have, ...reviewIds]), new Set(), kind, avoid);
       } else {
         const havePrompts = new Set(questions.filter(isChoice).map(questionText));
         extra = skill.source.kind === "generator"

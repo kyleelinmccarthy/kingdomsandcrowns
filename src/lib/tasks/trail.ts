@@ -12,6 +12,7 @@
  */
 import { anchorLabel, isAnchorId } from "@/lib/realm/anchors";
 import { TASK_CODECS, TRAIL_MAX_CHARS } from "./codecs";
+import { trailPoolFor } from "./trails";
 import { TRAIL_UNKNOWN_ANSWER, trailAnswerText } from "./trail-copy";
 import type { TaskKindDef } from "./types";
 
@@ -29,8 +30,8 @@ export const trailKind: TaskKindDef<"trail"> = {
   // A stored clue whose answer left the catalog still has words, and never throws (Review Focus 4).
   answerText: (t) => (isAnchorId(t.answer) ? trailAnswerText(anchorLabel(t.answer)) : TRAIL_UNKNOWN_ANSWER),
   feedback: (t, r) => (r === t.answer ? "none" : "wrong_place"),
-  // No pool presents a skill until H4 brings them (`trailPoolFor`), so no run changes yet.
-  presents: () => false,
+  // A skill is played as trails when a pool credits it; with no pool (as shipped until H5) no run changes.
+  presents: (skillId) => trailPoolFor(skillId) !== undefined,
   reveal: (t) => t.answer,
   retryLine: (t, r) => t.redirects?.[r] ?? t.redirect,
 };

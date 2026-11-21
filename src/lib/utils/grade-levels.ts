@@ -116,3 +116,11 @@ export function gapLabel(childGrade: Grade, offset: number): string {
   if (actual === 0) return `Grade ${grade} · at grade level`;
   return `Grade ${grade} · ${Math.abs(actual)} ${actual > 0 ? "ahead" : "behind"}`;
 }
+
+/**
+ * The top grade of a content band: the ceiling a band's authored text is held to for readability
+ * (a trail clue may read up to `READABILITY_MAX_ABOVE` grades above it).
+ */
+export function bandTopGrade(band: ContentBand): Grade {
+  return ({ k1: "1", g23: "3", g45: "5", g68: "8", g912: "12" } as const)[band];
+}

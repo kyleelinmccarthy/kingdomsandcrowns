@@ -5,6 +5,8 @@ import { GRADES, type Grade } from "@/lib/utils/grade-levels";
 import { findSkill, skillsFor } from "@/lib/utils/skills";
 import { VERIFIERS } from "@/lib/utils/drill-verify";
 import type { Question } from "@/lib/utils/drill-generators";
+import { __setTrailPoolsForTest } from "@/lib/tasks/trails";
+import { cloneTrailPool } from "@/test/trail-pool-fixture";
 
 const notFound = vi.fn(() => {
   // The real `notFound()` throws to abort the render; a mock that returns would let the
@@ -86,6 +88,39 @@ describe("/dev/content", () => {
       expect(screen.queryAllByTestId("question")).toHaveLength(0);
     },
   );
+
+  describe("a trail skill whose pool exists (F-21)", () => {
+    afterEach(() => __setTrailPoolsForTest(null));
+
+    it.each([["6", "read-g6", "g68"], ["9", "read-g9", "g912"]] as const)("shows one clue per level, with its place, its redirect and its why (grade %s)", async (grade, skillId, band) => {
+      const pool = cloneTrailPool(band);
+      __setTrailPoolsForTest([pool]);
+      await show(grade, "Reading");
+      expect(screen.getAllByTestId("skill").map((el) => el.getAttribute("data-skill"))).toEqual([skillId]);
+      const rows = screen.getAllByTestId("trail-clue");
+      expect(rows).toHaveLength(5);
+      const texts = new Set(pool.trails.flatMap((t) => t.clues.map((c) => c.text)));
+      const answers = new Map(pool.trails.flatMap((t) => t.clues.map((c) => [c.text, c] as const)));
+      for (const row of rows) {
+        const text = within(row).getByTestId("trail-clue-text").textContent ?? "";
+        expect(texts.has(text), text).toBe(true);
+        expect(within(row).getByTestId("trail-clue-answer").textContent).toMatch(/^the /i);
+        expect(within(row).getByTestId("trail-clue-redirect")).toHaveTextContent(answers.get(text)!.redirect);
+        expect(within(row).getByTestId("trail-clue-why")).toHaveTextContent(answers.get(text)!.why!);
+      }
+      expect(screen.queryAllByTestId("question")).toHaveLength(0);
+      expect(screen.getByTestId("trail-note")).not.toHaveTextContent(/no sample yet/i);
+    });
+
+    it("shows the same clues on a reload: they are drawn from the page's fixed seeds", async () => {
+      __setTrailPoolsForTest([cloneTrailPool("g68")]);
+      await show("6", "Reading");
+      const first = screen.getAllByTestId("trail-clue-text").map((el) => el.textContent);
+      cleanup();
+      await show("6", "Reading");
+      expect(screen.getAllByTestId("trail-clue-text").map((el) => el.textContent)).toEqual(first);
+    });
+  });
 
   it.each(GRADES)(
     "marks exactly one choice as the answer for every question it renders (grade %s)",

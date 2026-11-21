@@ -9,18 +9,19 @@
 import { useMemo, useState } from "react";
 import { GRADES, type Grade } from "@/lib/utils/grade-levels";
 import { AREA_LABELS, type SkillArea } from "@/lib/utils/skills";
-import { sampleGrade, DRAWS_PER_LEVEL, LEVELS, type SampledSkill } from "./sample";
+import { sampleGrade, DRAWS_PER_LEVEL, LEVELS, type SampledSkill, type SampledTrailClue } from "./sample";
 
 const AREAS = Object.keys(AREA_LABELS) as SkillArea[];
 
 const selectClass =
   "rounded border border-zinc-600 bg-zinc-900 px-2 py-1 text-sm text-zinc-100 focus:outline-none focus:ring-1 focus:ring-zinc-400";
 
-export function ContentReview() {
+/** `trails`: one clue per level from each trail skill's pool, drawn by the server page (the pools never enter this bundle). */
+export function ContentReview({ trails = {} }: { trails?: Readonly<Record<string, SampledTrailClue[]>> }) {
   const [grade, setGrade] = useState<Grade>("K");
   const [area, setArea] = useState<SkillArea>("math");
 
-  const sampled = useMemo(() => sampleGrade(area, grade), [area, grade]);
+  const sampled = useMemo(() => sampleGrade(area, grade, trails), [area, grade, trails]);
 
   const totals = sampled.reduce(
     (acc, s) =>
@@ -140,10 +141,23 @@ function SkillBlock({ sampled }: { sampled: SampledSkill }) {
           read here. Each lock generator is checked by a brute-force solver in its own tests.
         </p>
       ) : sampled.kind === "trail" ? (
-        <p data-testid="trail-note" className="mt-2 text-zinc-400">
-          Reading trails are played as clues answered by a place in the village, never as multiple choice.
-          No sample yet: this page does not read the trail pools.
-        </p>
+        sampled.clues.length === 0 ? (
+          <p data-testid="trail-note" className="mt-2 text-zinc-400">
+            Reading trails are played as clues answered by a place in the village, never as multiple choice.
+            No sample yet: no trail pool credits this skill.
+          </p>
+        ) : (
+          <div className="mt-2">
+            <p data-testid="trail-note" className="text-zinc-400">
+              A reading trail: each clue below leads to one place in the village. One clue is shown per level.
+            </p>
+            <ul className="mt-1 divide-y divide-zinc-800">
+              {sampled.clues.map((clue) => (
+                <TrailClueRow key={clue.level} clue={clue} />
+              ))}
+            </ul>
+          </div>
+        )
       ) : sampled.kind === "pool" ? (
         <p data-testid="pool-note" className="mt-2 text-zinc-400">
           Authored pools arrive in a later plan. This page does not read the database, so there is
@@ -164,6 +178,34 @@ function SkillBlock({ sampled }: { sampled: SampledSkill }) {
         </div>
       )}
     </section>
+  );
+}
+
+function TrailClueRow({ clue }: { clue: SampledTrailClue }) {
+  return (
+    <li data-testid="trail-clue" className="py-1">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+        <span className="text-xs uppercase tracking-wide text-zinc-500">Level {clue.level}</span>
+        <span data-testid="trail-clue-text" className="min-w-0 flex-1 break-words">
+          {clue.text}
+        </span>
+        <span
+          data-testid="trail-clue-answer"
+          className="rounded border border-emerald-400 bg-emerald-900/50 px-1.5 py-0.5 font-semibold text-emerald-200"
+        >
+          {clue.answerLabel} <span aria-label="answer">✓</span>
+        </span>
+      </div>
+      {clue.readAloud && (
+        <p className="mt-0.5 text-xs italic text-zinc-500">
+          <span className="not-italic">read aloud:</span> {clue.readAloud}
+        </p>
+      )}
+      <p className="mt-0.5 text-xs text-zinc-400">
+        <span data-testid="trail-clue-redirect">Not here: {clue.redirect}</span>
+        {clue.why && <span data-testid="trail-clue-why"> · After a miss: {clue.why}</span>}
+      </p>
+    </li>
   );
 }
 
