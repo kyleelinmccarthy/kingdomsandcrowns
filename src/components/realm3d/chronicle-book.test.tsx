@@ -246,6 +246,20 @@ describe("Found pages", () => {
     expect(screen.queryByText(PAGE_ONE.text)).toBeNull();
   });
 
+  it("comes back from the pages to the week the reader left, not the newest (G4 m4)", async () => {
+    vi.mocked(getChronicle).mockResolvedValue(pages([THIS_WEEK, LAST_WEEK, OLDER], false, [PAGE_ONE]));
+    book();
+    await screen.findByText("Week of 16 November");
+    fireEvent.click(screen.getByRole("button", { name: "Earlier week" }));
+    expect(screen.getByText("Week of 9 November")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Found pages" }));
+    expect(screen.queryByText("Week of 9 November")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Back to the weeks" }));
+    expect(screen.getByText("Week of 9 November")).toBeInTheDocument();
+    expect(screen.getByText("Decimals")).toBeInTheDocument();
+    expect(screen.queryByText("Week of 16 November")).toBeNull();
+  });
+
   it("renders markup in a page as literal text", async () => {
     vi.mocked(getChronicle).mockResolvedValue(pages([THIS_WEEK], false, [{ ...PAGE_ONE, title: "<b>x</b>", text: "<b>x</b>" }]));
     const { container } = render(<ChronicleBook childId="c1" heroName="Emma" isHero now={NOW} onClose={vi.fn()} />);

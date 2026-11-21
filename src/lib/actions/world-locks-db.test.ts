@@ -322,6 +322,73 @@ describe("startWorldLockRun", () => {
   });
 });
 
+describe("a lock run picked back up, or drawn fresh (G2 m2, m3)", () => {
+  /** Two starts on two server clocks: the seed is the clock (PC-G3), so a fresh draw is a fresh puzzle. */
+  const at = (ms: number) => vi.spyOn(Date, "now").mockReturnValue(ms);
+  const taskId = async (runId: string) => (await storedTasks(runId))[0].id;
+
+  it("leaves an open run whose stored skill this build no longer has behind, and starts fresh; the fresh one is resumed next", async () => {
+    const old = await startWorldLockRun("c1", "chest:west-lane");
+    // Started a minute before (still inside the resume window), with a skill this build has dropped.
+    await client.query(`UPDATE deed_run SET skill_ids = '["no-such-skill"]', started_at = started_at - 60 WHERE id = ?1`, [old.runId]);
+    const fresh = await startWorldLockRun("c1", "chest:west-lane");
+    expect(fresh.runId).not.toBe(old.runId);
+    expect(await skillsOf(fresh.runId)).toEqual(["logic-g45"]);
+    expect((await startWorldLockRun("c1", "chest:west-lane")).runId).toBe(fresh.runId);
+    expect(await runs()).toBe(2);
+  });
+
+  it("gives a resumed run Pip's demo by the grade of the stored skill's strand, not the strand a fresh pick would draw", async () => {
+    // Young in science, not in logic: the garden chest draws a science sort, with Pip's demo.
+    vi.mocked(loadHeroLevels).mockResolvedValue(HERO({ science: "2", logic: "8" }) as never);
+    const garden = await startWorldLockRun("c1", "chest:garden");
+    expect(garden.deed.area).toBe("science");
+    expect(garden.demo).toEqual({ at: 0 });
+    // The same open run, now owned by the west-lane chest, whose fresh pick would be grade-8 logic (no demo).
+    await client.query("UPDATE deed_run SET source_ref = 'chest:west-lane' WHERE id = ?1", [garden.runId]);
+    const resumed = await startWorldLockRun("c1", "chest:west-lane");
+    expect(resumed.runId).toBe(garden.runId);
+    expect(resumed.deed.area).toBe("science");
+    expect(resumed.demo).toEqual({ at: 0 });
+    // And a fresh west-lane run, on a hero old for logic, has none.
+    await client.query("DELETE FROM deed_run");
+    expect(await startWorldLockRun("c1", "chest:west-lane")).not.toHaveProperty("demo");
+  });
+
+  it("after a miss, the next start is a fresh puzzle, not the one missed", async () => {
+    const clock = at(1_001);
+    try {
+      const start = await startWorldLockRun("c1", "chest:west-lane");
+      const [task] = await storedTasks(start.runId);
+      await answerDeedQuestion(start.runId, 0, wrong(task));
+      await resolveDeedQuestion(start.runId, 0);
+      await completeDeedRun(start.runId);
+      clock.mockReturnValue(2_002);
+      const next = await startWorldLockRun("c1", "chest:west-lane");
+      expect(next.runId).not.toBe(start.runId);
+      expect(await taskId(next.runId)).not.toBe(task.id);
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
+  it("a chest relocked by the week opens on a fresh puzzle, not last week's", async () => {
+    const clock = at(1_001);
+    try {
+      const first = await solved("chest:west-lane");
+      const firstTask = await taskId(first);
+      await completeDeedRun(first);
+      await openedAt("chest:west-lane", LAST_WEEK);
+      clock.mockReturnValue(2_002);
+      const refill = await startWorldLockRun("c1", "chest:west-lane");
+      expect(refill.runId).not.toBe(first);
+      expect(await taskId(refill.runId)).not.toBe(firstTask);
+    } finally {
+      clock.mockRestore();
+    }
+  });
+});
+
 describe("finishing a chest or vault door's run", () => {
   it("a right answer opens the chest and gives its first reward", async () => {
     const summary = await open("chest:west-lane");
@@ -543,6 +610,41 @@ describe("the Puzzle Tower", () => {
       await sideQuest({ band: "g23" });
       expect((await loadWorldRaw("c1")).starred).toEqual(new Set(["g23"]));
     });
+
+    it("reads through the executor it is handed, as the world rows' read does (G5 m5)", async () => {
+      await sideQuest({ band: "g23" });
+      const inTx = await testDb.transaction(async (tx) => loadStarredBands("c1", tx));
+      expect(inTx).toEqual(new Set(["g23"]));
+      expect(starredBandsQuery("c1", testDb).toSQL().sql).toBe(starredBandsQuery("c1").toSQL().sql);
+    });
+
+    it("the bundle's world read is exactly two queries, run in parallel (G5 m1, PC-G15)", async () => {
+      await sideQuest({ band: "g23" });
+      // The libsql client's own `execute` (the test client wraps it, and calls it on the real client).
+      type Execute = typeof client.client.execute;
+      const real = (Object.getPrototypeOf(client.client) as { execute: Execute }).execute;
+      let inFlight = 0;
+      let most = 0;
+      const exec = vi.spyOn(client.client, "execute").mockImplementation(async function (this: unknown, ...args: Parameters<Execute>) {
+        inFlight += 1;
+        most = Math.max(most, inFlight);
+        try {
+          // A pause on every query, so two in parallel are both in flight at once and two in a row never are.
+          await new Promise((r) => setTimeout(r, 20));
+          return await (real as (...a: Parameters<Execute>) => ReturnType<Execute>).apply(this, args);
+        } finally {
+          inFlight -= 1;
+        }
+      } as Execute);
+      try {
+        const raw = await loadWorldRaw("c1");
+        expect(raw.starred).toEqual(new Set(["g23"]));
+        expect(exec).toHaveBeenCalledTimes(2);
+        expect(most).toBe(2);
+      } finally {
+        exec.mockRestore();
+      }
+    });
   });
 
   describe("the query plans (RG-h)", () => {
@@ -590,6 +692,26 @@ describe("the Puzzle Tower", () => {
       expect((await startTowerRun("c1", "k1")).kind).toBe("tower");
       await expect(startTowerRun("c1", "g23")).rejects.toThrow(TOWER_SHUT);
       await expect(startTowerRun("c1", "g45")).rejects.toThrow(TOWER_SHUT);
+    });
+
+    it("judges the floors by the science band when it differs from the logic band (PC-G18)", async () => {
+      // Grade 4 in logic (own floor g45), grade 2 in science (science band g23).
+      vi.mocked(loadHeroLevels).mockResolvedValue(HERO({ logic: "4", science: "2" }) as never);
+      await client.query("DELETE FROM deed_run");
+      // Three stars at the science band open every floor up to the hero's own, though none was earned at g45.
+      await sideQuest({ band: "g23" });
+      for (const band of ["k1", "g23", "g45"]) expect((await startTowerRun("c1", band)).kind, band).toBe("tower");
+      await expect(startTowerRun("c1", "g68")).rejects.toThrow(TOWER_SHUT);
+      // Science far above logic: stars at the science band open up to the hero's own floor, and nothing above it.
+      await client.query("DELETE FROM deed_run");
+      vi.mocked(loadHeroLevels).mockResolvedValue(HERO({ logic: "2", science: "6" }) as never);
+      await sideQuest({ band: "g68" });
+      for (const band of ["k1", "g23"]) expect((await startTowerRun("c1", band)).kind, band).toBe("tower");
+      for (const band of ["g45", "g68"]) await expect(startTowerRun("c1", band), band).rejects.toThrow(TOWER_SHUT);
+      // Stars at a band that is neither the science band nor at or below the hero's own open nothing.
+      await client.query("DELETE FROM deed_run");
+      await sideQuest({ band: "g45" });
+      for (const band of ["k1", "g23"]) await expect(startTowerRun("c1", band), band).rejects.toThrow(TOWER_SHUT);
     });
 
     it("refuses the hero's own floor with no stars at all", async () => {
